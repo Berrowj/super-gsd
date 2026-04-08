@@ -20,6 +20,11 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+function toUnixPath(p) {
+  return p.replace(/^([A-Za-z]):\\/, (_, d) => `/mnt/${d.toLowerCase()}/`)
+           .replace(/\\/g, '/');
+}
+
 const HISTORY_FILE = path.join(os.tmpdir(), 'gsd-tool-history.json');
 const MAX_HISTORY = 10;
 const REPEAT_THRESHOLD = 3;
@@ -38,7 +43,7 @@ try {
   let key = toolName;
   try {
     const input = JSON.parse(toolInput);
-    if (input.file_path) key = `${toolName}:${input.file_path}`;
+    if (input.file_path) key = `${toolName}:${toUnixPath(input.file_path)}`;
     else if (input.command) key = `${toolName}:${input.command.substring(0, 80)}`;
   } catch {}
 

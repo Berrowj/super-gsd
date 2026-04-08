@@ -18,8 +18,13 @@
 const fs = require('fs');
 const path = require('path');
 
-const CHECKPOINT_PATH = path.join(process.cwd(), '.planning', 'ORCHESTRATOR-CHECKPOINT.md');
-const STATE_PATH = path.join(process.cwd(), '.planning', 'STATE.md');
+function toUnixPath(p) {
+  return p.replace(/^([A-Za-z]):\\/, (_, d) => `/mnt/${d.toLowerCase()}/`)
+           .replace(/\\/g, '/');
+}
+
+const CHECKPOINT_PATH = path.join(toUnixPath(process.cwd()), '.planning', 'ORCHESTRATOR-CHECKPOINT.md');
+const STATE_PATH = path.join(toUnixPath(process.cwd()), '.planning', 'STATE.md');
 
 try {
   const parts = [];
@@ -50,7 +55,7 @@ try {
   }
 
   // Check for ByteRover
-  const brvPath = path.join(process.cwd(), '.brv');
+  const brvPath = path.join(toUnixPath(process.cwd()), '.brv');
   if (fs.existsSync(brvPath)) {
     parts.push('ByteRover context tree: active');
   }

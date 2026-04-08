@@ -21,8 +21,13 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const TIMER_FILE = path.join(os.tmpdir(), 'gsd-phase-timer.json');
-const CHECKPOINT_WARNED = path.join(os.tmpdir(), 'gsd-checkpoint-warned');
+function toUnixPath(p) {
+  return p.replace(/^([A-Za-z]):\\/, (_, d) => `/mnt/${d.toLowerCase()}/`)
+           .replace(/\\/g, '/');
+}
+
+const TIMER_FILE = path.join(toUnixPath(os.tmpdir()), 'gsd-phase-timer.json');
+const CHECKPOINT_WARNED = path.join(toUnixPath(os.tmpdir()), 'gsd-checkpoint-warned');
 
 try {
   // Track phase timing

@@ -19,7 +19,12 @@
 const fs = require('fs');
 const path = require('path');
 
-const LOG_FILE = path.join(process.cwd(), '.planning', 'metrics', 'token-log.jsonl');
+function toUnixPath(p) {
+  return p.replace(/^([A-Za-z]):\\/, (_, d) => `/mnt/${d.toLowerCase()}/`)
+           .replace(/\\/g, '/');
+}
+
+const LOG_FILE = path.join(toUnixPath(process.cwd()), '.planning', 'metrics', 'token-log.jsonl');
 
 try {
   const input = JSON.parse(process.env.TOOL_INPUT || '{}');

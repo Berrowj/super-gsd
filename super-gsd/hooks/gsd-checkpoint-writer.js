@@ -19,7 +19,12 @@
 const fs = require('fs');
 const path = require('path');
 
-const CHECKPOINT_FILE = path.join(process.cwd(), '.planning', 'ORCHESTRATOR-CHECKPOINT.json');
+function toUnixPath(p) {
+  return p.replace(/^([A-Za-z]):\\/, (_, d) => `/mnt/${d.toLowerCase()}/`)
+           .replace(/\\/g, '/');
+}
+
+const CHECKPOINT_FILE = path.join(toUnixPath(process.cwd()), '.planning', 'ORCHESTRATOR-CHECKPOINT.json');
 
 try {
   const command = process.env.TOOL_INPUT || '';
@@ -60,7 +65,10 @@ try {
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  fs.writeFileSync(CHECKPOINT_FILE, JSON.stringify(checkpoint, null, 2));
+  const tmp = CHECKPOINT_FILE + '.tmp';
+  if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+  fs.writeFileSync(tmp, JSON.stringify(checkpoint, null, 2));
+  fs.renameSync(tmp, CHECKPOINT_FILE);
 } catch (e) {
   // Silent fail
 }
