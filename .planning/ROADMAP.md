@@ -48,11 +48,11 @@ Plans:
   3. When an agent report contains SCRIPTS_CREATED, the orchestrator curates the new script into .brv/context-tree/scripts/
   4. When a BM25 match finds an existing utility, the agent receives "EXISTING: path -- import, do not recreate" in its prompt
   5. Context tree files have YAML frontmatter with importance, maturity, tags, and keywords fields used in scoring
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md — Build brv-curate-local.js + wire BM25 query and curation into orchestrate-loop.md Steps 4 and 9
+- [ ] 02-02-PLAN.md — Wire script registry + EXISTING: format into prompt-composer and executor overlay, end-to-end smoke test
 
 ### Phase 3: Orchestrator Engine
 **Goal**: The autonomous dispatch loop runs end-to-end: reads state, selects model, dispatches agent, processes report, commits atomically, and survives context exhaustion
