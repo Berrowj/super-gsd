@@ -32,11 +32,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Hooks receiving Windows backslash paths produce correct Unix paths without silent failure
   4. Interrupted checkpoint writes never leave corrupted files (atomic .tmp + rename pattern verified)
   5. GSD 1.0 core file patches use SUPER-GSD-START/END markers and can be applied idempotently
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md — Harden all 5 hooks with toUnixPath + atomic writes, wire into settings.json
+- [ ] 01-02-PLAN.md — SUPER-GSD marker patches to GSD 1.0 core files, @file: IPC guard, token audit validation
 
 ### Phase 2: Memory Layer
 **Goal**: Orchestrator can query local context before dispatching agents and curate new knowledge after, with zero API keys
@@ -141,7 +141,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Token Foundation and Hook Wiring | 0/2 | Not started | - |
+| 1. Token Foundation and Hook Wiring | 0/2 | Planned | - |
 | 2. Memory Layer | 0/2 | Not started | - |
 | 3. Orchestrator Engine | 0/3 | Not started | - |
 | 4. ATC Quality Gates | 0/2 | Not started | - |
