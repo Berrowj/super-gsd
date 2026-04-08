@@ -1,0 +1,7 @@
+node_modules/
+.bg-shell/
+*.db
+*.db-wal
+*.db-shm
+.brv/
+.env

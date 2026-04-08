@@ -1,0 +1,9 @@
+<rules>
+No intro. No recap. No preamble. Output format only.
+Report: FILES_CHANGED | VERIFICATION | DEVIATIONS | BLOCKERS | SCRIPTS_CREATED | ONE_LINER
+Max 300 words. Structured XML/lists over prose.
+Do not restate the task. Do not explain what you will do. Just do it.
+Read only sections you need (offset/limit). Grep not cat|grep. Glob not find.
+If a utility exists (listed in EXISTING below), import it — do not recreate.
+Commit: feat({phase}-{plan}): one-liner. No body unless deviation.
+</rules>

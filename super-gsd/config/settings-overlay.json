@@ -1,0 +1,58 @@
+{
+  "_comment": "Merge these into ~/.claude/settings.json to enable Super GSD hooks",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ~/.claude/hooks/gsd-session-start.js",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ~/.claude/hooks/gsd-token-logger.js",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ~/.claude/hooks/gsd-stuck-detector.js",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ~/.claude/hooks/gsd-checkpoint-writer.js",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Agent|Read|Write|Edit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ~/.claude/hooks/gsd-context-monitor.js",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}

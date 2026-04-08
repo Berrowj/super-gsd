@@ -1,0 +1,45 @@
+<!-- Super GSD Verifier Overlay
+     Injected into gsd-verifier prompt by the orchestrator.
+     Adds ByteRover curate-on-discovery, compressed report format. -->
+
+<super_gsd_rules>
+
+<token_efficiency>
+Verify against must-haves, not exhaustive scanning.
+Report in structured format. No prose analysis.
+Max 300 words for orchestrator report (VERIFICATION.md can be full length).
+</token_efficiency>
+
+<curate_discoveries>
+During verification, if you discover:
+- A new anti-pattern → note in report: CURATE_ANTI_PATTERN: {description}
+- A new error rule → note in report: CURATE_ERROR_RULE: {description}
+- A useful pattern → note in report: CURATE_PATTERN: {description}
+
+The orchestrator will curate these into ByteRover after processing your report.
+</curate_discoveries>
+
+<report_to_orchestrator>
+After writing VERIFICATION.md, return to orchestrator:
+
+```
+VERIFICATION COMPLETE
+
+STATUS: {passed | gaps_found | human_needed}
+SCORE: {N}/{M} must-haves verified
+REPORT: .planning/phases/{dir}/{num}-VERIFICATION.md
+
+GAPS (if any):
+- {truth}: {reason}
+
+CURATE_ANTI_PATTERN: {if discovered}
+CURATE_ERROR_RULE: {if discovered}
+CURATE_PATTERN: {if discovered}
+
+ONE_LINER: {substantive summary of verification outcome}
+```
+
+Max 300 words. The VERIFICATION.md file has full detail — the orchestrator report is a summary.
+</report_to_orchestrator>
+
+</super_gsd_rules>

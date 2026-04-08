@@ -1,0 +1,61 @@
+{
+  "_comment": "Merge into .planning/config.json to enable Super GSD features",
+  "workflow": {
+    "mode": "yolo",
+    "granularity": "standard",
+    "skip_discuss": false,
+    "research": true,
+    "plan_check": true,
+    "verifier": true,
+    "auto_advance": true,
+    "plan_format": "compressed_xml",
+    "agent_report_max_words": 300
+  },
+  "model_routing": {
+    "orchestrator": "opus",
+    "researcher": "sonnet",
+    "planner": "sonnet",
+    "plan_checker": "sonnet",
+    "executor": "sonnet",
+    "verifier": "sonnet",
+    "code_reviewer": "sonnet",
+    "classifier": "haiku",
+    "context_selector": "haiku"
+  },
+  "token_efficiency": {
+    "state_read": "frontmatter_only",
+    "context_injection": "brv_query",
+    "checkpoint_threshold_percent": 70,
+    "max_report_words": 300,
+    "max_prompt_tokens": 1500,
+    "log_usage": true
+  },
+  "byterover": {
+    "enabled": true,
+    "query_before_dispatch": true,
+    "curate_after_dispatch": true,
+    "script_registry": true,
+    "max_queries_per_dispatch": 3,
+    "max_context_tokens": 1000
+  },
+  "deliberation": {
+    "enabled": true,
+    "auto_gate": true,
+    "gate_model": "haiku",
+    "board": ["architect", "pragmatist", "contrarian", "moonshot"],
+    "max_rounds": 2,
+    "trigger_phases_affected": 3
+  },
+  "git": {
+    "branching_strategy": "none",
+    "commit_docs": true,
+    "atomic_commits": true
+  },
+  "atc": {
+    "enabled": true,
+    "classify_model": "haiku",
+    "skip_threshold_lines": 10,
+    "lite_threshold_lines": 50,
+    "lite_threshold_files": 3
+  }
+}
