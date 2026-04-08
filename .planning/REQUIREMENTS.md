@@ -9,9 +9,9 @@
 - [ ] **ORCH-05**: Orchestrator writes ORCHESTRATOR-CHECKPOINT.md at >70% context with exact resume point
 - [ ] **ORCH-06**: Orchestrator resumes from checkpoint on next session without user re-briefing
 - [ ] **ORCH-07**: Orchestrator logs token usage per unit to .planning/metrics/token-log.jsonl after every dispatch
-- [ ] **ORCH-08**: User can run `/gsd-token-audit` to see usage breakdown by model, role, and phase
+- [x] **ORCH-08**: User can run `/gsd-token-audit` to see usage breakdown by model, role, and phase
 - [ ] **ORCH-09**: Orchestrator commits atomically per unit — never batches, never skips, never amends
-- [ ] **ORCH-10**: Orchestrator handles `@file:` IPC prefix from gsd-tools.cjs without silent failure
+- [x] **ORCH-10**: Orchestrator handles `@file:` IPC prefix from gsd-tools.cjs without silent failure
 
 ## Memory Layer
 
@@ -55,7 +55,7 @@
 
 - [ ] **SAFE-01**: All hooks normalize Windows/Unix paths at entry point — no silent failures from mixed path formats
 - [ ] **SAFE-02**: Checkpoint writes use atomic pattern (write .tmp, rename) — no corruption on interrupted writes
-- [ ] **SAFE-03**: Patches to GSD 1.0 core files use `// SUPER-GSD-START/END` markers for idempotent upgrades
+- [x] **SAFE-03**: Patches to GSD 1.0 core files use `// SUPER-GSD-START/END` markers for idempotent upgrades
 - [ ] **SAFE-04**: Context accumulation capped — max 5 reports in active context, completed compressed to one-liners
 - [ ] **SAFE-05**: Sub-agent report format enforced — 300 word max, structured sections, efficiency header injected
 
@@ -70,9 +70,9 @@
 | ORCH-05 | Phase 3 | Pending |
 | ORCH-06 | Phase 3 | Pending |
 | ORCH-07 | Phase 1 | Pending |
-| ORCH-08 | Phase 1 | Pending |
+| ORCH-08 | Phase 1 | Complete |
 | ORCH-09 | Phase 3 | Pending |
-| ORCH-10 | Phase 1 | Pending |
+| ORCH-10 | Phase 1 | Complete |
 | MEM-01 | Phase 2 | Pending |
 | MEM-02 | Phase 2 | Pending |
 | MEM-03 | Phase 2 | Pending |
@@ -98,7 +98,7 @@
 | TRANS-01 | Phase 7 | Pending |
 | SAFE-01 | Phase 1 | Pending |
 | SAFE-02 | Phase 1 | Pending |
-| SAFE-03 | Phase 1 | Pending |
+| SAFE-03 | Phase 1 | Complete |
 | SAFE-04 | Phase 3 | Pending |
 | SAFE-05 | Phase 3 | Pending |
 
