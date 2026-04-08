@@ -63,14 +63,44 @@
 
 | REQ | Phase | Status |
 |-----|-------|--------|
-| ORCH-01 through ORCH-10 | TBD | Pending |
-| MEM-01 through MEM-05 | TBD | Pending |
-| QA-01 through QA-05 | TBD | Pending |
-| DLB-01 through DLB-05 | TBD | Pending |
-| VIS-01 through VIS-03 | TBD | Pending |
-| INST-01 through INST-04 | TBD | Pending |
-| TRANS-01 | TBD | Pending |
-| SAFE-01 through SAFE-05 | TBD | Pending |
+| ORCH-01 | Phase 3 | Pending |
+| ORCH-02 | Phase 3 | Pending |
+| ORCH-03 | Phase 3 | Pending |
+| ORCH-04 | Phase 3 | Pending |
+| ORCH-05 | Phase 3 | Pending |
+| ORCH-06 | Phase 3 | Pending |
+| ORCH-07 | Phase 1 | Pending |
+| ORCH-08 | Phase 1 | Pending |
+| ORCH-09 | Phase 3 | Pending |
+| ORCH-10 | Phase 1 | Pending |
+| MEM-01 | Phase 2 | Pending |
+| MEM-02 | Phase 2 | Pending |
+| MEM-03 | Phase 2 | Pending |
+| MEM-04 | Phase 2 | Pending |
+| MEM-05 | Phase 2 | Pending |
+| QA-01 | Phase 4 | Pending |
+| QA-02 | Phase 4 | Pending |
+| QA-03 | Phase 4 | Pending |
+| QA-04 | Phase 4 | Pending |
+| QA-05 | Phase 4 | Pending |
+| DLB-01 | Phase 5 | Pending |
+| DLB-02 | Phase 5 | Pending |
+| DLB-03 | Phase 5 | Pending |
+| DLB-04 | Phase 5 | Pending |
+| DLB-05 | Phase 5 | Pending |
+| VIS-01 | Phase 6 | Pending |
+| VIS-02 | Phase 6 | Pending |
+| VIS-03 | Phase 6 | Pending |
+| INST-01 | Phase 7 | Pending |
+| INST-02 | Phase 7 | Pending |
+| INST-03 | Phase 7 | Pending |
+| INST-04 | Phase 7 | Pending |
+| TRANS-01 | Phase 7 | Pending |
+| SAFE-01 | Phase 1 | Pending |
+| SAFE-02 | Phase 1 | Pending |
+| SAFE-03 | Phase 1 | Pending |
+| SAFE-04 | Phase 3 | Pending |
+| SAFE-05 | Phase 3 | Pending |
 
 ## Out of Scope
 
