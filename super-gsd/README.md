@@ -20,33 +20,145 @@ Token-efficient, multi-agent autonomous orchestrator built on GSD 1.0.
 ## Installation
 
 ### Prerequisites
-- GSD 1.0: `npx get-shit-done-cc@latest`
-- ByteRover: `npm install -g byterover-cli`
-- Node.js >= 20
+- **Claude Code** on Max plan (no API keys — everything runs via OAuth)
+- **GSD 1.0**: `npx get-shit-done-cc@latest`
+- **Node.js** >= 20
 
-### Setup
+### Quick Install
 
 ```bash
-# 1. Install GSD 1.0 base
+# Clone or download super-gsd/
+cd your-project
+bash super-gsd/install.sh
+```
+
+### Manual Install (step by step)
+
+```bash
+# 1. Install GSD 1.0 base (if not already installed)
 npx get-shit-done-cc@latest
 
-# 2. Install ByteRover + Claude Code connector
-brv
-brv connectors install "Claude Code" --type mcp
+# 2. Install Super GSD agents (7 agents)
+cp super-gsd/agents/*.md ~/.claude/agents/
 
-# 3. Copy Super GSD files
-cp -r super-gsd/agents/*.md ~/.claude/agents/
-cp -r super-gsd/skills/gsd-* ~/.claude/commands/
-cp -r super-gsd/hooks/*.js ~/.claude/hooks/
-cp -r super-gsd/templates/ ~/.claude/get-shit-done/templates/super-gsd/
-cp super-gsd/config/model-routing.json ~/.claude/get-shit-done/config/
-
-# 4. Seed ByteRover context tree
-for f in super-gsd/brv-seed/domains/*.md; do
-  brv curate --file "$f"
+# 3. Install Super GSD skills (8 slash commands)
+for d in super-gsd/skills/gsd-*/; do
+  name=$(basename "$d")
+  mkdir -p ~/.claude/commands/$name
+  cp "$d/SKILL.md" ~/.claude/commands/$name/
 done
 
-# 5. Add hooks to settings.json (see hooks section below)
+# 4. Install hooks (5 hooks)
+cp super-gsd/hooks/*.js ~/.claude/hooks/
+
+# 5. Install templates, workflows, overwatcher, config
+mkdir -p ~/.claude/get-shit-done/templates/super-gsd/overwatcher
+mkdir -p ~/.claude/get-shit-done/workflows
+mkdir -p ~/.claude/get-shit-done/config
+cp super-gsd/templates/* ~/.claude/get-shit-done/templates/super-gsd/
+cp super-gsd/workflows/* ~/.claude/get-shit-done/workflows/
+cp super-gsd/config/model-routing.json ~/.claude/get-shit-done/config/
+cp super-gsd/overwatcher/*.js ~/.claude/get-shit-done/templates/super-gsd/overwatcher/
+
+# 6. Set up ByteRover memory layer (API-free — no external LLM needed)
+npm install -g byterover-cli
+brv vc init
+brv connectors install "Claude Code" --type mcp
+# Remove the nested git repo ByteRover creates (we track it in project git)
+rm -rf .brv/context-tree/.git .brv/context-tree/.gitignore
+
+# 7. Seed the context tree with domain knowledge
+mkdir -p .brv/context-tree/patterns .brv/context-tree/anti-patterns \
+         .brv/context-tree/expertise .brv/context-tree/decisions \
+         .brv/context-tree/error-rules .brv/context-tree/scripts \
+         .brv/context-tree/domain
+for f in super-gsd/brv-seed/domains/*.md; do
+  name=$(basename "$f" .md)
+  if echo "$name" | grep -q "anti-pattern"; then
+    cp "$f" .brv/context-tree/anti-patterns/
+  elif echo "$name" | grep -q "expertise\|deliberation"; then
+    cp "$f" .brv/context-tree/expertise/
+  else
+    cp "$f" .brv/context-tree/patterns/
+  fi
+done
+
+# 8. Install the local query engine (no API key required)
+cp super-gsd/overwatcher/brv-query-local.js ~/.claude/hooks/
+
+# 9. Initialize .planning/ for your project
+mkdir -p .planning/{phases,metrics,briefs,decisions,deliberations,overwatcher}
+cp super-gsd/config/planning-config-overlay.json .planning/config.json
+touch .planning/metrics/token-log.jsonl
+
+# 10. Add CLAUDE.md to your project
+cp super-gsd/CLAUDE-OVERLAY.md CLAUDE.md
+# Or append to existing: cat super-gsd/CLAUDE-OVERLAY.md >> CLAUDE.md
+
+# 11. Add hooks to ~/.claude/settings.json (merge with existing)
+# See "Hook Configuration" section below
+
+# 12. Restart Claude Code to pick up MCP + new skills
+```
+
+### ByteRover Memory — How It Works (No API Keys)
+
+Super GSD uses ByteRover's context tree structure (`.brv/context-tree/`) for
+structured knowledge storage, but uses a **local query engine** instead of
+ByteRover's LLM-powered curation pipeline. This means:
+
+- **No external API keys needed** — works entirely on Claude Code Max plan
+- **No per-query cost** — BM25 text search runs locally in ~0ms
+- **No provider setup** — skip `brv providers connect`, you don't need it
+- **Same file format** — standard markdown with YAML frontmatter (importance, tags, maturity)
+- **Same directory structure** — `.brv/context-tree/{domain}/{topic}.md`
+
+**To query knowledge** (orchestrator does this before each dispatch):
+```bash
+node ~/.claude/hooks/brv-query-local.js "dispatch rules autonomous loop" --max 3
+```
+
+**To add knowledge** (agents do this after execution — just write a file):
+```bash
+# No API call needed — just write markdown to the context tree
+cat > .brv/context-tree/patterns/new-pattern.md << 'EOF'
+---
+title: New Pattern Name
+tags: [pattern, domain]
+keywords: [relevant, search, terms]
+importance: 70
+maturity: validated
+---
+
+## What it does
+Description here.
+EOF
+```
+
+The local query engine picks up new files immediately — no indexing step.
+
+### Verify Installation
+
+```bash
+# Check agents installed
+ls ~/.claude/agents/board-*.md ~/.claude/agents/gsd-c*.md
+
+# Check skills registered (restart Claude Code first)
+# You should see: gsd-orchestrate, gsd-deliberate, gsd-pause, gsd-resume,
+#   gsd-token-audit, gsd-brv-setup, gsd-overwatcher, gsd-transition
+
+# Check hooks installed
+ls ~/.claude/hooks/gsd-*.js ~/.claude/hooks/brv-query-local.js
+
+# Test the query engine
+node ~/.claude/hooks/brv-query-local.js "model routing opus sonnet"
+
+# Check .planning/ initialized
+ls .planning/STATE.md .planning/ROADMAP.md .planning/config.json
+
+# Check context tree seeded
+find .brv/context-tree/ -name "*.md" | wc -l
+# Should show 9 files
 ```
 
 ## Files

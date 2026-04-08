@@ -2,23 +2,37 @@
 
 These files bootstrap the ByteRover context tree for a Super GSD project.
 
-## Usage
+## Usage (API-Free — No External LLM Needed)
+
+The install script handles all of this automatically. Manual steps below for reference.
 
 ```bash
-# Install ByteRover
+# Install ByteRover CLI
 npm install -g byterover-cli
 
-# Initialize in project directory
-brv
+# Initialize version control (creates .brv/ directory)
+brv vc init
+rm -rf .brv/context-tree/.git  # remove nested git repo
 
-# Install Claude Code connector (MCP mode for tool access)
+# Install Claude Code MCP connector
 brv connectors install "Claude Code" --type mcp
 
-# Seed the context tree
-for f in brv-seed/domains/*.md; do
-  brv curate --file "$f"
-done
+# Seed the context tree by COPYING files directly (no API key needed)
+mkdir -p .brv/context-tree/{patterns,anti-patterns,expertise,decisions,error-rules,scripts,domain}
+cp brv-seed/domains/anti-*.md .brv/context-tree/anti-patterns/
+cp brv-seed/domains/*expertise*.md .brv/context-tree/expertise/
+cp brv-seed/domains/*deliberation*.md .brv/context-tree/expertise/
+cp brv-seed/domains/*.md .brv/context-tree/patterns/  # remaining files
+
+# Query using the local engine (no API key, ~0ms)
+node ~/.claude/hooks/brv-query-local.js "dispatch rules autonomous loop"
 ```
+
+**Why no `brv curate`?** ByteRover's curation pipeline requires an external LLM
+provider (API key). On Claude Code Max plan, all LLM calls go through OAuth —
+no API keys. So we write files directly to the context tree and query them with
+our local BM25 search engine (`brv-query-local.js`). Same file format, same
+directory structure, zero external cost.
 
 ## Domain Structure
 
