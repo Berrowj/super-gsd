@@ -54,6 +54,19 @@ On first entry (no checkpoint):
 3. Read `.planning/config.json` — get model routing config
 4. Determine position: which phase, which plan, what state
 
+When capturing gsd-tools output into a variable, always apply the @file: IPC guard:
+```bash
+# @file: IPC guard: gsd-tools outputs @file:/path when JSON >50KB — read the file
+INIT=$(node "$GSD_TOOLS" init execute-phase "${PHASE}")
+if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
+RESULT=$(node "$GSD_TOOLS" state advance-plan)
+if [[ "$RESULT" == @file:* ]]; then RESULT=$(cat "${RESULT#@file:}"); fi
+
+DIGEST=$(node "$GSD_TOOLS" commit "${MSG}" --files "${FILES}")
+if [[ "$DIGEST" == @file:* ]]; then DIGEST=$(cat "${DIGEST#@file:}"); fi
+```
+
 On resume (checkpoint exists):
 
 1. Read `.planning/ORCHESTRATOR-CHECKPOINT.md`
