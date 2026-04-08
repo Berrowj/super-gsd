@@ -3,5 +3,6 @@ node_modules/
 *.db
 *.db-wal
 *.db-shm
-.brv/
+.brv/context-tree/.git/
+.brv/daemon/
 .env
