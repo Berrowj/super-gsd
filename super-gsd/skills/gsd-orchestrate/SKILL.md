@@ -151,6 +151,17 @@ REPEAT:
      - SCRIPTS_CREATED → curate into ByteRover script registry
      - ONE_LINER → use in commit message
 
+     PROCESS RESULT — parse all 6 sections:
+       FILES_CHANGED  → stage these exact paths for git (never git add -A)
+       VERIFICATION   → if any item shows ✗: log warning, continue (don't EXIT)
+       DEVIATIONS     → collect; "new pattern:" prefix triggers brv-curate
+       BLOCKERS       → if non-empty and not "none": EXIT with blocker text
+       SCRIPTS_CREATED→ each "path | purpose | interface" line → brv-curate scripts/
+       ONE_LINER      → use verbatim in git commit message
+
+     If report is missing any section: log "MISSING: {section}", treat as empty.
+     If report exceeds 300 words: log "REPORT_OVERLIMIT", process anyway.
+
   10. CURATE LEARNINGS
       If DEVIATIONS contains new patterns → brv-curate to patterns/
       If SCRIPTS_CREATED non-empty → brv-curate to scripts/{category}
@@ -205,6 +216,21 @@ estimated_tokens_used: {N}
 Then commit the checkpoint and STOP.
 </checkpoint_protocol>
 
+<commit_discipline>
+ATOMIC: one commit per unit, per report, per plan.
+  git add {specific files from FILES_CHANGED — never git add -A or git add .}
+  git add .planning/STATE.md .planning/ROADMAP.md
+  git commit -m "feat({phase}-{plan}): {ONE_LINER}"
+
+NEVER:
+  - Batch two units into one commit
+  - Skip a commit because "nothing changed" (if agent ran, something changed)
+  - Amend a prior commit
+  - Use git add . or git add -A
+
+If git commit fails: check git status, resolve conflict, retry ONCE. If still fails: EXIT with blocker.
+</commit_discipline>
+
 <token_logging>
 After each unit, append to `.planning/metrics/token-log.jsonl`:
 
@@ -220,6 +246,12 @@ Estimation method:
 
 <golden_rules>
 1. ALWAYS chain tool calls. Text-only = loop dies.
+   VALID text-only exits (ONLY these 4):
+   a. All phases complete: "All phases done."
+   b. Context >70%: write checkpoint FIRST, then stop
+   c. Blocker requiring human: explain blocker, stop
+   d. User says stop/pause: write checkpoint, stop
+   NOTHING ELSE is a valid text-only response.
 2. NEVER do heavy work yourself. Dispatch to sub-agents.
 3. NEVER load full files. Frontmatter + brv-query only.
 4. COMMIT after every unit. Uncommitted work is lost work.
@@ -229,4 +261,8 @@ Estimation method:
 8. Sub-agent reports: 300 words MAX. If longer, the agent wasted tokens.
 9. Script reuse: ALWAYS check ByteRover before creating new utilities.
 10. EXIT only for the 4 valid conditions. Never stop prematurely.
+11. CONTEXT ACCUMULATOR: After 5 reports in active context, compress older reports to ONE_LINERs.
+    Never hold full report text for more than 2 completed iterations.
+12. REPORT VALIDATION: Always check word count and section presence before parsing.
+    Log REPORT_OVERLIMIT and MISSING_SECTION — do not exit on format violation.
 </golden_rules>
