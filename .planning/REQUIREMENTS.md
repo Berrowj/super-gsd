@@ -15,11 +15,11 @@
 
 ## Memory Layer
 
-- [ ] **MEM-01**: Local BM25 query engine returns ranked results from .brv/context-tree/ in <100ms with no API key
-- [ ] **MEM-02**: Orchestrator queries ByteRover before each dispatch and injects relevant decisions/patterns/scripts into agent prompt
-- [ ] **MEM-03**: Orchestrator curates new scripts into .brv/context-tree/scripts/ after processing agent reports with SCRIPTS_CREATED
+- [x] **MEM-01**: Local BM25 query engine returns ranked results from .brv/context-tree/ in <100ms with no API key
+- [x] **MEM-02**: Orchestrator queries ByteRover before each dispatch and injects relevant decisions/patterns/scripts into agent prompt
+- [x] **MEM-03**: Orchestrator curates new scripts into .brv/context-tree/scripts/ after processing agent reports with SCRIPTS_CREATED
 - [ ] **MEM-04**: Agents can find and reuse existing utilities — orchestrator injects "EXISTING: path — import, do not recreate" when match found
-- [ ] **MEM-05**: Context tree files use YAML frontmatter with importance, maturity, tags, keywords for scoring
+- [x] **MEM-05**: Context tree files use YAML frontmatter with importance, maturity, tags, keywords for scoring
 
 ## Quality Gates
 
@@ -73,11 +73,11 @@
 | ORCH-08 | Phase 1 | Complete |
 | ORCH-09 | Phase 3 | Pending |
 | ORCH-10 | Phase 1 | Complete |
-| MEM-01 | Phase 2 | Pending |
-| MEM-02 | Phase 2 | Pending |
-| MEM-03 | Phase 2 | Pending |
+| MEM-01 | Phase 2 | Complete |
+| MEM-02 | Phase 2 | Complete |
+| MEM-03 | Phase 2 | Complete |
 | MEM-04 | Phase 2 | Pending |
-| MEM-05 | Phase 2 | Pending |
+| MEM-05 | Phase 2 | Complete |
 | QA-01 | Phase 4 | Pending |
 | QA-02 | Phase 4 | Pending |
 | QA-03 | Phase 4 | Pending |

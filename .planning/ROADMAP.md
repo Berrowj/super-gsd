@@ -51,7 +51,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Build brv-curate-local.js + wire BM25 query and curation into orchestrate-loop.md Steps 4 and 9
+- [x] 02-01-PLAN.md — Build brv-curate-local.js + wire BM25 query and curation into orchestrate-loop.md Steps 4 and 9
 - [ ] 02-02-PLAN.md — Wire script registry + EXISTING: format into prompt-composer and executor overlay, end-to-end smoke test
 
 ### Phase 3: Orchestrator Engine
@@ -142,7 +142,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Token Foundation and Hook Wiring | 2/2 | Complete   | 2026-04-08 |
-| 2. Memory Layer | 0/2 | Not started | - |
+| 2. Memory Layer | 1/2 | In Progress|  |
 | 3. Orchestrator Engine | 0/3 | Not started | - |
 | 4. ATC Quality Gates | 0/2 | Not started | - |
 | 5. Strategic Deliberation | 0/2 | Not started | - |
