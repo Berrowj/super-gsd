@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Super GSD Signal Map</title>
+<style>
+  :root { --bg:#0d1117; --surface:#161b22; --border:#30363d; --text:#e6edf3;
+    --muted:#8b949e; --accent:#58a6ff; --green:#3fb950; --orange:#d29922;
+    --red:#f85149; --purple:#bc8cff; --mono:'JetBrains Mono',Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:var(--sans); background:var(--bg); color:var(--text); padding:2rem; }
+  h1 { font-size:2rem; margin-bottom:0.5rem; color:var(--accent); }
+  h2 { font-size:1.3rem; margin:2rem 0 0.5rem; border-bottom:1px solid var(--border); padding-bottom:0.3rem; }
+  .stats { display:flex; gap:1rem; flex-wrap:wrap; margin:1rem 0; }
+  .stat { background:var(--surface); border:1px solid var(--border); border-radius:8px;
+    padding:1rem; min-width:140px; text-align:center; }
+  .stat .num { font-size:2rem; font-weight:800; font-family:var(--mono); }
+  .stat .label { font-size:0.8rem; color:var(--muted); margin-top:0.3rem; }
+  .stat.green .num { color:var(--green); }
+  .stat.orange .num { color:var(--orange); }
+  .stat.red .num { color:var(--red); }
+  .stat.purple .num { color:var(--purple); }
+  .phase-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:0.75rem; }
+  .phase { background:var(--surface); border:1px solid var(--border); border-radius:8px;
+    padding:0.75rem 1rem; font-size:0.85rem; border-left:3px solid var(--border); }
+  .phase.complete { border-left-color:var(--green); opacity:0.7; }
+  .phase.pending { border-left-color:var(--orange); }
+  .phase.active { border-left-color:var(--accent); }
+  .phase .name { font-weight:600; }
+  .phase .meta { color:var(--muted); font-size:0.75rem; margin-top:0.3rem; }
+  .collision { background:var(--surface); border:1px solid var(--red); border-radius:8px;
+    padding:0.75rem 1rem; margin-bottom:0.5rem; }
+  .collision .file { font-family:var(--mono); color:var(--red); font-size:0.85rem; }
+  .collision .writers { color:var(--muted); font-size:0.8rem; }
+  table { width:100%; border-collapse:collapse; font-size:0.85rem; margin:0.5rem 0; }
+  th { text-align:left; padding:0.5rem; background:var(--surface); border:1px solid var(--border);
+    color:var(--muted); font-size:0.75rem; text-transform:uppercase; }
+  td { padding:0.5rem; border:1px solid var(--border); }
+  .gen { text-align:center; color:var(--muted); font-size:0.75rem; margin-top:3rem;
+    padding-top:1rem; border-top:1px solid var(--border); }
+</style>
+</head>
+<body>
+<h1>Super GSD Signal Map</h1>
+<p style="color:var(--muted);margin-bottom:1.5rem;">Generated: 2026-04-09T07:50:06.648Z</p>
+
+<div class="stats">
+  <div class="stat green"><div class="num">1/7</div><div class="label">Phases</div></div>
+  <div class="stat purple"><div class="num">2/4</div><div class="label">Plans</div></div>
+  <div class="stat orange"><div class="num">14</div><div class="label">Files Tracked</div></div>
+  <div class="stat red"><div class="num">0</div><div class="label">Collisions</div></div>
+  <div class="stat"><div class="num">0</div><div class="label">Decisions</div></div>
+</div>
+
+<h2>Phases</h2>
+<div class="phase-grid">
+<div class="phase complete">
+  <div class="name">Phase 1: Token Foundation and Hook Wiring** - Token logging, audit tooling, IPC handling, and cross-cutting safety patterns (completed 2026-04-08)</div>
+  <div class="meta">2/2 plans | complete</div>
+</div>
+<div class="phase pending">
+  <div class="name">Phase 2: Memory Layer** - Local BM25 query engine and ByteRover context-tree integration</div>
+  <div class="meta">0/2 plans | pending</div>
+</div>
+<div class="phase pending">
+  <div class="name">Phase 3: Orchestrator Engine** - Dispatch loop, model routing, checkpoint survival, agent reports, and atomic commits</div>
+  <div class="meta">0/0 plans | pending</div>
+</div>
+<div class="phase pending">
+  <div class="name">Phase 4: ATC Quality Gates** - Haiku-based commit classification with tiered review and stuck detection</div>
+  <div class="meta">0/0 plans | pending</div>
+</div>
+<div class="phase pending">
+  <div class="name">Phase 5: Strategic Deliberation** - CEO/Board multi-agent debate system for architecture decisions</div>
+  <div class="meta">0/0 plans | pending</div>
+</div>
+<div class="phase pending">
+  <div class="name">Phase 6: Overwatcher and Monitoring** - Signal map visualization and Mission Control dashboard spec</div>
+  <div class="meta">0/0 plans | pending</div>
+</div>
+<div class="phase pending">
+  <div class="name">Phase 7: Integration and Installation** - One-command install, overlay teaching doc, and GSD 2.0 migration tool</div>
+  <div class="meta">0/0 plans | pending</div>
+</div>
+</div>
+
+
+
+<h2>Dependency Graph</h2>
+<table>
+<thead><tr><th>Plan</th><th>Depends On</th><th>Wave</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>Plan 1-02</td><td>01-01</td><td>2</td><td>complete</td></tr>
+</tbody>
+</table>
+
+
+
+<div class="gen">Super GSD Signal Map | 32 nodes | 32 edges</div>
+</body></html>

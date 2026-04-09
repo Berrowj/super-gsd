@@ -47,12 +47,13 @@ let renderModule = null;
 try {
   if (fs.existsSync(path.join(PI_OVERWATCHER, 'analysis', 'index.js'))) {
     analyseModule = require(path.join(PI_OVERWATCHER, 'analysis', 'index.js'));
-    inferModule = require(path.join(PI_OVERWATCHER, 'architecture', 'inference-engine.js'));
-    renderModule = require(path.join(PI_OVERWATCHER, 'renderer', 'multi-tab-assembler.js'));
-    console.log('[overwatcher] Using Pi overwatcher modules from', PI_OVERWATCHER);
+    // Skip Pi renderer — GraphModel shapes differ. Use basic renderer.
+    // inferModule = require(path.join(PI_OVERWATCHER, 'architecture', 'inference-engine.js'));
+    // renderModule = require(path.join(PI_OVERWATCHER, 'renderer', 'multi-tab-assembler.js'));
+    console.log('[overwatcher] Using Pi analysis + basic renderer');
   }
 } catch (e) {
-  console.log('[overwatcher] Pi overwatcher modules not found, using basic renderer');
+  console.log('[overwatcher] Pi modules not found, using basic renderer');
 }
 
 // ─── Basic HTML Renderer (fallback if Pi modules unavailable) ───
@@ -158,8 +159,8 @@ ${collisions.map(c => `<div class="collision">
 <table>
 <thead><tr><th>Plan</th><th>Depends On</th><th>Wave</th><th>Status</th></tr></thead>
 <tbody>
-${plans.filter(p => p.metadata.depends_on && p.metadata.depends_on.length > 0).map(p =>
-  `<tr><td>${p.label}</td><td>${p.metadata.depends_on.join(', ')}</td><td>${p.metadata.wave}</td><td>${p.status}</td></tr>`
+${plans.filter(p => p.metadata.depends_on && Array.isArray(p.metadata.depends_on) && p.metadata.depends_on.length > 0).map(p =>
+  `<tr><td>${p.label}</td><td>${Array.isArray(p.metadata.depends_on) ? p.metadata.depends_on.join(', ') : String(p.metadata.depends_on)}</td><td>${p.metadata.wave || '-'}</td><td>${p.status}</td></tr>`
 ).join('\n')}
 </tbody>
 </table>
@@ -193,7 +194,6 @@ async function main() {
   if (analyseModule) {
     try {
       analysis = analyseModule.analyse(graph);
-      arch = inferModule.inferArchitecture(graph, analysis);
       console.log(`[overwatcher] Analysis: ${analysis.summary.totalIssues} issues found`);
     } catch (e) {
       console.warn(`[overwatcher] Analysis failed: ${e.message}`);
