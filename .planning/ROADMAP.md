@@ -13,7 +13,7 @@ Ship the Super GSD orchestrator as a production-ready framework. Build order fol
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Token Foundation and Hook Wiring** - Token logging, audit tooling, IPC handling, and cross-cutting safety patterns (completed 2026-04-08)
-- [ ] **Phase 2: Memory Layer** - Local BM25 query engine and ByteRover context-tree integration
+- [x] **Phase 2: Memory Layer** - Local BM25 query engine and ByteRover context-tree integration (completed 2026-04-09)
 - [ ] **Phase 3: Orchestrator Engine** - Dispatch loop, model routing, checkpoint survival, agent reports, and atomic commits
 - [ ] **Phase 4: ATC Quality Gates** - Haiku-based commit classification with tiered review and stuck detection
 - [ ] **Phase 5: Strategic Deliberation** - CEO/Board multi-agent debate system for architecture decisions
@@ -52,7 +52,7 @@ Plans:
 
 Plans:
 - [x] 02-01-PLAN.md — Build brv-curate-local.js + wire BM25 query and curation into orchestrate-loop.md Steps 4 and 9
-- [ ] 02-02-PLAN.md — Wire script registry + EXISTING: format into prompt-composer and executor overlay, end-to-end smoke test
+- [x] 02-02-PLAN.md — Wire script registry + EXISTING: format into prompt-composer and executor overlay, end-to-end smoke test
 
 ### Phase 3: Orchestrator Engine
 **Goal**: The autonomous dispatch loop runs end-to-end: reads state, selects model, dispatches agent, processes report, commits atomically, and survives context exhaustion
@@ -142,7 +142,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Token Foundation and Hook Wiring | 2/2 | Complete   | 2026-04-08 |
-| 2. Memory Layer | 1/2 | In Progress|  |
+| 2. Memory Layer | 2/2 | Complete   | 2026-04-09 |
 | 3. Orchestrator Engine | 0/3 | Not started | - |
 | 4. ATC Quality Gates | 0/2 | Not started | - |
 | 5. Strategic Deliberation | 0/2 | Not started | - |

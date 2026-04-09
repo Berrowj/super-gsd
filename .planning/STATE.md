@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 02-memory-layer-01-PLAN.md
-last_updated: "2026-04-09T08:13:30.002Z"
+stopped_at: Completed 02-memory-layer/02-02-PLAN.md
+last_updated: "2026-04-09T08:17:05.431Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 7
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
-  percent: 75
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
@@ -50,6 +50,7 @@ Progress: [░░░░░░░░░░] 0%
 
 | Phase 01-token-foundation P02 | 5 | 2 tasks | 4 files |
 | Phase 02-memory-layer P01 | 10 | 2 tasks | 2 files |
+| Phase 02-memory-layer P02 | 15 | 2 tasks | 5 files |
 
 ### Decisions
 
@@ -62,6 +63,7 @@ Recent decisions affecting current work:
 - [Phase 01-token-foundation]: SUPER-GSD patches applied idempotently to model-profiles.cjs, config.cjs, agent-contracts.md
 - [Phase 02-memory-layer]: Manual YAML serialization, no yaml library — fs+path only
 - [Phase 02-memory-layer]: Domain validation /^[a-z0-9/_-]+$/ prevents path traversal (T-02-03)
+- [Phase 02-memory-layer]: Scripts domain had no seed entries — curated brv-query-local and brv-curate-local as core entries to enable script registry queries
 
 ### Pending Todos
 
@@ -73,6 +75,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T08:13:29.992Z
-Stopped at: Completed 02-memory-layer-01-PLAN.md
+Last session: 2026-04-09T08:17:05.423Z
+Stopped at: Completed 02-memory-layer/02-02-PLAN.md
 Resume file: None
