@@ -52,6 +52,30 @@ cat .planning/config.json
 If RESUME_MODE: skip to dispatch at `next_unit` from checkpoint.
 If cold start: run full dispatch table to determine first action.
 
+### Warm Resume (checkpoint exists)
+
+1. Read `.planning/ORCHESTRATOR-CHECKPOINT.md` (offset 0, limit 40)
+2. Extract: active_phase, last_completed, next_unit, phase_state
+3. Delete the checkpoint file:
+   ```bash
+   rm .planning/ORCHESTRATOR-CHECKPOINT.md
+   git add .planning/ORCHESTRATOR-CHECKPOINT.md
+   git commit -m "chore(checkpoint): consumed, resuming at {next_unit}"
+   ```
+4. Enter loop at next_unit — no cold start, no user re-briefing
+   DO NOT ask the user where you left off. The checkpoint says.
+
+---
+
+## Session State (initialized once on loop entry, persisted across iterations)
+
+```bash
+# Initialize once (before first loop iteration)
+REPORT_COUNT=0          # number of full reports currently in active context
+REPORT_LOG=()           # array of one-liners from completed reports
+UNITS_THIS_SESSION=0    # total dispatches this session
+```
+
 ---
 
 ## The Loop
@@ -66,6 +90,25 @@ Read .planning/STATE.md (offset: 0, limit: 30)
 Check exit conditions:
 - All phases `[x]` in ROADMAP? → EXIT: all complete
 - Context >70%? → write checkpoint, EXIT
+
+### Context Cap Check (run EVERY iteration — before dispatch)
+
+```bash
+# Read threshold from config (default 70 if not set)
+THRESHOLD=$(cat .planning/config.json | node -e "
+  const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+  process.stdout.write(String(c.token_efficiency?.checkpoint_threshold_percent||70));
+")
+
+# Estimate current context usage (word count of all reports in active context)
+# REPORT_COUNT tracks how many reports are in active context this session
+# This is updated at Step 10 (Update State) each iteration
+
+if [ "$CONTEXT_PERCENT" -gt "$THRESHOLD" ]; then
+  # → Write checkpoint, then EXIT (text-only stop)
+  # See Checkpoint Write section below
+fi
+```
 
 ### Step 2: Classify (Haiku)
 
@@ -189,10 +232,24 @@ Token budget check:
 
 ### Step 7: Dispatch
 
+```bash
+# Resolve model: classifier output takes precedence, fallback to config.json model_routing
+CONFIG_MODEL=$(cat .planning/config.json | node -e "
+  const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+  const role=process.env.AGENT_ROLE||'executor';
+  process.stdout.write(c.model_routing?.[role]||'sonnet');
+")
+DISPATCH_MODEL="${CLASSIFIER_MODEL:-$CONFIG_MODEL}"
+
+# Apply @file: IPC guard on all gsd-tools output
+RESULT=$(node "$GSD_TOOLS" state advance-plan)
+if [[ "$RESULT" == @file:* ]]; then RESULT=$(cat "${RESULT#@file:}"); fi
+```
+
 ```
 Agent(
   description: "{role}: phase {N}",
-  model: "{from classifier or routing table}",
+  model: "${DISPATCH_MODEL}",
   prompt: "{composed prompt}"
 )
 ```
@@ -340,6 +397,27 @@ model_breakdown:
 ```
 
 Commit checkpoint, then STOP (text-only response).
+
+## Checkpoint Write — Exact Sequence
+
+1. Collect session state:
+   - active_milestone from STATE.md frontmatter
+   - active_phase, last_completed from current loop position
+   - next_unit: the plan that would have been dispatched next
+   - units_this_session: count of dispatches this session
+   - estimated_tokens_used: sum from token-log.jsonl (this session)
+   - model_breakdown: aggregate from token-log.jsonl (this session)
+
+2. Write `.planning/ORCHESTRATOR-CHECKPOINT.md` using checkpoint.md template
+
+3. Commit checkpoint:
+   ```bash
+   git add .planning/ORCHESTRATOR-CHECKPOINT.md
+   git commit -m "chore(checkpoint): session end at phase {N} plan {P}"
+   ```
+
+4. STOP — emit text-only response: "Checkpoint written. Resume with /gsd-orchestrate go"
+   DO NOT dispatch another agent. DO NOT read STATE.md again. Just stop.
 
 ---
 

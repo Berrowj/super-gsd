@@ -30,29 +30,42 @@ Before dispatching any agent:
 ## How to Check Each Condition
 
 ```bash
-# Rule 0: Checkpoint
+GSD_TOOLS="$HOME/.claude/get-shit-done/bin/gsd-tools.cjs"
+PHASE="03"  # replace with active phase number at runtime
+
+# Rule 0: Checkpoint exists
 [ -f .planning/ORCHESTRATOR-CHECKPOINT.md ]
 
 # Rule 2: CONTEXT.md exists
-ls .planning/phases/{NN}-*/{NN}-CONTEXT.md 2>/dev/null
+PHASE_INFO=$(node "$GSD_TOOLS" find-phase "$PHASE" 2>/dev/null)
+if [[ "$PHASE_INFO" == @file:* ]]; then PHASE_INFO=$(cat "${PHASE_INFO#@file:}"); fi
+PHASE_DIR=$(echo "$PHASE_INFO" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));process.stdout.write(d.directory||'')")
+[ -f "$PHASE_DIR/${PHASE}-CONTEXT.md" ]
 
 # Rule 3: RESEARCH.md exists
-ls .planning/phases/{NN}-*/{NN}-RESEARCH.md 2>/dev/null
+[ -f "$PHASE_DIR/${PHASE}-RESEARCH.md" ]
 
 # Rule 4: PLAN.md files exist
-ls .planning/phases/{NN}-*/{NN}-*-PLAN.md 2>/dev/null
+ls "$PHASE_DIR/${PHASE}-"*"-PLAN.md" 2>/dev/null
 
-# Rule 6: Uncompleted plans (PLAN without SUMMARY)
-for plan in .planning/phases/{NN}-*/{NN}-*-PLAN.md; do
-  summary=$(echo "$plan" | sed 's/PLAN/SUMMARY/')
-  [ ! -f "$summary" ] && echo "PENDING: $plan"
+# Rule 5: Any PLAN.md missing a matching SUMMARY.md (plan_check sentinel)
+PLAN_CHECK_DONE=$(ls "$PHASE_DIR/${PHASE}-"*"-PLAN-CHECKER.md" 2>/dev/null | wc -l)
+PLAN_COUNT=$(ls "$PHASE_DIR/${PHASE}-"*"-PLAN.md" 2>/dev/null | wc -l)
+[ "$PLAN_CHECK_DONE" -lt "$PLAN_COUNT" ]
+
+# Rule 6: PLAN.md exists with no matching SUMMARY.md
+PENDING=""
+for plan in "$PHASE_DIR/${PHASE}-"*"-PLAN.md"; do
+  summary="${plan/PLAN.md/SUMMARY.md}"
+  [ ! -f "$summary" ] && PENDING="$PENDING $plan"
 done
+[ -n "$PENDING" ] && echo "PENDING:$PENDING"
 
-# Rule 7: VERIFICATION.md exists
-ls .planning/phases/{NN}-*/{NN}-VERIFICATION.md 2>/dev/null
+# Rule 7: All plans have SUMMARY.md — check VERIFICATION.md exists
+ls "$PHASE_DIR/${PHASE}-VERIFICATION.md" 2>/dev/null
 
 # Rule 8: Verification status
-grep "^status:" .planning/phases/{NN}-*/{NN}-VERIFICATION.md 2>/dev/null
+grep "^status:" "$PHASE_DIR/${PHASE}-VERIFICATION.md" 2>/dev/null
 ```
 
 ## Phase Advancement
@@ -73,3 +86,13 @@ From `.planning/config.json`:
 - `workflow.verifier`: enable/disable rule 7
 - `deliberation.enabled`: enable/disable rule 1
 - `deliberation.auto_gate`: auto-classify deliberation need
+
+## Model Routing from config.json
+
+```bash
+# Read model_routing from config.json
+CONFIG=$(cat .planning/config.json)
+MODEL_EXECUTOR=$(echo "$CONFIG" | node -e "const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));process.stdout.write(c.model_routing?.executor||'sonnet')")
+MODEL_CLASSIFIER=$(echo "$CONFIG" | node -e "const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));process.stdout.write(c.model_routing?.classifier||'haiku')")
+MODEL_ORCHESTRATOR=$(echo "$CONFIG" | node -e "const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));process.stdout.write(c.model_routing?.orchestrator||'opus')")
+```
