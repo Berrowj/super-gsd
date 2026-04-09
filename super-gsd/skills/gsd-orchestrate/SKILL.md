@@ -39,6 +39,7 @@ You have ~1,350 tokens per loop iteration. Spend them wisely:
 - Query context (brv-query): ~100 tokens
 - Compose agent prompt: ~500 tokens
 - Process agent report: ~300 tokens
+- ATC gate (Step 8.5): ~0 (skip), ~250 (lite), ~550 (full/gate)
 - State update + commit: ~150 tokens
 - Curate learning (brv-curate): ~50 tokens
 
@@ -162,6 +163,17 @@ REPEAT:
      If report is missing any section: log "MISSING: {section}", treat as empty.
      If report exceeds 300 words: log "REPORT_OVERLIMIT", process anyway.
 
+  9.5. ATC GATE (after process result, before commit)
+      See: super-gsd/workflows/atc-gate.md and orchestrate-loop.md Step 8.5
+      IF config.atc.enabled:
+        - Complexity floor check: files>3 OR lines>100 → escalate to full
+        - Classify with Haiku (~50 tokens) → tier: skip|lite|full|gate
+        - SKIP: proceed directly
+        - LITE: Haiku delete+simplify check (~200 tokens), log issues to DEVIATIONS
+        - FULL: Sonnet 7-step+checklist (~500 tokens), log critical issues, flag for review
+        - GATE (non-auto): emit "Run /gsd-deliberate before proceeding", STOP
+        - GATE (auto): log GATE_AUTO_BYPASS, add gate_flag to token log, continue
+
   10. CURATE LEARNINGS
       If DEVIATIONS contains new patterns → brv-curate to patterns/
       If SCRIPTS_CREATED non-empty → brv-curate to scripts/{category}
@@ -265,4 +277,9 @@ Estimation method:
     Never hold full report text for more than 2 completed iterations.
 12. REPORT VALIDATION: Always check word count and section presence before parsing.
     Log REPORT_OVERLIMIT and MISSING_SECTION — do not exit on format violation.
+13. ATC GATE: After processing result, before commit — classify change tier via Step 8.5.
+    GATE tier (non-auto): suggest /gsd-deliberate, stop and wait for user.
+    GATE tier (auto): log GATE_AUTO_BYPASS warning, add gate_flag:true to token log, continue.
+    LITE: run delete+simplify via Haiku. FULL: run 7-step+checklist via Sonnet.
+    Complexity floor: files>3 OR lines>100 escalates to full regardless of Haiku output.
 </golden_rules>

@@ -43,9 +43,51 @@ ATC tier:
 - full: 50+ lines, 4+ files, or any new file created
 - gate: new system, dependency, architecture change, API contract change
 
+Complexity floor (QA-05): if files_changed > 3 OR diff_lines > 100, minimum tier is "full" regardless of other criteria.
+
 Deliberation trigger (deliberate: true):
 - Affects 3+ phases
 - Architecture change
 - New external dependency
 - Budget/timeline impact
 </rules>
+
+<tier_prompts>
+<!-- Inline check prompts used by the ATC gate in orchestrate-loop.md Step 8.5 -->
+
+<!-- LITE tier: ~200 tokens. Run by Haiku. -->
+<lite>
+ATC LITE check on these changes:
+FILES: {files_changed}
+1. DELETE: Is any of this dead code or removable? List items.
+2. SIMPLIFY: Is there a simpler way? List items.
+Return JSON only: {"delete_issues": [], "simplify_issues": [], "verdict": "pass|issues_found"}
+</lite>
+
+<!-- FULL tier: ~500 tokens. Run by Sonnet. -->
+<full>
+ATC FULL check on these changes:
+FILES: {files_changed}
+Run abbreviated 7-step review:
+1. First Principles: Is this needed?
+2. Delete: Target >=10% reduction possible?
+3. Simplify: DeltaComplexity <= 0?
+4. Accelerate: Any bottlenecks introduced?
+5. Automate: Only automate what survived 1-4
+6. Validate: 7-point correctness check
+7. Checklist: 10-point anti-slop (orphans, dead imports, unused params, overengineering, unjustified abstractions, duplication, mass-deletable code, complexity increase, YAGNI, single-responsibility)
+Return JSON only: {"critical_issues": [], "minor_issues": [], "verdict": "pass|issues_found"}
+</full>
+
+<!-- GATE tier: FULL checks + deliberation suggestion. Run by Sonnet. -->
+<gate>
+ATC GATE check on these changes:
+FILES: {files_changed}
+REASON: {atc_reason}
+Run full 7-step review + 10-point anti-slop checklist (same as FULL).
+Additionally flag: new_system={bool}, new_dependency={bool}, api_contract_change={bool}.
+Return JSON only: {"critical_issues": [], "minor_issues": [], "new_system": false, "new_dependency": false, "api_contract_change": false, "verdict": "pass|issues_found"}
+
+NOTE: After this check, if not in auto mode, the orchestrator will suggest /gsd-deliberate before commit.
+</gate>
+</tier_prompts>

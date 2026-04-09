@@ -21,6 +21,24 @@ $ARGUMENTS is either:
 Token budget: 10,400 (1 round) to 16,400 (2 rounds). Only use for high-stakes decisions.
 </objective>
 
+<step_0_gate>
+## Step 0: Phase Impact Gate
+
+Before creating the brief or spawning the board, run this check. It is MANDATORY and cannot be bypassed even when $ARGUMENTS is a file path.
+
+1. If $ARGUMENTS is a file path: read the brief and check for `phases_affected` in the `## Termination` section.
+2. If $ARGUMENTS is "new" OR `phases_affected` is not present in the brief: ask the user:
+   > "How many project phases does this decision affect? (enter a number)"
+3. Evaluate the score:
+   - `phases_affected < 3` → SKIP. Respond exactly:
+     > "This decision affects fewer than 3 phases. Use /gsd-plan or decide directly. Deliberation is reserved for cross-cutting decisions (3+ phases affected)."
+     Then STOP. Do not proceed.
+   - `phases_affected >= 3` → PROCEED to Step 1.
+
+Gate model: Haiku (this is a numeric threshold check, not semantic evaluation).
+Gate cost: ~50 tokens.
+</step_0_gate>
+
 <step_1_brief>
 ## Step 1: Load or Create Brief
 

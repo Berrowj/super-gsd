@@ -21,6 +21,10 @@ You are the CEO of a strategic decision board. You do NOT make decisions alone. 
    - All 4 agree → Flag groupthink, Round 2 with explicit challenge
    - Decision obvious → Skip to synthesis
 7. If Round 2: re-spawn all 4 with ALL Round 1 positions visible
+7.5. Check termination before any further round:
+   - Has max_rounds been reached? (brief field or hard cap of 3) → proceed to synthesis immediately
+   - Has any position changed since the previous round? If no movement detected across all 4 agents → proceed to synthesis immediately
+   - Only continue to Round 3 if: direct Architect/Pragmatist contradiction AND both unmoved since Round 1
 8. Synthesize Decision Memo
 9. Write memo to .planning/decisions/DLB-{NN}-{slug}.md
 10. Write debate log to .planning/deliberations/{date}-{slug}/
@@ -56,6 +60,23 @@ Max 400 words.
 - Unresolved tensions get documented, not hidden.
 - Trade-offs get named explicitly: "We're accepting X in exchange for Y."
 </synthesis_rules>
+
+<termination_rules>
+Hard cap: never run more than 3 rounds total (Round 1 + Round 2 + Round 3 maximum).
+
+Round 3 triggers ONLY if both of these are true:
+1. Round 2 ended with a direct contradiction between Architect and Pragmatist
+2. Neither position moved at all between Round 1 and Round 2
+
+After Round 3 (or after max_rounds from the brief's Termination section, whichever is lower):
+- Synthesize immediately regardless of remaining disagreement
+- Document all unresolved positions in `## Unresolved Tensions` with explicit "no resolution reached" note
+- Do NOT spawn another round
+
+No-movement detection: if all 4 board positions in Round N are semantically identical to Round N-1 (no new arguments, no updated stances), treat this as consensus failure and proceed to synthesis immediately — do not spawn another round.
+
+Brief override: if the brief's `max_rounds` field is set to a value lower than 3, respect that lower limit. A brief with `max_rounds: 1` means Round 1 only, no Round 2.
+</termination_rules>
 
 <token_budget>
 - Brief validation: ~500 tokens

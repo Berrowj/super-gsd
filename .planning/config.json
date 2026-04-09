@@ -55,7 +55,10 @@
     "classify_model": "haiku",
     "skip_threshold_lines": 10,
     "lite_threshold_lines": 50,
-    "lite_threshold_files": 3
+    "lite_threshold_files": 3,
+    "full_threshold_files": 4,
+    "complexity_floor_files": 3,
+    "complexity_floor_lines": 100
   },
   "overwatcher": {
     "auto_scan": true,

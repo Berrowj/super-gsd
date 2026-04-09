@@ -2,8 +2,17 @@
 /**
  * PostToolUse hook: Stuck detection
  *
- * Tracks last 10 tool calls. If same file written 3+ times or
- * same command fails 3+ times, injects a warning.
+ * QA-04 COMPLIANCE: Warns agent after 3+ repeated tool calls on same file/command.
+ *
+ * Spec (QA-04): "Stuck detector hook warns agent after 3+ repeated tool calls
+ * on the same file or command."
+ *
+ * Implementation:
+ * - Tracks last 10 tool calls via tmp file (gsd-tool-history.json)
+ * - Key = "ToolName:file_path" or "ToolName:command_prefix"
+ * - Fires warning to stdout (Claude Code sees this as hook feedback) after 3+ repeats
+ * - Resets history after warning to prevent spam
+ * - Uses toUnixPath() for cross-platform path normalization (SAFE-01)
  *
  * Install in settings.json:
  * {

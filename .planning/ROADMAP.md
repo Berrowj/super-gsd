@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Orchestrator Engine** - Dispatch loop, model routing, checkpoint survival, agent reports, and atomic commits (completed 2026-04-09)
 - [ ] **Phase 4: ATC Quality Gates** - Haiku-based commit classification with tiered review and stuck detection
 - [ ] **Phase 5: Strategic Deliberation** - CEO/Board multi-agent debate system for architecture decisions
-- [ ] **Phase 6: Overwatcher and Monitoring** - Signal map visualization and Mission Control dashboard spec
+- [x] **Phase 6: Overwatcher and Monitoring** - Signal map visualization and Mission Control dashboard spec (completed 2026-04-08)
 - [ ] **Phase 7: Integration and Installation** - One-command install, overlay teaching doc, and GSD 2.0 migration tool
 
 ## Phase Details
@@ -81,11 +81,11 @@ Plans:
   3. GATE-classified changes prompt the user to run /gsd-deliberate before proceeding
   4. When an agent makes 3+ repeated tool calls on the same file or command, a warning is injected into the agent context
   5. Changes with files_changed > 3 OR diff_lines > 100 escalate classification regardless of Haiku output
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [x] 04-01-PLAN.md — Wire ATC gate into orchestrate-loop.md Step 8.5, complexity floor logic, classifier tier_prompts
+- [x] 04-02-PLAN.md — Validate stuck detector, update gsd-orchestrate SKILL.md, add GATE deliberation block
 
 ### Phase 5: Strategic Deliberation
 **Goal**: Users can trigger structured multi-agent debates for architecture decisions, with automatic gating that prevents trivial triggers
@@ -97,11 +97,11 @@ Plans:
   3. CEO evaluates positions and optionally runs Round 2 with all positions visible for rebuttals
   4. A Decision Memo is written to .planning/decisions/ with board stances, tensions, trade-offs, and next actions
   5. Haiku-based deliberation gate scores decisions and only triggers for changes affecting 3+ phases
-**Plans**: TBD
+**Plans**: 2
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
+- [x] 05-01-PLAN.md — 3-round hard cap + no-movement detection in CEO agent, Haiku phase-impact gate wired as Step 0 in gsd-deliberate skill
+- [x] 05-02-PLAN.md — End-to-end flow validation: test brief, CEO prompt trace, memo format check, board agent compatibility
 
 ### Phase 6: Overwatcher and Monitoring
 **Goal**: Users can visualize project health via an interactive signal map and have a spec for live dashboard monitoring
@@ -144,7 +144,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 1. Token Foundation and Hook Wiring | 2/2 | Complete   | 2026-04-08 |
 | 2. Memory Layer | 2/2 | Complete   | 2026-04-09 |
 | 3. Orchestrator Engine | 3/3 | Complete   | 2026-04-09 |
-| 4. ATC Quality Gates | 0/2 | Not started | - |
-| 5. Strategic Deliberation | 0/2 | Not started | - |
-| 6. Overwatcher and Monitoring | 0/1 | Not started | - |
+| 4. ATC Quality Gates | 2/2 | Complete   | 2026-04-08 |
+| 5. Strategic Deliberation | 2/2 | Complete   | 2026-04-08 |
+| 6. Overwatcher and Monitoring | 1/1 | Complete   | 2026-04-08 |
 | 7. Integration and Installation | 0/2 | Not started | - |

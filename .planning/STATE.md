@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 03-03-PLAN.md
-last_updated: "2026-04-09T09:23:39.977Z"
-last_activity: 2026-04-09
+status: executing
+stopped_at: Completed 05-02-PLAN.md
+last_updated: "2026-04-08T00:00:00.000Z"
+last_activity: 2026-04-08
 progress:
   total_phases: 7
-  completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
-  percent: 100
+  completed_phases: 5
+  total_plans: 11
+  completed_plans: 11
+  percent: 71
 ---
 
 # Project State
@@ -66,6 +66,13 @@ Recent decisions affecting current work:
 - [Phase 02-memory-layer]: Domain validation /^[a-z0-9/_-]+$/ prevents path traversal (T-02-03)
 - [Phase 02-memory-layer]: Scripts domain had no seed entries — curated brv-query-local and brv-curate-local as core entries to enable script registry queries
 - [Phase 03]: Rule 3 fires for Phase 4 — dispatch dry-run confirmed researcher/sonnet
+- [Phase 04]: Complexity floor at files>3 OR lines>100 escalates to full regardless of Haiku output
+- [Phase 04]: LITE runs on Haiku (~200 tokens), FULL/GATE on Sonnet (~500 tokens)
+- [Phase 04]: tier_prompts co-located in gsd-classifier.md so prompts evolve with classification rules
+- [Phase 04]: atc_tier and atc_flag added to token-log.jsonl schema for ATC spend visibility
+- [Phase 05]: 3-round hard cap enforced in CEO agent with no-movement detection; brief max_rounds can lower but not raise the cap
+- [Phase 05]: Haiku gate is mandatory even when brief path passed directly — prevents bypass of phase-impact check
+- [Phase 05]: Contrarian/Moonshot use qualitative risk fields; CEO infers Low/Medium/High from content — not a blocker
 
 ### Pending Todos
 
@@ -77,6 +84,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T09:10:13.993Z
-Stopped at: Completed 03-03-PLAN.md
+Last session: 2026-04-08T00:00:00.000Z
+Stopped at: Completed 05-02-PLAN.md
 Resume file: None

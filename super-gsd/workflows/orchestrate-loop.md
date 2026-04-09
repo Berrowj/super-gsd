@@ -302,6 +302,135 @@ SCRIPTS_CREATED → prepare for brv-curate
 ONE_LINER → use in commit message and state update
 ```
 
+### Step 8.5: ATC Gate
+
+```bash
+# Run AFTER Step 8 (Process Result) and BEFORE Step 12 (Git Commit)
+ATC_ENABLED=$(cat .planning/config.json | node -e "
+  const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+  process.stdout.write(String(c.atc?.enabled||false));
+")
+
+if [ "$ATC_ENABLED" = "true" ]; then
+
+  # Complexity floor (QA-05): escalate regardless of Haiku output
+  FLOOR_FILES=$(cat .planning/config.json | node -e "
+    const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+    process.stdout.write(String(c.atc?.complexity_floor_files||3));
+  ")
+  FLOOR_LINES=$(cat .planning/config.json | node -e "
+    const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+    process.stdout.write(String(c.atc?.complexity_floor_lines||100));
+  ")
+
+  # Count files changed and lines from agent report
+  FILES_COUNT=$(echo "$AGENT_REPORT" | grep -c "FILES_CHANGED:" || echo 1)
+  # Estimate lines from report word count as proxy (or parse diff if available)
+  LINES_EST=$(echo "$AGENT_REPORT" | wc -w)
+
+  # Haiku classification (~50 tokens)
+  ATC_RESULT=$(Agent(
+    model: "haiku",
+    prompt: "ATC classify: files_changed=${FILES_COUNT}, lines_changed~${LINES_EST}, new_files=${NEW_FILES_COUNT}, has_api_change=${HAS_API_CHANGE}
+             Return JSON only: {\"tier\": \"skip|lite|full|gate\", \"reason\": \"one sentence\"}"
+  ))
+
+  ATC_TIER=$(echo "$ATC_RESULT" | node -e "
+    const r=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+    process.stdout.write(r.tier||'lite');
+  " 2>/dev/null || echo "lite")
+  ATC_REASON=$(echo "$ATC_RESULT" | node -e "
+    const r=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+    process.stdout.write(r.reason||'');
+  " 2>/dev/null || echo "")
+
+  # Apply complexity floor: escalate if over threshold (QA-05)
+  if [ "$FILES_COUNT" -gt "$FLOOR_FILES" ] || [ "$LINES_EST" -gt "$FLOOR_LINES" ]; then
+    if [ "$ATC_TIER" = "skip" ] || [ "$ATC_TIER" = "lite" ]; then
+      echo "ATC_FLOOR_ESCALATION: files=${FILES_COUNT} lines=${LINES_EST} — escalating from ${ATC_TIER} to full"
+      ATC_TIER="full"
+      ATC_REASON="Complexity floor triggered: files_changed>${FLOOR_FILES} or diff_lines>${FLOOR_LINES}"
+    fi
+  fi
+
+  # Tier actions
+  if [ "$ATC_TIER" = "skip" ]; then
+    echo "ATC_SKIP: no quality check needed"
+
+  elif [ "$ATC_TIER" = "lite" ]; then
+    # LITE: delete + simplify only (~200 tokens) (QA-02)
+    LITE_CHECK=$(Agent(
+      model: "haiku",
+      prompt: "ATC LITE check on these changes:
+               FILES: ${FILES_CHANGED}
+               1. DELETE: Is any of this dead code or removable? List items.
+               2. SIMPLIFY: Is there a simpler way? List items.
+               Return JSON: {\"delete_issues\": [], \"simplify_issues\": [], \"verdict\": \"pass|issues_found\"}"
+    ))
+    LITE_VERDICT=$(echo "$LITE_CHECK" | node -e "
+      const r=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+      process.stdout.write(r.verdict||'pass');
+    " 2>/dev/null || echo "pass")
+    if [ "$LITE_VERDICT" != "pass" ]; then
+      DEVIATIONS+=("ATC_LITE: $(echo $LITE_CHECK | node -e "const r=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')); console.log(JSON.stringify(r.delete_issues.concat(r.simplify_issues)))" 2>/dev/null)")
+      echo "ATC_LITE_ISSUES: logged to DEVIATIONS"
+    fi
+
+  elif [ "$ATC_TIER" = "full" ]; then
+    # FULL: 7-step pipeline + 10-point checklist (~500 tokens) (QA-02)
+    FULL_CHECK=$(Agent(
+      model: "sonnet",
+      prompt: "ATC FULL check on these changes:
+               FILES: ${FILES_CHANGED}
+               Run abbreviated 7-step review:
+               1. First Principles: Is this needed?
+               2. Delete: Target >=10% reduction
+               3. Simplify: DeltaComplexity <= 0
+               4. Accelerate: Any bottlenecks?
+               5. Automate: Only what survived 1-4
+               6. Validate: 7-point check
+               7. Checklist: 10-point anti-slop
+               Return JSON: {\"critical_issues\": [], \"minor_issues\": [], \"verdict\": \"pass|issues_found\"}"
+    ))
+    FULL_VERDICT=$(echo "$FULL_CHECK" | node -e "
+      const r=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+      process.stdout.write(r.verdict||'pass');
+    " 2>/dev/null || echo "pass")
+    if [ "$FULL_VERDICT" != "pass" ]; then
+      DEVIATIONS+=("ATC_FULL_CRITICAL: $(echo $FULL_CHECK | node -e "const r=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')); console.log(JSON.stringify(r.critical_issues))" 2>/dev/null)")
+      echo "ATC_FULL_ISSUES: critical issues logged to DEVIATIONS — flagging for human review"
+      ATC_FLAG="gate_review_needed"
+    fi
+
+  elif [ "$ATC_TIER" = "gate" ]; then
+    # GATE: FULL checks + deliberation suggestion (QA-03)
+    FULL_CHECK=$(Agent(
+      model: "sonnet",
+      prompt: "ATC GATE check on these changes:
+               FILES: ${FILES_CHANGED}
+               Run full 7-step review + 10-point anti-slop checklist.
+               Return JSON: {\"critical_issues\": [], \"minor_issues\": [], \"verdict\": \"pass|issues_found\"}"
+    ))
+    DEVIATIONS+=("ATC_GATE: ${ATC_REASON}")
+
+    if [ "${AUTO_MODE}" != "true" ]; then
+      # QA-03: Suggest deliberation in non-auto mode
+      echo "GATE-tier change detected. Run /gsd-deliberate before proceeding. Reason: ${ATC_REASON}"
+      # STOP — return to user for deliberation decision
+      exit 0
+    else
+      # Auto mode: log bypass, add gate_flag to token log entry
+      echo "GATE_AUTO_BYPASS: ${ATC_REASON}"
+      ATC_FLAG="gate_auto_bypass"
+    fi
+  fi
+
+  # Add ATC result to token log entry (picked up in Step 11)
+  ATC_LOG_FIELD="\"atc_tier\":\"${ATC_TIER}\",\"atc_flag\":\"${ATC_FLAG:-none}\""
+
+fi
+```
+
 ### Step 9: Curate Learnings
 
 ```bash
@@ -390,7 +519,9 @@ Append to `.planning/metrics/token-log.jsonl`:
   "classifier_model": "haiku",
   "context_tokens": {N},
   "scripts_reused": {N},
-  "scripts_created": {N}
+  "scripts_created": {N},
+  "atc_tier": "{skip|lite|full|gate}",
+  "atc_flag": "{none|gate_review_needed|gate_auto_bypass}"
 }
 ```
 
