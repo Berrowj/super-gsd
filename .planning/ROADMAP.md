@@ -127,11 +127,11 @@ Plans:
   3. Install requires zero API keys -- everything runs via Claude Code Max plan OAuth
   4. CLAUDE-OVERLAY.md dropped into a project CLAUDE.md teaches Claude Code the full orchestrator loop
   5. Running `/gsd-transition` migrates decisions, knowledge, and requirements from .gsd/ into .planning/ + .brv/context-tree/
-**Plans**: TBD
+**Plans**: 2
 
 Plans:
-- [ ] 07-01: TBD
-- [ ] 07-02: TBD
+- [x] 07-01-PLAN.md — Validate install.sh dry-run, portability, API-key audit, CLAUDE-OVERLAY completeness
+- [x] 07-02-PLAN.md — Validate gsd-transition skill paths, add NOT_FOUND guard, create VERIFICATION.md
 
 ## Progress
 
@@ -147,4 +147,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 4. ATC Quality Gates | 2/2 | Complete   | 2026-04-08 |
 | 5. Strategic Deliberation | 2/2 | Complete   | 2026-04-08 |
 | 6. Overwatcher and Monitoring | 1/1 | Complete   | 2026-04-08 |
-| 7. Integration and Installation | 0/2 | Not started | - |
+| 7. Integration and Installation | 2/2 | Complete | 2026-04-08 |

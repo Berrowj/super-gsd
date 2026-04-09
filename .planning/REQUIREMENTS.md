@@ -45,11 +45,11 @@
 
 ## Migration & Installation
 
-- [ ] **INST-01**: `bash install.sh --init-project` installs all agents, skills, hooks, templates, config, seeds ByteRover, and initializes .planning/ in one command
-- [ ] **INST-02**: Install works on Windows WSL2, macOS, and Linux without modification
-- [ ] **INST-03**: Install does not require any API keys — everything runs via Claude Code Max plan OAuth
-- [ ] **INST-04**: CLAUDE-OVERLAY.md teaches Claude Code the full orchestrator loop when dropped into project CLAUDE.md
-- [ ] **TRANS-01**: `/gsd-transition` migrates decisions, knowledge, requirements from .gsd/ (Pi/GSD 2.0) into .planning/ + .brv/context-tree/
+- [x] **INST-01**: `bash install.sh --init-project` installs all agents, skills, hooks, templates, config, seeds ByteRover, and initializes .planning/ in one command
+- [x] **INST-02**: Install works on Windows WSL2, macOS, and Linux without modification
+- [x] **INST-03**: Install does not require any API keys — everything runs via Claude Code Max plan OAuth
+- [x] **INST-04**: CLAUDE-OVERLAY.md teaches Claude Code the full orchestrator loop when dropped into project CLAUDE.md
+- [x] **TRANS-01**: `/gsd-transition` migrates decisions, knowledge, requirements from .gsd/ (Pi/GSD 2.0) into .planning/ + .brv/context-tree/
 
 ## Cross-Cutting
 
@@ -91,11 +91,11 @@
 | VIS-01 | Phase 6 | Complete |
 | VIS-02 | Phase 6 | Complete |
 | VIS-03 | Phase 6 | Complete |
-| INST-01 | Phase 7 | Pending |
-| INST-02 | Phase 7 | Pending |
-| INST-03 | Phase 7 | Pending |
-| INST-04 | Phase 7 | Pending |
-| TRANS-01 | Phase 7 | Pending |
+| INST-01 | Phase 7 | Complete |
+| INST-02 | Phase 7 | Complete |
+| INST-03 | Phase 7 | Complete |
+| INST-04 | Phase 7 | Complete |
+| TRANS-01 | Phase 7 | Complete |
 | SAFE-01 | Phase 1 | Pending |
 | SAFE-02 | Phase 1 | Pending |
 | SAFE-03 | Phase 1 | Complete |
