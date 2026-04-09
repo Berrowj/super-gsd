@@ -86,7 +86,7 @@ REPEAT:
      - If checkpoint exists and context >70% → EXIT: write checkpoint
 
   2. CLASSIFY (spawn Haiku classifier)
-     Agent(subagent_type: "gsd-classifier", model: "haiku", prompt: {
+     Agent(subagent_type: "gsd-classifier", model: "haiku", mode: "auto", prompt: {
        goal: "{phase goal from ROADMAP}",
        files: "{estimated files}",
        lines: "{estimated lines}",
@@ -95,14 +95,17 @@ REPEAT:
      → Returns: { complexity, model, atc_tier, deliberate, reason }
 
   3. CHECK DELIBERATION GATE
-     If classifier.deliberate == true:
+     If classifier.deliberate == true AND NOT auto mode:
        → Suggest: "/gsd-deliberate" before planning
-       → If auto mode: skip deliberation, log warning
-     If classifier.atc_tier == "gate":
+     If classifier.deliberate == true AND auto mode:
+       → Skip deliberation, log warning, continue
+     If classifier.atc_tier == "gate" AND NOT auto mode:
        → Flag for human review before proceeding
+     If classifier.atc_tier == "gate" AND auto mode:
+       → Log "GATE_AUTO_BYPASS", run FULL checks, continue
 
   4. SELECT CONTEXT (spawn Haiku context-selector)
-     Agent(subagent_type: "gsd-context-selector", model: "haiku", prompt: {
+     Agent(subagent_type: "gsd-context-selector", model: "haiku", mode: "auto", prompt: {
        goal: "{task goal}",
        files: "{task files}",
        type: "{create|modify|test}",
@@ -139,9 +142,12 @@ REPEAT:
      Agent(
        subagent_type: "{agent_type}",
        model: "{from classifier or routing table}",
+       mode: "auto",
        prompt: "{composed prompt}"
      )
      → Wait for structured report (<300 words)
+     CRITICAL: Always pass mode: "auto" — sub-agents must NEVER ask
+     the user for permission. They execute autonomously and report back.
 
   9. PROCESS RESULT
      Parse report sections:

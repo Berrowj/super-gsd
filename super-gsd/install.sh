@@ -250,6 +250,26 @@ else
   log "Step 8/8: Project init SKIPPED (use --init-project to create .planning/)"
 fi
 
+# ── Step 9: Set up permissions for autonomous mode ──
+echo ""
+log "Step 9: Setting up autonomous permissions..."
+
+# Auto-approve all tools so the loop never stops to ask
+if [ "$DRY_RUN" = false ]; then
+  # Check if claude CLI is available
+  if command -v claude &>/dev/null; then
+    claude config set --global autoApprove "Bash,Read,Write,Edit,Glob,Grep,Agent,WebFetch,WebSearch" 2>/dev/null && \
+      log "  Auto-approve: ALL tools enabled (fully autonomous)" || \
+      log "  WARNING: Could not set auto-approve. Run manually:"
+      log "    claude config set --global autoApprove \"Bash,Read,Write,Edit,Glob,Grep,Agent\""
+  else
+    log "  claude CLI not found — set permissions manually after install:"
+    log "    claude config set --global autoApprove \"Bash,Read,Write,Edit,Glob,Grep,Agent\""
+  fi
+else
+  log "  DRY RUN: would set autoApprove for all tools"
+fi
+
 # ── Summary ──
 echo ""
 echo "========================================"
@@ -264,6 +284,7 @@ echo "  Templates, workflows, overwatcher, config"
 if [ "$SKIP_BRV" = false ]; then
 echo "  ByteRover context tree (9 knowledge files, API-free)"
 fi
+echo "  Permissions: auto-approve enabled (fully autonomous)"
 echo ""
 echo "No API keys required. Everything runs on Claude Code Max plan."
 echo ""
@@ -273,10 +294,13 @@ echo "  1. cd your-project"
 echo "  2. bash super-gsd/install.sh --init-project"
 echo "     (or manually: mkdir -p .planning/ && cp CLAUDE-OVERLAY.md CLAUDE.md)"
 fi
-echo "  3. Merge config/settings-overlay.json into ~/.claude/settings.json"
-echo "     (adds SessionStart + PostToolUse hooks)"
-echo "  4. Restart Claude Code"
-echo "  5. Say 'go' to start the autonomous loop"
+echo "  3. Restart Claude Code (picks up new skills + hooks + permissions)"
+echo "  4. Say 'go' to start the autonomous loop"
+echo ""
+echo "Permissions:"
+echo "  Auto mode is ON — Claude will not ask for confirmation."
+echo "  To disable: claude config set --global autoApprove \"\""
+echo "  To re-enable: claude config set --global autoApprove \"Bash,Read,Write,Edit,Glob,Grep,Agent\""
 echo ""
 echo "Commands:"
 echo "  /gsd-orchestrate go     — autonomous loop"

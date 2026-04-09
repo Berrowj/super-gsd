@@ -3,6 +3,27 @@
 > Drop this into your project's CLAUDE.md (append or replace the GSD section).
 > Teaches Claude Code the autonomous loop, checkpoint survival, and token efficiency.
 
+## PERMISSIONS — CRITICAL FOR AUTONOMOUS MODE
+
+**NEVER ask the user for confirmation, approval, or permission during autonomous execution.**
+
+When the user says "go" or the orchestrator is looping:
+- Do NOT ask "Should I proceed?" — just proceed
+- Do NOT ask "Is this okay?" — it's okay, you're in auto mode
+- Do NOT present options and wait — pick the best option and execute
+- Do NOT pause between phases for approval — advance immediately
+- Do NOT ask before committing — commit after every unit, always
+- Do NOT ask before reading/writing files — just do it
+- Do NOT ask before running shell commands — just run them
+- Sub-agents: include `mode: "bypassPermissions"` or `mode: "auto"` when spawning
+
+The ONLY time to ask the user anything:
+1. A genuine blocker that requires human judgment (not a yes/no — a real decision)
+2. The user explicitly said "interactive" mode
+3. Authentication credentials are needed (API keys, passwords — but NOT for this framework)
+
+**If in doubt: DO IT, don't ask.** The user chose autonomous mode. Respect that choice.
+
 ## Super GSD — Autonomous Execution Engine
 
 This project uses **Super GSD** for token-efficient autonomous execution.
@@ -147,24 +168,26 @@ Max 300 words. No intro. No recap.
 
 ### Checkpoint Protocol
 
-When context >70% or user says pause:
+When context >70% OR user says pause/stop:
 
-Write `.planning/ORCHESTRATOR-CHECKPOINT.md`:
-```yaml
----
-created_at: {ISO}
-active_milestone: {version}
-active_phase: {N}
-last_completed: "plan {N-P}"
-next_unit: "plan {N-P}"
-phase_state: "{state}"
-units_this_session: {N}
----
-```
+**Step 1:** Write `.planning/ORCHESTRATOR-CHECKPOINT.md`
+  - Use `Write` tool (not Bash echo)
+  - Fill ALL frontmatter fields (see checkpoint.md template)
+  - Include "## Next Action" with the exact next dispatch description
 
-Then commit checkpoint and STOP.
+**Step 2:** Commit checkpoint
+  ```bash
+  git add .planning/ORCHESTRATOR-CHECKPOINT.md
+  git commit -m "chore(checkpoint): session end at phase {N}"
+  ```
 
-Next session: step 1 catches this → enters loop at `next_unit`.
+**Step 3:** STOP with text-only response
+  "Checkpoint written. Next session: /gsd-orchestrate go"
+
+**On next session start — Step 1 of EVERY session:**
+  Read `.planning/ORCHESTRATOR-CHECKPOINT.md`
+  If found: extract next_unit, delete checkpoint file, enter loop at next_unit
+  DO NOT ask the user for context. The checkpoint is the context.
 
 ### Commit Discipline
 

@@ -3,6 +3,27 @@
 > Drop this into your project's CLAUDE.md (append or replace the GSD section).
 > Teaches Claude Code the autonomous loop, checkpoint survival, and token efficiency.
 
+## PERMISSIONS — CRITICAL FOR AUTONOMOUS MODE
+
+**NEVER ask the user for confirmation, approval, or permission during autonomous execution.**
+
+When the user says "go" or the orchestrator is looping:
+- Do NOT ask "Should I proceed?" — just proceed
+- Do NOT ask "Is this okay?" — it's okay, you're in auto mode
+- Do NOT present options and wait — pick the best option and execute
+- Do NOT pause between phases for approval — advance immediately
+- Do NOT ask before committing — commit after every unit, always
+- Do NOT ask before reading/writing files — just do it
+- Do NOT ask before running shell commands — just run them
+- Sub-agents: include `mode: "bypassPermissions"` or `mode: "auto"` when spawning
+
+The ONLY time to ask the user anything:
+1. A genuine blocker that requires human judgment (not a yes/no — a real decision)
+2. The user explicitly said "interactive" mode
+3. Authentication credentials are needed (API keys, passwords — but NOT for this framework)
+
+**If in doubt: DO IT, don't ask.** The user chose autonomous mode. Respect that choice.
+
 ## Super GSD — Autonomous Execution Engine
 
 This project uses **Super GSD** for token-efficient autonomous execution.

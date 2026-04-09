@@ -1,0 +1,1991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Super GSD — Complete User Guide</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface-2: #1c2333;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --accent: #58a6ff;
+  --accent-dim: #1f3a5f;
+  --green: #3fb950;
+  --green-dim: #1a3a2a;
+  --orange: #d29922;
+  --orange-dim: #3d2e00;
+  --red: #f85149;
+  --red-dim: #3d1418;
+  --purple: #bc8cff;
+  --purple-dim: #2d1f4e;
+  --cyan: #39d2c0;
+  --cyan-dim: #0d2e2b;
+  --mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; font-size: 16px; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  line-height: 1.7;
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ── SIDEBAR ── */
+#sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: 260px;
+  min-width: 260px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 0 2rem 0;
+  flex-shrink: 0;
+  z-index: 100;
+}
+
+#sidebar-header {
+  padding: 1.25rem 1rem 1rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 10;
+}
+
+#sidebar-header .logo {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+#sidebar-toggle {
+  display: none;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+#toc {
+  padding: 0.75rem 0;
+  list-style: none;
+}
+
+#toc li a {
+  display: block;
+  padding: 0.35rem 1rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  border-left: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+#toc li a:hover {
+  color: var(--text);
+  background: var(--surface-2);
+  border-left-color: var(--accent);
+}
+
+#toc li a.active {
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-left-color: var(--accent);
+}
+
+#toc li.toc-section > a {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-top: 0.6rem;
+  padding-bottom: 0.2rem;
+  border-left: none;
+  pointer-events: none;
+}
+
+/* ── MAIN CONTENT ── */
+#main {
+  flex: 1;
+  min-width: 0;
+  padding: 0 2rem 4rem;
+  max-width: 900px;
+}
+
+/* ── HERO ── */
+#hero {
+  padding: 3.5rem 0 3rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 3rem;
+}
+
+.hero-badge {
+  display: inline-block;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  margin-bottom: 1rem;
+}
+
+#hero h1 {
+  font-size: 2.8rem;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  margin-bottom: 0.75rem;
+  background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-tagline {
+  font-size: 1.2rem;
+  color: var(--text-muted);
+  margin-bottom: 1.5rem;
+  max-width: 600px;
+}
+
+.hero-meta {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+}
+
+.hero-pill .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+/* ── SECTIONS ── */
+.section {
+  margin-bottom: 3.5rem;
+  padding-top: 1rem;
+}
+
+.section-number {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.4rem;
+}
+
+.section h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.25rem;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.6rem;
+}
+
+.section h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 1.75rem 0 0.75rem;
+}
+
+.section h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 1.25rem 0 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.section p {
+  margin-bottom: 1rem;
+  color: var(--text);
+}
+
+.section ul, .section ol {
+  margin: 0.75rem 0 1rem 1.5rem;
+  color: var(--text);
+}
+
+.section li {
+  margin-bottom: 0.35rem;
+}
+
+/* ── CALLOUTS ── */
+.callout {
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin: 1.25rem 0;
+  border-left: 3px solid;
+  font-size: 0.9rem;
+}
+
+.callout-title {
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.callout.tip {
+  background: var(--green-dim);
+  border-color: var(--green);
+  color: #b2f2bb;
+}
+.callout.tip .callout-title { color: var(--green); }
+
+.callout.warning {
+  background: var(--orange-dim);
+  border-color: var(--orange);
+  color: #ffe0a0;
+}
+.callout.warning .callout-title { color: var(--orange); }
+
+.callout.info {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: #a8c8ff;
+}
+.callout.info .callout-title { color: var(--accent); }
+
+.callout.danger {
+  background: var(--red-dim);
+  border-color: var(--red);
+  color: #ffb3b3;
+}
+.callout.danger .callout-title { color: var(--red); }
+
+.callout.purple {
+  background: var(--purple-dim);
+  border-color: var(--purple);
+  color: #ddc0ff;
+}
+.callout.purple .callout-title { color: var(--purple); }
+
+/* ── CODE BLOCKS ── */
+pre {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.1rem 1.25rem;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.825rem;
+  line-height: 1.6;
+  margin: 1rem 0;
+  position: relative;
+}
+
+pre .comment { color: var(--text-muted); font-style: italic; }
+pre .cmd { color: var(--cyan); }
+pre .flag { color: var(--purple); }
+pre .string { color: var(--green); }
+pre .keyword { color: var(--accent); }
+pre .path { color: var(--orange); }
+pre .yaml-key { color: var(--accent); }
+pre .yaml-val { color: var(--green); }
+
+code {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  color: var(--cyan);
+}
+
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: var(--text);
+}
+
+/* ── TABLES ── */
+.table-wrap {
+  overflow-x: auto;
+  margin: 1.25rem 0;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+thead {
+  background: var(--surface-2);
+}
+
+thead th {
+  padding: 0.65rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+
+tbody tr:last-child { border-bottom: none; }
+
+tbody tr:hover { background: var(--surface-2); }
+
+tbody td {
+  padding: 0.6rem 1rem;
+  vertical-align: top;
+  color: var(--text);
+}
+
+tbody td:first-child {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--cyan);
+  white-space: nowrap;
+}
+
+tbody td strong {
+  color: var(--text);
+}
+
+/* ── FEATURE CARDS ── */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.1rem 1.15rem;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.card:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.card-icon {
+  font-size: 1.4rem;
+  margin-bottom: 0.6rem;
+  display: block;
+}
+
+.card-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+  color: var(--text);
+}
+
+.card-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ── PIPELINE STEPS ── */
+.pipeline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 1.25rem 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.pipeline-step {
+  flex: 1;
+  min-width: 90px;
+  padding: 0.9rem 0.75rem;
+  text-align: center;
+  border-right: 1px solid var(--border);
+  position: relative;
+}
+
+.pipeline-step:last-child { border-right: none; }
+
+.pipeline-step-num {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.3rem;
+}
+
+.pipeline-step-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: var(--mono);
+}
+
+.pipeline-step-desc {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 0.3rem;
+  line-height: 1.35;
+}
+
+/* ── MODEL ROUTING CARDS ── */
+.model-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+
+.model-card {
+  border-radius: 10px;
+  padding: 1.1rem;
+  border: 1px solid;
+}
+
+.model-card.opus {
+  background: var(--purple-dim);
+  border-color: var(--purple);
+}
+
+.model-card.sonnet {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.model-card.haiku {
+  background: var(--green-dim);
+  border-color: var(--green);
+}
+
+.model-card-name {
+  font-weight: 800;
+  font-size: 1.1rem;
+  margin-bottom: 0.2rem;
+}
+
+.model-card.opus .model-card-name { color: var(--purple); }
+.model-card.sonnet .model-card-name { color: var(--accent); }
+.model-card.haiku .model-card-name { color: var(--green); }
+
+.model-card-role {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 0.6rem;
+}
+
+.model-card.opus .model-card-role { color: #ddc0ff; }
+.model-card.sonnet .model-card-role { color: #a8c8ff; }
+.model-card.haiku .model-card-role { color: #b2f2bb; }
+
+.model-card-desc {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.model-card-cost {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  font-family: var(--mono);
+}
+
+.model-card.opus .model-card-cost { color: var(--purple); }
+.model-card.sonnet .model-card-cost { color: var(--accent); }
+.model-card.haiku .model-card-cost { color: var(--green); }
+
+/* ── BOARD MEMBER CARDS ── */
+.board-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+
+.board-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+}
+
+.board-card-role {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.board-card-name {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--accent);
+  margin-bottom: 0.4rem;
+}
+
+.board-card-personality {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-bottom: 0.5rem;
+}
+
+.board-card-question {
+  font-size: 0.8rem;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+/* ── ATC TIERS ── */
+.atc-tiers {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+}
+
+.atc-tier {
+  border-radius: 8px;
+  padding: 0.9rem;
+  border: 1px solid;
+  text-align: center;
+}
+
+.atc-tier.skip { background: var(--surface-2); border-color: var(--border); }
+.atc-tier.lite { background: var(--green-dim); border-color: var(--green); }
+.atc-tier.full { background: var(--orange-dim); border-color: var(--orange); }
+.atc-tier.gate { background: var(--red-dim); border-color: var(--red); }
+
+.atc-tier-name {
+  font-weight: 800;
+  font-size: 1.1rem;
+  margin-bottom: 0.25rem;
+}
+
+.atc-tier.skip .atc-tier-name { color: var(--text-muted); }
+.atc-tier.lite .atc-tier-name { color: var(--green); }
+.atc-tier.full .atc-tier-name { color: var(--orange); }
+.atc-tier.gate .atc-tier-name { color: var(--red); }
+
+.atc-tier-when {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.atc-tier-cost {
+  font-size: 0.75rem;
+  font-family: var(--mono);
+  font-weight: 600;
+}
+
+.atc-tier.skip .atc-tier-cost { color: var(--text-muted); }
+.atc-tier.lite .atc-tier-cost { color: var(--green); }
+.atc-tier.full .atc-tier-cost { color: var(--orange); }
+.atc-tier.gate .atc-tier-cost { color: var(--red); }
+
+/* ── PERMISSIONS SECTION ── */
+.permissions-block {
+  background: var(--surface);
+  border: 1px solid var(--orange);
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.permissions-block h3 {
+  color: var(--orange);
+  margin-top: 0;
+}
+
+.toggle-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.toggle-item {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+}
+
+.toggle-item-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 0.4rem;
+}
+
+.toggle-item.enable .toggle-item-label { color: var(--green); }
+.toggle-item.disable .toggle-item-label { color: var(--red); }
+
+.toggle-item pre {
+  margin: 0;
+  background: var(--bg);
+  border-color: var(--border);
+  font-size: 0.8rem;
+  padding: 0.65rem 0.9rem;
+}
+
+/* ── CHEAT SHEET ── */
+#cheat-sheet {
+  background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 100%);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2rem;
+  margin-top: 3rem;
+  position: relative;
+  overflow: hidden;
+}
+
+#cheat-sheet::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--purple), var(--cyan));
+}
+
+#cheat-sheet h2 {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--text);
+  border: none;
+  padding-bottom: 0;
+  margin-bottom: 1.5rem;
+}
+
+.cheat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.cheat-group {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.cheat-group-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.cheat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--surface-2);
+}
+
+.cheat-row:last-child { border-bottom: none; }
+
+.cheat-cmd {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--cyan);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cheat-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: right;
+  line-height: 1.35;
+}
+
+/* ── GLOSSARY ── */
+.glossary-table tbody td:first-child {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* ── FOLDER TREE ── */
+.tree {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.8;
+  color: var(--text);
+}
+
+.tree .dir { color: var(--accent); font-weight: 600; }
+.tree .comment { color: var(--text-muted); }
+
+/* ── DIVIDER ── */
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2.5rem 0;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  body { flex-direction: column; }
+
+  #sidebar {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    max-height: 60px;
+    overflow: hidden;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    transition: max-height 0.3s ease;
+  }
+
+  #sidebar.open { max-height: 80vh; }
+
+  #sidebar-toggle { display: block; }
+
+  #main { padding: 0 1rem 3rem; }
+
+  #hero h1 { font-size: 2rem; }
+
+  .model-cards { grid-template-columns: 1fr; }
+  .board-cards { grid-template-columns: 1fr; }
+  .atc-tiers { grid-template-columns: repeat(2, 1fr); }
+  .pipeline { flex-direction: column; }
+  .pipeline-step { border-right: none; border-bottom: 1px solid var(--border); }
+  .pipeline-step:last-child { border-bottom: none; }
+
+  .table-wrap { font-size: 0.8rem; }
+
+  #cheat-sheet { padding: 1.25rem; }
+  .cheat-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .atc-tiers { grid-template-columns: 1fr 1fr; }
+  .cards { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ── -->
+<nav id="sidebar">
+  <div id="sidebar-header">
+    <span class="logo">Super GSD</span>
+    <button id="sidebar-toggle" onclick="toggleSidebar()">Menu</button>
+  </div>
+  <ul id="toc">
+    <li class="toc-section"><a>Overview</a></li>
+    <li><a href="#hero">Introduction</a></li>
+    <li><a href="#s1">1. What Is Super GSD?</a></li>
+    <li><a href="#s2">2. Prerequisites</a></li>
+    <li class="toc-section"><a>Setup</a></li>
+    <li><a href="#s3">3. Download</a></li>
+    <li><a href="#s4">4. Install</a></li>
+    <li><a href="#permissions">Permissions</a></li>
+    <li><a href="#s5">5. Your First Project</a></li>
+    <li class="toc-section"><a>Usage</a></li>
+    <li><a href="#s6">6. Commands</a></li>
+    <li><a href="#s7">7. Autonomous Loop</a></li>
+    <li><a href="#s8">8. Memory (ByteRover)</a></li>
+    <li><a href="#s9">9. Strategic Decisions</a></li>
+    <li class="toc-section"><a>Advanced</a></li>
+    <li><a href="#s10">10. Quality Gates (ATC)</a></li>
+    <li><a href="#s11">11. Signal Map</a></li>
+    <li><a href="#s12">12. Token Tracking</a></li>
+    <li><a href="#s13">13. Pause &amp; Resume</a></li>
+    <li><a href="#s14">14. Migrate from GSD 2.0</a></li>
+    <li class="toc-section"><a>Reference</a></li>
+    <li><a href="#s15">15. Troubleshooting</a></li>
+    <li><a href="#s16">16. Glossary</a></li>
+    <li><a href="#cheat-sheet">Quick Start Cheat Sheet</a></li>
+  </ul>
+</nav>
+
+<!-- ── MAIN ── -->
+<main id="main">
+
+  <!-- HERO -->
+  <section id="hero">
+    <div class="hero-badge">Complete User Guide</div>
+    <h1>Super GSD</h1>
+    <p class="hero-tagline">Tell it what to build. Walk away. Come back when it's done.</p>
+    <div class="hero-meta">
+      <span class="hero-pill"><span class="dot"></span> v1.0</span>
+      <span class="hero-pill">Built on Claude Code</span>
+      <span class="hero-pill">No API keys required</span>
+      <span class="hero-pill">16 sections</span>
+    </div>
+  </section>
+
+  <!-- S1 -->
+  <section class="section" id="s1">
+    <div class="section-number">Section 01</div>
+    <h2>What Is Super GSD?</h2>
+
+    <p>Imagine you could tell your computer "build me a web app" and then walk away. When you come back, it's done — code written, tests passing, git commits clean, quality checked.</p>
+    <p>That's what Super GSD does. It's a <strong>framework</strong> that sits on top of <a href="https://claude.ai/code" style="color:var(--accent)">Claude Code</a> (Anthropic's AI coding tool). It turns Claude from a "helpful assistant that waits for your next instruction" into a <strong>fully autonomous software engineer</strong>.</p>
+
+    <div class="cards">
+      <div class="card">
+        <span class="card-icon">🧠</span>
+        <div class="card-title">Plans Its Own Work</div>
+        <div class="card-desc">Breaks big goals into phases, phases into tasks — without you having to spell it out.</div>
+      </div>
+      <div class="card">
+        <span class="card-icon">⚙️</span>
+        <div class="card-title">Executes Tasks</div>
+        <div class="card-desc">Writes actual code, runs tests, fixes bugs. Not just suggestions — real output.</div>
+      </div>
+      <div class="card">
+        <span class="card-icon">💾</span>
+        <div class="card-title">Manages Memory</div>
+        <div class="card-desc">Remembers what worked, what didn't, and what patterns to follow across sessions.</div>
+      </div>
+      <div class="card">
+        <span class="card-icon">🛡️</span>
+        <div class="card-title">Self-Quality-Checks</div>
+        <div class="card-desc">Reviews code before committing, catches problems early, enforces standards.</div>
+      </div>
+      <div class="card">
+        <span class="card-icon">🔄</span>
+        <div class="card-title">Survives Crashes</div>
+        <div class="card-desc">If it runs out of memory it saves its place and picks up exactly where it left off.</div>
+      </div>
+      <div class="card">
+        <span class="card-icon">🎯</span>
+        <div class="card-title">Right Brain, Right Job</div>
+        <div class="card-desc">Opus for strategy, Sonnet for coding, Haiku for quick classifications. Efficient by design.</div>
+      </div>
+    </div>
+
+    <h3>How is this different from regular Claude Code?</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Regular Claude Code</th><th>Super GSD</th></tr></thead>
+        <tbody>
+          <tr><td>You tell it what to do, one thing at a time</td><td>You say "go" and it does everything</td></tr>
+          <tr><td>Forgets everything when you start a new chat</td><td>Remembers decisions, patterns, and scripts across sessions</td></tr>
+          <tr><td>Uses one model for everything</td><td>Routes Opus/Sonnet/Haiku based on task complexity</td></tr>
+          <tr><td>No quality checks</td><td>Automatic quality gates before every commit</td></tr>
+          <tr><td>If it crashes, you start over</td><td>Checkpoint system — picks up exactly where it stopped</td></tr>
+          <tr><td>Loads entire files into memory (wasteful)</td><td>Queries only the relevant bits (80% less token usage)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>How is this different from GSD 1.0?</h3>
+    <p>Super GSD is built <em>on top of</em> GSD 1.0. Think of GSD 1.0 as the foundation (68 skills, 24 agents) and Super GSD as the upgrade that adds:</p>
+    <ul>
+      <li>Autonomous orchestrator loop</li>
+      <li>Multi-model routing (Opus / Sonnet / Haiku)</li>
+      <li>ByteRover memory with local search</li>
+      <li>CEO/Board deliberation for big decisions</li>
+      <li>ATC quality gates</li>
+      <li>Overwatcher signal map visualization</li>
+      <li>Token tracking and cost optimization</li>
+      <li>Checkpoint crash recovery</li>
+    </ul>
+    <p>You keep everything GSD 1.0 has. Super GSD just adds more.</p>
+  </section>
+
+  <hr class="divider">
+
+  <!-- S2 -->
+  <section class="section" id="s2">
+    <div class="section-number">Section 02</div>
+    <h2>What Do I Need Before I Start?</h2>
+
+    <h3>The Must-Haves</h3>
+
+    <div class="cards">
+      <div class="card">
+        <span class="card-icon">🤖</span>
+        <div class="card-title">Claude Code</div>
+        <div class="card-desc">Anthropic's coding CLI. Requires the <strong>Max plan</strong> ($100–$200/mo). No API keys — no surprise bills. <a href="https://claude.ai/code" style="color:var(--accent)">claude.ai/code</a></div>
+      </div>
+      <div class="card">
+        <span class="card-icon">📦</span>
+        <div class="card-title">Node.js v20+</div>
+        <div class="card-desc">Check: <code>node --version</code>. Needs to say v20 or higher. Download the LTS version from nodejs.org.</div>
+      </div>
+      <div class="card">
+        <span class="card-icon">🌿</span>
+        <div class="card-title">Git</div>
+        <div class="card-desc">Check: <code>git --version</code>. If missing, grab it at <a href="https://git-scm.com" style="color:var(--accent)">git-scm.com</a>.</div>
+      </div>
+      <div class="card">
+        <span class="card-icon">💻</span>
+        <div class="card-title">A Terminal</div>
+        <div class="card-desc">Windows: Terminal + WSL2. Mac: Terminal.app or iTerm2. Linux: any terminal.</div>
+      </div>
+    </div>
+
+    <h3>The Nice-to-Haves</h3>
+    <ul>
+      <li><strong>Two terminal windows</strong> — One for Claude Code (where you work), one for the Mission Control dashboard (read-only monitoring).</li>
+      <li><strong>A code editor</strong> — VS Code, Cursor, etc. for browsing the code Super GSD writes.</li>
+    </ul>
+
+    <h3>Windows Users — Important!</h3>
+    <p>Super GSD works on Windows, but through <strong>WSL2</strong> (Windows Subsystem for Linux). Claude Code runs in a Linux-like environment even on Windows.</p>
+
+    <div class="callout warning">
+      <div class="callout-title">Windows Setup Required</div>
+      If you don't have WSL2 yet: open PowerShell as Administrator, run <code>wsl --install</code>, restart your computer, then open Windows Terminal and select "Ubuntu". Now you're in Linux land — everything below works the same.
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- S3 -->
+  <section class="section" id="s3">
+    <div class="section-number">Section 03</div>
+    <h2>Download</h2>
+
+    <h3>Option A: Clone from GitHub</h3>
+    <pre><span class="cmd">git clone</span> https://github.com/YOUR-REPO/super-gsd.git
+<span class="cmd">cd</span> super-gsd</pre>
+
+    <h3>Option B: Copy the Files</h3>
+    <pre><span class="comment"># If you have the folder already</span>
+<span class="cmd">cp</span> -r /path/to/super-gsd ./super-gsd</pre>
+
+    <h3>What's in the Folder?</h3>
+    <div class="tree">
+<span class="dir">super-gsd/</span>
+├── <span class="dir">agents/</span>          <span class="comment">← 7 AI agent definitions (the "workers")</span>
+├── <span class="dir">skills/</span>          <span class="comment">← 8 slash commands you can type</span>
+├── <span class="dir">hooks/</span>           <span class="comment">← 5 background scripts that run automatically</span>
+├── <span class="dir">templates/</span>       <span class="comment">← 11 reusable document formats</span>
+├── <span class="dir">workflows/</span>       <span class="comment">← 4 engine specification documents</span>
+├── <span class="dir">config/</span>          <span class="comment">← 3 configuration files</span>
+├── <span class="dir">brv-seed/</span>        <span class="comment">← 9 knowledge files for the memory system</span>
+├── <span class="dir">overwatcher/</span>     <span class="comment">← Signal map visualization tools</span>
+├── install.sh       <span class="comment">← The one-command installer</span>
+├── CLAUDE-OVERLAY.md <span class="comment">← The "brain" — teaches Claude the loop</span>
+├── README.md        <span class="comment">← Technical reference</span>
+└── USER-GUIDE.md    <span class="comment">← This file!</span>
+    </div>
+
+    <div class="callout tip">
+      <div class="callout-title">Don't Worry</div>
+      You don't need to understand all of this yet. The installer handles everything.
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- S4 -->
+  <section class="section" id="s4">
+    <div class="section-number">Section 04</div>
+    <h2>Install — Step by Step</h2>
+
+    <h3>The One-Command Way</h3>
+    <p>Open your terminal. Navigate to your project directory. Then run:</p>
+    <pre><span class="cmd">bash</span> super-gsd/install.sh <span class="flag">--init-project</span></pre>
+
+    <p>That's it. The installer will:</p>
+    <ol>
+      <li>Check that Node.js is installed (and tell you if it's not)</li>
+      <li>Install GSD 1.0 if you don't have it already</li>
+      <li>Copy 7 agent definitions to <code>~/.claude/agents/</code></li>
+      <li>Copy 8 skill commands to <code>~/.claude/commands/</code></li>
+      <li>Copy 5 hooks to <code>~/.claude/hooks/</code></li>
+      <li>Copy templates, workflows, and config files</li>
+      <li>Install ByteRover (the memory system)</li>
+      <li>Seed 9 knowledge files into the memory system</li>
+      <li>Create <code>.planning/</code> directory in your project</li>
+      <li>Create <code>CLAUDE.md</code> file that teaches Claude the orchestrator loop</li>
+    </ol>
+
+    <h3>What If Something Goes Wrong?</h3>
+
+    <div class="callout warning">
+      <div class="callout-title">"GSD 1.0 not found"</div>
+      The installer will try to install it for you. If that fails, run this first:<br>
+      <code>npx get-shit-done-cc@latest</code><br>
+      Then run the installer again.
+    </div>
+
+    <div class="callout warning">
+      <div class="callout-title">"Node.js not found"</div>
+      Install Node.js v20+ from <a href="https://nodejs.org" style="color:var(--accent)">nodejs.org</a> (pick the LTS version).
+    </div>
+
+    <div class="callout warning">
+      <div class="callout-title">"Permission denied"</div>
+      Make the installer executable first:<br>
+      <code>chmod +x super-gsd/install.sh</code>
+    </div>
+
+    <h3>The Manual Way</h3>
+    <p>If the installer doesn't work, here's every command:</p>
+
+    <pre><span class="comment"># 1. Install GSD 1.0 (skip if you already have it)</span>
+<span class="cmd">npx</span> get-shit-done-cc@latest
+
+<span class="comment"># 2. Copy agents</span>
+<span class="cmd">cp</span> super-gsd/agents/*.md ~/.claude/agents/
+
+<span class="comment"># 3. Copy skills</span>
+<span class="keyword">for</span> d in super-gsd/skills/gsd-*/; do
+  name=$(<span class="cmd">basename</span> <span class="string">"$d"</span>)
+  <span class="cmd">mkdir</span> -p ~/.claude/commands/$name
+  <span class="cmd">cp</span> <span class="string">"$d/SKILL.md"</span> ~/.claude/commands/$name/
+done
+
+<span class="comment"># 4. Copy hooks + query engine</span>
+<span class="cmd">cp</span> super-gsd/hooks/*.js ~/.claude/hooks/
+<span class="cmd">cp</span> super-gsd/overwatcher/brv-query-local.js ~/.claude/hooks/
+
+<span class="comment"># 5. Copy templates and workflows</span>
+<span class="cmd">mkdir</span> -p ~/.claude/get-shit-done/templates/super-gsd/overwatcher
+<span class="cmd">mkdir</span> -p ~/.claude/get-shit-done/workflows
+<span class="cmd">mkdir</span> -p ~/.claude/get-shit-done/config
+<span class="cmd">cp</span> super-gsd/templates/* ~/.claude/get-shit-done/templates/super-gsd/
+<span class="cmd">cp</span> super-gsd/workflows/* ~/.claude/get-shit-done/workflows/
+<span class="cmd">cp</span> super-gsd/config/model-routing.json ~/.claude/get-shit-done/config/
+<span class="cmd">cp</span> super-gsd/overwatcher/*.js ~/.claude/get-shit-done/templates/super-gsd/overwatcher/
+
+<span class="comment"># 6. Set up ByteRover memory (no API key needed!)</span>
+<span class="cmd">npm</span> install -g byterover-cli
+<span class="cmd">brv</span> vc init
+<span class="cmd">brv</span> connectors install <span class="string">"Claude Code"</span> --type mcp
+<span class="cmd">rm</span> -rf .brv/context-tree/.git
+
+<span class="comment"># 7. Seed the memory with knowledge</span>
+<span class="cmd">mkdir</span> -p .brv/context-tree/{patterns,anti-patterns,expertise,decisions,error-rules,scripts,domain}
+<span class="keyword">for</span> f in super-gsd/brv-seed/domains/*.md; do
+  name=$(<span class="cmd">basename</span> <span class="string">"$f"</span> .md)
+  <span class="comment"># files copied to the right subfolder by type</span>
+done
+
+<span class="comment"># 8. Initialize your project</span>
+<span class="cmd">mkdir</span> -p .planning/{phases,metrics,briefs,decisions,deliberations,overwatcher}
+<span class="cmd">cp</span> super-gsd/config/planning-config-overlay.json .planning/config.json
+<span class="cmd">touch</span> .planning/metrics/token-log.jsonl
+<span class="cmd">cp</span> super-gsd/CLAUDE-OVERLAY.md CLAUDE.md
+
+<span class="comment"># 9. Restart Claude Code</span></pre>
+
+    <h3>After Installing — Merge Hook Registrations</h3>
+    <p>You need to add the Super GSD hooks to <code>~/.claude/settings.json</code>. The easiest way: open Claude Code and say:</p>
+
+    <div class="callout info">
+      <div class="callout-title">Tell Claude</div>
+      Merge the hook registrations from super-gsd/config/settings-overlay.json into my ~/.claude/settings.json. Don't remove any existing hooks — just add the new ones.
+    </div>
+
+    <p>Then <strong>restart Claude Code</strong> (close and reopen). New skills and hooks only load on startup.</p>
+
+    <h3>Verify Everything Works</h3>
+    <p>After restarting, run these checks:</p>
+    <pre><span class="comment"># Check project state</span>
+/gsd-orchestrate status
+
+<span class="comment"># Check token tracking (empty is fine for new projects)</span>
+/gsd-token-audit --quick
+
+<span class="comment"># Test the memory system</span>
+<span class="cmd">node</span> ~/.claude/hooks/brv-query-local.js <span class="string">"orchestrator dispatch loop"</span></pre>
+
+    <p>If all three work, you're good to go!</p>
+  </section>
+
+  <hr class="divider">
+
+  <!-- PERMISSIONS -->
+  <section class="section" id="permissions">
+    <div class="section-number">Permissions</div>
+    <h2>Auto Mode &amp; Permissions</h2>
+
+    <div class="permissions-block">
+      <h3>Auto Mode = No Permission Prompts</h3>
+      <p style="color:var(--text-muted);margin-top:0.5rem;font-size:0.9rem;">By default, Claude Code asks for your approval before running tools. In autonomous mode, that would interrupt the loop constantly — defeating the purpose. Auto mode silences all prompts so Super GSD can run unattended.</p>
+
+      <div class="callout warning" style="margin-top:1rem">
+        <div class="callout-title">What This Means</div>
+        When autoApprove is set, Claude Code will read files, write files, run Bash commands, and spawn sub-agents without asking you first. Only enable this in project directories you own and trust.
+      </div>
+
+      <div class="toggle-group">
+        <div class="toggle-item enable">
+          <div class="toggle-item-label">Enable Auto Mode (fully autonomous)</div>
+          <pre><span class="cmd">claude config set</span> --global autoApprove <span class="string">"Bash,Read,Write,Edit,Glob,Grep,Agent"</span></pre>
+        </div>
+        <div class="toggle-item disable">
+          <div class="toggle-item-label">Disable Auto Mode (back to prompts)</div>
+          <pre><span class="cmd">claude config set</span> --global autoApprove <span class="string">""</span></pre>
+        </div>
+      </div>
+
+      <p style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted)">The install script sets autoApprove automatically as part of <code>--init-project</code>. You don't need to run this manually unless you want to toggle it later.</p>
+    </div>
+
+    <h3>Sub-Agents and Auto Mode</h3>
+    <p>All worker agents spawned by the orchestrator run with <code>mode: "auto"</code> in their agent definitions. This means they inherit the same no-prompts behavior. You don't configure this separately — it's baked into the agent files copied during install.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Setting</th><th>Effect</th><th>When to Use</th></tr></thead>
+        <tbody>
+          <tr><td><code>autoApprove: "Bash,Read,Write,Edit,Glob,Grep,Agent"</code></td><td>All tools approved silently</td><td>Running Super GSD autonomously</td></tr>
+          <tr><td><code>autoApprove: ""</code></td><td>Every tool use asks for permission</td><td>Interactive sessions, unfamiliar codebases</td></tr>
+          <tr><td>Sub-agent <code>mode: "auto"</code></td><td>Agent runs without user confirmation</td><td>Set in agent definition files — don't change</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- S5 -->
+  <section class="section" id="s5">
+    <div class="section-number">Section 05</div>
+    <h2>Your First Project</h2>
+
+    <h3>Starting From Scratch</h3>
+    <p>Open Claude Code in your project directory and type:</p>
+    <pre>/gsd-new-project</pre>
+    <p>Claude will ask you questions about what you're building. Answer them. It will create:</p>
+    <ul>
+      <li><code>PROJECT.md</code> — What you're building and why</li>
+      <li><code>REQUIREMENTS.md</code> — What the software needs to do</li>
+      <li><code>ROADMAP.md</code> — The phases (steps) to build it</li>
+      <li><code>STATE.md</code> — Where you are right now</li>
+    </ul>
+
+    <h3>Starting From an Existing GSD 1.0 Project</h3>
+    <p>If you already have a <code>.planning/</code> directory from GSD 1.0, Super GSD works with it automatically. Just install Super GSD and it layers on top.</p>
+
+    <h3>The Magic Command</h3>
+    <p>Once your project is set up (PROJECT.md, REQUIREMENTS.md, ROADMAP.md exist), type:</p>
+    <pre>go</pre>
+    <p>Or:</p>
+    <pre>/gsd-orchestrate go</pre>
+
+    <div class="callout tip">
+      <div class="callout-title">That's It</div>
+      Claude enters the autonomous loop and starts building your software. You can walk away. Come back later. Check progress with <code>/gsd-orchestrate status</code>.
+    </div>
+
+    <p>What happens when you say "go":</p>
+    <ol>
+      <li>Reads where it is in the project</li>
+      <li>Figures out what to do next</li>
+      <li>Does it (research, plan, code, test, verify)</li>
+      <li>Commits the work</li>
+      <li>Moves to the next thing</li>
+      <li>Repeats until everything is done</li>
+    </ol>
+  </section>
+
+  <hr class="divider">
+
+  <!-- S6 -->
+  <section class="section" id="s6">
+    <div class="section-number">Section 06</div>
+    <h2>The Commands — What Can I Say?</h2>
+
+    <h3>Everyday Commands</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>What You Type</th><th>What Happens</th></tr></thead>
+        <tbody>
+          <tr><td>go / /gsd-orchestrate go</td><td>Start the autonomous loop — builds everything</td></tr>
+          <tr><td>/gsd-orchestrate next</td><td>Do ONE thing, then stop and tell me what happened</td></tr>
+          <tr><td>/gsd-orchestrate status</td><td>Where am I? What's done? What's next?</td></tr>
+          <tr><td>stop / /gsd-pause</td><td>Save progress and stop the loop</td></tr>
+          <tr><td>continue / /gsd-resume</td><td>Pick up where I left off</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Project Setup</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Command</th><th>When to Use</th></tr></thead>
+        <tbody>
+          <tr><td>/gsd-new-project</td><td>Starting a brand new project</td></tr>
+          <tr><td>/gsd-new-milestone</td><td>Starting a new version/milestone in an existing project</td></tr>
+          <tr><td>/gsd-discuss-phase N</td><td>Talk through how Phase N should work before planning it</td></tr>
+          <tr><td>/gsd-plan-phase N</td><td>Create detailed task plans for Phase N</td></tr>
+          <tr><td>/gsd-execute-phase N</td><td>Execute all plans in Phase N</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Analysis and Monitoring</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Command</th><th>When to Use</th></tr></thead>
+        <tbody>
+          <tr><td>/gsd-token-audit --quick</td><td>How many tokens am I using?</td></tr>
+          <tr><td>/gsd-token-audit --full</td><td>Deep analysis of token usage across all sessions</td></tr>
+          <tr><td>/gsd-token-audit --context-map</td><td>Which files cost the most tokens?</td></tr>
+          <tr><td>/gsd-overwatcher scan</td><td>Generate the signal map (project visualization)</td></tr>
+          <tr><td>/gsd-overwatcher start</td><td>Signal map + live server in browser</td></tr>
+          <tr><td>/gsd-progress</td><td>Summary of what's done and what's ahead</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Big Decisions</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Command</th><th>When to Use</th></tr></thead>
+        <tbody>
+          <tr><td>/gsd-deliberate new</td><td>Need help making a hard decision? Run a CEO/Board debate</td></tr>
+          <tr><td>/gsd-deliberate path/to/brief.md</td><td>Run debate on a prepared brief</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Quality and Review</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Command</th><th>When to Use</th></tr></thead>
+        <tbody>
+          <tr><td>/gsd-verify-work N</td><td>Check if Phase N actually achieved its goal</td></tr>
+          <tr><td>/gsd-code-review</td><td>Review code for bugs, security issues</td></tr>
+          <tr><td>/gsd-health</td><td>Is my .planning/ directory healthy?</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Migration</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Command</th><th>When to Use</th></tr></thead>
+        <tbody>
+          <tr><td>/gsd-transition .gsd/</td><td>Migrate from Pi/GSD 2.0 to Super GSD</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout info">
+      <div class="callout-title">All GSD 1.0 Commands Still Work</div>
+      All 68 original GSD 1.0 commands still work. <code>/gsd-help</code> shows the full list.
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- S7 -->
+  <section class="section" id="s7">
+    <div class="section-number">Section 07</div>
+    <h2>How The Autonomous Loop Works</h2>
+
+    <p>This is the heart of Super GSD. Understanding it helps you trust it — and debug it when things go weird.</p>
+
+    <h3>The Pipeline</h3>
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">01</div>
+        <div class="pipeline-step-name">READ</div>
+        <div class="pipeline-step-desc">Where am I? (reads STATE.md header only)</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">02</div>
+        <div class="pipeline-step-name">CLASSIFY</div>
+        <div class="pipeline-step-desc">What kind of work? (Haiku — tiny, fast, cheap)</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">03</div>
+        <div class="pipeline-step-name">QUERY</div>
+        <div class="pipeline-step-desc">What do I already know? (searches memory)</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">04</div>
+        <div class="pipeline-step-name">COMPOSE</div>
+        <div class="pipeline-step-desc">Build specific instruction prompt for worker</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">05</div>
+        <div class="pipeline-step-name">DISPATCH</div>
+        <div class="pipeline-step-desc">Spawn a Sonnet agent with the prompt</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">06</div>
+        <div class="pipeline-step-name">PROCESS</div>
+        <div class="pipeline-step-desc">Read structured report from worker</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">07</div>
+        <div class="pipeline-step-name">CURATE</div>
+        <div class="pipeline-step-desc">Save new patterns to memory</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">08</div>
+        <div class="pipeline-step-name">COMMIT</div>
+        <div class="pipeline-step-desc">git commit — one per task, always</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">09</div>
+        <div class="pipeline-step-name">LOOP</div>
+        <div class="pipeline-step-desc">Read STATE.md again → continue</div>
+      </div>
+    </div>
+
+    <h3>Why Does It Keep Going?</h3>
+    <p>Claude Code gives you another turn as long as every response includes a <strong>tool call</strong> (reading a file, running a command, etc.). The moment Claude sends only text with no tool call, the loop stops.</p>
+    <p>So the orchestrator makes sure every response includes at least one tool call. "Phase done!" is always paired with <code>[Read STATE.md]</code> — the read is the tool call that keeps the loop alive.</p>
+
+    <h3>When Does It Stop?</h3>
+    <div class="callout purple">
+      <div class="callout-title">Only 4 Exit Conditions</div>
+      <ol style="margin-left:1.25rem;margin-top:0.5rem">
+        <li><strong>All phases are done</strong> — Mission accomplished!</li>
+        <li><strong>Memory is 70% full</strong> — Saves checkpoint, stops. Say "go" to resume.</li>
+        <li><strong>It's stuck</strong> — Needs a human decision. Claude explains and waits.</li>
+        <li><strong>You say "stop"</strong> — Saves progress and stops.</li>
+      </ol>
+      <p style="margin-top:0.5rem">Nothing else stops it. Not phase or milestone boundaries. Not time. Only these 4.</p>
+    </div>
+
+    <h3>The Three Brains</h3>
+    <div class="model-cards">
+      <div class="model-card opus">
+        <div class="model-card-name">Opus</div>
+        <div class="model-card-role">Big Brain — Orchestrator</div>
+        <div class="model-card-desc">Makes decisions about <em>what</em> to do. Strategy, synthesis, judgment. Reads state, dispatches workers, synthesizes results.</div>
+        <div class="model-card-cost">$$$$ per token</div>
+      </div>
+      <div class="model-card sonnet">
+        <div class="model-card-name">Sonnet</div>
+        <div class="model-card-role">Medium Brain — Workers</div>
+        <div class="model-card-desc">Actually writes code, creates plans, reviews work. The main workhorse for all execution tasks.</div>
+        <div class="model-card-cost">$$ per token</div>
+      </div>
+      <div class="model-card haiku">
+        <div class="model-card-name">Haiku</div>
+        <div class="model-card-role">Small Brain — Classifier</div>
+        <div class="model-card-desc">Quick checks: "Is this simple or complex?" "Which files are relevant?" 20x cheaper than Opus for work that doesn't need Opus-level thinking.</div>
+        <div class="model-card-cost">$ per token</div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- S8 -->
+  <section class="section" id="s8">
+    <div class="section-number">Section 08</div>
+    <h2>The Memory System (ByteRover)</h2>
+
+    <h3>The Problem It Solves</h3>
+    <p>Regular Claude Code loads ALL memory files into every conversation. If you have 30 knowledge files, that's ~30,000 tokens eaten before Claude even reads your question.</p>
+    <p>Super GSD is smarter. It <strong>queries</strong> for relevant knowledge — like Google search instead of reading every book in the library.</p>
+
+    <h3>The Context Tree</h3>
+    <div class="tree">
+<span class="dir">.brv/context-tree/</span>
+├── <span class="dir">patterns/</span>           <span class="comment">← "How to do X correctly"</span>
+├── <span class="dir">anti-patterns/</span>      <span class="comment">← "What NOT to do"</span>
+├── <span class="dir">decisions/</span>          <span class="comment">← "Why we chose X over Y"</span>
+├── <span class="dir">error-rules/</span>        <span class="comment">← "Always check for this mistake"</span>
+├── <span class="dir">scripts/</span>            <span class="comment">← "We already built a utility for this"</span>
+├── <span class="dir">expertise/</span>          <span class="comment">← "Domain knowledge for board members"</span>
+└── <span class="dir">domain/</span>             <span class="comment">← "Business-specific knowledge"</span>
+    </div>
+
+    <h3>File Frontmatter</h3>
+    <p>Each knowledge file has a metadata header that controls how it gets matched:</p>
+    <pre><span class="yaml-key">---</span>
+<span class="yaml-key">title:</span> <span class="yaml-val">Git Commit Discipline</span>
+<span class="yaml-key">tags:</span> <span class="yaml-val">[git, commit, atomic]</span>
+<span class="yaml-key">keywords:</span> <span class="yaml-val">[commit, git, atomic, never batch]</span>
+<span class="yaml-key">importance:</span> <span class="yaml-val">90</span>        <span class="comment"># 0-100, higher = more relevant</span>
+<span class="yaml-key">maturity:</span> <span class="yaml-val">core</span>        <span class="comment"># draft → validated → core</span>
+<span class="yaml-key">---</span></pre>
+
+    <h3>Querying (Finding Knowledge)</h3>
+    <p>Before dispatching a worker agent, the orchestrator searches memory:</p>
+    <pre><span class="cmd">node</span> ~/.claude/hooks/brv-query-local.js <span class="string">"auth middleware JWT patterns"</span></pre>
+    <p>Returns the top matches with relevance scores. Only relevant results (~200–600 tokens) get injected into the worker's prompt — not all 30 files.</p>
+
+    <h3>Curating (Adding Knowledge)</h3>
+    <p>When a worker discovers something useful (a new pattern, a script it created, a bug it found), the orchestrator saves it to the memory system. Next time a similar task comes up, that knowledge is available.</p>
+    <p>You can also add knowledge manually — write a <code>.md</code> file with frontmatter and drop it in the right folder.</p>
+
+    <div class="callout tip">
+      <div class="callout-title">No API Key Required</div>
+      ByteRover normally needs an API key to process curations. We built a <strong>local query engine</strong> that works without any API. It searches files directly using BM25 text matching. Fast (~0ms), free, offline.
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- S9 -->
+  <section class="section" id="s9">
+    <div class="section-number">Section 09</div>
+    <h2>Strategic Decisions (CEO/Board)</h2>
+
+    <h3>When To Use This</h3>
+    <p>You're building something and hit a fork in the road. "Should we use SQL or NoSQL?" "Should we build auth ourselves or use a third-party?" These decisions affect multiple phases and deserve real deliberation.</p>
+
+    <h3>How It Works</h3>
+    <pre>/gsd-deliberate new</pre>
+    <p>Claude asks what decision you need to make. It creates a structured brief, then spawns 4 board members with different perspectives:</p>
+
+    <div class="board-cards">
+      <div class="board-card">
+        <div class="board-card-role">Board Member 1</div>
+        <div class="board-card-name">Architect</div>
+        <div class="board-card-personality">Technical, methodical</div>
+        <div class="board-card-question">"Can we actually build this? What breaks at scale?"</div>
+      </div>
+      <div class="board-card">
+        <div class="board-card-role">Board Member 2</div>
+        <div class="board-card-name">Pragmatist</div>
+        <div class="board-card-personality">Skeptical of ambition</div>
+        <div class="board-card-question">"What's the simplest version that ships? What's the 80% solution?"</div>
+      </div>
+      <div class="board-card">
+        <div class="board-card-role">Board Member 3</div>
+        <div class="board-card-name">Contrarian</div>
+        <div class="board-card-personality">Professionally paranoid</div>
+        <div class="board-card-question">"What assumption hasn't been tested? What if this fails?"</div>
+      </div>
+      <div class="board-card">
+        <div class="board-card-role">Board Member 4</div>
+        <div class="board-card-name">Moonshot</div>
+        <div class="board-card-personality">Thinks big</div>
+        <div class="board-card-question">"Are we thinking too small? What's the 10x version?"</div>
+      </div>
+    </div>
+
+    <p>Each member gives their position (SUPPORT / OPPOSE / MODIFY). If they disagree, they debate (Round 2). The CEO synthesizes everything into a <strong>Decision Memo</strong> with:</p>
+    <ul>
+      <li>Final recommendation</li>
+      <li>Who agreed and who didn't</li>
+      <li>Unresolved tensions</li>
+      <li>Trade-offs accepted</li>
+      <li>Next actions</li>
+    </ul>
+
+    <div class="callout info">
+      <div class="callout-title">The Gate — Don't Waste Tokens</div>
+      Not every decision needs a 4-person board meeting. The system checks: "Does this affect 3 or more phases?" If not, it tells you to just decide and move on. This saves ~10,000 tokens per skipped deliberation.
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- S10 -->
+  <section class="section" id="s10">
+    <div class="section-number">Section 10</div>
+    <h2>Quality Gates (ATC)</h2>
+
+    <h3>What's ATC?</h3>
+    <p>ATC stands for "Air Traffic Control" — like at an airport. Before every commit gets "cleared for landing," it goes through a quality check. The depth of the check depends on how big the change is.</p>
+
+    <h3>The 4 Tiers</h3>
+    <div class="atc-tiers">
+      <div class="atc-tier skip">
+        <div class="atc-tier-name">SKIP</div>
+        <div class="atc-tier-when">Tiny change (&lt;10 lines, 1 file)</div>
+        <div class="atc-tier-cost">0 tokens</div>
+      </div>
+      <div class="atc-tier lite">
+        <div class="atc-tier-name">LITE</div>
+        <div class="atc-tier-when">Small change (10–50 lines, 1–3 files)</div>
+        <div class="atc-tier-cost">~200 tokens</div>
+      </div>
+      <div class="atc-tier full">
+        <div class="atc-tier-name">FULL</div>
+        <div class="atc-tier-when">Medium change (50+ lines, 4+ files)</div>
+        <div class="atc-tier-cost">~500 tokens</div>
+      </div>
+      <div class="atc-tier gate">
+        <div class="atc-tier-name">GATE</div>
+        <div class="atc-tier-when">Big change (new system, API, architecture)</div>
+        <div class="atc-tier-cost">~500+ tokens</div>
+      </div>
+    </div>
+
+    <p>Haiku classifies every change into a tier. Small = skip checks. Big = full review. This saves tokens on trivial changes while catching problems on important ones.</p>
+
+    <h3>The Safety Floor</h3>
+    <p>Even if Haiku thinks it's small, if the change touches more than 3 files OR more than 100 lines, it gets bumped up to FULL automatically. This prevents the small brain from accidentally letting a big change through without review.</p>
+
+    <h3>The Stuck Detector</h3>
+    <p>If Claude makes the same tool call 3+ times in a row (writing the same file, running the same failing command), a hook fires and says: "You're stuck. Stop, re-read the error, try a different approach." This prevents infinite loops.</p>
+  </section>
+
+  <hr class="divider">
+
+  <!-- S11 -->
+  <section class="section" id="s11">
+    <div class="section-number">Section 11</div>
+    <h2>The Signal Map (Overwatcher)</h2>
+
+    <h3>What Is It?</h3>
+    <p>A visual HTML dashboard that shows your entire project structure — phases, plans, dependencies, file collisions, progress.</p>
+
+    <h3>How To Generate It</h3>
+    <pre>/gsd-overwatcher scan</pre>
+    <p>This creates <code>.planning/overwatcher/signal-map.html</code>. Open it in your browser:</p>
+    <pre>/gsd-overwatcher open</pre>
+
+    <h3>What It Shows</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Panel</th><th>What You See</th></tr></thead>
+        <tbody>
+          <tr><td>Phase Grid</td><td>Every phase with completion status (done/pending)</td></tr>
+          <tr><td>Plan Status</td><td>How many plans in each phase, how many done</td></tr>
+          <tr><td>Collisions</td><td>Files that multiple plans write to (potential conflicts!)</td></tr>
+          <tr><td>Dependency Graph</td><td>Which plans depend on which</td></tr>
+          <tr><td>Decisions</td><td>Strategic decisions made via /gsd-deliberate</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout tip">
+      <div class="callout-title">Auto-Scan</div>
+      If you have <code>"overwatcher": &#123; "auto_scan": true &#125;</code> in your <code>.planning/config.json</code> (it's on by default), the orchestrator regenerates the signal map after every phase completion. So it stays current automatically.
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- S12 -->
+  <section class="section" id="s12">
+    <div class="section-number">Section 12</div>
+    <h2>Token Tracking — Watching Your Spend</h2>
+
+    <h3>Why Track Tokens?</h3>
+    <p>Even on the Max plan (unlimited), tokens = time. More tokens = slower responses. Super GSD is designed to be efficient, but you should know where your tokens go.</p>
+
+    <h3>The Token Log</h3>
+    <p>Every agent dispatch gets logged to <code>.planning/metrics/token-log.jsonl</code>. Each entry records: when it happened, which phase and plan, which model (Opus/Sonnet/Haiku), what role, and estimated input/output tokens.</p>
+
+    <h3>Checking Usage</h3>
+    <pre><span class="comment"># Quick summary</span>
+/gsd-token-audit <span class="flag">--quick</span>
+
+<span class="comment"># Deep analysis: trends, model distribution, optimization recs</span>
+/gsd-token-audit <span class="flag">--full</span>
+
+<span class="comment"># Which files cost the most tokens?</span>
+/gsd-token-audit <span class="flag">--context-map</span></pre>
+
+    <h3>Where Do Tokens Go?</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Component</th><th>% of Tokens</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Executor agents (Sonnet)</td><td style="color:var(--orange);font-weight:700">~60%</td><td>Writing code — the actual work</td></tr>
+          <tr><td>Planner agents (Sonnet)</td><td>~15%</td><td>Creating task plans</td></tr>
+          <tr><td>Orchestrator (Opus)</td><td>~10%</td><td>Making dispatch decisions</td></tr>
+          <tr><td>Verifier agents (Sonnet)</td><td>~8%</td><td>Checking work quality</td></tr>
+          <tr><td>Context injection (ByteRover)</td><td>~5%</td><td>Relevant knowledge lookup</td></tr>
+          <tr><td>Classifiers (Haiku)</td><td style="color:var(--green);font-weight:700">~2%</td><td>Quick classifications</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- S13 -->
+  <section class="section" id="s13">
+    <div class="section-number">Section 13</div>
+    <h2>Pausing and Resuming</h2>
+
+    <h3>Pausing</h3>
+    <p>Say "stop" or "pause" or type <code>/gsd-pause</code>. Claude will:</p>
+    <ol>
+      <li>Write a checkpoint file (<code>.planning/ORCHESTRATOR-CHECKPOINT.md</code>) with exactly where it is</li>
+      <li>Commit the checkpoint</li>
+      <li>Stop</li>
+    </ol>
+
+    <h3>Resuming</h3>
+    <p>Next time you open Claude Code, say "go" or "continue" or type <code>/gsd-resume</code>. Claude will:</p>
+    <ol>
+      <li>Find the checkpoint</li>
+      <li>Read where it left off</li>
+      <li>Delete the checkpoint (it's been consumed)</li>
+      <li>Jump right back into the loop at the exact point it stopped</li>
+    </ol>
+
+    <div class="callout tip">
+      <div class="callout-title">Zero Re-Explanation Needed</div>
+      You don't need to re-explain anything. The checkpoint IS the context.
+    </div>
+
+    <h3>Automatic Pausing (Context Full)</h3>
+    <p>If Claude's memory fills up (&gt;70% context window), it automatically writes a checkpoint and stops. This is not a crash — it's a graceful exit. Just start a new conversation and say "continue."</p>
+
+    <h3>What If Claude Crashes Without a Checkpoint?</h3>
+    <p>The hooks write a lightweight checkpoint (<code>.planning/ORCHESTRATOR-CHECKPOINT.json</code>) after every git commit. So even if Claude crashes mid-session, there's usually enough breadcrumbs to resume from the last commit.</p>
+  </section>
+
+  <hr class="divider">
+
+  <!-- S14 -->
+  <section class="section" id="s14">
+    <div class="section-number">Section 14</div>
+    <h2>Migrating From GSD 2.0 (Pi)</h2>
+
+    <p>If you were using GSD 2.0 with the Pi harness (before Anthropic disabled OAuth), you have a <code>.gsd/</code> directory with decisions, knowledge, requirements, and milestone data. Super GSD can import all of that:</p>
+
+    <pre>/gsd-transition .gsd/</pre>
+
+    <p>This will:</p>
+    <ol>
+      <li>Read your <code>.gsd/DECISIONS.md</code> — import decisions into ByteRover memory</li>
+      <li>Read your <code>.gsd/KNOWLEDGE.md</code> — import patterns and anti-patterns</li>
+      <li>Read your <code>.gsd/REQUIREMENTS.md</code> — merge into <code>.planning/REQUIREMENTS.md</code></li>
+      <li>Map your milestones — completed work gets marked done, pending work becomes phases</li>
+      <li>Write a migration report</li>
+    </ol>
+
+    <div class="callout info">
+      <div class="callout-title">Read-Only Import</div>
+      Your <code>.gsd/</code> directory is NOT modified or deleted. The migration is a read-only import.
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- S15 -->
+  <section class="section" id="s15">
+    <div class="section-number">Section 15</div>
+    <h2>Troubleshooting</h2>
+
+    <h3>"The loop stops after one step"</h3>
+    <p>The loop stays alive because every response includes a tool call. If Claude sends text-only, the loop dies. Usually means:</p>
+    <ul>
+      <li>Claude thinks it hit an exit condition (check <code>STATE.md</code>)</li>
+      <li>A hook is crashing and breaking the chain (check <code>~/.claude/hooks/</code> for errors)</li>
+      <li>The <code>CLAUDE.md</code> file is missing or incomplete (re-copy from <code>super-gsd/CLAUDE-OVERLAY.md</code>)</li>
+    </ul>
+
+    <h3>"Permission denied" errors</h3>
+    <p>Claude Code asks for permission before running tools. For autonomous mode, you need to allow everything:</p>
+    <pre><span class="cmd">claude config set</span> --global autoApprove <span class="string">"Bash,Read,Write,Edit,Glob,Grep,Agent"</span></pre>
+
+    <h3>"brv-query-local returns no results"</h3>
+    <p>Check that the context tree has files:</p>
+    <pre><span class="cmd">find</span> .brv/context-tree/ -name <span class="string">"*.md"</span> | wc -l
+<span class="comment"># Should be at least 9. If 0, re-seed:</span>
+<span class="cmd">bash</span> super-gsd/install.sh <span class="flag">--init-project</span></pre>
+
+    <h3>"Node.js version too old"</h3>
+    <pre><span class="cmd">node</span> --version  <span class="comment"># Needs to be v20+</span></pre>
+    <p>Update from <a href="https://nodejs.org" style="color:var(--accent)">nodejs.org</a>.</p>
+
+    <h3>"gsd-tools errors"</h3>
+    <p>GSD 1.0's <code>gsd-tools.cjs</code> might warn about "unknown config keys." This is normal — Super GSD adds config keys that GSD 1.0 doesn't know about. The warnings are harmless.</p>
+
+    <h3>"Checkpoint won't resume"</h3>
+    <pre><span class="comment"># Check the checkpoint file exists</span>
+cat .planning/ORCHESTRATOR-CHECKPOINT.md
+
+<span class="comment"># Check the JSON backup</span>
+cat .planning/ORCHESTRATOR-CHECKPOINT.json
+
+<span class="comment"># If both are missing, resume manually</span>
+/gsd-orchestrate go</pre>
+
+    <h3>"Signal map won't generate"</h3>
+    <pre><span class="cmd">node</span> ~/.claude/get-shit-done/templates/super-gsd/overwatcher/overwatcher-launcher.js</pre>
+    <p>If it errors, the most common issue is that <code>.planning/</code> is empty (no phases, no plans). Create at least one phase first.</p>
+
+    <h3>"Token log is empty"</h3>
+    <p>The token logger hook fires on Agent tool calls. If you haven't dispatched any agents yet, the log will be empty. Run <code>/gsd-orchestrate next</code> to dispatch one agent and check the log after.</p>
+  </section>
+
+  <hr class="divider">
+
+  <!-- S16 GLOSSARY -->
+  <section class="section" id="s16">
+    <div class="section-number">Section 16</div>
+    <h2>Glossary</h2>
+
+    <div class="table-wrap">
+      <table class="glossary-table">
+        <thead><tr><th>Term</th><th>What It Means</th></tr></thead>
+        <tbody>
+          <tr><td>Agent</td><td>A specialized AI worker with a specific job (executor, planner, verifier, etc.)</td></tr>
+          <tr><td>ATC</td><td>Air Traffic Control — the quality gate system that checks code before commits</td></tr>
+          <tr><td>Board</td><td>The 4 debate agents (Architect, Pragmatist, Contrarian, Moonshot) in /gsd-deliberate</td></tr>
+          <tr><td>Brief</td><td>A structured decision document given to the CEO/Board for deliberation</td></tr>
+          <tr><td>ByteRover</td><td>The memory system — stores knowledge in <code>.brv/context-tree/</code></td></tr>
+          <tr><td>CEO</td><td>The orchestrator agent in /gsd-deliberate that manages the board debate</td></tr>
+          <tr><td>Checkpoint</td><td>A saved state file that lets the loop resume after stopping</td></tr>
+          <tr><td>Claude Code</td><td>Anthropic's AI coding CLI — the foundation Super GSD runs on</td></tr>
+          <tr><td>Context tree</td><td>The directory structure in <code>.brv/context-tree/</code> where knowledge lives</td></tr>
+          <tr><td>Context window</td><td>How much "memory" Claude has in one conversation (~200K tokens for Opus)</td></tr>
+          <tr><td>Curate</td><td>Save new knowledge to the memory system</td></tr>
+          <tr><td>Decision Memo</td><td>The output of /gsd-deliberate — board stances, tensions, recommendation</td></tr>
+          <tr><td>Dispatch</td><td>Send a task to a worker agent</td></tr>
+          <tr><td>GSD</td><td>Get Shit Done — the framework name</td></tr>
+          <tr><td>Haiku</td><td>The smallest/cheapest Claude model — used for quick classifications</td></tr>
+          <tr><td>Hook</td><td>A background script that runs automatically on certain events</td></tr>
+          <tr><td>JSONL</td><td>JSON Lines — a log format where each line is a JSON object</td></tr>
+          <tr><td>Max plan</td><td>Anthropic's subscription plan ($100–200/month) — no per-token billing</td></tr>
+          <tr><td>Milestone</td><td>A major version of your project (v1.0, v2.0, etc.)</td></tr>
+          <tr><td>Model routing</td><td>Choosing which AI model (Opus/Sonnet/Haiku) for each task</td></tr>
+          <tr><td>OAuth</td><td>How Claude Code authenticates — uses your Max plan, no API key</td></tr>
+          <tr><td>Opus</td><td>The largest/smartest Claude model — used for orchestration and strategy</td></tr>
+          <tr><td>Orchestrator</td><td>The main loop that reads state, dispatches agents, processes results</td></tr>
+          <tr><td>Overwatcher</td><td>The signal map visualization tool</td></tr>
+          <tr><td>Phase</td><td>A chunk of work within a milestone (e.g., "build auth system")</td></tr>
+          <tr><td>Plan</td><td>A detailed task list within a phase (2–3 tasks per plan)</td></tr>
+          <tr><td>Query</td><td>Search the memory system for relevant knowledge</td></tr>
+          <tr><td>ROADMAP.md</td><td>The list of phases with checkboxes showing what's done</td></tr>
+          <tr><td>Signal map</td><td>HTML visualization showing project health, phases, dependencies</td></tr>
+          <tr><td>Skill</td><td>A slash command you can type (e.g., <code>/gsd-orchestrate</code>)</td></tr>
+          <tr><td>Sonnet</td><td>The medium Claude model — used for coding, planning, reviewing</td></tr>
+          <tr><td>STATE.md</td><td>Where you are right now — milestone, phase, plan, progress</td></tr>
+          <tr><td>Token</td><td>A unit of text (~4 characters). More tokens = more cost/time</td></tr>
+          <tr><td>Wave</td><td>A group of plans that can run in parallel</td></tr>
+          <tr><td>WSL2</td><td>Windows Subsystem for Linux — how Windows runs Linux tools</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- CHEAT SHEET -->
+  <section id="cheat-sheet">
+    <h2>Quick Start Cheat Sheet</h2>
+    <div class="cheat-grid">
+
+      <div class="cheat-group">
+        <div class="cheat-group-title">Install</div>
+        <div class="cheat-row">
+          <span class="cheat-cmd">bash super-gsd/install.sh --init-project</span>
+          <span class="cheat-desc">One-command install</span>
+        </div>
+        <div class="cheat-row">
+          <span class="cheat-cmd">claude config set --global autoApprove "..."</span>
+          <span class="cheat-desc">Enable auto mode</span>
+        </div>
+        <div class="cheat-row">
+          <span class="cheat-cmd"># Restart Claude Code</span>
+          <span class="cheat-desc">Required after install</span>
+        </div>
+      </div>
+
+      <div class="cheat-group">
+        <div class="cheat-group-title">Project Setup</div>
+        <div class="cheat-row">
+          <span class="cheat-cmd">/gsd-new-project</span>
+          <span class="cheat-desc">New project</span>
+        </div>
+        <div class="cheat-row">
+          <span class="cheat-cmd">/gsd-new-milestone</span>
+          <span class="cheat-desc">New milestone on existing project</span>
+        </div>
+      </div>
+
+      <div class="cheat-group">
+        <div class="cheat-group-title">Run It</div>
+        <div class="cheat-row">
+          <span class="cheat-cmd">go</span>
+          <span class="cheat-desc">Start autonomous loop</span>
+        </div>
+        <div class="cheat-row">
+          <span class="cheat-cmd">stop</span>
+          <span class="cheat-desc">Pause and save checkpoint</span>
+        </div>
+        <div class="cheat-row">
+          <span class="cheat-cmd">continue</span>
+          <span class="cheat-desc">Resume from checkpoint</span>
+        </div>
+        <div class="cheat-row">
+          <span class="cheat-cmd">/gsd-orchestrate next</span>
+          <span class="cheat-desc">One step, then stop</span>
+        </div>
+      </div>
+
+      <div class="cheat-group">
+        <div class="cheat-group-title">Monitor Progress</div>
+        <div class="cheat-row">
+          <span class="cheat-cmd">/gsd-orchestrate status</span>
+          <span class="cheat-desc">Where am I?</span>
+        </div>
+        <div class="cheat-row">
+          <span class="cheat-cmd">/gsd-overwatcher scan</span>
+          <span class="cheat-desc">Visual signal map</span>
+        </div>
+        <div class="cheat-row">
+          <span class="cheat-cmd">/gsd-token-audit --quick</span>
+          <span class="cheat-desc">Token spend summary</span>
+        </div>
+        <div class="cheat-row">
+          <span class="cheat-cmd">/gsd-progress</span>
+          <span class="cheat-desc">Done vs. ahead</span>
+        </div>
+      </div>
+
+      <div class="cheat-group">
+        <div class="cheat-group-title">Big Decisions</div>
+        <div class="cheat-row">
+          <span class="cheat-cmd">/gsd-deliberate new</span>
+          <span class="cheat-desc">CEO/Board debate</span>
+        </div>
+        <div class="cheat-row">
+          <span class="cheat-cmd">/gsd-code-review</span>
+          <span class="cheat-desc">Manual code review</span>
+        </div>
+        <div class="cheat-row">
+          <span class="cheat-cmd">/gsd-verify-work N</span>
+          <span class="cheat-desc">Did Phase N deliver?</span>
+        </div>
+      </div>
+
+      <div class="cheat-group">
+        <div class="cheat-group-title">Permissions Toggle</div>
+        <div class="cheat-row">
+          <span class="cheat-cmd">claude config set --global autoApprove "Bash,Read,Write,Edit,Glob,Grep,Agent"</span>
+          <span class="cheat-desc">Enable auto</span>
+        </div>
+        <div class="cheat-row">
+          <span class="cheat-cmd">claude config set --global autoApprove ""</span>
+          <span class="cheat-desc">Disable, back to prompts</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <p style="text-align:center;color:var(--text-muted);font-size:0.8rem;margin-top:3rem;padding-top:1.5rem;border-top:1px solid var(--border)">Super GSD v1.0 — Ship it.</p>
+
+</main>
+
+<script>
+// Sidebar toggle (mobile)
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+// Active TOC link on scroll
+(function() {
+  const sections = document.querySelectorAll('section[id], #cheat-sheet');
+  const links = document.querySelectorAll('#toc a[href]');
+
+  function getActive() {
+    const scrollY = window.scrollY + 100;
+    let active = null;
+    sections.forEach(s => {
+      if (s.offsetTop <= scrollY) active = s.id;
+    });
+    return active;
+  }
+
+  function updateToc() {
+    const active = getActive();
+    links.forEach(a => {
+      const href = a.getAttribute('href');
+      if (href === '#' + active) {
+        a.classList.add('active');
+      } else {
+        a.classList.remove('active');
+      }
+    });
+  }
+
+  window.addEventListener('scroll', updateToc, { passive: true });
+  updateToc();
+})();
+</script>
+
+</body>
+</html>
