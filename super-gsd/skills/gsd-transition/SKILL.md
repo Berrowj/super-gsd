@@ -22,7 +22,16 @@ $ARGUMENTS: path to .gsd/ directory (defaults to ./.gsd/)
 <step_1_discover>
 ## Step 1: Discover GSD 2.0 State
 
-Read (existence check only, don't load full files):
+Set `GSD_DIR` to `$ARGUMENTS` if provided, otherwise default to `./.gsd/`.
+
+First, check the directory exists at all:
+```bash
+ls "$GSD_DIR" 2>/dev/null || echo "NOT_FOUND"
+```
+
+If `NOT_FOUND`: stop and report "No GSD 2.0 directory found at {GSD_DIR}. Pass the path as an argument: /gsd-transition path/to/.gsd/". Do not proceed.
+
+Otherwise, read (existence check only, don't load full files):
 ```bash
 ls "$GSD_DIR/STATE.md" "$GSD_DIR/DECISIONS.md" "$GSD_DIR/KNOWLEDGE.md" \
    "$GSD_DIR/REQUIREMENTS.md" "$GSD_DIR/PROJECT.md" 2>/dev/null
@@ -34,6 +43,7 @@ Report to user:
 - Milestones: {count and IDs}
 - Decisions: {count}
 - Requirements: {count}
+- If any expected file is missing: "Note: {file} not found — step {N} will be skipped"
 </step_1_discover>
 
 <step_2_decisions>
