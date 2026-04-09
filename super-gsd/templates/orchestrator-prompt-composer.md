@@ -28,11 +28,19 @@ brv-query "{query_string}"
 → Collect results, ~200 tokens each, max 3 queries = ~600 tokens
 ```
 
-For each scripts_to_check:
+For each scripts_to_check entry from context selector:
+```bash
+BRV_BIN="$(find super-gsd/overwatcher ~/.claude/hooks -name brv-query-local.js 2>/dev/null | head -1)"
+HITS=$(node "$BRV_BIN" "scripts $PURPOSE" --domain scripts --max 2 --format json 2>/dev/null)
+# Format each hit as EXISTING: line for injection
+EXISTING_LINES=$(node -e "
+  const r=JSON.parse(process.argv[1]||'[]');
+  r.forEach(h=>console.log('EXISTING: '+h.path+' — '+h.snippet.substring(0,80)));
+" "$HITS")
+# Accumulate into EXISTING_SCRIPTS variable for Step 5
+EXISTING_SCRIPTS+="$EXISTING_LINES\n"
 ```
-brv-query "scripts {purpose} {language}"
-→ Collect matching scripts with path + interface
-```
+If HITS is empty or "[]", skip — do not inject empty EXISTING lines.
 
 ### 4. Read Minimal Files
 
@@ -48,7 +56,7 @@ Template (for executor):
 {compressed_plan_xml}
 
 {executor_brv_overlay with placeholders filled:
-  EXISTING_SCRIPTS = brv-query script results
+  EXISTING_SCRIPTS = one "EXISTING: {path} — {80-char description}" per match, or "none"
   RELEVANT_DECISIONS = brv-query decision results
   RELEVANT_PATTERNS = brv-query pattern results
   ERROR_RULES = brv-query error rule results
