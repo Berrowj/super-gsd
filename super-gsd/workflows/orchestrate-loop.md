@@ -207,6 +207,19 @@ IF no more phases:
   → EXIT: "All phases complete"
 ```
 
+### Trace Example (Phase 4 dry-run)
+
+Phase 4 at start of session:
+- CONTEXT.md: present (created by discuss-phase)
+- RESEARCH.md: absent
+- PLAN.md files: absent
+- VERIFICATION.md: absent
+
+Rule 0: no match (no checkpoint)
+Rule 2: no match (CONTEXT.md present)
+Rule 3: MATCH → dispatch gsd-phase-researcher, model=sonnet (from config.model_routing.researcher)
+→ Correct dispatch confirmed.
+
 ### Step 6: Compose Prompt
 
 Build the sub-agent prompt from template:
