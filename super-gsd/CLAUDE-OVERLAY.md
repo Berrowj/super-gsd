@@ -147,24 +147,26 @@ Max 300 words. No intro. No recap.
 
 ### Checkpoint Protocol
 
-When context >70% or user says pause:
+When context >70% OR user says pause/stop:
 
-Write `.planning/ORCHESTRATOR-CHECKPOINT.md`:
-```yaml
----
-created_at: {ISO}
-active_milestone: {version}
-active_phase: {N}
-last_completed: "plan {N-P}"
-next_unit: "plan {N-P}"
-phase_state: "{state}"
-units_this_session: {N}
----
-```
+**Step 1:** Write `.planning/ORCHESTRATOR-CHECKPOINT.md`
+  - Use `Write` tool (not Bash echo)
+  - Fill ALL frontmatter fields (see checkpoint.md template)
+  - Include "## Next Action" with the exact next dispatch description
 
-Then commit checkpoint and STOP.
+**Step 2:** Commit checkpoint
+  ```bash
+  git add .planning/ORCHESTRATOR-CHECKPOINT.md
+  git commit -m "chore(checkpoint): session end at phase {N}"
+  ```
 
-Next session: step 1 catches this → enters loop at `next_unit`.
+**Step 3:** STOP with text-only response
+  "Checkpoint written. Next session: /gsd-orchestrate go"
+
+**On next session start — Step 1 of EVERY session:**
+  Read `.planning/ORCHESTRATOR-CHECKPOINT.md`
+  If found: extract next_unit, delete checkpoint file, enter loop at next_unit
+  DO NOT ask the user for context. The checkpoint is the context.
 
 ### Commit Discipline
 

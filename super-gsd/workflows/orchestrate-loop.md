@@ -258,6 +258,27 @@ Wait for structured report.
 
 ### Step 8: Process Result
 
+```bash
+# SAFE-05: Report format enforcement
+REPORT_WORD_COUNT=$(echo "$AGENT_REPORT" | wc -w)
+MAX_WORDS=$(cat .planning/config.json | node -e "
+  const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+  process.stdout.write(String(c.token_efficiency?.max_report_words||300));
+")
+
+if [ "$REPORT_WORD_COUNT" -gt "$MAX_WORDS" ]; then
+  echo "REPORT_OVERLIMIT: ${REPORT_WORD_COUNT} words (max ${MAX_WORDS})"
+  # Do NOT exit — process the report anyway but log the violation
+fi
+
+# Validate required sections present
+for SECTION in "FILES_CHANGED" "VERIFICATION" "DEVIATIONS" "BLOCKERS" "SCRIPTS_CREATED" "ONE_LINER"; do
+  if ! echo "$AGENT_REPORT" | grep -q "^${SECTION}:"; then
+    echo "MISSING_SECTION: ${SECTION} — treating as empty"
+  fi
+done
+```
+
 Parse the report:
 ```
 FILES_CHANGED → list for git add
@@ -325,6 +346,19 @@ node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" state update-progress
 
 # Update ROADMAP.md
 node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" roadmap update-plan-progress {PHASE}
+
+# SAFE-04: Context accumulator
+REPORT_COUNT=$((REPORT_COUNT + 1))
+REPORT_LOG+=("plan ${ACTIVE_PHASE}-${ACTIVE_PLAN}: ${ONE_LINER}")
+UNITS_THIS_SESSION=$((UNITS_THIS_SESSION + 1))
+
+if [ "$REPORT_COUNT" -ge 5 ]; then
+  # Compress: replace all but last 2 reports in active context with ONE_LINERs
+  # The orchestrator should NOT hold full report text for reports older than 2 iterations
+  echo "CONTEXT_COMPRESSED: Dropped full report text for plans older than last 2"
+  # The ONE_LINERs are preserved in REPORT_LOG for the checkpoint
+  REPORT_COUNT=2  # Reset to 2 (last 2 reports kept in full)
+fi
 ```
 
 ### Step 11: Log Tokens

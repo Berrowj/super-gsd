@@ -11,6 +11,8 @@ model_breakdown:
   opus: {N}
   sonnet: {N}
   haiku: {N}
+context_percent_at_write: {N}
+resume_instruction: "Enter loop at next_unit without re-briefing user"
 ---
 
 ## Completed This Session
