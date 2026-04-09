@@ -6,8 +6,8 @@
 - [x] **ORCH-02**: Orchestrator dispatches sub-agents with correct model (Opus/Sonnet/Haiku) from config-driven routing table
 - [x] **ORCH-03**: Orchestrator processes structured agent reports (<300 words: FILES_CHANGED, VERIFICATION, DEVIATIONS, BLOCKERS, SCRIPTS_CREATED, ONE_LINER)
 - [x] **ORCH-04**: Orchestrator chains tool calls on every response — text-only only for the 4 valid exit conditions
-- [ ] **ORCH-05**: Orchestrator writes ORCHESTRATOR-CHECKPOINT.md at >70% context with exact resume point
-- [ ] **ORCH-06**: Orchestrator resumes from checkpoint on next session without user re-briefing
+- [x] **ORCH-05**: Orchestrator writes ORCHESTRATOR-CHECKPOINT.md at >70% context with exact resume point
+- [x] **ORCH-06**: Orchestrator resumes from checkpoint on next session without user re-briefing
 - [ ] **ORCH-07**: Orchestrator logs token usage per unit to .planning/metrics/token-log.jsonl after every dispatch
 - [x] **ORCH-08**: User can run `/gsd-token-audit` to see usage breakdown by model, role, and phase
 - [x] **ORCH-09**: Orchestrator commits atomically per unit — never batches, never skips, never amends
@@ -56,8 +56,8 @@
 - [ ] **SAFE-01**: All hooks normalize Windows/Unix paths at entry point — no silent failures from mixed path formats
 - [ ] **SAFE-02**: Checkpoint writes use atomic pattern (write .tmp, rename) — no corruption on interrupted writes
 - [x] **SAFE-03**: Patches to GSD 1.0 core files use `// SUPER-GSD-START/END` markers for idempotent upgrades
-- [ ] **SAFE-04**: Context accumulation capped — max 5 reports in active context, completed compressed to one-liners
-- [ ] **SAFE-05**: Sub-agent report format enforced — 300 word max, structured sections, efficiency header injected
+- [x] **SAFE-04**: Context accumulation capped — max 5 reports in active context, completed compressed to one-liners
+- [x] **SAFE-05**: Sub-agent report format enforced — 300 word max, structured sections, efficiency header injected
 
 ## Traceability
 
@@ -67,8 +67,8 @@
 | ORCH-02 | Phase 3 | Complete |
 | ORCH-03 | Phase 3 | Complete |
 | ORCH-04 | Phase 3 | Complete |
-| ORCH-05 | Phase 3 | Pending |
-| ORCH-06 | Phase 3 | Pending |
+| ORCH-05 | Phase 3 | Complete |
+| ORCH-06 | Phase 3 | Complete |
 | ORCH-07 | Phase 1 | Pending |
 | ORCH-08 | Phase 1 | Complete |
 | ORCH-09 | Phase 3 | Complete |
@@ -99,8 +99,8 @@
 | SAFE-01 | Phase 1 | Pending |
 | SAFE-02 | Phase 1 | Pending |
 | SAFE-03 | Phase 1 | Complete |
-| SAFE-04 | Phase 3 | Pending |
-| SAFE-05 | Phase 3 | Pending |
+| SAFE-04 | Phase 3 | Complete |
+| SAFE-05 | Phase 3 | Complete |
 
 ## Out of Scope
 
