@@ -94,16 +94,30 @@ Agent(
 
 ### Step 4: Query ByteRover
 
-For each `brv_queries` entry:
-```
-brv-query "{query}"
-→ Collect results, ~200 tokens each
-```
+```bash
+# Step 4: Query ByteRover (brv-query-local.js — no API key required)
+BRV_BIN="$(find super-gsd/overwatcher ~/.claude/hooks -name brv-query-local.js 2>/dev/null | head -1)"
 
-For each `scripts_to_check`:
-```
-brv-query "scripts {purpose}"
-→ If hit: prepare EXISTING_SCRIPTS injection
+# Run up to 3 queries from context_selector output (brv_queries array)
+BRV_RESULTS=""
+for Q in "${BRV_QUERIES[@]}"; do
+  RESULT=$(node "$BRV_BIN" "$Q" --max 3 --format json 2>/dev/null)
+  BRV_RESULTS+="$RESULT"
+done
+
+# Script registry check — for each scripts_to_check entry
+EXISTING_SCRIPTS=""
+for S in "${SCRIPTS_TO_CHECK[@]}"; do
+  HITS=$(node "$BRV_BIN" "scripts $S" --domain scripts --max 2 --format json 2>/dev/null)
+  # If results returned, format as "EXISTING: {path} — {snippet}"
+  if [ -n "$HITS" ] && [ "$HITS" != "[]" ]; then
+    EXISTING_SCRIPTS+=$(node -e "
+      const r=JSON.parse('$HITS');
+      r.forEach(h=>console.log('EXISTING: '+h.path+' — '+h.snippet.substring(0,80)));
+    ")
+  fi
+done
+# BRV_RESULTS and EXISTING_SCRIPTS passed to Step 6 (prompt composition)
 ```
 
 ### Step 5: Determine Dispatch
@@ -199,19 +213,50 @@ ONE_LINER → use in commit message and state update
 
 ### Step 9: Curate Learnings
 
-```
-IF SCRIPTS_CREATED is not empty:
-  For each script:
-    brv-curate "Script: {purpose} at {path}. Interface: {signature}"
-      domain: scripts/{category}
-      importance: 60
+```bash
+# Step 9: Curate Learnings (brv-curate-local.js)
+BRV_CURATE="$(find super-gsd/overwatcher ~/.claude/hooks -name brv-curate-local.js 2>/dev/null | head -1)"
 
-IF DEVIATIONS contains new patterns:
-  brv-curate "{pattern description}"
-    domain: patterns/{relevant_domain}
+# Curate each new script from agent report SCRIPTS_CREATED section
+# SCRIPTS_CREATED format: "path | purpose: what | interface: signature"
+for SCRIPT_LINE in "${SCRIPTS_CREATED[@]}"; do
+  SPATH=$(echo "$SCRIPT_LINE" | cut -d'|' -f1 | xargs)
+  PURPOSE=$(echo "$SCRIPT_LINE" | cut -d'|' -f2 | sed 's/purpose: //' | xargs)
+  IFACE=$(echo "$SCRIPT_LINE" | cut -d'|' -f3 | sed 's/interface: //' | xargs)
+  SLUG=$(basename "$SPATH" .js)
+  node "$BRV_CURATE" "$PURPOSE. Interface: $IFACE" \
+    --domain "scripts/nodejs" \
+    --title "$SLUG" \
+    --importance 60 \
+    --maturity draft \
+    --tags "script,utility,nodejs" \
+    --keywords "$SLUG,script"
+done
 
-IF verifier report contains CURATE_* entries:
-  brv-curate each entry to appropriate domain
+# Curate new patterns from DEVIATIONS (if any contain "new pattern:" prefix)
+for DEV in "${DEVIATIONS[@]}"; do
+  if [[ "$DEV" == *"new pattern:"* ]]; then
+    PATTERN_TEXT="${DEV#*new pattern:}"
+    node "$BRV_CURATE" "$PATTERN_TEXT" \
+      --domain "patterns/orchestrator" \
+      --title "Pattern: $(echo $PATTERN_TEXT | cut -c1-40)" \
+      --importance 55 \
+      --maturity draft \
+      --tags "pattern,orchestrator" \
+      --keywords "pattern,orchestrator"
+  fi
+done
+
+# Curate verifier CURATE_* entries
+for CURATE_ENTRY in "${CURATE_ENTRIES[@]}"; do
+  node "$BRV_CURATE" "$CURATE_ENTRY" \
+    --domain "patterns/verified" \
+    --title "$(echo $CURATE_ENTRY | cut -c1-50)" \
+    --importance 65 \
+    --maturity validated \
+    --tags "verified,pattern" \
+    --keywords "verified,pattern"
+done
 ```
 
 ### Step 10: Update State
