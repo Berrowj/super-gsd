@@ -12,7 +12,8 @@ Read only file sections you need (use offset/limit). Grep not cat. Glob not find
 </token_efficiency>
 
 <existing_scripts>
-<!-- Populated by orchestrator from brv-query results -->
+<!-- Populated by orchestrator: one "EXISTING: {path} — {description}" line per script match -->
+<!-- Format: EXISTING: scripts/nodejs/brv-query-local.js — BM25 search engine, no API key required -->
 {EXISTING_SCRIPTS}
 If a utility listed above does what you need, import it. Do NOT recreate.
 Only create new utilities when nothing above is a 70%+ match.
