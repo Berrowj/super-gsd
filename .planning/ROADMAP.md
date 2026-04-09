@@ -67,7 +67,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Wire dispatch conditions to gsd-tools, model routing from config.json, report processing + atomic commit rule
+- [x] 03-01-PLAN.md — Wire dispatch conditions to gsd-tools, model routing from config.json, report processing + atomic commit rule
 - [ ] 03-02-PLAN.md — Context cap enforcement (SAFE-04), report format validation (SAFE-05), checkpoint write/resume cycle
 - [ ] 03-03-PLAN.md — End-to-end dry-run: Phase 4 context generated, dispatch trace validated, Phase 3 VERIFICATION.md written
 
@@ -143,7 +143,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 |-------|----------------|--------|-----------|
 | 1. Token Foundation and Hook Wiring | 2/2 | Complete   | 2026-04-08 |
 | 2. Memory Layer | 2/2 | Complete   | 2026-04-09 |
-| 3. Orchestrator Engine | 0/3 | Not started | - |
+| 3. Orchestrator Engine | 1/3 | In Progress|  |
 | 4. ATC Quality Gates | 0/2 | Not started | - |
 | 5. Strategic Deliberation | 0/2 | Not started | - |
 | 6. Overwatcher and Monitoring | 0/1 | Not started | - |

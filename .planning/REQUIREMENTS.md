@@ -2,15 +2,15 @@
 
 ## Orchestrator Engine
 
-- [ ] **ORCH-01**: Orchestrator can read STATE.md frontmatter and determine next dispatch action via first-match rule table
-- [ ] **ORCH-02**: Orchestrator dispatches sub-agents with correct model (Opus/Sonnet/Haiku) from config-driven routing table
-- [ ] **ORCH-03**: Orchestrator processes structured agent reports (<300 words: FILES_CHANGED, VERIFICATION, DEVIATIONS, BLOCKERS, SCRIPTS_CREATED, ONE_LINER)
-- [ ] **ORCH-04**: Orchestrator chains tool calls on every response — text-only only for the 4 valid exit conditions
+- [x] **ORCH-01**: Orchestrator can read STATE.md frontmatter and determine next dispatch action via first-match rule table
+- [x] **ORCH-02**: Orchestrator dispatches sub-agents with correct model (Opus/Sonnet/Haiku) from config-driven routing table
+- [x] **ORCH-03**: Orchestrator processes structured agent reports (<300 words: FILES_CHANGED, VERIFICATION, DEVIATIONS, BLOCKERS, SCRIPTS_CREATED, ONE_LINER)
+- [x] **ORCH-04**: Orchestrator chains tool calls on every response — text-only only for the 4 valid exit conditions
 - [ ] **ORCH-05**: Orchestrator writes ORCHESTRATOR-CHECKPOINT.md at >70% context with exact resume point
 - [ ] **ORCH-06**: Orchestrator resumes from checkpoint on next session without user re-briefing
 - [ ] **ORCH-07**: Orchestrator logs token usage per unit to .planning/metrics/token-log.jsonl after every dispatch
 - [x] **ORCH-08**: User can run `/gsd-token-audit` to see usage breakdown by model, role, and phase
-- [ ] **ORCH-09**: Orchestrator commits atomically per unit — never batches, never skips, never amends
+- [x] **ORCH-09**: Orchestrator commits atomically per unit — never batches, never skips, never amends
 - [x] **ORCH-10**: Orchestrator handles `@file:` IPC prefix from gsd-tools.cjs without silent failure
 
 ## Memory Layer
@@ -63,15 +63,15 @@
 
 | REQ | Phase | Status |
 |-----|-------|--------|
-| ORCH-01 | Phase 3 | Pending |
-| ORCH-02 | Phase 3 | Pending |
-| ORCH-03 | Phase 3 | Pending |
-| ORCH-04 | Phase 3 | Pending |
+| ORCH-01 | Phase 3 | Complete |
+| ORCH-02 | Phase 3 | Complete |
+| ORCH-03 | Phase 3 | Complete |
+| ORCH-04 | Phase 3 | Complete |
 | ORCH-05 | Phase 3 | Pending |
 | ORCH-06 | Phase 3 | Pending |
 | ORCH-07 | Phase 1 | Pending |
 | ORCH-08 | Phase 1 | Complete |
-| ORCH-09 | Phase 3 | Pending |
+| ORCH-09 | Phase 3 | Complete |
 | ORCH-10 | Phase 1 | Complete |
 | MEM-01 | Phase 2 | Complete |
 | MEM-02 | Phase 2 | Complete |
