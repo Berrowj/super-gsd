@@ -64,12 +64,12 @@ Plans:
   3. Agent reports follow the structured format (FILES_CHANGED, VERIFICATION, DEVIATIONS, BLOCKERS, SCRIPTS_CREATED, ONE_LINER) and are capped at 300 words
   4. Orchestrator chains tool calls on every response and only emits text-only for the 4 valid exit conditions
   5. At >70% context usage, orchestrator writes ORCHESTRATOR-CHECKPOINT.md and resumes from it in the next session without user re-briefing
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
-- [ ] 03-03: TBD
+- [ ] 03-01-PLAN.md — Wire dispatch conditions to gsd-tools, model routing from config.json, report processing + atomic commit rule
+- [ ] 03-02-PLAN.md — Context cap enforcement (SAFE-04), report format validation (SAFE-05), checkpoint write/resume cycle
+- [ ] 03-03-PLAN.md — End-to-end dry-run: Phase 4 context generated, dispatch trace validated, Phase 3 VERIFICATION.md written
 
 ### Phase 4: ATC Quality Gates
 **Goal**: Every commit is automatically classified and reviewed at the appropriate depth, with stuck agents detected early
