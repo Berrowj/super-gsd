@@ -1,328 +1,286 @@
-# Super GSD Project Dashboard — Wide Project View
-# Shows: milestone, phase, sub-phase, active agent, blockers, tokens, commits
-# Refreshes every 10 seconds.
+# Super GSD Project Dashboard — Bulletproof Version
+# Shows: milestone, phase, current plan, active agent, tokens, commits
 #
 # Usage:
 #   .\sgsd-dashboard.ps1                                # current directory
 #   .\sgsd-dashboard.ps1 -ProjectDir ~\project-clarity-erp
-#   .\sgsd-dashboard.ps1 -RefreshSec 5                  # faster refresh
+#   .\sgsd-dashboard.ps1 -RefreshSec 5
 
 param(
     [string]$ProjectDir = ".",
     [int]$RefreshSec = 10
 )
 
+$ErrorActionPreference = "SilentlyContinue"
+
+# Resolve path
+try {
+    $ProjectDir = (Resolve-Path $ProjectDir -ErrorAction Stop).Path
+} catch {
+    Write-Host "ERROR: Cannot resolve $ProjectDir" -ForegroundColor Red
+    exit 1
+}
+
 if (-not (Test-Path (Join-Path $ProjectDir ".planning"))) {
     Write-Host "ERROR: No .planning/ directory in $ProjectDir" -ForegroundColor Red
     exit 1
 }
 
-# Resolve to absolute path so Git commands work
-$ProjectDir = (Resolve-Path $ProjectDir).Path
-
-function Get-StateValue($file, $key) {
-    if (Test-Path $file) {
-        $match = Select-String -Path $file -Pattern "^${key}:\s*(.*)$" -List
-        if ($match) { return $match.Matches.Groups[1].Value.Trim() }
+function Get-Value($file, $key) {
+    if (-not (Test-Path $file)) { return "" }
+    $match = Select-String -Path $file -Pattern "^${key}:" -List -ErrorAction SilentlyContinue
+    if ($match) {
+        $line = $match.Matches[0].Value
+        return ($line -replace "^${key}:\s*", "").Trim().Trim('"')
     }
     return ""
 }
 
-function Format-Tokens($n) {
+function Format-Num($n) {
     if ($n -lt 1000) { return "$n" }
     if ($n -lt 1000000) { return "$([math]::Round($n/1000))K" }
     return "$([math]::Round($n/1000000, 1))M"
 }
 
-function Get-CurrentSubPhase($projectDir, $phase) {
-    # Find the most recent pending plan for the current phase
-    $phaseDir = Get-ChildItem -Path (Join-Path $projectDir ".planning\phases") -Directory -ErrorAction SilentlyContinue |
-                Where-Object { $_.Name -match "^${phase}-" } | Select-Object -First 1
-
-    if (-not $phaseDir) { return $null }
-
-    $result = @{
-        dir = $phaseDir.Name
-        phaseName = $phaseDir.Name -replace "^\d+-", ""
-        plans = @()
-        pendingCount = 0
-        doneCount = 0
-        currentPlan = $null
-    }
-
-    Get-ChildItem -Path $phaseDir.FullName -Filter "*-PLAN.md" | Sort-Object Name | ForEach-Object {
-        $planName = $_.BaseName
-        $summaryPath = $_.FullName -replace 'PLAN\.md$', 'SUMMARY.md'
-        $isDone = Test-Path $summaryPath
-
-        $result.plans += @{ name = $planName; done = $isDone }
-        if ($isDone) {
-            $result.doneCount++
-        } else {
-            $result.pendingCount++
-            if (-not $result.currentPlan) { $result.currentPlan = $planName }
-        }
-    }
-
-    return $result
-}
-
-function Get-RecentActivity($projectDir) {
-    # Read last 3 entries from activity log to find what's being worked on right now
-    $logPath = Join-Path $projectDir ".planning\metrics\activity-log.jsonl"
-    if (-not (Test-Path $logPath)) { return $null }
-
-    $lines = Get-Content $logPath -Tail 5 -ErrorAction SilentlyContinue
-    if (-not $lines) { return $null }
-
-    # Find most recent TaskCreate (agent context) or regular tool call
-    [Array]::Reverse($lines)
-    foreach ($line in $lines) {
-        try {
-            $e = $line | ConvertFrom-Json
-            if ($e.tool -eq "TaskCreate" -or $e.tool -eq "Agent") {
-                return @{
-                    context = $e.target
-                    tool = $e.tool
-                    ts = [DateTime]::Parse($e.ts)
-                    phase = $e.phase
-                }
-            }
-        } catch {}
-    }
-
-    # Fall back to most recent tool call
-    try {
-        $e = $lines[0] | ConvertFrom-Json
-        return @{
-            context = "$($e.tool): $($e.target)"
-            tool = $e.tool
-            ts = [DateTime]::Parse($e.ts)
-            phase = $e.phase
-        }
-    } catch {}
-
-    return $null
-}
-
-function Get-Blockers($projectDir) {
-    # Extract blockers from STATE.md
-    $stateFile = Join-Path $projectDir ".planning\STATE.md"
-    if (-not (Test-Path $stateFile)) { return @() }
-
-    $content = Get-Content $stateFile -Raw
-    $blockers = @()
-
-    # Look for blockers section
-    if ($content -match "(?s)##\s*Blockers?[^`n]*`n(.*?)(?=`n##|`n---|\z)") {
-        $section = $matches[1]
-        $section -split "`n" | ForEach-Object {
-            $line = $_.Trim()
-            if ($line -and $line -notmatch "^(None|-+|\*+|$)" -and $line -match "^[-*]\s*(.+)") {
-                $blockers += $matches[1]
-            }
-        }
-    }
-
-    return $blockers
-}
-
 while ($true) {
     Clear-Host
 
-    # Header
+    # HEADER
     Write-Host "================================================================" -ForegroundColor Cyan
-    Write-Host "            SUPER GSD -- PROJECT DASHBOARD                      " -ForegroundColor Cyan
+    Write-Host "           SUPER GSD -- PROJECT DASHBOARD                       " -ForegroundColor Cyan
     Write-Host "================================================================" -ForegroundColor Cyan
-    $timeStr = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    Write-Host "$timeStr | Refresh: ${RefreshSec}s | Ctrl+C to quit" -ForegroundColor DarkGray
+    Write-Host (Get-Date -Format 'HH:mm:ss') -NoNewline -ForegroundColor DarkGray
+    Write-Host " | refresh: ${RefreshSec}s | Ctrl+C to quit" -ForegroundColor DarkGray
     Write-Host ""
 
-    # Milestone + Progress
+    # STATE FILES
     $stateFile = Join-Path $ProjectDir ".planning\STATE.md"
     $roadmapFile = Join-Path $ProjectDir ".planning\ROADMAP.md"
-
-    $milestone = Get-StateValue $stateFile "milestone"
-    $milestoneName = Get-StateValue $stateFile "milestone_name"
-    $currentPhase = Get-StateValue $stateFile "current_phase"
-    $status = Get-StateValue $stateFile "status"
-
-    $total = 0; $done = 0
-    if (Test-Path $roadmapFile) {
-        $content = Get-Content $roadmapFile -Raw
-        $total = ([regex]::Matches($content, '^- \[', 'Multiline')).Count
-        $done = ([regex]::Matches($content, '^- \[x\]', 'Multiline')).Count
-    }
-
-    # MILESTONE BLOCK
-    Write-Host "MILESTONE " -NoNewline -ForegroundColor White
-    Write-Host "$milestone " -NoNewline -ForegroundColor Yellow
-    if ($milestoneName) { Write-Host "- $milestoneName" -ForegroundColor DarkGray }
-    else { Write-Host "" }
-
-    if ($total -gt 0) {
-        $pct = [math]::Round(($done / $total) * 100)
-        $filled = [math]::Round($pct / 5)
-        $empty = 20 - $filled
-        $bar = ('#' * $filled) + ('-' * $empty)
-        Write-Host "Progress: " -NoNewline
-        Write-Host "[$bar] " -NoNewline -ForegroundColor Green
-        Write-Host "$done/$total phases ($pct%)" -ForegroundColor White
-    }
-    Write-Host "Status:   " -NoNewline
-    Write-Host $status -ForegroundColor White
-    Write-Host ""
-
-    # CURRENT PHASE BLOCK
-    Write-Host "CURRENT PHASE" -ForegroundColor White
-    Write-Host "----------------------------------------------------------------" -ForegroundColor DarkGray
-
-    $subPhase = Get-CurrentSubPhase $ProjectDir $currentPhase
-    if ($subPhase) {
-        Write-Host "Phase:    " -NoNewline
-        Write-Host "$currentPhase " -NoNewline -ForegroundColor Yellow
-        Write-Host "- $($subPhase.phaseName)" -ForegroundColor Gray
-        Write-Host "Sub:      " -NoNewline
-        if ($subPhase.currentPlan) {
-            Write-Host $subPhase.currentPlan -ForegroundColor Yellow -NoNewline
-            Write-Host "  (pending)" -ForegroundColor DarkGray
-        } else {
-            Write-Host "(all plans complete)" -ForegroundColor Green
-        }
-        Write-Host "Plans:    " -NoNewline
-        Write-Host "$($subPhase.doneCount) done" -NoNewline -ForegroundColor Green
-        Write-Host " / " -NoNewline
-        Write-Host "$($subPhase.pendingCount) pending" -ForegroundColor Yellow
-    } else {
-        Write-Host "Phase: $currentPhase (no directory found)" -ForegroundColor DarkGray
-    }
-    Write-Host ""
-
-    # ACTIVE AGENT BLOCK
-    Write-Host "ACTIVE AGENT" -ForegroundColor White
-    Write-Host "----------------------------------------------------------------" -ForegroundColor DarkGray
-
-    $activity = Get-RecentActivity $ProjectDir
-    if ($activity) {
-        $age = [math]::Round(((Get-Date) - $activity.ts).TotalSeconds)
-        $ageStr = if ($age -lt 60) { "${age}s ago" }
-                  elseif ($age -lt 3600) { "$([math]::Round($age/60))m ago" }
-                  else { "$([math]::Round($age/3600, 1))h ago" }
-
-        Write-Host "Context:  " -NoNewline
-        Write-Host $activity.context -ForegroundColor Magenta
-        Write-Host "Last:     " -NoNewline
-        Write-Host "$ageStr " -NoNewline -ForegroundColor DarkGray
-        Write-Host "($($activity.tool))" -ForegroundColor DarkGray
-
-        if ($age -gt 60) {
-            Write-Host "Status:   " -NoNewline
-            Write-Host "IDLE" -ForegroundColor Yellow -NoNewline
-            Write-Host " (no activity in ${age}s)" -ForegroundColor DarkGray
-        } else {
-            Write-Host "Status:   " -NoNewline
-            Write-Host "ACTIVE" -ForegroundColor Green
-        }
-    } else {
-        Write-Host "  No activity yet" -ForegroundColor DarkGray
-    }
-    Write-Host ""
-
-    # BLOCKERS BLOCK
-    $blockers = Get-Blockers $ProjectDir
-    if ($blockers.Count -gt 0) {
-        Write-Host "BLOCKERS" -ForegroundColor Red
-        Write-Host "----------------------------------------------------------------" -ForegroundColor DarkGray
-        foreach ($blocker in $blockers) {
-            Write-Host "  ! " -NoNewline -ForegroundColor Red
-            Write-Host $blocker -ForegroundColor White
-        }
-        Write-Host ""
-    }
-
-    # CHECKPOINT STATUS
-    $checkpoint = Join-Path $ProjectDir ".planning\ORCHESTRATOR-CHECKPOINT.md"
-    if (Test-Path $checkpoint) {
-        Write-Host "CHECKPOINT ACTIVE" -ForegroundColor Yellow
-        Write-Host "----------------------------------------------------------------" -ForegroundColor DarkGray
-        $lastCompleted = Get-StateValue $checkpoint "last_completed"
-        $nextUnit = Get-StateValue $checkpoint "next_unit"
-        Write-Host "  Last: " -NoNewline -ForegroundColor DarkGray
-        Write-Host $lastCompleted -ForegroundColor Gray
-        Write-Host "  Next: " -NoNewline -ForegroundColor DarkGray
-        Write-Host $nextUnit -ForegroundColor Gray
-        Write-Host ""
-    }
-
-    # TOKEN TOTALS
+    $checkpointFile = Join-Path $ProjectDir ".planning\ORCHESTRATOR-CHECKPOINT.md"
     $tokenLog = Join-Path $ProjectDir ".planning\metrics\token-log.jsonl"
-    if (Test-Path $tokenLog) {
-        $lines = Get-Content $tokenLog -ErrorAction SilentlyContinue
-        if ($lines) {
-            $opus = 0; $sonnet = 0; $haiku = 0
-            foreach ($line in $lines) {
+    $activityLog = Join-Path $ProjectDir ".planning\metrics\activity-log.jsonl"
+
+    # MILESTONE
+    $milestone = Get-Value $stateFile "milestone"
+    $milestoneName = Get-Value $stateFile "milestone_name"
+    $currentPhase = Get-Value $stateFile "current_phase"
+    $status = Get-Value $stateFile "status"
+
+    if (-not $milestone) { $milestone = "?" }
+    if (-not $currentPhase) { $currentPhase = "?" }
+    if (-not $status) { $status = "?" }
+
+    Write-Host "MILESTONE" -ForegroundColor White
+    Write-Host "  Version:  " -NoNewline
+    Write-Host $milestone -ForegroundColor Yellow
+    if ($milestoneName) {
+        Write-Host "  Name:     " -NoNewline
+        Write-Host $milestoneName -ForegroundColor Gray
+    }
+    Write-Host "  Status:   " -NoNewline
+    Write-Host $status -ForegroundColor White
+
+    # Progress from ROADMAP
+    if (Test-Path $roadmapFile) {
+        $roadmapText = Get-Content $roadmapFile -Raw -ErrorAction SilentlyContinue
+        if ($roadmapText) {
+            $totalMatches = [regex]::Matches($roadmapText, '(?m)^- \[')
+            $doneMatches = [regex]::Matches($roadmapText, '(?m)^- \[x\]')
+            $totalCount = $totalMatches.Count
+            $doneCount = $doneMatches.Count
+
+            if ($totalCount -gt 0) {
+                $pct = [math]::Round(($doneCount / $totalCount) * 100)
+                $filled = [math]::Floor($pct / 5)
+                if ($filled -gt 20) { $filled = 20 }
+                if ($filled -lt 0) { $filled = 0 }
+                $empty = 20 - $filled
+                $bar = ('#' * $filled) + ('-' * $empty)
+
+                Write-Host "  Progress: " -NoNewline
+                Write-Host "[$bar] " -NoNewline -ForegroundColor Green
+                Write-Host "$doneCount/$totalCount ($pct%)" -ForegroundColor White
+            }
+        }
+    }
+    Write-Host ""
+
+    # CURRENT PHASE
+    Write-Host "CURRENT PHASE" -ForegroundColor White
+    Write-Host "  Phase:    " -NoNewline
+    Write-Host $currentPhase -ForegroundColor Yellow
+
+    # Find phase directory
+    $phasesDir = Join-Path $ProjectDir ".planning\phases"
+    $phaseDirName = ""
+    $currentPlan = ""
+    $planDone = 0
+    $planPending = 0
+
+    if ((Test-Path $phasesDir) -and $currentPhase -ne "?") {
+        $phaseDir = Get-ChildItem -Path $phasesDir -Directory -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Name.StartsWith("$currentPhase-") } |
+                    Select-Object -First 1
+        if ($phaseDir) {
+            $phaseDirName = $phaseDir.Name
+            $plans = Get-ChildItem -Path $phaseDir.FullName -Filter "*-PLAN.md" -ErrorAction SilentlyContinue | Sort-Object Name
+            foreach ($plan in $plans) {
+                $summaryPath = $plan.FullName -replace 'PLAN\.md$', 'SUMMARY.md'
+                if (Test-Path $summaryPath) {
+                    $planDone++
+                } else {
+                    $planPending++
+                    if (-not $currentPlan) { $currentPlan = $plan.BaseName }
+                }
+            }
+        }
+    }
+
+    if ($phaseDirName) {
+        Write-Host "  Dir:      " -NoNewline
+        Write-Host $phaseDirName -ForegroundColor Gray
+    }
+    if ($currentPlan) {
+        Write-Host "  Sub:      " -NoNewline
+        Write-Host $currentPlan -NoNewline -ForegroundColor Yellow
+        Write-Host " (pending)" -ForegroundColor DarkGray
+    } elseif ($planDone -gt 0) {
+        Write-Host "  Sub:      " -NoNewline
+        Write-Host "all plans done" -ForegroundColor Green
+    }
+    Write-Host "  Plans:    " -NoNewline
+    Write-Host "$planDone done" -NoNewline -ForegroundColor Green
+    Write-Host " / " -NoNewline
+    Write-Host "$planPending pending" -ForegroundColor Yellow
+    Write-Host ""
+
+    # ACTIVE AGENT (from activity log)
+    Write-Host "ACTIVE AGENT" -ForegroundColor White
+    if (Test-Path $activityLog) {
+        $recentLines = Get-Content $activityLog -Tail 10 -ErrorAction SilentlyContinue
+        $agentContext = ""
+        $lastTool = ""
+        $lastTs = $null
+
+        if ($recentLines) {
+            [array]::Reverse($recentLines)
+            foreach ($line in $recentLines) {
                 try {
-                    $e = $line | ConvertFrom-Json
-                    $m = $e.model.ToLower()
-                    if ($m -eq "opus") { $opus += [int]$e.total }
-                    elseif ($m -eq "sonnet") { $sonnet += [int]$e.total }
-                    elseif ($m -eq "haiku") { $haiku += [int]$e.total }
+                    $e = $line | ConvertFrom-Json -ErrorAction Stop
+                    if (-not $lastTool) {
+                        $lastTool = $e.tool
+                        $lastTs = [DateTime]::Parse($e.ts)
+                    }
+                    if ($e.tool -eq "TaskCreate" -or $e.tool -eq "Agent") {
+                        $agentContext = $e.target
+                        break
+                    }
                 } catch {}
             }
-            $totalTokens = $opus + $sonnet + $haiku
-            if ($totalTokens -gt 0) {
-                Write-Host "TOKEN USAGE" -ForegroundColor White
-                Write-Host "----------------------------------------------------------------" -ForegroundColor DarkGray
-                Write-Host "  Opus:   " -ForegroundColor Magenta -NoNewline
-                Write-Host (Format-Tokens $opus)
-                Write-Host "  Sonnet: " -ForegroundColor Blue -NoNewline
-                Write-Host (Format-Tokens $sonnet)
-                Write-Host "  Haiku:  " -ForegroundColor Cyan -NoNewline
-                Write-Host (Format-Tokens $haiku)
-                Write-Host "  Total:  " -NoNewline -ForegroundColor White
-                Write-Host (Format-Tokens $totalTokens) -ForegroundColor Yellow
-                Write-Host ""
+        }
+
+        if ($agentContext) {
+            Write-Host "  Context:  " -NoNewline
+            Write-Host $agentContext -ForegroundColor Magenta
+        } else {
+            Write-Host "  Context:  " -NoNewline
+            Write-Host "(no task context)" -ForegroundColor DarkGray
+        }
+
+        if ($lastTs) {
+            $age = [int]((Get-Date) - $lastTs).TotalSeconds
+            $ageStr = if ($age -lt 60) { "${age}s ago" }
+                      elseif ($age -lt 3600) { "$([math]::Floor($age/60))m ago" }
+                      else { "$([math]::Floor($age/3600))h ago" }
+            Write-Host "  Last:     " -NoNewline
+            Write-Host "$ageStr ($lastTool)" -ForegroundColor DarkGray
+            Write-Host "  Status:   " -NoNewline
+            if ($age -lt 30) {
+                Write-Host "ACTIVE" -ForegroundColor Green
+            } elseif ($age -lt 300) {
+                Write-Host "IDLE" -ForegroundColor Yellow
+            } else {
+                Write-Host "STOPPED" -ForegroundColor Red
             }
         }
+    } else {
+        Write-Host "  (no activity log)" -ForegroundColor DarkGray
     }
+    Write-Host ""
 
-    # PHASE PLANS
-    if ($subPhase -and $subPhase.plans.Count -gt 0) {
-        Write-Host "PHASE PLANS " -NoNewline -ForegroundColor White
-        Write-Host "($($subPhase.dir))" -ForegroundColor DarkGray
-        Write-Host "----------------------------------------------------------------" -ForegroundColor DarkGray
-        foreach ($plan in $subPhase.plans) {
-            if ($plan.done) {
-                Write-Host "  [done]    " -NoNewline -ForegroundColor Green
-            } else {
-                Write-Host "  [pending] " -NoNewline -ForegroundColor Yellow
-            }
-            Write-Host $plan.name
+    # CHECKPOINT
+    if (Test-Path $checkpointFile) {
+        Write-Host "CHECKPOINT" -ForegroundColor Yellow
+        $lastCompleted = Get-Value $checkpointFile "last_completed"
+        $nextUnit = Get-Value $checkpointFile "next_unit"
+        if ($lastCompleted) {
+            Write-Host "  Last:     " -NoNewline -ForegroundColor DarkGray
+            Write-Host $lastCompleted -ForegroundColor Gray
+        }
+        if ($nextUnit) {
+            Write-Host "  Next:     " -NoNewline -ForegroundColor DarkGray
+            Write-Host $nextUnit -ForegroundColor Gray
         }
         Write-Host ""
+    }
+
+    # TOKEN USAGE
+    if (Test-Path $tokenLog) {
+        $opus = 0; $sonnet = 0; $haiku = 0
+        try {
+            $tokenLines = Get-Content $tokenLog -ErrorAction SilentlyContinue
+            foreach ($line in $tokenLines) {
+                try {
+                    $e = $line | ConvertFrom-Json -ErrorAction Stop
+                    $m = "$($e.model)".ToLower()
+                    $t = [int]$e.total
+                    if ($m -eq "opus") { $opus += $t }
+                    elseif ($m -eq "sonnet") { $sonnet += $t }
+                    elseif ($m -eq "haiku") { $haiku += $t }
+                } catch {}
+            }
+        } catch {}
+
+        $totalT = $opus + $sonnet + $haiku
+        if ($totalT -gt 0) {
+            Write-Host "TOKENS" -ForegroundColor White
+            Write-Host "  Opus:     " -NoNewline -ForegroundColor Magenta
+            Write-Host (Format-Num $opus)
+            Write-Host "  Sonnet:   " -NoNewline -ForegroundColor Blue
+            Write-Host (Format-Num $sonnet)
+            Write-Host "  Haiku:    " -NoNewline -ForegroundColor Cyan
+            Write-Host (Format-Num $haiku)
+            Write-Host "  Total:    " -NoNewline
+            Write-Host (Format-Num $totalT) -ForegroundColor Yellow
+            Write-Host ""
+        }
     }
 
     # RECENT COMMITS
     Write-Host "RECENT COMMITS" -ForegroundColor White
-    Write-Host "----------------------------------------------------------------" -ForegroundColor DarkGray
-    Push-Location $ProjectDir
+    Push-Location $ProjectDir -ErrorAction SilentlyContinue
     try {
-        $commits = git log --oneline -5 2>$null
+        $commits = & git log --oneline -5 2>$null
         if ($commits) {
-            $commits | ForEach-Object {
-                $parts = $_ -split ' ', 2
-                Write-Host "  $($parts[0]) " -NoNewline -ForegroundColor Cyan
-                $msg = $parts[1]
-                if ($msg.Length -gt 70) { $msg = $msg.Substring(0, 70) + "..." }
-                Write-Host $msg -ForegroundColor Gray
+            foreach ($c in $commits) {
+                $parts = $c -split ' ', 2
+                if ($parts.Count -eq 2) {
+                    Write-Host "  $($parts[0]) " -NoNewline -ForegroundColor Cyan
+                    $msg = $parts[1]
+                    if ($msg.Length -gt 60) { $msg = $msg.Substring(0, 60) + "..." }
+                    Write-Host $msg -ForegroundColor Gray
+                }
             }
+        } else {
+            Write-Host "  (no git history)" -ForegroundColor DarkGray
         }
-    } catch {}
-    Pop-Location
+    } catch {
+        Write-Host "  (git error)" -ForegroundColor DarkGray
+    }
+    Pop-Location -ErrorAction SilentlyContinue
 
     Write-Host ""
     Write-Host "================================================================" -ForegroundColor DarkGray
-    Write-Host "Project: $ProjectDir" -ForegroundColor DarkGray
 
     Start-Sleep -Seconds $RefreshSec
 }
