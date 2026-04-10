@@ -44,6 +44,7 @@ $CLEAR_BELOW = "$ESC[0J"
 
 Clear-Host
 $lastHash = ""
+$firstRun = $true
 
 # Watch activity log for live updates
 $watchDir = Join-Path $ProjectDir ".planning\metrics"
@@ -59,7 +60,15 @@ $null = Register-ObjectEvent -InputObject $watcher -EventName Changed -Action {
 } -ErrorAction SilentlyContinue
 
 while ($true) {
-    Clear-Host
+    # Reset cursor to top (no Clear-Host, preserves scroll)
+    try {
+        if (-not $firstRun) {
+            [Console]::SetCursorPosition(0, 0)
+        }
+        $firstRun = $false
+    } catch {
+        Clear-Host
+    }
 
     # COLORFUL HEADER
     $time = Get-Date -Format 'HH:mm:ss'
@@ -241,6 +250,16 @@ Summary (max 100 tokens, 1-2 sentences):
     Write-Host ""
     Write-Host ("=" * 64) -ForegroundColor DarkGray
     Write-Host "Live (watches activity log)" -ForegroundColor DarkGray
+
+    # Pad remaining space with blank lines so refresh overwrites cleanly
+    try {
+        $currentY = [Console]::CursorTop
+        $windowH = [Console]::WindowHeight
+        $linesLeft = $windowH - $currentY - 1
+        for ($i = 0; $i -lt $linesLeft; $i++) {
+            Write-Host (" " * ([Console]::WindowWidth - 1))
+        }
+    } catch {}
 
     # Live update: wait for file change OR heartbeat timeout
     $global:needsRedraw = $false

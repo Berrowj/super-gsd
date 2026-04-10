@@ -190,23 +190,31 @@ function Get-TokenStats($tokenLog) {
 }
 
 Clear-Host
+$firstRun = $true
 
-# Watch the activity log with FileSystemWatcher for live updates
-$watchDir = Join-Path $ProjectDir ".planning\metrics"
-$watcher = New-Object System.IO.FileSystemWatcher
-if (Test-Path $watchDir) {
-    $watcher.Path = $watchDir
-    $watcher.Filter = "*.jsonl"
-    $watcher.EnableRaisingEvents = $true
+# Track how many lines we wrote last iteration for proper overwrite
+$script:linesWritten = 0
+
+# Helper: write a line and increment the counter
+function W-Line {
+    param([scriptblock]$content)
+    & $content
+    $script:linesWritten++
 }
-$global:needsRedraw = $true
-$null = Register-ObjectEvent -InputObject $watcher -EventName Changed -Action {
-    $global:needsRedraw = $true
-} -ErrorAction SilentlyContinue
 
 while ($true) {
-    # Use Clear-Host for reliable refresh (ANSI escape codes don't work in all Warp configs)
-    Clear-Host
+    # Reset cursor to top (no Clear-Host, preserves scroll)
+    try {
+        if (-not $firstRun) {
+            [Console]::SetCursorPosition(0, 0)
+        }
+        $firstRun = $false
+    } catch {
+        # Fallback if console doesn't support SetCursorPosition
+        Clear-Host
+    }
+
+    $script:linesWritten = 0
 
     # COLORFUL HEADER
     $time = Get-Date -Format 'HH:mm:ss'
@@ -449,6 +457,16 @@ while ($true) {
         }
     } catch {}
     Pop-Location -ErrorAction SilentlyContinue
+
+    # Pad remaining space with blank lines so refresh overwrites cleanly
+    try {
+        $currentY = [Console]::CursorTop
+        $windowH = [Console]::WindowHeight
+        $linesLeft = $windowH - $currentY - 1
+        for ($i = 0; $i -lt $linesLeft; $i++) {
+            Write-Host (" " * ([Console]::WindowWidth - 1))
+        }
+    } catch {}
 
     # Live update: wait for file change OR heartbeat timeout
     $global:needsRedraw = $false
