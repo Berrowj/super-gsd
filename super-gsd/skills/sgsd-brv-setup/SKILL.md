@@ -1,5 +1,5 @@
 ---
-name: gsd-brv-setup
+name: sgsd-brv-setup
 description: "Initialize ByteRover context tree for Super GSD. Seeds domain knowledge, configures MCP connector, verifies integration."
 argument-hint: "[--seed-only | --verify]"
 allowed-tools:

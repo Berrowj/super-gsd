@@ -59,7 +59,7 @@ that builds the same GraphModel from `.planning/` files.
 
 | Pi | Super GSD |
 |----|-----------|
-| `/overwatcher start` (Pi command) | `/gsd-overwatcher start` (Claude Code skill) |
+| `/overwatcher start` (Pi command) | `/sgsd-overwatcher start` (Claude Code skill) |
 | `overwatcher_scan` (Pi tool) | Agent call or manual scan |
 | Pi `event_hooks` for live reload | File watcher or manual trigger |
 
@@ -113,7 +113,7 @@ Reading strategy:
 6. Parse `decisions/DLB-*.md` for deliberation data
 7. Parse `REQUIREMENTS.md` for requirement nodes
 
-### Step 2: Create /gsd-overwatcher skill
+### Step 2: Create /sgsd-overwatcher skill
 
 Skill that:
 1. Runs the scanner (planning-reader.js)

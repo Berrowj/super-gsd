@@ -1,5 +1,5 @@
 ---
-name: gsd-overwatcher
+name: sgsd-overwatcher
 description: "Signal map visualization. Scans .planning/ architecture, detects collisions/dead-ends/overlaps, renders interactive HTML dashboard."
 argument-hint: "[start | scan | status | open]"
 allowed-tools:

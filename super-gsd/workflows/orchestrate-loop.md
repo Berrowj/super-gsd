@@ -1,6 +1,6 @@
 # Super GSD Orchestrate Loop — Workflow Definition
 
-Referenced by `/gsd-orchestrate` skill. This is the engine.
+Referenced by `/sgsd-orchestrate` skill. This is the engine.
 
 ## Entry Points
 
@@ -121,7 +121,7 @@ Agent(
 )
 ```
 
-If `deliberate: true` and not in auto mode → suggest `/gsd-deliberate`
+If `deliberate: true` and not in auto mode → suggest `/sgsd-deliberate`
 If `deliberate: true` and in auto mode → log warning, skip deliberation
 
 ### Step 3: Select Context (Haiku)
@@ -415,7 +415,7 @@ if [ "$ATC_ENABLED" = "true" ]; then
 
     if [ "${AUTO_MODE}" != "true" ]; then
       # QA-03: Suggest deliberation in non-auto mode
-      echo "GATE-tier change detected. Run /gsd-deliberate before proceeding. Reason: ${ATC_REASON}"
+      echo "GATE-tier change detected. Run /sgsd-deliberate before proceeding. Reason: ${ATC_REASON}"
       # STOP — return to user for deliberation decision
       exit 0
     else
@@ -594,7 +594,7 @@ Commit checkpoint, then STOP (text-only response).
    git commit -m "chore(checkpoint): session end at phase {N} plan {P}"
    ```
 
-4. STOP — emit text-only response: "Checkpoint written. Resume with /gsd-orchestrate go"
+4. STOP — emit text-only response: "Checkpoint written. Resume with /sgsd-orchestrate go"
    DO NOT dispatch another agent. DO NOT read STATE.md again. Just stop.
 
 ---

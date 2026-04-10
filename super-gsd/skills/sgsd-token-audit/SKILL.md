@@ -1,5 +1,5 @@
 ---
-name: gsd-token-audit
+name: sgsd-token-audit
 description: "Analyze token usage, detect inefficiencies, suggest optimizations. Reads token-log.jsonl and context files."
 argument-hint: "[--full | --quick | --context-map]"
 allowed-tools:

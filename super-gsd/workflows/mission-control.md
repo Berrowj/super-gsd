@@ -11,7 +11,7 @@ Read-only monitoring of orchestrator progress, ATC quality log, and signal map.
 │  (interactive — you work here)  │    │  (read-only monitoring)      │
 │                                 │    │  ╔══════════════════════╗    │
 │  Claude Code + Super GSD        │    │  ║ Mission Control      ║    │
-│  /gsd-orchestrate go            │    │  ║ • phase progress     ║    │
+│  /sgsd-orchestrate go            │    │  ║ • phase progress     ║    │
 │                                 │    │  ║ • token spend        ║    │
 │                                 │    │  ║ • model breakdown    ║    │
 │                                 │    │  ╠══════════════════════╣    │

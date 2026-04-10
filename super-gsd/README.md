@@ -141,11 +141,11 @@ The local query engine picks up new files immediately — no indexing step.
 
 ```bash
 # Check agents installed
-ls ~/.claude/agents/board-*.md ~/.claude/agents/gsd-c*.md
+ls ~/.claude/agents/sgsd-*.md
 
 # Check skills registered (restart Claude Code first)
-# You should see: gsd-orchestrate, gsd-deliberate, gsd-pause, gsd-resume,
-#   gsd-token-audit, gsd-brv-setup, gsd-overwatcher, gsd-transition
+# You should see: sgsd-orchestrate, sgsd-deliberate, sgsd-pause, sgsd-resume,
+#   sgsd-token-audit, sgsd-brv-setup, sgsd-overwatcher, sgsd-transition
 
 # Check hooks installed
 ls ~/.claude/hooks/gsd-*.js ~/.claude/hooks/brv-query-local.js
@@ -170,22 +170,22 @@ super-gsd/
 ├── install.sh                         # One-command installation
 │
 ├── agents/                            # 7 agent definitions
-│   ├── gsd-classifier.md              # Haiku: task complexity + model routing
-│   ├── gsd-context-selector.md        # Haiku: pick relevant context per task
-│   ├── gsd-ceo.md                     # Opus: deliberation orchestrator
-│   ├── board-architect.md             # Sonnet: technical feasibility
-│   ├── board-pragmatist.md            # Sonnet: execution risk
-│   ├── board-contrarian.md            # Sonnet: assumption stress-testing
-│   └── board-moonshot.md              # Sonnet: 10x alternatives
+│   ├── sgsd-classifier.md              # Haiku: task complexity + model routing
+│   ├── sgsd-context-selector.md        # Haiku: pick relevant context per task
+│   ├── sgsd-ceo.md                     # Opus: deliberation orchestrator
+│   ├── sgsd-board-architect.md             # Sonnet: technical feasibility
+│   ├── sgsd-board-pragmatist.md            # Sonnet: execution risk
+│   ├── sgsd-board-contrarian.md            # Sonnet: assumption stress-testing
+│   └── sgsd-board-moonshot.md              # Sonnet: 10x alternatives
 │
 ├── skills/                            # 7 slash commands
-│   ├── gsd-orchestrate/SKILL.md       # /gsd-orchestrate — autonomous loop engine
-│   ├── gsd-deliberate/SKILL.md        # /gsd-deliberate — CEO/Board decisions
-│   ├── gsd-transition/SKILL.md        # /gsd-transition — migrate from Pi/GSD 2.0
-│   ├── gsd-token-audit/SKILL.md       # /gsd-token-audit — usage analysis
-│   ├── gsd-brv-setup/SKILL.md         # /gsd-brv-setup — ByteRover initialization
-│   ├── gsd-pause/SKILL.md             # /gsd-pause — checkpoint + stop
-│   └── gsd-resume/SKILL.md            # /gsd-resume — restore from checkpoint
+│   ├── sgsd-orchestrate/SKILL.md      # /sgsd-orchestrate — autonomous loop engine
+│   ├── sgsd-deliberate/SKILL.md       # /sgsd-deliberate — CEO/Board decisions
+│   ├── sgsd-transition/SKILL.md       # /sgsd-transition — migrate from Pi/GSD 2.0
+│   ├── sgsd-token-audit/SKILL.md      # /sgsd-token-audit — usage analysis
+│   ├── sgsd-brv-setup/SKILL.md        # /sgsd-brv-setup — ByteRover initialization
+│   ├── sgsd-pause/SKILL.md            # /sgsd-pause — checkpoint + stop
+│   └── sgsd-resume/SKILL.md           # /sgsd-resume — restore from checkpoint
 │
 ├── workflows/                         # Engine internals
 │   ├── orchestrate-loop.md            # The auto loop — step-by-step engine spec
@@ -235,25 +235,25 @@ super-gsd/
 
 ```bash
 # Autonomous mode — runs until done or exit condition
-/gsd-orchestrate go
+/sgsd-orchestrate go
 
 # Execute one unit
-/gsd-orchestrate next
+/sgsd-orchestrate next
 
 # Check position
-/gsd-orchestrate status
+/sgsd-orchestrate status
 
 # Strategic decision
-/gsd-deliberate new
-/gsd-deliberate .planning/briefs/2026-04-08-architecture.md
+/sgsd-deliberate new
+/sgsd-deliberate .planning/briefs/2026-04-08-architecture.md
 
 # Token analysis
-/gsd-token-audit --quick
-/gsd-token-audit --full
-/gsd-token-audit --context-map
+/sgsd-token-audit --quick
+/sgsd-token-audit --full
+/sgsd-token-audit --context-map
 
 # Migrate from Pi/GSD 2.0
-/gsd-transition .gsd/
+/sgsd-transition .gsd/
 ```
 
 ## Hook Configuration
@@ -286,8 +286,8 @@ Add to `~/.claude/settings.json`:
 | Role | Model | Cost Ratio | When |
 |------|-------|-----------|------|
 | Orchestrator | Opus | 1x | Always — lean state machine |
-| CEO | Opus | 1x | /gsd-deliberate only |
-| Board members | Sonnet | 0.2x each | /gsd-deliberate only |
+| CEO | Opus | 1x | /sgsd-deliberate only |
+| Board members | Sonnet | 0.2x each | /sgsd-deliberate only |
 | Researcher | Sonnet | 0.2x | Phase research |
 | Planner | Sonnet | 0.2x | Plan creation |
 | Executor | Sonnet | 0.2x | Code implementation |

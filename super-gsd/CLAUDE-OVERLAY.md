@@ -44,8 +44,8 @@ State lives in `.planning/`. Memory lives in `.brv/context-tree/` (ByteRover).
 | "next" | Execute ONE unit, then stop and report |
 | "status" / "where are we?" | Read STATE.md frontmatter, report position |
 | "stop" / "pause" | Write checkpoint, stop looping |
-| "deliberate" | Run /gsd-deliberate for strategic decision |
-| "audit tokens" | Run /gsd-token-audit --quick |
+| "deliberate" | Run /sgsd-deliberate for strategic decision |
+| "audit tokens" | Run /sgsd-token-audit --quick |
 
 ---
 
@@ -182,7 +182,7 @@ When context >70% OR user says pause/stop:
   ```
 
 **Step 3:** STOP with text-only response
-  "Checkpoint written. Next session: /gsd-orchestrate go"
+  "Checkpoint written. Next session: /sgsd-orchestrate go"
 
 **On next session start — Step 1 of EVERY session:**
   Read `.planning/ORCHESTRATOR-CHECKPOINT.md`

@@ -1,5 +1,5 @@
 ---
-name: gsd-transition
+name: sgsd-transition
 description: "Migrate from GSD 2.0 (Pi harness) to Super GSD. One-time import of decisions, knowledge, requirements, and milestone work."
 argument-hint: "[path/to/.gsd/]"
 allowed-tools:

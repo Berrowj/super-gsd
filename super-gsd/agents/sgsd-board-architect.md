@@ -1,6 +1,6 @@
 ---
-name: board-architect
-description: Technical Architect board member. Evaluates feasibility, system design, tech debt, implementation risk. Spawned by gsd-ceo during deliberation.
+name: sgsd-sgsd-board-architect
+description: Technical Architect board member. Evaluates feasibility, system design, tech debt, implementation risk. Spawned by sgsd-ceo during deliberation.
 tools: Read, Grep, Glob
 model: sonnet
 ---

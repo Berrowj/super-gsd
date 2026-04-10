@@ -271,13 +271,13 @@ Then **restart Claude Code** (close and reopen). The new skills and hooks only l
 After restarting Claude Code, type these to check:
 
 ```
-/gsd-orchestrate status
+/sgsd-orchestrate status
 ```
 
 You should see your project state (milestone, phase, progress).
 
 ```
-/gsd-token-audit --quick
+/sgsd-token-audit --quick
 ```
 
 Should show token usage (even if it's empty — that's fine for a new project).
@@ -326,7 +326,7 @@ go
 Or:
 
 ```
-/gsd-orchestrate go
+/sgsd-orchestrate go
 ```
 
 That's it. Claude enters the autonomous loop and starts building your software. It will:
@@ -338,7 +338,7 @@ That's it. Claude enters the autonomous loop and starts building your software. 
 5. Move to the next thing
 6. Repeat until everything is done
 
-You can walk away. Come back later. Check progress with `/gsd-orchestrate status`.
+You can walk away. Come back later. Check progress with `/sgsd-orchestrate status`.
 
 ---
 
@@ -348,11 +348,11 @@ You can walk away. Come back later. Check progress with `/gsd-orchestrate status
 
 | What You Type | What Happens |
 |---|---|
-| `go` or `/gsd-orchestrate go` | Start the autonomous loop — builds everything |
-| `/gsd-orchestrate next` | Do ONE thing, then stop and tell me what happened |
-| `/gsd-orchestrate status` | Where am I? What's done? What's next? |
-| `stop` or `/gsd-pause` | Save progress and stop the loop |
-| `continue` or `/gsd-resume` | Pick up where I left off |
+| `go` or `/sgsd-orchestrate go` | Start the autonomous loop — builds everything |
+| `/sgsd-orchestrate next` | Do ONE thing, then stop and tell me what happened |
+| `/sgsd-orchestrate status` | Where am I? What's done? What's next? |
+| `stop` or `/sgsd-pause` | Save progress and stop the loop |
+| `continue` or `/sgsd-resume` | Pick up where I left off |
 
 ### Project Setup
 
@@ -368,19 +368,19 @@ You can walk away. Come back later. Check progress with `/gsd-orchestrate status
 
 | Command | When to Use |
 |---|---|
-| `/gsd-token-audit --quick` | How many tokens am I using? |
-| `/gsd-token-audit --full` | Deep analysis of token usage across all sessions |
-| `/gsd-token-audit --context-map` | Which files cost the most tokens? |
-| `/gsd-overwatcher scan` | Generate the signal map (project visualization) |
-| `/gsd-overwatcher start` | Signal map + live server in browser |
+| `/sgsd-token-audit --quick` | How many tokens am I using? |
+| `/sgsd-token-audit --full` | Deep analysis of token usage across all sessions |
+| `/sgsd-token-audit --context-map` | Which files cost the most tokens? |
+| `/sgsd-overwatcher scan` | Generate the signal map (project visualization) |
+| `/sgsd-overwatcher start` | Signal map + live server in browser |
 | `/gsd-progress` | Summary of what's done and what's ahead |
 
 ### Big Decisions
 
 | Command | When to Use |
 |---|---|
-| `/gsd-deliberate new` | Need help making a hard decision? Run a CEO/Board debate |
-| `/gsd-deliberate path/to/brief.md` | Run debate on a prepared brief |
+| `/sgsd-deliberate new` | Need help making a hard decision? Run a CEO/Board debate |
+| `/sgsd-deliberate path/to/brief.md` | Run debate on a prepared brief |
 
 ### Quality and Review
 
@@ -394,7 +394,7 @@ You can walk away. Come back later. Check progress with `/gsd-orchestrate status
 
 | Command | When to Use |
 |---|---|
-| `/gsd-transition .gsd/` | Migrate from Pi/GSD 2.0 to Super GSD |
+| `/sgsd-transition .gsd/` | Migrate from Pi/GSD 2.0 to Super GSD |
 
 ### Everything Else From GSD 1.0
 
@@ -521,7 +521,7 @@ You're building something and you hit a fork in the road. "Should we use a SQL d
 ### How It Works
 
 ```
-/gsd-deliberate new
+/sgsd-deliberate new
 ```
 
 Claude asks you what decision you need to make. It creates a "brief" — a structured document with:
@@ -567,7 +567,7 @@ ATC stands for "Air Traffic Control" — like at an airport. Before every commit
 | **SKIP** | Tiny change (<10 lines, 1 file) | Nothing — just commit | 0 |
 | **LITE** | Small change (10-50 lines, 1-3 files) | Quick check: "Is there dead code? Could this be simpler?" | ~200 |
 | **FULL** | Medium change (50+ lines, 4+ files) | Full 7-step review + 10-point anti-slop checklist | ~500 |
-| **GATE** | Big change (new system, API, architecture) | Full review + "You should probably run /gsd-deliberate first" | ~500+ |
+| **GATE** | Big change (new system, API, architecture) | Full review + "You should probably run /sgsd-deliberate first" | ~500+ |
 
 Haiku (the small brain) classifies every change into a tier. If it's small, skip the checks. If it's big, run the full review. This saves tokens on trivial changes while catching problems on important ones.
 
@@ -590,13 +590,13 @@ A visual HTML dashboard that shows your entire project structure — phases, pla
 ### How To Generate It
 
 ```
-/gsd-overwatcher scan
+/sgsd-overwatcher scan
 ```
 
 This creates `.planning/overwatcher/signal-map.html`. Open it in your browser:
 
 ```
-/gsd-overwatcher open
+/sgsd-overwatcher open
 ```
 
 Or double-click the file in your file explorer.
@@ -607,7 +607,7 @@ Or double-click the file in your file explorer.
 - **Plan Status** — How many plans in each phase, how many done
 - **Collisions** — Files that multiple plans write to (potential conflicts!)
 - **Dependency Graph** — Which plans depend on which
-- **Decisions** — Strategic decisions made via /gsd-deliberate
+- **Decisions** — Strategic decisions made via /sgsd-deliberate
 
 ### Auto-Scan
 
@@ -634,19 +634,19 @@ Every agent dispatch gets logged to `.planning/metrics/token-log.jsonl`. Each en
 ### Checking Usage
 
 ```
-/gsd-token-audit --quick
+/sgsd-token-audit --quick
 ```
 
 Shows a quick summary: total tokens this session, most expensive agent, most expensive phase.
 
 ```
-/gsd-token-audit --full
+/sgsd-token-audit --full
 ```
 
 Deep analysis: trends over time, model distribution, recommendations for optimization.
 
 ```
-/gsd-token-audit --context-map
+/sgsd-token-audit --context-map
 ```
 
 Shows every .md file in your project with its token cost and when it gets loaded. Helps you find files that are too big or loaded unnecessarily.
@@ -670,7 +670,7 @@ Typical breakdown:
 
 ### Pausing
 
-Say "stop" or "pause" or type `/gsd-pause`. Claude will:
+Say "stop" or "pause" or type `/sgsd-pause`. Claude will:
 
 1. Write a checkpoint file (`.planning/ORCHESTRATOR-CHECKPOINT.md`) with exactly where it is
 2. Commit the checkpoint
@@ -678,7 +678,7 @@ Say "stop" or "pause" or type `/gsd-pause`. Claude will:
 
 ### Resuming
 
-Next time you open Claude Code, say "go" or "continue" or type `/gsd-resume`. Claude will:
+Next time you open Claude Code, say "go" or "continue" or type `/sgsd-resume`. Claude will:
 
 1. Find the checkpoint
 2. Read where it left off
@@ -704,7 +704,7 @@ If you were using GSD 2.0 with the Pi harness (before Anthropic disabled OAuth),
 Super GSD can import all of that:
 
 ```
-/gsd-transition .gsd/
+/sgsd-transition .gsd/
 ```
 
 This will:
@@ -779,7 +779,7 @@ If it's missing, check the JSON backup:
 cat .planning/ORCHESTRATOR-CHECKPOINT.json
 ```
 
-If both are missing, check git log for the last commit and resume manually with `/gsd-orchestrate go`.
+If both are missing, check git log for the last commit and resume manually with `/sgsd-orchestrate go`.
 
 ### "Signal map won't generate"
 
@@ -791,7 +791,7 @@ If it errors, the most common issue is that `.planning/` is empty (no phases, no
 
 ### "Token log is empty"
 
-The token logger hook fires on Agent tool calls. If you haven't dispatched any agents yet, the log will be empty. Run `/gsd-orchestrate next` to dispatch one agent and check the log after.
+The token logger hook fires on Agent tool calls. If you haven't dispatched any agents yet, the log will be empty. Run `/sgsd-orchestrate next` to dispatch one agent and check the log after.
 
 ---
 
@@ -801,16 +801,16 @@ The token logger hook fires on Agent tool calls. If you haven't dispatched any a
 |---|---|
 | **Agent** | A specialized AI worker with a specific job (executor, planner, verifier, etc.) |
 | **ATC** | Air Traffic Control — the quality gate system that checks code before commits |
-| **Board** | The 4 debate agents (Architect, Pragmatist, Contrarian, Moonshot) in /gsd-deliberate |
+| **Board** | The 4 debate agents (Architect, Pragmatist, Contrarian, Moonshot) in /sgsd-deliberate |
 | **Brief** | A structured decision document given to the CEO/Board for deliberation |
 | **ByteRover** | The memory system — stores knowledge in `.brv/context-tree/` |
-| **CEO** | The orchestrator agent in /gsd-deliberate that manages the board debate |
+| **CEO** | The orchestrator agent in /sgsd-deliberate that manages the board debate |
 | **Checkpoint** | A saved state file that lets the loop resume after stopping |
 | **Claude Code** | Anthropic's AI coding CLI — the foundation Super GSD runs on |
 | **Context tree** | The directory structure in `.brv/context-tree/` where knowledge lives |
 | **Context window** | How much "memory" Claude has in one conversation (~200K tokens for Opus) |
 | **Curate** | Save new knowledge to the memory system |
-| **Decision Memo** | The output of /gsd-deliberate — board stances, tensions, recommendation |
+| **Decision Memo** | The output of /sgsd-deliberate — board stances, tensions, recommendation |
 | **Dispatch** | Send a task to a worker agent |
 | **GSD** | Get Shit Done — the framework name |
 | **Haiku** | The smallest/cheapest Claude model — used for quick classifications |
@@ -828,7 +828,7 @@ The token logger hook fires on Agent tool calls. If you haven't dispatched any a
 | **Query** | Search the memory system for relevant knowledge |
 | **ROADMAP.md** | The list of phases with checkboxes showing what's done |
 | **Signal map** | HTML visualization showing project health, phases, dependencies |
-| **Skill** | A slash command you can type (e.g., `/gsd-orchestrate`) |
+| **Skill** | A slash command you can type (e.g., `/sgsd-orchestrate`) |
 | **Sonnet** | The medium Claude model — used for coding, planning, reviewing |
 | **STATE.md** | Where you are right now — milestone, phase, plan, progress |
 | **Token** | A unit of text (~4 characters). More tokens = more cost/time |
@@ -852,16 +852,16 @@ claude config set --global autoApprove "Bash,Read,Write,Edit,Glob,Grep,Agent"
 go                        # starts autonomous loop
 
 # Check progress
-/gsd-orchestrate status   # where am I?
-/gsd-overwatcher scan     # visual signal map
-/gsd-token-audit --quick  # token spend
+/sgsd-orchestrate status   # where am I?
+/sgsd-overwatcher scan     # visual signal map
+/sgsd-token-audit --quick  # token spend
 
 # Pause and resume
-stop                      # or /gsd-pause
-continue                  # or /gsd-resume
+stop                      # or /sgsd-pause
+continue                  # or /sgsd-resume
 
 # Big decisions
-/gsd-deliberate new       # CEO/Board debate
+/sgsd-deliberate new       # CEO/Board debate
 ```
 
 ---

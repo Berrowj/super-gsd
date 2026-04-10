@@ -15,7 +15,7 @@ Before dispatching any agent:
 | # | Condition | Check | Action | Agent | Model |
 |---|-----------|-------|--------|-------|-------|
 | 0 | Checkpoint exists | `.planning/ORCHESTRATOR-CHECKPOINT.md` exists | Resume from checkpoint | — | — |
-| 1 | Deliberation needed | classifier.deliberate == true | Suggest /gsd-deliberate | gsd-ceo | opus |
+| 1 | Deliberation needed | classifier.deliberate == true | Suggest /sgsd-deliberate | sgsd-ceo | opus |
 | 2 | Phase not discussed | No `{NN}-CONTEXT.md` AND skip_discuss != true | /gsd-discuss-phase --auto | — | — |
 | 3 | Phase needs research | No `{NN}-RESEARCH.md` AND research == true | Dispatch researcher | gsd-phase-researcher | sonnet |
 | 4 | Phase needs plans | No `{NN}-*-PLAN.md` files | Dispatch planner | gsd-planner | sonnet |

@@ -24,7 +24,7 @@ param(
 
 $LockFile = Join-Path $ProjectDir ".planning\.headless.lock"
 $LogFile = Join-Path $ProjectDir ".planning\metrics\headless-log.txt"
-$Prompt = 'Read .planning/ORCHESTRATOR-CHECKPOINT.md if it exists, then enter auto mode: /gsd-orchestrate go'
+$Prompt = 'Read .planning/ORCHESTRATOR-CHECKPOINT.md if it exists, then enter auto mode: /sgsd-orchestrate go'
 
 # ── Stop existing session ──
 if ($Stop) {

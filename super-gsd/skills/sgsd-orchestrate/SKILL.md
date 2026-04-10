@@ -1,5 +1,5 @@
 ---
-name: gsd-orchestrate
+name: sgsd-orchestrate
 description: "Token-efficient autonomous orchestrator. Lean state machine: read-classify-dispatch-process-commit-loop. Uses Opus for orchestration, routes Sonnet/Haiku to sub-agents."
 argument-hint: "[go|continue|status|next|stop]"
 allowed-tools:
@@ -86,7 +86,7 @@ REPEAT:
      - If checkpoint exists and context >70% → EXIT: write checkpoint
 
   2. CLASSIFY (spawn Haiku classifier)
-     Agent(subagent_type: "gsd-classifier", model: "haiku", mode: "auto", prompt: {
+     Agent(subagent_type: "sgsd-classifier", model: "haiku", mode: "auto", prompt: {
        goal: "{phase goal from ROADMAP}",
        files: "{estimated files}",
        lines: "{estimated lines}",
@@ -105,7 +105,7 @@ REPEAT:
        → Log "GATE_AUTO_BYPASS", run FULL checks, continue
 
   4. SELECT CONTEXT (spawn Haiku context-selector)
-     Agent(subagent_type: "gsd-context-selector", model: "haiku", mode: "auto", prompt: {
+     Agent(subagent_type: "sgsd-context-selector", model: "haiku", mode: "auto", prompt: {
        goal: "{task goal}",
        files: "{task files}",
        type: "{create|modify|test}",

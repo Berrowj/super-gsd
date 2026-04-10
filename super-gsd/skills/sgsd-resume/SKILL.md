@@ -1,5 +1,5 @@
 ---
-name: gsd-resume
+name: sgsd-resume
 description: "Resume from checkpoint with full context restoration. Replaces /gsd-resume-work for Super GSD."
 allowed-tools:
   - Read

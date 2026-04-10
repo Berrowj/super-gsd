@@ -175,7 +175,7 @@ Based on both VTP extractions, the capabilities audit, and the blueprint:
 
 | Component | Source | Effort | Why |
 |-----------|--------|--------|-----|
-| **`/gsd-deliberate` skill** | PI idea #0 | High | Core deliverable. Orchestrates board, produces memos. Full spec in blueprint Section 7. |
+| **`/sgsd-deliberate` skill** | PI idea #0 | High | Core deliverable. Orchestrates board, produces memos. Full spec in blueprint Section 7. |
 | **Deliberation State File** | LangGraph idea #2 | Low | Adds crash recovery + observability to deliberation. Simple JSON. |
 | **Decision Memo Format** | PI idea #7 | Low | Template only. Fills gap between PLAN.md (what) and rationale (why). |
 
@@ -219,7 +219,7 @@ These validate the architectural choices:
 
 1. **Read the blueprint**: `Transcripts/GSD-CEO-BOARD-BLUEPRINT.md` — Section 6 has copy-ready agent definitions, Section 7 has the full skill spec
 2. **Start with P0**: Brief template + expertise files + board agent definitions
-3. **Then P1**: Wire up `/gsd-deliberate` skill and test with a real decision
+3. **Then P1**: Wire up `/sgsd-deliberate` skill and test with a real decision
 4. **Test on a real brief**: Pick a pending decision from VTP or JCL and run it through the board
 
 ---

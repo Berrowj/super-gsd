@@ -1,5 +1,5 @@
 ---
-name: gsd-browser
+name: sgsd-browser
 description: "Browser automation for frontend debugging, UI verification, visual testing, and form testing. Wraps gsd-browser CLI (Rust/CDP). Use during execute-phase for frontend work, verify-work for UI validation, and debug for visual issues."
 argument-hint: "[open URL | screenshot | verify | test-form | debug | install]"
 allowed-tools:

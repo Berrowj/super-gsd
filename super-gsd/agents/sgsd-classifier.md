@@ -1,5 +1,5 @@
 ---
-name: gsd-classifier
+name: ssgsd-classifier
 description: Lightweight task classifier. Scores complexity, selects model, determines ATC tier. Spawned by orchestrator before dispatch.
 tools: Read, Grep, Glob
 model: haiku
@@ -88,6 +88,6 @@ Run full 7-step review + 10-point anti-slop checklist (same as FULL).
 Additionally flag: new_system={bool}, new_dependency={bool}, api_contract_change={bool}.
 Return JSON only: {"critical_issues": [], "minor_issues": [], "new_system": false, "new_dependency": false, "api_contract_change": false, "verdict": "pass|issues_found"}
 
-NOTE: After this check, if not in auto mode, the orchestrator will suggest /gsd-deliberate before commit.
+NOTE: After this check, if not in auto mode, the orchestrator will suggest /sgsd-deliberate before commit.
 </gate>
 </tier_prompts>

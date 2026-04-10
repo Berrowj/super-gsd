@@ -29,7 +29,7 @@ RESTART_DELAY=10          # seconds between restarts
 BACKOFF_MAX=120           # max delay after repeated failures
 LOCKFILE="$PROJECT_DIR/.planning/.headless.lock"
 LOGFILE="$PROJECT_DIR/.planning/metrics/headless-log.txt"
-PROMPT="Read .planning/ORCHESTRATOR-CHECKPOINT.md if it exists, then enter auto mode: /gsd-orchestrate go"
+PROMPT="Read .planning/ORCHESTRATOR-CHECKPOINT.md if it exists, then enter auto mode: /sgsd-orchestrate go"
 
 # ── Parse args ──
 for arg in "$@"; do

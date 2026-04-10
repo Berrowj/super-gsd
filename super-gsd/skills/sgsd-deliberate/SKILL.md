@@ -1,5 +1,5 @@
 ---
-name: gsd-deliberate
+name: sgsd-deliberate
 description: "CEO/Board strategic deliberation. Multi-agent adversarial debate on structured briefs. Produces Decision Memos."
 argument-hint: "[new | path/to/brief.md]"
 allowed-tools:

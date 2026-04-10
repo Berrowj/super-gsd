@@ -45,7 +45,7 @@ Agent(
 
 ### GATE (new system, dependency, architecture, API change)
 - All FULL checks PLUS:
-  - Suggest /gsd-deliberate before proceeding
+  - Suggest /sgsd-deliberate before proceeding
   - In auto mode: log warning, run FULL checks, add gate flag to commit
 - Sonnet runs checks (~500 tokens)
 - If in auto mode and deliberation suggested: continue but flag in token log
@@ -96,6 +96,6 @@ IF config.atc.enabled:
 
   IF atc_result.tier == "gate":
     full_check = run full checks
-    IF not auto mode: suggest /gsd-deliberate
+    IF not auto mode: suggest /sgsd-deliberate
     IF auto mode: log warning, continue
 ```

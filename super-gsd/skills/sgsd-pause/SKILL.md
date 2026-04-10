@@ -1,5 +1,5 @@
 ---
-name: gsd-pause
+name: sgsd-pause
 description: "Write checkpoint and stop the autonomous loop. Replaces /gsd-pause-work for Super GSD."
 allowed-tools:
   - Read

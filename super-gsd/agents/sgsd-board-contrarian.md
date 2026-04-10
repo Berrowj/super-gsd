@@ -1,6 +1,6 @@
 ---
-name: board-contrarian
-description: Contrarian board member. Challenges consensus, finds blind spots, stress-tests assumptions. Spawned by gsd-ceo during deliberation.
+name: sgsd-sgsd-board-contrarian
+description: Contrarian board member. Challenges consensus, finds blind spots, stress-tests assumptions. Spawned by sgsd-ceo during deliberation.
 tools: Read, Grep, Glob
 model: sonnet
 ---
