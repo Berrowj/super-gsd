@@ -5,7 +5,7 @@
 
 param(
     [string]$ProjectDir = ".",
-    [int]$RefreshSec = 3
+    [int]$RefreshSec = 10
 )
 
 if (-not (Test-Path (Join-Path $ProjectDir ".planning"))) {

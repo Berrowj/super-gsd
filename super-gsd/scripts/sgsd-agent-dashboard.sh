@@ -19,7 +19,7 @@
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 PROJECT_DIR="${1:-.}"
-REFRESH_SEC=3
+REFRESH_SEC="${2:-10}"
 
 if [ ! -d "$PROJECT_DIR/.planning" ]; then
   echo "ERROR: No .planning/ directory in $PROJECT_DIR"
