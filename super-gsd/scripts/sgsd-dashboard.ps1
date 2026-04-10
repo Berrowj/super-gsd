@@ -194,13 +194,11 @@ Clear-Host
 while ($true) {
     [Console]::Write("$HOME_POS$CLEAR_BELOW")
 
-    # HEADER
-    Write-Host "================================================================" -ForegroundColor Cyan
-    Write-Host "           SUPER GSD -- PROJECT DASHBOARD                       " -ForegroundColor Cyan
-    Write-Host "================================================================" -ForegroundColor Cyan
-    Write-Host (Get-Date -Format 'HH:mm:ss') -NoNewline -ForegroundColor DarkGray
-    Write-Host " | refresh ${RefreshSec}s | Ctrl+C to quit" -ForegroundColor DarkGray
-    Write-Host ""
+    # ONE-LINE HEADER
+    $time = Get-Date -Format 'HH:mm:ss'
+    Write-Host "== SUPER GSD == " -NoNewline -ForegroundColor Cyan
+    Write-Host "$time " -NoNewline -ForegroundColor DarkGray
+    Write-Host "| refresh ${RefreshSec}s" -ForegroundColor DarkGray
 
     # STATE FILES
     $stateFile = Join-Path $ProjectDir ".planning\STATE.md"
@@ -209,21 +207,15 @@ while ($true) {
     $tokenLog = Join-Path $ProjectDir ".planning\metrics\token-log.jsonl"
     $activityLog = Join-Path $ProjectDir ".planning\metrics\activity-log.jsonl"
 
-    # MILESTONE
+    # Collect all values
     $milestone = Get-Value $stateFile "milestone"
     $milestoneName = Get-Value $stateFile "milestone_name"
     $currentPhase = Get-Value $stateFile "current_phase"
     $status = Get-Value $stateFile "status"
-
     if (-not $milestone) { $milestone = "?" }
     if (-not $currentPhase) { $currentPhase = "?" }
     if (-not $status) { $status = "?" }
 
-    Write-Host "MILESTONE " -NoNewline -ForegroundColor White
-    Write-Host "$milestone " -NoNewline -ForegroundColor Yellow
-    if ($milestoneName) { Write-Host "- $milestoneName" -ForegroundColor Gray } else { Write-Host "" }
-
-    # Progress from ROADMAP
     $totalPhases = 0; $donePhases = 0
     if (Test-Path $roadmapFile) {
         $roadmapText = Get-Content $roadmapFile -Raw -ErrorAction SilentlyContinue
@@ -233,21 +225,21 @@ while ($true) {
         }
     }
 
-    if ($totalPhases -gt 0) {
-        $pct = [math]::Round(($donePhases / $totalPhases) * 100)
-        $bar = Make-Bar $pct 20
-        Write-Host "Progress: " -NoNewline
-        Write-Host "[$bar] " -NoNewline -ForegroundColor Green
-        Write-Host "$donePhases/$totalPhases ($pct%)" -ForegroundColor White
+    # MILESTONE + PROGRESS (1 line)
+    $mlPct = if ($totalPhases -gt 0) { [math]::Round(($donePhases / $totalPhases) * 100) } else { 0 }
+    $mlBar = Make-Bar $mlPct 14
+    Write-Host "$milestone " -NoNewline -ForegroundColor Yellow
+    if ($milestoneName) {
+        $nm = $milestoneName
+        if ($nm.Length -gt 25) { $nm = $nm.Substring(0, 25) + ".." }
+        Write-Host "$nm " -NoNewline -ForegroundColor Gray
     }
-    Write-Host "Status:   " -NoNewline
-    Write-Host $status -ForegroundColor White
-    Write-Host ""
+    Write-Host "[$mlBar] " -NoNewline -ForegroundColor Green
+    Write-Host "$donePhases/$totalPhases " -NoNewline -ForegroundColor White
+    Write-Host "($mlPct%) " -NoNewline -ForegroundColor DarkGray
+    Write-Host $status -ForegroundColor Cyan
 
-    # CURRENT PHASE
-    Write-Host "CURRENT PHASE " -NoNewline -ForegroundColor White
-    Write-Host $currentPhase -ForegroundColor Yellow
-
+    # CURRENT PHASE (2 lines)
     $phasesDir = Join-Path $ProjectDir ".planning\phases"
     $phaseDirName = ""
     $currentPlan = ""
@@ -259,7 +251,7 @@ while ($true) {
                     Where-Object { $_.Name.StartsWith("$currentPhase-") } |
                     Select-Object -First 1
         if ($phaseDir) {
-            $phaseDirName = $phaseDir.Name
+            $phaseDirName = $phaseDir.Name -replace "^\d+-", ""
             $plans = Get-ChildItem -Path $phaseDir.FullName -Filter "*-PLAN.md" -ErrorAction SilentlyContinue | Sort-Object Name
             foreach ($plan in $plans) {
                 $summaryPath = $plan.FullName -replace 'PLAN\.md$', 'SUMMARY.md'
@@ -273,54 +265,41 @@ while ($true) {
         }
     }
 
-    if ($phaseDirName) {
-        Write-Host "  Name:   " -NoNewline
-        Write-Host $phaseDirName -ForegroundColor Gray
-    }
-    if ($currentPlan) {
-        Write-Host "  Sub:    " -NoNewline
-        Write-Host $currentPlan -NoNewline -ForegroundColor Yellow
-        Write-Host " (pending)" -ForegroundColor DarkGray
-    }
     $phasePlanTotal = $planDoneCount + $planPendingCount
+    Write-Host "Phase " -NoNewline -ForegroundColor White
+    Write-Host "P$currentPhase " -NoNewline -ForegroundColor Yellow
+    if ($phaseDirName) {
+        $pn = $phaseDirName
+        if ($pn.Length -gt 22) { $pn = $pn.Substring(0, 22) + ".." }
+        Write-Host "$pn " -NoNewline -ForegroundColor Gray
+    }
     if ($phasePlanTotal -gt 0) {
         $phasePct = [math]::Round(($planDoneCount / $phasePlanTotal) * 100)
-        $phaseBar = Make-Bar $phasePct 10
-        Write-Host "  Plans:  " -NoNewline
+        $phaseBar = Make-Bar $phasePct 8
         Write-Host "[$phaseBar] " -NoNewline -ForegroundColor Green
-        Write-Host "$planDoneCount/$phasePlanTotal ($phasePct%)" -ForegroundColor White
-    }
-    Write-Host ""
-
-    # PHASE BREAKDOWN (all phases with % complete)
-    $phaseList = Get-PhaseBreakdown $ProjectDir
-    if ($phaseList.Count -gt 0) {
-        Write-Host "PHASE BREAKDOWN" -ForegroundColor White
-        # Show only phases with plans, up to 8 most recent
-        $withPlans = $phaseList | Where-Object { $_.total -gt 0 } | Select-Object -Last 8
-        foreach ($p in $withPlans) {
-            $bar = Make-Bar $p.pct 10
-            $color = if ($p.pct -eq 100) { "Green" } elseif ($p.pct -gt 0) { "Yellow" } else { "DarkGray" }
-            Write-Host "  P$($p.num.PadLeft(2)) " -NoNewline -ForegroundColor $color
-            Write-Host "[$bar] " -NoNewline -ForegroundColor $color
-            Write-Host "$($p.done)/$($p.total) " -NoNewline
-            $shortName = $p.name
-            if ($shortName.Length -gt 28) { $shortName = $shortName.Substring(0, 28) + ".." }
-            Write-Host $shortName -ForegroundColor Gray
-        }
+        Write-Host "$planDoneCount/$phasePlanTotal " -NoNewline -ForegroundColor White
+        Write-Host "($phasePct%)" -ForegroundColor DarkGray
+    } else {
         Write-Host ""
     }
+    if ($currentPlan) {
+        Write-Host "  Sub: " -NoNewline
+        $cp = $currentPlan
+        if ($cp.Length -gt 50) { $cp = $cp.Substring(0, 50) + ".." }
+        Write-Host "$cp " -NoNewline -ForegroundColor Yellow
+        Write-Host "(pending)" -ForegroundColor DarkGray
+    }
 
-    # ACTIVE AGENT
-    Write-Host "ACTIVE AGENT" -ForegroundColor White
+    # ACTIVE AGENT (1 line)
+    $agentStr = ""
+    $statusStr = ""
+    $statusColor = "DarkGray"
     if (Test-Path $activityLog) {
         $recentLines = Get-Content $activityLog -Tail 10 -ErrorAction SilentlyContinue
-        $agentContext = ""
-        $lastTool = ""
-        $lastTs = $null
-
         if ($recentLines) {
             [array]::Reverse($recentLines)
+            $lastTs = $null
+            $lastTool = ""
             foreach ($line in $recentLines) {
                 try {
                     $e = $line | ConvertFrom-Json -ErrorAction Stop
@@ -329,153 +308,123 @@ while ($true) {
                         $lastTs = [DateTime]::Parse($e.ts)
                     }
                     if ($e.tool -eq "TaskCreate" -or $e.tool -eq "Agent") {
-                        $agentContext = $e.target
+                        $agentStr = $e.target
                         break
                     }
                 } catch {}
             }
-        }
-
-        if ($agentContext) {
-            Write-Host "  Context: " -NoNewline
-            $ctx = $agentContext
-            if ($ctx.Length -gt 55) { $ctx = $ctx.Substring(0, 55) + ".." }
-            Write-Host $ctx -ForegroundColor Magenta
-        } else {
-            Write-Host "  Context: " -NoNewline
-            Write-Host "(no task context)" -ForegroundColor DarkGray
-        }
-
-        if ($lastTs) {
-            $age = [int]((Get-Date) - $lastTs).TotalSeconds
-            $ageStr = if ($age -lt 60) { "${age}s ago" }
-                      elseif ($age -lt 3600) { "$([math]::Floor($age/60))m ago" }
-                      else { "$([math]::Floor($age/3600))h ago" }
-            Write-Host "  Last:    " -NoNewline
-            Write-Host "$ageStr ($lastTool)" -ForegroundColor DarkGray
-            Write-Host "  Status:  " -NoNewline
-            if ($age -lt 30) { Write-Host "ACTIVE" -ForegroundColor Green }
-            elseif ($age -lt 300) { Write-Host "IDLE" -ForegroundColor Yellow }
-            else { Write-Host "STOPPED" -ForegroundColor Red }
+            if ($lastTs) {
+                $age = [int]((Get-Date) - $lastTs).TotalSeconds
+                $ageStr = if ($age -lt 60) { "${age}s" } elseif ($age -lt 3600) { "$([math]::Floor($age/60))m" } else { "$([math]::Floor($age/3600))h" }
+                if ($age -lt 30) { $statusStr = "ACTIVE"; $statusColor = "Green" }
+                elseif ($age -lt 300) { $statusStr = "IDLE"; $statusColor = "Yellow" }
+                else { $statusStr = "STOPPED"; $statusColor = "Red" }
+                $statusStr = "$statusStr ($ageStr)"
+            }
         }
     }
-    Write-Host ""
+    Write-Host "Agent " -NoNewline -ForegroundColor White
+    if ($agentStr) {
+        $ag = $agentStr
+        if ($ag.Length -gt 45) { $ag = $ag.Substring(0, 45) + ".." }
+        Write-Host "$ag " -NoNewline -ForegroundColor Magenta
+    } else {
+        Write-Host "(no context) " -NoNewline -ForegroundColor DarkGray
+    }
+    Write-Host $statusStr -ForegroundColor $statusColor
 
-    # BLOCKERS
+    # BLOCKERS + TODOS + REQS (compact, 1-3 lines)
     $blockers = Get-Blockers $stateFile
-    if ($blockers.Count -gt 0) {
-        Write-Host "BLOCKERS " -NoNewline -ForegroundColor Red
-        Write-Host "($($blockers.Count))" -ForegroundColor DarkGray
-        foreach ($b in $blockers | Select-Object -First 5) {
-            $short = $b
-            if ($short.Length -gt 60) { $short = $short.Substring(0, 60) + ".." }
-            Write-Host "  ! " -NoNewline -ForegroundColor Red
-            Write-Host $short -ForegroundColor White
-        }
-        Write-Host ""
-    }
-
-    # TODOS
     $todos = Get-Todos $ProjectDir
-    if ($todos.Count -gt 0) {
-        Write-Host "TODOS " -NoNewline -ForegroundColor White
-        Write-Host "($($todos.Count) pending)" -ForegroundColor DarkGray
-        foreach ($t in $todos | Select-Object -First 5) {
-            $short = $t
-            if ($short.Length -gt 60) { $short = $short.Substring(0, 60) + ".." }
-            Write-Host "  - " -NoNewline -ForegroundColor Yellow
-            Write-Host $short -ForegroundColor Gray
-        }
-        if ($todos.Count -gt 5) {
-            Write-Host "  ... +$($todos.Count - 5) more" -ForegroundColor DarkGray
-        }
-        Write-Host ""
-    }
-
-    # REQUIREMENTS
     $reqs = Get-RequirementsProgress $ProjectDir
+
+    $summaryParts = @()
+    if ($blockers.Count -gt 0) {
+        $summaryParts += "! BLOCK:$($blockers.Count)"
+    }
+    if ($todos.Count -gt 0) {
+        $summaryParts += "TODO:$($todos.Count)"
+    }
     if ($reqs -and $reqs.total -gt 0) {
         $reqPct = [math]::Round(($reqs.done / $reqs.total) * 100)
-        $reqBar = Make-Bar $reqPct 20
-        Write-Host "REQUIREMENTS" -ForegroundColor White
-        Write-Host "  " -NoNewline
-        Write-Host "[$reqBar] " -NoNewline -ForegroundColor Green
-        Write-Host "$($reqs.done)/$($reqs.total) ($reqPct%)" -ForegroundColor White
-        Write-Host ""
+        $summaryParts += "REQ:$($reqs.done)/$($reqs.total)($reqPct%)"
+    }
+    if ($summaryParts.Count -gt 0) {
+        Write-Host ($summaryParts -join "  ") -ForegroundColor White
     }
 
-    # CHECKPOINT
+    # Top blocker inline (if any)
+    if ($blockers.Count -gt 0) {
+        $b = $blockers[0]
+        if ($b.Length -gt 58) { $b = $b.Substring(0, 58) + ".." }
+        Write-Host "  ! " -NoNewline -ForegroundColor Red
+        Write-Host $b -ForegroundColor White
+    }
+
+    # CHECKPOINT (1 line if exists)
     if (Test-Path $checkpointFile) {
-        Write-Host "CHECKPOINT" -ForegroundColor Yellow
-        $lastCompleted = Get-Value $checkpointFile "last_completed"
         $nextUnit = Get-Value $checkpointFile "next_unit"
-        if ($lastCompleted) {
-            $lc = $lastCompleted
-            if ($lc.Length -gt 55) { $lc = $lc.Substring(0, 55) + ".." }
-            Write-Host "  Last: " -NoNewline -ForegroundColor DarkGray
-            Write-Host $lc -ForegroundColor Gray
-        }
         if ($nextUnit) {
             $nu = $nextUnit
             if ($nu.Length -gt 55) { $nu = $nu.Substring(0, 55) + ".." }
-            Write-Host "  Next: " -NoNewline -ForegroundColor DarkGray
+            Write-Host "CKPT -> " -NoNewline -ForegroundColor Yellow
             Write-Host $nu -ForegroundColor Gray
+        }
+    }
+
+    # PHASE BREAKDOWN (compact - 1 or 2 lines showing last 8 phases)
+    $phaseList = Get-PhaseBreakdown $ProjectDir
+    $withPlans = @($phaseList | Where-Object { $_.total -gt 0 })
+    if ($withPlans.Count -gt 0) {
+        $lastPhases = $withPlans | Select-Object -Last 10
+        Write-Host "Phases: " -NoNewline -ForegroundColor White
+        foreach ($p in $lastPhases) {
+            $marker = if ($p.pct -eq 100) { "v" } elseif ($p.pct -gt 0) { "~" } else { "." }
+            $mcolor = if ($p.pct -eq 100) { "Green" } elseif ($p.pct -gt 0) { "Yellow" } else { "DarkGray" }
+            Write-Host "P$($p.num)" -NoNewline -ForegroundColor $mcolor
+            Write-Host "$marker " -NoNewline -ForegroundColor $mcolor
         }
         Write-Host ""
     }
 
-    # TOKEN USAGE + DOLLAR COST
+    # TOKENS + DOLLAR (1 line)
     $tokens = Get-TokenStats $tokenLog
     if ($tokens.total -gt 0) {
-        Write-Host "TOKENS " -NoNewline -ForegroundColor White
-        Write-Host "(~equivalent API cost)" -ForegroundColor DarkGray
+        $opusD = Format-Dollar ($tokens.opus * $RATE_OPUS)
+        $sonnetD = Format-Dollar ($tokens.sonnet * $RATE_SONNET)
+        $haikuD = Format-Dollar ($tokens.haiku * $RATE_HAIKU)
+        $totalD = Format-Dollar $tokens.cost
 
-        $opusDollar = $tokens.opus * $RATE_OPUS
-        $sonnetDollar = $tokens.sonnet * $RATE_SONNET
-        $haikuDollar = $tokens.haiku * $RATE_HAIKU
-
-        Write-Host "  Opus:   " -NoNewline -ForegroundColor Magenta
-        Write-Host (Format-Num $tokens.opus).PadRight(8) -NoNewline
-        Write-Host (Format-Dollar $opusDollar) -ForegroundColor DarkGray
-
-        Write-Host "  Sonnet: " -NoNewline -ForegroundColor Blue
-        Write-Host (Format-Num $tokens.sonnet).PadRight(8) -NoNewline
-        Write-Host (Format-Dollar $sonnetDollar) -ForegroundColor DarkGray
-
-        Write-Host "  Haiku:  " -NoNewline -ForegroundColor Cyan
-        Write-Host (Format-Num $tokens.haiku).PadRight(8) -NoNewline
-        Write-Host (Format-Dollar $haikuDollar) -ForegroundColor DarkGray
-
-        Write-Host "  ------" -ForegroundColor DarkGray
-        Write-Host "  Total:  " -NoNewline -ForegroundColor White
-        Write-Host (Format-Num $tokens.total).PadRight(8) -NoNewline -ForegroundColor Yellow
-        Write-Host (Format-Dollar $tokens.cost) -ForegroundColor Green
-        Write-Host "  " -NoNewline
-        Write-Host "(Max plan: $0 actual cost)" -ForegroundColor DarkGray
-        Write-Host ""
+        Write-Host "Tokens " -NoNewline -ForegroundColor White
+        Write-Host "O:" -NoNewline -ForegroundColor DarkGray
+        Write-Host "$(Format-Num $tokens.opus) " -NoNewline -ForegroundColor Magenta
+        Write-Host "S:" -NoNewline -ForegroundColor DarkGray
+        Write-Host "$(Format-Num $tokens.sonnet) " -NoNewline -ForegroundColor Blue
+        Write-Host "H:" -NoNewline -ForegroundColor DarkGray
+        Write-Host "$(Format-Num $tokens.haiku) " -NoNewline -ForegroundColor Cyan
+        Write-Host "= " -NoNewline -ForegroundColor DarkGray
+        Write-Host "$(Format-Num $tokens.total) " -NoNewline -ForegroundColor Yellow
+        Write-Host "($totalD)" -ForegroundColor Green
     }
 
-    # RECENT COMMITS
-    Write-Host "RECENT COMMITS" -ForegroundColor White
+    # RECENT COMMITS (3 lines)
     Push-Location $ProjectDir -ErrorAction SilentlyContinue
     try {
-        $commits = & git log --oneline -5 2>$null
+        $commits = & git log --oneline -3 2>$null
         if ($commits) {
+            Write-Host "Commits " -ForegroundColor White
             foreach ($c in $commits) {
                 $parts = $c -split ' ', 2
                 if ($parts.Count -eq 2) {
-                    Write-Host "  $($parts[0]) " -NoNewline -ForegroundColor Cyan
+                    Write-Host "  $($parts[0].Substring(0, [Math]::Min(7, $parts[0].Length))) " -NoNewline -ForegroundColor Cyan
                     $msg = $parts[1]
-                    if ($msg.Length -gt 58) { $msg = $msg.Substring(0, 58) + ".." }
+                    if ($msg.Length -gt 55) { $msg = $msg.Substring(0, 55) + ".." }
                     Write-Host $msg -ForegroundColor Gray
                 }
             }
         }
     } catch {}
     Pop-Location -ErrorAction SilentlyContinue
-
-    Write-Host ""
-    Write-Host "================================================================" -ForegroundColor DarkGray
 
     Start-Sleep -Seconds $RefreshSec
 }
