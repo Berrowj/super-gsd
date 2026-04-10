@@ -1,4 +1,4 @@
-# Super GSD Agent Dashboard — Windows PowerShell
+﻿# Super GSD Agent Dashboard - Windows PowerShell
 # Live view of agents, activity, and token usage
 #
 # Usage: .\gsd-agent-dashboard.ps1 [-ProjectDir <path>]

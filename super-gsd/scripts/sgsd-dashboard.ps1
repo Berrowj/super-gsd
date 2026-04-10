@@ -1,4 +1,4 @@
-# Super GSD Project Dashboard — Bulletproof Version
+﻿# Super GSD Project Dashboard - Bulletproof Version
 # Shows: milestone, phase, current plan, active agent, tokens, commits
 #
 # Usage:
@@ -55,7 +55,7 @@ Clear-Host
 
 while ($true) {
     # Home cursor + clear everything from there to end of screen.
-    # This is the correct way to refresh in place — no overlap, no flicker.
+    # This is the correct way to refresh in place - no overlap, no flicker.
     [Console]::Write("$HOME_POS$CLEAR_BELOW")
 
     # HEADER

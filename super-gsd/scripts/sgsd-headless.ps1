@@ -1,5 +1,5 @@
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  Super GSD Headless Runner — Windows PowerShell
+﻿# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Super GSD Headless Runner - Windows PowerShell
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #
 #  Same as gsd-headless.sh but for native Windows.
@@ -11,7 +11,7 @@
 #    .\gsd-headless.ps1 -MaxRuns 10
 #    .\gsd-headless.ps1 -Stop
 #
-#  Run in Windows Terminal and minimize — it'll keep going.
+#  Run in Windows Terminal and minimize - it'll keep going.
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 param(
@@ -26,7 +26,7 @@ $LockFile = Join-Path $ProjectDir ".planning\.headless.lock"
 $LogFile = Join-Path $ProjectDir ".planning\metrics\headless-log.txt"
 $Prompt = 'Read .planning/ORCHESTRATOR-CHECKPOINT.md if it exists, then enter auto mode: /sgsd-orchestrate go'
 
-# ── Stop existing session ──
+# -- Stop existing session --
 if ($Stop) {
     if (Test-Path $LockFile) {
         $pid = Get-Content $LockFile
@@ -43,13 +43,13 @@ if ($Stop) {
     exit 0
 }
 
-# ── Validate ──
+# -- Validate --
 if (-not (Test-Path (Join-Path $ProjectDir ".planning"))) {
     Write-Host "ERROR: No .planning/ directory. Run install.sh --init-project first."
     exit 1
 }
 
-# ── Lock ──
+# -- Lock --
 if (Test-Path $LockFile) {
     $oldPid = Get-Content $LockFile
     try {
@@ -80,8 +80,8 @@ function Check-AllDone {
     return ($total -gt 0 -and $total -eq $done)
 }
 
-# ── Main Loop ──
-Log "Super GSD Headless Runner — Starting"
+# -- Main Loop --
+Log "Super GSD Headless Runner - Starting"
 Log "Project: $ProjectDir | Max: $MaxRuns | PID: $PID"
 
 $run = 0
@@ -92,12 +92,12 @@ while ($run -lt $MaxRuns) {
     $run++
 
     if (Check-AllDone) {
-        Log "ALL PHASES COMPLETE — stopping"
+        Log "ALL PHASES COMPLETE - stopping"
         break
     }
 
     $hasCheckpoint = Test-Path (Join-Path $ProjectDir ".planning\ORCHESTRATOR-CHECKPOINT.md")
-    Log "Run $run/$MaxRuns — $(if ($hasCheckpoint) { 'Resuming from checkpoint' } else { 'Cold start' })"
+    Log "Run $run/$MaxRuns - $(if ($hasCheckpoint) { 'Resuming from checkpoint' } else { 'Cold start' })"
 
     Log "Launching claude --print --dangerously-skip-permissions"
     $startTime = Get-Date
@@ -115,7 +115,7 @@ while ($run -lt $MaxRuns) {
     Log "Claude exited ($exitCode) after $([math]::Round($duration))s"
 
     if (Check-AllDone) {
-        Log "ALL PHASES COMPLETE — stopping"
+        Log "ALL PHASES COMPLETE - stopping"
         break
     }
 

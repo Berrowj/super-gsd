@@ -1,4 +1,4 @@
-# Super GSD Live Activity Feed — Simple scrollable live tail
+﻿# Super GSD Live Activity Feed - Simple scrollable live tail
 # Shows every tool call as it happens, grouped by TaskCreate context.
 #
 # Usage:

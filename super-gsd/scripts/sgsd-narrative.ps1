@@ -1,4 +1,4 @@
-# Super GSD Narrative Feed — Task Tree + Haiku Summary (Options 5 + 6)
+﻿# Super GSD Narrative Feed - Task Tree + Haiku Summary (Options 5 + 6)
 #
 # TOP:    Rolling task tree parsed from TaskCreate/TaskUpdate entries
 # BOTTOM: 100-token Claude summary of what's happening right now
@@ -12,7 +12,7 @@
 #   .\sgsd-narrative.ps1 -RefreshSec 30                  # faster refresh
 #
 # Cost: ~600-1200 tokens per summary refresh (Claude Code overhead + 100 token output).
-# At 60s refresh that's ~60K-120K tokens/hour — cheap on Max plan.
+# At 60s refresh that's ~60K-120K tokens/hour - cheap on Max plan.
 
 param(
     [string]$ProjectDir = ".",
@@ -89,7 +89,7 @@ while ($true) {
     }
 
     if ($tasks.Count -eq 0) {
-        Write-Host "  (no TaskCreate entries — orchestrator not active)" -ForegroundColor DarkGray
+        Write-Host "  (no TaskCreate entries - orchestrator not active)" -ForegroundColor DarkGray
     } else {
         $lastTasks = @($tasks.Keys) | Select-Object -Last 10
         foreach ($key in $lastTasks) {
@@ -125,7 +125,7 @@ while ($true) {
     }
     $snippet = $snippetLines -join "`n"
 
-    # Hash current activity — skip API call if unchanged
+    # Hash current activity - skip API call if unchanged
     $currentHash = [System.BitConverter]::ToString(
         [System.Security.Cryptography.MD5]::Create().ComputeHash(
             [System.Text.Encoding]::UTF8.GetBytes($snippet)
@@ -133,12 +133,12 @@ while ($true) {
     )
 
     if ($currentHash -eq $lastHash) {
-        # No new activity — show cached narrative
+        # No new activity - show cached narrative
         if (Test-Path $narrativeFile) {
             $cached = Get-Content $narrativeFile -Raw -ErrorAction SilentlyContinue
             if ($cached) {
                 Write-Host "WHAT CLAUDE IS DOING " -NoNewline -ForegroundColor White
-                Write-Host "(cached — no new activity)" -ForegroundColor DarkGray
+                Write-Host "(cached - no new activity)" -ForegroundColor DarkGray
                 Write-Host "----------------------------------------------------------------" -ForegroundColor DarkGray
                 Write-Host $cached -ForegroundColor Yellow
                 Write-Host ""
@@ -156,7 +156,7 @@ while ($true) {
     Write-Host "----------------------------------------------------------------" -ForegroundColor DarkGray
 
     $prompt = @"
-You are a narrative summarizer. Read these 10 recent tool calls from a Claude Code session and write a 1-2 sentence summary of what Claude is currently doing. Plain English, present tense, max 100 tokens total. Do NOT list the tool calls — synthesize the intent.
+You are a narrative summarizer. Read these 10 recent tool calls from a Claude Code session and write a 1-2 sentence summary of what Claude is currently doing. Plain English, present tense, max 100 tokens total. Do NOT list the tool calls - synthesize the intent.
 
 Recent activity:
 $snippet
@@ -183,7 +183,7 @@ Summary (max 100 tokens, 1-2 sentences):
                 $narrative | Out-File -FilePath $narrativeFile -Encoding utf8 -NoNewline
             } catch {}
         } else {
-            Write-Host "(claude returned empty — check claude CLI is on PATH)" -ForegroundColor Red
+            Write-Host "(claude returned empty - check claude CLI is on PATH)" -ForegroundColor Red
         }
     } catch {
         Write-Host "(error calling claude: $_)" -ForegroundColor Red

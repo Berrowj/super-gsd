@@ -1,6 +1,6 @@
-# Super GSD Thinking Feed
+﻿# Super GSD Thinking Feed
 # Shows Claude's actual text output (thinking, reasoning, explanations) in real time.
-# Reads Claude Code's session JSONL files — the same ones Claude writes as it talks.
+# Reads Claude Code's session JSONL files - the same ones Claude writes as it talks.
 #
 # This gives you the "watch Opus think out loud" view that GSD 2.0 / Pi used to have.
 #
@@ -12,7 +12,7 @@
 # 1. Finds the most recent session JSONL file for the project
 # 2. Reads the history (last 50 messages) to show context
 # 3. Streams new lines as Claude writes them
-# 4. Filters for assistant text blocks (ignoring tool calls — those are in the activity feed)
+# 4. Filters for assistant text blocks (ignoring tool calls - those are in the activity feed)
 
 param(
     [string]$Project = "project-clarity-erp"
