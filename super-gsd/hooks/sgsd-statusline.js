@@ -146,28 +146,38 @@ function render(data) {
     parts.push(`\x1b[33m${milestone}\x1b[0m`);
   }
 
-  // Current phase state (what's it doing?)
-  const phaseState = state.status || state.phase_state || '';
-  const currentPlanDir = findCurrentPhaseDir(root, currentPhase);
-  let activity = '';
-  if (currentPlanDir) {
-    // Find most recent plan file being worked on
-    const pendingPlan = findPendingPlan(currentPlanDir, currentPhase);
-    if (pendingPlan) {
-      activity = `${phaseState || 'exec'} ${pendingPlan}`;
-    } else {
-      activity = phaseState || 'working';
+  // Current agent activity (agent-level, not phase-level)
+  const lastAgent = getLastAgent(root);
+  if (lastAgent) {
+    // Color by model: opus=purple, sonnet=blue, haiku=cyan
+    const modelColor = lastAgent.model === 'opus' ? '\x1b[35m' :
+                        lastAgent.model === 'sonnet' ? '\x1b[34m' :
+                        lastAgent.model === 'haiku' ? '\x1b[36m' : '\x1b[37m';
+    const agentStr = `${modelColor}${lastAgent.role}\x1b[0m \x1b[2m[${lastAgent.model}]\x1b[0m`;
+    parts.push(agentStr);
+
+    // Show agent's token cost if >0
+    if (lastAgent.total > 0) {
+      const t = lastAgent.total < 1000 ? `${lastAgent.total}` :
+                lastAgent.total < 1000000 ? `${Math.round(lastAgent.total/1000)}K` :
+                `${(lastAgent.total/1000000).toFixed(1)}M`;
+      parts.push(`\x1b[33m${t}\x1b[0m`);
     }
-  } else if (phaseState) {
-    activity = phaseState;
-  }
-  if (activity) {
-    parts.push(`\x1b[36m${activity}\x1b[0m`);
+  } else {
+    // Fallback to phase state
+    const phaseState = state.status || state.phase_state || '';
+    const currentPlanDir = findCurrentPhaseDir(root, currentPhase);
+    if (currentPlanDir) {
+      const pendingPlan = findPendingPlan(currentPlanDir, currentPhase);
+      if (pendingPlan) {
+        parts.push(`\x1b[36m${phaseState || 'exec'} ${pendingPlan}\x1b[0m`);
+      }
+    }
   }
 
-  // Token usage this session (last 50 entries)
+  // Session total tokens
   const tokenStr = getSessionTokens(root);
-  if (tokenStr) parts.push(`\x1b[2mT: ${tokenStr}\x1b[0m`);
+  if (tokenStr) parts.push(`\x1b[2mΣ${tokenStr}\x1b[0m`);
 
   // Checkpoint indicator
   if (fs.existsSync(path.join(root, '.planning', 'ORCHESTRATOR-CHECKPOINT.md'))) {
@@ -241,6 +251,41 @@ function getSessionTokens(root) {
     if (total < 1000) return `${total}`;
     if (total < 1000000) return `${Math.round(total / 1000)}K`;
     return `${(total / 1000000).toFixed(1)}M`;
+  } catch {
+    return null;
+  }
+}
+
+function getLastAgent(root) {
+  try {
+    const logPath = path.join(root, '.planning', 'metrics', 'token-log.jsonl');
+    if (!fs.existsSync(logPath)) return null;
+    const content = fs.readFileSync(logPath, 'utf8');
+    const lines = content.trim().split('\n').filter(Boolean);
+    if (lines.length === 0) return null;
+
+    // Last 3 entries: most recent agent activity
+    const recent = lines.slice(-3);
+    for (let i = recent.length - 1; i >= 0; i--) {
+      try {
+        const entry = JSON.parse(recent[i]);
+        // Prefer entries with a real role name (not "unknown")
+        if (entry.role || entry.description) {
+          let role = entry.role || entry.description || 'agent';
+          // Shorten common prefixes
+          role = role.replace(/^gsd-/, '').replace(/^sgsd-/, '');
+          // Truncate
+          if (role.length > 22) role = role.substring(0, 22) + '…';
+          return {
+            role,
+            model: (entry.model || 'unknown').toLowerCase(),
+            total: entry.total || 0,
+            ts: entry.ts
+          };
+        }
+      } catch {}
+    }
+    return null;
   } catch {
     return null;
   }
