@@ -45,21 +45,43 @@ $CLEAR_BELOW = "$ESC[0J"
 Clear-Host
 $lastHash = ""
 
-while ($true) {
-    [Console]::Write("$HOME_POS$CLEAR_BELOW")
+# Watch activity log for live updates
+$watchDir = Join-Path $ProjectDir ".planning\metrics"
+$watcher = New-Object System.IO.FileSystemWatcher
+if (Test-Path $watchDir) {
+    $watcher.Path = $watchDir
+    $watcher.Filter = "*.jsonl"
+    $watcher.EnableRaisingEvents = $true
+}
+$global:needsRedraw = $true
+$null = Register-ObjectEvent -InputObject $watcher -EventName Changed -Action {
+    $global:needsRedraw = $true
+} -ErrorAction SilentlyContinue
 
-    # Header
-    Write-Host "================================================================" -ForegroundColor Cyan
-    Write-Host "         SUPER GSD -- NARRATIVE                                 " -ForegroundColor Cyan
-    Write-Host "================================================================" -ForegroundColor Cyan
-    Write-Host (Get-Date -Format 'HH:mm:ss') -NoNewline -ForegroundColor DarkGray
-    Write-Host " | refresh ${RefreshSec}s | Ctrl+C to quit" -ForegroundColor DarkGray
+while ($true) {
+    Clear-Host
+
+    # COLORFUL HEADER
+    $time = Get-Date -Format 'HH:mm:ss'
+    Write-Host "+" -NoNewline -ForegroundColor Magenta
+    Write-Host ("=" * 62) -NoNewline -ForegroundColor Magenta
+    Write-Host "+" -ForegroundColor Magenta
+    Write-Host "|" -NoNewline -ForegroundColor Magenta
+    Write-Host "  SUPER GSD " -NoNewline -ForegroundColor Magenta
+    Write-Host "~ " -NoNewline -ForegroundColor Yellow
+    Write-Host "Narrative Feed" -NoNewline -ForegroundColor White
+    Write-Host "   $time " -NoNewline -ForegroundColor DarkGray
+    Write-Host "Haiku ${RefreshSec}s" -NoNewline -ForegroundColor Green
+    Write-Host "       |" -ForegroundColor Magenta
+    Write-Host "+" -NoNewline -ForegroundColor Magenta
+    Write-Host ("=" * 62) -NoNewline -ForegroundColor Magenta
+    Write-Host "+" -ForegroundColor Magenta
     Write-Host ""
 
     # ====== TASK TREE (Option 5) ======
-    # Parse TaskCreate/TaskUpdate entries to build the current task list
+    Write-Host ">> " -NoNewline -ForegroundColor Cyan
     Write-Host "TASK TREE" -ForegroundColor White
-    Write-Host "----------------------------------------------------------------" -ForegroundColor DarkGray
+    Write-Host ("-" * 64) -ForegroundColor DarkGray
 
     $allLines = Get-Content $activityLog -Tail 200 -ErrorAction SilentlyContinue
     $tasks = [ordered]@{}
@@ -189,15 +211,42 @@ Summary (max 100 tokens, 1-2 sentences):
         Write-Host "(error calling claude: $_)" -ForegroundColor Red
     }
 
-    # Show the raw activity below for context
-    Write-Host "RECENT ACTIVITY" -ForegroundColor DarkGray
-    Write-Host "----------------------------------------------------------------" -ForegroundColor DarkGray
+    # Show the raw activity below for context with color
+    Write-Host ""
+    Write-Host ">> " -NoNewline -ForegroundColor Cyan
+    Write-Host "RECENT ACTIVITY" -ForegroundColor White
+    Write-Host ("-" * 64) -ForegroundColor DarkGray
     $snippetLines | Select-Object -Last 5 | ForEach-Object {
-        Write-Host "  $_" -ForegroundColor DarkGray
+        $line = $_
+        $colon = $line.IndexOf(':')
+        if ($colon -gt 0) {
+            $tool = $line.Substring(0, $colon)
+            $target = $line.Substring($colon + 1).Trim()
+            $tc = "Gray"
+            switch ($tool) {
+                "Read" { $tc = "Cyan" }
+                "Write" { $tc = "Green" }
+                "Edit" { $tc = "Green" }
+                "Bash" { $tc = "Yellow" }
+                "Agent" { $tc = "Magenta" }
+                "TaskCreate" { $tc = "White" }
+                "TaskUpdate" { $tc = "DarkGray" }
+            }
+            Write-Host "  " -NoNewline
+            Write-Host $tool.PadRight(12) -NoNewline -ForegroundColor $tc
+            if ($target.Length -gt 50) { $target = $target.Substring(0, 50) + ".." }
+            Write-Host $target -ForegroundColor DarkGray
+        }
     }
     Write-Host ""
-    Write-Host "================================================================" -ForegroundColor DarkGray
-    Write-Host "Next refresh in ${RefreshSec}s..." -ForegroundColor DarkGray
+    Write-Host ("=" * 64) -ForegroundColor DarkGray
+    Write-Host "Live (watches activity log)" -ForegroundColor DarkGray
 
-    Start-Sleep -Seconds $RefreshSec
+    # Live update: wait for file change OR heartbeat timeout
+    $global:needsRedraw = $false
+    $elapsed = 0
+    while ($elapsed -lt $RefreshSec -and -not $global:needsRedraw) {
+        Start-Sleep -Milliseconds 500
+        $elapsed += 0.5
+    }
 }

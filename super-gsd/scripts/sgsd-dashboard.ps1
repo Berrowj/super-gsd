@@ -191,14 +191,38 @@ function Get-TokenStats($tokenLog) {
 
 Clear-Host
 
-while ($true) {
-    [Console]::Write("$HOME_POS$CLEAR_BELOW")
+# Watch the activity log with FileSystemWatcher for live updates
+$watchDir = Join-Path $ProjectDir ".planning\metrics"
+$watcher = New-Object System.IO.FileSystemWatcher
+if (Test-Path $watchDir) {
+    $watcher.Path = $watchDir
+    $watcher.Filter = "*.jsonl"
+    $watcher.EnableRaisingEvents = $true
+}
+$global:needsRedraw = $true
+$null = Register-ObjectEvent -InputObject $watcher -EventName Changed -Action {
+    $global:needsRedraw = $true
+} -ErrorAction SilentlyContinue
 
-    # ONE-LINE HEADER
+while ($true) {
+    # Use Clear-Host for reliable refresh (ANSI escape codes don't work in all Warp configs)
+    Clear-Host
+
+    # COLORFUL HEADER
     $time = Get-Date -Format 'HH:mm:ss'
-    Write-Host "== SUPER GSD == " -NoNewline -ForegroundColor Cyan
-    Write-Host "$time " -NoNewline -ForegroundColor DarkGray
-    Write-Host "| refresh ${RefreshSec}s" -ForegroundColor DarkGray
+    Write-Host "+" -NoNewline -ForegroundColor Cyan
+    Write-Host ("=" * 62) -NoNewline -ForegroundColor Cyan
+    Write-Host "+" -ForegroundColor Cyan
+    Write-Host "|" -NoNewline -ForegroundColor Cyan
+    Write-Host "  SUPER GSD " -NoNewline -ForegroundColor Magenta
+    Write-Host "* " -NoNewline -ForegroundColor Yellow
+    Write-Host "Mission Control" -NoNewline -ForegroundColor White
+    Write-Host "   $time " -NoNewline -ForegroundColor DarkGray
+    Write-Host "live feed" -NoNewline -ForegroundColor Green
+    Write-Host "   |" -ForegroundColor Cyan
+    Write-Host "+" -NoNewline -ForegroundColor Cyan
+    Write-Host ("=" * 62) -NoNewline -ForegroundColor Cyan
+    Write-Host "+" -ForegroundColor Cyan
 
     # STATE FILES
     $stateFile = Join-Path $ProjectDir ".planning\STATE.md"
@@ -426,5 +450,11 @@ while ($true) {
     } catch {}
     Pop-Location -ErrorAction SilentlyContinue
 
-    Start-Sleep -Seconds $RefreshSec
+    # Live update: wait for file change OR heartbeat timeout
+    $global:needsRedraw = $false
+    $elapsed = 0
+    while ($elapsed -lt $RefreshSec -and -not $global:needsRedraw) {
+        Start-Sleep -Milliseconds 500
+        $elapsed += 0.5
+    }
 }
