@@ -94,9 +94,15 @@ while true; do
   echo -e "${DIM}----------------------------------------------------------------${RESET}"
 
   if [ -f "$TOKEN_LOG" ] && [ -s "$TOKEN_LOG" ]; then
-    # Get last 10 entries, format them
-    tail -10 "$TOKEN_LOG" 2>/dev/null | node -e "
-      const lines = require('fs').readFileSync('/dev/stdin', 'utf8').trim().split('\n').filter(Boolean);
+    # Read file directly (not stdin — /dev/stdin doesn't exist on Git Bash)
+    node -e "
+      const fs = require('fs');
+      const logPath = process.argv[1];
+      let lines = [];
+      try {
+        const content = fs.readFileSync(logPath, 'utf8');
+        lines = content.trim().split('\n').filter(Boolean).slice(-10);
+      } catch {}
       if (lines.length === 0) { console.log('  (no entries yet)'); process.exit(0); }
 
       const colors = {
@@ -142,7 +148,7 @@ while true; do
       console.log('  ' + colors.haiku + 'Haiku:  ' + colors.reset + Math.round((total.haiku||0)/1000) + 'K tokens');
       const grand = (total.opus||0) + (total.sonnet||0) + (total.haiku||0);
       console.log('  ' + colors.bold + 'Total:  ' + Math.round(grand/1000) + 'K tokens' + colors.reset);
-    " 2>/dev/null || echo -e "  ${DIM}(parse error)${RESET}"
+    " "$TOKEN_LOG" 2>/dev/null || echo -e "  ${DIM}(parse error)${RESET}"
   else
     echo -e "  ${DIM}No agents dispatched yet${RESET}"
   fi
@@ -155,8 +161,14 @@ while true; do
     echo -e "${BOLD}LIVE ACTIVITY${RESET} ${DIM}(last 15 tool calls)${RESET}"
     echo -e "${DIM}----------------------------------------------------------------${RESET}"
 
-    tail -15 "$ACTIVITY_LOG" 2>/dev/null | node -e "
-      const lines = require('fs').readFileSync('/dev/stdin', 'utf8').trim().split('\n').filter(Boolean);
+    node -e "
+      const fs = require('fs');
+      const logPath = process.argv[1];
+      let lines = [];
+      try {
+        const content = fs.readFileSync(logPath, 'utf8');
+        lines = content.trim().split('\n').filter(Boolean).slice(-15);
+      } catch {}
       if (lines.length === 0) { console.log('  (no activity yet)'); process.exit(0); }
 
       const colors = {
@@ -187,7 +199,7 @@ while true; do
           );
         } catch {}
       });
-    " 2>/dev/null || echo -e "  ${DIM}(parse error)${RESET}"
+    " "$ACTIVITY_LOG" 2>/dev/null || echo -e "  ${DIM}(parse error)${RESET}"
     echo ""
   fi
 
