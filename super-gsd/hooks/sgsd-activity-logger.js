@@ -46,11 +46,23 @@ function truncate(s, max = 100) {
   return s.length > max ? s.substring(0, max) + '…' : s;
 }
 
+// Claude Code sends hook data as JSON on stdin
+let stdinBuf = '';
+const stdinTimeout = setTimeout(() => process.exit(0), 2000);
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', chunk => stdinBuf += chunk);
+process.stdin.on('end', () => {
+  clearTimeout(stdinTimeout);
+  run(stdinBuf);
+});
+
+function run(stdinData) {
 try {
   const root = findProjectRoot();
   if (!root) process.exit(0);
 
-  const logPath = path.join(toUnixPath(root), '.planning', 'metrics', 'activity-log.jsonl');
+  // Use native path — toUnixPath breaks on Windows Node (converts C:\ to /mnt/c/)
+  const logPath = path.join(root, '.planning', 'metrics', 'activity-log.jsonl');
 
   // Make sure directory exists
   const dir = path.dirname(logPath);
@@ -58,12 +70,12 @@ try {
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  // Parse tool input from env
-  const toolName = process.env.TOOL_NAME || 'unknown';
-  let toolInput = {};
-  try {
-    toolInput = JSON.parse(process.env.TOOL_INPUT || '{}');
-  } catch {}
+  // Parse hook payload from stdin — Claude Code format
+  let payload = {};
+  try { payload = JSON.parse(stdinData || '{}'); } catch {}
+
+  const toolName = payload.tool_name || 'unknown';
+  const toolInput = payload.tool_input || {};
 
   // Extract a meaningful "target" — what the tool is doing
   let target = '';
@@ -133,4 +145,5 @@ try {
   } catch {}
 } catch (e) {
   // Silent fail — logging must never block tool execution
+}
 }
