@@ -28,11 +28,14 @@ if (-not (Test-Path (Join-Path $ProjectDir ".planning"))) {
 
 function Get-Value($file, $key) {
     if (-not (Test-Path $file)) { return "" }
-    $match = Select-String -Path $file -Pattern "^${key}:" -List -ErrorAction SilentlyContinue
-    if ($match) {
-        $line = $match.Matches[0].Value
-        return ($line -replace "^${key}:\s*", "").Trim().Trim('"')
-    }
+    try {
+        $content = Get-Content $file -ErrorAction SilentlyContinue
+        foreach ($line in $content) {
+            if ($line -match "^${key}:\s*(.*)$") {
+                return $matches[1].Trim().Trim('"').Trim("'")
+            }
+        }
+    } catch {}
     return ""
 }
 
@@ -42,15 +45,29 @@ function Format-Num($n) {
     return "$([math]::Round($n/1000000, 1))M"
 }
 
+# Use cursor positioning instead of Clear-Host to avoid black flash + scroll reset
+Clear-Host
+$firstRun = $true
+
 while ($true) {
-    Clear-Host
+    # Move cursor to top-left instead of clearing — overwrites content in place
+    if ($firstRun) {
+        $firstRun = $false
+    } else {
+        try {
+            [Console]::SetCursorPosition(0, 0)
+        } catch {
+            # Fallback if console doesn't support positioning
+            Clear-Host
+        }
+    }
 
     # HEADER
     Write-Host "================================================================" -ForegroundColor Cyan
     Write-Host "           SUPER GSD -- PROJECT DASHBOARD                       " -ForegroundColor Cyan
     Write-Host "================================================================" -ForegroundColor Cyan
     Write-Host (Get-Date -Format 'HH:mm:ss') -NoNewline -ForegroundColor DarkGray
-    Write-Host " | refresh: ${RefreshSec}s | Ctrl+C to quit" -ForegroundColor DarkGray
+    Write-Host " | refresh: ${RefreshSec}s | Ctrl+C to quit                    " -ForegroundColor DarkGray
     Write-Host ""
 
     # STATE FILES
