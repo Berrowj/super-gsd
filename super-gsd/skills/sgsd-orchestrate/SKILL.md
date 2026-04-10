@@ -86,13 +86,19 @@ REPEAT:
      - If checkpoint exists and context >70% → EXIT: write checkpoint
 
   2. CLASSIFY (spawn Haiku classifier)
-     Agent(subagent_type: "sgsd-classifier", model: "haiku", mode: "auto", prompt: {
+     FIRST: TaskCreate({
+       content: "Classify phase {N} complexity",
+       activeForm: "gsd-classifier [haiku] classifying P{N}",
+       status: "in_progress"
+     })
+     THEN: Agent(subagent_type: "sgsd-classifier", model: "haiku", mode: "auto", prompt: {
        goal: "{phase goal from ROADMAP}",
        files: "{estimated files}",
        lines: "{estimated lines}",
        type: "{feature|bugfix|refactor}"
      })
      → Returns: { complexity, model, atc_tier, deliberate, reason }
+     AFTER: TaskUpdate(same taskId, status: "completed")
 
   3. CHECK DELIBERATION GATE
      If classifier.deliberate == true AND NOT auto mode:
@@ -105,13 +111,19 @@ REPEAT:
        → Log "GATE_AUTO_BYPASS", run FULL checks, continue
 
   4. SELECT CONTEXT (spawn Haiku context-selector)
-     Agent(subagent_type: "sgsd-context-selector", model: "haiku", mode: "auto", prompt: {
+     FIRST: TaskCreate({
+       content: "Select context for phase {N}",
+       activeForm: "sgsd-context-selector [haiku] picking queries for P{N}",
+       status: "in_progress"
+     })
+     THEN: Agent(subagent_type: "sgsd-context-selector", model: "haiku", mode: "auto", prompt: {
        goal: "{task goal}",
        files: "{task files}",
        type: "{create|modify|test}",
        keywords: "{domain keywords}"
      })
      → Returns: { brv_queries, file_reads, error_rules, scripts_to_check }
+     AFTER: TaskUpdate(same taskId, status: "completed")
 
   5. QUERY BYTEROVER
      For each brv_query: execute brv-query → collect results (~200 tokens each)
@@ -139,7 +151,18 @@ REPEAT:
      DO NOT include: full ROADMAP, full STATE, full REQUIREMENTS
 
   8. DISPATCH SUB-AGENT
-     Agent(
+     FIRST: TaskCreate({
+       content: "Phase {N}: {agent_type_short} — {one-line goal}",
+       activeForm: "{agent_type} [{model}] P{N}.{plan} — {what it's doing}",
+       status: "in_progress"
+     })
+     Example activeForm values:
+       "gsd-executor [sonnet] P87.1 — building auth middleware"
+       "gsd-planner [sonnet] P87 — creating task breakdown"
+       "gsd-verifier [sonnet] P87 — checking goal achievement"
+       "gsd-phase-researcher [sonnet] P87 — investigating stack"
+
+     THEN: Agent(
        subagent_type: "{agent_type}",
        model: "{from classifier or routing table}",
        mode: "auto",
@@ -148,6 +171,14 @@ REPEAT:
      → Wait for structured report (<300 words)
      CRITICAL: Always pass mode: "auto" — sub-agents must NEVER ask
      the user for permission. They execute autonomously and report back.
+
+     AFTER: TaskUpdate(same taskId, status: "completed")
+     If blocker: TaskUpdate(status: "completed", content: "BLOCKED: {reason}")
+
+     RULE: Every Agent() call MUST be preceded by TaskCreate and followed
+     by TaskUpdate. This makes the task list at the top of Claude Code
+     show agent-level activity in real time — user sees exactly which
+     agent is running, on what model, for what task.
 
   9. PROCESS RESULT
      Parse report sections:
@@ -284,8 +315,15 @@ Estimation method:
 12. REPORT VALIDATION: Always check word count and section presence before parsing.
     Log REPORT_OVERLIMIT and MISSING_SECTION — do not exit on format violation.
 13. ATC GATE: After processing result, before commit — classify change tier via Step 8.5.
-    GATE tier (non-auto): suggest /gsd-deliberate, stop and wait for user.
+    GATE tier (non-auto): suggest /sgsd-deliberate, stop and wait for user.
     GATE tier (auto): log GATE_AUTO_BYPASS warning, add gate_flag:true to token log, continue.
     LITE: run delete+simplify via Haiku. FULL: run 7-step+checklist via Sonnet.
     Complexity floor: files>3 OR lines>100 escalates to full regardless of Haiku output.
+14. TASK VISIBILITY: Every Agent() spawn MUST be wrapped in TaskCreate/TaskUpdate.
+    Before spawn: TaskCreate({ content, activeForm: "{agent} [{model}] P{N} — {action}", status: "in_progress" })
+    After return: TaskUpdate(taskId, status: "completed")
+    On blocker: TaskUpdate(status: "completed", content: "BLOCKED: {reason}")
+    This makes the task list at the top of Claude Code show real-time agent-level
+    activity. User sees which agent, what model, what action, at a glance.
+    NEVER dispatch an Agent without a paired TaskCreate. This is non-negotiable.
 </golden_rules>
