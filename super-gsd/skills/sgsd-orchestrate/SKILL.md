@@ -138,8 +138,74 @@ REPEAT:
      d. Phase has plans, needs plan-check → dispatch gsd-plan-checker (Sonnet)
      e. Phase has checked plans, pending tasks → dispatch gsd-executor (Sonnet)
      f. All plans executed → dispatch gsd-verifier (Sonnet)
-     g. Verification passed → mark phase complete, advance
+     g. Verification passed → PHASE ATC GATE (see Step 6.5), then mark complete
      h. Verification failed → dispatch gsd-planner --gaps (Sonnet)
+
+  6.5. PHASE ATC GATE (runs ONCE per phase, after verification passes)
+     Triggers when rule 6.g fires (verification passed).
+     This is a PHASE-LEVEL quality review — reviews the ENTIRE phase's work
+     as a coherent unit, NOT individual commits.
+
+     IF config.atc.enabled AND verification.status == "passed":
+
+       a. Collect phase stats:
+          - git diff --stat {first_commit_of_phase}..HEAD
+          - Total files changed, lines added, lines removed
+          - List of all plans completed (from phase directory)
+
+       b. Classify phase tier via Haiku (sgsd-classifier):
+          Agent(
+            subagent_type: "sgsd-classifier",
+            model: "haiku",
+            mode: "auto",
+            prompt: "Phase-level ATC classify: phase={N}, plans={count},
+                     total_files={N}, total_lines={N}, goal='{phase goal}'.
+                     Return tier: lite|full|gate"
+          )
+          Note: phase-level is always at least LITE — no skip tier.
+          Complexity floor: phases with 5+ plans or 500+ lines → always FULL
+
+       c. Run phase ATC review (spawn Sonnet reviewer):
+          TaskCreate({
+            content: "Phase {N} ATC review",
+            activeForm: "gsd-code-reviewer [sonnet] P{N} — phase-level ATC {tier}",
+            status: "in_progress"
+          })
+
+          Agent(
+            subagent_type: "gsd-code-reviewer",
+            model: "sonnet",
+            mode: "auto",
+            prompt: {
+              phase: N,
+              goal: "{phase goal from ROADMAP}",
+              tier: "{lite|full|gate}",
+              diff_summary: "{git diff --stat output}",
+              plans_completed: [list],
+              checks: "Run ATC 7-step + 10-point anti-slop checklist.
+                       Focus on: cross-plan consistency, architectural
+                       coherence, unused code across plans, duplication
+                       between plans, test coverage, CLAUDE.md rule
+                       violations. Max 300 word report.",
+              report_format: "FINDINGS | CRITICAL | WARNINGS | PASS_RATE | ONE_LINER"
+            }
+          )
+          → Returns: { findings, critical_count, warning_count, verdict }
+
+       d. Process ATC result:
+          - Write to .planning/phases/{NN}-*/{NN}-ATC-REVIEW.md
+          - If critical_count > 0 AND NOT auto mode: STOP, emit blocker
+          - If critical_count > 0 AND auto mode: log GATE_AUTO_BYPASS,
+            append to DEVIATIONS, continue
+          - If verdict == "pass": log, continue
+          - If tier == "gate": suggest /sgsd-deliberate for next phase
+
+       e. TaskUpdate(taskId, status: "completed")
+
+       f. Mark phase complete, advance to next phase
+
+     Token budget per phase ATC: ~600 tokens (50 classify + 550 review)
+     Runs ONCE per phase, not per commit — keeps token cost bounded.
 
   7. COMPOSE PROMPT
      Build sub-agent prompt from:
@@ -199,17 +265,6 @@ REPEAT:
 
      If report is missing any section: log "MISSING: {section}", treat as empty.
      If report exceeds 300 words: log "REPORT_OVERLIMIT", process anyway.
-
-  9.5. ATC GATE (after process result, before commit)
-      See: super-gsd/workflows/atc-gate.md and orchestrate-loop.md Step 8.5
-      IF config.atc.enabled:
-        - Complexity floor check: files>3 OR lines>100 → escalate to full
-        - Classify with Haiku (~50 tokens) → tier: skip|lite|full|gate
-        - SKIP: proceed directly
-        - LITE: Haiku delete+simplify check (~200 tokens), log issues to DEVIATIONS
-        - FULL: Sonnet 7-step+checklist (~500 tokens), log critical issues, flag for review
-        - GATE (non-auto): emit "Run /gsd-deliberate before proceeding", STOP
-        - GATE (auto): log GATE_AUTO_BYPASS, add gate_flag to token log, continue
 
   10. CURATE LEARNINGS
       If DEVIATIONS contains new patterns → brv-curate to patterns/
@@ -314,11 +369,15 @@ Estimation method:
     Never hold full report text for more than 2 completed iterations.
 12. REPORT VALIDATION: Always check word count and section presence before parsing.
     Log REPORT_OVERLIMIT and MISSING_SECTION — do not exit on format violation.
-13. ATC GATE: After processing result, before commit — classify change tier via Step 8.5.
-    GATE tier (non-auto): suggest /sgsd-deliberate, stop and wait for user.
-    GATE tier (auto): log GATE_AUTO_BYPASS warning, add gate_flag:true to token log, continue.
-    LITE: run delete+simplify via Haiku. FULL: run 7-step+checklist via Sonnet.
-    Complexity floor: files>3 OR lines>100 escalates to full regardless of Haiku output.
+13. PHASE ATC GATE: After verification passes, BEFORE marking phase complete —
+    run full phase-level ATC review via Step 6.5. This reviews the ENTIRE phase's
+    work (all plans, all commits) as a coherent unit, NOT individual commits.
+    Classify with Haiku, review with Sonnet (gsd-code-reviewer).
+    Writes .planning/phases/{NN}-*/{NN}-ATC-REVIEW.md
+    Critical findings + auto mode: log GATE_AUTO_BYPASS, add to DEVIATIONS, continue.
+    Critical findings + interactive: STOP with blocker.
+    Token budget: ~600 tokens per phase (NOT per commit).
+    Complexity floor: 5+ plans OR 500+ lines → always FULL tier.
 14. TASK VISIBILITY: Every Agent() spawn MUST be wrapped in TaskCreate/TaskUpdate.
     Before spawn: TaskCreate({ content, activeForm: "{agent} [{model}] P{N} — {action}", status: "in_progress" })
     After return: TaskUpdate(taskId, status: "completed")
