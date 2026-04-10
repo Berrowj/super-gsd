@@ -149,6 +149,48 @@ while true; do
 
   echo ""
 
+  # ── LIVE ACTIVITY (last 15 tool calls) ──
+  ACTIVITY_LOG="$PROJECT_DIR/.planning/metrics/activity-log.jsonl"
+  if [ -f "$ACTIVITY_LOG" ] && [ -s "$ACTIVITY_LOG" ]; then
+    echo -e "${BOLD}LIVE ACTIVITY${RESET} ${DIM}(last 15 tool calls)${RESET}"
+    echo -e "${DIM}----------------------------------------------------------------${RESET}"
+
+    tail -15 "$ACTIVITY_LOG" 2>/dev/null | node -e "
+      const lines = require('fs').readFileSync('/dev/stdin', 'utf8').trim().split('\n').filter(Boolean);
+      if (lines.length === 0) { console.log('  (no activity yet)'); process.exit(0); }
+
+      const colors = {
+        reset: '\x1b[0m', dim: '\x1b[2m', bold: '\x1b[1m',
+        green: '\x1b[32m', blue: '\x1b[34m', purple: '\x1b[35m',
+        cyan: '\x1b[36m', yellow: '\x1b[33m', red: '\x1b[31m'
+      };
+
+      const toolColors = {
+        Read: colors.cyan, Write: colors.green, Edit: colors.green,
+        Bash: colors.yellow, Glob: colors.dim, Grep: colors.dim,
+        Agent: colors.purple, TaskCreate: colors.blue, TaskUpdate: colors.blue,
+        WebFetch: colors.cyan
+      };
+
+      lines.forEach(line => {
+        try {
+          const e = JSON.parse(line);
+          const time = e.ts ? new Date(e.ts).toLocaleTimeString() : '';
+          const tool = e.tool || 'unknown';
+          const target = (e.target || '').substring(0, 70);
+          const color = toolColors[tool] || colors.dim;
+
+          console.log(
+            '  ' + colors.dim + time + colors.reset + ' ' +
+            color + tool.padEnd(12) + colors.reset + ' ' +
+            colors.dim + target + colors.reset
+          );
+        } catch {}
+      });
+    " 2>/dev/null || echo -e "  ${DIM}(parse error)${RESET}"
+    echo ""
+  fi
+
   # ── Current Phase Work ──
   if [ -n "$CURRENT_PHASE" ]; then
     PHASE_DIR=$(find "$PROJECT_DIR/.planning/phases" -maxdepth 1 -type d -name "${CURRENT_PHASE}-*" 2>/dev/null | head -1)
