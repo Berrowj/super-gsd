@@ -45,22 +45,18 @@ function Format-Num($n) {
     return "$([math]::Round($n/1000000, 1))M"
 }
 
-# Use cursor positioning instead of Clear-Host to avoid black flash + scroll reset
+# ANSI escape codes for clean in-place refresh
+$ESC = [char]27
+$HOME_POS = "$ESC[H"      # move cursor to top-left
+$CLEAR_BELOW = "$ESC[0J"   # clear from cursor to end of screen
+$CLEAR_LINE = "$ESC[K"     # clear from cursor to end of line
+
 Clear-Host
-$firstRun = $true
 
 while ($true) {
-    # Move cursor to top-left instead of clearing — overwrites content in place
-    if ($firstRun) {
-        $firstRun = $false
-    } else {
-        try {
-            [Console]::SetCursorPosition(0, 0)
-        } catch {
-            # Fallback if console doesn't support positioning
-            Clear-Host
-        }
-    }
+    # Home cursor + clear everything from there to end of screen.
+    # This is the correct way to refresh in place — no overlap, no flicker.
+    [Console]::Write("$HOME_POS$CLEAR_BELOW")
 
     # HEADER
     Write-Host "================================================================" -ForegroundColor Cyan
