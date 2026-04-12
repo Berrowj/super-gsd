@@ -800,3 +800,4 @@
 {"ts":"2026-04-12T17:47:12.635Z","tool":"Bash","target":"cat 'C:/Users/jack.berrow/AppData/Local/Temp/claude/C--Users-jack-berrow-GSDedit…","phase":"8"}
 {"ts":"2026-04-12T18:25:10.764Z","tool":"Read","target":"C:\\Users\\jack.berrow\\AppData\\Local\\Temp\\claude\\C--Users-jack-berrow-GSDedits\\07dd5a5f-8798-4997-b66d-27df9d95deb4\\tasks\\…","phase":"8"}
 {"ts":"2026-04-12T18:27:15.331Z","tool":"Bash","target":"cd 'C:/Users/jack.berrow/GSDedits' && \\ git add super-gsd/scripts/sgsd-mission-c…","phase":"8"}
+{"ts":"2026-04-12T19:01:13.784Z","tool":"Bash","target":"cd 'C:/Users/jack.berrow/GSDedits' && git add .planning/config.json .planning/RO…","phase":"8"}
