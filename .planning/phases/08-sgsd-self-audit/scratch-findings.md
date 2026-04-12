@@ -141,3 +141,83 @@ File: super-gsd/tools/phase-verifier/phase-verifier.mjs:1
 Evidence: "#!/usr/bin/env node"
 Analysis: The README documents Linux/macOS installation of gsd-browser and implies phase-verifier.mjs runs on those platforms. The tool itself uses only Node.js built-ins (node:fs, node:path, node:child_process) so it should be portable. However, the tool contains no platform check, there is no CI workflow in the repository covering Linux/macOS execution, and no test fixtures exist under super-gsd/tools/phase-verifier/ beyond the single .mjs file and its README. The SGSD-WORKSPACE-GUIDE.md explicitly notes that dashboard scripts are PowerShell-only and suggests waiting for a "bash port" (§6), but does not flag the verifier as having the same limitation. The Linux/macOS status of phase-verifier.mjs is undeclared.
 Fix (one line): Add a `## Platform support` section to phase-verifier README.md explicitly stating tested platforms (currently: Windows + WSL) and linking any future CI results.
+
+---
+
+# Scratch Findings — SGSD Self-Audit (Wave 3: Hooks + Config)
+
+Appended by Wave 3 executor.
+
+---
+
+## FINDING-13 — sgsd-activity-logger.js and sgsd-statusline.js absent from settings-overlay.json (G4/G5 confirmed)
+Area: hooks
+Severity: high
+File: super-gsd/config/settings-overlay.json:1
+Evidence: (full file contains SessionStart + four PostToolUse entries — sgsd-activity-logger.js and sgsd-statusline.js are not present)
+File: super-gsd/hooks/sgsd-activity-logger.js:14
+Evidence: "Install in settings.json: { \"hooks\": { \"PreToolUse\": [{ \"matcher\": \"*\", \"hooks\": [...sgsd-activity-logger.js...] }] } }"
+File: super-gsd/hooks/sgsd-statusline.js:14
+Evidence: "Install: add to settings.json statusLine config: { \"statusLine\": { \"type\": \"command\", \"command\": \"node ~/.claude/hooks/gsd-super-statusline.js\" } }"
+Analysis: settings-overlay.json registers five hooks: gsd-session-start.js (SessionStart), gsd-token-logger.js, gsd-stuck-detector.js, gsd-checkpoint-writer.js, gsd-context-monitor.js (all PostToolUse). The two sgsd-prefixed hooks — sgsd-activity-logger.js (PreToolUse/*) and sgsd-statusline.js (statusLine) — are completely absent from the overlay. A user who merges settings-overlay.json into their ~/.claude/settings.json, as instructed, will not have either hook active. sgsd-activity-logger.js is the sole writer of activity-log.jsonl (on which sgsd-narrative.ps1/sgsd2 depends per FINDING-11). sgsd-statusline.js is the sole source of the live compact status bar shown in MONITORING-SETUP.md. Both are silently dead after install.
+Fix (one line): Add a PreToolUse entry for sgsd-activity-logger.js and a statusLine entry for sgsd-statusline.js to super-gsd/config/settings-overlay.json.
+
+---
+
+## FINDING-14 — sgsd-statusline.js install comment references wrong filename (gsd-super-statusline.js)
+Area: hooks
+Severity: medium
+File: super-gsd/hooks/sgsd-statusline.js:18
+Evidence: "\"command\": \"node ~/.claude/hooks/gsd-super-statusline.js\""
+Analysis: The file on disk is named `sgsd-statusline.js`. install.sh copies all hooks/*.js to ~/.claude/hooks/ preserving their names (install.sh:117: `copy_file "$hook" "$HOOKS_DIR/$name"`), so the installed file will be `~/.claude/hooks/sgsd-statusline.js`. However, the install comment inside the file itself instructs the user to reference `gsd-super-statusline.js` — the wrong filename. A user following the in-file install instructions will register a command that points to a non-existent file, causing the statusline to silently fail (empty or error state). This is a self-defeating install instruction.
+Fix (one line): Change line 18 of sgsd-statusline.js from `gsd-super-statusline.js` to `sgsd-statusline.js` to match the actual installed filename.
+
+---
+
+## FINDING-15 — Only 1 of 7 hook files has a gsd-hook-version header; no VERSION file exists in super-gsd/
+Area: hooks
+Severity: low
+File: super-gsd/hooks/sgsd-statusline.js:3
+Evidence: "// gsd-hook-version: super-gsd-1.0"
+File: super-gsd/hooks/gsd-checkpoint-writer.js:1
+Evidence: (no gsd-hook-version line in first 20 lines — same for gsd-context-monitor.js, gsd-session-start.js, gsd-stuck-detector.js, gsd-token-logger.js, sgsd-activity-logger.js)
+Analysis: The Wave 3 audit spec requires every hook to carry a `// gsd-hook-version:` header matching the installed VERSION file. Only sgsd-statusline.js has this header. The remaining six hooks (gsd-checkpoint-writer.js, gsd-context-monitor.js, gsd-session-start.js, gsd-stuck-detector.js, gsd-token-logger.js, sgsd-activity-logger.js) have no version header at all. Additionally, no `super-gsd/VERSION` file exists — `ls super-gsd/` confirmed the file is absent — so even if headers were present there is no canonical version string to match against. Version skew between installed hooks and the source repo is undetectable.
+Fix (one line): Create super-gsd/VERSION with an initial value (e.g. `1.0.0`) and add a `// gsd-hook-version: 1.0.0` header to all six remaining hook files.
+
+---
+
+## FINDING-16 — config.workflow.nyquist_validation referenced in sgsd-orchestrate SKILL.md:569 is absent from planning-config-overlay.json (G2 confirmed)
+Area: config
+Severity: high
+File: super-gsd/skills/sgsd-orchestrate/SKILL.md:569
+Evidence: "Enforced by: Nyquist validation gate (config.workflow.nyquist_validation)."
+File: super-gsd/config/planning-config-overlay.json:3
+Evidence: "\"workflow\": { \"mode\": \"yolo\", \"granularity\": \"standard\", \"skip_discuss\": false, \"research\": true, \"plan_check\": true, \"verifier\": true, \"auto_advance\": true, \"plan_format\": \"compressed_xml\", \"agent_report_max_words\": 300 }"
+Analysis: The orchestrate SKILL.md documents that Karpathy Principle (4) "Goal-Driven Execution" is enforced by a Nyquist validation gate gated on `config.workflow.nyquist_validation`. The `workflow` block in planning-config-overlay.json has nine keys and does not include `nyquist_validation`. When install.sh copies planning-config-overlay.json to `.planning/config.json` (install.sh:237), all new projects will have a config.json that lacks this key. Any skill code that reads `config.workflow.nyquist_validation` will receive `undefined`, silently disabling the gate without any warning to the user.
+Fix (one line): Add `"nyquist_validation": true` to the `workflow` block in super-gsd/config/planning-config-overlay.json.
+
+---
+
+## FINDING-17 — install.sh never merges settings-overlay.json into ~/.claude/settings.json; all five registered hooks are uninstalled on a fresh run
+Area: hooks
+Severity: critical
+File: super-gsd/install.sh:110
+Evidence: "Step 3/8: Installing hooks + query engine..." (copies *.js to ~/.claude/hooks/ but never touches settings.json)
+File: super-gsd/config/settings-overlay.json:2
+Evidence: "\"_comment\": \"Merge these into ~/.claude/settings.json to enable Super GSD hooks\""
+Analysis: install.sh Step 3 copies all hook JS files to `~/.claude/hooks/` correctly. However, the installer never reads, merges, or writes `~/.claude/settings.json`. The settings-overlay.json comment acknowledges this is a manual step ("Merge these into ~/.claude/settings.json"), but no install step automates it and no post-install instruction in the terminal output directs the user to do so (the Step 3 log line says only "$HOOK_COUNT hooks + 1 query engine installed", implying completion). A user running `bash install.sh` with no prior knowledge will have hook files on disk but zero hooks active in Claude Code — gsd-session-start.js will never fire, gsd-token-logger.js will never fire, etc. This silently breaks the entire hook layer for every new install.
+Fix (one line): Add a Step 3b to install.sh that either auto-merges settings-overlay.json into ~/.claude/settings.json using `node -e` jq-style JSON merge, or prints a mandatory post-install warning with the exact merge instruction.
+
+---
+
+## FINDING-18 — brv-curate-local.js installed only to ~/.claude/templates/overwatcher/, not to ~/.claude/hooks/; brv-curate bare command has no alias (G3 confirmed)
+Area: config
+Severity: critical
+File: super-gsd/install.sh:132
+Evidence: "for ow in \"$SCRIPT_DIR/overwatcher/\"*.js ... copy_file \"$ow\" \"$TEMPLATES_DIR/overwatcher/$name\""
+File: super-gsd/workflows/orchestrate-loop.md:437
+Evidence: "# Step 9: Curate Learnings (brv-curate-local.js)\nBRV_CURATE=\"$(find super-gsd/overwatcher ~/.claude/hooks -name brv-curate-local.js 2>/dev/null | head -1)\""
+File: super-gsd/CLAUDE-OVERLAY.md:133
+Evidence: "If SCRIPTS_CREATED → brv-curate to scripts/"
+Analysis: CLAUDE-OVERLAY.md and all skill files reference `brv-curate` as a bare command. install.sh creates no alias for `brv-curate` anywhere — it installs only `brv-query-local.js` directly to `~/.claude/hooks/` (install.sh:121). `brv-curate-local.js` is copied to `~/.claude/templates/overwatcher/` (not hooks/), which is not on any execution PATH. The orchestrate-loop.md Step 9 works around this with a `find` fallback, but skills and CLAUDE-OVERLAY.md use the bare `brv-curate` form which will resolve only if the ByteRover CLI (`npm install -g byterover-cli`) is installed and its `brv curate` subcommand maps to the same interface — unconfirmed. The research open question 2 (whether brv-curate-local.js goes to hooks/) is now resolved: it does NOT. Every `brv-curate` bare call in skills and overlay is broken unless the user has the paid ByteRover CLI installed separately.
+Fix (one line): Copy brv-curate-local.js to `$HOOKS_DIR/` alongside brv-query-local.js in install.sh Step 3, and add `alias brv-curate="node ~/.claude/hooks/brv-curate-local.js"` to the user's shell profile as part of the install summary.
