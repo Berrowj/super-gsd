@@ -1,0 +1,18 @@
+{
+  "name": "@sgsd/phase-verifier",
+  "version": "0.1.0",
+  "description": "Phase-level browser verifier for Super GSD. Reads ROADMAP.md success criteria + per-page data-loaded contracts. Outputs PROVEN/UNPROVEN per phase with evidence artifacts (screenshots, HAR, API JSON, console log). No fallback to curl-only audits. No spinner-frozen screenshots. No empty-array passes.",
+  "type": "module",
+  "bin": {
+    "phase-verifier": "./phase-verifier.mjs"
+  },
+  "main": "./phase-verifier.mjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "verify": "node ./phase-verifier.mjs"
+  },
+  "keywords": ["sgsd", "super-gsd", "phase-verifier", "gate-check"],
+  "license": "UNLICENSED"
+}

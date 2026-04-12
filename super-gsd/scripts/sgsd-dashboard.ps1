@@ -133,6 +133,177 @@ function Get-RequirementsProgress($projectDir) {
     }
 }
 
+function Get-Waves($phaseDir) {
+    # Parses PLAN.md bodies for inline wave definitions:
+    #   <name>Wave N · description (Tasks X-Y)</name>
+    # Returns ordered array of @{ plan; wave; name; range; taskCount; status }
+    $result = @()
+    if (-not (Test-Path $phaseDir)) { return $result }
+    try {
+        $plans = Get-ChildItem -Path $phaseDir -Filter "*-PLAN.md" -ErrorAction SilentlyContinue | Sort-Object Name
+        foreach ($plan in $plans) {
+            $content = Get-Content $plan.FullName -Raw -ErrorAction SilentlyContinue
+            if (-not $content) { continue }
+            # Match XML <name>Wave N ...</name>
+            $rxXml = [regex]'<name>\s*Wave\s+(\d+)\s*[\u00B7\u2022\.\-:]\s*([^<]+?)\s*</name>'
+            $found = $rxXml.Matches($content)
+            # Fallback: markdown headings "## Wave N: description"
+            if ($found.Count -eq 0) {
+                $rxMd = [regex]'(?m)^#{1,3}\s*Wave\s+(\d+)\s*[\u00B7\u2022\.\-:]\s*(.+?)\s*$'
+                $found = $rxMd.Matches($content)
+            }
+            foreach ($m in $found) {
+                $num = [int]$m.Groups[1].Value
+                $desc = $m.Groups[2].Value.Trim()
+                $range = ""
+                $taskCount = 0
+                if ($desc -match '\(Tasks?\s*(\d+)(?:\s*[\-\u2013]\s*(\d+))?\)') {
+                    $start = [int]$matches[1]
+                    $end = if ($matches[2]) { [int]$matches[2] } else { $start }
+                    $taskCount = $end - $start + 1
+                    $range = if ($end -gt $start) { "T$start-T$end" } else { "T$start" }
+                }
+                # Strip the (Tasks ...) suffix from name to keep it clean
+                $cleanName = ($desc -replace '\s*\(Tasks?\s*\d+(?:\s*[\-\u2013]\s*\d+)?\)\s*$', '').Trim()
+                $result += @{
+                    plan      = $plan.BaseName
+                    wave      = $num
+                    name      = $cleanName
+                    range     = $range
+                    taskCount = $taskCount
+                    status    = "pending"
+                }
+            }
+        }
+    } catch {}
+    return @($result | Sort-Object { $_.plan }, { $_.wave })
+}
+
+function Get-ActiveWaveFromLog($activityLog) {
+    # Finds most recent TaskCreate/Agent target containing "W<N>" or "Wave N".
+    if (-not (Test-Path $activityLog)) { return $null }
+    try {
+        $lines = Get-Content $activityLog -Tail 200 -ErrorAction SilentlyContinue
+        if (-not $lines) { return $null }
+        [array]::Reverse($lines)
+        foreach ($line in $lines) {
+            try {
+                $e = $line | ConvertFrom-Json -ErrorAction Stop
+                if ($e.tool -ne "TaskCreate" -and $e.tool -ne "Agent") { continue }
+                if ("$($e.target)" -match '\bW(\d+)\b|\bWave\s+(\d+)') {
+                    if ($matches[1]) { return [int]$matches[1] }
+                    if ($matches[2]) { return [int]$matches[2] }
+                }
+            } catch {}
+        }
+    } catch {}
+    return $null
+}
+
+function Get-WaveStatusFromGit($projectDir) {
+    # Returns highest "Wave N done" mentioned in last 50 commits, or 0.
+    $highest = 0
+    Push-Location $projectDir -ErrorAction SilentlyContinue
+    try {
+        $commits = & git log --oneline -50 2>$null
+        if ($commits) {
+            foreach ($c in $commits) {
+                $rx = [regex]::Matches($c, '[Ww]ave\s+(\d+)\s+done')
+                foreach ($m in $rx) {
+                    $n = [int]$m.Groups[1].Value
+                    if ($n -gt $highest) { $highest = $n }
+                }
+            }
+        }
+    } catch {}
+    Pop-Location -ErrorAction SilentlyContinue
+    return $highest
+}
+
+function Get-AgentRoster($activityLog, $maxAgeSec = 21600) {
+    # Returns ordered array of unique agents seen in recent log lines.
+    # Default window: 6 hours. Returns last 10 most recent.
+    $roster = [ordered]@{}
+    if (-not (Test-Path $activityLog)) { return @() }
+    try {
+        $lines = Get-Content $activityLog -Tail 500 -ErrorAction SilentlyContinue
+        if (-not $lines) { return @() }
+        $now = Get-Date
+        foreach ($line in $lines) {
+            try {
+                $e = $line | ConvertFrom-Json -ErrorAction Stop
+                if ($e.tool -ne "Agent" -and $e.tool -ne "TaskCreate") { continue }
+                $t = "$($e.target)".Trim()
+                if (-not $t) { continue }
+                $ts = $null
+                try { $ts = [DateTime]::Parse($e.ts) } catch {}
+                if (-not $ts) { continue }
+                $age = [int]($now - $ts).TotalSeconds
+                if ($age -gt $maxAgeSec) { continue }
+                $name = $t
+                if ($t -match '^([a-zA-Z][\w-]+)\s*[:\[]') { $name = $matches[1] }
+                elseif ($t -match '^([a-zA-Z][\w-]+)') { $name = $matches[1] }
+                $key = "$name|$t"
+                if (-not $roster.Contains($key) -or $roster[$key].lastTs -lt $ts) {
+                    $roster[$key] = @{
+                        name   = $name
+                        target = $t
+                        lastTs = $ts
+                        ageSec = $age
+                        tool   = $e.tool
+                    }
+                }
+            } catch {}
+        }
+    } catch {}
+    foreach ($entry in $roster.Values) {
+        if ($entry.ageSec -lt 60)        { $entry.status = "ACTIVE" }
+        elseif ($entry.ageSec -lt 300)   { $entry.status = "IDLE" }
+        elseif ($entry.ageSec -lt 1800)  { $entry.status = "RECENT" }
+        else                              { $entry.status = "OLDER" }
+    }
+    return @($roster.Values | Sort-Object { $_.ageSec } | Select-Object -First 10)
+}
+
+function Get-OrchestratorPulse($projectDir, $activityLog) {
+    # Returns @{ lastCommitAgo; lastActivityAgo; commits5min; commits1hr }
+    $pulse = @{ lastCommitAgo = $null; lastActivityAgo = $null; commits5min = 0; commits1hr = 0 }
+    Push-Location $projectDir -ErrorAction SilentlyContinue
+    try {
+        $now = Get-Date
+        $lastCommitTs = & git log -1 --format="%cI" 2>$null
+        if ($lastCommitTs) {
+            try {
+                $ts = [DateTime]::Parse($lastCommitTs)
+                $pulse.lastCommitAgo = [int]($now - $ts).TotalSeconds
+            } catch {}
+        }
+        $recent = & git log --since="1 hour ago" --format="%cI" 2>$null
+        if ($recent) {
+            foreach ($r in $recent) {
+                try {
+                    $ts = [DateTime]::Parse($r)
+                    $age = ($now - $ts).TotalSeconds
+                    if ($age -le 3600) { $pulse.commits1hr++ }
+                    if ($age -le 300)  { $pulse.commits5min++ }
+                } catch {}
+            }
+        }
+    } catch {}
+    Pop-Location -ErrorAction SilentlyContinue
+    if (Test-Path $activityLog) {
+        try {
+            $last = Get-Content $activityLog -Tail 1 -ErrorAction SilentlyContinue
+            if ($last) {
+                $e = $last | ConvertFrom-Json -ErrorAction Stop
+                $ts = [DateTime]::Parse($e.ts)
+                $pulse.lastActivityAgo = [int]((Get-Date) - $ts).TotalSeconds
+            }
+        } catch {}
+    }
+    return $pulse
+}
+
 function Get-PhaseBreakdown($projectDir) {
     $phases = @()
     $phasesDir = Join-Path $projectDir ".planning\phases"
@@ -322,48 +493,122 @@ while ($true) {
         Write-Host "(pending)" -ForegroundColor DarkGray
     }
 
-    # ACTIVE AGENT (1 line)
-    $agentStr = ""
-    $statusStr = ""
-    $statusColor = "DarkGray"
-    if (Test-Path $activityLog) {
-        $recentLines = Get-Content $activityLog -Tail 10 -ErrorAction SilentlyContinue
-        if ($recentLines) {
-            [array]::Reverse($recentLines)
-            $lastTs = $null
-            $lastTool = ""
-            foreach ($line in $recentLines) {
-                try {
-                    $e = $line | ConvertFrom-Json -ErrorAction Stop
-                    if (-not $lastTool) {
-                        $lastTool = $e.tool
-                        $lastTs = [DateTime]::Parse($e.ts)
-                    }
-                    if ($e.tool -eq "TaskCreate" -or $e.tool -eq "Agent") {
-                        $agentStr = $e.target
-                        break
-                    }
-                } catch {}
+    # Pane width — used to size columns and prevent wrap/scramble
+    try { $paneW = [Console]::WindowWidth } catch { $paneW = 80 }
+    if ($paneW -lt 40) { $paneW = 40 }
+
+    # WAVES — full list with names, marks done/active/pending from git + activity log
+    $waves = @()
+    if ($phaseDir) { $waves = Get-Waves $phaseDir.FullName }
+    if ($waves.Count -gt 0) {
+        $highestDone = Get-WaveStatusFromGit $ProjectDir
+        $activeFromLog = Get-ActiveWaveFromLog $activityLog
+        # Compute statuses
+        foreach ($w in $waves) {
+            if ($w.wave -le $highestDone) { $w.status = "done" }
+            elseif ($activeFromLog -and $w.wave -eq $activeFromLog) { $w.status = "active" }
+            elseif ($w.wave -eq ($highestDone + 1) -and -not $activeFromLog) { $w.status = "active" }
+            else { $w.status = "pending" }
+        }
+        $totalW = $waves.Count
+        $doneW  = @($waves | Where-Object { $_.status -eq "done" }).Count
+        $actW   = @($waves | Where-Object { $_.status -eq "active" }).Count
+        Write-Host "Waves " -NoNewline -ForegroundColor White
+        Write-Host "$doneW" -NoNewline -ForegroundColor Green
+        Write-Host "/$totalW done " -NoNewline -ForegroundColor DarkGray
+        if ($actW -gt 0) {
+            Write-Host "$actW active" -ForegroundColor Yellow
+        } else {
+            Write-Host "(idle)" -ForegroundColor DarkGray
+        }
+        # One row per wave: marker + W# + name (truncated to pane width)
+        $nameWidth = $paneW - 10
+        if ($nameWidth -lt 12) { $nameWidth = 12 }
+        foreach ($w in $waves) {
+            $marker = switch ($w.status) {
+                "done"   { "v" }
+                "active" { ">" }
+                default  { "." }
             }
-            if ($lastTs) {
-                $age = [int]((Get-Date) - $lastTs).TotalSeconds
-                $ageStr = if ($age -lt 60) { "${age}s" } elseif ($age -lt 3600) { "$([math]::Floor($age/60))m" } else { "$([math]::Floor($age/3600))h" }
-                if ($age -lt 30) { $statusStr = "ACTIVE"; $statusColor = "Green" }
-                elseif ($age -lt 300) { $statusStr = "IDLE"; $statusColor = "Yellow" }
-                else { $statusStr = "STOPPED"; $statusColor = "Red" }
-                $statusStr = "$statusStr ($ageStr)"
+            $mc = switch ($w.status) {
+                "done"   { "Green" }
+                "active" { "Yellow" }
+                default  { "DarkGray" }
             }
+            $nm = $w.name
+            if ($nm.Length -gt $nameWidth) { $nm = $nm.Substring(0, $nameWidth - 2) + ".." }
+            Write-Host "  $marker " -NoNewline -ForegroundColor $mc
+            Write-Host "W$($w.wave) " -NoNewline -ForegroundColor $mc
+            Write-Host $nm -ForegroundColor Gray
         }
     }
-    Write-Host "Agent " -NoNewline -ForegroundColor White
-    if ($agentStr) {
-        $ag = $agentStr
-        if ($ag.Length -gt 45) { $ag = $ag.Substring(0, 45) + ".." }
-        Write-Host "$ag " -NoNewline -ForegroundColor Magenta
-    } else {
-        Write-Host "(no context) " -NoNewline -ForegroundColor DarkGray
+
+    # ORCHESTRATOR PULSE — last commit + last log entry + recent commit velocity
+    $pulse = Get-OrchestratorPulse $ProjectDir $activityLog
+    Write-Host "Pulse " -NoNewline -ForegroundColor White
+    function Format-Age($s) {
+        if ($null -eq $s) { return "--" }
+        if ($s -lt 60) { return "${s}s" }
+        if ($s -lt 3600) { return "$([math]::Floor($s/60))m" }
+        return "$([math]::Floor($s/3600))h"
     }
-    Write-Host $statusStr -ForegroundColor $statusColor
+    $commitColor = if ($pulse.lastCommitAgo -lt 300) { "Green" }
+                   elseif ($pulse.lastCommitAgo -lt 1800) { "Yellow" }
+                   else { "DarkGray" }
+    $actColor = if ($pulse.lastActivityAgo -lt 60) { "Green" }
+                elseif ($pulse.lastActivityAgo -lt 300) { "Yellow" }
+                else { "DarkGray" }
+    Write-Host "commit:" -NoNewline -ForegroundColor DarkGray
+    Write-Host "$(Format-Age $pulse.lastCommitAgo) " -NoNewline -ForegroundColor $commitColor
+    Write-Host "act:" -NoNewline -ForegroundColor DarkGray
+    Write-Host "$(Format-Age $pulse.lastActivityAgo) " -NoNewline -ForegroundColor $actColor
+    Write-Host "1h:" -NoNewline -ForegroundColor DarkGray
+    Write-Host "$($pulse.commits1hr)c " -NoNewline -ForegroundColor White
+    Write-Host "5m:" -NoNewline -ForegroundColor DarkGray
+    Write-Host "$($pulse.commits5min)c" -ForegroundColor White
+
+    # AGENT ROSTER — last 6h, up to 10 agents, width-aware truncation
+    $roster = Get-AgentRoster $activityLog 21600
+    Write-Host "Agents " -NoNewline -ForegroundColor White
+    if ($roster.Count -eq 0) {
+        Write-Host "(none recent)" -ForegroundColor DarkGray
+    } else {
+        $cActive = @($roster | Where-Object { $_.status -eq "ACTIVE" }).Count
+        $cIdle   = @($roster | Where-Object { $_.status -eq "IDLE" }).Count
+        $cRecent = @($roster | Where-Object { $_.status -eq "RECENT" }).Count
+        $cOlder  = @($roster | Where-Object { $_.status -eq "OLDER" }).Count
+        Write-Host "$($roster.Count) " -NoNewline -ForegroundColor White
+        Write-Host "($cActive active, $cIdle idle, $cRecent recent, $cOlder older)" -ForegroundColor DarkGray
+        # Layout: "  NAME(14) STATUS(7) AGE(4) DETAIL"
+        # Reserve cols: 2 indent + 14 name + 1 + 7 status + 1 + 4 age + 1 = 30 used
+        $detailW = $paneW - 30
+        if ($detailW -lt 12) { $detailW = 12 }
+        foreach ($ag in $roster) {
+            $sc = switch ($ag.status) {
+                "ACTIVE" { "Green" }
+                "IDLE"   { "Yellow" }
+                "RECENT" { "Cyan" }
+                default  { "DarkGray" }
+            }
+            $ageStr = (Format-Age $ag.ageSec).PadLeft(4)
+            $nm = $ag.name
+            if ($nm.Length -gt 14) { $nm = $nm.Substring(0, 13) + "." }
+            $nm = $nm.PadRight(14)
+            $stStr = $ag.status.PadRight(7)
+            $detail = $ag.target
+            if ($detail -match '^[a-zA-Z][\w-]+\s*[:\[]\s*(.*)$') { $detail = $matches[1] }
+            $detail = $detail -replace '\s+', ' '
+            if ($detail.Length -gt $detailW) { $detail = $detail.Substring(0, $detailW - 2) + ".." }
+            Write-Host "  " -NoNewline
+            Write-Host $nm -NoNewline -ForegroundColor Magenta
+            Write-Host " " -NoNewline
+            Write-Host $stStr -NoNewline -ForegroundColor $sc
+            Write-Host " " -NoNewline
+            Write-Host $ageStr -NoNewline -ForegroundColor DarkGray
+            Write-Host " " -NoNewline
+            Write-Host $detail -ForegroundColor Gray
+        }
+    }
 
     # BLOCKERS + TODOS + REQS (compact, 1-3 lines)
     $blockers = Get-Blockers $stateFile
