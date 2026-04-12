@@ -12,3 +12,6 @@
 {"ts":"2026-04-09T09:24:44.449Z","tool":"Agent","model":"unknown","description":"unknown","est_input":1,"est_output":0,"total":1}
 {"ts":"2026-04-09T09:50:10.907Z","tool":"Agent","model":"unknown","description":"unknown","est_input":1,"est_output":0,"total":1}
 {"ts":"2026-04-09T10:20:25.496Z","tool":"Agent","model":"unknown","description":"unknown","est_input":1,"est_output":0,"total":1}
+{"ts": "2026-04-12T01:38:55.567643Z", "phase": 8, "plan": 1, "wave": 1, "model": "sonnet", "role": "gsd-executor", "est_input": 44100, "est_output": 13200, "total": 57300, "classifier_model": "haiku"}
+{"ts": "2026-04-12T01:44:05.840785Z", "phase": 8, "plan": 1, "wave": 2, "model": "sonnet", "role": "gsd-executor", "est_input": 41500, "est_output": 12300, "total": 53800, "classifier_model": "haiku"}
+{"ts": "2026-04-12T01:50:59.113789Z", "phase": 8, "plan": 1, "wave": 3, "model": "sonnet", "role": "gsd-executor", "est_input": 38000, "est_output": 11300, "total": 49300, "classifier_model": "haiku"}
