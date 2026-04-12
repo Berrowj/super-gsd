@@ -346,12 +346,26 @@ function Render-CtrlOStream {
 }
 
 function Maybe-RefreshHaiku {
-    # Regenerates NarrativeCache via `claude --print` when:
-    #   1. The cache is older than $HaikuRefreshSec, OR
-    #   2. The cache doesn't exist yet
-    # AND the activity-log hash differs from what produced the cached summary.
-    # Runs in the background (fire-and-forget spawn) so the pane never blocks.
+    # Regenerates NarrativeCache via `claude --print` when the cache is older
+    # than $HaikuRefreshSec (or missing). The actual claude call runs in a
+    # DETACHED background PowerShell process so this function never blocks the
+    # render loop. On failure we touch a sidecar stamp, NOT the cache — so the
+    # freshness check correctly triggers a retry next tick.
     if (-not (Test-Path $ActivityLog)) { return }
+
+    $lockFile    = "$NarrativeCache.lock"
+    $failStamp   = "$NarrativeCache.lastfail"
+    $attemptFile = "$NarrativeCache.lastattempt"
+
+    # Exponential backoff on consecutive failures: 30s / 60s / 120s / 300s cap
+    if (Test-Path $failStamp) {
+        $failCount = [int](Get-Content $failStamp -ErrorAction SilentlyContinue | Select-Object -First 1)
+        if ($failCount -gt 0 -and (Test-Path $attemptFile)) {
+            $sinceAttempt = [int]((Get-Date) - (Get-Item $attemptFile).LastWriteTime).TotalSeconds
+            $backoff = [Math]::Min(300, 30 * [Math]::Pow(2, [Math]::Min($failCount - 1, 4)))
+            if ($sinceAttempt -lt $backoff) { return }
+        }
+    }
 
     $needsRefresh = $false
     if (-not (Test-Path $NarrativeCache)) {
@@ -362,30 +376,27 @@ function Maybe-RefreshHaiku {
     }
     if (-not $needsRefresh) { return }
 
-    # Guard: don't spawn a second Haiku call if one is already running
-    $lockFile = "$NarrativeCache.lock"
+    # Don't spawn if one is already in flight
     if (Test-Path $lockFile) {
         $lockAge = [int]((Get-Date) - (Get-Item $lockFile).LastWriteTime).TotalSeconds
-        if ($lockAge -lt 120) { return }   # stale lock after 2min
+        if ($lockAge -lt 180) { return }   # stale lock after 3min
     }
-    New-Item -Path $lockFile -ItemType File -Force | Out-Null
 
-    try {
-        # Pull last 20 activity lines as context
-        $lines = Get-Content $ActivityLog -Tail 20 -ErrorAction SilentlyContinue
-        if (-not $lines) { Remove-Item $lockFile -Force; return }
-        $snippet = @()
-        foreach ($line in $lines) {
-            try {
-                $e = $line | ConvertFrom-Json -ErrorAction Stop
-                $target = "$($e.target)"
-                if ($target.Length -gt 120) { $target = $target.Substring(0, 120) + "..." }
-                $snippet += "$($e.tool): $target"
-            } catch {}
-        }
-        $snippetText = $snippet -join "`n"
+    # Build the prompt from last 20 activity entries
+    $lines = Get-Content $ActivityLog -Tail 20 -ErrorAction SilentlyContinue
+    if (-not $lines) { return }
+    $snippet = @()
+    foreach ($line in $lines) {
+        try {
+            $e = $line | ConvertFrom-Json -ErrorAction Stop
+            $target = "$($e.target)"
+            if ($target.Length -gt 120) { $target = $target.Substring(0, 120) + "..." }
+            $snippet += "$($e.tool): $target"
+        } catch {}
+    }
+    $snippetText = $snippet -join "`n"
 
-        $prompt = @"
+    $prompt = @"
 You are a narrative observer for an autonomous Claude Code orchestrator session.
 Read these recent tool calls and write:
 
@@ -406,42 +417,63 @@ $snippetText
 Narrative:
 "@
 
-        # Pipe prompt via stdin to claude, capture stdout, write atomically
-        # to cache. Route through cmd.exe /c so Windows resolves the claude.cmd
-        # wrapper via PATHEXT (same fix we made to phase-verifier).
-        # Blocking call with 25s timeout — pane freezes briefly once every 5 min at worst.
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = "cmd.exe"
-        $psi.Arguments = '/c claude --print --dangerously-skip-permissions --model claude-haiku-4-5-20251001'
-        $psi.RedirectStandardInput = $true
-        $psi.RedirectStandardOutput = $true
-        $psi.RedirectStandardError = $true
-        $psi.UseShellExecute = $false
-        $psi.CreateNoWindow = $true
-        try {
-            $p = [System.Diagnostics.Process]::Start($psi)
-        } catch {
-            # Log the failure so we can see it in the cache file itself
-            Set-Content -Path $NarrativeCache -Value ("Haiku refresh failed to start claude: " + $_.Exception.Message) -Encoding utf8
-            return
-        }
-        $p.StandardInput.Write($prompt)
-        $p.StandardInput.Close()
-        if ($p.WaitForExit(25000)) {
-            $stdout = $p.StandardOutput.ReadToEnd()
-            $stderr = $p.StandardError.ReadToEnd()
-            if ($stdout -and $stdout.Trim().Length -gt 20) {
-                Set-Content -Path $NarrativeCache -Value $stdout.Trim() -Encoding utf8
-            } elseif ($stderr) {
-                Set-Content -Path $NarrativeCache -Value ("claude --print returned no output. stderr: " + $stderr.Trim()) -Encoding utf8
-            }
+    # Write prompt + worker script to temp, spawn detached pwsh that does the
+    # actual claude call. Worker writes cache on success, or bumps failStamp
+    # on timeout/error. Main loop returns immediately.
+    $promptFile = [System.IO.Path]::GetTempFileName()
+    Set-Content -Path $promptFile -Value $prompt -Encoding utf8 -NoNewline
+
+    $workerScript = [System.IO.Path]::GetTempFileName() + ".ps1"
+    $workerBody = @"
+`$ErrorActionPreference = 'SilentlyContinue'
+try {
+    `$psi = New-Object System.Diagnostics.ProcessStartInfo
+    `$psi.FileName = 'cmd.exe'
+    `$psi.Arguments = '/c claude --print --dangerously-skip-permissions --model claude-haiku-4-5-20251001'
+    `$psi.RedirectStandardInput = `$true
+    `$psi.RedirectStandardOutput = `$true
+    `$psi.RedirectStandardError = `$true
+    `$psi.UseShellExecute = `$false
+    `$psi.CreateNoWindow = `$true
+    `$prompt = Get-Content -Raw '$promptFile'
+    `$p = [System.Diagnostics.Process]::Start(`$psi)
+    `$p.StandardInput.Write(`$prompt)
+    `$p.StandardInput.Close()
+    if (`$p.WaitForExit(60000)) {
+        `$stdout = `$p.StandardOutput.ReadToEnd()
+        if (`$stdout -and `$stdout.Trim().Length -gt 20) {
+            Set-Content -Path '$NarrativeCache' -Value `$stdout.Trim() -Encoding utf8
+            Remove-Item '$failStamp' -Force -ErrorAction SilentlyContinue
         } else {
-            try { $p.Kill() } catch {}
-            Set-Content -Path $NarrativeCache -Value "Haiku refresh timed out after 25s" -Encoding utf8
+            `$fc = 0; if (Test-Path '$failStamp') { `$fc = [int](Get-Content '$failStamp' | Select-Object -First 1) }
+            Set-Content -Path '$failStamp' -Value ([string](`$fc + 1)) -Encoding ascii
         }
+    } else {
+        try { `$p.Kill() } catch {}
+        `$fc = 0; if (Test-Path '$failStamp') { `$fc = [int](Get-Content '$failStamp' | Select-Object -First 1) }
+        Set-Content -Path '$failStamp' -Value ([string](`$fc + 1)) -Encoding ascii
+    }
+} catch {
+    `$fc = 0; if (Test-Path '$failStamp') { `$fc = [int](Get-Content '$failStamp' | Select-Object -First 1) }
+    Set-Content -Path '$failStamp' -Value ([string](`$fc + 1)) -Encoding ascii
+} finally {
+    Remove-Item '$lockFile' -Force -ErrorAction SilentlyContinue
+    Remove-Item '$promptFile' -Force -ErrorAction SilentlyContinue
+    Remove-Item `$MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
+}
+"@
+    Set-Content -Path $workerScript -Value $workerBody -Encoding utf8
+
+    # Mark in-flight and attempt time BEFORE spawning
+    New-Item -Path $lockFile -ItemType File -Force | Out-Null
+    Set-Content -Path $attemptFile -Value ((Get-Date).ToString('o')) -Encoding ascii -Force
+
+    # Detached spawn — hidden window, no wait, no inheritance
+    try {
+        Start-Process -FilePath "powershell.exe" `
+                      -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", $workerScript) `
+                      -WindowStyle Hidden | Out-Null
     } catch {
-        try { Set-Content -Path $NarrativeCache -Value ("Haiku refresh exception: " + $_.Exception.Message) -Encoding utf8 } catch {}
-    } finally {
         Remove-Item $lockFile -Force -ErrorAction SilentlyContinue
     }
 }
