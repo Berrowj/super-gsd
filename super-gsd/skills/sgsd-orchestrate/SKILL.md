@@ -138,7 +138,7 @@ REPEAT:
      d. Phase has plans, needs plan-check → dispatch gsd-plan-checker (Sonnet)
      e. Phase has checked plans, pending tasks → dispatch gsd-executor (Sonnet)
      f. All plans executed → dispatch gsd-verifier (Sonnet)
-     g. Verification passed → PHASE ATC GATE (see Step 6.5), then mark complete
+     g. Verification passed → PHASE ATC GATE (Step 6.5) → FRONTEND VERIFY GATE (Step 6.6) → mark complete
      h. Verification failed → dispatch gsd-planner --gaps (Sonnet)
 
   6.5. PHASE ATC GATE (runs ONCE per phase, after verification passes)
@@ -202,10 +202,150 @@ REPEAT:
 
        e. TaskUpdate(taskId, status: "completed")
 
-       f. Mark phase complete, advance to next phase
+       f. Proceed to Step 6.6 (frontend verify) — do NOT mark phase complete yet.
 
      Token budget per phase ATC: ~600 tokens (50 classify + 550 review)
      Runs ONCE per phase, not per commit — keeps token cost bounded.
+
+  6.6. FRONTEND BROWSER VERIFICATION GATE (runs ONCE per phase, after ATC passes)
+     Triggers when Step 6.5 completes AND the phase's diff touched any frontend
+     files. This is functional UI verification via a real browser driving a
+     live dev server — not code review, not type-checking, not curl-on-an-API.
+
+     GROUND TRUTH IMPLEMENTATION: this gate does NOT rely on a sub-agent's
+     prose report. It shells out to the mechanical verifier tool at
+     `super-gsd/tools/phase-verifier/phase-verifier.mjs`. The tool performs
+     Gate 1 (tool precondition), Gate 4 (backend liveness), per-route browser
+     navigation with data-loaded attribute waiting, evidence capture (HAR,
+     console, screenshot, api.json), and Gate 2 (independent evidence file
+     verification). The orchestrator only processes the tool's exit code and
+     report file. This is the anti-hallucination anchor for frontend work.
+
+     Sub-agent (sgsd-browser skill) is still available for INTERACTIVE debug
+     of a specific UI failure after this gate has blocked — but is NEVER used
+     as the gate's verdict source. The gate trusts the tool, not prose.
+
+     This gate exists because the following failure modes have been observed
+     and the orchestrator must mechanically prevent them:
+       F1. Silent tool fallback: gsd-browser unavailable → agent uses curl on
+           the backend JSON and reports "audit passed". NEVER allowed.
+       F2. Graceful 404 counted as pass: empty response body → empty-state DOM
+           → reported "works". Banned. Empty states require an explicit
+           data-empty-reason contract, else the route FAILS.
+       F3. Spinner-frozen screenshots: agent takes screenshot before data
+           loads, reports "page renders cleanly". Banned. Evidence must wait
+           on a data-loaded attribute from the page itself.
+       F4. Prose-only reports: "tsc clean, audit green" without files on disk.
+           Banned. Every verdict must cite committed artifacts the orchestrator
+           can independently stat.
+
+     IF config.browser_verify.enabled AND phase touched frontend files:
+
+       a. Detect frontend changes:
+          Run: git diff --name-only {first_commit_of_phase}..HEAD
+          Match each path against config.browser_verify.frontend_globs.
+          If ZERO matches → SKIP this gate (log "BROWSER_VERIFY_SKIP: no frontend
+          files touched"), proceed to mark phase complete.
+          If ANY match → continue.
+
+       b. GATE 1 — Tool precondition (HARD BLOCKER on failure).
+          Run: gsd-browser --help >/dev/null 2>&1 && echo OK || echo MISSING
+          If MISSING:
+            - Check for .planning/phases/{NN}-*/TOOL-FALLBACK.md declaring an
+              approved substitute (e.g. puppeteer). If present: read the
+              declared substitute name, verify it is listed in
+              config.browser_verify.approved_fallbacks, and use that instead.
+            - If no declaration file OR declared tool not in approved list:
+              EMIT BLOCKER: "Frontend verify tool missing — gsd-browser not
+              available and no TOOL-FALLBACK.md declared. Phase HALTED."
+              DO NOT fall back to curl. DO NOT fall back to manual inspection.
+              DO NOT skip. HALT.
+
+       c. GATE 4 — Backend liveness precheck (HARD BLOCKER on failure).
+          Determine the backend endpoints that each audited route depends on.
+          Sources (in priority order):
+            1. config.browser_verify.required_endpoints (static list)
+            2. .planning/phases/{NN}-*/BACKEND-ENDPOINTS.md if present
+            3. Auto-detect by grepping touched files for fetch()/axios/useXxx
+               query call sites.
+          For each endpoint, run: curl -sf -o /dev/null -w '%{http_code}'
+          --max-time 5 {base_url}{endpoint}
+          If ANY endpoint returns 4xx or 5xx or connection-refused:
+            Write .planning/phases/{NN}-*/BACKEND-NOT-READY.md listing each
+            failing endpoint + status code + timestamp.
+            EMIT BLOCKER: "Backend not ready — {N} endpoints failing. See
+            BACKEND-NOT-READY.md." HALT.
+          Also check dev server base_url itself returns 200. If not → BLOCKER.
+
+       d. Shell out to phase-verifier tool (ground truth — NOT a sub-agent).
+          TaskCreate({
+            content: "Phase {N} browser verify",
+            activeForm: "phase-verifier P{N} — verifying {len(routes)} routes",
+            status: "in_progress"
+          })
+
+          Run: node {GSDEDITS}/super-gsd/tools/phase-verifier/phase-verifier.mjs \
+                    --project-dir {PROJECT_DIR} \
+                    --phase {NN}
+
+          The tool performs inside its own process (out of your token budget):
+            - Re-runs Gate 1 (tool precondition)
+            - Re-runs Gate 4 (backend liveness + base_url)
+            - Parses ROADMAP.md to trace each route to its phase success criterion
+            - Navigates every route with gsd-browser --session sgsd-verify
+            - Polls for [data-loaded="true"] OR [data-empty-reason="..."] with
+              load_timeout_ms from config
+            - Counts [data-row] elements then falls back to tbody tr
+            - Captures screenshot, HAR, console errors, and backing api.json
+            - Runs Gate 2 independently: stats each artifact, validates sizes,
+              parses JSON, counts rows. No bypass.
+            - Writes .planning/phases/{NN}-*/{NN}-BROWSER-REVIEW.md with the
+              per-route table, evidence manifest, and ROADMAP criteria trace
+            - On UNPROVEN in auto mode with block_on_failure_auto_mode=false,
+              appends an entry to .planning/DEFERRAL-LEDGER.md
+
+          Exit code interpretation:
+            0 = PROVEN   — every route passed every check. Continue to h.
+            1 = UNPROVEN — at least one route failed. Read BROWSER-REVIEW.md
+                           for specifics. If interactive mode OR
+                           block_on_failure_auto_mode == true → STOP with
+                           blocker. Otherwise continue (deferral was logged
+                           by the tool).
+            2 = BLOCKED  — tool missing, backend unreachable, or config
+                           invalid. ALWAYS STOP with blocker, even in auto
+                           mode. Read BACKEND-NOT-READY.md (if present) or
+                           stderr for the reason. Fix root cause before
+                           rerunning. Never bypass a Gate 1 or Gate 4 failure.
+
+       e. Process exit code + report:
+          Read .planning/phases/{NN}-*/{NN}-BROWSER-REVIEW.md (just the header
+          line, not the whole table — save tokens).
+          - Exit 0 → log "BROWSER_VERIFY_PROVEN", continue.
+          - Exit 1 → log "BROWSER_VERIFY_UNPROVEN", check mode:
+              * Interactive OR block_on_failure_auto_mode → EMIT BLOCKER
+                with path to BROWSER-REVIEW.md. HALT.
+              * Auto mode AND not blocking → continue. Deferral already
+                logged by the tool. Phase summary must flag it.
+          - Exit 2 → EMIT BLOCKER. HALT. No bypass in any mode.
+
+       h. TaskUpdate(taskId, status: "completed")
+
+       i. Mark phase complete, advance to next phase.
+
+     Token budget per phase browser verify: ~600 tokens (prompt + structured
+     report per route). Runs ONCE per phase, not per plan.
+     Non-frontend phases: zero cost (skipped at step 6.6.a).
+
+     HARD RULES for this gate — no exceptions, no "just this once":
+     R1. No curl-only audit may be reported as a browser verify pass.
+     R2. No screenshot taken before data-loaded or data-empty-reason may be
+         reported as proof.
+     R3. No route may be marked PROVEN without a committed screenshot AND
+         committed api.json AND committed har.
+     R4. No empty-array response may be counted as real data. Either min_rows
+         is met OR data-empty-reason is set, or the route FAILS.
+     R5. Every PROVEN verdict cites a specific ROADMAP phase success criterion
+         that the evidence satisfies. No citation = UNPROVEN.
 
   7. COMPOSE PROMPT
      Build sub-agent prompt from:
@@ -213,8 +353,26 @@ REPEAT:
      - ByteRover query results (relevant decisions, patterns, error rules)
      - Existing scripts to reuse (if found)
      - Efficiency rules header (80 tokens)
+     - Surgical constraint header (see below, ~70 tokens) — MANDATORY for every executor dispatch
      - "Report format: FILES_CHANGED | VERIFICATION | DEVIATIONS | BLOCKERS | SCRIPTS_CREATED | ONE_LINER"
      DO NOT include: full ROADMAP, full STATE, full REQUIREMENTS
+
+     SURGICAL CONSTRAINT (Karpathy principle) — inject verbatim into every
+     gsd-executor prompt:
+
+       ```
+       SURGICAL CONSTRAINT — every changed line must trace to a specific task
+       in this wave's plan. Orphan edits (unrelated refactors, comment tweaks,
+       formatting passes, "while I'm here" fixes) are DEVIATIONS. Report them
+       in the DEVIATIONS section; do NOT commit them silently. Match the
+       existing code style even if you'd write it differently. If you notice
+       pre-existing dead code, mention it in DEVIATIONS — do NOT delete it.
+       Remove ONLY imports/variables/functions that YOUR changes made unused.
+       ```
+
+     Token cost: ~70 tokens per dispatch. Catches drift at the earliest
+     possible point (per-task commit) instead of accumulating until the
+     phase-end ATC review catches it as rework.
 
   8. DISPATCH SUB-AGENT
      FIRST: TaskCreate({
@@ -378,6 +536,19 @@ Estimation method:
     Critical findings + interactive: STOP with blocker.
     Token budget: ~600 tokens per phase (NOT per commit).
     Complexity floor: 5+ plans OR 500+ lines → always FULL tier.
+15. FRONTEND BROWSER VERIFY GATE: After Step 6.5 (ATC), BEFORE marking phase
+    complete — IF the phase diff touched any frontend file matching
+    config.browser_verify.frontend_globs, run Step 6.6 which dispatches
+    sgsd-browser (Sonnet) to verify every route in config.browser_verify.routes
+    against the live dev server. Catches broken pages, console errors, network
+    failures, and a11y regressions that unit tests and ATC miss.
+    Writes .planning/phases/{NN}-*/{NN}-BROWSER-REVIEW.md with screenshots.
+    Skips automatically for non-frontend phases (zero token cost).
+    Dev server unreachable: WARN in interactive, BLOCKER in auto (unless
+    block_on_failure_auto_mode is false).
+    Token budget: ~400 tokens per phase (only when frontend files changed).
+    Code can compile and tests can pass while the UI is completely broken.
+    This gate is the only protection against that.
 14. TASK VISIBILITY: Every Agent() spawn MUST be wrapped in TaskCreate/TaskUpdate.
     Before spawn: TaskCreate({ content, activeForm: "{agent} [{model}] P{N} — {action}", status: "in_progress" })
     After return: TaskUpdate(taskId, status: "completed")
@@ -385,4 +556,19 @@ Estimation method:
     This makes the task list at the top of Claude Code show real-time agent-level
     activity. User sees which agent, what model, what action, at a glance.
     NEVER dispatch an Agent without a paired TaskCreate. This is non-negotiable.
+15. KARPATHY PRINCIPLES: Four behavioural rules that override everything else
+    when they conflict. Enforced mechanically by existing SGSD gates:
+      (1) Think Before Coding — surface assumptions, ask when uncertain.
+          Enforced by: gsd-list-phase-assumptions + gsd-discuss-phase before planning.
+      (2) Simplicity First — minimum code that solves the problem.
+          Enforced by: ATC 10-point anti-slop checklist at Step 6.5.
+      (3) Surgical Changes — touch only what you must; every line traces to the plan.
+          Enforced by: Surgical Constraint header injected into every executor prompt
+          at Step 7 (see above).
+      (4) Goal-Driven Execution — tests-first, verifiable success criteria.
+          Enforced by: Nyquist validation gate (config.workflow.nyquist_validation).
+    These are not additive rules — they are the philosophical spec that the
+    existing gates implement. If a gate ever fires a FAIL on a Karpathy
+    principle, DO NOT bypass it in auto mode — the principle is what the
+    whole framework exists to enforce.
 </golden_rules>

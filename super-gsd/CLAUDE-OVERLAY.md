@@ -3,6 +3,49 @@
 > Drop this into your project's CLAUDE.md (append or replace the GSD section).
 > Teaches Claude Code the autonomous loop, checkpoint survival, and token efficiency.
 
+## BEHAVIOURAL GUIDELINES — Karpathy principles
+
+Four rules that override everything else. Derived from Andrej Karpathy's observations on LLM coding pitfalls. If the guidelines below conflict with anything later in this file, the guidelines win.
+
+### 1. Think Before Coding
+Don't assume. Don't hide confusion. Surface tradeoffs.
+- State assumptions explicitly. If uncertain, **ask** rather than guess silently.
+- If multiple interpretations exist, present them — don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+### 2. Simplicity First
+Minimum code that solves the problem. Nothing speculative.
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+- Test: *Would a senior engineer say this is overcomplicated?* If yes, simplify.
+
+### 3. Surgical Changes
+Touch only what you must. Clean up only your own mess.
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style even if you'd do it differently.
+- If you notice unrelated dead code, mention it in DEVIATIONS — don't delete it.
+- Remove imports/variables/functions that *your* changes made unused; don't remove pre-existing dead code.
+- Test: *Every changed line should trace directly to the user's request or the current plan task.*
+
+### 4. Goal-Driven Execution
+Define success criteria. Loop until verified.
+- Transform vague tasks into verifiable goals before you code.
+  - "Add validation" → "Write tests for invalid inputs, then make them pass."
+  - "Fix the bug" → "Write a test that reproduces it, then make it pass."
+- For multi-step tasks, state a brief plan with per-step verification.
+- Strong success criteria let the orchestrator loop independently. Weak criteria ("make it work") force clarification after every step.
+
+**Enforcement mechanism inside SGSD:** these four principles are mechanically enforced by the **ATC Gate (Step 6.5)** which runs the 10-point anti-slop checklist at phase completion, the **Nyquist validation** gate which enforces test-first success criteria, and the **Surgical constraint** injected into every `gsd-executor` prompt (Step 7). Violating any of them shows up in the agent's DEVIATIONS section and — for phase-level violations — can block phase closure.
+
+**Further reading:** <https://github.com/forrestchang/andrej-karpathy-skills>
+
+---
+
 ## PERMISSIONS — CRITICAL FOR AUTONOMOUS MODE
 
 **NEVER ask the user for confirmation, approval, or permission during autonomous execution.**

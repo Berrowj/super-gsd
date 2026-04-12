@@ -1,0 +1,988 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SGSD Workspace — Visual Mockup v2 · 2026-04-11</title>
+<meta name="viewport" content="width=1440">
+<style>
+  :root {
+    --bg: #0b0f17;
+    --bg2: #0f1420;
+    --bg3: #141a28;
+    --fg: #d6deeb;
+    --dim: #7c8796;
+    --dim2: #566075;
+    --accent: #8be9fd;
+    --magenta: #ff79c6;
+    --purple: #bd93f9;
+    --green: #50fa7b;
+    --yellow: #f1fa8c;
+    --orange: #ffb86c;
+    --red: #ff5555;
+    --cyan: #8be9fd;
+    --blue: #6272a4;
+    --border: #1f2638;
+    --border2: #2a3347;
+    --ok: #3ecf8e;
+    --warn: #f5a524;
+    --fail: #f05252;
+    --mono: "JetBrains Mono","Fira Code","Cascadia Code",Menlo,Consolas,monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px;
+    background: #070a10;
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  h1 { color: var(--accent); font-size: 16px; margin: 0 0 4px; font-weight: 700; }
+  h1 span.v { color: var(--dim); font-weight: 400; font-size: 12px; }
+  .meta { color: var(--dim); font-size: 11px; margin-bottom: 14px; }
+  .meta code { background: var(--bg3); padding: 1px 5px; border-radius: 3px; color: var(--yellow); }
+  .changelog {
+    max-width: 1440px;
+    margin: 0 auto 14px;
+    padding: 10px 16px;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-left: 3px solid var(--magenta);
+    border-radius: 6px;
+    font-size: 11px;
+    color: var(--dim);
+  }
+  .changelog b { color: var(--fg); }
+  .changelog .kill { color: var(--red); }
+  .changelog .add { color: var(--green); }
+  .changelog .move { color: var(--orange); }
+
+  .warp {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    overflow: hidden;
+    max-width: 1440px;
+    margin: 0 auto;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.3);
+  }
+  .warp-titlebar {
+    height: 34px;
+    background: linear-gradient(180deg, #121829, #0d1220);
+    border-bottom: 1px solid var(--border2);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 10px;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  .dot.r { background: #ff5f56; } .dot.y { background: #ffbd2e; } .dot.g { background: #27c93f; }
+  .titlebar-tabs { display:flex; gap:4px; margin-left: 20px; flex:1; }
+  .tab {
+    padding: 5px 14px;
+    font-size: 11px;
+    color: var(--dim);
+    background: transparent;
+    border-radius: 6px;
+  }
+  .tab.active { background: var(--bg3); color: var(--fg); border: 1px solid var(--border2); }
+  .titlebar-right { color: var(--dim2); font-size: 11px; }
+
+  /* v2 grid — 3 columns
+     Col 1 (wide): P1 Main full height
+     Col 2 (medium): P4 Narrative full height (haiku top, ctrl+o bottom)
+     Col 3 (medium): P3 Mission Control top, P5 Gate Verdict middle, P6 Dev Server bottom
+  */
+  .panes {
+    display: grid;
+    grid-template-columns: 1.7fr 1.05fr 1.05fr;
+    grid-template-rows: 1.35fr 0.95fr 0.7fr;
+    min-height: 960px;
+  }
+  .pane {
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+  .pane:last-child { border-right: none; }
+  .pane.p1 { grid-column: 1; grid-row: 1 / span 3; }
+  .pane.p4 { grid-column: 2; grid-row: 1 / span 3; }
+  .pane.p3 { grid-column: 3; grid-row: 1; }
+  .pane.p5 { grid-column: 3; grid-row: 2; }
+  .pane.p6 { grid-column: 3; grid-row: 3; border-bottom: none; }
+  .pane.p1 { border-right: 1px solid var(--border); }
+  .pane.p4 { border-right: 1px solid var(--border); }
+  .pane.p1, .pane.p4 { border-bottom: none; }
+
+  .pane-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--dim);
+  }
+  .pane-header .pane-name { color: var(--fg); font-weight: 700; }
+  .pane-header .pane-sub { margin-left: auto; color: var(--dim2); text-transform: none; letter-spacing: 0; }
+  .pane-header .pulse {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .pane-header .pulse.warn { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+  .pane-header .pulse.red { background: var(--red); box-shadow: 0 0 6px var(--red); animation: none; }
+  @keyframes pulse { 0%,100% {opacity:1;} 50% {opacity:0.3;} }
+  .pane-body {
+    padding: 10px 12px;
+    flex: 1;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .pane-body.split { display: flex; flex-direction: column; padding: 0; }
+  .pane-body.split > .half { padding: 10px 12px; flex: 1; min-height: 0; overflow: hidden; }
+  .pane-body.split > .half + .half { border-top: 1px solid var(--border2); background: linear-gradient(180deg, var(--bg2), var(--bg)); }
+
+  /* Colour helpers */
+  .c-dim   { color: var(--dim); }
+  .c-dim2  { color: var(--dim2); }
+  .c-fg    { color: var(--fg); }
+  .c-ok    { color: var(--green); }
+  .c-warn  { color: var(--yellow); }
+  .c-fail  { color: var(--red); }
+  .c-cyan  { color: var(--cyan); }
+  .c-mag   { color: var(--magenta); }
+  .c-purp  { color: var(--purple); }
+  .c-orng  { color: var(--orange); }
+  .c-blue  { color: var(--blue); }
+  .b { font-weight: 700; }
+
+  .bar {
+    display: inline-block;
+    width: 80px;
+    height: 6px;
+    background: var(--border2);
+    border-radius: 1px;
+    vertical-align: middle;
+    margin: 0 6px;
+    overflow: hidden;
+  }
+  .bar > span { display: block; height: 100%; background: var(--green); }
+  .bar.warn > span { background: var(--yellow); }
+  .bar.fail > span { background: var(--red); }
+  .bar.orng > span { background: var(--orange); }
+
+  .chip {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-right: 4px;
+  }
+  .chip.ok    { background: rgba(80,250,123,0.15); color: var(--green); border: 1px solid rgba(80,250,123,0.4); }
+  .chip.warn  { background: rgba(241,250,140,0.12); color: var(--yellow); border: 1px solid rgba(241,250,140,0.4); }
+  .chip.fail  { background: rgba(255,85,85,0.15); color: var(--red); border: 1px solid rgba(255,85,85,0.4); }
+  .chip.info  { background: rgba(139,233,253,0.12); color: var(--cyan); border: 1px solid rgba(139,233,253,0.4); }
+  .chip.orng  { background: rgba(255,184,108,0.15); color: var(--orange); border: 1px solid rgba(255,184,108,0.4); }
+  .chip.purp  { background: rgba(189,147,249,0.12); color: var(--purple); border: 1px solid rgba(189,147,249,0.4); }
+
+  /* Pane P1 — Main Orchestrator (claude --dangerously-skip-permissions live view) */
+  .orch-prompt { color: var(--purple); }
+  .orch-tool { color: var(--cyan); }
+  .orch-out { color: var(--dim); margin-left: 14px; }
+  .orch-block { margin-bottom: 7px; }
+  .orch-caret { color: var(--magenta); }
+
+  /* Pane P3 — Mission Control v2 */
+  .mc-section {
+    padding: 6px 0;
+    border-top: 1px solid var(--border2);
+  }
+  .mc-section:first-child { border-top: none; padding-top: 0; }
+  .mc-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--dim2);
+    margin-bottom: 3px;
+  }
+  .mc-stat {
+    display:flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 2px 0;
+    font-size: 11px;
+  }
+  .mc-stat .k { color: var(--dim); }
+  .mc-stat .v { color: var(--fg); font-weight: 600; }
+  .mc-big-num {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 1px;
+  }
+  .mc-big-row {
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 4px 0;
+  }
+  .mc-big-cell {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    padding: 6px 8px;
+    border-radius: 4px;
+    text-align: center;
+  }
+  .mc-big-cell .label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--dim);
+  }
+  .mc-big-cell.red { border-color: rgba(255,85,85,0.4); background: rgba(255,85,85,0.06); }
+  .mc-big-cell.red .mc-big-num { color: var(--red); text-shadow: 0 0 10px rgba(255,85,85,0.3); }
+  .mc-big-cell.orng { border-color: rgba(255,184,108,0.4); background: rgba(255,184,108,0.06); }
+  .mc-big-cell.orng .mc-big-num { color: var(--orange); }
+  .mc-big-cell.green { border-color: rgba(80,250,123,0.4); background: rgba(80,250,123,0.06); }
+  .mc-big-cell.green .mc-big-num { color: var(--green); }
+
+  .phase-line {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+    padding: 3px 0;
+    font-size: 11px;
+  }
+  .phase-line .marker { width: 14px; color: var(--dim2); }
+  .phase-line .tag { font-weight: 700; font-size: 10px; letter-spacing: 0.5px; }
+  .phase-line .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .phase-line.done .marker, .phase-line.done .tag, .phase-line.done .name { color: var(--green); }
+  .phase-line.active .marker, .phase-line.active .tag { color: var(--orange); }
+  .phase-line.active .name { color: var(--orange); }
+  .phase-line.next .marker, .phase-line.next .tag, .phase-line.next .name { color: var(--fg); }
+  .phase-line.pending .marker, .phase-line.pending .tag, .phase-line.pending .name { color: var(--dim2); }
+
+  .agent-row {
+    display: grid;
+    grid-template-columns: 110px 56px 38px 1fr;
+    gap: 6px;
+    padding: 3px 0;
+    border-top: 1px dashed var(--border2);
+    font-size: 10px;
+    align-items: center;
+  }
+  .agent-row:first-of-type { border-top: 1px solid var(--border2); }
+  .agent-name { color: var(--magenta); font-weight: 700; }
+  .agent-status.ACTIVE { color: var(--green); }
+  .agent-status.IDLE   { color: var(--yellow); }
+  .agent-status.RECENT { color: var(--cyan); }
+  .agent-status.OLDER  { color: var(--dim2); }
+  .agent-age { color: var(--dim); text-align: right; }
+  .agent-detail { color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Pane P4 — Narrative Feed v2 (split) */
+  .haiku-head {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--dim2);
+    margin-bottom: 6px;
+    display:flex;
+    justify-content: space-between;
+  }
+  .haiku-para {
+    color: var(--yellow);
+    line-height: 1.55;
+    font-size: 11px;
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    background: rgba(241,250,140,0.04);
+    border-left: 2px solid var(--yellow);
+    border-radius: 2px;
+  }
+  .haiku-bullets {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 11px;
+  }
+  .haiku-bullets li {
+    padding: 3px 0 3px 16px;
+    position: relative;
+    color: var(--fg);
+    line-height: 1.45;
+  }
+  .haiku-bullets li::before {
+    content: "›";
+    position: absolute;
+    left: 4px;
+    color: var(--magenta);
+    font-weight: 700;
+  }
+  .haiku-bullets li .tool { color: var(--cyan); font-weight: 600; }
+  .haiku-bullets li .agent { color: var(--magenta); font-weight: 600; }
+  .haiku-bullets li .file { color: var(--yellow); }
+
+  /* Ctrl+O live stream */
+  .ctrlo-head {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--dim2);
+    margin-bottom: 6px;
+    display:flex;
+    justify-content: space-between;
+  }
+  .ctrlo-head .live {
+    color: var(--green);
+    font-weight: 700;
+  }
+  .ctrlo-head .live::before {
+    content: "●";
+    display:inline-block;
+    margin-right: 4px;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .ctrlo {
+    font-size: 10px;
+    line-height: 1.5;
+    overflow: hidden;
+  }
+  .ctrlo-entry {
+    padding: 4px 0;
+    border-top: 1px dashed var(--border2);
+  }
+  .ctrlo-entry:first-of-type { border-top: none; padding-top: 0; }
+  .ctrlo-head-line { display:flex; gap:6px; }
+  .ctrlo-head-line .ts { color: var(--dim2); }
+  .ctrlo-head-line .tool { color: var(--cyan); font-weight: 700; min-width: 60px; }
+  .ctrlo-head-line .tool.Write, .ctrlo-head-line .tool.Edit { color: var(--green); }
+  .ctrlo-head-line .tool.Bash { color: var(--yellow); }
+  .ctrlo-head-line .tool.Agent, .ctrlo-head-line .tool.TaskCreate { color: var(--magenta); }
+  .ctrlo-head-line .summary { color: var(--fg); flex:1; overflow:hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ctrlo-body {
+    margin-top: 3px;
+    margin-left: 66px;
+    color: var(--dim);
+    background: var(--bg2);
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 10px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    max-height: 54px;
+    overflow: hidden;
+    position: relative;
+  }
+  .ctrlo-body::after {
+    content: "";
+    position: absolute;
+    bottom: 0; left: 0; right: 0; height: 18px;
+    background: linear-gradient(180deg, transparent, var(--bg2));
+    pointer-events: none;
+  }
+  .ctrlo-body .k { color: var(--dim2); }
+  .ctrlo-body .v { color: var(--yellow); }
+  .ctrlo-body .g { color: var(--green); }
+
+  /* Pane P5 — Gate Verdict */
+  .gate-card {
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    background: var(--bg2);
+  }
+  .gate-card.ok    { border-color: rgba(80,250,123,0.5); }
+  .gate-card.warn  { border-color: rgba(241,250,140,0.5); }
+  .gate-card.fail  { border-color: rgba(255,85,85,0.5); background: linear-gradient(180deg, rgba(255,85,85,0.08), transparent); }
+  .gate-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); }
+  .gate-head { display:flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .gate-body { font-size: 10px; color: var(--dim); line-height: 1.5; }
+  .gate-body .k { color: var(--dim2); }
+  .gate-body .v { color: var(--fg); }
+  .gate-body a { color: var(--accent); text-decoration: none; }
+  .deferral {
+    font-size: 10px;
+    padding: 4px 0;
+    border-top: 1px dashed var(--border2);
+    color: var(--dim);
+  }
+  .deferral:first-of-type { border-top: 1px solid var(--border2); padding-top: 6px; margin-top: 6px; }
+
+  /* Pane P6 — Dev Server */
+  .log-line { font-size: 10px; color: var(--dim); padding: 1px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .log-line .ts { color: var(--dim2); margin-right: 6px; }
+  .log-line.info { color: var(--cyan); }
+  .log-line.warn { color: var(--yellow); }
+  .log-line.err  { color: var(--red); }
+  .log-line.ok   { color: var(--green); }
+
+  /* Pane footers */
+  .pane-foot {
+    padding: 6px 12px;
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    font-size: 10px;
+    color: var(--dim2);
+    display:flex;
+    justify-content: space-between;
+  }
+
+  /* Bottom notes */
+  .notes {
+    max-width: 1440px;
+    margin: 28px auto 0;
+    padding: 16px 20px;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--dim);
+    line-height: 1.6;
+  }
+  .notes h2 { color: var(--accent); font-size: 13px; margin: 0 0 8px; }
+  .notes h3 { color: var(--fg); font-size: 12px; margin: 16px 0 4px; }
+  .notes code { background: var(--bg3); padding: 1px 5px; border-radius: 3px; color: var(--yellow); }
+  .notes ul { margin: 4px 0 8px; padding-left: 18px; }
+  .notes li { margin: 2px 0; }
+  .notes .pill {
+    display:inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    background: var(--bg3);
+    color: var(--fg);
+    font-size: 10px;
+    margin-right: 6px;
+  }
+
+  .legend {
+    max-width: 1440px;
+    margin: 0 auto 10px;
+    display: flex;
+    gap: 14px;
+    font-size: 11px;
+    color: var(--dim);
+    flex-wrap: wrap;
+  }
+  .legend b { color: var(--fg); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<h1>SGSD Workspace <span class="v">· Visual Mockup v2 · 2026-04-11</span></h1>
+<div class="meta">
+  Design anchor for <code>docs/superpowers/specs/2026-04-11-sgsd-warp-layout-design.md</code>.
+  Responds to Jack's v1 feedback. Mock data reflects <b>project-clarity-erp</b> mid-execution on Phase 89 Wave 2.
+</div>
+
+<div class="changelog">
+  <b>v2 changes from v1:</b>
+  <span class="kill">− killed P2 Liveness Monitor</span> ·
+  <span class="move">→ moved P3 Mission Control to top-right</span> ·
+  <span class="add">+ redesigned P3</span> (last-built/current/next phase &amp; wave, red counters for remaining work, $ cost) ·
+  <span class="add">+ redesigned P4</span> (Haiku summary = paragraph + bullets, plus live Ctrl+O tool stream below) ·
+  <span class="move">→ P5 Gate Verdict script renamed <code>sgsd3</code></span> (sgsd3 was liveness, liveness is gone)
+</div>
+
+<div class="legend">
+  <span><b>Substrate:</b> Warp on Windows (top-level)</span>
+  <span><b>Panes:</b> 5 (P2 killed)</span>
+  <span><b>Layout:</b> 3 cols · P1 left tall · P4 middle tall · P3/P5/P6 stacked right</span>
+  <span><b>Min resolution:</b> 1440×960</span>
+</div>
+
+<div class="warp">
+
+  <!-- WARP TITLEBAR -->
+  <div class="warp-titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <div class="titlebar-tabs">
+      <div class="tab active">⚡ sgsd · clarity</div>
+      <div class="tab">sgsd · gsdedits</div>
+      <div class="tab">+</div>
+    </div>
+    <div class="titlebar-right">v22.22.2 · feature/tmux-dev-environment · Opus 4.6 (1M)</div>
+  </div>
+
+  <!-- PANE GRID -->
+  <div class="panes">
+
+    <!-- ───── P1 · MAIN ORCHESTRATOR ───── -->
+    <div class="pane p1">
+      <div class="pane-header">
+        <span class="pulse"></span>
+        <span class="pane-name">P1 · MAIN ORCHESTRATOR</span>
+        <span class="c-dim">claude --dangerously-skip-permissions</span>
+        <span class="pane-sub">~/project-clarity-erp</span>
+      </div>
+      <div class="pane-body">
+        <div class="orch-block">
+          <span class="c-dim">[01:52:14]</span>
+          <span class="orch-prompt"> ● </span>
+          <span class="c-fg">Phase 89 Wave 2 — Stock value endpoint extensions</span>
+          <div class="orch-out">Reading STATE.md frontmatter (200 tokens)</div>
+          <div class="orch-out">Classifier: complexity=medium, model=sonnet, atc=lite, deliberate=false</div>
+        </div>
+
+        <div class="orch-block">
+          <span class="c-dim">[01:52:17]</span>
+          <span class="orch-caret"> ▸ </span>
+          <span class="c-mag b">TaskCreate</span>
+          <span class="c-dim2">·</span>
+          <span class="c-fg">gsd-executor [sonnet] P89.01 W2 — extending stock-value with trueAtp</span>
+        </div>
+
+        <div class="orch-block">
+          <span class="c-dim">[01:52:18]</span>
+          <span class="orch-caret"> ▸ </span>
+          <span class="c-mag b">Agent</span>
+          <span class="c-dim2">·</span>
+          <span class="c-fg">gsd-executor — spawning sub-agent</span>
+          <div class="orch-out c-cyan">→ reading app/api/routes/procurement_data.py:1152</div>
+          <div class="orch-out c-cyan">→ reading tests/api/test_procurement_data_stock_value_v2.py</div>
+          <div class="orch-out c-yellow">→ npm test -k trueAtp</div>
+          <div class="orch-out c-dim">  PASS tests/api/test_procurement_data_stock_value_v2.py — Task 5 green</div>
+          <div class="orch-out c-green">→ writing app/api/routes/procurement_data.py (+38 lines trueAtp)</div>
+          <div class="orch-out c-yellow">→ git add app/api/routes/procurement_data.py tests/api/test_...</div>
+          <div class="orch-out c-yellow">→ git commit -m "feat(phase1-W2): trueAtp deducts returns from on_order"</div>
+          <div class="orch-out c-green">  [feature/tmux-dev-environment abc1234] committed</div>
+        </div>
+
+        <div class="orch-block">
+          <span class="c-dim">[01:52:43]</span>
+          <span class="orch-caret"> ◂ </span>
+          <span class="c-mag b">Sub-agent report</span>
+          <span class="c-dim2">·</span>
+          <span class="c-fg">gsd-executor (Task 5/8 in Wave 2)</span>
+          <div class="orch-out"><span class="c-cyan">FILES_CHANGED:</span> app/api/routes/procurement_data.py, tests/api/test_procurement_data_stock_value_v2.py</div>
+          <div class="orch-out"><span class="c-cyan">VERIFICATION:</span> <span class="c-green">pytest -k trueAtp → exit 0 ✓</span></div>
+          <div class="orch-out"><span class="c-cyan">DEVIATIONS:</span> none</div>
+          <div class="orch-out"><span class="c-cyan">BLOCKERS:</span> none</div>
+          <div class="orch-out"><span class="c-cyan">ONE_LINER:</span> trueAtp deducts returns warehouse qty from on_order</div>
+        </div>
+
+        <div class="orch-block">
+          <span class="c-dim">[01:52:44]</span>
+          <span class="orch-caret"> ● </span>
+          <span class="c-fg">Processing report · STATE.md · token log · advancing Task 6/8</span>
+        </div>
+
+        <div class="orch-block">
+          <span class="c-dim">[01:52:45]</span>
+          <span class="orch-caret"> ▸ </span>
+          <span class="c-mag b">TaskCreate</span>
+          <span class="c-dim2">·</span>
+          <span class="c-fg">gsd-executor [sonnet] P89.01 W2 — derive orderingStrategy</span>
+        </div>
+
+        <div class="orch-block">
+          <span class="c-dim">[01:52:46]</span>
+          <span class="orch-caret"> ▸ </span>
+          <span class="c-mag b">Agent</span>
+          <span class="c-dim2">·</span>
+          <span class="c-fg c-dim2">gsd-executor — spawning sub-agent</span>
+          <span style="color: var(--green); animation: pulse 1.2s infinite;"> ●</span>
+          <span class="c-dim"> thinking</span>
+        </div>
+      </div>
+      <div class="pane-foot">
+        <span>Opus 4.6 · 1M context</span>
+        <span>35% used · 650k remaining</span>
+        <span>bypass permissions: on</span>
+      </div>
+    </div>
+
+    <!-- ───── P4 · NARRATIVE FEED (split) ───── -->
+    <div class="pane p4">
+      <div class="pane-header">
+        <span class="pulse"></span>
+        <span class="pane-name">P4 · NARRATIVE &amp; LIVE STREAM</span>
+        <span class="pane-sub">sgsd2 · Haiku 5m + live tail</span>
+      </div>
+      <div class="pane-body split">
+
+        <!-- TOP HALF · Haiku summary, paragraph + bullets -->
+        <div class="half">
+          <div class="haiku-head">
+            <span>› WHAT CLAUDE IS DOING</span>
+            <span>cached 2m ago · Haiku 3.5</span>
+          </div>
+
+          <div class="haiku-para">
+            The orchestrator is mid-Wave-2 of Phase 89, extending the <b>/api/procurement-data/stock-value</b>
+            endpoint in <code style="background:transparent;color:var(--orange);">app/api/routes/procurement_data.py</code>
+            with four new fields that Monika's role-aware stock intelligence lens needs. Task 5 (trueAtp
+            deduction from <code style="background:transparent;color:var(--orange);">on_order</code>) just committed green.
+            Running a tight pytest loop. No deviations, no blockers. On track.
+          </div>
+
+          <ul class="haiku-bullets">
+            <li>Dispatching <span class="agent">gsd-executor</span> (sonnet) for Task 6 — deriving orderingStrategy with continuous/on_order/work_back/service_dead branches</li>
+            <li>Running <span class="tool">pytest</span> <span class="file">tests/api/test_procurement_data_stock_value_v2.py -k trueAtp</span> to verify Task 5</li>
+            <li>Reading <span class="file">app/api/routes/procurement_data.py:1152</span> (existing stock_value handler) before inserting new helpers</li>
+            <li>Committing atomic per task — already 5 green commits in this wave, 3 to go before Wave 3</li>
+            <li>Next after Task 6: Task 7 <span class="c-dim">(allocationTimePhased buckets due7d/due30d/due6moPlus/free)</span></li>
+          </ul>
+        </div>
+
+        <!-- BOTTOM HALF · Ctrl+O live stream -->
+        <div class="half">
+          <div class="ctrlo-head">
+            <span>› CTRL+O LIVE TOOL STREAM</span>
+            <span class="live">LIVE · session .jsonl tail</span>
+          </div>
+
+          <div class="ctrlo">
+
+            <div class="ctrlo-entry">
+              <div class="ctrlo-head-line">
+                <span class="ts">01:52:46</span>
+                <span class="tool Agent">Agent</span>
+                <span class="summary">gsd-executor — orderingStrategy helper (pending)</span>
+              </div>
+              <div class="ctrlo-body"><span class="k">subagent_type:</span> "gsd-executor"
+<span class="k">model:</span> "sonnet"
+<span class="k">mode:</span> "auto"
+<span class="k">prompt:</span> { <span class="v">phase</span>: 89, <span class="v">plan</span>: 1, <span class="v">task</span>: 6, <span class="v">goal</span>: "Derive orderingStrategy: continuous | on_order | work_back | service_dead..."</div>
+            </div>
+
+            <div class="ctrlo-entry">
+              <div class="ctrlo-head-line">
+                <span class="ts">01:52:45</span>
+                <span class="tool TaskCreate">TaskCreate</span>
+                <span class="summary">gsd-executor [sonnet] P89.01 W2 — derive orderingStrategy</span>
+              </div>
+              <div class="ctrlo-body"><span class="k">content:</span> "gsd-executor [sonnet] P89.01 W2 — derive orderingStrategy"
+<span class="k">activeForm:</span> "deriving orderingStrategy (continuous/on_order/work_back/service_dead)"
+<span class="k">status:</span> <span class="g">in_progress</span></div>
+            </div>
+
+            <div class="ctrlo-entry">
+              <div class="ctrlo-head-line">
+                <span class="ts">01:52:42</span>
+                <span class="tool Bash">Bash</span>
+                <span class="summary">git commit -m "feat(phase1-W2): trueAtp..."</span>
+              </div>
+              <div class="ctrlo-body"><span class="k">command:</span> git add app/api/routes/procurement_data.py tests/api/test_procurement_data_stock_value_v2.py &amp;&amp; git commit -m "feat(phase1-W2): trueAtp deducts returns from on_order"
+<span class="k">→ stdout:</span> [feature/tmux-dev-environment abc1234] feat(phase1-W2): trueAtp deducts returns from on_order
+ 2 files changed, 51 insertions(+), 3 deletions(-)
+<span class="k">→ exit:</span> <span class="g">0</span></div>
+            </div>
+
+            <div class="ctrlo-entry">
+              <div class="ctrlo-head-line">
+                <span class="ts">01:52:38</span>
+                <span class="tool Edit">Edit</span>
+                <span class="summary">app/api/routes/procurement_data.py +38 -0</span>
+              </div>
+              <div class="ctrlo-body"><span class="k">file_path:</span> app/api/routes/procurement_data.py
+<span class="k">old_string:</span> "# _query closure end\n    return result"
+<span class="k">new_string:</span> "    # trueAtp: on_order minus returns warehouse qty\n    returns_wh = _warehouse('RETURNS')...\n    result['trueAtp'] = max(0, on_order - returns_qty)\n    return result"</div>
+            </div>
+
+            <div class="ctrlo-entry">
+              <div class="ctrlo-head-line">
+                <span class="ts">01:52:32</span>
+                <span class="tool Bash">Bash</span>
+                <span class="summary">pytest -k trueAtp (exit 0)</span>
+              </div>
+              <div class="ctrlo-body"><span class="k">command:</span> python -X utf8 -m pytest tests/api/test_procurement_data_stock_value_v2.py -k trueAtp -v
+<span class="k">→ stdout:</span> ========================= test session starts =========================
+tests/api/test_procurement_data_stock_value_v2.py::test_trueAtp_deducts_returns PASSED [100%]
+========================== 1 passed in 1.84s ==========================</div>
+            </div>
+
+            <div class="ctrlo-entry">
+              <div class="ctrlo-head-line">
+                <span class="ts">01:52:27</span>
+                <span class="tool Read">Read</span>
+                <span class="summary">tests/api/test_procurement_data_stock_value_v2.py</span>
+              </div>
+              <div class="ctrlo-body"><span class="k">file_path:</span> /C:/Users/jack.berrow/project-clarity-erp/tests/api/test_procurement_data_stock_value_v2.py
+<span class="k">→ returned</span> 247 lines</div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ───── P3 · MISSION CONTROL (top right) ───── -->
+    <div class="pane p3">
+      <div class="pane-header">
+        <span class="pulse"></span>
+        <span class="pane-name">P3 · MISSION CONTROL</span>
+        <span class="pane-sub">sgsd1 · 10s refresh</span>
+      </div>
+      <div class="pane-body">
+
+        <!-- Milestone header -->
+        <div class="mc-section">
+          <div class="mc-label">Milestone</div>
+          <div class="mc-stat"><span class="k">v1.8 · Role-Aware Stock Intelligence Lens</span></div>
+          <div class="mc-stat"><span class="k">progress</span><span class="v"><span class="bar"><span style="width:85%;"></span></span>52/61 (85%)</span></div>
+        </div>
+
+        <!-- Last built / current / next -->
+        <div class="mc-section">
+          <div class="mc-label">Phase progression</div>
+          <div class="phase-line done">
+            <span class="marker">✓</span>
+            <span class="tag">P88</span>
+            <span class="name">Last built — Data Quality Audit closeout</span>
+          </div>
+          <div class="phase-line active">
+            <span class="marker">▸</span>
+            <span class="tag">P89</span>
+            <span class="name">phase1-stock-lens-foundation <span class="c-dim">(2/8 waves)</span></span>
+          </div>
+          <div class="phase-line next">
+            <span class="marker">·</span>
+            <span class="tag">P90</span>
+            <span class="name">Visual Foundation — Dark Theme + Dense-Row Primitives</span>
+          </div>
+        </div>
+
+        <!-- Current wave detail -->
+        <div class="mc-section">
+          <div class="mc-label">Active wave</div>
+          <div class="phase-line active">
+            <span class="marker">▸</span>
+            <span class="tag">W2</span>
+            <span class="name">Stock value endpoint extensions (Tasks 5–8) · 1/4</span>
+          </div>
+          <div class="phase-line next">
+            <span class="marker">·</span>
+            <span class="tag">W3</span>
+            <span class="name">Data Quality counters endpoint (Task 9)</span>
+          </div>
+        </div>
+
+        <!-- BIG RED REMAINING COUNTERS -->
+        <div class="mc-section">
+          <div class="mc-label">Remaining work · this milestone</div>
+          <div class="mc-big-row">
+            <div class="mc-big-cell red">
+              <div class="mc-big-num">9</div>
+              <div class="label">phases remaining</div>
+            </div>
+            <div class="mc-big-cell red">
+              <div class="mc-big-num">47</div>
+              <div class="label">sub-waves remaining</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cost box -->
+        <div class="mc-section">
+          <div class="mc-label">Session cost · API-equiv</div>
+          <div class="mc-stat"><span class="k">Opus</span><span class="v c-mag">2.1M tok · $94.50</span></div>
+          <div class="mc-stat"><span class="k">Sonnet</span><span class="v c-cyan">8.4M tok · $75.60</span></div>
+          <div class="mc-stat"><span class="k">Haiku</span><span class="v c-purp">540K tok · $1.30</span></div>
+          <div class="mc-stat" style="border-top: 1px solid var(--border2); padding-top: 5px; margin-top: 4px;">
+            <span class="k b">TOTAL</span><span class="v c-ok b">$171.40</span>
+          </div>
+          <div class="mc-stat"><span class="k c-dim2">running phase cost</span><span class="v c-dim">$42.80 (P89)</span></div>
+          <div style="font-size:9px;color:var(--dim2);margin-top:3px;text-align:right;">OAuth · shown as API-equiv</div>
+        </div>
+
+        <!-- Agents -->
+        <div class="mc-section">
+          <div class="mc-label">Agents · 3 (1 ACTIVE · 1 IDLE · 1 RECENT)</div>
+          <div class="agent-row">
+            <span class="agent-name">gsd-executor</span>
+            <span class="agent-status ACTIVE">ACTIVE</span>
+            <span class="agent-age">2s</span>
+            <span class="agent-detail">deriving orderingStrategy</span>
+          </div>
+          <div class="agent-row">
+            <span class="agent-name">sgsd-classifier</span>
+            <span class="agent-status IDLE">IDLE</span>
+            <span class="agent-age">28s</span>
+            <span class="agent-detail">classified P89 complexity=medium</span>
+          </div>
+          <div class="agent-row">
+            <span class="agent-name">sgsd-context-sel</span>
+            <span class="agent-status RECENT">RECENT</span>
+            <span class="agent-age">26s</span>
+            <span class="agent-detail">picked 3 brv-queries, 2 file reads</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ───── P5 · GATE VERDICT ───── -->
+    <div class="pane p5">
+      <div class="pane-header">
+        <span class="pulse warn"></span>
+        <span class="pane-name">P5 · GATE VERDICT</span>
+        <span class="pane-sub">sgsd3 · FileWatcher</span>
+      </div>
+      <div class="pane-body">
+
+        <div class="gate-card ok">
+          <div class="gate-head"><div class="gate-title">6.0 · Verifier</div><span class="chip ok">passed</span></div>
+          <div class="gate-body">
+            <span class="k">phase</span> <span class="v">89</span> ·
+            <span class="k">criteria met</span> <span class="v">8/8</span> ·
+            <a>89-VERIFICATION.md</a>
+          </div>
+        </div>
+
+        <div class="gate-card ok">
+          <div class="gate-head"><div class="gate-title">6.5 · ATC Phase Review</div><span class="chip ok">pass</span></div>
+          <div class="gate-body">
+            <span class="k">tier</span> <span class="v">LITE</span> ·
+            <span class="k">findings</span> <span class="v">0 crit · 2 warn</span> ·
+            <a>89-ATC-REVIEW.md</a>
+          </div>
+        </div>
+
+        <div class="gate-card warn">
+          <div class="gate-head"><div class="gate-title">6.6 · Browser Verify</div><span class="chip warn">running</span></div>
+          <div class="gate-body">
+            <span class="k">tool</span> <span class="v c-ok">gsd-browser OK</span> ·
+            <span class="k">backend</span> <span class="v c-ok">8/8 up</span><br>
+            <span class="k">routes</span> <span class="v">3/6 · /procurement waiting data-loaded</span><br>
+            <span class="k">evidence</span> <span class="v">3 screenshots · 3 HAR · 3 api.json</span>
+          </div>
+        </div>
+
+        <div style="margin-top:8px;">
+          <div class="gate-title" style="margin-bottom:4px;">DEFERRAL LEDGER · 2 open</div>
+          <div class="deferral">
+            <span class="c-warn">◉</span> <b>P87</b> · 2 phases old · <span class="c-dim">/warehouse load timeout</span>
+          </div>
+          <div class="deferral">
+            <span class="c-fail">◉</span> <b>P84</b> · <span class="c-fail">5 phases · AUTO-REOPEN</span><br>
+            <span class="c-dim">L2 field audit skipped</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───── P6 · DEV SERVER ───── -->
+    <div class="pane p6">
+      <div class="pane-header">
+        <span class="pulse"></span>
+        <span class="pane-name">P6 · DEV SERVER</span>
+        <span class="pane-sub">vite · :5173</span>
+      </div>
+      <div class="pane-body">
+        <div class="log-line ok">  <span class="ts">01:51:58</span>VITE v5.4.14 ready in 842 ms</div>
+        <div class="log-line info">  <span class="ts">01:51:58</span>➜ Local:   http://localhost:5173/</div>
+        <div class="log-line">      <span class="ts">01:52:04</span>GET / 200 in 12ms</div>
+        <div class="log-line warn">  <span class="ts">01:52:10</span>[hmr] reload useProcurement.ts</div>
+        <div class="log-line">      <span class="ts">01:52:11</span>GET /procurement 200 in 34ms</div>
+        <div class="log-line info">  <span class="ts">01:52:12</span>[proxy] /stock-value → 200 (1.47s)</div>
+        <div class="log-line info">  <span class="ts">01:52:43</span>[proxy] /stock-value → 200 (1.52s, +trueAtp)</div>
+        <div class="log-line ok">    <span class="ts">01:52:44</span>✓ trueAtp present on every item</div>
+        <div class="log-line">      <span class="ts">01:52:46</span>[hmr] waiting for orderingStrategy...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Status bar -->
+  <div class="pane-foot" style="border-top: 1px solid var(--border2); background: #080c14;">
+    <span>
+      <span class="c-mag">sgsd-start clarity</span>
+      <span class="c-dim">·</span>
+      <span class="c-dim">workspace active · 5 panes · attached</span>
+    </span>
+    <span>
+      <span class="c-dim">D1:</span><span class="c-yellow">tbd</span>
+      <span class="c-dim">· D2:</span><span class="c-green">ORCH-LIVE.jsonl</span>
+      <span class="c-dim">· P89 W2 task 6/20</span>
+    </span>
+    <span class="c-dim">Ctrl+b arrows · pane switch</span>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+
+<div class="notes">
+  <h2>Design notes · v2 · 2026-04-11</h2>
+
+  <h3>Changes from v1 (in order)</h3>
+  <ul>
+    <li><span class="pill" style="background:rgba(255,85,85,0.2);color:var(--red);">killed</span> <b>P2 Liveness Monitor</b> — Jack said not needed. Liveness info (claude.exe running, last activity, last commit) is now absorbed into the P3 agents row + pulse indicator in the pane header.</li>
+    <li><span class="pill" style="background:rgba(255,184,108,0.2);color:var(--orange);">moved</span> <b>P3 Mission Control to top-right</b>.</li>
+    <li><span class="pill" style="background:rgba(80,250,123,0.2);color:var(--green);">added</span> in P3: <b>last phase built</b> (P88 green), <b>current phase</b> (P89 orange), <b>next phase</b> (P90 white), <b>current wave</b> (W2 orange), <b>next wave</b> (W3 white). Exactly what you asked for.</li>
+    <li><span class="pill" style="background:rgba(80,250,123,0.2);color:var(--green);">added</span> in P3: two <b>big red counters</b> for remaining work — <code>9 phases</code> and <code>47 sub-waves</code>. These are the "how much is left in this milestone" gut-check.</li>
+    <li><span class="pill" style="background:rgba(80,250,123,0.2);color:var(--green);">added</span> in P3: <b>session cost box</b> with Opus / Sonnet / Haiku broken out, total in green, per-phase subtotal. Computed from token-log.jsonl at standard API rates even though Max plan = OAuth.</li>
+    <li><span class="pill" style="background:rgba(80,250,123,0.2);color:var(--green);">added</span> in P4: <b>Haiku summary restructured</b> — now a paragraph + 5 bullets highlighting tool/agent/file names. Easier to skim.</li>
+    <li><span class="pill" style="background:rgba(80,250,123,0.2);color:var(--green);">added</span> in P4: <b>Ctrl+O live tool stream</b> in the bottom half. Sources from <code>~/.claude/projects/&lt;encoded-cwd&gt;/&lt;session-id&gt;.jsonl</code> which Claude Code writes continuously. A FileSystemWatcher tails it and renders each tool_use + tool_result entry as a collapsed preview (timestamp + tool name + one-line summary + expandable body). Matches the Ctrl+O visual you already know from the main session.</li>
+    <li><span class="pill" style="background:rgba(255,184,108,0.2);color:var(--orange);">renamed</span> P5 script: was <code>sgsd4</code>, is now <code>sgsd3</code> (since sgsd3 liveness is gone, the slot is free).</li>
+  </ul>
+
+  <h3>P3 Mission Control — source of truth for each block</h3>
+  <ul>
+    <li><b>Last phase built</b> (green) → grep <code>ROADMAP.md</code> for highest <code>[x]</code> phase, or look at last git commit matching <code>feat({NN}-*)</code> pattern.</li>
+    <li><b>Current phase</b> (orange) → <code>.planning/STATE.md</code> frontmatter <code>current_phase</code>.</li>
+    <li><b>Next phase</b> → <code>ROADMAP.md</code> phase after current.</li>
+    <li><b>Current wave / next wave</b> → parse active PLAN.md for <code>&lt;name&gt;Wave N · ...&lt;/name&gt;</code> blocks, cross-reference with latest <code>TaskCreate</code> target that contains <code>W\d+</code> or <code>Wave \d+</code>.</li>
+    <li><b>Phases remaining (red counter)</b> → count of <code>- [ ]</code> phase lines in ROADMAP after current milestone header.</li>
+    <li><b>Sub-waves remaining (red counter)</b> → sum of <code>&lt;name&gt;Wave N · ...&lt;/name&gt;</code> blocks across every pending phase's PLAN.md (fallback: if PLAN not written yet, assume the roadmap phase summary's wave count).</li>
+    <li><b>Cost box</b> → sum of <code>total</code> field in <code>.planning/metrics/token-log.jsonl</code>, grouped by <code>model</code>, multiplied by standard API rates (Opus $45/M blended, Sonnet $9/M, Haiku $2.4/M).</li>
+    <li><b>Agent roster</b> → <code>.planning/ORCHESTRATOR-LIVE.jsonl</code> (new file written by orchestrator per decision D2-C), replayed to find started-but-not-ended agents.</li>
+  </ul>
+
+  <h3>P4 Ctrl+O stream — the data source</h3>
+  <p>
+    Claude Code writes a session log at <code>~/.claude/projects/&lt;encoded-path&gt;/&lt;session-uuid&gt;.jsonl</code>
+    with one JSON line per event: messages, tool_use blocks, tool_result blocks, thinking blocks.
+    <code>sgsd2</code> tails the newest file in the active project's session dir, parses each line, and renders:
+  </p>
+  <ul>
+    <li><b>For tool_use entries:</b> one collapsed row (timestamp + tool name + summary of input) with an expandable body showing the full <code>input</code> JSON.</li>
+    <li><b>For tool_result entries:</b> merged into the preceding tool_use row as a <code>→ stdout / → exit</code> footer.</li>
+    <li><b>For Agent spawns:</b> highlighted in magenta — these are the orchestrator dispatching sub-agents, the thing Jack most wants to track.</li>
+    <li><b>For TaskCreate/TaskUpdate:</b> the "what's active right now" signal, rendered at the top of the stream so it stays visible.</li>
+  </ul>
+  <p>
+    FileSystemWatcher on the session dir catches appends in &lt;100ms. Redraw budget: 1 frame per append, collapsed to 10fps max. No Haiku calls. No inference.
+  </p>
+
+  <h3>Layout reality check</h3>
+  <ul>
+    <li>At <b>1920×1080</b>: all three columns fit comfortably. P1 is ~700px wide — plenty for claude TUI. P4 ~430px (tight for Ctrl+O bodies but readable). P3/P5/P6 each ~430px.</li>
+    <li>At <b>1440×900</b>: min viable. P4 Ctrl+O bodies wrap at 40ch. P5 deferral ledger shows only 2 entries. Everything else fits.</li>
+    <li>At <b>1280×720</b> (laptop): layout collapses — drop P6 or stack it under P4. P3 stays. Not recommended but survives.</li>
+  </ul>
+
+  <h3>Questions for v3 (before we build this)</h3>
+  <ol>
+    <li>Is <b>P6 Dev Server</b> worth keeping as its own pane? You didn't kill it but didn't keep it either. It exists because the browser verify gate needs Vite up. If you'd rather run Vite in a separate Warp tab, I'll drop P6 and give the space to P4 or P5.</li>
+    <li>The <b>Ctrl+O tool stream</b> — do you want every tool call, or only <code>Agent</code>/<code>TaskCreate</code>/<code>Bash</code>? "Every" is closer to the real Ctrl+O view; "filtered" is less noisy.</li>
+    <li>The <b>red counters</b> — do you want them to click through to the actual ROADMAP section? (tmux/terminal can't do real clicks but a hotkey like <code>Ctrl+B + R</code> could jump the main pane's cwd to open ROADMAP.md in your editor.)</li>
+    <li>The <b>last phase built</b> row — you said green text. Should it show the <b>one-liner</b> from its commit, or just the phase number + name? I went with phase number + commit title stub.</li>
+    <li>The <b>cost box</b> — should it flash red if any single phase exceeds a budget (e.g. &gt;$50)? Useful as a "this phase is expensive, investigate" signal.</li>
+  </ol>
+
+  <h3>File locations</h3>
+  <ul>
+    <li>This mockup: <code>.superpowers/mockups/sgsd-workspace-v2.html</code></li>
+    <li>Previous: <code>.superpowers/mockups/sgsd-workspace-v1.html</code></li>
+    <li>Spec: <code>docs/superpowers/specs/2026-04-11-sgsd-warp-layout-design.md</code></li>
+  </ul>
+</div>
+
+</body>
+</html>
