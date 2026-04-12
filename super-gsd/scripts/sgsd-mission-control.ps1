@@ -574,6 +574,94 @@ function Get-AgentRoster($maxAgeSec = 21600) {
     return @($roster.Values | Sort-Object { $_.ageSec } | Select-Object -First 6)
 }
 
+# ── Heartbeat (silent-hang detector) ─────────────────────────────────────────
+# Pairs two logs:
+#   activity-log.jsonl (PreToolUse)  → last tool START
+#   heartbeat.jsonl    (PostToolUse) → last tool END
+# If last START is recent and END is older, a tool is in-flight. If START is
+# recent and no END has arrived within the hang threshold, we're silently hung.
+
+function Get-Heartbeat {
+    $actLog = Join-Path $PlanningDir "metrics\activity-log.jsonl"
+    $hbLog  = Join-Path $PlanningDir "metrics\heartbeat.jsonl"
+
+    $lastStart = $null; $lastStartTool = $null; $lastStartTs = $null
+    $lastEnd = $null; $lastEndEmpty = $false
+    $now = [DateTime]::UtcNow
+
+    if (Test-Path $actLog) {
+        $tail = Get-Content $actLog -Tail 1 -ErrorAction SilentlyContinue
+        if ($tail -and $tail -match '"ts":"([^"]+)".*?"tool":"([^"]+)"') {
+            $lastStartTs = [DateTime]::Parse($Matches[1]).ToUniversalTime()
+            $lastStartTool = $Matches[2]
+            $lastStart = [int]($now - $lastStartTs).TotalSeconds
+        }
+    }
+    if (Test-Path $hbLog) {
+        $tail = Get-Content $hbLog -Tail 1 -ErrorAction SilentlyContinue
+        if ($tail -and $tail -match '"ts":"([^"]+)"') {
+            $endTs = [DateTime]::Parse($Matches[1]).ToUniversalTime()
+            $lastEnd = [int]($now - $endTs).TotalSeconds
+            if ($tail -match '"empty":true') { $lastEndEmpty = $true }
+        }
+    }
+
+    # State machine
+    $state = "IDLE"
+    $inflight = $null
+    if ($lastStart -ne $null) {
+        if ($lastEnd -eq $null -or $lastStartTs -gt [DateTime]::UtcNow.AddSeconds(-$lastEnd)) {
+            # Start is newer than latest end → a tool is running
+            $inflight = $lastStart
+            if ($lastStart -lt 30)      { $state = "RUNNING" }
+            elseif ($lastStart -lt 120) { $state = "SLOW" }
+            else                        { $state = "HUNG" }
+        } elseif ($lastEndEmpty) {
+            $state = "EMPTY_RESULT"
+        } else {
+            $state = "IDLE"
+        }
+    }
+
+    [pscustomobject]@{
+        state        = $state
+        lastStart    = $lastStart
+        lastEnd      = $lastEnd
+        lastTool     = $lastStartTool
+        inflightSec  = $inflight
+        lastEndEmpty = $lastEndEmpty
+    }
+}
+
+# ── Readiness banner ─────────────────────────────────────────────────────────
+# Reads .planning/milestones/{id}/MILESTONE-READINESS.md (written by the
+# sgsd-milestone-readiness agent). One-line cockpit answer to "can I walk away?"
+
+function Get-ReadinessInfo($milestone) {
+    if (-not $milestone) { return $null }
+    $path = Join-Path $PlanningDir "milestones\$milestone\MILESTONE-READINESS.md"
+    if (-not (Test-Path $path)) { return $null }
+    $status = Get-Frontmatter $path "status"
+    $eta    = Get-Frontmatter $path "first_stall_eta_min"
+    $gen    = Get-Frontmatter $path "generated"
+    # Freshness: manifest mtime vs any phase dir mtime under the milestone
+    $mt = (Get-Item $path).LastWriteTime
+    $stale = $false
+    $phasesDir = Join-Path $PlanningDir "phases"
+    if (Test-Path $phasesDir) {
+        $newest = Get-ChildItem $phasesDir -Directory -ErrorAction SilentlyContinue |
+                  Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($newest -and $newest.LastWriteTime -gt $mt) { $stale = $true }
+    }
+    # Count GO / BLOCKED / WILL sections by counting table rows after each header
+    $raw = Get-Content $path -Raw -ErrorAction SilentlyContinue
+    $go = 0; $blk = 0; $will = 0
+    if ($raw -match '(?s)## GO[^\n]*\n(.*?)(##|\z)')          { $go   = ([regex]::Matches($Matches[1], '(?m)^\|\s+\d')).Count }
+    if ($raw -match '(?s)## BLOCKED[^\n]*\n(.*?)(##|\z)')     { $blk  = ([regex]::Matches($Matches[1], '(?m)^###\s')).Count }
+    if ($raw -match '(?s)## WILL BLOCK[^\n]*\n(.*?)(##|\z)')  { $will = ([regex]::Matches($Matches[1], '(?m)^\|\s+\w')).Count }
+    [pscustomobject]@{ status=$status; eta=$eta; gen=$gen; stale=$stale; go=$go; blk=$blk; will=$will; path=$path }
+}
+
 # ── Render functions ─────────────────────────────────────────────────────────
 
 function Write-Row {
@@ -621,6 +709,57 @@ function Render {
     Write-Host "Mission Control" -NoNewline -ForegroundColor White
     Write-Host "  $ts" -NoNewline -ForegroundColor DarkGray
     Write-Host $CLEAR_LINE
+
+    # Heartbeat — silent-hang detector. RUNNING/SLOW/HUNG/EMPTY_RESULT/IDLE.
+    $hb = Get-Heartbeat
+    $hbColor = switch ($hb.state) {
+        "RUNNING"      { "Green" }
+        "SLOW"         { "Yellow" }
+        "HUNG"         { "Red" }
+        "EMPTY_RESULT" { "Red" }
+        "IDLE"         { "DarkGray" }
+        default        { "DarkGray" }
+    }
+    Write-Host "HEARTBEAT" -NoNewline -ForegroundColor White
+    Write-Host ": " -NoNewline -ForegroundColor DarkGray
+    Write-Host $hb.state -NoNewline -ForegroundColor $hbColor
+    if ($hb.lastTool) {
+        Write-Host "  last " -NoNewline -ForegroundColor DarkGray
+        Write-Host $hb.lastTool -NoNewline -ForegroundColor Cyan
+        if ($hb.lastStart -ne $null) {
+            Write-Host (" {0}s ago" -f $hb.lastStart) -NoNewline -ForegroundColor DarkGray
+        }
+    }
+    if ($hb.state -eq "HUNG") {
+        Write-Host "  ⚠ no completion — check transport" -NoNewline -ForegroundColor Red
+        # Bell
+        [Console]::Write([char]7)
+    } elseif ($hb.state -eq "EMPTY_RESULT") {
+        Write-Host "  ⚠ last tool returned empty" -NoNewline -ForegroundColor Red
+        [Console]::Write([char]7)
+    }
+    Write-Host $CLEAR_LINE
+
+    # Readiness banner — answers "can I walk away?"
+    $rd = Get-ReadinessInfo $state.milestone
+    if ($rd) {
+        $rdColor = switch ($rd.status) { "GO" {"Green"} "PARTIAL" {"Yellow"} "BLOCKED" {"Red"} default {"DarkGray"} }
+        $tag = if ($rd.stale) { " (stale)" } else { "" }
+        Write-Host "UNATTENDED" -NoNewline -ForegroundColor White
+        Write-Host ": " -NoNewline -ForegroundColor DarkGray
+        Write-Host $rd.status -NoNewline -ForegroundColor $rdColor
+        Write-Host "$tag  " -NoNewline -ForegroundColor DarkGray
+        Write-Host ("[GO {0} / BLK {1} / CASCADE {2}]" -f $rd.go, $rd.blk, $rd.will) -NoNewline -ForegroundColor Gray
+        if ($rd.eta -and $rd.eta -ne "n/a") {
+            Write-Host "  stall@" -NoNewline -ForegroundColor DarkGray
+            Write-Host ("{0}m" -f $rd.eta) -NoNewline -ForegroundColor Yellow
+        }
+        Write-Host $CLEAR_LINE
+    } else {
+        Write-Host "UNATTENDED" -NoNewline -ForegroundColor White
+        Write-Host ": no readiness manifest — run /gsd-readiness" -NoNewline -ForegroundColor DarkYellow
+        Write-Host $CLEAR_LINE
+    }
 
     # Checkpoint banner — flash if session is paused
     if (Test-Checkpoint) {

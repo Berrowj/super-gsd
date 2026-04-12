@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Super GSD · SGSD1/2/3 Dashboard Scripts</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; background:#0e1116; color:#d7dde4; max-width:980px; margin:2rem auto; padding:0 1.25rem; line-height:1.55; }
+  h1 { font-size:1.6rem; border-bottom:1px solid #2a313b; padding-bottom:.5rem; }
+  h2 { margin-top:2.4rem; color:#8ab4f8; font-size:1.2rem; }
+  h3 { margin-top:1.2rem; color:#c6d0db; font-size:.98rem; letter-spacing:.02em; text-transform:uppercase;}
+  code, .path { background:#1a1f28; padding:.1rem .35rem; border-radius:4px; font-size:.88em; color:#f2b77a; }
+  .card { background:#151a22; border:1px solid #222832; border-radius:8px; padding:1.1rem 1.3rem; margin:1rem 0; }
+  .tag { display:inline-block; font-size:.72rem; background:#22303f; color:#8ab4f8; padding:.15rem .5rem; border-radius:10px; margin-right:.4rem; letter-spacing:.05em;}
+  ul { padding-left:1.2rem; }
+  li { margin:.25rem 0; }
+  .why { border-left:3px solid #6ea4ff; padding:.5rem .9rem; background:#131820; margin-top:.8rem; font-size:.93rem;}
+  table { width:100%; border-collapse:collapse; margin-top:.8rem; font-size:.9rem;}
+  th, td { text-align:left; padding:.4rem .6rem; border-bottom:1px solid #222832; }
+  th { color:#8ab4f8; font-weight:600; }
+</style>
+</head>
+<body>
+
+<h1>Super GSD · SGSD1 / SGSD2 / SGSD3 Dashboards</h1>
+<p>Three reactive PowerShell dashboards (v5) that sit beside the Claude Code session and turn <code>.planning/</code> state into a live cockpit. Each uses a <code>FileSystemWatcher</code> so panes repaint only when source files change — no polling flicker. Together they answer the three questions a human needs to stay oriented: <em>where am I, what is Claude doing, is it good enough to ship?</em></p>
+
+<div class="card">
+<span class="tag">SGSD1 · P3</span><h2 style="margin:.3rem 0;">sgsd-mission-control.ps1 — Mission Control</h2>
+<p class="path">super-gsd/scripts/sgsd-mission-control.ps1</p>
+
+<h3>What it shows</h3>
+<ul>
+  <li>Milestone header with progress bar parsed from <code>ROADMAP.md</code> (handles <code>**bold**</code> markdown).</li>
+  <li>Phase progression strip: <em>last built · current · next</em> with full ROADMAP traceability.</li>
+  <li>Wave timeline for the active phase, each wave stamped with its git completion time.</li>
+  <li>Red counters for remaining phases and sub-waves so slippage is visible at a glance.</li>
+  <li>Session cost box — Opus / Sonnet / Haiku token spend, total, and per-phase roll-up.</li>
+  <li>Agent roster showing ACTIVE / IDLE / RECENT status per sub-agent.</li>
+  <li>Context-% gauge, thinking-mode indicator, blocker list, checkpoint banner, recent commits.</li>
+</ul>
+
+<div class="why"><strong>How it helps you understand the project:</strong> it is the <em>project map</em>. At any moment you can see how far along the milestone is, which phase the orchestrator has its hands in right now, what already shipped, and what is still ahead — plus the cost of getting here. If you walked in cold, this single pane tells you the size, shape, and burn rate of the work.</div>
+</div>
+
+<div class="card">
+<span class="tag">SGSD2 · P4</span><h2 style="margin:.3rem 0;">sgsd-narrative.ps1 — Narrative + Ctrl+O Stream</h2>
+<p class="path">super-gsd/scripts/sgsd-narrative.ps1</p>
+
+<h3>What it shows</h3>
+<ul>
+  <li><strong>Top pane</strong> — a cached Haiku-generated narrative (paragraph + bullets) describing what Claude is currently doing. Regenerates every 5 minutes and only when activity has actually changed, so it is cheap on tokens.</li>
+  <li><strong>Bottom pane</strong> — live Ctrl+O-style tool stream tailed from the active Claude session JSONL (<code>~/.claude/projects/&lt;cwd&gt;/&lt;session&gt;.jsonl</code>). Every <code>tool_use</code> and <code>tool_result</code> scrolls past in real time.</li>
+</ul>
+
+<div class="why"><strong>How it helps you understand the project:</strong> Mission Control tells you <em>where</em> you are; Narrative tells you <em>what is happening right now</em>. The Haiku summary translates raw tool traffic into plain English ("currently editing the phase-8 verifier, waiting on a lint run") while the stream underneath lets you drill into the exact calls. Great for onboarding — read the top pane to grasp intent, watch the bottom pane to learn the mechanics of how the orchestrator actually works.</div>
+</div>
+
+<div class="card">
+<span class="tag">SGSD3 · P5</span><h2 style="margin:.3rem 0;">sgsd-gate-verdict.ps1 — Gate Verdict Board</h2>
+<p class="path">super-gsd/scripts/sgsd-gate-verdict.ps1</p>
+
+<h3>What it shows</h3>
+<p>Quality-gate status for the <em>active</em> phase, reading:</p>
+<table>
+  <tr><th>Source</th><th>Surfaces as</th></tr>
+  <tr><td><code>STATE.md</code></td><td>Current phase pointer</td></tr>
+  <tr><td><code>{NN}-VERIFICATION.md</code></td><td>Verifier verdict card</td></tr>
+  <tr><td><code>{NN}-ATC-REVIEW.md</code></td><td>ATC verdict (Karpathy receipts)</td></tr>
+  <tr><td><code>{NN}-BROWSER-REVIEW.md</code></td><td>Browser-verify verdict</td></tr>
+  <tr><td><code>BACKEND-NOT-READY.md</code></td><td>Gate 4 halt evidence</td></tr>
+  <tr><td><code>TOOL-FALLBACK.md</code></td><td>Gate 1 fallback declaration</td></tr>
+  <tr><td><code>evidence/</code>, <code>screenshots/</code></td><td>Artifact counts</td></tr>
+  <tr><td><code>DEFERRAL-LEDGER.md</code></td><td>Open deferrals</td></tr>
+</table>
+<p>Also renders an enforcement block, phase timeline, Nyquist + Security gate cards, and a gate-history trend line.</p>
+
+<div class="why"><strong>How it helps you understand the project:</strong> this is the <em>ship / don't ship</em> board. It converts scattered review artifacts into a single verdict view so you can see instantly whether the current phase cleared its gates, which artifacts are still missing, and whether anything was deferred. If Mission Control is the map and Narrative is the live camera, Gate Verdict is the flight recorder + control tower telling you whether the approach is safe.</div>
+</div>
+
+<h2>Using them together</h2>
+<ul>
+  <li><strong>SGSD1</strong> — strategic view (where we are in the milestone).</li>
+  <li><strong>SGSD2</strong> — tactical view (what Claude is doing this minute).</li>
+  <li><strong>SGSD3</strong> — quality view (is the current phase actually done).</li>
+</ul>
+<p>Run all three in adjacent panes (tmux / Windows Terminal split) and you get a complete, zero-polling cockpit over the autonomous loop — the same information the orchestrator itself reasons about, surfaced for a human observer.</p>
+
+</body>
+</html>

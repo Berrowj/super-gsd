@@ -592,6 +592,45 @@ function Get-LastPhaseGates {
     return $null
 }
 
+# ── Readiness card ───────────────────────────────────────────────────────────
+# Reads .planning/milestones/{id}/MILESTONE-READINESS.md and .planning/metrics/readiness-log.jsonl.
+# Shows whether the active milestone cleared pre-flight + any recent drift events.
+
+function Get-ReadinessCard {
+    $state = Join-Path $PlanningDir "STATE.md"
+    if (-not (Test-Path $state)) { return $null }
+    $milestone = $null
+    foreach ($ln in Get-Content $state -TotalCount 40 -ErrorAction SilentlyContinue) {
+        if ($ln -match '^\s*active_milestone:\s*(\S+)') { $milestone = $Matches[1].Trim('"',"'"); break }
+        if ($ln -match '^\s*milestone:\s*(\S+)')        { $milestone = $Matches[1].Trim('"',"'"); break }
+    }
+    if (-not $milestone) { return $null }
+
+    $path = Join-Path $PlanningDir "milestones\$milestone\MILESTONE-READINESS.md"
+    $status = "MISSING"; $eta = "n/a"; $stale = $false
+    if (Test-Path $path) {
+        $status = (Get-Frontmatter $path "status")
+        $eta    = (Get-Frontmatter $path "first_stall_eta_min")
+        $mt = (Get-Item $path).LastWriteTime
+        $phasesDir = Join-Path $PlanningDir "phases"
+        if (Test-Path $phasesDir) {
+            $newest = Get-ChildItem $phasesDir -Directory -ErrorAction SilentlyContinue |
+                      Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            if ($newest -and $newest.LastWriteTime -gt $mt) { $stale = $true }
+        }
+    }
+    # Last drift event
+    $log = Join-Path $PlanningDir "metrics\readiness-log.jsonl"
+    $lastDrift = $null
+    if (Test-Path $log) {
+        $tail = Get-Content $log -Tail 20 -ErrorAction SilentlyContinue
+        foreach ($ln in ($tail | Sort-Object -Descending)) {
+            if ($ln -match '"status"\s*:\s*"DRIFT"') { $lastDrift = $ln; break }
+        }
+    }
+    [pscustomobject]@{ milestone=$milestone; status=$status; eta=$eta; stale=$stale; path=$path; lastDrift=$lastDrift }
+}
+
 # ── Render ───────────────────────────────────────────────────────────────────
 
 function Render {
@@ -609,6 +648,22 @@ function Render {
     Write-Host " P$phaseNum" -NoNewline -ForegroundColor Yellow
     Write-Host "  $ts" -NoNewline -ForegroundColor DarkGray
     Write-Host $CLEAR_LINE
+
+    # Readiness card — milestone pre-flight + drift
+    $rc = Get-ReadinessCard
+    if ($rc) {
+        $rcColor = switch ($rc.status) { "GO" {"Green"} "PARTIAL" {"Yellow"} "BLOCKED" {"Red"} "MISSING" {"DarkYellow"} default {"DarkGray"} }
+        $tag = if ($rc.stale) { " (stale)" } else { "" }
+        Write-Host "READINESS" -NoNewline -ForegroundColor White
+        Write-Host ": " -NoNewline -ForegroundColor DarkGray
+        Write-Host "$($rc.status)$tag" -NoNewline -ForegroundColor $rcColor
+        Write-Host "  M=" -NoNewline -ForegroundColor DarkGray
+        Write-Host $rc.milestone -NoNewline -ForegroundColor Cyan
+        if ($rc.lastDrift) {
+            Write-Host "  [recent DRIFT]" -NoNewline -ForegroundColor Red
+        }
+        Write-Host $CLEAR_LINE
+    }
 
     if (-not $phaseNum) {
         Write-Host "  (no current phase in STATE.md)$CLEAR_LINE" -ForegroundColor DarkGray

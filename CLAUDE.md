@@ -124,15 +124,29 @@ Not "context is heavy from setup." ONLY these 4.
 
 | # | Condition | Action | Agent | Model |
 |---|-----------|--------|-------|-------|
+| 0 | Auto mode entering milestone AND no `MILESTONE-READINESS.md` (or stale) | Dispatch milestone readiness audit | sgsd-milestone-readiness | sonnet |
+| 0.5 | READINESS status = BLOCKED or PARTIAL AND user said "go" | Present fix list + degraded-path options, pause until user replies `fix` / `degraded` / `go anyway` | — | — |
 | 1 | Phase not discussed | Suggest /gsd-discuss-phase | — | — |
 | 2 | Phase needs RESEARCH.md | Dispatch researcher | gsd-phase-researcher | sonnet |
 | 3 | Phase needs PLAN.md | Dispatch planner | gsd-planner | sonnet |
 | 4 | Plans need checking | Dispatch checker | gsd-plan-checker | sonnet |
+| 4.5 | About to make FIRST executor dispatch of a phase | Dispatch phase-readiness re-probe | sgsd-phase-readiness | haiku |
+| 4.6 | Phase-readiness returned DRIFT | Checkpoint + pause (Exit #3). Report the failed probe and fix. | — | — |
 | 5 | Pending tasks exist | Dispatch executor | gsd-executor | sonnet |
 | 6 | All plans executed | Dispatch verifier | gsd-verifier | sonnet |
 | 7 | Verification passed | Mark complete, advance | orchestrator | — |
 | 8 | Verification failed | Dispatch planner --gaps | gsd-planner | sonnet |
 | 9 | All phases complete | Exit loop | — | — |
+
+### Readiness Gates — unattended-run contract
+
+Rule 0 is the **milestone pre-flight**. It runs ONCE at the start of auto mode on a fresh milestone and probes every phase's external deps upfront. Its purpose is to ensure that when you say "go" and walk away, the run either completes OR fails within 2 minutes — not 4 hours in.
+
+Rule 4.5 is the **phase drift check**. It re-probes only the current phase's deps right before the first executor burns tokens. Cheap (haiku, <10s), catches environmental drift mid-run (Docker dying, VPN dropping).
+
+Manifests live at `.planning/milestones/{id}/MILESTONE-READINESS.md`. Drift events append to `.planning/metrics/readiness-log.jsonl`. Dashboards (SGSD1 banner, SGSD3 card) read these directly.
+
+Readiness is **stale** if any phase directory under the active milestone has an mtime newer than the manifest. Stale manifest → re-dispatch rule 0.
 
 ### Model Routing
 
