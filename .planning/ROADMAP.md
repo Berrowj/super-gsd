@@ -19,6 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 5: Strategic Deliberation** - CEO/Board multi-agent debate system for architecture decisions
 - [x] **Phase 6: Overwatcher and Monitoring** - Signal map visualization and Mission Control dashboard spec (completed 2026-04-08)
 - [ ] **Phase 7: Integration and Installation** - One-command install, overlay teaching doc, and GSD 2.0 migration tool
+- [ ] **Phase 8: SGSD Self-Audit** - Survey the framework codebase, produce a gap report covering features referenced but not implemented, settings referenced but not wired, duplicate/conflicting scripts, and missing docs
 
 ## Phase Details
 
@@ -133,7 +134,19 @@ Plans:
 - [x] 07-01-PLAN.md — Validate install.sh dry-run, portability, API-key audit, CLAUDE-OVERLAY completeness
 - [x] 07-02-PLAN.md — Validate gsd-transition skill paths, add NOT_FOUND guard, create VERIFICATION.md
 
-## Progress
+### Phase 8: SGSD Self-Audit
+**Goal**: Produce a structured gap audit of the Super GSD framework. Identify features referenced in SKILL.md / CLAUDE-OVERLAY.md but not actually implemented, config settings referenced in code but not documented, duplicate or conflicting scripts across `super-gsd/scripts/` and `super-gsd/tools/`, and missing documentation. Output is a single audit report at `docs/audits/2026-04-12-sgsd-gap-audit.md`. Docs-only — no framework code changes allowed in this phase.
+**Depends on**: Phase 7
+**Requirements**: AUDIT-01 (produces structured gap report), AUDIT-02 (covers skills/agents/scripts/tools/hooks), AUDIT-03 (≥10 specific findings with file:line references)
+**Success Criteria** (what must be TRUE):
+  1. `docs/audits/2026-04-12-sgsd-gap-audit.md` exists with sections: Summary, Skills Audit, Agents Audit, Scripts Audit, Tools Audit, Hooks Audit, Config Audit, Docs Audit, Recommendations
+  2. Report contains at least 10 specific findings, each with file path + line number + severity (critical/high/medium/low)
+  3. Every "feature referenced but not implemented" finding cites the exact file and line where the reference appears AND proves the implementation is missing
+  4. Every "duplicate/conflict" finding shows both instances side-by-side
+  5. No files outside `docs/audits/` and `.planning/phases/08-*/` are modified during this phase (Karpathy Surgical constraint — audit phase is DOCS ONLY)
+  6. ATC review of the audit report finds zero critical CLAUDE.md rule violations
+**Plans**: TBD (planner decides the wave breakdown)
+
 
 **Execution Order:**
 Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7

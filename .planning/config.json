@@ -7,8 +7,29 @@
     "plan_check": true,
     "verifier": true,
     "auto_advance": true,
+    "nyquist_validation": true,
+    "security_enforcement": true,
+    "security_asvs_level": 1,
+    "security_block_on": "high",
+    "discuss_mode": "discuss",
+    "research_before_questions": false,
     "plan_format": "compressed_xml",
     "agent_report_max_words": 300
+  },
+  "safety": {
+    "always_confirm_destructive": true,
+    "always_confirm_external_services": true
+  },
+  "hooks": {
+    "context_warnings": true
+  },
+  "parallelization": {
+    "enabled": true,
+    "plan_level": true,
+    "task_level": false,
+    "skip_checkpoints": true,
+    "max_concurrent_agents": 3,
+    "min_plans_for_parallel": 2
   },
   "model_routing": {
     "orchestrator": "opus",
@@ -59,6 +80,35 @@
     "full_threshold_files": 4,
     "complexity_floor_files": 3,
     "complexity_floor_lines": 100
+  },
+  "browser_verify": {
+    "enabled": true,
+    "base_url": "http://localhost:3000",
+    "routes": ["/"],
+    "required_endpoints": [],
+    "min_rows_per_route": 1,
+    "load_timeout_ms": 15000,
+    "approved_fallbacks": ["puppeteer"],
+    "frontend_globs": [
+      "**/*.html",
+      "**/*.tsx",
+      "**/*.jsx",
+      "**/*.vue",
+      "**/*.svelte",
+      "**/*.astro",
+      "**/*.css",
+      "**/*.scss",
+      "src/**/*.ts",
+      "frontend/**",
+      "web/**",
+      "ui/**",
+      "pages/**",
+      "components/**"
+    ],
+    "fail_on_console_errors": true,
+    "fail_on_network_errors": true,
+    "block_on_failure_auto_mode": false,
+    "deferral_ledger_auto_reopen_after_phases": 3
   },
   "overwatcher": {
     "auto_scan": true,
