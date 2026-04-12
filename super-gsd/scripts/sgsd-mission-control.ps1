@@ -574,6 +574,28 @@ function Get-AgentRoster($maxAgeSec = 21600) {
     return @($roster.Values | Sort-Object { $_.ageSec } | Select-Object -First 6)
 }
 
+# ── Inference watchdog (stuck-thinking detector) ────────────────────────────
+# Tool hangs are caught by the heartbeat below. Inference hangs are different:
+# Claude's status bar says "Inferring..." for 20+ minutes and no tokens arrive.
+# The Claude Code session JSONL's mtime advances only when assistant tokens
+# land, so a frozen mtime with an active session = stuck inference.
+
+function Get-InferenceState {
+    $encoded = Encode-ProjectPath $ProjectDir.TrimEnd([char]92,[char]47)
+    $sessionsDir = Join-Path $HOME ".claude\projects\$encoded"
+    if (-not (Test-Path $sessionsDir)) { return $null }
+    $file = Get-ChildItem -Path $sessionsDir -Filter "*.jsonl" -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if (-not $file) { return $null }
+    $age = [int]([DateTime]::Now - $file.LastWriteTime).TotalSeconds
+    $state = "LIVE"
+    if     ($age -lt 30)   { $state = "LIVE" }
+    elseif ($age -lt 180)  { $state = "SLOW" }
+    elseif ($age -lt 600)  { $state = "STUCK" }
+    else                   { $state = "DEAD" }
+    [pscustomobject]@{ state=$state; ageSec=$age; session=$file.Name }
+}
+
 # ── Heartbeat (silent-hang detector) ─────────────────────────────────────────
 # Pairs two logs:
 #   activity-log.jsonl (PreToolUse)  → last tool START
@@ -739,6 +761,33 @@ function Render {
         [Console]::Write([char]7)
     }
     Write-Host $CLEAR_LINE
+
+    # Inference watchdog — session JSONL mtime freshness
+    $inf = Get-InferenceState
+    if ($inf) {
+        $infColor = switch ($inf.state) {
+            "LIVE"  { "Green" }
+            "SLOW"  { "Yellow" }
+            "STUCK" { "Red" }
+            "DEAD"  { "DarkRed" }
+            default { "DarkGray" }
+        }
+        Write-Host "INFERENCE" -NoNewline -ForegroundColor White
+        Write-Host ": " -NoNewline -ForegroundColor DarkGray
+        Write-Host $inf.state -NoNewline -ForegroundColor $infColor
+        $mins = [int]($inf.ageSec / 60); $secs = $inf.ageSec % 60
+        $ageStr = if ($mins -gt 0) { "${mins}m ${secs}s" } else { "${secs}s" }
+        Write-Host "  jsonl frozen " -NoNewline -ForegroundColor DarkGray
+        Write-Host $ageStr -NoNewline -ForegroundColor Cyan
+        if ($inf.state -eq "STUCK") {
+            Write-Host "  ← Esc + retry recommended" -NoNewline -ForegroundColor Red
+            [Console]::Write([char]7)
+        } elseif ($inf.state -eq "DEAD") {
+            Write-Host "  ← session likely dead" -NoNewline -ForegroundColor DarkRed
+            [Console]::Write([char]7)
+        }
+        Write-Host $CLEAR_LINE
+    }
 
     # Readiness banner — answers "can I walk away?"
     $rd = Get-ReadinessInfo $state.milestone
