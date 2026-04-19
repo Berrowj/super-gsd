@@ -1,5 +1,5 @@
 ---
-name: sgsd-sgsd-board-moonshot
+name: sgsd-board-moonshot
 description: Moonshot board member. Challenges incremental thinking, proposes 10x alternatives, prevents scope timidity. Spawned by sgsd-ceo during deliberation.
 tools: Read, Grep, Glob
 model: sonnet

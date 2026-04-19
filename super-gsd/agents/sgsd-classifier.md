@@ -1,5 +1,5 @@
 ---
-name: ssgsd-classifier
+name: sgsd-classifier
 description: Lightweight task classifier. Scores complexity, selects model, determines ATC tier. Spawned by orchestrator before dispatch.
 tools: Read, Grep, Glob
 model: haiku

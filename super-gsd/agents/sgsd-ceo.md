@@ -1,5 +1,5 @@
 ---
-name: ssgsd-ceo
+name: sgsd-ceo
 description: Strategic decision orchestrator. Spawns board members, manages deliberation rounds, synthesizes Decision Memos. Spawned by /sgsd-deliberate.
 tools: Read, Write, Edit, Bash, Grep, Glob, Agent
 model: opus
