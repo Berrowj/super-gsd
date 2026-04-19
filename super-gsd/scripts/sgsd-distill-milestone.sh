@@ -317,11 +317,22 @@ if [[ "$MODE" == "rate" ]]; then
     ratings_sum=0
     ratings_count=0
 
+    # Count hypotheses so the user knows what's coming
+    hyp_total=$(ls -1 "$HYP_DIR"/"${MILESTONE}"-*.md 2>/dev/null | wc -l)
+
     echo "=== Novelty rating for milestone $MILESTONE ==="
-    echo "For each hypothesis: 1=obvious (human would already know)"
-    echo "                     2=worth logging"
-    echo "                     3=genuinely novel insight"
+    echo "Hypotheses to rate: $hyp_total (hypothesis tier only — quarantine skipped)"
+    echo ""
+    echo "Scale:  1 = obvious (human would already know)"
+    echo "        2 = worth logging"
+    echo "        3 = genuinely novel insight"
+    echo "        s = skip this one"
+    echo ""
     echo "Kill condition (Contrarian Gate 3): median < 2/3 → retire the script."
+    echo ""
+    echo "Tip: on PowerShell, the 'bash' call inherits stdin from the parent shell."
+    echo "     If you see no prompt, pipe ratings instead:"
+    echo "       echo '3\\n2\\n3\\n3\\n3\\n2\\n3' | bash $0 $MILESTONE --rate"
     echo ""
 
     for f in "$HYP_DIR"/"${MILESTONE}"-*.md; do
@@ -334,10 +345,24 @@ if [[ "$MODE" == "rate" ]]; then
         echo "Hypothesis: $local_slug"
         echo "Title:      $title"
         echo "Principle:  $principle"
-        printf "Rating [1-3]: "
-        read -r rating </dev/tty || rating=""
+        printf "Rating [1-3 or s]: "
+        # Read from stdin directly. PowerShell-invoked bash cannot open /dev/tty,
+        # so the prior form silently skipped every hypothesis. stdin inheritance
+        # from the parent shell works in both interactive terminals and when
+        # ratings are piped via echo/heredoc.
+        if ! IFS= read -r rating; then
+            echo ""
+            echo "  (stdin closed — exiting rating loop with $ratings_count rating(s) so far)"
+            break
+        fi
+        # Trim whitespace including Windows CRLF
+        rating="${rating//[$'\r\n\t ']/}"
+        if [[ "$rating" == "s" || "$rating" == "S" ]]; then
+            echo "  skipped"
+            continue
+        fi
         if [[ ! "$rating" =~ ^[1-3]$ ]]; then
-            echo "  skipped (invalid input: '$rating')"
+            echo "  invalid input '$rating' — skipped"
             continue
         fi
 
@@ -350,19 +375,21 @@ if [[ "$MODE" == "rate" ]]; then
 
         ratings_sum=$((ratings_sum + rating))
         ratings_count=$((ratings_count + 1))
+        echo "  recorded: $rating"
     done
 
     if [[ $ratings_count -eq 0 ]]; then
         echo "sgsd-distill-milestone: no ratings recorded." >&2
+        echo "  If you invoked this from PowerShell and saw no prompts, the script could" >&2
+        echo "  not read interactive input. Pipe ratings instead — one per line, 1-3 or s:" >&2
+        echo "    printf '3\\n2\\n3\\n3\\n3\\n2\\n3' | bash $0 $MILESTONE --rate" >&2
         exit 5
     fi
 
-    # Median via sort (simple n up to ~100)
+    # Median across all ratings recorded for this milestone in the log
     median=$(awk -v ms="$MILESTONE" '
-        -F ""
         $0 ~ "\"milestone\":\""ms"\"" {
-            match($0, /"novelty_rating":[0-9]+/)
-            if (RLENGTH > 0) {
+            if (match($0, /"novelty_rating":[0-9]+/)) {
                 r = substr($0, RSTART + 17, RLENGTH - 17)
                 vals[++n] = r + 0
             }
