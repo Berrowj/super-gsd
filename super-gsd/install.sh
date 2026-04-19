@@ -172,6 +172,51 @@ mkdir -p "$GSD_DIR/config"
 copy_file "$SCRIPT_DIR/config/model-routing.json" "$GSD_DIR/config/model-routing.json"
 log "  Model routing config installed"
 
+# ── Step 6b: Install super-gsd scripts globally ──
+# Fix for DLB-04: scripts were previously only accessible via the super-gsd
+# source tree path. Other projects couldn't invoke sgsd-curate, sgsd-muda-audit,
+# sgsd-sepl-propose, sgsd-distill-milestone etc. without an absolute path
+# into wherever super-gsd was cloned.
+# Now: copied to $CLAUDE_DIR/super-gsd/scripts/ (global, user-scoped).
+# sgsd-boot.ps1 and the sgsd profile shortcut already walk up to find local
+# scripts first, then fall back to the install path — the global copy is
+# the authoritative fallback.
+echo ""
+log "Step 6b/8: Installing super-gsd scripts globally..."
+GLOBAL_SCRIPTS_DIR="$CLAUDE_DIR/super-gsd/scripts"
+mkdir -p "$GLOBAL_SCRIPTS_DIR/lib" "$GLOBAL_SCRIPTS_DIR/watchdogs"
+SCRIPT_COUNT=0
+for f in "$SCRIPT_DIR/scripts/"*.sh "$SCRIPT_DIR/scripts/"*.ps1; do
+  [ -f "$f" ] || continue
+  name=$(basename "$f")
+  copy_file "$f" "$GLOBAL_SCRIPTS_DIR/$name"
+  # Shell scripts need +x after copy
+  case "$name" in
+    *.sh) [ "$DRY_RUN" = false ] && chmod +x "$GLOBAL_SCRIPTS_DIR/$name" ;;
+  esac
+  SCRIPT_COUNT=$((SCRIPT_COUNT + 1))
+done
+# lib/ helpers (e.g. sgsd-substrate-status.ps1, sgsd-render-cache.ps1)
+if [ -d "$SCRIPT_DIR/scripts/lib" ]; then
+  for f in "$SCRIPT_DIR/scripts/lib/"*; do
+    [ -f "$f" ] || continue
+    name=$(basename "$f")
+    copy_file "$f" "$GLOBAL_SCRIPTS_DIR/lib/$name"
+  done
+fi
+# watchdogs (DLB-02)
+if [ -d "$SCRIPT_DIR/scripts/watchdogs" ]; then
+  for f in "$SCRIPT_DIR/scripts/watchdogs/"*; do
+    [ -f "$f" ] || continue
+    name=$(basename "$f")
+    copy_file "$f" "$GLOBAL_SCRIPTS_DIR/watchdogs/$name"
+    case "$name" in
+      *.sh) [ "$DRY_RUN" = false ] && chmod +x "$GLOBAL_SCRIPTS_DIR/watchdogs/$name" ;;
+    esac
+  done
+fi
+log "  $SCRIPT_COUNT scripts + lib + watchdogs installed to $GLOBAL_SCRIPTS_DIR"
+
 # ── Step 7: ByteRover memory layer (API-free) ──
 if [ "$SKIP_BRV" = false ]; then
   echo ""

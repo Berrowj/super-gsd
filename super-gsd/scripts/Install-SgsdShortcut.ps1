@@ -38,6 +38,14 @@ if (-not (Test-Path $BootScript)) {
     exit 1
 }
 
+# Prefer the global install at ~/.claude/super-gsd/scripts/ as the recorded
+# fallback path if it exists. That way the sgsd function works from any
+# project, not just the source checkout. install.sh writes there in Step 6b.
+$GlobalBoot = Join-Path $HOME ".claude\super-gsd\scripts\sgsd-boot.ps1"
+if (Test-Path $GlobalBoot) {
+    $BootScript = $GlobalBoot
+}
+
 # Resolve all profile paths we care about. Write to BOTH so the function is
 # available no matter which one the user's PowerShell host actually loads.
 #   CurrentUserCurrentHost = Microsoft.PowerShell_profile.ps1 (the default $PROFILE)
