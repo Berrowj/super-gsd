@@ -9,7 +9,17 @@
     "verifier": true,
     "auto_advance": true,
     "plan_format": "compressed_xml",
-    "agent_report_max_words": 300
+    "agent_report_max_words": 300,
+    "nyquist_validation": true
+  },
+  "browser_verify": {
+    "enabled": false,
+    "tool": "gsd-browser",
+    "url_base": "http://localhost:5173",
+    "timeout_sec": 60,
+    "per_op_timeout_sec": 15,
+    "capture_screenshots": true,
+    "capture_har": true
   },
   "model_routing": {
     "orchestrator": "opus",
