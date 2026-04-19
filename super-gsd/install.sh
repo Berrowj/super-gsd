@@ -301,6 +301,16 @@ if [ "$INIT_PROJECT" = true ]; then
   else
     log "  CLAUDE.md already exists — append super-gsd/CLAUDE-OVERLAY.md manually"
   fi
+
+  # DLB-04 Q1: materialise the Agents resource registry for this project.
+  # The sync script walks super-gsd/agents/ and writes agents.jsonl — one
+  # record per agent with {id, path, sha, mtime, model, tools, description}.
+  # Consumer: MUDA classifier pre-dispatch query (when that read-path lands).
+  if [ -x "$SCRIPT_DIR/scripts/sgsd-registry-sync.sh" ] && [ "$DRY_RUN" = false ]; then
+    bash "$SCRIPT_DIR/scripts/sgsd-registry-sync.sh" --root "$PROJECT_DIR" 2>/dev/null \
+      | sed 's/^/  /' \
+      || log "  WARNING: registry sync failed (non-blocking)"
+  fi
   log "  Project initialized"
 else
   echo ""
