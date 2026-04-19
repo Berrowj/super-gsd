@@ -1,0 +1,2 @@
+{"ts":"2026-04-19T19:59:00Z","phase":"08","warn":0,"fail":1,"exit":2,"probes":{"haiku":"PASS","narrative":"FAIL","git":"PASS"}}
+{"ts":"2026-04-19T20:01:38Z","phase":"08","warn":0,"fail":1,"exit":2,"probes":{"haiku":"PASS","narrative":"FAIL","git":"PASS"}}

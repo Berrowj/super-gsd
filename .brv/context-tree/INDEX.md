@@ -34,6 +34,8 @@ Schema: | type | slug | path | summary |
 |------|------|------|---------|
 | anti-pattern | premature-stopping | anti-patterns/anti-patterns-premature-stopping.md | Auto loop must never pause between phases — only 4 valid exit conditions |
 
+| anti-pattern | waste-waiting-p08-narrative-stale-2026-04-19-20-01-38z | anti-patterns/waste-waiting-p08-narrative-stale-2026-04-19-20-01-38z.md | P08 narrative-stale=557703 FAIL — waiting waste |
+
 ## decisions
 
 | type | slug | path | summary |
