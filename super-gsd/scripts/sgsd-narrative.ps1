@@ -17,10 +17,14 @@
 
 param(
     [string]$ProjectDir = ".",
-    [int]$HaikuRefreshSec = 300
+    [int]$HaikuRefreshSec = 300,
+    [int]$Heartbeat = 30
 )
 
 $ErrorActionPreference = "SilentlyContinue"
+
+# Shared render cache: redraw throttle + active Claude session cache.
+. (Join-Path $PSScriptRoot "lib\sgsd-render-cache.ps1")
 
 try {
     $ProjectDir = (Resolve-Path $ProjectDir -ErrorAction Stop).Path
@@ -73,6 +77,42 @@ function Write-Host {
 function Get-PaneWidth  { try { return [Console]::WindowWidth - 1 } catch { return 80 } }
 function Get-PaneHeight { try { return [Console]::WindowHeight - 1 } catch { return 30 } }
 
+# Mtime-keyed tail cache. FSWatcher fires on ANY file in the watched dir, but
+# most redraws don't touch the specific file we're tailing. When the file's
+# mtime+size match the last cached read, skip IO entirely.
+$script:_TailCache = @{}
+function Get-CachedTail($path, $count) {
+    if (-not (Test-Path $path)) { return @() }
+    try {
+        $item = Get-Item $path -ErrorAction Stop
+        $key = "$path|$($item.LastWriteTimeUtc.Ticks)|$($item.Length)|$count"
+        if ($script:_TailCache.ContainsKey($key)) { return $script:_TailCache[$key] }
+        $lines = @(Get-Content $path -Tail $count -ErrorAction SilentlyContinue)
+        # Evict stale entries for this path (cache only latest per path)
+        $stale = @($script:_TailCache.Keys | Where-Object { $_.StartsWith("$path|") -and $_ -ne $key })
+        foreach ($k in $stale) { $script:_TailCache.Remove($k) }
+        $script:_TailCache[$key] = $lines
+        return $lines
+    } catch { return @() }
+}
+
+# Memoised tool-entry extractor keyed by jsonl path+mtime. Re-parsing 80 lines
+# of JSON × 3 files × 4/sec was the dominant CPU cost.
+$script:_ToolCache = @{}
+function Get-CachedToolEntries($file, $tailCount) {
+    if ($null -eq $file) { return @() }
+    try {
+        $key = "$($file.FullName)|$($file.LastWriteTimeUtc.Ticks)|$($file.Length)|$tailCount"
+        if ($script:_ToolCache.ContainsKey($key)) { return $script:_ToolCache[$key] }
+        $entries = Read-LastJsonlEntries $file $tailCount
+        $tools = Get-ToolEntries $entries
+        $stale = @($script:_ToolCache.Keys | Where-Object { $_.StartsWith("$($file.FullName)|") -and $_ -ne $key })
+        foreach ($k in $stale) { $script:_ToolCache.Remove($k) }
+        $script:_ToolCache[$key] = $tools
+        return $tools
+    } catch { return @() }
+}
+
 function Trunc($text, $width) {
     if ($null -eq $text) { return "" }
     $text = "$text"
@@ -96,15 +136,19 @@ function Encode-ProjectPath($path) {
 }
 
 function Get-ActiveSessionJsonl {
+    # Returns up to 3 most-recently-modified session JSONLs.
+    # Multi-file aggregation matters when several Claude windows/subagents
+    # are open in the same project — the single newest file may have just
+    # received a hook attachment with no tool_use, while real tool activity
+    # is in the second-most-recent file. Caller flattens + dedupes.
+    #
+    # The sessions dir commonly holds 300+ files. Get-ActiveClaudeSessions
+    # caches the top-3 handle list for 30s, so we only re-sort when the cache
+    # ages out or a cached file disappears. The watcher's Created handler
+    # busts the cache the instant a brand-new session arrives.
     $encoded = Encode-ProjectPath $ProjectDir
     $sessionsDir = Join-Path $HOME ".claude\projects\$encoded"
-    if (-not (Test-Path $sessionsDir)) { return $null }
-    try {
-        $file = Get-ChildItem -Path $sessionsDir -Filter "*.jsonl" -File -ErrorAction SilentlyContinue |
-                Sort-Object LastWriteTime -Descending |
-                Select-Object -First 1
-        return $file
-    } catch { return $null }
+    return @(Get-ActiveClaudeSessions -SessionsDir $sessionsDir -Top 3 -RecheckSec 30)
 }
 
 function Read-LastJsonlEntries($file, $tailCount) {
@@ -308,21 +352,37 @@ function Render-HaikuSummary {
 
 function Render-CtrlOStream {
     param($pw, $maxRows)
-    $sessionFile = Get-ActiveSessionJsonl
+    $sessionFiles = Get-ActiveSessionJsonl
     Write-Host "CTRL+O LIVE TOOL STREAM " -NoNewline -ForegroundColor White
-    if ($null -eq $sessionFile) {
+    if ($sessionFiles.Count -eq 0) {
         Write-Host "(no session file found)$CLEAR_LINE" -ForegroundColor DarkGray
         return
     }
     Write-Host "(" -NoNewline -ForegroundColor DarkGray
-    Write-Host "$($sessionFile.Name.Substring(0, 8))" -NoNewline -ForegroundColor Cyan
+    $names = ($sessionFiles | ForEach-Object { $_.Name.Substring(0, 6) }) -join ","
+    Write-Host $names -NoNewline -ForegroundColor Cyan
     Write-Host ")" -NoNewline -ForegroundColor DarkGray
     Write-Host $CLEAR_LINE
 
-    $entries = Read-LastJsonlEntries $sessionFile 60
-    $tools = Get-ToolEntries $entries
+    # Aggregate tools across all recent session files, dedupe by ts+tool+summary
+    $allTools = @()
+    foreach ($sf in $sessionFiles) {
+        $allTools += (Get-CachedToolEntries $sf 80)
+    }
+    # Dedupe (tool_use IDs are unique; fall back to ts+tool composite)
+    $seen = @{}
+    $tools = @()
+    foreach ($t in $allTools) {
+        $key = "$($t.ts)|$($t.tool)|$($t.inp)"
+        if ($seen.ContainsKey($key)) { continue }
+        $seen[$key] = $true
+        $tools += $t
+    }
+    # Sort by timestamp ascending (oldest first), so Render reverses to newest-on-top
+    $tools = @($tools | Sort-Object { if ($_.ts) { $_.ts } else { [DateTime]::MinValue } })
+
     if ($tools.Count -eq 0) {
-        Write-Host "(no tool calls in recent session entries)$CLEAR_LINE" -ForegroundColor DarkGray
+        Write-Host "(no tool calls in last 80 entries of $($sessionFiles.Count) session(s))$CLEAR_LINE" -ForegroundColor DarkGray
         return
     }
     # Newest first, show up to maxRows
@@ -351,7 +411,15 @@ function Maybe-RefreshHaiku {
     # DETACHED background PowerShell process so this function never blocks the
     # render loop. On failure we touch a sidecar stamp, NOT the cache — so the
     # freshness check correctly triggers a retry next tick.
-    if (-not (Test-Path $ActivityLog)) { return }
+    # Activity-log is the orchestrator's append log. When orchestrator isn't
+    # running we fall back to the live session jsonl tool_uses so the Haiku
+    # narrative still refreshes during normal interactive work. Either source
+    # is fine — we just need *some* recent activity to summarise.
+    $activityLogStale = $true
+    if (Test-Path $ActivityLog) {
+        $logAge = [int]((Get-Date) - (Get-Item $ActivityLog).LastWriteTime).TotalSeconds
+        if ($logAge -lt 600) { $activityLogStale = $false }
+    }
 
     $lockFile    = "$NarrativeCache.lock"
     $failStamp   = "$NarrativeCache.lastfail"
@@ -382,18 +450,34 @@ function Maybe-RefreshHaiku {
         if ($lockAge -lt 180) { return }   # stale lock after 3min
     }
 
-    # Build the prompt from last 20 activity entries
-    $lines = Get-Content $ActivityLog -Tail 20 -ErrorAction SilentlyContinue
-    if (-not $lines) { return }
+    # Build snippet — prefer activity-log when fresh, else derive from live
+    # session jsonl tool_uses so the Haiku stays current outside orchestrator runs.
     $snippet = @()
-    foreach ($line in $lines) {
-        try {
-            $e = $line | ConvertFrom-Json -ErrorAction Stop
-            $target = "$($e.target)"
+    if (-not $activityLogStale) {
+        $lines = Get-CachedTail $ActivityLog 20
+        foreach ($line in $lines) {
+            try {
+                $e = $line | ConvertFrom-Json -ErrorAction Stop
+                $target = "$($e.target)"
+                if ($target.Length -gt 120) { $target = $target.Substring(0, 120) + "..." }
+                $snippet += "$($e.tool): $target"
+            } catch {}
+        }
+    } else {
+        $sessionFiles = Get-ActiveSessionJsonl
+        $allTools = @()
+        foreach ($sf in $sessionFiles) {
+            $entries = Read-LastJsonlEntries $sf 80
+            $allTools += (Get-ToolEntries $entries)
+        }
+        $allTools = @($allTools | Sort-Object { if ($_.ts) { $_.ts } else { [DateTime]::MinValue } } | Select-Object -Last 20)
+        foreach ($t in $allTools) {
+            $target = Summarize-ToolInput $t.tool $t.inp
             if ($target.Length -gt 120) { $target = $target.Substring(0, 120) + "..." }
-            $snippet += "$($e.tool): $target"
-        } catch {}
+            $snippet += "$($t.tool): $target"
+        }
     }
+    if ($snippet.Count -eq 0) { return }
     $snippetText = $snippet -join "`n"
 
     $prompt = @"
@@ -479,6 +563,11 @@ try {
 }
 
 function Render {
+    # Throttle: the session-dir FSWatcher fires per tool_use append — can burst
+    # 10×/sec during active work. Skip redraws inside the 2s window; heartbeat
+    # still guarantees a full paint every $Heartbeat seconds.
+    if (-not (Test-RenderDue -MinIntervalMs 2000)) { return }
+
     Write-Host $HOME_POS -NoNewline
     $pw = Get-PaneWidth
     $ph = Get-PaneHeight
@@ -525,20 +614,27 @@ if (Test-Path $sessionsDir) {
     $w2.Filter = "*.jsonl"
     $w2.EnableRaisingEvents = $true
     $null = Register-ObjectEvent -InputObject $w2 -EventName Changed -Action { $global:needsRedraw = $true }
-    $null = Register-ObjectEvent -InputObject $w2 -EventName Created -Action { $global:needsRedraw = $true }
+    # On Created, bust the session-file cache so a brand-new Claude window shows
+    # up on the NEXT render instead of waiting the full 30s recheck window.
+    $null = Register-ObjectEvent -InputObject $w2 -EventName Created -Action {
+        $global:needsRedraw = $true
+        if (Get-Command Reset-ActiveClaudeSessionsCache -ErrorAction SilentlyContinue) {
+            Reset-ActiveClaudeSessionsCache
+        }
+    }
 }
 
 $lastHeartbeat = [DateTime]::MinValue
-$HeartbeatSec = 10
 
 try {
     while ($true) {
-        if ($global:needsRedraw -or (((Get-Date) - $lastHeartbeat).TotalSeconds -ge $HeartbeatSec)) {
+        if ($global:needsRedraw -or (((Get-Date) - $lastHeartbeat).TotalSeconds -ge $Heartbeat)) {
             $global:needsRedraw = $false
             $lastHeartbeat = Get-Date
             Render
         }
-        Start-Sleep -Milliseconds 250
+        # Longer sleep — render throttle enforces the real 2s min interval.
+        Start-Sleep -Milliseconds 2000
     }
 } finally {
     Write-Host "$SHOW_CURSOR$ALT_EXIT" -NoNewline
