@@ -19,10 +19,14 @@
 
 param(
     [string]$ProjectDir = ".",
-    [int]$Heartbeat = 10
+    [int]$Heartbeat = 30
 )
 
 $ErrorActionPreference = "SilentlyContinue"
+
+# Shared render cache: redraw throttle, HEAD-sha-keyed git cache, activity-log
+# single-pass parser, active Claude session cache.
+. (Join-Path $PSScriptRoot "lib\sgsd-render-cache.ps1")
 
 try {
     $ProjectDir = (Resolve-Path $ProjectDir -ErrorAction Stop).Path
@@ -102,6 +106,24 @@ $RATE_OPUS   = 45.0 / 1000000
 $RATE_SONNET =  9.0 / 1000000
 $RATE_HAIKU  =  2.4 / 1000000
 
+# Mtime-keyed tail cache. FSWatcher fires on ANY file under .planning, but
+# most redraws don't touch the specific log we're tailing. When the file's
+# mtime+size match the last cached read, skip IO + allocation entirely.
+$script:_TailCache = @{}
+function Get-CachedTail($path, $count) {
+    if (-not (Test-Path $path)) { return @() }
+    try {
+        $item = Get-Item $path -ErrorAction Stop
+        $key = "$path|$($item.LastWriteTimeUtc.Ticks)|$($item.Length)|$count"
+        if ($script:_TailCache.ContainsKey($key)) { return $script:_TailCache[$key] }
+        $lines = @(Get-Content $path -Tail $count -ErrorAction SilentlyContinue)
+        $stale = @($script:_TailCache.Keys | Where-Object { $_.StartsWith("$path|") -and $_ -ne $key })
+        foreach ($k in $stale) { $script:_TailCache.Remove($k) }
+        $script:_TailCache[$key] = $lines
+        return $lines
+    } catch { return @() }
+}
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
 function Get-PaneWidth {
     try { return [Console]::WindowWidth - 1 } catch { return 50 }
@@ -179,7 +201,7 @@ function Get-SessionStats {
                 Select-Object -First 1
         if (-not $file) { return $stats }
         # Tail last 20 lines — usage blocks are on assistant messages
-        $lines = Get-Content $file.FullName -Tail 20 -ErrorAction SilentlyContinue
+        $lines = Get-CachedTail $file.FullName 20
         foreach ($line in $lines) {
             try {
                 $e = $line | ConvertFrom-Json -ErrorAction Stop
@@ -277,21 +299,23 @@ function Get-WaveTasks($wave, $phaseNum) {
         $result.total = 1
     }
 
-    # Done tasks: count commits matching any known pattern for this phase + wave
-    Push-Location $ProjectDir -ErrorAction SilentlyContinue
+    # Done tasks: count commits matching any known pattern for this phase + wave.
+    # Pull git log ONCE via the HEAD-sha-keyed cache, then filter in-process for
+    # every (phase, wave) combination. Before the cache, each active wave
+    # re-spawned git — four waves = four git processes per render.
     try {
         $wv = $wave.wave
         $pattern = "(phase$phaseNum[-_]|P$phaseNum[\.\-_]|^(\d+-)?(\w+)\(phase$phaseNum).*[Ww]$wv|[-_]W$wv[\s:\-]|\bW$wv[\s:]"
-        $commits = & git log --oneline -200 2>$null | Select-String -Pattern $pattern -List
+        $commits = Invoke-CachedGit $ProjectDir "oneline-200" @("log", "--oneline", "-200") |
+                   Select-String -Pattern $pattern -List
         $result.done = @($commits).Count
     } catch {}
-    Pop-Location -ErrorAction SilentlyContinue
 
     # Active task: scan activity log for newest TaskCreate with W{wv} tag
     $log = Join-Path $PlanningDir "metrics\activity-log.jsonl"
     if (Test-Path $log) {
         try {
-            $lines = Get-Content $log -Tail 100 -ErrorAction SilentlyContinue
+            $lines = @(Get-CachedTail $log 100)
             [array]::Reverse($lines)
             foreach ($line in $lines) {
                 try {
@@ -330,16 +354,14 @@ function Get-WaveTasks($wave, $phaseNum) {
 # Returns last 3 git commits as array of @{ hash; subject }
 function Get-RecentCommits {
     $out = @()
-    Push-Location $ProjectDir -ErrorAction SilentlyContinue
     try {
-        $lines = & git log --oneline -3 2>$null
+        $lines = Invoke-CachedGit $ProjectDir "oneline-3" @("log", "--oneline", "-3")
         foreach ($l in $lines) {
             if ($l -match '^([a-f0-9]+)\s+(.+)$') {
                 $out += @{ hash = $matches[1]; subject = $matches[2] }
             }
         }
     } catch {}
-    Pop-Location -ErrorAction SilentlyContinue
     return @($out)
 }
 
@@ -458,22 +480,20 @@ function Get-Waves($phaseDir) {
 function Get-WaveTimestamps($waves, $phaseNum) {
     # For each wave, find the most recent commit matching `phaseN-WM` or `phaseX-WM`
     # in git log. Returns the waves array with completedAt and completedAgo filled in.
-    Push-Location $ProjectDir -ErrorAction SilentlyContinue
-    try {
-        foreach ($w in $waves) {
-            $pattern = "[Ww](?:ave\s*)?$($w.wave)\b|-W$($w.wave)\b"
-            $result = & git log --format="%cI|%s" -50 2>$null | Select-String -Pattern $pattern -List
-            if ($result) {
-                $first = $result.Line.Split('|')[0]
-                try {
-                    $ts = [DateTime]::Parse($first)
-                    $w.completedAt  = $ts
-                    $w.completedAgo = [int]((Get-Date) - $ts).TotalSeconds
-                } catch {}
-            }
+    # Pulls the recent-commit list ONCE via the HEAD-sha-keyed cache, then filters
+    # in-process per wave (was: one git spawn per wave per render).
+    $commits = Invoke-CachedGit $ProjectDir "cI-s-50" @("log", "--format=%cI|%s", "-50")
+    foreach ($w in $waves) {
+        $pattern = "[Ww](?:ave\s*)?$($w.wave)\b|-W$($w.wave)\b"
+        $hit = $commits | Select-String -Pattern $pattern -List | Select-Object -First 1
+        if ($hit) {
+            try {
+                $ts = [DateTime]::Parse($hit.Line.Split('|')[0])
+                $w.completedAt  = $ts
+                $w.completedAgo = [int]((Get-Date) - $ts).TotalSeconds
+            } catch {}
         }
-    } catch {}
-    Pop-Location -ErrorAction SilentlyContinue
+    }
     return $waves
 }
 
@@ -482,8 +502,8 @@ function Get-ActiveWaveFromLog {
     $log = Join-Path $PlanningDir "metrics\activity-log.jsonl"
     if (-not (Test-Path $log)) { return $null }
     try {
-        $lines = Get-Content $log -Tail 100 -ErrorAction SilentlyContinue
-        if (-not $lines) { return $null }
+        $lines = @(Get-CachedTail $log 100)
+        if ($lines.Count -eq 0) { return $null }
         [array]::Reverse($lines)
         foreach ($line in $lines) {
             try {
@@ -498,31 +518,65 @@ function Get-ActiveWaveFromLog {
     return $null
 }
 
+$script:_tokenStatsKey    = $null
+$script:_tokenStatsParsed = $null  # @{ lines = [object[]]; currentPhase = "" ; stats = @{...} }
 function Get-TokenStats {
     $log = Join-Path $PlanningDir "metrics\token-log.jsonl"
     $stats = @{ opus = 0; sonnet = 0; haiku = 0; total = 0; cost = 0.0; phaseCost = 0.0 }
     if (-not (Test-Path $log)) { return $stats }
+
+    # Cache the parsed entries AND the opus/sonnet/haiku totals by (mtime, length).
+    # Before: every render re-read the whole file and reparsed every line. After:
+    # only the phaseCost (which depends on currentPhase) gets recomputed per
+    # render — everything else is memoised until a new token event lands.
     try {
-        $lines = Get-Content $log -ErrorAction SilentlyContinue
+        $item = Get-Item $log -ErrorAction Stop
+        $key = "$($item.LastWriteTimeUtc.Ticks)|$($item.Length)"
         $state = Get-StateInfo
         $currentPhase = $state.currentPhase
-        foreach ($line in $lines) {
-            try {
-                $e = $line | ConvertFrom-Json -ErrorAction Stop
-                $m = "$($e.model)".ToLower()
-                $t = [int]$e.total
-                if ($m -eq "opus")      { $stats.opus   += $t }
-                elseif ($m -eq "sonnet"){ $stats.sonnet += $t }
-                elseif ($m -eq "haiku") { $stats.haiku  += $t }
-                # Per-phase subtotal
-                if ("$($e.phase)" -eq $currentPhase) {
-                    $rate = if ($m -eq "opus") { $RATE_OPUS } elseif ($m -eq "sonnet") { $RATE_SONNET } else { $RATE_HAIKU }
-                    $stats.phaseCost += $t * $rate
+
+        $parsed = $null
+        if ($script:_tokenStatsKey -eq $key) {
+            $parsed = $script:_tokenStatsParsed
+        } else {
+            $parsed = @{ entries = @() }
+            foreach ($line in (Get-Content $log -ErrorAction SilentlyContinue)) {
+                try {
+                    $e = $line | ConvertFrom-Json -ErrorAction Stop
+                    $parsed.entries += @{
+                        model = "$($e.model)".ToLower()
+                        total = [int]$e.total
+                        phase = "$($e.phase)"
+                    }
+                } catch {}
+            }
+            # Totals don't depend on currentPhase — safe to cache
+            $parsed.opus   = 0
+            $parsed.sonnet = 0
+            $parsed.haiku  = 0
+            foreach ($e in $parsed.entries) {
+                switch ($e.model) {
+                    "opus"   { $parsed.opus   += $e.total }
+                    "sonnet" { $parsed.sonnet += $e.total }
+                    "haiku"  { $parsed.haiku  += $e.total }
                 }
-            } catch {}
+            }
+            $script:_tokenStatsKey    = $key
+            $script:_tokenStatsParsed = $parsed
         }
-        $stats.total = $stats.opus + $stats.sonnet + $stats.haiku
-        $stats.cost  = ($stats.opus * $RATE_OPUS) + ($stats.sonnet * $RATE_SONNET) + ($stats.haiku * $RATE_HAIKU)
+
+        $stats.opus   = $parsed.opus
+        $stats.sonnet = $parsed.sonnet
+        $stats.haiku  = $parsed.haiku
+        $stats.total  = $stats.opus + $stats.sonnet + $stats.haiku
+        $stats.cost   = ($stats.opus * $RATE_OPUS) + ($stats.sonnet * $RATE_SONNET) + ($stats.haiku * $RATE_HAIKU)
+
+        # Per-phase subtotal — depends on currentPhase, recompute every render
+        foreach ($e in $parsed.entries) {
+            if ($e.phase -ne $currentPhase) { continue }
+            $rate = if ($e.model -eq "opus") { $RATE_OPUS } elseif ($e.model -eq "sonnet") { $RATE_SONNET } else { $RATE_HAIKU }
+            $stats.phaseCost += $e.total * $rate
+        }
     } catch {}
     return $stats
 }
@@ -532,8 +586,10 @@ function Get-AgentRoster($maxAgeSec = 21600) {
     $roster = [ordered]@{}
     if (-not (Test-Path $log)) { return @() }
     try {
-        $lines = Get-Content $log -Tail 300 -ErrorAction SilentlyContinue
-        if (-not $lines) { return @() }
+        # Shrunk 300 → 120: agent roster only needs the last ~6h of activity,
+        # and 120 lines of log covers that in practice. Halves parse cost.
+        $lines = @(Get-CachedTail $log 120)
+        if ($lines.Count -eq 0) { return @() }
         $now = Get-Date
         foreach ($line in $lines) {
             try {
@@ -612,7 +668,7 @@ function Get-Heartbeat {
     $now = [DateTime]::UtcNow
 
     if (Test-Path $actLog) {
-        $tail = Get-Content $actLog -Tail 1 -ErrorAction SilentlyContinue
+        $tail = Get-CachedTail $actLog 1
         if ($tail -and $tail -match '"ts":"([^"]+)".*?"tool":"([^"]+)"') {
             $lastStartTs = [DateTime]::Parse($Matches[1]).ToUniversalTime()
             $lastStartTool = $Matches[2]
@@ -620,7 +676,7 @@ function Get-Heartbeat {
         }
     }
     if (Test-Path $hbLog) {
-        $tail = Get-Content $hbLog -Tail 1 -ErrorAction SilentlyContinue
+        $tail = Get-CachedTail $hbLog 1
         if ($tail -and $tail -match '"ts":"([^"]+)"') {
             $endTs = [DateTime]::Parse($Matches[1]).ToUniversalTime()
             $lastEnd = [int]($now - $endTs).TotalSeconds
@@ -699,6 +755,12 @@ function Write-Header($text) {
 }
 
 function Render {
+    # Throttle: FSWatcher fires for every metrics append, potentially dozens of
+    # times per second. Skip any redraw that's less than 2s after the previous
+    # one — the heartbeat loop guarantees a full render at least every $Heartbeat
+    # seconds regardless, so no signal is ever lost.
+    if (-not (Test-RenderDue -MinIntervalMs 2000)) { return }
+
     # Always use the ANSI cursor-home escape. [Console]::SetCursorPosition no-ops
     # silently in Warp's PTY without throwing, breaking the previous try/catch.
     Write-Host $HOME_POS -NoNewline
@@ -1119,7 +1181,10 @@ try {
             $lastHeartbeat = Get-Date
             Render
         }
-        Start-Sleep -Milliseconds 250
+        # Sleep longer than the render throttle so we don't burn CPU spinning.
+        # Heartbeat + FSWatcher set $needsRedraw; Test-RenderDue inside Render
+        # is the actual min-interval enforcer.
+        Start-Sleep -Milliseconds 2000
     }
 } finally {
     Write-Host "$SHOW_CURSOR$ALT_EXIT" -NoNewline
