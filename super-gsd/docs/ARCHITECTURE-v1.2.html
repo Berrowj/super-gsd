@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Super GSD — Architecture v1.2 (DLB-04 Shipped)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root {
+  --bg: #0d1117;
+  --bg-2: #161b22;
+  --bg-3: #1f2630;
+  --border: #30363d;
+  --text: #c9d1d9;
+  --text-dim: #8b949e;
+  --text-bright: #f0f6fc;
+  --accent: #58a6ff;
+  --accent-2: #a371f7;
+  --green: #3fb950;
+  --amber: #d29922;
+  --red: #f85149;
+  --pink: #db61a2;
+  --cyan: #39c5cf;
+  --orange: #f0883e;
+  --shadow: 0 4px 16px rgba(0,0,0,.4);
+  --mono: ui-monospace, "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif;
+  line-height: 1.55;
+  font-size: 15px;
+}
+.wrap { max-width: 1280px; margin: 0 auto; padding: 40px 28px 120px; }
+
+/* HERO */
+.hero {
+  background: linear-gradient(135deg, #1f2630 0%, #2a1f3d 100%);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 36px 40px;
+  margin-bottom: 32px;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: "";
+  position: absolute;
+  top: -30%; right: -10%;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(163,113,247,.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero h1 {
+  margin: 0 0 6px;
+  font-size: 30px;
+  color: var(--text-bright);
+  letter-spacing: -0.5px;
+  position: relative;
+  z-index: 1;
+}
+.hero .subtitle {
+  color: var(--text-dim);
+  margin: 0 0 20px;
+  font-size: 15px;
+  position: relative;
+  z-index: 1;
+}
+.hero .meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 18px;
+  position: relative;
+  z-index: 1;
+}
+.hero .meta strong { color: var(--text-bright); font-weight: 600; }
+.hero .badge {
+  display: inline-block;
+  padding: 3px 10px;
+  background: rgba(163,113,247,.18);
+  color: var(--accent-2);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  margin-left: 8px;
+}
+.hero .badge.pre {
+  background: rgba(240,136,62,.18);
+  color: var(--orange);
+}
+
+/* STAT GRID */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin: 20px 0 36px;
+}
+.stat {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  transition: transform .15s ease, border-color .15s ease;
+}
+.stat:hover { transform: translateY(-2px); border-color: var(--accent-2); }
+.stat .num {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-bright);
+  line-height: 1.1;
+  margin-bottom: 4px;
+  font-family: var(--mono);
+}
+.stat .num .unit { font-size: 14px; color: var(--text-dim); font-weight: 500; margin-left: 3px; }
+.stat .label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+.stat.accent .num { color: var(--accent); }
+.stat.accent2 .num { color: var(--accent-2); }
+.stat.green .num { color: var(--green); }
+.stat.amber .num { color: var(--amber); }
+.stat.pink .num { color: var(--pink); }
+.stat.orange .num { color: var(--orange); }
+
+/* SECTIONS */
+section {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px 32px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+}
+section h2 {
+  margin: 0 0 6px;
+  color: var(--text-bright);
+  font-size: 22px;
+  letter-spacing: -0.3px;
+}
+section h2 .sbadge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 10px;
+  margin-left: 10px;
+  letter-spacing: 0.3px;
+  vertical-align: middle;
+}
+section h2 .sbadge.dlb { background: rgba(163,113,247,.15); color: var(--accent-2); }
+section h2 .sbadge.pre { background: rgba(240,136,62,.15); color: var(--orange); }
+section .section-subtitle {
+  color: var(--text-dim);
+  margin: 0 0 24px;
+  font-size: 14px;
+}
+section h3 {
+  color: var(--text-bright);
+  font-size: 16px;
+  margin: 24px 0 12px;
+  letter-spacing: -0.2px;
+}
+
+/* MERMAID */
+.mermaid {
+  background: #0a0d13;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 22px;
+  margin: 16px 0;
+  text-align: center;
+  overflow-x: auto;
+}
+
+/* QUESTION MATRIX (DLB-04 four questions + convergence) */
+.qmatrix {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin: 16px 0 24px;
+}
+.qcard {
+  border-radius: 10px;
+  padding: 16px 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  position: relative;
+  overflow: hidden;
+}
+.qcard::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--accent-2);
+}
+.qcard .q-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-2);
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.qcard .q-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-bright);
+  margin-bottom: 8px;
+  line-height: 1.35;
+}
+.qcard .q-choice {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--green);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.qcard .q-reason {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+.qcard .q-vote {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 10px;
+  font-family: var(--mono);
+  padding: 2px 6px;
+  background: rgba(63,185,80,.15);
+  color: var(--green);
+  border-radius: 10px;
+  letter-spacing: 0.3px;
+}
+.qcard .q-vote.split { background: rgba(210,153,34,.15); color: var(--amber); }
+
+/* TRIPLE GATE PANEL */
+.triple {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin: 16px 0 24px;
+}
+.gate-card {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 18px;
+  position: relative;
+  overflow: hidden;
+}
+.gate-card.g1 { border-left: 3px solid var(--accent); }
+.gate-card.g2 { border-left: 3px solid var(--cyan); }
+.gate-card.g3 { border-left: 3px solid var(--red); }
+.gate-card .author {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.gate-card.g1 .author { color: var(--accent); }
+.gate-card.g2 .author { color: var(--cyan); }
+.gate-card.g3 .author { color: var(--red); }
+.gate-card .gate-name {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-bright);
+  margin-bottom: 6px;
+}
+.gate-card .gate-where {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  margin-bottom: 8px;
+}
+.gate-card .gate-how {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.45;
+}
+.gate-card .gate-target {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+.gate-card .gate-target strong { color: var(--text-bright); }
+
+/* COMPONENT GRID */
+.components {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  margin: 16px 0 8px;
+}
+.component-card {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 18px;
+  transition: all .15s ease;
+  position: relative;
+}
+.component-card:hover { border-color: var(--accent-2); }
+.component-card.shipped {
+  border-left: 3px solid var(--green);
+}
+.component-card.shipped::after {
+  content: "SHIPPED";
+  position: absolute;
+  top: -7px; right: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--green);
+  padding: 1px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+.component-card.pending {
+  border-left: 3px solid var(--amber);
+  opacity: 0.82;
+}
+.component-card.pending::after {
+  content: "OPERATOR-RUN";
+  position: absolute;
+  top: -7px; right: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--amber);
+  padding: 1px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+.component-card .card-tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.tag-registry { background: rgba(57,197,207,.15); color: var(--cyan); }
+.tag-sepl     { background: rgba(88,166,255,.15); color: var(--accent); }
+.tag-distill  { background: rgba(163,113,247,.15); color: var(--accent-2); }
+.tag-fix      { background: rgba(248,81,73,.15); color: var(--red); }
+.tag-metric   { background: rgba(210,153,34,.15); color: var(--amber); }
+.tag-template { background: rgba(219,97,162,.15); color: var(--pink); }
+.component-card .card-name {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text-bright);
+  font-weight: 600;
+  margin-bottom: 4px;
+  word-break: break-all;
+}
+.component-card .card-desc {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.45;
+  margin-bottom: 6px;
+}
+.component-card .card-wave {
+  display: inline-block;
+  font-size: 10px;
+  font-family: var(--mono);
+  padding: 1px 6px;
+  background: var(--bg);
+  color: var(--text-dim);
+  border-radius: 3px;
+  letter-spacing: 0.3px;
+}
+
+/* TABLES */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin: 16px 0;
+}
+th, td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+th {
+  background: var(--bg-3);
+  color: var(--text-bright);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+td code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--bg);
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: var(--accent);
+}
+tr:hover td { background: rgba(255,255,255,.02); }
+
+/* WAVE TIMELINE */
+.wave-track {
+  position: relative;
+  padding: 8px 0 8px 32px;
+  margin-top: 16px;
+}
+.wave-track::before {
+  content: "";
+  position: absolute;
+  left: 10px; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+.wave-item {
+  position: relative;
+  padding: 14px 0 14px 24px;
+}
+.wave-item::before {
+  content: "";
+  position: absolute;
+  left: -26px; top: 20px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 3px solid var(--bg-2);
+}
+.wave-item.w0::before { background: var(--red); }
+.wave-item.w1::before { background: var(--cyan); }
+.wave-item.w2::before { background: var(--accent); }
+.wave-item.w3::before { background: var(--accent-2); }
+.wave-item.wk::before { background: var(--green); }
+.wave-tag {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-right: 10px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  display: inline-block;
+}
+.wave-item.w0 .wave-tag { background: rgba(248,81,73,.15); color: var(--red); }
+.wave-item.w1 .wave-tag { background: rgba(57,197,207,.15); color: var(--cyan); }
+.wave-item.w2 .wave-tag { background: rgba(88,166,255,.15); color: var(--accent); }
+.wave-item.w3 .wave-tag { background: rgba(163,113,247,.15); color: var(--accent-2); }
+.wave-item.wk .wave-tag { background: rgba(63,185,80,.15); color: var(--green); }
+.wave-item .wave-title {
+  color: var(--text-bright);
+  font-weight: 600;
+  font-size: 14px;
+  display: inline;
+}
+.wave-item .wave-detail {
+  color: var(--text-dim);
+  font-size: 13px;
+  margin-top: 6px;
+  line-height: 1.5;
+}
+.wave-item .wave-detail code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--accent);
+}
+
+/* DEFERRED CARDS */
+.deferred {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  margin: 16px 0 8px;
+}
+.def-card {
+  background: var(--bg-3);
+  border-left: 3px solid var(--text-dim);
+  border-radius: 6px;
+  padding: 14px 16px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  opacity: 0.85;
+}
+.def-card strong { color: var(--text-bright); }
+.def-card .trigger {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--amber);
+  font-family: var(--mono);
+}
+
+/* DLB LINEAGE */
+.lineage {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 16px 0 8px;
+}
+.dlb-card {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  position: relative;
+}
+.dlb-card .dlb-id {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-2);
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.dlb-card .dlb-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-bright);
+  margin-bottom: 6px;
+  line-height: 1.3;
+}
+.dlb-card .dlb-principle {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+  font-style: italic;
+}
+
+/* TOC */
+nav.toc {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 22px;
+  margin-bottom: 24px;
+  font-size: 13px;
+}
+nav.toc .toc-title {
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+nav.toc a {
+  color: var(--accent);
+  text-decoration: none;
+  margin-right: 18px;
+  display: inline-block;
+  padding: 2px 0;
+}
+nav.toc a:hover { color: var(--text-bright); text-decoration: underline; }
+
+/* KBD */
+kbd, code.inline {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--bg);
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: var(--accent);
+}
+
+/* MISC */
+p { margin: 8px 0; }
+em { color: var(--text-dim); font-style: italic; }
+.note {
+  border-left: 3px solid var(--accent);
+  background: rgba(88,166,255,.06);
+  padding: 12px 16px;
+  margin: 14px 0;
+  border-radius: 0 6px 6px 0;
+  font-size: 13px;
+}
+.warn {
+  border-left: 3px solid var(--amber);
+  background: rgba(210,153,34,.06);
+  padding: 12px 16px;
+  margin: 14px 0;
+  border-radius: 0 6px 6px 0;
+  font-size: 13px;
+}
+.danger {
+  border-left: 3px solid var(--red);
+  background: rgba(248,81,73,.06);
+  padding: 12px 16px;
+  margin: 14px 0;
+  border-radius: 0 6px 6px 0;
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .qmatrix, .triple, .lineage { grid-template-columns: repeat(2, 1fr); }
+  .wrap { padding: 20px 14px 80px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<section class="hero">
+  <h1>Super GSD — Architecture
+    <span class="badge">v1.1 shipped</span>
+    <span class="badge" style="background:rgba(63,185,80,.18);color:var(--green)">v1.2 DLB-04 SHIPPED</span>
+  </h1>
+  <p class="subtitle">DLB-04 layer shipped: scoped Agents resource manifest, operator-gated SEPL loop, and milestone-close trajectory distillation with a triple-layered hallucination gate. Narrow adoption of Autogenesis (RSPL/SEPL) + EvolveR (trajectory distillation) — vocabulary borrowed, AGP spec conformance explicitly deferred. First live v1.1 distillation pass produced 7 hypotheses + 3 quarantined candidates.</p>
+  <div class="meta">
+    <span><strong>Shipped</strong> 2026-04-19</span>
+    <span><strong>Commits</strong> 8 atomic (Day 0 × 3 · Wave A/B/C × 1 · live pass · --rate fix)</span>
+    <span><strong>Decision</strong> DLB-04 (3-1 ADOPT, narrow)</span>
+    <span><strong>Vote</strong> Architect + Contrarian + Moonshot; Pragmatist dissent on Q3 timing</span>
+    <span><strong>Live status</strong> 7 hypotheses + 3 candidates; Gate 3 rating pending</span>
+  </div>
+</section>
+
+<nav class="toc">
+  <div class="toc-title">Navigate</div>
+  <a href="#decision">1. DLB-04 Decision</a>
+  <a href="#new">2. What's New in v1.2</a>
+  <a href="#components">3. Pre-Build Components</a>
+  <a href="#registry">4. Agents Resource Registry</a>
+  <a href="#sepl">5. SEPL Loop</a>
+  <a href="#distill">6. Trajectory Distillation</a>
+  <a href="#triple">7. Triple Hallucination Gate</a>
+  <a href="#waves">8. Day 0 → Day 3 Waves</a>
+  <a href="#live">9. Live v1.1 Distillation Results</a>
+  <a href="#deferred">10. Explicitly Deferred</a>
+  <a href="#kills">11. Kill Conditions</a>
+  <a href="#lineage">12. DLB Lineage</a>
+  <a href="#changelog">13. Changelog</a>
+</nav>
+
+<div class="stats">
+  <div class="stat green"><div class="num">8</div><div class="label">Atomic commits</div></div>
+  <div class="stat accent2"><div class="num">4</div><div class="label">DLB decisions (01→04)</div></div>
+  <div class="stat green"><div class="num">10</div><div class="label">Shipped components</div></div>
+  <div class="stat"><div class="num">3</div><div class="label">Stacked hallucination gates</div></div>
+  <div class="stat accent"><div class="num">7</div><div class="label">Hypotheses passed Gate 2</div></div>
+  <div class="stat amber"><div class="num">3</div><div class="label">Quarantined (1-phase cites)</div></div>
+  <div class="stat pink"><div class="num">10</div><div class="label">Agents in registry</div></div>
+  <div class="stat"><div class="num">~137<span class="unit">k</span></div><div class="label">Deliberation tokens</div></div>
+</div>
+
+<!-- ============================ SECTION 1 ============================ -->
+<section id="decision">
+  <h2>1. DLB-04 — The Four Questions <span class="sbadge dlb">DLB-04</span></h2>
+  <p class="section-subtitle">The board answered four coupled questions. Answers had to form a coherent stance, not independent yes/nos. Convergence landed at (1c, 2a, 3b-trajectory, 4b) with Pragmatist dissent on Q3 timing.</p>
+
+  <div class="qmatrix">
+    <div class="qcard">
+      <div class="q-num">Q1 · REGISTRY</div>
+      <div class="q-title">Which RSPL resources to formalise?</div>
+      <div class="q-choice">1c (scoped)</div>
+      <div class="q-reason">Manifest only. Scoped to <strong>Agents</strong> — MUDA classifier named as the concrete v1.2 consumer. Prompts stay in SKILL.md (DLB-03). Environments deferred (no consumer).</div>
+      <div class="q-vote">3/4 (Pragmatist: defer all)</div>
+    </div>
+    <div class="qcard">
+      <div class="q-num">Q2 · SEPL LOOP</div>
+      <div class="q-title">How much automation in propose→assess→commit?</div>
+      <div class="q-choice">2a (operator-gated)</div>
+      <div class="q-reason">Proposals drop into <code>.planning/proposals/</code>. Operator reads and commits. No auto-commit: would violate the "operator decides kill conditions" invariant (auto-add retires prior rule state).</div>
+      <div class="q-vote">4/4 UNANIMOUS</div>
+    </div>
+    <div class="qcard">
+      <div class="q-num">Q3 · DISTILLATION</div>
+      <div class="q-title">Build now, gate, or defer?</div>
+      <div class="q-choice">3b-trajectory</div>
+      <div class="q-reason">Ship <code>sgsd-distill-milestone</code> at v1.2 close. Distil <strong>trajectories</strong> (phases 1-7 dispatch behaviour), not <strong>findings</strong> (Phase 8 install defects). Outflanks DLB-02's sample-of-one critique.</div>
+      <div class="q-vote split">3/4 (Pragmatist: v1.3+)</div>
+    </div>
+    <div class="qcard">
+      <div class="q-num">Q4 · PROTOCOL</div>
+      <div class="q-title">AGP conformance or SGSD idiom?</div>
+      <div class="q-choice">4b (borrow vocab)</div>
+      <div class="q-reason">Use RSPL/SEPL terminology in docs. Do NOT structure JSON to AGP spec. Paper is 3 days old; spec-conformance creep is a logged residual risk, reviewed annually.</div>
+      <div class="q-vote">4/4 UNANIMOUS</div>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>Signal move in R2:</strong> Moonshot's <em>trajectory-vs-finding</em> distinction is what opened 3b. DLB-02's sample-of-one gate correctly blocks <em>finding-counting recurrence</em>. Trajectories exist every phase regardless of recurrence — abstract pattern extraction is structurally different from frequency counting. Contrarian shifted from reject-all to partial adoption on this distinction. Moonshot in turn dropped 1b→1c and 2b→2a after conceding neither had a named v1.2 consumer and auto-commit violates the retirement invariant.
+  </div>
+</section>
+
+<!-- ============================ SECTION 2 ============================ -->
+<section id="new">
+  <h2>2. What's New in v1.2 <span class="sbadge pre">PRE-BUILD</span></h2>
+  <p class="section-subtitle">Three scripts, one manifest, three metric streams, three gates. ~8h total. Day 0 blocker is FINDING-18's slug-discipline fix — nothing else ships until the curate pipe is verified clean.</p>
+  <div class="mermaid">
+flowchart TB
+    subgraph day0["DAY 0 · BLOCKER"]
+        f18["Fix FINDING-18<br/>slug validation in sgsd-curate.sh"]
+        smoke["Installer smoke-test<br/>curate a test record, verify INDEX"]
+    end
+
+    subgraph day1["DAY 1 · RSPL (scoped)"]
+        reg[".planning/resource-registry/<br/>agents.jsonl"]
+        sync["sgsd-registry-sync.sh<br/>walk agents/, compute sha,<br/>write records atomically"]
+        hook["post-install hook<br/>→ sync on install"]
+    end
+
+    subgraph day2["DAY 2 · SEPL (operator-gated)"]
+        prop["sgsd-sepl-propose.sh<br/>→ .planning/proposals/{slug}.md"]
+        commit["sgsd-sepl-commit.sh<br/>operator reviews + applies diff"]
+        splog["metrics/sepl-log.jsonl"]
+    end
+
+    subgraph day3["DAY 3 · TRAJECTORY DISTILLATION"]
+        dist["sgsd-distill-milestone.sh<br/>Haiku pass 1: extract candidates"]
+        gate2["Haiku pass 2: two-phase-citation gate"]
+        hyp[".brv/context-tree/<br/>trajectory-hypothesis/"]
+        cand["candidate/<br/>quarantined singletons"]
+        novl["novelty rating (human)<br/>metrics/distillation-novelty.jsonl"]
+    end
+
+    f18 --> smoke
+    smoke --> reg
+    reg --> sync --> hook
+    sync -.classifier reads.-> prop
+    prop --> commit --> splog
+    smoke --> dist
+    dist --> gate2
+    gate2 -->|≥2 phases cited| hyp
+    gate2 -->|1 phase only| cand
+    hyp --> novl
+    novl -.median < 2/3.-> retire["RETIRE script"]
+    novl -.median ≥ 2/3.-> v13["v1.3 promotion<br/>→ trajectory-lesson/"]
+  </div>
+</section>
+
+<!-- ============================ SECTION 3 ============================ -->
+<section id="components">
+  <h2>3. Pre-Build Component Catalogue <span class="sbadge pre">PRE-BUILD</span></h2>
+  <p class="section-subtitle">Every new callable tool, file, or metric stream DLB-04 ships. All tagged <strong>PRE-BUILD</strong> — none exist yet. Existing components (DLB-01/02/03) are in the <a href="ARCHITECTURE.html">v1.1 architecture doc</a>.</p>
+  <div class="components">
+
+    <div class="component-card shipped">
+      <div class="card-tag tag-fix">fix · day 0</div>
+      <div class="card-name">sgsd-curate.sh (patched)</div>
+      <div class="card-desc">Slug-discipline guard. Reject slugs matching <code>[0-9]{4}-[0-9]{2}-[0-9]{2}</code> or ending <code>z</code>. Validate charset <code>[a-z0-9-]+</code>. Evidence: INDEX.md currently contains a pathological slug <code>waste-waiting-p08-narrative-stale-2026-04-19-20-01-38z</code>.</div>
+      <span class="card-wave">Wave 0 · ~30m</span>
+    </div>
+
+    <div class="component-card shipped">
+      <div class="card-tag tag-fix">fix · day 0</div>
+      <div class="card-name">installer smoke-test</div>
+      <div class="card-desc">After install, run <code>echo body | sgsd-curate --type pattern --slug smoke --summary "installer smoke"</code> and verify the INDEX row appears. Fails installer on any curate mismatch.</div>
+      <span class="card-wave">Wave 0 · ~30m</span>
+    </div>
+
+    <div class="component-card shipped">
+      <div class="card-tag tag-registry">rspl · day 1</div>
+      <div class="card-name">resource-registry/agents.jsonl</div>
+      <div class="card-desc">One record per <code>super-gsd/agents/*.md</code>: <code>{id, path, sha, mtime, model, type, status}</code>. MUDA classifier reads this pre-dispatch. Scoped to Agents only — Prompts (DLB-03 structural injection) and Environments (no consumer) deliberately excluded.</div>
+      <span class="card-wave">Wave A · ~45m</span>
+    </div>
+
+    <div class="component-card shipped">
+      <div class="card-tag tag-registry">rspl · day 1</div>
+      <div class="card-name">sgsd-registry-sync.sh</div>
+      <div class="card-desc">Walks <code>super-gsd/agents/</code>. Computes <code>sha</code> via <code>git hash-object</code>. Writes records atomically (.tmp + rename). Wired into installer post-install hook.</div>
+      <span class="card-wave">Wave A · ~45m</span>
+    </div>
+
+    <div class="component-card shipped">
+      <div class="card-tag tag-sepl">sepl · day 2</div>
+      <div class="card-name">sgsd-sepl-propose.sh</div>
+      <div class="card-desc">Writes proposal to <code>.planning/proposals/{date}-{slug}.md</code>. Frontmatter: <code>resource_type · target_path · change_description · rationale</code>. Sub-agents emit SCRIPTS_CREATED pointing here, never auto-commit.</div>
+      <span class="card-wave">Wave B · ~1h</span>
+    </div>
+
+    <div class="component-card shipped">
+      <div class="card-tag tag-sepl">sepl · day 2</div>
+      <div class="card-name">sgsd-sepl-commit.sh</div>
+      <div class="card-desc">Reads a proposal. For CLAUDE.md rule additions: appends. For script tweaks: prints diff for operator. Commits atomically: <code>feat(sepl): {slug}</code>. No auto-commit on PASS — violates operator-decides-retirement invariant.</div>
+      <span class="card-wave">Wave B · ~1h</span>
+    </div>
+
+    <div class="component-card shipped">
+      <div class="card-tag tag-distill">distill · day 3</div>
+      <div class="card-name">sgsd-distill-milestone.sh</div>
+      <div class="card-desc">~80 lines (60 logic + 20 gates). Inputs: every <code>phases/{milestone}/*/SUMMARY.md</code> + <code>WASTE.md</code> + verifier reports. Flag: <code>--exclude-phase-type self-audit</code>. Two Haiku passes (extract + two-phase-citation gate). Wired to milestone-close, not phase-close.</div>
+      <span class="card-wave">Wave C · ~3h</span>
+    </div>
+
+    <div class="component-card shipped">
+      <div class="card-tag tag-distill">distill · day 3</div>
+      <div class="card-name">trajectory-hypothesis/ tier</div>
+      <div class="card-desc">New memory-tier subdirectory: <code>.brv/context-tree/trajectory-hypothesis/</code> + <code>candidate/</code> quarantine. Classifier NEVER reads hypothesis files. Promotion to <code>trajectory-lesson/</code> requires cross-milestone confirmation at v1.3.</div>
+      <span class="card-wave">Wave C · ~30m</span>
+    </div>
+
+    <div class="component-card shipped">
+      <div class="card-tag tag-metric">metric</div>
+      <div class="card-name">metrics/sepl-log.jsonl</div>
+      <div class="card-desc">One line per SEPL event: <code>{ts, event: proposal|commit, slug, resource_type, outcome}</code>. At v1.3 review: if zero proposals submitted during v1.2, retire <code>sgsd-sepl-propose.sh</code> (coarser-grain deliberate loop was sufficient).</div>
+      <span class="card-wave">Wave B</span>
+    </div>
+
+    <div class="component-card shipped">
+      <div class="card-tag tag-metric">metric</div>
+      <div class="card-name">metrics/distillation-novelty.jsonl</div>
+      <div class="card-desc">One line per hypothesis at milestone close: <code>{ts, milestone, hypothesis_id, novelty_rating, rater}</code>. Human rates 1-3 at v1.2 close. Median &lt; 2/3 across hypotheses = retire <code>sgsd-distill-milestone.sh</code>.</div>
+      <span class="card-wave">Wave C</span>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================ SECTION 4 ============================ -->
+<section id="registry">
+  <h2>4. Agents Resource Registry <span class="sbadge dlb">Q1 · 1c</span></h2>
+  <p class="section-subtitle">Manifest-only — no state machine, no lifecycle FSM. Just <code>{type, id, path, sha, mtime, model, type, status}</code> per record. The v1.2 consumer is the MUDA classifier's pre-dispatch query. If MUDA's read-path slips out of v1.2, the registry is deferred alongside it (strict coupling).</p>
+  <div class="mermaid">
+flowchart LR
+    subgraph walk["SOURCE"]
+        ag[super-gsd/agents/*.md]
+    end
+
+    subgraph sync["sgsd-registry-sync.sh"]
+        hash["git hash-object"]
+        atomic[".jsonl write<br/>.tmp + rename"]
+    end
+
+    subgraph out["OUTPUT"]
+        man[".planning/<br/>resource-registry/<br/>agents.jsonl"]
+    end
+
+    subgraph consumer["v1.2 CONSUMER"]
+        cls["sgsd-classifier (Haiku)<br/>pre-dispatch query"]
+    end
+
+    subgraph trigger["TRIGGERS"]
+        post["post-install hook"]
+        manual["manual ./sgsd-registry-sync"]
+        mtime["pre-commit (agent dir mtime)"]
+    end
+
+    ag --> hash --> atomic --> man
+    man --> cls
+    post --> sync
+    manual --> sync
+    mtime --> sync
+    man -.no classifier read in v1.2 = collapse to no-op.-> retire["DEFER manifest to v1.3"]
+  </div>
+
+  <div class="warn">
+    <strong>Coupling rule:</strong> Architect's R2 blind-spot concession — if the MUDA classifier read-path doesn't commit to v1.2, the manifest has no consumer and defaults to no-op. Do NOT build the registry as standalone infrastructure. Build it as MUDA's input feed or not at all.
+  </div>
+</section>
+
+<!-- ============================ SECTION 5 ============================ -->
+<section id="sepl">
+  <h2>5. SEPL Loop — Operator-Gated Resource Proposals <span class="sbadge dlb">Q2 · 2a</span></h2>
+  <p class="section-subtitle">Autogenesis's propose→assess→commit pattern, but at the resource grain (single file edits / rule additions) rather than the architecture grain (where <code>/sgsd-deliberate</code> already serves). Operator-gated — no automated commit. Log everything to <code>metrics/sepl-log.jsonl</code>.</p>
+  <div class="mermaid">
+flowchart LR
+    subgraph detect["1. DETECT (sub-agent)"]
+        exec["gsd-executor or review agent<br/>notices a small fix worth making"]
+    end
+
+    subgraph propose["2. PROPOSE"]
+        propSh["sgsd-sepl-propose.sh"]
+        propFile[".planning/proposals/<br/>{date}-{slug}.md"]
+    end
+
+    subgraph assess["3. ASSESS (human)"]
+        op["Operator reads proposal<br/>+ rationale"]
+    end
+
+    subgraph commit["4. COMMIT"]
+        commitSh["sgsd-sepl-commit.sh"]
+        apply["Apply change<br/>(append CLAUDE.md / diff preview)"]
+        git["git commit -m<br/>'feat(sepl): {slug}'"]
+    end
+
+    subgraph log["5. LOG"]
+        splog["metrics/sepl-log.jsonl<br/>event · slug · outcome"]
+    end
+
+    subgraph coarse["EXISTING · coarse grain"]
+        delib["/sgsd-deliberate<br/>→ DLB-NN-*.md"]
+    end
+
+    exec --> propSh --> propFile --> op --> commitSh --> apply --> git --> splog
+    delib -.architecture-grain loop unchanged.-> splog
+    splog -.0 proposals × v1.2 = retire.-> retire["RETIRE sgsd-sepl-propose"]
+  </div>
+
+  <div class="note">
+    <strong>Why not auto-commit (Q2 rejected options b/c):</strong> Moonshot's R2 concession — auto-committing a CLAUDE.md rule addition implicitly <em>retires</em> the prior rule state. The "operator decides kill conditions" invariant says automated proposals OK, automated retirements NOT. Any assess→commit that changes live behaviour without human approval violates the invariant. Operator-gated is the only defensible stance.
+  </div>
+</section>
+
+<!-- ============================ SECTION 6 ============================ -->
+<section id="distill">
+  <h2>6. Trajectory Distillation (Wave C) <span class="sbadge dlb">Q3 · 3b-trajectory</span></h2>
+  <p class="section-subtitle">EvolveR-style: abstract reusable principles extracted from phase trajectories, not from waste-finding frequency. Fires at milestone close. Output routes through the triple hallucination gate (section 7) before anything becomes classifier-visible.</p>
+  <div class="mermaid">
+flowchart TB
+    subgraph corpus["CORPUS · every closed milestone"]
+        summ["phases/{N}/SUMMARY.md × 8"]
+        waste["phases/{N}/WASTE.md × 8"]
+        verif["phases/{N}/VERIFICATION.md × 8"]
+        note["--exclude-phase-type self-audit<br/>(drops Phase 8 from v1.1 pass)"]
+    end
+
+    subgraph extract["STEP 1 · EXTRACT (Haiku)"]
+        h1["Haiku reads corpus<br/>extracts candidate abstract principles"]
+    end
+
+    subgraph validate["STEP 2 · VALIDATE (Haiku)"]
+        h2["Second Haiku pass<br/>each candidate must cite ≥2 distinct phases<br/>by commit SHA or plan ID"]
+    end
+
+    subgraph route["STEP 3 · ROUTE"]
+        passed[".brv/context-tree/<br/>trajectory-hypothesis/{ms}-{slug}.md<br/>type=trajectory-hypothesis<br/>confirmed_milestones: [v1.1]"]
+        quarant[".brv/context-tree/<br/>trajectory-hypothesis/candidate/<br/>(1-phase singletons)"]
+    end
+
+    subgraph rate["STEP 4 · NOVELTY RATE (human, v1.2 close)"]
+        novl["metrics/distillation-novelty.jsonl<br/>1-3 scale per hypothesis"]
+    end
+
+    subgraph verdict["STEP 5 · VERDICT"]
+        retire["median < 2/3<br/>→ RETIRE sgsd-distill-milestone"]
+        carry["median ≥ 2/3<br/>→ carry to v1.3"]
+    end
+
+    subgraph promote["STEP 6 · v1.3 CROSS-MILESTONE"]
+        diff["Compare v1.2 hypotheses vs v1.1 hypotheses"]
+        lesson[".brv/context-tree/<br/>trajectory-lesson/<br/>(classifier-readable)"]
+    end
+
+    summ & waste & verif --> note --> h1 --> h2
+    h2 -->|≥2 phases| passed
+    h2 -->|1 phase| quarant
+    passed --> novl
+    novl --> retire & carry
+    carry --> diff
+    diff -->|appears in both| lesson
+    diff -->|v1.2 only| remain["stays in hypothesis/"]
+    lesson -.ONLY this tier.-> cls["classifier pre-dispatch query<br/>(DLB-02 read path, now eligible)"]
+  </div>
+
+  <div class="danger">
+    <strong>Classifier firewall:</strong> The classifier reads <code>trajectory-lesson/</code> only. It never reads <code>trajectory-hypothesis/</code> or <code>candidate/</code>. This is the structural safeguard — hypothesis tier can accumulate noise without polluting dispatch decisions. Promotion gate is cross-milestone recurrence, satisfying DLB-02's "≥2 milestones of real data" evidence gate.
+  </div>
+</section>
+
+<!-- ============================ SECTION 7 ============================ -->
+<section id="triple">
+  <h2>7. Triple Hallucination Gate — Three Independent Safeguards</h2>
+  <p class="section-subtitle">Each gate was proposed by a different board member in Round 2 and survived critique from the others. Each targets a distinct failure mode. Stacked together, cost is 1 extra Haiku call + 1 human rating per milestone close. Stacking was the CEO synthesis.</p>
+
+  <div class="triple">
+    <div class="gate-card g1">
+      <div class="author">Architect · Gate 1</div>
+      <div class="gate-name">Typed Hypothesis Tier</div>
+      <div class="gate-where">type=trajectory-hypothesis</div>
+      <div class="gate-how">All distilled output writes to <code>trajectory-hypothesis/</code>, never <code>trajectory-lesson/</code>, until v1.3 cross-milestone confirmation. Classifier read-path is firewall-blocked from the hypothesis tier.</div>
+      <div class="gate-target"><strong>Targets:</strong> premature surfacing of uncalibrated patterns into dispatch decisions.</div>
+    </div>
+
+    <div class="gate-card g2">
+      <div class="author">Moonshot · Gate 2</div>
+      <div class="gate-name">Two-Phase Citation Gate</div>
+      <div class="gate-where">second Haiku pass · sgsd-distill-milestone.sh</div>
+      <div class="gate-how">Each candidate pattern must cite ≥2 distinct phase references (commit SHA or plan ID). Singletons route to <code>candidate/</code> subdirectory. Cost: ~400 tokens per run (one extra Haiku call).</div>
+      <div class="gate-target"><strong>Targets:</strong> single-phase coincidences hallucinated as cross-cutting patterns.</div>
+    </div>
+
+    <div class="gate-card g3">
+      <div class="author">Contrarian · Gate 3</div>
+      <div class="gate-name">Novelty-Rating Kill Switch</div>
+      <div class="gate-where">metrics/distillation-novelty.jsonl · v1.2 close</div>
+      <div class="gate-how">Operator rates every surviving hypothesis on a 3-point novelty scale before commit. Median &lt; 2/3 across hypotheses at v1.2 close = delete <code>sgsd-distill-milestone.sh</code>. No iteration, no face-saving — real kill.</div>
+      <div class="gate-target"><strong>Targets:</strong> the mechanism itself. If distillation produces nothing a human reader wouldn't already know, the script is negative value.</div>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>Why three and not one:</strong> each gate addresses a different failure mode. Gate 1 protects <em>downstream dispatch</em> from bad surfacing. Gate 2 protects <em>hypothesis quality</em> from single-phase coincidences. Gate 3 protects <em>the mechanism itself</em> from producing obvious-lessons-dressed-as-insights. Removing any one leaves a live failure path.
+  </div>
+</section>
+
+<!-- ============================ SECTION 8 ============================ -->
+<section id="waves">
+  <h2>8. Day 0 → Day 3 Wave Timeline</h2>
+  <p class="section-subtitle">Linear build order. Day 0 is non-negotiable. Each wave emits a single atomic commit per script. Approximate total: ~8h of focused build.</p>
+  <div class="wave-track">
+
+    <div class="wave-item w0">
+      <span class="wave-tag">WAVE 0 · ~1h</span>
+      <span class="wave-title">Day 0 blocker — FINDING-18 slug discipline</span>
+      <div class="wave-detail">
+        <code>super-gsd/scripts/sgsd-curate.sh</code>: reject slugs matching <code>[0-9]{4}-[0-9]{2}-[0-9]{2}</code> or ending <code>z</code>. Add installer smoke-test: <code>echo body | sgsd-curate --type pattern --slug smoke --summary "installer smoke"</code> then <code>grep smoke .brv/context-tree/INDEX.md</code>. If this fails, everything downstream is building on an unconfirmed foundation.
+      </div>
+    </div>
+
+    <div class="wave-item w1">
+      <span class="wave-tag">WAVE A · ~1.5h</span>
+      <span class="wave-title">Agents resource registry (scoped)</span>
+      <div class="wave-detail">
+        <code>.planning/resource-registry/agents.jsonl</code> + <code>sgsd-registry-sync.sh</code> + post-install hook. STRICT PRECONDITION: MUDA classifier's read-path must be scheduled for v1.2 — if not, skip Wave A entirely. No write-only manifests.
+      </div>
+    </div>
+
+    <div class="wave-item w2">
+      <span class="wave-tag">WAVE B · ~2h</span>
+      <span class="wave-title">Operator-gated SEPL loop</span>
+      <div class="wave-detail">
+        <code>sgsd-sepl-propose.sh</code> + <code>sgsd-sepl-commit.sh</code> + <code>metrics/sepl-log.jsonl</code>. Document in <code>sgsd-orchestrate/SKILL.md</code>: sub-agents emit proposal paths via SCRIPTS_CREATED, never auto-commit resource changes. Operator triage queue.
+      </div>
+    </div>
+
+    <div class="wave-item w3">
+      <span class="wave-tag">WAVE C · ~3.5h</span>
+      <span class="wave-title">Trajectory distillation + triple gate</span>
+      <div class="wave-detail">
+        <code>sgsd-distill-milestone.sh</code> (~80 lines with gates; Moonshot's 60-line estimate was pre-gates) + <code>trajectory-hypothesis/</code> tier + <code>candidate/</code> quarantine + <code>metrics/distillation-novelty.jsonl</code>. Wire into milestone-close hook (Rule 7 path extension), not phase-close. First run at v1.2 close with <code>--exclude-phase-type self-audit</code>.
+      </div>
+    </div>
+
+    <div class="wave-item wk">
+      <span class="wave-tag">v1.3 CLOSE</span>
+      <span class="wave-title">Promotion + kill review</span>
+      <div class="wave-detail">
+        Compare v1.2 hypotheses vs v1.1 hypotheses. Cross-milestone survivors promote to <code>trajectory-lesson/</code> and become classifier-readable (satisfies DLB-02's ≥2-milestone evidence gate). Run kill reviews: zero proposals in <code>sepl-log.jsonl</code> → retire SEPL script; median novelty &lt; 2/3 → retire distillation script; zero promotions → retire distillation script.
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================ SECTION 9 · LIVE RESULTS ============================ -->
+<section id="live">
+  <h2>9. Live v1.1 Distillation Results <span class="sbadge" style="background:rgba(63,185,80,.15);color:var(--green)">SHIPPED</span></h2>
+  <p class="section-subtitle">First live pass of the trajectory-distillation pipeline against v1.1 phases 01-07 (self-audit excluded). 54KB corpus → Haiku extraction → 10 candidates → triple gate → 7 hypotheses + 3 quarantined singletons. Gate 3 (operator novelty rating) remains pending.</p>
+
+  <div class="mermaid">
+flowchart LR
+    corpus["v1.1 CORPUS<br/>1247 lines / 54 KB<br/>phases 01-07<br/>(phase 08 self-audit excluded)"]
+    haiku["HAIKU EXTRACTION<br/>10 candidate principles"]
+    g1["Gate 1 · Architect<br/>type=trajectory-hypothesis"]
+    g2["Gate 2 · Moonshot<br/>≥2 phase cites?"]
+    hyp["trajectory-hypothesis/<br/><b>7 hypotheses</b>"]
+    cand["candidate/<br/><b>3 quarantined</b>"]
+    g3["Gate 3 · Contrarian<br/>operator novelty rating<br/>PENDING"]
+
+    corpus --> haiku --> g1 --> g2
+    g2 -->|pass| hyp
+    g2 -->|fail| cand
+    hyp --> g3
+  </div>
+
+  <h3>Passed Gate 2 — 7 hypotheses (≥2 phase citations)</h3>
+  <table>
+    <thead><tr><th>Slug</th><th>Principle</th><th>Phases cited</th></tr></thead>
+    <tbody>
+      <tr><td><code>atomic-commit-per-plan</code></td><td>Bundle all changes for a single plan into one git commit with discipline rules.</td><td>03, 07</td></tr>
+      <tr><td><code>atomic-writes-tmp-rename</code></td><td>Atomic file writes use .tmp + renameSync on same volume for OS-level atomicity.</td><td>01, 02</td></tr>
+      <tr><td><code>complexity-floor-escalation</code></td><td>Complexity floor triggers automatic escalation regardless of fast-path classification.</td><td>04, 05</td></tr>
+      <tr><td><code>idempotent-merge-dedup</code></td><td>Merge configurations idempotently by matching on command string or exact value equality.</td><td>01, 03</td></tr>
+      <tr><td><code>ipc-guard-structured-data</code></td><td>Protect structured-data reads using the @file: IPC guard pattern.</td><td>01, 03, 07</td></tr>
+      <tr><td><code>manual-serialization-no-deps</code></td><td>Serialize manually with fs+path builtins — no external JSON/YAML libraries.</td><td>02, 07</td></tr>
+      <tr><td><code>path-normalization-first-site</code></td><td>Normalize paths with toUnixPath at the first construction site, not at callsites.</td><td>01, 02</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Quarantined — 3 singletons (1-phase citation only)</h3>
+  <table>
+    <thead><tr><th>Slug</th><th>Principle</th><th>Phase</th></tr></thead>
+    <tbody>
+      <tr><td><code>context-cap-session-accumulator</code></td><td>Track cumulative reports per session; compress at threshold, preserve last N in context.</td><td>03</td></tr>
+      <tr><td><code>domain-validation-regex</code></td><td>Validate user-supplied domain strings with strict regex before path construction.</td><td>02</td></tr>
+      <tr><td><code>no-movement-loop-breaker</code></td><td>Detect when all positions unchanged between rounds; exit deliberation loop immediately.</td><td>05</td></tr>
+    </tbody>
+  </table>
+
+  <div class="warn">
+    <strong>Gate 3 action required:</strong> Operator rates each of the 7 hypotheses on the 1-3 novelty scale. Because Git Bash under PowerShell cannot reach <code>/dev/tty</code>, pipe ratings instead:
+    <pre style="background:var(--bg); padding:10px; border-radius:4px; font-family:var(--mono); font-size:12px; margin-top:8px; overflow-x:auto;">printf '3\n2\n3\n3\n3\n2\n3\n' | bash super-gsd/scripts/sgsd-distill-milestone.sh v1.1 --rate</pre>
+    Median &lt; 2.0 retires the script (Contrarian's kill condition). Median ≥ 2.0 carries the hypotheses to v1.3 for cross-milestone promotion into <code>trajectory-lesson/</code>.
+  </div>
+
+  <div class="note">
+    <strong>Artifacts produced by this pass:</strong>
+    <ul style="margin:6px 0; padding-left:20px; font-size:13px;">
+      <li><code>.planning/milestones/v1.1/DISTILL-PROMPT.txt</code> — full Haiku input prompt + corpus</li>
+      <li><code>.planning/milestones/v1.1/DISTILL-OUTPUT.json</code> — Haiku's 10 candidate principles</li>
+      <li><code>.planning/milestones/v1.1/DISTILL-REQUEST.md</code> — audit record (phases included, exclude flag, timestamp)</li>
+      <li><code>.brv/context-tree/trajectory-hypothesis/v1.1-*.md</code> — 7 hypothesis files (classifier-firewalled)</li>
+      <li><code>.brv/context-tree/trajectory-hypothesis/candidate/v1.1-*.md</code> — 3 quarantined singletons</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================ SECTION 10 ============================ -->
+<section id="deferred">
+  <h2>10. Explicitly Deferred</h2>
+  <p class="section-subtitle">What we are NOT building — and the concrete trigger that would re-open the decision. Every item logged so this remains evidence-gated rather than forgotten.</p>
+  <div class="deferred">
+    <div class="def-card">
+      <strong>Prompts as typed resources.</strong> DLB-03's structural-injection principle keeps prompt content in the context window, not a registry. Splitting prompts out of SKILL.md would fight DLB-03.
+      <span class="trigger">Re-open if: prompt-template drift across SKILL.md files causes measurable dispatch divergence.</span>
+    </div>
+    <div class="def-card">
+      <strong>Environments as typed resources.</strong> No v1.2 consumer. Working directory, .mcp.json, permissions, running processes — not currently failure modes.
+      <span class="trigger">Re-open if: MCP state drift or permission drift causes a measurable dispatch failure.</span>
+    </div>
+    <div class="def-card">
+      <strong>Auto-commit SEPL (Q2 options b/c).</strong> Violates "operator decides kill conditions" invariant. Operator queue must prove overwhelmed first.
+      <span class="trigger">Re-open if: operator-gated queue proves bottlenecked across 2+ milestones.</span>
+    </div>
+    <div class="def-card">
+      <strong>Full AGP spec conformance (Q4 option a).</strong> Autogenesis is 3 days old. Spec may churn. Vocabulary borrowed, schema not.
+      <span class="trigger">Re-open if: Autogenesis stabilises (6+ months post-pub, no breaking revisions) AND a real interop case emerges.</span>
+    </div>
+    <div class="def-card">
+      <strong>Typed rollback primitive.</strong> Pragmatist R2 verdict: <code>git revert</code> covers 95% of SGSD rollback cases. "Typed rollback" is marketing.
+      <span class="trigger">Re-open if: someone names a concrete failure <code>git revert</code> cannot handle.</span>
+    </div>
+    <div class="def-card">
+      <strong>Classifier consult of trajectory-lessons (Wave D).</strong> Evidence-gated by DLB-02 and this DLB: ≥2 milestones of trajectory data + cross-milestone recurrence before read-path wires.
+      <span class="trigger">Re-open at: v1.3 milestone close IF trajectory-hypothesis promotion produces any classifier-readable lessons.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ SECTION 10 ============================ -->
+<section id="kills">
+  <h2>11. Kill Conditions Across the Stack</h2>
+  <p class="section-subtitle">Every write path and every script ships with a measurable kill. Operator flags the trigger; operator decides retirement (the invariant). DLB-04 adds three more to the existing DLB-02/03 set.</p>
+  <table>
+    <thead>
+      <tr><th>Component</th><th>Origin</th><th>Kill trigger</th><th>Verdict at</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>sgsd-muda-audit</code></td><td>DLB-02</td><td>No waste class recurs across 2 milestones</td><td>end of 2nd milestone</td></tr>
+      <tr><td><code>outcome_delivered</code> injection</td><td>DLB-03</td><td>&lt; 50% coverage in SUMMARY/VERIFICATION/AUDIT</td><td>end of 1st milestone</td></tr>
+      <tr><td><code>agents.jsonl</code> manifest</td><td>DLB-04 · Q1</td><td>No classifier consumer shipped in v1.2</td><td>v1.2 close</td></tr>
+      <tr><td><code>sgsd-sepl-propose.sh</code></td><td>DLB-04 · Q2</td><td>Zero proposals submitted in v1.2</td><td>v1.2 close</td></tr>
+      <tr><td><code>sgsd-distill-milestone.sh</code> (novelty)</td><td>DLB-04 · Q3 · Contrarian gate</td><td>Median novelty rating &lt; 2/3 across hypotheses</td><td>v1.2 close</td></tr>
+      <tr><td><code>sgsd-distill-milestone.sh</code> (promotion)</td><td>DLB-04 · Q3</td><td>Zero v1.2 hypotheses promote at v1.3 close</td><td>v1.3 close</td></tr>
+      <tr><td>AGP vocabulary adoption</td><td>DLB-04 · Q4</td><td>Spec-conformance creep in review PRs</td><td>annual v2.0 review</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================ SECTION 11 ============================ -->
+<section id="lineage">
+  <h2>12. DLB Lineage — Same Principle, Four Vocabularies</h2>
+  <p class="section-subtitle">The pattern across DLB-01→04: the board keeps converging on the same architectural principle — <em>structure over ceremony, evidence before machinery, kill conditions that actually kill</em> — under different vocabularies. DLB-04 borrows AGP terminology because it's useful shorthand for principles the project already held.</p>
+  <div class="lineage">
+    <div class="dlb-card">
+      <div class="dlb-id">DLB-01 · 2026-04-19</div>
+      <div class="dlb-title">Memory Topology</div>
+      <div class="dlb-principle">Filesystem over MCP. Structure over infrastructure. 40-file tripwire for BM25.</div>
+    </div>
+    <div class="dlb-card">
+      <div class="dlb-id">DLB-02 · 2026-04-19</div>
+      <div class="dlb-title">MUDA Learning Loop</div>
+      <div class="dlb-principle">Write-path first. No seed library. Evidence before machinery. Kill if no recurrence in 2 milestones.</div>
+    </div>
+    <div class="dlb-card">
+      <div class="dlb-id">DLB-03 · 2026-04-19</div>
+      <div class="dlb-title">Intent Continuity</div>
+      <div class="dlb-principle">Structural injection, not presence checks. Context window enforces, not regex. Content-quality kill.</div>
+    </div>
+    <div class="dlb-card">
+      <div class="dlb-id">DLB-04 · 2026-04-19</div>
+      <div class="dlb-title">Self-Evolving Resource Substrate</div>
+      <div class="dlb-principle">Manifest only with named consumer. Trajectory-hypothesis not lesson. Triple hallucination gate. Operator-gated SEPL.</div>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>Cross-DLB coherence check:</strong> DLB-04 is consistent with all three predecessors. DLB-01 (git-native, no external infra) ✓ — local filesystem + git only. DLB-02 (operator-gated, evidence-first, real kills) ✓ — all three new components carry kill conditions, none auto-commit. DLB-03 (structural over theatrical) ✓ — hypothesis/lesson tier separation is structural, classifier firewall is mechanical not regex.
+  </div>
+</section>
+
+<!-- ============================ SECTION 13 · CHANGELOG ============================ -->
+<section id="changelog">
+  <h2>13. Changelog</h2>
+  <p class="section-subtitle">Commits landed against the DLB-04 pre-build waves plus in-flight fixes. Every entry is atomic — one unit per commit.</p>
+  <table>
+    <thead><tr><th>SHA</th><th>Wave</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr><td><code>66113c1</code></td><td>Day 0</td><td>slug-discipline guard in <code>sgsd-curate.sh</code> (rejects ISO dates, Z-timestamp tails, non-kebab chars, &gt;60 chars)</td></tr>
+      <tr><td><code>564c1d2</code></td><td>Day 0</td><td>drop timestamp from <code>sgsd-muda-audit</code> slug generation + rename pathological INDEX entry</td></tr>
+      <tr><td><code>d0c159b</code></td><td>Day 0</td><td>installer curate-pipe smoke-test — fail-fast if write-pipe broken</td></tr>
+      <tr><td><code>dd4ebd6</code></td><td>Wave A</td><td>Agents resource manifest + <code>sgsd-registry-sync.sh</code>; wired into <code>--init-project</code></td></tr>
+      <tr><td><code>f84c14b</code></td><td>Wave B</td><td>operator-gated SEPL loop (<code>sgsd-sepl-propose.sh</code> + <code>sgsd-sepl-commit.sh</code>)</td></tr>
+      <tr><td><code>ba0f975</code></td><td>Wave C</td><td>trajectory distillation with triple gate (<code>sgsd-distill-milestone.sh</code>)</td></tr>
+      <tr><td><code>32b3bfa</code></td><td>Live</td><td>first live v1.1 distillation pass — 7 hypotheses + 3 candidates routed through the triple gate</td></tr>
+      <tr><td><code>45259a5</code></td><td>Fix</td><td><code>--rate</code> PowerShell compatibility: drop <code>&lt;/dev/tty</code>, fix awk median bug, pipeable ratings input; reset fake test ratings back to <code>unrated</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <strong>Observed issue (fixed):</strong> Git Bash under Windows PowerShell cannot resolve <code>/dev/tty</code>, so the initial <code>--rate</code> implementation silently skipped every hypothesis with <em>"invalid input: ''"</em>. Fix reads from stdin directly; works in interactive terminals and when piped. Median calculation also had an invalid <code>awk</code> clause removed.
+  </div>
+</section>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      darkMode: true,
+      background: '#0a0d13',
+      primaryColor: '#1f2630',
+      primaryTextColor: '#c9d1d9',
+      primaryBorderColor: '#30363d',
+      lineColor: '#8b949e',
+      secondaryColor: '#2a1f3d',
+      tertiaryColor: '#161b22',
+      edgeLabelBackground: '#0a0d13'
+    },
+    flowchart: { htmlLabels: true, curve: 'basis' },
+    sequence: { actorMargin: 70, boxMargin: 10 }
+  });
+</script>
+</body>
+</html>
