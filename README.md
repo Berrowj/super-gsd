@@ -243,8 +243,83 @@ super-gsd/
 ## Docs
 
 - **[USER-GUIDE.html](super-gsd/USER-GUIDE.html)** — Complete guide from download to deploy. Open in your browser.
-- **[SUPER-GSD-ARCHITECTURE.md](SUPER-GSD-ARCHITECTURE.md)** — Full technical architecture blueprint
+- **[ARCHITECTURE.html](super-gsd/docs/ARCHITECTURE.html)** — Full technical architecture blueprint (v1.1 + DLB-04 layer). Interactive Mermaid diagrams.
+- **[ARCHITECTURE-v1.2.html](super-gsd/docs/ARCHITECTURE-v1.2.html)** — Deep dive on DLB-04 (resource substrate, SEPL, trajectory distillation with triple hallucination gate) + live v1.1 distillation results.
 - **[super-gsd/README.md](super-gsd/README.md)** — Technical reference with file manifest
+
+---
+
+## DLB-04 — Self-Evolving Resource Substrate (v1.2)
+
+After the `v1.1` close, the CEO/Board ran a 2-round deliberation on adopting the RSPL/SEPL patterns from *Autogenesis* (arXiv 2604.15034) and the trajectory-distillation pattern from *EvolveR* (arXiv 2510.16079). Decision: **3-1 ADOPT (narrow synthesis)**.
+
+### What got added
+
+| Wave | Component | Purpose |
+|------|-----------|---------|
+| **Day 0** | `sgsd-curate.sh` slug guard + installer smoke-test | Fixes FINDING-18 — no curation loop ships on a broken write-pipe. |
+| **Wave A** | `sgsd-registry-sync.sh` + `agents.jsonl` | Scoped Agents resource manifest — one JSONL record per agent with sha/model/tools. |
+| **Wave B** | `sgsd-sepl-propose.sh` + `sgsd-sepl-commit.sh` | Operator-gated propose→commit loop at resource grain. Never auto-commits. |
+| **Wave C** | `sgsd-distill-milestone.sh` | Milestone-close Haiku extraction over phase trajectories (SUMMARY + VERIFICATION + WASTE). |
+
+### Triple hallucination gate (stacked)
+
+Three independent safeguards on the distillation pipeline — each proposed by a different board member, each targeting a different failure mode:
+
+| # | Gate | Author | Target failure |
+|---|------|--------|----------------|
+| 1 | `type=trajectory-hypothesis` + classifier firewall | Architect | Premature surfacing of uncalibrated patterns into dispatch decisions |
+| 2 | Two-phase-citation Haiku validation | Moonshot | Single-phase coincidences hallucinated as cross-cutting patterns |
+| 3 | Operator novelty rating 1-3; median < 2/3 retires | Contrarian | The mechanism itself — obvious-lessons dressed as insights |
+
+### Usage
+
+```bash
+# Rebuild the Agents registry from super-gsd/agents/
+bash super-gsd/scripts/sgsd-registry-sync.sh
+
+# Propose a resource-grain improvement (sub-agents emit these)
+echo "append text" | bash super-gsd/scripts/sgsd-sepl-propose.sh \
+  --type rule --target CLAUDE.md \
+  --description "..." --rationale "..."
+
+# Operator reviews + applies or rejects
+bash super-gsd/scripts/sgsd-sepl-commit.sh .planning/proposals/<file>.md --apply
+
+# At milestone close: distil trajectories → hypothesis tier (classifier-firewalled)
+bash super-gsd/scripts/sgsd-distill-milestone.sh v1.1 --exclude-phase-type self-audit > prompt.txt
+# orchestrator dispatches Haiku with prompt.txt → hypotheses.json
+cat hypotheses.json | bash super-gsd/scripts/sgsd-distill-milestone.sh v1.1 --ingest
+
+# Operator rates each hypothesis (Gate 3)
+# On PowerShell, pipe the ratings since /dev/tty can't be reached:
+printf '3\n2\n3\n3\n3\n2\n3\n' | bash super-gsd/scripts/sgsd-distill-milestone.sh v1.1 --rate
+```
+
+### Live v1.1 results
+
+First production pass distilled phases 01-07 (self-audit excluded): **7 hypotheses** passed Gate 2 (≥2 phase citations) → `.brv/context-tree/trajectory-hypothesis/`; **3 singletons** quarantined → `candidate/`. Gate 3 rating pending operator input.
+
+Full rationale + four DLB memos in [`.planning/decisions/`](.planning/decisions/).
+
+---
+
+## Starting the Cockpit
+
+```powershell
+# One-command boot — preflights + launches all 3 dashboards
+bash super-gsd/scripts/sgsd-boot.sh
+# or (Windows Terminal native):
+powershell -File super-gsd/scripts/sgsd-boot.ps1
+```
+
+`sgsd-boot` runs a curate-pipe smoke test, refreshes the agents manifest, and opens the three live dashboards:
+
+- **SGSD1** Mission Control — milestone progress, session cost, agent roster, DLB-04 one-liner
+- **SGSD2** Narrative — Haiku-generated paragraph of what Claude is currently doing + live Ctrl+O tool stream
+- **SGSD3** Gate Verdict — ATC + Browser + Nyquist + Security gates per phase + full DLB-04 substrate panel
+
+Each dashboard auto-refreshes via FileSystemWatcher on the files it reads — no polling flicker.
 
 ---
 
