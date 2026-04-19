@@ -26,6 +26,9 @@ $ErrorActionPreference = "SilentlyContinue"
 # Shared render cache: redraw throttle + active Claude session cache.
 . (Join-Path $PSScriptRoot "lib\sgsd-render-cache.ps1")
 
+# DLB-04 substrate status helper (registry + SEPL + distillation + gate 3).
+. (Join-Path $PSScriptRoot "lib\sgsd-substrate-status.ps1")
+
 try {
     $ProjectDir = (Resolve-Path $ProjectDir -ErrorAction Stop).Path
 } catch {
@@ -256,6 +259,25 @@ function Render-Header {
     Write-Host " ~ " -NoNewline -ForegroundColor Yellow
     Write-Host "Narrative + Ctrl+O" -NoNewline -ForegroundColor White
     Write-Host "  $ts" -NoNewline -ForegroundColor DarkGray
+    Write-Host $CLEAR_LINE
+
+    # ── DLB-04 Substrate one-liner ────────────────────────────────────────────
+    # Subtle, sub-header — doesn't compete with the Haiku narrative below.
+    # Narrative pane is about what Claude is doing; this line is about what
+    # the substrate has accumulated (registry, SEPL queue, distillation).
+    $substrate = Get-SubstrateStatus -ProjectDir $ProjectDir
+    $substrateLine = Format-SubstrateStatusLine -Status $substrate
+    $substrateColor = if ($substrate.Gate3Verdict -eq "RETIRE") {
+        "Red"
+    } elseif ($substrate.NoveltyCount -gt 0) {
+        "Green"
+    } elseif ($substrate.HypothesesCount -gt 0) {
+        "Yellow"
+    } else {
+        "DarkGray"
+    }
+    Write-Host "  DLB-04 " -NoNewline -ForegroundColor DarkGray
+    Write-Host $substrateLine -NoNewline -ForegroundColor $substrateColor
     Write-Host $CLEAR_LINE
 }
 

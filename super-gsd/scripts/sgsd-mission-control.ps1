@@ -28,6 +28,9 @@ $ErrorActionPreference = "SilentlyContinue"
 # single-pass parser, active Claude session cache.
 . (Join-Path $PSScriptRoot "lib\sgsd-render-cache.ps1")
 
+# DLB-04 substrate status helper (registry + SEPL + distillation + gate 3).
+. (Join-Path $PSScriptRoot "lib\sgsd-substrate-status.ps1")
+
 try {
     $ProjectDir = (Resolve-Path $ProjectDir -ErrorAction Stop).Path
 } catch {
@@ -792,6 +795,23 @@ function Render {
     Write-Host " * " -NoNewline -ForegroundColor Yellow
     Write-Host "Mission Control" -NoNewline -ForegroundColor White
     Write-Host "  $ts" -NoNewline -ForegroundColor DarkGray
+    Write-Host $CLEAR_LINE
+
+    # ── DLB-04 Substrate ──────────────────────────────────────────────────────
+    # One-liner: [reg N agents] [sepl Xp/Yc/Zr] [distill Xh/Yq] [g3 median verdict]
+    $substrate = Get-SubstrateStatus -ProjectDir $ProjectDir
+    $substrateLine = Format-SubstrateStatusLine -Status $substrate
+    $substrateColor = if ($substrate.Gate3Verdict -eq "RETIRE") {
+        "Red"
+    } elseif ($substrate.NoveltyCount -gt 0) {
+        "Green"
+    } elseif ($substrate.HypothesesCount -gt 0) {
+        "Yellow"
+    } else {
+        "DarkGray"
+    }
+    Write-Host "DLB-04 " -NoNewline -ForegroundColor Magenta
+    Write-Host $substrateLine -NoNewline -ForegroundColor $substrateColor
     Write-Host $CLEAR_LINE
 
     # Heartbeat — silent-hang detector. RUNNING/SLOW/HUNG/EMPTY_RESULT/IDLE.

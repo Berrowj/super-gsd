@@ -30,6 +30,9 @@ $ErrorActionPreference = "SilentlyContinue"
 # single-pass parser.
 . (Join-Path $PSScriptRoot "lib\sgsd-render-cache.ps1")
 
+# DLB-04 substrate status helper (registry + SEPL + distillation + gate 3).
+. (Join-Path $PSScriptRoot "lib\sgsd-substrate-status.ps1")
+
 try {
     $ProjectDir = (Resolve-Path $ProjectDir -ErrorAction Stop).Path
 } catch {
@@ -694,6 +697,25 @@ function Render {
         if ($rc.lastDrift) {
             Write-Host "  [recent DRIFT]" -NoNewline -ForegroundColor Red
         }
+        Write-Host $CLEAR_LINE
+    }
+
+    # ── DLB-04 Substrate panel: registry + SEPL queue + triple gate ──
+    # This is the natural home for the DLB-04 status because gate-verdict IS
+    # the gate board. Gate 1/2 routing outcomes + Gate 3 verdict show here.
+    $substrate = Get-SubstrateStatus -ProjectDir $ProjectDir
+    $substratePanel = Format-SubstratePanel -Status $substrate -Width 66
+    $panelColor = if ($substrate.Gate3Verdict -eq "RETIRE") {
+        "Red"
+    } elseif ($substrate.NoveltyCount -gt 0) {
+        "Green"
+    } elseif ($substrate.HypothesesCount -gt 0) {
+        "Yellow"
+    } else {
+        "DarkGray"
+    }
+    foreach ($ln in $substratePanel) {
+        Write-Host $ln -ForegroundColor $panelColor -NoNewline
         Write-Host $CLEAR_LINE
     }
 
