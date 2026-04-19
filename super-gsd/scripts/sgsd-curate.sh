@@ -70,6 +70,30 @@ if [[ ${#SUMMARY} -gt 80 ]]; then
     exit 2
 fi
 
+# DLB-04 · FINDING-18 fix: slug discipline guard.
+# Pathological slug observed: waste-waiting-p08-narrative-stale-2026-04-19-20-01-38z
+# Reject ISO-date embeddings, ISO-Z timestamp tails, non-kebab chars, runaway length.
+if [[ ${#SLUG} -gt 60 ]]; then
+    echo "sgsd-curate: slug is ${#SLUG} chars (limit 60). Drop timestamps or redundant context." >&2
+    exit 2
+fi
+if [[ ! "$SLUG" =~ ^[a-z0-9-]+$ ]]; then
+    echo "sgsd-curate: slug must be kebab-case [a-z0-9-]+ — got '$SLUG'" >&2
+    exit 2
+fi
+if [[ "$SLUG" =~ [0-9]{4}-[0-9]{2}-[0-9]{2} ]]; then
+    echo "sgsd-curate: slug contains an ISO date (YYYY-MM-DD) — '$SLUG'. Slugs must be time-stable." >&2
+    exit 2
+fi
+if [[ "$SLUG" =~ [0-9]z$ ]]; then
+    echo "sgsd-curate: slug ends with an ISO-Z timestamp tail ('$SLUG'). Strip the timestamp." >&2
+    exit 2
+fi
+if [[ "$SLUG" =~ ^- || "$SLUG" =~ -$ || "$SLUG" =~ -- ]]; then
+    echo "sgsd-curate: slug must not start/end with '-' or contain '--' — got '$SLUG'" >&2
+    exit 2
+fi
+
 # Resolve root (same logic as sgsd-recall)
 if [[ -z "$ROOT" ]]; then
     d="$(pwd -P)"
