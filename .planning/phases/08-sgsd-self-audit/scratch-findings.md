@@ -224,3 +224,75 @@ Fix (one line): Copy brv-curate-local.js to `$HOOKS_DIR/` alongside brv-query-lo
 
 **STATUS (2026-04-19): SUPERSEDED by DLB-01 (`.planning/decisions/DLB-01-memory-topology.md`).**
 The stated fix would install the old `brv-query` / `brv-curate` interface that DLB-01 decided to replace. Instead shipped: `super-gsd/scripts/sgsd-recall.sh` + `sgsd-curate.sh` shell wrappers over `.brv/context-tree/` + `INDEX.md` catalogue. The broken pipe is resolved by replacement, not by repairing the deprecated interface. Legacy JS engines (`brv-query-local.js`, `brv-curate-local.js`) preserved in `super-gsd/overwatcher/` for future BM25 backing when the corpus earns it (DLB-01 tripwire: 40 files). Next action: rewire 8 `brv-query` / `brv-curate` call-sites in CLAUDE-OVERLAY.md + agent specs to the new wrappers (tracked separately).
+
+---
+
+# Scratch Findings — SGSD Self-Audit (Wave 4: Docs)
+
+Appended by Wave 4 executor. Covers super-gsd/README.md, USER-GUIDE.md, CLAUDE-OVERLAY.md, docs/SESSION-DEBRIEF.md.
+
+---
+
+## FINDING-19 — Manual-install glob `super-gsd/skills/gsd-*/` matches zero directories in both README.md and USER-GUIDE.md
+Area: docs
+Severity: critical
+File: super-gsd/README.md:45
+Evidence: "for d in super-gsd/skills/gsd-*/; do"
+File: super-gsd/USER-GUIDE.md:205
+Evidence: "for d in super-gsd/skills/gsd-*/; do"
+Analysis: Both the README Manual Install "Step 3" and the USER-GUIDE "# 3. Copy skills" block iterate `super-gsd/skills/gsd-*/` and copy each matched directory's SKILL.md to `~/.claude/commands/`. `ls super-gsd/skills/` returns only `sgsd-*` directories (sgsd-browser, sgsd-brv-setup, sgsd-deliberate, sgsd-orchestrate, sgsd-overwatcher, sgsd-pause, sgsd-readiness, sgsd-resume, sgsd-token-audit, sgsd-transition) — the `gsd-*` glob matches ZERO directories. A user following either manual-install path will copy zero skills, then restart Claude Code and find none of /sgsd-orchestrate, /sgsd-deliberate, /sgsd-pause, etc. exist. The same bug is present in TWO user-facing docs, suggesting the original author copied the wrong glob from an early naming scheme (when skills were `gsd-*`). The automated `install.sh` likely has the correct glob (separate to this audit), so only manual installers hit this.
+Fix (one line): Change both globs from `super-gsd/skills/gsd-*/` to `super-gsd/skills/sgsd-*/` in README.md:45 and USER-GUIDE.md:205.
+
+---
+
+## FINDING-20 — Inventory counts in docs drift from reality (7/8/5 claimed vs 10/10/8 actual)
+Area: docs
+Severity: high
+File: super-gsd/README.md:172
+Evidence: "├── agents/                            # 7 agent definitions"
+File: super-gsd/USER-GUIDE.md:135
+Evidence: "├── agents/          ← 7 AI agent definitions (the \"workers\")"
+File: super-gsd/USER-GUIDE.md:167
+Evidence: "3. Copy 7 agent definitions to `~/.claude/agents/` / 4. Copy 8 skill commands to `~/.claude/commands/` / 5. Copy 5 hooks to `~/.claude/hooks/`"
+Analysis: Actual on-disk counts: `ls super-gsd/agents/` → 10 (board-architect, board-contrarian, board-moonshot, board-pragmatist, ceo, classifier, context-selector, milestone-readiness, phase-readiness, workflow-auditor). `ls super-gsd/skills/` → 10 (adds sgsd-browser, sgsd-overwatcher, sgsd-readiness to the 7 historically listed). `ls super-gsd/hooks/` → 8 (gsd-checkpoint-writer, gsd-context-monitor, gsd-session-start, gsd-stuck-detector, gsd-token-logger, sgsd-activity-logger, sgsd-heartbeat, sgsd-statusline). README.md lines 172-213 further enumerate a stale 7-agent / 7-skill / 5-hook inventory (missing milestone-readiness, phase-readiness, workflow-auditor, sgsd-readiness, sgsd-browser, sgsd-overwatcher, sgsd-activity-logger, sgsd-heartbeat, sgsd-statusline). Users reading these docs to verify installation completeness will mark install "successful" when three critical readiness agents and two monitoring hooks are silently absent from their mental model.
+Fix (one line): Update README.md:172-213 and USER-GUIDE.md:135,167-169 inventory counts to 10 agents / 10 skills / 8 hooks and list the missing entries.
+
+---
+
+## FINDING-21 — USER-GUIDE.md:363-365 promotes three slash commands that are not installed (/gsd-discuss-phase, /gsd-plan-phase, /gsd-execute-phase)
+Area: docs
+Severity: high
+File: super-gsd/USER-GUIDE.md:363
+Evidence: "| `/gsd-discuss-phase N` | Talk through how Phase N should work before planning it |"
+File: super-gsd/USER-GUIDE.md:364
+Evidence: "| `/gsd-plan-phase N` | Create detailed task plans for Phase N |"
+File: super-gsd/USER-GUIDE.md:365
+Evidence: "| `/gsd-execute-phase N` | Execute all plans in Phase N |"
+File: super-gsd/CLAUDE-OVERLAY.md:170
+Evidence: "| 1 | Phase not discussed | Suggest /gsd-discuss-phase | — | — |"
+Analysis: `ls ~/.claude/commands/` returns only sgsd-* directories + VTPidea.md — none of gsd-discuss-phase, gsd-plan-phase, gsd-execute-phase exist. These are GSD 1.0-era command names that were never installed by the Super GSD base or the GSD 1.0 base on this machine (confirmed via directory listing). The USER-GUIDE "Project Setup" section (rows 361-365) presents them as standard commands and CLAUDE-OVERLAY.md Dispatch Rule 1 instructs the orchestrator to "Suggest /gsd-discuss-phase" when a phase is undiscussed. A user who types `/gsd-discuss-phase 1` hits an unknown-command error; the orchestrator following the dispatch table suggests a command that the user cannot run. Either the commands need to be installed (under a gsd-* or sgsd-* equivalent) or the docs need to drop the references.
+Fix (one line): Replace /gsd-discuss-phase / /gsd-plan-phase / /gsd-execute-phase references with the currently-installed equivalents (likely sgsd-orchestrate + phase templates) or install the three commands as skills.
+
+---
+
+## FINDING-22 — Shipped CLAUDE-OVERLAY.md dispatch table is missing readiness gates (rules 0, 0.5, 4.5, 4.6) present in project CLAUDE.md
+Area: docs
+Severity: high
+File: super-gsd/CLAUDE-OVERLAY.md:168
+Evidence: "### Dispatch Rules (first match wins)\n\n| # | Condition | Action | Agent | Model |\n|---|-----------|--------|-------|-------|\n| 1 | Phase not discussed | ..."
+Analysis: `super-gsd/CLAUDE-OVERLAY.md` is the file users install as their project CLAUDE.md (README.md:95: `cp super-gsd/CLAUDE-OVERLAY.md CLAUDE.md`). Its Dispatch Rules section (lines 168-178) lists rules 1-9 only. The project CLAUDE.md in this repo (which IS the source of truth for the mature framework) contains additional rules 0 (milestone readiness pre-flight), 0.5 (BLOCKED/PARTIAL handling), 4.5 (phase-readiness re-probe), and 4.6 (DRIFT checkpoint) — plus a full "Readiness Gates — unattended-run contract" subsection explaining the unattended-run contract. None of this is in the shipped overlay. Every new project that installs Super GSD via the documented path will receive a pre-readiness-era dispatch table and will never trigger the rule 0 milestone audit or the rule 4.5 phase drift check — exactly the gates that make unattended "go and walk away" runs safe. Worse, this is the very file users copy verbatim into their project CLAUDE.md, so the divergence silently propagates with every install.
+Fix (one line): Re-sync super-gsd/CLAUDE-OVERLAY.md dispatch table and Readiness Gates section with the current project CLAUDE.md, then add a version stamp header so future drift is detectable.
+
+---
+
+## FINDING-23 — SESSION-DEBRIEF.md is VTP-project-specific with no disclaimer; shipped under super-gsd/docs/ suggests general applicability (G12 confirmed)
+Area: docs
+Severity: medium
+File: super-gsd/docs/SESSION-DEBRIEF.md:2
+Evidence: "**Dates**: 2026-04-08 to 2026-04-09\n**Objective**: Process reference material for building multi-agent strategic decision capabilities into Claude Code / GSD 1.0, following the death of PI harness (OAuth disabled)"
+File: super-gsd/docs/SESSION-DEBRIEF.md:24
+Evidence: "| **VTP Pipeline** | Full benchmark processing |"
+File: super-gsd/docs/SESSION-DEBRIEF.md:222
+Evidence: "4. **Test on a real brief**: Pick a pending decision from VTP or JCL and run it through the board"
+Analysis: SESSION-DEBRIEF.md is a dated 2026-04-08/09 personal working log from the VTP project: it references VTP meeting IDs, VTP Pipeline processing counts, JCL, and project-specific HTML report paths (`Transcripts/pi-ceo-agents-framework-report.html`). It is placed in `super-gsd/docs/` — a location a user shipping Super GSD to their own project would reasonably assume contains generalized framework documentation. There is no `> Personal log` or `> VTP-specific` disclaimer at the top. A downstream consumer reading the file for framework history will conclude that VTP-specific KB items (meetings ingested, speaker signals, HTML reports) are part of the Super GSD deliverable. G12 listed this as an open concern in the Wave 4 scope; this finding confirms it.
+Fix (one line): Add a top-of-file disclaimer ("> Personal working log from VTP project — not part of the Super GSD framework; kept for historical context") or move the file to a private/personal location outside super-gsd/docs/.
