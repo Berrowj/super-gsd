@@ -498,6 +498,55 @@ REPEAT:
      If report is missing any section: log "MISSING: {section}", treat as empty.
      If report exceeds 300 words: log "REPORT_OVERLIMIT", process anyway.
 
+  9.5. PER-DISPATCH ATC (closes the mid-phase ATC gap)
+      Runs AFTER the executor report lands, BEFORE state update + commit.
+      Fires only when ALL of these are true:
+        * classifier.atc_tier (from Step 2) is in {full, gate}
+        * FILES_CHANGED is non-empty
+        * At least one file in FILES_CHANGED is CODE (not *.md, not .planning/,
+          not docs/). Docs-only dispatches skip ATC.
+        * config.atc.enabled == true
+
+      If tier == full:
+        Agent(subagent_type: "gsd-code-reviewer", model: "sonnet", mode: "auto",
+          prompt: {
+            scope: "single-dispatch",
+            phase: N, plan: P,
+            files: {files_from_report},
+            tier: "full",
+            checks: "Run ATC 7-step + 10-point anti-slop on the diff of this
+                     single dispatch's FILES_CHANGED. Focus: orphan functions,
+                     dead imports, unused args, YAGNI violations, ΔComplexity,
+                     'just in case' additions. Skip cross-plan architectural
+                     review — that's the phase-level ATC gate at Step 6.5.
+                     Max 250 word report."
+          })
+        → Returns: { findings, critical_count, warning_count, verdict }
+
+      If tier == gate:
+        In auto mode: run the FULL review above AND log GATE_AUTO_BYPASS;
+                      append "[GATE bypassed in auto mode]" to DEVIATIONS.
+        In interactive mode: STOP with blocker; user reviews + approves
+                             before the commit lands.
+
+      Skip entirely if tier ∈ {skip, lite} — LITE is already covered by the
+      anti-slop self-check every executor should apply to its own diff, and
+      SKIP by definition warrants no review.
+
+      Write verdict as a one-line JSONL append to
+        `.planning/phases/{NN}/commit-reviews.jsonl`:
+        {"ts":"{ISO}","plan":"{NN-PP}","tier":"full|gate","verdict":"pass|warn|fail","critical":N,"warning":N,"one_liner":"..."}
+
+      If critical > 0 AND interactive: STOP with blocker quoting the findings.
+      If critical > 0 AND auto: log GATE_AUTO_BYPASS, append to DEVIATIONS,
+      continue — per Golden Rule 13, auto mode never blocks on quality gates,
+      only logs and moves on. The phase-level ATC at Step 6.5 catches what
+      auto-bypass let through.
+
+      Token budget per dispatch: ~300 tokens (250 review + 50 JSONL append).
+      On a 10-dispatch phase with 3 FULL-tier dispatches → +900 tokens total.
+      SKIP/LITE dispatches pay zero.
+
   10. CURATE LEARNINGS
       If DEVIATIONS contains new patterns → sgsd-curate to patterns/
       If SCRIPTS_CREATED non-empty → sgsd-curate to scripts/{category}
