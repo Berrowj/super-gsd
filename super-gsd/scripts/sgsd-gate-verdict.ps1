@@ -21,10 +21,14 @@
 
 param(
     [string]$ProjectDir = ".",
-    [int]$Heartbeat = 10
+    [int]$Heartbeat = 30
 )
 
 $ErrorActionPreference = "SilentlyContinue"
+
+# Shared render cache: redraw throttle, HEAD-sha-keyed git cache, activity-log
+# single-pass parser.
+. (Join-Path $PSScriptRoot "lib\sgsd-render-cache.ps1")
 
 try {
     $ProjectDir = (Resolve-Path $ProjectDir -ErrorAction Stop).Path
@@ -73,6 +77,23 @@ function Write-Host {
         $text = $script:_AnsiColors[$ForegroundColor] + $text + $script:_AnsiReset
     }
     if ($NoNewline) { [Console]::Out.Write($text) } else { [Console]::Out.WriteLine($text) }
+}
+
+# Mtime-keyed tail cache. Most redraws don't touch the specific log we're
+# tailing — skip IO when file mtime+size match last cached read.
+$script:_TailCache = @{}
+function Get-CachedTail($path, $count) {
+    if (-not (Test-Path $path)) { return @() }
+    try {
+        $item = Get-Item $path -ErrorAction Stop
+        $key = "$path|$($item.LastWriteTimeUtc.Ticks)|$($item.Length)|$count"
+        if ($script:_TailCache.ContainsKey($key)) { return $script:_TailCache[$key] }
+        $lines = @(Get-Content $path -Tail $count -ErrorAction SilentlyContinue)
+        $stale = @($script:_TailCache.Keys | Where-Object { $_.StartsWith("$path|") -and $_ -ne $key })
+        foreach ($k in $stale) { $script:_TailCache.Remove($k) }
+        $script:_TailCache[$key] = $lines
+        return $lines
+    } catch { return @() }
 }
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -362,26 +383,29 @@ function Get-SurgicalScore($phaseDir, $phaseNum) {
     $out = @{ commits = 0; filesTouched = 0; filesInPlan = 0; orphanFiles = 0; deviations = 0 }
     if ($null -eq $phaseDir) { return $out }
 
-    # Count commits matching phase pattern
-    Push-Location $ProjectDir -ErrorAction SilentlyContinue
+    # Count commits + files touched in a SINGLE git invocation.
+    # Before: `git log --grep ... --format=%H` then one `git show --name-only`
+    # per commit — N+1 git spawns (20 commits = 21 processes per render).
+    # After: one `git log --grep ... --name-only --format=COMMIT:%H` that
+    # interleaves a COMMIT:<sha> marker line with each commit's filenames; we
+    # parse that stream in-process.
     try {
-        $commits = & git log --format="%H" --grep="($phaseNum-|phase$phaseNum\b|P$phaseNum\b|feat\($phaseNum\b)" -50 2>$null
-        if ($commits) {
-            $commitList = @($commits)
-            $out.commits = $commitList.Count
-            # Collect all files touched by these commits
-            $touched = @{}
-            foreach ($h in $commitList) {
-                $files = & git show --name-only --format="" $h 2>$null
-                foreach ($f in @($files)) {
-                    $f = "$f".Trim()
-                    if ($f) { $touched[$f] = $true }
-                }
+        $grep = "($phaseNum-|phase$phaseNum\b|P$phaseNum\b|feat\($phaseNum\b)"
+        $lines = Invoke-CachedGit $ProjectDir "surgical-$phaseNum" @(
+            "log", "--grep=$grep", "--format=COMMIT:%H", "--name-only", "-50"
+        )
+        $touched = @{}
+        foreach ($line in $lines) {
+            $line = "$line".Trim()
+            if (-not $line) { continue }
+            if ($line.StartsWith("COMMIT:")) {
+                $out.commits++
+                continue
             }
-            $out.filesTouched = $touched.Count
+            $touched[$line] = $true
         }
+        $out.filesTouched = $touched.Count
     } catch {}
-    Pop-Location -ErrorAction SilentlyContinue
 
     # Count files declared in plan <files> blocks
     try {
@@ -449,7 +473,9 @@ function Get-GoalDrivenScore($phaseDir, $phaseNum) {
     $log = Join-Path $PlanningDir "metrics\activity-log.jsonl"
     if (Test-Path $log) {
         try {
-            foreach ($line in Get-Content $log -ErrorAction SilentlyContinue) {
+            # Was scanning the entire activity log every redraw. Cap at 400
+            # lines — covers any realistic single-phase window.
+            foreach ($line in (Get-CachedTail $log 400)) {
                 try {
                     $e = $line | ConvertFrom-Json -ErrorAction Stop
                     if ("$($e.phase)" -ne "$phaseNum") { continue }
@@ -472,7 +498,9 @@ function Get-PhaseElapsed($phaseNum) {
     if (-not (Test-Path $log)) { return $null }
     try {
         $earliest = $null
-        $lines = Get-Content $log -ErrorAction SilentlyContinue
+        # Was a full-file scan. Cap at 400 — phase earliest ts lives here in
+        # practice; if it drops off the tail the phase is too old to matter.
+        $lines = Get-CachedTail $log 400
         foreach ($line in $lines) {
             try {
                 $e = $line | ConvertFrom-Json -ErrorAction Stop
@@ -503,7 +531,8 @@ function Get-PhaseTimeline($phaseNum) {
     $log = Join-Path $PlanningDir "metrics\activity-log.jsonl"
     if (Test-Path $log) {
         try {
-            $lines = Get-Content $log -Tail 400 -ErrorAction SilentlyContinue
+            # Shrunk 400 → 150. Timeline only shows last handful of events.
+            $lines = Get-CachedTail $log 150
             foreach ($line in $lines) {
                 try {
                     $e = $line | ConvertFrom-Json -ErrorAction Stop
@@ -531,10 +560,10 @@ function Get-PhaseTimeline($phaseNum) {
             }
         } catch {}
     }
-    # Git commits for the phase
-    Push-Location $ProjectDir -ErrorAction SilentlyContinue
+    # Git commits for the phase — shared HEAD-sha-keyed cache; free after first
+    # render in any given HEAD state.
     try {
-        $commits = & git log --format="%cI|%h|%s" -50 2>$null
+        $commits = Invoke-CachedGit $ProjectDir "cI-h-s-50" @("log", "--format=%cI|%h|%s", "-50")
         foreach ($c in $commits) {
             if (-not $c) { continue }
             $parts = $c -split '\|', 3
@@ -552,7 +581,6 @@ function Get-PhaseTimeline($phaseNum) {
             } catch {}
         }
     } catch {}
-    Pop-Location -ErrorAction SilentlyContinue
     # Sort newest first, deduplicate by (agent + desc + ts-rounded-to-sec)
     $events = $events | Sort-Object { $_.ts } -Descending
     return @($events)
@@ -623,7 +651,7 @@ function Get-ReadinessCard {
     $log = Join-Path $PlanningDir "metrics\readiness-log.jsonl"
     $lastDrift = $null
     if (Test-Path $log) {
-        $tail = Get-Content $log -Tail 20 -ErrorAction SilentlyContinue
+        $tail = Get-CachedTail $log 20
         foreach ($ln in ($tail | Sort-Object -Descending)) {
             if ($ln -match '"status"\s*:\s*"DRIFT"') { $lastDrift = $ln; break }
         }
@@ -634,6 +662,10 @@ function Get-ReadinessCard {
 # ── Render ───────────────────────────────────────────────────────────────────
 
 function Render {
+    # Throttle FSWatcher bursts. Heartbeat still enforces a full repaint every
+    # $Heartbeat seconds, so no gate state ever goes unnoticed.
+    if (-not (Test-RenderDue -MinIntervalMs 2000)) { return }
+
     Write-Host $HOME_POS -NoNewline
 
     $pw = Get-PaneWidth
@@ -988,7 +1020,8 @@ try {
             $lastHeartbeat = Get-Date
             Render
         }
-        Start-Sleep -Milliseconds 250
+        # Longer sleep — Test-RenderDue inside Render enforces the real 2s cap.
+        Start-Sleep -Milliseconds 2000
     }
 } finally {
     Write-Host "$SHOW_CURSOR$ALT_EXIT" -NoNewline
