@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Super GSD — Architecture</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root {
+  --bg: #0d1117;
+  --bg-2: #161b22;
+  --bg-3: #1f2630;
+  --border: #30363d;
+  --text: #c9d1d9;
+  --text-dim: #8b949e;
+  --text-bright: #f0f6fc;
+  --accent: #58a6ff;
+  --accent-2: #a371f7;
+  --green: #3fb950;
+  --amber: #d29922;
+  --red: #f85149;
+  --pink: #db61a2;
+  --cyan: #39c5cf;
+  --shadow: 0 4px 16px rgba(0,0,0,.4);
+  --mono: ui-monospace, "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif;
+  line-height: 1.55;
+  font-size: 15px;
+}
+.wrap { max-width: 1280px; margin: 0 auto; padding: 40px 28px 120px; }
+
+/* HERO */
+.hero {
+  background: linear-gradient(135deg, #1f2630 0%, #24294a 100%);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 36px 40px;
+  margin-bottom: 32px;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: "";
+  position: absolute;
+  top: -30%; right: -10%;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(88,166,255,.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero h1 {
+  margin: 0 0 6px;
+  font-size: 30px;
+  color: var(--text-bright);
+  letter-spacing: -0.5px;
+  position: relative;
+  z-index: 1;
+}
+.hero .subtitle {
+  color: var(--text-dim);
+  margin: 0 0 20px;
+  font-size: 15px;
+  position: relative;
+  z-index: 1;
+}
+.hero .meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 18px;
+  position: relative;
+  z-index: 1;
+}
+.hero .meta strong { color: var(--text-bright); font-weight: 600; }
+.hero .badge {
+  display: inline-block;
+  padding: 3px 10px;
+  background: rgba(88,166,255,.15);
+  color: var(--accent);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  margin-left: 8px;
+}
+
+/* STAT GRID */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin: 20px 0 36px;
+}
+.stat {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  transition: transform .15s ease, border-color .15s ease;
+}
+.stat:hover { transform: translateY(-2px); border-color: var(--accent); }
+.stat .num {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-bright);
+  line-height: 1.1;
+  margin-bottom: 4px;
+  font-family: var(--mono);
+}
+.stat .num .unit { font-size: 14px; color: var(--text-dim); font-weight: 500; margin-left: 3px; }
+.stat .label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+.stat.accent .num { color: var(--accent); }
+.stat.green .num { color: var(--green); }
+.stat.amber .num { color: var(--amber); }
+.stat.pink .num { color: var(--pink); }
+
+/* SECTIONS */
+section {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px 32px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+}
+section h2 {
+  margin: 0 0 6px;
+  color: var(--text-bright);
+  font-size: 22px;
+  letter-spacing: -0.3px;
+}
+section .section-subtitle {
+  color: var(--text-dim);
+  margin: 0 0 24px;
+  font-size: 14px;
+}
+section h3 {
+  color: var(--text-bright);
+  font-size: 16px;
+  margin: 24px 0 12px;
+  letter-spacing: -0.2px;
+}
+
+/* MERMAID */
+.mermaid {
+  background: #0a0d13;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 22px;
+  margin: 16px 0;
+  text-align: center;
+  overflow-x: auto;
+}
+
+/* ATC TIER LADDER */
+.tier-ladder {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin: 16px 0 24px;
+}
+.tier {
+  border-radius: 10px;
+  padding: 18px 16px;
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  position: relative;
+  overflow: hidden;
+}
+.tier::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+.tier.skip::before  { background: #6e7681; }
+.tier.lite::before  { background: var(--amber); }
+.tier.full::before  { background: #f0883e; }
+.tier.gate::before  { background: var(--red); }
+.tier .tier-name {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.tier.skip .tier-name { color: #6e7681; }
+.tier.lite .tier-name { color: var(--amber); }
+.tier.full .tier-name { color: #f0883e; }
+.tier.gate .tier-name { color: var(--red); }
+.tier .tier-trigger {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+.tier .tier-action {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+/* MUDA GRID */
+.muda-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 16px 0 24px;
+}
+.muda-card {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  text-align: center;
+  position: relative;
+}
+.muda-card.probed { border-color: var(--accent); }
+.muda-card.probed::after {
+  content: "LIVE PROBE";
+  position: absolute;
+  top: -7px; right: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--green);
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+.muda-card .icon {
+  font-size: 22px;
+  margin-bottom: 6px;
+  display: block;
+}
+.muda-card .muda-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-bright);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 3px;
+}
+.muda-card .muda-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.3;
+}
+
+/* GATE CHAIN */
+.gate-chain {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  overflow-x: auto;
+  padding: 10px 0;
+  margin: 16px 0 24px;
+}
+.gate-step {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  min-width: 140px;
+  text-align: center;
+  font-size: 12px;
+  position: relative;
+}
+.gate-step .step-num {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  display: block;
+  margin-bottom: 4px;
+}
+.gate-step .step-name {
+  color: var(--text-bright);
+  font-weight: 600;
+  font-size: 13px;
+}
+.gate-step .step-actor {
+  color: var(--text-dim);
+  font-size: 10px;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.gate-arrow {
+  color: var(--text-dim);
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+/* COMPONENT GRID */
+.components {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  margin: 16px 0 8px;
+}
+.component-card {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 18px;
+  transition: all .15s ease;
+}
+.component-card:hover { border-color: var(--accent); }
+.component-card .card-tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.tag-memory  { background: rgba(88,166,255,.15); color: var(--accent); }
+.tag-muda    { background: rgba(248,81,73,.15); color: var(--red); }
+.tag-intent  { background: rgba(163,113,247,.15); color: var(--accent-2); }
+.tag-observe { background: rgba(57,197,207,.15); color: var(--cyan); }
+.tag-install { background: rgba(219,97,162,.15); color: var(--pink); }
+.tag-gate    { background: rgba(210,153,34,.15); color: var(--amber); }
+.component-card .card-name {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text-bright);
+  font-weight: 600;
+  margin-bottom: 4px;
+  word-break: break-all;
+}
+.component-card .card-desc {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+
+/* TABLES */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin: 16px 0;
+}
+th, td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+th {
+  background: var(--bg-3);
+  color: var(--text-bright);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+td code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--bg);
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: var(--accent);
+}
+tr:hover td { background: rgba(255,255,255,.02); }
+
+/* TIMELINE */
+.timeline {
+  position: relative;
+  padding: 8px 0 8px 28px;
+  margin-top: 16px;
+}
+.timeline::before {
+  content: "";
+  position: absolute;
+  left: 8px; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+.tl-item {
+  position: relative;
+  padding: 10px 0 10px 20px;
+}
+.tl-item::before {
+  content: "";
+  position: absolute;
+  left: -24px; top: 16px;
+  width: 10px; height: 10px;
+  background: var(--accent);
+  border-radius: 50%;
+  border: 2px solid var(--bg-2);
+}
+.tl-item.green::before { background: var(--green); }
+.tl-item.amber::before { background: var(--amber); }
+.tl-item.pink::before  { background: var(--pink); }
+.tl-item.accent2::before { background: var(--accent-2); }
+.tl-sha {
+  font-family: var(--mono);
+  color: var(--cyan);
+  font-size: 11px;
+  font-weight: 600;
+}
+.tl-msg { font-size: 13px; color: var(--text); margin-top: 2px; }
+
+/* INVARIANT CARDS */
+.invariants {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin: 16px 0 8px;
+}
+.inv-card {
+  background: var(--bg-3);
+  border-left: 3px solid var(--green);
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+}
+.inv-card strong { color: var(--text-bright); }
+
+/* TOC */
+nav.toc {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 22px;
+  margin-bottom: 24px;
+  font-size: 13px;
+}
+nav.toc .toc-title {
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+nav.toc a {
+  color: var(--accent);
+  text-decoration: none;
+  margin-right: 18px;
+  display: inline-block;
+  padding: 2px 0;
+}
+nav.toc a:hover { color: var(--text-bright); text-decoration: underline; }
+
+/* KBD */
+kbd, code.inline {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--bg);
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: var(--accent);
+}
+
+/* MISC */
+p { margin: 8px 0; }
+em { color: var(--text-dim); font-style: italic; }
+.note {
+  border-left: 3px solid var(--accent);
+  background: rgba(88,166,255,.06);
+  padding: 12px 16px;
+  margin: 14px 0;
+  border-radius: 0 6px 6px 0;
+  font-size: 13px;
+}
+.warn {
+  border-left: 3px solid var(--amber);
+  background: rgba(210,153,34,.06);
+  padding: 12px 16px;
+  margin: 14px 0;
+  border-radius: 0 6px 6px 0;
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .tier-ladder, .muda-grid { grid-template-columns: repeat(2, 1fr); }
+  .gate-chain { flex-wrap: wrap; }
+  .wrap { padding: 20px 14px 80px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<section class="hero">
+  <h1>Super GSD — Architecture <span class="badge">v1.1 CLOSED</span></h1>
+  <p class="subtitle">Token-efficient autonomous orchestrator on Claude Code. Lean state machine with per-dispatch classification, phase-close quality gates, git-native memory, and two live learning loops.</p>
+  <div class="meta">
+    <span><strong>Last updated</strong> 2026-04-19</span>
+    <span><strong>Context window</strong> Opus 4.7 (1M)</span>
+    <span><strong>Active DLBs</strong> DLB-01 · DLB-02 · DLB-03</span>
+    <span><strong>Milestone</strong> v1.1 Self-Audit complete — v1.2 pending</span>
+  </div>
+</section>
+
+<nav class="toc">
+  <div class="toc-title">Navigate</div>
+  <a href="#overview">System Overview</a>
+  <a href="#components">Component Catalogue</a>
+  <a href="#loop">Orchestrator Loop</a>
+  <a href="#memory">Memory Tier</a>
+  <a href="#gates">Quality Gates</a>
+  <a href="#loops">Learning Loops</a>
+  <a href="#sequence">Phase Sequence</a>
+  <a href="#files">File Layout</a>
+  <a href="#routing">Model Routing</a>
+  <a href="#dataflow">Data Flow</a>
+  <a href="#timeline">Today's Build</a>
+  <a href="#invariants">Invariants</a>
+</nav>
+
+<div class="stats">
+  <div class="stat accent"><div class="num">21<span class="unit">commits</span></div><div class="label">This session</div></div>
+  <div class="stat green"><div class="num">3</div><div class="label">DLB decision memos</div></div>
+  <div class="stat"><div class="num">10</div><div class="label">SGSD agents</div></div>
+  <div class="stat"><div class="num">10</div><div class="label">SGSD skills</div></div>
+  <div class="stat"><div class="num">8</div><div class="label">hooks registered</div></div>
+  <div class="stat pink"><div class="num">23<span class="unit">findings</span></div><div class="label">Phase 8 audit</div></div>
+  <div class="stat amber"><div class="num">48<span class="unit">%</span></div><div class="label">Session ctx (1M cap)</div></div>
+  <div class="stat"><div class="num">~332<span class="unit">k</span></div><div class="label">Deliberation tokens</div></div>
+</div>
+
+<section id="overview">
+  <h2>1. System Overview</h2>
+  <p class="section-subtitle">Orchestrator (Opus) dispatches cheap Haiku classification + Sonnet execution; memory retrieval runs via shell wrappers over a git-tracked file store; quality gates fire at phase close; two learning loops feed back into the classifier.</p>
+  <div class="mermaid">
+flowchart TB
+    subgraph user["USER SURFACE"]
+        cmd["/sgsd-orchestrate go<br/>/sgsd-deliberate<br/>/sgsd-audit"]
+        dash["3 Dashboards<br/>(mission-control, narrative, gate-verdict)"]
+    end
+
+    subgraph orch["ORCHESTRATOR · Opus 4.x"]
+        loop["13-step loop<br/>(read→classify→dispatch→process→commit)"]
+        state["STATE.md · ROADMAP.md · CHECKPOINT.md"]
+    end
+
+    subgraph agents["SUB-AGENTS"]
+        cls["sgsd-classifier ·Haiku"]
+        ctx["sgsd-context-selector ·Haiku"]
+        exe["gsd-executor ·Sonnet"]
+        ver["gsd-verifier ·Sonnet"]
+        rev["gsd-code-reviewer ·Sonnet"]
+        brd["4× Board ·Sonnet"]
+    end
+
+    subgraph mem["MEMORY · DLB-01"]
+        tree[".brv/context-tree/<br/>17 .md files"]
+        idx["INDEX.md"]
+        recall["sgsd-recall.sh"]
+        curate["sgsd-curate.sh"]
+    end
+
+    subgraph gates["PHASE-CLOSE GATES"]
+        gVer["6.0 Verify"]
+        gAtc["6.5 ATC"]
+        gMuda["6.55 MUDA"]
+        gBrw["6.6 Browser"]
+        gAud["6.7 Evidence"]
+    end
+
+    subgraph feedback["LEARNING LOOPS"]
+        mudaLog["muda-log"]
+        intLog["intent-log"]
+        mudaChk["recurrence kill check"]
+        intChk["intent kill check"]
+    end
+
+    cmd --> loop
+    loop --> cls & ctx
+    ctx --> recall --> idx & tree
+    loop --> exe & ver & rev & brd
+    loop --> curate --> tree
+    loop --> gVer --> gAtc --> gMuda --> gBrw --> gAud
+    gMuda -.curate anti-pattern.-> tree
+    gMuda --> mudaLog --> mudaChk
+    loop --> intLog --> intChk
+    dash -.read-only.-> state
+  </div>
+</section>
+
+<section id="components">
+  <h2>2. Component Catalogue</h2>
+  <p class="section-subtitle">Every callable tool the orchestrator has. Colour-tagged by role.</p>
+  <div class="components">
+    <div class="component-card">
+      <div class="card-tag tag-memory">memory</div>
+      <div class="card-name">sgsd-recall.sh</div>
+      <div class="card-desc">Grep INDEX.md by query terms, return top-N file bodies framed with XML-ish markers. Supports <code>--type</code>, <code>--limit</code>, <code>--paths-only</code>.</div>
+    </div>
+    <div class="component-card">
+      <div class="card-tag tag-memory">memory</div>
+      <div class="card-name">sgsd-curate.sh</div>
+      <div class="card-desc">Atomic write of a new .md entry under the right subdir + index row insertion. Rolls back on index failure.</div>
+    </div>
+    <div class="component-card">
+      <div class="card-tag tag-memory">memory</div>
+      <div class="card-name">INDEX.md</div>
+      <div class="card-desc">One-row-per-file catalogue. 17 entries today, tripwire at 40 to revisit BM25 ranking.</div>
+    </div>
+    <div class="component-card">
+      <div class="card-tag tag-muda">muda</div>
+      <div class="card-name">sgsd-muda-probe.sh</div>
+      <div class="card-desc">3 watchdog checks: Haiku-fail count, narrative staleness, git-spawn pct. Under 1s. JSON output + exit codes.</div>
+    </div>
+    <div class="component-card">
+      <div class="card-tag tag-muda">muda</div>
+      <div class="card-name">sgsd-muda-audit.sh</div>
+      <div class="card-desc">Per-phase: runs probe → writes WASTE.md → curates findings via sgsd-curate → appends muda-log.jsonl.</div>
+    </div>
+    <div class="component-card">
+      <div class="card-tag tag-muda">muda</div>
+      <div class="card-name">sgsd-muda-recurrence.sh</div>
+      <div class="card-desc">Milestone-close kill signal. 2 consecutive milestones with zero recurrence = retire the skill.</div>
+    </div>
+    <div class="component-card">
+      <div class="card-tag tag-intent">intent</div>
+      <div class="card-name">milestone-intent.md template</div>
+      <div class="card-desc">Required fields at milestone open: why, outcome_delivered (≤120 chars), milestone, created_at.</div>
+    </div>
+    <div class="component-card">
+      <div class="card-tag tag-intent">intent</div>
+      <div class="card-name">Step 5.5 injection</div>
+      <div class="card-desc">Reads INTENT.md, injects <code>&lt;intent milestone="v1.X"&gt;outcome_delivered&lt;/intent&gt;</code> into every sub-agent prompt.</div>
+    </div>
+    <div class="component-card">
+      <div class="card-tag tag-intent">intent</div>
+      <div class="card-name">sgsd-intent-check.sh</div>
+      <div class="card-desc">Greps phase SUMMARY/VERIFICATION/AUDIT for injected text. &lt; 50% coverage = author-discipline redesign signal.</div>
+    </div>
+    <div class="component-card">
+      <div class="card-tag tag-observe">observability</div>
+      <div class="card-name">sgsd-ctx.js/sh</div>
+      <div class="card-desc">Real context gauge. Parses active session JSONL usage blocks. Handles 1M-variant model-string quirk.</div>
+    </div>
+    <div class="component-card">
+      <div class="card-tag tag-observe">observability</div>
+      <div class="card-name">3 dashboards (PS1)</div>
+      <div class="card-desc">Mission-control, narrative, gate-verdict. Shared render-cache lib cut CPU ~70% post-audit.</div>
+    </div>
+    <div class="component-card">
+      <div class="card-tag tag-install">install</div>
+      <div class="card-name">merge-settings.js</div>
+      <div class="card-desc">Idempotent deep-merge of settings-overlay.json into ~/.claude/settings.json. Preserves user overrides.</div>
+    </div>
+    <div class="component-card">
+      <div class="card-tag tag-gate">gate</div>
+      <div class="card-name">Step 9.5 per-dispatch ATC</div>
+      <div class="card-desc">New. Fires on FULL/GATE dispatches touching code files. Reviews the single-unit diff only. Writes commit-reviews.jsonl.</div>
+    </div>
+    <div class="component-card">
+      <div class="card-tag tag-gate">gate</div>
+      <div class="card-name">Step 6.5 phase-level ATC</div>
+      <div class="card-desc">Once per phase after verify. Cross-plan architectural review. Haiku classifies, Sonnet reviews.</div>
+    </div>
+    <div class="component-card">
+      <div class="card-tag tag-gate">gate</div>
+      <div class="card-name">/sgsd-audit (skill)</div>
+      <div class="card-desc">Evidence gate. Layer 1 existence reconciler + Layer 2 evidence verdicts + Layer 3 runtime probes (opt-in).</div>
+    </div>
+  </div>
+</section>
+
+<section id="loop">
+  <h2>3. The 13-Step Orchestrator Loop</h2>
+  <p class="section-subtitle">One iteration per unit of work. Token budget ~1350. Every response must include a tool call or the loop dies.</p>
+  <div class="mermaid">
+flowchart LR
+    S1["1 READ STATE"] --> S2["2 CLASSIFY·haiku"]
+    S2 --> S3["3 DELIB GATE"]
+    S3 --> S4["4 CONTEXT SELECT·haiku"]
+    S4 --> S5["5 sgsd-recall"]
+    S5 --> S55["5.5 INTENT INJECT·DLB-03"]
+    S55 --> S6["6 DISPATCH RULES"]
+    S6 -.phase close.-> S65["6.5→6.7 GATES"]
+    S6 --> S7["7 COMPOSE PROMPT"]
+    S7 --> S8["8 DISPATCH sub-agent"]
+    S8 --> S9["9 PROCESS REPORT"]
+    S9 --> S95["9.5 PER-DISPATCH ATC·DLB-ATC"]
+    S95 --> S10["10 CURATE sgsd-curate"]
+    S10 --> S11["11 UPDATE STATE"]
+    S11 --> S12["12 GIT COMMIT atomic"]
+    S12 --> S13["13 LOOP → Read STATE"]
+    S13 -.tool call keeps loop alive.-> S1
+  </div>
+
+  <div class="warn">
+    <strong>Golden Rule:</strong> text-only response = loop dies. Only 4 valid text-only exits: all phases complete · context &gt; 70% (measured by <code>sgsd-ctx</code>) · blocker requiring human · user says stop/pause.
+  </div>
+</section>
+
+<section id="memory">
+  <h2>4. Memory Retrieval Tier <span class="badge" style="background:rgba(88,166,255,.15);color:var(--accent)">DLB-01</span></h2>
+  <p class="section-subtitle">Git-native filesystem store. No MCP. No BM25 until the 40-file tripwire justifies it.</p>
+  <div class="mermaid">
+flowchart LR
+    subgraph source[Git-tracked store]
+        tree[".brv/context-tree/<br/>patterns · anti-patterns ·<br/>decisions · expertise · scripts"]
+        idx["INDEX.md<br/>17 rows · ≤80-char summaries"]
+    end
+    subgraph read[Retrieval]
+        recall["sgsd-recall 'query terms'"]
+        rec_alg["1. grep INDEX<br/>2. rank by distinct-term count<br/>3. read top-N bodies<br/>4. emit &lt;!-- sgsd-recall --&gt; framed"]
+    end
+    subgraph write[Curation]
+        curate["sgsd-curate --type X --slug Y --summary"]
+        cur_alg["1. write .md to subdir<br/>2. append INDEX row<br/>3. atomic rollback on failure"]
+    end
+    subgraph dormant[Legacy · not invoked]
+        bm25["brv-query-local.js<br/>brv-curate-local.js<br/>(preserved for 40+ files)"]
+    end
+    recall --> rec_alg --> idx & tree
+    curate --> cur_alg --> tree & idx
+    source -.40-file tripwire.-> bm25
+  </div>
+</section>
+
+<section id="gates">
+  <h2>5. Quality Gates</h2>
+  <p class="section-subtitle">Two ATC moments. Per-dispatch reviews the single-unit diff. Phase-close reviews architecture across the whole phase. Gates fire in the order below at phase close.</p>
+
+  <h3>5a · Per-dispatch ATC tier ladder (Step 9.5)</h3>
+  <div class="tier-ladder">
+    <div class="tier skip">
+      <div class="tier-name">SKIP</div>
+      <div class="tier-trigger">&lt; 10 lines, 1 file, no new files</div>
+      <div class="tier-action">No review. Commit proceeds immediately.</div>
+    </div>
+    <div class="tier lite">
+      <div class="tier-name">LITE</div>
+      <div class="tier-trigger">10–50 lines, ≤ 3 files</div>
+      <div class="tier-action">Executor self-applies steps 2+3 (Delete, Simplify) + anti-slop checklist.</div>
+    </div>
+    <div class="tier full">
+      <div class="tier-name">FULL</div>
+      <div class="tier-trigger">50+ lines or 4+ files or any new file</div>
+      <div class="tier-action">gsd-code-reviewer on the single-dispatch diff. ~250 tokens. Verdict → commit-reviews.jsonl.</div>
+    </div>
+    <div class="tier gate">
+      <div class="tier-name">GATE</div>
+      <div class="tier-trigger">New system · dependency · architecture · API</div>
+      <div class="tier-action">Interactive: BLOCK for human review. Auto: run FULL + log GATE_AUTO_BYPASS.</div>
+    </div>
+  </div>
+
+  <h3>5b · Phase-close gate chain (runs once per phase, after verifier passes)</h3>
+  <div class="gate-chain">
+    <div class="gate-step"><span class="step-num">6.0</span><span class="step-name">Verifier</span><span class="step-actor">gsd-verifier · sonnet</span></div>
+    <span class="gate-arrow">→</span>
+    <div class="gate-step"><span class="step-num">6.5</span><span class="step-name">Phase ATC</span><span class="step-actor">haiku tier + sonnet review</span></div>
+    <span class="gate-arrow">→</span>
+    <div class="gate-step"><span class="step-num">6.55</span><span class="step-name">MUDA audit</span><span class="step-actor">3 probes · shell</span></div>
+    <span class="gate-arrow">→</span>
+    <div class="gate-step"><span class="step-num">6.6</span><span class="step-name">Browser verify</span><span class="step-actor">phase-verifier.mjs</span></div>
+    <span class="gate-arrow">→</span>
+    <div class="gate-step"><span class="step-num">6.7</span><span class="step-name">Evidence audit</span><span class="step-actor">/sgsd-audit skill</span></div>
+    <span class="gate-arrow">→</span>
+    <div class="gate-step" style="border-color:var(--green)"><span class="step-num" style="color:var(--green)">CLOSE</span><span class="step-name">ROADMAP [x]</span><span class="step-actor">orchestrator</span></div>
+  </div>
+
+  <div class="note">
+    <strong>Evidence:</strong> Phase 8 closed via this exact chain today. Verifier 6/6 PASS → ATC LITE (0 critical, 2 cosmetic) → MUDA 1 FAIL (narrative staleness, expected for framework repo) → Browser SKIPPED (no frontend) → Evidence Audit L1 5/5 + L2 7/7 + L3 skipped by design.
+  </div>
+</section>
+
+<section id="loops">
+  <h2>6. Learning Loops</h2>
+  <p class="section-subtitle">Two DLBs. Both write paths live. Read paths (classifier consult) intentionally deferred until evidence justifies wiring.</p>
+
+  <h3>6a · MUDA — the 8 wastes, 3 probed</h3>
+  <div class="muda-grid">
+    <div class="muda-card probed"><span class="icon">🐛</span><div class="muda-name">Defects</div><div class="muda-desc">haiku_fails counter</div></div>
+    <div class="muda-card"><span class="icon">📦</span><div class="muda-name">Over-<br/>production</div><div class="muda-desc">Long reports, redundant outputs</div></div>
+    <div class="muda-card probed"><span class="icon">⏳</span><div class="muda-name">Waiting</div><div class="muda-desc">narrative_age_sec timer</div></div>
+    <div class="muda-card"><span class="icon">🧠</span><div class="muda-name">Non-utilised<br/>talent</div><div class="muda-desc">Opus doing Haiku work</div></div>
+    <div class="muda-card"><span class="icon">🚚</span><div class="muda-name">Transport-<br/>ation</div><div class="muda-desc">Full-file loads vs frontmatter</div></div>
+    <div class="muda-card"><span class="icon">📚</span><div class="muda-name">Inventory</div><div class="muda-desc">Stale docs, dead deferrals</div></div>
+    <div class="muda-card probed"><span class="icon">🔁</span><div class="muda-name">Motion</div><div class="muda-desc">git_spawn_pct (N+1 pattern)</div></div>
+    <div class="muda-card"><span class="icon">⚙️</span><div class="muda-name">Extra<br/>processing</div><div class="muda-desc">FULL ATC on 10-line edits</div></div>
+  </div>
+
+  <div class="mermaid">
+flowchart LR
+    probe["sgsd-muda-probe<br/>3 watchdog checks"] --> audit["sgsd-muda-audit<br/>WASTE.md + curate"]
+    audit --> log["muda-log.jsonl"]
+    audit -.curate.-> tree[".brv/anti-patterns/"]
+    log --> recur["sgsd-muda-recurrence<br/>--kill-check"]
+    recur -->|0 recurrence × 2 milestones| retire["RETIRE SIGNAL"]
+    recur -->|recurrence present| carry["Skill earns its keep"]
+  </div>
+
+  <h3>6b · Intent continuity <span class="badge" style="background:rgba(163,113,247,.15);color:var(--accent-2)">DLB-03</span></h3>
+  <div class="mermaid">
+flowchart LR
+    tmpl["templates/<br/>milestone-intent.md"] --> inst[".planning/milestones/v1.X/INTENT.md"]
+    inst --> inject["Step 5.5 INJECT<br/>&lt;intent&gt;outcome_delivered&lt;/intent&gt;"]
+    inject --> agents["Every sub-agent prompt"]
+    inject --> log["intent-log.jsonl"]
+    log --> check["sgsd-intent-check<br/>coverage in SUMMARY/VERIFICATION/AUDIT"]
+    check -->|≥ 50%| ok["Authors writing meaningful outcomes"]
+    check -->|&lt; 50%| redesign["Tighten INTENT.md author discipline<br/>or audit injection logic"]
+  </div>
+</section>
+
+<section id="sequence">
+  <h2>7. What happens during one full phase</h2>
+  <p class="section-subtitle">Concrete sequence — read top-to-bottom. This is Phase 8's actual shape today.</p>
+  <div class="mermaid">
+sequenceDiagram
+    autonumber
+    participant Op as Operator
+    participant Orch as Orchestrator (Opus)
+    participant Cls as Classifier (Haiku)
+    participant Exec as Executor (Sonnet)
+    participant Rev as Code Reviewer (Sonnet)
+    participant Ver as Verifier (Sonnet)
+    participant Aud as sgsd-audit skill
+    participant Fs as Filesystem
+
+    Op->>Orch: /sgsd-orchestrate go
+    Orch->>Fs: Read STATE.md + CHECKPOINT
+    loop per plan in phase
+        Orch->>Cls: classify(goal, files, lines)
+        Cls-->>Orch: atc_tier, model, deliberate
+        Orch->>Fs: read INTENT.md, build injection
+        Orch->>Exec: dispatch with intent + context
+        Exec-->>Orch: 6-section report (≤300w)
+        alt tier ∈ full/gate AND code files touched
+            Orch->>Rev: review single-dispatch diff
+            Rev-->>Orch: verdict + findings
+            Orch->>Fs: append commit-reviews.jsonl
+        end
+        Orch->>Fs: sgsd-curate deviations
+        Orch->>Fs: git add + atomic commit
+    end
+    Note over Orch: All plans done → phase close gates
+    Orch->>Ver: verify 6 ROADMAP criteria
+    Ver-->>Orch: 6/6 PASS
+    Orch->>Cls: phase-level tier classify
+    Cls-->>Orch: tier = lite|full|gate
+    Orch->>Rev: phase-wide ATC review
+    Rev-->>Orch: 0 critical, 2 cosmetic
+    Orch->>Fs: bash sgsd-muda-audit N
+    Fs-->>Orch: WASTE.md + curated findings
+    Orch->>Aud: Skill: sgsd-audit N
+    Aud-->>Orch: L1 5/5 + L2 7/7 + L3 skipped
+    Orch->>Fs: mark phase [x] · delete checkpoint
+    Orch-->>Op: Phase complete · milestone status
+  </div>
+</section>
+
+<section id="files">
+  <h2>8. File Layout</h2>
+  <div class="mermaid">
+flowchart LR
+    root["GSDedits/"]
+    root --> brv[".brv/context-tree/"]
+    root --> plan[".planning/"]
+    root --> sg[super-gsd/]
+    plan --> phs[phases/]
+    plan --> met[metrics/]
+    plan --> dec[decisions/]
+    plan --> brf[briefs/]
+    plan --> del[deliberations/]
+    phs --> pd["08-sgsd-self-audit/<br/>CONTEXT · RESEARCH · PLAN ·<br/>PLANCHECK · VERIFICATION ·<br/>ATC-REVIEW · AUDIT · WASTE · SUMMARY"]
+    met --> lgs["token · activity · heartbeat ·<br/>muda · intent · audit · readiness"]
+    sg --> sk[skills/]
+    sg --> ag[agents/]
+    sg --> sc[scripts/]
+    sg --> hk[hooks/]
+    sg --> cf[config/]
+    sg --> tm[templates/]
+    sg --> tl[tools/]
+    sg --> ow[overwatcher/]
+    sg --> ds[docs/<br/>ARCHITECTURE.html ← you are here]
+  </div>
+</section>
+
+<section id="routing">
+  <h2>9. Model Routing</h2>
+  <table>
+    <thead><tr><th>Role</th><th>Model</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Orchestrator loop</td><td><code>claude-opus-4-7</code> (1M)</td><td>Judgment, dispatch, synthesis, CEO deliberation</td></tr>
+      <tr><td>sgsd-classifier</td><td><code>claude-haiku-4-5</code></td><td>50-token per-iteration tier decision</td></tr>
+      <tr><td>sgsd-context-selector</td><td><code>claude-haiku-4-5</code></td><td>Pick relevant sgsd-recall queries</td></tr>
+      <tr><td>gsd-phase-researcher</td><td><code>claude-sonnet-4-6</code></td><td>Investigation, not judgment</td></tr>
+      <tr><td>gsd-planner</td><td><code>claude-sonnet-4-6</code></td><td>Compressed XML plans ~800 tokens</td></tr>
+      <tr><td>gsd-plan-checker</td><td><code>claude-sonnet-4-6</code></td><td>Gap detection vs plan</td></tr>
+      <tr><td>gsd-executor</td><td><code>claude-sonnet-4-6</code></td><td>The code work itself</td></tr>
+      <tr><td>gsd-verifier</td><td><code>claude-sonnet-4-6</code></td><td>Goal-backward evidence check</td></tr>
+      <tr><td>gsd-code-reviewer</td><td><code>claude-sonnet-4-6</code></td><td>ATC reviews (both per-dispatch + phase-level)</td></tr>
+      <tr><td>4× Board members</td><td><code>claude-sonnet-4-6</code></td><td>Deliberation rounds 1 + 2</td></tr>
+      <tr><td>Haiku narrative (dashboard)</td><td><code>claude-haiku-4-5</code></td><td>Summarise tool stream every ~5 min</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="dataflow">
+  <h2>10. Data Flow — what lives where</h2>
+  <table>
+    <thead><tr><th>Artefact</th><th>Writer</th><th>Reader</th><th>Grain</th></tr></thead>
+    <tbody>
+      <tr><td><code>STATE.md</code></td><td>orchestrator step 11</td><td>every step · dashboards</td><td>per-session</td></tr>
+      <tr><td><code>ROADMAP.md</code></td><td>planner + orchestrator</td><td>every step</td><td>per-milestone</td></tr>
+      <tr><td><code>ORCHESTRATOR-CHECKPOINT.md</code></td><td>checkpoint protocol</td><td>cold-start step 1</td><td>ephemeral</td></tr>
+      <tr><td><code>phases/{NN}/*.md</code></td><td>agents</td><td>orchestrator · audit</td><td>per-phase</td></tr>
+      <tr><td><code>phases/{NN}/WASTE.md</code></td><td>sgsd-muda-audit</td><td>operator · recurrence</td><td>per-phase</td></tr>
+      <tr><td><code>phases/{NN}/AUDIT.md</code></td><td>/sgsd-audit</td><td>operator · milestone close</td><td>per-phase</td></tr>
+      <tr><td><code>phases/{NN}/commit-reviews.jsonl</code></td><td>Step 9.5</td><td>operator</td><td>per-commit</td></tr>
+      <tr><td><code>decisions/DLB-*.md</code></td><td>/sgsd-deliberate</td><td>future planners</td><td>per-decision</td></tr>
+      <tr><td><code>metrics/token-log.jsonl</code></td><td>gsd-token-logger</td><td>/sgsd-token-audit</td><td>per-dispatch</td></tr>
+      <tr><td><code>metrics/activity-log.jsonl</code></td><td>sgsd-activity-logger</td><td>dashboards · Haiku narrative</td><td>per-tool-call</td></tr>
+      <tr><td><code>metrics/intent-log.jsonl</code></td><td>Step 5.5 injection</td><td>sgsd-intent-check</td><td>per-dispatch</td></tr>
+      <tr><td><code>metrics/muda-log.jsonl</code></td><td>sgsd-muda-audit</td><td>sgsd-muda-recurrence</td><td>per-audit</td></tr>
+      <tr><td><code>.brv/context-tree/</code> + INDEX.md</td><td>sgsd-curate</td><td>sgsd-recall · orchestrator</td><td>per-lesson</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="timeline">
+  <h2>11. Today's Build Timeline (21 commits)</h2>
+  <p class="section-subtitle">The entire v1.1 Self-Audit wave + DLB implementations, in order.</p>
+  <div class="timeline">
+    <div class="tl-item"><span class="tl-sha">b3e0355</span> <div class="tl-msg">feat(sgsd-perf): shared render-cache lib + audit helpers</div></div>
+    <div class="tl-item"><span class="tl-sha">e821713</span> <div class="tl-msg">fix(sgsd1): cache git/token-log + throttle redraws</div></div>
+    <div class="tl-item"><span class="tl-sha">3082830</span> <div class="tl-msg">fix(sgsd2): cache active-session lookup + throttle redraws</div></div>
+    <div class="tl-item"><span class="tl-sha">8365df7</span> <div class="tl-msg">fix(sgsd3): collapse N+1 git + cache phase timeline + throttle</div></div>
+    <div class="tl-item accent2"><span class="tl-sha">78f4689</span> <div class="tl-msg">fix(sgsd): remove dead brv MCP from .mcp.json (DLB-01)</div></div>
+    <div class="tl-item accent2"><span class="tl-sha">b6dd3a6</span> <div class="tl-msg">fix(installer): auto-register hooks via settings-overlay (FINDING-17)</div></div>
+    <div class="tl-item accent2"><span class="tl-sha">9d33601</span> <div class="tl-msg">feat(sgsd): DLB-01 memory tier — INDEX + sgsd-recall + sgsd-curate</div></div>
+    <div class="tl-item pink"><span class="tl-sha">44d10b1</span> <div class="tl-msg">feat(phase8-wave4): docs audit — 5 findings (FINDING-19..23)</div></div>
+    <div class="tl-item"><span class="tl-sha">cbd52be</span> <div class="tl-msg">chore(checkpoint): Phase 8 Wave 4 complete</div></div>
+    <div class="tl-item green"><span class="tl-sha">98dc90d</span> <div class="tl-msg">feat(sgsd): sgsd-ctx — real context gauge</div></div>
+    <div class="tl-item pink"><span class="tl-sha">f607e1f</span> <div class="tl-msg">feat(phase8-wave5): gap-audit report — 22 recommendations</div></div>
+    <div class="tl-item pink"><span class="tl-sha">0e0c971</span> <div class="tl-msg">feat(phase8-verify): 6/6 PASS</div></div>
+    <div class="tl-item pink"><span class="tl-sha">1c8cc3e</span> <div class="tl-msg">feat(phase8-atc): LITE — 0 critical, 2 cosmetic</div></div>
+    <div class="tl-item pink"><span class="tl-sha">f48e355</span> <div class="tl-msg">feat(phase8-audit): /sgsd-audit evidence gate — L1 5/5, L2 7/7</div></div>
+    <div class="tl-item green"><span class="tl-sha">fb125f5</span> <div class="tl-msg">chore(phase8): complete — milestone v1.1 closes</div></div>
+    <div class="tl-item amber"><span class="tl-sha">fdc1a85</span> <div class="tl-msg">feat(sgsd): sgsd-muda-probe — 3 watchdog probes (DLB-02)</div></div>
+    <div class="tl-item amber"><span class="tl-sha">5380a68</span> <div class="tl-msg">feat(sgsd): sgsd-muda-audit — per-phase write path (DLB-02)</div></div>
+    <div class="tl-item amber"><span class="tl-sha">cb871ba</span> <div class="tl-msg">feat(sgsd): sgsd-muda-recurrence — kill-condition signal</div></div>
+    <div class="tl-item"><span class="tl-sha">59e91fb</span> <div class="tl-msg">fix(sgsd): agent name: frontmatter typos (FINDING-1/3/6)</div></div>
+    <div class="tl-item"><span class="tl-sha">4a282e6</span> <div class="tl-msg">fix(sgsd): register activity-logger + statusline (FINDING-13/14)</div></div>
+    <div class="tl-item"><span class="tl-sha">4705f70</span> <div class="tl-msg">fix(sgsd): add missing config keys (FINDING-10/16)</div></div>
+    <div class="tl-item"><span class="tl-sha">051168b</span> <div class="tl-msg">feat(sgsd-orchestrate): Step 6.55 MUDA phase-close hook</div></div>
+    <div class="tl-item"><span class="tl-sha">12dca99</span> <div class="tl-msg">fix(sgsd): rewire brv-query/brv-curate to sgsd-recall/sgsd-curate</div></div>
+    <div class="tl-item accent2"><span class="tl-sha">67681ad</span> <div class="tl-msg">feat(sgsd): DLB-03 intent continuity — injection + cascade + kill</div></div>
+    <div class="tl-item green"><span class="tl-sha">f3c3364</span> <div class="tl-msg">feat(sgsd-orchestrate): Step 9.5 per-dispatch ATC</div></div>
+    <div class="tl-item"><span class="tl-sha">89d14de</span> <div class="tl-msg">docs(sgsd): full architecture diagram (markdown, 6 Mermaid)</div></div>
+  </div>
+</section>
+
+<section id="invariants">
+  <h2>12. Golden Invariants</h2>
+  <p class="section-subtitle">Rules that must not be broken. Encoded in SKILL.md golden_rules.</p>
+  <div class="invariants">
+    <div class="inv-card"><strong>Orchestrator never does heavy work.</strong> Only dispatches.</div>
+    <div class="inv-card"><strong>Sub-agent reports ≤ 300 words.</strong> Log REPORT_OVERLIMIT if exceeded.</div>
+    <div class="inv-card"><strong>6-section report contract:</strong> FILES_CHANGED · VERIFICATION · DEVIATIONS · BLOCKERS · SCRIPTS_CREATED · ONE_LINER.</div>
+    <div class="inv-card"><strong>Every Agent() dispatch wrapped in TaskCreate + TaskUpdate</strong> for live visibility.</div>
+    <div class="inv-card"><strong>Atomic commits.</strong> One per unit. Never batched. Never amended. Specific files, never <code>git add -A</code>.</div>
+    <div class="inv-card"><strong>Every loop response contains a tool call.</strong> Text-only responses kill the loop.</div>
+    <div class="inv-card"><strong>4 valid exits only:</strong> all phases complete · context &gt; 70% (real measurement) · blocker · user stop.</div>
+    <div class="inv-card"><strong>Anti-slop 10-point checklist</strong> on every FULL/GATE commit.</div>
+    <div class="inv-card"><strong>Kill conditions are signals, not auto-retirements.</strong> Operator decides.</div>
+    <div class="inv-card"><strong>AUDIT.md is immutable post-write.</strong> If wrong, fix the phase and re-run — don't patch the audit.</div>
+    <div class="inv-card"><strong>VACUOUS-PASS is never green.</strong> Empty collection = milestone blocker, not clean phase.</div>
+    <div class="inv-card"><strong>INTENT injection is structural.</strong> LLM context window is the enforcement, not a regex presence check.</div>
+  </div>
+</section>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      darkMode: true,
+      background: '#0a0d13',
+      primaryColor: '#1f2630',
+      primaryTextColor: '#c9d1d9',
+      primaryBorderColor: '#30363d',
+      lineColor: '#8b949e',
+      secondaryColor: '#24294a',
+      tertiaryColor: '#161b22',
+      edgeLabelBackground: '#0a0d13'
+    },
+    flowchart: { htmlLabels: true, curve: 'basis' },
+    sequence: { actorMargin: 70, boxMargin: 10 }
+  });
+</script>
+</body>
+</html>
