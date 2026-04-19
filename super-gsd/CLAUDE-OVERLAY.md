@@ -76,8 +76,9 @@ State lives in `.planning/`. Memory lives in `.brv/context-tree/` (ByteRover).
 
 1. **Check for checkpoint:** `Read .planning/ORCHESTRATOR-CHECKPOINT.md` — if found, resume from `next_unit`. Don't ask, just go.
 2. **Read state:** `Read .planning/STATE.md` (frontmatter only, offset 0, limit 30) — active milestone, phase, progress.
-3. **Check ByteRover:** `sgsd-recall "session start current state"` — pull relevant context.
-4. If user says "go" / "auto" / "continue" / "run" → enter auto mode immediately. No confirmation.
+3. **Cascade read (DLB-03):** Before planning any phase, read `.planning/PROJECT.md` core-value + `.planning/milestones/{active_milestone}/INTENT.md` + last completed phase `SUMMARY.md`. For the first phase of a milestone, INTENT.md alone. This is mandatory — skipped cascade = phase drift.
+4. **Check memory:** `sgsd-recall "session start current state"` — pull relevant context.
+5. If user says "go" / "auto" / "continue" / "run" → enter auto mode immediately. No confirmation.
 
 ### What the User Says → What You Do
 

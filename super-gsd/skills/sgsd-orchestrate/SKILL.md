@@ -130,6 +130,38 @@ REPEAT:
      For each script_to_check: search for existing utility to reuse
      Total context injection target: <1000 tokens
 
+  5.5. INTENT INJECTION (DLB-03 — structural enforcement)
+     Read `.planning/milestones/{active_milestone}/INTENT.md` frontmatter only
+     (offset 0, limit 30). Extract `outcome_delivered:` (≤120 chars) and
+     `milestone:`.
+
+     If the file is missing or `outcome_delivered` is absent:
+       * Auto mode → log "INTENT_MISSING" in DEVIATIONS, continue without
+         injection. Do NOT block — first phase of a milestone may legitimately
+         precede the INTENT.md author step.
+       * Interactive mode → pause with blocker: "Open milestone must have an
+         INTENT.md. Use super-gsd/templates/milestone-intent.md as the template."
+
+     On every subsequent executor/researcher/planner/verifier dispatch in this
+     iteration, prepend the following block to the sub-agent prompt header:
+
+         <intent milestone="{milestone}">
+         {outcome_delivered}
+         </intent>
+
+     This is the Architect-R2 "structural injection" pattern. The LLM context
+     window is the enforcement — no regex presence check, no NL scoring gate.
+     Shallow outcome strings are caught by sgsd-intent-check.sh at milestone
+     close (counts whether injected text is referenced in executor deviations
+     / verifier reports; <50% coverage = author-discipline intervention).
+
+     Log each injection to `.planning/metrics/intent-log.jsonl`:
+       {"ts":"{ISO}","phase":N,"milestone":"v1.X","outcome":"...","agent":"gsd-executor"}
+
+     This log seeds the kill-condition check. Token cost per injection:
+     `outcome_delivered` ≤120 chars → ~30 tokens. For a 10-dispatch phase
+     that's ~300 tokens total — cheap.
+
   6. DETERMINE DISPATCH
      Apply first-match rules:
      a. Phase needs CONTEXT.md (not discussed) → suggest /gsd-discuss-phase
