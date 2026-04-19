@@ -28,6 +28,7 @@ Schema: | type | slug | path | summary |
 | pattern | script-registry-patterns | patterns/script-registry-patterns.md | Query before creating new utilities — reuse existing scripts from context-tree |
 | pattern | token-efficiency-expertise | patterns/token-efficiency-expertise.md | Prompt compression, frontmatter-only reads, 300-word agent reports |
 
+
 ## anti-patterns
 
 | type | slug | path | summary |

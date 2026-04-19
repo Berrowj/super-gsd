@@ -236,6 +236,44 @@ if [ "$SKIP_BRV" = false ]; then
   else
     log "  Query test: FAILED (check .brv/context-tree/ has .md files)"
   fi
+
+  # ── DLB-04 Day 0 gate: curate-pipe smoke-test ──
+  # Pragmatist R2 verified in deliberation: installing curate scripts without
+  # an end-to-end verification was how FINDING-18 shipped in the first place.
+  # Any distillation or SEPL loop downstream silently no-ops if curate is
+  # broken. Fail the install loudly rather than discover it in v1.2.
+  log "  Testing curate write-pipe (DLB-04 smoke-test)..."
+  CURATE_SCRIPT="$SCRIPT_DIR/scripts/sgsd-curate.sh"
+  if [ ! -x "$CURATE_SCRIPT" ]; then
+    chmod +x "$CURATE_SCRIPT" 2>/dev/null || true
+  fi
+  SMOKE_SLUG="installer-smoke-test"
+  SMOKE_INDEX="$PROJECT_DIR/.brv/context-tree/INDEX.md"
+  SMOKE_FILE="$PROJECT_DIR/.brv/context-tree/patterns/$SMOKE_SLUG.md"
+  # Pre-clean in case of a prior failed install
+  rm -f "$SMOKE_FILE"
+  sed -i.bak "/| $SMOKE_SLUG |/d" "$SMOKE_INDEX" 2>/dev/null && rm -f "$SMOKE_INDEX.bak"
+
+  if [ "$DRY_RUN" = true ]; then
+    log "  DRY RUN: would curate a smoke record and check INDEX.md"
+  elif echo "installer smoke body" | bash "$CURATE_SCRIPT" \
+       --type pattern --slug "$SMOKE_SLUG" \
+       --summary "installer smoke — delete after verification" \
+       --root "$PROJECT_DIR" >/dev/null 2>&1 \
+       && grep -q "| $SMOKE_SLUG |" "$SMOKE_INDEX" 2>/dev/null \
+       && [ -f "$SMOKE_FILE" ]; then
+    log "  Curate smoke: PASSED"
+    # Clean up the smoke record so we don't litter the corpus
+    rm -f "$SMOKE_FILE"
+    sed -i.bak "/| $SMOKE_SLUG |/d" "$SMOKE_INDEX" && rm -f "$SMOKE_INDEX.bak"
+  else
+    echo ""
+    echo "ERROR: Curate write-pipe smoke-test FAILED."
+    echo "       sgsd-curate is the substrate for MUDA, SEPL, and distillation."
+    echo "       Fix this before proceeding (DLB-04 Day 0 blocker)."
+    echo "       Repro: echo body | bash $CURATE_SCRIPT --type pattern --slug smoke --summary test --root $PROJECT_DIR"
+    exit 1
+  fi
 else
   echo ""
   log "Step 7/8: ByteRover SKIPPED (--skip-brv flag)"
