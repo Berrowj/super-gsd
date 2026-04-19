@@ -232,8 +232,14 @@ mv "$tmp" "$WASTE_FILE"
 if [[ "$NO_CURATE" == false && -x "$CURATE" ]]; then
     curate_finding() {
         local name="$1" verdict="$2" value="$3" class="$4" evidence="$5" threshold="$6"
-        local slug="waste-${class}-p${PHASE_NUM}-${name}-${TS//[:T]/-}"
-        slug=$(printf '%s' "$slug" | tr 'A-Z' 'a-z' | sed 's/[^a-z0-9-]/-/g; s/-\+/-/g; s/-$//')
+        # DLB-04 · FINDING-18: slug must be time-stable.
+        # Prior buggy form embedded $TS, producing slugs like
+        # waste-waiting-p08-narrative-stale-2026-04-19-20-01-38z which violated
+        # sgsd-curate's kebab-case + time-stability contract. Re-runs of the same
+        # (phase, probe, class) triple are idempotent via sgsd-curate's exit-4
+        # on existing file — the non-blocking curate_finding caller swallows that.
+        local slug="waste-${class}-p${PHASE_NUM}-${name}"
+        slug=$(printf '%s' "$slug" | tr 'A-Z' 'a-z' | sed 's/[^a-z0-9-]/-/g; s/-\+/-/g; s/^-//; s/-$//')
         local summary="P${PHASE_NUM} ${name}=${value} ${verdict} — ${class} waste"
         # Cap summary at 80 chars per sgsd-curate validation
         summary="${summary:0:79}"
