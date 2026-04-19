@@ -36,15 +36,15 @@ Exit conditions (ONLY these 4):
 You have ~1,350 tokens per loop iteration. Spend them wisely:
 - Read STATE.md frontmatter: ~200 tokens
 - Classify (Haiku): ~50 tokens
-- Query context (brv-query): ~100 tokens
+- Query context (sgsd-recall): ~100 tokens
 - Compose agent prompt: ~500 tokens
 - Process agent report: ~300 tokens
 - ATC gate (Step 8.5): ~0 (skip), ~250 (lite), ~550 (full/gate)
 - State update + commit: ~150 tokens
-- Curate learning (brv-curate): ~50 tokens
+- Curate learning (sgsd-curate): ~50 tokens
 
 DO NOT read full files. DO NOT load ROADMAP.md every loop. DO NOT re-read context
-you already have. Frontmatter and brv-query results are your context.
+you already have. Frontmatter and sgsd-recall results are your context.
 </token_budget>
 
 <cold_start>
@@ -126,7 +126,7 @@ REPEAT:
      AFTER: TaskUpdate(same taskId, status: "completed")
 
   5. QUERY BYTEROVER
-     For each brv_query: execute brv-query → collect results (~200 tokens each)
+     For each brv_query: execute sgsd-recall → collect results (~200 tokens each)
      For each script_to_check: search for existing utility to reuse
      Total context injection target: <1000 tokens
 
@@ -458,18 +458,18 @@ REPEAT:
      PROCESS RESULT — parse all 6 sections:
        FILES_CHANGED  → stage these exact paths for git (never git add -A)
        VERIFICATION   → if any item shows ✗: log warning, continue (don't EXIT)
-       DEVIATIONS     → collect; "new pattern:" prefix triggers brv-curate
+       DEVIATIONS     → collect; "new pattern:" prefix triggers sgsd-curate
        BLOCKERS       → if non-empty and not "none": EXIT with blocker text
-       SCRIPTS_CREATED→ each "path | purpose | interface" line → brv-curate scripts/
+       SCRIPTS_CREATED→ each "path | purpose | interface" line → sgsd-curate scripts/
        ONE_LINER      → use verbatim in git commit message
 
      If report is missing any section: log "MISSING: {section}", treat as empty.
      If report exceeds 300 words: log "REPORT_OVERLIMIT", process anyway.
 
   10. CURATE LEARNINGS
-      If DEVIATIONS contains new patterns → brv-curate to patterns/
-      If SCRIPTS_CREATED non-empty → brv-curate to scripts/{category}
-      If new error discovered → brv-curate to error-rules/
+      If DEVIATIONS contains new patterns → sgsd-curate to patterns/
+      If SCRIPTS_CREATED non-empty → sgsd-curate to scripts/{category}
+      If new error discovered → sgsd-curate to error-rules/
 
   11. UPDATE STATE
       - Update STATE.md (advance plan counter, update progress)
@@ -545,7 +545,7 @@ After each unit, append to `.planning/metrics/token-log.jsonl`:
 Estimation method:
 - Input: count words in composed prompt * 1.3
 - Output: count words in agent report * 1.3
-- Context: sum of brv-query result tokens + file read tokens
+- Context: sum of sgsd-recall result tokens + file read tokens
 </token_logging>
 
 <golden_rules>
@@ -557,7 +557,7 @@ Estimation method:
    d. User says stop/pause: write checkpoint, stop
    NOTHING ELSE is a valid text-only response.
 2. NEVER do heavy work yourself. Dispatch to sub-agents.
-3. NEVER load full files. Frontmatter + brv-query only.
+3. NEVER load full files. Frontmatter + sgsd-recall only.
 4. COMMIT after every unit. Uncommitted work is lost work.
 5. CURATE after every unit. Unrecorded learnings are wasted tokens.
 6. LOG tokens after every unit. Untracked spend is invisible spend.

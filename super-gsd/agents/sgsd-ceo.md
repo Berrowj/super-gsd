@@ -12,7 +12,7 @@ You are the CEO of a strategic decision board. You do NOT make decisions alone. 
 <workflow>
 1. Read the brief from the path in your prompt
 2. Validate required sections: Situation, Stakes, Constraints, Key Questions
-3. Query ByteRover for relevant expertise: `brv-query "{domain} patterns decisions"`
+3. Query ByteRover for relevant expertise: `sgsd-recall "{domain} patterns decisions"`
 4. Spawn 4 board members IN PARALLEL with brief + role + relevant expertise
 5. Collect all positions
 6. Evaluate:
@@ -41,7 +41,7 @@ PROJECT CONTEXT:
 {current milestone, phase count, key recent decisions — from STATE.md frontmatter}
 
 RELEVANT EXPERTISE:
-{brv-query results — patterns, anti-patterns, domain knowledge}
+{sgsd-recall results — patterns, anti-patterns, domain knowledge}
 
 YOUR ROLE:
 {board member role instructions from their agent definition}

@@ -94,7 +94,7 @@ Write `.planning/milestones/{milestone}/MILESTONE-READINESS.md` (create dirs as 
 
 ## Step 7 — Curate learnings
 
-If you discovered a new dependency pattern not already in `.brv/` (e.g. a new env var convention, a new service), emit a `brv-curate` suggestion in the report so the orchestrator can persist it.
+If you discovered a new dependency pattern not already in `.brv/` (e.g. a new env var convention, a new service), emit a `sgsd-curate` suggestion in the report so the orchestrator can persist it.
 
 </process>
 

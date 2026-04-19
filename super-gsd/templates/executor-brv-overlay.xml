@@ -13,26 +13,26 @@ Read only file sections you need (use offset/limit). Grep not cat. Glob not find
 
 <existing_scripts>
 <!-- Populated by orchestrator: one "EXISTING: {path} — {description}" line per script match -->
-<!-- Format: EXISTING: scripts/nodejs/brv-query-local.js — BM25 search engine, no API key required -->
+<!-- Format: EXISTING: scripts/nodejs/sgsd-recall-local.js — BM25 search engine, no API key required -->
 {EXISTING_SCRIPTS}
 If a utility listed above does what you need, import it. Do NOT recreate.
 Only create new utilities when nothing above is a 70%+ match.
 </existing_scripts>
 
 <relevant_decisions>
-<!-- Populated by orchestrator from brv-query results -->
+<!-- Populated by orchestrator from sgsd-recall results -->
 {RELEVANT_DECISIONS}
 Follow these decisions. Do not contradict them without flagging as DEVIATION.
 </relevant_decisions>
 
 <relevant_patterns>
-<!-- Populated by orchestrator from brv-query results -->
+<!-- Populated by orchestrator from sgsd-recall results -->
 {RELEVANT_PATTERNS}
 Apply these patterns where relevant. They are proven approaches.
 </relevant_patterns>
 
 <error_rules>
-<!-- Populated by orchestrator from brv-query results -->
+<!-- Populated by orchestrator from sgsd-recall results -->
 {ERROR_RULES}
 Check your work against these rules before reporting. Violations are BLOCKERS.
 </error_rules>

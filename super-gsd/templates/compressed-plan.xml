@@ -19,7 +19,7 @@
 </verify>
 <context>
   <!-- Only include decisions/patterns directly relevant to THIS task -->
-  <!-- Injected by orchestrator via brv-query, not hardcoded -->
+  <!-- Injected by orchestrator via sgsd-recall, not hardcoded -->
   <d>{Decision ID: one-liner}</d>
   <p>{Pattern: one-liner}</p>
   <e>{Error rule: one-liner}</e>

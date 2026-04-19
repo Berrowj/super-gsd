@@ -76,7 +76,7 @@ State lives in `.planning/`. Memory lives in `.brv/context-tree/` (ByteRover).
 
 1. **Check for checkpoint:** `Read .planning/ORCHESTRATOR-CHECKPOINT.md` — if found, resume from `next_unit`. Don't ask, just go.
 2. **Read state:** `Read .planning/STATE.md` (frontmatter only, offset 0, limit 30) — active milestone, phase, progress.
-3. **Check ByteRover:** `brv-query "session start current state"` — pull relevant context.
+3. **Check ByteRover:** `sgsd-recall "session start current state"` — pull relevant context.
 4. If user says "go" / "auto" / "continue" / "run" → enter auto mode immediately. No confirmation.
 
 ### What the User Says → What You Do
@@ -117,7 +117,7 @@ repeat {
   → { brv_queries, file_reads, scripts_to_check }
 
   // 4. QUERY BYTEROVER (~200-600 tokens)
-  brv-query for each query → relevant decisions, patterns, scripts
+  sgsd-recall for each query → relevant decisions, patterns, scripts
 
   // 5. COMPOSE PROMPT (~500 tokens)
   Build agent prompt: compressed plan + overlay + brv results
@@ -130,9 +130,9 @@ repeat {
   Parse: FILES_CHANGED, VERIFICATION, DEVIATIONS, BLOCKERS, SCRIPTS_CREATED, ONE_LINER
 
   // 8. CURATE LEARNINGS
-  If SCRIPTS_CREATED → brv-curate to scripts/
-  If DEVIATIONS contain new patterns → brv-curate
-  If verifier found anti-patterns → brv-curate
+  If SCRIPTS_CREATED → sgsd-curate to scripts/
+  If DEVIATIONS contain new patterns → sgsd-curate
+  If verifier found anti-patterns → sgsd-curate
 
   // 9. UPDATE STATE
   Update STATE.md progress
@@ -250,10 +250,26 @@ When context >70% OR user says pause/stop:
 - Log all token usage to `.planning/metrics/token-log.jsonl`
 - Script reuse: query before creating new utilities
 
-### ByteRover Integration
+### Memory Retrieval (DLB-01 — replaces ByteRover)
 
-- `brv-query "{terms}"` — retrieve relevant knowledge (~200 tokens per result)
-- `brv-curate "{content}"` — store new patterns, decisions, scripts
-- Query BEFORE dispatching (inject results into agent prompt)
-- Curate AFTER processing (capture learnings from agent report)
-- Scripts: always check `brv-query "scripts {purpose}"` before creating new ones
+Per DLB-01 (`.planning/decisions/DLB-01-memory-topology.md`), the SGSD-global
+memory tier is a git-native filesystem store at `.brv/context-tree/` with an
+`INDEX.md` catalogue. The shell wrappers below are the stable callable
+interface; the dead `brv-query` / `brv-curate` no-ops (and the unconnected
+`brv` MCP) have been removed.
+
+- `sgsd-recall "{terms}"` — grep INDEX.md by query terms, emit top-N file
+  contents with `<!-- sgsd-recall: type/slug -->` framing (~200 tokens per
+  result). Supports `--type`, `--limit`, `--paths-only`. Lives at
+  `super-gsd/scripts/sgsd-recall.sh`; auto-walks up from CWD to find
+  `.brv/context-tree/`.
+- `sgsd-curate --type T --slug S --summary "≤80 chars" [--tags "a,b"] < body.md`
+  — atomic write of a new entry + INDEX.md update. Types:
+  `pattern | anti-pattern | decision | expertise | script`.
+- Query BEFORE dispatching (inject results into agent prompt).
+- Curate AFTER processing (capture learnings from agent report).
+- Scripts: always check `sgsd-recall "scripts {purpose}"` before creating
+  new ones.
+
+Revisit BM25 ranking infrastructure only at the 40-file tripwire (see
+DLB-01). Until then, grep + INDEX.md curation discipline is sufficient.

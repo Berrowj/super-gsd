@@ -138,8 +138,8 @@ Agent(
 ### Step 4: Query ByteRover
 
 ```bash
-# Step 4: Query ByteRover (brv-query-local.js — no API key required)
-BRV_BIN="$(find super-gsd/overwatcher ~/.claude/hooks -name brv-query-local.js 2>/dev/null | head -1)"
+# Step 4: Query ByteRover (sgsd-recall-local.js — no API key required)
+BRV_BIN="$(find super-gsd/overwatcher ~/.claude/hooks -name sgsd-recall-local.js 2>/dev/null | head -1)"
 
 # Run up to 3 queries from context_selector output (brv_queries array)
 BRV_RESULTS=""
@@ -298,7 +298,7 @@ FILES_CHANGED → list for git add
 VERIFICATION → check all passed; if any failed, log
 DEVIATIONS → collect for phase summary
 BLOCKERS → if any: EXIT with blocker description
-SCRIPTS_CREATED → prepare for brv-curate
+SCRIPTS_CREATED → prepare for sgsd-curate
 ONE_LINER → use in commit message and state update
 ```
 
@@ -434,8 +434,8 @@ fi
 ### Step 9: Curate Learnings
 
 ```bash
-# Step 9: Curate Learnings (brv-curate-local.js)
-BRV_CURATE="$(find super-gsd/overwatcher ~/.claude/hooks -name brv-curate-local.js 2>/dev/null | head -1)"
+# Step 9: Curate Learnings (sgsd-curate-local.js)
+BRV_CURATE="$(find super-gsd/overwatcher ~/.claude/hooks -name sgsd-curate-local.js 2>/dev/null | head -1)"
 
 # Curate each new script from agent report SCRIPTS_CREATED section
 # SCRIPTS_CREATED format: "path | purpose: what | interface: signature"
@@ -605,7 +605,7 @@ Commit checkpoint, then STOP (text-only response).
 |-------|----------|
 | Sub-agent report missing sections | Log warning, extract what's available |
 | Verification all failed | Dispatch planner --gaps, don't EXIT |
-| brv-query fails/unavailable | Fall back to reading .planning/ files directly |
+| sgsd-recall fails/unavailable | Fall back to reading .planning/ files directly |
 | git commit fails | Check status, resolve, retry once |
 | Classifier returns unexpected format | Default: model=sonnet, atc_tier=lite |
 | Context fills before checkpoint written | Write emergency checkpoint with last known state |

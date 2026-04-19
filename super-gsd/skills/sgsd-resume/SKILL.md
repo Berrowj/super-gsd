@@ -63,7 +63,7 @@ If inconsistencies found: report them, suggest `/gsd-health --repair`.
 ## Step 3: Query ByteRover for Context
 
 ```
-brv-query "current project state recent decisions"
+sgsd-recall "current project state recent decisions"
 ```
 
 Inject relevant results into working memory for the session.

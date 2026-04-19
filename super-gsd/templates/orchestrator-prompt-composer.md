@@ -24,13 +24,13 @@ Return JSON: {brv_queries, file_reads, error_rules, scripts_to_check}")
 
 For each brv_query from step 2:
 ```
-brv-query "{query_string}"
+sgsd-recall "{query_string}"
 → Collect results, ~200 tokens each, max 3 queries = ~600 tokens
 ```
 
 For each scripts_to_check entry from context selector:
 ```bash
-BRV_BIN="$(find super-gsd/overwatcher ~/.claude/hooks -name brv-query-local.js 2>/dev/null | head -1)"
+BRV_BIN="$(find super-gsd/overwatcher ~/.claude/hooks -name sgsd-recall-local.js 2>/dev/null | head -1)"
 HITS=$(node "$BRV_BIN" "scripts $PURPOSE" --domain scripts --max 2 --format json 2>/dev/null)
 # Format each hit as EXISTING: line for injection
 EXISTING_LINES=$(node -e "
@@ -57,9 +57,9 @@ Template (for executor):
 
 {executor_brv_overlay with placeholders filled:
   EXISTING_SCRIPTS = one "EXISTING: {path} — {80-char description}" per match, or "none"
-  RELEVANT_DECISIONS = brv-query decision results
-  RELEVANT_PATTERNS = brv-query pattern results
-  ERROR_RULES = brv-query error rule results
+  RELEVANT_DECISIONS = sgsd-recall decision results
+  RELEVANT_PATTERNS = sgsd-recall pattern results
+  ERROR_RULES = sgsd-recall error rule results
 }
 
 <files_to_read>
@@ -113,8 +113,8 @@ Parse structured report:
 After composition, estimate total tokens:
 - Plan XML: count words * 1.3
 - Overlay: ~80 tokens (fixed)
-- brv-query results: ~200 per query * N queries
+- sgsd-recall results: ~200 per query * N queries
 - file_reads: sum of lines * ~2 tokens/line
 - TOTAL should be under 1,500 tokens for the prompt
 
-If over 1,500: trim file_reads first, then brv-query results, never trim the plan.
+If over 1,500: trim file_reads first, then sgsd-recall results, never trim the plan.

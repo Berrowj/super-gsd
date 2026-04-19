@@ -101,7 +101,7 @@ Write to `.planning/audit/WORKFLOW-AUDIT.md`.
 
 ## Step 6 — Curate
 
-If a systemic issue is found (e.g. a miscast pattern that keeps happening), emit a `brv-curate` suggestion for the fix pattern so future orchestrator runs apply it automatically.
+If a systemic issue is found (e.g. a miscast pattern that keeps happening), emit a `sgsd-curate` suggestion for the fix pattern so future orchestrator runs apply it automatically.
 
 </process>
 

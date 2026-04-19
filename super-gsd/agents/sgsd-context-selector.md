@@ -1,6 +1,6 @@
 ---
 name: sgsd-context-selector
-description: Selects relevant context for a task from ByteRover. Returns brv-query terms and file paths. Spawned by orchestrator before composing agent prompts.
+description: Selects relevant context for a task from ByteRover. Returns sgsd-recall terms and file paths. Spawned by orchestrator before composing agent prompts.
 tools: Read, Grep
 model: haiku
 ---

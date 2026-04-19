@@ -46,7 +46,7 @@ Modes:
    - Model distribution: % opus vs sonnet vs haiku
    - Top 5 most expensive phases (by total tokens)
    - Average tokens per agent type
-   - Context injection efficiency (brv-query tokens vs total)
+   - Context injection efficiency (sgsd-recall tokens vs total)
 3. Recommendations:
    - Phases where Sonnet could be downgraded to Haiku
    - Agent types consistently under budget (could use smaller model)

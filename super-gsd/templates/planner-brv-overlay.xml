@@ -12,13 +12,13 @@ Each step: one atomic action in imperative voice.
 </token_efficiency>
 
 <relevant_decisions>
-<!-- Populated by orchestrator from brv-query results -->
+<!-- Populated by orchestrator from sgsd-recall results -->
 {RELEVANT_DECISIONS}
 Lock these into the plan. Plans that contradict locked decisions will be rejected.
 </relevant_decisions>
 
 <existing_scripts>
-<!-- Populated by orchestrator from brv-query results -->
+<!-- Populated by orchestrator from sgsd-recall results -->
 {EXISTING_SCRIPTS}
 Reference these in task steps where relevant: "Import {name} from {path}" instead of
 "Create a utility that does X" — reuse existing work.

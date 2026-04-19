@@ -69,8 +69,8 @@ Read (frontmatter only, not full files):
 - Recent `.planning/decisions/DLB-*.md` — last 3 decision memos (if any)
 
 Query ByteRover:
-- `brv-query "{brief domain} decisions patterns"` → relevant knowledge
-- `brv-query "{brief domain} expertise"` → domain expertise
+- `sgsd-recall "{brief domain} decisions patterns"` → relevant knowledge
+- `sgsd-recall "{brief domain} expertise"` → domain expertise
 
 Build context block: ~400 tokens summarizing project position + relevant knowledge.
 </step_2_context>
@@ -84,7 +84,7 @@ Spawn 4 agents IN PARALLEL:
 Agent(description: "Architect analysis", model: "sonnet", prompt: "
 BRIEF: {full brief}
 PROJECT CONTEXT: {context block}
-RELEVANT EXPERTISE: {brv-query results}
+RELEVANT EXPERTISE: {sgsd-recall results}
 YOUR ROLE: Technical Architect — evaluate feasibility, risk, implementation cost.
 RESPOND: Position, Technical Risk, Key Argument, Implementation Sketch, Blind Spots.
 No intro. Max 400 words.")
@@ -152,7 +152,7 @@ Create directories if they don't exist.
 
 Curate decision into ByteRover:
 ```
-brv-curate "{decision summary}" domain: decisions/{topic} importance: 80
+sgsd-curate "{decision summary}" domain: decisions/{topic} importance: 80
 ```
 
 Log token usage to `.planning/metrics/token-log.jsonl`:
