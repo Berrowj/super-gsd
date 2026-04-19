@@ -100,6 +100,7 @@ function sgsd {
     param(
         [switch]`$NoOpen,
         [switch]`$SkipPreflight,
+        [switch]`$Bootstrap,
         [switch]`$Help,
         [string]`$ProjectDir = `$null
     )
@@ -109,6 +110,7 @@ function sgsd {
         Write-Host '  sgsd                 Boot cockpit (preflight + 3 dashboards)'
         Write-Host '  sgsd -NoOpen         Preflight only'
         Write-Host '  sgsd -SkipPreflight  Skip checks, just open dashboards'
+        Write-Host '  sgsd -Bootstrap      Create minimal .brv/context-tree in place'
         Write-Host '  sgsd -ProjectDir X   Explicit project directory'
         Write-Host '  sgsd -Help           This help'
         return
@@ -143,6 +145,7 @@ function sgsd {
     `$args = @('-File', `$bootScript, '-ProjectDir', `$ProjectDir)
     if (`$NoOpen)         { `$args += '-NoOpen' }
     if (`$SkipPreflight)  { `$args += '-SkipPreflight' }
+    if (`$Bootstrap)      { `$args += '-Bootstrap' }
 
     & powershell.exe @args
 }

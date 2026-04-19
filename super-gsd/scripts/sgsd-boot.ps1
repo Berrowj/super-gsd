@@ -18,7 +18,8 @@
 param(
     [string]$ProjectDir = ".",
     [switch]$SkipPreflight,
-    [switch]$NoOpen
+    [switch]$NoOpen,
+    [switch]$Bootstrap
 )
 
 $ErrorActionPreference = "Stop"
@@ -74,8 +75,70 @@ if (-not $SkipPreflight) {
     if (Test-Path $indexPath) {
         Write-Step ".brv/context-tree/INDEX.md present" "OK" Green
     } else {
-        Write-Step "INDEX.md missing - memory tier not initialized" "FAIL" Red
-        exit 3
+        if ($Bootstrap) {
+            # Create minimal context-tree + INDEX.md so sgsd-curate + sgsd-recall
+            # have a valid target. Does NOT seed knowledge files - that's the
+            # installer's job. Safe: only creates new paths, never overwrites.
+            $treeRoot = Join-Path $ProjectDir ".brv/context-tree"
+            $subdirs = @("patterns", "anti-patterns", "decisions", "expertise",
+                         "error-rules", "scripts", "domain",
+                         "trajectory-hypothesis", "trajectory-hypothesis/candidate")
+            foreach ($sub in $subdirs) {
+                $d = Join-Path $treeRoot $sub
+                if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+                # .gitkeep so empty dirs stay tracked
+                $gk = Join-Path $d ".gitkeep"
+                if (-not (Test-Path $gk)) { New-Item -ItemType File -Path $gk -Force | Out-Null }
+            }
+            $indexSeed = @"
+# SGSD Memory Tier - INDEX
+
+Bootstrap-generated on $(Get-Date -Format 'yyyy-MM-dd'). sgsd-curate appends
+rows below its section; sgsd-recall reads this file to score matches.
+
+Schema: | type | slug | path | summary |
+
+## patterns
+
+| type | slug | path | summary |
+|------|------|------|---------|
+
+## anti-patterns
+
+| type | slug | path | summary |
+|------|------|------|---------|
+
+## decisions
+
+| type | slug | path | summary |
+|------|------|------|---------|
+
+## expertise
+
+| type | slug | path | summary |
+|------|------|------|---------|
+
+## scripts
+
+| type | slug | path | summary |
+|------|------|------|---------|
+"@
+            Set-Content -Path $indexPath -Value $indexSeed -NoNewline
+            # .planning/metrics/ + resource-registry/ so downstream DLB-04 scripts work
+            $metricsDir = Join-Path $ProjectDir ".planning/metrics"
+            $regDir     = Join-Path $ProjectDir ".planning/resource-registry"
+            if (-not (Test-Path $metricsDir)) { New-Item -ItemType Directory -Path $metricsDir -Force | Out-Null }
+            if (-not (Test-Path $regDir))     { New-Item -ItemType Directory -Path $regDir -Force | Out-Null }
+            Write-Step "bootstrapped memory tier ($treeRoot)" "OK" Green
+        } else {
+            Write-Step "INDEX.md missing - memory tier not initialized" "FAIL" Red
+            Write-Host "    Fix one of:" -ForegroundColor DarkGray
+            Write-Host "      sgsd -Bootstrap            " -NoNewline -ForegroundColor Cyan
+            Write-Host "(quick: create empty tree in place)" -ForegroundColor DarkGray
+            Write-Host "      bash super-gsd/install.sh --init-project  " -NoNewline -ForegroundColor Cyan
+            Write-Host "(full: seed 9 knowledge files)" -ForegroundColor DarkGray
+            exit 3
+        }
     }
 
     # 3. curate-pipe smoke test (DLB-04 Day 0 gate)
