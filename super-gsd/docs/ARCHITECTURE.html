@@ -500,19 +500,21 @@ em { color: var(--text-dim); font-style: italic; }
 <div class="wrap">
 
 <section class="hero">
-  <h1>Super GSD — Architecture <span class="badge">v1.1 CLOSED</span></h1>
-  <p class="subtitle">Token-efficient autonomous orchestrator on Claude Code. Lean state machine with per-dispatch classification, phase-close quality gates, git-native memory, and two live learning loops.</p>
+  <h1>Super GSD — Architecture <span class="badge">v1.1 CLOSED</span> <span class="badge" style="background:rgba(163,113,247,.15);color:var(--accent-2)">DLB-04 SHIPPED</span></h1>
+  <p class="subtitle">Token-efficient autonomous orchestrator on Claude Code. Lean state machine with per-dispatch classification, phase-close quality gates, git-native memory, two live learning loops, a scoped resource substrate (DLB-04 · Agents manifest + operator-gated SEPL), and milestone-close trajectory distillation with a triple hallucination gate.</p>
   <div class="meta">
     <span><strong>Last updated</strong> 2026-04-19</span>
     <span><strong>Context window</strong> Opus 4.7 (1M)</span>
-    <span><strong>Active DLBs</strong> DLB-01 · DLB-02 · DLB-03</span>
-    <span><strong>Milestone</strong> v1.1 Self-Audit complete — v1.2 pending</span>
+    <span><strong>Active DLBs</strong> DLB-01 · DLB-02 · DLB-03 · DLB-04</span>
+    <span><strong>Milestone</strong> v1.1 Self-Audit complete — v1.2 DLB-04 layer shipped — v1.3 promotion pending</span>
+    <span><strong>Detail doc</strong> <a href="ARCHITECTURE-v1.2.html" style="color:var(--accent-2)">ARCHITECTURE-v1.2.html</a> — full DLB-04 rationale + live results</span>
   </div>
 </section>
 
 <nav class="toc">
   <div class="toc-title">Navigate</div>
   <a href="#overview">System Overview</a>
+  <a href="#substrate">Resource Substrate (DLB-04)</a>
   <a href="#components">Component Catalogue</a>
   <a href="#loop">Orchestrator Loop</a>
   <a href="#memory">Memory Tier</a>
@@ -527,14 +529,14 @@ em { color: var(--text-dim); font-style: italic; }
 </nav>
 
 <div class="stats">
-  <div class="stat accent"><div class="num">21<span class="unit">commits</span></div><div class="label">This session</div></div>
-  <div class="stat green"><div class="num">3</div><div class="label">DLB decision memos</div></div>
-  <div class="stat"><div class="num">10</div><div class="label">SGSD agents</div></div>
+  <div class="stat accent"><div class="num">29<span class="unit">commits</span></div><div class="label">Session total (+8 DLB-04)</div></div>
+  <div class="stat green"><div class="num">4</div><div class="label">DLB decision memos</div></div>
+  <div class="stat"><div class="num">10</div><div class="label">SGSD agents (in registry)</div></div>
   <div class="stat"><div class="num">10</div><div class="label">SGSD skills</div></div>
   <div class="stat"><div class="num">8</div><div class="label">hooks registered</div></div>
-  <div class="stat pink"><div class="num">23<span class="unit">findings</span></div><div class="label">Phase 8 audit</div></div>
-  <div class="stat amber"><div class="num">48<span class="unit">%</span></div><div class="label">Session ctx (1M cap)</div></div>
-  <div class="stat"><div class="num">~332<span class="unit">k</span></div><div class="label">Deliberation tokens</div></div>
+  <div class="stat accent2"><div class="num">7</div><div class="label">Trajectory hypotheses (v1.1)</div></div>
+  <div class="stat amber"><div class="num">3</div><div class="label">Quarantined (1-phase cite)</div></div>
+  <div class="stat"><div class="num">3</div><div class="label">Hallucination gates stacked</div></div>
 </div>
 
 <section id="overview">
@@ -593,6 +595,51 @@ flowchart TB
     gMuda --> mudaLog --> mudaChk
     loop --> intLog --> intChk
     dash -.read-only.-> state
+  </div>
+</section>
+
+<section id="substrate">
+  <h2>1b. Resource Substrate <span class="badge" style="background:rgba(163,113,247,.15);color:var(--accent-2)">DLB-04</span></h2>
+  <p class="section-subtitle">Narrow adoption of Autogenesis (RSPL/SEPL) + EvolveR trajectory-distillation patterns. Agents manifest, operator-gated propose→commit, and milestone-close distillation with a triple hallucination gate. Full rationale lives in <a href="ARCHITECTURE-v1.2.html">ARCHITECTURE-v1.2.html</a> — this section is the one-page summary.</p>
+
+  <div class="mermaid">
+flowchart LR
+    subgraph rspl["RSPL (scoped · Q1 · 1c)"]
+        reg[".planning/<br/>resource-registry/<br/>agents.jsonl"]
+        sync["sgsd-registry-sync.sh<br/>walks agents/<br/>git hash-object"]
+    end
+
+    subgraph sepl["SEPL (operator-gated · Q2 · 2a)"]
+        prop["sgsd-sepl-propose.sh<br/>→ .planning/proposals/"]
+        commit["sgsd-sepl-commit.sh<br/>(--apply | --reject)"]
+        splog["metrics/sepl-log.jsonl"]
+    end
+
+    subgraph distill["TRAJECTORY DISTILLATION (Q3 · 3b)"]
+        dm["sgsd-distill-milestone.sh<br/>milestone-close, not phase-close"]
+        g1["G1 · Architect<br/>trajectory-hypothesis<br/>(never -lesson)"]
+        g2["G2 · Moonshot<br/>two-phase citation"]
+        g3["G3 · Contrarian<br/>novelty rating<br/>median < 2/3 retires"]
+        hyp[".brv/context-tree/<br/>trajectory-hypothesis/<br/>7 files · classifier-firewalled"]
+        cand["candidate/<br/>3 singletons<br/>quarantined"]
+    end
+
+    sync --> reg
+    reg -.future consumer.-> cls["MUDA classifier<br/>pre-dispatch query"]
+    prop --> commit --> splog
+    dm --> g1 --> g2
+    g2 -->|≥2 cites| hyp
+    g2 -->|1 cite| cand
+    hyp --> g3
+  </div>
+
+  <div class="note">
+    <strong>Live v1.1 state:</strong> Registry holds 10 agents. SEPL queue: 0 proposals (kill check at v1.2 close). Distillation: 7 hypotheses passed Gate 2, 3 quarantined; Gate 3 rating pending operator input.
+    <br><br>
+    <strong>Operator commands:</strong>
+    <code class="inline">bash super-gsd/scripts/sgsd-registry-sync.sh</code> ·
+    <code class="inline">sgsd-sepl-propose.sh --type rule --target ...</code> ·
+    <code class="inline">sgsd-distill-milestone.sh v1.1 --exclude-phase-type self-audit</code>
   </div>
 </section>
 
@@ -674,6 +721,30 @@ flowchart TB
       <div class="card-tag tag-gate">gate</div>
       <div class="card-name">/sgsd-audit (skill)</div>
       <div class="card-desc">Evidence gate. Layer 1 existence reconciler + Layer 2 evidence verdicts + Layer 3 runtime probes (opt-in).</div>
+    </div>
+
+    <div class="component-card" style="border-left:3px solid var(--accent-2)">
+      <div class="card-tag" style="background:rgba(163,113,247,.15); color:var(--accent-2); font-family:var(--mono); font-size:10px; font-weight:700; padding:2px 7px; border-radius:10px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; display:inline-block">registry</div>
+      <div class="card-name">sgsd-registry-sync.sh</div>
+      <div class="card-desc">DLB-04 Q1. Walks <code>super-gsd/agents/</code>, writes one JSONL record per agent to <code>.planning/resource-registry/agents.jsonl</code> with <code>{id, path, sha, mtime, model, tools, description}</code>. Scoped to Agents only.</div>
+    </div>
+
+    <div class="component-card" style="border-left:3px solid var(--accent-2)">
+      <div class="card-tag" style="background:rgba(88,166,255,.15); color:var(--accent); font-family:var(--mono); font-size:10px; font-weight:700; padding:2px 7px; border-radius:10px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; display:inline-block">sepl</div>
+      <div class="card-name">sgsd-sepl-propose.sh</div>
+      <div class="card-desc">DLB-04 Q2. Sub-agents emit proposals to <code>.planning/proposals/{YYYY-MM-DD}-{slug}.md</code>. Frontmatter: resource_type · target_path · status · description · rationale. Logs "proposal" event.</div>
+    </div>
+
+    <div class="component-card" style="border-left:3px solid var(--accent-2)">
+      <div class="card-tag" style="background:rgba(88,166,255,.15); color:var(--accent); font-family:var(--mono); font-size:10px; font-weight:700; padding:2px 7px; border-radius:10px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; display:inline-block">sepl</div>
+      <div class="card-name">sgsd-sepl-commit.sh</div>
+      <div class="card-desc">DLB-04 Q2. Operator-triggered <code>--apply</code> or <code>--reject</code>. Rule type appends; others overwrite. Atomic git commit. Logs "commit" event. No auto-commit anywhere.</div>
+    </div>
+
+    <div class="component-card" style="border-left:3px solid var(--accent-2)">
+      <div class="card-tag" style="background:rgba(163,113,247,.15); color:var(--accent-2); font-family:var(--mono); font-size:10px; font-weight:700; padding:2px 7px; border-radius:10px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; display:inline-block">distill</div>
+      <div class="card-name">sgsd-distill-milestone.sh</div>
+      <div class="card-desc">DLB-04 Q3. Three modes: prepare (emit Haiku prompt + corpus), ingest (route via triple gate), rate (operator novelty 1-3). Fires at milestone close, not phase close. Classifier-firewalled output.</div>
     </div>
   </div>
 </section>
