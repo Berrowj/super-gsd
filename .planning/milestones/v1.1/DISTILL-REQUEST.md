@@ -1,7 +1,7 @@
 ---
 type: distill-request
 milestone: v1.1
-generated_at: 2026-04-19T22:15:38Z
+generated_at: 2026-04-19T22:19:16Z
 exclude_phase_type: self-audit
 phases_included:
   - 01-token-foundation

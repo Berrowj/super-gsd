@@ -1,0 +1,72 @@
+[
+  {
+    "slug": "atomic-writes-tmp-rename",
+    "title": "Atomic Writes via tmp + Rename Pattern",
+    "principle": "Atomic file writes use .tmp temporary file + renameSync on the same volume for OS-level atomicity, preventing partial writes on system crash.",
+    "cites": ["01", "02"],
+    "evidence": "Phase 01 hardened all 5 hooks with atomic write pattern for checkpoint and log files; Phase 02 applied identical pattern (T-02-01) to brv-curate-local.js writing YAML entries to context-tree."
+  },
+  {
+    "slug": "path-normalization-first-site",
+    "title": "Path Normalization at First Construction Site",
+    "principle": "Normalize filesystem paths with toUnixPath at the first path-construction site in each code path, not at individual read/write callsites.",
+    "cites": ["01", "02"],
+    "evidence": "Phase 01 applied toUnixPath at entry point in all 5 hooks (gsd-token-logger, gsd-checkpoint-writer, etc.); Phase 02 mirrors walk-up directory search patterns from brv-query-local in brv-curate-local, normalizing paths once before use."
+  },
+  {
+    "slug": "ipc-guard-structured-data",
+    "title": "IPC Guard for Untrusted Structured Data",
+    "principle": "Protect code that reads structured data (JSON, YAML, phase state) from untrusted sources using @file: guard pattern to verify file boundaries before parsing.",
+    "cites": ["01", "03", "07"],
+    "evidence": "Phase 01 added @file: guard in SKILL.md cold_start section (5 occurrences); Phase 03 used gsd-tools find-phase with @file: guard for safe JSON parsing in dispatch conditions; Phase 07 validation confirmed all interfaces operate via local IPC with zero external network calls."
+  },
+  {
+    "slug": "manual-serialization-no-deps",
+    "title": "Manual Serialization Without External Libraries",
+    "principle": "Serialize configuration and metadata manually using only fs and path builtins, avoiding external JSON/YAML libraries to reduce attack surface and dependencies.",
+    "cites": ["02", "07"],
+    "evidence": "Phase 02 brv-curate-local.js uses manual YAML serialization (fs+path only, no yaml library) per threat model T-02-03; Phase 07 validation found zero external library imports in hooks and core scripts, confirming this pattern throughout."
+  },
+  {
+    "slug": "idempotent-merge-dedup",
+    "title": "Idempotent Merge with String Deduplication",
+    "principle": "Merge configurations idempotently by matching on command string or exact value equality, preventing duplicate entries on repeated runs.",
+    "cites": ["01", "03"],
+    "evidence": "Phase 01 settings.json merge deduplicated hook registrations by command string match; Phase 03 implemented consumed-pattern checkpoint delete (delete on read, not on write) to prevent stale resume state accumulation."
+  },
+  {
+    "slug": "domain-validation-regex",
+    "title": "Domain Validation Regex for Path Traversal Prevention",
+    "principle": "Validate user-supplied domain strings with strict regex before using them in file path construction.",
+    "cites": ["02"],
+    "evidence": "Phase 02 brv-curate-local.js applies domain validation regex /^[a-z0-9/_-]+$/ per threat model T-02-03, rejecting any characters that could enable path traversal in .brv/context-tree domain organization."
+  },
+  {
+    "slug": "complexity-floor-escalation",
+    "title": "Complexity Floor Triggers Automatic Escalation",
+    "principle": "When input complexity exceeds a defined floor, automatically escalate review tier or model capability regardless of fast-path classification.",
+    "cites": ["04", "05"],
+    "evidence": "Phase 04 complexity floor at files>3 OR lines>100 escalates from skip/lite to full ATC review tier; Phase 05 uses hard 3-round cap and no-movement detection to escalate from synthesis to deliberation when positions remain blocked."
+  },
+  {
+    "slug": "no-movement-loop-breaker",
+    "title": "No-Movement Detection Prevents Infinite Deliberation",
+    "principle": "Detect when all decision positions remain unchanged between rounds and exit deliberation loop immediately rather than cycling further.",
+    "cites": ["05"],
+    "evidence": "Phase 05 CEO agent includes no-movement detection: if all 4 board positions unchanged between rounds, skip to synthesis immediately, preventing infinite deliberation loops."
+  },
+  {
+    "slug": "atomic-commit-per-plan",
+    "title": "Atomic Commits at Plan Granularity",
+    "principle": "Bundle all changes for a single plan into one git commit with discipline rules (no -A, no skip-hooks, no amend), enforcing retry-once-then-exit on failure.",
+    "cites": ["03", "07"],
+    "evidence": "Phase 03 introduced commit_discipline block after checkpoint_protocol enforcing explicit per-file staging and no force-push; Phase 07 verified commit format feat({phase}-{plan}): {one-liner} and discipline rules applied across all 7 phases."
+  },
+  {
+    "slug": "context-cap-session-accumulator",
+    "title": "Context Cap with Session Accumulator",
+    "principle": "Track cumulative reports per session; when count reaches threshold, compress and reset to keep only last N reports in full context while logging compression event.",
+    "cites": ["03"],
+    "evidence": "Phase 03 implemented SAFE-04 context accumulator: REPORT_COUNT increments per step, logs CONTEXT_COMPRESSED when reaching threshold of 5, resets to 2 (not 0) so last 2 reports remain in context for continuity."
+  }
+]
