@@ -202,10 +202,52 @@ REPEAT:
 
        e. TaskUpdate(taskId, status: "completed")
 
-       f. Proceed to Step 6.6 (frontend verify) — do NOT mark phase complete yet.
+       f. Proceed to Step 6.55 (MUDA waste audit) — do NOT mark phase complete yet.
 
      Token budget per phase ATC: ~600 tokens (50 classify + 550 review)
      Runs ONCE per phase, not per commit — keeps token cost bounded.
+
+  6.55. MUDA WASTE AUDIT (runs ONCE per phase, after ATC passes) — per DLB-02
+     Triggers when Step 6.5 completes AND the conditional gate fires:
+       (files_changed >= 4 OR diff_lines >= 100)
+       AND phase_type NOT IN (refactor, docs, config)
+
+     If the gate doesn't fire (small phase, or refactor/docs/config), SKIP
+     this step silently. DLB-02's Architect-held position: pay audit cost
+     only when change magnitude justifies it.
+
+     If the gate fires:
+
+       a. Shell out to the probe + audit scripts (no sub-agent; cheap):
+
+          bash super-gsd/scripts/sgsd-muda-audit.sh {PHASE} --project {PROJECT_DIR}
+
+          This writes:
+            * {PHASE_DIR}/WASTE.md — human-readable per-probe verdict table
+            * .brv/context-tree/anti-patterns/waste-{class}-p{N}-{slug}.md for
+              each WARN/FAIL finding (via sgsd-curate, INDEX.md updates
+              atomically)
+            * .planning/metrics/muda-log.jsonl — one line per audit run
+
+       b. Parse the script's exit code:
+            0 — all probes PASS, continue to Step 6.6 (browser verify)
+            1 — WARN findings curated, continue (log MUDA_WARN in DEVIATIONS)
+            2 — FAIL findings curated, continue but log MUDA_FAIL in DEVIATIONS.
+                PHASE IS NOT BLOCKED by MUDA — per DLB-02 the audit is a
+                detect-and-record mechanism, not a gate. Fail signal goes to
+                sgsd-muda-recurrence at milestone close.
+
+       c. NEVER block on MUDA failures. The point is data accumulation
+          across milestones so sgsd-muda-recurrence can trigger the
+          kill-condition (retire skill if 2 consecutive milestones show
+          zero recurrence). Blocking on a single probe fail would create
+          false-positive friction and erode trust.
+
+       d. TaskUpdate the MUDA audit task (wrap the shell-out in a
+          TaskCreate/TaskUpdate pair like any other unit).
+
+     Token budget per MUDA audit: ~100 tokens total (orchestrator overhead;
+     the actual probes run in shell at <1s and don't consume context).
 
   6.6. FRONTEND BROWSER VERIFICATION GATE (runs ONCE per phase, after ATC passes)
      Triggers when Step 6.5 completes AND the phase's diff touched any frontend
