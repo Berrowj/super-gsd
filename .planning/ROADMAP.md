@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 5: Strategic Deliberation** - CEO/Board multi-agent debate system for architecture decisions
 - [x] **Phase 6: Overwatcher and Monitoring** - Signal map visualization and Mission Control dashboard spec (completed 2026-04-08)
 - [ ] **Phase 7: Integration and Installation** - One-command install, overlay teaching doc, and GSD 2.0 migration tool
-- [ ] **Phase 8: SGSD Self-Audit** - Survey the framework codebase, produce a gap report covering features referenced but not implemented, settings referenced but not wired, duplicate/conflicting scripts, and missing docs
+- [x] **Phase 8: SGSD Self-Audit** - Survey the framework codebase, produce a gap report covering features referenced but not implemented, settings referenced but not wired, duplicate/conflicting scripts, and missing docs (completed 2026-04-19)
 
 ## Phase Details
 
