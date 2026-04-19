@@ -38,15 +38,27 @@ if (-not (Test-Path $BootScript)) {
     exit 1
 }
 
-# Resolve PowerShell profile path
-$ProfilePath = $PROFILE.CurrentUserAllHosts
-if (-not $ProfilePath) { $ProfilePath = $PROFILE }
+# Resolve all profile paths we care about. Write to BOTH so the function is
+# available no matter which one the user's PowerShell host actually loads.
+#   CurrentUserCurrentHost = Microsoft.PowerShell_profile.ps1 (the default $PROFILE)
+#   CurrentUserAllHosts    = profile.ps1 (shared across PowerShell hosts)
+$ProfilePaths = @()
+if ($PROFILE.CurrentUserCurrentHost) { $ProfilePaths += $PROFILE.CurrentUserCurrentHost }
+if ($PROFILE.CurrentUserAllHosts)    { $ProfilePaths += $PROFILE.CurrentUserAllHosts }
+if ($ProfilePaths.Count -eq 0 -and $PROFILE) { $ProfilePaths += $PROFILE }
 
-# Ensure profile directory exists
-$profileDir = Split-Path -Parent $ProfilePath
-if (-not (Test-Path $profileDir)) {
-    New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
+# De-dup in case CurrentUserCurrentHost == CurrentUserAllHosts in some hosts
+$ProfilePaths = $ProfilePaths | Select-Object -Unique
+
+foreach ($p in $ProfilePaths) {
+    $d = Split-Path -Parent $p
+    if ($d -and -not (Test-Path $d)) {
+        New-Item -ItemType Directory -Path $d -Force | Out-Null
+    }
 }
+
+# The original single-path code below rewrites $ProfilePath once per iteration.
+# We'll loop over $ProfilePaths at install/uninstall time.
 
 # Block markers for idempotent edits
 $StartMarker = "# >>> SUPER-GSD sgsd shortcut (DLB-04) >>>"
@@ -56,21 +68,22 @@ $EndMarker   = "# <<< SUPER-GSD sgsd shortcut <<<"
 # UNINSTALL path
 # ----------------------------------------------------------------------------
 if ($Uninstall) {
-    if (-not (Test-Path $ProfilePath)) {
-        Write-Host "Profile not found at $ProfilePath - nothing to remove." -ForegroundColor Yellow
-        exit 0
+    $removed = 0
+    foreach ($ProfilePath in $ProfilePaths) {
+        if (-not (Test-Path $ProfilePath)) { continue }
+        $content = Get-Content $ProfilePath -Raw
+        if ($content -notmatch [regex]::Escape($StartMarker)) { continue }
+        $pattern = [regex]::Escape($StartMarker) + '[\s\S]*?' + [regex]::Escape($EndMarker) + "(\r?\n)?"
+        $cleaned = [regex]::Replace($content, $pattern, "")
+        Set-Content -Path $ProfilePath -Value $cleaned -NoNewline
+        Write-Host "Removed sgsd shortcut from $ProfilePath" -ForegroundColor Green
+        $removed++
     }
-    $content = Get-Content $ProfilePath -Raw
-    if ($content -notmatch [regex]::Escape($StartMarker)) {
-        Write-Host "sgsd shortcut not present in profile - nothing to remove." -ForegroundColor Yellow
-        exit 0
+    if ($removed -eq 0) {
+        Write-Host "sgsd shortcut not present in any profile - nothing to remove." -ForegroundColor Yellow
+    } else {
+        Write-Host "Open a new PowerShell window to drop the function." -ForegroundColor DarkGray
     }
-    # Strip block (non-greedy)
-    $pattern = [regex]::Escape($StartMarker) + '[\s\S]*?' + [regex]::Escape($EndMarker) + "(\r?\n)?"
-    $cleaned = [regex]::Replace($content, $pattern, "")
-    Set-Content -Path $ProfilePath -Value $cleaned -NoNewline
-    Write-Host "Removed sgsd shortcut from $ProfilePath" -ForegroundColor Green
-    Write-Host "Run 'refreshenv' or open a new shell to drop the function." -ForegroundColor DarkGray
     exit 0
 }
 
@@ -136,35 +149,46 @@ function sgsd {
 $EndMarker
 "@
 
-# Read existing profile (if any)
-if (Test-Path $ProfilePath) {
-    $existing = Get-Content $ProfilePath -Raw
-    if ($existing -match [regex]::Escape($StartMarker) -and -not $Force) {
-        Write-Host "sgsd shortcut already present in $ProfilePath" -ForegroundColor Yellow
-        Write-Host "Use -Force to replace it, or -Uninstall to remove it first." -ForegroundColor DarkGray
-        exit 0
+# Write to every profile path we discovered so the function is loaded
+# regardless of which profile the user's PowerShell host chooses to run.
+$installed = @()
+$skipped   = @()
+foreach ($ProfilePath in $ProfilePaths) {
+    if (Test-Path $ProfilePath) {
+        $existing = Get-Content $ProfilePath -Raw
+        if ($existing -match [regex]::Escape($StartMarker) -and -not $Force) {
+            $skipped += $ProfilePath
+            continue
+        }
+        if ($Force -and ($existing -match [regex]::Escape($StartMarker))) {
+            $pattern = [regex]::Escape($StartMarker) + '[\s\S]*?' + [regex]::Escape($EndMarker) + "(\r?\n)?"
+            $existing = [regex]::Replace($existing, $pattern, "")
+        }
+        if ($existing -and -not $existing.EndsWith("`n")) {
+            $existing += "`r`n"
+        }
+        $newContent = $existing + "`r`n" + $functionBlock + "`r`n"
+    } else {
+        $newContent = $functionBlock + "`r`n"
     }
-    if ($Force -and ($existing -match [regex]::Escape($StartMarker))) {
-        $pattern = [regex]::Escape($StartMarker) + '[\s\S]*?' + [regex]::Escape($EndMarker) + "(\r?\n)?"
-        $existing = [regex]::Replace($existing, $pattern, "")
-    }
-    # Append new block, ensure newline separation
-    if ($existing -and -not $existing.EndsWith("`n")) {
-        $existing += "`r`n"
-    }
-    $newContent = $existing + "`r`n" + $functionBlock + "`r`n"
-} else {
-    $newContent = $functionBlock + "`r`n"
+    Set-Content -Path $ProfilePath -Value $newContent -NoNewline
+    $installed += $ProfilePath
 }
-
-Set-Content -Path $ProfilePath -Value $newContent -NoNewline
 
 Write-Host ""
 Write-Host "================================================" -ForegroundColor Magenta
 Write-Host "  sgsd shortcut INSTALLED                       " -ForegroundColor Magenta
 Write-Host "================================================" -ForegroundColor Magenta
-Write-Host "  Profile: $ProfilePath" -ForegroundColor DarkGray
-Write-Host "  Install: $InstallRoot" -ForegroundColor DarkGray
+foreach ($p in $installed) {
+    Write-Host "  + $p" -ForegroundColor Green
+}
+foreach ($p in $skipped) {
+    Write-Host "  = $p  (already present, use -Force to replace)" -ForegroundColor DarkGray
+}
+if ($installed.Count -eq 0 -and $skipped.Count -eq 0) {
+    Write-Host "  NO profile paths resolved - this is unusual." -ForegroundColor Red
+}
+Write-Host "  Install root: $InstallRoot" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "To activate in the current shell:" -ForegroundColor White
 Write-Host "  . `$PROFILE" -ForegroundColor Cyan
