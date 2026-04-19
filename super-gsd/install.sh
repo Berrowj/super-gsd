@@ -121,6 +121,25 @@ done
 copy_file "$SCRIPT_DIR/overwatcher/brv-query-local.js" "$HOOKS_DIR/brv-query-local.js"
 log "  $HOOK_COUNT hooks + 1 query engine installed"
 
+# ── Step 3b: Merge settings-overlay.json into ~/.claude/settings.json ──
+# Fix for FINDING-17 (Phase 8 self-audit, CRITICAL): previously the installer
+# copied hook .js files but never registered them in settings.json, so every
+# hook was installed-but-dormant on a fresh install.
+echo ""
+log "Step 3b/8: Registering hooks in ~/.claude/settings.json..."
+SETTINGS_FILE="$CLAUDE_DIR/settings.json"
+OVERLAY_FILE="$SCRIPT_DIR/config/settings-overlay.json"
+MERGE_SCRIPT="$SCRIPT_DIR/scripts/merge-settings.js"
+if [ ! -f "$OVERLAY_FILE" ]; then
+  log "  WARNING: $OVERLAY_FILE missing — skipping merge"
+elif [ ! -f "$MERGE_SCRIPT" ]; then
+  log "  WARNING: $MERGE_SCRIPT missing — skipping merge"
+elif [ "$DRY_RUN" = true ]; then
+  log "  DRY RUN: would merge $OVERLAY_FILE into $SETTINGS_FILE"
+else
+  node "$MERGE_SCRIPT" "$OVERLAY_FILE" "$SETTINGS_FILE" 2>&1 | sed 's/^/  /'
+fi
+
 # ── Step 4: Install templates + overwatcher ──
 echo ""
 log "Step 4/8: Installing templates + overwatcher..."
