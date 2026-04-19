@@ -1,5 +1,9 @@
 {
-  "_comment": "Merge these into ~/.claude/settings.json to enable Super GSD hooks",
+  "_comment": "Merge these into ~/.claude/settings.json via super-gsd/scripts/merge-settings.js (Step 3b of install.sh).",
+  "statusLine": {
+    "type": "command",
+    "command": "node ~/.claude/hooks/sgsd-statusline.js"
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -8,6 +12,18 @@
             "type": "command",
             "command": "node ~/.claude/hooks/gsd-session-start.js",
             "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ~/.claude/hooks/sgsd-activity-logger.js",
+            "timeout": 2
           }
         ]
       }

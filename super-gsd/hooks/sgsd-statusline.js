@@ -15,9 +15,12 @@
 //   {
 //     "statusLine": {
 //       "type": "command",
-//       "command": "node ~/.claude/hooks/gsd-super-statusline.js"
+//       "command": "node ~/.claude/hooks/sgsd-statusline.js"
 //     }
 //   }
+// Fixed 2026-04-19 (FINDING-14): previously referenced gsd-super-statusline.js
+// which doesn't exist — install.sh copies this file as sgsd-statusline.js
+// so the pointer must match.
 
 const fs = require('fs');
 const path = require('path');

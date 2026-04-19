@@ -67,32 +67,44 @@ function isSameEntry(a, b) {
 const overlay = readJsonOrEmpty(overlayPath);
 const target = readJsonOrEmpty(targetPath);
 
-if (!overlay.hooks || typeof overlay.hooks !== 'object') {
-    console.error(`ERROR: ${overlayPath} has no "hooks" object. Nothing to merge.`);
-    process.exit(4);
-}
-
-if (!target.hooks || typeof target.hooks !== 'object') {
-    target.hooks = {};
-}
-
 let added = 0;
 let skipped = 0;
+let setScalars = 0;
 
-for (const event of Object.keys(overlay.hooks)) {
-    if (event === '_comment') continue;
-    const overlayEntries = overlay.hooks[event] || [];
-    if (!Array.isArray(overlayEntries)) continue;
-    if (!Array.isArray(target.hooks[event])) target.hooks[event] = [];
+// ── Merge scalar/object top-level keys (statusLine, env, etc.) ──
+// These are single-value keys, not arrays. Overlay overwrites target ONLY
+// if target doesn't already have the key. That way a user who has tuned
+// their statusLine config keeps their version on subsequent installs.
+for (const key of Object.keys(overlay)) {
+    if (key === '_comment' || key === 'hooks') continue;
+    if (Object.prototype.hasOwnProperty.call(target, key)) {
+        skipped++;
+    } else {
+        target[key] = overlay[key];
+        setScalars++;
+    }
+}
 
-    for (const entry of overlayEntries) {
-        const dup = target.hooks[event].find(existing => isSameEntry(existing, entry));
-        if (dup) {
-            skipped++;
-            continue;
+// ── Merge hooks (array-typed per event) ──
+if (overlay.hooks && typeof overlay.hooks === 'object') {
+    if (!target.hooks || typeof target.hooks !== 'object') {
+        target.hooks = {};
+    }
+    for (const event of Object.keys(overlay.hooks)) {
+        if (event === '_comment') continue;
+        const overlayEntries = overlay.hooks[event] || [];
+        if (!Array.isArray(overlayEntries)) continue;
+        if (!Array.isArray(target.hooks[event])) target.hooks[event] = [];
+
+        for (const entry of overlayEntries) {
+            const dup = target.hooks[event].find(existing => isSameEntry(existing, entry));
+            if (dup) {
+                skipped++;
+                continue;
+            }
+            target.hooks[event].push(entry);
+            added++;
         }
-        target.hooks[event].push(entry);
-        added++;
     }
 }
 
@@ -102,4 +114,4 @@ fs.mkdirSync(path.dirname(targetPath), { recursive: true });
 fs.writeFileSync(tmpPath, JSON.stringify(target, null, 2) + '\n', 'utf8');
 fs.renameSync(tmpPath, targetPath);
 
-console.log(`[merge-settings] ${added} added, ${skipped} already-present → ${targetPath}`);
+console.log(`[merge-settings] ${added} hook-entries added, ${setScalars} top-level keys set, ${skipped} already-present → ${targetPath}`);
