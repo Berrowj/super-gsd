@@ -22,9 +22,23 @@ Token budget: 10,400 (1 round) to 16,400 (2 rounds). Only use for high-stakes de
 </objective>
 
 <step_0_gate>
-## Step 0: Phase Impact Gate
+## Step 0: Pre-Gates (two checks, both mandatory)
 
-Before creating the brief or spawning the board, run this check. It is MANDATORY and cannot be bypassed even when $ARGUMENTS is a file path.
+### Step 0a: DELIBERATION-FLOOR (DLB-06)
+
+If $ARGUMENTS is a file path, read the brief frontmatter/Termination for:
+- `q1_impl_hours` (decimal)
+- `q1_revertable` (true | false)
+
+If BOTH present AND `q1_impl_hours < 2` AND `q1_revertable == true` → SKIP deliberation. Respond exactly:
+
+> "Below deliberation floor per `.planning/decisions/DELIBERATION-FLOOR.md`. This brief's Q1 implementation is under 2h and fully revertable via git revert. Ship directly: implement, file a 1-paragraph decision note in `.planning/decisions/{YYYY-MM-DD}-{slug}.md`, retrospect at milestone close. Reopen via formal brief only if retrospective surfaces real disagreement that building didn't settle."
+
+Then STOP. Do NOT proceed to Step 0b.
+
+If either field is missing, or `q1_impl_hours >= 2`, or `q1_revertable == false`, proceed to Step 0b.
+
+### Step 0b: Phase Impact Gate
 
 1. If $ARGUMENTS is a file path: read the brief and check for `phases_affected` in the `## Termination` section.
 2. If $ARGUMENTS is "new" OR `phases_affected` is not present in the brief: ask the user:
@@ -35,7 +49,7 @@ Before creating the brief or spawning the board, run this check. It is MANDATORY
      Then STOP. Do not proceed.
    - `phases_affected >= 3` → PROCEED to Step 1.
 
-Gate model: Haiku (this is a numeric threshold check, not semantic evaluation).
+Gate model: Haiku (numeric threshold checks, not semantic evaluation).
 Gate cost: ~50 tokens.
 </step_0_gate>
 
@@ -78,6 +92,11 @@ Build context block: ~400 tokens summarizing project position + relevant knowled
 <step_3_round1>
 ## Step 3: Spawn Board Members (Round 1)
 
+**Pre-round budget check (DLB-05 Wave A):**
+- Capture wall-clock start timestamp for this round
+- Record current cumulative dispatch token count (from `.planning/metrics/token-log.jsonl` session total)
+- Proceed with Round 1 regardless (first round has no prior cost to warn about)
+
 Spawn 4 agents IN PARALLEL:
 
 ```
@@ -95,6 +114,11 @@ Agent(description: "Moonshot analysis", model: "sonnet", prompt: "...")
 ```
 
 Collect all 4 responses.
+
+**Post-round logging:** append to `.planning/metrics/deliberation-budget.jsonl`:
+```json
+{"ts":"<ISO>","dlb":"<slug>","round":1,"tokens_spent":<N>,"elapsed_sec":<N>,"max_tokens":<from-brief>,"max_minutes":<from-brief>,"warn_fired":false,"reason":"round_complete"}
+```
 </step_3_round1>
 
 <step_4_round2>
@@ -106,11 +130,28 @@ Read all 4 positions:
 - All 4 agree → Flag groupthink, Round 2 with challenge
 - Decision obvious, no substantive disagreement → Skip to Step 5
 
+**Pre-round budget check (DLB-05 Wave A):**
+Before spawning Round 2, compute:
+- `tokens_spent_so_far` = cumulative dispatch tokens since Step 3 start
+- `elapsed_minutes` = (now - Step 3 start timestamp) / 60
+
+If `tokens_spent_so_far > max_tokens` OR `elapsed_minutes > max_minutes` (from brief Termination):
+- Emit `[BUDGET WARN]` line visible to operator: `Round 1 exceeded budget (Xk tokens / Ym). Proceeding to Round 2 without enforcement — soft-warn only per DLB-05 Q1b.`
+- Append to `.planning/metrics/deliberation-budget.jsonl`:
+  ```json
+  {"ts":"<ISO>","dlb":"<slug>","round":2,"tokens_spent":<N>,"elapsed_sec":<N>,"max_tokens":<N>,"max_minutes":<N>,"warn_fired":true,"reason":"pre_round2_overage"}
+  ```
+- Proceed with Round 2 regardless — SOFT warn, never force-synthesis.
+
+If budget OK, append same record with `"warn_fired":false`.
+
 Round 2 (if needed):
 Re-spawn all 4 with:
 1. Original brief
 2. ALL Round 1 positions (each agent sees what others said)
 3. Instruction: "Respond to other positions. Update yours if persuaded. Strengthen if not. Final position. Max 300 words."
+
+**Post-Round-2 logging:** append final budget record with `"reason":"deliberation_complete"`.
 </step_4_round2>
 
 <step_5_synthesize>
