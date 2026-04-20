@@ -1,5 +1,5 @@
 # ============================================================================
-# sgsd-overlay-refresh.ps1 — DLB-06 follow-up
+# sgsd-overlay-refresh.ps1 - DLB-06 follow-up
 # ============================================================================
 # Keeps a project's CLAUDE.md in sync with the latest super-gsd
 # CLAUDE-OVERLAY.md. Uses HTML-comment markers for idempotent replacement.
@@ -83,7 +83,7 @@ if (-not (Test-Path $projectClaudeMd)) {
         Write-Host "DRY RUN: would CREATE $projectClaudeMd with overlay wrapped in markers" -ForegroundColor Cyan
         exit 0
     }
-    $header = "# Project CLAUDE.md`r`n`r`nThis file carries per-project instructions for Claude Code. The super-gsd overlay below is auto-synced — do not edit between the markers.`r`n`r`n---`r`n`r`n"
+    $header = "# Project CLAUDE.md`r`n`r`nThis file carries per-project instructions for Claude Code. The super-gsd overlay below is auto-synced - do not edit between the markers.`r`n`r`n---`r`n`r`n"
     Set-Content -Path $projectClaudeMd -Value "$header$wrappedBlock" -NoNewline
     Write-Host "[+] CREATED $projectClaudeMd (fresh file with marker-wrapped overlay)" -ForegroundColor Green
     exit 0
@@ -124,7 +124,7 @@ if ($hasStart -xor $hasEnd) {
     Write-Host "ERROR: CLAUDE.md has only one of the markers (orphan)." -ForegroundColor Red
     Write-Host "  Start marker present: $hasStart"
     Write-Host "  End marker present  : $hasEnd"
-    Write-Host "Fix manually — either complete the pair around the overlay block, or remove the stray marker." -ForegroundColor Yellow
+    Write-Host "Fix manually - either complete the pair around the overlay block, or remove the stray marker." -ForegroundColor Yellow
     exit 3
 }
 
@@ -134,14 +134,14 @@ if (-not $Force) {
     Write-Host ""
     Write-Host "Options:"
     Write-Host "  1. If CLAUDE.md does NOT already contain the super-gsd overlay:"
-    Write-Host "     Re-run with -Force — appends the overlay with markers."
+    Write-Host "     Re-run with -Force - appends the overlay with markers."
     Write-Host ""
     Write-Host "  2. If CLAUDE.md ALREADY contains an older super-gsd overlay (manually appended via Add-Content):"
     Write-Host "     a. Delete the old overlay section from CLAUDE.md manually"
     Write-Host "     b. Re-run with -Force"
     Write-Host "     OR"
     Write-Host "     a. Add the markers manually around the existing overlay block"
-    Write-Host "     b. Re-run without -Force — will then detect markers and replace cleanly"
+    Write-Host "     b. Re-run without -Force - will then detect markers and replace cleanly"
     Write-Host ""
     Write-Host "  Use -DryRun with -Force to preview without writing."
     exit 4
