@@ -133,9 +133,43 @@ git_verdict="PASS"
 [[ "$git_pct" -gt 20 ]] && git_verdict="WARN"
 [[ "$git_pct" -gt 40 ]] && git_verdict="FAIL"
 
+# ── Probe 4 (DLB-05 Wave C): extra_processing ────────────────────────────────
+# Waste class: extra-processing.
+# Heuristic: ATC tier choice vs diff line count mismatch in commit-reviews.jsonl.
+# - FULL ATC on <20 lines = over-reviewing trivial edits
+# - LITE ATC on >80 lines = under-reviewing substantive changes
+# Threshold: GUESSED - 1-milestone calibration per DLB-02 rule.
+extra_processing_count=0
+extra_processing_evidence="no commit-reviews.jsonl found"
+reviews_log="$ROOT/.planning/metrics/commit-reviews.jsonl"
+if [[ -f "$reviews_log" ]]; then
+    extra_processing_count=$(grep -cE '("tier":"FULL".*"lines_changed":(1?[0-9]|19))|("tier":"LITE".*"lines_changed":(8[1-9]|9[0-9]|[1-9][0-9]{2,}))' "$reviews_log" 2>/dev/null || echo 0)
+    extra_processing_evidence="commit-reviews.jsonl: $extra_processing_count tier/line mismatches"
+fi
+extra_processing_verdict="PASS"
+[[ "$extra_processing_count" -gt 3 ]] && extra_processing_verdict="WARN"
+[[ "$extra_processing_count" -gt 8 ]] && extra_processing_verdict="FAIL"
+
+# ── Probe 5 (DLB-05 Wave C): inventory ──────────────────────────────────────
+# Waste class: inventory.
+# Heuristic: .md artifacts under .planning/phases/ not touched in last 3 days.
+# Threshold: GUESSED - 1-milestone calibration per DLB-02 rule.
+inventory_count=0
+inventory_evidence="no phase dir scanned"
+phases_dir="$ROOT/.planning/phases"
+if [[ -d "$phases_dir" ]]; then
+    all_md=$(find "$phases_dir" -type f -name "*.md" 2>/dev/null | wc -l)
+    orphan=$(find "$phases_dir" -type f -name "*.md" -mtime +3 2>/dev/null | wc -l)
+    inventory_count="$orphan"
+    inventory_evidence="$all_md phase .md files, $orphan unreferenced >3d"
+fi
+inventory_verdict="PASS"
+[[ "$inventory_count" -gt 3 ]] && inventory_verdict="WARN"
+[[ "$inventory_count" -gt 8 ]] && inventory_verdict="FAIL"
+
 # ── Aggregate top-level verdict for exit code ───────────────────────────────
 overall=0
-for v in "$haiku_verdict" "$narr_verdict" "$git_verdict"; do
+for v in "$haiku_verdict" "$narr_verdict" "$git_verdict" "$extra_processing_verdict" "$inventory_verdict"; do
     case "$v" in
         WARN) [[ $overall -lt 1 ]] && overall=1 ;;
         FAIL) overall=2 ;;
@@ -147,7 +181,7 @@ done
 esc() { printf '%s' "$1" | sed 's/\\\\/\\\\\\\\/g; s/"/\\\\"/g'; }
 
 cat <<JSON
-{"project":"$(esc "$ROOT")","generated_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","probes":{"haiku_fails":{"value":$haiku_fails,"verdict":"$haiku_verdict","threshold":"warn>=3 fail>=8","evidence":"$(esc "$haiku_evidence")","waste_class":"defects"},"narrative_age_sec":{"value":$narrative_age,"verdict":"$narr_verdict","threshold":"warn>1800 fail>3600","evidence":"$(esc "$narrative_evidence")","waste_class":"waiting"},"git_spawn_pct":{"value":$git_pct,"verdict":"$git_verdict","threshold":"warn>20% fail>40%","evidence":"$(esc "$git_evidence")","waste_class":"motion"}},"overall_exit":$overall}
+{"project":"$(esc "$ROOT")","generated_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","probes":{"haiku_fails":{"value":$haiku_fails,"verdict":"$haiku_verdict","threshold":"warn>=3 fail>=8","evidence":"$(esc "$haiku_evidence")","waste_class":"defects"},"narrative_age_sec":{"value":$narrative_age,"verdict":"$narr_verdict","threshold":"warn>1800 fail>3600","evidence":"$(esc "$narrative_evidence")","waste_class":"waiting"},"git_spawn_pct":{"value":$git_pct,"verdict":"$git_verdict","threshold":"warn>20% fail>40%","evidence":"$(esc "$git_evidence")","waste_class":"motion"},"extra_processing":{"value":$extra_processing_count,"verdict":"$extra_processing_verdict","threshold":"warn>3 fail>8 GUESSED","evidence":"$(esc "$extra_processing_evidence")","waste_class":"extra-processing"},"inventory":{"value":$inventory_count,"verdict":"$inventory_verdict","threshold":"warn>3 fail>8 GUESSED","evidence":"$(esc "$inventory_evidence")","waste_class":"inventory"}},"overall_exit":$overall}
 JSON
 
 exit $overall
