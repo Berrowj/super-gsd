@@ -232,11 +232,24 @@ if (Test-Path $AutoMemoryRoot) {
                  Where-Object { $_.Extension -eq '.md' }
         foreach ($f in $files) {
             $cat = Get-AutoMemoryCategory $f.Name
-            if ($null -eq $cat) { continue }  # MEMORY.md - handled separately
+            if ($null -eq $cat) { continue }  # MEMORY.md - handled by step 3b below
             $rec = Move-Memory-File $f.FullName $cat "auto-mem"
             if ($rec) { $autoMigrated += $rec }
         }
         if ($files.Count -eq 0) { Write-Host "  (no .md files to migrate)" -ForegroundColor DarkGray }
+
+        # Legacy auto-memory MEMORY.md is now redundant — we rebuild a superior
+        # catalog at .planning/memory/MEMORY.md. Remove the stale one so the
+        # junction step can replace the whole dir. Dry-run just notes it.
+        $legacyMemoryMd = Join-Path $AutoMemoryRoot "MEMORY.md"
+        if (Test-Path $legacyMemoryMd) {
+            if ($DryRun) {
+                Write-Host "  [x] auto-mem/MEMORY.md  (would remove - superseded by new catalog)" -ForegroundColor Cyan
+            } else {
+                Remove-Item $legacyMemoryMd -Force -ErrorAction SilentlyContinue
+                Write-Host "  [x] auto-mem/MEMORY.md  (removed - superseded)" -ForegroundColor Yellow
+            }
+        }
     }
 } else {
     Write-Host "  ($AutoMemoryRoot not present - nothing to migrate)" -ForegroundColor DarkGray
