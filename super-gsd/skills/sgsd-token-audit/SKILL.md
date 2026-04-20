@@ -33,7 +33,18 @@ Modes:
    - Any agent report >300 words → "Agent {X} exceeded report budget"
    - Orchestrator >20% of total → "Orchestrator too heavy — check context loading"
    - Same phase dispatched 3+ times → "Phase {N} may be stuck"
-4. Write summary to stdout (not file)
+4. **Conformance drift surface (DLB-05 Wave B + Architect's reserved-objection mitigation):**
+   If `.planning/metrics/conformance-log.jsonl` exists, read last N entries and surface:
+   - Top-3 phases by `drift_pct` (highest first)
+   - Any phase with `drift_pct >= 30%` → flag as "PHASE DRIFT: {name} at {N}% — planned {P} tasks, evidenced {E}"
+   - Count of phases `skipped: true` (planned_tasks < 5)
+   - If all recent entries are skipped, emit one-line note: "Conformance signal empty — plans aren't using `- [ ]` checkbox format. DLB-05 Q2b metric needs structured task lists to produce data."
+5. **Deliberation budget surface (DLB-05 Wave A):**
+   If `.planning/metrics/deliberation-budget.jsonl` exists, surface:
+   - Most recent DLB: tokens_spent / max_tokens, elapsed_sec / max_minutes
+   - Any `warn_fired: true` events in last 4 DLBs → flag as "DELIBERATION BUDGET WARN: {dlb} exceeded {field}"
+   - If zero warns across last 4 DLBs → note "Budget warn has not fired across 4 deliberations — kill-condition candidate per DLB-05 (retire warn mechanism)"
+6. Write summary to stdout (not file)
 </quick_audit>
 
 <full_audit>
