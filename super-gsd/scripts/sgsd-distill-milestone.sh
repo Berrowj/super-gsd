@@ -415,14 +415,46 @@ if [[ "$MODE" == "rate" ]]; then
     echo "  Median: $median"
     echo ""
     # Gate 3 verdict — a median of 2.0 or above keeps the mechanism; below retires it.
+    q4_reopen_needed=false
+    verdict="carry"
     awk -v m="$median" 'BEGIN { exit (m+0 < 2.0) ? 0 : 1 }' && {
         echo "  GATE 3 VERDICT: RETIRE sgsd-distill-milestone.sh"
         echo "  Median < 2/3 — hypotheses are not novel enough to justify the script."
         echo "  Per DLB-04 Contrarian kill condition: delete, no iteration, no face-saving."
+        verdict="retire"
+        q4_reopen_needed=true
     } || {
         echo "  GATE 3 VERDICT: carry to v1.3"
         echo "  Median ≥ 2/3 — hypotheses warrant cross-milestone confirmation at v1.3 close."
     }
+
+    # ── DLB-05 Wave E: Q4 reopen trigger ────────────────────────────────────
+    # At v1.3 close, check cross-milestone promotion count. Zero promotions
+    # across v1.1 → v1.2 → v1.3 also trips the reopen. Log both conditions
+    # so the next deliberation has explicit signal data rather than "operator
+    # remembers to reopen."
+    if [[ "$MILESTONE" == "v1.3" ]]; then
+        v12_hyp_count=$(ls "$HYP_DIR"/v1.2-*.md 2>/dev/null | wc -l)
+        promoted_count=$(ls "$TREE/trajectory-lesson"/*.md 2>/dev/null | wc -l)
+        if [[ "$promoted_count" -eq 0 && "$v12_hyp_count" -gt 0 ]]; then
+            echo ""
+            echo "  Q4-REOPEN TRIGGER: zero cross-milestone promotions at v1.3 close"
+            echo "  (${v12_hyp_count} v1.2 hypotheses, 0 promoted to trajectory-lesson/)"
+            q4_reopen_needed=true
+        fi
+    fi
+
+    q4_log="$ROOT/.planning/metrics/q4-reopen-check.jsonl"
+    mkdir -p "$(dirname "$q4_log")"
+    printf '{"ts":"%s","milestone":"%s","median":%s,"n_rated":%s,"verdict":"%s","q4_reopen_needed":%s}\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$MILESTONE" "$median" "$ratings_count" "$verdict" "$q4_reopen_needed" >> "$q4_log"
+
+    if [[ "$q4_reopen_needed" == "true" ]]; then
+        echo ""
+        echo "  ACTION: File a DLB brief to reopen DLB-04 Q3 (continuous distillation) with this data as evidence."
+        echo "  Signal logged to: $q4_log"
+    fi
+
     exit 0
 fi
 
