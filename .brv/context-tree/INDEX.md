@@ -29,6 +29,18 @@ Schema: | type | slug | path | summary |
 | pattern | token-efficiency-expertise | patterns/token-efficiency-expertise.md | Prompt compression, frontmatter-only reads, 300-word agent reports |
 
 
+
+
+
+
+
+
+
+
+
+
+| pattern | muda-read-path-spec | patterns/muda-read-path-spec.md | Process Mining 7 patterns as DLB-02 read-path templates — DEFERRED activation |
+
 ## anti-patterns
 
 | type | slug | path | summary |
