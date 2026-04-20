@@ -94,35 +94,76 @@ if [[ "$SLUG" =~ ^- || "$SLUG" =~ -$ || "$SLUG" =~ -- ]]; then
     exit 2
 fi
 
-# Resolve root (same logic as sgsd-recall)
+# Resolve root. Prefer the v1.2 consolidated store (.planning/memory/MEMORY.md);
+# fall back to the legacy .brv/context-tree/INDEX.md for unmigrated projects
+# so curation keeps working until they run sgsd-memory-migrate.
+MODE="v1.2"  # v1.2 = .planning/memory; legacy = .brv/context-tree
 if [[ -z "$ROOT" ]]; then
     d="$(pwd -P)"
     while [[ "$d" != "/" && "$d" != "" ]]; do
+        if [[ -f "$d/.planning/memory/MEMORY.md" ]]; then
+            ROOT="$d"; MODE="v1.2"; break
+        fi
         if [[ -f "$d/.brv/context-tree/INDEX.md" ]]; then
-            ROOT="$d"
-            break
+            ROOT="$d"; MODE="legacy"; break
         fi
         d="$(dirname "$d")"
     done
 fi
-if [[ -z "$ROOT" || ! -f "$ROOT/.brv/context-tree/INDEX.md" ]]; then
-    echo "sgsd-curate: no .brv/context-tree/INDEX.md found above $(pwd). Run from a project root or pass --root." >&2
+if [[ -z "$ROOT" ]]; then
+    echo "sgsd-curate: no .planning/memory/MEMORY.md or .brv/context-tree/INDEX.md found above $(pwd)." >&2
+    echo "  Run 'sgsd -Backfill' to scaffold the memory tree, or pass --root." >&2
+    exit 3
+fi
+# If --root was passed, detect which mode it's in
+if [[ -f "$ROOT/.planning/memory/MEMORY.md" ]]; then
+    MODE="v1.2"
+elif [[ -f "$ROOT/.brv/context-tree/INDEX.md" ]]; then
+    MODE="legacy"
+else
+    echo "sgsd-curate: --root $ROOT has neither .planning/memory/MEMORY.md nor .brv/context-tree/INDEX.md" >&2
     exit 3
 fi
 
-# Map type to directory (pluralise except "expertise")
-case "$TYPE" in
-    pattern)       DIR="patterns" ;;
-    anti-pattern)  DIR="anti-patterns" ;;
-    decision)      DIR="decisions" ;;
-    expertise)     DIR="expertise" ;;
-    script)        DIR="scripts" ;;
-esac
+# Map type to target subdirectory and section header
+# v1.2 taxonomy: architecture/{patterns,anti-patterns,decisions,expertise}, code,
+#                workflow/{user,feedback,preferences}, project, reference,
+#                domain, errors, trajectory/{hypothesis,candidate,lesson}
+if [[ "$MODE" == "v1.2" ]]; then
+    case "$TYPE" in
+        pattern)       DIR="architecture/patterns";       SECTION="## architecture/patterns" ;;
+        anti-pattern)  DIR="architecture/anti-patterns";  SECTION="## architecture/anti-patterns" ;;
+        decision)      DIR="architecture/decisions";      SECTION="## architecture/decisions" ;;
+        expertise)     DIR="architecture/expertise";      SECTION="## architecture/expertise" ;;
+        script)        DIR="code";                         SECTION="## code" ;;
+        user)          DIR="workflow/user";                SECTION="## workflow/user" ;;
+        feedback)      DIR="workflow/feedback";            SECTION="## workflow/feedback" ;;
+        preference)    DIR="workflow/preferences";         SECTION="## workflow/preferences" ;;
+        project-note)  DIR="project";                      SECTION="## project" ;;
+        reference)     DIR="reference";                    SECTION="## reference" ;;
+        domain)        DIR="domain";                       SECTION="## domain" ;;
+        error)         DIR="errors";                       SECTION="## errors" ;;
+        hypothesis)    DIR="trajectory/hypothesis";        SECTION="## trajectory/hypothesis" ;;
+        *) echo "sgsd-curate: unknown --type '$TYPE' for v1.2 store" >&2; exit 2 ;;
+    esac
+    TREE="$ROOT/.planning/memory"
+    INDEX="$TREE/MEMORY.md"
+else
+    # Legacy mode - original taxonomy
+    case "$TYPE" in
+        pattern)       DIR="patterns"       ;;
+        anti-pattern)  DIR="anti-patterns"  ;;
+        decision)      DIR="decisions"      ;;
+        expertise)     DIR="expertise"      ;;
+        script)        DIR="scripts"        ;;
+        *) echo "sgsd-curate: --type must be one of: pattern, anti-pattern, decision, expertise, script (legacy store)" >&2; exit 2 ;;
+    esac
+    TREE="$ROOT/.brv/context-tree"
+    INDEX="$TREE/INDEX.md"
+fi
 
-TREE="$ROOT/.brv/context-tree"
 FILE_PATH="$TREE/$DIR/$SLUG.md"
 REL_PATH="$DIR/$SLUG.md"
-INDEX="$TREE/INDEX.md"
 
 if [[ -e "$FILE_PATH" ]]; then
     echo "sgsd-curate: $FILE_PATH already exists. Edit directly or use a different --slug." >&2
@@ -155,16 +196,29 @@ created: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 $BODY
 EOF
 
-# Index row (pipe-delimited, matches existing INDEX.md format)
-NEW_ROW="| $TYPE | $SLUG | $REL_PATH | $SUMMARY |"
+# Index row. v1.2 uses markdown list items (auto-memory compatible);
+# legacy uses pipe-delimited tables.
+if [[ "$MODE" == "v1.2" ]]; then
+    NEW_ROW="- [$TITLE]($REL_PATH) - $SUMMARY"
+else
+    NEW_ROW="| $TYPE | $SLUG | $REL_PATH | $SUMMARY |"
+    # Recompute SECTION for legacy (v1.2 already set it above)
+    case "$DIR" in
+        patterns)        SECTION="## patterns" ;;
+        anti-patterns)   SECTION="## anti-patterns" ;;
+        decisions)       SECTION="## decisions" ;;
+        expertise)       SECTION="## expertise" ;;
+        scripts)         SECTION="## scripts" ;;
+    esac
+fi
 
 if [[ "$DRY_RUN" == true ]]; then
-    echo "DRY RUN — would write:"
+    echo "DRY RUN — would write (mode=$MODE):"
     echo "  $FILE_PATH"
     echo "--- content ---"
     echo "$CONTENT"
     echo "--- /content ---"
-    echo "  $INDEX (append under section for type=$TYPE):"
+    echo "  $INDEX (append under '$SECTION'):"
     echo "  $NEW_ROW"
     exit 0
 fi
@@ -173,17 +227,6 @@ fi
 mkdir -p "$(dirname "$FILE_PATH")"
 printf '%s\n' "$CONTENT" > "$FILE_PATH.tmp"
 mv "$FILE_PATH.tmp" "$FILE_PATH"
-
-# Locate the section header in INDEX.md (## patterns / ## anti-patterns / etc.)
-# and append NEW_ROW at the end of that section's table. Section header rules:
-# match "## <dir>" (the pluralised directory name).
-case "$DIR" in
-    patterns)        SECTION="## patterns" ;;
-    anti-patterns)   SECTION="## anti-patterns" ;;
-    decisions)       SECTION="## decisions" ;;
-    expertise)       SECTION="## expertise" ;;
-    scripts)         SECTION="## scripts" ;;
-esac
 
 # Rewrite INDEX.md inserting NEW_ROW at the end of the target section.
 awk -v section="$SECTION" -v new_row="$NEW_ROW" '

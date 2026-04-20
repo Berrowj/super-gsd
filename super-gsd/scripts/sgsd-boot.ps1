@@ -66,22 +66,34 @@ if ($Backfill) {
     Write-Host "--------"
     $created = 0
 
+    # New consolidated memory taxonomy (v1.2). Replaces the legacy
+    # .brv/context-tree/ fork — one tree, semantic folders, git-tracked.
+    # If the project has pre-consolidation memory, run sgsd-memory-migrate.
     $requiredDirs = @(
         ".planning",
         ".planning/metrics",
         ".planning/proposals",
         ".planning/resource-registry",
         ".planning/milestones",
-        ".brv/context-tree",
-        ".brv/context-tree/patterns",
-        ".brv/context-tree/anti-patterns",
-        ".brv/context-tree/decisions",
-        ".brv/context-tree/expertise",
-        ".brv/context-tree/error-rules",
-        ".brv/context-tree/scripts",
-        ".brv/context-tree/domain",
-        ".brv/context-tree/trajectory-hypothesis",
-        ".brv/context-tree/trajectory-hypothesis/candidate"
+        ".planning/memory",
+        ".planning/memory/architecture",
+        ".planning/memory/architecture/patterns",
+        ".planning/memory/architecture/anti-patterns",
+        ".planning/memory/architecture/decisions",
+        ".planning/memory/architecture/expertise",
+        ".planning/memory/code",
+        ".planning/memory/domain",
+        ".planning/memory/workflow",
+        ".planning/memory/workflow/user",
+        ".planning/memory/workflow/feedback",
+        ".planning/memory/workflow/preferences",
+        ".planning/memory/project",
+        ".planning/memory/reference",
+        ".planning/memory/errors",
+        ".planning/memory/trajectory",
+        ".planning/memory/trajectory/hypothesis",
+        ".planning/memory/trajectory/candidate",
+        ".planning/memory/trajectory/lesson"
     )
 
     foreach ($rel in $requiredDirs) {
@@ -119,47 +131,55 @@ if ($Backfill) {
         }
     }
 
-    # INDEX.md if missing
-    $indexPath = Join-Path $ProjectDir ".brv/context-tree/INDEX.md"
-    if (-not (Test-Path $indexPath)) {
-        $indexSeed = @"
-# SGSD Memory Tier - INDEX
+    # MEMORY.md catalog - single index readable by Claude Code auto-memory
+    # AND sgsd-recall. Format: one markdown list item per file.
+    $memoryMd = Join-Path $ProjectDir ".planning/memory/MEMORY.md"
+    if (-not (Test-Path $memoryMd)) {
+        $memorySeed = @"
+# SGSD Memory - Consolidated Index
 
-Backfill-generated on $(Get-Date -Format 'yyyy-MM-dd'). sgsd-curate appends
-rows below its section; sgsd-recall reads this file to score matches.
+Backfill-generated on $(Get-Date -Format 'yyyy-MM-dd'). Add entries as markdown
+list items under their section:
 
-Schema: | type | slug | path | summary |
+    - [Title](subpath/file.md) - one-line hook
 
-## patterns
+sgsd-curate appends; sgsd-recall greps. Auto-memory reads this as MEMORY.md.
 
-| type | slug | path | summary |
-|------|------|------|---------|
+## architecture/patterns
 
-## anti-patterns
+## architecture/anti-patterns
 
-| type | slug | path | summary |
-|------|------|------|---------|
+## architecture/decisions
 
-## decisions
+## architecture/expertise
 
-| type | slug | path | summary |
-|------|------|------|---------|
+## code
 
-## expertise
+## domain
 
-| type | slug | path | summary |
-|------|------|------|---------|
+## workflow/user
 
-## scripts
+## workflow/feedback
 
-| type | slug | path | summary |
-|------|------|------|---------|
+## workflow/preferences
+
+## project
+
+## reference
+
+## errors
+
+## trajectory/hypothesis
+
+## trajectory/candidate
+
+## trajectory/lesson
 "@
-        Set-Content -Path $indexPath -Value $indexSeed -NoNewline
-        Write-Host "  [+] .brv/context-tree/INDEX.md" -ForegroundColor Green
+        Set-Content -Path $memoryMd -Value $memorySeed -NoNewline
+        Write-Host "  [+] .planning/memory/MEMORY.md" -ForegroundColor Green
         $created++
     } else {
-        Write-Host "  [=] .brv/context-tree/INDEX.md" -ForegroundColor DarkGray
+        Write-Host "  [=] .planning/memory/MEMORY.md" -ForegroundColor DarkGray
     }
 
     # Sync Agents registry (DLB-04 Wave A) — writes to resource-registry/agents.jsonl
@@ -202,68 +222,77 @@ if (-not $SkipPreflight) {
         exit 2
     }
 
-    # 2. .brv/context-tree/INDEX.md exists
-    $indexPath = Join-Path $ProjectDir ".brv/context-tree/INDEX.md"
+    # 2. .planning/memory/MEMORY.md exists (v1.2 consolidated taxonomy)
+    $indexPath = Join-Path $ProjectDir ".planning/memory/MEMORY.md"
+    $legacyIndexPath = Join-Path $ProjectDir ".brv/context-tree/INDEX.md"
     if (Test-Path $indexPath) {
-        Write-Step ".brv/context-tree/INDEX.md present" "OK" Green
+        Write-Step ".planning/memory/MEMORY.md present" "OK" Green
+    } elseif (Test-Path $legacyIndexPath) {
+        Write-Step "legacy .brv/context-tree/ detected - run sgsd-memory-migrate" "WARN" Yellow
     } else {
-        if ($Bootstrap) {
-            # Create minimal context-tree + INDEX.md so sgsd-curate + sgsd-recall
-            # have a valid target. Does NOT seed knowledge files - that's the
-            # installer's job. Safe: only creates new paths, never overwrites.
-            $treeRoot = Join-Path $ProjectDir ".brv/context-tree"
-            $subdirs = @("patterns", "anti-patterns", "decisions", "expertise",
-                         "error-rules", "scripts", "domain",
-                         "trajectory-hypothesis", "trajectory-hypothesis/candidate")
+        if ($Bootstrap -or $Backfill) {
+            # Full -Backfill handles this; the lightweight Bootstrap path here
+            # creates the minimum needed so the preflight can continue.
+            $treeRoot = Join-Path $ProjectDir ".planning/memory"
+            $subdirs = @(
+                "architecture/patterns", "architecture/anti-patterns",
+                "architecture/decisions", "architecture/expertise",
+                "code", "domain",
+                "workflow/user", "workflow/feedback", "workflow/preferences",
+                "project", "reference", "errors",
+                "trajectory/hypothesis", "trajectory/candidate", "trajectory/lesson"
+            )
             foreach ($sub in $subdirs) {
                 $d = Join-Path $treeRoot $sub
                 if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
-                # .gitkeep so empty dirs stay tracked
                 $gk = Join-Path $d ".gitkeep"
                 if (-not (Test-Path $gk)) { New-Item -ItemType File -Path $gk -Force | Out-Null }
             }
-            $indexSeed = @"
-# SGSD Memory Tier - INDEX
+            $memorySeed = @"
+# SGSD Memory - Consolidated Index
 
-Bootstrap-generated on $(Get-Date -Format 'yyyy-MM-dd'). sgsd-curate appends
-rows below its section; sgsd-recall reads this file to score matches.
+Bootstrap-generated on $(Get-Date -Format 'yyyy-MM-dd'). Entries are markdown
+list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
 
-Schema: | type | slug | path | summary |
+## architecture/patterns
 
-## patterns
+## architecture/anti-patterns
 
-| type | slug | path | summary |
-|------|------|------|---------|
+## architecture/decisions
 
-## anti-patterns
+## architecture/expertise
 
-| type | slug | path | summary |
-|------|------|------|---------|
+## code
 
-## decisions
+## domain
 
-| type | slug | path | summary |
-|------|------|------|---------|
+## workflow/user
 
-## expertise
+## workflow/feedback
 
-| type | slug | path | summary |
-|------|------|------|---------|
+## workflow/preferences
 
-## scripts
+## project
 
-| type | slug | path | summary |
-|------|------|------|---------|
+## reference
+
+## errors
+
+## trajectory/hypothesis
+
+## trajectory/candidate
+
+## trajectory/lesson
 "@
-            Set-Content -Path $indexPath -Value $indexSeed -NoNewline
-            # .planning/metrics/ + resource-registry/ so downstream DLB-04 scripts work
+            Set-Content -Path $indexPath -Value $memorySeed -NoNewline
+            # Downstream DLB-04 dirs
             $metricsDir = Join-Path $ProjectDir ".planning/metrics"
             $regDir     = Join-Path $ProjectDir ".planning/resource-registry"
             if (-not (Test-Path $metricsDir)) { New-Item -ItemType Directory -Path $metricsDir -Force | Out-Null }
             if (-not (Test-Path $regDir))     { New-Item -ItemType Directory -Path $regDir -Force | Out-Null }
-            Write-Step "bootstrapped memory tier ($treeRoot)" "OK" Green
+            Write-Step "bootstrapped consolidated memory ($treeRoot)" "OK" Green
         } else {
-            Write-Step "INDEX.md missing - memory tier not initialized" "FAIL" Red
+            Write-Step "MEMORY.md missing - memory not initialized" "FAIL" Red
             Write-Host "    Fix one of:" -ForegroundColor DarkGray
             Write-Host "      sgsd -Bootstrap            " -NoNewline -ForegroundColor Cyan
             Write-Host "(quick: create empty tree in place)" -ForegroundColor DarkGray
