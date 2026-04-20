@@ -90,6 +90,26 @@ State lives in `.planning/`. Memory lives in `.brv/context-tree/` (ByteRover).
 | "stop" / "pause" | Write checkpoint, stop looping |
 | "deliberate" | Run /sgsd-deliberate for strategic decision |
 | "audit tokens" | Run /sgsd-token-audit --quick |
+| **Planning intent detected** (see below) | **Run /sgsd-triage first** — let it route to deliberate/orchestrate/muda |
+
+### Planning-intent detection (auto-invoke /sgsd-triage)
+
+When the operator's message contains planning/figuring-out intent, **invoke `/sgsd-triage` BEFORE doing any other work**. Do not improvise your own planning; the triage skill runs superpowers:brainstorming + superpowers:writing-plans, classifies the result, and routes to the right continuation. Respects DELIBERATION-FLOOR.
+
+**Auto-invoke triggers (high confidence):**
+
+- Starts with *"I'm thinking about..."*, *"I want to figure out..."*, *"How should we..."*, *"What if we..."*, *"Let's plan..."*, *"Let's explore..."*, *"Design..."*, *"Architect..."*, *"Evaluate..."*, *"Should we..."*
+- Describes a problem or ambition without asking for immediate execution (no *"build this now"*, *"ship it"*, *"fix the bug"*)
+- Mentions tradeoffs, alternatives, or multiple valid approaches
+- Asks a research-style question the operator clearly wants thought through, not answered off-the-cuff
+
+**DO NOT auto-invoke when:**
+- Operator asks a direct factual question (*"what's the current phase?"*, *"where does X live?"*)
+- Operator explicitly requests execution (*"go"*, *"run /sgsd-orchestrate"*, *"ship the fix"*)
+- Operator is mid-build and asking for a specific code change
+- The question is trivial (<5 min inline answer)
+
+**Ambiguous?** Do NOT auto-invoke. Ask: *"sounds like a planning question — want me to run /sgsd-triage?"* The cost of wrong auto-invoke is operator friction; the cost of asking is ~10 tokens.
 
 ---
 
