@@ -50,6 +50,27 @@ try {
     exit 1
 }
 
+# Guard against accidental runs in non-projects (home dir, random cwd).
+# A super-gsd project should already have .planning/ from gsd-new-project or
+# sgsd -Backfill. If it doesn't, bail with a clear message rather than silently
+# creating .planning/memory/ in the wrong directory.
+$planningPath = Join-Path $ProjectDir ".planning"
+if (-not (Test-Path $planningPath) -and -not $Force) {
+    Write-Host ""
+    Write-Host "ERROR: $ProjectDir is not a super-gsd project." -ForegroundColor Red
+    Write-Host "       No .planning/ directory found." -ForegroundColor Red
+    Write-Host ""
+    Write-Host "If this is a new project you want to set up:" -ForegroundColor DarkGray
+    Write-Host "  cd $ProjectDir" -ForegroundColor Cyan
+    Write-Host "  sgsd -Backfill" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "If you're trying to migrate a different project, pass its path:" -ForegroundColor DarkGray
+    Write-Host "  powershell -File $PSCommandPath -ProjectDir 'C:\path\to\project'" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "To override this guard (knowing the risks), pass -Force." -ForegroundColor DarkGray
+    exit 1
+}
+
 $MemoryRoot = Join-Path $ProjectDir ".planning\memory"
 $LegacyBrvRoot = Join-Path $ProjectDir ".brv\context-tree"
 
