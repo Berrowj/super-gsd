@@ -19,7 +19,8 @@ param(
     [string]$ProjectDir = ".",
     [switch]$SkipPreflight,
     [switch]$NoOpen,
-    [switch]$Bootstrap
+    [switch]$Bootstrap,
+    [switch]$Backfill
 )
 
 $ErrorActionPreference = "Stop"
@@ -53,6 +54,137 @@ function Banner {
 }
 
 Banner
+
+# ----------------------------------------------------------------------------
+# BACKFILL - scan existing project, create all missing DLB-04 scaffolding.
+# Idempotent. Safe: only creates new paths and files, never overwrites.
+# Use on older projects that predate DLB-04 or were installed before certain
+# dirs/logs existed. Exits without launching dashboards.
+# ----------------------------------------------------------------------------
+if ($Backfill) {
+    Write-Host "BACKFILL" -ForegroundColor White
+    Write-Host "--------"
+    $created = 0
+
+    $requiredDirs = @(
+        ".planning",
+        ".planning/metrics",
+        ".planning/proposals",
+        ".planning/resource-registry",
+        ".planning/milestones",
+        ".brv/context-tree",
+        ".brv/context-tree/patterns",
+        ".brv/context-tree/anti-patterns",
+        ".brv/context-tree/decisions",
+        ".brv/context-tree/expertise",
+        ".brv/context-tree/error-rules",
+        ".brv/context-tree/scripts",
+        ".brv/context-tree/domain",
+        ".brv/context-tree/trajectory-hypothesis",
+        ".brv/context-tree/trajectory-hypothesis/candidate"
+    )
+
+    foreach ($rel in $requiredDirs) {
+        $d = Join-Path $ProjectDir $rel
+        if (Test-Path $d) {
+            Write-Host "  [=] $rel" -ForegroundColor DarkGray
+        } else {
+            New-Item -ItemType Directory -Path $d -Force | Out-Null
+            Write-Host "  [+] $rel" -ForegroundColor Green
+            $created++
+            # .gitkeep for dirs that are empty by design
+            if ($rel -like "*trajectory-hypothesis*" -or $rel -like "*proposals*" -or $rel -like "*resource-registry*") {
+                New-Item -ItemType File -Path (Join-Path $d ".gitkeep") -Force | Out-Null
+            }
+        }
+    }
+
+    # Touch append-only jsonl logs (empty files are fine — downstream scripts append)
+    $requiredFiles = @(
+        ".planning/metrics/token-log.jsonl",
+        ".planning/metrics/activity-log.jsonl",
+        ".planning/metrics/sepl-log.jsonl",
+        ".planning/metrics/distillation-novelty.jsonl",
+        ".planning/metrics/muda-log.jsonl",
+        ".planning/metrics/intent-log.jsonl"
+    )
+    foreach ($rel in $requiredFiles) {
+        $f = Join-Path $ProjectDir $rel
+        if (Test-Path $f) {
+            Write-Host "  [=] $rel" -ForegroundColor DarkGray
+        } else {
+            New-Item -ItemType File -Path $f -Force | Out-Null
+            Write-Host "  [+] $rel" -ForegroundColor Green
+            $created++
+        }
+    }
+
+    # INDEX.md if missing
+    $indexPath = Join-Path $ProjectDir ".brv/context-tree/INDEX.md"
+    if (-not (Test-Path $indexPath)) {
+        $indexSeed = @"
+# SGSD Memory Tier - INDEX
+
+Backfill-generated on $(Get-Date -Format 'yyyy-MM-dd'). sgsd-curate appends
+rows below its section; sgsd-recall reads this file to score matches.
+
+Schema: | type | slug | path | summary |
+
+## patterns
+
+| type | slug | path | summary |
+|------|------|------|---------|
+
+## anti-patterns
+
+| type | slug | path | summary |
+|------|------|------|---------|
+
+## decisions
+
+| type | slug | path | summary |
+|------|------|------|---------|
+
+## expertise
+
+| type | slug | path | summary |
+|------|------|------|---------|
+
+## scripts
+
+| type | slug | path | summary |
+|------|------|------|---------|
+"@
+        Set-Content -Path $indexPath -Value $indexSeed -NoNewline
+        Write-Host "  [+] .brv/context-tree/INDEX.md" -ForegroundColor Green
+        $created++
+    } else {
+        Write-Host "  [=] .brv/context-tree/INDEX.md" -ForegroundColor DarkGray
+    }
+
+    # Sync Agents registry (DLB-04 Wave A) — writes to resource-registry/agents.jsonl
+    $sync = Join-Path $ScriptsDir "sgsd-registry-sync.sh"
+    if (Test-Path $sync) {
+        $pdUnix = $ProjectDir -replace '\\','/'
+        $syncOut = & bash -c "bash '$($sync -replace '\\','/')' --root '$pdUnix' 2>&1"
+        if ($LASTEXITCODE -eq 0) {
+            $count = if (($syncOut -join ' ') -match '(\d+) agent records') { $Matches[1] } else { '?' }
+            Write-Host "  [+] resource-registry/agents.jsonl synced ($count agents)" -ForegroundColor Green
+        } else {
+            Write-Host "  [!] registry sync skipped (scripts unreachable)" -ForegroundColor Yellow
+        }
+    }
+
+    Write-Host ""
+    if ($created -eq 0) {
+        Write-Host "Backfill complete - project was already up to date." -ForegroundColor Green
+    } else {
+        Write-Host "Backfill complete - $created items created." -ForegroundColor Green
+    }
+    Write-Host "Run 'sgsd' to boot the cockpit, or 'sgsd -NoOpen' to re-verify preflight."
+    Write-Host ""
+    exit 0
+}
 
 # ----------------------------------------------------------------------------
 # PREFLIGHT - verify the substrate is healthy before opening dashboards

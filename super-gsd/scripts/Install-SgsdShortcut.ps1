@@ -109,6 +109,7 @@ function sgsd {
         [switch]`$NoOpen,
         [switch]`$SkipPreflight,
         [switch]`$Bootstrap,
+        [switch]`$Backfill,
         [switch]`$Help,
         [string]`$ProjectDir = `$null
     )
@@ -119,6 +120,7 @@ function sgsd {
         Write-Host '  sgsd -NoOpen         Preflight only'
         Write-Host '  sgsd -SkipPreflight  Skip checks, just open dashboards'
         Write-Host '  sgsd -Bootstrap      Create minimal .brv/context-tree in place'
+        Write-Host '  sgsd -Backfill       Full DLB-04 scaffold for existing project'
         Write-Host '  sgsd -ProjectDir X   Explicit project directory'
         Write-Host '  sgsd -Help           This help'
         return
@@ -154,6 +156,7 @@ function sgsd {
     if (`$NoOpen)         { `$args += '-NoOpen' }
     if (`$SkipPreflight)  { `$args += '-SkipPreflight' }
     if (`$Bootstrap)      { `$args += '-Bootstrap' }
+    if (`$Backfill)       { `$args += '-Backfill' }
 
     & powershell.exe @args
 }
