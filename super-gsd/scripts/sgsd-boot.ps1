@@ -20,8 +20,13 @@ param(
     [switch]$SkipPreflight,
     [switch]$NoOpen,
     [switch]$Bootstrap,
-    [switch]$Backfill
+    [switch]$Backfill,
+    [switch]$Claude,
+    [switch]$Go
 )
+
+# -Go implies -Claude (auto-send "go" only makes sense if we're launching claude)
+if ($Go) { $Claude = $true }
 
 $ErrorActionPreference = "Stop"
 $Host.UI.RawUI.WindowTitle = "SGSD Boot"
@@ -228,7 +233,7 @@ if (-not $SkipPreflight) {
     if (Test-Path $indexPath) {
         Write-Step ".planning/memory/MEMORY.md present" "OK" Green
     } elseif (Test-Path $legacyIndexPath) {
-        Write-Step "legacy .brv/context-tree/ detected - run sgsd-memory-migrate" "WARN" Yellow
+        Write-Step "legacy .brv/context-tree/ detected - run /sgsd-memory-migrate inside Claude Code" "WARN" Yellow
     } else {
         if ($Bootstrap -or $Backfill) {
             # Full -Backfill handles this; the lightweight Bootstrap path here
@@ -311,8 +316,13 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
         if (Test-Path $smokeFile) { Remove-Item $smokeFile -Force -ErrorAction SilentlyContinue }
         $indexBackup = Get-Content $indexPath -Raw -ErrorAction SilentlyContinue
 
+        # Note: keep bash's own 2>&1 inside the command string (merges bash stderr into
+        # stdout for capture). Do NOT add PowerShell's outer 2>&1 here — in PS 5.1 it
+        # wraps native-cmd stderr (e.g. WSL's benign .wslconfig warning) as a
+        # NativeCommandError and, combined with $ErrorActionPreference=Stop, kills
+        # the script before we can check $LASTEXITCODE.
         $bashCmd = "echo 'boot smoke' | bash '$($curate -replace '\\','/')' --type pattern --slug '$smokeSlug' --summary 'boot preflight' --root '$($ProjectDir -replace '\\','/')' 2>&1"
-        $smokeOutput = & bash -c $bashCmd 2>&1
+        $smokeOutput = & bash -c $bashCmd
         $landed = (Test-Path $smokeFile) -and ((Get-Content $indexPath -Raw) -match [regex]::Escape("| $smokeSlug |"))
 
         if ($landed) {
@@ -334,8 +344,9 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
     # 4. Agents registry refresh (DLB-04 Wave A)
     $registrySync = Join-Path $ScriptsDir "sgsd-registry-sync.sh"
     if (Test-Path $registrySync) {
+        # See note above re: PowerShell 5.1 + native stderr + $ErrorActionPreference=Stop.
         $bashCmd = "bash '$($registrySync -replace '\\','/')' --root '$($ProjectDir -replace '\\','/')' 2>&1"
-        $syncOutput = & bash -c $bashCmd 2>&1
+        $syncOutput = & bash -c $bashCmd
         if ($LASTEXITCODE -eq 0) {
             $countMatch = ($syncOutput -join " ") -match "(\d+) agent records"
             $count = if ($countMatch) { $Matches[1] } else { "?" }
@@ -424,11 +435,47 @@ if ($wt) {
 }
 
 Write-Host ""
+
+# ----------------------------------------------------------------------------
+# CLAUDE (optional) - auto-launch Claude Code in a new window, optionally with
+# --dangerously-skip-permissions and an auto "go" seed to enter AUTO MODE.
+# Opt-in only: --dangerously-skip-permissions is a real authority grant and
+# should be a conscious choice per session, not baked into every boot.
+# ----------------------------------------------------------------------------
+if ($Claude) {
+    Write-Host "CLAUDE" -ForegroundColor White
+    Write-Host "------"
+
+    $claudeCmd = Get-Command claude -ErrorAction SilentlyContinue
+    if (-not $claudeCmd) {
+        Write-Step "Claude Code CLI not on PATH - skipping auto-launch" "WARN" Yellow
+        Write-Host "    Install: https://docs.claude.com/claude-code" -ForegroundColor DarkGray
+    } else {
+        $claudeLine = "claude --dangerously-skip-permissions"
+        if ($Go) { $claudeLine += " 'go'" }
+        $cmdString = "Set-Location -LiteralPath '$ProjectDir'; $claudeLine"
+        $desc = "Claude Code (--dangerously-skip-permissions" + $(if ($Go) { " + auto-go" } else { "" }) + ")"
+        Write-Step "launching $desc in a new window" "OK" Green
+        Start-Process powershell.exe -ArgumentList @("-NoExit", "-NoProfile", "-Command", $cmdString)
+    }
+    Write-Host ""
+}
+
 Write-Host "Next actions:"
-Write-Host "  1. In a second PowerShell, cd to the project and start Claude Code:"
-Write-Host "     claude"
-Write-Host "  2. In Claude Code, say:  go"
-Write-Host "  3. Watch the three dashboards for live state."
+if (-not $Claude) {
+    Write-Host "  1. In a second PowerShell, cd to the project and start Claude Code:"
+    Write-Host "     claude"
+    Write-Host "     (or re-run: sgsd -Claude    to auto-launch, sgsd -Claude -Go to also enter AUTO MODE)"
+    Write-Host "  2. In Claude Code, say:  go"
+    Write-Host "  3. Watch the three dashboards for live state."
+} elseif (-not $Go) {
+    Write-Host "  1. Switch to the Claude Code window that just opened."
+    Write-Host "  2. Say:  go    (or re-run with sgsd -Claude -Go next time)"
+    Write-Host "  3. Watch the three dashboards for live state."
+} else {
+    Write-Host "  1. Switch to the Claude Code window that just opened - AUTO MODE already engaged."
+    Write-Host "  2. Watch the three dashboards for live state."
+}
 Write-Host ""
 Write-Host "  To pause anytime:  /sgsd-pause"
 Write-Host "  To resume:         /sgsd-resume"
