@@ -145,7 +145,7 @@ function buildValidator(schema) {
   }
 
   const ajv = new Ajv({ allErrors: true, useDefaults: true });
-  addFormats(ajv);
+  addFormats(ajv); // no format keywords in v1 schema — retained for v2 additions
   addErrors(ajv);
 
   try {
@@ -196,7 +196,6 @@ function extractFrontmatter(content, planFilePath) {
     }
     // Build output: include a line only if it's the LAST declaration of its key
     // (skip earlier duplicates + their continuation lines).
-    const keyOccurrences = new Map(); // key -> count of how many times we've seen it
     const result = [];
     let skipUntilNextTopKey = false;
     let currentKey = null;
@@ -204,10 +203,6 @@ function extractFrontmatter(content, planFilePath) {
       const m = lines[i].match(topKeyLine);
       if (m) {
         const key = m[1];
-        const count = (keyOccurrences.get(key) || 0) + 1;
-        keyOccurrences.set(key, count);
-        // Count total occurrences of this key across the whole document
-        const totalOccurrences = [...seen.entries()].filter(([k]) => k === key).length;
         // seen only stores the LAST index — so if this line index === seen.get(key), keep it
         if (seen.get(key) === i) {
           skipUntilNextTopKey = false;
@@ -311,15 +306,6 @@ function formatErrors(ajvErrors, planFileName) {
     // The top-level e.message is already the human-readable custom text from the schema.
     // The raw sub-error's missingProperty is in e.params.errors[0].params.missingProperty.
     if (e.keyword === 'errorMessage') {
-      // Extract missing field name from the nested sub-error if available
-      let field = null;
-      const subErrors = (e.params && e.params.errors) || [];
-      for (const sub of subErrors) {
-        if (sub.keyword === 'required' && sub.params && sub.params.missingProperty) {
-          field = sub.params.missingProperty;
-          break;
-        }
-      }
       // e.message is already the D-08 formatted custom message from the schema errorMessage
       // e.g. "task must declare 'falsifier' (SCHEMA-02)"
       // Wrap it in the D-08 [filename] prefix
