@@ -257,7 +257,7 @@ REPEAT:
      g. Verification passed → PHASE ATC GATE (Step 6.5) → FRONTEND VERIFY GATE (Step 6.6) → mark complete
      h. Verification failed → dispatch gsd-planner --gaps (Sonnet)
 
-  <!-- ANCHOR: RULE-8.5 — schema-fix dispatch branch. Plans 11-04 and 11-05 add sections AFTER this anchor. -->
+  <!-- ANCHOR: RULE-8.5 — schema-fix dispatch branch -->
   6.2. PLAN LOAD-TIME VALIDATION (Rule 8.5 — schema-fix dispatch)
      Triggers at dispatch rule 6.e, BEFORE spawning gsd-executor. Re-validates each
      pending PLAN.md against plan-schema-v2.json at load time (D-07 load-time enforcement).

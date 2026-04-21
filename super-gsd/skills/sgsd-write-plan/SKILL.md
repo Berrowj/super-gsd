@@ -121,23 +121,26 @@ Bullet list of observable, verifiable outcomes.
 
 **This step MUST precede Step 5. Never skip.**
 
-Write the full plan content (frontmatter + body) to a temporary file, then run validate.cjs:
+Write the full plan content (frontmatter + body) to a deterministic draft path, then run validate.cjs:
 
+Write the full plan content to: `.planning/.sgsd-draft-plan.md`
+(Use the Write tool — avoids shell quoting hazards and /tmp path
+assumptions that break on Windows/WSL without explicit context.)
+
+Then run validate.cjs against the draft:
 ```bash
-# Write to temp file (adjust path as needed)
-TMP_PLAN=$(mktemp /tmp/sgsd-plan-draft-XXXXXX.md)
-cat > "$TMP_PLAN" << 'PLAN_EOF'
-<paste full plan content here>
-PLAN_EOF
-
-# Run validate.cjs
 node super-gsd/tools/plan-schema/validate.cjs \
-  --plan-file "$TMP_PLAN" \
+  --plan-file .planning/.sgsd-draft-plan.md \
   --project-dir . \
   --mode write
+```
+
+After validation completes (exit 0 or exit 1), delete the draft:
+```bash
+rm .planning/.sgsd-draft-plan.md
+```
 
 EXIT_CODE=$?
-```
 
 **Exit code handling:**
 
