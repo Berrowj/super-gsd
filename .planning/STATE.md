@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Evidence-First Sharpening
-status: defining_requirements
-stopped_at: Milestone v1.2 started — scoping requirements from 2026-04-21 retro RQ4
+status: roadmap_complete
+stopped_at: Milestone v1.2 roadmap formalized — 5 phases (9-13) scoped with success criteria and dependency chain. Ready to plan Phase 11 first (no external block).
 last_updated: "2026-04-21T00:00:00.000Z"
 last_activity: 2026-04-21
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** Ship an autonomous framework that any Claude Code Max plan user can install with one command and immediately start building software
-**Current focus:** v1.2 Evidence-First Sharpening — scoping phases per retro RQ4
+**Current focus:** v1.2 Evidence-First Sharpening — Phases 9-13 scoped; next move is to plan Phase 11 (no external block) while Phase 9 waits on project-clarity-erp.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Not started (roadmap complete, ready to plan Phase 11)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-04-21 — milestone v1.2 started
+Status: Roadmap complete, planning not yet dispatched
+Last activity: 2026-04-21 — v1.2 roadmap formalized (5 phases, 23 REQs, dependency chain locked)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [░░░░░░░░░░] 0% (0/5 phases complete)
 
 ## Accumulated Context
 
@@ -50,20 +50,26 @@ Progress: [░░░░░░░░░░] 0%
 - D012 (retro): AGP-P-02 resource-protocol scope is a floor, not a ceiling
 - D013 (retro): Lightweight decision-note format `YYYY-MM-DD-slug.md` sits alongside `DLB-NN`
 
-### Open Dependencies (v1.2-scoping-time)
+### Open Dependencies (v1.2 scoping-time)
 
-- Phase 9 (ATC-147-evidence) depends on external `project-clarity-erp` Phase 147 retroactive ATC completion. Scope now, defer execution until unblocked.
+- **Phase 9** (ATC-147-Evidence) — external block on `project-clarity-erp` Phase 147 retroactive ATC landing. Execution deferred until operator confirms `project-clarity-erp/.planning/phases/147-clarity-relay-map-w1/147-ATC-REVIEW.md` exists.
+- **Phase 10** (Gate Policy) — intra-milestone block on Phase 9 (needs empirical finding count).
+- **Phase 12** (Machinery) — intra-milestone block on Phase 11 (schema v2) and Phase 10 (gate matrix).
+- **Phase 13** (Governance) — intra-milestone block on Phase 10 (gates.yaml precedent) and Phase 11 (schema-ownership precedent).
+- **Phase 11** (Plan Schema v2) — NO blocks. Ready to discuss/plan immediately.
 
 ### Pending Todos
 
-None.
+- Discuss Phase 11 first (no external block) via `/gsd-discuss-phase 11`.
+- When `project-clarity-erp` Phase 147 retroactive ATC lands, unblock Phase 9 and resume retro-locked order.
+- At v1.2 close, run GOV-05 post-deliberation scoring audit (milestone-close hook) and re-evaluate retro RQ1 per reopen clause.
 
 ### Blockers/Concerns
 
-None (v1.2 is planning-mode; no execution blockers until Phase 9 fires).
+- **External blocker on Phase 9:** `project-clarity-erp` Phase 147 retroactive ATC is not yet landed. Scope stands; execution deferred. Does NOT block Phase 11 which has no external dep.
 
 ## Session Continuity
 
-Last session: 2026-04-21 — v1.1 archived + tagged + v1.2 scoping started
-Stopped at: Requirements-definition step
-Resume file: None
+Last session: 2026-04-21 — v1.2 roadmap formalized; ROADMAP.md, STATE.md, REQUIREMENTS.md traceability all current.
+Stopped at: Roadmap complete, ready to dispatch planning on Phase 11.
+Resume file: None (no active checkpoint).
