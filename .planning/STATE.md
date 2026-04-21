@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Evidence-First Sharpening
 status: planning
-stopped_at: Phase 11 context gathered
-last_updated: "2026-04-21T18:51:55.068Z"
-last_activity: 2026-04-21 — v1.2 roadmap formalized (5 phases, 23 REQs, dependency chain locked)
+stopped_at: Phase 11 research complete, planner next
+last_updated: "2026-04-21T20:23:00.000Z"
+last_activity: 2026-04-21 — Phase 11 RESEARCH.md produced (all 7 RQs answered; SCHEMA-05 writing-plans-format blocker surfaced with 3 resolution options)
 progress:
   total_phases: 5
   completed_phases: 0
