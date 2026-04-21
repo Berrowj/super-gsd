@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Evidence-First Sharpening
-status: planning
-stopped_at: Phase 11 COMPLETE (PASS-WITH-DEVIATIONS); Phase 9 external blocker RESOLVED; awaiting /gsd-discuss-phase 9
-last_updated: "2026-04-21T23:10:00.000Z"
-last_activity: 2026-04-21 — Phase 11 Plan Schema v2 shipped (5 plans, 14 feat commits). ATC WARN 0 critical / 5 warnings. WR-01 (task.goal phantom field in Rule 8.5 locked_fields) flagged as pre-Phase-12 remediation. Phase 9's external dep (project-clarity-erp/.../147-ATC-REVIEW.md) now exists — ready for discussion.
+status: Phase 11 ATC gap closure complete (0 warnings remain); Phase 9 awaiting discussion
+stopped_at: Completed 11-06-atc-gap-closure.md (all 5 WR warnings + IN-01 closed — Phase 11 fully done)
+last_updated: "2026-04-21T23:30:00.000Z"
+last_activity: 2026-04-21 — Phase 11 ATC gap closure: renamed task.goal→task.hypothesis (WR-01), removed 11 dead-code lines from validate.cjs (WR-02+03+04), hardened write-plan draft path (WR-05), trimmed ANCHOR comment (IN-01)
 progress:
   total_phases: 5
-  completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
-  percent: 20
+  completed_phases: 0
+  total_plans: 1
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 
 ## Current Position
 
-Phase: 11 COMPLETE. Next: Phase 9 (external blocker now resolved — needs discussion).
-Plan: — (5/5 plans in Phase 11 completed)
-Status: Phase 11 shipped; 5 ATC warnings logged (WR-01 highest priority — must fix before Phase 12)
-Last activity: 2026-04-21 — v1.2 roadmap formalized (5 phases, 23 REQs, dependency chain locked)
+Phase: 11 COMPLETE (including ATC gap closure plan 11-06). Next: Phase 9 (external blocker resolved — needs discussion).
+Plan: — (6/6 plans in Phase 11 completed, including 11-06 ATC gap closure)
+Status: Phase 11 fully closed — 0 ATC warnings remain. Safe to proceed to Phase 12 machinery.
+Last activity: 2026-04-21 — Phase 11 ATC gap closure complete (WR-01..05 + IN-01 all closed)
 
 Progress: [░░░░░░░░░░] 0% (0/5 phases complete)
 
