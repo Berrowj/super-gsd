@@ -39,7 +39,183 @@ categories:
 #
 # For now, this file is a scaffold placeholder with schema demonstration.
 
-agents: []  # populated during Phase B-G
+agents:
+  # ─── Category C — Execution specialists (Phase C, 2026-04-21) ────────────────
+  - name: sgsd-exec-backend
+    category: C
+    model_default: sonnet
+    agent_file: super-gsd/agents/sgsd-exec-backend.md
+    installed_at: ~/.claude/agents/sgsd-exec-backend.md
+    expertise_ref: super-gsd/expertise/sgsd-exec-backend.md
+    input_contract_ref: super-gsd/registry/handover-contract-v2.yaml#input
+    output_contract_ref: super-gsd/registry/handover-contract-v2.yaml#output
+    pick_heuristic: "files_touched match backend globs (*.py, *.go, *.ts server, *.rb, *.java) minus frontend paths"
+    emits:
+      - .planning/metrics/activity-log.jsonl
+      - .planning/metrics/heartbeat.jsonl
+      - .planning/metrics/token-log.jsonl
+      - .planning/phases/{N}/commit-reviews.jsonl
+    state: active
+    version: 2.0
+    supersedes: gsd-executor (when heuristic matches)
+    owner_dlb: DLB-04
+    research_principles: [ISO-P-01, ISO-P-02, ISO-P-04, HCC-P-10, LLMS-P-05, MET-P-03]
+    lifecycle_events:
+      - {event: created, ts: 2026-04-21T00:00:00Z, note: "SGSD v2 Phase C specialist"}
+
+  - name: sgsd-exec-ui
+    category: C
+    model_default: sonnet
+    agent_file: super-gsd/agents/sgsd-exec-ui.md
+    installed_at: ~/.claude/agents/sgsd-exec-ui.md
+    expertise_ref: super-gsd/expertise/sgsd-exec-ui.md
+    input_contract_ref: super-gsd/registry/handover-contract-v2.yaml#input
+    output_contract_ref: super-gsd/registry/handover-contract-v2.yaml#output
+    pick_heuristic: "files_touched match *.tsx/*.jsx/*.vue/*.svelte/*.css/*.scss"
+    emits:
+      - .planning/metrics/activity-log.jsonl
+      - .planning/metrics/heartbeat.jsonl
+      - .planning/metrics/token-log.jsonl
+      - .planning/phases/{N}/commit-reviews.jsonl
+      - .planning/phases/{N}/{N}-BROWSER-REVIEW.md
+    state: active
+    version: 2.0
+    supersedes: gsd-executor (when heuristic matches)
+    owner_dlb: DLB-04
+    research_principles: [MET-P-06, MET-P-09, ISO-P-03, HCC-P-03, ASS-P-06, LLMS-P-05]
+    lifecycle_events:
+      - {event: created, ts: 2026-04-21T00:00:00Z, note: "SGSD v2 Phase C specialist"}
+
+  - name: sgsd-exec-test
+    category: C
+    model_default: sonnet
+    agent_file: super-gsd/agents/sgsd-exec-test.md
+    installed_at: ~/.claude/agents/sgsd-exec-test.md
+    expertise_ref: super-gsd/expertise/sgsd-exec-test.md
+    input_contract_ref: super-gsd/registry/handover-contract-v2.yaml#input
+    output_contract_ref: super-gsd/registry/handover-contract-v2.yaml#output
+    pick_heuristic: "task goal is test-writing as primary artifact (files_touched all *_test.*/*.spec.*)"
+    emits:
+      - .planning/metrics/activity-log.jsonl
+      - .planning/metrics/heartbeat.jsonl
+      - .planning/metrics/token-log.jsonl
+      - .planning/phases/{N}/commit-reviews.jsonl
+    state: active
+    version: 2.0
+    supersedes: gsd-executor (when heuristic matches)
+    owner_dlb: DLB-04
+    research_principles: [LLMS-P-01, LLMS-P-08, MET-P-08, ISO-P-05, ISO-P-01, ASS-P-04]
+    lifecycle_events:
+      - {event: created, ts: 2026-04-21T00:00:00Z, note: "SGSD v2 Phase C specialist"}
+
+  - name: sgsd-exec-refactor
+    category: C
+    model_default: sonnet
+    agent_file: super-gsd/agents/sgsd-exec-refactor.md
+    installed_at: ~/.claude/agents/sgsd-exec-refactor.md
+    expertise_ref: super-gsd/expertise/sgsd-exec-refactor.md
+    input_contract_ref: super-gsd/registry/handover-contract-v2.yaml#input
+    output_contract_ref: super-gsd/registry/handover-contract-v2.yaml#output
+    pick_heuristic: "task is zero-behavior-change structural change"
+    emits:
+      - .planning/metrics/activity-log.jsonl
+      - .planning/metrics/heartbeat.jsonl
+      - .planning/metrics/token-log.jsonl
+      - .planning/phases/{N}/commit-reviews.jsonl
+    state: active
+    version: 2.0
+    supersedes: gsd-executor (when heuristic matches)
+    owner_dlb: DLB-04
+    research_principles: [HCC-P-04, ISO-P-06, SEV-P-01, ASS-P-07, LLMS-P-05, LLMS-P-06]
+    lifecycle_events:
+      - {event: created, ts: 2026-04-21T00:00:00Z, note: "SGSD v2 Phase C specialist"}
+
+  - name: sgsd-exec-fix
+    category: C
+    model_default: sonnet
+    agent_file: super-gsd/agents/sgsd-exec-fix.md
+    installed_at: ~/.claude/agents/sgsd-exec-fix.md
+    expertise_ref: super-gsd/expertise/sgsd-exec-fix.md
+    input_contract_ref: super-gsd/registry/handover-contract-v2.yaml#input
+    output_contract_ref: super-gsd/registry/handover-contract-v2.yaml#output
+    pick_heuristic: "task is bug-fix (reproduce → failing test → fix → verify)"
+    emits:
+      - .planning/metrics/activity-log.jsonl
+      - .planning/metrics/heartbeat.jsonl
+      - .planning/metrics/token-log.jsonl
+      - .planning/phases/{N}/commit-reviews.jsonl
+    state: active
+    version: 2.0
+    supersedes: gsd-executor (when heuristic matches)
+    owner_dlb: DLB-04
+    research_principles: [LLMS-P-01, MET-P-08, ISO-P-02, HCC-P-04, ISO-P-07, LLMS-P-03]
+    lifecycle_events:
+      - {event: created, ts: 2026-04-21T00:00:00Z, note: "SGSD v2 Phase C specialist"}
+
+  - name: sgsd-exec-config
+    category: C
+    model_default: sonnet
+    agent_file: super-gsd/agents/sgsd-exec-config.md
+    installed_at: ~/.claude/agents/sgsd-exec-config.md
+    expertise_ref: super-gsd/expertise/sgsd-exec-config.md
+    input_contract_ref: super-gsd/registry/handover-contract-v2.yaml#input
+    output_contract_ref: super-gsd/registry/handover-contract-v2.yaml#output
+    pick_heuristic: "files_touched are config-shaped (Dockerfile, *.yaml/yml, docker-compose, .env*, .github/workflows/, terraform)"
+    emits:
+      - .planning/metrics/activity-log.jsonl
+      - .planning/metrics/heartbeat.jsonl
+      - .planning/metrics/token-log.jsonl
+      - .planning/phases/{N}/commit-reviews.jsonl
+    state: active
+    version: 2.0
+    supersedes: gsd-executor (when heuristic matches)
+    owner_dlb: DLB-04
+    research_principles: [AGP-P-03, AGP-P-04, HCC-P-02, ISO-P-08, LLMS-P-05, ASS-P-07]
+    lifecycle_events:
+      - {event: created, ts: 2026-04-21T00:00:00Z, note: "SGSD v2 Phase C specialist"}
+
+  - name: sgsd-exec-docs
+    category: C
+    model_default: sonnet
+    agent_file: super-gsd/agents/sgsd-exec-docs.md
+    installed_at: ~/.claude/agents/sgsd-exec-docs.md
+    expertise_ref: super-gsd/expertise/sgsd-exec-docs.md
+    input_contract_ref: super-gsd/registry/handover-contract-v2.yaml#input
+    output_contract_ref: super-gsd/registry/handover-contract-v2.yaml#output
+    pick_heuristic: "files_touched are all *.md"
+    emits:
+      - .planning/metrics/activity-log.jsonl
+      - .planning/metrics/heartbeat.jsonl
+      - .planning/metrics/token-log.jsonl
+    state: active
+    version: 2.0
+    supersedes: gsd-executor (when heuristic matches)
+    owner_dlb: DLB-04
+    research_principles: [MET-P-03, MET-P-09, HCC-P-10, ISO-P-01, LLMS-P-06]
+    lifecycle_events:
+      - {event: created, ts: 2026-04-21T00:00:00Z, note: "SGSD v2 Phase C specialist"}
+
+  - name: sgsd-exec-integration
+    category: C
+    model_default: sonnet
+    agent_file: super-gsd/agents/sgsd-exec-integration.md
+    installed_at: ~/.claude/agents/sgsd-exec-integration.md
+    expertise_ref: super-gsd/expertise/sgsd-exec-integration.md
+    input_contract_ref: super-gsd/registry/handover-contract-v2.yaml#input
+    output_contract_ref: super-gsd/registry/handover-contract-v2.yaml#output
+    pick_heuristic: "task is connecting pre-built parts (no new business logic, wiring only)"
+    emits:
+      - .planning/metrics/activity-log.jsonl
+      - .planning/metrics/heartbeat.jsonl
+      - .planning/metrics/token-log.jsonl
+      - .planning/phases/{N}/commit-reviews.jsonl
+    state: active
+    version: 2.0
+    supersedes: gsd-executor (when heuristic matches)
+    owner_dlb: DLB-04
+    research_principles: [LLMS-P-07, AGP-P-05, HCC-P-10, ISO-P-01, SEV-P-04, ASS-P-04]
+    lifecycle_events:
+      - {event: created, ts: 2026-04-21T00:00:00Z, note: "SGSD v2 Phase C specialist"}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Example entry schema (for reference — delete on first real entry)

@@ -41,9 +41,22 @@ Scope is every SGSD surface: orchestrator skill, deliberate skill, board members
 
 ## 1. Naming Migration — gsd-* → sgsd-*
 
-Current state: the orchestrator skill is named `sgsd-orchestrate` but it delegates to `gsd-executor`, `gsd-planner`, `gsd-verifier`, etc. — plain-GSD-1 agents inherited when super-gsd was forked. Only a handful of SGSD-specific agents exist: `sgsd-classifier`, `sgsd-context-selector`, and the board members (`sgsd-board-*`, `ssgsd-ceo`).
+### 1.0 The Rename Rule (operator directive 2026-04-21)
 
-### 1.1 Rename table (existing inherited → sgsd-*)
+**The `sgsd-` prefix signals active upgrade, not mere affiliation.** It may be applied ONLY when:
+
+1. The agent has been actively enriched with v2 handover contract + dedicated expertise file + research-paper principle citations, OR
+2. The agent is genuinely new (created from scratch, e.g. the 8 `sgsd-exec-*` specialists).
+
+No blanket rename. `gsd-*` agents stay `gsd-*` until their upgrade lands — the rename is part of the upgrade commit, not a precursor to it. GSD-1 agents that SGSD never upgrades stay `gsd-*` indefinitely; they're still dispatchable, just not SGSD-v2 contract compliant.
+
+See memory file `feedback_sgsd_rename_rule.md` for full rationale.
+
+### 1.1 Aspirational rename table (target state, NOT Phase B mass rename)
+
+The table below represents the *eventual* state after each agent is upgraded in Phase G. It is NOT a Phase B checklist. Each entry's rename lands inside its own Phase G upgrade commit, bundled with v2 contract + expertise file creation.
+
+Current state: the orchestrator skill is named `sgsd-orchestrate` but it delegates to `gsd-executor`, `gsd-planner`, `gsd-verifier`, etc. — plain-GSD-1 agents inherited when super-gsd was forked. Only a handful of SGSD-specific agents exist: `sgsd-classifier`, `sgsd-context-selector`, and the board members (`sgsd-board-*`, `sgsd-ceo`).
 
 | Current name | New name | Notes |
 |---|---|---|
@@ -450,16 +463,16 @@ Prerequisites: none. Decides: nothing. Opens: everything downstream.
 - [ ] A4. Add registry-integrity preflight to `sgsd-boot.ps1` (Section 7)
 - [ ] A5. Commit as `feat(registry): scaffold SGSD v2 resource protocol`
 
-### Phase B — Rename Migration (~3h, FLOOR-executable)
+### Phase B — DROPPED (per 2026-04-21 rename rule)
 
-Prerequisites: Phase A. Decides: nothing (mechanical). Opens: Category upgrades.
+The original Phase B proposed a bulk `cp + sed` rename of 6+ inherited `gsd-*` agents to `sgsd-*` as a mechanical precursor to Phase G. That was wrong: the rename should happen *inside* each agent's Phase G upgrade commit, where the v2 contract + expertise + research grounding actually land. Renaming ahead of that dilutes the prefix's meaning.
 
-- [ ] B1. Copy every `gsd-*.md` agent file to `sgsd-*.md` (retain originals)
-- [ ] B2. Update orchestrator skill dispatch rules to use new names
-- [ ] B3. Update any callers in `super-gsd/skills/*/SKILL.md`
-- [ ] B4. Add `state: deprecated, supersedes_by: sgsd-*` to original `gsd-*` files
-- [ ] B5. Rename `sgsd-sgsd-board-*` → `sgsd-board-*`, `ssgsd-*` → `sgsd-*`
-- [ ] B6. Commit per-category: `refactor(agents): rename gsd-* → sgsd-* (category {X})`
+What survives from the old Phase B:
+
+- **Double-prefix cleanup** (R-Q8b): verify no `sgsd-sgsd-*` or `ssgsd-*` exist in actual filesystem (earlier scan confirmed they don't — was an Agent-tool-listing artifact, not a file-artifact). No action needed.
+- **Per-agent rename** moves into Phase G (see below): one commit per agent, bundling `gsd-* → sgsd-*` rename + v2 contract adoption + expertise file creation + research-principle frontmatter.
+
+No Phase B commit; the slot is reclaimed by Phase C (new specialists) advancing earlier.
 
 ### Phase C — New Specialized Executors (~2h, FLOOR-executable)
 
