@@ -287,7 +287,7 @@ REPEAT:
           Read {plan_file_path} frontmatter tasks[] array
           locked_fields = {
             id:           tasks[*].id    (verbatim from original),
-            goal:         tasks[*].goal  (verbatim from original),
+            hypothesis:   tasks[*].hypothesis  (verbatim from original),
             files_touched: tasks[*].files_touched (verbatim from original)
           }
 
