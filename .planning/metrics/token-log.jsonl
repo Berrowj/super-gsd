@@ -15,3 +15,10 @@
 {"ts": "2026-04-12T01:38:55.567643Z", "phase": 8, "plan": 1, "wave": 1, "model": "sonnet", "role": "gsd-executor", "est_input": 44100, "est_output": 13200, "total": 57300, "classifier_model": "haiku"}
 {"ts": "2026-04-12T01:44:05.840785Z", "phase": 8, "plan": 1, "wave": 2, "model": "sonnet", "role": "gsd-executor", "est_input": 41500, "est_output": 12300, "total": 53800, "classifier_model": "haiku"}
 {"ts": "2026-04-12T01:50:59.113789Z", "phase": 8, "plan": 1, "wave": 3, "model": "sonnet", "role": "gsd-executor", "est_input": 38000, "est_output": 11300, "total": 49300, "classifier_model": "haiku"}
+{"ts":"2026-04-19T17:21:00Z","type":"deliberation","brief":"memory-topology","rounds":2,"board":4,"est_total":106000}
+{"ts":"2026-04-19T17:27:57Z","type":"deliberation","brief":"muda-learning-loop","rounds":2,"board":4,"est_total":121000}
+{"ts":"2026-04-19T17:33:47Z","type":"deliberation","brief":"intent-continuity","rounds":2,"board":4,"est_total":105000}
+{"ts":"2026-04-19T18:02:09Z","phase":8,"plan":1,"wave":4,"model":"sonnet","role":"gsd-executor","total":81305,"context_tokens":2000}
+{"ts":"2026-04-19T20:15:00Z","type":"deliberation","brief":"2026-04-19-self-evolving-resource-substrate","dlb":"DLB-04","rounds":2,"board":4,"est_total":137000,"vote":"3-1 ADOPT (narrow synthesis)","gates_produced":3}
+{"ts":"2026-04-20T10:55:00Z","type":"deliberation","brief":"2026-04-20-vtp-audit-sharpening","dlb":"DLB-05","rounds":2,"board":4,"est_total":185000,"vote":"3-1 ADOPT narrow synthesis + SPEC-NOW hybrid","q1":"1b-soft-warn","q2":"2b-metric-only-unanimous","q3":"2-probes + SPEC-NOW","q4":"defer-to-v1.3"}
+{"ts":"2026-04-20T12:30:00Z","type":"deliberation","brief":"2026-04-20-central-distribution","dlb":"DLB-06","rounds":2,"board":4,"est_total":84000,"vote":"3-1 ADOPT narrow + UNANIMOUS meta (DELIBERATION-FLOOR)","q1":"1a-ship","q2":"2b-session-start-prompt","q3":"defer-until-dlb05","q4":"4b-local","meta":"DELIBERATION-FLOOR.md adopted"}
