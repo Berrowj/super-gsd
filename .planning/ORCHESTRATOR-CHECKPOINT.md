@@ -1,130 +1,108 @@
 ---
 created_at: "2026-04-21T00:00:00.000Z"
 active_milestone: "v1.2"
-active_phase: null
-last_completed: "v1.2 roadmap formalized (5 phases, 23 REQs, dependency chain locked) — scoping fully discharged"
-next_unit: "Reconcile untracked planning artifacts (Task #4) — decide git-add vs .gitignore for each category"
-phase_state: "v1.2 ready-to-plan — scoping done; reconcile is housekeeping before first /gsd-discuss-phase"
-units_this_session: 10
-estimated_tokens_used: 195000
-exit_reason: "operator compress+clear — context at 96%, fresh session wanted for reconcile"
+active_phase: 11
+last_completed: "Phase 11 CONTEXT.md + DISCUSSION-LOG.md captured (14 decisions D-01..D-14 locked); Task #4 reconcile closed (14 atomic commits)"
+next_unit: "Dispatch gsd-phase-researcher for Phase 11 (Rule 2 — has CONTEXT, needs RESEARCH.md) OR skip research and go straight to gsd-planner if research is judged unnecessary for a schema-definition phase"
+phase_state: "context_captured_ready_for_research_or_plan"
+units_this_session: 15
+estimated_tokens_used: 220000
+exit_reason: "Context well above 70% on orchestrator entry — reconcile (8 DLB commits + 6 housekeeping) + Phase-11 discussion (3 areas × 4 Qs + self-healing loop design) + full orchestrator skill prompt load consumed ~220k. Fresh session mandatory before dispatching expensive Sonnet researcher/planner agents."
 session_context_note: >-
-  Operator instruction was "compress and clear and start the last reconcile".
-  This checkpoint IS the compression; /clear then reopen with this file as the
-  orientation doc.
+  Operator invoked /sgsd-orchestrate immediately after Phase-11 CONTEXT.md
+  landed. Loop would have entered at Rule 2 (dispatch researcher). Checkpoint
+  preserves that dispatch intent — next session should /clear then resume
+  here, reading ONLY this file + STATE.md frontmatter to re-enter.
 ---
 
 # Resume Instructions — Read This First
 
-## What shipped (v1.1 + v1.2 scoping, all in a single prior session)
+## What shipped this session (on top of the 10-commit v1.2 scoping from prior session)
 
-**10 commits + `v1.1` annotated tag.** Working tree is clean for all `.planning/` and `super-gsd/` code; dirt is purely in "untracked orphans" (see §Task #4).
+**16 new commits on master.** Full v1.2 reconcile closed + Phase 11 context captured.
 
-| Commit | What |
-|--------|------|
-| `a3b0a08` | phase8 CONTEXT open-questions → resolved |
-| `545bb31` | archive v1.1 Self-Audit milestone (6 files) |
-| `331c52b` | remove REQUIREMENTS.md for v1.1 close |
-| `a00e672` | delete stale 2026-04-19 checkpoint |
-| `43f88c6` | start milestone v1.2 (STATE.md) |
-| `503a7c5` | v1.2 REQUIREMENTS.md (23 REQs, 5 phases) |
-| `ebba516` | (interim checkpoint — superseded) |
-| `700a0a8` | (interim checkpoint — superseded) |
-| `757cb31` | v1.2 ROADMAP.md (5 phases, 23 REQs mapped, deps locked) |
-| `d6f03ec` | (prior checkpoint — superseded by this one) |
+### Part 1 — Task #4 reconcile (14 commits, `7e158fe` → `997af81`)
+| Bucket | Commits |
+|---|---|
+| DLB-01..04 deliberations (briefs + memos + transcripts) | 8 atomic commits |
+| Bucket B: token-efficiency expertise, sgsd-executor agent, restart-step.ps1 tool | 3 commits |
+| Modified context-tree + metrics sync | 3 commits |
+| .gitignore classifications (`.claude/`, `.gsd/`, `wiki/`, `custom-gsd-extract/`, `gsd-orchestrator-kit/`, heartbeat.jsonl, *.lastattempt) | 1 commit |
+| Deleted stale `narrative.md.lastattempt` | — |
 
-**Out-of-tree fix:** `~/.claude/get-shit-done/bin/gsd-tools.cjs` lines 784/786 replaced undefined `output(...)` with `console.log(...)`. Lives in global install, not this repo.
+Working tree clean of pre-existing DLB debt. Only residuals: session-telemetry self-writes (activity-log, narrative.md) and one unrelated `SGSD-2.0-architecture.html` that appeared during this session (presumably from a dashboard process — investigate next session or gitignore).
+
+### Part 2 — Phase 11 discussion (2 commits, `039cac1`, `c73a08d`)
+- `.planning/phases/11-plan-schema-v2/11-CONTEXT.md` — 14 decisions across Defaults, Parser, Self-healing loop, Pinning
+- `.planning/phases/11-plan-schema-v2/11-DISCUSSION-LOG.md` — full audit trail
+- `.planning/STATE.md` updated with session record
+
+## Phase 11 Decisions Locked (D-01..D-14)
+
+**Defaults:** ATC tier → LITE | prior_errors_lookup → tier-sensitive (true for FULL/GATE) | skip_gates → `[]` | lessons_path missing → warn+continue | depends_on/known_deadends/verification_cmd → `[]`/`[]`/null (Claude's Discretion)
+
+**Parser:** Node CLI at `super-gsd/tools/plan-schema/validate.cjs` | fires at both write-time + load-time | dual error format (human summary to console + ajv log to `.planning/metrics/plan-errors.jsonl`)
+
+**Self-healing loop (operator override, not in original options):** On load-time validation failure, dispatch `gsd-planner --fix-schema` with error envelope → 3 attempts preserving task ID / goal / files_touched → checkpoint halt if cap hit. Intermediate attempts write to `.fix-attempt-K.md` sibling files.
+
+**Pinning:** sha256 boot-time hash check (`workflow.schema_v2_hash` in config.json) | this repo (GSDedits) is canonical | drift → warn + log to `readiness-log.jsonl` (non-blocking)
+
+**Deferred to Claude's Discretion:** classifier-skip field derivation, `superpowers:writing-plans` sync mechanism, ajv version pinning, repair-attempt staging file naming convention, `plan-errors.jsonl` JSONL schema
 
 ## Project State
 
 - **Milestone:** v1.2 Evidence-First Sharpening — 5 phases (9-13), 23 REQs
-- **Phase order (retro-locked):** 9 ATC-147-Evidence → 10 Gate-Policy → 11 Plan-Schema-v2 → 12 Machinery → 13 Governance
-- **External block:** Phase 9 waits on `project-clarity-erp/.planning/phases/147-clarity-relay-map-w1/147-ATC-REVIEW.md`
-- **Unblocked starting move:** `/gsd-discuss-phase 11` (Plan Schema v2 has no deps)
+- **Phase order:** 11 → 9 → 10 → 12 → 13 (11 unblocked, 9 externally blocked, 10/12/13 intra-dep)
+- **Phase 11 state:** CONTEXT.md ✅, RESEARCH.md ❌, PLAN.md ❌
+- **External block on Phase 9:** `project-clarity-erp/.planning/phases/147-clarity-relay-map-w1/147-ATC-REVIEW.md`
 
 ---
 
-## Task #4 — The Reconcile (this is the next unit)
+## Next Action — Two Reasonable Dispatches
 
-Git status shows 21 untracked items from prior-session work that was never staged. Triage into 3 buckets:
+**Option A: Research-first (conservative, matches Rule 2)**
+Dispatch `gsd-phase-researcher` (Sonnet) with Phase 11 CONTEXT.md. Researcher investigates: ajv version choices, JSON Schema draft-07 vs 2020-12 tradeoffs, how `superpowers:writing-plans` currently composes plans, existing Node-CLI patterns in `super-gsd/tools/`, how the existing Haiku classifier loop works (for the skip-path). Outputs `11-RESEARCH.md`.
 
-### Bucket A — definitely commit (historical record of v1.1 deliberations)
+Next command: `/sgsd-orchestrate go` → Rule 2 fires → researcher dispatch.
 
-These are the DLB-01..04 artifacts that drove v1.1's post-milestone landing code. Decisions and deliberation transcripts belong in git.
+**Option B: Skip research, go direct to plan (pragmatic)**
+Phase 11 is a schema-definition phase with minimal unknowns — the CONTEXT already has clear decisions. `gsd-planner` can produce PLAN.md files from CONTEXT alone. Arguments for this: the research is largely "which ajv version" + "which JSON Schema draft" which are cheap calls the planner can make inline; the self-healing loop design is already fully-specified in CONTEXT.
 
-```
-.planning/briefs/2026-04-19-intent-continuity.md
-.planning/briefs/2026-04-19-memory-topology.md
-.planning/briefs/2026-04-19-muda-learning-loop.md
-.planning/decisions/DLB-01-memory-topology.md
-.planning/decisions/DLB-02-muda-learning-loop.md
-.planning/decisions/DLB-03-intent-continuity.md
-.planning/decisions/DLB-04-self-evolving-resource-substrate.md
-.planning/deliberations/2026-04-19-intent-continuity/
-.planning/deliberations/2026-04-19-memory-topology/
-.planning/deliberations/2026-04-19-muda-learning-loop/
-.planning/deliberations/2026-04-19-self-evolving-resource-substrate/
-```
+Next command: `/gsd-plan-phase 11 --skip-research` → planner dispatch directly.
 
-**Commit:** `docs(deliberations): import DLB-01..04 briefs + memos + transcripts (2026-04-19 wave)`
+**Recommendation:** Option A. The self-healing `gsd-planner --fix-schema` mode (D-09/D-10) is new architecture that warrants researcher investigation of existing planner internals before the planner itself is asked to specify the fix mode. Plus SCHEMA-05's cross-repo sync with `superpowers:writing-plans` needs a mechanism picked, which is research territory.
 
-### Bucket B — probably commit (tooling + expertise additions)
+## Remaining Work in v1.2
 
-Review contents before staging. These may be in-progress or intentional.
+| Phase | State | Next Step |
+|-------|-------|-----------|
+| **11 Plan Schema v2** | CONTEXT ✅ | RESEARCH → PLAN → EXECUTE → VERIFY (this session's next) |
+| 9 ATC-147-Evidence | Scoped | WAITING on external `project-clarity-erp` |
+| 10 Gate Policy | Scoped | waits on Phase 9 finding count |
+| 12 Machinery | Scoped | waits on Phase 11 + Phase 10 |
+| 13 Governance | Scoped | waits on Phase 10 + Phase 11 |
 
-```
-.brv/context-tree/expertise/token-efficiency-expertise.md
-super-gsd/agents/sgsd-executor.md
-super-gsd/tools/process-audit/restart-step.ps1
-```
+## Context Posture — CRITICAL
 
-**Triage steps per file:**
-1. `git log --all --diff-filter=D -- <path>` to check if deleted elsewhere
-2. `wc -l` + quick `head` to confirm substantive content (not scratch)
-3. If referenced from other committed files (`grep -r <basename>`), commit it
-4. Commit message per file: `feat/fix/docs(<area>): <one-liner>`
+Session burned ~96% of an Opus 1M context window:
+- Reconcile session: 14 commits × heavy git ops
+- Phase 11 discussion: 4 × AskUserQuestion rounds + 2 × checkpoint writes + full CONTEXT.md (~1200 lines written) + full DISCUSSION-LOG.md (~400 lines written)
+- Full `/sgsd-orchestrate` skill prompt (~6000 tokens on entry)
 
-### Bucket C — investigate then decide (ephemeral or mysterious)
+Fresh `/clear` is NON-NEGOTIABLE before dispatching any Sonnet research/plan agent — those agents will burn ~30-50k on their own, which the current context cannot safely host.
 
-```
-.claude/                              # project-specific Claude settings — probably .gitignore
-.gsd/                                 # super-gsd runtime state — likely .gitignore  
-.planning/metrics/heartbeat.jsonl     # live telemetry, gitignore pattern likely
-.planning/metrics/narrative.md.lastattempt  # failed-write leftover, probably delete
-custom-gsd-extract/                   # unclear — investigate
-gsd-orchestrator-kit/                 # unclear — investigate
-wiki/                                 # unclear — investigate
-```
+## Resume Protocol (next session)
 
-**Triage steps:**
-1. For each dir/file, read contents (Read tool or `ls`/`head`) to understand purpose
-2. Check if referenced from anywhere committed (`grep -r <name> super-gsd/ .planning/`)
-3. Three verdicts per item: COMMIT / GITIGNORE-WITH-ENTRY / DELETE
-4. If GITIGNORE: append specific pattern to `.gitignore`, commit: `chore: gitignore <category>`
-5. If DELETE: use `rm` / `rm -rf` then note in commit
-6. If COMMIT: stage and commit with descriptive message
+1. `/clear`
+2. Open `/sgsd-orchestrate go` (or just open Claude and it will auto-read checkpoint per CLAUDE.md rule)
+3. Orchestrator Step 1 reads this file → extracts `next_unit` → enters loop at researcher dispatch
+4. Delete this checkpoint AFTER the researcher dispatch begins (not before — safety margin for re-resume if something crashes)
 
-### Success criteria for Task #4
+## Unrelated Residual Item
 
-- [ ] `git status --short | grep '^??'` returns ≤ 2 lines (only truly-live jsonl logs if those are in-gitignore pattern)
-- [ ] Every prior-decision artifact (DLBs 01-04, briefs, deliberation transcripts) is in git history
-- [ ] `.gitignore` has explicit entries for any category intentionally excluded
-- [ ] Every commit ≤ 3 files and follows `<type>(<scope>): <one-liner>` convention
+`SGSD-2.0-architecture.html` appeared untracked during this session. Likely from a `/graphify` run or an overwatcher dashboard process running in the background. Not blocking Phase 11 work. Next session can:
+- `git clean -i` to interactively decide
+- `gitignore` it if it's a dashboard artifact
+- Commit it if it's a deliberate knowledge-graph export
 
----
-
-## Outstanding (still deferred)
-
-- **Retro Next Action #1** — verify `project-clarity-erp` Phase 147 retroactive ATC. External, surfaces at `/gsd-discuss-phase 9`.
-- **Old phase directories** (`01-token-foundation/` .. `08-sgsd-self-audit/`) not moved to `milestones/v1.1-phases/`. Cosmetic; no collision with Phases 9-13.
-
-## Context Posture
-
-Session burned 95%+ of context. Fresh /clear'd session should:
-1. Read this checkpoint
-2. Execute Task #4 triage (estimated ~20k tokens)
-3. Commit each bucket atomically
-4. Checkpoint again if >70% context reached before completion
-5. Only then proceed to `/gsd-discuss-phase 11`
-
-If anything in the reconcile is ambiguous, ASK — one question with real decision weight, not a yes/no, per the CLAUDE.md permission rules.
+No action needed before Phase 11 research dispatch.
