@@ -145,20 +145,44 @@ REPEAT:
      - If all phases [x] → EXIT: "All phases complete"
      - If checkpoint exists and context >70% → EXIT: write checkpoint
 
-  2. CLASSIFY (spawn Haiku classifier)
-     FIRST: TaskCreate({
-       content: "Classify phase {N} complexity",
-       activeForm: "gsd-classifier [haiku] classifying P{N}",
-       status: "in_progress"
-     })
-     THEN: Agent(subagent_type: "sgsd-classifier", model: "haiku", mode: "auto", prompt: {
-       goal: "{phase goal from ROADMAP}",
-       files: "{estimated files}",
-       lines: "{estimated lines}",
-       type: "{feature|bugfix|refactor}"
-     })
-     → Returns: { complexity, model, atc_tier, deliberate, reason }
-     AFTER: TaskUpdate(same taskId, status: "completed")
+  2. CLASSIFY
+     // SCHEMA-04: v2 plans skip Haiku classifier spawn — derive classifier result from frontmatter
+     // Frontmatter is already parsed at this point (schema_version read for D-12 drift check at Step 3.5)
+
+     IF plan frontmatter has schema_version == 2:
+       // Synthesize classifier result from v2 frontmatter fields (no Agent spawn)
+       model         ← frontmatter.model  // required SCHEMA-02 field; always present on v2 plans
+       atc_tier      ← (frontmatter.expected_ATC_tier || 'LITE').toLowerCase()
+       files_count   ← count of all files_touched values across all tasks in frontmatter.tasks
+       complexity    ← files_count <= 3 ? 'light' : files_count <= 6 ? 'standard' : 'heavy'
+       deliberate    ← (frontmatter.depends_on?.length > 2 || files_count > 5)
+       classifier_result = {
+         complexity,
+         model,
+         atc_tier,
+         deliberate,
+         reason: "v2 plan — classifier skip (SCHEMA-04)"
+       }
+       // USE classifier_result as if returned by sgsd-classifier — downstream Steps 3+ unchanged
+       // Log skip event (traceability per T-11-14)
+       Append to .planning/metrics/token-log.jsonl:
+         {"ts":"{ISO}","phase":N,"plan":P,"event":"classifier_skip","reason":"schema_version==2","synthetic_result":{classifier_result}}
+
+     ELSE (schema_version absent or schema_version == 1 — existing v1 path, unchanged):
+       // Spawn Haiku classifier as before
+       FIRST: TaskCreate({
+         content: "Classify phase {N} complexity",
+         activeForm: "gsd-classifier [haiku] classifying P{N}",
+         status: "in_progress"
+       })
+       THEN: Agent(subagent_type: "sgsd-classifier", model: "haiku", mode: "auto", prompt: {
+         goal: "{phase goal from ROADMAP}",
+         files: "{estimated files}",
+         lines: "{estimated lines}",
+         type: "{feature|bugfix|refactor}"
+       })
+       → Returns: { complexity, model, atc_tier, deliberate, reason }
+       AFTER: TaskUpdate(same taskId, status: "completed")
 
   3. CHECK DELIBERATION GATE
      If classifier.deliberate == true AND NOT auto mode:
