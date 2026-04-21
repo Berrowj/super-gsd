@@ -1,0 +1,54 @@
+# ============================================================================
+# SGSD v2 Decision Registry
+# ============================================================================
+# Every orchestrator decision-step + dispatch-rule as a first-class resource.
+# Each entry declares: when it applies, what it expects, what it emits.
+# Edge-guard (R-Q4) uses expects/emits to enforce Step N → N+1 transitions.
+#
+# Source: SGSD-v2-MIGRATION-MANIFEST.md §4.3
+# Research grounding: AGP-P-02 (versioned resources), AGP-P-03 (auditable
+# lineage), LLMS-P-07 (explicit handoffs), HCC-P-02 (lifecycle events).
+# ============================================================================
+
+schema_version: 2
+registry_version: 2.0.0
+last_updated: 2026-04-21
+
+# Orchestrator skill steps (from sgsd-orchestrate/SKILL.md)
+# Populated per brief decisions Q1-Q7. Initial scaffold shows schema only.
+
+decision_steps: []  # populated during Phase F (after brief deliberation)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Example entry schema (for reference)
+# ─────────────────────────────────────────────────────────────────────────────
+_example_entry:
+  step: "9.5"
+  name: per-dispatch-ATC
+  category: gate-enforcement
+  rule_source: C:/Users/jack.berrow/.claude/atc/07-CHECKLIST.md
+  applies_when:
+    - classifier.atc_tier in [full, gate]
+    - FILES_CHANGED non-empty
+    - at least one file in FILES_CHANGED is code
+    - config.atc.enabled == true
+  skip_when:
+    - classifier.atc_tier in [skip, lite]
+    - all files in FILES_CHANGED are *.md or .planning/
+  enforcement_mode: hard-halt-on-critical  # hard-halt | soft-warn | amortized (per R-Q2)
+  expects:
+    - FILES_CHANGED from prior dispatch report
+    - classifier result from Step 2
+  emits:
+    - .planning/phases/{N}/commit-reviews.jsonl
+  evidence_file: .planning/phases/{N}/commit-reviews.jsonl
+  source_dlb: DLB-02
+  research_principles:
+    - HCC-P-07  # validate tier necessity via ablation
+    - LLMS-P-03 # systems declare success before verifying
+    - ISO-P-01  # combine execution + semantic metrics
+  state: active
+  version: 2.0
+  lifecycle_events:
+    - event: created
+      ts: 2026-04-21T00:00:00Z

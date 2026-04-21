@@ -1,0 +1,70 @@
+# ============================================================================
+# SGSD v2 Agent Registry
+# ============================================================================
+# Canonical list of every SGSD agent: category, expertise, emits, state.
+# Source of truth for orchestrator dispatch + sgsd-boot preflight.
+# See SGSD-v2-MIGRATION-MANIFEST.md §4.1 for schema rationale.
+#
+# Research grounding: AGP-P-02 (first-class versioned resources),
+# AGP-P-05 (protocol-level registration enables discovery),
+# AGP-P-07 (explicit lifecycle), ASS-P-05 (discovered archetypes).
+#
+# Lifecycle states:
+#   draft       — file exists, not yet wired into orchestrator
+#   active      — in use, boot preflight expects it to load
+#   deprecated  — superseded by newer agent but still dispatchable
+#   retired    — moved to archive; orchestrator halts on dispatch
+# ============================================================================
+
+schema_version: 2
+registry_version: 2.0.0
+last_updated: 2026-04-21
+migration_phase: A-scaffold
+
+# Category definitions (see manifest §2 for full principle mappings)
+categories:
+  A: Orchestration
+  B: Planning
+  C: Execution
+  D: Verification
+  E: Review/Audit
+  F: Debugging
+  G: Codebase Analysis
+  H: Meta/Governance
+  I: Board/Deliberation
+
+# Agents are listed here as entries become active. Entries added during
+# Phase B (rename migration) + Phase C (new specialists) + Phase F (board
+# decisions unlock further scope).
+#
+# For now, this file is a scaffold placeholder with schema demonstration.
+
+agents: []  # populated during Phase B-G
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Example entry schema (for reference — delete on first real entry)
+# ─────────────────────────────────────────────────────────────────────────────
+_example_entry:
+  name: sgsd-exec-backend
+  category: C
+  model_default: sonnet
+  agent_file: ~/.claude/agents/sgsd-exec-backend.md
+  expertise_ref: super-gsd/expertise/sgsd-exec-backend.md
+  input_contract_ref: super-gsd/registry/handover-contract-v2.yaml#input
+  output_contract_ref: super-gsd/registry/handover-contract-v2.yaml#output
+  emits:
+    - .planning/metrics/heartbeat.jsonl
+    - .planning/metrics/activity-log.jsonl
+    - .planning/phases/{N}/commit-reviews.jsonl
+  state: active
+  version: 2.0
+  supersedes: gsd-executor
+  owner_dlb: DLB-04
+  research_principles:
+    - ASS-P-06  # seeded with proven base methods
+    - ISO-P-03  # scaffolding as important as model
+    - HCC-P-10  # prompts as contracts
+  lifecycle_events:
+    - event: created
+      ts: 2026-04-21T00:00:00Z
+      note: SGSD v2 migration Phase C

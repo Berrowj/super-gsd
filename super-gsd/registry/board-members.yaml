@@ -1,0 +1,137 @@
+# ============================================================================
+# SGSD v2 Board Members Registry
+# ============================================================================
+# Board archetypes as first-class resources (R-Q7d). Enables custom boards
+# per decision domain, SEPL-gated evolution of the roster, version tracking,
+# and ablation-based retirement (HCC-P-07).
+#
+# Source: SGSD-v2-MIGRATION-MANIFEST.md §4.4, R-Q7d
+# Research grounding: AGP-P-02/P-05 (versioned + discoverable), ASS-P-05
+# (discovered archetypes), LLMS-P-08 (peer review reveals blind spots),
+# SEV-P-02 (confidence-weighted not consensus-alone).
+# ============================================================================
+
+schema_version: 2
+registry_version: 2.0.0
+last_updated: 2026-04-21
+board_version: v1-static  # post-R-Q7d may evolve to v2-discovered
+
+# The Core 4 (existing since DLB-01). Static until R-Q7d evolves.
+# Each points to its expertise file; SEPL may propose expertise edits (never auto).
+board_members:
+
+  - name: sgsd-board-architect
+    role: Technical Architect
+    model_default: sonnet
+    expertise_ref: super-gsd/expertise/sgsd-board-architect.md
+    supersedes: sgsd-sgsd-board-architect  # double-prefix cleanup per manifest §1.3
+    perspective:
+      - feasibility
+      - system design
+      - tech debt
+      - implementation risk
+    evaluation_focus:
+      - "Is the proposed architecture sound?"
+      - "What's the actual implementation cost?"
+      - "What downstream coupling will this create?"
+    state: draft  # active post-Phase B rename migration
+    version: 2.0
+    owner_dlb: DLB-05
+
+  - name: sgsd-board-pragmatist
+    role: Execution Pragmatist
+    model_default: sonnet
+    expertise_ref: super-gsd/expertise/sgsd-board-pragmatist.md
+    supersedes: sgsd-sgsd-board-pragmatist
+    perspective:
+      - execution risk
+      - timeline reality
+      - resource constraints
+      - what actually ships
+    evaluation_focus:
+      - "Will this actually ship in the time we have?"
+      - "Who executes it and do they have capacity?"
+      - "What's the smallest version that meets the real need?"
+    state: draft
+    version: 2.0
+    owner_dlb: DLB-05
+
+  - name: sgsd-board-contrarian
+    role: Contrarian Challenger
+    model_default: sonnet
+    expertise_ref: super-gsd/expertise/sgsd-board-contrarian.md
+    supersedes: sgsd-sgsd-board-contrarian
+    perspective:
+      - challenges consensus
+      - finds blind spots
+      - stress-tests assumptions
+    evaluation_focus:
+      - "What are we all agreeing on that we shouldn't?"
+      - "What's the strongest argument AGAINST this we haven't heard?"
+      - "What invariant does this silently violate?"
+    state: draft
+    version: 2.0
+    owner_dlb: DLB-05
+    notes: "Weight disproportionately in split votes per SEV-P-02 confidence-weighted synthesis (R-Q7b)"
+
+  - name: sgsd-board-moonshot
+    role: Moonshot Visionary
+    model_default: sonnet
+    expertise_ref: super-gsd/expertise/sgsd-board-moonshot.md
+    supersedes: sgsd-sgsd-board-moonshot
+    perspective:
+      - challenges incremental thinking
+      - proposes 10x alternatives
+      - prevents scope timidity
+    evaluation_focus:
+      - "What would this look like if we were 10x more ambitious?"
+      - "Is the proposed scope actually the right scope?"
+      - "What structural change would make this irrelevant?"
+    state: draft
+    version: 2.0
+    owner_dlb: DLB-05
+
+  - name: sgsd-ceo
+    role: CEO (synthesizer / orchestrator)
+    model_default: opus
+    expertise_ref: super-gsd/expertise/sgsd-ceo.md
+    supersedes: ssgsd-ceo
+    perspective: meta
+    evaluation_focus:
+      - "Synthesize board positions into a coherent decision"
+      - "Surface unresolved tensions explicitly"
+      - "Apply confidence weighting (SEV-P-02) not vote count (R-Q7b)"
+      - "Add Falsifier + Dead-Ends sections to memo (R-Q7c)"
+      - "Run post-synthesis reflection pass (R-Q7g / ASS-P-04)"
+    state: draft
+    version: 2.0
+    owner_dlb: DLB-05
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Custom board slots (for domain-specific deliberations, future)
+# ─────────────────────────────────────────────────────────────────────────────
+# Post-R-Q7d, operator can add roles per decision domain:
+#   - sgsd-board-security-expert (auth/PII/compliance briefs)
+#   - sgsd-board-performance-expert (latency/throughput briefs)
+#   - sgsd-board-data-ethicist (ML training data briefs)
+# etc. Each follows the same schema + gets its own expertise file.
+
+custom_board_slots: []  # populated via sgsd-sepl proposal → operator review
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Escalation policy (R-Q7a — retain-then-escalate)
+# ─────────────────────────────────────────────────────────────────────────────
+# Default deliberation starts with a subset, escalates when tension surfaces.
+# Awaiting R-Q7a board ruling; scaffold shows proposed shape.
+escalation_policy:
+  default_minimal_board:
+    - sgsd-board-architect
+    - sgsd-board-contrarian
+  escalate_add:
+    - when: "positions split on execution-feasibility vs technical-soundness"
+      add: sgsd-board-pragmatist
+    - when: "minimal board reaches consensus — groupthink risk"
+      add: sgsd-board-moonshot
+  always_present:
+    - sgsd-ceo  # synthesizer role, every deliberation
+  state: proposed  # awaiting R-Q7a ruling

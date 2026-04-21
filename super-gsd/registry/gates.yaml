@@ -1,0 +1,97 @@
+# ============================================================================
+# SGSD v2 Gates Registry
+# ============================================================================
+# Quality gates declared as resources: enforcement mode, rule source, emits.
+# Separated from decisions.yaml because gate enforcement has its own
+# lifecycle (hard/soft/amortized per R-Q2 three-tier policy).
+#
+# Source: SGSD-v2-MIGRATION-MANIFEST.md §4.4
+# Research grounding: HCC-P-07 (ablation test necessity), LLMS-P-03/P-08
+# (verification + peer review), ISO-P-01 (execution + semantic), ASS-P-07
+# (retain-then-escalate default).
+# ============================================================================
+
+schema_version: 2
+registry_version: 2.0.0
+last_updated: 2026-04-21
+
+# Enforcement modes:
+#   hard-halt    — gate fire blocks orchestrator until resolved
+#   soft-warn    — gate fire logs DEVIATIONS + continues
+#   amortized    — gate fires at boundary only (phase/plan), not per-dispatch
+#   disabled     — gate is defined but not enforced
+enforcement_modes:
+  - hard-halt
+  - soft-warn
+  - amortized
+  - disabled
+
+# Gates populated post-R-Q2 board ruling. Scaffold shows schema.
+
+gates: []  # populated during Phase F
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Example entries (for reference)
+# ─────────────────────────────────────────────────────────────────────────────
+_example_entries:
+  - name: per-dispatch-ATC
+    category: code-quality
+    enforcement_mode: hard-halt  # or soft-warn/amortized per R-Q2
+    trigger:
+      - classifier.atc_tier in [full, gate]
+      - dispatch is code (not docs-only)
+    checks:
+      - ATC 7-step
+      - 10-point anti-slop checklist
+      - ΔComplexity ≤ 0
+    reviewer_agent: sgsd-code-reviewer
+    evidence_emitted: .planning/phases/{N}/commit-reviews.jsonl
+    fallback: soft-warn in auto mode  # if R-Q2 chooses hard for interactive, soft for auto
+    ablation_data_ref: .planning/phases/147/147-ATC-REVIEW.md  # phase-147 empirical
+    source_dlb: DLB-02
+    state: active
+    version: 2.0
+
+  - name: phase-level-ATC
+    category: code-quality
+    enforcement_mode: amortized  # runs once per phase
+    trigger: after gsd-verifier passes
+    reviewer_agent: sgsd-code-reviewer
+    evidence_emitted: .planning/phases/{N}/{N}-ATC-REVIEW.md
+    fallback: log GATE_AUTO_BYPASS in auto mode
+    source_dlb: DLB-02
+    state: active
+    version: 2.0
+
+  - name: MUDA-waste-audit
+    category: process-hygiene
+    enforcement_mode: soft-warn  # per DLB-02: detect-and-record, not gate
+    trigger:
+      - phase_close
+      - files_changed >= 4 OR diff_lines >= 100
+      - phase_type NOT IN [refactor, docs, config]
+    script: super-gsd/scripts/sgsd-muda-audit.sh
+    evidence_emitted: .planning/phases/{N}/WASTE.md + anti-patterns/*
+    source_dlb: DLB-02
+    state: active
+    version: 2.0
+
+  - name: frontend-browser-verify
+    category: functional
+    enforcement_mode: hard-halt  # always, per CLAUDE-OVERLAY.md golden rule 15
+    trigger: phase diff touched frontend files
+    tool: super-gsd/tools/phase-verifier/phase-verifier.mjs
+    evidence_emitted: .planning/phases/{N}/{N}-BROWSER-REVIEW.md
+    source_dlb: CLAUDE-OVERLAY golden rule 15
+    state: active
+    version: 2.0
+
+  - name: edge-guard
+    category: meta
+    enforcement_mode: hard-halt
+    trigger: orchestrator attempts Step N → N+1 transition
+    check: Step N declared emits are present in logs within timeout
+    evidence_emitted: .planning/metrics/edge-guard-log.jsonl
+    research_principles: [AGP-P-03, AGP-P-04, LLMS-P-05, LLMS-P-07]
+    state: proposed  # per R-Q4; awaiting board ruling
+    version: 2.0

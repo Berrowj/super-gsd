@@ -1,0 +1,156 @@
+# ============================================================================
+# SGSD v2 Handover Contract
+# ============================================================================
+# Every sgsd-* agent conforms to this contract. Agents declare version in
+# their frontmatter (handover_contract: v2). Edge-guard enforces emits.
+#
+# Source: SGSD-v2-MIGRATION-MANIFEST.md §3
+# Research grounding: HCC-P-10 (prompts as contracts), AGP-P-02 (versioned
+# resources), ASS-P-06 (seed specialists with proven base methods),
+# SEV-P-02 (prioritize by confidence), MET-P-06 (Intuition + Why principled),
+# MET-P-08 (falsifier + stop_rule), HCC-P-04 (known_deadends), LLMS-P-07
+# (explicit handoffs).
+# ============================================================================
+
+contract_version: 2
+created: 2026-04-21
+supersedes: v1-free-form-prose
+
+# ─────────────────────────────────────────────────────────────────────────────
+# INPUT — what every agent is given on dispatch
+# ─────────────────────────────────────────────────────────────────────────────
+input:
+  brief:
+    phase: integer                 # e.g. 148
+    plan: integer                  # e.g. 1 (within phase)
+    milestone: string              # e.g. "v1.2"
+    goal: string                   # one-line from ROADMAP.md
+
+  task:                            # per-task block from v2 PLAN.md
+    id: string                     # e.g. "T3"
+    agent: string                  # this agent's slug (sgsd-exec-backend)
+    model: string                  # haiku | sonnet | opus
+    files_touched: [string]        # absolute or repo-rel paths
+    depends_on: [string]           # other task ids
+    input_contract: object         # per-agent-category expected inputs
+    output_contract: object        # per-agent-category required outputs
+    hypothesis: string             # MET-P-08 — what we expect to be true
+    falsifier: string              # MET-P-08 — what would prove us wrong
+    stop_rule: string              # MET-P-08 — when to abandon vs iterate
+    minimal_test: string           # MET-P-08 — smallest thing that validates
+    known_deadends: [string]       # HCC-P-04 — paths already ruled out
+    expertise_ref: string          # pointer to super-gsd/expertise/{name}.md
+
+  context:
+    brv_queries: [string]          # executed pre-dispatch
+    brv_results: [object]          # results (capped by token budget)
+    intent: string                 # DLB-03 injection (from INTENT.md)
+    prior_errors: [string]         # looked up per task (sgsd-recall error-rules)
+    surgical_constraint: string    # MANDATORY header (Karpathy principle)
+
+  constraints:
+    token_budget: integer          # hard ceiling for this dispatch
+    time_budget_sec: integer       # wall-clock ceiling
+    escape_hatches: [string]       # conditions under which agent may deviate
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OUTPUT — what every agent must return
+# ─────────────────────────────────────────────────────────────────────────────
+output:
+  report:                          # 6-section structured report (existing format)
+    FILES_CHANGED:
+      type: array
+      items: "path (created|modified|deleted)"
+    VERIFICATION:
+      type: array
+      items: "cmd → exit N ✓|✗"
+    DEVIATIONS:
+      type: array
+      items: string                # [Rule N] description, or "none"
+    BLOCKERS:
+      type: array
+      items: string                # description, or "none"
+    SCRIPTS_CREATED:
+      type: array
+      items: "path | purpose | interface"  # or "none"
+    ONE_LINER:
+      type: string
+      max_chars: 120
+
+  # NEW v2 fields (research-sharpened)
+  confidence: integer              # 1-5 (SEV-P-02) — self-rated certainty
+  rationale: string                # max 300 words, structured reasoning
+  intuition: string                # MET-P-06 — why this is plausible
+  why_principled: string           # MET-P-06 — grounded in what heuristic/evidence
+  evidence_cited: [string]         # brief-section | DLB-ref | research-slug | file:line
+  emits: [string]                  # log files / artifacts this dispatch wrote
+  word_count: integer              # for the 300-word guard
+
+# ─────────────────────────────────────────────────────────────────────────────
+# EMITS — observable signals every agent fires (edge-guard enforced)
+# ─────────────────────────────────────────────────────────────────────────────
+# Each agent declares its emits in frontmatter AND in registry/agents.yaml.
+# Orchestrator edge-guard (R-Q4) blocks Step N → N+1 if declared emits missing.
+emits_catalog:
+  - path: .planning/metrics/heartbeat.jsonl
+    source: PostToolUse hook (sgsd-heartbeat.js)
+    fires: every tool completion
+  - path: .planning/metrics/activity-log.jsonl
+    source: PreToolUse hook (sgsd-activity-logger.js)
+    fires: every tool call start
+  - path: .planning/metrics/orchestrator-pulse.jsonl
+    source: orchestrator step entry
+    fires: every loop tick (even during deliberation)
+  - path: .planning/metrics/token-log.jsonl
+    source: post-dispatch orchestrator write
+    fires: after each sub-agent report processed
+  - path: .planning/phases/{N}/commit-reviews.jsonl
+    source: per-dispatch ATC (Step 9.5)
+    fires: when atc_tier ∈ {full, gate} AND files_changed contains code
+  - path: .planning/memory/architecture/patterns/
+    source: sgsd-curate
+    fires: when DEVIATIONS surfaces new pattern
+  - path: .planning/memory/architecture/anti-patterns/
+    source: sgsd-curate
+    fires: when new failure discovered
+  - path: .planning/phases/{N}/WASTE.md
+    source: sgsd-muda-audit.sh
+    fires: on phase close (if gate triggers)
+  - path: .planning/phases/{N}/DEVIATIONS.md
+    source: orchestrator accumulates
+    fires: per-dispatch
+
+# ─────────────────────────────────────────────────────────────────────────────
+# EXPERTISE — every agent points to a static expertise file
+# ─────────────────────────────────────────────────────────────────────────────
+# ASS-P-05: discovered archetypes vs predefined roles.
+# PI Framework: expertise distinct from memory (static patterns vs dynamic recall).
+expertise_discipline:
+  location: super-gsd/expertise/
+  one_file_per: agent
+  required_sections:
+    - seeded_methods              # base operators this agent extends (CoT, ReAct, etc.)
+    - failure_modes               # known ways this agent fails, with indicators
+    - output_quality_bar          # what "good" looks like for this agent's output
+    - known_pitfalls              # things this agent must NOT do
+    - reference_patterns          # exemplar outputs to pattern-match against
+  update_policy:
+    - author: operator-proposed via sgsd-sepl; reviewed before commit
+    - never_auto: SEPL may propose edits; operator approves. No autonomous expertise rewrites.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VALIDATION — boot preflight checks every agent against this contract
+# ─────────────────────────────────────────────────────────────────────────────
+validation:
+  preflight_checks:
+    - agent_file_exists: super-gsd/agents/{name}.md OR .claude/agents/{name}.md
+    - expertise_file_exists: super-gsd/expertise/{name}.md
+    - registry_entry_exists: super-gsd/registry/agents.yaml
+    - frontmatter_declares_contract: handover_contract: v2
+    - emits_declared: non-empty emits list
+    - model_declared: one of [haiku, sonnet, opus]
+  failure_modes:
+    - missing_expertise: BLOCKER (boot FAIL)
+    - missing_registry_entry: BLOCKER (boot FAIL)
+    - mismatched_contract_version: WARN
+    - undeclared_emits: WARN (edge-guard will fire at runtime)

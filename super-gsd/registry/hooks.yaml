@@ -1,0 +1,134 @@
+# ============================================================================
+# SGSD v2 Hook Registry
+# ============================================================================
+# Every Claude Code hook in the SGSD stack: event, script, emits, state.
+# sgsd-boot preflight cross-checks this against ~/.claude/settings.json
+# registered hooks. Mismatches are boot-time blockers.
+#
+# Source: SGSD-v2-MIGRATION-MANIFEST.md §4.2
+# Research grounding: AGP-P-02 (versioned resources), AGP-P-05 (discovery),
+# SKR-P-02 (hidden-state probing), HCC-P-11 (transient vs strategic).
+# ============================================================================
+
+schema_version: 2
+registry_version: 2.0.0
+last_updated: 2026-04-21
+
+hooks:
+  # ─────────────────── Observability ───────────────────
+
+  - name: sgsd-heartbeat
+    event: PostToolUse
+    matcher: "*"
+    script: ~/.claude/hooks/sgsd-heartbeat.js
+    timeout_sec: 2
+    reads: [tool_response payload]
+    writes: .planning/metrics/heartbeat.jsonl
+    depends_on: []
+    failure_mode: silent
+    dashboards_consuming: [SGSD1]
+    state: pending-registration  # exists at super-gsd/hooks/ but NOT in settings.json
+    owner_dlb: DLB-04
+    action_required: "Add to ~/.claude/settings.json PostToolUse during Phase D"
+
+  - name: sgsd-activity-logger
+    event: PreToolUse
+    matcher: "*"
+    script: ~/.claude/hooks/sgsd-activity-logger.js
+    timeout_sec: 2
+    reads: [tool_name, tool_input]
+    writes: .planning/metrics/activity-log.jsonl
+    depends_on: []
+    failure_mode: silent
+    dashboards_consuming: [SGSD1, SGSD2]
+    state: active-but-duplicated  # registered at BOTH lines 41 AND 91 in settings.json
+    owner_dlb: DLB-04
+    action_required: "De-dup registration during Phase D (remove line 91)"
+
+  - name: sgsd-statusline
+    event: SessionStart | Stop
+    matcher: "*"
+    script: ~/.claude/hooks/sgsd-statusline.js
+    timeout_sec: 1
+    reads: [STATE.md frontmatter, heartbeat.jsonl tail]
+    writes: stdout (statusline)
+    depends_on: [sgsd-heartbeat]
+    failure_mode: silent
+    state: exists-verify
+    owner_dlb: DLB-04
+
+  # ─────────────────── Safety / Debug ───────────────────
+
+  - name: gsd-stuck-detector
+    event: PostToolUse
+    matcher: "Bash|Edit|Write"
+    script: ~/.claude/hooks/gsd-stuck-detector.js
+    timeout_sec: 3
+    reads: [TOOL_NAME, TOOL_INPUT env vars]
+    writes: stdout warning + /tmp/gsd-tool-history.json
+    depends_on: []
+    failure_mode: silent
+    state: active
+    owner_dlb: QA-04
+    notes: "Warns after 3+ repeated tool calls on same file/command"
+
+  - name: gsd-session-start
+    event: SessionStart
+    matcher: "*"
+    script: ~/.claude/hooks/gsd-session-start.js
+    timeout_sec: 3
+    reads: [.planning/STATE.md, .planning/ORCHESTRATOR-CHECKPOINT.md]
+    writes: stdout (session greeting)
+    depends_on: []
+    failure_mode: silent
+    state: active
+    owner_dlb: DLB-06
+
+  - name: gsd-token-logger
+    event: PostToolUse
+    matcher: "Agent"
+    script: ~/.claude/hooks/gsd-token-logger.js
+    timeout_sec: 2
+    reads: [tool_response usage block]
+    writes: .planning/metrics/token-log.jsonl
+    depends_on: []
+    failure_mode: silent
+    state: active
+    owner_dlb: DLB-04
+
+  - name: gsd-checkpoint-writer
+    event: Stop | PreCompact
+    matcher: "*"
+    script: ~/.claude/hooks/gsd-checkpoint-writer.js
+    timeout_sec: 5
+    reads: [.planning/STATE.md, activity-log.jsonl tail]
+    writes: .planning/ORCHESTRATOR-CHECKPOINT.md
+    depends_on: []
+    failure_mode: log-and-continue
+    state: active
+    owner_dlb: DLB-06
+
+  - name: gsd-context-monitor
+    event: PostToolUse
+    matcher: "*"
+    script: ~/.claude/hooks/gsd-context-monitor.js
+    timeout_sec: 1
+    reads: [usage context]
+    writes: stderr warning if context >70%
+    depends_on: []
+    failure_mode: silent
+    state: active
+    owner_dlb: DLB-06
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Preflight validation (executed by sgsd-boot.ps1)
+# ─────────────────────────────────────────────────────────────────────────────
+preflight:
+  - check: every hook listed has script file present at declared path
+    failure: BLOCKER
+  - check: every hook with state=active is registered in ~/.claude/settings.json
+    failure: BLOCKER
+  - check: no hook is registered twice in settings.json
+    failure: WARN  # will be BLOCKER after Phase D de-dup
+  - check: heartbeat.jsonl mtime within 30 min of activity-log.jsonl mtime
+    failure: WARN  # suggests heartbeat hook not firing
