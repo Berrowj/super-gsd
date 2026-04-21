@@ -63,7 +63,7 @@ Every finding must include:
 
 Minimum 10 findings for the audit to be considered complete.
 
-## Open questions (for the discussion step)
+## Resolved Questions (discussion recommendations followed during execution)
 
 **Q1.** Should the audit also include the three dashboard scripts we just built (sgsd1/sgsd2/sgsd3) or leave those out because they were built this week and are known state? *Recommendation: include them — no exceptions, otherwise we're auditing a partial picture.*
 
