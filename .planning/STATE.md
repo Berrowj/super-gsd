@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Evidence-First Sharpening
 status: planning
-stopped_at: Completed 11-05-writing-plans-hook.md
-last_updated: "2026-04-21T21:25:00.000Z"
-last_activity: 2026-04-21 — v1.2 roadmap formalized (5 phases, 23 REQs, dependency chain locked)
+stopped_at: Phase 11 COMPLETE (PASS-WITH-DEVIATIONS); Phase 9 external blocker RESOLVED; awaiting /gsd-discuss-phase 9
+last_updated: "2026-04-21T23:10:00.000Z"
+last_activity: 2026-04-21 — Phase 11 Plan Schema v2 shipped (5 plans, 14 feat commits). ATC WARN 0 critical / 5 warnings. WR-01 (task.goal phantom field in Rule 8.5 locked_fields) flagged as pre-Phase-12 remediation. Phase 9's external dep (project-clarity-erp/.../147-ATC-REVIEW.md) now exists — ready for discussion.
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 1
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 5
+  completed_plans: 5
+  percent: 20
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** Ship an autonomous framework that any Claude Code Max plan user can install with one command and immediately start building software
-**Current focus:** v1.2 Evidence-First Sharpening — Phases 9-13 scoped; next move is to plan Phase 11 (no external block) while Phase 9 waits on project-clarity-erp.
+**Current focus:** v1.2 Evidence-First Sharpening — Phase 11 shipped (PASS-WITH-DEVIATIONS). Phase 9 external blocker resolved, awaiting operator-driven /gsd-discuss-phase 9.
 
 ## Current Position
 
-Phase: Not started (roadmap complete, ready to plan Phase 11)
-Plan: —
-Status: Roadmap complete, planning not yet dispatched
+Phase: 11 COMPLETE. Next: Phase 9 (external blocker now resolved — needs discussion).
+Plan: — (5/5 plans in Phase 11 completed)
+Status: Phase 11 shipped; 5 ATC warnings logged (WR-01 highest priority — must fix before Phase 12)
 Last activity: 2026-04-21 — v1.2 roadmap formalized (5 phases, 23 REQs, dependency chain locked)
 
 Progress: [░░░░░░░░░░] 0% (0/5 phases complete)
