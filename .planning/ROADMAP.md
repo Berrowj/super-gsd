@@ -89,7 +89,7 @@ ATC-147-evidence → Q2-gate-policy → Q3-plan-schema → Q6-machinery → Q7-g
 4. Plans with no `schema_version` or `schema_version: 1` route through the existing Haiku classifier; v2 plans skip the classifier entirely. No bulk migration of the 146 existing plans is performed (SCHEMA-04).
 5. `superpowers:writing-plans` emits v2 by default, `sgsd-orchestrate` consumes v2 natively, and the schema version is pinned identically in both repos (SCHEMA-05).
 
-**Plans:** TBD
+**Plans:** 0/1 plans executed
 
 ---
 
@@ -174,6 +174,6 @@ Note: retro RQ4 sequencing (ATC-147-evidence → Q2-gate-policy → Q3-plan-sche
 |-------|----------------|--------|-----------|
 | 9. ATC-147-Evidence | 0/TBD | Scoped — externally blocked | - |
 | 10. Gate Policy | 0/TBD | Scoped — waits on Phase 9 | - |
-| 11. Plan Schema v2 | 0/TBD | Scoped — ready to plan | - |
+| 11. Plan Schema v2 | 0/1 | Planned    |  |
 | 12. Machinery | 0/TBD | Scoped — waits on Phase 11 + 10 | - |
 | 13. Governance | 0/TBD | Scoped — waits on Phase 10 + 11 | - |

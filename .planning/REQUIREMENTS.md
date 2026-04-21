@@ -23,9 +23,9 @@
 
 ### PLAN-SCHEMA (Phase 11 — Q3 plan schema v2)
 
-- [ ] **SCHEMA-01**: Canonical plan schema v2 published at `super-gsd/templates/plan-schema-v2.json` as YAML frontmatter with `schema_version: 2` + `tasks: [...]` contract; rest of PLAN.md remains human narrative.
-- [ ] **SCHEMA-02**: Required task fields (`id`, `agent`, `model`, `files_touched`, `input_contract`, `output_contract`, `hypothesis`, `falsifier`, `stop_rule`) enforced by parser; malformed tasks fail at plan-load time.
-- [ ] **SCHEMA-03**: Optional task fields (`depends_on`, `known_deadends`, `lessons_path`, `prior_errors_lookup`, `expected_ATC_tier`, `verification_cmd`, `skip_gates: []`) supported with documented defaults.
+- [x] **SCHEMA-01**: Canonical plan schema v2 published at `super-gsd/templates/plan-schema-v2.json` as YAML frontmatter with `schema_version: 2` + `tasks: [...]` contract; rest of PLAN.md remains human narrative.
+- [x] **SCHEMA-02**: Required task fields (`id`, `agent`, `model`, `files_touched`, `input_contract`, `output_contract`, `hypothesis`, `falsifier`, `stop_rule`) enforced by parser; malformed tasks fail at plan-load time.
+- [x] **SCHEMA-03**: Optional task fields (`depends_on`, `known_deadends`, `lessons_path`, `prior_errors_lookup`, `expected_ATC_tier`, `verification_cmd`, `skip_gates: []`) supported with documented defaults.
 - [ ] **SCHEMA-04**: Backward-compatible fallback — plans with no `schema_version` or `schema_version: 1` route through the existing Haiku classifier; v2 plans skip the classifier entirely. No bulk migration of the 146 existing plans.
 - [ ] **SCHEMA-05**: `superpowers:writing-plans` updated to emit v2 by default; `sgsd-orchestrate` consumes v2 natively. Schema is versioned and pinned identically in both repos.
 
