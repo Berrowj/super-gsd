@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Plan Schema v2",
-  "description": "Canonical YAML-frontmatter schema for SGSD v2 PLAN.md files. Stub created by 11-02; full definition shipped by 11-01.",
+  "description": "Canonical YAML-frontmatter schema for SGSD v2 PLAN.md files",
   "type": "object",
   "required": ["schema_version", "tasks"],
   "additionalProperties": true,
@@ -19,37 +19,52 @@
     "expected_ATC_tier": {
       "type": "string",
       "enum": ["SKIP", "LITE", "FULL", "GATE"],
-      "default": "LITE"
+      "default": "LITE",
+      "description": "ATC review tier for this plan (D-01). Default LITE; declare only when NOT LITE."
     },
     "skip_gates": {
       "type": "array",
       "items": { "type": "string" },
-      "default": []
+      "default": [],
+      "description": "Phase-10 gate IDs to bypass for this plan (D-03). Default empty = run all gates."
     },
     "depends_on": {
       "type": "array",
       "items": { "type": "string" },
-      "default": []
+      "default": [],
+      "description": "Plan IDs that must complete before this plan dispatches (D-05)."
     },
     "lessons_path": {
       "type": ["string", "null"],
-      "default": null
+      "default": null,
+      "description": "Path to a lessons-learned file for this plan (D-04). Missing file: warn + continue."
     },
     "prior_errors_lookup": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "Tier-sensitive: true for FULL/GATE, false for LITE/SKIP (D-02). Parser derives; not validated here."
     }
   },
   "definitions": {
     "task": {
       "type": "object",
-      "required": ["id", "agent", "model", "files_touched", "input_contract", "output_contract", "hypothesis", "falsifier", "stop_rule"],
+      "required": [
+        "id",
+        "agent",
+        "model",
+        "files_touched",
+        "input_contract",
+        "output_contract",
+        "hypothesis",
+        "falsifier",
+        "stop_rule"
+      ],
       "additionalProperties": true,
       "errorMessage": {
         "required": {
           "id": "task must declare 'id' (SCHEMA-02)",
           "agent": "task must declare 'agent' (SCHEMA-02)",
           "model": "task must declare 'model' as haiku|sonnet|opus (SCHEMA-02)",
-          "files_touched": "task must declare 'files_touched' array with >= 1 entry (SCHEMA-02)",
+          "files_touched": "task must declare 'files_touched' array with >=1 entry (SCHEMA-02)",
           "input_contract": "task must declare 'input_contract' (SCHEMA-02)",
           "output_contract": "task must declare 'output_contract' (SCHEMA-02)",
           "hypothesis": "task must declare 'hypothesis' (SCHEMA-02)",
@@ -58,50 +73,82 @@
         }
       },
       "properties": {
-        "id": { "type": "string" },
-        "agent": { "type": "string" },
+        "id": {
+          "type": "string",
+          "description": "Unique task identifier within this plan (SCHEMA-02)."
+        },
+        "agent": {
+          "type": "string",
+          "description": "Agent dispatched for this task, e.g. gsd-executor (SCHEMA-02)."
+        },
         "model": {
           "type": "string",
-          "enum": ["haiku", "sonnet", "opus"]
+          "enum": ["haiku", "sonnet", "opus"],
+          "description": "Model routed to the agent; used for classifier-skip derivation (SCHEMA-02, SCHEMA-04)."
         },
         "files_touched": {
           "type": "array",
           "items": { "type": "string" },
-          "minItems": 1
+          "minItems": 1,
+          "description": "Files created or modified by this task. At least one required (SCHEMA-02)."
         },
-        "input_contract": { "type": "string" },
-        "output_contract": { "type": "string" },
-        "hypothesis": { "type": "string" },
-        "falsifier": { "type": "string" },
-        "stop_rule": { "type": "string" },
+        "input_contract": {
+          "type": "string",
+          "description": "What this task expects as input (referenced docs, prior outputs) (SCHEMA-02)."
+        },
+        "output_contract": {
+          "type": "string",
+          "description": "What this task produces and where it lands (SCHEMA-02)."
+        },
+        "hypothesis": {
+          "type": "string",
+          "description": "Testable claim about why this task achieves its goal (SCHEMA-02)."
+        },
+        "falsifier": {
+          "type": "string",
+          "description": "Condition that would prove the hypothesis wrong (SCHEMA-02)."
+        },
+        "stop_rule": {
+          "type": "string",
+          "description": "Observable state that means the task is complete (SCHEMA-02)."
+        },
         "depends_on": {
           "type": "array",
           "items": { "type": "string" },
-          "default": []
+          "default": [],
+          "description": "Task IDs within this plan that must complete first (D-05)."
         },
         "known_deadends": {
           "type": "array",
           "items": { "type": "string" },
-          "default": []
+          "default": [],
+          "description": "Approaches already tried and abandoned; executor skips these (D-05)."
         },
         "verification_cmd": {
           "type": ["string", "null"],
-          "default": null
+          "default": null,
+          "description": "Shell command to verify task output. Null = fall back to verifier agent (D-05)."
         },
-        "prior_errors_lookup": { "type": "boolean" },
+        "prior_errors_lookup": {
+          "type": "boolean",
+          "description": "Override D-02 tier-sensitive default for this specific task. Parser derives when absent."
+        },
         "expected_ATC_tier": {
           "type": "string",
           "enum": ["SKIP", "LITE", "FULL", "GATE"],
-          "default": "LITE"
+          "default": "LITE",
+          "description": "Per-task ATC tier override (D-01). Inherits plan-level tier when absent."
         },
         "skip_gates": {
           "type": "array",
           "items": { "type": "string" },
-          "default": []
+          "default": [],
+          "description": "Gate IDs to bypass for this specific task (D-03)."
         },
         "lessons_path": {
           "type": ["string", "null"],
-          "default": null
+          "default": null,
+          "description": "Task-specific lessons-learned file (D-04). Missing file: warn + continue."
         }
       }
     }
