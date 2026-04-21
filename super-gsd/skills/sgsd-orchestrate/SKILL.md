@@ -53,6 +53,57 @@ On first entry (no checkpoint):
 1. Read `.planning/STATE.md` — extract frontmatter ONLY (offset 0, limit 30)
 2. Read `.planning/ROADMAP.md` — find current milestone + next incomplete phase
 3. Read `.planning/config.json` — get model routing config
+
+<!-- ANCHOR: BOOT-HASH-DRIFT — 11-04 inserts drift check here. Plan 11-05 adds sections AFTER this anchor. -->
+3.5. BOOT-TIME SCHEMA DRIFT CHECK (D-12, D-14 — non-blocking)
+     Immediately after loading config.json, verify plan-schema-v2.json has not drifted
+     from the pinned hash. Uses Node built-in crypto — no new dependency (RQ-6).
+
+     ```bash
+     node -e "
+     const crypto = require('crypto');
+     const fs = require('fs');
+     const path = require('path');
+     const projectDir = process.cwd();
+
+     const schemaPath = path.join(projectDir, 'super-gsd/templates/plan-schema-v2.json');
+     const configPath = path.join(projectDir, '.planning/config.json');
+     const logPath    = path.join(projectDir, '.planning/metrics/readiness-log.jsonl');
+
+     const config   = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+     const expected = config.workflow && config.workflow.schema_v2_hash;
+
+     if (!expected) {
+       console.warn('[SGSD] workflow.schema_v2_hash not set in config.json — drift detection disabled');
+     } else {
+       const actual = crypto.createHash('sha256')
+         .update(fs.readFileSync(schemaPath))
+         .digest('hex');
+       if (actual !== expected) {
+         console.warn('[SGSD] schema_pin_drift detected — schema file differs from pinned hash');
+         console.warn('  expected: ' + expected.slice(0,16) + '...');
+         console.warn('  actual:   ' + actual.slice(0,16) + '...');
+         fs.appendFileSync(logPath,
+           JSON.stringify({
+             ts:            new Date().toISOString(),
+             type:          'schema_pin_drift',
+             expected_hash: expected,
+             actual_hash:   actual
+           }) + '\n'
+         );
+         // D-14: NON-BLOCKING — loop continues after warning
+       }
+       // On match: no output; loop continues normally
+     }
+     "
+     ```
+
+     Outcome paths:
+     - Match: silent, continue cold-start normally.
+     - Mismatch: console warn (two lines) + readiness-log.jsonl append + continue (D-14).
+     - Hash absent: console warn once + continue (graceful no-op on first run before 11-04).
+     - readiness-log.jsonl write failure: console warn already emitted; T-11-11 accepted risk.
+
 4. Determine position: which phase, which plan, what state
 
 When capturing gsd-tools output into a variable, always apply the @file: IPC guard:
