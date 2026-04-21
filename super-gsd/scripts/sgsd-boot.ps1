@@ -44,6 +44,20 @@ if (-not (Test-Path $ScriptsDir)) {
     exit 1
 }
 
+# Pin to Git-Bash (non-WSL). Both bash.exes ship on Windows 11 — Git-Bash
+# at ...\Git\usr\bin\bash.exe handles C:/... paths; WSL's C:\WINDOWS\System32\bash.exe
+# does not, and its "No such file or directory" error looks like a missing
+# script when it is actually a path-scheme mismatch. Pin explicitly so a
+# PATH reorder (e.g. after installing WSL distro updates) cannot break boot.
+$BashExe = (Get-Command bash -All -ErrorAction SilentlyContinue |
+    Where-Object { $_.Source -notmatch 'System32' -and $_.Source -notmatch 'WindowsApps' } |
+    Select-Object -First 1 -ExpandProperty Source)
+if (-not $BashExe) {
+    Write-Host "ERROR: Git-Bash not found on PATH (only WSL / system32 bash present)" -ForegroundColor Red
+    Write-Host "Install Git for Windows: https://git-scm.com/download/win" -ForegroundColor DarkGray
+    exit 1
+}
+
 function Write-Step($label, $status, $color) {
     Write-Host ("  [{0}] " -f $status) -NoNewline -ForegroundColor $color
     Write-Host $label
@@ -191,7 +205,7 @@ sgsd-curate appends; sgsd-recall greps. Auto-memory reads this as MEMORY.md.
     $sync = Join-Path $ScriptsDir "sgsd-registry-sync.sh"
     if (Test-Path $sync) {
         $pdUnix = $ProjectDir -replace '\\','/'
-        $syncOut = & bash -c "bash '$($sync -replace '\\','/')' --root '$pdUnix' 2>&1"
+        $syncOut = & $BashExe -c "bash '$($sync -replace '\\','/')' --root '$pdUnix' 2>&1"
         if ($LASTEXITCODE -eq 0) {
             $count = if (($syncOut -join ' ') -match '(\d+) agent records') { $Matches[1] } else { '?' }
             Write-Host "  [+] resource-registry/agents.jsonl synced ($count agents)" -ForegroundColor Green
@@ -308,13 +322,31 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
     }
 
     # 3. curate-pipe smoke test (DLB-04 Day 0 gate)
+    # Mirror sgsd-curate.sh's mode detection: if MEMORY.md exists, curate runs
+    # in v1.2 mode (writes .planning/memory/architecture/patterns/ + appends
+    # "- [...](architecture/patterns/$slug.md) - ..." to MEMORY.md); otherwise
+    # legacy mode (writes .brv/context-tree/patterns/ + appends pipe-row
+    # "| pattern | $slug | patterns/$slug.md | ... |" to INDEX.md). Previous
+    # revision hard-coded the legacy file path AND the v1.2 index — guaranteed
+    # FAIL on any project (legacy projects fail the index check, migrated
+    # projects fail the file-path check).
     $curate = Join-Path $ScriptsDir "sgsd-curate.sh"
     if (Test-Path $curate) {
         $smokeSlug = "boot-smoke-test"
-        $smokeFile = Join-Path $ProjectDir ".brv/context-tree/patterns/$smokeSlug.md"
-        # Pre-clean
+
+        if (Test-Path $indexPath) {
+            # v1.2 mode
+            $smokeFile  = Join-Path $ProjectDir ".planning/memory/architecture/patterns/$smokeSlug.md"
+            $indexUsed  = $indexPath
+            $rowPattern = "(architecture/patterns/$smokeSlug.md)"
+        } else {
+            # legacy mode
+            $smokeFile  = Join-Path $ProjectDir ".brv/context-tree/patterns/$smokeSlug.md"
+            $indexUsed  = $legacyIndexPath
+            $rowPattern = "| $smokeSlug |"
+        }
+        # Pre-clean any leftover body file from a prior failed run
         if (Test-Path $smokeFile) { Remove-Item $smokeFile -Force -ErrorAction SilentlyContinue }
-        $indexBackup = Get-Content $indexPath -Raw -ErrorAction SilentlyContinue
 
         # Note: keep bash's own 2>&1 inside the command string (merges bash stderr into
         # stdout for capture). Do NOT add PowerShell's outer 2>&1 here — in PS 5.1 it
@@ -322,19 +354,24 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
         # NativeCommandError and, combined with $ErrorActionPreference=Stop, kills
         # the script before we can check $LASTEXITCODE.
         $bashCmd = "echo 'boot smoke' | bash '$($curate -replace '\\','/')' --type pattern --slug '$smokeSlug' --summary 'boot preflight' --root '$($ProjectDir -replace '\\','/')' 2>&1"
-        $smokeOutput = & bash -c $bashCmd
-        $landed = (Test-Path $smokeFile) -and ((Get-Content $indexPath -Raw) -match [regex]::Escape("| $smokeSlug |"))
+        $smokeOutput = & $BashExe -c $bashCmd
+        $indexText = if (Test-Path $indexUsed) { Get-Content $indexUsed -Raw } else { "" }
+        $landed = (Test-Path $smokeFile) -and ($indexText -match [regex]::Escape($rowPattern))
 
         if ($landed) {
             Write-Step "curate write-pipe smoke test" "OK" Green
-            # Clean up
+            # Clean up — remove body file and the index row we just appended
             Remove-Item $smokeFile -Force -ErrorAction SilentlyContinue
-            $cleanIndex = (Get-Content $indexPath) | Where-Object { $_ -notmatch [regex]::Escape("| $smokeSlug |") }
-            $cleanIndex -join "`n" | Set-Content $indexPath -NoNewline
+            if (Test-Path $indexUsed) {
+                $cleanIndex = (Get-Content $indexUsed) | Where-Object { $_ -notmatch [regex]::Escape($rowPattern) }
+                $cleanIndex -join "`n" | Set-Content $indexUsed -NoNewline
+            }
         } else {
             Write-Step "curate write-pipe smoke test - DLB-04 Day 0 blocker" "FAIL" Red
             Write-Host "    Repro: $bashCmd" -ForegroundColor DarkGray
             Write-Host "    Output: $smokeOutput" -ForegroundColor DarkGray
+            Write-Host "    Expected file: $smokeFile" -ForegroundColor DarkGray
+            Write-Host "    Expected row pattern in $indexUsed : $rowPattern" -ForegroundColor DarkGray
             exit 4
         }
     } else {
@@ -346,7 +383,7 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
     if (Test-Path $registrySync) {
         # See note above re: PowerShell 5.1 + native stderr + $ErrorActionPreference=Stop.
         $bashCmd = "bash '$($registrySync -replace '\\','/')' --root '$($ProjectDir -replace '\\','/')' 2>&1"
-        $syncOutput = & bash -c $bashCmd
+        $syncOutput = & $BashExe -c $bashCmd
         if ($LASTEXITCODE -eq 0) {
             $countMatch = ($syncOutput -join " ") -match "(\d+) agent records"
             $count = if ($countMatch) { $Matches[1] } else { "?" }
