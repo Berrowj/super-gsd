@@ -1,130 +1,109 @@
 ---
-created_at: "2026-04-21T23:15:00.000Z"
+created_at: "2026-04-21T23:35:00.000Z"
 active_milestone: "v1.2"
 active_phase: 11
-last_completed: "Phase 11 COMPLETE — Plan Schema v2 shipped, 5/5 SCHEMA criteria DELIVERED, 14/14 decisions DELIVERED, PASS-WITH-DEVIATIONS (5 ATC warnings)"
-next_unit: "Operator choice — Phase 9 or WR-01 remediation (see Next Action)"
-phase_state: "phase_complete_awaiting_operator_decision"
-units_this_session: 9
-estimated_tokens_used: 120000
-exit_reason: "Rule 1 fires for Phase 9 (no CONTEXT.md yet) — auto mode cannot dispatch interactive /gsd-discuss-phase. Natural Exit #3 (blocker requiring human decision). Phase 11 closed cleanly; all artifacts committed."
+last_completed: "Phase 11 FULLY CLOSED — 6 plans / 18 commits, 0 ATC warnings remain, runtime agent mirror synced"
+next_unit: "Operator choice — Phase 9 /gsd-discuss-phase OR jump ahead OR author v1.2 INTENT.md"
+phase_state: "phase_fully_closed_awaiting_phase_9_discussion"
+units_this_session: 4
+estimated_tokens_used: 290000
+exit_reason: "Exit #3 — Phase 9 requires interactive /gsd-discuss-phase per Rule 1; auto mode cannot run it. Phase 11 is genuinely finished (no remaining work); v1.2 progress 1/5 phases complete."
 ---
 
 # Resume Instructions — Read This First
 
 ## What shipped this session
 
-**Phase 11 Plan Schema v2 — COMPLETE.** 14 atomic feat commits + 4 docs commits (research, plans, plan-check, verifier+ATC+WASTE).
+**Phase 11 ATC gap closure — COMPLETE.** Six atomic commits + full verification + runtime sync closed all 5 WR warnings and IN-01.
 
-### Session commit trail (from oldest to newest)
+### Session commit trail
 
 | Commit | Unit | Description |
 |---|---|---|
-| `31e45bb` | Phase 11 research | gsd-phase-researcher (Sonnet) — 11-RESEARCH.md, all 7 RQs answered, SCHEMA-05 blocker surfaced |
-| `71f16fc` | Unit close | Checkpoint consumed, STATE bumped |
-| `1748e15` | Phase 11 plans | gsd-planner (Sonnet) — 5 plans + 11-PLAN.md (2 waves: parallel Wave 1, serialized Wave 2) |
-| `6459106` | Plan-check | gsd-plan-checker (Sonnet) — PASS-WITH-GAPS, 5/5 criteria covered |
-| `29932cd..e803fc8` | Plan 11-02 | gsd-executor — validator CLI + ajv install (4 atomic commits) |
-| `05530ff` | 11-02 ATC | gsd-code-reviewer — WARN, 0 critical, 3 warnings |
-| `9396414..ef94bb6` | Plan 11-01 | gsd-executor — canonical plan-schema-v2.json (2 atomic commits) |
-| `c582d23..e622cd6` | Plan 11-03 | gsd-executor — fix-schema mode + Rule 8.5 retry (2 atomic commits) |
-| `dc77ac5..c05a23c` | Plan 11-04 | gsd-executor — sha256 boot-hash drift check (3 atomic commits) |
-| `6575298..4c30c8a` | Plan 11-05 | gsd-executor — sgsd-write-plan skill + classifier skip (3 atomic commits) |
-| `c38f257` | Verify + Phase-ATC | gsd-verifier PASS-WITH-DEVIATIONS + gsd-code-reviewer Phase-FULL WARN |
-| `1235265` | Phase complete | STATE + ROADMAP updated, WASTE.md committed |
+| `58f7119` | Plan commit | Consolidation docs commit (planner had auto-committed 11-06 plan in 0b76c20) |
+| `c8c34e8` | Plan-check | gsd-plan-checker PASS — all 6 findings mechanically closed |
+| `4987691` | 11-06.t1 | WR-01: task.goal → task.hypothesis in sgsd-orchestrate + gsd-planner mirror |
+| `b06ab4b` | 11-06.t2 | WR-02+03+04: removed 11 dead lines from validate.cjs + addFormats comment |
+| `d6bcbfe` | 11-06.t3 | WR-05 + IN-01: deterministic draft path + ANCHOR trim |
+| `a3abb0c` | Plan close | 11-06-SUMMARY.md + STATE update (with arithmetic bug) |
+| `aaecbdc` | Verify + fix-up | gsd-verifier PASS-WITH-GAPS → orchestrator closed gaps inline (line 894 edit + mirror sync to ~/.claude/agents/) |
+| `c937dba` | Phase close | STATE arithmetic fix (1/6/6/20%) + ROADMAP: Phase 11 PASS, 0 warnings |
 
-### Phase 11 Subsystem (all landed)
+### Gap-closure hits
 
-- `super-gsd/templates/plan-schema-v2.json` — JSON Schema draft-07, 9 required + 7 optional task fields, errorMessage keywords
-- `super-gsd/tools/plan-schema/validate.cjs` + `package.json` — ajv v8 + ajv-formats + ajv-errors, D-08 dual error format, plan-errors.jsonl telemetry
-- `super-gsd/skills/sgsd-write-plan/SKILL.md` — Option B replacement skill, mechanical validate.cjs enforcement, no settings.json mutation
-- `super-gsd/skills/sgsd-orchestrate/SKILL.md` — Step 2 classifier skip-path (schema_version==2), Step 3.5 cold-start sha256 drift check, Rule 8.5 3-attempt retry loop + checkpoint-on-cap
-- `.planning/config.json` — `workflow.schema_v2_hash` pinned to `5867692d...` (first 8 bytes shown; full in config)
-- `~/.claude/agents/gsd-planner.md` — `--fix-schema` mode (canonical file OUTSIDE THIS REPO, gitignored via custom-gsd-extract/)
+1. **WR-01** — `task.goal` → `task.hypothesis` fully propagated through:
+   - `super-gsd/skills/sgsd-orchestrate/SKILL.md` Rule 8.5 locked_fields block (line ~290)
+   - `custom-gsd-extract/claude-agents/gsd-planner.md` fix_schema_mode (6 references, including the missed line-894 `<DO NOT>` entry caught by the verifier)
+   - `~/.claude/agents/gsd-planner.md` runtime (cp-synced, 6 hypothesis / 0 goal)
+2. **WR-02, WR-03** — Dead `keyOccurrences`/`totalOccurrences`/`field` assignments deleted from `validate.cjs` (11 lines total)
+3. **WR-04** — Forward-compat comment added at `addFormats(ajv)` call site
+4. **WR-05** — `mktemp` + heredoc replaced with deterministic `.planning/.sgsd-draft-plan.md` Write-tool path in `sgsd-write-plan/SKILL.md`
+5. **IN-01** — Phase-11 planning-history footnote trimmed from `ANCHOR: RULE-8.5` comment; label retained
 
-### Deviations logged (all acceptable)
+### Non-repo artifacts (by design — gitignored)
 
-1. Framework-file outside repo (gsd-planner.md) — operational for this operator; distribution gap for other users. Resolution: future phase could bundle super-gsd/agents/ source + installer sync.
-2. 3 dead-code items in validate.cjs (14 lines deletable) — surgical constraint kept 11-01 from fixing mid-execution. Phase-level ATC flagged for cleanup.
-3. addFormats plugin loaded but schema has no format keywords — defensive no-op, non-blocking.
-4. INTENT_MISSING — no `.planning/milestones/v1.2/INTENT.md` yet. Synthesized from ROADMAP + CONTEXT at each dispatch. Create INTENT.md before Phase 9 discussion starts.
+- `custom-gsd-extract/claude-agents/gsd-planner.md` — mirror, not tracked in this repo
+- `~/.claude/agents/gsd-planner.md` — operator runtime agent file (outside repo)
 
-## Phase 11 Phase-Level ATC — 5 Warnings (0 Critical)
+**IN-03 (distribution gap)** remains open: no `super-gsd/agents/` source dir + install script exists yet. Deliberately deferred per the original 11-ATC-REVIEW recommendation; suitable scope for Phase 12+ or a separate infra phase.
 
-**⚠️ WR-01 is meaningful — fix before Phase 12.**
+## v1.2 Progress
 
-- **WR-01 (highest priority):** `task.goal` referenced in orchestrator `Rule 8.5 locked_fields` section AND `agents/gsd-planner.md fix_schema_mode`, but plan-schema-v2.json uses `task.hypothesis`. Locked-field integrity guarantee (D-09) is hollow for the goal slot — orchestrator would extract `undefined` on any live Rule 8.5 invocation. **Phase 12 depends on working Rule 8.5.**
-- **WR-02..04:** 3 dead-code items in `validate.cjs` (~14 lines total).
-- **WR-05:** `mktemp` fragility in `sgsd-write-plan` on Windows.
+| Phase | Title | Status |
+|---|---|---|
+| 9 | ATC-147-Evidence | NOT STARTED — needs `/gsd-discuss-phase 9` |
+| 10 | Gate Policy | BLOCKED — depends on Phase 9 finding count |
+| 11 | Plan Schema v2 | ✅ COMPLETE — 0 warnings |
+| 12 | Machinery (Q6) | NOT STARTED — semantically depends on Phase 10 gates.yaml |
+| 13 | Governance (Q7) | NOT STARTED — depends on 12 |
 
-Full findings in `.planning/phases/11-plan-schema-v2/11-ATC-REVIEW.md`.
+**Progress:** 1/5 phases complete (20%).
 
-## Phase 9 External Blocker — RESOLVED
+## Unresolved items
 
-`project-clarity-erp/.planning/phases/147-clarity-relay-map-w1/147-ATC-REVIEW.md` **now exists** (verified this session). Phase 9 is unblocked. Directory contents confirmed:
-
-```
-147-ATC-REVIEW.md  CONTEXT.md  DEVIATIONS.md  PLAN.md  SUMMARY.md  VERIFICATION.md
-```
-
-Phase 9 has NO .planning/phases/ directory in GSDedits yet — needs `/gsd-discuss-phase 9` to kick off CONTEXT gathering.
+- `SGSD-2.0-architecture.html` still untracked (from two sessions ago). Operator decide: commit, gitignore, or `git clean`.
+- `.planning/milestones/v1.2/INTENT.md` still missing — DLB-03 structural intent injection is synthesizing from ROADMAP+CONTEXT at each dispatch rather than reading a canonical outcome_delivered string. Not a blocker but an author-discipline debt.
 
 ## Next Action — Three Rational Paths
 
-### Path A — Fix WR-01 + dead code FIRST (recommended)
+### Path A — Run `/gsd-discuss-phase 9` (recommended, natural sequencing)
 
-Before any Phase 9 work. Phase 12 will trip on Rule 8.5's hollow locked_fields. Small scope — ~30 min.
-
-Commands:
-```
-/gsd-plan-phase 11 --gaps    # Dispatches planner on the WR-01..05 gap list
-/sgsd-orchestrate go         # Executes the gaps plan then resumes loop
-```
-
-Or inline fix (simpler, violates plan-first discipline but closes the gap):
-- Edit `super-gsd/skills/sgsd-orchestrate/SKILL.md` Rule 8.5 locked_fields section: replace `goal` with `hypothesis`
-- Edit `~/.claude/agents/gsd-planner.md` fix_schema_mode section: same rename (outside repo!)
-- Delete 14 dead lines from `super-gsd/tools/plan-schema/validate.cjs` (see 11-02 ATC findings)
-- Verify end-to-end by synthesizing a broken plan and running Rule 8.5 for real
-
-### Path B — Proceed to Phase 9 discussion (accept WR-01 as Phase-12-blocker)
+Phase 9's external dep (project-clarity-erp 147-ATC-REVIEW.md) is confirmed present. This is the intended v1.2-B sequence: ATC-147-evidence → gate-policy → machinery → governance. Phase 11 was done early only because Phase 9 was blocked. With that blocker cleared, Phase 9 should go next.
 
 ```
 /gsd-discuss-phase 9
 ```
 
-This gathers Phase 9 context (ATC-147 evidence work). Phase 9 doesn't use Rule 8.5, so WR-01 is neutral for Phase 9 execution. Defer WR-01 fix until Phase 12 is about to dispatch.
+### Path B — Skip to Phase 12 (deviation, risks rework)
 
-### Path C — Create v1.2 INTENT.md + author discipline
-
-Per Architect-R2 structural injection (`.planning/ORCHESTRATOR-CHECKPOINT.md` Step 5.5), Phase 9+ dispatches should inject an outcome_delivered string from `.planning/milestones/v1.2/INTENT.md`. That file doesn't exist. Before Phase 9 discuss, author it using `super-gsd/templates/milestone-intent.md` as a template.
+Phase 12 orchestrator machinery improvements (classifier-skip, parallel dispatch, checkpoint schema expansion, adversarial verifier) could run ahead of the gates.yaml matrix from Phase 10. Risk: classifier-skip logic in Phase 12 would have to be re-touched once the gates.yaml registry lands in Phase 10, since enforcement mode decisions flow from that registry.
 
 ```
-# Reference template
-ls super-gsd/templates/milestone-intent.md
+/gsd-discuss-phase 12
 ```
 
-## Unrelated Residual
+### Path C — Author v1.2 INTENT.md first (structural hygiene)
 
-`SGSD-2.0-architecture.html` — still untracked (appeared in the prior session, likely graphify export or overwatcher dashboard). Decide next session: commit, gitignore, or `git clean`.
+Create `.planning/milestones/v1.2/INTENT.md` using `super-gsd/templates/milestone-intent.md` before Phase 9 discussion. This pays the structural-intent debt so Step 5.5 of the orchestrator loop can inject a real `outcome_delivered` string rather than synthesizing one per dispatch.
+
+```
+cp super-gsd/templates/milestone-intent.md .planning/milestones/v1.2/INTENT.md
+# then edit outcome_delivered to ≤120 chars
+```
 
 ## Resume Protocol
 
 1. `/clear` to start fresh context
 2. Pick Path A / B / C above
-3. If Path A: operator chooses plan-first or inline fix
+3. If Path A (recommended): `/gsd-discuss-phase 9` — operator-driven question loop
 4. Orchestrator will Read this checkpoint + STATE.md frontmatter to re-enter
-5. Delete this checkpoint AFTER the first Phase-9-or-WR-01-remediation dispatch lands cleanly
+5. Delete this checkpoint AFTER Phase 9 discussion has produced a CONTEXT.md
 
 ## Token Ledger (this session)
 
-Logged to `.planning/metrics/token-log.jsonl`. Rough totals by role:
-- 1× researcher (91k agent context)
-- 1× planner (70k)
-- 1× plan-checker (105k — largest single agent, read all 5 plans + CONTEXT + RESEARCH + ROADMAP)
-- 5× executor (71k, 58k, 91k, 57k, 68k = 345k across plans)
-- 1× per-dispatch ATC (32k for 11-02)
-- 1× verifier (82k)
-- 1× phase-level ATC (77k)
-
-Orchestrator (opus, this context): ~120k used of 1M window. Well clear of the 70% checkpoint threshold — session exited for Rule 1 (Phase 9 needs discuss, not context), not for context pressure.
+Rough totals by role (from agent self-reports):
+- 1× planner (65k agent context)
+- 1× plan-checker (37k)
+- 1× executor (62k, 3 tasks in one dispatch)
+- 1× verifier (45k)
+- Orchestrator (opus, this context): ~290k used of 1M window (29%). Well clear of the 70% checkpoint threshold — session exited for Rule 1 / Exit #3 (Phase 9 needs discuss), not context pressure.
