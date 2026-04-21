@@ -941,6 +941,68 @@ function Render {
         Write-Host $CLEAR_LINE
     }
 
+    # SGSD-V2 signal tile — orchestrator-pulse + last-gate + token-burn sparkline
+    # Added Phase E3/E4 (brief R-Q8d + HCC-P-08 growth-curve). Consumes emits
+    # plumbed in Phase D (orchestrator-pulse.jsonl) + existing commit-reviews.jsonl
+    # + existing token-log.jsonl.
+    $metricsDir = Join-Path $PlanningDir "metrics"
+    $pulseFile  = Join-Path $metricsDir "orchestrator-pulse.jsonl"
+    $tokenFile  = Join-Path $metricsDir "token-log.jsonl"
+
+    $pulseAgeSec = $null
+    if (Test-Path $pulseFile) {
+        $pulseAgeSec = [int]((Get-Date) - (Get-Item $pulseFile).LastWriteTime).TotalSeconds
+    }
+    $pulseColor = if ($null -eq $pulseAgeSec)    { "DarkGray" }
+                  elseif ($pulseAgeSec -lt 300)  { "Green" }
+                  elseif ($pulseAgeSec -lt 900)  { "Yellow" }
+                  else                           { "Red" }
+
+    $lastGate = "--"
+    $gateColor = "DarkGray"
+    $phasesRoot = Join-Path $PlanningDir "phases"
+    if (Test-Path $phasesRoot) {
+        $gateFile = Get-ChildItem -Path $phasesRoot -Filter "commit-reviews.jsonl" -Recurse -ErrorAction SilentlyContinue |
+                    Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($gateFile) {
+            $gateLine = Get-Content $gateFile.FullName -Tail 1 -Encoding UTF8 -ErrorAction SilentlyContinue
+            try {
+                $g = $gateLine | ConvertFrom-Json
+                $lastGate = $g.verdict
+                $gateColor = switch ($lastGate) { "pass" {"Green"} "warn" {"Yellow"} default {"Red"} }
+            } catch {}
+        }
+    }
+
+    $v2Sparkline = ""
+    if (Test-Path $tokenFile) {
+        $v2Tail5 = @(Get-Content $tokenFile -Tail 5 -Encoding UTF8 -ErrorAction SilentlyContinue |
+                     ForEach-Object { try { ($_ | ConvertFrom-Json).total } catch { $null } } |
+                     Where-Object { $_ -ne $null })
+        if ($v2Tail5.Count -ge 2) {
+            $v2Max = ($v2Tail5 | Measure-Object -Maximum).Maximum
+            if ($v2Max -gt 0) {
+                $v2Chars = '.-=+X#&@'
+                $v2Sparkline = -join ($v2Tail5 | ForEach-Object {
+                    $idx = [Math]::Min([int](($_ / $v2Max) * 7), 7)
+                    $v2Chars[$idx]
+                })
+            }
+        }
+    }
+
+    Write-Host "SGSD-V2" -NoNewline -ForegroundColor White
+    Write-Host ": " -NoNewline -ForegroundColor DarkGray
+    Write-Host "pulse " -NoNewline -ForegroundColor DarkGray
+    Write-Host (Format-Age $pulseAgeSec) -NoNewline -ForegroundColor $pulseColor
+    Write-Host "  gate " -NoNewline -ForegroundColor DarkGray
+    Write-Host $lastGate -NoNewline -ForegroundColor $gateColor
+    if ($v2Sparkline) {
+        Write-Host "  tok " -NoNewline -ForegroundColor DarkGray
+        Write-Host $v2Sparkline -NoNewline -ForegroundColor Cyan
+    }
+    Write-Host $CLEAR_LINE
+
     # Milestone — 2 lines
     $ms = if ($state.milestone) { $state.milestone } else { "?" }
     $msName = if ($state.milestoneName) { $state.milestoneName } else { "" }
