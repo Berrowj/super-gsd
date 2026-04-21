@@ -27,9 +27,10 @@ hooks:
     depends_on: []
     failure_mode: silent
     dashboards_consuming: [SGSD1]
-    state: pending-registration  # exists at super-gsd/hooks/ but NOT in settings.json
+    state: active  # registered in ~/.claude/settings.json during Phase D (2026-04-21)
     owner_dlb: DLB-04
-    action_required: "Add to ~/.claude/settings.json PostToolUse during Phase D"
+    lifecycle_events:
+      - {event: registered, ts: 2026-04-21, note: "Node-in-Bash write to settings.json, Phase D"}
 
   - name: sgsd-activity-logger
     event: PreToolUse
@@ -41,9 +42,10 @@ hooks:
     depends_on: []
     failure_mode: silent
     dashboards_consuming: [SGSD1, SGSD2]
-    state: active-but-duplicated  # registered at BOTH lines 41 AND 91 in settings.json
+    state: active  # de-duped in Phase D (2026-04-21) — was registered twice, now once
     owner_dlb: DLB-04
-    action_required: "De-dup registration during Phase D (remove line 91)"
+    lifecycle_events:
+      - {event: deduplicated, ts: 2026-04-21, note: "removed duplicate registration, Phase D"}
 
   - name: sgsd-statusline
     event: SessionStart | Stop

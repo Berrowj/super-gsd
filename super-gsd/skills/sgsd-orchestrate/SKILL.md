@@ -81,6 +81,15 @@ On resume (checkpoint exists):
 ```
 REPEAT:
   1. READ STATE
+     - PULSE FIRST (SGSD-v2 Phase D / brief R-Q1 silent-stall observability):
+       BEFORE any other action, append a single row to
+       `.planning/metrics/orchestrator-pulse.jsonl`:
+         `{"ts":"{ISO}","phase":N,"plan":P,"iteration":I,"step":"loop_entry"}`
+       This fires EVERY loop iteration, even during deliberative pauses when
+       no tool-level heartbeat fires. Closes the 6h silent-stall gap observed
+       in Phase 147 overnight run. Cost: <10 tokens per iteration. Downstream
+       consumers: SGSD1 mission-control tile "last pulse Ns ago"; sgsd-boot
+       preflight freshness check; R-Q4 edge-guard (once decided).
      - Parse STATE.md frontmatter (milestone, phase, plan, status)
      - If all phases [x] → EXIT: "All phases complete"
      - If checkpoint exists and context >70% → EXIT: write checkpoint
