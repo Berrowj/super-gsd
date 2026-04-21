@@ -32,7 +32,7 @@ ATC-147-evidence → Q2-gate-policy → Q3-plan-schema → Q6-machinery → Q7-g
 
 - [ ] **Phase 9: ATC-147-Evidence** — Retroactive ATC on external project-clarity-erp Phase 147 produces empirical finding count + 9-gate-bypass audit with token-cost estimates
 - [ ] **Phase 10: Gate Policy** — Per-gate keep/kill/conditional matrix landed in `registry/gates.yaml` + edge-guard enforcement layer catches silent skip-drift
-- [ ] **Phase 11: Plan Schema v2** — Canonical YAML-frontmatter plan schema at `templates/plan-schema-v2.json` with enforced required/optional fields and v1 classifier fallback
+- [x] **Phase 11: Plan Schema v2** — Canonical YAML-frontmatter plan schema at `templates/plan-schema-v2.json` with enforced required/optional fields and v1 classifier fallback (SHIPPED 2026-04-21 — 5 plans / 14 commits; PASS-WITH-DEVIATIONS: 5 ATC warnings including WR-01 task.goal→hypothesis field drift pre-blocks Phase 12)
 - [ ] **Phase 12: Machinery** — Orchestrator Q6a-d sharpenings: classifier-skip, parallel/sequential auto-dispatch, checkpoint schema expansion, adversarial verifier sampling
 - [ ] **Phase 13: Governance** — Deliberate-skill Q7a-g sharpenings: escalate-not-spawn board, confidence-weighted votes, falsifier memos, board-as-resource, post-deliberation scoring, structured responses, CEO reflection pass
 
