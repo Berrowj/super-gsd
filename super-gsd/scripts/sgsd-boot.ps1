@@ -205,7 +205,8 @@ sgsd-curate appends; sgsd-recall greps. Auto-memory reads this as MEMORY.md.
     $sync = Join-Path $ScriptsDir "sgsd-registry-sync.sh"
     if (Test-Path $sync) {
         $pdUnix = $ProjectDir -replace '\\','/'
-        $syncOut = & $BashExe -c "bash '$($sync -replace '\\','/')' --root '$pdUnix' 2>&1"
+        $bashUnix = $BashExe -replace '\\','/'
+        $syncOut = & $BashExe -c "'$bashUnix' '$($sync -replace '\\','/')' --root '$pdUnix' 2>&1"
         if ($LASTEXITCODE -eq 0) {
             $count = if (($syncOut -join ' ') -match '(\d+) agent records') { $Matches[1] } else { '?' }
             Write-Host "  [+] resource-registry/agents.jsonl synced ($count agents)" -ForegroundColor Green
@@ -353,7 +354,8 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
         # wraps native-cmd stderr (e.g. WSL's benign .wslconfig warning) as a
         # NativeCommandError and, combined with $ErrorActionPreference=Stop, kills
         # the script before we can check $LASTEXITCODE.
-        $bashCmd = "echo 'boot smoke' | bash '$($curate -replace '\\','/')' --type pattern --slug '$smokeSlug' --summary 'boot preflight' --root '$($ProjectDir -replace '\\','/')' 2>&1"
+        $bashUnix = $BashExe -replace '\\','/'
+        $bashCmd = "echo 'boot smoke' | '$bashUnix' '$($curate -replace '\\','/')' --type pattern --slug '$smokeSlug' --summary 'boot preflight' --root '$($ProjectDir -replace '\\','/')' 2>&1"
         $smokeOutput = & $BashExe -c $bashCmd
         $indexText = if (Test-Path $indexUsed) { Get-Content $indexUsed -Raw } else { "" }
         $landed = (Test-Path $smokeFile) -and ($indexText -match [regex]::Escape($rowPattern))
@@ -382,7 +384,10 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
     $registrySync = Join-Path $ScriptsDir "sgsd-registry-sync.sh"
     if (Test-Path $registrySync) {
         # See note above re: PowerShell 5.1 + native stderr + $ErrorActionPreference=Stop.
-        $bashCmd = "bash '$($registrySync -replace '\\','/')' --root '$($ProjectDir -replace '\\','/')' 2>&1"
+        # $bashUnix already assigned above (smoke-test block); recompute defensively
+        # in case that block was skipped (missing sgsd-curate.sh).
+        $bashUnix = $BashExe -replace '\\','/'
+        $bashCmd = "'$bashUnix' '$($registrySync -replace '\\','/')' --root '$($ProjectDir -replace '\\','/')' 2>&1"
         $syncOutput = & $BashExe -c $bashCmd
         if ($LASTEXITCODE -eq 0) {
             $countMatch = ($syncOutput -join " ") -match "(\d+) agent records"
