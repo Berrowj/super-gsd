@@ -21,7 +21,7 @@ rebuttals → Decision Memo out.
 - New milestone decisions
 - Architecture changes affecting 3+ phases
 - Unresolved tensions in CONTEXT.md
-- User explicitly calls /gsd-deliberate
+- User explicitly calls /sgsd-deliberate
 
 ### When NOT to Deliberate
 - Individual phase planning (normal planner handles this)

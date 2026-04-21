@@ -19,8 +19,8 @@ Haiku for classification/tagging. 5-20x cost savings on subtasks.
 | Role | Model | Cost | When |
 |------|-------|------|------|
 | Orchestrator | Opus | 1x | Always — lean state machine |
-| CEO deliberation | Opus | 1x | /gsd-deliberate only |
-| Board members (4) | Sonnet | 0.2x ea | /gsd-deliberate only |
+| CEO deliberation | Opus | 1x | /sgsd-deliberate only |
+| Board members (4) | Sonnet | 0.2x ea | /sgsd-deliberate only |
 | Researcher | Sonnet | 0.2x | Phase research |
 | Planner | Sonnet | 0.2x | Plan creation |
 | Plan checker | Sonnet | 0.2x | Plan verification |
