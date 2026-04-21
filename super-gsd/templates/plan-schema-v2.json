@@ -1,0 +1,109 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Plan Schema v2",
+  "description": "Canonical YAML-frontmatter schema for SGSD v2 PLAN.md files. Stub created by 11-02; full definition shipped by 11-01.",
+  "type": "object",
+  "required": ["schema_version", "tasks"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "enum": [2],
+      "description": "v2 plans skip Haiku classifier (SCHEMA-04)"
+    },
+    "tasks": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/task" },
+      "minItems": 1
+    },
+    "expected_ATC_tier": {
+      "type": "string",
+      "enum": ["SKIP", "LITE", "FULL", "GATE"],
+      "default": "LITE"
+    },
+    "skip_gates": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "depends_on": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "lessons_path": {
+      "type": ["string", "null"],
+      "default": null
+    },
+    "prior_errors_lookup": {
+      "type": "boolean"
+    }
+  },
+  "definitions": {
+    "task": {
+      "type": "object",
+      "required": ["id", "agent", "model", "files_touched", "input_contract", "output_contract", "hypothesis", "falsifier", "stop_rule"],
+      "additionalProperties": true,
+      "errorMessage": {
+        "required": {
+          "id": "task must declare 'id' (SCHEMA-02)",
+          "agent": "task must declare 'agent' (SCHEMA-02)",
+          "model": "task must declare 'model' as haiku|sonnet|opus (SCHEMA-02)",
+          "files_touched": "task must declare 'files_touched' array with >= 1 entry (SCHEMA-02)",
+          "input_contract": "task must declare 'input_contract' (SCHEMA-02)",
+          "output_contract": "task must declare 'output_contract' (SCHEMA-02)",
+          "hypothesis": "task must declare 'hypothesis' (SCHEMA-02)",
+          "falsifier": "task must declare 'falsifier' (SCHEMA-02)",
+          "stop_rule": "task must declare 'stop_rule' (SCHEMA-02)"
+        }
+      },
+      "properties": {
+        "id": { "type": "string" },
+        "agent": { "type": "string" },
+        "model": {
+          "type": "string",
+          "enum": ["haiku", "sonnet", "opus"]
+        },
+        "files_touched": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "input_contract": { "type": "string" },
+        "output_contract": { "type": "string" },
+        "hypothesis": { "type": "string" },
+        "falsifier": { "type": "string" },
+        "stop_rule": { "type": "string" },
+        "depends_on": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "known_deadends": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "verification_cmd": {
+          "type": ["string", "null"],
+          "default": null
+        },
+        "prior_errors_lookup": { "type": "boolean" },
+        "expected_ATC_tier": {
+          "type": "string",
+          "enum": ["SKIP", "LITE", "FULL", "GATE"],
+          "default": "LITE"
+        },
+        "skip_gates": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "lessons_path": {
+          "type": ["string", "null"],
+          "default": null
+        }
+      }
+    }
+  }
+}
