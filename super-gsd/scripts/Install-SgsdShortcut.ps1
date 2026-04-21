@@ -110,6 +110,8 @@ function sgsd {
         [switch]`$SkipPreflight,
         [switch]`$Bootstrap,
         [switch]`$Backfill,
+        [switch]`$Claude,
+        [switch]`$Go,
         [switch]`$Help,
         [string]`$ProjectDir = `$null
     )
@@ -121,6 +123,8 @@ function sgsd {
         Write-Host '  sgsd -SkipPreflight  Skip checks, just open dashboards'
         Write-Host '  sgsd -Bootstrap      Create minimal .brv/context-tree in place'
         Write-Host '  sgsd -Backfill       Full DLB-04 scaffold for existing project'
+        Write-Host '  sgsd -Claude         Also launch Claude Code (--dangerously-skip-permissions)'
+        Write-Host '  sgsd -Claude -Go     Launch Claude Code + auto-send ''go'' to enter AUTO MODE'
         Write-Host '  sgsd -ProjectDir X   Explicit project directory'
         Write-Host '  sgsd -Help           This help'
         return
@@ -157,6 +161,8 @@ function sgsd {
     if (`$SkipPreflight)  { `$args += '-SkipPreflight' }
     if (`$Bootstrap)      { `$args += '-Bootstrap' }
     if (`$Backfill)       { `$args += '-Backfill' }
+    if (`$Claude)         { `$args += '-Claude' }
+    if (`$Go)             { `$args += '-Go' }
 
     & powershell.exe @args
 }
