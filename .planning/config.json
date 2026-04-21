@@ -14,7 +14,9 @@
     "discuss_mode": "discuss",
     "research_before_questions": false,
     "plan_format": "compressed_xml",
-    "agent_report_max_words": 300
+    "agent_report_max_words": 300,
+    "schema_v2_hash": "5867692da13edf8939bc4ab898768e9c5e9938716f4754d4583eaa2f7d0d5631",
+    "plan_fix_retry_cap": 3
   },
   "safety": {
     "always_confirm_destructive": true,
