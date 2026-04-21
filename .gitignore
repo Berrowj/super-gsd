@@ -6,3 +6,25 @@ node_modules/
 .brv/context-tree/.git/
 .brv/daemon/
 .env
+
+# Operator-local Claude Code settings (may contain secrets)
+.claude/
+
+# Super-GSD runtime state — ephemeral per install
+.gsd/
+
+# Live telemetry — append-only, regenerates per session
+.planning/metrics/heartbeat.jsonl
+
+# Failed-write leftovers from narrative generator
+.planning/metrics/*.lastattempt
+.planning/metrics/*.lastfail
+.planning/metrics/*.lock
+
+# Symlink to external Voice-Text-Plan project — not portable
+wiki/
+
+# Genesis-wave (2026-04-08) reference dumps from Pi Harness migration;
+# live equivalents now maintained under super-gsd/ and .claude/skills/
+custom-gsd-extract/
+gsd-orchestrator-kit/
