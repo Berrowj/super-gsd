@@ -177,10 +177,111 @@ REPEAT:
      b. Phase needs RESEARCH.md → dispatch gsd-phase-researcher (Sonnet)
      c. Phase needs PLAN.md → dispatch gsd-planner (Sonnet)
      d. Phase has plans, needs plan-check → dispatch gsd-plan-checker (Sonnet)
-     e. Phase has checked plans, pending tasks → dispatch gsd-executor (Sonnet)
+     e. Phase has checked plans, pending tasks → run PLAN LOAD-TIME VALIDATION (Step 6.2) then dispatch gsd-executor (Sonnet)
      f. All plans executed → dispatch gsd-verifier (Sonnet)
      g. Verification passed → PHASE ATC GATE (Step 6.5) → FRONTEND VERIFY GATE (Step 6.6) → mark complete
      h. Verification failed → dispatch gsd-planner --gaps (Sonnet)
+
+  <!-- ANCHOR: RULE-8.5 — schema-fix dispatch branch. Plans 11-04 and 11-05 add sections AFTER this anchor. -->
+  6.2. PLAN LOAD-TIME VALIDATION (Rule 8.5 — schema-fix dispatch)
+     Triggers at dispatch rule 6.e, BEFORE spawning gsd-executor. Re-validates each
+     pending PLAN.md against plan-schema-v2.json at load time (D-07 load-time enforcement).
+
+     FOR EACH pending {NN}-{PP}-PLAN.md to be dispatched this iteration:
+
+     a. Run validate.cjs:
+        ```bash
+        node super-gsd/tools/plan-schema/validate.cjs \
+          --plan-file {plan_file_path} \
+          --project-dir {project_dir} \
+          --mode load
+        ```
+        Exit 0 → VALID: proceed to gsd-executor dispatch normally.
+        Exit 2 → BLOCKED (file not found, parse error): EMIT BLOCKER. HALT. Cannot repair a missing file.
+        Exit 1 → INVALID (schema errors): enter SCHEMA-FIX RETRY LOOP below.
+
+     b. SCHEMA-FIX RETRY LOOP (on exit 1 only):
+
+        ```
+        schema_fix_attempt = 0
+        WHILE schema_fix_attempt < 3:
+          schema_fix_attempt += 1
+
+          // Extract locked fields from original plan BEFORE dispatching planner
+          // (orchestrator extracts — not the planner — to prevent planner corruption per D-09)
+          Read {plan_file_path} frontmatter tasks[] array
+          locked_fields = {
+            id:           tasks[*].id    (verbatim from original),
+            goal:         tasks[*].goal  (verbatim from original),
+            files_touched: tasks[*].files_touched (verbatim from original)
+          }
+
+          // Read most recent plan-errors.jsonl row for this plan
+          // Filter by plan_file field matching basename of {plan_file_path}
+          error_envelope = last matching row from .planning/metrics/plan-errors.jsonl
+
+          // Dispatch fix-planner with all inputs inline (RQ-5 OQ3 — inline, not path)
+          TaskCreate({ content: "Schema repair attempt {schema_fix_attempt}/3 for {plan_file_path}",
+                       activeForm: "gsd-planner [sonnet] --fix-schema attempt {schema_fix_attempt}/3",
+                       status: "in_progress" })
+          Agent(
+            subagent_type: "gsd-planner",
+            model: "sonnet",
+            mode: "auto",
+            prompt: {
+              flag: "--fix-schema",
+              plan_file_path: {plan_file_path},
+              error_envelope: {error_envelope},  // inline JSON, not a path
+              schema_path: "super-gsd/templates/plan-schema-v2.json",
+              locked_fields: {locked_fields},
+              attempt_K: {schema_fix_attempt}
+            }
+          )
+          // Planner writes: {plan_file_path}.fix-attempt-{schema_fix_attempt}.md
+          TaskUpdate(taskId, status: "completed")
+
+          sibling = "{plan_file_path}.fix-attempt-{schema_fix_attempt}.md"
+
+          // Commit the attempt (D-10 audit trail)
+          git add {sibling}
+          git commit -m "fix({phase}-{plan}): repair schema violation attempt {schema_fix_attempt}/3"
+
+          // Re-validate the sibling
+          node super-gsd/tools/plan-schema/validate.cjs \
+            --plan-file {sibling} \
+            --project-dir {project_dir} \
+            --mode load
+
+          IF exit 0:  // sibling passes — promote to overwrite original
+            cp {sibling} {plan_file_path}
+            rm {sibling}
+            git add {plan_file_path}
+            git rm --cached {sibling} 2>/dev/null || true  // remove sibling from index if staged
+            git commit -m "fix({phase}-{plan}): promote schema repair attempt {schema_fix_attempt}/3"
+            BREAK  // proceed with executor dispatch on the repaired plan
+
+          // else: loop continues; sibling retained for checkpoint body
+
+        IF schema_fix_attempt == 3 AND last validate.cjs exit != 0:
+          // D-10 cap hit — collect all 3 envelopes and attempt file contents
+          Read all 3 plan-errors.jsonl rows for this plan (by plan_file field)
+          Read .fix-attempt-1.md, .fix-attempt-2.md, .fix-attempt-3.md contents
+
+          Write .planning/ORCHESTRATOR-CHECKPOINT.md:
+            next_unit: "BLOCKED — manual schema repair required for {plan_file_path}"
+            error_envelopes: [envelope_1, envelope_2, envelope_3]  // all 3 JSONL rows
+            fix_attempts: [attempt_1_content, attempt_2_content, attempt_3_content]
+            plan_path: {plan_file_path}
+            operator_action: >
+              Inspect plan-schema-v2.json for schema correctness OR
+              inspect {plan_file_path} for semantic errors that prevent
+              automatic repair. All 3 auto-repair attempts failed.
+              Fix manually, delete .fix-attempt-*.md siblings, then re-run.
+
+          git add .planning/ORCHESTRATOR-CHECKPOINT.md
+          git commit -m "chore(checkpoint): schema repair cap hit for {phase}-{plan}"
+          EXIT LOOP (Exit #3 Blocker)
+        ```
 
   6.5. PHASE ATC GATE (runs ONCE per phase, after verification passes)
      Triggers when rule 6.g fires (verification passed).
