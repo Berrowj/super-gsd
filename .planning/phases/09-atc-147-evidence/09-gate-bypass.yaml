@@ -1,0 +1,105 @@
+# .planning/phases/09-atc-147-evidence/09-gate-bypass.yaml
+# Gate-bypass token-cost audit for Phase 147 (project-clarity-erp / 147-clarity-relay-map-w1).
+# Produced by: Phase 9 plan 09-02. Consumed by: Phase 10 keep/kill deliberation.
+generated_at: 2026-04-22
+source_review: ../../../../project-clarity-erp/.planning/phases/147-clarity-relay-map-w1/147-ATC-REVIEW.md
+budget_source: super-gsd/skills/sgsd-orchestrate/SKILL.md
+dispatches_denominator: 16       # T-commits in Phase 147 per SUMMARY.md T1→T16; 1 dispatch = 1 T-task = 1 commit
+phase_close_events: 1            # for per-phase gates 6, 7
+
+audit:
+  - gate: "Haiku classifier"
+    step: 2
+    class: per-dispatch
+    per_dispatch_tokens: 50
+    dispatches_bypassed: 16
+    total_bypass_cost: 800
+    fired_retroactively: false
+    verdict_pointer_to_phase_10: "Was the bypass defensible because all 16 T-commits were same-type linear TDD tasks? Phase 10 to decide the skip-rule predicate for homogeneous phases."
+
+  - gate: "Haiku context-selector"
+    step: 4
+    class: per-dispatch
+    per_dispatch_tokens: 100
+    dispatches_bypassed: 16
+    total_bypass_cost: 1600
+    fired_retroactively: false
+    verdict_pointer_to_phase_10: "Does context-selection add signal on homogeneous-task phases, or only on mixed-concern phases? Phase 10 decides whether to gate-skip on low-novelty phases."
+
+  - gate: "ByteRover query injection"
+    step: 5
+    class: per-dispatch
+    per_dispatch_tokens: 600   # 3 queries × 200 tokens each; bounded by config max_queries_per_dispatch: 3
+    dispatches_bypassed: 16
+    total_bypass_cost: 9600
+    fired_retroactively: false
+    verdict_pointer_to_phase_10: "Does ByteRover query injection warrant 600 tokens/dispatch on a fresh-codebase phase with no prior similar patterns to recall? Phase 10 decides entropy-gating."
+
+  - gate: "INTENT injection"
+    step: 5.5
+    class: per-dispatch
+    per_dispatch_tokens: 30
+    dispatches_bypassed: 16
+    total_bypass_cost: 480
+    fired_retroactively: false
+    verdict_pointer_to_phase_10: "30 tokens × 16 = 480 is tiny. Argument for kill is friction, not cost. Phase 10 weighs whether INTENT injection friction outweighs its orientation value on repeated-pattern phases."
+
+  - gate: "Per-dispatch ATC (Step 9.5)"
+    step: 9.5
+    class: per-dispatch
+    per_dispatch_tokens: 300   # FULL tier (250 review + 50 JSONL append); LITE/SKIP pay 0 — hence lower bound
+    dispatches_bypassed: 16
+    total_bypass_cost: 4800
+    fired_retroactively: false
+    verdict_pointer_to_phase_10: "The ATC review's own §5 says per-dispatch ATC would NOT have caught W1/W2 (cross-task integration gaps); only phase-level review could. Phase 10 decides if per-dispatch ATC keeps value for intra-task issues only."
+
+  - gate: "Phase-level ATC (Step 6.5)"
+    step: 6
+    class: per-phase
+    per_dispatch_tokens: 600   # 50 classify + 550 review — per-phase budget, NOT per-dispatch
+    dispatches_bypassed: 1
+    total_bypass_cost: 600
+    fired_retroactively: true   # deferred, not skipped — the retroactive ATC review being classified IS this gate, fired 1 day late
+    verdict_pointer_to_phase_10: "Phase-level ATC cost was PAID, just at phase+1 boundary. Keep/kill question is about SCHEDULING (inline vs deferred), not existence."
+
+  - gate: "MUDA waste audit (Step 6.55)"
+    step: 7
+    class: per-phase
+    per_dispatch_tokens: 100   # per-phase budget — fires once at phase close, NOT per dispatch
+    dispatches_bypassed: 1
+    total_bypass_cost: 100
+    fired_retroactively: false
+    verdict_pointer_to_phase_10: "100 tokens is near-free. Argument for kill is redundancy with ATC, not cost. Phase 10 decides whether MUDA provides marginal signal beyond phase-level ATC on a TDD-heavy phase."
+
+  - gate: "sgsd-curate learnings (Step 10)"
+    step: 10
+    class: per-dispatch
+    per_dispatch_tokens: 50
+    dispatches_bypassed: 16
+    total_bypass_cost: 800
+    fired_retroactively: false
+    verdict_pointer_to_phase_10: "50 tokens × 16 = 800. On a phase with low novelty (TDD repeated pattern), curate may produce zero new patterns. Phase 10 decides entropy-gating (skip curate when dispatch is a repeat of a prior-task pattern)."
+
+  - gate: "Token-log JSONL (Step 11)"
+    step: 11
+    class: per-dispatch
+    per_dispatch_tokens: 10   # ASSUMPTION A1 — conservative; SKILL.md does not declare an explicit number for Step 11
+    dispatches_bypassed: 16
+    total_bypass_cost: 160
+    fired_retroactively: false
+    verdict_pointer_to_phase_10: "Near-zero cost (A1 assumption: ~10 tokens). Keep by default; kill only if logging itself causes observable issues. Even at 5× the estimate, gate 11 is <1% of total bypass cost."
+
+totals:
+  upper_bound_tokens: 18940    # all 9 gates firing at declared budgets, per-dispatch ATC at FULL tier for all 16 dispatches
+  lower_bound_tokens: 9340     # per-dispatch ATC firing at LITE/SKIP on most dispatches (LITE ~0 tokens, SKIP = 0)
+  note: "Upper assumes all 16 dispatches would have hit per-dispatch ATC at FULL tier (300 tokens each); lower assumes LITE/SKIP on per-dispatch ATC, leaving only the 7 other per-dispatch gates plus both per-phase gates. Lower = 800+1600+9600+480+0+600+100+800+160 = 14,140 minus the FULL ATC cost (4800 saved) = 9,340."
+
+assumptions:
+  - id: A1
+    claim: "Token-log Step 11 costs ~10 tokens per dispatch"
+    source: "09-RESEARCH.md §Per-Gate Token Budget row 9 — SKILL.md does not declare an explicit number for Step 11; conservative based on brief's 'near-zero cost' framing. Even at 50 tokens/dispatch the gate-9 total changes from 160 → 800, <5% of upper-bound total."
+    risk: "Low — delta is <5% of total bypass cost."
+  - id: A2
+    claim: "Phase 147's 1 dispatch = 1 T-task = 1 commit pattern held uniformly, giving 16-dispatch denominator"
+    source: "09-RESEARCH.md §Dispatch Counting Semantics — verified against external SUMMARY.md T1→T16 commit table and SHA range ca5be16b..c41634c4. If future retrospective is on a phase with multi-dispatch tasks, the multiplier changes."
+    risk: "Low — 16 T-commits confirmed by grep of external PLAN.md (16 '## Task N:' headers) + SUMMARY.md table."
