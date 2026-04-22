@@ -741,9 +741,12 @@ REPEAT:
          type:       classifier_result.type,         // 'feature'|'bugfix'|'refactor'|...
        },
        files_changed_count:      filesChanged.length,
-       code_files_changed_count: filesChanged.filter(f =>
-         !f.endsWith('.md') && !f.startsWith('.planning/')
-       ).length,
+       code_files_changed_count: filesChanged.filter(f => {
+         if (f.startsWith('.planning/')) return false;
+         if (/^super-gsd\/skills\/[^/]+\/SKILL\.md$/.test(f)) return true;
+         if (f.endsWith('.md')) return false;
+         return true;
+       }).length,
        diff_lines:               parseDiffLines(),   // from git diff --stat HEAD~1..HEAD
        phase_type:               phaseType,          // read once from ROADMAP/phase metadata
        new_pattern_detected:     deviations.some(d => d.startsWith('new pattern:')),
