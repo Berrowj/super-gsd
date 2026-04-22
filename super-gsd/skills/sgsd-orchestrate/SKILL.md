@@ -185,21 +185,34 @@ REPEAT:
        Append to .planning/metrics/token-log.jsonl:
          {"ts":"{ISO}","phase":N,"plan":P,"event":"classifier_skip","reason":"schema_version==2","synthetic_result":{classifier_result}}
 
-     ELSE (schema_version absent or schema_version == 1 — existing v1 path, unchanged):
-       // Spawn Haiku classifier as before
-       FIRST: TaskCreate({
-         content: "Classify phase {N} complexity",
-         activeForm: "gsd-classifier [haiku] classifying P{N}",
-         status: "in_progress"
-       })
-       THEN: Agent(subagent_type: "sgsd-classifier", model: "haiku", mode: "auto", prompt: {
-         goal: "{phase goal from ROADMAP}",
-         files: "{estimated files}",
-         lines: "{estimated lines}",
-         type: "{feature|bugfix|refactor}"
-       })
-       → Returns: { complexity, model, atc_tier, deliberate, reason }
-       AFTER: TaskUpdate(same taskId, status: "completed")
+     ELSE (schema_version absent or schema_version == 1 — v1 path with MACH-01 cache):
+       // MACH-01: attempt cache read before spawning Haiku classifier
+       // classifierCache = require('super-gsd/scripts/lib/classifier-cache.cjs')
+       const cached = classifierCache.readCache(planFilePath);
+       if (cached) {
+         // Cache hit — skip classifier dispatch entirely (D-03 + D-04)
+         classifier_result = cached;
+         // Log cache-hit event for D-04 accounting
+         Append to .planning/metrics/token-log.jsonl:
+           {"ts":"{ISO}","phase":N,"plan":P,"event":"classifier_skip","role":"classifier-skip","reason":"sidecar_hit","verdict":{cached}}
+       } else {
+         // Cache miss — spawn Haiku classifier as before, then write sidecar
+         FIRST: TaskCreate({
+           content: "Classify phase {N} complexity",
+           activeForm: "gsd-classifier [haiku] classifying P{N}",
+           status: "in_progress"
+         })
+         THEN: Agent(subagent_type: "sgsd-classifier", model: "haiku", mode: "auto", prompt: {
+           goal: "{phase goal from ROADMAP}",
+           files: "{estimated files}",
+           lines: "{estimated lines}",
+           type: "{feature|bugfix|refactor}"
+         })
+         → Returns: { complexity, model, atc_tier, deliberate, reason }
+         AFTER: TaskUpdate(same taskId, status: "completed")
+         // Write verdict to sidecar so subsequent tasks in this plan hit cache
+         classifierCache.writeCache(planFilePath, classifier_result);
+       }
      } // end gates.shouldFire('classifier-haiku')
 
   3. CHECK DELIBERATION GATE
