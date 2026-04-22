@@ -292,7 +292,46 @@ REPEAT:
      b. Phase needs RESEARCH.md → dispatch gsd-phase-researcher (Sonnet)
      c. Phase needs PLAN.md → dispatch gsd-planner (Sonnet)
      d. Phase has plans, needs plan-check → dispatch gsd-plan-checker (Sonnet)
-     e. Phase has checked plans, pending tasks → run PLAN LOAD-TIME VALIDATION (Step 6.2) then dispatch gsd-executor (Sonnet)
+     e. Phase has checked plans, pending tasks → run PLAN LOAD-TIME VALIDATION (Step 6.2) then dispatch per MACH-02 wave plan:
+
+        // Require dispatch-planner at orchestrator startup (zero runtime deps)
+        const dispatchPlanner = require('super-gsd/scripts/lib/dispatch-planner.cjs');
+
+        const waves = dispatchPlanner.buildDispatchPlan(plan);
+        for (const w of waves) {
+          if (w.serial || w.taskIds.length === 1) {
+            // Serial wave: dispatch gsd-executor (Sonnet) for each task sequentially
+            for (const taskId of w.taskIds) {
+              // [existing single gsd-executor dispatch pattern — Step 8]
+            }
+          } else {
+            // Parallel wave (MACH-02, D-06, PARALLEL_CONFIRMED per 12-02-00 spike):
+            // fan out Agent() calls with run_in_background: true, then await all reports.
+            const handles = w.taskIds.map(taskId =>
+              Agent(subagent_type: "gsd-executor", model: "sonnet", mode: "auto",
+                    run_in_background: true, prompt: {... taskId ...})
+            );
+            const reports = await Promise.all(handles);
+
+            // D-08 (no cancellation): if any report has BLOCKER, halt AFTER all parallel
+            // tasks in this wave have settled. Do NOT cancel in-flight agents — the Task()
+            // harness provides no cancellation protocol. Process remaining reports for
+            // commits/deviations, then exit loop with the BLOCKER.
+
+            // §Risk 3 (sequential ATC post-wave): each parallel executor's report gets its
+            // own per-dispatch ATC review (Step 9.5) run SEQUENTIALLY after the wave settles.
+            // ATC is per-report, not per-batch — process reports one at a time after await.
+            for (const report of reports) {
+              // [Step 9 — process report, commit, run Step 9.5 ATC for this report]
+            }
+          }
+        }
+
+        NOTE — spike verdict: 12-02-00 observed PARALLEL_CONFIRMED. The parallel branch is a
+        live execution path. Disjoint-files waves will genuinely fan out concurrently.
+        If runtime evidence ever contradicts this, fall back: set w.serial = true for all waves
+        in dispatch-planner.cjs and re-run — the DAG ordering remains advisory and prevents
+        file-conflict bugs even under serial execution.
      f. All plans executed → dispatch gsd-verifier (Sonnet)
      g. Verification passed → PHASE ATC GATE (Step 6.5) → FRONTEND VERIFY GATE (Step 6.6) → mark complete
      h. Verification failed → dispatch gsd-planner --gaps (Sonnet)
