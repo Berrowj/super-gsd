@@ -20,6 +20,12 @@ const fs   = require('fs');
 const path = require('path');
 const { evalPredicate } = require('./predicate-eval.cjs');
 
+/**
+ * WARNING — module-level cache is a PROCESS SINGLETON.
+ * Tests MUST call resetCache() in afterEach() to avoid pollution.
+ * Long-running processes that hot-swap gates.yaml MUST call resetCache()
+ * after the file mtime changes (or after a SIGHUP equivalent).
+ */
 let _cache = null; // { all: Gate[], byName: Record<string,Gate> }
 
 /**
