@@ -486,16 +486,17 @@ Phase 9 has negligible true security surface — it's write-once evidence in the
 
 If the planner or verifier encounters values that deviate from A1-A3, flag them in DEVIATIONS rather than silently accepting — these are the hot-spots of the audit.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Phase 9's own ATC tier.** Under SKILL.md Step 9.5, docs-only dispatches skip per-dispatch ATC. Phase-level ATC (Step 6.5) still fires per config. Expected tier: **LITE** or **SKIP** per file count. Planner should explicitly declare `expected_ATC_tier: LITE` in the v2 plan frontmatter if using schema v2.
-   - What we know: this is a docs phase (.md + .yaml), 2-3 small plans.
-   - What's unclear: whether the orchestrator's own `sgsd-classifier` returns `lite` or `skip` on a pure-docs phase without a LINES estimate.
-   - Recommendation: declare tier explicitly; let schema v2's classifier-skip (SCHEMA-04) do its job.
+*All three resolved by planner decisions landed in `plans/09-01/02/03-*.md` and verified by gsd-plan-checker (2026-04-22). Kept here as provenance.*
 
-2. **Output YAML filename.** CONTEXT.md doesn't specify. Options: `09-classification.yaml`, `147-classification.yaml`, `findings.yaml`. Recommendation: `09-classification.yaml` (phase-prefixed, matches `09-CONTEXT.md` / `09-RESEARCH.md` convention).
+1. **Phase 9's own ATC tier.** → **RESOLVED: `expected_ATC_tier: LITE`** declared in all three plan frontmatters per the schema v2 contract. Schema v2's classifier-skip (SCHEMA-04) handles the dispatch accordingly.
+   - What we knew: this is a docs phase (.md + .yaml), 2-3 small plans.
+   - What was unclear: whether the orchestrator's own `sgsd-classifier` returns `lite` or `skip` on a pure-docs phase without a LINES estimate.
 
-3. **Should the registry pointer doc contain the YAML inline or reference a separate file?** Recommendation: INLINE copy the `findings_detail` table as a Markdown table (not raw YAML) for human-readability; keep the YAML as the canonical at `.planning/phases/09-atc-147-evidence/09-classification.yaml`. Phase 10 can parse either — the markdown table is redundant but readable.
+2. **Output YAML filename.** → **RESOLVED: `09-classification.yaml`** (plan 09-01) and `09-gate-bypass.yaml` (plan 09-02), both phase-prefixed to match `09-CONTEXT.md` / `09-RESEARCH.md` convention.
+
+3. **Registry pointer inline vs reference.** → **RESOLVED: INLINE markdown tables** in `.planning/milestones/v1.2/evidence/147-review.md` (plan 09-03 task 2). Canonical YAML stays at phase dir. Phase 10 can parse either; the markdown is for operator readability.
 
 ## Sources
 

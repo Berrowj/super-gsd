@@ -69,9 +69,9 @@
 
 | REQ-ID | Phase | Plan | Status |
 |--------|-------|------|--------|
-| ATC-147-01 | 9 | TBD | Pending |
-| ATC-147-02 | 9 | TBD | Pending |
-| ATC-147-03 | 9 | TBD | Pending |
+| ATC-147-01 | 9 | 09-01 | Planned |
+| ATC-147-02 | 9 | 09-03 | Planned |
+| ATC-147-03 | 9 | 09-02 | Planned |
 | GATE-01 | 10 | TBD | Pending |
 | GATE-02 | 10 | TBD | Pending |
 | GATE-03 | 10 | TBD | Pending |

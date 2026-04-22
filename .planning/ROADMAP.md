@@ -52,7 +52,11 @@ ATC-147-evidence → Q2-gate-policy → Q3-plan-schema → Q6-machinery → Q7-g
 3. A gate-bypass audit enumerates the 9 CLAUDE-OVERLAY gates Phase 147 skipped (Haiku classifier, context-selector, ByteRover query, INTENT injection, per-dispatch ATC, phase-level ATC, MUDA, sgsd-curate, token-log) with a token-cost estimate per gate (ATC-147-03).
 4. The finding count is surfaced in a form Phase 10 can consume (a single number keyed against the ≥3 / 1-2 / 0 thresholds from the parent brief's Q2 proposal).
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+- [ ] 09-01-classification.md — Narrow Sonnet classifier + 09-classification.yaml (ATC-147-01)
+- [ ] 09-02-gate-bypass.md — 9-row gate-bypass token-cost audit YAML (ATC-147-03)
+- [ ] 09-03-registry-and-intent.md — v1.2 INTENT.md + evidence registry pointer + verify.mjs (ATC-147-02)
 
 ---
 
@@ -172,7 +176,7 @@ Note: retro RQ4 sequencing (ATC-147-evidence → Q2-gate-policy → Q3-plan-sche
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 9. ATC-147-Evidence | 0/TBD | Scoped — externally blocked | - |
+| 9. ATC-147-Evidence | 0/3 | Planned | - |
 | 10. Gate Policy | 0/TBD | Scoped — waits on Phase 9 | - |
 | 11. Plan Schema v2 | 0/1 | Planned    |  |
 | 12. Machinery | 0/TBD | Scoped — waits on Phase 11 + 10 | - |
