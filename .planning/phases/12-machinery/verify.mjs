@@ -170,7 +170,26 @@ if (typeof dp.buildDispatchPlan !== 'function')
   }
 }
 
-// ─── Invariants 7..14 will be appended by plans 12-03(task2)..12-06 ──────────────────────────
+// ─── Invariant 7: SKILL.md checkpoint_protocol contains 85% hard-cap marker ──────────────────
 
-console.log('PASS: invariants 1-6 hold (Phase 12 MACH-01 + MACH-02 + MACH-03 template green)');
+{
+  const SKILL_FILE = path.join(repoRoot, 'super-gsd/skills/sgsd-orchestrate/SKILL.md');
+  let skill;
+  try {
+    skill = fs.readFileSync(SKILL_FILE, 'utf8');
+  } catch (e) {
+    fail(7, `cannot read SKILL.md at ${SKILL_FILE}: ${e.message}`);
+  }
+
+  if (!skill.includes('85%'))
+    fail(7, `SKILL.md missing D-11 hard-cap marker '85%'`);
+  if (!skill.includes('emergency_halt'))
+    fail(7, `SKILL.md missing field reference 'emergency_halt'`);
+  if (!skill.includes('CHECKPOINT_EMERGENCY'))
+    fail(7, `SKILL.md missing DEVIATIONS log key 'CHECKPOINT_EMERGENCY'`);
+}
+
+// ─── Invariants 8..14 will be appended by plans 12-04..12-06 ─────────────────────────────────
+
+console.log('PASS: invariants 1-7 hold (Phase 12 MACH-01 + MACH-02 + MACH-03 green)');
 process.exit(0);

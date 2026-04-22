@@ -1012,7 +1012,12 @@ The `--self-test` CLI is the GATE-04 verification surface. It:
 This is the single command that satisfies GATE-04 without a separate test harness.
 
 <checkpoint_protocol>
-When context usage >70% OR user says stop:
+When context >=85% OR ((phase_boundary OR plan_boundary) AND context >=70%) OR user says stop:
+
+**Self-assess at Step 1 (READ STATE):** After parsing STATE.md, estimate current context usage.
+- If context >=85%: trigger the **Emergency halt path** immediately (mid-task if needed).
+- If context >=70% AND you are at a phase boundary or plan boundary: trigger the normal checkpoint path below.
+- If context <70%: continue normally.
 
 Write `.planning/ORCHESTRATOR-CHECKPOINT.md`:
 
@@ -1026,6 +1031,29 @@ next_unit: "plan {NN-PP+1}"
 phase_state: "{researching|planning|executing|verifying}"
 units_this_session: {N}
 estimated_tokens_used: {N}
+model_breakdown:
+  opus: {N}
+  sonnet: {N}
+  haiku: {N}
+context_percent_at_write: {N}
+emergency_halt: false
+approaches_tried_and_abandoned: []
+rules_learned_this_session: []
+dispatches_summary:
+  total: 0
+  by_agent:
+    executor: 0
+    verifier: 0
+    planner: 0
+    researcher: 0
+    classifier: 0
+    code_reviewer: 0
+  by_outcome:
+    pass: 0
+    fail: 0
+    warn: 0
+    blocker: 0
+resume_instruction: "Enter loop at next_unit without re-briefing user"
 ---
 
 ## Completed This Session
@@ -1038,9 +1066,23 @@ estimated_tokens_used: {N}
 ## Remaining Work
 - {remaining plans in current phase}
 - {remaining phases in milestone}
+
+## Learnings Curated
+- {patterns/decisions curated to ByteRover this session}
 ```
 
 Then commit the checkpoint and STOP.
+
+### Emergency halt path (D-11)
+
+When context >=85% — even mid-task, even mid-plan — execute these three steps immediately:
+
+1. Write `.planning/ORCHESTRATOR-CHECKPOINT.md` with `emergency_halt: true` in the frontmatter (all other fields filled as best known at halt time).
+2. Log a DEVIATIONS entry in the current agent report or session log:
+   `CHECKPOINT_EMERGENCY: context {N}% at task {id} of plan {id}`
+3. Exit loop with a text-only stop — do NOT dispatch another agent or attempt to finish the current task.
+
+The emergency_halt field in the checkpoint frontmatter is the mechanical marker for post-milestone analysis. If >10% of checkpoints in a milestone have `emergency_halt: true`, file an sgsd-curate anti-pattern note and flag the plan-checker rule "plans >6 tasks should be split" for re-enforcement (D-11a).
 </checkpoint_protocol>
 
 <commit_discipline>
