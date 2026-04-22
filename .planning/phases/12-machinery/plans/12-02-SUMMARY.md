@@ -92,7 +92,7 @@ while A was still running — confirming concurrent execution. Risk 2 resolved.
 | 12-02-00 | dca8ef6  | feat(12-02): 12-02-00 live spike — PARALLEL_CONFIRMED          |
 | 12-02-01 | 1deef53  | feat(12-02): dispatch-planner.cjs v2 algorithm (MACH-02)       |
 | 12-02-02 | 9c866f8  | feat(12-02): verify.mjs invariants 3-5 + dispatch-planner v1 fallback confirmed |
-| 12-02-03 | (pending) | feat(12-02): SKILL.md rule 6.e wave-loop integration + SUMMARY |
+| 12-02-03 | 8e63854  | feat(12-02): SKILL.md rule 6.e wave-loop integration + plan 02 SUMMARY |
 
 ---
 
