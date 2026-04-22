@@ -148,7 +148,29 @@ if (typeof dp.buildDispatchPlan !== 'function')
     fail(5, `empty tasks must return single empty wave, got ${JSON.stringify(emptyWaves)}`);
 }
 
-// ─── Invariants 6..14 will be appended by plans 12-03..12-06 ─────────────────────────────────
+// ─── Invariant 6: checkpoint.md template contains all 3 D-09 field names ─────────────────────
 
-console.log('PASS: invariants 1-5 hold (Phase 12 MACH-01 + MACH-02 contract green)');
+{
+  const CHECKPOINT_TEMPLATE = path.join(repoRoot, 'super-gsd/templates/checkpoint.md');
+  let tmpl;
+  try {
+    tmpl = fs.readFileSync(CHECKPOINT_TEMPLATE, 'utf8');
+  } catch (e) {
+    fail(6, `cannot read checkpoint template at ${CHECKPOINT_TEMPLATE}: ${e.message}`);
+  }
+
+  const required = [
+    'approaches_tried_and_abandoned',
+    'rules_learned_this_session',
+    'dispatches_summary',
+  ];
+  for (const field of required) {
+    if (!tmpl.includes(field))
+      fail(6, `checkpoint template missing D-09 field '${field}'`);
+  }
+}
+
+// ─── Invariants 7..14 will be appended by plans 12-03(task2)..12-06 ──────────────────────────
+
+console.log('PASS: invariants 1-6 hold (Phase 12 MACH-01 + MACH-02 + MACH-03 template green)');
 process.exit(0);
