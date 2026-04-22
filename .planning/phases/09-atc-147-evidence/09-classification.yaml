@@ -1,0 +1,54 @@
+generated_at: 2026-04-22
+source_review: ../../../../project-clarity-erp/.planning/phases/147-clarity-relay-map-w1/147-ATC-REVIEW.md
+external_repo_pin:
+  repo: project-clarity-erp
+  commits: ca5be16b..c41634c4
+  reviewed_at: 2026-04-20
+headline_finding_count: 4
+findings_by_bucket:
+  real_bloat: 2
+  integration_gap: 2
+  nit: 4
+  false_positive: 2
+  info: 0
+findings_detail:
+  - id: W1
+    bucket: integration-gap
+    title: "OwnerLookup / relay_owners ship with zero production consumers (cross-task gap)"
+    justification: "Module is orphaned from production data path; tests prove it works, nothing proves it's used."
+  - id: W2
+    bucket: integration-gap
+    title: "resolve_target_seconds never called; every event has sla.target_seconds=0"
+    justification: "Cross-task wiring gap between T5/T8/T9/T10; Fixed SLA in scope but wiring is missing."
+  - id: W3
+    bucket: real-bloat
+    title: "Two unused imports (Iterator in calendar.py, lru_cache in owners.py)"
+    justification: "Textbook dead imports; ATC point 2 fail; delete the two lines."
+  - id: W4
+    bucket: real-bloat
+    title: "Canonical YAML path duplicated across three files with inconsistent naming"
+    justification: "DRY violation; ATC point 4 (less code); extract to __init__.py."
+  - id: I1
+    bucket: false-positive
+    title: "RelayLedger.recompute_sla paused= parameter never non-default"
+    justification: "Explicitly justified as Phase-2 hook per spec §6.1; review labels it Acceptable."
+  - id: I2
+    bucket: false-positive
+    title: "Pydantic model fields defined with no downstream reader (5 fields across 3 models)"
+    justification: "Spec §6 schema expects them; Wave 2 consumers will read them."
+  - id: I3
+    bucket: nit
+    title: "model_dump() + post-dump .value overwrite (ledger.py:74)"
+    justification: "Idiomatic 1-line simplification; works correctly as-is."
+  - id: I4
+    bucket: nit
+    title: "5-min boundary floor leaves .second residue (relay_integration.py:117)"
+    justification: "1-line fix; overlaps tolerated by $gt semantics; no functional regression."
+  - id: I5
+    bucket: nit
+    title: "datetime.utcnow() deprecated in Python 3.12+ (ledger.py:79, 96)"
+    justification: "Non-blocking DeprecationWarning; tests run on py3.11; classic deprecation nit."
+  - id: I6
+    bucket: nit
+    title: "@flow(infer_gate_events) wrapper not directly tested"
+    justification: "Marginal coverage gap on ~8 lines; review labels it marginal."
