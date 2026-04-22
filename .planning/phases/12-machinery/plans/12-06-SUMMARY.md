@@ -124,7 +124,7 @@ the `~/.claude` repo. The README section added by this plan documents this step.
 | Task | Description | Commit |
 |------|-------------|--------|
 | 12-06-01 | Create patch-gsd-tools-known-keys.sh | cb9e5ae |
-| 12-06-02 | README section + SUMMARY | (this commit — recorded after final commit) |
+| 12-06-02 | README section + SUMMARY | 9136add |
 
 ---
 
