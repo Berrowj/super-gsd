@@ -59,5 +59,33 @@ if (!g6 || g6.fired_retroactively !== true)
 if (!reg.includes('ca5be16b..c41634c4'))
   fail(7, `registry doc missing SHA pin ca5be16b..c41634c4`);
 
-console.log('PASS: all 7 invariants hold');
+// Invariant 8 (WR-01): per-dispatch rows: total_bypass_cost === per_dispatch_tokens × dispatches_bypassed
+for (const row of gbp.audit.filter(r => r.class === 'per-dispatch')) {
+  const expected = row.per_dispatch_tokens * row.dispatches_bypassed;
+  if (row.total_bypass_cost !== expected) {
+    fail(8, `row "${row.gate}" total_bypass_cost ${row.total_bypass_cost} !== ${row.per_dispatch_tokens} × ${row.dispatches_bypassed} (${expected})`);
+  }
+}
+
+// Invariant 9 (WR-02): classification findings_detail[].bucket strings map consistently to findings_by_bucket keys
+const bucketMap = {
+  'real-bloat':      'real_bloat',
+  'integration-gap': 'integration_gap',
+  'nit':             'nit',
+  'false-positive':  'false_positive',
+  'info':            'info',
+};
+const counted = {};
+for (const row of cls.findings_detail) {
+  const key = bucketMap[row.bucket];
+  if (!key) fail(9, `unknown bucket string "${row.bucket}" in finding ${row.id || '?'}`);
+  counted[key] = (counted[key] || 0) + 1;
+}
+for (const [k, v] of Object.entries(b)) {
+  if ((counted[k] || 0) !== v) {
+    fail(9, `bucket "${k}" detail count ${counted[k] || 0} !== declared ${v}`);
+  }
+}
+
+console.log('PASS: all 9 invariants hold');
 process.exit(0);
