@@ -30,7 +30,7 @@ ATC-147-evidence → Q2-gate-policy → Q3-plan-schema → Q6-machinery → Q7-g
 
 **Summary checklist:**
 
-- [ ] **Phase 9: ATC-147-Evidence** — Retroactive ATC on external project-clarity-erp Phase 147 produces empirical finding count + 9-gate-bypass audit with token-cost estimates
+- [x] **Phase 9: ATC-147-Evidence** — Retroactive ATC on external project-clarity-erp Phase 147 produces empirical finding count + 9-gate-bypass audit with token-cost estimates (SHIPPED 2026-04-22 — 3 plans / 12 commits; PASS-WITH-DEVIATIONS: classifier landed 4-bucket split of 10 findings matching §Q7 mapping exactly, gate-bypass audit delivers 18,940 upper / 9,340 lower token bounds for Phase 10 consumption, v1.2 INTENT.md + SHA-pinned evidence registry + 7-invariant mechanical verifier; ATC WARN: 0 critical, 2 verifier coverage gaps flagged for Phase 10 rubric design)
 - [ ] **Phase 10: Gate Policy** — Per-gate keep/kill/conditional matrix landed in `registry/gates.yaml` + edge-guard enforcement layer catches silent skip-drift
 - [x] **Phase 11: Plan Schema v2** — Canonical YAML-frontmatter plan schema at `templates/plan-schema-v2.json` with enforced required/optional fields and v1 classifier fallback (SHIPPED 2026-04-21 — 6 plans / 18 commits; PASS after 11-06 gap closure: WR-01..05 + IN-01 all closed, 0 ATC warnings remain; IN-03 distribution gap deferred to Phase 12+)
 - [ ] **Phase 12: Machinery** — Orchestrator Q6a-d sharpenings: classifier-skip, parallel/sequential auto-dispatch, checkpoint schema expansion, adversarial verifier sampling

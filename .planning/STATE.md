@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Evidence-First Sharpening
 status: executing
-stopped_at: Phase 9 context gathered
-last_updated: "2026-04-22T13:23:07.999Z"
-last_activity: 2026-04-22 -- Phase 9 planning complete
+stopped_at: Phase 9 complete — ATC WARN (0 critical, 2 warnings for Phase 10)
+last_updated: "2026-04-22T16:00:00.000Z"
+last_activity: 2026-04-22 -- Phase 9 closed — 3 plans / 12 commits / verifier PASS-WITH-DEVIATIONS (gap closed) / ATC 10/10 anti-slop
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 1
-  completed_plans: 0
-  percent: 0
+  completed_phases: 2
+  total_plans: 9
+  completed_plans: 9
+  percent: 40
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** Ship an autonomous framework that any Claude Code Max plan user can install with one command and immediately start building software
-**Current focus:** v1.2 Evidence-First Sharpening — Phase 11 shipped (PASS-WITH-DEVIATIONS). Phase 9 external blocker resolved, awaiting operator-driven /gsd-discuss-phase 9.
+**Current focus:** v1.2 Evidence-First Sharpening — Phases 9 and 11 shipped. Phase 10 (Gate Policy) next, consumes Phase 9 evidence artifacts.
 
 ## Current Position
 
-Phase: 11 COMPLETE (including ATC gap closure plan 11-06). Next: Phase 9 (external blocker resolved — needs discussion).
-Plan: — (6/6 plans in Phase 11 completed, including 11-06 ATC gap closure)
-Status: Ready to execute
-Last activity: 2026-04-22 -- Phase 9 planning complete
+Phase: 9 COMPLETE (3 plans, 12 commits, verifier PASS-WITH-DEVIATIONS → gap closed inline, ATC WARN 0 critical). Next: Phase 10 (Gate Policy).
+Plan: — (3/3 plans in Phase 9 completed: classification.yaml, gate-bypass.yaml, INTENT.md + evidence registry + verify.mjs)
+Status: Ready to discuss Phase 10
+Last activity: 2026-04-22 -- Phase 9 closed
 
-Progress: [██░░░░░░░░] 20% (1/5 phases complete)
+Progress: [████░░░░░░] 40% (2/5 phases complete)
 
 ## Accumulated Context
 
@@ -52,24 +52,24 @@ Progress: [██░░░░░░░░] 20% (1/5 phases complete)
 
 ### Open Dependencies (v1.2 scoping-time)
 
-- **Phase 9** (ATC-147-Evidence) — external block on `project-clarity-erp` Phase 147 retroactive ATC landing. Execution deferred until operator confirms `project-clarity-erp/.planning/phases/147-clarity-relay-map-w1/147-ATC-REVIEW.md` exists.
-- **Phase 10** (Gate Policy) — intra-milestone block on Phase 9 (needs empirical finding count).
-- **Phase 12** (Machinery) — intra-milestone block on Phase 11 (schema v2) and Phase 10 (gate matrix).
-- **Phase 13** (Governance) — intra-milestone block on Phase 10 (gates.yaml precedent) and Phase 11 (schema-ownership precedent).
-- **Phase 11** (Plan Schema v2) — NO blocks. Ready to discuss/plan immediately.
+- **Phase 9** (ATC-147-Evidence) — ✅ COMPLETE. Delivered classification.yaml, gate-bypass.yaml, INTENT.md, evidence/147-review.md, verify.mjs. 2 ATC warnings flagged for Phase 10 consumer (verifier row-arithmetic not enforced, bucket detail-vs-map cross-check missing) — no blockers.
+- **Phase 10** (Gate Policy) — intra-milestone block on Phase 9 CLEARED. Empirical finding count, bucket classification, and token bounds (18,940 upper / 9,340 lower) now available. Ready to discuss.
+- **Phase 12** (Machinery) — intra-milestone block on Phase 11 (schema v2) CLEARED, still blocked on Phase 10 (gate matrix).
+- **Phase 13** (Governance) — intra-milestone block on Phase 10 (gates.yaml precedent) remains; Phase 11 (schema-ownership precedent) CLEARED.
+- **Phase 11** (Plan Schema v2) — ✅ COMPLETE (shipped 2026-04-21).
 
 ### Pending Todos
 
-- Discuss Phase 11 first (no external block) via `/gsd-discuss-phase 11`.
-- When `project-clarity-erp` Phase 147 retroactive ATC lands, unblock Phase 9 and resume retro-locked order.
+- /gsd-discuss-phase 10 — next phase; consumes Phase 9's 09-classification.yaml, 09-gate-bypass.yaml, and the 2 ATC warnings as Phase 10 keep/kill inputs.
+- Phase 10 should address the 2 verifier coverage gaps noted in 09-ATC-REVIEW.md when it designs the keep/kill rubric.
 - At v1.2 close, run GOV-05 post-deliberation scoring audit (milestone-close hook) and re-evaluate retro RQ1 per reopen clause.
 
 ### Blockers/Concerns
 
-- **External blocker on Phase 9:** `project-clarity-erp` Phase 147 retroactive ATC is not yet landed. Scope stands; execution deferred. Does NOT block Phase 11 which has no external dep.
+- None. All Phase 9 external blockers resolved; v1.2 progress at 40% (2/5 phases).
 
 ## Session Continuity
 
-Last session: 2026-04-22T12:53:28.556Z
-Stopped at: Phase 9 context gathered
-Resume file: .planning/phases/09-atc-147-evidence/09-CONTEXT.md
+Last session: 2026-04-22T16:00:00.000Z
+Stopped at: Phase 9 closed — ready for Phase 10 discussion
+Resume file: .planning/phases/09-atc-147-evidence/09-VERIFICATION.md (includes ATC warnings for Phase 10 consumer)
