@@ -2,7 +2,7 @@
 
 **Gathered:** 2026-04-22
 **Status:** Ready for planning
-**Scope note:** Expanded from original ROADMAP scope by operator directive to include a new `/gsd-complete-milestone` skill with bidirectional VTP MCP integration. See D-16 below.
+**Scope note:** Expanded from original ROADMAP scope by operator directive to include a new `/sgsd-complete-milestone` skill with bidirectional VTP MCP integration. See D-16 below.
 
 <domain>
 ## Phase Boundary
@@ -18,9 +18,9 @@ Seven GOV requirements, plus an operator-directed scope expansion:
 5. **GOV-05** — Post-deliberation scoring audit (milestone-close hook → `.planning/metrics/deliberation-outcomes.jsonl`)
 6. **GOV-06** — Board member responses become structured YAML with the 10-field schema
 7. **GOV-07** — CEO post-synthesis reflection pass ("what blind spots did this deliberation have?")
-8. **SCOPE+** — New `/gsd-complete-milestone` skill: integrates GOV-05 audit, MUDA recurrence check, cross-phase integration check, and **bidirectional VTP MCP** (ingest prior articles as enrichment, publish milestone summary as research artifact). Replaces the existing milestone-close workflow with something that reflects the full SGSD 2.0 stack.
+8. **SCOPE+** — New `/sgsd-complete-milestone` skill: integrates GOV-05 audit, MUDA recurrence check, cross-phase integration check, and **bidirectional VTP MCP** (ingest prior articles as enrichment, publish milestone summary as research artifact). Replaces the existing milestone-close workflow with something that reflects the full SGSD 2.0 stack.
 
-**Not in scope:** New board archetypes beyond Architect/Contrarian/Pragmatist/Moonshot. Running the new `/gsd-complete-milestone` skill on v1.0/v1.1 retroactively (skill ships in v1.2; applies forward from milestone close). CEO agent redesign (reflection pass is a prompt-append, not a new agent type).
+**Not in scope:** New board archetypes beyond Architect/Contrarian/Pragmatist/Moonshot. Running the new `/sgsd-complete-milestone` skill on v1.0/v1.1 retroactively (skill ships in v1.2; applies forward from milestone close). CEO agent redesign (reflection pass is a prompt-append, not a new agent type).
 </domain>
 
 <canonical_refs>
@@ -33,10 +33,10 @@ Seven GOV requirements, plus an operator-directed scope expansion:
 - `super-gsd/templates/decision-memo.md` (50 lines) — GOV-03 + GOV-07 template extension target.
 - `super-gsd/agents/sgsd-board-{architect,contrarian,moonshot,pragmatist}.md` — 4 board member agent definitions. GOV-06 updates their response schema.
 - `.planning/decisions/DLB-01..06.md` — 6 prior decision memos. GOV-02 retroactive rescore targets.
-- `super-gsd/skills/sgsd-orchestrate/SKILL.md` — milestone-close hook insertion point (though the new /gsd-complete-milestone skill is primary).
+- `super-gsd/skills/sgsd-orchestrate/SKILL.md` — milestone-close hook insertion point (though the new /sgsd-complete-milestone skill is primary).
 - VTP MCP tools: `mcp__vtp-kb__vtp_research_brief`, `mcp__vtp-kb__vtp_ingest_research`, `mcp__vtp-kb__vtp_search`, `mcp__vtp-kb__wiki_search`, `mcp__vtp-kb__vtp_list_research` — bidirectional integration surface.
 - `.planning/metrics/deliberation-outcomes.jsonl` (new) — GOV-05 output target.
-- Existing `/gsd-complete-milestone` skill (if any) in `~/.claude/skills/` or `.claude/skills/` — the new one supersedes it.
+- Existing `/sgsd-complete-milestone` skill (if any) in `~/.claude/skills/` or `.claude/skills/` — the new one supersedes it.
 </canonical_refs>
 
 <decisions>
@@ -137,19 +137,37 @@ Seven GOV requirements, plus an operator-directed scope expansion:
 - **D-14a** — Reflection is appended as `## Post-Synthesis Reflection` section in the memo footer. NOT a separate Agent() dispatch — same CEO-orchestrator context completes the reflection after synthesis. Adds ~200 tokens to the CEO cost budget per deliberation.
 - **D-15** — Reflection content is cross-fed to GOV-05: when the scoring audit parses a DLB, it checks the reflection section for content (> 50 chars prose) and logs `reflection_captured: true | false` into the outcome row. Reflection absence is a GOV-07 adherence fail.
 
-### GOV-05 + Scope+ — New /gsd-complete-milestone Skill (D-16, D-17, D-18)
+### Scope+ — New `/sgsd-complete-milestone` Skill (D-16, D-17, D-18, D-18a, D-18b)
 
-- **D-16** — **New skill: `.claude/skills/gsd-complete-milestone/SKILL.md`** (or wherever the GSD skills directory resolves). Supersedes any existing milestone-close workflow. Core responsibilities:
+- **D-16** — **New skill: `.claude/skills/sgsd-complete-milestone/SKILL.md`** (sgsd-* prefix per operator correction and per the rename rule: genuinely new skill, v2-native, no v1 predecessor). Supersedes any existing milestone-close workflow. Core responsibilities:
   1. Verify all milestone phases have `[x]` in ROADMAP.md (hard precondition)
   2. Run GOV-05 deliberation scoring audit → write `.planning/metrics/deliberation-outcomes.jsonl`
   3. Run MUDA recurrence check per DLB-02 (`sgsd-muda-recurrence.sh`) → flag skill retirement candidates
   4. Run cross-phase integration check (gsd-integration-checker) → confirm no regressions across the milestone
   5. Generate milestone summary artifact at `.planning/milestones/{version}/SUMMARY.md`
-  6. **VTP bidirectional** (per operator directive):
-     - **Ingest (before summary):** `mcp__vtp-kb__vtp_search` for prior research tagged with the milestone's theme; `mcp__vtp-kb__vtp_list_research` for adjacent milestones. Fold into a "Connections" section of the summary.
-     - **Publish (after summary):** `mcp__vtp-kb__vtp_ingest_research` with the finished summary as research artifact; `mcp__vtp-kb__vtp_research_brief` as authoritative structured memo the future can query.
+  6. **VTP bidirectional** with NEW `Milestone` classification (per operator correction — not an article):
+     - **Ingest (before summary):** `mcp__vtp-kb__vtp_search` and `mcp__vtp-kb__vtp_list_research` with `type: Milestone` filter (if supported) to pull prior milestone artifacts + adjacent research as enrichment. Fall back to untyped search if type filter unsupported and document the gap.
+     - **Publish (after summary):** `mcp__vtp-kb__vtp_ingest_research` with `classification: Milestone` (or equivalent field name the VTP API accepts). If VTP MCP does NOT currently support a `Milestone` classification, the skill:
+       (a) pushes the summary with best-available classification,
+       (b) writes `.planning/milestones/{version}/VTP-CLASSIFICATION-GAP.md` enumerating exactly which VTP API change is needed,
+       (c) tags the published item with a `milestone_v1.x` string in whatever metadata field IS writable so future queries can retrieve it.
+     - Researcher in plan 13-05 must confirm in 60s which VTP MCP method accepts classification metadata and document the exact call shape.
   7. Archive milestone dir (move `.planning/phases/` items to `.planning/milestones/{version}/phases/`)
   8. Bump STATE.md to next milestone OR set `milestone_status: complete` if final
+
+- **D-18a** — **Auto-trigger from the orchestrator loop** (per operator correction). `sgsd-orchestrate` SKILL.md Rule 6.g currently handles "verification passed → mark phase complete." Extend the post-mark-complete path:
+  ```
+  After Rule 6.g marks the last phase of a milestone complete:
+    Check: do all milestone phases in ROADMAP.md show [x]?
+      NO  → Continue to next phase per existing dispatch rules.
+      YES → Auto-dispatch sgsd-complete-milestone (no operator prompt).
+  ```
+  Auto-trigger runs inside the sgsd-orchestrate loop just like any other Agent() dispatch — TaskCreate wrapper, bypassPermissions mode, report parsed on return. The skill itself remains idempotent (running twice on the same milestone is a no-op with PASS exit), so re-entry during resume is safe.
+
+- **D-18b** — **VTP classification resilience.** Since `Milestone` may not yet exist as a VTP taxonomy entry, the publish path has three behaviours:
+  - **If Milestone classification exists** (researcher confirms): publish cleanly with that type. Record `vtp_classification_used: Milestone` in the milestone SUMMARY frontmatter.
+  - **If Milestone does NOT exist but VTP supports arbitrary string classifications:** publish with `classification: "Milestone (SGSD v2)"` and record `vtp_classification_used: "Milestone (string)"` in frontmatter. Ship a `VTP-CLASSIFICATION-GAP.md` describing the schema update needed on VTP side.
+  - **If VTP only accepts fixed classifications without "milestone" option:** publish with best-fit existing type (likely "research" or "brief"), tag metadata `sgsd_type: milestone`, ship `VTP-CLASSIFICATION-GAP.md` with urgency HIGH since our round-tripping breaks without a real Milestone type.
 - **D-17** — **Integration with SGSD 2.0 stack** — the new skill leverages:
   - **v2 plan schema** (Phase 11): precondition gate — all milestone plans must have `schema_version: 2` frontmatter OR a documented `v1_legacy: true` flag
   - **Phase 10 gates.yaml** enforcement: milestone close fails if any gate is in `state: known-gap` without an operator-accepted waiver
@@ -174,7 +192,7 @@ Seven GOV requirements, plus an operator-directed scope expansion:
   - **13-02** — vote-synthesis.cjs signed-sum formula (GOV-02 formula)
   - **13-03** — 4 board agent response-schema updates + rubric-driven CEO synthesis + deliberation-schema.cjs validator (GOV-06)
   - **13-04** — decision-memo.md template extension: `## Falsifier` + `## Dead Ends` + `## Post-Synthesis Reflection` (GOV-03 + GOV-07)
-  - **13-05** — New /gsd-complete-milestone skill with bidirectional VTP integration + GOV-05 audit + MUDA recurrence + cross-phase check (D-16 scope expansion)
+  - **13-05** — New /sgsd-complete-milestone skill with bidirectional VTP integration + GOV-05 audit + MUDA recurrence + cross-phase check (D-16 scope expansion)
   - **13-06** — Retro DLB-01..06 rescore validation (GOV-02 validation) — depends on 13-02 + 13-03
   - **13-07** — Phase 13 verify.mjs + full-suite close (all 4 phase verifiers green: 09, 10, 12, 13)
 - **D-20** — **Wave model** (leveraging Phase 12 PARALLEL_CONFIRMED):
@@ -190,7 +208,7 @@ Seven GOV requirements, plus an operator-directed scope expansion:
 - **D-22** — Explicit exclusions:
   - New board archetypes (Visionary, Skeptic, etc.) — deferred to post-v1.2
   - CEO agent redesign — reflection pass is prompt-append, not new agent
-  - Retroactively running the new /gsd-complete-milestone skill on v1.0 or v1.1 — applies forward from v1.2 close
+  - Retroactively running the new /sgsd-complete-milestone skill on v1.0 or v1.1 — applies forward from v1.2 close
   - VTP-side schema changes (assumes VTP MCP tools accept our summary shape as-is)
   - Confidence auto-tuning based on outcome data — manual for v1.2, automate post-v1.3
   - Scoring formula alternatives (Bayesian, weighted-majority) — signed-sum locked for v1.2
@@ -225,12 +243,12 @@ Seven GOV requirements, plus an operator-directed scope expansion:
 
 1. **Run `/gsd-plan-phase 13`** — generates 7 plans per D-19. Wave model per D-20.
 2. **Run `/sgsd-orchestrate go`** (or `/gsd-execute-phase 13`) — Wave 1 truly parallel (3 plans), Waves 2-5 serial.
-3. **Milestone close:** after Phase 13 ships, operator runs the new `/gsd-complete-milestone v1.2` skill (itself delivered by this phase) — generates the v1.2 retrospective, publishes to VTP, archives phase dirs, bumps to next milestone.
+3. **Milestone close:** after Phase 13 ships and the orchestrator marks its phase complete, `sgsd-orchestrate` auto-detects "all milestone phases [x]" and auto-dispatches `/sgsd-complete-milestone v1.2` (no operator prompt per D-18a). The skill generates the v1.2 retrospective, publishes to VTP with classification `Milestone`, archives phase dirs, bumps STATE.md to next milestone. Operator can run manually with `/sgsd-complete-milestone {version}` if needed — the skill is idempotent.
 
 Phase 13 success criteria (from ROADMAP):
 - GOV-01..07 all green
 - board-members.yaml `state: active`, `board_version: v2-runtime-resolved`
 - Retro DLB-01..06 rescored with signed-sum formula; divergence rate documented
-- New /gsd-complete-milestone skill functional with bidirectional VTP integration
+- New /sgsd-complete-milestone skill functional with bidirectional VTP integration
 - Phase 13 verify.mjs green, full suite (09+10+12+13) green
 </next_steps>
