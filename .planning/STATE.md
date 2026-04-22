@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Evidence-First Sharpening
-status: Phase 10 closed — 60% complete (3/5 phases) — Phase 12 or 13 next
-stopped_at: Phase 10 closed — ATC WARN (0 critical, 3 warnings) / MUDA 1 FAIL (inventory, non-blocking) / verifier PASS
-last_updated: "2026-04-22T16:30:00.000Z"
-last_activity: 2026-04-22 -- Phase 10 closed (gate policy + edge-guard shipped)
+status: Phase 12 closed — 80% complete (4/5 phases) — Phase 13 next (final)
+stopped_at: Phase 12 closed — ATC WARN (0 critical, 2 warnings 8.75/10) / verifier PASSED / MUDA 0 WARN 0 FAIL / browser verify skipped
+last_updated: "2026-04-22T19:00:00.000Z"
+last_activity: 2026-04-22 -- Phase 12 closed (MACH-01..04 + ERG-01/02 shipped)
 progress:
   total_phases: 5
-  completed_phases: 3
-  total_plans: 12
-  completed_plans: 12
-  percent: 60
+  completed_phases: 4
+  total_plans: 18
+  completed_plans: 18
+  percent: 80
 ---
 
 # Project State
