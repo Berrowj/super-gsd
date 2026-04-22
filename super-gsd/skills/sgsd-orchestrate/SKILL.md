@@ -849,6 +849,82 @@ REPEAT:
       SKIP/LITE dispatches pay zero.
       } // end config.atc.enabled && gates.shouldFire('per-dispatch-ATC')
 
+  9.6. ADVERSARIAL VERIFIER CHALLENGER PASS (MACH-04, D-13..D-15)
+
+       Fires only when ALL three conditions hold:
+         - Step 6.f completed this iteration (i.e., gsd-verifier was dispatched)
+         - Verifier report status in {passed, passed-with-deviations} — i.e., a PASS verdict
+           (actual gsd-verifier vocab: `status: passed` or `status: human_needed` with no blockers)
+         - Dual-gate: config.atc.enabled AND Math.random() < config.atc.verifier_adversarial_rate
+
+       Rate default: 0.2 (D-14). Set to 0 to disable entirely. Set to 1 to force on every pass.
+       Matches Step 9.5 kill-switch convention: config.atc.enabled must be true for either ATC
+       gate to fire — consistent disable semantics (§Open Question 2 resolution).
+
+       If all three conditions met:
+
+         a. TaskCreate({content: "Phase {N} adversarial challenger", activeForm:
+            "gsd-verifier [sonnet] P{N} — contrarian pass"})
+
+         b. Compose challenger prompt by prepending the D-13a contrarian header VERBATIM:
+
+            ```
+            ADVERSARIAL CHALLENGER PASS — the primary verifier returned PASS. You are challenging that verdict. Assume the primary verifier missed something. List the top 3 ways this phase might silently fail despite the PASS. Focus on: cross-plan integration gaps the primary verifier didn't exercise, assumptions baked into plan contracts that weren't proven in execution, invariants that are mechanically true but semantically vacuous.
+            ```
+
+            Prompt composition (DLB-03 structural injection pattern, cf. SKILL.md:241-274):
+
+            ```javascript
+            const challengerPrompt =
+              `ADVERSARIAL CHALLENGER PASS — the primary verifier returned PASS. You are ` +
+              `challenging that verdict. Assume the primary verifier missed something. List ` +
+              `the top 3 ways this phase might silently fail despite the PASS. Focus on: ` +
+              `cross-plan integration gaps the primary verifier didn't exercise, assumptions ` +
+              `baked into plan contracts that weren't proven in execution, invariants that are ` +
+              `mechanically true but semantically vacuous.\n\n` +
+              primaryVerifierPrompt;
+            ```
+
+         c. Agent(subagent_type: "gsd-verifier", model: "sonnet", mode: "auto",
+                  prompt: challengerPrompt)
+
+         d. Parse challenger report STATUS (actual gsd-verifier vocab mapping):
+
+            status: passed (challenger agrees — no new concerns found)
+              → Log to .planning/metrics/token-log.jsonl:
+                  {"ts":"{ISO}","phase":N,"event":"verifier_adversarial_agreement",
+                   "verifier_adversarial_agreement":true}
+
+            status: human_needed (challenger finds concerns but not hard failures)
+              → This maps to D-13b PASS-WITH-GAPS semantics:
+                  Promote phase verdict to PASS-WITH-GAPS.
+                  Append challenger findings to {NN}-VERIFICATION.md as
+                  `## Adversarial Challenge` section.
+                  Do NOT block; log as soft signal.
+                  Log to token-log.jsonl:
+                  {"ts":"{ISO}","phase":N,"event":"verifier_adversarial_gap_found"}
+
+            status: gaps_found (challenger flips verdict — hard failures found)
+              → This maps to D-13b FAIL semantics:
+                  Auto mode:
+                    Log VERIFIER_ADVERSARIAL_FLIP as CRITICAL in DEVIATIONS.
+                    Append full challenger report to {NN}-VERIFICATION.md.
+                    Continue — never auto-block on a challenger second opinion (D-13b).
+                  Interactive mode:
+                    STOP with blocker for operator arbitration.
+
+         e. TaskUpdate(same taskId, status: "completed")
+
+       Token budget per challenger pass: ~600 tokens (same model, same prompt + ~70-token
+       header). At rate=0.2 on a 5-phase milestone, expected ~1 invocation — amortised
+       +120 tokens per phase (D-15).
+
+       Note on Risk 5 (research §Risk 5): the challenger at 0.2 rate may NOT fire during
+       Phase 12's own verifier dispatch. That is expected. verify.mjs invariant 8 checks
+       config presence and SKILL.md marker only — not that a challenger has fired.
+       "Fired at least once" is a milestone-close concern: audit via
+       `grep -r "Adversarial Challenge" .planning/phases/*/`.
+
   10. CURATE LEARNINGS
       // Gate check (Phase 10 D-08): sgsd-curate-learnings fires when new pattern, script, or error
       if (gates.shouldFire('sgsd-curate-learnings', ctx, GATES_YAML_PATH)) {
