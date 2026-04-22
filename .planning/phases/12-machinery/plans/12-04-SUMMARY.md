@@ -176,4 +176,4 @@ Risk 5 note: challenger at 0.2 rate may not fire during Phase 12's own verifier 
 |------|--------|-------------|
 | 12-04-01 | 001c223 | config.json verifier_adversarial_rate + A2 contract-check note |
 | 12-04-02 | 91eab4d | SKILL.md Step 9.6 adversarial verifier challenger pass |
-| 12-04-03 | (see final commit) | verify.mjs invariants 8-14 + SUMMARY |
+| 12-04-03 | 60accfc | verify.mjs invariants 8-14 + SUMMARY |
