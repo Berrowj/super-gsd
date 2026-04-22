@@ -281,6 +281,30 @@ Add to `~/.claude/settings.json`:
 }
 ```
 
+## Post-install: patch gsd-tools KNOWN_TOP_LEVEL
+
+After installing Super GSD, run this one-time patch so the 7 SGSD v2 top-level config
+keys (`safety`, `model_routing`, `token_efficiency`, `deliberation`, `atc`,
+`browser_verify`, `overwatcher`) no longer emit "unknown config key" warnings when
+present in `.planning/config.json`.
+
+```bash
+bash super-gsd/scripts/patch-gsd-tools-known-keys.sh -y
+```
+
+**Note — separate repo:** `core.cjs` lives in the `~/.claude/get-shit-done/` repo, not
+in your project repo. The script detects this automatically and prints the commit command
+to run in that repo after patching:
+
+```bash
+cd ~/.claude && git add bin/lib/core.cjs && git commit -m 'feat: add SGSD v2 top-level keys to KNOWN_TOP_LEVEL'
+```
+
+The script is **idempotent** — running it twice is safe (second run exits 0 with
+`ALREADY_PATCHED`). Use `--dry-run` to preview the diff without writing anything.
+
+---
+
 ## Model Routing
 
 | Role | Model | Cost Ratio | When |
