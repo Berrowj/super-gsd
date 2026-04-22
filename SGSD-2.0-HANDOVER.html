@@ -1,0 +1,1631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SGSD 2.0 — Handover &amp; Product Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --accent: #F79F1C;
+  --accent-deep: #D4820A;
+  --accent-soft: #FCE8CA;
+  --ink: #000000;
+  --charcoal: #2D2E34;
+  --warm-grey: #3D3838;
+  --pale-grey: #D8D4D4;
+  --cream: #F2EEEE;
+  --white: #FFFFFF;
+  --ok: #2E7D32;
+  --warn: #B36B00;
+  --crit: #B22222;
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 16.5px;
+  line-height: 1.68;
+  color: var(--charcoal);
+  background: var(--cream);
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+/* ─── headings ──────────────────────────────────────────────── */
+h1, h2, h3, h4 { font-family: 'Montserrat', sans-serif; letter-spacing: -0.01em; color: var(--ink); margin-top: 1.4em; }
+h1 { font-weight: 800; font-size: 3.2rem; line-height: 1.05; letter-spacing: -0.025em; }
+h2 { font-weight: 700; font-size: 2.05rem; line-height: 1.15; margin-top: 2.1em; border-bottom: 3px solid var(--accent); padding-bottom: 10px; display: inline-block; }
+h3 { font-weight: 700; font-size: 1.35rem; margin-top: 1.8em; color: var(--warm-grey); }
+h4 { font-weight: 600; font-size: 1.08rem; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; }
+p { margin: 0.9em 0; max-width: 75ch; }
+strong { font-weight: 700; color: var(--ink); }
+em { color: var(--warm-grey); }
+a { color: var(--accent-deep); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { color: var(--accent); }
+/* ─── cover ─────────────────────────────────────────────────── */
+.cover {
+  background: linear-gradient(135deg, #2D2E34 0%, #000000 100%);
+  color: var(--white);
+  padding: 90px 0 120px;
+  position: relative;
+  overflow: hidden;
+}
+.cover::before {
+  content: "";
+  position: absolute; top: -100px; right: -100px;
+  width: 420px; height: 420px;
+  background: var(--accent);
+  opacity: 0.22;
+  border-radius: 50%;
+  filter: blur(80px);
+}
+.cover-inner { position: relative; }
+.brand-mark {
+  display: inline-block;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--accent);
+  letter-spacing: 0.32em;
+  margin-bottom: 36px;
+  border-left: 3px solid var(--accent);
+  padding-left: 14px;
+}
+.cover h1 { color: var(--white); margin: 0 0 22px; max-width: 16ch; }
+.cover .subtitle {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 400;
+  font-size: 1.35rem;
+  color: var(--pale-grey);
+  max-width: 60ch;
+  margin: 0 0 44px;
+}
+.cover .meta {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  padding-top: 40px;
+  border-top: 1px solid rgba(255,255,255,0.15);
+  max-width: 820px;
+}
+.meta-cell { font-family: 'Montserrat', sans-serif; }
+.meta-cell .label { display: block; font-size: 0.68rem; color: var(--accent); letter-spacing: 0.24em; font-weight: 600; margin-bottom: 6px; }
+.meta-cell .value { font-size: 1.18rem; color: var(--white); font-weight: 600; }
+/* ─── TOC ──────────────────────────────────────────────────── */
+.toc {
+  background: var(--white);
+  padding: 56px 0;
+  border-bottom: 1px solid var(--pale-grey);
+}
+.toc h2 { margin-top: 0; }
+.toc-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 40px; list-style: none; padding: 0; margin: 24px 0 0; counter-reset: toc; }
+.toc-grid li { display: block; counter-increment: toc; padding: 10px 0; border-bottom: 1px dashed var(--pale-grey); }
+.toc-grid li::before { content: counter(toc, decimal-leading-zero); font-family: 'Montserrat', sans-serif; font-weight: 700; color: var(--accent); font-size: 0.78rem; margin-right: 14px; letter-spacing: 0.1em; }
+.toc-grid a { text-decoration: none; color: var(--ink); font-weight: 500; }
+.toc-grid a:hover { color: var(--accent-deep); }
+/* ─── sections ─────────────────────────────────────────────── */
+section.block { padding: 52px 0; border-bottom: 1px solid var(--pale-grey); }
+section.block.dark { background: var(--white); }
+section.block.alt  { background: #F8F4F4; }
+.lede {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--warm-grey);
+  max-width: 65ch;
+  border-left: 4px solid var(--accent);
+  padding: 6px 0 6px 22px;
+  margin: 18px 0 34px;
+}
+/* ─── cards / callouts ─────────────────────────────────────── */
+.card {
+  background: var(--white);
+  border: 1px solid var(--pale-grey);
+  border-radius: 6px;
+  padding: 26px 30px;
+  margin: 22px 0;
+  box-shadow: 0 1px 3px rgba(45,46,52,0.04);
+}
+.card h3 { margin-top: 0; }
+.callout {
+  border-radius: 4px;
+  padding: 18px 22px;
+  margin: 22px 0;
+  border-left: 5px solid var(--accent);
+  background: var(--accent-soft);
+}
+.callout h4 { margin-top: 0; margin-bottom: 8px; color: var(--accent-deep); font-size: 0.78rem; letter-spacing: 0.16em; }
+.callout.info { background: #EBF2F8; border-left-color: #2C6DA3; }
+.callout.info h4 { color: #1E4E75; }
+.callout.warn { background: #FFF3DC; border-left-color: var(--warn); }
+.callout.warn h4 { color: var(--warn); }
+.callout.eli5 { background: #FFF7E8; border-left: 5px solid var(--accent); position: relative; }
+.callout.eli5::before { content: "👶"; position: absolute; top: 14px; right: 22px; font-size: 1.3rem; opacity: 0.3; }
+.callout.eli5 h4 { color: var(--accent-deep); }
+/* ─── code blocks ──────────────────────────────────────────── */
+code { font-family: var(--mono); font-size: 0.92em; background: var(--cream); padding: 1px 6px; border-radius: 3px; color: var(--charcoal); }
+pre {
+  font-family: var(--mono);
+  font-size: 0.86em;
+  line-height: 1.55;
+  background: var(--charcoal);
+  color: var(--cream);
+  border-radius: 6px;
+  padding: 22px 26px;
+  overflow-x: auto;
+  margin: 18px 0;
+  border-left: 4px solid var(--accent);
+}
+pre code { background: transparent; color: inherit; padding: 0; }
+/* ─── tables ───────────────────────────────────────────────── */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 20px 0;
+  font-size: 0.94em;
+  background: var(--white);
+  border: 1px solid var(--pale-grey);
+}
+th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--pale-grey); vertical-align: top; }
+th { background: var(--charcoal); color: var(--white); font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; }
+tr:nth-child(even) td { background: #FAF8F8; }
+tr:last-child td { border-bottom: 0; }
+/* ─── badges ───────────────────────────────────────────────── */
+.badge { display: inline-block; padding: 2px 10px; border-radius: 99px; font-family: 'Montserrat', sans-serif; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; vertical-align: middle; }
+.badge.hard { background: #FBE4E6; color: var(--crit); }
+.badge.soft { background: #FFE9C9; color: var(--warn); }
+.badge.amort { background: #DCE5EE; color: #2C6DA3; }
+.badge.off { background: var(--pale-grey); color: var(--warm-grey); }
+.badge.ok { background: #D9EBD9; color: var(--ok); }
+.badge.done { background: var(--ink); color: var(--accent); }
+.badge.planned { background: var(--accent); color: var(--ink); }
+/* ─── flow diagram boxes ───────────────────────────────────── */
+.flow-diagram { background: var(--white); padding: 30px; border: 1px solid var(--pale-grey); border-radius: 6px; margin: 22px 0; overflow-x: auto; }
+.flow-diagram svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+/* ─── stat row ─────────────────────────────────────────────── */
+.stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin: 24px 0; }
+.stat { background: var(--white); border: 1px solid var(--pale-grey); border-top: 4px solid var(--accent); padding: 18px 20px; border-radius: 4px; }
+.stat .num { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 2.2rem; color: var(--ink); display: block; line-height: 1; }
+.stat .lbl { font-family: 'Montserrat', sans-serif; font-size: 0.72rem; color: var(--warm-grey); letter-spacing: 0.14em; text-transform: uppercase; margin-top: 6px; display: block; }
+/* ─── scenario cards ───────────────────────────────────────── */
+.scenario { background: var(--white); border: 1px solid var(--pale-grey); border-radius: 6px; margin: 22px 0; overflow: hidden; }
+.scenario-head { background: var(--charcoal); color: var(--white); padding: 14px 22px; font-family: 'Montserrat', sans-serif; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+.scenario-head .num { background: var(--accent); color: var(--ink); border-radius: 99px; padding: 2px 10px; font-size: 0.78rem; }
+.scenario-body { padding: 20px 26px; }
+.scenario-body .trigger, .scenario-body .outcome { display: block; font-family: 'Montserrat', sans-serif; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent-deep); margin: 14px 0 4px; }
+.scenario-body .trigger { margin-top: 0; }
+/* ─── misc ─────────────────────────────────────────────────── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin: 22px 0; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 22px; margin: 22px 0; }
+.chip { display: inline-block; background: var(--accent-soft); color: var(--accent-deep); border: 1px solid var(--accent); padding: 2px 10px; border-radius: 4px; font-family: var(--mono); font-size: 0.85em; margin: 2px 4px 2px 0; }
+hr { border: 0; border-top: 1px solid var(--pale-grey); margin: 40px 0; }
+.footer { background: var(--ink); color: var(--pale-grey); padding: 50px 0 38px; }
+.footer h4 { color: var(--accent); }
+.footer a { color: var(--accent); }
+@media (max-width: 820px) {
+  .toc-grid, .two-col, .three-col, .cover .meta, .stat-row { grid-template-columns: 1fr; }
+  h1 { font-size: 2.2rem; }
+  h2 { font-size: 1.5rem; }
+}
+@media print {
+  .cover { background: var(--white); color: var(--ink); }
+  .cover h1 { color: var(--ink); }
+  .cover .subtitle, .meta-cell .value { color: var(--ink); }
+  .footer, .toc { display: none; }
+  section.block { page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ COVER ══════════════════ -->
+<header class="cover">
+  <div class="wrap cover-inner">
+    <span class="brand-mark">SUPER GSD · VERSION 2.0 · HANDOVER</span>
+    <h1>The autonomous software delivery stack.</h1>
+    <p class="subtitle">A complete product guide to the orchestrator, agents, registries, gates, memory and milestone machinery that ships software one atomic commit at a time — measured, auditable, and drift-resistant.</p>
+    <div class="meta">
+      <div class="meta-cell"><span class="label">Milestone</span><span class="value">v1.2</span></div>
+      <div class="meta-cell"><span class="label">Status</span><span class="value">80% · 4/5 shipped</span></div>
+      <div class="meta-cell"><span class="label">Architecture</span><span class="value">SGSD 2.0</span></div>
+      <div class="meta-cell"><span class="label">Document Date</span><span class="value">2026-04-22</span></div>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════════ TOC ══════════════════ -->
+<nav class="toc">
+  <div class="wrap">
+    <h2>Contents</h2>
+    <ol class="toc-grid">
+      <li><a href="#summary">Executive Summary</a></li>
+      <li><a href="#story">The Upgrade Story: GSD → SGSD 2.0</a></li>
+      <li><a href="#architecture">Architecture at a Glance</a></li>
+      <li><a href="#loop">The Autonomous Loop</a></li>
+      <li><a href="#dispatch">Dispatch Rules (First-Match Tree)</a></li>
+      <li><a href="#agents">The Agent Roster</a></li>
+      <li><a href="#registries">Registered Resources &amp; YAML</a></li>
+      <li><a href="#memory">Memory Topology (DLB-01)</a></li>
+      <li><a href="#gates">Quality Gates</a></li>
+      <li><a href="#antislop">Stopping Slop &amp; Hallucination</a></li>
+      <li><a href="#drift">Drift Prevention</a></li>
+      <li><a href="#planning">Planning Pipeline (end-to-end)</a></li>
+      <li><a href="#execution">Execution Pipeline (every branch)</a></li>
+      <li><a href="#milestone">Milestone Close: sgsd-complete-milestone</a></li>
+      <li><a href="#scenarios">If-This-Then-That Scenarios</a></li>
+      <li><a href="#ledger">v1.2 Shipment Ledger</a></li>
+      <li><a href="#dlbs">Deliberation Memos (DLB-01..06)</a></li>
+      <li><a href="#glossary">Glossary</a></li>
+    </ol>
+  </div>
+</nav>
+
+<!-- ══════════════════ 01 EXECUTIVE SUMMARY ══════════════════ -->
+<section class="block" id="summary">
+  <div class="wrap">
+    <h2>01 &nbsp; Executive Summary</h2>
+    <p class="lede">SGSD 2.0 turns Claude Code into a disciplined delivery team: an Opus-driven orchestrator running a thirteen-step loop, delegating to Haiku-classified sub-agents, gated by an empirically-tuned YAML registry, and coupled to a git-native memory tier. v1.2 Evidence-First Sharpening upgrades every one of those surfaces from prose convention to declarative resource.</p>
+
+    <div class="stat-row">
+      <div class="stat"><span class="num">4/5</span><span class="lbl">v1.2 Phases shipped</span></div>
+      <div class="stat"><span class="num">11</span><span class="lbl">Quality gates, keep/kill audited</span></div>
+      <div class="stat"><span class="num">6</span><span class="lbl">Deliberation memos (DLB)</span></div>
+      <div class="stat"><span class="num">0</span><span class="lbl">Blockers remaining</span></div>
+    </div>
+
+    <div class="callout eli5">
+      <h4>ELI5 — WHAT IS THIS THING?</h4>
+      <p>You tell Claude Code to build software. The old way: it tries its best. The SGSD way: it follows a recipe. The recipe is written in YAML (not vibes), it commits after every small step (so you can undo), it runs a <em>code reviewer</em> before declaring done (so it doesn't lie to you about quality), and it <em>remembers</em> things across sessions in a folder you can actually read (not a database you can't inspect). SGSD 2.0 is the recipe book, the reviewer, and the filing cabinet — all wired up so Claude doesn't drift, doesn't hallucinate, and doesn't ship slop.</p>
+    </div>
+
+    <h3>Headline shipments in v1.2</h3>
+    <ul>
+      <li><strong>Phase 9 — Evidence.</strong> Retrospective audit of an external project's 147-phase review. Produced a 4-bucket classification of 10 findings and a 9-gate bypass audit with explicit token-cost bounds (18,940 upper / 9,340 lower).</li>
+      <li><strong>Phase 10 — Gate Policy.</strong> Turned 9 orchestrator quality gates into a YAML registry (<code>super-gsd/registry/gates.yaml</code>), shipped a typed predicate evaluator, and wired 9 integration sites in the orchestrator skill to read the registry at dispatch time.</li>
+      <li><strong>Phase 11 — Plan Schema v2.</strong> Canonical YAML-frontmatter plan format with required fields, self-healing validator (planner auto-retries on schema failure), and a boot hash drift check.</li>
+      <li><strong>Phase 12 — Machinery.</strong> Per-plan classifier cache (4× token savings on homogeneous phases), DAG-based parallel dispatch, adversarial verifier sampling, mechanical 85% context-emergency halt, <em>and</em> a bash installer script that closes the Phase 10 cross-repo core.cjs patch.</li>
+      <li><strong>Phase 13 — Governance</strong> (planned, not yet executed). Makes the deliberation board a registered resource, introduces confidence-weighted vote synthesis, and ships a new <code>/sgsd-complete-milestone</code> skill with <em>bidirectional VTP</em> integration — milestones ingest prior research as enrichment, then publish themselves back as a <em>Milestone</em>-classified research artifact.</li>
+    </ul>
+
+    <h3>Why this matters</h3>
+    <p>Before SGSD 2.0, gate enforcement lived in prose inside a skill file. Any gate could be silently skipped and nobody would notice. Plans were free-form markdown; schema violations only showed at execution time. Memory was a dead MCP reference (<code>brv-query</code>) that was never actually installed. The orchestrator's dispatch logic was narrative, not declarative. After v1.2: every gate is a YAML row with an empirical trigger, every plan passes a mechanical validator before the executor sees it, memory is a git-native filesystem tier with <code>sgsd-recall</code> as the callable interface, and dispatch rules are first-match predicates the orchestrator can audit and explain.</p>
+  </div>
+</section>
+
+<!-- ══════════════════ 02 THE UPGRADE STORY ══════════════════ -->
+<section class="block dark" id="story">
+  <div class="wrap">
+    <h2>02 &nbsp; The Upgrade Story: GSD → SGSD 2.0</h2>
+    <p class="lede">GSD gave you an orchestrator. SGSD 2.0 gives you a <em>measured</em> orchestrator with a nervous system, a memory, and a board of directors.</p>
+
+    <div class="two-col">
+      <div class="card">
+        <h3>GSD (the base framework)</h3>
+        <p>The original "Get Shit Done" framework shipped the plan-phase / execute-phase pipeline. Phases move through discuss → research → plan → plan-check → execute → verify. Agents are specialised (researcher, planner, plan-checker, executor, verifier). Each plan is a markdown file with inline tasks. Output is atomic commits.</p>
+        <ul>
+          <li>Skill-driven workflows (<code>/gsd-discuss-phase</code>, <code>/gsd-plan-phase</code>, etc.)</li>
+          <li>Plan-checker as a verification gate before execution</li>
+          <li>Verifier as a goal-backward audit after execution</li>
+          <li>Model routing defaults (Haiku classify, Sonnet execute, Opus orchestrate)</li>
+        </ul>
+        <p><em>What GSD doesn't solve:</em> prose-based gate enforcement, free-form plan shape, no mechanical schema validation, no empirical keep/kill for quality gates, no cross-session memory.</p>
+      </div>
+
+      <div class="card">
+        <h3>SGSD 2.0 (the upgrade)</h3>
+        <p>Keeps the GSD pipeline, adds a nervous system and a declarative substrate. Everything that was prose becomes YAML. Every gate has an empirical trigger. Memory is first-class. The board of deliberators is a registered resource with a runtime roster. Milestones close themselves via an auto-triggered skill.</p>
+        <ul>
+          <li>YAML registries: <code>gates.yaml</code>, <code>board-members.yaml</code>, <code>agents.yaml</code>, <code>plan-schema-v2.json</code>, <code>decisions.yaml</code></li>
+          <li>Memory tier at <code>.planning/memory/</code> with 8-folder taxonomy (DLB-01)</li>
+          <li>Intent injection (DLB-03): milestone outcome injected into every dispatch prompt</li>
+          <li>MUDA waste audit (DLB-02) runs at phase close, detect-and-record</li>
+          <li>Adversarial verifier sampling catches silent PASS drift</li>
+          <li>Bidirectional VTP integration at milestone close</li>
+        </ul>
+        <p><em>What SGSD 2.0 adds on top:</em> evidence-gated enforcement, schema-enforced plans, cross-session memory, drift-resistant structural injection, and milestone-as-artifact closing.</p>
+      </div>
+    </div>
+
+    <div class="callout">
+      <h4>THE ONE-LINE DIFFERENCE</h4>
+      <p><strong>GSD</strong> runs the pipeline. <strong>SGSD 2.0</strong> runs the pipeline <em>and</em> measures it, gates it, remembers it, reflects on it, and publishes the result.</p>
+    </div>
+
+    <h3>The three-day journey that shipped v1.2</h3>
+    <table>
+      <tr><th>When</th><th>What landed</th><th>Why it mattered</th></tr>
+      <tr><td>2026-04-19 / 20</td><td>DLB-01 through DLB-06 — six board deliberations covering memory topology, MUDA, intent continuity, self-evolving resources, VTP audit, central distribution</td><td>Locked strategic positions <em>before</em> implementing any of them. Every v1.2 phase references these memos.</td></tr>
+      <tr><td>2026-04-21</td><td>Phase 11 shipped — Plan Schema v2 + self-healing validator + boot hash drift check</td><td>Gave SGSD 2.0 a canonical plan shape. Every subsequent phase's plans use v2 frontmatter.</td></tr>
+      <tr><td>2026-04-22</td><td>Phases 9 + 10 + 12 shipped; Phase 13 planned</td><td>The whole evidence → gate → machinery → governance arc. Turns empirical audit into enforceable policy, then hardens the orchestrator around it.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════ 03 ARCHITECTURE ══════════════════ -->
+<section class="block" id="architecture">
+  <div class="wrap">
+    <h2>03 &nbsp; Architecture at a Glance</h2>
+    <p class="lede">Seven layers. Operator at the top, git at the bottom. Everything in between is declarative resources the orchestrator reads at runtime.</p>
+
+    <div class="flow-diagram">
+      <svg viewBox="0 0 900 620" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="arch-title">
+        <title id="arch-title">SGSD 2.0 layer-cake architecture</title>
+        <defs>
+          <style><![CDATA[
+            .lbl { font: 600 14px 'Montserrat', sans-serif; fill: #000; }
+            .sub { font: 400 11.5px 'Source Sans 3', sans-serif; fill: #3D3838; }
+            .cap { font: 700 10px 'Montserrat', sans-serif; fill: #F79F1C; letter-spacing: 2px; }
+          ]]></style>
+        </defs>
+        <!-- layer 1 operator -->
+        <rect x="50" y="30" width="800" height="60" fill="#2D2E34" rx="4"/>
+        <text x="70" y="50" class="cap" fill="#F79F1C">LAYER 1</text>
+        <text x="70" y="72" class="lbl" fill="#FFF">Operator — types /sgsd-orchestrate go, /gsd-plan-phase 13, etc.</text>
+        <!-- layer 2 skills -->
+        <rect x="50" y="110" width="800" height="70" fill="#F79F1C" rx="4"/>
+        <text x="70" y="130" class="cap" fill="#000">LAYER 2 · SKILLS</text>
+        <text x="70" y="152" class="lbl">sgsd-orchestrate &nbsp; sgsd-complete-milestone &nbsp; sgsd-deliberate &nbsp; sgsd-triage &nbsp; /gsd-plan-phase &nbsp; /gsd-execute-phase</text>
+        <text x="70" y="170" class="sub">Entry points — the commands an operator invokes.</text>
+        <!-- layer 3 orchestrator -->
+        <rect x="50" y="200" width="800" height="70" fill="#FCE8CA" stroke="#F79F1C" rx="4"/>
+        <text x="70" y="220" class="cap">LAYER 3 · ORCHESTRATOR (OPUS)</text>
+        <text x="70" y="244" class="lbl">13-step autonomous loop · Dispatch rules · Checkpoint protocol · State read / state write</text>
+        <text x="70" y="262" class="sub">The only layer that holds session context. Delegates every hard job.</text>
+        <!-- layer 4 agents -->
+        <rect x="50" y="290" width="800" height="82" fill="#FFF" stroke="#D8D4D4" rx="4"/>
+        <text x="70" y="310" class="cap">LAYER 4 · AGENTS (SONNET / HAIKU)</text>
+        <text x="70" y="332" class="lbl">gsd-executor &nbsp; gsd-verifier &nbsp; gsd-planner &nbsp; gsd-plan-checker &nbsp; gsd-phase-researcher</text>
+        <text x="70" y="350" class="lbl">sgsd-classifier &nbsp; sgsd-context-selector &nbsp; sgsd-board-* &nbsp; gsd-code-reviewer &nbsp; gsd-debugger</text>
+        <text x="70" y="366" class="sub">Each agent runs in its own context. Returns a 300-word structured report.</text>
+        <!-- layer 5 registries -->
+        <rect x="50" y="392" width="395" height="82" fill="#F2EEEE" stroke="#D8D4D4" rx="4"/>
+        <text x="70" y="412" class="cap">LAYER 5a · REGISTRIES (YAML)</text>
+        <text x="70" y="434" class="lbl">gates.yaml · board-members.yaml</text>
+        <text x="70" y="452" class="lbl">agents.yaml · decisions.yaml · plan-schema-v2.json</text>
+        <text x="70" y="468" class="sub">Declarative source of truth. Read at runtime, not compiled.</text>
+        <!-- layer 5b memory -->
+        <rect x="455" y="392" width="395" height="82" fill="#F2EEEE" stroke="#D8D4D4" rx="4"/>
+        <text x="475" y="412" class="cap">LAYER 5b · MEMORY TIER</text>
+        <text x="475" y="434" class="lbl">.planning/memory/ (git-tracked)</text>
+        <text x="475" y="452" class="lbl">sgsd-recall · sgsd-curate · INDEX.md catalog</text>
+        <text x="475" y="468" class="sub">8-folder semantic taxonomy. Auto-memory junction transparent.</text>
+        <!-- layer 6 metrics -->
+        <rect x="50" y="494" width="800" height="60" fill="#2D2E34" rx="4"/>
+        <text x="70" y="514" class="cap" fill="#F79F1C">LAYER 6 · TELEMETRY</text>
+        <text x="70" y="536" class="lbl" fill="#FFF">token-log.jsonl &nbsp; edge-guard-log.jsonl &nbsp; muda-log.jsonl &nbsp; deliberation-outcomes.jsonl &nbsp; intent-log.jsonl</text>
+        <!-- layer 7 git -->
+        <rect x="50" y="574" width="800" height="30" fill="#000" rx="4"/>
+        <text x="70" y="593" class="cap" fill="#F79F1C">LAYER 7 · GIT — atomic commits per unit, never batched, never amended</text>
+      </svg>
+    </div>
+
+    <div class="callout eli5">
+      <h4>ELI5 — WHY SEVEN LAYERS?</h4>
+      <p>Think of a restaurant. Layer 1 is the customer ordering. Layer 2 is the menu (commands). Layer 3 is the head chef — reads orders, decides who cooks what, but doesn't actually touch pans. Layer 4 is the cooks — each one does one dish really well. Layer 5a is the recipe book (YAML) — no cook invents a dish; they read the recipe. Layer 5b is the pantry — ingredients from past meals, organised by category. Layer 6 is the order ticket system — every dish that leaves the kitchen is logged. Layer 7 is the ledger — every completed order is a receipt that can never be rewritten.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 04 THE LOOP ══════════════════ -->
+<section class="block alt" id="loop">
+  <div class="wrap">
+    <h2>04 &nbsp; The Autonomous Loop</h2>
+    <p class="lede">One loop iteration = one dispatched agent + one atomic commit + one state update. Thirteen steps. Runs until exit condition fires.</p>
+
+    <div class="flow-diagram">
+      <svg viewBox="0 0 900 760" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <style><![CDATA[
+            .num { font: 800 14px 'Montserrat'; fill: #F79F1C; }
+            .ttl { font: 600 13px 'Montserrat'; fill: #000; }
+            .det { font: 400 10.5px 'Source Sans 3'; fill: #3D3838; }
+            .arr { stroke: #F79F1C; stroke-width: 2; fill: none; marker-end: url(#ah); }
+          ]]></style>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#F79F1C"/>
+          </marker>
+        </defs>
+
+        <!-- 1 read state -->
+        <rect x="40" y="20" width="210" height="56" fill="#FFF" stroke="#F79F1C" stroke-width="2" rx="4"/>
+        <text x="52" y="40" class="num">01</text>
+        <text x="82" y="40" class="ttl">READ STATE</text>
+        <text x="52" y="58" class="det">Frontmatter only — 30 lines.</text>
+        <text x="52" y="70" class="det">milestone · phase · plan · status</text>
+
+        <!-- 2 classify -->
+        <rect x="280" y="20" width="210" height="56" fill="#FFF" stroke="#D8D4D4" rx="4"/>
+        <text x="292" y="40" class="num">02</text>
+        <text x="322" y="40" class="ttl">CLASSIFY (Haiku)</text>
+        <text x="292" y="58" class="det">complexity · model · atc_tier</text>
+        <text x="292" y="70" class="det">v2 plans: cache hit (Phase 12)</text>
+
+        <!-- 3 delib gate -->
+        <rect x="520" y="20" width="210" height="56" fill="#FFF" stroke="#D8D4D4" rx="4"/>
+        <text x="532" y="40" class="num">03</text>
+        <text x="562" y="40" class="ttl">DELIBERATION GATE</text>
+        <text x="532" y="58" class="det">If classifier.deliberate &amp;&amp;</text>
+        <text x="532" y="70" class="det">interactive → /sgsd-deliberate</text>
+
+        <!-- 4 context -->
+        <rect x="40" y="105" width="210" height="56" fill="#FFF" stroke="#D8D4D4" rx="4"/>
+        <text x="52" y="125" class="num">04</text>
+        <text x="82" y="125" class="ttl">SELECT CONTEXT (Haiku)</text>
+        <text x="52" y="143" class="det">Picks sgsd-recall queries</text>
+        <text x="52" y="155" class="det">based on task keywords</text>
+
+        <!-- 5 recall -->
+        <rect x="280" y="105" width="210" height="56" fill="#FFF" stroke="#D8D4D4" rx="4"/>
+        <text x="292" y="125" class="num">05</text>
+        <text x="322" y="125" class="ttl">sgsd-recall</text>
+        <text x="292" y="143" class="det">Query .planning/memory/</text>
+        <text x="292" y="155" class="det">Inject top-3 as context</text>
+
+        <!-- 5.5 intent -->
+        <rect x="520" y="105" width="210" height="56" fill="#FFF" stroke="#F79F1C" stroke-width="2" rx="4"/>
+        <text x="532" y="125" class="num">5.5</text>
+        <text x="562" y="125" class="ttl">INTENT INJECTION (DLB-03)</text>
+        <text x="532" y="143" class="det">outcome_delivered from</text>
+        <text x="532" y="155" class="det">milestones/{ver}/INTENT.md</text>
+
+        <!-- 6 dispatch -->
+        <rect x="40" y="190" width="690" height="56" fill="#F79F1C" rx="4"/>
+        <text x="52" y="210" class="num" fill="#000">06</text>
+        <text x="82" y="210" class="ttl" fill="#000">DETERMINE DISPATCH — First-match rules (Rule 0 → 6.7)</text>
+        <text x="52" y="232" class="det" fill="#000">Readiness · researcher · planner · plan-checker · executor · verifier · ATC gate · MUDA · browser verify · milestone close</text>
+
+        <!-- 6.5 atc gate -->
+        <rect x="40" y="275" width="210" height="56" fill="#FCE8CA" stroke="#D4820A" rx="4"/>
+        <text x="52" y="295" class="num">6.5</text>
+        <text x="82" y="295" class="ttl">PHASE ATC GATE</text>
+        <text x="52" y="313" class="det">Once per phase, post-verifier.</text>
+        <text x="52" y="325" class="det">Haiku tiers → Sonnet review.</text>
+
+        <!-- 6.55 muda -->
+        <rect x="280" y="275" width="210" height="56" fill="#FCE8CA" stroke="#D4820A" rx="4"/>
+        <text x="292" y="295" class="num">6.55</text>
+        <text x="322" y="295" class="ttl">MUDA AUDIT (DLB-02)</text>
+        <text x="292" y="313" class="det">Gate: ≥4 files OR ≥100 lines.</text>
+        <text x="292" y="325" class="det">Detect-and-record. Never blocks.</text>
+
+        <!-- 6.6 browser -->
+        <rect x="520" y="275" width="210" height="56" fill="#FCE8CA" stroke="#D4820A" rx="4"/>
+        <text x="532" y="295" class="num">6.6</text>
+        <text x="562" y="295" class="ttl">BROWSER VERIFY</text>
+        <text x="532" y="313" class="det">Only if frontend files touched.</text>
+        <text x="532" y="325" class="det">Ground-truth tool, not prose.</text>
+
+        <!-- 6.7 milestone -->
+        <rect x="40" y="360" width="690" height="56" fill="#000" rx="4"/>
+        <text x="52" y="380" class="num">6.7</text>
+        <text x="82" y="380" class="ttl" fill="#FFF">MILESTONE AUTO-CLOSE (Phase 13 D-18a) — all phases [x]? auto-dispatch sgsd-complete-milestone</text>
+        <text x="52" y="402" class="det" fill="#F2EEEE">No operator prompt. Idempotent skill, safe on resume.</text>
+
+        <!-- 7 compose -->
+        <rect x="40" y="445" width="210" height="56" fill="#FFF" stroke="#D8D4D4" rx="4"/>
+        <text x="52" y="465" class="num">07</text>
+        <text x="82" y="465" class="ttl">COMPOSE PROMPT</text>
+        <text x="52" y="483" class="det">XML plan + surgical constraint</text>
+        <text x="52" y="495" class="det">header + recall results (&lt;1500 tok)</text>
+
+        <!-- 8 dispatch -->
+        <rect x="280" y="445" width="210" height="56" fill="#FFF" stroke="#D8D4D4" rx="4"/>
+        <text x="292" y="465" class="num">08</text>
+        <text x="322" y="465" class="ttl">DISPATCH SUB-AGENT</text>
+        <text x="292" y="483" class="det">TaskCreate → Agent() →</text>
+        <text x="292" y="495" class="det">TaskUpdate (mandatory wrapper)</text>
+
+        <!-- 9 process -->
+        <rect x="520" y="445" width="210" height="56" fill="#FFF" stroke="#D8D4D4" rx="4"/>
+        <text x="532" y="465" class="num">09</text>
+        <text x="562" y="465" class="ttl">PROCESS REPORT</text>
+        <text x="532" y="483" class="det">Parse 6 sections · 300-word max</text>
+        <text x="532" y="495" class="det">BLOCKERS → EXIT</text>
+
+        <!-- 9.5 per-dispatch ATC -->
+        <rect x="40" y="530" width="210" height="56" fill="#FCE8CA" stroke="#D4820A" rx="4"/>
+        <text x="52" y="550" class="num">9.5</text>
+        <text x="82" y="550" class="ttl">PER-DISPATCH ATC</text>
+        <text x="52" y="568" class="det">FULL tier + code files only.</text>
+        <text x="52" y="580" class="det">Skip LITE/SKIP tiers.</text>
+
+        <!-- 10 curate -->
+        <rect x="280" y="530" width="210" height="56" fill="#FFF" stroke="#D8D4D4" rx="4"/>
+        <text x="292" y="550" class="num">10</text>
+        <text x="322" y="550" class="ttl">CURATE LEARNINGS</text>
+        <text x="292" y="568" class="det">sgsd-curate new patterns</text>
+        <text x="292" y="580" class="det">scripts · error-rules</text>
+
+        <!-- 11 update state -->
+        <rect x="520" y="530" width="210" height="56" fill="#FFF" stroke="#D8D4D4" rx="4"/>
+        <text x="532" y="550" class="num">11</text>
+        <text x="562" y="550" class="ttl">UPDATE STATE</text>
+        <text x="532" y="568" class="det">STATE.md · ROADMAP.md</text>
+        <text x="532" y="580" class="det">token-log.jsonl append</text>
+
+        <!-- 12 commit -->
+        <rect x="40" y="615" width="690" height="56" fill="#F79F1C" rx="4"/>
+        <text x="52" y="635" class="num" fill="#000">12</text>
+        <text x="82" y="635" class="ttl" fill="#000">ATOMIC GIT COMMIT — never batch, never skip, never amend</text>
+        <text x="52" y="657" class="det" fill="#000">feat(phase-plan): {ONE_LINER from agent report}</text>
+
+        <!-- 13 loop -->
+        <rect x="40" y="700" width="690" height="40" fill="#2D2E34" rx="4"/>
+        <text x="52" y="723" class="num" fill="#F79F1C">13</text>
+        <text x="82" y="723" class="ttl" fill="#FFF">LOOP → Read STATE again (tool call chains the next iteration)</text>
+      </svg>
+    </div>
+
+    <h3>The golden rule</h3>
+    <div class="callout warn">
+      <h4>TEXT-ONLY = LOOP DIES</h4>
+      <p>Every response from the orchestrator MUST include at least one tool call. A text-only response ends the session. The loop continues because the tail of every iteration pairs a status message with a <code>Read STATE.md</code> call. Exit conditions (the only 4 valid ones) explicitly break this contract: <strong>(1)</strong> all phases complete, <strong>(2)</strong> context &gt;70% → write checkpoint then stop, <strong>(3)</strong> blocker requiring human input, <strong>(4)</strong> user says stop/pause.</p>
+    </div>
+
+    <h3>Token budget per iteration (~1,350 tokens)</h3>
+    <table>
+      <tr><th>Step</th><th>Activity</th><th>Cost</th></tr>
+      <tr><td>1</td><td>STATE.md frontmatter read</td><td>~200</td></tr>
+      <tr><td>2</td><td>Haiku classifier</td><td>~50 <span class="badge soft">0 if cache hit · Phase 12</span></td></tr>
+      <tr><td>4</td><td>Haiku context-selector</td><td>~100</td></tr>
+      <tr><td>5</td><td>sgsd-recall query results</td><td>~600 (top-3 matches)</td></tr>
+      <tr><td>5.5</td><td>INTENT injection (≤120 chars)</td><td>~30</td></tr>
+      <tr><td>7</td><td>Compose agent prompt</td><td>~500</td></tr>
+      <tr><td>9</td><td>Parse agent report</td><td>~300</td></tr>
+      <tr><td>9.5</td><td>Per-dispatch ATC (conditional)</td><td>0–300</td></tr>
+      <tr><td>11–12</td><td>State update + commit</td><td>~150</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════ 05 DISPATCH RULES ══════════════════ -->
+<section class="block" id="dispatch">
+  <div class="wrap">
+    <h2>05 &nbsp; Dispatch Rules — First-Match Tree</h2>
+    <p class="lede">Step 6 asks one question at a time, top to bottom. The first rule whose condition is TRUE wins. That's the dispatch.</p>
+
+    <div class="flow-diagram">
+      <svg viewBox="0 0 880 900" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <style><![CDATA[
+            .rule { fill: #FFF; stroke: #D8D4D4; stroke-width: 1; }
+            .rule-hot { fill: #FCE8CA; stroke: #F79F1C; stroke-width: 2; }
+            .rno { font: 800 13px 'Montserrat'; fill: #F79F1C; }
+            .rq { font: 600 13px 'Montserrat'; fill: #000; }
+            .ra { font: 400 11.5px 'Source Sans 3'; fill: #3D3838; }
+            .arr { stroke: #F79F1C; stroke-width: 1.8; fill: none; marker-end: url(#ah2); }
+            .arrN { stroke: #D8D4D4; stroke-width: 1.5; fill: none; marker-end: url(#ah3); stroke-dasharray: 4,3; }
+          ]]></style>
+          <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#F79F1C"/></marker>
+          <marker id="ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#D8D4D4"/></marker>
+        </defs>
+
+        <rect x="40" y="20" width="800" height="60" class="rule-hot" rx="4"/>
+        <text x="52" y="42" class="rno">RULE 0</text>
+        <text x="52" y="62" class="rq">Milestone entered without MILESTONE-READINESS.md?</text>
+        <text x="500" y="62" class="ra">→ dispatch sgsd-milestone-readiness (Sonnet)</text>
+
+        <rect x="40" y="90" width="800" height="60" class="rule" rx="4"/>
+        <text x="52" y="112" class="rno">RULE 0.5</text>
+        <text x="52" y="132" class="rq">Readiness = BLOCKED?</text>
+        <text x="500" y="132" class="ra">→ pause, present fix list (fix / degraded / go-anyway)</text>
+
+        <rect x="40" y="160" width="800" height="60" class="rule" rx="4"/>
+        <text x="52" y="182" class="rno">RULE 1</text>
+        <text x="52" y="202" class="rq">Phase has no CONTEXT.md (not discussed)?</text>
+        <text x="500" y="202" class="ra">→ suggest /gsd-discuss-phase (human-in-loop)</text>
+
+        <rect x="40" y="230" width="800" height="60" class="rule" rx="4"/>
+        <text x="52" y="252" class="rno">RULE 2</text>
+        <text x="52" y="272" class="rq">Phase has CONTEXT but no RESEARCH.md?</text>
+        <text x="500" y="272" class="ra">→ dispatch gsd-phase-researcher (Opus)</text>
+
+        <rect x="40" y="300" width="800" height="60" class="rule" rx="4"/>
+        <text x="52" y="322" class="rno">RULE 3</text>
+        <text x="52" y="342" class="rq">Phase has RESEARCH but no PLAN.md files?</text>
+        <text x="500" y="342" class="ra">→ dispatch gsd-planner (Opus)</text>
+
+        <rect x="40" y="370" width="800" height="60" class="rule" rx="4"/>
+        <text x="52" y="392" class="rno">RULE 4</text>
+        <text x="52" y="412" class="rq">Plans exist but no PLAN-CHECK.md?</text>
+        <text x="500" y="412" class="ra">→ dispatch gsd-plan-checker (Sonnet)</text>
+
+        <rect x="40" y="440" width="800" height="60" class="rule-hot" rx="4"/>
+        <text x="52" y="462" class="rno">RULE 4.5</text>
+        <text x="52" y="482" class="rq">About to make FIRST executor dispatch of a phase?</text>
+        <text x="500" y="482" class="ra">→ sgsd-phase-readiness re-probe (Haiku, fast)</text>
+
+        <rect x="40" y="510" width="800" height="60" class="rule" rx="4"/>
+        <text x="52" y="532" class="rno">RULE 5</text>
+        <text x="52" y="552" class="rq">Plans checked, pending executable tasks?</text>
+        <text x="500" y="552" class="ra">→ dispatch gsd-executor (Sonnet)</text>
+
+        <rect x="40" y="580" width="800" height="60" class="rule" rx="4"/>
+        <text x="52" y="602" class="rno">RULE 6</text>
+        <text x="52" y="622" class="rq">All plans executed, no verification yet?</text>
+        <text x="500" y="622" class="ra">→ dispatch gsd-verifier (Sonnet)</text>
+
+        <rect x="40" y="650" width="800" height="60" class="rule-hot" rx="4"/>
+        <text x="52" y="672" class="rno">RULE 6.g</text>
+        <text x="52" y="692" class="rq">Verification passed?</text>
+        <text x="500" y="692" class="ra">→ Phase ATC · MUDA · Browser verify · Mark complete</text>
+
+        <rect x="40" y="720" width="800" height="60" class="rule" rx="4"/>
+        <text x="52" y="742" class="rno">RULE 6.h</text>
+        <text x="52" y="762" class="rq">Verification failed (gaps)?</text>
+        <text x="500" y="762" class="ra">→ dispatch gsd-planner --gaps (Sonnet)</text>
+
+        <rect x="40" y="790" width="800" height="60" class="rule-hot" rx="4"/>
+        <text x="52" y="812" class="rno">RULE 6.7 <tspan class="ra">(NEW · Phase 13 D-18a)</tspan></text>
+        <text x="52" y="832" class="rq">Phase complete AND all milestone phases [x]?</text>
+        <text x="500" y="832" class="ra">→ auto-dispatch sgsd-complete-milestone</text>
+
+        <rect x="40" y="860" width="800" height="30" fill="#000" rx="4"/>
+        <text x="52" y="881" class="rq" fill="#F79F1C">RULE 9 · All phases across all milestones complete → EXIT: "All phases done."</text>
+      </svg>
+    </div>
+
+    <div class="callout eli5">
+      <h4>ELI5 — WHY FIRST-MATCH?</h4>
+      <p>Imagine a triage nurse. Someone walks in. Rule 1: "Are they actively bleeding?" Yes → trauma. No? Rule 2: "Are they not breathing?" Yes → ICU. No? … and so on. Each rule is a specific emergency. The nurse doesn't run all the rules in parallel — they stop at the first YES because that's the most urgent thing right now. SGSD does the same: "Does this phase need to be discussed? Researched? Planned? Checked? Executed? Verified?" Whatever's most urgent gets the dispatch. The orchestrator never runs two rules at once.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 06 AGENT ROSTER ══════════════════ -->
+<section class="block alt" id="agents">
+  <div class="wrap">
+    <h2>06 &nbsp; The Agent Roster</h2>
+    <p class="lede">Every agent is a narrow specialist. Same model family (Claude Opus/Sonnet/Haiku) but different prompts, different output contracts, different scopes. Each runs in its own context window.</p>
+
+    <h3>The orchestrator (Layer 3)</h3>
+    <div class="card">
+      <h4>sgsd-orchestrate (Opus)</h4>
+      <p>The only agent that holds session context. Reads state, classifies, dispatches, processes reports, commits, loops. Never does the work itself — always delegates. Budget: ~1,350 tokens per iteration. Enters auto mode on "go" / "auto" / "continue" and exits only on the four valid conditions.</p>
+    </div>
+
+    <h3>Classification &amp; selection (Haiku — cheap, fast)</h3>
+    <div class="two-col">
+      <div class="card"><h4>sgsd-classifier</h4><p>Returns <code>{ complexity, model, atc_tier, deliberate, reason }</code> for a given goal. Drives model routing and ATC tier for the unit. Phase 12 added per-plan caching — classify once per v2 plan, reuse across N tasks.</p></div>
+      <div class="card"><h4>sgsd-context-selector</h4><p>Picks <code>sgsd-recall</code> queries based on task keywords. Budget: ~100 tokens. Output feeds step 5 of the loop.</p></div>
+    </div>
+
+    <h3>Phase pipeline (Sonnet / Opus — substantive work)</h3>
+    <table>
+      <tr><th>Agent</th><th>Model</th><th>Produces</th><th>When</th></tr>
+      <tr><td>gsd-phase-researcher</td><td>Opus</td><td><code>{NN}-RESEARCH.md</code></td><td>Rule 2 — after CONTEXT.md exists</td></tr>
+      <tr><td>gsd-planner</td><td>Opus</td><td>N plan files in <code>plans/</code></td><td>Rule 3 — after RESEARCH.md exists</td></tr>
+      <tr><td>gsd-plan-checker</td><td>Sonnet</td><td><code>{NN}-PLAN-CHECK.md</code></td><td>Rule 4 — plan verdict PASS / PASS-WITH-NOTES / FAIL</td></tr>
+      <tr><td>gsd-executor</td><td>Sonnet</td><td>Per-task commits + <code>{NN-PP}-SUMMARY.md</code></td><td>Rule 5 — one dispatch per plan</td></tr>
+      <tr><td>gsd-verifier</td><td>Sonnet</td><td><code>{NN}-VERIFICATION.md</code></td><td>Rule 6 — goal-backward audit</td></tr>
+      <tr><td>gsd-code-reviewer</td><td>Sonnet</td><td><code>{NN}-ATC-REVIEW.md</code> or commit-reviews.jsonl</td><td>Step 6.5 (phase) / Step 9.5 (per-dispatch)</td></tr>
+      <tr><td>gsd-debugger</td><td>Sonnet</td><td>Bug diagnosis + fix patch</td><td>When blocker fires on test failure</td></tr>
+      <tr><td>gsd-integration-checker</td><td>Sonnet</td><td>Cross-phase regression audit</td><td>Milestone close (via sgsd-complete-milestone)</td></tr>
+    </table>
+
+    <h3>The board (sgsd-deliberate)</h3>
+    <div class="three-col">
+      <div class="card"><h4>sgsd-board-architect</h4><p>Evaluates feasibility, system design, tech debt, implementation cost.</p></div>
+      <div class="card"><h4>sgsd-board-contrarian</h4><p>Challenges consensus, finds blind spots, stress-tests assumptions.</p></div>
+      <div class="card"><h4>sgsd-board-pragmatist</h4><p>Focuses on execution risk, timeline reality, resource constraints — what actually ships.</p></div>
+    </div>
+    <div class="three-col">
+      <div class="card"><h4>sgsd-board-moonshot</h4><p>Challenges incremental thinking, proposes 10× alternatives, prevents scope timidity.</p></div>
+      <div class="card"><h4>sgsd-ceo</h4><p>Spawns board members, manages deliberation rounds, synthesizes the Decision Memo (DLB-NN).</p></div>
+      <div class="card"><h4>Phase 13 changes this</h4><p>Board roster resolves from <code>board-members.yaml</code> at runtime (not hardcoded). Minimal-2 default (Architect + Contrarian). Escalation YAML adds Pragmatist / Moonshot based on structured vote predicates.</p></div>
+    </div>
+
+    <h3>Auditors (one-shot utilities)</h3>
+    <table>
+      <tr><th>Agent / Skill</th><th>Purpose</th></tr>
+      <tr><td>sgsd-muda-audit</td><td>MUDA 8-waste watchdog. Detect-and-record at phase close (DLB-02).</td></tr>
+      <tr><td>sgsd-nyquist-auditor</td><td>Verifies test coverage matches phase requirements (Karpathy principle #4).</td></tr>
+      <tr><td>sgsd-ui-auditor / sgsd-ui-checker</td><td>Visual / contract audits for frontend phases.</td></tr>
+      <tr><td>sgsd-security-auditor</td><td>Threat-model verification on PLAN.md entries.</td></tr>
+      <tr><td>sgsd-phase-readiness / sgsd-milestone-readiness</td><td>Dependency probes before first executor dispatch (Rule 0 / Rule 4.5).</td></tr>
+      <tr><td>sgsd-code-fixer</td><td>Auto-applies REVIEW.md findings (atomic commits per fix).</td></tr>
+      <tr><td>sgsd-workflow-auditor</td><td>Reads AUDIT-METRICS.json, writes WORKFLOW-AUDIT.md (top-10 improvements).</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════ 07 REGISTRIES ══════════════════ -->
+<section class="block" id="registries">
+  <div class="wrap">
+    <h2>07 &nbsp; Registered Resources — The YAML Substrate</h2>
+    <p class="lede">Everything that used to be prose inside a skill is now a YAML row. YAML is read at runtime; prose only documents. If a gate isn't in the registry, it doesn't exist.</p>
+
+    <h3>gates.yaml — 11 rows, Phase 10 shipment</h3>
+    <p>Lives at <code>super-gsd/registry/gates.yaml</code>. Each row declares enforcement mode + empirical trigger + evidence-emitted. The orchestrator calls <code>gatesRegistry.shouldFire(name, ctx)</code> at every step that has a corresponding gate.</p>
+
+    <table>
+      <tr><th>Step</th><th>Gate</th><th>Mode</th><th>Trigger</th></tr>
+      <tr><td>2</td><td>classifier-haiku</td><td><span class="badge soft">soft-warn</span></td><td>always fires</td></tr>
+      <tr><td>4</td><td>context-selector</td><td><span class="badge soft">soft-warn</span></td><td>always fires</td></tr>
+      <tr><td>5</td><td>sgsd-recall</td><td><span class="badge soft">soft-warn</span></td><td>classifier.complexity ≠ trivial</td></tr>
+      <tr><td>5.5</td><td>INTENT-injection</td><td><span class="badge soft">soft-warn</span></td><td>always fires (logs INTENT_MISSING if absent)</td></tr>
+      <tr><td>9.5</td><td>per-dispatch-ATC</td><td><span class="badge hard">hard-halt</span></td><td>atc_tier ∈ [full, gate] AND code_files &gt; 0</td></tr>
+      <tr><td>6.5</td><td>phase-level-ATC</td><td><span class="badge amort">amortized</span></td><td>once per phase post-verifier</td></tr>
+      <tr><td>6.55</td><td>MUDA-waste-audit</td><td><span class="badge soft">soft-warn</span></td><td>(files ≥ 4 OR lines ≥ 100) AND phase_type ∉ [docs, config, refactor]</td></tr>
+      <tr><td>10</td><td>sgsd-curate</td><td><span class="badge soft">soft-warn</span></td><td>new_pattern OR script_created OR error_discovered</td></tr>
+      <tr><td>11</td><td>token-log</td><td><span class="badge soft">soft-warn</span></td><td>always fires</td></tr>
+      <tr><td>—</td><td>verifier-row-arithmetic</td><td><span class="badge soft">soft-warn</span></td><td>phase_has_verify_mjs (Phase 10 WR-01 → verify-completeness class)</td></tr>
+      <tr><td>—</td><td>verifier-detail-vs-summary</td><td><span class="badge soft">soft-warn</span></td><td>phase_has_verify_mjs (Phase 10 WR-02)</td></tr>
+    </table>
+
+    <h4>The four enforcement modes</h4>
+    <ul>
+      <li><span class="badge hard">hard-halt</span> &nbsp; gate fire blocks orchestrator until resolved (interactive) or logs GATE_AUTO_BYPASS (auto mode)</li>
+      <li><span class="badge soft">soft-warn</span> &nbsp; gate fire logs DEVIATIONS, continues</li>
+      <li><span class="badge amort">amortized</span> &nbsp; gate fires at boundary only (phase close), not per-dispatch</li>
+      <li><span class="badge off">disabled</span> &nbsp; gate defined but not enforced</li>
+    </ul>
+
+    <h3>board-members.yaml — Phase 13 activation target</h3>
+    <p>Declares the 4 archetypes (Architect, Contrarian, Pragmatist, Moonshot) + CEO. Phase 13 flips <code>board_version</code> from <code>v1-static</code> to <code>v2-runtime-resolved</code> and adds the structured escalation policy:</p>
+    <pre><code>escalation_policy:
+  add_pragmatist:
+    trigger: "any(m.role=='Contrarian' AND m.position=='OPPOSE' AND m.confidence&gt;=4)"
+    reason: execution-feasibility dissent
+  add_moonshot:
+    trigger: "count(unique(m.position))==1 AND size(board)&gt;=2"
+    reason: consensus-risk (groupthink)</code></pre>
+
+    <h3>plan-schema-v2.json — Phase 11 shipment</h3>
+    <p>Canonical schema every v2 plan validates against. Required: <code>schema_version</code>, <code>phase</code>, <code>plan</code>, <code>wave</code>, <code>depends_on</code>, <code>files_modified</code>, <code>tasks</code> array. Each task requires <code>id</code>, <code>files_touched</code> (≥1 entry), <code>input_contract</code>, <code>output_contract</code>, <code>hypothesis</code>, <code>falsifier</code>, <code>stop_rule</code>, <code>verification_gates</code>.</p>
+
+    <h3>decisions.yaml + agents.yaml</h3>
+    <p>Sibling registries. <code>decisions.yaml</code> catalogues DLB-NN memos with metadata; <code>agents.yaml</code> declares the SGSD custom agents as first-class resources (per DLB-04 scoped-agent manifest).</p>
+
+    <div class="callout info">
+      <h4>WHY REGISTRIES BEAT PROSE</h4>
+      <p>Prose: if an operator reads the skill and decides a gate doesn't apply, they can silently skip it. No audit trail. Registry: every dispatch reads the YAML, evaluates the trigger, logs the decision. If a gate <em>should</em> have fired but didn't, the edge-guard log catches it. Phase 10's empirical trigger column makes every enforcement choice defensible with data.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 08 MEMORY ══════════════════ -->
+<section class="block dark" id="memory">
+  <div class="wrap">
+    <h2>08 &nbsp; Memory Topology (DLB-01)</h2>
+    <p class="lede">Memory is a folder. No database, no MCP, no ranking infrastructure. Just git-tracked markdown files organised by semantic category, indexed by a catalog, queried by grep. Boring on purpose.</p>
+
+    <div class="flow-diagram">
+      <svg viewBox="0 0 880 520" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <style><![CDATA[
+            .folder { fill: #F79F1C; stroke: #D4820A; stroke-width: 1; }
+            .sub { fill: #FCE8CA; stroke: #D4820A; stroke-width: 1; }
+            .label { font: 600 13px 'Montserrat'; fill: #000; }
+            .det { font: 400 11px 'Source Sans 3'; fill: #3D3838; }
+          ]]></style>
+        </defs>
+
+        <text x="40" y="35" class="label">.planning/memory/</text>
+        <text x="40" y="55" class="det">(git-tracked root · MEMORY.md catalog · 34 files after v1.2 migration)</text>
+
+        <rect x="40" y="80" width="260" height="60" class="folder" rx="4"/>
+        <text x="54" y="102" class="label">architecture/</text>
+        <text x="54" y="120" class="det">patterns · anti-patterns · decisions</text>
+        <text x="54" y="134" class="det">expertise</text>
+
+        <rect x="310" y="80" width="260" height="60" class="folder" rx="4"/>
+        <text x="324" y="102" class="label">code/</text>
+        <text x="324" y="120" class="det">Per-language expertise</text>
+        <text x="324" y="134" class="det">(nodejs, powershell, python…)</text>
+
+        <rect x="580" y="80" width="260" height="60" class="folder" rx="4"/>
+        <text x="594" y="102" class="label">domain/</text>
+        <text x="594" y="120" class="det">Business logic, product quirks,</text>
+        <text x="594" y="134" class="det">SAP fields, customer notes</text>
+
+        <rect x="40" y="155" width="260" height="60" class="folder" rx="4"/>
+        <text x="54" y="177" class="label">workflow/</text>
+        <text x="54" y="195" class="det">user · feedback · preferences</text>
+        <text x="54" y="209" class="det">(how to collaborate)</text>
+
+        <rect x="310" y="155" width="260" height="60" class="folder" rx="4"/>
+        <text x="324" y="177" class="label">project/</text>
+        <text x="324" y="195" class="det">Ongoing work context</text>
+        <text x="324" y="209" class="det">(what's shipping this quarter)</text>
+
+        <rect x="580" y="155" width="260" height="60" class="folder" rx="4"/>
+        <text x="594" y="177" class="label">reference/</text>
+        <text x="594" y="195" class="det">External URLs, tool paths,</text>
+        <text x="594" y="209" class="det">dashboards</text>
+
+        <rect x="40" y="230" width="260" height="60" class="folder" rx="4"/>
+        <text x="54" y="252" class="label">errors/</text>
+        <text x="54" y="270" class="det">ERR-* catalogue,</text>
+        <text x="54" y="284" class="det">error-rule memories</text>
+
+        <rect x="310" y="230" width="530" height="60" class="folder" rx="4"/>
+        <text x="324" y="252" class="label">trajectory/ (DLB-04 distillation)</text>
+        <text x="324" y="270" class="det">hypothesis · candidate · lesson — trajectory-distilled principles from closed milestones.</text>
+        <text x="324" y="284" class="det">Triple-gate routing: operator novelty rating 1-3 determines promotion path.</text>
+
+        <rect x="40" y="320" width="800" height="56" fill="#2D2E34" rx="4"/>
+        <text x="54" y="342" class="label" fill="#F79F1C">MEMORY.md · the catalog</text>
+        <text x="54" y="362" class="det" fill="#F2EEEE">One-line per entry under section headers matching the folder structure. Loaded into every session automatically.</text>
+
+        <rect x="40" y="390" width="395" height="60" fill="#FCE8CA" rx="4"/>
+        <text x="54" y="412" class="label">sgsd-recall "query" → top-N matches</text>
+        <text x="54" y="430" class="det">grep-based, case-insensitive, ranks by distinct-term count</text>
+        <text x="54" y="444" class="det">No embeddings. No BM25. Defer until corpus ≥ 40 files.</text>
+
+        <rect x="445" y="390" width="395" height="60" fill="#FCE8CA" rx="4"/>
+        <text x="459" y="412" class="label">sgsd-curate --type --slug --summary</text>
+        <text x="459" y="430" class="det">Writes typed .md file + atomic INDEX.md update</text>
+        <text x="459" y="444" class="det">Atomicity: both writes land OR neither</text>
+
+        <rect x="40" y="465" width="800" height="40" fill="#000" rx="4"/>
+        <text x="54" y="490" class="label" fill="#F79F1C">Auto-memory junction · ~/.claude/projects/{encoded}/memory → .planning/memory/</text>
+      </svg>
+    </div>
+
+    <h3>What got migrated from <code>.brv/</code> to <code>.planning/memory/</code></h3>
+    <p>v1.2 started with 30 files in a legacy <code>.brv/context-tree/</code> directory (named after a dead external MCP that was never installed) plus 4 files in the non-git auto-memory. The <code>sgsd-memory-migrate</code> skill consolidated all 34 into the new v1.2 taxonomy and created a directory junction so Claude Code's auto-memory loading remained transparent. The <code>.brv/</code> directory was deleted entirely; <code>.gitignore</code> purged of dead references.</p>
+  </div>
+</section>
+
+<!-- ══════════════════ 09 QUALITY GATES ══════════════════ -->
+<section class="block alt" id="gates">
+  <div class="wrap">
+    <h2>09 &nbsp; Quality Gates — What Actually Stops Bad Code</h2>
+    <p class="lede">SGSD doesn't trust a single gate. It stacks them. Gates at dispatch time, at task time, at plan time, at phase time, and at milestone time. Each one catches something different.</p>
+
+    <div class="three-col">
+      <div class="card">
+        <h4>Per-dispatch ATC (Step 9.5)</h4>
+        <p>Fires only on FULL-tier dispatches where at least one code file changed. The <code>gsd-code-reviewer</code> runs ATC 7-step + 10-point anti-slop on the single dispatch's diff. Writes a JSONL row to <code>.planning/phases/{N}/commit-reviews.jsonl</code>.</p>
+      </div>
+      <div class="card">
+        <h4>Phase ATC (Step 6.5)</h4>
+        <p>Runs ONCE per phase after the verifier passes. Reviews the <em>entire</em> phase as a coherent unit — cross-plan consistency, architectural coherence, unused code across plans. Complexity floor: ≥5 plans OR ≥500 lines = always FULL tier.</p>
+      </div>
+      <div class="card">
+        <h4>MUDA waste audit (Step 6.55)</h4>
+        <p>Shell-script probes for 8 waste classes (defects, waiting, motion, extra-processing, inventory, transportation, overproduction, overprocessing). <strong>Never blocks</strong> per DLB-02 — accumulates across milestones for kill-condition.</p>
+      </div>
+    </div>
+
+    <div class="three-col">
+      <div class="card">
+        <h4>Nyquist validation (plan-time)</h4>
+        <p>Every plan task must map to an automated verification OR a Wave 0 dependency. No "3 consecutive tasks without verify." Frontmatter flag <code>nyquist_compliant: true</code> only flips after planner confirms the map.</p>
+      </div>
+      <div class="card">
+        <h4>Plan schema (v2, Phase 11)</h4>
+        <p>Mechanical JSON-schema validator (<code>validate.cjs</code>). Plan file fails schema → planner gets <code>--fix</code> mode + 3 retries. Boot hash pin ensures the schema file itself hasn't drifted since the skill was authored.</p>
+      </div>
+      <div class="card">
+        <h4>Adversarial verifier (Step 9.5 post-verifier, Phase 13)</h4>
+        <p>20% of gsd-verifier PASSes get re-dispatched with a contrarian prompt header. If challenger flips to FAIL: log <code>VERIFIER_ADVERSARIAL_FLIP</code>. If PASS-WITH-GAPS: promote verdict. Default rate in <code>config.atc.verifier_adversarial_rate</code>.</p>
+      </div>
+    </div>
+
+    <div class="three-col">
+      <div class="card">
+        <h4>Browser verify (Step 6.6)</h4>
+        <p>Only runs when frontend files changed. Shells out to <code>phase-verifier.mjs</code>. Hard rules: no curl-only pass, no spinner-frozen screenshots, no empty-array as real data, every PROVEN verdict cites a ROADMAP success criterion.</p>
+      </div>
+      <div class="card">
+        <h4>Edge-guard log (Phase 10)</h4>
+        <p>Every step transition in the orchestrator writes a JSONL row with <code>{from_step, to_step, expected_emits, actual_emits, missing_emits, resolution}</code>. If a gate that should have fired didn't, <code>resolution: halt</code> fires per the <code>escalation</code> field in gates.yaml.</p>
+      </div>
+      <div class="card">
+        <h4>Boot hash drift check (Phase 11)</h4>
+        <p>On cold start, orchestrator hashes <code>plan-schema-v2.json</code> and compares to the pinned <code>schema_v2_hash</code> in <code>config.json</code>. Drift → halt with operator action required. Prevents silent schema changes between sessions.</p>
+      </div>
+    </div>
+
+    <h3>When each gate fires in a phase lifecycle</h3>
+    <table>
+      <tr><th>Lifecycle event</th><th>Gate(s)</th></tr>
+      <tr><td>Phase discuss</td><td>Scope guardrail (deferred ideas captured, no scope creep into new capabilities)</td></tr>
+      <tr><td>Plan authored</td><td>v2 schema validator · plan-checker (Sonnet review)</td></tr>
+      <tr><td>First executor dispatch</td><td>sgsd-phase-readiness re-probe (Rule 4.5)</td></tr>
+      <tr><td>Per dispatch</td><td>Classifier · context-selector · INTENT injection · surgical constraint · per-dispatch ATC (conditional)</td></tr>
+      <tr><td>Per task commit</td><td>Atomic commit · verify.mjs quick run · token-log append</td></tr>
+      <tr><td>Per wave complete</td><td>Full-suite verify.mjs · wave merge</td></tr>
+      <tr><td>All plans done</td><td>gsd-verifier (goal-backward)</td></tr>
+      <tr><td>Verifier passes</td><td>Phase ATC · MUDA · Browser verify (if frontend) · adversarial verifier sampling</td></tr>
+      <tr><td>Phase marked complete</td><td>Rule 6.7 milestone check · STATE+ROADMAP update · git commit</td></tr>
+      <tr><td>Milestone complete</td><td>sgsd-complete-milestone auto-fires (Phase 13 D-18a) · GOV-05 scoring · MUDA recurrence · VTP bidirectional</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════ 10 STOPPING SLOP ══════════════════ -->
+<section class="block" id="antislop">
+  <div class="wrap">
+    <h2>10 &nbsp; Stopping Slop &amp; Hallucination</h2>
+    <p class="lede">Slop is the biggest risk in autonomous coding. SGSD 2.0 stacks six mechanisms against it — each catches a different failure mode.</p>
+
+    <div class="two-col">
+      <div class="card">
+        <h4>1 · The Surgical Constraint Header</h4>
+        <p>Injected verbatim into every executor prompt (Step 7). Tells the agent: every changed line must trace to a task in this wave's plan. Orphan edits are DEVIATIONS. Match existing style. Don't delete pre-existing dead code. Remove only imports/vars YOUR changes made unused.</p>
+        <p><em>Catches:</em> "while I'm here" refactors, unrelated formatting passes, scope creep inside a narrow task.</p>
+      </div>
+      <div class="card">
+        <h4>2 · The 10-Point Anti-Slop Checklist</h4>
+        <p>Run at phase-level ATC (Step 6.5) and per-dispatch ATC (Step 9.5). Checks: every new function has a caller, every import is used, every parameter is read, could this be less code, are new abstractions justified, does existing code do 80% of this, would a senior engineer mass-delete this, ΔComplexity ≤ 0, any "just in case" additions, does this commit do ONE thing.</p>
+        <p><em>Catches:</em> YAGNI violations, orphan functions, gratuitous abstractions.</p>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <h4>3 · The Plan-Checker (Sonnet, Rule 4)</h4>
+        <p>Before any executor runs, the plan-checker reads all plan files and answers: does the union of these plans achieve the phase goal? Are tasks specific enough to run without asking? Wave dependencies correct? Locked decisions honored? Outputs PASS / PASS-WITH-NOTES / FAIL with a findings list.</p>
+        <p><em>Catches:</em> "this plan won't actually build what the roadmap promised."</p>
+      </div>
+      <div class="card">
+        <h4>4 · Structured Report Format (300-word max)</h4>
+        <p>Every agent returns EXACTLY six sections: FILES_CHANGED, VERIFICATION, DEVIATIONS, BLOCKERS, SCRIPTS_CREATED, ONE_LINER. Missing section = logged; over 300 words = logged. The orchestrator parses machine-style, not prose. Any claim unbacked by a FILES_CHANGED entry can't be a commit.</p>
+        <p><em>Catches:</em> "I verified it" without evidence, hallucinated PASS without a cmd→exit line.</p>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <h4>5 · Mechanical Verifiers (per phase)</h4>
+        <p>Phases 9, 10, 12, 13 each ship a <code>verify.mjs</code> with 7–16 hard invariants. Example Phase 10 invariant: "<code>findings_detail.length === 10</code> AND bucket sum equals headline." If the YAML is hand-edited to break the math, the verifier exits non-zero. Phase ATC verdict keys off this.</p>
+        <p><em>Catches:</em> data tampering, arithmetic drift, documentation that claims one thing while artifacts show another.</p>
+      </div>
+      <div class="card">
+        <h4>6 · Adversarial Verifier Sampling (Phase 13 GOV-04)</h4>
+        <p>After gsd-verifier returns PASS, 20% of the time re-dispatches it with a contrarian prompt: "Challenge the PASS. What are the top 3 ways this phase might silently fail despite the PASS?" If challenger flips: escalate. If challenger finds gaps: promote to PASS-WITH-GAPS.</p>
+        <p><em>Catches:</em> primary verifier missed a cross-plan integration gap, assumption baked into plan contracts that wasn't proven in execution.</p>
+      </div>
+    </div>
+
+    <h3>How the mechanisms compose</h3>
+    <div class="callout eli5">
+      <h4>ELI5 — WHY STACK SIX GATES?</h4>
+      <p>Swiss cheese model. One slice of cheese has holes — bad code can slip through. Stack six slices of cheese, each with <em>different</em> holes, and something has to slip through ALL the holes at once to escape. The plan-checker catches things before execution. The surgical constraint catches things during execution. The per-dispatch ATC catches things right after a dispatch. The phase ATC catches things at phase close. The verifier catches goal drift. The adversarial sampling catches verifier blind spots. For a defect to ship, it has to be invisible to all six — statistically, almost impossible.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 11 DRIFT PREVENTION ══════════════════ -->
+<section class="block dark" id="drift">
+  <div class="wrap">
+    <h2>11 &nbsp; Drift Prevention</h2>
+    <p class="lede">Drift is when an agent slowly forgets the goal. SGSD 2.0 fights drift with structural injection, not prompt discipline.</p>
+
+    <h3>The INTENT injection pattern (DLB-03)</h3>
+    <p>Every milestone has an <code>INTENT.md</code> with a single-line <code>outcome_delivered</code> field (≤120 characters). Before any executor / researcher / planner / verifier dispatch, the orchestrator prepends this block:</p>
+    <pre><code>&lt;intent milestone="v1.2"&gt;
+Operators run autonomous phases with empirically-gated ATC gates and v2-schema plans.
+&lt;/intent&gt;</code></pre>
+    <p>Every sub-agent sees this in its prompt header. The model's context window IS the enforcement — no regex presence check, no NL scoring gate. Shallow outcome strings are caught at milestone close by <code>sgsd-intent-check.sh</code>: it counts whether the injected text is referenced in executor deviations / verifier reports. Coverage &lt;50% = author-discipline intervention.</p>
+
+    <h3>The edge-guard log</h3>
+    <p>Phase 10 introduced <code>edge-guard.cjs</code>. Every step transition in the orchestrator loop writes one JSONL row:</p>
+    <pre><code>{
+  "ts": "2026-04-22T18:00:00Z",
+  "phase": 12,
+  "plan": "12-03",
+  "from_step": 9,
+  "to_step": 9.5,
+  "gate": "per-dispatch-ATC",
+  "expected_emits": [".planning/phases/12/commit-reviews.jsonl"],
+  "actual_emits": [".planning/phases/12/commit-reviews.jsonl"],
+  "missing_emits": [],
+  "resolution": "pass"
+}</code></pre>
+    <p>If <code>missing_emits</code> is non-empty AND the gate's <code>escalation</code> field in gates.yaml is <code>halt</code>, the orchestrator writes a checkpoint and exits. Otherwise <code>resolution: log-only</code>. Over time this log is the authoritative record of gate firings — the milestone-close MUDA recurrence check reads it.</p>
+
+    <h3>Schema drift protection</h3>
+    <p>Phase 11 pinned the hash of <code>plan-schema-v2.json</code> in <code>config.json</code> (<code>schema_v2_hash</code>). On every cold start, the orchestrator re-computes the hash. Mismatch = halt with operator action required. This catches the case where an auto-update overwrites the schema without tests rerunning.</p>
+
+    <h3>The 85% context emergency halt (Phase 12 MACH-03)</h3>
+    <p>Primary checkpoint trigger: <code>(phase_boundary OR plan_boundary) AND context &gt; 70%</code>. Emergency override: <code>context &gt;= 85%</code> forces checkpoint <em>mid-task</em>. Catches runaway context growth. Logged as <code>CHECKPOINT_EMERGENCY</code> in DEVIATIONS. If &gt;10% of a milestone's checkpoints are emergency halts, flag as plan-decomposition issue (plans were too long).</p>
+  </div>
+</section>
+
+<!-- ══════════════════ 12 PLANNING PIPELINE ══════════════════ -->
+<section class="block" id="planning">
+  <div class="wrap">
+    <h2>12 &nbsp; Planning Pipeline — End to End</h2>
+    <p class="lede">From "I want to build X" to "plan is execute-ready" via six sequential gates. Every gate produces an artifact. Every artifact feeds the next.</p>
+
+    <div class="flow-diagram">
+      <svg viewBox="0 0 900 380" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <style><![CDATA[
+            .stage { fill: #FFF; stroke: #D8D4D4; stroke-width: 1; }
+            .stage-hot { fill: #FCE8CA; stroke: #F79F1C; stroke-width: 2; }
+            .ttl { font: 700 13px 'Montserrat'; fill: #000; }
+            .det { font: 400 11px 'Source Sans 3'; fill: #3D3838; }
+            .art { font: 500 10.5px var(--mono); fill: #D4820A; }
+            .ar { stroke: #F79F1C; stroke-width: 2; fill: none; marker-end: url(#ah4); }
+          ]]></style>
+          <marker id="ah4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#F79F1C"/></marker>
+        </defs>
+
+        <rect x="20" y="30" width="130" height="80" class="stage-hot" rx="4"/>
+        <text x="30" y="50" class="ttl">DISCUSS</text>
+        <text x="30" y="68" class="det">/gsd-discuss-phase</text>
+        <text x="30" y="82" class="det">Gray areas</text>
+        <text x="30" y="96" class="det">locked decisions</text>
+        <text x="30" y="108" class="art">→ CONTEXT.md</text>
+
+        <path d="M 150 70 L 175 70" class="ar"/>
+
+        <rect x="175" y="30" width="130" height="80" class="stage" rx="4"/>
+        <text x="185" y="50" class="ttl">RESEARCH</text>
+        <text x="185" y="68" class="det">gsd-phase-researcher</text>
+        <text x="185" y="82" class="det">(Opus)</text>
+        <text x="185" y="96" class="det">implementation recipes</text>
+        <text x="185" y="108" class="art">→ RESEARCH.md</text>
+
+        <path d="M 305 70 L 330 70" class="ar"/>
+
+        <rect x="330" y="30" width="130" height="80" class="stage" rx="4"/>
+        <text x="340" y="50" class="ttl">VALIDATE</text>
+        <text x="340" y="68" class="det">Nyquist strategy</text>
+        <text x="340" y="82" class="det">task→test map</text>
+        <text x="340" y="96" class="det">Wave 0 gaps</text>
+        <text x="340" y="108" class="art">→ VALIDATION.md</text>
+
+        <path d="M 460 70 L 485 70" class="ar"/>
+
+        <rect x="485" y="30" width="130" height="80" class="stage" rx="4"/>
+        <text x="495" y="50" class="ttl">PLAN</text>
+        <text x="495" y="68" class="det">gsd-planner (Opus)</text>
+        <text x="495" y="82" class="det">N v2-schema plans</text>
+        <text x="495" y="96" class="det">in plans/ subdir</text>
+        <text x="495" y="108" class="art">→ NN-PP-*.md</text>
+
+        <path d="M 615 70 L 640 70" class="ar"/>
+
+        <rect x="640" y="30" width="130" height="80" class="stage-hot" rx="4"/>
+        <text x="650" y="50" class="ttl">PLAN-CHECK</text>
+        <text x="650" y="68" class="det">gsd-plan-checker</text>
+        <text x="650" y="82" class="det">(Sonnet)</text>
+        <text x="650" y="96" class="det">PASS / NOTES / FAIL</text>
+        <text x="650" y="108" class="art">→ PLAN-CHECK.md</text>
+
+        <path d="M 705 110 L 705 165" class="ar"/>
+
+        <rect x="640" y="165" width="130" height="80" fill="#000" rx="4"/>
+        <text x="650" y="185" class="ttl" fill="#F79F1C">EXECUTE-READY</text>
+        <text x="650" y="203" class="det" fill="#FFF">PLAN-CHECK PASS</text>
+        <text x="650" y="217" class="det" fill="#FFF">/sgsd-orchestrate go</text>
+        <text x="650" y="231" class="det" fill="#FFF">kicks off Wave 1</text>
+
+        <!-- FAIL loop back -->
+        <path d="M 640 245 L 320 245 L 320 250 Q 100 250 100 180 L 100 115" class="ar" stroke-dasharray="5,4"/>
+        <text x="350" y="240" class="det" fill="#B22222">FAIL / NOTES with blockers → re-plan or fix</text>
+
+        <!-- Legend -->
+        <text x="20" y="310" class="ttl">Artifacts produced</text>
+        <text x="20" y="330" class="det">CONTEXT.md · RESEARCH.md · VALIDATION.md · N plan files · PLAN-CHECK.md</text>
+        <text x="20" y="348" class="det">Typical phase: 4–7 plans · 12–27 tasks · 1 Wave 0 + N execution waves</text>
+      </svg>
+    </div>
+
+    <h3>Each artifact's purpose</h3>
+    <table>
+      <tr><th>Artifact</th><th>Written by</th><th>Read by</th><th>Purpose</th></tr>
+      <tr><td>CONTEXT.md</td><td>Operator via /gsd-discuss-phase</td><td>Researcher + Planner</td><td>Locked decisions, canonical refs, scope guardrails</td></tr>
+      <tr><td>RESEARCH.md</td><td>gsd-phase-researcher</td><td>Planner + Plan-checker</td><td>How to implement each locked decision. File:line citations. Validation strategy.</td></tr>
+      <tr><td>VALIDATION.md</td><td>Orchestrator from RESEARCH §Q10</td><td>Planner (task ID alignment)</td><td>Per-task verification map. Framework. Sampling rate.</td></tr>
+      <tr><td>NN-PP plan files</td><td>gsd-planner (Opus)</td><td>Plan-checker + Executor</td><td>v2 schema frontmatter + inline tasks. Each task has input/output contract, hypothesis, falsifier, stop-rule.</td></tr>
+      <tr><td>PLAN-CHECK.md</td><td>gsd-plan-checker (Sonnet)</td><td>Orchestrator (dispatch gate)</td><td>Goal-backward verdict. Critical / warnings / info findings. PASS gates execution.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════ 13 EXECUTION PIPELINE ══════════════════ -->
+<section class="block alt" id="execution">
+  <div class="wrap">
+    <h2>13 &nbsp; Execution Pipeline — Every Branch, Every Handover</h2>
+    <p class="lede">One wave at a time. Within a wave: parallel if the DAG allows (Phase 12 MACH-02). After each wave: full-suite verify. After last wave: the big phase-close cascade.</p>
+
+    <div class="flow-diagram">
+      <svg viewBox="0 0 900 640" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <style><![CDATA[
+            .stage { fill: #FFF; stroke: #D8D4D4; rx: 4; }
+            .stage-hot { fill: #FCE8CA; stroke: #F79F1C; stroke-width: 2; rx: 4; }
+            .decision { fill: #2D2E34; }
+            .ttl { font: 700 13px 'Montserrat'; fill: #000; }
+            .ttlW { font: 700 13px 'Montserrat'; fill: #FFF; }
+            .det { font: 400 11px 'Source Sans 3'; fill: #3D3838; }
+            .detW { font: 400 11px 'Source Sans 3'; fill: #F2EEEE; }
+            .yes { fill: #2E7D32; font: 600 11px 'Montserrat'; }
+            .no { fill: #B22222; font: 600 11px 'Montserrat'; }
+          ]]></style>
+        </defs>
+
+        <!-- entry -->
+        <rect x="330" y="20" width="240" height="56" fill="#F79F1C" rx="4"/>
+        <text x="342" y="42" class="ttl">/sgsd-orchestrate go</text>
+        <text x="342" y="62" class="det">Read STATE.md · read CHECKPOINT</text>
+
+        <line x1="450" y1="76" x2="450" y2="96" stroke="#F79F1C" stroke-width="2"/>
+
+        <!-- Wave N dispatch -->
+        <rect x="200" y="96" width="500" height="56" class="stage-hot"/>
+        <text x="214" y="116" class="ttl">WAVE N DISPATCH (DAG from depends_on + files_touched)</text>
+        <text x="214" y="136" class="det">Parallel Agent(run_in_background: true) if files disjoint · else serialize</text>
+
+        <line x1="450" y1="152" x2="450" y2="170" stroke="#F79F1C" stroke-width="2"/>
+
+        <!-- Per-plan executor -->
+        <rect x="200" y="170" width="500" height="76" class="stage"/>
+        <text x="214" y="190" class="ttl">gsd-executor (Sonnet) — one dispatch per plan</text>
+        <text x="214" y="208" class="det">Reads plan · runs each task in order · writes test (if TDD)</text>
+        <text x="214" y="224" class="det">Commits atomically per task · writes SUMMARY.md · returns 6-section report</text>
+        <text x="214" y="240" class="det">Prompts: INTENT injection · surgical constraint · sgsd-recall results</text>
+
+        <line x1="450" y1="246" x2="450" y2="266" stroke="#F79F1C" stroke-width="2"/>
+
+        <!-- per-dispatch ATC decision -->
+        <rect x="200" y="266" width="500" height="40" class="decision"/>
+        <text x="214" y="290" class="ttlW">atc_tier ∈ {full, gate} AND code files changed?</text>
+
+        <!-- yes branch per-dispatch ATC -->
+        <line x1="350" y1="306" x2="350" y2="330" stroke="#F79F1C" stroke-width="2"/>
+        <text x="340" y="322" class="yes">YES</text>
+        <rect x="230" y="330" width="240" height="56" class="stage-hot"/>
+        <text x="244" y="350" class="ttl">gsd-code-reviewer (ATC)</text>
+        <text x="244" y="368" class="det">7-step + 10-point anti-slop</text>
+        <text x="244" y="380" class="det">→ commit-reviews.jsonl</text>
+
+        <!-- no branch skip -->
+        <line x1="550" y1="306" x2="550" y2="330" stroke="#D8D4D4" stroke-width="2" stroke-dasharray="5,4"/>
+        <text x="540" y="322" class="no">NO</text>
+        <rect x="490" y="330" width="180" height="56" class="stage"/>
+        <text x="504" y="350" class="ttl">SKIP ATC</text>
+        <text x="504" y="368" class="det">LITE = anti-slop self-check</text>
+        <text x="504" y="380" class="det">by executor already</text>
+
+        <!-- merge -->
+        <line x1="350" y1="386" x2="350" y2="410" stroke="#F79F1C" stroke-width="2"/>
+        <line x1="580" y1="386" x2="580" y2="410" stroke="#D8D4D4" stroke-width="2" stroke-dasharray="5,4"/>
+        <line x1="350" y1="410" x2="580" y2="410" stroke="#F79F1C" stroke-width="2"/>
+        <line x1="450" y1="410" x2="450" y2="430" stroke="#F79F1C" stroke-width="2"/>
+
+        <!-- wave complete? -->
+        <rect x="270" y="430" width="360" height="40" class="decision"/>
+        <text x="284" y="454" class="ttlW">Wave N last plan complete?</text>
+
+        <!-- more waves -->
+        <line x1="290" y1="450" x2="130" y2="450" stroke="#F79F1C" stroke-width="2"/>
+        <line x1="130" y1="450" x2="130" y2="124" stroke="#F79F1C" stroke-width="2"/>
+        <line x1="130" y1="124" x2="200" y2="124" stroke="#F79F1C" stroke-width="2" marker-end="url(#ah2)"/>
+        <text x="140" y="286" class="det" fill="#F79F1C">NO → next wave</text>
+
+        <!-- all waves done -->
+        <line x1="450" y1="470" x2="450" y2="490" stroke="#F79F1C" stroke-width="2"/>
+
+        <!-- gsd-verifier -->
+        <rect x="260" y="490" width="380" height="56" class="stage"/>
+        <text x="274" y="510" class="ttl">gsd-verifier (Sonnet) · goal-backward audit</text>
+        <text x="274" y="528" class="det">Did what's on disk satisfy the phase goal?</text>
+        <text x="274" y="540" class="det">→ VERIFICATION.md · STATUS: PASSED / PASS-WITH-DEVIATIONS / PASS-WITH-GAPS / FAIL</text>
+
+        <line x1="450" y1="546" x2="450" y2="566" stroke="#F79F1C" stroke-width="2"/>
+
+        <!-- phase close cascade -->
+        <rect x="200" y="566" width="500" height="56" fill="#000" rx="4"/>
+        <text x="214" y="588" class="ttlW">PHASE CLOSE CASCADE</text>
+        <text x="214" y="606" class="detW">Step 6.5 Phase ATC → Step 6.55 MUDA → Step 6.6 Browser verify → Step 6.7 Milestone check</text>
+      </svg>
+    </div>
+
+    <h3>The per-dispatch report contract</h3>
+    <p>Every <code>gsd-executor</code> return has EXACTLY this shape:</p>
+    <pre><code>FILES_CHANGED: path (created|modified)     # one per line
+VERIFICATION: `cmd` → exit N ✓|✗            # one per verification_gate from plan
+DEVIATIONS: [Rule N] description | none
+BLOCKERS: description | none
+SCRIPTS_CREATED: path | purpose | interface | none
+ONE_LINER: substantive summary for commit message</code></pre>
+    <p>No preamble. No summary. 300 words max. The orchestrator parses this mechanically — any missing section is logged and treated as empty. Any BLOCKER triggers Exit #3 (halt with human judgement required).</p>
+
+    <h3>Wave execution in practice (Phase 12 PARALLEL_CONFIRMED spike)</h3>
+    <p>Phase 12's first executor task was a live spike to prove <code>Agent(run_in_background: true)</code> actually runs concurrently in Claude Code. Result: 3 background dispatches started within 666ms of each other, completed before harvest read. This validates MACH-02 DAG-based parallel dispatch — Wave 1 plans with disjoint <code>files_modified</code> lists truly run in parallel, not serialized.</p>
+  </div>
+</section>
+
+<!-- ══════════════════ 14 MILESTONE CLOSE ══════════════════ -->
+<section class="block" id="milestone">
+  <div class="wrap">
+    <h2>14 &nbsp; Milestone Close — sgsd-complete-milestone (Phase 13 shipment)</h2>
+    <p class="lede">Auto-triggered by the orchestrator when the last phase of a milestone shows <code>[x]</code> in the roadmap. An 8-step workflow with bidirectional VTP integration. No operator prompt required.</p>
+
+    <div class="flow-diagram">
+      <svg viewBox="0 0 900 620" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <style><![CDATA[
+            .step { fill: #FFF; stroke: #F79F1C; stroke-width: 2; rx: 4; }
+            .step-vtp { fill: #FCE8CA; stroke: #D4820A; stroke-width: 2; rx: 4; }
+            .num { font: 800 20px 'Montserrat'; fill: #F79F1C; }
+            .ttl { font: 700 14px 'Montserrat'; fill: #000; }
+            .det { font: 400 11.5px 'Source Sans 3'; fill: #3D3838; }
+            .ar { stroke: #F79F1C; stroke-width: 2; fill: none; marker-end: url(#ah5); }
+          ]]></style>
+          <marker id="ah5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#F79F1C"/></marker>
+        </defs>
+
+        <!-- trigger -->
+        <rect x="260" y="20" width="380" height="50" fill="#000" rx="4"/>
+        <text x="272" y="42" class="ttl" fill="#F79F1C">TRIGGER (Rule 6.7 · auto)</text>
+        <text x="272" y="60" class="det" fill="#F2EEEE">all milestone phases [x] in ROADMAP.md</text>
+
+        <line x1="450" y1="70" x2="450" y2="90" class="ar"/>
+
+        <!-- step 1 -->
+        <rect x="40" y="90" width="400" height="52" class="step"/>
+        <text x="52" y="115" class="num">1</text>
+        <text x="82" y="112" class="ttl">VERIFY PRECONDITION</text>
+        <text x="82" y="130" class="det">All phases [x] · v2 schema · no known-gap without waiver</text>
+
+        <rect x="460" y="90" width="400" height="52" class="step"/>
+        <text x="472" y="115" class="num">2</text>
+        <text x="502" y="112" class="ttl">GOV-05 SCORING AUDIT</text>
+        <text x="502" y="130" class="det">Every DLB since last close → deliberation-outcomes.jsonl</text>
+
+        <line x1="240" y1="142" x2="240" y2="160" class="ar"/>
+        <line x1="660" y1="142" x2="660" y2="160" class="ar"/>
+
+        <!-- step 3 -->
+        <rect x="40" y="160" width="400" height="52" class="step"/>
+        <text x="52" y="185" class="num">3</text>
+        <text x="82" y="182" class="ttl">MUDA RECURRENCE CHECK</text>
+        <text x="82" y="200" class="det">Kill-condition audit (DLB-02) — retire skills if 2 milestones zero</text>
+
+        <rect x="460" y="160" width="400" height="52" class="step"/>
+        <text x="472" y="185" class="num">4</text>
+        <text x="502" y="182" class="ttl">CROSS-PHASE INTEGRATION CHECK</text>
+        <text x="502" y="200" class="det">gsd-integration-checker · regression audit across milestone</text>
+
+        <line x1="240" y1="212" x2="240" y2="230" class="ar"/>
+        <line x1="660" y1="212" x2="660" y2="230" class="ar"/>
+
+        <!-- step 5 -->
+        <rect x="40" y="230" width="820" height="52" class="step"/>
+        <text x="52" y="255" class="num">5</text>
+        <text x="82" y="252" class="ttl">GENERATE SUMMARY.md</text>
+        <text x="82" y="270" class="det">Human-readable retrospective at .planning/milestones/{version}/SUMMARY.md — shipped phases, decisions, metrics, reflection</text>
+
+        <line x1="450" y1="282" x2="450" y2="302" class="ar"/>
+
+        <!-- VTP ingest -->
+        <rect x="40" y="302" width="820" height="52" class="step-vtp"/>
+        <text x="52" y="327" class="num">6a</text>
+        <text x="88" y="324" class="ttl">VTP INGEST (enrich)</text>
+        <text x="88" y="342" class="det">mcp__vtp-kb__vtp_search · vtp_list_research — pull prior Milestone artifacts as context. Fold into SUMMARY §Connections</text>
+
+        <line x1="450" y1="354" x2="450" y2="374" class="ar"/>
+
+        <!-- VTP publish -->
+        <rect x="40" y="374" width="820" height="68" class="step-vtp"/>
+        <text x="52" y="402" class="num">6b</text>
+        <text x="88" y="396" class="ttl">VTP PUBLISH (classification: Milestone)</text>
+        <text x="88" y="414" class="det">mcp__vtp-kb__vtp_ingest_research — three-tier fallback (D-18b):</text>
+        <text x="88" y="430" class="det">Tier A Milestone type exists → clean publish · Tier B arbitrary string "Milestone (SGSD v2)" + gap memo · Tier C best-fit + metadata tag</text>
+
+        <line x1="450" y1="442" x2="450" y2="462" class="ar"/>
+
+        <!-- step 7 archive -->
+        <rect x="40" y="462" width="400" height="52" class="step"/>
+        <text x="52" y="487" class="num">7</text>
+        <text x="82" y="484" class="ttl">ARCHIVE PHASE DIRS</text>
+        <text x="82" y="502" class="det">.planning/phases/* → .planning/milestones/{ver}/phases/</text>
+
+        <rect x="460" y="462" width="400" height="52" class="step"/>
+        <text x="472" y="487" class="num">8</text>
+        <text x="502" y="484" class="ttl">BUMP STATE.md</text>
+        <text x="502" y="502" class="det">Next milestone OR milestone_status: complete</text>
+
+        <line x1="240" y1="514" x2="240" y2="534" class="ar"/>
+        <line x1="660" y1="514" x2="660" y2="534" class="ar"/>
+        <line x1="240" y1="534" x2="660" y2="534" stroke="#F79F1C" stroke-width="2"/>
+        <line x1="450" y1="534" x2="450" y2="554" class="ar"/>
+
+        <rect x="260" y="554" width="380" height="50" fill="#000" rx="4"/>
+        <text x="272" y="576" class="ttl" fill="#F79F1C">MILESTONE CLOSED</text>
+        <text x="272" y="594" class="det" fill="#F2EEEE">vtp-research-id.txt committed · operator notified · ready for next milestone</text>
+      </svg>
+    </div>
+
+    <h3>Why bidirectional VTP matters</h3>
+    <p>A closed milestone isn't a one-way artifact. <strong>Ingest</strong> means the summary doc includes "Connections" — prior Milestone artifacts the skill pulled from VTP that are semantically related. This gives the current milestone a knowledge graph anchor. <strong>Publish</strong> means the summary <em>becomes</em> a VTP Milestone artifact itself, queryable by future milestones in future projects. Knowledge graph grows one milestone at a time.</p>
+
+    <h3>Idempotency</h3>
+    <p>The skill checks for an existing <code>milestones/{version}/SUMMARY.md</code> before doing anything. If found: no-op PASS. This makes resume-after-checkpoint safe — the orchestrator can re-trigger at any point without duplicating work.</p>
+
+    <h3>Outputs landed on disk</h3>
+    <pre><code>.planning/milestones/v1.2/
+  SUMMARY.md                    — human-readable retrospective
+  deliberation-outcomes.jsonl   — GOV-05 rows, one per DLB this milestone
+  muda-recurrence.md            — DLB-02 recurrence verdict
+  gate-drift-audit.md           — edge-guard log summary
+  phases/                       — archived phase dirs
+  vtp-research-id.txt           — ID returned from vtp_ingest_research
+  VTP-CLASSIFICATION-GAP.md     — only if VTP doesn't support Milestone type
+</code></pre>
+  </div>
+</section>
+
+<!-- ══════════════════ 15 SCENARIOS ══════════════════ -->
+<section class="block dark" id="scenarios">
+  <div class="wrap">
+    <h2>15 &nbsp; If-This-Then-That Scenarios</h2>
+    <p class="lede">Twelve concrete scenarios. How the orchestrator responds when things go right, when things go sideways, and when a human has to step in.</p>
+
+    <div class="scenario">
+      <div class="scenario-head"><span class="num">01</span>Fresh session on a half-done milestone</div>
+      <div class="scenario-body">
+        <span class="trigger">Trigger</span>
+        <p>Operator runs <code>/sgsd-orchestrate go</code>. <code>.planning/ORCHESTRATOR-CHECKPOINT.md</code> exists with <code>phase_state: phase_13_planned_awaiting_execution</code>.</p>
+        <span class="outcome">Outcome</span>
+        <p>Orchestrator reads the checkpoint, skips cold start, enters the loop at <code>next_unit: "Execute Phase 13 Wave 1"</code>. First loop iteration dispatches the classifier for plan 13-04 (or 13-05). No operator prompt.</p>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <div class="scenario-head"><span class="num">02</span>Plan-check returns FAIL</div>
+      <div class="scenario-body">
+        <span class="trigger">Trigger</span>
+        <p>After gsd-planner writes 3 plan files, gsd-plan-checker runs. Report: <code>VERDICT: FAIL</code> with 2 critical findings (e.g., "plan 10-02 doesn't cover requirement GATE-04").</p>
+        <span class="outcome">Outcome</span>
+        <p>Rule 3 fires again with <code>--fix</code> flag. Planner reads PLAN-CHECK.md critical findings + original CONTEXT.md, emits revised plans. Plan-checker runs again. Revision loop max 3 iterations. If still FAIL: orchestrator exits with Exit #3 (blocker).</p>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <div class="scenario-head"><span class="num">03</span>Executor reports a BLOCKER</div>
+      <div class="scenario-body">
+        <span class="trigger">Trigger</span>
+        <p>gsd-executor returns <code>BLOCKERS: "Database connection string not in .env"</code>.</p>
+        <span class="outcome">Outcome</span>
+        <p>Orchestrator parses report. BLOCKERS non-empty → immediately exits with Exit #3. Writes checkpoint with <code>next_unit</code> = retry this task, surfaces blocker text to operator. No commit for this dispatch. Operator resolves, resumes.</p>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <div class="scenario-head"><span class="num">04</span>gsd-verifier returns PASS-WITH-DEVIATIONS</div>
+      <div class="scenario-body">
+        <span class="trigger">Trigger</span>
+        <p>Phase 9 verifier found a minor arithmetic prose error in 09-gate-bypass.yaml's note field. Mathematical value correct; explanation self-contradictory.</p>
+        <span class="outcome">Outcome</span>
+        <p>Orchestrator reads verification report. STATUS treated as PASS (not FAIL). Inline fix-up: orchestrator edits the note, commits with <code>fix(09-02): correct lower-bound derivation note</code>, re-runs verify.mjs (still PASSES). Proceeds to Phase ATC. Phase 11 precedent for fix-up pattern.</p>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <div class="scenario-head"><span class="num">05</span>Phase ATC finds 0 critical + 3 warnings</div>
+      <div class="scenario-body">
+        <span class="trigger">Trigger</span>
+        <p>Phase 10 ATC: 10/10 anti-slop, 0 critical, 2 warnings (verifier coverage gaps), 1 info. Phase 12 ATC: 9.67/10, 0 critical, 3 warnings.</p>
+        <span class="outcome">Outcome</span>
+        <p>Verdict = WARN (not blocker). Orchestrator logs warnings as DEVIATIONS, appends to phase SUMMARY.md. Marks phase complete, continues to Rule 6.55 (MUDA). Warnings become candidates for a future ergonomics sweep or are folded into the next phase if scope-adjacent.</p>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <div class="scenario-head"><span class="num">06</span>Phase ATC finds 1 critical finding (auto mode)</div>
+      <div class="scenario-body">
+        <span class="trigger">Trigger</span>
+        <p>gsd-code-reviewer returns CRITICAL = 1. Example: "Plan 10-03 introduces a direct dependency on a deprecated API."</p>
+        <span class="outcome">Outcome</span>
+        <p>Auto mode: logs <code>GATE_AUTO_BYPASS</code> in DEVIATIONS, continues per Golden Rule 13 (auto mode never blocks on quality gates, only logs and moves on). The orchestrator writes the finding to <code>{N}-ATC-REVIEW.md</code> with full prose. Operator can review post-hoc and decide whether to open a gap-closure plan.</p>
+        <p>Interactive mode: STOP with blocker. Operator reviews + approves before commit lands.</p>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <div class="scenario-head"><span class="num">07</span>MUDA audit finds 1 FAIL (Phase 10 case)</div>
+      <div class="scenario-body">
+        <span class="trigger">Trigger</span>
+        <p>Phase 10's MUDA audit logs <code>inventory</code> FAIL (45 unreferenced .md files &gt;3 days old).</p>
+        <span class="outcome">Outcome</span>
+        <p>Per DLB-02: never blocks. Orchestrator appends to DEVIATIONS, writes WASTE.md, continues. Data accumulates across milestones; at milestone close, sgsd-muda-recurrence checks whether the same waste class fired 2+ times. If yes → flag for structural fix. If no 2 consecutive milestones show recurrence → kill the MUDA skill entirely.</p>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <div class="scenario-head"><span class="num">08</span>Wave 1 plans declared parallel but share a file</div>
+      <div class="scenario-body">
+        <span class="trigger">Trigger</span>
+        <p>Phase 10 plan-check W-2 (historical): 10-01 and 10-02 declared <code>wave: 1</code> but edge-guard.cjs requires gates-registry.cjs at module load — runtime coupling.</p>
+        <span class="outcome">Outcome</span>
+        <p>Plan-checker detects the file overlap in <code>files_modified</code> OR the import dependency. Flags as W-2 warning. Orchestrator fixes inline: re-frontmatter 10-02 to <code>wave: 2, depends_on: [10-01]</code>, 10-03 to <code>wave: 3</code>. Updates CONTEXT.md D-16b. Commits the wave-model fix separately. The lesson: "dependency-honest over parallelism-aspirational."</p>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <div class="scenario-head"><span class="num">09</span>Context hits 85% mid-task (Phase 12 MACH-03)</div>
+      <div class="scenario-body">
+        <span class="trigger">Trigger</span>
+        <p>Long task in Wave 5 of a phase. <code>context-gauge.isEmergency()</code> returns true mid-executor dispatch.</p>
+        <span class="outcome">Outcome</span>
+        <p>Orchestrator halts mid-task. Writes checkpoint with <code>emergency_halt: true</code>. Logs <code>CHECKPOINT_EMERGENCY: context 85% at task {id}</code> in DEVIATIONS. Exits with Exit #2. On resume: reads checkpoint, continues at the next task. If &gt;10% of milestone checkpoints are emergency, flags "plan-decomposition issue" — plans were too long.</p>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <div class="scenario-head"><span class="num">10</span>Adversarial verifier flips PASS → FAIL (Phase 13)</div>
+      <div class="scenario-body">
+        <span class="trigger">Trigger</span>
+        <p>gsd-verifier returns PASS on Phase 12 verification. 20% roll: challenger dispatched with contrarian prompt. Challenger finds: "Phase 12 verify.mjs invariant 7 runs 09-verify.mjs via execSync — if that child process crashes for an unrelated reason, Phase 12 passes but the dependency is broken."</p>
+        <span class="outcome">Outcome</span>
+        <p>Challenger status: <code>gaps_found</code> (per Phase 13 A2 vocab mapping). Auto mode: logs <code>VERIFIER_ADVERSARIAL_FLIP</code> as CRITICAL in DEVIATIONS, appends challenger report to VERIFICATION.md as <code>## Adversarial Challenge</code> section, continues. Interactive mode: STOPS with blocker; operator arbitrates.</p>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <div class="scenario-head"><span class="num">11</span>Cross-repo operator action (Phase 10 D-13b case)</div>
+      <div class="scenario-body">
+        <span class="trigger">Trigger</span>
+        <p>Plan 10-03-01 probes <code>~/.claude/get-shit-done/bin/lib/core.cjs</code> — finds it's in a separate git repo. Plan 10-03-04 was meant to patch KNOWN_TOP_LEVEL.</p>
+        <span class="outcome">Outcome</span>
+        <p>10-03-01 writes probe result YAML. 10-03-04 reads it, sees <code>repo_status: separate</code>, skips the patch, emits operator action note. Phase 12 then ships <code>patch-gsd-tools-known-keys.sh</code> — an idempotent installer that operator runs once per machine. Turns the manual action into a reusable tool.</p>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <div class="scenario-head"><span class="num">12</span>Milestone closes — VTP Milestone classification doesn't exist yet</div>
+      <div class="scenario-body">
+        <span class="trigger">Trigger</span>
+        <p>sgsd-complete-milestone auto-fires at v1.2 close. Step 6b calls <code>vtp_ingest_research</code> with classification <code>Milestone</code>. API returns error: "unknown classification."</p>
+        <span class="outcome">Outcome</span>
+        <p>Three-tier fallback (D-18b). Tier B fires: publish with <code>classification: "Milestone (SGSD v2)"</code> as arbitrary string. Writes <code>VTP-CLASSIFICATION-GAP.md</code> documenting the schema change VTP needs. Records <code>vtp_classification_used: "Milestone (string)"</code> in SUMMARY frontmatter. Archives phase dirs. Bumps STATE.md to v1.3. Milestone closed — with a documented follow-up for the VTP maintainers.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 16 LEDGER ══════════════════ -->
+<section class="block" id="ledger">
+  <div class="wrap">
+    <h2>16 &nbsp; v1.2 Shipment Ledger</h2>
+    <p class="lede">Every artifact landed in v1.2. Lines, commits, empirical wins.</p>
+
+    <h3>Phase 11 &mdash; Plan Schema v2 <span class="badge done">shipped 2026-04-21</span></h3>
+    <table>
+      <tr><td><strong>Goal</strong></td><td>Canonical YAML-frontmatter plan schema with required/optional fields and v1 classifier fallback</td></tr>
+      <tr><td><strong>Plans</strong></td><td>6 plans (11-01..11-06) / 18 commits</td></tr>
+      <tr><td><strong>Ships</strong></td><td><code>super-gsd/templates/plan-schema-v2.json</code> · <code>super-gsd/tools/plan-schema/validate.cjs</code> · self-healing loop in gsd-planner (fix-schema mode) · boot hash drift check · sgsd-write-plan skill</td></tr>
+      <tr><td><strong>ATC</strong></td><td>PASS after 11-06 gap closure: WR-01..05 + IN-01 all closed, 0 warnings remain</td></tr>
+    </table>
+
+    <h3>Phase 9 &mdash; ATC-147-Evidence <span class="badge done">shipped 2026-04-22</span></h3>
+    <table>
+      <tr><td><strong>Goal</strong></td><td>Retroactive ATC on external project-clarity-erp Phase 147; empirical finding count + 9-gate bypass audit with token-cost bounds</td></tr>
+      <tr><td><strong>Plans</strong></td><td>3 plans (09-01..09-03) / 12 commits</td></tr>
+      <tr><td><strong>Ships</strong></td><td><code>09-classification.yaml</code> (4-bucket split, 10 findings) · <code>09-gate-bypass.yaml</code> (9 gates, 18,940 upper / 9,340 lower bounds) · <code>.planning/milestones/v1.2/INTENT.md</code> (closes INTENT_MISSING) · SHA-pinned evidence registry · 7-invariant <code>verify.mjs</code> (later retrofitted to 9 via WR-01/WR-02)</td></tr>
+      <tr><td><strong>ATC</strong></td><td>PASS-WITH-DEVIATIONS. Gap closed inline: arithmetic prose correction.</td></tr>
+    </table>
+
+    <h3>Phase 10 &mdash; Gate Policy <span class="badge done">shipped 2026-04-22</span></h3>
+    <table>
+      <tr><td><strong>Goal</strong></td><td>Convert Phase 9's empirical audit into an enforceable YAML registry + edge-guard layer</td></tr>
+      <tr><td><strong>Plans</strong></td><td>3 plans (10-01..10-03) / 12 commits</td></tr>
+      <tr><td><strong>Ships</strong></td><td><code>super-gsd/registry/gates.yaml</code> (11 populated rows) · <code>super-gsd/scripts/lib/predicate-eval.cjs</code> (10-op pure evaluator) · <code>gates-registry.cjs</code> (cached singleton) · <code>edge-guard.cjs</code> (transition wrapper + --self-test) · 9 SKILL.md integration sites · 09-verify.mjs WR-01/02 retrofit · <code>config.byterover</code> deleted · 8-invariant Phase 10 verify.mjs</td></tr>
+      <tr><td><strong>ATC</strong></td><td>WARN: 0 critical, 2 warnings, 10/10 anti-slop</td></tr>
+    </table>
+
+    <h3>Phase 12 &mdash; Machinery <span class="badge done">shipped 2026-04-22</span></h3>
+    <table>
+      <tr><td><strong>Goal</strong></td><td>Four orchestrator sharpenings (classifier-skip, parallel/sequential auto-dispatch, checkpoint schema expansion, adversarial verifier sampling) + ergonomics fold-in</td></tr>
+      <tr><td><strong>Plans</strong></td><td>6 plans (12-01..12-06) / ~24 commits</td></tr>
+      <tr><td><strong>Ships</strong></td><td><code>classifier-cache.cjs</code> (per-plan sidecar) · <code>dispatch-planner.cjs</code> (Kahn topo-sort DAG) · <code>context-gauge.cjs</code> (mechanical 85%) · SKILL.md Step 9.6 adversarial verifier · checkpoint template +4 fields · <code>patch-gsd-tools-known-keys.sh</code> installer · Phase 10 WR-01/02/03 ergonomics closed · config.atc.verifier_adversarial_rate=0.2 · 13-invariant Phase 12 verify.mjs</td></tr>
+      <tr><td><strong>ATC</strong></td><td>WARN: 0 critical, 3 warnings, 9.67/10 anti-slop. PARALLEL_CONFIRMED spike: 3 concurrent Agent() calls ran in parallel.</td></tr>
+    </table>
+
+    <h3>Phase 13 &mdash; Governance <span class="badge planned">planned, not executed</span></h3>
+    <table>
+      <tr><td><strong>Goal</strong></td><td>Turn deliberation board into registered resource; confidence-weighted synthesis; new sgsd-complete-milestone skill with bidirectional VTP</td></tr>
+      <tr><td><strong>Plans</strong></td><td>7 plans (13-01..13-07) / 27 tasks / 6 waves · PLAN-CHECK: PASS-WITH-NOTES</td></tr>
+      <tr><td><strong>Will ship</strong></td><td><code>board-registry.cjs</code> · <code>vote-predicate.cjs</code> (NEW pattern, array-iteration) · <code>vote-synthesis.cjs</code> (signed-sum formula) · <code>deliberation-schema.cjs</code> (10-field YAML validator) · board-members.yaml activation + escalation_policy · decision-memo.md template (## Falsifier + ## Dead Ends + ## Reflection) · <code>sgsd-complete-milestone</code> skill + bidirectional VTP · Step 6.7 auto-trigger in orchestrator · DLB-01..06 retro rescore · 16-invariant Phase 13 verify.mjs</td></tr>
+      <tr><td><strong>After shipment</strong></td><td>sgsd-complete-milestone auto-fires on the last Phase 13 commit. v1.2 closes itself via VTP bidirectional publish.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════ 17 DLBs ══════════════════ -->
+<section class="block alt" id="dlbs">
+  <div class="wrap">
+    <h2>17 &nbsp; Deliberation Memos — The Strategic Bedrock</h2>
+    <p class="lede">Before any v1.2 phase started, the board deliberated six strategic positions. Every phase references these. Every implementation honours them.</p>
+
+    <div class="card">
+      <h3>DLB-01 &mdash; Memory Topology</h3>
+      <p><strong>Decision:</strong> Ship a git-native filesystem memory tier as the SGSD-global layer. No new MCP server. No cross-project extension. No BM25 ranking until measured need. 12 curated files in <code>.brv/context-tree/</code> → INDEX.md catalog → thin <code>sgsd-recall</code> grep wrapper. Orchestrator injects retrieved content at prompt-composition time.</p>
+      <p><strong>Where it shows up:</strong> entire memory system. Later evolved in Phase 12 via <code>sgsd-memory-migrate</code> to the v1.2 8-folder taxonomy at <code>.planning/memory/</code>.</p>
+    </div>
+
+    <div class="card">
+      <h3>DLB-02 &mdash; MUDA Learning Loop</h3>
+      <p><strong>Decision:</strong> Narrow write path only + 3 targeted watchdog probes (haiku-fails, narrative staleness, git-spawn rate). No seed library, no two-tier promotion, no token-audit fold. Accept explicit <em>kill condition</em>: if no waste class recurs across 2 milestones, abandon the MUDA skill and rely on probes alone.</p>
+      <p><strong>Where it shows up:</strong> Step 6.55 MUDA audit. Phase 10 + 12's WASTE.md. sgsd-muda-recurrence at milestone close.</p>
+    </div>
+
+    <div class="card">
+      <h3>DLB-03 &mdash; Intent Continuity (Structural Injection)</h3>
+      <p><strong>Decision:</strong> 3-part minimal intervention. Christopher Alexander / Commander's Intent / Hoshin Kanri mapped onto SGSD primitives. The LLM context window IS the enforcement — no regex presence check, no NL scoring gate.</p>
+      <p><strong>Where it shows up:</strong> Step 5.5 INTENT injection. Every dispatch prompt carries the milestone's <code>outcome_delivered</code>. Logs to intent-log.jsonl. Coverage check at milestone close.</p>
+    </div>
+
+    <div class="card">
+      <h3>DLB-04 &mdash; Self-Evolving Resource Substrate</h3>
+      <p><strong>Decision:</strong> Minimum-viable resource manifest + operator-gated propose→commit loop + trajectory-distillation at milestone close with triple hallucination gate + AGP-vocabulary borrow without schema conformance. <em>Narrow</em> adoption — not full RSPL/SEPL build.</p>
+      <p><strong>Where it shows up:</strong> <code>agents.yaml</code> manifest. sgsd-sepl skill (operator-gated). <code>trajectory/</code> subtree in memory. sgsd-distill at milestone close.</p>
+    </div>
+
+    <div class="card">
+      <h3>DLB-05 &mdash; VTP-Audit Sharpening (SPEC-NOW retype)</h3>
+      <p><strong>Decision:</strong> Soft-warn budget logging on <code>/sgsd-deliberate</code>; metric-only conformance logging at phase close; 2 additional MUDA write-path probes (extra-processing + inventory) with concrete measurable signals; adopt Moonshot's refined retype as <strong>SPEC-NOW</strong> — document Process Mining's 7 anomaly patterns as the DLB-02 deferred read-path algorithm spec, without activating it.</p>
+      <p><strong>Where it shows up:</strong> extended MUDA probes (seen in Phase 10's audit: 5 probes including inventory). Spec doc in trajectory/.</p>
+    </div>
+
+    <div class="card">
+      <h3>DLB-06 &mdash; Central Distribution (Governance Floor)</h3>
+      <p><strong>Decision:</strong> Narrow scope central distribution + <em>unanimous meta-decision</em>: file <code>DELIBERATION-FLOOR.md</code> as a governance pre-check for future briefs. Catches the "briefs with missing context" failure mode the R2 Contrarian critique surfaced.</p>
+      <p><strong>Where it shows up:</strong> DELIBERATION-FLOOR.md as a /sgsd-deliberate precondition. Phase 13 GOV-03 decision-memo template requires ## Falsifier + ## Dead Ends sections.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 18 GLOSSARY ══════════════════ -->
+<section class="block" id="glossary">
+  <div class="wrap">
+    <h2>18 &nbsp; Glossary</h2>
+    <p class="lede">Every weird acronym in one place.</p>
+
+    <table>
+      <tr><th>Term</th><th>Meaning</th></tr>
+      <tr><td><code>ATC</code></td><td>Advanced Technical Control — the 7-step + 10-point anti-slop review framework. Runs per-dispatch (Step 9.5) and per-phase (Step 6.5).</td></tr>
+      <tr><td><code>DLB</code></td><td>Deliberate Board memo. DLB-NN. Output of <code>/sgsd-deliberate</code>. Strategic decision with falsifier + dead ends.</td></tr>
+      <tr><td><code>DAG</code></td><td>Directed Acyclic Graph. Phase 12 <code>dispatch-planner.cjs</code> builds one from <code>depends_on</code> + <code>files_touched</code> to determine parallel vs serial dispatch.</td></tr>
+      <tr><td><code>GSD</code></td><td>Get Shit Done — the base framework SGSD 2.0 extends.</td></tr>
+      <tr><td><code>INTENT</code></td><td>The milestone-level <code>outcome_delivered</code> string. Injected into every dispatch prompt (DLB-03 structural injection).</td></tr>
+      <tr><td><code>MUDA</code></td><td>Japanese for "waste." 8 Lean categories. SGSD's MUDA audit probes 3-5 of them at phase close.</td></tr>
+      <tr><td><code>Nyquist</code></td><td>Validation principle: sample rate must exceed 2× signal frequency. Applied to tests: feedback loop latency &lt; task duration / 2.</td></tr>
+      <tr><td><code>SGSD 2.0</code></td><td>Super Get Shit Done, version 2. This framework. An autonomous delivery stack with declarative substrates.</td></tr>
+      <tr><td><code>SEPL</code></td><td>Scoped Evolution Propose-Loop. Operator-gated resource-grain improvement loop (DLB-04).</td></tr>
+      <tr><td><code>sgsd-recall / sgsd-curate</code></td><td>The read/write interface to <code>.planning/memory/</code>. Replaces dead <code>brv-query / brv-curate</code> references.</td></tr>
+      <tr><td><code>Surgical constraint</code></td><td>Mandatory header injected into every executor prompt: every changed line must trace to a task; orphan edits are DEVIATIONS.</td></tr>
+      <tr><td><code>v2 schema</code></td><td>Phase 11's canonical plan format: <code>schema_version: 2</code>, self-referential YAML frontmatter, mechanical validator.</td></tr>
+      <tr><td><code>VTP</code></td><td>External research knowledge graph (the mcp__vtp-kb__* tools). Phase 13 sgsd-complete-milestone integrates bidirectionally.</td></tr>
+      <tr><td><code>Wave</code></td><td>Grouping of plans that can execute concurrently. Declared in plan frontmatter. Waves execute serially; plans within a wave execute in parallel if files_modified disjoint.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════ FOOTER ══════════════════ -->
+<footer class="footer">
+  <div class="wrap">
+    <div class="two-col">
+      <div>
+        <h4>SGSD 2.0 — Handover Document</h4>
+        <p>Authored from the ground state of milestone v1.2 at 80% shipment. Every claim in this document is backed by a file on disk, a commit in git history, or a committed artifact in <code>.planning/</code>.</p>
+        <p>Reference implementation: <code>C:\Users\jack.berrow\GSDedits</code></p>
+      </div>
+      <div>
+        <h4>What's next</h4>
+        <p>Execute Phase 13 (27 tasks, 6 waves). When its last task lands, <code>sgsd-complete-milestone</code> auto-fires and closes v1.2 bidirectionally through VTP. Then v1.3 begins — the first milestone built atop the full v1.2 substrate.</p>
+      </div>
+    </div>
+    <hr style="border-color: #3D3838; margin-top: 40px;">
+    <p style="color: #8a8f99; font-size: 0.85rem;">Document date: 2026-04-22 · For operator: jack.berrow · Style inspired by John Cullen Lighting brand system (Montserrat + Source Sans 3, <span style="color: #F79F1C;">#F79F1C</span> accent)</p>
+  </div>
+</footer>
+
+</body>
+</html>
