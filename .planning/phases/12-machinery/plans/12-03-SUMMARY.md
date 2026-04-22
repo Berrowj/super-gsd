@@ -60,7 +60,7 @@ Rationale: The SKILL.md self-report convention is already proven for the 70% tri
 |---|---|---|
 | 12-03-01 | `f3674e8` | extend checkpoint.md schema + verify Invariant 6 |
 | 12-03-02 | `00b6848` | SKILL.md checkpoint_protocol D-10 + D-11 + Invariant 7 |
-| 12-03-03 | _(this commit)_ | context-gauge.cjs + SUMMARY |
+| 12-03-03 | `63e3abc` | context-gauge.cjs + SUMMARY |
 
 ## Verification Gates — All Green
 
