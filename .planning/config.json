@@ -52,14 +52,6 @@
     "max_prompt_tokens": 1500,
     "log_usage": true
   },
-  "byterover": {
-    "enabled": false,
-    "query_before_dispatch": true,
-    "curate_after_dispatch": true,
-    "script_registry": true,
-    "max_queries_per_dispatch": 3,
-    "max_context_tokens": 1000
-  },
   "deliberation": {
     "enabled": true,
     "auto_gate": true,
