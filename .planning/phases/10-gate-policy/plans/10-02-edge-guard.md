@@ -2,8 +2,9 @@
 phase: 10-gate-policy
 plan: 02
 type: execute
-wave: 1
-depends_on: []
+wave: 2
+depends_on:
+  - 10-01
 files_modified:
   - super-gsd/scripts/lib/edge-guard.cjs
   - super-gsd/skills/sgsd-orchestrate/SKILL.md

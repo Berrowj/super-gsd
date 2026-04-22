@@ -100,7 +100,7 @@ Per-gate defaults, aligned to the scaffold's 4-mode vocabulary (`hard-halt` / `s
   - **10-02 — Edge-guard layer**: implement step-transition check in sgsd-orchestrate, write JSONL log contract, wire halt/log-only branching per D-11.
   - **10-03 — Integration & cleanup**: wire gates.yaml lookups into every referenced step in sgsd-orchestrate SKILL.md (replace hard-coded threshold checks with `gates.get(name).trigger.eval(ctx)` calls); retro-fix 09-verify.mjs for D-12b; config cleanup D-13; add known-key schema for remaining config blocks.
 - **D-16a** — Each plan uses v2 schema_version frontmatter (same as Phase 9 plans) with inline tasks list, files_modified, hypothesis/falsifier/stop_rule.
-- **D-16b** — Wave grouping: 10-01 and 10-02 are Wave 1 (different files: 10-01 touches gates.yaml + predicate evaluator; 10-02 touches sgsd-orchestrate). 10-03 is Wave 2 (depends on both — integrates them).
+- **D-16b** — Wave grouping: Wave 1 = 10-01 (predicate evaluator + gates-registry + populate gates.yaml + phase-10 verify.mjs). Wave 2 = 10-02 (edge-guard.cjs + SKILL.md doc section + --self-test). Wave 3 = 10-03 (SKILL.md integration + 09-verify.mjs retrofit + config cleanup + full-suite). **Serial (no intra-wave parallelism)** — revised from original 2-wave parallel proposal after plan-check W-2 caught that edge-guard.cjs imports gates-registry.cjs at module-load time, making Wave 1 parallel dispatch race-prone. Dependency-honest over parallelism-aspirational.
 
 ### What's Out of Scope (D-17)
 
