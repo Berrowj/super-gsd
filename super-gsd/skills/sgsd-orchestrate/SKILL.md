@@ -104,6 +104,21 @@ On first entry (no checkpoint):
      - Hash absent: console warn once + continue (graceful no-op on first run before 11-04).
      - readiness-log.jsonl write failure: console warn already emitted; T-11-11 accepted risk.
 
+3.6. LOAD GATES REGISTRY (Phase 10 D-13b — one-time cold-start load)
+     Immediately after step 3.5, load the gates registry ONCE and cache it in memory.
+     Subsequent `gates.shouldFire` calls are O(1) lookups — no re-parsing per step.
+
+     ```javascript
+     const gates = require('super-gsd/scripts/lib/gates-registry.cjs');
+     const GATES_YAML_PATH = 'super-gsd/registry/gates.yaml';
+     gates.loadGates(GATES_YAML_PATH); // caches; subsequent calls are O(1)
+     ```
+
+     Non-blocking: if gates-registry.cjs is missing (pre-Phase-10 environment),
+     log a single warn and continue. All `gates.shouldFire` calls below degrade
+     gracefully to `true` (gate fires unconditionally) so existing behaviour is
+     preserved while the registry is absent.
+
 4. Determine position: which phase, which plan, what state
 
 When capturing gsd-tools output into a variable, always apply the @file: IPC guard:
@@ -146,6 +161,8 @@ REPEAT:
      - If checkpoint exists and context >70% → EXIT: write checkpoint
 
   2. CLASSIFY
+     // Gate check (Phase 10 D-01): fires unless registry disables this gate
+     if (gates.shouldFire('classifier-haiku', ctx, GATES_YAML_PATH)) {
      // SCHEMA-04: v2 plans skip Haiku classifier spawn — derive classifier result from frontmatter
      // Frontmatter is already parsed at this point (schema_version read for D-12 drift check at Step 3.5)
 
@@ -183,6 +200,7 @@ REPEAT:
        })
        → Returns: { complexity, model, atc_tier, deliberate, reason }
        AFTER: TaskUpdate(same taskId, status: "completed")
+     } // end gates.shouldFire('classifier-haiku')
 
   3. CHECK DELIBERATION GATE
      If classifier.deliberate == true AND NOT auto mode:
@@ -195,6 +213,8 @@ REPEAT:
        → Log "GATE_AUTO_BYPASS", run FULL checks, continue
 
   4. SELECT CONTEXT (spawn Haiku context-selector)
+     // Gate check (Phase 10 D-02): context-selector-haiku gate fires unless disabled
+     if (gates.shouldFire('context-selector-haiku', ctx, GATES_YAML_PATH)) {
      FIRST: TaskCreate({
        content: "Select context for phase {N}",
        activeForm: "sgsd-context-selector [haiku] picking queries for P{N}",
@@ -208,13 +228,19 @@ REPEAT:
      })
      → Returns: { brv_queries, file_reads, error_rules, scripts_to_check }
      AFTER: TaskUpdate(same taskId, status: "completed")
+     } // end gates.shouldFire('context-selector-haiku')
 
   5. QUERY BYTEROVER
+     // Gate check (Phase 10 D-03): sgsd-recall-queries fires unless classifier.complexity == trivial
+     if (gates.shouldFire('sgsd-recall-queries', ctx, GATES_YAML_PATH)) {
      For each brv_query: execute sgsd-recall → collect results (~200 tokens each)
      For each script_to_check: search for existing utility to reuse
      Total context injection target: <1000 tokens
+     } // end gates.shouldFire('sgsd-recall-queries')
 
   5.5. INTENT INJECTION (DLB-03 — structural enforcement)
+     // Gate check (Phase 10 D-04): intent-injection gate fires unless disabled
+     if (gates.shouldFire('intent-injection', ctx, GATES_YAML_PATH)) {
      Read `.planning/milestones/{active_milestone}/INTENT.md` frontmatter only
      (offset 0, limit 30). Extract `outcome_delivered:` (≤120 chars) and
      `milestone:`.
@@ -245,6 +271,7 @@ REPEAT:
      This log seeds the kill-condition check. Token cost per injection:
      `outcome_delivered` ≤120 chars → ~30 tokens. For a 10-dispatch phase
      that's ~300 tokens total — cheap.
+     } // end gates.shouldFire('intent-injection')
 
   6. DETERMINE DISPATCH
      Apply first-match rules:
@@ -363,7 +390,9 @@ REPEAT:
      This is a PHASE-LEVEL quality review — reviews the ENTIRE phase's work
      as a coherent unit, NOT individual commits.
 
-     IF config.atc.enabled AND verification.status == "passed":
+     // Gate check (Phase 10 D-06): R5 compose — BOTH kill-switches must agree
+     // config.atc.enabled is preserved as an outer runtime knob (D-13a)
+     IF config.atc.enabled AND gates.shouldFire('phase-level-ATC', ctx, GATES_YAML_PATH) AND verification.status == "passed":
 
        a. Collect phase stats:
           - git diff --stat {first_commit_of_phase}..HEAD
@@ -425,9 +454,12 @@ REPEAT:
      Runs ONCE per phase, not per commit — keeps token cost bounded.
 
   6.55. MUDA WASTE AUDIT (runs ONCE per phase, after ATC passes) — per DLB-02
-     Triggers when Step 6.5 completes AND the conditional gate fires:
-       (files_changed >= 4 OR diff_lines >= 100)
-       AND phase_type NOT IN (refactor, docs, config)
+     Triggers when Step 6.5 completes AND the conditional gate fires.
+     The gate's trigger declares the equivalent policy — see super-gsd/registry/gates.yaml:
+       (files_changed >= 4 OR diff_lines >= 100) AND phase_type NOT IN (refactor, docs, config)
+
+     // Gate check (Phase 10 D-07): MUDA-waste-audit with compound OR trigger
+     if (gates.shouldFire('MUDA-waste-audit', ctx, GATES_YAML_PATH)) {
 
      If the gate doesn't fire (small phase, or refactor/docs/config), SKIP
      this step silently. DLB-02's Architect-held position: pay audit cost
@@ -465,6 +497,7 @@ REPEAT:
 
      Token budget per MUDA audit: ~100 tokens total (orchestrator overhead;
      the actual probes run in shell at <1s and don't consume context).
+     } // end gates.shouldFire('MUDA-waste-audit')
 
   6.6. FRONTEND BROWSER VERIFICATION GATE (runs ONCE per phase, after ATC passes)
      Triggers when Step 6.5 completes AND the phase's diff touched any frontend
@@ -683,14 +716,42 @@ REPEAT:
      If report is missing any section: log "MISSING: {section}", treat as empty.
      If report exceeds 300 words: log "REPORT_OVERLIMIT", process anyway.
 
+  9.2. BUILD DISPATCH CONTEXT (Phase 10 §Q2 — assemble ctx for gate lookups)
+     Assembled AFTER processing the result report, BEFORE any gate check.
+     The ctx object is ephemeral per-iteration — not persisted.
+
+     ```javascript
+     const ctx = {
+       classifier: {
+         complexity: classifier_result.complexity,   // 'trivial'|'light'|'standard'|'heavy'
+         atc_tier:   classifier_result.atc_tier,     // 'skip'|'lite'|'full'|'gate'
+         type:       classifier_result.type,         // 'feature'|'bugfix'|'refactor'|...
+       },
+       files_changed_count:      filesChanged.length,
+       code_files_changed_count: filesChanged.filter(f =>
+         !f.endsWith('.md') && !f.startsWith('.planning/')
+       ).length,
+       diff_lines:               parseDiffLines(),   // from git diff --stat HEAD~1..HEAD
+       phase_type:               phaseType,          // read once from ROADMAP/phase metadata
+       new_pattern_detected:     deviations.some(d => d.startsWith('new pattern:')),
+       script_created:           scriptsCreated.length > 0,
+       error_discovered:         deviations.some(d => /new error|error rule/i.test(d)),
+       phase_has_verify_mjs:     fs.existsSync(`.planning/phases/${phaseDir}/verify.mjs`),
+     };
+     // Unknown fields throw loud in predicate-eval (D-10c) — do not add fields without
+     // updating predicate-eval.cjs's DISPATCH_CONTEXT_FIELDS registry.
+     ```
+
   9.5. PER-DISPATCH ATC (closes the mid-phase ATC gap)
       Runs AFTER the executor report lands, BEFORE state update + commit.
-      Fires only when ALL of these are true:
-        * classifier.atc_tier (from Step 2) is in {full, gate}
-        * FILES_CHANGED is non-empty
-        * At least one file in FILES_CHANGED is CODE (not *.md, not .planning/,
-          not docs/). Docs-only dispatches skip ATC.
-        * config.atc.enabled == true
+      Fires when gates.shouldFire('per-dispatch-ATC', ctx, GATES_YAML_PATH) returns true,
+      where ctx is the dispatch context assembled at Step 9.2. The gate's trigger declares
+      the equivalent policy (classifier.atc_tier in [full, gate] AND
+      code_files_changed_count > 0) — see super-gsd/registry/gates.yaml.
+
+      // Gate check (Phase 10 D-05): R5 compose — BOTH kill-switches must agree
+      // config.atc.enabled is preserved as an outer runtime knob (D-13a)
+      if (config.atc.enabled && gates.shouldFire('per-dispatch-ATC', ctx, GATES_YAML_PATH)) {
 
       If tier == full:
         Agent(subagent_type: "gsd-code-reviewer", model: "sonnet", mode: "auto",
@@ -731,16 +792,24 @@ REPEAT:
       Token budget per dispatch: ~300 tokens (250 review + 50 JSONL append).
       On a 10-dispatch phase with 3 FULL-tier dispatches → +900 tokens total.
       SKIP/LITE dispatches pay zero.
+      } // end config.atc.enabled && gates.shouldFire('per-dispatch-ATC')
 
   10. CURATE LEARNINGS
+      // Gate check (Phase 10 D-08): sgsd-curate-learnings fires when new pattern, script, or error
+      if (gates.shouldFire('sgsd-curate-learnings', ctx, GATES_YAML_PATH)) {
       If DEVIATIONS contains new patterns → sgsd-curate to patterns/
       If SCRIPTS_CREATED non-empty → sgsd-curate to scripts/{category}
       If new error discovered → sgsd-curate to error-rules/
+      } // end gates.shouldFire('sgsd-curate-learnings')
 
   11. UPDATE STATE
+      // Gate check (Phase 10 D-09): token-log gate fires unless disabled (soft-warn, no trigger)
+      // NOTE: Step 11 is exempt from edge-guard emit-check (D-11c) — it IS the logging step.
+      if (gates.shouldFire('token-log', ctx, GATES_YAML_PATH)) {
       - Update STATE.md (advance plan counter, update progress)
       - Mark ROADMAP.md phase progress
       - Log token usage to .planning/metrics/token-log.jsonl
+      } // end gates.shouldFire('token-log')
 
   12. GIT COMMIT
       Atomic commit per unit:
