@@ -80,8 +80,10 @@ function recordTransition({
       if (gate && gate.escalation === 'halt') {
         escalation = 'halt';
       }
-    } catch (_) {
-      // gate not found or registry error — fall back to log-only (defensive)
+    } catch (err) {
+      // Narrow: only swallow "gate name not in registry" — rethrow registry errors
+      if (!err.message.startsWith("gate '")) throw err;
+      // gate not found → fall back to log-only (registry may not have this name)
     }
   }
 
