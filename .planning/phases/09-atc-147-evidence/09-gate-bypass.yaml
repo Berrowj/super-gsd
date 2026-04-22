@@ -91,8 +91,8 @@ audit:
 
 totals:
   upper_bound_tokens: 18940    # all 9 gates firing at declared budgets, per-dispatch ATC at FULL tier for all 16 dispatches
-  lower_bound_tokens: 9340     # per-dispatch ATC firing at LITE/SKIP on most dispatches (LITE ~0 tokens, SKIP = 0)
-  note: "Upper assumes all 16 dispatches would have hit per-dispatch ATC at FULL tier (300 tokens each); lower assumes LITE/SKIP on per-dispatch ATC, leaving only the 7 other per-dispatch gates plus both per-phase gates. Lower = 800+1600+9600+480+0+600+100+800+160 = 14,140 minus the FULL ATC cost (4800 saved) = 9,340."
+  lower_bound_tokens: 9340     # ByteRover disabled for this project (config.byterover.enabled=false), saving 9,600
+  note: "Upper (18,940) assumes all 9 gates fire at declared budgets across 16 dispatches + 1 phase close, including per-dispatch ATC at FULL tier (300 × 16 = 4,800). Lower (9,340) = upper − 9,600 (ByteRover disabled per config.byterover.enabled=false), holding the other 8 gates at their declared budgets. An even lower floor of 4,540 is reachable if per-dispatch ATC also drops to LITE/SKIP across all 16 dispatches (saving a further 4,800), but that's a Phase-10 keep/kill outcome rather than the current baseline."
 
 assumptions:
   - id: A1
