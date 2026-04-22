@@ -754,6 +754,139 @@ REPEAT:
 ```
 </loop>
 
+## Edge-Guard Layer
+
+The edge-guard layer audits every loop-step transition, writing a JSONL row to
+`.planning/metrics/edge-guard-log.jsonl`. It operates as a post-step wrapper:
+the orchestrator captures file-mtime snapshots **before** and **after** each
+step, diffs them to derive `actualEmits`, then calls `recordTransition` with
+the gate's declared `expectedEmits`.
+
+### BEFORE / step-runs / AFTER pattern (§Q4)
+
+```
+BEFORE step N runs:
+  snapshot_before = snapshotMtimes(gate.evidence_emitted)
+
+step N runs normally (existing orchestrator behaviour)
+
+AFTER step N runs, BEFORE transition to step N+1:
+  snapshot_after  = snapshotMtimes(gate.evidence_emitted)
+  actualEmits     = paths whose mtime changed during the step
+
+  const result = edgeGuard.recordTransition({
+    fromStep: N, toStep: N+1,
+    phase, plan,
+    gateName:      owningGateName,          // from gates.yaml
+    expectedEmits: gate.evidence_emitted,   // declared on gate row
+    actualEmits,
+    ctx,                                    // dispatch context (Step 9.2)
+    gatesYamlPath: GATES_YAML_PATH,
+    projectDir,
+  });
+
+  if (result.status === 'halt') {
+    writeCheckpoint({
+      next_unit:       `BLOCKED — edge-guard halt at ${result.row.gate}: missing ${result.missing_emits.join(', ')}`,
+      operator_action: `Investigate why gate did not emit the listed paths. Resolve manually, add 'resolved_by: {ISO}' to this file, then re-run /sgsd-orchestrate go.`,
+      edge_guard_row:  result.row,
+    });
+    EXIT;
+  }
+  // status 'logged' or 'ok' → continue to step N+1
+```
+
+### recordTransition call signature
+
+```javascript
+const { recordTransition } = require('super-gsd/scripts/lib/edge-guard.cjs');
+
+recordTransition({
+  fromStep,       // number — step that just completed
+  toStep,         // number — step about to start
+  phase,          // number|string — current phase
+  plan,           // string — current plan (e.g. '10-02')
+  gateName,       // string|undefined — gates.yaml row name for escalation lookup
+  expectedEmits,  // string[] — gate.evidence_emitted from gates.yaml row
+  actualEmits,    // string[] — paths observed as written during step
+  ctx,            // Object — dispatch context (see Step 9.2)
+  gatesYamlPath,  // string — absolute path to super-gsd/registry/gates.yaml
+  projectDir,     // string — project root (log path resolved relative to this)
+});
+// Returns: { status: 'ok'|'logged'|'halt', missing_emits: string[], row?: Object }
+```
+
+### JSONL row schema (11 required fields)
+
+Every row written to `.planning/metrics/edge-guard-log.jsonl` contains exactly:
+
+```json
+{
+  "ts":             "2026-04-22T16:10:00.000Z",
+  "phase":          10,
+  "plan":           "10-02",
+  "from_step":      6.5,
+  "to_step":        6.55,
+  "gate":           "phase-level-ATC",
+  "expected_emits": [".planning/phases/10-gate-policy/10-ATC-REVIEW.md"],
+  "actual_emits":   [".planning/phases/10-gate-policy/10-ATC-REVIEW.md"],
+  "missing_emits":  [],
+  "context":        { "classifier.atc_tier": "full", "files_changed_count": 7 },
+  "resolution":     "pass"
+}
+```
+
+### Resolution vocabulary
+
+| Value | Meaning |
+|-------|---------|
+| `pass` | All expected emits were observed — no action needed |
+| `log-only` | Some emits missing but gate does NOT have `escalation: halt` — row written, orchestrator continues |
+| `halt` | Some emits missing AND `gate.escalation === 'halt'` in gates.yaml — orchestrator writes checkpoint and exits |
+| `gate_eval_error` | Predicate threw (unknown context field etc.) — log row with this resolution, treat as failed-closed |
+
+### D-11c token-log exemption
+
+**Step 11 (token-log) is exempt from edge-guard.**
+When `fromStep === 11`, `recordTransition` early-returns `{status:'ok', missing_emits:[]}`.
+This prevents the logging step itself from being recursively audited (it IS the logging).
+The token-log gate's `evidence_emitted: []` on the gates.yaml row carries the same intent.
+
+### D-11b no-rollback guarantee
+
+Edge-guard is **read-only with respect to git**. Its only side-effects are:
+1. Appending a row to `edge-guard-log.jsonl`
+2. Returning `{status:'halt'}` so the **orchestrator** invokes the checkpoint routine
+
+No destructive repository operations are ever issued by edge-guard (10-CONTEXT.md D-11b:
+rejected as too risky for minimal gain). Halt + manual recovery is the only escalation path.
+
+### Halt-escalation flow (§Q5)
+
+1. Edge-guard detects `missing_emits.length > 0` AND `gate.escalation === 'halt'`.
+2. Edge-guard writes the failing row to `edge-guard-log.jsonl` first (durability).
+3. Edge-guard returns `{status: 'halt', ...}` to the orchestrator.
+4. Orchestrator calls the **existing** checkpoint routine (below) — edge-guard does NOT
+   duplicate checkpoint logic.
+5. Checkpoint `next_unit` references the failed gate:
+   `"BLOCKED — edge-guard halt at '{gate}': missing emits {list}"`.
+6. Checkpoint `operator_action` field signals re-entry guard: on next session resume, if
+   `operator_action` is present and no `resolved_by:` line exists, orchestrator surfaces it
+   as a blocker and exits rather than re-entering the loop (prevents halt loops on unattended runs).
+
+### Standalone verification
+
+`node super-gsd/scripts/lib/edge-guard.cjs --self-test`
+
+The `--self-test` CLI is the GATE-04 verification surface. It:
+- Writes two rows to a temp `projectDir` (via `os.mkdtempSync`) — one `pass` row, one `log-only` row
+- Asserts all 11 required keys are present on each row
+- Asserts `resolution === 'pass'` on the no-missing row and `resolution === 'log-only'` on the missing-emit row
+- Deletes the temp dir on exit (no rows ever reach the real `.planning/metrics/edge-guard-log.jsonl`)
+- Exits 0 on PASS; exits 1 with a message naming the first failing key on FAIL
+
+This is the single command that satisfies GATE-04 without a separate test harness.
+
 <checkpoint_protocol>
 When context usage >70% OR user says stop:
 
