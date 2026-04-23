@@ -50,6 +50,7 @@ gates:
       - 10-point anti-slop checklist
       - ΔComplexity ≤ 0
     reviewer_agent: sgsd-code-reviewer
+    reviewer_provider: claude-sonnet-reviewer
     evidence_emitted:
       - .planning/phases/{N}/commit-reviews.jsonl
     escalation: halt
@@ -63,6 +64,7 @@ gates:
     enforcement_mode: amortized
     trigger: []
     reviewer_agent: sgsd-code-reviewer
+    reviewer_provider: claude-sonnet-reviewer
     evidence_emitted:
       - .planning/phases/{N}/{N}-ATC-REVIEW.md
     escalation: log-only
