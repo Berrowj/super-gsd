@@ -446,8 +446,13 @@ if ($wt) {
     #   right-top:  SGSD2 narrative
     #   right-bot:  SGSD3 gate verdict
     $psCmd = "powershell.exe"
+    # Force a NEW window with `-w new`. Without this, wt.exe's `new-tab` targets
+    # the MRU Windows Terminal window — which may be on another monitor,
+    # minimized, or on a different desktop, so the operator sees "nothing
+    # happened" even though a cockpit tab was created somewhere invisible.
     $launchArgs = @(
-        "new-tab", "--title", "SGSD-Cockpit",
+        "-w", "new",
+        "--title", "SGSD-Cockpit",
         $psCmd, "-NoExit", "-NoProfile", "-File", $sgsd1, "-ProjectDir", $ProjectDir,
         ";", "split-pane", "-V", "--title", "SGSD2",
         $psCmd, "-NoExit", "-NoProfile", "-File", $sgsd2, "-ProjectDir", $ProjectDir,
@@ -456,7 +461,7 @@ if ($wt) {
     )
 
     Write-Step "Windows Terminal detected" "OK" Green
-    Write-Host "  Opening SGSD1/2/3 in a single cockpit window..."
+    Write-Host "  Opening SGSD1/2/3 in a single cockpit window (forced new window)..."
     Start-Process -FilePath "wt.exe" -ArgumentList $launchArgs
     Start-Sleep -Milliseconds 500
     Write-Host ""
