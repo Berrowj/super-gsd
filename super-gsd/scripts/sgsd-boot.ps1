@@ -446,13 +446,10 @@ if ($wt) {
     #   right-top:  SGSD2 narrative
     #   right-bot:  SGSD3 gate verdict
     $psCmd = "powershell.exe"
-    # Force a NEW window with `-w new`. Without this, wt.exe's `new-tab` targets
-    # the MRU Windows Terminal window — which may be on another monitor,
-    # minimized, or on a different desktop, so the operator sees "nothing
-    # happened" even though a cockpit tab was created somewhere invisible.
+    # Stack the cockpit as a new tab in the MRU Windows Terminal window
+    # (operator preference — keeps all SGSD panes alongside other work tabs).
     $launchArgs = @(
-        "-w", "new",
-        "--title", "SGSD-Cockpit",
+        "new-tab", "--title", "SGSD-Cockpit",
         $psCmd, "-NoExit", "-NoProfile", "-File", $sgsd1, "-ProjectDir", $ProjectDir,
         ";", "split-pane", "-V", "--title", "SGSD2",
         $psCmd, "-NoExit", "-NoProfile", "-File", $sgsd2, "-ProjectDir", $ProjectDir,
@@ -461,9 +458,39 @@ if ($wt) {
     )
 
     Write-Step "Windows Terminal detected" "OK" Green
-    Write-Host "  Opening SGSD1/2/3 in a single cockpit window (forced new window)..."
+    Write-Host "  Opening SGSD1/2/3 as a new tab in the existing cockpit window..."
     Start-Process -FilePath "wt.exe" -ArgumentList $launchArgs
     Start-Sleep -Milliseconds 500
+
+    # Raise the Windows Terminal window to foreground so the new tab is
+    # actually visible. Without this, new-tab silently lands in a minimized
+    # or off-screen WT instance (confirmed failure path 2026-04-23). Uses the
+    # Win32 API via Add-Type because PowerShell has no native "bring to front"
+    # cmdlet and [Microsoft.VisualBasic.Interaction]::AppActivate is flaky
+    # against WindowsTerminal.exe (WT titles change as tabs open).
+    try {
+        if (-not ("SgsdWin32" -as [type])) {
+            Add-Type -Namespace "" -Name SgsdWin32 -MemberDefinition @"
+                [System.Runtime.InteropServices.DllImport("user32.dll")]
+                public static extern bool SetForegroundWindow(System.IntPtr hWnd);
+                [System.Runtime.InteropServices.DllImport("user32.dll")]
+                public static extern bool ShowWindowAsync(System.IntPtr hWnd, int nCmdShow);
+"@
+        }
+        # 9 = SW_RESTORE (restore minimized), 3 = SW_MAXIMIZE (maximized), 1 = SW_SHOWNORMAL
+        $wtProc = Get-Process WindowsTerminal -ErrorAction SilentlyContinue |
+                  Where-Object { $_.MainWindowHandle -ne 0 } |
+                  Sort-Object StartTime -Descending |
+                  Select-Object -First 1
+        if ($wtProc) {
+            [SgsdWin32]::ShowWindowAsync($wtProc.MainWindowHandle, 9) | Out-Null
+            Start-Sleep -Milliseconds 100
+            [SgsdWin32]::SetForegroundWindow($wtProc.MainWindowHandle) | Out-Null
+        }
+    } catch {
+        # Non-fatal — the tab was still created; operator can Alt+Tab to find it.
+        Write-Host "  (note: couldn't auto-raise WT window — Alt+Tab to SGSD-Cockpit tab)" -ForegroundColor DarkYellow
+    }
     Write-Host ""
     Write-Host "Cockpit launched." -ForegroundColor Green
 } else {
