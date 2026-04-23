@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Codex Integration
-milestone_status: v1.3 Phase 16 Wave A SHIPPED — primitive green, operator gating B/C fan-out
-status: v1.3 Phase 16 — Wave A (16-01) complete 2026-04-23 (composer + triage Step 0 + smoke runbook, all gates PASS). Wave B (16-02 agent patches) and Wave C (16-03 advise) staged, awaiting operator go-ahead.
-stopped_at: Wave A primitive shipped — composer --self-test PASS, triage Step 0 graceful-fail verified at L57, 5-Dim smoke runbook at super-gsd/docs/vtp-enrichment-smoke.md, config toggle workflow.triage_vtp_enrichment=true active. Gated before Wave B/C per operator option-3 choice.
-last_updated: "2026-04-23T14:00:00.000Z"
-last_activity: 2026-04-23 — Wave A shipped (d19996b composer, 4b9707e triage Step 0, 4dd1e88 smoke runbook, b01f6a5 summary)
+milestone_status: v1.3 Phase 16 COMPLETE — all 3 waves shipped, ready for Phase 14 discuss
+status: v1.3 Phase 16 SHIPPED 2026-04-23. Waves A/B/C all executed (composer primitive, 4 agent patches, /sgsd-vtp-advise skill, sepl major-detection with 8/8 test green). 11 VTP-NN requirements met, D-01..D-09 implemented, 8 Nyquist dimensions covered. Next: /gsd-discuss-phase 14 (Codex CLI Provider Substrate).
+stopped_at: Phase 16 fully landed — composer --self-test PASS, triage Step 0 graceful-fail at L57, 4 agents VTP-enriched in-place (per D-03), /sgsd-vtp-advise standalone skill live, sepl major-detection bash test 8/8 green. 13 commits across 3 waves.
+last_updated: "2026-04-23T16:00:00.000Z"
+last_activity: 2026-04-23 — Phase 16 complete (Wave B + C landed in parallel, 9 new commits: 885a4ac aa70b30 5694698 8db4226 b3792b6 db28d2e eadd3da ba761dd 701069d)
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 1
-  percent: 11
+  completed_plans: 3
+  percent: 33
 ---
 
 # Project State
@@ -22,16 +22,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** Ship an autonomous framework that any Claude Code Max plan user can install with one command and immediately start building software
-**Current focus:** v1.3 — Phase 16 (VTP Enrichment as Cross-Phase Primitive) → Phase 14 (Codex CLI Provider Substrate) → Phase 15 (Codex-Routed Gates + Qualitative MUDA Probe). D-01 locked Phase 16 as opener. Phase 16 CONTEXT.md ready; next: `/gsd-plan-phase 16`.
+**Current focus:** v1.3 — Phase 16 ✓ SHIPPED. Next: Phase 14 (Codex CLI Provider Substrate) → Phase 15 (Codex-Routed Gates + Qualitative MUDA Probe). Run `/gsd-discuss-phase 14` to proceed.
 
 ## Current Position
 
-Phase: 16 (Wave A SHIPPED 2026-04-23 — primitive live; Wave B/C gated by operator)
-Plan: 16-01 ✓ complete | 16-02 pending (Wave B agent patches) | 16-03 pending (Wave C advise)
-Status: Wave A verified green; awaiting operator decision on Wave B (fan-out or pause)
-Last activity: 2026-04-23 -- Wave A shipped (4 commits: d19996b + 4b9707e + 4dd1e88 + b01f6a5)
+Phase: 16 ✓ COMPLETE (all 3 waves shipped 2026-04-23)
+Plan: 16-01 ✓ | 16-02 ✓ | 16-03 ✓ (13 commits total: d19996b 4b9707e 4dd1e88 b01f6a5 | 885a4ac aa70b30 8db4226 db28d2e ba761dd | 5694698 b3792b6 eadd3da 701069d)
+Status: Ready for Phase 14 discuss
+Last activity: 2026-04-23 -- Phase 16 complete (Wave B + C landed in parallel, 9 new commits)
 
-Progress: [░░░░░░░░░░] 0% (0/3 v1.3 phases complete — Phase 13 closed with v1.2)
+Progress: [███░░░░░░░] 33% (1/3 v1.3 phases complete)
 
 ## Accumulated Context
 
