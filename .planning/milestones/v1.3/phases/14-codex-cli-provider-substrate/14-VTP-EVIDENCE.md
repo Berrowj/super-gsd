@@ -2,9 +2,29 @@
 phase: 14
 phase_name: Codex CLI Provider Substrate
 vtp_mode: BYPASSED
-bypass_reason: phase-14-is-vtp-agnostic-by-design + vtp-kb-mcp-tooling-bug
+bypass_reason: phase-14-is-vtp-agnostic-by-design
 created: 2026-04-23
+updated: 2026-04-23
 ---
+
+## 2026-04-23 addendum — vtp-kb tooling bug FIXED upstream
+
+Codex (OpenAI CLI) fixed the `process.cwd()` root-resolution bug in the Voice-Text-Plan repo on 2026-04-23, after Phase-14 research/planning/verification had completed on the degraded path. The fix:
+
+- Adds `src/mcp/project-root.ts` exporting `MCP_PROJECT_ROOT = path.resolve(MODULE_DIR, "..", "..")`.
+- Swaps `process.cwd()` → `MCP_PROJECT_ROOT` across all 4 affected MCP tool files (broader than the substrate.ts we spotted: also research.ts, intent-routing.ts, service-enrichment.ts).
+- `npm run build` passes; `rg "process\.cwd\(\)" src/mcp -n` returns 0 matches after the fix.
+
+Verified from GSDedits: `mcp__vtp-kb__vtp_list_projects` and `mcp__vtp-kb__vtp_search` now return clean semantic results (no ENOENT) — the server loads `kb-data/` from the VTP repo regardless of caller cwd.
+
+**Phase 14's bypass stands unchanged.** The second reason in the original write-up (tooling bug) is now moot, but the first reason (VTP-agnostic-by-design per D-11/D-24) was always the load-bearing one. Phase 14 still ships substrate-only / zero-behaviour-change. The only downstream change from this fix is: Phase 15 onward CAN consume VTP without a tooling detour — which was always the plan.
+
+**Phase 15 prerequisite (task #6) is resolved.** No action needed in this repo — the fix lives upstream in Voice-Text-Plan.
+
+---
+
+## Original bypass record (retained for audit trail)
+
 
 # Phase 14 — VTP Evidence (Degraded Path)
 

@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Codex Integration
-milestone_status: v1.3 Phase 14 discuss complete — staged context activated, ready for /gsd-plan-phase 14
-status: v1.3 Phase 16 ✓ SHIPPED. Phase 14 CONTEXT activated 2026-04-23 via Option A (adopt staged D-01..D-24 verbatim + Phase-16 VTP-deferral addendum). BRIEF.md + 14-CONTEXT.md + 15-CONTEXT.md moved from .planning/proposals/v1.3-multimodal-review/ into .planning/milestones/v1.3/ layout. Next: /gsd-plan-phase 14.
-stopped_at: Phase 14 discuss-phase complete — 24 locked decisions (wrapper, registry, gates.yaml schema extension, agent stub, contract harness, config kill-switch), 4-plan / 3-wave decomposition, 6-invariant verifier contract. One new deferred entry: VTP-reviewer-consumption routed to Phase 15.
-last_updated: "2026-04-23T17:00:00.000Z"
-last_activity: 2026-04-23 — Phase 14 context activated (8b5c6b6 staged-context adoption + VTP deferral addendum)
+milestone_status: v1.3 Phase 14 plans PASS-WITH-WARNINGS — ready for /sgsd-orchestrate go
+status: v1.3 Phase 16 ✓ SHIPPED. Phase 14 planning chain complete 2026-04-23 (VTP-EVIDENCE bypass stub + RESEARCH + PATTERNS + 4 plans + PLAN-INDEX + VALIDATION). Plan-checker verdict PASS-WITH-WARNINGS — execution-ready. 3-wave model locked: {14-01 codex-exec-wrapper, 14-03 config-and-known-keys} parallel → 14-02 provider-registry → 14-04 contract-check-harness. 4 planner deviations (P1 sibling providers-registry.cjs, P2 pure-parser harness, P3 sgsd-code-reviewer stub creation, P4 stdin-pipe). vtp-kb MCP tooling bug FIXED upstream (Codex patch 2026-04-23 — module-relative root in VTP repo); no action needed here. Next: /sgsd-orchestrate go.
+stopped_at: Phase 14 planning complete — plans pass-with-warnings, 2 non-blocking hints to executor (14-03 T2 run patch script, 14-04 T4 new-vs-extended verify.mjs). Ready for orchestrator dispatch of Wave 1.
+last_updated: "2026-04-23T18:30:00.000Z"
+last_activity: 2026-04-23 — Phase 14 research→patterns→planner→checker chain landed (commits 1c5c12f 4a1b6b3 a999247 1330102 40f4384)
 progress:
   total_phases: 3
   completed_phases: 1
