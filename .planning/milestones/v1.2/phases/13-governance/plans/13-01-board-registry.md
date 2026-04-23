@@ -368,6 +368,10 @@ must_haves:
 
 ## Objective
 
+Wave-deviation note: this plan intentionally remains in Wave 2, not D-20's original Wave 1
+sketch, because it shares `super-gsd/skills/sgsd-deliberate/SKILL.md` with downstream plans.
+That serialization is the checked engineering shape and prevents SKILL.md merge conflicts.
+
 Ship the three lib modules + yaml activation + SKILL.md integration that turn the deliberate
 skill's board from a hardcoded 4-agent block into a runtime-resolved roster with structured
 escalation predicates. Adds the NEW `vote-predicate.cjs` module (separate from Phase 10's

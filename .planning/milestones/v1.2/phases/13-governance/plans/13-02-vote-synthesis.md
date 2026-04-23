@@ -164,7 +164,8 @@ tasks:
       - Top of block has a code example showing `const voteSynth = require('super-gsd/scripts/lib/vote-synthesis.cjs');`
         and the destructured call returning {decision, sum, tiebreaker_applied, raw_votes}.
       - Frontmatter YAML block within Step 5 lists the 4 new fields (vote reformatted,
-        signed_sum, tiebreaker_applied, raw_votes).
+        signed_sum, tiebreaker_applied, raw_votes). When `tiebreaker_applied === true`,
+        the `vote:` field includes the literal string `VOTE_TIE`.
       - Prose includes conditional: "When tiebreaker_applied === true, write a `## Tiebreak
         Rationale` section explaining CEO's tie-breaking reasoning per D-03a."
       - Literal string `vote-synthesis` appears in the file (invariant 15 anchor).
@@ -194,6 +195,7 @@ tasks:
       grep -q "vote-synthesis" super-gsd/skills/sgsd-deliberate/SKILL.md && \
       grep -q "signed_sum" super-gsd/skills/sgsd-deliberate/SKILL.md && \
       grep -q "tiebreaker_applied" super-gsd/skills/sgsd-deliberate/SKILL.md && \
+      grep -q "VOTE_TIE" super-gsd/skills/sgsd-deliberate/SKILL.md && \
       grep -q "Tiebreak Rationale" super-gsd/skills/sgsd-deliberate/SKILL.md && \
       grep -q "<step_2_5_roster>" super-gsd/skills/sgsd-deliberate/SKILL.md && \
       grep -q "resolveRoster(brief, round1Results)" super-gsd/skills/sgsd-deliberate/SKILL.md

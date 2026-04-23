@@ -280,6 +280,7 @@ import { execSync } from 'node:child_process';
 
 {
   const PATCH_SCRIPT = path.join(repoRoot, 'super-gsd/scripts/patch-gsd-tools-known-keys.sh');
+  const PATCH_SCRIPT_BASH = 'super-gsd/scripts/patch-gsd-tools-known-keys.sh';
 
   if (!fs.existsSync(PATCH_SCRIPT))
     fail(12, `patch script not found at ${PATCH_SCRIPT}`);
@@ -291,7 +292,7 @@ import { execSync } from 'node:child_process';
   }
 
   try {
-    execSync(`bash -n "${PATCH_SCRIPT}"`, { stdio: 'pipe' });
+    execSync(`bash -n "${PATCH_SCRIPT_BASH}"`, { stdio: 'pipe', cwd: repoRoot });
   } catch (e) {
     fail(12, `patch script fails bash -n syntax check: ${e.stderr ? e.stderr.toString() : e.message}`);
   }
