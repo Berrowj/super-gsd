@@ -28,6 +28,14 @@ estimated_tokens: {total deliberation tokens}
 
 - {Tension}: {Agent A} argues X, {Agent B} argues Y. No resolution.
 
+## Falsifier
+
+{What concrete evidence would prove this decision wrong? If that evidence shows up, reopen the decision.}
+
+## Dead Ends / Paths Ruled Out
+
+- {Approach considered}: {why rejected}. {link to reasoning in deliberation log}
+
 ## Trade-offs Accepted
 
 - Accepting {downside} in exchange for {upside}
@@ -40,6 +48,10 @@ estimated_tokens: {total deliberation tokens}
 
 - [ ] {Specific action}
 - [ ] {Specific action}
+
+## Post-Synthesis Reflection
+
+{Review your synthesis. What blind spots did this deliberation have? What archetype voices might we have missed? What did the rubric force to the foreground that might NOT matter?}
 
 ## Deliberation Metadata
 

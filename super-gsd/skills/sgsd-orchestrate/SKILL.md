@@ -676,6 +676,31 @@ REPEAT:
 
        i. Mark phase complete, advance to next phase.
 
+  6.7. MILESTONE COMPLETE AUTO-TRIGGER (GOV-13 / D-18a)
+
+       After Step 6.6.i marks a phase complete:
+
+         a. Read `.planning/ROADMAP.md` in full. Milestone close is rare.
+         b. Extract the active milestone from `.planning/STATE.md`.
+         c. Check: do all milestone phases show [x] in ROADMAP.md?
+            NO  -> Continue loop.
+            YES -> Auto-dispatch with no operator prompt:
+
+              TaskCreate({
+                content: "Close milestone {version}",
+                activeForm: "sgsd-complete-milestone - auto-trigger",
+                status: "in_progress"
+              })
+
+              Agent(
+                subagent_type: "sgsd-complete-milestone",
+                mode: "bypassPermissions",
+                prompt: { milestone: "{version from STATE.md}", auto_trigger: true }
+              )
+
+              The skill is idempotent. If the milestone is already archived, it returns PASS.
+              On BLOCKER, halt the loop. On success, continue with the closed-milestone state.
+
      Token budget per phase browser verify: ~600 tokens (prompt + structured
      report per route). Runs ONCE per phase, not per plan.
      Non-frontend phases: zero cost (skipped at step 6.6.a).

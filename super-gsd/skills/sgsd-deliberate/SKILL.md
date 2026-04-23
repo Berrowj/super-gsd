@@ -15,8 +15,8 @@ allowed-tools:
 Run a CEO/Board deliberation on a structured brief.
 
 $ARGUMENTS is either:
-- "new" → create brief interactively, then deliberate
-- path to a brief .md file → validate and deliberate
+- "new" -> create brief interactively, then deliberate
+- path to a brief .md file -> validate and deliberate
 
 Token budget: 10,400 (1 round) to 16,400 (2 rounds). Only use for high-stakes decisions.
 </objective>
@@ -30,134 +30,114 @@ If $ARGUMENTS is a file path, read the brief frontmatter/Termination for:
 - `q1_impl_hours` (decimal)
 - `q1_revertable` (true | false)
 
-If BOTH present AND `q1_impl_hours < 2` AND `q1_revertable == true` → SKIP deliberation. Respond exactly:
-
-> "Below deliberation floor per `.planning/decisions/DELIBERATION-FLOOR.md`. This brief's Q1 implementation is under 2h and fully revertable via git revert. Ship directly: implement, file a 1-paragraph decision note in `.planning/decisions/{YYYY-MM-DD}-{slug}.md`, retrospect at milestone close. Reopen via formal brief only if retrospective surfaces real disagreement that building didn't settle."
-
-Then STOP. Do NOT proceed to Step 0b.
-
-If either field is missing, or `q1_impl_hours >= 2`, or `q1_revertable == false`, proceed to Step 0b.
+If BOTH present AND `q1_impl_hours < 2` AND `q1_revertable == true` -> SKIP deliberation.
 
 ### Step 0b: Phase Impact Gate
 
-1. If $ARGUMENTS is a file path: read the brief and check for `phases_affected` in the `## Termination` section.
-2. If $ARGUMENTS is "new" OR `phases_affected` is not present in the brief: ask the user:
-   > "How many project phases does this decision affect? (enter a number)"
-3. Evaluate the score:
-   - `phases_affected < 3` → SKIP. Respond exactly:
-     > "This decision affects fewer than 3 phases. Use /gsd-plan or decide directly. Deliberation is reserved for cross-cutting decisions (3+ phases affected)."
-     Then STOP. Do not proceed.
-   - `phases_affected >= 3` → PROCEED to Step 1.
-
-Gate model: Haiku (numeric threshold checks, not semantic evaluation).
-Gate cost: ~50 tokens.
+Proceed only when the decision affects 3 or more phases.
 </step_0_gate>
 
 <step_1_brief>
 ## Step 1: Load or Create Brief
 
-If $ARGUMENTS is "new":
-1. Ask user: "What decision do you need to make?"
-2. Generate brief with 4 required sections:
-   - ## Situation (>50 words, factual context)
-   - ## Stakes (>30 words, what's at risk)
-   - ## Constraints (non-negotiable boundaries)
-   - ## Key Questions (specific, not "should we do this?")
-3. Write to `.planning/briefs/{date}-{slug}.md`
-4. Show brief, ask for approval
-
-If $ARGUMENTS is a file path:
-1. Read the brief
-2. Validate: Situation, Stakes, Constraints, Key Questions all present
-3. If missing sections: warn, ask whether to proceed or fill gaps
-
-Brief template: @super-gsd/templates/brief-template.md
+If $ARGUMENTS is "new", create a brief from the template.
+If $ARGUMENTS is a file path, validate that Situation, Stakes, Constraints, and Key Questions exist.
 </step_1_brief>
 
 <step_2_context>
 ## Step 2: Load Context
 
-Read (frontmatter only, not full files):
-- `.planning/STATE.md` — current milestone, phase, progress
-- `.planning/ROADMAP.md` — phase list (first 50 lines)
-- Recent `.planning/decisions/DLB-*.md` — last 3 decision memos (if any)
+Read:
+- `.planning/STATE.md`
+- `.planning/ROADMAP.md`
+- the recent DLB memos
 
-Query ByteRover:
-- `sgsd-recall "{brief domain} decisions patterns"` → relevant knowledge
-- `sgsd-recall "{brief domain} expertise"` → domain expertise
-
-Build context block: ~400 tokens summarizing project position + relevant knowledge.
+Build a compact context block for the board.
 </step_2_context>
+
+<step_2_5_roster>
+## Step 2.5: Resolve Board Roster
+
+Load the runtime board registry:
+
+```javascript
+const boardRegistry = require('super-gsd/scripts/lib/board-registry.cjs');
+const round1Roster = boardRegistry.resolveRoster(brief);
+```
+
+Round 1 roster is the registry's `default_minimal_board` plus `always_present`.
+Escalation happens only after Round 1 results exist.
+</step_2_5_roster>
 
 <step_3_round1>
 ## Step 3: Spawn Board Members (Round 1)
 
-**Pre-round budget check (DLB-05 Wave A):**
-- Capture wall-clock start timestamp for this round
-- Record current cumulative dispatch token count (from `.planning/metrics/token-log.jsonl` session total)
-- Proceed with Round 1 regardless (first round has no prior cost to warn about)
+Dispatch the roster returned by `boardRegistry.resolveRoster(brief)` in parallel.
 
-Spawn 4 agents IN PARALLEL:
+After each Agent() return, validate the YAML response:
 
+```javascript
+const deliberationSchema = require('super-gsd/scripts/lib/deliberation-schema.cjs');
+const result = deliberationSchema.validate(agentResponse);
+if (!result.valid) {
+  const retryPrompt =
+    `Previous response failed schema: ${result.errors.join('; ')}. ` +
+    `Re-emit as valid YAML matching ALL 10 required fields. ` +
+    `NO prose wrapper. NO markdown fences.`;
+  const retryRaw = Agent(memberName, { prompt: retryPrompt });
+  const retry = deliberationSchema.validate(retryRaw);
+  if (!retry.valid) {
+    throw new Error(`Board member '${memberName}' malformed after retry: ${retry.errors.join('; ')}`);
+  }
+  return retry.parsed;
+}
+return result.parsed;
 ```
-Agent(description: "Architect analysis", model: "sonnet", prompt: "
-BRIEF: {full brief}
-PROJECT CONTEXT: {context block}
-RELEVANT EXPERTISE: {sgsd-recall results}
-YOUR ROLE: Technical Architect — evaluate feasibility, risk, implementation cost.
-RESPOND: Position, Technical Risk, Key Argument, Implementation Sketch, Blind Spots.
-No intro. Max 400 words.")
 
-Agent(description: "Pragmatist analysis", model: "sonnet", prompt: "...")
-Agent(description: "Contrarian analysis", model: "sonnet", prompt: "...")
-Agent(description: "Moonshot analysis", model: "sonnet", prompt: "...")
-```
-
-Collect all 4 responses.
-
-**Post-round logging:** append to `.planning/metrics/deliberation-budget.jsonl`:
-```json
-{"ts":"<ISO>","dlb":"<slug>","round":1,"tokens_spent":<N>,"elapsed_sec":<N>,"max_tokens":<from-brief>,"max_minutes":<from-brief>,"warn_fired":false,"reason":"round_complete"}
-```
+Every Round 1 result is therefore a parsed object with:
+- `position`
+- `confidence`
+- `risks_raised`
+- `evidence_cited`
+- `falsifier`
+- `implementation_concerns`
+- `known_deadends`
+- `intuition`
+- `why_principled`
+- `rationale`
 </step_3_round1>
 
 <step_4_round2>
 ## Step 4: Evaluate Need for Round 2
 
-Read all 4 positions:
-- 3+ agree, contrarian objection substantive → Round 2
-- Split 2-2 → Round 2
-- All 4 agree → Flag groupthink, Round 2 with challenge
-- Decision obvious, no substantive disagreement → Skip to Step 5
+Evaluate the parsed `round1Results` using field access, not prose matching:
+- 3+ agree and the minority objection is substantive -> Round 2
+- split 2-2 on `member.position` -> Round 2
+- all members have the same `member.position` -> add groupthink pressure
 
-**Pre-round budget check (DLB-05 Wave A):**
-Before spawning Round 2, compute:
-- `tokens_spent_so_far` = cumulative dispatch tokens since Step 3 start
-- `elapsed_minutes` = (now - Step 3 start timestamp) / 60
+Escalate roster only if the runtime registry says so:
 
-If `tokens_spent_so_far > max_tokens` OR `elapsed_minutes > max_minutes` (from brief Termination):
-- Emit `[BUDGET WARN]` line visible to operator: `Round 1 exceeded budget (Xk tokens / Ym). Proceeding to Round 2 without enforcement — soft-warn only per DLB-05 Q1b.`
-- Append to `.planning/metrics/deliberation-budget.jsonl`:
-  ```json
-  {"ts":"<ISO>","dlb":"<slug>","round":2,"tokens_spent":<N>,"elapsed_sec":<N>,"max_tokens":<N>,"max_minutes":<N>,"warn_fired":true,"reason":"pre_round2_overage"}
-  ```
-- Proceed with Round 2 regardless — SOFT warn, never force-synthesis.
+```javascript
+const round2Roster = boardRegistry.resolveRoster(brief, round1Results);
+```
 
-If budget OK, append same record with `"warn_fired":false`.
-
-Round 2 (if needed):
-Re-spawn all 4 with:
-1. Original brief
-2. ALL Round 1 positions (each agent sees what others said)
-3. Instruction: "Respond to other positions. Update yours if persuaded. Strengthen if not. Final position. Max 300 words."
-
-**Post-Round-2 logging:** append final budget record with `"reason":"deliberation_complete"`.
+Round 2 re-dispatch uses the same `deliberation-schema` validate + retry-once pattern after each
+Agent() return.
 </step_4_round2>
 
 <step_5_synthesize>
 ## Step 5: Synthesize Decision Memo
 
-Write to `.planning/decisions/DLB-{NN}-{slug}.md`:
+All `round1Results` and `round2Results` are parsed objects already (validated in Steps 3 and 4).
+The synthesize call below takes these objects directly.
+
+```javascript
+const voteSynth = require('super-gsd/scripts/lib/vote-synthesis.cjs');
+const { decision, sum, tiebreaker_applied, raw_votes } =
+  voteSynth.synthesize(round2Results && round2Results.length ? round2Results : round1Results);
+```
+
+Write the memo frontmatter with:
 
 ```yaml
 ---
@@ -166,46 +146,31 @@ date: {YYYY-MM-DD}
 brief: {path to brief}
 board: [architect, pragmatist, contrarian, moonshot]
 rounds: {1 or 2}
-vote: "{e.g., 3-1 SUPPORT, Contrarian OPPOSED}"
+vote: "{decision}" # use `VOTE_TIE` in this field when tiebreaker_applied === true
+signed_sum: {sum}
+tiebreaker_applied: {bool}
+raw_votes: {raw_votes}
 decision: "{one-line summary}"
 ---
 ```
 
-Sections:
-- ## Recommendation (2-3 sentences)
-- ## Board Stances (table: Agent | Position | Risk | Key Argument)
-- ## Unresolved Tensions
-- ## Trade-offs Accepted
-- ## Risks Acknowledged (with mitigations)
-- ## Next Actions (checkboxes)
-- ## Deliberation Metadata
+If `tiebreaker_applied === true`, the memo must include `## Tiebreak Rationale`.
 
-Write debate log to `.planning/deliberations/{date}-{slug}/`:
-- `round-1-positions.md`
-- `round-2-rebuttals.md` (if Round 2)
-- `deliberation-log.md` (metadata: agents, timing, rounds)
+Rubric-driven synthesis:
+- Collect all `risks_raised` into `## Risks Acknowledged`
+- Collect all `known_deadends` into `## Dead Ends / Paths Ruled Out`
+- Collect falsifier across members into memo `## Falsifier`
+- Use `rationale` and `why_principled` to write `## Recommendation`
+- Use `evidence_cited` to keep the memo grounded
 
-Create directories if they don't exist.
+Always append `## Post-Synthesis Reflection` at the footer.
 </step_5_synthesize>
 
 <step_6_state>
 ## Step 6: Update State + Report
 
-Curate decision into ByteRover:
-```
-sgsd-curate "{decision summary}" domain: decisions/{topic} importance: 80
-```
-
-Log token usage to `.planning/metrics/token-log.jsonl`:
-```json
-{"ts":"{ISO}","type":"deliberation","brief":"{slug}","rounds":{N},"board":4,"est_total":{N}}
-```
-
-Report to user:
-```
-DELIBERATION COMPLETE
-Decision: {one-liner}
-Vote: {vote breakdown}
-Memo: .planning/decisions/DLB-{NN}-{slug}.md
-```
+Write the memo to `.planning/decisions/`.
+Write debate logs to `.planning/deliberations/`.
+Append a token log row.
+Report the final decision, signed_sum, and memo path.
 </step_6_state>
