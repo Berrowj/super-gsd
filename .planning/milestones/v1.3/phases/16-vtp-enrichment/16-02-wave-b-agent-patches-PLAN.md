@@ -29,6 +29,7 @@ must_haves:
     - "Every patched agent body has a WHEN-to-call-VTP paragraph citing the composer contract (callVtp, no direct MCP)"
     - "Every agent's tools: line is a single comma-separated string (schema convention — not a YAML list)"
     - "Every VTP call-site in agent bodies reads VTP-EVIDENCE.md if present before making its own tier-specific VTP call"
+    - "Validation Architecture Dimension 4 (agent-tier VTP-call instrumentation) coverage: post-execution manual smoke runbook section added to super-gsd/docs/vtp-enrichment-smoke.md — dispatches gsd-phase-researcher on a stub phase with pre-populated VTP-EVIDENCE.md, asserts a new routing-log row with tier:'research' appears AND agent output cites ≥1 VTP doc-ID. This dimension is NOT automated in Wave B — behavioral verification sits in the smoke runbook (covered by 16-01-T3)."
   artifacts:
     - path: "custom-gsd-extract/claude-agents/gsd-phase-researcher.md"
       provides: "VTP research-tier tool access + WHEN-to-call-VTP paragraph"

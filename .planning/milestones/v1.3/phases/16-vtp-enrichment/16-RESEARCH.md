@@ -501,12 +501,14 @@ D-03 explicitly defers `sgsd-*` promotion of any agent. Plans must NOT rename `g
 | A5 | Re-target VTP-06 from `gsd-pattern-mapper` to `gsd-codebase-mapper` | §Risks §Risk 1 | HIGH — planner decision; if instead approach (b) or (c), Wave B scope changes. |
 | A6 | Triage Step 0 timeout threshold is 3s matching D-07 P95 budget | §sgsd-triage Step 0 Injection Analysis step 10 | Low — 3s is the documented budget; tightening later is cheap. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Does Phase 14 read VTP-EVIDENCE.md?** Planner should settle at plan-time. If yes, Phase 14's CONTEXT.md needs a §depends-on addition referencing the Phase 16 evidence-file contract.
-2. **Does Phase 15's qualitative MUDA probe read VTP corpus?** Same shape — if yes, composer needs a `muda` tier projection.
-3. **Should the composer module be split** (compose + project in one file; routing-log writer in another)? Both orderings match house pattern. Minor taste call.
-4. **Should `/sgsd-vtp-advise` accept a proposal file as input?** Would enable `sgsd-vtp-advise review-proposal .planning/proposals/XXX.md` — useful UX, but out of VTP-08a contract. Defer to a follow-on.
+Resolved post-plan-checker review — 2026-04-23.
+
+1. **Does Phase 14 read VTP-EVIDENCE.md?** — **RESOLVED: Out of scope for Phase 16's contract.** Phase 14 is free to read VTP-EVIDENCE.md if its own CONTEXT.md declares that dependency, but Phase 16 does not enforce it. The per-phase `VTP-EVIDENCE.md` path is a stable contract (`.planning/phases/{N}/VTP-EVIDENCE.md`); downstream phases can consume or ignore. No Phase 16 planning change.
+2. **Does Phase 15's qualitative MUDA probe read VTP corpus?** — **RESOLVED: Out of scope for Phase 16's composer surface.** The composer exposes 5 tier projections (`triage`, `research`, `plan`, `pattern`, `assumptions`). A `muda` tier can be added later by Phase 15 itself as a small backward-compatible extension — no Phase 16 composer change required today. Recorded in CONTEXT.md `<deferred>` if Phase 15 needs it.
+3. **Should the composer module be split?** — **RESOLVED: Fold JSONL writer into the composer module.** Single `super-gsd/scripts/lib/vtp-context-composer.cjs` exports `compose`, `project`, `callVtp`, `isFastPathEligible`, `appendRoutingLog`, `readConfig`. Matches house pattern (`edge-guard.cjs` is similarly cohesive). Planner settled this in 16-01 T1 — one file, embedded `--self-test`.
+4. **Should `/sgsd-vtp-advise` accept a proposal file as input?** — **RESOLVED: Deferred.** Out of VTP-08a's contract per D-09. The `sgsd-vtp-advise review-proposal <path>` UX is a useful follow-on but introduces input-format sprawl for Phase 16. Captured in CONTEXT.md `<deferred>` as "sgsd-vtp-advise proposal-file input mode — post-Phase-16 UX expansion."
 
 ## Environment Availability
 
