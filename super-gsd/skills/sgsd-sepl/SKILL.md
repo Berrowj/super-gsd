@@ -5,6 +5,8 @@ allowed-tools:
   - Read
   - Write
   - Bash
+  - mcp__vtp-kb__vtp_advise_service_enrichment
+  - mcp__vtp-kb__vtp_route_and_retrieve
 ---
 
 <objective>
@@ -15,6 +17,40 @@ When invoked, either:
 2. List pending proposals for operator review
 3. Apply or reject a specific proposal
 </objective>
+
+<vtp_integration>
+## Major-Proposal Auto-Advise (Phase 16 — VTP-08b)
+
+When drafting a new proposal, `sgsd-sepl-propose.sh` scans the target + body against the D-09 falsifiable major-proposal criteria. If ANY criterion fires, the script invokes `mcp__vtp-kb__vtp_advise_service_enrichment` via `super-gsd/scripts/lib/vtp-context-composer.cjs#callVtp` (5s timeout) and appends the resulting recommendations + skipped-opportunities into the proposal body BEFORE the proposal file is written.
+
+**Minor proposals skip advise entirely** — no network call, no added latency, no appended findings. This preserves sub-agent throughput for small-grain tweaks.
+
+**D-09 "major" criteria (falsifiable — file-pattern + frontmatter scan, not judgment):**
+
+1. Touches orchestrator loop (`sgsd-orchestrate/*` or `ORCHESTRATOR-CHECKPOINT`)
+2. Touches dispatch rules (`CLAUDE-OVERLAY.md`)
+3. Creates a new skill file (type=skill + target does not exist)
+4. Any agent-typed proposal (type=agent)
+5. Creates a new hook (under `super-gsd/hooks/`)
+6. Adds a new `workflow.*` or `preferences.*` config key
+7. Cross-phase pattern (body mentions ≥2 distinct phase numbers)
+
+**Proposal frontmatter extension (backward-compatible):**
+
+```yaml
+major: true|false              # set by is_major_proposal scan
+vtp_advise_applied: true|false # set when advise findings appended
+```
+
+Existing `grep ^status:` logic in `sgsd-sepl-commit.sh` is agnostic to additional keys.
+
+**Graceful-fail:** if `callVtp` returns `{ok:false}` or times out after 5s:
+- Proposal still writes successfully.
+- `major: true, vtp_advise_applied: false` is recorded.
+- A future `sgsd-sepl-advise-enrich.sh` post-hook could retry (deferred to a follow-on phase).
+
+Test coverage: `super-gsd/scripts/sgsd-sepl-propose.test.sh` covers all 7 major criteria + 1 minor control.
+</vtp_integration>
 
 <script_location>
 Scripts live at ONE of:

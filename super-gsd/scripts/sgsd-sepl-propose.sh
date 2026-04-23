@@ -35,6 +35,59 @@
 
 set -u
 
+# --------------------------------------------------------------------------
+# is_major_proposal() — D-09 falsifiable major-criteria scan (Phase 16 VTP-08b).
+# Globals read: TYPE, TARGET, BODY_SCAN_FILE (path to temp file with full proposal body)
+# Globals written: MAJOR_REASON on match
+# Returns: echoes "true" or "false" to stdout.
+# --------------------------------------------------------------------------
+is_major_proposal() {
+    local reason=""
+
+    # Criterion 1: orchestrator loop
+    if echo "$TARGET" | grep -qE "^super-gsd/skills/sgsd-orchestrate/|ORCHESTRATOR-CHECKPOINT"; then
+        reason="orchestrator_loop"
+    # Criterion 2: dispatch rules
+    elif echo "$TARGET" | grep -qE "CLAUDE-OVERLAY\.md"; then
+        reason="dispatch_rules"
+    # Criterion 3: new skill file
+    elif [[ "$TYPE" == "skill" ]] && [[ ! -f "$TARGET" ]]; then
+        reason="new_skill"
+    # Criterion 4: any agent-typed proposal
+    elif [[ "$TYPE" == "agent" ]]; then
+        reason="agent_surface"
+    # Criterion 5: new hook
+    elif echo "$TARGET" | grep -qE "^super-gsd/hooks/" && [[ ! -f "$TARGET" ]]; then
+        reason="new_hook"
+    # Criterion 6: new workflow.* or preferences.* config key
+    elif [[ -n "${BODY_SCAN_FILE:-}" ]] && [[ -f "$BODY_SCAN_FILE" ]] && grep -qE "^[[:space:]]*(workflow|preferences)\." "$BODY_SCAN_FILE"; then
+        reason="new_config_key"
+    # Criterion 7: cross-phase pattern — body mentions ≥2 distinct phase numbers
+    elif [[ -n "${BODY_SCAN_FILE:-}" ]] && [[ -f "$BODY_SCAN_FILE" ]]; then
+        local phases
+        phases=$(grep -oE "[Pp]hase ?[0-9]+" "$BODY_SCAN_FILE" 2>/dev/null | sort -u | wc -l)
+        if [[ "$phases" -ge 2 ]]; then
+            reason="cross_phase"
+        fi
+    fi
+
+    if [[ -n "$reason" ]]; then
+        MAJOR_REASON="$reason"
+        echo "true"
+    else
+        echo "false"
+    fi
+}
+
+# --------------------------------------------------------------------------
+# Source-guard sentinel (T-16-16): if this script is sourced (e.g. by the
+# bash test harness sgsd-sepl-propose.test.sh), expose functions ONLY — do
+# NOT execute the propose flow. Direct execution runs the full flow below.
+# --------------------------------------------------------------------------
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+    return 0 2>/dev/null || exit 0
+fi
+
 TYPE=""
 TARGET=""
 DESCRIPTION=""
@@ -127,6 +180,61 @@ else
     BODY="(no body supplied — describe the change in the rationale only)"
 fi
 
+# --------------------------------------------------------------------------
+# Major-proposal detection + conditional advise-enrich (Phase 16 VTP-08b).
+# Scans TYPE/TARGET/body against D-09 falsifiable criteria. If major,
+# invokes vtp_advise_service_enrichment via the composer (5s timeout per
+# T-16-18). On advise success, writes findings to a separate temp file for
+# non-interpolating append (T-16-15: backticks / $ in findings must NOT
+# expand through bash HEREDOC).
+# --------------------------------------------------------------------------
+BODY_SCAN_FILE="$(mktemp)"
+printf '%s\n%s\n%s\n' "$DESCRIPTION" "$RATIONALE" "$BODY" > "$BODY_SCAN_FILE"
+MAJOR_REASON=""
+MAJOR="$(is_major_proposal)"
+VTP_APPLIED="false"
+ADVISE_FINDINGS_FILE=""
+
+if [[ "$MAJOR" == "true" ]]; then
+    echo "[sgsd-sepl] Proposal classified as major (reason: $MAJOR_REASON). Calling vtp_advise_service_enrichment..." >&2
+    ADVISE_TMP="$(mktemp)"
+    # 5s timeout advise call via composer. mcpInvoke is not injectable from
+    # a pure bash context (T-16-18 fallback documented): the composer will
+    # return {ok:false, reason:"no_mcp_invoke"} when no invoker is provided,
+    # which we treat identically to a timeout — frontmatter records
+    # vtp_advise_applied: false and the proposal writes cleanly.
+    timeout 5 node -e "
+        const path = require('path');
+        const composer = require(path.join('$ROOT', 'super-gsd', 'scripts', 'lib', 'vtp-context-composer.cjs'));
+        (async () => {
+            const ctx = composer.compose({ milestone: process.env.SGSD_MILESTONE || '', phase: process.env.SGSD_PHASE || '' });
+            const slice = composer.project(ctx, 'standalone');
+            const r = await composer.callVtp('vtp_advise_service_enrichment', {
+                payload: {
+                    service_name: process.env.SLUG,
+                    service_summary: process.env.DESCRIPTION,
+                    pain_points: [(process.env.MAJOR_REASON || 'unspecified') + ' proposal needs grounding'],
+                    candidate_areas: ['workflow'],
+                    strictness: 'conservative'
+                },
+                projectDir: '$ROOT',
+                skillOrAgent: 'sgsd-sepl',
+                tier: 'standalone',
+                rawQuery: process.env.DESCRIPTION || 'sepl major proposal'
+            });
+            process.stdout.write(JSON.stringify(r));
+        })().catch(e => { process.stdout.write(JSON.stringify({ok:false, reason:'node_error:' + (e && e.message || e)})); });
+    " SLUG="$SLUG" DESCRIPTION="$DESCRIPTION" MAJOR_REASON="$MAJOR_REASON" \
+        > "$ADVISE_TMP" 2>/dev/null || printf '%s' '{"ok":false,"reason":"timeout"}' > "$ADVISE_TMP"
+
+    if grep -q '"ok":true' "$ADVISE_TMP"; then
+        VTP_APPLIED="true"
+        ADVISE_FINDINGS_FILE="$ADVISE_TMP"
+    else
+        rm -f "$ADVISE_TMP"
+    fi
+fi
+
 # Assemble proposal file
 read -r -d '' CONTENT <<EOF || true
 ---
@@ -136,6 +244,8 @@ target_path: $TARGET
 slug: $SLUG
 proposed_at: $TS
 status: pending
+major: $MAJOR
+vtp_advise_applied: $VTP_APPLIED
 description: $DESCRIPTION
 rationale: $RATIONALE
 ---
@@ -180,6 +290,24 @@ fi
 # Write proposal atomically
 mkdir -p "$PROPOSALS_DIR"
 printf '%s\n' "$CONTENT" > "$PROPOSAL.tmp"
+
+# Append VTP advise findings (if any) via non-interpolating cat (T-16-15).
+# The findings file is raw JSON written by node; backticks / $ inside must
+# not be interpreted by bash. Appending from a file handle bypasses shell
+# expansion entirely.
+if [[ -n "$ADVISE_FINDINGS_FILE" ]] && [[ -f "$ADVISE_FINDINGS_FILE" ]]; then
+    {
+        printf '\n\n## VTP Advise Findings (auto-enriched)\n\n'
+        printf '```json\n'
+        cat "$ADVISE_FINDINGS_FILE"
+        printf '\n```\n'
+    } >> "$PROPOSAL.tmp"
+    rm -f "$ADVISE_FINDINGS_FILE"
+fi
+
+# Clean up the scan temp file used by is_major_proposal
+[[ -n "${BODY_SCAN_FILE:-}" ]] && rm -f "$BODY_SCAN_FILE"
+
 mv "$PROPOSAL.tmp" "$PROPOSAL"
 
 # Log event
