@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Codex Integration
-milestone_status: v1.3 Phase 16 COMPLETE — all 3 waves shipped, ready for Phase 14 discuss
-status: v1.3 Phase 16 SHIPPED 2026-04-23. Waves A/B/C all executed (composer primitive, 4 agent patches, /sgsd-vtp-advise skill, sepl major-detection with 8/8 test green). 11 VTP-NN requirements met, D-01..D-09 implemented, 8 Nyquist dimensions covered. Next: /gsd-discuss-phase 14 (Codex CLI Provider Substrate).
-stopped_at: Phase 16 fully landed — composer --self-test PASS, triage Step 0 graceful-fail at L57, 4 agents VTP-enriched in-place (per D-03), /sgsd-vtp-advise standalone skill live, sepl major-detection bash test 8/8 green. 13 commits across 3 waves.
-last_updated: "2026-04-23T16:00:00.000Z"
-last_activity: 2026-04-23 — Phase 16 complete (Wave B + C landed in parallel, 9 new commits: 885a4ac aa70b30 5694698 8db4226 b3792b6 db28d2e eadd3da ba761dd 701069d)
+milestone_status: v1.3 Phase 14 discuss complete — staged context activated, ready for /gsd-plan-phase 14
+status: v1.3 Phase 16 ✓ SHIPPED. Phase 14 CONTEXT activated 2026-04-23 via Option A (adopt staged D-01..D-24 verbatim + Phase-16 VTP-deferral addendum). BRIEF.md + 14-CONTEXT.md + 15-CONTEXT.md moved from .planning/proposals/v1.3-multimodal-review/ into .planning/milestones/v1.3/ layout. Next: /gsd-plan-phase 14.
+stopped_at: Phase 14 discuss-phase complete — 24 locked decisions (wrapper, registry, gates.yaml schema extension, agent stub, contract harness, config kill-switch), 4-plan / 3-wave decomposition, 6-invariant verifier contract. One new deferred entry: VTP-reviewer-consumption routed to Phase 15.
+last_updated: "2026-04-23T17:00:00.000Z"
+last_activity: 2026-04-23 — Phase 14 context activated (8b5c6b6 staged-context adoption + VTP deferral addendum)
 progress:
   total_phases: 3
   completed_phases: 1
