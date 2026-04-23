@@ -77,6 +77,14 @@
     "complexity_floor_lines": 100,
     "verifier_adversarial_rate": 0.2
   },
+  "review_providers": {
+    "default_provider": "claude-sonnet-reviewer",
+    "codex_enabled": false,
+    "codex_cli_path": "auto-detect",
+    "codex_timeout_seconds": 30,
+    "fallback_on_error": true,
+    "fallback_max_retries": 1
+  },
   "browser_verify": {
     "enabled": true,
     "base_url": "http://localhost:3000",
