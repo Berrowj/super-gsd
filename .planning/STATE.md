@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Codex Integration
-milestone_status: v1.3 Phase 16 planned — 3 plans ready to execute
-status: v1.3 Codex Integration + VTP Enrichment — 3 phases staged (16 → 14 → 15 per D-01); Phase 16 planning complete 2026-04-23 (research + patterns + 3 plans + validation strategy + verifier PASS iter-2)
-stopped_at: Phase 16 plans landed via /gsd-plan-phase 16 — 3 waves, 7 tasks, 11 VTP-NN requirements mapped, 8 Nyquist dimensions covered (5 automated + 3 manual smoke), plan-checker PASSED iteration 2
-last_updated: "2026-04-23T12:00:00.000Z"
-last_activity: 2026-04-23 — Phase 16 planning complete (RESEARCH + PATTERNS + 3 PLANs + VALIDATION + 2-iter checker PASS)
+milestone_status: v1.3 Phase 16 Wave A SHIPPED — primitive green, operator gating B/C fan-out
+status: v1.3 Phase 16 — Wave A (16-01) complete 2026-04-23 (composer + triage Step 0 + smoke runbook, all gates PASS). Wave B (16-02 agent patches) and Wave C (16-03 advise) staged, awaiting operator go-ahead.
+stopped_at: Wave A primitive shipped — composer --self-test PASS, triage Step 0 graceful-fail verified at L57, 5-Dim smoke runbook at super-gsd/docs/vtp-enrichment-smoke.md, config toggle workflow.triage_vtp_enrichment=true active. Gated before Wave B/C per operator option-3 choice.
+last_updated: "2026-04-23T14:00:00.000Z"
+last_activity: 2026-04-23 — Wave A shipped (d19996b composer, 4b9707e triage Step 0, 4dd1e88 smoke runbook, b01f6a5 summary)
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 3
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 11
 ---
 
 # Project State
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 
 ## Current Position
 
-Phase: 16 (planned 2026-04-23 via /gsd-plan-phase — 3 waves, 7 tasks)
-Plan: 16-01 (Wave A primitive), 16-02 (Wave B agent patches), 16-03 (Wave C advise)
-Status: Ready to execute
-Last activity: 2026-04-23 -- Phase 16 plans committed (3723680 planner, 019170d checker-fix, 93fdbd0 Dim 4 + BACKLOG-001 cockpit)
+Phase: 16 (Wave A SHIPPED 2026-04-23 — primitive live; Wave B/C gated by operator)
+Plan: 16-01 ✓ complete | 16-02 pending (Wave B agent patches) | 16-03 pending (Wave C advise)
+Status: Wave A verified green; awaiting operator decision on Wave B (fan-out or pause)
+Last activity: 2026-04-23 -- Wave A shipped (4 commits: d19996b + 4b9707e + 4dd1e88 + b01f6a5)
 
 Progress: [░░░░░░░░░░] 0% (0/3 v1.3 phases complete — Phase 13 closed with v1.2)
 
