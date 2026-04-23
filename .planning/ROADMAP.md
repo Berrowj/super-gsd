@@ -7,6 +7,11 @@
 
 ## Phases
 
+### v1.3 Staging Snapshot
+
+- **Phase 14: Codex CLI Provider Substrate** — dark-launch the reviewer-provider substrate: `codex-exec.sh`, `review-providers.yaml`, `reviewer_provider:` gate schema, `sgsd-codex-reviewer` stub, provider contract harness, and config kill-switch. No live Codex routing yet.
+- **Phase 15: Codex-Routed Gates + Qualitative MUDA Probe** — flip review-shaped ATC gates to Codex by registry, add a cross-vendor adversarial challenger, land the first qualitative overproduction probe in MUDA, and ship a milestone-close kill check.
+
 <details>
 <summary>✅ v1.1 Self-Audit (Phases 1-8) — SHIPPED 2026-04-21</summary>
 
@@ -34,7 +39,7 @@ ATC-147-evidence → Q2-gate-policy → Q3-plan-schema → Q6-machinery → Q7-g
 - [x] **Phase 10: Gate Policy** — Per-gate keep/kill/conditional matrix landed in `registry/gates.yaml` + edge-guard enforcement layer catches silent skip-drift (SHIPPED 2026-04-22 — 3 plans / 12 commits; PASS: 11-row gates.yaml populated per D-01..D-09 + D-12, 3 new lib modules in super-gsd/scripts/lib/ (predicate-eval 10-op evaluator, gates-registry cache-singleton with shouldFire, edge-guard transition-wrapper with --self-test), 9 SKILL.md call sites wired, 09-verify.mjs retrofitted with WR-01/02 invariants, config.byterover deleted; ATC WARN 0 critical / 9.67/10 anti-slop / 3 warnings forwarded to Phase 12 ergonomics; MUDA 1 non-blocking FAIL inventory; cross-repo operator action: 7 keys to core.cjs KNOWN_TOP_LEVEL pending)
 - [x] **Phase 11: Plan Schema v2** — Canonical YAML-frontmatter plan schema at `templates/plan-schema-v2.json` with enforced required/optional fields and v1 classifier fallback (SHIPPED 2026-04-21 — 6 plans / 18 commits; PASS after 11-06 gap closure: WR-01..05 + IN-01 all closed, 0 ATC warnings remain; IN-03 distribution gap deferred to Phase 12+)
 - [x] **Phase 12: Machinery** — Orchestrator Q6a-d sharpenings: classifier-skip, parallel/sequential auto-dispatch, checkpoint schema expansion, adversarial verifier sampling (SHIPPED 2026-04-22 — 6 plans / ~24 commits; PASS: 3 new lib modules (classifier-cache per-plan sidecar, dispatch-planner Kahn topo-sort, context-gauge opt-in mechanical 85% threshold), SKILL.md integrations across 5 sections, checkpoint template +4 fields, adversarial verifier Step 9.6 with verifier_adversarial_rate=0.2, patch-gsd-tools-known-keys.sh idempotent installer shipped + README documented; ATC WARN 0 critical / 8.75/10 anti-slop / 2 warnings deferred to ergonomics sweep; MUDA clean; Agent() parallel fan-out confirmed concurrent in 12-02-00 spike; Phase 10 WR-01/02/03 ergonomics closed; Phase 11 IN-03 still deferred to infra phase)
-- [ ] **Phase 13: Governance** — Deliberate-skill Q7a-g sharpenings: escalate-not-spawn board, confidence-weighted votes, falsifier memos, board-as-resource, post-deliberation scoring, structured responses, CEO reflection pass
+- [x] **Phase 13: Governance** — Deliberate-skill Q7a-g sharpenings: escalate-not-spawn board, confidence-weighted votes, falsifier memos, board-as-resource, post-deliberation scoring, structured responses, CEO reflection pass (SHIPPED 2026-04-23 — board registry activated, signed-sum vote synthesis landed, board agents moved to 10-field YAML, decision memo template extended with falsifier/dead-ends/reflection, `sgsd-complete-milestone` added with VTP tiered fallback, orchestrator Step 6.7 auto-trigger wired, Phase 13 verifier green 16/16)
 
 ## Phase Details
 
@@ -117,7 +122,7 @@ ATC-147-evidence → Q2-gate-policy → Q3-plan-schema → Q6-machinery → Q7-g
 
 ### Phase 13: Governance
 
-**Goal:** Apply seven deliberate-skill sharpenings (Q7a-g) that turn the board into a registered resource with escalate-not-spawn defaults, confidence-weighted votes, falsifier-bearing memos, structured responses, and a post-deliberation scoring loop feeding back into future calibration.
+**Goal:** Apply seven deliberate-skill sharpenings (Q7a-g) that turn the board into a registered resource with escalate-not-spawn defaults, confidence-weighted votes, falsifier-bearing memos, structured responses, and a post-deliberation scoring loop feeding back into future calibration. Phase 13 also proves the new milestone-close path that enriches from VTP, publishes the milestone artifact back, and activates the staged v1.3 multimodal-review handoff cleanly.
 
 **Depends on:** Phase 10 (gates.yaml is the registered-resource precedent), Phase 11 (schema-as-resource ownership model is the precedent for `board-members.yaml` registration).
 
@@ -132,7 +137,49 @@ ATC-147-evidence → Q2-gate-policy → Q3-plan-schema → Q6-machinery → Q7-g
 6. Board member responses are structured YAML with `position`, `confidence`, `risks_raised`, `evidence_cited`, `falsifier`, `implementation_concerns`, `known_deadends`, `intuition`, `why_principled`, `rationale` fields; CEO synthesis is rubric-driven (GOV-06).
 7. Every CEO memo footer carries a post-synthesis reflection pass — "what blind spots did this deliberation have?" — cross-fed into the GOV-05 scoring log for later validation (GOV-07).
 
+8. `sgsd-complete-milestone` is live, idempotent, and evidence-safe: it can close v1.2 through bidirectional VTP and leave the staged v1.3 packet ready for `/gsd-new-milestone v1.3`.
+
 **Plans:** TBD
+
+---
+
+### Phase 14: Codex CLI Provider Substrate
+
+**Goal:** Ship the reviewer-provider abstraction dark so review-shaped gates can route through either Claude or Codex without changing evidence contracts, while keeping all live gate behaviour on Claude until the substrate proves out.
+
+**Depends on:** Phase 13 complete. Requires `sgsd-complete-milestone` and the governance/resource-registry precedent to be real, not aspirational.
+
+**Requirements:** CODEX-01, CODEX-02, CODEX-03, CODEX-04, CODEX-05, CODEX-06
+
+**Success Criteria** (what must be TRUE when this phase completes):
+1. `super-gsd/scripts/codex-exec.sh` exists with timeout, provenance logging, OAuth-only posture, and report-contract parsing (CODEX-01).
+2. `super-gsd/registry/review-providers.yaml` exists with two active providers (`claude-sonnet-reviewer`, `codex-cli-reviewer`) and `gates-registry.cjs` can resolve them at cold start (CODEX-02).
+3. `super-gsd/registry/gates.yaml` supports an explicit `reviewer_provider:` field on review-shaped rows, but all live rows still resolve to Claude because Phase 14 ships dark (CODEX-03).
+4. `super-gsd/agents/sgsd-codex-reviewer.md` exists and mirrors the existing code-reviewer report contract instead of inventing a new evidence shape (CODEX-04).
+5. `super-gsd/tools/provider-contract/contract-check.mjs` can run both providers on the same toy diff and validate structural compatibility of the outputs (CODEX-05).
+6. `.planning/config.json` has the `review_providers` block with `codex_enabled: false`, making the entire substrate revertable and behaviour-preserving until Phase 15 flips it on (CODEX-06).
+
+**Plans:** 4 plans, 3 waves (per staged Phase 14 context)
+
+---
+
+### Phase 15: Codex-Routed Gates + Qualitative MUDA Probe
+
+**Goal:** Turn on the staged substrate only at the review-shaped surfaces where cross-vendor signal and quota offload are defensible: phase-level ATC, per-dispatch ATC, adversarial verifier challenge, and a qualitative overproduction probe inside MUDA.
+
+**Depends on:** Phase 14 fully green. In particular, provider registry, wrapper, contract harness, and config kill-switch must all exist before any live routing changes.
+
+**Requirements:** CODEX-07, CODEX-08, CODEX-09, CODEX-10, CODEX-11, CODEX-12
+
+**Success Criteria** (what must be TRUE when this phase completes):
+1. `phase-level-ATC` and `per-dispatch-ATC` resolve through `reviewer_provider: codex-cli-reviewer`, with single-retry Claude fallback and no evidence-path drift in `commit-reviews.jsonl` or `{NN}-ATC-REVIEW.md` (CODEX-07).
+2. `sgsd-muda-audit.sh` gains a qualitative `overproduction` probe backed by Codex, but still honours DLB-02's non-blocking MUDA discipline and curates findings like the existing probes (CODEX-08).
+3. The qualitative MUDA probe only fires behind an explicit gate row keyed to diff size, phase type, and the verdict of the mechanical probes, so Codex spend stays deliberate rather than ambient (CODEX-09).
+4. `token-log.jsonl` and `sgsd-token-audit` can compute provider-specific offload, including estimated Claude quota saved by Codex across the active milestone (CODEX-10).
+5. Step 9.6 adversarial verifier challenge becomes truly cross-vendor: when it fires, the challenger is the non-primary vendor rather than a second same-vendor pass (CODEX-11).
+6. Milestone close can evaluate the multimodal experiment mechanically and disable it if both quality lift and quota-offload miss threshold, documenting the retirement rather than silently carrying dead infrastructure forward (CODEX-12).
+
+**Plans:** 5 plans, 4 waves (per staged Phase 15 context)
 
 ---
 
@@ -171,6 +218,7 @@ Note: retro RQ4 sequencing (ATC-147-evidence → Q2-gate-policy → Q3-plan-sche
 |-----------|--------|-------|--------|---------|
 | v1.1 Self-Audit | 8 | 15 | Complete | 2026-04-21 |
 | v1.2 Evidence-First | 5 | TBD | Scoping | - |
+| v1.3 Multimodal Review | 2 | 9 | Staged | - |
 
 ### v1.2 Phase Progress
 
@@ -180,4 +228,4 @@ Note: retro RQ4 sequencing (ATC-147-evidence → Q2-gate-policy → Q3-plan-sche
 | 10. Gate Policy | 0/TBD | Scoped — waits on Phase 9 | - |
 | 11. Plan Schema v2 | 0/1 | Planned    |  |
 | 12. Machinery | 0/TBD | Scoped — waits on Phase 11 + 10 | - |
-| 13. Governance | 0/TBD | Scoped — waits on Phase 10 + 11 | - |
+| 13. Governance | 7/7 | Complete | 2026-04-23 |
