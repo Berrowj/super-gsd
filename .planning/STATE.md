@@ -1,17 +1,18 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: Evidence-First Sharpening
-status: Phase 12 closed — 80% complete (4/5 phases) — Phase 13 next (final)
-stopped_at: Phase 12 closed — ATC WARN (0 critical, 2 warnings 8.75/10) / verifier PASSED / MUDA 0 WARN 0 FAIL / browser verify skipped
-last_updated: "2026-04-22T19:00:00.000Z"
-last_activity: 2026-04-22 -- Phase 12 closed (MACH-01..04 + ERG-01/02 shipped)
+milestone: v1.3
+milestone_name: Codex Integration
+milestone_status: v1.2 closed — v1.3 ready to discuss
+status: v1.2 closed 2026-04-22 — v1.3 Codex Integration ready to discuss (2 phases, 9 plans staged)
+stopped_at: sgsd-complete-milestone v1.2 complete — phases 09/10/11/12/13 archived — STATE bumped to v1.3
+last_updated: "2026-04-22T00:00:00.000Z"
+last_activity: 2026-04-22 — v1.2 milestone close complete (deliberation audit + archive + VTP gap memo)
 progress:
-  total_phases: 5
-  completed_phases: 4
-  total_plans: 18
-  completed_plans: 18
-  percent: 80
+  total_phases: 2
+  completed_phases: 0
+  total_plans: 9
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,16 +22,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** Ship an autonomous framework that any Claude Code Max plan user can install with one command and immediately start building software
-**Current focus:** v1.2 Evidence-First Sharpening — Phases 9 and 11 shipped. Phase 10 (Gate Policy) next, consumes Phase 9 evidence artifacts.
+**Current focus:** v1.3 Codex Integration — Phase 14 (Codex CLI Provider Substrate) and Phase 15 (Codex-Routed Gates + Qualitative MUDA Probe) staged in ROADMAP.md. Ready to discuss Phase 14.
 
 ## Current Position
 
-Phase: 9 COMPLETE (3 plans, 12 commits, verifier PASS-WITH-DEVIATIONS → gap closed inline, ATC WARN 0 critical). Next: Phase 10 (Gate Policy).
-Plan: — (3/3 plans in Phase 9 completed: classification.yaml, gate-bypass.yaml, INTENT.md + evidence registry + verify.mjs)
-Status: Ready to discuss Phase 10
-Last activity: 2026-04-22 -- Phase 9 closed
+Phase: 13 COMPLETE (7 plans executed, verifier PASS 16/16 invariants)
+Plan: — (all 7/7 Phase 13 plans shipped)
+Status: Ready for milestone close
+Last activity: 2026-04-23 -- Phase 13 closed
 
-Progress: [████░░░░░░] 40% (2/5 phases complete)
+Progress: [██████████] 100% (5/5 phases complete)
 
 ## Accumulated Context
 
