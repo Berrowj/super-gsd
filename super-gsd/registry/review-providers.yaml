@@ -1,0 +1,59 @@
+# ============================================================================
+# SGSD v2 Review Providers Registry
+# ============================================================================
+# Reviewer providers declared as resources: invocation type (agent|shell),
+# execution target (agent_subagent_type OR shell_script), auth method, and
+# report contract version. Separated from gates.yaml because provider
+# lifecycle (agent vs shell wrapper, OAuth tokens, fallback chains) is
+# orthogonal to gate lifecycle (enforcement mode, trigger predicates).
+#
+# Source: Phase 14 CONTEXT D-05/D-05a (substrate), D-07 (invocation enum),
+#         D-10/D-10a (resolution semantics), D-12/D-12a (agent stubs).
+# Research grounding: RESEARCH §2b (cache-singleton pattern), §2c (agent
+#         frontmatter fields), §3 R-3 (sibling module recommendation).
+#
+# Precedent note: This is the SECOND registry under super-gsd/registry/
+# (gates.yaml is the first). New resource registries go here; each gets
+# its own schema_version and registry_version independently (per PATTERNS
+# Divergence D1). Expected future neighbours: patterns.yaml (DLB-05),
+# mcp-servers.yaml (Phase 15+).
+# ============================================================================
+
+schema_version: 1
+registry_version: 1.0.0
+last_updated: 2026-04-23
+
+# Invocation discriminator (D-07).
+#   agent — dispatched via Claude Code Agent() primitive; agent_subagent_type required.
+#   shell — shell-script shellout (external CLI / wrapper); shell_script required.
+# Reserved for future use:
+#   mcp   — MCP tool call (Phase 15+).
+#   http  — remote HTTP endpoint (post-v1.3).
+invocation_types:
+  - agent
+  - shell
+
+# Populated per Phase 14 Plan 14-02 (D-05, D-05a, D-10, D-12).
+# Order: agent-backed provider first (default), shell-backed second.
+# All rows state:active at v1.3 ship.
+
+providers:
+
+  - name: claude-sonnet-reviewer
+    invocation: agent
+    agent_subagent_type: sgsd-code-reviewer
+    auth: claude-max-oauth
+    report_contract: code-reviewer-v1
+    timeout_seconds: 60
+    state: active
+    version: 1.0
+
+  - name: codex-cli-reviewer
+    invocation: shell
+    shell_script: super-gsd/scripts/codex-exec.sh
+    auth: codex-pro-oauth
+    report_contract: code-reviewer-v1
+    timeout_seconds: 30
+    fallback_to: claude-sonnet-reviewer
+    state: active
+    version: 1.0
