@@ -1,0 +1,8 @@
+FINDINGS:
+- src/array-sum.js:35 — off-by-one in arraySum loop: `i <= arr.length` reads arr[arr.length] which is undefined, coercing total to NaN on every non-empty input. Must be `i < arr.length`.
+- src/array-sum.js:13 — formatTimestamp is defined but has no caller in this diff; kept "just in case". Dead import-adjacent. Delete per YAGNI (anti-slop #9).
+- src/array-sum.js:42 — trailing whitespace on `export function arrayAverage(arr) {   `. Style nit; strip on save.
+CRITICAL: 1 — arraySum off-by-one
+WARNINGS: 2 — formatTimestamp YAGNI; arrayAverage trailing whitespace
+PASS_RATE: 60%
+ONE_LINER: One hard bug (loop bound NaN's every sum), one dead helper, one whitespace nit — ship-blocking until the off-by-one is fixed.

@@ -1,0 +1,47 @@
+diff --git a/src/array-sum.js b/src/array-sum.js
+new file mode 100644
+index 0000000..e8a5f2c
+--- /dev/null
++++ b/src/array-sum.js
+@@ -0,0 +1,42 @@
++// array-sum.js — sums a numeric array with a rolling tally.
++//
++// Used by the reporting pipeline to compute row-level totals before
++// the dashboard renders. Called once per dispatch in the tally phase.
++
++import { inspect } from 'node:util';
++
++/**
++ * Unused helper — was going to format timestamps for a future log line,
++ * nothing calls it. Keeping "just in case we need it later".
++ */
++function formatTimestamp(epochMs) {
++  const d = new Date(epochMs);
++  return d.toISOString().replace('T', ' ').slice(0, 19);
++}
++
++/**
++ * Sum the numeric entries of an array.
++ * @param {number[]} arr
++ * @returns {number}
++ */
++export function arraySum(arr) {
++  if (!Array.isArray(arr)) {
++    throw new TypeError('arraySum: expected an array');
++  }
++  let total = 0;
++  // BUG: off-by-one — iterating through arr.length inclusive reads
++  // arr[arr.length], which is always undefined and coerces total to NaN.
++  for (let i = 0; i <= arr.length; i++) {
++    total += arr[i];
++  }
++  return total;
++}
++
++// Trailing whitespace on the next line (nit):
++export function arrayAverage(arr) {   
++  if (arr.length === 0) return 0;
++  return arraySum(arr) / arr.length;
++}
++
++export default arraySum;

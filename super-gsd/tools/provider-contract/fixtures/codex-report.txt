@@ -1,0 +1,9 @@
+FINDINGS:
+- array-sum.js arraySum: loop uses `<=` against arr.length; the final iteration dereferences arr[arr.length] (undefined) and poisons total with NaN. Change to strict-less-than.
+- array-sum.js: formatTimestamp declared but unreferenced anywhere in the patch; no call site shipped alongside. Remove or wire a caller before merging.
+- array-sum.js: trailing whitespace at end of `arrayAverage` signature line.
+- array-sum.js: default export re-exports a named export — redundant when arraySum is already named-exported. Minor.
+CRITICAL: 1 — arraySum loop bound
+WARNINGS: 3 — formatTimestamp unused; trailing whitespace; redundant default export
+PASS_RATE: 50%
+ONE_LINER: Off-by-one in arraySum is a hard halt; three warnings cluster around dead code and stylistic cruft that should clear in one cleanup pass.
