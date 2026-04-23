@@ -12,7 +12,8 @@
       "args": [
         "C:/Users/jack.berrow/Voice-Text-Plan/dist/cli.js",
         "mcp"
-      ]
+      ],
+      "cwd": "C:/Users/jack.berrow/Voice-Text-Plan"
     }
   }
 }
