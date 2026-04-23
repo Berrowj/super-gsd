@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Codex Integration
-milestone_status: v1.2 closed — v1.3 ready to discuss
-status: v1.2 closed 2026-04-22 — v1.3 Codex Integration ready to discuss (2 phases, 9 plans staged)
-stopped_at: sgsd-complete-milestone v1.2 complete — phases 09/10/11/12/13 archived — STATE bumped to v1.3
-last_updated: "2026-04-22T00:00:00.000Z"
-last_activity: 2026-04-22 — v1.2 milestone close complete (deliberation audit + archive + VTP gap memo)
+milestone_status: v1.3 Phase 16 context gathered — ready for /gsd-plan-phase 16
+status: v1.3 Codex Integration + VTP Enrichment — 3 phases staged (16 → 14 → 15 per D-01); Phase 16 CONTEXT.md locked 2026-04-23 with D-01..D-09
+stopped_at: Phase 16 context landed via /sgsd-discuss-phase 16 — D-01..D-09 resolved; Wave C unblocker (vtp_advise_service_enrichment) verified LIVE
+last_updated: "2026-04-23T00:00:00.000Z"
+last_activity: 2026-04-23 — Phase 16 context gathered (9 questions → 9 decisions; Phase 16 promoted to v1.3 opener per D-01)
 progress:
-  total_phases: 2
+  total_phases: 3
   completed_phases: 0
-  total_plans: 9
+  total_plans: 0
   completed_plans: 0
   percent: 0
 ---
@@ -22,16 +22,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** Ship an autonomous framework that any Claude Code Max plan user can install with one command and immediately start building software
-**Current focus:** v1.3 Codex Integration — Phase 14 (Codex CLI Provider Substrate) and Phase 15 (Codex-Routed Gates + Qualitative MUDA Probe) staged in ROADMAP.md. Ready to discuss Phase 14.
+**Current focus:** v1.3 — Phase 16 (VTP Enrichment as Cross-Phase Primitive) → Phase 14 (Codex CLI Provider Substrate) → Phase 15 (Codex-Routed Gates + Qualitative MUDA Probe). D-01 locked Phase 16 as opener. Phase 16 CONTEXT.md ready; next: `/gsd-plan-phase 16`.
 
 ## Current Position
 
-Phase: 13 COMPLETE (7 plans executed, verifier PASS 16/16 invariants)
-Plan: — (all 7/7 Phase 13 plans shipped)
-Status: Ready for milestone close
-Last activity: 2026-04-23 -- Phase 13 closed
+Phase: 16 (context gathered 2026-04-23 via /sgsd-discuss-phase)
+Plan: — (awaiting /gsd-plan-phase 16)
+Status: Ready for planning
+Last activity: 2026-04-23 -- Phase 16 CONTEXT.md + DISCUSSION-LOG.md committed (38cb442)
 
-Progress: [██████████] 100% (5/5 phases complete)
+Progress: [░░░░░░░░░░] 0% (0/3 v1.3 phases complete — Phase 13 closed with v1.2)
 
 ## Accumulated Context
 
