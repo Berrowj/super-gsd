@@ -1,0 +1,76 @@
+# codex-exec.sh — Codex CLI provider wrapper
+
+Bash wrapper around `codex exec` used by the Phase 14 review-provider substrate.
+Ships prompt via **stdin pipe**, wraps with GNU `timeout`, parses the 5-field
+`code-reviewer-v1` report contract, writes the report atomically, and appends
+one provenance row to `.planning/metrics/codex-log.jsonl`.
+
+## Usage
+
+```
+codex-exec.sh --prompt-file <path> --report-out <path>
+              [--timeout N] [--dry-run] [--project <path>]
+              [--phase N] [--plan NN-PP] [--step LABEL]
+```
+
+| Flag            | Req?     | Purpose                                                                 |
+| --------------- | -------- | ----------------------------------------------------------------------- |
+| `--prompt-file` | required | Path to prompt file (piped on stdin to `codex exec -`)                  |
+| `--report-out`  | required | Destination for parsed 5-line report; written atomically via `tmp+mv`   |
+| `--timeout`     | optional | Seconds (default from `.planning/config.json` → `review_providers.codex_timeout_seconds`, fallback 30) |
+| `--dry-run`     | optional | Print resolved command + auth status + config; return 0 without calling `codex` |
+| `--project`     | optional | `--cd` target for codex; default = repo root via `.planning/` walk-up   |
+| `--phase`       | optional | JSONL tag only (null when absent)                                       |
+| `--plan`        | optional | JSONL tag only (e.g. `14-01`; null when absent)                         |
+| `--step`        | optional | JSONL tag only (e.g. `6.5` / `9.5` / `9.6`; null when absent)           |
+
+## Exit codes
+
+| Code | Meaning                                                                |
+| ---- | ---------------------------------------------------------------------- |
+| 0    | Success — report parsed, written, JSONL row appended                   |
+| 1    | Generic codex failure (non-zero RC, not auth, not timeout) + usage err |
+| 3    | `codex` binary not on `$PATH`                                          |
+| 4    | Auth denied — `OPENAI_API_KEY` set in env (refuse-to-run), OR codex stderr matched `/auth\|401\|unauthori[sz]ed/i` |
+| 5    | Timeout — GNU `timeout` returned 124                                   |
+| 6    | Report contract violation — one or more of `FINDINGS:`/`CRITICAL:`/`WARNINGS:`/`PASS_RATE:`/`ONE_LINER:` missing from codex stdout |
+
+## OAuth hygiene (D-02 / D-02a)
+
+codex-exec is **OAuth-only**. If `$OPENAI_API_KEY` is set in the environment,
+the wrapper exits **4** and prints a refusal message on stderr — it does NOT
+unset-then-run. Rationale: silently degrading the operator's expectation
+("I set an API key, my invocations use it") corrupts auth provenance and
+masks misconfigured callers. The codex binary resolves its OAuth token from
+its own config (`~/.codex/config.json` / `$CODEX_HOME`).
+
+## P4 deviation: stdin pipe, not `--prompt-file` on codex
+
+D-01 mentioned `--prompt-file` as the Codex invocation shape. RESEARCH §1a
+verified against `developers.openai.com/codex/cli/reference`: **no
+`--prompt-file` flag exists on `codex exec`**. Codex accepts prompts only as
+a positional arg or via stdin (`-`). This wrapper pipes on stdin:
+
+```
+cat "$PROMPT_FILE" | codex exec --sandbox read-only --ephemeral \
+    --skip-git-repo-check --cd "$PROJECT" -
+```
+
+The wrapper **keeps its own `--prompt-file` flag as the external contract** —
+only the internal transport to `codex exec` changes. D-01a/D-01b/D-01c/D-04a
+all remain as locked.
+
+## Examples
+
+```bash
+# Dry-run (no codex invocation; prints resolved command + auth status)
+codex-exec.sh --dry-run \
+  --prompt-file .planning/phases/14-*/prompt.txt \
+  --report-out /tmp/report.txt
+
+# Real invocation (OAuth token resolved by codex CLI itself)
+codex-exec.sh \
+  --prompt-file .planning/phases/14-codex-cli-provider-substrate/prompt.txt \
+  --report-out .planning/phases/14-codex-cli-provider-substrate/CODEX-REPORT.md \
+  --timeout 60 --phase 14 --plan 14-01 --step 6.5
+```
