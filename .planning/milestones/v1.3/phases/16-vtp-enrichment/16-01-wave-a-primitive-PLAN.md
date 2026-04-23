@@ -583,16 +583,16 @@ Create a smoke-test runbook at `super-gsd/docs/vtp-enrichment-smoke.md` that an 
 **Commit:** `docs(16-01): add VTP enrichment smoke runbook`
   </action>
   <verify>
-    <automated>test -f "C:/Users/jack.berrow/GSDedits/super-gsd/docs/vtp-enrichment-smoke.md" &amp;&amp; grep -q "Dimension 2: Triage Step 0 happy path" "C:/Users/jack.berrow/GSDedits/super-gsd/docs/vtp-enrichment-smoke.md" &amp;&amp; grep -q "Dimension 3: Triage Step 0 VTP-failure path" "C:/Users/jack.berrow/GSDedits/super-gsd/docs/vtp-enrichment-smoke.md" &amp;&amp; grep -q "Dimension 6: Config toggle disables Step 0" "C:/Users/jack.berrow/GSDedits/super-gsd/docs/vtp-enrichment-smoke.md"</automated>
+    <automated>test -f "C:/Users/jack.berrow/GSDedits/super-gsd/docs/vtp-enrichment-smoke.md" &amp;&amp; grep -q "Dimension 2: Triage Step 0 happy path" "C:/Users/jack.berrow/GSDedits/super-gsd/docs/vtp-enrichment-smoke.md" &amp;&amp; grep -q "Dimension 3: Triage Step 0 VTP-failure path" "C:/Users/jack.berrow/GSDedits/super-gsd/docs/vtp-enrichment-smoke.md" &amp;&amp; grep -q "Dimension 4: Agent-tier VTP-call instrumentation" "C:/Users/jack.berrow/GSDedits/super-gsd/docs/vtp-enrichment-smoke.md" &amp;&amp; grep -q "Dimension 6: Config toggle disables Step 0" "C:/Users/jack.berrow/GSDedits/super-gsd/docs/vtp-enrichment-smoke.md"</automated>
   </verify>
   <acceptance_criteria>
     - File `super-gsd/docs/vtp-enrichment-smoke.md` exists.
-    - Contains sections for Dimensions 2, 3, 5, and 6 from RESEARCH.md §Validation Architecture.
+    - Contains sections for Dimensions 2, 3, 4, 5, and 6 from RESEARCH.md §Validation Architecture. Dim 4 section content per 16-VALIDATION.md Manual-Only Verifications table row "Agent-tier VTP calls appear in routing-log (Dim 4)": dispatches gsd-phase-researcher on a stub phase with pre-populated VTP-EVIDENCE.md, asserts `tail -1 .planning/metrics/vtp-routing-log.jsonl` shows row with `tier:"research"`, agent's RESEARCH.md output cites ≥1 VTP doc-ID.
     - Contains a Rollback section.
     - Contains a Preflight section referencing `--self-test`.
-    - File is ≤200 lines (lightweight runbook, not a novel).
+    - File is ≤250 lines (lightweight runbook, not a novel — +50 line budget for Dim 4 section).
   </acceptance_criteria>
-  <done>Smoke runbook exists, covers 4 of the 8 validation dimensions (triage-centric ones), rollback path documented.</done>
+  <done>Smoke runbook exists, covers 5 of the 8 validation dimensions (triage + agent-tier + config-toggle paths, per checker-review add of Dim 4), rollback path documented.</done>
 </task>
 
 </tasks>
