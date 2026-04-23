@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 # Super GSD - Boot Command
 # ============================================================================
 # One-command cockpit launcher. Preflights the substrate, refreshes the
@@ -441,54 +441,48 @@ foreach ($script in @($sgsd1, $sgsd2, $sgsd3)) {
 $wt = Get-Command wt.exe -ErrorAction SilentlyContinue
 
 if ($wt) {
-    # Windows Terminal - open one window with three panes:
-    #   left:       SGSD1 mission control
-    #   right-top:  SGSD2 narrative
-    #   right-bot:  SGSD3 gate verdict
+    # Windows Terminal — one tab in the MRU window, three panes laid out as:
+    #   left-top:    SGSD1 (Mission Control)
+    #   left-bot:    SGSD3 (Gate Verdict)
+    #   right-full:  SGSD2 (Narrative) — full vertical height
+    #
+    # Build order in wt.exe:
+    #   1. new-tab → SGSD1 fills the whole tab
+    #   2. split-pane -V → new pane right half gets SGSD2 (focus moves to SGSD2)
+    #   3. move-focus left → focus returns to SGSD1
+    #   4. split-pane -H → new pane below SGSD1 gets SGSD3
     $psCmd = "powershell.exe"
-    # Stack the cockpit as a new tab in the MRU Windows Terminal window
-    # (operator preference — keeps all SGSD panes alongside other work tabs).
     $launchArgs = @(
         "new-tab", "--title", "SGSD-Cockpit",
         $psCmd, "-NoExit", "-NoProfile", "-File", $sgsd1, "-ProjectDir", $ProjectDir,
         ";", "split-pane", "-V", "--title", "SGSD2",
         $psCmd, "-NoExit", "-NoProfile", "-File", $sgsd2, "-ProjectDir", $ProjectDir,
+        ";", "move-focus", "left",
         ";", "split-pane", "-H", "--title", "SGSD3",
         $psCmd, "-NoExit", "-NoProfile", "-File", $sgsd3, "-ProjectDir", $ProjectDir
     )
 
     Write-Step "Windows Terminal detected" "OK" Green
-    Write-Host "  Opening SGSD1/2/3 as a new tab in the existing cockpit window..."
+    Write-Host "  Opening SGSD1+SGSD3 stacked left, SGSD2 full-height right..."
     Start-Process -FilePath "wt.exe" -ArgumentList $launchArgs
     Start-Sleep -Milliseconds 500
 
-    # Raise the Windows Terminal window to foreground so the new tab is
+    # Raise the MRU Windows Terminal window to foreground so the new tab is
     # actually visible. Without this, new-tab silently lands in a minimized
-    # or off-screen WT instance (confirmed failure path 2026-04-23). Uses the
-    # Win32 API via Add-Type because PowerShell has no native "bring to front"
-    # cmdlet and [Microsoft.VisualBasic.Interaction]::AppActivate is flaky
-    # against WindowsTerminal.exe (WT titles change as tabs open).
+    # or off-screen WT instance (confirmed failure path 2026-04-23). Uses
+    # WScript.Shell AppActivate (shipped with Windows since forever, no
+    # Add-Type needed). Non-fatal on error — tab still exists, operator can
+    # Alt+Tab to find the cockpit.
     try {
-        if (-not ("SgsdWin32" -as [type])) {
-            Add-Type -Namespace "" -Name SgsdWin32 -MemberDefinition @"
-                [System.Runtime.InteropServices.DllImport("user32.dll")]
-                public static extern bool SetForegroundWindow(System.IntPtr hWnd);
-                [System.Runtime.InteropServices.DllImport("user32.dll")]
-                public static extern bool ShowWindowAsync(System.IntPtr hWnd, int nCmdShow);
-"@
-        }
-        # 9 = SW_RESTORE (restore minimized), 3 = SW_MAXIMIZE (maximized), 1 = SW_SHOWNORMAL
         $wtProc = Get-Process WindowsTerminal -ErrorAction SilentlyContinue |
                   Where-Object { $_.MainWindowHandle -ne 0 } |
                   Sort-Object StartTime -Descending |
                   Select-Object -First 1
         if ($wtProc) {
-            [SgsdWin32]::ShowWindowAsync($wtProc.MainWindowHandle, 9) | Out-Null
-            Start-Sleep -Milliseconds 100
-            [SgsdWin32]::SetForegroundWindow($wtProc.MainWindowHandle) | Out-Null
+            $shell = New-Object -ComObject WScript.Shell
+            $shell.AppActivate($wtProc.Id) | Out-Null
         }
     } catch {
-        # Non-fatal — the tab was still created; operator can Alt+Tab to find it.
         Write-Host "  (note: couldn't auto-raise WT window — Alt+Tab to SGSD-Cockpit tab)" -ForegroundColor DarkYellow
     }
     Write-Host ""
