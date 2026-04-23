@@ -1,7 +1,12 @@
 # Phase 16: VTP Enrichment as Cross-Phase Primitive — Context
 
-**Gathered:** 2026-04-23 (seed) · 2026-04-23 (discussion)
+**Gathered:** 2026-04-23 (seed) · 2026-04-23 (discussion) · 2026-04-23 (research errata applied)
 **Status:** Ready for planning
+
+**Research errata (from 16-RESEARCH.md, applied inline below):**
+- **E-01** — VTP-06 originally targeted `gsd-pattern-mapper.md`. That file does **not** exist in `custom-gsd-extract/claude-agents/` (it lives only at `C:\Users\jack.berrow\.claude\agents\gsd-pattern-mapper.md` as a global). Per D-03 (patch vendored in-place, no new agents), VTP-06 is re-targeted to `gsd-codebase-mapper.md` (verified exists). The `gsd-pattern-mapper` agent type remains available for runtime dispatch (pattern-mapping step in /gsd-plan-phase still works); Phase 16 simply doesn't patch it.
+- **E-02** — VTP context-object field is `current_task` (not `current_focus` as D-07 wrote). D-07's fast-path predicate updated inline.
+- **E-03** — `vtp_route_and_retrieve` has **no native `elapsed_ms`** in its response. Composer must wrap every MCP call with `Date.now()` brackets and emit elapsed_ms itself. New composer-consumer contract: "no direct MCP calls — always via composer helpers." VTP-04 updated inline.
 **Scope note:** Lifts the deferred item from `.planning/milestones/v1.2/phases/13-governance/13-CONTEXT.md §deferred:237` ("VTP integration for intra-phase research briefs — not just milestone-close. Could ingest VTP context at phase discuss-time too.") into first-class v1.3 work. Extends the Phase-13 `sgsd-complete-milestone` precedent (milestone-close VTP integration) into every SGSD planning/research surface.
 
 <domain>
@@ -61,7 +66,7 @@ Derived from `/sgsd-discuss-phase 16` on 2026-04-23. Full audit trail in `16-DIS
 
 ### Performance
 
-- **D-07:** Performance budget: **3s P95** for a full `vtp_route_and_retrieve` call. Fast-path short-circuit in the composer: when `current_focus` resolves to a known active phase AND `explicit_constraints` is non-empty, bypass the 12-step Phase-32 chain and call `vtp_search_substrate` directly with phase-scoped filters. Every VTP call logs `elapsed_ms` into `.planning/metrics/vtp-routing-log.jsonl` so the budget can be audited empirically before tightening.
+- **D-07:** Performance budget: **3s P95** for a full `vtp_route_and_retrieve` call. Fast-path short-circuit in the composer: when `current_task` (per E-02 schema fix) resolves to a known active phase AND `explicit_constraints` is non-empty, bypass the 12-step Phase-32 chain and call `vtp_search_substrate` directly with phase-scoped filters. Every VTP call logs `elapsed_ms` into `.planning/metrics/vtp-routing-log.jsonl` — the composer wraps each MCP call with `Date.now()` brackets and emits elapsed_ms itself (per E-03; the VTP tools do not return it natively). Contract: "no direct MCP calls from skills or agents — always via composer helpers."
 
 ### Policy
 
@@ -115,10 +120,9 @@ All patched in-place per D-03.
 - `custom-gsd-extract/claude-agents/gsd-planner.md` — add `vtp_route_and_retrieve` + `vtp_search_substrate` for architecture grounding. (VTP-03)
 - `custom-gsd-extract/claude-agents/gsd-phase-researcher.md` — add `vtp_search_research` + `vtp_get_research` + gated `vtp_research_gate`. (VTP-02)
 - `custom-gsd-extract/claude-agents/gsd-project-researcher.md` — broader VTP pull for milestone-scope research.
-- `custom-gsd-extract/claude-agents/gsd-pattern-mapper.md` — `vtp_search_substrate` with filters for pattern lookups. (VTP-06)
+- `custom-gsd-extract/claude-agents/gsd-codebase-mapper.md` — `vtp_search_substrate` with filters for pattern lookups (VTP-06, re-targeted per E-01).
 - `custom-gsd-extract/claude-agents/gsd-assumptions-analyzer.md` — `wiki_find_contradictions` for assumption-stressing. (VTP-07)
 - `custom-gsd-extract/claude-agents/gsd-plan-checker.md` — VTP evidence cross-check on plan claims.
-- `custom-gsd-extract/claude-agents/gsd-codebase-mapper.md` — VTP architecture evidence cross-check (optional; lower priority).
 
 ### VTP MCP tools consumed (read-only from VTP side)
 - `mcp__vtp-kb__vtp_route_and_retrieve` — DEFAULT entry point for triage + plan tier.
@@ -183,9 +187,9 @@ All patched in-place per D-03.
 - **VTP-01** — `sgsd-triage` fires VTP enrichment as Step 0 on auto-invocation. Composer builds the context object (per D-05); response parsed into `selected_query` + reflection + top-3 doc-IDs; feeds Step 1 brainstorming. Trigger exclusions already cover Path D (per D-06).
 - **VTP-02** — `gsd-phase-researcher` uses `vtp_search_research` + `vtp_get_research` (+ gated `vtp_research_gate`) when producing RESEARCH.md; evidence cited in-line with VTP doc IDs / paper slugs / principle IDs.
 - **VTP-03** — `gsd-planner` uses `vtp_route_and_retrieve` (architecture mode) when drafting PLAN.md for non-trivial plans; evidence cited in-line.
-- **VTP-04** — Shared `super-gsd/scripts/lib/vtp-context-composer.cjs` helper with `compose()` + tier-specific `project()` projections (per D-05). Pure function: `compose(sgsd_state) → full_context_object`; `project(ctx, tier) → tier_slice`. Fast-path short-circuit to `vtp_search_substrate` when fast-path predicate holds (per D-07).
+- **VTP-04** — Shared `super-gsd/scripts/lib/vtp-context-composer.cjs` helper with `compose()` + tier-specific `project()` projections (per D-05). Pure function: `compose(sgsd_state) → full_context_object`; `project(ctx, tier) → tier_slice`. Fast-path short-circuit to `vtp_search_substrate` when fast-path predicate holds (per D-07). **MCP-call wrapper (per E-03):** composer exposes a `callVtp(tool, args)` helper that brackets every MCP invocation with `Date.now()` and returns `{response, elapsed_ms}`. Skills and agents call VTP through this wrapper — never directly. Enforced by the contract "no direct `mcp__vtp-kb__*` calls in VTP-enriched surfaces; always via composer helpers."
 - **VTP-05** — Every VTP call logs a row to `.planning/metrics/vtp-routing-log.jsonl`, including `elapsed_ms` (per D-07). No per-call operator prompting.
-- **VTP-06** — `gsd-pattern-mapper` uses `vtp_search_substrate` with `source_types` + `topics` filters when producing PATTERNS.md.
+- **VTP-06** — `gsd-codebase-mapper` uses `vtp_search_substrate` with `source_types` + `topics` filters (re-targeted from `gsd-pattern-mapper` per E-01 — the latter is not in the vendored extract). The runtime `gsd-pattern-mapper` subagent still fires in /gsd-plan-phase; Phase 16 just doesn't patch it.
 - **VTP-07** — `gsd-assumptions-analyzer` uses `wiki_find_contradictions` for assumption-stressing.
 - **VTP-08a** — Standalone `/sgsd-vtp-advise` skill at `super-gsd/skills/sgsd-vtp-advise/SKILL.md`. Operator-invoked. Calls `vtp_advise_service_enrichment` with composer-built context, writes report to `.planning/advise/{YYYY-MM-DD}-{slug}.md`. (Wave C)
 - **VTP-08b** — `/sgsd-sepl` detects "major" proposals via file-pattern + frontmatter scan and auto-calls advise, appending findings to the proposal file. Minor proposals skip advise. Heuristic defined in D-09. (Wave C)
