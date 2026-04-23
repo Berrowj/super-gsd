@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Codex Integration
-milestone_status: v1.3 Phase 16 context gathered — ready for /gsd-plan-phase 16
-status: v1.3 Codex Integration + VTP Enrichment — 3 phases staged (16 → 14 → 15 per D-01); Phase 16 CONTEXT.md locked 2026-04-23 with D-01..D-09
-stopped_at: Phase 16 context landed via /sgsd-discuss-phase 16 — D-01..D-09 resolved; Wave C unblocker (vtp_advise_service_enrichment) verified LIVE
-last_updated: "2026-04-23T00:00:00.000Z"
-last_activity: 2026-04-23 — Phase 16 context gathered (9 questions → 9 decisions; Phase 16 promoted to v1.3 opener per D-01)
+milestone_status: v1.3 Phase 16 planned — 3 plans ready to execute
+status: v1.3 Codex Integration + VTP Enrichment — 3 phases staged (16 → 14 → 15 per D-01); Phase 16 planning complete 2026-04-23 (research + patterns + 3 plans + validation strategy + verifier PASS iter-2)
+stopped_at: Phase 16 plans landed via /gsd-plan-phase 16 — 3 waves, 7 tasks, 11 VTP-NN requirements mapped, 8 Nyquist dimensions covered (5 automated + 3 manual smoke), plan-checker PASSED iteration 2
+last_updated: "2026-04-23T12:00:00.000Z"
+last_activity: 2026-04-23 — Phase 16 planning complete (RESEARCH + PATTERNS + 3 PLANs + VALIDATION + 2-iter checker PASS)
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
+  total_plans: 3
   completed_plans: 0
   percent: 0
 ---
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 
 ## Current Position
 
-Phase: 16 (context gathered 2026-04-23 via /sgsd-discuss-phase)
-Plan: — (awaiting /gsd-plan-phase 16)
-Status: Ready for planning
-Last activity: 2026-04-23 -- Phase 16 CONTEXT.md + DISCUSSION-LOG.md committed (38cb442)
+Phase: 16 (planned 2026-04-23 via /gsd-plan-phase — 3 waves, 7 tasks)
+Plan: 16-01 (Wave A primitive), 16-02 (Wave B agent patches), 16-03 (Wave C advise)
+Status: Ready to execute
+Last activity: 2026-04-23 -- Phase 16 plans committed (3723680 planner, 019170d checker-fix, 93fdbd0 Dim 4 + BACKLOG-001 cockpit)
 
 Progress: [░░░░░░░░░░] 0% (0/3 v1.3 phases complete — Phase 13 closed with v1.2)
 
