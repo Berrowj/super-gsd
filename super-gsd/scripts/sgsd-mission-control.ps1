@@ -22,27 +22,73 @@ param(
     [int]$Heartbeat = 30
 )
 
-$ErrorActionPreference = "SilentlyContinue"
+# ── loud-fail helper ─────────────────────────────────────────────────────────
+# Runs BEFORE $ErrorActionPreference = SilentlyContinue so errors are visible.
+# In -NoExit panes (the Cockpit), pauses so operators can read the error
+# instead of landing on a blank PS prompt.
+function __sgsd_fail($title, $detail) {
+    Write-Host ""
+    Write-Host "  ╔════════════════════════════════════════════════════════╗" -ForegroundColor Red
+    Write-Host ("  ║  {0,-54}║" -f $title)                                        -ForegroundColor Red
+    Write-Host "  ╚════════════════════════════════════════════════════════╝" -ForegroundColor Red
+    Write-Host ""
+    foreach ($line in $detail) { Write-Host "    $line" -ForegroundColor DarkYellow }
+    Write-Host ""
+    Write-Host "    Fix: run from the project dir, or pass it explicitly:" -ForegroundColor Gray
+    Write-Host "      sgsd1 C:\path\to\project" -ForegroundColor Gray
+    Write-Host "    Default fallback: C:\Users\jack.berrow\GSDedits"      -ForegroundColor Gray
+    Write-Host ""
+    if ($Host.Name -ne 'ConsoleHost' -or $env:SGSD_NO_PAUSE_ON_ERROR) { exit 1 }
+    Write-Host "    Press any key to close this window..." -ForegroundColor DarkGray
+    $null = [System.Console]::ReadKey($true)
+    exit 1
+}
 
-# Shared render cache: redraw throttle, HEAD-sha-keyed git cache, activity-log
-# single-pass parser, active Claude session cache.
-. (Join-Path $PSScriptRoot "lib\sgsd-render-cache.ps1")
-
-# DLB-04 substrate status helper (registry + SEPL + distillation + gate 3).
-. (Join-Path $PSScriptRoot "lib\sgsd-substrate-status.ps1")
-
+# ── resolve + guard BEFORE silencing errors ──────────────────────────────────
 try {
     $ProjectDir = (Resolve-Path $ProjectDir -ErrorAction Stop).Path
 } catch {
-    Write-Host "ERROR: Cannot resolve $ProjectDir" -ForegroundColor Red
-    exit 1
+    __sgsd_fail "CANNOT RESOLVE PROJECT DIR" @(
+        "Supplied: $ProjectDir",
+        "Resolve-Path error: $($_.Exception.Message)"
+    )
 }
 
 $PlanningDir = Join-Path $ProjectDir ".planning"
 if (-not (Test-Path $PlanningDir)) {
-    Write-Host "ERROR: No .planning/ in $ProjectDir" -ForegroundColor Red
-    exit 1
+    __sgsd_fail "NO .planning/ DIRECTORY FOUND" @(
+        "Project dir: $ProjectDir",
+        "Expected:    $PlanningDir",
+        "",
+        "SGSD dashboards require a project root that contains .planning/.",
+        "If the sgsd1.cmd launcher passed the wrong path, you can override:",
+        "  sgsd1 C:\Users\jack.berrow\GSDedits"
+    )
 }
+
+# Now silence non-fatal errors for the hot path.
+$ErrorActionPreference = "SilentlyContinue"
+
+# Shared render cache: redraw throttle, HEAD-sha-keyed git cache, activity-log
+# single-pass parser, active Claude session cache.
+$__renderCache = Join-Path $PSScriptRoot "lib\sgsd-render-cache.ps1"
+if (-not (Test-Path $__renderCache)) {
+    __sgsd_fail "MISSING LIB: sgsd-render-cache.ps1" @(
+        "Expected: $__renderCache",
+        "Reinstall: run sgsd-boot -Bootstrap or copy lib\ from super-gsd/scripts/"
+    )
+}
+. $__renderCache
+
+# DLB-04 substrate status helper (registry + SEPL + distillation + gate 3).
+$__substrate = Join-Path $PSScriptRoot "lib\sgsd-substrate-status.ps1"
+if (-not (Test-Path $__substrate)) {
+    __sgsd_fail "MISSING LIB: sgsd-substrate-status.ps1" @(
+        "Expected: $__substrate",
+        "Reinstall: run sgsd-boot -Bootstrap or copy lib\ from super-gsd/scripts/"
+    )
+}
+. $__substrate
 
 # ── ANSI escape codes ────────────────────────────────────────────────────────
 $ESC = [char]27
