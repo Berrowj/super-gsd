@@ -6,7 +6,37 @@ raised_during: /gsd-plan-phase 16 session
 raised_by: operator
 category: tooling / observability
 priority: normal
+status: PARTIALLY SHIPPED 2026-04-23
 ---
+
+## Status — 2026-04-23
+
+**Fix #1 (ctx regex) — SHIPPED.** `sgsd-mission-control.ps1:275` previously hard-coded `claude-opus-4-6[1m]` and missed Opus 4.7. Now matches any `[1m]` / `-1m` suffix on any Claude model + adds observed-tokens > 200k inference fallback (parity with `sgsd-ctx.js`). The cockpit's `ctx N% (Nk/Nk)` display now correctly reports 1M context window for Opus 4.7 sessions.
+
+**Fix #2 (session-total tokens + $) — SHIPPED (partial).** Added `Get-SessionAggregate` that walks the FULL current session JSONL, partitions tokens by model family, and applies per-field Anthropic pricing (input / output / cache_creation / cache_read — cache_read is ~10x cheaper than fresh input, so blended rates overstate cost by 5-10x; see git history on BACKLOG-001 session-cost fix). Added 12 new per-field rate constants at lines 154-170. New cockpit display line renders below the ctx line: `sess 70432k (out 645k) $215.02 O 70432k` (or equivalent per session).
+
+**Verification (against live session 3c216c4a-...):**
+- 12.7k fresh input_tokens
+- 644.8k output_tokens
+- 3.6M cache_creation_input_tokens
+- 66.2M cache_read_input_tokens
+- **Total 70.4M**
+- **Cost $215.02** (sanity-checked against per-field Anthropic pricing: $48 output + $99 cache_read + $67 cache_creation + $0.19 input = $214.19 — matches within rounding)
+
+**Still outstanding (see original body below — now reduced scope):**
+
+- **`.planning/metrics/token-log.jsonl` write path.** The per-milestone aggregate in the Cost box (existing `O $0.54 / S $2.72 / = $3.26`) reads from this log. Last entry is `2026-04-21T23:15` (Phase 11) — meaning Phase 12, 13, 16-discuss, 16-plan, 16-wave-A dispatches didn't log. Going forward, the orchestrator loop needs to append a routing-log row per sub-agent dispatch (the SGSD Orchestrator overlay mandates this but the path wasn't wired). This is a separate fix from the cockpit display — needs a hook or orchestrator-level logger.
+- **Pricing-drift mitigation.** The 12 per-field rate constants in `sgsd-mission-control.ps1:154-170` hardcode 2026-04 Anthropic pricing. Operator should review quarterly. Consider moving to `.planning/config.json` or an external `pricing.json` so a config flip updates all tools.
+
+## Fix summary
+
+- Commit: (see git log after this note commits)
+- Files touched: `super-gsd/scripts/sgsd-mission-control.ps1` (ctx regex + Get-SessionAggregate function + display line + 12 per-field rate constants)
+- No breaking changes to existing Cost box, Get-TokenStats, or sparkline renders
+
+---
+
+
 
 # SGSD-Cockpit — Session Token + $ Aggregate
 

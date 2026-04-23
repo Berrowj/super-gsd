@@ -155,6 +155,24 @@ $RATE_OPUS   = 45.0 / 1000000
 $RATE_SONNET =  9.0 / 1000000
 $RATE_HAIKU  =  2.4 / 1000000
 
+# Per-field rates for session-aggregate cost (BACKLOG-001). Blended rates above
+# are designed for token-log.jsonl's `total` field (est_input+est_output, no cache).
+# Session JSONL carries 4 distinct usage fields — each priced differently by Anthropic.
+# Values USD per MTok as of 2026-04; update when Anthropic's pricing page shifts.
+# Source: https://www.anthropic.com/pricing (verify before acting on the cockpit's $ figure).
+$RATE_OPUS_IN     = 15.0    / 1000000
+$RATE_OPUS_OUT    = 75.0    / 1000000
+$RATE_OPUS_CWRITE = 18.75   / 1000000
+$RATE_OPUS_CREAD  =  1.50   / 1000000
+$RATE_SONNET_IN     =  3.0  / 1000000
+$RATE_SONNET_OUT    = 15.0  / 1000000
+$RATE_SONNET_CWRITE =  3.75 / 1000000
+$RATE_SONNET_CREAD  =  0.30 / 1000000
+$RATE_HAIKU_IN     =  0.80  / 1000000
+$RATE_HAIKU_OUT    =  4.00  / 1000000
+$RATE_HAIKU_CWRITE =  1.00  / 1000000
+$RATE_HAIKU_CREAD  =  0.08  / 1000000
+
 # Mtime-keyed tail cache. FSWatcher fires on ANY file under .planning, but
 # most redraws don't touch the specific log we're tailing. When the file's
 # mtime+size match the last cached read, skip IO + allocation entirely.
@@ -271,15 +289,86 @@ function Get-SessionStats {
                 }
             } catch {}
         }
-        # Determine context max from model
-        if ($stats.model -match "claude-opus-4-6\[1m\]|claude-.*-1m") { $stats.contextMax = 1000000 }
-        elseif ($stats.model -match "opus|sonnet|haiku")                { $stats.contextMax = 200000 }
+        # Determine context max from model.
+        # Match any Claude model with [1m] suffix (opus-4-6, opus-4-7, sonnet-4-6 1M variants etc)
+        # or -1m suffix. Inference fallback: if observed tokens already exceed the 200k standard cap,
+        # the session must be running on a 1M-context variant regardless of model string (Claude Code's
+        # session JSONL sometimes records model without the [1m] suffix even for 1M sessions — see
+        # super-gsd/scripts/sgsd-ctx.js `maxForModel` for the full write-up).
+        if ($stats.model -match "\[1m\]|-1m($|[^a-z])") { $stats.contextMax = 1000000 }
+        elseif ($stats.contextTokens -gt 200000)        { $stats.contextMax = 1000000 }
+        elseif ($stats.model -match "opus|sonnet|haiku"){ $stats.contextMax = 200000 }
         if ($stats.contextTokens -gt 0 -and $stats.contextMax -gt 0) {
             $stats.contextPct = [math]::Round(($stats.contextTokens / $stats.contextMax) * 100)
         }
         $stats.thinkingOn = ($stats.thinkingBlocks -gt 0)
     } catch {}
     return $stats
+}
+
+# Session-wide token aggregation: walks the FULL current session JSONL and sums
+# input + cache_read + cache_creation + output per assistant turn, partitioned by
+# model family. Cached by (mtime, size) so we only re-read when the session grows.
+# Returns @{ opusTok, sonnetTok, haikuTok, totalTok, outputTok, cost, session }.
+# Resolves BACKLOG-001: cockpit should show total session tokens + $ aggregate,
+# not just per-model $ from the (often stale) token-log.jsonl.
+$script:_sessionAggKey    = $null
+$script:_sessionAggParsed = $null
+function Get-SessionAggregate {
+    $agg = @{
+        opusTok   = 0
+        sonnetTok = 0
+        haikuTok  = 0
+        totalTok  = 0
+        outputTok = 0
+        cost      = 0.0
+        session   = $null
+    }
+    $encoded = Encode-ProjectPath $ProjectDir
+    $sessionsDir = Join-Path $HOME ".claude\projects\$encoded"
+    if (-not (Test-Path $sessionsDir)) { return $agg }
+    try {
+        $file = Get-ChildItem -Path $sessionsDir -Filter "*.jsonl" -File -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending |
+                Select-Object -First 1
+        if (-not $file) { return $agg }
+        $agg.session = $file.Name
+        $key = "$($file.LastWriteTimeUtc.Ticks)|$($file.Length)"
+        if ($script:_sessionAggKey -eq $key -and $script:_sessionAggParsed) {
+            return $script:_sessionAggParsed
+        }
+        foreach ($line in (Get-Content $file.FullName -ErrorAction SilentlyContinue)) {
+            try {
+                $e = $line | ConvertFrom-Json -ErrorAction Stop
+                if ($e.type -ne "assistant" -or -not $e.message -or -not $e.message.usage) { continue }
+                $u = $e.message.usage
+                $uIn     = [int]($u.input_tokens)
+                $uOut    = [int]($u.output_tokens)
+                $uCwrite = [int]($u.cache_creation_input_tokens)
+                $uCread  = [int]($u.cache_read_input_tokens)
+                $turnAll = $uIn + $uOut + $uCwrite + $uCread
+                $agg.totalTok  += $turnAll
+                $agg.outputTok += $uOut
+                $m = "$($e.message.model)".ToLower()
+                # Per-field pricing — cache_read is ~10x cheaper than fresh input,
+                # so summing into a blended rate overstates cost by 5-10x (see git
+                # history note on BACKLOG-001 session-cost fix).
+                if ($m -match 'opus') {
+                    $agg.opusTok += $turnAll
+                    $agg.cost += ($uIn * $RATE_OPUS_IN) + ($uOut * $RATE_OPUS_OUT) + ($uCwrite * $RATE_OPUS_CWRITE) + ($uCread * $RATE_OPUS_CREAD)
+                } elseif ($m -match 'sonnet') {
+                    $agg.sonnetTok += $turnAll
+                    $agg.cost += ($uIn * $RATE_SONNET_IN) + ($uOut * $RATE_SONNET_OUT) + ($uCwrite * $RATE_SONNET_CWRITE) + ($uCread * $RATE_SONNET_CREAD)
+                } elseif ($m -match 'haiku') {
+                    $agg.haikuTok += $turnAll
+                    $agg.cost += ($uIn * $RATE_HAIKU_IN) + ($uOut * $RATE_HAIKU_OUT) + ($uCwrite * $RATE_HAIKU_CWRITE) + ($uCread * $RATE_HAIKU_CREAD)
+                }
+            } catch {}
+        }
+        $script:_sessionAggKey    = $key
+        $script:_sessionAggParsed = $agg
+    } catch {}
+    return $agg
 }
 
 # Parse STATE.md body `## Blockers` section (lines below the header until next ##)
@@ -971,6 +1060,28 @@ function Render {
             Write-Host "off" -NoNewline -ForegroundColor DarkGray
         }
         Write-Host $CLEAR_LINE
+
+        # Session-wide token + $ aggregate (BACKLOG-001 — total tokens + $ conversion).
+        # Walks the FULL current session JSONL so the operator sees total spend this
+        # session, not just the per-model milestone totals from (often stale) token-log.jsonl.
+        $agg = Get-SessionAggregate
+        if ($agg.totalTok -gt 0) {
+            $totK = [math]::Round($agg.totalTok / 1000)
+            $outK = [math]::Round($agg.outputTok / 1000)
+            Write-Host "sess " -NoNewline -ForegroundColor DarkGray
+            Write-Host "${totK}k" -NoNewline -ForegroundColor White
+            Write-Host " (out " -NoNewline -ForegroundColor DarkGray
+            Write-Host "${outK}k" -NoNewline -ForegroundColor Gray
+            Write-Host ")  " -NoNewline -ForegroundColor DarkGray
+            Write-Host (Format-Dollar $agg.cost) -NoNewline -ForegroundColor Green
+            if (($agg.opusTok + $agg.sonnetTok + $agg.haikuTok) -gt 0) {
+                Write-Host "  " -NoNewline
+                if ($agg.opusTok   -gt 0) { Write-Host "O " -NoNewline -ForegroundColor DarkGray; Write-Host "$([math]::Round($agg.opusTok/1000))k" -NoNewline -ForegroundColor Magenta; Write-Host " " -NoNewline }
+                if ($agg.sonnetTok -gt 0) { Write-Host "S " -NoNewline -ForegroundColor DarkGray; Write-Host "$([math]::Round($agg.sonnetTok/1000))k" -NoNewline -ForegroundColor Cyan; Write-Host " " -NoNewline }
+                if ($agg.haikuTok  -gt 0) { Write-Host "H " -NoNewline -ForegroundColor DarkGray; Write-Host "$([math]::Round($agg.haikuTok/1000))k" -NoNewline -ForegroundColor White }
+            }
+            Write-Host $CLEAR_LINE
+        }
     }
 
     # Blockers — red flash if non-empty
