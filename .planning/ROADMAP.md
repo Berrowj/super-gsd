@@ -9,6 +9,7 @@
 
 ### v1.3 Staging Snapshot
 
+- **Phase 16: VTP Enrichment as Cross-Phase Primitive** (proposed opening phase — see 16-CONTEXT Open Question #7) — make VTP evidence a first-class input to every SGSD planning / research / triage surface: `sgsd-triage` Step 0 VTP-router, `gsd-phase-researcher` + `gsd-planner` + `gsd-pattern-mapper` + `gsd-assumptions-analyzer` agent patches, shared `vtp-context-composer.cjs` helper, `.planning/metrics/vtp-routing-log.jsonl` telemetry, and (blocked on VTP-build restart) `vtp_advise_service_enrichment` integration. Seed: [16-CONTEXT.md](milestones/v1.3/phases/16-vtp-enrichment/16-CONTEXT.md). Lifts the deferred item from Phase 13 §deferred:237.
 - **Phase 14: Codex CLI Provider Substrate** — dark-launch the reviewer-provider substrate: `codex-exec.sh`, `review-providers.yaml`, `reviewer_provider:` gate schema, `sgsd-codex-reviewer` stub, provider contract harness, and config kill-switch. No live Codex routing yet.
 - **Phase 15: Codex-Routed Gates + Qualitative MUDA Probe** — flip review-shaped ATC gates to Codex by registry, add a cross-vendor adversarial challenger, land the first qualitative overproduction probe in MUDA, and ship a milestone-close kill check.
 
