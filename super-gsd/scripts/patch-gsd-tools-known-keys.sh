@@ -84,7 +84,7 @@ fi
 # 3. Node-in-bash patcher — idempotent, anchor-guarded, .bak-safe
 #    Write Node script to a temp file to avoid single-quote escaping issues.
 # ---------------------------------------------------------------------------
-NEW_KEYS=(safety model_routing token_efficiency deliberation atc browser_verify overwatcher)
+NEW_KEYS=(safety model_routing token_efficiency deliberation atc browser_verify overwatcher review_providers)
 KEYS_CSV=$(IFS=,; echo "${NEW_KEYS[*]}")
 DRY_RUN_ARG=""
 if [[ "$DRY_RUN" == "true" ]]; then
@@ -154,7 +154,7 @@ RESULT=$(node "$TMPSCRIPT" "$CORE_CJS" "$KEYS_CSV" "$DRY_RUN_ARG" 2>&1) || {
     echo "       was not found in $CORE_CJS" >&2
     echo "       This means gsd-tools was updated upstream and the anchor moved." >&2
     echo "       Manually add the 7 keys to KNOWN_TOP_LEVEL near that line:" >&2
-    echo "         'safety', 'model_routing', 'token_efficiency', 'deliberation', 'atc', 'browser_verify', 'overwatcher'," >&2
+    echo "         'safety', 'model_routing', 'token_efficiency', 'deliberation', 'atc', 'browser_verify', 'overwatcher', 'review_providers'," >&2
     echo "       Rollback (if .bak exists): mv $CORE_CJS.bak $CORE_CJS" >&2
     exit 2
   fi
@@ -197,7 +197,7 @@ cat > "$VERIFY_TMPSCRIPT" << 'VERIFYSCRIPT'
 const fs = require('fs');
 const corePath = process.argv[2];
 const src = fs.readFileSync(corePath, 'utf8');
-const need = ['safety','model_routing','token_efficiency','deliberation','atc','browser_verify','overwatcher'];
+const need = ['safety','model_routing','token_efficiency','deliberation','atc','browser_verify','overwatcher','review_providers'];
 const missing = need.filter(function(k) {
   return !new RegExp('["\']' + k + '["\']').test(src);
 });
@@ -205,7 +205,7 @@ if (missing.length) {
   process.stderr.write('POST-VERIFY FAIL: missing keys: ' + missing.join(', ') + '\n');
   process.exit(1);
 }
-console.log('POST-VERIFY PASS: all 7 keys confirmed in core.cjs');
+console.log('POST-VERIFY PASS: all 8 keys confirmed in core.cjs');
 VERIFYSCRIPT
 
 VERIFY_RESULT=$(node "$VERIFY_TMPSCRIPT" "$CORE_CJS" 2>&1) || {
