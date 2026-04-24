@@ -147,6 +147,28 @@ gates:
     state: active
     version: 2.0
 
+  - name: qualitative-waste-audit
+    category: process-hygiene
+    step: 6.55
+    enforcement_mode: soft-warn
+    trigger:
+      - field: phase_type
+        op: not_in
+        value: [docs, config]
+      - field: diff_lines
+        op: gte
+        value: 200
+      - field: mechanical_muda_verdict
+        op: in
+        value: [PASS, WARN]
+    reviewer_provider: codex-cli-reviewer
+    evidence_emitted:
+      - .planning/phases/{N}/WASTE.md
+    escalation: log-only
+    source_dlb: DLB-02
+    state: active
+    version: 2.0
+
   - name: sgsd-curate-learnings
     category: process-hygiene
     step: 10

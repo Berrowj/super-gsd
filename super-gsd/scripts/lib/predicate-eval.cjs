@@ -25,6 +25,7 @@
  *   script_created              - boolean
  *   error_discovered            - boolean
  *   phase_has_verify_mjs        - boolean (D-12a — verify-completeness gates)
+ *   mechanical_muda_verdict     - 'PASS' | 'WARN' | 'FAIL' (populated after MUDA-waste-audit gate fires at step 6.55)
  */
 function evalPredicate(triggerList, ctx) {
   if (!Array.isArray(triggerList) || triggerList.length === 0) return true;

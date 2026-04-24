@@ -817,6 +817,13 @@ REPEAT:
        script_created:           scriptsCreated.length > 0,
        error_discovered:         deviations.some(d => /new error|error rule/i.test(d)),
        phase_has_verify_mjs:     fs.existsSync(`.planning/phases/${phaseDir}/verify.mjs`),
+       mechanical_muda_verdict:  getMudaVerdictFromPhaseDir(currentPhaseDir),
+       // Populated after MUDA-waste-audit probe completes at step 6.55.
+       // The qualitative-waste-audit gate (also step 6.55) reads this field.
+       // Per RESEARCH AD-02: step 6.55 is a two-phase gate — run MUDA-waste-audit,
+       // capture result, update local_ctx.mechanical_muda_verdict, THEN evaluate qualitative gate.
+       // getMudaVerdictFromPhaseDir reads the verdict column of the first non-header
+       // row of WASTE.md; returns 'PASS' if WASTE.md does not exist yet (safe default).
      };
      // Unknown fields throw loud in predicate-eval (D-10c) — do not add fields without
      // updating predicate-eval.cjs's DISPATCH_CONTEXT_FIELDS registry.
