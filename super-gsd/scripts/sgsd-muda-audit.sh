@@ -318,7 +318,7 @@ if [[ -z "${CODEX_QUAL_ENABLED+x}" ]]; then
 fi
 
 # Compute DIFF_LINES from phase git history
-DIFF_LINES=$(git -C "$PROJECT" diff --stat HEAD~"${COMMITS_IN_PHASE:-1}" HEAD 2>/dev/null | awk '/changed/{sum+=$1+$3}END{print sum+0}')
+DIFF_LINES=$(git -C "$PROJECT" diff --stat HEAD~"${COMMITS_IN_PHASE:-1}" HEAD 2>/dev/null | awk '/changed/{sum+=$4+$6}END{print sum+0}')
 
 if [[ "$PROBE_EXIT" == "0" && "${DIFF_LINES:-0}" -ge 200 && "$CODEX_QUAL_ENABLED" == "true" && "$DRY_RUN" != "true" ]]; then
   TMP_CODEX_PROMPT=$(mktemp /tmp/muda-codex-prompt.XXXXXX)
