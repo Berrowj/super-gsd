@@ -411,6 +411,32 @@ append_jsonl() {
         >> "$METRICS_LOG"
 }
 
+# ── MC-03: narrative.md event writer ────────────────────────────────────────
+NARRATIVE_FILE="$PROJECT/.planning/metrics/narrative.md"
+
+append_narrative_event() {
+    local event_type="$1"   # codex_started | codex_completed | codex_timeout | codex_fallback
+    local detail="$2"       # short description string (no newlines)
+    local update_field="$3" # "latest" | "lastfail" | "" (no field update)
+
+    # Initialize narrative.md if missing
+    if [[ ! -f "$NARRATIVE_FILE" ]]; then
+        mkdir -p "$(dirname "$NARRATIVE_FILE")"
+        printf '# Narrative\n\nlatest: \nlastfail: \n\n## Events\n' > "$NARRATIVE_FILE"
+    fi
+
+    # Append event entry to ## Events section
+    local entry="- [$TS] $event_type: $detail"
+    printf '%s\n' "$entry" >> "$NARRATIVE_FILE"
+
+    # Update latest or lastfail field (sed in-place)
+    if [[ "$update_field" == "latest" ]]; then
+        sed -i "s|^latest:.*|latest: $detail|" "$NARRATIVE_FILE"
+    elif [[ "$update_field" == "lastfail" ]]; then
+        sed -i "s|^lastfail:.*|lastfail: $detail|" "$NARRATIVE_FILE"
+    fi
+}
+
 write_live_state() {
     local live_state="$1" wrapper_exit="$2" timeout_hit="$3" report_bytes="$4"
     local prompt_json report_json project_json command_json stderr_json phase_json plan_json step_json
@@ -452,11 +478,13 @@ write_live_state() {
 }
 
 write_live_state "running" -1 "false" 0
+append_narrative_event "codex_started" "step=$STEP_TAG plan=$PLAN_TAG phase=$PHASE_TAG" ""
 
 # ── Exit remap (D-01a) ──────────────────────────────────────────────────────
 if [[ $RC -eq 124 ]]; then
     write_live_state "timeout" 5 "true" 0
     append_jsonl 5 "true" 0
+    append_narrative_event "codex_timeout" "timeout after ${TIMEOUT}s step=$STEP_TAG" "lastfail"
     echo "codex-exec: timeout after ${TIMEOUT}s" >&2
     exit 5
 fi
@@ -466,12 +494,14 @@ if [[ $RC -ne 0 ]]; then
     if grep -qiE '(auth|401|unauthori[sz]ed)' "$STDERR_TMP" 2>/dev/null; then
         write_live_state "auth-denied" 4 "false" 0
         append_jsonl 4 "false" 0
+        append_narrative_event "codex_fallback" "auth-denied step=$STEP_TAG" "lastfail"
         echo "codex-exec: auth-denied (codex stderr matched auth/401/unauthorized)" >&2
         head -c 200 "$STDERR_TMP" >&2 ; echo >&2
         exit 4
     fi
     write_live_state "error" 1 "false" 0
     append_jsonl 1 "false" 0
+    append_narrative_event "codex_fallback" "error exit=$RC step=$STEP_TAG" "lastfail"
     echo "codex-exec: codex exit=$RC (generic failure)" >&2
     head -c 200 "$STDERR_TMP" >&2 ; echo >&2
     exit 1
@@ -509,6 +539,7 @@ awk_rc=$?
 if [[ $awk_rc -ne 0 || -z "$parsed" ]]; then
     write_live_state "contract-violation" 6 "false" 0
     append_jsonl 6 "false" 0
+    append_narrative_event "codex_fallback" "parse_failure step=$STEP_TAG" "lastfail"
     echo "codex-exec: report contract violation — one or more of FINDINGS/CRITICAL/WARNINGS/PASS_RATE/ONE_LINER missing from codex stdout" >&2
     exit 6
 fi
@@ -523,6 +554,7 @@ REPORT_BYTES=$(wc -c < "$REPORT_OUT" | tr -d ' ')
 # ── JSONL append on success ─────────────────────────────────────────────────
 write_live_state "ok" 0 "false" "$REPORT_BYTES"
 append_jsonl 0 "false" "$REPORT_BYTES"
+append_narrative_event "codex_completed" "ok step=$STEP_TAG dur=${DURATION_MS}ms bytes=$REPORT_BYTES" "latest"
 
 echo "codex-exec: OK — $REPORT_OUT written (${REPORT_BYTES}B), codex took ${DURATION_MS}ms"
 exit 0
