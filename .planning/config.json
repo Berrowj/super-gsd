@@ -150,5 +150,18 @@
       "/sgsd-orchestrate go"
     ],
     "log_path": ".planning/metrics/handoff-log.jsonl"
+  },
+  "vtp_enrichment": {
+    "enabled": false,
+    "challenger_mode": false,
+    "granularity": "tier-based",
+    "empty_hit_policy": "continue",
+    "max_queries_per_gate": 5,
+    "query_seed_max_tokens": 800,
+    "audit_tier_batching": {
+      "critical": "per-finding",
+      "warn": "batched",
+      "pass": "skip"
+    }
   }
 }
