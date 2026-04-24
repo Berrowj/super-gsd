@@ -39,3 +39,4 @@
 {"ts":"2026-04-24T10:29:04.535Z","phase":17,"plan":0,"model":"sonnet","role":"plan_checker","provider":"claude","est_input":3200,"est_output":2000,"total":5200,"classifier_model":"haiku","context_tokens":4800}
 {"ts":"2026-04-24T10:31:09.653Z","phase":17,"plan":"17-01","event":"classifier_skip","reason":"schema_version==2","synthetic_result":{"complexity":"light","model":"sonnet","atc_tier":"full","deliberate":false}}
 {"ts":"2026-04-24T10:42:54.580Z","phase":17,"plan":"17-01","model":"codex","role":"code_reviewer","provider":"openai-codex","est_input":2100,"est_output":50,"total":2150,"classifier_model":"haiku","context_tokens":0}
+{"ts":"2026-04-24T10:52:09.953Z","phase":17,"plan":"17-01","model":"codex","role":"code_reviewer","provider":"openai-codex","est_input":1400,"est_output":50,"total":1450,"classifier_model":"haiku","context_tokens":0,"note":"re-review after fix"}

@@ -80,3 +80,51 @@ Phase-level ATC at Step 6.5 (fires once per phase after verification passes) wil
 3. ✅ `codex-exec.sh` parses the 5-line contract cleanly and writes atomic output
 4. ✅ `.planning/metrics/codex-log.jsonl` captures provenance with `step: "per-dispatch-ATC"`
 5. ✅ Cross-vendor review signal is genuine — Codex caught a real issue (WASTE.md duplication) that may have slipped past Claude's self-review
+
+---
+
+## Re-Review (post-fix, commit 9a14ba3)
+
+After operator's "Fix now" directive, shipped single corrective commit:
+`9a14ba3 fix(17-01/T2-fix): CLEAN-02 addendum — eliminate WASTE.md row duplication`
+
+The fix:
+1. Removed static placeholder rows for codex_qualitative_waste + inventory.
+2. Removed INVT_V dead code entirely (no inventory probe exists).
+3. Replaced `printf >> $WASTE_FILE` with awk-based atomic insert placing the qualitative row INSIDE the Probe Results table (after git_spawn_pct row, before ## Raw Probe JSON).
+4. Neutralized summary text (removed hardcoded "5 probes" / "three probes" counts).
+
+### Codex re-review verdict
+
+```
+FINDINGS: 2
+CRITICAL: 0      ← was 1, CLEARED
+WARNINGS: 2      ← was 1, +1 new
+PASS_RATE: 3/5
+ONE_LINER: Duplication fixed, but awk insert is brittle and T1 warning remains.
+```
+
+**Duration:** 97914ms (1.63× first review — larger dimensional scope as 3-vs-5 means different denominators).
+
+### Remaining warnings
+
+1. **awk insert brittleness** — the fix matches on `/^\| git_spawn_pct/` as anchor. If the probe list changes or the line format drifts, the insert silently fails to match and the qualitative row is dropped. Mitigation: the `[ -z "$(awk match)" ]` check is not present; for a stronger contract, add a post-insert grep verifying the row landed. Accept as WARNING for now; revisit in Phase 18 CXOPS-02 (contract validator).
+2. **T1 JSDoc narrative drift** — carried forward from first review. Fix did not touch T1. Prose around `reviewer-shaped` semantics may still describe pre-fix behavior beyond the 2 literal `reviewer_agent → reviewer_provider` swaps. Defer to phase-level ATC at Step 6.5; if still flagged, fix alongside phase-close SUMMARY.
+
+### Auto-mode decision (Rule 13, post-fix)
+
+`critical_count: 0` → gate PASSES without bypass. Loop continues cleanly to plan 17-02.
+
+### Token accounting (cumulative 17-01 Codex spend)
+
+| Invocation | Duration | Exit | Verdict |
+|---|---|---|---|
+| First review (8 commits, full diff) | 80.6s | 0 | 1 CRIT + 1 WARN |
+| Re-review (fix commit only) | 97.9s | 0 | 0 CRIT + 2 WARN |
+| **Total wall-clock** | **178.5s** | — | — |
+
+Claude tokens saved (est): ~4,000 (two full-scope reviews offloaded).
+
+### Commit-reviews ledger
+
+Two rows now in `.planning/milestones/v1.4/phases/17-debt-sweep/commit-reviews.jsonl` — both with `provider: "openai-codex"`. Clean audit trail for CXOPS-03 evidence.

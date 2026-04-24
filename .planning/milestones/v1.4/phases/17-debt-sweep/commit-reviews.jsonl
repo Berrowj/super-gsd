@@ -1,1 +1,2 @@
 {"ts":"2026-04-24T10:39:37Z","plan":"17-01","tier":"full","verdict":"critical","critical":1,"warning":1,"one_liner":"T2 breaks WASTE.md accuracy; T1 JSDoc still contradicts live behavior.","provider":"openai-codex"}
+{"ts":"2026-04-24T10:52:09.946Z","plan":"17-01","tier":"full","verdict":"warn","critical":0,"warning":2,"one_liner":"Duplication fixed, but awk insert is brittle and T1 warning remains.","provider":"openai-codex","note":"re-review after 9a14ba3 fix commit"}
