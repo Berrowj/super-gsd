@@ -26,7 +26,10 @@ Scope: elevate VTP knowledge library from passive MCP server into active enrichm
   - 23-01: MUDAC-02 inventory threshold recalibration (config-driven, milestone-count-scaled)
 - [x] **Phase 24: Richer Output Contract** — CONTRACT-01..03 (3/3 requirements delivered, 1 plan shipped) ✓ 2026-04-25
   - 24-01: FINDINGS_DETAIL contract activation (CONTRACT-01..03 collapsed into single SKILL.md edit)
-- [ ] **Phase 25: Carryover + Telemetry** — CARRY-01..03 + INSTR-01..03 (6 requirements, 3 plans)
+- [x] **Phase 25: Carryover + Telemetry** — CARRY-01..03 + INSTR-01..03 (6/6 requirements delivered, 3 plans shipped) ✓ 2026-04-25
+  - 25-01: CARRY-01..03 — sentinel anchor + JSDoc audit + dogfood methodology
+  - 25-02: INSTR-01 — edge-guard wiring (SKILL.md call contract)
+  - 25-03: INSTR-02..03 — dashboard math audit + timeout observability
   - 25-01: Carryover WARNs (CARRY-01 awk sentinel, CARRY-02 JSDoc audit, CARRY-03 dogfood strictness) — LITE docs-heavy
   - 25-02: Edge-guard layer wiring (INSTR-01)
   - 25-03: Dashboard math + timeout observability (INSTR-02, INSTR-03)

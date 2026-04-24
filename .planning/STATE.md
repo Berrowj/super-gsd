@@ -3,23 +3,22 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: VTP Knowledge Primacy + Post-v1.4 Hardening
 milestone_status: v1.5 ACTIVE (2026-04-24) — scoped via /gsd-new-milestone with operator Q1=A/Q2=B/Q3=A/Q4=C. 21 REQ-IDs across 6 categories (VTPE + SEC + MUDAC + CONTRACT + CARRY + INSTR). 5 phases (21-25), 13 plans. Design posture: enrich-only VTP gate (no challenger — autonomy preserved), hard-required artifact (gate MUST write VTP-ENRICHMENT.md even on zero hits, VTP API errors block, empty-hit continues). Previous milestone v1.4 ✓ SHIPPED 2026-04-24 (16 Codex invocations, ~32k tokens saved, all CRITs cleared, handoff disabled by default).
-status: v1.5 Phase 24 COMPLETE. Plans 21-01/02/03/04 + 22-01/22-02 + 23-01 + 24-01 COMPLETE. Phase 25 next (final).
-stopped_at: Phase 24 closed via fast-track. CONTRACT-01..03 shipped via single SKILL.md edit (commit eee3256). Phase 25 next — Carryover + Telemetry, 3 plans, 6 REQs (CARRY-01..03 + INSTR-01..03). Then milestone close.
-last_updated: "2026-04-25T01:00:00Z"
-last_activity: 2026-04-25 — Phase 24 closed (commit eee3256 CONTRACT activation + 24-VERIFICATION + 24-SUMMARY).
+status: v1.5 Phase 25 COMPLETE — ALL PHASES DONE. Ready for sgsd-complete-milestone v1.5.
+stopped_at: All 5 v1.5 phases shipped (21/22/23/24/25). 21/21 REQs delivered across 6 categories (VTPE + SEC + MUDAC + CONTRACT + CARRY + INSTR). Milestone close pending.
+last_updated: "2026-04-25T01:30:00Z"
+last_activity: 2026-04-25 — Phase 25 closed (CARRY-01..03 + INSTR-01..03 + 25-VERIFICATION + 25-SUMMARY).
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 13
-  completed_plans: 8
-  percent: 80
-  # Phase 22 fully closed 2026-04-25 after 7-round Codex CRIT-fix cycle (R7 PASS_RATE 100)
-  # Phase 23 fast-tracked closed 2026-04-25 (3/4 MUDAC pre-shipped via b2773a8 v1.4 Codex MUDA work)
-  # Phase 24 fast-tracked closed 2026-04-25 (CONTRACT-01..03 single SKILL.md edit)
+  completed_plans: 11
+  percent: 100
+  # All 5 v1.5 phases closed 2026-04-25 — milestone close pending
   phase_21: "4/4 plans complete — shipped 2026-04-24 (6/6 VTPE + halt-on-CRIT fix cycle proved out)"
   phase_22: "2/2 plans complete — shipped 2026-04-25 (SEC-01 + SEC-02 + 7-round Codex review)"
   phase_23: "1/1 plan complete — shipped 2026-04-25 (MUDAC-02 newly delivered + MUDAC-01/03/04 pre-shipped)"
   phase_24: "1/1 plan complete — shipped 2026-04-25 (CONTRACT-01..03 FINDINGS_DETAIL activation)"
+  phase_25: "3/3 plans complete — shipped 2026-04-25 (CARRY-01..03 + INSTR-01..03)"
   phase_24: "not started — Richer Output Contract, 2 plans, 3 CONTRACT REQ-IDs"
   phase_25: "not started — Carryover + Telemetry, 3 plans, 6 REQ-IDs (3 CARRY + 3 INSTR)"
 ---

@@ -567,6 +567,22 @@ if [[ $RC -eq 124 ]]; then
     write_live_state "timeout" 5 "true" 0
     append_jsonl 5 "true" 0
     append_narrative_event "codex_timeout" "timeout after ${TIMEOUT}s step=$STEP_TAG" "lastfail"
+    # INSTR-03 (v1.5 Phase 25): timeout observability emit — feeds dashboard
+    # tile "timeout rate by tier" so operator sees chronic under-budgeting.
+    OBS_LOG=""
+    if [[ -n "$ROOT" ]]; then
+        OBS_LOG="$ROOT/.planning/metrics/codex-timeout-observability.jsonl"
+        mkdir -p "$(dirname "$OBS_LOG")" 2>/dev/null || true
+        OBS_TIER_REQUESTED="${TIMEOUT_TIER:-${STEP_TAG:-default}}"
+        OBS_TIER_ACTUAL="$OBS_TIER_REQUESTED"
+        # If retry-on-escalate was set + step is phase-level-ATC, the actual
+        # tier we ran was the original (we're about to exec retry). Mark it.
+        [[ "$RETRY_ON_TIMEOUT_ESCALATE" == true && "$STEP_TAG" == "phase-level-ATC" ]] && OBS_TIER_ACTUAL="${OBS_TIER_REQUESTED}->analysis(retry)"
+        OBS_TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        printf '{"ts":"%s","tier_requested":"%s","tier_actual_via_retry":"%s","duration_ms":%d,"exit_code":124,"step":"%s","phase":"%s","plan":"%s"}\n' \
+            "$OBS_TS" "$OBS_TIER_REQUESTED" "$OBS_TIER_ACTUAL" $((TIMEOUT * 1000)) "${STEP_TAG:-null}" "${PHASE_TAG:-null}" "${PLAN_TAG:-null}" \
+            >> "$OBS_LOG" 2>/dev/null || true
+    fi
     echo "codex-exec: timeout after ${TIMEOUT}s" >&2
     exit 5
 fi

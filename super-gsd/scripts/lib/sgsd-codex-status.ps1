@@ -10,6 +10,33 @@
 #   super-gsd/registry/gates.yaml
 # ============================================================================
 
+function Resolve-SgsdRuntimePath {
+    param([string]$Path)
+    if (-not $Path) { return "" }
+    if (Test-Path $Path) { return $Path }
+
+    if ($Path -match '^/tmp/(.+)$') {
+        $candidate = Join-Path $env:TEMP ($matches[1] -replace '/', '\')
+        if (Test-Path $candidate) { return $candidate }
+    }
+
+    if ($Path -match '^/([A-Za-z])/(.+)$') {
+        $drive = $matches[1].ToUpper()
+        $rest = $matches[2] -replace '/', '\'
+        $candidate = "${drive}:\$rest"
+        if (Test-Path $candidate) { return $candidate }
+    }
+
+    if ($Path -match '^/mnt/([A-Za-z])/(.+)$') {
+        $drive = $matches[1].ToUpper()
+        $rest = $matches[2] -replace '/', '\'
+        $candidate = "${drive}:\$rest"
+        if (Test-Path $candidate) { return $candidate }
+    }
+
+    return $Path
+}
+
 function Get-SgsdCodexStatus {
     param(
         [string]$ProjectDir,
@@ -36,12 +63,18 @@ function Get-SgsdCodexStatus {
         step = ""
         toolbox = "bash -> codex exec"
         commandPreview = ""
+        promptFile = ""
+        promptFileResolved = ""
+        startedAt = ""
+        timeoutSeconds = 0
         promptBytes = 0
         reportBytes = 0
         durationMs = 0
         exit = $null
+        fallbackTriggered = $null
         updatedAgeSec = $null
         reportOut = ""
+        reportOutResolved = ""
         oneLiner = ""
         stderrPreview = ""
         totalRuns = 0
@@ -89,11 +122,17 @@ function Get-SgsdCodexStatus {
         if ($live.model) { $out.model = "$($live.model)" }
         if ($live.reasoning_effort) { $out.reasoningEffort = "$($live.reasoning_effort)" }
         $out.commandPreview = "$($live.command_preview)"
+        $out.promptFile = "$($live.prompt_file)"
+        $out.promptFileResolved = Resolve-SgsdRuntimePath "$($live.prompt_file)"
+        $out.startedAt = "$($live.started_at)"
+        $out.timeoutSeconds = [int]($live.timeout_seconds)
         $out.promptBytes = [int]($live.prompt_bytes)
         $out.reportBytes = [int]($live.report_bytes)
         $out.durationMs = [int]($live.duration_ms)
         $out.exit = $live.exit
+        if ($null -ne $live.fallback_triggered) { $out.fallbackTriggered = [bool]$live.fallback_triggered }
         $out.reportOut = "$($live.report_out)"
+        $out.reportOutResolved = Resolve-SgsdRuntimePath "$($live.report_out)"
         $out.stderrPreview = "$($live.stderr_preview)"
         try {
             $updated = [DateTime]::Parse($live.updated_at)
@@ -161,6 +200,19 @@ function Get-SgsdCodexStatus {
                 } catch {}
             }
 
+            # INSTR-02 (v1.5 Phase 25) — math semantics, audited:
+            #   tokenRows         = ALL token-log rows in scan window (all providers)
+            #   codexDispatches   = COUNT of provider:openai-codex rows
+            #                       (any role; reviewer + verifier + future codex roles)
+            #   fallbackCount     = COUNT of provider:claude-via-fallback rows
+            #                       (i.e. codex attempted then fell back to Claude)
+            #   claudeTokensSaved = SUM of est_input + est_output over codex review rows
+            #                       (code_reviewer + adversarial_verifier only — these
+            #                        are the roles that displaced Claude). Excludes
+            #                        fallback rows because Claude DID run for those.
+            #   fallback_rate     = fallbackCount / (codexDispatches + fallbackCount)
+            #                       computed at consumer site (mission-control); denom
+            #                       represents total review-intent invocations.
             $out.tokenRows = $tokenRows.Count
             $codexRows = @($tokenRows | Where-Object {
                 $provider = if ($_.provider) { "$($_.provider)" } else { "claude" }
@@ -185,9 +237,10 @@ function Get-SgsdCodexStatus {
         } catch {}
     }
 
-    if ($out.reportOut -and (Test-Path $out.reportOut)) {
+    $reportPath = if ($out.reportOutResolved) { $out.reportOutResolved } else { Resolve-SgsdRuntimePath $out.reportOut }
+    if ($reportPath -and (Test-Path $reportPath)) {
         try {
-            foreach ($line in (Get-Content $out.reportOut -ErrorAction SilentlyContinue)) {
+            foreach ($line in (Get-Content $reportPath -ErrorAction SilentlyContinue)) {
                 if ($line -match '^ONE_LINER:\s*(.+)$') { $out.oneLiner = $matches[1].Trim(); break }
             }
         } catch {}
@@ -240,10 +293,19 @@ function Get-SgsdCodexEvents {
                 $isCodex = ($e.provider -eq "codex" -and ($isRealWrapper -or $isRealCli)) -or $isRealCli
                 if (-not $isCodex) { continue }
                 $ts = [DateTime]::Parse($e.ts)
+                $detail = ""
+                $scopeParts = @("$($e.review_plan)", "$($e.review_step)") | Where-Object { $_ -and "$_".Trim() -ne "" }
+                if ($scopeParts.Count -gt 0) {
+                    $detail = $scopeParts -join " / "
+                } elseif ($e.command_preview) {
+                    $detail = "$($e.command_preview)"
+                } else {
+                    $detail = "$($e.target)"
+                }
                 $entries += [pscustomobject]@{
                     ts = $ts
                     label = if ($e.command_kind) { "$($e.command_kind)".ToUpper() } else { "$($e.tool)".ToUpper() }
-                    detail = "$($e.target)"
+                    detail = $detail
                     phase = "$($e.phase)"
                 }
             } catch {}
@@ -387,4 +449,198 @@ function Get-SgsdCodexVerdicts {
     }
 
     return @($verdicts | Sort-Object ts -Descending | Select-Object -First $MaxRows)
+}
+
+function Read-SgsdJsonLinesTail {
+    param(
+        [string]$Path,
+        [int]$Tail = 20
+    )
+    if (-not (Test-Path $Path)) { return @() }
+    $rows = @()
+    try {
+        foreach ($line in (Get-Content $Path -Tail $Tail -ErrorAction SilentlyContinue)) {
+            if (-not "$line".Trim()) { continue }
+            try { $rows += ($line | ConvertFrom-Json -ErrorAction Stop) } catch {}
+        }
+    } catch {}
+    return @($rows)
+}
+
+function Get-SgsdIsoAgeSec {
+    param($Value)
+    if (-not $Value) { return $null }
+    try {
+        return [int]((Get-Date) - ([DateTime]::Parse("$Value"))).TotalSeconds
+    } catch {
+        return $null
+    }
+}
+
+function Get-SgsdVtpFrontmatter {
+    param([string]$Path)
+    $map = @{}
+    if (-not (Test-Path $Path)) { return $map }
+    try {
+        foreach ($line in (Get-Content $Path -TotalCount 50 -ErrorAction SilentlyContinue)) {
+            if ($line -match '^---\s*$') { continue }
+            if ($line -match '^\s*$') { break }
+            if ($line -match '^([A-Za-z0-9_-]+):\s*(.*)$') {
+                $map[$matches[1]] = $matches[2].Trim()
+            }
+        }
+    } catch {}
+    return $map
+}
+
+function Get-SgsdVtpMcpStatus {
+    param(
+        [string]$ProjectDir,
+        [string]$PlanningDir
+    )
+
+    $out = [ordered]@{
+        enabled = $false
+        configState = "disabled"
+        healthState = "no-probe"
+        healthAgeSec = $null
+        vtpAvailable = $null
+        healthSource = ""
+        mcpConfigPath = ""
+        mcpServers = ""
+        mcpVtpBinding = "unknown"
+        mcpVtpTarget = ""
+        mcpVtpTargetExists = $null
+        routingStatus = "no-log"
+        routingAgeSec = $null
+        routingTier = ""
+        routingAgent = ""
+        routingHits = $null
+        routingDoc = ""
+        routingElapsedMs = $null
+        routingFailure = ""
+        routingSummary = ""
+        artifactStatus = "missing"
+        artifactPath = ""
+        artifactAgeSec = $null
+        artifactPhase = ""
+        artifactHits = $null
+        artifactQueryCount = $null
+        artifactDurationMs = $null
+        artifactEmptyHit = $null
+    }
+
+    $cfgPath = Join-Path $PlanningDir "config.json"
+    if (Test-Path $cfgPath) {
+        try {
+            $cfg = Get-Content $cfgPath -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json -ErrorAction Stop
+            if ($cfg.vtp_enrichment -and $cfg.vtp_enrichment.enabled -eq $true) {
+                $out.enabled = $true
+                $out.configState = "enabled"
+            }
+        } catch {}
+    }
+
+    $mcpPath = Join-Path $ProjectDir ".mcp.json"
+    if (Test-Path $mcpPath) {
+        $out.mcpConfigPath = $mcpPath
+        try {
+            $mcp = Get-Content $mcpPath -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json -ErrorAction Stop
+            if ($mcp.mcpServers) {
+                $serverProps = @($mcp.mcpServers.PSObject.Properties)
+                $out.mcpServers = (@($serverProps | ForEach-Object { $_.Name }) -join ",")
+                $vtpProp = @($serverProps | Where-Object { $_.Name -eq "vtp-kb" } | Select-Object -First 1)
+                if ($vtpProp.Count -gt 0) {
+                    $out.mcpVtpBinding = "configured"
+                    $server = $vtpProp[0].Value
+                    $cmd = if ($server.command) { "$($server.command)" } elseif ($server.url) { "$($server.url)" } else { "" }
+                    $arg0 = ""
+                    if ($server.args -and $server.args.Count -gt 0) { $arg0 = "$($server.args[0])" }
+                    $out.mcpVtpTarget = (@($cmd, $arg0) | Where-Object { $_ -and "$_".Trim() -ne "" }) -join " "
+                    if ($arg0 -and ($arg0 -match '^[A-Za-z]:[\\/]|^/')) {
+                        $out.mcpVtpTargetExists = Test-Path $arg0
+                    }
+                } else {
+                    $out.mcpVtpBinding = "missing"
+                }
+            }
+        } catch {
+            $out.mcpVtpBinding = "config-error"
+        }
+    } else {
+        $out.mcpVtpBinding = "no-config"
+    }
+
+    $healthPath = Join-Path $PlanningDir "metrics\vtp-health.jsonl"
+    $healthRows = @(Read-SgsdJsonLinesTail -Path $healthPath -Tail 20)
+    if ($healthRows.Count -gt 0) {
+        $h = $healthRows[$healthRows.Count - 1]
+        if ($null -ne $h.vtp_available) { $out.vtpAvailable = [bool]$h.vtp_available }
+        if ($h.vtp_health_cached) {
+            $out.healthState = "$($h.vtp_health_cached)"
+        } elseif ($h.event) {
+            $out.healthState = "$($h.event)"
+        } elseif ($out.vtpAvailable -eq $true) {
+            $out.healthState = "healthy"
+        } elseif ($out.vtpAvailable -eq $false) {
+            $out.healthState = "degraded"
+        }
+        $out.healthSource = "$($h.source)"
+        $out.healthAgeSec = Get-SgsdIsoAgeSec $h.ts
+    }
+
+    $routingPath = Join-Path $PlanningDir "metrics\vtp-routing-log.jsonl"
+    $routingRows = @(Read-SgsdJsonLinesTail -Path $routingPath -Tail 50)
+    if ($routingRows.Count -gt 0) {
+        $r = $routingRows[$routingRows.Count - 1]
+        $out.routingStatus = if ($r.status) { "$($r.status)" } else { "unknown" }
+        $out.routingAgeSec = Get-SgsdIsoAgeSec $r.ts
+        $out.routingTier = "$($r.tier)"
+        $out.routingAgent = "$($r.skill_or_agent)"
+        if ($null -ne $r.evidence_hit_count) { $out.routingHits = [int]$r.evidence_hit_count }
+        $out.routingDoc = "$($r.top_doc_id)"
+        if ($null -ne $r.elapsed_ms) { $out.routingElapsedMs = [int]$r.elapsed_ms }
+        $out.routingFailure = "$($r.failure_reason)"
+
+        $counts = @{}
+        foreach ($row in $routingRows) {
+            $s = if ($row.status) { "$($row.status)" } else { "unknown" }
+            if (-not $counts.ContainsKey($s)) { $counts[$s] = 0 }
+            $counts[$s] = [int]$counts[$s] + 1
+        }
+        $summaryParts = @()
+        foreach ($key in ($counts.Keys | Sort-Object)) {
+            $summaryParts += ("{0}={1}" -f $key, $counts[$key])
+        }
+        $out.routingSummary = $summaryParts -join " "
+    }
+
+    $artifactRoots = @(
+        (Join-Path $PlanningDir "milestones"),
+        (Join-Path $PlanningDir "phases")
+    ) | Where-Object { Test-Path $_ }
+    $latestArtifact = $null
+    foreach ($root in $artifactRoots) {
+        try {
+            $candidate = Get-ChildItem -Path $root -Recurse -Filter "VTP-ENRICHMENT.md" -ErrorAction SilentlyContinue -Force |
+                Sort-Object LastWriteTimeUtc -Descending |
+                Select-Object -First 1
+            if ($candidate -and ((-not $latestArtifact) -or $candidate.LastWriteTimeUtc -gt $latestArtifact.LastWriteTimeUtc)) {
+                $latestArtifact = $candidate
+            }
+        } catch {}
+    }
+    if ($latestArtifact) {
+        $fm = Get-SgsdVtpFrontmatter -Path $latestArtifact.FullName
+        $out.artifactPath = $latestArtifact.FullName
+        $out.artifactAgeSec = [int]((Get-Date) - $latestArtifact.LastWriteTime).TotalSeconds
+        $out.artifactStatus = if ($fm.ContainsKey("vtp_status")) { $fm["vtp_status"] } else { "present" }
+        $out.artifactPhase = if ($fm.ContainsKey("phase")) { $fm["phase"] } else { "" }
+        if ($fm.ContainsKey("total_hits")) { try { $out.artifactHits = [int]$fm["total_hits"] } catch {} }
+        if ($fm.ContainsKey("query_count")) { try { $out.artifactQueryCount = [int]$fm["query_count"] } catch {} }
+        if ($fm.ContainsKey("duration_ms")) { try { $out.artifactDurationMs = [int]$fm["duration_ms"] } catch {} }
+        if ($fm.ContainsKey("empty_hit")) { $out.artifactEmptyHit = "$($fm["empty_hit"])" -eq "true" }
+    }
+
+    return [pscustomobject]$out
 }

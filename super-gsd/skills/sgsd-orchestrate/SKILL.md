@@ -112,12 +112,29 @@ On first entry (no checkpoint):
      const gates = require('super-gsd/scripts/lib/gates-registry.cjs');
      const GATES_YAML_PATH = 'super-gsd/registry/gates.yaml';
      gates.loadGates(GATES_YAML_PATH); // caches; subsequent calls are O(1)
+
+     // INSTR-01 (v1.5 Phase 25): edge-guard wiring — records every gate
+     // transition to .planning/metrics/edge-guard-log.jsonl. Enables the
+     // gate-drift-audit step at sgsd-complete-milestone close to surface
+     // gates that skip-drifted >3 times during the milestone.
+     const edgeGuard = require('super-gsd/scripts/lib/edge-guard.cjs');
      ```
 
      Non-blocking: if gates-registry.cjs is missing (pre-Phase-10 environment),
      log a single warn and continue. All `gates.shouldFire` calls below degrade
      gracefully to `true` (gate fires unconditionally) so existing behaviour is
-     preserved while the registry is absent.
+     preserved while the registry is absent. Same graceful-degradation rule
+     applies to edge-guard.cjs — if absent, recordTransition calls are no-ops.
+
+     **Edge-guard call contract (INSTR-01)**: After EVERY major gate-firing
+     decision in the loop below (every `gates.shouldFire(...)` branch that
+     determines whether a step's expected emits landed), call
+     `edgeGuard.recordTransition({fromStep, toStep, phase, plan, gateName,
+     expectedEmits, actualEmits, ctx, gatesYamlPath: GATES_YAML_PATH,
+     projectDir})`. The function appends one row per call and returns
+     `{status: 'ok'|'logged'|'halt', missing_emits, row}`. The orchestrator
+     halts only if `status === 'halt'` (per-gate opt-in via
+     `escalation: halt` in gates.yaml).
 
 3.7. VTP HEALTH PROBE (D-08 — one-time cold-start ping, cached for session)
      Immediately after step 3.6, if config.vtp_enrichment.enabled is true,

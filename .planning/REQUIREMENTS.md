@@ -45,15 +45,15 @@ No net-new user-facing feature scope. This is a deepening milestone — the AI s
 
 ### CARRY (Phase 25 — Carryover WARNs + Telemetry — plan 1/3)
 
-- [ ] **CARRY-01**: awk anchor brittleness in sgsd-muda-audit.sh qualitative row insert. Current `/^\| git_spawn_pct/` anchor silently drops the row if probe list changes. Replace with sentinel marker (e.g. `<!-- qual-row-insert -->`) in compose_waste_md body + sed/awk against sentinel. Post-insert grep verifies row landed.
-- [ ] **CARRY-02**: `super-gsd/scripts/lib/providers-registry.cjs` JSDoc narrative drift. Phase 17 T1 swapped literal `reviewer_agent → reviewer_provider` in 2 docblocks; prose around `reviewer-shaped` semantics elsewhere in file may still describe pre-fix behavior. Full file audit + consistency pass.
-- [ ] **CARRY-03**: Dogfood audit strictness (Phase 18 phase-level WARN). `18-DOGFOOD-AUDIT.md` counted ALL openai-codex rows as CXOPS-03 evidence — did not exclude fallback/timeout rows. Tighten audit methodology: only `fallback_triggered: false` + valid FINDINGS contract count as dogfood evidence. Retroactive audit of v1.4 rows to confirm count unchanged.
+- [x] **CARRY-01**: awk anchor brittleness — ✓ shipped 2026-04-25 via Plan 25-01 (commit 3563ead). Sentinel `<!-- qual-row-insert -->` marker + post-insert grep verification.
+- [x] **CARRY-02**: providers-registry.cjs JSDoc narrative — ✓ shipped 2026-04-25 via Plan 25-01. Audit confirmed Phase 17 T1 swap was thorough (0 reviewer_agent literals, prose consistent).
+- [x] **CARRY-03**: Dogfood audit strictness — ✓ shipped 2026-04-25 via Plan 25-01. 4-criterion methodology block appended to 18-DOGFOOD-AUDIT.md; retroactive count verified (5 rows unchanged).
 
 ### INSTR (Phase 25 — Carryover WARNs + Telemetry — plans 2+3)
 
-- [ ] **INSTR-01**: Edge-guard layer wiring. `super-gsd/scripts/lib/edge-guard.cjs` + `.planning/metrics/edge-guard-log.jsonl` are scaffolded (v1.2 Phase 10 work) but never wired into this project. Wire into orchestrator dispatch path so every gate transition records an edge-guard row. Enables `gate-drift-audit.md` at milestone close to have real data.
-- [ ] **INSTR-02**: Dashboard offload math audit + fix. Phase 19 19-01 per-dispatch ATC flagged "dashboard offload math is wrong" — specific source not enumerated. Full audit of `Get-CodexStats` in `lib/sgsd-codex-status.ps1`: reconcile `claude_tokens_saved_by_codex` math, `codex_invocations_this_milestone` filter (milestone boundary detection), `fallback_rate` denominator, `avg_codex_duration_ms` (arithmetic vs geometric mean tradeoff).
-- [ ] **INSTR-03**: Timeout observability metric. Phase 19 phase-level ATC flagged "timeout unreliability compounding." Add `.planning/metrics/codex-timeout-observability.jsonl` row per timeout event: `{ts, tier_requested, tier_actual_via_retry, duration_ms, exit_code}`. Dashboard tile surfaces "timeout rate by tier" — operator sees whether review tier is chronically under-budgeted.
+- [x] **INSTR-01**: Edge-guard layer wiring — ✓ shipped 2026-04-25 via Plan 25-02. SKILL.md cold-start preamble imports edge-guard.cjs; "Edge-guard call contract" block specifies recordTransition call protocol after every gate decision; graceful degradation when module absent; halt only on status==='halt'.
+- [x] **INSTR-02**: Dashboard offload math audit — ✓ shipped 2026-04-25 via Plan 25-03. Inline audit comments in Get-SgsdCodexStatus document semantics for tokenRows/codexDispatches/fallbackCount/claudeTokensSaved/fallback_rate. Existing math sound; documentation prevents future drift.
+- [x] **INSTR-03**: Timeout observability metric — ✓ shipped 2026-04-25 via Plan 25-03. New `.planning/metrics/codex-timeout-observability.jsonl` row emitted at RC=124 timeout branch in codex-exec.sh. Includes `tier_actual_via_retry` distinguishing timeout-then-retry from timeout-then-exit.
 
 ---
 
