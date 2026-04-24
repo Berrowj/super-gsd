@@ -3,17 +3,18 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: VTP Knowledge Primacy + Post-v1.4 Hardening
 milestone_status: v1.5 ACTIVE (2026-04-24) — scoped via /gsd-new-milestone with operator Q1=A/Q2=B/Q3=A/Q4=C. 21 REQ-IDs across 6 categories (VTPE + SEC + MUDAC + CONTRACT + CARRY + INSTR). 5 phases (21-25), 13 plans. Design posture: enrich-only VTP gate (no challenger — autonomy preserved), hard-required artifact (gate MUST write VTP-ENRICHMENT.md even on zero hits, VTP API errors block, empty-hit continues). Previous milestone v1.4 ✓ SHIPPED 2026-04-24 (16 Codex invocations, ~32k tokens saved, all CRITs cleared, handoff disabled by default).
-status: v1.5 milestone initialized. REQUIREMENTS.md + ROADMAP.md drafted. Phase 21 (VTP Enrichment Gates, 4 plans) ready for /gsd-discuss-phase or direct research.
-stopped_at: v1.5 scoping complete. REQUIREMENTS.md (21 REQ-IDs) + ROADMAP.md (Phases 21-25) committed. Phase 21 ready for discussion/research.
-last_updated: "2026-04-24T17:00:00.000Z"
-last_activity: 2026-04-24 — /gsd-new-milestone v1.5 executed. 6 categories locked; VTPE-06 adds sgsd-board-researcher as 5th deliberation voice per operator directive mid-scoping. v1.4 REQUIREMENTS archived to milestones/v1.4-REQUIREMENTS.md.
+status: v1.5 Phase 21 in-progress. Plan 21-01 COMPLETE (3 tasks, 3 commits). Plans 21-02..04 pending.
+stopped_at: Phase 21 Plan 21-01 complete — vtp-enrichment-gate.cjs sibling + gates.yaml vtp-enrichment row + Step 6.b.5 + gsd-planner VTP-ENRICHMENT.md consumption. Next: Plan 21-02 (audit cross-reference).
+last_updated: "2026-04-24T19:00:00.000Z"
+last_activity: 2026-04-24 — Plan 21-01 shipped (commits 0e3428f + 35b34d4 + af9dccd). VTPE-01 gate wired end-to-end.
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 13
   completed_plans: 0
-  percent: 0
-  phase_21: "not started — VTP Enrichment Gates, 4 plans, 6 VTPE REQ-IDs"
+  completed_plans: 1
+  percent: 8
+  phase_21: "in-progress — Plan 21-01 COMPLETE (vtp-enrichment-gate.cjs + gates.yaml + Step 6.b.5 + planner VTP-ENRICHMENT.md consumption)"
   phase_22: "not started — Security Hardening, 2 plans, 2 SEC REQ-IDs"
   phase_23: "not started — MUDA Calibration, 2 plans, 4 MUDAC REQ-IDs"
   phase_24: "not started — Richer Output Contract, 2 plans, 3 CONTRACT REQ-IDs"
