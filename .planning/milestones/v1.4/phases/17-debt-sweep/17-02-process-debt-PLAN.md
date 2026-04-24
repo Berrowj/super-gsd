@@ -49,7 +49,7 @@ tasks:
     falsifier: "grep finds CLEAN-05 references in .planning/REQUIREMENTS.md that duplicate archived content, OR v1.2 requirement IDs appear in current REQUIREMENTS.md without a cross-reference note"
     stop_rule: "Audit complete; any dangling refs removed; commit created (even zero-diff is valid outcome)"
     depends_on: []
-    verification_cmd: "test -f .planning/milestones/v1.2-REQUIREMENTS.md && echo ARCHIVE_EXISTS && echo PASS"
+    verification_cmd: "test -f .planning/milestones/v1.2-REQUIREMENTS.md && test -f .planning/milestones/v1.3-REQUIREMENTS.md && echo BOTH_ARCHIVES_EXIST && echo PASS"
     known_deadends: []
 ---
 

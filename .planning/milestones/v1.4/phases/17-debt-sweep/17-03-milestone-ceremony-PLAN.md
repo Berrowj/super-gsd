@@ -14,12 +14,13 @@ tasks:
     files_touched:
       - ".planning/MILESTONES.md"
       - ".planning/ROADMAP.md"
-    input_contract: "D-02 tag target commit 0191168; .planning/MILESTONES.md §'v1.2 Evidence-First Sharpening' current state; .planning/ROADMAP.md Phases 9-13 entries"
-    output_contract: "MILESTONES.md v1.2 entry converted from Active to Shipped (date: 2026-04-24); ROADMAP.md Phases 9-13 collapsed into <details> block. Commit: docs(17-03/T1): CLEAN-06 v1.2 retroactive close — MILESTONES.md Shipped entry + ROADMAP.md collapse"
-    hypothesis: "MILESTONES.md reflects v1.2 as Shipped and ROADMAP.md Phases 9-13 are collapsed — the milestone record is closed without inventing new commits"
-    falsifier: "grep 'v1.2' .planning/MILESTONES.md still shows Active status, OR Phases 9-13 remain expanded in ROADMAP.md"
-    stop_rule: "MILESTONES.md v1.2 status: Shipped; ROADMAP.md has <details> wrapping Phases 9-13; commit present"
-    verification_cmd: "grep -q 'Shipped' .planning/MILESTONES.md && grep -q '<details>' .planning/ROADMAP.md && echo PASS"
+      - ".planning/milestones/v1.2-ROADMAP.md"
+    input_contract: "D-02 tag target commit 0191168; .planning/MILESTONES.md §'v1.2 Evidence-First Sharpening' current state; .planning/ROADMAP.md Phases 9-13 entries (the content to archive + collapse)"
+    output_contract: "MILESTONES.md v1.2 entry converted from Active to Shipped (date: 2026-04-24); .planning/milestones/v1.2-ROADMAP.md created — archive document populated from current ROADMAP.md Phase-9-through-13 content + MILESTONES.md v1.2 narrative; ROADMAP.md Phases 9-13 collapsed into <details> block after archive is written. Commit: docs(17-03/T1): CLEAN-06 v1.2 retroactive close — MILESTONES.md Shipped + v1.2-ROADMAP.md archive + ROADMAP.md collapse"
+    hypothesis: "v1.2 milestone record is formally closed: archive file exists as authoritative record of Phases 9-13, MILESTONES.md reflects Shipped status, and the live ROADMAP.md is visually collapsed without content loss"
+    falsifier: "ls .planning/milestones/v1.2-ROADMAP.md returns not found, OR MILESTONES.md still shows v1.2 Active, OR ROADMAP.md Phases 9-13 remain expanded (no <details> block)"
+    stop_rule: ".planning/milestones/v1.2-ROADMAP.md exists with Phases 9-13 content; MILESTONES.md v1.2 status: Shipped; ROADMAP.md has <details> wrapping Phases 9-13; single commit with all three changes"
+    verification_cmd: "test -f .planning/milestones/v1.2-ROADMAP.md && grep -q 'Shipped' .planning/MILESTONES.md && grep -q '<details>' .planning/ROADMAP.md && echo PASS"
     known_deadends: []
 
   - id: "T2"
