@@ -205,6 +205,35 @@ $line2Parts = @(
 )
 if ($sparkline) { $line2Parts += (C $WHITE "tok $sparkline") }
 
+# MC-02: Codex live state segment (read codex-live.json inline — no helper dot-source, latency sensitive)
+$codexLivePath = Join-Path $metrics "codex-live.json"
+$cdxState = 'idle'
+$cdxLabel = ''
+if (Test-Path $codexLivePath) {
+    try {
+        $cdxLive = Get-Content $codexLivePath -Raw -Encoding UTF8 -ErrorAction SilentlyContinue | ConvertFrom-Json -ErrorAction Stop
+        $rawState = if ($cdxLive.state) { "$($cdxLive.state)" } else { 'idle' }
+        # GAP-5: normalize "ok" and "not-fired" -> "idle"
+        $cdxState = if ($rawState -eq 'ok' -or $rawState -eq 'not-fired') { 'idle' } else { $rawState }
+        if ($cdxState -eq 'running' -and $cdxLive.updated_at) {
+            $ageSec = [int]((Get-Date) - [datetime]$cdxLive.updated_at).TotalSeconds
+            $cdxLabel = "cdx:running [$($ageSec)s]"
+        } else {
+            $cdxLabel = "cdx:$cdxState"
+        }
+    } catch { $cdxLabel = 'cdx:idle' }
+} else {
+    $cdxLabel = 'cdx:idle'
+}
+$cdxColor = switch ($cdxState) {
+    'running'  { '33' }   # Yellow
+    'timeout'  { '31' }   # Red
+    'error'    { '31' }   # Red
+    'fallback' { '33' }   # DarkYellow (33; label distinguishes from running)
+    default    { '90' }   # Gray (idle / not-fired)
+}
+$line2Parts += (C $cdxColor "[x] $cdxLabel")
+
 $line1 = ($line1Parts -join ' · ')
 $line2 = ($line2Parts -join ' · ')
 
