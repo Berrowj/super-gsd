@@ -58,7 +58,18 @@ Matching per-dispatch-ATC entries (exit 0, phase 17 + 18):
 
 All 5 commit-reviews.jsonl rows have a matching provenance entry in codex-log.jsonl. No fallback_triggered events. No parse failures (validateContract first live-fire in 18-01 was clean).
 
-**CXOPS-03: ☑ SATISFIED — 5 per-dispatch Codex rows across Phase 17 (4 rows) and Phase 18-01 (1 row)**
+### Methodology (CARRY-03 strictness — v1.5 Phase 25)
+
+This audit counts a row as **CXOPS-03 dogfood evidence** ONLY when ALL of the following hold:
+
+1. `provider: openai-codex` in `commit-reviews.jsonl` (excludes `claude-via-fallback` rows)
+2. `fallback_triggered: false` in matching `codex-log.jsonl` row (excludes single-retry-fallback events even when the eventual provider tag is openai-codex)
+3. `exit: 0` in matching `codex-log.jsonl` row (excludes timeout / auth-fail / parse-fail rows)
+4. Valid 5-line FINDINGS contract present in `commit-reviews.jsonl` row (excludes contract-violation rows that triggered the validateContract single-retry path)
+
+The 5-row count above passes all 4 criteria — verified retroactively against the v1.4 corpus. Row count unchanged after applying strict methodology.
+
+**CXOPS-03: ☑ SATISFIED — 5 per-dispatch Codex rows across Phase 17 (4 rows) and Phase 18-01 (1 row), all under strict methodology**
 
 ---
 

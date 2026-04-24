@@ -254,6 +254,7 @@ fi)
 | Probe | Verdict | Value | Threshold | Waste Class | Evidence |
 |-------|---------|-------|-----------|-------------|----------|
 $PROBE_TABLE
+<!-- qual-row-insert -->
 
 ## Raw Probe JSON
 
@@ -431,14 +432,21 @@ PROMPT
 
     # Insert qualitative row INTO the Probe Results table (per CONTEXT D-07
     # "4th row" — appending to end-of-file left it orphaned outside the table).
-    # awk -v avoids shell-escaping pipes/backticks; atomic tmp+mv preserves
-    # WASTE.md integrity on failure.
+    # CARRY-01 (v1.5 Phase 25): anchor on `<!-- qual-row-insert -->` sentinel
+    # marker emitted by compose_waste_md, NOT on a probe-name regex. Probe
+    # ordering or renames no longer silently drop the qualitative row.
+    # Post-insert grep verifies the row landed and surfaces a stderr warning
+    # if not (e.g. sentinel comment was removed during a refactor).
     QUAL_ROW=$(printf '| codex_qualitative_waste | %s | %s findings | diff_lines=%s | overproduction | %s |' \
       "$QUAL_V" "${QUAL_CRITICAL:-0}" "$DIFF_LINES" "${QUAL_ONE_LINER:-no findings}")
     awk -v newrow="$QUAL_ROW" '
-      /^\| git_spawn_pct/ { print; print newrow; next }
+      /<!-- qual-row-insert -->/ { print newrow; print; next }
       { print }
     ' "$WASTE_FILE" > "$WASTE_FILE.tmp" && mv "$WASTE_FILE.tmp" "$WASTE_FILE"
+    # CARRY-01 verification: confirm row landed; warn if sentinel was missing
+    if ! grep -qF "codex_qualitative_waste" "$WASTE_FILE"; then
+        echo "sgsd-muda-audit: WARN — qual-row sentinel missing in WASTE.md; codex_qualitative_waste row not inserted" >&2
+    fi
 
     # Update counters
     [[ "$QUAL_V" == "FAIL" ]] && fail_count=$((fail_count+1))
