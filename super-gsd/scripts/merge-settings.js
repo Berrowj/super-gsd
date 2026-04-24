@@ -55,13 +55,22 @@ function isSameEntry(a, b) {
     // An entry has: { matcher?, hooks: [{ type, command, timeout? }, ...] }
     // Match if their matchers are equal AND they share a command string.
     if ((a.matcher || '') !== (b.matcher || '')) return false;
-    const cmdsA = (a.hooks || []).map(h => h.command).filter(Boolean);
-    const cmdsB = (b.hooks || []).map(h => h.command).filter(Boolean);
+    const cmdsA = (a.hooks || []).map(h => normalizeCommand(h.command)).filter(Boolean);
+    const cmdsB = (b.hooks || []).map(h => normalizeCommand(h.command)).filter(Boolean);
     if (cmdsA.length !== cmdsB.length) return false;
     for (const c of cmdsA) {
         if (!cmdsB.includes(c)) return false;
     }
     return true;
+}
+
+function normalizeCommand(command) {
+    return String(command || '')
+        .replace(/"/g, '')
+        .replace(/\$HOME/g, '~')
+        .replace(/\\/g, '/')
+        .replace(/\s+/g, ' ')
+        .trim();
 }
 
 const overlay = readJsonOrEmpty(overlayPath);
