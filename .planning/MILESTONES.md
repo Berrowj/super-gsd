@@ -49,23 +49,30 @@
 
 ---
 
-## v1.3 Multimodal Review (Staged: drafted 2026-04-23)
+## v1.3 Multimodal Review (Shipped: 2026-04-24)
 
-**Status:** Staged behind v1.2 close. Not active until `/gsd-new-milestone v1.3` ingests `.planning/proposals/v1.3-multimodal-review/`.
+**Phases completed:** 3 phases (14, 15, 16), 12 plans, 66 commits, 41 files changed (5,414 insertions / 177 deletions)
 
-**Phases planned:** 2 phases, 9 plans total
+**Key accomplishments:**
 
-1. **Phase 14 — Codex CLI Provider Substrate:** dark-launch the reviewer-provider abstraction (`codex-exec.sh`, `review-providers.yaml`, `reviewer_provider:` gate schema, contract harness, config kill-switch).
-2. **Phase 15 — Codex-Routed Gates + Qualitative MUDA Probe:** flip review-shaped ATC gates to Codex by registry, add the first qualitative overproduction probe, make the adversarial challenger cross-vendor, and ship a milestone-close kill check.
+1. **Phase 14 — Codex CLI Provider Substrate:** Reviewer-provider abstraction shipped DARK (`codex_enabled: false`) — `codex-exec.sh` wrapper, `review-providers.yaml` registry, `providers-registry.cjs` dispatch indirection, `gates.yaml` `reviewer_provider:` schema extension, `contract-check.mjs` pure-parser harness with fixtures. 4 plans, 6/6 V-predicates verified.
+2. **Phase 15 — Codex-Routed Gates + Qualitative MUDA Probe:** Flipped the switch LIVE — 3 gates.yaml rows route to `codex-cli-reviewer`, SKILL.md Steps 6.5+9.5 wired via `resolveReviewerProvider` + `shellDispatch` + `GATE_PROVIDER_FALLBACK` (HiveMind centralized-retry), Step 9.6 adversarial challenger always non-primary vendor, sgsd-muda-audit 4th qualitative probe, token-log provider field + Multimodal Review Offload dashboard tile, sgsd-token-audit `--milestone-close-check` kill condition + sgsd-complete-milestone Step 3 renumbering. 5 plans across 4 serialized waves, 6/6 V-predicates, verify.mjs 9/9 invariants.
+3. **Phase 16 — VTP Enrichment as Cross-Phase Primitive:** VTP became a first-class planning input. `vtp-context-composer.cjs` + `callVtp` MCP-wrapper, `sgsd-triage` Step 0 VTP router, 4 agent patches (`gsd-phase-researcher`, `gsd-planner`, `gsd-codebase-mapper`, `gsd-assumptions-analyzer`) with frontmatter-declared tool access, `/sgsd-vtp-advise` standalone skill, `sgsd-sepl` advise-enrich hook, `vtp-routing-log.jsonl` telemetry. 3 plans across 3 waves, 6/6 V-predicates (retroactive).
 
-**Intent boundary:**
+**Historic artifact:** First live Codex invocation captured 2026-04-24T02:39:05Z during MUDA qualitative probe run. `.planning/metrics/codex-log.jsonl` + `codex-live.json` prove the config → `resolveReviewerProvider` → `shellDispatch` → `codex-exec.sh` → `codex exec` pipe is operational end-to-end (`model: gpt-5.4, provider: openai, sandbox: read-only`). Invocation timed out at 60s on a 35KB qualitative-analysis prompt — tuning is tech debt, not wiring failure.
 
-- v1.3 is a narrow multi-model reviewer lane, not a full provider rewrite of SGSD.
-- Claude remains the classifier and the primary mechanical verifier; Codex is introduced only where the work is review-shaped and cross-vendor disagreement is valuable.
-- The experiment must earn its keep on both axes: quality lift and Claude quota offload. If both miss threshold at milestone close, the lane is disabled and documented rather than carried as dead substrate.
+**Integration evidence (exercised live this session):**
+- Phase 14 → 15 — `codex-exec.sh` invoked via Phase 15's new wiring
+- Phase 16 → 15 — `vtp_route_and_retrieve` returned real doc-IDs to Phase 15's planner dispatch (query frame `qf_08971fd9c2`, 4 citable docs, 8 AGP principles, reflection verdict surfaced honestly)
 
-**Activation preconditions:**
+**Milestone audit:** `passed` (initial audit `gaps_found` due to Phase 16 missing VERIFICATION.md artifact; closed retroactively via `gsd-verifier` dispatch, status flipped to `passed`). See `.planning/milestones/v1.3-MILESTONE-AUDIT.md`.
 
-- v1.2 Phase 13 closed cleanly.
-- `sgsd-complete-milestone` proved idempotent and VTP-safe at v1.2 close.
-- The staged v1.3 brief and both phase-context files remain aligned to the final shipped Phase 13 governance substrate.
+**Tech debt carried to v1.4 (7 items, all non-blocking):** codex_timeout_seconds tuning, providers-registry.cjs WR-01/WR-02 (stale JSDoc + dead branch), MUDA WASTE.md display inconsistency, 2 missing plan SUMMARYs (15-01, 15-03), P5 Codex Monitor artifact backfill (commit c8b2d25 without `.planning/` artifact), REQUIREMENTS.md staleness (still v1.2 scope).
+
+**Git tag:** `v1.3` — see `.planning/milestones/v1.3-ROADMAP.md` and `.planning/milestones/v1.3-REQUIREMENTS.md` for full details.
+
+---
+
+## v1.2 Status Note
+
+v1.2 (Phases 9-13) shipped per ROADMAP.md checkboxes but was never formally closed via `/gsd-complete-milestone v1.2`. The v1.3 work proceeded on top without the v1.2 close ceremony. **Backfill candidate for v1.4:** retroactive v1.2-ROADMAP.md + v1.2-REQUIREMENTS.md archive, tag, MILESTONES.md consolidation.

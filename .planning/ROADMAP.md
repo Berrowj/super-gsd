@@ -3,20 +3,21 @@
 ## Milestones
 
 - ✅ **v1.1 Self-Audit** — Phases 1-8 (shipped 2026-04-21) — [archive](milestones/v1.1-ROADMAP.md)
-- 📋 **v1.2 Evidence-First Sharpening** — Phases 9-13 (scoping → planning)
+- 📋 **v1.2 Evidence-First Sharpening** — Phases 9-13 (shipped but never formally closed; retroactive close carry to v1.4)
+- ✅ **v1.3 Multimodal Review — Codex Integration** — Phases 14-16 (shipped 2026-04-24) — [archive](milestones/v1.3-ROADMAP.md) · [requirements](milestones/v1.3-REQUIREMENTS.md) · [audit](milestones/v1.3-MILESTONE-AUDIT.md)
 
 ## Phases
 
-### v1.3 Staging Snapshot
+<details>
+<summary>✅ v1.3 Multimodal Review (Phases 14-16) — SHIPPED 2026-04-24</summary>
 
-- **Phase 16: VTP Enrichment as Cross-Phase Primitive** (v1.3 opener per D-01) — make VTP evidence a first-class input to every SGSD planning / research / triage surface: `sgsd-triage` Step 0 VTP-router, `gsd-phase-researcher` + `gsd-planner` + `gsd-codebase-mapper` (re-targeted per E-01) + `gsd-assumptions-analyzer` agent patches, shared `vtp-context-composer.cjs` helper, `.planning/metrics/vtp-routing-log.jsonl` telemetry, and `vtp_advise_service_enrichment` integration (LIVE 2026-04-23 — Wave C unblocker resolved). CONTEXT: [16-CONTEXT.md](milestones/v1.3/phases/16-vtp-enrichment/16-CONTEXT.md) · RESEARCH: [16-RESEARCH.md](milestones/v1.3/phases/16-vtp-enrichment/16-RESEARCH.md) · PATTERNS: [16-PATTERNS.md](milestones/v1.3/phases/16-vtp-enrichment/16-PATTERNS.md). Lifts deferred item from Phase 13 §deferred:237.
+- [x] Phase 16: VTP Enrichment as Cross-Phase Primitive — 3/3 plans (VTP-01..VTP-10)
+- [x] Phase 14: Codex CLI Provider Substrate — 4/4 plans (CODEX-01..CODEX-06, shipped dark)
+- [x] Phase 15: Codex-Routed Gates + Qualitative MUDA Probe — 5/5 plans across 4 serialized waves (CODEX-07..CODEX-12, shipped live with first Codex invocation captured 2026-04-24T02:39:05Z)
 
-  **Plans:** 3 plans (1 per wave)
-  - [ ] 16-01-wave-a-primitive-PLAN.md — composer + triage Step 0 + config toggle + smoke (VTP-01, VTP-04, VTP-05, VTP-09, VTP-10)
-  - [ ] 16-02-wave-b-agent-patches-PLAN.md — 4 agent frontmatter + body patches (VTP-02, VTP-03, VTP-06, VTP-07)
-  - [ ] 16-03-wave-c-advise-PLAN.md — /sgsd-vtp-advise standalone skill + sepl major-detection + advise-enrich (VTP-08a, VTP-08b)
-- **Phase 14: Codex CLI Provider Substrate** (depends on Phase 16 per D-01 — inherits VTP-grounded context for Codex reviewers) — dark-launch the reviewer-provider substrate: `codex-exec.sh`, `review-providers.yaml`, `reviewer_provider:` gate schema, `sgsd-codex-reviewer` stub, provider contract harness, and config kill-switch. No live Codex routing yet.
-- **Phase 15: Codex-Routed Gates + Qualitative MUDA Probe** — flip review-shaped ATC gates to Codex by registry, add a cross-vendor adversarial challenger, land the first qualitative overproduction probe in MUDA, and ship a milestone-close kill check.
+Full details: [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md)
+
+</details>
 
 <details>
 <summary>✅ v1.1 Self-Audit (Phases 1-8) — SHIPPED 2026-04-21</summary>

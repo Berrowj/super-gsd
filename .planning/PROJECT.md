@@ -18,24 +18,30 @@ token efficiency, model selection, memory, quality gates, and crash recovery.
 
 ## Current State
 
-**Shipped:** v1.1 Self-Audit (2026-04-21) — 8 phases, 15 plans, full gap audit + 6/6 verifier + evidence L1/L2 PASS + ATC LITE clean.
+**Shipped:** v1.3 Multimodal Review — Codex Integration (2026-04-24) — 3 phases (14, 15, 16), 12 plans, 66 commits, 41 files changed, first live Codex invocation confirmed. See `.planning/milestones/v1.3-ROADMAP.md`.
 
-**Post-milestone landing:** DLB-01..06 deliberations shipped (memory topology, MUDA write-path, intent continuity, resource substrate, VTP audit sharpening, central distribution) plus SGSD v2 Phase A-E (registry + 8 executors + heartbeat + statusline + mission-control tile).
+**Previously shipped:**
+- v1.1 Self-Audit (2026-04-21) — 8 phases, 15 plans, full gap audit + 6/6 verifier + evidence L1/L2 PASS + ATC LITE clean
+- v1.2 Evidence-First Sharpening (Phases 9-13, shipped but never formally closed — retroactive close carries to v1.4)
 
-**2026-04-21 retro:** v1.2 sequencing locked to **v1.2-B (Evidence-first)** — ATC-147-evidence → Q2-gate-policy → Q3-plan-schema → Q6-machinery → Q7-governance. FLOOR-per-brief precedent set.
+**v1.3 Historic moment:** First live Codex sub-agent invocation captured 2026-04-24T02:39:05Z via the MUDA qualitative probe path. The config → `resolveReviewerProvider` → `shellDispatch` → `codex-exec.sh` → `codex exec` pipe is operational end-to-end (`model: gpt-5.4, sandbox: read-only`). SGSD is now cross-vendor at review-shaped gate surfaces.
 
-## Next Milestone Goals (v1.2 Evidence-First Sharpening)
+**Post-milestone landing (pre-v1.3):** DLB-01..06 deliberations shipped (memory topology, MUDA write-path, intent continuity, resource substrate, VTP audit sharpening, central distribution) plus SGSD v2 Phase A-E (registry + 8 executors + heartbeat + statusline + mission-control tile).
 
-**Goal:** Close the evidence gap exposed by Phase 8 audit and sharpen the governance surface around gates, plan schema, orchestrator machinery, and deliberation governance.
+## Next Milestone Goals (v1.4 — to be scoped)
 
-**Phase order (per retro RQ4):**
-1. **Phase 9 — ATC-147-evidence** (retroactive ATC on external `project-clarity-erp` Phase 147; blocks Phase 10 execution)
-2. **Phase 10 — Q2 gate policy** (keep/kill matrix for governance gates)
-3. **Phase 11 — Q3 plan schema v2** (declare `expected_ATC_tier` per plan)
-4. **Phase 12 — Q6 machinery** (orchestrator sharpenings Q6a-d)
-5. **Phase 13 — Q7 governance** (deliberate-skill sharpenings Q7a-g)
+v1.4 will likely bundle v1.3 tech debt + v1.2 retroactive close:
 
-**Open dependencies:** Phase 9 requires external `project-clarity-erp` Phase 147 retroactive-ATC completion. Scope v1.2 via `/gsd-new-milestone v1.2`.
+**v1.3 tech debt carry-over (7 items):**
+1. `codex_timeout_seconds` tuning (60s → 120-180s for qualitative analysis workloads)
+2. `providers-registry.cjs` WR-01 stale JSDoc + WR-02 dead code branch
+3. `sgsd-muda-audit.sh` WASTE.md display inconsistency (table vs raw JSON)
+4. Missing plan SUMMARYs (15-01, 15-03)
+5. P5 Codex Monitor `.planning/` artifact backfill (commit c8b2d25)
+6. REQUIREMENTS.md staleness (still v1.2 scope)
+7. v1.2 retroactive formal close (archive + tag)
+
+**New scope candidates:** To be determined via `/gsd-new-milestone v1.4` questioning + research + requirements definition pass.
 
 ## Key Decisions
 
