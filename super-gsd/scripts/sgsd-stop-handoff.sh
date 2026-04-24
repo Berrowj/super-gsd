@@ -138,17 +138,40 @@ fi
 # fires on operator-resumed sessions.
 PREV_CHAIN_DEPTH=0
 if [[ -f "$LOG_PATH" ]]; then
+    # Defensive WARN fix (post-CRIT-fix re-review): a malformed spawned row in
+    # handoff-log.jsonl could silently skip parse → filter → lineage, making the
+    # last GOOD spawned row appear to be the most recent → PREV_CHAIN_DEPTH
+    # undercount → MAX_CHAIN_DEPTH bypass. Mitigation: if ANY line in the log
+    # fails to JSON.parse, emit sentinel 'MALFORMED' and refuse the handoff.
+    # Operator must inspect + repair the log before handoff continues.
     PREV_CHAIN_DEPTH=$(node -e "
 try {
-  var rows = require('fs').readFileSync(process.argv[1],'utf8')
-    .split('\n').filter(Boolean)
-    .map(function(l){ try { return JSON.parse(l); } catch(e){ return null; } })
-    .filter(function(r){ return r && r.reason === 'spawned'; });
-  var last = rows.length ? rows[rows.length-1] : null;
-  var d = last && typeof last.chain_depth === 'number' ? last.chain_depth : 0;
-  process.stdout.write(String(d));
-} catch(e){ process.stdout.write('0'); }
+  var lines = require('fs').readFileSync(process.argv[1],'utf8').split('\n').filter(Boolean);
+  var malformed = false;
+  var spawned = [];
+  for (var i = 0; i < lines.length; i++) {
+    try {
+      var r = JSON.parse(lines[i]);
+      if (r && r.reason === 'spawned') spawned.push(r);
+    } catch (e) {
+      malformed = true;
+      break;
+    }
+  }
+  if (malformed) {
+    process.stdout.write('MALFORMED');
+  } else {
+    var last = spawned.length ? spawned[spawned.length-1] : null;
+    var d = last && typeof last.chain_depth === 'number' ? last.chain_depth : 0;
+    process.stdout.write(String(d));
+  }
+} catch (e) { process.stdout.write('0'); }
 " "$LOG_PATH" 2>/dev/null || echo "0")
+    # Malformed-log refusal — safest posture
+    if [[ "$PREV_CHAIN_DEPTH" == "MALFORMED" ]]; then
+        _log_row "refused" 0 ",\"refused\":\"malformed_log\",\"log_path\":\"$LOG_PATH\""
+        exit 0
+    fi
     # Sanitize — non-numeric falls back to 0
     if ! [[ "$PREV_CHAIN_DEPTH" =~ ^[0-9]+$ ]]; then
         PREV_CHAIN_DEPTH=0
