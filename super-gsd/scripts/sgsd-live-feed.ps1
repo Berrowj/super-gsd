@@ -88,17 +88,66 @@ $processLine = {
     }
 }
 
-# Process history
+$codexLogPath = Join-Path $ProjectDir ".planning\metrics\codex-log.jsonl"
+
+# Process history: seed display with last 30 activity lines
 $recent = Get-Content $logPath -Tail 30 -ErrorAction SilentlyContinue
 foreach ($line in $recent) {
     & $processLine $line
 }
 
 Write-Host ""
-Write-Host "--- Live (waiting for activity) ---" -ForegroundColor Yellow
+Write-Host "[act] = activity-log events  [cdx] = codex-log reviews" -ForegroundColor DarkGray
+Write-Host "--- watching activity-log + codex-log (Ctrl-C to stop) ---" -ForegroundColor DarkGray
 Write-Host ""
 
-# Stream new lines as they're appended
-Get-Content $logPath -Wait -Tail 0 | ForEach-Object {
-    & $processLine $_
+# Snapshot-diff polling: avoids Get-Content -Wait blocking on dual-source
+# (RESEARCH GAP-4: cannot add second -Wait; snapshot every 1500ms instead)
+$activitySeenCount = (Get-Content $logPath -ErrorAction SilentlyContinue | Measure-Object -Line).Lines
+if ($null -eq $activitySeenCount) { $activitySeenCount = 0 }
+$codexSeenCount = 0
+$renderedTsSet  = [System.Collections.Generic.HashSet[string]]::new()
+
+while ($true) {
+    Start-Sleep -Milliseconds 1500
+
+    # Activity log: emit only new lines since last check
+    $actLines = @(Get-Content $logPath -ErrorAction SilentlyContinue)
+    if ($actLines.Count -gt $activitySeenCount) {
+        $newAct = $actLines[$activitySeenCount..($actLines.Count - 1)]
+        foreach ($line in $newAct) {
+            & $processLine $line
+            try {
+                $e = $line | ConvertFrom-Json -ErrorAction Stop
+                $ts = if ($e.ts) { "$($e.ts)" } else { "" }
+                if ($ts) { [void]$renderedTsSet.Add($ts) }
+            } catch { }
+        }
+        $activitySeenCount = $actLines.Count
+    }
+
+    # Codex log: distinct [cdx] prefix + color per exit code
+    if (Test-Path $codexLogPath) {
+        $cdxLines = @(Get-Content $codexLogPath -ErrorAction SilentlyContinue)
+        if ($cdxLines.Count -gt $codexSeenCount) {
+            $newCdx = $cdxLines[$codexSeenCount..($cdxLines.Count - 1)]
+            foreach ($line in $newCdx) {
+                try {
+                    $e = $line | ConvertFrom-Json -ErrorAction Stop
+                    $ts   = if ($e.ts)   { "$($e.ts)" }   else { "" }
+                    $step = if ($e.step) { "$($e.step)" } else { "" }
+                    # Dedup: skip if ts already rendered by activity-log heartbeat
+                    if ($ts -and $renderedTsSet.Contains($ts)) { continue }
+                    $exitCode = if ($null -ne $e.exit) { "exit=$($e.exit)" } else { "" }
+                    $dur      = if ($e.duration_ms)    { "dur=$($e.duration_ms)ms" } else { "" }
+                    $fb       = if ($e.fallback_triggered) { "[FALLBACK]" } else { "" }
+                    $cdxColor = if ($e.exit -eq 0) { "DarkCyan" } elseif ($e.exit -eq 5) { "DarkYellow" } else { "Red" }
+                    Write-Host ("[cdx] $ts $step $exitCode $dur $fb") -ForegroundColor $cdxColor
+                } catch {
+                    Write-Host ("[cdx] $line") -ForegroundColor DarkCyan
+                }
+            }
+            $codexSeenCount = $cdxLines.Count
+        }
+    }
 }
