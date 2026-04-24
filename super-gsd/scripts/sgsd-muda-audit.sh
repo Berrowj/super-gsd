@@ -188,7 +188,7 @@ PROBE_ROWS=$(
                     narrative_age_sec: { threshold: "warn>1800s fail>3600s", waste_class: "waiting" },
                     git_spawn_pct:     { threshold: "warn>20% fail>40%", waste_class: "motion" },
                     extra_processing:  { threshold: "warn>3 fail>8", waste_class: "extra-processing" },
-                    inventory:         { threshold: "warn>0 fail>5 calibrated", waste_class: "inventory" }
+                    inventory:         { threshold: "warn>2 fail>5 calibrated_per_milestone", waste_class: "inventory" }
                 };
                 const clean = (v) => String(v == null ? "" : v).replace(/\r?\n/g, " ").replace(/\t/g, " ");
                 const rows = Object.keys(defaults).map(name => {

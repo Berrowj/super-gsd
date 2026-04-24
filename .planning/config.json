@@ -164,5 +164,12 @@
       "warn": "batched",
       "pass": "skip"
     }
+  },
+  "muda": {
+    "inventory_thresholds": {
+      "warn_per_milestone": 2,
+      "fail_per_milestone": 5,
+      "_doc": "MUDAC-02: linear-scale inventory probe thresholds. Final threshold = base * count of dirs in .planning/milestones/. Defaults match codebase fallbacks; absent config block produces identical behaviour."
+    }
   }
 }

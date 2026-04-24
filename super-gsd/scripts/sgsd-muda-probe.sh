@@ -201,9 +201,47 @@ else
     inventory_evidence="0 stale scratch/draft/temp planning artifacts >3d"
 fi
 rm -f "$inventory_list"
+
+# MUDAC-02: config-driven, milestone-count-scaled inventory thresholds.
+# Default: warn=2, fail=5 per milestone. Threshold scales linearly with active
+# milestone count, so a 2-milestone project tolerates 4 stale artifacts before
+# WARN, a 5-milestone project tolerates 10. Closes the constant-WARN-at-N=1
+# noise that fired in v1.5 Phase 21+22 audits.
+INVENTORY_WARN_BASE=2
+INVENTORY_FAIL_BASE=5
+if [[ -f "$ROOT/.planning/config.json" ]] && command -v node >/dev/null 2>&1; then
+    cfg_thresholds="$(node -e '
+        try {
+            const j = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+            const t = j && j.muda && j.muda.inventory_thresholds;
+            if (t) {
+                if (Number.isFinite(t.warn_per_milestone) && t.warn_per_milestone >= 0) process.stdout.write("WARN_BASE=" + Math.floor(t.warn_per_milestone) + "\n");
+                if (Number.isFinite(t.fail_per_milestone) && t.fail_per_milestone >= 0) process.stdout.write("FAIL_BASE=" + Math.floor(t.fail_per_milestone) + "\n");
+            }
+        } catch (e) { /* silent: keep hardcoded defaults */ }
+    ' "$ROOT/.planning/config.json" 2>/dev/null || true)"
+    while IFS='=' read -r key val; do
+        val="${val%%[^0-9]*}"
+        case "$key" in
+            WARN_BASE) [[ -n "$val" ]] && INVENTORY_WARN_BASE="$val" ;;
+            FAIL_BASE) [[ -n "$val" ]] && INVENTORY_FAIL_BASE="$val" ;;
+        esac
+    done <<< "$cfg_thresholds"
+fi
+
+milestone_count=0
+if [[ -d "$ROOT/.planning/milestones" ]]; then
+    milestone_count=$(find "$ROOT/.planning/milestones" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
+fi
+[[ "$milestone_count" -lt 1 ]] && milestone_count=1
+
+inventory_warn_threshold=$((INVENTORY_WARN_BASE * milestone_count))
+inventory_fail_threshold=$((INVENTORY_FAIL_BASE * milestone_count))
+inventory_threshold_str="warn>${inventory_warn_threshold} fail>${inventory_fail_threshold} calibrated_per_milestone"
+
 inventory_verdict="PASS"
-[[ "$inventory_count" -gt 0 ]] && inventory_verdict="WARN"
-[[ "$inventory_count" -gt 5 ]] && inventory_verdict="FAIL"
+[[ "$inventory_count" -gt "$inventory_warn_threshold" ]] && inventory_verdict="WARN"
+[[ "$inventory_count" -gt "$inventory_fail_threshold" ]] && inventory_verdict="FAIL"
 
 # ── Aggregate top-level verdict for exit code ───────────────────────────────
 overall=0
@@ -219,7 +257,7 @@ done
 esc() { printf '%s' "$1" | sed 's/\\\\/\\\\\\\\/g; s/"/\\\\"/g'; }
 
 cat <<JSON
-{"project":"$(esc "$ROOT")","generated_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","probes":{"haiku_fails":{"value":$haiku_fails,"verdict":"$haiku_verdict","threshold":"warn>=3 fail>=8","evidence":"$(esc "$haiku_evidence")","waste_class":"defects"},"narrative_age_sec":{"value":$narrative_age,"verdict":"$narr_verdict","threshold":"warn>1800 fail>3600","evidence":"$(esc "$narrative_evidence")","waste_class":"waiting"},"git_spawn_pct":{"value":$git_pct,"verdict":"$git_verdict","threshold":"warn>20% fail>40%","evidence":"$(esc "$git_evidence")","waste_class":"motion"},"extra_processing":{"value":$extra_processing_count,"verdict":"$extra_processing_verdict","threshold":"warn>3 fail>8","evidence":"$(esc "$extra_processing_evidence")","waste_class":"extra-processing"},"inventory":{"value":$inventory_count,"verdict":"$inventory_verdict","threshold":"warn>0 fail>5 calibrated","evidence":"$(esc "$inventory_evidence")","waste_class":"inventory"}},"overall_exit":$overall}
+{"project":"$(esc "$ROOT")","generated_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","probes":{"haiku_fails":{"value":$haiku_fails,"verdict":"$haiku_verdict","threshold":"warn>=3 fail>=8","evidence":"$(esc "$haiku_evidence")","waste_class":"defects"},"narrative_age_sec":{"value":$narrative_age,"verdict":"$narr_verdict","threshold":"warn>1800 fail>3600","evidence":"$(esc "$narrative_evidence")","waste_class":"waiting"},"git_spawn_pct":{"value":$git_pct,"verdict":"$git_verdict","threshold":"warn>20% fail>40%","evidence":"$(esc "$git_evidence")","waste_class":"motion"},"extra_processing":{"value":$extra_processing_count,"verdict":"$extra_processing_verdict","threshold":"warn>3 fail>8","evidence":"$(esc "$extra_processing_evidence")","waste_class":"extra-processing"},"inventory":{"value":$inventory_count,"verdict":"$inventory_verdict","threshold":"$inventory_threshold_str","evidence":"$(esc "$inventory_evidence")","waste_class":"inventory"}},"overall_exit":$overall}
 JSON
 
 exit $overall
