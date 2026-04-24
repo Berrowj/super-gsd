@@ -308,3 +308,75 @@ function Get-SgsdCodexTimelineRows {
 
     return @($rows | Sort-Object ts -Descending | Select-Object -First $MaxRows)
 }
+
+function Get-SgsdCodexVerdicts {
+    <#
+    .SYNOPSIS
+      Reads commit-reviews.jsonl files under .planning/milestones/**/phases/**
+      and .planning/phases/** to produce a rolling view of what Codex found
+      during per-dispatch + phase-level ATC reviews.
+
+    .DESCRIPTION
+      Each verdict row carries critical/warning counts + ONE_LINER from the
+      Codex 5-line contract. The Codex Monitor pane renders these as
+      "little descriptions of any issues Codex found" — the operator's
+      explicit ask for tracking review progress at a glance.
+
+      Source files: **/commit-reviews.jsonl (one JSON per line).
+      Required fields per row: ts, plan, provider, critical, warning, one_liner.
+      Optional: tier, verdict, note.
+
+    .PARAMETER PlanningDir
+      Path to .planning directory (absolute or relative).
+
+    .PARAMETER MaxRows
+      Maximum verdicts to return (sorted ts descending). Default 5.
+
+    .PARAMETER ProviderFilter
+      If set, only return rows where provider matches (e.g. "openai-codex"
+      to exclude claude-via-fallback). Default: all providers.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$PlanningDir,
+        [int]$MaxRows = 5,
+        [string]$ProviderFilter = ""
+    )
+
+    $verdicts = New-Object System.Collections.Generic.List[object]
+
+    $searchRoots = @(
+        (Join-Path $PlanningDir "milestones"),
+        (Join-Path $PlanningDir "phases")
+    ) | Where-Object { Test-Path $_ }
+
+    foreach ($root in $searchRoots) {
+        try {
+            $files = Get-ChildItem -Path $root -Recurse -Filter "commit-reviews.jsonl" -ErrorAction SilentlyContinue -Force
+            foreach ($f in $files) {
+                try {
+                    foreach ($line in (Get-Content $f.FullName -ErrorAction SilentlyContinue)) {
+                        if (-not "$line".Trim()) { continue }
+                        try {
+                            $r = $line | ConvertFrom-Json -ErrorAction Stop
+                            if ($ProviderFilter -and "$($r.provider)" -ne $ProviderFilter) { continue }
+                            $verdicts.Add([pscustomobject]@{
+                                ts        = [DateTime]::Parse($r.ts)
+                                plan      = "$($r.plan)"
+                                tier      = "$($r.tier)"
+                                verdict   = "$($r.verdict)"
+                                critical  = [int]($r.critical)
+                                warning   = [int]($r.warning)
+                                one_liner = "$($r.one_liner)"
+                                provider  = "$($r.provider)"
+                                note      = "$($r.note)"
+                                source    = $f.FullName
+                            })
+                        } catch {}
+                    }
+                } catch {}
+            }
+        } catch {}
+    }
+
+    return @($verdicts | Sort-Object ts -Descending | Select-Object -First $MaxRows)
+}

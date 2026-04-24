@@ -119,6 +119,7 @@ function Render {
     $codex = Get-SgsdCodexStatus -ProjectDir $ProjectDir -PlanningDir $PlanningDir
     $events = Get-SgsdCodexEvents -PlanningDir $PlanningDir -PhaseNum $phaseNum -MaxEvents 8
     $rows = Get-SgsdCodexLogRows -PlanningDir $PlanningDir -MaxRows 6
+    $verdicts = Get-SgsdCodexVerdicts -PlanningDir $PlanningDir -MaxRows 5
 
     Write-Host "SUPER GSD" -NoNewline -ForegroundColor Magenta
     Write-Host " ! " -NoNewline -ForegroundColor Cyan
@@ -194,6 +195,28 @@ function Render {
         Write-Host ": " -NoNewline -ForegroundColor DarkGray
         Write-Host (Trunc $codex.stderrPreview ($pw - 9)) -NoNewline -ForegroundColor Red
         Write-Host $CLEAR_LINE
+    }
+
+    Write-Host $CLEAR_LINE
+    Write-Host "RECENT VERDICTS" -NoNewline -ForegroundColor White
+    Write-Host "  " -NoNewline -ForegroundColor DarkGray
+    Write-Host "(commit-reviews.jsonl)" -NoNewline -ForegroundColor DarkGray
+    Write-Host $CLEAR_LINE
+    if ($verdicts.Count -eq 0) {
+        Write-Host "  no verdicts yet - ATC gates have not produced commit-reviews rows" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+    } else {
+        foreach ($vr in $verdicts) {
+            $verdictColor = if ($vr.critical -gt 0) { "Red" } elseif ($vr.warning -gt 0) { "Yellow" } else { "Green" }
+            $countLabel = "c=$($vr.critical) w=$($vr.warning)"
+            $tierLabel = if ($vr.tier) { "[$($vr.tier)]" } else { "" }
+            Write-Host "  $($vr.ts.ToString('HH:mm:ss')) " -NoNewline -ForegroundColor DarkGray
+            Write-Host $vr.plan.PadRight(8) -NoNewline -ForegroundColor Cyan
+            Write-Host $tierLabel.PadRight(7) -NoNewline -ForegroundColor DarkCyan
+            Write-Host $countLabel.PadRight(10) -NoNewline -ForegroundColor $verdictColor
+            Write-Host (Trunc $vr.one_liner ($pw - 40)) -NoNewline -ForegroundColor Gray
+            Write-Host $CLEAR_LINE
+        }
     }
 
     Write-Host $CLEAR_LINE
