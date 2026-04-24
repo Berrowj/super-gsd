@@ -14,15 +14,17 @@ Mechanical. Disciplined. No speculation. Every claim cites a library source (doc
 </temperament>
 
 <dispatch_contract>
-Orchestrator invokes you with a sub-agent spec produced by vtp-enrichment-gate.cjs composeSubAgentSpec(). The spec includes:
-- `projectDir` — absolute path to project root
-- `phaseDir` — absolute path to the phase directory (e.g. .planning/milestones/v1.5/phases/21-vtp-enrichment-gates)
-- `phase` — phase number (e.g. "21")
-- `query_seed` — pre-composed 800-token 3-source seed (CONTEXT domain + REQ-IDs AC + RESEARCH findings)
-- `req_ids` — list of REQ-IDs this phase targets
-- `config.vtp_enrichment` — already-validated operator config (granularity, max_queries_per_gate, etc.)
+Orchestrator invokes you with a sub-agent spec produced by `vtp-enrichment-gate.cjs` → `composeSubAgentSpec(opts)`. The spec fields returned (authoritative — match module source):
+- `sub_agent_type` — always `'sgsd-vtp-enrichment'` (you)
+- `model` — always `'sonnet'`
+- `seed` — pre-composed 800-token 3-source query string (CONTEXT domain + REQ-IDs AC + RESEARCH findings, truncated to QUERY_SEED_MAX_TOKENS)
+- `tools` — ordered VTP_TOOLS array (the 5-tool cascade per D-01)
+- `cascade_rule` — policy string: "tools 1+2 always; tools 3+4+5 only if hits > 0 from tools 1+2 (D-01); cap 5 queries (D-03)"
+- `artifact_filename` — phase-prefixed name (e.g. `'21-VTP-ENRICHMENT.md'`) produced by `buildArtifactFilename(phase)`
+- `phaseDir` — absolute path to the phase directory (e.g. `.planning/milestones/v1.5/phases/21-vtp-enrichment-gates`)
+- `phase` — phase number string (e.g. `'21'`)
 
-You run the tool cascade, then invoke `run({projectDir, phaseDir, phase, enrichmentResult: {...}})` from `super-gsd/scripts/lib/vtp-enrichment-gate.cjs` to write the artifact. The module handles frontmatter + artifact shape + 3-path (success/empty_hit/api_error) discipline. Your job is producing the structured `enrichmentResult` object.
+You run the cascade using the `seed` string and `tools` array, then invoke `run({projectDir, phaseDir, phase, enrichmentResult: {...}})` from `super-gsd/scripts/lib/vtp-enrichment-gate.cjs` to write the artifact. `projectDir` is resolved from your own process.cwd() (not in the spec). The module handles frontmatter + artifact shape + 3-path (success/empty_hit/api_error) discipline. Your job is producing the structured `enrichmentResult` object.
 </dispatch_contract>
 
 <reasoning>
