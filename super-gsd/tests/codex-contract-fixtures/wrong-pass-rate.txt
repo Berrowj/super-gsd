@@ -1,0 +1,5 @@
+FINDINGS: 0
+CRITICAL: 0
+WARNINGS: 0
+PASS_RATE: 100%
+ONE_LINER: PASS_RATE as percentage not fraction should fail.

@@ -1,0 +1,5 @@
+Some preamble text FINDINGS: 3 embedded in sentence
+CRITICAL: 0
+WARNINGS: 0
+PASS_RATE: 8/10
+ONE_LINER: FINDINGS not at line start should fail startsWith check.

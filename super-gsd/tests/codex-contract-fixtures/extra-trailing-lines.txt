@@ -1,0 +1,6 @@
+FINDINGS: 0
+CRITICAL: 0
+WARNINGS: 0
+PASS_RATE: 10/10
+ONE_LINER: Clean report with trailing notes.
+FINDINGS_DETAIL: [INFO] [style] Minor whitespace inconsistency on line 3

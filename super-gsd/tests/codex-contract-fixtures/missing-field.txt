@@ -1,0 +1,4 @@
+FINDINGS: 1
+WARNINGS: 1
+PASS_RATE: 9/10
+ONE_LINER: Missing CRITICAL field should trigger parse_failure.

@@ -1,0 +1,5 @@
+FINDINGS: two
+CRITICAL: 0
+WARNINGS: 1
+PASS_RATE: 9/10
+ONE_LINER: Non-integer FINDINGS should fail regex guard.
