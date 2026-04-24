@@ -1,99 +1,111 @@
 ---
-created_at: "2026-04-24T03:50:00.000Z"
-active_milestone: v1.3
-active_phase: null
-last_completed: "Phase 15 SHIPPED — all 6 CODEX deliverables + first live Codex invocation captured"
-next_unit: "MILESTONE CLOSE — /sgsd-audit-milestone v1.3 then /gsd-complete-milestone"
-phase_state: "milestone-ready"
-units_this_session: 10
-estimated_tokens_used: ~700000
-milestone_status: v1.3 COMPLETE (3/3 phases shipped)
+created_at: "2026-04-24T12:00:00.000Z"
+active_milestone: v1.4
+active_phase: 17
+last_completed: "v1.3 shipped + tag + archive (a3cca94 audit pass, 60df9a1 archive, 4c37e4e Codex sync + smoke test, bda43ce v1.4 init, 75f8cbd Phase 17 CONTEXT)"
+next_unit: "Phase 17 planning — dispatch gsd-planner (Sonnet) with 17-CONTEXT.md + 17-DISCUSSION-LOG.md + v1.3-MILESTONE-AUDIT.md tech_debt block"
+phase_state: "discussed-not-planned"
+units_this_session: 18
+estimated_tokens_used: ~950000
+milestone_status: v1.4 ACTIVE (0/3 phases, 0/7 plans, 0% progress)
+context_percent_at_write: ~85
+emergency_halt: true
+emergency_halt_reason: "Session accumulated ~950k tokens spanning v1.3 phase close + milestone audit + milestone close + v1.4 initialization + Phase 17 discussion. Loading the newly-synced 1,460-line sgsd-orchestrate SKILL.md (~75k) at entry to this /sgsd-orchestrate go invocation crossed the 85% threshold. Dispatching a researcher or planner (~50-100k internal tokens each) would force emergency mid-task halt. Cleanest exit is a checkpoint at the Phase 17 phase-boundary BEFORE any heavy dispatch."
+dispatches_summary:
+  total: 17
+  by_agent:
+    executor: 8
+    planner: 1
+    researcher: 1
+    plan_checker: 1
+    verifier: 2
+    classifier: 1
+    code_reviewer: 3
+  by_outcome:
+    pass: 15
+    warn: 2
+    blocker: 0
+resume_instruction: "Enter fresh /sgsd-orchestrate go — it will re-read this checkpoint, skip cold-start, and resume loop at next_unit (Phase 17 planning). SKILL.md is already synced to ~/.claude/commands/sgsd-orchestrate (1,460 lines, 2026-04-24 10:10 mtime) so the new resolveReviewerProvider + shellDispatch wiring will be active from first iteration."
 ---
 
-## Session Summary — 2026-04-24 (Wave 2 onwards, Phase 15 close)
+## Session Summary — 2026-04-24 marathon (v1.3 close + v1.4 kickoff)
 
-**HISTORIC**: First live Codex-as-sub-agent invocation captured this session. MUDA qualitative probe shelled to codex-exec.sh successfully (model=gpt-5.4, provider=openai, 35KB prompt, sandbox=read-only) — timed out at 60s but the shell-dispatch pipe is proven operational end-to-end. Evidence in `.planning/metrics/codex-log.jsonl` + `codex-live.json` (committed at d7f8ff6).
+### v1.3 Milestone SHIPPED + formally closed
 
-### Completed This Session (Session 2, resumed from prior checkpoint)
+- `a3cca94` milestone audit re-pass after retroactive Phase 16 verification closed the only gap
+- `60df9a1` v1.3 archive files created (v1.3-ROADMAP.md + v1.3-REQUIREMENTS.md + v1.3-MILESTONE-AUDIT.md moved to milestones/)
+- git tag `v1.3` created (annotated, on commit `60df9a1`)
+- Historic: First live Codex sub-agent invocation captured 2026-04-24T02:39:05Z (MUDA qualitative probe path) + second successful invocation at T02:39:05 via direct contract path (46s, exit 0, 160B report with full FINDINGS contract)
 
-**Wave 1 cleanup**:
-- `65781ce` `fix(15-02/hotfix)`: awk `$4+$6` extracts insertions+deletions not file count (WR-01)
-- `d695624` `fix(15-02/hotfix)`: curate_finding arg order + prefix de-dupe (WR-02)
-- Per-dispatch ATC for 15-02 (gsd-code-reviewer Sonnet) — found 2 correctness bugs, both hotfixed above
+### Installer sync — major finding + fix
 
-**Wave 2 — THE switch-flip** (single plan, serialized):
-- `47a3a62..{}` plan 15-01 `feat(15-01/T1..T5)`: W-1 providers-registry predicate narrowing + SKILL.md Step 6.5/9.5 resolveReviewerProvider wiring + GATE_PROVIDER_FALLBACK (HiveMind centralized-retry pattern) + codex-exec.sh W-4 numeric --phase guard + gates.yaml 3-row flip to codex-cli-reviewer + registry_version 2.1.0 + **config.json codex_enabled: true MASTER SWITCH ON**
-- Per-dispatch ATC for 15-01 (gsd-code-reviewer Sonnet) — PASS-WITH-WARNINGS (0 critical, 2 warnings, 1 info): stale JSDoc + dead code branch (carry-overs from Phase 14, not hotfixed — deferred to follow-up)
+- Diagnosed: `~/.claude/commands/sgsd-orchestrate/SKILL.md` was stuck at 697 lines from 2026-04-20 — all v1.3 wiring (resolveReviewerProvider, shellDispatch, GATE_PROVIDER_FALLBACK) existed in `super-gsd/skills/` source but never reached Claude Code's active skill.
+- Fixed via `bash super-gsd/install.sh --skip-brv` — active skill now 1,460 lines (74KB) with full wiring.
+- Raised `codex_timeout_seconds: 60 → 180` in `.planning/config.json` (earlier MUDA probe timed out at 60s on 35KB prompt).
+- Commit `4c37e4e` covers both.
 
-**Wave 3** (serialized):
-- `a93de2f` `feat(15-04/T1)` + `9708cd9` summary: SKILL.md Step 9.6 cross-vendor adversarial challenger routes to Codex via shellDispatch, sampling rate 0.2 preserved, VERIFIER_ADVERSARIAL_SKIP on unavailable
-- Per-dispatch ATC skipped (docs-only dispatch per Step 9.5 filter)
+### v1.4 Clean Close + Codex Visibility — INITIATED
 
-**Wave 4** (serialized):
-- `b0ef1fb` `feat(15-05/T1)`: sgsd-token-audit --milestone-close-check subcommand
-- `5b6df30` `feat(15-05/T2)`: sgsd-complete-milestone Steps 3-8 → 4-9 renumber + new Step 3 kill-check
-- `35180c3` `feat(15-05/T3)`: Phase 15 verify.mjs — 9 invariants CODEX-07..CODEX-12, all PASS
-- `6022125` `docs(15-05)`: plan close summary
+- `bda43ce` v1.4 init: REQUIREMENTS.md fresh (14 REQ-IDs across CLEAN/CXOPS/MC), ROADMAP.md Phases 17-19 added, PROJECT.md Current Milestone updated, STATE.md reset, stale v1.2 REQUIREMENTS.md archived as `.planning/milestones/v1.2-REQUIREMENTS.md` (partial CLEAN-05 credit).
+- `75f8cbd` Phase 17 CONTEXT.md captured via interactive discuss-phase:
+  - D-01: Wave grouping by category (17-01 code debt / 17-02 process debt / 17-03 milestone ceremony)
+  - D-02: v1.2 tag target = commit `0191168` (last commit before Phase 16 seed `e74a763`)
+  - D-03: codex_timeout tier resolver = step-name fallback + `--timeout-tier {default|review|analysis|custom:N}` explicit override
+  - D-04: P5 retroactive artifact location = `.planning/milestones/v1.3/phases/p5-codex-monitor/`
+  - D-05: 15-01/15-03 SUMMARY backfill mirrors 15-02/15-04/15-05 frontmatter
+  - D-06: Phase 17 per-dispatch ATC routes through Codex — captures CXOPS-03 dogfood evidence ahead of Phase 18
 
-**Phase close gates**:
-- Verifier (gsd-verifier): PASS — 6/6 V-predicates + D-24 clean + VTP citations honest + verify.mjs 9/9
-- Phase-ATC (gsd-code-reviewer at FULL tier): PASS-WITH-WARNINGS (0 critical, 4 warnings)
-  - WR-01/WR-02: same carry-overs as above (open, deferred)
-  - WR-03 (NEW): Step 9.6 `.invocation_type` typo — adversarial challenger never dispatches (CRITICAL in practice but flagged as WARNING by reviewer)
-  - WR-04 (NEW): COMMITS_IN_PHASE default issue in muda-audit — multi-commit phases under-count DIFF_LINES
-  - Both NEW warnings hotfixed:
-    - `68003b9` `fix(15-phase-hotfix)`: WR-03 Step 9.6 .invocation_type → .invocation (adversarial challenger dispatch restored)
-    - `2d1d340` `fix(15-phase-hotfix)`: WR-04 sgsd-muda-audit COMMITS_IN_PHASE auto-derived from git log
-- MUDA audit (Step 6.55): 0 WARN, 0 FAIL mechanical + FIRST LIVE CODEX INVOCATION captured
-- Browser verify (Step 6.6): SKIPPED (no frontend globs)
-- `d7f8ff6` `docs(15): phase close — CODEX-07..12 wired, verify.mjs 9/9, FIRST LIVE CODEX INVOCATION`
+## Next Action
 
-### Milestone v1.3 Status
+**First action on fresh session:** `/sgsd-orchestrate go`
 
-**COMPLETE — 3/3 phases shipped**:
-- Phase 14 ✓ — reviewer-provider substrate (shipped dark)
-- Phase 15 ✓ — switch-flip + qualitative probe + kill condition (shipped live, **Codex invocation confirmed**)
-- Phase 16 ✓ — VTP-enriched dispatch (shipped earlier)
+Loop will:
+1. Read this checkpoint, resume at next_unit
+2. Skip Phase 17 cold-start (CONTEXT.md already present)
+3. Rule 6.b: Phase 17 needs RESEARCH.md OR skip research per config — check `workflow.research` setting. If true, dispatch gsd-phase-researcher. If false, rule 6.c applies.
+4. Rule 6.c: Dispatch gsd-planner (Sonnet) with 17-CONTEXT.md as authoritative scope
+5. Planner produces 17-PLAN-INDEX.md + 17-01-code-debt-PLAN.md + 17-02-process-debt-PLAN.md + 17-03-milestone-ceremony-PLAN.md + 17-VALIDATION.md
+6. Continue into Rule 6.d plan-check → 6.e executor dispatches (Wave 1 = 17-01, then 17-02, then 17-03 per D-01 serialization)
 
-### Next Actions (outside orchestrator loop)
+**First dogfood opportunity:** Plan 17-01's code-debt commits (providers-registry.cjs + sgsd-muda-audit.sh) will trigger per-dispatch ATC at tier=full. With `codex_enabled: true` + synced SKILL.md + gates.yaml pointing `per-dispatch-ATC` at `codex-cli-reviewer`, Step 9.5 SHOULD shell to codex-exec.sh via resolveReviewerProvider. Observing a new row in `.planning/metrics/codex-log.jsonl` with `step: "9.5"` and `provider: "openai-codex"` satisfies CXOPS-03 retroactively. Watch for it.
 
-1. `/sgsd-audit-milestone v1.3` — audit v1.3 completion against original intent (Codex integration, qualitative waste probes, multi-vendor review diversity, kill-condition lifecycle)
-2. `/gsd-complete-milestone` — archive v1.3 + prepare v1.4 (new milestone from backlog)
+## Remaining Work
 
-### Open follow-up items (non-blocking, for v1.4 or ad-hoc)
+**v1.4 milestone (0/3 phases, 0/7 plans shipped):**
 
-- `providers-registry.cjs` WR-01 JSDoc drift (stale `reviewer_agent` shape-discriminator reference) + WR-02 dead code branch at line 157-158
-- `codex_timeout_seconds` tuning — 60s was insufficient for the qualitative probe's 35KB prompt; consider raising to 120-180s for analysis workloads. Config value should live in `config.json.review_providers.codex_timeout_seconds`.
-- MUDA script display inconsistency — WASTE.md table shows only 3 mechanical probes but raw JSON contains 5 (extra_processing + inventory); summary sentence "All three probes PASS" doesn't reflect inventory FAIL in raw JSON. Summary-row generation out of sync with probe-result population.
-- Missing 15-01-SUMMARY.md and 15-03-SUMMARY.md (pattern is 5/5 plans have summaries; 2 are absent)
-- P5 Codex Monitor feature (committed at c8b2d25) has no `.planning/` artifact backing — backfill a retroactive SPEC/PLAN under super-gsd's own plan discipline
+| Phase | Name | Status | Plans | REQ-IDs |
+|---|---|---|---|---|
+| 17 | Debt Sweep | DISCUSSED — ready to plan | 3 | CLEAN-01..07 |
+| 18 | Codex Hardening | Not started | 2 | CXOPS-01..04 |
+| 19 | Mission Control Visibility | Not started | 2 | MC-01..05 |
 
-### What "first live Codex invocation" proves
+Phase 17 ∥ Phase 18 (independent). Phase 19 benefits from Phase 18 producing real Codex activity.
 
-The wiring chain works end-to-end:
-  config.json codex_enabled:true
-  → providers-registry.cjs.resolveReviewerProvider() returns codex-cli-reviewer
-  → invocation="shell" discriminator resolved
-  → bash shellDispatch → super-gsd/scripts/codex-exec.sh
-  → codex-exec.sh write_live_state("running") → codex-live.json
-  → `codex exec --sandbox read-only --ephemeral ...` (model gpt-5.4)
-  → stderr captured, JSONL appended, exit code propagated
+## Codex operational status
 
-What didn't work:
-  - Timeout at 60s for a 35KB qualitative-analysis prompt
-  - Needs codex_timeout_seconds tuning for this workload shape
-  - The shell pipe itself is not the issue
+**Active and wired end-to-end as of this session:**
+- `config.json.codex_enabled: true`
+- `codex_timeout_seconds: 180` (base, will be tier-sliced in CLEAN-07)
+- `gates.yaml` routes 3 rows to `codex-cli-reviewer` (per-dispatch-ATC, phase-level-ATC, qualitative-waste-audit; plus Step 9.6 adversarial challenger routes directly via CODEX-11 logic, not via resolveReviewerProvider)
+- `~/.claude/commands/sgsd-orchestrate/SKILL.md` (1460 lines) has full wiring
+- `~/.claude/super-gsd/scripts/lib/providers-registry.cjs` + `~/.claude/super-gsd/scripts/codex-exec.sh` deployed + executable
+- `codex-cli 0.123.0` on PATH
+- `codex-log.jsonl` has 2 historical rows proving wrapper operational (muda-qualitative timeout + smoke-test success)
 
-This is the milestone that proves the multi-vendor review architecture is real, not just scaffolded.
+**What will happen on first Phase 17 per-dispatch ATC:** orchestrator's loaded (new) SKILL.md Step 9.5 runs `gates.resolveReviewerProvider('per-dispatch-ATC', ...)` → returns `{name: "codex-cli-reviewer", invocation: "shell"}` → `shellDispatch(codex-exec.sh, ...)` → Codex reviews the diff → `codex-log.jsonl` grows → `commit-reviews.jsonl` gets a new row with `provider: "openai-codex"`.
 
-### VTP Substrate Status
+**Fallback:** On Codex non-zero exit, single retry to `claude-sonnet-reviewer` via `GATE_PROVIDER_FALLBACK` log event. Never blocks.
 
-Still OPERATIONAL (verified at session start of /sgsd-orchestrate go Session 1). Dispatch contract injection header used successfully in researcher/planner/plan-checker/executor/verifier/reviewer dispatches:
+## VTP Substrate Status
+
+Still OPERATIONAL. Dispatch contract injection header remains:
 ```
 <vtp_evidence status="real" query_frame="qf_08971fd9c2">
-  doc:6b62b76ceab5 (Autogenesis — AGP principles), doc:70a3d5757b6a (Shift-Up — dual-vendor), doc:5a50cc9b459e (HiveMind — centralized retry)
-  Reflection: too_generic (0.57) — architectural WHY only.
+  doc:6b62b76ceab5 (Autogenesis — AGP-P-02/03/04/05/07/08)
+  doc:70a3d5757b6a (Shift-Up — dual-vendor)
+  doc:5a50cc9b459e (HiveMind — centralized retry)
+  Reflection: too_generic (0.57) — architectural WHY only
 </vtp_evidence>
 ```
 
-Planner artifacts cited doc:6b62b76ceab5 AGP-P-02/03/04/05/07/08 and doc:5a50cc9b459e HiveMind centralized-retry pattern. Verifier confirmed 0 fabricated doc-IDs.
+New query frame for v1.4 planning dispatches should be generated fresh — Phase 17's goal (debt sweep) is architecturally distinct from v1.3's Codex integration.
