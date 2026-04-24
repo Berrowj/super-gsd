@@ -71,32 +71,52 @@ fi
 # Resolve phase directory. Accepts "8", "08", "8.1", or a full slug like
 # "08-sgsd-self-audit". Zero-pad integer phases to match directories that
 # always use 2-digit prefixes.
+#
+# Search roots (in order — first match wins, flat takes priority for back-compat):
+#   1. .planning/phases/                   — legacy flat layout (phases 01-08, 14-15)
+#   2. .planning/milestones/*/phases/      — milestone-nested layout (phases 17+)
+#
+# Fix-now 2026-04-24: added milestone-nested search after Phase 17 close surfaced
+# the gap — sgsd-muda-audit returned "phase 17 not found" for every v1.4+ phase
+# because Phase 17 lives under .planning/milestones/v1.4/phases/17-debt-sweep/.
 PHASE_DIR=""
-if [[ -d "$PROJECT/.planning/phases" ]]; then
-    # Pre-compute a zero-padded variant for matching (only if PHASE is all-digits
-    # or digits.digits — don't try to pad full slugs).
-    padded=""
-    if [[ "$PHASE" =~ ^[0-9]+$ ]] && [[ ${#PHASE} -lt 2 ]]; then
-        padded=$(printf '%02d' "$PHASE")
-    elif [[ "$PHASE" =~ ^[0-9]+\.[0-9]+$ ]]; then
-        intpart="${PHASE%%.*}"
-        decpart="${PHASE##*.}"
-        if [[ ${#intpart} -lt 2 ]]; then
-            padded=$(printf '%02d.%s' "$intpart" "$decpart")
-        fi
+# Pre-compute a zero-padded variant for matching (only if PHASE is all-digits
+# or digits.digits — don't try to pad full slugs).
+padded=""
+if [[ "$PHASE" =~ ^[0-9]+$ ]] && [[ ${#PHASE} -lt 2 ]]; then
+    padded=$(printf '%02d' "$PHASE")
+elif [[ "$PHASE" =~ ^[0-9]+\.[0-9]+$ ]]; then
+    intpart="${PHASE%%.*}"
+    decpart="${PHASE##*.}"
+    if [[ ${#intpart} -lt 2 ]]; then
+        padded=$(printf '%02d.%s' "$intpart" "$decpart")
     fi
-    for d in "$PROJECT/.planning/phases/"*/; do
-        name=$(basename "$d")
-        if [[ "$name" == "$PHASE" || "$name" == "$PHASE-"* ]]; then
-            PHASE_DIR="${d%/}"; break
-        fi
-        if [[ -n "$padded" && ( "$name" == "$padded" || "$name" == "$padded-"* ) ]]; then
-            PHASE_DIR="${d%/}"; break
-        fi
+fi
+
+# Build search-root list: flat first, then every milestone's phases/ dir
+SEARCH_ROOTS=()
+[[ -d "$PROJECT/.planning/phases" ]] && SEARCH_ROOTS+=("$PROJECT/.planning/phases")
+if [[ -d "$PROJECT/.planning/milestones" ]]; then
+    for m in "$PROJECT/.planning/milestones"/*/; do
+        [[ -d "${m}phases" ]] && SEARCH_ROOTS+=("${m}phases")
     done
 fi
+
+for root in "${SEARCH_ROOTS[@]}"; do
+    for d in "$root"/*/; do
+        name=$(basename "$d")
+        if [[ "$name" == "$PHASE" || "$name" == "$PHASE-"* ]]; then
+            PHASE_DIR="${d%/}"; break 2
+        fi
+        if [[ -n "$padded" && ( "$name" == "$padded" || "$name" == "$padded-"* ) ]]; then
+            PHASE_DIR="${d%/}"; break 2
+        fi
+    done
+done
+
 if [[ -z "$PHASE_DIR" ]]; then
-    echo "sgsd-muda-audit: phase $PHASE not found in $PROJECT/.planning/phases/" >&2
+    roots_joined=$(IFS=" | "; echo "${SEARCH_ROOTS[*]}")
+    echo "sgsd-muda-audit: phase $PHASE not found in any of: $roots_joined" >&2
     exit 3
 fi
 
