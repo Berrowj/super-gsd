@@ -380,6 +380,81 @@ function Get-SessionAggregate {
     return $agg
 }
 
+function Convert-McpContentToText($content) {
+    if ($null -eq $content) { return "" }
+    if ($content -is [string]) { return $content }
+    if ($content -is [array]) {
+        $parts = @()
+        foreach ($item in $content) {
+            if ($item -is [string]) { $parts += $item; continue }
+            if ($item.type -eq "text" -and $item.text) { $parts += "$($item.text)"; continue }
+            if ($item.tool_name) { $parts += "$($item.tool_name)"; continue }
+            $parts += "$item"
+        }
+        return ($parts -join " ")
+    }
+    return "$content"
+}
+
+function Summarize-McpResultText($text) {
+    if (-not $text) { return "" }
+    $s = ($text -replace '\s+', ' ').Trim()
+    if ($s -match '^[\{\[]') { return "Structured MCP result received." }
+    if ($s -match '^(.*?[.!?])\s') { $s = $matches[1].Trim() }
+    if ($s.Length -gt 140) { $s = $s.Substring(0, 138) + ".." }
+    return $s
+}
+
+function Get-LastMcpSummary {
+    $out = @{
+        tool = ""
+        summary = ""
+        ts = $null
+    }
+    $encoded = Encode-ProjectPath $ProjectDir
+    $sessionsDir = Join-Path $HOME ".claude\projects\$encoded"
+    if (-not (Test-Path $sessionsDir)) { return $out }
+    try {
+        $file = Get-ChildItem -Path $sessionsDir -Filter "*.jsonl" -File -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending |
+                Select-Object -First 1
+        if (-not $file) { return $out }
+        $entries = @()
+        foreach ($line in (Get-CachedTail $file.FullName 250)) {
+            try { $entries += ($line | ConvertFrom-Json -ErrorAction Stop) } catch {}
+        }
+        $toolMap = @{}
+        foreach ($e in $entries) {
+            if ($e.type -eq "assistant" -and $e.message -and $e.message.content) {
+                foreach ($block in @($e.message.content)) {
+                    if ($block.type -eq "tool_use") {
+                        $name = "$($block.name)"
+                        if ($name -match '^(mcp__|wiki_|vtp_)') {
+                            $toolMap["$($block.id)"] = $name
+                        }
+                    }
+                }
+            }
+            if ($e.type -eq "user" -and $e.message -and $e.message.content) {
+                foreach ($block in @($e.message.content)) {
+                    if ($block.type -eq "tool_result" -and $toolMap.ContainsKey("$($block.tool_use_id)")) {
+                        $text = Summarize-McpResultText (Convert-McpContentToText $block.content)
+                        if (-not $text -and $e.toolUseResult) {
+                            $text = Summarize-McpResultText (Convert-McpContentToText ($e.toolUseResult | ConvertTo-Json -Compress))
+                        }
+                        if ($text) {
+                            try { $out.ts = [DateTime]::Parse($e.timestamp) } catch {}
+                            $out.tool = $toolMap["$($block.tool_use_id)"]
+                            $out.summary = $text
+                        }
+                    }
+                }
+            }
+        }
+    } catch {}
+    return $out
+}
+
 # Parse STATE.md body `## Blockers` section (lines below the header until next ##)
 function Get-StateBlockers {
     $stateFile = Join-Path $PlanningDir "STATE.md"
@@ -1208,6 +1283,36 @@ function Render {
     }
     Write-Host $CLEAR_LINE
 
+    # === SGSD-Codex-Tile ===
+    Write-Header "CODEX REVIEW"
+    $codexRows    = Get-SgsdCodexLogRows -PlanningDir $PlanningDir -MaxRows 5
+    $normalizedState = if ($codex.state -eq 'ok' -or $codex.state -eq 'not-fired') { 'idle' } else { "$($codex.state)" }
+    $stateColor   = switch ($normalizedState) {
+        'running'  { 'Yellow' }
+        'timeout'  { 'Red' }
+        'error'    { 'Red' }
+        'fallback' { 'DarkYellow' }
+        default    { 'DarkGray' }
+    }
+    $ageStr       = if ($null -ne $codex.updatedAgeSec) { Format-Age $codex.updatedAgeSec } else { '--' }
+    $totalRuns    = $codexRows.Count
+    $fallbacks    = @($codexRows | Where-Object { $_.fallback_triggered }).Count
+    $fallbackPct  = if ($totalRuns -gt 0) { [math]::Round(($fallbacks / $totalRuns) * 100) } else { 0 }
+    $avgDurSec    = if ($totalRuns -gt 0) { [math]::Round(($codexRows | Measure-Object -Property duration_ms -Average).Average / 1000, 1) } else { 0 }
+    Write-Row ("  state:" + $normalizedState + " upd:" + $ageStr + " inv:" + $totalRuns + " avg:" + $avgDurSec + "s fb:" + $fallbackPct + "%") $stateColor
+    $verdicts = Get-SgsdCodexVerdicts -PlanningDir $PlanningDir -MaxRows 3
+    foreach ($v in $verdicts) {
+        $tier     = if ($v.tier) { "$($v.tier)" } else { '?' }
+        $planId   = if ($v.plan) { "$($v.plan)" } else { '?' }
+        $oneLiner = if ($v.one_liner) { "$($v.one_liner)" } else { '' }
+        if ($oneLiner.Length -gt 40) { $oneLiner = $oneLiner.Substring(0, 40) + '..' }
+        $vLine    = "  {0,-10} {1,-8} c={2} w={3}  {4}" -f $planId, $tier, $v.critical, $v.warning, $oneLiner
+        $rowColor = if ($v.critical -gt 0) { 'Red' } elseif ($v.warning -gt 0) { 'Yellow' } else { 'Green' }
+        Write-Row $vLine $rowColor
+    }
+    if ($verdicts.Count -eq 0) { Write-Row "  (no verdicts yet)" "DarkGray" }
+    # === /SGSD-Codex-Tile ===
+
     # Milestone — 2 lines
     $ms = if ($state.milestone) { $state.milestone } else { "?" }
     $msName = if ($state.milestoneName) { $state.milestoneName } else { "" }
@@ -1438,6 +1543,23 @@ function Render {
             Write-Host $subj -NoNewline -ForegroundColor Gray
             Write-Host $CLEAR_LINE
         }
+    }
+
+    $mcp = Get-LastMcpSummary
+    if ($mcp.summary) {
+        Write-Host "MCP" -NoNewline -ForegroundColor White
+        if ($mcp.ts) {
+            Write-Host " " -NoNewline
+            Write-Host (Format-Age ([int]((Get-Date) - $mcp.ts).TotalSeconds)) -NoNewline -ForegroundColor DarkGray
+            Write-Host " ago" -NoNewline -ForegroundColor DarkGray
+        }
+        Write-Host $CLEAR_LINE
+        Write-Host "  " -NoNewline
+        Write-Host (Trunc "$($mcp.tool)" 20) -NoNewline -ForegroundColor Cyan
+        Write-Host $CLEAR_LINE
+        Write-Host "  " -NoNewline
+        Write-Host (Trunc "$($mcp.summary)" ($pw - 3)) -NoNewline -ForegroundColor Gray
+        Write-Host $CLEAR_LINE
     }
 
     # Clear anything left over below content
