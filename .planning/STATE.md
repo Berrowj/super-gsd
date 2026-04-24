@@ -1,18 +1,18 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3
-milestone_name: Codex Integration
-milestone_status: v1.3 Phase 15 ✓ SHIPPED 2026-04-24 — all 6 CODEX deliverables (CODEX-07..CODEX-12) wired + verified; first live Codex invocation confirmed (MUDA qualitative probe, timeout at 60s, pipe works). v1.3 milestone READY for close — run /sgsd-audit-milestone v1.3 + /gsd-complete-milestone.
-status: v1.3 COMPLETE. Phase 14 ✓ SHIPPED 2026-04-23 (reviewer-provider substrate dark). Phase 15 ✓ SHIPPED 2026-04-24 — 5 plans across 4 waves, 12 feat commits + 4 hotfix commits + close artifacts. Wave 1 {15-02 qualitative MUDA probe CODEX-08/09, 15-03 token-log provider field CODEX-10} parallel + 2 hotfixes (awk column, curate_finding args). Wave 2 {15-01 provider-indirection switch flip CODEX-07} — reviewer_provider:codex-cli-reviewer on per-dispatch + phase-level ATC, resolveReviewerProvider + GATE_PROVIDER_FALLBACK single-retry, codex_enabled:true master switch. Wave 3 {15-04 adversarial challenger CODEX-11} Step 9.6. Wave 4 {15-05 kill-condition CODEX-12} + Phase 15 verify.mjs. Two phase-hotfixes: WR-03 Step 9.6 .invocation_type→.invocation, WR-04 COMMITS_IN_PHASE git-derived default. Gates: verifier PASS 6/6 V-predicates, verify.mjs 9/9 invariants PASS, phase-ATC PASS-WITH-WARNINGS (0 critical, 4 warnings — 2 fixed via hotfix, 2 carry-over from 14 still open), MUDA 0 WARN 0 FAIL mechanical + first live codex-exec.sh invocation captured (.planning/metrics/codex-log.jsonl + codex-live.json). Phase 16 ✓ SHIPPED earlier.
-stopped_at: Phase 15 SHIPPED + first live Codex invocation confirmed. v1.3 milestone ready for close.
-last_updated: "2026-04-24T03:45:00.000Z"
-last_activity: 2026-04-24 — Phase 15 shipped end-to-end + v1.3 complete. First Codex wrapper invocation (step=muda-qualitative, exit=5 timeout, 35KB prompt, 0 report, model=gpt-5.4, provider=openai) proves the shell-dispatch pipe is operational; timeout tuning needed in codex_timeout_seconds for qualitative analysis workloads.
+milestone: v1.4
+milestone_name: Clean Close + Codex Visibility
+milestone_status: v1.4 ACTIVE — defining requirements complete, roadmap laid down (3 phases, 7 plans, 14 REQ-IDs across CLEAN/CXOPS/MC). Next: /gsd-discuss-phase 17 or /gsd-plan-phase 17.
+status: Phase 17 NOT STARTED (defining requirements). Previous milestone v1.3 ✓ SHIPPED 2026-04-24 (Phases 14-16, first live Codex invocation confirmed via MUDA qualitative probe, all gates PASS). v1.4 strategic frame — sharpening milestone, no net-new feature scope. CLEAN category closes 7 v1.3 carry-over debt items. CXOPS category hardens Codex to full operational reliability + dogfood-proves orchestrator Step 6.5/9.5 routes to Codex end-to-end. MC category wires codex-log.jsonl + codex-live.json into mission-control tiles/statusline/narrative/live-feed/dashboard for full visibility.
+stopped_at: v1.4 milestone initialized. REQUIREMENTS.md + ROADMAP.md drafted. Phase 17 ready for discussion/planning.
+last_updated: "2026-04-24T11:00:00.000Z"
+last_activity: 2026-04-24 — v1.4 milestone opened. 14 REQ-IDs scoped (CLEAN-01..07, CXOPS-01..04, MC-01..05). Archived stale REQUIREMENTS.md as milestones/v1.2-REQUIREMENTS.md. Previous session shipped v1.3 + synced super-gsd install to ~/.claude (sgsd-orchestrate SKILL.md now 1460 lines with resolveReviewerProvider wiring) + raised codex_timeout to 180s + confirmed end-to-end Codex contract path via smoke test (FINDINGS/CRITICAL/WARNINGS/PASS_RATE/ONE_LINER output in 46s).
 progress:
   total_phases: 3
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
+  completed_phases: 0
+  total_plans: 7
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State

@@ -28,18 +28,23 @@ token efficiency, model selection, memory, quality gates, and crash recovery.
 
 **Post-milestone landing (pre-v1.3):** DLB-01..06 deliberations shipped (memory topology, MUDA write-path, intent continuity, resource substrate, VTP audit sharpening, central distribution) plus SGSD v2 Phase A-E (registry + 8 executors + heartbeat + statusline + mission-control tile).
 
-## Next Milestone Goals (v1.4 — to be scoped)
+## Current Milestone: v1.4 Clean Close + Codex Visibility
 
-v1.4 will likely bundle v1.3 tech debt + v1.2 retroactive close:
+**Goal:** Sweep v1.3 carry-over tech debt, harden Codex to full operational reliability on real task loads, wire Codex activity into mission-control visibility surfaces. No net-new feature scope — this is a sharpening milestone.
 
-**v1.3 tech debt carry-over (7 items):**
-1. `codex_timeout_seconds` tuning (60s → 120-180s for qualitative analysis workloads)
-2. `providers-registry.cjs` WR-01 stale JSDoc + WR-02 dead code branch
-3. `sgsd-muda-audit.sh` WASTE.md display inconsistency (table vs raw JSON)
-4. Missing plan SUMMARYs (15-01, 15-03)
-5. P5 Codex Monitor `.planning/` artifact backfill (commit c8b2d25)
-6. REQUIREMENTS.md staleness (still v1.2 scope)
-7. v1.2 retroactive formal close (archive + tag)
+**Target features (3 categories, 14 REQ-IDs, 3 phases, 7 plans):**
+
+- **CLEAN (Phase 17 — Debt Sweep):** providers-registry.cjs refresh, sgsd-muda-audit WASTE.md display fix, backfill missing plan SUMMARYs, P5 Codex Monitor retroactive artifact, REQUIREMENTS.md hygiene, v1.2 retroactive milestone close + tag, codex_timeout workload tiers
+- **CXOPS (Phase 18 — Codex Hardening):** codex-exec.sh --self-test probe, runtime contract validator + parse_failure fallback, dogfood per-dispatch + phase-level ATC via Codex on a live phase
+- **MC (Phase 19 — Mission Control Visibility):** Codex tile in mission-control, statusline Codex indicator, narrative Codex event capture, live-feed codex-log tail, dashboard Multimodal Review Offload tile
+
+**Dependencies:** Phase 17 ∥ Phase 18 (independent). Phase 19 benefits from Phase 18 producing real Codex activity to visualize, but not strictly blocked.
+
+**Success criteria for milestone close:**
+- Zero v1.3 carry-over tech debt items remaining open
+- `git tag v1.2` exists; v1.2 archive files in place
+- At least one `.planning/phases/*/commit-reviews.jsonl` row with `provider: openai-codex` and valid FINDINGS contract
+- Mission-control dashboard visibly reflects Codex activity during autonomous runs
 
 **New scope candidates:** To be determined via `/gsd-new-milestone v1.4` questioning + research + requirements definition pass.
 

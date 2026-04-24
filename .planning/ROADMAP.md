@@ -3,10 +3,28 @@
 ## Milestones
 
 - ✅ **v1.1 Self-Audit** — Phases 1-8 (shipped 2026-04-21) — [archive](milestones/v1.1-ROADMAP.md)
-- 📋 **v1.2 Evidence-First Sharpening** — Phases 9-13 (shipped but never formally closed; retroactive close carry to v1.4)
+- 📋 **v1.2 Evidence-First Sharpening** — Phases 9-13 (shipped but never formally closed; retroactive close folded into v1.4 CLEAN-06)
 - ✅ **v1.3 Multimodal Review — Codex Integration** — Phases 14-16 (shipped 2026-04-24) — [archive](milestones/v1.3-ROADMAP.md) · [requirements](milestones/v1.3-REQUIREMENTS.md) · [audit](milestones/v1.3-MILESTONE-AUDIT.md)
+- 🚧 **v1.4 Clean Close + Codex Visibility** — Phases 17-19 (in progress, 14 REQ-IDs across CLEAN/CXOPS/MC)
 
 ## Phases
+
+### 🚧 v1.4 Clean Close + Codex Visibility (Phases 17-19)
+
+Scope: sweep v1.3 carry-over tech debt, harden Codex path to full operational reliability on real task loads, wire Codex activity into mission-control visibility surfaces. No net-new feature scope.
+
+- [ ] **Phase 17: Debt Sweep** — CLEAN-01..CLEAN-07 (7 requirements, 3 plans)
+  - 17-01: Code debt (CLEAN-01 providers-registry refresh, CLEAN-02 WASTE.md display)
+  - 17-02: Process debt (CLEAN-03 plan SUMMARYs, CLEAN-04 P5 artifact backfill, CLEAN-05 REQUIREMENTS hygiene)
+  - 17-03: Milestone close debt (CLEAN-06 v1.2 retroactive close + tag, CLEAN-07 codex_timeout tiers)
+- [ ] **Phase 18: Codex Hardening** — CXOPS-01..CXOPS-04 (4 requirements, 2 plans)
+  - 18-01: Self-test + contract validator (CXOPS-01 --self-test, CXOPS-02 parse_failure fallback)
+  - 18-02: Dogfood proof (CXOPS-03 per-dispatch ATC via Codex, CXOPS-04 phase-level ATC via Codex)
+- [ ] **Phase 19: Mission Control Visibility** — MC-01..MC-05 (5 requirements, 2 plans)
+  - 19-01: Core tiles (MC-01 mission-control Codex tile, MC-02 statusline indicator, MC-05 dashboard offload tile)
+  - 19-02: Event capture + feed (MC-03 narrative Codex events, MC-04 live-feed codex-log tail)
+
+**Dependencies:** Phase 17 ∥ Phase 18 (independent). Phase 19 benefits from Phase 18 producing real Codex activity to visualize, but not strictly blocked.
 
 <details>
 <summary>✅ v1.3 Multimodal Review (Phases 14-16) — SHIPPED 2026-04-24</summary>

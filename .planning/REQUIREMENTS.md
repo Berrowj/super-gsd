@@ -1,99 +1,75 @@
-# Milestone v1.2 Requirements — Evidence-First Sharpening
+# Milestone v1.4 Requirements — Clean Close + Codex Visibility
 
-**Source:** 2026-04-21 SGSD v2 retro (`decisions/2026-04-21-sgsd-v2-retro.md`) RQ4 v1.2-B sequencing + the `briefs/2026-04-21-orchestrator-contract.md` parent brief.
+**Source:** Post-v1.3 carry-over tech debt + operator directive 2026-04-24: "cleanup and sweep all debt, close clean, Codex fully operational with tasks given to it, mission control shows everything it's doing."
 
-**Strategic frame:** Phase 147 (external project-clarity-erp) ran autonomously overnight and skipped ~9 CLAUDE-OVERLAY gates without audit. v1.2 closes the evidence gap: measure first, then keep/kill each gate, then sharpen the plan-schema → orchestrator → deliberate contract around that evidence.
+**Strategic frame:** v1.3 shipped the multimodal-review substrate + switch-flip + first live Codex invocation. v1.4 closes the loop — sweeps accumulated tech debt, hardens the Codex path to full operational reliability on real task loads, and wires Codex activity into the mission-control visibility surfaces so operator has line-of-sight on every invocation.
 
----
-
-## v1 Requirements (v1.2 scope — 23 requirements across 5 phases)
-
-### ATC-EVIDENCE (Phase 9 — retroactive ATC on Phase 147)
-
-- [ ] **ATC-147-01**: Retroactive ATC review of `project-clarity-erp` Phase 147 produces a finding count with each finding classified as real-bloat vs nit vs false-positive.
-- [ ] **ATC-147-02**: ATC review output lives at `.planning/phases/147-clarity-relay-map-w1/147-ATC-REVIEW.md` in the external project and is cross-linked from this milestone's evidence registry.
-- [ ] **ATC-147-03**: Gate-bypass audit captures the 9 skipped gate categories with token-cost estimates for each, so Phase 10 can make keep/kill calls against concrete numbers.
-
-### GATE-POLICY (Phase 10 — Q2 keep/kill matrix)
-
-- [ ] **GATE-01**: Per-gate decision matrix declares every CLAUDE-OVERLAY gate as HARD-HALT, SOFT-WARN, or CONDITIONAL, with the empirical trigger (finding count from ATC-147-01) explicit per row.
-- [ ] **GATE-02**: ATC gate firing policy (per-dispatch Step 9.5 and phase-level Step 6.5) lands in `super-gsd/registry/gates.yaml` with enforcement mode, not prose.
-- [ ] **GATE-03**: Non-ATC gates routed — classifier (Step 2), context-selector (Step 4), ByteRover queries (Step 5), INTENT injection (Step 5.5), MUDA audit (Step 6.55), sgsd-curate (Step 10), token-log (Step 11) — each gets an explicit keep/kill/conditional verdict backed by the matrix.
-- [ ] **GATE-04**: Edge-guard enforcement layer writes `.planning/metrics/edge-guard-log.jsonl` per step transition with `{from_step, to_step, missing_emits, context, resolution}`; skipped gates that should have fired trigger rollback or halt per the matrix.
-
-### PLAN-SCHEMA (Phase 11 — Q3 plan schema v2)
-
-- [x] **SCHEMA-01**: Canonical plan schema v2 published at `super-gsd/templates/plan-schema-v2.json` as YAML frontmatter with `schema_version: 2` + `tasks: [...]` contract; rest of PLAN.md remains human narrative.
-- [x] **SCHEMA-02**: Required task fields (`id`, `agent`, `model`, `files_touched`, `input_contract`, `output_contract`, `hypothesis`, `falsifier`, `stop_rule`) enforced by parser; malformed tasks fail at plan-load time.
-- [x] **SCHEMA-03**: Optional task fields (`depends_on`, `known_deadends`, `lessons_path`, `prior_errors_lookup`, `expected_ATC_tier`, `verification_cmd`, `skip_gates: []`) supported with documented defaults.
-- [ ] **SCHEMA-04**: Backward-compatible fallback — plans with no `schema_version` or `schema_version: 1` route through the existing Haiku classifier; v2 plans skip the classifier entirely. No bulk migration of the 146 existing plans.
-- [x] **SCHEMA-05**: `superpowers:writing-plans` updated to emit v2 by default; `sgsd-orchestrate` consumes v2 natively. Schema is versioned and pinned identically in both repos.
-
-### MACHINERY (Phase 12 — Q6 orchestrator sharpenings)
-
-- [ ] **MACH-01** (Q6a): Classifier skip policy implemented — either per-plan cached verdict (Q6a-iii, simpler) or entropy-gated (Q6a-ii). Decision recorded in phase PLAN, not re-litigated per milestone.
-- [ ] **MACH-02** (Q6b): Parallel/sequential dispatch auto-detection — orchestrator reads `depends_on` + `files_touched` from schema v2, parallelizes independent tasks, serializes dependents; falls back to sequential for v1 plans.
-- [ ] **MACH-03** (Q6c): Checkpoint schema expanded with `approaches_tried_and_abandoned: []`, `rules_learned_this_session: []`, `dispatches_summary: {total, by_agent, by_outcome}`; trigger changes from `context >70%` to `(phase_boundary OR plan_boundary) AND context >70%`.
-- [ ] **MACH-04** (Q6d): Adversarial verifier sampling — N% of verifier "pass" verdicts (starting N=20%) get a contrarian-challenger second pass; sampling rate tunable in `config.json`.
-
-### GOVERNANCE (Phase 13 — Q7 deliberate-skill sharpenings)
-
-- [ ] **GOV-01** (Q7a): Escalate-not-spawn board — minimal-2 default (Architect + Contrarian), escalate to +Pragmatist on execution-feasibility dissent, +Moonshot on consensus-risk. Policy declared in `super-gsd/registry/board-members.yaml#escalation_policy`.
-- [ ] **GOV-02** (Q7b): Confidence-weighted vote synthesis — each member self-rates 1-5 confidence; CEO weights votes by confidence rather than raw majority. Historical DLB-01..06 re-scored to validate adoption.
-- [ ] **GOV-03** (Q7c): Every decision memo gains `## Falsifier` and `## Dead Ends / Paths Ruled Out` sections; templates updated in `super-gsd/templates/decision-memo.md`.
-- [ ] **GOV-04** (Q7d): Board members migrate from SKILL.md prose to `super-gsd/registry/board-members.yaml`; CEO resolves roster at deliberation-start via the registry, not hardcoded.
-- [ ] **GOV-05** (Q7e): Post-deliberation scoring loop — milestone-close hook audits every DLB fired since the prior close, writes `{q1_impl_hours_actual, rework_fired, falsifier_fired, revisions_needed}` to `.planning/metrics/deliberation-outcomes.jsonl`.
-- [ ] **GOV-06** (Q7f): Board member responses become structured YAML (`position`, `confidence`, `risks_raised`, `evidence_cited`, `falsifier`, `implementation_concerns`, `known_deadends`, `intuition`, `why_principled`, `rationale`) — CEO synthesis is rubric-driven, not prose-summarized.
-- [ ] **GOV-07** (Q7g): CEO runs a post-synthesis reflection pass — "what blind spots did this deliberation have?" — appended to the DLB memo footer and cross-fed to GOV-05's scoring log.
+No net-new feature scope. This is a sharpening milestone.
 
 ---
 
-## Future Requirements (deferred to v1.3+)
+## v1 Requirements (v1.4 scope — 14 requirements across 3 categories)
 
-- **DISTILL-01**: Trajectory-hypothesis distillation at v1.2 close (DLB-04 Wave C) — already gated by DLB-04's triple hallucination safeguard; moves to `trajectory-lesson/` only at v1.3 recurrence confirmation.
-- **VTP-Q4**: VTP-audit reopen trigger (DLB-05 Wave E) — fires at v1.3 close if conformance drift re-accumulates.
-- **GOV-NOVELTY-KILL**: DLB-04 Contrarian novelty-rating kill condition — fires at v1.2 close if zero-novel-pattern trajectory output; then deletes `sgsd-distill-milestone`.
-- **AGP-FULL**: Full AGP spec conformance — DLB-04 RQ4b adopted vocab-only; revisit if Autogenesis revision history shows stabilization.
+### CLEAN (Phase 17 — Debt Sweep)
 
-## Out of Scope (explicit exclusions)
+- [ ] **CLEAN-01**: `super-gsd/scripts/lib/providers-registry.cjs` JSDoc refresh — replace stale `reviewer_agent` shape-discriminator references at lines 17-19 and 137-138 with `reviewer_provider`; delete dead default fallback branch at lines 157-158 (unreachable after W-1 predicate narrowing).
+- [ ] **CLEAN-02**: `super-gsd/scripts/sgsd-muda-audit.sh` WASTE.md summary-row generation in sync with raw JSON. Table must display all 5 probes (mechanical 3 + extra_processing + inventory) and the summary sentence must reflect actual verdict distribution (no silent FAIL suppression).
+- [ ] **CLEAN-03**: Backfill `.planning/milestones/v1.3/phases/15-codex-routed-gates/15-01-SUMMARY.md` and `15-03-SUMMARY.md` following the pattern established by 15-02, 15-04, 15-05 SUMMARY files.
+- [ ] **CLEAN-04**: Retroactive `.planning` artifact for P5 Codex Monitor (commit c8b2d25, 648 LOC) — SPEC.md declaring the feature's scope + PLAN.md documenting the 4 files (codex-exec.sh write_live_state, merge-settings normalizeCommand, sgsd-codex-status.ps1, sgsd-codex-monitor.ps1) as if the feature had been planned. Filed under `super-gsd/P5-codex-monitor/` or equivalent plan directory.
+- [ ] **CLEAN-05**: REQUIREMENTS.md hygiene — current `.planning/REQUIREMENTS.md` (now v1.4) is fresh. Verify `.planning/milestones/v1.2-REQUIREMENTS.md` archive exists (archived at v1.4 start), `.planning/milestones/v1.3-REQUIREMENTS.md` exists (already shipped), and no traceability-table references dangle across archives.
+- [ ] **CLEAN-06**: v1.2 retroactive milestone close — create `.planning/milestones/v1.2-ROADMAP.md` archive (from current ROADMAP.md Phase-9-through-13 content + MILESTONES.md v1.2 entry narrative), append formal v1.2 Shipped entry to MILESTONES.md (currently still shows "Active"), create `git tag v1.2` pointing at the last v1.2 commit (last commit before Phase 14's first commit), update ROADMAP.md to collapse v1.2 phases into `<details>` block.
+- [ ] **CLEAN-07**: codex_timeout_seconds workload tiers in `.planning/config.json` — introduce `review_providers.codex_timeout_tiers: { default: 60, review: 120, analysis: 180 }` structure (additive, existing `codex_timeout_seconds: 180` stays as override/base). SKILL.md Steps 6.5/9.5/9.6 + sgsd-muda-audit.sh qualitative probe read the tier based on invocation step.
 
-- **Bulk plan migration** — the 146 v1 plans stay free-form; v1 → classifier, v2 → direct-parse (SCHEMA-04). Forcing migration would burn weeks of retrofitting and is explicitly ruled out by the retro constraint set.
-- **Self-modifying board roster** — GOV-04 registers board members as resources but SEPL-gated mutation (AGP-P-04) stays operator-gated per DLB-04 Q2 invariant. No autonomous roster changes.
-- **Mission Control heartbeat redesign** — R-Q8c/d statusline + live tiles are FLOOR-executable + already partially landed in SGSD v2 Phase E; handled outside v1.2 scope.
-- **DEVIATIONS.md gate-awareness (Q4a)** — merged into edge-guard (GATE-04) per R-Q4 refinement; not a separate requirement.
-- **Hard-cutover plan migration** — SCHEMA-04 explicitly adopts gradual decay; hard-cutover is ruled out by constraint "146 existing phase plans cannot all be retro-fitted".
+### CXOPS (Phase 18 — Codex Hardening)
+
+- [ ] **CXOPS-01**: `super-gsd/scripts/codex-exec.sh` `--self-test` flag — invoked without a real review task, it probes (a) `codex` CLI on PATH, (b) auth (OAuth + quota readable), (c) timeout math (computes effective timeout from tier + workload), (d) emits a known-good contract response. Exits 0 on pass, non-zero on any probe failure. Callable from `sgsd-readiness` milestone pre-flight.
+- [ ] **CXOPS-02**: Runtime contract validator hook in orchestrator — after `codex-exec.sh` returns exit 0 but before consuming report, parse FINDINGS/CRITICAL/WARNINGS/PASS_RATE/ONE_LINER fields. On parse failure: treat as provider error, trigger the existing `GATE_PROVIDER_FALLBACK` single-retry path targeting `claude-sonnet-reviewer`, log fallback reason as `parse_failure` (distinct from `timeout`, `auth`, `generic`).
+- [ ] **CXOPS-03**: Dogfood proof — execute at least one v1.4 phase end-to-end with `codex_enabled: true` + new SKILL.md wiring active. Observe `.planning/phases/{N}/commit-reviews.jsonl` contains at least one Step 9.5 per-dispatch ATC row with `provider: openai-codex` and valid FINDINGS contract. Documented as evidence artifact.
+- [ ] **CXOPS-04**: Same phase's Step 6.5 phase-level ATC observably routes to Codex — produces `.planning/phases/{N}/{N}-ATC-REVIEW.md` authored by Codex with `provider: openai-codex` stamp in commit-reviews.jsonl and/or the review markdown frontmatter.
+
+### MC (Phase 19 — Mission Control Visibility)
+
+- [ ] **MC-01**: `super-gsd/scripts/sgsd-mission-control.ps1` — add Codex tile sourcing from `.planning/metrics/codex-live.json` (current state: idle/running/timeout/error/contract-violation) + `.planning/metrics/codex-log.jsonl` (last 5 invocations summary: step, duration, exit, provider-fallback y/n). Tile refreshes on invocation lifecycle events. Consumes `super-gsd/scripts/lib/sgsd-codex-status.ps1` helper (already installed, currently unused outside P5 monitor).
+- [ ] **MC-02**: `super-gsd/scripts/sgsd-statusline.ps1` — Codex state indicator segment: shows `⚙ codex:idle`, `⚙ codex:running [N]s`, `⚙ codex:timeout`, `⚙ codex:error`, `⚙ codex:fallback`. Color-coded. Updates on every status poll cycle.
+- [ ] **MC-03**: `super-gsd/scripts/sgsd-narrative.ps1` — capture Codex events into `.planning/metrics/narrative.md`: entries for codex_started, codex_completed, codex_timeout, codex_fallback. Populates the existing narrative.md `latest` + `lastfail` fields.
+- [ ] **MC-04**: `super-gsd/scripts/sgsd-live-feed.ps1` — extend to tail `.planning/metrics/codex-log.jsonl` in real-time alongside `activity-log.jsonl`. Codex rows rendered distinctly (color or prefix) so operator can eyeball reviewer activity during autonomous runs.
+- [ ] **MC-05**: `super-gsd/scripts/sgsd-dashboard.ps1` — Multimodal Review Offload tile sourcing live from `.planning/metrics/codex-log.jsonl` (not SKILL.md spec). Computes `claude_tokens_saved_by_codex`, `codex_invocations_this_milestone`, `fallback_rate`, `avg_codex_duration_ms`. Integrates with existing CODEX-10 token accounting — does NOT duplicate.
 
 ---
 
-## Traceability (filled by /gsd-plan-phase as phases scope)
+## Future Requirements (deferred post-v1.4)
 
-| REQ-ID | Phase | Plan | Status |
-|--------|-------|------|--------|
-| ATC-147-01 | 9 | 09-01 | Planned |
-| ATC-147-02 | 9 | 09-03 | Planned |
-| ATC-147-03 | 9 | 09-02 | Planned |
-| GATE-01 | 10 | TBD | Pending |
-| GATE-02 | 10 | TBD | Pending |
-| GATE-03 | 10 | TBD | Pending |
-| GATE-04 | 10 | TBD | Pending |
-| SCHEMA-01 | 11 | TBD | Pending |
-| SCHEMA-02 | 11 | TBD | Pending |
-| SCHEMA-03 | 11 | TBD | Pending |
-| SCHEMA-04 | 11 | TBD | Pending |
-| SCHEMA-05 | 11 | TBD | Pending |
-| MACH-01 | 12 | TBD | Pending |
-| MACH-02 | 12 | TBD | Pending |
-| MACH-03 | 12 | TBD | Pending |
-| MACH-04 | 12 | TBD | Pending |
-| GOV-01 | 13 | TBD | Pending |
-| GOV-02 | 13 | TBD | Pending |
-| GOV-03 | 13 | TBD | Pending |
-| GOV-04 | 13 | TBD | Pending |
-| GOV-05 | 13 | TBD | Pending |
-| GOV-06 | 13 | TBD | Pending |
-| GOV-07 | 13 | TBD | Pending |
+- **Third-provider support** (Gemini, local models via the provider-indirection substrate). Registry supports shape; requires a second vendor authorization path + a second code-reviewer-v1-compliant wrapper script.
+- **Per-project provider overrides** (allow repo-level override of default_provider without editing global config).
+- **Codex-on-classifier** (Haiku tier routing to Codex). Explicitly scoped out of v1.3 and stays out unless evidence says otherwise.
+- **CODEX-12 kill-condition first-firing evidence** — after 2-3 real milestones with Codex active, observe whether kill thresholds fire correctly.
 
-**Dependency notes:**
-- Phase 9 (ATC-EVIDENCE) is the empirical gate for Phase 10 (GATE-POLICY). Phase 10 cannot proceed until ATC-147-01 returns findings.
-- Phase 11 (PLAN-SCHEMA) enables MACH-01, MACH-02, and GATE-03 classifier/selector kills. Phase 12 depends on Phase 11.
-- Phase 13 (GOVERNANCE) depends on the registry work in Phase 10 (gates.yaml) and Phase 11 (board-members.yaml precedent from schema ownership).
+## Out of Scope (v1.4)
+
+- New feature capabilities unrelated to Codex/MC/debt sweep.
+- Refactoring the existing sgsd-code-reviewer agent (explicit scope discipline from v1.3 carried forward).
+- Codex routing for executor/researcher/planner/verifier dispatches (not review-shaped, wrong fit).
+- UI/frontend surfaces outside PowerShell-based mission-control scripts.
+
+---
+
+## Traceability (filled by roadmap)
+
+| REQ-ID     | Description                                      | Phase | Status   |
+|------------|--------------------------------------------------|-------|----------|
+| CLEAN-01   | providers-registry.cjs JSDoc + dead branch       | 17    | —        |
+| CLEAN-02   | sgsd-muda-audit.sh WASTE.md display sync         | 17    | —        |
+| CLEAN-03   | Backfill 15-01-SUMMARY.md + 15-03-SUMMARY.md     | 17    | —        |
+| CLEAN-04   | P5 Codex Monitor retroactive .planning artifact  | 17    | —        |
+| CLEAN-05   | REQUIREMENTS.md hygiene + archive alignment      | 17    | —        |
+| CLEAN-06   | v1.2 retroactive milestone close + tag           | 17    | —        |
+| CLEAN-07   | codex_timeout_seconds workload tiers             | 17    | —        |
+| CXOPS-01   | codex-exec.sh --self-test flag                   | 18    | —        |
+| CXOPS-02   | Runtime contract validator + parse_failure fallback | 18 | —        |
+| CXOPS-03   | Dogfood per-dispatch ATC via Codex               | 18    | —        |
+| CXOPS-04   | Dogfood phase-level ATC via Codex                | 18    | —        |
+| MC-01      | mission-control Codex tile                       | 19    | —        |
+| MC-02      | statusline Codex indicator                       | 19    | —        |
+| MC-03      | narrative.md Codex event capture                 | 19    | —        |
+| MC-04      | live-feed tails codex-log.jsonl                  | 19    | —        |
+| MC-05      | dashboard Multimodal Review Offload tile         | 19    | —        |
