@@ -165,11 +165,17 @@ try {
     var d = last && typeof last.chain_depth === 'number' ? last.chain_depth : 0;
     process.stdout.write(String(d));
   }
-} catch (e) { process.stdout.write('0'); }
-" "$LOG_PATH" 2>/dev/null || echo "0")
-    # Malformed-log refusal — safest posture
+} catch (e) { process.stdout.write('READ_FAILED'); }
+" "$LOG_PATH" 2>/dev/null || echo "READ_FAILED")
+    # Fully fail-closed on any log-read failure — post-WARN-fix re-review
+    # closed the per-line parse surface; this also closes the whole-log
+    # read surface (e.g. ENOENT, ENOTDIR, permissions, Node absent).
     if [[ "$PREV_CHAIN_DEPTH" == "MALFORMED" ]]; then
         _log_row "refused" 0 ",\"refused\":\"malformed_log\",\"log_path\":\"$LOG_PATH\""
+        exit 0
+    fi
+    if [[ "$PREV_CHAIN_DEPTH" == "READ_FAILED" ]]; then
+        _log_row "refused" 0 ",\"refused\":\"log_read_failed\",\"log_path\":\"$LOG_PATH\""
         exit 0
     fi
     # Sanitize — non-numeric falls back to 0
