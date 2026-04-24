@@ -497,7 +497,8 @@ REPEAT:
               timeout: effective.timeout_seconds || config.review_providers.codex_timeout_seconds,
               reportOut,
               phase: currentPhase,
-              step: '6.5'
+              step: '6.5',
+              timeoutTier: 'review'  // --timeout-tier review (D-03: phase-level-ATC → review tier = 120s)
             });
             if (dispatchResult.exit !== 0 && effective.fallback_to && config.review_providers.fallback_on_error) {
               // Single-retry fallback to Claude per HiveMind centralized-retry pattern (doc:5a50cc9b459e)
@@ -912,7 +913,8 @@ REPEAT:
             timeout: effective.timeout_seconds || config.review_providers.codex_timeout_seconds,
             reportOut,
             phase: currentPhase,
-            step: '9.5'
+            step: '9.5',
+            timeoutTier: 'review'  // --timeout-tier review (D-03: per-dispatch-ATC → review tier = 120s)
           });
           if (dispatchResult.exit !== 0 && effective.fallback_to && config.review_providers.fallback_on_error) {
             // Single-retry fallback to Claude per HiveMind centralized-retry pattern (doc:5a50cc9b459e)
@@ -1032,7 +1034,8 @@ REPEAT:
                   timeout: challengerProvider.timeout_seconds || config.review_providers.codex_timeout_seconds,
                   reportOut,
                   phase: currentPhase,
-                  step: '9.6-adversarial'
+                  step: '9.6-adversarial',
+                  timeoutTier: 'review'  // --timeout-tier review (D-03: adversarial → review tier = 120s)
                 });
                 if (dispatchResult.exit === 0) {
                   challengerReport = { content: dispatchResult.report, _provider: 'openai-codex' };
