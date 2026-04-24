@@ -57,6 +57,41 @@ bash <path>/sgsd-muda-recurrence.sh --kill-check
 ```
 
 If 2 consecutive milestones with zero recurrence → retire the skill (DLB-02 Contrarian kill).
+
+## Step 6: Library Cross-Reference (vtpCrossReference, VTPE-02)
+
+Only runs when `config.vtp_enrichment.enabled === true` (D-07 backward-compat guard).
+
+After writing WASTE.md, for each finding in the probe results:
+
+1. Determine tier from probe verdict:
+   - Probe verdict `FAIL` → tier `CRITICAL`
+   - Probe verdict `WARN` → tier `WARN`
+   - Probe verdict `PASS` → tier `PASS` (skip)
+
+2. Call `vtpCrossReference(findingText, tier, {fileContext})` from
+   `super-gsd/scripts/lib/vtp-enrichment-gate.cjs`:
+   - `CRITICAL` (FAIL) findings: dispatch the returned `query_spec` as a per-finding sub-agent
+     call; collect citations into the result `citations` array.
+   - `WARN` findings: accumulate all WARN finding texts, dispatch a single batched sub-agent call
+     using the concatenated seed from the last `WARN` query_spec; collect into `batched_citations`.
+   - `PASS` findings: skip (no VTP call, `{skipped:true}` returned).
+
+3. If any non-empty citations were returned, append a `## Library Cross-Reference` section
+   to the WASTE.md with the following table:
+
+```
+## Library Cross-Reference
+
+| Source | Title | Section | Relevance | Citation | Notes |
+|---|---|---|---|---|---|
+| <source> | <title> | <section> | <relevance> | <citation> | confidence:<0-1> |
+```
+
+   For batched WARN citations, use "(batched)" in the Notes column.
+
+4. If all findings are PASS tier (no cross-reference calls made), append:
+   `## Library Cross-Reference\n\n(all probes PASS — cross-reference skipped)`.
 </process>
 
 <probes>

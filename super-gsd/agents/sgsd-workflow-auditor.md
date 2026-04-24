@@ -103,6 +103,42 @@ Write to `.planning/audit/WORKFLOW-AUDIT.md`.
 
 If a systemic issue is found (e.g. a miscast pattern that keeps happening), emit a `sgsd-curate` suggestion for the fix pattern so future orchestrator runs apply it automatically.
 
+## Step 7 — Library Cross-Reference (vtpCrossReference, VTPE-02)
+
+Only runs when `config.vtp_enrichment.enabled === true` (D-07 backward-compat guard).
+
+For each finding in the WORKFLOW-AUDIT.md top-10 list:
+
+1. Determine tier from finding severity:
+   - Priority score > 8 (CRITICAL_ACTIONS) -> tier `CRITICAL`
+   - Priority score 4-8 -> tier `WARN`
+   - Below 4 -> tier `PASS` (skip)
+
+2. Call `vtpCrossReference(findingText, tier, {fileContext})` from
+   `super-gsd/scripts/lib/vtp-enrichment-gate.cjs`:
+   - `CRITICAL` findings: dispatch the returned `query_spec` as a sub-agent call per-finding;
+     collect citations into the result `citations` array.
+   - `WARN` findings: accumulate all finding texts, dispatch a single batched sub-agent call
+     using the last `WARN` query_spec with concatenated seed; collect into `batched_citations`.
+   - `PASS` findings: skip (no VTP call).
+
+3. If any non-empty citations were returned, append a `## Library Cross-Reference` section
+   to `.planning/audit/WORKFLOW-AUDIT.md` with the following table:
+
+```
+## Library Cross-Reference
+
+| Source | Title | Section | Relevance | Citation |
+|---|---|---|---|---|
+| <source> | <title> | <section> | <relevance> | <citation> |
+```
+
+   Include a confidence rating (0-1) beside each CRITICAL citation row in a Notes column.
+   For batched WARN citations, note "(batched)" in the Notes column.
+
+4. If `vtpCrossReference` returns `{skipped:true}` for all findings (all PASS), append
+   `## Library Cross-Reference\n\n(all findings below cross-reference threshold — skipped)`.
+
 </process>
 
 <output>
