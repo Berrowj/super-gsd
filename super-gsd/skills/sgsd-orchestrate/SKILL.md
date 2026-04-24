@@ -472,6 +472,18 @@ REPEAT:
             status: "in_progress"
           })
 
+          // CXOPS-02: validateContract — secondary parse guard for Codex shell dispatch.
+          // Defined once here (Step 6.5), reused at Step 9.5. Checks all 5 required
+          // field prefixes on dedicated lines so malformed Codex output (exit 0 but
+          // missing fields) triggers a single-retry fallback before propagating.
+          function validateContract(content) {
+            if (typeof content !== 'string') return { valid: false, missing: ['(content not a string)'] };
+            const required = ['FINDINGS:', 'CRITICAL:', 'WARNINGS:', 'PASS_RATE:', 'ONE_LINER:'];
+            const lines = content.split('\n');
+            const missing = required.filter(field => !lines.some(line => line.startsWith(field)));
+            return { valid: missing.length === 0, missing };
+          }
+
           const provider = gates.resolveReviewerProvider('phase-level-ATC', gatesRegistry, { gatesYamlPath: GATES_YAML_PATH });
           const effective = (provider && provider.name === 'codex-cli-reviewer' && !config.review_providers.codex_enabled)
             ? gates.getProvider(provider.fallback_to)
@@ -518,7 +530,22 @@ REPEAT:
               writeCheckpoint({ reason: 'GATE_PROVIDER_DOUBLE_FAIL', step: '6.5' });
               throw new Error('GATE_PROVIDER_DOUBLE_FAIL: review gate failed on both providers');
             } else {
-              report = { content: dispatchResult.report, _provider: 'openai-codex' };
+              // CXOPS-02: secondary contract check — codex exited 0 but report may be malformed.
+              const validation = validateContract(dispatchResult.report);
+              if (!validation.valid) {
+                logDeviation(`GATE_PROVIDER_FALLBACK: openai-codex exit=0 but contract invalid — missing: ${validation.missing.join(', ')} → ${effective.fallback_to} (parse_failure)`);
+                const fallbackProvider = gates.getProvider(effective.fallback_to);
+                report = await Agent({
+                  subagent_type: fallbackProvider.agent_subagent_type,
+                  model: fallbackProvider.agent_model || 'sonnet',
+                  mode: 'auto',
+                  prompt: composedPrompt
+                });
+                report._provider = 'claude-via-fallback';
+                report._fallback_reason = 'parse_failure';
+              } else {
+                report = { content: dispatchResult.report, _provider: 'openai-codex' };
+              }
             }
           }
           // Evidence emission: path-identical to prior Claude path per CONTEXT D-03
@@ -526,7 +553,8 @@ REPEAT:
           if (report) appendReviewEvidence(report, {
             gate: 'phase-level-ATC',
             provider: report._provider || effective.name,
-            fallback_triggered: !!(report._provider === 'claude-via-fallback')
+            fallback_triggered: !!(report._provider === 'claude-via-fallback'),
+            ...(report._fallback_reason ? { fallback_reason: report._fallback_reason } : {})
           });
           → Returns: { findings, critical_count, warning_count, verdict }
 
@@ -934,7 +962,22 @@ REPEAT:
             writeCheckpoint({ reason: 'GATE_PROVIDER_DOUBLE_FAIL', step: '9.5' });
             throw new Error('GATE_PROVIDER_DOUBLE_FAIL: review gate failed on both providers');
           } else {
-            report = { content: dispatchResult.report, _provider: 'openai-codex' };
+              // CXOPS-02: secondary contract check — codex exited 0 but report may be malformed.
+              const validation = validateContract(dispatchResult.report);
+              if (!validation.valid) {
+                logDeviation(`GATE_PROVIDER_FALLBACK: openai-codex exit=0 but contract invalid — missing: ${validation.missing.join(', ')} → ${effective.fallback_to} (parse_failure)`);
+                const fallbackProvider = gates.getProvider(effective.fallback_to);
+                report = await Agent({
+                  subagent_type: fallbackProvider.agent_subagent_type,
+                  model: fallbackProvider.agent_model || 'sonnet',
+                  mode: 'auto',
+                  prompt: composedPrompt
+                });
+                report._provider = 'claude-via-fallback';
+                report._fallback_reason = 'parse_failure';
+              } else {
+                report = { content: dispatchResult.report, _provider: 'openai-codex' };
+              }
           }
         }
         → Returns: { findings, critical_count, warning_count, verdict }
@@ -953,7 +996,8 @@ REPEAT:
         appendPerDispatchReviewEvidence(report, {
           gate: 'per-dispatch-ATC',
           provider: report._provider || effective.name,
-          fallback_triggered: !!(report._provider === 'claude-via-fallback')
+          fallback_triggered: !!(report._provider === 'claude-via-fallback'),
+          ...(report._fallback_reason ? { fallback_reason: report._fallback_reason } : {})
         });
 
       If critical > 0 AND interactive: STOP with blocker quoting the findings.
