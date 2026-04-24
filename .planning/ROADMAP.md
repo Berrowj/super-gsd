@@ -19,9 +19,11 @@ Scope: sweep v1.3 carry-over tech debt, harden Codex path to full operational re
   - [x] 17-03: Milestone close debt (CLEAN-06 v1.2 retroactive close + tag, CLEAN-07 codex_timeout tiers) — Codex ATC cleared after fix-up
   - **Phase ATC**: 0 CRITICAL + 3 WARNINGS deferred to Phase 18 (awk anchor brittleness, step-name tier calibration, richer output contract)
   - **Codex dogfood**: 6 invocations, 622.9s wall-clock, retroactively satisfies CXOPS-03 and partially CXOPS-04
-- [ ] **Phase 18: Codex Hardening** — CXOPS-01..CXOPS-04 (4 requirements, 2 plans)
-  - 18-01: Self-test + contract validator (CXOPS-01 --self-test, CXOPS-02 parse_failure fallback)
-  - 18-02: Dogfood proof (CXOPS-03 per-dispatch ATC via Codex, CXOPS-04 phase-level ATC via Codex)
+- [x] **Phase 18: Codex Hardening** — CXOPS-01..CXOPS-04 (4/4 requirements delivered, 2 plans shipped) ✓ 2026-04-24
+  - [x] 18-01: Self-test + contract validator (CXOPS-01 --self-test 4-probe harness, CXOPS-02 validateContract at Steps 6.5/9.5 + parse_failure single-retry fallback)
+  - [x] 18-02: Dogfood proof (CXOPS-03/04 retroactively satisfied via DOGFOOD-AUDIT.md citing 5+1 Codex evidence rows)
+  - **Phase ATC**: 0 CRITICAL + 2 WARNINGS deferred to Phase 19 richer-output-contract scope
+  - **Codex dogfood**: 2 invocations this phase (1 meta-dogfood per-dispatch + 1 phase-level), both exit 0, validateContract first-live-fire clean
 - [ ] **Phase 19: Mission Control Visibility** — MC-01..MC-05 (5 requirements, 2 plans)
   - 19-01: Core tiles (MC-01 mission-control Codex tile, MC-02 statusline indicator, MC-05 dashboard offload tile)
   - 19-02: Event capture + feed (MC-03 narrative Codex events, MC-04 live-feed codex-log tail)
