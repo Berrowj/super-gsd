@@ -360,6 +360,37 @@ function Get-TokenStats($tokenLog) {
     return $stats
 }
 
+function Get-CodexStats($codexLog, $milestoneStartTs) {
+    $stats = @{ invocations = 0; fallbacks = 0; totalDurationMs = 0; claudeTokensSaved = 0 }
+    if (-not (Test-Path $codexLog)) { return $stats }
+    try {
+        foreach ($line in (Get-Content $codexLog -ErrorAction SilentlyContinue)) {
+            try {
+                $e = $line | ConvertFrom-Json -ErrorAction Stop
+                if ($milestoneStartTs -and $e.ts -lt $milestoneStartTs) { continue }
+                $stats.invocations++
+                if ($e.fallback_triggered) { $stats.fallbacks++ }
+                if ($e.duration_ms) { $stats.totalDurationMs += [int]$e.duration_ms }
+            } catch {}
+        }
+    } catch {}
+    # claude_tokens_saved: token-log.jsonl rows where model="codex" (D-07 proxy)
+    $tokenLog = $codexLog -replace 'codex-log\.jsonl$', 'token-log.jsonl'
+    if (Test-Path $tokenLog) {
+        try {
+            foreach ($line in (Get-Content $tokenLog -ErrorAction SilentlyContinue)) {
+                try {
+                    $e = $line | ConvertFrom-Json -ErrorAction Stop
+                    if ("$($e.model)".ToLower() -eq 'codex') {
+                        $stats.claudeTokensSaved += [int]$e.total
+                    }
+                } catch {}
+            }
+        } catch {}
+    }
+    return $stats
+}
+
 Clear-Host
 $firstRun = $true
 
@@ -683,6 +714,22 @@ while ($true) {
         Write-Host "$(Format-Num $tokens.total) " -NoNewline -ForegroundColor Yellow
         Write-Host "($totalD)" -ForegroundColor Green
     }
+
+    # MC-05: Multimodal Review Offload tile (D-07 metrics from codex-log.jsonl)
+    $msStartTs = $null
+    if (Test-Path $stateFile) {
+        $sfLines = Get-Content $stateFile -TotalCount 30 -ErrorAction SilentlyContinue
+        $msLine = $sfLines | Where-Object { $_ -match '^milestone_start:\s*(.+)' } | Select-Object -First 1
+        if ($msLine -match '^milestone_start:\s*(.+)') { $msStartTs = $Matches[1].Trim() }
+    }
+    $codexLog = Join-Path $ProjectDir ".planning\metrics\codex-log.jsonl"
+    $cx = Get-CodexStats $codexLog $msStartTs
+    $cxAvgSec  = if ($cx.invocations -gt 0) { [math]::Round($cx.totalDurationMs / $cx.invocations / 1000, 1) } else { 0 }
+    $cxFbRate  = if ($cx.invocations -gt 0) { [math]::Round(($cx.fallbacks / $cx.invocations) * 100) } else { 0 }
+    $cxSavedK  = [math]::Round($cx.claudeTokensSaved / 1000)
+    W-Line { Write-Host "" }
+    W-Line { Write-Host " MultimodalReview Offload" -ForegroundColor Cyan }
+    W-Line { Write-Host ("  inv:" + $cx.invocations + "  fb:" + $cxFbRate + "%  avg:" + $cxAvgSec + "s  saved:" + $cxSavedK + "k tok") -ForegroundColor DarkCyan }
 
     # RECENT COMMITS (3 lines)
     Push-Location $ProjectDir -ErrorAction SilentlyContinue
