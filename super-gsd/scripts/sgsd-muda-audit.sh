@@ -318,6 +318,12 @@ if [[ -z "${CODEX_QUAL_ENABLED+x}" ]]; then
 fi
 
 # Compute DIFF_LINES from phase git history
+# WR-04: derive COMMITS_IN_PHASE from git log when caller hasn't set it,
+# so multi-commit phases don't silently under-count and skip the probe.
+if [[ -z "${COMMITS_IN_PHASE+x}" ]]; then
+  COMMITS_IN_PHASE=$(git -C "$PROJECT" log --oneline --grep="(${PHASE_NUM}-\|(${PHASE_NUM}/" 2>/dev/null | wc -l | tr -d ' ')
+  [[ "${COMMITS_IN_PHASE:-0}" -lt 1 ]] && COMMITS_IN_PHASE=1
+fi
 DIFF_LINES=$(git -C "$PROJECT" diff --stat HEAD~"${COMMITS_IN_PHASE:-1}" HEAD 2>/dev/null | awk '/changed/{sum+=$4+$6}END{print sum+0}')
 
 if [[ "$PROBE_EXIT" == "0" && "${DIFF_LINES:-0}" -ge 200 && "$CODEX_QUAL_ENABLED" == "true" && "$DRY_RUN" != "true" ]]; then
