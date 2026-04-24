@@ -5,13 +5,13 @@
 - ✅ **v1.1 Self-Audit** — Phases 1-8 (shipped 2026-04-21) — [archive](milestones/v1.1-ROADMAP.md)
 - 📋 **v1.2 Evidence-First Sharpening** — Phases 9-13 (shipped but never formally closed; retroactive close folded into v1.4 CLEAN-06)
 - ✅ **v1.3 Multimodal Review — Codex Integration** — Phases 14-16 (shipped 2026-04-24) — [archive](milestones/v1.3-ROADMAP.md) · [requirements](milestones/v1.3-REQUIREMENTS.md) · [audit](milestones/v1.3-MILESTONE-AUDIT.md)
-- 🚧 **v1.4 Clean Close + Codex Visibility** — Phases 17-19 (in progress, 14 REQ-IDs across CLEAN/CXOPS/MC)
+- 🚧 **v1.4 Clean Close + Codex Visibility + Autonomous Handoff** — Phases 17-20 (in progress, 17 REQ-IDs across CLEAN/CXOPS/MC/HANDOFF)
 
 ## Phases
 
-### 🚧 v1.4 Clean Close + Codex Visibility (Phases 17-19)
+### 🚧 v1.4 Clean Close + Codex Visibility + Autonomous Handoff (Phases 17-20)
 
-Scope: sweep v1.3 carry-over tech debt, harden Codex path to full operational reliability on real task loads, wire Codex activity into mission-control visibility surfaces. No net-new feature scope.
+Scope: sweep v1.3 carry-over tech debt, harden Codex path to full operational reliability on real task loads, wire Codex activity into mission-control visibility surfaces, close the autonomous-handoff loop so every non-discuss phase runs across session boundaries without operator intervention.
 
 - [ ] **Phase 17: Debt Sweep** — CLEAN-01..CLEAN-07 (7 requirements, 3 plans)
   - 17-01: Code debt (CLEAN-01 providers-registry refresh, CLEAN-02 WASTE.md display)
@@ -23,8 +23,12 @@ Scope: sweep v1.3 carry-over tech debt, harden Codex path to full operational re
 - [ ] **Phase 19: Mission Control Visibility** — MC-01..MC-05 (5 requirements, 2 plans)
   - 19-01: Core tiles (MC-01 mission-control Codex tile, MC-02 statusline indicator, MC-05 dashboard offload tile)
   - 19-02: Event capture + feed (MC-03 narrative Codex events, MC-04 live-feed codex-log tail)
+- [ ] **Phase 20: Autonomous Session Handoff** — HANDOFF-01..HANDOFF-03 (3 requirements, 3 plans) — closes the operator-intervention gap between emergency halt and fresh-session resume
+  - 20-01: Stop hook script (HANDOFF-01 `sgsd-stop-handoff.sh` reads checkpoint + spawns fresh `claude` with `/sgsd-orchestrate go`)
+  - 20-02: Safety rails (HANDOFF-02 cooldown + max-chain-depth + operator-abort file + installer wiring into settings.json)
+  - 20-03: Telemetry + MC integration (HANDOFF-03 handoff-log.jsonl + chain-depth tile extension + milestone-close stats)
 
-**Dependencies:** Phase 17 ∥ Phase 18 (independent). Phase 19 benefits from Phase 18 producing real Codex activity to visualize, but not strictly blocked.
+**Dependencies:** Phase 17 ∥ Phase 18 (independent). Phase 19 benefits from Phase 18 producing real Codex activity to visualize. Phase 20 serializes AFTER 19 — MC surfaces must exist before handoff telemetry extends them. **Design invariant:** `/gsd-discuss-phase` remains interactive; Phase 20 handoff explicitly skips it. Everything else (research, plan, plan-check, execute, verify, ATC, MUDA, browser-verify, phase-close, milestone audit, milestone close) becomes cross-session autonomous.
 
 <details>
 <summary>✅ v1.3 Multimodal Review (Phases 14-16) — SHIPPED 2026-04-24</summary>

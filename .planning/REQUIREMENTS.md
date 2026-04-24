@@ -44,6 +44,16 @@ No net-new feature scope. This is a sharpening milestone.
 - **Codex-on-classifier** (Haiku tier routing to Codex). Explicitly scoped out of v1.3 and stays out unless evidence says otherwise.
 - **CODEX-12 kill-condition first-firing evidence** — after 2-3 real milestones with Codex active, observe whether kill thresholds fire correctly.
 
+### HANDOFF (Phase 20 — Autonomous Session Handoff)
+
+The architectural gap exposed mid-v1.4: the orchestrator writes a checkpoint at context >=85% and stops with a text-only exit, but the session restart has to be operator-driven (`/clear` + `/sgsd-orchestrate go` at the Claude Code CLI). The orchestrator's core promise is token-efficient autonomous execution across context boundaries — that promise is only 80% delivered without closing this loop. Phase 20 closes it.
+
+**Design constraint (from operator directive 2026-04-24):** `/gsd-discuss-phase` remains interactive because gray-area selection requires operator judgment. Every other dispatch (research / plan / plan-check / execute / verify / ATC / MUDA / browser-verify / phase-close / milestone audit / milestone close) must run autonomously across session boundaries without operator intervention.
+
+- [ ] **HANDOFF-01**: Claude Code Stop hook `sgsd-stop-handoff.sh` — reads `.planning/ORCHESTRATOR-CHECKPOINT.md`. If `emergency_halt: true` AND cooldown elapsed AND max-chain-depth not exceeded AND no operator-abort file (`.planning/STOP-HANDOFF`) present, spawns a new `claude` CLI process with initial prompt `/sgsd-orchestrate go` (non-interactive mode for unattended runs). The new process starts with empty context, reads the checkpoint, resumes the loop at `next_unit`. Fired in the dying session's Stop hook, so the fresh session replaces the old one seamlessly.
+- [ ] **HANDOFF-02**: Safety rails — `min_cooldown_seconds: 30` (between chains), `max_chain_depth: 5` (default; configurable in `config.json.handoff.max_chain_depth`), operator-abort file (touching `.planning/STOP-HANDOFF` halts any in-flight or future handoff), error handling (failed spawn logs to stderr + handoff-log, does NOT infinite-retry). `/gsd-discuss-phase` dispatches NEVER trigger handoff (they're interactive by design).
+- [ ] **HANDOFF-03**: Handoff telemetry — `.planning/metrics/handoff-log.jsonl` appends per chain event (`{ts, from_session_id, to_session_id, reason, chain_depth, cumulative_runtime_s}`). Mission-control (MC-01 from Phase 19) gets a second tile showing chain depth + cumulative autonomous runtime. Per-milestone sgsd-token-audit `--milestone-close-check` surfaces aggregate chain stats (total chains, max depth reached, stalls detected).
+
 ## Out of Scope (v1.4)
 
 - New feature capabilities unrelated to Codex/MC/debt sweep.
@@ -73,3 +83,6 @@ No net-new feature scope. This is a sharpening milestone.
 | MC-03      | narrative.md Codex event capture                 | 19    | —        |
 | MC-04      | live-feed tails codex-log.jsonl                  | 19    | —        |
 | MC-05      | dashboard Multimodal Review Offload tile         | 19    | —        |
+| HANDOFF-01 | Stop hook spawns fresh claude session on halt    | 20    | —        |
+| HANDOFF-02 | Cooldown + max-chain-depth + operator-abort rails | 20   | —        |
+| HANDOFF-03 | Handoff telemetry + MC tile + milestone stats    | 20    | —        |

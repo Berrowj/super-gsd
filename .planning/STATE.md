@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.4
-milestone_name: Clean Close + Codex Visibility
-milestone_status: v1.4 ACTIVE — defining requirements complete, roadmap laid down (3 phases, 7 plans, 14 REQ-IDs across CLEAN/CXOPS/MC). Next: /gsd-discuss-phase 17 or /gsd-plan-phase 17.
+milestone_name: Clean Close + Codex Visibility + Autonomous Handoff
+milestone_status: v1.4 ACTIVE — defining requirements complete, roadmap laid down (4 phases, 10 plans, 17 REQ-IDs across CLEAN/CXOPS/MC/HANDOFF). Phase 20 added 2026-04-24 per operator directive to close the autonomous-handoff loop (discuss-phase remains interactive; everything else cross-session autonomous). Next: /gsd-plan-phase 17 (context captured 75f8cbd).
 status: Phase 17 NOT STARTED (defining requirements). Previous milestone v1.3 ✓ SHIPPED 2026-04-24 (Phases 14-16, first live Codex invocation confirmed via MUDA qualitative probe, all gates PASS). v1.4 strategic frame — sharpening milestone, no net-new feature scope. CLEAN category closes 7 v1.3 carry-over debt items. CXOPS category hardens Codex to full operational reliability + dogfood-proves orchestrator Step 6.5/9.5 routes to Codex end-to-end. MC category wires codex-log.jsonl + codex-live.json into mission-control tiles/statusline/narrative/live-feed/dashboard for full visibility.
 stopped_at: v1.4 milestone initialized. REQUIREMENTS.md + ROADMAP.md drafted. Phase 17 ready for discussion/planning.
 last_updated: "2026-04-24T11:00:00.000Z"
 last_activity: 2026-04-24 — v1.4 milestone opened. 14 REQ-IDs scoped (CLEAN-01..07, CXOPS-01..04, MC-01..05). Archived stale REQUIREMENTS.md as milestones/v1.2-REQUIREMENTS.md. Previous session shipped v1.3 + synced super-gsd install to ~/.claude (sgsd-orchestrate SKILL.md now 1460 lines with resolveReviewerProvider wiring) + raised codex_timeout to 180s + confirmed end-to-end Codex contract path via smoke test (FINDINGS/CRITICAL/WARNINGS/PASS_RATE/ONE_LINER output in 46s).
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 0
-  total_plans: 7
+  total_plans: 10
   completed_plans: 0
   percent: 0
 ---

@@ -28,25 +28,25 @@ token efficiency, model selection, memory, quality gates, and crash recovery.
 
 **Post-milestone landing (pre-v1.3):** DLB-01..06 deliberations shipped (memory topology, MUDA write-path, intent continuity, resource substrate, VTP audit sharpening, central distribution) plus SGSD v2 Phase A-E (registry + 8 executors + heartbeat + statusline + mission-control tile).
 
-## Current Milestone: v1.4 Clean Close + Codex Visibility
+## Current Milestone: v1.4 Clean Close + Codex Visibility + Autonomous Handoff
 
-**Goal:** Sweep v1.3 carry-over tech debt, harden Codex to full operational reliability on real task loads, wire Codex activity into mission-control visibility surfaces. No net-new feature scope — this is a sharpening milestone.
+**Goal:** Sweep v1.3 carry-over tech debt, harden Codex to full operational reliability on real task loads, wire Codex activity into mission-control visibility surfaces, and close the autonomous-handoff loop so every non-discuss phase runs across session boundaries without operator intervention. Operator directive 2026-04-24: *"basically other than the discuss phases I want every phase there and after research, plan, execute, audit etc to be autonomous."* Phase 20 is the architectural closure that delivers on the orchestrator's original context-survival promise.
 
-**Target features (3 categories, 14 REQ-IDs, 3 phases, 7 plans):**
+**Target features (4 categories, 17 REQ-IDs, 4 phases, 10 plans):**
 
 - **CLEAN (Phase 17 — Debt Sweep):** providers-registry.cjs refresh, sgsd-muda-audit WASTE.md display fix, backfill missing plan SUMMARYs, P5 Codex Monitor retroactive artifact, REQUIREMENTS.md hygiene, v1.2 retroactive milestone close + tag, codex_timeout workload tiers
 - **CXOPS (Phase 18 — Codex Hardening):** codex-exec.sh --self-test probe, runtime contract validator + parse_failure fallback, dogfood per-dispatch + phase-level ATC via Codex on a live phase
 - **MC (Phase 19 — Mission Control Visibility):** Codex tile in mission-control, statusline Codex indicator, narrative Codex event capture, live-feed codex-log tail, dashboard Multimodal Review Offload tile
+- **HANDOFF (Phase 20 — Autonomous Session Handoff):** Stop hook spawns fresh claude session on emergency_halt checkpoint; cooldown + max-chain-depth + operator-abort safety rails; handoff telemetry + MC chain-depth tile + milestone-close stats. Discuss-phase explicitly excluded (interactive by design).
 
-**Dependencies:** Phase 17 ∥ Phase 18 (independent). Phase 19 benefits from Phase 18 producing real Codex activity to visualize, but not strictly blocked.
+**Dependencies:** Phase 17 ∥ Phase 18 (independent). Phase 19 benefits from Phase 18's real Codex activity. Phase 20 serializes after Phase 19 (needs MC surfaces to extend).
 
 **Success criteria for milestone close:**
 - Zero v1.3 carry-over tech debt items remaining open
 - `git tag v1.2` exists; v1.2 archive files in place
 - At least one `.planning/phases/*/commit-reviews.jsonl` row with `provider: openai-codex` and valid FINDINGS contract
 - Mission-control dashboard visibly reflects Codex activity during autonomous runs
-
-**New scope candidates:** To be determined via `/gsd-new-milestone v1.4` questioning + research + requirements definition pass.
+- **Autonomous handoff proven end-to-end:** at least one emergency_halt checkpoint during v1.4's own phases triggers the Stop hook, spawns a fresh claude session, resumes at next_unit without operator intervention. `.planning/metrics/handoff-log.jsonl` contains the chain event as evidence.
 
 ## Key Decisions
 
