@@ -425,10 +425,65 @@ function vtpCrossRef(text, tier, opts) {
 }
 
 // ---------------------------------------------------------------------------
+// vtpCrossReference() — canonical long-form alias for vtpCrossRef (VTPE-02)
+// ---------------------------------------------------------------------------
+
+/**
+ * vtpCrossReference — canonical public export alias for vtpCrossRef.
+ * Agents and skill files should call this long-form name for clarity.
+ * Behaviour identical to vtpCrossRef; see that function for full docs.
+ *
+ * D-05 tier policy:
+ *   CRITICAL -> per-finding query spec + confidence field (0-1)
+ *   WARN     -> batched end-of-audit spec
+ *   PASS     -> {skipped:true} (zero VTP calls)
+ *
+ * @param {string} findingText
+ * @param {'CRITICAL'|'WARN'|'PASS'} tier
+ * @param {{projectDir?:string, fileContext?:string}} [opts]
+ * @returns {{skipped?:true}|{batched_citations:Array, batch_pending:true, query_spec:Object}|{citations:Array, confidence:number, query_spec:Object}}
+ */
+function vtpCrossReference(findingText, tier, opts) {
+  const normTier = String(tier || '').toUpperCase();
+
+  if (normTier === 'PASS') {
+    return { skipped: true };
+  }
+
+  if (normTier === 'WARN') {
+    return {
+      batched_citations: [],
+      batch_pending: true,
+      query_spec: {
+        tool: 'mcp__vtp-kb__vtp_search',
+        seed: typeof findingText === 'string' ? findingText.slice(0, SEED_MAX_CHARS) : '',
+        mode: 'batched-warn',
+      },
+    };
+  }
+
+  if (normTier === 'CRITICAL') {
+    const fileContext = (opts && opts.fileContext) ? opts.fileContext : '';
+    return {
+      citations: [],
+      confidence: 0,
+      query_spec: {
+        tool: 'mcp__vtp-kb__vtp_route_and_retrieve',
+        seed: (findingText + '\n' + fileContext).slice(0, SEED_MAX_CHARS),
+        mode: 'per-finding-critical',
+      },
+    };
+  }
+
+  // Unknown tier guard — treat as PASS (no VTP call)
+  return { skipped: true };
+}
+
+// ---------------------------------------------------------------------------
 // Module exports
 // ---------------------------------------------------------------------------
 
-module.exports = { run, vtpCrossRef };
+module.exports = { run, vtpCrossRef, vtpCrossReference };
 
 // Non-exported internals for self-test access
 module.exports._internal = {
@@ -620,6 +675,49 @@ function runSelfTest() {
       } finally {
         try { fs.rmSync(emptyPhaseDir, { recursive: true, force: true }); } catch (_) {}
       }
+    }
+
+    // -----------------------------------------------------------------
+    // Test 11: vtpCrossReference exported and callable (VTPE-02 long-form alias)
+    // -----------------------------------------------------------------
+    if (passed) {
+      if (typeof module.exports.vtpCrossReference !== 'function') fail('Test11: vtpCrossReference is not a function');
+    }
+
+    // -----------------------------------------------------------------
+    // Test 12: vtpCrossReference PASS -> {skipped:true} (D-05 no-op)
+    // -----------------------------------------------------------------
+    if (passed) {
+      const r12 = vtpCrossReference('no issue', 'PASS');
+      if (r12.skipped !== true) fail('Test12: PASS tier should return {skipped:true}');
+    }
+
+    // -----------------------------------------------------------------
+    // Test 13: vtpCrossReference WARN -> {batched_citations:[], batch_pending:true}
+    // -----------------------------------------------------------------
+    if (passed) {
+      const r13 = vtpCrossReference('warn finding', 'WARN');
+      if (!Array.isArray(r13.batched_citations)) fail('Test13: WARN should have batched_citations array');
+      if (passed && r13.batch_pending !== true) fail('Test13: WARN should set batch_pending:true');
+      if (passed && (!r13.query_spec || r13.query_spec.mode !== 'batched-warn')) fail('Test13: WARN query_spec.mode mismatch');
+    }
+
+    // -----------------------------------------------------------------
+    // Test 14: vtpCrossReference CRITICAL -> {citations:[], confidence:0, query_spec}
+    // -----------------------------------------------------------------
+    if (passed) {
+      const r14 = vtpCrossReference('critical finding', 'CRITICAL', { fileContext: 'src/foo.cjs:10' });
+      if (!Array.isArray(r14.citations)) fail('Test14: CRITICAL should have citations array');
+      if (passed && typeof r14.confidence !== 'number') fail('Test14: CRITICAL should have numeric confidence');
+      if (passed && (!r14.query_spec || r14.query_spec.mode !== 'per-finding-critical')) fail('Test14: CRITICAL query_spec.mode mismatch');
+    }
+
+    // -----------------------------------------------------------------
+    // Test 15: vtpCrossReference unknown tier -> {skipped:true} (guard)
+    // -----------------------------------------------------------------
+    if (passed) {
+      const r15 = vtpCrossReference('text', 'UNKNOWN');
+      if (r15.skipped !== true) fail('Test15: unknown tier should be treated as PASS guard');
     }
 
   } catch (err) {
