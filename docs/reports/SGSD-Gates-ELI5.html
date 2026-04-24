@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SGSD Gates ELI5</title>
+  <style>
+    :root {
+      --night: #101820;
+      --tower: #172532;
+      --tower-2: #203545;
+      --paper: #f6ead6;
+      --card: rgba(255, 248, 232, 0.94);
+      --ink: #16212a;
+      --muted: #66727a;
+      --line: rgba(16, 24, 32, 0.16);
+      --runway: #d76f2b;
+      --green: #0f8a6b;
+      --blue: #2f6f9f;
+      --red: #b5372f;
+      --yellow: #d99a22;
+      --shadow: 0 28px 80px rgba(3, 10, 18, 0.28);
+      --soft-shadow: 0 14px 36px rgba(16, 24, 32, 0.16);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 14% 8%, rgba(215, 111, 43, 0.22), transparent 25%),
+        radial-gradient(circle at 88% 16%, rgba(47, 111, 159, 0.22), transparent 28%),
+        linear-gradient(155deg, #0d171f 0%, #152938 42%, #ead8ba 42.2%, #f7eddb 100%);
+      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.22;
+      background-image:
+        linear-gradient(rgba(255, 248, 232, 0.16) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 248, 232, 0.12) 1px, transparent 1px);
+      background-size: 38px 38px;
+      mix-blend-mode: overlay;
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      width: min(1240px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 36px 0 72px;
+    }
+
+    .hero {
+      min-height: 560px;
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 28px;
+      align-items: stretch;
+    }
+
+    .hero-copy,
+    .radar {
+      border: 1px solid rgba(255, 248, 232, 0.18);
+      border-radius: 34px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .hero-copy {
+      background:
+        linear-gradient(145deg, rgba(246, 234, 214, 0.98), rgba(255, 248, 232, 0.86)),
+        radial-gradient(circle at 20% 20%, rgba(215, 111, 43, 0.2), transparent 30%);
+      padding: clamp(28px, 4vw, 52px);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .eyebrow {
+      width: fit-content;
+      padding: 8px 12px;
+      border: 1px solid rgba(16, 24, 32, 0.18);
+      border-radius: 999px;
+      font: 700 0.78rem/1 "Trebuchet MS", Verdana, sans-serif;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--tower);
+      background: rgba(255, 255, 255, 0.44);
+    }
+
+    h1 {
+      margin: 28px 0 18px;
+      font-size: clamp(3.2rem, 8vw, 7.8rem);
+      line-height: 0.86;
+      letter-spacing: -0.075em;
+    }
+
+    .subtitle {
+      max-width: 760px;
+      font-size: clamp(1.14rem, 2vw, 1.42rem);
+      line-height: 1.55;
+      color: #31424c;
+    }
+
+    .hero-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 32px;
+    }
+
+    .stat {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.42);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 1.7rem;
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+
+    .stat span {
+      display: block;
+      margin-top: 7px;
+      font: 700 0.72rem/1.35 "Trebuchet MS", Verdana, sans-serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .radar {
+      position: relative;
+      min-height: 560px;
+      background:
+        radial-gradient(circle at center, transparent 0 17%, rgba(215, 111, 43, 0.24) 17.2% 17.8%, transparent 18% 32%, rgba(255,255,255,0.16) 32.2% 32.8%, transparent 33% 48%, rgba(255,255,255,0.12) 48.2% 48.8%, transparent 49%),
+        conic-gradient(from 45deg, rgba(15, 138, 107, 0.34), transparent 18%, rgba(47, 111, 159, 0.26), transparent 38%, rgba(215, 111, 43, 0.3), transparent 68%, rgba(15, 138, 107, 0.34)),
+        linear-gradient(150deg, var(--tower), var(--night));
+    }
+
+    .radar::before {
+      content: "";
+      position: absolute;
+      inset: 9%;
+      border-radius: 50%;
+      border: 1px dashed rgba(246, 234, 214, 0.38);
+      animation: spin 18s linear infinite;
+    }
+
+    .radar::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 47%;
+      height: 2px;
+      transform-origin: left center;
+      background: linear-gradient(90deg, rgba(215,111,43,0.9), transparent);
+      animation: sweep 5s linear infinite;
+      box-shadow: 0 0 22px rgba(215,111,43,0.65);
+    }
+
+    @keyframes sweep {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes spin {
+      to { transform: rotate(-360deg); }
+    }
+
+    .plane {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--paper);
+      box-shadow: 0 0 0 7px rgba(246, 234, 214, 0.12), 0 0 30px rgba(246, 234, 214, 0.45);
+    }
+
+    .p1 { left: 28%; top: 31%; }
+    .p2 { left: 64%; top: 22%; background: var(--runway); }
+    .p3 { left: 71%; top: 67%; background: var(--green); }
+    .p4 { left: 32%; top: 72%; background: var(--yellow); }
+
+    .radar-label {
+      position: absolute;
+      left: 28px;
+      right: 28px;
+      bottom: 28px;
+      padding: 20px;
+      border: 1px solid rgba(246, 234, 214, 0.16);
+      border-radius: 24px;
+      color: var(--paper);
+      background: rgba(7, 15, 22, 0.58);
+      backdrop-filter: blur(10px);
+    }
+
+    .radar-label h2 {
+      margin: 0 0 8px;
+      font-size: 1.5rem;
+      letter-spacing: -0.03em;
+    }
+
+    .radar-label p {
+      margin: 0;
+      color: rgba(246, 234, 214, 0.76);
+      line-height: 1.5;
+    }
+
+    .nav {
+      position: sticky;
+      top: 10px;
+      z-index: 10;
+      margin: 22px 0;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 10px;
+      border: 1px solid rgba(16, 24, 32, 0.12);
+      border-radius: 999px;
+      background: rgba(246, 234, 214, 0.84);
+      box-shadow: 0 12px 34px rgba(16, 24, 32, 0.12);
+      backdrop-filter: blur(14px);
+    }
+
+    .nav a {
+      flex: 0 0 auto;
+      padding: 10px 14px;
+      border-radius: 999px;
+      color: var(--ink);
+      text-decoration: none;
+      font: 800 0.76rem/1 "Trebuchet MS", Verdana, sans-serif;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      transition: 160ms ease;
+    }
+
+    .nav a:hover {
+      color: #fff8e8;
+      background: var(--tower);
+    }
+
+    section {
+      margin-top: 24px;
+      border-radius: 32px;
+      border: 1px solid var(--line);
+      background: rgba(255, 248, 232, 0.76);
+      box-shadow: var(--soft-shadow);
+      overflow: hidden;
+    }
+
+    .section-head {
+      padding: 30px 32px 20px;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(90deg, rgba(16,24,32,0.06), transparent),
+        rgba(255, 255, 255, 0.34);
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      line-height: 1;
+      letter-spacing: -0.055em;
+    }
+
+    .section-head p {
+      max-width: 840px;
+      margin: 12px 0 0;
+      color: #44535b;
+      font-size: 1.05rem;
+      line-height: 1.55;
+    }
+
+    .simple-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      padding: 22px;
+    }
+
+    .simple-card {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--card);
+    }
+
+    .simple-card h3 {
+      margin: 0 0 8px;
+      font-size: 1.12rem;
+      letter-spacing: -0.02em;
+    }
+
+    .simple-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.48;
+    }
+
+    .gate-grid {
+      padding: 22px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .gate {
+      position: relative;
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background:
+        linear-gradient(145deg, rgba(255,255,255,0.55), rgba(255,248,232,0.92)),
+        var(--card);
+      padding: 22px;
+      overflow: hidden;
+    }
+
+    .gate::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 7px;
+      background: var(--blue);
+    }
+
+    .gate.hard::before { background: var(--red); }
+    .gate.soft::before { background: var(--yellow); }
+    .gate.amortized::before { background: var(--green); }
+    .gate.future::before { background: var(--runway); }
+
+    .gate-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .gate h3 {
+      margin: 0;
+      font-size: clamp(1.32rem, 2.4vw, 1.8rem);
+      letter-spacing: -0.04em;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 10px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 9px;
+      border-radius: 999px;
+      background: rgba(16, 24, 32, 0.08);
+      color: #31424c;
+      font: 800 0.68rem/1 "Trebuchet MS", Verdana, sans-serif;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .badge.red { background: rgba(181, 55, 47, 0.13); color: #84271f; }
+    .badge.green { background: rgba(15, 138, 107, 0.13); color: #0f6651; }
+    .badge.blue { background: rgba(47, 111, 159, 0.13); color: #265a7e; }
+    .badge.yellow { background: rgba(217, 154, 34, 0.18); color: #7b520d; }
+
+    .eli5 {
+      margin: 0 0 16px;
+      padding: 16px;
+      border-radius: 20px;
+      background: rgba(16, 24, 32, 0.06);
+      border: 1px dashed rgba(16, 24, 32, 0.2);
+      line-height: 1.5;
+    }
+
+    .gate dl {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 10px 14px;
+      margin: 0;
+    }
+
+    .gate dt {
+      font: 900 0.7rem/1.2 "Trebuchet MS", Verdana, sans-serif;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .gate dd {
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    .vtp {
+      margin-top: 16px;
+      padding: 15px 16px;
+      border-radius: 20px;
+      color: #12251f;
+      background: linear-gradient(120deg, rgba(15,138,107,0.15), rgba(215,111,43,0.12));
+      border: 1px solid rgba(15, 138, 107, 0.18);
+      line-height: 1.5;
+    }
+
+    .vtp strong {
+      display: block;
+      margin-bottom: 5px;
+      font: 900 0.72rem/1 "Trebuchet MS", Verdana, sans-serif;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      padding: 22px;
+    }
+
+    .flow-step {
+      padding: 16px;
+      min-height: 130px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--card);
+    }
+
+    .flow-step small {
+      display: block;
+      font: 900 0.68rem/1 "Trebuchet MS", Verdana, sans-serif;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--runway);
+      margin-bottom: 10px;
+    }
+
+    .flow-step b {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 1.1rem;
+    }
+
+    .flow-step p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: 0.85fr 1.15fr;
+      gap: 18px;
+      padding: 22px;
+    }
+
+    .legend-panel {
+      padding: 24px;
+      border-radius: 26px;
+      background: var(--tower);
+      color: var(--paper);
+      border: 1px solid rgba(255, 248, 232, 0.14);
+    }
+
+    .legend-panel h3 {
+      margin: 0 0 14px;
+      font-size: 1.6rem;
+      letter-spacing: -0.035em;
+    }
+
+    .legend-panel p,
+    .legend-panel li {
+      color: rgba(246, 234, 214, 0.78);
+      line-height: 1.55;
+    }
+
+    .legend-panel ul {
+      margin: 10px 0 0;
+      padding-left: 20px;
+    }
+
+    .callout {
+      padding: 24px;
+      border-radius: 26px;
+      background:
+        linear-gradient(135deg, rgba(215,111,43,0.16), rgba(255,248,232,0.88));
+      border: 1px solid rgba(215, 111, 43, 0.22);
+    }
+
+    .callout h3 {
+      margin: 0 0 12px;
+      font-size: 1.55rem;
+      letter-spacing: -0.03em;
+    }
+
+    .callout p {
+      margin: 0 0 12px;
+      line-height: 1.56;
+      color: #31424c;
+    }
+
+    .footer {
+      margin-top: 24px;
+      padding: 24px 28px;
+      border-radius: 28px;
+      color: rgba(246, 234, 214, 0.84);
+      background: rgba(16, 24, 32, 0.86);
+      border: 1px solid rgba(246, 234, 214, 0.16);
+    }
+
+    .footer p {
+      margin: 0;
+      line-height: 1.55;
+    }
+
+    @media (max-width: 980px) {
+      .hero,
+      .legend {
+        grid-template-columns: 1fr;
+      }
+
+      .simple-grid,
+      .flow {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .gate-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .page {
+        width: min(100% - 18px, 1240px);
+        padding-top: 12px;
+      }
+
+      .hero-copy,
+      .section-head,
+      .gate,
+      .legend-panel,
+      .callout {
+        padding: 20px;
+      }
+
+      .hero-strip,
+      .simple-grid,
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .radar {
+        min-height: 420px;
+      }
+
+      .gate dl {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div class="hero-copy">
+        <div>
+          <div class="eyebrow">SGSD gate system, explained like you are five</div>
+          <h1>Every gate is a tiny airport checkpoint.</h1>
+          <p class="subtitle">
+            SGSD is a workflow for getting AI agents to do serious work without drifting, rushing, hiding mistakes,
+            or filling the repo with junk. A gate is a small checkpoint that asks: "Is it safe and useful to let this
+            work move to the next runway?"
+          </p>
+        </div>
+        <div class="hero-strip">
+          <div class="stat"><strong>12</strong><span>Live registry gates</span></div>
+          <div class="stat"><strong>5</strong><span>MUDA waste probes</span></div>
+          <div class="stat"><strong>1</strong><span>VTP enrichment gate planned</span></div>
+        </div>
+      </div>
+      <div class="radar" aria-label="Decorative radar showing SGSD gate checkpoints">
+        <span class="plane p1"></span>
+        <span class="plane p2"></span>
+        <span class="plane p3"></span>
+        <span class="plane p4"></span>
+        <div class="radar-label">
+          <h2>The control tower idea</h2>
+          <p>
+            A plane does not fly because one person says "looks fine." It gets checked by radar, ground crew,
+            maintenance, runway control, and air traffic control. SGSD does the same for agent work.
+          </p>
+        </div>
+      </div>
+    </header>
+
+    <nav class="nav" aria-label="Page sections">
+      <a href="#mental-model">Mental Model</a>
+      <a href="#pipeline">Pipeline</a>
+      <a href="#code-quality">Code Quality</a>
+      <a href="#process-hygiene">Process Hygiene</a>
+      <a href="#verification">Verification</a>
+      <a href="#vtp">VTP Gate</a>
+      <a href="#fitness">Fitness</a>
+    </nav>
+
+    <section id="mental-model">
+      <div class="section-head">
+        <h2>The Simple Rule</h2>
+        <p>
+          Each gate has five parts. If you can understand these five words, you can understand the whole SGSD safety system.
+        </p>
+      </div>
+      <div class="simple-grid">
+        <article class="simple-card">
+          <h3>Trigger</h3>
+          <p>When does the checkpoint wake up? Example: "code files changed" or "phase diff is big."</p>
+        </article>
+        <article class="simple-card">
+          <h3>Check</h3>
+          <p>What does it inspect? Example: architecture risk, waste, missing evidence, stale context.</p>
+        </article>
+        <article class="simple-card">
+          <h3>Evidence</h3>
+          <p>What receipt does it leave behind? Good gates write artifacts, not vibes.</p>
+        </article>
+        <article class="simple-card">
+          <h3>Escalation</h3>
+          <p>What happens if something is wrong? Soft warning, replan, hard halt, or phase block.</p>
+        </article>
+      </div>
+      <div class="legend">
+        <div class="legend-panel">
+          <h3>ELI5</h3>
+          <p>
+            Imagine building with Lego. A gate is the grown-up who checks: "Is this piece in the right place? Did we use
+            too many pieces? Did we forget the wheels? Did we write down what we changed?"
+          </p>
+        </div>
+        <div class="callout">
+          <h3>What VTP added</h3>
+          <p>
+            VTP is the library brain: books, papers, prior decisions, and research distilled into practical rules.
+            The VTP audit changed the gate philosophy from "add more checkpoints" to "make existing checkpoints actually
+            load-bearing."
+          </p>
+          <p>
+            In practical terms: every useful signal should be consumed downstream, critical findings should change the path,
+            and every enrichment call should be logged as success, zero hits, disabled, timeout, or error.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="pipeline">
+      <div class="section-head">
+        <h2>Where The Gates Sit</h2>
+        <p>
+          SGSD gates are spread through the workflow. Early gates choose direction, middle gates protect implementation,
+          late gates verify and learn.
+        </p>
+      </div>
+      <div class="flow">
+        <div class="flow-step">
+          <small>Step 2</small>
+          <b>Classify</b>
+          <p>Work out whether the task is trivial, complex, risky, or needs deliberation.</p>
+        </div>
+        <div class="flow-step">
+          <small>Steps 4-5.5</small>
+          <b>Context</b>
+          <p>Pick the right memory, recall prior lessons, and inject the user intent.</p>
+        </div>
+        <div class="flow-step">
+          <small>Step 9.5</small>
+          <b>Dispatch ATC</b>
+          <p>Review risky code changes before they land as "good enough."</p>
+        </div>
+        <div class="flow-step">
+          <small>Steps 6.5-6.55</small>
+          <b>Phase Close</b>
+          <p>Review the whole phase, then scan for waste patterns.</p>
+        </div>
+        <div class="flow-step">
+          <small>Steps 10-11</small>
+          <b>Learn</b>
+          <p>Curate lessons and log token/process cost so the system improves.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="code-quality">
+      <div class="section-head">
+        <h2>Code Quality Gates</h2>
+        <p>
+          These are the airport maintenance checks. They ask whether the code itself is safe, coherent, and not becoming
+          accidental spaghetti.
+        </p>
+      </div>
+      <div class="gate-grid">
+        <article class="gate hard">
+          <div class="gate-top">
+            <div>
+              <h3>per-dispatch-ATC</h3>
+              <div class="badge-row">
+                <span class="badge red">hard halt</span>
+                <span class="badge blue">step 9.5</span>
+                <span class="badge">Codex reviewer</span>
+              </div>
+            </div>
+          </div>
+          <p class="eli5">
+            Like checking one plane before takeoff. If an agent changes code and the task looks risky, ATC reviews that
+            specific dispatch before it gets treated as safe.
+          </p>
+          <dl>
+            <dt>When</dt>
+            <dd>When the classifier says ATC tier is <code>full</code> or <code>gate</code>, and code files changed.</dd>
+            <dt>Does</dt>
+            <dd>Runs the ATC review checklist, anti-slop checks, and complexity pressure on the changed work.</dd>
+            <dt>Catches</dt>
+            <dd>Bad architecture, hidden complexity, sloppy fixes, risky shortcuts, weak contracts, and code that "works" but makes the system worse.</dd>
+            <dt>Benefit</dt>
+            <dd>Stops one bad dispatch from contaminating the phase. It is the fast local safety net.</dd>
+          </dl>
+          <div class="vtp">
+            <strong>VTP enrichment</strong>
+            VTP pushed this from advisory review toward load-bearing review. The audit removed the idea that critical ATC
+            findings can silently bypass in auto mode: critical means fix, replan, gap-plan, or block.
+          </div>
+        </article>
+
+        <article class="gate amortized">
+          <div class="gate-top">
+            <div>
+              <h3>phase-level-ATC</h3>
+              <div class="badge-row">
+                <span class="badge green">amortized</span>
+                <span class="badge red">halts on critical</span>
+                <span class="badge blue">step 6.5</span>
+              </div>
+            </div>
+          </div>
+          <p class="eli5">
+            Like checking the whole airport day, not just one plane. It asks whether all the work in the phase makes sense together.
+          </p>
+          <dl>
+            <dt>When</dt>
+            <dd>At phase close, after verification passes and before the phase is marked complete.</dd>
+            <dt>Does</dt>
+            <dd>Reviews plans, commits, summaries, and the phase as one coherent unit.</dd>
+            <dt>Catches</dt>
+            <dd>Cross-plan contradictions, drift, duplicated architecture, phase-wide complexity creep, and "each part is okay but the whole is messy."</dd>
+            <dt>Benefit</dt>
+            <dd>Protects the shape of the system, not just individual changes.</dd>
+          </dl>
+          <div class="vtp">
+            <strong>VTP enrichment</strong>
+            VTP's architecture-fitness pattern changed this gate from log-only to halt-on-critical. The key lesson:
+            final success can hide internal breakdown, so a critical phase review must alter the path.
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="process-hygiene">
+      <div class="section-head">
+        <h2>Process Hygiene Gates</h2>
+        <p>
+          These are the gates that keep the AI workflow clean: right task, right context, no waste, learn from mistakes,
+          and do not burn tokens blindly.
+        </p>
+      </div>
+      <div class="gate-grid">
+        <article class="gate soft">
+          <h3>classifier-haiku</h3>
+          <div class="badge-row"><span class="badge yellow">soft warn</span><span class="badge blue">step 2</span></div>
+          <p class="eli5">Like asking "what kind of job is this?" before grabbing tools.</p>
+          <dl>
+            <dt>When</dt>
+            <dd>At the start of orchestration.</dd>
+            <dt>Does</dt>
+            <dd>Classifies complexity, ATC tier, deliberation need, and likely workflow path.</dd>
+            <dt>Catches</dt>
+            <dd>Trivial work being over-processed, risky work being under-reviewed, and planning tasks being treated like coding tasks.</dd>
+            <dt>Benefit</dt>
+            <dd>Prevents the wrong workflow from starting. Cheap Haiku routing saves expensive downstream correction.</dd>
+          </dl>
+          <div class="vtp"><strong>VTP enrichment</strong> VTP reinforced cheap structural routing first: use fast signals before expensive agents or reviews.</div>
+        </article>
+
+        <article class="gate soft">
+          <h3>context-selector-haiku</h3>
+          <div class="badge-row"><span class="badge yellow">soft warn</span><span class="badge blue">step 4</span></div>
+          <p class="eli5">Like packing the right backpack: not every book, only the ones needed for this trip.</p>
+          <dl>
+            <dt>When</dt>
+            <dd>After classification, before agents start using context.</dd>
+            <dt>Does</dt>
+            <dd>Selects relevant planning, memory, and code context for the next agent.</dd>
+            <dt>Catches</dt>
+            <dd>Context bloat, missing key files, stale assumptions, and accidental over-reading.</dd>
+            <dt>Benefit</dt>
+            <dd>Improves answer quality while keeping token cost and context drift under control.</dd>
+          </dl>
+          <div class="vtp"><strong>VTP enrichment</strong> HCC and Experience Compression pushed this toward tiered memory: promote useful context, avoid raw context dumping.</div>
+        </article>
+
+        <article class="gate soft">
+          <h3>sgsd-recall-queries</h3>
+          <div class="badge-row"><span class="badge yellow">soft warn</span><span class="badge blue">step 5</span></div>
+          <p class="eli5">Like asking "have we made this mistake before?" before doing the same thing again.</p>
+          <dl>
+            <dt>When</dt>
+            <dd>When the classifier says the task is not trivial.</dd>
+            <dt>Does</dt>
+            <dd>Searches prior SGSD lessons, anti-patterns, and memories that might apply.</dd>
+            <dt>Catches</dt>
+            <dd>Repeated mistakes, already-ruled-out paths, stale patterns, and lessons hidden in old phases.</dd>
+            <dt>Benefit</dt>
+            <dd>Makes SGSD compound. Every phase can improve the next one.</dd>
+          </dl>
+          <div class="vtp"><strong>VTP enrichment</strong> Thought Retriever and HCC pushed recall toward validated, provenance-backed lessons instead of vague memory stuffing.</div>
+        </article>
+
+        <article class="gate soft">
+          <h3>intent-injection</h3>
+          <div class="badge-row"><span class="badge yellow">soft warn</span><span class="badge blue">step 5.5</span></div>
+          <p class="eli5">Like pinning the teacher's instruction on the desk so nobody forgets the assignment.</p>
+          <dl>
+            <dt>When</dt>
+            <dd>Before execution prompts are dispatched.</dd>
+            <dt>Does</dt>
+            <dd>Keeps the user's actual goal and constraints visible inside the agent context.</dd>
+            <dt>Catches</dt>
+            <dd>Scope drift, agents solving nearby-but-wrong problems, and summaries that lose the original intent.</dd>
+            <dt>Benefit</dt>
+            <dd>Prevents "technically did work" from becoming "did the wrong work."</dd>
+          </dl>
+          <div class="vtp"><strong>VTP enrichment</strong> WLS highlighted context decay: important intent must survive across stages, not live only in the opening prompt.</div>
+        </article>
+
+        <article class="gate soft">
+          <h3>MUDA-waste-audit</h3>
+          <div class="badge-row"><span class="badge yellow">soft warn</span><span class="badge blue">step 6.55</span><span class="badge green">5 probes</span></div>
+          <p class="eli5">Like checking the workshop floor for mess: broken tools, waiting around, wasted walking, too many half-finished things.</p>
+          <dl>
+            <dt>When</dt>
+            <dd>At phase close when enough files or diff lines changed, except docs/config/refactor-only phases.</dd>
+            <dt>Does</dt>
+            <dd>Runs five probes: haiku failures, stale narrative, git-spawn rate, extra-processing, and inventory.</dd>
+            <dt>Catches</dt>
+            <dd>Silent model failures, stuck refresh loops, N+1 git waste, over/under review patterns, and stale scratch/draft/temp artifacts.</dd>
+            <dt>Benefit</dt>
+            <dd>Keeps process waste visible before it becomes normal.</dd>
+          </dl>
+          <div class="vtp">
+            <strong>VTP enrichment</strong>
+            The VTP audit found the old design emitted five probes but only consumed three. It was fixed so all five now flow
+            through WASTE.md, metrics, curation, and recurrence. Inventory was recalibrated so old canonical phase docs are
+            not falsely treated as waste.
+          </div>
+        </article>
+
+        <article class="gate soft">
+          <h3>qualitative-waste-audit</h3>
+          <div class="badge-row"><span class="badge yellow">soft warn</span><span class="badge blue">step 6.55</span><span class="badge">Codex</span></div>
+          <p class="eli5">Like asking a human-looking inspector: "Did we build anything nobody asked for?"</p>
+          <dl>
+            <dt>When</dt>
+            <dd>For larger non-doc/config phases, usually when diff lines are at least 200 and mechanical MUDA is not already failing hard.</dd>
+            <dt>Does</dt>
+            <dd>Uses a reviewer to spot soft waste: YAGNI, duplication, over-engineering, defensive code with no failure mode, and orphan work.</dd>
+            <dt>Catches</dt>
+            <dd>Waste that numbers alone miss, especially overproduction and unnecessary complexity.</dd>
+            <dt>Benefit</dt>
+            <dd>Stops "busy" from being confused with "useful."</dd>
+          </dl>
+          <div class="vtp"><strong>VTP enrichment</strong> Skill-RAG and TACO shaped this: diagnose the failure type before retrying or adding machinery.</div>
+        </article>
+
+        <article class="gate soft">
+          <h3>sgsd-curate-learnings</h3>
+          <div class="badge-row"><span class="badge yellow">soft warn</span><span class="badge blue">step 10</span></div>
+          <p class="eli5">Like putting a good lesson into the class rulebook after someone learns the hard way.</p>
+          <dl>
+            <dt>When</dt>
+            <dd>When a new pattern, script, or error is discovered.</dd>
+            <dt>Does</dt>
+            <dd>Turns raw discoveries into reusable SGSD memory or anti-pattern entries.</dd>
+            <dt>Catches</dt>
+            <dd>Knowledge evaporating after a phase, repeated debugging, and lessons trapped in chat logs.</dd>
+            <dt>Benefit</dt>
+            <dd>Makes the workflow self-improving instead of amnesiac.</dd>
+          </dl>
+          <div class="vtp"><strong>VTP enrichment</strong> VTP pushed lifecycle governance: provenance, confidence, novelty, usage, expiry, and dead-end labels.</div>
+        </article>
+
+        <article class="gate soft">
+          <h3>token-log</h3>
+          <div class="badge-row"><span class="badge yellow">soft warn</span><span class="badge blue">step 11</span></div>
+          <p class="eli5">Like a fuel gauge. The plane may still fly, but you need to know how much fuel it burned.</p>
+          <dl>
+            <dt>When</dt>
+            <dd>After agent/reviewer activity that should be costed.</dd>
+            <dt>Does</dt>
+            <dd>Logs estimated input, output, provider, model, role, elapsed time, and token totals.</dd>
+            <dt>Catches</dt>
+            <dd>Expensive rituals, runaway review loops, and hidden cost regressions.</dd>
+            <dt>Benefit</dt>
+            <dd>Lets SGSD retire or tune process that costs more than it earns.</dd>
+          </dl>
+          <div class="vtp"><strong>VTP enrichment</strong> Think Just Enough shaped the policy: spend compute where uncertainty and risk justify it, not everywhere.</div>
+        </article>
+      </div>
+    </section>
+
+    <section id="verification">
+      <div class="section-head">
+        <h2>Verification Completeness Gates</h2>
+        <p>
+          These gates check the checker. They exist because a verification report can look official while its math or detail is wrong.
+        </p>
+      </div>
+      <div class="gate-grid">
+        <article class="gate soft">
+          <h3>verifier-row-arithmetic</h3>
+          <div class="badge-row"><span class="badge yellow">soft warn</span><span class="badge">verify-mjs</span></div>
+          <p class="eli5">Like counting the stickers on a homework chart and making sure the total is real.</p>
+          <dl>
+            <dt>When</dt>
+            <dd>When a phase has a verification script/report.</dd>
+            <dt>Does</dt>
+            <dd>Checks that row counts, pass/fail totals, and summary numbers agree.</dd>
+            <dt>Catches</dt>
+            <dd>Arithmetic mistakes, impossible pass rates, and summaries that do not match raw verification rows.</dd>
+            <dt>Benefit</dt>
+            <dd>Makes verification auditable instead of decorative.</dd>
+          </dl>
+          <div class="vtp"><strong>VTP enrichment</strong> WLS emphasized raw artifact evaluation: trust the row math, not only the final claim.</div>
+        </article>
+
+        <article class="gate soft">
+          <h3>verifier-detail-vs-summary</h3>
+          <div class="badge-row"><span class="badge yellow">soft warn</span><span class="badge">verify-mjs</span></div>
+          <p class="eli5">Like checking that the report card comments match the actual test answers.</p>
+          <dl>
+            <dt>When</dt>
+            <dd>When a phase has detailed verification evidence and a summary.</dd>
+            <dt>Does</dt>
+            <dd>Compares detailed rows against the headline summary.</dd>
+            <dt>Catches</dt>
+            <dd>False green summaries, hidden failed checks, missing detail, and optimistic close-out text.</dd>
+            <dt>Benefit</dt>
+            <dd>Prevents "looks verified" from replacing actual verification.</dd>
+          </dl>
+          <div class="vtp"><strong>VTP enrichment</strong> VTP evidence warned that superficial success can mask internal breakdown; this gate keeps the details load-bearing.</div>
+        </article>
+      </div>
+    </section>
+
+    <section id="vtp">
+      <div class="section-head">
+        <h2>The VTP Enrichment Gate</h2>
+        <p>
+          This is the planned Phase 21 gate: it turns VTP from a passive library into an active checkpoint between research and planning.
+        </p>
+      </div>
+      <div class="gate-grid">
+        <article class="gate future">
+          <h3>vtp-enrichment</h3>
+          <div class="badge-row"><span class="badge green">planned</span><span class="badge blue">research to plan</span><span class="badge">VTP corpus</span></div>
+          <p class="eli5">Like asking the library teacher: "Before we start building, do any books or past lessons say we are missing something?"</p>
+          <dl>
+            <dt>When</dt>
+            <dd>After phase research and before planning, when <code>config.json.vtp_enrichment.enabled</code> is true.</dd>
+            <dt>Does</dt>
+            <dd>Queries VTP using the phase domain, requirement acceptance criteria, and research findings. Writes <code>VTP-ENRICHMENT.md</code>.</dd>
+            <dt>Catches</dt>
+            <dd>Known patterns from books/papers, missing alternatives, prior project lessons, zero-hit areas, and library contradictions.</dd>
+            <dt>Benefit</dt>
+            <dd>Stops SGSD from planning in isolation. The planner starts with external memory already attached.</dd>
+          </dl>
+          <div class="vtp">
+            <strong>VTP enrichment</strong>
+            VTP enriched its own gate design: calls should be thresholded, empty hits are valid evidence, errors are different
+            from zero hits, and every exit path must be logged.
+          </div>
+        </article>
+
+        <article class="gate future">
+          <h3>edge-guard ledger</h3>
+          <div class="badge-row"><span class="badge green">gate ledger</span><span class="badge">fitness function</span></div>
+          <p class="eli5">Like the clipboard that records which checkpoints opened, which stayed shut, and why.</p>
+          <dl>
+            <dt>When</dt>
+            <dd>Whenever a gate is evaluated or an expected artifact is missing.</dd>
+            <dt>Does</dt>
+            <dd>Logs gate id, expected evidence, missing emits, resolution, and whether the system should halt or continue.</dd>
+            <dt>Catches</dt>
+            <dd>Silent skip drift: a gate that everyone thinks is active but is not actually producing receipts.</dd>
+            <dt>Benefit</dt>
+            <dd>Makes the gate system itself auditable.</dd>
+          </dl>
+          <div class="vtp">
+            <strong>VTP enrichment</strong>
+            Fundamentals of Software Architecture pushed this toward fitness functions: each gate needs objective proof that it fired,
+            passed, skipped validly, or halted.
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="fitness">
+      <div class="section-head">
+        <h2>The VTP Upgrade In One Sentence Per Gate</h2>
+        <p>
+          The big enrichment was not "add more process." It was "make every gate earn its keep."
+        </p>
+      </div>
+      <div class="simple-grid">
+        <article class="simple-card"><h3>ATC</h3><p>Critical architecture risks cannot silently pass into phase completion.</p></article>
+        <article class="simple-card"><h3>MUDA</h3><p>Every emitted waste probe must be consumed by audit, recurrence, and summary.</p></article>
+        <article class="simple-card"><h3>Verifier</h3><p>Every failed verifier result needs a fix, gap-plan, or recorded deviation.</p></article>
+        <article class="simple-card"><h3>VTP</h3><p>Every enrichment call records whether evidence was used, rejected, empty, unavailable, or failed.</p></article>
+        <article class="simple-card"><h3>Memory</h3><p>Every promoted memory needs provenance, confidence, usage, and expiry.</p></article>
+        <article class="simple-card"><h3>Board</h3><p>Every role must contribute distinct information or be redesigned.</p></article>
+        <article class="simple-card"><h3>Token</h3><p>Context and review cost must trigger compression or pruning before failure.</p></article>
+        <article class="simple-card"><h3>Edge Guard</h3><p>The gate system needs receipts for its own behavior.</p></article>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>
+        Source basis: live <code>super-gsd/registry/gates.yaml</code>, the VTP-grounded SGSD process audit, and Phase 21 VTP enrichment context.
+        This page is intentionally ELI5, but the mechanics map directly to the current SGSD gate registry.
+      </p>
+    </footer>
+  </main>
+</body>
+</html>

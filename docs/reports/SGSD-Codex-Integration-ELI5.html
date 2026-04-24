@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Codex in SGSD — ELI5</title>
+  <style>
+    :root {
+      --paper: #f6f0e5;
+      --ink: #182126;
+      --muted: #5d6a6b;
+      --line: rgba(24, 33, 38, 0.14);
+      --panel: rgba(255, 252, 246, 0.84);
+      --shadow: 0 24px 60px rgba(47, 36, 18, 0.14);
+      --claude: #136f63;
+      --codex: #d45113;
+      --sgsd: #274c77;
+      --warning: #9c2f2f;
+      --soft: #eadfcb;
+      --cream: #fffaf1;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 20% 10%, rgba(212, 81, 19, 0.12), transparent 26%),
+        radial-gradient(circle at 84% 14%, rgba(19, 111, 99, 0.14), transparent 24%),
+        radial-gradient(circle at 50% 100%, rgba(39, 76, 119, 0.12), transparent 28%),
+        linear-gradient(180deg, #efe4d2 0%, #f7f1e8 52%, #efe7da 100%);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.26;
+      background-image:
+        linear-gradient(rgba(24, 33, 38, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(24, 33, 38, 0.04) 1px, transparent 1px);
+      background-size: 22px 22px;
+    }
+
+    .page {
+      width: min(1200px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 40px 0 64px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 30px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.72), rgba(255,250,241,0.9)),
+        linear-gradient(120deg, rgba(212, 81, 19, 0.08), rgba(19, 111, 99, 0.05));
+      box-shadow: var(--shadow);
+      padding: 36px;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -120px -120px auto;
+      width: 320px;
+      height: 320px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(212,81,19,0.16), transparent 68%);
+      filter: blur(8px);
+    }
+
+    .eyebrow {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(24, 33, 38, 0.12);
+      background: rgba(255,255,255,0.7);
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      font-weight: 700;
+      line-height: 0.95;
+    }
+
+    h1 {
+      margin-top: 18px;
+      font-size: clamp(40px, 8vw, 84px);
+      letter-spacing: -0.05em;
+      max-width: 10ch;
+    }
+
+    .lede {
+      margin-top: 20px;
+      font-size: clamp(18px, 2.2vw, 24px);
+      line-height: 1.45;
+      max-width: 44rem;
+      color: rgba(24, 33, 38, 0.84);
+    }
+
+    .hero-grid,
+    .three-up,
+    .compare-grid,
+    .rails,
+    .principles,
+    .footer-grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .hero-grid {
+      margin-top: 30px;
+      grid-template-columns: 1.25fr 0.75fr;
+      align-items: start;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: var(--panel);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 16px 36px rgba(45, 33, 18, 0.08);
+    }
+
+    .panel.pad { padding: 22px; }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .mini-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+    }
+
+    .big-number {
+      font-size: clamp(48px, 8vw, 92px);
+      line-height: 0.9;
+      letter-spacing: -0.06em;
+    }
+
+    .tiny {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .section {
+      margin-top: 22px;
+      padding: 26px;
+      border-radius: 28px;
+      border: 1px solid var(--line);
+      background: rgba(255, 250, 241, 0.68);
+      box-shadow: var(--shadow);
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+
+    .section h2 {
+      font-size: clamp(28px, 4vw, 52px);
+      letter-spacing: -0.04em;
+    }
+
+    .section-note {
+      max-width: 32rem;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 15px;
+    }
+
+    .three-up {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 24px;
+      padding: 20px;
+      border: 1px solid var(--line);
+      background: var(--cream);
+      min-height: 190px;
+    }
+
+    .card h3 {
+      font-size: 28px;
+      margin-bottom: 12px;
+      letter-spacing: -0.04em;
+    }
+
+    .card p {
+      margin: 0;
+      line-height: 1.55;
+      color: rgba(24, 33, 38, 0.84);
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.7);
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .claude { background: var(--claude); }
+    .codex { background: var(--codex); }
+    .sgsd { background: var(--sgsd); }
+    .warn { background: var(--warning); }
+
+    .flow {
+      display: grid;
+      gap: 16px;
+    }
+
+    .flow-step {
+      display: grid;
+      grid-template-columns: 70px 1fr;
+      gap: 14px;
+      align-items: start;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: rgba(255,255,255,0.72);
+    }
+
+    .step-no {
+      width: 54px;
+      height: 54px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      font-weight: 700;
+      background: var(--soft);
+      border: 1px solid var(--line);
+    }
+
+    .flow-step h3 {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .compare-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .compare {
+      border-radius: 26px;
+      border: 1px solid var(--line);
+      padding: 22px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.72), rgba(250,245,236,0.9));
+    }
+
+    .compare header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .badge {
+      padding: 8px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: white;
+    }
+
+    .compare ul,
+    .principles ul,
+    .footer-grid ul {
+      margin: 0;
+      padding-left: 20px;
+      line-height: 1.65;
+    }
+
+    .rails {
+      grid-template-columns: 1.1fr 0.9fr;
+    }
+
+    .diagram {
+      padding: 22px;
+      border-radius: 28px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.68);
+    }
+
+    .lane {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .track {
+      position: relative;
+      padding: 16px 16px 16px 22px;
+      border-radius: 18px;
+      background: rgba(255, 250, 241, 0.9);
+      border: 1px solid var(--line);
+    }
+
+    .track::before {
+      content: "";
+      position: absolute;
+      left: 10px;
+      top: 12px;
+      bottom: 12px;
+      width: 4px;
+      border-radius: 4px;
+      background: var(--sgsd);
+    }
+
+    .track.codex-lane::before { background: var(--codex); }
+    .track.claude-lane::before { background: var(--claude); }
+
+    .track h3 {
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+
+    .track p {
+      margin: 0;
+      line-height: 1.55;
+    }
+
+    .principles {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .principle {
+      padding: 18px;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.84);
+    }
+
+    .principle h3 {
+      font-size: 22px;
+      margin-bottom: 10px;
+    }
+
+    .footer-grid {
+      grid-template-columns: 0.9fr 1.1fr;
+      gap: 18px;
+    }
+
+    .callout {
+      padding: 22px;
+      border-radius: 24px;
+      border: 1px solid rgba(156, 47, 47, 0.18);
+      background: linear-gradient(180deg, rgba(255,245,241,0.9), rgba(255,250,245,0.92));
+    }
+
+    .callout h3 {
+      font-size: 28px;
+      margin-bottom: 10px;
+      color: var(--warning);
+    }
+
+    .summary-banner {
+      margin-top: 22px;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 12px;
+      padding: 18px 20px;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.72);
+      font-size: clamp(18px, 2.1vw, 24px);
+    }
+
+    .summary-banner strong {
+      font-size: 1.2em;
+    }
+
+    @media (max-width: 960px) {
+      .hero-grid,
+      .three-up,
+      .compare-grid,
+      .rails,
+      .principles,
+      .footer-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .section-head {
+        display: block;
+      }
+
+      .summary-banner {
+        grid-template-columns: 1fr;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <span class="eyebrow">SGSD × Codex · ELI5</span>
+      <h1>Where Codex fits in the full SGSD machine</h1>
+      <p class="lede">
+        Think of SGSD like a serious factory. Claude is still the foreman, the planner, the classifier,
+        and the main mechanic. Codex does <strong>not</strong> become “another random worker”.
+        Codex gets one narrow, useful job: <strong>independent reviewer</strong>.
+      </p>
+
+      <div class="hero-grid">
+        <div class="panel pad">
+          <div class="stack">
+            <div class="mini-label">The Big Idea</div>
+            <div class="big-number">Claude builds.<br>Codex checks.</div>
+            <p class="tiny">
+              Not everywhere. Only where a second opinion is valuable: code review, adversarial challenge,
+              and qualitative overproduction checks. That keeps SGSD sharper without turning it into a bloated circus.
+            </p>
+          </div>
+        </div>
+
+        <div class="panel pad">
+          <div class="mini-label">What stays the same</div>
+          <div class="pill-row">
+            <span class="pill"><span class="dot claude"></span> Claude still classifies</span>
+            <span class="pill"><span class="dot claude"></span> Claude still plans</span>
+            <span class="pill"><span class="dot claude"></span> Claude still executes</span>
+            <span class="pill"><span class="dot sgsd"></span> SGSD gates still rule</span>
+            <span class="pill"><span class="dot warn"></span> Kill conditions still apply</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Step 1 · What SGSD already is</h2>
+        <p class="section-note">
+          Before Codex enters the picture, SGSD already has a strict job system.
+          That matters because Codex only works if it slots into a real role.
+        </p>
+      </div>
+
+      <div class="three-up">
+        <article class="card">
+          <h3>1. Claude Opus = the conductor</h3>
+          <p>Opus handles orchestration and synthesis. It decides what phase comes next and which engine should run.</p>
+          <div class="pill-row">
+            <span class="pill"><span class="dot claude"></span> orchestration</span>
+            <span class="pill"><span class="dot claude"></span> milestone logic</span>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3>2. Claude Sonnet = the builder</h3>
+          <p>Sonnet does most of the actual implementation, verification, and current board work.</p>
+          <div class="pill-row">
+            <span class="pill"><span class="dot claude"></span> execution</span>
+            <span class="pill"><span class="dot claude"></span> planning</span>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3>3. Claude Haiku = the sorter</h3>
+          <p>Haiku handles the cheap, frequent routing work: classify the task, pick context, keep the loop efficient.</p>
+          <div class="pill-row">
+            <span class="pill"><span class="dot claude"></span> classifier</span>
+            <span class="pill"><span class="dot claude"></span> context picker</span>
+          </div>
+        </article>
+      </div>
+
+      <div class="summary-banner">
+        <span>So the current story is:</span>
+        <strong>SGSD decides → Claude works → SGSD checks</strong>
+        <span>Codex only gets added where that loop is too one-vendor.</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Step 2 · Why Codex is being added at all</h2>
+        <p class="section-note">
+          Two reasons only: save Claude quota, and get a real second opinion where disagreement is valuable.
+        </p>
+      </div>
+
+      <div class="flow">
+        <div class="flow-step">
+          <div class="step-no">A</div>
+          <div>
+            <h3>Claude quota is a real bottleneck</h3>
+            <p>When SGSD runs long, Claude review tokens are expensive. Codex gives SGSD another review budget lane.</p>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="step-no">B</div>
+          <div>
+            <h3>Same-vendor challengers share blind spots</h3>
+            <p>If Claude checks Claude, the challenge is useful but limited. If Codex checks Claude, disagreement becomes stronger signal.</p>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="step-no">C</div>
+          <div>
+            <h3>SGSD still hates bloat</h3>
+            <p>Codex is not being added to “do more stuff”. It is only added to do a very specific job better.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Step 3 · The exact places Codex enters</h2>
+        <p class="section-note">
+          This is the narrow lane. Codex touches review-shaped gates, not the whole orchestrator.
+        </p>
+      </div>
+
+      <div class="compare-grid">
+        <article class="compare">
+          <header>
+            <h3>What Codex will do</h3>
+            <span class="badge" style="background: var(--codex);">Narrow lane</span>
+          </header>
+          <ul>
+            <li><strong>Phase-level ATC</strong>: big end-of-phase review.</li>
+            <li><strong>Per-dispatch ATC</strong>: review of one specific change batch.</li>
+            <li><strong>Adversarial verifier challenge</strong>: “what did the main verifier miss?”</li>
+            <li><strong>Qualitative MUDA overproduction probe</strong>: catch YAGNI, duplication, over-engineering.</li>
+          </ul>
+        </article>
+
+        <article class="compare">
+          <header>
+            <h3>What Codex will not do</h3>
+            <span class="badge" style="background: var(--claude);">Still Claude</span>
+          </header>
+          <ul>
+            <li>Not the classifier.</li>
+            <li>Not the main planner.</li>
+            <li>Not the main executor.</li>
+            <li>Not the primary mechanical verifier.</li>
+            <li>Not the whole board by default.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Step 4 · The visual pipeline</h2>
+        <p class="section-note">
+          Here is the ELI5 version: SGSD sends work down the normal Claude rail, then selectively sends review-shaped work down the Codex rail.
+        </p>
+      </div>
+
+      <div class="rails">
+        <div class="diagram">
+          <div class="mini-label">Normal SGSD rail</div>
+          <div class="lane">
+            <div class="track claude-lane">
+              <h3>1. Orchestrator decides</h3>
+              <p>SGSD reads state, roadmap, gates, registry, and intent.</p>
+            </div>
+            <div class="track claude-lane">
+              <h3>2. Claude classifies and plans</h3>
+              <p>Haiku routes, Sonnet plans or executes, Opus synthesizes.</p>
+            </div>
+            <div class="track claude-lane">
+              <h3>3. Claude builds the thing</h3>
+              <p>The actual repo changes still happen in the main SGSD execution path.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="diagram">
+          <div class="mini-label">New Codex review rail</div>
+          <div class="lane">
+            <div class="track codex-lane">
+              <h3>4. SGSD asks: “Is this review-shaped?”</h3>
+              <p>If no, stay on Claude-only path. If yes, consult the provider registry.</p>
+            </div>
+            <div class="track codex-lane">
+              <h3>5. Codex reviews through a provider wrapper</h3>
+              <p>Codex is called through a controlled substrate so SGSD still owns the contract, logs, and evidence paths.</p>
+            </div>
+            <div class="track codex-lane">
+              <h3>6. SGSD stores the result in the same places</h3>
+              <p>Same review files. Same JSONL logs. Same gate system. Different reviewer.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Step 5 · The one rule that makes this safe</h2>
+        <p class="section-note">
+          Codex is only allowed in because it does not get to invent new evidence shapes.
+        </p>
+      </div>
+
+      <div class="three-up">
+        <article class="card">
+          <h3>Same outputs</h3>
+          <p>If Claude would write a review file or JSONL record, Codex must write the same kind of artifact.</p>
+        </article>
+        <article class="card">
+          <h3>Same gate ownership</h3>
+          <p>SGSD still decides whether a gate fires. Codex does not bypass gates. It only fulfills a reviewer slot inside them.</p>
+        </article>
+        <article class="card">
+          <h3>Same kill discipline</h3>
+          <p>If Codex does not improve quality or save enough quota, the lane gets disabled. It does not stay around as decorative infrastructure.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Step 6 · The rollout is intentionally boring</h2>
+        <p class="section-note">
+          This is the SGSD part: don’t flip behaviour and substrate in one move.
+        </p>
+      </div>
+
+      <div class="compare-grid">
+        <article class="compare">
+          <header>
+            <h3>Phase 14</h3>
+            <span class="badge" style="background: var(--sgsd);">Dark launch</span>
+          </header>
+          <ul>
+            <li>Build the provider wrapper.</li>
+            <li>Add provider registry.</li>
+            <li>Add Codex reviewer stub.</li>
+            <li>Keep `codex_enabled: false`.</li>
+            <li>No live routing changes yet.</li>
+          </ul>
+        </article>
+
+        <article class="compare">
+          <header>
+            <h3>Phase 15</h3>
+            <span class="badge" style="background: var(--codex);">Live but narrow</span>
+          </header>
+          <ul>
+            <li>Flip specific review gates to Codex.</li>
+            <li>Make adversarial verifier cross-vendor.</li>
+            <li>Add the qualitative MUDA overproduction probe.</li>
+            <li>Measure quota saved and extra issues found.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Step 7 · The child-version summary</h2>
+        <p class="section-note">
+          If you had to explain it to someone in one breath:
+        </p>
+      </div>
+
+      <div class="panel pad" style="background: linear-gradient(135deg, rgba(255,250,241,0.96), rgba(255,255,255,0.78));">
+        <p style="margin:0; font-size: clamp(24px, 3vw, 38px); line-height: 1.28; letter-spacing: -0.03em;">
+          <strong>SGSD is still a Claude-run factory.</strong> Codex is the outside inspector who walks in only when SGSD says,
+          “this part needs an independent review.”
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Step 8 · Why this is actually smart</h2>
+        <p class="section-note">
+          Because it follows the same three SGSD rules already used everywhere else.
+        </p>
+      </div>
+
+      <div class="principles">
+        <article class="principle">
+          <h3>1. Evidence before machinery</h3>
+          <p>Codex only stays if the metrics say it earns its keep.</p>
+        </article>
+        <article class="principle">
+          <h3>2. Structure over vibes</h3>
+          <p>The provider registry, same evidence contracts, and gate ownership stop it from becoming messy “AI glue”.</p>
+        </article>
+        <article class="principle">
+          <h3>3. Retain then escalate</h3>
+          <p>SGSD keeps the smallest working setup first, then escalates only when a stronger signal is needed.</p>
+        </article>
+        <article class="principle">
+          <h3>4. Kill dead substrate</h3>
+          <p>If Codex does not improve review quality or quota offload, SGSD turns the lane off instead of pretending it was useful.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="footer-grid">
+        <article class="callout">
+          <h3>What changes for you?</h3>
+          <p style="margin:0; line-height:1.6;">
+            You do <strong>not</strong> get a second full orchestrator. You get a better SGSD.
+            The system gains one new specialist: a Codex reviewer lane with real contracts, real logs,
+            and a real off switch.
+          </p>
+        </article>
+
+        <article class="panel pad">
+          <div class="mini-label">Final mental model</div>
+          <ul>
+            <li>Claude remains SGSD’s brain and hands.</li>
+            <li>Codex becomes SGSD’s second pair of eyes.</li>
+            <li>SGSD itself remains the boss of the whole loop.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

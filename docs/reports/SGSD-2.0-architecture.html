@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SGSD 2.0 — Orchestration Architecture</title>
+<style>
+:root {
+  --bg: #0f1115;
+  --surface: #181b22;
+  --surface-2: #22262f;
+  --border: #2d3340;
+  --text: #e8e8ec;
+  --text-dim: #8a8f99;
+  --text-mute: #5a6068;
+  --triage: #ffb84d;
+  --deliberate: #b58cff;
+  --exec: #5eead4;
+  --audit: #f48da5;
+  --memory: #82c7ff;
+  --mcp: #6ee7b7;
+  --next: #ffd166;
+  --opus: #f97373;
+  --sonnet: #5eead4;
+  --haiku: #ffd166;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, "Segoe UI", "SF Pro Text", system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 32px 24px;
+}
+code {
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  font-size: 11.5px;
+  background: #0b0d11;
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--text-dim);
+}
+h1, h2 { margin: 0 0 8px 0; font-weight: 600; }
+h1 { font-size: 24px; letter-spacing: -0.4px; }
+h2 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-mute);
+  margin-top: 36px;
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+.container { max-width: 1280px; margin: 0 auto; }
+.header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 20px;
+  margin-bottom: 28px;
+}
+.punchline {
+  color: var(--text-dim);
+  font-size: 13px;
+  margin: 8px 0 14px;
+  max-width: 850px;
+}
+.punchline strong { color: var(--text); font-weight: 500; }
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 11px;
+  color: var(--text-mute);
+}
+.legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; }
+
+/* BOX — the core visual unit */
+.box {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 11px 13px;
+  font-size: 12px;
+}
+.box-title {
+  font-weight: 600;
+  font-size: 12.5px;
+  margin-bottom: 5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+.box-meta {
+  color: var(--text-mute);
+  font-size: 10.5px;
+  margin-top: 8px;
+  font-style: italic;
+}
+.badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+.badge-opus   { background: #3d1717; color: var(--opus); }
+.badge-sonnet { background: #143531; color: var(--sonnet); }
+.badge-haiku  { background: #3b3319; color: var(--haiku); }
+
+/* colored borders */
+.box.triage     { border-color: var(--triage); }
+.box.deliberate { border-color: var(--deliberate); }
+.box.exec       { border-color: var(--exec); }
+.box.audit      { border-color: var(--audit); }
+.box.memory     { border-color: var(--memory); }
+.box.mcp        { border-color: var(--mcp); }
+.box.next {
+  border-color: var(--next);
+  border-style: dashed;
+  background: linear-gradient(to bottom, rgba(255,209,102,0.06), var(--surface-2));
+}
+.box.triage .box-title     { color: var(--triage); }
+.box.deliberate .box-title { color: var(--deliberate); }
+.box.exec .box-title       { color: var(--exec); }
+.box.audit .box-title      { color: var(--audit); }
+.box.memory .box-title     { color: var(--memory); }
+.box.mcp .box-title        { color: var(--mcp); }
+.box.next .box-title       { color: var(--next); }
+
+/* layers */
+.layer {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+.layer-title {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 1.8px;
+  color: var(--text-mute);
+  margin-bottom: 14px;
+  font-weight: 500;
+}
+
+/* grid rows */
+.row  { display: grid; gap: 12px; }
+.row-1 { grid-template-columns: 1fr; }
+.row-2 { grid-template-columns: 1fr 1fr; }
+.row-3 { grid-template-columns: repeat(3, 1fr); }
+.row-4 { grid-template-columns: repeat(4, 1fr); }
+
+.arrow {
+  text-align: center;
+  color: var(--text-mute);
+  font-size: 18px;
+  margin: 6px 0;
+  line-height: 1;
+  letter-spacing: 40px;
+  padding-left: 40px; /* compensate for letter-spacing */
+}
+.arrow-single { letter-spacing: 0; padding-left: 0; }
+
+/* orchestrator stages */
+.stages {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+.stage {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--exec);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.stage-num {
+  color: var(--exec);
+  font-weight: 700;
+  font-size: 10px;
+  min-width: 22px;
+  font-family: "JetBrains Mono", monospace;
+}
+
+/* inline emphasis */
+.em-deliberate { color: var(--deliberate); font-weight: 500; }
+.em-exec       { color: var(--exec); font-weight: 500; }
+.em-audit      { color: var(--audit); font-weight: 500; }
+.em-next       { color: var(--next); font-weight: 500; }
+
+.research-lane {
+  background: rgba(110, 231, 183, 0.06);
+  border: 1px solid rgba(110, 231, 183, 0.3);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-top: 12px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+.research-lane strong { color: var(--mcp); }
+
+.footer {
+  margin-top: 44px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  color: var(--text-mute);
+  font-size: 10.5px;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+  <h1>SGSD 2.0 — Orchestration Architecture</h1>
+  <div class="punchline">
+    A problem enters through <strong>one router</strong>, gets classified into one of four paths (strategic debate / build / audit / inline), and is handed to a <strong>specialized engine</strong> with its own model routing, evidence gates, and atomic-commit discipline. The engines share a common substrate: a <strong>git-native memory store</strong> and <strong>five MCP knowledge sources</strong> that get queried mid-flight. Every decision and learning becomes a durable artifact the next run can cite.
+  </div>
+  <div class="legend">
+    <span class="legend-item"><span class="dot" style="background:var(--triage)"></span>Triage</span>
+    <span class="legend-item"><span class="dot" style="background:var(--deliberate)"></span>Deliberate</span>
+    <span class="legend-item"><span class="dot" style="background:var(--exec)"></span>Orchestrate</span>
+    <span class="legend-item"><span class="dot" style="background:var(--audit)"></span>Audit</span>
+    <span class="legend-item"><span class="dot" style="background:var(--memory)"></span>Memory</span>
+    <span class="legend-item"><span class="dot" style="background:var(--mcp)"></span>MCP / knowledge</span>
+    <span class="legend-item"><span class="dot" style="background:var(--next)"></span>Next up</span>
+    <span class="legend-item" style="margin-left:8px">
+      <span class="badge badge-opus">Opus</span>
+      <span class="badge badge-sonnet">Sonnet</span>
+      <span class="badge badge-haiku">Haiku</span>
+    </span>
+  </div>
+</div>
+
+<!-- ENTRY -->
+<div class="row row-1">
+  <div class="box">
+    <div class="box-title">Operator input</div>
+    Message typed into Claude Code. <em>"I'm thinking about X"</em> · <em>"How should we Y?"</em> · <em>"Fix this bug"</em> · <em>"Audit the last milestone"</em>.
+  </div>
+</div>
+
+<div class="arrow arrow-single">↓</div>
+
+<!-- TRIAGE -->
+<div class="row row-1">
+  <div class="box triage">
+    <div class="box-title">/sgsd-triage — the router <span class="badge badge-opus">Opus</span></div>
+    Detects planning intent from keywords + conversation context. Before dispatching, checks the <strong>DELIBERATION-FLOOR</strong> gate: if implementation &lt;2h AND reversible, it skips strategic debate and routes straight to build. That gate is the reason we're not deliberating every change — it's also the reason we <em>do</em> deliberate the ones that matter.
+    <div class="box-meta">super-gsd/skills/sgsd-triage/SKILL.md</div>
+  </div>
+</div>
+
+<div class="arrow">↓ ↓ ↓ ↓</div>
+
+<!-- 4 PATHS -->
+<div class="row row-4">
+  <div class="box deliberate">
+    <div class="box-title">Path A · Deliberate</div>
+    Cross-cutting tradeoff · invariant at stake · irreversible.<br>
+    → <span class="em-deliberate">/sgsd-deliberate</span>
+    <div class="box-meta">Strategic only</div>
+  </div>
+  <div class="box exec">
+    <div class="box-title">Path B · Build</div>
+    Clear acceptance criteria · phase-scoped.<br>
+    → <span class="em-exec">/sgsd-discuss-phase</span><br>
+    → <span class="em-exec">/sgsd-orchestrate</span>
+    <div class="box-meta">Most work lives here</div>
+  </div>
+  <div class="box audit">
+    <div class="box-title">Path C · Audit</div>
+    Question about existing work · waste · conformance.<br>
+    → <span class="em-audit">/sgsd-muda-audit</span> or <span class="em-audit">/sgsd-audit</span>
+    <div class="box-meta">Retrospective</div>
+  </div>
+  <div class="box">
+    <div class="box-title">Path D · Inline</div>
+    Trivial · &lt;5 min · no artifact needed.<br>
+    → Answer in-conversation. No skill chain.
+    <div class="box-meta">Short-circuit</div>
+  </div>
+</div>
+
+<!-- ENGINES -->
+<h2>The three engines</h2>
+
+<!-- DELIBERATION -->
+<div class="layer">
+  <div class="layer-title">A · Strategic deliberation — /sgsd-deliberate</div>
+  <div class="row row-1">
+    <div class="box deliberate">
+      <div class="box-title">sgsd-ceo — orchestrates the debate <span class="badge badge-opus">Opus</span></div>
+      Spawns all four board members in <strong>parallel</strong>. Runs up to three debate rounds. Synthesizes a Decision Memo → <code>.planning/decisions/DLB-NN-slug.md</code>. The CEO never merges opinions silently — disagreements are logged with the dissenter's reasoning intact.
+    </div>
+  </div>
+  <div class="arrow">↓ ↓ ↓ ↓</div>
+  <div class="row row-4">
+    <div class="box deliberate">
+      <div class="box-title">Architect <span class="badge badge-sonnet">Sonnet</span></div>
+      Feasibility, system design, tech debt, implementation cost, 6-month maintenance burden.
+    </div>
+    <div class="box deliberate">
+      <div class="box-title">Contrarian <span class="badge badge-sonnet">Sonnet</span></div>
+      Untested assumptions, blast radius, blind spots. <em>"Who benefits, who gets hurt?"</em>
+    </div>
+    <div class="box deliberate">
+      <div class="box-title">Moonshot <span class="badge badge-sonnet">Sonnet</span></div>
+      10× alternatives, root-cause vs symptom. Prevents scope timidity.
+    </div>
+    <div class="box deliberate">
+      <div class="box-title">Pragmatist <span class="badge badge-sonnet">Sonnet</span></div>
+      Timeline reality, resource constraints, what actually ships. Simplest 80% version.
+    </div>
+  </div>
+  <div class="research-lane">
+    <strong>Live output from this engine:</strong> DLB-01..04 on 2026-04-19 — memory topology, MUDA learning loop, intent continuity, self-evolving resource substrate. All four Decision Memos now sit in <code>.planning/decisions/</code> and are cited by every subsequent phase.
+  </div>
+</div>
+
+<!-- ORCHESTRATOR -->
+<div class="layer">
+  <div class="layer-title">B · Execution loop — /sgsd-orchestrate</div>
+  <div class="box exec" style="margin-bottom:14px">
+    <div class="box-title">Opus orchestrator <span class="badge badge-opus">Opus</span></div>
+    Loops until the phase completes. Every turn must end with a tool call to keep the loop alive — <strong>text-only = loop dies</strong>. Below: the 13 stages per unit of work. Each unit ends with an atomic git commit and a STATE.md update, so the loop is fully resumable from any interruption.
+    <div class="box-meta">super-gsd/skills/sgsd-orchestrate/SKILL.md · super-gsd/agents/sgsd-executor.md</div>
+  </div>
+  <div class="stages">
+    <div class="stage"><span class="stage-num">1</span>Read STATE.md</div>
+    <div class="stage"><span class="stage-num">2</span>Classify <span class="badge badge-haiku">Haiku</span></div>
+    <div class="stage"><span class="stage-num">3</span>Deliberation gate</div>
+    <div class="stage"><span class="stage-num">4</span>Select context <span class="badge badge-haiku">Haiku</span></div>
+    <div class="stage"><span class="stage-num">5</span>Query memory + MCPs</div>
+    <div class="stage"><span class="stage-num">5.5</span>Inject milestone intent</div>
+    <div class="stage"><span class="stage-num">6</span>Dispatch rule match</div>
+    <div class="stage"><span class="stage-num">7</span>Compose prompt</div>
+    <div class="stage"><span class="stage-num">8</span>Dispatch executor <span class="badge badge-sonnet">Sonnet</span></div>
+    <div class="stage"><span class="stage-num">9</span>Process result</div>
+    <div class="stage"><span class="stage-num">9.5</span>Per-dispatch ATC review</div>
+    <div class="stage"><span class="stage-num">10</span>Curate learnings</div>
+    <div class="stage"><span class="stage-num">11</span>Update STATE + metrics</div>
+    <div class="stage"><span class="stage-num">12</span>Atomic git commit</div>
+    <div class="stage"><span class="stage-num">13</span>Loop</div>
+    <div class="stage" style="border-left-color:var(--next);color:var(--text-dim)"><span class="stage-num" style="color:var(--next)">→11</span>Phase 11 will skip Stage 2</div>
+  </div>
+</div>
+
+<!-- EXECUTOR FLEET -->
+<div class="layer">
+  <div class="layer-title">Specialized executor fleet — Stage 8 dispatch targets (all Sonnet)</div>
+  <div class="row row-4">
+    <div class="box exec"><div class="box-title">backend</div>APIs · data models · services · ORM. Contract-first, idempotent. Fires on <code>*.py</code> / <code>*.go</code> / server <code>*.ts</code>.</div>
+    <div class="box exec"><div class="box-title">ui</div>React / Vue / Svelte + CSS. Component purity + a11y. Triggers browser-verify gate.</div>
+    <div class="box exec"><div class="box-title">config</div>CI · Docker · env · infra. Idempotence + revert-safety.</div>
+    <div class="box exec"><div class="box-title">docs</div>Markdown-only. Verify-against-code discipline.</div>
+  </div>
+  <div style="height:10px"></div>
+  <div class="row row-4">
+    <div class="box exec"><div class="box-title">fix</div>Bug fixes. Reproduce-first → failing test → fix → regression guard.</div>
+    <div class="box exec"><div class="box-title">integration</div>Wire pre-built parts. Contract-matching + boundary tests.</div>
+    <div class="box exec"><div class="box-title">refactor</div>Zero behavior change. ΔComplexity ≤ 0, git-bisect-safe.</div>
+    <div class="box exec"><div class="box-title">test</div>Tests as primary artifact. AAA pattern + falsifiable experiment.</div>
+  </div>
+</div>
+
+<!-- AUDIT -->
+<div class="layer">
+  <div class="layer-title">C · Waste + conformance checks</div>
+  <div class="row row-4">
+    <div class="box audit"><div class="box-title">/sgsd-muda-audit</div>8-waste watchdog: haiku-fails, narrative staleness, git-spawn rate. Fires at phase close when files_changed ≥ 4 OR diff ≥ 100 lines. Writes <code>WASTE.md</code>.</div>
+    <div class="box audit"><div class="box-title">/sgsd-audit</div>Evidence-gated phase-close audit. Catches the "file never existed" gap class. Produces <code>AUDIT.md</code> + <code>REMEDIATION.md</code>.</div>
+    <div class="box audit"><div class="box-title">/sgsd-token-audit</div>Reads <code>token-log.jsonl</code>. Flags inefficiency patterns, suggests compression.</div>
+    <div class="box audit"><div class="box-title">/sgsd-distill</div>Milestone-close trajectory distillation. Extracts reusable principles through a triple hallucination gate.</div>
+  </div>
+</div>
+
+<!-- SUBSTRATE -->
+<h2>The substrate — queried mid-flight at Stage 5</h2>
+
+<div class="layer">
+  <div class="layer-title">MCP / external knowledge</div>
+  <div class="row row-4">
+    <div class="box mcp">
+      <div class="box-title">vtp-kb</div>
+      Research papers, projects, meetings, speakers, claims, commitments. Tools: <code>vtp_research_gate</code>, <code>vtp_idea_gate</code>, <code>wiki_*</code>, <code>vtp_search</code>, <code>vtp_get_*</code>.
+    </div>
+    <div class="box mcp">
+      <div class="box-title">jcl-internal</div>
+      John Cullen Lighting product + sales data: pricing, costs, margins, BOMs, specs, pipeline, partners. Used for domain lookups.
+    </div>
+    <div class="box mcp">
+      <div class="box-title">context7</div>
+      Version-specific library docs (React, Node, etc.) fetched at execution time. Replaces training-knowledge guesses with live truth.
+    </div>
+    <div class="box mcp">
+      <div class="box-title">Google cluster</div>
+      Gmail · Calendar · Drive · Gamma (presentations/docs). OAuth-gated. External-facing work.
+    </div>
+  </div>
+  <div class="research-lane">
+    <strong>Research ingestion pipeline (Rich asked about this):</strong>
+    &nbsp;&nbsp;Twitter / HuggingFace / arXiv / blog posts
+    &nbsp;→&nbsp; <strong>vtp_idea_gate</strong> (deterministic gate + 9-stage debate: concept expansion · first principles · triage debate · cross-domain research · KB integration · formalization · stakeholder lens · synthesis · second triage)
+    &nbsp;→&nbsp; <strong>vtp_research_gate</strong> (7-stage adversarial: retrieve · relevance · translate · challenger · defender · judge · grounding)
+    &nbsp;→&nbsp; structured KB
+    &nbsp;→&nbsp; <strong>queried as MCP at Stage 5</strong> of any orchestrator loop, so every executor sees the enriched knowledge.
+    <br><br>
+    That's the loop that makes the system <em>collectively smarter</em> across repos — an idea vetted here is a citation available there.
+  </div>
+</div>
+
+<div class="layer">
+  <div class="layer-title">Memory — Stage 5 recall, Stage 10 curate</div>
+  <div class="row row-1">
+    <div class="box memory">
+      <div class="box-title">.brv/context-tree/ — git-native knowledge store</div>
+      <code>INDEX.md</code> + typed markdown files (patterns · anti-patterns · decisions · expertise · scripts). Read via <code>sgsd-recall</code> (grep wrapper), written via <code>sgsd-curate</code>. No ranking model, no vector DB — grep is enough until the corpus passes ~40 files. <strong>DLB-01 ruled:</strong> stay on the filesystem tier; kill the dead ByteRover MCP; revisit ranking only when retrieval actually needs it. The v1.2 <code>.planning/memory/</code> schema migration is scaffolded but deferred.
+    </div>
+  </div>
+</div>
+
+<!-- DECISIONS -->
+<div class="layer">
+  <div class="layer-title">Decision ledger — what SGSD 2.0 decided about itself on 2026-04-19</div>
+  <div class="row row-4">
+    <div class="box deliberate"><div class="box-title">DLB-01 · Memory topology</div>Ship git-native tier. Remove dead brv MCP. Revisit ranking only when corpus ≥ 40 files.</div>
+    <div class="box deliberate"><div class="box-title">DLB-02 · MUDA learning loop</div>Narrow write path + 3 watchdog probes. Install-blockers first. Kill if no recurrence over 2 milestones.</div>
+    <div class="box deliberate"><div class="box-title">DLB-03 · Intent continuity</div><code>outcome_delivered</code> field + executor prompt injection + cascade CLAUDE.md rule. One Day 3 commit.</div>
+    <div class="box deliberate"><div class="box-title">DLB-04 · Self-evolving substrate</div>Scoped Agents manifest + operator-gated SEPL proposals + milestone-close distillation (triple hallucination gate).</div>
+  </div>
+</div>
+
+<!-- NEXT UP -->
+<h2>Next up</h2>
+<div class="row row-1">
+  <div class="box next">
+    <div class="box-title"><span class="em-next">Phase 11 · Plan Schema v2</span> — the orchestrator's input contract</div>
+    Canonical YAML-frontmatter plan schema (<code>schema_version: 2</code>) that enforces required per-task fields at <em>plan-load</em> time, not dispatch time: <code>id</code>, <code>agent</code>, <code>model</code>, <code>files_touched</code>, <code>input_contract</code>, <code>output_contract</code>, <code>hypothesis</code>, <code>falsifier</code>, <code>stop_rule</code>. Optional fields (<code>depends_on</code>, <code>known_deadends</code>, <code>expected_ATC_tier</code>, <code>verification_cmd</code>, <code>skip_gates</code>) have documented defaults.
+    <br><br>
+    <strong>Impact on the loop above →</strong> v2 plans <strong>skip Stage 2 Classify entirely</strong> — the fields the Haiku classifier was inferring become explicit in the plan. Cheaper, faster, deterministic. The 146 existing v1 plans keep working unchanged via classifier fallback.
+    <br><br>
+    <strong>Unblocks Phase 12 (Machinery)</strong> — classifier-skip (MACH-01), parallel/sequential dispatch auto-detection from <code>depends_on</code> + <code>files_touched</code> (MACH-02). <strong>Precedent for Phase 13 (Governance)</strong> — schema-as-resource ownership model for <code>board-members.yaml</code>.
+    <div class="box-meta">.planning/ROADMAP.md:77 · No deps · Flagged as unblocked starting move at checkpoint</div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>Generated from committed artifacts — DLB-01..04, sgsd-orchestrate, sgsd-executor (0a4e77a), ROADMAP Phase 11</span>
+  <span>SGSD 2.0 · 2026-04-21</span>
+</div>
+
+</div>
+</body>
+</html>
