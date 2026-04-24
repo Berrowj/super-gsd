@@ -42,6 +42,8 @@ When drafting PLAN.md for non-trivial plans, ground your architecture decisions 
 
 **Read VTP-EVIDENCE.md first.** If `.planning/phases/{active_phase}/VTP-EVIDENCE.md` exists (written by `sgsd-triage` Step 0), read it. Seed your plan-tier VTP call with its top-3 doc-IDs rather than starting cold.
 
+**Read VTP-ENRICHMENT.md (VTPE-01 artifact-theater prevention).** If `VTP-ENRICHMENT.md` exists in the phase directory (written by the Step 6.b.5 enrichment gate after `gsd-phase-researcher` completes), read it before drafting any task actions. The artifact contains library hits, gaps, and alternative framings from VTP. Incorporate relevant citations into task `<action>` blocks and note gaps as constraints. If `empty_hit: true`, proceed normally — absence of library coverage is informative, not an error.
+
 **Tool selection:**
 
 - **`mcp__vtp-kb__vtp_route_and_retrieve`** — PRIMARY. Architecture-mode framing. Pass the phase goal + plan scope as `raw_query`; VTP's routing layer picks the right retrieval mode. Returns `retrieval_plan` + `evidence.documents` + `reflection.verdict`.
@@ -1074,9 +1076,10 @@ If `features.global_learnings` is `true`: run `gsd-tools learnings query --tag <
 Use `phase_dir` from init context (already loaded in load_project_state).
 
 ```bash
-cat "$phase_dir"/*-CONTEXT.md 2>/dev/null   # From /gsd-discuss-phase
-cat "$phase_dir"/*-RESEARCH.md 2>/dev/null   # From /gsd-research-phase
-cat "$phase_dir"/*-DISCOVERY.md 2>/dev/null  # From mandatory discovery
+cat "$phase_dir"/*-CONTEXT.md 2>/dev/null         # From /gsd-discuss-phase
+cat "$phase_dir"/*-RESEARCH.md 2>/dev/null        # From /gsd-research-phase
+cat "$phase_dir"/*-DISCOVERY.md 2>/dev/null       # From mandatory discovery
+cat "$phase_dir"/VTP-ENRICHMENT.md 2>/dev/null    # From Step 6.b.5 enrichment gate (VTPE-01); read if present
 ```
 
 **If CONTEXT.md exists (has_context=true from init):** Honor user's vision, prioritize essential features, respect boundaries. Locked decisions — do not revisit.

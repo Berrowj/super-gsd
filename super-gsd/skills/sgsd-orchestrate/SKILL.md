@@ -290,6 +290,24 @@ REPEAT:
      Apply first-match rules:
      a. Phase needs CONTEXT.md (not discussed) → suggest /gsd-discuss-phase
      b. Phase needs RESEARCH.md → dispatch gsd-phase-researcher (Sonnet)
+     b.5 VTP ENRICHMENT GATE (Step 6.b.5) — Phase has RESEARCH.md AND config.vtp_enrichment.enabled is true →
+         dispatch sgsd-vtp-enrichment sub-agent (model: sonnet). Gate
+         precondition: gates.shouldFire('vtp-enrichment', ctx).
+         Sub-agent calls vtp-enrichment-gate.cjs composeSubAgentSpec() to
+         build 800-token 3-source seed (CONTEXT domain + REQ-IDs AC +
+         RESEARCH.md per D-02), runs 5-tool VTP cascade (D-01: tools 1+2
+         always; tools 3+4+5 only if hits > 0), writes VTP-ENRICHMENT.md
+         per D-04 shape to phaseDir (VTPE-05: always write, even on zero
+         hits). Escalation:
+           on status=api_error  → EMIT BLOCKER, EXIT loop (orchestrator
+                                   halts; human restarts MCP)
+           on status=empty_hit  → artifact written with empty_hit:true +
+                                   rationale; continue to Step 6.c
+           on status=success    → artifact written with hits; continue to
+                                   Step 6.c
+         If config.vtp_enrichment absent or enabled=false: skip silently,
+         pass directly to Step 6.c (D-07 backward-compat; no artifact
+         required on pre-Phase-21 projects).
      c. Phase needs PLAN.md → dispatch gsd-planner (Sonnet)
      d. Phase has plans, needs plan-check → dispatch gsd-plan-checker (Sonnet)
      e. Phase has checked plans, pending tasks → run PLAN LOAD-TIME VALIDATION (Step 6.2) then dispatch per MACH-02 wave plan:
