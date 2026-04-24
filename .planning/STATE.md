@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: VTP Knowledge Primacy + Post-v1.4 Hardening
 milestone_status: v1.5 ACTIVE (2026-04-24) — scoped via /gsd-new-milestone with operator Q1=A/Q2=B/Q3=A/Q4=C. 21 REQ-IDs across 6 categories (VTPE + SEC + MUDAC + CONTRACT + CARRY + INSTR). 5 phases (21-25), 13 plans. Design posture: enrich-only VTP gate (no challenger — autonomy preserved), hard-required artifact (gate MUST write VTP-ENRICHMENT.md even on zero hits, VTP API errors block, empty-hit continues). Previous milestone v1.4 ✓ SHIPPED 2026-04-24 (16 Codex invocations, ~32k tokens saved, all CRITs cleared, handoff disabled by default).
-status: v1.5 Phase 21 in-progress. Plans 21-01/02/03/04 COMPLETE. Plans 21-05+ pending.
-stopped_at: Phase 21 Plan 21-04 complete — sgsd-board-researcher agent + config.board[5] + sgsd-ceo N-relative vote-math. Next: Plan 21-05.
-last_updated: "2026-04-24T20:10:00Z"
-last_activity: 2026-04-24 — Plan 21-04 shipped (commits 02d9182 + 6cb83fa + aa081fe). VTPE-06 delivered — 5th deliberation voice (Library Researcher) wired end-to-end.
+status: v1.5 Phase 22 in-progress. Plans 21-01/02/03/04 COMPLETE. Plan 22-01 COMPLETE. Plans 22-02+ pending.
+stopped_at: Phase 22 Plan 22-01 complete — canonicalize_path helper + 3 guards + audit field in sgsd-stop-handoff.sh. Next: Plan 22-02.
+last_updated: "2026-04-24T21:12:03Z"
+last_activity: 2026-04-24 — Plan 22-01 shipped (commit 908151c). SEC-01 delivered — symlink canonicalize on handoff paths.
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 13
-  completed_plans: 4
-  percent: 31
+  completed_plans: 5
+  percent: 38
   phase_21: "4/4 plans complete — shipped 2026-04-24 (6/6 VTPE + halt-on-CRIT fix cycle proved out)"
-  phase_22: "not started — Security Hardening, 2 plans, 2 SEC REQ-IDs"
+  phase_22: "1/2 plans complete — 22-01 shipped 2026-04-24 (SEC-01 symlink canonicalize)"
   phase_23: "not started — MUDA Calibration, 2 plans, 4 MUDAC REQ-IDs"
   phase_24: "not started — Richer Output Contract, 2 plans, 3 CONTRACT REQ-IDs"
   phase_25: "not started — Carryover + Telemetry, 3 plans, 6 REQ-IDs (3 CARRY + 3 INSTR)"
@@ -59,6 +59,7 @@ Progress: [██████████] 100% (3/3 v1.3 phases complete)
 - D015 (20-03): cumulative_runtime_s moved from _log_row base template to extra param — avoids duplicate JSON keys on spawned rows
 - D016 (20-03): --MilestoneCloseCheck inserted before __sgsd_fail in sgsd-gate-verdict.ps1 — exits 0 without requiring valid ProjectDir
 - D017 (21-04): sgsd-board-researcher model=sonnet consistent with all 4 existing board members; board.includes guard in sgsd-ceo ensures backward compat; vote-math expressed as >N/2 (majority) — survives any board.length
+- D018 (22-01): canonicalize_path uses module-scope _CANON_RESOLVED flag (not subshell exit-code) to track fallback — avoids variable-leak across subshells; helper placed after _detect_root() so it's defined before path vars are set
 
 ### Open Dependencies (v1.2 scoping-time)
 
