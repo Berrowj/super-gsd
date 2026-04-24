@@ -476,13 +476,41 @@ REPEAT:
           // Defined once here (Step 6.5), reused at Step 9.5. Checks all 5 required
           // field prefixes on dedicated lines so malformed Codex output (exit 0 but
           // missing fields) triggers a single-retry fallback before propagating.
+          // CXOPS-02 validateContract — D-05 #7: value regex guards added.
+          // Malformed values treated same as missing fields (push to missing array).
+          // FINDINGS_DETAIL lines (D-05 #4) are optional and additive — not in required[].
           function validateContract(content) {
             if (typeof content !== 'string') return { valid: false, missing: ['(content not a string)'] };
             const required = ['FINDINGS:', 'CRITICAL:', 'WARNINGS:', 'PASS_RATE:', 'ONE_LINER:'];
             const lines = content.split('\n');
             const missing = required.filter(field => !lines.some(line => line.startsWith(field)));
+
+            // D-05 #7: value regex guards — malformed values treated same as missing fields
+            const getValue = (prefix) => {
+              const line = lines.find(l => l.startsWith(prefix));
+              return line ? line.slice(prefix.length).trim() : null;
+            };
+            const intFields = ['FINDINGS:', 'CRITICAL:', 'WARNINGS:'];
+            for (const f of intFields) {
+              const v = getValue(f);
+              if (v !== null && !/^\d+$/.test(v)) missing.push(f + '(non-integer value: ' + v + ')');
+            }
+            const passRate = getValue('PASS_RATE:');
+            if (passRate !== null && !/^\d+\/\d+$/.test(passRate)) {
+              missing.push('PASS_RATE:(invalid format: ' + passRate + ')');
+            }
+
             return { valid: missing.length === 0, missing };
           }
+
+          // D-05 #4: FINDINGS_DETAIL optional footer — append to composedPrompt before dispatch.
+          // Instructs Codex to optionally emit per-finding detail lines after the 5 required lines.
+          // composedPrompt += "\nAfter the 5 required contract lines, you MAY optionally emit one or more FINDINGS_DETAIL lines:\n" +
+          //   "  FINDINGS_DETAIL: [severity] [dimension] <description>\n" +
+          //   "  severity: CRITICAL | WARNING | INFO\n" +
+          //   "  dimension: naming | logic | security | performance | style | architecture\n" +
+          //   "Example: FINDINGS_DETAIL: [WARNING] [logic] Missing null check before array access at line 42\n" +
+          //   "These lines are optional. The orchestrator will render them in ATC-REVIEW.md if present.";
 
           const provider = gates.resolveReviewerProvider('phase-level-ATC', gatesRegistry, { gatesYamlPath: GATES_YAML_PATH });
           const effective = (provider && provider.name === 'codex-cli-reviewer' && !config.review_providers.codex_enabled)
@@ -917,6 +945,15 @@ REPEAT:
         // Phase 15 CODEX-07: provider-dispatch indirection.
         // VTP: AGP-P-05 (protocol-level resource registration for discovery),
         //      HiveMind doc:5a50cc9b459e (single-retry, no thundering herd).
+
+        // D-05 #4: FINDINGS_DETAIL optional footer — append to composedPrompt before dispatch.
+        // composedPrompt += "\nAfter the 5 required contract lines, you MAY optionally emit one or more FINDINGS_DETAIL lines:\n" +
+        //   "  FINDINGS_DETAIL: [severity] [dimension] <description>\n" +
+        //   "  severity: CRITICAL | WARNING | INFO\n" +
+        //   "  dimension: naming | logic | security | performance | style | architecture\n" +
+        //   "Example: FINDINGS_DETAIL: [WARNING] [logic] Missing null check before array access at line 42\n" +
+        //   "These lines are optional. The orchestrator will render them in ATC-REVIEW.md if present.";
+
         const provider = gates.resolveReviewerProvider('per-dispatch-ATC', gatesRegistry, { gatesYamlPath: GATES_YAML_PATH });
         const effective = (provider && provider.name === 'codex-cli-reviewer' && !config.review_providers.codex_enabled)
           ? gates.getProvider(provider.fallback_to)
