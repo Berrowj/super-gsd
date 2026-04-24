@@ -57,7 +57,8 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 
 </details>
 
-### 📋 v1.2 Evidence-First Sharpening (Phases 9-13)
+<details>
+<summary>✅ v1.2 Evidence-First Sharpening (Phases 9-13) — SHIPPED 2026-04-24 (retroactive close)</summary>
 
 Per `.planning/decisions/2026-04-21-sgsd-v2-retro.md` RQ4 (v1.2-B sequencing):
 ATC-147-evidence → Q2-gate-policy → Q3-plan-schema → Q6-machinery → Q7-governance.
@@ -70,7 +71,16 @@ ATC-147-evidence → Q2-gate-policy → Q3-plan-schema → Q6-machinery → Q7-g
 - [x] **Phase 12: Machinery** — Orchestrator Q6a-d sharpenings: classifier-skip, parallel/sequential auto-dispatch, checkpoint schema expansion, adversarial verifier sampling (SHIPPED 2026-04-22 — 6 plans / ~24 commits; PASS: 3 new lib modules (classifier-cache per-plan sidecar, dispatch-planner Kahn topo-sort, context-gauge opt-in mechanical 85% threshold), SKILL.md integrations across 5 sections, checkpoint template +4 fields, adversarial verifier Step 9.6 with verifier_adversarial_rate=0.2, patch-gsd-tools-known-keys.sh idempotent installer shipped + README documented; ATC WARN 0 critical / 8.75/10 anti-slop / 2 warnings deferred to ergonomics sweep; MUDA clean; Agent() parallel fan-out confirmed concurrent in 12-02-00 spike; Phase 10 WR-01/02/03 ergonomics closed; Phase 11 IN-03 still deferred to infra phase)
 - [x] **Phase 13: Governance** — Deliberate-skill Q7a-g sharpenings: escalate-not-spawn board, confidence-weighted votes, falsifier memos, board-as-resource, post-deliberation scoring, structured responses, CEO reflection pass (SHIPPED 2026-04-23 — board registry activated, signed-sum vote synthesis landed, board agents moved to 10-field YAML, decision memo template extended with falsifier/dead-ends/reflection, `sgsd-complete-milestone` added with VTP tiered fallback, orchestrator Step 6.7 auto-trigger wired, Phase 13 verifier green 16/16)
 
-## Phase Details
+Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
+
+</details>
+
+<details>
+<summary>v1.2 Phases (shipped)</summary>
+
+## Phase Details — v1.2 (Phases 9-13)
+
+Full details archived in [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md).
 
 ### Phase 9: ATC-147-Evidence
 
@@ -88,9 +98,9 @@ ATC-147-evidence → Q2-gate-policy → Q3-plan-schema → Q6-machinery → Q7-g
 
 **Plans:** 3 plans
 
-- [ ] 09-01-classification.md — Narrow Sonnet classifier + 09-classification.yaml (ATC-147-01)
-- [ ] 09-02-gate-bypass.md — 9-row gate-bypass token-cost audit YAML (ATC-147-03)
-- [ ] 09-03-registry-and-intent.md — v1.2 INTENT.md + evidence registry pointer + verify.mjs (ATC-147-02)
+- [x] 09-01-classification.md — Narrow Sonnet classifier + 09-classification.yaml (ATC-147-01)
+- [x] 09-02-gate-bypass.md — 9-row gate-bypass token-cost audit YAML (ATC-147-03)
+- [x] 09-03-registry-and-intent.md — v1.2 INTENT.md + evidence registry pointer + verify.mjs (ATC-147-02)
 
 ---
 
@@ -108,7 +118,7 @@ ATC-147-evidence → Q2-gate-policy → Q3-plan-schema → Q6-machinery → Q7-g
 3. Every non-ATC gate in the loop (classifier Step 2, context-selector Step 4, ByteRover Step 5, INTENT Step 5.5, MUDA Step 6.55, sgsd-curate Step 10, token-log Step 11) has an explicit keep/kill/conditional verdict recorded, backed by matrix entries (GATE-03).
 4. An edge-guard enforcement layer emits `.planning/metrics/edge-guard-log.jsonl` rows on every step transition with `{from_step, to_step, missing_emits, context, resolution}`, and skipped gates that the matrix says should have fired trigger rollback or halt per their enforcement mode (GATE-04).
 
-**Plans:** TBD
+**Plans:** 3 plans — SHIPPED
 
 ---
 
@@ -127,7 +137,7 @@ ATC-147-evidence → Q2-gate-policy → Q3-plan-schema → Q6-machinery → Q7-g
 4. Plans with no `schema_version` or `schema_version: 1` route through the existing Haiku classifier; v2 plans skip the classifier entirely. No bulk migration of the 146 existing plans is performed (SCHEMA-04).
 5. `superpowers:writing-plans` emits v2 by default, `sgsd-orchestrate` consumes v2 natively, and the schema version is pinned identically in both repos (SCHEMA-05).
 
-**Plans:** 0/1 plans executed
+**Plans:** 6 plans — SHIPPED
 
 ---
 
@@ -145,7 +155,7 @@ ATC-147-evidence → Q2-gate-policy → Q3-plan-schema → Q6-machinery → Q7-g
 3. The checkpoint schema is expanded with `approaches_tried_and_abandoned: []`, `rules_learned_this_session: []`, and `dispatches_summary: {total, by_agent, by_outcome}`, AND the checkpoint trigger changes from `context >70%` to `(phase_boundary OR plan_boundary) AND context >70%` (MACH-03).
 4. Adversarial verifier sampling is live — N% of verifier "pass" verdicts (starting N=20%) receive a contrarian-challenger second pass, with the sampling rate tunable in `config.json` (MACH-04).
 
-**Plans:** TBD
+**Plans:** 6 plans — SHIPPED
 
 ---
 
@@ -168,7 +178,9 @@ ATC-147-evidence → Q2-gate-policy → Q3-plan-schema → Q6-machinery → Q7-g
 
 8. `sgsd-complete-milestone` is live, idempotent, and evidence-safe: it can close v1.2 through bidirectional VTP and leave the staged v1.3 packet ready for `/gsd-new-milestone v1.3`.
 
-**Plans:** TBD
+**Plans:** SHIPPED — verifier green 16/16
+
+</details>
 
 ---
 

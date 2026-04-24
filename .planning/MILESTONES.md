@@ -30,22 +30,21 @@
 
 ---
 
-## v1.2 Evidence-First Sharpening (Active: 2026-04-22 -> present)
+## v1.2 Evidence-First Sharpening (Shipped: 2026-04-24)
 
 **Phases:** 9-13
 
-**Current shape:**
+**Key accomplishments:**
 
-1. **Phase 9 — ATC-147-Evidence:** empirical bypass audit and finding classification from the silent-gate-skip incident.
-2. **Phase 10 — Gate Policy:** `gates.yaml` registry + edge-guard enforcement, converting prose gates into runtime-declarative policy.
-3. **Phase 11 — Plan Schema v2:** canonical frontmatter schema + classifier skip-path for v2 plans.
-4. **Phase 12 — Machinery:** classifier cache, dispatch planner, checkpoint expansion, adversarial verifier sampling.
-5. **Phase 13 — Governance:** board registry, confidence-weighted deliberation, falsifier memos, and `sgsd-complete-milestone` with bidirectional VTP.
+1. **Phase 9 — ATC-147-Evidence:** Retroactive ATC on external project-clarity-erp Phase 147 produces empirical finding count + 9-gate-bypass audit with token-cost estimates. v1.2 INTENT.md + SHA-pinned evidence registry + 7-invariant mechanical verifier shipped. PASS-WITH-DEVIATIONS: 4-bucket classifier split of 10 findings, 18,940 upper / 9,340 lower token bounds delivered to Phase 10.
+2. **Phase 10 — Gate Policy:** Per-gate keep/kill/conditional matrix in `registry/gates.yaml` + edge-guard enforcement layer. 11-row gates.yaml populated per D-01..D-09 + D-12, 3 new lib modules (predicate-eval, gates-registry, edge-guard), 9 SKILL.md call sites wired, 09-verify.mjs retrofitted. PASS.
+3. **Phase 11 — Plan Schema v2:** Canonical YAML-frontmatter plan schema at `templates/plan-schema-v2.json` with enforced required/optional fields and v1 classifier fallback. 6 plans / 18 commits, all WR-01..05 + IN-01 closed. PASS.
+4. **Phase 12 — Machinery:** Orchestrator Q6a-d sharpenings: classifier-skip, parallel/sequential auto-dispatch, checkpoint schema expansion, adversarial verifier sampling. 3 new lib modules, SKILL.md integrations across 5 sections, Phase 10 WR-01/02/03 ergonomics closed. PASS.
+5. **Phase 13 — Governance:** Board registry activated, signed-sum vote synthesis, board agents in 10-field YAML, decision memo template extended, `sgsd-complete-milestone` with VTP tiered fallback, orchestrator Step 6.7 auto-trigger wired. 16/16 verifier green. PASS.
 
-**Milestone-close definition:**
+**Retroactive close note:** v1.2 (Phases 9-13) shipped per ROADMAP.md checkboxes but was never formally closed via `/gsd-complete-milestone v1.2`. This entry is the retroactive close recorded during v1.4 CLEAN-06 (2026-04-24). The staged v1.3 handoff packet (`.planning/proposals/v1.3-multimodal-review/`) became activatable as intended.
 
-- v1.2 is not complete at "Phase 13 code merged." It is complete when `sgsd-complete-milestone` can score deliberation outcomes, run MUDA recurrence, preserve evidence contracts, round-trip the milestone through VTP, and leave a coherent staged v1.3 handoff packet.
-- The staged handoff packet is `.planning/proposals/v1.3-multimodal-review/` (`BRIEF.md`, `14-CONTEXT.md`, `15-CONTEXT.md`). v1.2 close should make that packet activatable rather than speculative.
+**Git tag:** `v1.2` at commit `0191168` — see `.planning/milestones/v1.2-ROADMAP.md` for full phase details.
 
 ---
 
@@ -73,6 +72,3 @@
 
 ---
 
-## v1.2 Status Note
-
-v1.2 (Phases 9-13) shipped per ROADMAP.md checkboxes but was never formally closed via `/gsd-complete-milestone v1.2`. The v1.3 work proceeded on top without the v1.2 close ceremony. **Backfill candidate for v1.4:** retroactive v1.2-ROADMAP.md + v1.2-REQUIREMENTS.md archive, tag, MILESTONES.md consolidation.
