@@ -158,12 +158,18 @@ function buildQuerySeed(opts) {
 
 /**
  * Write VTP-ENRICHMENT.md per D-04 shape to phaseDir.
- * Always writes — even on empty_hit (VTPE-05 discipline).
+ * VTPE-05 discipline: ALWAYS writes -- even on empty_hit or api_error.
  *
- * @param {{phaseDir:string, enrichmentResult:Object}} opts
+ * vtp_status field values:
+ *   'success'   -> normal hit path (hits > 0)
+ *   'empty_hit' -> ok=true but zero hits; empty_hit:true in frontmatter
+ *   'api_error' -> ok=false; writes stub so artifact existence check passes;
+ *                  orchestrator reads vtp_status and halts (blocker)
+ *
+ * @param {{phaseDir:string, enrichmentResult:Object, vtpStatus?:string}} opts
  * @returns {string} absolute path to written file
  */
-function writeEnrichmentArtifact({ phaseDir, enrichmentResult }) {
+function writeEnrichmentArtifact({ phaseDir, enrichmentResult, vtpStatus }) {
   if (!phaseDir) throw new Error('vtp-enrichment-gate: phaseDir required for writeEnrichmentArtifact');
   const res = enrichmentResult || {};
   const phase      = res.phase || 'unknown';
@@ -171,22 +177,53 @@ function writeEnrichmentArtifact({ phaseDir, enrichmentResult }) {
   const totalHits  = res.total_hits != null ? res.total_hits : hits.length;
   const queryCount = res.query_count || 0;
   const durationMs = res.duration_ms || 0;
-  const isEmptyHit = totalHits === 0;
   const generatedAt = new Date().toISOString();
+
+  // Determine canonical vtp_status from explicit arg or enrichmentResult fields
+  let status = vtpStatus;
+  if (!status) {
+    if (res.ok === false) {
+      status = 'api_error';
+    } else if (totalHits === 0) {
+      status = 'empty_hit';
+    } else {
+      status = 'success';
+    }
+  }
+  const isEmptyHit = status === 'empty_hit';
+  const isApiError = status === 'api_error';
 
   const frontmatter = [
     '---',
     `phase: ${phase}`,
     `query_count: ${queryCount}`,
-    `total_hits: ${totalHits}`,
+    `total_hits: ${isApiError ? 0 : totalHits}`,
     `duration_ms: ${durationMs}`,
     `empty_hit: ${isEmptyHit}`,
+    `vtp_status: ${status}`,
     `generated_at: ${generatedAt}`,
     '---',
     '',
   ].join('\n');
 
-  // Library Hits table
+  // api_error: write minimal stub + error block so artifact always exists (VTPE-05)
+  if (isApiError) {
+    const errorMsg = res.error_message || res.error || 'VTP MCP call failed';
+    const body = [
+      frontmatter,
+      `# VTP Library Enrichment -- Phase ${phase}\n\n`,
+      '## API Error\n',
+      `Error: ${errorMsg}\n\n`,
+      '> ORCHESTRATOR EXIT-BLOCK: vtp_status=api_error signals HALT.\n',
+      '> Human must resolve VTP MCP connectivity before this gate can succeed.\n',
+    ].join('');
+    const artifactPath = path.resolve(phaseDir, ARTIFACT_FILENAME);
+    fs.mkdirSync(phaseDir, { recursive: true });
+    fs.writeFileSync(artifactPath, body, 'utf8');
+    return artifactPath;
+  }
+
+  // Library Hits table (success and empty_hit paths)
   let hitsTable = '## Library Hits\n';
   hitsTable += '| Source | Title | Section | Relevance | Citation |\n';
   hitsTable += '|---|---|---|---|---|\n';
@@ -353,14 +390,21 @@ function run(opts) {
 
   // If enrichmentResult is provided (post-sub-agent injection): write artifact
   if (enrichmentResult) {
-    // Map callVtp status to gate status per output_contract
+    // Map callVtp status to gate status per output_contract (Pitfall 2 distinction)
     let status = 'success';
     if (enrichmentResult.ok === false) {
       status = 'api_error';
-    } else if (enrichmentResult.total_hits === 0) {
+    } else if ((enrichmentResult.total_hits != null ? enrichmentResult.total_hits : 0) === 0 && !Array.isArray(enrichmentResult.hits)) {
+      status = 'empty_hit';
+    } else if (Array.isArray(enrichmentResult.hits) && enrichmentResult.hits.length === 0) {
       status = 'empty_hit';
     }
-    const artifact_path = writeEnrichmentArtifact({ phaseDir, enrichmentResult: { ...enrichmentResult, phase: opts.phase } });
+    // VTPE-05: always write artifact regardless of status (api_error writes stub)
+    const artifact_path = writeEnrichmentArtifact({
+      phaseDir,
+      enrichmentResult: { ...enrichmentResult, phase: opts.phase },
+      vtpStatus: status,
+    });
     return { status, artifact_path };
   }
 
@@ -718,6 +762,88 @@ function runSelfTest() {
     if (passed) {
       const r15 = vtpCrossReference('text', 'UNKNOWN');
       if (r15.skipped !== true) fail('Test15: unknown tier should be treated as PASS guard');
+    }
+
+    // -----------------------------------------------------------------
+    // Test 16: VTPE-05 empty_hit path — artifact written with empty_hit:true + rationale
+    // -----------------------------------------------------------------
+    if (passed) {
+      const phaseTmp16 = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-gate-eh-'));
+      try {
+        const emptyResult = {
+          phase: '21-empty',
+          query_count: 2,
+          total_hits: 0,
+          duration_ms: 30,
+          hits: [],
+          seed_summary: 'VTP enrichment gate empty-hit test',
+          empty_hit_rationale: 'No coverage found for this topic.',
+        };
+        const writePath16 = writeEnrichmentArtifact({ phaseDir: phaseTmp16, enrichmentResult: emptyResult });
+        if (!fs.existsSync(writePath16)) fail('Test16: empty_hit artifact not written');
+        if (passed) {
+          const content16 = fs.readFileSync(writePath16, 'utf8');
+          if (!content16.includes('empty_hit: true')) fail('Test16: empty_hit:true missing from frontmatter');
+          if (passed && !content16.includes('vtp_status: empty_hit')) fail('Test16: vtp_status:empty_hit missing');
+          if (passed && !content16.includes('## Empty-Hit Rationale')) fail('Test16: Empty-Hit Rationale section missing');
+          if (passed && !content16.includes('No coverage found for this topic.')) fail('Test16: rationale text missing');
+        }
+      } finally {
+        try { fs.rmSync(phaseTmp16, { recursive: true, force: true }); } catch (_) {}
+      }
+    }
+
+    // -----------------------------------------------------------------
+    // Test 17: VTPE-05 api_error path — artifact written as stub with exit-block signal
+    // -----------------------------------------------------------------
+    if (passed) {
+      const phaseTmp17 = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-gate-ae-'));
+      try {
+        const errorResult = {
+          phase: '21-error',
+          ok: false,
+          error_message: 'MCP connection timeout',
+        };
+        const writePath17 = writeEnrichmentArtifact({ phaseDir: phaseTmp17, enrichmentResult: errorResult });
+        if (!fs.existsSync(writePath17)) fail('Test17: api_error artifact not written');
+        if (passed) {
+          const content17 = fs.readFileSync(writePath17, 'utf8');
+          if (!content17.includes('vtp_status: api_error')) fail('Test17: vtp_status:api_error missing');
+          if (passed && !content17.includes('## API Error')) fail('Test17: API Error section missing');
+          if (passed && !content17.includes('MCP connection timeout')) fail('Test17: error_message missing');
+          if (passed && !content17.includes('EXIT-BLOCK')) fail('Test17: EXIT-BLOCK signal missing');
+        }
+      } finally {
+        try { fs.rmSync(phaseTmp17, { recursive: true, force: true }); } catch (_) {}
+      }
+    }
+
+    // -----------------------------------------------------------------
+    // Test 18: VTPE-05 success path via enrichmentResult injection — vtp_status:success
+    // -----------------------------------------------------------------
+    if (passed) {
+      const phaseTmp18 = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-gate-sc-'));
+      try {
+        const successResult = {
+          phase: '21-success',
+          query_count: 3,
+          total_hits: 2,
+          duration_ms: 120,
+          hits: [{ source: 'book', title: 'DDIA', section: 'Ch4', relevance: 'high', citation: 'ddia:042' }],
+          gaps: ['caching gap'],
+          alt_framings: ['event-driven alternative'],
+        };
+        const writePath18 = writeEnrichmentArtifact({ phaseDir: phaseTmp18, enrichmentResult: successResult });
+        if (!fs.existsSync(writePath18)) fail('Test18: success artifact not written');
+        if (passed) {
+          const content18 = fs.readFileSync(writePath18, 'utf8');
+          if (!content18.includes('vtp_status: success')) fail('Test18: vtp_status:success missing');
+          if (passed && !content18.includes('empty_hit: false')) fail('Test18: empty_hit:false missing');
+          if (passed && !content18.includes('DDIA')) fail('Test18: hit title missing from Library Hits table');
+        }
+      } finally {
+        try { fs.rmSync(phaseTmp18, { recursive: true, force: true }); } catch (_) {}
+      }
     }
 
   } catch (err) {
