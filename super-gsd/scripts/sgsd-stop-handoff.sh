@@ -137,6 +137,21 @@ fi
 # still read as N+1, but the cooldown guard will refuse — the handoff never
 # fires on operator-resumed sessions.
 PREV_CHAIN_DEPTH=0
+# Defensive guard (Codex 3rd re-review): if checkpoint signals emergency_halt
+# AND the log FILE is missing but the log DIR exists, the log was likely
+# deleted/tampered between halts. Treat as chain-integrity violation. Only
+# truly-fresh state (no log dir at all, OR first-ever project run) gets the
+# legitimate "start chain at 1" path.
+if [[ ! -f "$LOG_PATH" ]] && [[ -d "$LOG_DIR" ]] && [[ "$EMERGENCY_HALT" == "true" ]]; then
+    # Log dir exists but file is gone — suspicious. Look for ANY prior handoff
+    # evidence (other files in log dir) to distinguish first-run from tampering.
+    if find "$LOG_DIR" -maxdepth 1 -name "handoff-log.jsonl.*" -print -quit 2>/dev/null | grep -q .; then
+        # Archived log exists somewhere but active log absent → tampered
+        _log_row "refused" 0 ",\"refused\":\"log_tampered_active_missing\",\"log_dir\":\"$LOG_DIR\""
+        exit 0
+    fi
+    # No log file, no archives — treat as first-run. Chain starts at 1.
+fi
 if [[ -f "$LOG_PATH" ]]; then
     # Defensive WARN fix (post-CRIT-fix re-review): a malformed spawned row in
     # handoff-log.jsonl could silently skip parse → filter → lineage, making the
