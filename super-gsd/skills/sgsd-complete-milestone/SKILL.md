@@ -56,24 +56,40 @@ bash super-gsd/scripts/sgsd-muda-recurrence.sh --milestone {{version}} --window-
 Record any kill-condition trigger but do not block milestone close.
 </step_2_muda_recurrence>
 
-<step_3_gate_drift>
-## Step 3: Gate Drift Audit
+<step_3_codex_kill_check>
+## Step 3: Codex Kill-Condition Check (Phase 15+ CODEX-12)
+
+Invoke: `sgsd-token-audit --milestone-close-check`
+
+Read `.planning/config.json` to check if `review_providers.codex_enabled === true`
+before running. If `codex_enabled === false`, skip this step (Codex already retired).
+
+Placement rationale (CONTEXT D-23a): Step 3 runs BEFORE cross-phase check (Step 5)
+and BEFORE summary generation (Step 6), so the SUMMARY.md reflects the final
+Codex-enabled/retired state. If placed after summary gen, the summary would be stale.
+
+In auto mode: log DEVIATION if kill fires, continue to Step 4.
+In interactive mode: pause if kill fires, require confirmation before Step 4.
+</step_3_codex_kill_check>
+
+<step_4_gate_drift>
+## Step 4: Gate Drift Audit
 
 1. Read `.planning/metrics/edge-guard-log.jsonl`.
 2. Group missed emits by `gateName`.
 3. Write `.planning/milestones/{{version}}/gate-drift-audit.md`.
 4. Flag any gate that skip-drifted more than 3 times during the milestone.
-</step_3_gate_drift>
+</step_4_gate_drift>
 
-<step_4_cross_phase_check>
-## Step 4: Cross-Phase Integration Check
+<step_5_cross_phase_check>
+## Step 5: Cross-Phase Integration Check
 
 Dispatch `gsd-integration-checker` or run the equivalent integration sweep across the archived
 phase outputs for {{version}}. If the check finds a blocking regression, halt milestone close.
-</step_4_cross_phase_check>
+</step_5_cross_phase_check>
 
-<step_5_summary>
-## Step 5: Generate SUMMARY.md
+<step_6_summary>
+## Step 6: Generate SUMMARY.md
 
 Write `.planning/milestones/{{version}}/SUMMARY.md` with:
 
@@ -83,10 +99,10 @@ Write `.planning/milestones/{{version}}/SUMMARY.md` with:
 - rules learned this session
 - governance findings
 - next-milestone seed
-</step_5_summary>
+</step_6_summary>
 
-<step_6_vtp_bidirectional>
-## Step 6: VTP Bidirectional Integration
+<step_7_vtp_bidirectional>
+## Step 7: VTP Bidirectional Integration
 
 ### Read-side enrichment
 
@@ -110,21 +126,21 @@ For tier-3:
 3. Reserve `.planning/milestones/{{version}}/vtp-research-id.txt` for future write support.
 4. If a milestone summary is later mirrored into `wiki/research/{{version}}-milestone.md`,
    run `mcp__vtp-kb__vtp_ingest_research` with that slug as a best-effort enrichment step.
-</step_6_vtp_bidirectional>
+</step_7_vtp_bidirectional>
 
-<step_7_archive>
-## Step 7: Archive Phase Artifacts
+<step_8_archive>
+## Step 8: Archive Phase Artifacts
 
 1. Move milestone phase directories into `.planning/milestones/{{version}}/phases/`.
 2. Invalidate per-plan classifier-cache sidecars when archiving.
 3. Preserve milestone-local evidence files beside the archive.
-</step_7_archive>
+</step_8_archive>
 
-<step_8_state_bump>
-## Step 8: State Bump
+<step_9_state_bump>
+## Step 9: State Bump
 
 1. Update `.planning/STATE.md` to the next milestone, or set `milestone_status: complete` if
    no next milestone exists.
 2. Commit the close-out atomically.
 3. Return PASS with a one-line summary.
-</step_8_state_bump>
+</step_9_state_bump>
