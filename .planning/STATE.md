@@ -4,9 +4,9 @@ milestone: v1.3
 milestone_name: Codex Integration
 milestone_status: v1.3 Phase 14 ✓ SHIPPED — reviewer-provider substrate dark, verifier clean PASS, phase-ATC PASS-WITH-WARNINGS. Next Phase 15.
 status: v1.3 Phase 16 ✓ SHIPPED. Phase 14 ✓ SHIPPED 2026-04-23 — reviewer-provider abstraction ships dark (codex_enabled=false). All 3 waves landed: Wave 1 {14-01 codex-exec.sh wrapper, 14-03 config.json review_providers block} parallel, Wave 2 {14-02 review-providers.yaml + providers-registry.cjs + 2 agent stubs + gates.yaml extension}, Wave 3 {14-04 contract-check.mjs pure-parser harness + fixtures + verify.mjs}. 4 planner deviations landed per plan: P1 sibling providers-registry.cjs module (not extending gates-registry.cjs), P2 pure-parser harness (no Agent()/shell dispatch), P3 sgsd-code-reviewer + sgsd-codex-reviewer stubs both declaring code-reviewer-v1 contract parity, P4 stdin-pipe to codex exec (D-01 --prompt-file assumption invalidated by research). Gates all green: verify.mjs 6/6 D-23 invariants pass, phase-ATC PASS-WITH-WARNINGS (0 critical, 5 warnings all routed to Phase 15 as entry conditions), verifier clean PASS (all 6 V-predicates green, zero D-24 non-goal leaks, VTP bypass preserved), MUDA 0 WARN 0 FAIL. Next: Phase 15 Codex-Routed Gates + Qualitative MUDA Probe — will consume VTP evidence (vtp-kb fix landed upstream from Codex 2026-04-23).
-stopped_at: Phase 14 shipped complete — all gates green, orchestrator ready for Phase 15 discuss.
-last_updated: "2026-04-23T19:30:00.000Z"
-last_activity: 2026-04-23 — Phase 14 Wave 1-3 shipped + phase-ATC + verifier + MUDA all clean (commits 1c5c12f 4a1b6b3 a999247 1330102 40f4384 c95debe 06dd9c6 8fb7d49 f6488d0 + 14-02 quad + 14-04 quad)
+stopped_at: Phase 15 plan 15-04 shipped — Step 9.6 cross-vendor adversarial challenger (CODEX-11) live.
+last_updated: "2026-04-24T00:00:00.000Z"
+last_activity: 2026-04-24 — Phase 15 plan 15-04 shipped (commit a93de2f) — SKILL.md Step 9.6 adversarial challenger rewired to codex-cli-reviewer via shellDispatch, skip-on-unavailable no-fallback semantics, token-log role adversarial_verifier
 progress:
   total_phases: 3
   completed_phases: 2
