@@ -91,7 +91,12 @@
     "fallback_max_retries": 1,
     "kill_critical_count_delta": 5,
     "kill_claude_tokens_saved": 50000,
-    "codex_qualitative_waste_enabled": true
+    "codex_qualitative_waste_enabled": true,
+    "codex_timeout_tiers": {
+      "default": 60,
+      "review": 120,
+      "analysis": 180
+    }
   },
   "browser_verify": {
     "enabled": true,
