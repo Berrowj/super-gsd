@@ -11,12 +11,12 @@ progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 10
-  completed_plans: 7
-  percent: 70
+  completed_plans: 8
+  percent: 80
   phase_17: "3/3 plans complete — shipped 2026-04-24 (7/7 CLEAN)"
   phase_18: "2/2 plans complete — shipped 2026-04-24 (4/4 CXOPS)"
   phase_19: "2/2 plans complete — shipped 2026-04-24 (5/5 MC + 6 richer-output deferrals)"
-  phase_20: "not started — Autonomous Handoff, 3 plans, 3 REQ-IDs (HANDOFF)"
+  phase_20: "1/3 plans complete — 20-01 shipped 2026-04-24 (HANDOFF-01 sgsd-stop-handoff.sh + Stop hook)"
 ---
 
 # Project State
