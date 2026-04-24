@@ -42,6 +42,8 @@ REPORT_OUT=""
 TIMEOUT_SECONDS=""
 TIMEOUT_TIER=""
 DRY_RUN=false
+SELF_TEST=false
+SKIP_NETWORK=false
 PROJECT=""
 PHASE_TAG=""
 PLAN_TAG=""
@@ -73,6 +75,8 @@ while [[ $# -gt 0 ]]; do
         --plan)        PLAN_TAG="$2"; shift 2 ;;
         --step)         STEP_TAG="$2"; shift 2 ;;
         --timeout-tier) TIMEOUT_TIER="$2"; shift 2 ;;
+        --self-test)    SELF_TEST=true;    shift ;;
+        --skip-network) SKIP_NETWORK=true; shift ;;
         --help|-h)      head -40 "$0" | tail -35; exit 0 ;;
         -*)             echo "codex-exec: unknown flag $1" >&2; exit 1 ;;
         *)             echo "codex-exec: unexpected positional arg '$1'" >&2; exit 1 ;;
@@ -86,14 +90,14 @@ if [[ -n "$PHASE_TAG" && ! "$PHASE_TAG" =~ ^[0-9]+$ ]]; then
 fi
 
 # ── Required flags ──────────────────────────────────────────────────────────
-if [[ -z "$PROMPT_FILE" || -z "$REPORT_OUT" ]]; then
+if [[ "$SELF_TEST" == false ]] && [[ -z "$PROMPT_FILE" || -z "$REPORT_OUT" ]]; then
     echo "codex-exec: --prompt-file and --report-out are required" >&2
     echo "Usage: codex-exec.sh --prompt-file <p> --report-out <p> [--timeout N] [--dry-run] [--project <p>] [--phase N] [--plan NN-PP] [--step LABEL]" >&2
     exit 1
 fi
 
 # ── OAuth hygiene gate (D-02a) — refuse-to-run, do NOT unset-then-run ───────
-if [[ -n "${OPENAI_API_KEY:-}" ]]; then
+if [[ "$SELF_TEST" == false ]] && [[ -n "${OPENAI_API_KEY:-}" ]]; then
     echo "codex-exec: ERR — codex-exec is OAuth-only per D-02/D-02a; unset OPENAI_API_KEY before invoking." >&2
     exit 4
 fi
@@ -204,6 +208,106 @@ resolve_step_timeout() {
             echo "" ;;
     esac
 }
+
+# ── Self-test harness (CXOPS-01 / D-02) ─────────────────────────────────────
+# Placed here so detect_root, TIER_REVIEW, and resolve_timeout_tier are all
+# defined before the harness executes. Probes: 1=PATH(10) 2=auth(11)
+# 3=timeout-math(12) 4=contract(13 or skipped when --skip-network).
+if [[ "$SELF_TEST" == true ]]; then
+    ST_PATH=false
+    ST_AUTH=false
+    ST_TIMEOUT=false
+    ST_CONTRACT=false
+    EXIT_CODE=0
+
+    # Probe 1 — codex on PATH (exit 10)
+    if command -v codex >/dev/null 2>&1; then
+        ST_PATH=true
+    else
+        EXIT_CODE=10
+    fi
+
+    # Probe 2 — auth: no OPENAI_API_KEY set (exit 11); OAuth config file
+    # checked only in network-on mode (config file is only needed for real calls).
+    if [[ "$EXIT_CODE" -eq 0 ]]; then
+        if [[ -n "${OPENAI_API_KEY:-}" ]]; then
+            # OPENAI_API_KEY set — would trigger exit 4 in normal mode;
+            # surfaced as exit 11 (auth probe failure) in self-test mode.
+            EXIT_CODE=11
+        elif [[ "$SKIP_NETWORK" == true ]]; then
+            # Offline mode: key-absence check is sufficient; config file not needed.
+            ST_AUTH=true
+        else
+            CODEX_CFG="${CODEX_HOME:-$HOME/.codex}/config.json"
+            if [[ -f "$CODEX_CFG" ]]; then
+                ST_AUTH=true
+            else
+                EXIT_CODE=11
+            fi
+        fi
+    fi
+
+    # Probe 3 — timeout math: resolve_timeout_tier review must return >0 (exit 12)
+    # Calls resolve_timeout_tier with canonical tier name (NOT step number label)
+    # to avoid step-label mismatch (RESEARCH gap #3).
+    tier_check="$(resolve_timeout_tier review)"
+    if [[ -n "$tier_check" && "$tier_check" -gt 0 ]] 2>/dev/null; then
+        ST_TIMEOUT=true
+    else
+        EXIT_CODE=12
+    fi
+
+    # Probe 4 — known-good contract: real Codex call; skipped when --skip-network (exit 13)
+    if [[ "$SKIP_NETWORK" == true ]]; then
+        ST_CONTRACT=true  # treated as pass in offline/CI mode
+    elif [[ "$EXIT_CODE" -eq 0 ]]; then
+        ST_PROMPT_TMP="$(mktemp -t codex-self-test.XXXXXX)"
+        ST_REPORT_TMP="$(mktemp -t codex-self-test-report.XXXXXX)"
+        printf 'Output exactly five lines:\nFINDINGS: 0\nCRITICAL: 0\nWARNINGS: 0\nPASS_RATE: 0/0\nONE_LINER: self-test\n' > "$ST_PROMPT_TMP"
+        set +e
+        timeout 60s bash -c 'cat "$0" | codex exec --sandbox read-only --ephemeral --skip-git-repo-check --cd "$1" -' \
+            "$ST_PROMPT_TMP" "${PROJECT:-$(pwd)}" > "$ST_REPORT_TMP" 2>/dev/null
+        ST_RC=$?
+        set -e
+        if [[ $ST_RC -eq 0 ]] && \
+           grep -q "^FINDINGS:"  "$ST_REPORT_TMP" && \
+           grep -q "^CRITICAL:"  "$ST_REPORT_TMP" && \
+           grep -q "^WARNINGS:"  "$ST_REPORT_TMP" && \
+           grep -q "^PASS_RATE:" "$ST_REPORT_TMP" && \
+           grep -q "^ONE_LINER:" "$ST_REPORT_TMP"; then
+            ST_CONTRACT=true
+        else
+            EXIT_CODE=13
+        fi
+        rm -f "$ST_PROMPT_TMP" "$ST_REPORT_TMP"
+    fi
+
+    # Structured stdout
+    echo "=== codex-exec --self-test ==="
+    printf "Probe 1 PATH:     %s\n" "$([ "$ST_PATH"     = true ] && echo PASS || echo FAIL)"
+    printf "Probe 2 auth:     %s\n" "$([ "$ST_AUTH"     = true ] && echo PASS || echo FAIL)"
+    printf "Probe 3 timeout:  %s (tier_review=%s)\n" "$([ "$ST_TIMEOUT"  = true ] && echo PASS || echo FAIL)" "${TIER_REVIEW}"
+    printf "Probe 4 contract: %s%s\n" \
+        "$([ "$ST_CONTRACT" = true ] && echo PASS || echo FAIL)" \
+        "$([ "$SKIP_NETWORK" = true ] && echo ' (skipped)' || echo '')"
+    echo "Exit: $EXIT_CODE"
+
+    # Append JSONL row to codex-log.jsonl (D-05)
+    if [[ -n "$ROOT" ]]; then
+        ST_LOG="$ROOT/.planning/metrics/codex-log.jsonl"
+        ST_TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        mkdir -p "$(dirname "$ST_LOG")"
+        printf '{"ts":"%s","step":"self-test","exit":%d,"skip_network":%s,"self_test_probes":{"path":%s,"auth":%s,"timeout":%s,"contract":%s}}\n' \
+            "$ST_TS" "$EXIT_CODE" \
+            "$([ "$SKIP_NETWORK" = true ] && echo true || echo false)" \
+            "$([ "$ST_PATH"     = true ] && echo true || echo false)" \
+            "$([ "$ST_AUTH"     = true ] && echo true || echo false)" \
+            "$([ "$ST_TIMEOUT"  = true ] && echo true || echo false)" \
+            "$([ "$ST_CONTRACT" = true ] && echo true || echo false)" \
+            >> "$ST_LOG"
+    fi
+    exit $EXIT_CODE
+fi
 
 TIMEOUT="$TIMEOUT_SECONDS"
 
