@@ -34,7 +34,16 @@ const os   = require('os');
 // Constants
 // ---------------------------------------------------------------------------
 
-const ARTIFACT_FILENAME   = 'VTP-ENRICHMENT.md';
+// CRIT-fix: VTPE-01 REQ specifies `{NN}-VTP-ENRICHMENT.md` (phase-prefixed),
+// matching project convention (CONTEXT, RESEARCH, VERIFICATION, ATC-REVIEW all
+// use {NN}- prefix). Use buildArtifactFilename(phase) everywhere — do NOT
+// reintroduce the unprefixed const.
+const ARTIFACT_FILENAME_GENERIC = 'VTP-ENRICHMENT.md';
+function buildArtifactFilename(phase) {
+  const p = String(phase || '').trim();
+  if (/^\d+$/.test(p)) return `${p}-${ARTIFACT_FILENAME_GENERIC}`;  // phase-prefixed
+  return ARTIFACT_FILENAME_GENERIC;  // fallback when phase unknown (stub/test)
+}
 const CONFIG_PATH         = '.planning/config.json';
 const QUERY_SEED_MAX_TOKENS = 800;
 // Rough chars-per-token for truncation (conservative estimate)
@@ -217,7 +226,7 @@ function writeEnrichmentArtifact({ phaseDir, enrichmentResult, vtpStatus }) {
       '> ORCHESTRATOR EXIT-BLOCK: vtp_status=api_error signals HALT.\n',
       '> Human must resolve VTP MCP connectivity before this gate can succeed.\n',
     ].join('');
-    const artifactPath = path.resolve(phaseDir, ARTIFACT_FILENAME);
+    const artifactPath = path.resolve(phaseDir, buildArtifactFilename(phase));
     fs.mkdirSync(phaseDir, { recursive: true });
     fs.writeFileSync(artifactPath, body, 'utf8');
     return artifactPath;
@@ -277,7 +286,7 @@ function writeEnrichmentArtifact({ phaseDir, enrichmentResult, vtpStatus }) {
     emptyHitSection,
   ].join('');
 
-  const artifactPath = path.resolve(phaseDir, ARTIFACT_FILENAME);
+  const artifactPath = path.resolve(phaseDir, buildArtifactFilename(phase));
   fs.mkdirSync(phaseDir, { recursive: true });
   fs.writeFileSync(artifactPath, body, 'utf8');
   return artifactPath;
@@ -294,9 +303,20 @@ function writeEnrichmentArtifact({ phaseDir, enrichmentResult, vtpStatus }) {
  * @param {{phaseDir:string}} opts
  * @returns {{raw:string, empty_hit:boolean, total_hits:number, artifact_path:string}|null}
  */
-function readEnrichmentArtifact({ phaseDir }) {
+function readEnrichmentArtifact({ phaseDir, phase }) {
   if (!phaseDir) throw new Error('vtp-enrichment-gate: phaseDir required for readEnrichmentArtifact');
-  const artifactPath = path.resolve(phaseDir, ARTIFACT_FILENAME);
+  // Try phase-prefixed filename first (REQ spec), fall back to glob-match for
+  // backward-compat with any pre-fix artifacts. Matches planner read pattern.
+  let artifactPath = path.resolve(phaseDir, buildArtifactFilename(phase));
+  if (!fs.existsSync(artifactPath)) {
+    // Glob fallback: first *-VTP-ENRICHMENT.md OR bare VTP-ENRICHMENT.md
+    const candidates = fs.readdirSync(phaseDir).filter(f =>
+      /^\d+-VTP-ENRICHMENT\.md$/.test(f) || f === ARTIFACT_FILENAME_GENERIC
+    );
+    if (candidates.length > 0) {
+      artifactPath = path.resolve(phaseDir, candidates[0]);
+    }
+  }
   try {
     const raw = fs.readFileSync(artifactPath, 'utf8');
     // Parse frontmatter for key fields
@@ -340,7 +360,7 @@ function composeSubAgentSpec(opts) {
     seed,
     tools: VTP_TOOLS,
     cascade_rule: 'tools 1+2 always; tools 3+4+5 only if hits > 0 from tools 1+2 (D-01); cap 5 queries (D-03)',
-    artifact_filename: ARTIFACT_FILENAME,
+    artifact_filename: buildArtifactFilename(phase),
     phaseDir: phaseDir || '',
     phase: String(phase || 'unknown'),
   };
@@ -537,7 +557,11 @@ module.exports._internal = {
   composeSubAgentSpec,
   readVtpEnrichmentConfig,
   VTP_TOOLS,
-  ARTIFACT_FILENAME,
+  // CRIT-fix: filename is now phase-prefixed per VTPE-01 REQ. Callers use
+  // buildArtifactFilename(phase) to get the per-phase name. Generic form
+  // kept for stub/test paths where phase is unknown.
+  buildArtifactFilename,
+  ARTIFACT_FILENAME_GENERIC,
 };
 
 // ---------------------------------------------------------------------------

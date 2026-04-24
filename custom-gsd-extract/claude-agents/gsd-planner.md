@@ -1079,7 +1079,7 @@ Use `phase_dir` from init context (already loaded in load_project_state).
 cat "$phase_dir"/*-CONTEXT.md 2>/dev/null         # From /gsd-discuss-phase
 cat "$phase_dir"/*-RESEARCH.md 2>/dev/null        # From /gsd-research-phase
 cat "$phase_dir"/*-DISCOVERY.md 2>/dev/null       # From mandatory discovery
-cat "$phase_dir"/VTP-ENRICHMENT.md 2>/dev/null    # From Step 6.b.5 enrichment gate (VTPE-01); read if present
+cat "$phase_dir"/*VTP-ENRICHMENT.md 2>/dev/null   # From Step 6.b.5 enrichment gate (VTPE-01); glob matches {NN}-prefixed per REQ
 ```
 
 **If CONTEXT.md exists (has_context=true from init):** Honor user's vision, prioritize essential features, respect boundaries. Locked decisions — do not revisit.
