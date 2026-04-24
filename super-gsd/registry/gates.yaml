@@ -67,7 +67,7 @@ gates:
     reviewer_provider: codex-cli-reviewer
     evidence_emitted:
       - .planning/phases/{N}/{N}-ATC-REVIEW.md
-    escalation: log-only
+    escalation: halt
     source_dlb: DLB-02
     state: active
     version: 2.0
