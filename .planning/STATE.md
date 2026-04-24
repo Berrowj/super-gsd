@@ -4,19 +4,19 @@ milestone: v1.4
 milestone_name: Clean Close + Codex Visibility + Autonomous Handoff
 milestone_status: v1.4 ACTIVE — defining requirements complete, roadmap laid down (4 phases, 10 plans, 17 REQ-IDs across CLEAN/CXOPS/MC/HANDOFF). Phase 20 added 2026-04-24 per operator directive to close the autonomous-handoff loop (discuss-phase remains interactive; everything else cross-session autonomous). Next: /gsd-plan-phase 17 (context captured 75f8cbd).
 status: Phase 19 ✓ COMPLETE — 5/5 MC items delivered + 6 richer-output deferrals addressed (D-05 #3/#4/#5/#6/#7/#9 from Phase 17/18 queue). 19-01 shipped MC-01 mission-control SGSD-Codex-Tile + MC-02 statusline [x] cdx: segment + MC-05 dashboard Multimodal Review Offload tile. 19-02 shipped MC-03 append_narrative_event + MC-04 dual-source live-feed + phase-level-ATC→analysis tier recal + --retry-on-timeout-escalate + FINDINGS_DETAIL optional contract + validateContract regex + --self-test-exit-priority + 7 parse-rigor fixtures + run-parse-fuzz.sh (7/7 PASS). 4 Codex invocations this phase (1 review-tier timeout + 3 analysis-tier; 0 CRITICAL, 10 WARNINGs deferred). Cumulative v1.4 Codex: 11 invocations, 1364s wall-clock, ~22k Claude tokens saved, 0 fallbacks, 2 CRITICALs raised+cleared, 0 parse_failure.
-stopped_at: Phase 19 complete (2/2 plans, 5/5 MC, 6 richer-output deferrals addressed, phase-ATC PASS-WITH-WARNINGS, MUDA ran cleanly). Next: Phase 20 Autonomous Session Handoff (3 plans, HANDOFF REQ-IDs) — final phase before v1.4 milestone close.
-last_updated: "2026-04-24T14:30:00.000Z"
-last_activity: 2026-04-24 — Phase 17 shipped end-to-end in single session. 20 commits, 49 files, 3318+/310- lines. RESEARCH → 3 plans + INDEX → plan-check fix → 17-01 executor + Codex ATC (crit → fix → clean) → 17-02 executor (LITE skip) → 17-03 executor + Codex ATC (crit → fix → clean) → verifier PASS → phase-level Codex ATC PASS-WITH-WARNINGS → phase complete. 622.9s cumulative Codex wall-clock. MC visibility also shipped (8 files, 543 lines — Codex Monitor RECENT VERDICTS section + heartbeat hook + gate-verdict board).
+stopped_at: Phase 20 plan 20-02 complete. 20-01 delivered sgsd-stop-handoff.sh + Stop hook wiring. 20-02 delivered HANDOFF-02 safety rails (all 6 pre-conditions verified) + config.handoff block (enabled:false default). Next: 20-03 Telemetry + MC integration (HANDOFF-03).
+last_updated: "2026-04-24T15:58:00.000Z"
+last_activity: 2026-04-24 — Phase 20 plan 20-02 shipped. HANDOFF-02 safety rails verified in sgsd-stop-handoff.sh (cooldown/depth/abort/discuss-phase + enabled + emergency_halt). config.handoff block added to config.json additively. chain_depth=5 simulation confirmed refused:max_chain_depth logged. 1 commit (14675f5).
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 10
-  completed_plans: 8
-  percent: 80
+  completed_plans: 9
+  percent: 90
   phase_17: "3/3 plans complete — shipped 2026-04-24 (7/7 CLEAN)"
   phase_18: "2/2 plans complete — shipped 2026-04-24 (4/4 CXOPS)"
   phase_19: "2/2 plans complete — shipped 2026-04-24 (5/5 MC + 6 richer-output deferrals)"
-  phase_20: "1/3 plans complete — 20-01 shipped 2026-04-24 (HANDOFF-01 sgsd-stop-handoff.sh + Stop hook)"
+  phase_20: "2/3 plans complete — 20-01 shipped 2026-04-24 (HANDOFF-01 sgsd-stop-handoff.sh + Stop hook), 20-02 shipped 2026-04-24 (HANDOFF-02 safety rails + config.handoff block)"
 ---
 
 # Project State
