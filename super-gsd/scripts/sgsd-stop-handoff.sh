@@ -92,6 +92,7 @@ ABORT_FILE="$PLANNING_DIR/STOP-HANDOFF"
 # Without containment check, a symlink pointing outside .planning/ would be
 # followed silently (Codex phase-level ATC finding).
 PLANNING_DIR_CANONICAL="$(canonicalize_path "$PLANNING_DIR")"
+LOG_DIR="$(canonicalize_path "$LOG_DIR")"
 LOG_PATH="$(canonicalize_path "$LOG_PATH")"
 CHECKPOINT="$(canonicalize_path "$CHECKPOINT")"
 ABORT_FILE="$(canonicalize_path "$ABORT_FILE")"
@@ -138,6 +139,7 @@ _assert_contained() {
             ;;
     esac
 }
+_assert_contained "$LOG_DIR" "LOG_DIR"
 _assert_contained "$LOG_PATH" "LOG_PATH"
 _assert_contained "$CHECKPOINT" "CHECKPOINT"
 _assert_contained "$ABORT_FILE" "ABORT_FILE"
