@@ -1024,7 +1024,7 @@ REPEAT:
             } else {
               const challengerProvider = gates.getProvider(challengerProviderName);
 
-              if (challengerProvider.invocation_type === 'shell') {
+              if (challengerProvider.invocation === 'shell') {
                 const promptFile = writeTempPrompt(challengerPrompt);
                 const reportOut = tempReportPath('adversarial-verifier');
                 const dispatchResult = shellDispatch(challengerProvider.shell_script, {
@@ -1057,7 +1057,7 @@ REPEAT:
                 appendTokenLogRow({
                   role: 'adversarial_verifier',
                   provider: challengerReport._provider,
-                  model: challengerProvider.invocation_type === 'shell' ? 'codex' : (challengerProvider.agent_model || 'sonnet')
+                  model: challengerProvider.invocation === 'shell' ? 'codex' : (challengerProvider.agent_model || 'sonnet')
                 });
               }
             }
