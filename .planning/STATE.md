@@ -3,20 +3,21 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: VTP Knowledge Primacy + Post-v1.4 Hardening
 milestone_status: v1.5 ACTIVE (2026-04-24) — scoped via /gsd-new-milestone with operator Q1=A/Q2=B/Q3=A/Q4=C. 21 REQ-IDs across 6 categories (VTPE + SEC + MUDAC + CONTRACT + CARRY + INSTR). 5 phases (21-25), 13 plans. Design posture: enrich-only VTP gate (no challenger — autonomy preserved), hard-required artifact (gate MUST write VTP-ENRICHMENT.md even on zero hits, VTP API errors block, empty-hit continues). Previous milestone v1.4 ✓ SHIPPED 2026-04-24 (16 Codex invocations, ~32k tokens saved, all CRITs cleared, handoff disabled by default).
-status: v1.5 Phase 22 COMPLETE. Plans 21-01/02/03/04 COMPLETE. Plans 22-01/22-02 COMPLETE. Phase 23 next.
-stopped_at: Phase 22 fully closed after 7-round Codex CRIT-fix cycle. Round 7 verdict 0C/0W/PASS_RATE 100. Operator-shipped final fix (stderr-only refusals + secure-helper-only audit appends). 22-SUMMARY.md written. Phase 23 next.
-last_updated: "2026-04-25T00:00:00Z"
-last_activity: 2026-04-25 — Phase 22 closed (commits 9fd11f3, c2300f7, 1d16693 R7 fix + 22-SUMMARY).
+status: v1.5 Phase 23 COMPLETE. Plans 21-01/02/03/04 + 22-01/22-02 + 23-01 COMPLETE. Phase 24 next.
+stopped_at: Phase 23 closed via fast-track (3/4 MUDAC REQs pre-shipped via b2773a8; only MUDAC-02 newly implemented in Plan 23-01). Phase 22 audit re-run confirms 0 WARN under new calibrated thresholds. Phase 24 next.
+last_updated: "2026-04-25T00:30:00Z"
+last_activity: 2026-04-25 — Phase 23 closed (commit 396369d MUDAC-02 + 23-VERIFICATION + 23-SUMMARY).
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 13
-  completed_plans: 6
-  percent: 46
+  completed_plans: 7
+  percent: 60
   # Phase 22 fully closed 2026-04-25 after 7-round Codex CRIT-fix cycle (R7 PASS_RATE 100)
+  # Phase 23 fast-tracked closed 2026-04-25 (3/4 MUDAC pre-shipped via b2773a8 v1.4 Codex MUDA work)
   phase_21: "4/4 plans complete — shipped 2026-04-24 (6/6 VTPE + halt-on-CRIT fix cycle proved out)"
-  phase_22: "2/2 plans complete — shipped 2026-04-24 (SEC-01 symlink canonicalize + SEC-02 flock guard)"
-  phase_23: "not started — MUDA Calibration, 2 plans, 4 MUDAC REQ-IDs"
+  phase_22: "2/2 plans complete — shipped 2026-04-25 (SEC-01 + SEC-02 + 7-round Codex review)"
+  phase_23: "1/1 plan complete — shipped 2026-04-25 (MUDAC-02 newly delivered + MUDAC-01/03/04 pre-shipped)"
   phase_24: "not started — Richer Output Contract, 2 plans, 3 CONTRACT REQ-IDs"
   phase_25: "not started — Carryover + Telemetry, 3 plans, 6 REQ-IDs (3 CARRY + 3 INSTR)"
 ---

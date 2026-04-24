@@ -22,9 +22,8 @@ Scope: elevate VTP knowledge library from passive MCP server into active enrichm
 - [x] **Phase 22: Security Hardening** — SEC-01..02 (2/2 requirements delivered, 2 plans shipped) ✓ 2026-04-25
   - 22-01: Symlink canonicalize (handoff paths) — 7-round Codex CRIT-fix cycle, R7 PASS
   - 22-02: fs flock concurrent-write guard (handoff-log)
-- [ ] **Phase 23: MUDA Calibration** — MUDAC-01..04 (4 requirements, 2 plans)
-  - 23-01: 5-probe aggregation + inventory threshold recal (MUDAC-01, MUDAC-02)
-  - 23-02: probe flat-path mirror-fix + summary text accuracy (MUDAC-03, MUDAC-04)
+- [x] **Phase 23: MUDA Calibration** — MUDAC-01..04 (4/4 requirements delivered, 1 plan shipped — 3/4 pre-shipped via b2773a8) ✓ 2026-04-25
+  - 23-01: MUDAC-02 inventory threshold recalibration (config-driven, milestone-count-scaled)
 - [ ] **Phase 24: Richer Output Contract** — CONTRACT-01..03 (3 requirements, 2 plans)
   - 24-01: FINDINGS_DETAIL prompt-engineering (CONTRACT-01)
   - 24-02: validateContract extended parsing + ATC-REVIEW rendering (CONTRACT-02, CONTRACT-03)
