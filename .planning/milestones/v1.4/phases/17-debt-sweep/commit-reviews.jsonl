@@ -1,2 +1,4 @@
 {"ts":"2026-04-24T10:39:37Z","plan":"17-01","tier":"full","verdict":"critical","critical":1,"warning":1,"one_liner":"T2 breaks WASTE.md accuracy; T1 JSDoc still contradicts live behavior.","provider":"openai-codex"}
 {"ts":"2026-04-24T10:52:09.946Z","plan":"17-01","tier":"full","verdict":"warn","critical":0,"warning":2,"one_liner":"Duplication fixed, but awk insert is brittle and T1 warning remains.","provider":"openai-codex","note":"re-review after 9a14ba3 fix commit"}
+{"ts":"2026-04-24T11:52:01.598Z","plan":"17-03","tier":"full","verdict":"critical","critical":1,"warning":1,"one_liner":"Core tier wiring works, but config-backed tier resolution is not correct.","provider":"openai-codex"}
+{"ts":"2026-04-24T12:02:01.606Z","plan":"17-03","tier":"full","verdict":"clean","critical":0,"warning":0,"one_liner":"Fix is sound; config-backed tiers now resolve safely without regressions.","provider":"openai-codex","note":"re-review after 40631fc fix commit"}
