@@ -24,7 +24,8 @@ function Get-SgsdCodexStatus {
     $out = [ordered]@{
         enabled = $false
         defaultProvider = "claude-sonnet-reviewer"
-        model = if ($env:CODEX_MODEL) { "$($env:CODEX_MODEL)" } else { "auto" }
+        model = "gpt-5.5"
+        reasoningEffort = "xhigh"
         fallbackOnError = $true
         phaseAtcProvider = $null
         perDispatchProvider = $null
@@ -61,6 +62,7 @@ function Get-SgsdCodexStatus {
                 $out.enabled = [bool]$cfg.review_providers.codex_enabled
                 if ($cfg.review_providers.default_provider) { $out.defaultProvider = "$($cfg.review_providers.default_provider)" }
                 if ($cfg.review_providers.codex_model) { $out.model = "$($cfg.review_providers.codex_model)" }
+                if ($cfg.review_providers.codex_reasoning_effort) { $out.reasoningEffort = "$($cfg.review_providers.codex_reasoning_effort)" }
                 if ($null -ne $cfg.review_providers.fallback_on_error) { $out.fallbackOnError = [bool]$cfg.review_providers.fallback_on_error }
             }
         } catch {}
@@ -84,6 +86,8 @@ function Get-SgsdCodexStatus {
         $out.plan = "$($live.plan)"
         $out.step = "$($live.step)"
         $out.toolbox = if ($live.toolbox) { "$($live.toolbox)" } else { $out.toolbox }
+        if ($live.model) { $out.model = "$($live.model)" }
+        if ($live.reasoning_effort) { $out.reasoningEffort = "$($live.reasoning_effort)" }
         $out.commandPreview = "$($live.command_preview)"
         $out.promptBytes = [int]($live.prompt_bytes)
         $out.reportBytes = [int]($live.report_bytes)
@@ -118,6 +122,8 @@ function Get-SgsdCodexStatus {
                     $out.promptBytes = [int]($row.prompt_bytes)
                     $out.reportBytes = [int]($row.report_bytes)
                     $out.exit = $row.exit
+                    if ($row.model) { $out.model = "$($row.model)" }
+                    if ($row.reasoning_effort) { $out.reasoningEffort = "$($row.reasoning_effort)" }
                     $out.state = if ($row.exit -eq 0) { "ok" } elseif ($row.exit -eq 5) { "timeout" } else { "error" }
                 }
             }
@@ -298,8 +304,8 @@ function Get-SgsdCodexTimelineRows {
         $rows.Add([pscustomobject]@{
             ts = (Get-Date).AddSeconds(-1 * [int]$status.updatedAgeSec)
             tool = "Codex"
-            summary = ("state={0} model={1} exit={2} in={3}B out={4}B" -f `
-                $status.state, $status.model, `
+            summary = ("state={0} model={1} effort={2} exit={3} in={4}B out={5}B" -f `
+                $status.state, $status.model, $status.reasoningEffort, `
                 $(if ($null -ne $status.exit) { $status.exit } else { "--" }), `
                 $status.promptBytes, $status.reportBytes)
             color = "DarkYellow"
@@ -324,7 +330,7 @@ function Get-SgsdCodexVerdicts {
 
       Source files: **/commit-reviews.jsonl (one JSON per line).
       Required fields per row: ts, plan, provider, critical, warning, one_liner.
-      Optional: tier, verdict, note.
+      Optional: tier, verdict, note, model, reasoning_effort.
 
     .PARAMETER PlanningDir
       Path to .planning directory (absolute or relative).
@@ -368,6 +374,8 @@ function Get-SgsdCodexVerdicts {
                                 warning   = [int]($r.warning)
                                 one_liner = "$($r.one_liner)"
                                 provider  = "$($r.provider)"
+                                model     = "$($r.model)"
+                                reasoning_effort = "$($r.reasoning_effort)"
                                 note      = "$($r.note)"
                                 source    = $f.FullName
                             })

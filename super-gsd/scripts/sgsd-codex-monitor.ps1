@@ -108,6 +108,28 @@ function Get-CurrentPhaseNum {
     return ""
 }
 
+function Get-CodexStatusSummary($codex) {
+    $scopeParts = @($codex.phase, $codex.plan, $codex.step) | Where-Object { $_ -and "$_".Trim() -ne "" }
+    $scopeText = if ($scopeParts.Count -gt 0) { $scopeParts -join " / " } else { "the current review scope" }
+    switch ("$($codex.state)".ToLower()) {
+        "running" { return "Codex is actively reviewing $scopeText." }
+        "ok" { return "Codex completed the latest review successfully for $scopeText." }
+        "timeout" { return "The latest Codex review timed out on $scopeText and may need fallback or retry." }
+        "error" { return "The latest Codex review failed on $scopeText." }
+        "auth-denied" { return "Codex is enabled but auth failed on the latest review attempt." }
+        default {
+            if ($codex.enabled) { return "Codex routing is enabled, but there is no current review summary yet." }
+            return "Codex routing is configured but still dark-launched."
+        }
+    }
+}
+
+function Get-VerdictLabel($vr) {
+    if ([int]$vr.critical -gt 0) { return "Critical" }
+    if ([int]$vr.warning -gt 0) { return "Warnings" }
+    return "Clean"
+}
+
 function Render {
     if (-not (Test-RenderDue -MinIntervalMs 2000)) { return }
 
@@ -117,9 +139,9 @@ function Render {
     $phaseNum = Get-CurrentPhaseNum
     $substrate = Get-SubstrateStatus -ProjectDir $ProjectDir
     $codex = Get-SgsdCodexStatus -ProjectDir $ProjectDir -PlanningDir $PlanningDir
-    $events = Get-SgsdCodexEvents -PlanningDir $PlanningDir -PhaseNum $phaseNum -MaxEvents 8
+    $events = Get-SgsdCodexEvents -PlanningDir $PlanningDir -PhaseNum $phaseNum -MaxEvents 4
     $rows = Get-SgsdCodexLogRows -PlanningDir $PlanningDir -MaxRows 6
-    $verdicts = Get-SgsdCodexVerdicts -PlanningDir $PlanningDir -MaxRows 5
+    $verdicts = Get-SgsdCodexVerdicts -PlanningDir $PlanningDir -MaxRows 4
 
     Write-Host "SUPER GSD" -NoNewline -ForegroundColor Magenta
     Write-Host " ! " -NoNewline -ForegroundColor Cyan
@@ -159,98 +181,88 @@ function Render {
     Write-Host ($(if ($scopeParts.Count -gt 0) { Trunc ($scopeParts -join " / ") ($pw - 8) } else { "--" })) -NoNewline -ForegroundColor Cyan
     Write-Host $CLEAR_LINE
 
-    Write-Host "TOOLBOX" -NoNewline -ForegroundColor White
-    Write-Host ": " -NoNewline -ForegroundColor DarkGray
-    Write-Host $codex.toolbox -NoNewline -ForegroundColor Gray
     Write-Host $CLEAR_LINE
-
-    Write-Host "BASH" -NoNewline -ForegroundColor White
-    Write-Host ": " -NoNewline -ForegroundColor DarkGray
-    $cmdText = if ($codex.commandPreview) { $codex.commandPreview } else { "--" }
-    Write-Host (Trunc $cmdText ($pw - 7)) -NoNewline -ForegroundColor Gray
+    Write-Host "CURRENT STATUS" -NoNewline -ForegroundColor White
     Write-Host $CLEAR_LINE
-
-    Write-Host "IO" -NoNewline -ForegroundColor White
-    Write-Host ": in " -NoNewline -ForegroundColor DarkGray
-    Write-Host "$($codex.promptBytes)B" -NoNewline -ForegroundColor Cyan
-    Write-Host "  out " -NoNewline -ForegroundColor DarkGray
-    Write-Host "$($codex.reportBytes)B" -NoNewline -ForegroundColor Cyan
-    if ($codex.durationMs -gt 0) {
-        Write-Host "  dur " -NoNewline -ForegroundColor DarkGray
-        Write-Host "$($codex.durationMs)ms" -NoNewline -ForegroundColor Cyan
-    }
-    if ($null -ne $codex.exit) {
-        Write-Host "  exit " -NoNewline -ForegroundColor DarkGray
-        Write-Host "$($codex.exit)" -NoNewline -ForegroundColor $(if ($codex.exit -eq 0) { "Green" } else { "Red" })
-    }
+    Write-Host "| " -NoNewline -ForegroundColor Yellow
+    Write-Host (Trunc (Get-CodexStatusSummary $codex) ($pw - 3)) -NoNewline -ForegroundColor Yellow
     Write-Host $CLEAR_LINE
-
-    if ($codex.oneLiner) {
-        Write-Host "VERDICT" -NoNewline -ForegroundColor White
-        Write-Host ": " -NoNewline -ForegroundColor DarkGray
-        Write-Host (Trunc $codex.oneLiner ($pw - 10)) -NoNewline -ForegroundColor Yellow
+    if ($verdicts.Count -gt 0) {
+        $latest = $verdicts[0]
+        Write-Host "> " -NoNewline -ForegroundColor Magenta
+        Write-Host ("Latest result: {0} on {1}" -f (Get-VerdictLabel $latest), "$($latest.plan)") -NoNewline -ForegroundColor White
         Write-Host $CLEAR_LINE
-    } elseif ($codex.stderrPreview) {
-        Write-Host "STDERR" -NoNewline -ForegroundColor White
-        Write-Host ": " -NoNewline -ForegroundColor DarkGray
-        Write-Host (Trunc $codex.stderrPreview ($pw - 9)) -NoNewline -ForegroundColor Red
+        Write-Host "  " -NoNewline
+        Write-Host ("Critical: {0}  Warnings: {1}" -f [int]$latest.critical, [int]$latest.warning) -NoNewline -ForegroundColor Cyan
+        Write-Host $CLEAR_LINE
+        Write-Host "  " -NoNewline
+        Write-Host (Trunc "$($latest.one_liner)" ($pw - 3)) -NoNewline -ForegroundColor Gray
         Write-Host $CLEAR_LINE
     }
 
     Write-Host $CLEAR_LINE
-    Write-Host "RECENT VERDICTS" -NoNewline -ForegroundColor White
-    Write-Host "  " -NoNewline -ForegroundColor DarkGray
-    Write-Host "(commit-reviews.jsonl)" -NoNewline -ForegroundColor DarkGray
+    Write-Host "RECENT FINDINGS" -NoNewline -ForegroundColor White
     Write-Host $CLEAR_LINE
     if ($verdicts.Count -eq 0) {
-        Write-Host "  no verdicts yet - ATC gates have not produced commit-reviews rows" -NoNewline -ForegroundColor DarkGray
+        Write-Host "  no Codex findings recorded yet" -NoNewline -ForegroundColor DarkGray
         Write-Host $CLEAR_LINE
     } else {
         foreach ($vr in $verdicts) {
-            $verdictColor = if ($vr.critical -gt 0) { "Red" } elseif ($vr.warning -gt 0) { "Yellow" } else { "Green" }
-            $countLabel = "c=$($vr.critical) w=$($vr.warning)"
-            $tierLabel = if ($vr.tier) { "[$($vr.tier)]" } else { "" }
-            Write-Host "  $($vr.ts.ToString('HH:mm:ss')) " -NoNewline -ForegroundColor DarkGray
-            Write-Host $vr.plan.PadRight(8) -NoNewline -ForegroundColor Cyan
-            Write-Host $tierLabel.PadRight(7) -NoNewline -ForegroundColor DarkCyan
-            Write-Host $countLabel.PadRight(10) -NoNewline -ForegroundColor $verdictColor
-            Write-Host (Trunc $vr.one_liner ($pw - 40)) -NoNewline -ForegroundColor Gray
+            $label = Get-VerdictLabel $vr
+            $labelColor = if ($label -eq "Critical") { "Red" } elseif ($label -eq "Warnings") { "Yellow" } else { "Green" }
+            Write-Host "  $($vr.plan) " -NoNewline -ForegroundColor Cyan
+            Write-Host $label -NoNewline -ForegroundColor $labelColor
+            Write-Host $CLEAR_LINE
+            Write-Host "    " -NoNewline
+            Write-Host ("Critical: {0}  Warnings: {1}" -f [int]$vr.critical, [int]$vr.warning) -NoNewline -ForegroundColor Gray
+            Write-Host $CLEAR_LINE
+            Write-Host "    " -NoNewline
+            Write-Host (Trunc "$($vr.one_liner)" ($pw - 5)) -NoNewline -ForegroundColor Gray
+            Write-Host $CLEAR_LINE
+            if ($vr.note) {
+                Write-Host "    " -NoNewline
+                Write-Host (Trunc "Context: $($vr.note)" ($pw - 5)) -NoNewline -ForegroundColor DarkGray
+                Write-Host $CLEAR_LINE
+            }
+            Write-Host $CLEAR_LINE
+        }
+    }
+
+    Write-Host "RECENT CODEX PROGRESS" -NoNewline -ForegroundColor White
+    Write-Host $CLEAR_LINE
+    if ($rows.Count -eq 0) {
+        Write-Host "  no Codex run history yet" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+    } else {
+        foreach ($row in $rows) {
+            $state = if ($row.exit -eq 0) { "Completed" } elseif ($row.exit -eq 5) { "Timed out" } else { "Failed" }
+            $color = if ($row.exit -eq 0) { "Green" } elseif ($row.exit -eq 5) { "Yellow" } else { "Red" }
+            $scope = @("$($row.phase)", "$($row.plan)", "$($row.step)") | Where-Object { $_ -and "$_".Trim() -ne "" }
+            Write-Host "  " -NoNewline
+            Write-Host $state -NoNewline -ForegroundColor $color
+            Write-Host "  " -NoNewline
+            Write-Host (Trunc (($scope -join " / ")) ($pw - 14)) -NoNewline -ForegroundColor Cyan
             Write-Host $CLEAR_LINE
         }
     }
 
     Write-Host $CLEAR_LINE
-    Write-Host "RECENT CODEX EVENTS" -NoNewline -ForegroundColor White
+    Write-Host "LIVE CODEX EVENTS" -NoNewline -ForegroundColor White
     Write-Host $CLEAR_LINE
     if ($events.Count -eq 0) {
-        Write-Host "  no codex activity in activity-log yet" -NoNewline -ForegroundColor DarkGray
+        Write-Host "  no high-signal Codex wrapper events yet" -NoNewline -ForegroundColor DarkGray
         Write-Host $CLEAR_LINE
     } else {
         foreach ($ev in $events) {
             Write-Host "  $($ev.ts.ToString('HH:mm:ss')) " -NoNewline -ForegroundColor DarkGray
-            Write-Host $ev.label.PadRight(14) -NoNewline -ForegroundColor Cyan
-            Write-Host (Trunc $ev.detail ($pw - 28)) -NoNewline -ForegroundColor Gray
-            Write-Host $CLEAR_LINE
-        }
-    }
-
-    Write-Host $CLEAR_LINE
-    Write-Host "RUN HISTORY" -NoNewline -ForegroundColor White
-    Write-Host $CLEAR_LINE
-    if ($rows.Count -eq 0) {
-        Write-Host "  no codex-log rows yet" -NoNewline -ForegroundColor DarkGray
-        Write-Host $CLEAR_LINE
-    } else {
-        foreach ($row in $rows) {
-            $state = if ($row.exit -eq 0) { "OK" } elseif ($row.exit -eq 5) { "TIMEOUT" } else { "ERR" }
-            $color = if ($row.exit -eq 0) { "Green" } elseif ($row.exit -eq 5) { "Yellow" } else { "Red" }
-            $scope = @("$($row.phase)", "$($row.plan)", "$($row.step)") | Where-Object { $_ -and "$_".Trim() -ne "" }
-            Write-Host "  " -NoNewline
-            Write-Host $state.PadRight(7) -NoNewline -ForegroundColor $color
+            Write-Host "Codex" -NoNewline -ForegroundColor DarkYellow
             Write-Host " " -NoNewline
-            Write-Host (Trunc (($scope -join " / ")) 24) -NoNewline -ForegroundColor Cyan
-            Write-Host " " -NoNewline
-            Write-Host ("{0}ms {1}B->{2}B" -f $row.duration_ms, $row.prompt_bytes, $row.report_bytes) -NoNewline -ForegroundColor Gray
+            $detail = switch ("$($ev.label)") {
+                "CODEX-WRAPPER" { "prepared or ran a review wrapper step" }
+                "CODEX-CLI" { "invoked Codex CLI directly" }
+                default { "$($ev.detail)" }
+            }
+            Write-Host (Trunc $detail ($pw - 20)) -NoNewline -ForegroundColor Gray
             Write-Host $CLEAR_LINE
         }
     }

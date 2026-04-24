@@ -5,6 +5,22 @@ Ships prompt via **stdin pipe**, wraps with GNU `timeout`, parses the 5-field
 `code-reviewer-v1` report contract, writes the report atomically, and appends
 one provenance row to `.planning/metrics/codex-log.jsonl`.
 
+## Codex runtime
+
+The wrapper pins the runtime for every SGSD Codex shell dispatch:
+
+- `review_providers.codex_model`, default `gpt-5.5`
+- `review_providers.codex_reasoning_effort`, default `xhigh`
+
+Those values are passed explicitly to `codex exec` as `--model` and
+`-c model_reasoning_effort=...`, so ATC, adversarial challenger, and
+qualitative MUDA calls do not depend on implicit user-config inheritance.
+The resolved model and reasoning effort are also written to
+`.planning/metrics/codex-log.jsonl` and `.planning/metrics/codex-live.json`.
+When launched from WSL Bash on Windows, the wrapper invokes `cmd.exe /c codex`
+with a Windows `--cd` path so the npm Codex CLI uses the installed Windows Node
+runtime instead of the Unix shim.
+
 ## Usage
 
 ```
@@ -52,7 +68,9 @@ verified against `developers.openai.com/codex/cli/reference`: **no
 a positional arg or via stdin (`-`). This wrapper pipes on stdin:
 
 ```
-cat "$PROMPT_FILE" | codex exec --sandbox read-only --ephemeral \
+cat "$PROMPT_FILE" | codex exec --model "$CODEX_MODEL" \
+    -c "model_reasoning_effort=\"$CODEX_REASONING_EFFORT\"" \
+    --sandbox read-only --ephemeral \
     --skip-git-repo-check --cd "$PROJECT" -
 ```
 

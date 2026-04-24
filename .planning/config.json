@@ -86,6 +86,8 @@
     "default_provider": "claude-sonnet-reviewer",
     "codex_enabled": true,
     "codex_cli_path": "auto-detect",
+    "codex_model": "gpt-5.5",
+    "codex_reasoning_effort": "xhigh",
     "codex_timeout_seconds": 180,
     "fallback_on_error": true,
     "fallback_max_retries": 1,

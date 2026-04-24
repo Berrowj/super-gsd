@@ -1260,6 +1260,8 @@ function Render {
     Write-Host "      " -NoNewline
     Write-Host "mdl " -NoNewline -ForegroundColor DarkGray
     Write-Host "$($codex.model)" -NoNewline -ForegroundColor Yellow
+    Write-Host "  think " -NoNewline -ForegroundColor DarkGray
+    Write-Host "$($codex.reasoningEffort)" -NoNewline -ForegroundColor Yellow
     Write-Host "  git " -NoNewline -ForegroundColor DarkGray
     Write-Host "$(Get-CodexCommitCount)" -NoNewline -ForegroundColor Magenta
     Write-Host "  runs " -NoNewline -ForegroundColor DarkGray

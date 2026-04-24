@@ -223,7 +223,7 @@ REPEAT:
      If classifier.atc_tier == "gate" AND NOT auto mode:
        → Flag for human review before proceeding
      If classifier.atc_tier == "gate" AND auto mode:
-       → Log "GATE_AUTO_BYPASS", run FULL checks, continue
+       → Log "GATE_AUTO_REPLAN", run FULL checks, and require a fix/replan path
 
   4. SELECT CONTEXT (spawn Haiku context-selector)
      // Gate check (Phase 10 D-02): context-selector-haiku gate fires unless disabled
@@ -573,7 +573,12 @@ REPEAT:
                 report._provider = 'claude-via-fallback';
                 report._fallback_reason = 'parse_failure';
               } else {
-                report = { content: dispatchResult.report, _provider: 'openai-codex' };
+                report = {
+                  content: dispatchResult.report,
+                  _provider: 'openai-codex',
+                  _model: dispatchResult.model || config.review_providers.codex_model || 'gpt-5.5',
+                  _reasoning_effort: dispatchResult.reasoning_effort || config.review_providers.codex_reasoning_effort || 'xhigh'
+                };
               }
             }
           }
@@ -583,6 +588,8 @@ REPEAT:
             gate: 'phase-level-ATC',
             provider: report._provider || effective.name,
             fallback_triggered: !!(report._provider === 'claude-via-fallback'),
+            ...(report._model ? { model: report._model } : {}),
+            ...(report._reasoning_effort ? { reasoning_effort: report._reasoning_effort } : {}),
             ...(report._fallback_reason ? { fallback_reason: report._fallback_reason } : {})
           });
           → Returns: { findings, critical_count, warning_count, verdict }
@@ -590,8 +597,9 @@ REPEAT:
        d. Process ATC result:
           - Write to .planning/phases/{NN}-*/{NN}-ATC-REVIEW.md
           - If critical_count > 0 AND NOT auto mode: STOP, emit blocker
-          - If critical_count > 0 AND auto mode: log GATE_AUTO_BYPASS,
-            append to DEVIATIONS, continue
+          - If critical_count > 0 AND auto mode: log GATE_AUTO_HALT,
+            write {NN}-ATC-GAP-PLAN.md, append an expiring DEVIATIONS entry,
+            and do not mark phase complete until the gap-plan is resolved
           - If verdict == "pass": log, continue
           - If tier == "gate": suggest /sgsd-deliberate for next phase
 
@@ -1014,14 +1022,19 @@ REPEAT:
                 report._provider = 'claude-via-fallback';
                 report._fallback_reason = 'parse_failure';
               } else {
-                report = { content: dispatchResult.report, _provider: 'openai-codex' };
+                report = {
+                  content: dispatchResult.report,
+                  _provider: 'openai-codex',
+                  _model: dispatchResult.model || config.review_providers.codex_model || 'gpt-5.5',
+                  _reasoning_effort: dispatchResult.reasoning_effort || config.review_providers.codex_reasoning_effort || 'xhigh'
+                };
               }
           }
         }
         → Returns: { findings, critical_count, warning_count, verdict }
 
-        If tier == gate AND auto mode: log GATE_AUTO_BYPASS;
-                          append "[GATE bypassed in auto mode]" to DEVIATIONS.
+        If tier == gate AND auto mode: log GATE_AUTO_REPLAN;
+                          append "[GATE requires auto replan]" to DEVIATIONS.
         If tier == gate AND interactive mode: STOP with blocker; user reviews + approves
                                              before the commit lands.
 
@@ -1029,20 +1042,22 @@ REPEAT:
         // commit-reviews.jsonl gains provider: field for CODEX-10 metric accuracy
         Write verdict as a one-line JSONL append to
           `.planning/phases/{NN}/commit-reviews.jsonl`:
-          {"ts":"{ISO}","plan":"{NN-PP}","tier":"full|gate","verdict":"pass|warn|fail","critical":N,"warning":N,"one_liner":"...","provider":"{openai-codex|claude-sonnet|claude-via-fallback}"}
+          {"ts":"{ISO}","plan":"{NN-PP}","tier":"full|gate","verdict":"pass|warn|fail","critical":N,"warning":N,"one_liner":"...","provider":"{openai-codex|claude-sonnet|claude-via-fallback}","model":"gpt-5.5","reasoning_effort":"xhigh"}
 
         appendPerDispatchReviewEvidence(report, {
           gate: 'per-dispatch-ATC',
           provider: report._provider || effective.name,
           fallback_triggered: !!(report._provider === 'claude-via-fallback'),
+          ...(report._model ? { model: report._model } : {}),
+          ...(report._reasoning_effort ? { reasoning_effort: report._reasoning_effort } : {}),
           ...(report._fallback_reason ? { fallback_reason: report._fallback_reason } : {})
         });
 
       If critical > 0 AND interactive: STOP with blocker quoting the findings.
-      If critical > 0 AND auto: log GATE_AUTO_BYPASS, append to DEVIATIONS,
-      continue — per Golden Rule 13, auto mode never blocks on quality gates,
-      only logs and moves on. The phase-level ATC at Step 6.5 catches what
-      auto-bypass let through.
+      If critical > 0 AND auto: log GATE_AUTO_REPLAN, append an expiring
+      DEVIATIONS entry, and dispatch a fix/replan before treating the work as
+      clean. Auto mode must not ask the user, but critical ATC findings are
+      load-bearing and cannot silently pass to phase completion.
 
       Token budget per dispatch: ~300 tokens (250 review + 50 JSONL append).
       On a 10-dispatch phase with 3 FULL-tier dispatches → +900 tokens total.
@@ -1120,7 +1135,12 @@ REPEAT:
                   timeoutTier: 'review'  // --timeout-tier review (D-03: adversarial → review tier = 120s)
                 });
                 if (dispatchResult.exit === 0) {
-                  challengerReport = { content: dispatchResult.report, _provider: 'openai-codex' };
+                  challengerReport = {
+                    content: dispatchResult.report,
+                    _provider: 'openai-codex',
+                    _model: dispatchResult.model || config.review_providers.codex_model || 'gpt-5.5',
+                    _reasoning_effort: dispatchResult.reasoning_effort || config.review_providers.codex_reasoning_effort || 'xhigh'
+                  };
                 } else {
                   // Per CONTEXT D-17: skip on unavailability, no fallback to same-vendor
                   logDeviation(`VERIFIER_ADVERSARIAL_SKIP: codex-exec.sh exit=${dispatchResult.exit}`);
@@ -1142,7 +1162,8 @@ REPEAT:
                 appendTokenLogRow({
                   role: 'adversarial_verifier',
                   provider: challengerReport._provider,
-                  model: challengerProvider.invocation === 'shell' ? 'codex' : (challengerProvider.agent_model || 'sonnet')
+                  model: challengerReport._model || (challengerProvider.invocation === 'shell' ? 'codex' : (challengerProvider.agent_model || 'sonnet')),
+                  ...(challengerReport._reasoning_effort ? { reasoning_effort: challengerReport._reasoning_effort } : {})
                 });
               }
             }
@@ -1452,6 +1473,7 @@ const tokenLogRow = {
   role: agentRole,                // 'code_reviewer' | 'adversarial_verifier' | 'executor' |
                                   // 'verifier' | 'classifier' | 'context_selector'
   provider: dispatchProvider,     // 'claude' | 'openai-codex' | 'claude-via-fallback'
+  reasoning_effort: reasoningEffort, // Codex-only, e.g. 'xhigh'; omit/blank for Claude rows
   est_input: estimatedInputTokens,
   est_output: estimatedOutputTokens,
   total: estimatedInputTokens + estimatedOutputTokens,
@@ -1503,7 +1525,9 @@ Estimation method:
     work (all plans, all commits) as a coherent unit, NOT individual commits.
     Classify with Haiku, review with Sonnet (gsd-code-reviewer).
     Writes .planning/phases/{NN}-*/{NN}-ATC-REVIEW.md
-    Critical findings + auto mode: log GATE_AUTO_BYPASS, add to DEVIATIONS, continue.
+    Critical findings + auto mode: log GATE_AUTO_HALT, write {NN}-ATC-GAP-PLAN.md,
+    add an expiring DEVIATIONS entry, and do not mark the phase complete until
+    resolved.
     Critical findings + interactive: STOP with blocker.
     Token budget: ~600 tokens per phase (NOT per commit).
     Complexity floor: 5+ plans OR 500+ lines → always FULL tier.

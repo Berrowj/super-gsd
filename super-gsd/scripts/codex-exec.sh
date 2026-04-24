@@ -14,7 +14,9 @@
 #
 # Invocation shape (P4 deviation from D-01): codex exec has NO --prompt-file
 # flag per RESEARCH §1a. Prompt is piped on stdin with the `-` sentinel:
-#   cat "$PROMPT_FILE" | codex exec --sandbox read-only --ephemeral \
+#   cat "$PROMPT_FILE" | codex exec --model "$CODEX_MODEL" \
+#     -c "model_reasoning_effort=\"$CODEX_REASONING_EFFORT\"" \
+#     --sandbox read-only --ephemeral \
 #     --skip-git-repo-check --cd "$PROJECT" -
 # The wrapper keeps its OWN --prompt-file flag as the external contract; only
 # the internal transport to `codex exec` changes.
@@ -130,12 +132,53 @@ if [[ -z "$PROJECT" ]]; then
 fi
 
 # ── Path translation (D-04a) — Windows → WSL POSIX, idempotent on POSIX ─────
-# If PROJECT looks like a Windows path (^C:\) or an /mnt/c/ path, run wslpath -u.
-# On POSIX inputs that don't match either pattern, leave it alone.
-if [[ "$PROJECT" =~ ^[A-Za-z]:\\ ]] || [[ "$PROJECT" =~ ^/mnt/[a-z]/ ]]; then
+# If PROJECT looks like a Windows path (^C:\), run wslpath -u.
+# POSIX inputs such as /mnt/c/... and /c/... are already usable by Bash.
+if [[ "$PROJECT" =~ ^[A-Za-z]:\\ ]]; then
     if command -v wslpath >/dev/null 2>&1; then
         PROJECT_TRANSLATED="$(wslpath -u "$PROJECT" 2>/dev/null || echo "$PROJECT")"
         PROJECT="$PROJECT_TRANSLATED"
+    fi
+fi
+
+# ── Codex runtime config ────────────────────────────────────────────────────
+# SGSD Codex calls are pinned here so every ATC/qualitative/adversarial shell
+# dispatch uses the intended model and thinking level even if user defaults
+# drift. Config path: .planning/config.json → review_providers.{codex_model,
+# codex_reasoning_effort}. Defaults match the operator baseline.
+CODEX_MODEL="gpt-5.5"
+CODEX_REASONING_EFFORT="xhigh"
+
+if [[ -n "$ROOT" && -f "$ROOT/.planning/config.json" ]] && command -v node >/dev/null 2>&1; then
+    cfg_runtime="$(node -e '
+        try {
+            const fs = require("fs");
+            const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            const r = j && j.review_providers;
+            if (r && typeof r.codex_model === "string" && r.codex_model.trim()) {
+                process.stdout.write("CODEX_MODEL=" + r.codex_model.trim() + "\n");
+            }
+            if (r && typeof r.codex_reasoning_effort === "string" && r.codex_reasoning_effort.trim()) {
+                process.stdout.write("CODEX_REASONING_EFFORT=" + r.codex_reasoning_effort.trim() + "\n");
+            }
+        } catch (e) { /* silent: keep pinned defaults */ }
+    ' "$ROOT/.planning/config.json" 2>/dev/null || true)"
+    while IFS='=' read -r key val; do
+        case "$key" in
+            CODEX_MODEL) [[ -n "$val" ]] && CODEX_MODEL="$val" ;;
+            CODEX_REASONING_EFFORT) [[ -n "$val" ]] && CODEX_REASONING_EFFORT="$val" ;;
+        esac
+    done <<< "$cfg_runtime"
+fi
+
+CODEX_COMMAND="codex"
+CODEX_LAUNCHER="direct"
+CODEX_PROJECT="$PROJECT"
+if [[ -r /proc/version ]] && grep -qi microsoft /proc/version 2>/dev/null && command -v cmd.exe >/dev/null 2>&1; then
+    CODEX_COMMAND="cmd.exe"
+    CODEX_LAUNCHER="cmd"
+    if command -v wslpath >/dev/null 2>&1; then
+        CODEX_PROJECT="$(wslpath -w "$PROJECT" 2>/dev/null || echo "$PROJECT")"
     fi
 fi
 
@@ -240,7 +283,7 @@ if [[ "$SELF_TEST" == true ]]; then
     EXIT_CODE=0
 
     # Probe 1 — codex on PATH (exit 10)
-    if command -v codex >/dev/null 2>&1; then
+    if command -v "$CODEX_COMMAND" >/dev/null 2>&1; then
         ST_PATH=true
     else
         EXIT_CODE=10
@@ -284,8 +327,8 @@ if [[ "$SELF_TEST" == true ]]; then
         ST_REPORT_TMP="$(mktemp -t codex-self-test-report.XXXXXX)"
         printf 'Output exactly five lines:\nFINDINGS: 0\nCRITICAL: 0\nWARNINGS: 0\nPASS_RATE: 0/0\nONE_LINER: self-test\n' > "$ST_PROMPT_TMP"
         set +e
-        timeout 60s bash -c 'cat "$0" | codex exec --sandbox read-only --ephemeral --skip-git-repo-check --cd "$1" -' \
-            "$ST_PROMPT_TMP" "${PROJECT:-$(pwd)}" > "$ST_REPORT_TMP" 2>/dev/null
+        timeout 60s bash -c 'if [[ "$2" == "cmd" ]]; then cat "$0" | cmd.exe /c codex exec --model "$4" -c "model_reasoning_effort=\"$5\"" --sandbox read-only --ephemeral --skip-git-repo-check --cd "$1" -; else cat "$0" | "$3" exec --model "$4" -c "model_reasoning_effort=\"$5\"" --sandbox read-only --ephemeral --skip-git-repo-check --cd "$1" -; fi' \
+            "$ST_PROMPT_TMP" "${CODEX_PROJECT:-${PROJECT:-$(pwd)}}" "$CODEX_LAUNCHER" "$CODEX_COMMAND" "$CODEX_MODEL" "$CODEX_REASONING_EFFORT" > "$ST_REPORT_TMP" 2>/dev/null
         ST_RC=$?
         set -e
         if [[ $ST_RC -eq 0 ]] && \
@@ -303,6 +346,8 @@ if [[ "$SELF_TEST" == true ]]; then
 
     # Structured stdout
     echo "=== codex-exec --self-test ==="
+    printf "Model:            %s\n" "$CODEX_MODEL"
+    printf "Reasoning effort: %s\n" "$CODEX_REASONING_EFFORT"
     printf "Probe 1 PATH:     %s\n" "$([ "$ST_PATH"     = true ] && echo PASS || echo FAIL)"
     printf "Probe 2 auth:     %s\n" "$([ "$ST_AUTH"     = true ] && echo PASS || echo FAIL)"
     printf "Probe 3 timeout:  %s (tier_review=%s)\n" "$([ "$ST_TIMEOUT"  = true ] && echo PASS || echo FAIL)" "${TIER_REVIEW}"
@@ -316,8 +361,10 @@ if [[ "$SELF_TEST" == true ]]; then
         ST_LOG="$ROOT/.planning/metrics/codex-log.jsonl"
         ST_TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
         mkdir -p "$(dirname "$ST_LOG")"
-        printf '{"ts":"%s","step":"self-test","exit":%d,"skip_network":%s,"self_test_probes":{"path":%s,"auth":%s,"timeout":%s,"contract":%s}}\n' \
-            "$ST_TS" "$EXIT_CODE" \
+        model_json="$(json_escape "$CODEX_MODEL")"
+        effort_json="$(json_escape "$CODEX_REASONING_EFFORT")"
+        printf '{"ts":"%s","step":"self-test","model":"%s","reasoning_effort":"%s","exit":%d,"skip_network":%s,"self_test_probes":{"path":%s,"auth":%s,"timeout":%s,"contract":%s}}\n' \
+            "$ST_TS" "$model_json" "$effort_json" "$EXIT_CODE" \
             "$([ "$SKIP_NETWORK" = true ] && echo true || echo false)" \
             "$([ "$ST_PATH"     = true ] && echo true || echo false)" \
             "$([ "$ST_AUTH"     = true ] && echo true || echo false)" \
@@ -360,22 +407,26 @@ if [[ -f "$PROMPT_FILE" ]]; then
 fi
 
 # ── `codex` binary presence (exit 3 if missing) ─────────────────────────────
-CODEX_BIN="$(command -v codex 2>/dev/null || true)"
+CODEX_BIN="$(command -v "$CODEX_COMMAND" 2>/dev/null || true)"
 if [[ -z "$CODEX_BIN" && "$DRY_RUN" == false ]]; then
-    echo "codex-exec: 'codex' CLI not found on \$PATH — install via 'npm i -g @openai/codex' or see Codex CLI README." >&2
+    echo "codex-exec: '$CODEX_COMMAND' CLI not found on \$PATH — install via 'npm i -g @openai/codex' or see Codex CLI README." >&2
     exit 3
 fi
 
 # ── Resolved command line (also used for dry-run display) ───────────────────
-RESOLVED_CMD="timeout ${TIMEOUT}s bash -c 'cat \"\$0\" | codex exec --sandbox read-only --ephemeral --skip-git-repo-check --cd \"\$1\" -' \"$PROMPT_FILE\" \"$PROJECT\""
+RESOLVED_CMD="timeout ${TIMEOUT}s bash -c 'if [[ \"\$2\" == \"cmd\" ]]; then cat \"\$0\" | cmd.exe /c codex exec --model \"\$4\" -c \"model_reasoning_effort=\\\"\$5\\\"\" --sandbox read-only --ephemeral --skip-git-repo-check --cd \"\$1\" -; else cat \"\$0\" | \"\$3\" exec --model \"\$4\" -c \"model_reasoning_effort=\\\"\$5\\\"\" --sandbox read-only --ephemeral --skip-git-repo-check --cd \"\$1\" -; fi' \"$PROMPT_FILE\" \"$CODEX_PROJECT\" \"$CODEX_LAUNCHER\" \"$CODEX_COMMAND\" \"$CODEX_MODEL\" \"$CODEX_REASONING_EFFORT\""
 
 # ── Dry-run short-circuit ───────────────────────────────────────────────────
 if [[ "$DRY_RUN" == true ]]; then
     echo "codex-exec DRY RUN"
     echo "  resolved: $RESOLVED_CMD"
     echo "  auth:     OAuth-only (OPENAI_API_KEY not set) ✓"
+    echo "  model:    ${CODEX_MODEL}"
+    echo "  effort:   ${CODEX_REASONING_EFFORT}"
     echo "  timeout:  ${TIMEOUT}s"
     echo "  project:  $PROJECT"
+    echo "  codex-cd: ${CODEX_PROJECT}"
+    echo "  command:  $([ "$CODEX_LAUNCHER" = "cmd" ] && echo 'cmd.exe /c codex' || echo "$CODEX_COMMAND")"
     echo "  codex:    ${CODEX_BIN:-<not-on-PATH>}"
     echo "  report-out: $REPORT_OUT"
     exit 0
@@ -390,8 +441,8 @@ STDERR_TMP="$(mktemp -t codex-stderr.XXXXXX)"
 trap 'rm -f "$STDOUT_TMP" "$STDERR_TMP" "${REPORT_OUT}.tmp" 2>/dev/null || true' EXIT
 
 set +e
-timeout "${TIMEOUT}s" bash -c 'cat "$0" | codex exec --sandbox read-only --ephemeral --skip-git-repo-check --cd "$1" -' \
-    "$PROMPT_FILE" "$PROJECT" \
+timeout "${TIMEOUT}s" bash -c 'if [[ "$2" == "cmd" ]]; then cat "$0" | cmd.exe /c codex exec --model "$4" -c "model_reasoning_effort=\"$5\"" --sandbox read-only --ephemeral --skip-git-repo-check --cd "$1" -; else cat "$0" | "$3" exec --model "$4" -c "model_reasoning_effort=\"$5\"" --sandbox read-only --ephemeral --skip-git-repo-check --cd "$1" -; fi' \
+    "$PROMPT_FILE" "$CODEX_PROJECT" "$CODEX_LAUNCHER" "$CODEX_COMMAND" "$CODEX_MODEL" "$CODEX_REASONING_EFFORT" \
     >"$STDOUT_TMP" 2>"$STDERR_TMP"
 RC=$?
 set -e
@@ -412,6 +463,8 @@ fi
 stderr_preview_raw="$(head -c 200 "$STDERR_TMP" 2>/dev/null || echo '')"
 # Escape backslash, double-quote, and control chars for JSON embedding.
 stderr_preview_json="$(json_escape "$stderr_preview_raw")"
+codex_model_json="$(json_escape "$CODEX_MODEL")"
+codex_reasoning_effort_json="$(json_escape "$CODEX_REASONING_EFFORT")"
 
 # ── JSONL append helper (fires on every exit path except 3/4-env/1-usage) ──
 METRICS_LOG="$PROJECT/.planning/metrics/codex-log.jsonl"
@@ -423,8 +476,9 @@ append_jsonl() {
     if [[ -z "$PLAN_TAG" ]];  then plan_field="null";  else plan_field="\"$PLAN_TAG\""; fi
     if [[ -z "$STEP_TAG" ]];  then step_field="null";  else step_field="\"$STEP_TAG\""; fi
     mkdir -p "$(dirname "$METRICS_LOG")"
-    printf '{"ts":"%s","phase":%s,"plan":%s,"step":%s,"exit":%d,"duration_ms":%d,"prompt_bytes":%d,"report_bytes":%d,"timeout_hit":%s,"fallback_triggered":false,"stderr_preview":"%s"}\n' \
+    printf '{"ts":"%s","phase":%s,"plan":%s,"step":%s,"model":"%s","reasoning_effort":"%s","exit":%d,"duration_ms":%d,"prompt_bytes":%d,"report_bytes":%d,"timeout_hit":%s,"fallback_triggered":false,"stderr_preview":"%s"}\n' \
         "$TS" "$phase_field" "$plan_field" "$step_field" \
+        "$codex_model_json" "$codex_reasoning_effort_json" \
         "$wrapper_exit" "$DURATION_MS" "$PROMPT_BYTES" "$report_bytes" \
         "$timeout_hit" "$stderr_preview_json" \
         >> "$METRICS_LOG"
@@ -473,6 +527,8 @@ write_live_state() {
         printf '  "provider": "codex-cli-reviewer",\n'
         printf '  "invocation": "shell",\n'
         printf '  "toolbox": "bash -> codex exec",\n'
+        printf '  "model": "%s",\n' "$codex_model_json"
+        printf '  "reasoning_effort": "%s",\n' "$codex_reasoning_effort_json"
         printf '  "state": "%s",\n' "$live_state"
         printf '  "phase": "%s",\n' "$phase_json"
         printf '  "plan": "%s",\n' "$plan_json"
