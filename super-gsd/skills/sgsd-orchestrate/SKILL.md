@@ -1001,10 +1001,70 @@ REPEAT:
               primaryVerifierPrompt;
             ```
 
-         c. Agent(subagent_type: "gsd-verifier", model: "sonnet", mode: "auto",
-                  prompt: challengerPrompt)
+         c. // Step 9.6 MACH-04: adversarial verifier challenger dispatch (CODEX-11)
+            // Phase 15 CODEX-11: challenger is always the non-primary vendor (cross-vendor signal).
+            // VTP: doc:70a3d5757b6a (Shift-Up) — dual-vendor workflow at gate granularity.
+            // NOTE: This does NOT use gates.resolveReviewerProvider. Adversarial challenger
+            // routing is orthogonal to the gate-reviewer routing — it has its own rule:
+            // always dispatch to the non-primary vendor. This distinction is intentional.
+
+            const primary = 'claude-sonnet-verifier';  // Phase 15: primary verifier is always Claude
+            const challengerProviderName = (primary === 'claude-sonnet-verifier')
+              ? 'codex-cli-reviewer'       // Claude primary → Codex challenger
+              : 'claude-sonnet-reviewer';  // Future-proofing: Codex primary → Claude challenger
+
+            let challengerReport;
+
+            if (challengerProviderName === 'codex-cli-reviewer' &&
+                (!config.review_providers.codex_enabled || codexAuthFailed)) {
+              // Per CONTEXT D-17: if Codex unavailable, skip entirely.
+              // Do NOT fall back to same-vendor challenger — that defeats the purpose
+              // of cross-vendor signal (D-17a). Better to skip than produce false signal.
+              logDeviation('VERIFIER_ADVERSARIAL_SKIP: codex unavailable');
+            } else {
+              const challengerProvider = gates.getProvider(challengerProviderName);
+
+              if (challengerProvider.invocation_type === 'shell') {
+                const promptFile = writeTempPrompt(challengerPrompt);
+                const reportOut = tempReportPath('adversarial-verifier');
+                const dispatchResult = shellDispatch(challengerProvider.shell_script, {
+                  promptFile,
+                  timeout: challengerProvider.timeout_seconds || config.review_providers.codex_timeout_seconds,
+                  reportOut,
+                  phase: currentPhase,
+                  step: '9.6-adversarial'
+                });
+                if (dispatchResult.exit === 0) {
+                  challengerReport = { content: dispatchResult.report, _provider: 'openai-codex' };
+                } else {
+                  // Per CONTEXT D-17: skip on unavailability, no fallback to same-vendor
+                  logDeviation(`VERIFIER_ADVERSARIAL_SKIP: codex-exec.sh exit=${dispatchResult.exit}`);
+                }
+              } else {
+                // Future: agent-type challenger (e.g., if primary ever flips to Codex)
+                challengerReport = await Agent({
+                  subagent_type: challengerProvider.agent_subagent_type,
+                  model: challengerProvider.agent_model || 'sonnet',
+                  mode: 'auto',
+                  prompt: challengerPrompt
+                });
+                challengerReport._provider = 'claude';
+              }
+
+              if (challengerReport) {
+                // Token log per CONTEXT D-18: role "adversarial_verifier", provider "openai-codex"
+                // Feeds CODEX-10 offload calculation (claude_tokens_saved_by_codex tile)
+                appendTokenLogRow({
+                  role: 'adversarial_verifier',
+                  provider: challengerReport._provider,
+                  model: challengerProvider.invocation_type === 'shell' ? 'codex' : (challengerProvider.agent_model || 'sonnet')
+                });
+              }
+            }
 
          d. Parse challenger report STATUS (actual gsd-verifier vocab mapping):
+            (Applies only when challengerReport is set — i.e., adversarial challenger fired
+            and Codex was available. Skipped when VERIFIER_ADVERSARIAL_SKIP was logged.)
 
             status: passed (challenger agrees — no new concerns found)
               → Log to .planning/metrics/token-log.jsonl:
