@@ -395,10 +395,12 @@ PROMPT
         FINDING_NUM=$((FINDING_NUM+1))
         FINDING_SLUG=$(echo "$finding_line" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-40)
         curate_finding \
-          "waste-overproduction-p${PHASE_NUM}-${FINDING_SLUG}" \
-          "overproduction" \
+          "$FINDING_SLUG" \
+          "WARN" \
           "$finding_line" \
-          "muda,overproduction,phase-${PHASE_NUM},automated,codex-qualitative" || \
+          "overproduction" \
+          "codex-qualitative" \
+          "" || \
           echo "sgsd-muda-audit: curate qualitative finding failed (non-blocking)" >&2
       done <<< "$QUAL_FINDINGS"
     fi
