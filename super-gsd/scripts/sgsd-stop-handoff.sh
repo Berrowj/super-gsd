@@ -88,9 +88,35 @@ LOG_PATH="$LOG_DIR/handoff-log.jsonl"
 ABORT_FILE="$PLANNING_DIR/STOP-HANDOFF"
 
 # Canonicalize all handoff paths (SEC-01 symlink-attack hardening)
+# CRIT-fix: also canonicalize PLANNING_DIR and assert all paths stay WITHIN it.
+# Without containment check, a symlink pointing outside .planning/ would be
+# followed silently (Codex phase-level ATC finding).
+PLANNING_DIR_CANONICAL="$(canonicalize_path "$PLANNING_DIR")"
 LOG_PATH="$(canonicalize_path "$LOG_PATH")"
 CHECKPOINT="$(canonicalize_path "$CHECKPOINT")"
 ABORT_FILE="$(canonicalize_path "$ABORT_FILE")"
+
+# SEC-01 containment assertion: any canonical path escaping PLANNING_DIR is
+# a symlink attack → refuse with minimal inline log (does not recurse through
+# _log_row which would re-canonicalize).
+_assert_contained() {
+    local target="$1"
+    local label="$2"
+    case "$target" in
+        "$PLANNING_DIR_CANONICAL"/*|"$PLANNING_DIR_CANONICAL") return 0 ;;
+        *)
+            local ts
+            ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "unknown")
+            mkdir -p "$LOG_DIR" 2>/dev/null || true
+            echo "{\"ts\":\"$ts\",\"from_session_id\":\"pid-$$\",\"to_session_id\":null,\"reason\":\"refused\",\"chain_depth\":0,\"refused\":\"symlink_escape\",\"path_label\":\"$label\"}" \
+              >> "$LOG_DIR/handoff-log.jsonl" 2>/dev/null || true
+            exit 0
+            ;;
+    esac
+}
+_assert_contained "$LOG_PATH" "LOG_PATH"
+_assert_contained "$CHECKPOINT" "CHECKPOINT"
+_assert_contained "$ABORT_FILE" "ABORT_FILE"
 
 # --- Read config (all optional; hard defaults apply if block absent) ---
 ENABLED="false"
@@ -124,7 +150,10 @@ _log_row() {
     from_session="pid-$$"
 
     mkdir -p "$LOG_DIR"
-    row="{\"ts\":\"$ts\",\"from_session_id\":\"$from_session\",\"to_session_id\":null,\"reason\":\"$reason\",\"chain_depth\":$chain_depth,\"checkpoint_path\":\"$CHECKPOINT\",\"canonical_path_resolved\":${_CANON_RESOLVED}${extra}}"
+    # CRIT-fix: row construction now deferred until we know lock outcome, so
+    # lock_fallback field accurately reflects whether the write was synchronized.
+    # Prefix carries all fields except the final lock_fallback boolean.
+    local row_prefix="{\"ts\":\"$ts\",\"from_session_id\":\"$from_session\",\"to_session_id\":null,\"reason\":\"$reason\",\"chain_depth\":$chain_depth,\"checkpoint_path\":\"$CHECKPOINT\",\"canonical_path_resolved\":${_CANON_RESOLVED}${extra}"
 
     # exec {var}>>file automatic fd allocation requires bash >= 4.1.
     # Guard: fall through to Node/last-resort on older bash.
@@ -133,23 +162,39 @@ _log_row() {
     bash_minor="${BASH_VERSINFO[1]:-0}"
 
     if (( bash_major > 4 || ( bash_major == 4 && bash_minor >= 1 ) )) && command -v flock >/dev/null 2>&1; then
-        # Preferred path: open fd, exclusive lock (5s max), write, unlock, close.
+        # Preferred path: open fd, attempt 5s exclusive lock, write on success.
+        # CRIT-fix: previously wrote unconditionally after flock failure via
+        # `flock ... || true; echo row` — silent corruption surface. Now we
+        # CHECK the flock exit code and only write in the acquired branch;
+        # on fail we fall through to Node fallback with lock_fallback:true.
         local LOG_FD
         exec {LOG_FD}>>"$LOG_PATH"
-        flock -x -w 5 "$LOG_FD" 2>/dev/null || true
-        echo "$row" >&"$LOG_FD"
-        flock -u "$LOG_FD" 2>/dev/null || true
+        if flock -x -w 5 "$LOG_FD" 2>/dev/null; then
+            echo "${row_prefix},\"lock_fallback\":false}" >&"$LOG_FD"
+            flock -u "$LOG_FD" 2>/dev/null || true
+            exec {LOG_FD}>&-
+            return 0
+        fi
         exec {LOG_FD}>&-
+        # Lock timeout — fall through to Node path with lock_fallback:true marker
+        if command -v node >/dev/null 2>&1; then
+            local row_fb="${row_prefix},\"lock_fallback\":true}"
+            node -e "require('fs').appendFileSync(process.argv[1], process.argv[2]+String.fromCharCode(10))" \
+              "$LOG_PATH" "$row_fb" 2>/dev/null || echo "$row_fb" >> "$LOG_PATH"
+        else
+            echo "${row_prefix},\"lock_fallback\":true}" >> "$LOG_PATH"
+        fi
+        return 0
     elif command -v node >/dev/null 2>&1; then
         # Fallback: Node fs.appendFileSync — atomic for small writes on POSIX (O_APPEND).
-        # No lock_fallback field: Node path is considered safe for concurrent writes.
+        # lock_fallback:false — Node path is considered safe for concurrent writes.
+        local row_node="${row_prefix},\"lock_fallback\":false}"
         node -e "require('fs').appendFileSync(process.argv[1], process.argv[2]+String.fromCharCode(10))" \
-          "$LOG_PATH" "$row" 2>/dev/null \
-          || echo "$row" >> "$LOG_PATH"  # last-resort if Node call itself fails
+          "$LOG_PATH" "$row_node" 2>/dev/null \
+          || echo "$row_node" >> "$LOG_PATH"  # last-resort if Node call itself fails
     else
-        # Last-resort unlocked append. Inject lock_fallback:true audit field into row.
-        local lock_fallback_row="${row%\}},\"lock_fallback\":true}"
-        echo "$lock_fallback_row" >> "$LOG_PATH"
+        # Last-resort: no bash-fd / no flock / no node. Truly unlocked append.
+        echo "${row_prefix},\"lock_fallback\":true}" >> "$LOG_PATH"
     fi
 }
 
