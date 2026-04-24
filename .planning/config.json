@@ -57,7 +57,12 @@
     "enabled": true,
     "auto_gate": true,
     "gate_model": "haiku",
-    "board": ["architect", "pragmatist", "contrarian", "moonshot"],
+    "board": [
+      "architect",
+      "pragmatist",
+      "contrarian",
+      "moonshot"
+    ],
     "max_rounds": 2,
     "trigger_phases_affected": 3
   },
@@ -79,20 +84,27 @@
   },
   "review_providers": {
     "default_provider": "claude-sonnet-reviewer",
-    "codex_enabled": false,
+    "codex_enabled": true,
     "codex_cli_path": "auto-detect",
     "codex_timeout_seconds": 30,
     "fallback_on_error": true,
-    "fallback_max_retries": 1
+    "fallback_max_retries": 1,
+    "kill_critical_count_delta": 5,
+    "kill_claude_tokens_saved": 50000,
+    "codex_qualitative_waste_enabled": true
   },
   "browser_verify": {
     "enabled": true,
     "base_url": "http://localhost:3000",
-    "routes": ["/"],
+    "routes": [
+      "/"
+    ],
     "required_endpoints": [],
     "min_rows_per_route": 1,
     "load_timeout_ms": 15000,
-    "approved_fallbacks": ["puppeteer"],
+    "approved_fallbacks": [
+      "puppeteer"
+    ],
     "frontend_globs": [
       "**/*.html",
       "**/*.tsx",
