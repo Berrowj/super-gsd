@@ -226,13 +226,15 @@ function extractRowFields(response) {
  * @param {Object|null} [params.response]
  * @param {number} params.elapsed_ms
  * @param {string} [params.failureReason]
+ * @param {string} [params.status]
  * @returns {Object} the row that was written
  */
-function writeRoutingLogRow({ projectDir, skillOrAgent, tier, rawQuery, response, elapsed_ms, failureReason }) {
+function writeRoutingLogRow({ projectDir, skillOrAgent, tier, rawQuery, response, elapsed_ms, failureReason, status }) {
   const fields = extractRowFields(response);
   const row = {
     ts:                 new Date().toISOString(),
     event:              'vtp_call',
+    status:             status || (failureReason ? 'failure' : (fields.evidence_hit_count === 0 ? 'zero_hits' : 'success')),
     tier:               tier,
     skill_or_agent:     skillOrAgent,
     raw_query:          rawQuery,
@@ -282,13 +284,34 @@ async function callVtp(tool, args) {
 
   // Pre-guard: VTP schema requires raw_query.min(3) (intent-routing.ts:299).
   if (!rawQuery || typeof rawQuery !== 'string' || rawQuery.length < 3) {
+    writeRoutingLogRow({
+      projectDir,
+      skillOrAgent,
+      tier,
+      rawQuery,
+      response: null,
+      elapsed_ms: 0,
+      failureReason: 'query_too_short',
+      status: 'query_rejected',
+    });
     return { ok: false, reason: 'query_too_short', elapsed_ms: 0 };
   }
 
   if (typeof a.mcpInvoke !== 'function') {
     // No injected invoker — return a structured failure rather than throwing.
     // Lets test fixtures and dry-runs exercise the code path cleanly.
-    return { ok: false, reason: 'no_mcp_invoke', elapsed_ms: Date.now() - t0 };
+    const elapsed_ms = Date.now() - t0;
+    writeRoutingLogRow({
+      projectDir,
+      skillOrAgent,
+      tier,
+      rawQuery,
+      response: null,
+      elapsed_ms,
+      failureReason: 'no_mcp_invoke',
+      status: 'mcp_unavailable',
+    });
+    return { ok: false, reason: 'no_mcp_invoke', elapsed_ms };
   }
 
   try {
@@ -301,7 +324,12 @@ async function callVtp(tool, args) {
     const msg = (err && err.message) ? err.message : String(err);
     // Narrow-catch: swallow VTP/MCP/timeout shape errors; rethrow unknown.
     if (!/^(vtp_|mcp_|timeout)/.test(msg)) throw err;
-    writeRoutingLogRow({ projectDir, skillOrAgent, tier, rawQuery, response: null, elapsed_ms, failureReason: msg });
+    const status = /^timeout/.test(msg) || /timeout/.test(msg)
+      ? 'timeout'
+      : /^mcp_/.test(msg)
+        ? 'mcp_error'
+        : 'vtp_error';
+    writeRoutingLogRow({ projectDir, skillOrAgent, tier, rawQuery, response: null, elapsed_ms, failureReason: msg, status });
     return { ok: false, reason: msg, elapsed_ms };
   }
 }
