@@ -3,18 +3,17 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: VTP Knowledge Primacy + Post-v1.4 Hardening
 milestone_status: v1.5 ACTIVE (2026-04-24) — scoped via /gsd-new-milestone with operator Q1=A/Q2=B/Q3=A/Q4=C. 21 REQ-IDs across 6 categories (VTPE + SEC + MUDAC + CONTRACT + CARRY + INSTR). 5 phases (21-25), 13 plans. Design posture: enrich-only VTP gate (no challenger — autonomy preserved), hard-required artifact (gate MUST write VTP-ENRICHMENT.md even on zero hits, VTP API errors block, empty-hit continues). Previous milestone v1.4 ✓ SHIPPED 2026-04-24 (16 Codex invocations, ~32k tokens saved, all CRITs cleared, handoff disabled by default).
-status: v1.5 Phase 21 in-progress. Plan 21-01 COMPLETE (3 tasks, 3 commits). Plans 21-02..04 pending.
-stopped_at: Phase 21 Plan 21-01 complete — vtp-enrichment-gate.cjs sibling + gates.yaml vtp-enrichment row + Step 6.b.5 + gsd-planner VTP-ENRICHMENT.md consumption. Next: Plan 21-02 (audit cross-reference).
-last_updated: "2026-04-24T19:00:00.000Z"
-last_activity: 2026-04-24 — Plan 21-01 shipped (commits 0e3428f + 35b34d4 + af9dccd). VTPE-01 gate wired end-to-end.
+status: v1.5 Phase 21 in-progress. Plans 21-01/02/03 COMPLETE. Plan 21-04 pending.
+stopped_at: Phase 21 Plan 21-03 complete — config.vtp_enrichment block + 3-path artifact writes + D-08 vtp_health cold-start degraded mode. Next: Plan 21-04.
+last_updated: "2026-04-24T19:50:10Z"
+last_activity: 2026-04-24 — Plan 21-03 shipped (commits 7f4aef6 + 14dae35 + 3973d05). VTPE-04/05 + D-07/D-08 delivered.
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 13
-  completed_plans: 0
-  completed_plans: 1
-  percent: 8
-  phase_21: "in-progress — Plan 21-01 COMPLETE (vtp-enrichment-gate.cjs + gates.yaml + Step 6.b.5 + planner VTP-ENRICHMENT.md consumption)"
+  completed_plans: 3
+  percent: 23
+  phase_21: "in-progress — Plans 21-01/02/03 COMPLETE (gate wired + audit xref + config block + 3-path artifact + vtp_health degraded mode)"
   phase_22: "not started — Security Hardening, 2 plans, 2 SEC REQ-IDs"
   phase_23: "not started — MUDA Calibration, 2 plans, 4 MUDAC REQ-IDs"
   phase_24: "not started — Richer Output Contract, 2 plans, 3 CONTRACT REQ-IDs"
