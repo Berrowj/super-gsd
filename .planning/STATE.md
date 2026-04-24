@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Codex Integration
-milestone_status: v1.3 Phase 14 plans PASS-WITH-WARNINGS — ready for /sgsd-orchestrate go
-status: v1.3 Phase 16 ✓ SHIPPED. Phase 14 planning chain complete 2026-04-23 (VTP-EVIDENCE bypass stub + RESEARCH + PATTERNS + 4 plans + PLAN-INDEX + VALIDATION). Plan-checker verdict PASS-WITH-WARNINGS — execution-ready. 3-wave model locked: {14-01 codex-exec-wrapper, 14-03 config-and-known-keys} parallel → 14-02 provider-registry → 14-04 contract-check-harness. 4 planner deviations (P1 sibling providers-registry.cjs, P2 pure-parser harness, P3 sgsd-code-reviewer stub creation, P4 stdin-pipe). vtp-kb MCP tooling bug FIXED upstream (Codex patch 2026-04-23 — module-relative root in VTP repo); no action needed here. Next: /sgsd-orchestrate go.
-stopped_at: Phase 14 planning complete — plans pass-with-warnings, 2 non-blocking hints to executor (14-03 T2 run patch script, 14-04 T4 new-vs-extended verify.mjs). Ready for orchestrator dispatch of Wave 1.
-last_updated: "2026-04-23T18:30:00.000Z"
-last_activity: 2026-04-23 — Phase 14 research→patterns→planner→checker chain landed (commits 1c5c12f 4a1b6b3 a999247 1330102 40f4384)
+milestone_status: v1.3 Phase 14 ✓ SHIPPED — reviewer-provider substrate dark, verifier clean PASS, phase-ATC PASS-WITH-WARNINGS. Next Phase 15.
+status: v1.3 Phase 16 ✓ SHIPPED. Phase 14 ✓ SHIPPED 2026-04-23 — reviewer-provider abstraction ships dark (codex_enabled=false). All 3 waves landed: Wave 1 {14-01 codex-exec.sh wrapper, 14-03 config.json review_providers block} parallel, Wave 2 {14-02 review-providers.yaml + providers-registry.cjs + 2 agent stubs + gates.yaml extension}, Wave 3 {14-04 contract-check.mjs pure-parser harness + fixtures + verify.mjs}. 4 planner deviations landed per plan: P1 sibling providers-registry.cjs module (not extending gates-registry.cjs), P2 pure-parser harness (no Agent()/shell dispatch), P3 sgsd-code-reviewer + sgsd-codex-reviewer stubs both declaring code-reviewer-v1 contract parity, P4 stdin-pipe to codex exec (D-01 --prompt-file assumption invalidated by research). Gates all green: verify.mjs 6/6 D-23 invariants pass, phase-ATC PASS-WITH-WARNINGS (0 critical, 5 warnings all routed to Phase 15 as entry conditions), verifier clean PASS (all 6 V-predicates green, zero D-24 non-goal leaks, VTP bypass preserved), MUDA 0 WARN 0 FAIL. Next: Phase 15 Codex-Routed Gates + Qualitative MUDA Probe — will consume VTP evidence (vtp-kb fix landed upstream from Codex 2026-04-23).
+stopped_at: Phase 14 shipped complete — all gates green, orchestrator ready for Phase 15 discuss.
+last_updated: "2026-04-23T19:30:00.000Z"
+last_activity: 2026-04-23 — Phase 14 Wave 1-3 shipped + phase-ATC + verifier + MUDA all clean (commits 1c5c12f 4a1b6b3 a999247 1330102 40f4384 c95debe 06dd9c6 8fb7d49 f6488d0 + 14-02 quad + 14-04 quad)
 progress:
   total_phases: 3
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 33
+  completed_phases: 2
+  total_plans: 7
+  completed_plans: 7
+  percent: 67
 ---
 
 # Project State
@@ -22,16 +22,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** Ship an autonomous framework that any Claude Code Max plan user can install with one command and immediately start building software
-**Current focus:** v1.3 — Phase 16 ✓ SHIPPED. Next: Phase 14 (Codex CLI Provider Substrate) → Phase 15 (Codex-Routed Gates + Qualitative MUDA Probe). Run `/gsd-discuss-phase 14` to proceed.
+**Current focus:** v1.3 — Phase 14 + Phase 16 ✓ SHIPPED. Next: Phase 15 (Codex-Routed Gates + Qualitative MUDA Probe). Run `/sgsd-discuss-phase 15` to proceed.
 
 ## Current Position
 
-Phase: 16 ✓ COMPLETE (all 3 waves shipped 2026-04-23)
-Plan: 16-01 ✓ | 16-02 ✓ | 16-03 ✓ (13 commits total: d19996b 4b9707e 4dd1e88 b01f6a5 | 885a4ac aa70b30 8db4226 db28d2e ba761dd | 5694698 b3792b6 eadd3da 701069d)
-Status: Ready for Phase 14 discuss
-Last activity: 2026-04-23 -- Phase 16 complete (Wave B + C landed in parallel, 9 new commits)
+Phase: 14 ✓ COMPLETE (all 3 waves shipped 2026-04-23)
+Plan: 14-01 ✓ | 14-02 ✓ | 14-03 ✓ | 14-04 ✓ (~13 commits — wrapper+registry+config+harness substrate landing dark)
+Status: Ready for Phase 15 discuss
+Last activity: 2026-04-23 — Phase 14 shipped (Wave 1-3 executors + phase-ATC + verifier + MUDA all green)
 
-Progress: [███░░░░░░░] 33% (1/3 v1.3 phases complete)
+Progress: [███████░░░] 67% (2/3 v1.3 phases complete)
 
 ## Accumulated Context
 
