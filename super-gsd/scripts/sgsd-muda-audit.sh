@@ -165,9 +165,12 @@ PROBE_PARSED=$(
 IFS=$'\t' read -r HAIKU_V NARR_V GIT_V HAIKU_VAL NARR_VAL GIT_VAL HAIKU_EV NARR_EV GIT_EV <<< "$PROBE_PARSED"
 
 # Tally WARN/FAIL for summary and curation
+# QUAL_V and INVT_V default to SKIP until their probes run (or are not applicable)
+QUAL_V="SKIP"
+INVT_V="SKIP"
 warn_count=0
 fail_count=0
-for v in "$HAIKU_V" "$NARR_V" "$GIT_V"; do
+for v in "$HAIKU_V" "$NARR_V" "$GIT_V" "$QUAL_V" "$INVT_V"; do
     [[ "$v" == "WARN" ]] && warn_count=$((warn_count + 1))
     [[ "$v" == "FAIL" ]] && fail_count=$((fail_count + 1))
 done
@@ -191,20 +194,22 @@ exit_code: $PROBE_EXIT
 ## Summary
 
 $(if [[ $fail_count -eq 0 && $warn_count -eq 0 ]]; then
-    echo "All three probes PASS. No waste detected by current watchdogs. Phase is clean per DLB-02 Day-2 criteria."
+    echo "All five probes PASS (or SKIP). No waste detected by current watchdogs. Phase is clean per DLB-02 Day-2 criteria."
 elif [[ $fail_count -gt 0 ]]; then
-    echo "**$fail_count FAIL** + $warn_count WARN across 3 probes. Findings curated to \`.brv/context-tree/anti-patterns/\` for future classifier consult."
+    echo "**$fail_count FAIL** + $warn_count WARN across 5 probes. Findings curated to \`.brv/context-tree/anti-patterns/\` for future classifier consult."
 else
-    echo "$warn_count WARN (no FAIL) across 3 probes. Findings curated."
+    echo "$warn_count WARN (no FAIL) across 5 probes. Findings curated."
 fi)
 
 ## Probe Results
 
 | Probe | Verdict | Value | Threshold | Waste Class | Evidence |
 |-------|---------|-------|-----------|-------------|----------|
-| haiku_fails       | $HAIKU_V | $HAIKU_VAL | warn>=3 fail>=8 | defects | $(printf '%s' "$HAIKU_EV" | sed 's/^"\(.*\)"$/\1/') |
-| narrative_age_sec | $NARR_V  | $NARR_VAL  | warn>1800s fail>3600s | waiting | $(printf '%s' "$NARR_EV"  | sed 's/^"\(.*\)"$/\1/') |
-| git_spawn_pct     | $GIT_V   | $GIT_VAL%  | warn>20% fail>40% | motion  | $(printf '%s' "$GIT_EV"   | sed 's/^"\(.*\)"$/\1/') |
+| haiku_fails              | $HAIKU_V | $HAIKU_VAL | warn>=3 fail>=8 | defects | $(printf '%s' "$HAIKU_EV" | sed 's/^"\(.*\)"$/\1/') |
+| narrative_age_sec        | $NARR_V  | $NARR_VAL  | warn>1800s fail>3600s | waiting | $(printf '%s' "$NARR_EV"  | sed 's/^"\(.*\)"$/\1/') |
+| git_spawn_pct            | $GIT_V   | $GIT_VAL%  | warn>20% fail>40% | motion  | $(printf '%s' "$GIT_EV"   | sed 's/^"\(.*\)"$/\1/') |
+| codex_qualitative_waste  | $QUAL_V  | —          | critical>0 warn>0 | overproduction | see appended row below |
+| inventory                | $INVT_V  | —          | — | inventory | probe not yet implemented |
 
 ## Raw Probe JSON
 
@@ -376,21 +381,21 @@ PROMPT
 
     # Verdict mapping per CONTEXT D-07, D-08a (MUDA is NEVER a phase blocker — DLB-02)
     if [[ "${QUAL_CRITICAL:-0}" -gt 0 ]]; then
-      QUAL_VERDICT="FAIL"
+      QUAL_V="FAIL"
     elif [[ "${QUAL_WARNINGS:-0}" -gt 0 ]]; then
-      QUAL_VERDICT="WARN"
+      QUAL_V="WARN"
     else
-      QUAL_VERDICT="PASS"
+      QUAL_V="PASS"
     fi
 
     # Emit 4th WASTE.md row per CONTEXT D-07
     printf '| codex_qualitative_waste | %s | %s findings | diff_lines=%s | overproduction | %s |\n' \
-      "$QUAL_VERDICT" "${QUAL_CRITICAL:-0}" "$DIFF_LINES" "${QUAL_ONE_LINER:-no findings}" \
+      "$QUAL_V" "${QUAL_CRITICAL:-0}" "$DIFF_LINES" "${QUAL_ONE_LINER:-no findings}" \
       >> "$WASTE_FILE"
 
     # Update counters
-    [[ "$QUAL_VERDICT" == "FAIL" ]] && fail_count=$((fail_count+1))
-    [[ "$QUAL_VERDICT" == "WARN" ]] && warn_count=$((warn_count+1))
+    [[ "$QUAL_V" == "FAIL" ]] && fail_count=$((fail_count+1))
+    [[ "$QUAL_V" == "WARN" ]] && warn_count=$((warn_count+1))
 
     # Curate per-finding to anti-patterns/ per CONTEXT D-07a
     # Reuses curate_finding function (defined above) with class=overproduction
