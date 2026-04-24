@@ -1,88 +1,110 @@
-# Milestone v1.4 Requirements — Clean Close + Codex Visibility
+# Milestone v1.5 Requirements — VTP Knowledge Primacy + Post-v1.4 Hardening
 
-**Source:** Post-v1.3 carry-over tech debt + operator directive 2026-04-24: "cleanup and sweep all debt, close clean, Codex fully operational with tasks given to it, mission control shows everything it's doing."
+**Source:** Post-v1.4 milestone close + operator directive 2026-04-24: "lean on VTP MCP for enrichment of ideas, problem solving, forward thinking, and all round intelligence... extra gates towards the end of each research phase that calls on the MCP to enrich or come up with a better idea from our library... same with SGSD audit too."
 
-**Strategic frame:** v1.3 shipped the multimodal-review substrate + switch-flip + first live Codex invocation. v1.4 closes the loop — sweeps accumulated tech debt, hardens the Codex path to full operational reliability on real task loads, and wires Codex activity into the mission-control visibility surfaces so operator has line-of-sight on every invocation.
+**Strategic frame:** v1.4 shipped Codex as cross-vendor reviewer + mission-control visibility + autonomous session handoff. v1.5 elevates the VTP knowledge library from passive MCP server into an active enrichment gate on every research + audit decision, closes Phase 20 Codex-acknowledged security surfaces, calibrates MUDA aggregation across 3-phase accumulated findings, and fully adopts the richer-output contract Codex began spontaneously emitting in Phase 20 Round 3.
 
-No net-new feature scope. This is a sharpening milestone.
+**Design posture (locked during scoping Q1-Q4):**
+- Q1=A: all 5 categories in scope (+ INSTR added during scoping)
+- Q2=B: enrich-only mode — no challenger proposals (preserves autonomy, lower operator decision load)
+- Q3=A: hard-required artifact — VTP enrichment gate MUST produce `VTP-ENRICHMENT.md` even on zero hits (empty-hit artifact explicitly states "zero library hits for {topic}"; VTP errors block, empty-hit continues autonomously)
+- Q4=C: larger milestone (~12+ plans) — include all Phase 21 seeds captured in v1.4 SUMMARY.md
 
----
-
-## v1 Requirements (v1.4 scope — 14 requirements across 3 categories)
-
-### CLEAN (Phase 17 — Debt Sweep)
-
-- [ ] **CLEAN-01**: `super-gsd/scripts/lib/providers-registry.cjs` JSDoc refresh — replace stale `reviewer_agent` shape-discriminator references at lines 17-19 and 137-138 with `reviewer_provider`; delete dead default fallback branch at lines 157-158 (unreachable after W-1 predicate narrowing).
-- [ ] **CLEAN-02**: `super-gsd/scripts/sgsd-muda-audit.sh` WASTE.md summary-row generation in sync with raw JSON. Table must display all 5 probes (mechanical 3 + extra_processing + inventory) and the summary sentence must reflect actual verdict distribution (no silent FAIL suppression).
-- [ ] **CLEAN-03**: Backfill `.planning/milestones/v1.3/phases/15-codex-routed-gates/15-01-SUMMARY.md` and `15-03-SUMMARY.md` following the pattern established by 15-02, 15-04, 15-05 SUMMARY files.
-- [ ] **CLEAN-04**: Retroactive `.planning` artifact for P5 Codex Monitor (commit c8b2d25, 648 LOC) — SPEC.md declaring the feature's scope + PLAN.md documenting the 4 files (codex-exec.sh write_live_state, merge-settings normalizeCommand, sgsd-codex-status.ps1, sgsd-codex-monitor.ps1) as if the feature had been planned. Filed under `super-gsd/P5-codex-monitor/` or equivalent plan directory.
-- [ ] **CLEAN-05**: REQUIREMENTS.md hygiene — current `.planning/REQUIREMENTS.md` (now v1.4) is fresh. Verify `.planning/milestones/v1.2-REQUIREMENTS.md` archive exists (archived at v1.4 start), `.planning/milestones/v1.3-REQUIREMENTS.md` exists (already shipped), and no traceability-table references dangle across archives.
-- [ ] **CLEAN-06**: v1.2 retroactive milestone close — create `.planning/milestones/v1.2-ROADMAP.md` archive (from current ROADMAP.md Phase-9-through-13 content + MILESTONES.md v1.2 entry narrative), append formal v1.2 Shipped entry to MILESTONES.md (currently still shows "Active"), create `git tag v1.2` pointing at the last v1.2 commit (last commit before Phase 14's first commit), update ROADMAP.md to collapse v1.2 phases into `<details>` block.
-- [ ] **CLEAN-07**: codex_timeout_seconds workload tiers in `.planning/config.json` — introduce `review_providers.codex_timeout_tiers: { default: 60, review: 120, analysis: 180 }` structure (additive, existing `codex_timeout_seconds: 180` stays as override/base). SKILL.md Steps 6.5/9.5/9.6 + sgsd-muda-audit.sh qualitative probe read the tier based on invocation step.
-
-### CXOPS (Phase 18 — Codex Hardening)
-
-- [x] **CXOPS-01**: `super-gsd/scripts/codex-exec.sh` `--self-test` flag — invoked without a real review task, it probes (a) `codex` CLI on PATH, (b) auth (OAuth + quota readable), (c) timeout math (computes effective timeout from tier + workload), (d) emits a known-good contract response. Exits 0 on pass, non-zero on any probe failure. Callable from `sgsd-readiness` milestone pre-flight.
-- [x] **CXOPS-02**: Runtime contract validator hook in orchestrator — after `codex-exec.sh` returns exit 0 but before consuming report, parse FINDINGS/CRITICAL/WARNINGS/PASS_RATE/ONE_LINER fields. On parse failure: treat as provider error, trigger the existing `GATE_PROVIDER_FALLBACK` single-retry path targeting `claude-sonnet-reviewer`, log fallback reason as `parse_failure` (distinct from `timeout`, `auth`, `generic`).
-- [x] **CXOPS-03**: Dogfood proof — execute at least one v1.4 phase end-to-end with `codex_enabled: true` + new SKILL.md wiring active. Observe `.planning/phases/{N}/commit-reviews.jsonl` contains at least one Step 9.5 per-dispatch ATC row with `provider: openai-codex` and valid FINDINGS contract. Documented as evidence artifact.
-- [x] **CXOPS-04**: Same phase's Step 6.5 phase-level ATC observably routes to Codex — produces `.planning/phases/{N}/{N}-ATC-REVIEW.md` authored by Codex with `provider: openai-codex` stamp in commit-reviews.jsonl and/or the review markdown frontmatter.
-
-### MC (Phase 19 — Mission Control Visibility)
-
-- [x] **MC-01**: `super-gsd/scripts/sgsd-mission-control.ps1` — add Codex tile sourcing from `.planning/metrics/codex-live.json` (current state: idle/running/timeout/error/contract-violation) + `.planning/metrics/codex-log.jsonl` (last 5 invocations summary: step, duration, exit, provider-fallback y/n). Tile refreshes on invocation lifecycle events. Consumes `super-gsd/scripts/lib/sgsd-codex-status.ps1` helper (already installed, currently unused outside P5 monitor).
-- [x] **MC-02**: `super-gsd/scripts/sgsd-statusline.ps1` — Codex state indicator segment: shows `⚙ codex:idle`, `⚙ codex:running [N]s`, `⚙ codex:timeout`, `⚙ codex:error`, `⚙ codex:fallback`. Color-coded. Updates on every status poll cycle.
-- [x] **MC-03**: `super-gsd/scripts/sgsd-narrative.ps1` — capture Codex events into `.planning/metrics/narrative.md`: entries for codex_started, codex_completed, codex_timeout, codex_fallback. Populates the existing narrative.md `latest` + `lastfail` fields.
-- [x] **MC-04**: `super-gsd/scripts/sgsd-live-feed.ps1` — extend to tail `.planning/metrics/codex-log.jsonl` in real-time alongside `activity-log.jsonl`. Codex rows rendered distinctly (color or prefix) so operator can eyeball reviewer activity during autonomous runs.
-- [x] **MC-05**: `super-gsd/scripts/sgsd-dashboard.ps1` — Multimodal Review Offload tile sourcing live from `.planning/metrics/codex-log.jsonl` (not SKILL.md spec). Computes `claude_tokens_saved_by_codex`, `codex_invocations_this_milestone`, `fallback_rate`, `avg_codex_duration_ms`. Integrates with existing CODEX-10 token accounting — does NOT duplicate.
+No net-new user-facing feature scope. This is a deepening milestone — the AI substrate learns to consult the library as reflex.
 
 ---
 
-## Future Requirements (deferred post-v1.4)
+## v1 Requirements (v1.5 scope — 21 requirements across 6 categories)
 
-- **Third-provider support** (Gemini, local models via the provider-indirection substrate). Registry supports shape; requires a second vendor authorization path + a second code-reviewer-v1-compliant wrapper script.
-- **Per-project provider overrides** (allow repo-level override of default_provider without editing global config).
-- **Codex-on-classifier** (Haiku tier routing to Codex). Explicitly scoped out of v1.3 and stays out unless evidence says otherwise.
-- **CODEX-12 kill-condition first-firing evidence** — after 2-3 real milestones with Codex active, observe whether kill thresholds fire correctly.
+### VTPE (Phase 21 — VTP Enrichment Gates)
 
-### HANDOFF (Phase 20 — Autonomous Session Handoff)
+- [ ] **VTPE-01**: Research→Planning boundary enrichment gate. New `sgsd-vtp-enrichment` gate fires after `gsd-phase-researcher` produces `RESEARCH.md`, before `gsd-planner` dispatches. Queries `vtp_search` + `vtp_search_substrate` + `vtp_search_research` + `vtp_route_and_retrieve` + `vtp_advise_service_enrichment` with phase CONTEXT.md + RESEARCH.md + REQ-IDs. Writes `.planning/milestones/{version}/phases/{NN}-*/{NN}-VTP-ENRICHMENT.md` with library citations, gaps, alternative framings. Planner prompt MUST include VTP-ENRICHMENT.md alongside RESEARCH.md.
+- [ ] **VTPE-02**: Audit workflow cross-reference. `sgsd-audit` + `sgsd-muda-audit` + `gsd-audit-milestone` each gain a "Library Cross-Reference" section in their output artifact. Per-finding granularity: CRITICAL → deep per-finding VTP query; WARN → batched end-of-audit query; PASS → no VTP call. Each citation includes book/paper title + section ref + confidence rating.
+- [ ] **VTPE-03**: Milestone-close library cross-reference. `sgsd-complete-milestone` Step 6 SUMMARY generation gains a "Connections (library-backed)" subsection querying VTP for similar-milestone patterns + industry-standard gaps. Writes library hits into SUMMARY.md Connections section.
+- [ ] **VTPE-04**: Design-policy locks (per Q2-Q4 answers). `config.json.vtp_enrichment` block: `challenger_mode: false` (enrich-only), `granularity: tier-based` (CRITICAL/WARN/PASS), `empty_hit_policy: continue-with-artifact`. Backward-compat: absent config block → all gates disabled by default; existing projects opt-in explicitly.
+- [ ] **VTPE-05**: Empty-hit artifact discipline. When VTP returns zero relevant hits for a topic, enrichment gate still writes `VTP-ENRICHMENT.md` explicitly stating `hits: 0` + `topic: {X}` + rationale ("no library coverage for domain Y"). Downstream artifact existence check (not content check) enforces discipline; orchestrator halts with explicit `vtp_error` blocker ONLY on VTP API failure, NOT on empty-hit.
+- [ ] **VTPE-06**: Researcher board member for deliberation. New agent file `super-gsd/agents/sgsd-board-researcher.md` joins existing 4-member board (architect/pragmatist/contrarian/moonshot). Role: queries VTP library during `sgsd-deliberate` rounds to propose or confirm approaches with book/paper precedent. `config.deliberation.board` append; `sgsd-ceo` workflow updated to dispatch 5th round-robin voice. Estimated +3-5k tokens per deliberation round.
 
-The architectural gap exposed mid-v1.4: the orchestrator writes a checkpoint at context >=85% and stops with a text-only exit, but the session restart has to be operator-driven (`/clear` + `/sgsd-orchestrate go` at the Claude Code CLI). The orchestrator's core promise is token-efficient autonomous execution across context boundaries — that promise is only 80% delivered without closing this loop. Phase 20 closes it.
+### SEC (Phase 22 — Security Hardening)
 
-**Design constraint (from operator directive 2026-04-24):** `/gsd-discuss-phase` remains interactive because gray-area selection requires operator judgment. Every other dispatch (research / plan / plan-check / execute / verify / ATC / MUDA / browser-verify / phase-close / milestone audit / milestone close) must run autonomously across session boundaries without operator intervention.
+- [ ] **SEC-01**: Symlink canonicalize on handoff paths. `sgsd-stop-handoff.sh` reads `$LOG_PATH` / `$CHECKPOINT` / `$ABORT_FILE` via `readlink -f` (or Node `fs.realpathSync`) before any test/grep/read. Closes symlink-attack surface acknowledged in Phase 20 Round 5 as "Phase 21 security-hardening scope."
+- [ ] **SEC-02**: fs flock (or equivalent concurrent-write guard) on handoff-log.jsonl. Two codex-exec runs OR concurrent Stop hooks could race on log append. Use `flock` (Linux) or `util.promisify` file-descriptor lock (Node) around append-then-read sequences. Fallback graceful: if locking unavailable on host, log warning + continue but write audit row `lock_fallback: true`.
 
-- [x] **HANDOFF-01**: Claude Code Stop hook `sgsd-stop-handoff.sh` — reads `.planning/ORCHESTRATOR-CHECKPOINT.md`. If `emergency_halt: true` AND cooldown elapsed AND max-chain-depth not exceeded AND no operator-abort file (`.planning/STOP-HANDOFF`) present, spawns a new `claude` CLI process with initial prompt `/sgsd-orchestrate go` (non-interactive mode for unattended runs). The new process starts with empty context, reads the checkpoint, resumes the loop at `next_unit`. Fired in the dying session's Stop hook, so the fresh session replaces the old one seamlessly.
-- [x] **HANDOFF-02**: Safety rails — `min_cooldown_seconds: 30` (between chains), `max_chain_depth: 5` (default; configurable in `config.json.handoff.max_chain_depth`), operator-abort file (touching `.planning/STOP-HANDOFF` halts any in-flight or future handoff), error handling (failed spawn logs to stderr + handoff-log, does NOT infinite-retry). `/gsd-discuss-phase` dispatches NEVER trigger handoff (they're interactive by design).
-- [x] **HANDOFF-03**: Handoff telemetry — `.planning/metrics/handoff-log.jsonl` appends per chain event (`{ts, from_session_id, to_session_id, reason, chain_depth, cumulative_runtime_s}`). Mission-control (MC-01 from Phase 19) gets a second tile showing chain depth + cumulative autonomous runtime. Per-milestone sgsd-token-audit `--milestone-close-check` surfaces aggregate chain stats (total chains, max depth reached, stalls detected).
+### MUDAC (Phase 23 — MUDA Calibration)
 
-## Out of Scope (v1.4)
+- [ ] **MUDAC-01**: 5-probe aggregation loop completeness. `sgsd-muda-audit.sh` currently iterates `for v in HAIKU_V NARR_V GIT_V QUAL_V` — misses inventory + extra_processing verdicts from probe JSON. Extend loop to consume all probe.* fields from raw JSON. Summary counter (warn_count / fail_count) reflects actual verdicts.
+- [ ] **MUDAC-02**: Inventory probe threshold recalibration. Current `warn>3 fail>8` fires on every multi-milestone project. Recalibrate per retention policy: threshold scales with milestone count (e.g. warn>N_files_per_milestone, fail>2× that). Config-driven via `.planning/config.json.muda.inventory_thresholds`.
+- [ ] **MUDAC-03**: `sgsd-muda-probe.sh` flat-path bug. Mirror of Phase 17 audit-script fix (1cef1b4) — probe's `extra_processing` check searches flat `.planning/phases/` only, misses `.planning/milestones/*/phases/*/commit-reviews.jsonl`. Extend to same SEARCH_ROOTS pattern.
+- [ ] **MUDAC-04**: Summary text accuracy. WASTE.md header currently says "All active probes PASS" when raw JSON has `inventory: FAIL`. Summary must reflect aggregate verdict correctly (`N FAIL, M WARN across K probes` where K = actual probe count).
 
-- New feature capabilities unrelated to Codex/MC/debt sweep.
-- Refactoring the existing sgsd-code-reviewer agent (explicit scope discipline from v1.3 carried forward).
-- Codex routing for executor/researcher/planner/verifier dispatches (not review-shaped, wrong fit).
-- UI/frontend surfaces outside PowerShell-based mission-control scripts.
+### CONTRACT (Phase 24 — Richer Output Contract)
+
+- [ ] **CONTRACT-01**: FINDINGS_DETAIL prompt-engineering pass. Codex emitted file:line detail spontaneously in Phase 20 Round 3 but did not fully adopt the scaffolded optional footer. Iterate prompt instructions: stronger directive ("after the 5 required lines, you SHOULD emit FINDINGS_DETAIL lines... operator needs specifics, not interpretations"), example-driven format, maybe a short in-prompt demonstration.
+- [ ] **CONTRACT-02**: `validateContract` extended parsing. When FINDINGS_DETAIL lines present, parse each `[severity] [dimension] <description>` tuple into structured array. Append to `report._findings_detail` field for downstream consumers. Missing FINDINGS_DETAIL still valid (optional); malformed detail line → log warning, treat as missing.
+- [ ] **CONTRACT-03**: ATC-REVIEW.md rendering with detail. When per-dispatch or phase-level ATC review artifact is written, if `findings_detail` array non-empty, render as dedicated "Findings Detail" section with per-tuple bullets. Operator reading the artifact sees specifics directly, no more interpretation guesswork.
+
+### CARRY (Phase 25 — Carryover WARNs + Telemetry — plan 1/3)
+
+- [ ] **CARRY-01**: awk anchor brittleness in sgsd-muda-audit.sh qualitative row insert. Current `/^\| git_spawn_pct/` anchor silently drops the row if probe list changes. Replace with sentinel marker (e.g. `<!-- qual-row-insert -->`) in compose_waste_md body + sed/awk against sentinel. Post-insert grep verifies row landed.
+- [ ] **CARRY-02**: `super-gsd/scripts/lib/providers-registry.cjs` JSDoc narrative drift. Phase 17 T1 swapped literal `reviewer_agent → reviewer_provider` in 2 docblocks; prose around `reviewer-shaped` semantics elsewhere in file may still describe pre-fix behavior. Full file audit + consistency pass.
+- [ ] **CARRY-03**: Dogfood audit strictness (Phase 18 phase-level WARN). `18-DOGFOOD-AUDIT.md` counted ALL openai-codex rows as CXOPS-03 evidence — did not exclude fallback/timeout rows. Tighten audit methodology: only `fallback_triggered: false` + valid FINDINGS contract count as dogfood evidence. Retroactive audit of v1.4 rows to confirm count unchanged.
+
+### INSTR (Phase 25 — Carryover WARNs + Telemetry — plans 2+3)
+
+- [ ] **INSTR-01**: Edge-guard layer wiring. `super-gsd/scripts/lib/edge-guard.cjs` + `.planning/metrics/edge-guard-log.jsonl` are scaffolded (v1.2 Phase 10 work) but never wired into this project. Wire into orchestrator dispatch path so every gate transition records an edge-guard row. Enables `gate-drift-audit.md` at milestone close to have real data.
+- [ ] **INSTR-02**: Dashboard offload math audit + fix. Phase 19 19-01 per-dispatch ATC flagged "dashboard offload math is wrong" — specific source not enumerated. Full audit of `Get-CodexStats` in `lib/sgsd-codex-status.ps1`: reconcile `claude_tokens_saved_by_codex` math, `codex_invocations_this_milestone` filter (milestone boundary detection), `fallback_rate` denominator, `avg_codex_duration_ms` (arithmetic vs geometric mean tradeoff).
+- [ ] **INSTR-03**: Timeout observability metric. Phase 19 phase-level ATC flagged "timeout unreliability compounding." Add `.planning/metrics/codex-timeout-observability.jsonl` row per timeout event: `{ts, tier_requested, tier_actual_via_retry, duration_ms, exit_code}`. Dashboard tile surfaces "timeout rate by tier" — operator sees whether review tier is chronically under-budgeted.
 
 ---
 
-## Traceability (filled by roadmap)
+## Traceability table
 
-| REQ-ID     | Description                                      | Phase | Status   |
-|------------|--------------------------------------------------|-------|----------|
-| CLEAN-01   | providers-registry.cjs JSDoc + dead branch       | 17    | —        |
-| CLEAN-02   | sgsd-muda-audit.sh WASTE.md display sync         | 17    | —        |
-| CLEAN-03   | Backfill 15-01-SUMMARY.md + 15-03-SUMMARY.md     | 17    | —        |
-| CLEAN-04   | P5 Codex Monitor retroactive .planning artifact  | 17    | —        |
-| CLEAN-05   | REQUIREMENTS.md hygiene + archive alignment      | 17    | —        |
-| CLEAN-06   | v1.2 retroactive milestone close + tag           | 17    | —        |
-| CLEAN-07   | codex_timeout_seconds workload tiers             | 17    | —        |
-| CXOPS-01   | codex-exec.sh --self-test flag                   | 18    | —        |
-| CXOPS-02   | Runtime contract validator + parse_failure fallback | 18 | —        |
-| CXOPS-03   | Dogfood per-dispatch ATC via Codex               | 18    | —        |
-| CXOPS-04   | Dogfood phase-level ATC via Codex                | 18    | —        |
-| MC-01      | mission-control Codex tile                       | 19    | —        |
-| MC-02      | statusline Codex indicator                       | 19    | —        |
-| MC-03      | narrative.md Codex event capture                 | 19    | —        |
-| MC-04      | live-feed tails codex-log.jsonl                  | 19    | —        |
-| MC-05      | dashboard Multimodal Review Offload tile         | 19    | —        |
-| HANDOFF-01 | Stop hook spawns fresh claude session on halt    | 20    | —        |
-| HANDOFF-02 | Cooldown + max-chain-depth + operator-abort rails | 20   | —        |
-| HANDOFF-03 | Handoff telemetry + MC tile + milestone stats    | 20    | —        |
+| REQ-ID     | Summary                                           | Phase | Plan        |
+|------------|---------------------------------------------------|-------|-------------|
+| VTPE-01    | Research→Planning boundary enrichment gate        | 21    | 21-01       |
+| VTPE-02    | Audit workflow cross-reference (3 surfaces)        | 21    | 21-02       |
+| VTPE-03    | Milestone-close library cross-reference            | 21    | 21-02       |
+| VTPE-04    | Design-policy config locks                         | 21    | 21-03       |
+| VTPE-05    | Empty-hit artifact discipline                      | 21    | 21-03       |
+| VTPE-06    | sgsd-board-researcher deliberation 5th voice       | 21    | 21-04       |
+| SEC-01     | Symlink canonicalize (handoff paths)               | 22    | 22-01       |
+| SEC-02     | fs flock concurrent-write guard (handoff-log)      | 22    | 22-02       |
+| MUDAC-01   | 5-probe aggregation loop completeness              | 23    | 23-01       |
+| MUDAC-02   | Inventory probe threshold recalibration            | 23    | 23-01       |
+| MUDAC-03   | sgsd-muda-probe.sh flat-path mirror-fix            | 23    | 23-02       |
+| MUDAC-04   | Summary text accuracy                              | 23    | 23-02       |
+| CONTRACT-01 | FINDINGS_DETAIL prompt-engineering                | 24    | 24-01       |
+| CONTRACT-02 | validateContract extended parsing                 | 24    | 24-02       |
+| CONTRACT-03 | ATC-REVIEW.md rendering with detail               | 24    | 24-02       |
+| CARRY-01   | awk anchor brittleness sentinel-replace            | 25    | 25-01       |
+| CARRY-02   | providers-registry.cjs JSDoc narrative audit       | 25    | 25-01       |
+| CARRY-03   | Dogfood audit strictness (filter fallback rows)    | 25    | 25-01       |
+| INSTR-01   | Edge-guard layer wiring                            | 25    | 25-02       |
+| INSTR-02   | Dashboard offload math audit + fix                 | 25    | 25-03       |
+| INSTR-03   | Timeout observability metric                       | 25    | 25-03       |
+
+## Out of Scope (v1.5)
+
+- Challenger mode for VTP enrichment (Q2=B locked — revisit in v1.6 if enrich-only proves insufficient)
+- Write-side VTP publish (tier-3 gap persists — awaits VTP API extension)
+- Net-new features outside VTP/hardening/calibration surfaces
+- Third-provider support (Gemini, local) — scope-disciplined to Codex + Claude
+- Remote/cloud handoff — local process spawn only per v1.4 HANDOFF design
+- Cross-machine handoff — out of scope
+- Multi-chain parallelism — single chain only
+
+## Dependencies
+
+- VTP MCP server operational per Phase 16 substrate (✓ shipped v1.3)
+- VTP library populated with relevant books/papers (✓ operator-curated)
+- `mcp__vtp-kb__*` tools available in agent sessions (✓ available per tool list)
+- Phase 20 handoff infrastructure in place (✓ shipped v1.4, disabled by default)
+- Codex continues to KEEP per CODEX-12 (✓ v1.4 close confirmed)
+
+## Notes
+
+- Phase 21-25 numbering continues from v1.4 (Phases 17-20). Sequential, no gaps.
+- Phase 21 is the heaviest (4 plans) because VTPE introduces a new gate surface touching multiple dispatch paths.
+- Phase 25 combines CARRY + INSTR into 3 plans (1 LITE for CARRY docs-adjacent work, 2 FULL for INSTR telemetry wiring) to keep plan count manageable.
+- Milestone v1.4 close seeded Phase 21 candidates — this milestone consolidates them into concrete REQ-IDs.
+- Design invariant preserved: /gsd-discuss-phase remains interactive; all other stages autonomous.

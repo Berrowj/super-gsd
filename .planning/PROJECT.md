@@ -18,26 +18,32 @@ token efficiency, model selection, memory, quality gates, and crash recovery.
 
 ## Current State
 
-**Shipped:** v1.3 Multimodal Review — Codex Integration (2026-04-24) — 3 phases (14, 15, 16), 12 plans, 66 commits, 41 files changed, first live Codex invocation confirmed. See `.planning/milestones/v1.3-ROADMAP.md`.
+**Shipped:** v1.4 Clean Close + Codex Visibility + Autonomous Handoff (2026-04-24) — 4 phases (17-20), 10 plans, ~110 commits, 17/17 REQ-IDs, 16 Codex invocations + ~32k Claude tokens saved, all CRITs cleared, handoff disabled by default. See `.planning/milestones/v1.4/SUMMARY.md`.
 
 **Previously shipped:**
 - v1.1 Self-Audit (2026-04-21) — 8 phases, 15 plans, full gap audit + 6/6 verifier + evidence L1/L2 PASS + ATC LITE clean
-- v1.2 Evidence-First Sharpening (Phases 9-13, shipped but never formally closed — retroactive close carries to v1.4)
+- v1.2 Evidence-First Sharpening (Phases 9-13, formally closed 2026-04-24 via v1.4 CLEAN-06 — `git tag v1.2`)
+- v1.3 Multimodal Review — Codex Integration (2026-04-24) — 3 phases (14-16), 12 plans, first live Codex invocation + provider substrate shipped
 
 **v1.3 Historic moment:** First live Codex sub-agent invocation captured 2026-04-24T02:39:05Z via the MUDA qualitative probe path. The config → `resolveReviewerProvider` → `shellDispatch` → `codex-exec.sh` → `codex exec` pipe is operational end-to-end (`model: gpt-5.4, sandbox: read-only`). SGSD is now cross-vendor at review-shaped gate surfaces.
 
 **Post-milestone landing (pre-v1.3):** DLB-01..06 deliberations shipped (memory topology, MUDA write-path, intent continuity, resource substrate, VTP audit sharpening, central distribution) plus SGSD v2 Phase A-E (registry + 8 executors + heartbeat + statusline + mission-control tile).
 
-## Current Milestone: v1.4 Clean Close + Codex Visibility + Autonomous Handoff
+## Current Milestone: v1.5 VTP Knowledge Primacy + Post-v1.4 Hardening
 
-**Goal:** Sweep v1.3 carry-over tech debt, harden Codex to full operational reliability on real task loads, wire Codex activity into mission-control visibility surfaces, and close the autonomous-handoff loop so every non-discuss phase runs across session boundaries without operator intervention. Operator directive 2026-04-24: *"basically other than the discuss phases I want every phase there and after research, plan, execute, audit etc to be autonomous."* Phase 20 is the architectural closure that delivers on the orchestrator's original context-survival promise.
+**Goal:** Elevate the VTP knowledge library (operator-curated books, papers, prior research) from passive MCP server into active enrichment gate on every research + audit decision, close Phase 20 Codex-acknowledged security surfaces, calibrate MUDA aggregation across 3-phase accumulated findings, fully adopt richer-output contract Codex began emitting spontaneously in v1.4 Phase 20, and close Phase 17-19 carryover WARNs + wire edge-guard + dashboard math + timeout observability. Operator directive 2026-04-24: *"lean on VTP MCP for enrichment of ideas, problem solving, forward thinking... extra gates towards the end of each research phase that calls on the MCP to enrich or come up with a better idea from our library."*
 
-**Target features (4 categories, 17 REQ-IDs, 4 phases, 10 plans):**
+**Design posture (Q1-Q4 locked during scoping):**
+- Q2=B enrich-only — no challenger mode (preserves autonomy)
+- Q3=A hard-required artifact — VTP-ENRICHMENT.md MUST exist; empty-hit continues autonomously with explicit zero-hits statement; only VTP API errors block
 
-- **CLEAN (Phase 17 — Debt Sweep):** providers-registry.cjs refresh, sgsd-muda-audit WASTE.md display fix, backfill missing plan SUMMARYs, P5 Codex Monitor retroactive artifact, REQUIREMENTS.md hygiene, v1.2 retroactive milestone close + tag, codex_timeout workload tiers
-- **CXOPS (Phase 18 — Codex Hardening):** codex-exec.sh --self-test probe, runtime contract validator + parse_failure fallback, dogfood per-dispatch + phase-level ATC via Codex on a live phase
-- **MC (Phase 19 — Mission Control Visibility):** Codex tile in mission-control, statusline Codex indicator, narrative Codex event capture, live-feed codex-log tail, dashboard Multimodal Review Offload tile
-- **HANDOFF (Phase 20 — Autonomous Session Handoff):** Stop hook spawns fresh claude session on emergency_halt checkpoint; cooldown + max-chain-depth + operator-abort safety rails; handoff telemetry + MC chain-depth tile + milestone-close stats. Discuss-phase explicitly excluded (interactive by design).
+**Target features (6 categories, 21 REQ-IDs, 5 phases, 13 plans):**
+
+- **VTPE (Phase 21 — VTP Enrichment Gates):** research→planning enrichment gate, audit workflow cross-reference (sgsd-audit + sgsd-muda-audit + gsd-audit-milestone), milestone-close library cross-reference, design-policy config locks, empty-hit artifact discipline, **sgsd-board-researcher 5th deliberation voice** (queries VTP library during CEO/Board rounds)
+- **SEC (Phase 22 — Security Hardening):** symlink canonicalize on handoff paths, fs flock concurrent-write guard on handoff-log.jsonl
+- **MUDAC (Phase 23 — MUDA Calibration):** 5-probe aggregation loop completeness, inventory threshold recalibration, sgsd-muda-probe.sh flat-path mirror-fix, summary text accuracy vs raw JSON verdict
+- **CONTRACT (Phase 24 — Richer Output Contract):** FINDINGS_DETAIL prompt-engineering follow-up, validateContract extended parsing, ATC-REVIEW.md detail rendering
+- **CARRY + INSTR (Phase 25 — Carryover + Telemetry):** awk anchor sentinel-replace, providers-registry JSDoc narrative audit, dogfood audit strictness (filter fallback rows), edge-guard layer wiring, dashboard offload math audit, timeout observability metric
 
 **Dependencies:** Phase 17 ∥ Phase 18 (independent). Phase 19 benefits from Phase 18's real Codex activity. Phase 20 serializes after Phase 19 (needs MC surfaces to extend).
 

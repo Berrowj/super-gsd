@@ -3,13 +3,44 @@
 ## Milestones
 
 - ✅ **v1.1 Self-Audit** — Phases 1-8 (shipped 2026-04-21) — [archive](milestones/v1.1-ROADMAP.md)
-- 📋 **v1.2 Evidence-First Sharpening** — Phases 9-13 (shipped but never formally closed; retroactive close folded into v1.4 CLEAN-06)
+- ✅ **v1.2 Evidence-First Sharpening** — Phases 9-13 (shipped 2026-04-24 retroactive close) — [archive](milestones/v1.2-ROADMAP.md) · `git tag v1.2`
 - ✅ **v1.3 Multimodal Review — Codex Integration** — Phases 14-16 (shipped 2026-04-24) — [archive](milestones/v1.3-ROADMAP.md) · [requirements](milestones/v1.3-REQUIREMENTS.md) · [audit](milestones/v1.3-MILESTONE-AUDIT.md)
-- 🚧 **v1.4 Clean Close + Codex Visibility + Autonomous Handoff** — Phases 17-20 (in progress, 17 REQ-IDs across CLEAN/CXOPS/MC/HANDOFF)
+- ✅ **v1.4 Clean Close + Codex Visibility + Autonomous Handoff** — Phases 17-20 (shipped 2026-04-24) — [summary](milestones/v1.4/SUMMARY.md) · [requirements](milestones/v1.4-REQUIREMENTS.md) · `git tag v1.4`
+- 🚧 **v1.5 VTP Knowledge Primacy + Post-v1.4 Hardening** — Phases 21-25 (in progress, 21 REQ-IDs across VTPE/SEC/MUDAC/CONTRACT/CARRY/INSTR)
 
 ## Phases
 
-### 🚧 v1.4 Clean Close + Codex Visibility + Autonomous Handoff (Phases 17-20)
+### 🚧 v1.5 VTP Knowledge Primacy + Post-v1.4 Hardening (Phases 21-25)
+
+Scope: elevate VTP knowledge library from passive MCP server into active enrichment gate on every research + audit decision; close Phase 20 Codex-acknowledged security surfaces; calibrate MUDA aggregation across 3-phase accumulated findings; fully adopt richer-output contract Codex began emitting spontaneously in v1.4 Phase 20; land Phase 17-19 carryover WARNs; wire edge-guard layer + dashboard math audit + timeout observability.
+
+- [ ] **Phase 21: VTP Enrichment Gates** — VTPE-01..06 (6 requirements, 4 plans)
+  - 21-01: Research→Planning boundary gate (VTPE-01)
+  - 21-02: Audit workflow cross-reference + milestone-close xref (VTPE-02, VTPE-03)
+  - 21-03: Design-policy config + empty-hit artifact discipline (VTPE-04, VTPE-05)
+  - 21-04: Researcher board member for deliberation (VTPE-06)
+- [ ] **Phase 22: Security Hardening** — SEC-01..02 (2 requirements, 2 plans)
+  - 22-01: Symlink canonicalize (handoff paths)
+  - 22-02: fs flock concurrent-write guard (handoff-log)
+- [ ] **Phase 23: MUDA Calibration** — MUDAC-01..04 (4 requirements, 2 plans)
+  - 23-01: 5-probe aggregation + inventory threshold recal (MUDAC-01, MUDAC-02)
+  - 23-02: probe flat-path mirror-fix + summary text accuracy (MUDAC-03, MUDAC-04)
+- [ ] **Phase 24: Richer Output Contract** — CONTRACT-01..03 (3 requirements, 2 plans)
+  - 24-01: FINDINGS_DETAIL prompt-engineering (CONTRACT-01)
+  - 24-02: validateContract extended parsing + ATC-REVIEW rendering (CONTRACT-02, CONTRACT-03)
+- [ ] **Phase 25: Carryover + Telemetry** — CARRY-01..03 + INSTR-01..03 (6 requirements, 3 plans)
+  - 25-01: Carryover WARNs (CARRY-01 awk sentinel, CARRY-02 JSDoc audit, CARRY-03 dogfood strictness) — LITE docs-heavy
+  - 25-02: Edge-guard layer wiring (INSTR-01)
+  - 25-03: Dashboard math + timeout observability (INSTR-02, INSTR-03)
+
+**Dependencies:** Phase 21 (VTPE) ∥ Phase 22 (SEC) ∥ Phase 23 (MUDAC) ∥ Phase 24 (CONTRACT) — all four independent. Phase 25 serializes AFTER 22+23 (INSTR-01 edge-guard consumes dispatch hooks that SEC/MUDAC may touch). Design invariant preserved: `/gsd-discuss-phase` remains interactive; VTPE gates + audit cross-ref + all other stages run autonomous. VTP enrichment `challenger_mode: false` (enrich-only) per Q2=B scoping.
+
+---
+
+<details>
+<summary>✅ v1.4 Clean Close + Codex Visibility + Autonomous Handoff (Phases 17-20) — SHIPPED 2026-04-24</summary>
+
+### v1.4 Clean Close + Codex Visibility + Autonomous Handoff (Phases 17-20)
 
 Scope: sweep v1.3 carry-over tech debt, harden Codex path to full operational reliability on real task loads, wire Codex activity into mission-control visibility surfaces, close the autonomous-handoff loop so every non-discuss phase runs across session boundaries without operator intervention.
 
@@ -37,6 +68,8 @@ Scope: sweep v1.3 carry-over tech debt, harden Codex path to full operational re
   - **Codex dogfood**: 4 invocations, 420s wall-clock. Round 3 emitted file:line detail (richer-output contract showing adoption).
 
 **Dependencies:** Phase 17 ∥ Phase 18 (independent). Phase 19 benefits from Phase 18 producing real Codex activity to visualize. Phase 20 serializes AFTER 19 — MC surfaces must exist before handoff telemetry extends them. **Design invariant:** `/gsd-discuss-phase` remains interactive; Phase 20 handoff explicitly skips it. Everything else (research, plan, plan-check, execute, verify, ATC, MUDA, browser-verify, phase-close, milestone audit, milestone close) becomes cross-session autonomous.
+
+</details>
 
 <details>
 <summary>✅ v1.3 Multimodal Review (Phases 14-16) — SHIPPED 2026-04-24</summary>

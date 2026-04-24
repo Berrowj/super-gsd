@@ -1,22 +1,23 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.4
-milestone_name: Clean Close + Codex Visibility + Autonomous Handoff
-milestone_status: v1.4 ✓ SHIPPED (2026-04-24) — all 4 phases + 10 plans + 17 REQ-IDs delivered. Codex dogfood proved: 16 invocations, ~1925s wall-clock, ~32k Claude tokens saved, 4 CRIT raised+cleared, 0 fallbacks, 0 parse_failures. sgsd-complete-milestone ran: SUMMARY.md + MUDA recurrence + Codex kill-check (KEEP) + gate drift audit + cross-phase integration check + VTP tier-3 gap artifact — all written. Ready for v1.5 scoping.
-status: v1.4 MILESTONE COMPLETE. Next: v1.5 scoping session. Phase 21 seeded with security-hardening (handoff symlink + concurrency), MUDA calibration (5-probe aggregation), richer-output contract full adoption, Phase 17/18/19 carryover WARNs.
-stopped_at: v1.4 closed. sgsd-complete-milestone wrote SUMMARY.md + VTP gap artifact + MUDA recurrence + Codex kill-check + gate drift + cross-phase integration check. Awaiting v1.5 scoping direction.
-last_updated: "2026-04-24T16:30:00.000Z"
-last_activity: 2026-04-24 — Phase 20 plan 20-03 shipped (FINAL v1.4 task). HANDOFF-03 delivered handoff-log.jsonl cumulative_runtime_s, SGSD-Handoff-Tile in mission-control, sgsd-session-start.js with Windows path.join fix + to_session_id pairing, --MilestoneCloseCheck in sgsd-gate-verdict.ps1. 1 commit (b499e36).
+milestone: v1.5
+milestone_name: VTP Knowledge Primacy + Post-v1.4 Hardening
+milestone_status: v1.5 ACTIVE (2026-04-24) — scoped via /gsd-new-milestone with operator Q1=A/Q2=B/Q3=A/Q4=C. 21 REQ-IDs across 6 categories (VTPE + SEC + MUDAC + CONTRACT + CARRY + INSTR). 5 phases (21-25), 13 plans. Design posture: enrich-only VTP gate (no challenger — autonomy preserved), hard-required artifact (gate MUST write VTP-ENRICHMENT.md even on zero hits, VTP API errors block, empty-hit continues). Previous milestone v1.4 ✓ SHIPPED 2026-04-24 (16 Codex invocations, ~32k tokens saved, all CRITs cleared, handoff disabled by default).
+status: v1.5 milestone initialized. REQUIREMENTS.md + ROADMAP.md drafted. Phase 21 (VTP Enrichment Gates, 4 plans) ready for /gsd-discuss-phase or direct research.
+stopped_at: v1.5 scoping complete. REQUIREMENTS.md (21 REQ-IDs) + ROADMAP.md (Phases 21-25) committed. Phase 21 ready for discussion/research.
+last_updated: "2026-04-24T17:00:00.000Z"
+last_activity: 2026-04-24 — /gsd-new-milestone v1.5 executed. 6 categories locked; VTPE-06 adds sgsd-board-researcher as 5th deliberation voice per operator directive mid-scoping. v1.4 REQUIREMENTS archived to milestones/v1.4-REQUIREMENTS.md.
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
-  percent: 100
-  phase_17: "3/3 plans complete — shipped 2026-04-24 (7/7 CLEAN)"
-  phase_18: "2/2 plans complete — shipped 2026-04-24 (4/4 CXOPS)"
-  phase_19: "2/2 plans complete — shipped 2026-04-24 (5/5 MC + 6 richer-output deferrals)"
-  phase_20: "3/3 plans complete — 20-01 HANDOFF-01, 20-02 HANDOFF-02, 20-03 HANDOFF-03 (all shipped 2026-04-24)"
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 13
+  completed_plans: 0
+  percent: 0
+  phase_21: "not started — VTP Enrichment Gates, 4 plans, 6 VTPE REQ-IDs"
+  phase_22: "not started — Security Hardening, 2 plans, 2 SEC REQ-IDs"
+  phase_23: "not started — MUDA Calibration, 2 plans, 4 MUDAC REQ-IDs"
+  phase_24: "not started — Richer Output Contract, 2 plans, 3 CONTRACT REQ-IDs"
+  phase_25: "not started — Carryover + Telemetry, 3 plans, 6 REQ-IDs (3 CARRY + 3 INSTR)"
 ---
 
 # Project State
