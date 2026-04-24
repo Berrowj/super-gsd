@@ -127,14 +127,39 @@ if [[ -f "$ABORT_FILE" ]]; then
 fi
 
 # --- PRE-CONDITION 4b: chain depth check ---
-CHAIN_DEPTH_RAW=$(grep -m1 "^chain_depth:" "$CHECKPOINT" 2>/dev/null | awk '{print $2}' | tr -d '[:space:]' || echo "")
-CHAIN_DEPTH=0
-if [[ -n "$CHAIN_DEPTH_RAW" ]] && [[ "$CHAIN_DEPTH_RAW" =~ ^[0-9]+$ ]]; then
-    CHAIN_DEPTH="$CHAIN_DEPTH_RAW"
+# CRITICAL fix (Phase 20 ATC): chain_depth is NOT written to checkpoint by the
+# orchestrator. Reading it from checkpoint always returned 0, so MAX_CHAIN_DEPTH
+# never triggered. Correct source is handoff-log.jsonl spawn lineage: find the
+# most recent row with reason=='spawned' and use its chain_depth + 1 as the
+# proposed depth for this handoff. Refused/dry_run rows are IGNORED — they
+# don't advance the chain. This also gives us a natural reset: when the last
+# spawned row is older than cooldown (i.e. operator took over), the depth is
+# still read as N+1, but the cooldown guard will refuse — the handoff never
+# fires on operator-resumed sessions.
+PREV_CHAIN_DEPTH=0
+if [[ -f "$LOG_PATH" ]]; then
+    PREV_CHAIN_DEPTH=$(node -e "
+try {
+  var rows = require('fs').readFileSync(process.argv[1],'utf8')
+    .split('\n').filter(Boolean)
+    .map(function(l){ try { return JSON.parse(l); } catch(e){ return null; } })
+    .filter(function(r){ return r && r.reason === 'spawned'; });
+  var last = rows.length ? rows[rows.length-1] : null;
+  var d = last && typeof last.chain_depth === 'number' ? last.chain_depth : 0;
+  process.stdout.write(String(d));
+} catch(e){ process.stdout.write('0'); }
+" "$LOG_PATH" 2>/dev/null || echo "0")
+    # Sanitize — non-numeric falls back to 0
+    if ! [[ "$PREV_CHAIN_DEPTH" =~ ^[0-9]+$ ]]; then
+        PREV_CHAIN_DEPTH=0
+    fi
 fi
 
-if (( CHAIN_DEPTH >= MAX_CHAIN_DEPTH )); then
-    _log_row "refused" "$CHAIN_DEPTH" ",\"refused\":\"max_chain_depth\""
+# Proposed depth for THIS handoff is prior + 1. If it exceeds MAX, refuse.
+CHAIN_DEPTH=$(( PREV_CHAIN_DEPTH + 1 ))
+
+if (( CHAIN_DEPTH > MAX_CHAIN_DEPTH )); then
+    _log_row "refused" "$CHAIN_DEPTH" ",\"refused\":\"max_chain_depth\",\"prev_depth\":$PREV_CHAIN_DEPTH"
     exit 0
 fi
 

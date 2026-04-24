@@ -79,7 +79,11 @@ try {
     if (rawLines.length > 0) {
       var lastRow;
       try { lastRow = JSON.parse(rawLines[rawLines.length - 1]); } catch (parseErr) {}
-      if (lastRow && lastRow.to_session_id === null) {
+      // CRITICAL fix (Phase 20 ATC): require reason==='spawned' to avoid
+      // false-pairing with refused/dry_run rows. Without this guard, any
+      // unrelated claude session starting within 60s of a refused row
+      // would incorrectly pair itself as a handoff target.
+      if (lastRow && lastRow.to_session_id === null && lastRow.reason === 'spawned') {
         // Only pair if within 60-second spawn window
         var rowTs = lastRow.ts ? new Date(lastRow.ts).getTime() : 0;
         var nowMs  = Date.now();
