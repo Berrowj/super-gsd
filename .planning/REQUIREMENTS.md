@@ -39,9 +39,9 @@ No net-new user-facing feature scope. This is a deepening milestone — the AI s
 
 ### CONTRACT (Phase 24 — Richer Output Contract)
 
-- [ ] **CONTRACT-01**: FINDINGS_DETAIL prompt-engineering pass. Codex emitted file:line detail spontaneously in Phase 20 Round 3 but did not fully adopt the scaffolded optional footer. Iterate prompt instructions: stronger directive ("after the 5 required lines, you SHOULD emit FINDINGS_DETAIL lines... operator needs specifics, not interpretations"), example-driven format, maybe a short in-prompt demonstration.
-- [ ] **CONTRACT-02**: `validateContract` extended parsing. When FINDINGS_DETAIL lines present, parse each `[severity] [dimension] <description>` tuple into structured array. Append to `report._findings_detail` field for downstream consumers. Missing FINDINGS_DETAIL still valid (optional); malformed detail line → log warning, treat as missing.
-- [ ] **CONTRACT-03**: ATC-REVIEW.md rendering with detail. When per-dispatch or phase-level ATC review artifact is written, if `findings_detail` array non-empty, render as dedicated "Findings Detail" section with per-tuple bullets. Operator reading the artifact sees specifics directly, no more interpretation guesswork.
+- [x] **CONTRACT-01**: FINDINGS_DETAIL prompt-engineering pass. ✓ shipped 2026-04-25 via Plan 24-01 (commit eee3256). Active prompt directive at both phase-level-ATC + per-dispatch-ATC sites; strengthened wording ("you SHOULD emit ... specifics, not interpretations").
+- [x] **CONTRACT-02**: `validateContract` extended parsing. ✓ shipped 2026-04-25 via Plan 24-01. Sibling parseFindingsDetail() helper extracts tuples; result attached as `report._findings_detail`. Missing valid; malformed lines log + skip.
+- [x] **CONTRACT-03**: ATC-REVIEW.md rendering with detail. ✓ shipped 2026-04-25 via Plan 24-01. SKILL.md ATC-REVIEW write spec updated with conditional `## Findings Detail` section render (severity-sorted bullets, omitted when empty).
 
 ### CARRY (Phase 25 — Carryover WARNs + Telemetry — plan 1/3)
 

@@ -24,9 +24,8 @@ Scope: elevate VTP knowledge library from passive MCP server into active enrichm
   - 22-02: fs flock concurrent-write guard (handoff-log)
 - [x] **Phase 23: MUDA Calibration** — MUDAC-01..04 (4/4 requirements delivered, 1 plan shipped — 3/4 pre-shipped via b2773a8) ✓ 2026-04-25
   - 23-01: MUDAC-02 inventory threshold recalibration (config-driven, milestone-count-scaled)
-- [ ] **Phase 24: Richer Output Contract** — CONTRACT-01..03 (3 requirements, 2 plans)
-  - 24-01: FINDINGS_DETAIL prompt-engineering (CONTRACT-01)
-  - 24-02: validateContract extended parsing + ATC-REVIEW rendering (CONTRACT-02, CONTRACT-03)
+- [x] **Phase 24: Richer Output Contract** — CONTRACT-01..03 (3/3 requirements delivered, 1 plan shipped) ✓ 2026-04-25
+  - 24-01: FINDINGS_DETAIL contract activation (CONTRACT-01..03 collapsed into single SKILL.md edit)
 - [ ] **Phase 25: Carryover + Telemetry** — CARRY-01..03 + INSTR-01..03 (6 requirements, 3 plans)
   - 25-01: Carryover WARNs (CARRY-01 awk sentinel, CARRY-02 JSDoc audit, CARRY-03 dogfood strictness) — LITE docs-heavy
   - 25-02: Edge-guard layer wiring (INSTR-01)
