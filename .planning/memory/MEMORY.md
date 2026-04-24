@@ -31,6 +31,8 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 - ["Test Entry"](architecture/patterns/test-entry.md)
 
 
+
+
 ## code/nodejs
 
 - ["brv-curate-local"](code/nodejs/brv-curate-local.md)
@@ -60,7 +62,9 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 ## workflow/feedback
 
 - [Auto-accept Claude's recommendations in sequential Q&A unless scope-altering](workflow/feedback/feedback_auto_accept_recommendations.md) - Rip through discuss-phase / deliberation chains picking recommended unless choice changes WHAT ships (not HOW it's built)
+- [After Phase 16 ships, every research/planning/pattern/assumptions dispatch must consume VTP](workflow/feedback/feedback_vtp_enriched_dispatch.md) - Orchestrator writes VTP-EVIDENCE.md before agent dispatch; agents explicitly instructed to use their Phase-16 VTP tools with doc-ID citations. Silent bypass regresses the primitive.
 - [When operator's message shows planning/figuring-out intent, invoke the sgsd-triage skill directly without gating on "want me to run /sgsd-triage?](workflow/feedback/feedback_auto_fire_triage.md) - When operator's message shows planning/figuring-out intent, invoke the sgsd-triage skill directly without gating on "want me to run /sgsd-triage?
 - [Use Node-in-Bash scripts (read+mutate+write, never print) to modify settings.json. 2026-04-21 incident exposed GEMINI_API_KEY + CONTEXT7_API_KEY when `head -6 ~/.claude/settings.json` dumped the env block that sits at the top of the file. Operator had to rotate both keys.](workflow/feedback/feedback_never_head_settings.md) - Use Node-in-Bash scripts (read+mutate+write, never print) to modify settings.json. 2026-04-21 incident exposed GEMINI_API_KEY + CONTEXT7_API_KEY when `head -6 ~/.claude/settings.json` dumped the env block that sits at the top of the file. Operator had to rotate both keys.
 - [Default to executing commands via powershell.exe -Command through the Bash tool; only hand paste-blocks for destructive / interactive-TTY / UAC / first-time-auth operations](workflow/feedback/feedback_run_commands_directly.md) - Default to executing commands via powershell.exe -Command through the Bash tool; only hand paste-blocks for destructive / interactive-TTY / UAC / first-time-auth operations
 - [Only use the sgsd-* prefix when (a) we've actively enriched an existing gsd-* agent with the v2 handover contract, expertise file, and research-paper principles, OR (b) we've created an entirely new agent. Never blanket-rename.](workflow/feedback/feedback_sgsd_rename_rule.md) - Only use the sgsd-* prefix when (a) we've actively enriched an existing gsd-* agent with the v2 handover contract, expertise file, and research-paper principles, OR (b) we've created an entirely new agent. Never blanket-rename.
+- [Stale MCP child returns pre-fix behavior — restart session, don't declare the fix missing](workflow/feedback/feedback_stale_mcp_process_diagnosis.md) - MCP servers are long-lived. Source edit + dist rebuild does nothing for an already-spawned child. Check session age vs fix-mtime before writing a bypass stub.
