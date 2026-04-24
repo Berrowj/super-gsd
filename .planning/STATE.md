@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: VTP Knowledge Primacy + Post-v1.4 Hardening
 milestone_status: v1.5 ACTIVE (2026-04-24) — scoped via /gsd-new-milestone with operator Q1=A/Q2=B/Q3=A/Q4=C. 21 REQ-IDs across 6 categories (VTPE + SEC + MUDAC + CONTRACT + CARRY + INSTR). 5 phases (21-25), 13 plans. Design posture: enrich-only VTP gate (no challenger — autonomy preserved), hard-required artifact (gate MUST write VTP-ENRICHMENT.md even on zero hits, VTP API errors block, empty-hit continues). Previous milestone v1.4 ✓ SHIPPED 2026-04-24 (16 Codex invocations, ~32k tokens saved, all CRITs cleared, handoff disabled by default).
-status: v1.5 Phase 22 in-progress. Plans 21-01/02/03/04 COMPLETE. Plan 22-01 COMPLETE. Plans 22-02+ pending.
-stopped_at: Phase 22 Plan 22-01 complete — canonicalize_path helper + 3 guards + audit field in sgsd-stop-handoff.sh. Next: Plan 22-02.
-last_updated: "2026-04-24T21:12:03Z"
-last_activity: 2026-04-24 — Plan 22-01 shipped (commit 908151c). SEC-01 delivered — symlink canonicalize on handoff paths.
+status: v1.5 Phase 22 COMPLETE. Plans 21-01/02/03/04 COMPLETE. Plans 22-01/22-02 COMPLETE. Phase 23 next.
+stopped_at: Phase 22 Plan 22-02 complete — flock guard + Node O_APPEND fallback + lock_fallback audit field in sgsd-stop-handoff.sh. Phase 22 fully shipped (SEC-01 + SEC-02).
+last_updated: "2026-04-24T21:18:05Z"
+last_activity: 2026-04-24 — Plan 22-02 shipped (commit 4c71bb8). SEC-02 delivered — flock concurrent-write guard on handoff-log.
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 13
-  completed_plans: 5
-  percent: 38
+  completed_plans: 6
+  percent: 46
   phase_21: "4/4 plans complete — shipped 2026-04-24 (6/6 VTPE + halt-on-CRIT fix cycle proved out)"
-  phase_22: "1/2 plans complete — 22-01 shipped 2026-04-24 (SEC-01 symlink canonicalize)"
+  phase_22: "2/2 plans complete — shipped 2026-04-24 (SEC-01 symlink canonicalize + SEC-02 flock guard)"
   phase_23: "not started — MUDA Calibration, 2 plans, 4 MUDAC REQ-IDs"
   phase_24: "not started — Richer Output Contract, 2 plans, 3 CONTRACT REQ-IDs"
   phase_25: "not started — Carryover + Telemetry, 3 plans, 6 REQ-IDs (3 CARRY + 3 INSTR)"
