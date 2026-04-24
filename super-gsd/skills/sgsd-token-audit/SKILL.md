@@ -44,7 +44,55 @@ Modes:
    - Most recent DLB: tokens_spent / max_tokens, elapsed_sec / max_minutes
    - Any `warn_fired: true` events in last 4 DLBs → flag as "DELIBERATION BUDGET WARN: {dlb} exceeded {field}"
    - If zero warns across last 4 DLBs → note "Budget warn has not fired across 4 deliberations — kill-condition candidate per DLB-05 (retire warn mechanism)"
-6. Write summary to stdout (not file)
+6. **Multimodal offload tile (CODEX-10):**
+   Read `.planning/metrics/token-log.jsonl`. Apply backfill-on-read defaults:
+   - `row.provider || 'claude'` (pre-Phase-15 rows default to 'claude')
+   - `row.role || 'unknown'` (pre-Phase-15 rows default to 'unknown')
+
+   Scope to active milestone: read `.planning/STATE.md` frontmatter `milestone:` field.
+   If milestone ID found, filter rows by `ts >= milestoneStartDate` (use directory mtime of
+   `.planning/milestones/{id}/` as milestone start). If unavailable, aggregate all rows.
+
+   Compute:
+   ```javascript
+   // Codex review rows for this milestone
+   const codexReviewRows = tokenLog
+     .filter(r => (r.provider || 'claude') === 'openai-codex')
+     .filter(r => ['code_reviewer', 'adversarial_verifier'].includes(r.role || 'unknown'))
+     .filter(r => /* milestone date range: r.ts >= milestoneStartDate */);
+
+   const claude_tokens_saved_by_codex = codexReviewRows
+     .reduce((sum, r) => sum + (r.est_input || 0) + (r.est_output || 0), 0);
+
+   const total_codex_dispatches = tokenLog
+     .filter(r => (r.provider || 'claude') === 'openai-codex').length;
+
+   const fallback_count = tokenLog
+     .filter(r => (r.provider || 'claude') === 'claude-via-fallback').length;
+
+   const provider_fallback_rate = total_codex_dispatches > 0
+     ? Math.round((fallback_count / total_codex_dispatches) * 100)
+     : 0;
+   ```
+
+   Output tile:
+
+   ```markdown
+   ## Multimodal Review Offload (v1.3)
+
+   > Note: Token counts are estimated offload values — not a billing audit (CONTEXT D-13a).
+
+   - Codex reviews this milestone: {N reviews where provider == "openai-codex"}
+   - Claude tokens saved by Codex: ~{claude_tokens_saved_by_codex} tokens (estimated)
+   - Provider fallback rate: {provider_fallback_rate}% ({fallback_count} of {total_codex_dispatches} Codex dispatches fell back to Claude)
+   - Per-phase provider breakdown:
+
+   | Phase | Codex reviews | Claude reviews | Fallback reviews |
+   |-------|--------------|----------------|------------------|
+   | {N}   | {n}          | {n}            | {n}              |
+   ```
+
+7. Write summary to stdout (not file)
 </quick_audit>
 
 <full_audit>
