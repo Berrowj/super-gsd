@@ -29,11 +29,11 @@ No net-new feature scope. This is a sharpening milestone.
 
 ### MC (Phase 19 — Mission Control Visibility)
 
-- [ ] **MC-01**: `super-gsd/scripts/sgsd-mission-control.ps1` — add Codex tile sourcing from `.planning/metrics/codex-live.json` (current state: idle/running/timeout/error/contract-violation) + `.planning/metrics/codex-log.jsonl` (last 5 invocations summary: step, duration, exit, provider-fallback y/n). Tile refreshes on invocation lifecycle events. Consumes `super-gsd/scripts/lib/sgsd-codex-status.ps1` helper (already installed, currently unused outside P5 monitor).
-- [ ] **MC-02**: `super-gsd/scripts/sgsd-statusline.ps1` — Codex state indicator segment: shows `⚙ codex:idle`, `⚙ codex:running [N]s`, `⚙ codex:timeout`, `⚙ codex:error`, `⚙ codex:fallback`. Color-coded. Updates on every status poll cycle.
-- [ ] **MC-03**: `super-gsd/scripts/sgsd-narrative.ps1` — capture Codex events into `.planning/metrics/narrative.md`: entries for codex_started, codex_completed, codex_timeout, codex_fallback. Populates the existing narrative.md `latest` + `lastfail` fields.
-- [ ] **MC-04**: `super-gsd/scripts/sgsd-live-feed.ps1` — extend to tail `.planning/metrics/codex-log.jsonl` in real-time alongside `activity-log.jsonl`. Codex rows rendered distinctly (color or prefix) so operator can eyeball reviewer activity during autonomous runs.
-- [ ] **MC-05**: `super-gsd/scripts/sgsd-dashboard.ps1` — Multimodal Review Offload tile sourcing live from `.planning/metrics/codex-log.jsonl` (not SKILL.md spec). Computes `claude_tokens_saved_by_codex`, `codex_invocations_this_milestone`, `fallback_rate`, `avg_codex_duration_ms`. Integrates with existing CODEX-10 token accounting — does NOT duplicate.
+- [x] **MC-01**: `super-gsd/scripts/sgsd-mission-control.ps1` — add Codex tile sourcing from `.planning/metrics/codex-live.json` (current state: idle/running/timeout/error/contract-violation) + `.planning/metrics/codex-log.jsonl` (last 5 invocations summary: step, duration, exit, provider-fallback y/n). Tile refreshes on invocation lifecycle events. Consumes `super-gsd/scripts/lib/sgsd-codex-status.ps1` helper (already installed, currently unused outside P5 monitor).
+- [x] **MC-02**: `super-gsd/scripts/sgsd-statusline.ps1` — Codex state indicator segment: shows `⚙ codex:idle`, `⚙ codex:running [N]s`, `⚙ codex:timeout`, `⚙ codex:error`, `⚙ codex:fallback`. Color-coded. Updates on every status poll cycle.
+- [x] **MC-03**: `super-gsd/scripts/sgsd-narrative.ps1` — capture Codex events into `.planning/metrics/narrative.md`: entries for codex_started, codex_completed, codex_timeout, codex_fallback. Populates the existing narrative.md `latest` + `lastfail` fields.
+- [x] **MC-04**: `super-gsd/scripts/sgsd-live-feed.ps1` — extend to tail `.planning/metrics/codex-log.jsonl` in real-time alongside `activity-log.jsonl`. Codex rows rendered distinctly (color or prefix) so operator can eyeball reviewer activity during autonomous runs.
+- [x] **MC-05**: `super-gsd/scripts/sgsd-dashboard.ps1` — Multimodal Review Offload tile sourcing live from `.planning/metrics/codex-log.jsonl` (not SKILL.md spec). Computes `claude_tokens_saved_by_codex`, `codex_invocations_this_milestone`, `fallback_rate`, `avg_codex_duration_ms`. Integrates with existing CODEX-10 token accounting — does NOT duplicate.
 
 ---
 

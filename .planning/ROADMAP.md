@@ -24,9 +24,11 @@ Scope: sweep v1.3 carry-over tech debt, harden Codex path to full operational re
   - [x] 18-02: Dogfood proof (CXOPS-03/04 retroactively satisfied via DOGFOOD-AUDIT.md citing 5+1 Codex evidence rows)
   - **Phase ATC**: 0 CRITICAL + 2 WARNINGS deferred to Phase 19 richer-output-contract scope
   - **Codex dogfood**: 2 invocations this phase (1 meta-dogfood per-dispatch + 1 phase-level), both exit 0, validateContract first-live-fire clean
-- [ ] **Phase 19: Mission Control Visibility** — MC-01..MC-05 (5 requirements, 2 plans)
+- [x] **Phase 19: Mission Control Visibility** — MC-01..MC-05 (5/5 requirements delivered + 6 richer-output deferrals addressed) ✓ 2026-04-24
   - [x] 19-01: Core tiles (MC-01 mission-control Codex tile, MC-02 statusline indicator, MC-05 dashboard offload tile) ✓ 2026-04-24
-  - [ ] 19-02: Event capture + feed (MC-03 narrative Codex events, MC-04 live-feed codex-log tail)
+  - [x] 19-02: Event capture + feed + richer-output hardening (MC-03 narrative Codex events, MC-04 dual-source live-feed, D-05 #3/#4/#5/#6/#7/#9 from Phase 17/18 WARN queue) ✓ 2026-04-24
+  - **Phase ATC**: 0 CRITICAL + 5 WARNINGS (PASS_RATE 2/6) deferred to Phase 20 or post-v1.4 (timeout reliability, offload telemetry accuracy, narrative race conditions, retry path edge cases)
+  - **Codex dogfood**: 4 invocations, 522.5s wall-clock (1 review-tier timeout + 3 analysis-tier successes). Session cumulative: 11 invocations, 1364s, ~22k Claude tokens saved.
 - [ ] **Phase 20: Autonomous Session Handoff** — HANDOFF-01..HANDOFF-03 (3 requirements, 3 plans) — closes the operator-intervention gap between emergency halt and fresh-session resume
   - 20-01: Stop hook script (HANDOFF-01 `sgsd-stop-handoff.sh` reads checkpoint + spawns fresh `claude` with `/sgsd-orchestrate go`)
   - 20-02: Safety rails (HANDOFF-02 cooldown + max-chain-depth + operator-abort file + installer wiring into settings.json)

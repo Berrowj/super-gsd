@@ -3,19 +3,19 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Clean Close + Codex Visibility + Autonomous Handoff
 milestone_status: v1.4 ACTIVE — defining requirements complete, roadmap laid down (4 phases, 10 plans, 17 REQ-IDs across CLEAN/CXOPS/MC/HANDOFF). Phase 20 added 2026-04-24 per operator directive to close the autonomous-handoff loop (discuss-phase remains interactive; everything else cross-session autonomous). Next: /gsd-plan-phase 17 (context captured 75f8cbd).
-status: Phase 18 ✓ COMPLETE — 4/4 CXOPS items delivered. 18-01 shipped CXOPS-01 --self-test 4-probe harness + CXOPS-02 validateContract at SKILL.md Steps 6.5/9.5 with parse_failure single-retry fallback. 18-02 shipped DOGFOOD-AUDIT.md formally satisfying CXOPS-03/04 via 5 per-dispatch + 1 phase-level Codex evidence rows. 2 Codex invocations this phase (both exit 0, 0 CRITICAL, 4 WARNINGs deferred to Phase 19 richer-output-contract scope). Phase 17 previously shipped clean. Cumulative v1.4 Codex: 8 invocations, 842.5s wall-clock, ~17k Claude tokens saved, 0 fallbacks, 2 CRITICALs raised+cleared.
-stopped_at: Phase 19 complete (2/2 plans). Next: Phase 20 Autonomous Session Handoff (3 plans, HANDOFF REQ-IDs).
-last_updated: "2026-04-24T14:00:00.000Z"
+status: Phase 19 ✓ COMPLETE — 5/5 MC items delivered + 6 richer-output deferrals addressed (D-05 #3/#4/#5/#6/#7/#9 from Phase 17/18 queue). 19-01 shipped MC-01 mission-control SGSD-Codex-Tile + MC-02 statusline [x] cdx: segment + MC-05 dashboard Multimodal Review Offload tile. 19-02 shipped MC-03 append_narrative_event + MC-04 dual-source live-feed + phase-level-ATC→analysis tier recal + --retry-on-timeout-escalate + FINDINGS_DETAIL optional contract + validateContract regex + --self-test-exit-priority + 7 parse-rigor fixtures + run-parse-fuzz.sh (7/7 PASS). 4 Codex invocations this phase (1 review-tier timeout + 3 analysis-tier; 0 CRITICAL, 10 WARNINGs deferred). Cumulative v1.4 Codex: 11 invocations, 1364s wall-clock, ~22k Claude tokens saved, 0 fallbacks, 2 CRITICALs raised+cleared, 0 parse_failure.
+stopped_at: Phase 19 complete (2/2 plans, 5/5 MC, 6 richer-output deferrals addressed, phase-ATC PASS-WITH-WARNINGS, MUDA ran cleanly). Next: Phase 20 Autonomous Session Handoff (3 plans, HANDOFF REQ-IDs) — final phase before v1.4 milestone close.
+last_updated: "2026-04-24T14:30:00.000Z"
 last_activity: 2026-04-24 — Phase 17 shipped end-to-end in single session. 20 commits, 49 files, 3318+/310- lines. RESEARCH → 3 plans + INDEX → plan-check fix → 17-01 executor + Codex ATC (crit → fix → clean) → 17-02 executor (LITE skip) → 17-03 executor + Codex ATC (crit → fix → clean) → verifier PASS → phase-level Codex ATC PASS-WITH-WARNINGS → phase complete. 622.9s cumulative Codex wall-clock. MC visibility also shipped (8 files, 543 lines — Codex Monitor RECENT VERDICTS section + heartbeat hook + gate-verdict board).
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 10
   completed_plans: 7
   percent: 70
   phase_17: "3/3 plans complete — shipped 2026-04-24 (7/7 CLEAN)"
   phase_18: "2/2 plans complete — shipped 2026-04-24 (4/4 CXOPS)"
-  phase_19: "2/2 plans complete — 19-01 shipped 2026-04-24 (MC-01 mission-control tile, MC-02 statusline, MC-05 dashboard); 19-02 shipped 2026-04-24 (MC-03 narrative events, MC-04 dual-source live-feed, D-05 #3/#4/#5/#6/#7/#9)"
+  phase_19: "2/2 plans complete — shipped 2026-04-24 (5/5 MC + 6 richer-output deferrals)"
   phase_20: "not started — Autonomous Handoff, 3 plans, 3 REQ-IDs (HANDOFF)"
 ---
 
