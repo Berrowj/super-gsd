@@ -101,7 +101,7 @@ _path_has_no_symlink_components() {
             } catch (_) {
                 process.exit(1);
             }
-        " "$target" 2>&1 >/dev/null
+        " "$target" >/dev/null
         return $?
     fi
 
@@ -171,9 +171,6 @@ ABORT_FILE="$ABORT_FILE_RAW"
 # symlink to /etc/cron.d/) that O_NOFOLLOW + canonicalize+contain alone
 # cannot detect. Must be PRE-canonicalize because canonicalization resolves
 # the very symlinks we're trying to detect.
-# PLANNING_DIR_CANONICAL is retained only for containment checks; refusal paths
-# must not write to paths derived from it.
-PLANNING_DIR_CANONICAL="$(canonicalize_path "$PLANNING_DIR")"
 _assert_no_symlink_components "$PLANNING_DIR" "PLANNING_DIR"
 _assert_no_symlink_components "$CONFIG_FILE" "CONFIG_FILE"
 _assert_no_symlink_components "$LOG_DIR" "LOG_DIR"
@@ -181,6 +178,10 @@ _assert_no_symlink_components "$LOG_PATH" "LOG_PATH"
 _assert_no_symlink_components "$LOG_LOCK_RAW" "LOG_LOCK"
 _assert_no_symlink_components "$CHECKPOINT" "CHECKPOINT"
 _assert_no_symlink_components "$ABORT_FILE" "ABORT_FILE"
+
+# PLANNING_DIR_CANONICAL is retained only for containment checks; refusal paths
+# must not write to paths derived from it.
+PLANNING_DIR_CANONICAL="$(canonicalize_path "$PLANNING_DIR")"
 
 # Canonicalize all handoff paths (SEC-01 symlink-attack hardening) — second
 # layer after lstat-walk. Containment check below gates final write target.
