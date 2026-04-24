@@ -74,6 +74,86 @@ canonicalize_path() {
   fi
 }
 
+# SEC-01 round 5: Node lstat-walk strict path validator. Walks every component
+# of `target` from filesystem root → leaf and lstat() each. If ANY component
+# is a symlink (intermediate or final), refuses. Closes the deepest symlink-
+# attack surfaces:
+#   - .planning itself being a symlink (canonicalize_path resolves but
+#     doesn't flag — Codex round 5 CRIT)
+#   - metrics intermediate symlink (O_NOFOLLOW only protects final
+#     component — Codex round 5 CRIT)
+# Returns 0 if path has no symlink components OR Node unavailable
+# (defense-in-depth, not crash). Returns 1 if symlink detected.
+_path_has_no_symlink_components() {
+    local target="$1"
+    if ! command -v node >/dev/null 2>&1; then
+        # No Node — can't lstat-walk. Defense-in-depth degradation,
+        # not crash. canonicalize_path + _assert_contained provide
+        # weaker coverage on this code path.
+        return 0
+    fi
+    node -e "
+        const fs   = require('fs');
+        const path = require('path');
+        const target = process.argv[1];
+        try {
+            const abs = path.resolve(target);
+            const parts = abs.split(path.sep).filter(Boolean);
+            let cur = path.isAbsolute(abs) ? path.parse(abs).root : '';
+            for (const p of parts) {
+                cur = path.join(cur, p);
+                let st;
+                try {
+                    st = fs.lstatSync(cur);
+                } catch (e) {
+                    // Doesn't exist yet — fine (file may not be created until first write).
+                    break;
+                }
+                if (st.isSymbolicLink()) {
+                    process.stderr.write('SYMLINK_COMPONENT:' + cur + '\n');
+                    process.exit(1);
+                }
+            }
+            process.exit(0);
+        } catch (e) {
+            process.exit(1);
+        }
+    " "$target" 2>&1 >/dev/null
+}
+
+# Wraps _path_has_no_symlink_components with stderr audit + Node O_NOFOLLOW
+# audit-row append to a SAFE log path inside the canonical .planning tree
+# (never the raw caller path). Requires PLANNING_DIR_CANONICAL to be set
+# before first invocation.
+_assert_no_symlink_components() {
+    local target="$1"
+    local label="$2"
+    if _path_has_no_symlink_components "$target"; then
+        return 0
+    fi
+    local ts
+    ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "unknown")
+    echo "sgsd-stop-handoff: SYMLINK COMPONENT detected on $label path ('$target'). Refusing handoff." >&2
+    if command -v node >/dev/null 2>&1; then
+        local safe_log_dir="$PLANNING_DIR_CANONICAL/metrics"
+        local safe_log_path="$safe_log_dir/handoff-log.jsonl"
+        mkdir -p "$safe_log_dir" 2>/dev/null || true
+        node -e "
+          const fs = require('fs');
+          const p = process.argv[1];
+          const row = process.argv[2] + '\n';
+          try {
+            const fd = fs.openSync(p, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_APPEND | fs.constants.O_NOFOLLOW);
+            fs.writeSync(fd, row);
+            fs.closeSync(fd);
+          } catch (e) {}
+        " "$safe_log_path" \
+          "{\"ts\":\"$ts\",\"from_session_id\":\"pid-$$\",\"to_session_id\":null,\"reason\":\"refused\",\"chain_depth\":0,\"refused\":\"symlink_component\",\"path_label\":\"$label\"}" \
+          2>/dev/null || true
+    fi
+    exit 0
+}
+
 PROJECT_DIR="$(_detect_root || true)"
 if [[ -z "$PROJECT_DIR" ]]; then
     # No .planning directory found -- not a GSD project, silently exit
@@ -87,11 +167,23 @@ LOG_DIR="$PLANNING_DIR/metrics"
 LOG_PATH="$LOG_DIR/handoff-log.jsonl"
 ABORT_FILE="$PLANNING_DIR/STOP-HANDOFF"
 
-# Canonicalize all handoff paths (SEC-01 symlink-attack hardening)
-# CRIT-fix: also canonicalize PLANNING_DIR and assert all paths stay WITHIN it.
-# Without containment check, a symlink pointing outside .planning/ would be
-# followed silently (Codex phase-level ATC finding).
+# SEC-01 round 5 strict validation: lstat-walk every component of every raw
+# handoff path BEFORE canonicalization or any read. Catches intermediate-
+# component symlink attacks (e.g. .planning itself, or metrics being a
+# symlink to /etc/cron.d/) that O_NOFOLLOW + canonicalize+contain alone
+# cannot detect. Must be PRE-canonicalize because canonicalization resolves
+# the very symlinks we're trying to detect.
+# PLANNING_DIR_CANONICAL is set inline here (we need it for the audit-write
+# fallback path inside _assert_no_symlink_components).
 PLANNING_DIR_CANONICAL="$(canonicalize_path "$PLANNING_DIR")"
+_assert_no_symlink_components "$PLANNING_DIR" "PLANNING_DIR"
+_assert_no_symlink_components "$LOG_DIR" "LOG_DIR"
+_assert_no_symlink_components "$LOG_PATH" "LOG_PATH"
+_assert_no_symlink_components "$CHECKPOINT" "CHECKPOINT"
+_assert_no_symlink_components "$ABORT_FILE" "ABORT_FILE"
+
+# Canonicalize all handoff paths (SEC-01 symlink-attack hardening) — second
+# layer after lstat-walk. Containment check below gates final write target.
 LOG_DIR="$(canonicalize_path "$LOG_DIR")"
 LOG_PATH="$(canonicalize_path "$LOG_PATH")"
 CHECKPOINT="$(canonicalize_path "$CHECKPOINT")"
