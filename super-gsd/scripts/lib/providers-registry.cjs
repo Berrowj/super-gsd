@@ -148,7 +148,11 @@ function loadReviewProvidersConfig(configPath = DEFAULT_CONFIG_PATH) {
  */
 function resolveReviewerProvider(gateName, gatesRegistry, opts = {}) {
   const gate = gatesRegistry.getGate(gateName, opts.gatesYamlPath);
-  if (!gate || gate.reviewer_agent === undefined) return null;
+  // Narrowed predicate: gate is reviewer-shaped only if it explicitly declares
+  // reviewer_provider. Fixes 14-ATC-REVIEW W-1 — haiku-agent gates have
+  // reviewer_agent !== undefined but are NOT code-reviewer-shaped.
+  // VTP: AGP-P-08 — shape detection belongs to the registry, not the caller.
+  if (!gate || !gate.reviewer_provider) return null;
 
   const name = gate.reviewer_provider
     || loadReviewProvidersConfig(opts.configPath).default_provider;
