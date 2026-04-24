@@ -91,7 +91,7 @@ _log_row() {
     from_session="pid-$$"
 
     mkdir -p "$LOG_DIR"
-    row="{\"ts\":\"$ts\",\"from_session_id\":\"$from_session\",\"to_session_id\":null,\"reason\":\"$reason\",\"chain_depth\":$chain_depth,\"cumulative_runtime_s\":0,\"checkpoint_path\":\"$CHECKPOINT\"${extra}}"
+    row="{\"ts\":\"$ts\",\"from_session_id\":\"$from_session\",\"to_session_id\":null,\"reason\":\"$reason\",\"chain_depth\":$chain_depth,\"checkpoint_path\":\"$CHECKPOINT\"${extra}}"
     echo "$row" >> "$LOG_PATH"
 }
 
@@ -176,7 +176,23 @@ fi
 # --- SPAWN: fire-and-forget double-background ---
 # Double-background ensures parent shell exits immediately, avoiding the 60s
 # Stop hook timeout. Spawn output is discarded (>/dev/null 2>&1).
-_log_row "spawned" "$CHAIN_DEPTH" ""
+
+# Compute cumulative_runtime_s (sum of prior spawned rows in current chain)
+CUMULATIVE_S=0
+if [[ -f "$LOG_PATH" ]]; then
+    CUMULATIVE_S=$(node -e "
+try {
+  var rows = require('fs').readFileSync(process.argv[1],'utf8')
+    .split('\n').filter(Boolean)
+    .map(function(l){ try { return JSON.parse(l); } catch(e) { return null; } })
+    .filter(Boolean);
+  var total = rows.reduce(function(s,r){ return s + (r.reason==='spawned' ? (r.cumulative_runtime_s||0) : 0); }, 0);
+  process.stdout.write(String(total));
+} catch(e) { process.stdout.write('0'); }
+" "$LOG_PATH" 2>/dev/null || echo "0")
+fi
+
+_log_row "spawned" "$CHAIN_DEPTH" ",\"cumulative_runtime_s\":$CUMULATIVE_S"
 (claude --print --dangerously-skip-permissions "/sgsd-orchestrate go" >/dev/null 2>&1 &) &
 
 exit 0

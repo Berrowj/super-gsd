@@ -21,8 +21,41 @@
 
 param(
     [string]$ProjectDir = ".",
-    [int]$Heartbeat = 30
+    [int]$Heartbeat = 30,
+    [switch]$MilestoneCloseCheck
 )
+
+# ── --milestone-close-check: aggregate handoff chain stats, then exit 0 ─────
+# Runs before all other setup — does not require resolved ProjectDir or libs.
+# Treats absent handoff-log.jsonl as zero stats (fresh install safe).
+if ($MilestoneCloseCheck) {
+    $ErrorActionPreference = "SilentlyContinue"
+    # Resolve log path: prefer script-relative, fall back to cwd-relative
+    $mcHandoffLog = Join-Path $PSScriptRoot "..\..\\.planning\metrics\handoff-log.jsonl"
+    if (-not (Test-Path $mcHandoffLog)) {
+        $mcHandoffLog = Join-Path (Get-Location) ".planning\metrics\handoff-log.jsonl"
+    }
+    $totalChains = 0; $maxDepth = 0; $stallCount = 0
+    if (Test-Path $mcHandoffLog) {
+        try {
+            $hRows = Get-Content $mcHandoffLog -ErrorAction SilentlyContinue |
+                Where-Object { $_ -match '\{' } |
+                ForEach-Object { try { $_ | ConvertFrom-Json -ErrorAction Stop } catch {} }
+            $spawnedRows = @($hRows | Where-Object { $_.reason -eq "spawned" })
+            $totalChains = $spawnedRows.Count
+            $depthValues = $hRows | ForEach-Object { [int]($_.chain_depth) }
+            $maxDepth    = if ($depthValues) { ($depthValues | Measure-Object -Maximum).Maximum } else { 0 }
+            $stallCount  = @($hRows | Where-Object { $_.refused -like "*cooldown*" }).Count
+        } catch {}
+    }
+    Write-Host ""
+    Write-Host "=== Handoff Chain Stats (milestone close) ===" -ForegroundColor Cyan
+    Write-Host ("  total_chains     : " + $totalChains)
+    Write-Host ("  max_depth_reached: " + $maxDepth)
+    Write-Host ("  stall_count      : " + $stallCount + " (cooldown refusals)")
+    Write-Host ""
+    exit 0
+}
 
 # ── loud-fail helper ─────────────────────────────────────────────────────────
 # Runs BEFORE $ErrorActionPreference = SilentlyContinue so errors are visible.

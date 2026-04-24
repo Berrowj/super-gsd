@@ -1313,6 +1313,45 @@ function Render {
     if ($verdicts.Count -eq 0) { Write-Row "  (no verdicts yet)" "DarkGray" }
     # === /SGSD-Codex-Tile ===
 
+    # === SGSD-Handoff-Tile ===
+    $handoffLog     = Join-Path $PlanningDir "metrics\handoff-log.jsonl"
+    $handoffCfgPath = Join-Path $ProjectDir ".planning\config.json"
+    $handoffEnabled = $false
+    try {
+        $hCfg = Get-Content $handoffCfgPath -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json -ErrorAction Stop
+        $handoffEnabled = [bool]($hCfg.handoff -and $hCfg.handoff.enabled -eq $true)
+    } catch {}
+
+    Write-Header "HANDOFF"
+    if (-not $handoffEnabled) {
+        Write-Row "  handoff: disabled (set config.json handoff.enabled=true to activate)" "DarkGray"
+    } else {
+        $hDepth   = 0; $hRuntime = 0; $hOutcome = "no_handoffs_yet"; $hColor = "DarkGray"
+        if (Test-Path $handoffLog) {
+            try {
+                $hRows = Get-CachedTail $handoffLog 5 | Where-Object { $_ -match '\{' } | ForEach-Object {
+                    try { $_ | ConvertFrom-Json -ErrorAction Stop } catch {}
+                }
+                $hLast = $hRows | Select-Object -Last 1
+                if ($hLast) {
+                    $hDepth   = [int]($hLast.chain_depth)
+                    $hRuntime = if ($null -ne $hLast.cumulative_runtime_s) { [int]($hLast.cumulative_runtime_s) } else { 0 }
+                    $hOutcome = if ($hLast.refused) { "refused_$($hLast.refused)" } `
+                                elseif ($hLast.reason) { "$($hLast.reason)" } `
+                                else { "unknown" }
+                    $hColor = switch -Wildcard ($hOutcome) {
+                        "spawned"   { "Green" }
+                        "refused_*" { "Yellow" }
+                        "failed"    { "Red" }
+                        default     { "DarkGray" }
+                    }
+                }
+            } catch {}
+        }
+        Write-Row ("  chain_depth: " + $hDepth + " | cumulative: " + $hRuntime + "s | last: " + $hOutcome) $hColor
+    }
+    # === /SGSD-Handoff-Tile ===
+
     # Milestone — 2 lines
     $ms = if ($state.milestone) { $state.milestone } else { "?" }
     $msName = if ($state.milestoneName) { $state.milestoneName } else { "" }
