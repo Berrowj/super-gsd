@@ -119,6 +119,54 @@ On first entry (no checkpoint):
      gracefully to `true` (gate fires unconditionally) so existing behaviour is
      preserved while the registry is absent.
 
+3.7. VTP HEALTH PROBE (D-08 — one-time cold-start ping, cached for session)
+     Immediately after step 3.6, if config.vtp_enrichment.enabled is true,
+     ping VTP once to establish session health. Cache result as vtp_available.
+
+     ```javascript
+     // vtp_health cold-start probe (D-08)
+     let vtp_available = false; // default: assume unavailable (safe degraded mode)
+     if (config.vtp_enrichment && config.vtp_enrichment.enabled === true) {
+       try {
+         // Minimal health ping using vtp_search with a 1-result seed
+         // Actual call happens in agent runtime scope via mcp__vtp-kb__vtp_search
+         // In orchestrator scope: use gates.shouldFire to decide, then log result
+         const healthResult = await callVtpHealthProbe(); // see note below
+         if (healthResult && healthResult.ok !== false) {
+           vtp_available = true;
+         }
+       } catch (_) {
+         vtp_available = false;
+       }
+       const healthState = vtp_available ? 'healthy' : 'degraded';
+       const vtp_health_cached = healthState;
+       console.log(`[SGSD] vtp_health: ${healthState}`);
+
+       // Append health row to .planning/metrics/vtp-health.jsonl
+       const fs = require('fs');
+       fs.appendFileSync('.planning/metrics/vtp-health.jsonl',
+         JSON.stringify({
+           ts: new Date().toISOString(),
+           vtp_available,
+           vtp_health_cached: healthState,
+           source: 'cold_start_probe',
+         }) + '\n'
+       );
+
+       if (!vtp_available) {
+         console.warn('[SGSD] VTP health check failed -- enrichment gates will run continue-without-artifact mode (D-08 degraded)');
+       }
+     }
+     // vtp_available is now cached for this session.
+     // All Step 6.b.5 gate checks read this cached value before dispatching.
+     ```
+
+     Implementation note: callVtpHealthProbe() is a thin wrapper that calls
+     mcp__vtp-kb__vtp_search with seed "health check" and max_results=1.
+     If the tool is unreachable or returns ok=false, vtp_available stays false.
+     Non-blocking: if vtp_enrichment.enabled is false (default), probe is skipped
+     entirely and vtp_available=false (gate never fires anyway per D-07).
+
 4. Determine position: which phase, which plan, what state
 
 When capturing gsd-tools output into a variable, always apply the @file: IPC guard:
@@ -291,6 +339,14 @@ REPEAT:
      a. Phase needs CONTEXT.md (not discussed) → suggest /gsd-discuss-phase
      b. Phase needs RESEARCH.md → dispatch gsd-phase-researcher (Sonnet)
      b.5 VTP ENRICHMENT GATE (Step 6.b.5) — Phase has RESEARCH.md AND config.vtp_enrichment.enabled is true →
+         D-08 DEGRADED-MODE CHECK (read cached vtp_available from Step 3.7):
+           if vtp_available === false:
+             // VTP health check failed at cold-start — skip gate silently (D-08)
+             log deviation: "VTP enrichment gate skipped (degraded mode: vtp_available=false)"
+             append to .planning/metrics/vtp-health.jsonl:
+               {"ts":"{ISO}","phase":N,"plan":P,"event":"gate_skipped","reason":"vtp_degraded"}
+             continue directly to Step 6.c (no sub-agent dispatch, no artifact required)
+           // else vtp_available === true: proceed normally below
          dispatch sgsd-vtp-enrichment sub-agent (model: sonnet). Gate
          precondition: gates.shouldFire('vtp-enrichment', ctx).
          Sub-agent calls vtp-enrichment-gate.cjs composeSubAgentSpec() to
