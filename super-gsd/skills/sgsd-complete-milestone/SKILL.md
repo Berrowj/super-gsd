@@ -110,6 +110,34 @@ Write `.planning/milestones/{{version}}/SUMMARY.md` with:
 2. Query `mcp__vtp-kb__vtp_list_research` for related research already present in VTP.
 3. Fold any relevant findings into the current `SUMMARY.md` Connections section.
 
+### Connections (library-backed) — write-side extension (VTPE-03)
+
+Only runs when `config.vtp_enrichment.enabled === true` (D-07 backward-compat guard).
+
+Using the results already retrieved by the read-side queries above (no new VTP calls):
+
+1. For each hit returned by `mcp__vtp-kb__vtp_search` and `mcp__vtp-kb__vtp_list_research`,
+   extract: `pattern_name`, `title` (book/paper), `section`, `confidence`, `notes`.
+
+2. Append a `### Connections (library-backed)` subsection to the `## Connections` section of
+   `.planning/milestones/{{version}}/SUMMARY.md` with the following table:
+
+```
+### Connections (library-backed)
+
+| Pattern | Book / Paper | Section | Confidence | Notes |
+|---|---|---|---|---|
+| <pattern_name> | <title> | <section> | <0-1> | <notes> |
+```
+
+3. If the read-side returned zero hits, append:
+   `### Connections (library-backed)\n\n(no library hits for this milestone — VTP returned empty)`.
+
+4. Set `vtp_connections_library_backed: true` in SUMMARY.md frontmatter when hits > 0;
+   set `vtp_connections_library_backed: false` when empty.
+
+This write-side extension reuses Step 7 read-side results — it does NOT fire a new VTP query.
+
 ### Publish-side fallback
 
 Current probe verdict from `13-05-01-vtp-probe.md`: tier-3.
