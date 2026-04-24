@@ -13,10 +13,12 @@
 
 Scope: sweep v1.3 carry-over tech debt, harden Codex path to full operational reliability on real task loads, wire Codex activity into mission-control visibility surfaces, close the autonomous-handoff loop so every non-discuss phase runs across session boundaries without operator intervention.
 
-- [ ] **Phase 17: Debt Sweep** — CLEAN-01..CLEAN-07 (7 requirements, 3 plans)
-  - 17-01: Code debt (CLEAN-01 providers-registry refresh, CLEAN-02 WASTE.md display)
-  - 17-02: Process debt (CLEAN-03 plan SUMMARYs, CLEAN-04 P5 artifact backfill, CLEAN-05 REQUIREMENTS hygiene)
-  - 17-03: Milestone close debt (CLEAN-06 v1.2 retroactive close + tag, CLEAN-07 codex_timeout tiers)
+- [x] **Phase 17: Debt Sweep** — CLEAN-01..CLEAN-07 (7/7 requirements delivered, 3 plans shipped) ✓ 2026-04-24
+  - [x] 17-01: Code debt (CLEAN-01 providers-registry refresh, CLEAN-02 WASTE.md display) — Codex ATC cleared after fix-up
+  - [x] 17-02: Process debt (CLEAN-03 plan SUMMARYs, CLEAN-04 P5 artifact backfill, CLEAN-05 REQUIREMENTS hygiene) — LITE, no ATC
+  - [x] 17-03: Milestone close debt (CLEAN-06 v1.2 retroactive close + tag, CLEAN-07 codex_timeout tiers) — Codex ATC cleared after fix-up
+  - **Phase ATC**: 0 CRITICAL + 3 WARNINGS deferred to Phase 18 (awk anchor brittleness, step-name tier calibration, richer output contract)
+  - **Codex dogfood**: 6 invocations, 622.9s wall-clock, retroactively satisfies CXOPS-03 and partially CXOPS-04
 - [ ] **Phase 18: Codex Hardening** — CXOPS-01..CXOPS-04 (4 requirements, 2 plans)
   - 18-01: Self-test + contract validator (CXOPS-01 --self-test, CXOPS-02 parse_failure fallback)
   - 18-02: Dogfood proof (CXOPS-03 per-dispatch ATC via Codex, CXOPS-04 phase-level ATC via Codex)

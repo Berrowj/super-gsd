@@ -3,17 +3,20 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Clean Close + Codex Visibility + Autonomous Handoff
 milestone_status: v1.4 ACTIVE — defining requirements complete, roadmap laid down (4 phases, 10 plans, 17 REQ-IDs across CLEAN/CXOPS/MC/HANDOFF). Phase 20 added 2026-04-24 per operator directive to close the autonomous-handoff loop (discuss-phase remains interactive; everything else cross-session autonomous). Next: /gsd-plan-phase 17 (context captured 75f8cbd).
-status: Phase 17 IN-FLIGHT — research + plan + plan-check shipped this session; plan 17-01 (code debt) COMPLETE with first orchestrator-path Codex invocation captured (CXOPS-03 dogfood evidence retroactively satisfied). Codex flagged 1 CRITICAL + 1 WARNING on 17-01 (WASTE.md row duplication in T2; T1 JSDoc narrative drift) — logged via Rule 13 GATE_AUTO_BYPASS, surfaced to operator before advancing to 17-02. Previous milestone v1.3 ✓ SHIPPED 2026-04-24.
-stopped_at: Plan 17-01 complete + ATC review written. Plan 17-02 (process debt, LITE tier, 3 docs-only tasks) pending operator direction — accept Codex CRITICAL as deferred-debt OR fix before 17-02 dispatch.
-last_updated: "2026-04-24T11:45:00.000Z"
-last_activity: 2026-04-24 — Phase 17 session. Shipped RESEARCH.md (65 lines, 7/7 PASS), 3 wave PLAN.md files + INDEX (schema-valid v2), PLAN-CHECK.md (WARN→fixed with surgical edits to 17-03/T1 and 17-02/T3), plan 17-01 (2 atomic fix commits + 1 docs commit for SUMMARY), first Codex per-dispatch ATC at Step 9.5 (exit 0, 80.6s, provider=openai-codex, verdict critical). codex-log.jsonl row #2 is the historic orchestrator-path invocation.
+status: Phase 17 ✓ COMPLETE — all 3 plans shipped (17-01, 17-02, 17-03), 7/7 CLEAN items delivered, verifier PASS, phase-level ATC PASS-WITH-WARNINGS (0 CRITICAL, 3 WARNINGS deferred to Phase 18). 6 Codex invocations captured — 2 CRITICALs raised + fixed mid-phase (17-01 WASTE dup, 17-03 config-backed tier resolution). v1.2 formally closed via retroactive archive + `git tag v1.2` at 0191168. Previous milestone v1.3 ✓ SHIPPED 2026-04-24.
+stopped_at: Phase 17 SUMMARY written + STATE updated. Phase 18 Codex Hardening next (CXOPS-01 self-test + CXOPS-02 parse_failure fallback / CXOPS-03/04 dogfood proof). Phase 18 can consume today's 6 Codex dogfood invocations as retroactive CXOPS-03/04 evidence.
+last_updated: "2026-04-24T13:20:00.000Z"
+last_activity: 2026-04-24 — Phase 17 shipped end-to-end in single session. 20 commits, 49 files, 3318+/310- lines. RESEARCH → 3 plans + INDEX → plan-check fix → 17-01 executor + Codex ATC (crit → fix → clean) → 17-02 executor (LITE skip) → 17-03 executor + Codex ATC (crit → fix → clean) → verifier PASS → phase-level Codex ATC PASS-WITH-WARNINGS → phase complete. 622.9s cumulative Codex wall-clock. MC visibility also shipped (8 files, 543 lines — Codex Monitor RECENT VERDICTS section + heartbeat hook + gate-verdict board).
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 10
-  completed_plans: 1
-  percent: 10
-  phase_17: "1/3 plans complete (17-01 shipped, 17-02 next)"
+  completed_plans: 3
+  percent: 30
+  phase_17: "3/3 plans complete — shipped 2026-04-24"
+  phase_18: "not started — Codex Hardening, 2 plans, 4 REQ-IDs (CXOPS)"
+  phase_19: "not started — MC Visibility, 2 plans, 5 REQ-IDs (MC); ~30% credit from today"
+  phase_20: "not started — Autonomous Handoff, 3 plans, 3 REQ-IDs (HANDOFF)"
 ---
 
 # Project State
