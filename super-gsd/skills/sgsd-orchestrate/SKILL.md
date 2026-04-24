@@ -577,14 +577,43 @@ REPEAT:
             return { valid: missing.length === 0, missing };
           }
 
-          // D-05 #4: FINDINGS_DETAIL optional footer — append to composedPrompt before dispatch.
-          // Instructs Codex to optionally emit per-finding detail lines after the 5 required lines.
-          // composedPrompt += "\nAfter the 5 required contract lines, you MAY optionally emit one or more FINDINGS_DETAIL lines:\n" +
-          //   "  FINDINGS_DETAIL: [severity] [dimension] <description>\n" +
-          //   "  severity: CRITICAL | WARNING | INFO\n" +
-          //   "  dimension: naming | logic | security | performance | style | architecture\n" +
-          //   "Example: FINDINGS_DETAIL: [WARNING] [logic] Missing null check before array access at line 42\n" +
-          //   "These lines are optional. The orchestrator will render them in ATC-REVIEW.md if present.";
+          // CONTRACT-02 (v1.5 Phase 24): parseFindingsDetail — extracts FINDINGS_DETAIL lines from
+          // reviewer output into a structured array. Pairs with validateContract above. Missing
+          // FINDINGS_DETAIL is valid (optional contract). Malformed lines are logged + skipped,
+          // not treated as a contract violation. Result attached as report._findings_detail.
+          // Vocabulary:
+          //   severity: CRITICAL | WARNING | INFO
+          //   dimension: naming | logic | security | performance | style | architecture
+          function parseFindingsDetail(content) {
+            if (typeof content !== 'string') return [];
+            const out = [];
+            const re = /^FINDINGS_DETAIL:\s*\[(CRITICAL|WARNING|INFO)\]\s*\[(naming|logic|security|performance|style|architecture)\]\s*(.+)$/i;
+            for (const line of content.split('\n')) {
+              if (!line.startsWith('FINDINGS_DETAIL')) continue;
+              const m = line.match(re);
+              if (m) {
+                out.push({
+                  severity:    m[1].toUpperCase(),
+                  dimension:   m[2].toLowerCase(),
+                  description: m[3].trim()
+                });
+              } else {
+                logInfo('CONTRACT_DETAIL_MALFORMED: skipping line: ' + line.slice(0, 120));
+              }
+            }
+            return out;
+          }
+
+          // CONTRACT-01 (v1.5 Phase 24): FINDINGS_DETAIL optional footer — append to composedPrompt before dispatch.
+          // Instructs the reviewer to emit per-finding detail tuples after the 5 required lines.
+          // Strengthened wording per operator feedback ("specifics, not interpretations" — Phase 20 R3 context).
+          composedPrompt += "\n\nAfter the 5 required contract lines, you SHOULD emit one FINDINGS_DETAIL line for every CRITICAL and WARNING finding — operator needs specifics, not interpretations:\n" +
+            "  FINDINGS_DETAIL: [severity] [dimension] <description>\n" +
+            "  severity: CRITICAL | WARNING | INFO\n" +
+            "  dimension: naming | logic | security | performance | style | architecture\n" +
+            "  description: 1-2 sentences, prefer file:line references when applicable\n" +
+            "Example: FINDINGS_DETAIL: [WARNING] [logic] Missing null check before array access at sgsd-stop-handoff.sh:142\n" +
+            "These lines are optional but strongly preferred. The orchestrator renders them in ATC-REVIEW.md if present.";
 
           const provider = gates.resolveReviewerProvider('phase-level-ATC', gatesRegistry, { gatesYamlPath: GATES_YAML_PATH });
           const effective = (provider && provider.name === 'codex-cli-reviewer' && !config.review_providers.codex_enabled)
@@ -669,7 +698,14 @@ REPEAT:
           → Returns: { findings, critical_count, warning_count, verdict }
 
        d. Process ATC result:
+          - Attach `report._findings_detail = parseFindingsDetail(report.content || '')`
+            (CONTRACT-02 v1.5 Phase 24) so downstream consumers see structured tuples.
           - Write to .planning/phases/{NN}-*/{NN}-ATC-REVIEW.md
+          - CONTRACT-03 (v1.5 Phase 24) render: if `report._findings_detail` is non-empty,
+            include a dedicated section under heading `## Findings Detail` with one bullet
+            per tuple in the form `- **[severity]** [dimension] — description`. Sort by
+            severity (CRITICAL first, then WARNING, then INFO). If empty, omit the section
+            entirely (no empty heading) so artifacts stay clean for clean reviews.
           - If critical_count > 0 AND NOT auto mode: STOP, emit blocker
           - If critical_count > 0 AND auto mode: log GATE_AUTO_HALT,
             write {NN}-ATC-GAP-PLAN.md, append an expiring DEVIATIONS entry,
@@ -1028,13 +1064,15 @@ REPEAT:
         // VTP: AGP-P-05 (protocol-level resource registration for discovery),
         //      HiveMind doc:5a50cc9b459e (single-retry, no thundering herd).
 
-        // D-05 #4: FINDINGS_DETAIL optional footer — append to composedPrompt before dispatch.
-        // composedPrompt += "\nAfter the 5 required contract lines, you MAY optionally emit one or more FINDINGS_DETAIL lines:\n" +
-        //   "  FINDINGS_DETAIL: [severity] [dimension] <description>\n" +
-        //   "  severity: CRITICAL | WARNING | INFO\n" +
-        //   "  dimension: naming | logic | security | performance | style | architecture\n" +
-        //   "Example: FINDINGS_DETAIL: [WARNING] [logic] Missing null check before array access at line 42\n" +
-        //   "These lines are optional. The orchestrator will render them in ATC-REVIEW.md if present.";
+        // CONTRACT-01 (v1.5 Phase 24): FINDINGS_DETAIL optional footer for per-dispatch-ATC.
+        // Same contract as phase-level-ATC, applied at the smaller per-dispatch scope.
+        composedPrompt += "\n\nAfter the 5 required contract lines, you SHOULD emit one FINDINGS_DETAIL line for every CRITICAL and WARNING finding — operator needs specifics, not interpretations:\n" +
+          "  FINDINGS_DETAIL: [severity] [dimension] <description>\n" +
+          "  severity: CRITICAL | WARNING | INFO\n" +
+          "  dimension: naming | logic | security | performance | style | architecture\n" +
+          "  description: 1-2 sentences, prefer file:line references when applicable\n" +
+          "Example: FINDINGS_DETAIL: [WARNING] [logic] Missing null check before array access at sgsd-stop-handoff.sh:142\n" +
+          "These lines are optional but strongly preferred. The orchestrator renders them in ATC-REVIEW.md if present.";
 
         const provider = gates.resolveReviewerProvider('per-dispatch-ATC', gatesRegistry, { gatesYamlPath: GATES_YAML_PATH });
         const effective = (provider && provider.name === 'codex-cli-reviewer' && !config.review_providers.codex_enabled)
