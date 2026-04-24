@@ -40,6 +40,7 @@ set -u
 PROMPT_FILE=""
 REPORT_OUT=""
 TIMEOUT_SECONDS=""
+TIMEOUT_TIER=""
 DRY_RUN=false
 PROJECT=""
 PHASE_TAG=""
@@ -70,9 +71,10 @@ while [[ $# -gt 0 ]]; do
         --project)     PROJECT="$2"; shift 2 ;;
         --phase)       PHASE_TAG="$2"; shift 2 ;;
         --plan)        PLAN_TAG="$2"; shift 2 ;;
-        --step)        STEP_TAG="$2"; shift 2 ;;
-        --help|-h)     head -40 "$0" | tail -35; exit 0 ;;
-        -*)            echo "codex-exec: unknown flag $1" >&2; exit 1 ;;
+        --step)         STEP_TAG="$2"; shift 2 ;;
+        --timeout-tier) TIMEOUT_TIER="$2"; shift 2 ;;
+        --help|-h)      head -40 "$0" | tail -35; exit 0 ;;
+        -*)             echo "codex-exec: unknown flag $1" >&2; exit 1 ;;
         *)             echo "codex-exec: unexpected positional arg '$1'" >&2; exit 1 ;;
     esac
 done
@@ -147,6 +149,54 @@ if [[ -z "$TIMEOUT_SECONDS" ]]; then
     fi
 fi
 
+# ── D-03 timeout-tier resolver ───────────────────────────────────────────────
+# Precedence: --timeout-tier custom:N > --timeout-tier named > step-name map > codex_timeout_seconds fallback
+# TIMEOUT_SECONDS is already resolved above (config or 30s hardcoded fallback).
+resolve_timeout_tier() {
+    local tier="$1"
+    case "$tier" in
+        default)  echo 60  ;;
+        review)   echo 120 ;;
+        analysis) echo 180 ;;
+        custom:*) echo "${tier#custom:}" ;;
+        *)        echo ""  ;;
+    esac
+}
+
+resolve_step_timeout() {
+    local step="$1"
+    case "$step" in
+        smoke|self-test)
+            echo 60 ;;
+        per-dispatch-ATC|phase-level-ATC|adversarial)
+            echo 120 ;;
+        muda-qualitative|qualitative-*)
+            echo 180 ;;
+        *)
+            echo "" ;;
+    esac
+}
+
+TIMEOUT="$TIMEOUT_SECONDS"
+
+if [[ -n "$TIMEOUT_TIER" ]]; then
+    tier_val="$(resolve_timeout_tier "$TIMEOUT_TIER")"
+    if [[ -n "$tier_val" ]]; then
+        TIMEOUT="$tier_val"
+    else
+        echo "codex-exec: unknown --timeout-tier '$TIMEOUT_TIER'; valid: default|review|analysis|custom:N" >&2
+        exit 1
+    fi
+elif [[ -n "$STEP_TAG" ]]; then
+    step_val="$(resolve_step_timeout "$STEP_TAG")"
+    if [[ -n "$step_val" ]]; then
+        TIMEOUT="$step_val"
+    else
+        echo "step '$STEP_TAG' has no tier mapping, using default" >&2
+        TIMEOUT="${TIMEOUT_SECONDS:-60}"
+    fi
+fi
+
 # ── Prompt file must exist (except in dry-run against /dev/null) ────────────
 if [[ ! -e "$PROMPT_FILE" ]]; then
     echo "codex-exec: --prompt-file '$PROMPT_FILE' not found" >&2
@@ -166,14 +216,14 @@ if [[ -z "$CODEX_BIN" && "$DRY_RUN" == false ]]; then
 fi
 
 # ── Resolved command line (also used for dry-run display) ───────────────────
-RESOLVED_CMD="timeout ${TIMEOUT_SECONDS}s bash -c 'cat \"\$0\" | codex exec --sandbox read-only --ephemeral --skip-git-repo-check --cd \"\$1\" -' \"$PROMPT_FILE\" \"$PROJECT\""
+RESOLVED_CMD="timeout ${TIMEOUT}s bash -c 'cat \"\$0\" | codex exec --sandbox read-only --ephemeral --skip-git-repo-check --cd \"\$1\" -' \"$PROMPT_FILE\" \"$PROJECT\""
 
 # ── Dry-run short-circuit ───────────────────────────────────────────────────
 if [[ "$DRY_RUN" == true ]]; then
     echo "codex-exec DRY RUN"
     echo "  resolved: $RESOLVED_CMD"
     echo "  auth:     OAuth-only (OPENAI_API_KEY not set) ✓"
-    echo "  timeout:  ${TIMEOUT_SECONDS}s"
+    echo "  timeout:  ${TIMEOUT}s"
     echo "  project:  $PROJECT"
     echo "  codex:    ${CODEX_BIN:-<not-on-PATH>}"
     echo "  report-out: $REPORT_OUT"
@@ -189,7 +239,7 @@ STDERR_TMP="$(mktemp -t codex-stderr.XXXXXX)"
 trap 'rm -f "$STDOUT_TMP" "$STDERR_TMP" "${REPORT_OUT}.tmp" 2>/dev/null || true' EXIT
 
 set +e
-timeout "${TIMEOUT_SECONDS}s" bash -c 'cat "$0" | codex exec --sandbox read-only --ephemeral --skip-git-repo-check --cd "$1" -' \
+timeout "${TIMEOUT}s" bash -c 'cat "$0" | codex exec --sandbox read-only --ephemeral --skip-git-repo-check --cd "$1" -' \
     "$PROMPT_FILE" "$PROJECT" \
     >"$STDOUT_TMP" 2>"$STDERR_TMP"
 RC=$?
@@ -253,7 +303,7 @@ write_live_state() {
         printf '  "project": "%s",\n' "$project_json"
         printf '  "prompt_file": "%s",\n' "$prompt_json"
         printf '  "report_out": "%s",\n' "$report_json"
-        printf '  "timeout_seconds": %s,\n' "$TIMEOUT_SECONDS"
+        printf '  "timeout_seconds": %s,\n' "$TIMEOUT"
         printf '  "prompt_bytes": %s,\n' "$PROMPT_BYTES"
         printf '  "report_bytes": %s,\n' "$report_bytes"
         printf '  "command_preview": "%s",\n' "$command_json"
@@ -275,7 +325,7 @@ write_live_state "running" -1 "false" 0
 if [[ $RC -eq 124 ]]; then
     write_live_state "timeout" 5 "true" 0
     append_jsonl 5 "true" 0
-    echo "codex-exec: timeout after ${TIMEOUT_SECONDS}s" >&2
+    echo "codex-exec: timeout after ${TIMEOUT}s" >&2
     exit 5
 fi
 
