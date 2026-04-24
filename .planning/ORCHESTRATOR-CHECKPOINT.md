@@ -71,12 +71,16 @@ estimated_tokens_used: ~400000
 - `.planning/memory/workflow/feedback/feedback_vtp_search_layer_routing.md` (new)
 - `.planning/milestones/v1.3/phases/15-codex-routed-gates/15-CHECK.md` (untracked — plan-checker orphan, commit as first action)
 
-**Pre-existing noise** (NOT from this session's executors — do not auto-commit):
+**P5 investigation RESOLVED** (commit `c8b2d25`):
+- Plan 15-03 is **COMPLETE as written** — `atc_warnings_addressed: [W-5]` only; W-4 belongs to plan 15-01 (Wave 2 next session), not 15-03. Earlier checkpoint note incorrectly conflated W-4/W-5 scope.
+- The loose modifications to `codex-exec.sh` + `merge-settings.js` + the two new `.ps1` scripts (`sgsd-codex-monitor.ps1`, `lib/sgsd-codex-status.ps1`) are a cohesive separate feature labeled **"P5 - Codex Monitor"** (live-status dashboard via `.planning/metrics/codex-live.json`). Not Phase 15 scope. All 4 files syntax-validated (bash -n, node --check, PSParser) and committed as standalone feature `c8b2d25`. A proper `.planning` artifact for P5 should be backfilled before any subsequent iteration.
+- **No conflict with Phase 15's shipped code.** Wave 2 can proceed cleanly.
+
+**Pre-existing noise remaining** (NOT from this session's executors — do not auto-commit):
 - `.planning/metrics/*` (activity-log, muda-log, narrative, plan-errors) — ongoing background logging
 - `.planning/resource-registry/agents.jsonl` — registry churn
-- `super-gsd/config/settings-overlay.json`, `super-gsd/scripts/codex-exec.sh`, `super-gsd/scripts/merge-settings.js`, `super-gsd/scripts/*.ps1` — modifications predate this session. codex-exec.sh shows a `json_escape()` helper refactor that may have been Codex doing W-4/W-5 prep work outside the Phase 15 plan chain. **Investigate before Wave 2 dispatch** — if these conflict with plan 15-03's already-shipped W-4/W-5 scope, decide whether to fold in or revert.
+- `super-gsd/config/settings-overlay.json`, `super-gsd/scripts/Install-SgsdShortcut.ps1`, `super-gsd/scripts/sgsd-boot.ps1`, `super-gsd/scripts/sgsd-gate-verdict.ps1`, `super-gsd/scripts/sgsd-mission-control.ps1`, `super-gsd/scripts/sgsd-narrative.ps1`, `super-gsd/hooks/sgsd-activity-logger.js` — predate this session, unclear attribution.
 - Untracked HTML files: `SGSD-2.0-architecture.html`, `SGSD-Codex-Integration-ELI5.html` — untracked at session start, unrelated to Phase 15.
-- Untracked new scripts: `super-gsd/scripts/lib/sgsd-codex-status.ps1`, `super-gsd/scripts/sgsd-codex-monitor.ps1` — unclear origin, not in any plan's scope.
 
 ## VTP Status
 
