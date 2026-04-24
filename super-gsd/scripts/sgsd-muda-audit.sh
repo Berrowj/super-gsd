@@ -364,6 +364,7 @@ PROMPT
   bash "$SCRIPT_DIR/codex-exec.sh" \
     --prompt-file "$TMP_CODEX_PROMPT" \
     --timeout 60 \
+    --timeout-tier analysis \
     --report-out "$TMP_CODEX_REPORT" \
     --phase "$PHASE_NUM" \
     --step "muda-qualitative" 2>/dev/null
