@@ -124,15 +124,36 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROBE="$SCRIPT_DIR/sgsd-muda-probe.sh"
 CURATE="$SCRIPT_DIR/sgsd-curate.sh"
 
+resolve_node_bin() {
+    if command -v node >/dev/null 2>&1 && node -v >/dev/null 2>&1; then
+        command -v node
+    elif command -v node.exe >/dev/null 2>&1; then
+        command -v node.exe
+    elif command -v node >/dev/null 2>&1; then
+        command -v node
+    else
+        printf ''
+    fi
+}
+NODE_BIN="$(resolve_node_bin)"
+if [[ -z "$NODE_BIN" ]]; then
+    echo "sgsd-muda-audit: node/node.exe not found in PATH" >&2
+    exit 3
+fi
+NODE_CONFIG_PATH="$PROJECT/.planning/config.json"
+if [[ "$NODE_BIN" == *.exe && "$(command -v wslpath 2>/dev/null)" != "" ]]; then
+    NODE_CONFIG_PATH="$(wslpath -w "$NODE_CONFIG_PATH")"
+fi
+
 if [[ ! -x "$PROBE" ]]; then
     echo "sgsd-muda-audit: probe script missing or not executable: $PROBE" >&2
     exit 3
 fi
 
 # Run probe (capture JSON; ignore exit code — we aggregate below)
-# --probe codex skips the three mechanical probes (test/debug facility, CONTEXT D-06 / RESEARCH AD-05)
+# --probe codex skips the mechanical probes (test/debug facility, CONTEXT D-06 / RESEARCH AD-05)
 if [[ "$PROBE_FILTER" == "codex" ]]; then
-    PROBE_JSON='{"probes":{"haiku_fails":{"verdict":"PASS","value":0,"evidence":"skipped"},"narrative_age_sec":{"verdict":"PASS","value":0,"evidence":"skipped"},"git_spawn_pct":{"verdict":"PASS","value":0,"evidence":"skipped"}}}'
+    PROBE_JSON='{"probes":{"haiku_fails":{"verdict":"PASS","value":0,"evidence":"skipped"},"narrative_age_sec":{"verdict":"PASS","value":0,"evidence":"skipped"},"git_spawn_pct":{"verdict":"PASS","value":0,"evidence":"skipped"},"extra_processing":{"verdict":"PASS","value":0,"evidence":"skipped"},"inventory":{"verdict":"PASS","value":0,"evidence":"skipped"}}}'
     PROBE_EXIT=0
 else
     set +e
@@ -154,27 +175,35 @@ PHASE_SLUG=$(basename "$PHASE_DIR")
 # Emit fields tab-separated so evidence strings (which can contain spaces,
 # quotes, parens) don't get re-split by the shell. read with IFS=$'\t'
 # preserves the whole evidence string in one variable.
-PROBE_PARSED=$(
-    printf '%s' "$PROBE_JSON" | node -e '
+PROBE_ROWS=$(
+    printf '%s' "$PROBE_JSON" | "$NODE_BIN" -e '
         let d = "";
         process.stdin.on("data", c => d += c);
         process.stdin.on("end", () => {
             try {
                 const j = JSON.parse(d);
-                const p = j.probes;
-                // tab-separated: 9 fields in fixed order
-                const out = [
-                    p.haiku_fails.verdict,
-                    p.narrative_age_sec.verdict,
-                    p.git_spawn_pct.verdict,
-                    p.haiku_fails.value,
-                    p.narrative_age_sec.value,
-                    p.git_spawn_pct.value,
-                    p.haiku_fails.evidence,
-                    p.narrative_age_sec.evidence,
-                    p.git_spawn_pct.evidence
-                ];
-                process.stdout.write(out.join("\t"));
+                const probes = j.probes || {};
+                const defaults = {
+                    haiku_fails:       { threshold: "warn>=3 fail>=8", waste_class: "defects" },
+                    narrative_age_sec: { threshold: "warn>1800s fail>3600s", waste_class: "waiting" },
+                    git_spawn_pct:     { threshold: "warn>20% fail>40%", waste_class: "motion" },
+                    extra_processing:  { threshold: "warn>3 fail>8", waste_class: "extra-processing" },
+                    inventory:         { threshold: "warn>0 fail>5 calibrated", waste_class: "inventory" }
+                };
+                const clean = (v) => String(v == null ? "" : v).replace(/\r?\n/g, " ").replace(/\t/g, " ");
+                const rows = Object.keys(defaults).map(name => {
+                    const p = probes[name] || {};
+                    const value = name === "git_spawn_pct" && p.value != null ? clean(p.value) + "%" : clean(p.value ?? "");
+                    return [
+                        name,
+                        clean(p.verdict || "SKIP"),
+                        value,
+                        clean(p.threshold || defaults[name].threshold),
+                        clean(p.waste_class || defaults[name].waste_class),
+                        clean(p.evidence || "missing from probe JSON")
+                    ].join("\t");
+                });
+                process.stdout.write(rows.join("\n"));
             } catch (e) {
                 process.stderr.write("parse error: " + e.message);
                 process.exit(4);
@@ -182,18 +211,17 @@ PROBE_PARSED=$(
         });
     '
 )
-IFS=$'\t' read -r HAIKU_V NARR_V GIT_V HAIKU_VAL NARR_VAL GIT_VAL HAIKU_EV NARR_EV GIT_EV <<< "$PROBE_PARSED"
+
+PROBE_TABLE=""
+while IFS=$'\t' read -r PROBE_NAME PROBE_VERDICT PROBE_VALUE PROBE_THRESHOLD PROBE_CLASS PROBE_EVIDENCE; do
+    safe_evidence=$(printf '%s' "$PROBE_EVIDENCE" | sed 's/|/\\|/g')
+    PROBE_TABLE="${PROBE_TABLE}| ${PROBE_NAME} | ${PROBE_VERDICT} | ${PROBE_VALUE} | ${PROBE_THRESHOLD} | ${PROBE_CLASS} | ${safe_evidence} |"$'\n'
+done <<< "$PROBE_ROWS"
 
 # Tally WARN/FAIL for summary and curation
-# QUAL_V defaults to SKIP until the qualitative probe runs (appends its own
-# row dynamically at line ~381; no inventory probe exists yet so INVT is omitted)
 QUAL_V="SKIP"
-warn_count=0
-fail_count=0
-for v in "$HAIKU_V" "$NARR_V" "$GIT_V" "$QUAL_V"; do
-    [[ "$v" == "WARN" ]] && warn_count=$((warn_count + 1))
-    [[ "$v" == "FAIL" ]] && fail_count=$((fail_count + 1))
-done
+warn_count=$(printf '%s\n' "$PROBE_ROWS" | awk -F '\t' '$2 == "WARN" { c++ } END { print c + 0 }')
+fail_count=$(printf '%s\n' "$PROBE_ROWS" | awk -F '\t' '$2 == "FAIL" { c++ } END { print c + 0 }')
 
 # Compose WASTE.md
 WASTE_FILE="$PHASE_DIR/WASTE.md"
@@ -225,9 +253,7 @@ fi)
 
 | Probe | Verdict | Value | Threshold | Waste Class | Evidence |
 |-------|---------|-------|-----------|-------------|----------|
-| haiku_fails              | $HAIKU_V | $HAIKU_VAL | warn>=3 fail>=8 | defects | $(printf '%s' "$HAIKU_EV" | sed 's/^"\(.*\)"$/\1/') |
-| narrative_age_sec        | $NARR_V  | $NARR_VAL  | warn>1800s fail>3600s | waiting | $(printf '%s' "$NARR_EV"  | sed 's/^"\(.*\)"$/\1/') |
-| git_spawn_pct            | $GIT_V   | $GIT_VAL%  | warn>20% fail>40% | motion  | $(printf '%s' "$GIT_EV"   | sed 's/^"\(.*\)"$/\1/') |
+$PROBE_TABLE
 
 ## Raw Probe JSON
 
@@ -300,6 +326,10 @@ broader waste-detection design. Individual probe fixes:
   running; check for stale \`narrative.md.lock\`.
 - **motion** (git_spawn_pct): review dashboards / skills for N+1 git
   invocation patterns. Batch via \`Invoke-CachedGit\` (see DLB-01 render-cache).
+- **extra-processing** (extra_processing): review ATC tier rules against actual
+  changed-line counts; tune tier thresholds rather than adding another review pass.
+- **inventory** (inventory): archive or delete stale scratch/draft/temp planning
+  artifacts; canonical phase records are not waste by age alone.
 BODY
 )
         if [[ "$DRY_RUN" == true ]]; then
@@ -315,21 +345,13 @@ BODY
         fi
     }
 
-    if [[ "$HAIKU_V" == "WARN" || "$HAIKU_V" == "FAIL" ]]; then
-        curate_finding haiku-fails "$HAIKU_V" "$HAIKU_VAL" defects \
-            "$(printf '%s' "$HAIKU_EV" | sed 's/^"\(.*\)"$/\1/')" "warn>=3 fail>=8" || \
-            echo "sgsd-muda-audit: curate haiku finding failed (non-blocking)" >&2
-    fi
-    if [[ "$NARR_V" == "WARN" || "$NARR_V" == "FAIL" ]]; then
-        curate_finding narrative-stale "$NARR_V" "$NARR_VAL" waiting \
-            "$(printf '%s' "$NARR_EV" | sed 's/^"\(.*\)"$/\1/')" "warn>1800s fail>3600s" || \
-            echo "sgsd-muda-audit: curate narrative finding failed (non-blocking)" >&2
-    fi
-    if [[ "$GIT_V" == "WARN" || "$GIT_V" == "FAIL" ]]; then
-        curate_finding git-spawn-rate "$GIT_V" "$GIT_VAL" motion \
-            "$(printf '%s' "$GIT_EV" | sed 's/^"\(.*\)"$/\1/')" "warn>20% fail>40%" || \
-            echo "sgsd-muda-audit: curate git finding failed (non-blocking)" >&2
-    fi
+    while IFS=$'\t' read -r PROBE_NAME PROBE_VERDICT PROBE_VALUE PROBE_THRESHOLD PROBE_CLASS PROBE_EVIDENCE; do
+        if [[ "$PROBE_VERDICT" == "WARN" || "$PROBE_VERDICT" == "FAIL" ]]; then
+            probe_slug=$(printf '%s' "$PROBE_NAME" | tr '_' '-')
+            curate_finding "$probe_slug" "$PROBE_VERDICT" "$PROBE_VALUE" "$PROBE_CLASS" "$PROBE_EVIDENCE" "$PROBE_THRESHOLD" || \
+                echo "sgsd-muda-audit: curate $PROBE_NAME finding failed (non-blocking)" >&2
+        fi
+    done <<< "$PROBE_ROWS"
 fi
 
 # CODEX-08: 4th qualitative MUDA probe (overproduction class)
@@ -337,7 +359,7 @@ fi
 # WARNING-1 fix (15-CHECK.md): use ${CODEX_QUAL_ENABLED+x} guard so unconditional config read
 # fires unless the caller explicitly set CODEX_QUAL_ENABLED in the environment.
 if [[ -z "${CODEX_QUAL_ENABLED+x}" ]]; then
-  CODEX_QUAL_ENABLED=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('$PROJECT/.planning/config.json','utf8'));console.log(c.review_providers&&c.review_providers.codex_qualitative_waste_enabled?'true':'false')}catch(e){console.log('false')}" 2>/dev/null || echo 'false')
+  CODEX_QUAL_ENABLED=$(NODE_CONFIG_PATH="$NODE_CONFIG_PATH" "$NODE_BIN" -e "try{const c=JSON.parse(require('fs').readFileSync(process.env.NODE_CONFIG_PATH,'utf8'));console.log(c.review_providers&&c.review_providers.codex_qualitative_waste_enabled?'true':'false')}catch(e){console.log('false')}" 2>/dev/null || echo 'false')
 fi
 
 # Compute DIFF_LINES from phase git history
@@ -451,8 +473,23 @@ fi
 # Log to metrics
 METRICS_LOG="$PROJECT/.planning/metrics/muda-log.jsonl"
 mkdir -p "$(dirname "$METRICS_LOG")"
-printf '{"ts":"%s","phase":"%s","warn":%d,"fail":%d,"exit":%d,"probes":{"haiku":"%s","narrative":"%s","git":"%s"}}\n' \
-    "$TS" "$PHASE_NUM" "$warn_count" "$fail_count" "$PROBE_EXIT" "$HAIKU_V" "$NARR_V" "$GIT_V" >> "$METRICS_LOG"
+PROBE_VERDICTS_JSON=$(
+    printf '%s\n' "$PROBE_ROWS" | QUAL_V_FOR_NODE="$QUAL_V" "$NODE_BIN" -e '
+        const fs = require("fs");
+        const input = fs.readFileSync(0, "utf8").split(/\r?\n/).filter(Boolean);
+        const out = {};
+        for (const line of input) {
+            const parts = line.split("\t");
+            if (parts[0]) out[parts[0]] = parts[1] || "SKIP";
+        }
+        if (process.env.QUAL_V_FOR_NODE && process.env.QUAL_V_FOR_NODE !== "SKIP") {
+            out.codex_qualitative_waste = process.env.QUAL_V_FOR_NODE;
+        }
+        process.stdout.write(JSON.stringify(out));
+    '
+)
+printf '{"ts":"%s","phase":"%s","warn":%d,"fail":%d,"exit":%d,"probes":%s}\n' \
+    "$TS" "$PHASE_NUM" "$warn_count" "$fail_count" "$PROBE_EXIT" "$PROBE_VERDICTS_JSON" >> "$METRICS_LOG"
 
 echo "sgsd-muda-audit: $WASTE_FILE written — $warn_count WARN, $fail_count FAIL (exit $PROBE_EXIT)"
 exit $PROBE_EXIT

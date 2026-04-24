@@ -75,6 +75,29 @@ if [[ -z "$MILESTONE" ]]; then
     exit 3
 fi
 
+resolve_node_bin() {
+    if command -v node >/dev/null 2>&1 && node -v >/dev/null 2>&1; then
+        command -v node
+    elif command -v node.exe >/dev/null 2>&1; then
+        command -v node.exe
+    elif command -v node >/dev/null 2>&1; then
+        command -v node
+    else
+        printf ''
+    fi
+}
+NODE_BIN="$(resolve_node_bin)"
+if [[ -z "$NODE_BIN" ]]; then
+    echo "sgsd-muda-recurrence: node/node.exe not found in PATH" >&2
+    exit 3
+fi
+NODE_PROJECT="$PROJECT"
+NODE_LOG="$LOG"
+if [[ "$NODE_BIN" == *.exe && "$(command -v wslpath 2>/dev/null)" != "" ]]; then
+    NODE_PROJECT="$(wslpath -w "$PROJECT")"
+    NODE_LOG="$(wslpath -w "$LOG")"
+fi
+
 # Check data source availability
 if [[ ! -f "$LOG" && "$FROM_FILES" == false ]]; then
     echo "sgsd-muda-recurrence: no $LOG. Run sgsd-muda-audit at least once, or pass --from-files." >&2
@@ -84,7 +107,7 @@ fi
 # Dispatch to node for JSON aggregation — portable, handles missing fields,
 # avoids bash associative-array dependency.
 OUT=$(
-    node - <<'NODE' "$PROJECT" "$MILESTONE" "$WINDOW_MS" "$FROM_FILES" "$LOG"
+    "$NODE_BIN" - <<'NODE' "$NODE_PROJECT" "$MILESTONE" "$WINDOW_MS" "$FROM_FILES" "$NODE_LOG"
         'use strict';
         const fs = require('fs');
         const path = require('path');
@@ -93,7 +116,18 @@ OUT=$(
         const windowMs = Math.max(1, parseInt(windowMsArg, 10) || 1);
         const useFiles = fromFiles === 'true';
 
-        const classes = ['defects', 'waiting', 'motion'];
+        const classes = ['defects', 'waiting', 'motion', 'extra-processing', 'inventory', 'overproduction'];
+        const probeClass = {
+            haiku: 'defects',
+            haiku_fails: 'defects',
+            narrative: 'waiting',
+            narrative_age_sec: 'waiting',
+            git: 'motion',
+            git_spawn_pct: 'motion',
+            extra_processing: 'extra-processing',
+            inventory: 'inventory',
+            codex_qualitative_waste: 'overproduction'
+        };
         // Map: milestone → { class → count, phasesByClass }
         const milestones = new Map();
 
@@ -108,26 +142,75 @@ OUT=$(
             return milestones.get(ms);
         }
 
+        function searchPhaseRoots() {
+            const roots = [];
+            const flat = path.join(project, '.planning', 'phases');
+            if (fs.existsSync(flat)) roots.push({ root: flat, milestone });
+            const milestonesDir = path.join(project, '.planning', 'milestones');
+            if (fs.existsSync(milestonesDir)) {
+                for (const ms of fs.readdirSync(milestonesDir)) {
+                    const nested = path.join(milestonesDir, ms, 'phases');
+                    if (fs.existsSync(nested)) roots.push({ root: nested, milestone: ms });
+                }
+            }
+            return roots;
+        }
+
         // Determine a phase's milestone by looking at its PLAN.md if possible,
-        // else fall back to state milestone (today).
+        // else fall back to the matched phase root's milestone.
         function phaseMilestone(phaseNum) {
-            // Find phase dir
-            const phasesDir = path.join(project, '.planning', 'phases');
-            if (!fs.existsSync(phasesDir)) return milestone;
-            const dirs = fs.readdirSync(phasesDir);
             const padded = String(phaseNum).padStart(2, '0');
-            const match = dirs.find(n => n === phaseNum || n.startsWith(`${phaseNum}-`) || n.startsWith(`${padded}-`));
-            if (!match) return milestone;
-            const planFile = path.join(phasesDir, match, `${padded}-01-PLAN.md`);
-            if (!fs.existsSync(planFile)) return milestone;
-            const body = fs.readFileSync(planFile, 'utf8');
-            // Look for milestone: <v> in frontmatter
-            const fm = body.match(/^---\n([\s\S]+?)\n---/);
-            if (fm) {
-                const m = fm[1].match(/^milestone:\s*(.+)$/m);
-                if (m) return m[1].trim().replace(/^["']|["']$/g, '');
+            for (const { root, milestone: rootMilestone } of searchPhaseRoots()) {
+                const dirs = fs.readdirSync(root);
+                const match = dirs.find(n => n === phaseNum || n.startsWith(`${phaseNum}-`) || n.startsWith(`${padded}-`));
+                if (!match) continue;
+                const planFile = path.join(root, match, `${padded}-01-PLAN.md`);
+                if (!fs.existsSync(planFile)) return rootMilestone;
+                const body = fs.readFileSync(planFile, 'utf8');
+                const fm = body.match(/^---\n([\s\S]+?)\n---/);
+                if (fm) {
+                    const m = fm[1].match(/^milestone:\s*(.+)$/m);
+                    if (m) return m[1].trim().replace(/^["']|["']$/g, '');
+                }
+                return rootMilestone;
             }
             return milestone;
+        }
+
+        function milestoneFromWastePath(wastePath, phaseNum) {
+            const parts = wastePath.split(path.sep);
+            const idx = parts.lastIndexOf('milestones');
+            if (idx >= 0 && parts[idx + 1]) return parts[idx + 1];
+            return phaseMilestone(phaseNum);
+        }
+
+        function walk(dir, out = []) {
+            if (!fs.existsSync(dir)) return out;
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                const full = path.join(dir, entry.name);
+                if (entry.isDirectory()) walk(full, out);
+                else if (entry.isFile() && entry.name === 'WASTE.md') out.push(full);
+            }
+            return out;
+        }
+
+        function recordVerdict(bucket, classKey, verdict, phase) {
+            if (!bucket.classes[classKey]) return;
+            if (verdict === 'WARN') {
+                bucket.classes[classKey].warn++;
+                bucket.classes[classKey].phases.add(phase);
+            } else if (verdict === 'FAIL') {
+                bucket.classes[classKey].fail++;
+                bucket.classes[classKey].phases.add(phase);
+            }
+        }
+
+        function parseWasteRows(body) {
+            const rows = [];
+            const re = /^\|\s*(haiku_fails|narrative_age_sec|git_spawn_pct|extra_processing|inventory|codex_qualitative_waste)\s*\|\s*(PASS|WARN|FAIL|SKIP)\s*\|/gm;
+            let m;
+            while ((m = re.exec(body)) !== null) rows.push({ probe: m[1], verdict: m[2] });
+            return rows;
         }
 
         // Parse muda-log.jsonl
@@ -140,21 +223,37 @@ OUT=$(
                 const ms = phaseMilestone(e.phase);
                 const bucket = ensure(ms);
                 bucket.audits_run++;
-                for (const [probeName, classKey] of [['haiku', 'defects'], ['narrative', 'waiting'], ['git', 'motion']]) {
+                for (const [probeName, classKey] of Object.entries(probeClass)) {
                     const v = (e.probes || {})[probeName];
-                    if (v === 'WARN') {
-                        bucket.classes[classKey].warn++;
-                        bucket.classes[classKey].phases.add(e.phase);
-                    } else if (v === 'FAIL') {
-                        bucket.classes[classKey].fail++;
-                        bucket.classes[classKey].phases.add(e.phase);
-                    }
+                    recordVerdict(bucket, classKey, v, e.phase);
                 }
             }
         }
 
-        // --from-files: scan every WASTE.md
+        // --from-files: scan every WASTE.md across flat and milestone-nested phases
         if (useFiles) {
+            const roots = [
+                path.join(project, '.planning', 'phases'),
+                path.join(project, '.planning', 'milestones')
+            ];
+            for (const waste of roots.flatMap(root => walk(root))) {
+                const body = fs.readFileSync(waste, 'utf8');
+                const fm = body.match(/^---\n([\s\S]+?)\n---/);
+                if (!fm) continue;
+                const phaseMatch = fm[1].match(/^phase:\s*(\S+)/m);
+                if (!phaseMatch) continue;
+                const phaseNum = phaseMatch[1].trim();
+                const ms = milestoneFromWastePath(waste, phaseNum);
+                const bucket = ensure(ms);
+                bucket.audits_run++;
+                for (const row of parseWasteRows(body)) {
+                    recordVerdict(bucket, probeClass[row.probe], row.verdict, phaseNum);
+                }
+            }
+        }
+
+        // Historical flat-only scanner retained disabled for reference.
+        if (false && useFiles) {
             const phasesDir = path.join(project, '.planning', 'phases');
             if (fs.existsSync(phasesDir)) {
                 for (const dir of fs.readdirSync(phasesDir)) {
@@ -234,7 +333,7 @@ fi
 
 if [[ "$KILL_CHECK" == true ]]; then
     # Human-friendly summary instead of JSON
-    printf '%s' "$OUT" | node -e '
+    printf '%s' "$OUT" | "$NODE_BIN" -e '
         let d = "";
         process.stdin.on("data", c => d += c);
         process.stdin.on("end", () => {
@@ -256,7 +355,7 @@ if [[ "$KILL_CHECK" == true ]]; then
         });
     '
     # Exit code reflects kill verdict
-    if printf '%s' "$OUT" | node -e '
+    if printf '%s' "$OUT" | "$NODE_BIN" -e '
         let d = ""; process.stdin.on("data", c => d += c);
         process.stdin.on("end", () => {
             const j = JSON.parse(d);
@@ -269,7 +368,7 @@ fi
 printf '%s\n' "$OUT"
 
 # Exit code from kill verdict even in JSON mode (scriptable)
-printf '%s' "$OUT" | node -e '
+printf '%s' "$OUT" | "$NODE_BIN" -e '
     let d = ""; process.stdin.on("data", c => d += c);
     process.stdin.on("end", () => {
         const j = JSON.parse(d);

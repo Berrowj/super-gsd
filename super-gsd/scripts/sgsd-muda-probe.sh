@@ -2,11 +2,11 @@
 # ============================================================================
 # sgsd-muda-probe — lightweight waste watchdogs (DLB-02 Day 2 probes)
 # ============================================================================
-# Three live probes that detect known waste patterns without needing a full
+# Five live probes that detect known waste patterns without needing a full
 # phase-close audit. Designed to run cheaply (<1s), often (per phase dispatch),
 # and report structured JSON so sgsd-muda-audit or a dashboard can consume.
 #
-# The three probes map to observed waste classes from the CPU audit
+# The first three probes map to observed waste classes from the CPU audit
 # (2026-04-19) that prompted DLB-02:
 #
 #   1. HAIKU-FAIL counter
@@ -24,13 +24,21 @@
 #      processes per render. This probe samples the last 100 activity-log
 #      entries and computes git-tool-use percentage. High pct = motion waste.
 #
+#   4. EXTRA-PROCESSING
+#      ATC review tier vs recorded line-count mismatch across all phase
+#      commit-reviews.jsonl files.
+#
+#   5. INVENTORY
+#      Stale scratch/draft/temp planning artifacts, not canonical historical
+#      phase records.
+#
 # Usage:
 #   sgsd-muda-probe.sh [project-dir]
 #   sgsd-muda-probe.sh --help
 #
 # Default project-dir = current working directory (auto-walks up to find .planning/).
 # Output: single-line JSON on stdout:
-#   {"project":"...","probes":{"haiku_fails":{...},"narrative_age_sec":{...},"git_spawn_pct":{...}}}
+#   {"project":"...","probes":{"haiku_fails":{...},"narrative_age_sec":{...},"git_spawn_pct":{...},"extra_processing":{...},"inventory":{...}}}
 #
 # Exit codes:
 #   0 — all probes PASS
@@ -138,34 +146,64 @@ git_verdict="PASS"
 # Heuristic: ATC tier choice vs diff line count mismatch in commit-reviews.jsonl.
 # - FULL ATC on <20 lines = over-reviewing trivial edits
 # - LITE ATC on >80 lines = under-reviewing substantive changes
-# Threshold: GUESSED - 1-milestone calibration per DLB-02 rule.
 extra_processing_count=0
 extra_processing_evidence="no commit-reviews.jsonl found"
-reviews_log="$ROOT/.planning/metrics/commit-reviews.jsonl"
-if [[ -f "$reviews_log" ]]; then
-    extra_processing_count=$(grep -cE '("tier":"FULL".*"lines_changed":(1?[0-9]|19))|("tier":"LITE".*"lines_changed":(8[1-9]|9[0-9]|[1-9][0-9]{2,}))' "$reviews_log" 2>/dev/null || echo 0)
-    extra_processing_evidence="commit-reviews.jsonl: $extra_processing_count tier/line mismatches"
+reviews_list=$(mktemp)
+: > "$reviews_list"
+[[ -d "$ROOT/.planning/phases" ]] && find "$ROOT/.planning/phases" -type f -name "commit-reviews.jsonl" 2>/dev/null >> "$reviews_list"
+[[ -d "$ROOT/.planning/milestones" ]] && find "$ROOT/.planning/milestones" -path "*/phases/*/commit-reviews.jsonl" -type f 2>/dev/null >> "$reviews_list"
+reviews_file_count=$(wc -l < "$reviews_list" | tr -d ' ')
+if [[ "$reviews_file_count" -gt 0 ]]; then
+    reviews_body=$(mktemp)
+    : > "$reviews_body"
+    while IFS= read -r reviews_file; do
+        [[ -f "$reviews_file" ]] && cat "$reviews_file" >> "$reviews_body"
+    done < "$reviews_list"
+    review_rows=$(grep -cve '^[[:space:]]*$' "$reviews_body" 2>/dev/null || true)
+    review_rows_with_lines=$(grep -cE '"(lines_changed|diff_lines)"[[:space:]]*:' "$reviews_body" 2>/dev/null || true)
+    extra_processing_count=$(grep -icE '"tier"[[:space:]]*:[[:space:]]*"(full|gate)".*"(lines_changed|diff_lines)"[[:space:]]*:[[:space:]]*(1?[0-9]|19)\b|"(tier)"[[:space:]]*:[[:space:]]*"(lite|skip)".*"(lines_changed|diff_lines)"[[:space:]]*:[[:space:]]*(8[1-9]|9[0-9]|[1-9][0-9]{2,})\b' "$reviews_body" 2>/dev/null || true)
+    [[ -z "$review_rows" ]] && review_rows=0
+    [[ -z "$review_rows_with_lines" ]] && review_rows_with_lines=0
+    [[ -z "$extra_processing_count" ]] && extra_processing_count=0
+    extra_processing_evidence="$reviews_file_count commit-review files, $review_rows rows, $review_rows_with_lines with line counts, $extra_processing_count tier/line mismatches"
+    rm -f "$reviews_body"
 fi
+rm -f "$reviews_list"
 extra_processing_verdict="PASS"
 [[ "$extra_processing_count" -gt 3 ]] && extra_processing_verdict="WARN"
 [[ "$extra_processing_count" -gt 8 ]] && extra_processing_verdict="FAIL"
 
 # ── Probe 5 (DLB-05 Wave C): inventory ──────────────────────────────────────
 # Waste class: inventory.
-# Heuristic: .md artifacts under .planning/phases/ not touched in last 3 days.
-# Threshold: GUESSED - 1-milestone calibration per DLB-02 rule.
+# Heuristic: stale scratch/draft/temp planning artifacts older than 3 days.
+# Canonical phase records are intentionally retained and are not waste by age.
 inventory_count=0
-inventory_evidence="no phase dir scanned"
-phases_dir="$ROOT/.planning/phases"
-if [[ -d "$phases_dir" ]]; then
-    all_md=$(find "$phases_dir" -type f -name "*.md" 2>/dev/null | wc -l)
-    orphan=$(find "$phases_dir" -type f -name "*.md" -mtime +3 2>/dev/null | wc -l)
-    inventory_count="$orphan"
-    inventory_evidence="$all_md phase .md files, $orphan unreferenced >3d"
+inventory_evidence="no planning dirs scanned"
+inventory_list=$(mktemp)
+: > "$inventory_list"
+if [[ -d "$ROOT/.planning/phases" ]]; then
+    find "$ROOT/.planning/phases" -type f \( \
+        -iname "*scratch*.md" -o -iname "*draft*.md" -o -iname "*orphan*.md" -o \
+        -iname "*.tmp" -o -iname "*.bak" -o -iname "*.orig" \
+    \) -mtime +3 2>/dev/null >> "$inventory_list"
 fi
+if [[ -d "$ROOT/.planning/milestones" ]]; then
+    find "$ROOT/.planning/milestones" -type f \( \
+        -iname "*scratch*.md" -o -iname "*draft*.md" -o -iname "*orphan*.md" -o \
+        -iname "*.tmp" -o -iname "*.bak" -o -iname "*.orig" \
+    \) -mtime +3 2>/dev/null >> "$inventory_list"
+fi
+inventory_count=$(wc -l < "$inventory_list" | tr -d ' ')
+if [[ "$inventory_count" -gt 0 ]]; then
+    first_inventory=$(head -1 "$inventory_list")
+    inventory_evidence="$inventory_count stale scratch/draft/temp artifacts >3d; first=$(basename "$first_inventory")"
+else
+    inventory_evidence="0 stale scratch/draft/temp planning artifacts >3d"
+fi
+rm -f "$inventory_list"
 inventory_verdict="PASS"
-[[ "$inventory_count" -gt 3 ]] && inventory_verdict="WARN"
-[[ "$inventory_count" -gt 8 ]] && inventory_verdict="FAIL"
+[[ "$inventory_count" -gt 0 ]] && inventory_verdict="WARN"
+[[ "$inventory_count" -gt 5 ]] && inventory_verdict="FAIL"
 
 # ── Aggregate top-level verdict for exit code ───────────────────────────────
 overall=0
@@ -181,7 +219,7 @@ done
 esc() { printf '%s' "$1" | sed 's/\\\\/\\\\\\\\/g; s/"/\\\\"/g'; }
 
 cat <<JSON
-{"project":"$(esc "$ROOT")","generated_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","probes":{"haiku_fails":{"value":$haiku_fails,"verdict":"$haiku_verdict","threshold":"warn>=3 fail>=8","evidence":"$(esc "$haiku_evidence")","waste_class":"defects"},"narrative_age_sec":{"value":$narrative_age,"verdict":"$narr_verdict","threshold":"warn>1800 fail>3600","evidence":"$(esc "$narrative_evidence")","waste_class":"waiting"},"git_spawn_pct":{"value":$git_pct,"verdict":"$git_verdict","threshold":"warn>20% fail>40%","evidence":"$(esc "$git_evidence")","waste_class":"motion"},"extra_processing":{"value":$extra_processing_count,"verdict":"$extra_processing_verdict","threshold":"warn>3 fail>8 GUESSED","evidence":"$(esc "$extra_processing_evidence")","waste_class":"extra-processing"},"inventory":{"value":$inventory_count,"verdict":"$inventory_verdict","threshold":"warn>3 fail>8 GUESSED","evidence":"$(esc "$inventory_evidence")","waste_class":"inventory"}},"overall_exit":$overall}
+{"project":"$(esc "$ROOT")","generated_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","probes":{"haiku_fails":{"value":$haiku_fails,"verdict":"$haiku_verdict","threshold":"warn>=3 fail>=8","evidence":"$(esc "$haiku_evidence")","waste_class":"defects"},"narrative_age_sec":{"value":$narrative_age,"verdict":"$narr_verdict","threshold":"warn>1800 fail>3600","evidence":"$(esc "$narrative_evidence")","waste_class":"waiting"},"git_spawn_pct":{"value":$git_pct,"verdict":"$git_verdict","threshold":"warn>20% fail>40%","evidence":"$(esc "$git_evidence")","waste_class":"motion"},"extra_processing":{"value":$extra_processing_count,"verdict":"$extra_processing_verdict","threshold":"warn>3 fail>8","evidence":"$(esc "$extra_processing_evidence")","waste_class":"extra-processing"},"inventory":{"value":$inventory_count,"verdict":"$inventory_verdict","threshold":"warn>0 fail>5 calibrated","evidence":"$(esc "$inventory_evidence")","waste_class":"inventory"}},"overall_exit":$overall}
 JSON
 
 exit $overall
