@@ -4,15 +4,15 @@ milestone: v1.3
 milestone_name: Codex Integration
 milestone_status: v1.3 Phase 14 ✓ SHIPPED — reviewer-provider substrate dark, verifier clean PASS, phase-ATC PASS-WITH-WARNINGS. Next Phase 15.
 status: v1.3 Phase 16 ✓ SHIPPED. Phase 14 ✓ SHIPPED 2026-04-23 — reviewer-provider abstraction ships dark (codex_enabled=false). All 3 waves landed: Wave 1 {14-01 codex-exec.sh wrapper, 14-03 config.json review_providers block} parallel, Wave 2 {14-02 review-providers.yaml + providers-registry.cjs + 2 agent stubs + gates.yaml extension}, Wave 3 {14-04 contract-check.mjs pure-parser harness + fixtures + verify.mjs}. 4 planner deviations landed per plan: P1 sibling providers-registry.cjs module (not extending gates-registry.cjs), P2 pure-parser harness (no Agent()/shell dispatch), P3 sgsd-code-reviewer + sgsd-codex-reviewer stubs both declaring code-reviewer-v1 contract parity, P4 stdin-pipe to codex exec (D-01 --prompt-file assumption invalidated by research). Gates all green: verify.mjs 6/6 D-23 invariants pass, phase-ATC PASS-WITH-WARNINGS (0 critical, 5 warnings all routed to Phase 15 as entry conditions), verifier clean PASS (all 6 V-predicates green, zero D-24 non-goal leaks, VTP bypass preserved), MUDA 0 WARN 0 FAIL. Next: Phase 15 Codex-Routed Gates + Qualitative MUDA Probe — will consume VTP evidence (vtp-kb fix landed upstream from Codex 2026-04-23).
-stopped_at: Phase 15 plan 15-04 shipped — Step 9.6 cross-vendor adversarial challenger (CODEX-11) live.
+stopped_at: Phase 15 plan 15-05 shipped — CODEX-12 kill condition wired; verify.mjs 9/9 PASS Phase 15.
 last_updated: "2026-04-24T00:00:00.000Z"
-last_activity: 2026-04-24 — Phase 15 plan 15-04 shipped (commit a93de2f) — SKILL.md Step 9.6 adversarial challenger rewired to codex-cli-reviewer via shellDispatch, skip-on-unavailable no-fallback semantics, token-log role adversarial_verifier
+last_activity: 2026-04-24 — Phase 15 plan 15-05 shipped (commits b0ef1fb 5b6df30 35180c3) — sgsd-token-audit --milestone-close-check subcommand + sgsd-complete-milestone Steps 3-8->4-9 renumber + Phase 15 verify.mjs 9/9 invariants green
 progress:
   total_phases: 3
-  completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
-  percent: 67
+  completed_phases: 3
+  total_plans: 8
+  completed_plans: 8
+  percent: 100
 ---
 
 # Project State
@@ -22,16 +22,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** Ship an autonomous framework that any Claude Code Max plan user can install with one command and immediately start building software
-**Current focus:** v1.3 — Phase 14 + Phase 16 ✓ SHIPPED. Next: Phase 15 (Codex-Routed Gates + Qualitative MUDA Probe). Run `/sgsd-discuss-phase 15` to proceed.
+**Current focus:** v1.3 — Phase 15 ✓ SHIPPED (all 5 plans complete, verify.mjs 9/9 PASS). Run `sgsd-complete-milestone v1.3` to close the milestone.
 
 ## Current Position
 
-Phase: 14 ✓ COMPLETE (all 3 waves shipped 2026-04-23)
-Plan: 14-01 ✓ | 14-02 ✓ | 14-03 ✓ | 14-04 ✓ (~13 commits — wrapper+registry+config+harness substrate landing dark)
-Status: Ready for Phase 15 discuss
-Last activity: 2026-04-23 — Phase 14 shipped (Wave 1-3 executors + phase-ATC + verifier + MUDA all green)
+Phase: 15 ✓ COMPLETE (Wave 1-4 shipped 2026-04-24 — CODEX-07 through CODEX-12 all landed)
+Plan: 15-01 ✓ | 15-02 ✓ | 15-03 ✓ | 15-04 ✓ | 15-05 ✓ (5 plans, all waves complete)
+Status: Phase 15 done — ready for sgsd-complete-milestone v1.3
+Last activity: 2026-04-24 — Phase 15 plan 15-05 shipped (CODEX-12 kill condition + verify.mjs 9/9)
 
-Progress: [███████░░░] 67% (2/3 v1.3 phases complete)
+Progress: [██████████] 100% (3/3 v1.3 phases complete)
 
 ## Accumulated Context
 
