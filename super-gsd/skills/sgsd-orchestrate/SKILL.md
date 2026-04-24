@@ -1204,8 +1204,35 @@ If git commit fails: check git status, resolve conflict, retry ONCE. If still fa
 <token_logging>
 After each unit, append to `.planning/metrics/token-log.jsonl`:
 
+```javascript
+// token-log.jsonl row schema (Phase 15+). Backfill-on-read for pre-Phase-15 rows:
+// row.provider defaults to 'claude', row.role defaults to 'unknown'.
+// NEVER allow empty provider — derive from dispatch path before appending.
+const tokenLogRow = {
+  ts: new Date().toISOString(),
+  phase: currentPhase,            // integer
+  plan: currentPlan,              // integer
+  model: dispatchedModel,         // 'sonnet' | 'haiku' | 'codex' | ...
+  role: agentRole,                // 'code_reviewer' | 'adversarial_verifier' | 'executor' |
+                                  // 'verifier' | 'classifier' | 'context_selector'
+  provider: dispatchProvider,     // 'claude' | 'openai-codex' | 'claude-via-fallback'
+  est_input: estimatedInputTokens,
+  est_output: estimatedOutputTokens,
+  total: estimatedInputTokens + estimatedOutputTokens,
+  classifier_model: classifierModel,  // 'haiku' (the classify step model)
+  context_tokens: contextWindowUsed
+};
+// provider value is derived from dispatch path:
+//   Agent() dispatch          → 'claude'
+//   shellDispatch exit 0      → 'openai-codex'
+//   shellDispatch + fallback  → 'claude-via-fallback'
+// NOTE: the wrapper (codex-exec.sh) refuses to run if OPENAI_API_KEY is set (exits 4);
+//       per CONTEXT D-02a. It does NOT defensively unset the key.
+```
+
+Example serialized JSONL row (what actually lands in token-log.jsonl):
 ```json
-{"ts":"{ISO}","phase":{N},"plan":{N},"model":"{model}","role":"{agent_type}","est_input":{N},"est_output":{N},"total":{N},"classifier_model":"haiku","context_tokens":{N}}
+{"ts":"2026-04-24T12:00:00Z","phase":15,"plan":3,"model":"codex","role":"code_reviewer","provider":"openai-codex","est_input":500,"est_output":200,"total":700,"classifier_model":"haiku","context_tokens":1200}
 ```
 
 Estimation method:
