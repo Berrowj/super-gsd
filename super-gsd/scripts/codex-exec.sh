@@ -77,6 +77,12 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# ── W-4 fix: validate --phase is numeric before interpolating into JSONL ────
+if [[ -n "$PHASE_TAG" && ! "$PHASE_TAG" =~ ^[0-9]+$ ]]; then
+  echo "ERR: --phase must be numeric, got: $PHASE_TAG" >&2
+  exit 1
+fi
+
 # ── Required flags ──────────────────────────────────────────────────────────
 if [[ -z "$PROMPT_FILE" || -z "$REPORT_OUT" ]]; then
     echo "codex-exec: --prompt-file and --report-out are required" >&2

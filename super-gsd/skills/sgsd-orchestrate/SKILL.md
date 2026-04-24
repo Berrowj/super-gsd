@@ -463,31 +463,70 @@ REPEAT:
           Note: phase-level is always at least LITE — no skip tier.
           Complexity floor: phases with 5+ plans or 500+ lines → always FULL
 
-       c. Run phase ATC review (spawn Sonnet reviewer):
+       c. Run phase ATC review (Phase 15 CODEX-07: provider-dispatch indirection):
+          // VTP: AGP-P-05 (protocol-level resource registration for discovery),
+          //      HiveMind doc:5a50cc9b459e (single-retry, no thundering herd).
           TaskCreate({
             content: "Phase {N} ATC review",
-            activeForm: "gsd-code-reviewer [sonnet] P{N} — phase-level ATC {tier}",
+            activeForm: "provider-dispatch [phase-level-ATC] P{N} — {tier}",
             status: "in_progress"
           })
 
-          Agent(
-            subagent_type: "gsd-code-reviewer",
-            model: "sonnet",
-            mode: "auto",
-            prompt: {
-              phase: N,
-              goal: "{phase goal from ROADMAP}",
-              tier: "{lite|full|gate}",
-              diff_summary: "{git diff --stat output}",
-              plans_completed: [list],
-              checks: "Run ATC 7-step + 10-point anti-slop checklist.
-                       Focus on: cross-plan consistency, architectural
-                       coherence, unused code across plans, duplication
-                       between plans, test coverage, CLAUDE.md rule
-                       violations. Max 300 word report.",
-              report_format: "FINDINGS | CRITICAL | WARNINGS | PASS_RATE | ONE_LINER"
+          const provider = gates.resolveReviewerProvider('phase-level-ATC', gatesRegistry, { gatesYamlPath: GATES_YAML_PATH });
+          const effective = (provider && provider.name === 'codex-cli-reviewer' && !config.review_providers.codex_enabled)
+            ? gates.getProvider(provider.fallback_to)
+            : provider;
+
+          let report;
+          if (!effective) {
+            // No reviewer_provider declared on gate — skip dispatch, log info
+            logInfo('GATE_NO_PROVIDER: phase-level-ATC has no reviewer_provider; skipping review dispatch');
+          } else if (effective.invocation === 'agent') {
+            report = await Agent({
+              subagent_type: effective.agent_subagent_type,
+              model: effective.agent_model || 'sonnet',
+              mode: 'auto',
+              prompt: composedPrompt   // composedPrompt contains phase/goal/tier/diff_summary/plans/checks/report_format
+            });
+          } else if (effective.invocation === 'shell') {
+            // Shell dispatch: codex-exec.sh
+            const promptFile = writeTempPrompt(composedPrompt);
+            const reportOut = tempReportPath('phase-atc');
+            const dispatchResult = shellDispatch(effective.shell_script, {
+              promptFile,
+              timeout: effective.timeout_seconds || config.review_providers.codex_timeout_seconds,
+              reportOut,
+              phase: currentPhase,
+              step: '6.5'
+            });
+            if (dispatchResult.exit !== 0 && effective.fallback_to && config.review_providers.fallback_on_error) {
+              // Single-retry fallback to Claude per HiveMind centralized-retry pattern (doc:5a50cc9b459e)
+              logDeviation(`GATE_PROVIDER_FALLBACK: ${effective.name} exit=${dispatchResult.exit} → ${effective.fallback_to}`);
+              const fallbackProvider = gates.getProvider(effective.fallback_to);
+              report = await Agent({
+                subagent_type: fallbackProvider.agent_subagent_type,
+                model: fallbackProvider.agent_model || 'sonnet',
+                mode: 'auto',
+                prompt: composedPrompt
+              });
+              // Tag the report row as claude-via-fallback for CODEX-10 metric accuracy
+              report._provider = 'claude-via-fallback';
+            } else if (dispatchResult.exit !== 0) {
+              // Both providers failed — hard blocker per CONTEXT D-02c
+              logDeviation('GATE_PROVIDER_DOUBLE_FAIL: both codex-cli-reviewer and fallback failed');
+              writeCheckpoint({ reason: 'GATE_PROVIDER_DOUBLE_FAIL', step: '6.5' });
+              throw new Error('GATE_PROVIDER_DOUBLE_FAIL: review gate failed on both providers');
+            } else {
+              report = { content: dispatchResult.report, _provider: 'openai-codex' };
             }
-          )
+          }
+          // Evidence emission: path-identical to prior Claude path per CONTEXT D-03
+          // commit-reviews.jsonl gains provider: field; ATC-REVIEW.md gains provider: frontmatter key
+          if (report) appendReviewEvidence(report, {
+            gate: 'phase-level-ATC',
+            provider: report._provider || effective.name,
+            fallback_triggered: !!(report._provider === 'claude-via-fallback')
+          });
           → Returns: { findings, critical_count, warning_count, verdict }
 
        d. Process ATC result:
@@ -840,35 +879,80 @@ REPEAT:
       // config.atc.enabled is preserved as an outer runtime knob (D-13a)
       if (config.atc.enabled && gates.shouldFire('per-dispatch-ATC', ctx, GATES_YAML_PATH)) {
 
-      If tier == full:
-        Agent(subagent_type: "gsd-code-reviewer", model: "sonnet", mode: "auto",
-          prompt: {
-            scope: "single-dispatch",
-            phase: N, plan: P,
-            files: {files_from_report},
-            tier: "full",
-            checks: "Run ATC 7-step + 10-point anti-slop on the diff of this
-                     single dispatch's FILES_CHANGED. Focus: orphan functions,
-                     dead imports, unused args, YAGNI violations, ΔComplexity,
-                     'just in case' additions. Skip cross-plan architectural
-                     review — that's the phase-level ATC gate at Step 6.5.
-                     Max 250 word report."
-          })
-        → Returns: { findings, critical_count, warning_count, verdict }
-
-      If tier == gate:
-        In auto mode: run the FULL review above AND log GATE_AUTO_BYPASS;
-                      append "[GATE bypassed in auto mode]" to DEVIATIONS.
-        In interactive mode: STOP with blocker; user reviews + approves
-                             before the commit lands.
-
       Skip entirely if tier ∈ {skip, lite} — LITE is already covered by the
       anti-slop self-check every executor should apply to its own diff, and
       SKIP by definition warrants no review.
 
-      Write verdict as a one-line JSONL append to
-        `.planning/phases/{NN}/commit-reviews.jsonl`:
-        {"ts":"{ISO}","plan":"{NN-PP}","tier":"full|gate","verdict":"pass|warn|fail","critical":N,"warning":N,"one_liner":"..."}
+      If tier == full OR tier == gate:
+        // Phase 15 CODEX-07: provider-dispatch indirection.
+        // VTP: AGP-P-05 (protocol-level resource registration for discovery),
+        //      HiveMind doc:5a50cc9b459e (single-retry, no thundering herd).
+        const provider = gates.resolveReviewerProvider('per-dispatch-ATC', gatesRegistry, { gatesYamlPath: GATES_YAML_PATH });
+        const effective = (provider && provider.name === 'codex-cli-reviewer' && !config.review_providers.codex_enabled)
+          ? gates.getProvider(provider.fallback_to)
+          : provider;
+
+        let report;
+        if (!effective) {
+          // No reviewer_provider declared on gate — skip dispatch, log info
+          logInfo('GATE_NO_PROVIDER: per-dispatch-ATC has no reviewer_provider; skipping review dispatch');
+        } else if (effective.invocation === 'agent') {
+          report = await Agent({
+            subagent_type: effective.agent_subagent_type,
+            model: effective.agent_model || 'sonnet',
+            mode: 'auto',
+            prompt: composedPrompt   // composedPrompt contains scope/phase/plan/files/tier/checks
+          });
+        } else if (effective.invocation === 'shell') {
+          // Shell dispatch: codex-exec.sh
+          const promptFile = writeTempPrompt(composedPrompt);
+          const reportOut = tempReportPath('per-dispatch-atc');
+          const dispatchResult = shellDispatch(effective.shell_script, {
+            promptFile,
+            timeout: effective.timeout_seconds || config.review_providers.codex_timeout_seconds,
+            reportOut,
+            phase: currentPhase,
+            step: '9.5'
+          });
+          if (dispatchResult.exit !== 0 && effective.fallback_to && config.review_providers.fallback_on_error) {
+            // Single-retry fallback to Claude per HiveMind centralized-retry pattern (doc:5a50cc9b459e)
+            logDeviation(`GATE_PROVIDER_FALLBACK: ${effective.name} exit=${dispatchResult.exit} → ${effective.fallback_to}`);
+            const fallbackProvider = gates.getProvider(effective.fallback_to);
+            report = await Agent({
+              subagent_type: fallbackProvider.agent_subagent_type,
+              model: fallbackProvider.agent_model || 'sonnet',
+              mode: 'auto',
+              prompt: composedPrompt
+            });
+            // Tag the report row as claude-via-fallback for CODEX-10 metric accuracy
+            report._provider = 'claude-via-fallback';
+          } else if (dispatchResult.exit !== 0) {
+            // Both providers failed — hard blocker per CONTEXT D-02c
+            logDeviation('GATE_PROVIDER_DOUBLE_FAIL: both codex-cli-reviewer and fallback failed');
+            writeCheckpoint({ reason: 'GATE_PROVIDER_DOUBLE_FAIL', step: '9.5' });
+            throw new Error('GATE_PROVIDER_DOUBLE_FAIL: review gate failed on both providers');
+          } else {
+            report = { content: dispatchResult.report, _provider: 'openai-codex' };
+          }
+        }
+        → Returns: { findings, critical_count, warning_count, verdict }
+
+        If tier == gate AND auto mode: log GATE_AUTO_BYPASS;
+                          append "[GATE bypassed in auto mode]" to DEVIATIONS.
+        If tier == gate AND interactive mode: STOP with blocker; user reviews + approves
+                                             before the commit lands.
+
+        // Evidence emission: path-identical to prior Claude path per CONTEXT D-03
+        // commit-reviews.jsonl gains provider: field for CODEX-10 metric accuracy
+        Write verdict as a one-line JSONL append to
+          `.planning/phases/{NN}/commit-reviews.jsonl`:
+          {"ts":"{ISO}","plan":"{NN-PP}","tier":"full|gate","verdict":"pass|warn|fail","critical":N,"warning":N,"one_liner":"...","provider":"{openai-codex|claude-sonnet|claude-via-fallback}"}
+
+        appendPerDispatchReviewEvidence(report, {
+          gate: 'per-dispatch-ATC',
+          provider: report._provider || effective.name,
+          fallback_triggered: !!(report._provider === 'claude-via-fallback')
+        });
 
       If critical > 0 AND interactive: STOP with blocker quoting the findings.
       If critical > 0 AND auto: log GATE_AUTO_BYPASS, append to DEVIATIONS,
