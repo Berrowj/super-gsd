@@ -35,12 +35,14 @@ PHASE=""
 PROJECT=""
 DRY_RUN=false
 NO_CURATE=false
+PROBE_FILTER=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --project|-p) PROJECT="$2"; shift 2 ;;
         --dry-run)    DRY_RUN=true; shift ;;
         --no-curate)  NO_CURATE=true; shift ;;
+        --probe)      PROBE_FILTER="$2"; shift 2 ;;
         --help|-h)    head -30 "$0" | tail -25; exit 0 ;;
         -*)           echo "sgsd-muda-audit: unknown flag $1" >&2; exit 3 ;;
         *)            if [[ -z "$PHASE" ]]; then PHASE="$1"; fi; shift ;;
@@ -108,10 +110,16 @@ if [[ ! -x "$PROBE" ]]; then
 fi
 
 # Run probe (capture JSON; ignore exit code — we aggregate below)
-set +e
-PROBE_JSON=$(bash "$PROBE" "$PROJECT")
-PROBE_EXIT=$?
-set -e
+# --probe codex skips the three mechanical probes (test/debug facility, CONTEXT D-06 / RESEARCH AD-05)
+if [[ "$PROBE_FILTER" == "codex" ]]; then
+    PROBE_JSON='{"probes":{"haiku_fails":{"verdict":"PASS","value":0,"evidence":"skipped"},"narrative_age_sec":{"verdict":"PASS","value":0,"evidence":"skipped"},"git_spawn_pct":{"verdict":"PASS","value":0,"evidence":"skipped"}}}'
+    PROBE_EXIT=0
+else
+    set +e
+    PROBE_JSON=$(bash "$PROBE" "$PROJECT")
+    PROBE_EXIT=$?
+    set -e
+fi
 
 if [[ -z "$PROBE_JSON" ]]; then
     echo "sgsd-muda-audit: probe returned empty output" >&2
@@ -299,6 +307,107 @@ BODY
             "$(printf '%s' "$GIT_EV" | sed 's/^"\(.*\)"$/\1/')" "warn>20% fail>40%" || \
             echo "sgsd-muda-audit: curate git finding failed (non-blocking)" >&2
     fi
+fi
+
+# CODEX-08: 4th qualitative MUDA probe (overproduction class)
+# Per CONTEXT D-06: fires only when mechanical probes pass, diff_lines >= 200, and enabled.
+# WARNING-1 fix (15-CHECK.md): use ${CODEX_QUAL_ENABLED+x} guard so unconditional config read
+# fires unless the caller explicitly set CODEX_QUAL_ENABLED in the environment.
+if [[ -z "${CODEX_QUAL_ENABLED+x}" ]]; then
+  CODEX_QUAL_ENABLED=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('$PROJECT/.planning/config.json','utf8'));console.log(c.review_providers&&c.review_providers.codex_qualitative_waste_enabled?'true':'false')}catch(e){console.log('false')}" 2>/dev/null || echo 'false')
+fi
+
+# Compute DIFF_LINES from phase git history
+DIFF_LINES=$(git -C "$PROJECT" diff --stat HEAD~"${COMMITS_IN_PHASE:-1}" HEAD 2>/dev/null | awk '/changed/{sum+=$1+$3}END{print sum+0}')
+
+if [[ "$PROBE_EXIT" == "0" && "${DIFF_LINES:-0}" -ge 200 && "$CODEX_QUAL_ENABLED" == "true" && "$DRY_RUN" != "true" ]]; then
+  TMP_CODEX_PROMPT=$(mktemp /tmp/muda-codex-prompt.XXXXXX)
+  TMP_CODEX_REPORT=$(mktemp /tmp/muda-codex-report.XXXXXX)
+
+  # Compose qualitative MUDA prompt per CONTEXT D-06a
+  {
+    printf 'PHASE %s QUALITATIVE WASTE AUDIT\n' "$PHASE_NUM"
+    printf 'Goal: %s\n' "$(grep -m1 "Phase ${PHASE_NUM}" "$PROJECT/.planning/ROADMAP.md" 2>/dev/null || echo 'unknown')"
+    printf 'Diff:\n'
+    git -C "$PROJECT" diff --stat HEAD~"${COMMITS_IN_PHASE:-1}" HEAD 2>/dev/null | head -50
+    printf '\n'
+    git -C "$PROJECT" diff HEAD~"${COMMITS_IN_PHASE:-1}" HEAD 2>/dev/null | head -500
+    printf '\nPlans: '
+    ls "$PHASE_DIR"/*.md 2>/dev/null | xargs -I{} basename {} | tr '\n' ',' | sed 's/,$//'
+    printf '\n\n'
+    cat <<'PROMPT'
+Identify up to 5 findings across these classes (emit 0-5 findings; 'none' is a valid answer):
+- YAGNI: features/code added that no task required
+- Duplication: similar logic in 2+ plans that should be extracted
+- Over-engineering: abstractions that have only one call site
+- Defensive code without failure mode: try/catch/fallback without documented why
+- Orphan files: files touched that no plan claimed in files_touched
+
+Report format:
+FINDINGS: <0-5 items, each "- class: finding (file:line)">
+CRITICAL: <count of findings that block phase close; typically 0>
+WARNINGS: <count>
+PASS_RATE: <100 if CRITICAL=0, else "blocked">
+ONE_LINER: <summary>
+PROMPT
+  } > "$TMP_CODEX_PROMPT"
+
+  bash "$SCRIPT_DIR/codex-exec.sh" \
+    --prompt-file "$TMP_CODEX_PROMPT" \
+    --timeout 60 \
+    --report-out "$TMP_CODEX_REPORT" \
+    --phase "$PHASE_NUM" \
+    --step "muda-qualitative" 2>/dev/null
+  CODEX_QUAL_EXIT=$?
+  rm -f "$TMP_CODEX_PROMPT"
+
+  if [[ "$CODEX_QUAL_EXIT" -eq 0 && -f "$TMP_CODEX_REPORT" ]]; then
+    # Parse the code-reviewer-v1 contract fields
+    QUAL_FINDINGS=$(grep '^FINDINGS:' "$TMP_CODEX_REPORT" | sed 's/^FINDINGS: //')
+    QUAL_CRITICAL=$(grep '^CRITICAL:' "$TMP_CODEX_REPORT" | awk '{print $2+0}')
+    QUAL_WARNINGS=$(grep '^WARNINGS:' "$TMP_CODEX_REPORT" | awk '{print $2+0}')
+    QUAL_ONE_LINER=$(grep '^ONE_LINER:' "$TMP_CODEX_REPORT" | sed 's/^ONE_LINER: //')
+
+    # Verdict mapping per CONTEXT D-07, D-08a (MUDA is NEVER a phase blocker — DLB-02)
+    if [[ "${QUAL_CRITICAL:-0}" -gt 0 ]]; then
+      QUAL_VERDICT="FAIL"
+    elif [[ "${QUAL_WARNINGS:-0}" -gt 0 ]]; then
+      QUAL_VERDICT="WARN"
+    else
+      QUAL_VERDICT="PASS"
+    fi
+
+    # Emit 4th WASTE.md row per CONTEXT D-07
+    printf '| codex_qualitative_waste | %s | %s findings | diff_lines=%s | overproduction | %s |\n' \
+      "$QUAL_VERDICT" "${QUAL_CRITICAL:-0}" "$DIFF_LINES" "${QUAL_ONE_LINER:-no findings}" \
+      >> "$WASTE_FILE"
+
+    # Update counters
+    [[ "$QUAL_VERDICT" == "FAIL" ]] && fail_count=$((fail_count+1))
+    [[ "$QUAL_VERDICT" == "WARN" ]] && warn_count=$((warn_count+1))
+
+    # Curate per-finding to anti-patterns/ per CONTEXT D-07a
+    # Reuses curate_finding function (defined above) with class=overproduction
+    if [[ "$NO_CURATE" != "true" ]] && [[ -n "$QUAL_FINDINGS" ]] && [[ "$QUAL_FINDINGS" != "none" ]]; then
+      FINDING_NUM=0
+      while IFS= read -r finding_line; do
+        [[ -z "$finding_line" || "$finding_line" == "none" ]] && continue
+        FINDING_NUM=$((FINDING_NUM+1))
+        FINDING_SLUG=$(echo "$finding_line" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-40)
+        curate_finding \
+          "waste-overproduction-p${PHASE_NUM}-${FINDING_SLUG}" \
+          "overproduction" \
+          "$finding_line" \
+          "muda,overproduction,phase-${PHASE_NUM},automated,codex-qualitative" || \
+          echo "sgsd-muda-audit: curate qualitative finding failed (non-blocking)" >&2
+      done <<< "$QUAL_FINDINGS"
+    fi
+  else
+    # Codex unavailable or parse failed — log, do not block (codex-exec.sh has its own fallback path)
+    printf '| codex_qualitative_waste | SKIP | codex-exec exit=%s | diff_lines=%s | overproduction | probe skipped |\n' \
+      "$CODEX_QUAL_EXIT" "$DIFF_LINES" >> "$WASTE_FILE"
+  fi
+  rm -f "$TMP_CODEX_REPORT"
 fi
 
 # Log to metrics
