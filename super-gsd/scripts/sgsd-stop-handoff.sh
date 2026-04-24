@@ -49,6 +49,31 @@ _detect_root() {
     return 1
 }
 
+# SEC-01: canonicalize_path resolves symlinks via readlink -f with fallbacks.
+# Returns raw path if no canonicalizer available (defense-in-depth, not crash).
+# Sets module-scope _CANON_RESOLVED=true when readlink/realpath ran successfully,
+# false when fell through to bare echo (used for audit field in _log_row).
+_CANON_RESOLVED=true
+canonicalize_path() {
+  local p="$1"
+  [[ -z "$p" ]] && { echo ""; return; }
+  if command -v readlink >/dev/null 2>&1; then
+    local result
+    result=$(readlink -f "$p" 2>/dev/null) \
+      || result=$(realpath "$p" 2>/dev/null) \
+      || { _CANON_RESOLVED=false; echo "$p"; return; }
+    echo "$result"
+  elif command -v realpath >/dev/null 2>&1; then
+    local result
+    result=$(realpath "$p" 2>/dev/null) \
+      || { _CANON_RESOLVED=false; echo "$p"; return; }
+    echo "$result"
+  else
+    _CANON_RESOLVED=false
+    echo "$p"
+  fi
+}
+
 PROJECT_DIR="$(_detect_root || true)"
 if [[ -z "$PROJECT_DIR" ]]; then
     # No .planning directory found -- not a GSD project, silently exit
@@ -61,6 +86,11 @@ CHECKPOINT="$PLANNING_DIR/ORCHESTRATOR-CHECKPOINT.md"
 LOG_DIR="$PLANNING_DIR/metrics"
 LOG_PATH="$LOG_DIR/handoff-log.jsonl"
 ABORT_FILE="$PLANNING_DIR/STOP-HANDOFF"
+
+# Canonicalize all handoff paths (SEC-01 symlink-attack hardening)
+LOG_PATH="$(canonicalize_path "$LOG_PATH")"
+CHECKPOINT="$(canonicalize_path "$CHECKPOINT")"
+ABORT_FILE="$(canonicalize_path "$ABORT_FILE")"
 
 # --- Read config (all optional; hard defaults apply if block absent) ---
 ENABLED="false"
@@ -91,7 +121,7 @@ _log_row() {
     from_session="pid-$$"
 
     mkdir -p "$LOG_DIR"
-    row="{\"ts\":\"$ts\",\"from_session_id\":\"$from_session\",\"to_session_id\":null,\"reason\":\"$reason\",\"chain_depth\":$chain_depth,\"checkpoint_path\":\"$CHECKPOINT\"${extra}}"
+    row="{\"ts\":\"$ts\",\"from_session_id\":\"$from_session\",\"to_session_id\":null,\"reason\":\"$reason\",\"chain_depth\":$chain_depth,\"checkpoint_path\":\"$CHECKPOINT\",\"canonical_path_resolved\":${_CANON_RESOLVED}${extra}}"
     echo "$row" >> "$LOG_PATH"
 }
 
