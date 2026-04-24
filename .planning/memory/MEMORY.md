@@ -33,6 +33,13 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 
 
 
+
+
+
+
+
+
+
 ## code/nodejs
 
 - ["brv-curate-local"](code/nodejs/brv-curate-local.md)
@@ -63,6 +70,7 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 
 - [Auto-accept Claude's recommendations in sequential Q&A unless scope-altering](workflow/feedback/feedback_auto_accept_recommendations.md) - Rip through discuss-phase / deliberation chains picking recommended unless choice changes WHAT ships (not HOW it's built)
 - [After Phase 16 ships, every research/planning/pattern/assumptions dispatch must consume VTP](workflow/feedback/feedback_vtp_enriched_dispatch.md) - Orchestrator writes VTP-EVIDENCE.md before agent dispatch; agents explicitly instructed to use their Phase-16 VTP tools with doc-ID citations. Silent bypass regresses the primitive.
+- [VTP search-tool routing by content layer](workflow/feedback/feedback_vtp_search_layer_routing.md) - Book/paper/transcript content → vtp_search_substrate (NOT wiki_search, which is scoped to people/projects/ideas/analyses only)
 - [When operator's message shows planning/figuring-out intent, invoke the sgsd-triage skill directly without gating on "want me to run /sgsd-triage?](workflow/feedback/feedback_auto_fire_triage.md) - When operator's message shows planning/figuring-out intent, invoke the sgsd-triage skill directly without gating on "want me to run /sgsd-triage?
 - [Use Node-in-Bash scripts (read+mutate+write, never print) to modify settings.json. 2026-04-21 incident exposed GEMINI_API_KEY + CONTEXT7_API_KEY when `head -6 ~/.claude/settings.json` dumped the env block that sits at the top of the file. Operator had to rotate both keys.](workflow/feedback/feedback_never_head_settings.md) - Use Node-in-Bash scripts (read+mutate+write, never print) to modify settings.json. 2026-04-21 incident exposed GEMINI_API_KEY + CONTEXT7_API_KEY when `head -6 ~/.claude/settings.json` dumped the env block that sits at the top of the file. Operator had to rotate both keys.
 - [Default to executing commands via powershell.exe -Command through the Bash tool; only hand paste-blocks for destructive / interactive-TTY / UAC / first-time-auth operations](workflow/feedback/feedback_run_commands_directly.md) - Default to executing commands via powershell.exe -Command through the Bash tool; only hand paste-blocks for destructive / interactive-TTY / UAC / first-time-auth operations
