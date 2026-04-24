@@ -109,6 +109,9 @@ if [[ -f "$CONFIG_FILE" ]]; then
 fi
 
 # --- Helper: append JSON row to handoff-log.jsonl ---
+# SEC-02: flock-guarded append to serialise concurrent Stop hook invocations.
+# Fallback chain: flock (preferred) → Node appendFileSync → unlocked echo+lock_fallback.
+# lock_fallback field only present in the row when the unlocked last-resort path fires.
 _log_row() {
     local reason="$1"
     local chain_depth="${2:-0}"
@@ -122,7 +125,32 @@ _log_row() {
 
     mkdir -p "$LOG_DIR"
     row="{\"ts\":\"$ts\",\"from_session_id\":\"$from_session\",\"to_session_id\":null,\"reason\":\"$reason\",\"chain_depth\":$chain_depth,\"checkpoint_path\":\"$CHECKPOINT\",\"canonical_path_resolved\":${_CANON_RESOLVED}${extra}}"
-    echo "$row" >> "$LOG_PATH"
+
+    # exec {var}>>file automatic fd allocation requires bash >= 4.1.
+    # Guard: fall through to Node/last-resort on older bash.
+    local bash_major bash_minor
+    bash_major="${BASH_VERSINFO[0]:-0}"
+    bash_minor="${BASH_VERSINFO[1]:-0}"
+
+    if (( bash_major > 4 || ( bash_major == 4 && bash_minor >= 1 ) )) && command -v flock >/dev/null 2>&1; then
+        # Preferred path: open fd, exclusive lock (5s max), write, unlock, close.
+        local LOG_FD
+        exec {LOG_FD}>>"$LOG_PATH"
+        flock -x -w 5 "$LOG_FD" 2>/dev/null || true
+        echo "$row" >&"$LOG_FD"
+        flock -u "$LOG_FD" 2>/dev/null || true
+        exec {LOG_FD}>&-
+    elif command -v node >/dev/null 2>&1; then
+        # Fallback: Node fs.appendFileSync — atomic for small writes on POSIX (O_APPEND).
+        # No lock_fallback field: Node path is considered safe for concurrent writes.
+        node -e "require('fs').appendFileSync(process.argv[1], process.argv[2]+String.fromCharCode(10))" \
+          "$LOG_PATH" "$row" 2>/dev/null \
+          || echo "$row" >> "$LOG_PATH"  # last-resort if Node call itself fails
+    else
+        # Last-resort unlocked append. Inject lock_fallback:true audit field into row.
+        local lock_fallback_row="${row%\}},\"lock_fallback\":true}"
+        echo "$lock_fallback_row" >> "$LOG_PATH"
+    fi
 }
 
 # --- PRE-CONDITION 1: enabled check ---
