@@ -16,7 +16,7 @@
  *   resolveReviewerProvider(gateName, gatesRegistry, yamlPaths)
  *     — bridge: resolves a gate's reviewer_provider field via gates-registry,
  *       falls back to config.default_provider, returns provider record or null
- *       if the gate is not reviewer-shaped (no reviewer_agent field).
+ *       if the gate is not reviewer-shaped (no reviewer_provider field).
  *   resetCache()                         — test-only: clear both caches
  *
  * js-yaml is loaded via the pinned install at
@@ -134,7 +134,7 @@ function loadReviewProvidersConfig(configPath = DEFAULT_CONFIG_PATH) {
  * Resolve the reviewer provider for a gate.
  *
  * 1. Look up the gate row via gatesRegistry.getGate(gateName).
- * 2. If the gate has no `reviewer_agent` field at all, return null
+ * 2. If the gate has no `reviewer_provider` field at all, return null
  *    (gate is not reviewer-shaped — e.g. process-hygiene gates).
  * 3. If the gate declares `reviewer_provider: <name>`, resolve that.
  * 4. Otherwise fall back to config.review_providers.default_provider.
@@ -149,13 +149,12 @@ function loadReviewProvidersConfig(configPath = DEFAULT_CONFIG_PATH) {
 function resolveReviewerProvider(gateName, gatesRegistry, opts = {}) {
   const gate = gatesRegistry.getGate(gateName, opts.gatesYamlPath);
   // Narrowed predicate: gate is reviewer-shaped only if it explicitly declares
-  // reviewer_provider. Fixes 14-ATC-REVIEW W-1 — haiku-agent gates have
-  // reviewer_agent !== undefined but are NOT code-reviewer-shaped.
+  // reviewer_provider. Fixes 14-ATC-REVIEW W-1 — haiku-agent gates lack
+  // reviewer_provider and are NOT code-reviewer-shaped.
   // VTP: AGP-P-08 — shape detection belongs to the registry, not the caller.
   if (!gate || !gate.reviewer_provider) return null;
 
-  const name = gate.reviewer_provider
-    || loadReviewProvidersConfig(opts.configPath).default_provider;
+  const name = gate.reviewer_provider;
   return getProvider(name, opts.yamlPath);
 }
 
