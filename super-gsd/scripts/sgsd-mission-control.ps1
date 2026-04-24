@@ -90,6 +90,15 @@ if (-not (Test-Path $__substrate)) {
 }
 . $__substrate
 
+$__codex = Join-Path $PSScriptRoot "lib\sgsd-codex-status.ps1"
+if (-not (Test-Path $__codex)) {
+    __sgsd_fail "MISSING LIB: sgsd-codex-status.ps1" @(
+        "Expected: $__codex",
+        "Reinstall: run sgsd-boot -Bootstrap or copy lib\ from super-gsd/scripts/"
+    )
+}
+. $__codex
+
 # ── ANSI escape codes ────────────────────────────────────────────────────────
 $ESC = [char]27
 $HOME_POS    = "$ESC[H"
@@ -501,6 +510,14 @@ function Get-RecentCommits {
         }
     } catch {}
     return @($out)
+}
+
+function Get-CodexCommitCount {
+    try {
+        $lines = Invoke-CachedGit $ProjectDir "oneline-12" @("log", "--oneline", "-12")
+        return @($lines | Where-Object { $_ -match 'CODEX-|codex' }).Count
+    } catch {}
+    return 0
 }
 
 # ── Parsers ──────────────────────────────────────────────────────────────────
@@ -1157,6 +1174,37 @@ function Render {
     if ($v2Sparkline) {
         Write-Host "  tok " -NoNewline -ForegroundColor DarkGray
         Write-Host $v2Sparkline -NoNewline -ForegroundColor Cyan
+    }
+    Write-Host $CLEAR_LINE
+
+    $codex = Get-SgsdCodexStatus -ProjectDir $ProjectDir -PlanningDir $PlanningDir
+    Write-Host "CODEX" -NoNewline -ForegroundColor White
+    Write-Host ": " -NoNewline -ForegroundColor DarkGray
+    Write-Host (Get-SgsdCodexStatusLine -Status $codex) -NoNewline -ForegroundColor $codex.stateColor
+    Write-Host $CLEAR_LINE
+    Write-Host "      " -NoNewline
+    Write-Host "mdl " -NoNewline -ForegroundColor DarkGray
+    Write-Host "$($codex.model)" -NoNewline -ForegroundColor Yellow
+    Write-Host "  git " -NoNewline -ForegroundColor DarkGray
+    Write-Host "$(Get-CodexCommitCount)" -NoNewline -ForegroundColor Magenta
+    Write-Host "  runs " -NoNewline -ForegroundColor DarkGray
+    Write-Host "$($codex.totalRuns)" -NoNewline -ForegroundColor White
+    Write-Host " ok/" -NoNewline -ForegroundColor DarkGray
+    Write-Host "$($codex.okRuns)" -NoNewline -ForegroundColor Green
+    Write-Host " fail/" -NoNewline -ForegroundColor DarkGray
+    Write-Host "$($codex.failedRuns)" -NoNewline -ForegroundColor Red
+    if ($codex.claudeTokensSaved -gt 0) {
+        Write-Host "  offload " -NoNewline -ForegroundColor DarkGray
+        Write-Host "$([math]::Round($codex.claudeTokensSaved/1000))k" -NoNewline -ForegroundColor Cyan
+    } else {
+        Write-Host "  offload " -NoNewline -ForegroundColor DarkGray
+        Write-Host "n/a" -NoNewline -ForegroundColor DarkGray
+    }
+    if ($codex.totalRuns -gt 0) {
+        Write-Host "  io " -NoNewline -ForegroundColor DarkGray
+        Write-Host "$($codex.totalPromptBytes)B" -NoNewline -ForegroundColor Gray
+        Write-Host "/" -NoNewline -ForegroundColor DarkGray
+        Write-Host "$($codex.totalReportBytes)B" -NoNewline -ForegroundColor Gray
     }
     Write-Host $CLEAR_LINE
 

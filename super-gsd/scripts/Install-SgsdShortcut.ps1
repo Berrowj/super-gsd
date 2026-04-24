@@ -166,6 +166,26 @@ function sgsd {
 
     & powershell.exe @args
 }
+
+function sgsd-refresh {
+    [CmdletBinding()]
+    param(
+        [string]`$ProjectDir = `$null,
+        [switch]`$SkipPreflight
+    )
+
+    sgsd -ProjectDir `$ProjectDir -SkipPreflight:`$SkipPreflight
+}
+
+function SGSD-Cockpit {
+    [CmdletBinding()]
+    param(
+        [string]`$ProjectDir = `$null,
+        [switch]`$SkipPreflight
+    )
+
+    sgsd -ProjectDir `$ProjectDir -SkipPreflight:`$SkipPreflight
+}
 $EndMarker
 "@
 
@@ -216,6 +236,10 @@ Write-Host ""
 Write-Host "Or open a new PowerShell window, then run:"
 Write-Host "  sgsd          " -NoNewline -ForegroundColor Cyan
 Write-Host "(boot cockpit)"
+Write-Host "  sgsd-refresh  " -NoNewline -ForegroundColor Cyan
+Write-Host "(refresh cockpit)"
+Write-Host "  SGSD-Cockpit  " -NoNewline -ForegroundColor Cyan
+Write-Host "(boot cockpit shortcut)"
 Write-Host "  sgsd -NoOpen  " -NoNewline -ForegroundColor Cyan
 Write-Host "(preflight only)"
 Write-Host "  sgsd -Help    " -NoNewline -ForegroundColor Cyan

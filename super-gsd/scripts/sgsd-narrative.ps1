@@ -28,6 +28,7 @@ $ErrorActionPreference = "SilentlyContinue"
 
 # DLB-04 substrate status helper (registry + SEPL + distillation + gate 3).
 . (Join-Path $PSScriptRoot "lib\sgsd-substrate-status.ps1")
+. (Join-Path $PSScriptRoot "lib\sgsd-codex-status.ps1")
 
 try {
     $ProjectDir = (Resolve-Path $ProjectDir -ErrorAction Stop).Path
@@ -217,7 +218,13 @@ function Summarize-ToolInput($tool, $inp) {
         "Read"     { if ($inp.file_path)  { $s = Split-Path $inp.file_path -Leaf } }
         "Write"    { if ($inp.file_path)  { $s = (Split-Path $inp.file_path -Leaf) + " (" + ("$($inp.content)".Length) + " chars)" } }
         "Edit"     { if ($inp.file_path)  { $s = Split-Path $inp.file_path -Leaf } }
-        "Bash"     { if ($inp.command)    { $s = "$($inp.command)" } }
+        "Bash"     {
+            if ($inp.command) {
+                $cmd = "$($inp.command)"
+                if ($cmd -match 'codex-exec\.sh|codex exec') { $s = "CODEX $cmd" }
+                else { $s = $cmd }
+            }
+        }
         "Grep"     { if ($inp.pattern)    { $s = "/$($inp.pattern)/" } }
         "Glob"     { if ($inp.pattern)    { $s = $inp.pattern } }
         "Agent"    {
@@ -238,6 +245,7 @@ function Summarize-ToolInput($tool, $inp) {
 
 function Get-ToolColor($tool) {
     switch ($tool) {
+        "Codex"      { return "DarkYellow" }
         "Read"       { return "Cyan" }
         "Write"      { return "Green" }
         "Edit"       { return "Green" }
@@ -283,6 +291,7 @@ function Render-Header {
 
 function Render-HaikuSummary {
     param($pw)
+    $codex = Get-SgsdCodexStatus -ProjectDir $ProjectDir -PlanningDir $PlanningDir
     Write-Host "> " -NoNewline -ForegroundColor Magenta
     Write-Host "CURRENT STATUS " -NoNewline -ForegroundColor White
     if (Test-Path $NarrativeCache) {
@@ -299,6 +308,11 @@ function Render-HaikuSummary {
         Write-Host "(will populate on next Haiku refresh)$CLEAR_LINE" -ForegroundColor DarkGray
         return
     }
+    Write-Host "> " -NoNewline -ForegroundColor Cyan
+    Write-Host "CODEX " -NoNewline -ForegroundColor White
+    Write-Host (Get-SgsdCodexStatusLine -Status $codex) -NoNewline -ForegroundColor $codex.stateColor
+    Write-Host $CLEAR_LINE
+    Write-Host $CLEAR_LINE
     $text = Get-Content $NarrativeCache -Raw -ErrorAction SilentlyContinue
     if (-not $text) {
         Write-Host "(empty)$CLEAR_LINE" -ForegroundColor DarkGray
@@ -377,14 +391,14 @@ function Render-CtrlOStream {
     $sessionFiles = Get-ActiveSessionJsonl
     Write-Host "CTRL+O LIVE TOOL STREAM " -NoNewline -ForegroundColor White
     if ($sessionFiles.Count -eq 0) {
-        Write-Host "(no session file found)$CLEAR_LINE" -ForegroundColor DarkGray
-        return
+        Write-Host "(claude session missing; codex lane only)$CLEAR_LINE" -ForegroundColor DarkGray
+    } else {
+        Write-Host "(" -NoNewline -ForegroundColor DarkGray
+        $names = ($sessionFiles | ForEach-Object { $_.Name.Substring(0, 6) }) -join ","
+        Write-Host $names -NoNewline -ForegroundColor Cyan
+        Write-Host ")" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
     }
-    Write-Host "(" -NoNewline -ForegroundColor DarkGray
-    $names = ($sessionFiles | ForEach-Object { $_.Name.Substring(0, 6) }) -join ","
-    Write-Host $names -NoNewline -ForegroundColor Cyan
-    Write-Host ")" -NoNewline -ForegroundColor DarkGray
-    Write-Host $CLEAR_LINE
 
     # Aggregate tools across all recent session files, dedupe by ts+tool+summary
     $allTools = @()
@@ -400,11 +414,20 @@ function Render-CtrlOStream {
         $seen[$key] = $true
         $tools += $t
     }
+    $codexRows = @(Get-SgsdCodexTimelineRows -ProjectDir $ProjectDir -PlanningDir $PlanningDir -MaxRows $maxRows)
+    foreach ($row in $codexRows) {
+        $tools += @{
+            ts     = $row.ts
+            tool   = $row.tool
+            inp    = [pscustomobject]@{ summary = $row.summary }
+            result = $null
+        }
+    }
     # Sort by timestamp ascending (oldest first), so Render reverses to newest-on-top
     $tools = @($tools | Sort-Object { if ($_.ts) { $_.ts } else { [DateTime]::MinValue } })
 
     if ($tools.Count -eq 0) {
-        Write-Host "(no tool calls in last 80 entries of $($sessionFiles.Count) session(s))$CLEAR_LINE" -ForegroundColor DarkGray
+        Write-Host "(no recent claude or codex activity)$CLEAR_LINE" -ForegroundColor DarkGray
         return
     }
     # Newest first, show up to maxRows
@@ -416,9 +439,13 @@ function Render-CtrlOStream {
         $tsStr = if ($t.ts) { $t.ts.ToString("HH:mm:ss") } else { "--:--:--" }
         $toolPad = "$($t.tool)".PadRight(10)
         $color = Get-ToolColor $t.tool
-        $summary = Summarize-ToolInput $t.tool $t.inp
-        $summary = Trunc ($summary -replace '\s+', ' ') ($pw - 22)
+        $origin = if ($t.tool -eq "Codex") { "CODEX>" } else { "CLAUDE>" }
+        $originColor = if ($t.tool -eq "Codex") { "DarkYellow" } else { "DarkGray" }
+        $summary = if ($t.tool -eq "Codex" -and $t.inp.summary) { "$($t.inp.summary)" } else { Summarize-ToolInput $t.tool $t.inp }
+        $summary = Trunc ($summary -replace '\s+', ' ') ($pw - 30)
         Write-Host $tsStr -NoNewline -ForegroundColor DarkGray
+        Write-Host " " -NoNewline
+        Write-Host $origin.PadRight(8) -NoNewline -ForegroundColor $originColor
         Write-Host " " -NoNewline
         Write-Host $toolPad -NoNewline -ForegroundColor $color
         Write-Host " " -NoNewline

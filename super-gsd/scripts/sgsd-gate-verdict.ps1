@@ -636,6 +636,181 @@ function Get-PhaseTimeline($phaseNum) {
     return @($events)
 }
 
+function Get-PhaseAuditAgents($phaseNum, $maxAgeSec = 3600) {
+    $log = Join-Path $PlanningDir "metrics\activity-log.jsonl"
+    if (-not (Test-Path $log)) { return @() }
+    $now = Get-Date
+    $agents = [ordered]@{}
+    foreach ($e in (Get-SharedActivityEntries -Path $log -Tail 250)) {
+        try {
+            if ("$($e.phase)" -ne "$phaseNum") { continue }
+            if ($e.tool -ne "Agent" -and $e.tool -ne "TaskCreate") { continue }
+            $ts = [DateTime]::Parse($e.ts)
+            $age = [int]($now - $ts).TotalSeconds
+            if ($age -gt $maxAgeSec) { continue }
+            $name = if ($e.subagent_type) { "$($e.subagent_type)" } else { "$($e.target)" }
+            if ($name -match '^([a-zA-Z][\w-]+)') { $name = $matches[1] }
+            if (-not $name) { continue }
+            if (-not $agents.Contains($name) -or $agents[$name].ts -lt $ts) {
+                $agents[$name] = [pscustomobject]@{
+                    name = $name
+                    ts = $ts
+                    ageSec = $age
+                    detail = "$($e.target)"
+                }
+            }
+        } catch {}
+    }
+    foreach ($a in $agents.Values) {
+        if ($a.ageSec -lt 300) { $a | Add-Member -NotePropertyName status -NotePropertyValue "ACTIVE" }
+        elseif ($a.ageSec -lt 900) { $a | Add-Member -NotePropertyName status -NotePropertyValue "IDLE" }
+        else { $a | Add-Member -NotePropertyName status -NotePropertyValue "RECENT" }
+    }
+    return @($agents.Values | Sort-Object ageSec | Select-Object -First 4)
+}
+
+function Get-PhaseToolAudit($phaseNum, $maxEvents = 6) {
+    $log = Join-Path $PlanningDir "metrics\activity-log.jsonl"
+    if (-not (Test-Path $log)) { return @() }
+    $events = @()
+    foreach ($e in (Get-SharedActivityEntries -Path $log -Tail 250)) {
+        try {
+            if ("$($e.phase)" -ne "$phaseNum") { continue }
+            if (@("Bash","Read","Write","Edit","Agent","TaskCreate","TaskUpdate") -notcontains "$($e.tool)") { continue }
+            $ts = [DateTime]::Parse($e.ts)
+            $label = if ($e.provider -eq "codex") { "CODEX" }
+                     elseif ($e.command_kind) { "$($e.command_kind)".ToUpper() }
+                     else { "$($e.tool)".ToUpper() }
+            $events += [pscustomobject]@{
+                ts = $ts
+                label = $label
+                detail = "$($e.target)"
+            }
+        } catch {}
+    }
+    return @($events | Sort-Object ts -Descending | Select-Object -First $maxEvents)
+}
+
+function Get-GateReviewerProvider($content, $gateName) {
+    if (-not $content) { return $null }
+    $pattern = "(?ms)- name:\s*$([regex]::Escape($gateName))\b(.*?)(?=^\s*-\s+name:|\z)"
+    $m = [regex]::Match($content, $pattern)
+    if (-not $m.Success) { return $null }
+    $p = [regex]::Match($m.Groups[1].Value, 'reviewer_provider:\s*([^\s]+)')
+    if ($p.Success) { return $p.Groups[1].Value.Trim() }
+    return $null
+}
+
+function Get-CodexAuditStatus {
+    $cfgPath = Join-Path $PlanningDir "config.json"
+    $gatesPath = Join-Path $ProjectDir "super-gsd\registry\gates.yaml"
+    $livePath = Join-Path $PlanningDir "metrics\codex-live.json"
+    $logPath = Join-Path $PlanningDir "metrics\codex-log.jsonl"
+
+    $out = [ordered]@{
+        enabled = $false
+        defaultProvider = "claude-sonnet-reviewer"
+        fallbackOnError = $true
+        phaseAtcProvider = $null
+        perDispatchProvider = $null
+        state = "not-fired"
+        stateColor = "DarkGray"
+        phase = ""
+        plan = ""
+        step = ""
+        toolbox = "bash -> codex exec"
+        commandPreview = ""
+        promptBytes = 0
+        reportBytes = 0
+        durationMs = 0
+        exit = $null
+        updatedAgeSec = $null
+        reportOut = ""
+        oneLiner = ""
+        stderrPreview = ""
+    }
+
+    if (Test-Path $cfgPath) {
+        try {
+            $cfg = Get-Content $cfgPath -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json -ErrorAction Stop
+            if ($cfg.review_providers) {
+                $out.enabled = [bool]$cfg.review_providers.codex_enabled
+                if ($cfg.review_providers.default_provider) { $out.defaultProvider = "$($cfg.review_providers.default_provider)" }
+                if ($null -ne $cfg.review_providers.fallback_on_error) { $out.fallbackOnError = [bool]$cfg.review_providers.fallback_on_error }
+            }
+        } catch {}
+    }
+
+    if (Test-Path $gatesPath) {
+        try {
+            $gatesRaw = Get-Content $gatesPath -Raw -ErrorAction SilentlyContinue
+            $out.phaseAtcProvider = Get-GateReviewerProvider $gatesRaw "phase-level-ATC"
+            $out.perDispatchProvider = Get-GateReviewerProvider $gatesRaw "per-dispatch-ATC"
+        } catch {}
+    }
+
+    $live = $null
+    if (Test-Path $livePath) {
+        try { $live = Get-Content $livePath -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json -ErrorAction Stop } catch {}
+    }
+    if ($live) {
+        $out.state = "$($live.state)"
+        $out.phase = "$($live.phase)"
+        $out.plan = "$($live.plan)"
+        $out.step = "$($live.step)"
+        $out.toolbox = if ($live.toolbox) { "$($live.toolbox)" } else { $out.toolbox }
+        $out.commandPreview = "$($live.command_preview)"
+        $out.promptBytes = [int]($live.prompt_bytes)
+        $out.reportBytes = [int]($live.report_bytes)
+        $out.durationMs = [int]($live.duration_ms)
+        $out.exit = $live.exit
+        $out.reportOut = "$($live.report_out)"
+        $out.stderrPreview = "$($live.stderr_preview)"
+        try {
+            $updated = [DateTime]::Parse($live.updated_at)
+            $out.updatedAgeSec = [int]((Get-Date) - $updated).TotalSeconds
+        } catch {}
+    }
+
+    if (Test-Path $logPath) {
+        try {
+            $last = Get-Content $logPath -Tail 1 -ErrorAction SilentlyContinue
+            if ($last) {
+                $row = $last | ConvertFrom-Json -ErrorAction Stop
+                if (-not $live) {
+                    $out.phase = "$($row.phase)"
+                    $out.plan = "$($row.plan)"
+                    $out.step = "$($row.step)"
+                    $out.durationMs = [int]($row.duration_ms)
+                    $out.promptBytes = [int]($row.prompt_bytes)
+                    $out.reportBytes = [int]($row.report_bytes)
+                    $out.exit = $row.exit
+                    $out.state = if ($row.exit -eq 0) { "ok" } elseif ($row.exit -eq 5) { "timeout" } else { "error" }
+                }
+            }
+        } catch {}
+    }
+
+    if ($out.reportOut -and (Test-Path $out.reportOut)) {
+        try {
+            foreach ($line in (Get-Content $out.reportOut -ErrorAction SilentlyContinue)) {
+                if ($line -match '^ONE_LINER:\s*(.+)$') { $out.oneLiner = $matches[1].Trim(); break }
+            }
+        } catch {}
+    }
+
+    $out.stateColor = switch -Regex ($out.state) {
+        '^running$' { "Yellow" }
+        '^(ok|success)$' { "Green" }
+        '^(timeout|error|auth-denied|contract-violation)$' { "Red" }
+        default {
+            if (-not $out.enabled) { "DarkYellow" } else { "DarkGray" }
+        }
+    }
+
+    return [pscustomobject]$out
+}
+
 # Find the most recently completed phase (lower number than current) that has gate reports
 function Get-LastPhaseGates {
     $phasesDir = Join-Path $PlanningDir "phases"
@@ -941,6 +1116,110 @@ function Render {
             Write-Host " $desc" -NoNewline -ForegroundColor Gray
             Write-Host $CLEAR_LINE
         }
+    }
+
+    $agentAudit = Get-PhaseAuditAgents $phaseNum
+    $toolAudit = Get-PhaseToolAudit $phaseNum
+    $codexAudit = Get-CodexAuditStatus
+
+    Write-Host $CLEAR_LINE
+    Write-Host "AGENT AUDIT " -NoNewline -ForegroundColor White
+    Write-Host "P$phaseNum" -NoNewline -ForegroundColor Yellow
+    Write-Host " (" -NoNewline -ForegroundColor DarkGray
+    Write-Host "$(@($agentAudit | Where-Object { $_.status -eq 'ACTIVE' }).Count) active" -NoNewline -ForegroundColor Green
+    Write-Host " / " -NoNewline -ForegroundColor DarkGray
+    Write-Host "$(@($agentAudit | Where-Object { $_.status -eq 'IDLE' }).Count) idle" -NoNewline -ForegroundColor Yellow
+    Write-Host " / " -NoNewline -ForegroundColor DarkGray
+    Write-Host "$(@($agentAudit | Where-Object { $_.status -eq 'RECENT' }).Count) recent" -NoNewline -ForegroundColor Cyan
+    Write-Host ")" -NoNewline -ForegroundColor DarkGray
+    Write-Host $CLEAR_LINE
+    if ($agentAudit.Count -eq 0) {
+        Write-Host "  no dispatched agents recorded for this phase yet" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+    } else {
+        foreach ($ag in @($agentAudit | Select-Object -First 4)) {
+            $agColor = switch ($ag.status) { "ACTIVE" { "Green" } "IDLE" { "Yellow" } default { "Cyan" } }
+            $detail = Trunc $ag.detail ($pw - 26)
+            Write-Host "  " -NoNewline
+            Write-Host $ag.status.PadRight(6) -NoNewline -ForegroundColor $agColor
+            Write-Host " " -NoNewline
+            Write-Host $ag.name.PadRight(18) -NoNewline -ForegroundColor Magenta
+            Write-Host $detail -NoNewline -ForegroundColor Gray
+            Write-Host $CLEAR_LINE
+        }
+    }
+
+    Write-Host "TOOL STREAM" -NoNewline -ForegroundColor White
+    Write-Host " (latest)" -NoNewline -ForegroundColor DarkGray
+    Write-Host $CLEAR_LINE
+    if ($toolAudit.Count -eq 0) {
+        Write-Host "  no tool activity yet" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+    } else {
+        foreach ($ev in @($toolAudit | Select-Object -First 5)) {
+            $detail = Trunc $ev.detail ($pw - 22)
+            $lblColor = if ($ev.label -eq "CODEX") { "Cyan" } else { "DarkGray" }
+            Write-Host "  $($ev.ts.ToString('HH:mm:ss')) " -NoNewline -ForegroundColor DarkGray
+            Write-Host $ev.label.PadRight(8) -NoNewline -ForegroundColor $lblColor
+            Write-Host $detail -NoNewline -ForegroundColor Gray
+            Write-Host $CLEAR_LINE
+        }
+    }
+
+    Write-Host "CODEX LANE " -NoNewline -ForegroundColor White
+    Write-Host $codexAudit.state.ToUpper() -NoNewline -ForegroundColor $codexAudit.stateColor
+    if ($codexAudit.updatedAgeSec -ne $null) {
+        Write-Host "  " -NoNewline -ForegroundColor DarkGray
+        Write-Host (Format-Age $codexAudit.updatedAgeSec) -NoNewline -ForegroundColor DarkGray
+        Write-Host " ago" -NoNewline -ForegroundColor DarkGray
+    }
+    Write-Host $CLEAR_LINE
+    Write-Host "  cfg: " -NoNewline -ForegroundColor DarkGray
+    if ($codexAudit.enabled) { Write-Host "enabled" -NoNewline -ForegroundColor Green }
+    else { Write-Host "dark-launch" -NoNewline -ForegroundColor Yellow }
+    Write-Host " / default " -NoNewline -ForegroundColor DarkGray
+    Write-Host $codexAudit.defaultProvider -NoNewline -ForegroundColor Gray
+    Write-Host " / fallback " -NoNewline -ForegroundColor DarkGray
+    Write-Host ($(if ($codexAudit.fallbackOnError) { "on" } else { "off" })) -NoNewline -ForegroundColor Gray
+    Write-Host $CLEAR_LINE
+    Write-Host "  gates: 6.5=" -NoNewline -ForegroundColor DarkGray
+    Write-Host ($(if ($codexAudit.phaseAtcProvider) { $codexAudit.phaseAtcProvider } else { "--" })) -NoNewline -ForegroundColor Gray
+    Write-Host " / 9.5=" -NoNewline -ForegroundColor DarkGray
+    Write-Host ($(if ($codexAudit.perDispatchProvider) { $codexAudit.perDispatchProvider } else { "--" })) -NoNewline -ForegroundColor Gray
+    Write-Host $CLEAR_LINE
+    if ($codexAudit.phase -or $codexAudit.plan -or $codexAudit.step) {
+        Write-Host "  scope: " -NoNewline -ForegroundColor DarkGray
+        $scopeParts = @($codexAudit.phase, $codexAudit.plan, $codexAudit.step) | Where-Object { $_ -and "$_".Trim() -ne "" }
+        $scopeText = ($scopeParts -join " / ")
+        Write-Host (Trunc $scopeText ($pw - 11)) -NoNewline -ForegroundColor Cyan
+        Write-Host $CLEAR_LINE
+    }
+    if ($codexAudit.commandPreview) {
+        Write-Host "  bash: " -NoNewline -ForegroundColor DarkGray
+        Write-Host (Trunc $codexAudit.commandPreview ($pw - 10)) -NoNewline -ForegroundColor Gray
+        Write-Host $CLEAR_LINE
+    }
+    Write-Host "  io: " -NoNewline -ForegroundColor DarkGray
+    Write-Host "$($codexAudit.promptBytes)B in" -NoNewline -ForegroundColor Cyan
+    Write-Host " -> " -NoNewline -ForegroundColor DarkGray
+    Write-Host "$($codexAudit.reportBytes)B out" -NoNewline -ForegroundColor Cyan
+    if ($codexAudit.durationMs -gt 0) {
+        Write-Host " / " -NoNewline -ForegroundColor DarkGray
+        Write-Host "$($codexAudit.durationMs)ms" -NoNewline -ForegroundColor Cyan
+    }
+    if ($null -ne $codexAudit.exit) {
+        Write-Host " / exit " -NoNewline -ForegroundColor DarkGray
+        Write-Host "$($codexAudit.exit)" -NoNewline -ForegroundColor $(if ($codexAudit.exit -eq 0) { "Green" } else { "Red" })
+    }
+    Write-Host $CLEAR_LINE
+    if ($codexAudit.oneLiner) {
+        Write-Host "  verdict: " -NoNewline -ForegroundColor DarkGray
+        Write-Host (Trunc $codexAudit.oneLiner ($pw - 13)) -NoNewline -ForegroundColor Gray
+        Write-Host $CLEAR_LINE
+    } elseif ($codexAudit.stderrPreview) {
+        Write-Host "  stderr: " -NoNewline -ForegroundColor DarkGray
+        Write-Host (Trunc $codexAudit.stderrPreview ($pw - 12)) -NoNewline -ForegroundColor Red
+        Write-Host $CLEAR_LINE
     }
 
     # Last phase gate summary — reference point so Jack knows what "good" looks like

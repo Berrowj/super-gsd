@@ -72,6 +72,98 @@ function Banner {
     Write-Host ""
 }
 
+if (-not ("Sgsd.NativeWindow" -as [type])) {
+    Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public static class SgsdNativeWindow {
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
+
+    [DllImport("user32.dll")]
+    public static extern int GetWindowTextLength(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [DllImport("user32.dll")]
+    public static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+}
+"@
+}
+
+function Stop-CockpitWindows {
+    $patterns = @(
+        'SGSD-Cockpit',
+        'SGSD3-Codex',
+        'Mission Control',
+        'Narrative + Ctrl\+O',
+        'SUPER GSD'
+    )
+    $targets = New-Object System.Collections.Generic.List[object]
+
+    [SgsdNativeWindow]::EnumWindows({
+        param($hWnd, $lParam)
+
+        if (-not [SgsdNativeWindow]::IsWindowVisible($hWnd)) { return $true }
+        $len = [SgsdNativeWindow]::GetWindowTextLength($hWnd)
+        if ($len -le 0) { return $true }
+
+        $sb = New-Object System.Text.StringBuilder ($len + 1)
+        [void][SgsdNativeWindow]::GetWindowText($hWnd, $sb, $sb.Capacity)
+        $title = $sb.ToString()
+        if ([string]::IsNullOrWhiteSpace($title)) { return $true }
+
+        $windowPid = 0
+        [void][SgsdNativeWindow]::GetWindowThreadProcessId($hWnd, [ref]$windowPid)
+        foreach ($pattern in $patterns) {
+            if ($title -match $pattern) {
+                $targets.Add([pscustomobject]@{
+                    Handle = $hWnd
+                    Title  = $title
+                    Pid    = $windowPid
+                })
+                break
+            }
+        }
+
+        return $true
+    }, [IntPtr]::Zero) | Out-Null
+
+    if ($targets.Count -eq 0) { return 0 }
+
+    foreach ($target in $targets) {
+        [void][SgsdNativeWindow]::PostMessage($target.Handle, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
+    }
+
+    Start-Sleep -Milliseconds 600
+
+    foreach ($target in $targets) {
+        try {
+            $proc = Get-Process -Id $target.Pid -ErrorAction SilentlyContinue
+            if ($proc -and -not $proc.HasExited) {
+                $matchingWindow = Get-Process -Id $target.Pid -ErrorAction SilentlyContinue |
+                    Where-Object { $_.MainWindowTitle -eq $target.Title }
+                if ($matchingWindow) {
+                    Stop-Process -Id $target.Pid -Force -ErrorAction SilentlyContinue
+                }
+            }
+        } catch { }
+    }
+
+    return $targets.Count
+}
+
 Banner
 
 # ----------------------------------------------------------------------------
@@ -420,7 +512,7 @@ if ($NoOpen) {
     Write-Host "Start manually with:"
     Write-Host "  powershell -File super-gsd/scripts/sgsd-mission-control.ps1 -ProjectDir '$ProjectDir'"
     Write-Host "  powershell -File super-gsd/scripts/sgsd-narrative.ps1       -ProjectDir '$ProjectDir'"
-    Write-Host "  powershell -File super-gsd/scripts/sgsd-gate-verdict.ps1    -ProjectDir '$ProjectDir'"
+    Write-Host "  powershell -File super-gsd/scripts/sgsd-codex-monitor.ps1   -ProjectDir '$ProjectDir'"
     exit 0
 }
 
@@ -429,7 +521,7 @@ Write-Host "------"
 
 $sgsd1 = Join-Path $ScriptsDir "sgsd-mission-control.ps1"
 $sgsd2 = Join-Path $ScriptsDir "sgsd-narrative.ps1"
-$sgsd3 = Join-Path $ScriptsDir "sgsd-gate-verdict.ps1"
+$sgsd3 = Join-Path $ScriptsDir "sgsd-codex-monitor.ps1"
 
 foreach ($script in @($sgsd1, $sgsd2, $sgsd3)) {
     if (-not (Test-Path $script)) {
@@ -441,9 +533,14 @@ foreach ($script in @($sgsd1, $sgsd2, $sgsd3)) {
 $wt = Get-Command wt.exe -ErrorAction SilentlyContinue
 
 if ($wt) {
+    $closed = Stop-CockpitWindows
+    if ($closed -gt 0) {
+        Write-Step "closed existing cockpit window(s) ($closed)" "OK" Yellow
+    }
+
     # Windows Terminal — one tab in the MRU window, three panes laid out as:
     #   left-top:    SGSD1 (Mission Control)
-    #   left-bot:    SGSD3 (Gate Verdict)
+    #   left-bot:    SGSD3 (Codex Monitor)
     #   right-full:  SGSD2 (Narrative) — full vertical height
     #
     # Build order in wt.exe:
@@ -458,7 +555,7 @@ if ($wt) {
         ";", "split-pane", "-V", "--title", "SGSD2",
         $psCmd, "-NoExit", "-NoProfile", "-File", $sgsd2, "-ProjectDir", $ProjectDir,
         ";", "move-focus", "left",
-        ";", "split-pane", "-H", "--title", "SGSD3",
+        ";", "split-pane", "-H", "--title", "SGSD3-Codex",
         $psCmd, "-NoExit", "-NoProfile", "-File", $sgsd3, "-ProjectDir", $ProjectDir
     )
 
@@ -490,6 +587,10 @@ if ($wt) {
 } else {
     # Fallback - three separate PowerShell windows
     Write-Step "Windows Terminal not found - using separate PowerShell windows" "WARN" Yellow
+    $closed = Stop-CockpitWindows
+    if ($closed -gt 0) {
+        Write-Step "closed existing cockpit window(s) ($closed)" "OK" Yellow
+    }
 
     Start-Process powershell.exe -ArgumentList "-NoExit", "-NoProfile", "-File", $sgsd1, "-ProjectDir", $ProjectDir
     Start-Sleep -Milliseconds 300

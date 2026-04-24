@@ -46,6 +46,29 @@ function truncate(s, max = 100) {
   return s.length > max ? s.substring(0, max) + '…' : s;
 }
 
+function detectCommandKind(command) {
+  const c = String(command || '').toLowerCase();
+  if (!c) return null;
+  const wrapperInvoked =
+    /(^(?:bash\s+)?[^;&|]*codex-exec\.sh(\s|$)|[;&|(]\s*(?:bash\s+)?[^;&|]*codex-exec\.sh(\s|$))/.test(c) &&
+    c.includes('--prompt-file') &&
+    c.includes('--report-out');
+  if (wrapperInvoked) return 'codex-wrapper';
+  if (/(^|[;&|(]\s*)codex\s+exec(\s|$)/.test(c)) return 'codex-cli';
+  if (/\bpytest\b|\bjest\b|\bvitest\b|\bcargo test\b|\bgo test\b|\bnpm test\b/.test(c)) return 'test';
+  if (/\bgit\b/.test(c)) return 'git';
+  if (/\bnode\b/.test(c)) return 'node';
+  if (/\bnpm\b|\bpnpm\b|\byarn\b|\bbun\b/.test(c)) return 'package';
+  if (/\bbash\b/.test(c)) return 'bash';
+  return 'shell';
+}
+
+function extractFlag(command, flag) {
+  const rx = new RegExp(`${flag}\\s+(?:"([^"]+)"|'([^']+)'|(\\S+))`);
+  const m = String(command || '').match(rx);
+  return m ? (m[1] || m[2] || m[3] || '') : '';
+}
+
 // Claude Code sends hook data as JSON on stdin
 let stdinBuf = '';
 const stdinTimeout = setTimeout(() => process.exit(0), 2000);
@@ -76,6 +99,8 @@ try {
 
   const toolName = payload.tool_name || 'unknown';
   const toolInput = payload.tool_input || {};
+  const command = toolName === 'Bash' ? String(toolInput.command || '') : '';
+  const commandKind = toolName === 'Bash' ? detectCommandKind(command) : null;
 
   // Extract a meaningful "target" — what the tool is doing
   let target = '';
@@ -119,7 +144,7 @@ try {
   let phase = '';
   try {
     const stateContent = fs.readFileSync(path.join(root, '.planning', 'STATE.md'), 'utf8');
-    const match = stateContent.match(/current_phase:\s*(\S+)/);
+    const match = stateContent.match(/(?:current_phase|phase):\s*(\S+)/);
     if (match) phase = match[1];
   } catch {}
 
@@ -128,7 +153,15 @@ try {
     ts: new Date().toISOString(),
     tool: toolName,
     target: truncate(target, 120),
-    phase: phase || null
+    phase: phase || null,
+    subagent_type: toolName === 'Agent' ? (toolInput.subagent_type || null) : null,
+    command_kind: commandKind,
+    provider: commandKind === 'codex-wrapper' || commandKind === 'codex-cli' ? 'codex' : null,
+    prompt_file: commandKind === 'codex-wrapper' ? extractFlag(command, '--prompt-file') || null : null,
+    report_out: commandKind === 'codex-wrapper' ? extractFlag(command, '--report-out') || null : null,
+    review_step: commandKind === 'codex-wrapper' ? extractFlag(command, '--step') || null : null,
+    review_plan: commandKind === 'codex-wrapper' ? extractFlag(command, '--plan') || null : null,
+    command_preview: command ? truncate(command, 160) : null
   };
 
   fs.appendFileSync(logPath, JSON.stringify(entry) + '\n');

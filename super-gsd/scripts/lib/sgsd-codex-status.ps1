@@ -228,8 +228,10 @@ function Get-SgsdCodexEvents {
         foreach ($line in $lines) {
             try {
                 $e = $line | ConvertFrom-Json -ErrorAction Stop
-                if ($PhaseNum -and "$($e.phase)" -ne "$PhaseNum") { continue }
-                $isCodex = ($e.provider -eq "codex") -or ("$($e.command_kind)" -match '^codex-')
+                if ($PhaseNum -and $e.phase -and "$($e.phase)" -ne "$PhaseNum") { continue }
+                $isRealWrapper = ("$($e.command_kind)" -eq "codex-wrapper") -and $e.prompt_file -and $e.report_out
+                $isRealCli = ("$($e.command_kind)" -eq "codex-cli")
+                $isCodex = ($e.provider -eq "codex" -and ($isRealWrapper -or $isRealCli)) -or $isRealCli
                 if (-not $isCodex) { continue }
                 $ts = [DateTime]::Parse($e.ts)
                 $entries += [pscustomobject]@{
