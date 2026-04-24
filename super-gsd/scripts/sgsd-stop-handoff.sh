@@ -97,8 +97,12 @@ CHECKPOINT="$(canonicalize_path "$CHECKPOINT")"
 ABORT_FILE="$(canonicalize_path "$ABORT_FILE")"
 
 # SEC-01 containment assertion: any canonical path escaping PLANNING_DIR is
-# a symlink attack → refuse with minimal inline log (does not recurse through
-# _log_row which would re-canonicalize).
+# a symlink attack → refuse immediately. CRIT-fix re-review 2: DO NOT write
+# the refusal to $LOG_DIR/handoff-log.jsonl — that path may itself be the
+# compromised symlink. Instead (a) log to stderr (ephemeral, no attack
+# surface) and (b) write audit row via Node with O_NOFOLLOW flag which
+# refuses to write through any symlink in the target path. If Node
+# unavailable, exit silently (security > audit detail).
 _assert_contained() {
     local target="$1"
     local label="$2"
@@ -107,9 +111,29 @@ _assert_contained() {
         *)
             local ts
             ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "unknown")
-            mkdir -p "$LOG_DIR" 2>/dev/null || true
-            echo "{\"ts\":\"$ts\",\"from_session_id\":\"pid-$$\",\"to_session_id\":null,\"reason\":\"refused\",\"chain_depth\":0,\"refused\":\"symlink_escape\",\"path_label\":\"$label\"}" \
-              >> "$LOG_DIR/handoff-log.jsonl" 2>/dev/null || true
+            # Attack warning to stderr — visible in Claude Code stderr capture
+            echo "sgsd-stop-handoff: SYMLINK ESCAPE detected on $label ('$target' not under '$PLANNING_DIR_CANONICAL'). Refusing handoff." >&2
+            # O_NOFOLLOW audit via Node — writes only if NO component of the
+            # write path is a symlink. Attack surface closed: if an attacker
+            # symlinked LOG_DIR itself, open(O_NOFOLLOW) EEXISTs and Node exits
+            # non-zero; no write occurs.
+            if command -v node >/dev/null 2>&1; then
+                mkdir -p "$LOG_DIR" 2>/dev/null || true
+                node -e "
+                  const fs = require('fs');
+                  const p = process.argv[1];
+                  const row = process.argv[2] + '\n';
+                  try {
+                    const fd = fs.openSync(p, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_APPEND | fs.constants.O_NOFOLLOW);
+                    fs.writeSync(fd, row);
+                    fs.closeSync(fd);
+                  } catch (e) {
+                    // ELOOP / EEXIST / EACCES — refuse silently, stderr already logged
+                  }
+                " "$LOG_DIR/handoff-log.jsonl" \
+                  "{\"ts\":\"$ts\",\"from_session_id\":\"pid-$$\",\"to_session_id\":null,\"reason\":\"refused\",\"chain_depth\":0,\"refused\":\"symlink_escape\",\"path_label\":\"$label\"}" \
+                  2>/dev/null || true
+            fi
             exit 0
             ;;
     esac
@@ -187,11 +211,15 @@ _log_row() {
         return 0
     elif command -v node >/dev/null 2>&1; then
         # Fallback: Node fs.appendFileSync — atomic for small writes on POSIX (O_APPEND).
-        # lock_fallback:false — Node path is considered safe for concurrent writes.
+        # lock_fallback:false when Node write succeeds. CRIT-fix re-review 2:
+        # on Node failure, unlocked echo path must rebuild row with
+        # lock_fallback:true — previously mislabeled the last-resort write.
         local row_node="${row_prefix},\"lock_fallback\":false}"
-        node -e "require('fs').appendFileSync(process.argv[1], process.argv[2]+String.fromCharCode(10))" \
-          "$LOG_PATH" "$row_node" 2>/dev/null \
-          || echo "$row_node" >> "$LOG_PATH"  # last-resort if Node call itself fails
+        if ! node -e "require('fs').appendFileSync(process.argv[1], process.argv[2]+String.fromCharCode(10))" \
+             "$LOG_PATH" "$row_node" 2>/dev/null; then
+            # Node call itself failed — rebuild row with accurate lock_fallback:true
+            echo "${row_prefix},\"lock_fallback\":true}" >> "$LOG_PATH"
+        fi
     else
         # Last-resort: no bash-fd / no flock / no node. Truly unlocked append.
         echo "${row_prefix},\"lock_fallback\":true}" >> "$LOG_PATH"
