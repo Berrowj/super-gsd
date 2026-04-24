@@ -19,8 +19,8 @@ Scope: elevate VTP knowledge library from passive MCP server into active enrichm
   - 21-02: Audit workflow cross-reference + milestone-close xref (VTPE-02, VTPE-03)
   - 21-03: Design-policy config + empty-hit artifact discipline (VTPE-04, VTPE-05)
   - 21-04: Researcher board member for deliberation (VTPE-06)
-- [ ] **Phase 22: Security Hardening** — SEC-01..02 (2 requirements, 2 plans)
-  - 22-01: Symlink canonicalize (handoff paths)
+- [x] **Phase 22: Security Hardening** — SEC-01..02 (2/2 requirements delivered, 2 plans shipped) ✓ 2026-04-25
+  - 22-01: Symlink canonicalize (handoff paths) — 7-round Codex CRIT-fix cycle, R7 PASS
   - 22-02: fs flock concurrent-write guard (handoff-log)
 - [ ] **Phase 23: MUDA Calibration** — MUDAC-01..04 (4 requirements, 2 plans)
   - 23-01: 5-probe aggregation + inventory threshold recal (MUDAC-01, MUDAC-02)
