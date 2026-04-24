@@ -151,13 +151,41 @@ fi
 
 # ── D-03 timeout-tier resolver ───────────────────────────────────────────────
 # Precedence: --timeout-tier custom:N > --timeout-tier named > step-name map > codex_timeout_seconds fallback
-# TIMEOUT_SECONDS is already resolved above (config or 30s hardcoded fallback).
+# Tier values are config-backed (review_providers.codex_timeout_tiers.{default,review,analysis})
+# with hardcoded fallbacks that match the D-03 spec if config keys are absent.
+TIER_DEFAULT=60
+TIER_REVIEW=120
+TIER_ANALYSIS=180
+if [[ -n "$ROOT" && -f "$ROOT/.planning/config.json" ]] && command -v node >/dev/null 2>&1; then
+    cfg_tiers="$(node -e '
+        try {
+            const fs = require("fs");
+            const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            const t = j && j.review_providers && j.review_providers.codex_timeout_tiers;
+            if (t) {
+                if (Number.isFinite(t.default)  && t.default  > 0) process.stdout.write("TIER_DEFAULT="  + Math.floor(t.default)  + "\n");
+                if (Number.isFinite(t.review)   && t.review   > 0) process.stdout.write("TIER_REVIEW="   + Math.floor(t.review)   + "\n");
+                if (Number.isFinite(t.analysis) && t.analysis > 0) process.stdout.write("TIER_ANALYSIS=" + Math.floor(t.analysis) + "\n");
+            }
+        } catch (e) { /* silent: keep hardcoded defaults */ }
+    ' "$ROOT/.planning/config.json" 2>/dev/null || true)"
+    # Parse KEY=VALUE lines with numeric-only sanitisation — no eval on config input
+    while IFS='=' read -r key val; do
+        val="${val%%[^0-9]*}"  # keep only leading digits
+        case "$key" in
+            TIER_DEFAULT)  [[ -n "$val" ]] && TIER_DEFAULT="$val"  ;;
+            TIER_REVIEW)   [[ -n "$val" ]] && TIER_REVIEW="$val"   ;;
+            TIER_ANALYSIS) [[ -n "$val" ]] && TIER_ANALYSIS="$val" ;;
+        esac
+    done <<< "$cfg_tiers"
+fi
+
 resolve_timeout_tier() {
     local tier="$1"
     case "$tier" in
-        default)  echo 60  ;;
-        review)   echo 120 ;;
-        analysis) echo 180 ;;
+        default)  echo "$TIER_DEFAULT"  ;;
+        review)   echo "$TIER_REVIEW"   ;;
+        analysis) echo "$TIER_ANALYSIS" ;;
         custom:*) echo "${tier#custom:}" ;;
         *)        echo ""  ;;
     esac
@@ -167,11 +195,11 @@ resolve_step_timeout() {
     local step="$1"
     case "$step" in
         smoke|self-test)
-            echo 60 ;;
+            echo "$TIER_DEFAULT" ;;
         per-dispatch-ATC|phase-level-ATC|adversarial)
-            echo 120 ;;
+            echo "$TIER_REVIEW" ;;
         muda-qualitative|qualitative-*)
-            echo 180 ;;
+            echo "$TIER_ANALYSIS" ;;
         *)
             echo "" ;;
     esac
