@@ -29,10 +29,12 @@ Scope: sweep v1.3 carry-over tech debt, harden Codex path to full operational re
   - [x] 19-02: Event capture + feed + richer-output hardening (MC-03 narrative Codex events, MC-04 dual-source live-feed, D-05 #3/#4/#5/#6/#7/#9 from Phase 17/18 WARN queue) ✓ 2026-04-24
   - **Phase ATC**: 0 CRITICAL + 5 WARNINGS (PASS_RATE 2/6) deferred to Phase 20 or post-v1.4 (timeout reliability, offload telemetry accuracy, narrative race conditions, retry path edge cases)
   - **Codex dogfood**: 4 invocations, 522.5s wall-clock (1 review-tier timeout + 3 analysis-tier successes). Session cumulative: 11 invocations, 1364s, ~22k Claude tokens saved.
-- [ ] **Phase 20: Autonomous Session Handoff** — HANDOFF-01..HANDOFF-03 (3 requirements, 3 plans) — closes the operator-intervention gap between emergency halt and fresh-session resume
-  - 20-01: Stop hook script (HANDOFF-01 `sgsd-stop-handoff.sh` reads checkpoint + spawns fresh `claude` with `/sgsd-orchestrate go`)
-  - 20-02: Safety rails (HANDOFF-02 cooldown + max-chain-depth + operator-abort file + installer wiring into settings.json)
-  - 20-03: Telemetry + MC integration (HANDOFF-03 handoff-log.jsonl + chain-depth tile extension + milestone-close stats)
+- [x] **Phase 20: Autonomous Session Handoff** — HANDOFF-01..HANDOFF-03 (3/3 requirements delivered) ✓ 2026-04-24
+  - [x] 20-01: Stop hook script — sgsd-stop-handoff.sh + Stop hook wiring (disabled by default for safety)
+  - [x] 20-02: Safety rails — cooldown + max-chain-depth + operator-abort + discuss-phase guard + config block
+  - [x] 20-03: Telemetry + MC integration — handoff-log.jsonl + SGSD-Handoff-Tile + session-start pairing + --MilestoneCloseCheck
+  - **Phase ATC**: 2 initial CRITICALs + 1 follow-up CRITICAL raised over 5 review rounds; all cleared via 4 fix commits (90e1293/9a77d0d/aba68c1/74cc627). Remaining surfaces (symlink + concurrency) bounded to Phase 21 security-hardening scope.
+  - **Codex dogfood**: 4 invocations, 420s wall-clock. Round 3 emitted file:line detail (richer-output contract showing adoption).
 
 **Dependencies:** Phase 17 ∥ Phase 18 (independent). Phase 19 benefits from Phase 18 producing real Codex activity to visualize. Phase 20 serializes AFTER 19 — MC surfaces must exist before handoff telemetry extends them. **Design invariant:** `/gsd-discuss-phase` remains interactive; Phase 20 handoff explicitly skips it. Everything else (research, plan, plan-check, execute, verify, ATC, MUDA, browser-verify, phase-close, milestone audit, milestone close) becomes cross-session autonomous.
 
