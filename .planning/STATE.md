@@ -9,11 +9,11 @@ last_updated: "2026-04-24T20:10:00Z"
 last_activity: 2026-04-24 — Plan 21-04 shipped (commits 02d9182 + 6cb83fa + aa081fe). VTPE-06 delivered — 5th deliberation voice (Library Researcher) wired end-to-end.
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 13
   completed_plans: 4
   percent: 31
-  phase_21: "in-progress — Plans 21-01/02/03/04 COMPLETE (gate wired + audit xref + config block + 3-path artifact + vtp_health degraded mode + board-researcher 5th voice)"
+  phase_21: "4/4 plans complete — shipped 2026-04-24 (6/6 VTPE + halt-on-CRIT fix cycle proved out)"
   phase_22: "not started — Security Hardening, 2 plans, 2 SEC REQ-IDs"
   phase_23: "not started — MUDA Calibration, 2 plans, 4 MUDAC REQ-IDs"
   phase_24: "not started — Richer Output Contract, 2 plans, 3 CONTRACT REQ-IDs"

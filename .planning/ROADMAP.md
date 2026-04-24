@@ -14,7 +14,7 @@
 
 Scope: elevate VTP knowledge library from passive MCP server into active enrichment gate on every research + audit decision; close Phase 20 Codex-acknowledged security surfaces; calibrate MUDA aggregation across 3-phase accumulated findings; fully adopt richer-output contract Codex began emitting spontaneously in v1.4 Phase 20; land Phase 17-19 carryover WARNs; wire edge-guard layer + dashboard math audit + timeout observability.
 
-- [ ] **Phase 21: VTP Enrichment Gates** — VTPE-01..06 (6 requirements, 4 plans)
+- [x] **Phase 21: VTP Enrichment Gates** — VTPE-01..06 (6/6 requirements delivered, 4 plans shipped) ✓ 2026-04-24
   - 21-01: Research→Planning boundary gate (VTPE-01)
   - 21-02: Audit workflow cross-reference + milestone-close xref (VTPE-02, VTPE-03)
   - 21-03: Design-policy config + empty-hit artifact discipline (VTPE-04, VTPE-05)
