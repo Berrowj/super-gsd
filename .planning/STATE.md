@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Clean Close + Codex Visibility + Autonomous Handoff
-milestone_status: v1.4 ACTIVE — defining requirements complete, roadmap laid down (4 phases, 10 plans, 17 REQ-IDs across CLEAN/CXOPS/MC/HANDOFF). Phase 20 added 2026-04-24 per operator directive to close the autonomous-handoff loop (discuss-phase remains interactive; everything else cross-session autonomous). Next: /gsd-plan-phase 17 (context captured 75f8cbd).
-status: Phase 20 ✓ COMPLETE — 3/3 HANDOFF plans delivered. 20-01 shipped HANDOFF-01 sgsd-stop-handoff.sh + Stop hook wiring. 20-02 shipped HANDOFF-02 safety rails (all 6 pre-conditions + config.handoff block). 20-03 shipped HANDOFF-03 telemetry + SGSD-Handoff-Tile + session-start pairing + milestone-close stats. v1.4 milestone COMPLETE — all 10 plans across 4 phases shipped.
-stopped_at: v1.4 milestone complete. All phases shipped (17, 18, 19, 20). HANDOFF-01/02/03 all delivered. Final commit b499e36.
+milestone_status: v1.4 ✓ SHIPPED (2026-04-24) — all 4 phases + 10 plans + 17 REQ-IDs delivered. Codex dogfood proved: 16 invocations, ~1925s wall-clock, ~32k Claude tokens saved, 4 CRIT raised+cleared, 0 fallbacks, 0 parse_failures. sgsd-complete-milestone ran: SUMMARY.md + MUDA recurrence + Codex kill-check (KEEP) + gate drift audit + cross-phase integration check + VTP tier-3 gap artifact — all written. Ready for v1.5 scoping.
+status: v1.4 MILESTONE COMPLETE. Next: v1.5 scoping session. Phase 21 seeded with security-hardening (handoff symlink + concurrency), MUDA calibration (5-probe aggregation), richer-output contract full adoption, Phase 17/18/19 carryover WARNs.
+stopped_at: v1.4 closed. sgsd-complete-milestone wrote SUMMARY.md + VTP gap artifact + MUDA recurrence + Codex kill-check + gate drift + cross-phase integration check. Awaiting v1.5 scoping direction.
 last_updated: "2026-04-24T16:30:00.000Z"
 last_activity: 2026-04-24 — Phase 20 plan 20-03 shipped (FINAL v1.4 task). HANDOFF-03 delivered handoff-log.jsonl cumulative_runtime_s, SGSD-Handoff-Tile in mission-control, sgsd-session-start.js with Windows path.join fix + to_session_id pairing, --MilestoneCloseCheck in sgsd-gate-verdict.ps1. 1 commit (b499e36).
 progress:
