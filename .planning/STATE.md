@@ -4,7 +4,7 @@ milestone: v1.4
 milestone_name: Clean Close + Codex Visibility + Autonomous Handoff
 milestone_status: v1.4 ACTIVE — defining requirements complete, roadmap laid down (4 phases, 10 plans, 17 REQ-IDs across CLEAN/CXOPS/MC/HANDOFF). Phase 20 added 2026-04-24 per operator directive to close the autonomous-handoff loop (discuss-phase remains interactive; everything else cross-session autonomous). Next: /gsd-plan-phase 17 (context captured 75f8cbd).
 status: Phase 17 ✓ COMPLETE — all 3 plans shipped (17-01, 17-02, 17-03), 7/7 CLEAN items delivered, verifier PASS, phase-level ATC PASS-WITH-WARNINGS (0 CRITICAL, 3 WARNINGS deferred to Phase 18). 6 Codex invocations captured — 2 CRITICALs raised + fixed mid-phase (17-01 WASTE dup, 17-03 config-backed tier resolution). v1.2 formally closed via retroactive archive + `git tag v1.2` at 0191168. Previous milestone v1.3 ✓ SHIPPED 2026-04-24.
-stopped_at: Phase 17 SUMMARY written + STATE updated. Phase 18 Codex Hardening next (CXOPS-01 self-test + CXOPS-02 parse_failure fallback / CXOPS-03/04 dogfood proof). Phase 18 can consume today's 6 Codex dogfood invocations as retroactive CXOPS-03/04 evidence.
+stopped_at: Phase 18 plan 18-01 complete (CXOPS-01 + CXOPS-02 shipped). Next: 18-02 dogfood recognition (CXOPS-03/04 evidence audit, docs-only LITE tier).
 last_updated: "2026-04-24T13:20:00.000Z"
 last_activity: 2026-04-24 — Phase 17 shipped end-to-end in single session. 20 commits, 49 files, 3318+/310- lines. RESEARCH → 3 plans + INDEX → plan-check fix → 17-01 executor + Codex ATC (crit → fix → clean) → 17-02 executor (LITE skip) → 17-03 executor + Codex ATC (crit → fix → clean) → verifier PASS → phase-level Codex ATC PASS-WITH-WARNINGS → phase complete. 622.9s cumulative Codex wall-clock. MC visibility also shipped (8 files, 543 lines — Codex Monitor RECENT VERDICTS section + heartbeat hook + gate-verdict board).
 progress:
@@ -14,7 +14,7 @@ progress:
   completed_plans: 3
   percent: 30
   phase_17: "3/3 plans complete — shipped 2026-04-24"
-  phase_18: "not started — Codex Hardening, 2 plans, 4 REQ-IDs (CXOPS)"
+  phase_18: "1/2 plans complete — 18-01 shipped 2026-04-24 (CXOPS-01 self-test + CXOPS-02 validateContract)"
   phase_19: "not started — MC Visibility, 2 plans, 5 REQ-IDs (MC); ~30% credit from today"
   phase_20: "not started — Autonomous Handoff, 3 plans, 3 REQ-IDs (HANDOFF)"
 ---
