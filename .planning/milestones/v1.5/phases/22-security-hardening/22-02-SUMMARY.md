@@ -9,15 +9,15 @@ dependency_graph:
   affects: [sgsd-stop-handoff.sh, handoff-log.jsonl]
 tech_stack:
   added: []
-  patterns: [flock-fd-guard, node-appendFileSync-fallback, bash-version-guard]
+  patterns: [flock-fd-guard, node-secure-oappend-no-symlink, bash-version-guard]
 key_files:
   modified:
     - super-gsd/scripts/sgsd-stop-handoff.sh
 decisions:
-  - "Use exec {LOG_FD}>>$LOG_PATH fd-based locking (not subshell redirect) for clean lock/unlock lifecycle"
+  - "Use exec {LOG_FD}>>$LOG_LOCK_RAW fd-based locking (not subshell redirect) for clean lock/unlock lifecycle"
   - "bash >= 4.1 guard required before exec {var}>> auto-fd syntax"
-  - "lock_fallback:true field injected only on last-resort unlocked path (path 4), not on Node path"
-  - "Node appendFileSync fallback emits no lock_fallback field — O_APPEND is atomic for small POSIX writes"
+  - "lock_fallback:true field is emitted only when flock is unavailable or times out and secure Node O_APPEND writes the row"
+  - "No unlocked echo fallback remains; when secure append is unavailable, audit write is refused"
 metrics:
   duration_minutes: 6
   completed_date: "2026-04-24"
@@ -33,13 +33,13 @@ metrics:
 
 ## What Was Built
 
-Extended `_log_row()` in `sgsd-stop-handoff.sh` with a three-tier locking fallback chain:
+Extended `_log_row()` in `sgsd-stop-handoff.sh` with a secure locking/append chain:
 
-1. **flock path (preferred):** `exec {LOG_FD}>>"$LOG_PATH"` opens a persistent fd; `flock -x -w 5 $LOG_FD` acquires an exclusive 5-second-timeout lock; `echo "$row" >&"$LOG_FD"` writes the row; `flock -u $LOG_FD` releases; `exec {LOG_FD}>&-` closes. A bash >= 4.1 version guard (`BASH_VERSINFO`) gates this path since `exec {var}>>` automatic fd allocation requires bash 4.1+.
+1. **flock path (preferred):** `exec {LOG_FD}>>"$LOG_LOCK_RAW"` opens a sibling lock fd; `flock -x -w 5 $LOG_FD` acquires an exclusive 5-second-timeout lock; the row is then written via the secure append helper. `flock -u $LOG_FD` releases; `exec {LOG_FD}>&-` closes. A bash >= 4.1 version guard (`BASH_VERSINFO`) gates this path since `exec {var}>>` automatic fd allocation requires bash 4.1+.
 
-2. **Node fallback:** When `flock` is absent or bash < 4.1, `node -e "require('fs').appendFileSync(...)"` is used. `O_APPEND` on POSIX is atomic for writes under `PIPE_BUF` (~4KB), making this safe for concurrent small rows. No `lock_fallback` field added — this path is considered safe.
+2. **Secure Node fallback:** When `flock` is absent, bash < 4.1, or the lock times out, Node opens the log with `O_APPEND` plus `O_NOFOLLOW` where available after lstat-walking the raw `.planning`, `metrics`, and log components.
 
-3. **Last-resort unlocked:** When neither `flock` nor `node` is available, `echo "$row" >> "$LOG_PATH"` runs with `lock_fallback:true` injected into the JSON row via `${row%\}},\"lock_fallback\":true}`. This provides an audit signal for degraded environments.
+3. **No unsafe last resort:** When a secure append helper is unavailable, the script writes a stderr refusal and does not append to `handoff-log.jsonl`.
 
 ## Commits
 
@@ -61,8 +61,8 @@ Extended `_log_row()` in `sgsd-stop-handoff.sh` with a three-tier locking fallba
 
 None — plan executed exactly as written. Implementation follows output_contract D-03 verbatim:
 - fd-based exec {LOG_FD} pattern used (not subshell)
-- lock_fallback field on path (4) only
-- Node path has no lock_fallback field
+- lock_fallback field only when the flock lock was unavailable or timed out
+- No unlocked echo append remains
 - bash version guard added per implementation notes (exec {var}>> requires bash >= 4.1)
 
 ## Known Stubs
@@ -78,3 +78,20 @@ None — this change closes a JSONL append race, introduces no new network endpo
 - `super-gsd/scripts/sgsd-stop-handoff.sh` exists and contains flock guard
 - Commit `4c71bb8` verified in git log
 - bash -n and --dry-run both exit 0
+
+## Round 7 Codex CRIT Fix
+
+Round 6 Codex found a residual symlink-redirection surface: refusal rows and normal audit appends still used paths derived from `PLANNING_DIR_CANONICAL`, which is attacker-controlled when `.planning` itself is a symlink.
+
+Fix applied:
+- Symlink-component refusals are stderr-only; they do not write audit rows because no `.planning`-derived path is trustworthy at that point.
+- Containment refusals are also stderr-only for the same reason.
+- Raw paths are restored after canonical containment checks; canonical paths are used only for escape detection.
+- `_log_row()` revalidates raw `.planning`, `metrics`, log, and lock components immediately before every audit append.
+- The flock branch now locks a sibling lock file and writes the JSON row through a secure append helper when Node is available.
+
+Verification:
+- `bash -n super-gsd/scripts/sgsd-stop-handoff.sh` passed.
+- Symlinked `.planning` exploit check passed: refused via stderr and wrote no attacker-target log.
+- Symlinked `.planning/metrics` exploit check passed: refused via stderr and wrote no attacker-target log.
+- Symlinked final `handoff-log.jsonl` exploit check passed: refused via stderr and did not write through the attacker-controlled log leaf.

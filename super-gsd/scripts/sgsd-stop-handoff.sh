@@ -52,7 +52,7 @@ _detect_root() {
 # SEC-01: canonicalize_path resolves symlinks via readlink -f with fallbacks.
 # Returns raw path if no canonicalizer available (defense-in-depth, not crash).
 # Sets module-scope _CANON_RESOLVED=true when readlink/realpath ran successfully,
-# false when fell through to bare echo (used for audit field in _log_row).
+# false when canonicalization fell back to the raw path (audit metadata).
 _CANON_RESOLVED=true
 canonicalize_path() {
   local p="$1"
@@ -74,57 +74,64 @@ canonicalize_path() {
   fi
 }
 
-# SEC-01 round 5: Node lstat-walk strict path validator. Walks every component
-# of `target` from filesystem root → leaf and lstat() each. If ANY component
-# is a symlink (intermediate or final), refuses. Closes the deepest symlink-
-# attack surfaces:
-#   - .planning itself being a symlink (canonicalize_path resolves but
-#     doesn't flag — Codex round 5 CRIT)
-#   - metrics intermediate symlink (O_NOFOLLOW only protects final
-#     component — Codex round 5 CRIT)
-# Returns 0 if path has no symlink components OR Node unavailable
-# (defense-in-depth, not crash). Returns 1 if symlink detected.
+# SEC-01 Round 7: lstat-walk every existing component of a raw path before
+# canonicalization. Refusals are stderr-only because when .planning or metrics
+# is a symlink, every .planning-derived audit path is already untrusted.
 _path_has_no_symlink_components() {
     local target="$1"
-    if ! command -v node >/dev/null 2>&1; then
-        # No Node — can't lstat-walk. Defense-in-depth degradation,
-        # not crash. canonicalize_path + _assert_contained provide
-        # weaker coverage on this code path.
-        return 0
-    fi
-    node -e "
-        const fs   = require('fs');
-        const path = require('path');
-        const target = process.argv[1];
-        try {
-            const abs = path.resolve(target);
-            const parts = abs.split(path.sep).filter(Boolean);
-            let cur = path.isAbsolute(abs) ? path.parse(abs).root : '';
-            for (const p of parts) {
-                cur = path.join(cur, p);
-                let st;
-                try {
-                    st = fs.lstatSync(cur);
-                } catch (e) {
-                    // Doesn't exist yet — fine (file may not be created until first write).
-                    break;
+    if command -v node >/dev/null 2>&1; then
+        node -e "
+            const fs = require('fs');
+            const path = require('path');
+            const target = process.argv[1];
+            try {
+                const abs = path.resolve(target);
+                const parts = abs.split(path.sep).filter(Boolean);
+                let cur = path.isAbsolute(abs) ? path.parse(abs).root : '';
+                for (const p of parts) {
+                    cur = path.join(cur, p);
+                    let st;
+                    try { st = fs.lstatSync(cur); } catch (_) { break; }
+                    if (st.isSymbolicLink()) {
+                        process.stderr.write('SYMLINK_COMPONENT:' + cur + '\n');
+                        process.exit(1);
+                    }
                 }
-                if (st.isSymbolicLink()) {
-                    process.stderr.write('SYMLINK_COMPONENT:' + cur + '\n');
-                    process.exit(1);
-                }
+                process.exit(0);
+            } catch (_) {
+                process.exit(1);
             }
-            process.exit(0);
-        } catch (e) {
-            process.exit(1);
-        }
-    " "$target" 2>&1 >/dev/null
+        " "$target" 2>&1 >/dev/null
+        return $?
+    fi
+
+    local abs cur part
+    case "$target" in
+        /*) abs="$target" ;;
+        *) abs="$(pwd -P 2>/dev/null || pwd)/$target" ;;
+    esac
+
+    cur=""
+    IFS='/' read -r -a __sgsd_parts <<< "$abs"
+    for part in "${__sgsd_parts[@]}"; do
+        [[ -z "$part" || "$part" == "." ]] && continue
+        if [[ "$part" == ".." ]]; then
+            cur="$(dirname "$cur")"
+            [[ "$cur" == "." ]] && cur=""
+            continue
+        fi
+        cur="$cur/$part"
+        if [[ -L "$cur" ]]; then
+            echo "SYMLINK_COMPONENT:$cur" >&2
+            return 1
+        fi
+        if [[ ! -e "$cur" ]]; then
+            break
+        fi
+    done
+    return 0
 }
 
-# Wraps _path_has_no_symlink_components with stderr audit + Node O_NOFOLLOW
-# audit-row append to a SAFE log path inside the canonical .planning tree
-# (never the raw caller path). Requires PLANNING_DIR_CANONICAL to be set
-# before first invocation.
 _assert_no_symlink_components() {
     local target="$1"
     local label="$2"
@@ -133,24 +140,7 @@ _assert_no_symlink_components() {
     fi
     local ts
     ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "unknown")
-    echo "sgsd-stop-handoff: SYMLINK COMPONENT detected on $label path ('$target'). Refusing handoff." >&2
-    if command -v node >/dev/null 2>&1; then
-        local safe_log_dir="$PLANNING_DIR_CANONICAL/metrics"
-        local safe_log_path="$safe_log_dir/handoff-log.jsonl"
-        mkdir -p "$safe_log_dir" 2>/dev/null || true
-        node -e "
-          const fs = require('fs');
-          const p = process.argv[1];
-          const row = process.argv[2] + '\n';
-          try {
-            const fd = fs.openSync(p, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_APPEND | fs.constants.O_NOFOLLOW);
-            fs.writeSync(fd, row);
-            fs.closeSync(fd);
-          } catch (e) {}
-        " "$safe_log_path" \
-          "{\"ts\":\"$ts\",\"from_session_id\":\"pid-$$\",\"to_session_id\":null,\"reason\":\"refused\",\"chain_depth\":0,\"refused\":\"symlink_component\",\"path_label\":\"$label\"}" \
-          2>/dev/null || true
-    fi
+    echo "sgsd-stop-handoff: SYMLINK COMPONENT detected on $label path ('$target') at $ts. Refusing handoff. No audit row written because path trust is compromised." >&2
     exit 0
 }
 
@@ -160,12 +150,20 @@ if [[ -z "$PROJECT_DIR" ]]; then
     exit 0
 fi
 
-PLANNING_DIR="$PROJECT_DIR/.planning"
-CONFIG_FILE="$PLANNING_DIR/config.json"
-CHECKPOINT="$PLANNING_DIR/ORCHESTRATOR-CHECKPOINT.md"
-LOG_DIR="$PLANNING_DIR/metrics"
-LOG_PATH="$LOG_DIR/handoff-log.jsonl"
-ABORT_FILE="$PLANNING_DIR/STOP-HANDOFF"
+PLANNING_DIR_RAW="$PROJECT_DIR/.planning"
+CONFIG_FILE_RAW="$PLANNING_DIR_RAW/config.json"
+CHECKPOINT_RAW="$PLANNING_DIR_RAW/ORCHESTRATOR-CHECKPOINT.md"
+LOG_DIR_RAW="$PLANNING_DIR_RAW/metrics"
+LOG_PATH_RAW="$LOG_DIR_RAW/handoff-log.jsonl"
+LOG_LOCK_RAW="$LOG_DIR_RAW/handoff-log.lock"
+ABORT_FILE_RAW="$PLANNING_DIR_RAW/STOP-HANDOFF"
+
+PLANNING_DIR="$PLANNING_DIR_RAW"
+CONFIG_FILE="$CONFIG_FILE_RAW"
+CHECKPOINT="$CHECKPOINT_RAW"
+LOG_DIR="$LOG_DIR_RAW"
+LOG_PATH="$LOG_PATH_RAW"
+ABORT_FILE="$ABORT_FILE_RAW"
 
 # SEC-01 round 5 strict validation: lstat-walk every component of every raw
 # handoff path BEFORE canonicalization or any read. Catches intermediate-
@@ -173,12 +171,14 @@ ABORT_FILE="$PLANNING_DIR/STOP-HANDOFF"
 # symlink to /etc/cron.d/) that O_NOFOLLOW + canonicalize+contain alone
 # cannot detect. Must be PRE-canonicalize because canonicalization resolves
 # the very symlinks we're trying to detect.
-# PLANNING_DIR_CANONICAL is set inline here (we need it for the audit-write
-# fallback path inside _assert_no_symlink_components).
+# PLANNING_DIR_CANONICAL is retained only for containment checks; refusal paths
+# must not write to paths derived from it.
 PLANNING_DIR_CANONICAL="$(canonicalize_path "$PLANNING_DIR")"
 _assert_no_symlink_components "$PLANNING_DIR" "PLANNING_DIR"
+_assert_no_symlink_components "$CONFIG_FILE" "CONFIG_FILE"
 _assert_no_symlink_components "$LOG_DIR" "LOG_DIR"
 _assert_no_symlink_components "$LOG_PATH" "LOG_PATH"
+_assert_no_symlink_components "$LOG_LOCK_RAW" "LOG_LOCK"
 _assert_no_symlink_components "$CHECKPOINT" "CHECKPOINT"
 _assert_no_symlink_components "$ABORT_FILE" "ABORT_FILE"
 
@@ -189,13 +189,9 @@ LOG_PATH="$(canonicalize_path "$LOG_PATH")"
 CHECKPOINT="$(canonicalize_path "$CHECKPOINT")"
 ABORT_FILE="$(canonicalize_path "$ABORT_FILE")"
 
-# SEC-01 containment assertion: any canonical path escaping PLANNING_DIR is
-# a symlink attack → refuse immediately. CRIT-fix re-review 2: DO NOT write
-# the refusal to $LOG_DIR/handoff-log.jsonl — that path may itself be the
-# compromised symlink. Instead (a) log to stderr (ephemeral, no attack
-# surface) and (b) write audit row via Node with O_NOFOLLOW flag which
-# refuses to write through any symlink in the target path. If Node
-# unavailable, exit silently (security > audit detail).
+# SEC-01 containment assertion: canonicalized targets are used only to detect
+# escapes. Refusals are stderr-only; no audit path is safe once containment
+# has failed.
 _assert_contained() {
     local target="$1"
     local label="$2"
@@ -204,32 +200,7 @@ _assert_contained() {
         *)
             local ts
             ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "unknown")
-            # Attack warning to stderr — visible in Claude Code stderr capture
-            echo "sgsd-stop-handoff: SYMLINK ESCAPE detected on $label ('$target' not under '$PLANNING_DIR_CANONICAL'). Refusing handoff." >&2
-            # CRIT-fix re-review 3: write the refusal audit row to the
-            # PLANNING_DIR_CANONICAL trusted path, NOT $LOG_DIR (which may
-            # itself be the escaped target). This guarantees the audit row
-            # lands inside .planning/ even when LOG_DIR was the attack vector.
-            # O_NOFOLLOW additionally rejects the final-component symlink case.
-            if command -v node >/dev/null 2>&1; then
-                local safe_log_dir="$PLANNING_DIR_CANONICAL/metrics"
-                local safe_log_path="$safe_log_dir/handoff-log.jsonl"
-                mkdir -p "$safe_log_dir" 2>/dev/null || true
-                node -e "
-                  const fs = require('fs');
-                  const p = process.argv[1];
-                  const row = process.argv[2] + '\n';
-                  try {
-                    const fd = fs.openSync(p, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_APPEND | fs.constants.O_NOFOLLOW);
-                    fs.writeSync(fd, row);
-                    fs.closeSync(fd);
-                  } catch (e) {
-                    // ELOOP / EEXIST / EACCES — refuse silently, stderr already logged
-                  }
-                " "$safe_log_path" \
-                  "{\"ts\":\"$ts\",\"from_session_id\":\"pid-$$\",\"to_session_id\":null,\"reason\":\"refused\",\"chain_depth\":0,\"refused\":\"symlink_escape\",\"path_label\":\"$label\"}" \
-                  2>/dev/null || true
-            fi
+            echo "sgsd-stop-handoff: SYMLINK ESCAPE detected on $label ('$target' not under '$PLANNING_DIR_CANONICAL') at $ts. Refusing handoff. No audit row written because path trust is compromised." >&2
             exit 0
             ;;
     esac
@@ -239,26 +210,76 @@ _assert_contained "$LOG_PATH" "LOG_PATH"
 _assert_contained "$CHECKPOINT" "CHECKPOINT"
 _assert_contained "$ABORT_FILE" "ABORT_FILE"
 
+# Use raw, prevalidated project paths for all later reads/writes. The canonical
+# values above are only for escape detection. Writing to PLANNING_DIR_CANONICAL
+# would be unsafe if .planning was the original symlink attack vector.
+LOG_DIR_CANONICAL="$LOG_DIR"
+LOG_PATH_CANONICAL="$LOG_PATH"
+CHECKPOINT_CANONICAL="$CHECKPOINT"
+ABORT_FILE_CANONICAL="$ABORT_FILE"
+CONFIG_FILE="$CONFIG_FILE_RAW"
+LOG_DIR="$LOG_DIR_RAW"
+LOG_PATH="$LOG_PATH_RAW"
+CHECKPOINT="$CHECKPOINT_RAW"
+ABORT_FILE="$ABORT_FILE_RAW"
+
 # --- Read config (all optional; hard defaults apply if block absent) ---
 ENABLED="false"
 MIN_COOLDOWN=30
 MAX_CHAIN_DEPTH=5
 
 if [[ -f "$CONFIG_FILE" ]]; then
-    _enabled=$(node -e "try{var c=JSON.parse(require('fs').readFileSync('$CONFIG_FILE','utf8'));var v=c.handoff&&c.handoff.enabled!=null?c.handoff.enabled:false;console.log(String(v))}catch(e){console.log('false')}" 2>/dev/null || echo "false")
+    _enabled=$(node -e "try{var c=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));var v=c.handoff&&c.handoff.enabled!=null?c.handoff.enabled:false;console.log(String(v))}catch(e){console.log('false')}" "$CONFIG_FILE" 2>/dev/null || echo "false")
     ENABLED="$_enabled"
 
-    _cool=$(node -e "try{var c=JSON.parse(require('fs').readFileSync('$CONFIG_FILE','utf8'));var v=c.handoff&&c.handoff.min_cooldown_seconds!=null?c.handoff.min_cooldown_seconds:30;console.log(Number(v))}catch(e){console.log(30)}" 2>/dev/null || echo "30")
+    _cool=$(node -e "try{var c=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));var v=c.handoff&&c.handoff.min_cooldown_seconds!=null?c.handoff.min_cooldown_seconds:30;console.log(Number(v))}catch(e){console.log(30)}" "$CONFIG_FILE" 2>/dev/null || echo "30")
     MIN_COOLDOWN="$_cool"
 
-    _depth=$(node -e "try{var c=JSON.parse(require('fs').readFileSync('$CONFIG_FILE','utf8'));var v=c.handoff&&c.handoff.max_chain_depth!=null?c.handoff.max_chain_depth:5;console.log(Number(v))}catch(e){console.log(5)}" 2>/dev/null || echo "5")
+    _depth=$(node -e "try{var c=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));var v=c.handoff&&c.handoff.max_chain_depth!=null?c.handoff.max_chain_depth:5;console.log(Number(v))}catch(e){console.log(5)}" "$CONFIG_FILE" 2>/dev/null || echo "5")
     MAX_CHAIN_DEPTH="$_depth"
 fi
 
 # --- Helper: append JSON row to handoff-log.jsonl ---
+_node_append_no_symlink() {
+    local path="$1"
+    local row="$2"
+    command -v node >/dev/null 2>&1 || return 1
+    node -e "
+      const fs = require('fs');
+      const path = require('path');
+      const target = process.argv[1];
+      const row = process.argv[2] + '\n';
+      function assertNoSymlink(p) {
+        const abs = path.resolve(p);
+        const parts = abs.split(path.sep).filter(Boolean);
+        let cur = path.isAbsolute(abs) ? path.parse(abs).root : '';
+        for (const part of parts) {
+          cur = path.join(cur, part);
+          try {
+            const st = fs.lstatSync(cur);
+            if (st.isSymbolicLink()) process.exit(11);
+          } catch (_) {
+            break;
+          }
+        }
+      }
+      const dir = path.dirname(target);
+      assertNoSymlink(dir);
+      fs.mkdirSync(dir, { recursive: true });
+      assertNoSymlink(dir);
+      assertNoSymlink(target);
+      const nofollow = fs.constants.O_NOFOLLOW || 0;
+      const flags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_APPEND | nofollow;
+      const fd = fs.openSync(target, flags, 0o600);
+      try { fs.writeSync(fd, row); } finally { fs.closeSync(fd); }
+    " "$path" "$row" 2>/dev/null
+}
+
 # SEC-02: flock-guarded append to serialise concurrent Stop hook invocations.
-# Fallback chain: flock (preferred) → Node appendFileSync → unlocked echo+lock_fallback.
-# lock_fallback field only present in the row when the unlocked last-resort path fires.
+# Fallback chain: flock (preferred) plus secure Node O_APPEND write; on lock
+# timeout/unavailable, secure Node O_APPEND write with lock_fallback:true. If
+# no secure append helper exists, refuse the audit write rather than echoing
+# through a potentially redirected path.
 _log_row() {
     local reason="$1"
     local chain_depth="${2:-0}"
@@ -270,7 +291,17 @@ _log_row() {
     # Use PID as fallback -- unique per Stop hook invocation.
     from_session="pid-$$"
 
-    mkdir -p "$LOG_DIR"
+    # Revalidate raw path components immediately before every audit append.
+    # This prevents normal rows from writing through a canonicalized symlink
+    # target and catches later swaps of .planning / metrics / log leaf.
+    _assert_no_symlink_components "$PLANNING_DIR_RAW" "PLANNING_DIR"
+    _assert_no_symlink_components "$LOG_DIR_RAW" "LOG_DIR"
+    mkdir -p "$LOG_DIR_RAW"
+    _assert_no_symlink_components "$LOG_DIR_RAW" "LOG_DIR"
+    _assert_no_symlink_components "$LOG_PATH_RAW" "LOG_PATH"
+    _assert_no_symlink_components "$LOG_LOCK_RAW" "LOG_LOCK"
+    LOG_DIR="$LOG_DIR_RAW"
+    LOG_PATH="$LOG_PATH_RAW"
     # CRIT-fix: row construction now deferred until we know lock outcome, so
     # lock_fallback field accurately reflects whether the write was synchronized.
     # Prefix carries all fields except the final lock_fallback boolean.
@@ -289,9 +320,13 @@ _log_row() {
         # CHECK the flock exit code and only write in the acquired branch;
         # on fail we fall through to Node fallback with lock_fallback:true.
         local LOG_FD
-        exec {LOG_FD}>>"$LOG_PATH"
+        exec {LOG_FD}>>"$LOG_LOCK_RAW"
         if flock -x -w 5 "$LOG_FD" 2>/dev/null; then
-            echo "${row_prefix},\"lock_fallback\":false}" >&"$LOG_FD"
+            if ! command -v node >/dev/null 2>&1; then
+                echo "sgsd-stop-handoff: secure audit append unavailable; refusing unsafe fallback write." >&2
+            elif ! _node_append_no_symlink "$LOG_PATH" "${row_prefix},\"lock_fallback\":false}"; then
+                echo "sgsd-stop-handoff: secure audit append failed while lock was held; refusing unsafe fallback write." >&2
+            fi
             flock -u "$LOG_FD" 2>/dev/null || true
             exec {LOG_FD}>&-
             return 0
@@ -300,26 +335,22 @@ _log_row() {
         # Lock timeout — fall through to Node path with lock_fallback:true marker
         if command -v node >/dev/null 2>&1; then
             local row_fb="${row_prefix},\"lock_fallback\":true}"
-            node -e "require('fs').appendFileSync(process.argv[1], process.argv[2]+String.fromCharCode(10))" \
-              "$LOG_PATH" "$row_fb" 2>/dev/null || echo "$row_fb" >> "$LOG_PATH"
+            _node_append_no_symlink "$LOG_PATH" "$row_fb" || echo "sgsd-stop-handoff: secure audit append failed after lock timeout; refusing unsafe fallback write." >&2
         else
-            echo "${row_prefix},\"lock_fallback\":true}" >> "$LOG_PATH"
+            echo "sgsd-stop-handoff: secure audit append failed; refusing unsafe fallback write." >&2
         fi
         return 0
     elif command -v node >/dev/null 2>&1; then
-        # Fallback: Node fs.appendFileSync — atomic for small writes on POSIX (O_APPEND).
-        # lock_fallback:false when Node write succeeds. CRIT-fix re-review 2:
-        # on Node failure, unlocked echo path must rebuild row with
-        # lock_fallback:true — previously mislabeled the last-resort write.
+        # Fallback: secure Node O_APPEND append after lstat-walking path
+        # components and using O_NOFOLLOW where available.
         local row_node="${row_prefix},\"lock_fallback\":false}"
-        if ! node -e "require('fs').appendFileSync(process.argv[1], process.argv[2]+String.fromCharCode(10))" \
-             "$LOG_PATH" "$row_node" 2>/dev/null; then
+        if ! _node_append_no_symlink "$LOG_PATH" "$row_node"; then
             # Node call itself failed — rebuild row with accurate lock_fallback:true
-            echo "${row_prefix},\"lock_fallback\":true}" >> "$LOG_PATH"
+            echo "sgsd-stop-handoff: secure audit append failed; refusing unsafe fallback write." >&2
         fi
     else
-        # Last-resort: no bash-fd / no flock / no node. Truly unlocked append.
-        echo "${row_prefix},\"lock_fallback\":true}" >> "$LOG_PATH"
+        # Last-resort: no bash-fd / no flock / no node. Do not write.
+        echo "sgsd-stop-handoff: secure audit append unavailable; refusing unsafe fallback write." >&2
     fi
 }
 
