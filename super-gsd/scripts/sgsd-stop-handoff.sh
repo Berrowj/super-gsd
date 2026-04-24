@@ -114,12 +114,15 @@ _assert_contained() {
             ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "unknown")
             # Attack warning to stderr — visible in Claude Code stderr capture
             echo "sgsd-stop-handoff: SYMLINK ESCAPE detected on $label ('$target' not under '$PLANNING_DIR_CANONICAL'). Refusing handoff." >&2
-            # O_NOFOLLOW audit via Node — writes only if NO component of the
-            # write path is a symlink. Attack surface closed: if an attacker
-            # symlinked LOG_DIR itself, open(O_NOFOLLOW) EEXISTs and Node exits
-            # non-zero; no write occurs.
+            # CRIT-fix re-review 3: write the refusal audit row to the
+            # PLANNING_DIR_CANONICAL trusted path, NOT $LOG_DIR (which may
+            # itself be the escaped target). This guarantees the audit row
+            # lands inside .planning/ even when LOG_DIR was the attack vector.
+            # O_NOFOLLOW additionally rejects the final-component symlink case.
             if command -v node >/dev/null 2>&1; then
-                mkdir -p "$LOG_DIR" 2>/dev/null || true
+                local safe_log_dir="$PLANNING_DIR_CANONICAL/metrics"
+                local safe_log_path="$safe_log_dir/handoff-log.jsonl"
+                mkdir -p "$safe_log_dir" 2>/dev/null || true
                 node -e "
                   const fs = require('fs');
                   const p = process.argv[1];
@@ -131,7 +134,7 @@ _assert_contained() {
                   } catch (e) {
                     // ELOOP / EEXIST / EACCES — refuse silently, stderr already logged
                   }
-                " "$LOG_DIR/handoff-log.jsonl" \
+                " "$safe_log_path" \
                   "{\"ts\":\"$ts\",\"from_session_id\":\"pid-$$\",\"to_session_id\":null,\"reason\":\"refused\",\"chain_depth\":0,\"refused\":\"symlink_escape\",\"path_label\":\"$label\"}" \
                   2>/dev/null || true
             fi
