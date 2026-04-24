@@ -204,6 +204,26 @@ gates:
 
   # ── category: verify-completeness ────────────────────────────────────────
 
+  - name: vtp-enrichment
+    category: process-hygiene
+    step: 6.15
+    enforcement_mode: soft-warn  # api_error escalates to hard-halt via orchestrator code
+    trigger:
+      - field: research_phase_complete
+        op: eq
+        value: true
+      - field: vtp_enrichment_enabled
+        op: eq
+        value: true
+    evidence_emitted:
+      - .planning/milestones/{version}/phases/{NN}-*/{NN}-VTP-ENRICHMENT.md
+    escalation: block_on_api_error
+    source_dlb: VTPE-01
+    state: active
+    version: 2.1
+
+  # ── category: verify-completeness ────────────────────────────────────────
+
   - name: verifier-row-arithmetic
     category: verify-completeness
     step: 0
