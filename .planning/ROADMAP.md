@@ -25,8 +25,8 @@ Scope: sweep v1.3 carry-over tech debt, harden Codex path to full operational re
   - **Phase ATC**: 0 CRITICAL + 2 WARNINGS deferred to Phase 19 richer-output-contract scope
   - **Codex dogfood**: 2 invocations this phase (1 meta-dogfood per-dispatch + 1 phase-level), both exit 0, validateContract first-live-fire clean
 - [ ] **Phase 19: Mission Control Visibility** — MC-01..MC-05 (5 requirements, 2 plans)
-  - 19-01: Core tiles (MC-01 mission-control Codex tile, MC-02 statusline indicator, MC-05 dashboard offload tile)
-  - 19-02: Event capture + feed (MC-03 narrative Codex events, MC-04 live-feed codex-log tail)
+  - [x] 19-01: Core tiles (MC-01 mission-control Codex tile, MC-02 statusline indicator, MC-05 dashboard offload tile) ✓ 2026-04-24
+  - [ ] 19-02: Event capture + feed (MC-03 narrative Codex events, MC-04 live-feed codex-log tail)
 - [ ] **Phase 20: Autonomous Session Handoff** — HANDOFF-01..HANDOFF-03 (3 requirements, 3 plans) — closes the operator-intervention gap between emergency halt and fresh-session resume
   - 20-01: Stop hook script (HANDOFF-01 `sgsd-stop-handoff.sh` reads checkpoint + spawns fresh `claude` with `/sgsd-orchestrate go`)
   - 20-02: Safety rails (HANDOFF-02 cooldown + max-chain-depth + operator-abort file + installer wiring into settings.json)

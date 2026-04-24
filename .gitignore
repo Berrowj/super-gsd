@@ -8,6 +8,9 @@ node_modules/
 # Operator-local Claude Code settings (may contain secrets)
 .claude/
 
+# Temp executor helpers
+_parse_check.ps1
+
 # Super-GSD runtime state — ephemeral per install
 .gsd/
 

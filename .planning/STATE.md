@@ -4,18 +4,18 @@ milestone: v1.4
 milestone_name: Clean Close + Codex Visibility + Autonomous Handoff
 milestone_status: v1.4 ACTIVE — defining requirements complete, roadmap laid down (4 phases, 10 plans, 17 REQ-IDs across CLEAN/CXOPS/MC/HANDOFF). Phase 20 added 2026-04-24 per operator directive to close the autonomous-handoff loop (discuss-phase remains interactive; everything else cross-session autonomous). Next: /gsd-plan-phase 17 (context captured 75f8cbd).
 status: Phase 18 ✓ COMPLETE — 4/4 CXOPS items delivered. 18-01 shipped CXOPS-01 --self-test 4-probe harness + CXOPS-02 validateContract at SKILL.md Steps 6.5/9.5 with parse_failure single-retry fallback. 18-02 shipped DOGFOOD-AUDIT.md formally satisfying CXOPS-03/04 via 5 per-dispatch + 1 phase-level Codex evidence rows. 2 Codex invocations this phase (both exit 0, 0 CRITICAL, 4 WARNINGs deferred to Phase 19 richer-output-contract scope). Phase 17 previously shipped clean. Cumulative v1.4 Codex: 8 invocations, 842.5s wall-clock, ~17k Claude tokens saved, 0 fallbacks, 2 CRITICALs raised+cleared.
-stopped_at: Phase 18 phase-close complete (verify PASS, phase-level ATC PASS-WITH-WARNINGS, MUDA ran cleanly end-to-end validating milestone-nested fix). Next: Phase 19 MC Visibility (~30% early credit already shipped — e0c74c7 + df17733) OR Phase 20 Autonomous Handoff.
+stopped_at: Phase 19 plan 19-01 complete (MC-01 mission-control Codex tile, MC-02 statusline [x] cdx: segment, MC-05 dashboard MultimodalReview Offload tile). Next: 19-02 event capture + live feed (MC-03 narrative Codex events, MC-04 live-feed codex-log tail).
 last_updated: "2026-04-24T14:00:00.000Z"
 last_activity: 2026-04-24 — Phase 17 shipped end-to-end in single session. 20 commits, 49 files, 3318+/310- lines. RESEARCH → 3 plans + INDEX → plan-check fix → 17-01 executor + Codex ATC (crit → fix → clean) → 17-02 executor (LITE skip) → 17-03 executor + Codex ATC (crit → fix → clean) → verifier PASS → phase-level Codex ATC PASS-WITH-WARNINGS → phase complete. 622.9s cumulative Codex wall-clock. MC visibility also shipped (8 files, 543 lines — Codex Monitor RECENT VERDICTS section + heartbeat hook + gate-verdict board).
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 10
-  completed_plans: 5
-  percent: 50
+  completed_plans: 6
+  percent: 60
   phase_17: "3/3 plans complete — shipped 2026-04-24 (7/7 CLEAN)"
   phase_18: "2/2 plans complete — shipped 2026-04-24 (4/4 CXOPS)"
-  phase_19: "not started — MC Visibility, 2 plans, 5 REQ-IDs (MC); ~30% credit from today"
+  phase_19: "1/2 plans complete — 19-01 shipped 2026-04-24 (MC-01 mission-control tile, MC-02 statusline, MC-05 dashboard)"
   phase_20: "not started — Autonomous Handoff, 3 plans, 3 REQ-IDs (HANDOFF)"
 ---
 
