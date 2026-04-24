@@ -135,5 +135,18 @@
     "auto_scan": true,
     "serve": false
   },
-  "model_profile": "quality"
+  "model_profile": "quality",
+  "handoff": {
+    "enabled": false,
+    "min_cooldown_seconds": 30,
+    "max_chain_depth": 5,
+    "operator_abort_file": ".planning/STOP-HANDOFF",
+    "spawn_command": "claude",
+    "spawn_args": [
+      "--print",
+      "--dangerously-skip-permissions",
+      "/sgsd-orchestrate go"
+    ],
+    "log_path": ".planning/metrics/handoff-log.jsonl"
+  }
 }
