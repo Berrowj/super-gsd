@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: VTP Knowledge Primacy + Post-v1.4 Hardening
 milestone_status: v1.5 ACTIVE (2026-04-24) — scoped via /gsd-new-milestone with operator Q1=A/Q2=B/Q3=A/Q4=C. 21 REQ-IDs across 6 categories (VTPE + SEC + MUDAC + CONTRACT + CARRY + INSTR). 5 phases (21-25), 13 plans. Design posture: enrich-only VTP gate (no challenger — autonomy preserved), hard-required artifact (gate MUST write VTP-ENRICHMENT.md even on zero hits, VTP API errors block, empty-hit continues). Previous milestone v1.4 ✓ SHIPPED 2026-04-24 (16 Codex invocations, ~32k tokens saved, all CRITs cleared, handoff disabled by default).
-status: v1.5 Phase 21 in-progress. Plans 21-01/02/03 COMPLETE. Plan 21-04 pending.
-stopped_at: Phase 21 Plan 21-03 complete — config.vtp_enrichment block + 3-path artifact writes + D-08 vtp_health cold-start degraded mode. Next: Plan 21-04.
-last_updated: "2026-04-24T19:50:10Z"
-last_activity: 2026-04-24 — Plan 21-03 shipped (commits 7f4aef6 + 14dae35 + 3973d05). VTPE-04/05 + D-07/D-08 delivered.
+status: v1.5 Phase 21 in-progress. Plans 21-01/02/03/04 COMPLETE. Plans 21-05+ pending.
+stopped_at: Phase 21 Plan 21-04 complete — sgsd-board-researcher agent + config.board[5] + sgsd-ceo N-relative vote-math. Next: Plan 21-05.
+last_updated: "2026-04-24T20:10:00Z"
+last_activity: 2026-04-24 — Plan 21-04 shipped (commits 02d9182 + 6cb83fa + aa081fe). VTPE-06 delivered — 5th deliberation voice (Library Researcher) wired end-to-end.
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 13
-  completed_plans: 3
-  percent: 23
-  phase_21: "in-progress — Plans 21-01/02/03 COMPLETE (gate wired + audit xref + config block + 3-path artifact + vtp_health degraded mode)"
+  completed_plans: 4
+  percent: 31
+  phase_21: "in-progress — Plans 21-01/02/03/04 COMPLETE (gate wired + audit xref + config block + 3-path artifact + vtp_health degraded mode + board-researcher 5th voice)"
   phase_22: "not started — Security Hardening, 2 plans, 2 SEC REQ-IDs"
   phase_23: "not started — MUDA Calibration, 2 plans, 4 MUDAC REQ-IDs"
   phase_24: "not started — Richer Output Contract, 2 plans, 3 CONTRACT REQ-IDs"
@@ -58,6 +58,7 @@ Progress: [██████████] 100% (3/3 v1.3 phases complete)
 - D014 (20-03): sgsd-session-start.js created as new sgsd-prefixed hook; path.join(process.cwd(),...) throughout — no toUnixPath
 - D015 (20-03): cumulative_runtime_s moved from _log_row base template to extra param — avoids duplicate JSON keys on spawned rows
 - D016 (20-03): --MilestoneCloseCheck inserted before __sgsd_fail in sgsd-gate-verdict.ps1 — exits 0 without requiring valid ProjectDir
+- D017 (21-04): sgsd-board-researcher model=sonnet consistent with all 4 existing board members; board.includes guard in sgsd-ceo ensures backward compat; vote-math expressed as >N/2 (majority) — survives any board.length
 
 ### Open Dependencies (v1.2 scoping-time)
 
