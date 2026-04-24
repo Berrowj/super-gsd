@@ -510,7 +510,8 @@ REPEAT:
               reportOut,
               phase: currentPhase,
               step: '6.5',
-              timeoutTier: 'review'  // --timeout-tier review (D-03: phase-level-ATC → review tier = 120s)
+              timeoutTier: 'analysis',  // D-05 #3: phase-level-ATC -> analysis tier (90s, not review 120s)
+              retryOnTimeoutEscalate: true,  // D-05 #5: auto-escalate once to analysis on timeout
             });
             if (dispatchResult.exit !== 0 && effective.fallback_to && config.review_providers.fallback_on_error) {
               // Single-retry fallback to Claude per HiveMind centralized-retry pattern (doc:5a50cc9b459e)
@@ -942,7 +943,7 @@ REPEAT:
             reportOut,
             phase: currentPhase,
             step: '9.5',
-            timeoutTier: 'review'  // --timeout-tier review (D-03: per-dispatch-ATC → review tier = 120s)
+            timeoutTier: 'analysis',  // D-05 #3: phase-level-ATC -> analysis tier (90s, not review 120s)
           });
           if (dispatchResult.exit !== 0 && effective.fallback_to && config.review_providers.fallback_on_error) {
             // Single-retry fallback to Claude per HiveMind centralized-retry pattern (doc:5a50cc9b459e)

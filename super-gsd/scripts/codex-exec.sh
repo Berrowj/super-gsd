@@ -48,6 +48,8 @@ PROJECT=""
 PHASE_TAG=""
 PLAN_TAG=""
 STEP_TAG=""
+RETRY_ON_TIMEOUT_ESCALATE=false
+SELF_TEST_EXIT_PRIORITY=false
 
 json_escape() {
     printf '%s' "${1:-}" | awk '
@@ -77,6 +79,9 @@ while [[ $# -gt 0 ]]; do
         --timeout-tier) TIMEOUT_TIER="$2"; shift 2 ;;
         --self-test)    SELF_TEST=true;    shift ;;
         --skip-network) SKIP_NETWORK=true; shift ;;
+        --retry-on-timeout-escalate)    RETRY_ON_TIMEOUT_ESCALATE=true;  shift ;;
+        --no-retry-on-timeout-escalate) RETRY_ON_TIMEOUT_ESCALATE=false; shift ;;
+        --self-test-exit-priority)      SELF_TEST_EXIT_PRIORITY=true;    shift ;;
         --help|-h)      head -40 "$0" | tail -35; exit 0 ;;
         -*)             echo "codex-exec: unknown flag $1" >&2; exit 1 ;;
         *)             echo "codex-exec: unexpected positional arg '$1'" >&2; exit 1 ;;
@@ -200,14 +205,28 @@ resolve_step_timeout() {
     case "$step" in
         smoke|self-test)
             echo "$TIER_DEFAULT" ;;
-        per-dispatch-ATC|phase-level-ATC|adversarial)
+        per-dispatch-ATC|adversarial)
             echo "$TIER_REVIEW" ;;
+        phase-level-ATC)
+            # D-05 #3: phase-level-ATC uses analysis tier (90s), not review (120s)
+            echo "$TIER_ANALYSIS" ;;
         muda-qualitative|qualitative-*)
             echo "$TIER_ANALYSIS" ;;
         *)
             echo "" ;;
     esac
 }
+
+# ── D-05 #6: --self-test-exit-priority — print probe order table, exit 0 ────
+if [[ "$SELF_TEST_EXIT_PRIORITY" == true ]]; then
+    echo "codex-exec: self-test exit priority table"
+    echo "  Probe 1: PATH check         (exit 10 on failure -- highest priority)"
+    echo "  Probe 2: auth check         (exit 11 on failure)"
+    echo "  Probe 3: timeout-math check (exit 12 on failure)"
+    echo "  Probe 4: contract check     (exit 13 on failure -- lowest priority)"
+    echo "  Note: PATH failure takes precedence over auth failure when both conditions hold."
+    exit 0
+fi
 
 # ── Self-test harness (CXOPS-01 / D-02) ─────────────────────────────────────
 # Placed here so detect_root, TIER_REVIEW, and resolve_timeout_tier are all
@@ -482,6 +501,13 @@ append_narrative_event "codex_started" "step=$STEP_TAG plan=$PLAN_TAG phase=$PHA
 
 # ── Exit remap (D-01a) ──────────────────────────────────────────────────────
 if [[ $RC -eq 124 ]]; then
+    # D-05 #5: if --retry-on-timeout-escalate set and step=phase-level-ATC, retry once
+    # with analysis tier. exec replaces process — no fork bomb. --no-retry flag prevents loop.
+    if [[ "$RETRY_ON_TIMEOUT_ESCALATE" == true && "$STEP_TAG" == "phase-level-ATC" ]]; then
+        echo "codex-exec: timeout on review tier -- retrying once with analysis tier" >&2
+        CODEX_TIMEOUT_TIER_OVERRIDE=analysis exec "$0" "$@" --no-retry-on-timeout-escalate
+        # exec replaces process; reached only if exec itself fails
+    fi
     write_live_state "timeout" 5 "true" 0
     append_jsonl 5 "true" 0
     append_narrative_event "codex_timeout" "timeout after ${TIMEOUT}s step=$STEP_TAG" "lastfail"
