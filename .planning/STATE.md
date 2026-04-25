@@ -1,26 +1,23 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.5
-milestone_name: VTP Knowledge Primacy + Post-v1.4 Hardening
-milestone_status: v1.5 ACTIVE (2026-04-24) — scoped via /gsd-new-milestone with operator Q1=A/Q2=B/Q3=A/Q4=C. 21 REQ-IDs across 6 categories (VTPE + SEC + MUDAC + CONTRACT + CARRY + INSTR). 5 phases (21-25), 13 plans. Design posture: enrich-only VTP gate (no challenger — autonomy preserved), hard-required artifact (gate MUST write VTP-ENRICHMENT.md even on zero hits, VTP API errors block, empty-hit continues). Previous milestone v1.4 ✓ SHIPPED 2026-04-24 (16 Codex invocations, ~32k tokens saved, all CRITs cleared, handoff disabled by default).
-status: v1.5 Phase 25 COMPLETE — ALL PHASES DONE. Ready for sgsd-complete-milestone v1.5.
-stopped_at: All 5 v1.5 phases shipped (21/22/23/24/25). 21/21 REQs delivered across 6 categories (VTPE + SEC + MUDAC + CONTRACT + CARRY + INSTR). Milestone close pending.
-last_updated: "2026-04-25T01:30:00Z"
-last_activity: 2026-04-25 — Phase 25 closed (CARRY-01..03 + INSTR-01..03 + 25-VERIFICATION + 25-SUMMARY).
+milestone: v1.6
+milestone_name: pending scoping
+milestone_status: v1.5 ✓ SHIPPED 2026-04-25 (5 phases / 11 plans / 21 REQs across VTPE+SEC+MUDAC+CONTRACT+CARRY+INSTR; 14 Codex invocations, 13 CRITs raised+cleared, ~34,965 Claude tokens saved). v1.6 not yet scoped — run /gsd-new-milestone to scope. Top v1.6 candidates from v1.5 close: Codex review-log instrumentation (close kill-check data gap), edge-guard dogfood (full-milestone log), VTP gate enable-by-default decision.
+status: v1.5 complete — awaiting v1.6 scoping via /gsd-new-milestone.
+stopped_at: v1.5 milestone closed cleanly via /sgsd-complete-milestone v1.5 on 2026-04-25.
+last_updated: "2026-04-25T08:30:00Z"
+last_activity: 2026-04-25 — v1.5 SUMMARY.md written, MUDA recurrence + gate-drift + integration check + Codex kill-check (DEVIATION) all clean. Milestone close commit pending.
 progress:
   total_phases: 5
   completed_phases: 5
-  total_plans: 13
+  total_plans: 11
   completed_plans: 11
   percent: 100
-  # All 5 v1.5 phases closed 2026-04-25 — milestone close pending
   phase_21: "4/4 plans complete — shipped 2026-04-24 (6/6 VTPE + halt-on-CRIT fix cycle proved out)"
   phase_22: "2/2 plans complete — shipped 2026-04-25 (SEC-01 + SEC-02 + 7-round Codex review)"
   phase_23: "1/1 plan complete — shipped 2026-04-25 (MUDAC-02 newly delivered + MUDAC-01/03/04 pre-shipped)"
   phase_24: "1/1 plan complete — shipped 2026-04-25 (CONTRACT-01..03 FINDINGS_DETAIL activation)"
   phase_25: "3/3 plans complete — shipped 2026-04-25 (CARRY-01..03 + INSTR-01..03)"
-  phase_24: "not started — Richer Output Contract, 2 plans, 3 CONTRACT REQ-IDs"
-  phase_25: "not started — Carryover + Telemetry, 3 plans, 6 REQ-IDs (3 CARRY + 3 INSTR)"
 ---
 
 # Project State

@@ -6,11 +6,11 @@
 - ✅ **v1.2 Evidence-First Sharpening** — Phases 9-13 (shipped 2026-04-24 retroactive close) — [archive](milestones/v1.2-ROADMAP.md) · `git tag v1.2`
 - ✅ **v1.3 Multimodal Review — Codex Integration** — Phases 14-16 (shipped 2026-04-24) — [archive](milestones/v1.3-ROADMAP.md) · [requirements](milestones/v1.3-REQUIREMENTS.md) · [audit](milestones/v1.3-MILESTONE-AUDIT.md)
 - ✅ **v1.4 Clean Close + Codex Visibility + Autonomous Handoff** — Phases 17-20 (shipped 2026-04-24) — [summary](milestones/v1.4/SUMMARY.md) · [requirements](milestones/v1.4-REQUIREMENTS.md) · `git tag v1.4`
-- 🚧 **v1.5 VTP Knowledge Primacy + Post-v1.4 Hardening** — Phases 21-25 (in progress, 21 REQ-IDs across VTPE/SEC/MUDAC/CONTRACT/CARRY/INSTR)
+- ✅ **v1.5 VTP Knowledge Primacy + Post-v1.4 Hardening** — Phases 21-25 (shipped 2026-04-25) — [summary](milestones/v1.5/SUMMARY.md) · 21 REQs across VTPE/SEC/MUDAC/CONTRACT/CARRY/INSTR
 
 ## Phases
 
-### 🚧 v1.5 VTP Knowledge Primacy + Post-v1.4 Hardening (Phases 21-25)
+### ✅ v1.5 VTP Knowledge Primacy + Post-v1.4 Hardening (Phases 21-25) — SHIPPED 2026-04-25
 
 Scope: elevate VTP knowledge library from passive MCP server into active enrichment gate on every research + audit decision; close Phase 20 Codex-acknowledged security surfaces; calibrate MUDA aggregation across 3-phase accumulated findings; fully adopt richer-output contract Codex began emitting spontaneously in v1.4 Phase 20; land Phase 17-19 carryover WARNs; wire edge-guard layer + dashboard math audit + timeout observability.
 
