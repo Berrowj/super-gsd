@@ -3,21 +3,28 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Cockpit 2.0 + Startup Verification
 milestone_status: ACTIVE — promoted 2026-04-26 under full-roadmap autopilot run #2 (after reset of run #1). Phases 26-30. ROADMAP-AGENT.md is the controlling contract; DISCUSS.md captures locked decisions. CRIT-BACKLOG canonical at metrics/crit-backlog.jsonl.
-status: v1.6 active — pre-flight readiness check pending; Phase 26 next.
-stopped_at: 2026-04-26 — auto mode kickoff after operator "go".
-last_updated: "2026-04-26T22:50:00Z"
-last_activity: 2026-04-26 — v1.6 promoted, EXISTING-SURFACE-AUDIT.md written, REQUIREMENTS promoted from PROPOSED. Awaiting milestone readiness audit.
+status: v1.6 active — Phase 26 PASS-WITH-DEFERRED-1 (Codex unavail); Phase 27 next.
+stopped_at: 2026-04-26 — Phase 26 closed at cec7126.
+last_updated: "2026-04-26T23:15:00Z"
+last_activity: 2026-04-26 — Phase 26 closed PASS-WITH-DEFERRED-1; status-consistency PASS; W1 fixed in-loop; 1 backlog row (Codex provider_unavailable).
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
-  phase_26: "scoping — awaiting researcher dispatch"
-  phase_27: "queued — data source + objective tree"
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 20
+  phase_26: "1/1 plan complete — PASS-WITH-DEFERRED-1 (Codex unavail) ✓ 2026-04-26"
+  phase_27: "scoping — awaiting researcher dispatch"
   phase_28: "queued — mission control 2.0 layout"
   phase_29: "queued — agent + Codex visibility lanes"
   phase_30: "queued — startup verification + cockpit acceptance"
+backlog:
+  total_unresolved: 1
+  by_kind:
+    verifier_fail: 1
+    edge_guard_miss: 0
+  by_phase:
+    "26": 1
 roadmap_run:
   mode: full-autopilot
   scope: v1.6 → v2.1
