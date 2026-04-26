@@ -84,6 +84,10 @@ function Get-PaneWidth {
     try { return [Console]::WindowWidth - 1 } catch { return 70 }
 }
 
+function Get-PaneHeight {
+    try { return [Console]::WindowHeight } catch { return 30 }
+}
+
 function Trunc($text, $width) {
     if ($null -eq $text) { return "" }
     $text = "$text"
@@ -97,6 +101,31 @@ function Format-Age($sec) {
     if ($sec -lt 3600) { return "$([math]::Floor($sec/60))m" }
     if ($sec -lt 86400){ return "$([math]::Floor($sec/3600))h" }
     return "$([math]::Floor($sec/86400))d"
+}
+
+function Format-Duration($ms) {
+    if ($null -eq $ms) { return "--" }
+    $ms = [int]$ms
+    if ($ms -le 0) { return "--" }
+    if ($ms -lt 1000) { return "${ms}ms" }
+    if ($ms -lt 60000) { return ("{0:n1}s" -f ($ms / 1000)) }
+    $totalSec = [math]::Floor($ms / 1000)
+    return ("{0}m{1:00}s" -f [math]::Floor($totalSec / 60), ($totalSec % 60))
+}
+
+function Format-Bytes($bytes) {
+    if ($null -eq $bytes) { return "--" }
+    $bytes = [double]$bytes
+    if ($bytes -le 0) { return "0B" }
+    if ($bytes -lt 1024) { return ("{0}B" -f [int]$bytes) }
+    if ($bytes -lt 1048576) { return ("{0:n1}KB" -f ($bytes / 1024)) }
+    return ("{0:n1}MB" -f ($bytes / 1048576))
+}
+
+function Format-Flag($value) {
+    if ($value -eq $true) { return "yes" }
+    if ($value -eq $false) { return "no" }
+    return "--"
 }
 
 function Get-CurrentPhaseNum {
@@ -130,18 +159,158 @@ function Get-VerdictLabel($vr) {
     return "Clean"
 }
 
+function Clean-MarkdownInline($text) {
+    if ($null -eq $text) { return "" }
+    $s = "$text"
+    $s = $s -replace '\*\*', ''
+    $s = $s -replace '`', ''
+    $s = $s -replace '\s+', ' '
+    return $s.Trim()
+}
+
+function Get-MarkdownSectionItems {
+    param(
+        [string[]]$Lines,
+        [string]$HeadingPattern,
+        [int]$MaxItems = 4
+    )
+    $items = @()
+    $inSection = $false
+    foreach ($line in $Lines) {
+        if ($line -match '^##\s+') {
+            if ($inSection) { break }
+            if ($line -match $HeadingPattern) { $inSection = $true }
+            continue
+        }
+        if (-not $inSection) { continue }
+        if ($line -match '^\s*(?:\d+\.\s+|-\s+)(.+)$') {
+            $item = Clean-MarkdownInline $matches[1]
+            if ($item) { $items += $item }
+            if ($items.Count -ge $MaxItems) { break }
+        }
+    }
+    return @($items)
+}
+
+function Get-CodexReportFields {
+    param($codex)
+    $path = if ($codex.reportOutResolved) { $codex.reportOutResolved } else { Resolve-SgsdRuntimePath "$($codex.reportOut)" }
+    $out = [ordered]@{
+        exists = $false
+        path = $path
+        findings = ""
+        critical = ""
+        warnings = ""
+        passRate = ""
+        oneLiner = ""
+    }
+    if (-not $path -or -not (Test-Path $path)) { return [pscustomobject]$out }
+    $out.exists = $true
+    try {
+        foreach ($line in (Get-Content $path -TotalCount 120 -ErrorAction SilentlyContinue)) {
+            if ($line -match '^FINDINGS:\s*(.+)$') { $out.findings = $matches[1].Trim(); continue }
+            if ($line -match '^CRITICAL:\s*(.+)$') { $out.critical = $matches[1].Trim(); continue }
+            if ($line -match '^WARNINGS:\s*(.+)$') { $out.warnings = $matches[1].Trim(); continue }
+            if ($line -match '^PASS_RATE:\s*(.+)$') { $out.passRate = $matches[1].Trim(); continue }
+            if ($line -match '^ONE_LINER:\s*(.+)$') { $out.oneLiner = $matches[1].Trim(); continue }
+        }
+    } catch {}
+    return [pscustomobject]$out
+}
+
+function Get-CodexPromptBrief {
+    param($codex)
+    $path = if ($codex.promptFileResolved) { $codex.promptFileResolved } else { Resolve-SgsdRuntimePath "$($codex.promptFile)" }
+    $out = [ordered]@{
+        exists = $false
+        path = $path
+        title = ""
+        checks = @()
+    }
+    if (-not $path -or -not (Test-Path $path)) { return [pscustomobject]$out }
+    $out.exists = $true
+    try {
+        $lines = @(Get-Content $path -TotalCount 220 -ErrorAction SilentlyContinue)
+        foreach ($line in $lines) {
+            if ($line -match '^#\s+(.+)$') {
+                $out.title = Clean-MarkdownInline $matches[1]
+                break
+            }
+        }
+        $checks = @(Get-MarkdownSectionItems -Lines $lines -HeadingPattern '^##\s+Review dimensions' -MaxItems 4)
+        if ($checks.Count -eq 0) {
+            $checks = @(Get-MarkdownSectionItems -Lines $lines -HeadingPattern '^##\s+Design invariants' -MaxItems 4)
+        }
+        if ($checks.Count -eq 0) {
+            $checks = @(Get-MarkdownSectionItems -Lines $lines -HeadingPattern '^##\s+Plans shipped' -MaxItems 3)
+        }
+        $out.checks = $checks
+    } catch {}
+    return [pscustomobject]$out
+}
+
+function Get-CodexOperatorBrief {
+    param($codex, $verdicts)
+    $prompt = Get-CodexPromptBrief $codex
+    $report = Get-CodexReportFields $codex
+    $latestVerdict = if ($verdicts.Count -gt 0) { $verdicts[0] } else { $null }
+    $scope = @($codex.phase, $codex.plan, $codex.step) | Where-Object { $_ -and "$_".Trim() -ne "" }
+    $scopeText = if ($scope.Count -gt 0) { $scope -join " / " } else { "current review scope" }
+
+    $conclusion = ""
+    if ($report.exists -and $report.oneLiner) {
+        $conclusion = $report.oneLiner
+    } elseif ($latestVerdict) {
+        $conclusion = "$($latestVerdict.plan): $($latestVerdict.one_liner)"
+    } elseif ($codex.oneLiner) {
+        $conclusion = "$($codex.oneLiner)"
+    }
+
+    $attention = @()
+    if ("$($codex.state)" -eq "timeout") {
+        $attention += ("Timed out after {0}; no complete report for this run." -f (Format-Duration $codex.durationMs))
+    } elseif ("$($codex.state)" -eq "running") {
+        $attention += "Review currently running; waiting for report contract."
+    } elseif ("$($codex.state)" -match 'error|auth-denied|contract') {
+        $attention += "Review mechanism failed; fallback or retry is needed."
+    }
+    if ($latestVerdict -and ([int]$latestVerdict.critical -gt 0)) {
+        $attention += ("Latest stored verdict has {0} critical issue(s)." -f [int]$latestVerdict.critical)
+    } elseif ($latestVerdict -and ([int]$latestVerdict.warning -gt 0)) {
+        $attention += ("Latest stored verdict has {0} warning(s)." -f [int]$latestVerdict.warning)
+    }
+    if ($attention.Count -eq 0 -and $report.exists) {
+        $attention += "Report contract written; use findings above for action."
+    }
+
+    return [pscustomobject]@{
+        title = if ($prompt.title) { $prompt.title } else { $scopeText }
+        scope = $scopeText
+        checks = @($prompt.checks)
+        conclusion = $conclusion
+        report = $report
+        attention = @($attention)
+    }
+}
+
 function Render {
     if (-not (Test-RenderDue -MinIntervalMs 2000)) { return }
 
     Write-Host $HOME_POS -NoNewline
     $pw = Get-PaneWidth
+    $ph = Get-PaneHeight
+    $expanded = ($pw -ge 96 -or $ph -ge 38)
+    $deep = ($pw -ge 110 -and $ph -ge 42)
+    $rowLimit = if ($deep) { 7 } elseif ($expanded) { 6 } else { 4 }
+    $verdictLimit = if ($deep) { 5 } elseif ($expanded) { 4 } else { 3 }
     $ts = Get-Date -Format 'HH:mm:ss'
     $phaseNum = Get-CurrentPhaseNum
     $substrate = Get-SubstrateStatus -ProjectDir $ProjectDir
     $codex = Get-SgsdCodexStatus -ProjectDir $ProjectDir -PlanningDir $PlanningDir
-    $events = Get-SgsdCodexEvents -PlanningDir $PlanningDir -PhaseNum $phaseNum -MaxEvents 4
-    $rows = Get-SgsdCodexLogRows -PlanningDir $PlanningDir -MaxRows 6
-    $verdicts = Get-SgsdCodexVerdicts -PlanningDir $PlanningDir -MaxRows 4
+    $vtp = Get-SgsdVtpMcpStatus -ProjectDir $ProjectDir -PlanningDir $PlanningDir
+    $rows = Get-SgsdCodexLogRows -PlanningDir $PlanningDir -MaxRows $rowLimit
+    $verdicts = Get-SgsdCodexVerdicts -PlanningDir $PlanningDir -MaxRows $verdictLimit
+    $brief = Get-CodexOperatorBrief -codex $codex -verdicts $verdicts
 
     Write-Host "SUPER GSD" -NoNewline -ForegroundColor Magenta
     Write-Host " ! " -NoNewline -ForegroundColor Cyan
@@ -175,6 +344,20 @@ function Render {
     Write-Host ($(if ($codex.fallbackOnError) { "on" } else { "off" })) -NoNewline -ForegroundColor Gray
     Write-Host $CLEAR_LINE
 
+    Write-Host "CODEX" -NoNewline -ForegroundColor White
+    Write-Host ": model=" -NoNewline -ForegroundColor DarkGray
+    Write-Host ($(if ($codex.model) { $codex.model } else { "--" })) -NoNewline -ForegroundColor Gray
+    Write-Host " effort=" -NoNewline -ForegroundColor DarkGray
+    Write-Host ($(if ($codex.reasoningEffort) { $codex.reasoningEffort } else { "--" })) -NoNewline -ForegroundColor Gray
+    Write-Host " runs=" -NoNewline -ForegroundColor DarkGray
+    Write-Host ("{0}/{1}" -f [int]$codex.okRuns, [int]$codex.totalRuns) -NoNewline -ForegroundColor Cyan
+    Write-Host " fallback=" -NoNewline -ForegroundColor DarkGray
+    Write-Host ([int]$codex.fallbackCount) -NoNewline -ForegroundColor Gray
+    Write-Host " saved~" -NoNewline -ForegroundColor DarkGray
+    Write-Host ([int]$codex.claudeTokensSaved) -NoNewline -ForegroundColor Gray
+    Write-Host "tok" -NoNewline -ForegroundColor DarkGray
+    Write-Host $CLEAR_LINE
+
     $scopeParts = @($codex.phase, $codex.plan, $codex.step) | Where-Object { $_ -and "$_".Trim() -ne "" }
     Write-Host "SCOPE" -NoNewline -ForegroundColor White
     Write-Host ": " -NoNewline -ForegroundColor DarkGray
@@ -198,6 +381,39 @@ function Render {
         Write-Host "  " -NoNewline
         Write-Host (Trunc "$($latest.one_liner)" ($pw - 3)) -NoNewline -ForegroundColor Gray
         Write-Host $CLEAR_LINE
+    }
+
+    if ($expanded) {
+        Write-Host $CLEAR_LINE
+        Write-Host "ACTIVE CODEX DETAIL" -NoNewline -ForegroundColor White
+        Write-Host $CLEAR_LINE
+        Write-Host "  model " -NoNewline -ForegroundColor DarkGray
+        Write-Host ($(if ($codex.model) { $codex.model } else { "--" })) -NoNewline -ForegroundColor Cyan
+        Write-Host " / effort " -NoNewline -ForegroundColor DarkGray
+        Write-Host ($(if ($codex.reasoningEffort) { $codex.reasoningEffort } else { "--" })) -NoNewline -ForegroundColor Cyan
+        Write-Host " / timeout " -NoNewline -ForegroundColor DarkGray
+        Write-Host ($(if ([int]$codex.timeoutSeconds -gt 0) { "$($codex.timeoutSeconds)s" } else { "--" })) -NoNewline -ForegroundColor Gray
+        Write-Host " / duration " -NoNewline -ForegroundColor DarkGray
+        Write-Host (Format-Duration $codex.durationMs) -NoNewline -ForegroundColor Gray
+        Write-Host " / exit " -NoNewline -ForegroundColor DarkGray
+        Write-Host ($(if ($null -ne $codex.exit) { "$($codex.exit)" } else { "--" })) -NoNewline -ForegroundColor Gray
+        Write-Host $CLEAR_LINE
+        Write-Host "  prompt " -NoNewline -ForegroundColor DarkGray
+        Write-Host (Format-Bytes $codex.promptBytes) -NoNewline -ForegroundColor Gray
+        Write-Host " / report " -NoNewline -ForegroundColor DarkGray
+        Write-Host (Format-Bytes $codex.reportBytes) -NoNewline -ForegroundColor Gray
+        Write-Host " / fallback " -NoNewline -ForegroundColor DarkGray
+        Write-Host (Format-Flag $codex.fallbackTriggered) -NoNewline -ForegroundColor Gray
+        if ($codex.reportOut) {
+            Write-Host " / out " -NoNewline -ForegroundColor DarkGray
+            Write-Host (Trunc "$($codex.reportOut)" ([Math]::Max(12, $pw - 45))) -NoNewline -ForegroundColor DarkGray
+        }
+        Write-Host $CLEAR_LINE
+        if ($deep -and $codex.commandPreview) {
+            Write-Host "  cmd " -NoNewline -ForegroundColor DarkGray
+            Write-Host (Trunc "$($codex.commandPreview)" ($pw - 7)) -NoNewline -ForegroundColor DarkGray
+            Write-Host $CLEAR_LINE
+        }
     }
 
     Write-Host $CLEAR_LINE
@@ -238,31 +454,139 @@ function Render {
             $state = if ($row.exit -eq 0) { "Completed" } elseif ($row.exit -eq 5) { "Timed out" } else { "Failed" }
             $color = if ($row.exit -eq 0) { "Green" } elseif ($row.exit -eq 5) { "Yellow" } else { "Red" }
             $scope = @("$($row.phase)", "$($row.plan)", "$($row.step)") | Where-Object { $_ -and "$_".Trim() -ne "" }
+            $model = if ($row.model) { "$($row.model)" } else { "$($codex.model)" }
+            $effort = if ($row.reasoning_effort) { "$($row.reasoning_effort)" } else { "$($codex.reasoningEffort)" }
+            $metaParts = @()
+            if ($model -or $effort) { $metaParts += ("{0}/{1}" -f $(if ($model) { $model } else { "--" }), $(if ($effort) { $effort } else { "--" })) }
+            if ($row.duration_ms) { $metaParts += (Format-Duration $row.duration_ms) }
+            if ($row.prompt_bytes) { $metaParts += ("in {0}" -f (Format-Bytes $row.prompt_bytes)) }
+            if ($row.report_bytes -ne $null) { $metaParts += ("out {0}" -f (Format-Bytes $row.report_bytes)) }
             Write-Host "  " -NoNewline
             Write-Host $state -NoNewline -ForegroundColor $color
             Write-Host "  " -NoNewline
-            Write-Host (Trunc (($scope -join " / ")) ($pw - 14)) -NoNewline -ForegroundColor Cyan
+            $progressLine = ($scope -join " / ")
+            if ($expanded -and $metaParts.Count -gt 0) { $progressLine = "$progressLine  [$($metaParts -join ', ')]" }
+            Write-Host (Trunc $progressLine ($pw - 14)) -NoNewline -ForegroundColor Cyan
             Write-Host $CLEAR_LINE
+            if ($deep) {
+                $flags = @()
+                if ($null -ne $row.timeout_hit) { $flags += ("timeout={0}" -f (Format-Flag $row.timeout_hit)) }
+                if ($null -ne $row.fallback_triggered) { $flags += ("fallback={0}" -f (Format-Flag $row.fallback_triggered)) }
+                if ($row.stderr_preview) { $flags += ("stderr={0}" -f (("$($row.stderr_preview)" -split "`n")[0])) }
+                if ($flags.Count -gt 0) {
+                    Write-Host "    " -NoNewline
+                    Write-Host (Trunc ($flags -join "  ") ($pw - 5)) -NoNewline -ForegroundColor DarkGray
+                    Write-Host $CLEAR_LINE
+                }
+            }
         }
     }
 
-    Write-Host $CLEAR_LINE
-    Write-Host "LIVE CODEX EVENTS" -NoNewline -ForegroundColor White
-    Write-Host $CLEAR_LINE
-    if ($events.Count -eq 0) {
-        Write-Host "  no high-signal Codex wrapper events yet" -NoNewline -ForegroundColor DarkGray
+    if ($expanded) {
         Write-Host $CLEAR_LINE
-    } else {
-        foreach ($ev in $events) {
-            Write-Host "  $($ev.ts.ToString('HH:mm:ss')) " -NoNewline -ForegroundColor DarkGray
-            Write-Host "Codex" -NoNewline -ForegroundColor DarkYellow
+        Write-Host "VTP / MCP" -NoNewline -ForegroundColor White
+        Write-Host $CLEAR_LINE
+        $vtpCfgColor = if ($vtp.enabled) { "Green" } else { "Yellow" }
+        Write-Host "  config " -NoNewline -ForegroundColor DarkGray
+        Write-Host $vtp.configState -NoNewline -ForegroundColor $vtpCfgColor
+        Write-Host " / health " -NoNewline -ForegroundColor DarkGray
+        $healthColor = if ($vtp.healthState -match 'healthy|ok') { "Green" } elseif ($vtp.healthState -match 'degraded|error|fail|unavailable') { "Red" } else { "DarkGray" }
+        Write-Host $vtp.healthState -NoNewline -ForegroundColor $healthColor
+        if ($vtp.healthAgeSec -ne $null) {
             Write-Host " " -NoNewline
-            $detail = switch ("$($ev.label)") {
-                "CODEX-WRAPPER" { "prepared or ran a review wrapper step" }
-                "CODEX-CLI" { "invoked Codex CLI directly" }
-                default { "$($ev.detail)" }
-            }
-            Write-Host (Trunc $detail ($pw - 20)) -NoNewline -ForegroundColor Gray
+            Write-Host (Format-Age $vtp.healthAgeSec) -NoNewline -ForegroundColor Cyan
+            Write-Host " ago" -NoNewline -ForegroundColor DarkGray
+        }
+        Write-Host " / last route " -NoNewline -ForegroundColor DarkGray
+        $routeColor = if ($vtp.routingStatus -match 'success|zero_hits') { "Green" } elseif ($vtp.routingStatus -match 'error|timeout|unavailable|failure') { "Red" } else { "DarkGray" }
+        Write-Host $vtp.routingStatus -NoNewline -ForegroundColor $routeColor
+        if ($vtp.routingAgeSec -ne $null) {
+            Write-Host " " -NoNewline
+            Write-Host (Format-Age $vtp.routingAgeSec) -NoNewline -ForegroundColor Cyan
+            Write-Host " ago" -NoNewline -ForegroundColor DarkGray
+        }
+        Write-Host $CLEAR_LINE
+
+        Write-Host "  mcp " -NoNewline -ForegroundColor DarkGray
+        $mcpBits = @()
+        if ($vtp.mcpServers) { $mcpBits += ("servers={0}" -f $vtp.mcpServers) }
+        if ($vtp.mcpVtpBinding) { $mcpBits += ("vtp-kb={0}" -f $vtp.mcpVtpBinding) }
+        if ($vtp.mcpVtpTargetExists -ne $null) { $mcpBits += ("target_exists={0}" -f (Format-Flag $vtp.mcpVtpTargetExists)) }
+        if ($vtp.mcpVtpTarget) { $mcpBits += ("target={0}" -f $vtp.mcpVtpTarget) }
+        if ($mcpBits.Count -eq 0) { $mcpBits += "no .mcp.json data" }
+        Write-Host (Trunc ($mcpBits -join "  ") ($pw - 7)) -NoNewline -ForegroundColor Gray
+        Write-Host $CLEAR_LINE
+
+        Write-Host "  route " -NoNewline -ForegroundColor DarkGray
+        $routeBits = @()
+        if ($vtp.routingAgent) { $routeBits += ("agent={0}" -f $vtp.routingAgent) }
+        if ($vtp.routingTier) { $routeBits += ("tier={0}" -f $vtp.routingTier) }
+        if ($vtp.routingHits -ne $null) { $routeBits += ("hits={0}" -f $vtp.routingHits) }
+        if ($vtp.routingElapsedMs -ne $null) { $routeBits += ("elapsed={0}" -f (Format-Duration $vtp.routingElapsedMs)) }
+        if ($vtp.routingDoc) { $routeBits += ("doc={0}" -f $vtp.routingDoc) }
+        if ($vtp.routingFailure) { $routeBits += ("fail={0}" -f $vtp.routingFailure) }
+        if ($routeBits.Count -eq 0) { $routeBits += "no routing log yet" }
+        Write-Host (Trunc ($routeBits -join "  ") ($pw - 9)) -NoNewline -ForegroundColor Gray
+        Write-Host $CLEAR_LINE
+
+        Write-Host "  artifact " -NoNewline -ForegroundColor DarkGray
+        $artifactColor = if ($vtp.artifactStatus -eq "success") { "Green" } elseif ($vtp.artifactStatus -eq "empty_hit") { "Yellow" } elseif ($vtp.artifactStatus -eq "api_error") { "Red" } else { "DarkGray" }
+        Write-Host $vtp.artifactStatus -NoNewline -ForegroundColor $artifactColor
+        $artifactBits = @()
+        if ($vtp.artifactPhase) { $artifactBits += ("phase={0}" -f $vtp.artifactPhase) }
+        if ($vtp.artifactHits -ne $null) { $artifactBits += ("hits={0}" -f $vtp.artifactHits) }
+        if ($vtp.artifactQueryCount -ne $null) { $artifactBits += ("queries={0}" -f $vtp.artifactQueryCount) }
+        if ($vtp.artifactDurationMs -ne $null) { $artifactBits += ("duration={0}" -f (Format-Duration $vtp.artifactDurationMs)) }
+        if ($vtp.artifactAgeSec -ne $null) { $artifactBits += ("age={0}" -f (Format-Age $vtp.artifactAgeSec)) }
+        if ($vtp.artifactPath) { $artifactBits += ("path={0}" -f $vtp.artifactPath) }
+        if ($artifactBits.Count -gt 0) {
+            Write-Host "  " -NoNewline
+            Write-Host (Trunc ($artifactBits -join "  ") ($pw - 13)) -NoNewline -ForegroundColor Gray
+        }
+        Write-Host $CLEAR_LINE
+    }
+
+    Write-Host $CLEAR_LINE
+    Write-Host "CODEX REVIEW BRIEF" -NoNewline -ForegroundColor White
+    Write-Host $CLEAR_LINE
+    Write-Host "  reviewing " -NoNewline -ForegroundColor DarkGray
+    Write-Host (Trunc "$($brief.title)" ($pw - 13)) -NoNewline -ForegroundColor Yellow
+    Write-Host $CLEAR_LINE
+    Write-Host "  scope " -NoNewline -ForegroundColor DarkGray
+    Write-Host (Trunc "$($brief.scope)" ($pw - 8)) -NoNewline -ForegroundColor Cyan
+    Write-Host $CLEAR_LINE
+    if ($brief.conclusion) {
+        Write-Host "  last conclusion " -NoNewline -ForegroundColor DarkGray
+        Write-Host (Trunc "$($brief.conclusion)" ($pw - 19)) -NoNewline -ForegroundColor Gray
+        Write-Host $CLEAR_LINE
+    }
+    if ($brief.report.exists) {
+        $reportBits = @()
+        if ($brief.report.findings) { $reportBits += ("findings={0}" -f $brief.report.findings) }
+        if ($brief.report.critical) { $reportBits += ("crit={0}" -f $brief.report.critical) }
+        if ($brief.report.warnings) { $reportBits += ("warn={0}" -f $brief.report.warnings) }
+        if ($brief.report.passRate) { $reportBits += ("pass={0}" -f $brief.report.passRate) }
+        Write-Host "  report " -NoNewline -ForegroundColor DarkGray
+        Write-Host (Trunc ($reportBits -join "  ") ($pw - 9)) -NoNewline -ForegroundColor Gray
+        Write-Host $CLEAR_LINE
+    }
+    if ($brief.checks.Count -gt 0) {
+        Write-Host "  checking" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+        $maxChecks = if ($deep) { 4 } else { 3 }
+        foreach ($check in @($brief.checks | Select-Object -First $maxChecks)) {
+            Write-Host "    - " -NoNewline -ForegroundColor DarkGray
+            Write-Host (Trunc "$check" ($pw - 7)) -NoNewline -ForegroundColor Gray
+            Write-Host $CLEAR_LINE
+        }
+    }
+    if ($brief.attention.Count -gt 0) {
+        Write-Host "  attention" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+        foreach ($item in @($brief.attention | Select-Object -First 3)) {
+            $color = if ($item -match 'critical|failed|retry|Timed out|timeout') { "Yellow" } else { "Gray" }
+            Write-Host "    > " -NoNewline -ForegroundColor Magenta
+            Write-Host (Trunc "$item" ($pw - 7)) -NoNewline -ForegroundColor $color
             Write-Host $CLEAR_LINE
         }
     }

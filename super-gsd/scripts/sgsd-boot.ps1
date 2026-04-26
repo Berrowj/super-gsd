@@ -200,6 +200,37 @@ function Stop-CockpitWindows {
     return $targets.Count
 }
 
+function Stop-SgsdDashboardProcesses {
+    $currentProcessTree = @{}
+    try {
+        $cursor = $PID
+        while ($cursor -and -not $currentProcessTree.ContainsKey([int]$cursor)) {
+            $currentProcessTree[[int]$cursor] = $true
+            $procInfo = Get-CimInstance Win32_Process -Filter "ProcessId=$cursor" -ErrorAction SilentlyContinue
+            if (-not $procInfo -or -not $procInfo.ParentProcessId) { break }
+            $cursor = [int]$procInfo.ParentProcessId
+        }
+    } catch { }
+
+    $projectRe = [regex]::Escape($ProjectDir)
+    $dashboardRe = 'super-gsd[\\/]scripts[\\/](sgsd-mission-control|sgsd-narrative|sgsd-codex-monitor|sgsd-dashboard-host)\.ps1'
+    $targets = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.CommandLine -and
+            $_.CommandLine -match $projectRe -and
+            $_.CommandLine -match $dashboardRe -and
+            -not $currentProcessTree.ContainsKey([int]$_.ProcessId)
+        })
+
+    foreach ($target in $targets) {
+        try {
+            Stop-Process -Id $target.ProcessId -Force -ErrorAction SilentlyContinue
+        } catch { }
+    }
+
+    return $targets.Count
+}
+
 Banner
 
 # ----------------------------------------------------------------------------
@@ -511,18 +542,33 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
     # 4. Agents registry refresh (DLB-04 Wave A)
     $registrySync = Join-Path $ScriptsDir "sgsd-registry-sync.sh"
     if (Test-Path $registrySync) {
-        # See note above re: PowerShell 5.1 + native stderr + $ErrorActionPreference=Stop.
-        # $bashUnix already assigned above (smoke-test block); recompute defensively
-        # in case that block was skipped (missing sgsd-curate.sh).
-        $bashUnix = $BashExe -replace '\\','/'
-        $bashCmd = "'$bashUnix' '$($registrySync -replace '\\','/')' --root '$($ProjectDir -replace '\\','/')' 2>&1"
-        $syncOutput = & $BashExe -c $bashCmd
-        if ($LASTEXITCODE -eq 0) {
-            $countMatch = ($syncOutput -join " ") -match "(\d+) agent records"
-            $count = if ($countMatch) { $Matches[1] } else { "?" }
-            Write-Step "Agents registry synced ($count agents)" "OK" Green
+        $agentsDir = Join-Path $ProjectDir "super-gsd/agents"
+        $manifest = Join-Path $ProjectDir ".planning/resource-registry/agents.jsonl"
+        $agentFiles = @(Get-ChildItem -Path $agentsDir -Filter "*.md" -File -ErrorAction SilentlyContinue)
+        $manifestFresh = $false
+        if ((Test-Path $manifest) -and $agentFiles.Count -gt 0) {
+            $manifestInfo = Get-Item $manifest
+            $latestAgent = ($agentFiles | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1).LastWriteTimeUtc
+            $manifestCount = @(Get-Content $manifest -ErrorAction SilentlyContinue | Where-Object { $_ -match '^\s*\{' }).Count
+            $manifestFresh = ($manifestCount -eq $agentFiles.Count) -and ($manifestInfo.LastWriteTimeUtc -ge $latestAgent)
+        }
+
+        if ($manifestFresh) {
+            Write-Step "Agents registry fresh ($($agentFiles.Count) agents)" "OK" Green
         } else {
-            Write-Step "Agents registry sync failed (non-blocking)" "WARN" Yellow
+            # See note above re: PowerShell 5.1 + native stderr + $ErrorActionPreference=Stop.
+            # $bashUnix already assigned above (smoke-test block); recompute defensively
+            # in case that block was skipped (missing sgsd-curate.sh).
+            $bashUnix = $BashExe -replace '\\','/'
+            $bashCmd = "'$bashUnix' '$($registrySync -replace '\\','/')' --root '$($ProjectDir -replace '\\','/')' 2>&1"
+            $syncOutput = & $BashExe -c $bashCmd
+            if ($LASTEXITCODE -eq 0) {
+                $countMatch = ($syncOutput -join " ") -match "(\d+) agent records"
+                $count = if ($countMatch) { $Matches[1] } else { "?" }
+                Write-Step "Agents registry synced ($count agents)" "OK" Green
+            } else {
+                Write-Step "Agents registry sync failed (non-blocking)" "WARN" Yellow
+            }
         }
     }
 
@@ -600,12 +646,47 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
         }
     }
 
-    # 8. VTP repo presence — proxy for VTP gate's degraded-mode trigger
-    $vtpRoot = "C:\Users\jack.berrow\Voice-Text-Plan"
-    if (Test-Path $vtpRoot) {
-        Write-Step "VTP repo present" "OK" Green
+    # 8. Knowledge-bank presence — VTP is one possible private KB, not a universal assumption.
+    $configPath = Join-Path $ProjectDir ".planning/config.json"
+    $mcpPath = Join-Path $ProjectDir ".mcp.json"
+    $privateKnowledgeRoot = $null
+    $memoryRoot = ".planning/memory"
+    $fallbackCorpus = "sgsd-bundled-research"
+    $vtpEnabled = $false
+
+    try {
+        if (Test-Path $configPath) {
+            $cfg = Get-Content $configPath -Raw | ConvertFrom-Json
+            if ($cfg.knowledge) {
+                if ($cfg.knowledge.private_root) { $privateKnowledgeRoot = "$($cfg.knowledge.private_root)" }
+                if ($cfg.knowledge.memory_root) { $memoryRoot = "$($cfg.knowledge.memory_root)" }
+                if ($cfg.knowledge.fallback_corpus) { $fallbackCorpus = "$($cfg.knowledge.fallback_corpus)" }
+            }
+            if ($cfg.vtp_enrichment -and $cfg.vtp_enrichment.enabled -eq $true) { $vtpEnabled = $true }
+        }
+    } catch { }
+
+    if (-not $privateKnowledgeRoot -and (Test-Path $mcpPath)) {
+        try {
+            $mcp = Get-Content $mcpPath -Raw | ConvertFrom-Json
+            $vtpServer = $mcp.mcpServers.PSObject.Properties | Where-Object { $_.Name -eq "vtp-kb" } | Select-Object -First 1
+            if ($vtpServer -and $vtpServer.Value.cwd) { $privateKnowledgeRoot = "$($vtpServer.Value.cwd)" }
+        } catch { }
+    }
+
+    $memoryPath = if ([IO.Path]::IsPathRooted($memoryRoot)) { $memoryRoot } else { Join-Path $ProjectDir $memoryRoot }
+    if (Test-Path $memoryPath) {
+        Write-Step "SGSD memory root present ($memoryRoot)" "OK" Green
     } else {
-        Write-Step "VTP repo not found — VTP gate runs in degraded mode" "WARN" Yellow
+        Write-Step "SGSD memory root missing ($memoryRoot) — run sgsd-setup" "WARN" Yellow
+    }
+
+    if ($privateKnowledgeRoot -and (Test-Path $privateKnowledgeRoot)) {
+        Write-Step "Private knowledge bank present ($privateKnowledgeRoot)" "OK" Green
+    } elseif ($vtpEnabled) {
+        Write-Step "Knowledge bank missing but enrichment is enabled — run sgsd-setup" "WARN" Yellow
+    } else {
+        Write-Step "Private knowledge bank optional; fallback=$fallbackCorpus" "OK" DarkGray
     }
 
     Write-Host ""
@@ -663,8 +744,9 @@ Write-Host "------"
 $sgsd1 = Join-Path $ScriptsDir "sgsd-mission-control.ps1"
 $sgsd2 = Join-Path $ScriptsDir "sgsd-narrative.ps1"
 $sgsd3 = Join-Path $ScriptsDir "sgsd-codex-monitor.ps1"
+$dashboardHost = Join-Path $ScriptsDir "sgsd-dashboard-host.ps1"
 
-foreach ($script in @($sgsd1, $sgsd2, $sgsd3)) {
+foreach ($script in @($sgsd1, $sgsd2, $sgsd3, $dashboardHost)) {
     if (-not (Test-Path $script)) {
         Write-Host "  MISSING: $script" -ForegroundColor Red
         exit 5
@@ -674,6 +756,11 @@ foreach ($script in @($sgsd1, $sgsd2, $sgsd3)) {
 $wt = Get-Command wt.exe -ErrorAction SilentlyContinue
 
 if ($wt) {
+    $closedProcesses = Stop-SgsdDashboardProcesses
+    if ($closedProcesses -gt 0) {
+        Write-Step "stopped stale dashboard process(es) ($closedProcesses)" "OK" Yellow
+    }
+
     $closed = Stop-CockpitWindows
     if ($closed -gt 0) {
         Write-Step "closed existing cockpit window(s) ($closed)" "OK" Yellow
@@ -693,12 +780,12 @@ if ($wt) {
     #   4. Focus SGSD3 so the high-detail pane is active.
     $launchArgs = @(
         "new-tab", "--title", "SGSD-Cockpit", "--startingDirectory", $ProjectDir,
-        $psCmd, "-NoExit", "-NoProfile", "-File", $sgsd1, "-ProjectDir", $ProjectDir,
+        $psCmd, "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd1, "-ProjectDir", $ProjectDir, "-Name", "SGSD1-Mission-Control",
         ";", "split-pane", "-V", "--size", "0.50", "--title", "SGSD3-Codex+VTP", "--startingDirectory", $ProjectDir,
-        $psCmd, "-NoExit", "-NoProfile", "-File", $sgsd3, "-ProjectDir", $ProjectDir,
+        $psCmd, "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd3, "-ProjectDir", $ProjectDir, "-Name", "SGSD3-Codex+VTP",
         ";", "move-focus", "left",
         ";", "split-pane", "-H", "--size", "0.50", "--title", "SGSD2", "--startingDirectory", $ProjectDir,
-        $psCmd, "-NoExit", "-NoProfile", "-File", $sgsd2, "-ProjectDir", $ProjectDir,
+        $psCmd, "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd2, "-ProjectDir", $ProjectDir, "-Name", "SGSD2-Narrative",
         ";", "move-focus", "right"
     )
 
@@ -730,16 +817,21 @@ if ($wt) {
 } else {
     # Fallback - three separate PowerShell windows
     Write-Step "Windows Terminal not found - using separate PowerShell windows" "WARN" Yellow
+    $closedProcesses = Stop-SgsdDashboardProcesses
+    if ($closedProcesses -gt 0) {
+        Write-Step "stopped stale dashboard process(es) ($closedProcesses)" "OK" Yellow
+    }
+
     $closed = Stop-CockpitWindows
     if ($closed -gt 0) {
         Write-Step "closed existing cockpit window(s) ($closed)" "OK" Yellow
     }
 
-    Start-Process powershell.exe -ArgumentList "-NoExit", "-NoProfile", "-File", $sgsd1, "-ProjectDir", $ProjectDir
+    Start-Process powershell.exe -ArgumentList "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd1, "-ProjectDir", $ProjectDir, "-Name", "SGSD1-Mission-Control"
     Start-Sleep -Milliseconds 300
-    Start-Process powershell.exe -ArgumentList "-NoExit", "-NoProfile", "-File", $sgsd2, "-ProjectDir", $ProjectDir
+    Start-Process powershell.exe -ArgumentList "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd2, "-ProjectDir", $ProjectDir, "-Name", "SGSD2-Narrative"
     Start-Sleep -Milliseconds 300
-    Start-Process powershell.exe -ArgumentList "-NoExit", "-NoProfile", "-File", $sgsd3, "-ProjectDir", $ProjectDir
+    Start-Process powershell.exe -ArgumentList "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd3, "-ProjectDir", $ProjectDir, "-Name", "SGSD3-Codex+VTP"
 
     Write-Host ""
     Write-Host "Three dashboards opened in separate windows." -ForegroundColor Green

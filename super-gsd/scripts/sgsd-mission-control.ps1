@@ -212,6 +212,14 @@ function Pad-To($text, $width) {
     return $text.PadRight($width)
 }
 
+function Trunc($text, $width) {
+    if ($null -eq $text) { return "" }
+    $text = "$text"
+    if ($width -le 0) { return "" }
+    if ($text.Length -gt $width) { return $text.Substring(0, [Math]::Max(0, $width - 2)) + ".." }
+    return $text
+}
+
 function Format-Num($n) {
     if ($n -lt 1000) { return "$n" }
     if ($n -lt 1000000) { return "$([math]::Round($n/1000))K" }

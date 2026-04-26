@@ -1,0 +1,1808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SGSD Book Enrichment Map</title>
+  <style>
+    :root {
+      --ink: #191714;
+      --muted: #655f55;
+      --paper: #f8f3e7;
+      --panel: #fffdf7;
+      --panel-2: #f1eadc;
+      --line: #d8cdbb;
+      --navy: #263a59;
+      --green: #2d6a4f;
+      --rust: #9a3412;
+      --red: #a32121;
+      --gold: #b7791f;
+      --blue-soft: #e8f0fb;
+      --green-soft: #e8f3eb;
+      --rust-soft: #faeadf;
+      --red-soft: #f9e3e1;
+      --gold-soft: #fff3ce;
+      --shadow: 0 18px 45px rgba(28, 24, 18, 0.10);
+      --mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --sans: Aptos, "Segoe UI", Tahoma, sans-serif;
+      --serif: Georgia, Cambria, "Times New Roman", serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        repeating-linear-gradient(
+          90deg,
+          rgba(38, 58, 89, 0.035) 0,
+          rgba(38, 58, 89, 0.035) 1px,
+          transparent 1px,
+          transparent 44px
+        ),
+        linear-gradient(180deg, #fbf7ee 0%, var(--paper) 42%, #f2e7d5 100%);
+      font-family: var(--sans);
+      line-height: 1.58;
+    }
+
+    a {
+      color: var(--navy);
+      text-underline-offset: 3px;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: minmax(230px, 300px) minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .toc {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      padding: 28px 22px 40px;
+      border-right: 1px solid var(--line);
+      background: rgba(245, 236, 221, 0.95);
+      backdrop-filter: blur(10px);
+    }
+
+    .toc-title {
+      margin: 0 0 14px;
+      font-family: var(--serif);
+      font-size: 24px;
+      line-height: 1.05;
+    }
+
+    .toc-kicker {
+      margin: 0 0 18px;
+      color: var(--rust);
+      font-family: var(--mono);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .toc a {
+      display: block;
+      padding: 8px 0;
+      color: #2b2823;
+      font-size: 13px;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(216, 205, 187, 0.82);
+    }
+
+    .toc a:hover {
+      color: var(--red);
+    }
+
+    .toc .small-link {
+      padding-left: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    main {
+      max-width: 1260px;
+      padding: 46px clamp(20px, 4vw, 62px) 90px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+      gap: clamp(22px, 4vw, 52px);
+      align-items: end;
+      min-height: 72vh;
+      padding-bottom: 38px;
+      margin-bottom: 46px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      color: var(--red);
+      font-family: var(--mono);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: clamp(46px, 8vw, 96px);
+      line-height: 0.93;
+      letter-spacing: 0;
+      max-width: 930px;
+    }
+
+    .subtitle {
+      max-width: 860px;
+      margin: 22px 0 0;
+      color: #393530;
+      font-size: clamp(18px, 2.2vw, 27px);
+      line-height: 1.34;
+    }
+
+    .hero-note {
+      border: 1px solid var(--line);
+      background: rgba(255, 253, 247, 0.82);
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }
+
+    .hero-note strong {
+      display: block;
+      color: var(--navy);
+      font-family: var(--mono);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 9px;
+    }
+
+    .hero-note p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    section {
+      margin: 0 0 72px;
+      padding-top: 10px;
+    }
+
+    h2 {
+      margin: 0 0 18px;
+      font-family: var(--serif);
+      font-size: clamp(34px, 4.8vw, 58px);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 14px;
+      font-size: 24px;
+      line-height: 1.18;
+    }
+
+    h4 {
+      margin: 0 0 9px;
+      font-size: 17px;
+      line-height: 1.25;
+    }
+
+    p {
+      max-width: 900px;
+      margin: 0 0 14px;
+    }
+
+    .lead {
+      color: #3d3831;
+      font-size: 19px;
+      max-width: 980px;
+    }
+
+    .meta-grid,
+    .summary-grid,
+    .book-grid,
+    .phase-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .meta-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-top: 28px;
+    }
+
+    .summary-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin-top: 22px;
+    }
+
+    .book-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .phase-grid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .box,
+    .metric,
+    .book-card,
+    .phase-card,
+    .milestone-card,
+    .rule-card {
+      border: 1px solid var(--line);
+      background: rgba(255, 253, 247, 0.88);
+      box-shadow: 0 10px 28px rgba(28, 24, 18, 0.06);
+    }
+
+    .box {
+      padding: 22px;
+    }
+
+    .metric {
+      padding: 16px;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 6px;
+      color: var(--ink);
+      font-family: var(--serif);
+      font-size: 30px;
+      line-height: 1;
+    }
+
+    .visual-chain {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      margin: 26px 0;
+    }
+
+    .chain-step {
+      min-height: 150px;
+      padding: 17px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      position: relative;
+    }
+
+    .chain-step::after {
+      content: "";
+      position: absolute;
+      right: -12px;
+      top: 50%;
+      width: 12px;
+      height: 1px;
+      background: var(--line);
+    }
+
+    .chain-step:last-child::after {
+      display: none;
+    }
+
+    .chain-step b {
+      display: block;
+      color: var(--rust);
+      font-family: var(--mono);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 9px;
+    }
+
+    .chain-step span {
+      display: block;
+      font-family: var(--serif);
+      font-size: 22px;
+      line-height: 1.1;
+    }
+
+    .chain-step p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 12px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 25px;
+      padding: 3px 8px;
+      color: #26221d;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    .pill.blue {
+      background: var(--blue-soft);
+      border-color: #b8c8dd;
+      color: var(--navy);
+    }
+
+    .pill.green {
+      background: var(--green-soft);
+      border-color: #b5cfbf;
+      color: var(--green);
+    }
+
+    .pill.rust {
+      background: var(--rust-soft);
+      border-color: #e0b59a;
+      color: var(--rust);
+    }
+
+    .pill.red {
+      background: var(--red-soft);
+      border-color: #e3aaa5;
+      color: var(--red);
+    }
+
+    .pill.gold {
+      background: var(--gold-soft);
+      border-color: #e5c56c;
+      color: #75500f;
+    }
+
+    .matrix-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 980px;
+    }
+
+    th,
+    td {
+      padding: 13px 14px;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      font-size: 14px;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #efe5d5;
+      color: #2d2a25;
+      font-family: var(--mono);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .book-card {
+      display: grid;
+      gap: 14px;
+      padding: 20px;
+      min-height: 360px;
+    }
+
+    .book-head {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+      gap: 13px;
+      align-items: start;
+    }
+
+    .book-number {
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      color: var(--panel);
+      background: var(--navy);
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .book-card h3 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 25px;
+    }
+
+    .book-card .family {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    .book-card dl {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+    }
+
+    .book-card dt {
+      color: var(--rust);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .book-card dd {
+      margin: 3px 0 0;
+      color: #342f29;
+      font-size: 14px;
+    }
+
+    .milestone-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 22px;
+    }
+
+    .milestone-card {
+      padding: 22px;
+    }
+
+    .milestone-card h3 {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: baseline;
+      font-family: var(--serif);
+      font-size: 30px;
+    }
+
+    .milestone-card .range {
+      color: var(--rust);
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+
+    .phase-card {
+      padding: 14px;
+      min-height: 160px;
+    }
+
+    .phase-card strong {
+      display: block;
+      color: var(--navy);
+      font-family: var(--mono);
+      font-size: 12px;
+      margin-bottom: 7px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .phase-card p {
+      margin: 0;
+      color: #39342e;
+      font-size: 13px;
+      line-height: 1.42;
+    }
+
+    .callout {
+      margin: 22px 0;
+      padding: 18px 20px;
+      border-left: 6px solid var(--red);
+      background: var(--red-soft);
+    }
+
+    .callout strong {
+      display: block;
+      color: var(--red);
+      font-family: var(--mono);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+
+    .source-note {
+      color: var(--muted);
+      font-size: 13px;
+      font-family: var(--mono);
+    }
+
+    .rule-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 20px;
+    }
+
+    .rule-card {
+      padding: 16px;
+    }
+
+    .rule-card b {
+      display: block;
+      color: var(--rust);
+      font-family: var(--mono);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+
+    .rule-card p {
+      margin: 0;
+      color: #37322c;
+      font-size: 14px;
+    }
+
+    .footer {
+      margin-top: 80px;
+      padding-top: 24px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 1050px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .toc {
+        position: relative;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .toc nav {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0 18px;
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+        min-height: auto;
+      }
+
+      .meta-grid,
+      .summary-grid,
+      .visual-chain,
+      .milestone-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .phase-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      main {
+        padding: 30px 16px 70px;
+      }
+
+      .toc nav,
+      .meta-grid,
+      .summary-grid,
+      .visual-chain,
+      .book-grid,
+      .milestone-grid,
+      .phase-grid,
+      .rule-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .chain-step {
+        min-height: auto;
+      }
+
+      .chain-step::after {
+        display: none;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .shell {
+        display: block;
+      }
+
+      .toc {
+        position: static;
+        height: auto;
+        border-right: 0;
+      }
+
+      main {
+        max-width: none;
+        padding: 22px;
+      }
+
+      .hero {
+        min-height: auto;
+      }
+
+      .book-card,
+      .milestone-card,
+      .matrix-wrap {
+        box-shadow: none;
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="toc">
+      <p class="toc-kicker">SGSD x VTP</p>
+      <h2 class="toc-title">Book Enrichment Map</h2>
+      <nav aria-label="Document navigation">
+        <a href="#purpose">Purpose</a>
+        <a href="#spine">The Enrichment Spine</a>
+        <a href="#matrix">Book To Milestone Matrix</a>
+        <a href="#books">Book Cards</a>
+        <a class="small-link" href="#book-01">Design of Everyday Things</a>
+        <a class="small-link" href="#book-02">Don't Make Me Think</a>
+        <a class="small-link" href="#book-03">Writing Effective Use Cases</a>
+        <a class="small-link" href="#book-04">Software Architecture for Developers</a>
+        <a class="small-link" href="#book-05">Software Architecture in Practice</a>
+        <a class="small-link" href="#book-06">Fundamentals of Software Architecture</a>
+        <a class="small-link" href="#book-07">A Philosophy of Software Design</a>
+        <a class="small-link" href="#book-08">Clean Architecture</a>
+        <a class="small-link" href="#book-09">Domain-Driven Design</a>
+        <a class="small-link" href="#book-10">Strategic Monoliths and Microservices</a>
+        <a class="small-link" href="#book-11">Balancing Coupling</a>
+        <a class="small-link" href="#book-12">The Mythical Man-Month</a>
+        <a class="small-link" href="#book-13">The LLM Mesh</a>
+        <a class="small-link" href="#book-14">DDIA</a>
+        <a class="small-link" href="#book-15">DDIA 2nd Edition</a>
+        <a class="small-link" href="#book-16">Designing ML Systems</a>
+        <a class="small-link" href="#book-17">Practical MLOps</a>
+        <a class="small-link" href="#book-18">Patterns of Enterprise Application Architecture</a>
+        <a class="small-link" href="#book-19">Fundamentals of Data Engineering</a>
+        <a class="small-link" href="#book-20">Database Internals</a>
+        <a href="#milestones">Milestone Implementation Map</a>
+        <a href="#phases">Phase Traceability</a>
+        <a href="#claude">How Claude Should Use This</a>
+      </nav>
+    </aside>
+
+    <main>
+      <header class="hero" id="purpose">
+        <div>
+          <p class="eyebrow">Offline HTML report - created 2026-04-26</p>
+          <h1>How the VTP Books Shaped the SGSD Roadmap</h1>
+          <p class="subtitle">
+            A traceability guide showing which books were used, why they mattered,
+            what SGSD problems they helped solve, and which proposed milestones
+            and phases inherited each idea.
+          </p>
+          <div class="meta-grid" aria-label="Report metrics">
+            <div class="metric">
+              <span>VTP corpus</span>
+              <strong>54</strong>
+              <p>books available at enrichment time</p>
+            </div>
+            <div class="metric">
+              <span>Directly mapped</span>
+              <strong>20</strong>
+              <p>book records or book families used here</p>
+            </div>
+            <div class="metric">
+              <span>Roadmap span</span>
+              <strong>6</strong>
+              <p>proposed milestones from v1.6 to v2.1</p>
+            </div>
+            <div class="metric">
+              <span>Phase span</span>
+              <strong>30</strong>
+              <p>proposed phases from 26 to 55</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-note">
+          <strong>Important status</strong>
+          <p>
+            This is a planning artifact. It maps books into the proposed roadmap
+            and phase seeds. It does not activate the milestones by itself and it
+            does not edit SGSD state.
+          </p>
+        </div>
+      </header>
+
+      <section id="spine">
+        <h2>The Enrichment Spine</h2>
+        <p class="lead">
+          The books were not used as decorative citations. Each book was turned
+          into a design rule, each design rule was tied to an SGSD problem, and
+          each problem was routed into a milestone and phase where Claude can
+          act on it later.
+        </p>
+
+        <div class="visual-chain" aria-label="Enrichment flow">
+          <div class="chain-step">
+            <b>1. Book</b>
+            <span>Extract a durable design rule.</span>
+            <p>Example: startup UX must match the user's mental model.</p>
+          </div>
+          <div class="chain-step">
+            <b>2. Problem</b>
+            <span>Attach it to a real SGSD pain point.</span>
+            <p>Example: `sg` should not surprise the operator with a new Claude window.</p>
+          </div>
+          <div class="chain-step">
+            <b>3. Design move</b>
+            <span>Make the idea operational.</span>
+            <p>Example: define a startup command matrix and verify it mechanically.</p>
+          </div>
+          <div class="chain-step">
+            <b>4. Roadmap slot</b>
+            <span>Assign the right milestone and phase.</span>
+            <p>Example: v1.6, Phase 26, Startup UX Contract.</p>
+          </div>
+          <div class="chain-step">
+            <b>5. Claude slot</b>
+            <span>Leave an enrichment prompt.</span>
+            <p>Claude replaces the placeholder with evidence, risks, and checks.</p>
+          </div>
+        </div>
+
+        <div class="summary-grid">
+          <div class="box">
+            <h3>Books gave doctrine</h3>
+            <p>
+              The books supplied durable engineering principles: usability,
+              coupling, architecture boundaries, fitness functions, reliability,
+              memory governance, and documentation discipline.
+            </p>
+          </div>
+          <div class="box">
+            <h3>Research gave agent guardrails</h3>
+            <p>
+              Research papers were used as support where the book principles
+              touched agent behavior: provider scheduling, retrieval failure,
+              memory poisoning, autonomous guardrails, and evaluation risk.
+            </p>
+          </div>
+          <div class="box">
+            <h3>Roadmap got sharper</h3>
+            <p>
+              The result is not "add more AI." The roadmap now says when to
+              simplify, when to gate, when to measure, and when to delete.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="matrix">
+        <h2>Book To Milestone Matrix</h2>
+        <p class="lead">
+          This table is the fastest way to see where each book landed. "Primary"
+          means the book directly shaped the milestone. "Support" means the book
+          gives secondary constraints or implementation discipline.
+        </p>
+
+        <div class="matrix-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Book</th>
+                <th>Core SGSD idea</th>
+                <th>Primary milestone</th>
+                <th>Phases</th>
+                <th>Problem solved</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>The Design of Everyday Things</td>
+                <td>Conceptual model must match visible behavior.</td>
+                <td>v1.6, v2.1</td>
+                <td>26, 29, 30, 51-54</td>
+                <td>Prevents surprising startup behavior and confusing first-run flow.</td>
+              </tr>
+              <tr>
+                <td>Don't Make Me Think</td>
+                <td>Make the next action obvious.</td>
+                <td>v1.6, v2.1</td>
+                <td>26, 30, 52, 54</td>
+                <td>Reduces command-choice friction and documentation ambiguity.</td>
+              </tr>
+              <tr>
+                <td>Writing Effective Use Cases</td>
+                <td>Commands are behavioral promises.</td>
+                <td>v1.6, v1.7, v2.1</td>
+                <td>26, 30, 31, 52-54</td>
+                <td>Turns scripts into actor, trigger, success, failure, repair contracts.</td>
+              </tr>
+              <tr>
+                <td>Software Architecture for Developers</td>
+                <td>Just enough architecture, kept current.</td>
+                <td>v1.7, v2.1</td>
+                <td>30, 35, 51, 54</td>
+                <td>Prevents stale hand-written maps and overgrown docs.</td>
+              </tr>
+              <tr>
+                <td>Software Architecture in Practice</td>
+                <td>Views, interfaces, and quality attributes make systems evaluable.</td>
+                <td>v1.7, v2.0</td>
+                <td>31, 35, 46, 49, 50</td>
+                <td>Connects architecture to testable quality scenarios.</td>
+              </tr>
+              <tr>
+                <td>Fundamentals of Software Architecture</td>
+                <td>Fitness functions check architectural characteristics.</td>
+                <td>v1.8, v2.0</td>
+                <td>29, 36, 39, 46, 50</td>
+                <td>Reframes gates as value checks instead of ceremony.</td>
+              </tr>
+              <tr>
+                <td>A Philosophy of Software Design</td>
+                <td>Deep modules, simple interfaces, lower complexity.</td>
+                <td>v1.7, v1.8</td>
+                <td>31, 33, 35, 37, 40</td>
+                <td>Prevents bloated command envelopes and unnecessary gate layers.</td>
+              </tr>
+              <tr>
+                <td>Clean Architecture</td>
+                <td>Policy is stable; tools are details.</td>
+                <td>v1.7, v1.9</td>
+                <td>27, 31, 34, 41, 45, 55</td>
+                <td>Keeps SGSD independent from Claude, Codex, VTP, and terminals.</td>
+              </tr>
+              <tr>
+                <td>Domain-Driven Design</td>
+                <td>Shared language and bounded contexts.</td>
+                <td>v1.7, v1.9</td>
+                <td>27, 31, 32, 41, 43</td>
+                <td>Prevents overloaded terms like gate, provider, memory, and route.</td>
+              </tr>
+              <tr>
+                <td>Strategic Monoliths and Microservices</td>
+                <td>Distribution is a cost, not a virtue.</td>
+                <td>v1.8, v2.1</td>
+                <td>37, 38, 39, 51, 55</td>
+                <td>Blocks needless split-out gates, tools, and setup complexity.</td>
+              </tr>
+              <tr>
+                <td>Balancing Coupling in Software Design</td>
+                <td>Change cost rises with volatility plus distance.</td>
+                <td>v1.8</td>
+                <td>36, 37, 38, 40</td>
+                <td>Prioritizes gates around high-change, high-distance boundaries.</td>
+              </tr>
+              <tr>
+                <td>The Mythical Man-Month</td>
+                <td>Coordination cost is real.</td>
+                <td>v1.8</td>
+                <td>28, 36, 38, 39</td>
+                <td>Forces every extra gate, agent, or review to earn its keep.</td>
+              </tr>
+              <tr>
+                <td>The LLM Mesh</td>
+                <td>LLM systems need policy boundaries and traceability.</td>
+                <td>v1.9</td>
+                <td>27, 41, 42, 44, 45</td>
+                <td>Turns knowledge providers and memory into governed interfaces.</td>
+              </tr>
+              <tr>
+                <td>Designing Data-Intensive Applications</td>
+                <td>Reliability needs fault thinking and operability.</td>
+                <td>v2.0</td>
+                <td>28, 29, 46, 47, 49, 50</td>
+                <td>Pushes SGSD toward realistic failure injection and restart proof.</td>
+              </tr>
+              <tr>
+                <td>Designing Data-Intensive Applications, 2nd Edition</td>
+                <td>Modern operational reliability and service delivery.</td>
+                <td>v2.0</td>
+                <td>47, 48, 49, 50</td>
+                <td>Strengthens provider failure, operability, and release-readiness thinking.</td>
+              </tr>
+              <tr>
+                <td>Designing Machine Learning Systems</td>
+                <td>Evaluate model-assisted systems continuously.</td>
+                <td>v1.8, v2.0</td>
+                <td>36, 42, 49, 50</td>
+                <td>Prevents trusting model narratives without measured outcomes.</td>
+              </tr>
+              <tr>
+                <td>Practical MLOps</td>
+                <td>Operational feedback loops matter.</td>
+                <td>v1.6, v2.0</td>
+                <td>28, 36, 48, 50</td>
+                <td>Justifies boot telemetry, provider metrics, and readiness scoring.</td>
+              </tr>
+              <tr>
+                <td>Patterns of Enterprise Application Architecture</td>
+                <td>Durable records and transaction boundaries.</td>
+                <td>v1.7, v1.9</td>
+                <td>32, 34, 41, 44</td>
+                <td>Supports route ledgers, review ledgers, and memory provenance.</td>
+              </tr>
+              <tr>
+                <td>Fundamentals of Data Engineering</td>
+                <td>Data contracts, lineage, and pipeline discipline.</td>
+                <td>v1.9</td>
+                <td>41, 42, 44, 45</td>
+                <td>Makes knowledge and memory records schema-aware and traceable.</td>
+              </tr>
+              <tr>
+                <td>Database Internals</td>
+                <td>Storage reliability, indexes, and append-only evidence.</td>
+                <td>v1.7, v1.9, v2.0</td>
+                <td>32, 34, 44, 47, 50</td>
+                <td>Shapes ledgers as recoverable evidence, not loose prose.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="books">
+        <h2>Book Cards</h2>
+        <p class="lead">
+          Each card explains why the book was selected, the SGSD problem it
+          addresses, and where it was placed in the proposed roadmap.
+        </p>
+
+        <div class="book-grid">
+          <article class="book-card" id="book-01">
+            <div class="book-head">
+              <div class="book-number">01</div>
+              <div>
+                <h3>The Design of Everyday Things</h3>
+                <p class="family">UX, affordances, conceptual models</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>SGSD startup had a conceptual-model problem: what the user expected from `sg` was not always what the system did.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>Visible behavior must teach the correct model. A failed cockpit pane should look failed, not like a normal prompt.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>Surprise boot behavior, confusing terminal ownership, and dashboard crashes that looked like idle PowerShell.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill blue">v1.6</span>
+              <span class="pill">Phase 26</span>
+              <span class="pill">Phase 29</span>
+              <span class="pill">Phase 30</span>
+              <span class="pill green">v2.1</span>
+            </div>
+          </article>
+
+          <article class="book-card" id="book-02">
+            <div class="book-head">
+              <div class="book-number">02</div>
+              <div>
+                <h3>Don't Make Me Think</h3>
+                <p class="family">Usability, first-run clarity, obvious paths</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>The boot and setup path needed one obvious daily command, with advanced flags kept out of the main flow.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>Remove mental chatter. The user should not need to ask whether Claude or SGSD should be booted first.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>Alias confusion, VTP setup confusion, and README paths that assumed repo history.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill blue">v1.6</span>
+              <span class="pill">Phase 26</span>
+              <span class="pill">Phase 30</span>
+              <span class="pill green">v2.1</span>
+              <span class="pill">Phase 54</span>
+            </div>
+          </article>
+
+          <article class="book-card" id="book-03">
+            <div class="book-head">
+              <div class="book-number">03</div>
+              <div>
+                <h3>Writing Effective Use Cases</h3>
+                <p class="family">Behavioral requirements, actors, triggers, outcomes</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>SGSD commands needed to be described as promises, not only command names.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>Each command should have an actor, trigger, normal outcome, alternate outcome, and repair instruction.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>Ambiguous startup flags and future command contracts with unclear success or failure behavior.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill blue">v1.6</span>
+              <span class="pill">Phase 26</span>
+              <span class="pill rust">v1.7</span>
+              <span class="pill">Phase 31</span>
+              <span class="pill green">v2.1</span>
+            </div>
+          </article>
+
+          <article class="book-card" id="book-04">
+            <div class="book-head">
+              <div class="book-number">04</div>
+              <div>
+                <h3>Software Architecture for Developers</h3>
+                <p class="family">Just enough architecture, diagrams, constraints</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>The docs needed visual architecture without turning into a ceremonial design tome.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>Use generated maps, diagrams, and constraints that stay close to working software.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>Stale command catalogs, tribal knowledge, and onboarding docs that explain history instead of current operation.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill blue">v1.6</span>
+              <span class="pill">Phase 30</span>
+              <span class="pill rust">v1.7</span>
+              <span class="pill">Phase 35</span>
+              <span class="pill green">v2.1</span>
+            </div>
+          </article>
+
+          <article class="book-card" id="book-05">
+            <div class="book-head">
+              <div class="book-number">05</div>
+              <div>
+                <h3>Software Architecture in Practice</h3>
+                <p class="family">Quality attributes, views, interface specification</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>SGSD needed architecture that can be evaluated, not architecture that merely sounds coherent.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>Tie command envelopes, route ledgers, and failure scenarios to quality attributes.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>Unclear definitions of reliability, restart safety, and command contract quality.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill rust">v1.7</span>
+              <span class="pill">Phase 31</span>
+              <span class="pill">Phase 35</span>
+              <span class="pill red">v2.0</span>
+              <span class="pill">Phase 49</span>
+            </div>
+          </article>
+
+          <article class="book-card" id="book-06">
+            <div class="book-head">
+              <div class="book-number">06</div>
+              <div>
+                <h3>Fundamentals of Software Architecture</h3>
+                <p class="family">Fitness functions, architecture characteristics, chaos examples</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>Gates needed to prove value rather than existing because the process had grown them.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>A gate is a fitness function only if it objectively checks a property SGSD cares about.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>Gate bloat, weak pass/fail definitions, and dashboard checks that are visible but not valuable.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill blue">Phase 29</span>
+              <span class="pill gold">v1.8</span>
+              <span class="pill">Phase 36</span>
+              <span class="pill">Phase 39</span>
+              <span class="pill red">v2.0</span>
+            </div>
+          </article>
+
+          <article class="book-card" id="book-07">
+            <div class="book-head">
+              <div class="book-number">07</div>
+              <div>
+                <h3>A Philosophy of Software Design</h3>
+                <p class="family">Complexity, deep modules, simple interfaces</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>Command envelopes and gates can easily become shallow, noisy abstractions.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>Make the command contract small and deep: hide implementation complexity behind a stable envelope.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>Overlarge schemas, bespoke regex parsing, and future tool APIs that leak internal complexity.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill rust">v1.7</span>
+              <span class="pill">Phase 31</span>
+              <span class="pill">Phase 33</span>
+              <span class="pill">Phase 35</span>
+              <span class="pill gold">v1.8</span>
+            </div>
+          </article>
+
+          <article class="book-card" id="book-08">
+            <div class="book-head">
+              <div class="book-number">08</div>
+              <div>
+                <h3>Clean Architecture</h3>
+                <p class="family">Boundaries, dependency direction, tool independence</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>SGSD must work beyond one terminal, one provider, and one private VTP repo.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>Claude, Codex, VTP, PowerShell, and Warp are details behind SGSD policy boundaries.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>Hardcoded paths, provider assumptions, and future lock-in to Jack's private setup.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill blue">Phase 27</span>
+              <span class="pill rust">v1.7</span>
+              <span class="pill">Phase 31</span>
+              <span class="pill green">v1.9</span>
+              <span class="pill">Phase 41</span>
+            </div>
+          </article>
+
+          <article class="book-card" id="book-09">
+            <div class="book-head">
+              <div class="book-number">09</div>
+              <div>
+                <h3>Domain-Driven Design</h3>
+                <p class="family">Bounded contexts, ubiquitous language, model discipline</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>SGSD terms risk drifting as new gates, providers, ledgers, and dashboards are added.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>Define the core language: command, gate, provider, memory, route, warn, block, repair, evidence.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>One word meaning different things in scripts, dashboards, docs, and milestone summaries.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill blue">Phase 27</span>
+              <span class="pill rust">v1.7</span>
+              <span class="pill">Phase 31</span>
+              <span class="pill">Phase 32</span>
+              <span class="pill green">v1.9</span>
+            </div>
+          </article>
+
+          <article class="book-card" id="book-10">
+            <div class="book-head">
+              <div class="book-number">10</div>
+              <div>
+                <h3>Strategic Monoliths and Microservices</h3>
+                <p class="family">Distribution tradeoffs, autonomy, split cost</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>SGSD could become a pile of small gates, tools, and dashboards that are expensive to coordinate.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>Do not split or add process unless autonomy, volatility, or ownership justifies the cost.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>Process sprawl, duplicated checks, and gates that exist because adding one felt easy.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill gold">v1.8</span>
+              <span class="pill">Phase 37</span>
+              <span class="pill">Phase 38</span>
+              <span class="pill">Phase 39</span>
+              <span class="pill green">v2.1</span>
+            </div>
+          </article>
+
+          <article class="book-card" id="book-11">
+            <div class="book-head">
+              <div class="book-number">11</div>
+              <div>
+                <h3>Balancing Coupling in Software Design</h3>
+                <p class="family">Volatility, distance, coupling, modularity</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>Gate effort should be aimed at the boundaries where change cost is highest.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>Prioritize high-volatility and high-distance boundaries: providers, memory writes, command contracts, milestone close.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>Equal process cost for low-risk edits and high-risk cross-system changes.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill gold">v1.8</span>
+              <span class="pill">Phase 36</span>
+              <span class="pill">Phase 38</span>
+              <span class="pill">Phase 40</span>
+            </div>
+          </article>
+
+          <article class="book-card" id="book-12">
+            <div class="book-head">
+              <div class="book-number">12</div>
+              <div>
+                <h3>The Mythical Man-Month</h3>
+                <p class="family">Coordination cost, process drag, schedule realism</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>More agents, gates, reviews, and dashboards do not automatically mean more delivery.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>Treat every extra coordination point as a cost center until data proves it earns its place.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>Gate bloat, slow boot checks, and process that gives confidence without catching defects.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill blue">Phase 28</span>
+              <span class="pill gold">v1.8</span>
+              <span class="pill">Phase 36</span>
+              <span class="pill">Phase 38</span>
+              <span class="pill">Phase 39</span>
+            </div>
+          </article>
+
+          <article class="book-card" id="book-13">
+            <div class="book-head">
+              <div class="book-number">13</div>
+              <div>
+                <h3>The LLM Mesh</h3>
+                <p class="family">LLM governance, metadata, policy boundaries, traceability</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>VTP and future private knowledge banks should not become ungoverned context dumps.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>Knowledge providers need metadata, privacy boundaries, traceability, and prompt-injection caution.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>Citation theater, untraceable knowledge hits, and memory writes without policy.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill blue">Phase 27</span>
+              <span class="pill green">v1.9</span>
+              <span class="pill">Phase 41</span>
+              <span class="pill">Phase 42</span>
+              <span class="pill">Phase 44</span>
+            </div>
+          </article>
+
+          <article class="book-card" id="book-14">
+            <div class="book-head">
+              <div class="book-number">14</div>
+              <div>
+                <h3>Designing Data-Intensive Applications</h3>
+                <p class="family">Reliability, operability, fault injection, data systems thinking</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>SGSD needs proof it survives restarts, stale evidence, malformed reports, and partial writes.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>Reliability is designed and tested through realistic failure modes, not asserted after happy-path success.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>Trusting green dashboards without testing broken inputs, restarts, and evidence corruption.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill blue">Phase 28</span>
+              <span class="pill blue">Phase 29</span>
+              <span class="pill red">v2.0</span>
+              <span class="pill">Phase 46</span>
+              <span class="pill">Phase 47</span>
+            </div>
+          </article>
+
+          <article class="book-card" id="book-15">
+            <div class="book-head">
+              <div class="book-number">15</div>
+              <div>
+                <h3>Designing Data-Intensive Applications, 2nd Edition</h3>
+                <p class="family">Modern reliability, operations, service delivery</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>The second-edition signal was used to strengthen modern operations and release-readiness thinking.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>Operational stability needs explicit checks for delivery, recovery, dependencies, and degraded modes.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>Release confidence based only on local success, without provider timeout or restart scenarios.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill red">v2.0</span>
+              <span class="pill">Phase 47</span>
+              <span class="pill">Phase 48</span>
+              <span class="pill">Phase 50</span>
+            </div>
+          </article>
+
+          <article class="book-card" id="book-16">
+            <div class="book-head">
+              <div class="book-number">16</div>
+              <div>
+                <h3>Designing Machine Learning Systems</h3>
+                <p class="family">Evaluation, monitoring, model behavior, feedback loops</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>Agent-assisted systems can produce convincing reports while real outcomes degrade.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>Measure outcomes, monitor quality, and inspect raw artifacts rather than trusting summaries.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>False confidence from narrative reviews, citation counts, or pass statuses with weak evidence.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill gold">v1.8</span>
+              <span class="pill">Phase 36</span>
+              <span class="pill green">Phase 42</span>
+              <span class="pill red">v2.0</span>
+              <span class="pill">Phase 49</span>
+            </div>
+          </article>
+
+          <article class="book-card" id="book-17">
+            <div class="book-head">
+              <div class="book-number">17</div>
+              <div>
+                <h3>Practical MLOps</h3>
+                <p class="family">Operational feedback, telemetry, readiness, production discipline</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>Boot speed, provider timeouts, and gate value need measurement rather than intuition.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>Instrument the operational path: timings, health, degradation, failure categories, and readiness.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>Slow boot steps with no attribution and future release decisions with no operational score.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill blue">v1.6</span>
+              <span class="pill">Phase 28</span>
+              <span class="pill gold">Phase 36</span>
+              <span class="pill red">v2.0</span>
+              <span class="pill">Phase 50</span>
+            </div>
+          </article>
+
+          <article class="book-card" id="book-18">
+            <div class="book-head">
+              <div class="book-number">18</div>
+              <div>
+                <h3>Patterns of Enterprise Application Architecture</h3>
+                <p class="family">Application records, transaction boundaries, enterprise durability</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>Route decisions, review findings, and memory writes are records SGSD may later depend on.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>Treat ledgers as durable application records with clear boundaries and stable fields.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>Loose JSONL/prose artifacts that cannot be reliably joined, audited, or recovered.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill rust">v1.7</span>
+              <span class="pill">Phase 32</span>
+              <span class="pill">Phase 34</span>
+              <span class="pill green">v1.9</span>
+              <span class="pill">Phase 44</span>
+            </div>
+          </article>
+
+          <article class="book-card" id="book-19">
+            <div class="book-head">
+              <div class="book-number">19</div>
+              <div>
+                <h3>Fundamentals of Data Engineering</h3>
+                <p class="family">Lineage, data contracts, pipelines, governance</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>Knowledge hits and memory records need lineage from source to decision.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>Provider outputs should carry schema, provenance, quality, and downstream decision impact.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>Unclear whether a citation actually changed the plan or simply decorated it.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill green">v1.9</span>
+              <span class="pill">Phase 41</span>
+              <span class="pill">Phase 42</span>
+              <span class="pill">Phase 44</span>
+              <span class="pill">Phase 45</span>
+            </div>
+          </article>
+
+          <article class="book-card" id="book-20">
+            <div class="book-head">
+              <div class="book-number">20</div>
+              <div>
+                <h3>Database Internals</h3>
+                <p class="family">Storage, indexing, recovery, append-only evidence</p>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Why it was used</dt>
+                <dd>SGSD ledgers and memory records are only useful if they are recoverable and queryable.</dd>
+              </div>
+              <div>
+                <dt>Idea extracted</dt>
+                <dd>Prefer append-only evidence rows with stable IDs and recoverable history over overwritten summaries.</dd>
+              </div>
+              <div>
+                <dt>Problem solved</dt>
+                <dd>Lost review context, partial writes after restart, and evidence that cannot be traced back to a run.</dd>
+              </div>
+            </dl>
+            <div class="pill-row">
+              <span class="pill rust">v1.7</span>
+              <span class="pill">Phase 32</span>
+              <span class="pill">Phase 34</span>
+              <span class="pill green">v1.9</span>
+              <span class="pill red">v2.0</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="milestones">
+        <h2>Milestone Implementation Map</h2>
+        <p class="lead">
+          "Implementation" here means implemented into the proposed plan and
+          phase design. The future milestones still need promotion by Claude and
+          SGSD before they become active work.
+        </p>
+
+        <div class="milestone-grid">
+          <article class="milestone-card">
+            <h3>v1.6 <span class="range">Phases 26-30</span></h3>
+            <p><strong>Theme:</strong> Boot, portability, and knowledge setup.</p>
+            <p><strong>Books used:</strong> The Design of Everyday Things, Don't Make Me Think, Writing Effective Use Cases, Software Architecture for Developers, Clean Architecture, Practical MLOps, DDIA.</p>
+            <p><strong>Problem solved:</strong> `sg` needed to feel obvious, fast, portable, and not tied to Jack's VTP directory.</p>
+            <div class="pill-row">
+              <span class="pill">26 Startup UX Contract</span>
+              <span class="pill">27 Knowledge Bank Configuration</span>
+              <span class="pill">28 Fast Preflight</span>
+              <span class="pill">29 Cockpit Crash Visibility</span>
+              <span class="pill">30 Startup Docs</span>
+            </div>
+          </article>
+
+          <article class="milestone-card">
+            <h3>v1.7 <span class="range">Phases 31-35</span></h3>
+            <p><strong>Theme:</strong> Stable command contracts and route intelligence.</p>
+            <p><strong>Books used:</strong> A Philosophy of Software Design, Software Architecture in Practice, Fundamentals of Software Architecture, Domain-Driven Design, Clean Architecture, Patterns of Enterprise Application Architecture, Database Internals.</p>
+            <p><strong>Problem solved:</strong> Dashboards, gates, and milestone close need structured results instead of bespoke prose and regex.</p>
+            <div class="pill-row">
+              <span class="pill">31 Canonical Command Envelope</span>
+              <span class="pill">32 Route Decision Ledger</span>
+              <span class="pill">33 Repair Instruction Contract</span>
+              <span class="pill">34 Canonical Review Ledger</span>
+              <span class="pill">35 Generated System Map</span>
+            </div>
+          </article>
+
+          <article class="milestone-card">
+            <h3>v1.8 <span class="range">Phases 36-40</span></h3>
+            <p><strong>Theme:</strong> Gate fitness and MUDA pruning.</p>
+            <p><strong>Books used:</strong> Fundamentals of Software Architecture, Strategic Monoliths and Microservices, Balancing Coupling in Software Design, The Mythical Man-Month, A Philosophy of Software Design, Designing Machine Learning Systems.</p>
+            <p><strong>Problem solved:</strong> Gates need to prove value, and MUDA should be allowed to delete, merge, sample, or keep checks.</p>
+            <div class="pill-row">
+              <span class="pill">36 Gate Value Telemetry</span>
+              <span class="pill">37 MUDA Deletion Candidates</span>
+              <span class="pill">38 Risk-Tiered Gate Sampling</span>
+              <span class="pill">39 Gate Keep/Kill Review</span>
+              <span class="pill">40 Phase Folder Contract</span>
+            </div>
+          </article>
+
+          <article class="milestone-card">
+            <h3>v1.9 <span class="range">Phases 41-45</span></h3>
+            <p><strong>Theme:</strong> Knowledge relevance and memory governance.</p>
+            <p><strong>Books used:</strong> The LLM Mesh, Clean Architecture, Domain-Driven Design, Fundamentals of Data Engineering, Patterns of Enterprise Application Architecture, Database Internals.</p>
+            <p><strong>Problem solved:</strong> VTP/private-KB enrichment should change decisions, not just add citations. Memory writes need governance.</p>
+            <div class="pill-row">
+              <span class="pill">41 Knowledge Provider Registry</span>
+              <span class="pill">42 Relevance Scoring</span>
+              <span class="pill">43 Typed Retrieval Failures</span>
+              <span class="pill">44 Memory Provenance</span>
+              <span class="pill">45 Public Fallback Policy</span>
+            </div>
+          </article>
+
+          <article class="milestone-card">
+            <h3>v2.0 <span class="range">Phases 46-50</span></h3>
+            <p><strong>Theme:</strong> SpaceX-style failure injection.</p>
+            <p><strong>Books used:</strong> Designing Data-Intensive Applications, DDIA 2nd Edition, Fundamentals of Software Architecture, Practical MLOps, Designing Machine Learning Systems, Database Internals.</p>
+            <p><strong>Problem solved:</strong> SGSD needs to prove it catches real failure modes instead of trusting happy-path green status.</p>
+            <div class="pill-row">
+              <span class="pill">46 Gate Failure-Injection Harness</span>
+              <span class="pill">47 Restart/Handoff Chaos Tests</span>
+              <span class="pill">48 Provider Backpressure</span>
+              <span class="pill">49 Scenario Acceptance Suite</span>
+              <span class="pill">50 Release Readiness Score</span>
+            </div>
+          </article>
+
+          <article class="milestone-card">
+            <h3>v2.1 <span class="range">Phases 51-55</span></h3>
+            <p><strong>Theme:</strong> Distribution and new-user onboarding.</p>
+            <p><strong>Books used:</strong> Don't Make Me Think, The Design of Everyday Things, Software Architecture for Developers, Writing Effective Use Cases, Clean Architecture, Strategic Monoliths and Microservices.</p>
+            <p><strong>Problem solved:</strong> A stranger should install, run, understand, and upgrade SGSD without Jack's VTP repo or milestone history.</p>
+            <div class="pill-row">
+              <span class="pill">51 Installer Portability Audit</span>
+              <span class="pill">52 New Project Wizard</span>
+              <span class="pill">53 Example Project</span>
+              <span class="pill">54 Public Docs Refresh</span>
+              <span class="pill">55 Migration Safety</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="phases">
+        <h2>Phase Traceability</h2>
+        <p class="lead">
+          This is the phase-by-phase map Claude should use when it promotes the
+          proposed roadmap. Each phase has a book-backed operating rule.
+        </p>
+
+        <div class="phase-grid">
+          <div class="phase-card"><strong>26 Startup UX</strong><p>DOET, Don't Make Me Think, Use Cases: define command behavior as visible, testable promises.</p></div>
+          <div class="phase-card"><strong>27 Knowledge Config</strong><p>Clean Architecture, DDD, LLM Mesh: make VTP optional and provider-based.</p></div>
+          <div class="phase-card"><strong>28 Fast Preflight</strong><p>Practical MLOps, DDIA, Mythical Man-Month: measure boot and defer costly checks.</p></div>
+          <div class="phase-card"><strong>29 Crash Visibility</strong><p>DOET, Fundamentals of Software Architecture, DDIA: failed panes must show failure clearly.</p></div>
+          <div class="phase-card"><strong>30 Startup Docs</strong><p>Don't Make Me Think, Software Architecture for Developers, Use Cases: docs follow user goals.</p></div>
+
+          <div class="phase-card"><strong>31 Command Envelope</strong><p>A Philosophy of Software Design, Clean Architecture, DDD: small stable schema, tool-neutral policy.</p></div>
+          <div class="phase-card"><strong>32 Route Ledger</strong><p>DDD, Patterns of Enterprise Application Architecture, Database Internals: decisions become durable records.</p></div>
+          <div class="phase-card"><strong>33 Repair Contract</strong><p>Use Cases, A Philosophy of Software Design: every block has a concrete repair path.</p></div>
+          <div class="phase-card"><strong>34 Review Ledger</strong><p>Patterns of Enterprise Application Architecture, Database Internals: review evidence is append-only and joinable.</p></div>
+          <div class="phase-card"><strong>35 System Map</strong><p>Software Architecture for Developers, Software Architecture in Practice: generated maps replace stale tables.</p></div>
+
+          <div class="phase-card"><strong>36 Gate Telemetry</strong><p>Fundamentals of Software Architecture, Practical MLOps: gate value becomes measurable.</p></div>
+          <div class="phase-card"><strong>37 MUDA Deletion</strong><p>Strategic Monoliths, A Philosophy of Software Design: delete process that does not earn its cost.</p></div>
+          <div class="phase-card"><strong>38 Risk Sampling</strong><p>Balancing Coupling, Mythical Man-Month: match gate cost to risk and change distance.</p></div>
+          <div class="phase-card"><strong>39 Gate Keep/Kill</strong><p>Fitness functions, Strategic Monoliths: keep, kill, merge, or sample by evidence.</p></div>
+          <div class="phase-card"><strong>40 Phase Folder Contract</strong><p>A Philosophy of Software Design, DDD: phase folders answer what, why, evidence, risk, next.</p></div>
+
+          <div class="phase-card"><strong>41 Provider Registry</strong><p>LLM Mesh, Clean Architecture: knowledge sources become governed providers.</p></div>
+          <div class="phase-card"><strong>42 Relevance Scoring</strong><p>Fundamentals of Data Engineering, Designing ML Systems: citations need decision impact.</p></div>
+          <div class="phase-card"><strong>43 Retrieval Failures</strong><p>DDD, LLM Mesh: typed failure modes prevent blind retries.</p></div>
+          <div class="phase-card"><strong>44 Memory Provenance</strong><p>Patterns of Enterprise Application Architecture, Database Internals: memory writes carry source and retention.</p></div>
+          <div class="phase-card"><strong>45 Public Fallback</strong><p>Clean Architecture, LLM Mesh: public sources are optional, governed, and cited.</p></div>
+
+          <div class="phase-card"><strong>46 Failure Harness</strong><p>DDIA, Fundamentals of Software Architecture: inject real broken inputs and assert gate outcomes.</p></div>
+          <div class="phase-card"><strong>47 Restart Chaos</strong><p>DDIA, Database Internals: prove partial writes and handoffs recover.</p></div>
+          <div class="phase-card"><strong>48 Provider Circuits</strong><p>Practical MLOps, DDIA 2nd: schedule timeouts, retries, and degraded modes.</p></div>
+          <div class="phase-card"><strong>49 Scenario Suite</strong><p>Software Architecture in Practice, Designing ML Systems: test real workflows, not only fragments.</p></div>
+          <div class="phase-card"><strong>50 Readiness Score</strong><p>Practical MLOps, DDIA: release status includes boot, docs, gates, provider health, and scenarios.</p></div>
+
+          <div class="phase-card"><strong>51 Install Audit</strong><p>Clean Architecture, DOET: clean-machine install exposes hidden dependencies.</p></div>
+          <div class="phase-card"><strong>52 Project Wizard</strong><p>Don't Make Me Think, Use Cases: ask only what SGSD needs.</p></div>
+          <div class="phase-card"><strong>53 Example Project</strong><p>Software Architecture for Developers: working examples beat abstract explanation.</p></div>
+          <div class="phase-card"><strong>54 Public Docs</strong><p>Don't Make Me Think, Use Cases: docs are for strangers, not insiders.</p></div>
+          <div class="phase-card"><strong>55 Upgrade Safety</strong><p>Clean Architecture, Strategic Monoliths: migrate carefully and avoid spreading old assumptions.</p></div>
+        </div>
+      </section>
+
+      <section id="claude">
+        <h2>How Claude Should Use This</h2>
+        <p class="lead">
+          When a future Claude session promotes a milestone, it should not just
+          cite the books. It should convert the relevant book rules into
+          acceptance criteria, verification commands, and kill/defer conditions.
+        </p>
+
+        <div class="rule-grid">
+          <div class="rule-card">
+            <b>Rule 1</b>
+            <p>Start with the books for the milestone, then use research papers only to sharpen agent-specific risks.</p>
+          </div>
+          <div class="rule-card">
+            <b>Rule 2</b>
+            <p>Every enrichment slot must produce a design consequence, not a generic literature summary.</p>
+          </div>
+          <div class="rule-card">
+            <b>Rule 3</b>
+            <p>If a book argues for simplicity, Claude should delete or narrow scope before adding a new gate.</p>
+          </div>
+          <div class="rule-card">
+            <b>Rule 4</b>
+            <p>If a book argues for reliability, Claude should produce a failure case and expected observable result.</p>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>Teacher note</strong>
+          <p>
+            The best use of the VTP book corpus is not "more references." It is
+            stricter planning. The book rule must change the work: a command
+            contract, a test, a deleted gate, a provider boundary, a memory
+            provenance field, or a restart scenario.
+          </p>
+        </div>
+
+        <p class="source-note">
+          Source roadmap: C:\Users\jack.berrow\GSDedits\.planning\milestones\HANDBOOK-FUTURE-ROADMAP.md
+        </p>
+        <p class="source-note">
+          Source handbook: C:\Users\jack.berrow\GSDedits\docs\reports\SGSD-VTP-Visual-Handbook.html
+        </p>
+      </section>
+
+      <footer class="footer">
+        <p>
+          Generated as an offline SGSD planning artifact. This document is safe
+          to open directly in a browser and does not require a dev server.
+        </p>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>

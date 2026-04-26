@@ -7,6 +7,9 @@
 #     sgsd                 # boot cockpit (preflight + 3 dashboards)
 #     sgsd -NoOpen         # preflight only
 #     sgsd -SkipPreflight  # skip checks, just open dashboards
+#     sgsd -Claude -Greet  # launch Claude with SGSD intro, then wait
+#     sg                   # cockpit + Claude greeting in the current terminal
+#     sgsd-setup           # configure knowledge bank + SGSD memory roots
 #     sgsd -Help           # show flags
 #
 # The installed function walks up the current directory looking for a
@@ -112,6 +115,7 @@ function sgsd {
         [switch]`$Backfill,
         [switch]`$Claude,
         [switch]`$Go,
+        [switch]`$Greet,
         [switch]`$Help,
         [string]`$ProjectDir = `$null
     )
@@ -125,6 +129,11 @@ function sgsd {
         Write-Host '  sgsd -Backfill       Full DLB-04 scaffold for existing project'
         Write-Host '  sgsd -Claude         Also launch Claude Code (--dangerously-skip-permissions)'
         Write-Host '  sgsd -Claude -Go     Launch Claude Code + auto-send ''go'' to enter AUTO MODE'
+        Write-Host '  sgsd -Claude -Greet  Launch Claude Code + SGSD intro, then wait'
+        Write-Host '  sg                   Fast boot: cockpit + Claude greeting in this terminal'
+        Write-Host '  sg -FullPreflight    Same, but run full SGSD preflight first'
+        Write-Host '  sg -Go               Same, but send ''go'' to Claude instead of greeting'
+        Write-Host '  sgsd-setup           Configure knowledge bank + SGSD memory roots'
         Write-Host '  sgsd -ProjectDir X   Explicit project directory'
         Write-Host '  sgsd -Help           This help'
         return
@@ -163,7 +172,90 @@ function sgsd {
     if (`$Backfill)       { `$args += '-Backfill' }
     if (`$Claude)         { `$args += '-Claude' }
     if (`$Go)             { `$args += '-Go' }
+    if (`$Greet)          { `$args += '-Greet' }
 
+    & powershell.exe @args
+}
+
+function sg {
+    [CmdletBinding()]
+    param(
+        [switch]`$FullPreflight,
+        [switch]`$Go,
+        [switch]`$NoCockpit,
+        [switch]`$NoClaude,
+        [string]`$ProjectDir = `$null
+    )
+
+    if (-not `$NoCockpit) {
+        `$bootArgs = @{}
+        if (`$ProjectDir) { `$bootArgs.ProjectDir = `$ProjectDir }
+        if (-not `$FullPreflight) { `$bootArgs.SkipPreflight = `$true }
+        sgsd @bootArgs
+    }
+
+    if (`$NoClaude) { return }
+
+    `$claudeCmd = Get-Command claude -ErrorAction SilentlyContinue
+    if (-not `$claudeCmd) {
+        Write-Host 'Claude Code CLI not on PATH - cockpit is open, but Claude was not started.' -ForegroundColor Yellow
+        Write-Host 'Install/check Claude Code, then run: claude' -ForegroundColor DarkGray
+        return
+    }
+
+    if (`$ProjectDir) {
+        Set-Location -LiteralPath `$ProjectDir
+    }
+
+    if (`$Go) {
+        & claude --dangerously-skip-permissions 'go'
+    } else {
+        `$greetMsg = 'You are booting in Super GSD mode. Do these four things in your first response: (1) read .planning/STATE.md frontmatter and report current milestone status in one line, (2) report active agent count grouped by model from .planning/resource-registry/agents.jsonl, (3) confirm the SGSD cockpit dashboards are open in the other window, (4) ask the operator what they want to build. Do NOT enter auto mode - wait for their first instruction.'
+        & claude --dangerously-skip-permissions `$greetMsg
+    }
+}
+
+function sgsd-setup {
+    [CmdletBinding()]
+    param(
+        [string]`$ProjectDir = `$null,
+        [string]`$KnowledgeRoot = '',
+        [string]`$MemoryRoot = '.planning/memory',
+        [ValidateSet('sgsd-bundled-research', 'public-software-engineering', 'none')]
+        [string]`$FallbackCorpus = 'sgsd-bundled-research',
+        [switch]`$NonInteractive,
+        [switch]`$DryRun
+    )
+
+    `$setupScript = `$null
+    `$projectRoot = `$null
+    `$d = (Get-Location).Path
+    while (`$d -and `$d -ne (Split-Path -Parent `$d)) {
+        `$candidate = Join-Path `$d 'super-gsd\scripts\sgsd-configure.ps1'
+        if (Test-Path `$candidate) {
+            `$setupScript = `$candidate
+            `$projectRoot = `$d
+            break
+        }
+        `$d = Split-Path -Parent `$d
+    }
+
+    if (-not `$setupScript) {
+        `$bootScript = '$BootScript'
+        `$setupScript = Join-Path (Split-Path -Parent `$bootScript) 'sgsd-configure.ps1'
+        if (-not (Test-Path `$setupScript)) {
+            Write-Host "ERROR: sgsd-configure.ps1 not found. Reinstall SGSD shortcut from this checkout." -ForegroundColor Red
+            return
+        }
+        `$projectRoot = (Get-Location).Path
+    }
+
+    if (-not `$ProjectDir) { `$ProjectDir = `$projectRoot }
+
+    `$args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', `$setupScript, '-ProjectDir', `$ProjectDir, '-MemoryRoot', `$MemoryRoot, '-FallbackCorpus', `$FallbackCorpus)
+    if (`$KnowledgeRoot)   { `$args += @('-KnowledgeRoot', `$KnowledgeRoot) }
+    if (`$NonInteractive) { `$args += '-NonInteractive' }
+    if (`$DryRun)         { `$args += '-DryRun' }
     & powershell.exe @args
 }
 
@@ -236,8 +328,12 @@ Write-Host ""
 Write-Host "Or open a new PowerShell window, then run:"
 Write-Host "  sgsd          " -NoNewline -ForegroundColor Cyan
 Write-Host "(boot cockpit)"
+Write-Host "  sg            " -NoNewline -ForegroundColor Cyan
+Write-Host "(cockpit + Claude greeting in this terminal)"
 Write-Host "  sgsd-refresh  " -NoNewline -ForegroundColor Cyan
 Write-Host "(refresh cockpit)"
+Write-Host "  sgsd-setup    " -NoNewline -ForegroundColor Cyan
+Write-Host "(configure knowledge + memory)"
 Write-Host "  SGSD-Cockpit  " -NoNewline -ForegroundColor Cyan
 Write-Host "(boot cockpit shortcut)"
 Write-Host "  sgsd -NoOpen  " -NoNewline -ForegroundColor Cyan

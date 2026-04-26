@@ -74,8 +74,12 @@ if [[ "$SKIP_PREFLIGHT" != true ]]; then
         exit 2
     fi
 
-    if [[ -f "$PROJECT/.brv/context-tree/INDEX.md" ]]; then
-        step OK ".brv/context-tree/INDEX.md present"
+    MEMORY="$PROJECT/.planning/memory/MEMORY.md"
+    LEGACY_INDEX="$PROJECT/.brv/context-tree/INDEX.md"
+    if [[ -f "$MEMORY" ]]; then
+        step OK ".planning/memory/MEMORY.md present"
+    elif [[ -f "$LEGACY_INDEX" ]]; then
+        step WARN "legacy .brv/context-tree detected - run /sgsd-memory-migrate inside Claude Code"
     else
         step FAIL "memory tier not initialized"
         exit 3
@@ -83,20 +87,31 @@ if [[ "$SKIP_PREFLIGHT" != true ]]; then
 
     # Curate smoke test
     SMOKE_SLUG="boot-smoke-test"
-    SMOKE_FILE="$PROJECT/.brv/context-tree/patterns/$SMOKE_SLUG.md"
-    INDEX="$PROJECT/.brv/context-tree/INDEX.md"
+    if [[ -f "$MEMORY" ]]; then
+        SMOKE_FILE="$PROJECT/.planning/memory/architecture/patterns/$SMOKE_SLUG.md"
+        INDEX="$MEMORY"
+        ROW_PATTERN="(architecture/patterns/$SMOKE_SLUG.md)"
+    else
+        SMOKE_FILE="$PROJECT/.brv/context-tree/patterns/$SMOKE_SLUG.md"
+        INDEX="$LEGACY_INDEX"
+        ROW_PATTERN="| $SMOKE_SLUG |"
+    fi
     rm -f "$SMOKE_FILE" 2>/dev/null
-    sed -i.bak "/| $SMOKE_SLUG |/d" "$INDEX" 2>/dev/null && rm -f "$INDEX.bak"
+    tmp="$INDEX.tmp.$$"
+    grep -Fv "$ROW_PATTERN" "$INDEX" > "$tmp" 2>/dev/null || true
+    mv "$tmp" "$INDEX" 2>/dev/null || true
 
     if echo "boot smoke body" | bash "$SCRIPTS/sgsd-curate.sh" \
            --type pattern --slug "$SMOKE_SLUG" \
            --summary "boot preflight — delete after verification" \
            --root "$PROJECT" >/dev/null 2>&1 \
-       && grep -q "| $SMOKE_SLUG |" "$INDEX" \
+       && grep -Fq "$ROW_PATTERN" "$INDEX" \
        && [[ -f "$SMOKE_FILE" ]]; then
         step OK "curate write-pipe smoke test"
         rm -f "$SMOKE_FILE"
-        sed -i.bak "/| $SMOKE_SLUG |/d" "$INDEX" && rm -f "$INDEX.bak"
+        tmp="$INDEX.tmp.$$"
+        grep -Fv "$ROW_PATTERN" "$INDEX" > "$tmp" || true
+        mv "$tmp" "$INDEX"
     else
         step FAIL "curate write-pipe smoke test — DLB-04 Day 0 blocker"
         exit 4
@@ -104,12 +119,21 @@ if [[ "$SKIP_PREFLIGHT" != true ]]; then
 
     # Registry sync
     if [[ -x "$SCRIPTS/sgsd-registry-sync.sh" ]]; then
-        SYNC_OUT="$(bash "$SCRIPTS/sgsd-registry-sync.sh" --root "$PROJECT" 2>&1)"
-        if [[ $? -eq 0 ]]; then
-            COUNT=$(echo "$SYNC_OUT" | grep -oE '[0-9]+ agent records' | grep -oE '^[0-9]+')
-            step OK "Agents registry synced (${COUNT:-?} agents)"
+        MANIFEST="$PROJECT/.planning/resource-registry/agents.jsonl"
+        AGENTS_DIR="$PROJECT/super-gsd/agents"
+        AGENT_COUNT=$(find "$AGENTS_DIR" -maxdepth 1 -type f -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+        MANIFEST_COUNT=$(grep -c '^{' "$MANIFEST" 2>/dev/null || echo 0)
+        NEWER_AGENT=$(find "$AGENTS_DIR" -maxdepth 1 -type f -name '*.md' -newer "$MANIFEST" -print -quit 2>/dev/null || true)
+        if [[ -f "$MANIFEST" && "$MANIFEST_COUNT" -eq "$AGENT_COUNT" && -z "$NEWER_AGENT" ]]; then
+            step OK "Agents registry fresh ($AGENT_COUNT agents)"
         else
-            step WARN "Agents registry sync failed (non-blocking)"
+            SYNC_OUT="$(bash "$SCRIPTS/sgsd-registry-sync.sh" --root "$PROJECT" 2>&1)"
+            if [[ $? -eq 0 ]]; then
+                COUNT=$(echo "$SYNC_OUT" | grep -oE '[0-9]+ agent records' | grep -oE '^[0-9]+')
+                step OK "Agents registry synced (${COUNT:-?} agents)"
+            else
+                step WARN "Agents registry sync failed (non-blocking)"
+            fi
         fi
     fi
 
@@ -119,8 +143,8 @@ if [[ "$SKIP_PREFLIGHT" != true ]]; then
     else
         AGENTS=0
     fi
-    HYP=$(ls "$PROJECT/.brv/context-tree/trajectory-hypothesis/"*.md 2>/dev/null | wc -l)
-    CAND=$(ls "$PROJECT/.brv/context-tree/trajectory-hypothesis/candidate/"*.md 2>/dev/null | wc -l)
+    HYP=$(ls "$PROJECT/.planning/memory/trajectory/hypothesis/"*.md 2>/dev/null | wc -l)
+    CAND=$(ls "$PROJECT/.planning/memory/trajectory/candidate/"*.md 2>/dev/null | wc -l)
     PROP=$(ls "$PROJECT/.planning/proposals/"*.md 2>/dev/null | wc -l)
 
     echo ""
@@ -142,8 +166,8 @@ echo ""
 echo "  # Terminal 2 — SGSD2 Narrative"
 echo "  powershell.exe -File $SCRIPTS/sgsd-narrative.ps1       -ProjectDir '$PROJECT'"
 echo ""
-echo "  # Terminal 3 — SGSD3 Gate Verdict"
-echo "  powershell.exe -File $SCRIPTS/sgsd-gate-verdict.ps1    -ProjectDir '$PROJECT'"
+echo "  # Terminal 3 - SGSD3 Codex + VTP/MCP"
+echo "  powershell.exe -File $SCRIPTS/sgsd-codex-monitor.ps1   -ProjectDir '$PROJECT'"
 echo ""
 echo "On Windows with Windows Terminal installed, prefer the PowerShell version:"
 echo "  powershell -File super-gsd/scripts/sgsd-boot.ps1"

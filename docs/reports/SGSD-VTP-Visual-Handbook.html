@@ -1,0 +1,2233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SGSD + VTP Visual Handbook</title>
+  <style>
+    :root {
+      --ink: #16181d;
+      --muted: #5c6470;
+      --paper: #fbfaf7;
+      --panel: #ffffff;
+      --line: #d9d4ca;
+      --blue: #1d4f91;
+      --green: #26735b;
+      --amber: #a26008;
+      --red: #b3261e;
+      --red-bg: #fff1ef;
+      --soft-blue: #eef5ff;
+      --soft-green: #eef8f3;
+      --soft-amber: #fff7e8;
+      --soft-gray: #f0f2f4;
+      --shadow: 0 16px 50px rgba(22, 24, 29, 0.08);
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: var(--sans);
+      line-height: 1.58;
+    }
+
+    a {
+      color: var(--blue);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+
+    .page {
+      display: grid;
+      grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .toc {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      padding: 28px 22px;
+      border-right: 1px solid var(--line);
+      background: #f4f1eb;
+    }
+
+    .toc h2 {
+      margin: 0 0 14px;
+      font-size: 15px;
+      letter-spacing: 0;
+    }
+
+    .toc a {
+      display: block;
+      padding: 7px 0;
+      color: #30343b;
+      font-size: 13px;
+      line-height: 1.3;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(217, 212, 202, 0.7);
+    }
+
+    main {
+      max-width: 1180px;
+      padding: 42px clamp(22px, 4vw, 58px) 88px;
+    }
+
+    .hero {
+      min-height: 70vh;
+      display: grid;
+      align-content: center;
+      gap: 28px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 42px;
+      padding-bottom: 34px;
+    }
+
+    .eyebrow {
+      margin: 0;
+      color: var(--red);
+      font-family: var(--mono);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    h1 {
+      max-width: 980px;
+      margin: 0;
+      font-size: clamp(42px, 7vw, 84px);
+      line-height: 0.98;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      max-width: 860px;
+      margin: 0;
+      color: #343943;
+      font-size: clamp(19px, 2vw, 26px);
+      line-height: 1.35;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .meta {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.72);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .meta strong {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 650;
+    }
+
+    .meta span {
+      display: block;
+      margin-top: 4px;
+      font-size: 15px;
+      font-weight: 720;
+    }
+
+    section {
+      margin: 0 0 64px;
+      padding-top: 12px;
+    }
+
+    h2 {
+      margin: 0 0 18px;
+      font-size: clamp(30px, 4vw, 48px);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 34px 0 12px;
+      font-size: 25px;
+      line-height: 1.18;
+    }
+
+    h4 {
+      margin: 24px 0 8px;
+      font-size: 18px;
+    }
+
+    p {
+      max-width: 900px;
+      margin: 0 0 14px;
+    }
+
+    ul,
+    ol {
+      max-width: 940px;
+      margin: 10px 0 18px;
+      padding-left: 22px;
+    }
+
+    li {
+      margin: 6px 0;
+    }
+
+    code {
+      font-family: var(--mono);
+      font-size: 0.92em;
+      background: #eceff3;
+      border: 1px solid #d8dde5;
+      border-radius: 5px;
+      padding: 0.1em 0.35em;
+    }
+
+    pre {
+      overflow: auto;
+      max-width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #11151b;
+      color: #f2f5f8;
+      padding: 18px;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    pre code {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: inherit;
+    }
+
+    .band {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      padding: clamp(18px, 3vw, 28px);
+      margin: 18px 0 28px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 16px;
+    }
+
+    .card h3,
+    .card h4 {
+      margin-top: 0;
+    }
+
+    .note {
+      border-left: 5px solid var(--blue);
+      background: var(--soft-blue);
+      padding: 14px 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 18px 0;
+    }
+
+    .eli5 {
+      border-left: 5px solid var(--green);
+      background: var(--soft-green);
+      padding: 14px 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 18px 0;
+    }
+
+    .teacher {
+      border: 2px solid var(--red);
+      background: var(--red-bg);
+      color: #4d1511;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 18px 0;
+      position: relative;
+    }
+
+    .teacher::before {
+      content: "RED PEN";
+      display: inline-block;
+      margin-right: 8px;
+      color: #fff;
+      background: var(--red);
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      vertical-align: 1px;
+    }
+
+    .muda {
+      border-left: 5px solid var(--amber);
+      background: var(--soft-amber);
+      padding: 14px 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 18px 0;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 14px 0;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      border: 1px solid #cfd6df;
+      border-radius: 999px;
+      background: #fff;
+      padding: 4px 10px;
+      font-size: 13px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .diagram {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 18px;
+      margin: 18px 0 28px;
+    }
+
+    .flow {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(170px, 1fr);
+      align-items: stretch;
+      gap: 12px;
+      min-width: 860px;
+    }
+
+    .flow .box,
+    .lane .box {
+      border: 1px solid #cdd4dc;
+      border-radius: 8px;
+      background: #f8fafc;
+      padding: 12px;
+      min-height: 92px;
+      position: relative;
+    }
+
+    .flow .box:not(:last-child)::after {
+      content: ">";
+      position: absolute;
+      right: -14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--blue);
+      font-weight: 900;
+      z-index: 2;
+    }
+
+    .box strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+
+    .box span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .lane-grid {
+      display: grid;
+      grid-template-columns: 150px repeat(6, minmax(155px, 1fr));
+      gap: 8px;
+      min-width: 1080px;
+      align-items: stretch;
+    }
+
+    .lane-title {
+      display: grid;
+      align-items: center;
+      border-radius: 8px;
+      background: #202734;
+      color: #fff;
+      padding: 10px;
+      font-weight: 750;
+      font-size: 13px;
+    }
+
+    .lane-cell {
+      border: 1px dashed #cbd3dd;
+      border-radius: 8px;
+      background: #fbfcfe;
+      padding: 10px;
+      min-height: 72px;
+      font-size: 12px;
+    }
+
+    .lane-cell strong {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .matrix {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 28px;
+      background: #fff;
+      border: 1px solid var(--line);
+      font-size: 14px;
+    }
+
+    .matrix th,
+    .matrix td {
+      border: 1px solid var(--line);
+      padding: 10px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    .matrix th {
+      background: #eef1f5;
+      font-weight: 760;
+    }
+
+    .matrix tr:nth-child(even) td {
+      background: #fbfcfd;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .status {
+      display: inline-flex;
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 12px;
+      font-weight: 800;
+      background: #eaf6ef;
+      color: #18563f;
+    }
+
+    .status.warn {
+      background: #fff0d8;
+      color: #754500;
+    }
+
+    .status.red {
+      background: #ffe2de;
+      color: #8f1f18;
+    }
+
+    .source-tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      margin: 2px 4px 2px 0;
+      border: 1px solid #bec8d4;
+      border-radius: 5px;
+      background: #f7f9fb;
+      color: #243041;
+      padding: 2px 6px;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .source-tag.book {
+      border-color: #bfd7c9;
+      background: #eef8f3;
+      color: #174d39;
+    }
+
+    .source-tag.paper {
+      border-color: #c3d5ee;
+      background: #eef5ff;
+      color: #173f76;
+    }
+
+    .source-tag.warn {
+      border-color: #f2cc8f;
+      background: #fff7e8;
+      color: #774400;
+    }
+
+    .principle-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 16px 0 28px;
+    }
+
+    .principle {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 13px 14px;
+    }
+
+    .principle b {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+
+    .principle p {
+      margin: 0;
+      font-size: 13px;
+      color: #3f4650;
+    }
+
+    .relay {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 10px;
+      min-width: 880px;
+    }
+
+    .relay-step {
+      border: 1px solid #cdd4dc;
+      border-radius: 8px;
+      background: #fbfcfe;
+      padding: 12px;
+      min-height: 112px;
+    }
+
+    .relay-step strong {
+      display: block;
+      margin-bottom: 4px;
+      color: #202734;
+    }
+
+    .relay-step span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .print-break {
+      break-before: page;
+    }
+
+    @media (max-width: 980px) {
+      .page {
+        display: block;
+      }
+
+      .toc {
+        position: relative;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .meta-grid,
+      .grid-2,
+      .grid-3,
+      .principle-grid {
+        grid-template-columns: 1fr;
+      }
+
+      main {
+        padding: 26px 18px 60px;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .page {
+        display: block;
+      }
+
+      .toc {
+        position: relative;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid #bbb;
+      }
+
+      main {
+        max-width: none;
+        padding: 24px;
+      }
+
+      .band,
+      .card,
+      .diagram {
+        box-shadow: none;
+        break-inside: avoid;
+      }
+
+      a {
+        color: #111;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <nav class="toc" aria-label="Table of contents">
+      <h2>SGSD Handbook</h2>
+      <a href="#start">Start Here</a>
+      <a href="#what-it-is">What SGSD Is</a>
+      <a href="#why-better">How It Makes Life Better</a>
+      <a href="#vtp">What VTP Is</a>
+      <a href="#corpus">VTP Corpus Doctrine</a>
+      <a href="#research-principles">Research Paper Map</a>
+      <a href="#book-principles">Book Map</a>
+      <a href="#architecture">End-to-End Architecture</a>
+      <a href="#lifecycle">Lifecycle From Idea To Done</a>
+      <a href="#commands">Command Reference</a>
+      <a href="#skills-catalog">All SGSD Skills</a>
+      <a href="#agents-catalog">Agent Roster</a>
+      <a href="#scripts-catalog">Script Catalog</a>
+      <a href="#orchestrator">Orchestrator Internals</a>
+      <a href="#gates">Gates And Relays</a>
+      <a href="#muda">MUDA Review</a>
+      <a href="#spacex">SpaceX-Style Hardening</a>
+      <a href="#audit">Full Audit Notes</a>
+      <a href="#vtp-docs">VTP Documents To Use</a>
+      <a href="#improvements">Red-Pen Improvements</a>
+      <a href="#appendix">Appendix</a>
+    </nav>
+
+    <main>
+      <header class="hero" id="start">
+        <p class="eyebrow">Offline reading edition · Generated 2026-04-25 · SGSD + VTP</p>
+        <h1>Super GSD Visual Handbook</h1>
+        <p class="subtitle">
+          A start-to-finish explanation of what SGSD does, how its commands relay information, how VTP enriches the work, where gates protect quality, and where the system can be streamlined or hardened.
+        </p>
+        <div class="meta-grid" aria-label="Document metadata">
+          <div class="meta"><strong>Audience</strong><span>Operator + builder</span></div>
+          <div class="meta"><strong>Style</strong><span>Visual, ELI5, audit</span></div>
+          <div class="meta"><strong>Scope</strong><span>Commands, gates, orchestration</span></div>
+          <div class="meta"><strong>Evidence</strong><span>Repo inventory + recovered VTP MCP calls</span></div>
+        </div>
+      </header>
+
+      <section id="what-it-is">
+        <h2>What SGSD Is</h2>
+        <p>
+          SGSD means <strong>Super GSD</strong>: a structured, autonomous delivery layer around the normal GSD planning files. It turns a loose operator request into a phase, turns a phase into research and implementation steps, dispatches the right execution tools, checks the work through gates, records evidence, and advances the project state without needing the operator to babysit every transition.
+        </p>
+        <p>
+          In plain terms: SGSD is not just a prompt, a todo list, or a pile of scripts. It is an operating system for delivery. The important thing it adds is <strong>continuity</strong>. It keeps track of the current milestone, the current phase, the gate status, the handoff evidence, and the reasons decisions were made.
+        </p>
+
+        <div class="eli5">
+          <strong>ELI5:</strong> imagine building a rocket with a checklist, a project manager, a test engineer, and a library of lessons learned. SGSD is the checklist plus the project manager plus the test engineer. VTP is the library. Gates are the “do not launch until this is true” checks.
+        </div>
+
+        <div class="diagram" aria-label="Simple SGSD map">
+          <div class="flow">
+            <div class="box"><strong>Operator asks</strong><span>A human gives intent, constraints, priorities, or a milestone goal.</span></div>
+            <div class="box"><strong>SGSD classifies</strong><span>The orchestrator decides the work shape, phase, and required evidence.</span></div>
+            <div class="box"><strong>Research happens</strong><span>Repo, docs, MCP, VTP, and codebase context are gathered.</span></div>
+            <div class="box"><strong>Plan forms</strong><span>Work is decomposed into steps, agents, files, gates, and outputs.</span></div>
+            <div class="box"><strong>Execution runs</strong><span>Scripts, Codex, browser checks, and specialists make changes.</span></div>
+            <div class="box"><strong>Gates decide</strong><span>Quality, evidence, waste, safety, and completion checks pass or block.</span></div>
+            <div class="box"><strong>State advances</strong><span>Milestone summaries, phase files, telemetry, and roadmap update.</span></div>
+          </div>
+        </div>
+
+        <div class="teacher">
+          SGSD should always make the next action clearer than the previous action. Any SGSD artifact that does not help decide, verify, debug, or hand off should be treated as suspect until it proves its value.
+        </div>
+      </section>
+
+      <section id="why-better">
+        <h2>How It Makes Life Better</h2>
+        <p>
+          SGSD improves delivery by reducing the amount of project state the operator has to keep in their head. The operator should be able to go to sleep, fly for three and a half hours, or come back after a forced restart and still know what happened, where the evidence is, what remains risky, and what the next phase should do.
+        </p>
+
+        <div class="grid-3">
+          <div class="card">
+            <h3>Less Lost Context</h3>
+            <p>Planning files, milestone summaries, phase folders, findings detail, and state files create a trail. The trail is what survives interruptions.</p>
+          </div>
+          <div class="card">
+            <h3>Less Blind Trust</h3>
+            <p>Gates force the work to show evidence: tests, links, diffs, verification notes, screenshots, audits, or explicit known gaps.</p>
+          </div>
+          <div class="card">
+            <h3>Less Manual Glue</h3>
+            <p>The orchestrator knows when to research, when to execute, when to call VTP, when to run ATC, and when to block instead of advancing.</p>
+          </div>
+        </div>
+
+        <h3>Where the quality gain comes from</h3>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Old Way</th>
+              <th>SGSD Way</th>
+              <th>Operator Benefit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Ask an agent to “fix it” and hope it remembers context.</td>
+              <td>Anchor the work in milestone and phase files.</td>
+              <td>Less re-explaining; fewer restarts from scratch.</td>
+            </tr>
+            <tr>
+              <td>Run tests at the end if someone remembers.</td>
+              <td>Make verification a gate with specific artifacts.</td>
+              <td>Failures show up earlier and with clearer blame.</td>
+            </tr>
+            <tr>
+              <td>Research is informal and easy to lose.</td>
+              <td>Research becomes an artifact that planning can cite.</td>
+              <td>Plans become more defensible and less vibes-driven.</td>
+            </tr>
+            <tr>
+              <td>External knowledge is bolted on manually.</td>
+              <td>VTP enrichment is called at defined decision points.</td>
+              <td>The system gets smarter without asking the operator to browse notes.</td>
+            </tr>
+            <tr>
+              <td>Process can grow until it becomes drag.</td>
+              <td>MUDA checks ask whether the process step is waste.</td>
+              <td>Less bureaucracy for its own sake.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="muda">
+          <strong>MUDA watch:</strong> SGSD is valuable only if its checks cost less than the failures they prevent. A gate that catches nothing, explains nothing, and delays everything is waste even if it sounds disciplined.
+        </div>
+      </section>
+
+      <section id="vtp">
+        <h2>What VTP Is</h2>
+        <p>
+          VTP means <strong>Voice-Text-Plan</strong>. In this SGSD setup, VTP is the knowledge base and reasoning substrate that SGSD can query for enrichment. The recovered MCP health check showed VTP mounted at <code>C:\Users\jack.berrow\Voice-Text-Plan</code> with a wiki directory, knowledge-base data directory, substrate directory, manifests, chunks, and entities.
+        </p>
+        <p>
+          VTP is not the orchestrator. VTP does not replace gates. VTP is the <strong>library and memory system</strong>: books, research papers, meeting notes, project intent, and extracted principles. SGSD asks VTP for patterns, risks, prior thinking, similar milestones, guardrail research, and improvement ideas.
+        </p>
+
+        <div class="band">
+          <h3>Recovered VTP MCP Health Snapshot</h3>
+          <table class="matrix">
+            <tbody>
+              <tr><th>Project root</th><td><code>C:\Users\jack.berrow\Voice-Text-Plan</code></td></tr>
+              <tr><th>Knowledge data</th><td><code>kb-data</code></td></tr>
+              <tr><th>Wiki</th><td><code>wiki</code></td></tr>
+              <tr><th>Substrate</th><td><code>kb-data\substrate</code></td></tr>
+              <tr><th>Books</th><td>54</td></tr>
+              <tr><th>Research papers</th><td>74</td></tr>
+              <tr><th>Meeting documents</th><td>49</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="eli5">
+          <strong>ELI5:</strong> SGSD is the builder. VTP is the builder's notebook, textbook shelf, and memory of previous conversations. When SGSD reaches a hard decision, it asks VTP, “Have we seen a pattern like this before? What research says this is dangerous? What principle should guide this?”
+        </div>
+
+        <h3>How SGSD References VTP</h3>
+        <div class="diagram">
+          <div class="flow">
+            <div class="box"><strong>Phase research</strong><span>VTP helps enrich the research with external and internal knowledge.</span></div>
+            <div class="box"><strong>Planning</strong><span>VTP contributes patterns, gaps, risks, and useful analogies.</span></div>
+            <div class="box"><strong>Audit</strong><span>VTP cross-references similar systems and guardrail research.</span></div>
+            <div class="box"><strong>Milestone close</strong><span>VTP helps summarize connections and missed opportunities.</span></div>
+            <div class="box"><strong>Future routing</strong><span>VTP intent state can guide which corpus to query first.</span></div>
+          </div>
+        </div>
+
+        <p>
+          The recovered SGSD v1.5 requirement stream explicitly aimed for <strong>VTP Knowledge Primacy</strong>: VTP should enrich ideas, problem solving, forward thinking, and intelligence, with extra gates near the end of research phases. That means VTP is intended to be a first-class enrichment source, not a decorative citation step.
+        </p>
+
+        <div class="teacher">
+          The important design rule is “bounded enrichment.” VTP should be consulted at moments of uncertainty, strategy, risk, or phase transition. It should not become an always-on tax for trivial edits.
+        </div>
+      </section>
+
+      <section id="corpus" class="print-break">
+        <h2>VTP Corpus Doctrine</h2>
+        <p>
+          The most valuable way to use VTP is not to paste book summaries into SGSD. The valuable move is to turn the enriched corpus into <strong>operating doctrine</strong>: named principles that explain why a command exists, where a gate should sit, when a gate is waste, how memory should be governed, and what the dashboard must make visible.
+        </p>
+        <p>
+          For this pass, the live VTP corpus was read from <code>C:\Users\jack.berrow\Voice-Text-Plan\wiki</code> and its enrichment JSON files. The strongest corpus signals for SGSD are below. The short code tags are the principle IDs from VTP enrichment files, so the handbook can stay traceable.
+        </p>
+
+        <div class="diagram">
+          <div class="relay">
+            <div class="relay-step"><strong>Research</strong><span>VTP finds principles, precedents, risks, and gaps before planning starts.</span></div>
+            <div class="relay-step"><strong>Translate</strong><span>Principles become concrete SGSD design rules, not decorative citations.</span></div>
+            <div class="relay-step"><strong>Gate</strong><span>Rules become pass/warn/block conditions or artifact requirements.</span></div>
+            <div class="relay-step"><strong>Observe</strong><span>Telemetry proves whether the gate caught value or added drag.</span></div>
+            <div class="relay-step"><strong>Prune</strong><span>MUDA removes gates and artifacts that do not earn their cost.</span></div>
+          </div>
+        </div>
+
+        <h3>The 12 VTP-Derived Rules SGSD Should Live By</h3>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Rule</th>
+              <th>Source Principles</th>
+              <th>How It Changes SGSD</th>
+              <th>Red-Pen Enforcement</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Make requirements executable before code.</td>
+              <td><span class="source-tag paper">SHU-P-01</span><span class="source-tag book">WUC-P-04</span><span class="source-tag book">FSA-P-04</span></td>
+              <td>Plans should carry acceptance criteria, verification commands, and phase close conditions. Requirements that cannot be tested should be rewritten or marked exploratory.</td>
+              <td>Do not let a phase move from research to execution if acceptance is only prose.</td>
+            </tr>
+            <tr>
+              <td>Let autonomy expand inside fences.</td>
+              <td><span class="source-tag paper">SHU-P-02</span><span class="source-tag paper">SHU-P-04</span><span class="source-tag book">CA-P-11</span></td>
+              <td>SGSD should give agents durable context, clear file scope, task contracts, and output schemas instead of re-prompting constraints each turn.</td>
+              <td>Every dispatched agent gets a bounded prompt and returns a structured report.</td>
+            </tr>
+            <tr>
+              <td>Diagnose failure before retrying it.</td>
+              <td><span class="source-tag paper">SR-P-01</span><span class="source-tag paper">SR-P-06</span><span class="source-tag paper">WLS-P-08</span></td>
+              <td>Retries should be typed: schema failure, provider timeout, browser blocked, VTP empty hit, VTP API error, ATC critical, or route ambiguity.</td>
+              <td>A retry without a reason code is a process defect.</td>
+            </tr>
+            <tr>
+              <td>Memory writes are privileged state transitions.</td>
+              <td><span class="source-tag paper">MSOV-P-01</span><span class="source-tag paper">MSOV-P-05</span><span class="source-tag paper">DPM-P-01</span></td>
+              <td>Learnings, summaries, VTP enrichment, curation, and handoff logs need provenance, source, confidence, and retention rules.</td>
+              <td>Never let free-form generated text silently become trusted memory.</td>
+            </tr>
+            <tr>
+              <td>Compress around decision relevance.</td>
+              <td><span class="source-tag paper">TACO-P-01</span><span class="source-tag paper">TACO-P-05</span><span class="source-tag paper">TRV-P-01</span></td>
+              <td>Dashboards and summaries should preserve blockers, errors, decisions, and evidence, while trimming repeated status chatter.</td>
+              <td>Error traces and gate failures are hard-bypass content. Do not summarize them away.</td>
+            </tr>
+            <tr>
+              <td>Shared services need scheduling, not optimism.</td>
+              <td><span class="source-tag paper">HM-P-01</span><span class="source-tag paper">HM-P-03</span><span class="source-tag paper">HM-P-07</span></td>
+              <td>Codex, Claude, VTP, browser tools, and parallel agents should be treated as capacity-limited resources with admission, budgets, retries, and circuit breakers.</td>
+              <td>Centralize provider retry. Do not let every worker hammer the same failure.</td>
+            </tr>
+            <tr>
+              <td>Communication is a costed escalation.</td>
+              <td><span class="source-tag paper">GCMC-P-01</span><span class="source-tag paper">GCMC-P-02</span><span class="source-tag paper">GCMC-P-03</span><span class="source-tag book">MMM-P-02</span></td>
+              <td>Board debate, sub-agent chatter, and shared channels should fire only when the benefit beats interruption cost.</td>
+              <td>Use rules first, scores second, model calls only for grey zones.</td>
+            </tr>
+            <tr>
+              <td>Diversity requires topology, not more agents.</td>
+              <td><span class="source-tag paper">DCM-P-03</span><span class="source-tag paper">DCM-P-04</span><span class="source-tag paper">SSIB-P-03</span></td>
+              <td>Board members must hold distinct roles and private reasoning before synthesis. Fully-connected debate too early collapses views.</td>
+              <td>Audit whether roles actually diverged, not just whether five agents spoke.</td>
+            </tr>
+            <tr>
+              <td>Outcomes are not enough. Audit process.</td>
+              <td><span class="source-tag paper">SSIB-P-01</span><span class="source-tag paper">WLS-P-04</span><span class="source-tag paper">WLS-P-10</span></td>
+              <td>ATC, browser verify, and milestone close must inspect raw artifacts, logs, screenshots, and contract lines, not final claims.</td>
+              <td>Green prose without committed evidence is not evidence.</td>
+            </tr>
+            <tr>
+              <td>Architecture is trade-off management.</td>
+              <td><span class="source-tag book">DDIA-P-01</span><span class="source-tag book">FSA-P-02</span><span class="source-tag book">SAP-P-06</span></td>
+              <td>Plans should name the quality gained and the quality paid: speed, cost, reliability, observability, privacy, autonomy, or simplicity.</td>
+              <td>Any “best” architecture claim without a trade-off axis is incomplete.</td>
+            </tr>
+            <tr>
+              <td>Keep interfaces deep and boundaries explicit.</td>
+              <td><span class="source-tag book">APSD-P-04</span><span class="source-tag book">APSD-P-07</span><span class="source-tag book">DDD-P-05</span><span class="source-tag book">SMM-P-05</span></td>
+              <td>SGSD scripts should expose stable result envelopes. Internals can be messy; the command contract must be small and dependable.</td>
+              <td>Thin pass-through wrappers and private result formats are MUDA candidates.</td>
+            </tr>
+            <tr>
+              <td>Usability means no mystery for the operator.</td>
+              <td><span class="source-tag book">DMT-P-01</span><span class="source-tag book">DMT-P-04</span><span class="source-tag book">DMT-P-07</span></td>
+              <td>The cockpit should answer: what is running, why, what gate last fired, where evidence lives, what is blocked, and what action clears it.</td>
+              <td>If the operator must hunt through folders to understand state, the UI failed.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="teacher">
+          The corpus should become a control system. A VTP citation is only useful when it changes a route, writes a gate, deletes a wasteful step, clarifies a dashboard, or prevents a known failure mode.
+        </div>
+      </section>
+
+      <section id="research-principles">
+        <h2>Research Paper Map</h2>
+        <p>
+          These are the enriched research papers that most directly apply to SGSD. I am not trying to use every paper equally. The right move is to use the high-signal papers where their failure model matches SGSD's actual moving parts.
+        </p>
+
+        <div class="principle-grid">
+          <div class="principle">
+            <b><span class="source-tag paper">Shift-Up</span> Guardrails For AI-Native Development</b>
+            <p>Use BDD-style acceptance, C4/ADR-style durable context, and test failure loops to stop autonomous coding drift. SGSD application: plan schema, ATC, VTP enrichment artifacts, executable requirements.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag paper">Skill-RAG</span> Failure-State-Aware Retrieval</b>
+            <p>Classify why retrieval failed before retrying. SGSD application: VTP empty hit, noisy hit, stale hit, missing corpus, and API failure should route differently.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag paper">Memory Sovereignty</span> Long-Term Memory Security</b>
+            <p>Treat memory as governed state with write, store, retrieve, execute, share, and forget phases. SGSD application: curation, summaries, handoff, and VTP outputs need provenance.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag paper">HiveMind</span> OS Scheduling For Agent Workloads</b>
+            <p>Shared LLM providers need admission control, centralized retry, budgets, priority, and backpressure. SGSD application: Codex review, parallel executor waves, VTP calls, browser verification.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag paper">TACO</span> Self-Evolving Terminal Agents</b>
+            <p>Compress logs by decision relevance while preserving errors. SGSD application: narrative dashboard, token log, command summaries, and handoff should keep decision signals, not repeated noise.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag paper">AgentArk</span> Distilling Multi-Agent Intelligence</b>
+            <p>Runtime debate is expensive; the reusable value is in trajectories, critique, recovery, and process supervision. SGSD application: distill milestone lessons and board debate patterns into lightweight rules.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag paper">Gated Coordination</span> Multi-Agent Collaboration</b>
+            <p>Broadcast only when cost-justified. SGSD application: keep worker state private, shared state strict, and escalation gated by rules or scores.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag paper">Diversity Collapse</span> Multi-Agent Ideation</b>
+            <p>More agents and denser communication can reduce diversity. SGSD application: preserve role independence in board deliberation and audit semantic divergence.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag paper">Schema-Constrained Memory</span> Valid Referents</b>
+            <p>Constrain memory keys to things that actually exist. SGSD application: plan schema, gate names, provider names, phase paths, and VTP citations should be valid closed-world references.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag paper">When To Forget</span> Memory Worth</b>
+            <p>Stored artifacts are predictions of future usefulness. SGSD application: use access, success, failure, age, and safety to decide what remains active versus archived.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag paper">Forage V2</span> Cross-Run Experience</b>
+            <p>Separate evaluator from executor and treat experience as organizational memory. SGSD application: milestone close should capture lessons without letting executors self-certify success.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag paper">Why LLMs Are Not Scientists Yet</span> Verify Everything</b>
+            <p>Autonomous pipelines drift, overclaim, lose memory, and simplify under pressure. SGSD application: append-only logs, raw artifacts, two-axis verification, and modular phases.</p>
+          </div>
+        </div>
+
+        <h3>Research To Gate Mapping</h3>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>SGSD Gate Or Surface</th>
+              <th>Best Research Backing</th>
+              <th>Why It Matters</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>VTP enrichment gate</td>
+              <td><span class="source-tag paper">SR-P-01</span><span class="source-tag paper">SCG-P-02</span><span class="source-tag paper">TRV-P-05</span></td>
+              <td>Retrieval needs failure classification, valid source references, and preserved provenance.</td>
+            </tr>
+            <tr>
+              <td>ATC review</td>
+              <td><span class="source-tag paper">SHU-P-08</span><span class="source-tag paper">WLS-P-08</span><span class="source-tag paper">SSIB-P-01</span></td>
+              <td>Test and review output should drive the next turn; outcomes alone hide process collapse.</td>
+            </tr>
+            <tr>
+              <td>MUDA audit</td>
+              <td><span class="source-tag paper">HM-P-10</span><span class="source-tag paper">GCMC-P-09</span><span class="source-tag paper">MW-P-04</span></td>
+              <td>Measure which checks are load-bearing, calibrate gate weights, and separate correlation from causation.</td>
+            </tr>
+            <tr>
+              <td>Parallel dispatch</td>
+              <td><span class="source-tag paper">HM-P-01</span><span class="source-tag paper">HM-P-03</span><span class="source-tag paper">GCMC-P-08</span></td>
+              <td>Parallel agents need admission, centralized retry, budget ceilings, and no-deadlock fallback.</td>
+            </tr>
+            <tr>
+              <td>Memory curation</td>
+              <td><span class="source-tag paper">MSOV-P-01</span><span class="source-tag paper">FSFM-P-01</span><span class="source-tag paper">DPM-P-01</span></td>
+              <td>Memory must be governed, auditable, forgettable, and replayable.</td>
+            </tr>
+            <tr>
+              <td>Board deliberation</td>
+              <td><span class="source-tag paper">DCM-P-04</span><span class="source-tag paper">SSIB-P-03</span><span class="source-tag paper">MET-P-04</span></td>
+              <td>Role diversity only matters if information flow is load-bearing and rationale is visible.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="book-principles">
+        <h2>Book Map</h2>
+        <p>
+          The books are most useful as stable engineering taste. They should influence what SGSD considers a good abstraction, a good boundary, a good dashboard, a good plan, and a good architecture decision.
+        </p>
+
+        <div class="principle-grid">
+          <div class="principle">
+            <b><span class="source-tag book">A Philosophy Of Software Design</span></b>
+            <p>Minimize complexity, prefer deep modules, avoid pass-through layers, and make code obvious. SGSD use: result envelopes, thin wrapper audits, complexity delta checks.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag book">Clean Architecture</span></b>
+            <p>Keep high-level policy independent of low-level tools. SGSD use: gates and planning contracts should not depend on one provider's output quirks.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag book">Fundamentals Of Software Architecture</span></b>
+            <p>Architecture is structure plus quality attributes plus hard decisions. SGSD use: ADRs, fitness functions, and last-responsible-moment planning.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag book">Software Architecture In Practice</span></b>
+            <p>Evaluate architecture with concrete scenarios. SGSD use: gates should test six-part quality scenarios, not vague “reliable” claims.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag book">Designing Data-Intensive Applications</span></b>
+            <p>Name systems of record, derived data, and trade-offs. SGSD use: STATE.md is source of truth; dashboards and summaries are derived views.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag book">Domain-Driven Design</span></b>
+            <p>Language, model, and code should align inside bounded contexts. SGSD use: gate names, phase names, and artifact names should mean one thing.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag book">Strategic Monoliths And Microservices</span></b>
+            <p>Distributed architecture is a tax. SGSD use: do not split commands, agents, or services unless rate-of-change, scale, or autonomy justifies it.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag book">The Mythical Man-Month</span></b>
+            <p>Coordination cost grows fast and conceptual integrity matters. SGSD use: avoid too many agents for problems that need one coherent designer.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag book">Writing Effective Use Cases</span></b>
+            <p>Fix boundaries, actors, guarantees, happy path, and extensions. SGSD use: phase plans should read like contracts with failure handling.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag book">Don't Make Me Think</span></b>
+            <p>Eliminate question marks and build visual hierarchy. SGSD use: cockpit tiles should orient the operator cold, in seconds.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag book">Practical MLOps</span></b>
+            <p>Operational loops beat isolated model quality. SGSD use: logs, dashboards, CI gates, and feedback loops matter more than one clever prompt.</p>
+          </div>
+          <div class="principle">
+            <b><span class="source-tag book">Designing Machine Learning Systems</span></b>
+            <p>Monitor business/system/model health together and evaluate slices. SGSD use: dashboards need route-level and gate-level slices, not only aggregate green.</p>
+          </div>
+        </div>
+
+        <div class="teacher">
+          Books should be used to shape default judgement. Research papers should be used to shape failure-mode defenses. Mixing those roles is how you either over-theorize practical code or under-defend new agent risks.
+        </div>
+      </section>
+
+      <section id="architecture" class="print-break">
+        <h2>End-to-End Architecture</h2>
+        <p>
+          SGSD sits between the operator and the implementation tools. It reads intent, reads planning state, chooses a route, executes or delegates work, verifies it, writes evidence, and advances state. VTP sits beside SGSD as a knowledge service. Gates sit across the path as quality barriers.
+        </p>
+
+        <div class="diagram" aria-label="System architecture diagram">
+          <div class="lane-grid">
+            <div class="lane-title">Layer</div>
+            <div class="lane-cell"><strong>1. Intent</strong>Operator request, roadmap, milestone, current phase.</div>
+            <div class="lane-cell"><strong>2. State</strong><code>.planning</code> files, milestone folders, phase folders.</div>
+            <div class="lane-cell"><strong>3. Brain</strong><code>sgsd-orchestrate</code> routes and sequences work.</div>
+            <div class="lane-cell"><strong>4. Knowledge</strong>VTP MCP, docs, prior summaries, research.</div>
+            <div class="lane-cell"><strong>5. Execution</strong>Codex exec, scripts, browser checks, specialists.</div>
+            <div class="lane-cell"><strong>6. Evidence</strong>Findings, diffs, test logs, dashboards, summaries.</div>
+
+            <div class="lane-title">Who talks</div>
+            <div class="lane-cell">Human to SGSD.</div>
+            <div class="lane-cell">SGSD reads and updates planning artifacts.</div>
+            <div class="lane-cell">Orchestrator chooses next tool or gate.</div>
+            <div class="lane-cell">Orchestrator queries VTP for enrichment.</div>
+            <div class="lane-cell">Execution tools change or inspect the repo.</div>
+            <div class="lane-cell">Gates accept, warn, or block.</div>
+
+            <div class="lane-title">Main risk</div>
+            <div class="lane-cell">Ambiguous request.</div>
+            <div class="lane-cell">Stale or contradictory state.</div>
+            <div class="lane-cell">Wrong route or over-routing.</div>
+            <div class="lane-cell">Irrelevant knowledge retrieval.</div>
+            <div class="lane-cell">Unverified code or docs drift.</div>
+            <div class="lane-cell">Evidence exists but is not actionable.</div>
+
+            <div class="lane-title">Gate answer</div>
+            <div class="lane-cell">Clarify or classify.</div>
+            <div class="lane-cell">State consistency checks.</div>
+            <div class="lane-cell">Route contract and edge guard.</div>
+            <div class="lane-cell">VTP enrichment gate.</div>
+            <div class="lane-cell">ATC, tests, browser verify.</div>
+            <div class="lane-cell">Milestone close and summary review.</div>
+          </div>
+        </div>
+
+        <h3>Core Files And Surfaces</h3>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Surface</th>
+              <th>Purpose</th>
+              <th>Why It Matters</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>CLAUDE.md</code></td>
+              <td>Top-level operating instructions and autonomous mode rules.</td>
+              <td>Defines the behavioral contract for agents running SGSD work.</td>
+            </tr>
+            <tr>
+              <td><code>README.md</code>, <code>super-gsd\README.md</code></td>
+              <td>Human-facing overview and setup context.</td>
+              <td>Helps new readers understand what the framework is for.</td>
+            </tr>
+            <tr>
+              <td><code>SUPER-GSD-ARCHITECTURE.md</code></td>
+              <td>Architectural intent and system shape.</td>
+              <td>Prevents implementation details from drifting away from the design.</td>
+            </tr>
+            <tr>
+              <td><code>.planning\PROJECT.md</code></td>
+              <td>Project identity and goals.</td>
+              <td>Anchors all autonomous work to the actual project, not a generic agent flow.</td>
+            </tr>
+            <tr>
+              <td><code>.planning\ROADMAP.md</code></td>
+              <td>Milestone and phase roadmap.</td>
+              <td>Defines the forward direction and known future work.</td>
+            </tr>
+            <tr>
+              <td><code>.planning\REQUIREMENTS.md</code></td>
+              <td>Active milestone requirements, including v1.5 VTP primacy and hardening work.</td>
+              <td>Turns operator intent into measurable requirements.</td>
+            </tr>
+            <tr>
+              <td><code>.planning\STATE.md</code></td>
+              <td>Current project state.</td>
+              <td>Lets SGSD resume after interruptions.</td>
+            </tr>
+            <tr>
+              <td><code>.planning\milestones\...</code></td>
+              <td>Milestone-specific artifacts such as summaries, plans, checks, and findings.</td>
+              <td>Provides traceability across long-running work.</td>
+            </tr>
+            <tr>
+              <td><code>super-gsd\skills\sgsd-orchestrate\SKILL.md</code></td>
+              <td>Main orchestration skill.</td>
+              <td>Defines route selection, phase behavior, and autonomous sequencing.</td>
+            </tr>
+            <tr>
+              <td><code>super-gsd\registry\gates.yaml</code></td>
+              <td>Gate registry.</td>
+              <td>Makes gate ownership, state, and versioning visible.</td>
+            </tr>
+            <tr>
+              <td><code>super-gsd\scripts\codex-exec.sh</code></td>
+              <td>Codex execution wrapper.</td>
+              <td>Runs Codex in a controlled SGSD path instead of ad hoc command calls.</td>
+            </tr>
+            <tr>
+              <td><code>super-gsd\scripts\vtp-enrichment-gate.cjs</code></td>
+              <td>VTP enrichment gate.</td>
+              <td>Connects phase/milestone decisions to the knowledge substrate.</td>
+            </tr>
+            <tr>
+              <td><code>super-gsd\scripts\edge-guard.cjs</code></td>
+              <td>Boundary and route guard.</td>
+              <td>Catches risky transitions and bad edge cases before they corrupt state.</td>
+            </tr>
+            <tr>
+              <td><code>super-gsd\scripts\sgsd-muda-...</code></td>
+              <td>Waste audit and probes.</td>
+              <td>Checks whether the process itself is creating avoidable drag.</td>
+            </tr>
+            <tr>
+              <td><code>super-gsd\dashboards\cockpit</code></td>
+              <td>Operator visibility surface.</td>
+              <td>Shows what fired, what passed, what failed, and what needs attention.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="teacher">
+          Add a one-page “system map” generated from these files. The cockpit should not only say a gate fired; it should link to the exact artifact, the exact gate version, and the exact decision reason.
+        </div>
+      </section>
+
+      <section id="lifecycle">
+        <h2>Lifecycle From Idea To Done</h2>
+        <p>
+          The SGSD lifecycle is easiest to understand as a relay race. Each stage receives a baton, adds evidence, and passes a more structured baton to the next stage. The baton should never become less clear as it moves.
+        </p>
+
+        <div class="diagram">
+          <div class="flow">
+            <div class="box"><strong>0. Intake</strong><span>Human request, active project state, constraints.</span></div>
+            <div class="box"><strong>1. Discuss</strong><span>Interactive clarification when the phase itself needs shaping.</span></div>
+            <div class="box"><strong>2. Research</strong><span>Repo scan, docs, VTP, risks, unknowns.</span></div>
+            <div class="box"><strong>3. Plan</strong><span>Define files, steps, gates, artifacts, expected outputs.</span></div>
+            <div class="box"><strong>4. Execute</strong><span>Make changes or produce docs using controlled commands.</span></div>
+            <div class="box"><strong>5. Verify</strong><span>Run tests, ATC, browser checks, contracts, audits.</span></div>
+            <div class="box"><strong>6. Close</strong><span>Summaries, roadmap, state, next phase.</span></div>
+          </div>
+        </div>
+
+        <h3>Phase 0: Intake</h3>
+        <p>
+          Intake turns a human instruction into a route. The orchestrator checks the active roadmap, requirements, and state. It decides whether the work is a discussion, research phase, implementation phase, verification phase, milestone close, or emergency recovery.
+        </p>
+        <div class="eli5">
+          <strong>ELI5:</strong> before you start driving, you check where you are, where you are trying to go, how much fuel you have, and whether the road is closed.
+        </div>
+        <div class="teacher">
+          Intake should emit a small route decision record every time. If something goes wrong later, you need to know whether the first wrong turn happened at classification.
+        </div>
+
+        <h3>Phase 1: Discuss</h3>
+        <p>
+          The recovered requirements state an invariant: <code>/gsd-discuss-phase</code> remains interactive while other stages can be autonomous. That is a good separation. Discussion is where human taste, priority, and strategic judgment belong. Execution should not repeatedly ask the same questions once the direction is set.
+        </p>
+        <div class="muda">
+          <strong>MUDA watch:</strong> do not turn every phase into a committee. Use interactive discussion only when the decision is genuinely strategic, ambiguous, or high-cost to reverse.
+        </div>
+
+        <h3>Phase 2: Research</h3>
+        <p>
+          Research gathers repo evidence, current docs, VTP signals, implementation constraints, and known failure modes. In SGSD v1.5, research-to-planning is one of the explicit VTP enrichment moments.
+        </p>
+        <p>
+          A good research artifact answers: what exists, what is missing, what is risky, what prior work matters, what VTP says, and what should be tested.
+        </p>
+
+        <h3>Phase 3: Plan</h3>
+        <p>
+          Planning converts research into a concrete execution shape. It should name files, commands, dependencies, acceptance criteria, gates, and fallback behavior. Plans are not valuable because they are long. They are valuable because they reduce wrong work.
+        </p>
+        <div class="teacher">
+          A plan should include an “abort condition.” SpaceX-style hardening means you know what evidence would stop the launch, not only what evidence would make you feel good.
+        </div>
+
+        <h3>Phase 4: Execute</h3>
+        <p>
+          Execution should follow the plan but remain sensitive to code reality. This is where <code>codex-exec.sh</code>, local scripts, browser automation, dashboards, or targeted code edits happen. Execution outputs should be machine-readable where possible and human-readable where necessary.
+        </p>
+
+        <h3>Phase 5: Verify</h3>
+        <p>
+          Verification is the strongest trust layer. SGSD uses gates such as ATC, VTP enrichment checks, MUDA checks, provider contracts, edge guard, browser verification, and phase verifier behavior. The precise gate set depends on the route and artifact type.
+        </p>
+
+        <h3>Phase 6: Close</h3>
+        <p>
+          Closing a phase or milestone writes the durable memory: summaries, verification notes, roadmap changes, links to evidence, and next-step recommendations. The recovered transcript specifically mentioned milestone-close VTP cross-reference: summary generation gains a “Connections (library-backed)” section querying VTP for similar-milestone patterns and industry-standard gaps.
+        </p>
+      </section>
+
+      <section id="commands" class="print-break">
+        <h2>Command Reference</h2>
+        <p>
+          This section describes the SGSD command surfaces visible from the live repo inventory. The user-facing command names are skill-backed workflows under <code>super-gsd\skills</code>, plus a set of GSD compatibility commands and script-backed local tools.
+        </p>
+
+        <div class="teacher">
+          Red-pen honesty: shell access recovered and the VTP corpus is readable on disk. The direct <code>vtp-kb.*</code> MCP namespace is still not exposed to this active tool list, so VTP facts here are grounded in the live enrichment files under <code>C:\Users\jack.berrow\Voice-Text-Plan\wiki</code> plus recovered successful MCP calls.
+        </div>
+
+        <h3>Operator Slash Commands And Skills</h3>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Command / Skill</th>
+              <th>What It Does</th>
+              <th>Information It Receives</th>
+              <th>Information It Relays</th>
+              <th>Gate Pressure</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>/sgsd-orchestrate</code> / <code>sgsd-orchestrate</code></td>
+              <td>Main autonomous orchestrator. Classifies the request, reads planning state, chooses the work route, calls enrichment and verification steps, and advances artifacts.</td>
+              <td>Operator request, <code>.planning</code> state, roadmap, requirements, repo context, gate registry.</td>
+              <td>Phase plan, execution calls, gate requests, findings, updated state and milestone summaries.</td>
+              <td>High. This is the traffic controller and should be observable.</td>
+            </tr>
+            <tr>
+              <td><code>/gsd-discuss-phase</code></td>
+              <td>Interactive phase discussion. Keeps strategic shaping human-in-the-loop.</td>
+              <td>Current phase, roadmap goal, operator priorities, unresolved questions.</td>
+              <td>Clarified phase intent, acceptance criteria, possible risks, next route.</td>
+              <td>Medium. Should prevent vague autonomous execution.</td>
+            </tr>
+            <tr>
+              <td><code>/sgsd-complete-milestone</code></td>
+              <td>Closes a milestone and writes summary artifacts.</td>
+              <td>Milestone artifacts, verification outputs, VTP cross-reference results.</td>
+              <td><code>SUMMARY.md</code>, connections section, roadmap/state updates, next-phase candidates.</td>
+              <td>High. Closing should not happen with missing evidence.</td>
+            </tr>
+            <tr>
+              <td><code>/sgsd-run-milestone</code></td>
+              <td>Runs the active milestone through planned phases and checks.</td>
+              <td>Milestone requirements, phase list, current state, tool availability.</td>
+              <td>Phase outputs, gate status, progress updates, blockers.</td>
+              <td>High. Needs state consistency and failure handling.</td>
+            </tr>
+            <tr>
+              <td><code>/sgsd-research-phase</code></td>
+              <td>Performs phase research before execution.</td>
+              <td>Phase objective, repo files, docs, VTP queries, prior milestone data.</td>
+              <td>Research notes, risks, VTP enrichment, proposed plan inputs.</td>
+              <td>Medium to high. Research should be grounded and not overlong.</td>
+            </tr>
+            <tr>
+              <td><code>/sgsd-plan-phase</code></td>
+              <td>Turns research into a concrete implementation plan.</td>
+              <td>Research artifact, requirements, gate registry, constraints.</td>
+              <td>Task sequence, file ownership, commands, acceptance checks.</td>
+              <td>Medium. The plan should be actionable and bounded.</td>
+            </tr>
+            <tr>
+              <td><code>/sgsd-verify-phase</code></td>
+              <td>Runs phase verification and records evidence.</td>
+              <td>Phase output, diff, test commands, gate requirements.</td>
+              <td>Verification result, failure reasons, logs, go/no-go signal.</td>
+              <td>High. This is the phase quality barrier.</td>
+            </tr>
+            <tr>
+              <td><code>/sgsd-cockpit</code></td>
+              <td>Opens or generates operator dashboard view.</td>
+              <td>Telemetry, gate results, milestone state, artifacts.</td>
+              <td>Visual status, links, warnings, active blockers.</td>
+              <td>Medium. Visibility without decision clarity is not enough.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Script-Level Commands And Relays</h3>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Script Surface</th>
+              <th>Role</th>
+              <th>Relay Pattern</th>
+              <th>Audit Comment</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>codex-exec.sh</code></td>
+              <td>Executes Codex work under SGSD control.</td>
+              <td>Receives task context, repo path, constraints; returns logs, changed files, status, and evidence.</td>
+              <td>Should always stamp run id, model, command, input summary, output artifact path, and exit status.</td>
+            </tr>
+            <tr>
+              <td><code>vtp-enrichment-gate.cjs</code></td>
+              <td>Queries VTP and decides whether enrichment is adequate.</td>
+              <td>Receives phase/milestone context; returns knowledge hits, principles, gaps, recommendations.</td>
+              <td>Should reject irrelevant hits. A VTP citation that does not alter a decision is decorative.</td>
+            </tr>
+            <tr>
+              <td><code>edge-guard.cjs</code></td>
+              <td>Checks dangerous route boundaries and telemetry edges.</td>
+              <td>Receives proposed transition or event; returns pass/warn/block and stable reason codes.</td>
+              <td>Best used at state transitions, not every tiny file write.</td>
+            </tr>
+            <tr>
+              <td><code>sgsd-muda-audit</code></td>
+              <td>Audits the framework for waste.</td>
+              <td>Receives artifacts or phase outputs; returns waste categories and suggested simplifications.</td>
+              <td>Needs a false-positive budget. Waste detection can itself become waste.</td>
+            </tr>
+            <tr>
+              <td><code>sgsd-muda-probe</code></td>
+              <td>Runs focused waste probes for specific classes.</td>
+              <td>Receives a target phase/artifact and a waste class; returns verdicts and examples.</td>
+              <td>Good candidate for sampling instead of full-time scanning.</td>
+            </tr>
+            <tr>
+              <td><code>phase-verifier.mjs</code></td>
+              <td>Verifies phase completeness.</td>
+              <td>Receives phase directory and expected artifacts; returns missing or failed checks.</td>
+              <td>The transcript indicates this solved gate-check consistency for warp layout specs.</td>
+            </tr>
+            <tr>
+              <td><code>provider-contract</code> tools</td>
+              <td>Validates provider contracts and fixtures.</td>
+              <td>Receives provider outputs, fixture diffs, expected schema.</td>
+              <td>Should be strict because provider drift silently corrupts downstream gates.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Relay Anatomy</h3>
+        <p>
+          Every SGSD command should relay information in the same shape:
+        </p>
+        <pre><code>INPUT
+  - operator intent
+  - current state
+  - target phase or milestone
+  - constraints and acceptance criteria
+
+PROCESS
+  - classify
+  - gather evidence
+  - execute or enrich
+  - verify
+
+OUTPUT
+  - status: pass | warn | block
+  - artifacts written
+  - evidence links
+  - next action
+  - reason codes
+  - known residual risk</code></pre>
+
+        <div class="teacher">
+          Standardize this relay contract everywhere. If every command returns a stable envelope, the cockpit, milestone close, and debug tooling can all consume the same shape instead of learning each script's private language.
+        </div>
+      </section>
+
+      <section id="skills-catalog" class="print-break">
+        <h2>All SGSD Skills</h2>
+        <p>
+          This is the checked-in SGSD skill catalog from <code>C:\Users\jack.berrow\GSDedits\super-gsd\skills</code>. Think of each skill as a slash-command workflow: it receives operator intent and project state, then relays work to agents, scripts, gates, or artifacts.
+        </p>
+
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Skill</th>
+              <th>What It Does</th>
+              <th>VTP / Book Lens</th>
+              <th>Relay Output</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>sgsd-orchestrate</code></td><td>Token-efficient autonomous loop: read, classify, dispatch, process, commit, repeat.</td><td><span class="source-tag paper">SHU-P-02</span><span class="source-tag paper">SR-P-01</span></td><td>Dispatches, gate verdicts, commits, checkpoints, telemetry.</td></tr>
+            <tr><td><code>sgsd-readiness</code></td><td>Milestone pre-flight audit so unattended runs fail early on missing services, binaries, or env vars.</td><td><span class="source-tag book">WUC-P-04</span><span class="source-tag paper">WLS-P-08</span></td><td><code>MILESTONE-READINESS.md</code> with GO/BLOCKED/WILL-BLOCK/DEGRADED-PATH.</td></tr>
+            <tr><td><code>sgsd-complete-milestone</code></td><td>Idempotent milestone-close workflow with governance audit and VTP publication gap notes.</td><td><span class="source-tag paper">FRG-P-03</span><span class="source-tag paper">WLS-P-10</span></td><td>Summary, connections, next-phase candidates, roadmap/state updates.</td></tr>
+            <tr><td><code>sgsd-vtp-advise</code></td><td>Standalone VTP service-enrichment advisor for conservative proposal grounding.</td><td><span class="source-tag paper">SR-P-01</span><span class="source-tag paper">MET-P-03</span></td><td><code>.planning/advise/{date}-{slug}.md</code> reports.</td></tr>
+            <tr><td><code>sgsd-deliberate</code></td><td>CEO/Board strategic deliberation with adversarial debate and decision memos.</td><td><span class="source-tag paper">DCM-P-04</span><span class="source-tag paper">SSIB-P-03</span></td><td>Decision memo with board viewpoints and synthesis.</td></tr>
+            <tr><td><code>sgsd-triage</code></td><td>Planning-mode router for exploratory operator requests.</td><td><span class="source-tag paper">MET-P-08</span><span class="source-tag book">WUC-P-01</span></td><td>Brief, phase, audit invocation, or route recommendation.</td></tr>
+            <tr><td><code>sgsd-write-plan</code></td><td>SGSD-native plan authoring with v2 YAML frontmatter and schema validation.</td><td><span class="source-tag paper">SHU-P-01</span><span class="source-tag paper">SCG-P-02</span></td><td>Validated <code>PLAN.md</code> conforming to <code>plan-schema-v2.json</code>.</td></tr>
+            <tr><td><code>sgsd-muda-audit</code></td><td>Runs 8-waste watchdog probes on a phase and curates findings.</td><td><span class="source-tag book">APSD-P-02</span><span class="source-tag paper">GCMC-P-09</span></td><td><code>WASTE.md</code>, anti-pattern notes, <code>muda-log.jsonl</code>.</td></tr>
+            <tr><td><code>sgsd-browser</code></td><td>Browser automation for frontend debugging, UI verification, visual testing, and form testing.</td><td><span class="source-tag book">DMT-P-01</span><span class="source-tag paper">WLS-P-04</span></td><td>Screenshots, console/HAR evidence, route verification notes.</td></tr>
+            <tr><td><code>sgsd-overwatcher</code></td><td>Signal map visualization over planning architecture, collisions, dead ends, and overlaps.</td><td><span class="source-tag book">DMT-P-04</span><span class="source-tag book">SAP-P-02</span></td><td>Interactive HTML signal map.</td></tr>
+            <tr><td><code>sgsd-token-audit</code></td><td>Analyzes token usage and detects inefficiencies.</td><td><span class="source-tag paper">TACO-P-01</span><span class="source-tag paper">HM-P-07</span></td><td>Token usage report and optimization suggestions.</td></tr>
+            <tr><td><code>sgsd-pause</code></td><td>Writes checkpoint and stops the autonomous loop.</td><td><span class="source-tag paper">DPM-P-01</span><span class="source-tag paper">WLS-P-10</span></td><td>Checkpoint artifact and durable resume state.</td></tr>
+            <tr><td><code>sgsd-resume</code></td><td>Restores from checkpoint with full context.</td><td><span class="source-tag paper">SHU-P-04</span><span class="source-tag paper">DPM-P-02</span></td><td>Restored route context and next unit.</td></tr>
+            <tr><td><code>sgsd-backfill</code></td><td>Brings older projects up to current DLB-04 scaffolding without overwriting files.</td><td><span class="source-tag book">APSD-P-11</span><span class="source-tag paper">MSOV-P-05</span></td><td>Missing directories and append-log files.</td></tr>
+            <tr><td><code>sgsd-overlay-refresh</code></td><td>Syncs project <code>CLAUDE.md</code> with the canonical SGSD overlay using markers and backups.</td><td><span class="source-tag paper">SHU-P-04</span><span class="source-tag book">CA-P-05</span></td><td>Updated overlay, backup, optional dry-run diff.</td></tr>
+            <tr><td><code>sgsd-memory-migrate</code></td><td>Migrates auto-memory and legacy ByteRover context into <code>.planning/memory</code>.</td><td><span class="source-tag paper">MSOV-P-01</span><span class="source-tag paper">FSFM-P-09</span></td><td>Semantic memory folders and junction for auto-load.</td></tr>
+            <tr><td><code>sgsd-brv-setup</code></td><td>Initializes ByteRover context tree and verifies integration.</td><td><span class="source-tag paper">TRV-P-05</span><span class="source-tag paper">SCG-P-01</span></td><td>Seeded domain knowledge and context tree config.</td></tr>
+            <tr><td><code>sgsd-distill</code></td><td>Extracts reusable principles from closed milestone trajectories.</td><td><span class="source-tag paper">AAK-P-03</span><span class="source-tag paper">AAK-P-04</span></td><td>Trajectory hypotheses, validation outputs, novelty ratings.</td></tr>
+            <tr><td><code>sgsd-sepl</code></td><td>Operator-gated resource-grain improvement loop: propose, review, commit.</td><td><span class="source-tag paper">MSOV-P-01</span><span class="source-tag paper">MW-P-09</span></td><td>Proposal artifacts and explicit apply/reject decisions.</td></tr>
+            <tr><td><code>sgsd-transition</code></td><td>Migrates from GSD 2.0 into Super GSD.</td><td><span class="source-tag book">DDIA-P-04</span><span class="source-tag book">DDD-P-06</span></td><td>Imported decisions, knowledge, requirements, and milestone work.</td></tr>
+            <tr><td><code>sgsd-update</code></td><td>Pulls latest SGSD and reruns installer to propagate skills, agents, hooks, and scripts.</td><td><span class="source-tag book">PMO-P-08</span><span class="source-tag paper">HM-P-09</span></td><td>Updated local SGSD installation.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="teacher">
+          The skills catalog should be generated automatically from frontmatter. Manual tables drift. The current doc writes it out for reading, but the product should own a generated reference.
+        </div>
+      </section>
+
+      <section id="agents-catalog">
+        <h2>Agent Roster</h2>
+        <p>
+          Agents are the specialized workers and reviewers that SGSD dispatches. The orchestrator stays lean by routing work to these roles instead of doing heavy work itself.
+        </p>
+
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Agent</th>
+              <th>Model</th>
+              <th>Purpose</th>
+              <th>Failure Mode To Watch</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>sgsd-classifier</code></td><td>Haiku</td><td>Scores complexity, selects model, determines ATC tier.</td><td>Wrong route. Use cached/schema-derived classification only when inputs are valid.</td></tr>
+            <tr><td><code>sgsd-context-selector</code></td><td>Haiku</td><td>Selects relevant ByteRover context, recall terms, and file paths.</td><td>Noisy retrieval. Apply Skill-RAG failure classification.</td></tr>
+            <tr><td><code>sgsd-vtp-enrichment</code></td><td>Sonnet</td><td>Queries VTP via 5-tool cascade and writes phase enrichment artifact.</td><td>Citation theater. Require decision impact and source relevance.</td></tr>
+            <tr><td><code>gsd-executor</code></td><td>Executor</td><td>Executes GSD plans with commits, deviation handling, checkpoints, and state updates.</td><td>Scope drift. Enforce surgical constraint and exact files changed.</td></tr>
+            <tr><td><code>sgsd-exec-backend</code></td><td>Executor</td><td>Backend/API/data/service work.</td><td>Contract drift. Require boundary tests and idempotency.</td></tr>
+            <tr><td><code>sgsd-exec-ui</code></td><td>Executor</td><td>Frontend components and CSS.</td><td>Looks fine in prose but fails browser evidence.</td></tr>
+            <tr><td><code>sgsd-exec-config</code></td><td>Executor</td><td>CI, Docker, env, infrastructure configuration.</td><td>Irreversible config churn. Require staged rollout and revert notes.</td></tr>
+            <tr><td><code>sgsd-exec-docs</code></td><td>Executor</td><td>Markdown-only documentation tasks.</td><td>Docs drift from code. Verify against source before writing.</td></tr>
+            <tr><td><code>sgsd-exec-fix</code></td><td>Executor</td><td>Bug fixes with reproduce-first and regression guard discipline.</td><td>Fix without failing test. Demand reproduction evidence.</td></tr>
+            <tr><td><code>sgsd-exec-integration</code></td><td>Executor</td><td>Connects existing modules/services without new business logic.</td><td>Boundary mismatch. Test error propagation and schemas.</td></tr>
+            <tr><td><code>sgsd-exec-refactor</code></td><td>Executor</td><td>Zero-behavior-change refactors.</td><td>Hidden behavior change. Enforce complexity delta and invariant preservation.</td></tr>
+            <tr><td><code>sgsd-exec-test</code></td><td>Executor</td><td>Writes tests as the primary artifact.</td><td>Tests that assert implementation instead of behavior.</td></tr>
+            <tr><td><code>sgsd-code-reviewer</code></td><td>Sonnet</td><td>Claude-backed ATC reviewer with code-reviewer-v1 contract.</td><td>Contract mismatch with Codex reviewer.</td></tr>
+            <tr><td><code>sgsd-codex-reviewer</code></td><td>External</td><td>Codex CLI reviewer, same report contract as Claude reviewer.</td><td>Provider timeout or malformed output. Centralize retry and parse fallback.</td></tr>
+            <tr><td><code>sgsd-milestone-readiness</code></td><td>Sonnet</td><td>Pre-flight auditor for milestone dependencies.</td><td>Late blocker discovery. Must run before first executor dispatch.</td></tr>
+            <tr><td><code>sgsd-phase-readiness</code></td><td>Haiku</td><td>Fast per-phase dependency re-probe.</td><td>Environment drift mid-run.</td></tr>
+            <tr><td><code>sgsd-workflow-auditor</code></td><td>Sonnet</td><td>Writes human-readable workflow audit from deterministic process metrics.</td><td>Recomputing or inventing metrics instead of trusting analyzer.</td></tr>
+            <tr><td><code>sgsd-ceo</code></td><td>Opus</td><td>Strategic decision orchestrator for board deliberation.</td><td>Consensus too early. Preserve board independence.</td></tr>
+            <tr><td><code>sgsd-board-architect</code></td><td>Sonnet</td><td>Feasibility, system design, technical debt, implementation risk.</td><td>Over-design. Pair with pragmatist constraints.</td></tr>
+            <tr><td><code>sgsd-board-pragmatist</code></td><td>Sonnet</td><td>Execution risk, timeline, resource constraints, what ships.</td><td>Under-scoping. Pair with moonshot/architect.</td></tr>
+            <tr><td><code>sgsd-board-contrarian</code></td><td>Sonnet</td><td>Challenges consensus, assumptions, and blind spots.</td><td>Performative dissent. Must identify testable assumptions.</td></tr>
+            <tr><td><code>sgsd-board-moonshot</code></td><td>Sonnet</td><td>10x alternatives and anti-timidity.</td><td>Speculative expansion. Must still name a first step.</td></tr>
+            <tr><td><code>sgsd-board-researcher</code></td><td>Sonnet</td><td>Queries VTP library for precedent during deliberation.</td><td>Irrelevant precedent. Must cite source and relevance.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="muda">
+          <strong>MUDA watch:</strong> The roster is powerful, but every added agent creates coordination cost. Use board agents for strategic decisions, not routine work. Use specialized executors when the file type and risk justify them.
+        </div>
+      </section>
+
+      <section id="scripts-catalog" class="print-break">
+        <h2>Script Catalog</h2>
+        <p>
+          Scripts are the mechanical spine of SGSD. The best ones turn subjective agent claims into files, exit codes, JSONL rows, screenshots, schemas, or deterministic checks.
+        </p>
+
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Script</th>
+              <th>Job</th>
+              <th>Best VTP Lens</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>sgsd-boot.ps1</code> / <code>sgsd-boot.sh</code></td><td>Preflights and starts the dashboards.</td><td><span class="source-tag book">DMT-P-07</span> cold orientation.</td></tr>
+            <tr><td><code>sgsd-mission-control.ps1</code></td><td>Main mission-control dashboard.</td><td><span class="source-tag book">DMT-P-04</span> visual hierarchy.</td></tr>
+            <tr><td><code>sgsd-dashboard.ps1</code>, <code>sgsd-agent-dashboard.*</code></td><td>Dashboard views over agents, status, and telemetry.</td><td><span class="source-tag paper">TACO-P-01</span> decision-relevant compression.</td></tr>
+            <tr><td><code>sgsd-narrative.ps1</code>, <code>sgsd-thinking.ps1</code>, <code>sgsd-live-feed.ps1</code>, <code>sgsd-statusline.ps1</code></td><td>Human-readable live stream, narrative, and statusline surfaces.</td><td><span class="source-tag book">DMT-P-01</span> no mystery.</td></tr>
+            <tr><td><code>codex-exec.sh</code>, <code>sgsd-codex-monitor.ps1</code>, <code>lib\sgsd-codex-status.ps1</code></td><td>Codex dispatch, monitoring, status parsing, timeout observability.</td><td><span class="source-tag paper">HM-P-03</span> centralized retry.</td></tr>
+            <tr><td><code>sgsd-gate-verdict.ps1</code></td><td>Gate verdict dashboard and evidence rollup.</td><td><span class="source-tag paper">SSIB-P-01</span> process audit.</td></tr>
+            <tr><td><code>sgsd-muda-audit.sh</code>, <code>sgsd-muda-probe.sh</code>, <code>sgsd-muda-recurrence.sh</code></td><td>Waste probes, WASTE.md, recurrence checks, and kill-condition signals.</td><td><span class="source-tag book">APSD-P-02</span> complexity symptoms.</td></tr>
+            <tr><td><code>sgsd-stop-handoff.sh</code></td><td>Session handoff, checkpoint, and log append behavior.</td><td><span class="source-tag paper">MSOV-P-01</span> memory write governance.</td></tr>
+            <tr><td><code>sgsd-ctx.js</code>, <code>sgsd-ctx.sh</code>, <code>sgsd-recall.sh</code></td><td>Context selection and recall.</td><td><span class="source-tag paper">SR-P-01</span> diagnose retrieval failure.</td></tr>
+            <tr><td><code>sgsd-curate.sh</code></td><td>Curates new patterns, scripts, and error rules.</td><td><span class="source-tag paper">TRV-P-03</span> gate promotion.</td></tr>
+            <tr><td><code>sgsd-registry-sync.sh</code></td><td>Refreshes resource manifests.</td><td><span class="source-tag paper">SCG-P-01</span> valid referents.</td></tr>
+            <tr><td><code>sgsd-sepl-propose.sh</code>, <code>sgsd-sepl-commit.sh</code>, <code>sgsd-sepl-propose.test.sh</code></td><td>Operator-gated proposal and commit loop with tests.</td><td><span class="source-tag paper">MSOV-P-05</span> provenance.</td></tr>
+            <tr><td><code>sgsd-distill-milestone.sh</code></td><td>Trajectory distillation at milestone close.</td><td><span class="source-tag paper">AAK-P-04</span> corrective paths carry signal.</td></tr>
+            <tr><td><code>sgsd-memory-migrate.ps1</code></td><td>Memory migration into semantic taxonomy.</td><td><span class="source-tag paper">FSFM-P-01</span> retention and forgetting.</td></tr>
+            <tr><td><code>sgsd-overlay-refresh.*</code></td><td>Idempotent overlay refresh with backups.</td><td><span class="source-tag paper">SHU-P-04</span> persistent context.</td></tr>
+            <tr><td><code>sgsd-update.*</code></td><td>Pulls and installs current SGSD.</td><td><span class="source-tag book">PMO-P-08</span> pipeline-as-code.</td></tr>
+            <tr><td><code>sgsd-headless.*</code></td><td>Headless execution helpers.</td><td><span class="source-tag paper">DPM-P-08</span> minimal reproducible unit.</td></tr>
+            <tr><td><code>sgsd-conformance-check.sh</code></td><td>Conformance validation.</td><td><span class="source-tag paper">SHU-P-01</span> executable guardrails.</td></tr>
+            <tr><td><code>sgsd-intent-check.sh</code></td><td>Checks whether injected milestone intent is reflected in work.</td><td><span class="source-tag paper">MET-P-05</span> phase-zero deliverable.</td></tr>
+            <tr><td><code>merge-settings.js</code>, <code>patch-gsd-tools-known-keys.sh</code>, <code>Install-SgsdShortcut.ps1</code></td><td>Installation, settings, compatibility, and host ergonomics.</td><td><span class="source-tag book">APSD-P-11</span> consistency.</td></tr>
+            <tr><td><code>lib\vtp-context-composer.cjs</code>, <code>lib\vtp-enrichment-gate.cjs</code></td><td>VTP seed composition, cascade policy, and enrichment artifact writing.</td><td><span class="source-tag paper">SR-P-05</span> detection versus correction.</td></tr>
+            <tr><td><code>lib\edge-guard.cjs</code>, <code>lib\gates-registry.cjs</code>, <code>lib\predicate-eval.cjs</code></td><td>Gate registry loading, predicate evaluation, and transition emission checks.</td><td><span class="source-tag book">FSA-P-04</span> executable fitness functions.</td></tr>
+            <tr><td><code>lib\dispatch-planner.cjs</code>, <code>lib\classifier-cache.cjs</code>, <code>lib\providers-registry.cjs</code></td><td>Dispatch wave planning, classifier cache, provider lookup.</td><td><span class="source-tag book">APSD-P-04</span> deep modules.</td></tr>
+            <tr><td><code>lib\board-registry.cjs</code>, <code>lib\deliberation-schema.cjs</code>, <code>lib\vote-predicate.cjs</code>, <code>lib\vote-synthesis.cjs</code></td><td>Board configuration, decision schemas, vote evaluation, and synthesis.</td><td><span class="source-tag paper">DCM-P-04</span> topology controls diversity.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="teacher">
+          Scripts should be preferred for anything that can be made deterministic. Agents are for judgement; scripts are for evidence.
+        </div>
+      </section>
+
+      <section id="orchestrator">
+        <h2>What The Orchestrator Does</h2>
+        <p>
+          The orchestrator is the control plane. Its job is not to be clever for its own sake. Its job is to keep work moving through the right sequence with the right evidence.
+        </p>
+
+        <div class="diagram">
+          <div class="lane-grid">
+            <div class="lane-title">Step</div>
+            <div class="lane-cell"><strong>Classify</strong>What kind of work is this?</div>
+            <div class="lane-cell"><strong>Load</strong>What state and docs matter?</div>
+            <div class="lane-cell"><strong>Route</strong>Which command, script, or gate should run?</div>
+            <div class="lane-cell"><strong>Enrich</strong>Does VTP or research improve the decision?</div>
+            <div class="lane-cell"><strong>Execute</strong>What controlled action happens?</div>
+            <div class="lane-cell"><strong>Close</strong>What gets recorded?</div>
+
+            <div class="lane-title">Question</div>
+            <div class="lane-cell">Discuss, research, implement, verify, audit, close?</div>
+            <div class="lane-cell">Which milestone, phase, requirements, gates?</div>
+            <div class="lane-cell">Autonomous path or human loop?</div>
+            <div class="lane-cell">What does the library know that we do not?</div>
+            <div class="lane-cell">Which tool can do the work with least risk?</div>
+            <div class="lane-cell">What durable artifact proves the result?</div>
+
+            <div class="lane-title">Bad smell</div>
+            <div class="lane-cell">Everything becomes generic execution.</div>
+            <div class="lane-cell">State is stale or skipped.</div>
+            <div class="lane-cell">Too many gates for tiny work.</div>
+            <div class="lane-cell">VTP produces unrelated wisdom.</div>
+            <div class="lane-cell">Changes happen without evidence.</div>
+            <div class="lane-cell">Summary lacks links and next action.</div>
+          </div>
+        </div>
+
+        <h3>Checked-In Orchestrator Loop</h3>
+        <p>
+          The live <code>sgsd-orchestrate</code> skill defines the orchestrator as a lean state machine. It should not do heavy work itself. It reads state, classifies, chooses context, dispatches agents or scripts, processes structured reports, runs gates, commits, and loops.
+        </p>
+
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Step</th>
+              <th>What Happens</th>
+              <th>Artifacts / Signals</th>
+              <th>VTP Principle</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>1. Read State</td><td>Append pulse, parse <code>STATE.md</code>, detect completion/checkpoint/context pressure.</td><td><code>orchestrator-pulse.jsonl</code>, checkpoint checks.</td><td><span class="source-tag paper">DPM-P-01</span> log is source of truth.</td></tr>
+            <tr><td>2. Classify</td><td>Use v2 plan frontmatter, classifier cache, or Haiku classifier to derive complexity, model, ATC tier, and deliberate flag.</td><td><code>token-log.jsonl</code>, classifier sidecar.</td><td><span class="source-tag paper">SR-P-03</span> small typed vocabulary.</td></tr>
+            <tr><td>3. Deliberation Gate</td><td>Suggest or skip board deliberation based on complexity and mode.</td><td>Warning or <code>GATE_AUTO_REPLAN</code>.</td><td><span class="source-tag paper">GCMC-P-02</span> communication is costly.</td></tr>
+            <tr><td>4. Select Context</td><td>Haiku context selector chooses recall terms, file reads, error rules, and scripts.</td><td>Context selector report.</td><td><span class="source-tag paper">TACO-P-01</span> decision-relevant compression.</td></tr>
+            <tr><td>5. Query Memory</td><td>Run ByteRover recall and script lookup for non-trivial work.</td><td>Recall hits, script candidates.</td><td><span class="source-tag paper">TRV-P-08</span> mix abstraction levels.</td></tr>
+            <tr><td>5.5. Intent Injection</td><td>Inject milestone intent into downstream agent prompts and log coverage.</td><td><code>intent-log.jsonl</code>.</td><td><span class="source-tag paper">SHU-P-04</span> persistent context.</td></tr>
+            <tr><td>6.b. Research</td><td>Dispatch phase researcher when <code>RESEARCH.md</code> is missing.</td><td>Research artifact.</td><td><span class="source-tag paper">MET-P-03</span> ground first, generate second.</td></tr>
+            <tr><td>6.b.5. VTP Enrich</td><td>If enabled and healthy, run 5-tool VTP cascade and write phase enrichment.</td><td><code>{NN}-VTP-ENRICHMENT.md</code>, <code>vtp-health.jsonl</code>.</td><td><span class="source-tag paper">SR-P-05</span> separate detection from correction.</td></tr>
+            <tr><td>6.c. Plan</td><td>Dispatch planner with research plus VTP enrichment.</td><td><code>PLAN.md</code> and validation side effects.</td><td><span class="source-tag paper">SHU-P-01</span> executable requirements.</td></tr>
+            <tr><td>6.2. Plan Validation</td><td>Validate plan schema before execution; retry schema repair up to three times.</td><td><code>plan-errors.jsonl</code>, fix-attempt files, checkpoint on cap hit.</td><td><span class="source-tag paper">SCG-P-02</span> valid referents.</td></tr>
+            <tr><td>6.e. Execute</td><td>Build dispatch waves and run executor agents serially or in parallel by file disjointness.</td><td>TaskCreate/TaskUpdate, executor reports, commits.</td><td><span class="source-tag paper">HM-P-01</span> schedule shared resources.</td></tr>
+            <tr><td>9. Process Result</td><td>Parse FILES_CHANGED, VERIFICATION, DEVIATIONS, BLOCKERS, SCRIPTS_CREATED, ONE_LINER.</td><td>Commit path list, deviations, curation triggers.</td><td><span class="source-tag book">APSD-P-11</span> consistency.</td></tr>
+            <tr><td>9.5. Per-Dispatch ATC</td><td>Run ATC on full/gate code changes before state update and commit.</td><td><code>commit-reviews.jsonl</code>, provider/fallback fields.</td><td><span class="source-tag paper">WLS-P-08</span> verify every stage.</td></tr>
+            <tr><td>6.5. Phase ATC</td><td>After verification passes, review the whole phase once as a coherent unit.</td><td><code>{NN}-ATC-REVIEW.md</code>, findings detail.</td><td><span class="source-tag paper">SSIB-P-01</span> audit process.</td></tr>
+            <tr><td>6.55. MUDA</td><td>Run waste audit when file count or diff size justifies it.</td><td><code>WASTE.md</code>, <code>muda-log.jsonl</code>, anti-pattern notes.</td><td><span class="source-tag warn">MUDA</span> cost must earn value.</td></tr>
+            <tr><td>6.6. Browser Verify</td><td>For frontend phases, use mechanical phase verifier with screenshots, HAR, console, and API evidence.</td><td><code>{NN}-BROWSER-REVIEW.md</code>, screenshots, HAR, api.json.</td><td><span class="source-tag book">DMT-P-01</span> no hidden UI failure.</td></tr>
+            <tr><td>6.7. Milestone Close</td><td>When all milestone phases are complete, auto-dispatch close workflow.</td><td>Summary, VTP connections, roadmap/state updates.</td><td><span class="source-tag paper">FRG-P-03</span> organizational memory.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Orchestrator Responsibilities</h3>
+        <ol>
+          <li><strong>Maintain situational awareness.</strong> Read roadmap, state, requirements, and relevant phase artifacts before acting.</li>
+          <li><strong>Select a route.</strong> Decide whether the work belongs in discussion, research, planning, execution, verification, audit, or milestone close.</li>
+          <li><strong>Constrain the work.</strong> Keep execution inside file scopes, acceptance criteria, and known user preferences.</li>
+          <li><strong>Call knowledge at the right time.</strong> Use VTP for enrichment where it can change the plan, not as filler.</li>
+          <li><strong>Run gates.</strong> Trigger ATC, VTP, MUDA, phase verification, provider contracts, edge guard, browser verification, or test gates as appropriate.</li>
+          <li><strong>Write durable memory.</strong> Update artifacts so the next agent or operator can resume.</li>
+          <li><strong>Surface risk.</strong> Tell the operator what remains uncertain, not just what passed.</li>
+        </ol>
+
+        <div class="eli5">
+          <strong>ELI5:</strong> the orchestrator is like air traffic control for work. It does not fly every plane itself. It decides which runway, checks the weather, keeps aircraft separated, and refuses takeoff when a safety condition is missing.
+        </div>
+
+        <div class="teacher">
+          The orchestrator should record route decisions as data, not prose only. Future automation can only improve routing if it can compare route choices against outcomes.
+        </div>
+      </section>
+
+      <section id="gates" class="print-break">
+        <h2>Gates And Information Relays</h2>
+        <p>
+          A gate is a decision point. It should say <strong>pass</strong>, <strong>warn</strong>, or <strong>block</strong>, and it should explain why. A gate is not a vibe check. It is a small court of evidence.
+        </p>
+
+        <div class="diagram">
+          <div class="flow">
+            <div class="box"><strong>Artifact enters</strong><span>Plan, code diff, research, milestone summary, route event.</span></div>
+            <div class="box"><strong>Gate reads contract</strong><span>Expected inputs, required evidence, known constraints.</span></div>
+            <div class="box"><strong>Gate checks</strong><span>Schema, quality, risk, relevance, tests, waste, safety.</span></div>
+            <div class="box"><strong>Gate emits verdict</strong><span>pass/warn/block plus reasons and artifact links.</span></div>
+            <div class="box"><strong>Orchestrator routes</strong><span>Advance, repair, escalate, or stop.</span></div>
+          </div>
+        </div>
+
+        <h3>Gate Families</h3>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Gate</th>
+              <th>Protects Against</th>
+              <th>Evidence It Should Demand</th>
+              <th>Red-Pen Check</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>ATC</strong></td>
+              <td>Uncontrolled execution, missing context, wrong route, incomplete handoff.</td>
+              <td>Route decision, inputs, outputs, exit status, artifact list, next action.</td>
+              <td>ATC should be a control tower, not a paperwork pile.</td>
+            </tr>
+            <tr>
+              <td><strong>VTP Enrichment Gate</strong></td>
+              <td>Plans that ignore relevant library knowledge, research, meeting context, or known patterns.</td>
+              <td>Query, hits, why each hit matters, decision changed or not changed.</td>
+              <td>Reject “citation theater.” Every VTP hit should either affect the plan or be marked non-actionable.</td>
+            </tr>
+            <tr>
+              <td><strong>MUDA Gate</strong></td>
+              <td>Process waste, redundant gates, bloated artifacts, slow handoffs, unnecessary work.</td>
+              <td>Waste class, example, cost, recommendation, confidence.</td>
+              <td>Run it where process cost is meaningful; sample small work.</td>
+            </tr>
+            <tr>
+              <td><strong>Edge Guard</strong></td>
+              <td>Dangerous state transitions, boundary violations, telemetry drift, unexpected path behavior.</td>
+              <td>Transition id, old state, new state, reason code, policy result.</td>
+              <td>Best as a narrow boundary guard. Too broad and it becomes noise.</td>
+            </tr>
+            <tr>
+              <td><strong>Phase Verifier</strong></td>
+              <td>Phase marked complete without required artifacts or checks.</td>
+              <td>Phase directory, checklist, missing files, stale files, pass/fail details.</td>
+              <td>Should fail loudly on missing required evidence.</td>
+            </tr>
+            <tr>
+              <td><strong>Provider Contract</strong></td>
+              <td>Tool/provider output schema drift and silent integration breakage.</td>
+              <td>Fixture, expected schema, actual output, diff, compatibility decision.</td>
+              <td>Use fixtures for regression. Provider drift is sneaky.</td>
+            </tr>
+            <tr>
+              <td><strong>Browser Verify</strong></td>
+              <td>Frontend claims that do not render, broken UI, visual regressions, interaction failures.</td>
+              <td>URL, screenshot, console errors, tested viewport, interaction result.</td>
+              <td>For visual work, screenshots are evidence. Text-only verification is weak.</td>
+            </tr>
+            <tr>
+              <td><strong>Milestone Close</strong></td>
+              <td>Declaring victory without summary, learning, or next-state clarity.</td>
+              <td>Completed requirements, failed/deferred items, VTP connections, next-phase candidates.</td>
+              <td>Close must preserve learning, not only status.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Pass, Warn, Block</h3>
+        <div class="grid-3">
+          <div class="card">
+            <h3><span class="status">PASS</span></h3>
+            <p>The artifact satisfies the contract and has enough evidence to advance.</p>
+          </div>
+          <div class="card">
+            <h3><span class="status warn">WARN</span></h3>
+            <p>The artifact can advance, but there is a known risk, missing nicety, or follow-up.</p>
+          </div>
+          <div class="card">
+            <h3><span class="status red">BLOCK</span></h3>
+            <p>The artifact should not advance. The next action is repair, rerun, or human escalation.</p>
+          </div>
+        </div>
+
+        <div class="teacher">
+          Every block should include a repair command or repair instruction. A gate that says “no” without saying “what would make this yes” slows the whole system down.
+        </div>
+      </section>
+
+      <section id="muda">
+        <h2>MUDA Review</h2>
+        <p>
+          MUDA means waste. In lean thinking, waste is work that consumes time or attention without increasing value. SGSD needs MUDA checks because autonomous frameworks can become ceremony-heavy: more logs, more gates, more summaries, more dashboards, but not necessarily more shipped value.
+        </p>
+
+        <h3>Common MUDA Classes In SGSD</h3>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Waste Class</th>
+              <th>How It Shows Up</th>
+              <th>Fix</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Over-processing</td>
+              <td>Running heavyweight enrichment or verification for tiny, low-risk edits.</td>
+              <td>Use risk-tiered gates. Sample low-risk work.</td>
+            </tr>
+            <tr>
+              <td>Waiting</td>
+              <td>Long gates block autonomous progress while adding little evidence.</td>
+              <td>Parallelize independent checks and timebox advisory gates.</td>
+            </tr>
+            <tr>
+              <td>Motion</td>
+              <td>Artifacts scattered across folders with no links from cockpit or summaries.</td>
+              <td>Every summary should link exact artifact paths.</td>
+            </tr>
+            <tr>
+              <td>Inventory</td>
+              <td>Backlogs of generated plans, research, or findings that no one uses.</td>
+              <td>Expire or archive stale artifacts. Connect active artifacts to decisions.</td>
+            </tr>
+            <tr>
+              <td>Defects</td>
+              <td>Wrong route, stale state, broken provider contract, unverified UI.</td>
+              <td>Put gates at the failure boundary, not after everything is already mixed together.</td>
+            </tr>
+            <tr>
+              <td>Overproduction</td>
+              <td>Writing large reports when a small decision record would do.</td>
+              <td>Match artifact size to risk and audience.</td>
+            </tr>
+            <tr>
+              <td>Unused talent</td>
+              <td>VTP corpus exists but is not queried when strategy or risk decisions happen.</td>
+              <td>Use bounded VTP calls at research-to-plan and milestone close.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="eli5">
+          <strong>ELI5:</strong> MUDA is when you spend an hour making a perfect label for a box that contains the wrong thing. The label is tidy. The work is still waste.
+        </div>
+
+        <div class="teacher">
+          MUDA gates should produce deletion candidates, not only warnings. The highest-value waste audit says, “remove this step,” “merge these artifacts,” or “run this only on high-risk work.”
+        </div>
+      </section>
+
+      <section id="spacex" class="print-break">
+        <h2>SpaceX-Style Hardening</h2>
+        <p>
+          “SpaceX gating” here means designing the system to survive real failure modes instead of only passing happy-path checks. The mindset is: make the system prove it catches the kind of mistake that would actually hurt you.
+        </p>
+
+        <h3>Hardening Principles</h3>
+        <ol>
+          <li><strong>Test the boundary that can fail.</strong> Do not test the dashboard if the dangerous part is the state transition.</li>
+          <li><strong>Use destructive imagination, not destructive commands.</strong> Simulate stale state, missing artifacts, wrong schema, irrelevant VTP hits, and broken test outputs.</li>
+          <li><strong>Make failure observable.</strong> A silent fallback is worse than a loud block.</li>
+          <li><strong>Prefer small blast-radius tests.</strong> Fixture-based provider contracts are better than live risky operations.</li>
+          <li><strong>Record the repair path.</strong> A failed gate should leave the operator knowing exactly what to do.</li>
+        </ol>
+
+        <h3>Failure Injection Matrix</h3>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Injected Failure</th>
+              <th>Expected Catcher</th>
+              <th>Pass Condition</th>
+              <th>Red-Pen Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Phase marked complete but <code>VERIFICATION.md</code> missing.</td>
+              <td>Phase verifier / milestone close gate.</td>
+              <td>Blocks completion and names missing file.</td>
+              <td>Required. This is a basic trust check.</td>
+            </tr>
+            <tr>
+              <td>VTP query returns high-scoring but irrelevant research hit.</td>
+              <td>VTP enrichment gate.</td>
+              <td>Marks hit non-actionable or asks for better query.</td>
+              <td>Prevents citation theater.</td>
+            </tr>
+            <tr>
+              <td>Provider output changes shape.</td>
+              <td>Provider contract fixture.</td>
+              <td>Fails with schema diff and affected downstream command.</td>
+              <td>Critical for automation reliability.</td>
+            </tr>
+            <tr>
+              <td>Browser app renders blank but command exits zero.</td>
+              <td>Browser verify with screenshot/canvas check.</td>
+              <td>Fails on blank or broken viewport evidence.</td>
+              <td>Text logs are not enough for UI.</td>
+            </tr>
+            <tr>
+              <td>MUDA audit flags every artifact as waste.</td>
+              <td>MUDA calibration.</td>
+              <td>Requires confidence, cost, and concrete simplification.</td>
+              <td>Noise is waste.</td>
+            </tr>
+            <tr>
+              <td>Orchestrator chooses autonomous execution for strategic ambiguity.</td>
+              <td>Route guard / discuss-phase invariant.</td>
+              <td>Routes to <code>/gsd-discuss-phase</code> instead of execution.</td>
+              <td>Human judgment belongs at strategy boundaries.</td>
+            </tr>
+            <tr>
+              <td>Milestone close summarizes success while tests failed.</td>
+              <td>Milestone close gate.</td>
+              <td>Blocks or writes explicit deferred failure with owner and next action.</td>
+              <td>Never bury failed verification in prose.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="teacher">
+          Add a recurring “red team milestone” that does not add features. It only injects failures into SGSD and proves the gates catch them. This is how the framework earns trust.
+        </div>
+      </section>
+
+      <section id="audit">
+        <h2>Full Audit Notes</h2>
+        <p>
+          This audit is written from the recovered repo inventory and VTP results. It focuses on the system design, artifact flow, and gate quality.
+        </p>
+
+        <h3>What Looks Strong</h3>
+        <ul>
+          <li><strong>Clear autonomous/interactive split.</strong> Keeping <code>/gsd-discuss-phase</code> interactive while other stages are autonomous is a sensible invariant.</li>
+          <li><strong>Gate registry exists.</strong> A central <code>gates.yaml</code> makes gates visible and versionable.</li>
+          <li><strong>VTP is being integrated at phase boundaries.</strong> Research-to-plan, audit, and milestone close are the right moments for knowledge enrichment.</li>
+          <li><strong>MUDA is acknowledged explicitly.</strong> The framework knows that process can become waste.</li>
+          <li><strong>Provider contract tools exist.</strong> This is important for catching drift in tool integrations.</li>
+          <li><strong>Cockpit/dashboard exists.</strong> Operator visibility matters once automation has multiple moving parts.</li>
+        </ul>
+
+        <h3>Main Risks</h3>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Risk</th>
+              <th>Why It Matters</th>
+              <th>Fix</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Gate bloat</td>
+              <td>Too many gates can make SGSD slower than direct work.</td>
+              <td>Risk-tier gates and measure gate value by defects caught.</td>
+            </tr>
+            <tr>
+              <td>Unclear command contracts</td>
+              <td>Dashboards and summaries become hard to automate if each command reports differently.</td>
+              <td>Standard pass/warn/block envelope with artifact links.</td>
+            </tr>
+            <tr>
+              <td>VTP relevance drift</td>
+              <td>Knowledge enrichment becomes decorative if hits are not tied to decisions.</td>
+              <td>Require “decision impact” field for every VTP hit.</td>
+            </tr>
+            <tr>
+              <td>State drift</td>
+              <td>Long-running autonomous work can update one artifact but not another.</td>
+              <td>State consistency gate before milestone close.</td>
+            </tr>
+            <tr>
+              <td>Restart recovery gaps</td>
+              <td>Forced restarts interrupt work and leave uncertainty.</td>
+              <td>Run id manifests and last-action journal for every orchestration run.</td>
+            </tr>
+            <tr>
+              <td>Visual verification weakness</td>
+              <td>Frontend output can “complete” while being blank, cramped, or broken.</td>
+              <td>Screenshot and viewport checks as required artifacts for UI phases.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Recovered VTP Service-Enrichment Advice</h3>
+        <p>
+          The interrupted run successfully called VTP service enrichment for “Super GSD Orchestrator.” It returned eight recommendations with high confidence. The visible recommendations included:
+        </p>
+        <ol>
+          <li><strong>Add bounded evaluation loops where quality is hard to see directly.</strong> Apply only when the team cannot reliably tell whether changes improve accuracy, usefulness, or groundedness.</li>
+          <li><strong>Increase observability around the narrowest failure point.</strong> Log one decision boundary, one evidence bundle, or one failure class with stable IDs.</li>
+          <li><strong>Add guardrails at the boundary where the service can actually cause harm.</strong> Add one gate on one risky output path.</li>
+          <li><strong>Refine the workflow before increasing agent complexity.</strong> Insert or reorder one step before adding bigger automation.</li>
+        </ol>
+        <p>
+          The key pattern is conservative: improve the narrow failure point, avoid broad bloat, and add evaluation where quality is hard to see.
+        </p>
+
+        <div class="teacher">
+          This is the most important VTP takeaway: do not add smarter agents until the workflow, evidence, and decision boundaries are visible. More agent power without clearer contracts creates faster confusion.
+        </div>
+      </section>
+
+      <section id="vtp-docs" class="print-break">
+        <h2>VTP Documents To Use For Enrichment</h2>
+        <p>
+          VTP contains books, research papers, meetings, project state, chunks, manifests, entities, and substrate material. For SGSD, not every document class is equally useful at every moment. The table below maps document types to the SGSD decision they should enrich.
+        </p>
+
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>VTP Corpus</th>
+              <th>Use It When</th>
+              <th>How It Enriches SGSD</th>
+              <th>Example From Recovered MCP Output</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Books</td>
+              <td>Architecture, design quality, complexity control, engineering judgment.</td>
+              <td>Provides stable principles and vocabulary.</td>
+              <td><em>A Philosophy of Software Design, 2nd Edition</em>.</td>
+            </tr>
+            <tr>
+              <td>Research papers</td>
+              <td>Agent reliability, memory, guardrails, orchestration, evaluation, retrieval.</td>
+              <td>Provides evidence-backed patterns and current risks.</td>
+              <td><em>Shift-Up: Software Engineering Guardrails in AI-native Development</em>; <em>Security of Long-Term Memory in LLM Agents</em>; <em>AgentArk</em>; <em>METIS</em>.</td>
+            </tr>
+            <tr>
+              <td>Meeting documents</td>
+              <td>Business direction, operator preferences, strategic context, product values.</td>
+              <td>Prevents technical work from drifting away from human priorities.</td>
+              <td><em>2nd Q of company strat meeting</em> with topics including process clarity and operational efficiency.</td>
+            </tr>
+            <tr>
+              <td>Project intent state</td>
+              <td>Routing, milestone choice, deciding which corpus matters first.</td>
+              <td>Helps the orchestrator align with current VTP project priorities.</td>
+              <td>Recovered state: phase 28, milestone “Phases 28-32 -- LLM Wiki baseline, MCP-native knowledge substrate, and intent-aware routing.”</td>
+            </tr>
+            <tr>
+              <td>Entities and chunks</td>
+              <td>Precise retrieval, cross-document linking, evidence snippets.</td>
+              <td>Turns a broad query into specific evidence.</td>
+              <td>Manifests, chunks, entities were healthy in MCP health check.</td>
+            </tr>
+            <tr>
+              <td>Substrate</td>
+              <td>Principle extraction, compact reasoning, semantic routing.</td>
+              <td>Supports higher-level enrichment beyond keyword search.</td>
+              <td>Recovered research entries used substrate labels such as <code>SHIF-SUBSTRATE</code> and <code>SECU-SUBSTRATE</code>.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Source Ledger For This Handbook</h3>
+        <p>
+          These are the local enriched VTP files this handbook leans on most heavily. The <code>.enrichment.json</code> files contain the TLDRs, principle IDs, MUDA lenses, and SpaceX/ATC analogies used throughout the red-pen notes.
+        </p>
+
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Source</th>
+              <th>Local VTP File</th>
+              <th>Used For</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Shift-Up guardrails</td><td><code>C:\Users\jack.berrow\Voice-Text-Plan\wiki\research\shift-up-se-guardrails-for-ai-native-development.enrichment.json</code></td><td>Executable requirements, persistent context, ATC discipline.</td></tr>
+            <tr><td>Skill-RAG</td><td><code>C:\Users\jack.berrow\Voice-Text-Plan\wiki\research\skill-rag-failure-state-aware-retrieval-augmentation-via-hidden-state-probing-an.enrichment.json</code></td><td>VTP failure classification and retrieval retries.</td></tr>
+            <tr><td>Memory sovereignty</td><td><code>C:\Users\jack.berrow\Voice-Text-Plan\wiki\research\security-of-long-term-memory-llm-agents-survey.enrichment.json</code></td><td>Governed state, provenance, memory write safety.</td></tr>
+            <tr><td>HiveMind scheduling</td><td><code>C:\Users\jack.berrow\Voice-Text-Plan\wiki\research\hivemind-os-inspired-scheduling.enrichment.json</code></td><td>Provider contention, centralized retry, token budgets.</td></tr>
+            <tr><td>TACO terminal agents</td><td><code>C:\Users\jack.berrow\Voice-Text-Plan\wiki\research\self-evolving-framework-for-efficient-terminal-agents.enrichment.json</code></td><td>Dashboard compression, log signal, exception preservation.</td></tr>
+            <tr><td>AgentArk</td><td><code>C:\Users\jack.berrow\Voice-Text-Plan\wiki\research\agentark-distilling-multi-agent-intelligence-into-a-single-llm-agent.enrichment.json</code></td><td>Trajectory distillation and board debate amortization.</td></tr>
+            <tr><td>Gated coordination</td><td><code>C:\Users\jack.berrow\Voice-Text-Plan\wiki\research\gated-coordination-multi-agent-collaboration.enrichment.json</code></td><td>Escalation cost, shared-channel discipline, agent chatter.</td></tr>
+            <tr><td>Diversity collapse</td><td><code>C:\Users\jack.berrow\Voice-Text-Plan\wiki\research\diversity-collapse-in-multi-agent-llm-systems.enrichment.json</code></td><td>Board topology, role independence, premature consensus.</td></tr>
+            <tr><td>Schema-constrained memory</td><td><code>C:\Users\jack.berrow\Voice-Text-Plan\wiki\research\schema-constrained-generation-agent-memory.enrichment.json</code></td><td>Closed-world gate names, valid references, plan schema.</td></tr>
+            <tr><td>When to forget</td><td><code>C:\Users\jack.berrow\Voice-Text-Plan\wiki\research\when-to-forget-memory-governance-primitive.enrichment.json</code></td><td>Artifact retention and archive policy.</td></tr>
+            <tr><td>A Philosophy of Software Design</td><td><code>C:\Users\jack.berrow\Voice-Text-Plan\wiki\books\a-philosophy-of-software-design-2nd-edition.enrichment.json</code></td><td>Complexity, deep modules, pass-through layer smell.</td></tr>
+            <tr><td>Clean Architecture</td><td><code>C:\Users\jack.berrow\Voice-Text-Plan\wiki\books\clean-architecture.enrichment.json</code></td><td>Policy versus detail, explicit boundaries, provider independence.</td></tr>
+            <tr><td>Fundamentals of Software Architecture</td><td><code>C:\Users\jack.berrow\Voice-Text-Plan\wiki\books\fundamentals-of-software-architecture.enrichment.json</code></td><td>Trade-offs, ADRs, executable fitness functions.</td></tr>
+            <tr><td>Designing Data-Intensive Applications 2e</td><td><code>C:\Users\jack.berrow\Voice-Text-Plan\wiki\books\designing-data-intensive-applications-2nd-edition.enrichment.json</code></td><td>Source of truth versus derived views, capacity and trade-offs.</td></tr>
+            <tr><td>Domain-Driven Design</td><td><code>C:\Users\jack.berrow\Voice-Text-Plan\wiki\books\domain-driven-design.enrichment.json</code></td><td>Bounded contexts, ubiquitous language, aggregate gates.</td></tr>
+            <tr><td>Don't Make Me Think</td><td><code>C:\Users\jack.berrow\Voice-Text-Plan\wiki\books\don-t-make-me-think-revisited-a-common-sense-approach-to-web-usability-3rd-edition-voices-that-matter.enrichment.json</code></td><td>Cockpit readability and operator orientation.</td></tr>
+            <tr><td>Writing Effective Use Cases</td><td><code>C:\Users\jack.berrow\Voice-Text-Plan\wiki\books\writing-effective-use-cases.enrichment.json</code></td><td>Phase contracts, guarantees, happy paths, extensions.</td></tr>
+            <tr><td>The Mythical Man-Month</td><td><code>C:\Users\jack.berrow\Voice-Text-Plan\wiki\books\the-mythical-man-month.enrichment.json</code></td><td>Coordination cost, conceptual integrity, team topology.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Best VTP Query Moments</h3>
+        <ol>
+          <li><strong>Before planning.</strong> Ask what patterns, risks, or prior examples should shape the plan.</li>
+          <li><strong>Before adding a gate.</strong> Ask whether the gate prevents a real failure or creates process waste.</li>
+          <li><strong>When a phase feels strategically ambiguous.</strong> Query meetings and intent state, not just research.</li>
+          <li><strong>At milestone close.</strong> Ask what this milestone resembles and what industry-standard gap remains.</li>
+          <li><strong>During audit.</strong> Ask for guardrail, memory, orchestration, and evaluation research.</li>
+        </ol>
+
+        <div class="muda">
+          <strong>MUDA watch:</strong> VTP should not be queried with vague “tell me everything” prompts. Use targeted queries with the decision embedded: “Should this gate exist?”, “What failure mode does this miss?”, “Which research supports this route?”
+        </div>
+      </section>
+
+      <section id="improvements">
+        <h2>Red-Pen Improvements</h2>
+        <p>
+          These are the practical improvements I would prioritize after reading the recovered SGSD shape.
+        </p>
+
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Priority</th>
+              <th>Improvement</th>
+              <th>Why</th>
+              <th>Minimum Useful Version</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>P0</td>
+              <td>Run manifest for every orchestration.</td>
+              <td>Forced restarts become survivable. You can resume from the last durable action.</td>
+              <td><code>RUN.json</code> with id, start/end, route, inputs, outputs, gate statuses, last action.</td>
+            </tr>
+            <tr>
+              <td>P0</td>
+              <td>Standard command result envelope.</td>
+              <td>Cockpit, milestone close, and gates need one shape to consume.</td>
+              <td><code>{status, reason_codes, artifacts, evidence, next_action, risk}</code>.</td>
+            </tr>
+            <tr>
+              <td>P0</td>
+              <td>VTP decision-impact field.</td>
+              <td>Separates useful knowledge from decorative citations.</td>
+              <td>Each VTP hit must say: changed plan, confirmed plan, raised risk, or non-actionable.</td>
+            </tr>
+            <tr>
+              <td>P1</td>
+              <td>Gate value telemetry.</td>
+              <td>Prevents bloat by measuring which gates catch defects.</td>
+              <td>Count pass/warn/block, time cost, defects caught, false positives.</td>
+            </tr>
+            <tr>
+              <td>P1</td>
+              <td>Failure injection fixtures.</td>
+              <td>SpaceX-style proof that gates catch real failures.</td>
+              <td>Fixture set for missing artifacts, stale state, bad provider schema, irrelevant VTP hit.</td>
+            </tr>
+            <tr>
+              <td>P1</td>
+              <td>Cockpit artifact deep links.</td>
+              <td>Visibility should take the operator directly to evidence.</td>
+              <td>Every gate row links to input, output, and log.</td>
+            </tr>
+            <tr>
+              <td>P2</td>
+              <td>Risk-tiered gate policy.</td>
+              <td>Small edits should not pay the same process cost as milestone changes.</td>
+              <td>Low, medium, high risk routes with default gate bundles.</td>
+            </tr>
+            <tr>
+              <td>P2</td>
+              <td>Artifact expiry and archive policy.</td>
+              <td>Old plans and findings can become inventory waste.</td>
+              <td>Mark active, superseded, archived; cockpit hides stale by default.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="teacher">
+          Do P0 first. Do not spend a week beautifying dashboards until the run manifest and result envelope are boringly reliable.
+        </div>
+      </section>
+
+      <section id="appendix" class="print-break">
+        <h2>Appendix</h2>
+
+        <h3>Quick Glossary</h3>
+        <table class="matrix">
+          <tbody>
+            <tr><th>SGSD</th><td>Super GSD, the autonomous delivery framework layered on planning state and gates.</td></tr>
+            <tr><th>VTP</th><td>Voice-Text-Plan, the knowledge base and MCP-backed enrichment corpus.</td></tr>
+            <tr><th>Gate</th><td>A decision point that checks evidence and emits pass/warn/block.</td></tr>
+            <tr><th>ATC</th><td>Air-traffic-control style execution governance: route, status, evidence, safe transition.</td></tr>
+            <tr><th>MUDA</th><td>Waste. Work that consumes time without adding value.</td></tr>
+            <tr><th>Orchestrator</th><td>The control plane that classifies, routes, enriches, executes, verifies, and closes work.</td></tr>
+            <tr><th>Cockpit</th><td>Operator-facing dashboard for status, gates, evidence, and blockers.</td></tr>
+            <tr><th>Provider contract</th><td>A schema/fixture check that ensures tool outputs remain compatible.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>What A Perfect Phase Folder Should Tell You</h3>
+        <ol>
+          <li>What was the phase objective?</li>
+          <li>What requirements did it satisfy?</li>
+          <li>What research and VTP evidence informed the plan?</li>
+          <li>What files or systems changed?</li>
+          <li>What commands ran?</li>
+          <li>What gates passed, warned, or blocked?</li>
+          <li>What proof exists?</li>
+          <li>What risks remain?</li>
+          <li>What should happen next?</li>
+        </ol>
+
+        <h3>Recommended Command Output Envelope</h3>
+        <pre><code>{
+  "schema": "sgsd.command-result.v1",
+  "run_id": "2026-04-25T000000Z-sgsd-example",
+  "command": "sgsd-orchestrate",
+  "route": "research-to-plan",
+  "status": "pass",
+  "reason_codes": ["VTP_ENRICHED", "PHASE_ARTIFACTS_PRESENT"],
+  "inputs": [
+    ".planning/REQUIREMENTS.md",
+    ".planning/STATE.md"
+  ],
+  "artifacts": [
+    ".planning/milestones/v1.5/PHASE-XX/RESEARCH.md",
+    ".planning/milestones/v1.5/PHASE-XX/VTP-ENRICHMENT.md"
+  ],
+  "evidence": [
+    {
+      "type": "vtp-hit",
+      "title": "Shift-Up: Software Engineering Guardrails",
+      "decision_impact": "raised-risk"
+    }
+  ],
+  "gates": [
+    {
+      "name": "vtp-enrichment",
+      "status": "pass",
+      "reason": "Relevant guardrail research linked to phase plan."
+    }
+  ],
+  "next_action": "Generate implementation plan.",
+  "residual_risk": "Live shell unavailable in resumed environment; rerun command inventory before publishing formal command docs."
+}</code></pre>
+
+        <h3>Reading Order For The Flight</h3>
+        <ol>
+          <li>Read “What SGSD Is” and “What VTP Is” first.</li>
+          <li>Study the architecture diagrams until you can explain the relay in one sentence.</li>
+          <li>Read command reference slowly, because that is where the moving parts connect.</li>
+          <li>Read gates and MUDA together. One protects quality; the other protects speed.</li>
+          <li>Finish with SpaceX hardening and red-pen improvements.</li>
+        </ol>
+
+        <div class="teacher">
+          Final red pen: the framework is directionally strong. The next maturity jump is not “more automation.” It is stable command contracts, restart-safe manifests, VTP relevance scoring, and failure-injection proof that the gates catch real defects.
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
