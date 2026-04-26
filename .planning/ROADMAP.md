@@ -7,6 +7,7 @@
 - ✅ **v1.3 Multimodal Review — Codex Integration** — Phases 14-16 (shipped 2026-04-24) — [archive](milestones/v1.3-ROADMAP.md) · [requirements](milestones/v1.3-REQUIREMENTS.md) · [audit](milestones/v1.3-MILESTONE-AUDIT.md)
 - ✅ **v1.4 Clean Close + Codex Visibility + Autonomous Handoff** — Phases 17-20 (shipped 2026-04-24) — [summary](milestones/v1.4/SUMMARY.md) · [requirements](milestones/v1.4-REQUIREMENTS.md) · `git tag v1.4`
 - ✅ **v1.5 VTP Knowledge Primacy + Post-v1.4 Hardening** — Phases 21-25 (shipped 2026-04-25) — [summary](milestones/v1.5/SUMMARY.md) · 21 REQs across VTPE/SEC/MUDAC/CONTRACT/CARRY/INSTR
+- 🚧 **v1.6 Cockpit 2.0 + Startup Verification** — Phases 26-30 (active, promoted 2026-04-26 under full-roadmap autopilot run #2) — [requirements](milestones/v1.6/REQUIREMENTS.md) · [surface audit](milestones/v1.6/EXISTING-SURFACE-AUDIT.md) · controlling contract: [ROADMAP-AGENT.md](ROADMAP-AGENT.md)
 
 ## Phases
 

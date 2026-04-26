@@ -1,23 +1,32 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.6
-milestone_name: pending scoping
-milestone_status: v1.5 ✓ SHIPPED 2026-04-25 (5 phases / 11 plans / 21 REQs across VTPE+SEC+MUDAC+CONTRACT+CARRY+INSTR; 14 Codex invocations, 13 CRITs raised+cleared, ~34,965 Claude tokens saved). v1.6 not yet scoped — run /gsd-new-milestone to scope. Top v1.6 candidates from v1.5 close: Codex review-log instrumentation (close kill-check data gap), edge-guard dogfood (full-milestone log), VTP gate enable-by-default decision.
-status: v1.5 complete — awaiting v1.6 scoping via /gsd-new-milestone.
-stopped_at: v1.5 milestone closed cleanly via /sgsd-complete-milestone v1.5 on 2026-04-25.
-last_updated: "2026-04-25T08:30:00Z"
-last_activity: 2026-04-25 — v1.5 SUMMARY.md written, MUDA recurrence + gate-drift + integration check + Codex kill-check (DEVIATION) all clean. Milestone close commit pending.
+milestone_name: Cockpit 2.0 + Startup Verification
+milestone_status: ACTIVE — promoted 2026-04-26 under full-roadmap autopilot run #2 (after reset of run #1). Phases 26-30. ROADMAP-AGENT.md is the controlling contract; DISCUSS.md captures locked decisions. CRIT-BACKLOG canonical at metrics/crit-backlog.jsonl.
+status: v1.6 active — pre-flight readiness check pending; Phase 26 next.
+stopped_at: 2026-04-26 — auto mode kickoff after operator "go".
+last_updated: "2026-04-26T22:50:00Z"
+last_activity: 2026-04-26 — v1.6 promoted, EXISTING-SURFACE-AUDIT.md written, REQUIREMENTS promoted from PROPOSED. Awaiting milestone readiness audit.
 progress:
   total_phases: 5
-  completed_phases: 5
-  total_plans: 11
-  completed_plans: 11
-  percent: 100
-  phase_21: "4/4 plans complete — shipped 2026-04-24 (6/6 VTPE + halt-on-CRIT fix cycle proved out)"
-  phase_22: "2/2 plans complete — shipped 2026-04-25 (SEC-01 + SEC-02 + 7-round Codex review)"
-  phase_23: "1/1 plan complete — shipped 2026-04-25 (MUDAC-02 newly delivered + MUDAC-01/03/04 pre-shipped)"
-  phase_24: "1/1 plan complete — shipped 2026-04-25 (CONTRACT-01..03 FINDINGS_DETAIL activation)"
-  phase_25: "3/3 plans complete — shipped 2026-04-25 (CARRY-01..03 + INSTR-01..03)"
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
+  phase_26: "scoping — awaiting researcher dispatch"
+  phase_27: "queued — data source + objective tree"
+  phase_28: "queued — mission control 2.0 layout"
+  phase_29: "queued — agent + Codex visibility lanes"
+  phase_30: "queued — startup verification + cockpit acceptance"
+roadmap_run:
+  mode: full-autopilot
+  scope: v1.6 → v2.1
+  controlling_contract: .planning/ROADMAP-AGENT.md
+  locked_decisions: .planning/discussions/2026-04-26-mass-discuss.md
+  backlog_canonical: .planning/metrics/crit-backlog.jsonl
+  started: 2026-04-26
+  current_milestone: v1.6
+  milestones_shipped: []
 ---
 
 # Project State
