@@ -74,7 +74,7 @@ to implement. No code changes in Phase 27 itself.
 |----|-------------|------------------|
 | REQ-27-MATRIX | Q1–Q8 each map to a concrete existing file path | §Data Source Inventory + §Q1–Q8 Source Matrix |
 | REQ-27-NO-NEW-STATE | No `cockpit-state.json`; no new metric stream | §Q1–Q8 Source Matrix (zero "needs new file" rows) |
-| REQ-27-TREE | Objective-tree schema names 8 stable node-id formats | §Objective Tree Schema |
+| REQ-27-TREE | Objective-tree schema names 9 stable node-id formats *(superseded from 8 — see PLAN §Open Derivation Calls item 1; `unlock` promoted to first-class for Phase 26 §Q3)* | §Objective Tree Schema |
 | REQ-27-DERIVATION | Cockpit derivation rules at refresh time, no persistent cockpit state | §Cockpit Derivation Rules |
 | REQ-27-PHASE-STAMP | Spec for Phase 28's `phase`-field stamper, including the existing-bug fix | §`activity-log` `phase` Field Analysis |
 

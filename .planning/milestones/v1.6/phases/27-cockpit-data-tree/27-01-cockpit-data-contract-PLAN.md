@@ -173,6 +173,13 @@ The replacement function MUST honor the following contract.
    3. **Final fallback — `null`.** If neither env var nor frontmatter parse
       yields a `^[0-9]+$` value, return `null`. Never invent a phase value.
 
+   > **Note (W2 reconciliation):** RESEARCH §`activity-log` `phase` Field
+   > Analysis evaluated a third fallback (scan `progress.phase_NN` keys for
+   > active-status tokens) and rejected it. That path reintroduces the loose
+   > parsing surface area that produced the original bug. The two-step
+   > precedence above (env var → anchored frontmatter → null) is authoritative.
+   > Phase 28 executors: do NOT implement the third fallback.
+
 2. **Validation guard (mandatory, last gate before write):**
 
    ```js
