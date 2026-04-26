@@ -555,19 +555,48 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
     }
 
     # 7. Codex live probe — codex-exec.sh self-test (skip-network keeps preflight fast)
+    #    Self-test runs 4 sub-probes in priority order: PATH (10) → auth (11)
+    #    → timeout-math (12) → contract (13). Exit 0 = all 4 PASS. Exit N>0 =
+    #    Nth probe failed and ones after it weren't reached.
     $codexExec = Join-Path $ScriptsDir "codex-exec.sh"
     if (Test-Path $codexExec) {
         $bashUnix  = $BashExe -replace '\\','/'
         $codexCmd  = "'$bashUnix' '$($codexExec -replace '\\','/')' --self-test --skip-network 2>&1"
         $null      = & $BashExe -c $codexCmd
         $rc        = $LASTEXITCODE
+        # ✓/✗ per probe based on which exit fired
+        $p_path = if ($rc -eq 0 -or $rc -gt 10) { "✓" } else { "✗" }
+        $p_auth = if ($rc -eq 0 -or $rc -gt 11) { "✓" } elseif ($rc -lt 11) { "—" } else { "✗" }
+        $p_time = if ($rc -eq 0 -or $rc -gt 12) { "✓" } elseif ($rc -lt 12) { "—" } else { "✗" }
+        $p_ctr  = if ($rc -eq 0)                { "✓" } elseif ($rc -lt 13) { "—" } else { "✗" }
+        $probeLine = "PATH $p_path · auth $p_auth · timeout $p_time · contract $p_ctr"
         switch ($rc) {
-            0       { Write-Step "Codex live (self-test PASS, skip-network)" "OK" Green }
-            10      { Write-Step "Codex CLI not on PATH" "WARN" Yellow }
-            11      { Write-Step "Codex auth missing — run 'codex login'" "WARN" Yellow }
-            12      { Write-Step "Codex timeout-math probe failed" "WARN" Yellow }
-            13      { Write-Step "Codex contract probe failed" "WARN" Yellow }
+            0       { Write-Step "Codex live ($probeLine)" "OK" Green }
+            10      { Write-Step "Codex CLI not on PATH ($probeLine)" "WARN" Yellow }
+            11      { Write-Step "Codex auth missing — run 'codex login' ($probeLine)" "WARN" Yellow }
+            12      { Write-Step "Codex timeout-math probe failed ($probeLine)" "WARN" Yellow }
+            13      { Write-Step "Codex contract probe failed ($probeLine)" "WARN" Yellow }
             default { Write-Step "Codex self-test exit $rc (non-blocking)" "WARN" Yellow }
+        }
+
+        # Codex responsibilities — list gates whose reviewer_provider is codex-cli-reviewer.
+        # Split per-gate (lookahead at next name:) and inspect each block in
+        # isolation — a single regex with .*? was crossing gate boundaries
+        # when a closer gate had no reviewer_provider field.
+        if (Test-Path $gatesYaml) {
+            $gateBlocks  = [regex]::Split($gateContent, "(?m)(?=^\s*-\s*name:\s*\S+)")
+            $codexOwned  = @()
+            foreach ($block in $gateBlocks) {
+                $nameMatch = [regex]::Match($block, "(?m)^\s*-\s*name:\s*(\S+)")
+                if (-not $nameMatch.Success) { continue }
+                if ($block -match "reviewer_provider:\s*codex-cli-reviewer") {
+                    $codexOwned += $nameMatch.Groups[1].Value
+                }
+            }
+            if ($codexOwned.Count -gt 0) {
+                $ownedStr = ($codexOwned -join ", ")
+                Write-Host ("       owns " + $codexOwned.Count + " gates: " + $ownedStr) -ForegroundColor DarkGray
+            }
         }
     }
 
