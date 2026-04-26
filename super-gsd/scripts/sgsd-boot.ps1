@@ -12,7 +12,10 @@
 #   powershell -File super-gsd/scripts/sgsd-boot.ps1
 #   powershell -File super-gsd/scripts/sgsd-boot.ps1 -ProjectDir C:\path
 #   powershell -File super-gsd/scripts/sgsd-boot.ps1 -SkipPreflight
-#   powershell -File super-gsd/scripts/sgsd-boot.ps1 -NoOpen   # preflight only
+#   powershell -File super-gsd/scripts/sgsd-boot.ps1 -NoOpen           # preflight only
+#   powershell -File super-gsd/scripts/sgsd-boot.ps1 -Claude            # also launch Claude (silent)
+#   powershell -File super-gsd/scripts/sgsd-boot.ps1 -Claude -Greet     # also launch Claude with SGSD intro
+#   powershell -File super-gsd/scripts/sgsd-boot.ps1 -Claude -Go        # also launch Claude in AUTO MODE
 # ============================================================================
 
 param(
@@ -22,11 +25,21 @@ param(
     [switch]$Bootstrap,
     [switch]$Backfill,
     [switch]$Claude,
-    [switch]$Go
+    [switch]$Go,
+    [switch]$Greet
 )
 
 # -Go implies -Claude (auto-send "go" only makes sense if we're launching claude)
-if ($Go) { $Claude = $true }
+if ($Go)    { $Claude = $true }
+# -Greet implies -Claude (the kickoff message is for the spawned Claude window)
+if ($Greet) { $Claude = $true }
+# -Go and -Greet are mutually exclusive — Go enters AUTO MODE, Greet pauses for instructions
+if ($Go -and $Greet) {
+    Write-Host "ERROR: -Go and -Greet are mutually exclusive. Pick one." -ForegroundColor Red
+    Write-Host "  -Go    : auto-launch Claude + auto-type 'go' to enter AUTO MODE" -ForegroundColor DarkGray
+    Write-Host "  -Greet : auto-launch Claude + introduce SGSD + wait for first instruction" -ForegroundColor DarkGray
+    exit 1
+}
 
 $ErrorActionPreference = "Stop"
 $Host.UI.RawUI.WindowTitle = "SGSD Boot"
@@ -721,10 +734,20 @@ if ($Claude) {
         Write-Step "Claude Code CLI not on PATH - skipping auto-launch" "WARN" Yellow
         Write-Host "    Install: https://docs.claude.com/claude-code" -ForegroundColor DarkGray
     } else {
-        $claudeLine = "claude --dangerously-skip-permissions"
-        if ($Go) { $claudeLine += " 'go'" }
+        $claudeLine  = "claude --dangerously-skip-permissions"
+        $kickoffDesc = ""
+        if ($Go) {
+            $claudeLine += " 'go'"
+            $kickoffDesc = " + auto-go"
+        } elseif ($Greet) {
+            # Kickoff message: tell Claude to introduce SGSD and wait for first
+            # instruction. No apostrophes — single-quoted PS string passes through.
+            $greetMsg = "You are booting in Super GSD mode. Do these four things in your first response: (1) read .planning/STATE.md frontmatter and report current milestone status in one line, (2) report active agent count grouped by model from .planning/resource-registry/agents.jsonl, (3) confirm the SGSD cockpit dashboards are open in the other window, (4) ask the operator what they want to build. Do NOT enter auto mode — wait for their first instruction."
+            $claudeLine += " '$greetMsg'"
+            $kickoffDesc = " + greet"
+        }
         $cmdString = "Set-Location -LiteralPath '$ProjectDir'; $claudeLine"
-        $desc = "Claude Code (--dangerously-skip-permissions" + $(if ($Go) { " + auto-go" } else { "" }) + ")"
+        $desc = "Claude Code (--dangerously-skip-permissions$kickoffDesc)"
         Write-Step "launching $desc in a new window" "OK" Green
         Start-Process powershell.exe -ArgumentList @("-NoExit", "-NoProfile", "-Command", $cmdString)
     }
@@ -735,16 +758,23 @@ Write-Host "Next actions:"
 if (-not $Claude) {
     Write-Host "  1. In a second PowerShell, cd to the project and start Claude Code:"
     Write-Host "     claude"
-    Write-Host "     (or re-run: sgsd -Claude    to auto-launch, sgsd -Claude -Go to also enter AUTO MODE)"
-    Write-Host "  2. In Claude Code, say:  go"
+    Write-Host "     Or re-run with one of:"
+    Write-Host "       sgsd -Claude          # auto-launch Claude (silent)" -ForegroundColor DarkGray
+    Write-Host "       sgsd -Claude -Greet   # auto-launch + Claude greets and waits for instructions" -ForegroundColor DarkGray
+    Write-Host "       sgsd -Claude -Go      # auto-launch + enter AUTO MODE immediately" -ForegroundColor DarkGray
+    Write-Host "  2. In Claude Code, tell it what to build (or say 'go' for AUTO MODE)."
     Write-Host "  3. Watch the three dashboards for live state."
-} elseif (-not $Go) {
+} elseif ($Greet) {
     Write-Host "  1. Switch to the Claude Code window that just opened."
-    Write-Host "  2. Say:  go    (or re-run with sgsd -Claude -Go next time)"
+    Write-Host "  2. Claude will introduce SGSD and ask what to build — answer it."
     Write-Host "  3. Watch the three dashboards for live state."
-} else {
+} elseif ($Go) {
     Write-Host "  1. Switch to the Claude Code window that just opened - AUTO MODE already engaged."
     Write-Host "  2. Watch the three dashboards for live state."
+} else {
+    Write-Host "  1. Switch to the Claude Code window that just opened."
+    Write-Host "  2. Tell it what to build (or say 'go' for AUTO MODE, or re-run with -Greet next time)."
+    Write-Host "  3. Watch the three dashboards for live state."
 }
 Write-Host ""
 Write-Host "  To pause anytime:  /sgsd-pause"
