@@ -1,0 +1,1 @@
+{"ts":"2026-04-26T22:55:00Z","plan":"phase-level","tier":"phase-level","verdict":"warn","critical":0,"warning":1,"pass_rate":"10/10","one_liner":"Phase 26 contract well-formed; one WARN — Q5 freshness band divergence PLAN vs RESEARCH §4 creates Phase 29 ambiguity","provider":"claude-sonnet-reviewer","model":"sonnet"}

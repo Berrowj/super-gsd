@@ -322,8 +322,14 @@ their last status/artifact."
 
 **Applicable status states:** `active`, `waiting`, `stale`, `complete`, `unavailable`
 
-**Freshness rule:** `activity-log.jsonl` generic bands. Agents pane is
+**Freshness rule:** `activity-log.jsonl` generic bands (`<30s active`,
+`30–599s waiting`, `≥600s stale` per DISCUSS 26.2). Agents pane is
 **current-phase-scoped** per DISCUSS 29.2 — global last-6h scope is removed.
+
+> **Note (W1 reconciliation):** RESEARCH §4 proposed agent-specific
+> 5m/15m thresholds for Q5. DISCUSS 26.2 generic bands supersede them —
+> this contract is authoritative. Phase 29 implementers: use the bands
+> in this section, not RESEARCH §4.
 
 **empty_state:** `unavailable` when no `activity-log.jsonl` rows for the
 active phase exist (typical pre-Phase-28 state — the stamper has not yet
