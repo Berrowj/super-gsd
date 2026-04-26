@@ -31,6 +31,13 @@ if ($Go) { $Claude = $true }
 $ErrorActionPreference = "Stop"
 $Host.UI.RawUI.WindowTitle = "SGSD Boot"
 
+# Force UTF-8 output so the dark-green block-letter logo + box-drawing chars
+# render correctly in Windows Terminal AND survive piping through bash.
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding           = [System.Text.Encoding]::UTF8
+} catch { }
+
 try {
     $ProjectDir = (Resolve-Path $ProjectDir -ErrorAction Stop).Path
 } catch {
@@ -65,10 +72,15 @@ function Write-Step($label, $status, $color) {
 
 function Banner {
     Write-Host ""
-    Write-Host "================================================" -ForegroundColor Magenta
-    Write-Host "          SUPER GSD - Boot Command              " -ForegroundColor Magenta
-    Write-Host "================================================" -ForegroundColor Magenta
-    Write-Host "  Project: $ProjectDir" -ForegroundColor DarkGray
+    Write-Host "    ███████  ██████  ███████ ██████ " -ForegroundColor DarkGreen
+    Write-Host "    ██      ██       ██      ██   ██" -ForegroundColor DarkGreen
+    Write-Host "    ███████ ██   ███ ███████ ██   ██" -ForegroundColor DarkGreen
+    Write-Host "         ██ ██    ██      ██ ██   ██" -ForegroundColor DarkGreen
+    Write-Host "    ███████  ██████  ███████ ██████ " -ForegroundColor DarkGreen
+    Write-Host ""
+    Write-Host "         Super GSD · token-efficient autonomous engine" -ForegroundColor DarkGreen
+    Write-Host "    ────────────────────────────────────────────────────────────" -ForegroundColor Magenta
+    Write-Host "    Project:  $ProjectDir" -ForegroundColor DarkGray
     Write-Host ""
 }
 
@@ -111,6 +123,16 @@ function Stop-CockpitWindows {
         'SUPER GSD'
     )
     $targets = New-Object System.Collections.Generic.List[object]
+    $currentProcessTree = @{}
+    try {
+        $cursor = $PID
+        while ($cursor -and -not $currentProcessTree.ContainsKey([int]$cursor)) {
+            $currentProcessTree[[int]$cursor] = $true
+            $procInfo = Get-CimInstance Win32_Process -Filter "ProcessId=$cursor" -ErrorAction SilentlyContinue
+            if (-not $procInfo -or -not $procInfo.ParentProcessId) { break }
+            $cursor = [int]$procInfo.ParentProcessId
+        }
+    } catch { }
 
     [SgsdNativeWindow]::EnumWindows({
         param($hWnd, $lParam)
@@ -126,6 +148,7 @@ function Stop-CockpitWindows {
 
         $windowPid = 0
         [void][SgsdNativeWindow]::GetWindowThreadProcessId($hWnd, [ref]$windowPid)
+        if ($currentProcessTree.ContainsKey([int]$windowPid)) { return $true }
         foreach ($pattern in $patterns) {
             if ($title -match $pattern) {
                 $targets.Add([pscustomobject]@{
@@ -500,7 +523,83 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
         Write-Host "  DLB-04 $line" -ForegroundColor Magenta
     }
 
+    # 6. Gates probe — count armed enforcement-mode rows in registry
+    $gatesYaml = Join-Path $ProjectDir "super-gsd/registry/gates.yaml"
+    if (Test-Path $gatesYaml) {
+        $gateContent  = Get-Content $gatesYaml -Raw
+        $gateNameRe   = [regex]"(?m)^\s*-\s*name:\s*(\S+)"
+        $disabledRe   = [regex]"enforcement_mode:\s*disabled"
+        $totalGates   = $gateNameRe.Matches($gateContent).Count
+        $disabledHits = $disabledRe.Matches($gateContent).Count
+        $armedGates   = $totalGates - $disabledHits
+        if ($armedGates -eq $totalGates -and $totalGates -gt 0) {
+            Write-Step "Gates armed ($armedGates/$totalGates)" "OK" Green
+        } elseif ($armedGates -gt 0) {
+            Write-Step "Gates armed ($armedGates/$totalGates — $disabledHits disabled)" "WARN" Yellow
+        } else {
+            Write-Step "Gates registry empty or all disabled" "WARN" Yellow
+        }
+    }
+
+    # 7. Codex live probe — codex-exec.sh self-test (skip-network keeps preflight fast)
+    $codexExec = Join-Path $ScriptsDir "codex-exec.sh"
+    if (Test-Path $codexExec) {
+        $bashUnix  = $BashExe -replace '\\','/'
+        $codexCmd  = "'$bashUnix' '$($codexExec -replace '\\','/')' --self-test --skip-network 2>&1"
+        $null      = & $BashExe -c $codexCmd
+        $rc        = $LASTEXITCODE
+        switch ($rc) {
+            0       { Write-Step "Codex live (self-test PASS, skip-network)" "OK" Green }
+            10      { Write-Step "Codex CLI not on PATH" "WARN" Yellow }
+            11      { Write-Step "Codex auth missing — run 'codex login'" "WARN" Yellow }
+            12      { Write-Step "Codex timeout-math probe failed" "WARN" Yellow }
+            13      { Write-Step "Codex contract probe failed" "WARN" Yellow }
+            default { Write-Step "Codex self-test exit $rc (non-blocking)" "WARN" Yellow }
+        }
+    }
+
+    # 8. VTP repo presence — proxy for VTP gate's degraded-mode trigger
+    $vtpRoot = "C:\Users\jack.berrow\Voice-Text-Plan"
+    if (Test-Path $vtpRoot) {
+        Write-Step "VTP repo present" "OK" Green
+    } else {
+        Write-Step "VTP repo not found — VTP gate runs in degraded mode" "WARN" Yellow
+    }
+
     Write-Host ""
+}
+
+# ----------------------------------------------------------------------------
+# AGENT ROSTER - parse resource-registry/agents.jsonl, group by model
+# ----------------------------------------------------------------------------
+$agentsFile = Join-Path $ProjectDir ".planning/resource-registry/agents.jsonl"
+if (Test-Path $agentsFile) {
+    $rows = @()
+    foreach ($line in Get-Content $agentsFile) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        try {
+            $obj = $line | ConvertFrom-Json
+            if ($obj.status -eq "active") { $rows += $obj }
+        } catch { }
+    }
+    if ($rows.Count -gt 0) {
+        Write-Host "AGENT ROSTER ($($rows.Count) active)" -ForegroundColor White
+        Write-Host "----------------------"
+        $byModel = $rows | Group-Object model | Sort-Object Name
+        foreach ($g in $byModel) {
+            $color = switch ($g.Name) {
+                "opus"   { "Magenta" }
+                "sonnet" { "DarkGreen" }
+                "haiku"  { "DarkYellow" }
+                default  { "DarkGray" }
+            }
+            Write-Host ("  {0,-12} ({1,2})  " -f $g.Name, $g.Count) -NoNewline -ForegroundColor $color
+            $names = ($g.Group | Sort-Object id | ForEach-Object { $_.id }) -join ", "
+            if ($names.Length -gt 100) { $names = $names.Substring(0, 97) + "..." }
+            Write-Host $names -ForegroundColor DarkGray
+        }
+        Write-Host ""
+    }
 }
 
 # ----------------------------------------------------------------------------
@@ -538,29 +637,31 @@ if ($wt) {
         Write-Step "closed existing cockpit window(s) ($closed)" "OK" Yellow
     }
 
-    # Windows Terminal — one tab in the MRU window, three panes laid out as:
-    #   left-top:    SGSD1 (Mission Control)
-    #   left-bot:    SGSD3 (Codex Monitor)
-    #   right-full:  SGSD2 (Narrative) — full vertical height
-    #
-    # Build order in wt.exe:
-    #   1. new-tab → SGSD1 fills the whole tab
-    #   2. split-pane -V → new pane right half gets SGSD2 (focus moves to SGSD2)
-    #   3. move-focus left → focus returns to SGSD1
-    #   4. split-pane -H → new pane below SGSD1 gets SGSD3
     $psCmd = "powershell.exe"
+
+    # Cockpit layout:
+    #   left-top:    SGSD1 (Mission Control)
+    #   left-bottom: SGSD2 (Narrative + Ctrl+O stream)
+    #   right-full:  SGSD3 (Codex + VTP/MCP detail)
+    #
+    # Build order:
+    #   1. SGSD1 fills the tab.
+    #   2. Split right for SGSD3 at full height.
+    #   3. Return left and split SGSD1 horizontally for SGSD2.
+    #   4. Focus SGSD3 so the high-detail pane is active.
     $launchArgs = @(
-        "new-tab", "--title", "SGSD-Cockpit",
+        "new-tab", "--title", "SGSD-Cockpit", "--startingDirectory", $ProjectDir,
         $psCmd, "-NoExit", "-NoProfile", "-File", $sgsd1, "-ProjectDir", $ProjectDir,
-        ";", "split-pane", "-V", "--title", "SGSD2",
-        $psCmd, "-NoExit", "-NoProfile", "-File", $sgsd2, "-ProjectDir", $ProjectDir,
+        ";", "split-pane", "-V", "--size", "0.50", "--title", "SGSD3-Codex+VTP", "--startingDirectory", $ProjectDir,
+        $psCmd, "-NoExit", "-NoProfile", "-File", $sgsd3, "-ProjectDir", $ProjectDir,
         ";", "move-focus", "left",
-        ";", "split-pane", "-H", "--title", "SGSD3-Codex",
-        $psCmd, "-NoExit", "-NoProfile", "-File", $sgsd3, "-ProjectDir", $ProjectDir
+        ";", "split-pane", "-H", "--size", "0.50", "--title", "SGSD2", "--startingDirectory", $ProjectDir,
+        $psCmd, "-NoExit", "-NoProfile", "-File", $sgsd2, "-ProjectDir", $ProjectDir,
+        ";", "move-focus", "right"
     )
 
     Write-Step "Windows Terminal detected" "OK" Green
-    Write-Host "  Opening SGSD1+SGSD3 stacked left, SGSD2 full-height right..."
+    Write-Host "  Opening SGSD1+SGSD2 stacked left, SGSD3-Codex+VTP full-height right..."
     Start-Process -FilePath "wt.exe" -ArgumentList $launchArgs
     Start-Sleep -Milliseconds 500
 
