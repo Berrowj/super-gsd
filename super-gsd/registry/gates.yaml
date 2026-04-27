@@ -132,6 +132,7 @@ gates:
 
   - name: MUDA-waste-audit
     repair_instruction: "Run `bash super-gsd/scripts/sgsd-muda-audit.sh --phase {N}` and address findings in `.planning/phases/{N}/WASTE.md`; rerun until WARN-or-PASS."
+    repair_command: "bash super-gsd/scripts/sgsd-muda-audit.sh --dry-run"
     category: process-hygiene
     step: 6.55
     enforcement_mode: soft-warn
@@ -179,6 +180,7 @@ gates:
 
   - name: sgsd-curate-learnings
     repair_instruction: "Run `bash super-gsd/scripts/sgsd-curate.sh` to write learnings under `.planning/memory/`; verify with `grep -r '<pattern>' .planning/memory/`."
+    repair_command: "bash super-gsd/scripts/sgsd-curate.sh --dry-run"
     category: process-hygiene
     step: 10
     enforcement_mode: soft-warn
