@@ -134,6 +134,43 @@ v1.8 close will produce a table where most gates are `defer` with reason
 `no_fires_yet` — correct cold-start state.
 </step_4_5_gate_keep_kill_rubric>
 
+<step_4_6_phase_folder_audit>
+## Step 4.6: Phase Folder Audit (Phase 40 -- AUDIT-01..05)
+
+Walk every phase folder for milestone {{version}} and emit a soft-warn-only
+audit recording required + recommended file presence. Per lock 40=B:
+records the verdict table; operator decides whether to backfill missing
+files. Read-only -- the auditor NEVER mutates any phase folder.
+
+```javascript
+// Phase 40 wire-in: anchor planningDir to process.cwd() at the
+// orchestrator-skill boundary (mirrors Step 4.5 Phase 39 ATC W3 fix;
+// Phase 36 W2 + Phase 39 W2 lessons: NEVER bare relative '.planning').
+const path = require('path');
+const fs   = require('fs');
+const { auditAllPhases, renderTable } = require(
+  path.join(process.cwd(), 'super-gsd', 'tools', 'phase-folder-audit', 'audit.cjs')
+);
+const planningDir = path.join(process.cwd(), '.planning');
+const audits = auditAllPhases(planningDir, { milestone: '{{version}}' });
+const md     = renderTable(audits);
+fs.writeFileSync(
+  path.join(planningDir, 'milestones', '{{version}}', 'phase-folder-audit.md'),
+  '# Phase Folder Audit (milestone {{version}})\n\n' +
+  '> Soft-warn only. Locked decision 40=B: required + recommended\n' +
+  '> file checks; no content schema; no folder modification.\n\n' +
+  md + '\n', 'utf8');
+```
+
+Per lock 40=B: this step ONLY produces the verdict table. The script
+NEVER mutates any phase folder. Self-test fingerprint guard
+(audit.cjs assertion 13) binds the read-only invariant.
+
+Defer-on-empty: if `auditAllPhases` returns `[]`, the rendered table reads
+`(no phase folders found for this milestone)` and Step 6 references that
+file as-is. Soft-warn semantics never block close.
+</step_4_6_phase_folder_audit>
+
 <step_5_cross_phase_check>
 ## Step 5: Cross-Phase Integration Check
 
@@ -200,6 +237,25 @@ embed its contents inline:
 If `.planning/milestones/{{version}}/gate-keep-kill.md` does not exist
 (Step 4.5 failed), write the literal line:
 `(rubric output unavailable — see provider_unavailable log)`.
+
+### Phase Folder Audit subsection (Phase 40 -- AUDIT-05)
+
+Append to SUMMARY.md a new subsection AFTER `## Gate Keep/Kill Rubric` and
+BEFORE the existing `## Connections` section. Source: read the file
+`.planning/milestones/{{version}}/phase-folder-audit.md` produced by
+Step 4.6; embed its contents inline:
+
+```markdown
+## Phase Folder Audit (milestone {{version}})
+
+> Soft-warn only. Per lock 40=B.
+
+{{contents of .planning/milestones/{{version}}/phase-folder-audit.md}}
+```
+
+If `.planning/milestones/{{version}}/phase-folder-audit.md` does not exist
+(Step 4.6 failed), write the literal line:
+`(phase-folder audit unavailable -- see audit-skipped log)`.
 </step_6_summary>
 
 <step_7_vtp_bidirectional>
