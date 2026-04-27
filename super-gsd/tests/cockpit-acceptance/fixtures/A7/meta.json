@@ -1,0 +1,1 @@
+{"codex_mtime_offset_sec":-60,"heartbeat_mtime_offset_sec":-700,"note":"A7 forced-restart: ORCHESTRATOR-CHECKPOINT.md present at project root + heartbeat mtime >=600s -> Q8 next action = 'checkpoint or resume per ORCHESTRATOR-CHECKPOINT.md'. CodexAgents stays codex ready agents -- (no activity for phase=30)."}

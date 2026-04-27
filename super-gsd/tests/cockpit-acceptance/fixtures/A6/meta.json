@@ -1,0 +1,1 @@
+{"codex_mtime_offset_sec":-60,"activity_mtime_offset_sec":-700,"note":"A6 activity-stale: activity ts=-700s -> model line stale band per generic source (>=600s). Codex stays mid-band ready. CodexAgents render is identical to A1 because lib does not freshness-gate the Q5 agents enumeration; differentiation is in $state.model state."}

@@ -1,0 +1,1 @@
+{"codex_mtime_offset_sec":-60,"crit_mtime_offset_sec":-300,"note":"A2 blocked-gate: STATE has blockers, crit-backlog.jsonl row phase=30 not cleared. Strip codexAgents stays codex ready agents -- (no current-phase agent activity); evidence-trace lives in crit-backlog file."}

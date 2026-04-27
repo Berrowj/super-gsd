@@ -1,0 +1,1 @@
+{"codex_mtime_offset_sec":-60,"activity_mtime_offset_sec":-300,"note":"A8 no-tool-event: activity row ts=-300s (mid-band waiting per generic source 30..600s). No subagent_type field => agents = --. Distinguishable from A1/A6 by $state.model state (waiting vs active vs stale)."}
