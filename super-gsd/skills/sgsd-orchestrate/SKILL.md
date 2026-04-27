@@ -1235,6 +1235,22 @@ REPEAT:
           ...(report._fallback_reason ? { fallback_reason: report._fallback_reason } : {})
         });
 
+  // ROUTE-03 wire-in: log the codex routing decision.
+  // Non-load-bearing: helper wraps in try/catch, returns false on error.
+  // The orchestrator MUST continue regardless.
+  require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'route-ledger.cjs'))
+    .logCodexRoute(path.join(process.cwd(), '.planning'), {
+      phase: currentPhase,
+      milestone: currentMilestone,
+      plan: currentPlan,
+      dispatchResult,                                             // exit, timeout_hit
+      effectiveProviderName: effective && effective.name,         // 'codex-cli-reviewer'
+      fallbackProviderName: report && report._provider,           // 'openai-codex' | 'claude-via-fallback'
+      fallbackTriggered: !!(report && report._provider === 'claude-via-fallback'),
+      fallbackReason: (report && report._fallback_reason) || null,
+      reportPath: typeof perDispatchReportPath === 'function' ? perDispatchReportPath() : null,
+    });
+
       If critical > 0 AND interactive: STOP with blocker quoting the findings.
       If critical > 0 AND auto: log GATE_AUTO_REPLAN, append an expiring
       DEVIATIONS entry, and dispatch a fix/replan before treating the work as
