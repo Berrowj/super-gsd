@@ -1,0 +1,255 @@
+# super-gsd/registry/command-envelope-v1.yaml
+# Canonical Command Envelope v1 -- emitter registry + reason_codes vocabulary.
+# Fifth contract level (command-output). Reconciles with but does NOT modify:
+#   - code-reviewer-v1     (reviewer report level)
+#   - review-providers-v1  (provider registry level)
+#   - handover-contract-v2 (agent dispatch level)
+#   - plan-schema-v2       (plan-file frontmatter level)
+# See super-gsd/templates/command-envelope-v1.json for the JSON Schema.
+
+registry_version: 1.0.0
+envelope_version: 1
+schema_ref: super-gsd/templates/command-envelope-v1.json
+locked_decision: "31=A (mass-discuss 2026-04-26): new envelope-v1, separate file"
+
+# ---------------------------------------------------------------
+# Emitters -- commands that write envelope-shaped rows.
+# `emits_envelope` values:
+#   true       -> command currently writes envelope-shaped rows
+#   candidate  -> command does not yet emit envelope, but is a named first-wave migration target
+#   false      -> command will not be migrated (kept here for explicit rejection)
+# ---------------------------------------------------------------
+emitters:
+      - name: codex-exec
+        emits_envelope: candidate
+        writes_to: .planning/metrics/codex-log.jsonl
+        existing_fit_pct: 80
+        gap: "needs status (derivable from exit+timeout_hit), reason_codes, run_id, command field"
+        first_wave: true
+        rationale: "Phase 34 review-ledger requires envelope shape on this row to make aggregation deterministic"
+
+      - name: audit
+        emits_envelope: candidate
+        writes_to: .planning/metrics/audit-log.jsonl
+        existing_fit_pct: 70
+        gap: "needs command='audit', reason_codes, run_id, evidence[] (link to ATC review path), milestone"
+        first_wave: true
+        rationale: "Phase-close audit; tiny gap; low-risk migration"
+
+      - name: sgsd-readiness-probe
+        emits_envelope: candidate
+        writes_to: .planning/metrics/readiness-log.jsonl
+        existing_fit_pct: 95
+        gap: "needs status (derivable from hash equality), command, run_id"
+        first_wave: true
+        rationale: "Closest existing structural match (already discriminated by `type`)"
+
+      - name: sgsd-muda-audit
+        emits_envelope: candidate
+        writes_to: .planning/metrics/muda-log.jsonl
+        existing_fit_pct: 60
+        gap: "needs status (from warn/fail counts), reason_codes (per-probe failure name), run_id, artifacts[] (WASTE.md path)"
+        first_wave: true
+        rationale: "MUDA findings translate cleanly; WASTE.md fits artifacts[] naturally"
+
+      - name: atc-review
+        emits_envelope: candidate
+        writes_to: ".planning/milestones/*/phases/*/commit-reviews.jsonl"
+        existing_fit_pct: 75
+        gap: "needs command, status (from verdict mapping warn->warn / pass->ok / crit->fail), run_id, phase, milestone, reason_codes, evidence[] (review report path). Per-row review CONTENT remains code-reviewer-v1; envelope wraps the row."
+        first_wave: true
+        rationale: "Feeds Phase 34 review-ledger; envelope wrap is the bridge layer; preserves code-reviewer-v1 inside evidence."
+
+      - name: edge-guard
+        emits_envelope: candidate
+        writes_to: .planning/metrics/edge-guard-log.jsonl
+        existing_fit_pct: 90
+        gap: "needs status (from result), command='edge-guard', run_id, reason_codes (missing_emit, step_skip)"
+        first_wave: false
+        rationale: "Sixth-candidate per RESEARCH; activate when stream lands"
+
+      - name: handoff
+        emits_envelope: candidate
+        writes_to: .planning/metrics/handoff-log.jsonl
+        existing_fit_pct: 65
+        gap: "needs status (from refused presence), command='handoff', run_id, reason_codes (max_chain_depth, auth_missing)"
+        first_wave: false
+        rationale: "v1.8 candidate"
+
+      # Explicit non-emitters (do NOT migrate):
+      - name: crit-backlog
+        emits_envelope: false
+        writes_to: .planning/metrics/crit-backlog.jsonl
+        rationale: "Independent contract per DISCUSS Patch 2. Parsed deterministically by release-readiness/score.cjs and status-consistency/check.cjs. Envelope references it via evidence[].kind=crit_backlog_row."
+
+      - name: token-log
+        emits_envelope: false
+        writes_to: .planning/metrics/token-log.jsonl
+        rationale: "Per-tool accounting; orthogonal to commands; ~30% fit."
+
+      - name: heartbeat
+        emits_envelope: false
+        writes_to: .planning/metrics/heartbeat.jsonl
+        rationale: "Hook-emitted, high-volume, orthogonal; <20% fit."
+
+# ---------------------------------------------------------------
+# Reason codes -- closed initial vocabulary.
+# Extension protocol: append entry here, bump registry_version (semver patch).
+# No envelope schema bump unless field shape changes.
+# ---------------------------------------------------------------
+reason_codes:
+      # Provider / runtime
+      - code: codex_timeout
+        group: provider_runtime
+        description: "Codex CLI exceeded its timeout budget for the current tier."
+      - code: codex_auth_missing
+        group: provider_runtime
+        description: "Codex CLI invoked without valid auth (CODEX_API_KEY absent or rejected)."
+      - code: codex_fallback_triggered
+        group: provider_runtime
+        description: "Codex provider failed; review-providers fallback chain advanced to next provider."
+      - code: provider_unavailable
+        group: provider_runtime
+        description: "Configured provider is unreachable, disabled, or returned non-recoverable error."
+      - code: runtime_unreachable
+        group: provider_runtime
+        description: "Required runtime (Node, PowerShell, WSL) not found or non-functional."
+
+      # Schema / validation
+      - code: schema_validation_fail
+        group: schema_validation
+        description: "Input did not validate against its declared schema (envelope-v1, plan-schema-v2, etc.)."
+      - code: parse_failure
+        group: schema_validation
+        description: "Could not parse input file (malformed JSON / YAML / frontmatter)."
+      - code: frontmatter_missing
+        group: schema_validation
+        description: "Required frontmatter block absent from a markdown artifact."
+      - code: registry_load_fail
+        group: schema_validation
+        description: "A registry yaml (review-providers, handover-contract-v2, command-envelope-v1, gates) failed to load."
+
+      # Gate / review
+      - code: atc_critical
+        group: gate_review
+        description: "ATC reviewer returned CRIT verdict -- block."
+      - code: atc_warn_only
+        group: gate_review
+        description: "ATC reviewer returned WARN(s) but no CRIT -- proceed with surfaced warnings."
+      - code: review_unanimous_pass
+        group: gate_review
+        description: "All configured reviewers returned PASS."
+      - code: review_split_decision
+        group: gate_review
+        description: "Reviewers disagreed (one PASS / one WARN, or one PASS / one CRIT)."
+      - code: gate_skip_with_reason
+        group: gate_review
+        description: "Gate intentionally skipped via gates.yaml skip_gates with documented reason."
+      - code: gate_force_with_reason
+        group: gate_review
+        description: "Gate force-passed via documented override; rationale captured in evidence[]."
+
+      # Edge guard / structural
+      - code: missing_emit
+        group: edge_guard
+        description: "Step did not emit a required artifact before transitioning."
+      - code: edge_guard_retry_exhausted
+        group: edge_guard
+        description: "Edge-guard retry budget exhausted; transition still blocked."
+      - code: step_transition_blocked
+        group: edge_guard
+        description: "Step-to-step transition refused by guard rules."
+
+      # MUDA / waste
+      - code: inventory_waste
+        group: muda
+        description: "Phase carrying unexecuted inventory beyond threshold."
+      - code: waiting_waste
+        group: muda
+        description: "Phase narrative or pulse stale beyond freshness threshold."
+      - code: transport_waste
+        group: muda
+        description: "Artifact crossed handoff without read in destination context."
+      - code: overproduction_waste
+        group: muda
+        description: "Output produced without downstream consumer."
+
+      # Knowledge / retrieval (aligns with v1.9 Phase 43 7-mode taxonomy)
+      - code: empty_hit
+        group: retrieval
+        description: "Retrieval query returned zero results when results were expected."
+      - code: noisy_hit
+        group: retrieval
+        description: "Retrieval returned many results, none of acceptable relevance."
+      - code: stale_hit
+        group: retrieval
+        description: "Retrieval returned a result whose source is older than freshness window."
+      - code: query_too_broad
+        group: retrieval
+        description: "Query terms matched too many documents; refinement required."
+      - code: privacy_blocked
+        group: retrieval
+        description: "Retrieval blocked by privacy / scope rule."
+
+      # Repair (Phase 33 alignment)
+      - code: repair_instruction_only
+        group: repair
+        description: "Failure has a human-readable repair_instruction; no autonomous repair_command available."
+      - code: repair_command_eligible
+        group: repair
+        description: "Failure has a repair_command that passes the Phase 26.3 4-AND safety predicate."
+      - code: repair_command_rejected_by_4and
+        group: repair
+        description: "Proposed repair_command failed 4-AND predicate (idempotent / scoped / observable / reversible). Falls back to repair_instruction_only."
+
+      # Orchestration / loop
+      - code: checkpoint_written
+        group: orchestration
+        description: "Orchestrator checkpoint written; loop paused intentionally."
+      - code: session_handoff_refused
+        group: orchestration
+        description: "Handoff to next session refused (auth missing, chain depth exceeded, etc.)."
+      - code: max_chain_depth
+        group: orchestration
+        description: "Auto-handover chain depth budget reached."
+      - code: movement_detector_fired
+        group: orchestration
+        description: "No-movement detector observed loop without progress beyond threshold."
+
+# ---------------------------------------------------------------
+# Mission Strip read contract (Phase 28's super-gsd/scripts/lib/sgsd-mission-strip.ps1)
+# Phase 31 documents this; Phase 34+ wires it. NO code edits in Phase 31.
+# ---------------------------------------------------------------
+mission_strip_read_contract:
+  tail_strategy: "Tail-read latest N rows from each emitter's writes_to file."
+  filter_rule: "Pass through rows where envelope_version == 1; legacy rows untouched until Phase 34 backfill."
+  consumed_fields: [status, reason_codes, command, phase, next_action, duration_ms]
+  status_to_pane_state:
+    ok: complete
+    warn: complete_with_warn_icon
+    fail: blocked
+    skipped: not_rendered
+    timeout: timed_out
+    blocked: blocked
+  no_aggregator_in_v17: true
+  notes: "Each emitter writes envelope-shaped rows to its OWN existing JSONL. Phase 31 does NOT create envelope-log.jsonl. Aggregation is post-v1.7."
+
+# ---------------------------------------------------------------
+# Reconciliation note -- explicit non-collision with the 4 existing contracts.
+# ---------------------------------------------------------------
+reconciliation:
+  level: command-output
+  collides_with: []
+  delegates_semantics_to:
+    phase: handover-contract-v2 (input.brief.phase)
+    milestone: handover-contract-v2 (input.brief.milestone)
+    evidence_kind_review_report: code-reviewer-v1
+    evidence_kind_brief: handover-contract-v2
+    evidence_kind_plan_frontmatter: plan-schema-v2
+    evidence_kind_crit_backlog_row: crit-backlog (independent contract)
+  does_not_touch:
+    - code-reviewer-v1
+    - review-providers-v1
+    - handover-contract-v2
+    - plan-schema-v2
+  hard_stop_condition: "If any envelope field would require modifying any of the 4 contracts above, STOP and escalate. Locked decision 31=A is then wrong."

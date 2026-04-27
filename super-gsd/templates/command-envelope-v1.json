@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://super-gsd.local/schemas/command-envelope-v1.json",
+  "title": "SGSD Command Envelope v1",
+  "description": "Canonical output shape for SGSD commands, scripts, and skills. Fifth contract level (command-output), separate from code-reviewer-v1, review-providers-v1, handover-contract-v2, plan-schema-v2. Each existing contract owns a different abstraction layer; this schema does not duplicate any field they own.",
+  "type": "object",
+  "required": ["envelope_version", "ts", "command", "status", "run_id"],
+  "additionalProperties": true,
+  "properties": {
+    "envelope_version": {
+      "const": 1,
+      "description": "Lets future v2 envelope coexist; mirrors contract_version / schema_version pattern from handover-contract-v2 / plan-schema-v2."
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp. Aligns with all existing JSONL streams which already carry ts."
+    },
+    "command": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Canonical command name, e.g. 'sgsd-muda-audit', 'codex-exec', 'audit', 'sgsd-readiness-probe', 'atc-review'. Discriminator field -- without it the envelope is unreadable."
+    },
+    "status": {
+      "enum": ["ok", "warn", "fail", "skipped", "timeout", "blocked"],
+      "description": "Six-state command-output vocabulary. Subset of Phase 26.1's 8-state cockpit vocabulary (drops 'waiting' and 'reviewing' which are pane-state derivations, not command-output states)."
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Closed initial vocabulary; cross-checked against command-envelope-v1.yaml `reason_codes` master list at validate time. Closes the 'regex prose for cause' anti-pattern. May be empty array."
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "path"],
+        "properties": {
+          "kind": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": true
+      },
+      "description": "Files this command WROTE (created or modified). Distinct from `evidence` which is what the operator READS."
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "ref"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "Documented values: 'review_report' (code-reviewer-v1 row), 'brief' (handover-contract-v2 input.brief), 'plan_frontmatter' (plan-schema-v2), 'crit_backlog_row' (crit-backlog.jsonl row id). Free-form string -- does NOT redefine the linked contract."
+          },
+          "ref": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": true
+      },
+      "description": "Files / rows / links cited by status. References, not copies. Bridges to the 4 existing contracts without redefining them."
+    },
+    "next_action": {
+      "type": ["string", "null"],
+      "description": "Human-readable repair_instruction OR autonomous-runnable command. Schema only TRANSPORTS the string; safety check (Phase 26.3 4-AND predicate) lives in `repair-command-checker.cjs` at gates.yaml load time."
+    },
+    "risk": {
+      "enum": ["low", "medium", "high", null],
+      "description": "Aligns with Phase 38.2 work_risk taxonomy (intentional)."
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Already universal in codex-log, audit-log, muda-log; envelope keeps the established name."
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?Z-[a-f0-9]{4}$",
+      "description": "ISO timestamp + 4-char hex shorthash, e.g. '2026-04-27T07:30:00Z-a1b2'. Mirrors crit-backlog.jsonl id pattern. Enables linking envelope rows to crit-backlog rows + commit-reviews rows."
+    },
+    "phase": {
+      "type": ["string", "null"],
+      "description": "Active phase id from Phase 27.2 orchestrator stamping. Same semantics as handover-contract-v2 input.brief.phase. Delegated -- not redefined."
+    },
+    "milestone": {
+      "type": ["string", "null"],
+      "description": "Milestone version, e.g. 'v1.7'. Same semantics as handover-contract-v2 input.brief.milestone. Delegated -- not redefined."
+    }
+  },
+  "examples": [
+    {
+      "envelope_version": 1,
+      "ts": "2026-04-27T07:30:00Z",
+      "command": "sgsd-muda-audit",
+      "status": "warn",
+      "reason_codes": ["inventory_waste"],
+      "artifacts": [{"kind": "waste_report", "path": ".planning/milestones/v1.7/phases/21-foo/WASTE.md"}],
+      "evidence": [{"kind": "muda_log_row", "ref": ".planning/metrics/muda-log.jsonl#L142"}],
+      "next_action": "review WASTE.md and clear or accept inventory waste",
+      "risk": "low",
+      "duration_ms": 1240,
+      "run_id": "2026-04-27T07:30:00Z-a1b2",
+      "phase": "21",
+      "milestone": "v1.7"
+    },
+    {
+      "envelope_version": 1,
+      "ts": "2026-04-27T07:31:15Z",
+      "command": "codex-exec",
+      "status": "fail",
+      "reason_codes": ["codex_timeout", "codex_fallback_triggered"],
+      "artifacts": [],
+      "evidence": [{"kind": "codex_log_row", "ref": ".planning/metrics/codex-log.jsonl#L88"}],
+      "next_action": null,
+      "risk": "medium",
+      "duration_ms": 30000,
+      "run_id": "2026-04-27T07:31:15Z-c3d4",
+      "phase": "31",
+      "milestone": "v1.7"
+    }
+  ]
+}
