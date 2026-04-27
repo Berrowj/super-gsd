@@ -24,12 +24,12 @@ v1.7 phase ledger (all PASS):
 - Phase 35 (Generated System Map): PASS @ 5690c38 (0 CRIT + 7 WARNs; 5 in-loop, 1 info, 1 out-of-scope; anti-slop ~9.5/10)
 - Milestone close: SUMMARY @ .planning/milestones/v1.7/SUMMARY.md
 
-v1.8 (Gate Fitness + MUDA Pruning) — Phases 36-40 — IN PROGRESS (3/5):
+v1.8 (Gate Fitness + MUDA Pruning) — Phases 36-40 — IN PROGRESS (4/5):
 - Phase 36 (Gate Value Telemetry): PASS @ d6c402f
 - Phase 37 (MUDA Deletion Candidates): PASS @ 9f9759d
-- Phase 38 (Risk-Tiered Gate Sampling): PASS @ f265d64 (3 CRIT + 5 WARN; 6 in-loop, 2 accepted; combined anti-slop ~9/10; BOUNDARIES extended 6->7; envelope-v1 reason_codes +2 via documented extension protocol)
-- Current objective: Phase 39 (Gate Keep/Kill Review) — locked 39=B
-- Phase 40 last
+- Phase 38 (Risk-Tiered Gate Sampling): PASS @ f265d64
+- Phase 39 (Gate Keep/Kill Review): PASS @ 3d9c37e (1 CRIT edge-guard window + 5 WARN; 5 in-loop, 1 accepted; combined anti-slop ~9/10)
+- Current objective: Phase 40 (Phase Folder Perfection Contract — final v1.8) — locked 40=B (soft-warn)
 - Readiness GO @ 0ec5f57 still valid; codex provider AVAILABLE
 
 ## Critical Runtime Rule
