@@ -1,27 +1,41 @@
 // ============================================================================
-// SGSD - INTENT-MAP test scaffold (Phase 45 Wave 1)
+// SGSD - INTENT-MAP test scaffold (Phase 45 Wave 2)
 // ============================================================================
-// 8-assertion Wave-1 scaffold. Wave 2 expands to 10 (F1 + F4 + 4 secondary).
-// All assertions invoke the stub build.cjs returning sentinels until Wave 2.
+// External 8-assertion harness. The deeper 10-assertion suite lives in
+// build.cjs::_runSelfTest (F1 + F4 + 4 secondary, sandboxed to tmpdir).
 // ============================================================================
 
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const builder = require(path.join(__dirname, 'build.cjs'));
 
 let pass = 0, fail = 0;
 const fails = [];
 function assert(name, cond) { if (cond) pass++; else { fail++; fails.push(name); } }
 
-// F1 stub: compileIntentMap returns sentinel in Wave 1 (Wave 2 replaces with real compile).
-const r1 = builder.compileIntentMap('Plan Phase 45 context packet builder', {});
-assert('F1_stub_returns_sentinel', r1 && r1.ok === false);
+// Build a tmp planning dir so external compile calls below never touch
+// canonical streams.
+const tmpExt = fs.mkdtempSync(path.join(os.tmpdir(), 'imt-ext-'));
+const extPlanning = path.join(tmpExt, '.planning');
+fs.mkdirSync(path.join(extPlanning, 'metrics'), { recursive: true });
 
-// F4 stub: prompt-injection defense placeholder.
-const r4 = builder.compileIntentMap('Plan Phase 45', {});
-assert('F4_stub_no_throw', r4 !== undefined);
+// F1 (real compile): valid intent map produced; raw verbatim; planner action.
+const r1 = builder.compileIntentMap('Plan Phase 45 context packet builder', { planningDir: extPlanning });
+assert('F1_compile_returns_valid_intent_map',
+  r1 && r1.raw === 'Plan Phase 45 context packet builder' &&
+  r1.action && r1.action.kind === 'dispatch_role' && r1.action.role === 'planner');
+
+// F4 (prompt-injection defense placeholder, Lock 12): operator phrase is "Plan
+// Phase 45". Confirm operator-intent fields contain operator bytes only.
+const r4 = builder.compileIntentMap('Plan Phase 45', { planningDir: extPlanning });
+assert('F4_intent_meaning_canonical_no_injection',
+  r4 && r4.raw === 'Plan Phase 45' &&
+  r4.intent.indexOf('.planning') === -1 && r4.intent.indexOf('ignore') === -1 &&
+  r4.meaning.indexOf('.planning') === -1 && r4.meaning.indexOf('ignore') === -1 &&
+  r4.canonical.indexOf('.planning') === -1 && r4.canonical.indexOf('ignore') === -1);
 
 // Secondary 8: REASON_VOCAB closed-frozen no semantic_similarity_only.
 assert('REASON_VOCAB_closed_frozen',
