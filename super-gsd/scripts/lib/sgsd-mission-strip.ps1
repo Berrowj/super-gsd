@@ -72,10 +72,22 @@ function Get-MissionStripState {
                 if ($mPhase.Success) { $out.activePhase     = $mPhase.Groups[1].Value.Trim() }
                 if ($mStatus.Success) {
                     $sv = $mStatus.Groups[1].Value.Trim()
-                    if ($sv -match 'SHIPPED-WITH-DEBT|WITH-DEBT') { $milestoneStatus = "shipped-with-debt" }
-                    elseif ($sv -match '(?i)shipped|complete') { $milestoneStatus = "complete" }
-                    elseif ($sv -match '(?i)blocked') { $milestoneStatus = "blocked" }
-                    else { $milestoneStatus = "active" }
+                    # Map milestone-status taxonomy (SHIPPED / SHIPPED-WITH-DEBT-N / CANDIDATE)
+                    # into the closed 8-state vocab (DISCUSS 26.1). Debt does NOT introduce a
+                    # new state — it's surfaced via missionColor (Yellow) on top of "complete".
+                    # CANDIDATE is mapped to "blocked" because structural debt blocks SHIPPED.
+                    if ($sv -match '(?i)CANDIDATE') {
+                        $milestoneStatus = "blocked"
+                    } elseif ($sv -match 'SHIPPED-WITH-DEBT|WITH-DEBT') {
+                        $milestoneStatus = "complete"
+                        $out.milestoneHasDebt = $true
+                    } elseif ($sv -match '(?i)shipped|complete') {
+                        $milestoneStatus = "complete"
+                    } elseif ($sv -match '(?i)blocked') {
+                        $milestoneStatus = "blocked"
+                    } else {
+                        $milestoneStatus = "active"
+                    }
                 }
             }
         }
@@ -84,12 +96,18 @@ function Get-MissionStripState {
     if ($PhaseOverride) { $out.activePhase = $PhaseOverride }
 
     if ($out.activeMilestone) {
-        $out.mission = "[ MISSION ] $($out.activeMilestone) $milestoneStatus"
-        switch ($milestoneStatus) {
-            "shipped-with-debt" { $out.missionColor = "Yellow" }
-            "blocked"           { $out.missionColor = "Red" }
-            "complete"          { $out.missionColor = "Green" }
-            default             { $out.missionColor = "DarkCyan" }
+        # Mission line uses the closed 8-state vocab. Debt is signalled via
+        # missionColor (Yellow on top of "complete"), not a new state name.
+        $debtSuffix = if ($out.milestoneHasDebt) { " (with debt)" } else { "" }
+        $out.mission = "[ MISSION ] $($out.activeMilestone) $milestoneStatus$debtSuffix"
+        if ($milestoneStatus -eq "complete" -and $out.milestoneHasDebt) {
+            $out.missionColor = "Yellow"
+        } else {
+            switch ($milestoneStatus) {
+                "blocked"  { $out.missionColor = "Red" }
+                "complete" { $out.missionColor = "Green" }
+                default    { $out.missionColor = "DarkCyan" }
+            }
         }
     }
 
