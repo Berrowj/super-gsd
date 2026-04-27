@@ -110,12 +110,11 @@ The orchestrator is an Opus-powered lean state machine. It NEVER does heavy work
 **Orchestrator budget per unit: ~1,350 tokens + sub-agent cost**
 Compare to GSD 1.0 current: ~5,000-10,000 tokens (loads full CONTEXT.md, DECISIONS.md, ROADMAP.md etc.)
 
-### Exit Conditions (4 only)
+### Exit Conditions (3 only)
 
 1. All phases complete
-2. Context >70% (write checkpoint, stop)
-3. Blocker requiring human input
-4. User says stop/pause
+2. Blocker requiring human input or runtime cannot continue
+3. User says stop/pause
 
 ### The Golden Rule
 
@@ -479,7 +478,7 @@ Every script written by any agent gets curated into `.brv/context-tree/scripts/`
 ├── hooks/
 │   ├── pre-commit-lint.md          # Shell: runs eslint on staged files
 │   ├── post-commit-state-update.md # Node: updates STATE.md after commit
-│   └── context-monitor.md          # Node: warns on context >70%
+│   └── context-monitor.md          # Node: displays context usage
 ├── migrations/
 │   ├── prisma-add-column.md        # Pattern: add nullable, backfill, make required
 │   └── prisma-rename-field.md      # Pattern: shadow field, migrate data, drop old

@@ -11,7 +11,7 @@ model_breakdown:
   opus: {N}
   sonnet: {N}
   haiku: {N}
-context_percent_at_write: {N}
+context_percent_at_write: "not_self_estimated"
 emergency_halt: false
 approaches_tried_and_abandoned: []
 rules_learned_this_session: []

@@ -8,8 +8,8 @@ maturity: core
 
 ## Raw Concept
 
-The auto loop must be FULLY automatic. Never pause between phases or milestones.
-Only stop for the 4 real exit conditions.
+The auto loop must be FULLY automatic. Never pause between phases, milestones,
+or because of self-estimated context. Only stop for the 3 real exit conditions.
 
 ## Narrative
 
@@ -24,14 +24,13 @@ asking the user defeats the purpose. "Context is heavy from setup" is not an exi
 ### What To Do Instead
 - Phase complete → read STATE.md (tool call) → dispatch next phase
 - Milestone complete → validate → complete → advance → next milestone
-- Never write checkpoint unless context is GENUINELY >70% full
+- Never write checkpoint because of context percentage; runtime compaction handles it
 - Between units: update state + commit + read state → all as chained tool calls
 
-### Valid Exit Conditions (ONLY these 4)
+### Valid Exit Conditions (ONLY these 3)
 1. All phases/milestones complete
-2. Context >70% full (write checkpoint FIRST, then stop)
-3. Blocker requiring human decision
-4. User explicitly says stop/pause
+2. Blocker requiring human decision or runtime cannot continue
+3. User explicitly says stop/pause
 
 ## Facts
 
@@ -40,4 +39,4 @@ asking the user defeats the purpose. "Context is heavy from setup" is not an exi
 - category: anti-pattern
   statement: "Context is heavy from setup" is NOT a valid exit condition
 - category: anti-pattern
-  statement: Never write checkpoint unless context genuinely exceeds 70%
+  statement: Context percentage is observability only, never an exit condition

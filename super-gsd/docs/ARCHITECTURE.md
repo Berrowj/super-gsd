@@ -270,6 +270,6 @@ flowchart TB
 - Every Agent() dispatch wrapped in `TaskCreate` + `TaskUpdate` for live visibility
 - Atomic commits — one per unit, never batched, never amended
 - Every loop response contains a tool call — text-only responses kill the loop
-- Only four valid exit conditions: all-phases-complete · context > 70% (real measurement via `sgsd-ctx`) · blocker needing human · user says stop
+- Only three valid exit conditions: all-phases-complete · blocker needing human/runtime cannot continue · user says stop
 - Anti-slop 10-point checklist applies to every FULL/GATE commit
 - MUDA + intent kill conditions are signals, not auto-retirements — the operator decides

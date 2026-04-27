@@ -47,6 +47,11 @@ cat .planning/config.json
 
 # Step 4: Determine position
 # Parse: milestone version, current phase, plan progress
+
+# Step 5: Rule 0 milestone readiness
+# If .planning/milestones/{milestone}/MILESTONE-READINESS.md is missing or
+# older than .planning/milestones/{milestone}/phases/, dispatch
+# sgsd-milestone-readiness before any executor/research/planner work.
 ```
 
 If RESUME_MODE: skip to dispatch at `next_unit` from checkpoint.
@@ -89,24 +94,23 @@ Read .planning/STATE.md (offset: 0, limit: 30)
 
 Check exit conditions:
 - All phases `[x]` in ROADMAP? → EXIT: all complete
-- Context >70%? → write checkpoint, EXIT
+- Real blocker/runtime cannot continue? → write checkpoint, EXIT
+- User said stop/pause? → write checkpoint, EXIT
 
-### Context Cap Check (run EVERY iteration — before dispatch)
+Context percentage is observability only. Do not checkpoint or stop because of
+context percentage. Runtime compaction + external state are the context-management
+mechanism.
+
+### Rule 0 Readiness Check (run before first milestone dispatch)
 
 ```bash
-# Read threshold from config (default 70 if not set)
-THRESHOLD=$(cat .planning/config.json | node -e "
-  const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-  process.stdout.write(String(c.token_efficiency?.checkpoint_threshold_percent||70));
-")
+MANIFEST=".planning/milestones/$MILESTONE/MILESTONE-READINESS.md"
+PHASE_DIR=".planning/milestones/$MILESTONE/phases"
 
-# Estimate current context usage (word count of all reports in active context)
-# REPORT_COUNT tracks how many reports are in active context this session
-# This is updated at Step 10 (Update State) each iteration
-
-if [ "$CONTEXT_PERCENT" -gt "$THRESHOLD" ]; then
-  # → Write checkpoint, then EXIT (text-only stop)
-  # See Checkpoint Write section below
+if [ ! -f "$MANIFEST" ] || [ "$PHASE_DIR" -nt "$MANIFEST" ]; then
+  # Dispatch sgsd-milestone-readiness, write the manifest, append readiness-log.
+  # GO continues. PARTIAL/BLOCKED continues only along a DEGRADED-PATH.
+  # Stop only if no runnable next phase remains.
 fi
 ```
 
@@ -543,7 +547,8 @@ Read `.planning/STATE.md` → this is a tool call → loop continues.
 
 ## Checkpoint Write
 
-Triggered by: context >70% OR user says stop/pause.
+Triggered by: user says stop/pause OR a real blocker/runtime failure means the
+loop cannot continue.
 
 ```markdown
 ---

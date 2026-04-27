@@ -25,11 +25,14 @@ Commands:
 - `status` — Read state, report position, stop
 - `stop` / `pause` — Write checkpoint, stop
 
-Exit conditions (ONLY these 4):
+Exit conditions (ONLY these 3):
 1. All phases complete
-2. Context >70% — write checkpoint, stop
-3. Blocker requiring human input
-4. User says stop/pause
+2. Blocker requiring human input or runtime cannot continue
+3. User says stop/pause
+
+Context percentage is NOT an exit condition. Never self-estimate context use.
+Runtime compaction and external files (`STATE.md`, `ORCHESTRATOR-CHECKPOINT.md`,
+metrics JSONL, and milestone artifacts) are the context-management mechanism.
 </objective>
 
 <token_budget>
@@ -221,9 +224,40 @@ REPEAT:
        in Phase 147 overnight run. Cost: <10 tokens per iteration. Downstream
        consumers: SGSD1 mission-control tile "last pulse Ns ago"; sgsd-boot
        preflight freshness check; R-Q4 edge-guard (once decided).
-     - Parse STATE.md frontmatter (milestone, phase, plan, status)
-     - If all phases [x] → EXIT: "All phases complete"
-     - If checkpoint exists and context >70% → EXIT: write checkpoint
+      - Parse STATE.md frontmatter (milestone, phase, plan, status)
+      - If all phases [x] → EXIT: "All phases complete"
+      - If checkpoint exists → resume from checkpoint; do not stop for context percentage
+
+  1.5. RULE 0 MILESTONE READINESS
+      Before classifier/context/dispatch work in auto mode, enforce the unattended-run
+      readiness manifest for the active milestone.
+
+      Manifest path:
+        `.planning/milestones/{milestone}/MILESTONE-READINESS.md`
+
+      A manifest is stale when it is missing OR older than any directory under:
+        `.planning/milestones/{milestone}/phases/`
+
+      If missing or stale:
+        FIRST: TaskCreate({
+          content: "Run milestone readiness for {milestone}",
+          activeForm: "sgsd-milestone-readiness [sonnet] probing unattended run path",
+          status: "in_progress"
+        })
+        THEN: Agent(subagent_type: "sgsd-milestone-readiness", model: "sonnet", mode: "auto", prompt: {
+          milestone: "{milestone}",
+          output_path: ".planning/milestones/{milestone}/MILESTONE-READINESS.md",
+          instruction: "Probe all phase prerequisites. Never read secret values. Write GO / BLOCKED / WILL-BLOCK / DEGRADED-PATH."
+        })
+        AFTER: TaskUpdate(same taskId, status: "completed")
+
+      Behavior by manifest status:
+        - GO: continue.
+        - PARTIAL/BLOCKED with a runnable DEGRADED-PATH: continue on the runnable path,
+          log the degraded status to `.planning/metrics/readiness-log.jsonl`, and let
+          phase/milestone status tell the truth.
+        - BLOCKED with no runnable next phase: write checkpoint and stop as a real
+          blocker/runtime-cannot-continue condition. This is not a context halt.
 
   2. CLASSIFY
      // Gate check (Phase 10 D-01): fires unless registry disables this gate
@@ -383,6 +417,25 @@ REPEAT:
          required on pre-Phase-21 projects).
      c. Phase needs PLAN.md → dispatch gsd-planner (Sonnet)
      d. Phase has plans, needs plan-check → dispatch gsd-plan-checker (Sonnet)
+     d.5 Before the FIRST executor dispatch of a phase, run phase readiness re-probe:
+        FIRST: TaskCreate({
+          content: "Re-probe phase readiness for phase {N}",
+          activeForm: "sgsd-phase-readiness [haiku] checking drift before executor",
+          status: "in_progress"
+        })
+        THEN: Agent(subagent_type: "sgsd-phase-readiness", model: "haiku", mode: "auto", prompt: {
+          milestone: "{milestone}",
+          phase: "{N}",
+          manifest: ".planning/milestones/{milestone}/MILESTONE-READINESS.md",
+          instruction: "Re-probe only this phase's live prerequisites. Return GO, DRIFT, or MANIFEST_MISSING."
+        })
+        AFTER: TaskUpdate(same taskId, status: "completed")
+
+        If MANIFEST_MISSING: re-run Rule 0 milestone readiness immediately.
+        If DRIFT and there is a deterministic local/degraded path: log drift and continue.
+        If DRIFT leaves no runnable executor path: checkpoint and stop as a real
+        blocker/runtime-cannot-continue condition. This is not a context halt.
+
      e. Phase has checked plans, pending tasks → run PLAN LOAD-TIME VALIDATION (Step 6.2) then dispatch per MACH-02 wave plan:
 
         // Require dispatch-planner at orchestrator startup (zero runtime deps)
@@ -1499,12 +1552,12 @@ The `--self-test` CLI is the GATE-04 verification surface. It:
 This is the single command that satisfies GATE-04 without a separate test harness.
 
 <checkpoint_protocol>
-When context >=85% OR ((phase_boundary OR plan_boundary) AND context >=70%) OR user says stop:
+When user says stop/pause OR a hard blocker/runtime failure means the loop cannot continue:
 
-**Self-assess at Step 1 (READ STATE):** After parsing STATE.md, estimate current context usage.
-- If context >=85%: trigger the **Emergency halt path** immediately (mid-task if needed).
-- If context >=70% AND you are at a phase boundary or plan boundary: trigger the normal checkpoint path below.
-- If context <70%: continue normally.
+**No self-estimated context halts.** The orchestrator must never estimate its
+own context percentage and stop. If the runtime compacts context, resume from
+external state. If a mechanical context gauge exists, it is observability only
+unless the user explicitly asks to stop.
 
 Write `.planning/ORCHESTRATOR-CHECKPOINT.md`:
 
@@ -1522,7 +1575,7 @@ model_breakdown:
   opus: {N}
   sonnet: {N}
   haiku: {N}
-context_percent_at_write: {N}
+context_percent_at_write: "not_self_estimated"
 emergency_halt: false
 approaches_tried_and_abandoned: []
 rules_learned_this_session: []
@@ -1558,18 +1611,9 @@ resume_instruction: "Enter loop at next_unit without re-briefing user"
 - {patterns/decisions curated to ByteRover this session}
 ```
 
-Then commit the checkpoint and STOP.
-
-### Emergency halt path (D-11)
-
-When context >=85% — even mid-task, even mid-plan — execute these three steps immediately:
-
-1. Write `.planning/ORCHESTRATOR-CHECKPOINT.md` with `emergency_halt: true` in the frontmatter (all other fields filled as best known at halt time).
-2. Log a DEVIATIONS entry in the current agent report or session log:
-   `CHECKPOINT_EMERGENCY: context {N}% at task {id} of plan {id}`
-3. Exit loop with a text-only stop — do NOT dispatch another agent or attempt to finish the current task.
-
-The emergency_halt field in the checkpoint frontmatter is the mechanical marker for post-milestone analysis. If >10% of checkpoints in a milestone have `emergency_halt: true`, file an sgsd-curate anti-pattern note and flag the plan-checker rule "plans >6 tasks should be split" for re-enforcement (D-11a).
+Then commit the checkpoint and STOP only for the explicit user/hard-blocker
+condition that triggered this protocol. Context pressure alone is never a
+valid trigger.
 </checkpoint_protocol>
 
 <commit_discipline>
@@ -1630,11 +1674,10 @@ Estimation method:
 
 <golden_rules>
 1. ALWAYS chain tool calls. Text-only = loop dies.
-   VALID text-only exits (ONLY these 4):
+   VALID text-only exits (ONLY these 3):
    a. All phases complete: "All phases done."
-   b. Context >70%: write checkpoint FIRST, then stop
-   c. Blocker requiring human: explain blocker, stop
-   d. User says stop/pause: write checkpoint, stop
+   b. Blocker requiring human/runtime cannot continue: explain blocker, stop
+   c. User says stop/pause: write checkpoint, stop
    NOTHING ELSE is a valid text-only response.
 2. NEVER do heavy work yourself. Dispatch to sub-agents.
 3. NEVER load full files. Frontmatter + sgsd-recall only.
@@ -1644,7 +1687,8 @@ Estimation method:
 7. Use the RIGHT model. Haiku for classification, Sonnet for execution, Opus for you.
 8. Sub-agent reports: 300 words MAX. If longer, the agent wasted tokens.
 9. Script reuse: ALWAYS check ByteRover before creating new utilities.
-10. EXIT only for the 4 valid conditions. Never stop prematurely.
+10. EXIT only for the 3 valid conditions. Never stop prematurely. Context
+    percentage is not one of them; do not self-estimate or halt for it.
 11. CONTEXT ACCUMULATOR: After 5 reports in active context, compress older reports to ONE_LINERs.
     Never hold full report text for more than 2 completed iterations.
 12. REPORT VALIDATION: Always check word count and section presence before parsing.

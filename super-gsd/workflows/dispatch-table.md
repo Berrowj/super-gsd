@@ -6,15 +6,18 @@ The orchestrator applies these rules in ORDER. First match wins.
 
 Before dispatching any agent:
 1. Read STATE.md frontmatter → extract phase, plan, status
-2. Check exit conditions (all done? context >70%? blocker?)
-3. Classify via Haiku → get model, atc_tier, deliberate flag
-4. Select context via Haiku → get brv_queries, file_reads
+2. Check exit conditions (all done? real blocker? user stop?)
+3. Check Rule 0 readiness manifest; dispatch milestone-readiness if missing/stale
+4. Classify via Haiku → get model, atc_tier, deliberate flag
+5. Select context via Haiku → get brv_queries, file_reads
 
 ## Dispatch Rules
 
 | # | Condition | Check | Action | Agent | Model |
 |---|-----------|-------|--------|-------|-------|
 | 0 | Checkpoint exists | `.planning/ORCHESTRATOR-CHECKPOINT.md` exists | Resume from checkpoint | — | — |
+| 0.1 | Milestone readiness missing/stale | `.planning/milestones/{id}/MILESTONE-READINESS.md` absent or older than phase dirs | Dispatch readiness audit | sgsd-milestone-readiness | sonnet |
+| 0.2 | Readiness PARTIAL/BLOCKED | Manifest has degraded path | Continue on degraded path; stop only if no runnable path remains | — | — |
 | 1 | Deliberation needed | classifier.deliberate == true | Suggest /sgsd-deliberate | sgsd-ceo | opus |
 | 2 | Phase not discussed | No `{NN}-CONTEXT.md` AND skip_discuss != true | /gsd-discuss-phase --auto | — | — |
 | 3 | Phase needs research | No `{NN}-RESEARCH.md` AND research == true | Dispatch researcher | gsd-phase-researcher | sonnet |
@@ -35,6 +38,12 @@ PHASE="03"  # replace with active phase number at runtime
 
 # Rule 0: Checkpoint exists
 [ -f .planning/ORCHESTRATOR-CHECKPOINT.md ]
+
+# Rule 0.1: Milestone readiness exists and is fresh
+MILESTONE=$(awk -F': *' '/^milestone:/ {print $2; exit}' .planning/STATE.md)
+MANIFEST=".planning/milestones/$MILESTONE/MILESTONE-READINESS.md"
+PHASES=".planning/milestones/$MILESTONE/phases"
+[ -f "$MANIFEST" ] && [ ! "$PHASES" -nt "$MANIFEST" ]
 
 # Rule 2: CONTEXT.md exists
 PHASE_INFO=$(node "$GSD_TOOLS" find-phase "$PHASE" 2>/dev/null)

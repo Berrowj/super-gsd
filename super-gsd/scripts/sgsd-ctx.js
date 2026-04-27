@@ -3,9 +3,10 @@
 // ============================================================================
 // sgsd-ctx — report current Claude Code session context usage as JSON
 // ============================================================================
-// The orchestrator loop needs a real context gauge to honour exit condition 2
-// ("context > 70% → checkpoint and stop"). Claude (the model) can't see its
-// own token count, but the harness writes every assistant response's `usage`
+// Observability-only context gauge. The orchestrator must not checkpoint or stop
+// because of context percentage; runtime compaction plus external state handles
+// context management. Claude (the model) can't see its own token count, but the
+// harness writes every assistant response's `usage`
 // block to `~/.claude/projects/<encoded-cwd>/<session>.jsonl`. This script
 // parses the latest assistant usage and emits:
 //
@@ -15,7 +16,7 @@
 //   node sgsd-ctx.js                    → JSON to stdout
 //   node sgsd-ctx.js --project /path    → override auto-detected project
 //   node sgsd-ctx.js --pct              → print just the integer percent
-//   node sgsd-ctx.js --threshold 70     → exit 2 if pct > 70, else exit 0
+//   node sgsd-ctx.js --threshold 70     → exit 2 for warning integrations only
 //
 // Ports the logic from super-gsd/scripts/sgsd-mission-control.ps1:Get-SessionStats.
 // ============================================================================

@@ -110,28 +110,28 @@ repeat {
 - WRONG: "Phase 27 complete!" (text-only → loop dies)
 - RIGHT: "Phase 27 complete" + `[Read .planning/STATE.md]` (loop continues)
 
-### Exit Conditions (ONLY these 4)
+### Exit Conditions (ONLY these 3)
 
 1. **All phases complete** → text-only: "All phases done."
-2. **Context >70%** → write checkpoint FIRST, then text-only stop
-3. **Blocker** → needs human decision, stop and explain
-4. **User says stop** → write checkpoint, stop
+2. **Blocker** → needs human decision or runtime cannot continue, stop and explain
+3. **User says stop/pause** → write checkpoint, stop
 
 **Nothing else is a valid exit.** Not phase boundaries. Not milestone boundaries.
-Not "context is heavy from setup." ONLY these 4.
+Not "context is heavy from setup." Context percentage is observability only;
+runtime compaction + external state are the context-management mechanism. ONLY these 3.
 
 ### Dispatch Rules (first match wins)
 
 | # | Condition | Action | Agent | Model |
 |---|-----------|--------|-------|-------|
 | 0 | Auto mode entering milestone AND no `MILESTONE-READINESS.md` (or stale) | Dispatch milestone readiness audit | sgsd-milestone-readiness | sonnet |
-| 0.5 | READINESS status = BLOCKED or PARTIAL AND user said "go" | Present fix list + degraded-path options, pause until user replies `fix` / `degraded` / `go anyway` | — | — |
+| 0.5 | READINESS status = BLOCKED or PARTIAL AND user said "go" | Auto-continue on DEGRADED-PATH if one exists; pause only when no runnable path remains | — | — |
 | 1 | Phase not discussed | Suggest /gsd-discuss-phase | — | — |
 | 2 | Phase needs RESEARCH.md | Dispatch researcher | gsd-phase-researcher | sonnet |
 | 3 | Phase needs PLAN.md | Dispatch planner | gsd-planner | sonnet |
 | 4 | Plans need checking | Dispatch checker | gsd-plan-checker | sonnet |
 | 4.5 | About to make FIRST executor dispatch of a phase | Dispatch phase-readiness re-probe | sgsd-phase-readiness | haiku |
-| 4.6 | Phase-readiness returned DRIFT | Checkpoint + pause (Exit #3). Report the failed probe and fix. | — | — |
+| 4.6 | Phase-readiness returned DRIFT | Continue on deterministic degraded/local path; checkpoint only if no runnable executor path remains | — | — |
 | 5 | Pending tasks exist | Dispatch executor | gsd-executor | sonnet |
 | 6 | All plans executed | Dispatch verifier | gsd-verifier | sonnet |
 | 7 | Verification passed | Mark complete, advance | orchestrator | — |
@@ -140,9 +140,9 @@ Not "context is heavy from setup." ONLY these 4.
 
 ### Readiness Gates — unattended-run contract
 
-Rule 0 is the **milestone pre-flight**. It runs ONCE at the start of auto mode on a fresh milestone and probes every phase's external deps upfront. Its purpose is to ensure that when you say "go" and walk away, the run either completes OR fails within 2 minutes — not 4 hours in.
+Rule 0 is the **milestone pre-flight**. It runs ONCE at the start of auto mode on a fresh or stale milestone and probes every phase's external deps upfront. Its purpose is to ensure that when you say "go" and walk away, the run either completes OR finds the degraded path within 2 minutes — not 4 hours in.
 
-Rule 4.5 is the **phase drift check**. It re-probes only the current phase's deps right before the first executor burns tokens. Cheap (haiku, <10s), catches environmental drift mid-run (Docker dying, VPN dropping).
+Rule 4.5 is the **phase drift check**. It re-probes only the current phase's deps right before the first executor burns tokens. Cheap (haiku, <10s), catches environmental drift mid-run (Docker dying, VPN dropping). Drift is not a reason to stop if a deterministic local/degraded path remains.
 
 Manifests live at `.planning/milestones/{id}/MILESTONE-READINESS.md`. Drift events append to `.planning/metrics/readiness-log.jsonl`. Dashboards (SGSD1 banner, SGSD3 card) read these directly.
 
@@ -182,7 +182,7 @@ Max 300 words. No intro. No recap.
 
 ### Checkpoint Protocol
 
-When context >70% OR user says pause/stop:
+When user says pause/stop OR a real blocker means runtime cannot continue:
 
 **Step 1:** Write `.planning/ORCHESTRATOR-CHECKPOINT.md`
   - Use `Write` tool (not Bash echo)

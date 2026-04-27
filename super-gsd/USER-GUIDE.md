@@ -687,9 +687,12 @@ Next time you open Claude Code, say "go" or "continue" or type `/sgsd-resume`. C
 
 You don't need to re-explain anything. The checkpoint IS the context.
 
-### Automatic Pausing (Context Full)
+### Context Compaction
 
-If Claude's memory fills up (>70% context window), it automatically writes a checkpoint and stops. This is not a crash — it's a graceful exit. Just start a new conversation and say "continue."
+If the runtime compacts context, SGSD resumes from external state:
+`.planning/STATE.md`, `.planning/ORCHESTRATOR-CHECKPOINT.md`, metrics JSONL,
+and milestone artifacts. Context percentage is displayed for observability only;
+it is not an automatic stop condition.
 
 ### What If Claude Crashes Without a Checkpoint?
 

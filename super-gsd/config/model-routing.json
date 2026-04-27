@@ -32,7 +32,8 @@
     "state_read": "frontmatter_only",
     "context_injection": "brv_query",
     "agent_rules_header_tokens": 80,
-    "checkpoint_threshold_percent": 70
+    "context_warning_percent": 70,
+    "checkpoint_threshold_percent": 100000
   },
   "cost_ratios": {
     "opus": 1.0,

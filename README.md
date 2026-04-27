@@ -155,7 +155,7 @@ Plus all **68 original GSD 1.0 commands** still work.
 │  9. Git Commit ────────── Atomic, per task, always        │
 │  10. Loop ─────────────── Read STATE.md again → repeat    │
 │                                                           │
-│  EXIT only for: all done | context >70% | blocker | stop │
+│  EXIT only for: all done | blocker/runtime fail | stop    │
 └─────────────────────────────────────────────────────────┘
 ```
 

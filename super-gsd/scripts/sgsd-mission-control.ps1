@@ -678,8 +678,15 @@ function Get-RoadmapPhases($milestone) {
     return @($phases | Sort-Object { [double]$_.num })
 }
 
-function Get-ActivePhaseDir($phaseNum) {
-    $phasesDir = Join-Path $PlanningDir "phases"
+function Get-ActivePhaseDir($phaseNum, $milestone) {
+    $phasesDir = if ($milestone) {
+        Join-Path $PlanningDir "milestones\$milestone\phases"
+    } else {
+        Join-Path $PlanningDir "phases"
+    }
+    if (-not (Test-Path $phasesDir)) {
+        $phasesDir = Join-Path $PlanningDir "phases"
+    }
     if (-not (Test-Path $phasesDir)) { return $null }
     try {
         $d = Get-ChildItem -Path $phasesDir -Directory -ErrorAction SilentlyContinue |
@@ -972,7 +979,10 @@ function Get-ReadinessInfo($milestone) {
     # Freshness: manifest mtime vs any phase dir mtime under the milestone
     $mt = (Get-Item $path).LastWriteTime
     $stale = $false
-    $phasesDir = Join-Path $PlanningDir "phases"
+    $phasesDir = Join-Path $PlanningDir "milestones\$milestone\phases"
+    if (-not (Test-Path $phasesDir)) {
+        $phasesDir = Join-Path $PlanningDir "phases"
+    }
     if (Test-Path $phasesDir) {
         $newest = Get-ChildItem $phasesDir -Directory -ErrorAction SilentlyContinue |
                   Sort-Object LastWriteTime -Descending | Select-Object -First 1
@@ -1017,7 +1027,7 @@ function Render {
     $phases = Get-RoadmapPhases $state.milestone
     $currentNum = $state.currentPhase
     $activePhase = $phases | Where-Object { $_.num -eq $currentNum } | Select-Object -First 1
-    $activeDir = Get-ActivePhaseDir $currentNum
+    $activeDir = Get-ActivePhaseDir $currentNum $state.milestone
     $waves = Get-Waves $activeDir
     $waves = Get-WaveTimestamps $waves $currentNum
     $activeWaveNum = Get-ActiveWaveFromLog

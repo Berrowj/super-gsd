@@ -898,7 +898,10 @@ function Get-ReadinessCard {
         $status = (Get-Frontmatter $path "status")
         $eta    = (Get-Frontmatter $path "first_stall_eta_min")
         $mt = (Get-Item $path).LastWriteTime
-        $phasesDir = Join-Path $PlanningDir "phases"
+        $phasesDir = Join-Path $PlanningDir "milestones\$milestone\phases"
+        if (-not (Test-Path $phasesDir)) {
+            $phasesDir = Join-Path $PlanningDir "phases"
+        }
         if (Test-Path $phasesDir) {
             $newest = Get-ChildItem $phasesDir -Directory -ErrorAction SilentlyContinue |
                       Sort-Object LastWriteTime -Descending | Select-Object -First 1

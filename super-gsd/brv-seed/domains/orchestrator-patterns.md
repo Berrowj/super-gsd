@@ -33,8 +33,9 @@ The loop persists because every response includes a tool call. Text-only = loop 
 Pair every status update with the next action: "Task done" + [Read STATE.md].
 
 ### Checkpoint Protocol
-At 70% context: write ORCHESTRATOR-CHECKPOINT.md with exact resume point.
-Next session reads checkpoint, enters loop at next_unit. User just says "continue".
+Checkpoint only when the user says stop/pause or a real blocker/runtime failure
+means the loop cannot continue. Context percentage is observability only; runtime
+compaction plus external state handles context management.
 
 ### Dispatch Rules (first match wins)
 1. No CONTEXT.md → suggest discuss-phase
@@ -46,11 +47,10 @@ Next session reads checkpoint, enters loop at next_unit. User just says "continu
 7. Verification passed → mark complete, advance
 8. Verification failed → dispatch planner --gaps
 
-### Exit Conditions (ONLY 4)
+### Exit Conditions (ONLY 3)
 1. All phases complete
-2. Context >70% (checkpoint first)
-3. Blocker needing human decision
-4. User says stop/pause
+2. Blocker needing human decision or runtime cannot continue
+3. User says stop/pause
 
 ## Facts
 
@@ -59,7 +59,7 @@ Next session reads checkpoint, enters loop at next_unit. User just says "continu
 - category: convention
   statement: Sub-agent reports are capped at 300 words in structured format
 - category: convention
-  statement: Checkpoint is written at 70% context, never earlier
+  statement: Context percentage never triggers checkpoint or exit; it is observability only
 - category: convention
   statement: Git commit after EVERY unit — uncommitted work is lost work
 - category: convention

@@ -135,7 +135,7 @@ Categories group agents by workflow stage. Each category has shared expertise pa
 
 **Research principles applied:**
 - **HCC-P-01** (L1/L2/L3 memory tiers) — orchestrator operates across implicit tiers; make explicit in decisions.yaml
-- **HCC-P-02** (lifecycle-event-governed transitions) — checkpoint triggers move from metric (`context >70%`) to lifecycle (`phase_boundary AND context >70%`)
+- **HCC-P-02** (lifecycle-event-governed transitions) — checkpoint triggers move from context metrics to explicit lifecycle/runtime events (`user stop`, `hard blocker`, `runtime cannot continue`)
 - **HCC-P-05** (decouple model selection by task tier, amortize infrequent) — Opus-CEO fires once per decision, Sonnet per dispatch, Haiku per classification
 - **HCC-P-08** (shape context-growth curve) — dashboards plot growth, not snapshots
 - **HCC-P-10** (prompts as contracts) — sub-agent dispatch prompts become versioned resources
