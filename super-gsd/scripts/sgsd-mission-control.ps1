@@ -99,6 +99,15 @@ if (-not (Test-Path $__codex)) {
 }
 . $__codex
 
+$__missionStrip = Join-Path $PSScriptRoot "lib\sgsd-mission-strip.ps1"
+if (-not (Test-Path $__missionStrip)) {
+    __sgsd_fail "MISSING LIB: sgsd-mission-strip.ps1" @(
+        "Expected: $__missionStrip",
+        "Reinstall: run sgsd-boot -Bootstrap or copy lib\ from super-gsd/scripts/"
+    )
+}
+. $__missionStrip
+
 # ── ANSI escape codes ────────────────────────────────────────────────────────
 $ESC = [char]27
 $HOME_POS    = "$ESC[H"
@@ -1031,6 +1040,10 @@ function Render {
     Write-Host "Mission Control" -NoNewline -ForegroundColor White
     Write-Host "  $ts" -NoNewline -ForegroundColor DarkGray
     Write-Host $CLEAR_LINE
+
+    # -- Mission Strip (Cockpit 2.0 - Phase 28) ----------------------------------
+    $strip = Get-MissionStripState -ProjectDir $ProjectDir -ActivityTail 500
+    Render-MissionStrip -State $strip
 
     # ── DLB-04 Substrate ──────────────────────────────────────────────────────
     # One-liner: [reg N agents] [sepl Xp/Yc/Zr] [distill Xh/Yq] [g3 median verdict]
