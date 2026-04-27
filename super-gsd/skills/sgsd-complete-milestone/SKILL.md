@@ -103,13 +103,20 @@ rubric reads `.planning/metrics/gate-value-log.jsonl` (Phase 36),
 and `super-gsd/registry/gates.yaml` (read-only).
 
 ```javascript
+// Phase 39 ATC W3 fix: anchor planningDir to process.cwd() at the
+// orchestrator-skill boundary explicitly (not bare relative '.planning'
+// string which would resolve relative to wherever node was invoked from).
+// Phase 36 W2 lesson: cwd-fallback regression class.
+const path = require('path');
+const fs   = require('fs');
 const { runRubric, renderTable } = require(
-  './super-gsd/tools/gate-keep-kill/rubric.cjs'
+  path.join(process.cwd(), 'super-gsd', 'tools', 'gate-keep-kill', 'rubric.cjs')
 );
-const rows = runRubric('.planning', { milestone: '{{version}}' });
+const planningDir = path.join(process.cwd(), '.planning');
+const rows = runRubric(planningDir, { milestone: '{{version}}' });
 const md   = renderTable(rows);
-require('fs').writeFileSync(
-  '.planning/milestones/{{version}}/gate-keep-kill.md',
+fs.writeFileSync(
+  path.join(planningDir, 'milestones', '{{version}}', 'gate-keep-kill.md'),
   '# Gate Keep/Kill Rubric (milestone {{version}})\n\n' +
   '> Mechanical recommendation. Manual override at operator judgment.\n' +
   '> Locked decision 39=B: auto-execute kills are deferred to operator.\n\n' +

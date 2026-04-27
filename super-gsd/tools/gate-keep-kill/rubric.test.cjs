@@ -5,7 +5,7 @@
 // Source: 39-RESEARCH.md sec 11 (Live-or-Local Fallback) + 39-01-PLAN.md
 // task 3.
 //
-// Uses the production rubric.cjs lib via require() — binding-equivalent to
+// Uses the production rubric.cjs lib via require() -- binding-equivalent to
 // the SKILL.md Step 4.5 production caller (no mocks, no shims).
 //
 // 7 binding assertions: 6 fixtures + 1 fingerprint guard.
@@ -69,7 +69,7 @@ function assertFx(name, cond, detail) {
 // Six fixtures (R1-R6 + halt override) + renderer round-trip bonus
 // ----------------------------------------------------------------------------
 
-// Fixture 1: R1 + RUBRIC-03 — empty everything.
+// Fixture 1: R1 + RUBRIC-03 -- empty everything.
 function fx1_emptyEverything() {
   const tmp = mkTmp();
   try {
@@ -94,7 +94,7 @@ function fx1_emptyEverything() {
   }
 }
 
-// Fixture 2: R2 — value_score indeterminate.
+// Fixture 2: R2 -- value_score indeterminate.
 // Plan-checker note: invoke classifyGate directly with synthetic
 // {fires:5, value_score:null} per PLAN lines 690-694; both no_fires_yet
 // and value_score_indeterminate outcomes are acceptable defer cases.
@@ -102,7 +102,7 @@ function fx1_emptyEverything() {
 // zero-fires gates from output.
 function fx2_valueScoreIndeterminate() {
   const r = classifyGate('g_indet', { fires: 5, value_score: null }, [], []);
-  // Accept either R2 (value_score_indeterminate) or R1 (no_fires_yet) — both
+  // Accept either R2 (value_score_indeterminate) or R1 (no_fires_yet) -- both
   // are valid defer outcomes; verdict must be defer in both cases.
   const validDeferReasons = new Set([
     REASONS.no_fires_yet,
@@ -113,7 +113,7 @@ function fx2_valueScoreIndeterminate() {
     `got verdict=${r && r.verdict}, reason=${r && r.reason}`);
 }
 
-// Fixture 3: R4 — keep candidate (high fires + high value_score).
+// Fixture 3: R4 -- keep candidate (high fires + high value_score).
 function fx3_keepCandidate() {
   const tmp = mkTmp();
   try {
@@ -138,7 +138,7 @@ function fx3_keepCandidate() {
   }
 }
 
-// Fixture 4: R5 — kill candidate (high fires + very low value_score).
+// Fixture 4: R5 -- kill candidate (high fires + very low value_score).
 function fx4_killCandidate() {
   const tmp = mkTmp();
   try {
@@ -161,7 +161,7 @@ function fx4_killCandidate() {
   }
 }
 
-// Fixture 5: R3 + R6 — defer cluster.
+// Fixture 5: R3 + R6 -- defer cluster.
 function fx5_deferCluster() {
   const tmp = mkTmp();
   try {
@@ -191,7 +191,7 @@ function fx5_deferCluster() {
   }
 }
 
-// Fixture 6: PRE-RULE — edge-guard halt override beats R5 kill.
+// Fixture 6: PRE-RULE -- edge-guard halt override beats R5 kill.
 function fx6_haltOverride() {
   const tmp = mkTmp();
   try {
@@ -282,9 +282,10 @@ for (let i = 0; i < canonicals.length; i++) {
 }
 assertFx('fingerprint: canonical 4 files untouched by test', fingerprintOk, fingerprintDetail);
 
-const totalAssertions = 7 + 1; // 6 fixtures (fx5 has 2 asserts) + bonus + fingerprint = 9 actual asserts
+// Phase 39 ATC W2 fix: removed dead `totalAssertions` variable that was
+// computed but never read. Use the literal 9 directly in passed-count.
 const failed = failures.length;
-const passed = 9 - failed; // total asserts in this file
+const passed = 9 - failed; // 9 = 6 fixtures (fx5 has 2 asserts) + renderer + fingerprint
 
 if (failed === 0) {
   console.log('rubric local-fallback test: 6 pass, 0 fail (9 assertions: 6 fixtures + renderer + fingerprint)');

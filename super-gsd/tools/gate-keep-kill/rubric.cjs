@@ -1,5 +1,5 @@
 // ============================================================================
-// SGSD - GATE KEEP/KILL RUBRIC (Phase 39 — RUBRIC-01..04)
+// SGSD - GATE KEEP/KILL RUBRIC (Phase 39 -- RUBRIC-01..04)
 // ============================================================================
 // Source of truth: closed-enum mechanical recommendation over Phase 34
 // review-ledger + Phase 36 gate-value-log + edge-guard-log + gates.yaml.
@@ -18,7 +18,7 @@
 //   assertion #4 + test fixture 1 are the binding tests.
 //
 // Lock 39=B (mass-discuss line 214 verbatim):
-//   "Mechanical rubric + manual override at close" — the rubric ONLY
+//   "Mechanical rubric + manual override at close" -- the rubric ONLY
 //   recommends; the operator decides whether to act on `kill` rows. The
 //   script NEVER mutates super-gsd/registry/gates.yaml or any registry file.
 //
@@ -63,7 +63,7 @@ const KEEP_THRESHOLDS = Object.freeze({
 });
 
 // REASONS: closed enum of 7 string keys (RESEARCH sec 3.2). Frozen.
-// Each value is a literal string — operator-readable, no prose translation
+// Each value is a literal string -- operator-readable, no prose translation
 // at render time per RESEARCH sec 3.3.
 const REASONS = Object.freeze({
   no_fires_yet:                              'no_fires_yet',
@@ -124,7 +124,7 @@ function _parseGatesYaml(yamlText) {
 // Read gates.yaml and parse to array of names. Defensive: returns [] on read
 // or parse failure. Default path resolution: __dirname-anchored
 // (lib at <repo>/super-gsd/tools/gate-keep-kill/rubric.cjs;
-//  registry at <repo>/super-gsd/registry/gates.yaml — 2 dirs up + registry).
+//  registry at <repo>/super-gsd/registry/gates.yaml -- 2 dirs up + registry).
 function _readGatesYaml(gatesYamlPath) {
   try {
     const p = gatesYamlPath
@@ -147,7 +147,7 @@ function _filterReviewRowsForGate(rows, gateName) {
 }
 
 // Compute review-ledger pass_rate for cross-check (RESEARCH sec 1.4).
-// Returns null when 0 rows. Notes-only — verdict NEVER changes from this.
+// Returns null when 0 rows. Notes-only -- verdict NEVER changes from this.
 function _computePassRate(reviewRows) {
   if (!Array.isArray(reviewRows) || reviewRows.length === 0) return null;
   let ok = 0, total = 0;
@@ -200,7 +200,7 @@ function _computeNotes(summary, reviewRows, passRate) {
 // PRE-RULE (RESEARCH sec 1.3): edge-guard halt override forces verdict=keep
 // regardless of value_score. Runs BEFORE R1.
 //
-// First-match-wins cascade (R1-R6, RESEARCH sec 1.2 verbatim — DO NOT REORDER).
+// First-match-wins cascade (R1-R6, RESEARCH sec 1.2 verbatim -- DO NOT REORDER).
 function classifyGate(gateName, summary, reviewRows, edgeRows) {
   const passRate = _computePassRate(reviewRows);
   const notes    = _computeNotes(summary, reviewRows, passRate);
@@ -239,7 +239,7 @@ function classifyGate(gateName, summary, reviewRows, edgeRows) {
     };
   }
 
-  // R2: value_score === null (after R1 — fires > 0 but score indeterminate).
+  // R2: value_score === null (after R1 -- fires > 0 but score indeterminate).
   if (valueScore === null) {
     return {
       gate:        gateName,
@@ -267,7 +267,7 @@ function classifyGate(gateName, summary, reviewRows, edgeRows) {
     };
   }
 
-  // R4: keep — value_score >= keep_value_score AND fires >= min_fires_for_keep.
+  // R4: keep -- value_score >= keep_value_score AND fires >= min_fires_for_keep.
   if (valueScore >= KEEP_THRESHOLDS.keep_value_score
       && fires >= KEEP_THRESHOLDS.min_fires_for_keep) {
     return {
@@ -281,7 +281,7 @@ function classifyGate(gateName, summary, reviewRows, edgeRows) {
     };
   }
 
-  // R5: kill — value_score < kill_value_score AND fires >= min_fires_for_kill.
+  // R5: kill -- value_score < kill_value_score AND fires >= min_fires_for_kill.
   if (valueScore < KEEP_THRESHOLDS.kill_value_score
       && fires >= KEEP_THRESHOLDS.min_fires_for_kill) {
     return {
@@ -295,7 +295,7 @@ function classifyGate(gateName, summary, reviewRows, edgeRows) {
     };
   }
 
-  // R6: fallthrough — mid value_score or low fires.
+  // R6: fallthrough -- mid value_score or low fires.
   return {
     gate:        gateName,
     verdict:     'defer',
@@ -342,9 +342,31 @@ function runRubric(planningDir, opts) {
     const allReviewRows = readReviewRows(
       planningDir, o.milestone ? { milestone: o.milestone } : {});
 
-    // Resolve milestone-start for edge-guard window. Defensive permissive:
-    // if not derivable, pass null and treat all halt rows as in-window.
-    const milestoneStart = null;
+    // Phase 39 ATC W1 fix: derive milestoneStart from earliest review row ts
+    // (or milestone-readiness file when available). Pre-fix hardcoded to null
+    // meant edge-guard rows were never time-filtered even when --milestone was
+    // passed; the milestoneStartIso parameter of _readEdgeGuardRows was
+    // permanently unreachable in production.
+    let milestoneStart = null;
+    if (o.milestone && allReviewRows.length > 0) {
+      // Earliest review timestamp for this milestone is a defensible
+      // approximation: review-ledger rows for milestone X bracket the
+      // milestone's active window. If readiness file exists, prefer its
+      // `created:` field for tighter bound.
+      const readinessPath = path.join(
+        planningDir, 'milestones', o.milestone, 'MILESTONE-READINESS.md'
+      );
+      if (fs.existsSync(readinessPath)) {
+        try {
+          const m = fs.readFileSync(readinessPath, 'utf8').match(/^created:\s*([0-9]{4}-[0-9]{2}-[0-9]{2}(?:T[^\s]*)?)/m);
+          if (m) milestoneStart = m[1];
+        } catch (_e) { /* fall through to review-row fallback */ }
+      }
+      if (!milestoneStart) {
+        const tsList = allReviewRows.map((r) => r.ts).filter((t) => typeof t === 'string').sort();
+        if (tsList.length > 0) milestoneStart = tsList[0];
+      }
+    }
 
     // Build one RubricRow per gateName (gates.yaml document order).
     const rows = [];
@@ -406,7 +428,7 @@ function renderTable(rows) {
 }
 
 // ----------------------------------------------------------------------------
-// SELF-TEST (RESEARCH sec 7) — 14 assertions
+// SELF-TEST (RESEARCH sec 7) -- 14 assertions
 // ----------------------------------------------------------------------------
 function selfTest() {
   let pass = 0, fail = 0;
@@ -600,7 +622,7 @@ if (require.main === module) {
   if (cmd === '--self-test') process.exit(selfTest());
 
   if (cmd === '--render' || cmd === '--json') {
-    // Phase 36 W2 lesson: NEVER process.cwd() default — silent wrong-ledger trap.
+    // Phase 36 W2 lesson: NEVER process.cwd() default -- silent wrong-ledger trap.
     // Lib at <repo>/super-gsd/tools/gate-keep-kill/rubric.cjs;
     // canonical .planning at <repo>/.planning (3 dirs up).
     const idx = process.argv.indexOf('--planning-dir');

@@ -1,0 +1,53 @@
+Phase 39 of SGSD v1.8 milestone: Gate Keep/Kill Rubric.
+
+3 deliverables across 3 atomic commits:
+1. NEW super-gsd/tools/gate-keep-kill/rubric.cjs (641 LOC) -- runRubric, renderTable, classifyGate + 3 frozen consts (KEEP_THRESHOLDS, VERDICTS, REASONS); R1-R6 first-match-wins + edge-guard halt PRE-RULE; 14-assertion --self-test; __dirname-anchored fingerprint guard over 4 files.
+2. EDIT super-gsd/skills/sgsd-complete-milestone/SKILL.md (+53 LOC) -- inserted Step 4.5 between Step 4 (gate-drift) and Step 5 (cross-phase); invokes runRubric, writes .planning/milestones/{version}/gate-keep-kill.md.
+3. NEW super-gsd/tools/gate-keep-kill/rubric.test.cjs (296 LOC) -- 6 fixtures covering R1-R6 + halt override; uses production lib; tmpdir-isolated; 9 assertions.
+
+Locked: 39=B (mechanical only; rubric NEVER mutates gates.yaml; manual override at close).
+
+DEVIATION (executor): LOC overshoot vs PLAN estimate (rubric.cjs 641 vs ~360; rubric.test.cjs 296 vs ~120). Verbose RESEARCH-cross-reference comments + closed-enum first-match-wins R1-R6 explicit return blocks + Phase 36/34 architectural mirror drove length. Phase 36 gate-value-log.cjs is similar size for the same reason. All correctness gates PASS.
+
+Acceptance criteria (RUBRIC-01..04, all runnable + verified):
+- RUBRIC-01: rubric reads from review-ledger + gate-value-log + edge-guard-log + gates.yaml (verified)
+- RUBRIC-02: --render output classifies all 13 gates with verdict in {keep, kill, defer} (verified: live render against actual .planning produces 13/13 defer + no_fires_yet)
+- RUBRIC-03: defer-on-empty (NOT default-kill); R1 fires===0 -> defer; test fixture asserts
+- RUBRIC-04: SKILL.md grep for runRubric returns 1 (Step 4.5 inserted)
+
+Plus:
+- Live-or-local fallback: lib reads filesystem-only; --self-test exercises tmpdir; live render against actual .planning correctly produces all-defer cold-start
+- Schema-without-consumer: 3 in-phase consumers (--self-test + sgsd-complete-milestone wire-in + 6-fixture local fallback test)
+- 4 existing contracts UNTOUCHED; envelope-v1 UNTOUCHED
+
+YOUR TASK
+
+Review the 3 files for:
+1. R1-R6 mechanical rule + edge-guard halt PRE-RULE correctness
+2. defer-on-empty (RUBRIC-03) — fires===0 -> defer (NOT default-kill); first-rule binding
+3. Public API safety (never throws upward; __dirname-anchored fingerprint guard over 4 files)
+4. SKILL.md Step 4.5 wire-in placement (between Step 4 and Step 5; doesn't disturb existing flow)
+5. Test fixture coverage (R1-R6 + halt override; 6 fixtures + 9 assertions)
+6. ASCII-only constraint
+7. 10-point anti-slop checklist
+
+Files to read:
+- super-gsd/tools/gate-keep-kill/rubric.cjs
+- super-gsd/tools/gate-keep-kill/rubric.test.cjs
+- super-gsd/skills/sgsd-complete-milestone/SKILL.md (focus lines 96-128 Step 4.5 block)
+- super-gsd/scripts/lib/gate-value-log.cjs (Phase 36 architectural template)
+- super-gsd/scripts/lib/review-ledger.cjs (Phase 34)
+- super-gsd/registry/gates.yaml
+- .planning/milestones/v1.8/phases/39-gate-keep-kill/39-01-gate-keep-kill-PLAN.md
+
+REPORT CONTRACT (code-reviewer-v1) -- emit EXACTLY these 5 lines as the LAST 5 lines:
+
+FINDINGS: <one-line summary; "none" if 0 CRIT and 0 WARN>
+CRITICAL: <integer count>
+WARNINGS: <integer count>
+PASS_RATE: <N>/10
+ONE_LINER: <one-line, <=200-char overall conclusion>
+
+Above the contract block, provide CRIT findings + WARN findings + 10-point anti-slop checklist.
+
+Be ruthless. Phase 31-38 each surfaced real CRITs Claude missed -- apply equal rigor.
