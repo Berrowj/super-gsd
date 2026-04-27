@@ -800,7 +800,7 @@ REPEAT:
             const reportPath = (typeof phaseAtcReportPath === 'function') ? phaseAtcReportPath() : null;
             gateValueLog.logGateValue(path.join(process.cwd(), '.planning'), {
               gate:        'phase-level-ATC',
-              outcome:     gateValueLog.outcomeFromVerdict(report && report.verdict, report && report.critical_count),
+              outcome:     gateValueLog.outcomeFromVerdict(report && report.verdict, report && report.critical_count, report && report.warning_count),
               phase:       currentPhase,
               milestone:   currentMilestone,
               evidence:    reportPath ? [{ kind: 'review_report', ref: reportPath }] : [],
@@ -1438,9 +1438,10 @@ REPEAT:
           // Reuse the same extracted contract fields as the LEDGER-02 wire above.
           const gvlVerdict  = (typeof verdict !== 'undefined')        ? verdict        : (report && report.verdict);
           const gvlCritical = (typeof critical_count !== 'undefined') ? critical_count : (report && report.critical_count);
+          const gvlWarning  = (typeof warning_count !== 'undefined')  ? warning_count  : (report && report.warning_count);
           gateValueLog.logGateValue(path.join(process.cwd(), '.planning'), {
             gate:        'per-dispatch-ATC',
-            outcome:     gateValueLog.outcomeFromVerdict(gvlVerdict, gvlCritical),
+            outcome:     gateValueLog.outcomeFromVerdict(gvlVerdict, gvlCritical, gvlWarning),
             phase:       currentPhase,
             milestone:   currentMilestone,
             evidence:    reportPath ? [{ kind: 'review_report', ref: reportPath }] : [],

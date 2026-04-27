@@ -77,8 +77,11 @@ try {
     evidence:    [{ kind: 'review_report', ref: '/tmp/per-dispatch-atc-fixture.md' }],
     retroactive: { step: '9.5', category: 'code-quality', enforcement_mode: 'hard-halt', version: '2.0' },
   });
+  // Phase 36 ATC CRIT fix: 'block' outcome maps to envelope status 'blocked'
+  // (cross-ledger parity with review-ledger.cjs:69 LEGACY_VERDICT_MAP), not
+  // 'fail'. Test fixture updated accordingly.
   assert('F3 per-dispatch-ATC block',
-    v3 === 'block' && f3 && f3.outcome === 'block' && f3.status === 'fail' &&
+    v3 === 'block' && f3 && f3.outcome === 'block' && f3.status === 'blocked' &&
     f3.reason_codes.includes('atc_critical') &&
     f3.evidence.length === 1 && f3.evidence[0].kind === 'review_report');
 

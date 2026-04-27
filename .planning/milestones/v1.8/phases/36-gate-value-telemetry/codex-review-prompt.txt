@@ -1,0 +1,77 @@
+You are reviewing Phase 36 of the SGSD v1.8 milestone for ATC code-review. This is the FIRST v1.8 phase.
+
+Phase 36 ships Gate Value Telemetry: append-only gate-value-log.jsonl writer + summarizer wired into 3 orchestrator gate-fire decision points. Three files modified/created:
+
+1. super-gsd/scripts/lib/gate-value-log.cjs (NEW, 564 lines) -- 8th envelope-v1 emitter; exports logGateValue, readGateValueRows, summarize, ledgerPath, outcomeFromVerdict, OUTCOMES, STATUSES, VERDICT_OUTCOME_MAP, COMMAND_NAME, ENVELOPE_VERSION. CLI: --self-test (14 assertions), --summary [--milestone <id>] [--gate <name>] [--planning-dir <path>].
+
+2. super-gsd/skills/sgsd-orchestrate/SKILL.md (MODIFIED, +151/-5 lines) -- 3 wire-in sites (phase-level-ATC, per-dispatch-ATC, MUDA-waste-audit), each on BOTH SKIP and FIRE arms; total 6 logGateValue calls.
+
+3. super-gsd/scripts/lib/gate-value-log.test.cjs (NEW, 138 lines) -- local fallback test with 4 fixtures (pass/warn/block/skip across the 3 sites); imports production lib (no mocks); 12 assertions.
+
+DEVIATION during execution (justified):
+- PLAN line 210 fixture math was internally inconsistent (stated "1 block" but expected fires:5 / block:2 / value_score:0.3 -- algebraically impossible since pass+warn+block must equal fires). Adopted PLAN's RESULT counts (pass=3, warn=1, block=2, skip=2) as canonical -> fires=6, total_obs=8, fire_rate=0.75, value_score=(3+0.5-2)/6=0.25. Self-test assertion 11 documents inline. All other PLAN-locked invariants (formula shape, defer-on-empty, 4-outcome enum, max(0,...) floor) preserved verbatim.
+
+Locked from 36-RESEARCH.md §10 (15 derivation calls):
+- 36=B: outcome + retroactive fields, no cost
+- Row shape: envelope-v1 wrapper with extension fields gate / outcome / retroactive
+- OUTCOMES = Object.freeze(['pass','warn','block','skip'])
+- value_score = max(0, (pass + 0.5*warn - block) / fires) when fires > 0, else null
+- VERDICT_OUTCOME_MAP mirrors review-ledger LEGACY_VERDICT_MAP 1:1
+- 3 wire-in sites; both SKIP + FIRE arms; try/catch wrapped
+- Architecture 1:1 mirror of route-ledger.cjs / review-ledger.cjs
+
+Acceptance criteria (GVAL-01..04, all runnable + verified):
+- GVAL-01: --self-test 14/14 PASS
+- GVAL-02: grep returns 6 wire-in sites (>=3 required)
+- GVAL-03: rows have gate, outcome ∈ OUTCOMES, phase, milestone, ts, run_id, retroactive
+- GVAL-04: --summary aggregates by gate; cold-start returns []
+
+Plus:
+- Live-or-local fallback (Patch 4): same logGateValue helper exercised on live + local paths
+- Schema-without-consumer rule: 4 in-phase consumers (3 wire-ins + --summary CLI)
+- Envelope-v1 reconciliation preserved (collides_with: [] still holds)
+
+YOUR TASK
+
+Review the 3 files for:
+1. Lib correctness (envelope-v1 conformance; OUTCOMES frozen; never-throws-upward; __dirname-anchored fingerprint guard)
+2. SKILL.md wire-in safety (orchestrator continues if writer throws; both SKIP + FIRE arms in scope at insertion points; no breaking changes to existing flow)
+3. Test correctness (4 fixtures cover canonical outcomes; uses production lib; tmpdir isolated)
+4. Envelope-v1 conformance (every row has 13 envelope-v1 required fields + extension fields gate/outcome/retroactive; status derived from outcome via VERDICT_OUTCOME_MAP)
+5. ASCII-only constraint
+6. 10-point anti-slop checklist:
+   - Every exported symbol has a caller
+   - Every imported module is used
+   - delta-Complexity proportional (~564 LOC for 8th envelope-v1 emitter + 14-assertion self-test + 3-site wire-in)
+   - Existing contracts preserved verbatim
+   - Single-purpose phase (yes -- gate value telemetry primitive)
+   - No mass-deletable content
+   - Failure path documented (writer never crashes orchestrator)
+   - Reuse over rewrite (vendored js-yaml; route-ledger.cjs / review-ledger.cjs template)
+   - No "just in case" predicates
+   - Frozen consts (OUTCOMES, VERDICT_OUTCOME_MAP, COMMAND_NAME)
+
+Files to read:
+- super-gsd/scripts/lib/gate-value-log.cjs
+- super-gsd/scripts/lib/gate-value-log.test.cjs
+- super-gsd/skills/sgsd-orchestrate/SKILL.md (focus on lines 591/799/1126/1276 wire-in sites)
+- .planning/milestones/v1.8/phases/36-gate-value-telemetry/36-01-gate-value-telemetry-PLAN.md
+- super-gsd/scripts/lib/route-ledger.cjs (Phase 32 architectural template)
+- super-gsd/scripts/lib/review-ledger.cjs (Phase 34 most recent precedent)
+
+REPORT CONTRACT (code-reviewer-v1) -- emit EXACTLY these 5 lines as the LAST 5 lines of your reply (parser is awk; uses last occurrence of each tag):
+
+FINDINGS: <one-line summary; "none" if 0 CRIT and 0 WARN>
+CRITICAL: <integer count>
+WARNINGS: <integer count>
+PASS_RATE: <N>/10
+ONE_LINER: <one-line, <=200-char overall conclusion>
+
+The wrapper expects literal token "FINDINGS:" (NOT "VERDICT:"). All 5 lines must be present at end of reply or the report will be rejected as a contract violation (exit 6).
+
+Above the 5-line contract block, provide:
+- CRIT findings (with file:line citations) -- empty if 0
+- WARN findings (with file:line citations) -- empty if 0
+- 10-point anti-slop checklist with verdicts
+
+Be ruthless. Phase 31, 32, 33, 34, 35 each surfaced real CRITs Claude missed -- apply equal rigor.
