@@ -1,0 +1,1 @@
+{"ts":"2026-04-27T01:00:00Z","plan":"phase-level","tier":"phase-level","verdict":"warn","critical":0,"warning":3,"pass_rate":"8/10","one_liner":"Phase 29 ships clean; 3 WARNs — fixture MUDA, path schema drift, frozen YAGNI param","provider":"claude-sonnet-reviewer","model":"sonnet"}

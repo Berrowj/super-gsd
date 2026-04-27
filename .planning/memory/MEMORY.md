@@ -8,6 +8,8 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 - [Anti-Pattern - Premature Loop Stopping](architecture/anti-patterns/anti-patterns-premature-stopping.md)
 - [waste waiting p08 narrative stale 2026 04 19 20 01 38z](architecture/anti-patterns/waste-waiting-p08-narrative-stale.md)
 
+- [waste overproduction p29 findings](architecture/anti-patterns/waste-overproduction-p29-findings.md) - P29 findings-=FINDINGS: WARN — overproduction waste
+
 ## architecture/decisions
 
 - [PI Death & Migration Decision](architecture/decisions/pi-death-migration.md)
