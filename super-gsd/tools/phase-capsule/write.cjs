@@ -355,14 +355,13 @@ function _readVerificationDebt(verificationPath, atcReviewPath, planningDir, mil
   if (debt.warnings_added === null) {
     const at = _safeReadFile(atcReviewPath);
     if (at) {
-      // Count `### WARN` headings or "**W<digits> --" lines.
-      const wHeads = (at.match(/^###\s*WARN/gm) || []).length;
+      // Two ATC-REVIEW dialects across milestones:
+      // - anchor style:  "**W1 -- description"  (v1.7+)
+      // - section style: "### WARN N: description" or "### WARN-N" (v1.6 + earlier)
+      // Take the max of the two counts so either dialect is captured.
       const wAnchors = (at.match(/^\*\*W\d+\s+--/gm) || []).length;
-      debt.warnings_added = Math.max(wHeads === 0 ? 0 : 0, wAnchors);
-      if (debt.warnings_added === 0 && wHeads > 0) {
-        // fallback: there is a WARN section but no anchors -> 0 entries
-        debt.warnings_added = 0;
-      }
+      const wHeads = (at.match(/^###\s*WARN[\s\-:0-9]/gim) || []).length;
+      debt.warnings_added = Math.max(wAnchors, wHeads);
     }
   }
 

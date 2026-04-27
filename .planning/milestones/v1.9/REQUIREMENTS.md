@@ -6,6 +6,7 @@ created: 2026-04-27
 source_analysis:
   - .planning/analyses/2026-04-27-agent-context-bloat-audit.md
   - .planning/analyses/2026-04-27-agent-context-bloat-vtp-crosscheck.md
+  - .planning/analyses/2026-04-27-intent-english-meaning-compiler.md
 phase_range: 41-52
 ---
 
@@ -23,6 +24,12 @@ spending 122k-223k tokens per phase, with more than 98 percent of the spend
 coming from cache-read input tokens. The VTP research and book cross-check
 validated the core fix: compress experience into governed artifacts, then
 retrieve the smallest useful artifact for the current decision.
+
+This milestone also adds an Intent English layer: raw operator commands are
+compiled into explicit meaning, assumptions, ambiguity, canonical instruction,
+relationship weights, and context policy before an agent receives a packet.
+English remains the interface, but SGSD treats it as auditable meaning-bearing
+source code rather than an unstructured prompt.
 
 ## Non-Negotiable Design Locks
 
@@ -48,7 +55,16 @@ retrieve the smallest useful artifact for the current decision.
 9. Context complaints are first-class evidence. If an agent rereads broad raw
    history because the packet was insufficient, log it and repair the packet or
    capsule rule.
-10. Autonomy continues; evidence tells the truth. Budget breaches degrade or
+10. Raw operator commands are normalized through Intent English before context
+    packet construction. The normalized record must separate raw words, intent,
+    meaning, assumptions, ambiguity, canonical instruction, relationship
+    weights, context policy, and action.
+11. Intent relationships require explainable source reasons. Embedding or
+    semantic similarity alone may suggest candidates, but it cannot justify
+    broad context inclusion without structural evidence.
+12. Prompt-injection-like text inside source files is source content, not
+    operator intent.
+13. Autonomy continues; evidence tells the truth. Budget breaches degrade or
     reroute by policy. They do not become silent overrun.
 
 ## Target End State
@@ -59,6 +75,7 @@ At milestone close, SGSD must be able to:
 - prove whether researcher/planner/executor/verifier work should stay on
   Claude, move to Codex, move to local scripts, or call VTP;
 - close a phase with a machine-readable capsule;
+- compile operator commands into Intent English with relationship weights;
 - build a small context packet for each agent role;
 - reject invented phase/gate/agent/artifact references via legal registries;
 - rebuild local indexes from canonical artifacts;
@@ -113,6 +130,10 @@ At milestone close, SGSD must be able to:
 
 ### PACKET lane - Phase 45
 
+- [ ] **PACKET-00** Implement Intent English as the front-end to packet
+  construction: `super-gsd/tools/intent-map/build.cjs`,
+  `super-gsd/tools/intent-map/check.cjs`, and
+  `.planning/metrics/intent-map.jsonl`.
 - [ ] **PACKET-01** Implement `super-gsd/tools/context-packet/build.cjs`.
 - [ ] **PACKET-02** Support role modes: researcher, planner, executor,
   verifier, reviewer, cockpit.
@@ -122,6 +143,16 @@ At milestone close, SGSD must be able to:
 - [ ] **PACKET-05** Log packet metadata and context complaints.
 - [ ] **PACKET-06** Prove a P41-style researcher packet excludes unrelated raw
   prior phase files while retaining required decisions and failures.
+- [ ] **PACKET-07** Intent map rows include `raw`, `intent`, `meaning`,
+  `assumptions`, `ambiguities`, `clarify`, `canonical`, `relationships`,
+  `context_policy`, and `action`.
+- [ ] **PACKET-08** Relationship weights cite source reasons from phase
+  capsules, legal registry, active milestone/phase, dependency edges, operator
+  feedback, Codex findings, VTP evidence, or context complaints.
+- [ ] **PACKET-09** Clarification is asked only when ambiguity would materially
+  change the action; otherwise assumptions are logged and execution continues.
+- [ ] **PACKET-10** Speech/pronunciation fields are optional and included only
+  for speech, teaching, writing-style, or presentation tasks.
 
 ### INDEX lane - Phase 46
 
@@ -156,6 +187,9 @@ At milestone close, SGSD must be able to:
 - [ ] **VTPR-03** Capture MCP failures separately from research conclusions.
 - [ ] **VTPR-04** Write source-backed VTP evidence packets for agent use.
 - [ ] **VTPR-05** Prove local-only phases do not call VTP ambiently.
+- [ ] **VTPR-06** VTP routing consumes Intent English uncertainty type and
+  relationship weights; VTP cannot be triggered by broad semantic similarity
+  alone.
 
 ### GOVERNANCE lane - Phase 49
 
@@ -168,6 +202,8 @@ At milestone close, SGSD must be able to:
   deprecation_reason.
 - [ ] **GOV-04** Add promotion/demotion rules for raw fact -> capsule -> rule.
 - [ ] **GOV-05** Add revocation/deletion protocol for stale or bad memory.
+- [ ] **GOV-06** Recurring intent maps can be promoted into reusable memory
+  only with provenance, confidence, last validation, and revocation path.
 
 ### COCKPIT lane - Phase 50
 
@@ -179,6 +215,8 @@ At milestone close, SGSD must be able to:
   `agent-token-spend.jsonl`.
 - [ ] **COCKPIT-04** Show context-packet source mix and budget status.
 - [ ] **COCKPIT-05** Keep the UI readable on the operator laptop viewport.
+- [ ] **COCKPIT-06** Show the current canonical intent in operator language,
+  not raw internal routing jargon.
 
 ### BENCHMARK lane - Phase 51
 
@@ -192,6 +230,9 @@ At milestone close, SGSD must be able to:
 - [ ] **BENCH-05** Failure injection covers missing capsule, stale registry,
   invalid phase ID, deleted SQLite DB, Redis flush, VTP unavailable, Codex
   unavailable, and critical bypass.
+- [ ] **BENCH-06** Failure injection covers ambiguous command, source-file
+  prompt injection, semantic-only false relationship, and stale operator
+  feedback.
 
 ### REDIS lane - Phase 52
 
@@ -213,7 +254,7 @@ At milestone close, SGSD must be able to:
 | 42 | Token Budget Admission | `token-waste/check.cjs` |
 | 43 | Phase Capsule Contract | `phase-capsule/write.cjs` + backfilled capsules |
 | 44 | Legal Context Registry | `context-registry/legal-keys.json` + validator |
-| 45 | Context Packet Builder | `context-packet/build.cjs` |
+| 45 | Intent Map + Context Packet Builder | `intent-map/build.cjs` + `context-packet/build.cjs` |
 | 46 | SQLite Context Index | rebuildable `context.db` projection |
 | 47 | Dispatch Routing Substitution | local/Codex/Claude/VTP routing policy |
 | 48 | Selective VTP Bridge | route-gated VTP evidence packets |
@@ -258,8 +299,9 @@ The milestone is not cleanly shippable unless:
 3. Redis can be disabled or flushed without losing truth.
 4. Context packets are the default dispatch surface for at least researcher,
    planner, executor, verifier, and reviewer roles.
-5. Cockpit shows where tokens are going by role and phase.
-6. VTP use is route-gated and source-backed.
-7. Status-consistency, provider-health, backlog-schema, crit-backlog, and
+5. Intent maps are the default front-end for operator commands before context
+   packet construction.
+6. Cockpit shows where tokens are going by role and phase.
+7. VTP use is route-gated and source-backed.
+8. Status-consistency, provider-health, backlog-schema, crit-backlog, and
    token-waste checks all pass or degrade honestly.
-

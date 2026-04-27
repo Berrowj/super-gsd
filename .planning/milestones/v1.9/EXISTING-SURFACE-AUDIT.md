@@ -34,6 +34,7 @@ Known metrics include:
 Potential new canonical metrics:
 
 - `agent-token-spend.jsonl`
+- `intent-map.jsonl`
 - `context-complaints.jsonl`
 - `context-packet-log.jsonl`
 
@@ -113,11 +114,19 @@ Rule: VTP is a selective provider. It is not ambient context.
    Terms like `old live`, `R#`, `cascade`, and `checkpoint present` need
    operator-facing translation.
 
+6. Raw operator commands can be misread or over-expanded.
+
+   A command like "make it lighter" can mean visual weight, color, tone,
+   wording, runtime load, or emotional burden. SGSD needs an Intent English
+   layer that records meaning, assumptions, ambiguity, canonical instruction,
+   and relationship weights before context is gathered.
+
 ## Required Extension Points
 
 This milestone should extend:
 
 - phase close: write capsule, token checks, context complaint reconciliation;
+- operator command intake: build intent map before context packet;
 - orchestrator dispatch: build packet before agent call;
 - provider routing: choose local/Codex/Claude/VTP by uncertainty;
 - cockpit projection: read token spend, context packet, active agents;
@@ -132,4 +141,3 @@ This milestone should extend:
 - Do not create another memory root outside `.planning` without operator
   approval.
 - Do not make Redis or SQLite canonical.
-

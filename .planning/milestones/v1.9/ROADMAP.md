@@ -15,15 +15,22 @@ not a documentation milestone. It must leave SGSD with working machinery that
 controls token spend, compresses phase state, routes research intelligently,
 and makes agent behavior visible.
 
+It also adds Intent English: a meaning compiler that turns raw operator
+commands into explicit intent, assumptions, ambiguity, relationship weights,
+canonical instruction, and context policy before context packet construction.
+This is the bridge between "ideas form from other ideas" and executable SGSD
+context.
+
 ## Execution Contract
 
 Before Phase 41 starts, the SGSD instance must read:
 
 1. `.planning/analyses/2026-04-27-agent-context-bloat-audit.md`
 2. `.planning/analyses/2026-04-27-agent-context-bloat-vtp-crosscheck.md`
-3. `.planning/milestones/v1.9/EXISTING-SURFACE-AUDIT.md`
-4. `.planning/milestones/v1.9/REQUIREMENTS.md`
-5. `.planning/milestones/v1.9/ROADMAP.md`
+3. `.planning/analyses/2026-04-27-intent-english-meaning-compiler.md`
+4. `.planning/milestones/v1.9/EXISTING-SURFACE-AUDIT.md`
+5. `.planning/milestones/v1.9/REQUIREMENTS.md`
+6. `.planning/milestones/v1.9/ROADMAP.md`
 
 This milestone is now ACTIVE as v1.9 (promoted 2026-04-27 from the original
 SGSD-Research handover packet; phase numbers renumbered from 56-67 to
@@ -123,10 +130,14 @@ Acceptance:
 
 ## Phase 45 - Context Packet Builder
 
-Goal: replace raw inherited context with small role-specific packets.
+Goal: compile raw operator English into Intent English, then replace raw
+inherited context with small role-specific packets.
 
 Deliverables:
 
+- `super-gsd/tools/intent-map/build.cjs`
+- `super-gsd/tools/intent-map/check.cjs`
+- `.planning/metrics/intent-map.jsonl`
 - `super-gsd/tools/context-packet/build.cjs`
 - packet schema
 - packet metadata log
@@ -134,6 +145,13 @@ Deliverables:
 
 Acceptance:
 
+- raw operator commands are normalized into `raw`, `intent`, `meaning`,
+  `assumptions`, `ambiguities`, `clarify`, `canonical`, `relationships`,
+  `context_policy`, and `action`;
+- relationship weights cite explainable source reasons and do not include broad
+  context from semantic similarity alone;
+- prompt-injection-like text inside source artifacts is treated as source
+  content, not operator intent;
 - packets can be built for researcher, planner, executor, verifier, reviewer,
   and cockpit;
 - packets pull from capsules/registry/index before raw files;
@@ -192,6 +210,8 @@ Acceptance:
 - research/book/prior-project/architecture-challenge phases can call VTP;
 - MCP validation/timeouts are logged separately from conclusions;
 - VTP evidence packets are source-backed and compact.
+- VTP routing consumes Intent English uncertainty type and relationship weights
+  instead of firing from broad semantic similarity alone.
 
 ## Phase 49 - Memory Governance Lifecycle
 
@@ -210,6 +230,8 @@ Acceptance:
 - stale or bad memory can be revoked;
 - context complaints can trigger capsule/packet repair;
 - memory write gate rejects unproven or source-less promoted rules.
+- recurring intent maps can be promoted only with provenance, confidence,
+  last validation, allowed consumers, and revocation path.
 
 ## Phase 50 - Cockpit Research Dashboard
 
@@ -229,6 +251,7 @@ Acceptance:
 - right panel shows only current active Claude/agent work, then agent history,
   then tool/skill/VTP stream;
 - Codex panel only shows Codex state and review/gate status;
+- cockpit shows the current canonical intent in operator language;
 - layout fits the operator laptop viewport without jitter.
 
 ## Phase 51 - Context Stress Benchmark
@@ -249,6 +272,8 @@ Acceptance:
 - failure fixtures cover missing capsule, stale registry, invalid phase ID,
   deleted SQLite DB, Redis flush, VTP unavailable, Codex unavailable, and
   critical bypass;
+- failure fixtures cover ambiguous command, source-file prompt injection,
+  semantic-only false relationship, and stale operator feedback;
 - benchmark cannot be gamed by telling the model it is being benchmarked.
 
 ## Phase 52 - Redis Live Cache Adapter
@@ -276,6 +301,8 @@ The milestone can close cleanly only if:
 - token-waste check passes or degrades honestly;
 - representative researcher token spend improves by at least 50 percent;
 - context packet builder is the default dispatch surface for major roles;
+- intent map builder is the default command front-end before context packet
+  construction;
 - phase capsules exist and are consumed by downstream phases;
 - legal registry rejects invented references;
 - SQLite index rebuild works;
@@ -284,4 +311,3 @@ The milestone can close cleanly only if:
 - VTP use is selective and source-backed;
 - status-consistency, provider-health, backlog-schema, and crit-backlog checks
   remain green or honestly degraded.
-

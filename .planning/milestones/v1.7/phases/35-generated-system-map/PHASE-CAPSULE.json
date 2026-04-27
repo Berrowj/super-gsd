@@ -33,10 +33,21 @@
     ".planning/SYSTEM-MAP.json",
     ".planning/SYSTEM-MAP.md",
     ".planning/metrics/review-ledger.jsonl",
+    ".planning/milestones/v1.6/PHASE-INDEX.jsonl",
+    ".planning/milestones/v1.6/phases/26-cockpit-question-contract/PHASE-CAPSULE.json",
+    ".planning/milestones/v1.6/phases/27-cockpit-data-tree/PHASE-CAPSULE.json",
+    ".planning/milestones/v1.6/phases/28-mission-control-layout/PHASE-CAPSULE.json",
+    ".planning/milestones/v1.6/phases/29-agent-codex-lanes/PHASE-CAPSULE.json",
+    ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/PHASE-CAPSULE.json",
+    ".planning/milestones/v1.7/PHASE-INDEX.jsonl",
     ".planning/milestones/v1.7/SUMMARY.md",
+    ".planning/milestones/v1.7/phases/31-canonical-envelope/PHASE-CAPSULE.json",
     ".planning/milestones/v1.7/phases/31-canonical-envelope/commit-reviews.jsonl",
+    ".planning/milestones/v1.7/phases/32-route-decision-ledger/PHASE-CAPSULE.json",
     ".planning/milestones/v1.7/phases/32-route-decision-ledger/commit-reviews.jsonl",
+    ".planning/milestones/v1.7/phases/33-repair-instruction/PHASE-CAPSULE.json",
     ".planning/milestones/v1.7/phases/33-repair-instruction/commit-reviews.jsonl",
+    ".planning/milestones/v1.7/phases/34-canonical-review-ledger/PHASE-CAPSULE.json",
     ".planning/milestones/v1.7/phases/34-canonical-review-ledger/commit-reviews.jsonl",
     ".planning/milestones/v1.7/phases/35-generated-system-map/35-01-generated-system-map-PLAN.md",
     ".planning/milestones/v1.7/phases/35-generated-system-map/35-ATC-REVIEW.md",
@@ -44,8 +55,19 @@
     ".planning/milestones/v1.7/phases/35-generated-system-map/35-RESEARCH.md",
     ".planning/milestones/v1.7/phases/35-generated-system-map/35-VERIFICATION.md",
     ".planning/milestones/v1.7/phases/35-generated-system-map/35-codex-review.md",
+    ".planning/milestones/v1.7/phases/35-generated-system-map/PHASE-CAPSULE.json",
     ".planning/milestones/v1.7/phases/35-generated-system-map/codex-review-prompt.txt",
     ".planning/milestones/v1.7/phases/35-generated-system-map/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/PHASE-INDEX.jsonl",
+    ".planning/milestones/v1.8/phases/36-gate-value-telemetry/PHASE-CAPSULE.json",
+    ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/PHASE-CAPSULE.json",
+    ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/PHASE-CAPSULE.json",
+    ".planning/milestones/v1.8/phases/39-gate-keep-kill/PHASE-CAPSULE.json",
+    ".planning/milestones/v1.8/phases/40-phase-folder-audit/PHASE-CAPSULE.json",
+    ".planning/milestones/v1.9/PHASE-INDEX.jsonl",
+    ".planning/milestones/v1.9/phases/41-baseline-token-attribution/PHASE-CAPSULE.json",
+    ".planning/milestones/v1.9/phases/42-token-budget-admission/PHASE-CAPSULE.json",
+    "super-gsd/tools/phase-capsule/write.cjs",
     "super-gsd/tools/system-map/generate.cjs"
   ],
   "decisions": [
@@ -93,6 +115,11 @@
       "sha": "108eec11f0e9db7c307ea70de29c60e1391e5e1d",
       "subject": "milestone-close(v1.7): SHIPPED \u2014 Stable Command Contracts + Route Intelligence",
       "ts": "2026-04-27T12:22:30+01:00"
+    },
+    {
+      "sha": "e409cc2cbb85a5f1c1c63a28837cb8faa5cd3e08",
+      "subject": "feat(43-01): backfill 17 historical capsules + PHASE-INDEX.jsonl per milestone",
+      "ts": "2026-04-27T20:41:34+01:00"
     }
   ],
   "source_hashes": {
@@ -173,6 +200,6 @@
     "classifier": null,
     "other": null
   },
-  "created_at": "2026-04-27T19:40:45.716Z",
-  "created_by": "super-gsd/tools/phase-capsule/write.cjs@26edd599ea94"
+  "created_at": "2026-04-27T20:09:15.567Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@adcfaabbd287"
 }

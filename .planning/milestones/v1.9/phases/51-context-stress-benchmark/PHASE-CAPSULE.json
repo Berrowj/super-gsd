@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.9",
+  "phase": "51",
+  "phase_name": "Context Stress Benchmark",
+  "status": "IN_PROGRESS",
+  "goal": "prove the milestone actually reduced token spend without evidence loss.",
+  "outputs": [
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.9/phases/51-context-stress-benchmark/51-CONTEXT.md"
+    }
+  ],
+  "files": [
+    ".planning/ORCHESTRATOR-CHECKPOINT.md",
+    ".planning/ROADMAP-AGENT.md",
+    ".planning/STATE.md",
+    ".planning/analyses/2026-04-27-agent-context-bloat-audit.md",
+    ".planning/analyses/2026-04-27-agent-context-bloat-vtp-crosscheck.md",
+    ".planning/archive/superseded/v1.9-knowledge-memory-governance/PHASES-41-45.md",
+    ".planning/archive/superseded/v1.9-knowledge-memory-governance/README.md",
+    ".planning/discussions/2026-04-26-mass-discuss.md",
+    ".planning/milestones/CLAUDE-AUTO-HANDOVER-FULL-ROADMAP.md",
+    ".planning/milestones/HANDBOOK-FUTURE-ROADMAP.md",
+    ".planning/milestones/v1.9/EXISTING-SURFACE-AUDIT.md",
+    ".planning/milestones/v1.9/REQUIREMENTS.md",
+    ".planning/milestones/v1.9/ROADMAP.md",
+    ".planning/milestones/v1.9/SGSD-HANDOVER.md",
+    ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/42-token-budget-admission/42-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/43-phase-capsule-contract/43-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/44-legal-context-registry/44-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/45-context-packet-builder/45-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/46-sqlite-context-index/46-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/47-dispatch-routing-substitution/47-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/48-selective-vtp-bridge/48-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/49-memory-governance-lifecycle/49-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/50-cockpit-research-dashboard/50-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/51-context-stress-benchmark/51-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/52-redis-live-cache-adapter/52-CONTEXT.md"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [
+      "Phase 52"
+    ],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "133a1b2563cd1cd223faba0a8da616d052a05ad2",
+      "subject": "roadmap(v1.9): SLOT-CHANGE \u2014 promote SGSD-Research to v1.9, shift v2.0/v2.1 back",
+      "ts": "2026-04-27T17:23:17+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.9/phases/51-context-stress-benchmark/51-CONTEXT.md",
+      "sha256": "9ec84ea48e1e8899f89d3a53de3ee134102d9d99ae05a95763d1d009d1fbf7a6"
+    },
+    "research": null,
+    "plan": [],
+    "verification": null,
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": null,
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-04-27T20:09:38.540Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@adcfaabbd287"
+}
