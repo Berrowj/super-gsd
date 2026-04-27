@@ -337,9 +337,7 @@ function _walkCapsules(planningDir) {
       continue;
     }
     for (const phaseDir of phaseDirs) {
-      const capPath = path.join(phasesDir, ms === 'v1.9' ? '' : '', phaseDir, 'PHASE-CAPSULE.json');
-      const capPath2 = path.join(phasesDir, phaseDir, 'PHASE-CAPSULE.json');
-      const realPath = capPath2;
+      const realPath = path.join(phasesDir, phaseDir, 'PHASE-CAPSULE.json');
       if (!fs.existsSync(realPath)) continue;
       let buf = null;
       let json = null;
