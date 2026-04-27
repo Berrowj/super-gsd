@@ -111,6 +111,30 @@ Write `.planning/milestones/{{version}}/SUMMARY.md` with:
 - rules learned this session
 - governance findings
 - next-milestone seed
+- **Unresolved Repairs** (REPAIR-04, Phase 33): enumerate any gates with
+  unresolved `repair_instruction:` text whose CRIT-BACKLOG rows are
+  tagged for `{{version}}` and not yet `kind: cleared`.
+
+### Unresolved Repairs section template
+
+Generate this section by calling
+`super-gsd/scripts/lib/repair-command-checker.cjs::unresolvedRepairsForMilestone(planningDir, '{{version}}', gatesYamlPath)`
+and rendering the returned rows as a markdown table:
+
+```markdown
+## Unresolved Repairs
+
+| backlog id | gate | summary | repair_instruction |
+|---|---|---|---|
+| <id> | <gate name> | <truncated summary> | <repair_instruction> |
+```
+
+If the helper returns an empty array, write the literal line:
+`(no unresolved repairs for this milestone)`.
+
+This converts open repair contracts into explicit accountable backlog
+visible at milestone close, instead of silent debt that leaks into the
+next milestone.
 </step_6_summary>
 
 <step_7_vtp_bidirectional>
