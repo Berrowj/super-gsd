@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: SGSD-Research (Context Compression, Token Governance, And Research Routing) (queued)
 milestone_status: v1.8 SHIPPED 2026-04-27. v1.9 SLOT-CHANGE 2026-04-27 — SGSD-Research promoted to v1.9 (was Knowledge + Memory Governance, now archived as superseded at .planning/archive/superseded/v1.9-knowledge-memory-governance/). v1.9 phases 41-52 (renumbered from packet 56-67); v2.0 Failure Injection shifted to phases 53-57; v2.1 Distribution + Onboarding shifted to phases 58-62. Source analyses: agent-context-bloat-audit + VTP cross-check. Readiness re-probe required before first Phase 41 dispatch. Phase 41 (Baseline Token Attribution) is auto-defaulted (no interactive discuss).
-status: v1.7 ALL 5 PHASES COMPLETE PASS 2026-04-27. Ready for sgsd-complete-milestone v1.7.
-stopped_at: 2026-04-27 — Phase 35 closed PASS; v1.7 milestone ready for close.
-last_updated: "2026-04-27T11:15:00Z"
-last_activity: "2026-04-27 — Phase 35 ATC dual-provider surfaced 0 CRIT + 7 distinct WARNs (Claude 5: banner false-positive on .js shebangs, U+2501 box-drawing chars yielding ?????, regex escape gap, LOC overshoot, registry repair_command:null gap; Codex 2: operator throw boundary, missing banner regression assertions). 5 fixed in-loop, 1 informational, 1 out-of-scope. Self-test grew 16->18 with 2 banner regression assertions. Phase 35 closed at 5690c38. v1.7 milestone ALL 5 PHASES COMPLETE."
+status: v1.9 Phase 41 PASS 2026-04-27 (post-fix). Advancing to Phase 42 Token Budget Admission.
+stopped_at: 2026-04-27 — Phase 41 closed PASS @ ef90751; v1.9 advancing to Phase 42.
+last_updated: "2026-04-27T17:35:00Z"
+last_activity: "2026-04-27 — Phase 41 (Baseline Token Attribution) closed PASS. Three atomic commits 7386a7d (lib + 14-assertion self-test) -> 373e9c1 (11,294-row backfilled ledger) -> d1f72cd (baseline-token-spend.md 7-section bloat report) -> ef90751 (REVISE-fix BLOAT_THRESHOLDS 8->4 keys per CONTEXT spec). Dual-provider ATC: Claude REVISE 1 MEDIUM addressed in-loop; Codex timeout 180s tier (TIER_ANALYSIS) logged as provider_unavailable. LOCK 6 honored: 10,881 of 11,294 rows = 96.3% role=orchestrator surfaces 1.24M-token v1.9/P41 bloat signature. Audit crosscheck markers all present (P36/170k, P40/122k, P41/1,244,893). Cross-phase contracts ready for Phase 42 BUDGET-01 (summarize() consumer), Phase 47 ROUTE-02 (R1-R5 substitution rules), Phase 51 BENCH-01 (baseline as before measurement)."
 progress:
   v1_7:
     total_phases: 5
@@ -90,9 +90,11 @@ roadmap_run:
   backlog_canonical: .planning/metrics/crit-backlog.jsonl
   started: 2026-04-26
   current_milestone: v1.9
-  current_phase: 41
-  current_phase_name: Baseline Token Attribution
+  current_phase: 42
+  current_phase_name: Token Budget Admission
   v1_9_milestone_codename: SGSD-Research
+  v1_9_progress:
+    phase_41: "PASS @ ef90751 (1 MEDIUM Claude REVISE-fix in-loop: BLOAT_THRESHOLDS 8->4 keys per CONTEXT spec; Codex provider_unavailable timeout 180s tier; 11,294 row ledger; baseline-token-spend.md 7 sections; LOCK 6 honored 96.3% orchestrator)"
   v1_9_supersedes_archive: .planning/archive/superseded/v1.9-knowledge-memory-governance/
   v1_8_progress:
     phase_36: "PASS @ d6c402f"
