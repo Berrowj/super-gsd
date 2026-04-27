@@ -198,6 +198,7 @@ function Get-MissionStripState {
             foreach ($e in $entries) {
                 $rowPhase = "$($e.phase)"
                 if (-not $rowPhase) { continue }
+                if ($rowPhase -notmatch '^[0-9]+$') { continue }
                 if ($rowPhase -ne $out.activePhase) { continue }
                 $sub = "$($e.subagent_type)"
                 if (-not $sub -or $sub -eq "null") { continue }
@@ -278,8 +279,8 @@ function Get-MissionStripState {
                     '^(timeout|timed-out)$'    { $codexState = "timed-out"; $codexLabel = "timed-out" }
                     '^(ok|ready|done|success)$'{ $codexState = "complete";  $codexLabel = "ready" }
                     '^(error|auth-denied|contract-violation)$' { $codexState = "blocked"; $codexLabel = $rawState }
-                    'not-fired|^idle$'         { $codexState = "waiting";   $codexLabel = "idle" }
-                    default                     { $codexState = "waiting";   $codexLabel = $rawState }
+                    '^(not-fired|idle)$'       { $codexState = "waiting";   $codexLabel = "idle" }
+                    default                     { $codexState = "waiting";   $codexLabel = (_Truncate-Ascii $rawState 20) }
                 }
             }
         }
