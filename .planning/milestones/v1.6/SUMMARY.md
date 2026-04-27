@@ -1,7 +1,7 @@
 ---
 milestone: v1.6
 name: Cockpit 2.0 + Startup Verification
-status: SHIPPED-WITH-DEBT-18
+status: SHIPPED-WITH-DEBT-10
 shipped: 2026-04-27
 phases: 5
 plans: 8 (T1+T2+T3 across phases — 26:1, 27:1, 28:3, 29:2, 30:1)
@@ -11,17 +11,42 @@ controlling_principle: Autonomy continues; evidence tells the truth.
 
 # v1.6 Summary — Cockpit 2.0 + Startup Verification
 
-## Phases Shipped
+## Phases Shipped (post-rerun)
 
-| Phase | Status | Closed at | Backlog rows |
-|------:|--------|-----------|-------------:|
-| 26 — Operator Question Contract | PASS-WITH-DEFERRED-1 | cec7126 | 1 |
-| 27 — Data Source + Objective Tree | PASS-WITH-DEFERRED-1 | 7c3b1cc | 1 |
-| 28 — Mission Control 2.0 Layout | PASS-WITH-DEFERRED-9 | b2f0300 | 9 |
-| 29 — Agent + Codex Visibility | PASS-WITH-DEFERRED-4 | a861d95 | 4 |
-| 30 — Startup + Cockpit Acceptance | PASS-WITH-DEFERRED-3 | 8ee945e | 3 |
+| Phase | Status | Closed at | Initial backlog | Codex rerun cleared | Final unresolved |
+|------:|--------|-----------|----------------:|--------------------:|-----------------:|
+| 26 — Operator Question Contract | PASS | cec7126 | 1 | 1 | **0** |
+| 27 — Data Source + Objective Tree | PASS | 7c3b1cc | 1 | 1 | **0** |
+| 28 — Mission Control 2.0 Layout | PASS-WITH-DEFERRED-5 | b2f0300 | 9 | 4 (3 per-dispatch + 1 phase-level) | **5** |
+| 29 — Agent + Codex Visibility | PASS-WITH-DEFERRED-3 | a861d95 | 4 | 1 (phase-level) | **3** |
+| 30 — Startup + Cockpit Acceptance | PASS-WITH-DEFERRED-2 | 8ee945e | 3 | 1 (phase-level) | **2** |
 
-**Total backlog: 18 rows**. Zero edge_guard_miss. Zero CRIT. Zero CANDIDATE-WITH-DEBT.
+**Total final backlog: 10 rows**. Zero edge_guard_miss. Zero CRIT. Zero CANDIDATE-WITH-DEBT.
+
+### Codex rerun (post-self-test fix)
+
+The self-test probe `super-gsd/scripts/codex-exec.sh --self-test` was lying:
+Probe 2 (auth) checked for `~/.codex/config.json` but Codex CLI 0.x had moved
+to `~/.codex/config.toml`. Codex was actually authenticated (`codex login
+status` → "Logged in") and reachable. **8 backlog rows that read
+"Codex unavailable" were filed under a false cause.**
+
+Fix sequence (per architectural rule: provider-related backlog clears only
+when missing review evidence is produced — not by fixing the cause):
+
+1. Replaced Probe 2 with behavioral check (`codex login status` primary,
+   contract canary secondary); file checks demoted to diagnostic-only
+2. Built `super-gsd/tools/provider-health/check.cjs` (--self-test 14/14)
+3. Built `super-gsd/tools/backlog-schema/check.cjs` (--self-test 11/11)
+4. Built `super-gsd/tools/codex-rerun/rerun-missing-reviews.cjs`
+5. Re-ran 8 missing Codex ATC reviews — 8/8 PASS with the contract
+6. **Phase 28 T1 Codex review surfaced a real CRIT** Claude reviewer missed:
+   "status emits `shipped-with-debt`, violating the documented closed
+   8-state vocabulary." Fixed at commit a39204b — `complete` state stays
+   in the vocab; debt is signaled via missionColor=Yellow + suffix
+7. 8 `kind: cleared` rows appended to crit-backlog.jsonl referencing the
+   evidence path (commit-reviews.jsonl per phase)
+8. Status-consistency PASS at every phase + milestone level after status updates
 
 ## Real code shipped
 
@@ -46,18 +71,22 @@ controlling_principle: Autonomy continues; evidence tells the truth.
 
 ## Backlog summary (18 rows; 7 verifier_fail + 11 phase_atc)
 
-### Codex unavail (7 rows; carry-forward until auth restored)
-- 4 per-dispatch ATC events (Phase 28 T1+T2+T3) — auth FAIL throughout session
-- 4 phase-level ATC events (one per phase 26/27/28/29/30 → all 5 phases)
+### Codex review (cleared) — 8 rows resolved post-rerun
+All 8 "Codex unavailable" rows that were filed under the false self-test
+auth probe have now been cleared. Each was resolved by rerunning the actual
+missing review and appending the evidence to the appropriate
+`commit-reviews.jsonl`. Cleared rows reference the original ID in
+`crit-backlog.jsonl` with `kind: cleared`.
 
-### Phase_atc WARN/NIT (11 rows)
-- T1 unused `$StateOverride` param (Phase 28+29; YAGNI; frozen in API)
+### Phase_atc WARN/NIT (10 unresolved)
+- T1 unused `$StateOverride` param (Phase 28; YAGNI; frozen in API)
 - T2 insertion-vs-replacement title-bar (Phase 28; PLAN preserved title bar; DISCUSS 28.1 said replace; reasonable ambiguity)
 - T2 `$CLEAR_LINE` scope comment cosmetic (Phase 28)
 - PLAN truth #4 text contradicts shipped (Phase 28; says silent-skip, code hard-fails — text-only correction)
 - Deployed hook `~/.claude/hooks/sgsd-activity-logger.js` re-install untracked (Phase 28; live stamping remains corrupted until manually re-installed)
 - Path schema drift (Phase 29; PLAN said `super-gsd/scripts/tests/`, executor shipped at `super-gsd/tests/mission-strip/`)
 - MUDA codex_qualitative_waste — fixture overproduction (Phase 29)
+- $StateOverride frozen in API (Phase 29 carry-forward)
 - BOOT-03 README quick-start `sg` block deferred to v1.7 (Phase 30)
 - Q5 agent-freshness gap (Phase 30; lib enumerates only, no mtime gating)
 
@@ -72,9 +101,9 @@ controlling_principle: Autonomy continues; evidence tells the truth.
 
 ## Operator action items (manual)
 
-1. **Restore Codex auth** (~/.codex/auth.json or similar). 7 backlog rows clear when codex-exec.sh --self-test exits 0.
-2. **Re-install deployed hook**: copy `super-gsd/hooks/sgsd-activity-logger.js` → `~/.claude/hooks/sgsd-activity-logger.js`. After this, live activity-log rows stamp correctly.
-3. **v1.7 docs cleanup**: BOOT-03 README quick-start block; PLAN truth #4 text correction; path schema doc update.
+1. **Re-install deployed hook**: copy `super-gsd/hooks/sgsd-activity-logger.js` → `~/.claude/hooks/sgsd-activity-logger.js`. After this, live activity-log rows stamp correctly. (Codex auth was already fine; the previous run's "restore Codex auth" item was a false-cause artifact of the broken self-test probe.)
+2. **v1.7 docs cleanup**: BOOT-03 README quick-start block; PLAN truth #4 text correction; path schema doc update.
+3. **Optional: review 10 remaining backlog rows** for v1.7-class fixes (`$StateOverride` removal, Q5 agent-freshness implementation, fixture trim, etc.).
 
 ## Verification (re-runnable)
 
@@ -104,7 +133,12 @@ powershell.exe -NoProfile -File super-gsd/tests/cockpit-acceptance/measure-boot.
 
 # 7. CRIT-BACKLOG sanity
 node super-gsd/scripts/lib/crit-backlog.cjs --self-test
-node super-gsd/scripts/lib/crit-backlog.cjs --list  # 18 unresolved rows tagged across phases 26-30
+node super-gsd/scripts/lib/crit-backlog.cjs --list  # 10 unresolved rows (post-rerun) tagged across phases 28-30
+node super-gsd/tools/backlog-schema/check.cjs       # validate row schema
+
+# 8. Provider health (behavioral)
+node super-gsd/tools/provider-health/check.cjs --self-test
+node super-gsd/tools/provider-health/check.cjs --provider codex --behavioral
 ```
 
 ## v1.7 readiness
@@ -115,12 +149,20 @@ handover-contract-v2, plan-schema-v2, code-reviewer-v1); v1.7 must NOT
 collide. The DISCUSS file already locks v1.7 design decisions per the
 mass-table.
 
-Carry-forward into v1.7:
+Carry-forward into v1.7 (post-rerun, 10 rows):
 - BOOT-03 README quick-start (could be folded into v1.7 Phase 35 generated-system-map work)
-- 7 Codex unavail rows clear automatically once auth restored (no v1.7 dependency)
+- $StateOverride YAGNI removal (Phase 28 carry-forward)
+- Q5 agent-freshness gating (Phase 30 finding)
+- Deployed hook re-install (operator action, not a v1.7 phase)
+- 6 minor cosmetic/doc-fix WARNs across phases 28-29
+
+(Codex auth was actually fine — the original "Codex unavailable" rows were
+filed under a false cause; all 8 cleared via post-hoc rerun on commits
+a39204b/21ecbba.)
 
 ## Status
 
-`SHIPPED-WITH-DEBT-18` — v1.6 functionally complete; 18 deferred items
-tracked in `.planning/metrics/crit-backlog.jsonl` (and rendered at
-`.planning/CRIT-BACKLOG.md`).
+`SHIPPED-WITH-DEBT-10` — v1.6 functionally complete; 10 deferred items
+tracked in `.planning/metrics/crit-backlog.jsonl`. Status-consistency PASS
+at every phase + milestone level. Zero edge_guard_miss. Zero CRIT.
+Zero CANDIDATE-WITH-DEBT.

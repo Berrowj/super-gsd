@@ -1,7 +1,7 @@
 ---
 phase: 30-startup-cockpit-acceptance
 verified: 2026-04-27T05:30:00Z
-status: passed
+status: PASS-WITH-DEFERRED-2
 score: 8/8 must-haves verified
 overrides_applied: 0
 goal_achievement: PASS-WITH-DEFERRED-3

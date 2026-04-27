@@ -2,35 +2,35 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Cockpit 2.0 + Startup Verification
-milestone_status: ACTIVE — promoted 2026-04-26 under full-roadmap autopilot run #2 (after reset of run #1). Phases 26-30. ROADMAP-AGENT.md is the controlling contract; DISCUSS.md captures locked decisions. CRIT-BACKLOG canonical at metrics/crit-backlog.jsonl.
-milestone_status: v1.6 ✓ SHIPPED-WITH-DEBT-18 2026-04-27 (5/5 phases complete; 18 deferred items in CRIT-BACKLOG; 0 edge_guard_miss; 0 CRIT). v1.7 not yet promoted. Total run-2 deliverable inventory: Mission Strip lib + soft-load wire + stamper fix + 12 unit fixtures + 6 acceptance fixtures + 3 harness scripts + COCKPIT-ACCEPTANCE-EVIDENCE doc.
-status: v1.6 SHIPPED-WITH-DEBT-18; v1.7 promotion next.
-stopped_at: 2026-04-27 — Phase 30 closed at 8ee945e; v1.6 SUMMARY.md written; awaiting v1.7 promotion.
-last_updated: "2026-04-27T05:50:00Z"
-last_activity: 2026-04-27 — Phase 30 closed PASS-WITH-DEFERRED-3 (10/10 acceptance fixtures + 18/18 boot/host/README + boot timing 3000-3438ms); v1.6 SUMMARY.md written; status-consistency OK at milestone level.
+milestone_status: v1.6 ✓ SHIPPED-WITH-DEBT-10 2026-04-27 (5/5 phases complete; 10 deferred items in CRIT-BACKLOG after post-hoc Codex rerun; 8 codex-unavail rows cleared via real Codex review evidence; 0 edge_guard_miss; 0 CRIT; 1 CRIT found by Codex in T1 lib was fixed in commit a39204b). v1.7 not yet promoted.
+status: v1.6 SHIPPED-WITH-DEBT-10; v1.7 promotion next.
+stopped_at: 2026-04-27 — v1.6 milestone close finalized post-Codex-rerun.
+last_updated: "2026-04-27T06:30:00Z"
+last_activity: 2026-04-27 — Codex self-test probe fixed (was checking config.json; Codex CLI moved to config.toml). Replaced with behavioral check (codex login status + canary). 8 missing Codex reviews rerun against actual phases/commits — 8/8 PASS. Phase 28 T1 Codex review surfaced real CRIT (vocab violation) — fixed. New tools provider-health/check.cjs + backlog-schema/check.cjs added with self-tests. Status-consistency PASS at every phase + milestone level.
 progress:
   total_phases: 5
   completed_phases: 5
   total_plans: 8
   completed_plans: 8
   percent: 100
-  phase_26: "1/1 plan complete — PASS-WITH-DEFERRED-1 ✓ 2026-04-26"
-  phase_27: "1/1 plan complete — PASS-WITH-DEFERRED-1 ✓ 2026-04-26"
-  phase_28: "3/3 tasks complete — PASS-WITH-DEFERRED-9 ✓ 2026-04-26"
-  phase_29: "2/2 tasks complete — PASS-WITH-DEFERRED-4 ✓ 2026-04-27"
-  phase_30: "1/1 plan complete — PASS-WITH-DEFERRED-3 ✓ 2026-04-27"
+  phase_26: "1/1 plan complete — PASS ✓ 2026-04-26 (cleared post-rerun)"
+  phase_27: "1/1 plan complete — PASS ✓ 2026-04-26 (cleared post-rerun)"
+  phase_28: "3/3 tasks complete — PASS-WITH-DEFERRED-5 ✓ 2026-04-26 (4 codex rows cleared post-rerun)"
+  phase_29: "2/2 tasks complete — PASS-WITH-DEFERRED-3 ✓ 2026-04-27 (1 codex row cleared)"
+  phase_30: "1/1 plan complete — PASS-WITH-DEFERRED-2 ✓ 2026-04-27 (1 codex row cleared)"
 backlog:
-  total_unresolved: 18
+  total_unresolved: 10
   by_kind:
-    verifier_fail: 7
-    phase_atc: 11
+    verifier_fail: 0
+    phase_atc: 10
     edge_guard_miss: 0
   by_phase:
-    "26": 1
-    "27": 1
-    "28": 9
-    "29": 4
-    "30": 3
+    "26": 0
+    "27": 0
+    "28": 5
+    "29": 3
+    "30": 2
+  cleared_post_rerun: 8
 v1_6_complete:
   shipped: 2026-04-27
   status: SHIPPED-WITH-DEBT-18

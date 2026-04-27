@@ -1,6 +1,6 @@
 ---
 phase: 28
-status: PASS-WITH-DEFERRED-9
+status: PASS-WITH-DEFERRED-5
 verified: 2026-04-26
 verifier: gsd-verifier
 goal_achieved: true
