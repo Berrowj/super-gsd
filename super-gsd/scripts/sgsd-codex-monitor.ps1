@@ -128,16 +128,29 @@ function Format-Flag($value) {
     return "--"
 }
 
-function Get-CurrentPhaseNum {
+function Get-CurrentScope {
     $stateFile = Join-Path $PlanningDir "STATE.md"
-    if (-not (Test-Path $stateFile)) { return "" }
+    $out = [ordered]@{ milestone = ""; phase = ""; status = "" }
+    if (-not (Test-Path $stateFile)) { return [pscustomobject]$out }
     foreach ($line in (Get-Content $stateFile -TotalCount 30 -ErrorAction SilentlyContinue)) {
-        if ($line -match '^(?:current_phase|phase):\s*(\S+)') { return $matches[1].Trim('"', "'") }
+        if (-not $out.milestone -and $line -match '^milestone:\s*(.+)$') { $out.milestone = $matches[1].Trim().Trim('"', "'") }
+        if (-not $out.phase -and $line -match '^(?:current_phase|phase):\s*"?([0-9]+)"?') { $out.phase = $matches[1] }
+        if (-not $out.status -and $line -match '^status:\s*(.+)$') { $out.status = $matches[1].Trim().Trim('"', "'") }
+        if (-not $out.phase -and $line -match '^status:\s*.*\bPhase\s+([0-9]+)\b') { $out.phase = $matches[1] }
     }
-    return ""
+    return [pscustomobject]$out
+}
+
+function Get-CurrentPhaseNum {
+    $scope = Get-CurrentScope
+    return $scope.phase
 }
 
 function Get-CodexStatusSummary($codex) {
+    if (-not $codex.scopeCurrent -and $codex.currentPhase) {
+        $old = if ($codex.staleScope) { $codex.staleScope } else { "--" }
+        return "No current Codex run is recorded for P$($codex.currentPhase); last live marker is old: $old."
+    }
     $scopeParts = @($codex.phase, $codex.plan, $codex.step) | Where-Object { $_ -and "$_".Trim() -ne "" }
     $scopeText = if ($scopeParts.Count -gt 0) { $scopeParts -join " / " } else { "the current review scope" }
     switch ("$($codex.state)".ToLower()) {
@@ -251,6 +264,16 @@ function Get-CodexPromptBrief {
 
 function Get-CodexOperatorBrief {
     param($codex, $verdicts)
+    if (-not $codex.scopeCurrent -and $codex.currentPhase) {
+        return [pscustomobject]@{
+            title = "current phase P$($codex.currentPhase)"
+            scope = "current P$($codex.currentPhase); old live marker $($codex.staleScope)"
+            checks = @()
+            conclusion = ""
+            report = [pscustomobject]@{ exists = $false }
+            attention = @("Codex live marker is stale/out-of-scope; wait for the P$($codex.currentPhase) review or rerun it.")
+        }
+    }
     $prompt = Get-CodexPromptBrief $codex
     $report = Get-CodexReportFields $codex
     $latestVerdict = if ($verdicts.Count -gt 0) { $verdicts[0] } else { $null }
@@ -299,22 +322,27 @@ function Render {
     Write-Host $HOME_POS -NoNewline
     $pw = Get-PaneWidth
     $ph = Get-PaneHeight
-    $expanded = ($pw -ge 96 -or $ph -ge 38)
-    $deep = ($pw -ge 110 -and $ph -ge 42)
-    $rowLimit = if ($deep) { 7 } elseif ($expanded) { 6 } else { 4 }
-    $verdictLimit = if ($deep) { 5 } elseif ($expanded) { 4 } else { 3 }
+    $expanded = ($pw -ge 96 -and $ph -ge 42)
+    $deep = ($pw -ge 120 -and $ph -ge 50)
+    $rowLimit = if ($deep) { 5 } elseif ($expanded) { 4 } else { 3 }
+    $verdictLimit = if ($deep) { 4 } elseif ($expanded) { 3 } else { 2 }
     $ts = Get-Date -Format 'HH:mm:ss'
-    $phaseNum = Get-CurrentPhaseNum
+    $scope = Get-CurrentScope
+    $phaseNum = $scope.phase
     $substrate = Get-SubstrateStatus -ProjectDir $ProjectDir
     $codex = Get-SgsdCodexStatus -ProjectDir $ProjectDir -PlanningDir $PlanningDir
     $vtp = Get-SgsdVtpMcpStatus -ProjectDir $ProjectDir -PlanningDir $PlanningDir
-    $rows = Get-SgsdCodexLogRows -PlanningDir $PlanningDir -MaxRows $rowLimit
-    $verdicts = Get-SgsdCodexVerdicts -PlanningDir $PlanningDir -MaxRows $verdictLimit
+    $rows = Get-SgsdCodexLogRows -PlanningDir $PlanningDir -MaxRows $rowLimit -PhaseFilter $phaseNum
+    $verdicts = Get-SgsdCodexVerdicts -PlanningDir $PlanningDir -MaxRows $verdictLimit -MilestoneFilter $scope.milestone -PhaseFilter $phaseNum
     $brief = Get-CodexOperatorBrief -codex $codex -verdicts $verdicts
 
     Write-Host "SUPER GSD" -NoNewline -ForegroundColor Magenta
     Write-Host " ! " -NoNewline -ForegroundColor Cyan
     Write-Host "Codex Monitor" -NoNewline -ForegroundColor White
+    if ($scope.milestone -or $phaseNum) {
+        Write-Host "  " -NoNewline
+        Write-Host ("{0}/P{1}" -f $(if ($scope.milestone) { $scope.milestone } else { "?" }), $(if ($phaseNum) { $phaseNum } else { "?" })) -NoNewline -ForegroundColor Yellow
+    }
     Write-Host "  $ts" -NoNewline -ForegroundColor DarkGray
     Write-Host $CLEAR_LINE
 
@@ -361,7 +389,10 @@ function Render {
     $scopeParts = @($codex.phase, $codex.plan, $codex.step) | Where-Object { $_ -and "$_".Trim() -ne "" }
     Write-Host "SCOPE" -NoNewline -ForegroundColor White
     Write-Host ": " -NoNewline -ForegroundColor DarkGray
-    Write-Host ($(if ($scopeParts.Count -gt 0) { Trunc ($scopeParts -join " / ") ($pw - 8) } else { "--" })) -NoNewline -ForegroundColor Cyan
+    $scopeLine = "current {0} / P{1}" -f $(if ($scope.milestone) { $scope.milestone } else { "?" }), $(if ($phaseNum) { $phaseNum } else { "?" })
+    if (-not $codex.scopeCurrent -and $codex.staleScope) { $scopeLine += "  old live: $($codex.staleScope)" }
+    elseif ($scopeParts.Count -gt 0) { $scopeLine += "  live: " + ($scopeParts -join " / ") }
+    Write-Host (Trunc $scopeLine ($pw - 8)) -NoNewline -ForegroundColor Cyan
     Write-Host $CLEAR_LINE
 
     Write-Host $CLEAR_LINE
@@ -420,7 +451,7 @@ function Render {
     Write-Host "RECENT FINDINGS" -NoNewline -ForegroundColor White
     Write-Host $CLEAR_LINE
     if ($verdicts.Count -eq 0) {
-        Write-Host "  no Codex findings recorded yet" -NoNewline -ForegroundColor DarkGray
+        Write-Host "  no Codex findings for current phase yet" -NoNewline -ForegroundColor DarkGray
         Write-Host $CLEAR_LINE
     } else {
         foreach ($vr in $verdicts) {
@@ -447,7 +478,7 @@ function Render {
     Write-Host "RECENT CODEX PROGRESS" -NoNewline -ForegroundColor White
     Write-Host $CLEAR_LINE
     if ($rows.Count -eq 0) {
-        Write-Host "  no Codex run history yet" -NoNewline -ForegroundColor DarkGray
+        Write-Host "  no Codex run history for current phase yet" -NoNewline -ForegroundColor DarkGray
         Write-Host $CLEAR_LINE
     } else {
         foreach ($row in $rows) {

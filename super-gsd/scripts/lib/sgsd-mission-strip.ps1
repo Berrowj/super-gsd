@@ -67,23 +67,33 @@ function Get-MissionStripState {
                 $fm = $fmMatch.Groups[1].Value
                 $mMile = [regex]::Match($fm, '(?m)^\s*milestone:\s*"?([^"\r\n]+?)"?\s*$')
                 $mPhase = [regex]::Match($fm, '(?m)^\s*(?:current_phase|phase):\s*"?([0-9]+)"?\s*$')
+                $mStatusLine = [regex]::Match($fm, '(?m)^\s*status:\s*"?([^"\r\n]+?)"?\s*$')
                 $mStatus = [regex]::Match($fm, '(?m)^\s*milestone_status:\s*"?([^"\r\n]+?)"?\s*$')
                 if ($mMile.Success)  { $out.activeMilestone = $mMile.Groups[1].Value.Trim() }
                 if ($mPhase.Success) { $out.activePhase     = $mPhase.Groups[1].Value.Trim() }
+                if (-not $out.activePhase -and $mStatusLine.Success -and $mStatusLine.Groups[1].Value -match '\bPhase\s+([0-9]+)\b') {
+                    $out.activePhase = $matches[1]
+                }
+                if ($mStatusLine.Success -and $mStatusLine.Groups[1].Value -match '(?i)\bactive\b') {
+                    $milestoneStatus = "active"
+                }
                 if ($mStatus.Success) {
                     $sv = $mStatus.Groups[1].Value.Trim()
+                    $currentPrefix = if ($out.activeMilestone) { '^\s*' + [regex]::Escape($out.activeMilestone) + '\b' } else { '^\s*' }
                     # Map milestone-status taxonomy (SHIPPED / SHIPPED-WITH-DEBT-N / CANDIDATE)
                     # into the closed 8-state vocab (DISCUSS 26.1). Debt does NOT introduce a
                     # new state — it's surfaced via missionColor (Yellow) on top of "complete".
                     # CANDIDATE is mapped to "blocked" because structural debt blocks SHIPPED.
-                    if ($sv -match '(?i)CANDIDATE') {
+                    if ($milestoneStatus -eq "active") {
+                        $out.milestoneHasDebt = $false
+                    } elseif ($sv -match "(?i)$currentPrefix.*CANDIDATE") {
                         $milestoneStatus = "blocked"
-                    } elseif ($sv -match 'SHIPPED-WITH-DEBT|WITH-DEBT') {
+                    } elseif ($sv -match "(?i)$currentPrefix.*(SHIPPED-WITH-DEBT|WITH-DEBT)") {
                         $milestoneStatus = "complete"
                         $out.milestoneHasDebt = $true
-                    } elseif ($sv -match '(?i)shipped|complete') {
+                    } elseif ($sv -match "(?i)$currentPrefix.*(shipped|complete)") {
                         $milestoneStatus = "complete"
-                    } elseif ($sv -match '(?i)blocked') {
+                    } elseif ($sv -match "(?i)$currentPrefix.*blocked") {
                         $milestoneStatus = "blocked"
                     } else {
                         $milestoneStatus = "active"
@@ -99,7 +109,8 @@ function Get-MissionStripState {
         # Mission line uses the closed 8-state vocab. Debt is signalled via
         # missionColor (Yellow on top of "complete"), not a new state name.
         $debtSuffix = if ($out.milestoneHasDebt) { " (with debt)" } else { "" }
-        $out.mission = "[ MISSION ] $($out.activeMilestone) $milestoneStatus$debtSuffix"
+        $phaseSuffix = if ($out.activePhase) { " P$($out.activePhase)" } else { "" }
+        $out.mission = "[ MISSION ] $($out.activeMilestone)$phaseSuffix $milestoneStatus$debtSuffix"
         if ($milestoneStatus -eq "complete" -and $out.milestoneHasDebt) {
             $out.missionColor = "Yellow"
         } else {
@@ -128,7 +139,7 @@ function Get-MissionStripState {
             $mCur = [regex]::Match($roadRaw, $phasePattern)
             if ($mCur.Success) {
                 $body = $mCur.Groups[1].Value
-                $gMatch = [regex]::Match($body, '(?im)^[ \t>*-]*Goal:\s*(.+?)\s*$')
+                $gMatch = [regex]::Match($body, '(?im)^[ \t>*-]*(?:\*\*)?Goal(?:\*\*)?:\s*(.+?)\s*$')
                 if ($gMatch.Success) { $goalCurrent = $gMatch.Groups[1].Value.Trim() }
             }
 
@@ -138,7 +149,7 @@ function Get-MissionStripState {
             $mNext = [regex]::Match($roadRaw, $nextPattern)
             if ($mNext.Success) {
                 $body2 = $mNext.Groups[1].Value
-                $gMatch2 = [regex]::Match($body2, '(?im)^[ \t>*-]*Goal:\s*(.+?)\s*$')
+                $gMatch2 = [regex]::Match($body2, '(?im)^[ \t>*-]*(?:\*\*)?Goal(?:\*\*)?:\s*(.+?)\s*$')
                 if ($gMatch2.Success) { $goalNext = $gMatch2.Groups[1].Value.Trim() }
             } else {
                 $isLastInMilestone = $true

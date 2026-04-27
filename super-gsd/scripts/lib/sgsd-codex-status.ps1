@@ -86,6 +86,27 @@ function Get-SgsdCodexStatus {
         tokenRows = 0
         codexDispatches = 0
         claudeTokensSaved = 0
+        currentMilestone = ""
+        currentPhase = ""
+        scopeCurrent = $true
+        staleScope = ""
+    }
+
+    $statePath = Join-Path $PlanningDir "STATE.md"
+    if (Test-Path $statePath) {
+        try {
+            foreach ($line in (Get-Content $statePath -TotalCount 40 -ErrorAction SilentlyContinue)) {
+                if (-not $out.currentMilestone -and $line -match '^milestone:\s*(.+)$') {
+                    $out.currentMilestone = $matches[1].Trim().Trim('"', "'")
+                }
+                if (-not $out.currentPhase -and $line -match '^(?:current_phase|phase):\s*"?([0-9]+)"?') {
+                    $out.currentPhase = $matches[1]
+                }
+                if (-not $out.currentPhase -and $line -match '^status:\s*.*\bPhase\s+([0-9]+)\b') {
+                    $out.currentPhase = $matches[1]
+                }
+            }
+        } catch {}
     }
 
     if (Test-Path $cfgPath) {
@@ -140,6 +161,13 @@ function Get-SgsdCodexStatus {
         } catch {}
     }
 
+    if ($out.currentPhase -and $out.phase -and "$($out.phase)" -ne "$($out.currentPhase)") {
+        $oldScope = @($out.phase, $out.plan, $out.step) | Where-Object { $_ -and "$_".Trim() -ne "" }
+        $out.scopeCurrent = $false
+        $out.staleScope = if ($oldScope.Count -gt 0) { $oldScope -join " / " } else { "$($out.phase)" }
+        $out.state = "stale"
+    }
+
     if (Test-Path $logPath) {
         try {
             $rows = @()
@@ -167,6 +195,13 @@ function Get-SgsdCodexStatus {
                 }
             }
         } catch {}
+    }
+
+    if ($out.currentPhase -and $out.phase -and "$($out.phase)" -ne "$($out.currentPhase)") {
+        $oldScope = @($out.phase, $out.plan, $out.step) | Where-Object { $_ -and "$_".Trim() -ne "" }
+        $out.scopeCurrent = $false
+        $out.staleScope = if ($oldScope.Count -gt 0) { $oldScope -join " / " } else { "$($out.phase)" }
+        $out.state = "stale"
     }
 
     $tokenPath = Join-Path $PlanningDir "metrics\token-log.jsonl"
@@ -317,17 +352,22 @@ function Get-SgsdCodexEvents {
 function Get-SgsdCodexLogRows {
     param(
         [string]$PlanningDir,
-        [int]$MaxRows = 6
+        [int]$MaxRows = 6,
+        [string]$PhaseFilter = ""
     )
     $log = Join-Path $PlanningDir "metrics\codex-log.jsonl"
     if (-not (Test-Path $log)) { return @() }
     $rows = @()
     try {
-        foreach ($line in (Get-Content $log -Tail $MaxRows -ErrorAction SilentlyContinue)) {
-            try { $rows += ($line | ConvertFrom-Json -ErrorAction Stop) } catch {}
+        foreach ($line in (Get-Content $log -Tail 80 -ErrorAction SilentlyContinue)) {
+            try {
+                $row = $line | ConvertFrom-Json -ErrorAction Stop
+                if ($PhaseFilter -and "$($row.phase)" -ne "$PhaseFilter") { continue }
+                $rows += $row
+            } catch {}
         }
     } catch {}
-    return @($rows | Sort-Object ts -Descending)
+    return @($rows | Sort-Object ts -Descending | Select-Object -First $MaxRows)
 }
 
 function Get-SgsdCodexStatusLine {
@@ -335,7 +375,11 @@ function Get-SgsdCodexStatusLine {
     if (-not $Status) { return "codex --" }
     $age = if ($Status.updatedAgeSec -ne $null) { "{0}s" -f [Math]::Max(0, [int]$Status.updatedAgeSec) } else { "--" }
     $scopeParts = @($Status.phase, $Status.plan, $Status.step) | Where-Object { $_ -and "$_".Trim() -ne "" }
-    $scope = if ($scopeParts.Count -gt 0) { ($scopeParts -join "/") } else { "--" }
+    $scope = if (-not $Status.scopeCurrent -and $Status.currentPhase) {
+        "current P$($Status.currentPhase); old $($Status.staleScope)"
+    } elseif ($scopeParts.Count -gt 0) {
+        ($scopeParts -join "/")
+    } else { "--" }
     return ("codex {0} [{1}] [6.5 {2}] [9.5 {3}] [{4}]" -f `
         $Status.state, $age, `
         $(if ($Status.phaseAtcProvider) { $Status.phaseAtcProvider } else { "--" }), `
@@ -407,7 +451,9 @@ function Get-SgsdCodexVerdicts {
     param(
         [Parameter(Mandatory = $true)][string]$PlanningDir,
         [int]$MaxRows = 5,
-        [string]$ProviderFilter = ""
+        [string]$ProviderFilter = "",
+        [string]$MilestoneFilter = "",
+        [string]$PhaseFilter = ""
     )
 
     $verdicts = New-Object System.Collections.Generic.List[object]
@@ -422,6 +468,9 @@ function Get-SgsdCodexVerdicts {
             $files = Get-ChildItem -Path $root -Recurse -Filter "commit-reviews.jsonl" -ErrorAction SilentlyContinue -Force
             foreach ($f in $files) {
                 try {
+                    $src = "$($f.FullName)"
+                    if ($MilestoneFilter -and $src -notmatch [regex]::Escape("\milestones\$MilestoneFilter\")) { continue }
+                    if ($PhaseFilter -and $src -notmatch [regex]::Escape("\phases\$PhaseFilter-")) { continue }
                     foreach ($line in (Get-Content $f.FullName -ErrorAction SilentlyContinue)) {
                         if (-not "$line".Trim()) { continue }
                         try {
