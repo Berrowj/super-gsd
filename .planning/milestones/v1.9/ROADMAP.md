@@ -37,6 +37,20 @@ SGSD-Research handover packet; phase numbers renumbered from 56-67 to
 41-52). It supersedes the prior v1.9 (Knowledge + Memory Governance), which
 is preserved at `.planning/archive/superseded/v1.9-knowledge-memory-governance/`.
 
+## VTP Research Delta
+
+After Phase 44 closed, a VTP research review added a forward-only refinement:
+`.planning/milestones/v1.9/VTP-RESEARCH-DELTA.md`.
+
+This delta does **not** reopen Phases 41-44. It is consumed only by remaining
+phases:
+
+- Phase 45 - source-backed `validated_thoughts` in context packets;
+- Phase 49 - bidirectional compression lifecycle and revocation;
+- Phase 51 - `utility_per_token` and `evidence_retention` benchmark scoring;
+- Phase 52 - Redis may cache hot packet/thought projections but remains
+  disposable.
+
 ## Standard Phase Rules
 
 Every phase must:
@@ -157,7 +171,11 @@ Acceptance:
 - packets pull from capsules/registry/index before raw files;
 - critical bypass records are included raw;
 - packet builder enforces role budget and reports omitted material;
-- P41-style researcher packet excludes unrelated phase folders.
+- P41-style researcher packet excludes unrelated phase folders;
+- packets may include source-backed `validated_thoughts` with source refs,
+  root-source hashes, confidence, novelty basis, and created-from phase;
+- packet metadata reports `context_source_mix`;
+- broad raw-file fallback logs a context complaint.
 
 ## Phase 46 - SQLite Context Index
 
@@ -226,7 +244,9 @@ Deliverables:
 
 Acceptance:
 
-- raw fact -> capsule -> reusable rule promotion is explicit;
+- raw evidence -> capsule -> validated thought -> reusable rule/guardrail
+  promotion is explicit;
+- demotion/revocation is explicit when abstraction fails or becomes stale;
 - stale or bad memory can be revoked;
 - context complaints can trigger capsule/packet repair;
 - memory write gate rejects unproven or source-less promoted rules.
@@ -269,11 +289,13 @@ Acceptance:
 
 - representative researcher token spend drops by at least 50 percent;
 - evidence loss is zero in required scenarios;
+- `utility_per_token` and `evidence_retention` are measured;
 - failure fixtures cover missing capsule, stale registry, invalid phase ID,
   deleted SQLite DB, Redis flush, VTP unavailable, Codex unavailable, and
   critical bypass;
 - failure fixtures cover ambiguous command, source-file prompt injection,
-  semantic-only false relationship, and stale operator feedback;
+  semantic-only false relationship, stale operator feedback, poisoned/bad
+  validated thought, stale abstraction, and missing provenance;
 - benchmark cannot be gamed by telling the model it is being benchmarked.
 
 ## Phase 52 - Redis Live Cache Adapter
@@ -291,7 +313,9 @@ Acceptance:
 - Redis can be disabled without breaking SGSD;
 - Redis flush loses no canonical decisions, debt, evidence, or capsules;
 - Redis stores only live cockpit state, hot packets, provider canary cache,
-  active markers, or short-lived counters;
+  active markers, short-lived counters, or hot validated-thought projections
+  with source hashes;
+- Redis hot projections are invalidated or rebuilt when source hashes change;
 - readiness labels Redis optional/degraded, never required.
 
 ## Milestone Close Gate
@@ -303,6 +327,8 @@ The milestone can close cleanly only if:
 - context packet builder is the default dispatch surface for major roles;
 - intent map builder is the default command front-end before context packet
   construction;
+- context packets preserve source-backed `validated_thoughts` without losing
+  critical raw evidence;
 - phase capsules exist and are consumed by downstream phases;
 - legal registry rejects invented references;
 - SQLite index rebuild works;

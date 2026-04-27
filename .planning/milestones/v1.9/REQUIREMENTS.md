@@ -7,6 +7,7 @@ source_analysis:
   - .planning/analyses/2026-04-27-agent-context-bloat-audit.md
   - .planning/analyses/2026-04-27-agent-context-bloat-vtp-crosscheck.md
   - .planning/analyses/2026-04-27-intent-english-meaning-compiler.md
+  - .planning/milestones/v1.9/VTP-RESEARCH-DELTA.md
 phase_range: 41-52
 ---
 
@@ -153,6 +154,14 @@ At milestone close, SGSD must be able to:
   change the action; otherwise assumptions are logged and execution continues.
 - [ ] **PACKET-10** Speech/pronunciation fields are optional and included only
   for speech, teaching, writing-style, or presentation tasks.
+- [ ] **PACKET-11** Support source-backed `validated_thoughts` in packets:
+  `source_refs`, `root_source_hashes`, `confidence`, `created_from_phase`,
+  `used_for`, `novelty_basis`, and `compression_level` are mandatory.
+- [ ] **PACKET-12** Packet metadata reports `context_source_mix` across raw
+  evidence, phase capsules, validated thoughts, reusable rules, guardrails,
+  index snippets, and VTP packets.
+- [ ] **PACKET-13** Reject source-less thoughts and log a context complaint
+  when packet construction falls back to broad raw files.
 
 ### INDEX lane - Phase 46
 
@@ -204,6 +213,12 @@ At milestone close, SGSD must be able to:
 - [ ] **GOV-05** Add revocation/deletion protocol for stale or bad memory.
 - [ ] **GOV-06** Recurring intent maps can be promoted into reusable memory
   only with provenance, confidence, last validation, and revocation path.
+- [ ] **GOV-07** Implement bidirectional compression lifecycle:
+  raw_evidence -> phase_capsule -> validated_thought -> reusable_rule or
+  guardrail, with demotion/revocation when abstraction fails.
+- [ ] **GOV-08** Treat every durable memory write as a privileged state
+  transition with provenance, source hashes, allowed consumers, and
+  revalidation path.
 
 ### COCKPIT lane - Phase 50
 
@@ -233,6 +248,11 @@ At milestone close, SGSD must be able to:
 - [ ] **BENCH-06** Failure injection covers ambiguous command, source-file
   prompt injection, semantic-only false relationship, and stale operator
   feedback.
+- [ ] **BENCH-07** Measure `utility_per_token` and `evidence_retention`;
+  cheaper packets fail if required evidence is lost.
+- [ ] **BENCH-08** Failure injection covers poisoned/bad validated thought,
+  missing provenance, stale abstraction requiring demotion, and critical
+  bypass incorrectly compressed.
 
 ### REDIS lane - Phase 52
 
@@ -245,6 +265,9 @@ At milestone close, SGSD must be able to:
 - [ ] **REDIS-04** If Redis is unavailable, SGSD runs with SQLite/local files
   and records degraded cache status only.
 - [ ] **REDIS-05** Boot/readiness reports Redis as optional, never required.
+- [ ] **REDIS-06** Redis may cache hot validated-thought projections only with
+  source hashes, and must invalidate or rebuild them when canonical source
+  hashes change.
 
 ## Phase Map
 
