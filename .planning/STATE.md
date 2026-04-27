@@ -1,8 +1,8 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.8
-milestone_name: Gate Fitness + MUDA Pruning (queued)
-milestone_status: v1.7 SHIPPED 2026-04-27 — all 5 phases PASS; 0 new debt; v1.5 empty-baseline kill-check gap CLOSED; combined anti-slop ~9.5/10. v1.6 SHIPPED-WITH-DEBT-10 carryover unchanged at 10 rows. v1.8 (Phases 36-40) queued; readiness re-probe required before first dispatch.
+milestone_name: Gate Fitness + MUDA Pruning (active)
+milestone_status: v1.8 active — Phase 36 (Gate Value Telemetry) PASS 2026-04-27 @ d6c402f. Combined anti-slop ~9.5/10; 5 fix-loop entries cleared in-loop, 1 informational. Next: Phase 37/38/39 (parallel-safe per dependency 36 -> {37 || 38 || 39} -> 40). v1.7 SHIPPED carryover; v1.6 SHIPPED-WITH-DEBT-10 carryover unchanged at 10 rows.
 status: v1.7 ALL 5 PHASES COMPLETE PASS 2026-04-27. Ready for sgsd-complete-milestone v1.7.
 stopped_at: 2026-04-27 — Phase 35 closed PASS; v1.7 milestone ready for close.
 last_updated: "2026-04-27T11:15:00Z"
@@ -74,7 +74,13 @@ roadmap_run:
   backlog_canonical: .planning/metrics/crit-backlog.jsonl
   started: 2026-04-26
   current_milestone: v1.8
-  current_phase: 36
+  current_phase: 37
+  v1_8_progress:
+    phase_36: "PASS @ d6c402f (2 CRIT + 4 WARN; 5 in-loop, 1 info; combined anti-slop ~9.5/10)"
+    phase_37: "queued — MUDA Deletion Candidates"
+    phase_38: "queued — Risk-Tiered Gate Sampling"
+    phase_39: "queued — Gate Keep/Kill Review"
+    phase_40: "queued — Phase Folder Perfection Contract"
   milestones_shipped: ["v1.6 SHIPPED-WITH-DEBT-10 @ d510e32", "v1.7 SHIPPED @ 5690c38"]
 ---
 

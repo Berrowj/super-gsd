@@ -24,10 +24,11 @@ v1.7 phase ledger (all PASS):
 - Phase 35 (Generated System Map): PASS @ 5690c38 (0 CRIT + 7 WARNs; 5 in-loop, 1 info, 1 out-of-scope; anti-slop ~9.5/10)
 - Milestone close: SUMMARY @ .planning/milestones/v1.7/SUMMARY.md
 
-Next milestone: **v1.8 (Gate Fitness + MUDA Pruning)** — Phases 36-40.
-- Locked decisions per `.planning/discussions/2026-04-26-mass-discuss.md`.
-- Readiness re-probe REQUIRED before first dispatch (Rule 0 of orchestrator skill).
-- Current objective: kick off v1.8 readiness audit + Phase 36 standard workflow.
+v1.8 (Gate Fitness + MUDA Pruning) — Phases 36-40 — IN PROGRESS:
+- Phase 36 (Gate Value Telemetry): PASS @ d6c402f 2026-04-27 (2 CRITs cross-ledger + Codex misclassification + 4 WARNs all in-loop or informational; combined anti-slop ~9.5/10)
+- Current objective: Phase 37 (MUDA Deletion Candidates) — locked 37=A
+- Phases 37/38/39 dependency-parallel-safe; 40 last
+- Readiness GO @ 0ec5f57 still valid; codex provider AVAILABLE
 
 ## Critical Runtime Rule
 
