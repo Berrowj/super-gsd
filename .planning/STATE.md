@@ -3,21 +3,30 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Stable Command Contracts + Route Intelligence
 milestone_status: v1.7 PROMOTED 2026-04-27 (5 phases 31-35; locked decisions per DISCUSS.md; audit warning honored via EXISTING-SURFACE-AUDIT.md — fifth contract at command-output level, no overlap with 4 existing). v1.6 SHIPPED-WITH-DEBT-10 closed at d510e32; 10 deferred items carry forward.
-status: v1.7 active — Phase 31 (Canonical Command Envelope) starting.
-stopped_at: 2026-04-27 — v1.6 milestone close finalized post-Codex-rerun.
-last_updated: "2026-04-27T06:30:00Z"
-last_activity: 2026-04-27 — Codex self-test probe fixed (was checking config.json; Codex CLI moved to config.toml). Replaced with behavioral check (codex login status + canary). 8 missing Codex reviews rerun against actual phases/commits — 8/8 PASS. Phase 28 T1 Codex review surfaced real CRIT (vocab violation) — fixed. New tools provider-health/check.cjs + backlog-schema/check.cjs added with self-tests. Status-consistency PASS at every phase + milestone level.
+status: v1.7 active — Phase 31 (Canonical Command Envelope) PASS 2026-04-27. Next: Phase 32 (Route Decision Ledger).
+stopped_at: 2026-04-27 — Phase 31 closed PASS post dual-provider ATC fixes.
+last_updated: "2026-04-27T07:38:00Z"
+last_activity: "2026-04-27 — Phase 31 ATC dual-provider review surfaced 1 CRIT (schema required-list under-enforced 5/13 vs ENV-01 contract) + 5 WARNs (3 vocab-gaps Claude + 2 pane-state/future-codes Codex). All 6 fixed in-loop in 1 attempt each. Combined anti-slop 10/10. Codex behaviorally AVAILABLE throughout (4 attempts; 3 transient/wrapper, 1 success after fixing prompt VERDICT->FINDINGS). Phase 31 closed at 558260f."
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
-  phase_26: "1/1 plan complete — PASS ✓ 2026-04-26 (cleared post-rerun)"
-  phase_27: "1/1 plan complete — PASS ✓ 2026-04-26 (cleared post-rerun)"
-  phase_28: "3/3 tasks complete — PASS-WITH-DEFERRED-5 ✓ 2026-04-26 (4 codex rows cleared post-rerun)"
-  phase_29: "2/2 tasks complete — PASS-WITH-DEFERRED-3 ✓ 2026-04-27 (1 codex row cleared)"
-  phase_30: "1/1 plan complete — PASS-WITH-DEFERRED-2 ✓ 2026-04-27 (1 codex row cleared)"
+  v1_7:
+    total_phases: 5
+    completed_phases: 1
+    completed_plans: 1
+    percent: 20
+    phase_31: "1/1 plan complete — PASS ✓ 2026-04-27 (CRIT+WARN fixed in-loop, anti-slop 10/10)"
+    phase_32: "queued — Route Decision Ledger"
+    phase_33: "queued — Repair Instruction Contract"
+    phase_34: "queued — Canonical Review Ledger (closes v1.5 empty-baseline gap)"
+    phase_35: "queued — Generated System Map"
+  v1_6_summary:
+    total_phases: 5
+    completed_phases: 5
+    percent: 100
+    phase_26: "PASS ✓ 2026-04-26"
+    phase_27: "PASS ✓ 2026-04-26"
+    phase_28: "PASS-WITH-DEFERRED-5 ✓ 2026-04-26"
+    phase_29: "PASS-WITH-DEFERRED-3 ✓ 2026-04-27"
+    phase_30: "PASS-WITH-DEFERRED-2 ✓ 2026-04-27"
 backlog:
   total_unresolved: 10
   by_kind:
@@ -30,6 +39,7 @@ backlog:
     "28": 5
     "29": 3
     "30": 2
+    "31": 0
   cleared_post_rerun: 8
 v1_6_complete:
   shipped: 2026-04-27
@@ -47,8 +57,9 @@ roadmap_run:
   locked_decisions: .planning/discussions/2026-04-26-mass-discuss.md
   backlog_canonical: .planning/metrics/crit-backlog.jsonl
   started: 2026-04-26
-  current_milestone: v1.6
-  milestones_shipped: []
+  current_milestone: v1.7
+  current_phase: 32
+  milestones_shipped: ["v1.6 SHIPPED-WITH-DEBT-10 @ d510e32"]
 ---
 
 # Project State
