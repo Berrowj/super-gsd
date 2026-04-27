@@ -69,6 +69,27 @@ function extractFlag(command, flag) {
   return m ? (m[1] || m[2] || m[3] || '') : '';
 }
 
+function readActivePhase(root) {
+  // (1) Primary: env var set by orchestrator
+  const env = process.env.SGSD_ACTIVE_PHASE;
+  if (env && /^[0-9]+$/.test(env)) return env;
+  // (2) Fallback: anchored YAML frontmatter parse of .planning/STATE.md
+  try {
+    const content = fs.readFileSync(path.join(root, '.planning', 'STATE.md'), 'utf8');
+    const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    if (!fmMatch) return null;
+    for (const line of fmMatch[1].split(/\r?\n/)) {
+      const m = line.match(/^\s*(?:current_phase|phase):\s*"?([0-9]+)"?\s*$/);
+      if (m) {
+        const candidate = m[1];
+        if (/^[0-9]+$/.test(candidate)) return candidate;
+      }
+    }
+  } catch { /* fall through */ }
+  // (3) Final fallback - never invent
+  return null;
+}
+
 // Claude Code sends hook data as JSON on stdin
 let stdinBuf = '';
 const stdinTimeout = setTimeout(() => process.exit(0), 2000);
@@ -140,13 +161,9 @@ try {
       target = truncate(JSON.stringify(toolInput), 80);
   }
 
-  // Try to detect current phase from STATE.md (best effort — single file read)
-  let phase = '';
-  try {
-    const stateContent = fs.readFileSync(path.join(root, '.planning', 'STATE.md'), 'utf8');
-    const match = stateContent.match(/(?:current_phase|phase):\s*(\S+)/);
-    if (match) phase = match[1];
-  } catch {}
+  // Detect current phase: env var primary -> anchored frontmatter -> null
+  let phase = readActivePhase(root);
+  if (phase !== null && !/^[0-9]+$/.test(phase)) phase = null;  // 27-PLAN rule 2 validation guard
 
   // Write log entry
   const entry = {
