@@ -299,7 +299,9 @@ function F3_source_backed_snippets() {
     const queryMod = require('./query.cjs');
     queryMod.close();
     const dbPath = path.join(planningDir, 'cache', 'context-index.db');
-    const rows = queryMod.query('synthetic', { kinds: ['capsule'], limit: 5, dbPath: dbPath });
+    // Synthetic v9.0 milestone is not in canonical legal-keys -> use
+    // filter_invalid:false so source-backed snippet shape can be asserted.
+    const rows = queryMod.query('synthetic', { kinds: ['capsule'], limit: 5, dbPath: dbPath, filter_invalid: false });
     queryMod.close();
     assert(rows.length >= 1, 'F3: at least 1 result for synthetic capsule query');
     for (const row of rows) {

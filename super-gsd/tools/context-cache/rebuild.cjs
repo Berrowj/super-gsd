@@ -498,8 +498,10 @@ function _walkGates(repoRoot) {
   const sourceHash = _sha256Bytes(buf);
   const relSource = path.relative(repoRoot, gatesPath).split(path.sep).join('/');
 
-  // Block-parse: "  - name: GATE-NAME" begins; ends at next "  - name: " or end.
-  const blockRe = /^  - name: (\S+)\s*$([\s\S]*?)(?=^  - name: |\n[a-z][a-zA-Z_]*:|\Z)/gm;
+  // Block-parse: "  - name: GATE-NAME" begins; ends at next "  - name: "
+  // or at a top-level (column 0) lowercase key, or at EOF.
+  // JavaScript regex has no \Z; we use $(?![\s\S]) as end-of-string anchor.
+  const blockRe = /^  - name: (\S+)\s*\n([\s\S]*?)(?=^  - name: |^[a-z][a-zA-Z_]*:|$(?![\s\S]))/gm;
   let m;
   while ((m = blockRe.exec(text)) !== null) {
     const name = m[1];
