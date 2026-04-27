@@ -26,6 +26,7 @@ Return EXACTLY this JSON. No prose. No explanation.
   "model": "haiku|sonnet|opus",
   "atc_tier": "skip|lite|full|gate",
   "deliberate": false,
+  "work_risk": "low|medium|high",
   "reason": "one sentence max"
 }
 ```
@@ -50,6 +51,19 @@ Deliberation trigger (deliberate: true):
 - Architecture change
 - New external dependency
 - Budget/timeline impact
+
+Work-risk scoring (Phase 38 SAMPLE-02; locked decisions 38.1-38.2):
+- 4 primary inputs (each contributes weight 0.25):
+  * diff_lines (clamp01(diff_lines / 200))
+  * files_touched_count (clamp01(files_touched_count / 6))
+  * phase_type (docs/config=0; refactor=0.3; feature/bugfix=0.7; else=0.5)
+  * phase_includes_security_review (true=1.0; false=0)
+- 1 secondary input (weight 0.10; <=50% of any primary per lock 38.2):
+  * gate_fitness_history (avg block-rate from Phase 36 summarize();
+    optional; cold-start contributes 0)
+- Total clamped to 1.0; thresholds: total>=0.6 -> high; >=0.3 -> medium; else low.
+- See super-gsd/scripts/lib/sampling-decider.cjs::scoreWorkRisk for the
+  canonical implementation (single source of truth).
 </rules>
 
 <tier_prompts>
