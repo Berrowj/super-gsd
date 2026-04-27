@@ -281,6 +281,42 @@ PHASE-CAPSULE.json holds detail. Capsule = projection. Canonical =
 .planning + git.
 </step_4_7b_phase_capsule_backfill>
 
+<step_4_7c_intent_packet_close>
+## Step 4.7-ter: Intent-Map + Packet-Log Close (Phase 45 -- PACKET-00, PACKET-05, Lock 13)
+
+Bindings:
+- PACKET-00: read-only tail of `.planning/metrics/intent-map.jsonl` (intent map ledger).
+- PACKET-05: read-only tail of `.planning/metrics/context-packet-log.jsonl` (packet log ledger).
+
+Read-only summary across the closing milestone's intent-map +
+context-packet + context-complaints ledger tails. NEVER rewrites or
+compacts; NEVER halts milestone close (Lock 13).
+
+```javascript
+const path = require('path');
+const planningDir = path.join(process.cwd(), '.planning');
+
+function safeReadJsonlTail(p, sinceTs) {
+  try {
+    const fs = require('fs');
+    if (!fs.existsSync(p)) return [];
+    return fs.readFileSync(p, 'utf8').split('\n').filter(Boolean)
+      .map(l => { try { return JSON.parse(l); } catch (_) { return null; } })
+      .filter(r => r && (!sinceTs || r.ts >= sinceTs));
+  } catch (_) { return []; }
+}
+const since24h = new Date(Date.now() - 86400000).toISOString();
+const intentRows  = safeReadJsonlTail(path.join(planningDir, 'metrics', 'intent-map.jsonl'), since24h);
+const packetRows  = safeReadJsonlTail(path.join(planningDir, 'metrics', 'context-packet-log.jsonl'), since24h);
+const complaints  = safeReadJsonlTail(path.join(planningDir, 'metrics', 'context-complaints.jsonl'), since24h);
+// Emit summary counts to milestone-close artifacts:
+//   intent_maps_compiled, packets_built_clean, packets_with_omitted_material,
+//   packets_p41_bloat_avoided, prompt_injection_filtered_count,
+//   semantic_only_demoted_count, total_omitted_tokens, total_bypass_preserved.
+// Read-only; never throws upward (Lock 13). Step 5 continues regardless.
+```
+</step_4_7c_intent_packet_close>
+
 <step_5_cross_phase_check>
 ## Step 5: Cross-Phase Integration Check
 

@@ -1297,6 +1297,47 @@ REPEAT:
      possible point (per-task commit) instead of accumulating until the
      phase-end ATC review catches it as rework.
 
+  7.5. CONTEXT PACKET BUILD (Phase 45 -- Lock 4 + Lock 10 + Lock 13)
+     // Step 7.5: CONTEXT PACKET BUILD -- intent-map -> context-packet -> dispatch
+     // Replaces raw-context-inheritance with role-specific packet build.
+     // Lock 10: operator command MUST flow through intent-map FIRST.
+     // Lock 4:  packets are the only legal dispatch surface.
+     // Lock 13: never throws; falsey sentinel triggers legacy fallback +
+     //          DEVIATIONS log via context-complaints.jsonl.
+
+     const path = require('path');
+     const { compileIntentMap } = require(
+       path.join(process.cwd(), 'super-gsd', 'tools', 'intent-map', 'build.cjs')
+     );
+     const { buildPacket } = require(
+       path.join(process.cwd(), 'super-gsd', 'tools', 'context-packet', 'build.cjs')
+     );
+     const planningDir = path.join(process.cwd(), '.planning');
+
+     try {
+       const intent_map = compileIntentMap(rawTurnPrompt, {
+         planningDir, milestone: ctx.milestone, phase: ctx.phase, mode: 'auto'
+       });
+       if (!intent_map || intent_map.ok === false) {
+         // Legacy fallback: use Step 7 composed prompt as-is.
+         // Falsey sentinel triggers DEVIATIONS row + context-complaints.jsonl.
+         logDeviation('packet_build_fallback', 'intent_map compile returned falsey sentinel');
+       } else {
+         const packet = buildPacket(role, intent_map.intent_id, {
+           planningDir, milestone: ctx.milestone, phase: ctx.phase,
+           dependency_depth_cap: 2, mode: 'auto'
+         });
+         if (packet && packet.packet_body) {
+           composedPrompt = packet.packet_body; // SUBSTITUTE for raw context.
+         } else {
+           logDeviation('packet_build_fallback', 'buildPacket returned falsey sentinel');
+         }
+       }
+     } catch (e) {
+       // Lock 13: never propagate. Fall back to Step 7 composed prompt.
+       logDeviation('packet_build_exception', e.message);
+     }
+
   8. DISPATCH SUB-AGENT
      FIRST: TaskCreate({
        content: "Phase {N}: {agent_type_short} — {one-line goal}",
