@@ -93,6 +93,40 @@ In interactive mode: pause if kill fires, require confirmation before Step 4.
 4. Flag any gate that skip-drifted more than 3 times during the milestone.
 </step_4_gate_drift>
 
+<step_4_5_gate_keep_kill_rubric>
+## Step 4.5: Gate Keep/Kill Rubric (Phase 39 — RUBRIC-01..04)
+
+Run the mechanical rubric over the milestone's gate telemetry. The
+rubric reads `.planning/metrics/gate-value-log.jsonl` (Phase 36),
+`.planning/metrics/review-ledger.jsonl` (Phase 34),
+`.planning/metrics/edge-guard-log.jsonl` (defensive: may be absent),
+and `super-gsd/registry/gates.yaml` (read-only).
+
+```javascript
+const { runRubric, renderTable } = require(
+  './super-gsd/tools/gate-keep-kill/rubric.cjs'
+);
+const rows = runRubric('.planning', { milestone: '{{version}}' });
+const md   = renderTable(rows);
+require('fs').writeFileSync(
+  '.planning/milestones/{{version}}/gate-keep-kill.md',
+  '# Gate Keep/Kill Rubric (milestone {{version}})\n\n' +
+  '> Mechanical recommendation. Manual override at operator judgment.\n' +
+  '> Locked decision 39=B: auto-execute kills are deferred to operator.\n\n' +
+  md + '\n', 'utf8');
+```
+
+Per lock 39=B: this step ONLY produces the recommendation table. The
+operator (or future automation explicitly added in v1.9+) decides
+whether to act on `kill` rows. The script does NOT mutate
+`super-gsd/registry/gates.yaml` or any registry file.
+
+Defer-on-empty (RUBRIC-03): gates with zero fires in
+`gate-value-log.jsonl` MUST classify as `defer`, not `kill`. The first
+v1.8 close will produce a table where most gates are `defer` with reason
+`no_fires_yet` — correct cold-start state.
+</step_4_5_gate_keep_kill_rubric>
+
 <step_5_cross_phase_check>
 ## Step 5: Cross-Phase Integration Check
 
@@ -140,6 +174,25 @@ If the helper returns an empty array, write the literal line:
 This converts open repair contracts into explicit accountable backlog
 visible at milestone close, instead of silent debt that leaks into the
 next milestone.
+
+### Gate Keep/Kill Rubric subsection (Phase 39 — RUBRIC-04)
+
+Append to SUMMARY.md a new subsection AFTER `## Unresolved Repairs` and
+BEFORE the existing `## Connections` section. Source: read the file
+`.planning/milestones/{{version}}/gate-keep-kill.md` produced by Step 4.5;
+embed its contents inline:
+
+```markdown
+## Gate Keep/Kill Rubric (milestone {{version}})
+
+> Mechanical recommendation. Operator judgment for any `kill` row.
+
+{{contents of .planning/milestones/{{version}}/gate-keep-kill.md}}
+```
+
+If `.planning/milestones/{{version}}/gate-keep-kill.md` does not exist
+(Step 4.5 failed), write the literal line:
+`(rubric output unavailable — see provider_unavailable log)`.
 </step_6_summary>
 
 <step_7_vtp_bidirectional>
