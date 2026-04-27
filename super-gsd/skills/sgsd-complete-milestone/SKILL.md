@@ -30,6 +30,18 @@ milestone is marked complete.
 3. Reject if any plan in `.planning/phases/` lacks `schema_version: 2` unless it explicitly
    declares `v1_legacy: true`.
 4. If `.planning/milestones/{{version}}/SUMMARY.md` already exists, exit PASS immediately.
+5. **Provider health + status-consistency precondition gate.** Run, in order:
+   - `bash super-gsd/scripts/codex-exec.sh --self-test` (must exit 0; logs probe metadata)
+   - `node super-gsd/tools/provider-health/check.cjs --provider codex --behavioral` (real canary; exit 0 = AVAILABLE, exit 1 = UNAVAILABLE)
+   - `node super-gsd/tools/status-consistency/check.cjs --milestone {{version}}` (exit 0 = OK)
+   - `node super-gsd/tools/backlog-schema/check.cjs` (exit 0 = no schema violations)
+   - `node super-gsd/scripts/lib/crit-backlog.cjs --self-test` (exit 0 = lib healthy)
+6. **If provider canary returns UNAVAILABLE (exit 1):** auto mode CONTINUES, but:
+   - Append a `verifier_fail` row to `.planning/metrics/crit-backlog.jsonl` via the lib (NOT manual write — the lib's `_guardCodexUnavailableClaim` requires `provider_health_check: { behavioral: true, available: false }` proof which the canary just produced)
+   - Carry the row forward to the milestone's `next-debt-milestone` tag
+   - Set milestone status accordingly (SHIPPED-WITH-DEBT-N, not SHIPPED clean)
+7. **If status-consistency or backlog-schema return non-zero:** STOP — never close a milestone with status that doesn't match backlog reality. Surface the failure in the close report, fix in-loop OR halt for operator.
+8. Append milestone-close metadata row to `.planning/metrics/codex-log.jsonl` keyed `step="milestone-close-precondition"` with the canary result + status-consistency exit + backlog-schema exit.
 </step_0_precondition>
 
 <step_1_governance_audit>

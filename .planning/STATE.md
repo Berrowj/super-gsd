@@ -33,7 +33,10 @@ backlog:
   cleared_post_rerun: 8
 v1_6_complete:
   shipped: 2026-04-27
-  status: SHIPPED-WITH-DEBT-18
+  status: SHIPPED-WITH-DEBT-10
+  initial_backlog: 18
+  cleared_post_rerun: 8
+  remaining_unresolved: 10
   phases: 5
   plans: 8
 checkpoint: .planning/ORCHESTRATOR-CHECKPOINT.md (will update at next pause for v1.7 resume)

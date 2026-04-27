@@ -21,6 +21,7 @@
 param(
     [string]$ProjectDir = ".",
     [switch]$SkipPreflight,
+    [switch]$FullPreflight,  # additive: runs the expensive Codex contract canary; default boot stays cheap
     [switch]$NoOpen,
     [switch]$Bootstrap,
     [switch]$Backfill,
@@ -600,14 +601,19 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
         }
     }
 
-    # 7. Codex live probe — codex-exec.sh self-test (skip-network keeps preflight fast)
+    # 7. Codex live probe — codex-exec.sh self-test
     #    Self-test runs 4 sub-probes in priority order: PATH (10) → auth (11)
     #    → timeout-math (12) → contract (13). Exit 0 = all 4 PASS. Exit N>0 =
     #    Nth probe failed and ones after it weren't reached.
+    #
+    #    Modes:
+    #      Default boot          → --skip-network (cheap; auth via codex login status; no API call)
+    #      -FullPreflight        → without --skip-network (real contract canary; burns ~13k Codex tokens)
     $codexExec = Join-Path $ScriptsDir "codex-exec.sh"
     if (Test-Path $codexExec) {
         $bashUnix  = $BashExe -replace '\\','/'
-        $codexCmd  = "'$bashUnix' '$($codexExec -replace '\\','/')' --self-test --skip-network 2>&1"
+        $networkFlag = if ($FullPreflight) { '' } else { '--skip-network' }
+        $codexCmd  = "'$bashUnix' '$($codexExec -replace '\\','/')' --self-test $networkFlag 2>&1"
         $null      = & $BashExe -c $codexCmd
         $rc        = $LASTEXITCODE
         # ✓/✗ per probe based on which exit fired
@@ -623,6 +629,28 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
             12      { Write-Step "Codex timeout-math probe failed ($probeLine)" "WARN" Yellow }
             13      { Write-Step "Codex contract probe failed ($probeLine)" "WARN" Yellow }
             default { Write-Step "Codex self-test exit $rc (non-blocking)" "WARN" Yellow }
+        }
+
+        # 7b. Provider-health behavioral probe (always cheap — no API call by default).
+        # Cross-checks codex login status against the self-test result. Catches
+        # the v1.6 incident class where the script-level self-test gave a
+        # false-negative on auth even though the CLI was logged in.
+        # On -FullPreflight, also dispatches the contract canary (real call).
+        $providerHealth = Join-Path $ProjectDir "super-gsd/tools/provider-health/check.cjs"
+        if (Test-Path $providerHealth) {
+            $phArgs = @($providerHealth, '--provider', 'codex')
+            if ($FullPreflight) { $phArgs += '--behavioral' }
+            # IMPORTANT: do not pipe through Select-Object — it closes the pipeline early
+            # and kills the node process before it exits, producing a false UNAVAILABLE.
+            # Capture full output, then read $LASTEXITCODE.
+            $phOut = & node @phArgs 2>&1
+            $phRc = $LASTEXITCODE
+            if ($phRc -eq 0) {
+                $phMode = if ($FullPreflight) { 'login-status + canary' } else { 'login-status' }
+                Write-Step "Provider-health (codex) AVAILABLE [$phMode]" "OK" Green
+            } else {
+                Write-Step "Provider-health (codex) UNAVAILABLE [exit $phRc] — see metrics/codex-log.jsonl" "WARN" Yellow
+            }
         }
 
         # Codex responsibilities — list gates whose reviewer_provider is codex-cli-reviewer.
