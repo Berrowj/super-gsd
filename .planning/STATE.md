@@ -3,33 +3,40 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Cockpit 2.0 + Startup Verification
 milestone_status: ACTIVE — promoted 2026-04-26 under full-roadmap autopilot run #2 (after reset of run #1). Phases 26-30. ROADMAP-AGENT.md is the controlling contract; DISCUSS.md captures locked decisions. CRIT-BACKLOG canonical at metrics/crit-backlog.jsonl.
-status: v1.6 active — Phases 26/27/28/29 closed (4/5 PASS-WITH-DEFERRED); Phase 30 next; CHECKPOINT WRITTEN.
-stopped_at: 2026-04-27 — Phase 29 closed at a861d95; checkpoint written for next session.
-last_updated: "2026-04-27T01:10:00Z"
-last_activity: 2026-04-27 — Phase 29 closed PASS-WITH-DEFERRED-4 (T1 5-line lib hardening + T2 12 fixtures 12/12 pass). Status-consistency OK on all 4 closed phases.
+milestone_status: v1.6 ✓ SHIPPED-WITH-DEBT-18 2026-04-27 (5/5 phases complete; 18 deferred items in CRIT-BACKLOG; 0 edge_guard_miss; 0 CRIT). v1.7 not yet promoted. Total run-2 deliverable inventory: Mission Strip lib + soft-load wire + stamper fix + 12 unit fixtures + 6 acceptance fixtures + 3 harness scripts + COCKPIT-ACCEPTANCE-EVIDENCE doc.
+status: v1.6 SHIPPED-WITH-DEBT-18; v1.7 promotion next.
+stopped_at: 2026-04-27 — Phase 30 closed at 8ee945e; v1.6 SUMMARY.md written; awaiting v1.7 promotion.
+last_updated: "2026-04-27T05:50:00Z"
+last_activity: 2026-04-27 — Phase 30 closed PASS-WITH-DEFERRED-3 (10/10 acceptance fixtures + 18/18 boot/host/README + boot timing 3000-3438ms); v1.6 SUMMARY.md written; status-consistency OK at milestone level.
 progress:
   total_phases: 5
-  completed_phases: 4
-  total_plans: 7
-  completed_plans: 7
-  percent: 80
+  completed_phases: 5
+  total_plans: 8
+  completed_plans: 8
+  percent: 100
   phase_26: "1/1 plan complete — PASS-WITH-DEFERRED-1 ✓ 2026-04-26"
   phase_27: "1/1 plan complete — PASS-WITH-DEFERRED-1 ✓ 2026-04-26"
   phase_28: "3/3 tasks complete — PASS-WITH-DEFERRED-9 ✓ 2026-04-26"
   phase_29: "2/2 tasks complete — PASS-WITH-DEFERRED-4 ✓ 2026-04-27"
-  phase_30: "queued — startup verification + cockpit acceptance"
+  phase_30: "1/1 plan complete — PASS-WITH-DEFERRED-3 ✓ 2026-04-27"
 backlog:
-  total_unresolved: 15
+  total_unresolved: 18
   by_kind:
     verifier_fail: 7
-    phase_atc: 8
+    phase_atc: 11
     edge_guard_miss: 0
   by_phase:
     "26": 1
     "27": 1
     "28": 9
     "29": 4
-checkpoint: .planning/ORCHESTRATOR-CHECKPOINT.md (written 2026-04-27 at session pause)
+    "30": 3
+v1_6_complete:
+  shipped: 2026-04-27
+  status: SHIPPED-WITH-DEBT-18
+  phases: 5
+  plans: 8
+checkpoint: .planning/ORCHESTRATOR-CHECKPOINT.md (will update at next pause for v1.7 resume)
 roadmap_run:
   mode: full-autopilot
   scope: v1.6 → v2.1

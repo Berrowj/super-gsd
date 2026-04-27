@@ -1,147 +1,136 @@
 ---
 checkpoint: full-roadmap-autopilot-run-2
 created: 2026-04-27
+updated: 2026-04-27 (v1.6 SHIPPED-WITH-DEBT-18; awaiting v1.7 promotion)
 session: opus-4.7-1m
 mode: autonomous
 controlling_principle: Autonomy continues; evidence tells the truth.
 ---
 
-# Orchestrator Checkpoint — Mid-v1.6
+# Orchestrator Checkpoint — v1.6 SHIPPED, v1.7 next
+
+## Status
+
+**v1.6 SHIPPED-WITH-DEBT-18** as of commit 8ee945e (Phase 30 close).
+v1.7 (Stable Command Contracts + Route Intelligence; Phases 31-35) is
+the next milestone but has not been promoted yet.
 
 ## Why this checkpoint
 
-Context budget conservation. 4/5 v1.6 phases closed cleanly with full
-SGSD workflow + status-consistency PASS each. Phase 30 + v1.6 close +
-v1.7→v2.1 promotion remain for next session.
+Context budget. v1.6 took 5 phases × full SGSD workflow each (research +
+discuss + plan + plan-check + executor(s) + ATC + MUDA + verifier +
+phase-ATC + curate). v1.7 will need the same depth × 5 phases. Realistic
+to plan as a multi-session run.
 
-This is **not** a hard-stop condition (per the user's relaxed-bar rule —
-the 5 hard stops are credentials/destructive/privacy/runtime/operator).
-It's a deliberate operator-friendly checkpoint so v1.6 progress can be
-reviewed before further token spend.
+This is **not** a hard-stop condition.
 
-## Roadmap Run Progress (v1.6 only — v1.7-v2.1 not started)
+## v1.6 Closed Phases
 
-| Phase | Status | Closed at | Backlog rows tagged |
-|------:|--------|-----------|--------------------:|
-| 26 — Operator Question Contract | PASS-WITH-DEFERRED-1 | cec7126 | 1 (Codex unavail) |
-| 27 — Data Source + Objective Tree | PASS-WITH-DEFERRED-1 | 7c3b1cc | 1 (Codex unavail) |
-| 28 — Mission Control 2.0 Layout | PASS-WITH-DEFERRED-9 | b2f0300 | 9 (4 codex unavail + 4 WARN + 1 NIT) |
-| 29 — Agent + Codex Visibility | PASS-WITH-DEFERRED-4 | a861d95 | 4 (1 codex unavail + 1 MUDA WARN + 2 phase_atc WARN) |
-| 30 — Startup + Cockpit Acceptance | NOT STARTED | — | — |
+| Phase | Status | Closed at | Backlog rows |
+|------:|--------|-----------|-------------:|
+| 26 — Operator Question Contract | PASS-WITH-DEFERRED-1 | cec7126 | 1 |
+| 27 — Data Source + Objective Tree | PASS-WITH-DEFERRED-1 | 7c3b1cc | 1 |
+| 28 — Mission Control 2.0 Layout | PASS-WITH-DEFERRED-9 | b2f0300 | 9 |
+| 29 — Agent + Codex Visibility | PASS-WITH-DEFERRED-4 | a861d95 | 4 |
+| 30 — Startup + Cockpit Acceptance | PASS-WITH-DEFERRED-3 | 8ee945e | 3 |
 
-Total backlog rows: **15** (all `verifier_fail` Codex unavail or
-`phase_atc` non-blocking WARN/NIT). Zero `edge_guard_miss`. No CRIT.
-No CANDIDATE-WITH-DEBT.
+Total backlog: **18 rows** — 7 Codex unavail (clears once auth fixed) + 11 phase_atc WARN/NIT.
 
-## Next Action
+## Roadmap Run Progress
 
-When resuming:
+| Milestone | Status | Phases | Notes |
+|-----------|--------|--------|-------|
+| v1.6 Cockpit 2.0 + Startup | ✅ shipped (with debt) | 26-30 | SHIPPED-WITH-DEBT-18 |
+| v1.7 Command Contracts + Route Intel | 🔜 not promoted | 31-35 | next |
+| v1.8 Gate Fitness + MUDA | 🔜 queued | 36-40 | |
+| v1.9 Knowledge + Memory | 🔜 queued | 41-45 | |
+| v2.0 Failure Injection | 🔜 queued | 46-50 | |
+| v2.1 Distribution + Onboarding | 🔜 queued | 51-55 | |
 
-1. Read `.planning/STATE.md` frontmatter (Phase 30 next)
-2. Read `.planning/ROADMAP-AGENT.md` Phase 30 entry (acceptance scenario phase)
-3. Phase 30 deliverables per ROADMAP-AGENT.md:
-   - Run all 8 acceptance scenarios from `COCKPIT-2.0-SCOPE.md` (live or fixture)
-   - Capture `sgsd-boot.ps1 -NoOpen` timing
-   - Verify dashboard host failure pane
-   - Update README quick-start (only if change needed; v1.6 Phase 30 already added link last run that was reset)
-   - Produce `super-gsd/docs/COCKPIT-ACCEPTANCE-EVIDENCE.md` (8 scenarios × evidence)
-4. Standard 10-step workflow per ROADMAP-AGENT.md (verification-heavy)
-5. After Phase 30 close → v1.6 milestone close + SUMMARY.md
-6. Then promote v1.7 (5 phases 31-35; full SGSD workflow each)
+## Next Action (resume here)
+
+When resuming auto mode:
+
+1. Read `.planning/STATE.md` frontmatter (v1.6 SHIPPED-WITH-DEBT-18)
+2. Read `.planning/ROADMAP-AGENT.md` v1.7 milestone block + Phase 31-35 entries
+3. Read `.planning/discussions/2026-04-26-mass-discuss.md` v1.7 locked decisions:
+   - Phase 31 (envelope): A — new envelope-v1, separate from existing 4 contracts
+   - Phase 32 (route ledger): A — boundary-only logging (6 named decisions)
+   - Phase 33 (repair instruction): C — text + optional `repair_command` (under 26.3 safety)
+   - Phase 34 (review ledger): C — aggregator + real-time writer
+   - Phase 35 (system map): B — registries + frontmatter (no dependency graph)
+4. Promote v1.7:
+   - mkdir `.planning/milestones/v1.7/phases/{31-canonical-envelope,32-route-decision-ledger,33-repair-instruction,34-canonical-review-ledger,35-generated-system-map}`
+   - Write `v1.7/EXISTING-SURFACE-AUDIT.md` (audit warning: 4 contracts already exist — must NOT collide)
+   - Write `v1.7/REQUIREMENTS.md`
+   - Update STATE.md to v1.7 active
+   - Commit promotion atomically
+5. Run `sgsd-milestone-readiness` for v1.7
+6. Begin Phase 31 standard workflow
 
 ## Resume Prompt
-
-For next session:
 
 ```
 You are in C:\Users\jack.berrow\GSDedits.
 
-Read first:
-- .planning/ORCHESTRATOR-CHECKPOINT.md (this file)
-- .planning/STATE.md frontmatter
-- .planning/ROADMAP-AGENT.md Phase 30 block
-- .planning/discussions/2026-04-26-mass-discuss.md (locked decisions)
+v1.6 shipped 2026-04-27 (SHIPPED-WITH-DEBT-18). v1.7 is next.
 
-Resume v1.6 at Phase 30 (Startup Verification + Cockpit Acceptance —
-verification phase). Standard SGSD workflow per ROADMAP-AGENT.md. Codex
-remains unavailable (auth FAIL); each phase closes PASS-WITH-DEFERRED-N
-honestly per relaxed bar. Status-consistency check before every commit.
+Read .planning/ORCHESTRATOR-CHECKPOINT.md (this file).
+Read .planning/STATE.md frontmatter.
+Read .planning/ROADMAP-AGENT.md v1.7 block.
+Read .planning/discussions/2026-04-26-mass-discuss.md v1.7 locked decisions.
 
-Continue full-roadmap autopilot. Autonomy continues; evidence tells
-the truth.
+Promote v1.7 (Stable Command Contracts + Route Intelligence; Phases 31-35).
+Audit warning: 4 contracts already exist (review-providers, handover-contract-v2,
+plan-schema-v2, code-reviewer-v1) — v1.7 must NOT collide. Use the audit warning
+in EXISTING-SURFACE-AUDIT.md. Standard SGSD workflow per phase.
+
+Codex auth still FAIL — every phase will close PASS-WITH-DEFERRED-N honestly.
+Status-consistency check before every commit.
+
+Continue full-roadmap autopilot. Autonomy continues; evidence tells the truth.
 ```
 
-## Files Changed Since Session Start (this session)
-
-Infrastructure (committed at c00a958, before promotion):
-- `super-gsd/scripts/lib/crit-backlog.cjs` (canonical writer/reader)
-- `super-gsd/tools/status-consistency/check.cjs` (status-vs-backlog gate)
-- `.planning/metrics/crit-backlog.jsonl` (initialized)
-- `.planning/CRIT-BACKLOG.md` (rendered view)
-- `.planning/ROADMAP-AGENT.md` (controlling contract — patches 1, 2, 3, 4 applied)
-- `.planning/discussions/2026-04-26-mass-discuss.md` (locked decisions)
-
-v1.6 milestone scaffolding (committed at ebae4bd):
-- `.planning/milestones/v1.6/REQUIREMENTS.md`
-- `.planning/milestones/v1.6/EXISTING-SURFACE-AUDIT.md`
-- `.planning/milestones/v1.6/MILESTONE-READINESS.md` (8d8d589 — DEGRADED-GO Codex auth FAIL)
-
-Phase artifacts (each phase: RESEARCH + CONTEXT + PLAN + WASTE + VERIFICATION + ATC-REVIEW + commit-reviews.jsonl):
-- Phase 26 artifacts (commits cec7126 + aac146a)
-- Phase 27 artifacts (commits d560055 + 7c3b1cc)
-- Phase 28 artifacts (commits 34eb8c2 + 7e96ab3 + 982d781 + b2f0300)
-- Phase 29 artifacts (commits a28b7e9 + b80d376 + a80ba7d + a861d95)
-
-New code (production, not just docs):
-- `super-gsd/scripts/lib/sgsd-mission-strip.ps1` — 382-line lib (Phase 28 T1 + Phase 29 T1 surgical edits)
-- `super-gsd/scripts/sgsd-mission-control.ps1` — 13-line wire (Phase 28 T2)
-- `super-gsd/hooks/sgsd-activity-logger.js` — stamper fix (Phase 28 T3)
-- `super-gsd/tests/mission-strip/` — 12 fixtures + runner (Phase 29 T2; 12/12 pass in 634ms)
-
-Memory entries:
-- `feedback_step9_downgrades_step8_verdict.md` (Phase 26 lesson)
-- `waste-overproduction-p29-findings.md` (auto-curated by MUDA)
-
-## Verification Evidence (re-runnable for review)
+## What's available now (re-runnable for review)
 
 ```bash
-# 1. Status-consistency for every closed phase
-for phase in 26 27 28 29; do
-  node super-gsd/tools/status-consistency/check.cjs --phase $phase --milestone v1.6
+# v1.6 status consistency (every phase)
+for p in 26 27 28 29 30; do
+  node super-gsd/tools/status-consistency/check.cjs --phase $p --milestone v1.6
 done
-# All exit 0.
 
-# 2. Status-consistency at milestone level (will be FAIL until Phase 30 closes)
+# v1.6 milestone level
 node super-gsd/tools/status-consistency/check.cjs --milestone v1.6
-# Exits 0 because v1.6 has no SHIPPED claim yet.
+# All exit 0 (no edge_guard_miss; status strings match backlog reality)
 
-# 3. CRIT-BACKLOG.md sanity
-node super-gsd/scripts/lib/crit-backlog.cjs --self-test
-node super-gsd/scripts/lib/crit-backlog.cjs --list | head -50
-# Self-test PASS; list shows 15 unresolved rows tagged across phases 26/27/28/29.
-
-# 4. Mission Strip lib smoke test
-powershell.exe -NoProfile -Command "
-  . 'super-gsd/scripts/lib/sgsd-mission-strip.ps1'
-  Render-MissionStrip -State (Get-MissionStripState -ProjectDir '.')
-"
-# Renders 6 lines correctly.
-
-# 5. Phase 29 fixtures
+# Phase 29 unit fixtures
 powershell.exe -NoProfile -File super-gsd/tests/mission-strip/run-mission-strip-fixtures.ps1
-# 12/12 fixtures pass.
+# 12/12 PASS
+
+# Phase 30 acceptance fixtures + boot flag matrix + boot timing
+powershell.exe -NoProfile -File super-gsd/tests/cockpit-acceptance/run-acceptance-fixtures.ps1   # 10/10
+powershell.exe -NoProfile -File super-gsd/tests/cockpit-acceptance/verify-boot-flags.ps1          # 18/18
+powershell.exe -NoProfile -File super-gsd/tests/cockpit-acceptance/measure-boot.ps1               # 3-run timing
+
+# Backlog
+node super-gsd/scripts/lib/crit-backlog.cjs --self-test     # PASS
+node super-gsd/scripts/lib/crit-backlog.cjs --list          # 18 unresolved rows
 ```
+
+## Operator action items (manual; clears debt rapidly)
+
+1. **Restore Codex auth** (`~/.codex/auth.json` or whatever the actual path is). Verify with `bash super-gsd/scripts/codex-exec.sh --self-test` exit 0. Once fixed, 7 backlog rows clear.
+2. **Re-install deployed hook**: `cp super-gsd/hooks/sgsd-activity-logger.js ~/.claude/hooks/sgsd-activity-logger.js`. Once done, live activity-log rows stamp correctly.
+3. **v1.7 docs cleanup queue**: BOOT-03 README quick-start `sg` block; PLAN truth #4 text correction; path schema doc update; $StateOverride YAGNI removal. (All low-priority; v1.7 docs phase or follow-up.)
 
 ## Blockers
 
-None. Codex auth FAIL is operational degradation, not a hard stop. The
-backlog accurately records every Codex-unavail event for later cleanup
-once auth is restored.
+None. Codex auth FAIL is operational degradation, not a hard stop.
 
-## What did NOT happen this session (per the user's earlier rejection)
+## Files at HEAD
 
-- No phases marked `PASS` while backlog had rows (status-consistency would catch)
-- No silent gate skips
-- No mock-predicate ATC reviews (only real sub-agent dispatches)
-- No "shipped" claims without verifier dispatch
-- No ATC reviews skipped without recording in backlog
+```
+HEAD: 8ee945e phase-close(30): PASS-WITH-DEFERRED-3 — startup verification + cockpit acceptance
+  + 6 commits this session (cec7126 → 8ee945e for v1.6)
+  + earlier session: c00a958 (pre-flight infrastructure patches), ebae4bd (v1.6 promotion)
+```
