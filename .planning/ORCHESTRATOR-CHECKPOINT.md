@@ -1,19 +1,31 @@
 ---
 checkpoint: full-roadmap-autopilot-run-2
 created: 2026-04-27
-updated: 2026-04-27 (v1.6 SHIPPED-WITH-DEBT-18; awaiting v1.7 promotion)
+updated: 2026-04-27 (v1.6 SHIPPED-WITH-DEBT-10 post-rerun; awaiting v1.7 promotion; provider-health + milestone-close gate + boot preflight all wired)
 session: opus-4.7-1m
 mode: autonomous
+emergency_halt: true
+context_percent_at_write: ~95
 controlling_principle: Autonomy continues; evidence tells the truth.
 ---
 
-# Orchestrator Checkpoint — v1.6 SHIPPED, v1.7 next
+# Orchestrator Checkpoint — v1.6 SHIPPED-WITH-DEBT-10, v1.7 next
 
 ## Status
 
-**v1.6 SHIPPED-WITH-DEBT-18** as of commit 8ee945e (Phase 30 close).
-v1.7 (Stable Command Contracts + Route Intelligence; Phases 31-35) is
-the next milestone but has not been promoted yet.
+**v1.6 SHIPPED-WITH-DEBT-10** (corrected from -18 after Codex post-hoc rerun).
+HEAD at commit `d510e32`. v1.7 (Stable Command Contracts + Route
+Intelligence; Phases 31-35) is the next milestone, not yet promoted.
+
+Architectural patches landed this session (post v1.6 close):
+- `super-gsd/scripts/codex-exec.sh` — behavioral self-test (Probe 2 uses `codex login status` primary + canary fallback; file checks demoted to diagnostic-only). Now PASS 4/4.
+- `super-gsd/tools/provider-health/check.cjs` — behavioral provider probe (--self-test 14/14)
+- `super-gsd/tools/backlog-schema/check.cjs` — v1 schema validator (--self-test 11/11)
+- `super-gsd/tools/codex-rerun/rerun-missing-reviews.cjs` — one-shot rerun harness
+- `super-gsd/scripts/lib/crit-backlog.cjs` — write-time guard against false "Codex unavailable" rows + v1 schema fields
+- `super-gsd/skills/sgsd-complete-milestone/SKILL.md` Step 0 — milestone-close precondition gate (codex self-test + provider canary + status-consistency + backlog-schema + crit-backlog self-test, all must pass)
+- `super-gsd/scripts/sgsd-boot.ps1` preflight — new `-FullPreflight` switch; default boot uses cheap login-status only, FullPreflight runs the contract canary
+- `super-gsd/scripts/lib/sgsd-mission-strip.ps1` — Phase 28 T1 CRIT fix (drop "shipped-with-debt" vocab violation; debt is missionColor, not state name)
 
 ## Why this checkpoint
 
