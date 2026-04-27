@@ -94,8 +94,11 @@ const {
 // FROZEN CONSTANTS (RESEARCH sec 6.2)
 // ----------------------------------------------------------------------------
 
-// VERDICTS: 4-state ladder. Frozen. NO 'blocked' (lock 13 + dead-end #2).
-const VERDICTS = Object.freeze(['ok', 'warn', 'degraded', 'false_positive']);
+// VERDICTS: 4-state ladder + 'error' sentinel for runCheck try/catch boundary.
+// Frozen. NO 'blocked' (lock 13 + dead-end #2). Phase 50 cockpit consumers
+// import this for exhaustive validation; 'error' MUST be in the enum so
+// catch-path returns don't misclassify against a 4-entry contract.
+const VERDICTS = Object.freeze(['ok', 'warn', 'degraded', 'false_positive', 'error']);
 
 // ROUTE_REASONS: Phase 41 R1..R5 verbatim. Frozen.
 const ROUTE_REASONS = Object.freeze({
@@ -984,15 +987,16 @@ function _selfTest() {
         && c4.rules_tripped.length === 0
         && !c4.route_hint);
 
-      // 5. VERDICTS frozen 4-entry; mutation rejected; NO 'blocked'.
+      // 5. VERDICTS frozen 5-entry (4 ladder + 'error' sentinel); NO 'blocked'.
       let v5 = false;
       try { VERDICTS.push('blocked'); } catch (e) { v5 = true; }
-      assert('5. VERDICTS frozen 4-entry (no blocked)',
-        Array.isArray(VERDICTS) && VERDICTS.length === 4
+      assert('5. VERDICTS frozen 5-entry (4 ladder + error sentinel; no blocked)',
+        Array.isArray(VERDICTS) && VERDICTS.length === 5
         && VERDICTS.includes('ok') && VERDICTS.includes('warn')
         && VERDICTS.includes('degraded') && VERDICTS.includes('false_positive')
+        && VERDICTS.includes('error')
         && !VERDICTS.includes('blocked')
-        && (v5 || VERDICTS.length === 4));
+        && (v5 || VERDICTS.length === 5));
 
       // 6. ROUTE_REASONS frozen 5-entry verbatim Phase 41 R1..R5.
       assert('6. ROUTE_REASONS frozen 5-entry verbatim',
