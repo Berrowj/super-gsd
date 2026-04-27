@@ -1,0 +1,1277 @@
+{
+  "agents": {
+    "active": [
+      {
+        "category": null,
+        "id": "gsd-executor",
+        "model": "unspecified",
+        "status": "active"
+      },
+      {
+        "category": null,
+        "id": "sgsd-board-architect",
+        "model": "sonnet",
+        "status": "active"
+      },
+      {
+        "category": null,
+        "id": "sgsd-board-contrarian",
+        "model": "sonnet",
+        "status": "active"
+      },
+      {
+        "category": null,
+        "id": "sgsd-board-moonshot",
+        "model": "sonnet",
+        "status": "active"
+      },
+      {
+        "category": null,
+        "id": "sgsd-board-pragmatist",
+        "model": "sonnet",
+        "status": "active"
+      },
+      {
+        "category": null,
+        "id": "sgsd-board-researcher",
+        "model": "sonnet",
+        "status": "active"
+      },
+      {
+        "category": null,
+        "id": "sgsd-ceo",
+        "model": "opus",
+        "status": "active"
+      },
+      {
+        "category": null,
+        "id": "sgsd-classifier",
+        "model": "haiku",
+        "status": "active"
+      },
+      {
+        "category": null,
+        "id": "sgsd-code-reviewer",
+        "model": "sonnet",
+        "status": "active"
+      },
+      {
+        "category": null,
+        "id": "sgsd-codex-reviewer",
+        "model": "external",
+        "status": "active"
+      },
+      {
+        "category": null,
+        "id": "sgsd-context-selector",
+        "model": "haiku",
+        "status": "active"
+      },
+      {
+        "category": "C",
+        "id": "sgsd-exec-backend",
+        "model": "unspecified",
+        "state": "active",
+        "status": "active"
+      },
+      {
+        "category": "C",
+        "id": "sgsd-exec-config",
+        "model": "unspecified",
+        "state": "active",
+        "status": "active"
+      },
+      {
+        "category": "C",
+        "id": "sgsd-exec-docs",
+        "model": "unspecified",
+        "state": "active",
+        "status": "active"
+      },
+      {
+        "category": "C",
+        "id": "sgsd-exec-fix",
+        "model": "unspecified",
+        "state": "active",
+        "status": "active"
+      },
+      {
+        "category": "C",
+        "id": "sgsd-exec-integration",
+        "model": "unspecified",
+        "state": "active",
+        "status": "active"
+      },
+      {
+        "category": "C",
+        "id": "sgsd-exec-refactor",
+        "model": "unspecified",
+        "state": "active",
+        "status": "active"
+      },
+      {
+        "category": "C",
+        "id": "sgsd-exec-test",
+        "model": "unspecified",
+        "state": "active",
+        "status": "active"
+      },
+      {
+        "category": "C",
+        "id": "sgsd-exec-ui",
+        "model": "unspecified",
+        "state": "active",
+        "status": "active"
+      },
+      {
+        "category": null,
+        "id": "sgsd-milestone-readiness",
+        "model": "sonnet",
+        "status": "active"
+      },
+      {
+        "category": null,
+        "id": "sgsd-phase-readiness",
+        "model": "haiku",
+        "status": "active"
+      },
+      {
+        "category": null,
+        "id": "sgsd-vtp-enrichment",
+        "model": "sonnet",
+        "status": "active"
+      },
+      {
+        "category": null,
+        "id": "sgsd-workflow-auditor",
+        "model": "sonnet",
+        "status": "active"
+      }
+    ],
+    "superseded": []
+  },
+  "artifacts": {
+    "active": [
+      {
+        "id": "atc_review",
+        "source": "phase43-CAPSULE_FILE_KINDS"
+      },
+      {
+        "id": "context",
+        "source": "phase43-CAPSULE_FILE_KINDS"
+      },
+      {
+        "id": "plan",
+        "source": "phase43-CAPSULE_FILE_KINDS"
+      },
+      {
+        "id": "research",
+        "source": "phase43-CAPSULE_FILE_KINDS"
+      },
+      {
+        "id": "verification",
+        "source": "phase43-CAPSULE_FILE_KINDS"
+      }
+    ],
+    "superseded": []
+  },
+  "commands": {
+    "active": [
+      {
+        "first_wave": true,
+        "id": "atc-review",
+        "source": "envelope-v1.yaml"
+      },
+      {
+        "first_wave": true,
+        "id": "audit",
+        "source": "envelope-v1.yaml"
+      },
+      {
+        "first_wave": true,
+        "id": "checkTokenWaste",
+        "source": "phase42"
+      },
+      {
+        "first_wave": true,
+        "id": "codex-exec",
+        "source": "envelope-v1.yaml"
+      },
+      {
+        "first_wave": false,
+        "id": "crit-backlog",
+        "source": "envelope-v1.yaml"
+      },
+      {
+        "first_wave": false,
+        "id": "edge-guard",
+        "source": "envelope-v1.yaml"
+      },
+      {
+        "first_wave": false,
+        "id": "handoff",
+        "source": "envelope-v1.yaml"
+      },
+      {
+        "first_wave": false,
+        "id": "heartbeat",
+        "source": "envelope-v1.yaml"
+      },
+      {
+        "first_wave": true,
+        "id": "logTokenSpend",
+        "source": "phase41"
+      },
+      {
+        "first_wave": true,
+        "id": "sgsd-muda-audit",
+        "source": "envelope-v1.yaml"
+      },
+      {
+        "first_wave": true,
+        "id": "sgsd-readiness-probe",
+        "source": "envelope-v1.yaml"
+      },
+      {
+        "first_wave": false,
+        "id": "token-log",
+        "source": "envelope-v1.yaml"
+      },
+      {
+        "first_wave": true,
+        "id": "writeCapsule",
+        "source": "phase43"
+      }
+    ],
+    "superseded": []
+  },
+  "gates": {
+    "active": [
+      {
+        "category": "process-hygiene",
+        "enforcement_mode": "soft-warn",
+        "id": "classifier-haiku",
+        "state": "active"
+      },
+      {
+        "category": "process-hygiene",
+        "enforcement_mode": "soft-warn",
+        "id": "context-selector-haiku",
+        "state": "active"
+      },
+      {
+        "category": "process-hygiene",
+        "enforcement_mode": "soft-warn",
+        "id": "intent-injection",
+        "state": "active"
+      },
+      {
+        "category": "process-hygiene",
+        "enforcement_mode": "soft-warn",
+        "id": "MUDA-waste-audit",
+        "state": "active"
+      },
+      {
+        "category": "code-quality",
+        "enforcement_mode": "hard-halt",
+        "id": "per-dispatch-ATC",
+        "state": "active"
+      },
+      {
+        "category": "code-quality",
+        "enforcement_mode": "amortized",
+        "id": "phase-level-ATC",
+        "state": "active"
+      },
+      {
+        "category": "process-hygiene",
+        "enforcement_mode": "soft-warn",
+        "id": "qualitative-waste-audit",
+        "state": "active"
+      },
+      {
+        "category": "process-hygiene",
+        "enforcement_mode": "soft-warn",
+        "id": "sgsd-curate-learnings",
+        "state": "active"
+      },
+      {
+        "category": "process-hygiene",
+        "enforcement_mode": "soft-warn",
+        "id": "sgsd-recall-queries",
+        "state": "active"
+      },
+      {
+        "category": "process-hygiene",
+        "enforcement_mode": "soft-warn",
+        "id": "token-log",
+        "state": "active"
+      },
+      {
+        "category": "verify-completeness",
+        "enforcement_mode": "soft-warn",
+        "id": "verifier-detail-vs-summary",
+        "state": "active"
+      },
+      {
+        "category": "verify-completeness",
+        "enforcement_mode": "soft-warn",
+        "id": "verifier-row-arithmetic",
+        "state": "active"
+      },
+      {
+        "category": "process-hygiene",
+        "enforcement_mode": "soft-warn",
+        "id": "vtp-enrichment",
+        "state": "active"
+      }
+    ],
+    "superseded": []
+  },
+  "generated_at": "2026-04-27T20:52:42.562Z",
+  "generated_by": "super-gsd/tools/context-registry/build.cjs",
+  "milestones": {
+    "active": [
+      {
+        "id": "v1.1",
+        "name": null
+      },
+      {
+        "id": "v1.2",
+        "name": null
+      },
+      {
+        "id": "v1.3",
+        "name": null
+      },
+      {
+        "id": "v1.4",
+        "name": null
+      },
+      {
+        "id": "v1.5",
+        "name": null
+      },
+      {
+        "id": "v1.6",
+        "name": null
+      },
+      {
+        "id": "v1.7",
+        "name": "Stable Command Contracts And Route Intelligence"
+      },
+      {
+        "id": "v1.8",
+        "name": "Gate Fitness And MUDA Pruning"
+      },
+      {
+        "id": "v1.9",
+        "name": "Context Compression, Token Governance, And Research Routing"
+      }
+    ],
+    "superseded": [
+      {
+        "evidence_path": ".planning/archive/superseded/v1.9-knowledge-memory-governance/README.md",
+        "id": "v1.9-knowledge-memory-governance",
+        "reason": "Mine for any scope item not covered by SGSD-Research before retiring permanently.",
+        "replaced_by": "v1.9",
+        "superseded_at": {}
+      }
+    ]
+  },
+  "phase_folders": {
+    "active": [
+      {
+        "folder": "09-atc-147-evidence",
+        "id": "v1.2/09-atc-147-evidence",
+        "milestone": "v1.2"
+      },
+      {
+        "folder": "10-gate-policy",
+        "id": "v1.2/10-gate-policy",
+        "milestone": "v1.2"
+      },
+      {
+        "folder": "11-plan-schema-v2",
+        "id": "v1.2/11-plan-schema-v2",
+        "milestone": "v1.2"
+      },
+      {
+        "folder": "12-machinery",
+        "id": "v1.2/12-machinery",
+        "milestone": "v1.2"
+      },
+      {
+        "folder": "13-governance",
+        "id": "v1.2/13-governance",
+        "milestone": "v1.2"
+      },
+      {
+        "folder": "14-codex-cli-provider-substrate",
+        "id": "v1.3/14-codex-cli-provider-substrate",
+        "milestone": "v1.3"
+      },
+      {
+        "folder": "15-codex-routed-gates",
+        "id": "v1.3/15-codex-routed-gates",
+        "milestone": "v1.3"
+      },
+      {
+        "folder": "16-vtp-enrichment",
+        "id": "v1.3/16-vtp-enrichment",
+        "milestone": "v1.3"
+      },
+      {
+        "folder": "17-debt-sweep",
+        "id": "v1.4/17-debt-sweep",
+        "milestone": "v1.4"
+      },
+      {
+        "folder": "18-codex-hardening",
+        "id": "v1.4/18-codex-hardening",
+        "milestone": "v1.4"
+      },
+      {
+        "folder": "19-mc-visibility",
+        "id": "v1.4/19-mc-visibility",
+        "milestone": "v1.4"
+      },
+      {
+        "folder": "20-autonomous-handoff",
+        "id": "v1.4/20-autonomous-handoff",
+        "milestone": "v1.4"
+      },
+      {
+        "folder": "21-vtp-enrichment-gates",
+        "id": "v1.5/21-vtp-enrichment-gates",
+        "milestone": "v1.5"
+      },
+      {
+        "folder": "22-security-hardening",
+        "id": "v1.5/22-security-hardening",
+        "milestone": "v1.5"
+      },
+      {
+        "folder": "23-muda-calibration",
+        "id": "v1.5/23-muda-calibration",
+        "milestone": "v1.5"
+      },
+      {
+        "folder": "24-richer-output-contract",
+        "id": "v1.5/24-richer-output-contract",
+        "milestone": "v1.5"
+      },
+      {
+        "folder": "25-carryover-telemetry",
+        "id": "v1.5/25-carryover-telemetry",
+        "milestone": "v1.5"
+      },
+      {
+        "folder": "26-cockpit-question-contract",
+        "id": "v1.6/26-cockpit-question-contract",
+        "milestone": "v1.6"
+      },
+      {
+        "folder": "27-cockpit-data-tree",
+        "id": "v1.6/27-cockpit-data-tree",
+        "milestone": "v1.6"
+      },
+      {
+        "folder": "28-mission-control-layout",
+        "id": "v1.6/28-mission-control-layout",
+        "milestone": "v1.6"
+      },
+      {
+        "folder": "29-agent-codex-lanes",
+        "id": "v1.6/29-agent-codex-lanes",
+        "milestone": "v1.6"
+      },
+      {
+        "folder": "30-startup-cockpit-acceptance",
+        "id": "v1.6/30-startup-cockpit-acceptance",
+        "milestone": "v1.6"
+      },
+      {
+        "folder": "31-canonical-envelope",
+        "id": "v1.7/31-canonical-envelope",
+        "milestone": "v1.7"
+      },
+      {
+        "folder": "32-route-decision-ledger",
+        "id": "v1.7/32-route-decision-ledger",
+        "milestone": "v1.7"
+      },
+      {
+        "folder": "33-repair-instruction",
+        "id": "v1.7/33-repair-instruction",
+        "milestone": "v1.7"
+      },
+      {
+        "folder": "34-canonical-review-ledger",
+        "id": "v1.7/34-canonical-review-ledger",
+        "milestone": "v1.7"
+      },
+      {
+        "folder": "35-generated-system-map",
+        "id": "v1.7/35-generated-system-map",
+        "milestone": "v1.7"
+      },
+      {
+        "folder": "36-gate-value-telemetry",
+        "id": "v1.8/36-gate-value-telemetry",
+        "milestone": "v1.8"
+      },
+      {
+        "folder": "37-muda-deletion-candidates",
+        "id": "v1.8/37-muda-deletion-candidates",
+        "milestone": "v1.8"
+      },
+      {
+        "folder": "38-risk-tiered-gate-sampling",
+        "id": "v1.8/38-risk-tiered-gate-sampling",
+        "milestone": "v1.8"
+      },
+      {
+        "folder": "39-gate-keep-kill",
+        "id": "v1.8/39-gate-keep-kill",
+        "milestone": "v1.8"
+      },
+      {
+        "folder": "40-phase-folder-audit",
+        "id": "v1.8/40-phase-folder-audit",
+        "milestone": "v1.8"
+      },
+      {
+        "folder": "41-baseline-token-attribution",
+        "id": "v1.9/41-baseline-token-attribution",
+        "milestone": "v1.9"
+      },
+      {
+        "folder": "42-token-budget-admission",
+        "id": "v1.9/42-token-budget-admission",
+        "milestone": "v1.9"
+      },
+      {
+        "folder": "43-phase-capsule-contract",
+        "id": "v1.9/43-phase-capsule-contract",
+        "milestone": "v1.9"
+      },
+      {
+        "folder": "44-legal-context-registry",
+        "id": "v1.9/44-legal-context-registry",
+        "milestone": "v1.9"
+      },
+      {
+        "folder": "45-context-packet-builder",
+        "id": "v1.9/45-context-packet-builder",
+        "milestone": "v1.9"
+      },
+      {
+        "folder": "46-sqlite-context-index",
+        "id": "v1.9/46-sqlite-context-index",
+        "milestone": "v1.9"
+      },
+      {
+        "folder": "47-dispatch-routing-substitution",
+        "id": "v1.9/47-dispatch-routing-substitution",
+        "milestone": "v1.9"
+      },
+      {
+        "folder": "48-selective-vtp-bridge",
+        "id": "v1.9/48-selective-vtp-bridge",
+        "milestone": "v1.9"
+      },
+      {
+        "folder": "49-memory-governance-lifecycle",
+        "id": "v1.9/49-memory-governance-lifecycle",
+        "milestone": "v1.9"
+      },
+      {
+        "folder": "50-cockpit-research-dashboard",
+        "id": "v1.9/50-cockpit-research-dashboard",
+        "milestone": "v1.9"
+      },
+      {
+        "folder": "51-context-stress-benchmark",
+        "id": "v1.9/51-context-stress-benchmark",
+        "milestone": "v1.9"
+      },
+      {
+        "folder": "52-redis-live-cache-adapter",
+        "id": "v1.9/52-redis-live-cache-adapter",
+        "milestone": "v1.9"
+      }
+    ],
+    "malformed": [
+      {
+        "folder": "p5-codex-monitor",
+        "id": "v1.3/p5-codex-monitor",
+        "milestone": "v1.3",
+        "reason": "name_not_NN-prefix"
+      }
+    ],
+    "superseded": []
+  },
+  "phases": {
+    "active": [
+      {
+        "id": "v1.2/09",
+        "milestone": "v1.2",
+        "phase": "09",
+        "phase_name": "Atc 147 Evidence",
+        "status": "UNKNOWN"
+      },
+      {
+        "id": "v1.2/10",
+        "milestone": "v1.2",
+        "phase": "10",
+        "phase_name": "Gate Policy",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.2/11",
+        "milestone": "v1.2",
+        "phase": "11",
+        "phase_name": "Plan Schema V2",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.2/12",
+        "milestone": "v1.2",
+        "phase": "12",
+        "phase_name": "Machinery",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.2/13",
+        "milestone": "v1.2",
+        "phase": "13",
+        "phase_name": "Governance",
+        "status": "IN_PROGRESS"
+      },
+      {
+        "id": "v1.3/14",
+        "milestone": "v1.3",
+        "phase": "14",
+        "phase_name": "Codex Cli Provider Substrate",
+        "status": "IN_PROGRESS"
+      },
+      {
+        "id": "v1.3/15",
+        "milestone": "v1.3",
+        "phase": "15",
+        "phase_name": "Codex Routed Gates",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.3/16",
+        "milestone": "v1.3",
+        "phase": "16",
+        "phase_name": "Vtp Enrichment",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.4/17",
+        "milestone": "v1.4",
+        "phase": "17",
+        "phase_name": "Debt Sweep",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.4/18",
+        "milestone": "v1.4",
+        "phase": "18",
+        "phase_name": "Codex Hardening",
+        "status": "UNKNOWN"
+      },
+      {
+        "id": "v1.4/19",
+        "milestone": "v1.4",
+        "phase": "19",
+        "phase_name": "Mc Visibility",
+        "status": "UNKNOWN"
+      },
+      {
+        "id": "v1.4/20",
+        "milestone": "v1.4",
+        "phase": "20",
+        "phase_name": "Autonomous Handoff",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.5/21",
+        "milestone": "v1.5",
+        "phase": "21",
+        "phase_name": "Vtp Enrichment Gates",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.5/22",
+        "milestone": "v1.5",
+        "phase": "22",
+        "phase_name": "Security Hardening",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.5/23",
+        "milestone": "v1.5",
+        "phase": "23",
+        "phase_name": "Muda Calibration",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.5/24",
+        "milestone": "v1.5",
+        "phase": "24",
+        "phase_name": "Richer Output Contract",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.5/25",
+        "milestone": "v1.5",
+        "phase": "25",
+        "phase_name": "Carryover Telemetry",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.6/26",
+        "milestone": "v1.6",
+        "phase": "26",
+        "phase_name": "Cockpit Question Contract",
+        "status": "PASS-WITH-DEFERRED-N"
+      },
+      {
+        "id": "v1.6/27",
+        "milestone": "v1.6",
+        "phase": "27",
+        "phase_name": "Cockpit Data Tree",
+        "status": "PASS-WITH-DEFERRED-N"
+      },
+      {
+        "id": "v1.6/28",
+        "milestone": "v1.6",
+        "phase": "28",
+        "phase_name": "Mission Control Layout",
+        "status": "PASS-WITH-DEFERRED-N"
+      },
+      {
+        "id": "v1.6/29",
+        "milestone": "v1.6",
+        "phase": "29",
+        "phase_name": "Agent Codex Lanes",
+        "status": "PASS-WITH-DEFERRED-N"
+      },
+      {
+        "id": "v1.6/30",
+        "milestone": "v1.6",
+        "phase": "30",
+        "phase_name": "Startup Cockpit Acceptance",
+        "status": "PASS-WITH-DEFERRED-N"
+      },
+      {
+        "id": "v1.7/31",
+        "milestone": "v1.7",
+        "phase": "31",
+        "phase_name": "Canonical Envelope",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.7/32",
+        "milestone": "v1.7",
+        "phase": "32",
+        "phase_name": "Route Decision Ledger",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.7/33",
+        "milestone": "v1.7",
+        "phase": "33",
+        "phase_name": "Repair Instruction",
+        "status": "UNKNOWN"
+      },
+      {
+        "id": "v1.7/34",
+        "milestone": "v1.7",
+        "phase": "34",
+        "phase_name": "Canonical Review Ledger",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.7/35",
+        "milestone": "v1.7",
+        "phase": "35",
+        "phase_name": "Generated System Map",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.8/36",
+        "milestone": "v1.8",
+        "phase": "36",
+        "phase_name": "Gate Value Telemetry",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.8/37",
+        "milestone": "v1.8",
+        "phase": "37",
+        "phase_name": "Muda Deletion Candidates",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.8/38",
+        "milestone": "v1.8",
+        "phase": "38",
+        "phase_name": "Risk Tiered Gate Sampling",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.8/39",
+        "milestone": "v1.8",
+        "phase": "39",
+        "phase_name": "Gate Keep Kill",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.8/40",
+        "milestone": "v1.8",
+        "phase": "40",
+        "phase_name": "Phase Folder Audit",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.9/41",
+        "milestone": "v1.9",
+        "phase": "41",
+        "phase_name": "Baseline Token Attribution",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.9/42",
+        "milestone": "v1.9",
+        "phase": "42",
+        "phase_name": "Token Budget Admission",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.9/43",
+        "milestone": "v1.9",
+        "phase": "43",
+        "phase_name": "Phase Capsule Contract",
+        "status": "PASS"
+      },
+      {
+        "id": "v1.9/44",
+        "milestone": "v1.9",
+        "phase": "44",
+        "phase_name": "Legal Context Registry",
+        "status": "IN_PROGRESS"
+      },
+      {
+        "id": "v1.9/45",
+        "milestone": "v1.9",
+        "phase": "45",
+        "phase_name": "Context Packet Builder",
+        "status": "IN_PROGRESS"
+      },
+      {
+        "id": "v1.9/46",
+        "milestone": "v1.9",
+        "phase": "46",
+        "phase_name": "Sqlite Context Index",
+        "status": "IN_PROGRESS"
+      },
+      {
+        "id": "v1.9/47",
+        "milestone": "v1.9",
+        "phase": "47",
+        "phase_name": "Dispatch Routing Substitution",
+        "status": "IN_PROGRESS"
+      },
+      {
+        "id": "v1.9/48",
+        "milestone": "v1.9",
+        "phase": "48",
+        "phase_name": "Selective Vtp Bridge",
+        "status": "IN_PROGRESS"
+      },
+      {
+        "id": "v1.9/49",
+        "milestone": "v1.9",
+        "phase": "49",
+        "phase_name": "Memory Governance Lifecycle",
+        "status": "IN_PROGRESS"
+      },
+      {
+        "id": "v1.9/50",
+        "milestone": "v1.9",
+        "phase": "50",
+        "phase_name": "Cockpit Research Dashboard",
+        "status": "IN_PROGRESS"
+      },
+      {
+        "id": "v1.9/51",
+        "milestone": "v1.9",
+        "phase": "51",
+        "phase_name": "Context Stress Benchmark",
+        "status": "IN_PROGRESS"
+      },
+      {
+        "id": "v1.9/52",
+        "milestone": "v1.9",
+        "phase": "52",
+        "phase_name": "Redis Live Cache Adapter",
+        "status": "IN_PROGRESS"
+      }
+    ],
+    "superseded": [
+      {
+        "id": "v1.9-knowledge-memory-governance/41",
+        "milestone": "v1.9-knowledge-memory-governance",
+        "phase": "41",
+        "replaced_by": "v1.9",
+        "superseded_at": {}
+      },
+      {
+        "id": "v1.9-knowledge-memory-governance/42",
+        "milestone": "v1.9-knowledge-memory-governance",
+        "phase": "42",
+        "replaced_by": "v1.9",
+        "superseded_at": {}
+      },
+      {
+        "id": "v1.9-knowledge-memory-governance/43",
+        "milestone": "v1.9-knowledge-memory-governance",
+        "phase": "43",
+        "replaced_by": "v1.9",
+        "superseded_at": {}
+      },
+      {
+        "id": "v1.9-knowledge-memory-governance/44",
+        "milestone": "v1.9-knowledge-memory-governance",
+        "phase": "44",
+        "replaced_by": "v1.9",
+        "superseded_at": {}
+      },
+      {
+        "id": "v1.9-knowledge-memory-governance/45",
+        "milestone": "v1.9-knowledge-memory-governance",
+        "phase": "45",
+        "replaced_by": "v1.9",
+        "superseded_at": {}
+      }
+    ]
+  },
+  "providers": {
+    "active": [
+      {
+        "id": "claude",
+        "source": "phase41-PROVIDERS"
+      },
+      {
+        "id": "codex",
+        "source": "phase41-PROVIDERS"
+      },
+      {
+        "id": "local-script",
+        "source": "phase41-PROVIDERS"
+      },
+      {
+        "id": "vtp",
+        "source": "phase41-PROVIDERS"
+      }
+    ],
+    "review_aliases": [
+      {
+        "id": "claude-sonnet-reviewer",
+        "invocation": "agent",
+        "state": "active"
+      },
+      {
+        "id": "codex-cli-reviewer",
+        "invocation": "shell",
+        "state": "active"
+      }
+    ],
+    "superseded": []
+  },
+  "reason_codes": {
+    "active": [
+      {
+        "group": "gate_review",
+        "id": "atc_critical",
+        "status": null
+      },
+      {
+        "group": "gate_review",
+        "id": "atc_warn_only",
+        "status": null
+      },
+      {
+        "group": "orchestration",
+        "id": "checkpoint_written",
+        "status": null
+      },
+      {
+        "group": "provider_runtime",
+        "id": "codex_auth_missing",
+        "status": null
+      },
+      {
+        "group": "provider_runtime",
+        "id": "codex_fallback_triggered",
+        "status": null
+      },
+      {
+        "group": "provider_runtime",
+        "id": "codex_timeout",
+        "status": null
+      },
+      {
+        "group": "edge_guard",
+        "id": "edge_guard_retry_exhausted",
+        "status": null
+      },
+      {
+        "group": "schema_validation",
+        "id": "frontmatter_missing",
+        "status": null
+      },
+      {
+        "group": "gate_review",
+        "id": "gate_force_override_with_reason",
+        "status": null
+      },
+      {
+        "group": "gate_review",
+        "id": "gate_force_with_reason",
+        "status": null
+      },
+      {
+        "group": "gate_review",
+        "id": "gate_sampled_skip",
+        "status": null
+      },
+      {
+        "group": "gate_review",
+        "id": "gate_skip_with_reason",
+        "status": null
+      },
+      {
+        "group": "muda",
+        "id": "inventory_waste",
+        "status": null
+      },
+      {
+        "group": "orchestration",
+        "id": "max_chain_depth",
+        "status": null
+      },
+      {
+        "group": "edge_guard",
+        "id": "missing_emit",
+        "status": null
+      },
+      {
+        "group": "orchestration",
+        "id": "movement_detector_fired",
+        "status": null
+      },
+      {
+        "group": "muda",
+        "id": "overproduction_waste",
+        "status": null
+      },
+      {
+        "group": "schema_validation",
+        "id": "parse_failure",
+        "status": null
+      },
+      {
+        "group": "provider_runtime",
+        "id": "provider_unavailable",
+        "status": null
+      },
+      {
+        "group": "schema_validation",
+        "id": "registry_load_fail",
+        "status": null
+      },
+      {
+        "group": "repair",
+        "id": "repair_command_eligible",
+        "status": null
+      },
+      {
+        "group": "repair",
+        "id": "repair_command_rejected_by_4and",
+        "status": null
+      },
+      {
+        "group": "repair",
+        "id": "repair_instruction_only",
+        "status": null
+      },
+      {
+        "group": "gate_review",
+        "id": "review_split_decision",
+        "status": null
+      },
+      {
+        "group": "gate_review",
+        "id": "review_unanimous_pass",
+        "status": null
+      },
+      {
+        "group": "provider_runtime",
+        "id": "runtime_unreachable",
+        "status": null
+      },
+      {
+        "group": "schema_validation",
+        "id": "schema_validation_fail",
+        "status": null
+      },
+      {
+        "group": "orchestration",
+        "id": "session_handoff_refused",
+        "status": null
+      },
+      {
+        "group": "edge_guard",
+        "id": "step_transition_blocked",
+        "status": null
+      },
+      {
+        "group": "muda",
+        "id": "transport_waste",
+        "status": null
+      },
+      {
+        "group": "muda",
+        "id": "waiting_waste",
+        "status": null
+      }
+    ],
+    "future": [
+      {
+        "group": "retrieval",
+        "id": "empty_hit",
+        "status": "future_v1_9"
+      },
+      {
+        "group": "retrieval",
+        "id": "noisy_hit",
+        "status": "future_v1_9"
+      },
+      {
+        "group": "retrieval",
+        "id": "privacy_blocked",
+        "status": "future_v1_9"
+      },
+      {
+        "group": "retrieval",
+        "id": "query_too_broad",
+        "status": "future_v1_9"
+      },
+      {
+        "group": "retrieval",
+        "id": "stale_hit",
+        "status": "future_v1_9"
+      }
+    ],
+    "superseded": []
+  },
+  "registry_version": "1.0.0",
+  "schema_version": 1,
+  "source_hashes": {
+    ".planning/resource-registry/agents.jsonl": "3ff51c36f808d9649fb1cfd0b2c8c6f7d62a889b9c92cafa7a2ca899b4e4433e",
+    "super-gsd/registry/agents.yaml": "8f9c7762d0841f98db9bcba9032121d3c4767efbd6b7527df2a8adf6ed5a8c4f",
+    "super-gsd/registry/command-envelope-v1.yaml": "13c935ed830f4e38884e29e01311bff7f3ff9969fb129950e8c616c72015de9b",
+    "super-gsd/registry/gates.yaml": "241265ec15e491e6ca22ddaba517786f2334b05b199f03104778514aa85e13b4",
+    "super-gsd/registry/review-providers.yaml": "aa7adb5b5b8d9734f2da9a369297b7fb96a7bb8d0e5113d5c74e3960015c80d3",
+    "super-gsd/templates/command-envelope-v1.json": "bb516e18c1f8cfa5877b89eedb4d42e09530b92cc93805a6dcb47ff7abde5534",
+    "super-gsd/tools/phase-capsule/PHASE-CAPSULE.schema.json": "41c1ff70b839010d15e11faac0eeba691113976e88aa902c035acc35681de086",
+    "super-gsd/tools/token-attribution/report.cjs": "23e83d45aa2302149c286d59a132ea6796866d4f99962d49f896463d766060a8",
+    "super-gsd/tools/token-waste/check.cjs": "b0e3b9147f0ab4bc40f665a36acfc7f606133f0be010b7561ccdc302bd7789e7"
+  },
+  "statuses": {
+    "active": [
+      {
+        "id": "agent:active",
+        "kind": "agent",
+        "value": "active"
+      },
+      {
+        "id": "agent:deprecated",
+        "kind": "agent",
+        "value": "deprecated"
+      },
+      {
+        "id": "agent:draft",
+        "kind": "agent",
+        "value": "draft"
+      },
+      {
+        "id": "agent:retired",
+        "kind": "agent",
+        "value": "retired"
+      },
+      {
+        "id": "capsule:FAIL",
+        "kind": "capsule",
+        "value": "FAIL"
+      },
+      {
+        "id": "capsule:IN_PROGRESS",
+        "kind": "capsule",
+        "value": "IN_PROGRESS"
+      },
+      {
+        "id": "capsule:PASS",
+        "kind": "capsule",
+        "value": "PASS"
+      },
+      {
+        "id": "capsule:PASS-WITH-DEFERRED-N",
+        "kind": "capsule",
+        "value": "PASS-WITH-DEFERRED-N"
+      },
+      {
+        "id": "capsule:UNKNOWN",
+        "kind": "capsule",
+        "value": "UNKNOWN"
+      },
+      {
+        "id": "envelope:blocked",
+        "kind": "envelope",
+        "value": "blocked"
+      },
+      {
+        "id": "envelope:fail",
+        "kind": "envelope",
+        "value": "fail"
+      },
+      {
+        "id": "envelope:ok",
+        "kind": "envelope",
+        "value": "ok"
+      },
+      {
+        "id": "envelope:skipped",
+        "kind": "envelope",
+        "value": "skipped"
+      },
+      {
+        "id": "envelope:timeout",
+        "kind": "envelope",
+        "value": "timeout"
+      },
+      {
+        "id": "envelope:warn",
+        "kind": "envelope",
+        "value": "warn"
+      }
+    ],
+    "superseded": []
+  }
+}
