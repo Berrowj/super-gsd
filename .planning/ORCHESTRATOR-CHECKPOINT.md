@@ -1,16 +1,16 @@
 ---
 checkpoint: full-roadmap-autopilot-run-2
 created: 2026-04-27
-updated: 2026-04-27 (v1.9 active; Phases 41-42 closed PASS; resume at Phase 43)
+updated: 2026-04-27 (v1.9 active; Phases 41-43 closed PASS; resume at Phase 44)
 session: opus-4.7-1m
 mode: autonomous
 emergency_halt: false
 context_percent_at_write: "not_self_estimated"
 controlling_principle: Autonomy continues; evidence tells the truth.
-next_unit: "v1.9 Phase 43 (Phase Capsule Contract) — dispatch gsd-phase-researcher (Rule 2: phase needs RESEARCH.md)"
+next_unit: "v1.9 Phase 44 (Legal Context Registry) — dispatch gsd-phase-researcher (Rule 2: phase needs RESEARCH.md). Phase 44 builds context-registry/build.cjs + check.cjs + legal-keys.json to reject invented references at packet boundary."
 ---
 
-# Orchestrator Checkpoint - v1.9 Phases 41+42 SHIPPED, Phase 43 next
+# Orchestrator Checkpoint - v1.9 Phases 41+42+43 SHIPPED, Phase 44 next
 
 ## Status
 
