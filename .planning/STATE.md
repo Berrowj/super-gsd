@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: SGSD-Research (Context Compression, Token Governance, And Research Routing) (queued)
 milestone_status: v1.8 SHIPPED 2026-04-27. v1.9 SLOT-CHANGE 2026-04-27 — SGSD-Research promoted to v1.9 (was Knowledge + Memory Governance, now archived as superseded at .planning/archive/superseded/v1.9-knowledge-memory-governance/). v1.9 phases 41-52 (renumbered from packet 56-67); v2.0 Failure Injection shifted to phases 53-57; v2.1 Distribution + Onboarding shifted to phases 58-62. Source analyses: agent-context-bloat-audit + VTP cross-check. Readiness re-probe required before first Phase 41 dispatch. Phase 41 (Baseline Token Attribution) is auto-defaulted (no interactive discuss).
-status: v1.9 Phase 43 PASS 2026-04-27 (post-fix). Advancing to Phase 44 Legal Context Registry.
-stopped_at: 2026-04-27 — Phase 43 closed PASS @ dca3af1; v1.9 advancing to Phase 44.
-last_updated: "2026-04-27T19:35:00Z"
+status: v1.9 Phase 44 PASS 2026-04-27 (post-fix). Advancing to Phase 45 Context Packet Builder.
+stopped_at: 2026-04-27 — Phase 44 closed PASS @ 64bee5e; v1.9 advancing to Phase 45.
+last_updated: "2026-04-27T20:35:00Z"
 last_activity: "2026-04-27 — Phase 41 (Baseline Token Attribution) closed PASS. Three atomic commits 7386a7d (lib + 14-assertion self-test) -> 373e9c1 (11,294-row backfilled ledger) -> d1f72cd (baseline-token-spend.md 7-section bloat report) -> ef90751 (REVISE-fix BLOAT_THRESHOLDS 8->4 keys per CONTEXT spec). Dual-provider ATC: Claude REVISE 1 MEDIUM addressed in-loop; Codex timeout 180s tier (TIER_ANALYSIS) logged as provider_unavailable. LOCK 6 honored: 10,881 of 11,294 rows = 96.3% role=orchestrator surfaces 1.24M-token v1.9/P41 bloat signature. Audit crosscheck markers all present (P36/170k, P40/122k, P41/1,244,893). Cross-phase contracts ready for Phase 42 BUDGET-01 (summarize() consumer), Phase 47 ROUTE-02 (R1-R5 substitution rules), Phase 51 BENCH-01 (baseline as before measurement)."
 progress:
   v1_7:
@@ -90,13 +90,16 @@ roadmap_run:
   backlog_canonical: .planning/metrics/crit-backlog.jsonl
   started: 2026-04-26
   current_milestone: v1.9
-  current_phase: 44
-  current_phase_name: Legal Context Registry
+  current_phase: 45
+  current_phase_name: Context Packet Builder
   v1_9_milestone_codename: SGSD-Research
   v1_9_progress:
     phase_41: "PASS @ ef90751 (1 MEDIUM Claude REVISE-fix in-loop: BLOAT_THRESHOLDS 8->4 keys per CONTEXT spec; Codex provider_unavailable timeout 180s tier; 11,294 row ledger; baseline-token-spend.md 7 sections; LOCK 6 honored 96.3% orchestrator)"
     phase_42: "PASS @ 3124362 (1 MEDIUM Claude in-loop: VERDICTS 4->5 entry add 'error' sentinel for Phase 50 enum-contract; Codex provider_unavailable; 15/15 self-test; live --check verdict=degraded status=warn lock-13 holds; check.cjs imports Phase 41 lib by reference; budgets.yaml + sgsd-complete-milestone Step 4.7 wired)"
     phase_43: "PASS @ dca3af1 (1 MEDIUM Claude in-loop: warnings_added counter dialect fix at write.cjs:360-365; 4 LOW accepted; Codex provider_unavailable; 13/13 self-test; F2 hash-idempotency + F3 never-throws + F4 verbatim-bypass all green; 44 capsules backfilled v1.2-v1.9 + 8 PHASE-INDEX.jsonl; sgsd-orchestrate Step 6.6.i.X + sgsd-complete-milestone Step 4.7-bis wired)"
+    phase_44: "PASS @ 64bee5e (1 HIGH + 1 MEDIUM Claude in-loop: phase41 dependency-gate dead-branch removal + PHASE43_CMD symbolic deref; 3 LOW accepted; Codex provider_unavailable; 13/13 self-test; F1-F4 binding fixtures green; legal-keys.json 8 ROADMAP categories + 2 derived from 13 canonical sources; content_hash b0a8024bc... stable across 4 runs; 44/44 PHASE-CAPSULE.json consumers[] validate clean)"
+  v1_9_open_debt:
+    phase41_uncommitted: "token-attribution/{collect,report}.cjs has +203/-12 LOC unstaged enrichment (agent_id / source_file_kind / deriveRole) from Phase 41 work — never committed. Operator decision before Phase 45 dispatch."
   v1_9_supersedes_archive: .planning/archive/superseded/v1.9-knowledge-memory-governance/
   v1_8_progress:
     phase_36: "PASS @ d6c402f"
