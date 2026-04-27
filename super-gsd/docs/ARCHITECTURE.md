@@ -262,6 +262,20 @@ flowchart TB
 | `.brv/context-tree/` + INDEX.md | sgsd-curate | sgsd-recall, orchestrator | per-lesson |
 | `~/.claude/projects/<encoded>/<session>.jsonl` | Claude Code harness | sgsd-ctx, dashboards | per-message |
 
+> **Catalog moved (Phase 35, v1.7) -- DEPRECATED.** The agent / gate /
+> provider / skill / contract / script enumerations in sections 6, 7, and 8
+> above are now auto-generated. The canonical living catalog is at
+> `.planning/SYSTEM-MAP.md` (machine view at `.planning/SYSTEM-MAP.json`).
+> Edit the underlying registries under `super-gsd/registry/` -- not this
+> file. Regenerate via:
+>
+> ```bash
+> node super-gsd/tools/system-map/generate.cjs --generate
+> ```
+>
+> Drift detection: `node super-gsd/tools/system-map/generate.cjs --check`
+> exits 1 if SYSTEM-MAP.* is older than the registries.
+
 ## 9. Golden invariants
 
 - Orchestrator never does heavy work — only dispatches
