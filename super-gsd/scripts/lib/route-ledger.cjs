@@ -53,7 +53,12 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 
-// ROUTE-02: closed enum of 6 boundary types. Frozen.
+// ROUTE-02: closed enum of 7 boundary types. Frozen.
+// Phase 38 (SAMPLE-04): added 'gate_override' for --force-gates /
+// --skip-gates with --override-reason. Mass-discuss line 187 names
+// this boundary verbatim. Extension preserves the closed-enum
+// contract (no schema field shape change; envelope-v1 still ships
+// additionalProperties: true so envelope contract holds).
 const BOUNDARIES = Object.freeze([
   'milestone_promotion',
   'phase_dispatch_first',
@@ -61,6 +66,7 @@ const BOUNDARIES = Object.freeze([
   'gate_skip',
   'codex_route',
   'handoff_decision',
+  'gate_override',
 ]);
 
 // envelope-v1 status enum (command-envelope-v1.json status.enum). Frozen.
@@ -304,9 +310,9 @@ function selfTest() {
 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rl-'));
   try {
-    // 1. Module exports + frozen constants.
-    assert('1. BOUNDARIES is array of 6',
-      Array.isArray(BOUNDARIES) && BOUNDARIES.length === 6);
+    // 1. Module exports + frozen constants. Phase 38: 7 entries.
+    assert('1. BOUNDARIES is array of 7',
+      Array.isArray(BOUNDARIES) && BOUNDARIES.length === 7);
     assert('2. STATUSES is array of 6 envelope-v1 states',
       Array.isArray(STATUSES) && STATUSES.length === 6 &&
       STATUSES.includes('ok') && STATUSES.includes('warn') &&
@@ -407,6 +413,25 @@ function selfTest() {
       realExistedBefore === realExistedAfter &&
       realMtimeBefore === realMtimeAfter &&
       realSizeBefore === realSizeAfter);
+
+    // 13. Phase 38: gate_override boundary accepts envelope-shaped row.
+    const r13 = appendRow(tmp, {
+      boundary: 'gate_override', status: 'ok',
+      phase: '38', milestone: 'v1.8',
+      reason_codes: ['gate_force_override_with_reason'],
+      decision: { gate: 'per-dispatch-ATC', action: 'force', reason: 'self-test' },
+    });
+    const rows13 = readRows(tmp);
+    const lastRow = rows13[rows13.length - 1];
+    assert('13. gate_override boundary accepted; decision payload preserved',
+      lastRow.boundary === 'gate_override' &&
+      lastRow.decision &&
+      lastRow.decision.gate === 'per-dispatch-ATC' &&
+      lastRow.decision.action === 'force' &&
+      lastRow.decision.reason === 'self-test' &&
+      Array.isArray(lastRow.reason_codes) &&
+      lastRow.reason_codes.includes('gate_force_override_with_reason'));
+    void r13;
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

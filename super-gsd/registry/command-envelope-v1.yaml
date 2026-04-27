@@ -7,7 +7,7 @@
 #   - plan-schema-v2       (plan-file frontmatter level)
 # See super-gsd/templates/command-envelope-v1.json for the JSON Schema.
 
-registry_version: 1.0.0
+registry_version: 1.0.1
 envelope_version: 1
 schema_ref: super-gsd/templates/command-envelope-v1.json
 locked_decision: "31=A (mass-discuss 2026-04-26): new envelope-v1, separate file"
@@ -148,6 +148,12 @@ reason_codes:
       - code: gate_force_with_reason
         group: gate_review
         description: "Gate force-passed via documented override; rationale captured in evidence[]."
+      - code: gate_force_override_with_reason
+        group: gate_review
+        description: "Operator-issued --force-gates / --skip-gates with --override-reason; logged to route-decisions.jsonl boundary=gate_override (Phase 38 SAMPLE-04)."
+      - code: gate_sampled_skip
+        group: gate_review
+        description: "Gate trigger fired but 3x3 work_risk x gate_sampling_tier matrix returned skip; gate-value-log row carries this reason_code so Phase 39 rubric distinguishes trigger-skip from sampled-skip (Phase 38 LOCKED Q13)."
 
       # Edge guard / structural
       - code: missing_emit
