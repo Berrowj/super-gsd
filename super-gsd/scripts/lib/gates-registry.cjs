@@ -51,6 +51,25 @@ function loadGates(gatesYamlPath) {
   for (const g of all) byName[g.name] = g;
 
   _cache = { all, byName };
+
+  // REPAIR-03 (Phase 33): validate every repair_command at LOAD time.
+  // On 4-AND violation, throw -- gates.yaml is malformed and the
+  // orchestrator must NEVER start with a poisoned registry.
+  const repairChecker = require('./repair-command-checker.cjs');
+  const result = repairChecker.validateRepairCommands({ gates: all });
+  if (!result.ok) {
+    const detail = result.violations.map((v) => v.message).join('; ');
+    _cache = null; // invalidate so a fix + reload is not blocked by stale cache
+    throw new Error(`gates.yaml repair_command 4-AND violations: ${detail}`);
+  }
+
+  // REPAIR-01 (Phase 33): instruction-presence is a soft-warn at load
+  // time (the hard check is `grep -c repair_instruction:` >= 13 in CI).
+  const presence = repairChecker.assertEveryBlockingGateHasInstruction({ gates: all });
+  if (!presence.ok) {
+    console.warn(`[SGSD] gates.yaml: missing repair_instruction on blocking gate(s): ${presence.missing.join(', ')}`);
+  }
+
   return _cache;
 }
 
