@@ -246,17 +246,16 @@ function _readCapsuleSchema(p) {
   const status_enum = (obj.properties && obj.properties.status && Array.isArray(obj.properties.status.enum))
     ? obj.properties.status.enum.slice().map(String)
     : [];
-  // Phase 43 CAPSULE_FILE_KINDS: 5 kinds -- read from required PhaseOutput.kind
-  // when reachable; otherwise fall back to Phase 43 const.
+  // Phase 43 CAPSULE_FILE_KINDS: 5 kinds -- read from Phase 43 module by reference.
+  // Independent of Phase 41 availability; sibling tools/phase-capsule may load
+  // even if tools/token-attribution did not.
   let artifact_kinds = [];
-  if (phase41 || true) {
-    try {
-      const phase43 = require(path.join(__dirname, '..', 'phase-capsule', 'write.cjs'));
-      if (phase43 && Array.isArray(phase43.CAPSULE_FILE_KINDS)) {
-        artifact_kinds = phase43.CAPSULE_FILE_KINDS.slice().map(String);
-      }
-    } catch (_e) { artifact_kinds = []; }
-  }
+  try {
+    const phase43 = require(path.join(__dirname, '..', 'phase-capsule', 'write.cjs'));
+    if (phase43 && Array.isArray(phase43.CAPSULE_FILE_KINDS)) {
+      artifact_kinds = phase43.CAPSULE_FILE_KINDS.slice().map(String);
+    }
+  } catch (_e) { artifact_kinds = []; }
   return { status_enum, artifact_kinds };
 }
 
@@ -580,7 +579,13 @@ function build(repoRoot, opts) {
     try {
       phase43 = require(path.join(root, 'super-gsd', 'tools', 'phase-capsule', 'write.cjs'));
     } catch (_e) { phase43 = null; }
-    const PHASE43_CMD = phase43 ? 'writeCapsule' : null;
+    // Phase 43 doesn't expose a COMMAND_NAME (it writes JSON files, not envelope-v1
+    // ledger rows). Use the public API symbol name as the discriminator -- read
+    // by reference so a future Phase 43 rename auto-propagates here. Falls back
+    // to null when Phase 43 is unavailable.
+    const PHASE43_CMD = phase43 && typeof phase43.writeCapsule === 'function'
+      ? 'writeCapsule'
+      : null;
 
     // ------- Derive milestones from PHASE-INDEX phases + milestoneFm -------
     const milestonesActive = milestoneFm.map(m => ({
