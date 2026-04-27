@@ -124,6 +124,14 @@ function Trunc($text, $width) {
     return $text
 }
 
+function Format-Age($sec) {
+    if ($null -eq $sec) { return "--" }
+    if ($sec -lt 60) { return "${sec}s" }
+    if ($sec -lt 3600) { return "$([math]::Floor($sec / 60))m" }
+    if ($sec -lt 86400) { return "$([math]::Floor($sec / 3600))h" }
+    return "$([math]::Floor($sec / 86400))d"
+}
+
 # Encode a project directory the way Claude Code does for its session index:
 # replace path separators with dashes, drop drive colon.
 #   C:\Users\jack.berrow\project-clarity-erp  →  C--Users-jack-berrow-project-clarity-erp
@@ -214,6 +222,17 @@ function Get-ToolEntries($entries) {
 function Summarize-ToolInput($tool, $inp) {
     if ($null -eq $inp) { return "" }
     $s = ""
+    if ("$tool" -match '^mcp__vtp|vtp') {
+        if ($inp.query) { return "VTP query: $($inp.query)" }
+        if ($inp.topic) { return "VTP topic: $($inp.topic)" }
+        if ($inp.project_id) { return "VTP project: $($inp.project_id)" }
+        return "VTP call"
+    }
+    if ("$tool" -match '^mcp__|skill') {
+        $firstKey = @($inp.PSObject.Properties)[0]
+        if ($firstKey) { return "tool call: $($firstKey.Name)=$($firstKey.Value)" }
+        return "tool call"
+    }
     switch ($tool) {
         "Read"     { if ($inp.file_path)  { $s = Split-Path $inp.file_path -Leaf } }
         "Write"    { if ($inp.file_path)  { $s = (Split-Path $inp.file_path -Leaf) + " (" + ("$($inp.content)".Length) + " chars)" } }
@@ -244,6 +263,7 @@ function Summarize-ToolInput($tool, $inp) {
 }
 
 function Get-ToolColor($tool) {
+    if ("$tool" -match '^mcp__|vtp|skill') { return "Cyan" }
     switch ($tool) {
         "Codex"      { return "DarkYellow" }
         "Read"       { return "Cyan" }
@@ -261,11 +281,177 @@ function Get-ToolColor($tool) {
 
 # ── Renderers ────────────────────────────────────────────────────────────────
 
+function Get-StateScope {
+    $stateFile = Join-Path $PlanningDir "STATE.md"
+    $out = [ordered]@{ milestone=""; milestoneName=""; phase=""; phaseName=""; total=0; index=0; status="" }
+    if (-not (Test-Path $stateFile)) { return [pscustomobject]$out }
+    try {
+        foreach ($line in (Get-Content $stateFile -TotalCount 80 -ErrorAction SilentlyContinue)) {
+            if (-not $out.milestone -and $line -match '^milestone:\s*(.+)$') { $out.milestone = $matches[1].Trim().Trim('"', "'") }
+            if (-not $out.milestoneName -and $line -match '^milestone_name:\s*(.+)$') { $out.milestoneName = $matches[1].Trim().Trim('"', "'") }
+            if (-not $out.status -and $line -match '^status:\s*(.+)$') { $out.status = $matches[1].Trim().Trim('"', "'") }
+        }
+        if ($out.status -match '(?i)\bNext:\s*Phase\s+([0-9]+)\s*\(([^)]+)\)') {
+            $out.phase = $matches[1]; $out.phaseName = $matches[2]
+        } elseif ($out.status -match '\bPhase\s+([0-9]+)\s*\(([^)]+)\)') {
+            $out.phase = $matches[1]; $out.phaseName = $matches[2]
+        } elseif ($out.status -match '\bPhase\s+([0-9]+)\b') {
+            $out.phase = $matches[1]
+        }
+        if ($out.milestone) {
+            $root = Join-Path $PlanningDir "milestones\$($out.milestone)\phases"
+            $phases = @()
+            if (Test-Path $root) {
+                $phases = @(Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Name -match '^([0-9]+)' } |
+                    ForEach-Object { [pscustomobject]@{ num = ([regex]::Match($_.Name, '^([0-9]+)').Groups[1].Value); name=$_.Name } } |
+                    Sort-Object { [int]$_.num })
+            }
+            $out.total = $phases.Count
+            for ($i = 0; $i -lt $phases.Count; $i++) {
+                if ($phases[$i].num -eq $out.phase) { $out.index = $i + 1; break }
+            }
+        }
+    } catch {}
+    return [pscustomobject]$out
+}
+
+function Get-NarrativeLines {
+    if (-not (Test-Path $NarrativeCache)) { return @() }
+    try {
+        return @(Get-Content $NarrativeCache -ErrorAction SilentlyContinue | Where-Object { "$_".Trim() })
+    } catch { return @() }
+}
+
+function Get-AgentRole {
+    param([string]$Text)
+    $t = "$Text"
+    if ($t -match '(?i)research') { return "Research" }
+    if ($t -match '(?i)executor|execute|exec') { return "Executor" }
+    if ($t -match '(?i)plan-checker|planner|plan') { return "Planner" }
+    if ($t -match '(?i)review|verifier|atc') { return "Review" }
+    return "Agent"
+}
+
+function Get-AgentNumber {
+    param([string]$Role)
+    switch ($Role) {
+        "Research" { return "Agent 1" }
+        "Executor" { return "Agent 2" }
+        "Planner" { return "Agent 3" }
+        default { return "Agent" }
+    }
+}
+
+function Clean-AgentText {
+    param([string]$Text)
+    $s = "$Text" -replace 'â€”', '-' -replace '—', '-' -replace '\s+', ' '
+    $s = $s -replace '^\s*[-:]\s*', ''
+    return $s.Trim()
+}
+
+function Get-AgentRows {
+    $rows = @()
+    if (-not (Test-Path $ActivityLog)) { return @() }
+    try {
+        $now = Get-Date
+        foreach ($line in (Get-CachedTail $ActivityLog 180)) {
+            try {
+                $e = $line | ConvertFrom-Json -ErrorAction Stop
+                if ($e.tool -ne "Agent" -and $e.tool -ne "TaskCreate") { continue }
+                $target = Clean-AgentText "$($e.target)"
+                if (-not $target) { continue }
+                $ts = [DateTime]::Parse($e.ts)
+                $age = [int]($now - $ts).TotalSeconds
+                $role = Get-AgentRole $target
+                $phase = if ($target -match '(?i)Phase\s+([0-9]+)') { $matches[1] } else { "" }
+                $rows += [pscustomobject]@{
+                    ts = $ts
+                    age = $age
+                    phase = $phase
+                    role = $role
+                    label = "$(Get-AgentNumber $role) ($role)"
+                    text = $target
+                    active = ($age -lt 300)
+                }
+            } catch {}
+        }
+    } catch {}
+    return @($rows | Sort-Object ts -Descending)
+}
+
+function Render-AgentOverview {
+    param($pw, $Scope)
+    $lines = Get-NarrativeLines
+    $current = if ($lines.Count -gt 0) { Clean-AgentText ($lines[0]) } else { "Waiting for current Claude narrative." }
+    Write-Host "CLAUDE NOW " -NoNewline -ForegroundColor White
+    if ($Scope.phase) {
+        Write-Host ("{0}/P{1}" -f $Scope.milestone, $Scope.phase) -NoNewline -ForegroundColor Yellow
+        if ($Scope.total -gt 0) { Write-Host (" ({0}/{1})" -f $Scope.index, $Scope.total) -NoNewline -ForegroundColor DarkGray }
+    }
+    Write-Host $CLEAR_LINE
+    Write-Host "  " -NoNewline
+    Write-Host (Trunc $current ($pw - 3)) -NoNewline -ForegroundColor Yellow
+    Write-Host $CLEAR_LINE
+
+    $agentRows = @(Get-AgentRows)
+    $active = @($agentRows | Where-Object { $_.active -and @("Research","Executor","Planner") -contains $_.role } | Select-Object -First 3)
+    Write-Host "ACTIVE AGENTS" -NoNewline -ForegroundColor White
+    Write-Host $CLEAR_LINE
+    if ($active.Count -eq 0) {
+        Write-Host "  none" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+    } else {
+        foreach ($a in $active) {
+            $phase = if ($a.phase) { "P$($a.phase) " } else { "" }
+            Write-Host "  $($a.label) " -NoNewline -ForegroundColor Green
+            Write-Host (Format-Age $a.age) -NoNewline -ForegroundColor DarkGray
+            Write-Host "  " -NoNewline
+            Write-Host (Trunc ($phase + $a.text) ($pw - 24)) -NoNewline -ForegroundColor Green
+            Write-Host $CLEAR_LINE
+        }
+    }
+
+    Write-Host "AGENT HISTORY" -NoNewline -ForegroundColor White
+    Write-Host $CLEAR_LINE
+    $history = @()
+    $seen = @{}
+    foreach ($a in $agentRows) {
+        if ($a.active) { continue }
+        if (-not @("Research","Executor","Planner") -contains $a.role) { continue }
+        $key = "$($a.role)|$($a.phase)"
+        if ($seen.ContainsKey($key)) { continue }
+        $seen[$key] = $true
+        $phase = if ($a.phase) { "P$($a.phase)" } else { "P?" }
+        $verb = switch ($a.role) {
+            "Research" { "found the phase constraints and evidence needed" }
+            "Executor" { "last built or changed the phase artifact" }
+            "Planner" { "set the delivery structure and acceptance route" }
+            default { "updated the phase" }
+        }
+        $history += [pscustomobject]@{ role=$a.role; line="$phase $($a.label): $verb - $(Clean-AgentText $a.text)" }
+        if ($a.role -eq "Research") {
+            $history += [pscustomobject]@{ role=$a.role; line="$phase $($a.label): research shapes the current plan and review checklist." }
+        }
+        if ($history.Count -ge 5) { break }
+    }
+    if ($history.Count -eq 0) {
+        Write-Host "  no prior agent records yet" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+    } else {
+        foreach ($h in $history) {
+            Write-Host "  " -NoNewline
+            Write-Host (Trunc $h.line ($pw - 3)) -NoNewline -ForegroundColor Gray
+            Write-Host $CLEAR_LINE
+        }
+    }
+}
+
 function Render-Header {
     param($ts)
     Write-Host "SUPER GSD" -NoNewline -ForegroundColor Magenta
-    Write-Host " ~ " -NoNewline -ForegroundColor Yellow
-    Write-Host "Narrative + Ctrl+O" -NoNewline -ForegroundColor White
+    Write-Host " ! " -NoNewline -ForegroundColor Cyan
+    Write-Host "Claude + Agents" -NoNewline -ForegroundColor White
     Write-Host "  $ts" -NoNewline -ForegroundColor DarkGray
     Write-Host $CLEAR_LINE
 
@@ -628,11 +814,12 @@ function Render {
 
     Render-Header $ts
     Write-Host $CLEAR_LINE
-    Render-HaikuSummary $pw
+    $scope = Get-StateScope
+    Render-AgentOverview $pw $scope
     Write-Host $CLEAR_LINE
 
     # Remaining space goes to Ctrl+O stream (min 4 rows)
-    $used = 14
+    $used = 13
     $ctrlOBudget = [Math]::Max(4, $ph - $used)
     Render-CtrlOStream $pw $ctrlOBudget
 

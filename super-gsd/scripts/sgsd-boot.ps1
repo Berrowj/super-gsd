@@ -131,6 +131,8 @@ public static class SgsdNativeWindow {
 function Stop-CockpitWindows {
     $patterns = @(
         'SGSD-Cockpit',
+        'SGSD2-Codex',
+        'SGSD3-Claude',
         'SGSD3-Codex',
         'Mission Control',
         'Narrative + Ctrl\+O',
@@ -761,8 +763,8 @@ if ($NoOpen) {
     Write-Host ""
     Write-Host "Start manually with:"
     Write-Host "  powershell -File super-gsd/scripts/sgsd-mission-control.ps1 -ProjectDir '$ProjectDir'"
-    Write-Host "  powershell -File super-gsd/scripts/sgsd-narrative.ps1       -ProjectDir '$ProjectDir'"
     Write-Host "  powershell -File super-gsd/scripts/sgsd-codex-monitor.ps1   -ProjectDir '$ProjectDir'"
+    Write-Host "  powershell -File super-gsd/scripts/sgsd-narrative.ps1       -ProjectDir '$ProjectDir'"
     exit 0
 }
 
@@ -770,8 +772,8 @@ Write-Host "LAUNCH" -ForegroundColor White
 Write-Host "------"
 
 $sgsd1 = Join-Path $ScriptsDir "sgsd-mission-control.ps1"
-$sgsd2 = Join-Path $ScriptsDir "sgsd-narrative.ps1"
-$sgsd3 = Join-Path $ScriptsDir "sgsd-codex-monitor.ps1"
+$sgsd2 = Join-Path $ScriptsDir "sgsd-codex-monitor.ps1"
+$sgsd3 = Join-Path $ScriptsDir "sgsd-narrative.ps1"
 $dashboardHost = Join-Path $ScriptsDir "sgsd-dashboard-host.ps1"
 
 foreach ($script in @($sgsd1, $sgsd2, $sgsd3, $dashboardHost)) {
@@ -798,27 +800,27 @@ if ($wt) {
 
     # Cockpit layout:
     #   left-top:    SGSD1 (Mission Control)
-    #   left-bottom: SGSD2 (Narrative + Ctrl+O stream)
-    #   right-full:  SGSD3 (Codex + VTP/MCP detail)
+    #   left-bottom: SGSD2 (Codex + gate detail)
+    #   right-full:  SGSD3 (Claude + active agents + tool stream)
     #
     # Build order:
     #   1. SGSD1 fills the tab.
     #   2. Split right for SGSD3 at full height.
     #   3. Return left and split SGSD1 horizontally for SGSD2.
-    #   4. Focus SGSD3 so the high-detail pane is active.
+    #   4. Focus SGSD3 so the live Claude pane is active.
     $launchArgs = @(
         "new-tab", "--title", "SGSD-Cockpit", "--startingDirectory", $ProjectDir,
         $psCmd, "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd1, "-ProjectDir", $ProjectDir, "-Name", "SGSD1-Mission-Control",
-        ";", "split-pane", "-V", "--size", "0.50", "--title", "SGSD3-Codex+VTP", "--startingDirectory", $ProjectDir,
-        $psCmd, "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd3, "-ProjectDir", $ProjectDir, "-Name", "SGSD3-Codex+VTP",
+        ";", "split-pane", "-V", "--size", "0.50", "--title", "SGSD3-Claude+Agents", "--startingDirectory", $ProjectDir,
+        $psCmd, "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd3, "-ProjectDir", $ProjectDir, "-Name", "SGSD3-Claude+Agents",
         ";", "move-focus", "left",
-        ";", "split-pane", "-H", "--size", "0.50", "--title", "SGSD2", "--startingDirectory", $ProjectDir,
-        $psCmd, "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd2, "-ProjectDir", $ProjectDir, "-Name", "SGSD2-Narrative",
+        ";", "split-pane", "-H", "--size", "0.50", "--title", "SGSD2-Codex", "--startingDirectory", $ProjectDir,
+        $psCmd, "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd2, "-ProjectDir", $ProjectDir, "-Name", "SGSD2-Codex",
         ";", "move-focus", "right"
     )
 
     Write-Step "Windows Terminal detected" "OK" Green
-    Write-Host "  Opening SGSD1+SGSD2 stacked left, SGSD3-Codex+VTP full-height right..."
+    Write-Host "  Opening Mission + Codex stacked left, Claude+Agents full-height right..."
     Start-Process -FilePath "wt.exe" -ArgumentList $launchArgs
     Start-Sleep -Milliseconds 500
 
@@ -857,9 +859,9 @@ if ($wt) {
 
     Start-Process powershell.exe -ArgumentList "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd1, "-ProjectDir", $ProjectDir, "-Name", "SGSD1-Mission-Control"
     Start-Sleep -Milliseconds 300
-    Start-Process powershell.exe -ArgumentList "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd2, "-ProjectDir", $ProjectDir, "-Name", "SGSD2-Narrative"
+    Start-Process powershell.exe -ArgumentList "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd2, "-ProjectDir", $ProjectDir, "-Name", "SGSD2-Codex"
     Start-Sleep -Milliseconds 300
-    Start-Process powershell.exe -ArgumentList "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd3, "-ProjectDir", $ProjectDir, "-Name", "SGSD3-Codex+VTP"
+    Start-Process powershell.exe -ArgumentList "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd3, "-ProjectDir", $ProjectDir, "-Name", "SGSD3-Claude+Agents"
 
     Write-Host ""
     Write-Host "Three dashboards opened in separate windows." -ForegroundColor Green

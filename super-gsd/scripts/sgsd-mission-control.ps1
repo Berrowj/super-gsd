@@ -1081,6 +1081,19 @@ function Get-PhaseGoalBrief {
     return ""
 }
 
+function Simplify-GoalText {
+    param([string]$Text)
+    if (-not $Text) { return "" }
+    $s = "$Text"
+    $s = $s -replace '`\.planning/metrics/route-decisions\.jsonl`', 'route decision log'
+    $s = $s -replace '`([^`]+)`', '$1'
+    $s = $s -replace '\.jsonl', ' log'
+    $s = $s -replace '\.cjs', ' module'
+    $s = $s -replace '\s+', ' '
+    $s = $s -replace 'Append-only route decision log\.', 'Append route decisions to a durable log.'
+    return $s.Trim()
+}
+
 function Get-PhaseEvidenceSummary {
     param($PhaseDir, [string]$PhaseNum)
     $checks = @(
@@ -1156,6 +1169,42 @@ function Get-PhaseMapText {
     return $parts -join " "
 }
 
+function Render-PhaseMapVisual {
+    param([object[]]$Phases, [string]$CurrentNum)
+    $pw = Get-PaneWidth
+    Write-Host "PHASES   " -NoNewline -ForegroundColor White
+    $used = 9
+    foreach ($p in $Phases) {
+        $label = "[P$($p.num)]"
+        if (($used + $label.Length + 1) -ge $pw) { break }
+        $color = if ($p.num -eq $CurrentNum) { "Yellow" } elseif ($p.done) { "Green" } else { "Red" }
+        Write-Host $label -NoNewline -ForegroundColor $color
+        Write-Host " " -NoNewline
+        $used += $label.Length + 1
+    }
+    Write-Host $CLEAR_LINE
+}
+
+function Format-EvidenceLine {
+    param($Evidence)
+    $doneLabels = @()
+    $leftLabels = @()
+    $labels = [ordered]@{
+        research = "research"
+        context = "context"
+        plan = "plan"
+        verify = "verify"
+        atc = "review"
+        codex = "codex"
+    }
+    foreach ($k in $labels.Keys) {
+        if ($Evidence.missing -contains $k) { $leftLabels += $labels[$k] } else { $doneLabels += $labels[$k] }
+    }
+    $doneText = if ($doneLabels.Count -gt 0) { $doneLabels -join "/" } else { "none" }
+    $leftText = if ($leftLabels.Count -gt 0) { $leftLabels -join "/" } else { "none" }
+    return "EVIDENCE done: $doneText | left: $leftText"
+}
+
 function Render-CompactMissionControl {
     param(
         $State,
@@ -1177,7 +1226,7 @@ function Render-CompactMissionControl {
     }
     $ordinal = if ($idx -ge 0) { $idx + 1 } else { "?" }
     $phaseName = if ($ActivePhase) { $ActivePhase.name } else { "unknown phase" }
-    $goal = Get-PhaseGoalBrief $CurrentNum
+    $goal = Simplify-GoalText (Get-PhaseGoalBrief $CurrentNum)
     $evidence = Get-PhaseEvidenceSummary -PhaseDir $ActiveDir -PhaseNum $CurrentNum
     $backlog = Get-BacklogSummary -Milestone $ms -PhaseNum $CurrentNum
     $phaseMap = Get-PhaseMapText -Phases $Phases -CurrentNum $CurrentNum
@@ -1185,7 +1234,7 @@ function Render-CompactMissionControl {
     Write-Row ("MISSION {0}  P{1} ({2}/{3})  {4}" -f $ms, $(if ($CurrentNum) { $CurrentNum } else { "?" }), $ordinal, $(if ($total -gt 0) { $total } else { "?" }), (Trunc $phaseName ([Math]::Max(10, $pw - 34)))) "Yellow"
     if ($msName) { Write-Row ("MILESTONE " + (Trunc $msName ([Math]::Max(10, $pw - 10)))) "White" }
     Write-Row ("PROGRESS [{0}] {1}/{2} phases done" -f (Make-Bar $pct 14), $done, $total) "Green"
-    if ($phaseMap) { Write-Row ("PHASE MAP " + (Trunc $phaseMap ([Math]::Max(10, $pw - 10)))) "Cyan" }
+    Render-PhaseMapVisual -Phases $Phases -CurrentNum $CurrentNum
 
     $nextPhase = $null
     if ($idx -ge 0 -and $idx -lt ($Phases.Count - 1)) { $nextPhase = $Phases[$idx + 1] }
@@ -1195,60 +1244,31 @@ function Render-CompactMissionControl {
         Write-Row ("NEXT     P{0}  {1}" -f $nextPhase.num, (Trunc $nextPhase.name ([Math]::Max(10, $pw - 14)))) "Gray"
     }
 
-    $remaining = @($Phases | Where-Object { -not $_.done })
-    if ($remaining.Count -gt 0) {
-        $labels = @($remaining | Select-Object -First 3 | ForEach-Object { "P$($_.num)" })
-        $more = if ($remaining.Count -gt 3) { " +$($remaining.Count - 3)" } else { "" }
-        Write-Row ("TO CLOSE finish {0}{1}; run milestone close gate" -f ($labels -join ", "), $more) "Cyan"
-    } else {
-        Write-Row "TO CLOSE run milestone close gate" "Cyan"
-    }
-
-    Write-Row ("EVIDENCE [{0}] {1}/{2} artifacts" -f $evidence.bits, $evidence.done, $evidence.total) $(if ($evidence.done -eq $evidence.total) { "Green" } elseif ($evidence.done -gt 0) { "Yellow" } else { "DarkGray" })
-    if ($evidence.missing.Count -gt 0) {
-        Write-Row ("MISSING  " + (Trunc ($evidence.missing -join ", ") ([Math]::Max(10, $pw - 9)))) "DarkGray"
-    }
+    Write-Row (Trunc (Format-EvidenceLine $evidence) $pw) $(if ($evidence.done -eq $evidence.total) { "Green" } elseif ($evidence.done -gt 0) { "Yellow" } else { "DarkGray" })
     Write-Row ("DEBT     {0}" -f $backlog.text) $(if ($backlog.edge -gt 0) { "Red" } elseif ($backlog.phase -gt 0) { "Yellow" } else { "Green" })
 
     $rd = Get-ReadinessInfo $State.milestone
     if ($rd) {
         $rdColor = switch ($rd.status) { "GO" {"Green"} "PARTIAL" {"Yellow"} "BLOCKED" {"Red"} default {"DarkGray"} }
-        Write-Row ("UNATTENDED {0}  GO {1} / BLK {2} / CASCADE {3}" -f $rd.status, $rd.go, $rd.blk, $rd.will) $rdColor
+        $autoText = if ($rd.status -eq "GO") {
+            "AUTOMODE clear: $($rd.go) phases checked, no predicted blockers"
+        } elseif ($rd.status -eq "PARTIAL") {
+            "AUTOMODE partial: $($rd.blk) blocked, $($rd.will) cascade risk"
+        } else {
+            "AUTOMODE blocked: $($rd.blk) hard blocker(s), $($rd.will) cascade"
+        }
+        Write-Row (Trunc $autoText $pw) $rdColor
     } else {
-        Write-Row "UNATTENDED no readiness manifest - run /gsd-readiness" "DarkYellow"
+        Write-Row "AUTOMODE unknown: run /gsd-readiness for blocker forecast" "DarkYellow"
     }
 
     if (Test-Checkpoint) {
-        Write-Row "CHECKPOINT resume point present - /sgsd-resume" "DarkYellow"
-    }
-
-    $codex = Get-SgsdCodexStatus -ProjectDir $ProjectDir -PlanningDir $PlanningDir
-    $codexText = if (-not $codex.scopeCurrent -and $CurrentNum) {
-        if ($evidence.missing -contains "codex") {
-            "Codex P${CurrentNum}: no review yet; last marker $($codex.staleScope)"
-        } else {
-            "Codex P${CurrentNum}: review marker stale; last marker $($codex.staleScope)"
-        }
-    } else {
-        Get-SgsdCodexStatusLine -Status $codex
-    }
-    Write-Row ("CODEX " + (Trunc $codexText ([Math]::Max(10, $pw - 6)))) $codex.stateColor
-
-    $verdicts = @(Get-SgsdCodexVerdicts -PlanningDir $PlanningDir -MaxRows 2 -MilestoneFilter $ms -PhaseFilter $CurrentNum)
-    if ($verdicts.Count -gt 0) {
-        foreach ($v in $verdicts) {
-            $vc = if ([int]$v.critical -gt 0) { "Red" } elseif ([int]$v.warning -gt 0) { "Yellow" } else { "Green" }
-            Write-Row ("  review {0} c={1} w={2}  {3}" -f $v.plan, $v.critical, $v.warning, (Trunc $v.one_liner ([Math]::Max(10, $pw - 26)))) $vc
-        }
-    } else {
-        Write-Row "  review no current-phase verdict yet" "DarkGray"
+        Write-Row "RESUME checkpoint saved; automode may still be running" "DarkYellow"
     }
 
     $hb = Get-Heartbeat
-    $hbColor = switch ($hb.state) { "RUNNING" {"Green"} "SLOW" {"Yellow"} "HUNG" {"Red"} "EMPTY_RESULT" {"Red"} default {"DarkGray"} }
-    $inf = Get-InferenceState
-    $infText = if ($inf) { "  inf $($inf.state) $(Format-Age $inf.ageSec)" } else { "" }
-    Write-Row ("RUNTIME heartbeat {0}{1}" -f $hb.state, $infText) $hbColor
+    $beatAge = if ($hb.lastEnd -ne $null) { $hb.lastEnd } elseif ($hb.lastStart -ne $null) { $hb.lastStart } else { $null }
+    Write-Row ("<3 " + (Format-Age $beatAge) + " since last beat") "Magenta"
 
     $sess = Get-SessionStats
     if ($sess.contextTokens -gt 0) {
@@ -1268,14 +1288,6 @@ function Render-CompactMissionControl {
     Write-Row ("AGENTS {0} active  {1} idle  {2} recent" -f $active, $idle, $recent) "White"
     foreach ($a in @($roster | Select-Object -First 3)) {
         Write-Row ("  {0,-8} {1}  {2}" -f $a.name, (Format-Age $a.ageSec), (Trunc $a.target ([Math]::Max(10, $pw - 20)))) $(if ($a.status -eq "ACTIVE") { "Green" } elseif ($a.status -eq "IDLE") { "Yellow" } else { "Cyan" })
-    }
-
-    $narrative = @(Get-NarrativeBrief)
-    if ($narrative.Count -gt 0) {
-        Write-Row "NOW" "White"
-        foreach ($n in @($narrative | Select-Object -First 4)) {
-            Write-Row ("  " + (Trunc $n ([Math]::Max(10, $pw - 3)))) "Yellow"
-        }
     }
 
     Write-Row "COMMITS" "White"

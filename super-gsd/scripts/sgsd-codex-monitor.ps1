@@ -359,6 +359,140 @@ function Get-PhaseEvidenceSummary {
     return [pscustomobject]@{ bits=($bits -join " "); done=$done; total=$checks.Count }
 }
 
+function Write-GateTrack {
+    param([string]$Name, [object[]]$Cells)
+    Write-Host $Name.PadRight(8) -NoNewline -ForegroundColor White
+    foreach ($c in $Cells) {
+        $color = switch ($c.state) {
+            "done" { "Green" }
+            "active" { "Yellow" }
+            "fail" { "Red" }
+            default { "Red" }
+        }
+        $suffix = if ($c.state -eq "fail") { "X" } else { "" }
+        Write-Host ("[{0}{1}]" -f $c.letter, $suffix) -NoNewline -ForegroundColor $color
+        Write-Host " " -NoNewline
+    }
+    Write-Host $CLEAR_LINE
+}
+
+function Get-MudaGateState {
+    param([string]$Milestone, [string]$PhaseNum, $Codex)
+    $letters = @("T","I","M","W","O","O","D")
+    $cells = @($letters | ForEach-Object { [pscustomobject]@{ letter=$_; state="todo" } })
+    $summary = "MUDA has not run for this phase yet."
+    $root = Join-Path $PlanningDir "milestones\$Milestone\phases"
+    $phaseDir = $null
+    if (Test-Path $root) {
+        $phaseDir = Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -eq "$PhaseNum" -or $_.Name.StartsWith("$PhaseNum-") } |
+            Select-Object -First 1
+    }
+    $waste = if ($phaseDir) { Get-ChildItem -Path $phaseDir.FullName -Filter "*WASTE*.md" -File -ErrorAction SilentlyContinue | Select-Object -First 1 } else { $null }
+    if ($waste) {
+        foreach ($c in $cells) { $c.state = "done" }
+        $summary = "Waste check exists; use WASTE notes for any flagged cleanup."
+        try {
+            $line = @(Get-Content $waste.FullName -ErrorAction SilentlyContinue | Where-Object { "$_".Trim() -and $_ -notmatch '^\s*#|^---|^\s*[-*]\s*$' } | Select-Object -First 1)
+            if ($line) { $summary = "$line" }
+        } catch {}
+    } elseif ($Codex.step -match '(?i)muda|waste') {
+        $cells[0].state = "active"
+        $summary = "MUDA review is currently running."
+    }
+    return [pscustomobject]@{ cells=$cells; summary=$summary }
+}
+
+function Get-ReviewGateState {
+    param([string]$Milestone, [string]$PhaseNum, $Codex, $Verdicts)
+    $cells = @(
+        [pscustomobject]@{ letter="P"; state="todo" },
+        [pscustomobject]@{ letter="R"; state="todo" },
+        [pscustomobject]@{ letter="F"; state="todo" },
+        [pscustomobject]@{ letter="V"; state="todo" }
+    )
+    $summary = "No Codex review evidence for current phase yet."
+    if ($Codex.scopeCurrent -and "$($Codex.state)" -eq "running") {
+        $cells[0].state = "done"; $cells[1].state = "active"
+        $summary = "Codex is reviewing the current phase."
+    }
+    if ($Verdicts.Count -gt 0) {
+        foreach ($c in $cells) { $c.state = "done" }
+        $latest = $Verdicts[0]
+        if ([int]$latest.critical -gt 0) { $cells[3].state = "fail" }
+        $summary = "$($latest.plan): $($latest.one_liner)"
+    }
+    return [pscustomobject]@{ cells=$cells; summary=$summary }
+}
+
+function Render-CompactCodex {
+    param($Scope, $Codex, $Substrate, $Rows, $Verdicts, $Brief, $PhaseNum, $Pw)
+
+    $ts = Get-Date -Format 'HH:mm:ss'
+    Write-Host "SUPER GSD" -NoNewline -ForegroundColor Magenta
+    Write-Host " ! " -NoNewline -ForegroundColor Cyan
+    Write-Host "Codex " -NoNewline -ForegroundColor White
+    Write-Host ("{0}/P{1}" -f $Scope.milestone, $PhaseNum) -NoNewline -ForegroundColor Yellow
+    Write-Host "  $ts" -NoNewline -ForegroundColor DarkGray
+    Write-Host $CLEAR_LINE
+
+    Write-Host "LANE " -NoNewline -ForegroundColor White
+    Write-Host $Codex.state.ToUpper() -NoNewline -ForegroundColor $Codex.stateColor
+    Write-Host " / cfg " -NoNewline -ForegroundColor DarkGray
+    Write-Host ($(if ($Codex.enabled) { "enabled" } else { "dark" })) -NoNewline -ForegroundColor $(if ($Codex.enabled) { "Green" } else { "Yellow" })
+    Write-Host " / age " -NoNewline -ForegroundColor DarkGray
+    Write-Host (Format-Age $Codex.updatedAgeSec) -NoNewline -ForegroundColor Cyan
+    Write-Host " / io " -NoNewline -ForegroundColor DarkGray
+    Write-Host ("{0}/{1}" -f (Format-Bytes $Codex.promptBytes), (Format-Bytes $Codex.reportBytes)) -NoNewline -ForegroundColor Gray
+    Write-Host $CLEAR_LINE
+
+    Write-Host "ROUTE 6.5=" -NoNewline -ForegroundColor DarkGray
+    Write-Host ($(if ($Codex.phaseAtcProvider) { $Codex.phaseAtcProvider } else { "--" })) -NoNewline -ForegroundColor Gray
+    Write-Host " 9.5=" -NoNewline -ForegroundColor DarkGray
+    Write-Host ($(if ($Codex.perDispatchProvider) { $Codex.perDispatchProvider } else { "--" })) -NoNewline -ForegroundColor Gray
+    Write-Host " fb=" -NoNewline -ForegroundColor DarkGray
+    Write-Host ($(if ($Codex.fallbackOnError) { "on" } else { "off" })) -NoNewline -ForegroundColor Gray
+    Write-Host $CLEAR_LINE
+
+    $scopeLine = if ($Codex.scopeCurrent) {
+        "current live: $($Codex.phase) / $($Codex.plan) / $($Codex.step)"
+    } elseif ($Codex.staleScope) {
+        "current P$PhaseNum; last review was $($Codex.staleScope)"
+    } else {
+        "current P$PhaseNum; no Codex marker yet"
+    }
+    Write-Host "SCOPE " -NoNewline -ForegroundColor White
+    Write-Host (Trunc $scopeLine ($Pw - 7)) -NoNewline -ForegroundColor Cyan
+    Write-Host $CLEAR_LINE
+    Write-Host $CLEAR_LINE
+
+    $muda = Get-MudaGateState -Milestone $Scope.milestone -PhaseNum $PhaseNum -Codex $Codex
+    Write-GateTrack "MUDA" $muda.cells
+    Write-Host "  " -NoNewline
+    Write-Host (Trunc $muda.summary ($Pw - 3)) -NoNewline -ForegroundColor Gray
+    Write-Host $CLEAR_LINE
+
+    $review = Get-ReviewGateState -Milestone $Scope.milestone -PhaseNum $PhaseNum -Codex $Codex -Verdicts $Verdicts
+    Write-GateTrack "REVIEW" $review.cells
+    Write-Host "  " -NoNewline
+    Write-Host (Trunc $review.summary ($Pw - 3)) -NoNewline -ForegroundColor Gray
+    Write-Host $CLEAR_LINE
+    Write-Host $CLEAR_LINE
+
+    Write-Host "CODE REVIEW BRIEF" -NoNewline -ForegroundColor White
+    Write-Host $CLEAR_LINE
+    $briefLines = @()
+    if ($Brief.conclusion) { $briefLines += "$($Brief.conclusion)" }
+    foreach ($item in @($Brief.attention | Select-Object -First 2)) { $briefLines += "$item" }
+    if ($briefLines.Count -eq 0) { $briefLines += "No current Codex review brief yet." }
+    foreach ($line in @($briefLines | Select-Object -First 3)) {
+        Write-Host "  " -NoNewline
+        Write-Host (Trunc $line ($Pw - 3)) -NoNewline -ForegroundColor Yellow
+        Write-Host $CLEAR_LINE
+    }
+    Write-Host $CLEAR_BELOW -NoNewline
+}
+
 function Render {
     if (-not (Test-RenderDue -MinIntervalMs 2000)) { return }
 
@@ -378,6 +512,11 @@ function Render {
     $rows = Get-SgsdCodexLogRows -PlanningDir $PlanningDir -MaxRows $rowLimit -PhaseFilter $phaseNum
     $verdicts = Get-SgsdCodexVerdicts -PlanningDir $PlanningDir -MaxRows $verdictLimit -MilestoneFilter $scope.milestone -PhaseFilter $phaseNum
     $brief = Get-CodexOperatorBrief -codex $codex -verdicts $verdicts
+
+    if ($ph -lt 36 -and $env:SGSD_CODEX_FULL -ne "1") {
+        Render-CompactCodex -Scope $scope -Codex $codex -Substrate $substrate -Rows $rows -Verdicts $verdicts -Brief $brief -PhaseNum $phaseNum -Pw $pw
+        return
+    }
 
     Write-Host "SUPER GSD" -NoNewline -ForegroundColor Magenta
     Write-Host " ! " -NoNewline -ForegroundColor Cyan
@@ -404,6 +543,8 @@ function Render {
         Write-Host (Format-Age $codex.updatedAgeSec) -NoNewline -ForegroundColor Cyan
         Write-Host " ago" -NoNewline -ForegroundColor DarkGray
     }
+    Write-Host " / io " -NoNewline -ForegroundColor DarkGray
+    Write-Host ("{0}/{1}" -f (Format-Bytes $codex.promptBytes), (Format-Bytes $codex.reportBytes)) -NoNewline -ForegroundColor Gray
     Write-Host $CLEAR_LINE
 
     Write-Host "ROUTING" -NoNewline -ForegroundColor White
