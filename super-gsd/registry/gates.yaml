@@ -35,6 +35,7 @@ gates:
   # ── category: code-quality ────────────────────────────────────────────────
 
   - name: per-dispatch-ATC
+    repair_instruction: "Read the latest commit-reviews.jsonl row in `.planning/phases/{N}/`, address the CRIT verdict, re-commit, and re-dispatch the executor to refire ATC."
     category: code-quality
     step: 9.5
     enforcement_mode: hard-halt
@@ -59,6 +60,7 @@ gates:
     version: 2.0
 
   - name: phase-level-ATC
+    repair_instruction: "Read `.planning/milestones/{ms}/phases/{NN}-*/{NN}-ATC-REVIEW.md`. Address each WARN/CRIT in a follow-up commit; re-run gsd-verifier to refire phase-level-ATC."
     category: code-quality
     step: 6.5
     enforcement_mode: amortized
@@ -75,6 +77,7 @@ gates:
   # ── category: process-hygiene ─────────────────────────────────────────────
 
   - name: classifier-haiku
+    repair_instruction: "Re-run the classifier dispatch with Agent(model='haiku', task='classify'); if Haiku is offline, fall back to a single-shot Sonnet classify and log DEVIATIONS."
     category: process-hygiene
     step: 2
     enforcement_mode: soft-warn
@@ -87,6 +90,7 @@ gates:
     version: 2.0
 
   - name: context-selector-haiku
+    repair_instruction: "Re-run the context-selector dispatch with Agent(model='haiku', task='select_context'); if empty, retry with broader recall query."
     category: process-hygiene
     step: 4
     enforcement_mode: soft-warn
@@ -99,6 +103,7 @@ gates:
     version: 2.0
 
   - name: sgsd-recall-queries
+    repair_instruction: "Run `bash super-gsd/scripts/sgsd-recall.sh '<query>'` for each recall term in the plan; if memory tree empty, mark dispatch as cold-start and continue."
     category: process-hygiene
     step: 5
     enforcement_mode: soft-warn
@@ -114,6 +119,7 @@ gates:
     version: 2.0
 
   - name: intent-injection
+    repair_instruction: "Re-compose the dispatch prompt and re-inject the intent block from the plan frontmatter; verify the agent received it via the dispatch report's INTENT echo."
     category: process-hygiene
     step: 5.5
     enforcement_mode: soft-warn
@@ -125,6 +131,7 @@ gates:
     version: 2.0
 
   - name: MUDA-waste-audit
+    repair_instruction: "Run `bash super-gsd/scripts/sgsd-muda-audit.sh --phase {N}` and address findings in `.planning/phases/{N}/WASTE.md`; rerun until WARN-or-PASS."
     category: process-hygiene
     step: 6.55
     enforcement_mode: soft-warn
@@ -148,6 +155,7 @@ gates:
     version: 2.0
 
   - name: qualitative-waste-audit
+    repair_instruction: "Re-dispatch sgsd-code-reviewer with --qualitative-waste against the latest WASTE.md; address findings in a follow-up commit."
     category: process-hygiene
     step: 6.55
     enforcement_mode: soft-warn
@@ -170,6 +178,7 @@ gates:
     version: 2.0
 
   - name: sgsd-curate-learnings
+    repair_instruction: "Run `bash super-gsd/scripts/sgsd-curate.sh` to write learnings under `.planning/memory/`; verify with `grep -r '<pattern>' .planning/memory/`."
     category: process-hygiene
     step: 10
     enforcement_mode: soft-warn
@@ -192,6 +201,7 @@ gates:
     version: 2.0
 
   - name: token-log
+    repair_instruction: "Append the missing token row to `.planning/metrics/token-log.jsonl` from the dispatch report; re-run the milestone token reconciliation script."
     category: process-hygiene
     step: 11
     enforcement_mode: soft-warn
@@ -205,6 +215,7 @@ gates:
   # ── category: verify-completeness ────────────────────────────────────────
 
   - name: vtp-enrichment
+    repair_instruction: "Run `node super-gsd/scripts/lib/vtp-enrichment-gate.cjs --phase {N}`; if VTP api_error, fall back per fallback-chain (sgsd-memory) and log provider_unavailable."
     category: process-hygiene
     step: 6.15
     enforcement_mode: soft-warn  # api_error escalates to hard-halt via orchestrator code
@@ -225,6 +236,7 @@ gates:
   # ── category: verify-completeness ────────────────────────────────────────
 
   - name: verifier-row-arithmetic
+    repair_instruction: "Open `.planning/phases/{N}/{N}-verify.mjs`, fix the row-count mismatch (expected vs actual), and re-run `node {N}-verify.mjs`."
     category: verify-completeness
     step: 0
     enforcement_mode: soft-warn
@@ -239,6 +251,7 @@ gates:
     version: 2.0
 
   - name: verifier-detail-vs-summary
+    repair_instruction: "Reconcile detail rows with the summary block in `{N}-VERIFICATION.md`; either expand the summary or delete the orphan detail rows; re-run verifier."
     category: verify-completeness
     step: 0
     enforcement_mode: soft-warn
