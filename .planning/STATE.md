@@ -3,28 +3,33 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Cockpit 2.0 + Startup Verification
 milestone_status: ACTIVE — promoted 2026-04-26 under full-roadmap autopilot run #2 (after reset of run #1). Phases 26-30. ROADMAP-AGENT.md is the controlling contract; DISCUSS.md captures locked decisions. CRIT-BACKLOG canonical at metrics/crit-backlog.jsonl.
-status: v1.6 active — Phase 26 PASS-WITH-DEFERRED-1 (Codex unavail); Phase 27 next.
-stopped_at: 2026-04-26 — Phase 26 closed at cec7126.
-last_updated: "2026-04-26T23:15:00Z"
-last_activity: 2026-04-26 — Phase 26 closed PASS-WITH-DEFERRED-1; status-consistency PASS; W1 fixed in-loop; 1 backlog row (Codex provider_unavailable).
+status: v1.6 active — Phases 26/27/28/29 closed (4/5 PASS-WITH-DEFERRED); Phase 30 next; CHECKPOINT WRITTEN.
+stopped_at: 2026-04-27 — Phase 29 closed at a861d95; checkpoint written for next session.
+last_updated: "2026-04-27T01:10:00Z"
+last_activity: 2026-04-27 — Phase 29 closed PASS-WITH-DEFERRED-4 (T1 5-line lib hardening + T2 12 fixtures 12/12 pass). Status-consistency OK on all 4 closed phases.
 progress:
   total_phases: 5
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 20
-  phase_26: "1/1 plan complete — PASS-WITH-DEFERRED-1 (Codex unavail) ✓ 2026-04-26"
-  phase_27: "scoping — awaiting researcher dispatch"
-  phase_28: "queued — mission control 2.0 layout"
-  phase_29: "queued — agent + Codex visibility lanes"
+  completed_phases: 4
+  total_plans: 7
+  completed_plans: 7
+  percent: 80
+  phase_26: "1/1 plan complete — PASS-WITH-DEFERRED-1 ✓ 2026-04-26"
+  phase_27: "1/1 plan complete — PASS-WITH-DEFERRED-1 ✓ 2026-04-26"
+  phase_28: "3/3 tasks complete — PASS-WITH-DEFERRED-9 ✓ 2026-04-26"
+  phase_29: "2/2 tasks complete — PASS-WITH-DEFERRED-4 ✓ 2026-04-27"
   phase_30: "queued — startup verification + cockpit acceptance"
 backlog:
-  total_unresolved: 1
+  total_unresolved: 15
   by_kind:
-    verifier_fail: 1
+    verifier_fail: 7
+    phase_atc: 8
     edge_guard_miss: 0
   by_phase:
     "26": 1
+    "27": 1
+    "28": 9
+    "29": 4
+checkpoint: .planning/ORCHESTRATOR-CHECKPOINT.md (written 2026-04-27 at session pause)
 roadmap_run:
   mode: full-autopilot
   scope: v1.6 → v2.1
