@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "legal-keys-v1",
+  "title": "Legal Context Registry",
+  "description": "Phase 44 projection of canonical SGSD reference vocabulary. Canonical sources = code + config; legal-keys.json = projection. NEVER source of truth.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "registry_version",
+    "generated_at",
+    "generated_by",
+    "source_hashes",
+    "milestones",
+    "phases",
+    "gates",
+    "agents",
+    "artifacts",
+    "providers",
+    "statuses",
+    "phase_folders",
+    "commands",
+    "reason_codes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "registry_version": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T" },
+    "generated_by": { "type": "string", "minLength": 1 },
+    "source_hashes": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [{ "type": "string", "pattern": "^[a-f0-9]{64}$" }, { "type": "null" }]
+      }
+    },
+    "milestones": { "$ref": "#/definitions/CategoryShape" },
+    "phases": { "$ref": "#/definitions/CategoryShape" },
+    "gates": { "$ref": "#/definitions/CategoryShape" },
+    "agents": { "$ref": "#/definitions/CategoryShape" },
+    "artifacts": { "$ref": "#/definitions/CategoryShape" },
+    "providers": { "$ref": "#/definitions/CategoryShape" },
+    "statuses": { "$ref": "#/definitions/CategoryShape" },
+    "phase_folders": { "$ref": "#/definitions/CategoryShape" },
+    "commands": { "$ref": "#/definitions/CategoryShape" },
+    "reason_codes": { "$ref": "#/definitions/CategoryShape" }
+  },
+  "definitions": {
+    "CategoryShape": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["active", "superseded"],
+      "properties": {
+        "active": { "type": "array" },
+        "superseded": { "type": "array" }
+      }
+    }
+  }
+}
