@@ -1,9 +1,9 @@
 // ============================================================================
-// SGSD - CONTEXT-PACKET test scaffold (Phase 45 Wave 1)
+// SGSD - CONTEXT-PACKET test scaffold (Phase 45 Wave 3)
 // ============================================================================
-// 8-assertion Wave-1 scaffold. Wave 3 expands to 14 (F2 + F3 + F5 + F6 + F8 +
-// F9 + F10 + F11 + 4 secondary). All assertions invoke stubs returning
-// sentinels until Wave 3.
+// External 8-assertion harness. The deeper 14-assertion suite lives in
+// build.cjs::_runSelfTest (F2 + F3 + F5 + F6 + F8 + F9 + F10 + F11 + 6
+// secondary, sandboxed to tmpdir).
 // ============================================================================
 
 'use strict';
