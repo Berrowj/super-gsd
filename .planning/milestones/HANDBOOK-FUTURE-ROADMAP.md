@@ -1,9 +1,20 @@
 ---
 source: docs/reports/SGSD-VTP-Visual-Handbook.html
-status: proposed
+status: proposed (with v1.9 supersession note 2026-04-27)
 created: 2026-04-26
 purpose: Seed future SGSD milestones and phases from the visual handbook audit.
 activation_rule: Do not treat this as active roadmap until Claude/SGSD promotes one milestone through deliberate scoping.
+v1_9_note: |
+  References to "v1.9" below originally targeted Knowledge Relevance + Memory
+  Governance. On 2026-04-27 the operator promoted SGSD-Research (Context
+  Compression, Token Governance, And Research Routing) to v1.9. The Knowledge
+  + Memory Governance scope has been absorbed by SGSD-Research phases 44
+  (Legal Context Registry), 47 (Dispatch Routing Substitution), 48 (Selective
+  VTP Bridge), and 49 (Memory Governance Lifecycle). Research-grounded design
+  intent below remains valid; specific phase numbers should be re-validated
+  against `.planning/milestones/v1.9/REQUIREMENTS.md` before action. See
+  `.planning/archive/superseded/v1.9-knowledge-memory-governance/` for the
+  retired plan.
 ---
 
 # SGSD Future Roadmap Seed From The Visual Handbook

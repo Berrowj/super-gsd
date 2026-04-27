@@ -1,8 +1,8 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.9
-milestone_name: Knowledge + Memory Governance (queued)
-milestone_status: v1.8 SHIPPED 2026-04-27 — all 5 phases (36-40) PASS; combined anti-slop ~9/10; 22 in-loop fix-loop entries + 2 accepted + 1 false alarm; 0 new debt. v1.6 SHIPPED-WITH-DEBT-10 carryover unchanged at 10 rows. v1.9 (Phases 41-45) queued; readiness re-probe required before first dispatch; Phase 41 interactive-discuss per locked decision.
+milestone_name: SGSD-Research (Context Compression, Token Governance, And Research Routing) (queued)
+milestone_status: v1.8 SHIPPED 2026-04-27. v1.9 SLOT-CHANGE 2026-04-27 — SGSD-Research promoted to v1.9 (was Knowledge + Memory Governance, now archived as superseded at .planning/archive/superseded/v1.9-knowledge-memory-governance/). v1.9 phases 41-52 (renumbered from packet 56-67); v2.0 Failure Injection shifted to phases 53-57; v2.1 Distribution + Onboarding shifted to phases 58-62. Source analyses: agent-context-bloat-audit + VTP cross-check. Readiness re-probe required before first Phase 41 dispatch. Phase 41 (Baseline Token Attribution) is auto-defaulted (no interactive discuss).
 status: v1.7 ALL 5 PHASES COMPLETE PASS 2026-04-27. Ready for sgsd-complete-milestone v1.7.
 stopped_at: 2026-04-27 — Phase 35 closed PASS; v1.7 milestone ready for close.
 last_updated: "2026-04-27T11:15:00Z"
@@ -84,13 +84,16 @@ v1_8_complete:
 checkpoint: .planning/ORCHESTRATOR-CHECKPOINT.md (will update at next pause for v1.7 resume)
 roadmap_run:
   mode: full-autopilot
-  scope: v1.6 → v2.1
+  scope: v1.6 → v2.1 (post-renumber: phases 26-62; v1.9 SGSD-Research absorbed prior Knowledge+Memory v1.9)
   controlling_contract: .planning/ROADMAP-AGENT.md
   locked_decisions: .planning/discussions/2026-04-26-mass-discuss.md
   backlog_canonical: .planning/metrics/crit-backlog.jsonl
   started: 2026-04-26
   current_milestone: v1.9
   current_phase: 41
+  current_phase_name: Baseline Token Attribution
+  v1_9_milestone_codename: SGSD-Research
+  v1_9_supersedes_archive: .planning/archive/superseded/v1.9-knowledge-memory-governance/
   v1_8_progress:
     phase_36: "PASS @ d6c402f"
     phase_37: "PASS @ 9f9759d"

@@ -150,7 +150,8 @@ When edge-guard detects missing emit and 3 retries fail to fire the gate:
    from non-structural deferrals
 5. **`release-readiness/score.cjs` returns RED** if any unresolved
    `edge_guard_miss` exists in `CRIT-BACKLOG.md`. **Non-overrideable.**
-   v2.0 Phase 50 enforces this as a hard precondition for green release readiness.
+   v2.0 Phase 57 (was 50; renumbered 2026-04-27 by SGSD-Research promotion)
+   enforces this as a hard precondition for green release readiness.
 
 Operator can resolve by:
 - Re-running the missing gate manually and updating the backlog row
@@ -186,20 +187,38 @@ Operator can resolve by:
 | 38.4 Default for unspecified gates | `always` |
 | **38.5 Force/skip override** | `--force-gates` and `--skip-gates` both require `--override-reason="..."`. Reason logged to `route-decisions.jsonl` with `boundary=gate_override`. Override without reason is rejected. |
 
-### Phase 41 — Knowledge Provider Fallback (interactive)
+### Phase 41 (original) — Knowledge Provider Fallback (interactive) — RETIRED 2026-04-27
 
-| Question | Decision |
-|----------|----------|
+The original Phase 41 (Knowledge Provider Registry + Fallback Chain) was the
+first phase of the original v1.9 (Knowledge + Memory Governance) milestone.
+That milestone was SUPERSEDED on 2026-04-27 when SGSD-Research was promoted
+to v1.9 (Option C in the operator slot decision). The original v1.9 plan
+including this Phase 41 interactive lock is preserved at:
+
+`.planning/archive/superseded/v1.9-knowledge-memory-governance/`
+
+Original locks (now retired):
+
+| Question | Decision (RETIRED) |
+|----------|--------------------|
 | 41.1 Default chain order | `vtp-mcp → sgsd-memory → local-knowledge → public-fallback` |
-| **41.2 Fallback triggers** | Fires immediately on `provider_unavailable` and `empty_hit`. Fires on `noisy_hit` only **after one narrow-query retry** against the same provider. Other failure modes do not trigger fallback. |
-| **41.3 Per-query opt-out** | `getProvider(name, { fallback: false }).query(q)` supported. Required for VTP-only queries (book/paper search). |
+| 41.2 Fallback triggers | Fires immediately on `provider_unavailable` and `empty_hit`. Fires on `noisy_hit` only after one narrow-query retry. |
+| 41.3 Per-query opt-out | `getProvider(name, { fallback: false }).query(q)` supported. |
 
-### v1.7 (31–35), v1.8 36/37/39/40, v1.9 42/43/44/45, v2.0 (46–50), v2.1 (51–55) — auto-defaulted
+The new Phase 41 (Baseline Token Attribution, part of v1.9 SGSD-Research)
+is auto-defaulted; no interactive discuss required.
+
+### v1.7 (31–35), v1.8 36/37/39/40, v1.9 (NEW SGSD-Research, 41–52), v2.0 (53–57), v2.1 (58–62) — auto-defaulted
 
 For these phases, the operator confirmed "mostly defaults" against the
 3-options-per-phase mass-table sent earlier in the discussion. The locked
 recommendation per phase is preserved verbatim in the agent-readable roadmap
-(`.planning/ROADMAP-AGENT.md`) and is summarized below for traceability:
+(`.planning/ROADMAP-AGENT.md`) and is summarized below for traceability.
+
+**Renumber note (2026-04-27):** SGSD-Research promoted to v1.9 absorbed
+the prior v1.9 (Knowledge + Memory) scope and shifted v2.0/v2.1 forward
+by 7 phase numbers. Old phase numbers 41-45 are retired; new phase
+numbers in the table below reflect the post-renumber state.
 
 | Phase | Locked option | Rationale |
 |------:|---------------|-----------|
@@ -213,21 +232,31 @@ recommendation per phase is preserved verbatim in the agent-readable roadmap
 | 38 | C — gate × work intersection (locked above) | Full discussion completed |
 | 39 | B — mechanical rubric + manual override at close | Auto-execute kills too dangerous |
 | 40 | B — required + recommended file checks; no content schema | Content validation is auditor-creep |
-| 41 | C — registry + shim + fallback chain (locked above) | Full discussion completed |
-| 42 | C — schema + filter + theater detector | Detector is what makes prevention prescriptive |
-| 43 | A — 7-mode taxonomy with route table | Matches operating reality |
-| 44 | A — schema for new writes only; old grandfathered | Backfill injects fiction |
-| 45 | B — discovery + cached summaries with operator approval per source | A is no value; C is copyright risk |
-| 46 | C — real tool invocation + container isolation | Mock predicates failed last run |
-| 47 | C — mid-phase kill simulation + manifest-shape tests (both) | Each alone misses cases |
-| 48 | B — tier + circuit breaker | Circuit is SpaceX pattern |
-| 49 | B — 6 happy + 4 adversarial scenarios | Adversarial is where hardening lives |
-| 50 | B — score gates milestone close | Non-gating score is what last run shipped and called green |
-| 51 | B — read-only audit + clean-room install test | Clean-room is the actual proof |
-| 52 | C — wrap sgsd-configure for knowledge/memory; new wizard owns project-level | Don't create second startup |
-| 53 | B — walkthrough + scaffolded `examples/hello-world/` runnable dir | Doc alone is paper |
-| 54 | C — README quick-start + VTP-optional callouts + "What This Repo Is For" preamble | Fixes recurring stranger confusion |
-| 55 | A — drift checker only | Migrations have all been additive; B/C is paper until non-additive break |
+| **v1.9 SGSD-Research (41-52)** | All auto-defaulted from handover packet | Evidence-driven scope from agent-context-bloat audit + VTP cross-check |
+| 41 | Baseline Token Attribution | Measure first, optimize second |
+| 42 | Token Budget Admission | Make bloat visible without halting autonomy |
+| 43 | Phase Capsule Contract | Compress prior-phase context; canonical = .planning + git, capsule = projection |
+| 44 | Legal Context Registry | Reject invented references at packet boundary |
+| 45 | Context Packet Builder | Role-specific packets replace raw inheritance |
+| 46 | SQLite Context Index | Rebuildable projection, never canonical |
+| 47 | Dispatch Routing Substitution | Local script first, Codex for review, Claude for synthesis, VTP for uncertainty |
+| 48 | Selective VTP Bridge | Route-gated VTP; MCP failures separated from research conclusions |
+| 49 | Memory Governance Lifecycle | Promotion / demotion / revocation rules; complaints log |
+| 50 | Cockpit Research Dashboard | Token spend + context source mix + active agents at a glance |
+| 51 | Context Stress Benchmark | Prove ≥50% researcher token reduction with zero evidence loss |
+| 52 | Redis Live Cache Adapter | Optional disposable projection; never canonical |
+| **v2.0 Failure Injection (53-57; was 46-50)** | All locks shifted +7 | Renumbered by SGSD-Research promotion |
+| 53 (was 46) | C — real tool invocation + container isolation | Mock predicates failed last run |
+| 54 (was 47) | C — mid-phase kill simulation + manifest-shape tests (both) | Each alone misses cases |
+| 55 (was 48) | B — tier + circuit breaker | Circuit is SpaceX pattern |
+| 56 (was 49) | B — 6 happy + 4 adversarial scenarios | Adversarial is where hardening lives |
+| 57 (was 50) | B — score gates milestone close | Non-gating score is what last run shipped and called green |
+| **v2.1 Distribution + Onboarding (58-62; was 51-55)** | All locks shifted +7 | Renumbered by SGSD-Research promotion |
+| 58 (was 51) | B — read-only audit + clean-room install test | Clean-room is the actual proof |
+| 59 (was 52) | C — wrap sgsd-configure for knowledge/memory; new wizard owns project-level | Don't create second startup |
+| 60 (was 53) | B — walkthrough + scaffolded `examples/hello-world/` runnable dir | Doc alone is paper |
+| 61 (was 54) | C — README quick-start + VTP-optional callouts + "What This Repo Is For" preamble | Fixes recurring stranger confusion |
+| 62 (was 55) | A — drift checker only | Migrations have all been additive; B/C is paper until non-additive break |
 
 ---
 

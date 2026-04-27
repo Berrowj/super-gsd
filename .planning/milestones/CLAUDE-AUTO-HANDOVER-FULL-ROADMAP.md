@@ -32,12 +32,18 @@ Cloud/remote path rule:
 
 Run the proposed SGSD roadmap from **v1.6 through v2.1**, in order:
 
-1. v1.6 - Cockpit 2.0 And Startup Verification
-2. v1.7 - Stable Command Contracts And Route Intelligence
-3. v1.8 - Gate Fitness And MUDA Pruning
-4. v1.9 - Knowledge Relevance And Memory Governance
-5. v2.0 - SpaceX-Style Failure Injection
-6. v2.1 - Distribution And New-User Onboarding
+1. v1.6 - Cockpit 2.0 And Startup Verification (SHIPPED-WITH-DEBT-10)
+2. v1.7 - Stable Command Contracts And Route Intelligence (SHIPPED)
+3. v1.8 - Gate Fitness And MUDA Pruning (SHIPPED)
+4. v1.9 - **SGSD-Research (Context Compression, Token Governance, And Research Routing)** [SLOT-CHANGE 2026-04-27: was Knowledge Relevance + Memory Governance; new v1.9 absorbs it; phases 41-52]
+5. v2.0 - SpaceX-Style Failure Injection [renumbered to phases 53-57; was 46-50]
+6. v2.1 - Distribution And New-User Onboarding [renumbered to phases 58-62; was 51-55]
+
+**Note (2026-04-27):** The original v1.9 (Knowledge Relevance And Memory
+Governance) plan listed in the v1.9 sections below is preserved at
+`.planning/archive/superseded/v1.9-knowledge-memory-governance/` for
+reference. The active v1.9 is now SGSD-Research; see
+`.planning/milestones/v1.9/SGSD-HANDOVER.md` and `REQUIREMENTS.md`.
 
 Do not stop after each milestone for approval. Promote, execute, verify, close,
 commit, and advance automatically.

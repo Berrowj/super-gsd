@@ -35,9 +35,14 @@ v1.8 phase ledger (all PASS):
 - Milestone close: SUMMARY @ .planning/milestones/v1.8/SUMMARY.md
 - Generated artifacts: gate-keep-kill.md (Phase 39) + phase-folder-audit.md (Phase 40)
 
-Next milestone: **v1.9 (Knowledge + Memory Governance)** — Phases 41-45.
-- Locked decisions per `.planning/discussions/2026-04-26-mass-discuss.md`.
-- **Phase 41 requires INTERACTIVE discuss per locked decision.**
+Next milestone: **v1.9 (SGSD-Research — Context Compression, Token Governance, And Research Routing)** — Phases 41-52.
+
+**SLOT-CHANGE 2026-04-27**: SGSD-Research promoted to v1.9 (Option C); prior v1.9 (Knowledge + Memory Governance) archived as superseded at `.planning/archive/superseded/v1.9-knowledge-memory-governance/`. v1.9 phases renumbered from packet's 56-67 to 41-52. v2.0 (Failure Injection) shifted to phases 53-57. v2.1 (Distribution + Onboarding) shifted to phases 58-62.
+
+- Source analyses: `.planning/analyses/2026-04-27-agent-context-bloat-audit.md` + `.planning/analyses/2026-04-27-agent-context-bloat-vtp-crosscheck.md`
+- Milestone packet: `.planning/milestones/v1.9/{REQUIREMENTS,ROADMAP,SGSD-HANDOVER,EXISTING-SURFACE-AUDIT}.md`
+- Locked decisions per `.planning/discussions/2026-04-26-mass-discuss.md` (per-phase decisions table updated for renumber).
+- **Phase 41 (Baseline Token Attribution) is auto-defaulted (no interactive discuss).**
 - Readiness re-probe REQUIRED before first dispatch (Rule 0 of orchestrator skill).
 
 ## Critical Runtime Rule
@@ -88,11 +93,12 @@ behavioral provider probe or real canary fails.
 | Milestone | Status | Phases | Notes |
 |-----------|--------|--------|-------|
 | v1.6 Cockpit 2.0 + Startup | SHIPPED-WITH-DEBT-10 | 26-30 | complete |
-| v1.7 Command Contracts + Route Intel | ACTIVE | 31-35 | Phase 31 starting |
-| v1.8 Gate Fitness + MUDA | queued | 36-40 | |
-| v1.9 Knowledge + Memory | queued | 41-45 | |
-| v2.0 Failure Injection | queued | 46-50 | |
-| v2.1 Distribution + Onboarding | queued | 51-55 | |
+| v1.7 Command Contracts + Route Intel | SHIPPED | 31-35 | clean |
+| v1.8 Gate Fitness + MUDA | SHIPPED | 36-40 | clean |
+| v1.9 SGSD-Research (Context Compression + Token Governance) | queued | 41-52 | promoted 2026-04-27; supersedes prior v1.9 Knowledge+Memory (archived) |
+| v2.0 Failure Injection | queued | 53-57 | renumbered 2026-04-27 (was 46-50) |
+| v2.1 Distribution + Onboarding | queued | 58-62 | renumbered 2026-04-27 (was 51-55) |
+| ~~v1.9 Knowledge + Memory Governance~~ | ARCHIVED | 41-45 (retired) | superseded by SGSD-Research; preserved at .planning/archive/superseded/v1.9-knowledge-memory-governance/ |
 
 ## Resume Here
 

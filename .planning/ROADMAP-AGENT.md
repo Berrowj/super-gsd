@@ -117,7 +117,8 @@ Any acceptance line marked **"Live: ..."** requires either:
   responses faked at the I/O boundary only.
 
 Mock predicates that bypass the production caller are forbidden (this was the
-v2.0 Phase 46 failure mode — see Patch 1 below).
+v2.0 Phase 53 failure mode — was Phase 46 prior to the 2026-04-27 renumber;
+see Patch 1 below).
 
 If the live action is unreachable (Codex auth missing, network down, MCP off):
 the phase records this as a `provider_unavailable` reason on the route-decision
@@ -453,109 +454,180 @@ checks. Soft-warn (not block).
 
 ---
 
-## Milestone v1.9 — Knowledge Relevance + Memory Governance
+## Milestone v1.9 — SGSD-Research (Context Compression, Token Governance, And Research Routing)
 
-**Phases**: 41, 42, 43, 44, 45
-**Audit warning**: VTP integration already exists. v1.9 generalizes — does
-not rewrite vtp-enrichment-gate.cjs.
-**Dependencies**: 41 → {42 ∥ 43 ∥ 44 ∥ 45}
-**Locked decisions**: 41=C (full discussion), 42=C, 43=A, 44=A, 45=B
+**Phases**: 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52
+**Audit warning**: existing VTP integration must be preserved (Phase 48
+selective bridge gates calls; does NOT rewrite vtp-enrichment-gate.cjs).
+**Source analyses**:
+- `.planning/analyses/2026-04-27-agent-context-bloat-audit.md`
+- `.planning/analyses/2026-04-27-agent-context-bloat-vtp-crosscheck.md`
+**Supersedes**: prior v1.9 (Knowledge + Memory Governance) — archived at
+`.planning/archive/superseded/v1.9-knowledge-memory-governance/` for
+mining; absorbed via capsules (43), legal registry (44), context packets
+(45), selective VTP routing (48), memory governance lifecycle (49).
+**Dependencies**: see `.planning/milestones/v1.9/REQUIREMENTS.md`
+"Dependencies" block — 9-edge graph rooted at 41 with 51 (benchmark) and
+52 (Redis adapter) as the two terminal nodes.
+**Locked decisions**: see milestone-local lock notes; no interactive
+discuss-phase required (all 12 phases auto-defaulted at slotting).
 
-### Phase 41 — Knowledge Provider Registry + Fallback Chain
+### Phase 41 — Baseline Token Attribution
 
-**Goal**: `knowledge-providers.yaml` registry + dispatch shim
-(`getProvider(name).query(q)`) + fallback chain.
-**Locked**: 41.1–41.3
-**Inputs**: vtp-enrichment-gate.cjs, sgsd-memory tree, sgsd-recall.sh,
-config.json knowledge block
+**Goal**: Establish a truthful token-spend baseline.
+`agent-token-spend.jsonl` schema + bloat report identifying top
+researcher/planner/executor/verifier consumers by role, phase, provider,
+model, cache-read ratio, and useful findings.
+**Inputs**: SGSD metrics streams, current session logs, audit findings
 **Outputs**:
-- New: `super-gsd/registry/knowledge-providers.yaml`
-- New: `super-gsd/scripts/lib/knowledge-provider-shim.cjs` (with fallback chain logic + `fallback: false` opt-out)
-- Edit: at least one consumer (vtp-enrichment-gate.cjs OR sgsd-recall.sh) to route through shim
+- New: `.planning/metrics/agent-token-spend.jsonl`
+- New: `super-gsd/tools/token-attribution/report.cjs`
+- New: `.planning/milestones/v1.9/baseline-token-spend.md`
 - 41-* artifacts
-**Acceptance**:
-- Shim resolves `vtp-mcp` to existing VTP path; resolves `sgsd-memory` to existing recall path
-- Test: `getProvider('vtp-mcp').query('test', { simulateUnavailable: true })` falls through to `sgsd-memory`
-- Test: `getProvider('vtp-mcp', { fallback: false }).query(q)` does NOT fall through
-- Test: `noisy_hit` triggers narrow-query retry once before fallback
+**Acceptance**: see `.planning/milestones/v1.9/REQUIREMENTS.md` BASELINE
+lane (BASE-01..04).
 
-### Phase 42 — Relevance Scoring + Citation Theater Detector
+### Phase 42 — Token Budget Admission
 
-**Goal**: Citation row schema (relevance + decision_impact). Filter for
-planner. Detector flags when actionable_ratio < 0.3 across ≥5 rows.
-**Locked**: 42=C
+**Goal**: Stop token bloat from being invisible. Per-role budgets +
+cache-read-ratio flag + phase/milestone close integration as
+warning/degrade gate (not autonomy stop).
 **Outputs**:
-- Edit: VTP enrichment artifacts to include `relevance` + `decision_impact` per citation row
-- New: `super-gsd/scripts/lib/citation-relevance.cjs` (filter + theater detector)
-- Edit: planner brv overlay to use `filterCitations()`
+- New: `super-gsd/tools/token-waste/check.cjs`
 - 42-* artifacts
-**Acceptance**:
-- Theater detector returns `theater: true` on a fixture with 5 rows / 1 actionable
-- Filter excludes `decision_impact: non_actionable` rows by default
+**Acceptance**: see REQUIREMENTS.md BUDGET lane (BUDGET-01..05).
 
-### Phase 43 — Typed Retrieval Failure Modes
+### Phase 43 — Phase Capsule Contract
 
-**Goal**: 7-mode taxonomy (`empty_hit`, `noisy_hit`, `stale_hit`,
-`missing_corpus`, `provider_unavailable`, `query_too_broad`, `privacy_blocked`)
-+ route table. Wire into shim from Phase 41.
-**Locked**: 43=A
+**Goal**: `PHASE-CAPSULE.json` schema + write tool + phase-close wire-in
++ backfill capsules for v1.6-v1.8. Capsules carry source files, commits,
+hashes, status, evidence, debt, downstream contract, critical bypass.
 **Outputs**:
-- New: `super-gsd/templates/retrieval-failure-modes.json` (7-mode + route table)
-- Edit: knowledge-provider-shim.cjs (Phase 41) to classify failures using this schema
-- 43-* artifacts
-**Acceptance**:
-- Schema parses; route table has 7 mode→route entries
-- Shim invokes correct route on each simulated failure mode (test fixture)
+- New: `super-gsd/tools/phase-capsule/write.cjs` + schema
+- 43-* artifacts (incl. backfilled capsules under
+  `.planning/milestones/v1.{6,7,8}/phases/*/PHASE-CAPSULE.json`)
+**Acceptance**: see REQUIREMENTS.md CAPSULE lane (CAP-01..05).
 
-### Phase 44 — Memory Provenance + Retention
+### Phase 44 — Legal Context Registry
 
-**Goal**: Provenance schema for new memory writes (source, confidence,
-privacy, expiry, retention, related_phase, promotion_reason). Old entries
-grandfathered.
-**Locked**: 44=A
+**Goal**: `legal-keys.json` registry rejecting invented references
+(milestone IDs, phase IDs, gate IDs, agent IDs, artifact IDs, providers,
+status vocab). Validator wired into packet builder + status-consistency.
 **Outputs**:
-- New: `super-gsd/templates/memory-provenance-v1.json`
-- Edit: `sgsd-curate.sh` to enforce schema on new writes (reject/warn if missing required fields)
+- New: `super-gsd/tools/context-registry/{build,check}.cjs`
+- New: `super-gsd/tools/context-registry/legal-keys.json`
 - 44-* artifacts
-**Acceptance**:
-- New memory entry written by `sgsd-curate.sh` includes all required fields
-- Old entries (pre-v1.9) load without errors despite missing fields
+**Acceptance**: see REQUIREMENTS.md REGISTRY lane (REG-01..05).
 
-### Phase 45 — Public Fallback Corpus Policy
+### Phase 45 — Context Packet Builder
 
-**Goal**: Discovery-only by default; cached summaries with operator
-approval per source; `licence:` + `expires:` mandatory in cache entries.
-**Locked**: 45=B
+**Goal**: Replace raw inherited context with role-specific packets
+(researcher/planner/executor/verifier/reviewer/cockpit modes). Pulls
+from capsules + registry + active debt + evidence + critical bypass
+records before raw files. Per-role token budget enforcement.
 **Outputs**:
-- New: `super-gsd/docs/PUBLIC-FALLBACK-CORPUS-POLICY.md`
-- Edit: `sgsd-configure.ps1` to capture per-source approval + licence
-- Edit: knowledge-providers.yaml `public-fallback` row schema
+- New: `super-gsd/tools/context-packet/build.cjs`
+- New: `.planning/metrics/context-complaints.jsonl`
 - 45-* artifacts
-**Acceptance**:
-- Cache entries without `licence:` are rejected
-- New cache write requires `approved_at` operator confirmation flag
-- Discovery-only mode surfaces URL without auto-fetching
+**Acceptance**: see REQUIREMENTS.md PACKET lane (PACKET-01..06).
+
+### Phase 46 — SQLite Context Index
+
+**Goal**: Rebuildable SQLite FTS projection over capsules, decisions,
+gate definitions, file summaries. SQLite as projection ONLY; canonical
+data stays in `.planning` and git.
+**Outputs**:
+- New: `super-gsd/tools/context-cache/{rebuild,query}.cjs`
+- 46-* artifacts
+**Acceptance**: see REQUIREMENTS.md INDEX lane (INDEX-01..05).
+
+### Phase 47 — Dispatch Routing Substitution
+
+**Goal**: Provider substitution policy routing deterministic
+extraction to local scripts; bounded review to Codex; synthesis to
+Claude; uncertainty to VTP. Substitution decisions logged to
+route-decisions.jsonl with reason + token expectation + fallback.
+**Outputs**:
+- Edit: orchestrator routing logic (Phase 32 route-ledger boundary
+  extension)
+- 47-* artifacts
+**Acceptance**: see REQUIREMENTS.md ROUTING lane (ROUTE-01..05).
+
+### Phase 48 — Selective VTP Bridge
+
+**Goal**: Route-gated VTP only for research-paper / book / prior-project /
+architecture-challenge query types. MCP failures captured separately
+from research conclusions. Source-backed evidence packets.
+**Outputs**:
+- New: selective VTP route classifier + evidence packet writer
+- 48-* artifacts
+**Acceptance**: see REQUIREMENTS.md VTP lane (VTPR-01..05).
+
+### Phase 49 — Memory Governance Lifecycle
+
+**Goal**: Context complaint log + memory write admission + lifecycle
+fields (confidence, last_validated, supersedes, superseded_by,
+allowed_consumers, clearance_requires, deprecation_reason) +
+promotion/demotion/revocation rules.
+**Outputs**:
+- Edit: `sgsd-curate.sh` admission checks
+- New: `.planning/metrics/context-complaints.jsonl` (paired with Phase 45)
+- 49-* artifacts
+**Acceptance**: see REQUIREMENTS.md GOVERNANCE lane (GOV-01..05).
+
+### Phase 50 — Cockpit Research Dashboard
+
+**Goal**: Cockpit projection redesign around current milestone, current
+phase, active agents, agent token spend, context source mix, evidence,
+blockers. Remove duplicated NOW/Codex content from wrong panes.
+**Outputs**:
+- Edit: cockpit projection (sgsd-mission-control + Mission Strip)
+- 50-* artifacts
+**Acceptance**: see REQUIREMENTS.md COCKPIT lane (COCKPIT-01..05).
+
+### Phase 51 — Context Stress Benchmark
+
+**Goal**: Blind scenario suite + before/after token comparison + failure
+injection (missing capsule, stale registry, invalid phase ID, deleted
+SQLite DB, Redis flush, VTP unavailable, Codex unavailable, critical
+bypass). **Acceptance bar: ≥50% researcher token reduction with zero
+required evidence loss.**
+**Outputs**:
+- New: `super-gsd/tools/context-bench/` harness + scenarios
+- 51-* artifacts
+**Acceptance**: see REQUIREMENTS.md BENCHMARK lane (BENCH-01..05).
+
+### Phase 52 — Redis Live Cache Adapter
+
+**Goal**: Optional disposable Redis projection for live cockpit state /
+hot packets / provider canary cache. **Redis is NEVER canonical.**
+FLUSHDB safety test; degraded-mode runs with SQLite/local files only.
+**Outputs**:
+- New: `super-gsd/tools/context-cache/redis-adapter.cjs` (optional)
+- 52-* artifacts
+**Acceptance**: see REQUIREMENTS.md REDIS lane (REDIS-01..05).
 
 ---
 
 ## Milestone v2.0 — SpaceX-Style Failure Injection
 
-**Phases**: 46, 47, 48, 49, 50
+**Phases**: 53, 54, 55, 56, 57
+**Renumbered 2026-04-27**: was 46-50; shifted +7 by SGSD-Research promotion to v1.9.
 **Audit warning**: harness pieces exist. **Compose** existing tools; do not
 duplicate. Mock-predicate scenarios are forbidden — every scenario MUST
 invoke a real tool against a deliberately-broken fixture.
-**Dependencies**: 46 → {47 ∥ 48 ∥ 49} → 50
-**Locked decisions**: 46=C, 47=C, 48=B, 49=B, 50=B
+**Dependencies**: 53 → {54 ∥ 55 ∥ 56} → 57
+**Locked decisions**: 53=C (was 46=C), 54=C (was 47=C), 55=B (was 48=B), 56=B (was 49=B), 57=B (was 50=B)
 
-### Phase 46 — Gate Failure-Injection Harness
+### Phase 53 — Gate Failure-Injection Harness
 
 **Goal**: 10 scenarios. Each invokes a real SGSD tool against a fixture in
 a temp/container directory. No mock predicates.
-**Locked**: 46=C (real tool + container isolation)
+**Locked**: 53=C (real tool + container isolation)
 **Outputs**:
 - New: `super-gsd/tools/failure-injection/harness.cjs`
 - New: `super-gsd/tools/failure-injection/fixtures/` (10 fixture dirs)
-- 46-* artifacts
+- 53-* artifacts
 **Acceptance** (Patch 1 — strict, no ">=9/10" weasel-room):
 - Each scenario actually executes the tool it targets (mock predicates forbidden;
   verify by adding logging that records the tool invocation in
@@ -575,52 +647,52 @@ a temp/container directory. No mock predicates.
 - `release-readiness/score.cjs` reads the harness's last-run JSONL output
   deterministically; the `scenarios` bucket is `pass / total * 15` rounded.
 
-### Phase 47 — Restart + Handoff Chaos Tests
+### Phase 54 — Restart + Handoff Chaos Tests
 
 **Goal**: Mid-phase kill simulation at 5 named points + manifest-shape tests
 on ORCHESTRATOR-CHECKPOINT.md.
-**Locked**: 47=C (both)
+**Locked**: 54=C (both)
 **Outputs**:
 - New: `super-gsd/tools/chaos-restart/` (kill-points + manifest validators)
-- 47-* artifacts
+- 54-* artifacts
 **Acceptance**:
 - Kill at each of 5 points (mid-research / mid-plan / mid-execute / mid-verify / mid-close), then resume from checkpoint, asserts the phase reaches close
 - Manifest validator rejects checkpoint with missing required field (e.g. `next_action`)
 
-### Phase 48 — Provider Backpressure + Timeout Circuits
+### Phase 55 — Provider Backpressure + Timeout Circuits
 
 **Goal**: Existing timeout-tier hardening + circuit breaker (N consecutive
 provider failures → switch provider for milestone).
-**Locked**: 48=B
+**Locked**: 55=B
 **Outputs**:
 - Edit: `super-gsd/scripts/codex-exec.sh` (or wrapper) for circuit breaker logic
 - New: `super-gsd/scripts/lib/provider-circuit.cjs`
-- 48-* artifacts
+- 55-* artifacts
 **Acceptance**:
 - Test fixture: 3 consecutive Codex failures auto-switch to Claude reviewer for milestone
 - Circuit state persisted in `.planning/metrics/provider-circuit.json` with reset rule
 
-### Phase 49 — Scenario-Based Acceptance Suite
+### Phase 56 — Scenario-Based Acceptance Suite
 
 **Goal**: 6 happy + 4 adversarial scenarios.
-**Locked**: 49=B
+**Locked**: 56=B
 **Outputs**:
 - New: `super-gsd/tools/scenario-suite/` with 10 scenario specs
 - Each scenario has fixture + expected outcomes
-- 49-* artifacts
+- 56-* artifacts
 **Acceptance**:
 - 10 scenarios runnable; each produces evidence file + asserted gate outcome
 - 4 adversarial: poisoned PLAN.md, race-condition writes, malformed checkpoint, mid-write SIGKILL
 
-### Phase 50 — Release Readiness Score (gating)
+### Phase 57 — Release Readiness Score (gating)
 
 **Goal**: 8-bucket score (0-100). **Gates milestone close**: cannot
 `SHIPPED` until ≥70 AND zero `edge_guard_miss` rows in CRIT-BACKLOG.md.
-**Locked**: 50=B
+**Locked**: 57=B
 **Outputs**:
 - New: `super-gsd/tools/release-readiness/score.cjs`
 - Edit: `sgsd-complete-milestone/SKILL.md` to invoke at close + enforce gate
-- 50-* artifacts
+- 57-* artifacts
 **Acceptance**:
 - Score < 70 returns exit 1; milestone close refuses `SHIPPED` (writes `CANDIDATE` or `SHIPPED-WITH-DEBT-N`)
 - Edge_guard_miss row in CRIT-BACKLOG.md → score returns RED regardless of bucket totals (hard precondition)
@@ -629,73 +701,74 @@ provider failures → switch provider for milestone).
 
 ## Milestone v2.1 — Distribution + New-User Onboarding
 
-**Phases**: 51, 52, 53, 54, 55
+**Phases**: 58, 59, 60, 61, 62
+**Renumbered 2026-04-27**: was 51-55; shifted +7 by SGSD-Research promotion to v1.9.
 **Audit warning**: harden existing installer + setup; do NOT create a second
 startup system.
-**Dependencies**: 51 → 52 → 53 → 54 → 55
-**Locked decisions**: 51=B, 52=C, 53=B, 54=C, 55=A
+**Dependencies**: 58 → 59 → 60 → 61 → 62
+**Locked decisions**: 58=B (was 51=B), 59=C (was 52=C), 60=B (was 53=B), 61=C (was 54=C), 62=A (was 55=A)
 
-### Phase 51 — Installer Portability Audit (with clean-room test)
+### Phase 58 — Installer Portability Audit (with clean-room test)
 
 **Goal**: Read-only probes + clean-room install test (fresh dir, captures
 every step that requires manual intervention).
-**Locked**: 51=B
+**Locked**: 58=B
 **Outputs**:
 - New: `super-gsd/tools/installer-audit/audit.cjs`
 - New: `super-gsd/tools/installer-audit/clean-room.sh` (creates tmp dir, runs install, captures friction)
-- 51-* artifacts
+- 58-* artifacts
 **Acceptance**:
 - Audit reports ≥9 dependency probes
 - Clean-room test runs end-to-end on a temp dir; captures every prompt / manual step
 - Output `INSTALLER-AUDIT.md` includes both probe results and clean-room friction log
 
-### Phase 52 — New Project Wizard (extending sgsd-configure)
+### Phase 59 — New Project Wizard (extending sgsd-configure)
 
 **Goal**: sgsd-configure handles knowledge/memory; new wizard handles
 project-level (cockpit panes, default boot mode). Must not replace either.
-**Locked**: 52=C
+**Locked**: 59=C
 **Outputs**:
 - Edit: `super-gsd/scripts/sgsd-configure.ps1` (add reference to project wizard)
 - New: `super-gsd/scripts/sgsd-new-project-wizard.cjs` (project-level only)
-- 52-* artifacts
+- 59-* artifacts
 **Acceptance**:
 - Wizard non-destructively writes config (deep-merge, doesn't clobber existing keys)
 - Re-running on same project produces same config (idempotent)
 
-### Phase 53 — Example Project + Demo
+### Phase 60 — Example Project + Demo
 
 **Goal**: Scaffolded `examples/hello-world/` runnable directory + walkthrough doc.
-**Locked**: 53=B
+**Locked**: 60=B
 **Outputs**:
 - New: `examples/hello-world/PROJECT.md`, `ROADMAP.md`, `.planning/STATE.md` skeleton
 - New: `super-gsd/docs/EXAMPLE-DEMO-WALKTHROUGH.md`
-- 53-* artifacts
+- 60-* artifacts
 **Acceptance**:
 - Demo runs `node super-gsd/scripts/sgsd-new-project-wizard.cjs --defaults` from `examples/hello-world` and produces working config
 - Walkthrough doc tested end-to-end (every command in the doc succeeds)
 
-### Phase 54 — Public Docs Refresh
+### Phase 61 — Public Docs Refresh
 
 **Goal**: README quick-start + VTP-optional callouts + "What This Repo Is For"
 preamble distinguishing operator-build (this repo) vs end-user-install.
-**Locked**: 54=C
+**Locked**: 61=C
 **Outputs**:
 - Edit: `README.md` (preamble + VTP-optional everywhere + linked startup guide)
-- 54-* artifacts
+- 61-* artifacts
 **Acceptance**:
 - `grep -i "vtp" README.md` shows zero "required" or "must" — only "optional"
 - Quick-start `sg` command block tested live
 - Preamble paragraph distinguishes the two audiences explicitly
 
-### Phase 55 — Migration + Upgrade Safety
+### Phase 62 — Migration + Upgrade Safety
 
 **Goal**: Drift checker (8 probes) reports v1.5→v2.1 markers without
 modifying files.
-**Locked**: 55=A
+**Locked**: 62=A
 **Outputs**:
 - New: `super-gsd/tools/upgrade-drift/check.cjs`
 - New: `super-gsd/docs/UPGRADE-DRIFT.md`
-- 55-* artifacts
+- 62-* artifacts
 **Acceptance**:
 - Probe count ≥ 8
 - Read-only (no file modifications confirmed by checking git status before/after run)
