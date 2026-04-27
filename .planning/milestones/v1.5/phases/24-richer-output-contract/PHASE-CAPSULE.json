@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.5",
+  "phase": "24",
+  "phase_name": "Richer Output Contract",
+  "status": "PASS",
+  "goal": "Adopt the FINDINGS_DETAIL contract footer Codex began emitting spontaneously in v1.4 Phase 20 Round 3. Three concerns:",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.5/phases/24-richer-output-contract/24-01-findings-detail-contract-PLAN.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.5/phases/24-richer-output-contract/24-CONTEXT.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.5/phases/24-richer-output-contract/24-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/REQUIREMENTS.md",
+    ".planning/ROADMAP.md",
+    ".planning/STATE.md",
+    ".planning/milestones/v1.5/phases/24-richer-output-contract/24-01-findings-detail-contract-PLAN.md",
+    ".planning/milestones/v1.5/phases/24-richer-output-contract/24-CONTEXT.md",
+    ".planning/milestones/v1.5/phases/24-richer-output-contract/24-SUMMARY.md",
+    ".planning/milestones/v1.5/phases/24-richer-output-contract/24-VERIFICATION.md",
+    "super-gsd/skills/sgsd-orchestrate/SKILL.md"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "eee3256951c85f9de0f9759538d7688161d8c885",
+      "subject": "feat(24-01): CONTRACT-01..03 \u2014 FINDINGS_DETAIL contract activation",
+      "ts": "2026-04-25T00:43:56+01:00"
+    },
+    {
+      "sha": "7a3db667d7b687421551389f74ca5c97b7d25cef",
+      "subject": "docs(24): close phase \u2014 VERIFICATION + SUMMARY + REQUIREMENTS [x]",
+      "ts": "2026-04-25T00:45:52+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.5/phases/24-richer-output-contract/24-CONTEXT.md",
+      "sha256": "0b863e20b830f771bc4e969717658aa86cf82bacfa2d4b9bcc70889099671faa"
+    },
+    "research": null,
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.5/phases/24-richer-output-contract/24-01-findings-detail-contract-PLAN.md",
+        "sha256": "f0d10c13daf44e3c7c83dd5096caa2733885decd0056e6b03b27191dadf878d6"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.5/phases/24-richer-output-contract/24-VERIFICATION.md",
+      "sha256": "ae988dcb54e4d2bf3f71583e8295caa611b061da23e18a44d35132812d187a29"
+    },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "passed",
+      "ref": ".planning/milestones/v1.5/phases/24-richer-output-contract/24-VERIFICATION.md"
+    },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": null,
+    "planner": null,
+    "executor": null,
+    "verifier": null,
+    "reviewer": null,
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 138968,
+      "evidence_event_id": "assistant:4b653460-ff94-49c6-9c98-20287c42de2e:cab4f81d-905d-422d-8b28-17815d8c0fcb"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T20:08:57.250Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@adcfaabbd287"
+}

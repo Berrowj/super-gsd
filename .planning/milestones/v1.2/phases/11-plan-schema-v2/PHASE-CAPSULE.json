@@ -1,0 +1,216 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.2",
+  "phase": "11",
+  "phase_name": "Plan Schema V2",
+  "status": "PASS",
+  "goal": "",
+  "outputs": [
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-CONTEXT.md"
+    },
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-PLAN.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/STATE.md",
+    ".planning/decisions/DLB-01-RESCORE.md",
+    ".planning/decisions/DLB-02-RESCORE.md",
+    ".planning/decisions/DLB-03-RESCORE.md",
+    ".planning/decisions/DLB-04-RESCORE.md",
+    ".planning/decisions/DLB-05-RESCORE.md",
+    ".planning/decisions/DLB-06-RESCORE.md",
+    ".planning/metrics/deliberation-outcomes.jsonl",
+    ".planning/milestones/v1.2/INTENT.md",
+    ".planning/milestones/v1.2/SUMMARY.md",
+    ".planning/milestones/v1.2/VTP-CLASSIFICATION-GAP.md",
+    ".planning/milestones/v1.2/deliberation-outcomes.jsonl",
+    ".planning/milestones/v1.2/gate-drift-audit.md",
+    ".planning/milestones/v1.2/muda-recurrence.md",
+    ".planning/milestones/v1.2/phases/09-atc-147-evidence/09-ATC-REVIEW.md",
+    ".planning/milestones/v1.2/phases/09-atc-147-evidence/09-CONTEXT.md",
+    ".planning/milestones/v1.2/phases/09-atc-147-evidence/09-DISCUSSION-LOG.md",
+    ".planning/milestones/v1.2/phases/09-atc-147-evidence/09-RESEARCH.md",
+    ".planning/milestones/v1.2/phases/09-atc-147-evidence/09-VALIDATION.md",
+    ".planning/milestones/v1.2/phases/09-atc-147-evidence/09-VERIFICATION.md",
+    ".planning/milestones/v1.2/phases/09-atc-147-evidence/09-classification.yaml",
+    ".planning/milestones/v1.2/phases/09-atc-147-evidence/09-gate-bypass.yaml",
+    ".planning/milestones/v1.2/phases/09-atc-147-evidence/plans/09-01-SUMMARY.md",
+    ".planning/milestones/v1.2/phases/09-atc-147-evidence/plans/09-01-classification.md",
+    ".planning/milestones/v1.2/phases/09-atc-147-evidence/plans/09-02-SUMMARY.md",
+    ".planning/milestones/v1.2/phases/09-atc-147-evidence/plans/09-02-gate-bypass.md",
+    ".planning/milestones/v1.2/phases/09-atc-147-evidence/plans/09-03-SUMMARY.md",
+    ".planning/milestones/v1.2/phases/09-atc-147-evidence/plans/09-03-registry-and-intent.md",
+    ".planning/milestones/v1.2/phases/09-atc-147-evidence/verify.mjs",
+    ".planning/milestones/v1.2/phases/10-gate-policy/10-03-01-cross-repo-probe.yaml",
+    ".planning/milestones/v1.2/phases/10-gate-policy/10-ATC-REVIEW.md",
+    ".planning/milestones/v1.2/phases/10-gate-policy/10-CONTEXT.md",
+    ".planning/milestones/v1.2/phases/10-gate-policy/10-PLAN-CHECK.md",
+    ".planning/milestones/v1.2/phases/10-gate-policy/10-RESEARCH.md",
+    ".planning/milestones/v1.2/phases/10-gate-policy/10-VALIDATION.md",
+    ".planning/milestones/v1.2/phases/10-gate-policy/10-VERIFICATION.md",
+    ".planning/milestones/v1.2/phases/10-gate-policy/WASTE.md",
+    ".planning/milestones/v1.2/phases/10-gate-policy/plans/10-01-SUMMARY.md",
+    ".planning/milestones/v1.2/phases/10-gate-policy/plans/10-01-predicate-and-population.md",
+    ".planning/milestones/v1.2/phases/10-gate-policy/plans/10-02-SUMMARY.md",
+    ".planning/milestones/v1.2/phases/10-gate-policy/plans/10-02-edge-guard.md",
+    ".planning/milestones/v1.2/phases/10-gate-policy/plans/10-03-SUMMARY.md",
+    ".planning/milestones/v1.2/phases/10-gate-policy/plans/10-03-integration-and-cleanup.md",
+    ".planning/milestones/v1.2/phases/10-gate-policy/verify.mjs",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-02-ATC-REVIEW.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-06-VERIFICATION.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-ATC-REVIEW.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-CONTEXT.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-DISCUSSION-LOG.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-PLAN-CHECK.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-PLAN.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-RESEARCH.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-VERIFICATION.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/WASTE.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/commit-reviews.jsonl",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/fixtures/bad-plan.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/fixtures/good-plan.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/plans/11-01-SUMMARY.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/plans/11-01-schema-file.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/plans/11-02-SUMMARY.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/plans/11-02-validator-cli.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/plans/11-03-SUMMARY.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/plans/11-03-self-healing-loop.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/plans/11-04-SUMMARY.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/plans/11-04-boot-hash-drift.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/plans/11-05-SUMMARY.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/plans/11-05-writing-plans-hook.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/plans/11-06-SUMMARY.md",
+    ".planning/milestones/v1.2/phases/11-plan-schema-v2/plans/11-06-atc-gap-closure.md",
+    ".planning/milestones/v1.2/phases/12-machinery/12-ATC-REVIEW.md",
+    ".planning/milestones/v1.2/phases/12-machinery/12-CONTEXT.md",
+    ".planning/milestones/v1.2/phases/12-machinery/12-PLAN-CHECK.md",
+    ".planning/milestones/v1.2/phases/12-machinery/12-RESEARCH.md",
+    ".planning/milestones/v1.2/phases/12-machinery/12-VALIDATION.md",
+    ".planning/milestones/v1.2/phases/12-machinery/12-VERIFICATION.md",
+    ".planning/milestones/v1.2/phases/12-machinery/WASTE.md",
+    ".planning/milestones/v1.2/phases/12-machinery/plans/12-01-SUMMARY.md",
+    ".planning/milestones/v1.2/phases/12-machinery/plans/12-01-classifier-cache.md",
+    ".planning/milestones/v1.2/phases/12-machinery/plans/12-02-00-spike.md",
+    ".planning/milestones/v1.2/phases/12-machinery/plans/12-02-SUMMARY.md",
+    ".planning/milestones/v1.2/phases/12-machinery/plans/12-02-dispatch-planner.md",
+    ".planning/milestones/v1.2/phases/12-machinery/plans/12-03-SUMMARY.md",
+    ".planning/milestones/v1.2/phases/12-machinery/plans/12-03-checkpoint-schema.md",
+    ".planning/milestones/v1.2/phases/12-machinery/plans/12-04-01-verifier-contract-check.md",
+    ".planning/milestones/v1.2/phases/12-machinery/plans/12-04-SUMMARY.md",
+    ".planning/milestones/v1.2/phases/12-machinery/plans/12-04-adversarial-verifier.md",
+    ".planning/milestones/v1.2/phases/12-machinery/plans/12-05-SUMMARY.md",
+    ".planning/milestones/v1.2/phases/12-machinery/plans/12-05-erg-warnings.md",
+    ".planning/milestones/v1.2/phases/12-machinery/plans/12-06-SUMMARY.md",
+    ".planning/milestones/v1.2/phases/12-machinery/plans/12-06-known-keys-installer.md",
+    ".planning/milestones/v1.2/phases/12-machinery/verify.mjs",
+    ".planning/milestones/v1.2/phases/13-governance/13-CONTEXT.md",
+    ".planning/milestones/v1.2/phases/13-governance/13-PLAN-CHECK.md",
+    ".planning/milestones/v1.2/phases/13-governance/13-RESEARCH.md",
+    ".planning/milestones/v1.2/phases/13-governance/13-SUMMARY.md",
+    ".planning/milestones/v1.2/phases/13-governance/13-VALIDATION.md",
+    ".planning/milestones/v1.2/phases/13-governance/plans/13-01-board-registry.md",
+    ".planning/milestones/v1.2/phases/13-governance/plans/13-02-vote-synthesis.md",
+    ".planning/milestones/v1.2/phases/13-governance/plans/13-03-structured-responses.md",
+    ".planning/milestones/v1.2/phases/13-governance/plans/13-04-decision-memo-template.md",
+    ".planning/milestones/v1.2/phases/13-governance/plans/13-05-01-vtp-probe.md",
+    ".planning/milestones/v1.2/phases/13-governance/plans/13-05-complete-milestone-skill.md",
+    ".planning/milestones/v1.2/phases/13-governance/plans/13-06-retro-rescore.md",
+    ".planning/milestones/v1.2/phases/13-governance/plans/13-07-verify-and-close.md",
+    ".planning/milestones/v1.2/phases/13-governance/verify.mjs",
+    ".planning/milestones/v1.2/vtp-research-id.txt"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": [
+      "**Retention/rotation:** No existing metrics files have rotation logic. All are append-only, no TTL. Consistent with current convention: no rotation policy for Phase 11. Planner may add a `--quiet` flag to validate.cjs that suppresses pass-row telemetry if log volume becomes a concern, but this is not required."
+    ]
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "63b47bad13f11725d293038813d9024f14405fdf",
+      "subject": "docs(milestone-close): close v1.2 Evidence-First Sharpening \u2014 archive phases 09/10/11/12/13, GOV-05 deliberation audit, VTP tier-3 gap memo, STATE bumped to v1.3",
+      "ts": "2026-04-23T19:13:11+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-CONTEXT.md",
+      "sha256": "d11657ddbd3612bc2d0146db26430b5a4016e4654bdc2727f666af7b9ac77fff"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-RESEARCH.md",
+      "sha256": "ed2c9e6c2dfb1865c781eb0751015b03c4803111a975f33053b7c406fa821e30"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-PLAN.md",
+        "sha256": "d2499b4d04cd3fe106b1f3689faa0ae02c4860a9cd5ef7a5b561e1b909494a5a"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-VERIFICATION.md",
+      "sha256": "7bfd17583fbd606a8ccc871e7230fbe46707ef0e750c539c37c806accc6a54a9"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-ATC-REVIEW.md",
+      "sha256": "8598bf2ef07ffbbaaf2fc23511054469b42b78d5da9cf7dd5726bc4a3b50ca48"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "passed",
+      "ref": ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.2/phases/11-plan-schema-v2/11-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": null,
+    "planner": null,
+    "executor": null,
+    "verifier": null,
+    "reviewer": null,
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 633606,
+      "evidence_event_id": "assistant:0653c02b-f1f0-49ff-873c-a548e7a78b16:e4a25e65-1c09-4efa-93ca-bbd28f5c3c61"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T20:08:31.152Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@adcfaabbd287"
+}

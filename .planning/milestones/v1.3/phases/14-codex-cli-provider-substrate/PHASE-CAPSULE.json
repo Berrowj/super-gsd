@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.3",
+  "phase": "14",
+  "phase_name": "Codex Cli Provider Substrate",
+  "status": "IN_PROGRESS",
+  "goal": "",
+  "outputs": [
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/14-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/14-CONTEXT.md"
+    }
+  ],
+  "files": [
+    ".planning/STATE.md",
+    ".planning/milestones/v1.3/BRIEF.md",
+    ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/14-01-ATC.md",
+    ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/14-01-codex-exec-wrapper.md",
+    ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/14-02-ATC.md",
+    ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/14-02-provider-registry.md",
+    ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/14-03-config-and-known-keys.md",
+    ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/14-04-contract-check-harness.md",
+    ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/14-ATC-REVIEW.md",
+    ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/14-CONTEXT.md",
+    ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/14-DISCUSSION-LOG.md",
+    ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/14-VTP-EVIDENCE.md",
+    ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/PATTERNS.md",
+    ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/PLAN-INDEX.md",
+    ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/RESEARCH.md",
+    ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/VALIDATION.md",
+    ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/VERIFICATION.md",
+    ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/verify.mjs",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-CONTEXT.md",
+    ".planning/phases/14/WASTE.md",
+    ".planning/phases/14/commit-reviews.jsonl",
+    "super-gsd/scripts/codex-exec.sh",
+    "super-gsd/tools/provider-contract/make-fixtures.sh"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "8b5c6b6bd1c17679fc5b18b782436f07322dbdf3",
+      "subject": "docs(14): activate staged Phase 14 context + Phase 16 deferral addendum",
+      "ts": "2026-04-23T23:22:04+01:00"
+    },
+    {
+      "sha": "65669e8a896023ec3f0183287c3807689fe14be0",
+      "subject": "docs(14+state): discussion-log + STATE bump for Phase 14 activation",
+      "ts": "2026-04-23T23:23:50+01:00"
+    },
+    {
+      "sha": "1c5c12f8566a83415c157149211c0ea6a3f96f07",
+      "subject": "docs(14): VTP-EVIDENCE.md bypass stub \u2014 Phase 14 is VTP-agnostic by design + vtp-kb blocker",
+      "ts": "2026-04-23T23:41:14+01:00"
+    },
+    {
+      "sha": "4a1b6b3b7ff8b6bb09613e4202b8cf63468bf80d",
+      "subject": "docs(14): RESEARCH.md \u2014 Codex CLI contract + codebase patterns + risk surfaces",
+      "ts": "2026-04-23T23:49:51+01:00"
+    },
+    {
+      "sha": "a999247bbaf26da08a1e36c9c4516edf76495869",
+      "subject": "docs(14): PATTERNS.md \u2014 9 targets mapped to codebase analogs + 4 divergences",
+      "ts": "2026-04-23T23:54:59+01:00"
+    },
+    {
+      "sha": "13301028db3602b3ba0377f439c158c803ef24d6",
+      "subject": "docs(14): 4 v2-schema plans + PLAN-INDEX \u2014 3-wave decomposition + 4 deviations",
+      "ts": "2026-04-24T00:03:53+01:00"
+    },
+    {
+      "sha": "40f4384caf730e539832c947b1feabbfbf335bec",
+      "subject": "docs(14): VALIDATION.md \u2014 PASS-WITH-WARNINGS, plans execution-ready",
+      "ts": "2026-04-24T00:18:21+01:00"
+    },
+    {
+      "sha": "1a07d0d0e155d9b05783f2bd042267eb62136e55",
+      "subject": "docs(14+state): VTP-EVIDENCE addendum (Codex upstream fix) + STATE bump",
+      "ts": "2026-04-24T00:19:57+01:00"
+    },
+    {
+      "sha": "dbf92f232a2462c371786a708d05ca3dca8318dd",
+      "subject": "feat(14-04): phase-14 verify invariants \u2014 contract-check.mjs exits 0 + chmod +x on shell wrappers",
+      "ts": "2026-04-24T00:51:12+01:00"
+    },
+    {
+      "sha": "96312dd77194b36a2acd6330dce605a24fca47e9",
+      "subject": "docs(14): phase close \u2014 ATC reviews, verifier PASS, MUDA clean, STATE bump",
+      "ts": "2026-04-24T01:00:28+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/14-CONTEXT.md",
+      "sha256": "3a9c8cf0036f5bd8e0b4b9ad78fc49574fe11d7625939d06e8f0b558a07138f3"
+    },
+    "research": null,
+    "plan": [],
+    "verification": null,
+    "atc_review": {
+      "path": ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/14-ATC-REVIEW.md",
+      "sha256": "3b17de50a66fae7e95e12a04002a18571e6ff6afa15c8e970c8dbe26d9f39b1f"
+    }
+  },
+  "gates": {
+    "verifier": null,
+    "atc_review": {
+      "path": ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/14-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 101476,
+      "evidence_event_id": "agent:4150e89d-3dec-4475-9366-23832bf65e75:a8076b43ba28d25a3"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 109689,
+      "evidence_event_id": "agent:4150e89d-3dec-4475-9366-23832bf65e75:ae4f736aa2308c29e"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 112707,
+      "evidence_event_id": "agent:4fec0b1a-00a3-47bc-bb67-acb796e24d4f:aba1325c948575643"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 118120,
+      "evidence_event_id": "agent:4fec0b1a-00a3-47bc-bb67-acb796e24d4f:aae12eb2f393fb56d"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 478326,
+      "evidence_event_id": "assistant:4150e89d-3dec-4475-9366-23832bf65e75:0352e119-66b2-4474-907e-bbfe7330131e"
+    },
+    "classifier": null,
+    "other": {
+      "role": "other",
+      "total_tokens": 85150,
+      "evidence_event_id": "agent:4fec0b1a-00a3-47bc-bb67-acb796e24d4f:afeb7b2f8f9328b0d"
+    }
+  },
+  "created_at": "2026-04-27T20:08:35.847Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@adcfaabbd287"
+}

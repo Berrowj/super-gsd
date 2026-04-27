@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.5",
+  "phase": "22",
+  "phase_name": "Security Hardening",
+  "status": "PASS",
+  "goal": "",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.5/phases/22-security-hardening/22-01-symlink-canonicalize-PLAN.md"
+    },
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.5/phases/22-security-hardening/22-02-flock-concurrent-write-PLAN.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.5/phases/22-security-hardening/22-CONTEXT.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.5/phases/22-security-hardening/22-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/ROADMAP.md",
+    ".planning/STATE.md",
+    ".planning/config.json",
+    ".planning/memory/architecture/anti-patterns/waste-inventory-p22-inventory.md",
+    ".planning/milestones/v1.4/phases/18-codex-hardening/18-DOGFOOD-AUDIT.md",
+    ".planning/milestones/v1.5/phases/22-security-hardening/22-01-SUMMARY.md",
+    ".planning/milestones/v1.5/phases/22-security-hardening/22-01-symlink-canonicalize-PLAN.md",
+    ".planning/milestones/v1.5/phases/22-security-hardening/22-02-SUMMARY.md",
+    ".planning/milestones/v1.5/phases/22-security-hardening/22-02-flock-concurrent-write-PLAN.md",
+    ".planning/milestones/v1.5/phases/22-security-hardening/22-CODEX-PROMPT-R6.md",
+    ".planning/milestones/v1.5/phases/22-security-hardening/22-CODEX-PROMPT-R7.md",
+    ".planning/milestones/v1.5/phases/22-security-hardening/22-CODEX-REPORT-R6.md",
+    ".planning/milestones/v1.5/phases/22-security-hardening/22-CODEX-REPORT-R7.md",
+    ".planning/milestones/v1.5/phases/22-security-hardening/22-CONTEXT.md",
+    ".planning/milestones/v1.5/phases/22-security-hardening/22-PLAN-INDEX.md",
+    ".planning/milestones/v1.5/phases/22-security-hardening/22-SUMMARY.md",
+    ".planning/milestones/v1.5/phases/22-security-hardening/22-VERIFICATION.md",
+    ".planning/milestones/v1.5/phases/22-security-hardening/WASTE.md",
+    ".planning/milestones/v1.5/phases/23-muda-calibration/23-01-inventory-threshold-recalibration-PLAN.md",
+    ".planning/milestones/v1.5/phases/23-muda-calibration/23-CONTEXT.md",
+    ".planning/milestones/v1.5/phases/23-muda-calibration/23-RESEARCH.md",
+    ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-01-carryover-cleanup-PLAN.md",
+    ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-CONTEXT.md",
+    "super-gsd/scripts/sgsd-muda-audit.sh",
+    "super-gsd/scripts/sgsd-muda-probe.sh",
+    "super-gsd/scripts/sgsd-stop-handoff.sh"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "a2b0ca8ddb3691bd178774c75e4830eb9fe0bebb",
+      "subject": "docs(22): capture Phase 22 Security Hardening context inline",
+      "ts": "2026-04-24T22:05:25+01:00"
+    },
+    {
+      "sha": "d5c31547891035170514c2e08da434e40ee2f35d",
+      "subject": "docs(22): Phase 22 Security Hardening \u2014 2 plans (SEC-01 symlink canonicalize, SEC-02 flock guard)",
+      "ts": "2026-04-24T22:09:32+01:00"
+    },
+    {
+      "sha": "4b382a14efd45ca6a57dfe008572bef94d2919d4",
+      "subject": "docs(22-01): complete symlink canonicalize plan \u2014 SUMMARY + STATE updated",
+      "ts": "2026-04-24T22:13:14+01:00"
+    },
+    {
+      "sha": "41325214d178adfe04d6a10e10c818f2c73e3d21",
+      "subject": "docs(22-02): complete flock concurrent-write guard plan \u2014 SUMMARY + STATE updated",
+      "ts": "2026-04-24T22:19:39+01:00"
+    },
+    {
+      "sha": "9fd11f3a44e67f7b61359b65ebe3ce4998942390",
+      "subject": "fix(22): close handoff symlink audit redirects",
+      "ts": "2026-04-24T23:49:36+01:00"
+    },
+    {
+      "sha": "1d166938a4ad9d43c7947cf5e67c8d364b3d849d",
+      "subject": "docs(22): record clean codex round7 report",
+      "ts": "2026-04-25T00:04:39+01:00"
+    },
+    {
+      "sha": "95b9d9947b49a495b54ed2a08e751f6891ddc35b",
+      "subject": "docs(22): close phase \u2014 SUMMARY + STATE + ROADMAP after 7-round Codex cycle",
+      "ts": "2026-04-25T00:28:33+01:00"
+    },
+    {
+      "sha": "396369dc90b3df0a67d443543acb681d541cf0f3",
+      "subject": "feat(23-01): MUDAC-02 config-driven inventory thresholds scaling per milestone",
+      "ts": "2026-04-25T00:37:32+01:00"
+    },
+    {
+      "sha": "3563eada6369ba6308f69f17f3e41a234704cd93",
+      "subject": "feat(25-01): CARRY-01..03 \u2014 sentinel anchor + audit + dogfood methodology",
+      "ts": "2026-04-25T00:51:08+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.5/phases/22-security-hardening/22-CONTEXT.md",
+      "sha256": "452cb6503928ebc760ec8beae7a99ab264e2edbdefea65de6e5b80cf8a8c77d8"
+    },
+    "research": null,
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.5/phases/22-security-hardening/22-01-symlink-canonicalize-PLAN.md",
+        "sha256": "73fccf72996c8cec03eb784106ba88bfeee5802ae1b3bc139240a3873b1a00b0"
+      },
+      {
+        "path": ".planning/milestones/v1.5/phases/22-security-hardening/22-02-flock-concurrent-write-PLAN.md",
+        "sha256": "2f55c3066edf794a05a5c5c5f548b665380b36d611738cc2c9f9c1e32392d7eb"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.5/phases/22-security-hardening/22-VERIFICATION.md",
+      "sha256": "8275c333e50b5231efa619f26bec480c43e1b6ff877112358141dd5bbdaf5537"
+    },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "passed",
+      "ref": ".planning/milestones/v1.5/phases/22-security-hardening/22-VERIFICATION.md"
+    },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": null,
+    "planner": {
+      "role": "planner",
+      "total_tokens": 55265,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:a33980c7713a0a0f6"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 42518,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:ab55ca6e22d80d945"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 38586,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:a78e860a1de5efcde"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 263642,
+      "evidence_event_id": "assistant:e05ed485-05ef-4965-87f3-f385ab55c621:60265d40-94c3-49ae-920f-274e291fd3f2"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T20:08:55.013Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@adcfaabbd287"
+}

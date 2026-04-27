@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.5",
+  "phase": "21",
+  "phase_name": "Vtp Enrichment Gates",
+  "status": "PASS",
+  "goal": "",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-01-gate-orchestrator-PLAN.md"
+    },
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-02-audit-xref-PLAN.md"
+    },
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-03-config-empty-hit-PLAN.md"
+    },
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-04-board-researcher-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/ROADMAP.md",
+    ".planning/STATE.md",
+    ".planning/metrics/token-log.jsonl",
+    ".planning/milestones/v1.5/SUMMARY.md",
+    ".planning/milestones/v1.5/VTP-CLASSIFICATION-GAP.md",
+    ".planning/milestones/v1.5/deliberation-outcomes.jsonl",
+    ".planning/milestones/v1.5/evidence/codex-kill-check.md",
+    ".planning/milestones/v1.5/gate-drift-audit.md",
+    ".planning/milestones/v1.5/muda-recurrence.md",
+    ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-01-SUMMARY.md",
+    ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-01-gate-orchestrator-PLAN.md",
+    ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-02-SUMMARY.md",
+    ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-02-audit-xref-PLAN.md",
+    ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-03-SUMMARY.md",
+    ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-03-config-empty-hit-PLAN.md",
+    ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-04-SUMMARY.md",
+    ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-04-board-researcher-PLAN.md",
+    ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-ATC-REVIEW.md",
+    ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-CONTEXT.md",
+    ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-PLAN-INDEX.md",
+    ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-RESEARCH.md",
+    ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-SUMMARY.md",
+    ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-VERIFICATION.md",
+    ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/WASTE.md",
+    ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/commit-reviews.jsonl",
+    ".planning/milestones/v1.5/vtp-research-id.txt",
+    "super-gsd/agents/sgsd-vtp-enrichment.md"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "e18b49928d96860f0925c184dda888d3e4f6eb5c",
+      "subject": "docs(21): capture Phase 21 VTP Enrichment Gates context inline",
+      "ts": "2026-04-24T18:24:07+01:00"
+    },
+    {
+      "sha": "f1ef3e5b32761b6f2d9e7a26e0a94e6a911205b3",
+      "subject": "docs(21): research phase \u2014 VTP enrichment gates implementation guidance",
+      "ts": "2026-04-24T19:59:07+01:00"
+    },
+    {
+      "sha": "a07b857be7ad648df5824b98ff71a4ee8123275a",
+      "subject": "plan(21): 4 plans + INDEX \u2014 VTPE-01..06 implementation breakdown (12 tasks)",
+      "ts": "2026-04-24T20:10:32+01:00"
+    },
+    {
+      "sha": "11e78130652d487e29f10b377437176dc3974dc5",
+      "subject": "docs(21-01): complete plan 21-01 summary + STATE.md progress update",
+      "ts": "2026-04-24T20:23:56+01:00"
+    },
+    {
+      "sha": "f252169b358fdfe7947be8748e56bcb3e2ca715d",
+      "subject": "atc(21-01): Codex per-dispatch \u2014 2 CRIT + 2 WARN, auto-bypass per Rule 13",
+      "ts": "2026-04-24T20:33:32+01:00"
+    },
+    {
+      "sha": "86a9c55a6d6decb18d9efb6c6d170fd96fbe092c",
+      "subject": "docs(21-02): complete audit-xref + milestone-close library xref plan",
+      "ts": "2026-04-24T20:38:56+01:00"
+    },
+    {
+      "sha": "5f28a0178e420d9a08d74d22c41f1ca9bfbede84",
+      "subject": "atc(21-02): Codex per-dispatch \u2014 0 CRIT + 4 WARN, autonomous continue",
+      "ts": "2026-04-24T20:43:03+01:00"
+    },
+    {
+      "sha": "2daac5f6ed0dba76af4f7fd93036c5d09148045c",
+      "subject": "docs(21-03): complete config-empty-hit plan summary + state update",
+      "ts": "2026-04-24T20:51:52+01:00"
+    },
+    {
+      "sha": "a3a3570cb9a68e47bd653b4e16cb46d50b599352",
+      "subject": "atc(21-03): per-dispatch ATC skipped \u2014 analysis-tier timeout, phase-level will re-catch",
+      "ts": "2026-04-24T20:56:15+01:00"
+    },
+    {
+      "sha": "e6365c75014c26b003897c9de230740f2c6470a6",
+      "subject": "docs(21-04): complete board-researcher plan summary + state update",
+      "ts": "2026-04-24T21:02:21+01:00"
+    },
+    {
+      "sha": "d5babc43c38d68a17dba2f0f48807382369deae5",
+      "subject": "atc(21): phase-level Codex HALT \u2014 2 CRIT + 3 WARN, orchestrator stopped",
+      "ts": "2026-04-24T21:24:49+01:00"
+    },
+    {
+      "sha": "cf2f9aa24875ab642ddb59e74faa4861d6628e1e",
+      "subject": "fix(21/warn): align sgsd-vtp-enrichment.md dispatch_contract with gate module output",
+      "ts": "2026-04-24T22:02:49+01:00"
+    },
+    {
+      "sha": "a8e5819eb2d95eca0b176d7a573f871c2f63c708",
+      "subject": "phase-close(21): VTP Enrichment Gates \u2713 SHIPPED \u2014 6/6 VTPE + halt-on-CRIT proved out",
+      "ts": "2026-04-24T22:04:33+01:00"
+    },
+    {
+      "sha": "b94487449d64881444a645e031508b5b469f0571",
+      "subject": "milestone-close(v1.5): SHIPPED \u2014 VTP Knowledge Primacy + Post-v1.4 Hardening",
+      "ts": "2026-04-25T01:42:23+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-CONTEXT.md",
+      "sha256": "2986b4f9ca44d131bf5942299a5ef05549875c240a49e41169dac0e3f6d07e09"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-RESEARCH.md",
+      "sha256": "b593702187d2fa4f0a85adf74d488b025c43a0cebb8ee2814dedc2d3281ccc6f"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-01-gate-orchestrator-PLAN.md",
+        "sha256": "6b477bbd1de5a2b6507eb7719701cafe660d53de1f72b4e7a405c01404b2817f"
+      },
+      {
+        "path": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-02-audit-xref-PLAN.md",
+        "sha256": "e5faf33b7efface491ee8ac9027b1012bef34f839a30f9b86900c71538344d0e"
+      },
+      {
+        "path": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-03-config-empty-hit-PLAN.md",
+        "sha256": "3fa07fcf0b3b22bccba8eb4e6d3308e496c4aa9c8cedce86f9595c0b09754710"
+      },
+      {
+        "path": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-04-board-researcher-PLAN.md",
+        "sha256": "ad16d3161dd04ac400c805c245e1a6a49bfe9589ee8be0734bcb1a5fd7c4d6a1"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-VERIFICATION.md",
+      "sha256": "61ec132d8c9a8047ab507f1739971c603d7d13c46823826a55825f8e9f369842"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-ATC-REVIEW.md",
+      "sha256": "37608944f532e0dd69abfd828879ec383a826760863fc2c0a1f6e3e20713b06f"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "passed",
+      "ref": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-04-24T18:13:50Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 96337,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:ad94e7eef4c972305"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 73014,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:aaab9f86a25ac7346"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 43040,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:a1eb9d76d4adbc4f4"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 55029,
+      "evidence_event_id": "agent:4b653460-ff94-49c6-9c98-20287c42de2e:a96ebe35e07d8433c"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 173123,
+      "evidence_event_id": "assistant:4b653460-ff94-49c6-9c98-20287c42de2e:94024e5b-0855-40ff-91c4-d6da5fc5ccc4"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T20:08:52.915Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@adcfaabbd287"
+}

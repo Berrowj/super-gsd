@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.5",
+  "phase": "23",
+  "phase_name": "Muda Calibration",
+  "status": "PASS",
+  "goal": "Close the 4 MUDAC requirements: MUDAC-01..04. Three (MUDAC-01, MUDAC-03, MUDAC-04) are conceptually pre-shipped via commit `b2773a8` (Codex MUDA work during 5.5 pinning session). MUDAC-02 (config-driven inventory thresholds scaling with milestone count) is the only outstanding implementation.",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.5/phases/23-muda-calibration/23-01-inventory-threshold-recalibration-PLAN.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.5/phases/23-muda-calibration/23-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.5/phases/23-muda-calibration/23-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.5/phases/23-muda-calibration/23-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/REQUIREMENTS.md",
+    ".planning/ROADMAP.md",
+    ".planning/STATE.md",
+    ".planning/config.json",
+    ".planning/milestones/v1.5/phases/22-security-hardening/WASTE.md",
+    ".planning/milestones/v1.5/phases/23-muda-calibration/23-01-inventory-threshold-recalibration-PLAN.md",
+    ".planning/milestones/v1.5/phases/23-muda-calibration/23-CONTEXT.md",
+    ".planning/milestones/v1.5/phases/23-muda-calibration/23-RESEARCH.md",
+    ".planning/milestones/v1.5/phases/23-muda-calibration/23-SUMMARY.md",
+    ".planning/milestones/v1.5/phases/23-muda-calibration/23-VERIFICATION.md",
+    "super-gsd/scripts/sgsd-muda-audit.sh",
+    "super-gsd/scripts/sgsd-muda-probe.sh"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "396369dc90b3df0a67d443543acb681d541cf0f3",
+      "subject": "feat(23-01): MUDAC-02 config-driven inventory thresholds scaling per milestone",
+      "ts": "2026-04-25T00:37:32+01:00"
+    },
+    {
+      "sha": "78f36dce5d7d197e58aa853b0fcc4c44b0e9e3bb",
+      "subject": "docs(23): close phase \u2014 VERIFICATION + SUMMARY + REQUIREMENTS [x]",
+      "ts": "2026-04-25T00:39:52+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.5/phases/23-muda-calibration/23-CONTEXT.md",
+      "sha256": "82f40a95e4eff20bb5d3e9c88b91e5918babc1e4c6f14f8b4dd06003d0d5ea22"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.5/phases/23-muda-calibration/23-RESEARCH.md",
+      "sha256": "c9d1d0944aa6dbfee5120645793894dce38cb091c2edeea0fcd82ece476ed73c"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.5/phases/23-muda-calibration/23-01-inventory-threshold-recalibration-PLAN.md",
+        "sha256": "b67ba4717c6994991cba7abfa6890e45081e43a5b39b06ead10c4d67149b8380"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.5/phases/23-muda-calibration/23-VERIFICATION.md",
+      "sha256": "e9e326b2d96747fd54476a4d41a67c506dd0c1fbb08d195b7895689aa56619b5"
+    },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "passed",
+      "ref": ".planning/milestones/v1.5/phases/23-muda-calibration/23-VERIFICATION.md"
+    },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": null,
+    "planner": null,
+    "executor": null,
+    "verifier": null,
+    "reviewer": null,
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 215343,
+      "evidence_event_id": "assistant:e05ed485-05ef-4965-87f3-f385ab55c621:5d11e426-98f6-46a0-ac6e-1da4112f50b0"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T20:08:56.110Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@adcfaabbd287"
+}

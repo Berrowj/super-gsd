@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.5",
+  "phase": "25",
+  "phase_name": "Carryover Telemetry",
+  "status": "PASS",
+  "goal": "Final v1.5 phase. 6 REQs across 3 plans:",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-01-carryover-cleanup-PLAN.md"
+    },
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-02-edge-guard-wiring-PLAN.md"
+    },
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-03-dashboard-telemetry-PLAN.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-CONTEXT.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/REQUIREMENTS.md",
+    ".planning/ROADMAP.md",
+    ".planning/STATE.md",
+    ".planning/milestones/v1.4/phases/18-codex-hardening/18-DOGFOOD-AUDIT.md",
+    ".planning/milestones/v1.5/phases/22-security-hardening/WASTE.md",
+    ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-01-carryover-cleanup-PLAN.md",
+    ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-02-edge-guard-wiring-PLAN.md",
+    ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-03-dashboard-telemetry-PLAN.md",
+    ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-CONTEXT.md",
+    ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-SUMMARY.md",
+    ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-VERIFICATION.md",
+    "super-gsd/scripts/codex-exec.sh",
+    "super-gsd/scripts/lib/sgsd-codex-status.ps1",
+    "super-gsd/scripts/sgsd-muda-audit.sh",
+    "super-gsd/skills/sgsd-orchestrate/SKILL.md"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "3563eada6369ba6308f69f17f3e41a234704cd93",
+      "subject": "feat(25-01): CARRY-01..03 \u2014 sentinel anchor + audit + dogfood methodology",
+      "ts": "2026-04-25T00:51:08+01:00"
+    },
+    {
+      "sha": "b43da80608b43946539a619aabd758bfd3db3ffa",
+      "subject": "feat(25-02/03): INSTR-01..03 + close phase \u2014 telemetry + edge-guard wired",
+      "ts": "2026-04-25T00:57:21+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-CONTEXT.md",
+      "sha256": "c5b90f7c3b38be3b63dd6afac7174c07a4df1e4d2dff4f6f85aaa1c8c8255e41"
+    },
+    "research": null,
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-01-carryover-cleanup-PLAN.md",
+        "sha256": "7c69a5907f2ce74601d0052bd44b5a0710ab0a4b329ffa3a8674e648c9b6b71a"
+      },
+      {
+        "path": ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-02-edge-guard-wiring-PLAN.md",
+        "sha256": "25506af2ce9294987fe653bfb91abaf30d21ea7dbc35807b6bd3f2ab1d7ad382"
+      },
+      {
+        "path": ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-03-dashboard-telemetry-PLAN.md",
+        "sha256": "a07c4d8b1fedea85b2362dc1e4a43003a4d0c6f9e337cedc9cac17fbba94b1e1"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-VERIFICATION.md",
+      "sha256": "d76850cc66d802da14b4ab32c7ea9ed63ab293cfb3f1f58fc2975dc20d778605"
+    },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "passed",
+      "ref": ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-VERIFICATION.md"
+    },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": null,
+    "planner": null,
+    "executor": null,
+    "verifier": null,
+    "reviewer": null,
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 165646,
+      "evidence_event_id": "assistant:4b653460-ff94-49c6-9c98-20287c42de2e:cfd9d1e2-9d4a-4388-9b8b-c3e64e7f80d7"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T20:08:58.372Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@adcfaabbd287"
+}

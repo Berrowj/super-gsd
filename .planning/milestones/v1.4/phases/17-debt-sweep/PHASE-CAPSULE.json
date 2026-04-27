@@ -1,0 +1,258 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.4",
+  "phase": "17",
+  "phase_name": "Debt Sweep",
+  "status": "PASS",
+  "goal": "",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.4/phases/17-debt-sweep/17-01-code-debt-PLAN.md"
+    },
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.4/phases/17-debt-sweep/17-02-process-debt-PLAN.md"
+    },
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.4/phases/17-debt-sweep/17-03-milestone-ceremony-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.4/phases/17-debt-sweep/17-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.4/phases/17-debt-sweep/17-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.4/phases/17-debt-sweep/17-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.4/phases/17-debt-sweep/17-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/ROADMAP.md",
+    ".planning/STATE.md",
+    ".planning/metrics/muda-log.jsonl",
+    ".planning/metrics/token-log.jsonl",
+    ".planning/milestones/v1.4/phases/17-debt-sweep/17-01-ATC-REVIEW.md",
+    ".planning/milestones/v1.4/phases/17-debt-sweep/17-01-SUMMARY.md",
+    ".planning/milestones/v1.4/phases/17-debt-sweep/17-01-code-debt-PLAN.md",
+    ".planning/milestones/v1.4/phases/17-debt-sweep/17-02-SUMMARY.md",
+    ".planning/milestones/v1.4/phases/17-debt-sweep/17-02-process-debt-PLAN.md",
+    ".planning/milestones/v1.4/phases/17-debt-sweep/17-03-ATC-REVIEW.md",
+    ".planning/milestones/v1.4/phases/17-debt-sweep/17-03-SUMMARY.md",
+    ".planning/milestones/v1.4/phases/17-debt-sweep/17-03-milestone-ceremony-PLAN.md",
+    ".planning/milestones/v1.4/phases/17-debt-sweep/17-ATC-REVIEW.md",
+    ".planning/milestones/v1.4/phases/17-debt-sweep/17-CONTEXT.md",
+    ".planning/milestones/v1.4/phases/17-debt-sweep/17-DISCUSSION-LOG.md",
+    ".planning/milestones/v1.4/phases/17-debt-sweep/17-PLAN-CHECK.md",
+    ".planning/milestones/v1.4/phases/17-debt-sweep/17-PLAN-INDEX.md",
+    ".planning/milestones/v1.4/phases/17-debt-sweep/17-RESEARCH.md",
+    ".planning/milestones/v1.4/phases/17-debt-sweep/17-SUMMARY.md",
+    ".planning/milestones/v1.4/phases/17-debt-sweep/17-VERIFICATION.md",
+    ".planning/milestones/v1.4/phases/17-debt-sweep/WASTE.md",
+    ".planning/milestones/v1.4/phases/17-debt-sweep/commit-reviews.jsonl"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "75f8cbd68684cdda3137a69438804502a6331da3",
+      "subject": "docs(17): capture Phase 17 Debt Sweep context",
+      "ts": "2026-04-24T10:49:56+01:00"
+    },
+    {
+      "sha": "fd2c8528725dbc2bb276f7eb76dbf69cc89a3d3e",
+      "subject": "docs(17): research phase 17 debt-sweep \u2014 7/7 CLEAN items validated against live code",
+      "ts": "2026-04-24T11:15:05+01:00"
+    },
+    {
+      "sha": "92a14f6200f922c1590e730e97999036e750cd56",
+      "subject": "plan(17): 3 wave plans + INDEX \u2014 11 tasks across debt sweep",
+      "ts": "2026-04-24T11:24:41+01:00"
+    },
+    {
+      "sha": "0bd8ba73d1baa958cfaeda665ea108aba4bfb689",
+      "subject": "plan-check(17): WARN \u2192 fixed \u2014 17-03/T1 gains v1.2-ROADMAP.md archive",
+      "ts": "2026-04-24T11:29:16+01:00"
+    },
+    {
+      "sha": "b6352f6c2ed8aaeb2c18552c2876542d3ff16f5b",
+      "subject": "docs(17-01): complete 17-01 plan \u2014 providers-registry JSDoc/dead-branch + muda-audit 5-probe display",
+      "ts": "2026-04-24T11:36:57+01:00"
+    },
+    {
+      "sha": "83525c7cbe11e5c752bd0b66723ac5346c1760f5",
+      "subject": "atc(17-01): Codex per-dispatch ATC \u2014 1 CRITICAL + 1 WARNING, auto-bypass",
+      "ts": "2026-04-24T11:43:09+01:00"
+    },
+    {
+      "sha": "2e259945615aaf275814bbd8d367c89177c2450f",
+      "subject": "atc(17-01): Codex re-review \u2014 CRITICAL CLEARED, 2 WARNINGS remain",
+      "ts": "2026-04-24T11:52:58+01:00"
+    },
+    {
+      "sha": "94b45af0faa49fbb05f77f676c5e471ee483bbbc",
+      "subject": "docs(17-02): complete 17-02-SUMMARY.md \u2014 CLEAN-03/04/05 delivered",
+      "ts": "2026-04-24T12:39:02+01:00"
+    },
+    {
+      "sha": "a3a4eb9e120a9dec3f681493106c38df4473e20b",
+      "subject": "docs(17-03): complete 17-03-SUMMARY.md \u2014 CLEAN-06 v1.2 retroactive close + CLEAN-07 codex_timeout tiers",
+      "ts": "2026-04-24T12:53:48+01:00"
+    },
+    {
+      "sha": "ef413a40c106ac15e31afc58b8cafd3d35013915",
+      "subject": "atc(17-03): Codex per-dispatch ATC \u2014 CRITICAL fixed + re-review clean",
+      "ts": "2026-04-24T13:02:21+01:00"
+    },
+    {
+      "sha": "438a1132a106dd38a4cbc7f332a6b2c1f253d339",
+      "subject": "verify(17): PASS \u2014 7/7 CLEAN items delivered, 4 Codex invocations clean",
+      "ts": "2026-04-24T13:07:33+01:00"
+    },
+    {
+      "sha": "e064a42102f86339fb81c854474493c6016930ea",
+      "subject": "atc(17): phase-level Codex review \u2014 0 CRITICAL + 3 WARNINGS, ships",
+      "ts": "2026-04-24T13:15:33+01:00"
+    },
+    {
+      "sha": "a0005474f30ecfc5c11440e55ec3befc5580d64d",
+      "subject": "phase-close(17): Debt Sweep \u2713 SHIPPED \u2014 7/7 CLEAN, 6 Codex dogfood rounds",
+      "ts": "2026-04-24T13:18:57+01:00"
+    },
+    {
+      "sha": "ba6f3f9db076d52deb4b32d4f5ab8d3557240af6",
+      "subject": "audit(17): MUDA retroactive \u2014 probes now reach Phase 17 dir",
+      "ts": "2026-04-24T13:25:31+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.4/phases/17-debt-sweep/17-CONTEXT.md",
+      "sha256": "0e5a17af7aa3352c0b544d7ea2b4d9094a3bdf22530f42562c9f0eb9b182d6af"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.4/phases/17-debt-sweep/17-RESEARCH.md",
+      "sha256": "29cdbe3314ae23c77de5bae3915019747d9485c2e358aacc7b5d9244e671aedb"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.4/phases/17-debt-sweep/17-01-code-debt-PLAN.md",
+        "sha256": "06b81665486d74e068f8fa18ca5430c24de45cb18264e78ed30e5942991c686d"
+      },
+      {
+        "path": ".planning/milestones/v1.4/phases/17-debt-sweep/17-02-process-debt-PLAN.md",
+        "sha256": "8ddeaa105cc3c44b9c29ffbd35fa1c105f720ee3f9bc9334be7e11c2b099d028"
+      },
+      {
+        "path": ".planning/milestones/v1.4/phases/17-debt-sweep/17-03-milestone-ceremony-PLAN.md",
+        "sha256": "b344fb5e30f107fff83702ffbecc9d4aec97ac70d48286a954497f4fb714ee29"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.4/phases/17-debt-sweep/17-VERIFICATION.md",
+      "sha256": "0d6d751c697f8fc22ba5d379c0e646be87f2a4070f1cb3fd185c7e7b477ce903"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.4/phases/17-debt-sweep/17-ATC-REVIEW.md",
+      "sha256": "2aa5e8c77bba196a1b9b3b0d95943e230c81b04fc6eed6d7b8cfc50b1f3006b5"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "passed",
+      "ref": ".planning/milestones/v1.4/phases/17-debt-sweep/17-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.4/phases/17-debt-sweep/17-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-04-24T10:39:37Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-04-24T10:50:08Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-04-24T11:55:36Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-04-24T11:59:15Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-04-24T12:08:51Z",
+        "exit": 5,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-04-24T12:11:19Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 54737,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:aa13c457ccc539dab"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 71369,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:aebcbcab0554db07d"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 98537,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:aa06328624f17fb5c"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 53590,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:acf28cabdfa04689c"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 260030,
+      "evidence_event_id": "assistant:e05ed485-05ef-4965-87f3-f385ab55c621:50697f7c-6f1b-4507-a7af-d21d28acf257"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T20:08:43.663Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@adcfaabbd287"
+}

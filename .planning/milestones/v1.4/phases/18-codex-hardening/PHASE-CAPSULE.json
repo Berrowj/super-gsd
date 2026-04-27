@@ -1,0 +1,205 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.4",
+  "phase": "18",
+  "phase_name": "Codex Hardening",
+  "status": "UNKNOWN",
+  "goal": "",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.4/phases/18-codex-hardening/18-01-code-hardening-PLAN.md"
+    },
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.4/phases/18-codex-hardening/18-02-dogfood-recognition-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.4/phases/18-codex-hardening/18-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.4/phases/18-codex-hardening/18-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.4/phases/18-codex-hardening/18-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.4/phases/18-codex-hardening/18-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/REQUIREMENTS.md",
+    ".planning/ROADMAP.md",
+    ".planning/STATE.md",
+    ".planning/metrics/token-log.jsonl",
+    ".planning/milestones/v1.4/phases/18-codex-hardening/18-01-ATC-REVIEW.md",
+    ".planning/milestones/v1.4/phases/18-codex-hardening/18-01-SUMMARY.md",
+    ".planning/milestones/v1.4/phases/18-codex-hardening/18-01-code-hardening-PLAN.md",
+    ".planning/milestones/v1.4/phases/18-codex-hardening/18-02-SUMMARY.md",
+    ".planning/milestones/v1.4/phases/18-codex-hardening/18-02-dogfood-recognition-PLAN.md",
+    ".planning/milestones/v1.4/phases/18-codex-hardening/18-ATC-REVIEW.md",
+    ".planning/milestones/v1.4/phases/18-codex-hardening/18-CONTEXT.md",
+    ".planning/milestones/v1.4/phases/18-codex-hardening/18-DOGFOOD-AUDIT.md",
+    ".planning/milestones/v1.4/phases/18-codex-hardening/18-PLAN-INDEX.md",
+    ".planning/milestones/v1.4/phases/18-codex-hardening/18-RESEARCH.md",
+    ".planning/milestones/v1.4/phases/18-codex-hardening/18-SUMMARY.md",
+    ".planning/milestones/v1.4/phases/18-codex-hardening/18-VERIFICATION.md",
+    ".planning/milestones/v1.4/phases/18-codex-hardening/WASTE.md",
+    ".planning/milestones/v1.4/phases/18-codex-hardening/commit-reviews.jsonl",
+    ".planning/milestones/v1.5/phases/22-security-hardening/WASTE.md",
+    ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-01-carryover-cleanup-PLAN.md",
+    ".planning/milestones/v1.5/phases/25-carryover-telemetry/25-CONTEXT.md",
+    "super-gsd/scripts/sgsd-muda-audit.sh"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "98f29f06779abf8721228dc35ccad39ef956d586",
+      "subject": "docs(18): capture Phase 18 Codex Hardening context inline",
+      "ts": "2026-04-24T13:30:21+01:00"
+    },
+    {
+      "sha": "18b733f812a058535b81aa5fb49ee4f548b89d57",
+      "subject": "plan(18): 2 plans + INDEX \u2014 Codex Hardening (CXOPS-01..04)",
+      "ts": "2026-04-24T13:38:36+01:00"
+    },
+    {
+      "sha": "1cc49c793f485c7468a14d5e1f550be739acaaf4",
+      "subject": "docs(18-01): complete plan 18-01 \u2014 CXOPS-01 self-test harness + CXOPS-02 validateContract",
+      "ts": "2026-04-24T14:09:48+01:00"
+    },
+    {
+      "sha": "fd955e7e18a674a8c3058046bf6a033d16b9869f",
+      "subject": "atc(18-01): Codex meta-dogfood \u2014 0 CRITICAL + 2 WARNINGS, validateContract works",
+      "ts": "2026-04-24T14:14:12+01:00"
+    },
+    {
+      "sha": "262d674a8e071d7b30a5b12e8885faf564ed0b61",
+      "subject": "audit(18-02/T1): CXOPS-03/04 retroactive dogfood evidence -- 5 Codex rows across Phase 17 + 18-01",
+      "ts": "2026-04-24T14:17:38+01:00"
+    },
+    {
+      "sha": "24d519aa5ff75149ae5e3d9071d85805aa5fc94f",
+      "subject": "docs(18-02): complete 18-02 dogfood-recognition plan -- CXOPS-03/04 satisfied",
+      "ts": "2026-04-24T14:20:29+01:00"
+    },
+    {
+      "sha": "a963f86d8dbbf4488f4f4d4cb71b1fe7900f7bec",
+      "subject": "verify(18): PASS \u2014 4/4 CXOPS met, 2 warnings deferred",
+      "ts": "2026-04-24T14:26:47+01:00"
+    },
+    {
+      "sha": "d791e7644f5d8c98aba12c4f6d0d63c9c0d7759b",
+      "subject": "phase-close(18): Codex Hardening \u2713 SHIPPED \u2014 4/4 CXOPS, 8 Codex invocations v1.4-total",
+      "ts": "2026-04-24T14:33:21+01:00"
+    },
+    {
+      "sha": "3563eada6369ba6308f69f17f3e41a234704cd93",
+      "subject": "feat(25-01): CARRY-01..03 \u2014 sentinel anchor + audit + dogfood methodology",
+      "ts": "2026-04-25T00:51:08+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.4/phases/18-codex-hardening/18-CONTEXT.md",
+      "sha256": "d8d460e458323abb4c60a93ab544c1ce77e304c44f083a19c3c9959ccdb46fa8"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.4/phases/18-codex-hardening/18-RESEARCH.md",
+      "sha256": "64471a1fd99dd67f1a1ef131a25f1e4968e8c42f6e6f624c32afd5c0c0d110ee"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.4/phases/18-codex-hardening/18-01-code-hardening-PLAN.md",
+        "sha256": "a8fa0bfd18d17ad732346aa202cd1e994948047b2dcbbf4d805969d3a1275535"
+      },
+      {
+        "path": ".planning/milestones/v1.4/phases/18-codex-hardening/18-02-dogfood-recognition-PLAN.md",
+        "sha256": "2ad0708fc63b276c9e594b76f9b5380652a0548ba2a7d145aef399206b40456f"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.4/phases/18-codex-hardening/18-VERIFICATION.md",
+      "sha256": "39b06ca124ba2ed2c4d2e1ba2c8c71da1241bf7bd0204b1d1238ab94da379756"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.4/phases/18-codex-hardening/18-ATC-REVIEW.md",
+      "sha256": "235ad43a4e41448be739bb6f1aeb564ea2dce5454ec56a661b8594d0db744b0b"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "passed-with-deviations",
+      "ref": ".planning/milestones/v1.4/phases/18-codex-hardening/18-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.4/phases/18-codex-hardening/18-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-04-24T13:11:08Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-04-24T13:27:49Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 50038,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:a3e6cde0b926e5366"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 58414,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:a10a053ee707b76d0"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 46481,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:a7fd79e32c77aae9c"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 51225,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:a78923a0d3310afe3"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 231180,
+      "evidence_event_id": "assistant:e05ed485-05ef-4965-87f3-f385ab55c621:06559929-5077-4d13-a143-6afdc9ead833"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T20:08:45.991Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@adcfaabbd287"
+}

@@ -1,0 +1,219 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.4",
+  "phase": "20",
+  "phase_name": "Autonomous Handoff",
+  "status": "PASS",
+  "goal": "",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-01-stop-hook-PLAN.md"
+    },
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-02-safety-rails-PLAN.md"
+    },
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-03-telemetry-MC-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/REQUIREMENTS.md",
+    ".planning/ROADMAP.md",
+    ".planning/STATE.md",
+    ".planning/metrics/token-log.jsonl",
+    ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-01-SUMMARY.md",
+    ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-01-stop-hook-PLAN.md",
+    ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-02-SUMMARY.md",
+    ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-02-safety-rails-PLAN.md",
+    ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-03-SUMMARY.md",
+    ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-03-telemetry-MC-PLAN.md",
+    ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-ATC-REVIEW.md",
+    ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-CONTEXT.md",
+    ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-PLAN-INDEX.md",
+    ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-RESEARCH.md",
+    ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-SUMMARY.md",
+    ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-VERIFICATION.md",
+    ".planning/milestones/v1.4/phases/20-autonomous-handoff/WASTE.md",
+    ".planning/milestones/v1.4/phases/20-autonomous-handoff/commit-reviews.jsonl"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "1ad19671efc573b40f67e5eeebb3a065b5b4d062",
+      "subject": "docs(20): capture Phase 20 Autonomous Handoff context inline (FINAL v1.4 phase)",
+      "ts": "2026-04-24T16:29:43+01:00"
+    },
+    {
+      "sha": "e671d3134c491b4707f5854ba53a75b4ab640199",
+      "subject": "docs(20): research phase \u2014 CLI spawn form + CLAUDE_SESSION_ID resolved",
+      "ts": "2026-04-24T16:32:21+01:00"
+    },
+    {
+      "sha": "b251df261ff7066f033ba6fd05c18979158fb251",
+      "subject": "plan(20): 3 plans + INDEX \u2014 HANDOFF-01/02/03 with research-gap mitigations",
+      "ts": "2026-04-24T16:41:40+01:00"
+    },
+    {
+      "sha": "409b6c421a04d5fb4eb1ea644d7080ecc501fb19",
+      "subject": "docs(20-01): complete Phase 20 Plan 01 summary + STATE.md advance",
+      "ts": "2026-04-24T16:48:40+01:00"
+    },
+    {
+      "sha": "5e34d0e4ebd7bc392caeea27692321bddf72b635",
+      "subject": "docs(20-02): complete safety-rails plan \u2014 SUMMARY + STATE updated",
+      "ts": "2026-04-24T16:59:40+01:00"
+    },
+    {
+      "sha": "eaf6c1f77724c1b56e37b49ec84cac0658996482",
+      "subject": "docs(20-03): complete 20-03-SUMMARY.md + STATE.md v1.4 milestone close",
+      "ts": "2026-04-24T17:10:15+01:00"
+    },
+    {
+      "sha": "f26530ba295cfd26afbc46eb713a46cdeb174a05",
+      "subject": "atc(20): phase-level Codex \u2014 2 CRITICAL + 4 WARNINGS (blocker for enable)",
+      "ts": "2026-04-24T17:21:31+01:00"
+    },
+    {
+      "sha": "3569f273477328a5ddcc2be680d18f0c537381ed",
+      "subject": "atc(20): final ATC artifact \u2014 5-round review, all CRITICALs cleared or bounded",
+      "ts": "2026-04-24T17:37:10+01:00"
+    },
+    {
+      "sha": "44a92411cbcf8b69dd201fe6c353ddf8581357c8",
+      "subject": "phase-close(20): Autonomous Handoff \u2713 SHIPPED \u2014 v1.4 MILESTONE COMPLETE",
+      "ts": "2026-04-24T17:38:41+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-CONTEXT.md",
+      "sha256": "981a8c9c4d13f06270d6815f2d8d2c6734d42b5b287e9d3946ca6b89c67e286d"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-RESEARCH.md",
+      "sha256": "d0c2bf75f9f483efb8f5be4d62146d6864d8c6a1f1e828d0e0e7268804232b42"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-01-stop-hook-PLAN.md",
+        "sha256": "7b649557022e85e6e3eedadb004d8ad6a09f11580f7c31f98b81d33cf35a9c12"
+      },
+      {
+        "path": ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-02-safety-rails-PLAN.md",
+        "sha256": "44697e16c45953d37d237bf9a5a65583ebfd6d54350330bae48c49a1d88163cb"
+      },
+      {
+        "path": ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-03-telemetry-MC-PLAN.md",
+        "sha256": "ab5a9b07ca0073531c5ffc116be87cbd5a70efb783fad3dfe365780f48c5fdcd"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-VERIFICATION.md",
+      "sha256": "0e8db14e3addb72c603ec335dbfd391e02f85230109dd9656465f0595188c0bc"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-ATC-REVIEW.md",
+      "sha256": "1477b7c08fd2acd6d3927381207ac2e963ed2d6f0b89cd65a8b252d49233577d"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "passed",
+      "ref": ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.4/phases/20-autonomous-handoff/20-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-04-24T16:18:11Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-04-24T16:27:15Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-04-24T16:30:38Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-04-24T16:33:40Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 41743,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:af7d1a8a7eaed241f"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 76236,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:adb10050c3e00caee"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 68345,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:a91973944188e1fbb"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 49642,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:a1205902f0253c192"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 862893,
+      "evidence_event_id": "assistant:e05ed485-05ef-4965-87f3-f385ab55c621:d55017b6-372a-4395-af9f-0bdd10c4fa6b"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T20:08:49.989Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@adcfaabbd287"
+}

@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.3",
+  "phase": "15",
+  "phase_name": "Codex Routed Gates",
+  "status": "PASS",
+  "goal": "",
+  "outputs": [
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/STATE.md",
+    ".planning/memory/MEMORY.md",
+    ".planning/memory/workflow/feedback/feedback_stale_mcp_process_diagnosis.md",
+    ".planning/memory/workflow/feedback/feedback_vtp_enriched_dispatch.md",
+    ".planning/metrics/codex-live.json",
+    ".planning/metrics/codex-log.jsonl",
+    ".planning/milestones/v1.3/BRIEF.md",
+    ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/14-CONTEXT.md",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-01-SUMMARY.md",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-01-provider-indirection-wire.md",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-02-SUMMARY.md",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-02-qualitative-muda-probe.md",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-03-SUMMARY.md",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-03-quota-offload-metric.md",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-04-SUMMARY.md",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-04-cross-vendor-adversarial.md",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-05-SUMMARY.md",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-05-kill-condition-milestone-wire.md",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-ATC-REVIEW.md",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-CHECK.md",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-CONTEXT.md",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-PLAN-INDEX.md",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-RESEARCH.md",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-VALIDATION.md",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-VERIFICATION.md",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-VTP-EVIDENCE.md",
+    ".planning/milestones/v1.3/phases/15-codex-routed-gates/verify.mjs",
+    ".planning/phases/15/15-01-per-dispatch-ATC.md",
+    ".planning/phases/15/15-02-per-dispatch-ATC.md",
+    ".planning/phases/15/WASTE.md",
+    ".planning/phases/15/commit-reviews.jsonl"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "8b5c6b6bd1c17679fc5b18b782436f07322dbdf3",
+      "subject": "docs(14): activate staged Phase 14 context + Phase 16 deferral addendum",
+      "ts": "2026-04-23T23:22:04+01:00"
+    },
+    {
+      "sha": "155459dd89a91e32ba01847e039bc2a22abebe4f",
+      "subject": "docs(15): VTP bypass stub + stale-MCP diagnosis memory entry",
+      "ts": "2026-04-24T01:33:21+01:00"
+    },
+    {
+      "sha": "87f0db4746b4261b3f7b54008c8af9945031ae44",
+      "subject": "docs(15): replace VTP-EVIDENCE bypass stub with real evidence bundle",
+      "ts": "2026-04-24T01:59:40+01:00"
+    },
+    {
+      "sha": "3ccf57958b8a0a5a6155dd7737450b4fca0f3852",
+      "subject": "docs(15): phase research -- provider-indirection wiring, qualitative MUDA probe, W-1..W-5 entry conditions, 5 arch decisions for planner",
+      "ts": "2026-04-24T02:08:37+01:00"
+    },
+    {
+      "sha": "38a0df5e8b85505ede91959c591887d0718bc1c2",
+      "subject": "docs(15): Phase 15 plan suite \u2014 5 plans, 4 waves, CODEX-07..12 coverage",
+      "ts": "2026-04-24T02:19:37+01:00"
+    },
+    {
+      "sha": "c2d2426f21dffd259cdfad04741432474c081c51",
+      "subject": "docs(15-02): complete qualitative-muda-probe plan \u2014 CODEX-08 + CODEX-09 shipped, all A1-A9 pass",
+      "ts": "2026-04-24T02:37:24+01:00"
+    },
+    {
+      "sha": "3e098c79be2fc27f23c78d75cb5fded033c0def9",
+      "subject": "docs(15): plan-check PASS-WITH-WARNINGS artifact (plan-checker orphan recovery)",
+      "ts": "2026-04-24T02:41:36+01:00"
+    },
+    {
+      "sha": "9708cd9f1eb6624f23f31459e31404399173b913",
+      "subject": "docs(15-04): complete cross-vendor adversarial challenger plan \u2014 CODEX-11 shipped",
+      "ts": "2026-04-24T03:11:51+01:00"
+    },
+    {
+      "sha": "35180c3a239199377e75476bece3194103d87e86",
+      "subject": "feat(15-05/T3): Phase 15 verify.mjs \u2014 9 invariants CODEX-07..CODEX-12",
+      "ts": "2026-04-24T03:18:13+01:00"
+    },
+    {
+      "sha": "6022125ccc63fbf68fbe60d4e2178a6e1c56291b",
+      "subject": "docs(15-05): complete kill-condition milestone wire \u2014 CODEX-12 shipped, verify.mjs 9/9 PASS Phase 15",
+      "ts": "2026-04-24T03:20:01+01:00"
+    },
+    {
+      "sha": "d7f8ff6c05ea47039814a461332f93985330e6e1",
+      "subject": "docs(15): phase close \u2014 CODEX-07..12 wired, verify.mjs 9/9, FIRST LIVE CODEX INVOCATION",
+      "ts": "2026-04-24T03:43:06+01:00"
+    },
+    {
+      "sha": "d12d74154f86a47f850eb3988dfdefc290140b18",
+      "subject": "docs(17-02/T1): CLEAN-03 backfill 15-01-SUMMARY.md and 15-03-SUMMARY.md",
+      "ts": "2026-04-24T12:36:15+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-CONTEXT.md",
+      "sha256": "9e3e13a4cb1ff49a32c0a61f61faa252812f38f364034310cd9ade0405f62700"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-RESEARCH.md",
+      "sha256": "0a20a051387c2e2d5756d647258856b5d97211998903dd737b19522d388be4af"
+    },
+    "plan": [],
+    "verification": {
+      "path": ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-VERIFICATION.md",
+      "sha256": "d7862e9146159685dd29b30736eb47c7979305c8a831e5f511f1dbbe3caec1f6"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-ATC-REVIEW.md",
+      "sha256": "770d12d4f401d31feef9834cfff4945e6379fd747bbab8616711719c519bc344"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "passed",
+      "ref": ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.3/phases/15-codex-routed-gates/15-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-04-24T02:39:05Z",
+        "exit": 5,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": null,
+    "planner": null,
+    "executor": {
+      "role": "executor",
+      "total_tokens": 43625,
+      "evidence_event_id": "agent:4150e89d-3dec-4475-9366-23832bf65e75:a3c59e6bcb8598e76"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 98253,
+      "evidence_event_id": "agent:4150e89d-3dec-4475-9366-23832bf65e75:a15598d91b02e76d4"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 511036,
+      "evidence_event_id": "assistant:4150e89d-3dec-4475-9366-23832bf65e75:96b6e066-a62d-4cab-9b51-7ba82ad50b6c"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T20:08:38.363Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@adcfaabbd287"
+}

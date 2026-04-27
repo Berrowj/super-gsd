@@ -1,0 +1,218 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.4",
+  "phase": "19",
+  "phase_name": "Mc Visibility",
+  "status": "UNKNOWN",
+  "goal": "",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.4/phases/19-mc-visibility/19-01-core-tiles-PLAN.md"
+    },
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.4/phases/19-mc-visibility/19-02-event-capture-richer-output-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.4/phases/19-mc-visibility/19-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.4/phases/19-mc-visibility/19-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.4/phases/19-mc-visibility/19-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.4/phases/19-mc-visibility/19-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".gitignore",
+    ".planning/REQUIREMENTS.md",
+    ".planning/ROADMAP.md",
+    ".planning/STATE.md",
+    ".planning/memory/MEMORY.md",
+    ".planning/metrics/activity-log.jsonl",
+    ".planning/metrics/muda-log.jsonl",
+    ".planning/metrics/narrative.md",
+    ".planning/metrics/plan-errors.jsonl",
+    ".planning/metrics/token-log.jsonl",
+    ".planning/milestones/v1.4/phases/19-mc-visibility/19-01-SUMMARY.md",
+    ".planning/milestones/v1.4/phases/19-mc-visibility/19-01-core-tiles-PLAN.md",
+    ".planning/milestones/v1.4/phases/19-mc-visibility/19-01-core-tiles-PLAN.md.fix-attempt-1.md",
+    ".planning/milestones/v1.4/phases/19-mc-visibility/19-02-SUMMARY.md",
+    ".planning/milestones/v1.4/phases/19-mc-visibility/19-02-event-capture-richer-output-PLAN.md",
+    ".planning/milestones/v1.4/phases/19-mc-visibility/19-02-event-capture-richer-output-PLAN.md.fix-attempt-1.md",
+    ".planning/milestones/v1.4/phases/19-mc-visibility/19-ATC-REVIEW.md",
+    ".planning/milestones/v1.4/phases/19-mc-visibility/19-CONTEXT.md",
+    ".planning/milestones/v1.4/phases/19-mc-visibility/19-PLAN-INDEX.md",
+    ".planning/milestones/v1.4/phases/19-mc-visibility/19-RESEARCH.md",
+    ".planning/milestones/v1.4/phases/19-mc-visibility/19-SUMMARY.md",
+    ".planning/milestones/v1.4/phases/19-mc-visibility/19-VERIFICATION.md",
+    ".planning/milestones/v1.4/phases/19-mc-visibility/WASTE.md",
+    ".planning/milestones/v1.4/phases/19-mc-visibility/commit-reviews.jsonl",
+    ".planning/resource-registry/agents.jsonl"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "6559c6a12104e9d7ddb4364ce586adc454f6cfa9",
+      "subject": "docs(19): capture Phase 19 MC Visibility context inline",
+      "ts": "2026-04-24T14:41:57+01:00"
+    },
+    {
+      "sha": "c3a76eaee0bc65c469b4264acaf851ac76586592",
+      "subject": "fix(19): schema repair attempt 1/3 for both 19-01 and 19-02 \u2014 siblings VALID",
+      "ts": "2026-04-24T15:01:48+01:00"
+    },
+    {
+      "sha": "e3e7e0e4c80b37acd40acfe5f2cfd33a8f2f424e",
+      "subject": "fix(19): promote schema repair attempt 1/3 \u2014 both plans now VALID",
+      "ts": "2026-04-24T15:01:51+01:00"
+    },
+    {
+      "sha": "4cf1a73d34dc2a828cea947fa9f93b0380266703",
+      "subject": "docs(19-01): complete plan summary + advance state to 19-02",
+      "ts": "2026-04-24T15:09:50+01:00"
+    },
+    {
+      "sha": "2ef40b64f981e7307fdb1b24b4b5442a69346cf9",
+      "subject": "atc(19-01): Codex per-dispatch \u2014 0 CRITICAL + 2 WARNINGS (review tier timeout + analysis retry)",
+      "ts": "2026-04-24T15:15:48+01:00"
+    },
+    {
+      "sha": "6a4b1f7983ca98f4587354e21b9e1bb36d2e56d0",
+      "subject": "docs(19-02): complete plan summary + state advance",
+      "ts": "2026-04-24T15:28:20+01:00"
+    },
+    {
+      "sha": "04a8ea85ebf45ee948e7e42d7cc6af4e3cce22b3",
+      "subject": "atc(19-02): Codex per-dispatch \u2014 0 CRITICAL + 3 WARNINGS",
+      "ts": "2026-04-24T15:32:16+01:00"
+    },
+    {
+      "sha": "057dc65759c137830be06a64e73871c64b41d0db",
+      "subject": "phase-close(19): MC Visibility \u2713 SHIPPED \u2014 5/5 MC + 6 richer-output deferrals",
+      "ts": "2026-04-24T15:44:25+01:00"
+    },
+    {
+      "sha": "77404cfadf1c9d2645ff46f49a0e9baccdeb6964",
+      "subject": "chore(21/ambient): session-flux metrics + memory + v1.4 late artifact",
+      "ts": "2026-04-24T19:37:52+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.4/phases/19-mc-visibility/19-CONTEXT.md",
+      "sha256": "10f03fe8709988dec847a69db927398a7a0a83f94b454cfbbe598d22978c233d"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.4/phases/19-mc-visibility/19-RESEARCH.md",
+      "sha256": "cc3893bd68e1c834782da80030ad71f0d28645b1f2ca3e263ec1cf92dd85e58c"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.4/phases/19-mc-visibility/19-01-core-tiles-PLAN.md",
+        "sha256": "7704d04aadee63be87f54036f5b6b9638d0fea0afd7962adff8ceb120f9df0e5"
+      },
+      {
+        "path": ".planning/milestones/v1.4/phases/19-mc-visibility/19-02-event-capture-richer-output-PLAN.md",
+        "sha256": "d141dc92b6d28ecccabe3841c0a4c8d872384d3bde81b0e78981c2fc0fd4cc4a"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.4/phases/19-mc-visibility/19-VERIFICATION.md",
+      "sha256": "9010a71192420cc13208eb1bef229f606574eca42f9c056d279178e3044434bd"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.4/phases/19-mc-visibility/19-ATC-REVIEW.md",
+      "sha256": "0f4b4832c9cdb97c2eaed14f965a9255440438c9a7643c43e00810942d3ca328"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "passed-with-deviations",
+      "ref": ".planning/milestones/v1.4/phases/19-mc-visibility/19-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.4/phases/19-mc-visibility/19-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-04-24T14:11:01Z",
+        "exit": 5,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-04-24T14:13:22Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-04-24T14:29:41Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-04-24T14:38:13Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 46067,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:aae15a9b385bdbe20"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 63867,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:ab687ef5a99429185"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 95334,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:aad06426661e092f7"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 47488,
+      "evidence_event_id": "agent:e05ed485-05ef-4965-87f3-f385ab55c621:a85fda7026f7a6f8a"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 550639,
+      "evidence_event_id": "assistant:e05ed485-05ef-4965-87f3-f385ab55c621:b1d1a85b-1ebc-461a-814b-ae7b560e1bf9"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T20:08:47.955Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@adcfaabbd287"
+}

@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.3",
+  "phase": "16",
+  "phase_name": "Vtp Enrichment",
+  "status": "PASS",
+  "goal": "",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-01-wave-a-primitive-PLAN.md"
+    },
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-02-wave-b-agent-patches-PLAN.md"
+    },
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-03-wave-c-advise-PLAN.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/ROADMAP.md",
+    ".planning/backlog/sgsd-cockpit-session-token-tracking.md",
+    ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-01-SUMMARY.md",
+    ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-01-wave-a-primitive-PLAN.md",
+    ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-02-SUMMARY.md",
+    ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-02-wave-b-agent-patches-PLAN.md",
+    ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-03-SUMMARY.md",
+    ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-03-wave-c-advise-PLAN.md",
+    ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-CONTEXT.md",
+    ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-DISCUSSION-LOG.md",
+    ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-PATTERNS.md",
+    ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-RESEARCH.md",
+    ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-VALIDATION.md",
+    ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-VERIFICATION.md"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "e74a76375c7a9ed529bcf147af79271a4e0ac4bf",
+      "subject": "feat(16): seed Phase 16 VTP Enrichment CONTEXT.md",
+      "ts": "2026-04-23T20:50:34+01:00"
+    },
+    {
+      "sha": "38cb442cbc6405aa564f568d40c4bd663cd861e1",
+      "subject": "docs(16): capture phase context via /sgsd-discuss-phase 16",
+      "ts": "2026-04-23T21:18:38+01:00"
+    },
+    {
+      "sha": "bbaaec92e1b572f78643c3e3a81ade8e85fc43f7",
+      "subject": "docs(16): research + CONTEXT errata from gsd-phase-researcher",
+      "ts": "2026-04-23T21:37:12+01:00"
+    },
+    {
+      "sha": "2f954abb36ccbbaef157e56e5833775e4629c6cd",
+      "subject": "docs(16): pattern map for Phase 16 patch surfaces",
+      "ts": "2026-04-23T21:42:05+01:00"
+    },
+    {
+      "sha": "37236800d2c99a62ccd8f13b90716832519b4036",
+      "subject": "docs(16): create Phase 16 VTP Enrichment plans \u2014 3 plans, 3 waves",
+      "ts": "2026-04-23T21:55:47+01:00"
+    },
+    {
+      "sha": "019170d6ca958cb7719cb5b1bc345e7f5bff802e",
+      "subject": "docs(16): resolve plan-checker findings (2 blockers, 2 warnings)",
+      "ts": "2026-04-23T22:03:33+01:00"
+    },
+    {
+      "sha": "93fdbd04da9013280e83777876bd6550565fc131",
+      "subject": "docs(16): 16-01-T3 adds Dim 4 smoke section + backlog BACKLOG-001 cockpit token aggregate",
+      "ts": "2026-04-23T22:08:38+01:00"
+    },
+    {
+      "sha": "b01f6a57e4f7b5c4b61bfa92b7e8773134e8adfa",
+      "subject": "docs(16-01): wave A complete \u2014 composer + triage Step 0 + smoke runbook all green",
+      "ts": "2026-04-23T22:22:05+01:00"
+    },
+    {
+      "sha": "ba761dd13a0a0ac9bf9cd63ea9a194b5c70a9c98",
+      "subject": "docs(16-02): wave B complete \u2014 4 core GSD agents patched with VTP tool access + composer-routed WHEN-paragraph",
+      "ts": "2026-04-23T23:11:20+01:00"
+    },
+    {
+      "sha": "701069d4194cc880fb4dd0c92e5e837d274a8867",
+      "subject": "docs(16-03): wave C complete \u2014 /sgsd-vtp-advise + sepl major-advise (8/8 test green)",
+      "ts": "2026-04-23T23:11:30+01:00"
+    },
+    {
+      "sha": "2495005b1fc2692903a467f4e08d95ea90cf3b8b",
+      "subject": "docs(16): retroactive VERIFICATION.md \u2014 PASS 6/6 (closes v1.3 audit gap)",
+      "ts": "2026-04-24T09:18:40+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-CONTEXT.md",
+      "sha256": "2258823cd3a2efaefb8e6428e0ebce60a616884ee588ee273c074bab06ae42d1"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-RESEARCH.md",
+      "sha256": "730d638c0cca0fc141873df38d440c7d665b1b6bd3483187c5e58a086eef1b95"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-01-wave-a-primitive-PLAN.md",
+        "sha256": "8855fb479213189310fcba5a32da7d823177dfeb55ad94f7aa415a725db590f6"
+      },
+      {
+        "path": ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-02-wave-b-agent-patches-PLAN.md",
+        "sha256": "dc96393359a5ec44836df9711436d37d1d8a487eca06f19b57a9f1f99542195e"
+      },
+      {
+        "path": ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-03-wave-c-advise-PLAN.md",
+        "sha256": "69dd21c6f3164d901c29f7517862dd1eb18fa56fbfce40f295dc7e3392817237"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-VERIFICATION.md",
+      "sha256": "4babab3846b521810ba7e565fac00dafa249aa5912b45f6149df83b5e1287a3e"
+    },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "passed",
+      "ref": ".planning/milestones/v1.3/phases/16-vtp-enrichment/16-VERIFICATION.md"
+    },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 140273,
+      "evidence_event_id": "agent:3c216c4a-6bf4-442c-9d85-ea9a3f851aae:a702febc25875461e"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 174097,
+      "evidence_event_id": "agent:3c216c4a-6bf4-442c-9d85-ea9a3f851aae:affcdae1106db474f"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 117325,
+      "evidence_event_id": "agent:3c216c4a-6bf4-442c-9d85-ea9a3f851aae:a614ef3deb8500b09"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 63085,
+      "evidence_event_id": "agent:4150e89d-3dec-4475-9366-23832bf65e75:a9af2eef2d99a9740"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 708991,
+      "evidence_event_id": "assistant:e05ed485-05ef-4965-87f3-f385ab55c621:c6b70bdc-be8e-430b-a51e-50081c621ccf"
+    },
+    "classifier": null,
+    "other": {
+      "role": "other",
+      "total_tokens": 99853,
+      "evidence_event_id": "agent:3c216c4a-6bf4-442c-9d85-ea9a3f851aae:ad142cd24530eb4d5"
+    }
+  },
+  "created_at": "2026-04-27T20:08:40.866Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@adcfaabbd287"
+}
