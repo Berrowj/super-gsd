@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.8",
+  "phase": "37",
+  "phase_name": "Muda Deletion Candidates",
+  "status": "PASS",
+  "goal": "Extend WASTE.md with `## Deletion Candidates` section populated by 3",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/37-01-muda-deletion-candidates-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/37-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/37-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/37-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/37-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/ORCHESTRATOR-CHECKPOINT.md",
+    ".planning/STATE.md",
+    ".planning/metrics/review-ledger.jsonl",
+    ".planning/milestones/v1.8/SUMMARY.md",
+    ".planning/milestones/v1.8/gate-keep-kill.md",
+    ".planning/milestones/v1.8/phase-folder-audit.md",
+    ".planning/milestones/v1.8/phases/36-gate-value-telemetry/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/37-01-muda-deletion-candidates-PLAN.md",
+    ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/37-ATC-REVIEW.md",
+    ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/37-CONTEXT.md",
+    ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/37-RESEARCH.md",
+    ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/37-VERIFICATION.md",
+    ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/37-codex-review.md",
+    ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/codex-review-prompt.txt",
+    ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/39-gate-keep-kill/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/40-phase-folder-audit/commit-reviews.jsonl",
+    "super-gsd/scripts/lib/muda-deletion-candidates.cjs",
+    "super-gsd/scripts/lib/muda-deletion-candidates.test.cjs",
+    "super-gsd/scripts/sgsd-muda-audit.sh"
+  ],
+  "decisions": [
+    {
+      "id": "37-locked",
+      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.8\\phases\\37-muda-deletion-candidates\\37-CONTEXT.md:locked-decision",
+      "text": "\n3 heuristics fixed. No graph-walk or semantic deep-dive in v1.8;\nmechanical thresholds only. Locked in mass-discuss 2026-04-26.\n"
+    }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "fb66fef36266aecb0479fa8b03c4733232fb4943",
+      "subject": "research(37): MUDA deletion candidates \u2014 3 heuristics + post-hook wire-in",
+      "ts": "2026-04-27T13:44:20+01:00"
+    },
+    {
+      "sha": "ff66fd662c15b31fc3c3c49c406de30d81eb3d92",
+      "subject": "context(37): MUDA deletion candidates \u2014 37=A locked, 3-deliverable PLAN scope",
+      "ts": "2026-04-27T13:45:08+01:00"
+    },
+    {
+      "sha": "bc7e26d79fe6067dc7f3536e4ff869acb3ff2857",
+      "subject": "plan(37-01): MUDA deletion candidates lib + post-hook + 3-fixture test",
+      "ts": "2026-04-27T13:51:49+01:00"
+    },
+    {
+      "sha": "9f9759dec6c79e71c00228d66b7ff97ffa8c102e",
+      "subject": "fix(37): clear dual-provider phase ATC findings \u2014 1 CRIT + 4 WARN in-loop",
+      "ts": "2026-04-27T14:12:31+01:00"
+    },
+    {
+      "sha": "a3d9dd6454e26191a04695574cfc56b1c94c2e99",
+      "subject": "milestone-close(v1.8): SHIPPED \u2014 Gate Fitness + MUDA Pruning",
+      "ts": "2026-04-27T16:37:34+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/37-CONTEXT.md",
+      "sha256": "a74974a81bf754b62da81708174e8c796057d8da30c32fc04f7558f3db6c15ce"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/37-RESEARCH.md",
+      "sha256": "fec7f27e68d07737b8c397a77f2d3313380362d5f760a8d8408618c576fe710c"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/37-01-muda-deletion-candidates-PLAN.md",
+        "sha256": "9865ead1b44a47d612ce9c5f357f38eb5bd1d5ac1527a09f0d7b2934119e3b11"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/37-VERIFICATION.md",
+      "sha256": "a064072a5ae6717adbb20db495124406006f0e324ecf4fec3cda42bc1c8eb689"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/37-ATC-REVIEW.md",
+      "sha256": "d6e30eaad8fead05d1ed1da7d666a24630db1189e5fd07280bd190e18659f60f"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS",
+      "ref": ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/37-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/37-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-04-27T13:02:29Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": {
+      "run_id": "2026-04-27T15:34:49.265Z-b57c",
+      "verdict": "warn"
+    }
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 223305,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:abfc849b238a5f98e"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 114893,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a9d979506e4a8c67e"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 114147,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a95e03951d370102c"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 59746,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a494c364db854950f"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 67496,
+      "evidence_event_id": "assistant:5663492d-3e43-4979-a3f5-71361b6722fa:4f37beb1-955f-473c-bcc0-eb7b64a3c3a8"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T19:40:48.720Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@26edd599ea94"
+}

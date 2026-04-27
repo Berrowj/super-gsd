@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.7",
+  "phase": "31",
+  "phase_name": "Canonical Envelope",
+  "status": "PASS",
+  "goal": "Land the JSON schema + registry for the FIFTH contract level (command-output),",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.7/phases/31-canonical-envelope/31-01-canonical-envelope-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.7/phases/31-canonical-envelope/31-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.7/phases/31-canonical-envelope/31-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.7/phases/31-canonical-envelope/31-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.7/phases/31-canonical-envelope/31-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/ORCHESTRATOR-CHECKPOINT.md",
+    ".planning/STATE.md",
+    ".planning/metrics/review-ledger.jsonl",
+    ".planning/milestones/v1.7/SUMMARY.md",
+    ".planning/milestones/v1.7/phases/31-canonical-envelope/31-01-canonical-envelope-PLAN.md",
+    ".planning/milestones/v1.7/phases/31-canonical-envelope/31-ATC-REVIEW.md",
+    ".planning/milestones/v1.7/phases/31-canonical-envelope/31-CONTEXT.md",
+    ".planning/milestones/v1.7/phases/31-canonical-envelope/31-RESEARCH.md",
+    ".planning/milestones/v1.7/phases/31-canonical-envelope/31-VERIFICATION.md",
+    ".planning/milestones/v1.7/phases/31-canonical-envelope/31-claude-review.md",
+    ".planning/milestones/v1.7/phases/31-canonical-envelope/31-codex-review.md",
+    ".planning/milestones/v1.7/phases/31-canonical-envelope/codex-review-prompt.txt",
+    ".planning/milestones/v1.7/phases/31-canonical-envelope/commit-reviews.jsonl",
+    ".planning/milestones/v1.7/phases/32-route-decision-ledger/commit-reviews.jsonl",
+    ".planning/milestones/v1.7/phases/33-repair-instruction/commit-reviews.jsonl",
+    ".planning/milestones/v1.7/phases/34-canonical-review-ledger/commit-reviews.jsonl",
+    ".planning/milestones/v1.7/phases/35-generated-system-map/commit-reviews.jsonl",
+    "super-gsd/registry/command-envelope-v1.yaml",
+    "super-gsd/templates/command-envelope-v1.json"
+  ],
+  "decisions": [
+    {
+      "id": "31-locked",
+      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.7\\phases\\31-canonical-envelope\\31-CONTEXT.md:locked-decision",
+      "text": "\nNew `envelope-v1` schema, separate file from `code-reviewer-v1`,\n`review-providers-v1`, `handover-contract-v2`, and `plan-schema-v2`.\nDifferent abstraction level (command-output, not agent-report or plan-shape).\n"
+    }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [
+      "Phase 32",
+      "Phase 33",
+      "Phase 34",
+      "Phase 35"
+    ],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "51e9923781466c31cfdd86ed1d9da529af32cc87",
+      "subject": "feat(31): research \u2014 envelope-v1 reconciles with 4 existing contracts at command-output level",
+      "ts": "2026-04-27T07:50:43+01:00"
+    },
+    {
+      "sha": "8fa185d8a079452f055f8bd485c8a70410cbbdf5",
+      "subject": "plan(31): canonical command envelope \u2014 RESEARCH + CONTEXT + PLAN",
+      "ts": "2026-04-27T07:59:29+01:00"
+    },
+    {
+      "sha": "4155fd5b2cb3e119cb69a7009543bf3497ab81c5",
+      "subject": "fix(31): clear 3 phase-ATC Claude WARNs in-loop",
+      "ts": "2026-04-27T08:17:08+01:00"
+    },
+    {
+      "sha": "558260f19f384307c34432fbb563fe80db76373a",
+      "subject": "fix(31): clear Codex CRIT + 2 WARNs + write phase ATC review",
+      "ts": "2026-04-27T08:43:55+01:00"
+    },
+    {
+      "sha": "108eec11f0e9db7c307ea70de29c60e1391e5e1d",
+      "subject": "milestone-close(v1.7): SHIPPED \u2014 Stable Command Contracts + Route Intelligence",
+      "ts": "2026-04-27T12:22:30+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.7/phases/31-canonical-envelope/31-CONTEXT.md",
+      "sha256": "79161d432dacfe20c0b26e76128b5fd590b7dadebe074a7d10d9486b49996359"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.7/phases/31-canonical-envelope/31-RESEARCH.md",
+      "sha256": "8132436e56e27dc992f6ee862db28d8411b7838960c4936c4dc6dca6ed71dcce"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.7/phases/31-canonical-envelope/31-01-canonical-envelope-PLAN.md",
+        "sha256": "af54fc9ce086a016bea5e4a4bc5c2f9ec2d12e19c558074604fae1bb5474fb44"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.7/phases/31-canonical-envelope/31-VERIFICATION.md",
+      "sha256": "ea6366fa07762ac549e078d0a39301545a77c334a0b2c809f711dcea7fc04f47"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.7/phases/31-canonical-envelope/31-ATC-REVIEW.md",
+      "sha256": "710703f4ee58a44339c1f950a8527b60f9841c32d43987edf9b24edfc802147b"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS",
+      "ref": ".planning/milestones/v1.7/phases/31-canonical-envelope/31-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.7/phases/31-canonical-envelope/31-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-04-27T07:32:44Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": {
+      "run_id": "2026-04-27T11:19:55.689Z-a8a4",
+      "verdict": "warn"
+    }
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 88377,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:ad6d9ad9829c31b66"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 73196,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:af76064d1129f4d5d"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 46821,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a89a29a5019a457f4"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 37490,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a2954fc109cdb2c61"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 67511,
+      "evidence_event_id": "assistant:67efae52-fc22-4679-8299-6442649061d1:91ea3480-ef9f-4794-b659-d4f47cfbe5f9"
+    },
+    "classifier": null,
+    "other": {
+      "role": "other",
+      "total_tokens": 47169,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a5b5a7ad081eb4d99"
+    }
+  },
+  "created_at": "2026-04-27T19:40:38.690Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@26edd599ea94"
+}

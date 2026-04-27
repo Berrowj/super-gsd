@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.8",
+  "phase": "39",
+  "phase_name": "Gate Keep Kill",
+  "status": "PASS",
+  "goal": "Mechanical R1-R6 first-match-wins rubric reading review-ledger +",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.8/phases/39-gate-keep-kill/39-01-gate-keep-kill-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.8/phases/39-gate-keep-kill/39-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.8/phases/39-gate-keep-kill/39-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.8/phases/39-gate-keep-kill/39-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.8/phases/39-gate-keep-kill/39-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/ORCHESTRATOR-CHECKPOINT.md",
+    ".planning/STATE.md",
+    ".planning/metrics/review-ledger.jsonl",
+    ".planning/milestones/v1.8/SUMMARY.md",
+    ".planning/milestones/v1.8/gate-keep-kill.md",
+    ".planning/milestones/v1.8/phase-folder-audit.md",
+    ".planning/milestones/v1.8/phases/36-gate-value-telemetry/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/39-gate-keep-kill/39-01-gate-keep-kill-PLAN.md",
+    ".planning/milestones/v1.8/phases/39-gate-keep-kill/39-ATC-REVIEW.md",
+    ".planning/milestones/v1.8/phases/39-gate-keep-kill/39-CONTEXT.md",
+    ".planning/milestones/v1.8/phases/39-gate-keep-kill/39-RESEARCH.md",
+    ".planning/milestones/v1.8/phases/39-gate-keep-kill/39-VERIFICATION.md",
+    ".planning/milestones/v1.8/phases/39-gate-keep-kill/39-codex-review.md",
+    ".planning/milestones/v1.8/phases/39-gate-keep-kill/codex-review-prompt.txt",
+    ".planning/milestones/v1.8/phases/39-gate-keep-kill/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/40-phase-folder-audit/commit-reviews.jsonl",
+    "super-gsd/skills/sgsd-complete-milestone/SKILL.md",
+    "super-gsd/tools/gate-keep-kill/rubric.cjs",
+    "super-gsd/tools/gate-keep-kill/rubric.test.cjs"
+  ],
+  "decisions": [
+    {
+      "id": "39-locked",
+      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.8\\phases\\39-gate-keep-kill\\39-CONTEXT.md:locked-decision",
+      "text": "\nMechanical rubric only; manual override at milestone close (operator\ninspects rubric output before applying any kill recommendations).\n"
+    }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "3fa4cab50f557cf6abe74a0ac2f905da39de16ab",
+      "subject": "research(39): gate keep/kill rubric \u2014 R1-R6 mechanical + defer-on-empty",
+      "ts": "2026-04-27T15:27:14+01:00"
+    },
+    {
+      "sha": "a123ed449cbcbca6b653ecbbfd711cf873d23506",
+      "subject": "context(39): gate keep/kill rubric \u2014 39=B locked, 3-deliverable scope",
+      "ts": "2026-04-27T15:28:00+01:00"
+    },
+    {
+      "sha": "ba0e8ee5430ec942cd30f03d469bf493847e83bb",
+      "subject": "plan(39-01): gate keep/kill rubric \u2014 3 deliverables, R1-R6 mechanical",
+      "ts": "2026-04-27T15:35:09+01:00"
+    },
+    {
+      "sha": "3d9c37e4913ef5c1c84c05816ae0d8170daed89f",
+      "subject": "fix(39): clear dual-provider phase ATC findings \u2014 1 CRIT + 5 WARN in-loop",
+      "ts": "2026-04-27T15:52:49+01:00"
+    },
+    {
+      "sha": "a3d9dd6454e26191a04695574cfc56b1c94c2e99",
+      "subject": "milestone-close(v1.8): SHIPPED \u2014 Gate Fitness + MUDA Pruning",
+      "ts": "2026-04-27T16:37:34+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.8/phases/39-gate-keep-kill/39-CONTEXT.md",
+      "sha256": "17fa45aa635e0a65f249021609d8778238f99c1aa27b0bf09dc34098653664ca"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.8/phases/39-gate-keep-kill/39-RESEARCH.md",
+      "sha256": "ebff160ce99e52a5a53541c571bc276194853634c17298186d97c6cbb0ec90cc"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.8/phases/39-gate-keep-kill/39-01-gate-keep-kill-PLAN.md",
+        "sha256": "d04fa246e3abeb564f731650a2165d23a8ae0d3c87d06529fb17be0c5b24e3cd"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.8/phases/39-gate-keep-kill/39-VERIFICATION.md",
+      "sha256": "94063d7898d84b434eb8be699279637d3d9f13425842ae65fd344424698499d1"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.8/phases/39-gate-keep-kill/39-ATC-REVIEW.md",
+      "sha256": "34883c86e763162875f72fa4513e1eadcccac5156e0f5b2322591553ad6c8565"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS",
+      "ref": ".planning/milestones/v1.8/phases/39-gate-keep-kill/39-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.8/phases/39-gate-keep-kill/39-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-04-27T14:45:00Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": {
+      "run_id": "2026-04-27T15:34:49.265Z-c0f7",
+      "verdict": "warn"
+    }
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 214301,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:aa04692f49d22179f"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 126327,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a2cf24ac85a36a6bc"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 129756,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:ac50110623f9df815"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 37776,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:ab9095afd28b11c05"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 831734,
+      "evidence_event_id": "assistant:54c3e039-f409-4116-923d-6c0019bdc9ab:6dda6069-3551-44ad-a237-a534a0ea3a89"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T19:40:51.120Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@26edd599ea94"
+}

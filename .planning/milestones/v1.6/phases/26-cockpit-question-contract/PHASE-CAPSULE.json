@@ -1,0 +1,198 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.6",
+  "phase": "26",
+  "phase_name": "Cockpit Question Contract",
+  "status": "PASS-WITH-DEFERRED-N",
+  "goal": "Define a contract that names the eight operator questions the cockpit must",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-01-operator-question-contract-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/CRIT-BACKLOG.md",
+    ".planning/STATE.md",
+    ".planning/metrics/audit-log.jsonl",
+    ".planning/metrics/codex-log.jsonl",
+    ".planning/metrics/crit-backlog.jsonl",
+    ".planning/milestones/v1.6/SUMMARY.md",
+    ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-01-operator-question-contract-PLAN.md",
+    ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-ATC-REVIEW.md",
+    ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-CONTEXT.md",
+    ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-RESEARCH.md",
+    ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/26-cockpit-question-contract/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/27-cockpit-data-tree/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/28-mission-control-layout/28-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/28-mission-control-layout/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/29-agent-codex-lanes/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/commit-reviews.jsonl",
+    "super-gsd/scripts/codex-exec.sh",
+    "super-gsd/scripts/lib/crit-backlog.cjs",
+    "super-gsd/tools/backlog-schema/check.cjs",
+    "super-gsd/tools/codex-rerun/rerun-missing-reviews.cjs",
+    "super-gsd/tools/provider-health/check.cjs"
+  ],
+  "decisions": [
+    {
+      "id": "MD-26.1",
+      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\discussions\\2026-04-26-mass-discuss.md:row-26.1",
+      "text": "| 26.1 Status vocabulary | 8 closed states: `active, waiting, blocked, reviewing, timed-out, stale, complete, unavailable` |"
+    }
+  ],
+  "debt": {
+    "critical_added": 1,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 1,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [
+      "Phase 27",
+      "Phase 28",
+      "Phase 29",
+      "Phase 30"
+    ],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [
+    {
+      "stream": "crit-backlog.jsonl",
+      "id": "2026-04-26T23-13-37-843Z-3584",
+      "kind": "verifier_fail",
+      "summary_passthrough": "live Codex auth unavailable; fallback used (codex-exec.sh --self-test exit 11)",
+      "evidence_path": ".planning/milestones/v1.6/MILESTONE-READINESS.md",
+      "tagged_for_milestone": "next-debt-milestone"
+    }
+  ],
+  "source_commits": [
+    {
+      "sha": "bc70a2d4a06ccaa5f99e7e29db3b98c929969825",
+      "subject": "docs(26): cosmetic fix \u2014 acceptance check #9 wording (four\u2192five)",
+      "ts": "2026-04-27T00:04:06+01:00"
+    },
+    {
+      "sha": "df8d9d3ea37caa953d6d181e194fe78574484a5a",
+      "subject": "feat(26): research \u2014 Q1-Q8 source mapping + no-gap freshness proof",
+      "ts": "2026-04-27T00:04:57+01:00"
+    },
+    {
+      "sha": "f2ba7bda0a8dec5892a6a9184a4553842e2f265d",
+      "subject": "feat(26): context \u2014 gsd-discuss-phase --auto consumes locked decisions",
+      "ts": "2026-04-27T00:04:58+01:00"
+    },
+    {
+      "sha": "cec7126f6fa5af24eba6f8c0b2f82bca5349aecd",
+      "subject": "phase-close(26): PASS-WITH-DEFERRED-1 \u2014 operator question contract",
+      "ts": "2026-04-27T00:14:33+01:00"
+    },
+    {
+      "sha": "21ecbba472b1eed0c985cc2afdec84a3d77c444e",
+      "subject": "feat(infra): behavioral provider-health probe + backlog v1 schema + Codex rerun",
+      "ts": "2026-04-27T07:00:42+01:00"
+    },
+    {
+      "sha": "7e19c2af6aae57d012e9f9e511a267f41787863c",
+      "subject": "chore(v1.6): post-Codex-rerun status correction \u2014 SHIPPED-WITH-DEBT-10",
+      "ts": "2026-04-27T07:13:16+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-CONTEXT.md",
+      "sha256": "8f722c9faf27e20042f886fdb31a8ac2f12c2ef9cf516abad875309a43ac131e"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-RESEARCH.md",
+      "sha256": "12fddaa50367c5bd34609ac687c9c62253f10c491fde91f66deae5db8ec6e5e7"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-01-operator-question-contract-PLAN.md",
+        "sha256": "f3713a59aa031e5f00fcb9741183d3eafc84d74c3518e634b15d0b5e4e4124ca"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-VERIFICATION.md",
+      "sha256": "19050fb7623696369917b2f90b1c9f78509b20f225fa01ca87822df29503ec90"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-ATC-REVIEW.md",
+      "sha256": "b148a34c076c409a2b141f9b8d1173ca6ce3b1ab6d87fad0e960cceaa703386f"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS",
+      "ref": ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-ATC-REVIEW.md",
+      "verdict": "warn",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 94696,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a4b4b87c19222f2aa"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 78311,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:aadfbc8b606129e02"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 38662,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:aed7ce290cb02f0b2"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 47093,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a3ba02cfbcf57a8df"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 64334,
+      "evidence_event_id": "assistant:611bc8e7-e744-474c-9eec-d4d166c8c50d:66188651-a0fe-4bba-8802-c61c16e4a5a2"
+    },
+    "classifier": null,
+    "other": {
+      "role": "other",
+      "total_tokens": 40427,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:ac7ce1a761cdd5439"
+    }
+  },
+  "created_at": "2026-04-27T19:40:31.447Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@26edd599ea94"
+}

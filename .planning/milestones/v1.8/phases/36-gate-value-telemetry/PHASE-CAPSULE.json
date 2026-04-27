@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.8",
+  "phase": "36",
+  "phase_name": "Gate Value Telemetry",
+  "status": "PASS",
+  "goal": "Append-only `.planning/metrics/gate-value-log.jsonl` writer + summarizer,",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-01-gate-value-telemetry-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/ORCHESTRATOR-CHECKPOINT.md",
+    ".planning/STATE.md",
+    ".planning/metrics/review-ledger.jsonl",
+    ".planning/milestones/v1.8/SUMMARY.md",
+    ".planning/milestones/v1.8/gate-keep-kill.md",
+    ".planning/milestones/v1.8/phase-folder-audit.md",
+    ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-01-gate-value-telemetry-PLAN.md",
+    ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-ATC-REVIEW.md",
+    ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-CONTEXT.md",
+    ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-RESEARCH.md",
+    ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-VERIFICATION.md",
+    ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-codex-review.md",
+    ".planning/milestones/v1.8/phases/36-gate-value-telemetry/codex-review-prompt.txt",
+    ".planning/milestones/v1.8/phases/36-gate-value-telemetry/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/39-gate-keep-kill/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/40-phase-folder-audit/commit-reviews.jsonl",
+    "super-gsd/scripts/lib/gate-value-log.cjs",
+    "super-gsd/scripts/lib/gate-value-log.test.cjs",
+    "super-gsd/skills/sgsd-orchestrate/SKILL.md"
+  ],
+  "decisions": [
+    {
+      "id": "36-locked",
+      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.8\\phases\\36-gate-value-telemetry\\36-CONTEXT.md:locked-decision",
+      "text": "\nOutcome + retroactive fields, **no cost** (no time/$$/etc. in log).\nLocked in `.planning/discussions/2026-04-26-mass-discuss.md`.\n"
+    }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [
+      "Phase 38",
+      "Phase 39"
+    ],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "83d5c545a2825b69fbbb765721c16110e91777c4",
+      "subject": "research(36): gate value telemetry \u2014 envelope-v1 wrap + 3 wire-in sites",
+      "ts": "2026-04-27T12:41:17+01:00"
+    },
+    {
+      "sha": "1cbeedcdec438514feb8a6f05d326d0e946cfe32",
+      "subject": "context(36): gate value telemetry \u2014 36=B locked, 3-deliverable PLAN scope",
+      "ts": "2026-04-27T12:42:28+01:00"
+    },
+    {
+      "sha": "b087bb81408f88aa7d45fc0cfa23c129fc8e7d05",
+      "subject": "plan(36-01): gate value telemetry \u2014 3 atomic deliverables, byte-exact",
+      "ts": "2026-04-27T12:50:50+01:00"
+    },
+    {
+      "sha": "d6c402fb8ff15d1769df9c811647ec4c1b2121ed",
+      "subject": "fix(36): clear dual-provider phase ATC findings \u2014 5 in-loop, 1 informational",
+      "ts": "2026-04-27T13:26:21+01:00"
+    },
+    {
+      "sha": "a3d9dd6454e26191a04695574cfc56b1c94c2e99",
+      "subject": "milestone-close(v1.8): SHIPPED \u2014 Gate Fitness + MUDA Pruning",
+      "ts": "2026-04-27T16:37:34+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-CONTEXT.md",
+      "sha256": "abdfb13f42160399c0112432ac9faf0cb151928b0b70cf28e07d83e0afee5863"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-RESEARCH.md",
+      "sha256": "c0a398bdcf73f0c5b533f5cfb1b66ad1e7dccb0430a7f0019f0bf13ddb88b36f"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-01-gate-value-telemetry-PLAN.md",
+        "sha256": "50ba36cb0247fad8244365b3e5155635135e69bc9b6944df68226b18178a7858"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-VERIFICATION.md",
+      "sha256": "e8537492f9acafbb8d84beaca84b4d7afd779f8cfaacc27759979d8986aed6e9"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-ATC-REVIEW.md",
+      "sha256": "d7cbf8dd525a101691cd239b3bdee43cb1e055f7b177589153bcb3fcebc1ca6b"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS",
+      "ref": ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-04-27T12:17:00Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": {
+      "run_id": "2026-04-27T15:34:49.265Z-1aca",
+      "verdict": "warn"
+    }
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 171175,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a63131664209ffc3b"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 130525,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:abe6ad70b9b1dd4e7"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 135259,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a793f74111058dd0e"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 49899,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a4ef233926a017736"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 835536,
+      "evidence_event_id": "assistant:54c3e039-f409-4116-923d-6c0019bdc9ab:0928045d-3ffd-4c4d-ac02-e9152cfc2b1d"
+    },
+    "classifier": null,
+    "other": {
+      "role": "other",
+      "total_tokens": 45214,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a12673405d547db0b"
+    }
+  },
+  "created_at": "2026-04-27T19:40:47.294Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@26edd599ea94"
+}

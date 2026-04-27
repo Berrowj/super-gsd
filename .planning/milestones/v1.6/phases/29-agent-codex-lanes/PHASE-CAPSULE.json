@@ -1,0 +1,230 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.6",
+  "phase": "29",
+  "phase_name": "Agent Codex Lanes",
+  "status": "PASS-WITH-DEFERRED-N",
+  "goal": "Verify the Phase 28 lib already honors DISCUSS 29.1 (Codex 1h staleness)",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-01-agent-codex-lanes-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/CRIT-BACKLOG.md",
+    ".planning/STATE.md",
+    ".planning/memory/MEMORY.md",
+    ".planning/memory/architecture/anti-patterns/waste-overproduction-p29-findings.md",
+    ".planning/metrics/audit-log.jsonl",
+    ".planning/metrics/codex-log.jsonl",
+    ".planning/metrics/crit-backlog.jsonl",
+    ".planning/metrics/muda-log.jsonl",
+    ".planning/milestones/v1.6/SUMMARY.md",
+    ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/26-cockpit-question-contract/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/27-cockpit-data-tree/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/28-mission-control-layout/28-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/28-mission-control-layout/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-01-agent-codex-lanes-PLAN.md",
+    ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-ATC-REVIEW.md",
+    ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-CONTEXT.md",
+    ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-RESEARCH.md",
+    ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/29-agent-codex-lanes/WASTE.md",
+    ".planning/milestones/v1.6/phases/29-agent-codex-lanes/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/commit-reviews.jsonl",
+    "super-gsd/scripts/codex-exec.sh",
+    "super-gsd/scripts/lib/crit-backlog.cjs",
+    "super-gsd/tools/backlog-schema/check.cjs",
+    "super-gsd/tools/codex-rerun/rerun-missing-reviews.cjs",
+    "super-gsd/tools/provider-health/check.cjs"
+  ],
+  "decisions": [
+    {
+      "id": "MD-29.1",
+      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\discussions\\2026-04-26-mass-discuss.md:row-29.1",
+      "text": "| 29.1 Codex stale threshold | 1 hour mtime. |"
+    },
+    {
+      "id": "MD-29.2",
+      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\discussions\\2026-04-26-mass-discuss.md:row-29.2",
+      "text": "| 29.2 Agents pane scope | Current phase only. |"
+    }
+  ],
+  "debt": {
+    "critical_added": 4,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 4,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [
+      "Phase 30"
+    ],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [
+    {
+      "stream": "crit-backlog.jsonl",
+      "id": "2026-04-27T00-45-52-216Z-28d0",
+      "kind": "phase_atc",
+      "summary_passthrough": "WARN deferred: MUDA codex_qualitative_waste \u2014 fixture inventory may be over-engineered (12 fixtures), silent metadata fallback",
+      "evidence_path": ".planning/milestones/v1.6/phases/29-agent-codex-lanes/WASTE.md",
+      "tagged_for_milestone": "next-debt-milestone"
+    },
+    {
+      "stream": "crit-backlog.jsonl",
+      "id": "2026-04-27T00-51-47-682Z-cfe0",
+      "kind": "verifier_fail",
+      "summary_passthrough": "live Codex auth unavailable; phase-level ATC used Claude only",
+      "evidence_path": ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-ATC-REVIEW.md",
+      "tagged_for_milestone": "next-debt-milestone"
+    },
+    {
+      "stream": "crit-backlog.jsonl",
+      "id": "2026-04-27T00-51-47-707Z-6299",
+      "kind": "phase_atc",
+      "summary_passthrough": "WARN deferred: path schema drift \u2014 PLAN said super-gsd/scripts/tests/, executor shipped super-gsd/tests/mission-strip/ (functionally equivalent)",
+      "evidence_path": ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-ATC-REVIEW.md",
+      "tagged_for_milestone": "next-debt-milestone"
+    },
+    {
+      "stream": "crit-backlog.jsonl",
+      "id": "2026-04-27T00-51-47-724Z-8d06",
+      "kind": "phase_atc",
+      "summary_passthrough": "WARN deferred: $StateOverride param now frozen in lib API (Phase 28 carry-forward; YAGNI per anti-slop 3+5+9)",
+      "evidence_path": ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-ATC-REVIEW.md",
+      "tagged_for_milestone": "next-debt-milestone"
+    }
+  ],
+  "source_commits": [
+    {
+      "sha": "a28b7e9281bda71250badac4aa53d340d12b86fb",
+      "subject": "feat(29): research + context + plan \u2014 Q5/Q6 lanes audit + tightening",
+      "ts": "2026-04-27T01:29:22+01:00"
+    },
+    {
+      "sha": "a861d95c1c0fff84780ffae7ff57773c3640ac01",
+      "subject": "phase-close(29): PASS-WITH-DEFERRED-4 \u2014 Q5/Q6 lanes audit + tightening",
+      "ts": "2026-04-27T01:52:39+01:00"
+    },
+    {
+      "sha": "21ecbba472b1eed0c985cc2afdec84a3d77c444e",
+      "subject": "feat(infra): behavioral provider-health probe + backlog v1 schema + Codex rerun",
+      "ts": "2026-04-27T07:00:42+01:00"
+    },
+    {
+      "sha": "7e19c2af6aae57d012e9f9e511a267f41787863c",
+      "subject": "chore(v1.6): post-Codex-rerun status correction \u2014 SHIPPED-WITH-DEBT-10",
+      "ts": "2026-04-27T07:13:16+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-CONTEXT.md",
+      "sha256": "9720606321a61b4c6aca15e8bad32e075fa424ef11d85ee3516d322fe9364602"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-RESEARCH.md",
+      "sha256": "d11d167dfa9fc59c1a93cf43d2137825799ed3a758a8599fdb185cf71cb84396"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-01-agent-codex-lanes-PLAN.md",
+        "sha256": "c73ada2bc1a245877acb616a84d2f8f4e29d893edd0d2e0d35466ebc9d13e872"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-VERIFICATION.md",
+      "sha256": "dd56c36c2d52fb75a07cd46c76b777555f15e358dc73eeb7c2e19ec55e756786"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-ATC-REVIEW.md",
+      "sha256": "187c3a3302dfd71c90f3f98c0e9ce1d9049bc3ed63800ad5a88edbf8e085b6b6"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS-WITH-DEFERRED-3",
+      "ref": ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-ATC-REVIEW.md",
+      "verdict": "warn",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-04-27T00:39:12Z",
+        "exit": 5,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-04-27T00:41:32Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-04-27T00:43:34Z",
+        "exit": 5,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 100225,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a39b787592de867bb"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 70780,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:aff9d946ac2ba70d6"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 100581,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a0710aab31f434733"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 23126,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a6e2123d282e6b15b"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 67554,
+      "evidence_event_id": "assistant:a7b01c2c-8a75-4b01-b313-2a838b026f1e:bc28f2ec-6680-4778-b3f2-29e6cbb95d48"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T19:40:35.517Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@26edd599ea94"
+}

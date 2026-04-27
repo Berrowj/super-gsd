@@ -1,0 +1,253 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.6",
+  "phase": "28",
+  "phase_name": "Mission Control Layout",
+  "status": "PASS-WITH-DEFERRED-N",
+  "goal": "Land 3 code touchpoints:",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.6/phases/28-mission-control-layout/28-01-mission-control-layout-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.6/phases/28-mission-control-layout/28-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.6/phases/28-mission-control-layout/28-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.6/phases/28-mission-control-layout/28-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.6/phases/28-mission-control-layout/28-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/CRIT-BACKLOG.md",
+    ".planning/STATE.md",
+    ".planning/metrics/audit-log.jsonl",
+    ".planning/metrics/codex-log.jsonl",
+    ".planning/metrics/crit-backlog.jsonl",
+    ".planning/metrics/muda-log.jsonl",
+    ".planning/milestones/v1.6/SUMMARY.md",
+    ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/26-cockpit-question-contract/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/27-cockpit-data-tree/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/28-mission-control-layout/28-01-mission-control-layout-PLAN.md",
+    ".planning/milestones/v1.6/phases/28-mission-control-layout/28-ATC-REVIEW.md",
+    ".planning/milestones/v1.6/phases/28-mission-control-layout/28-CONTEXT.md",
+    ".planning/milestones/v1.6/phases/28-mission-control-layout/28-PATTERNS.md",
+    ".planning/milestones/v1.6/phases/28-mission-control-layout/28-RESEARCH.md",
+    ".planning/milestones/v1.6/phases/28-mission-control-layout/28-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/28-mission-control-layout/WASTE.md",
+    ".planning/milestones/v1.6/phases/28-mission-control-layout/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/29-agent-codex-lanes/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/commit-reviews.jsonl",
+    "super-gsd/scripts/codex-exec.sh",
+    "super-gsd/scripts/lib/crit-backlog.cjs",
+    "super-gsd/tools/backlog-schema/check.cjs",
+    "super-gsd/tools/codex-rerun/rerun-missing-reviews.cjs",
+    "super-gsd/tools/provider-health/check.cjs"
+  ],
+  "decisions": [
+    {
+      "id": "MD-28.1",
+      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\discussions\\2026-04-26-mass-discuss.md:row-28.1",
+      "text": "| 28.1 Strip position | Top of mission-control pane, replacing existing 1-line header. |"
+    },
+    {
+      "id": "MD-28.2",
+      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\discussions\\2026-04-26-mass-discuss.md:row-28.2",
+      "text": "| 28.2 Strip line count | 6 lines: mission, objective+unlock, model, blocker, codex+agents, next. |"
+    }
+  ],
+  "debt": {
+    "critical_added": 9,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 9,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [
+      "Phase 29",
+      "Phase 30"
+    ],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [
+    {
+      "stream": "crit-backlog.jsonl",
+      "id": "2026-04-27T00-07-22-122Z-589f",
+      "kind": "verifier_fail",
+      "summary_passthrough": "live Codex auth unavailable; per-dispatch ATC for commit 34eb8c2 used Claude only",
+      "evidence_path": ".planning/milestones/v1.6/phases/28-mission-control-layout/commit-reviews.jsonl",
+      "tagged_for_milestone": "next-debt-milestone"
+    },
+    {
+      "stream": "crit-backlog.jsonl",
+      "id": "2026-04-27T00-07-22-123Z-ce2a",
+      "kind": "verifier_fail",
+      "summary_passthrough": "live Codex auth unavailable; per-dispatch ATC for commit 7e96ab3 used Claude only",
+      "evidence_path": ".planning/milestones/v1.6/phases/28-mission-control-layout/commit-reviews.jsonl",
+      "tagged_for_milestone": "next-debt-milestone"
+    },
+    {
+      "stream": "crit-backlog.jsonl",
+      "id": "2026-04-27T00-07-22-124Z-f9d0",
+      "kind": "phase_atc",
+      "summary_passthrough": "WARN deferred (non-blocking): unused $StateOverride param in sgsd-mission-strip.ps1 (YAGNI / anti-slop items 3+9)",
+      "evidence_path": ".planning/milestones/v1.6/phases/28-mission-control-layout/commit-reviews.jsonl",
+      "tagged_for_milestone": "next-debt-milestone"
+    },
+    {
+      "stream": "crit-backlog.jsonl",
+      "id": "2026-04-27T00-11-14-177Z-46fe",
+      "kind": "verifier_fail",
+      "summary_passthrough": "live Codex auth unavailable; per-dispatch ATC for commit 982d781 used Claude only",
+      "evidence_path": ".planning/milestones/v1.6/phases/28-mission-control-layout/commit-reviews.jsonl",
+      "tagged_for_milestone": "next-debt-milestone"
+    },
+    {
+      "stream": "crit-backlog.jsonl",
+      "id": "2026-04-27T00-11-14-179Z-8a05",
+      "kind": "phase_atc",
+      "summary_passthrough": "WARN deferred: insertion-vs-replacement of title bar (PLAN said preserve, DISCUSS 28.1 said replace) \u2014 operator review",
+      "evidence_path": ".planning/milestones/v1.6/phases/28-mission-control-layout/commit-reviews.jsonl",
+      "tagged_for_milestone": "next-debt-milestone"
+    },
+    {
+      "stream": "crit-backlog.jsonl",
+      "id": "2026-04-27T00-11-14-180Z-105c",
+      "kind": "phase_atc",
+      "summary_passthrough": "WARN deferred: lib header comment says : scope but mechanism is plain script scope (cosmetic doc fix)",
+      "evidence_path": ".planning/milestones/v1.6/phases/28-mission-control-layout/commit-reviews.jsonl",
+      "tagged_for_milestone": "next-debt-milestone"
+    },
+    {
+      "stream": "crit-backlog.jsonl",
+      "id": "2026-04-27T00-20-09-687Z-9c3c",
+      "kind": "verifier_fail",
+      "summary_passthrough": "live Codex auth unavailable; phase-level ATC used Claude only",
+      "evidence_path": ".planning/milestones/v1.6/phases/28-mission-control-layout/28-ATC-REVIEW.md",
+      "tagged_for_milestone": "next-debt-milestone"
+    },
+    {
+      "stream": "crit-backlog.jsonl",
+      "id": "2026-04-27T00-20-09-690Z-1f78",
+      "kind": "phase_atc",
+      "summary_passthrough": "WARN deferred: PLAN truth #4 text says silent-skip but shipped code hard-fails via __sgsd_fail (text-only correction)",
+      "evidence_path": ".planning/milestones/v1.6/phases/28-mission-control-layout/28-ATC-REVIEW.md",
+      "tagged_for_milestone": "next-debt-milestone"
+    },
+    {
+      "stream": "crit-backlog.jsonl",
+      "id": "2026-04-27T00-20-09-692Z-92d0",
+      "kind": "phase_atc",
+      "summary_passthrough": "NIT: deployed hook ~/.claude/hooks/sgsd-activity-logger.js re-install untracked; live stamping remains corrupted until manually actioned",
+      "evidence_path": ".planning/milestones/v1.6/phases/28-mission-control-layout/28-ATC-REVIEW.md",
+      "tagged_for_milestone": "next-debt-milestone"
+    }
+  ],
+  "source_commits": [
+    {
+      "sha": "b2f0300b8c02c2df9089009b985691048fa8fe16",
+      "subject": "phase-close(28): PASS-WITH-DEFERRED-9 \u2014 Mission Control 2.0 Layout",
+      "ts": "2026-04-27T01:21:02+01:00"
+    },
+    {
+      "sha": "21ecbba472b1eed0c985cc2afdec84a3d77c444e",
+      "subject": "feat(infra): behavioral provider-health probe + backlog v1 schema + Codex rerun",
+      "ts": "2026-04-27T07:00:42+01:00"
+    },
+    {
+      "sha": "7e19c2af6aae57d012e9f9e511a267f41787863c",
+      "subject": "chore(v1.6): post-Codex-rerun status correction \u2014 SHIPPED-WITH-DEBT-10",
+      "ts": "2026-04-27T07:13:16+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.6/phases/28-mission-control-layout/28-CONTEXT.md",
+      "sha256": "040acada077705b8140e2abca78b0ef38fa4f80654657decd548db2d19c57617"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.6/phases/28-mission-control-layout/28-RESEARCH.md",
+      "sha256": "279c4966b6df4dcdafed0a4c072e84c0433c8d5fa241e38f6a32c6980676a310"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.6/phases/28-mission-control-layout/28-01-mission-control-layout-PLAN.md",
+        "sha256": "ecd0b3e205df102f824a21226a570b44009dc74115c34d3d826147b2297d0b86"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.6/phases/28-mission-control-layout/28-VERIFICATION.md",
+      "sha256": "80532896b7361059224006776da32dc6a48a86cd293ab17c84cdc9e8c4044ecd"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.6/phases/28-mission-control-layout/28-ATC-REVIEW.md",
+      "sha256": "04447879d65970b662254eb451ef487d29529c0909c3fb66ebf8a4b63ce0ffa8"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS-WITH-DEFERRED-5",
+      "ref": ".planning/milestones/v1.6/phases/28-mission-control-layout/28-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.6/phases/28-mission-control-layout/28-ATC-REVIEW.md",
+      "verdict": "warn",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 101944,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:ab0eb9777a1ed3445"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 97614,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a230d7cf7dac0598b"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 59195,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a7c766a1a6c24ec76"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 40420,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a68b7be087eb9d705"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 64168,
+      "evidence_event_id": "assistant:830cb673-40d2-442d-99dd-668469729eb6:c8a7009b-ab95-41eb-8885-d9b58749980f"
+    },
+    "classifier": null,
+    "other": {
+      "role": "other",
+      "total_tokens": 63685,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:ac1d47d57b0350924"
+    }
+  },
+  "created_at": "2026-04-27T19:40:34.123Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@26edd599ea94"
+}

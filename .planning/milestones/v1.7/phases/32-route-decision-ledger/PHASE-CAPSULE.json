@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.7",
+  "phase": "32",
+  "phase_name": "Route Decision Ledger",
+  "status": "PASS",
+  "goal": "Land an append-only `.planning/metrics/route-decisions.jsonl` ledger plus",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-01-route-ledger-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/ORCHESTRATOR-CHECKPOINT.md",
+    ".planning/STATE.md",
+    ".planning/metrics/review-ledger.jsonl",
+    ".planning/milestones/v1.7/SUMMARY.md",
+    ".planning/milestones/v1.7/phases/31-canonical-envelope/commit-reviews.jsonl",
+    ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-01-route-ledger-PLAN.md",
+    ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-ATC-REVIEW.md",
+    ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-CONTEXT.md",
+    ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-RESEARCH.md",
+    ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-VERIFICATION.md",
+    ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-codex-review.md",
+    ".planning/milestones/v1.7/phases/32-route-decision-ledger/codex-review-prompt.txt",
+    ".planning/milestones/v1.7/phases/32-route-decision-ledger/commit-reviews.jsonl",
+    ".planning/milestones/v1.7/phases/33-repair-instruction/commit-reviews.jsonl",
+    ".planning/milestones/v1.7/phases/34-canonical-review-ledger/commit-reviews.jsonl",
+    ".planning/milestones/v1.7/phases/35-generated-system-map/commit-reviews.jsonl",
+    "super-gsd/scripts/lib/route-ledger.cjs",
+    "super-gsd/skills/sgsd-orchestrate/SKILL.md"
+  ],
+  "decisions": [
+    {
+      "id": "32-locked",
+      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.7\\phases\\32-route-decision-ledger\\32-CONTEXT.md:locked-decision",
+      "text": "\n**Boundary-only**: Phase 32 lands one wire-in (codex_route at SKILL.md\nStep 9.5 per-dispatch ATC), not all 6 boundaries. ROUTE-03 specifies\n\"\u22651 boundary in production\"; doubling up is gilding. The other 5\nboundaries (milestone_promotion, phase_dispatch_first, executor_choice,\ngate_skip, handoff_decision) are documented as v1.8+ candidates with\nexact file:line wire-in targets pre-identified in 32-RESEARCH.md \u00a71.\n"
+    }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [
+      "Phase 35"
+    ],
+    "constraints": [],
+    "extension_points": [
+      "`command-envelope-v1.yaml:96-99` extension protocol.",
+      "Phase 33+ will add codes per registry extension protocol but won't invalidate route-ledger)"
+    ]
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "777105c7842efae8a7bbd8425988b78a7c2c1b6d",
+      "subject": "research(32): route decision ledger \u2014 6 boundaries mapped, codex_route wired",
+      "ts": "2026-04-27T09:01:00+01:00"
+    },
+    {
+      "sha": "732e234bf48f4ea262cd196f44200f21407cf0f6",
+      "subject": "context(32): route decision ledger \u2014 32=A locked, single PLAN scope",
+      "ts": "2026-04-27T09:02:13+01:00"
+    },
+    {
+      "sha": "8534f1ee0a1f0ec9b362b06c6946734a2eef5dc3",
+      "subject": "plan(32-01): route ledger lib + codex_route wire + local fallback test",
+      "ts": "2026-04-27T09:09:19+01:00"
+    },
+    {
+      "sha": "d1fefc1d3c43b7e327ca672869ec3abae43e52b9",
+      "subject": "fix(32-01): plan-checker BLOCKER \u2014 review_report belongs in evidence[] not artifacts[]",
+      "ts": "2026-04-27T09:12:39+01:00"
+    },
+    {
+      "sha": "dcaafd32ea44be4d05c336773d2eb527e18242de",
+      "subject": "fix(32): clear 3 Claude phase-ATC WARNs in-loop",
+      "ts": "2026-04-27T09:27:53+01:00"
+    },
+    {
+      "sha": "bb72756dcf00bd55260675beebb7b718179b1ce3",
+      "subject": "fix(32): clear Codex 2 CRIT + 2 WARN \u2014 move wire-in into shell branch",
+      "ts": "2026-04-27T09:34:29+01:00"
+    },
+    {
+      "sha": "108eec11f0e9db7c307ea70de29c60e1391e5e1d",
+      "subject": "milestone-close(v1.7): SHIPPED \u2014 Stable Command Contracts + Route Intelligence",
+      "ts": "2026-04-27T12:22:30+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-CONTEXT.md",
+      "sha256": "b9d0ed299125d97838b51d8184a80145251bdaa2eee81ec4db9d37b604129786"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-RESEARCH.md",
+      "sha256": "37400bce987fc65741c9a3a22ac74407e22e2f10915090c0b5d7ed5b477da44d"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-01-route-ledger-PLAN.md",
+        "sha256": "def418d64bd5381202fc73888fae1043e28da52c6478b12f4d4cfa971a979624"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-VERIFICATION.md",
+      "sha256": "757ee448a50a871d2da88563b94cbd5ced2dc3623874b9f8133cd2054f3aa23c"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-ATC-REVIEW.md",
+      "sha256": "779c916361e2b8fc8e2bfd3ce4069ac303dd48ab8c174b1d675241b30410e7ce"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS",
+      "ref": ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-04-27T08:23:24Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": {
+      "run_id": "2026-04-27T11:19:55.689Z-01d6",
+      "verdict": "warn"
+    }
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 198924,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:abd1d755259681de7"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 112728,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a4885c7dc66b7e47a"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 75560,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:aa35e9d2f63ceb3d8"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 54413,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a1334081c63d64481"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 67594,
+      "evidence_event_id": "assistant:e34d768f-4e63-4e6b-86b1-b6bfb65a48ae:f5f6cc1c-cddc-4616-8562-b9898867a68d"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T19:40:40.663Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@26edd599ea94"
+}

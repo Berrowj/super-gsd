@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.7",
+  "phase": "33",
+  "phase_name": "Repair Instruction",
+  "status": "UNKNOWN",
+  "goal": "Make every gate in `super-gsd/registry/gates.yaml` carry a",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.7/phases/33-repair-instruction/33-01-repair-instruction-contract-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.7/phases/33-repair-instruction/33-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.7/phases/33-repair-instruction/33-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.7/phases/33-repair-instruction/33-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.7/phases/33-repair-instruction/33-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/ORCHESTRATOR-CHECKPOINT.md",
+    ".planning/STATE.md",
+    ".planning/metrics/review-ledger.jsonl",
+    ".planning/milestones/v1.7/SUMMARY.md",
+    ".planning/milestones/v1.7/phases/31-canonical-envelope/commit-reviews.jsonl",
+    ".planning/milestones/v1.7/phases/32-route-decision-ledger/commit-reviews.jsonl",
+    ".planning/milestones/v1.7/phases/33-repair-instruction/33-01-repair-instruction-contract-PLAN.md",
+    ".planning/milestones/v1.7/phases/33-repair-instruction/33-ATC-REVIEW.md",
+    ".planning/milestones/v1.7/phases/33-repair-instruction/33-CONTEXT.md",
+    ".planning/milestones/v1.7/phases/33-repair-instruction/33-RESEARCH.md",
+    ".planning/milestones/v1.7/phases/33-repair-instruction/33-VERIFICATION.md",
+    ".planning/milestones/v1.7/phases/33-repair-instruction/33-codex-review.md",
+    ".planning/milestones/v1.7/phases/33-repair-instruction/codex-review-prompt.txt",
+    ".planning/milestones/v1.7/phases/33-repair-instruction/commit-reviews.jsonl",
+    ".planning/milestones/v1.7/phases/34-canonical-review-ledger/commit-reviews.jsonl",
+    ".planning/milestones/v1.7/phases/35-generated-system-map/commit-reviews.jsonl",
+    "super-gsd/scripts/lib/gates-registry.cjs",
+    "super-gsd/scripts/lib/repair-command-checker.cjs",
+    "super-gsd/scripts/lib/sgsd-mission-strip.ps1",
+    "super-gsd/skills/sgsd-complete-milestone/SKILL.md"
+  ],
+  "decisions": [
+    {
+      "id": "33-locked",
+      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.7\\phases\\33-repair-instruction\\33-CONTEXT.md:locked-decision",
+      "text": "\n- **33=C** (under 26.3): repair_command: optional, gated by 4-AND safety predicate\n- **26.3 4-AND**: deterministic AND safe AND local AND auth-free (verbatim from mass-discuss)\n"
+    }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [
+      "Phase 35"
+    ],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "09e18b1816fcdd0eba8019eb5980b73c677abd59",
+      "subject": "research(33): repair instruction contract \u2014 13 gates, 4 commands ship",
+      "ts": "2026-04-27T09:43:53+01:00"
+    },
+    {
+      "sha": "fd57f777988f27a70c15a49f0d8d167b83efaa41",
+      "subject": "context(33): repair instruction contract \u2014 33=C + 26.3 4-AND locked, 7-task single PLAN scope",
+      "ts": "2026-04-27T09:44:59+01:00"
+    },
+    {
+      "sha": "edd8b8cbedce652de43454ac0aba82c0be347197",
+      "subject": "plan(33-01): repair instruction contract \u2014 13 instructions + 2 commands",
+      "ts": "2026-04-27T09:55:34+01:00"
+    },
+    {
+      "sha": "d158d61aa9a7f94606d30b7106d320cb6c436edd",
+      "subject": "test(33-01): verifier embeds REPAIR-01..04 runnable checks",
+      "ts": "2026-04-27T10:08:01+01:00"
+    },
+    {
+      "sha": "0bfcb6d9e9969fc52ecde3b53f7addba6628dffa",
+      "subject": "fix(33): clear dual-provider phase ATC findings \u2014 2 CRIT + 5 WARN in-loop",
+      "ts": "2026-04-27T10:21:34+01:00"
+    },
+    {
+      "sha": "108eec11f0e9db7c307ea70de29c60e1391e5e1d",
+      "subject": "milestone-close(v1.7): SHIPPED \u2014 Stable Command Contracts + Route Intelligence",
+      "ts": "2026-04-27T12:22:30+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.7/phases/33-repair-instruction/33-CONTEXT.md",
+      "sha256": "417f33caba2da58f45f63025e04f4e25874ed6adc1751c360ee77552409ca4fa"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.7/phases/33-repair-instruction/33-RESEARCH.md",
+      "sha256": "e353410443a46945d94784cf8126192544028db7129ba94e8b4782a370419eeb"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.7/phases/33-repair-instruction/33-01-repair-instruction-contract-PLAN.md",
+        "sha256": "bf1f34c8e6c81621963d93d9145207b8dd5a312ed4c78f258039d3a3e9f05e40"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.7/phases/33-repair-instruction/33-VERIFICATION.md",
+      "sha256": "42d6954ce11684757dd698b4f760abef2eb65a4867b5917deea85334520d27e4"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.7/phases/33-repair-instruction/33-ATC-REVIEW.md",
+      "sha256": "e3bc17e99909fce6566998fe13c1da1a96a395b1e994d24aad64931932aef2f4"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "UNKNOWN",
+      "ref": ".planning/milestones/v1.7/phases/33-repair-instruction/33-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.7/phases/33-repair-instruction/33-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-04-27T09:09:39Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": {
+      "run_id": "2026-04-27T11:19:55.689Z-5dea",
+      "verdict": "warn"
+    }
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 125862,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a919f3327c19a37d8"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 129188,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:aa05e9fd7b96f8774"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 113328,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:ad231effec51c0b64"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 56646,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:abf0bb4ad6f1da11a"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 67450,
+      "evidence_event_id": "assistant:8c3d5821-e9d9-48ff-a050-d99d5afe8325:c9d1a498-1479-42b0-b733-63d12a96eced"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T19:40:42.589Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@26edd599ea94"
+}

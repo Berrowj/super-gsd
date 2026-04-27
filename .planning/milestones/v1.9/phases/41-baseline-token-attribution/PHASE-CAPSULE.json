@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.9",
+  "phase": "41",
+  "phase_name": "Baseline Token Attribution",
+  "status": "PASS",
+  "goal": "Establish a truthful token-spend baseline before changing architecture.",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-01-baseline-token-attribution-PLAN.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-VERIFICATION.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.9/phases/41-baseline-token-attribution/reviews/41-REVIEW.md"
+    }
+  ],
+  "files": [
+    ".planning/ORCHESTRATOR-CHECKPOINT.md",
+    ".planning/ROADMAP-AGENT.md",
+    ".planning/STATE.md",
+    ".planning/analyses/2026-04-27-agent-context-bloat-audit.md",
+    ".planning/analyses/2026-04-27-agent-context-bloat-vtp-crosscheck.md",
+    ".planning/archive/superseded/v1.9-knowledge-memory-governance/PHASES-41-45.md",
+    ".planning/archive/superseded/v1.9-knowledge-memory-governance/README.md",
+    ".planning/discussions/2026-04-26-mass-discuss.md",
+    ".planning/metrics/agent-token-spend.jsonl",
+    ".planning/milestones/CLAUDE-AUTO-HANDOVER-FULL-ROADMAP.md",
+    ".planning/milestones/HANDBOOK-FUTURE-ROADMAP.md",
+    ".planning/milestones/v1.9/EXISTING-SURFACE-AUDIT.md",
+    ".planning/milestones/v1.9/REQUIREMENTS.md",
+    ".planning/milestones/v1.9/ROADMAP.md",
+    ".planning/milestones/v1.9/SGSD-HANDOVER.md",
+    ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-01-baseline-token-attribution-PLAN.md",
+    ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-RESEARCH.md",
+    ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-VERIFICATION.md",
+    ".planning/milestones/v1.9/phases/41-baseline-token-attribution/reviews/41-REVIEW.md",
+    ".planning/milestones/v1.9/phases/42-token-budget-admission/42-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/43-phase-capsule-contract/43-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/44-legal-context-registry/44-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/45-context-packet-builder/45-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/46-sqlite-context-index/46-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/47-dispatch-routing-substitution/47-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/48-selective-vtp-bridge/48-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/49-memory-governance-lifecycle/49-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/50-cockpit-research-dashboard/50-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/51-context-stress-benchmark/51-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/52-redis-live-cache-adapter/52-CONTEXT.md"
+  ],
+  "decisions": [
+    {
+      "id": "41-locked",
+      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.9\\phases\\41-baseline-token-attribution\\41-CONTEXT.md:locked-decision",
+      "text": "\n41 auto-defaulted from SGSD-Research handover packet (no interactive\ndiscuss). All 11 derivation calls locked in `41-RESEARCH.md` \u00a711.\n"
+    }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [
+      "Phase 42",
+      "Phase 43",
+      "Phase 44",
+      "Phase 51"
+    ],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "133a1b2563cd1cd223faba0a8da616d052a05ad2",
+      "subject": "roadmap(v1.9): SLOT-CHANGE \u2014 promote SGSD-Research to v1.9, shift v2.0/v2.1 back",
+      "ts": "2026-04-27T17:23:17+01:00"
+    },
+    {
+      "sha": "569032b08dd2f2fe896835aa329fd5859a30085a",
+      "subject": "research(41): baseline token attribution \u2014 11,173 existing rows, 5 substitution rules",
+      "ts": "2026-04-27T17:46:28+01:00"
+    },
+    {
+      "sha": "2858ada8510b649783d8cf94bdc7b21b913bd526",
+      "subject": "context(41): baseline token attribution \u2014 auto-defaulted, single PLAN scope",
+      "ts": "2026-04-27T17:47:44+01:00"
+    },
+    {
+      "sha": "dcd6f56f17fe52abbd63f1dba5df24746e10df1d",
+      "subject": "plan(41-01): baseline token attribution \u2014 report.cjs + agent-token-spend.jsonl + baseline-token-spend.md",
+      "ts": "2026-04-27T18:00:29+01:00"
+    },
+    {
+      "sha": "9ec5a184616d23b2ff03465429c4ec1c49bec051",
+      "subject": "docs(41): verification - baseline token attribution PASS",
+      "ts": "2026-04-27T18:15:35+01:00"
+    },
+    {
+      "sha": "f0f64650c5798f58f8abedb358b8a5a3a8aa3b1c",
+      "subject": "docs(41): close PHASE 41 PASS \u2014 REVIEW + STATE advance",
+      "ts": "2026-04-27T18:35:47+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-CONTEXT.md",
+      "sha256": "70151d7b07bec62bdd76db47fb62c43864369c37afd01cc3521d2a5e14c5f0b8"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-RESEARCH.md",
+      "sha256": "6c096d7302a871a95c7902044e325538fc68211f400fc9b0885471cc29d57156"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-01-baseline-token-attribution-PLAN.md",
+        "sha256": "28c25500aeb79693e0c806d04cf726e5c1c15d338a3b88454f956a49fd08241b"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-VERIFICATION.md",
+      "sha256": "c3858265a5ab29005f21c3526f3b9c4eeffec07681a19d0894ce9c1f2109cea7"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.9/phases/41-baseline-token-attribution/reviews/41-REVIEW.md",
+      "sha256": "ed4d8762eaceeedf715d4cb1985019277ca25c35f24b947951137bb7ee9b1c38"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "passed",
+      "ref": ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.9/phases/41-baseline-token-attribution/reviews/41-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-04-27T17:29:06Z",
+        "exit": 5,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": null,
+    "planner": null,
+    "executor": null,
+    "verifier": null,
+    "reviewer": null,
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 314538,
+      "evidence_event_id": "assistant:54c3e039-f409-4116-923d-6c0019bdc9ab:53c41e68-fa62-4feb-a9ac-524fda6f4225"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T19:40:53.785Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@26edd599ea94"
+}

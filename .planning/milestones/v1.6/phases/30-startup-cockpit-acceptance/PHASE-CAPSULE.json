@@ -1,0 +1,191 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.6",
+  "phase": "30",
+  "phase_name": "Startup Cockpit Acceptance",
+  "status": "PASS-WITH-DEFERRED-N",
+  "goal": "Verify v1.6 cockpit + boot delivers what Phases 26-29 contracted. Final",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-01-startup-and-cockpit-acceptance-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/CRIT-BACKLOG.md",
+    ".planning/STATE.md",
+    ".planning/metrics/audit-log.jsonl",
+    ".planning/metrics/codex-log.jsonl",
+    ".planning/metrics/crit-backlog.jsonl",
+    ".planning/milestones/v1.6/SUMMARY.md",
+    ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/26-cockpit-question-contract/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/27-cockpit-data-tree/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/28-mission-control-layout/28-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/28-mission-control-layout/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/29-agent-codex-lanes/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-01-startup-and-cockpit-acceptance-PLAN.md",
+    ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-ATC-REVIEW.md",
+    ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-CONTEXT.md",
+    ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-RESEARCH.md",
+    ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/WASTE.md",
+    ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/commit-reviews.jsonl",
+    "super-gsd/scripts/codex-exec.sh",
+    "super-gsd/scripts/lib/crit-backlog.cjs",
+    "super-gsd/tools/backlog-schema/check.cjs",
+    "super-gsd/tools/codex-rerun/rerun-missing-reviews.cjs",
+    "super-gsd/tools/provider-health/check.cjs"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 3,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 2,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [
+    {
+      "stream": "crit-backlog.jsonl",
+      "id": "2026-04-27T05-08-16-452Z-d1de",
+      "kind": "verifier_fail",
+      "summary_passthrough": "live Codex auth unavailable; phase-level ATC used Claude only",
+      "evidence_path": ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-ATC-REVIEW.md",
+      "tagged_for_milestone": "next-debt-milestone"
+    },
+    {
+      "stream": "crit-backlog.jsonl",
+      "id": "2026-04-27T05-08-16-455Z-1e6d",
+      "kind": "phase_atc",
+      "summary_passthrough": "BOOT-03 README quick-start sg block deferred to v1.7 docs work; current README has no quick-start daily commands section",
+      "evidence_path": "super-gsd/docs/COCKPIT-ACCEPTANCE-EVIDENCE.md",
+      "tagged_for_milestone": "v1.7"
+    },
+    {
+      "stream": "crit-backlog.jsonl",
+      "id": "2026-04-27T05-08-16-456Z-0b06",
+      "kind": "phase_atc",
+      "summary_passthrough": "Q5 agent-freshness gap: lib enumerates agents but does not gate by activity-log mtime (active/stale/waiting). PLAN spec required differentiation; lib ships enumeration-only",
+      "evidence_path": ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-ATC-REVIEW.md",
+      "tagged_for_milestone": "next-debt-milestone"
+    }
+  ],
+  "source_commits": [
+    {
+      "sha": "8ee945e005d8a1e04a67e29006c13f64466eb0a7",
+      "subject": "phase-close(30): PASS-WITH-DEFERRED-3 \u2014 startup verification + cockpit acceptance",
+      "ts": "2026-04-27T06:08:40+01:00"
+    },
+    {
+      "sha": "21ecbba472b1eed0c985cc2afdec84a3d77c444e",
+      "subject": "feat(infra): behavioral provider-health probe + backlog v1 schema + Codex rerun",
+      "ts": "2026-04-27T07:00:42+01:00"
+    },
+    {
+      "sha": "7e19c2af6aae57d012e9f9e511a267f41787863c",
+      "subject": "chore(v1.6): post-Codex-rerun status correction \u2014 SHIPPED-WITH-DEBT-10",
+      "ts": "2026-04-27T07:13:16+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-CONTEXT.md",
+      "sha256": "fffcc536dfaedb5f674c0da305eff2ea1890689d2eecbb48ddd9efe73f4aa638"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-RESEARCH.md",
+      "sha256": "1ea46fb6b179ee4a085ed2a1ee486b40a339f3f8c2196dd51bfd6aa947c1b91c"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-01-startup-and-cockpit-acceptance-PLAN.md",
+        "sha256": "00afc413ac1dcba9025cdae9bcb54149fbca452fb044fb2b78bb901c5311569f"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-VERIFICATION.md",
+      "sha256": "ab304ab54b9e76f42004ab60675e50ec4dfdf24685171385fe4e40270327f21a"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-ATC-REVIEW.md",
+      "sha256": "f5c7a69a92fe1be13457cb62b24c999056f0293b3beb49d33d1623baffb07f14"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS-WITH-DEFERRED-2",
+      "ref": ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-ATC-REVIEW.md",
+      "verdict": "warn",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-04-27T04:56:18Z",
+        "exit": 5,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 132256,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a0d1e0cc044cfc710"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 102403,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:ab66d5624ae8484b6"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 146876,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a90e8739fd86bbd7c"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 54708,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a298067bec5314af5"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 67646,
+      "evidence_event_id": "assistant:9861b21f-d7d1-4e89-b540-c869344a2858:2d5a4f23-2d94-4d15-9d1b-e2770f37fa97"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T19:40:36.887Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@26edd599ea94"
+}

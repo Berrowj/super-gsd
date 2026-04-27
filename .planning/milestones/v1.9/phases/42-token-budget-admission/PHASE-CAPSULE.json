@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.9",
+  "phase": "42",
+  "phase_name": "Token Budget Admission",
+  "status": "PASS",
+  "goal": "make token bloat visible and governable.",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.9/phases/42-token-budget-admission/42-01-token-budget-admission-PLAN.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.9/phases/42-token-budget-admission/42-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.9/phases/42-token-budget-admission/42-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.9/phases/42-token-budget-admission/42-VERIFICATION.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.9/phases/42-token-budget-admission/reviews/42-REVIEW.md"
+    }
+  ],
+  "files": [
+    ".planning/ORCHESTRATOR-CHECKPOINT.md",
+    ".planning/ROADMAP-AGENT.md",
+    ".planning/STATE.md",
+    ".planning/analyses/2026-04-27-agent-context-bloat-audit.md",
+    ".planning/analyses/2026-04-27-agent-context-bloat-vtp-crosscheck.md",
+    ".planning/archive/superseded/v1.9-knowledge-memory-governance/PHASES-41-45.md",
+    ".planning/archive/superseded/v1.9-knowledge-memory-governance/README.md",
+    ".planning/discussions/2026-04-26-mass-discuss.md",
+    ".planning/milestones/CLAUDE-AUTO-HANDOVER-FULL-ROADMAP.md",
+    ".planning/milestones/HANDBOOK-FUTURE-ROADMAP.md",
+    ".planning/milestones/v1.9/EXISTING-SURFACE-AUDIT.md",
+    ".planning/milestones/v1.9/REQUIREMENTS.md",
+    ".planning/milestones/v1.9/ROADMAP.md",
+    ".planning/milestones/v1.9/SGSD-HANDOVER.md",
+    ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/42-token-budget-admission/42-01-token-budget-admission-PLAN.md",
+    ".planning/milestones/v1.9/phases/42-token-budget-admission/42-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/42-token-budget-admission/42-RESEARCH.md",
+    ".planning/milestones/v1.9/phases/42-token-budget-admission/42-VERIFICATION.md",
+    ".planning/milestones/v1.9/phases/42-token-budget-admission/reviews/42-REVIEW.md",
+    ".planning/milestones/v1.9/phases/43-phase-capsule-contract/43-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/44-legal-context-registry/44-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/45-context-packet-builder/45-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/46-sqlite-context-index/46-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/47-dispatch-routing-substitution/47-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/48-selective-vtp-bridge/48-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/49-memory-governance-lifecycle/49-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/50-cockpit-research-dashboard/50-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/51-context-stress-benchmark/51-CONTEXT.md",
+    ".planning/milestones/v1.9/phases/52-redis-live-cache-adapter/52-CONTEXT.md"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [
+      "Phase 41 R1-R5",
+      "Phase 45",
+      "Phase 47",
+      "Phase 47 ROUTE-02",
+      "Phase 50",
+      "Phase 51"
+    ],
+    "constraints": [
+      "```javascript",
+      "const {",
+      "  summarize, ROLES, PROVIDERS, STATUSES, BLOAT_THRESHOLDS, ledgerPath,",
+      "} = require(path.join(__dirname, '..', 'token-attribution', 'report.cjs'));",
+      "```",
+      "`BLOAT_THRESHOLDS.cache_read_ratio_high=0.9` and `useful_findings_low=15`",
+      "become Phase 42's bloat-signature gate verbatim (no copy). Phase 42 adds",
+      "NEW `BUDGETS` const for per-role input limits.",
+      "`summarize` produces aggregations for the verdict table. Per-call verdict",
+      "needs raw rows; Phase 41 doesn't export `_readRows` (private). Phase 42",
+      "**re-implements a private defensive-read mirror at ~20 lines** rather than",
+      "tempting Phase 41 to expose internals (cleaner boundary).",
+      "```typescript",
+      "interface RouteHint {",
+      "  from_role: 'researcher' | 'planner' | 'executor' | 'verifier'",
+      "           | 'reviewer' | 'orchestrator' | 'classifier' | 'other';",
+      "  from_provider: 'claude' | 'codex' | 'local-script' | 'vtp';",
+      "  to_provider_candidates: Array<'claude'|'codex'|'local-script'|'vtp'>;",
+      "  reason: 'researcher_local_script_candidate'",
+      "        | 'codex_reviewer_fallback_candidate'",
+      "        | 'executor_context_packet_candidate'",
+      "        | 'verifier_goal_backward_candidate'",
+      "        | 'orchestrator_turn_trim_candidate';",
+      "  evidence_event_id: string;  // agent-token-spend row's source_event_id",
+      "}",
+      "```",
+      "`reason` enum is verbatim Phase 41 R1-R5. Phase 47 ROUTE-02..05 binds each",
+      "reason to a routing action.",
+      "Cockpit panel \"Token Waste\" reads `token-waste-status.jsonl` and displays:",
+      "latest run verdict, totals (ok/warn/degraded/false_positive), top 3",
+      "`rules_tripped`, top 3 `route_hints`. No SQL/Redis required.",
+      "```markdown",
+      "| Verdict | Count | % |",
+      "|---------|------:|--:|",
+      "| ok | 4288 | 95.0% |",
+      "| warn | 100 | 2.2% |",
+      "| degraded | 50 | 1.1% |",
+      "| false_positive | 1 | 0.0% |"
+    ],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "133a1b2563cd1cd223faba0a8da616d052a05ad2",
+      "subject": "roadmap(v1.9): SLOT-CHANGE \u2014 promote SGSD-Research to v1.9, shift v2.0/v2.1 back",
+      "ts": "2026-04-27T17:23:17+01:00"
+    },
+    {
+      "sha": "9fe7ddacde078ec34040ef63f5694ff0f1b0f91f",
+      "subject": "plan(42-01): token budget admission \u2014 check.cjs + budgets.yaml + Step 4.7 wire",
+      "ts": "2026-04-27T19:08:41+01:00"
+    },
+    {
+      "sha": "6a70eb8814641d436983a798585c800048c75b56",
+      "subject": "docs(42): verification \u2014 token budget admission PASS",
+      "ts": "2026-04-27T19:25:58+01:00"
+    },
+    {
+      "sha": "6407e9da6d9c79e45f2a25ffe3031abbcbabb238",
+      "subject": "docs(42): close PHASE 42 PASS \u2014 REVIEW + STATE advance",
+      "ts": "2026-04-27T19:31:13+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.9/phases/42-token-budget-admission/42-CONTEXT.md",
+      "sha256": "524941762f120f1e8d181a1b130d528aab46ca87bcd9b389ba706bf2804c4be1"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.9/phases/42-token-budget-admission/42-RESEARCH.md",
+      "sha256": "f5abf0e266ddebf1efe412e5f3f9b8614db650342e9d3bc47104ec03c0b73e86"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.9/phases/42-token-budget-admission/42-01-token-budget-admission-PLAN.md",
+        "sha256": "a996fbba8f074656bf539f1d2bab182f3318d2c5fbfc1c3995eb5e078a29241b"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.9/phases/42-token-budget-admission/42-VERIFICATION.md",
+      "sha256": "f67d637bba0accf366f1f34d51460a156635cf5ac81c55e271bdc340682b8be7"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.9/phases/42-token-budget-admission/reviews/42-REVIEW.md",
+      "sha256": "5601e71a313e6b932190e596161084e336dffdd49a3527e28f4979caaef737f6"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "passed",
+      "ref": ".planning/milestones/v1.9/phases/42-token-budget-admission/42-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.9/phases/42-token-budget-admission/reviews/42-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": null,
+    "planner": null,
+    "executor": null,
+    "verifier": null,
+    "reviewer": null,
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 310414,
+      "evidence_event_id": "assistant:54c3e039-f409-4116-923d-6c0019bdc9ab:1d894b69-c849-4853-840f-c7e7fafbfd1e"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T19:40:54.642Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@26edd599ea94"
+}

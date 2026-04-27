@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.7",
+  "phase": "35",
+  "phase_name": "Generated System Map",
+  "status": "PASS",
+  "goal": "Deterministic catalog generator that consumes the SGSD registries",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.7/phases/35-generated-system-map/35-01-generated-system-map-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.7/phases/35-generated-system-map/35-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.7/phases/35-generated-system-map/35-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.7/phases/35-generated-system-map/35-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.7/phases/35-generated-system-map/35-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/ORCHESTRATOR-CHECKPOINT.md",
+    ".planning/STATE.md",
+    ".planning/SYSTEM-MAP.json",
+    ".planning/SYSTEM-MAP.md",
+    ".planning/metrics/review-ledger.jsonl",
+    ".planning/milestones/v1.7/SUMMARY.md",
+    ".planning/milestones/v1.7/phases/31-canonical-envelope/commit-reviews.jsonl",
+    ".planning/milestones/v1.7/phases/32-route-decision-ledger/commit-reviews.jsonl",
+    ".planning/milestones/v1.7/phases/33-repair-instruction/commit-reviews.jsonl",
+    ".planning/milestones/v1.7/phases/34-canonical-review-ledger/commit-reviews.jsonl",
+    ".planning/milestones/v1.7/phases/35-generated-system-map/35-01-generated-system-map-PLAN.md",
+    ".planning/milestones/v1.7/phases/35-generated-system-map/35-ATC-REVIEW.md",
+    ".planning/milestones/v1.7/phases/35-generated-system-map/35-CONTEXT.md",
+    ".planning/milestones/v1.7/phases/35-generated-system-map/35-RESEARCH.md",
+    ".planning/milestones/v1.7/phases/35-generated-system-map/35-VERIFICATION.md",
+    ".planning/milestones/v1.7/phases/35-generated-system-map/35-codex-review.md",
+    ".planning/milestones/v1.7/phases/35-generated-system-map/codex-review-prompt.txt",
+    ".planning/milestones/v1.7/phases/35-generated-system-map/commit-reviews.jsonl",
+    "super-gsd/tools/system-map/generate.cjs"
+  ],
+  "decisions": [
+    {
+      "id": "35-locked",
+      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.7\\phases\\35-generated-system-map\\35-CONTEXT.md:locked-decision",
+      "text": "\n**Registries + frontmatter only** -- NO dependency graph in v1.7.\nPhase 35 is a CATALOG generator, not a topology analyzer. The\ndeferral preserves scope; a graph could be a v1.8+ phase if needed.\n"
+    }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "dca2cc6e24fbc0d4190d1b4233c6a935cb1f7478",
+      "subject": "research(35): generated system map \u2014 registries+frontmatter catalog",
+      "ts": "2026-04-27T11:40:49+01:00"
+    },
+    {
+      "sha": "536d3e6881ec61fe889932ca344bec3e288d075f",
+      "subject": "context(35): generated system map \u2014 35=B locked, single PLAN scope",
+      "ts": "2026-04-27T11:41:59+01:00"
+    },
+    {
+      "sha": "bc706919ebe4f999af489cff7c1e7322e8e6c1a5",
+      "subject": "plan(35-01): generated system map \u2014 650-LOC generator + ARCHITECTURE deprecation",
+      "ts": "2026-04-27T11:51:02+01:00"
+    },
+    {
+      "sha": "5690c38f1597d459541b94f73186205ccc7c26b9",
+      "subject": "fix(35): clear dual-provider phase ATC findings \u2014 5 in-loop, 1 info, 1 out-of-scope",
+      "ts": "2026-04-27T12:16:34+01:00"
+    },
+    {
+      "sha": "108eec11f0e9db7c307ea70de29c60e1391e5e1d",
+      "subject": "milestone-close(v1.7): SHIPPED \u2014 Stable Command Contracts + Route Intelligence",
+      "ts": "2026-04-27T12:22:30+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.7/phases/35-generated-system-map/35-CONTEXT.md",
+      "sha256": "acf4c8fcf6dcf41755e025a5502c05aeab52dca5df8c02fb8ca17734a526c3d0"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.7/phases/35-generated-system-map/35-RESEARCH.md",
+      "sha256": "4d06a3fa7d667673a1378c0f8b583350dece7d101ec9a961ab3f7620e97a1fe5"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.7/phases/35-generated-system-map/35-01-generated-system-map-PLAN.md",
+        "sha256": "b01ddbfd2cee67b799ab44821601208c8fb76d8f7ebbe85215baf74bd28ddfdf"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.7/phases/35-generated-system-map/35-VERIFICATION.md",
+      "sha256": "be00ac12ab490bb9546cddc1c484b45165e4d0710ee69170f1aeda80af228375"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.7/phases/35-generated-system-map/35-ATC-REVIEW.md",
+      "sha256": "ac614e7d649278b84e804ba5ff07ced677450664f8862a10e86781a670dfd735"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS",
+      "ref": ".planning/milestones/v1.7/phases/35-generated-system-map/35-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.7/phases/35-generated-system-map/35-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-04-27T11:03:28Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": {
+      "run_id": "2026-04-27T11:19:55.690Z-4970",
+      "verdict": "warn"
+    }
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 180084,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:af779c8c6b5240f3b"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 140853,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:ac03125898e0a5f1a"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 106421,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a54d01e4c724d86a6"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 49733,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:aba92feeda3972b77"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 67770,
+      "evidence_event_id": "assistant:e1da747a-5082-402e-a511-1cb8e0ab195d:c278b587-5fd7-429d-ba2c-27a3c318d8c3"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T19:40:45.716Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@26edd599ea94"
+}

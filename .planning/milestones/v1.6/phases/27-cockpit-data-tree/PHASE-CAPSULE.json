@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.6",
+  "phase": "27",
+  "phase_name": "Cockpit Data Tree",
+  "status": "PASS-WITH-DEFERRED-N",
+  "goal": "Prove every Q1\u2013Q8 lane resolves to existing telemetry. Confirm DISCUSS 27.1",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-01-cockpit-data-contract-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/CRIT-BACKLOG.md",
+    ".planning/STATE.md",
+    ".planning/metrics/audit-log.jsonl",
+    ".planning/metrics/codex-log.jsonl",
+    ".planning/metrics/crit-backlog.jsonl",
+    ".planning/milestones/v1.6/SUMMARY.md",
+    ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/26-cockpit-question-contract/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-01-cockpit-data-contract-PLAN.md",
+    ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-ATC-REVIEW.md",
+    ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-CONTEXT.md",
+    ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-RESEARCH.md",
+    ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/27-cockpit-data-tree/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/28-mission-control-layout/28-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/28-mission-control-layout/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/29-agent-codex-lanes/29-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/29-agent-codex-lanes/commit-reviews.jsonl",
+    ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-VERIFICATION.md",
+    ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/commit-reviews.jsonl",
+    "super-gsd/scripts/codex-exec.sh",
+    "super-gsd/scripts/lib/crit-backlog.cjs",
+    "super-gsd/tools/backlog-schema/check.cjs",
+    "super-gsd/tools/codex-rerun/rerun-missing-reviews.cjs",
+    "super-gsd/tools/provider-health/check.cjs"
+  ],
+  "decisions": [
+    {
+      "id": "MD-27.1",
+      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\discussions\\2026-04-26-mass-discuss.md:row-27.1",
+      "text": "| 27.1 `cockpit-state.json` | NO. Cockpit derives state from existing 13 metric streams every refresh. |"
+    }
+  ],
+  "debt": {
+    "critical_added": 1,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 1,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [
+      "Phase 28",
+      "Phase 29"
+    ],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [
+    {
+      "stream": "crit-backlog.jsonl",
+      "id": "2026-04-26T23-44-25-933Z-93f4",
+      "kind": "verifier_fail",
+      "summary_passthrough": "live Codex auth unavailable; fallback used (codex-exec.sh exit 11)",
+      "evidence_path": ".planning/milestones/v1.6/MILESTONE-READINESS.md",
+      "tagged_for_milestone": "next-debt-milestone"
+    }
+  ],
+  "source_commits": [
+    {
+      "sha": "d560055c0061e95e6f7a5d85ce80a42a70b84068",
+      "subject": "feat(27): research + context + plan \u2014 data source matrix + stamper spec",
+      "ts": "2026-04-27T00:35:40+01:00"
+    },
+    {
+      "sha": "7c3b1cc290b6bea8703c2f4cad3e91002bb868c1",
+      "subject": "phase-close(27): PASS-WITH-DEFERRED-1 \u2014 data source matrix + stamper spec",
+      "ts": "2026-04-27T00:46:19+01:00"
+    },
+    {
+      "sha": "21ecbba472b1eed0c985cc2afdec84a3d77c444e",
+      "subject": "feat(infra): behavioral provider-health probe + backlog v1 schema + Codex rerun",
+      "ts": "2026-04-27T07:00:42+01:00"
+    },
+    {
+      "sha": "7e19c2af6aae57d012e9f9e511a267f41787863c",
+      "subject": "chore(v1.6): post-Codex-rerun status correction \u2014 SHIPPED-WITH-DEBT-10",
+      "ts": "2026-04-27T07:13:16+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-CONTEXT.md",
+      "sha256": "9ab3f462eba8863e784bf8532ae310b997b108f7bcc33e483a1cb99558f9d1e2"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-RESEARCH.md",
+      "sha256": "143cdf6ff49ab8951a2d109911b844899ef4f7e48e685871a374ef2ece39afe6"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-01-cockpit-data-contract-PLAN.md",
+        "sha256": "82cdb7ca8857718514099868adfcc8c8355f07b28b6c1864321f235c4d956688"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-VERIFICATION.md",
+      "sha256": "bb031c8c161126a5c67f4934c74448a93b6dbc8ec144af61814734bc30e19329"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-ATC-REVIEW.md",
+      "sha256": "0d168551f13a55df03aa19022ecf53fb51e7d471f99053371ffd5424f19a5602"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS",
+      "ref": ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.6/phases/27-cockpit-data-tree/27-ATC-REVIEW.md",
+      "verdict": "warn",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 98496,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a764814e3da4ec1ec"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 126018,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a914213d0d1afd7c0"
+    },
+    "executor": null,
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 45240,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:ab38ce39f677ef3d8"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 67723,
+      "evidence_event_id": "assistant:155f3fdf-cb05-4c15-b20d-891a32d74ae0:dffb4cc5-a962-48d6-b037-bf96da24bef9"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T19:40:32.860Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@26edd599ea94"
+}

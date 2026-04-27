@@ -475,12 +475,15 @@ function _gatherBypassRefs(milestone, phase, planningDir) {
 }
 
 // 4.6 _gatherSourceCommits(phaseDir, gitRoot) -> GitCommit[]
+// Uses execFileSync (no shell) so format-string % escapes survive on Windows
+// cmd.exe and POSIX sh identically. RESEARCH sec 8.2 verbatim.
 function _gatherSourceCommits(phaseDir, gitRoot) {
   try {
     if (!phaseDir || !fs.existsSync(phaseDir)) return [];
     const cwd = gitRoot || process.cwd();
-    const out = child_process.execSync(
-      'git log --pretty=format:%H||%s||%cI --reverse -- "' + phaseDir.replace(/"/g, '\\"') + '"',
+    const out = child_process.execFileSync(
+      'git',
+      ['log', '--pretty=format:%H||%s||%cI', '--reverse', '--', phaseDir],
       { cwd: cwd, encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'pipe'] }
     );
     const lines = String(out || '').split(/\r?\n/).filter(Boolean);
@@ -588,10 +591,10 @@ function _gatherGates(milestone, phase, planningDir, verificationPath, atcReview
     const fm = /^---\r?\n([\s\S]*?)\r?\n---/m.exec(vt);
     let verdict = null;
     if (fm) {
-      const sm = /^status:\s*([A-Z][A-Z0-9_-]*)/m.exec(fm[1]);
+      const sm = /^status:\s*([A-Za-z][A-Za-z0-9_-]*)/m.exec(fm[1]);
       if (sm) verdict = sm[1];
       if (!verdict) {
-        const vm = /^verdict:\s*([A-Z][A-Z0-9_-]*)/m.exec(fm[1]);
+        const vm = /^verdict:\s*([A-Za-z][A-Za-z0-9_-]*)/m.exec(fm[1]);
         if (vm) verdict = vm[1];
       }
     } else {
@@ -736,14 +739,14 @@ function _deriveStatus(verificationPath, debt) {
   }
   if (!st) return 'UNKNOWN';
   const up = st.toUpperCase();
-  if (up === 'PASS') {
+  if (up === 'PASS' || up === 'PASSED') {
     if (debt && debt.deferred_added > 0) {
       return 'PASS-WITH-DEFERRED-N';
     }
     return 'PASS';
   }
   if (up.indexOf('PASS-WITH-DEFERRED') === 0) return 'PASS-WITH-DEFERRED-N';
-  if (up === 'FAIL') return 'FAIL';
+  if (up === 'FAIL' || up === 'FAILED') return 'FAIL';
   if (up === 'IN_PROGRESS' || up === 'IN-PROGRESS') return 'IN_PROGRESS';
   return 'UNKNOWN';
 }
@@ -983,6 +986,28 @@ function _capsulePathFromPhaseDir(phaseDir) {
   return path.join(phaseDir, 'PHASE-CAPSULE.json');
 }
 
+// _jsonStringifyAscii: serialize and escape every codepoint > 127 to \uXXXX.
+// Required because canonical phase-folder content (CONTEXT.md, RESEARCH.md,
+// mass-discuss.md) frequently contains unicode (em-dash, smart quotes, etc.)
+// that gets copied verbatim into decisions[].text / goal / constraints[].
+// Plan dead-end #11: written PHASE-CAPSULE.json + PHASE-INDEX.jsonl MUST be
+// ASCII-only. JSON.parse round-trips byte-identical against \uXXXX escapes
+// (string identity preserved); only the on-disk byte representation differs.
+function _jsonStringifyAscii(value, indent) {
+  const raw = (indent != null) ? JSON.stringify(value, null, indent) : JSON.stringify(value);
+  if (raw == null) return raw;
+  let out = '';
+  for (let i = 0; i < raw.length; i++) {
+    const code = raw.charCodeAt(i);
+    if (code > 127) {
+      out += '\\u' + ('0000' + code.toString(16)).slice(-4);
+    } else {
+      out += raw.charAt(i);
+    }
+  }
+  return out;
+}
+
 function _writeCapsuleInternal(planningDir, capsuleObj, opts) {
   if (!planningDir) throw new Error('phase-capsule writeCapsule: planningDir required');
   if (!opts || !opts.phaseDir) throw new Error('phase-capsule writeCapsule: phaseDir required');
@@ -991,7 +1016,7 @@ function _writeCapsuleInternal(planningDir, capsuleObj, opts) {
   const dir = path.dirname(targetPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const tmp = targetPath + '.tmp.' + process.pid + '.' + crypto.randomBytes(2).toString('hex');
-  const json = JSON.stringify(capsuleObj, null, 2) + '\n';
+  const json = _jsonStringifyAscii(capsuleObj, 2) + '\n';
   fs.writeFileSync(tmp, json, { encoding: 'utf8' });
   fs.renameSync(tmp, targetPath);
   return {
@@ -1023,14 +1048,14 @@ function _appendOrReplaceIndexRow(planningDir, milestone, phase, row) {
     if (!parsed) continue;
     if (parsed.milestone === milestone && String(parsed.phase) === String(phase)) {
       if (!replaced) {
-        out.push(JSON.stringify(row));
+        out.push(_jsonStringifyAscii(row));
         replaced = true;
       }
       continue;
     }
-    out.push(JSON.stringify(parsed));
+    out.push(_jsonStringifyAscii(parsed));
   }
-  if (!replaced) out.push(JSON.stringify(row));
+  if (!replaced) out.push(_jsonStringifyAscii(row));
   // Sort by phase ascending for determinism.
   out.sort(function (a, b) {
     let pa, pb;
@@ -1068,7 +1093,7 @@ function _logComplaint(planningDir, reason, details) {
       duration_ms: null,
       details: details || {},
     };
-    fs.appendFileSync(p, JSON.stringify(row) + '\n', 'utf8');
+    fs.appendFileSync(p, _jsonStringifyAscii(row) + '\n', 'utf8');
   } catch (_e) { /* swallow */ }
 }
 
@@ -1241,13 +1266,15 @@ function writeCapsule(planningDir, opts) {
     }
 
     // files[]: from source_commits using `git show --stat` (best-effort).
+    // Uses execFileSync to bypass shell interpretation of %.
     let files = [];
     try {
       const seen = new Set();
       for (const c of source_commits) {
         try {
-          const out = child_process.execSync(
-            'git show --stat --pretty=format: --name-only ' + c.sha,
+          const out = child_process.execFileSync(
+            'git',
+            ['show', '--pretty=format:', '--name-only', c.sha],
             { cwd: process.cwd(), encoding: 'utf8', timeout: 4000, stdio: ['ignore', 'pipe', 'pipe'] }
           );
           const names = String(out).split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);

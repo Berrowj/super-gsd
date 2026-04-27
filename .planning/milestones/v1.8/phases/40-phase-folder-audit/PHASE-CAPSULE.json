@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.8",
+  "phase": "40",
+  "phase_name": "Phase Folder Audit",
+  "status": "PASS",
+  "goal": "Soft-warn auditor walking all `.planning/milestones/*/phases/*/`. Each",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-01-phase-folder-audit-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/ORCHESTRATOR-CHECKPOINT.md",
+    ".planning/STATE.md",
+    ".planning/metrics/review-ledger.jsonl",
+    ".planning/milestones/v1.8/SUMMARY.md",
+    ".planning/milestones/v1.8/gate-keep-kill.md",
+    ".planning/milestones/v1.8/phase-folder-audit.md",
+    ".planning/milestones/v1.8/phases/36-gate-value-telemetry/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/39-gate-keep-kill/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-01-phase-folder-audit-PLAN.md",
+    ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-ATC-REVIEW.md",
+    ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-CONTEXT.md",
+    ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-RESEARCH.md",
+    ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-VERIFICATION.md",
+    ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-codex-review.md",
+    ".planning/milestones/v1.8/phases/40-phase-folder-audit/codex-review-prompt.txt",
+    ".planning/milestones/v1.8/phases/40-phase-folder-audit/commit-reviews.jsonl",
+    "super-gsd/skills/sgsd-complete-milestone/SKILL.md",
+    "super-gsd/tools/phase-folder-audit/audit.cjs"
+  ],
+  "decisions": [
+    {
+      "id": "40-locked",
+      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.8\\phases\\40-phase-folder-audit\\40-CONTEXT.md:locked-decision",
+      "text": "\nSoft-warn auditor only. NO folder modification. NO blocking. Operator\ndiscretion on remediation.\n"
+    }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "f3560ac0245dedba3a9e3c6adf20b7e6ac1cdf3a",
+      "subject": "research(40): phase folder audit \u2014 4 required + 4 recommended canonical skeleton",
+      "ts": "2026-04-27T16:04:56+01:00"
+    },
+    {
+      "sha": "6b14536fb6635e0746fdbdd61ca945b6cc3569d7",
+      "subject": "context(40): phase folder audit \u2014 40=B locked, 3-deliverable scope (final v1.8)",
+      "ts": "2026-04-27T16:05:45+01:00"
+    },
+    {
+      "sha": "89f7b8737d7d89fdac30017fd5f41883ff34ecf3",
+      "subject": "plan(40-01): phase folder audit \u2014 final v1.8 phase, 3 atomic deliverables",
+      "ts": "2026-04-27T16:12:53+01:00"
+    },
+    {
+      "sha": "3747a63ffb91c2b1eb6a136b019ce0d417338fbe",
+      "subject": "fix(40): clear dual-provider phase ATC findings \u2014 2 CRIT + 4 WARN in-loop",
+      "ts": "2026-04-27T16:33:07+01:00"
+    },
+    {
+      "sha": "a3d9dd6454e26191a04695574cfc56b1c94c2e99",
+      "subject": "milestone-close(v1.8): SHIPPED \u2014 Gate Fitness + MUDA Pruning",
+      "ts": "2026-04-27T16:37:34+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-CONTEXT.md",
+      "sha256": "76a5c279b8d7c8d1dabe4ad2c18a263eb7b3f45bb037c4a5e04d142eac4fb9ca"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-RESEARCH.md",
+      "sha256": "ceab8982d44d6e0eef55a17cb5d03737784a0b2f37e2a60cb0130194e9fad163"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-01-phase-folder-audit-PLAN.md",
+        "sha256": "c26101e3806b2a28bfe4fe7caec71baf8a8e1b7ff6b61fe3c17b2bc9ace14a4b"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-VERIFICATION.md",
+      "sha256": "2fc0116f9399b43234587348cf26d28042ab986e14c1899fdffc7be2673510d7"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-ATC-REVIEW.md",
+      "sha256": "2d62192d19a5a7208d6034c2d10ce52b5b458a3532ab05eb789d4f4f4fc8f999"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS",
+      "ref": ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-04-27T15:23:31Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": {
+      "run_id": "2026-04-27T15:34:49.265Z-2e11",
+      "verdict": "warn"
+    }
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 122437,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:ac46a94773f0c0fd0"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 110598,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a1c0a5c2a4044ad63"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 118248,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a527914cc0a852de2"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 33361,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a7ce4b18ac7985a23"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 833025,
+      "evidence_event_id": "assistant:54c3e039-f409-4116-923d-6c0019bdc9ab:9fdc150d-c45d-4572-a2d0-cd1c1fa7c7d9"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T19:40:52.717Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@26edd599ea94"
+}

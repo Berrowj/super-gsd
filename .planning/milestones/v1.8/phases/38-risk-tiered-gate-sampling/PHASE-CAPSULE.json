@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "milestone": "v1.8",
+  "phase": "38",
+  "phase_name": "Risk Tiered Gate Sampling",
+  "status": "PASS",
+  "goal": "Gate \u00d7 work-risk intersection layer. 3x3 MATRIX (gate_sampling_tier \u00d7",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/38-01-risk-tiered-gate-sampling-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/38-ATC-REVIEW.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/38-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/38-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/38-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/ORCHESTRATOR-CHECKPOINT.md",
+    ".planning/STATE.md",
+    ".planning/metrics/review-ledger.jsonl",
+    ".planning/milestones/v1.8/SUMMARY.md",
+    ".planning/milestones/v1.8/gate-keep-kill.md",
+    ".planning/milestones/v1.8/phase-folder-audit.md",
+    ".planning/milestones/v1.8/phases/36-gate-value-telemetry/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/38-01-risk-tiered-gate-sampling-PLAN.md",
+    ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/38-ATC-REVIEW.md",
+    ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/38-CONTEXT.md",
+    ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/38-RESEARCH.md",
+    ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/38-VERIFICATION.md",
+    ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/38-codex-review.md",
+    ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/codex-review-prompt.txt",
+    ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/39-gate-keep-kill/commit-reviews.jsonl",
+    ".planning/milestones/v1.8/phases/40-phase-folder-audit/commit-reviews.jsonl",
+    "super-gsd/scripts/lib/sampling-decider.cjs",
+    "super-gsd/scripts/lib/sampling-decider.test.cjs",
+    "super-gsd/skills/sgsd-orchestrate/SKILL.md"
+  ],
+  "decisions": [
+    {
+      "id": "MD-38.1",
+      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\discussions\\2026-04-26-mass-discuss.md:row-38.1",
+      "text": "| 38.1 Work risk tiers | 3 tiers: `low`, `medium`, `high` |"
+    },
+    {
+      "id": "MD-38.3",
+      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\discussions\\2026-04-26-mass-discuss.md:row-38.3",
+      "text": "| 38.3 Sampling matrix | Gate \u00d7 work_risk: `always` fires regardless; `sampled-rate-50` fires {0%, 50%, 100%} on {low, med, high}; `low-risk-skip` fires {0%, 100%, 100%}. |"
+    },
+    {
+      "id": "MD-38.4",
+      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\discussions\\2026-04-26-mass-discuss.md:row-38.4",
+      "text": "| 38.4 Default for unspecified gates | `always` |"
+    },
+    {
+      "id": "38-locked",
+      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.8\\phases\\38-risk-tiered-gate-sampling\\38-CONTEXT.md:locked-decision",
+      "text": "\nVerbatim from `.planning/discussions/2026-04-26-mass-discuss.md:181-187`:\n- 38.1: 3 work-risk tiers (low/medium/high)\n- 38.2: 4 primary classifier inputs (diff_lines, files_touched_count,\n  phase_type, phase_includes_security_review)\n- 38.3: 1 secondary classifier input (gate_fitness_history; reads Phase 36)\n- 38.4: 13 gates each get gate_sampling_tier in {always, sampled-rate-50,\n  low-risk-skip}\n- 38.5: --force-gates X requires --override-reason \"...\"; logged to\n  route-decisions.jsonl with boundary=gate_override\n"
+    }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": [
+      "Phase 39"
+    ],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "505e10951b114b3c745d15c3d3b0d2d9da3290e4",
+      "subject": "research(38): risk-tiered gate sampling \u2014 3x3 matrix + BOUNDARIES extension",
+      "ts": "2026-04-27T14:27:36+01:00"
+    },
+    {
+      "sha": "678008ffa8fffa687d4e478f1ea10cfd2985af34",
+      "subject": "context(38): risk-tiered gate sampling \u2014 38.1-38.5 locked, 8-deliverable scope",
+      "ts": "2026-04-27T14:28:33+01:00"
+    },
+    {
+      "sha": "9689c56534207df20dce42e91885bac4985f9d50",
+      "subject": "plan(38-01): risk-tiered gate sampling \u2014 8 deliverables, 6 atomic commits",
+      "ts": "2026-04-27T14:37:34+01:00"
+    },
+    {
+      "sha": "f265d643fe93814e690e0d7548b6bc223ac00b53",
+      "subject": "fix(38): clear dual-provider phase ATC findings \u2014 3 CRIT + 5 WARN in-loop",
+      "ts": "2026-04-27T15:07:07+01:00"
+    },
+    {
+      "sha": "a3d9dd6454e26191a04695574cfc56b1c94c2e99",
+      "subject": "milestone-close(v1.8): SHIPPED \u2014 Gate Fitness + MUDA Pruning",
+      "ts": "2026-04-27T16:37:34+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/38-CONTEXT.md",
+      "sha256": "d0520f71a9d5db8b81e09fe6146e6572d2bded24c56a19e492151d6eb39c4029"
+    },
+    "research": {
+      "path": ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/38-RESEARCH.md",
+      "sha256": "aef785e20645ff0c569388369debdf2bf7f1d343eee84c27df0da3d828562809"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/38-01-risk-tiered-gate-sampling-PLAN.md",
+        "sha256": "dba77eeef4551ddb6af782f1fcbffe9188334da8f9f35452ce03c635c1a41a21"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/38-VERIFICATION.md",
+      "sha256": "6dce4f88b5d71f878e3f6e7f4a57e8e62edcf2a254a3edd72b4a2eec280f6675"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/38-ATC-REVIEW.md",
+      "sha256": "be0f00798e7f58fbb52fd8d1a9ce6d5e8892765c1e30561111a1beb57843bc3d"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS",
+      "ref": ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/38-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/38-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-04-27T13:55:53Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": {
+      "run_id": "2026-04-27T15:34:49.265Z-2617",
+      "verdict": "warn"
+    }
+  },
+  "token_cost": {
+    "researcher": {
+      "role": "researcher",
+      "total_tokens": 214031,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a35afbd0fe0155a99"
+    },
+    "planner": {
+      "role": "planner",
+      "total_tokens": 131009,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a274ee818607c2e74"
+    },
+    "executor": {
+      "role": "executor",
+      "total_tokens": 177002,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:ae3b8de010b5a9930"
+    },
+    "verifier": null,
+    "reviewer": {
+      "role": "reviewer",
+      "total_tokens": 54740,
+      "evidence_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a3c86f21e0093f39b"
+    },
+    "orchestrator": {
+      "role": "orchestrator",
+      "total_tokens": 67467,
+      "evidence_event_id": "assistant:1e7c5b16-5209-40ed-926d-c5b7a0229651:78d6bbfb-0dd7-45cb-9a9c-ccb2b866c0c5"
+    },
+    "classifier": null,
+    "other": null
+  },
+  "created_at": "2026-04-27T19:40:50.059Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@26edd599ea94"
+}
