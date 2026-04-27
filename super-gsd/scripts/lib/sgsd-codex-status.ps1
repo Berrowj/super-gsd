@@ -102,6 +102,9 @@ function Get-SgsdCodexStatus {
                 if (-not $out.currentPhase -and $line -match '^(?:current_phase|phase):\s*"?([0-9]+)"?') {
                     $out.currentPhase = $matches[1]
                 }
+                if (-not $out.currentPhase -and $line -match '^status:\s*.*\bNext:\s*Phase\s+([0-9]+)\b') {
+                    $out.currentPhase = $matches[1]
+                }
                 if (-not $out.currentPhase -and $line -match '^status:\s*.*\bPhase\s+([0-9]+)\b') {
                     $out.currentPhase = $matches[1]
                 }

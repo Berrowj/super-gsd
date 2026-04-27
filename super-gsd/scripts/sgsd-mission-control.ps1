@@ -625,6 +625,9 @@ function Get-StateInfo {
     if (-not $currentPhase) {
         $currentPhase = Get-Frontmatter $stateFile "phase"
     }
+    if (-not $currentPhase -and $status -match '(?i)\bNext:\s*Phase\s+([0-9]+)\b') {
+        $currentPhase = $matches[1]
+    }
     if (-not $currentPhase -and $status -match '\bPhase\s+([0-9]+)\b') {
         $currentPhase = $matches[1]
     }
@@ -1061,12 +1064,105 @@ function Write-Header($text) {
     Write-Row ("--- " + $text + " ").PadRight((Get-PaneWidth), '-') "DarkGray"
 }
 
+function Get-PhaseGoalBrief {
+    param([string]$PhaseNum)
+    if (-not $PhaseNum) { return "" }
+    $path = Join-Path $PlanningDir "ROADMAP-AGENT.md"
+    if (-not (Test-Path $path)) { return "" }
+    try {
+        $raw = Get-Content $path -Raw -ErrorAction SilentlyContinue
+        $section = [regex]::Match($raw, "(?ms)^###\s*Phase\s+$([regex]::Escape($PhaseNum))\b.*?\r?\n(.*?)(?=^###\s*Phase\s+|\z)")
+        if (-not $section.Success) { return "" }
+        $goal = [regex]::Match($section.Groups[1].Value, '(?ims)^\s*(?:\*\*)?Goal(?:\*\*)?:\s*(.+?)(?=\r?\n\*\*|\r?\n\s*-\s|\r?\n###|\z)')
+        if ($goal.Success) {
+            return (($goal.Groups[1].Value -replace '\s+', ' ') -replace '\*\*', '').Trim()
+        }
+    } catch {}
+    return ""
+}
+
+function Get-PhaseEvidenceSummary {
+    param($PhaseDir, [string]$PhaseNum)
+    $checks = @(
+        @{ key="R"; label="research"; pattern="$PhaseNum-RESEARCH.md" },
+        @{ key="C"; label="context";  pattern="$PhaseNum-CONTEXT.md" },
+        @{ key="P"; label="plan";     pattern="*-PLAN.md" },
+        @{ key="V"; label="verify";   pattern="$PhaseNum-VERIFICATION.md" },
+        @{ key="A"; label="atc";      pattern="$PhaseNum-ATC-REVIEW.md" },
+        @{ key="X"; label="codex";    pattern="commit-reviews.jsonl" }
+    )
+    if (-not $PhaseDir) {
+        return [pscustomobject]@{ bits=""; done=0; total=$checks.Count; missing=($checks | ForEach-Object { $_.label }) }
+    }
+    $bits = @()
+    $missing = @()
+    $done = 0
+    foreach ($c in $checks) {
+        $hit = @(Get-ChildItem -Path $PhaseDir.FullName -Filter $c.pattern -File -ErrorAction SilentlyContinue | Select-Object -First 1).Count -gt 0
+        if ($hit) {
+            $done++
+            $bits += "$($c.key)#"
+        } else {
+            $missing += $c.label
+            $bits += "$($c.key)."
+        }
+    }
+    return [pscustomobject]@{ bits=($bits -join " "); done=$done; total=$checks.Count; missing=$missing }
+}
+
+function Get-BacklogSummary {
+    param([string]$Milestone, [string]$PhaseNum)
+    $path = Join-Path $PlanningDir "metrics\crit-backlog.jsonl"
+    $out = [ordered]@{ milestone=0; phase=0; edge=0; text="" }
+    if (-not (Test-Path $path)) { return [pscustomobject]$out }
+    try {
+        foreach ($line in (Get-Content $path -ErrorAction SilentlyContinue)) {
+            if (-not "$line".Trim()) { continue }
+            try {
+                $r = $line | ConvertFrom-Json -ErrorAction Stop
+                if ("$($r.kind)" -eq "cleared" -or $r.resolved_at) { continue }
+                if ($Milestone -and "$($r.milestone)" -eq $Milestone) { $out.milestone++ }
+                if ($PhaseNum -and "$($r.phase)" -eq $PhaseNum) { $out.phase++ }
+                if ("$($r.kind)" -eq "edge_guard_miss") { $out.edge++ }
+            } catch {}
+        }
+        $out.text = "phase debt $($out.phase) / milestone debt $($out.milestone) / edge $($out.edge)"
+    } catch {}
+    return [pscustomobject]$out
+}
+
+function Get-NarrativeBrief {
+    $path = Join-Path $PlanningDir "metrics\narrative.md"
+    if (-not (Test-Path $path)) { return @() }
+    try {
+        $lines = @(Get-Content $path -Tail 12 -ErrorAction SilentlyContinue | Where-Object { "$_".Trim() })
+        $items = @()
+        foreach ($line in $lines) {
+            $clean = ("$line" -replace '^\s*[-|>]\s*', '').Trim()
+            if ($clean) { $items += $clean }
+        }
+        return @($items | Select-Object -First 4)
+    } catch {}
+    return @()
+}
+
+function Get-PhaseMapText {
+    param([object[]]$Phases, [string]$CurrentNum)
+    $parts = @()
+    foreach ($p in $Phases) {
+        $mark = if ($p.num -eq $CurrentNum) { ">" } elseif ($p.done) { "#" } else { "." }
+        $parts += ("{0}P{1}" -f $mark, $p.num)
+    }
+    return $parts -join " "
+}
+
 function Render-CompactMissionControl {
     param(
         $State,
         [object[]]$Phases,
         [string]$CurrentNum,
-        $ActivePhase
+        $ActivePhase,
+        $ActiveDir
     )
 
     $pw = Get-PaneWidth
@@ -1081,14 +1177,20 @@ function Render-CompactMissionControl {
     }
     $ordinal = if ($idx -ge 0) { $idx + 1 } else { "?" }
     $phaseName = if ($ActivePhase) { $ActivePhase.name } else { "unknown phase" }
+    $goal = Get-PhaseGoalBrief $CurrentNum
+    $evidence = Get-PhaseEvidenceSummary -PhaseDir $ActiveDir -PhaseNum $CurrentNum
+    $backlog = Get-BacklogSummary -Milestone $ms -PhaseNum $CurrentNum
+    $phaseMap = Get-PhaseMapText -Phases $Phases -CurrentNum $CurrentNum
 
     Write-Row ("MISSION {0}  P{1} ({2}/{3})  {4}" -f $ms, $(if ($CurrentNum) { $CurrentNum } else { "?" }), $ordinal, $(if ($total -gt 0) { $total } else { "?" }), (Trunc $phaseName ([Math]::Max(10, $pw - 34)))) "Yellow"
     if ($msName) { Write-Row ("MILESTONE " + (Trunc $msName ([Math]::Max(10, $pw - 10)))) "White" }
     Write-Row ("PROGRESS [{0}] {1}/{2} phases done" -f (Make-Bar $pct 14), $done, $total) "Green"
+    if ($phaseMap) { Write-Row ("PHASE MAP " + (Trunc $phaseMap ([Math]::Max(10, $pw - 10)))) "Cyan" }
 
     $nextPhase = $null
     if ($idx -ge 0 -and $idx -lt ($Phases.Count - 1)) { $nextPhase = $Phases[$idx + 1] }
     Write-Row ("CURRENT  P{0}  {1}" -f $(if ($CurrentNum) { $CurrentNum } else { "?" }), (Trunc $phaseName ([Math]::Max(10, $pw - 14)))) "Yellow"
+    if ($goal) { Write-Row ("GOAL     " + (Trunc $goal ([Math]::Max(10, $pw - 9)))) "White" }
     if ($nextPhase) {
         Write-Row ("NEXT     P{0}  {1}" -f $nextPhase.num, (Trunc $nextPhase.name ([Math]::Max(10, $pw - 14)))) "Gray"
     }
@@ -1101,6 +1203,12 @@ function Render-CompactMissionControl {
     } else {
         Write-Row "TO CLOSE run milestone close gate" "Cyan"
     }
+
+    Write-Row ("EVIDENCE [{0}] {1}/{2} artifacts" -f $evidence.bits, $evidence.done, $evidence.total) $(if ($evidence.done -eq $evidence.total) { "Green" } elseif ($evidence.done -gt 0) { "Yellow" } else { "DarkGray" })
+    if ($evidence.missing.Count -gt 0) {
+        Write-Row ("MISSING  " + (Trunc ($evidence.missing -join ", ") ([Math]::Max(10, $pw - 9)))) "DarkGray"
+    }
+    Write-Row ("DEBT     {0}" -f $backlog.text) $(if ($backlog.edge -gt 0) { "Red" } elseif ($backlog.phase -gt 0) { "Yellow" } else { "Green" })
 
     $rd = Get-ReadinessInfo $State.milestone
     if ($rd) {
@@ -1121,6 +1229,16 @@ function Render-CompactMissionControl {
         Get-SgsdCodexStatusLine -Status $codex
     }
     Write-Row ("CODEX " + (Trunc $codexText ([Math]::Max(10, $pw - 6)))) $codex.stateColor
+
+    $verdicts = @(Get-SgsdCodexVerdicts -PlanningDir $PlanningDir -MaxRows 2 -MilestoneFilter $ms -PhaseFilter $CurrentNum)
+    if ($verdicts.Count -gt 0) {
+        foreach ($v in $verdicts) {
+            $vc = if ([int]$v.critical -gt 0) { "Red" } elseif ([int]$v.warning -gt 0) { "Yellow" } else { "Green" }
+            Write-Row ("  review {0} c={1} w={2}  {3}" -f $v.plan, $v.critical, $v.warning, (Trunc $v.one_liner ([Math]::Max(10, $pw - 26)))) $vc
+        }
+    } else {
+        Write-Row "  review no current-phase verdict yet" "DarkGray"
+    }
 
     $hb = Get-Heartbeat
     $hbColor = switch ($hb.state) { "RUNNING" {"Green"} "SLOW" {"Yellow"} "HUNG" {"Red"} "EMPTY_RESULT" {"Red"} default {"DarkGray"} }
@@ -1146,6 +1264,14 @@ function Render-CompactMissionControl {
     Write-Row ("AGENTS {0} active  {1} idle  {2} recent" -f $active, $idle, $recent) "White"
     foreach ($a in @($roster | Select-Object -First 3)) {
         Write-Row ("  {0,-8} {1}  {2}" -f $a.name, (Format-Age $a.ageSec), (Trunc $a.target ([Math]::Max(10, $pw - 20)))) $(if ($a.status -eq "ACTIVE") { "Green" } elseif ($a.status -eq "IDLE") { "Yellow" } else { "Cyan" })
+    }
+
+    $narrative = @(Get-NarrativeBrief)
+    if ($narrative.Count -gt 0) {
+        Write-Row "NOW" "White"
+        foreach ($n in @($narrative | Select-Object -First 4)) {
+            Write-Row ("  " + (Trunc $n ([Math]::Max(10, $pw - 3)))) "Yellow"
+        }
     }
 
     Write-Row "COMMITS" "White"
@@ -1189,7 +1315,7 @@ function Render {
     }
 
     if ($env:SGSD_COCKPIT_COMPACT -eq "1" -or ((Get-PaneHeight) -lt 70 -and $env:SGSD_COCKPIT_FULL -ne "1")) {
-        Render-CompactMissionControl -State $state -Phases $phases -CurrentNum $currentNum -ActivePhase $activePhase
+        Render-CompactMissionControl -State $state -Phases $phases -CurrentNum $currentNum -ActivePhase $activePhase -ActiveDir $activeDir
         return
     }
 

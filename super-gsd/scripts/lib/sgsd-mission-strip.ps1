@@ -71,8 +71,13 @@ function Get-MissionStripState {
                 $mStatus = [regex]::Match($fm, '(?m)^\s*milestone_status:\s*"?([^"\r\n]+?)"?\s*$')
                 if ($mMile.Success)  { $out.activeMilestone = $mMile.Groups[1].Value.Trim() }
                 if ($mPhase.Success) { $out.activePhase     = $mPhase.Groups[1].Value.Trim() }
-                if (-not $out.activePhase -and $mStatusLine.Success -and $mStatusLine.Groups[1].Value -match '\bPhase\s+([0-9]+)\b') {
-                    $out.activePhase = $matches[1]
+                if (-not $out.activePhase -and $mStatusLine.Success) {
+                    $statusText = $mStatusLine.Groups[1].Value
+                    if ($statusText -match '(?i)\bNext:\s*Phase\s+([0-9]+)\b') {
+                        $out.activePhase = $matches[1]
+                    } elseif ($statusText -match '\bPhase\s+([0-9]+)\b') {
+                        $out.activePhase = $matches[1]
+                    }
                 }
                 if ($mStatusLine.Success -and $mStatusLine.Groups[1].Value -match '(?i)\bactive\b') {
                     $milestoneStatus = "active"

@@ -136,6 +136,7 @@ function Get-CurrentScope {
         if (-not $out.milestone -and $line -match '^milestone:\s*(.+)$') { $out.milestone = $matches[1].Trim().Trim('"', "'") }
         if (-not $out.phase -and $line -match '^(?:current_phase|phase):\s*"?([0-9]+)"?') { $out.phase = $matches[1] }
         if (-not $out.status -and $line -match '^status:\s*(.+)$') { $out.status = $matches[1].Trim().Trim('"', "'") }
+        if (-not $out.phase -and $line -match '^status:\s*.*\bNext:\s*Phase\s+([0-9]+)\b') { $out.phase = $matches[1] }
         if (-not $out.phase -and $line -match '^status:\s*.*\bPhase\s+([0-9]+)\b') { $out.phase = $matches[1] }
     }
     return [pscustomobject]$out
@@ -316,6 +317,48 @@ function Get-CodexOperatorBrief {
     }
 }
 
+function Get-PhaseGoalBrief {
+    param([string]$PhaseNum)
+    if (-not $PhaseNum) { return "" }
+    $path = Join-Path $PlanningDir "ROADMAP-AGENT.md"
+    if (-not (Test-Path $path)) { return "" }
+    try {
+        $raw = Get-Content $path -Raw -ErrorAction SilentlyContinue
+        $section = [regex]::Match($raw, "(?ms)^###\s*Phase\s+$([regex]::Escape($PhaseNum))\b.*?\r?\n(.*?)(?=^###\s*Phase\s+|\z)")
+        if (-not $section.Success) { return "" }
+        $goal = [regex]::Match($section.Groups[1].Value, '(?ims)^\s*(?:\*\*)?Goal(?:\*\*)?:\s*(.+?)(?=\r?\n\*\*|\r?\n\s*-\s|\r?\n###|\z)')
+        if ($goal.Success) { return (($goal.Groups[1].Value -replace '\s+', ' ') -replace '\*\*', '').Trim() }
+    } catch {}
+    return ""
+}
+
+function Get-PhaseEvidenceSummary {
+    param([string]$Milestone, [string]$PhaseNum)
+    $root = Join-Path $PlanningDir "milestones\$Milestone\phases"
+    $dir = $null
+    if (Test-Path $root) {
+        $dir = Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue |
+               Where-Object { $_.Name -eq "$PhaseNum" -or $_.Name.StartsWith("$PhaseNum-") } |
+               Select-Object -First 1
+    }
+    $checks = @(
+        @{ key="R"; pattern="$PhaseNum-RESEARCH.md" },
+        @{ key="C"; pattern="$PhaseNum-CONTEXT.md" },
+        @{ key="P"; pattern="*-PLAN.md" },
+        @{ key="V"; pattern="$PhaseNum-VERIFICATION.md" },
+        @{ key="A"; pattern="$PhaseNum-ATC-REVIEW.md" },
+        @{ key="X"; pattern="commit-reviews.jsonl" }
+    )
+    $bits = @()
+    $done = 0
+    foreach ($c in $checks) {
+        $hit = $false
+        if ($dir) { $hit = @(Get-ChildItem -Path $dir.FullName -Filter $c.pattern -File -ErrorAction SilentlyContinue | Select-Object -First 1).Count -gt 0 }
+        if ($hit) { $done++; $bits += "$($c.key)#" } else { $bits += "$($c.key)." }
+    }
+    return [pscustomobject]@{ bits=($bits -join " "); done=$done; total=$checks.Count }
+}
+
 function Render {
     if (-not (Test-RenderDue -MinIntervalMs 2000)) { return }
 
@@ -414,9 +457,23 @@ function Render {
         Write-Host $CLEAR_LINE
     }
 
+    Write-Host $CLEAR_LINE
+    Write-Host "PHASE CONTEXT" -NoNewline -ForegroundColor White
+    Write-Host $CLEAR_LINE
+    $phaseGoal = Get-PhaseGoalBrief $phaseNum
+    if ($phaseGoal) {
+        Write-Host "  goal " -NoNewline -ForegroundColor DarkGray
+        Write-Host (Trunc $phaseGoal ($pw - 8)) -NoNewline -ForegroundColor White
+        Write-Host $CLEAR_LINE
+    }
+    $phaseEvidence = Get-PhaseEvidenceSummary -Milestone $scope.milestone -PhaseNum $phaseNum
+    Write-Host "  evidence " -NoNewline -ForegroundColor DarkGray
+    Write-Host ("[{0}] {1}/{2}" -f $phaseEvidence.bits, $phaseEvidence.done, $phaseEvidence.total) -NoNewline -ForegroundColor $(if ($phaseEvidence.done -eq $phaseEvidence.total) { "Green" } elseif ($phaseEvidence.done -gt 0) { "Yellow" } else { "DarkGray" })
+    Write-Host $CLEAR_LINE
+
     if ($expanded) {
         Write-Host $CLEAR_LINE
-        Write-Host "ACTIVE CODEX DETAIL" -NoNewline -ForegroundColor White
+        Write-Host $(if ($codex.scopeCurrent) { "ACTIVE CODEX DETAIL" } else { "LAST OLD CODEX DETAIL" }) -NoNewline -ForegroundColor White
         Write-Host $CLEAR_LINE
         Write-Host "  model " -NoNewline -ForegroundColor DarkGray
         Write-Host ($(if ($codex.model) { $codex.model } else { "--" })) -NoNewline -ForegroundColor Cyan
