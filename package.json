@@ -1,0 +1,12 @@
+{
+  "name": "sgsd",
+  "version": "1.9.0",
+  "description": "Super GSD - autonomous execution engine",
+  "private": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.9.0"
+  }
+}

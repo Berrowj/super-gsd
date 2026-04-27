@@ -1,0 +1,1030 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-04-27T23:30:47.998Z",
+  "generated_by": "super-gsd/tools/context-cache/rebuild.cjs",
+  "doc_count": 145,
+  "by_kind": {
+    "capsule": 44,
+    "decision": 32,
+    "gate_definition": 13,
+    "file_summary": 56
+  },
+  "manifest_hash": "d764fb5c656873659c611809292def373e6fcc2851cd7f67af5086e6beab69f0",
+  "documents": [
+    {
+      "kind": "capsule",
+      "doc_id": "v1.2/09",
+      "source_path": ".planning/milestones/v1.2/phases/09-atc-147-evidence/PHASE-CAPSULE.json",
+      "source_hash": "7efe9f3790b626b15fbff8ddb5b2ba631b91ef01577a4ac324fb3ffd077e4030",
+      "body_hash": "a9315ab1079df917f541c36eb1facce205c0c3b419ca7803907cb2e389107d99"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.2/10",
+      "source_path": ".planning/milestones/v1.2/phases/10-gate-policy/PHASE-CAPSULE.json",
+      "source_hash": "5032800d64cb15082fb98a1e2bdbb7b7d81e4d19b2b30f189e7359a1b494e614",
+      "body_hash": "9241fb23ac9883e87f665549dfa7b20846bbbecb14ee973b9a067594f9aca69e"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.2/11",
+      "source_path": ".planning/milestones/v1.2/phases/11-plan-schema-v2/PHASE-CAPSULE.json",
+      "source_hash": "c421030995f3a2c83d937b4f410acf42709869b7f604cf535f58832f7905e32f",
+      "body_hash": "f603aea35d08d0d9478284b8d5ce09ea3ff58956fa26b39f537aa29b435fd464"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.2/12",
+      "source_path": ".planning/milestones/v1.2/phases/12-machinery/PHASE-CAPSULE.json",
+      "source_hash": "97b42fe5cb91108ed9d144065e8be8360653d298be2ecffc8881c572c841c742",
+      "body_hash": "ae8b35a292438d1346ff222a03bdf20806e418eadd1a9437aaef9d903d81ecec"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.2/13",
+      "source_path": ".planning/milestones/v1.2/phases/13-governance/PHASE-CAPSULE.json",
+      "source_hash": "cfed9618a680d1e9ad04fa656a53b1b70d5089609b4d8e782dcb029b0aa37f03",
+      "body_hash": "86f8a694159b712f78f3b3c032028b92786201c5eec04c1d2cc234464127a429"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.3/14",
+      "source_path": ".planning/milestones/v1.3/phases/14-codex-cli-provider-substrate/PHASE-CAPSULE.json",
+      "source_hash": "fb57604444e61c41a49a8bd40bb66c7a66213197da8b732e344b5d0b97ab301b",
+      "body_hash": "ab50888ae763a5d823570581cb0ec735a31605ed273f1fd6e2d4fe07ef62d5a7"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.3/15",
+      "source_path": ".planning/milestones/v1.3/phases/15-codex-routed-gates/PHASE-CAPSULE.json",
+      "source_hash": "346a92cd1efb4635c5230b75e2443c04a49f7e4c70a8768b29038c7b87cf08de",
+      "body_hash": "3ddc67f8a01dc9158fee444a2daab5c4939c1a56ae0f37a29ab1844b19132b7b"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.3/16",
+      "source_path": ".planning/milestones/v1.3/phases/16-vtp-enrichment/PHASE-CAPSULE.json",
+      "source_hash": "fbde78e35df90a0f8745d87ccf1ba6e49509b82fd87693ff89162811fba286d5",
+      "body_hash": "83fe12a5ed691139804240b725d6e4f179f0b2ca541dc91276b17a50223884af"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.4/17",
+      "source_path": ".planning/milestones/v1.4/phases/17-debt-sweep/PHASE-CAPSULE.json",
+      "source_hash": "59fcf780973cc310a335f4e8b9a54839028b02e3d05fd890275c7cbd7cfb009b",
+      "body_hash": "c467687ae93092c360f24403d043a44e8297530c58dbf689d0f258f0fbef5484"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.4/18",
+      "source_path": ".planning/milestones/v1.4/phases/18-codex-hardening/PHASE-CAPSULE.json",
+      "source_hash": "e3274e182d7c8f96fb016606268bf5a880625855f5d1bea40d9b6b3202639809",
+      "body_hash": "489f785a434520af87509016e2c6fc6808ff1373e539de07dcce28cadf339407"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.4/19",
+      "source_path": ".planning/milestones/v1.4/phases/19-mc-visibility/PHASE-CAPSULE.json",
+      "source_hash": "3910527aeb070599ad385a449195863acd59329713f33e4d5bac1f0136dcee7f",
+      "body_hash": "05fd864acbee39b0721237c3155840c8b68460102dec43b7f87889cd0514c287"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.4/20",
+      "source_path": ".planning/milestones/v1.4/phases/20-autonomous-handoff/PHASE-CAPSULE.json",
+      "source_hash": "f2ea4ee2502a46ba98d6ba2a02f5ef0ea188cdab037ebd66acf1e14919624131",
+      "body_hash": "83171c362ca0210f472922c0bdab7c2fc2640192d981a940e9c42551a86f624e"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.5/21",
+      "source_path": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/PHASE-CAPSULE.json",
+      "source_hash": "b552b540673a201d0e61d0d37af676bfe6e9e3f2efc63492761971fc23a97241",
+      "body_hash": "96ca4aa370df7d604f3aebdb9651e655148aac291d9b08670745bfc2e9bc26fa"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.5/22",
+      "source_path": ".planning/milestones/v1.5/phases/22-security-hardening/PHASE-CAPSULE.json",
+      "source_hash": "90e8a82f9e5c4701a9e7588d86dea1d9a4949c5645a7975eaec9e393f8bf2c84",
+      "body_hash": "9f917a2b498ce8192e19bf4c1fdceb3440a83ab1d1a2b0fdef0be04d23458a4b"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.5/23",
+      "source_path": ".planning/milestones/v1.5/phases/23-muda-calibration/PHASE-CAPSULE.json",
+      "source_hash": "f249494c89454c7114ed4bafcfefd0cd4b92d7dab4b7a3041a412cfbcb75ffec",
+      "body_hash": "724bc9361c882b56f3fe47c9555cd13cefe97049b2e8cdd0a1f41003d2755dd4"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.5/24",
+      "source_path": ".planning/milestones/v1.5/phases/24-richer-output-contract/PHASE-CAPSULE.json",
+      "source_hash": "2d57f520b65930ffc2835626af9c880f525ec9bc066ad0fd9ebb2782c09b75e5",
+      "body_hash": "8c3167a0c9c429d15f869f600ded689f73c73affaafb7e16f66e491be9863c82"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.5/25",
+      "source_path": ".planning/milestones/v1.5/phases/25-carryover-telemetry/PHASE-CAPSULE.json",
+      "source_hash": "633f32a264f03fc77b9f139407608af5fececd9c79fa2f06358dcccc2472a8b0",
+      "body_hash": "7092d2a347e9b4ff666eb4b9a37f725a7fa959ce24a3e9cf7e2adf128ea69f02"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.6/26",
+      "source_path": ".planning/milestones/v1.6/phases/26-cockpit-question-contract/PHASE-CAPSULE.json",
+      "source_hash": "f7c9d48e21174cfdf92b0ac38fe3f84ee5d7f466a51662f8aed7938333ce9b45",
+      "body_hash": "133ac30036dd16b9949b10121dee96ff6a8beab255777b0087485f2d3c5ac81c"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.6/27",
+      "source_path": ".planning/milestones/v1.6/phases/27-cockpit-data-tree/PHASE-CAPSULE.json",
+      "source_hash": "25eecb64cf64a5729da591b19f5907696fedcf25664abfdd57408e5a42d939e9",
+      "body_hash": "3d546a65101f030283d0fd8f55df0076d88dc7ed102dc9303e0067b05f33e033"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.6/28",
+      "source_path": ".planning/milestones/v1.6/phases/28-mission-control-layout/PHASE-CAPSULE.json",
+      "source_hash": "2bc13be7092a0968f02a85ed6275fc9871bdf0e4952826d5be64d6825bdeba5d",
+      "body_hash": "55126397c7500fcb50925a836c43a46fed3d610b2871c147377be73dfee31de5"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.6/29",
+      "source_path": ".planning/milestones/v1.6/phases/29-agent-codex-lanes/PHASE-CAPSULE.json",
+      "source_hash": "cd01deecc116a6efd4a3f29fde2d73f805c2133995de37faccbdeca05ffd4fad",
+      "body_hash": "f5dda306bd5cf6e4a72a97a9bd7fa12ed814b6223e3a2061f41030f8829b5b38"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.6/30",
+      "source_path": ".planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/PHASE-CAPSULE.json",
+      "source_hash": "9b0e732ba67d5d415613975c9816b6f228906c4894720f477f0c7a02c302fc6a",
+      "body_hash": "d37ef5bbe12a9307d301537f0f681fa9781f8f3aacb9c94f832a4b91cb8d07f8"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.7/31",
+      "source_path": ".planning/milestones/v1.7/phases/31-canonical-envelope/PHASE-CAPSULE.json",
+      "source_hash": "08502a4c311dd67f51e812495cd9ca326ae758a69406b42479607f620fc72728",
+      "body_hash": "5d7d9bbe2983493c397ba7a441e76ac893da421f0938d309ed912dc3260f5b98"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.7/32",
+      "source_path": ".planning/milestones/v1.7/phases/32-route-decision-ledger/PHASE-CAPSULE.json",
+      "source_hash": "6d80c2e1c8efdf1c37a948c7c46b60ad6626af495811b06d9e2010e26251dd3e",
+      "body_hash": "8704fdca8e850e0a78f5f03d9439dc2b650d319c58439876f72555eb12f6b08b"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.7/33",
+      "source_path": ".planning/milestones/v1.7/phases/33-repair-instruction/PHASE-CAPSULE.json",
+      "source_hash": "c09e9ee539b07fe9a5d7932218a338011ceb21756754801733eaf463063f9e19",
+      "body_hash": "cbb5b872e5ddc3317595cb7d799172d6f3801417be0a22d47fd7b2da5946be28"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.7/34",
+      "source_path": ".planning/milestones/v1.7/phases/34-canonical-review-ledger/PHASE-CAPSULE.json",
+      "source_hash": "559b62bea0562cac9a604879036acc55114af802931a8b79fae6e2827420a799",
+      "body_hash": "47883a5af9413129a7de8be4c5f6e4ae7f7c810d7768f53a0007f04d604430e3"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.7/35",
+      "source_path": ".planning/milestones/v1.7/phases/35-generated-system-map/PHASE-CAPSULE.json",
+      "source_hash": "9bf06686d66bb3eb5aeb552fa11a4531a5bd0e7ca9820215b8c261a1d2695f1d",
+      "body_hash": "7d982a032938dd3712b6547bb7d27d49be7838955604a13e78dba0b27bf16941"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.8/36",
+      "source_path": ".planning/milestones/v1.8/phases/36-gate-value-telemetry/PHASE-CAPSULE.json",
+      "source_hash": "a231ee8e6c36ff86b77c3697cea5c605138cb6ad4d54cf2b99a39b7926a0a51d",
+      "body_hash": "6fea84db981b77ff67e44560de0afac9ff668faf9f094be0e71545375576749f"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.8/37",
+      "source_path": ".planning/milestones/v1.8/phases/37-muda-deletion-candidates/PHASE-CAPSULE.json",
+      "source_hash": "2aa8f5d0203862f7fc687bb8221b505e4b110142850ade6ae7f26a7e9f086e3e",
+      "body_hash": "07a9e38b58ae4cd87bc94cf804797c5f35498ec2744efdf24f69094dbed2409a"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.8/38",
+      "source_path": ".planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/PHASE-CAPSULE.json",
+      "source_hash": "46100b8ff68340f023580fc4da76b32165eec24c5c49a7eab924fe8a4ac9d3d0",
+      "body_hash": "ee0627b125a7b9b1817abbdd312173fd34ce63df0f7a59b31759c5e2856e25f8"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.8/39",
+      "source_path": ".planning/milestones/v1.8/phases/39-gate-keep-kill/PHASE-CAPSULE.json",
+      "source_hash": "1e53daf424710c34d3206e6dc2618f6f06beea4aa72d8f3a003f64b82d7ca49a",
+      "body_hash": "0ab3b499b63357acf584c30879a2d8964420a8c0dfc12ae935940012d0f72e5c"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.8/40",
+      "source_path": ".planning/milestones/v1.8/phases/40-phase-folder-audit/PHASE-CAPSULE.json",
+      "source_hash": "0b73a88dc89be17b37e3e1db6b43da22f39aae3ff7b11efa880d62bd9bb3f6a4",
+      "body_hash": "268412e46313a301736e9e44793537457206c8e96704b1b42faf1150b20dd9e0"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.9/41",
+      "source_path": ".planning/milestones/v1.9/phases/41-baseline-token-attribution/PHASE-CAPSULE.json",
+      "source_hash": "6d1525b3bb1564b93572c47bdc9c8e54ec377da1b64af440282926c6b8de35e6",
+      "body_hash": "40a40a7152b8d6921089eb0208ee835460da7a82c6e81971fbc0c694d28b0f40"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.9/42",
+      "source_path": ".planning/milestones/v1.9/phases/42-token-budget-admission/PHASE-CAPSULE.json",
+      "source_hash": "1f89e9b1cad1feac1963604b8befb912ea18e6c3a1b8d60572dc373fc5d8a23e",
+      "body_hash": "6dcfe73a5c3c65a112b108f46e801fea40af7a65f39a31759cccfe7f24d09041"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.9/43",
+      "source_path": ".planning/milestones/v1.9/phases/43-phase-capsule-contract/PHASE-CAPSULE.json",
+      "source_hash": "868cc744c9646bfb9a3065fd71f1ad63612fc0386fbefea52cccbab3b2262847",
+      "body_hash": "cdaea002ec6f4d4fb7a9cb5b270bd6014924e9c01fee850e70289b77bb3ab1f7"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.9/44",
+      "source_path": ".planning/milestones/v1.9/phases/44-legal-context-registry/PHASE-CAPSULE.json",
+      "source_hash": "640ac01f4814f560f1b0f7219a0bd37035d4fda822270de45ada90eba6d24e39",
+      "body_hash": "a877305a5cbfa7e882ad2f06650cb50b0ec9126c0696c4ce3f34f8982ce8203c"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.9/45",
+      "source_path": ".planning/milestones/v1.9/phases/45-context-packet-builder/PHASE-CAPSULE.json",
+      "source_hash": "c608309ca56de7a85281b4e2c527e88154fafa3ffc7c14fecf65745bdb8abb42",
+      "body_hash": "52c5c6289d81329a98d02cb81647167a7ece6073fde54a47d7aa542a2a5dfb6c"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.9/46",
+      "source_path": ".planning/milestones/v1.9/phases/46-sqlite-context-index/PHASE-CAPSULE.json",
+      "source_hash": "06c484011557833d34fffeedf14ec67707e6412a526977bd57f82a1b65ab29cc",
+      "body_hash": "d9d78846eacb2c81c4cba16db603c29ec1510e4e344afc473eb1fb6ffcd36649"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.9/47",
+      "source_path": ".planning/milestones/v1.9/phases/47-dispatch-routing-substitution/PHASE-CAPSULE.json",
+      "source_hash": "8e63f49a04416b5614837a142f195ab63dfa50199ad0335fb3d5517a35e46370",
+      "body_hash": "2a10b0d64d585fbc60c49b57349d08f29ae671b454e4159bb3d1181c9fdd31e1"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.9/48",
+      "source_path": ".planning/milestones/v1.9/phases/48-selective-vtp-bridge/PHASE-CAPSULE.json",
+      "source_hash": "ed162ab26fd8d87af47c28dcb5a25282295356caa5f33b9c81e46a457bde168c",
+      "body_hash": "b641aadedbed56cbcc93f6e790f577895b2589494a937b3799a7d36927373260"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.9/49",
+      "source_path": ".planning/milestones/v1.9/phases/49-memory-governance-lifecycle/PHASE-CAPSULE.json",
+      "source_hash": "68c666cf583de85fa83a1b399f22dc01f72c96cdc31ebbd27f5d8bc6629b1472",
+      "body_hash": "f0424761a54996b7db9dae22fa1f66137e7219a8bfaee401729c7ee9f034c396"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.9/50",
+      "source_path": ".planning/milestones/v1.9/phases/50-cockpit-research-dashboard/PHASE-CAPSULE.json",
+      "source_hash": "a20732b3b97ca2baa7e7a4b6d84be1bbaaec7a6352150590b36d337af534534e",
+      "body_hash": "54d68ee67ce1859aed12372b74f9152790af43683c8ec4ea081265ed5c37c5c4"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.9/51",
+      "source_path": ".planning/milestones/v1.9/phases/51-context-stress-benchmark/PHASE-CAPSULE.json",
+      "source_hash": "494c735135dc05af984fa6ea4665de5ef93697f3817856dca58a5c4fbbbbc704",
+      "body_hash": "39f3937142600436c9bc8c9a8d64d9ad65832ede8c51e88f5486bd15fe6c881c"
+    },
+    {
+      "kind": "capsule",
+      "doc_id": "v1.9/52",
+      "source_path": ".planning/milestones/v1.9/phases/52-redis-live-cache-adapter/PHASE-CAPSULE.json",
+      "source_hash": "d8d47bac39af6d1c67c0b6f9d6f239770812e14fe9d5299e7e06c34ab84b0bd2",
+      "body_hash": "27c2c5b559a4ce1832a8b47e46364ea6ee540c8c70d2c7e83f7c9091f4ef1bc1"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-31-10759",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "06c691f381b0fed723b5e4b7fb22755f0ab3f7d1cff2757b529c797597b18e61"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-32-10885",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "de8ce964332fae7683405b25982da945b3ec28ee26c4298f8a67e65e849f341d"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-33-10971",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "b5f97e3915aa9e3095dec8e5e63c777cf5c59d956f08507d9e43b0a49468ee7d"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-34-11091",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "13ed558fbdf501593742457a4d4fd89133ee9cce9c80f6c6a5ff4aedfae19198"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-35-11182",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "3ef4d79d6ca0187df62bdf46a4f17f9b591a766b3254cd80b5b2f065f924cadd"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-36-11261",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "c6afc54b07dbc932c8a66e8b2ef4686ce960763278e1db6718d28a4d5e7f18ae"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-37-11360",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "2a5e588cfd1c1e39d0f90129a5674c0f972df8daf4e1ff0eadcdb3ce50aae259"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-38-11476",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "caec35442061ec5a2b7d9a559a90ed5f3ef8913c1023fe95c1dd076414fbd764"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-39-11557",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "05ada0258e610ad2c280af5ea37db709c711a74f1d8557c6210473a2618bd840"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-40-11650",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "eb1a9e8b26b604442b23047bbb48794095af70bc70296c5e6b01d26baf5b81cd"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-41-11905",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "e031aea72d15c0e155271e6524aa5360932de9327b8f9183f202c015799b2357"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-42-11974",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "9a3622e3aafdde42c5cd7345275d5898bf1563d29730f952b46453945821f4df"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-43-12052",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "345fe5e3e6c046aafe842166ce4937f840dfa50025f4215fe0cd4b5173c651ce"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-44-12166",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "c07847a1d0e453527b63fc72cd5048db026534789b15c0fb6597b5e1612c7650"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-45-12246",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "bb234bb337b50bff0ab0b6ae003f6dfe183a9a33d987f4e180a39f0f676e69f9"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-46-12326",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "c7600f3f0fa2888d4d35ac427a67b386e539531cd9e9282ed7e6191dc1eb9152"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-47-12398",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "2d13f2747071dcc52b10e7f9f44b0cf8bc52e5aca1129388aac66c71b921278c"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-48-12519",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "5509a2f5985617704e20b14e431097ec840f7b6871fef04fbc1f885e0410f032"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-49-12617",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "bf4839f1ba03936340f638d3545bc5dfe8a73b680fcd6cab84646f85f2a468f5"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-50-12712",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "09fe88aeb60055af8ee73a8ce43d7f811475eae5e0d151831d4e8cd672fb4cdb"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-51-12811",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "528b6d8252c937f50a7c9d24ebe5446a21f69064b78b45eb1bb1589d527cca3c"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-52-12909",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "fb03e63514c77692b9187ebf071f6e087b982e86b43a9f2060d280a943fb2563"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-53-13106",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "a389316cb86f6275e41cca6ab11fb10dd80a360f29f7adbbc0b5349eae5a2f6c"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-54-13205",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "26d24545bbce41daa24ff08cc14638293decd6f5d016922e6202fce303b1c054"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-55-13309",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "9b0f79d4cb08e68ab819d5d10c3bceec6864b8efa53b99549ff1a82e0b2de6b9"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-56-13382",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "37daeba48cde95f9e97eaac3d1e7c43608c15378d81e8df008b5c0b565b748d1"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-57-13477",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "71ded3351c432ffc69deb2fed405c7628bdee95741ab62adef0d0d5d851b072f"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-58-13709",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "ce7af35804a917ac61e62d8ac39e8ed3f5252cfa08088b9e128bf5c6a87c7954"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-59-13806",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "27946ce17e36368a0894d3f9933c1293d5a167feeb1bff8c43aa821528d7aa24"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-60-13930",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "ba42bf06b5fa1e1de3990d70369405ffed9d0debfb4b291ce8ca206ab01ccf5b"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-61-14035",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "7e0bde2e7d3edfff67c3aa9ae1d94dd634560cfaefc10571db949f211b52427c"
+    },
+    {
+      "kind": "decision",
+      "doc_id": "mass-discuss-row-62-14172",
+      "source_path": ".planning/discussions/2026-04-26-mass-discuss.md",
+      "source_hash": "8b44697116155c63b0511a521f2de9c9bcf9e938dcdd709f94db62545e38c5fe",
+      "body_hash": "766b4385c3ac89ccc378e0f782856abb99d1e718ec23fda86a522c6247b06c3a"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/analyses/2026-04-27-agent-context-bloat-audit.md:0",
+      "source_path": ".planning/analyses/2026-04-27-agent-context-bloat-audit.md",
+      "source_hash": "5550b19b072a1ecc653790c87f9c427c84dcd8bafe84dc686cb7922caefa79d5",
+      "body_hash": "8d3b0639cc5222f7d785556ed1a0ac22f76829cb6ec8df8b5bd5f87f5b799569"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/analyses/2026-04-27-agent-context-bloat-audit.md:1",
+      "source_path": ".planning/analyses/2026-04-27-agent-context-bloat-audit.md",
+      "source_hash": "5550b19b072a1ecc653790c87f9c427c84dcd8bafe84dc686cb7922caefa79d5",
+      "body_hash": "1e550ca1e5727ac8ee58531d3861244c30921987d9c383fe995c4e3f90b357f6"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/analyses/2026-04-27-agent-context-bloat-audit.md:2",
+      "source_path": ".planning/analyses/2026-04-27-agent-context-bloat-audit.md",
+      "source_hash": "5550b19b072a1ecc653790c87f9c427c84dcd8bafe84dc686cb7922caefa79d5",
+      "body_hash": "9700d598b7a3ec501a9523b824df41d1fbcde3eed38b17b8135b5c6ad37f8a3d"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/analyses/2026-04-27-agent-context-bloat-audit.md:3",
+      "source_path": ".planning/analyses/2026-04-27-agent-context-bloat-audit.md",
+      "source_hash": "5550b19b072a1ecc653790c87f9c427c84dcd8bafe84dc686cb7922caefa79d5",
+      "body_hash": "1e2125e02d65f40736be32bf084afb7eef6a37cc068a7c47125e9162dd1fee7a"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/analyses/2026-04-27-agent-context-bloat-audit.md:4",
+      "source_path": ".planning/analyses/2026-04-27-agent-context-bloat-audit.md",
+      "source_hash": "5550b19b072a1ecc653790c87f9c427c84dcd8bafe84dc686cb7922caefa79d5",
+      "body_hash": "43e8056ed57981a17879bb744958fc4a6095589514f4a5b14b31d85348cd34dd"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/analyses/2026-04-27-agent-context-bloat-vtp-crosscheck.md:0",
+      "source_path": ".planning/analyses/2026-04-27-agent-context-bloat-vtp-crosscheck.md",
+      "source_hash": "042f5328a7d3e49501ba0ef4132f5ad4d1a2f6b530c851457de67bbbfbf2c6f6",
+      "body_hash": "2a9862d8b576ae7e9012bd1271b94920927177b08aa9eef72a60c2226b5be416"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/analyses/2026-04-27-agent-context-bloat-vtp-crosscheck.md:1",
+      "source_path": ".planning/analyses/2026-04-27-agent-context-bloat-vtp-crosscheck.md",
+      "source_hash": "042f5328a7d3e49501ba0ef4132f5ad4d1a2f6b530c851457de67bbbfbf2c6f6",
+      "body_hash": "63cc1e7ad6181a373efc502717a283cd88d8e36df0d690dcf2d15086ef5ca6e8"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/analyses/2026-04-27-agent-context-bloat-vtp-crosscheck.md:2",
+      "source_path": ".planning/analyses/2026-04-27-agent-context-bloat-vtp-crosscheck.md",
+      "source_hash": "042f5328a7d3e49501ba0ef4132f5ad4d1a2f6b530c851457de67bbbfbf2c6f6",
+      "body_hash": "26dbd7c499742fe9ce431c173cb61a5eb646000d7c5e942fc5a30f5bf5dc0e4a"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/analyses/2026-04-27-agent-context-bloat-vtp-crosscheck.md:3",
+      "source_path": ".planning/analyses/2026-04-27-agent-context-bloat-vtp-crosscheck.md",
+      "source_hash": "042f5328a7d3e49501ba0ef4132f5ad4d1a2f6b530c851457de67bbbfbf2c6f6",
+      "body_hash": "7ad4353cb5b084573ed3565b880004b29a962a52527b5a3dd91599b4090e0c68"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/analyses/2026-04-27-agent-context-bloat-vtp-crosscheck.md:4",
+      "source_path": ".planning/analyses/2026-04-27-agent-context-bloat-vtp-crosscheck.md",
+      "source_hash": "042f5328a7d3e49501ba0ef4132f5ad4d1a2f6b530c851457de67bbbfbf2c6f6",
+      "body_hash": "61801d4f67f09b1c79b1a1c6473cc39900578463e81f84851098b59eeee6f626"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/analyses/2026-04-27-intent-english-meaning-compiler.md:0",
+      "source_path": ".planning/analyses/2026-04-27-intent-english-meaning-compiler.md",
+      "source_hash": "879aeeb62c78358c77b988c30c9cb84088bc7e663175aa61eb25b72cf3742b42",
+      "body_hash": "3d6d6a94607f56a27a6174ed784eecdc420ed0c009d5c2019523cc8c275d8c9f"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/analyses/2026-04-27-intent-english-meaning-compiler.md:1",
+      "source_path": ".planning/analyses/2026-04-27-intent-english-meaning-compiler.md",
+      "source_hash": "879aeeb62c78358c77b988c30c9cb84088bc7e663175aa61eb25b72cf3742b42",
+      "body_hash": "cea3bc412aa45bf956f2c52d46b561ffee21e5b0c09fccc2664ff8857b1a950c"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/analyses/2026-04-27-intent-english-meaning-compiler.md:2",
+      "source_path": ".planning/analyses/2026-04-27-intent-english-meaning-compiler.md",
+      "source_hash": "879aeeb62c78358c77b988c30c9cb84088bc7e663175aa61eb25b72cf3742b42",
+      "body_hash": "3263d656557ab376754d867dc14e0c8e7d8d2f07a0c3ef73cb4c6eed28f5f49a"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/analyses/2026-04-27-intent-english-meaning-compiler.md:3",
+      "source_path": ".planning/analyses/2026-04-27-intent-english-meaning-compiler.md",
+      "source_hash": "879aeeb62c78358c77b988c30c9cb84088bc7e663175aa61eb25b72cf3742b42",
+      "body_hash": "f8369d9aba47f728e6f9d3ade455cb782ab271e69f424193a5e960e1175d94a2"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/analyses/2026-04-27-intent-english-meaning-compiler.md:4",
+      "source_path": ".planning/analyses/2026-04-27-intent-english-meaning-compiler.md",
+      "source_hash": "879aeeb62c78358c77b988c30c9cb84088bc7e663175aa61eb25b72cf3742b42",
+      "body_hash": "2bdcd7d73c434df60befc09358dc4d1ca2a903919f62beaec8b28bf671abc180"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/EXISTING-SURFACE-AUDIT.md:0",
+      "source_path": ".planning/milestones/v1.9/EXISTING-SURFACE-AUDIT.md",
+      "source_hash": "475a401958fda818c25c03729e412de573b69cc2660d05ed4e8595ceaac46ba7",
+      "body_hash": "17029e7ce5604cbcf9bad5c96afbf11f1f660b39ace95506e15add0b20482401"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/EXISTING-SURFACE-AUDIT.md:1",
+      "source_path": ".planning/milestones/v1.9/EXISTING-SURFACE-AUDIT.md",
+      "source_hash": "475a401958fda818c25c03729e412de573b69cc2660d05ed4e8595ceaac46ba7",
+      "body_hash": "0b7ce9631cc89ed6199402a5d36078070474899b9c2394ca8c97fc811a8a2bd4"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/EXISTING-SURFACE-AUDIT.md:2",
+      "source_path": ".planning/milestones/v1.9/EXISTING-SURFACE-AUDIT.md",
+      "source_hash": "475a401958fda818c25c03729e412de573b69cc2660d05ed4e8595ceaac46ba7",
+      "body_hash": "c9b768cd929e6fc1154517e33ae0adccfa3c4905a044d59042809d072c7de125"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/EXISTING-SURFACE-AUDIT.md:3",
+      "source_path": ".planning/milestones/v1.9/EXISTING-SURFACE-AUDIT.md",
+      "source_hash": "475a401958fda818c25c03729e412de573b69cc2660d05ed4e8595ceaac46ba7",
+      "body_hash": "5d1c917c6673e1b51d2e8542b4395bd53a4f37555e7c277654d012f254600da7"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/EXISTING-SURFACE-AUDIT.md:4",
+      "source_path": ".planning/milestones/v1.9/EXISTING-SURFACE-AUDIT.md",
+      "source_hash": "475a401958fda818c25c03729e412de573b69cc2660d05ed4e8595ceaac46ba7",
+      "body_hash": "e44811362dbe115c3fb4d3e29f82dc45900ff542ecef1ae4088bf05aef90e090"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/REQUIREMENTS.md:0",
+      "source_path": ".planning/milestones/v1.9/REQUIREMENTS.md",
+      "source_hash": "29130a9ba718ceee0548ce7104a332408a82b67559e72a2b702cae09492dbc1f",
+      "body_hash": "7321764e3abb7e557be8053bf875d8c9d0bd5f370259a1f0ab2fb5c1ccea4cf7"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/REQUIREMENTS.md:1",
+      "source_path": ".planning/milestones/v1.9/REQUIREMENTS.md",
+      "source_hash": "29130a9ba718ceee0548ce7104a332408a82b67559e72a2b702cae09492dbc1f",
+      "body_hash": "c327d370506ee6eeb33740b006c8a656c1e3443bd30df9fd30e81334d7479522"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/REQUIREMENTS.md:2",
+      "source_path": ".planning/milestones/v1.9/REQUIREMENTS.md",
+      "source_hash": "29130a9ba718ceee0548ce7104a332408a82b67559e72a2b702cae09492dbc1f",
+      "body_hash": "3ab8a72a5ec1d52ef01fb53dab1edc1bc6c975eb5ffd80569f67e5abc8c7b051"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/REQUIREMENTS.md:3",
+      "source_path": ".planning/milestones/v1.9/REQUIREMENTS.md",
+      "source_hash": "29130a9ba718ceee0548ce7104a332408a82b67559e72a2b702cae09492dbc1f",
+      "body_hash": "fda686df24a49785064382b1addf8fb3764c8836c581e8377a5538966a078318"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/REQUIREMENTS.md:4",
+      "source_path": ".planning/milestones/v1.9/REQUIREMENTS.md",
+      "source_hash": "29130a9ba718ceee0548ce7104a332408a82b67559e72a2b702cae09492dbc1f",
+      "body_hash": "22a79edd0d3c8e2bf70069bbd2bea56c0b7b6e49d38133a7da08860e049ddbfc"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/ROADMAP.md:0",
+      "source_path": ".planning/milestones/v1.9/ROADMAP.md",
+      "source_hash": "fe0c5a9317d3805f5ea8771d0ae5ce3f814a67be47a2af2feeeb40363488bd7a",
+      "body_hash": "2d2a7bf067fee859f25251b64e83bf08a64c40528833a9b03ff2b70663a9f2e3"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/ROADMAP.md:1",
+      "source_path": ".planning/milestones/v1.9/ROADMAP.md",
+      "source_hash": "fe0c5a9317d3805f5ea8771d0ae5ce3f814a67be47a2af2feeeb40363488bd7a",
+      "body_hash": "aa18844f590dd7a72f17ab1f997b353298b8a8217d80751aa0bb3cb1ae294875"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/ROADMAP.md:2",
+      "source_path": ".planning/milestones/v1.9/ROADMAP.md",
+      "source_hash": "fe0c5a9317d3805f5ea8771d0ae5ce3f814a67be47a2af2feeeb40363488bd7a",
+      "body_hash": "2fc39d8ffd67908bb93fa9328a8143f47cc44ce50404bfb756eea4a5437b6b86"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/ROADMAP.md:3",
+      "source_path": ".planning/milestones/v1.9/ROADMAP.md",
+      "source_hash": "fe0c5a9317d3805f5ea8771d0ae5ce3f814a67be47a2af2feeeb40363488bd7a",
+      "body_hash": "5dbecc64638fc9761ee885b5aa214d4969065ec8c643f11f9ce03da17a16389d"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/ROADMAP.md:4",
+      "source_path": ".planning/milestones/v1.9/ROADMAP.md",
+      "source_hash": "fe0c5a9317d3805f5ea8771d0ae5ce3f814a67be47a2af2feeeb40363488bd7a",
+      "body_hash": "f322bbdc01ea2c00c1a7965090ee26a91c8b5cf11c9ec02a8e92927246941b14"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/SGSD-HANDOVER.md:0",
+      "source_path": ".planning/milestones/v1.9/SGSD-HANDOVER.md",
+      "source_hash": "fe94216e921b2cd6a4ac1b393d24486a983d2f5711dccad087c8a1e2001c8c6a",
+      "body_hash": "705ad2ae74927c1357185249b2364c2e8f113f869b3e0977d15d72b24391c279"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/SGSD-HANDOVER.md:1",
+      "source_path": ".planning/milestones/v1.9/SGSD-HANDOVER.md",
+      "source_hash": "fe94216e921b2cd6a4ac1b393d24486a983d2f5711dccad087c8a1e2001c8c6a",
+      "body_hash": "915bcc4c1208898c253e582e2c8e473365a90b38b9cb7de2beb2e356b70dada2"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/SGSD-HANDOVER.md:2",
+      "source_path": ".planning/milestones/v1.9/SGSD-HANDOVER.md",
+      "source_hash": "fe94216e921b2cd6a4ac1b393d24486a983d2f5711dccad087c8a1e2001c8c6a",
+      "body_hash": "37e366a130bb0cf2791040d4e2823072ef7cb3ae02182c4944308733f90d5dae"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/SGSD-HANDOVER.md:3",
+      "source_path": ".planning/milestones/v1.9/SGSD-HANDOVER.md",
+      "source_hash": "fe94216e921b2cd6a4ac1b393d24486a983d2f5711dccad087c8a1e2001c8c6a",
+      "body_hash": "61e094ba0a8c9b7e2c7e0a224ad49378a83ffb3049a5c53bd422e363d166ece4"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/SGSD-HANDOVER.md:4",
+      "source_path": ".planning/milestones/v1.9/SGSD-HANDOVER.md",
+      "source_hash": "fe94216e921b2cd6a4ac1b393d24486a983d2f5711dccad087c8a1e2001c8c6a",
+      "body_hash": "8742c0e59c91eef9a2cc36765a795793b5147aa0426876809253d39858f43be7"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/VTP-RESEARCH-DELTA.md:0",
+      "source_path": ".planning/milestones/v1.9/VTP-RESEARCH-DELTA.md",
+      "source_hash": "5570f5d7c7df29d1f0d70fe238ecc148c5d8150cd511a298fb7e3f7a1ec7ad9e",
+      "body_hash": "86e42fb57673bb23bbbf3fd138529587b159d9f1904102db5eaa9781761dc3fd"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/VTP-RESEARCH-DELTA.md:1",
+      "source_path": ".planning/milestones/v1.9/VTP-RESEARCH-DELTA.md",
+      "source_hash": "5570f5d7c7df29d1f0d70fe238ecc148c5d8150cd511a298fb7e3f7a1ec7ad9e",
+      "body_hash": "10ebb25815c4104d258577dc6a2bc1cb6cb61b6fe9374b1ca66780b068f23c17"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/VTP-RESEARCH-DELTA.md:2",
+      "source_path": ".planning/milestones/v1.9/VTP-RESEARCH-DELTA.md",
+      "source_hash": "5570f5d7c7df29d1f0d70fe238ecc148c5d8150cd511a298fb7e3f7a1ec7ad9e",
+      "body_hash": "e0aba43beee1577f8d1da289ecc360c6528b15e5237b745fa7c2a3d69457972c"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/VTP-RESEARCH-DELTA.md:3",
+      "source_path": ".planning/milestones/v1.9/VTP-RESEARCH-DELTA.md",
+      "source_hash": "5570f5d7c7df29d1f0d70fe238ecc148c5d8150cd511a298fb7e3f7a1ec7ad9e",
+      "body_hash": "5b01e59464f4a7deb679e60c38cc3716d7777f7dcf72ae2b4c2e9989f9f654a7"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/VTP-RESEARCH-DELTA.md:4",
+      "source_path": ".planning/milestones/v1.9/VTP-RESEARCH-DELTA.md",
+      "source_hash": "5570f5d7c7df29d1f0d70fe238ecc148c5d8150cd511a298fb7e3f7a1ec7ad9e",
+      "body_hash": "3d9d916bef57e16459639755af566d059f05aa3fc9e40b5238d1bb33f24f4ed7"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/phases/41-baseline-token-attribution/41-CONTEXT.md:0",
+      "source_path": ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-CONTEXT.md",
+      "source_hash": "70151d7b07bec62bdd76db47fb62c43864369c37afd01cc3521d2a5e14c5f0b8",
+      "body_hash": "83050d72a611d23ad11ba1d03a95191c5d2280c25efef5f15d376842134611e4"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/phases/41-baseline-token-attribution/41-CONTEXT.md:1",
+      "source_path": ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-CONTEXT.md",
+      "source_hash": "70151d7b07bec62bdd76db47fb62c43864369c37afd01cc3521d2a5e14c5f0b8",
+      "body_hash": "523f2de666f26d2324acf77e9d566a194d62f849e5efaed03a5151eec1de5d35"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/phases/41-baseline-token-attribution/41-CONTEXT.md:2",
+      "source_path": ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-CONTEXT.md",
+      "source_hash": "70151d7b07bec62bdd76db47fb62c43864369c37afd01cc3521d2a5e14c5f0b8",
+      "body_hash": "3cd2e5ee4a124f645ff74c9f42dd99be847e2b571670df0b013c3b8ab5c2a413"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/phases/41-baseline-token-attribution/41-CONTEXT.md:3",
+      "source_path": ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-CONTEXT.md",
+      "source_hash": "70151d7b07bec62bdd76db47fb62c43864369c37afd01cc3521d2a5e14c5f0b8",
+      "body_hash": "24e2701c7f60a6db62f58b3b988a2cc07136567417df21f0cd862b32f45fe3ce"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/phases/41-baseline-token-attribution/41-CONTEXT.md:4",
+      "source_path": ".planning/milestones/v1.9/phases/41-baseline-token-attribution/41-CONTEXT.md",
+      "source_hash": "70151d7b07bec62bdd76db47fb62c43864369c37afd01cc3521d2a5e14c5f0b8",
+      "body_hash": "56bef0b884a9318e43b7e1455cfc539996ce063a2f06072254233f3388625975"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/phases/42-token-budget-admission/42-CONTEXT.md:0",
+      "source_path": ".planning/milestones/v1.9/phases/42-token-budget-admission/42-CONTEXT.md",
+      "source_hash": "524941762f120f1e8d181a1b130d528aab46ca87bcd9b389ba706bf2804c4be1",
+      "body_hash": "524941762f120f1e8d181a1b130d528aab46ca87bcd9b389ba706bf2804c4be1"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/phases/43-phase-capsule-contract/43-CONTEXT.md:0",
+      "source_path": ".planning/milestones/v1.9/phases/43-phase-capsule-contract/43-CONTEXT.md",
+      "source_hash": "473929e6719fc16dc2bd8eed6f3a3b81b8f787cbf3c0d1f86f0ec602c1f0b7df",
+      "body_hash": "473929e6719fc16dc2bd8eed6f3a3b81b8f787cbf3c0d1f86f0ec602c1f0b7df"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/phases/44-legal-context-registry/44-CONTEXT.md:0",
+      "source_path": ".planning/milestones/v1.9/phases/44-legal-context-registry/44-CONTEXT.md",
+      "source_hash": "5f3abc684c22ad6742935a66351b39a773345af629f128b5b757cacde846514e",
+      "body_hash": "5f3abc684c22ad6742935a66351b39a773345af629f128b5b757cacde846514e"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/phases/45-context-packet-builder/45-CONTEXT.md:0",
+      "source_path": ".planning/milestones/v1.9/phases/45-context-packet-builder/45-CONTEXT.md",
+      "source_hash": "92a52804cd966fdef5aee00b1c051749d55457390c89f313c634e0668bfad64b",
+      "body_hash": "6106c37a9f50d5fb1a33e08b2dc1e8d4bad154a3747fda3d9701bf7d49cf8a88"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/phases/46-sqlite-context-index/46-CONTEXT.md:0",
+      "source_path": ".planning/milestones/v1.9/phases/46-sqlite-context-index/46-CONTEXT.md",
+      "source_hash": "5100b23dd07cc0b0c83f05f1997ec4d59227aab2e45c6aab8058160c3b0e9a65",
+      "body_hash": "5100b23dd07cc0b0c83f05f1997ec4d59227aab2e45c6aab8058160c3b0e9a65"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/phases/47-dispatch-routing-substitution/47-CONTEXT.md:0",
+      "source_path": ".planning/milestones/v1.9/phases/47-dispatch-routing-substitution/47-CONTEXT.md",
+      "source_hash": "bd8b4d15269a4e24efbcd5d3237a5a3257021177220911c73b76589c977a4759",
+      "body_hash": "bd8b4d15269a4e24efbcd5d3237a5a3257021177220911c73b76589c977a4759"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/phases/48-selective-vtp-bridge/48-CONTEXT.md:0",
+      "source_path": ".planning/milestones/v1.9/phases/48-selective-vtp-bridge/48-CONTEXT.md",
+      "source_hash": "4300c89658322addf4e16ddc18a996078ead9a6c093fa7570b1fbd1b9f181b71",
+      "body_hash": "4300c89658322addf4e16ddc18a996078ead9a6c093fa7570b1fbd1b9f181b71"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/phases/49-memory-governance-lifecycle/49-CONTEXT.md:0",
+      "source_path": ".planning/milestones/v1.9/phases/49-memory-governance-lifecycle/49-CONTEXT.md",
+      "source_hash": "f8eb7ff2535df935e9e9cdf0ea3e4a8721d70a4853acc1a6330c29e227461b61",
+      "body_hash": "f8eb7ff2535df935e9e9cdf0ea3e4a8721d70a4853acc1a6330c29e227461b61"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/phases/50-cockpit-research-dashboard/50-CONTEXT.md:0",
+      "source_path": ".planning/milestones/v1.9/phases/50-cockpit-research-dashboard/50-CONTEXT.md",
+      "source_hash": "410bae576cecbddc1ce2eebf28d63ba51a8930e2050c6197bb49b4c037022643",
+      "body_hash": "410bae576cecbddc1ce2eebf28d63ba51a8930e2050c6197bb49b4c037022643"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/phases/51-context-stress-benchmark/51-CONTEXT.md:0",
+      "source_path": ".planning/milestones/v1.9/phases/51-context-stress-benchmark/51-CONTEXT.md",
+      "source_hash": "9ec84ea48e1e8899f89d3a53de3ee134102d9d99ae05a95763d1d009d1fbf7a6",
+      "body_hash": "9ec84ea48e1e8899f89d3a53de3ee134102d9d99ae05a95763d1d009d1fbf7a6"
+    },
+    {
+      "kind": "file_summary",
+      "doc_id": "summary:.planning/milestones/v1.9/phases/52-redis-live-cache-adapter/52-CONTEXT.md:0",
+      "source_path": ".planning/milestones/v1.9/phases/52-redis-live-cache-adapter/52-CONTEXT.md",
+      "source_hash": "748c7e629b757026c868dac2df8b105ef406d3276e4586cc9ba85aa2709b07f4",
+      "body_hash": "748c7e629b757026c868dac2df8b105ef406d3276e4586cc9ba85aa2709b07f4"
+    },
+    {
+      "kind": "gate_definition",
+      "doc_id": "gate:MUDA-waste-audit",
+      "source_path": "super-gsd/registry/gates.yaml",
+      "source_hash": "241265ec15e491e6ca22ddaba517786f2334b05b199f03104778514aa85e13b4",
+      "body_hash": "0ac261a024601afe98416092614b0c2cd52e44999560204990251888cde74fca"
+    },
+    {
+      "kind": "gate_definition",
+      "doc_id": "gate:classifier-haiku",
+      "source_path": "super-gsd/registry/gates.yaml",
+      "source_hash": "241265ec15e491e6ca22ddaba517786f2334b05b199f03104778514aa85e13b4",
+      "body_hash": "03d1c41c37fe22108589ae69ec2579729d9b69d233759438ae6baf0f5b29384f"
+    },
+    {
+      "kind": "gate_definition",
+      "doc_id": "gate:context-selector-haiku",
+      "source_path": "super-gsd/registry/gates.yaml",
+      "source_hash": "241265ec15e491e6ca22ddaba517786f2334b05b199f03104778514aa85e13b4",
+      "body_hash": "ec8b5cbb41b10d28dd6506f5ebe3c09ac4fd5485ee81e31f3666d5d37062b7ee"
+    },
+    {
+      "kind": "gate_definition",
+      "doc_id": "gate:intent-injection",
+      "source_path": "super-gsd/registry/gates.yaml",
+      "source_hash": "241265ec15e491e6ca22ddaba517786f2334b05b199f03104778514aa85e13b4",
+      "body_hash": "aac3ccab37e231942d42d4da647f8466d0528eadf52e922dbfd8270a6ab159ff"
+    },
+    {
+      "kind": "gate_definition",
+      "doc_id": "gate:per-dispatch-ATC",
+      "source_path": "super-gsd/registry/gates.yaml",
+      "source_hash": "241265ec15e491e6ca22ddaba517786f2334b05b199f03104778514aa85e13b4",
+      "body_hash": "6ef91cc4923f78187dc64f02d529998457876ae91e3cf09e5695e24f4c0fcd6e"
+    },
+    {
+      "kind": "gate_definition",
+      "doc_id": "gate:phase-level-ATC",
+      "source_path": "super-gsd/registry/gates.yaml",
+      "source_hash": "241265ec15e491e6ca22ddaba517786f2334b05b199f03104778514aa85e13b4",
+      "body_hash": "3eb3055cf6350b46cc5b04fc518a2a92762d51ce95863dca7d18b88fd8f0d5c6"
+    },
+    {
+      "kind": "gate_definition",
+      "doc_id": "gate:qualitative-waste-audit",
+      "source_path": "super-gsd/registry/gates.yaml",
+      "source_hash": "241265ec15e491e6ca22ddaba517786f2334b05b199f03104778514aa85e13b4",
+      "body_hash": "291aa1ff5e080c9e925e7e27a59344886a7663f0701325f0059b2ab8194b4d0a"
+    },
+    {
+      "kind": "gate_definition",
+      "doc_id": "gate:sgsd-curate-learnings",
+      "source_path": "super-gsd/registry/gates.yaml",
+      "source_hash": "241265ec15e491e6ca22ddaba517786f2334b05b199f03104778514aa85e13b4",
+      "body_hash": "805e72324f766e2074dee9877f0d9ae01f110c97b6aabd0ab6205120112df3b9"
+    },
+    {
+      "kind": "gate_definition",
+      "doc_id": "gate:sgsd-recall-queries",
+      "source_path": "super-gsd/registry/gates.yaml",
+      "source_hash": "241265ec15e491e6ca22ddaba517786f2334b05b199f03104778514aa85e13b4",
+      "body_hash": "a44ec2f4744737d82da839316597550798cde497e1a8719fd48146b37512e878"
+    },
+    {
+      "kind": "gate_definition",
+      "doc_id": "gate:token-log",
+      "source_path": "super-gsd/registry/gates.yaml",
+      "source_hash": "241265ec15e491e6ca22ddaba517786f2334b05b199f03104778514aa85e13b4",
+      "body_hash": "b909f1e7e0fadb6253cf06f66a96e9ef008de65bb4dfa933f29960544ce05498"
+    },
+    {
+      "kind": "gate_definition",
+      "doc_id": "gate:verifier-detail-vs-summary",
+      "source_path": "super-gsd/registry/gates.yaml",
+      "source_hash": "241265ec15e491e6ca22ddaba517786f2334b05b199f03104778514aa85e13b4",
+      "body_hash": "635715979b5d4c2a0ab0a94244f2b35ecf5a3a146a454f2f3ee55ce5c90432e8"
+    },
+    {
+      "kind": "gate_definition",
+      "doc_id": "gate:verifier-row-arithmetic",
+      "source_path": "super-gsd/registry/gates.yaml",
+      "source_hash": "241265ec15e491e6ca22ddaba517786f2334b05b199f03104778514aa85e13b4",
+      "body_hash": "79c603b36664eec070193e3441a905905dcbbe5153326bb96e588c261c129052"
+    },
+    {
+      "kind": "gate_definition",
+      "doc_id": "gate:vtp-enrichment",
+      "source_path": "super-gsd/registry/gates.yaml",
+      "source_hash": "241265ec15e491e6ca22ddaba517786f2334b05b199f03104778514aa85e13b4",
+      "body_hash": "86e9ca3451ac89807a9906f6e163ee3fcdcf5cd9178a8372e1219f1316ec77db"
+    }
+  ]
+}
