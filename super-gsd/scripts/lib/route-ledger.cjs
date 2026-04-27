@@ -255,7 +255,12 @@ function selfTest() {
   };
 
   // Capture canonical-ledger fingerprint BEFORE any writes (assertion 12).
-  const realLedger = path.join(process.cwd(), '.planning', 'metrics', 'route-decisions.jsonl');
+  // Anchor to __dirname (the lib's filesystem location) NOT process.cwd(): the
+  // self-test is invokable from any directory (CI, IDE task runner, etc.) and
+  // must always identify the SAME canonical ledger. Lib lives at
+  // <repo>/super-gsd/scripts/lib/route-ledger.cjs; canonical at
+  // <repo>/.planning/metrics/route-decisions.jsonl (3 dirs up + .planning).
+  const realLedger = path.resolve(__dirname, '..', '..', '..', '.planning', 'metrics', 'route-decisions.jsonl');
   const realExistedBefore = fs.existsSync(realLedger);
   const realMtimeBefore = realExistedBefore ? fs.statSync(realLedger).mtimeMs : 0;
   const realSizeBefore = realExistedBefore ? fs.statSync(realLedger).size : 0;

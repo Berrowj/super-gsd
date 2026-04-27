@@ -1,0 +1,68 @@
+You are reviewing Phase 32 of the SGSD v1.7 milestone for ATC code-review.
+
+Phase 32 is a code phase (lib + skill edit + test). Three files were created/modified:
+
+1. super-gsd/scripts/lib/route-ledger.cjs (NEW, 401 lines) -- envelope-v1-shaped JSONL writer; exports BOUNDARIES (6 frozen), STATUSES (6 frozen), generateRunId, appendRow, readRows, logRouteDecision, logCodexRoute; --self-test runs 12 assertions in os.tmpdir().
+2. super-gsd/skills/sgsd-orchestrate/SKILL.md (MODIFIED, +16 lines) -- 4-line wire-in to logCodexRoute() inside Step 9.5 PER-DISPATCH ATC handler.
+3. super-gsd/scripts/lib/route-ledger.test.cjs (NEW, 144 lines) -- deterministic local fallback test; imports production lib (no mocks); 4 dispatchResult fixtures (success/timeout/auth-fail/parse-fail); 26 assertions.
+
+Locked decision: 32=A boundary-only -- ONE wire-in shipped (codex_route). Other 5 boundaries pre-declared in BOUNDARIES const but explicitly deferred to v1.8+.
+
+Phase 31 envelope-v1 contract preserved: every emitted row is a valid envelope-v1 instance + extension fields (boundary, decision) via additionalProperties: true. evidence[] uses {kind, ref}; artifacts[] is empty for codex_route rows because logCodexRoute does not write the per-dispatch report -- the orchestrator wrote it earlier; this row only cites it.
+
+Acceptance criteria (ROUTE-01..04):
+- ROUTE-01: --self-test 12/12 PASS
+- ROUTE-02: 6-boundary BOUNDARIES const; rejects unknown
+- ROUTE-03: SKILL.md contains logCodexRoute() wire-in at Step 9.5
+- ROUTE-04: rows include phase + milestone + reason_codes + outcome + evidence (linked artifacts via cite)
+
+Plus:
+- Live-or-local (Patch 4): production code path exercised; 26/0 fixtures PASS
+- Schema-without-consumer: lib + caller in same phase
+- Envelope-v1 reconciliation preserved (collides_with: [] still holds)
+
+YOUR TASK
+
+Review the three files for:
+1. Lib correctness (run_id regex actually matches envelope-v1 pattern; BOUNDARIES frozen; STATUSES enum aligned with envelope-v1 6-state; try/catch wrap means writer never throws upward)
+2. SKILL.md wire-in safety (orchestrator continues if route-ledger throws; decision factors all in scope at insertion point; no breaking change to Step 9.5 control flow)
+3. Test correctness (fixtures cover canonical outcomes; uses production lib, no predicate mocks; tmpdir isolated; cleanup on exit)
+4. Envelope-v1 conformance (every row has 13 required fields + boundary + decision; evidence uses {kind, ref}; review_report kind is in evidence not artifacts)
+5. ASCII-only constraint (no smart quotes, em dashes, Unicode arrows)
+6. 10-point anti-slop checklist:
+   - No orphan exports (every exported symbol has a caller)
+   - No dead boundary types (5 deferred boundaries acceptable per locked 32=A IF documented; check)
+   - No "just in case" abstractions
+   - delta-Complexity proportional (single lib + 4-line wire-in for first consumer)
+   - Existing contracts preserved verbatim (envelope-v1 untouched)
+   - Single-purpose phase (one wire-in, not all 6)
+   - No mass-deletable content
+   - No hidden state (lib is pure functions over a JSONL file)
+   - Failure path documented (writer never crashes orchestrator)
+   - try/catch granularity correct (does not swallow programmer errors)
+
+Files to read:
+- super-gsd/scripts/lib/route-ledger.cjs
+- super-gsd/scripts/lib/route-ledger.test.cjs
+- super-gsd/skills/sgsd-orchestrate/SKILL.md (lines 1117-1260 — the Step 9.5 region)
+- .planning/milestones/v1.7/phases/32-route-decision-ledger/32-01-route-ledger-PLAN.md
+- .planning/milestones/v1.7/phases/32-route-decision-ledger/32-VERIFICATION.md
+- super-gsd/registry/command-envelope-v1.yaml (envelope-v1 contract)
+- super-gsd/templates/command-envelope-v1.json (envelope schema)
+
+REPORT CONTRACT (code-reviewer-v1) -- emit EXACTLY these 5 lines as the LAST 5 lines of your reply (parser is awk; uses last occurrence of each tag):
+
+FINDINGS: <one-line summary of all findings; "none" if 0 CRIT and 0 WARN>
+CRITICAL: <integer count>
+WARNINGS: <integer count>
+PASS_RATE: <N>/10
+ONE_LINER: <one-line, <=200-char overall conclusion>
+
+The wrapper expects literal token "FINDINGS:" (NOT "VERDICT:"). All 5 lines must be present at end of reply or the report will be rejected as a contract violation (exit 6).
+
+Above the 5-line contract block, provide:
+- CRIT findings (with file:line citations) — empty section if 0
+- WARN findings (with file:line citations) — empty section if 0
+- 10-point anti-slop checklist with verdicts
+
+Be ruthless. The previous Phase 31 review surfaced a real CRIT (schema required-list under-enforced) Claude missed -- apply equal rigor for Phase 32.

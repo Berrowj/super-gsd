@@ -1238,6 +1238,9 @@ REPEAT:
   // ROUTE-03 wire-in: log the codex routing decision.
   // Non-load-bearing: helper wraps in try/catch, returns false on error.
   // The orchestrator MUST continue regardless.
+  // SCOPE: fires ONLY when the codex shell-branch above ran (effective.invocation
+  // === 'shell'); the agent-only path (line ~1158) has no codex_route decision
+  // to log -- there is no provider routing event to record. This is intentional.
   require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'route-ledger.cjs'))
     .logCodexRoute(path.join(process.cwd(), '.planning'), {
       phase: currentPhase,

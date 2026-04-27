@@ -164,7 +164,9 @@ From super-gsd/skills/sgsd-orchestrate/SKILL.md Step 9.5 (1163-1247) -- variable
                         reason_codes=['codex_fallback_triggered','parse_failure'],
                         decision.fallback_triggered===true,
                         decision.from='codex-cli-reviewer',
-                        decision.to='claude-sonnet-reviewer'
+                        decision.to='claude-via-fallback'  -- canonical runtime
+                          tag (matches SKILL.md:1186/1204 report._provider value);
+                          NOT 'claude-sonnet-reviewer'.
   </behavior>
 
   <action>
