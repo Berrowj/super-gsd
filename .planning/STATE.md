@@ -3,21 +3,21 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Stable Command Contracts + Route Intelligence
 milestone_status: v1.7 PROMOTED 2026-04-27 (5 phases 31-35; locked decisions per DISCUSS.md; audit warning honored via EXISTING-SURFACE-AUDIT.md — fifth contract at command-output level, no overlap with 4 existing). v1.6 SHIPPED-WITH-DEBT-10 closed at d510e32; 10 deferred items carry forward.
-status: v1.7 active — Phase 33 (Repair Instruction Contract) PASS 2026-04-27. Next: Phase 34 (Canonical Review Ledger).
-stopped_at: 2026-04-27 — Phase 33 closed PASS post dual-provider ATC fixes (combined anti-slop ~9.5/10; SAFE deny-list raised 18->26 patterns).
-last_updated: "2026-04-27T09:15:00Z"
-last_activity: "2026-04-27 — Phase 33 ATC dual-provider surfaced 2 Codex CRITs (unsafe command bypasses; milestone-tag omission) + 5 WARNs (Claude 3 + Codex 3 — 1 of Claude's overlapped). All 7 fixed in-loop. SAFE deny-list closes 8 new bypass classes ($(...), backticks, eval, bash -c, pipe-to-shell, source, dot-source, xargs sh -c); 2 shipping repair_commands preserved with no regression. Mission Strip Q4 refactored to process.argv. gates-registry soft-warn ordering swapped. Phase 33 closed at 0bfcb6d."
+status: v1.7 active — Phase 34 (Canonical Review Ledger) PASS 2026-04-27. Next: Phase 35 (Generated System Map; final v1.7 phase).
+stopped_at: 2026-04-27 — Phase 34 closed PASS post dual-provider ATC fixes (combined anti-slop ~9.5/10; v1.5 empty-baseline gap CLOSED).
+last_updated: "2026-04-27T10:20:00Z"
+last_activity: "2026-04-27 — Phase 34 ATC dual-provider surfaced 2 Codex CRITs (out-of-scope dispatchResult; missing-verdict broke wire-in on both paths) + 5 Claude WARNs (dead opts, idempotency assertion gap, tier-dedup miss, rows_in undercount, tail-limit edge case). All 7 fixed in-loop. Aggregator now dedups 74 inputs to 37 unique rows. Codex needed 600s timeout (v1.8 candidate adjustment for default phase-ATC tier mapping). Phase 34 closed at 326c571."
 progress:
   v1_7:
     total_phases: 5
-    completed_phases: 3
-    completed_plans: 3
-    percent: 60
+    completed_phases: 4
+    completed_plans: 4
+    percent: 80
     phase_31: "1/1 plan complete — PASS ✓ 2026-04-27 (CRIT+WARN fixed in-loop, anti-slop 10/10)"
     phase_32: "1/1 plan complete — PASS ✓ 2026-04-27 (2 CRIT + 5 WARN fixed in-loop; 1 deferred design-locked; combined anti-slop 9.5/10)"
     phase_33: "1/1 plan complete — PASS ✓ 2026-04-27 (2 CRIT + 5 WARN fixed in-loop; 8 new bypass patterns; 0 regressions; combined anti-slop ~9.5/10)"
-    phase_34: "queued — Canonical Review Ledger (closes v1.5 empty-baseline gap)"
-    phase_35: "queued — Generated System Map"
+    phase_34: "1/1 plan complete — PASS ✓ 2026-04-27 (2 CRIT + 5 WARN fixed in-loop; v1.5 empty-baseline gap closed; combined anti-slop ~9.5/10)"
+    phase_35: "queued — Generated System Map (final v1.7 phase)"
   v1_6_summary:
     total_phases: 5
     completed_phases: 5
@@ -42,6 +42,7 @@ backlog:
     "31": 0
     "32": 0
     "33": 0
+    "34": 0
   cleared_post_rerun: 8
 v1_6_complete:
   shipped: 2026-04-27
@@ -60,7 +61,7 @@ roadmap_run:
   backlog_canonical: .planning/metrics/crit-backlog.jsonl
   started: 2026-04-26
   current_milestone: v1.7
-  current_phase: 34
+  current_phase: 35
   milestones_shipped: ["v1.6 SHIPPED-WITH-DEBT-10 @ d510e32"]
 ---
 
