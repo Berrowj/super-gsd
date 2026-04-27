@@ -1,3 +1,4 @@
 {"ts":"2026-04-19T18:39:53Z","phase":"8","status":"PASS","l1_ms":2200,"l2_ms":2279,"l3_ms":0,"total_ms":4479}
 {"ts":"2026-04-26T23:07:49Z","phase":"26","status":"PASS","l1_ms":420,"l2_ms":3100,"l3_ms":260,"total_ms":3780}
 {"ts":"2026-04-26T23:38:42Z","phase":"27","status":"PASS","l1_ms":389,"l2_ms":1645,"l3_ms":1437,"total_ms":4125}
+{"ts":"2026-04-27T00:16:20.529Z","kind":"verification","phase":28,"status":"PASS-WITH-DEFERRED-6","goal_achieved":true,"score":"10/10","backlog_rows":6,"artifacts":["28-VERIFICATION.md"],"verifier":"gsd-verifier","notes":"all 10 goal-backward checks pass; 6 backlog rows pre-anticipated (3 codex-unavail + 3 phase_atc WARN); deployed hook re-install deferred (source-of-truth fixed)"}
