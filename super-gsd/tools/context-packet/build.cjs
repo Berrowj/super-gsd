@@ -677,6 +677,15 @@ function _buildPacketInternal(role, intent_ref, opts) {
   // Step 1: legal registry pre-walk gate.
   const registry_check = _validatePacketReferences(intent_map, opts);
 
+  // Step 2: current phase context / current plan.
+  // The intent_map.phase + intent_map.milestone fields ARE the step-2 channel:
+  // every downstream step (capsules, validated_thoughts, bypass_refs) is keyed
+  // off (milestone, phase) above, so step 2 is structurally absorbed into the
+  // intent_map preamble rather than re-fetched. Documented here so the 8-step
+  // contract reads continuous: step 1 (registry) -> step 2 (intent.phase/milestone)
+  // -> step 3 (bypass) -> step 4 (capsules) -> step 5 (validated) -> step 6 (index)
+  // -> step 7 (VTP) -> step 8 (raw fallback).
+
   // Step 3: critical bypass raw (Lock 6).
   const bypassRefs = (milestone && phase) ? _gatherBypassRefs(milestone, phase, opts) : [];
   let bypassTotal = 0;
@@ -693,8 +702,10 @@ function _buildPacketInternal(role, intent_ref, opts) {
   // Step 6: local index snippets (Phase 46 deferred -- fs.readFileSync direct).
   const indexSnippets = []; // No-op fallback; explicit empty.
 
-  // Step 7: VTP evidence packets (route_hint gate).
-  const vtpPackets = (opts.route_hint && opts.route_hint.use_vtp === true) ? [] : [];
+  // Step 7: VTP evidence packets - Phase 47/48 will populate via opts.route_hint.
+  // Phase 45 ships the empty stub; route_hint is reserved for forward use.
+  // When Phase 47/48 wires VTP, this becomes: opts.route_hint?.use_vtp ? loadVTP(opts) : [].
+  const vtpPackets = [];
 
   // Step 8: raw files only as fallback (when steps 1-7 yield nothing).
   let rawEvidenceCount = 0;
