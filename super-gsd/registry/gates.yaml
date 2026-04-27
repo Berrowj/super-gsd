@@ -12,7 +12,7 @@
 # ============================================================================
 
 schema_version: 2
-registry_version: 2.1.0
+registry_version: 2.2.0
 last_updated: 2026-04-24
 
 # Enforcement modes:
@@ -39,6 +39,7 @@ gates:
     category: code-quality
     step: 9.5
     enforcement_mode: hard-halt
+    gate_sampling_tier: low-risk-skip
     trigger:
       - field: classifier.atc_tier
         op: in
@@ -64,6 +65,7 @@ gates:
     category: code-quality
     step: 6.5
     enforcement_mode: amortized
+    gate_sampling_tier: low-risk-skip
     trigger: []
     reviewer_agent: sgsd-code-reviewer
     reviewer_provider: codex-cli-reviewer
@@ -81,6 +83,7 @@ gates:
     category: process-hygiene
     step: 2
     enforcement_mode: soft-warn
+    gate_sampling_tier: always
     trigger: []
     reviewer_agent: haiku
     evidence_emitted: []
@@ -94,6 +97,7 @@ gates:
     category: process-hygiene
     step: 4
     enforcement_mode: soft-warn
+    gate_sampling_tier: always
     trigger: []
     reviewer_agent: haiku
     evidence_emitted: []
@@ -107,6 +111,7 @@ gates:
     category: process-hygiene
     step: 5
     enforcement_mode: soft-warn
+    gate_sampling_tier: sampled-rate-50
     trigger:
       - field: classifier.complexity
         op: neq
@@ -123,6 +128,7 @@ gates:
     category: process-hygiene
     step: 5.5
     enforcement_mode: soft-warn
+    gate_sampling_tier: always
     trigger: []
     evidence_emitted: []
     escalation: log-only
@@ -136,6 +142,7 @@ gates:
     category: process-hygiene
     step: 6.55
     enforcement_mode: soft-warn
+    gate_sampling_tier: low-risk-skip
     trigger:
       - any:
           - field: files_changed_count
@@ -160,6 +167,7 @@ gates:
     category: process-hygiene
     step: 6.55
     enforcement_mode: soft-warn
+    gate_sampling_tier: sampled-rate-50
     trigger:
       - field: phase_type
         op: not_in
@@ -184,6 +192,7 @@ gates:
     category: process-hygiene
     step: 10
     enforcement_mode: soft-warn
+    gate_sampling_tier: sampled-rate-50
     trigger:
       - any:
           - field: new_pattern_detected
@@ -207,6 +216,7 @@ gates:
     category: process-hygiene
     step: 11
     enforcement_mode: soft-warn
+    gate_sampling_tier: always
     trigger: []
     evidence_emitted: []
     escalation: log-only
@@ -221,6 +231,7 @@ gates:
     category: process-hygiene
     step: 6.15
     enforcement_mode: soft-warn  # api_error escalates to hard-halt via orchestrator code
+    gate_sampling_tier: low-risk-skip
     trigger:
       - field: research_phase_complete
         op: eq
@@ -242,6 +253,7 @@ gates:
     category: verify-completeness
     step: 0
     enforcement_mode: soft-warn
+    gate_sampling_tier: always
     trigger:
       - field: phase_has_verify_mjs
         op: eq
@@ -257,6 +269,7 @@ gates:
     category: verify-completeness
     step: 0
     enforcement_mode: soft-warn
+    gate_sampling_tier: always
     trigger:
       - field: phase_has_verify_mjs
         op: eq

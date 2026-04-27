@@ -72,6 +72,24 @@ function loadGates(gatesYamlPath) {
     throw new Error(`gates.yaml repair_command 4-AND violations: ${detail}`);
   }
 
+  // Phase 38 SAMPLE-01: validate gate_sampling_tier on every row.
+  // Missing -> soft-warn (DEFAULT_TIER='always' applies per lock 38.4).
+  // Invalid enum -> throw (poisoned config; orchestrator must NEVER
+  // start with an unknown sampling tier).
+  const samplingDecider = require('./sampling-decider.cjs');
+  const samplingResult = samplingDecider.validateGatesYaml({ gates: all });
+  if (!samplingResult.ok) {
+    const detail = samplingResult.violations
+      .filter((v) => v.severity === 'throw')
+      .map((v) => v.message)
+      .join('; ');
+    _cache = null;
+    throw new Error(`gates.yaml gate_sampling_tier violations: ${detail}`);
+  }
+  for (const v of samplingResult.violations.filter((s) => s.severity === 'soft-warn')) {
+    console.warn('[SGSD] gates.yaml: ' + v.message);
+  }
+
   return _cache;
 }
 
