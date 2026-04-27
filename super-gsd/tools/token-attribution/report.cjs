@@ -85,15 +85,12 @@ const STATUSES = Object.freeze([
   'ok', 'warn', 'fail', 'skipped', 'timeout', 'blocked',
 ]);
 
-// RESEARCH 2.3: 8-key frozen BLOAT_THRESHOLDS const.
-// Values verbatim from REQUIREMENTS BUDGET-02/03 + audit derivations.
+// 41-CONTEXT spec: 4-key frozen BLOAT_THRESHOLDS const (low_useful_findings,
+// high_cache_read_ratio, high_files_read, low_diff_lines). Per-role input
+// budgets belong to Phase 42 (Token Budget Admission), not the baseline.
 const BLOAT_THRESHOLDS = Object.freeze({
   cache_read_ratio_high:    0.90,
   useful_findings_low:      15,
-  researcher_input_max:     25000,
-  planner_input_max:        30000,
-  executor_input_max:       40000,
-  verifier_input_max:       20000,
   files_read_high:          50,
   diff_lines_low:           100,
 });
@@ -784,10 +781,10 @@ function selfTest() {
       Array.isArray(STATUSES) && STATUSES.length === 6 &&
       ['ok','warn','fail','skipped','timeout','blocked'].every((s) => STATUSES.includes(s)));
 
-    // 4. BLOAT_THRESHOLDS frozen 8-key with numeric >0.
+    // 4. BLOAT_THRESHOLDS frozen 4-key (per 41-CONTEXT spec) with numeric >0.
     const btKeys = Object.keys(BLOAT_THRESHOLDS);
-    assert('4. BLOAT_THRESHOLDS frozen 8-key, all numeric > 0',
-      btKeys.length === 8 && Object.isFrozen(BLOAT_THRESHOLDS) &&
+    assert('4. BLOAT_THRESHOLDS frozen 4-key, all numeric > 0',
+      btKeys.length === 4 && Object.isFrozen(BLOAT_THRESHOLDS) &&
       btKeys.every((k) => typeof BLOAT_THRESHOLDS[k] === 'number' && BLOAT_THRESHOLDS[k] > 0));
 
     // 5. Empty read on fresh tmpdir.
