@@ -256,7 +256,9 @@ function Get-MissionStripState {
         if ((Test-Path $cjsPath) -and $out.activePhase) {
             if (Test-Path $backlogPath) {
                 # Use node to enumerate rowsForPhase deterministically.
-                $nodeExpr = "const m=require('$($cjsPath -replace '\\','/')'); const rows=m.rowsForPhase('$(($ProjectDir -replace '\\','/'))/.planning', '$($out.activePhase)'); console.log(JSON.stringify({n:rows.length, first: (rows[0] && rows[0].summary) || ''}));"
+                $rcPath = (Join-Path $ProjectDir "super-gsd/scripts/lib/repair-command-checker.cjs") -replace '\\','/'
+                $gatesPath = (Join-Path $ProjectDir "super-gsd/registry/gates.yaml") -replace '\\','/'
+                $nodeExpr = "const m=require('$($cjsPath -replace '\\','/')'); const rc=require('$rcPath'); const rows=m.rowsForPhase('$(($ProjectDir -replace '\\','/'))/.planning', '$($out.activePhase)'); const r=rows[0]; const repair = r ? rc.repairInstructionForBacklogRow(r,'$gatesPath') : ''; console.log(JSON.stringify({n:rows.length, first: (r && r.summary) || '', repair}));"
                 $nodeOut = $null
                 try {
                     $nodeOut = & node -e $nodeExpr 2>$null
@@ -268,7 +270,12 @@ function Get-MissionStripState {
                         $first = "$($bl.first)"
                         if ($n -gt 0) {
                             $firstShort = _Truncate-Ascii $first 50
-                            $out.blocker = "> blocker blocked  $n open : $firstShort"
+                            $repairText = ""
+                            if ($bl.PSObject.Properties.Name -contains 'repair' -and $bl.repair) {
+                                $repairShort = _Truncate-Ascii "$($bl.repair)" 60
+                                $repairText = " | repair: $repairShort"
+                            }
+                            $out.blocker = "> blocker blocked  $n open : $firstShort$repairText"
                             $out.blockerColor = "Red"
                         } else {
                             $out.blocker = "> blocker active  0 open : --"
