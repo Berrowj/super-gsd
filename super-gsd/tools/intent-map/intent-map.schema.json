@@ -1,0 +1,196 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Intent Map (Phase 45 -- PACKET-00 + PACKET-07)",
+  "description": "Closed-vocabulary 10-field schema per RESEARCH 4.1. Intent English compiled from one operator turn. additionalProperties:true (envelope-v1 baseline).",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "envelope_version",
+    "ts",
+    "command",
+    "status",
+    "reason_codes",
+    "intent_id",
+    "raw",
+    "intent",
+    "meaning",
+    "assumptions",
+    "ambiguities",
+    "clarify",
+    "canonical",
+    "relationships",
+    "context_policy",
+    "action"
+  ],
+  "properties": {
+    "envelope_version": { "const": 1 },
+    "ts": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T" },
+    "command": { "const": "compileIntentMap" },
+    "status": {
+      "type": "string",
+      "enum": ["ok", "warn", "fail", "skipped", "timeout", "blocked"]
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "intent_compiled_clean",
+          "intent_ambiguity_blocking",
+          "intent_ambiguity_proceed",
+          "intent_prompt_injection_filtered",
+          "intent_relationship_semantic_only_demoted",
+          "intent_clarify_resolved_by_prior_context",
+          "intent_speech_fields_included",
+          "intent_compile_fallback_used"
+        ]
+      }
+    },
+    "intent_id": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+    "raw": { "type": "string" },
+    "intent": { "type": "string" },
+    "meaning": { "type": "string" },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["text", "source"],
+        "properties": {
+          "text": { "type": "string" },
+          "source": {
+            "type": "string",
+            "enum": ["operator_phrasing", "prior_decision", "phase_default", "role_default"]
+          }
+        }
+      }
+    },
+    "ambiguities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["text", "why", "materially_changes_action"],
+        "properties": {
+          "text": { "type": "string" },
+          "why": { "type": "string" },
+          "materially_changes_action": { "type": "boolean" }
+        }
+      }
+    },
+    "clarify": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["question", "blocking"],
+          "properties": {
+            "question": { "type": "string" },
+            "blocking": { "type": "boolean" }
+          }
+        }
+      ]
+    },
+    "canonical": { "type": "string" },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["target_kind", "target_ref", "reason", "weight"],
+        "properties": {
+          "target_kind": {
+            "type": "string",
+            "enum": [
+              "phase",
+              "gate",
+              "agent",
+              "artifact",
+              "provider",
+              "decision",
+              "complaint",
+              "codex_finding",
+              "vtp_evidence",
+              "operator_feedback",
+              "capsule"
+            ]
+          },
+          "target_ref": { "type": "string" },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "current_active_phase",
+              "current_milestone_goal",
+              "explicit_artifact_mention",
+              "repeated_operator_complaint",
+              "same_failure_pattern",
+              "phase_dependency_edge",
+              "phase_close_pattern_recurrence",
+              "shared_gate_or_provider",
+              "recent_phase_same_milestone",
+              "audit_evidence_cite",
+              "codex_finding_cite",
+              "vtp_evidence_cite",
+              "archived_milestone_explicit_reference"
+            ]
+          },
+          "weight": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "context_policy": {
+      "type": "object",
+      "properties": {
+        "include": { "type": "array", "items": { "type": "string" } },
+        "exclude": { "type": "array", "items": { "type": "string" } },
+        "compress": { "type": "array", "items": { "type": "string" } },
+        "preserve_raw": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "action": {
+      "type": "object",
+      "required": ["kind", "reason"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "dispatch_role",
+            "route_provider",
+            "human_clarify",
+            "no_op",
+            "meta_self",
+            "index_query"
+          ]
+        },
+        "role": { "type": "string" },
+        "provider": { "type": "string" },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "phase_default_dispatch",
+            "route_to_codex",
+            "route_to_local_script",
+            "route_to_vtp",
+            "ambiguity_blocking",
+            "ambiguity_proceed_with_assumption",
+            "capsule_satisfies_request",
+            "no_change_needed",
+            "phase_45_self_request",
+            "phase_46_index_query"
+          ]
+        }
+      }
+    },
+    "speech_fields": {
+      "type": "object",
+      "properties": {
+        "pronounce": { "type": "string" },
+        "emphasis": { "type": "string" },
+        "tone": {
+          "type": "string",
+          "enum": ["neutral", "urgent", "pedagogical", "celebratory"]
+        }
+      }
+    },
+    "milestone": { "type": ["string", "null"] },
+    "phase": { "type": ["string", "null"] },
+    "run_id": { "type": "string" }
+  }
+}

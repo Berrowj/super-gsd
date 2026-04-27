@@ -1,0 +1,252 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Context Packet (Phase 45 -- PACKET-01..05 + VTP-delta PACKET-11..13)",
+  "description": "Closed-vocabulary 6-role packet schema per RESEARCH 5.1-5.3 + VTP-RESEARCH-DELTA validated_thoughts[] + context_source_mix metadata.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "envelope_version",
+    "ts",
+    "command",
+    "status",
+    "reason_codes",
+    "packet_id",
+    "role",
+    "intent_ref",
+    "capsule_refs",
+    "registry_validation",
+    "budget_status",
+    "bypass_refs",
+    "omitted_material",
+    "source_mix",
+    "packet_body",
+    "body_token_estimate",
+    "metadata",
+    "validated_thoughts"
+  ],
+  "properties": {
+    "envelope_version": { "const": 1 },
+    "ts": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T" },
+    "command": { "const": "buildContextPacket" },
+    "status": {
+      "type": "string",
+      "enum": ["ok", "warn", "fail", "skipped", "timeout", "blocked"]
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "packet_built_clean",
+          "packet_built_with_omitted_material",
+          "packet_over_budget_degraded",
+          "packet_invalid_references_filtered",
+          "packet_intent_map_missing",
+          "packet_capsule_unavailable_raw_fallback",
+          "packet_bypass_refs_preserved_verbatim",
+          "packet_p41_bloat_avoided",
+          "packet_self_request"
+        ]
+      }
+    },
+    "packet_id": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+    "role": {
+      "type": "string",
+      "enum": ["researcher", "planner", "executor", "verifier", "reviewer", "cockpit"]
+    },
+    "intent_ref": { "type": "string" },
+    "capsule_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["milestone", "phase", "weight"],
+        "properties": {
+          "milestone": { "type": "string" },
+          "phase": { "type": "string" },
+          "path": { "type": ["string", "null"] },
+          "content_hash": { "type": ["string", "null"] },
+          "weight": { "type": "number", "minimum": 0, "maximum": 1 },
+          "estimated_tokens": { "type": "number", "minimum": 0 },
+          "excerpt": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "registry_validation": {
+      "type": "object",
+      "required": ["valid", "invalid_keys", "checked_count"],
+      "properties": {
+        "valid": { "type": "boolean" },
+        "invalid_keys": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "category", "reason"],
+            "properties": {
+              "key": { "type": "string" },
+              "category": { "type": "string" },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "unknown_key",
+                  "superseded_key",
+                  "superseded_key_retired",
+                  "malformed_key",
+                  "registry_missing",
+                  "registry_malformed"
+                ]
+              }
+            }
+          }
+        },
+        "checked_count": { "type": "number", "minimum": 0 }
+      }
+    },
+    "budget_status": {
+      "type": "object",
+      "required": ["verdict"],
+      "properties": {
+        "verdict": {
+          "type": "string",
+          "enum": ["ok", "warn", "degraded", "false_positive", "error"]
+        },
+        "warn_input": { "type": "number" },
+        "degrade_input": { "type": "number" },
+        "this_packet_estimate": { "type": "number" }
+      }
+    },
+    "bypass_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["stream", "id", "kind", "summary_passthrough"],
+        "properties": {
+          "stream": { "type": "string" },
+          "id": { "type": ["string", "number", "null"] },
+          "kind": { "type": "string" },
+          "summary_passthrough": { "type": "string" },
+          "evidence_path": { "type": ["string", "null"] },
+          "tagged_for_milestone": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "debt_refs": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "omitted_material": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["target_kind", "target_ref", "reason"],
+        "properties": {
+          "target_kind": { "type": "string" },
+          "target_ref": { "type": "string" },
+          "reason": {
+            "type": "string",
+            "enum": ["over_budget", "invalid_reference", "stale", "redundant"]
+          },
+          "weight": { "type": ["number", "null"] },
+          "estimated_tokens": { "type": ["number", "null"] }
+        }
+      }
+    },
+    "source_mix": {
+      "type": "object",
+      "required": [
+        "capsule_count",
+        "registry_count",
+        "raw_file_fallback_count",
+        "bypass_count"
+      ],
+      "properties": {
+        "capsule_count": { "type": "number", "minimum": 0 },
+        "registry_count": { "type": "number", "minimum": 0 },
+        "raw_file_fallback_count": { "type": "number", "minimum": 0 },
+        "bypass_count": { "type": "number", "minimum": 0 },
+        "raw_evidence": { "type": "number", "minimum": 0 }
+      }
+    },
+    "packet_body": { "type": "string" },
+    "body_token_estimate": { "type": "number", "minimum": 0 },
+    "validated_thoughts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "created_from_phase",
+          "source_refs",
+          "root_source_hashes",
+          "thought",
+          "used_for",
+          "confidence",
+          "novelty_basis",
+          "compression_level"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "created_from_phase": { "type": ["string", "number"] },
+          "source_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+          },
+          "root_source_hashes": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+          },
+          "thought": { "type": "string" },
+          "used_for": { "type": "string" },
+          "confidence": {
+            "type": "string",
+            "enum": ["low", "medium", "high"]
+          },
+          "novelty_basis": { "type": "string" },
+          "compression_level": { "const": "validated_thought" },
+          "expires_or_review_after": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["context_source_mix"],
+      "properties": {
+        "context_source_mix": {
+          "type": "object",
+          "required": [
+            "raw_evidence",
+            "phase_capsule",
+            "validated_thought",
+            "reusable_rule",
+            "guardrail",
+            "index_snippet",
+            "vtp_packet"
+          ],
+          "properties": {
+            "raw_evidence": { "type": "number", "minimum": 0 },
+            "phase_capsule": { "type": "number", "minimum": 0 },
+            "validated_thought": { "type": "number", "minimum": 0 },
+            "reusable_rule": { "type": "number", "minimum": 0 },
+            "guardrail": { "type": "number", "minimum": 0 },
+            "index_snippet": { "type": "number", "minimum": 0 },
+            "vtp_packet": { "type": "number", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "speech_fields": {
+      "type": "object",
+      "properties": {
+        "pronounce": { "type": "string" },
+        "emphasis": { "type": "string" },
+        "tone": {
+          "type": "string",
+          "enum": ["neutral", "urgent", "pedagogical", "celebratory"]
+        }
+      }
+    },
+    "created_at": { "type": "string" },
+    "created_by": { "type": "string" }
+  }
+}
