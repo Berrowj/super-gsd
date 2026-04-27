@@ -74,11 +74,11 @@ roadmap_run:
   backlog_canonical: .planning/metrics/crit-backlog.jsonl
   started: 2026-04-26
   current_milestone: v1.8
-  current_phase: 38
+  current_phase: 39
   v1_8_progress:
     phase_36: "PASS @ d6c402f (2 CRIT + 4 WARN; 5 in-loop, 1 info; combined anti-slop ~9.5/10)"
     phase_37: "PASS @ 9f9759d (1 CRIT null-byte + 5 WARN; 5 in-loop, 1 info; combined anti-slop ~9.5/10)"
-    phase_38: "queued — Risk-Tiered Gate Sampling"
+    phase_38: "PASS @ f265d64 (3 CRIT + 5 WARN; 6 in-loop, 2 accepted; combined anti-slop ~9/10)"
     phase_39: "queued — Gate Keep/Kill Review"
     phase_40: "queued — Phase Folder Perfection Contract"
   milestones_shipped: ["v1.6 SHIPPED-WITH-DEBT-10 @ d510e32", "v1.7 SHIPPED @ 5690c38"]
