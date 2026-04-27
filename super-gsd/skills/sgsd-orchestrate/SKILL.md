@@ -139,6 +139,51 @@ On first entry (no checkpoint):
      halts only if `status === 'halt'` (per-gate opt-in via
      `escalation: halt` in gates.yaml).
 
+3.65. PARSE OPERATOR OVERRIDES (Phase 38 SAMPLE-04 + SAMPLE-05)
+     // Locked decision 38.5: --force-gates and --skip-gates both require
+     // --override-reason="..."; logged to route-decisions.jsonl with
+     // boundary='gate_override'. Reason-less override exits 1.
+
+     // Cache the parsed overrides on the dispatch context so all 3 wire-in
+     // sites read the same Set; symmetric-set check rejects gate-in-both.
+     ```javascript
+     const samplingDecider = require(path.join(process.cwd(),
+       'super-gsd', 'scripts', 'lib', 'sampling-decider.cjs'));
+     const cliOverrides = samplingDecider.parseGateOverrides(
+       process.argv,
+       (name) => { try { gates.getGate(name, GATES_YAML_PATH); return true; }
+                   catch { return false; } }
+     );
+
+     // Log one route-decisions.jsonl row per override (locked Q6).
+     // boundary='gate_override' was added to BOUNDARIES in Phase 38; the
+     // route-ledger writer accepts the new entry.
+     if (cliOverrides.force.size > 0 || cliOverrides.skip.size > 0) {
+       try {
+         const rl = require(path.join(process.cwd(),
+           'super-gsd', 'scripts', 'lib', 'route-ledger.cjs'));
+         for (const g of cliOverrides.force) {
+           rl.logRouteDecision(path.join(process.cwd(), '.planning'), {
+             boundary: 'gate_override', status: 'ok',
+             phase: currentPhase, milestone: currentMilestone,
+             reason_codes: ['gate_force_override_with_reason'],
+             decision: { gate: g, action: 'force', reason: cliOverrides.reason },
+           });
+         }
+         for (const g of cliOverrides.skip) {
+           rl.logRouteDecision(path.join(process.cwd(), '.planning'), {
+             boundary: 'gate_override', status: 'ok',
+             phase: currentPhase, milestone: currentMilestone,
+             reason_codes: ['gate_force_override_with_reason'],
+             decision: { gate: g, action: 'skip', reason: cliOverrides.reason },
+           });
+         }
+       } catch (e) {
+         console.warn('[SGSD] route-ledger gate_override emit failed (continuing):', e && e.message);
+       }
+     }
+     ```
+
 3.7. VTP HEALTH PROBE (D-08 — one-time cold-start ping, cached for session)
      Immediately after step 3.6, if config.vtp_enrichment.enabled is true,
      ping VTP once to establish session health. Cache result as vtp_available.
@@ -592,18 +637,39 @@ REPEAT:
      // gates.shouldFire(...) hoisted to a `phaseAtcFired` const so both the
      // SKIP and FIRE arms reference the same evaluation; then write a
      // gate-value-log row on whichever arm runs (skip/pass/warn/block).
+     // Phase 38 wire-in (SAMPLE-03 site 1 of 3): apply 3x3 sampling
+     // matrix AFTER gates.shouldFire returns true; --force-gates /
+     // --skip-gates take precedence (parsed at cold_start step 3.65).
+     const phaseAtcSampled = samplingDecider.shouldSample({
+       gate: 'phase-level-ATC',
+       work_risk: classifier_result.work_risk,
+       gates,
+       gatesYamlPath: GATES_YAML_PATH,
+       overrides: cliOverrides,
+     });
      const phaseAtcFired = config.atc.enabled
        && gates.shouldFire('phase-level-ATC', ctx, GATES_YAML_PATH)
-       && verification.status == "passed";
+       && verification.status == "passed"
+       && phaseAtcSampled;
 
      if (!phaseAtcFired) {
        try {
+         // Phase 38 LOCKED Q13: differentiate trigger-skip from sampled-skip
+         // for Phase 39 rubric consumer. reason_codes is extensible per
+         // gate-value-log.cjs Q14 lock.
+         const triggerFired = config.atc.enabled
+           && gates.shouldFire('phase-level-ATC', ctx, GATES_YAML_PATH)
+           && verification.status == "passed";
+         const reasonCodes = (triggerFired && !phaseAtcSampled)
+           ? ['gate_skip_with_reason', 'gate_sampled_skip']
+           : ['gate_skip_with_reason'];
          require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'gate-value-log.cjs'))
            .logGateValue(path.join(process.cwd(), '.planning'), {
              gate:        'phase-level-ATC',
              outcome:     'skip',
              phase:       currentPhase,
              milestone:   currentMilestone,
+             reason_codes: reasonCodes,
              retroactive: gates.getGate('phase-level-ATC', GATES_YAML_PATH),
            });
        } catch (e) {
@@ -844,16 +910,31 @@ REPEAT:
      // gates.shouldFire(...) hoisted to a `mudaFired` const so both arms read
      // the same evaluation; SKIP arm logs outcome:'skip', FIRE arm logs the
      // shell-exit-derived outcome (0=pass, 1=warn, 2+=block).
-     const mudaFired = gates.shouldFire('MUDA-waste-audit', ctx, GATES_YAML_PATH);
+     // Phase 38 wire-in (SAMPLE-03 site 2 of 3).
+     const mudaSampled = samplingDecider.shouldSample({
+       gate: 'MUDA-waste-audit',
+       work_risk: classifier_result.work_risk,
+       gates,
+       gatesYamlPath: GATES_YAML_PATH,
+       overrides: cliOverrides,
+     });
+     const mudaFired = gates.shouldFire('MUDA-waste-audit', ctx, GATES_YAML_PATH)
+       && mudaSampled;
 
      if (!mudaFired) {
        try {
+         // Phase 38 LOCKED Q13: differentiate trigger-skip from sampled-skip.
+         const triggerFired = gates.shouldFire('MUDA-waste-audit', ctx, GATES_YAML_PATH);
+         const reasonCodes = (triggerFired && !mudaSampled)
+           ? ['gate_skip_with_reason', 'gate_sampled_skip']
+           : ['gate_skip_with_reason'];
          require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'gate-value-log.cjs'))
            .logGateValue(path.join(process.cwd(), '.planning'), {
              gate:        'MUDA-waste-audit',
              outcome:     'skip',
              phase:       currentPhase,
              milestone:   currentMilestone,
+             reason_codes: reasonCodes,
              retroactive: gates.getGate('MUDA-waste-audit', GATES_YAML_PATH),
            });
        } catch (e) {
@@ -1227,17 +1308,33 @@ REPEAT:
       // gates.shouldFire(...) hoisted to a `perDispatchAtcFired` const so both
       // SKIP and FIRE arms reference the same evaluation; FIRE arm runs at the
       // post-convergence point AFTER LEDGER-02 (covers Codex + Claude paths).
+      // Phase 38 wire-in (SAMPLE-03 site 3 of 3).
+      const perDispatchAtcSampled = samplingDecider.shouldSample({
+        gate: 'per-dispatch-ATC',
+        work_risk: classifier_result.work_risk,
+        gates,
+        gatesYamlPath: GATES_YAML_PATH,
+        overrides: cliOverrides,
+      });
       const perDispatchAtcFired = config.atc.enabled
-        && gates.shouldFire('per-dispatch-ATC', ctx, GATES_YAML_PATH);
+        && gates.shouldFire('per-dispatch-ATC', ctx, GATES_YAML_PATH)
+        && perDispatchAtcSampled;
 
       if (!perDispatchAtcFired) {
         try {
+          // Phase 38 LOCKED Q13: differentiate trigger-skip from sampled-skip.
+          const triggerFired = config.atc.enabled
+            && gates.shouldFire('per-dispatch-ATC', ctx, GATES_YAML_PATH);
+          const reasonCodes = (triggerFired && !perDispatchAtcSampled)
+            ? ['gate_skip_with_reason', 'gate_sampled_skip']
+            : ['gate_skip_with_reason'];
           require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'gate-value-log.cjs'))
             .logGateValue(path.join(process.cwd(), '.planning'), {
               gate:        'per-dispatch-ATC',
               outcome:     'skip',
               phase:       currentPhase,
               milestone:   currentMilestone,
+              reason_codes: reasonCodes,
               retroactive: gates.getGate('per-dispatch-ATC', GATES_YAML_PATH),
             });
         } catch (e) {
