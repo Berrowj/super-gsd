@@ -1,0 +1,1257 @@
+{
+  "agents": [
+    {
+      "agent_file": "super-gsd/agents/sgsd-exec-backend.md",
+      "category": "C",
+      "emits": [
+        ".planning/metrics/activity-log.jsonl",
+        ".planning/metrics/heartbeat.jsonl",
+        ".planning/metrics/token-log.jsonl",
+        ".planning/phases/{N}/commit-reviews.jsonl"
+      ],
+      "expertise_ref": "super-gsd/expertise/sgsd-exec-backend.md",
+      "model_default": "sonnet",
+      "name": "sgsd-exec-backend",
+      "pick_heuristic": "files_touched match backend globs (*.py, *.go, *.ts server, *.rb, *.java) minus frontend paths",
+      "state": "active",
+      "version": 2
+    },
+    {
+      "agent_file": "super-gsd/agents/sgsd-exec-config.md",
+      "category": "C",
+      "emits": [
+        ".planning/metrics/activity-log.jsonl",
+        ".planning/metrics/heartbeat.jsonl",
+        ".planning/metrics/token-log.jsonl",
+        ".planning/phases/{N}/commit-reviews.jsonl"
+      ],
+      "expertise_ref": "super-gsd/expertise/sgsd-exec-config.md",
+      "model_default": "sonnet",
+      "name": "sgsd-exec-config",
+      "pick_heuristic": "files_touched are config-shaped (Dockerfile, *.yaml/yml, docker-compose, .env*, .github/workflows/, terraform)",
+      "state": "active",
+      "version": 2
+    },
+    {
+      "agent_file": "super-gsd/agents/sgsd-exec-docs.md",
+      "category": "C",
+      "emits": [
+        ".planning/metrics/activity-log.jsonl",
+        ".planning/metrics/heartbeat.jsonl",
+        ".planning/metrics/token-log.jsonl"
+      ],
+      "expertise_ref": "super-gsd/expertise/sgsd-exec-docs.md",
+      "model_default": "sonnet",
+      "name": "sgsd-exec-docs",
+      "pick_heuristic": "files_touched are all *.md",
+      "state": "active",
+      "version": 2
+    },
+    {
+      "agent_file": "super-gsd/agents/sgsd-exec-fix.md",
+      "category": "C",
+      "emits": [
+        ".planning/metrics/activity-log.jsonl",
+        ".planning/metrics/heartbeat.jsonl",
+        ".planning/metrics/token-log.jsonl",
+        ".planning/phases/{N}/commit-reviews.jsonl"
+      ],
+      "expertise_ref": "super-gsd/expertise/sgsd-exec-fix.md",
+      "model_default": "sonnet",
+      "name": "sgsd-exec-fix",
+      "pick_heuristic": "task is bug-fix (reproduce → failing test → fix → verify)",
+      "state": "active",
+      "version": 2
+    },
+    {
+      "agent_file": "super-gsd/agents/sgsd-exec-integration.md",
+      "category": "C",
+      "emits": [
+        ".planning/metrics/activity-log.jsonl",
+        ".planning/metrics/heartbeat.jsonl",
+        ".planning/metrics/token-log.jsonl",
+        ".planning/phases/{N}/commit-reviews.jsonl"
+      ],
+      "expertise_ref": "super-gsd/expertise/sgsd-exec-integration.md",
+      "model_default": "sonnet",
+      "name": "sgsd-exec-integration",
+      "pick_heuristic": "task is connecting pre-built parts (no new business logic, wiring only)",
+      "state": "active",
+      "version": 2
+    },
+    {
+      "agent_file": "super-gsd/agents/sgsd-exec-refactor.md",
+      "category": "C",
+      "emits": [
+        ".planning/metrics/activity-log.jsonl",
+        ".planning/metrics/heartbeat.jsonl",
+        ".planning/metrics/token-log.jsonl",
+        ".planning/phases/{N}/commit-reviews.jsonl"
+      ],
+      "expertise_ref": "super-gsd/expertise/sgsd-exec-refactor.md",
+      "model_default": "sonnet",
+      "name": "sgsd-exec-refactor",
+      "pick_heuristic": "task is zero-behavior-change structural change",
+      "state": "active",
+      "version": 2
+    },
+    {
+      "agent_file": "super-gsd/agents/sgsd-exec-test.md",
+      "category": "C",
+      "emits": [
+        ".planning/metrics/activity-log.jsonl",
+        ".planning/metrics/heartbeat.jsonl",
+        ".planning/metrics/token-log.jsonl",
+        ".planning/phases/{N}/commit-reviews.jsonl"
+      ],
+      "expertise_ref": "super-gsd/expertise/sgsd-exec-test.md",
+      "model_default": "sonnet",
+      "name": "sgsd-exec-test",
+      "pick_heuristic": "task goal is test-writing as primary artifact (files_touched all *_test.*/*.spec.*)",
+      "state": "active",
+      "version": 2
+    },
+    {
+      "agent_file": "super-gsd/agents/sgsd-exec-ui.md",
+      "category": "C",
+      "emits": [
+        ".planning/metrics/activity-log.jsonl",
+        ".planning/metrics/heartbeat.jsonl",
+        ".planning/metrics/token-log.jsonl",
+        ".planning/phases/{N}/commit-reviews.jsonl",
+        ".planning/phases/{N}/{N}-BROWSER-REVIEW.md"
+      ],
+      "expertise_ref": "super-gsd/expertise/sgsd-exec-ui.md",
+      "model_default": "sonnet",
+      "name": "sgsd-exec-ui",
+      "pick_heuristic": "files_touched match *.tsx/*.jsx/*.vue/*.svelte/*.css/*.scss",
+      "state": "active",
+      "version": 2
+    }
+  ],
+  "board": {
+    "escalation_policy": {
+      "always_present": [
+        "sgsd-ceo"
+      ],
+      "default_minimal_board": [
+        "sgsd-board-architect",
+        "sgsd-board-contrarian"
+      ],
+      "escalate_add": [
+        {
+          "add": "sgsd-board-pragmatist",
+          "reason": "execution-feasibility dissent",
+          "trigger_prose": "any(m.role=='Contrarian' AND m.position=='OPPOSE' AND m.confidence>=4)",
+          "when": {
+            "any": [
+              {
+                "over": "members",
+                "where": {
+                  "confidence": {
+                    "gte": 4
+                  },
+                  "position": "OPPOSE",
+                  "role": "Contrarian"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "add": "sgsd-board-moonshot",
+          "reason": "consensus-risk (groupthink)",
+          "trigger_prose": "count(unique(m.position))==1 AND size(board)>=2",
+          "when": {
+            "all": [
+              {
+                "count_unique": {
+                  "eq": 1,
+                  "field": "position",
+                  "over": "members"
+                }
+              },
+              {
+                "size": {
+                  "gte": 2,
+                  "over": "members"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "members": [
+      {
+        "evaluation_focus": [
+          "Is the proposed architecture sound?",
+          "What's the actual implementation cost?",
+          "What downstream coupling will this create?"
+        ],
+        "model_default": "sonnet",
+        "name": "sgsd-board-architect",
+        "perspective": [
+          "feasibility",
+          "system design",
+          "tech debt",
+          "implementation risk"
+        ],
+        "role": "Technical Architect",
+        "state": "active",
+        "version": 2
+      },
+      {
+        "evaluation_focus": [
+          "What are we all agreeing on that we shouldn't?",
+          "What's the strongest argument AGAINST this we haven't heard?",
+          "What invariant does this silently violate?"
+        ],
+        "model_default": "sonnet",
+        "name": "sgsd-board-contrarian",
+        "perspective": [
+          "challenges consensus",
+          "finds blind spots",
+          "stress-tests assumptions"
+        ],
+        "role": "Contrarian Challenger",
+        "state": "active",
+        "version": 2
+      },
+      {
+        "evaluation_focus": [
+          "What would this look like if we were 10x more ambitious?",
+          "Is the proposed scope actually the right scope?",
+          "What structural change would make this irrelevant?"
+        ],
+        "model_default": "sonnet",
+        "name": "sgsd-board-moonshot",
+        "perspective": [
+          "challenges incremental thinking",
+          "proposes 10x alternatives",
+          "prevents scope timidity"
+        ],
+        "role": "Moonshot Visionary",
+        "state": "active",
+        "version": 2
+      },
+      {
+        "evaluation_focus": [
+          "Will this actually ship in the time we have?",
+          "Who executes it and do they have capacity?",
+          "What's the smallest version that meets the real need?"
+        ],
+        "model_default": "sonnet",
+        "name": "sgsd-board-pragmatist",
+        "perspective": [
+          "execution risk",
+          "timeline reality",
+          "resource constraints",
+          "what actually ships"
+        ],
+        "role": "Execution Pragmatist",
+        "state": "active",
+        "version": 2
+      },
+      {
+        "evaluation_focus": [
+          "Synthesize board positions into a coherent decision",
+          "Surface unresolved tensions explicitly",
+          "Apply confidence weighting (SEV-P-02) not vote count (R-Q7b)",
+          "Add Falsifier + Dead-Ends sections to memo (R-Q7c)",
+          "Run post-synthesis reflection pass (R-Q7g / ASS-P-04)"
+        ],
+        "model_default": "opus",
+        "name": "sgsd-ceo",
+        "perspective": "meta",
+        "role": "CEO (synthesizer / orchestrator)",
+        "state": "active",
+        "version": 2
+      }
+    ]
+  },
+  "contracts": [
+    {
+      "collides_with": [],
+      "envelope_or_schema_version": 1,
+      "level": "reviewer-report",
+      "locked_decision": null,
+      "name": "code-reviewer-v1",
+      "registry_path": "super-gsd/registry/review-providers.yaml",
+      "schema_path": null,
+      "version": "1"
+    },
+    {
+      "collides_with": [],
+      "envelope_or_schema_version": 1,
+      "level": "command-output",
+      "locked_decision": "31=A (mass-discuss 2026-04-26): new envelope-v1, separate file",
+      "name": "command-envelope-v1",
+      "registry_path": "super-gsd/registry/command-envelope-v1.yaml",
+      "schema_path": "super-gsd/templates/command-envelope-v1.json",
+      "version": "1.0.0"
+    },
+    {
+      "collides_with": [],
+      "envelope_or_schema_version": 2,
+      "level": "agent-dispatch",
+      "locked_decision": null,
+      "name": "handover-contract-v2",
+      "registry_path": "super-gsd/registry/handover-contract-v2.yaml",
+      "schema_path": null,
+      "version": "2"
+    },
+    {
+      "collides_with": [],
+      "envelope_or_schema_version": 2,
+      "level": "plan-frontmatter",
+      "locked_decision": null,
+      "name": "plan-schema-v2",
+      "registry_path": null,
+      "schema_path": "super-gsd/templates/plan-schema-v2.json",
+      "version": "2"
+    },
+    {
+      "collides_with": [],
+      "envelope_or_schema_version": 1,
+      "level": "provider-registry",
+      "locked_decision": null,
+      "name": "review-providers-v1",
+      "registry_path": "super-gsd/registry/review-providers.yaml",
+      "schema_path": null,
+      "version": "1.0.0"
+    }
+  ],
+  "gates": [
+    {
+      "category": "process-hygiene",
+      "enforcement_mode": "soft-warn",
+      "escalation": "log-only",
+      "evidence_emitted": [
+        ".planning/phases/{N}/WASTE.md"
+      ],
+      "name": "MUDA-waste-audit",
+      "repair_command": "bash super-gsd/scripts/sgsd-muda-audit.sh --dry-run",
+      "repair_instruction": "Run `bash super-gsd/scripts/sgsd-muda-audit.sh --phase {N}` and address findings in `.planning/phases/{N}/WASTE.md`; rerun until WARN-or-PASS.",
+      "reviewer_agent": null,
+      "reviewer_provider": null,
+      "state": "active",
+      "step": 6.55,
+      "trigger_clause_count": 2,
+      "version": 2
+    },
+    {
+      "category": "process-hygiene",
+      "enforcement_mode": "soft-warn",
+      "escalation": "log-only",
+      "evidence_emitted": [],
+      "name": "classifier-haiku",
+      "repair_command": null,
+      "repair_instruction": "Re-run the classifier dispatch with Agent(model='haiku', task='classify'); if Haiku is offline, fall back to a single-shot Sonnet classify and log DEVIATIONS.",
+      "reviewer_agent": "haiku",
+      "reviewer_provider": null,
+      "state": "active",
+      "step": 2,
+      "trigger_clause_count": 0,
+      "version": 2
+    },
+    {
+      "category": "process-hygiene",
+      "enforcement_mode": "soft-warn",
+      "escalation": "log-only",
+      "evidence_emitted": [],
+      "name": "context-selector-haiku",
+      "repair_command": null,
+      "repair_instruction": "Re-run the context-selector dispatch with Agent(model='haiku', task='select_context'); if empty, retry with broader recall query.",
+      "reviewer_agent": "haiku",
+      "reviewer_provider": null,
+      "state": "active",
+      "step": 4,
+      "trigger_clause_count": 0,
+      "version": 2
+    },
+    {
+      "category": "process-hygiene",
+      "enforcement_mode": "soft-warn",
+      "escalation": "log-only",
+      "evidence_emitted": [],
+      "name": "intent-injection",
+      "repair_command": null,
+      "repair_instruction": "Re-compose the dispatch prompt and re-inject the intent block from the plan frontmatter; verify the agent received it via the dispatch report's INTENT echo.",
+      "reviewer_agent": null,
+      "reviewer_provider": null,
+      "state": "active",
+      "step": 5.5,
+      "trigger_clause_count": 0,
+      "version": 2
+    },
+    {
+      "category": "code-quality",
+      "enforcement_mode": "hard-halt",
+      "escalation": "halt",
+      "evidence_emitted": [
+        ".planning/phases/{N}/commit-reviews.jsonl"
+      ],
+      "name": "per-dispatch-ATC",
+      "repair_command": null,
+      "repair_instruction": "Read the latest commit-reviews.jsonl row in `.planning/phases/{N}/`, address the CRIT verdict, re-commit, and re-dispatch the executor to refire ATC.",
+      "reviewer_agent": "sgsd-code-reviewer",
+      "reviewer_provider": "codex-cli-reviewer",
+      "state": "active",
+      "step": 9.5,
+      "trigger_clause_count": 2,
+      "version": 2
+    },
+    {
+      "category": "code-quality",
+      "enforcement_mode": "amortized",
+      "escalation": "halt",
+      "evidence_emitted": [
+        ".planning/phases/{N}/{N}-ATC-REVIEW.md"
+      ],
+      "name": "phase-level-ATC",
+      "repair_command": null,
+      "repair_instruction": "Read `.planning/milestones/{ms}/phases/{NN}-*/{NN}-ATC-REVIEW.md`. Address each WARN/CRIT in a follow-up commit; re-run gsd-verifier to refire phase-level-ATC.",
+      "reviewer_agent": "sgsd-code-reviewer",
+      "reviewer_provider": "codex-cli-reviewer",
+      "state": "active",
+      "step": 6.5,
+      "trigger_clause_count": 0,
+      "version": 2
+    },
+    {
+      "category": "process-hygiene",
+      "enforcement_mode": "soft-warn",
+      "escalation": "log-only",
+      "evidence_emitted": [
+        ".planning/phases/{N}/WASTE.md"
+      ],
+      "name": "qualitative-waste-audit",
+      "repair_command": null,
+      "repair_instruction": "Re-dispatch sgsd-code-reviewer with --qualitative-waste against the latest WASTE.md; address findings in a follow-up commit.",
+      "reviewer_agent": null,
+      "reviewer_provider": "codex-cli-reviewer",
+      "state": "active",
+      "step": 6.55,
+      "trigger_clause_count": 3,
+      "version": 2
+    },
+    {
+      "category": "process-hygiene",
+      "enforcement_mode": "soft-warn",
+      "escalation": "log-only",
+      "evidence_emitted": [],
+      "name": "sgsd-curate-learnings",
+      "repair_command": "bash super-gsd/scripts/sgsd-curate.sh --dry-run",
+      "repair_instruction": "Run `bash super-gsd/scripts/sgsd-curate.sh` to write learnings under `.planning/memory/`; verify with `grep -r '<pattern>' .planning/memory/`.",
+      "reviewer_agent": null,
+      "reviewer_provider": null,
+      "state": "active",
+      "step": 10,
+      "trigger_clause_count": 1,
+      "version": 2
+    },
+    {
+      "category": "process-hygiene",
+      "enforcement_mode": "soft-warn",
+      "escalation": "log-only",
+      "evidence_emitted": [],
+      "name": "sgsd-recall-queries",
+      "repair_command": null,
+      "repair_instruction": "Run `bash super-gsd/scripts/sgsd-recall.sh '<query>'` for each recall term in the plan; if memory tree empty, mark dispatch as cold-start and continue.",
+      "reviewer_agent": null,
+      "reviewer_provider": null,
+      "state": "active",
+      "step": 5,
+      "trigger_clause_count": 1,
+      "version": 2
+    },
+    {
+      "category": "process-hygiene",
+      "enforcement_mode": "soft-warn",
+      "escalation": "log-only",
+      "evidence_emitted": [],
+      "name": "token-log",
+      "repair_command": null,
+      "repair_instruction": "Append the missing token row to `.planning/metrics/token-log.jsonl` from the dispatch report; re-run the milestone token reconciliation script.",
+      "reviewer_agent": null,
+      "reviewer_provider": null,
+      "state": "active",
+      "step": 11,
+      "trigger_clause_count": 0,
+      "version": 2
+    },
+    {
+      "category": "verify-completeness",
+      "enforcement_mode": "soft-warn",
+      "escalation": "log-only",
+      "evidence_emitted": [],
+      "name": "verifier-detail-vs-summary",
+      "repair_command": null,
+      "repair_instruction": "Reconcile detail rows with the summary block in `{N}-VERIFICATION.md`; either expand the summary or delete the orphan detail rows; re-run verifier.",
+      "reviewer_agent": null,
+      "reviewer_provider": null,
+      "state": "active",
+      "step": 0,
+      "trigger_clause_count": 1,
+      "version": 2
+    },
+    {
+      "category": "verify-completeness",
+      "enforcement_mode": "soft-warn",
+      "escalation": "log-only",
+      "evidence_emitted": [],
+      "name": "verifier-row-arithmetic",
+      "repair_command": null,
+      "repair_instruction": "Open `.planning/phases/{N}/{N}-verify.mjs`, fix the row-count mismatch (expected vs actual), and re-run `node {N}-verify.mjs`.",
+      "reviewer_agent": null,
+      "reviewer_provider": null,
+      "state": "active",
+      "step": 0,
+      "trigger_clause_count": 1,
+      "version": 2
+    },
+    {
+      "category": "process-hygiene",
+      "enforcement_mode": "soft-warn",
+      "escalation": "block_on_api_error",
+      "evidence_emitted": [
+        ".planning/milestones/{version}/phases/{NN}-*/{NN}-VTP-ENRICHMENT.md"
+      ],
+      "name": "vtp-enrichment",
+      "repair_command": null,
+      "repair_instruction": "Run `node super-gsd/scripts/lib/vtp-enrichment-gate.cjs --phase {N}`; if VTP api_error, fall back per fallback-chain (sgsd-memory) and log provider_unavailable.",
+      "reviewer_agent": null,
+      "reviewer_provider": null,
+      "state": "active",
+      "step": 6.15,
+      "trigger_clause_count": 2,
+      "version": 2.1
+    }
+  ],
+  "generated_at": "2026-04-27T11:01:14.759Z",
+  "libs": [
+    {
+      "ext": ".cjs",
+      "lines": 56,
+      "name": "board-registry.cjs",
+      "path": "super-gsd/scripts/lib/board-registry.cjs",
+      "purpose": "(no banner)"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 90,
+      "name": "classifier-cache.cjs",
+      "path": "super-gsd/scripts/lib/classifier-cache.cjs",
+      "purpose": "(no banner)"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 52,
+      "name": "context-gauge.cjs",
+      "path": "super-gsd/scripts/lib/context-gauge.cjs",
+      "purpose": "(no banner)"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 263,
+      "name": "crit-backlog.cjs",
+      "path": "super-gsd/scripts/lib/crit-backlog.cjs",
+      "purpose": "SGSD - CRIT-BACKLOG canonical writer/reader/renderer"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 65,
+      "name": "deliberation-schema.cjs",
+      "path": "super-gsd/scripts/lib/deliberation-schema.cjs",
+      "purpose": "(no banner)"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 131,
+      "name": "dispatch-planner.cjs",
+      "path": "super-gsd/scripts/lib/dispatch-planner.cjs",
+      "purpose": "(no banner)"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 265,
+      "name": "edge-guard.cjs",
+      "path": "super-gsd/scripts/lib/edge-guard.cjs",
+      "purpose": "(no banner)"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 117,
+      "name": "gates-registry.cjs",
+      "path": "super-gsd/scripts/lib/gates-registry.cjs",
+      "purpose": "(no banner)"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 96,
+      "name": "predicate-eval.cjs",
+      "path": "super-gsd/scripts/lib/predicate-eval.cjs",
+      "purpose": "(no banner)"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 175,
+      "name": "providers-registry.cjs",
+      "path": "super-gsd/scripts/lib/providers-registry.cjs",
+      "purpose": "(no banner)"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 484,
+      "name": "repair-command-checker.cjs",
+      "path": "super-gsd/scripts/lib/repair-command-checker.cjs",
+      "purpose": "SGSD - REPAIR-COMMAND-CHECKER"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 703,
+      "name": "review-ledger.cjs",
+      "path": "super-gsd/scripts/lib/review-ledger.cjs",
+      "purpose": "SGSD - REVIEW-LEDGER canonical writer for ATC commit-review rows"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 443,
+      "name": "route-ledger.cjs",
+      "path": "super-gsd/scripts/lib/route-ledger.cjs",
+      "purpose": "SGSD - ROUTE-LEDGER canonical writer for routing decisions"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 698,
+      "name": "sgsd-codex-status.ps1",
+      "path": "super-gsd/scripts/lib/sgsd-codex-status.ps1",
+      "purpose": "Super GSD · Shared Codex reviewer status helpers"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 430,
+      "name": "sgsd-mission-strip.ps1",
+      "path": "super-gsd/scripts/lib/sgsd-mission-strip.ps1",
+      "purpose": "Super GSD - Mission Strip (Cockpit 2.0 - Phase 28)"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 171,
+      "name": "sgsd-render-cache.ps1",
+      "path": "super-gsd/scripts/lib/sgsd-render-cache.ps1",
+      "purpose": "Super GSD · Dashboard render cache library"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 207,
+      "name": "sgsd-substrate-status.ps1",
+      "path": "super-gsd/scripts/lib/sgsd-substrate-status.ps1",
+      "purpose": "Super GSD · DLB-04 Substrate Status Helper"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 87,
+      "name": "vote-predicate.cjs",
+      "path": "super-gsd/scripts/lib/vote-predicate.cjs",
+      "purpose": "(no banner)"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 33,
+      "name": "vote-synthesis.cjs",
+      "path": "super-gsd/scripts/lib/vote-synthesis.cjs",
+      "purpose": "(no banner)"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 602,
+      "name": "vtp-context-composer.cjs",
+      "path": "super-gsd/scripts/lib/vtp-context-composer.cjs",
+      "purpose": "(no banner)"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 886,
+      "name": "vtp-enrichment-gate.cjs",
+      "path": "super-gsd/scripts/lib/vtp-enrichment-gate.cjs",
+      "purpose": "(no banner)"
+    }
+  ],
+  "providers": [
+    {
+      "agent_subagent_type": "sgsd-code-reviewer",
+      "auth": "claude-max-oauth",
+      "invocation": "agent",
+      "name": "claude-sonnet-reviewer",
+      "report_contract": "code-reviewer-v1",
+      "state": "active",
+      "timeout_seconds": 60,
+      "version": 1
+    },
+    {
+      "agent_subagent_type": null,
+      "auth": "codex-pro-oauth",
+      "invocation": "shell",
+      "name": "codex-cli-reviewer",
+      "report_contract": "code-reviewer-v1",
+      "state": "active",
+      "timeout_seconds": 30,
+      "version": 1
+    }
+  ],
+  "schema_version": 1,
+  "scripts": [
+    {
+      "ext": ".ps1",
+      "lines": 354,
+      "name": "Install-SgsdShortcut.ps1",
+      "path": "super-gsd/scripts/Install-SgsdShortcut.ps1",
+      "purpose": "Super GSD - Install sgsd shortcut"
+    },
+    {
+      "ext": ".sh",
+      "lines": 724,
+      "name": "codex-exec.sh",
+      "path": "super-gsd/scripts/codex-exec.sh",
+      "purpose": "codex-exec — bash wrapper around `codex exec` for Phase 14 provider substrate"
+    },
+    {
+      "ext": ".js",
+      "lines": 126,
+      "name": "merge-settings.js",
+      "path": "super-gsd/scripts/merge-settings.js",
+      "purpose": "!/usr/bin/env node"
+    },
+    {
+      "ext": ".sh",
+      "lines": 220,
+      "name": "patch-gsd-tools-known-keys.sh",
+      "path": "super-gsd/scripts/patch-gsd-tools-known-keys.sh",
+      "purpose": "ERG-02 — Patch KNOWN_TOP_LEVEL in gsd-tools core.cjs so SGSD v2 config keys"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 192,
+      "name": "sgsd-agent-dashboard.ps1",
+      "path": "super-gsd/scripts/sgsd-agent-dashboard.ps1",
+      "purpose": "Super GSD Agent Dashboard - Windows PowerShell"
+    },
+    {
+      "ext": ".sh",
+      "lines": 241,
+      "name": "sgsd-agent-dashboard.sh",
+      "path": "super-gsd/scripts/sgsd-agent-dashboard.sh",
+      "purpose": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 933,
+      "name": "sgsd-boot.ps1",
+      "path": "super-gsd/scripts/sgsd-boot.ps1",
+      "purpose": "Super GSD - Boot Command"
+    },
+    {
+      "ext": ".sh",
+      "lines": 177,
+      "name": "sgsd-boot.sh",
+      "path": "super-gsd/scripts/sgsd-boot.sh",
+      "purpose": "Super GSD · Boot Command (bash fallback)"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 849,
+      "name": "sgsd-codex-monitor.ps1",
+      "path": "super-gsd/scripts/sgsd-codex-monitor.ps1",
+      "purpose": "Super GSD - P5 - Codex Monitor"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 173,
+      "name": "sgsd-configure.ps1",
+      "path": "super-gsd/scripts/sgsd-configure.ps1",
+      "purpose": "Super GSD - Project Knowledge Setup"
+    },
+    {
+      "ext": ".sh",
+      "lines": 146,
+      "name": "sgsd-conformance-check.sh",
+      "path": "super-gsd/scripts/sgsd-conformance-check.sh",
+      "purpose": "sgsd-conformance-check — DLB-05 Wave B"
+    },
+    {
+      "ext": ".js",
+      "lines": 153,
+      "name": "sgsd-ctx.js",
+      "path": "super-gsd/scripts/sgsd-ctx.js",
+      "purpose": "!/usr/bin/env node"
+    },
+    {
+      "ext": ".sh",
+      "lines": 21,
+      "name": "sgsd-ctx.sh",
+      "path": "super-gsd/scripts/sgsd-ctx.sh",
+      "purpose": "sgsd-ctx — shell wrapper around sgsd-ctx.js"
+    },
+    {
+      "ext": ".sh",
+      "lines": 261,
+      "name": "sgsd-curate.sh",
+      "path": "super-gsd/scripts/sgsd-curate.sh",
+      "purpose": "sgsd-curate — write a new entry to the SGSD context tree and update INDEX.md"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 68,
+      "name": "sgsd-dashboard-host.ps1",
+      "path": "super-gsd/scripts/sgsd-dashboard-host.ps1",
+      "purpose": "Super GSD - Dashboard Pane Host"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 770,
+      "name": "sgsd-dashboard.ps1",
+      "path": "super-gsd/scripts/sgsd-dashboard.ps1",
+      "purpose": "Super GSD Project Dashboard - Full Stats"
+    },
+    {
+      "ext": ".sh",
+      "lines": 462,
+      "name": "sgsd-distill-milestone.sh",
+      "path": "super-gsd/scripts/sgsd-distill-milestone.sh",
+      "purpose": "sgsd-distill-milestone — trajectory distillation with triple hallucination gate"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 1412,
+      "name": "sgsd-gate-verdict.ps1",
+      "path": "super-gsd/scripts/sgsd-gate-verdict.ps1",
+      "purpose": "Super GSD · P5 · Gate Verdict Board"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 146,
+      "name": "sgsd-headless.ps1",
+      "path": "super-gsd/scripts/sgsd-headless.ps1",
+      "purpose": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    },
+    {
+      "ext": ".sh",
+      "lines": 185,
+      "name": "sgsd-headless.sh",
+      "path": "super-gsd/scripts/sgsd-headless.sh",
+      "purpose": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    },
+    {
+      "ext": ".sh",
+      "lines": 239,
+      "name": "sgsd-intent-check.sh",
+      "path": "super-gsd/scripts/sgsd-intent-check.sh",
+      "purpose": "sgsd-intent-check — milestone-close signal for DLB-03 intent continuity"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 153,
+      "name": "sgsd-live-feed.ps1",
+      "path": "super-gsd/scripts/sgsd-live-feed.ps1",
+      "purpose": "Super GSD Live Activity Feed - Simple scrollable live tail"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 429,
+      "name": "sgsd-memory-migrate.ps1",
+      "path": "super-gsd/scripts/sgsd-memory-migrate.ps1",
+      "purpose": "Super GSD - Memory Consolidation Migration"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 1999,
+      "name": "sgsd-mission-control.ps1",
+      "path": "super-gsd/scripts/sgsd-mission-control.ps1",
+      "purpose": "Super GSD · P3 · Mission Control"
+    },
+    {
+      "ext": ".sh",
+      "lines": 503,
+      "name": "sgsd-muda-audit.sh",
+      "path": "super-gsd/scripts/sgsd-muda-audit.sh",
+      "purpose": "sgsd-muda-audit — per-phase waste audit that writes WASTE.md + curates findings"
+    },
+    {
+      "ext": ".sh",
+      "lines": 263,
+      "name": "sgsd-muda-probe.sh",
+      "path": "super-gsd/scripts/sgsd-muda-probe.sh",
+      "purpose": "sgsd-muda-probe — lightweight waste watchdogs (DLB-02 Day 2 probes)"
+    },
+    {
+      "ext": ".sh",
+      "lines": 377,
+      "name": "sgsd-muda-recurrence.sh",
+      "path": "super-gsd/scripts/sgsd-muda-recurrence.sh",
+      "purpose": "sgsd-muda-recurrence — kill-condition instrumentation for the MUDA skill"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 877,
+      "name": "sgsd-narrative.ps1",
+      "path": "super-gsd/scripts/sgsd-narrative.ps1",
+      "purpose": "Super GSD · P4 · Narrative + Ctrl+O Stream (v5)"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 163,
+      "name": "sgsd-overlay-refresh.ps1",
+      "path": "super-gsd/scripts/sgsd-overlay-refresh.ps1",
+      "purpose": "sgsd-overlay-refresh.ps1 - DLB-06 follow-up"
+    },
+    {
+      "ext": ".sh",
+      "lines": 173,
+      "name": "sgsd-overlay-refresh.sh",
+      "path": "super-gsd/scripts/sgsd-overlay-refresh.sh",
+      "purpose": "sgsd-overlay-refresh.sh — bash mirror of sgsd-overlay-refresh.ps1"
+    },
+    {
+      "ext": ".sh",
+      "lines": 172,
+      "name": "sgsd-recall.sh",
+      "path": "super-gsd/scripts/sgsd-recall.sh",
+      "purpose": "sgsd-recall — retrieve matching entries from the SGSD context tree"
+    },
+    {
+      "ext": ".sh",
+      "lines": 139,
+      "name": "sgsd-registry-sync.sh",
+      "path": "super-gsd/scripts/sgsd-registry-sync.sh",
+      "purpose": "sgsd-registry-sync — materialise the Agents resource-registry manifest"
+    },
+    {
+      "ext": ".sh",
+      "lines": 179,
+      "name": "sgsd-sepl-commit.sh",
+      "path": "super-gsd/scripts/sgsd-sepl-commit.sh",
+      "purpose": "sgsd-sepl-commit — apply (or reject) a resource-grain proposal"
+    },
+    {
+      "ext": ".sh",
+      "lines": 321,
+      "name": "sgsd-sepl-propose.sh",
+      "path": "super-gsd/scripts/sgsd-sepl-propose.sh",
+      "purpose": "sgsd-sepl-propose — draft a resource-grain improvement proposal"
+    },
+    {
+      "ext": ".sh",
+      "lines": 113,
+      "name": "sgsd-sepl-propose.test.sh",
+      "path": "super-gsd/scripts/sgsd-sepl-propose.test.sh",
+      "purpose": "sgsd-sepl-propose.test.sh — Unit test for is_major_proposal() detection."
+    },
+    {
+      "ext": ".ps1",
+      "lines": 241,
+      "name": "sgsd-statusline.ps1",
+      "path": "super-gsd/scripts/sgsd-statusline.ps1",
+      "purpose": "sgsd-statusline.ps1 — SGSD v2 custom statusline (R-Q8c)"
+    },
+    {
+      "ext": ".sh",
+      "lines": 527,
+      "name": "sgsd-stop-handoff.sh",
+      "path": "super-gsd/scripts/sgsd-stop-handoff.sh",
+      "purpose": "sgsd-stop-handoff.sh -- Claude Code Stop hook for autonomous session handoff"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 139,
+      "name": "sgsd-thinking.ps1",
+      "path": "super-gsd/scripts/sgsd-thinking.ps1",
+      "purpose": "Super GSD Thinking Feed"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 101,
+      "name": "sgsd-update.ps1",
+      "path": "super-gsd/scripts/sgsd-update.ps1",
+      "purpose": "sgsd-update.ps1 — DLB-06 Wave A (PowerShell mirror of sgsd-update.sh)"
+    },
+    {
+      "ext": ".sh",
+      "lines": 112,
+      "name": "sgsd-update.sh",
+      "path": "super-gsd/scripts/sgsd-update.sh",
+      "purpose": "sgsd-update — DLB-06 Wave A"
+    }
+  ],
+  "skills": [
+    {
+      "allowed_tools": [
+        "Read",
+        "Bash"
+      ],
+      "argument_hint": null,
+      "description": "Bring an existing super-gsd project up to current DLB-04 scaffolding. Creates .planning/metrics + proposals + resource-registry + trajectory-hypothesis dirs and empty append-log files that newer scripts expect. Safe: only creates, never overwrites. Fixes the silent-curate-skip MUDA audit issue on older projects.",
+      "name": "sgsd-backfill",
+      "skill_path": "super-gsd/skills/sgsd-backfill/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Write",
+        "Bash",
+        "Glob",
+        "Grep",
+        "Agent"
+      ],
+      "argument_hint": "[open URL | screenshot | verify | test-form | debug | install]",
+      "description": "Browser automation for frontend debugging, UI verification, visual testing, and form testing. Wraps gsd-browser CLI (Rust/CDP). Use during execute-phase for frontend work, verify-work for UI validation, and debug for visual issues.",
+      "name": "sgsd-browser",
+      "skill_path": "super-gsd/skills/sgsd-browser/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Write",
+        "Bash",
+        "Glob",
+        "Grep"
+      ],
+      "argument_hint": "[--seed-only | --verify]",
+      "description": "Initialize ByteRover context tree for Super GSD. Seeds domain knowledge, configures MCP connector, verifies integration.",
+      "name": "sgsd-brv-setup",
+      "skill_path": "super-gsd/skills/sgsd-brv-setup/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Write",
+        "Bash",
+        "Glob",
+        "Grep",
+        "Agent",
+        "mcp__vtp-kb__vtp_search",
+        "mcp__vtp-kb__vtp_list_research",
+        "mcp__vtp-kb__vtp_ingest_research"
+      ],
+      "argument_hint": "<version>",
+      "description": "Idempotent milestone-close workflow for SGSD v2. Audits governance, summarizes the milestone, and records the VTP publication gap when classification support is missing.",
+      "name": "sgsd-complete-milestone",
+      "skill_path": "super-gsd/skills/sgsd-complete-milestone/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Write",
+        "Glob",
+        "Grep",
+        "Bash",
+        "Agent"
+      ],
+      "argument_hint": "[new | path/to/brief.md]",
+      "description": "CEO/Board strategic deliberation. Multi-agent adversarial debate on structured briefs. Produces Decision Memos.",
+      "name": "sgsd-deliberate",
+      "skill_path": "super-gsd/skills/sgsd-deliberate/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Write",
+        "Bash",
+        "Agent"
+      ],
+      "argument_hint": null,
+      "description": "Trajectory distillation — extract abstract reusable principles from a closed milestone's phases. DLB-04 Wave C. Three modes: prepare (emit Haiku prompt + corpus), ingest (triple-gate routing), rate (operator novelty 1-3).",
+      "name": "sgsd-distill",
+      "skill_path": "super-gsd/skills/sgsd-distill/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Bash"
+      ],
+      "argument_hint": null,
+      "description": "Consolidate Claude Code auto-memory + legacy .brv/context-tree/ into .planning/memory/ with the v1.2 8-folder semantic taxonomy. Creates a directory junction so auto-memory auto-load still works against the git-tracked location. One-time migration per project. Idempotent; -DryRun supported.",
+      "name": "sgsd-memory-migrate",
+      "skill_path": "super-gsd/skills/sgsd-memory-migrate/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Bash"
+      ],
+      "argument_hint": null,
+      "description": "Run the MUDA (8-waste) watchdog probes on a phase. DLB-02. Captures haiku-fails, narrative staleness, git-spawn rate, extra-processing, and inventory. Writes WASTE.md + curates findings. Fires at phase close when files_changed>=4 OR diff_lines>=100.",
+      "name": "sgsd-muda-audit",
+      "skill_path": "super-gsd/skills/sgsd-muda-audit/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Glob",
+        "Grep",
+        "Bash",
+        "Agent",
+        "TaskCreate",
+        "TaskUpdate"
+      ],
+      "argument_hint": "[go|continue|status|next|stop]",
+      "description": "Token-efficient autonomous orchestrator. Lean state machine: read-classify-dispatch-process-commit-loop. Uses Opus for orchestration, routes Sonnet/Haiku to sub-agents.",
+      "name": "sgsd-orchestrate",
+      "skill_path": "super-gsd/skills/sgsd-orchestrate/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Bash"
+      ],
+      "argument_hint": null,
+      "description": "Sync a project's CLAUDE.md with canonical super-gsd/CLAUDE-OVERLAY.md. Uses HTML-comment markers for idempotent replace. First run requires --force (or -Force); subsequent runs auto-replace content between markers. Creates .bak backup. Offers --dry-run preview.",
+      "name": "sgsd-overlay-refresh",
+      "skill_path": "super-gsd/skills/sgsd-overlay-refresh/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Write",
+        "Bash",
+        "Glob",
+        "Grep"
+      ],
+      "argument_hint": "[start | scan | status | open]",
+      "description": "Signal map visualization. Scans .planning/ architecture, detects collisions/dead-ends/overlaps, renders interactive HTML dashboard.",
+      "name": "sgsd-overwatcher",
+      "skill_path": "super-gsd/skills/sgsd-overwatcher/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Write",
+        "Bash"
+      ],
+      "argument_hint": null,
+      "description": "Write checkpoint and stop the autonomous loop. Replaces /gsd-pause-work for Super GSD.",
+      "name": "sgsd-pause",
+      "skill_path": "super-gsd/skills/sgsd-pause/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Write",
+        "Bash",
+        "Grep",
+        "Glob",
+        "Agent"
+      ],
+      "argument_hint": null,
+      "description": "Run the milestone pre-flight readiness audit on demand. Produces MILESTONE-READINESS.md with GO / BLOCKED / WILL-BLOCK / DEGRADED-PATH sections so unattended auto-runs don't stall hours in on missing services. Safe to run any time — idempotent when the manifest is fresh.",
+      "name": "sgsd-readiness",
+      "skill_path": "super-gsd/skills/sgsd-readiness/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Write",
+        "Bash",
+        "Glob",
+        "Grep",
+        "Agent"
+      ],
+      "argument_hint": null,
+      "description": "Resume from checkpoint with full context restoration. Replaces /gsd-resume-work for Super GSD.",
+      "name": "sgsd-resume",
+      "skill_path": "super-gsd/skills/sgsd-resume/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Write",
+        "Bash",
+        "mcp__vtp-kb__vtp_advise_service_enrichment",
+        "mcp__vtp-kb__vtp_route_and_retrieve"
+      ],
+      "argument_hint": null,
+      "description": "Operator-gated resource-grain improvement loop — propose, review, commit. DLB-04 Wave B. Sub-agents emit proposals to .planning/proposals/; operator applies or rejects. Never auto-commits. Complements /sgsd-deliberate (architecture grain).",
+      "name": "sgsd-sepl",
+      "skill_path": "super-gsd/skills/sgsd-sepl/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Write",
+        "Glob",
+        "Grep",
+        "Bash"
+      ],
+      "argument_hint": "[--full | --quick | --context-map | --milestone-close-check]",
+      "description": "Analyze token usage, detect inefficiencies, suggest optimizations. Reads token-log.jsonl and context files.",
+      "name": "sgsd-token-audit",
+      "skill_path": "super-gsd/skills/sgsd-token-audit/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Glob",
+        "Grep",
+        "Bash"
+      ],
+      "argument_hint": "[path/to/.gsd/]",
+      "description": "Migrate from GSD 2.0 (Pi harness) to Super GSD. One-time import of decisions, knowledge, requirements, and milestone work.",
+      "name": "sgsd-transition",
+      "skill_path": "super-gsd/skills/sgsd-transition/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Write",
+        "Bash",
+        "Skill",
+        "AskUserQuestion",
+        "mcp__vtp-kb__vtp_route_and_retrieve",
+        "mcp__vtp-kb__vtp_search_substrate"
+      ],
+      "argument_hint": null,
+      "description": "Planning-mode router. Detects when operator is figuring something out, invokes superpowers:brainstorming + superpowers:writing-plans, classifies the result, drafts the right artifact (brief / phase / audit invocation), and routes to /sgsd-deliberate OR /sgsd-discuss-phase + /sgsd-orchestrate OR /sgsd-muda-audit. Respects DELIBERATION-FLOOR. Use when the operator says things like 'I'm thinking about...', 'How should we...', 'Let's plan...', 'Design...', 'Evaluate...', or describes a problem without asking for execution.",
+      "name": "sgsd-triage",
+      "skill_path": "super-gsd/skills/sgsd-triage/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Bash"
+      ],
+      "argument_hint": null,
+      "description": "Pull latest super-gsd from origin/master and re-run the installer. Thin wrapper from DLB-06 Wave A. Use to propagate new skills, agents, hooks, scripts across machines without the git-pull-then-install manual cycle.",
+      "name": "sgsd-update",
+      "skill_path": "super-gsd/skills/sgsd-update/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Write",
+        "Bash",
+        "mcp__vtp-kb__vtp_advise_service_enrichment",
+        "mcp__vtp-kb__vtp_route_and_retrieve"
+      ],
+      "argument_hint": "<service-name>",
+      "description": "Standalone VTP service-enrichment advisor. Operator-invoked ad-hoc for conservative proposal-grounding ('should we evolve X?'). Writes report to .planning/advise/{YYYY-MM-DD}-{slug}.md. Always calls advise via super-gsd/scripts/lib/vtp-context-composer.cjs — never direct MCP. Phase 16 VTP-08a.",
+      "name": "sgsd-vtp-advise",
+      "skill_path": "super-gsd/skills/sgsd-vtp-advise/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Read",
+        "Write",
+        "Bash"
+      ],
+      "argument_hint": null,
+      "description": "SGSD-native plan-authoring skill. Replaces superpowers:writing-plans for SGSD plan authoring. Emits v2 YAML-frontmatter PLAN.md files conforming to plan-schema-v2.json and calls validate.cjs mechanically before writing — enforces SCHEMA-05 at write-time.",
+      "name": "sgsd-write-plan",
+      "skill_path": "super-gsd/skills/sgsd-write-plan/SKILL.md"
+    }
+  ]
+}
