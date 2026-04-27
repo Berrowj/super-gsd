@@ -1,0 +1,5 @@
+{"ts":"2026-04-26T20:00:00Z","tool":"Task","target":"a","subagent_type":"gsd-executor","phase":"29"}
+{"ts":"2026-04-26T20:01:00Z","tool":"Task","target":"b","subagent_type":"gsd-executor","phase":"29"}
+{"ts":"2026-04-26T20:02:00Z","tool":"Task","target":"c","subagent_type":"gsd-executor","phase":"29"}
+{"ts":"2026-04-26T20:03:00Z","tool":"Task","target":"d","subagent_type":"gsd-executor","phase":"29"}
+{"ts":"2026-04-26T20:04:00Z","tool":"Task","target":"e","subagent_type":"gsd-executor","phase":"29"}
