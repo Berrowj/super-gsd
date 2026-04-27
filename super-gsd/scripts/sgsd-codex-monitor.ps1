@@ -150,7 +150,7 @@ function Get-CurrentPhaseNum {
 function Get-CodexStatusSummary($codex) {
     if (-not $codex.scopeCurrent -and $codex.currentPhase) {
         $old = if ($codex.staleScope) { $codex.staleScope } else { "--" }
-        return "No current Codex run is recorded for P$($codex.currentPhase); last live marker is old: $old."
+        return "No P$($codex.currentPhase) Codex review has run yet; last marker is old: $old."
     }
     $scopeParts = @($codex.phase, $codex.plan, $codex.step) | Where-Object { $_ -and "$_".Trim() -ne "" }
     $scopeText = if ($scopeParts.Count -gt 0) { $scopeParts -join " / " } else { "the current review scope" }
@@ -272,7 +272,7 @@ function Get-CodexOperatorBrief {
             checks = @()
             conclusion = ""
             report = [pscustomobject]@{ exists = $false }
-            attention = @("Codex live marker is stale/out-of-scope; wait for the P$($codex.currentPhase) review or rerun it.")
+            attention = @("No current-phase Codex evidence yet; normal before the review gate. Last marker was $($codex.staleScope).")
         }
     }
     $prompt = Get-CodexPromptBrief $codex

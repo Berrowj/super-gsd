@@ -1219,12 +1219,16 @@ function Render-CompactMissionControl {
     }
 
     if (Test-Checkpoint) {
-        Write-Row "[PAUSED] checkpoint present - /sgsd-resume" "Yellow"
+        Write-Row "CHECKPOINT resume point present - /sgsd-resume" "DarkYellow"
     }
 
     $codex = Get-SgsdCodexStatus -ProjectDir $ProjectDir -PlanningDir $PlanningDir
     $codexText = if (-not $codex.scopeCurrent -and $CurrentNum) {
-        "Codex current P${CurrentNum}: no live marker yet; old $($codex.staleScope)"
+        if ($evidence.missing -contains "codex") {
+            "Codex P${CurrentNum}: no review yet; last marker $($codex.staleScope)"
+        } else {
+            "Codex P${CurrentNum}: review marker stale; last marker $($codex.staleScope)"
+        }
     } else {
         Get-SgsdCodexStatusLine -Status $codex
     }
@@ -1428,8 +1432,8 @@ function Render {
 
     # Checkpoint banner — flash if session is paused
     if (Test-Checkpoint) {
-        Write-Host "[PAUSED]" -NoNewline -ForegroundColor Yellow
-        Write-Host " checkpoint present - /sgsd-resume" -NoNewline -ForegroundColor DarkYellow
+        Write-Host "[CHECKPOINT]" -NoNewline -ForegroundColor Yellow
+        Write-Host " resume point present - /sgsd-resume" -NoNewline -ForegroundColor DarkYellow
         Write-Host $CLEAR_LINE
     }
 
