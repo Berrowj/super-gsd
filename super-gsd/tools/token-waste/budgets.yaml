@@ -1,0 +1,35 @@
+schema_version: 1
+
+# Per-role admission budgets.
+# warn_input == degrade_input -> single threshold (BUDGET-02 verbatim).
+# warn_input <  degrade_input -> graduated overrun (derived from live
+#                                ledger P75/P90/P95 at research time).
+roles:
+  researcher:   { warn_input: 25000,  degrade_input: 25000 }
+  planner:      { warn_input: 30000,  degrade_input: 30000 }
+  executor:     { warn_input: 40000,  degrade_input: 40000 }
+  verifier:     { warn_input: 20000,  degrade_input: 20000 }
+  reviewer:     { warn_input: 20000,  degrade_input: 20000 }
+  orchestrator: { warn_input: 200000, degrade_input: 750000 }
+  classifier:   { warn_input: 15000,  degrade_input: 15000 }
+  other:        { warn_input: 25000,  degrade_input: 50000 }
+
+# Inherited from Phase 41 BLOAT_THRESHOLDS verbatim (BUDGET-03).
+# Drift between this file and the imported const triggers fallback at
+# load time. Self-test assertion 7 binds.
+bloat_signature:
+  cache_read_ratio_high: 0.90
+  useful_findings_low:   15
+
+# Per-row overrides. Match priority: role+milestone+phase > role+milestone > role.
+overrides:
+  - role: researcher
+    milestone: v1.9
+    phase: "51"
+    exempt_via: vtp_research_route
+    reason: "Benchmark researcher legitimately uses VTP corpus"
+
+# Reference only. Phase 42 NEVER expands hard stops -- they remain at
+# SGSD-HANDOVER.md:79-86 (credentials / destructive op outside repo /
+# privacy-security judgment / runtime cannot continue).
+hard_stops_unchanged: true
