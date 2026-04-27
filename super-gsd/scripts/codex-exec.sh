@@ -289,23 +289,51 @@ if [[ "$SELF_TEST" == true ]]; then
         EXIT_CODE=10
     fi
 
-    # Probe 2 — auth: no OPENAI_API_KEY set (exit 11); OAuth config file
-    # checked only in network-on mode (config file is only needed for real calls).
+    # Probe 2 — auth: behavioral check.
+    # Per architectural rule: probes must NOT infer availability from private
+    # file layout. The canonical auth oracle is `codex login status`. File
+    # checks (auth.json / config.toml / config.json) are diagnostic-only and
+    # logged separately for triage; they never gate PASS/FAIL alone.
+    #
+    # Decision tree:
+    #   1. OPENAI_API_KEY set → exit 11 (we want OAuth-only).
+    #   2. SKIP_NETWORK mode → key-absence is sufficient.
+    #   3. `codex login status` → primary oracle: any "Logged in" → PASS.
+    #   4. Else fall through to Probe 4 contract canary (real exec call) which
+    #      is the secondary behavioral check; if it succeeds, auth is fine.
+    #   5. If neither oracle yields evidence → FAIL.
+    #
+    # Diagnostic file inventory captured into ST_AUTH_DIAG_* for the JSONL row.
     if [[ "$EXIT_CODE" -eq 0 ]]; then
+        CODEX_HOME_DIR="${CODEX_HOME:-$HOME/.codex}"
+        ST_AUTH_DIAG_AUTH_JSON=$([ -f "$CODEX_HOME_DIR/auth.json" ] && echo true || echo false)
+        ST_AUTH_DIAG_CONFIG_TOML=$([ -f "$CODEX_HOME_DIR/config.toml" ] && echo true || echo false)
+        ST_AUTH_DIAG_CONFIG_JSON=$([ -f "$CODEX_HOME_DIR/config.json" ] && echo true || echo false)
+        ST_AUTH_METHOD="unknown"
+
         if [[ -n "${OPENAI_API_KEY:-}" ]]; then
-            # OPENAI_API_KEY set — would trigger exit 4 in normal mode;
-            # surfaced as exit 11 (auth probe failure) in self-test mode.
             EXIT_CODE=11
+            ST_AUTH_METHOD="api_key_set_unwanted"
         elif [[ "$SKIP_NETWORK" == true ]]; then
-            # Offline mode: key-absence check is sufficient; config file not needed.
             ST_AUTH=true
-        else
-            CODEX_CFG="${CODEX_HOME:-$HOME/.codex}/config.json"
-            if [[ -f "$CODEX_CFG" ]]; then
+            ST_AUTH_METHOD="skip_network"
+        elif command -v "$CODEX_COMMAND" >/dev/null 2>&1; then
+            # Primary oracle: `codex login status`. Capture stdout+stderr; any
+            # "Logged in" line means auth works.
+            CODEX_STATUS_OUT="$("$CODEX_COMMAND" login status 2>&1 || true)"
+            if echo "$CODEX_STATUS_OUT" | grep -qiE "logged in"; then
                 ST_AUTH=true
+                ST_AUTH_METHOD="codex_login_status"
             else
-                EXIT_CODE=11
+                # Secondary oracle deferred to Probe 4 (contract canary).
+                # Mark unverified for now; Probe 4 will set ST_AUTH=true if it succeeds.
+                ST_AUTH_METHOD="deferred_to_canary"
+                ST_AUTH=false
+                # Don't set EXIT_CODE yet; let Probe 4 confirm or deny.
             fi
+        else
+            EXIT_CODE=11
+            ST_AUTH_METHOD="codex_command_missing"
         fi
     fi
 
@@ -319,18 +347,26 @@ if [[ "$SELF_TEST" == true ]]; then
         EXIT_CODE=12
     fi
 
-    # Probe 4 — known-good contract: real Codex call; skipped when --skip-network (exit 13)
+    # Probe 4 — known-good contract: real Codex call; skipped when --skip-network (exit 13).
+    # Also serves as the secondary auth oracle when Probe 2 deferred to canary.
+    ST_CONTRACT_STDERR=""
+    ST_CONTRACT_RC=""
     if [[ "$SKIP_NETWORK" == true ]]; then
         ST_CONTRACT=true  # treated as pass in offline/CI mode
-    elif [[ "$EXIT_CODE" -eq 0 ]]; then
+    elif [[ "$EXIT_CODE" -eq 0 || "$EXIT_CODE" -eq 11 ]]; then
+        # Run canary even if Probe 2 deferred (EXIT_CODE may be 0 with ST_AUTH=false
+        # in deferred_to_canary mode). Canary success retroactively sets ST_AUTH=true.
         ST_PROMPT_TMP="$(mktemp -t codex-self-test.XXXXXX)"
         ST_REPORT_TMP="$(mktemp -t codex-self-test-report.XXXXXX)"
+        ST_STDERR_TMP="$(mktemp -t codex-self-test-stderr.XXXXXX)"
         printf 'Output exactly five lines:\nFINDINGS: 0\nCRITICAL: 0\nWARNINGS: 0\nPASS_RATE: 0/0\nONE_LINER: self-test\n' > "$ST_PROMPT_TMP"
         set +e
         timeout 60s bash -c 'if [[ "$2" == "cmd" ]]; then cat "$0" | cmd.exe /c codex exec --model "$4" -c "model_reasoning_effort=\"$5\"" --sandbox read-only --ephemeral --skip-git-repo-check --cd "$1" -; else cat "$0" | "$3" exec --model "$4" -c "model_reasoning_effort=\"$5\"" --sandbox read-only --ephemeral --skip-git-repo-check --cd "$1" -; fi' \
-            "$ST_PROMPT_TMP" "${CODEX_PROJECT:-${PROJECT:-$(pwd)}}" "$CODEX_LAUNCHER" "$CODEX_COMMAND" "$CODEX_MODEL" "$CODEX_REASONING_EFFORT" > "$ST_REPORT_TMP" 2>/dev/null
+            "$ST_PROMPT_TMP" "${CODEX_PROJECT:-${PROJECT:-$(pwd)}}" "$CODEX_LAUNCHER" "$CODEX_COMMAND" "$CODEX_MODEL" "$CODEX_REASONING_EFFORT" > "$ST_REPORT_TMP" 2> "$ST_STDERR_TMP"
         ST_RC=$?
         set -e
+        ST_CONTRACT_RC="$ST_RC"
+        ST_CONTRACT_STDERR="$(head -c 200 "$ST_STDERR_TMP" 2>/dev/null | tr -d '\r' | tr '\n' ' ' | sed 's/"/\\"/g')"
         if [[ $ST_RC -eq 0 ]] && \
            grep -q "^FINDINGS:"  "$ST_REPORT_TMP" && \
            grep -q "^CRITICAL:"  "$ST_REPORT_TMP" && \
@@ -338,10 +374,23 @@ if [[ "$SELF_TEST" == true ]]; then
            grep -q "^PASS_RATE:" "$ST_REPORT_TMP" && \
            grep -q "^ONE_LINER:" "$ST_REPORT_TMP"; then
             ST_CONTRACT=true
+            # Retroactive auth confirmation: if Probe 2 deferred, canary success
+            # IS the secondary behavioral oracle. Promote auth method.
+            if [[ "$ST_AUTH" == false ]] && [[ "${ST_AUTH_METHOD:-}" == "deferred_to_canary" ]]; then
+                ST_AUTH=true
+                ST_AUTH_METHOD="contract_canary_passed"
+                EXIT_CODE=0
+            fi
         else
-            EXIT_CODE=13
+            # Canary failed. If Probe 2 deferred, this is the FAIL.
+            if [[ "${ST_AUTH_METHOD:-}" == "deferred_to_canary" ]]; then
+                EXIT_CODE=11
+                ST_AUTH_METHOD="contract_canary_failed"
+            else
+                EXIT_CODE=13
+            fi
         fi
-        rm -f "$ST_PROMPT_TMP" "$ST_REPORT_TMP"
+        rm -f "$ST_PROMPT_TMP" "$ST_REPORT_TMP" "$ST_STDERR_TMP"
     fi
 
     # Structured stdout
@@ -356,20 +405,37 @@ if [[ "$SELF_TEST" == true ]]; then
         "$([ "$SKIP_NETWORK" = true ] && echo ' (skipped)' || echo '')"
     echo "Exit: $EXIT_CODE"
 
-    # Append JSONL row to codex-log.jsonl (D-05)
+    # Append JSONL row to codex-log.jsonl (D-05) with probe metadata for triage.
+    # Schema additions per architectural rule: probe_version, codex_version,
+    # auth_method, checked_files, command_exit, stderr_excerpt.
     if [[ -n "$ROOT" ]]; then
         ST_LOG="$ROOT/.planning/metrics/codex-log.jsonl"
         ST_TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
         mkdir -p "$(dirname "$ST_LOG")"
         model_json="$(json_escape "$CODEX_MODEL")"
         effort_json="$(json_escape "$CODEX_REASONING_EFFORT")"
-        printf '{"ts":"%s","step":"self-test","model":"%s","reasoning_effort":"%s","exit":%d,"skip_network":%s,"self_test_probes":{"path":%s,"auth":%s,"timeout":%s,"contract":%s}}\n' \
+        # Probe metadata
+        PROBE_VERSION="2"
+        CODEX_VERSION="$("$CODEX_COMMAND" --version 2>/dev/null | head -1 || echo unknown)"
+        codex_version_json="$(json_escape "$CODEX_VERSION")"
+        auth_method_json="$(json_escape "${ST_AUTH_METHOD:-unknown}")"
+        stderr_json="$(json_escape "${ST_CONTRACT_STDERR:-}")"
+        contract_rc_json="${ST_CONTRACT_RC:-null}"
+        printf '{"ts":"%s","step":"self-test","model":"%s","reasoning_effort":"%s","exit":%d,"skip_network":%s,"self_test_probes":{"path":%s,"auth":%s,"timeout":%s,"contract":%s},"probe_version":"%s","codex_version":"%s","auth_method":"%s","checked_files":{"auth_json":%s,"config_toml":%s,"config_json":%s},"command_exit":%s,"stderr_excerpt":"%s"}\n' \
             "$ST_TS" "$model_json" "$effort_json" "$EXIT_CODE" \
             "$([ "$SKIP_NETWORK" = true ] && echo true || echo false)" \
             "$([ "$ST_PATH"     = true ] && echo true || echo false)" \
             "$([ "$ST_AUTH"     = true ] && echo true || echo false)" \
             "$([ "$ST_TIMEOUT"  = true ] && echo true || echo false)" \
             "$([ "$ST_CONTRACT" = true ] && echo true || echo false)" \
+            "$PROBE_VERSION" \
+            "$codex_version_json" \
+            "$auth_method_json" \
+            "${ST_AUTH_DIAG_AUTH_JSON:-false}" \
+            "${ST_AUTH_DIAG_CONFIG_TOML:-false}" \
+            "${ST_AUTH_DIAG_CONFIG_JSON:-false}" \
+            "$contract_rc_json" \
+            "$stderr_json" \
             >> "$ST_LOG"
     fi
     exit $EXIT_CODE

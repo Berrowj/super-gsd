@@ -37,6 +37,27 @@ function generateId() {
   return `${ts}-${rand}`;
 }
 
+// Write-time guard: any row whose summary asserts "Codex unavailable" must be
+// backed by an actual behavioral check failure. Architectural rule.
+// Caller can pass `provider_health_check: { available: false, ... }` to prove
+// the behavioral oracle declared unavailable. Without it, summaries that match
+// /codex unavailable/i are rejected — use "codex review missing; fallback used"
+// instead, with the v1 schema fields documenting the cause.
+function _guardCodexUnavailableClaim(row) {
+  if (!row.summary) return;
+  if (!/codex\s+unavailable/i.test(row.summary)) return;
+  const ph = row.provider_health_check;
+  if (!ph || ph.available !== false || ph.behavioral !== true) {
+    throw new Error(
+      'crit-backlog: a row claiming "Codex unavailable" requires ' +
+      'provider_health_check: { behavioral: true, available: false, ... }. ' +
+      'If you only know the review was skipped, set summary to ' +
+      '"Codex review missing; fallback used" and use the v1 schema ' +
+      '(missing_evidence/suspected_cause/confidence/clearance_requires).'
+    );
+  }
+}
+
 function appendRow(planningDir, row) {
   if (!planningDir) throw new Error('crit-backlog: planningDir required');
   if (!row.kind || !VALID_KINDS.includes(row.kind)) {
@@ -45,6 +66,21 @@ function appendRow(planningDir, row) {
   if (!row.summary && row.kind !== 'cleared') {
     throw new Error('crit-backlog: summary required for non-clearance rows');
   }
+  _guardCodexUnavailableClaim(row);
+
+  // v1 schema validation: if any v1 field present, all four required.
+  const v1Fields = ['missing_evidence', 'suspected_cause', 'confidence', 'clearance_requires'];
+  const hasAny = v1Fields.some((f) => f in row);
+  if (hasAny && row.kind !== 'cleared') {
+    const missing = v1Fields.filter((f) => !row[f]);
+    if (missing.length > 0) {
+      throw new Error(`crit-backlog v1 schema: row has partial v1 fields; missing ${missing.join(',')}. All four required when any present.`);
+    }
+    if (!['low', 'medium', 'high'].includes(row.confidence)) {
+      throw new Error(`crit-backlog v1 schema: confidence must be low|medium|high, got '${row.confidence}'`);
+    }
+  }
+
   const enriched = {
     id: row.id || generateId(),
     kind: row.kind,
@@ -59,6 +95,15 @@ function appendRow(planningDir, row) {
     added_at: row.added_at || new Date().toISOString(),
     resolved_at: row.resolved_at ?? null,
     resolved_by: row.resolved_by ?? null,
+    // v1 schema fields (all optional; if any present, all required per guard above)
+    missing_evidence: row.missing_evidence ?? null,
+    suspected_cause: row.suspected_cause ?? null,
+    confidence: row.confidence ?? null,
+    clearance_requires: row.clearance_requires ?? null,
+    // Optional provenance: behavioral check that backed the row, when applicable
+    provider_health_check: row.provider_health_check ?? null,
+    // Optional supersedes pointer (when this row corrects/refines an earlier one)
+    supersedes: row.supersedes ?? null,
   };
   const p = jsonlPath(planningDir);
   const dir = path.dirname(p);
