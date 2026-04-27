@@ -295,6 +295,7 @@ if ($Backfill) {
     # Touch append-only jsonl logs (empty files are fine — downstream scripts append)
     $requiredFiles = @(
         ".planning/metrics/token-log.jsonl",
+        ".planning/metrics/token-attribution.jsonl",
         ".planning/metrics/activity-log.jsonl",
         ".planning/metrics/sepl-log.jsonl",
         ".planning/metrics/distillation-novelty.jsonl",

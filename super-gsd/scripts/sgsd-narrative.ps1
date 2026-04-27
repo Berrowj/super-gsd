@@ -132,6 +132,35 @@ function Format-Age($sec) {
     return "$([math]::Floor($sec / 86400))d"
 }
 
+function Format-Tokens($n) {
+    if ($null -eq $n) { return "--" }
+    $v = [double]$n
+    if ($v -lt 1000) { return ([int]$v).ToString() }
+    if ($v -lt 1000000) { return ("{0}K" -f [math]::Round($v / 1000)) }
+    return ("{0}M" -f [math]::Round($v / 1000000, 1))
+}
+
+$script:_TokenSummaryCache = $null
+$script:_TokenSummaryAt = [DateTime]::MinValue
+function Get-TokenAttributionSummary {
+    $age = [int]((Get-Date) - $script:_TokenSummaryAt).TotalSeconds
+    if ($script:_TokenSummaryCache -and $age -lt 30) { return $script:_TokenSummaryCache }
+
+    $repoRoot = Split-Path $PSScriptRoot -Parent
+    $collector = Join-Path $repoRoot "tools\token-attribution\collect.cjs"
+    if (-not (Test-Path $collector)) { return $null }
+
+    try {
+        $json = & node $collector --project $ProjectDir --write --summary --current --recent 8 2>$null
+        if ($LASTEXITCODE -eq 0 -and $json) {
+            $script:_TokenSummaryCache = ($json | ConvertFrom-Json -ErrorAction Stop)
+            $script:_TokenSummaryAt = Get-Date
+            return $script:_TokenSummaryCache
+        }
+    } catch {}
+    return $script:_TokenSummaryCache
+}
+
 # Encode a project directory the way Claude Code does for its session index:
 # replace path separators with dashes, drop drive colon.
 #   C:\Users\jack.berrow\project-clarity-erp  →  C--Users-jack-berrow-project-clarity-erp
@@ -412,6 +441,8 @@ function Render-AgentOverview {
         }
     }
 
+    Render-TokenSpend $pw
+
     Write-Host "AGENT HISTORY" -NoNewline -ForegroundColor White
     Write-Host $CLEAR_LINE
     $history = @()
@@ -444,6 +475,70 @@ function Render-AgentOverview {
             Write-Host (Trunc $h.line ($pw - 3)) -NoNewline -ForegroundColor Gray
             Write-Host $CLEAR_LINE
         }
+    }
+}
+
+function Render-TokenSpend {
+    param($pw)
+    $summary = Get-TokenAttributionSummary
+    Write-Host "TOKEN SPEND" -NoNewline -ForegroundColor White
+    if ($summary -and $summary.scope) {
+        $scopeTxt = ""
+        if ($summary.scope.milestone) { $scopeTxt += "$($summary.scope.milestone)" }
+        if ($summary.scope.phase) { $scopeTxt += "/P$($summary.scope.phase)" }
+        if ($scopeTxt) { Write-Host " $scopeTxt" -NoNewline -ForegroundColor DarkGray }
+    }
+    Write-Host $CLEAR_LINE
+
+    if (-not $summary) {
+        Write-Host "  no token attribution yet" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+        return
+    }
+
+    $agentTotal = Format-Tokens $summary.agent_total_tokens
+    $mainCtx = Format-Tokens $summary.assistant_usage.context_tokens
+    $mainOut = Format-Tokens $summary.assistant_usage.output_tokens
+    $high = Format-Tokens $summary.codex_candidate_tokens.high
+    $med = Format-Tokens $summary.codex_candidate_tokens.medium
+    Write-Host "  agents " -NoNewline -ForegroundColor Gray
+    Write-Host $agentTotal -NoNewline -ForegroundColor Yellow
+    Write-Host " | main ctx " -NoNewline -ForegroundColor Gray
+    Write-Host $mainCtx -NoNewline -ForegroundColor Magenta
+    Write-Host " out " -NoNewline -ForegroundColor Gray
+    Write-Host $mainOut -NoNewline -ForegroundColor Magenta
+    Write-Host " | Codex candidates high " -NoNewline -ForegroundColor Gray
+    Write-Host $high -NoNewline -ForegroundColor Green
+    Write-Host " med " -NoNewline -ForegroundColor Gray
+    Write-Host $med -NoNewline -ForegroundColor Yellow
+    Write-Host $CLEAR_LINE
+
+    $shown = 0
+    foreach ($a in @($summary.by_agent)) {
+        if ($shown -ge 4) { break }
+        $tok = Format-Tokens $a.total_tokens
+        $avg = Format-Tokens $a.avg_tokens
+        $cand = "$($a.codex_offload_candidate)"
+        $candColor = switch ($cand) {
+            "high" { "Green" }
+            "medium" { "Yellow" }
+            "low" { "DarkGray" }
+            default { "DarkGray" }
+        }
+        $line = ("{0} {1} ({2}x avg {3})" -f $a.agent_type, $tok, $a.calls, $avg)
+        Write-Host "  " -NoNewline
+        Write-Host (Trunc $line ([Math]::Max(20, $pw - 18))) -NoNewline -ForegroundColor Cyan
+        Write-Host "  offload " -NoNewline -ForegroundColor DarkGray
+        Write-Host $cand -NoNewline -ForegroundColor $candColor
+        Write-Host $CLEAR_LINE
+        $shown++
+    }
+    if ($summary.ledger_path) {
+        $ledger = ".planning\metrics\token-attribution.jsonl"
+        $appendTxt = if ($summary.appended -gt 0) { " +$($summary.appended) new" } else { "" }
+        Write-Host "  audit " -NoNewline -ForegroundColor DarkGray
+        Write-Host "$ledger$appendTxt" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
     }
 }
 
