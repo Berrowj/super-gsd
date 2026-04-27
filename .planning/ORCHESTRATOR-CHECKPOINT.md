@@ -9,21 +9,25 @@ context_percent_at_write: "not_self_estimated"
 controlling_principle: Autonomy continues; evidence tells the truth.
 ---
 
-# Orchestrator Checkpoint - v1.7 active
+# Orchestrator Checkpoint - v1.7 SHIPPED, v1.8 next
 
 ## Status
 
 v1.6 is closed as `SHIPPED-WITH-DEBT-10`.
+**v1.7 is SHIPPED 2026-04-27 — all 5 phases PASS, 0 new debt, v1.5 empty-baseline gap CLOSED.**
 
-v1.7 is already promoted and active:
-- Milestone: Stable Command Contracts + Route Intelligence
-- Phases: 31-35 (4/5 complete)
-- Phase 31 (Canonical Command Envelope): PASS @ 558260f 2026-04-27 (1 CRIT + 5 WARNs fixed in-loop, anti-slop 10/10 both providers)
-- Phase 32 (Route Decision Ledger): PASS @ bb72756 2026-04-27 (2 Codex CRITs + 5 WARNs; 6 fixed in-loop, 1 deferred design-locked; combined anti-slop 9.5/10)
-- Phase 33 (Repair Instruction Contract): PASS @ 0bfcb6d 2026-04-27 (2 Codex CRITs + 5 WARNs all fixed in-loop; SAFE deny-list closes 8 new bypass classes; 0 regressions; combined anti-slop ~9.5/10)
-- Phase 34 (Canonical Review Ledger): PASS @ 326c571 2026-04-27 (2 Codex CRITs + 5 Claude WARNs all fixed in-loop; v1.5 empty-baseline gap CLOSED; aggregator dedups 74 inputs to 37 unique rows; combined anti-slop ~9.5/10)
-- Current objective: Phase 35, Generated System Map (final v1.7 phase)
-- Readiness: `9ab56aa feat(v1.7/readiness): pre-flight GO - all 14 probes pass, Codex behavioral AVAILABLE`
+v1.7 phase ledger (all PASS):
+- Phase 31 (Canonical Command Envelope): PASS @ 558260f (1 CRIT + 5 WARNs in-loop; anti-slop 10/10)
+- Phase 32 (Route Decision Ledger): PASS @ bb72756 (2 CRITs + 5 WARNs; 1 deferred design-locked; anti-slop 9.5/10)
+- Phase 33 (Repair Instruction Contract): PASS @ 0bfcb6d (2 CRITs + 5 WARNs in-loop; 8 bypass classes closed; anti-slop ~9.5/10)
+- Phase 34 (Canonical Review Ledger): PASS @ 326c571 (2 CRITs + 5 WARNs in-loop; v1.5 gap closed; anti-slop ~9.5/10)
+- Phase 35 (Generated System Map): PASS @ 5690c38 (0 CRIT + 7 WARNs; 5 in-loop, 1 info, 1 out-of-scope; anti-slop ~9.5/10)
+- Milestone close: SUMMARY @ .planning/milestones/v1.7/SUMMARY.md
+
+Next milestone: **v1.8 (Gate Fitness + MUDA Pruning)** — Phases 36-40.
+- Locked decisions per `.planning/discussions/2026-04-26-mass-discuss.md`.
+- Readiness re-probe REQUIRED before first dispatch (Rule 0 of orchestrator skill).
+- Current objective: kick off v1.8 readiness audit + Phase 36 standard workflow.
 
 ## Critical Runtime Rule
 
