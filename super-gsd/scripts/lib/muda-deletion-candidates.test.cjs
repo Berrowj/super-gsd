@@ -163,6 +163,53 @@ function check(name, cond, detail) {
   }
 }
 
+// --- Fixture 4: granular finders + unknown-kind reject (Phase 37 ATC fixes) ---
+{
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mdc-test-granular-'));
+  fs.mkdirSync(path.join(tmp, 'metrics'), { recursive: true });
+  try {
+    gateValueLog.logGateValue(tmp, { gate: 'g_lo', outcome: 'pass',  phase: '37', milestone: 'v1.8' });
+    for (let i = 0; i < 5; i++) {
+      gateValueLog.logGateValue(tmp, { gate: 'g_lo', outcome: 'block', phase: '37', milestone: 'v1.8' });
+    }
+    for (let i = 0; i < 7; i++) {
+      gateValueLog.logGateValue(tmp, { gate: 'g_sk', outcome: 'skip',  phase: '37', milestone: 'v1.8' });
+    }
+    gateValueLog.logGateValue(tmp,   { gate: 'g_sk', outcome: 'pass',  phase: '37', milestone: 'v1.8' });
+
+    const lvOnly = lib.findLowValueCandidates(tmp, { milestone: 'v1.8' });
+    check('F4.1: findLowValueCandidates returns >=1 row, all kind=low_value_gate',
+      Array.isArray(lvOnly) && lvOnly.length >= 1 &&
+      lvOnly.every(c => c.kind === 'low_value_gate'));
+
+    const rcOnly = lib.findRecurringCandidates(tmp, { milestone: 'v1.8' });
+    check('F4.2: findRecurringCandidates returns array (may be empty); only kind=recurring_backlog',
+      Array.isArray(rcOnly) && rcOnly.every(c => c.kind === 'recurring_backlog'));
+
+    const skOnly = lib.findSkipDriftCandidates(tmp, { milestone: 'v1.8' });
+    check('F4.3: findSkipDriftCandidates returns >=1 row, all kind=skip_drift_gate',
+      Array.isArray(skOnly) && skOnly.length >= 1 &&
+      skOnly.every(c => c.kind === 'skip_drift_gate'));
+
+    const all = lib.findCandidates(tmp, { milestone: 'v1.8' });
+    check('F4.4: findCandidates union contains low_value + skip_drift kinds',
+      Array.isArray(all) &&
+      all.some(c => c.kind === 'low_value_gate') &&
+      all.some(c => c.kind === 'skip_drift_gate'));
+
+    const origWarn = console.warn;
+    let warnedMsg = '';
+    console.warn = (...args) => { warnedMsg += args.join(' ') + '\n'; };
+    const bad = lib.findCandidates(tmp, { kinds: ['typo_kind'] });
+    console.warn = origWarn;
+    check('F4.5: findCandidates({kinds:[typo_kind]}) returns [] AND warns',
+      Array.isArray(bad) && bad.length === 0 &&
+      warnedMsg.includes('unknown') && warnedMsg.includes('typo_kind'));
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 console.log(`muda-deletion-candidates local-fallback test: ${pass} pass, ${fail} fail`);
 if (fail > 0) {
   for (const f of failures) console.error(`  FAIL: ${f.name}${f.detail ? ' -- ' + f.detail : ''}`);

@@ -1,0 +1,78 @@
+You are reviewing Phase 37 of the SGSD v1.8 milestone for ATC code-review.
+
+Phase 37 ships MUDA Deletion Candidates: 3 mechanical heuristics (low_value, recurring, skip_drift) reading canonical ledgers (Phase 36 gate-value-log + crit-backlog) into a "## Deletion Candidates" section appended to WASTE.md by sgsd-muda-audit.sh post-hook.
+
+Three files modified/created:
+
+1. super-gsd/scripts/lib/muda-deletion-candidates.cjs (NEW, 565 LOC) -- exports findCandidates, findLowValueCandidates, findRecurringCandidates, findSkipDriftCandidates, renderMarkdown, appendToWasteFile + 4 frozen consts (CANDIDATE_KINDS, RISK_LEVELS, DEFAULT_THRESHOLDS, DEFAULT_ROLLBACKS). 15-assertion --self-test in tmpdir with __dirname-anchored fingerprint guard.
+
+2. super-gsd/scripts/sgsd-muda-audit.sh (MODIFIED, +25 LOC at line 481) -- post-hook between qualitative-codex block and metrics log; DRY_RUN-guarded; triple-defensive existence checks; never blocks (stderr-only on failure).
+
+3. super-gsd/scripts/lib/muda-deletion-candidates.test.cjs (NEW, 171 LOC) -- 3 fixtures (low_value/recurring/skip_drift) using production lib, no mocks, tmpdir-isolated.
+
+DEVIATION during execution (justified):
+- Initial appendToWasteFile produced byte-different output between initial-append and replacement paths (1-byte delta from trailing \n inconsistency). Fixed by normalizing to "strip trailing whitespace from preSection, then concat verbatim section" so both paths converge. Self-assertion #14 + F3.3 confirm idempotency.
+
+Locked from 37-RESEARCH.md §11 (15 derivation calls):
+- 37=A: 3 mechanical heuristics (no semantic / graph-walk)
+- KINDS = Object.freeze(['low_value_gate','recurring_backlog','skip_drift_gate'])
+- THRESHOLDS: low_value < 0.3 + fires >= 5; skip_drift < 0.2 fire_rate + obs >= 5; recurring >= 2 milestones
+- Risk static lookup (low_value_gate -> medium; others -> low)
+- DEFAULT_ROLLBACKS per kind
+- Post-hook NEVER blocks
+- Architecture 1:1 mirror of Phase 36 gate-value-log.cjs
+
+Acceptance criteria (MUDA-01..04, all runnable + verified):
+- MUDA-01: --self-test 15/15 PASS; "## Deletion Candidates" section appears in test fixture WASTE.md
+- MUDA-02: KINDS const = 3 entries; lib rejects unknown kind
+- MUDA-03: each row has {kind, target, evidence, risk, rollback}
+- MUDA-04: grep wires post-hook into sgsd-muda-audit.sh
+
+Plus:
+- Live-or-local fallback (Patch 4): live = sgsd-muda-audit.sh post-hook; local = self-test + 3-fixture fallback test exercise the same exported helpers
+- Schema-without-consumer rule: 2 in-phase consumers (post-hook + --self-test); Phase 39 future consumer
+- Envelope-v1 contract NOT touched (deletion-candidates is a different artifact, not a JSONL ledger row)
+
+YOUR TASK
+
+Review the 3 files for:
+1. Heuristic correctness (low_value/recurring/skip_drift implementations match RESEARCH §1.4 thresholds)
+2. Candidate row schema (5 required fields enforced by _normalize)
+3. sgsd-muda-audit.sh post-hook safety (never blocks; DRY_RUN-guarded; defensive existence checks)
+4. appendToWasteFile idempotency (re-running with same inputs produces byte-identical output; the deviation fix specifically addressed this)
+5. Test correctness (3 fixtures cover canonical heuristics; uses production lib; tmpdir isolated)
+6. Architectural mirror discipline (1:1 with Phase 36 gate-value-log: vendored js-yaml NOT used here since we read JSONL not YAML; __dirname anchor; never-throws-upward)
+7. ASCII-only constraint
+8. 10-point anti-slop checklist:
+   - Every exported symbol has a caller
+   - Every imported module is used
+   - delta-Complexity proportional (~565 LOC for 3-heuristic finder + 15-assertion self-test + post-hook)
+   - Existing canonical ledgers preserved (fingerprint guard verifies)
+   - Single-purpose phase (yes -- deletion candidates)
+   - No mass-deletable content
+   - Failure path documented (post-hook never crashes audit)
+   - Reuse over rewrite (mirrors Phase 36 architecture)
+   - No "just in case" predicates
+   - Frozen consts (KINDS, RISKS, THRESHOLDS, ROLLBACKS)
+
+Files to read:
+- super-gsd/scripts/lib/muda-deletion-candidates.cjs
+- super-gsd/scripts/lib/muda-deletion-candidates.test.cjs
+- super-gsd/scripts/sgsd-muda-audit.sh (focus on lines 470-510)
+- .planning/milestones/v1.8/phases/37-muda-deletion-candidates/37-01-muda-deletion-candidates-PLAN.md
+- super-gsd/scripts/lib/gate-value-log.cjs (Phase 36 architectural template)
+- super-gsd/scripts/lib/crit-backlog.cjs (data source for "recurring" heuristic)
+
+REPORT CONTRACT (code-reviewer-v1) -- emit EXACTLY these 5 lines as the LAST 5 lines of your reply (parser is awk):
+
+FINDINGS: <one-line summary; "none" if 0 CRIT and 0 WARN>
+CRITICAL: <integer count>
+WARNINGS: <integer count>
+PASS_RATE: <N>/10
+ONE_LINER: <one-line, <=200-char overall conclusion>
+
+The wrapper expects literal token "FINDINGS:" (NOT "VERDICT:"). All 5 lines MUST be present at end of reply or the report will be rejected as a contract violation (exit 6).
+
+Above the 5-line contract block, provide CRIT findings + WARN findings + 10-point anti-slop checklist with verdicts.
+
+Be ruthless. Phase 31, 32, 33, 34, 35, 36 each surfaced real CRITs Claude missed -- apply equal rigor.

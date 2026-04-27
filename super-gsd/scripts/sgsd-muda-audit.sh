@@ -490,15 +490,26 @@ MDC_LIB="$SCRIPT_DIR/lib/muda-deletion-candidates.cjs"
 if [[ "$DRY_RUN" != "true" && -x "$NODE_BIN" && -f "$WASTE_FILE" && -f "$MDC_LIB" ]]; then
     MDC_PLANNING_DIR="$PROJECT/.planning"
     MDC_MILESTONE="${MUDA_MILESTONE:-}"
+    # Phase 37 ATC W3 fix: route stderr to a captured tmpfile rather than
+    # /dev/null so node-level errors (parse failures on JSONL, runtime
+    # exceptions) surface in the audit log on failure. stdout still
+    # discarded (lib emits no useful stdout in --apply mode). Never
+    # blocks the audit -- failure path echoes an operator-visible
+    # message + the captured stderr preview.
+    MDC_STDERR_TMP="$(mktemp -t mdc-stderr.XXXXXX 2>/dev/null || echo /tmp/mdc-stderr.$$)"
     if "$NODE_BIN" "$MDC_LIB" --apply \
         --waste-file "$WASTE_FILE" \
         --planning-dir "$MDC_PLANNING_DIR" \
         ${MDC_MILESTONE:+--milestone "$MDC_MILESTONE"} \
-        >/dev/null 2>&1; then
+        >/dev/null 2>"$MDC_STDERR_TMP"; then
         :  # post-hook applied (silent on success; verifiable via grep on WASTE.md)
     else
         echo "sgsd-muda-audit: muda-deletion-candidates post-hook failed (non-blocking)" >&2
+        if [[ -s "$MDC_STDERR_TMP" ]]; then
+            echo "  stderr preview: $(head -c 200 "$MDC_STDERR_TMP" 2>/dev/null)" >&2
+        fi
     fi
+    rm -f "$MDC_STDERR_TMP" 2>/dev/null || true
 elif [[ "$DRY_RUN" == "true" ]]; then
     : # dry-run: skip deletion-candidates post-hook (compose_waste_md heredoc untouched)
 fi
