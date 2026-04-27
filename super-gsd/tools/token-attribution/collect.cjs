@@ -7,9 +7,10 @@
 // Reads Claude Code session JSONL and writes an append-only audit ledger:
 //   .planning/metrics/token-attribution.jsonl
 //
-// Two event types are recorded:
+// Three live sources are recorded:
 //   assistant_turn - exact main-Claude usage fields from message.usage
-//   agent_result   - exact sub-agent totalTokens from toolUseResult
+//   assistant_turn - exact sidechain/sub-agent usage fields from subagents/*.jsonl
+//   agent_result   - exact completed sub-agent totalTokens from toolUseResult
 //
 // The collector is idempotent. Re-running it only appends unseen event_id rows.
 
@@ -22,11 +23,12 @@ const LEDGER_REL = path.join('.planning', 'metrics', 'token-attribution.jsonl');
 
 function usage() {
   console.log([
-    'Usage: node collect.cjs [--project PATH] [--write] [--summary] [--current] [--recent N] [--all] [--self-test]',
+    'Usage: node collect.cjs [--project PATH] [--write] [--summary] [--current] [--recent N] [--all] [--no-subagents] [--agent-spend] [--watch] [--interval-ms N] [--self-test]',
     '',
     'Examples:',
     '  node super-gsd/tools/token-attribution/collect.cjs --write --summary --current',
-    '  node super-gsd/tools/token-attribution/collect.cjs --summary --all'
+    '  node super-gsd/tools/token-attribution/collect.cjs --write --all --agent-spend --summary',
+    '  node super-gsd/tools/token-attribution/collect.cjs --write --all --agent-spend --watch --interval-ms 15000'
   ].join('\n'));
 }
 
@@ -38,6 +40,10 @@ function parseArgs(argv) {
     current: false,
     recent: 8,
     all: false,
+    includeSubagents: true,
+    agentSpend: false,
+    watch: false,
+    intervalMs: 15000,
     selfTest: false
   };
   for (let i = 0; i < argv.length; i++) {
@@ -48,6 +54,10 @@ function parseArgs(argv) {
     else if (a === '--current') out.current = true;
     else if (a === '--recent') out.recent = Math.max(1, parseInt(argv[++i], 10) || out.recent);
     else if (a === '--all') out.all = true;
+    else if (a === '--no-subagents') out.includeSubagents = false;
+    else if (a === '--agent-spend') out.agentSpend = true;
+    else if (a === '--watch') out.watch = true;
+    else if (a === '--interval-ms') out.intervalMs = Math.max(1000, parseInt(argv[++i], 10) || out.intervalMs);
     else if (a === '--self-test') out.selfTest = true;
     else if (a === '--help' || a === '-h') { usage(); process.exit(0); }
   }
@@ -69,19 +79,36 @@ function sessionsDirFor(projectDir) {
 function listSessionFiles(projectDir, opts = {}) {
   const dir = sessionsDirFor(projectDir);
   if (!fs.existsSync(dir)) return [];
-  const files = fs.readdirSync(dir)
-    .filter(n => n.endsWith('.jsonl'))
-    .map(name => {
-      const full = path.join(dir, name);
-      try {
-        const st = fs.statSync(full);
-        return { name, full, mtimeMs: st.mtimeMs, size: st.size };
-      } catch {
-        return null;
+  const files = [];
+  const addFile = (full, kind) => {
+    try {
+      if (!full.endsWith('.jsonl')) return;
+      const st = fs.statSync(full);
+      if (!st.isFile()) return;
+      const name = path.relative(dir, full);
+      const parts = name.split(/[\\/]+/);
+      const sessionId = parts.length > 2 && parts[1] === 'subagents'
+        ? parts[0]
+        : path.basename(name, '.jsonl');
+      const agentId = kind === 'subagent' ? path.basename(name, '.jsonl').replace(/^agent-/, '') : null;
+      files.push({ name, full, kind, sessionId, agentId, mtimeMs: st.mtimeMs, size: st.size });
+    } catch {}
+  };
+
+  for (const n of fs.readdirSync(dir)) {
+    const full = path.join(dir, n);
+    try {
+      const st = fs.statSync(full);
+      if (st.isFile()) addFile(full, 'main');
+      if (opts.includeSubagents !== false && st.isDirectory()) {
+        const sub = path.join(full, 'subagents');
+        if (fs.existsSync(sub)) {
+          for (const sn of fs.readdirSync(sub)) addFile(path.join(sub, sn), 'subagent');
+        }
       }
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.mtimeMs - a.mtimeMs);
+    } catch {}
+  }
+  files.sort((a, b) => b.mtimeMs - a.mtimeMs);
   return opts.all ? files : files.slice(0, opts.recent || 8);
 }
 
@@ -133,6 +160,67 @@ function parseMilestone(text) {
 function compactText(text, max = 180) {
   const s = String(text || '').replace(/\s+/g, ' ').trim();
   return s.length > max ? s.slice(0, max - 3) + '...' : s;
+}
+
+function contentText(content, max = 5000) {
+  if (typeof content === 'string') return compactText(content, max);
+  if (!Array.isArray(content)) return compactText(JSON.stringify(content || ''), max);
+  const chunks = [];
+  for (const block of content) {
+    if (!block) continue;
+    if (typeof block === 'string') chunks.push(block);
+    else if (typeof block.text === 'string') chunks.push(block.text);
+    else if (typeof block.content === 'string') chunks.push(block.content);
+    else if (block.input) chunks.push(JSON.stringify(block.input));
+  }
+  return compactText(chunks.join('\n'), max);
+}
+
+function inferAgentTypeFromText(text) {
+  const s = String(text || '').toLowerCase();
+  if (s.includes('sgsd-code-reviewer') || s.includes('code reviewer') || s.includes('code-reviewer')) return 'sgsd-code-reviewer';
+  if (s.includes('gsd-phase-researcher') || s.includes('phase researcher') || s.includes('researcher')) return 'gsd-phase-researcher';
+  if (s.includes('gsd-plan-checker') || s.includes('plan checker') || s.includes('plan-checker')) return 'gsd-plan-checker';
+  if (s.includes('gsd-executor') || s.includes('executor')) return 'gsd-executor';
+  if (s.includes('gsd-planner') || s.includes('planner')) return 'gsd-planner';
+  if (s.includes('gsd-verifier') || s.includes('verifier')) return 'gsd-verifier';
+  if (s.includes('classifier')) return 'classifier';
+  if (s.includes('codex')) return 'sgsd-code-reviewer';
+  return null;
+}
+
+function inferSessionContext(entries, sessionFile) {
+  const ctx = {
+    session_id: sessionFile.sessionId || path.basename(sessionFile.name, '.jsonl'),
+    agent_id: sessionFile.agentId || null,
+    agent_type: null,
+    agent_role: null,
+    milestone: null,
+    phase: null,
+    plan: null,
+    prompt: ''
+  };
+  for (const e of entries) {
+    if (e.agentId && !ctx.agent_id) ctx.agent_id = e.agentId;
+    if (e.type === 'user' && e.message && e.message.content) {
+      const t = contentText(e.message.content, 5000);
+      if (t && !ctx.prompt) ctx.prompt = t;
+      if (!ctx.agent_type) ctx.agent_type = inferAgentTypeFromText(t);
+      if (!ctx.milestone) ctx.milestone = parseMilestone(t);
+      if (!ctx.phase) ctx.phase = parsePhase(t);
+      if (!ctx.plan) ctx.plan = parsePlan(t);
+    }
+    if (e.type === 'assistant' && e.message && e.message.content) {
+      const t = contentText(e.message.content, 1000);
+      if (!ctx.agent_type) ctx.agent_type = inferAgentTypeFromText(t);
+      if (!ctx.milestone) ctx.milestone = parseMilestone(t);
+      if (!ctx.phase) ctx.phase = parsePhase(t);
+      if (!ctx.plan) ctx.plan = parsePlan(t);
+    }
+  }
+  if (!ctx.agent_type && sessionFile.kind === 'subagent') ctx.agent_type = 'unknown-subagent';
+  ctx.agent_role = roleForAgent(ctx.agent_type);
+  return ctx;
 }
 
 function roleForAgent(agentType) {
@@ -233,27 +321,40 @@ function extractUsageFromText(entry) {
 function parseSessionEvents(sessionFile) {
   const entries = readJsonl(sessionFile.full);
   const byToolId = toolUseMap(entries);
+  const ctx = inferSessionContext(entries, sessionFile);
   const rows = [];
 
   for (const e of entries) {
-    const sessionId = e.sessionId || path.basename(sessionFile.name, '.jsonl');
+    const sessionId = e.sessionId || ctx.session_id || path.basename(sessionFile.name, '.jsonl');
     if (e.type === 'assistant' && e.message && e.message.usage) {
       const usage = usageTotals(e.message.usage);
-      const contentText = JSON.stringify(e.message.content || '');
+      const bodyText = contentText(e.message.content || '', 4000);
+      const agentId = e.agentId || ctx.agent_id || null;
+      const isSubagent = sessionFile.kind === 'subagent' || Boolean(e.isSidechain) || Boolean(agentId);
+      const agentType = isSubagent ? (ctx.agent_type || inferAgentTypeFromText(bodyText) || 'unknown-subagent') : 'orchestrator';
+      const agentRole = isSubagent ? roleForAgent(agentType) : 'orchestrator';
       rows.push({
         schema_version: SCHEMA_VERSION,
         event_type: 'assistant_turn',
-        event_id: `assistant:${sessionId}:${e.uuid || e.requestId || e.timestamp}`,
+        event_id: isSubagent
+          ? `assistant:${sessionId}:${agentId || 'subagent'}:${e.uuid || e.requestId || e.timestamp}`
+          : `assistant:${sessionId}:${e.uuid || e.requestId || e.timestamp}`,
         ts: e.timestamp || null,
         source: 'claude-session-jsonl',
         session_id: sessionId,
         session_file: sessionFile.name,
+        source_file_kind: sessionFile.kind || 'main',
         uuid: e.uuid || null,
+        agent_id: agentId,
+        agent_type: agentType,
+        agent_role: agentRole,
+        is_sidechain: Boolean(isSubagent),
         model: e.message.model || null,
-        milestone: parseMilestone(contentText),
-        phase: parsePhase(contentText),
-        plan: parsePlan(contentText),
-        role: 'orchestrator',
+        milestone: parseMilestone(bodyText) || ctx.milestone,
+        phase: parsePhase(bodyText) || ctx.phase,
+        plan: parsePlan(bodyText) || ctx.plan,
+        role: agentRole,
+        description: isSubagent ? compactText(ctx.prompt, 220) : null,
         attribution_basis: 'message.usage',
         confidence: 'exact_usage_fields',
         usage
@@ -288,6 +389,7 @@ function parseSessionEvents(sessionFile) {
       source: 'claude-session-jsonl',
       session_id: sessionId,
       session_file: sessionFile.name,
+      source_file_kind: sessionFile.kind || 'main',
       uuid: e.uuid || null,
       tool_use_id: toolResultId || null,
       agent_id: extractAgentId(e),
@@ -345,6 +447,19 @@ function appendNewRows(projectDir, rows) {
     fs.appendFileSync(ledgerPath, newRows.map(r => JSON.stringify(r)).join('\n') + '\n');
   }
   return { ledgerPath, appended: newRows.length };
+}
+
+function appendAgentSpendRows(projectDir) {
+  try {
+    const planningDir = path.join(projectDir, '.planning');
+    const report = require('./report.cjs');
+    if (!report || typeof report.backfillFromMetrics !== 'function') {
+      return { rowsRead: 0, rowsAppended: 0, rowsSkipped: 0, errors: ['report.cjs unavailable'] };
+    }
+    return report.backfillFromMetrics(planningDir, {});
+  } catch (e) {
+    return { rowsRead: 0, rowsAppended: 0, rowsSkipped: 0, errors: [e.message] };
+  }
 }
 
 function summarize(rows, scope = {}) {
@@ -485,19 +600,35 @@ function main() {
   }
 
   const projectDir = resolveProject(args.project);
-  const rows = collect(projectDir, args);
-  let writeResult = { ledgerPath: path.join(projectDir, LEDGER_REL), appended: 0 };
-  if (args.write) writeResult = appendNewRows(projectDir, rows);
+  const runOnce = () => {
+    const rows = collect(projectDir, args);
+    let writeResult = { ledgerPath: path.join(projectDir, LEDGER_REL), appended: 0 };
+    if (args.write) writeResult = appendNewRows(projectDir, rows);
+    const agentSpend = args.agentSpend && args.write
+      ? appendAgentSpendRows(projectDir)
+      : null;
 
-  if (args.summary) {
-    const ledgerRows = fs.existsSync(writeResult.ledgerPath) ? readJsonl(writeResult.ledgerPath) : rows;
-    const stateScope = args.current ? readStateScope(projectDir) : {};
-    const summary = summarize(ledgerRows, stateScope);
-    summary.ledger_path = writeResult.ledgerPath;
-    summary.appended = writeResult.appended;
-    console.log(JSON.stringify(summary));
-  } else {
-    console.log(JSON.stringify({ collected: rows.length, appended: writeResult.appended, ledger_path: writeResult.ledgerPath }));
+    if (args.summary) {
+      const ledgerRows = fs.existsSync(writeResult.ledgerPath) ? readJsonl(writeResult.ledgerPath) : rows;
+      const stateScope = args.current ? readStateScope(projectDir) : {};
+      const summary = summarize(ledgerRows, stateScope);
+      summary.ledger_path = writeResult.ledgerPath;
+      summary.appended = writeResult.appended;
+      if (agentSpend) summary.agent_spend = agentSpend;
+      console.log(JSON.stringify(summary));
+    } else {
+      console.log(JSON.stringify({
+        collected: rows.length,
+        appended: writeResult.appended,
+        agent_spend: agentSpend,
+        ledger_path: writeResult.ledgerPath
+      }));
+    }
+  };
+
+  runOnce();
+  if (args.watch) {
+    setInterval(runOnce, args.intervalMs);
   }
 }
 

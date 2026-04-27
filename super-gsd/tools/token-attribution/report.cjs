@@ -206,8 +206,10 @@ function _normalize(row) {
     files_read:           Number(srcTb.files_read) || 0,
     useful_findings:      Number(srcTb.useful_findings) || 0,
     agent_type:           srcTb.agent_type || null,
+    agent_id:             srcTb.agent_id || null,
     source_event_id:      srcTb.source_event_id || null,
     source_stream:        srcTb.source_stream || null,
+    source_file_kind:     srcTb.source_file_kind || null,
   };
   // Derived ratio.
   if (tb.total_tokens > 0) {
@@ -381,8 +383,10 @@ function _buildRowFromSource(raw, kind) {
         files_read:            Number(ts.readCount) || 0,
         useful_findings:       usefulFindings(role, ts),
         agent_type:            raw.agent_type || null,
+        agent_id:              raw.agent_id || null,
         source_event_id:       raw.event_id || null,
         source_stream:         'token-attribution.jsonl',
+        source_file_kind:      raw.source_file_kind || null,
       };
       const dedupRef = `attribution:${raw.event_id}`;
       return {
@@ -402,6 +406,9 @@ function _buildRowFromSource(raw, kind) {
     }
     if (raw.event_type === 'assistant_turn') {
       const usage = raw.usage || {};
+      const role = ROLES.includes(raw.role)
+        ? raw.role
+        : deriveRole(raw.agent_role, raw.agent_type || raw.role || 'orchestrator');
       const breakdown = {
         model:                 raw.model || null,
         input_tokens:          Number(usage.input_tokens) || 0,
@@ -410,8 +417,11 @@ function _buildRowFromSource(raw, kind) {
         output_tokens:         Number(usage.output_tokens) || 0,
         total_tokens:          Number(usage.total_tokens) || 0,
         tokens_estimated:      false,
+        agent_type:            raw.agent_type || null,
+        agent_id:              raw.agent_id || null,
         source_event_id:       raw.event_id || null,
         source_stream:         'token-attribution.jsonl',
+        source_file_kind:      raw.source_file_kind || null,
       };
       const dedupRef = `attribution:${raw.event_id}`;
       return {
@@ -422,7 +432,7 @@ function _buildRowFromSource(raw, kind) {
         artifacts: [],
         phase: raw.phase != null ? raw.phase : null,
         milestone: raw.milestone != null ? raw.milestone : null,
-        role: 'orchestrator',
+        role,
         provider: 'claude',
         token_breakdown: breakdown,
         _dedupRef: dedupRef,
