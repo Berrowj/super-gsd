@@ -1176,6 +1176,58 @@ REPEAT:
 
        h. TaskUpdate(taskId, status: "completed")
 
+       i.X. PHASE CAPSULE WRITE (Phase 43 -- CAP-01..05; Lock 5 forward-coverage)
+
+            Write the phase capsule projection BEFORE marking phase complete.
+            Per RESEARCH sec 9.3: Phase 45 PACKET-03 will read this capsule
+            during the NEXT phase's dispatch; if write is deferred to
+            milestone-close, the first phase of the next milestone has no
+            capsule for the prior phase.
+
+            Per design lock 13 (REQUIREMENTS.md:67-68): capsule write
+            failure NEVER halts phase advance. writeCapsule wraps internals
+            in try/catch and returns { ok:false, reason:<msg> } on failure;
+            the orchestrator logs the result and continues to step 6.6.i
+            unconditionally.
+
+            ```javascript
+            // Phase 43 wire-in: anchor planningDir to process.cwd() at the
+            // orchestrator-skill boundary (mirrors Step 4.5/4.6/4.7 lessons:
+            // Phase 32 W3 + Phase 36 W2 + Phase 39 W3 + Phase 41 sec 7.1
+            // -- NEVER bare relative '.planning').
+            const path = require('path');
+            const { writeCapsule } = require(
+              path.join(process.cwd(), 'super-gsd', 'tools', 'phase-capsule', 'write.cjs')
+            );
+            const planningDir = path.join(process.cwd(), '.planning');
+            const result = writeCapsule(planningDir, {
+              milestone: '{{version}}',
+              phase: '{{phase}}',
+              phaseDir: '{{phase_dir}}',
+            });
+            // result: { ok:true, path: '.../PHASE-CAPSULE.json', content_hash: '...' }
+            //      or { ok:false, reason: '...' } -- NEVER throws.
+            // On failure: writeCapsule already appended a row to
+            // .planning/metrics/context-complaints.jsonl with reason_code
+            // from the <reason_codes> vocabulary. Orchestrator continues
+            // to 6.6.i unconditionally.
+            ```
+
+            HARD RULES for this gate -- no exceptions:
+
+            R1. writeCapsule outcome NEVER blocks step 6.6.i (mark complete /
+                advance). Lock 13 binds.
+            R2. Capsule write failure surfaces in the next milestone-close's
+                token-waste / phase-folder-audit narrative (Phase 49 reads
+                context-complaints.jsonl); operator-discoverable but
+                non-blocking.
+            R3. Capsule shape is the API for Phase 45/46/49/51. Do NOT
+                modify the capsule schema from this skill -- the writer
+                lib owns it; this skill only INVOKES.
+            R4. The wire-in MUST cite RESEARCH sec 9.3 and Lock 5 in the
+                rendered markdown so future operators understand WHY this
+                step is between 6.6.h and 6.6.i (not 6.7 milestone-close).
+
        i. Mark phase complete, advance to next phase.
 
   6.7. MILESTONE COMPLETE AUTO-TRIGGER (GOV-13 / D-18a)

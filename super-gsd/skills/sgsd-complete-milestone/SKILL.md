@@ -228,6 +228,59 @@ envelope-v1 row per close run (run_id unique). Cockpit (Phase 50)
 reads "latest by scope" via `ts` ordering; no dedup needed.
 </step_4_7_token_waste_check>
 
+<step_4_7b_phase_capsule_backfill>
+## Step 4.7-bis: Phase Capsule Backfill Safety-Net (Phase 43 -- CAP-04)
+
+Run the read-only phase-capsule backfill across all phases of the closing
+milestone. Forward-flow Step 6.6.i.X writes capsules per-phase as they
+close; this step is the safety-net for phases that:
+
+  (a) closed BEFORE Phase 43 shipped (the 17 historical capsules),
+  (b) had Step 6.6.i.X fail at phase-close time (git unavailable,
+      crit-backlog unreadable, etc. -- writeCapsule returns ok:false but
+      orchestrator continues per Lock 13).
+
+Per design lock 13 (REQUIREMENTS.md:67-68): backfill failures NEVER halt
+milestone close. writeAllCapsulesForMilestone wraps internals in
+try/catch and returns { written:N, skipped:M, errors:[...] }; errors
+log to .planning/metrics/context-complaints.jsonl; Step 5 continues.
+
+Idempotent: capsules with matching content_hash are skipped (mtime
+preserved); A3 acceptance binds.
+
+```javascript
+// Phase 43 wire-in: anchor planningDir to process.cwd() at the
+// orchestrator-skill boundary (mirrors Step 4.5 Phase 39 ATC W3 +
+// Step 4.6 Phase 40 W3 + Step 4.7 Phase 42 BUDGET fixes).
+// NEVER bare relative '.planning'.
+const path = require('path');
+const { writeAllCapsulesForMilestone } = require(
+  path.join(process.cwd(), 'super-gsd', 'tools', 'phase-capsule', 'write.cjs')
+);
+const planningDir = path.join(process.cwd(), '.planning');
+const result = writeAllCapsulesForMilestone(planningDir, '{{version}}');
+// result: { written:N, skipped:M, errors:[...] }
+// NEVER throws. On non-empty errors: rows appended to
+// .planning/metrics/context-complaints.jsonl already (writeCapsule does
+// this internally). Step 5 cross-phase check runs regardless.
+```
+
+Per lock 5: phase capsule is a PROJECTION of canonical .planning + git;
+canonical state is not touched. Per lock 13: backfill failures continue
+autonomy. Per lock 6: bypass entries copied verbatim, never summarized.
+
+Defer-on-empty: if `.planning/milestones/{{version}}/phases/` is absent
+(empty milestone), `writeAllCapsulesForMilestone` returns
+`{written:0, skipped:0, errors:[...]}` with reason
+`phase_capsule_backfill_milestone_missing` and Step 5 continues.
+
+PHASE-INDEX.jsonl: writeAllCapsulesForMilestone updates
+`.planning/milestones/{{version}}/PHASE-INDEX.jsonl` per call. Cockpit
+(Phase 50) reads this index for fast scan; the per-phase
+PHASE-CAPSULE.json holds detail. Capsule = projection. Canonical =
+.planning + git.
+</step_4_7b_phase_capsule_backfill>
+
 <step_5_cross_phase_check>
 ## Step 5: Cross-Phase Integration Check
 
