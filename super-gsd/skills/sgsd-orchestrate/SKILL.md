@@ -588,7 +588,30 @@ REPEAT:
 
      // Gate check (Phase 10 D-06): R5 compose — BOTH kill-switches must agree
      // config.atc.enabled is preserved as an outer runtime knob (D-13a)
-     IF config.atc.enabled AND gates.shouldFire('phase-level-ATC', ctx, GATES_YAML_PATH) AND verification.status == "passed":
+     // Phase 36 wire-in (locked 36=B per 36-RESEARCH.md sec 2): single-call
+     // gates.shouldFire(...) hoisted to a `phaseAtcFired` const so both the
+     // SKIP and FIRE arms reference the same evaluation; then write a
+     // gate-value-log row on whichever arm runs (skip/pass/warn/block).
+     const phaseAtcFired = config.atc.enabled
+       && gates.shouldFire('phase-level-ATC', ctx, GATES_YAML_PATH)
+       && verification.status == "passed";
+
+     if (!phaseAtcFired) {
+       try {
+         require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'gate-value-log.cjs'))
+           .logGateValue(path.join(process.cwd(), '.planning'), {
+             gate:        'phase-level-ATC',
+             outcome:     'skip',
+             phase:       currentPhase,
+             milestone:   currentMilestone,
+             retroactive: gates.getGate('phase-level-ATC', GATES_YAML_PATH),
+           });
+       } catch (e) {
+         console.warn('[SGSD] gate-value-log phase-level-ATC skip-arm failed (continuing):', e && e.message);
+       }
+     }
+
+     if (phaseAtcFired) {
 
        a. Collect phase stats:
           - git diff --stat {first_commit_of_phase}..HEAD
@@ -767,6 +790,26 @@ REPEAT:
           });
           → Returns: { findings, critical_count, warning_count, verdict }
 
+          // Phase 36 wire-in (locked 36=B per 36-RESEARCH.md sec 2):
+          // gate-value-log FIRE arm. The verdict + critical_count are produced
+          // by the dispatch immediately above; outcomeFromVerdict maps them
+          // into the closed OUTCOMES enum (pass/warn/block/skip). Wrapped in
+          // try/catch -- never throws upward.
+          try {
+            const gateValueLog = require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'gate-value-log.cjs'));
+            const reportPath = (typeof phaseAtcReportPath === 'function') ? phaseAtcReportPath() : null;
+            gateValueLog.logGateValue(path.join(process.cwd(), '.planning'), {
+              gate:        'phase-level-ATC',
+              outcome:     gateValueLog.outcomeFromVerdict(report && report.verdict, report && report.critical_count),
+              phase:       currentPhase,
+              milestone:   currentMilestone,
+              evidence:    reportPath ? [{ kind: 'review_report', ref: reportPath }] : [],
+              retroactive: gates.getGate('phase-level-ATC', GATES_YAML_PATH),
+            });
+          } catch (e) {
+            console.warn('[SGSD] gate-value-log phase-level-ATC fire-arm failed (continuing):', e && e.message);
+          }
+
        d. Process ATC result:
           - Attach `report._findings_detail = parseFindingsDetail(report.content || '')`
             (CONTRACT-02 v1.5 Phase 24) so downstream consumers see structured tuples.
@@ -789,6 +832,7 @@ REPEAT:
 
      Token budget per phase ATC: ~600 tokens (50 classify + 550 review)
      Runs ONCE per phase, not per commit — keeps token cost bounded.
+     } // end if (phaseAtcFired)
 
   6.55. MUDA WASTE AUDIT (runs ONCE per phase, after ATC passes) — per DLB-02
      Triggers when Step 6.5 completes AND the conditional gate fires.
@@ -796,7 +840,28 @@ REPEAT:
        (files_changed >= 4 OR diff_lines >= 100) AND phase_type NOT IN (refactor, docs, config)
 
      // Gate check (Phase 10 D-07): MUDA-waste-audit with compound OR trigger
-     if (gates.shouldFire('MUDA-waste-audit', ctx, GATES_YAML_PATH)) {
+     // Phase 36 wire-in (locked 36=B per 36-RESEARCH.md sec 2): single-call
+     // gates.shouldFire(...) hoisted to a `mudaFired` const so both arms read
+     // the same evaluation; SKIP arm logs outcome:'skip', FIRE arm logs the
+     // shell-exit-derived outcome (0=pass, 1=warn, 2+=block).
+     const mudaFired = gates.shouldFire('MUDA-waste-audit', ctx, GATES_YAML_PATH);
+
+     if (!mudaFired) {
+       try {
+         require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'gate-value-log.cjs'))
+           .logGateValue(path.join(process.cwd(), '.planning'), {
+             gate:        'MUDA-waste-audit',
+             outcome:     'skip',
+             phase:       currentPhase,
+             milestone:   currentMilestone,
+             retroactive: gates.getGate('MUDA-waste-audit', GATES_YAML_PATH),
+           });
+       } catch (e) {
+         console.warn('[SGSD] gate-value-log MUDA-waste-audit skip-arm failed (continuing):', e && e.message);
+       }
+     }
+
+     if (mudaFired) {
 
      If the gate doesn't fire (small phase, or refactor/docs/config), SKIP
      this step silently. DLB-02's Architect-held position: pay audit cost
@@ -823,6 +888,41 @@ REPEAT:
                 detect-and-record mechanism, not a gate. Fail signal goes to
                 sgsd-muda-recurrence at milestone close.
 
+          // The shell-exit code captured above is the FIRE-arm signal source.
+          // Bind to a named const for the wire-in below (parity with the
+          // ROUTE-03 wire-in's `dispatchResult` reference at line ~1227).
+          const mudaExitCode = (typeof shellResult !== 'undefined' && shellResult)
+            ? shellResult.exit
+            : (typeof exitCode === 'number' ? exitCode : null);
+
+          // Phase 36 wire-in (locked 36=B per 36-RESEARCH.md sec 2):
+          // gate-value-log FIRE arm. Map shell exit -> closed OUTCOMES enum:
+          //   exit 0 -> all probes PASS  -> outcome 'pass'
+          //   exit 1 -> WARN findings    -> outcome 'warn'
+          //   exit 2 -> FAIL findings    -> outcome 'block'
+          //   other  -> outcome 'block' (script crash is value-negative)
+          try {
+            const gateValueLog = require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'gate-value-log.cjs'));
+            let mudaOutcome;
+            if      (mudaExitCode === 0) mudaOutcome = 'pass';
+            else if (mudaExitCode === 1) mudaOutcome = 'warn';
+            else                          mudaOutcome = 'block';
+            const wastePath = path.join(currentPhaseDir || '', 'WASTE.md');
+            const evidence = (currentPhaseDir && fs.existsSync(wastePath))
+              ? [{ kind: 'review_report', ref: wastePath }]
+              : [];
+            gateValueLog.logGateValue(path.join(process.cwd(), '.planning'), {
+              gate:        'MUDA-waste-audit',
+              outcome:     mudaOutcome,
+              phase:       currentPhase,
+              milestone:   currentMilestone,
+              evidence,
+              retroactive: gates.getGate('MUDA-waste-audit', GATES_YAML_PATH),
+            });
+          } catch (e) {
+            console.warn('[SGSD] gate-value-log MUDA-waste-audit fire-arm failed (continuing):', e && e.message);
+          }
+
        c. NEVER block on MUDA failures. The point is data accumulation
           across milestones so sgsd-muda-recurrence can trigger the
           kill-condition (retire skill if 2 consecutive milestones show
@@ -834,7 +934,7 @@ REPEAT:
 
      Token budget per MUDA audit: ~100 tokens total (orchestrator overhead;
      the actual probes run in shell at <1s and don't consume context).
-     } // end gates.shouldFire('MUDA-waste-audit')
+     } // end if (mudaFired)
 
   6.6. FRONTEND BROWSER VERIFICATION GATE (runs ONCE per phase, after ATC passes)
      Triggers when Step 6.5 completes AND the phase's diff touched any frontend
@@ -1123,7 +1223,29 @@ REPEAT:
 
       // Gate check (Phase 10 D-05): R5 compose — BOTH kill-switches must agree
       // config.atc.enabled is preserved as an outer runtime knob (D-13a)
-      if (config.atc.enabled && gates.shouldFire('per-dispatch-ATC', ctx, GATES_YAML_PATH)) {
+      // Phase 36 wire-in (locked 36=B per 36-RESEARCH.md sec 2): single-call
+      // gates.shouldFire(...) hoisted to a `perDispatchAtcFired` const so both
+      // SKIP and FIRE arms reference the same evaluation; FIRE arm runs at the
+      // post-convergence point AFTER LEDGER-02 (covers Codex + Claude paths).
+      const perDispatchAtcFired = config.atc.enabled
+        && gates.shouldFire('per-dispatch-ATC', ctx, GATES_YAML_PATH);
+
+      if (!perDispatchAtcFired) {
+        try {
+          require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'gate-value-log.cjs'))
+            .logGateValue(path.join(process.cwd(), '.planning'), {
+              gate:        'per-dispatch-ATC',
+              outcome:     'skip',
+              phase:       currentPhase,
+              milestone:   currentMilestone,
+              retroactive: gates.getGate('per-dispatch-ATC', GATES_YAML_PATH),
+            });
+        } catch (e) {
+          console.warn('[SGSD] gate-value-log per-dispatch-ATC skip-arm failed (continuing):', e && e.message);
+        }
+      }
+
+      if (perDispatchAtcFired) {
 
       Skip entirely if tier ∈ {skip, lite} — LITE is already covered by the
       anti-slop self-check every executor should apply to its own diff, and
@@ -1304,6 +1426,30 @@ REPEAT:
           console.warn('[SGSD] review-ledger wire-in failed (continuing):', e && e.message);
         }
 
+        // Phase 36 wire-in (locked 36=B per 36-RESEARCH.md sec 2):
+        // gate-value-log FIRE arm at the convergence point. Reuses the
+        // extractedVerdict / extractedCritical computed by the LEDGER-02
+        // wire above so Codex + Claude paths share the same outcome
+        // derivation. ONE wire covers both providers (cf. 34-RESEARCH.md
+        // sec 3.3 + sec 11.2). Wrapped in try/catch -- never throws upward.
+        try {
+          const gateValueLog = require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'gate-value-log.cjs'));
+          const reportPath = (typeof perDispatchReportPath === 'function') ? perDispatchReportPath() : null;
+          // Reuse the same extracted contract fields as the LEDGER-02 wire above.
+          const gvlVerdict  = (typeof verdict !== 'undefined')        ? verdict        : (report && report.verdict);
+          const gvlCritical = (typeof critical_count !== 'undefined') ? critical_count : (report && report.critical_count);
+          gateValueLog.logGateValue(path.join(process.cwd(), '.planning'), {
+            gate:        'per-dispatch-ATC',
+            outcome:     gateValueLog.outcomeFromVerdict(gvlVerdict, gvlCritical),
+            phase:       currentPhase,
+            milestone:   currentMilestone,
+            evidence:    reportPath ? [{ kind: 'review_report', ref: reportPath }] : [],
+            retroactive: gates.getGate('per-dispatch-ATC', GATES_YAML_PATH),
+          });
+        } catch (e) {
+          console.warn('[SGSD] gate-value-log per-dispatch-ATC fire-arm failed (continuing):', e && e.message);
+        }
+
       If critical > 0 AND interactive: STOP with blocker quoting the findings.
       If critical > 0 AND auto: log GATE_AUTO_REPLAN, append an expiring
       DEVIATIONS entry, and dispatch a fix/replan before treating the work as
@@ -1313,7 +1459,7 @@ REPEAT:
       Token budget per dispatch: ~300 tokens (250 review + 50 JSONL append).
       On a 10-dispatch phase with 3 FULL-tier dispatches → +900 tokens total.
       SKIP/LITE dispatches pay zero.
-      } // end config.atc.enabled && gates.shouldFire('per-dispatch-ATC')
+      } // end if (perDispatchAtcFired)
 
   9.6. ADVERSARIAL VERIFIER CHALLENGER PASS (MACH-04, D-13..D-15)
 
