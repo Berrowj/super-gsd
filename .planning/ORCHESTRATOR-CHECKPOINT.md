@@ -24,13 +24,21 @@ v1.7 phase ledger (all PASS):
 - Phase 35 (Generated System Map): PASS @ 5690c38 (0 CRIT + 7 WARNs; 5 in-loop, 1 info, 1 out-of-scope; anti-slop ~9.5/10)
 - Milestone close: SUMMARY @ .planning/milestones/v1.7/SUMMARY.md
 
-v1.8 (Gate Fitness + MUDA Pruning) — Phases 36-40 — IN PROGRESS (4/5):
+**v1.8 SHIPPED 2026-04-27** — all 5 phases (36-40) PASS; combined anti-slop ~9/10; 22 in-loop fix-loop entries + 2 accepted + 1 false alarm; 0 new debt rows.
+
+v1.8 phase ledger (all PASS):
 - Phase 36 (Gate Value Telemetry): PASS @ d6c402f
 - Phase 37 (MUDA Deletion Candidates): PASS @ 9f9759d
 - Phase 38 (Risk-Tiered Gate Sampling): PASS @ f265d64
-- Phase 39 (Gate Keep/Kill Review): PASS @ 3d9c37e (1 CRIT edge-guard window + 5 WARN; 5 in-loop, 1 accepted; combined anti-slop ~9/10)
-- Current objective: Phase 40 (Phase Folder Perfection Contract — final v1.8) — locked 40=B (soft-warn)
-- Readiness GO @ 0ec5f57 still valid; codex provider AVAILABLE
+- Phase 39 (Gate Keep/Kill Rubric): PASS @ 3d9c37e
+- Phase 40 (Phase Folder Audit): PASS @ 3747a63
+- Milestone close: SUMMARY @ .planning/milestones/v1.8/SUMMARY.md
+- Generated artifacts: gate-keep-kill.md (Phase 39) + phase-folder-audit.md (Phase 40)
+
+Next milestone: **v1.9 (Knowledge + Memory Governance)** — Phases 41-45.
+- Locked decisions per `.planning/discussions/2026-04-26-mass-discuss.md`.
+- **Phase 41 requires INTERACTIVE discuss per locked decision.**
+- Readiness re-probe REQUIRED before first dispatch (Rule 0 of orchestrator skill).
 
 ## Critical Runtime Rule
 

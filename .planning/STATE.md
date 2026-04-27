@@ -1,8 +1,8 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.8
-milestone_name: Gate Fitness + MUDA Pruning (active)
-milestone_status: v1.8 active — Phase 37 (MUDA Deletion Candidates) PASS 2026-04-27 @ 9f9759d. v1.8 progress 2/5 phases. Phase 36+37 both closed PASS with combined anti-slop ~9.5/10. Phase 38 next (Risk-Tiered Gate Sampling, locked 38.1-38.5). v1.7 SHIPPED carryover; v1.6 SHIPPED-WITH-DEBT-10 carryover unchanged at 10 rows; v1.8 has added 0 new debt across 2/5 phases.
+milestone: v1.9
+milestone_name: Knowledge + Memory Governance (queued)
+milestone_status: v1.8 SHIPPED 2026-04-27 — all 5 phases (36-40) PASS; combined anti-slop ~9/10; 22 in-loop fix-loop entries + 2 accepted + 1 false alarm; 0 new debt. v1.6 SHIPPED-WITH-DEBT-10 carryover unchanged at 10 rows. v1.9 (Phases 41-45) queued; readiness re-probe required before first dispatch; Phase 41 interactive-discuss per locked decision.
 status: v1.7 ALL 5 PHASES COMPLETE PASS 2026-04-27. Ready for sgsd-complete-milestone v1.7.
 stopped_at: 2026-04-27 — Phase 35 closed PASS; v1.7 milestone ready for close.
 last_updated: "2026-04-27T11:15:00Z"
@@ -65,6 +65,22 @@ v1_7_complete:
   controlling_principle_held: "Autonomy continues; evidence tells the truth"
   v1_5_empty_baseline_gap: "CLOSED at Phase 34"
   summary: .planning/milestones/v1.7/SUMMARY.md
+v1_8_complete:
+  shipped: 2026-04-27
+  status: SHIPPED
+  initial_backlog: 0
+  cleared_in_loop: 22
+  accepted: 2
+  false_alarm: 1
+  remaining_unresolved: 0
+  phases: 5
+  plans: 5
+  combined_anti_slop_estimated: "~9/10"
+  controlling_principle_held: "Autonomy continues; evidence tells the truth"
+  summary: .planning/milestones/v1.8/SUMMARY.md
+  generated_artifacts:
+    - .planning/milestones/v1.8/gate-keep-kill.md (Phase 39 rubric)
+    - .planning/milestones/v1.8/phase-folder-audit.md (Phase 40 audit)
 checkpoint: .planning/ORCHESTRATOR-CHECKPOINT.md (will update at next pause for v1.7 resume)
 roadmap_run:
   mode: full-autopilot
@@ -73,15 +89,15 @@ roadmap_run:
   locked_decisions: .planning/discussions/2026-04-26-mass-discuss.md
   backlog_canonical: .planning/metrics/crit-backlog.jsonl
   started: 2026-04-26
-  current_milestone: v1.8
-  current_phase: 40
+  current_milestone: v1.9
+  current_phase: 41
   v1_8_progress:
-    phase_36: "PASS @ d6c402f (2 CRIT + 4 WARN; 5 in-loop, 1 info; combined anti-slop ~9.5/10)"
-    phase_37: "PASS @ 9f9759d (1 CRIT null-byte + 5 WARN; 5 in-loop, 1 info; combined anti-slop ~9.5/10)"
-    phase_38: "PASS @ f265d64 (3 CRIT + 5 WARN; 6 in-loop, 2 accepted; combined anti-slop ~9/10)"
-    phase_39: "PASS @ 3d9c37e (1 CRIT + 5 WARN; 5 in-loop, 1 accepted; combined anti-slop ~9/10)"
-    phase_40: "queued — Phase Folder Perfection Contract (final v1.8)"
-  milestones_shipped: ["v1.6 SHIPPED-WITH-DEBT-10 @ d510e32", "v1.7 SHIPPED @ 5690c38"]
+    phase_36: "PASS @ d6c402f"
+    phase_37: "PASS @ 9f9759d"
+    phase_38: "PASS @ f265d64"
+    phase_39: "PASS @ 3d9c37e"
+    phase_40: "PASS @ 3747a63 (2 CRIT + 4 WARN; 2 in-loop, 1 false alarm, 1 accepted; combined anti-slop ~9/10)"
+  milestones_shipped: ["v1.6 SHIPPED-WITH-DEBT-10 @ d510e32", "v1.7 SHIPPED @ 5690c38", "v1.8 SHIPPED @ <pending>"]
 ---
 
 # Project State
