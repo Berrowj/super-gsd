@@ -1,15 +1,16 @@
 ---
 checkpoint: full-roadmap-autopilot-run-2
 created: 2026-04-27
-updated: 2026-04-27 (v1.7 active; self-estimated context halts disabled)
+updated: 2026-04-27 (v1.9 active; Phases 41-42 closed PASS; resume at Phase 43)
 session: opus-4.7-1m
 mode: autonomous
 emergency_halt: false
 context_percent_at_write: "not_self_estimated"
 controlling_principle: Autonomy continues; evidence tells the truth.
+next_unit: "v1.9 Phase 43 (Phase Capsule Contract) — dispatch gsd-phase-researcher (Rule 2: phase needs RESEARCH.md)"
 ---
 
-# Orchestrator Checkpoint - v1.7 SHIPPED, v1.8 next
+# Orchestrator Checkpoint - v1.9 Phases 41+42 SHIPPED, Phase 43 next
 
 ## Status
 
