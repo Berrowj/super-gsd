@@ -3,9 +3,9 @@
 > **Canonical source**: `.planning/metrics/crit-backlog.jsonl`. This file is rendered.
 > Re-render with `node super-gsd/scripts/lib/crit-backlog.cjs --render`.
 
-Last rendered: 2026-04-27T00:51:47.743Z
-Total rows ever written: 15
-Unresolved entries: 15
+Last rendered: 2026-04-27T05:08:16.459Z
+Total rows ever written: 18
+Unresolved entries: 18
 
 ## v1.6
 
@@ -26,3 +26,6 @@ Unresolved entries: 15
 | `2026-04-27T00-51-47-682Z-cfe0` | verifier_fail | 29 | live Codex auth unavailable; phase-level ATC used Claude only | `.planning/milestones/v1.6/phases/29-agent-codex-lanes/29-ATC-REVIEW.md` | 1 | next-debt-milestone |
 | `2026-04-27T00-51-47-707Z-6299` | phase_atc | 29 | WARN deferred: path schema drift — PLAN said super-gsd/scripts/tests/, executor shipped super-gsd/tests/mission-strip/ (functionally equivalent) | `.planning/milestones/v1.6/phases/29-agent-codex-lanes/29-ATC-REVIEW.md` | 0 | next-debt-milestone |
 | `2026-04-27T00-51-47-724Z-8d06` | phase_atc | 29 | WARN deferred: $StateOverride param now frozen in lib API (Phase 28 carry-forward; YAGNI per anti-slop 3+5+9) | `.planning/milestones/v1.6/phases/29-agent-codex-lanes/29-ATC-REVIEW.md` | 0 | next-debt-milestone |
+| `2026-04-27T05-08-16-452Z-d1de` | verifier_fail | 30 | live Codex auth unavailable; phase-level ATC used Claude only | `.planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-ATC-REVIEW.md` | 1 | next-debt-milestone |
+| `2026-04-27T05-08-16-455Z-1e6d` | phase_atc | 30 | BOOT-03 README quick-start sg block deferred to v1.7 docs work; current README has no quick-start daily commands section | `super-gsd/docs/COCKPIT-ACCEPTANCE-EVIDENCE.md` | 0 | v1.7 |
+| `2026-04-27T05-08-16-456Z-0b06` | phase_atc | 30 | Q5 agent-freshness gap: lib enumerates agents but does not gate by activity-log mtime (active/stale/waiting). PLAN spec required differentiation; lib ships enumeration-only | `.planning/milestones/v1.6/phases/30-startup-cockpit-acceptance/30-ATC-REVIEW.md` | 0 | next-debt-milestone |

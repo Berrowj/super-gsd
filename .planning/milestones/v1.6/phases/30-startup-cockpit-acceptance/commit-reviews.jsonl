@@ -1,0 +1,1 @@
+{"ts":"2026-04-27T05:45:00Z","plan":"phase-level","commit":"fc05f58","tier":"phase-level","verdict":"warn","critical":0,"warning":3,"pass_rate":"9/10","one_liner":"Phase 30 evidence complete; 3 WARNs (backlog gap fixed in-loop, Q5 gap deferred, SUMMARY composed at milestone close)","provider":"claude-sonnet-reviewer","model":"sonnet"}
