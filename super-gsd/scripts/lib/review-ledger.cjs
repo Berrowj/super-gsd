@@ -270,9 +270,17 @@ function _readPerPhaseFile(filePath) {
 
 // PUBLIC: rebuild canonical from per-phase files. Idempotent.
 // Strategy: rebuild every invocation (RESEARCH 11 Q1 lock).
-// Dedup tuple: (ts, plan, tier, provider, _source_phase) (Q2 lock).
+// Dedup tuple: (ts, plan, provider, _source_phase) -- tier intentionally
+// EXCLUDED so that the same review event captured twice (once via real-time
+// SKILL.md wire-in with tier='per-dispatch' and once via per-phase
+// commit-reviews.jsonl with tier='full|gate|lite') deduplicates correctly
+// (Phase 34 ATC W3 fix; was tier-included Q2 lock pre-fix).
 // Output ordering: chronological by ts ASC (Q6 lock).
+// Options:
+//   opts.milestone -- filter sources to only this milestone (string or null = all)
 // Returns: { ok, files_scanned, rows_in, rows_out, deduped, path }.
+//   rows_in: total legacy rows ingested INCLUDING those reconstructed from
+//   existing canonical (Phase 34 ATC W4 fix; was per-phase-only pre-fix).
 function aggregateFromPhases(planningDir, opts) {
   try {
     if (!planningDir) {
@@ -280,7 +288,11 @@ function aggregateFromPhases(planningDir, opts) {
       return { ok: false, files_scanned: 0, rows_in: 0, rows_out: 0, deduped: 0, path: null };
     }
     const o = opts || {};
-    const sources = _walkPerPhaseFiles(planningDir);
+    const milestoneFilter = o.milestone || null;
+    let sources = _walkPerPhaseFiles(planningDir);
+    if (milestoneFilter) {
+      sources = sources.filter((s) => s.milestone === milestoneFilter);
+    }
 
     // Collect (legacyRow, _source_milestone, _source_phase) tuples.
     // ORDER MATTERS for idempotency: existing canonical rows go FIRST so
@@ -293,6 +305,7 @@ function aggregateFromPhases(planningDir, opts) {
     // if --aggregate runs after live wires fired AND we preserve generated
     // run_ids on idempotent re-runs. (RESEARCH 2.3: "preserve real-time-only rows".)
     const existing = readReviewRows(planningDir);
+    rowsIn += existing.length; // Phase 34 ATC W4 fix: count canonical rows toward rows_in
     for (const ex of existing) {
       // Reconstruct a legacy-shaped wrapper from the existing envelope row.
       // Keys come from _legacy if present (real-time + previous aggregate);
@@ -321,7 +334,11 @@ function aggregateFromPhases(planningDir, opts) {
       }
     }
 
-    // Dedup by (ts, plan, tier, provider, _source_phase). LOCKED tuple.
+    // Dedup by (ts, plan, provider, _source_phase). Phase 34 ATC W3 fix:
+    // tier intentionally EXCLUDED. Same review event may be captured with
+    // tier='per-dispatch' (real-time wire-in at SKILL.md) and tier='full'
+    // (per-phase commit-reviews.jsonl); these MUST dedup to one row, not
+    // double-count in --kill-check or in the cockpit pass-rate display.
     const seen = new Set();
     const kept = [];
     let deduped = 0;
@@ -330,7 +347,6 @@ function aggregateFromPhases(planningDir, opts) {
       const key = [
         lr.ts || '',
         lr.plan || '',
-        lr.tier || '',
         lr.provider || '',
         inc._source_phase || '',
       ].join('|');
@@ -575,12 +591,19 @@ function selfTest() {
       assert('12. aggregator dedup: re-run -> same 10 rows (no duplication)',
         agg2 && agg2.ok && agg2.rows_out === 10);
 
-      // 13. Aggregator idempotent: byte-identical canonical across two runs.
+      // 13. Aggregator idempotent: byte-identical canonical across runs.
+      // Phase 34 ATC W2 fix: assert run1->run2 AND run2->run3 explicitly so
+      // a non-deterministic FIRST aggregate cannot mask under run2->run3
+      // accidental stability. agg1 already produced bytes; capture now.
       const bytes1 = fs.readFileSync(ledgerPath(agg), 'utf8');
       aggregateFromPhases(agg);
       const bytes2 = fs.readFileSync(ledgerPath(agg), 'utf8');
-      assert('13. aggregator idempotent: byte-identical canonical across runs',
+      assert('13a. aggregator byte-identical run1 -> run2 (first-run determinism)',
         bytes1 === bytes2);
+      aggregateFromPhases(agg);
+      const bytes3 = fs.readFileSync(ledgerPath(agg), 'utf8');
+      assert('13b. aggregator byte-identical run2 -> run3 (steady-state)',
+        bytes2 === bytes3);
     } finally {
       fs.rmSync(agg, { recursive: true, force: true });
     }

@@ -1,0 +1,70 @@
+You are reviewing Phase 34 of the SGSD v1.7 milestone for ATC code-review.
+
+Phase 34 ships the Canonical Review Ledger -- closes the v1.5 empty-baseline kill-check gap. Three files modified/created:
+
+1. super-gsd/scripts/lib/review-ledger.cjs (NEW, 680 lines) -- envelope-v1 wrapper around legacy commit-reviews; exports appendReviewRow, readReviewRows, aggregateFromPhases, killCheck, ledgerPath, LEGACY_VERDICT_MAP, STATUSES, COMMAND_NAME, ENVELOPE_VERSION. CLI: --self-test (17 assertions), --aggregate, --kill-check [--milestone].
+2. super-gsd/skills/sgsd-orchestrate/SKILL.md (MODIFIED, +31 lines) -- tee-write inserted immediately after appendPerDispatchReviewEvidence at line ~1255; ONE wire covers BOTH Codex shell + Claude agent paths (post-Phase-32 convergence).
+3. super-gsd/scripts/sgsd-mission-control.ps1 (MODIFIED, +31/-1 lines) -- canonical-first read at ~line 1538 with active-milestone filter; falls back to per-phase Get-ChildItem when canonical absent (forward-compat).
+
+PLUS: .planning/metrics/review-ledger.jsonl (created by --aggregate cold-backfill, 37 rows from 11 historic per-phase commit-reviews.jsonl files).
+
+DEVIATIONS documented:
+- ROADMAP-AGENT split (tools/aggregate.cjs + lib/writer.cjs) collapsed to single super-gsd/scripts/lib/review-ledger.cjs. Matches Phase 32+33 single-file pattern.
+- LEDGER-02 wording reinterpreted: codex-exec.sh does NOT write commit-reviews.jsonl; sgsd-orchestrate SKILL.md does. ONE wire covers both providers via Phase 32 convergence point.
+
+Locked from RESEARCH §11 (16 derivation calls):
+- Row shape: envelope-v1 wrapper preserving legacy verdict under _legacy field
+- LEGACY_VERDICT_MAP: pass->ok, warn->warn, critical->fail, critical-halt->blocked, block->blocked, skipped->skipped
+- Dedup tuple: (ts, plan, tier, provider, _source_phase) — chronological-ASC sort
+- Aggregator: rebuild every invocation (truncate-and-rebuild) with idempotency byte-asserted in self-test #13
+- --kill-check exit codes: 0 (baseline_ok) / 1 (empty_baseline)
+- Active milestone resolved from STATE.md frontmatter
+
+Acceptance criteria (LEDGER-01..04, all runnable):
+- LEDGER-01: aggregator >=11 rows from per-phase backfill (executor got 37)
+- LEDGER-02: SKILL.md grep for appendReviewRow( returns >=1
+- LEDGER-03: --kill-check returns baseline_ok / empty_baseline correctly
+- LEDGER-04: Mission Control reads canonical when present
+
+Plus:
+- Live-or-local fallback (Patch 4): same appendReviewRow helper exercised on live (next ATC dispatch) + local (--aggregate cold backfill) + self-test paths
+- Schema-without-consumer rule: 5 in-phase consumers (aggregator, --kill-check, SKILL.md wire-in, mission-control read, --aggregate CLI)
+- Envelope-v1 reconciliation: rows are valid envelope-v1 wrappers preserving _legacy
+
+Executor noted ENVIRONMENTAL note: default --kill-check filters to active milestone v1.7 which has 0 per-dispatch ATC files yet (Phase 34 IS what wires this in); first dispatch after this phase will populate. --kill-check --milestone v1.6 returns baseline_ok count:16 confirming the lib works.
+
+YOUR TASK
+
+Review the 3 modified files for:
+1. Lib correctness (envelope-v1 conformance; aggregator idempotency; never-throws-upward; __dirname anchor for fingerprint guard)
+2. SKILL.md wire-in safety (orchestrator continues if writer throws; both Codex + Claude paths covered; decision factors all in scope at insertion point)
+3. Mission Control read switch (canonical-first; per-phase fallback when canonical absent; preserves cockpit row contract)
+4. Envelope-v1 conformance (every emitted row has 13 required envelope fields + _legacy + _source_phase + _source_milestone)
+5. ASCII-only constraint
+6. 10-point anti-slop checklist
+
+Files to read:
+- super-gsd/scripts/lib/review-ledger.cjs
+- super-gsd/skills/sgsd-orchestrate/SKILL.md (focus on lines 1230-1290)
+- super-gsd/scripts/sgsd-mission-control.ps1 (focus on lines 1530-1580)
+- .planning/milestones/v1.7/phases/34-canonical-review-ledger/34-01-canonical-review-ledger-PLAN.md
+- .planning/milestones/v1.7/phases/34-canonical-review-ledger/34-VERIFICATION.md (if present)
+- .planning/metrics/review-ledger.jsonl (verify 37 rows; spot-check envelope-v1 conformance on 2-3 rows)
+- super-gsd/scripts/lib/route-ledger.cjs (Phase 32 — architectural template for 1:1 mirror discipline)
+
+REPORT CONTRACT (code-reviewer-v1) -- emit EXACTLY these 5 lines as the LAST 5 lines of your reply (parser is awk; uses last occurrence of each tag):
+
+FINDINGS: <one-line summary; "none" if 0 CRIT and 0 WARN>
+CRITICAL: <integer count>
+WARNINGS: <integer count>
+PASS_RATE: <N>/10
+ONE_LINER: <one-line, <=200-char overall conclusion>
+
+The wrapper expects literal token "FINDINGS:" (NOT "VERDICT:"). All 5 lines must be present at end of reply or the report will be rejected as a contract violation (exit 6).
+
+Above the 5-line contract block, provide:
+- CRIT findings (with file:line citations) -- empty if 0
+- WARN findings (with file:line citations) -- empty if 0
+- 10-point anti-slop checklist with verdicts
+
+Be ruthless. Phase 31, 32, 33 reviews each surfaced real CRITs Claude missed -- apply equal rigor.

@@ -1541,7 +1541,11 @@ function Render {
     if (Test-Path $canonicalLedger) {
         try {
             # Tail rows; filter to active milestone if known; take last match.
-            $tail = Get-Content $canonicalLedger -Tail 50 -Encoding UTF8 -ErrorAction SilentlyContinue
+            # Phase 34 ATC W5 fix: 500 (was 50) so a milestone with hundreds of
+            # interleaved-milestone canonical rows still finds its most recent
+            # gate row. Cost: ~300KB read on a 500-row tail; acceptable for
+            # cockpit refresh cadence.
+            $tail = Get-Content $canonicalLedger -Tail 500 -Encoding UTF8 -ErrorAction SilentlyContinue
             $matched = $null
             foreach ($line in ($tail | Where-Object { $_ -and $_.Trim() })) {
                 try {

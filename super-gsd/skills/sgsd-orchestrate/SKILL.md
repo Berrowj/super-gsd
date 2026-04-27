@@ -1255,32 +1255,51 @@ REPEAT:
         });
 
         // LEDGER-02: tee the same per-dispatch ATC row into the canonical
-        // review ledger. Same payload shape as appendPerDispatchReviewEvidence
-        // emits to per-phase commit-reviews.jsonl; one wire covers Codex
-        // and Claude paths because both converge here. Helper wraps in
-        // try/catch and returns false on error -- orchestrator continues.
+        // review ledger. Phase 34 ATC fix (Codex CRIT 1+2): the orchestrator
+        // has ALREADY extracted verdict/critical/warning/one_liner from the
+        // report content above (this is what produced the JSONL append at
+        // line 1227 and what appendPerDispatchReviewEvidence consumed). We
+        // pass those same extracted values here, NOT raw `report.<field>`
+        // which is undefined on the Codex path (where `report` is just
+        // `{content, _provider, _model}`) and shape-uncertain on the Claude
+        // agent path. `dispatchResult` is referenced ONLY when defined
+        // (Codex shell path); agent path leaves duration_ms null. ONE wire
+        // covers both providers because the orchestrator runs this AFTER
+        // the per-path branches converge.
         try {
-          require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'review-ledger.cjs'))
-            .appendReviewRow(path.join(process.cwd(), '.planning'), {
-              ts: new Date().toISOString(),
-              plan: currentPlan,
-              tier: 'per-dispatch',
-              verdict: report.verdict,
-              critical: report.critical_count,
-              warning: report.warning_count,
-              one_liner: report.one_liner,
-              provider: report._provider || effective.name,
-              model: report._model,
-              reasoning_effort: report._reasoning_effort,
-              fallback_reason: report._fallback_reason || null,
-              fallback_triggered: !!(report._provider === 'claude-via-fallback'),
-              duration_ms: (dispatchResult && typeof dispatchResult.duration_ms === 'number')
-                            ? dispatchResult.duration_ms : null,
-              milestone: currentMilestone,
-              phase: currentPhase,
-              _source_milestone: currentMilestone,
-              _source_phase: currentPhaseDir || (`${currentPhase}-` + (currentPlan || '').split('-')[0]),
-            });
+          const reviewLedger = require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'review-ledger.cjs'));
+          // Use the orchestrator-extracted contract fields (verdict / critical_count
+          // / warning_count / one_liner) which were parsed out of report.content
+          // immediately after the per-dispatch ATC dispatch above. Fall back to
+          // `report.<field>` direct lookups only for backward compat on cached
+          // Claude agent returns that already had structured fields.
+          const extractedVerdict = (typeof verdict !== 'undefined') ? verdict : (report && report.verdict);
+          const extractedCritical = (typeof critical_count !== 'undefined') ? critical_count : (report && report.critical_count);
+          const extractedWarning = (typeof warning_count !== 'undefined') ? warning_count : (report && report.warning_count);
+          const extractedOneLiner = (typeof one_liner !== 'undefined') ? one_liner : (report && report.one_liner);
+          // dispatchResult is in scope only on the Codex shell path (line 1167);
+          // typeof guard keeps the Claude agent path silent rather than crashing.
+          const codexDuration = (typeof dispatchResult !== 'undefined' && dispatchResult && typeof dispatchResult.duration_ms === 'number')
+                                  ? dispatchResult.duration_ms : null;
+          reviewLedger.appendReviewRow(path.join(process.cwd(), '.planning'), {
+            ts: new Date().toISOString(),
+            plan: currentPlan,
+            tier: 'per-dispatch',
+            verdict: extractedVerdict,
+            critical: extractedCritical,
+            warning: extractedWarning,
+            one_liner: extractedOneLiner,
+            provider: (report && report._provider) || effective.name,
+            model: report && report._model,
+            reasoning_effort: report && report._reasoning_effort,
+            fallback_reason: (report && report._fallback_reason) || null,
+            fallback_triggered: !!(report && report._provider === 'claude-via-fallback'),
+            duration_ms: codexDuration,
+            milestone: currentMilestone,
+            phase: currentPhase,
+            _source_milestone: currentMilestone,
+            _source_phase: currentPhaseDir || (`${currentPhase}-` + (currentPlan || '').split('-')[0]),
+          });
         } catch (e) {
           console.warn('[SGSD] review-ledger wire-in failed (continuing):', e && e.message);
         }
