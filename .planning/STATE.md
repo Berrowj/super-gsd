@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: SGSD-Research (Context Compression, Token Governance, And Research Routing) (queued)
 milestone_status: v1.8 SHIPPED 2026-04-27. v1.9 SLOT-CHANGE 2026-04-27 — SGSD-Research promoted to v1.9 (was Knowledge + Memory Governance, now archived as superseded at .planning/archive/superseded/v1.9-knowledge-memory-governance/). v1.9 phases 41-52 (renumbered from packet 56-67); v2.0 Failure Injection shifted to phases 53-57; v2.1 Distribution + Onboarding shifted to phases 58-62. Source analyses: agent-context-bloat-audit + VTP cross-check. Readiness re-probe required before first Phase 41 dispatch. Phase 41 (Baseline Token Attribution) is auto-defaulted (no interactive discuss).
-status: v1.9 Phase 42 PASS 2026-04-27 (post-fix). Advancing to Phase 43 Phase Capsule Contract.
-stopped_at: 2026-04-27 — Phase 42 closed PASS @ 3124362; v1.9 advancing to Phase 43.
-last_updated: "2026-04-27T18:35:00Z"
+status: v1.9 Phase 43 PASS 2026-04-27 (post-fix). Advancing to Phase 44 Legal Context Registry.
+stopped_at: 2026-04-27 — Phase 43 closed PASS @ dca3af1; v1.9 advancing to Phase 44.
+last_updated: "2026-04-27T19:35:00Z"
 last_activity: "2026-04-27 — Phase 41 (Baseline Token Attribution) closed PASS. Three atomic commits 7386a7d (lib + 14-assertion self-test) -> 373e9c1 (11,294-row backfilled ledger) -> d1f72cd (baseline-token-spend.md 7-section bloat report) -> ef90751 (REVISE-fix BLOAT_THRESHOLDS 8->4 keys per CONTEXT spec). Dual-provider ATC: Claude REVISE 1 MEDIUM addressed in-loop; Codex timeout 180s tier (TIER_ANALYSIS) logged as provider_unavailable. LOCK 6 honored: 10,881 of 11,294 rows = 96.3% role=orchestrator surfaces 1.24M-token v1.9/P41 bloat signature. Audit crosscheck markers all present (P36/170k, P40/122k, P41/1,244,893). Cross-phase contracts ready for Phase 42 BUDGET-01 (summarize() consumer), Phase 47 ROUTE-02 (R1-R5 substitution rules), Phase 51 BENCH-01 (baseline as before measurement)."
 progress:
   v1_7:
@@ -90,12 +90,13 @@ roadmap_run:
   backlog_canonical: .planning/metrics/crit-backlog.jsonl
   started: 2026-04-26
   current_milestone: v1.9
-  current_phase: 43
-  current_phase_name: Phase Capsule Contract
+  current_phase: 44
+  current_phase_name: Legal Context Registry
   v1_9_milestone_codename: SGSD-Research
   v1_9_progress:
     phase_41: "PASS @ ef90751 (1 MEDIUM Claude REVISE-fix in-loop: BLOAT_THRESHOLDS 8->4 keys per CONTEXT spec; Codex provider_unavailable timeout 180s tier; 11,294 row ledger; baseline-token-spend.md 7 sections; LOCK 6 honored 96.3% orchestrator)"
     phase_42: "PASS @ 3124362 (1 MEDIUM Claude in-loop: VERDICTS 4->5 entry add 'error' sentinel for Phase 50 enum-contract; Codex provider_unavailable; 15/15 self-test; live --check verdict=degraded status=warn lock-13 holds; check.cjs imports Phase 41 lib by reference; budgets.yaml + sgsd-complete-milestone Step 4.7 wired)"
+    phase_43: "PASS @ dca3af1 (1 MEDIUM Claude in-loop: warnings_added counter dialect fix at write.cjs:360-365; 4 LOW accepted; Codex provider_unavailable; 13/13 self-test; F2 hash-idempotency + F3 never-throws + F4 verbatim-bypass all green; 44 capsules backfilled v1.2-v1.9 + 8 PHASE-INDEX.jsonl; sgsd-orchestrate Step 6.6.i.X + sgsd-complete-milestone Step 4.7-bis wired)"
   v1_9_supersedes_archive: .planning/archive/superseded/v1.9-knowledge-memory-governance/
   v1_8_progress:
     phase_36: "PASS @ d6c402f"
