@@ -174,21 +174,30 @@ reason_codes:
         group: muda
         description: "Output produced without downstream consumer."
 
-      # Knowledge / retrieval (aligns with v1.9 Phase 43 7-mode taxonomy)
+      # Knowledge / retrieval (intentionally pre-declared for v1.9 Phase 43)
+      # status: future_v1_9 -- intentionally not yet reachable from any emitter
+      # gap text in Phase 31. Activated when Phase 43 lands the 7-mode retrieval
+      # taxonomy. Pre-declaring here so the v1 vocab is forward-stable; bumping
+      # registry_version (semver patch) when first emitter uses them.
       - code: empty_hit
         group: retrieval
+        status: future_v1_9
         description: "Retrieval query returned zero results when results were expected."
       - code: noisy_hit
         group: retrieval
+        status: future_v1_9
         description: "Retrieval returned many results, none of acceptable relevance."
       - code: stale_hit
         group: retrieval
+        status: future_v1_9
         description: "Retrieval returned a result whose source is older than freshness window."
       - code: query_too_broad
         group: retrieval
+        status: future_v1_9
         description: "Query terms matched too many documents; refinement required."
       - code: privacy_blocked
         group: retrieval
+        status: future_v1_9
         description: "Retrieval blocked by privacy / scope rule."
 
       # Repair (Phase 33 alignment)
@@ -224,13 +233,22 @@ mission_strip_read_contract:
   tail_strategy: "Tail-read latest N rows from each emitter's writes_to file."
   filter_rule: "Pass through rows where envelope_version == 1; legacy rows untouched until Phase 34 backfill."
   consumed_fields: [status, reason_codes, command, phase, next_action, duration_ms]
+  # Maps envelope.status (6-state command-output enum) -> pane_state from the
+  # closed 8-state cockpit vocabulary (DISCUSS 26.1):
+  #   active, waiting, blocked, reviewing, timed-out, stale, complete, unavailable
+  # WARN is NOT a pane state -- per Phase 28 T1 design, "warn" surfaces via
+  # missionColor=Yellow + iconography on the underlying "complete" state, NOT
+  # via a new pane state. "skipped" -> "unavailable" (the canonical 8-state
+  # token for "not run / not applicable"). Hyphenated tokens (timed-out) are
+  # the canonical form per discuss 26.1.
   status_to_pane_state:
     ok: complete
-    warn: complete_with_warn_icon
+    warn: complete   # warn is surfaced via missionColor=Yellow, not a new state
     fail: blocked
-    skipped: not_rendered
-    timeout: timed_out
+    skipped: unavailable
+    timeout: timed-out
     blocked: blocked
+  pane_state_warn_indicator: "missionColor=Yellow + warn-icon (Phase 28 T1)"
   no_aggregator_in_v17: true
   notes: "Each emitter writes envelope-shaped rows to its OWN existing JSONL. Phase 31 does NOT create envelope-log.jsonl. Aggregation is post-v1.7."
 

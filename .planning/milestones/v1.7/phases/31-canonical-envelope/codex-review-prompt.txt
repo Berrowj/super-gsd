@@ -1,0 +1,59 @@
+You are reviewing Phase 31 of the SGSD v1.7 milestone for ATC code-review.
+
+Phase 31 is docs+schema only — it lands the FIFTH contract level (command-output) for the SGSD framework. Two files were created:
+
+1. super-gsd/templates/command-envelope-v1.json (JSON Schema draft-07)
+2. super-gsd/registry/command-envelope-v1.yaml (registry with emitters + reason_codes + read-contract)
+
+The 4 EXISTING contracts that must NOT be modified or contradicted:
+- code-reviewer-v1 (reviewer-report level)
+- review-providers-v1 (provider-registry level)
+- handover-contract-v2 (agent-dispatch level)
+- plan-schema-v2 (plan-file frontmatter level)
+
+Goal: Land schema + registry for fifth contract level, reconciled with existing 4.
+
+Acceptance criteria:
+- ENV-01: JSON Schema with required fields (status, reason_codes[], artifacts[], evidence[], next_action, risk, duration_ms, run_id, phase, milestone, plus envelope_version + command + ts)
+- ENV-02: ≥5 high-value commands documented as envelope emitters/candidates
+- ENV-03: Schema reconciles with 4 existing contracts (no level overlap)
+- ENV-04: Mission Strip + dashboards parse envelope without bespoke regex (read-contract block)
+
+YOUR TASK
+
+Review the two delivered files for:
+1. Schema correctness (draft-07 compliance, field types, regex patterns valid, examples valid against schema)
+2. Registry consistency (emitter count, first_wave count ≥5, reason_codes vocabulary closed)
+3. Reconciliation rigor (does it explicitly state non-overlap with each of 4 existing contracts? Does it cite them?)
+4. Mission Strip read-contract clarity (status→pane_state map matches schema status enum; no bespoke regex implied)
+5. ASCII-only constraint (no smart quotes, em dashes, Unicode arrows)
+6. Anti-slop checklist:
+   - No orphan fields (every schema field has a documented purpose)
+   - No dead reason_codes (each is reachable from at least one emitter's intended use)
+   - No "just in case" abstractions
+   - ΔComplexity ≤ 0 (this is a NEW contract, but does it minimize blast radius?)
+   - Existing contracts preserved verbatim
+
+Files to read:
+- super-gsd/templates/command-envelope-v1.json
+- super-gsd/registry/command-envelope-v1.yaml
+- .planning/milestones/v1.7/phases/31-canonical-envelope/31-01-canonical-envelope-PLAN.md
+- .planning/milestones/v1.7/phases/31-canonical-envelope/31-VERIFICATION.md
+- .planning/milestones/v1.7/EXISTING-SURFACE-AUDIT.md
+
+REPORT CONTRACT (code-reviewer-v1) — emit EXACTLY these 5 lines as the LAST 5 lines of your reply (parser is awk; uses last occurrence of each tag):
+
+FINDINGS: <one-line summary of all findings; "none" if 0 CRIT and 0 WARN>
+CRITICAL: <integer count>
+WARNINGS: <integer count>
+PASS_RATE: <N>/10
+ONE_LINER: <one-line ≤200-char overall conclusion citing strongest finding>
+
+The wrapper expects the literal token "FINDINGS:" (NOT "VERDICT:"). All 5 lines must be present at end of reply or the report will be rejected as a contract violation (exit 6).
+
+Above the 5-line contract block, provide:
+- CRIT findings (with file:line citations) — empty section if 0
+- WARN findings (with file:line citations) — empty section if 0
+- 10-point anti-slop checklist with verdicts
+
+Be ruthless. If you find a real CRIT (e.g. modifies an existing contract, schema doesn't parse, examples don't validate), say so. The previous Phase 28 review surfaced a vocab violation Claude missed — your independent oracle role is to catch what same-provider review misses.

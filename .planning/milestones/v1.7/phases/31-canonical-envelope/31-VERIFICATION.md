@@ -5,7 +5,10 @@ verified: 2026-04-27
 unresolved_count: 0
 goal_achieved: true
 score: 4/4 acceptance criteria verified (ENV-01..04) + all implicit criteria
-re_verification: false
+re_verification: true
+re_verification_reason: "Phase-level ATC dual-provider review surfaced 1 CRIT (schema required-list under-enforced 5/13 vs ENV-01 contract) and 5 WARNs (3 vocab-gaps Claude + 2 Codex pane-state/future-codes); all 6 findings fixed in-loop in 1 attempt each. Post-fix verifier still PASS: schema_required_count=13, example_errors=0, first_wave=5, reason_codes=34, vocab_violation_tokens=[]."
+atc_review: 31-ATC-REVIEW.md
+atc_anti_slop_combined: 10/10
 ---
 
 # Phase 31: Canonical Command Envelope — Verification Report

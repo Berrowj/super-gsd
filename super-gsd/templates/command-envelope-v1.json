@@ -4,7 +4,7 @@
   "title": "SGSD Command Envelope v1",
   "description": "Canonical output shape for SGSD commands, scripts, and skills. Fifth contract level (command-output), separate from code-reviewer-v1, review-providers-v1, handover-contract-v2, plan-schema-v2. Each existing contract owns a different abstraction layer; this schema does not duplicate any field they own.",
   "type": "object",
-  "required": ["envelope_version", "ts", "command", "status", "run_id"],
+  "required": ["envelope_version", "ts", "command", "status", "reason_codes", "artifacts", "evidence", "next_action", "risk", "duration_ms", "run_id", "phase", "milestone"],
   "additionalProperties": true,
   "properties": {
     "envelope_version": {
@@ -68,9 +68,9 @@
       "description": "Aligns with Phase 38.2 work_risk taxonomy (intentional)."
     },
     "duration_ms": {
-      "type": "integer",
+      "type": ["integer", "null"],
       "minimum": 0,
-      "description": "Already universal in codex-log, audit-log, muda-log; envelope keeps the established name."
+      "description": "Already universal in codex-log, audit-log, muda-log; envelope keeps the established name. Null permitted for instantaneous emitters where duration is meaningless (e.g. heartbeat ticks if ever migrated)."
     },
     "run_id": {
       "type": "string",
