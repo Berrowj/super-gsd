@@ -1254,6 +1254,37 @@ REPEAT:
           ...(report._fallback_reason ? { fallback_reason: report._fallback_reason } : {})
         });
 
+        // LEDGER-02: tee the same per-dispatch ATC row into the canonical
+        // review ledger. Same payload shape as appendPerDispatchReviewEvidence
+        // emits to per-phase commit-reviews.jsonl; one wire covers Codex
+        // and Claude paths because both converge here. Helper wraps in
+        // try/catch and returns false on error -- orchestrator continues.
+        try {
+          require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'review-ledger.cjs'))
+            .appendReviewRow(path.join(process.cwd(), '.planning'), {
+              ts: new Date().toISOString(),
+              plan: currentPlan,
+              tier: 'per-dispatch',
+              verdict: report.verdict,
+              critical: report.critical_count,
+              warning: report.warning_count,
+              one_liner: report.one_liner,
+              provider: report._provider || effective.name,
+              model: report._model,
+              reasoning_effort: report._reasoning_effort,
+              fallback_reason: report._fallback_reason || null,
+              fallback_triggered: !!(report._provider === 'claude-via-fallback'),
+              duration_ms: (dispatchResult && typeof dispatchResult.duration_ms === 'number')
+                            ? dispatchResult.duration_ms : null,
+              milestone: currentMilestone,
+              phase: currentPhase,
+              _source_milestone: currentMilestone,
+              _source_phase: currentPhaseDir || (`${currentPhase}-` + (currentPlan || '').split('-')[0]),
+            });
+        } catch (e) {
+          console.warn('[SGSD] review-ledger wire-in failed (continuing):', e && e.message);
+        }
+
       If critical > 0 AND interactive: STOP with blocker quoting the findings.
       If critical > 0 AND auto: log GATE_AUTO_REPLAN, append an expiring
       DEVIATIONS entry, and dispatch a fix/replan before treating the work as
