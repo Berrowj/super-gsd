@@ -1534,7 +1534,37 @@ function Render {
     $gateColor = "DarkGray"
     $phasesRoot = if ($state.milestone) { Join-Path $PlanningDir "milestones\$($state.milestone)\phases" } else { Join-Path $PlanningDir "phases" }
     if (-not (Test-Path $phasesRoot)) { $phasesRoot = Join-Path $PlanningDir "phases" }
-    if (Test-Path $phasesRoot) {
+    # LEDGER-04: prefer canonical review-ledger.jsonl when present; fall back
+    # to per-phase enumeration on legacy / pre-Phase-34 repos (forward-compat).
+    $canonicalLedger = Join-Path $PlanningDir "metrics\review-ledger.jsonl"
+    $usedCanonical = $false
+    if (Test-Path $canonicalLedger) {
+        try {
+            # Tail rows; filter to active milestone if known; take last match.
+            $tail = Get-Content $canonicalLedger -Tail 50 -Encoding UTF8 -ErrorAction SilentlyContinue
+            $matched = $null
+            foreach ($line in ($tail | Where-Object { $_ -and $_.Trim() })) {
+                try {
+                    $row = $line | ConvertFrom-Json
+                    if (-not $state.milestone -or $row.milestone -eq $state.milestone -or $row._source_milestone -eq $state.milestone) {
+                        $matched = $row
+                    }
+                } catch {}
+            }
+            if ($matched) {
+                # Prefer legacy verdict when present; else envelope status.
+                $lastGate = if ($matched._legacy -and $matched._legacy.verdict) { $matched._legacy.verdict } else { $matched.status }
+                $gateColor = switch ($lastGate) {
+                    "pass" {"Green"} "ok" {"Green"}
+                    "warn" {"Yellow"}
+                    "skipped" {"DarkGray"}
+                    default {"Red"}
+                }
+                $usedCanonical = $true
+            }
+        } catch {}
+    }
+    if (-not $usedCanonical -and (Test-Path $phasesRoot)) {
         $gateFile = Get-ChildItem -Path $phasesRoot -Filter "commit-reviews.jsonl" -Recurse -ErrorAction SilentlyContinue |
                     Sort-Object LastWriteTime -Descending | Select-Object -First 1
         if ($gateFile) {
