@@ -478,6 +478,31 @@ PROMPT
   rm -f "$TMP_CODEX_REPORT"
 fi
 
+# MUDA-04 (Phase 37): deletion-candidates post-hook.
+# Computes 3-heuristic deletion candidates from canonical ledgers
+# (gate-value-log.jsonl + crit-backlog.jsonl) and appends a
+# `## Deletion Candidates` section to WASTE.md. NEVER blocks the audit:
+# any failure is logged to stderr and ignored. Skipped on --dry-run.
+# Lib: super-gsd/scripts/lib/muda-deletion-candidates.cjs (Phase 37 lib).
+# Locked 37=A: deletion-candidates only; no auto-disable; review-at-close
+# is the safety contract.
+MDC_LIB="$SCRIPT_DIR/lib/muda-deletion-candidates.cjs"
+if [[ "$DRY_RUN" != "true" && -x "$NODE_BIN" && -f "$WASTE_FILE" && -f "$MDC_LIB" ]]; then
+    MDC_PLANNING_DIR="$PROJECT/.planning"
+    MDC_MILESTONE="${MUDA_MILESTONE:-}"
+    if "$NODE_BIN" "$MDC_LIB" --apply \
+        --waste-file "$WASTE_FILE" \
+        --planning-dir "$MDC_PLANNING_DIR" \
+        ${MDC_MILESTONE:+--milestone "$MDC_MILESTONE"} \
+        >/dev/null 2>&1; then
+        :  # post-hook applied (silent on success; verifiable via grep on WASTE.md)
+    else
+        echo "sgsd-muda-audit: muda-deletion-candidates post-hook failed (non-blocking)" >&2
+    fi
+elif [[ "$DRY_RUN" == "true" ]]; then
+    : # dry-run: skip deletion-candidates post-hook (compose_waste_md heredoc untouched)
+fi
+
 # Log to metrics
 METRICS_LOG="$PROJECT/.planning/metrics/muda-log.jsonl"
 mkdir -p "$(dirname "$METRICS_LOG")"
