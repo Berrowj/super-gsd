@@ -37,10 +37,10 @@ milestone is marked complete.
    - `node super-gsd/tools/backlog-schema/check.cjs` (exit 0 = no schema violations)
    - `node super-gsd/scripts/lib/crit-backlog.cjs --self-test` (exit 0 = lib healthy)
 6. **If provider canary returns UNAVAILABLE (exit 1):** auto mode CONTINUES, but:
-   - Append a `verifier_fail` row to `.planning/metrics/crit-backlog.jsonl` via the lib (NOT manual write — the lib's `_guardCodexUnavailableClaim` requires `provider_health_check: { behavioral: true, available: false }` proof which the canary just produced)
+   - Append a `verifier_fail` row to `.planning/metrics/crit-backlog.jsonl` via the lib (NOT manual write -- the lib's `_guardCodexUnavailableClaim` requires `provider_health_check: { behavioral: true, available: false }` proof which the canary just produced)
    - Carry the row forward to the milestone's `next-debt-milestone` tag
    - Set milestone status accordingly (SHIPPED-WITH-DEBT-N, not SHIPPED clean)
-7. **If status-consistency or backlog-schema return non-zero:** STOP — never close a milestone with status that doesn't match backlog reality. Surface the failure in the close report, fix in-loop OR halt for operator.
+7. **If status-consistency or backlog-schema return non-zero:** STOP -- never close a milestone with status that doesn't match backlog reality. Surface the failure in the close report, fix in-loop OR halt for operator.
 8. Append milestone-close metadata row to `.planning/metrics/codex-log.jsonl` keyed `step="milestone-close-precondition"` with the canary result + status-consistency exit + backlog-schema exit.
 </step_0_precondition>
 
@@ -94,7 +94,7 @@ In interactive mode: pause if kill fires, require confirmation before Step 4.
 </step_4_gate_drift>
 
 <step_4_5_gate_keep_kill_rubric>
-## Step 4.5: Gate Keep/Kill Rubric (Phase 39 — RUBRIC-01..04)
+## Step 4.5: Gate Keep/Kill Rubric (Phase 39 -- RUBRIC-01..04)
 
 Run the mechanical rubric over the milestone's gate telemetry. The
 rubric reads `.planning/metrics/gate-value-log.jsonl` (Phase 36),
@@ -131,7 +131,7 @@ whether to act on `kill` rows. The script does NOT mutate
 Defer-on-empty (RUBRIC-03): gates with zero fires in
 `gate-value-log.jsonl` MUST classify as `defer`, not `kill`. The first
 v1.8 close will produce a table where most gates are `defer` with reason
-`no_fires_yet` — correct cold-start state.
+`no_fires_yet` -- correct cold-start state.
 </step_4_5_gate_keep_kill_rubric>
 
 <step_4_6_phase_folder_audit>
@@ -219,7 +219,7 @@ This converts open repair contracts into explicit accountable backlog
 visible at milestone close, instead of silent debt that leaks into the
 next milestone.
 
-### Gate Keep/Kill Rubric subsection (Phase 39 — RUBRIC-04)
+### Gate Keep/Kill Rubric subsection (Phase 39 -- RUBRIC-04)
 
 Append to SUMMARY.md a new subsection AFTER `## Unresolved Repairs` and
 BEFORE the existing `## Connections` section. Source: read the file
@@ -236,7 +236,7 @@ embed its contents inline:
 
 If `.planning/milestones/{{version}}/gate-keep-kill.md` does not exist
 (Step 4.5 failed), write the literal line:
-`(rubric output unavailable — see provider_unavailable log)`.
+`(rubric output unavailable -- see provider_unavailable log)`.
 
 ### Phase Folder Audit subsection (Phase 40 -- AUDIT-05)
 
@@ -267,7 +267,7 @@ If `.planning/milestones/{{version}}/phase-folder-audit.md` does not exist
 2. Query `mcp__vtp-kb__vtp_list_research` for related research already present in VTP.
 3. Fold any relevant findings into the current `SUMMARY.md` Connections section.
 
-### Connections (library-backed) — write-side extension (VTPE-03)
+### Connections (library-backed) -- write-side extension (VTPE-03)
 
 Only runs when `config.vtp_enrichment.enabled === true` (D-07 backward-compat guard).
 
@@ -288,12 +288,12 @@ Using the results already retrieved by the read-side queries above (no new VTP c
 ```
 
 3. If the read-side returned zero hits, append:
-   `### Connections (library-backed)\n\n(no library hits for this milestone — VTP returned empty)`.
+   `### Connections (library-backed)\n\n(no library hits for this milestone -- VTP returned empty)`.
 
 4. Set `vtp_connections_library_backed: true` in SUMMARY.md frontmatter when hits > 0;
    set `vtp_connections_library_backed: false` when empty.
 
-This write-side extension reuses Step 7 read-side results — it does NOT fire a new VTP query.
+This write-side extension reuses Step 7 read-side results -- it does NOT fire a new VTP query.
 
 ### Publish-side fallback
 

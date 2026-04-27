@@ -1,0 +1,51 @@
+Phase 40 of SGSD v1.8 milestone (FINAL v1.8 phase): Phase Folder Perfection Contract.
+
+3 deliverables:
+1. NEW super-gsd/tools/phase-folder-audit/audit.cjs (701 LOC) -- VERDICTS + REQUIRED_FILES + RECOMMENDED_FILES frozen consts; auditFolder + auditAllPhases + renderTable; closed-enum bucket logic; never-throws-upward; 13-assertion --self-test with __dirname-anchored fingerprint guard over 3 real phase folders.
+2. EDIT super-gsd/skills/sgsd-complete-milestone/SKILL.md (+56 LOC) -- Step 4.6 inserted between Step 4.5 (gate-keep-kill) and Step 5 (cross-phase); uses path.join(process.cwd(), ...) per Phase 36/39 W2 lesson.
+3. NEW super-gsd/tools/phase-folder-audit/audit.test.cjs (103 LOC) -- 4 fixtures + 8 assertions (compliant/partial/non-compliant/empty + VERDICTS membership + renderTable empty-literal).
+
+Locked: 40=B (soft-warn auditor; NO folder modification; NO blocking).
+
+Acceptance criteria (AUDIT-01..05, all runnable + verified):
+- AUDIT-01: auditAllPhases walks .planning/milestones/{*}/phases/{*}/
+- AUDIT-02: each row classified compliant/partial/non-compliant
+- AUDIT-03: never blocks; soft-warn on non-compliant; per-phase missing-file list in output
+- AUDIT-04: NO folder mutation (fingerprint guard binds; static fs.write* deny check; git status PASS post-self-test)
+- AUDIT-05: SKILL.md grep for auditAllPhases returns >= 1
+
+Plus:
+- Live render against actual .planning produces 5 v1.8 phase rows (36-40)
+- ASCII-only (Phase 39 W4 lesson — no em dashes; --)
+- 4 existing contracts UNTOUCHED; envelope-v1 UNTOUCHED
+
+YOUR TASK
+
+Review the 3 files for:
+1. REQUIRED_FILES + RECOMMENDED_FILES correctness (4 each from canonical phase template)
+2. Bucket logic correctness (closed-enum 3-verdict mapping)
+3. Public API safety (never throws upward; __dirname-anchored fingerprint guard)
+4. AUDIT-04 read-only invariant (source-grep + runtime fingerprint guard binding)
+5. SKILL.md Step 4.6 placement (between Step 4.5 and Step 5; uses path.join(process.cwd, ...))
+6. ASCII-only constraint (no em dashes; -- only)
+7. Architectural mirror discipline (1:1 with Phase 39 rubric.cjs)
+8. 10-point anti-slop checklist
+
+Files to read:
+- super-gsd/tools/phase-folder-audit/audit.cjs
+- super-gsd/tools/phase-folder-audit/audit.test.cjs
+- super-gsd/skills/sgsd-complete-milestone/SKILL.md (focus lines 137-200 Step 4.6 block)
+- super-gsd/tools/gate-keep-kill/rubric.cjs (Phase 39 architectural template)
+- .planning/milestones/v1.8/phases/40-phase-folder-audit/40-01-phase-folder-audit-PLAN.md
+
+REPORT CONTRACT (code-reviewer-v1) -- emit EXACTLY these 5 lines as the LAST 5 lines:
+
+FINDINGS: <one-line summary; "none" if 0 CRIT and 0 WARN>
+CRITICAL: <integer count>
+WARNINGS: <integer count>
+PASS_RATE: <N>/10
+ONE_LINER: <one-line, <=200-char overall conclusion>
+
+Above the contract block: CRIT findings + WARN findings + 10-point anti-slop checklist.
+
+Be ruthless. Phase 31-39 each surfaced real CRITs Claude missed -- apply equal rigor.

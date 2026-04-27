@@ -352,7 +352,16 @@ function auditAllPhases(planningDir, opts) {
   try {
     if (typeof planningDir !== 'string' || !planningDir) return [];
     const o = opts || {};
-    const includeUnarchived = o.includeUnarchived !== false;
+    // Phase 40 ATC CRIT 1 fix (Codex): milestone filter must scope tightly.
+    // Pre-fix: when opts.milestone was set, includeUnarchived still defaulted
+    // to true, so legacy .planning/phases/* leaked into v1.8-scoped audits
+    // (8 legacy + 5 v1.8 = 13 returned instead of 5). When the caller asks
+    // for a specific milestone, default includeUnarchived to FALSE so the
+    // scope is exactly that milestone's phase tree. Caller can still
+    // explicitly opt-in via { milestone: 'v1.8', includeUnarchived: true }.
+    const milestoneSet = !!o.milestone;
+    const includeUnarchived = (o.includeUnarchived === true)
+      || (o.includeUnarchived !== false && !milestoneSet);
     const absPlanning = path.resolve(planningDir);
     const folders = _listPhaseFolders(absPlanning, {
       milestone: o.milestone || null,
@@ -361,7 +370,22 @@ function auditAllPhases(planningDir, opts) {
     const rows = [];
     for (const f of folders) {
       const row = auditFolder(f);
-      if (row) rows.push(row);
+      if (row) {
+        // Phase 40 ATC CRIT 1 fix (Codex): annotate row with milestone + phase
+        // derived from path segments. Pre-fix rows had milestone:undefined +
+        // phase:undefined which broke downstream consumer queries.
+        const segs = f.split(/[\\\/]/);
+        const phasesIdx = segs.lastIndexOf('phases');
+        if (phasesIdx >= 0 && segs[phasesIdx + 1]) {
+          row.phase = segs[phasesIdx + 1];
+        }
+        if (phasesIdx >= 2 && segs[phasesIdx - 1] && segs[phasesIdx - 2] === 'milestones') {
+          row.milestone = segs[phasesIdx - 1];
+        } else if (phasesIdx === 1 || segs[phasesIdx - 1] === '.planning') {
+          row.milestone = 'unarchived';
+        }
+        rows.push(row);
+      }
     }
     return rows;
   } catch (e) {
