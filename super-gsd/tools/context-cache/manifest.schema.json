@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Phase 46 context-index manifest",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "generated_by", "doc_count", "by_kind", "manifest_hash", "documents"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "generated_by": { "type": "string" },
+    "doc_count": { "type": "integer", "minimum": 0 },
+    "by_kind": {
+      "type": "object",
+      "required": ["capsule", "decision", "gate_definition", "file_summary"],
+      "properties": {
+        "capsule": { "type": "integer", "minimum": 0 },
+        "decision": { "type": "integer", "minimum": 0 },
+        "gate_definition": { "type": "integer", "minimum": 0 },
+        "file_summary": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "manifest_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "documents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "doc_id", "source_path", "source_hash", "body_hash"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["capsule", "decision", "gate_definition", "file_summary"] },
+          "doc_id": { "type": "string", "minLength": 1 },
+          "source_path": { "type": "string", "minLength": 1 },
+          "source_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "body_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    }
+  }
+}
