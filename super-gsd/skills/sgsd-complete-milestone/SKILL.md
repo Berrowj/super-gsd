@@ -171,6 +171,63 @@ Defer-on-empty: if `auditAllPhases` returns `[]`, the rendered table reads
 file as-is. Soft-warn semantics never block close.
 </step_4_6_phase_folder_audit>
 
+<step_4_7_token_waste_check>
+## Step 4.7: Token Waste Admission Check (Phase 42 -- BUDGET-01..05)
+
+Run the read-only token-waste check over the milestone's
+`.planning/metrics/agent-token-spend.jsonl` ledger (Phase 41).
+The check emits one envelope-v1 row to
+`.planning/metrics/token-waste-status.jsonl` and renders a verdict
+table to `.planning/milestones/{{version}}/token-waste.md`.
+
+Per design lock 13 (REQUIREMENTS.md:67-68): a degraded verdict
+continues autonomy. The check NEVER halts close. Halt remains
+reserved for the four hard-stop conditions in
+`SGSD-HANDOVER.md:79-86`.
+
+```javascript
+// Phase 42 wire-in: anchor planningDir to process.cwd() at the
+// orchestrator-skill boundary (mirrors Step 4.5 Phase 39 ATC W3 +
+// Step 4.6 Phase 40 W3 fixes). NEVER bare relative '.planning'.
+const path = require('path');
+const fs   = require('fs');
+const { runCheck, renderTable, appendCheckRun } = require(
+  path.join(process.cwd(), 'super-gsd', 'tools', 'token-waste', 'check.cjs')
+);
+const planningDir = path.join(process.cwd(), '.planning');
+const result = runCheck(planningDir, { milestone: '{{version}}' });
+const md     = renderTable(result);
+fs.writeFileSync(
+  path.join(planningDir, 'milestones', '{{version}}', 'token-waste.md'),
+  '# Token Waste (milestone {{version}})\n\n' +
+  '> Soft-warn / degraded only. Per design lock 13:\n' +
+  '> "Autonomy continues; evidence tells the truth."\n' +
+  '> Halt remains reserved for SGSD-HANDOVER.md:79-86 hard stops.\n\n' +
+  md + '\n', 'utf8');
+// Append envelope-v1 row to token-waste-status.jsonl. NEVER throws
+// upward; on failure, returns false and Step 5 continues.
+appendCheckRun(planningDir, result);
+```
+
+Per lock 13: this step ONLY produces verdict + envelope row + table.
+The script NEVER mutates `super-gsd/registry/gates.yaml` or any
+canonical token stream (5 streams + budgets.yaml byte-identical
+pre/post). `degraded` verdict in the table maps to envelope
+status='warn' (NOT 'blocked'); cockpit consumers must read
+`verdict` (Phase 42 ext field) for the 4-state ladder, not
+`status`.
+
+Defer-on-empty: if `agent-token-spend.jsonl` is absent or empty
+(no Phase 41 backfill yet), `runCheck` returns
+`{verdict:'ok', totals:{rows_evaluated:0}}` and the rendered table
+reads `(no rows evaluated; agent-token-spend.jsonl absent or empty)`.
+Soft-warn semantics never block close.
+
+Token-waste-status JSONL row: `appendCheckRun` appends ONE
+envelope-v1 row per close run (run_id unique). Cockpit (Phase 50)
+reads "latest by scope" via `ts` ordering; no dedup needed.
+</step_4_7_token_waste_check>
+
 <step_5_cross_phase_check>
 ## Step 5: Cross-Phase Integration Check
 
@@ -256,6 +313,27 @@ Step 4.6; embed its contents inline:
 If `.planning/milestones/{{version}}/phase-folder-audit.md` does not exist
 (Step 4.6 failed), write the literal line:
 `(phase-folder audit unavailable -- see audit-skipped log)`.
+
+### Token Waste subsection (Phase 42 -- BUDGET-05)
+
+Append to SUMMARY.md a new subsection AFTER `## Phase Folder Audit` and
+BEFORE the existing `## Connections` section. Source: read the file
+`.planning/milestones/{{version}}/token-waste.md` produced by Step 4.7;
+embed its contents inline:
+
+```markdown
+## Token Waste (milestone {{version}})
+
+> Per design lock 13: degraded continues autonomy. Operator may
+> consider provider substitution per emitted route_hints; the check
+> itself never halts.
+
+{{contents of .planning/milestones/{{version}}/token-waste.md}}
+```
+
+If `.planning/milestones/{{version}}/token-waste.md` does not exist
+(Step 4.7 failed), write the literal line:
+`(token-waste output unavailable -- see token-waste-status.jsonl)`.
 </step_6_summary>
 
 <step_7_vtp_bidirectional>
