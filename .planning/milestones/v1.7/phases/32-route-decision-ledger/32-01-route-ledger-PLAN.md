@@ -391,8 +391,12 @@ function logCodexRoute(planningDir, ctx) {
       if (fallbackTriggered) reasonCodes.push('codex_fallback_triggered');
     }
 
-    const artifacts = reportPath
-      ? [{ kind: 'review_report', path: reportPath }]
+    // envelope-v1 contract (super-gsd/templates/command-envelope-v1.json:46-60):
+    // 'review_report' is an EVIDENCE kind (cite), NOT an ARTIFACT kind (write).
+    // logCodexRoute does not WRITE the per-dispatch report -- the orchestrator
+    // wrote it earlier; this row only CITES it.
+    const evidence = reportPath
+      ? [{ kind: 'review_report', ref: reportPath }]
       : [];
 
     const decision = {
@@ -411,8 +415,8 @@ function logCodexRoute(planningDir, ctx) {
       phase: phase ?? null,
       milestone: milestone ?? null,
       reason_codes: reasonCodes,
-      artifacts,
-      evidence: [],
+      artifacts: [],
+      evidence,
       decision,
     });
   } catch (e) {
@@ -452,11 +456,13 @@ function selfTest() {
       Array.isArray(readRows(tmp)) && readRows(tmp).length === 0);
 
     // 4. Append + read shape: envelope-v1 + Phase 32 extension fields.
+    // 'review_report' is an EVIDENCE kind per envelope-v1.json:53 (cite, not write).
     const r1 = appendRow(tmp, {
       boundary: 'codex_route', status: 'ok',
       phase: '32', milestone: 'v1.7',
       reason_codes: ['review_unanimous_pass'],
-      artifacts: [{ kind: 'review_report', path: 'x.md' }],
+      artifacts: [],
+      evidence: [{ kind: 'review_report', ref: 'x.md' }],
       decision: { from: 'codex-cli-reviewer', to: null, fallback_triggered: false },
     });
     const rows = readRows(tmp);
@@ -749,8 +755,10 @@ try {
   assert('A. envelope_version === 1', a.envelope_version === 1);
   assert('A. command === logRouteDecision', a.command === 'logRouteDecision');
   assert('A. phase + milestone present', a.phase === '32' && a.milestone === 'v1.7');
-  assert('A. artifacts contains review_report kind',
-    Array.isArray(a.artifacts) && a.artifacts.length === 1 && a.artifacts[0].kind === 'review_report');
+  assert('A. evidence contains review_report kind (envelope-v1: review_report is evidence, not artifact)',
+    Array.isArray(a.evidence) && a.evidence.length === 1 && a.evidence[0].kind === 'review_report' && typeof a.evidence[0].ref === 'string');
+  assert('A. artifacts is empty (logCodexRoute does not WRITE the report)',
+    Array.isArray(a.artifacts) && a.artifacts.length === 0);
 
   // Fixture B assertions: timeout
   const b = rows[1];
@@ -1004,11 +1012,14 @@ ROUTE-03 (orchestrator invokes logRouteDecision/logCodexRoute >=1 boundary):
             console.log('PASS ROUTE-03');"`
   -> "PASS ROUTE-03" + exit 0.
 
-ROUTE-04 (rows include phase + milestone + reason_codes + outcome + artifacts):
+ROUTE-04 (rows include phase + milestone + reason_codes + outcome + evidence):
   Implicit in route-ledger.test.cjs Fixture A assertion
   "A. phase + milestone present" + "A. envelope_version === 1" +
-  "A. command === logRouteDecision" + "A. artifacts contains review_report kind"
-  -> all PASS in fallback test.
+  "A. command === logRouteDecision" + "A. evidence contains review_report kind"
+  -> all PASS in fallback test. Note: review_report is an EVIDENCE kind per
+  envelope-v1.json:53 (cite, not write); artifacts is empty for codex_route
+  rows because logCodexRoute does not write the report -- the orchestrator
+  did so earlier and this row only cites it.
 
 Live-or-local (Patch 4):
   `node super-gsd/scripts/lib/route-ledger.test.cjs`
