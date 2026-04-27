@@ -189,11 +189,19 @@ function parseGateOverrides(argv, validateGate /* optional fn(name) -> bool */) 
     } else if (a === '--override-reason' && argv[i + 1]) {
       reason = String(argv[i + 1]).trim(); i++;
     } else if (a.startsWith('--force-gates=')) {
-      a.slice(15).split(',').map((g) => force.add(g.trim()));
+      // Phase 38 ATC CRIT fix (Claude): '--force-gates='.length === 14;
+      // pre-fix used slice(15) which silently dropped the first character
+      // of the first gate name in equals-syntax. Use string.length-of-prefix
+      // (computed inline so no future drift) to make the slice index
+      // mathematically derivable rather than a magic number.
+      a.slice('--force-gates='.length).split(',').map((g) => force.add(g.trim()));
     } else if (a.startsWith('--skip-gates=')) {
-      a.slice(14).split(',').map((g) => skip.add(g.trim()));
+      // Phase 38 ATC CRIT fix (Claude): '--skip-gates='.length === 13;
+      // pre-fix used slice(14) which silently dropped the first character.
+      // Same prefix-length inline computation.
+      a.slice('--skip-gates='.length).split(',').map((g) => skip.add(g.trim()));
     } else if (a.startsWith('--override-reason=')) {
-      reason = a.slice(18).trim();
+      reason = a.slice('--override-reason='.length).trim();
     }
   }
 

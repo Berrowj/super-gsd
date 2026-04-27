@@ -136,6 +136,34 @@ assert('5. --force-gates without --override-reason exits 1',
   `exit=${r5.status}, stderr=${r5.stderr}`
 );
 
+// Fixture 6 (Phase 38 ATC CRIT regression): equals-syntax must extract
+// full gate names without dropping the first character. Pre-fix
+// `slice(15)` for `--force-gates=` and `slice(14)` for `--skip-gates=`
+// silently corrupted the first gate name. Post-fix uses
+// `--force-gates='.length` / `--skip-gates='.length` for safe slicing.
+const samplingLib = require('./sampling-decider.cjs');
+const eqForce = samplingLib.parseGateOverrides(
+  ['--force-gates=phase-level-ATC,MUDA-waste-audit', '--override-reason=eq-test'],
+  () => true
+);
+assert('6a. --force-gates= equals-syntax extracts full gate names (no first-char drop)',
+  eqForce.force.has('phase-level-ATC') &&
+  eqForce.force.has('MUDA-waste-audit') &&
+  !eqForce.force.has('hase-level-ATC') &&  // pre-fix bug would have produced this
+  eqForce.reason === 'eq-test',
+  `force=[${[...eqForce.force].join(',')}] reason=${eqForce.reason}`
+);
+const eqSkip = samplingLib.parseGateOverrides(
+  ['--skip-gates=per-dispatch-ATC', '--override-reason=eq-skip'],
+  () => true
+);
+assert('6b. --skip-gates= equals-syntax extracts full gate name (no first-char drop)',
+  eqSkip.skip.has('per-dispatch-ATC') &&
+  !eqSkip.skip.has('er-dispatch-ATC') &&  // pre-fix bug would have produced this
+  eqSkip.reason === 'eq-skip',
+  `skip=[${[...eqSkip.skip].join(',')}] reason=${eqSkip.reason}`
+);
+
 fs.rmSync(tmp, { recursive: true, force: true });
 
 console.log(`sampling-decider.test: ${pass} pass, ${fail} fail`);

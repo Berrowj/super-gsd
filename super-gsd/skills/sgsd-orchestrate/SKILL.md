@@ -317,11 +317,31 @@ REPEAT:
        files_count   ← count of all files_touched values across all tasks in frontmatter.tasks
        complexity    ← files_count <= 3 ? 'light' : files_count <= 6 ? 'standard' : 'heavy'
        deliberate    ← (frontmatter.depends_on?.length > 2 || files_count > 5)
+       // Phase 38 ATC CRIT fix: synthesize work_risk on this skip path
+       // (classifier-skip paths must still emit work_risk per SAMPLE-02
+       // contract; without it the gate-fire intersection matrix degenerates
+       // to default-tier-only behavior). Derive from same v2 frontmatter
+       // fields used above; defaults are conservative (medium) on missing
+       // signals so the matrix still discriminates rather than always-fire.
+       const samplingDecider = require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'sampling-decider.cjs'));
+       const phaseType = (frontmatter.phase_type || frontmatter.tasks?.[0]?.type || 'feature').toString();
+       const securityReview = !!(
+         frontmatter.security_review === true ||
+         frontmatter.tasks?.some(t => /security|auth|crypto|secret/i.test(t.type || '') || /security|auth|crypto|secret/i.test(t.hypothesis || ''))
+       );
+       const work_risk = samplingDecider.scoreWorkRisk({
+         diff_lines: (frontmatter.estimated_diff_lines || 0),
+         files_touched_count: files_count,
+         phase_type: phaseType,
+         phase_includes_security_review: securityReview,
+         gate_fitness_history: null  // not available at v2-skip path; cold-start defer per Phase 36
+       });
        classifier_result = {
          complexity,
          model,
          atc_tier,
          deliberate,
+         work_risk,                 // Phase 38 SAMPLE-02 contract preserved on v2 skip path
          reason: "v2 plan — classifier skip (SCHEMA-04)"
        }
        // USE classifier_result as if returned by sgsd-classifier — downstream Steps 3+ unchanged
@@ -336,6 +356,22 @@ REPEAT:
        if (cached) {
          // Cache hit — skip classifier dispatch entirely (D-03 + D-04)
          classifier_result = cached;
+         // Phase 38 ATC CRIT fix: cache-hit path must also carry work_risk.
+         // Older sidecar files written before Phase 38 will lack work_risk;
+         // synthesize it from the cached fields (or default 'medium' for
+         // safety) so the gate-fire intersection matrix has a value to
+         // intersect with on every dispatch, not just freshly-classified
+         // ones. This also future-proofs against bumped sidecar formats.
+         if (typeof classifier_result.work_risk !== 'string') {
+           const samplingDecider = require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'sampling-decider.cjs'));
+           classifier_result.work_risk = samplingDecider.scoreWorkRisk({
+             diff_lines: cached.diff_lines || 0,
+             files_touched_count: cached.files_count || 0,
+             phase_type: cached.phase_type || 'feature',
+             phase_includes_security_review: !!cached.security_review,
+             gate_fitness_history: null
+           });
+         }
          // Log cache-hit event for D-04 accounting
          Append to .planning/metrics/token-log.jsonl:
            {"ts":"{ISO}","phase":N,"plan":P,"event":"classifier_skip","role":"classifier-skip","reason":"sidecar_hit","verdict":{cached}}
@@ -352,7 +388,7 @@ REPEAT:
            lines: "{estimated lines}",
            type: "{feature|bugfix|refactor}"
          })
-         → Returns: { complexity, model, atc_tier, deliberate, reason }
+         → Returns: { complexity, model, atc_tier, deliberate, work_risk, reason }
          AFTER: TaskUpdate(same taskId, status: "completed")
          // Write verdict to sidecar so subsequent tasks in this plan hit cache
          classifierCache.writeCache(planFilePath, classifier_result);

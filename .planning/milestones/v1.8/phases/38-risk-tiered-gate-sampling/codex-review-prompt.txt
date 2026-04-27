@@ -1,0 +1,75 @@
+Phase 38 of SGSD v1.8 milestone: Risk-Tiered Gate Sampling.
+
+8 deliverables across 6 atomic commits:
+1. NEW super-gsd/scripts/lib/sampling-decider.cjs (481 LOC) -- MATRIX 3x3, WORK_RISKS, SAMPLING_TIERS frozen, decide(), shouldSample(), scoreWorkRisk(), validateGatesYaml(), parseGateOverrides(), 17-assertion --self-test.
+2. EDIT super-gsd/registry/gates.yaml (+13 gate_sampling_tier lines, registry_version 2.1.0->2.2.0).
+3. EDIT super-gsd/scripts/lib/gates-registry.cjs (+16 LOC sampling tier validation at load time).
+4. EDIT super-gsd/agents/sgsd-classifier.md (+14 LOC; output schema gains work_risk; 4 primary + 1 secondary inputs).
+5. EDIT super-gsd/skills/sgsd-orchestrate/SKILL.md (+100/-3 LOC; 3 wire-in sites + --force-gates --override-reason CLI parser; SKIP-arm reason_codes).
+6. EDIT super-gsd/scripts/lib/route-ledger.cjs (BOUNDARIES extended 6->7 with 'gate_override'; assertion #1 updated 6->7; new assertion #13).
+7. EDIT super-gsd/registry/command-envelope-v1.yaml (registry_version 1.0.0->1.0.1; +2 reason_codes appended to gate_review group: gate_force_override_with_reason + gate_sampled_skip).
+8. NEW super-gsd/scripts/lib/sampling-decider.test.cjs (146 LOC; 9-cell MATRIX coverage + --force-gates simulation).
+
+Locked: 38.1-38.5 (mass-discuss verbatim).
+
+DEVIATION (executor):
+- Task 6 Fixture 3 had a math-error: scoreWorkRisk(diff_lines:50) yielded 'medium' not 'high'. Executor adjusted fixture inputs to diff_lines:100 (yields 'high'). Formula is canonical (LOCKED Q3); fixture inputs are derivation. Documented in test header.
+
+Acceptance criteria (SAMPLE-01..05, all runnable + verified):
+- SAMPLE-01: 13 gate_sampling_tier lines (PASS, count=13)
+- SAMPLE-02: --self-test 17/17 PASS; classifier schema documents work_risk
+- SAMPLE-03: 3 SKILL.md wire-in sites (PASS, count=3)
+- SAMPLE-04: --force-gates X --override-reason "..." logs to route-decisions.jsonl boundary=gate_override (test fixture verified)
+- SAMPLE-05: --force-gates X without --override-reason exits 1 (test fixture verified)
+
+Plus:
+- BOUNDARIES extension (6->7) preserves Phase 32 contract: route-ledger --self-test 13/13 PASS (was 12 before extension)
+- Phase 31 envelope-v1 .json contract UNTOUCHED; only .yaml extension via documented protocol (semver patch bump 1.0.0->1.0.1)
+- 4 existing contracts UNTOUCHED
+
+YOUR TASK
+
+Review the 8 files for:
+1. MATRIX correctness (3x3 cells; locked outputs per 38.3)
+2. scoreWorkRisk algorithm (4 primary @ weight + 1 secondary; thresholds for low/medium/high)
+3. gate_sampling_tier mapping per RESEARCH §3 table
+4. 3 SKILL.md wire-in sites correctly invoke shouldSample/decide before gates.shouldFire
+5. --force-gates CLI exits 1 without --override-reason; logs route-decisions.jsonl with boundary=gate_override on success
+6. BOUNDARIES extension (6->7) preserves Phase 32 contract semantically
+7. command-envelope-v1.yaml extension safety (only reason_codes appended; no schema field shape change; semver patch bump)
+8. Architectural mirror discipline (Phase 32 + 36 architecture; never-throws-upward; __dirname anchor)
+9. ASCII-only constraint
+10. 10-point anti-slop checklist:
+   - Every exported symbol has a caller
+   - Every imported module is used
+   - delta-Complexity proportional (~600 LOC for 3x3 matrix + classifier + 3 wire-ins + BOUNDARIES extension + reason_codes)
+   - Existing canonical envelope-v1 contract preserved (extension-only)
+   - Single-purpose phase (yes -- risk-tiered sampling)
+   - No mass-deletable content
+   - Failure path documented (lib never crashes orchestrator)
+   - Reuse over rewrite (mirrors Phase 32 + 36 architecture)
+   - No "just in case" predicates
+   - Frozen consts (MATRIX, WORK_RISKS, SAMPLING_TIERS, VERDICTS)
+
+Files to read:
+- super-gsd/scripts/lib/sampling-decider.cjs
+- super-gsd/scripts/lib/sampling-decider.test.cjs
+- super-gsd/registry/gates.yaml (focus on gate_sampling_tier lines)
+- super-gsd/scripts/lib/gates-registry.cjs (focus on lines 75-91 sampling tier validation)
+- super-gsd/agents/sgsd-classifier.md (focus on work_risk schema)
+- super-gsd/skills/sgsd-orchestrate/SKILL.md (focus on 3 wire-in sites + --force-gates)
+- super-gsd/scripts/lib/route-ledger.cjs (focus on BOUNDARIES line 56-70 + self-test assertions)
+- super-gsd/registry/command-envelope-v1.yaml (focus on lines 100-160 reason_codes + extension protocol)
+- .planning/milestones/v1.8/phases/38-risk-tiered-gate-sampling/38-01-risk-tiered-gate-sampling-PLAN.md
+
+REPORT CONTRACT (code-reviewer-v1) -- emit EXACTLY these 5 lines as the LAST 5 lines:
+
+FINDINGS: <one-line summary; "none" if 0 CRIT and 0 WARN>
+CRITICAL: <integer count>
+WARNINGS: <integer count>
+PASS_RATE: <N>/10
+ONE_LINER: <one-line, <=200-char overall conclusion>
+
+Above the contract block, provide CRIT findings + WARN findings + 10-point anti-slop checklist.
+
+Be ruthless. Phase 31, 32, 33, 34, 35, 36, 37 each surfaced real CRITs Claude missed -- apply equal rigor.
