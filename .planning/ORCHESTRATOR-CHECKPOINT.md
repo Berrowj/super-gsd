@@ -17,9 +17,10 @@ v1.6 is closed as `SHIPPED-WITH-DEBT-10`.
 
 v1.7 is already promoted and active:
 - Milestone: Stable Command Contracts + Route Intelligence
-- Phases: 31-35 (1/5 complete)
+- Phases: 31-35 (2/5 complete)
 - Phase 31 (Canonical Command Envelope): PASS @ 558260f 2026-04-27 (1 CRIT + 5 WARNs fixed in-loop, anti-slop 10/10 both providers)
-- Current objective: Phase 32, Route Decision Ledger
+- Phase 32 (Route Decision Ledger): PASS @ bb72756 2026-04-27 (2 Codex CRITs + 5 WARNs; 6 fixed in-loop, 1 deferred design-locked; combined anti-slop 9.5/10)
+- Current objective: Phase 33, Repair Instruction Contract
 - Readiness: `9ab56aa feat(v1.7/readiness): pre-flight GO - all 14 probes pass, Codex behavioral AVAILABLE`
 
 ## Critical Runtime Rule

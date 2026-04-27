@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Stable Command Contracts + Route Intelligence
 milestone_status: v1.7 PROMOTED 2026-04-27 (5 phases 31-35; locked decisions per DISCUSS.md; audit warning honored via EXISTING-SURFACE-AUDIT.md — fifth contract at command-output level, no overlap with 4 existing). v1.6 SHIPPED-WITH-DEBT-10 closed at d510e32; 10 deferred items carry forward.
-status: v1.7 active — Phase 31 (Canonical Command Envelope) PASS 2026-04-27. Next: Phase 32 (Route Decision Ledger).
-stopped_at: 2026-04-27 — Phase 31 closed PASS post dual-provider ATC fixes.
-last_updated: "2026-04-27T07:38:00Z"
-last_activity: "2026-04-27 — Phase 31 ATC dual-provider review surfaced 1 CRIT (schema required-list under-enforced 5/13 vs ENV-01 contract) + 5 WARNs (3 vocab-gaps Claude + 2 pane-state/future-codes Codex). All 6 fixed in-loop in 1 attempt each. Combined anti-slop 10/10. Codex behaviorally AVAILABLE throughout (4 attempts; 3 transient/wrapper, 1 success after fixing prompt VERDICT->FINDINGS). Phase 31 closed at 558260f."
+status: v1.7 active — Phase 32 (Route Decision Ledger) PASS 2026-04-27. Next: Phase 33 (Repair Instruction Contract).
+stopped_at: 2026-04-27 — Phase 32 closed PASS post dual-provider ATC fixes (anti-slop 9.5/10; W5 deferred design-locked).
+last_updated: "2026-04-27T08:30:00Z"
+last_activity: "2026-04-27 — Phase 32 ATC dual-provider surfaced 2 Codex CRITs (out-of-scope dispatchResult / envelope conformance) + 5 WARNs (Claude 3 + Codex 2). 6 fixed in-loop, 1 deferred design-locked (W5: writer never throws upward per CONTEXT.md). Wire-in moved INSIDE shell branch (logCodexRoute now lexically scoped). _assertEnvelopeV1 manual schema validation added. Phase 32 closed at bb72756."
 progress:
   v1_7:
     total_phases: 5
-    completed_phases: 1
-    completed_plans: 1
-    percent: 20
+    completed_phases: 2
+    completed_plans: 2
+    percent: 40
     phase_31: "1/1 plan complete — PASS ✓ 2026-04-27 (CRIT+WARN fixed in-loop, anti-slop 10/10)"
-    phase_32: "queued — Route Decision Ledger"
+    phase_32: "1/1 plan complete — PASS ✓ 2026-04-27 (2 CRIT + 5 WARN fixed in-loop; 1 deferred design-locked; combined anti-slop 9.5/10)"
     phase_33: "queued — Repair Instruction Contract"
     phase_34: "queued — Canonical Review Ledger (closes v1.5 empty-baseline gap)"
     phase_35: "queued — Generated System Map"
@@ -40,6 +40,7 @@ backlog:
     "29": 3
     "30": 2
     "31": 0
+    "32": 0
   cleared_post_rerun: 8
 v1_6_complete:
   shipped: 2026-04-27
@@ -58,7 +59,7 @@ roadmap_run:
   backlog_canonical: .planning/metrics/crit-backlog.jsonl
   started: 2026-04-26
   current_milestone: v1.7
-  current_phase: 32
+  current_phase: 33
   milestones_shipped: ["v1.6 SHIPPED-WITH-DEBT-10 @ d510e32"]
 ---
 
