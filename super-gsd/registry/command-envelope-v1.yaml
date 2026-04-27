@@ -64,7 +64,7 @@ emitters:
         emits_envelope: candidate
         writes_to: .planning/metrics/edge-guard-log.jsonl
         existing_fit_pct: 90
-        gap: "needs status (from result), command='edge-guard', run_id, reason_codes (missing_emit, step_skip)"
+        gap: "needs status (from result), command='edge-guard', run_id, reason_codes (missing_emit, step_transition_blocked)"
         first_wave: false
         rationale: "Sixth-candidate per RESEARCH; activate when stream lands"
 
@@ -72,7 +72,7 @@ emitters:
         emits_envelope: candidate
         writes_to: .planning/metrics/handoff-log.jsonl
         existing_fit_pct: 65
-        gap: "needs status (from refused presence), command='handoff', run_id, reason_codes (max_chain_depth, auth_missing)"
+        gap: "needs status (from refused presence), command='handoff', run_id, reason_codes (max_chain_depth, codex_auth_missing)"
         first_wave: false
         rationale: "v1.8 candidate"
 

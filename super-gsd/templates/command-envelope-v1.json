@@ -51,7 +51,7 @@
         "properties": {
           "kind": {
             "type": "string",
-            "description": "Documented values: 'review_report' (code-reviewer-v1 row), 'brief' (handover-contract-v2 input.brief), 'plan_frontmatter' (plan-schema-v2), 'crit_backlog_row' (crit-backlog.jsonl row id). Free-form string -- does NOT redefine the linked contract."
+            "description": "Documented values: 'review_report' (code-reviewer-v1 row), 'brief' (handover-contract-v2 input.brief), 'plan_frontmatter' (plan-schema-v2), 'crit_backlog_row' (crit-backlog.jsonl row id), 'muda_log_row' (muda-log.jsonl row), 'codex_log_row' (codex-log.jsonl row), 'audit_log_row' (audit-log.jsonl row), 'readiness_log_row' (readiness-log.jsonl row). Free-form string -- additional values permitted; does NOT redefine the linked contract."
           },
           "ref": { "type": "string", "minLength": 1 }
         },
