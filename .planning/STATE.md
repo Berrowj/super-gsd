@@ -1,9 +1,9 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.6
-milestone_name: Cockpit 2.0 + Startup Verification
-milestone_status: v1.6 ✓ SHIPPED-WITH-DEBT-10 2026-04-27 (5/5 phases complete; 10 deferred items in CRIT-BACKLOG after post-hoc Codex rerun; 8 codex-unavail rows cleared via real Codex review evidence; 0 edge_guard_miss; 0 CRIT; 1 CRIT found by Codex in T1 lib was fixed in commit a39204b). v1.7 not yet promoted.
-status: v1.6 SHIPPED-WITH-DEBT-10; v1.7 promotion next.
+milestone: v1.7
+milestone_name: Stable Command Contracts + Route Intelligence
+milestone_status: v1.7 PROMOTED 2026-04-27 (5 phases 31-35; locked decisions per DISCUSS.md; audit warning honored via EXISTING-SURFACE-AUDIT.md — fifth contract at command-output level, no overlap with 4 existing). v1.6 SHIPPED-WITH-DEBT-10 closed at d510e32; 10 deferred items carry forward.
+status: v1.7 active — Phase 31 (Canonical Command Envelope) starting.
 stopped_at: 2026-04-27 — v1.6 milestone close finalized post-Codex-rerun.
 last_updated: "2026-04-27T06:30:00Z"
 last_activity: 2026-04-27 — Codex self-test probe fixed (was checking config.json; Codex CLI moved to config.toml). Replaced with behavioral check (codex login status + canary). 8 missing Codex reviews rerun against actual phases/commits — 8/8 PASS. Phase 28 T1 Codex review surfaced real CRIT (vocab violation) — fixed. New tools provider-health/check.cjs + backlog-schema/check.cjs added with self-tests. Status-consistency PASS at every phase + milestone level.
