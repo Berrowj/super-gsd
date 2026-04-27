@@ -1212,6 +1212,25 @@ REPEAT:
                 };
               }
           }
+
+          // ROUTE-03 wire-in: log codex routing decision.
+          // Placed INSIDE the shell branch where `dispatchResult` is in scope
+          // (declared `const` at the start of this block). The wire-in is
+          // semantically tied to the codex path; the agent-only branch above
+          // has no codex_route decision to log. Helper wraps in try/catch and
+          // returns false on error -- the orchestrator continues regardless.
+          require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'route-ledger.cjs'))
+            .logCodexRoute(path.join(process.cwd(), '.planning'), {
+              phase: currentPhase,
+              milestone: currentMilestone,
+              plan: currentPlan,
+              dispatchResult,                                             // exit, timeout_hit (in scope)
+              effectiveProviderName: effective && effective.name,         // 'codex-cli-reviewer'
+              fallbackProviderName: report && report._provider,           // 'openai-codex' | 'claude-via-fallback'
+              fallbackTriggered: !!(report && report._provider === 'claude-via-fallback'),
+              fallbackReason: (report && report._fallback_reason) || null,
+              reportPath: typeof perDispatchReportPath === 'function' ? perDispatchReportPath() : null,
+            });
         }
         → Returns: { findings, critical_count, warning_count, verdict }
 
@@ -1234,25 +1253,6 @@ REPEAT:
           ...(report._reasoning_effort ? { reasoning_effort: report._reasoning_effort } : {}),
           ...(report._fallback_reason ? { fallback_reason: report._fallback_reason } : {})
         });
-
-  // ROUTE-03 wire-in: log the codex routing decision.
-  // Non-load-bearing: helper wraps in try/catch, returns false on error.
-  // The orchestrator MUST continue regardless.
-  // SCOPE: fires ONLY when the codex shell-branch above ran (effective.invocation
-  // === 'shell'); the agent-only path (line ~1158) has no codex_route decision
-  // to log -- there is no provider routing event to record. This is intentional.
-  require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'route-ledger.cjs'))
-    .logCodexRoute(path.join(process.cwd(), '.planning'), {
-      phase: currentPhase,
-      milestone: currentMilestone,
-      plan: currentPlan,
-      dispatchResult,                                             // exit, timeout_hit
-      effectiveProviderName: effective && effective.name,         // 'codex-cli-reviewer'
-      fallbackProviderName: report && report._provider,           // 'openai-codex' | 'claude-via-fallback'
-      fallbackTriggered: !!(report && report._provider === 'claude-via-fallback'),
-      fallbackReason: (report && report._fallback_reason) || null,
-      reportPath: typeof perDispatchReportPath === 'function' ? perDispatchReportPath() : null,
-    });
 
       If critical > 0 AND interactive: STOP with blocker quoting the findings.
       If critical > 0 AND auto: log GATE_AUTO_REPLAN, append an expiring

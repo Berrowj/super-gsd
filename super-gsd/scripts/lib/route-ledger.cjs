@@ -134,10 +134,47 @@ function _normalize(row) {
   };
 }
 
+// Manual envelope-v1 schema check (no ajv dep). Asserts every emitted row
+// has the 13 required envelope-v1 fields with the correct types and that
+// evidence/artifacts inner shapes match the envelope schema. Throws on
+// violation -- the public-API try/catch wraps it (writer never throws upward).
+function _assertEnvelopeV1(row) {
+  // Required-field presence check (envelope-v1.json:7).
+  const required = ['envelope_version','ts','command','status','reason_codes',
+    'artifacts','evidence','next_action','risk','duration_ms','run_id','phase','milestone'];
+  for (const k of required) {
+    if (!(k in row)) throw new Error(`route-ledger: emitted row missing required envelope-v1 field '${k}'`);
+  }
+  // envelope_version is const 1.
+  if (row.envelope_version !== 1) {
+    throw new Error(`route-ledger: envelope_version must be 1 (got ${row.envelope_version})`);
+  }
+  // run_id pattern (envelope-v1.json:78).
+  if (!RUN_ID_REGEX.test(row.run_id)) {
+    throw new Error(`route-ledger: run_id violates envelope-v1 pattern (got '${row.run_id}')`);
+  }
+  // duration_ms is integer | null with min 0.
+  if (row.duration_ms !== null && (!Number.isInteger(row.duration_ms) || row.duration_ms < 0)) {
+    throw new Error(`route-ledger: duration_ms must be non-negative integer or null (got ${row.duration_ms})`);
+  }
+  // evidence items shape: {kind, ref}. artifacts items shape: {kind, path}.
+  for (const e of row.evidence) {
+    if (!e || typeof e.kind !== 'string' || !e.kind || typeof e.ref !== 'string' || !e.ref) {
+      throw new Error(`route-ledger: evidence item must be {kind:string, ref:string} (got ${JSON.stringify(e)})`);
+    }
+  }
+  for (const a of row.artifacts) {
+    if (!a || typeof a.kind !== 'string' || !a.kind || typeof a.path !== 'string' || !a.path) {
+      throw new Error(`route-ledger: artifacts item must be {kind:string, path:string} (got ${JSON.stringify(a)})`);
+    }
+  }
+}
+
 // Low-level append. Throws on validation; caller wraps.
 function appendRow(planningDir, row) {
   if (!planningDir) throw new Error('route-ledger: planningDir required');
   const enriched = _normalize(row);
+  _assertEnvelopeV1(enriched);
   const p = jsonlPath(planningDir);
   const dir = path.dirname(p);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });

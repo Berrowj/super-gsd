@@ -4,6 +4,10 @@ status: PASS
 verified: 2026-04-27
 unresolved_count: 0
 goal_achieved: true
+re_verification: true
+re_verification_reason: "Phase-level ATC dual-provider review surfaced 2 CRITs (out-of-scope dispatchResult / envelope conformance) + 5 WARNs (plan drift / wire scope / cwd / shallow validation / broad catch); 6 fixed in-loop, 1 deferred design-locked (W5: writer never throws upward per CONTEXT.md lock). Combined anti-slop 9.5/10."
+atc_review: 32-ATC-REVIEW.md
+atc_anti_slop_combined: "9.5/10 (W5 deferred design-locked)"
 ---
 
 # Phase 32 - Route Decision Ledger - VERIFICATION
