@@ -138,6 +138,20 @@ const _ASCII_FOLD = {
   0x00A0: ' ', 0x00B7: '*', 0x00B0: 'deg', 0x00A9: '(c)', 0x00AE: '(R)',
   0x00B1: '+/-', 0x00D7: 'x', 0x00F7: '/',
   0x00A7: 'S', 0x00B6: 'P',
+  // Phase 35 ATC W2 fix: U+2500-25FF box-drawing + block chars used as
+  // banner rule separators in some scripts (sgsd-agent-dashboard.sh,
+  // sgsd-headless.{sh,ps1}). Without these, _asciiFold maps each codepoint
+  // to '?' producing meaningless purpose strings like '?????...'.
+  0x2500: '-', 0x2501: '-', 0x2502: '|', 0x2503: '|',
+  0x2504: '-', 0x2505: '-', 0x2506: '|', 0x2507: '|',
+  0x2508: '-', 0x2509: '-', 0x250A: '|', 0x250B: '|',
+  0x250C: '+', 0x250D: '+', 0x250E: '+', 0x250F: '+',
+  0x2510: '+', 0x2511: '+', 0x2512: '+', 0x2513: '+',
+  0x2514: '+', 0x2515: '+', 0x2516: '+', 0x2517: '+',
+  0x2518: '+', 0x2519: '+', 0x251A: '+', 0x251B: '+',
+  0x253C: '+',
+  0x2580: '#', 0x2584: '#', 0x2588: '#', 0x258C: '#',
+  0x2590: '#', 0x2591: '.', 0x2592: ':', 0x2593: '#',
 };
 function _asciiFold(s) {
   if (s == null) return '';
@@ -177,22 +191,46 @@ function _mdCell(s) {
 
 function _extractBanner(source) {
   if (!source) return '(no banner)';
+  // Phase 35 ATC W1 fix: pre-strip shebang LINE explicitly (non-optional when
+  // present) before regex matching, so the regex can never backtrack and
+  // capture the shebang as a `#`-comment line. (Pre-fix bug: optional
+  // shebang group `(?:#!.*\r?\n)?` would backtrack when the comment block
+  // didn't match the next line, producing purpose="!/usr/bin/env node" for
+  // .js files with `/* */` blocks before the comment block, e.g.
+  // sgsd-ctx.js.)
+  let src = source;
+  if (/^#!/.test(src)) {
+    const nl = src.indexOf('\n');
+    src = nl >= 0 ? src.slice(nl + 1) : '';
+  }
   // Try jsdoc first (form C): /**\n * <purpose>\n ... */
-  const jsdoc = source.match(/^\s*\/\*\*[\r\n]+([\s\S]*?)\*\//);
+  const jsdoc = src.match(/^\s*\/\*\*[\r\n]+([\s\S]*?)\*\//);
   if (jsdoc) {
     const body = jsdoc[1].split(/\r?\n/)
       .map(l => l.replace(/^\s*\*\s?/, '').trim())
       .filter(l => l.length > 0);
     if (body.length > 0) return _firstSentence(body[0]);
   }
-  // Try bash (form A) / cjs (form B): optional shebang + optional 'use strict';,
-  // then contiguous '#' or '//' comment lines.
-  const lineRe = /^(?:#!.*\r?\n)?(?:'use strict';\r?\n)?((?:\s*(?:#|\/\/)[^\r\n]*\r?\n)+)/;
-  const m = source.match(lineRe);
+  // Try bash (form A) / cjs (form B): optional 'use strict';, then contiguous
+  // '#' or '//' comment lines. Shebang already stripped above.
+  // Skip over an optional /* ... */ block (linter pragma like
+  // `/* eslint-disable */`) before the comment block — common in .js files.
+  if (/^\s*\/\*[^*]/.test(src) || /^\s*\/\*[^*]\s/.test(src)) {
+    const closeIdx = src.indexOf('*/');
+    if (closeIdx >= 0) src = src.slice(closeIdx + 2);
+  }
+  const lineRe = /^(?:'use strict';\r?\n)?((?:\s*(?:#|\/\/)[^\r\n]*\r?\n)+)/;
+  const m = src.match(lineRe);
   if (m) {
     const body = m[1].split(/\r?\n/)
       .map(l => l.replace(/^\s*(?:#|\/\/)\s?/, '').trim())
-      .filter(l => l.length > 0 && !/^[=\-_]{3,}$/.test(l));
+      // Phase 35 ATC W2 fix: rule-line filter now matches both ASCII and
+      // box-drawing rule separators (U+2500..U+2503 and U+2550). Without this
+      // the banner extractor would return a fold-of-rule-chars as the
+      // purpose string for scripts using box-drawing rule lines.
+      .filter(l => l.length > 0
+                   && !/^[=\-_]{3,}$/.test(l)
+                   && !/^[─━│┃═-╰]{3,}$/.test(l));
     for (const l of body) {
       if (l.length > 0) return _firstSentence(l);
     }
@@ -295,7 +333,11 @@ function _readBoard() {
 // known-shape top-level scalar; never used for nested data.
 function _scalarFromYaml(source, key) {
   if (!source) return null;
-  const re = new RegExp('^' + key.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&') + '\\s*:\\s*([^\\r\\n#]+?)\\s*(?:#.*)?$', 'm');
+  // Phase 35 ATC W3 fix: complete regex-meta escape set. Pre-fix omitted
+  // '[' from the escape character class (the inside-class '[' was unescaped),
+  // latent breakage if any future key contained '['.
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp('^' + escapedKey + '\\s*:\\s*([^\\r\\n#]+?)\\s*(?:#.*)?$', 'm');
   const m = source.match(re);
   if (!m) return null;
   let v = m[1].trim();
@@ -863,6 +905,25 @@ function selfTest() {
     assert('15. banner extractor tolerates no-banner files',
       bannerResult === '(no banner)',
       'got: ' + JSON.stringify(bannerResult));
+
+    // 16 (bonus, Phase 35 ATC W2 Codex regression). Shebang followed by a
+    // /* eslint-disable */ block must NOT yield purpose='!/usr/bin/env node'
+    // (the pre-fix bug where the shebang got captured as a #-comment after
+    // backtracking past the comment-block-doesn't-match-/* fallback).
+    const shebangSrc = "#!/usr/bin/env node\n/* eslint-disable */\n// real-purpose-line\nfunction x() {}\n";
+    const sb = module.exports.__test__._extractBanner(shebangSrc);
+    assert('16. banner extractor: shebang+/* skipped, real comment line wins',
+      sb === 'real-purpose-line',
+      'got: ' + JSON.stringify(sb));
+
+    // 17 (bonus, Phase 35 ATC W2 Codex regression). Box-drawing rule line
+    // (U+2501 HEAVY HORIZONTAL) must be filtered as a rule and the next
+    // real comment line returned, NOT the rule's ascii-folded '----...'.
+    const boxSrc = "#!/usr/bin/env bash\n# ━━━━━━━━\n# real-banner-text\n# ━━━━━━━━\necho hi\n";
+    const bx = module.exports.__test__._extractBanner(boxSrc);
+    assert('17. banner extractor: box-drawing rule line skipped',
+      bx === 'real-banner-text',
+      'got: ' + JSON.stringify(bx));
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
@@ -909,25 +970,36 @@ module.exports = {
 // ----------------------------------------------------------------------------
 
 if (require.main === module) {
-  const argv = process.argv.slice(2);
-  const cmd = argv[0] || '--generate';
+  // Phase 35 ATC W1 fix (Codex): top-level try/catch boundary so any
+  // unforeseen internal throw from compose / render / read* never escapes
+  // as an unhandled rejection. modeGenerate/modeCheck already wrap
+  // compose() internally; this is belt-and-braces over selfTest's
+  // assertion-loop boundary and over future helper additions.
+  try {
+    const argv = process.argv.slice(2);
+    const cmd = argv[0] || '--generate';
 
-  if (cmd === '--help' || cmd === '-h') {
-    console.log('Usage:');
-    console.log('  node super-gsd/tools/system-map/generate.cjs --generate [--out-dir <path>]');
-    console.log('  node super-gsd/tools/system-map/generate.cjs --check    [--out-dir <path>]');
-    console.log('  node super-gsd/tools/system-map/generate.cjs --self-test');
-    console.log('  node super-gsd/tools/system-map/generate.cjs --help');
-    process.exit(0);
+    if (cmd === '--help' || cmd === '-h') {
+      console.log('Usage:');
+      console.log('  node super-gsd/tools/system-map/generate.cjs --generate [--out-dir <path>]');
+      console.log('  node super-gsd/tools/system-map/generate.cjs --check    [--out-dir <path>]');
+      console.log('  node super-gsd/tools/system-map/generate.cjs --self-test');
+      console.log('  node super-gsd/tools/system-map/generate.cjs --help');
+      process.exit(0);
+    }
+
+    let outDir = null;
+    const oIdx = argv.indexOf('--out-dir');
+    if (oIdx > 0 && argv[oIdx + 1]) outDir = path.resolve(argv[oIdx + 1]);
+
+    if (cmd === '--self-test') process.exit(selfTest());
+    if (cmd === '--check')     process.exit(modeCheck(outDir));
+    if (cmd === '--generate')  process.exit(modeGenerate(outDir));
+    console.error('Unknown command: ' + cmd);
+    process.exit(3);
+  } catch (e) {
+    console.error('[SGSD] system-map: unexpected operator-boundary failure:', e && e.message);
+    if (process.env.SGSD_DEBUG) console.error(e && e.stack);
+    process.exit(4);
   }
-
-  let outDir = null;
-  const oIdx = argv.indexOf('--out-dir');
-  if (oIdx > 0 && argv[oIdx + 1]) outDir = path.resolve(argv[oIdx + 1]);
-
-  if (cmd === '--self-test') process.exit(selfTest());
-  if (cmd === '--check')     process.exit(modeCheck(outDir));
-  if (cmd === '--generate')  process.exit(modeGenerate(outDir));
-  console.error('Unknown command: ' + cmd);
-  process.exit(3);
 }

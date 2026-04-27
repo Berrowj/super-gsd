@@ -529,7 +529,7 @@
       "version": 2.1
     }
   ],
-  "generated_at": "2026-04-27T11:01:14.759Z",
+  "generated_at": "2026-04-27T11:14:10.459Z",
   "libs": [
     {
       "ext": ".cjs",
@@ -722,7 +722,7 @@
       "lines": 126,
       "name": "merge-settings.js",
       "path": "super-gsd/scripts/merge-settings.js",
-      "purpose": "!/usr/bin/env node"
+      "purpose": "Super GSD · merge-settings.js"
     },
     {
       "ext": ".sh",
@@ -743,7 +743,7 @@
       "lines": 241,
       "name": "sgsd-agent-dashboard.sh",
       "path": "super-gsd/scripts/sgsd-agent-dashboard.sh",
-      "purpose": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      "purpose": "Super GSD Agent Dashboard"
     },
     {
       "ext": ".ps1",
@@ -785,7 +785,7 @@
       "lines": 153,
       "name": "sgsd-ctx.js",
       "path": "super-gsd/scripts/sgsd-ctx.js",
-      "purpose": "!/usr/bin/env node"
+      "purpose": "sgsd-ctx — report current Claude Code session context usage as JSON"
     },
     {
       "ext": ".sh",
@@ -834,14 +834,14 @@
       "lines": 146,
       "name": "sgsd-headless.ps1",
       "path": "super-gsd/scripts/sgsd-headless.ps1",
-      "purpose": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      "purpose": "Super GSD Headless Runner - Windows PowerShell"
     },
     {
       "ext": ".sh",
       "lines": 185,
       "name": "sgsd-headless.sh",
       "path": "super-gsd/scripts/sgsd-headless.sh",
-      "purpose": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      "purpose": "Super GSD Headless Runner"
     },
     {
       "ext": ".sh",

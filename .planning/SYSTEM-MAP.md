@@ -5,7 +5,7 @@
 > `node super-gsd/tools/system-map/generate.cjs --generate`
 
 Schema version: 1
-Generated at: 2026-04-27T11:01:14.759Z
+Generated at: 2026-04-27T11:14:10.459Z
 Generator: super-gsd/tools/system-map/generate.cjs
 
 ## Contents
@@ -115,24 +115,24 @@ Escalation policy:
 |------|---------|-------|
 | super-gsd/scripts/Install-SgsdShortcut.ps1 | Super GSD - Install sgsd shortcut | 354 |
 | super-gsd/scripts/codex-exec.sh | codex-exec -- bash wrapper around `codex exec` for Phase 14 provider substrate | 724 |
-| super-gsd/scripts/merge-settings.js | !/usr/bin/env node | 126 |
+| super-gsd/scripts/merge-settings.js | Super GSD * merge-settings.js | 126 |
 | super-gsd/scripts/patch-gsd-tools-known-keys.sh | ERG-02 -- Patch KNOWN_TOP_LEVEL in gsd-tools core.cjs so SGSD v2 config keys | 220 |
 | super-gsd/scripts/sgsd-agent-dashboard.ps1 | Super GSD Agent Dashboard - Windows PowerShell | 192 |
-| super-gsd/scripts/sgsd-agent-dashboard.sh | ????????????????????????????????????????????????????? | 241 |
+| super-gsd/scripts/sgsd-agent-dashboard.sh | Super GSD Agent Dashboard | 241 |
 | super-gsd/scripts/sgsd-boot.ps1 | Super GSD - Boot Command | 933 |
 | super-gsd/scripts/sgsd-boot.sh | Super GSD * Boot Command (bash fallback) | 177 |
 | super-gsd/scripts/sgsd-codex-monitor.ps1 | Super GSD - P5 - Codex Monitor | 849 |
 | super-gsd/scripts/sgsd-configure.ps1 | Super GSD - Project Knowledge Setup | 173 |
 | super-gsd/scripts/sgsd-conformance-check.sh | sgsd-conformance-check -- DLB-05 Wave B | 146 |
-| super-gsd/scripts/sgsd-ctx.js | !/usr/bin/env node | 153 |
+| super-gsd/scripts/sgsd-ctx.js | sgsd-ctx -- report current Claude Code session context usage as JSON | 153 |
 | super-gsd/scripts/sgsd-ctx.sh | sgsd-ctx -- shell wrapper around sgsd-ctx.js | 21 |
 | super-gsd/scripts/sgsd-curate.sh | sgsd-curate -- write a new entry to the SGSD context tree and update INDEX.md | 261 |
 | super-gsd/scripts/sgsd-dashboard-host.ps1 | Super GSD - Dashboard Pane Host | 68 |
 | super-gsd/scripts/sgsd-dashboard.ps1 | Super GSD Project Dashboard - Full Stats | 770 |
 | super-gsd/scripts/sgsd-distill-milestone.sh | sgsd-distill-milestone -- trajectory distillation with triple hallucination gate | 462 |
 | super-gsd/scripts/sgsd-gate-verdict.ps1 | Super GSD * P5 * Gate Verdict Board | 1412 |
-| super-gsd/scripts/sgsd-headless.ps1 | ????????????????????????????????????????????????????? | 146 |
-| super-gsd/scripts/sgsd-headless.sh | ????????????????????????????????????????????????????? | 185 |
+| super-gsd/scripts/sgsd-headless.ps1 | Super GSD Headless Runner - Windows PowerShell | 146 |
+| super-gsd/scripts/sgsd-headless.sh | Super GSD Headless Runner | 185 |
 | super-gsd/scripts/sgsd-intent-check.sh | sgsd-intent-check -- milestone-close signal for DLB-03 intent continuity | 239 |
 | super-gsd/scripts/sgsd-live-feed.ps1 | Super GSD Live Activity Feed - Simple scrollable live tail | 153 |
 | super-gsd/scripts/sgsd-memory-migrate.ps1 | Super GSD - Memory Consolidation Migration | 429 |

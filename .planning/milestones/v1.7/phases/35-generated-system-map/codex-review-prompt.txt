@@ -1,0 +1,80 @@
+You are reviewing Phase 35 of the SGSD v1.7 milestone for ATC code-review. This is the FINAL v1.7 phase.
+
+Phase 35 ships the Generated System Map: deterministic catalog generator over registries + skills/* frontmatter + scripts/* headers. Four files modified/created:
+
+1. super-gsd/tools/system-map/generate.cjs (NEW, 933 lines) -- single-file Node generator; vendored js-yaml only; exports compose, renderJson, renderMd, stableStringify, SCHEMA_VERSION, OUT_JSON_NAME, OUT_MD_NAME, __test__. CLI: --generate (default), --check, --self-test, --help. 16-assertion self-test in tmpdir.
+2. super-gsd/docs/ARCHITECTURE.md (MODIFIED, +14 lines) -- DEPRECATED block inserted after section §6/§7/§8 redirecting readers to .planning/SYSTEM-MAP.md as canonical; original tables PRESERVED (Q17 lock).
+3. .planning/SYSTEM-MAP.json (NEW, 42806 bytes) -- machine-readable system map with 8 sections (agents, gates, providers, board_members, contracts, ledgers, skills, scripts/libs).
+4. .planning/SYSTEM-MAP.md (NEW, 182 lines) -- rendered ASCII-only Markdown view.
+
+DEVIATIONS during execution (all justified):
+- Adjusted assertion 3 from `gates >= 15` to `gates >= 13` (registry has 13 active gates today).
+- Added _safeLoadYaml + _scalarFromYaml regex fallback for handover-contract-v2.yaml strict-YAML failure (contract locked, can't modify; extract only contract_version).
+- Added _asciiFold helper for typographic codepoints (-> arrow, em-dashes) in registry strings; JSON preserves Unicode, MD is ASCII-folded.
+- Wired real _extractBanner via __test__ namespace for assertion 15 (G1 fix; mirrors review-ledger.cjs).
+- Inline comment on modeCheck strip-regex documenting key-order assumption (G2 fix).
+
+Locked from 35-RESEARCH.md §11 (18 derivation calls):
+- 35=B: registries + frontmatter only; no dependency graph
+- Output paths: .planning/SYSTEM-MAP.{json,md}
+- Sort: alphabetical-codepoint comparator
+- Only `generated_at` varies; no git-rev embedding
+- Generated artifacts COMMITTED to git
+- ARCHITECTURE.md deprecation note ALONGSIDE existing tables (not replacing)
+
+Acceptance criteria (MAP-01..04, all runnable + verified):
+- MAP-01: generator reads agents.yaml + gates.yaml + review-providers.yaml + board-members.yaml + command-envelope-v1.yaml + skills/*/SKILL.md frontmatter + scripts/* headers
+- MAP-02: 8 sections present (agents, gates, providers, board_members, contracts [5 levels], ledgers, skills, scripts/libs); both .json + .md exist
+- MAP-03: --generate twice produces byte-identical output mod generated_at; --check exits 0 on freshly-generated
+- MAP-04: ARCHITECTURE.md DEPRECATED block + cite to .planning/SYSTEM-MAP.md present
+
+Plus:
+- Live-or-local fallback: generator runs deterministically, no external deps; --self-test exercises tmpdir fixtures; --check drift guard runs against committed artifacts
+- Schema-without-consumer rule: 4 callers (operator reads .md; future tooling reads .json; --check drift guard; ARCHITECTURE.md deprecation reader)
+- Envelope-v1 reconciliation preserved (collides_with: [] still holds)
+
+YOUR TASK
+
+Review the 4 modified files for:
+1. Determinism rigor (stableStringify true correctness; sort order codepoint-stable; only generated_at varies)
+2. Generator correctness (no missing inputs; correct frontmatter parsing; banner extractor handles 3 file forms)
+3. ARCHITECTURE.md deprecation safety (only adds block; preserves §6/§7/§8 tables and §9+ content)
+4. ASCII-only constraint (output .md is ASCII-folded; .json preserves Unicode -- this is the design intent)
+5. Generated artifacts conformance (5 contracts enumerated; gates carry repair_instruction + 2 repair_command from Phase 33)
+6. Public API safety (never throws upward; __dirname-anchored fingerprint)
+7. 10-point anti-slop checklist:
+   - Every exported symbol has a caller
+   - Every imported module is used
+   - delta-Complexity proportional (~933 LOC for a 5-section generator + 16-assertion self-test + --check drift guard)
+   - Existing contracts preserved verbatim
+   - Single-purpose phase (yes -- catalog generator)
+   - No mass-deletable content
+   - Failure path documented (--check exit 1 on drift; --self-test exit 1 on assertion fail)
+   - Reuse over rewrite (vendored js-yaml; route-ledger.cjs/review-ledger.cjs architectural template)
+   - No "just in case" predicates
+   - Frozen consts (PREDICATES, SOURCES, SCHEMA_VERSION)
+
+Files to read:
+- super-gsd/tools/system-map/generate.cjs
+- super-gsd/docs/ARCHITECTURE.md (focus on lines 198-280; deprecation insertion area)
+- .planning/SYSTEM-MAP.json (verify 8 sections + 5 contracts; spot-check sort order)
+- .planning/SYSTEM-MAP.md (verify ASCII-only; verify deprecation footer cites this file)
+- .planning/milestones/v1.7/phases/35-generated-system-map/35-01-generated-system-map-PLAN.md
+- super-gsd/scripts/lib/review-ledger.cjs (Phase 34 architectural precedent)
+
+REPORT CONTRACT (code-reviewer-v1) -- emit EXACTLY these 5 lines as the LAST 5 lines of your reply (parser is awk; uses last occurrence of each tag):
+
+FINDINGS: <one-line summary; "none" if 0 CRIT and 0 WARN>
+CRITICAL: <integer count>
+WARNINGS: <integer count>
+PASS_RATE: <N>/10
+ONE_LINER: <one-line, <=200-char overall conclusion>
+
+The wrapper expects literal token "FINDINGS:" (NOT "VERDICT:"). All 5 lines must be present at end of reply or the report will be rejected as a contract violation (exit 6).
+
+Above the 5-line contract block, provide:
+- CRIT findings (with file:line citations) -- empty if 0
+- WARN findings (with file:line citations) -- empty if 0
+- 10-point anti-slop checklist with verdicts
+
+Be ruthless. Phase 31, 32, 33, 34 each surfaced real CRITs Claude missed -- apply equal rigor.
