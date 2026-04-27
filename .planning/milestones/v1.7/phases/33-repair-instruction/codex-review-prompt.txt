@@ -1,0 +1,66 @@
+You are reviewing Phase 33 of the SGSD v1.7 milestone for ATC code-review.
+
+Phase 33 is config + code (gates.yaml edits + new lib + 2 small skill edits). Six files modified/created:
+
+1. super-gsd/registry/gates.yaml (MODIFIED, +15 lines: 13 repair_instruction + 2 repair_command)
+2. super-gsd/scripts/lib/repair-command-checker.cjs (NEW, 469 lines) -- 4-AND safety predicate validator; exports PREDICATES (frozen), DENYLISTS (4 keys), validateOneCommand, validateRepairCommands, validateGatesYaml, assertEveryBlockingGateHasInstruction, repairInstructionForBacklogRow, unresolvedRepairsForMilestone, selfTest; --self-test runs 14 assertions + fingerprint guard against canonical gates.yaml; --validate / --validate-file CLI modes.
+3. super-gsd/scripts/lib/gates-registry.cjs (MODIFIED, +19 lines at line 53) -- load-time validateRepairCommands integration; throws on poisoned config.
+4. super-gsd/scripts/lib/sgsd-mission-strip.ps1 (MODIFIED, +9/-2 lines at Q4 block) -- surfaces repair_instruction text in cockpit Q4 lane.
+5. super-gsd/skills/sgsd-complete-milestone/SKILL.md (MODIFIED, +24 lines in step_6_summary) -- enumerates Unresolved Repairs at milestone close.
+
+Locked decisions: 33=C (under 26.3 4-AND), 26.3 (deterministic AND safe AND local AND auth-free).
+
+A2 verification drove 2 demotions: sgsd-recall-queries (no --self-test/--dry-run flag in source) and token-log (super-gsd/tools/token-audit/check.cjs file does not exist) -- both ship instruction-only. Final: 13 instructions + 2 commands.
+
+Acceptance criteria (REPAIR-01..04, all runnable):
+- REPAIR-01: every gate row has repair_instruction (>=13)
+- REPAIR-02: each repair_command passes 4-AND
+- REPAIR-03: schema-load checker rejects violations; injecting bad command into fixture causes load failure
+- REPAIR-04: Mission Strip Q4 surfaces text; milestone close lists unresolved repairs
+
+YOUR TASK
+
+Review the 5 files for:
+1. Predicate completeness (4 deny-list arrays exhaustively cover all DISCUSS 26.3 anti-patterns?)
+2. Predicate ordering (does the checker fail-fast on the first violated predicate, or check all 4?)
+3. Load-time safety (poisoned config halts startup deterministically?)
+4. Schema-without-consumer rule (3 in-phase consumers — checker IS the consumer at gates-registry load() integration; Mission Strip; milestone close)
+5. ASCII-only constraint
+6. 10-point anti-slop checklist:
+   - Every exported symbol has a caller
+   - Every imported module is used
+   - delta-Complexity proportional (1 lib + ~50 LOC of integration vs the alternative of inlining the check in gates-registry)
+   - Existing contracts preserved verbatim (envelope-v1 + 4 contracts untouched)
+   - Single-purpose phase (config edits + checker + 2 surfacing edits = ONE thing: repair contract)
+   - No mass-deletable content
+   - Failure path documented (writer never crashes orchestrator; load-time throw is intentional defense-in-depth)
+   - Reuse over rewrite (route-ledger.cjs 1:1 architectural mirror)
+   - No "just in case" predicates
+   - Frozen const PREDICATES + DENYLISTS
+
+Files to read:
+- super-gsd/registry/gates.yaml (focus on repair_instruction + repair_command fields; verify each command actually passes 4-AND)
+- super-gsd/scripts/lib/repair-command-checker.cjs (the new lib)
+- super-gsd/scripts/lib/gates-registry.cjs (the integration)
+- super-gsd/scripts/lib/sgsd-mission-strip.ps1 (Q4 extension)
+- super-gsd/skills/sgsd-complete-milestone/SKILL.md (Step 6 SUMMARY extension)
+- .planning/milestones/v1.7/phases/33-repair-instruction/33-01-repair-instruction-contract-PLAN.md
+- .planning/milestones/v1.7/phases/33-repair-instruction/33-VERIFICATION.md
+- super-gsd/scripts/lib/route-ledger.cjs (Phase 32 — the architectural template)
+
+REPORT CONTRACT (code-reviewer-v1) -- emit EXACTLY these 5 lines as the LAST 5 lines of your reply (parser is awk; uses last occurrence of each tag):
+
+FINDINGS: <one-line summary; "none" if 0 CRIT and 0 WARN>
+CRITICAL: <integer count>
+WARNINGS: <integer count>
+PASS_RATE: <N>/10
+ONE_LINER: <one-line, <=200-char overall conclusion>
+
+The wrapper expects literal token "FINDINGS:" (NOT "VERDICT:"). All 5 lines must be present at end of reply or the report will be rejected as a contract violation (exit 6).
+
+Above the 5-line contract block, provide:
+- CRIT findings (with file:line citations) -- empty if 0
+- WARN findings (with file:line citations) -- empty if 0
+- 10-point anti-slop checklist with verdicts
+
+Be ruthless. Phase 31 and 32 reviews surfaced real CRITs that Claude missed — apply equal rigor.

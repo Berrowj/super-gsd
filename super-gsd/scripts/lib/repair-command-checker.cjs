@@ -45,7 +45,7 @@ const DETERMINISTIC_DENYLIST = [
   /Math\.random\(\)/,              // Math.random()
   /\bcurl\b/i,                     // curl (network = non-deterministic)
   /\bwget\b/i,                     // wget
-  /\bgh\b\s+(?!auth\s+status)/,    // gh hits remote (gh auth status exempt; A3)
+  /\bgh\b\s+(?!auth\s+status)/,    // gh hits remote (NOTE: this denylist exempts `gh auth status` for DETERMINISTIC, but AUTH_FREE_DENYLIST below blocks all `gh auth ...` -- net 4-AND verdict on `gh auth status` is REJECT. The exemption matters only for cross-predicate symmetry; never trust the negative lookahead in isolation.)
   /\bopenssl\s+rand\b/,            // openssl rand
   /\/dev\/u?random\b/,             // /dev/random, /dev/urandom
   /--seed=\$\(/,                   // dynamic seed
@@ -71,6 +71,16 @@ const SAFE_DENYLIST = [
   /\bmkfs\b/,                      // mkfs
   /\b:\(\)\s*\{\s*:\|/,            // fork bomb
   /\bnpm\s+install\b/,             // npm install mutates node_modules outside tree-control
+  // Phase 33 ATC fix: close shell-eval / command-substitution bypasses that would
+  // let a string smuggle arbitrary code past the literal regex deny-lists.
+  /\$\(/,                          // ANY $(...) command substitution -- defeats literal-regex parsing
+  /`[^`]*`/,                       // backtick substitution -- same defeat
+  /\beval\b/,                      // eval arbitrary string as code
+  /\bsource\s+/,                   // source file -- loads + executes arbitrary content
+  /^\.\s+\S/,                      // POSIX dot-source equivalent (`. file.sh`)
+  /\b(bash|sh|zsh|ksh|powershell|pwsh|node|python|perl|ruby)\s+-c\b/i, // shell -c "<arbitrary>"
+  /\|\s*(bash|sh|zsh|ksh|powershell|pwsh)\b/i, // pipe-to-shell (... | bash)
+  /\bxargs\b.*\b(sh|bash)\s+-c\b/i, // xargs ... sh -c "..."
 ];
 
 const LOCAL_DENYLIST = [
@@ -81,7 +91,7 @@ const LOCAL_DENYLIST = [
   /\brsync\s+[^\s]+:/,             // rsync host:path = remote
   /\bkubectl\b/i,
   /\bdocker\s+(push|pull|run\s+--network)/i,
-  /\bgh\b\s+(?!auth\s+status)/,    // gh almost always remote
+  /\bgh\b\s+(?!auth\s+status)/,    // gh almost always remote (same exemption note as DETERMINISTIC_DENYLIST: net 4-AND on `gh auth status` is REJECT via AUTH_FREE_DENYLIST)
   /\baws\b\s+(?!sts\s+get-caller-identity)/i,
   /\bhttps?:\/\//i,                // any URL literal
   /:\/\/[^\s\/]+/,                 // generic protocol://host
@@ -265,10 +275,15 @@ function unresolvedRepairsForMilestone(planningDir, milestone, gatesYamlPath) {
     const out = [];
     for (const r of rows) {
       if (r && r.kind === 'cleared') continue;
+      // Phase 33 ATC fix (Codex CRIT 2): retain the milestone tag on every
+      // returned row so the milestone-close SUMMARY consumer can verify each
+      // repair belongs to the milestone being closed (defense-in-depth even
+      // when rowsForMilestone has already filtered).
       const text = repairInstructionForBacklogRow(r, gatesYamlPath);
       out.push({
         backlog_id: r.id || null,
         gate: r.gate || null,
+        milestone: r.milestone || milestone || null,
         summary: (r.summary || '').slice(0, 120),
         repair_instruction: text || '',
       });

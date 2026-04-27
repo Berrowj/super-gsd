@@ -122,12 +122,17 @@ Generate this section by calling
 and rendering the returned rows as a markdown table:
 
 ```markdown
-## Unresolved Repairs
+## Unresolved Repairs (milestone {{version}})
 
-| backlog id | gate | summary | repair_instruction |
-|---|---|---|---|
-| <id> | <gate name> | <truncated summary> | <repair_instruction> |
+| backlog id | milestone | gate | summary | repair_instruction |
+|---|---|---|---|---|
+| <id> | <milestone tag from row> | <gate name> | <truncated summary> | <repair_instruction> |
 ```
+
+**Verification**: every `<milestone tag from row>` MUST equal `{{version}}`.
+The helper now retains the milestone field on each row so the SUMMARY
+author can sanity-check the filter and reject any leak from a different
+milestone version (Phase 33 ATC Codex CRIT 2 fix).
 
 If the helper returns an empty array, write the literal line:
 `(no unresolved repairs for this milestone)`.

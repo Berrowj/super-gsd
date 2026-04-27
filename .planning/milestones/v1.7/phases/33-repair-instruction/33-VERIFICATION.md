@@ -4,7 +4,10 @@ plan: 33-01
 status: PASS
 verified: 2026-04-27T00:00:00Z
 requirements: [REPAIR-01, REPAIR-02, REPAIR-03, REPAIR-04]
----
+re_verification: true
+re_verification_reason: "Phase-level ATC dual-provider surfaced 2 Codex CRITs (unsafe command bypasses; milestone-tag omission) + 3 Claude WARNs; all 5 fixed in-loop in 1 attempt each. Strengthened SAFE deny-list with 8 new bypass patterns ($(...) command substitution, backticks, eval, bash -c, pipe-to-shell, source, dot-source, xargs sh -c). Added milestone field to unresolvedRepairsForMilestone output + SUMMARY column. Defensive process.argv refactor in Mission Strip Q4. Soft-warn-first ordering in gates-registry. Bypass test 8/8 reject; 2 shipping commands preserved with no regression."
+atc_review: 33-ATC-REVIEW.md
+atc_anti_slop_combined_estimated: "~9.5/10"
 
 # Phase 33 Verification (REPAIR-01..04)
 

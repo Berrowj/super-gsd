@@ -258,10 +258,16 @@ function Get-MissionStripState {
                 # Use node to enumerate rowsForPhase deterministically.
                 $rcPath = (Join-Path $ProjectDir "super-gsd/scripts/lib/repair-command-checker.cjs") -replace '\\','/'
                 $gatesPath = (Join-Path $ProjectDir "super-gsd/registry/gates.yaml") -replace '\\','/'
-                $nodeExpr = "const m=require('$($cjsPath -replace '\\','/')'); const rc=require('$rcPath'); const rows=m.rowsForPhase('$(($ProjectDir -replace '\\','/'))/.planning', '$($out.activePhase)'); const r=rows[0]; const repair = r ? rc.repairInstructionForBacklogRow(r,'$gatesPath') : ''; console.log(JSON.stringify({n:rows.length, first: (r && r.summary) || '', repair}));"
+                $cjsForward = $cjsPath -replace '\\','/'
+                $planningDir = ($ProjectDir -replace '\\','/') + "/.planning"
+                # Phase 33 ATC W2 fix: pass paths via process.argv (after `--`)
+                # rather than string-interpolating into the JS literal. Defensive
+                # against any path containing spaces, single quotes, or other
+                # PowerShell tokenization edge cases.
+                $nodeExpr = "const m=require(process.argv[1]); const rc=require(process.argv[2]); const rows=m.rowsForPhase(process.argv[3], process.argv[4]); const r=rows[0]; const repair = r ? rc.repairInstructionForBacklogRow(r, process.argv[5]) : ''; console.log(JSON.stringify({n:rows.length, first: (r && r.summary) || '', repair}));"
                 $nodeOut = $null
                 try {
-                    $nodeOut = & node -e $nodeExpr 2>$null
+                    $nodeOut = & node -e $nodeExpr -- $cjsForward $rcPath $planningDir "$($out.activePhase)" $gatesPath 2>$null
                 } catch {}
                 if ($nodeOut) {
                     try {
