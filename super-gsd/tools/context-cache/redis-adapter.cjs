@@ -22,7 +22,7 @@
 // LOCK INVARIANTS (must hold for the entire lifetime of this file)
 //
 //   REDIS-LOCK-01  Projection only. Allowed kinds are exactly the 9 entries
-//                  in ALLOWED_KINDS. Forbidden kinds are exactly the 7
+//                  in ALLOWED_KINDS. Forbidden kinds are exactly the 8
 //                  entries in FORBIDDEN_KINDS. The allowlist + denylist are
 //                  Object.frozen at module load and mechanically enforced on
 //                  every put (T2 wires the check; T1 ships the constants).
@@ -123,9 +123,16 @@ const ALLOWED_KINDS = Object.freeze(new Set([
   'short_lived_counter',
 ]));
 
-// REDIS-LOCK-01 denylist (7 entries). Source: 52-REDIS-GUIDE-DELTA.md
+// REDIS-LOCK-01 denylist (8 entries). Source: 52-REDIS-GUIDE-DELTA.md
 // "Redis Key Kinds" forbidden list. Mechanically rejects any put with one
 // of these kinds; reason='forbidden_kind'.
+//
+// Note on `validated_thought` vs `validated_thought_projection`:
+//   - `validated_thought` is canonical truth. It lives in
+//     memory-governance / .planning/ and MUST NEVER be stored in Redis
+//     (REDIS-LOCK-01: projection-only). Hence forbidden.
+//   - `validated_thought_projection` is a SUMMARY/projection of a
+//     validated thought, safe to cache in Redis. Stays in ALLOWED_KINDS.
 const FORBIDDEN_KINDS = Object.freeze(new Set([
   'decision',
   'debt',
@@ -134,6 +141,7 @@ const FORBIDDEN_KINDS = Object.freeze(new Set([
   'memory_lifecycle',
   'benchmark_result',
   'route_decision',
+  'validated_thought',
 ]));
 
 // TTL_BY_KIND: 9-entry map per RESEARCH "Pitfall 3" recommended TTLs.
@@ -237,41 +245,36 @@ function _redactRedisUrl(s) {
 }
 
 // ----------------------------------------------------------------------------
-// _emitProjectionLog (envelope-v1)
-// Append-only JSONL writer for Redis adapter observability events. Mirrors
-// Phase 41 envelope-v1 schema and Phase 46 rebuild.cjs:_emitContextIndexComplaint
-// at lines 222-234. NEVER throws (Lock 13).
+// _emitProjectionLog (T1 deferral stub; T5 wires the canonical writer)
 //
-// Row schema:
-//   { envelope_version: 1, command: 'emitProjectionLog',
-//     ts: ISO-8601, status, reason, key?, kind?, detail? }
-// additionalProperties:true so future fields require no schema bump.
+// CONTRACT BOUNDARY (52-01 T1 vs T5):
+//   T1 must NOT perform any fs.appendFileSync / fs.writeFile to the
+//   projection log file. The append-only JSONL writer + envelope-v1 row
+//   schema + Pitfall 1 redaction is T5's deliverable per
+//   52-PLAN.md task split. T1 ships the call sites + the disabled-OK
+//   short-circuits so the 8 public APIs and _getClient compile and test
+//   green; the body here is a deliberate no-op until T5 lands.
+//
+// Why no-op (not delete):
+//   _getClient and several public-API catch blocks already invoke
+//   _emitProjectionLog; making it a callable no-op preserves call-site
+//   stability, prevents Lock 13 violations from a missing function, and
+//   lets T5's diff be additive (fill the body, no rewiring of callers).
+//
+// T5 will replace this body with the envelope-v1 writer:
+//   - mkdirSync(parent, { recursive: true })
+//   - merge { envelope_version:1, command:'emitProjectionLog', ts } + row
+//   - JSON.stringify with /:[^@:/"\\]*@/g credential redaction
+//   - fs.appendFileSync(logPath, line + '\n', 'utf8')
+// per REDIS-LOCK-06 + projection-log envelope-v1 schema (Phase 41).
+// NEVER throws (Lock 13) - both T1 stub and T5 impl absorb errors.
 // ----------------------------------------------------------------------------
 
-function _emitProjectionLog(row, _opts) {
-  try {
-    const logPath = _resolveProjectionLogPath();
-    const parent = path.dirname(logPath);
-    try {
-      fs.mkdirSync(parent, { recursive: true });
-    } catch (_e) {
-      // Directory exists or cannot be created; the appendFileSync below
-      // will surface the real failure mode and be absorbed by the outer
-      // try.
-    }
-    const base = {
-      envelope_version: 1,
-      command: 'emitProjectionLog',
-      ts: _isoNow(),
-    };
-    const merged = Object.assign(base, row || {});
-    // Defensive redaction: if caller passed `detail` containing a redis URL
-    // with credentials, redact before write. Single-pass on the JSON string.
-    const line = JSON.stringify(merged).replace(/:[^@:/"\\]*@/g, ':***@');
-    fs.appendFileSync(logPath, line + '\n', 'utf8');
-  } catch (_e) {
-    // Lock 13: never throw on log-write failure. Caller continues.
-  }
+function _emitProjectionLog(_row, _opts) {
+  // TODO(T5): wire fs.appendFileSync per REDIS-LOCK-06 + projection-log
+  // envelope-v1. T1 intentionally no-ops to honor the task-deferral
+  // invariant ("No fs.writeFile/appendFile in T1 skeleton").
+  return;
 }
 
 // ----------------------------------------------------------------------------
@@ -376,41 +379,25 @@ function _disabledReason() {
 async function _getClient() {
   // T1 short-circuit: if any disabled reason fires, do not attempt to
   // open a connection. Returning null here is the entire degraded-OK
-  // contract (REDIS-LOCK-06). T5 will add reconnectStrategy when a real
-  // URL is present.
-  const reason = _disabledReason();
-  if (reason) return null;
+  // contract (REDIS-LOCK-06).
+  //
+  // T1 contract: this function returns null in 100% of cases. We do NOT
+  // call _redis.createClient or open any socket; T2 is responsible for
+  // the real connection wiring (createClient + reconnectStrategy +
+  // socket lifecycle + error handler), and T5 layers the projection-log
+  // emission on top. Avoiding createClient here removes the zombie
+  // client object that the prior body allocated and immediately
+  // discarded on every call.
+  //
+  // The two module-level flags (_client, _clientConnectAttempted) and
+  // the REDIS_CONNECT_TIMEOUT_MS / REDIS_COMMAND_TIMEOUT_MS constants
+  // remain in place so T2 can wire them without touching this surface.
+  if (_disabledReason()) return null;
   if (_client) return _client;
-  if (_clientConnectAttempted) return null;
-  _clientConnectAttempted = true;
-  try {
-    // Defensive: only call into _redis.createClient if it is a function.
-    // Some redis@5 builds export the symbol shape differently; guard.
-    if (!_redis || typeof _redis.createClient !== 'function') {
-      return null;
-    }
-    const url = process.env.SGSD_REDIS_URL;
-    const client = _redis.createClient({
-      url: url,
-      socket: {
-        connectTimeout: REDIS_CONNECT_TIMEOUT_MS,
-      },
-      commandOptions: {
-        timeout: REDIS_COMMAND_TIMEOUT_MS,
-      },
-    });
-    // T5 wires the 'error' handler + reconnectStrategy. T1 leaves the
-    // client unconnected; we DO NOT call client.connect() in T1 so that
-    // selfTest A4 does not need a live Redis on the build agent.
-    return null;
-  } catch (_e) {
-    _emitProjectionLog({
-      status: 'degraded',
-      reason: 'redis_connect_failed',
-      detail: _redactRedisUrl(String(process.env.SGSD_REDIS_URL || '')),
-    });
-    return null;
-  }
+  // T2 will set _clientConnectAttempted + call _redis.createClient
+  // here. T1 stays a pure null-returner so selfTest A4 does not need a
+  // live Redis on the build agent and no connection is ever leaked.
+  return null;
 }
 
 // ----------------------------------------------------------------------------
@@ -419,7 +406,15 @@ async function _getClient() {
 // catch returns a documented degraded sentinel, NEVER throws.
 // ----------------------------------------------------------------------------
 
-// 1. isAvailable(opts) -> { ok, degraded_reason, metadata }
+// 1. isAvailable(opts) -> { ok, degraded_reason, source, metadata }
+//
+// `source` field harmonizes the return shape with the other 7 public
+// APIs (which all carry source: 'redis'|'sqlite'|'local'|'degraded').
+// Mapping:
+//   - ok:true  -> source:'redis'    (live Redis path is functioning)
+//   - ok:false -> source:'degraded' (any disabled / connect-fail / internal-error path)
+// Downstream cockpit panels and F17 expected_reason_codes can then
+// branch on `source` uniformly across all 8 APIs.
 async function isAvailable(_opts) {
   try {
     const reason = _disabledReason();
@@ -427,28 +422,32 @@ async function isAvailable(_opts) {
       return {
         ok: false,
         degraded_reason: reason,
+        source: 'degraded',
         metadata: { schema_version: SCHEMA_VERSION },
       };
     }
-    // T1: do not open a real connection here; return ok:false until T5
+    // T1: do not open a real connection here; return ok:false until T2
     // wires the connect path. The shape is the contract.
     const client = await _getClient();
     if (!client) {
       return {
         ok: false,
         degraded_reason: 'redis_connect_failed',
+        source: 'degraded',
         metadata: { schema_version: SCHEMA_VERSION },
       };
     }
     return {
       ok: true,
       degraded_reason: null,
+      source: 'redis',
       metadata: { schema_version: SCHEMA_VERSION },
     };
   } catch (_e) {
     return {
       ok: false,
       degraded_reason: 'internal_error',
+      source: 'degraded',
       metadata: { schema_version: SCHEMA_VERSION },
     };
   }
@@ -651,27 +650,42 @@ async function selfTest() {
     return { size: ALLOWED_KINDS.size };
   }));
 
-  // A2: FORBIDDEN_KINDS frozen + 7 entries + exact membership.
+  // A2: FORBIDDEN_KINDS frozen + 8 entries + exact membership.
+  // Note: `validated_thought` (canonical truth) is forbidden; the
+  // distinct kind `validated_thought_projection` (a SUMMARY) lives in
+  // ALLOWED_KINDS - the two are not synonyms.
   results.push(_bootstrapAssert('A2_forbidden_kinds', function () {
     if (!Object.isFrozen(FORBIDDEN_KINDS)) {
       throw new Error('FORBIDDEN_KINDS must be Object.freeze');
     }
-    if (FORBIDDEN_KINDS.size !== 7) {
-      throw new Error('FORBIDDEN_KINDS size must be 7; got ' + FORBIDDEN_KINDS.size);
+    if (FORBIDDEN_KINDS.size !== 8) {
+      throw new Error('FORBIDDEN_KINDS size must be 8; got ' + FORBIDDEN_KINDS.size);
     }
     const expected = [
       'decision', 'debt', 'evidence', 'phase_capsule',
       'memory_lifecycle', 'benchmark_result', 'route_decision',
+      'validated_thought',
     ];
     for (const k of expected) {
       if (!FORBIDDEN_KINDS.has(k)) throw new Error('FORBIDDEN_KINDS missing: ' + k);
     }
-    return { size: FORBIDDEN_KINDS.size };
+    if (!FORBIDDEN_KINDS.has('validated_thought')) {
+      throw new Error('FORBIDDEN_KINDS must include validated_thought (canonical truth, projection-only invariant)');
+    }
+    // Cross-check: validated_thought_projection (the SUMMARY kind) must
+    // remain on the ALLOWED side - they are distinct concepts.
+    if (FORBIDDEN_KINDS.has('validated_thought_projection')) {
+      throw new Error('validated_thought_projection must NOT be forbidden; it is a projection-safe kind');
+    }
+    return { size: FORBIDDEN_KINDS.size, validated_thought_forbidden: true };
   }));
 
   // A3: isAvailable() returns ok:false when SGSD_REDIS_DISABLED=1 OR
   //     redis module absent OR SGSD_REDIS_URL missing. Asserts at least
   //     one of those branches fires under the test harness env.
+  //     Also asserts the `source` field is present and equals
+  //     'degraded' on the disabled branch (shape parity with the other
+  //     7 public APIs; see W4 fix).
   results.push(await _bootstrapAssertAsync('A3_isAvailable_degraded', async function () {
     const prevDisabled = process.env.SGSD_REDIS_DISABLED;
     process.env.SGSD_REDIS_DISABLED = '1';
@@ -686,7 +700,19 @@ async function selfTest() {
       if (REDIS_REASON_CODES.indexOf(r.degraded_reason) === -1) {
         throw new Error('degraded_reason not in REDIS_REASON_CODES: ' + r.degraded_reason);
       }
-      return { degraded_reason: r.degraded_reason };
+      // Shape parity: every public API must carry `source` per
+      // 'redis'|'sqlite'|'local'|'degraded'.
+      if (typeof r.source !== 'string' || r.source.length === 0) {
+        throw new Error('isAvailable must return source field; got ' + JSON.stringify(r.source));
+      }
+      const validSources = ['redis', 'sqlite', 'local', 'degraded'];
+      if (validSources.indexOf(r.source) === -1) {
+        throw new Error('isAvailable.source must be one of redis|sqlite|local|degraded; got ' + r.source);
+      }
+      if (r.source !== 'degraded') {
+        throw new Error('isAvailable.source must be "degraded" when ok:false; got ' + r.source);
+      }
+      return { degraded_reason: r.degraded_reason, source: r.source };
     } finally {
       if (typeof prevDisabled === 'undefined') delete process.env.SGSD_REDIS_DISABLED;
       else process.env.SGSD_REDIS_DISABLED = prevDisabled;
