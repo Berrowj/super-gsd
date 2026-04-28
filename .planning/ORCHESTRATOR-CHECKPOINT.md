@@ -1,101 +1,106 @@
 ---
-checkpoint: full-roadmap-autopilot-run-3
+checkpoint: full-roadmap-autopilot-run-4
 created: 2026-04-28
-updated: 2026-04-28 (Phase 50 SHIPPED, Phase 51 plan ready for executor)
+updated: 2026-04-28 (v1.9 SHIPPED — all 12 phases 41-52 PASS; advancing to v2.0)
 session: opus-4.7-1m
 mode: autonomous
 emergency_halt: false
 context_percent_at_write: "not_self_estimated"
 controlling_principle: Autonomy continues; evidence tells the truth.
-session_reason_for_pause: "Natural unit boundary — Phase 50 closed cleanly + Phase 51 plan revised+validated. Substantial agent dispatches consumed in this session (verifier, ATC reviewer, researcher, planner, plan-checker, planner-revise). Next session starts with fresh context for the 7-task Phase 51 executor wave."
+session_reason_for_pause: "Milestone v1.9 SGSD-Research SHIPPED 2026-04-28 — all 12 phases closed PASS. v2.0 Failure Injection (phases 53-57) is queued but requires CONTEXT/RESEARCH/PLAN authoring before executor dispatch. Per orchestrator dispatch rule (a) Phase 53 needs CONTEXT.md and discussion of scope before autonomous research+plan+execute can fire. Natural soft-pause for operator kickoff or autonomous continuation with /gsd-orchestrate go (orchestrator will then begin auto-research on Phase 53)."
 next_unit: |
-  Phase 51 (Context Stress Benchmark) executor dispatch. Plan is REVISED + VALIDATED + READY:
-    .planning/milestones/v1.9/phases/51-context-stress-benchmark/51-01-context-stress-benchmark-PLAN.md (commit d8b1774)
-    7 tasks (T1-T7). Schema v2. Validate.cjs --mode load: exit 0.
+  v2.0 (Failure Injection) Phase 53 (Gate Failure-Injection Harness) kickoff.
+
+  STATE.md is bumped: current_milestone=v2.0, current_phase=53, current_phase_name="Gate Failure-Injection Harness (queued — needs CONTEXT/RESEARCH/PLAN)".
 
   Resume by:
-    a. Run sgsd-phase-readiness re-probe (haiku, Rule 4.5 — first executor dispatch of phase)
-    b. Build dispatch plan via dispatchPlanner.buildDispatchPlan(plan) and fan out per wave
-    c. Tasks (per current plan):
-       T1 — context-bench skeleton + scenarios/SCHEMA.md + harness bootstrap (super-gsd/tools/context-bench/)
-       T2 — baseline ledger reader (Phase 41 mode; reads agent-token-spend.jsonl + baseline-token-spend.md)
-       T3 — 6 blind baseline scenario fixtures (researcher, planner, executor, verifier, reviewer, classifier)
-       T4 — 16-fixture failure injection catalog (8 mandatory + 8 from research)
-       T5 — hybrid replay Sonnet post-mode runner (anti-cheat: real route-ledger run_id witness)
-       T6 — diff + reporter writes .planning/milestones/v1.9/CONTEXT-BENCH-RESULTS.md
-       T7 — 18-assertion self-test + sgsd-complete-milestone.cjs CREATE + SKILL.md Step 0 EDIT
-    d. Per-dispatch ATC at FULL tier per Step 9.5 (16-fixture catalog → FULL territory)
-    e. After all 7 tasks land: dispatch gsd-verifier, then phase-level ATC at Step 6.5, then close
+    a. /gsd-discuss-phase 53 (operator-led scope discussion) OR auto-default if v2.0 phases are pre-locked in roadmap
+    b. /gsd-research-phase 53 → produces 53-RESEARCH.md
+    c. /gsd-plan-phase 53 → produces 53-01-...-PLAN.md (schema_version=2; validate.cjs --mode load exit 0)
+    d. /gsd-plan-checker 53 → verdict=pass before executor
+    e. sgsd-phase-readiness for Phase 53 (Rule 4.5)
+    f. Wave-based gsd-executor dispatch per dispatch_plan
+    g. Per-dispatch ATC at Step 9.5 for FULL/GATE tier
+    h. After last task: gsd-verifier → phase-level ATC (Step 6.5) → MUDA → close
+    i. Repeat for Phases 54-57
+    j. v2.0 milestone close → v2.1 (Distribution + Onboarding) Phases 58-62
 
-  THEN Phase 52 (Redis Live Memory Projection Adapter — substantial new code; contract expanded forward-only at commit 6cb01fb; 52-REDIS-GUIDE-DELTA.md is forward addendum binding semantic cache, session/checkpoint markers, event streams, provider-health cache, source-hash validation, TTL/dedup, poisoned-key rejection, safe FLUSHDB, fallback to SQLite/local files; folder name stays 52-redis-live-cache-adapter for path stability).
-  THEN milestone v1.9 close.
-
-  PHASE 51 plan-check WARN findings — ALL 5 ADDRESSED in d8b1774 revise:
-    W1 (run_id substring match for real-dispatch witness; Phase 47 route.cjs writes run_id not scenario_id)
-    W2 (ledger-only mode null pct_reduction documented)
-    W3 (legacy useful_findings imputed as 0 documented)
-    W4 (T5 post_artifacts populated from packet.metadata.consumed_capsule_decisions + packet.bypass_refs + packet.metadata.consumed_atc_findings — DETERMINISTIC, byte-equality-checkable, Lock-11-compliant)
-    W5 (T7 CREATE sgsd-complete-milestone.cjs + EDIT SKILL.md Step 0 one-bullet invocation wire)
+  Phase 51 falsifiable bench is now LIVE — when claude CLI is present, run:
+    `node super-gsd/tools/context-bench/harness.cjs --mode=full --milestone=v1.9`
+  to compute the actual median pct_reduction across S1-S6 baseline scenarios. Today the run produced verdict='ledger-only — incomplete' because claude CLI is absent on this host.
 ---
 
-# Orchestrator Checkpoint - v1.9 Phase 50 SHIPPED, Phase 51 plan ready for executor
+# Orchestrator Checkpoint — v1.9 SHIPPED 2026-04-28; v2.0 queued
 
 ## Status
 
-v1.6 is closed as `SHIPPED-WITH-DEBT-10`.
-**v1.7 is SHIPPED 2026-04-27 — all 5 phases PASS, 0 new debt, v1.5 empty-baseline gap CLOSED.**
-**v1.8 SHIPPED 2026-04-27** — all 5 phases (36-40) PASS; 0 new debt rows.
+- v1.6 SHIPPED-WITH-DEBT-10
+- v1.7 SHIPPED 2026-04-27 (5 phases clean)
+- v1.8 SHIPPED 2026-04-27 (5 phases clean)
+- **v1.9 SHIPPED 2026-04-28 (12 phases — SGSD-Research)**
+- v2.0 queued — phases 53-57 (Failure Injection)
+- v2.1 queued — phases 58-62 (Distribution + Onboarding)
 
-v1.9 phase ledger so far (10/12 PASS):
-- Phase 41 (Baseline Token Attribution): PASS @ ef90751
-- Phase 42 (Token Budget Admission): PASS @ 3124362
-- Phase 43 (Phase Capsule Contract): PASS @ dca3af1
-- Phase 44 (Legal Context Registry): PASS @ 64bee5e
-- Phase 45 (Context Packet Builder): PASS @ f49dc32
-- Phase 46 (SQLite Context Index): PASS @ 095e668
-- Phase 47 (Dispatch Routing Substitution): PASS @ 8c701a2
-- Phase 48 (Selective VTP Bridge): PASS @ ad8583c
-- Phase 49 (Memory Governance Lifecycle): PASS @ 3b31275
-- **Phase 50 (Cockpit Research Dashboard): PASS @ 5f60b56 (closed this session)**
-- Phase 51 (Context Stress Benchmark): plan READY @ d8b1774 — executor pending
-- Phase 52 (Redis Live Cache Adapter): not started
+## v1.9 phase ledger (all 12 PASS)
 
-## What landed this session
+| Phase | Title | Commit | ATC verdict |
+|---|---|---|---|
+| 41 | Baseline Token Attribution | ef90751 | 1 MEDIUM in-loop |
+| 42 | Token Budget Admission | 3124362 | 1 MEDIUM in-loop |
+| 43 | Phase Capsule Contract | dca3af1 | 1 MEDIUM in-loop |
+| 44 | Legal Context Registry | 64bee5e | 1 HIGH + 1 MEDIUM in-loop |
+| 45 | Context Packet Builder | f49dc32 | 1 HIGH + 2 MEDIUM in-loop |
+| 46 | SQLite Context Index | 095e668 | 1 MEDIUM cleanup |
+| 47 | Dispatch Routing Substitution | 8c701a2 | 1 HIGH + 2 MEDIUM in-loop |
+| 48 | Selective VTP Bridge | ad8583c | 1 CRIT + 1 HIGH + 2 MEDIUM in-loop |
+| 49 | Memory Governance Lifecycle | 3b31275 | 1 MEDIUM cleanup |
+| 50 | Cockpit Research Dashboard | ae6d151 | 1 MEDIUM in-loop, 3 LOW deferred |
+| 51 | Context Stress Benchmark | e4e4e67 | 1 MEDIUM in-loop, 3 LOW deferred |
+| 52 | Redis Live Cache Adapter | df72a5a | 0 critical, 4 LOW deferred |
 
-1. Phase 50 close cycle:
-   - 50-VERIFICATION.md (verifier PASS, 0 deviations, 0 blockers)
-   - 50-ATC-REVIEW.md (Claude FULL tier verdict=warn; 0 critical, 0 high, 1 MEDIUM fixed in-loop, 3 LOW deferred)
-   - M1 in-loop fix at sgsd-mission-control.ps1:1885 (compact-path A2 panel was passing duplicate -Active/-History + empty -ToolStream — now mirrors full-render data-prep)
-   - WASTE.md (MUDA all probes PASS exit 0)
-   - STATE.md advanced to Phase 51
-   - Close commit: docs(50): close PHASE 50 PASS @ 5f60b56
+Milestone close: SUMMARY @ e8c3b60 + state bump @ b52e3f3
 
-2. Phase 51 setup:
-   - 51-RESEARCH.md (976 lines — researcher+planner 50% bar, hybrid ledger+Sonnet replay, 6 baseline + 16 injection fixtures, 18-assertion self-test) @ f74286e
-   - 51-01-PLAN.md (7 tasks, schema v2, validate.cjs --mode load exit 0) @ 43ba4da
-   - 51-PLAN-CHECK.md (WARN; 5 amendments) @ 73d0ca1
-   - PLAN revise applied (W1-W5 surgically) @ d8b1774
+## Lock invariants (held across all 12 phases)
 
-## Next Action (resume entry)
+- Lock 4: 9 upstream tool trees + sgsd-cockpit-shell.cjs byte-untouched (verified at every phase verifier)
+- Lock 6: F8/F16 CRIT byte-verbatim preserved
+- Lock 11: NO embedding/cosine/levenshtein/fuzzy/similarity_score anywhere in cache/relationship/oracle decisions
+- Lock 13: every public API try/catch + degraded sentinel; never throws upward (8 redis APIs, 5 bench harness APIs, 4 scoring APIs, all phase 41-50 APIs)
+- 7 REDIS-LOCKS verified mechanically (Phase 52)
 
-Dispatch sgsd-phase-readiness (haiku) for Phase 51 phase-level drift check, then dispatchPlanner.buildDispatchPlan on the plan, then fan out gsd-executor (Sonnet) per wave starting with T1 (context-bench skeleton).
+## Generated artifacts (consumable by v2.0+)
 
-Per-dispatch ATC at FULL tier (Step 9.5) for each executor return.
+- `.planning/metrics/agent-token-spend.jsonl` (Phase 41; ongoing)
+- `.planning/metrics/context-packet-log.jsonl` (Phase 45)
+- `.planning/metrics/route-decisions.jsonl` (Phase 47)
+- `.planning/metrics/memory-{promotions,demotions,revocations,revalidations}.jsonl` (Phase 49)
+- `.planning/metrics/redis-projection-log.jsonl` (Phase 52)
+- `.planning/metrics/context-bench-runs.jsonl` (Phase 51)
+- `super-gsd/tools/context-bench/scenarios/S{1-6}-*.json` (Phase 51 frozen baselines)
+- `super-gsd/tools/context-cache/docker-compose.redis.yml` (Phase 52 dev convenience)
+- `.planning/milestones/v1.9/CONTEXT-BENCH-RESULTS.md` (Phase 51)
+- `.planning/milestones/v1.9/baseline-token-spend.md` (Phase 41 frozen anchor)
+- `.planning/milestones/v1.9/SUMMARY.md` (milestone close)
 
-After all 7 tasks land: gsd-verifier → phase-level ATC (Step 6.5) → close.
+## Next milestone (v2.0) — Failure Injection
 
-## Blockers
+Phases 53-57 (renumbered from packet 46-50; renumber 2026-04-27):
+- 53 — Gate Failure-Injection Harness
+- 54 — Restart + Handoff Chaos Tests
+- 55 — Provider Failure Synthetic Tests
+- 56 — Edge-Guard Fault Drills
+- 57 — Canary Degradation Rehearsal
 
-None known. All upstream contracts (Phase 41-50 tools/libs) shipped and importable.
+The Phase 51 16-fixture catalog (F1-F16 + F17 Phase 52 binding) is the foundation. v2.0 extends it.
 
-## Re-Runnable Checks
+## Open Debt (deferred)
 
-```bash
-node super-gsd/tools/plan-schema/validate.cjs --plan-file .planning/milestones/v1.9/phases/51-context-stress-benchmark/51-01-context-stress-benchmark-PLAN.md --mode load
-node super-gsd/scripts/lib/sgsd-cockpit-shell.cjs --self-test
-node super-gsd/tools/provider-health/check.cjs --self-test
-node super-gsd/tools/status-consistency/check.cjs --milestone v1.9
-```
+- v1.6 carryover: 10 unresolved (unchanged)
+- v1.7-v1.8 added: 0
+- v1.9 added: 0 CRITICAL/HIGH new debt
+  - Phase 50 LOW (3): cosmetic
+  - Phase 51 LOW (3): metric/spec drift, deferred to milestone-close polish
+  - Phase 52 LOW (4): design-trade-offs documented in code
 
 ## Resume Prompt
 
@@ -105,13 +110,35 @@ You are in C:\Users\jack.berrow\GSDedits.
 Continue full-roadmap autopilot. Autonomy continues; evidence tells the truth.
 
 Read .planning/ORCHESTRATOR-CHECKPOINT.md.
-Read .planning/STATE.md frontmatter.
+Read .planning/STATE.md frontmatter (current_milestone=v2.0, current_phase=53).
+Read .planning/ROADMAP-AGENT.md v2.0 block (lines ~622-700, phases 53-57).
 
-v1.6 SHIPPED-WITH-DEBT-10. v1.7 SHIPPED. v1.8 SHIPPED.
-v1.9: 10/12 phases SHIPPED (41-50). Phase 51 plan READY for executor.
+v1.6/v1.7/v1.8/v1.9 all SHIPPED. v1.9 SUMMARY @ e8c3b60.
 
-Begin Phase 51 executor dispatch (Rule 4.5 phase-readiness re-probe first).
+Begin v2.0 Phase 53 (Gate Failure-Injection Harness) kickoff:
+- /gsd-discuss-phase 53 (or auto-default if pre-locked)
+- Then research → plan → check → executor → verifier → ATC → close
 
 Do not halt because of self-estimated context percentage. Context percentage is
 not an exit condition. If runtime compaction occurs, resume from external state.
 ```
+
+## Re-Runnable Checks
+
+```bash
+# v1.9 validation gates
+node super-gsd/tools/context-bench/run-self-test.cjs                    # 33/33 PASS
+node super-gsd/tools/context-cache/run-redis-self-test.cjs              # 26/26 PASS
+node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone v1.9     # dual-gate green
+
+# Lock 4 byte-untouched evidence
+git diff --quiet -- super-gsd/tools/{token-attribution,token-waste,phase-capsule,context-registry,context-packet,sqlite-context-index,dispatch-router,vtp-bridge,memory-governance} super-gsd/scripts/lib/sgsd-cockpit-shell.cjs
+
+# Phase 51 F1-F16 frozen integrity
+node -e "const f=require('./super-gsd/tools/context-bench/failure-injectors.cjs'); console.log(f.INJECTION_FIXTURES.length, Object.isFrozen(f.INJECTION_FIXTURES))"
+# expects: 16 true
+```
+
+## Blockers
+
+None. v1.9 SHIPPED clean. v2.0 ready to start.
