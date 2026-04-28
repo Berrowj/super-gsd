@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SGSD + Warp Integration ELI5</title>
+  <style>
+    :root {
+      --bg: #111318;
+      --bg-2: #171a20;
+      --panel: #f4f7f1;
+      --panel-2: #e7ece3;
+      --ink: #15171a;
+      --muted: #5a616b;
+      --line: #2d3440;
+      --line-light: #c6cdc3;
+      --green: #31a66a;
+      --green-bg: #d9f1e4;
+      --orange: #d78128;
+      --orange-bg: #ffe1bf;
+      --red: #d44d4d;
+      --red-bg: #ffd9d9;
+      --cyan: #1b91a8;
+      --cyan-bg: #d8f3f7;
+      --yellow: #d7b22f;
+      --yellow-bg: #fff3bd;
+      --violet: #8a65b8;
+      --violet-bg: #eee4fb;
+      --shadow: 0 22px 70px rgba(0,0,0,.24);
+      --mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+      --sans: "Aptos", "Segoe UI", "Trebuchet MS", sans-serif;
+      --serif: Georgia, "Palatino Linotype", serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px),
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        radial-gradient(circle at 18% 0%, rgba(49,166,106,.22), transparent 28%),
+        radial-gradient(circle at 98% 18%, rgba(215,129,40,.18), transparent 28%),
+        var(--bg);
+      background-size: 34px 34px, 34px 34px, auto, auto, auto;
+      line-height: 1.42;
+    }
+
+    a { color: #005d78; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 288px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      padding: 22px 18px;
+      background: rgba(17,19,24,.92);
+      border-right: 1px solid rgba(255,255,255,.12);
+      color: #d9e2dc;
+    }
+
+    .brand {
+      border: 1px solid rgba(255,255,255,.18);
+      background: #0b0d10;
+      padding: 14px;
+      box-shadow: 6px 6px 0 #000;
+      margin-bottom: 18px;
+    }
+
+    .brand .tiny {
+      color: var(--green);
+      font: 700 12px/1 var(--mono);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .brand h1 {
+      margin: 8px 0 0;
+      color: #f1f6ef;
+      font: 900 25px/1.05 var(--serif);
+      letter-spacing: 0;
+    }
+
+    nav a {
+      display: block;
+      padding: 8px 10px;
+      margin: 3px 0;
+      color: #c8d2cd;
+      text-decoration: none;
+      border-left: 3px solid transparent;
+      font-size: 13px;
+    }
+
+    nav a:hover {
+      background: rgba(255,255,255,.06);
+      border-left-color: var(--orange);
+    }
+
+    main {
+      padding: 28px clamp(16px, 3vw, 42px) 56px;
+    }
+
+    .hero {
+      color: #f4f7f1;
+      max-width: 1220px;
+      min-height: 86vh;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      align-content: center;
+      gap: 24px;
+    }
+
+    .hero h2 {
+      margin: 0;
+      max-width: 1000px;
+      font: 900 clamp(42px, 7vw, 92px)/.92 var(--serif);
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      max-width: 840px;
+      margin: 0;
+      color: #d8e0dc;
+      font-size: clamp(18px, 2.1vw, 25px);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 18px;
+      align-items: stretch;
+      margin-top: 12px;
+    }
+
+    .big-answer,
+    .operator-card {
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(10,12,15,.88);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .big-answer {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .answer-cell {
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.04);
+      padding: 14px;
+      min-height: 130px;
+    }
+
+    .answer-cell b {
+      display: block;
+      color: #fff;
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    .answer-cell span {
+      color: #c6d0cb;
+      font-size: 14px;
+    }
+
+    .operator-card .line {
+      font: 700 14px/1.55 var(--mono);
+      color: #dbe6df;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .operator-card .green { color: #48d486; }
+    .operator-card .orange { color: #ffb661; }
+    .operator-card .cyan { color: #5ed9ec; }
+    .operator-card .red { color: #ff7676; }
+
+    section {
+      max-width: 1220px;
+      margin: 0 auto 28px;
+      background: var(--panel);
+      border: 1px solid var(--line-light);
+      box-shadow: var(--shadow);
+      padding: clamp(20px, 3vw, 34px);
+    }
+
+    section.dark {
+      background: #101216;
+      color: #edf3ef;
+      border-color: rgba(255,255,255,.14);
+    }
+
+    h3 {
+      margin: 0 0 16px;
+      font: 900 clamp(28px, 4vw, 48px)/1 var(--serif);
+      letter-spacing: 0;
+    }
+
+    h4 {
+      margin: 0 0 10px;
+      font-size: 17px;
+    }
+
+    .lead {
+      max-width: 940px;
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .dark .lead { color: #bac5c0; }
+
+    .tag {
+      display: inline-block;
+      padding: 5px 8px;
+      margin: 0 4px 8px 0;
+      border: 1px solid currentColor;
+      font: 800 12px/1 var(--mono);
+      text-transform: uppercase;
+    }
+
+    .tag.green { color: #167a4c; background: var(--green-bg); }
+    .tag.orange { color: #8b4b08; background: var(--orange-bg); }
+    .tag.cyan { color: #00647a; background: var(--cyan-bg); }
+    .tag.red { color: #932828; background: var(--red-bg); }
+    .tag.darktag { color: #e8efe9; background: #20252c; border-color: #46505d; }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      border: 1px solid var(--line-light);
+      background: #fff;
+      padding: 16px;
+      min-height: 130px;
+    }
+
+    .dark .card {
+      background: #171b21;
+      border-color: #323a45;
+      color: #edf3ef;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .dark .card p { color: #b9c3bf; }
+
+    .number {
+      display: inline-grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      margin-bottom: 10px;
+      background: var(--ink);
+      color: #fff;
+      font: 900 15px/1 var(--mono);
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      align-items: stretch;
+      margin-top: 18px;
+    }
+
+    .flow .step {
+      position: relative;
+      padding: 14px;
+      background: #fff;
+      border: 2px solid var(--ink);
+      min-height: 118px;
+    }
+
+    .flow .step:not(:last-child)::after {
+      content: ">";
+      position: absolute;
+      right: -16px;
+      top: 38%;
+      width: 22px;
+      height: 22px;
+      display: grid;
+      place-items: center;
+      background: var(--orange);
+      color: #111;
+      font: 900 16px/1 var(--mono);
+      z-index: 2;
+    }
+
+    .step b {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 15px;
+    }
+
+    .step span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .warp-frame {
+      background: #0c0e11;
+      border: 2px solid #303744;
+      box-shadow: 0 16px 0 rgba(0,0,0,.28);
+      color: #e7eee8;
+      overflow: hidden;
+    }
+
+    .titlebar {
+      height: 38px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      background: #242a32;
+      border-bottom: 1px solid #343d49;
+      font: 800 13px/1 var(--mono);
+    }
+
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .dot.red { background: #ff6b6b; }
+    .dot.yellow { background: #ffcc5c; }
+    .dot.green { background: #60d394; }
+
+    .pane-grid {
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      grid-template-rows: 280px 280px;
+      min-height: 560px;
+    }
+
+    .pane {
+      border-right: 1px solid #313946;
+      border-bottom: 1px solid #313946;
+      padding: 12px;
+      overflow: hidden;
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    .pane:nth-child(2) {
+      grid-row: span 2;
+      border-right: none;
+    }
+
+    .pane-title {
+      color: #fff;
+      font: 900 12px/1 var(--mono);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+
+    .phase-strip {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 4px;
+      margin: 10px 0;
+    }
+
+    .phase-pill {
+      padding: 6px 4px;
+      text-align: center;
+      border: 1px solid #394350;
+      font: 800 11px/1 var(--mono);
+    }
+
+    .done { background: rgba(49,166,106,.22); color: #6df0a1; }
+    .active { background: rgba(215,129,40,.30); color: #ffc177; }
+    .todo { background: rgba(212,77,77,.20); color: #ff8c8c; }
+    .queued { background: rgba(255,255,255,.06); color: #aab4af; }
+
+    .term-line {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin: 3px 0;
+      color: #bfc9c4;
+    }
+
+    .term-line strong { color: #fff; }
+    .term-line .g { color: #69e69a; }
+    .term-line .o { color: #ffbd66; }
+    .term-line .c { color: #5bd7e8; }
+    .term-line .r { color: #ff7575; }
+
+    .mcp-bridge {
+      display: grid;
+      grid-template-columns: 1fr 90px 1fr;
+      align-items: stretch;
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .bridge-box {
+      border: 2px solid var(--ink);
+      background: #fff;
+      padding: 16px;
+      min-height: 190px;
+    }
+
+    .bridge-mid {
+      display: grid;
+      place-items: center;
+      background: var(--cyan-bg);
+      border: 2px solid var(--cyan);
+      font: 900 16px/1.15 var(--mono);
+      color: #004f61;
+      text-align: center;
+      padding: 8px;
+    }
+
+    .mini-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .mini-list li {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      border-bottom: 1px solid #d7ded3;
+      padding: 8px 0;
+      font-size: 14px;
+    }
+
+    .mini-list code,
+    code {
+      font-family: var(--mono);
+      background: #edf1ec;
+      padding: 2px 5px;
+      border: 1px solid #c9d0c6;
+    }
+
+    pre {
+      margin: 12px 0 0;
+      background: #0d1015;
+      color: #e7eee8;
+      border: 1px solid #333c48;
+      padding: 14px;
+      overflow: auto;
+      font: 13px/1.45 var(--mono);
+    }
+
+    .lane {
+      display: grid;
+      grid-template-columns: 145px 1fr;
+      gap: 12px;
+      align-items: start;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--line-light);
+    }
+
+    .lane b {
+      color: var(--ink);
+    }
+
+    .lane p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .matrix {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr 1fr 1fr;
+      border: 1px solid var(--line-light);
+      background: #fff;
+      margin-top: 16px;
+    }
+
+    .matrix > div {
+      padding: 12px;
+      border-right: 1px solid var(--line-light);
+      border-bottom: 1px solid var(--line-light);
+      min-height: 82px;
+    }
+
+    .matrix > div:nth-child(4n) { border-right: 0; }
+    .matrix .head {
+      background: #101216;
+      color: #fff;
+      font-weight: 900;
+    }
+
+    .status-good { background: var(--green-bg); }
+    .status-mid { background: var(--orange-bg); }
+    .status-later { background: var(--red-bg); }
+
+    .source-row {
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      gap: 14px;
+      border-top: 1px solid var(--line-light);
+      padding: 12px 0;
+    }
+
+    .source-row b { font-family: var(--mono); }
+
+    .callout {
+      border: 2px solid var(--orange);
+      background: var(--orange-bg);
+      padding: 16px;
+      margin-top: 18px;
+      font-size: 17px;
+    }
+
+    .callout strong { color: #6a3300; }
+
+    .print-note {
+      color: #9ea9a4;
+      font-size: 12px;
+      margin-top: 18px;
+    }
+
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      nav { position: relative; height: auto; }
+      .hero { min-height: auto; padding-top: 20px; }
+      .hero-grid,
+      .grid-2,
+      .grid-3,
+      .grid-4,
+      .mcp-bridge,
+      .flow {
+        grid-template-columns: 1fr;
+      }
+      .flow .step::after { display: none; }
+      .pane-grid { grid-template-columns: 1fr; grid-template-rows: auto; }
+      .pane:nth-child(2) { grid-row: auto; }
+      .matrix { grid-template-columns: 1fr; }
+      .matrix > div { border-right: 0; }
+    }
+
+    @media print {
+      nav { display: none; }
+      .layout { display: block; }
+      body { background: #fff; }
+      section, .hero { box-shadow: none; page-break-inside: avoid; }
+      .hero { color: #111; min-height: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <nav>
+      <div class="brand">
+        <div class="tiny">ELI5 operator guide</div>
+        <h1>SGSD inside Warp</h1>
+      </div>
+      <a href="#big-picture">1. Big picture</a>
+      <a href="#what-changed">2. What changed</a>
+      <a href="#daily-flow">3. Daily flow</a>
+      <a href="#cockpit">4. Cockpit in Warp</a>
+      <a href="#agents">5. Agents</a>
+      <a href="#mcp">6. MCP bridge</a>
+      <a href="#gui">7. GUI features</a>
+      <a href="#commands">8. Commands</a>
+      <a href="#roadmap">9. Fast integration plan</a>
+      <a href="#limits">10. Limits</a>
+      <div class="print-note">Generated for SGSD after v1.9 SGSD-Research shipped. Keep this as the operator mental model before building the Warp integration milestone.</div>
+    </nav>
+
+    <main>
+      <header class="hero" id="big-picture">
+        <div>
+          <span class="tag green">Warp = operator shell</span>
+          <span class="tag orange">SGSD = autonomous engine</span>
+          <span class="tag cyan">MCP = truth bridge</span>
+        </div>
+        <h2>Stop copying commands between windows. Make Warp the control room.</h2>
+        <p>
+          The new model is simple: SGSD keeps doing the autonomous delivery work. Warp becomes the place where you boot it, watch it, ask what is happening, attach files/images/voice, and recover it when it stalls.
+        </p>
+
+        <div class="hero-grid">
+          <div class="big-answer">
+            <div class="answer-cell">
+              <b>Today</b>
+              <span>PowerShell cockpit + Claude/Codex CLI + lots of manual glue.</span>
+            </div>
+            <div class="answer-cell">
+              <b>Next</b>
+              <span>Warp workflows launch SGSD commands directly. No path memorising.</span>
+            </div>
+            <div class="answer-cell">
+              <b>Target</b>
+              <span>Warp agent asks SGSD MCP: current phase, token spend, gates, recovery path.</span>
+            </div>
+          </div>
+
+          <div class="operator-card">
+            <div class="line cyan">WARP COMMAND PALETTE</div>
+            <div class="line">&gt; SGSD Boot Cockpit</div>
+            <div class="line green">opens panes + watchdog + SGSD status</div>
+            <br />
+            <div class="line">&gt; SGSD Resume Autopilot</div>
+            <div class="line orange">Claude reads checkpoint and continues</div>
+            <br />
+            <div class="line">&gt; Ask Warp Agent: "Is SGSD stuck?"</div>
+            <div class="line green">calls SGSD MCP instead of guessing</div>
+          </div>
+        </div>
+      </header>
+
+      <section id="what-changed">
+        <h3>What changed after v1.9</h3>
+        <p class="lead">
+          v1.9 made SGSD much easier to integrate because SGSD now has structured state, not just terminal output. Warp can become useful because there is finally something clean for it to query.
+        </p>
+        <div class="grid-4">
+          <div class="card">
+            <div class="number">41</div>
+            <h4>Token attribution</h4>
+            <p>SGSD knows where tokens went: orchestrator, researcher, planner, executor, verifier, Codex candidates.</p>
+          </div>
+          <div class="card">
+            <div class="number">43</div>
+            <h4>Phase capsules</h4>
+            <p>Past phase outputs can be read as compressed capsules instead of rereading everything.</p>
+          </div>
+          <div class="card">
+            <div class="number">45</div>
+            <h4>Context packets</h4>
+            <p>Agents can receive the right slice of project memory for their role, not the entire universe.</p>
+          </div>
+          <div class="card">
+            <div class="number">52</div>
+            <h4>Redis adapter</h4>
+            <p>Optional live memory projection is ready. Redis is a cache, not the source of truth.</p>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>ELI5:</strong> Before v1.9, Warp would mostly be looking at a noisy terminal screen. After v1.9, Warp can ask SGSD for structured facts.
+        </div>
+      </section>
+
+      <section id="daily-flow" class="dark">
+        <h3>Your new daily flow</h3>
+        <p class="lead">
+          The goal is one operator surface. Open Warp, run a workflow, ask questions in plain English, and let SGSD continue the autonomous loop.
+        </p>
+
+        <div class="flow">
+          <div class="step">
+            <b>Open Warp</b>
+            <span>Start in the SGSD repo folder.</span>
+          </div>
+          <div class="step">
+            <b>Run workflow</b>
+            <span>Search for SGSD Boot Cockpit.</span>
+          </div>
+          <div class="step">
+            <b>Resume autopilot</b>
+            <span>Run SGSD Resume Autopilot.</span>
+          </div>
+          <div class="step">
+            <b>Ask Warp</b>
+            <span>"What phase are we on?"</span>
+          </div>
+          <div class="step">
+            <b>Recover</b>
+            <span>If stalled, run SGSD Recover.</span>
+          </div>
+        </div>
+
+        <pre>cd C:\Users\jack.berrow\GSDedits
+
+# Boot the cockpit inside Warp
+powershell -NoProfile -ExecutionPolicy Bypass -File .\super-gsd\scripts\sgsd-boot.ps1
+
+# Resume SGSD from the checkpoint
+claude --dangerously-skip-permissions "Read .planning\ORCHESTRATOR-CHECKPOINT.md first, then resume exactly from next_unit and continue: /sgsd-orchestrate go"</pre>
+      </section>
+
+      <section id="cockpit">
+        <h3>How the cockpit should work inside Warp</h3>
+        <p class="lead">
+          Warp does not need you to copy between Warp and PowerShell. Warp is the terminal. Run the PowerShell and Bash-backed SGSD commands directly in Warp panes.
+        </p>
+
+        <div class="warp-frame">
+          <div class="titlebar">
+            <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+            <span>Warp tab: SGSD-Cockpit</span>
+          </div>
+          <div class="pane-grid">
+            <div class="pane">
+              <div class="pane-title">Mission state</div>
+              <div class="term-line"><strong>MISSION</strong> v2.0 P53 Gate Failure-Injection Harness</div>
+              <div class="term-line">progress <span class="g">0/5 phases done</span></div>
+              <div class="phase-strip">
+                <div class="phase-pill active">P53</div>
+                <div class="phase-pill todo">P54</div>
+                <div class="phase-pill todo">P55</div>
+                <div class="phase-pill todo">P56</div>
+                <div class="phase-pill todo">P57</div>
+                <div class="phase-pill queued">P58</div>
+                <div class="phase-pill queued">P59</div>
+                <div class="phase-pill queued">P60</div>
+                <div class="phase-pill queued">P61</div>
+                <div class="phase-pill queued">P62</div>
+              </div>
+              <div class="term-line">goal <span class="o">stress every gate with real failure fixtures</span></div>
+              <div class="term-line">failsafe <span class="g">armed, last durable progress 3m ago</span></div>
+              <div class="term-line">debt <span class="g">phase 0 / milestone 0 / edge 0</span></div>
+              <div class="term-line">cost <span class="c">total $3.45, phase $0.02</span></div>
+            </div>
+
+            <div class="pane">
+              <div class="pane-title">Gate and review detail</div>
+              <div class="term-line"><strong>ATC</strong> <span class="o">P Package running</span></div>
+              <div class="term-line">1. First principles: is this change needed?</div>
+              <div class="term-line">2. Delete: can code/docs/process be removed?</div>
+              <div class="term-line">3. Simplify: can the same result be simpler?</div>
+              <div class="term-line">4. Accelerate: any token or latency waste?</div>
+              <div class="term-line">5. Automate: only automate what survived.</div>
+              <div class="term-line">6. Validate: prove with tests/fixtures/evidence.</div>
+              <div class="term-line">7. Anti-slop: duplication, YAGNI, dead paths.</div>
+              <br />
+              <div class="term-line"><strong>MUDA</strong> <span class="r">T I M W O O D waiting</span></div>
+              <div class="term-line">Transport: needless handoff between tools.</div>
+              <div class="term-line">Inventory: stale context and unused artifacts.</div>
+              <div class="term-line">Motion: repeated scans and file hopping.</div>
+              <div class="term-line">Waiting: idle blockers and queue stalls.</div>
+              <br />
+              <div class="term-line"><strong>Code review brief</strong></div>
+              <div class="term-line">No current-phase Codex evidence yet; normal before review gate.</div>
+            </div>
+
+            <div class="pane">
+              <div class="pane-title">Claude + agents</div>
+              <div class="term-line"><strong>Claude now</strong> researching Phase 53 failure scenarios.</div>
+              <div class="term-line"><span class="g">active</span> gsd-phase-researcher: failure harness scope</div>
+              <div class="term-line"><span class="c">recent</span> gsd-planner: plan structure + acceptance</div>
+              <div class="term-line"><span class="o">token spend</span> researcher 213k, executor 155k</div>
+              <br />
+              <div class="term-line"><strong>Tool stream</strong></div>
+              <div class="term-line">Bash node super-gsd/tools/context-bench...</div>
+              <div class="term-line">Read .planning/milestones/v2.0/...</div>
+              <div class="term-line">Agent gsd-verifier Phase 53 goal check</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="agents">
+        <h3>How Warp agents help SGSD</h3>
+        <p class="lead">
+          There are two useful agent modes: third-party CLI agents like Claude/Codex running in Warp, and Warp's own agent asking questions about the live terminal and SGSD files.
+        </p>
+
+        <div class="grid-3">
+          <div class="card">
+            <h4>Claude Code inside Warp</h4>
+            <p>Use Claude for SGSD orchestration, planning, phase work, and repository edits. Warp gives it a better terminal home.</p>
+          </div>
+          <div class="card">
+            <h4>Codex inside Warp</h4>
+            <p>Use Codex for independent review, ATC checks, code quality, and adversarial critique.</p>
+          </div>
+          <div class="card">
+            <h4>Warp agent</h4>
+            <p>Use Warp agent for operator questions, live terminal inspection, workflows, MCP calls, and recovery support.</p>
+          </div>
+        </div>
+
+        <div class="lane">
+          <b>Ask this</b>
+          <p>"What is SGSD doing right now, and is it actually progressing?"</p>
+        </div>
+        <div class="lane">
+          <b>Warp should query</b>
+          <p><code>sgsd.current_state</code>, <code>sgsd.watchdog_status</code>, <code>sgsd.current_phase</code>, <code>sgsd.latest_commits</code></p>
+        </div>
+        <div class="lane">
+          <b>Good answer</b>
+          <p>"v2.0 P53 is active. Researcher is running. Last durable progress was 3 minutes ago. No hard blocker. Next artifact expected: 53-RESEARCH.md."</p>
+        </div>
+      </section>
+
+      <section id="mcp" class="dark">
+        <h3>The MCP bridge: the important bit</h3>
+        <p class="lead">
+          MCP is how Warp stops guessing from terminal text. SGSD exposes tools; Warp agents call those tools; answers come from structured project truth.
+        </p>
+
+        <div class="mcp-bridge">
+          <div class="bridge-box">
+            <h4>Warp asks</h4>
+            <ul class="mini-list">
+              <li><span>Current phase?</span><code>sgsd.current_phase</code></li>
+              <li><span>Token waste?</span><code>sgsd.token_spend</code></li>
+              <li><span>Is it stuck?</span><code>sgsd.watchdog_status</code></li>
+              <li><span>Gate status?</span><code>sgsd.gate_status</code></li>
+              <li><span>Recovery?</span><code>sgsd.recovery_packet</code></li>
+            </ul>
+          </div>
+          <div class="bridge-mid">MCP<br />bridge</div>
+          <div class="bridge-box">
+            <h4>SGSD reads</h4>
+            <ul class="mini-list">
+              <li><span>State</span><code>.planning/STATE.md</code></li>
+              <li><span>Checkpoint</span><code>ORCHESTRATOR-CHECKPOINT.md</code></li>
+              <li><span>Capsules</span><code>PHASE-CAPSULE.json</code></li>
+              <li><span>Metrics</span><code>.planning/metrics/*.jsonl</code></li>
+              <li><span>Cache</span><code>SQLite / Redis projection</code></li>
+            </ul>
+          </div>
+        </div>
+
+        <pre>{
+  "mcpServers": {
+    "sgsd": {
+      "command": "node",
+      "args": ["super-gsd/tools/warp-mcp/server.cjs"],
+      "working_directory": "C:/Users/jack.berrow/GSDedits"
+    }
+  }
+}</pre>
+      </section>
+
+      <section id="gui">
+        <h3>What GUI features you get from Warp</h3>
+        <p class="lead">
+          Warp is not just "a pretty terminal." For SGSD, the useful GUI pieces are panes, command palette workflows, agent utility controls, attached context, diffs, and live terminal awareness.
+        </p>
+
+        <div class="matrix">
+          <div class="head">Feature</div>
+          <div class="head">What you do</div>
+          <div class="head">How it helps SGSD</div>
+          <div class="head">Status</div>
+
+          <div>Split panes</div>
+          <div>Open Mission / Codex / Claude panels in one Warp tab.</div>
+          <div>Same cockpit idea, better terminal host.</div>
+          <div class="status-good">Use now</div>
+
+          <div>Workflows</div>
+          <div>Search "SGSD Resume Autopilot" instead of typing commands.</div>
+          <div>Removes copy/paste and path mistakes.</div>
+          <div class="status-good">Quick win</div>
+
+          <div>Third-party CLI agent utility bar</div>
+          <div>Run Claude Code or Codex inside Warp.</div>
+          <div>Files, images, diffs, voice, and review controls become closer to the agent.</div>
+          <div class="status-good">Use now</div>
+
+          <div>Agent Mode</div>
+          <div>Ask: "why is researcher spending 200k tokens?"</div>
+          <div>With SGSD MCP, Warp gets the real token ledger and answers clearly.</div>
+          <div class="status-mid">Needs MCP</div>
+
+          <div>Full Terminal Use</div>
+          <div>Warp agent can inspect a live/stuck terminal.</div>
+          <div>Useful for recovery and diagnosing why autopilot stopped.</div>
+          <div class="status-mid">Needs workflow</div>
+
+          <div>Native SGSD GUI panel</div>
+          <div>Custom first-class SGSD cockpit inside Warp UI.</div>
+          <div>Potentially excellent, but requires Warp client extension/fork/upstream work.</div>
+          <div class="status-later">Later</div>
+        </div>
+      </section>
+
+      <section id="commands">
+        <h3>Can Warp run Bash and PowerShell without you being the middle man?</h3>
+        <p class="lead">
+          Yes. Warp is the terminal. The trick is to run the SGSD commands inside Warp from the start, then save them as workflows.
+        </p>
+
+        <div class="grid-2">
+          <div class="card">
+            <h4>PowerShell</h4>
+            <p>Run SGSD boot, cockpit, watchdog, and resume commands directly in Warp's PowerShell session.</p>
+            <pre>cd C:\Users\jack.berrow\GSDedits
+powershell -NoProfile -ExecutionPolicy Bypass -File .\super-gsd\scripts\sgsd-boot.ps1</pre>
+          </div>
+          <div class="card">
+            <h4>Bash</h4>
+            <p>SGSD already uses Git-Bash internally where needed. Warp can run Bash commands if your shell/profile supports Git-Bash or you invoke it explicitly.</p>
+            <pre>& "C:\Program Files\Git\usr\bin\bash.exe" -lc "git status --short"</pre>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>Important:</strong> Warp will not control old PowerShell windows outside Warp. The win is to start the cockpit, Claude, Codex, and watchdog from Warp so Warp is the single operator surface.
+        </div>
+      </section>
+
+      <section id="roadmap" class="dark">
+        <h3>The fastest integration milestone</h3>
+        <p class="lead">
+          Do this as a small SGSD milestone before touching Warp internals. It gives you most of the value without licensing or fork complexity.
+        </p>
+
+        <div class="grid-3">
+          <div class="card">
+            <div class="number">1</div>
+            <h4>Warp Workflow Pack</h4>
+            <p>Saved workflows for boot, resume, pause, watchdog, token audit, benchmark, and recovery.</p>
+          </div>
+          <div class="card">
+            <div class="number">2</div>
+            <h4>SGSD MCP Server</h4>
+            <p>Read-only tools exposing state, phase, gates, tokens, agent spend, and recovery packet.</p>
+          </div>
+          <div class="card">
+            <div class="number">3</div>
+            <h4>Warp Rules</h4>
+            <p>Autonomy contract: no context pauses, files are source of truth, provider evidence must be behavioral.</p>
+          </div>
+          <div class="card">
+            <div class="number">4</div>
+            <h4>Recovery Flow</h4>
+            <p>Warp workflow reads watchdog output and starts a fresh Claude resume session.</p>
+          </div>
+          <div class="card">
+            <div class="number">5</div>
+            <h4>Operator Questions</h4>
+            <p>Prebuilt prompts: "is it stuck?", "what changed?", "where did tokens go?", "what gate failed?"</p>
+          </div>
+          <div class="card">
+            <div class="number">6</div>
+            <h4>Native GUI Audit</h4>
+            <p>Only after the above: decide whether to contribute/fork Warp for real SGSD panels.</p>
+          </div>
+        </div>
+
+        <pre>Proposed next milestone:
+v2.0a SGSD-Warp Operator Layer
+
+Phase A: workflow pack
+Phase B: read-only SGSD MCP
+Phase C: Warp rules + context pack
+Phase D: recovery workflow
+Phase E: native GUI feasibility audit</pre>
+      </section>
+
+      <section id="limits">
+        <h3>What this does not magically mean</h3>
+        <p class="lead">
+          This is where we keep expectations sharp so we do not waste another day chasing the wrong layer.
+        </p>
+
+        <div class="grid-2">
+          <div class="card">
+            <h4>Not instant native cockpit panels</h4>
+            <p>Warp can host terminal panes now. Custom first-class GUI panels likely require Warp client work, a plugin/extension surface if one exists, or upstream contribution.</p>
+          </div>
+          <div class="card">
+            <h4>Not a replacement for SGSD</h4>
+            <p>Warp is the operator shell. SGSD remains the autonomous delivery engine, with gates, memory, phase capsules, and watchdog.</p>
+          </div>
+          <div class="card">
+            <h4>Not a reason to copy AGPL code</h4>
+            <p>Study Warp's architecture, integrate via public features, and be careful before copying client code into SGSD.</p>
+          </div>
+          <div class="card">
+            <h4>Not all agents are free</h4>
+            <p>Warp's own agent/model usage depends on Warp plan/model setup. But workflows, terminal hosting, and third-party CLI agents still help immediately.</p>
+          </div>
+        </div>
+
+        <div class="source-row">
+          <b>Warp docs</b>
+          <span>Workflows, MCP, third-party CLI agents, Full Terminal Use, and Agent Mode context are the public integration surfaces to start with.</span>
+        </div>
+        <div class="source-row">
+          <b>SGSD v1.9</b>
+          <span>Phase capsules, token attribution, context packets, SQLite index, Redis projection, and context benchmark are now the structured data layer Warp can query.</span>
+        </div>
+        <div class="source-row">
+          <b>Source links</b>
+          <span>
+            <a href="https://github.com/warpdotdev/warp">Warp repo</a> |
+            <a href="https://docs.warp.dev/knowledge-and-collaboration/warp-drive/workflows">Warp Workflows</a> |
+            <a href="https://docs.warp.dev/agent-platform/capabilities/mcp">Warp MCP</a> |
+            <a href="https://docs.warp.dev/agent-platform/local-agents/third-party-cli-agents">Third-party CLI agents</a> |
+            <a href="https://docs.warp.dev/agent-platform/capabilities/full-terminal-use">Full Terminal Use</a>
+          </span>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
