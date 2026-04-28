@@ -1,0 +1,2871 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-04-28T10:44:27.791Z",
+  "scoring": {
+    "note": "waste_points are deterministic estimates for comparing gates; they are not exact dollars or exact tokens.",
+    "weights": {
+      "atc_critical": 8,
+      "atc_warning": 2,
+      "muda_fail": 5,
+      "muda_warn": 1,
+      "token_degraded": 5,
+      "token_warn": 2,
+      "gate_block": 4,
+      "gate_warn": 1
+    }
+  },
+  "sources": {
+    "atc": [
+      ".planning/metrics/review-ledger.jsonl",
+      ".planning/milestones/*/phases/*/{reviews/*-REVIEW.md,*-ATC-REVIEW.md}",
+      ".planning/metrics/codex-log.jsonl"
+    ],
+    "muda": [
+      ".planning/metrics/muda-log.jsonl",
+      ".planning/milestones/*/phases/**/*WASTE*.md"
+    ],
+    "token_waste": [
+      ".planning/metrics/token-waste-status.jsonl"
+    ],
+    "gate_value": [
+      ".planning/metrics/gate-value-log.jsonl if present"
+    ]
+  },
+  "project": {
+    "atc": {
+      "reviews": 75,
+      "critical": 33,
+      "warning": 167,
+      "caught": 200,
+      "fixed_or_closed_reviews": 17,
+      "codex_reviews": 46,
+      "claude_reviews": 27,
+      "codex_timeouts": 4,
+      "codex_provider_unavailable": 12,
+      "claude_tokens_avoided_est": 40014,
+      "codex_timeout_tokens_wasted_est": 6579,
+      "waste_points": 598
+    },
+    "muda": {
+      "audits": 19,
+      "warn": 2,
+      "fail": 2,
+      "caught": 4,
+      "by_class": {
+        "T": 0,
+        "I": 1,
+        "M": 0,
+        "W": 0,
+        "OP": 1,
+        "EP": 0,
+        "D": 2
+      },
+      "waste_points": 12
+    },
+    "token_waste": {
+      "checks": 1,
+      "ok": 2,
+      "warn": 1,
+      "degraded": 13,
+      "false_positive": 0,
+      "rules_tripped": {
+        "orchestrator_turn_trim": 13
+      },
+      "route_hints": {
+        "orchestrator_turn_trim_candidate": 14
+      },
+      "waste_points": 67
+    },
+    "gate_value": {
+      "rows": 0,
+      "pass": 0,
+      "warn": 0,
+      "block": 0,
+      "skip": 0,
+      "by_gate": {},
+      "waste_points": 0
+    },
+    "totals": {
+      "caught": 218,
+      "waste_points": 677,
+      "claude_tokens_avoided_est": 40014,
+      "codex_timeout_tokens_wasted_est": 6579
+    }
+  },
+  "milestones": {
+    "v1.2": {
+      "milestone": "v1.2",
+      "atc": {
+        "reviews": 2,
+        "critical": 0,
+        "warning": 8,
+        "caught": 8,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 0,
+        "claude_reviews": 0,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 16
+      },
+      "muda": {
+        "audits": 3,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 8,
+        "waste_points": 16,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.4": {
+      "milestone": "v1.4",
+      "atc": {
+        "reviews": 14,
+        "critical": 5,
+        "warning": 28,
+        "caught": 33,
+        "fixed_or_closed_reviews": 2,
+        "codex_reviews": 14,
+        "claude_reviews": 0,
+        "codex_timeouts": 2,
+        "codex_provider_unavailable": 1,
+        "claude_tokens_avoided_est": 28109,
+        "codex_timeout_tokens_wasted_est": 4353,
+        "waste_points": 96
+      },
+      "muda": {
+        "audits": 4,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 33,
+        "waste_points": 96,
+        "claude_tokens_avoided_est": 28109,
+        "codex_timeout_tokens_wasted_est": 4353
+      }
+    },
+    "v1.5": {
+      "milestone": "v1.5",
+      "atc": {
+        "reviews": 5,
+        "critical": 4,
+        "warning": 10,
+        "caught": 14,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 5,
+        "claude_reviews": 0,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 1,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 52
+      },
+      "muda": {
+        "audits": 2,
+        "warn": 1,
+        "fail": 0,
+        "caught": 1,
+        "by_class": {
+          "T": 0,
+          "I": 1,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 1
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 15,
+        "waste_points": 53,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.6": {
+      "milestone": "v1.6",
+      "atc": {
+        "reviews": 16,
+        "critical": 1,
+        "warning": 25,
+        "caught": 26,
+        "fixed_or_closed_reviews": 6,
+        "codex_reviews": 8,
+        "claude_reviews": 8,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 58
+      },
+      "muda": {
+        "audits": 3,
+        "warn": 1,
+        "fail": 0,
+        "caught": 1,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 1,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 1
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 27,
+        "waste_points": 59,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.7": {
+      "milestone": "v1.7",
+      "atc": {
+        "reviews": 10,
+        "critical": 7,
+        "warning": 31,
+        "caught": 38,
+        "fixed_or_closed_reviews": 2,
+        "codex_reviews": 5,
+        "claude_reviews": 5,
+        "codex_timeouts": 1,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 6187,
+        "codex_timeout_tokens_wasted_est": 1278,
+        "waste_points": 118
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 38,
+        "waste_points": 118,
+        "claude_tokens_avoided_est": 6187,
+        "codex_timeout_tokens_wasted_est": 1278
+      }
+    },
+    "v1.8": {
+      "milestone": "v1.8",
+      "atc": {
+        "reviews": 10,
+        "critical": 10,
+        "warning": 31,
+        "caught": 41,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 5,
+        "claude_reviews": 5,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 5718,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 142
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 41,
+        "waste_points": 142,
+        "claude_tokens_avoided_est": 5718,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.9": {
+      "milestone": "v1.9",
+      "atc": {
+        "reviews": 18,
+        "critical": 6,
+        "warning": 34,
+        "caught": 40,
+        "fixed_or_closed_reviews": 7,
+        "codex_reviews": 9,
+        "claude_reviews": 9,
+        "codex_timeouts": 1,
+        "codex_provider_unavailable": 10,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 948,
+        "waste_points": 116
+      },
+      "muda": {
+        "audits": 1,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 1,
+        "ok": 2,
+        "warn": 1,
+        "degraded": 13,
+        "false_positive": 0,
+        "rules_tripped": {
+          "orchestrator_turn_trim": 13
+        },
+        "route_hints": {
+          "orchestrator_turn_trim_candidate": 14
+        },
+        "waste_points": 67
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 54,
+        "waste_points": 183,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 948
+      }
+    },
+    "unknown": {
+      "milestone": "unknown",
+      "atc": {
+        "reviews": 0,
+        "critical": 0,
+        "warning": 0,
+        "caught": 0,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 0,
+        "claude_reviews": 0,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 0
+      },
+      "muda": {
+        "audits": 3,
+        "warn": 0,
+        "fail": 2,
+        "caught": 2,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 2
+        },
+        "waste_points": 10
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 2,
+        "waste_points": 10,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.3": {
+      "milestone": "v1.3",
+      "atc": {
+        "reviews": 0,
+        "critical": 0,
+        "warning": 0,
+        "caught": 0,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 0,
+        "claude_reviews": 0,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 0
+      },
+      "muda": {
+        "audits": 3,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 0,
+        "waste_points": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    }
+  },
+  "phases": {
+    "v1.2::11": {
+      "milestone": "v1.2",
+      "phase": "11",
+      "atc": {
+        "reviews": 2,
+        "critical": 0,
+        "warning": 8,
+        "caught": 8,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 0,
+        "claude_reviews": 0,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 16
+      },
+      "muda": {
+        "audits": 1,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 8,
+        "waste_points": 16,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.4::17": {
+      "milestone": "v1.4",
+      "phase": "17",
+      "atc": {
+        "reviews": 5,
+        "critical": 2,
+        "warning": 7,
+        "caught": 9,
+        "fixed_or_closed_reviews": 1,
+        "codex_reviews": 5,
+        "claude_reviews": 0,
+        "codex_timeouts": 1,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 8702,
+        "codex_timeout_tokens_wasted_est": 926,
+        "waste_points": 30
+      },
+      "muda": {
+        "audits": 1,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 9,
+        "waste_points": 30,
+        "claude_tokens_avoided_est": 8702,
+        "codex_timeout_tokens_wasted_est": 926
+      }
+    },
+    "v1.4::18": {
+      "milestone": "v1.4",
+      "phase": "18",
+      "atc": {
+        "reviews": 2,
+        "critical": 0,
+        "warning": 4,
+        "caught": 4,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 2,
+        "claude_reviews": 0,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 4762,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 8
+      },
+      "muda": {
+        "audits": 1,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 4,
+        "waste_points": 8,
+        "claude_tokens_avoided_est": 4762,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.4::19": {
+      "milestone": "v1.4",
+      "phase": "19",
+      "atc": {
+        "reviews": 3,
+        "critical": 0,
+        "warning": 10,
+        "caught": 10,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 3,
+        "claude_reviews": 0,
+        "codex_timeouts": 1,
+        "codex_provider_unavailable": 1,
+        "claude_tokens_avoided_est": 10794,
+        "codex_timeout_tokens_wasted_est": 3427,
+        "waste_points": 20
+      },
+      "muda": {
+        "audits": 1,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 10,
+        "waste_points": 20,
+        "claude_tokens_avoided_est": 10794,
+        "codex_timeout_tokens_wasted_est": 3427
+      }
+    },
+    "v1.4::20": {
+      "milestone": "v1.4",
+      "phase": "20",
+      "atc": {
+        "reviews": 4,
+        "critical": 3,
+        "warning": 7,
+        "caught": 10,
+        "fixed_or_closed_reviews": 1,
+        "codex_reviews": 4,
+        "claude_reviews": 0,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 3851,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 38
+      },
+      "muda": {
+        "audits": 1,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 10,
+        "waste_points": 38,
+        "claude_tokens_avoided_est": 3851,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.5::21": {
+      "milestone": "v1.5",
+      "phase": "21",
+      "atc": {
+        "reviews": 5,
+        "critical": 4,
+        "warning": 10,
+        "caught": 14,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 5,
+        "claude_reviews": 0,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 1,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 52
+      },
+      "muda": {
+        "audits": 1,
+        "warn": 1,
+        "fail": 0,
+        "caught": 1,
+        "by_class": {
+          "T": 0,
+          "I": 1,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 1
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 15,
+        "waste_points": 53,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.6::26": {
+      "milestone": "v1.6",
+      "phase": "26",
+      "atc": {
+        "reviews": 2,
+        "critical": 0,
+        "warning": 4,
+        "caught": 4,
+        "fixed_or_closed_reviews": 1,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 8
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 4,
+        "waste_points": 8,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.6::27": {
+      "milestone": "v1.6",
+      "phase": "27",
+      "atc": {
+        "reviews": 2,
+        "critical": 0,
+        "warning": 3,
+        "caught": 3,
+        "fixed_or_closed_reviews": 1,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 6
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 3,
+        "waste_points": 6,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.6::28": {
+      "milestone": "v1.6",
+      "phase": "28",
+      "atc": {
+        "reviews": 8,
+        "critical": 1,
+        "warning": 8,
+        "caught": 9,
+        "fixed_or_closed_reviews": 2,
+        "codex_reviews": 4,
+        "claude_reviews": 4,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 24
+      },
+      "muda": {
+        "audits": 1,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 9,
+        "waste_points": 24,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.6::29": {
+      "milestone": "v1.6",
+      "phase": "29",
+      "atc": {
+        "reviews": 2,
+        "critical": 0,
+        "warning": 5,
+        "caught": 5,
+        "fixed_or_closed_reviews": 1,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 10
+      },
+      "muda": {
+        "audits": 1,
+        "warn": 1,
+        "fail": 0,
+        "caught": 1,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 1,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 1
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 6,
+        "waste_points": 11,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.6::30": {
+      "milestone": "v1.6",
+      "phase": "30",
+      "atc": {
+        "reviews": 2,
+        "critical": 0,
+        "warning": 5,
+        "caught": 5,
+        "fixed_or_closed_reviews": 1,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 10
+      },
+      "muda": {
+        "audits": 1,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 5,
+        "waste_points": 10,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.7::31": {
+      "milestone": "v1.7",
+      "phase": "31",
+      "atc": {
+        "reviews": 2,
+        "critical": 1,
+        "warning": 5,
+        "caught": 6,
+        "fixed_or_closed_reviews": 1,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 945,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 18
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 6,
+        "waste_points": 18,
+        "claude_tokens_avoided_est": 945,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.7::32": {
+      "milestone": "v1.7",
+      "phase": "32",
+      "atc": {
+        "reviews": 2,
+        "critical": 2,
+        "warning": 5,
+        "caught": 7,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 1230,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 26
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 7,
+        "waste_points": 26,
+        "claude_tokens_avoided_est": 1230,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.7::33": {
+      "milestone": "v1.7",
+      "phase": "33",
+      "atc": {
+        "reviews": 2,
+        "critical": 2,
+        "warning": 6,
+        "caught": 8,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 1181,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 28
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 8,
+        "waste_points": 28,
+        "claude_tokens_avoided_est": 1181,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.7::34": {
+      "milestone": "v1.7",
+      "phase": "34",
+      "atc": {
+        "reviews": 2,
+        "critical": 2,
+        "warning": 8,
+        "caught": 10,
+        "fixed_or_closed_reviews": 1,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 1,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 1347,
+        "codex_timeout_tokens_wasted_est": 1278,
+        "waste_points": 32
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 10,
+        "waste_points": 32,
+        "claude_tokens_avoided_est": 1347,
+        "codex_timeout_tokens_wasted_est": 1278
+      }
+    },
+    "v1.7::35": {
+      "milestone": "v1.7",
+      "phase": "35",
+      "atc": {
+        "reviews": 2,
+        "critical": 0,
+        "warning": 7,
+        "caught": 7,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 1484,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 14
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 7,
+        "waste_points": 14,
+        "claude_tokens_avoided_est": 1484,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.8::36": {
+      "milestone": "v1.8",
+      "phase": "36",
+      "atc": {
+        "reviews": 2,
+        "critical": 3,
+        "warning": 7,
+        "caught": 10,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 1333,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 38
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 10,
+        "waste_points": 38,
+        "claude_tokens_avoided_est": 1333,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.8::37": {
+      "milestone": "v1.8",
+      "phase": "37",
+      "atc": {
+        "reviews": 2,
+        "critical": 1,
+        "warning": 7,
+        "caught": 8,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 1357,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 22
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 8,
+        "waste_points": 22,
+        "claude_tokens_avoided_est": 1357,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.8::38": {
+      "milestone": "v1.8",
+      "phase": "38",
+      "atc": {
+        "reviews": 2,
+        "critical": 3,
+        "warning": 5,
+        "caught": 8,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 1303,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 34
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 8,
+        "waste_points": 34,
+        "claude_tokens_avoided_est": 1303,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.8::39": {
+      "milestone": "v1.8",
+      "phase": "39",
+      "atc": {
+        "reviews": 2,
+        "critical": 1,
+        "warning": 8,
+        "caught": 9,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 923,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 24
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 9,
+        "waste_points": 24,
+        "claude_tokens_avoided_est": 923,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.8::40": {
+      "milestone": "v1.8",
+      "phase": "40",
+      "atc": {
+        "reviews": 2,
+        "critical": 2,
+        "warning": 4,
+        "caught": 6,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 802,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 24
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 6,
+        "waste_points": 24,
+        "claude_tokens_avoided_est": 802,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.9::41": {
+      "milestone": "v1.9",
+      "phase": "41",
+      "atc": {
+        "reviews": 2,
+        "critical": 0,
+        "warning": 3,
+        "caught": 3,
+        "fixed_or_closed_reviews": 1,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 1,
+        "codex_provider_unavailable": 1,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 948,
+        "waste_points": 6
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 3,
+        "waste_points": 6,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 948
+      }
+    },
+    "v1.9::42": {
+      "milestone": "v1.9",
+      "phase": "42",
+      "atc": {
+        "reviews": 2,
+        "critical": 0,
+        "warning": 3,
+        "caught": 3,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 1,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 6
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 3,
+        "waste_points": 6,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.9::43": {
+      "milestone": "v1.9",
+      "phase": "43",
+      "atc": {
+        "reviews": 2,
+        "critical": 0,
+        "warning": 5,
+        "caught": 5,
+        "fixed_or_closed_reviews": 1,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 1,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 10
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 5,
+        "waste_points": 10,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.9::44": {
+      "milestone": "v1.9",
+      "phase": "44",
+      "atc": {
+        "reviews": 2,
+        "critical": 1,
+        "warning": 4,
+        "caught": 5,
+        "fixed_or_closed_reviews": 1,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 1,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 16
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 5,
+        "waste_points": 16,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.9::45": {
+      "milestone": "v1.9",
+      "phase": "45",
+      "atc": {
+        "reviews": 2,
+        "critical": 1,
+        "warning": 5,
+        "caught": 6,
+        "fixed_or_closed_reviews": 1,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 1,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 18
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 6,
+        "waste_points": 18,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.9::46": {
+      "milestone": "v1.9",
+      "phase": "46",
+      "atc": {
+        "reviews": 2,
+        "critical": 0,
+        "warning": 3,
+        "caught": 3,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 1,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 6
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 3,
+        "waste_points": 6,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.9::47": {
+      "milestone": "v1.9",
+      "phase": "47",
+      "atc": {
+        "reviews": 2,
+        "critical": 1,
+        "warning": 3,
+        "caught": 4,
+        "fixed_or_closed_reviews": 1,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 1,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 14
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 4,
+        "waste_points": 14,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.9::48": {
+      "milestone": "v1.9",
+      "phase": "48",
+      "atc": {
+        "reviews": 2,
+        "critical": 2,
+        "warning": 4,
+        "caught": 6,
+        "fixed_or_closed_reviews": 1,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 2,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 24
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 6,
+        "waste_points": 24,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.9::49": {
+      "milestone": "v1.9",
+      "phase": "49",
+      "atc": {
+        "reviews": 2,
+        "critical": 1,
+        "warning": 4,
+        "caught": 5,
+        "fixed_or_closed_reviews": 1,
+        "codex_reviews": 1,
+        "claude_reviews": 1,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 1,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 16
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 5,
+        "waste_points": 16,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.2::10": {
+      "milestone": "v1.2",
+      "phase": "10",
+      "atc": {
+        "reviews": 0,
+        "critical": 0,
+        "warning": 0,
+        "caught": 0,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 0,
+        "claude_reviews": 0,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 0
+      },
+      "muda": {
+        "audits": 1,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 0,
+        "waste_points": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.2::12": {
+      "milestone": "v1.2",
+      "phase": "12",
+      "atc": {
+        "reviews": 0,
+        "critical": 0,
+        "warning": 0,
+        "caught": 0,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 0,
+        "claude_reviews": 0,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 0
+      },
+      "muda": {
+        "audits": 1,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 0,
+        "waste_points": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.5::22": {
+      "milestone": "v1.5",
+      "phase": "22",
+      "atc": {
+        "reviews": 0,
+        "critical": 0,
+        "warning": 0,
+        "caught": 0,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 0,
+        "claude_reviews": 0,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 0
+      },
+      "muda": {
+        "audits": 1,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 0,
+        "waste_points": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.9::unknown": {
+      "milestone": "v1.9",
+      "phase": "unknown",
+      "atc": {
+        "reviews": 0,
+        "critical": 0,
+        "warning": 0,
+        "caught": 0,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 0,
+        "claude_reviews": 0,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 0
+      },
+      "muda": {
+        "audits": 1,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 0,
+        "waste_points": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "unknown::08": {
+      "milestone": "unknown",
+      "phase": "08",
+      "atc": {
+        "reviews": 0,
+        "critical": 0,
+        "warning": 0,
+        "caught": 0,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 0,
+        "claude_reviews": 0,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 0
+      },
+      "muda": {
+        "audits": 3,
+        "warn": 0,
+        "fail": 2,
+        "caught": 2,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 2
+        },
+        "waste_points": 10
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 2,
+        "waste_points": 10,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.3::14": {
+      "milestone": "v1.3",
+      "phase": "14",
+      "atc": {
+        "reviews": 0,
+        "critical": 0,
+        "warning": 0,
+        "caught": 0,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 0,
+        "claude_reviews": 0,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 0
+      },
+      "muda": {
+        "audits": 1,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 0,
+        "waste_points": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.3::15": {
+      "milestone": "v1.3",
+      "phase": "15",
+      "atc": {
+        "reviews": 0,
+        "critical": 0,
+        "warning": 0,
+        "caught": 0,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 0,
+        "claude_reviews": 0,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 0
+      },
+      "muda": {
+        "audits": 2,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 0,
+        "ok": 0,
+        "warn": 0,
+        "degraded": 0,
+        "false_positive": 0,
+        "rules_tripped": {},
+        "route_hints": {},
+        "waste_points": 0
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 0,
+        "waste_points": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    },
+    "v1.9::milestone": {
+      "milestone": "v1.9",
+      "phase": "milestone",
+      "atc": {
+        "reviews": 0,
+        "critical": 0,
+        "warning": 0,
+        "caught": 0,
+        "fixed_or_closed_reviews": 0,
+        "codex_reviews": 0,
+        "claude_reviews": 0,
+        "codex_timeouts": 0,
+        "codex_provider_unavailable": 0,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0,
+        "waste_points": 0
+      },
+      "muda": {
+        "audits": 0,
+        "warn": 0,
+        "fail": 0,
+        "caught": 0,
+        "by_class": {
+          "T": 0,
+          "I": 0,
+          "M": 0,
+          "W": 0,
+          "OP": 0,
+          "EP": 0,
+          "D": 0
+        },
+        "waste_points": 0
+      },
+      "token_waste": {
+        "checks": 1,
+        "ok": 2,
+        "warn": 1,
+        "degraded": 13,
+        "false_positive": 0,
+        "rules_tripped": {
+          "orchestrator_turn_trim": 13
+        },
+        "route_hints": {
+          "orchestrator_turn_trim_candidate": 14
+        },
+        "waste_points": 67
+      },
+      "gate_value": {
+        "rows": 0,
+        "pass": 0,
+        "warn": 0,
+        "block": 0,
+        "skip": 0,
+        "by_gate": {},
+        "waste_points": 0
+      },
+      "totals": {
+        "caught": 14,
+        "waste_points": 67,
+        "claude_tokens_avoided_est": 0,
+        "codex_timeout_tokens_wasted_est": 0
+      }
+    }
+  }
+}

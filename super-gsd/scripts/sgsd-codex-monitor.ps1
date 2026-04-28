@@ -703,6 +703,103 @@ function Format-AtcStatsLine {
         [int]$Stats.fixedPhases, [int]$Stats.codexTimeouts, [int]$Stats.reviews, [int]$Stats.phases)
 }
 
+function Read-SgsdNumber {
+    param($Obj, [string]$Path)
+    if ($null -eq $Obj -or -not $Path) { return [int64]0 }
+    $cur = $Obj
+    foreach ($part in ($Path -split '\.')) {
+        if ($null -eq $cur) { return [int64]0 }
+        $prop = $cur.PSObject.Properties[$part]
+        if ($null -eq $prop) { return [int64]0 }
+        $cur = $prop.Value
+    }
+    try { return [int64][double]$cur } catch { return [int64]0 }
+}
+
+function Format-SgsdMetricNumber {
+    param($Value)
+    $n = [double](Read-SgsdNumber ([pscustomobject]@{ value = $Value }) "value")
+    if ($n -ge 1000000) { return ("{0:n1}m" -f ($n / 1000000)) }
+    if ($n -ge 1000) { return ("{0:n1}k" -f ($n / 1000)) }
+    return ("{0:n0}" -f $n)
+}
+
+function Get-GateSavingsSnapshot {
+    param([string]$Milestone, [string]$PhaseNum)
+
+    $out = [ordered]@{
+        exists = $false
+        generatedAgeSec = $null
+        phase = $null
+        milestone = $null
+        project = $null
+    }
+    $file = Join-Path $PlanningDir "metrics\gate-savings.json"
+    if (-not (Test-Path $file)) { return [pscustomobject]$out }
+
+    try {
+        $json = Get-Content $file -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+        $out.exists = $true
+        if ($json.generated_at) {
+            try {
+                $generated = [DateTimeOffset]::Parse("$($json.generated_at)")
+                $out.generatedAgeSec = [Math]::Max(0, [int64](([DateTimeOffset]::UtcNow - $generated).TotalSeconds))
+            } catch {}
+        }
+        $phaseKey = "$Milestone::$PhaseNum"
+        $phaseProp = if ($json.phases) { $json.phases.PSObject.Properties[$phaseKey] } else { $null }
+        if ($phaseProp) { $out.phase = $phaseProp.Value }
+        $msProp = if ($json.milestones -and $Milestone) { $json.milestones.PSObject.Properties[$Milestone] } else { $null }
+        if ($msProp) { $out.milestone = $msProp.Value }
+        if ($json.project) { $out.project = $json.project }
+    } catch {}
+    return [pscustomobject]$out
+}
+
+function Write-GateSavingsBlock {
+    param($Savings, [string]$PhaseNum, [int]$Pw)
+
+    Write-Host "GATE VALUE" -NoNewline -ForegroundColor White
+    if ($Savings.exists -and $Savings.generatedAgeSec -ne $null) {
+        Write-Host "  snapshot " -NoNewline -ForegroundColor DarkGray
+        Write-Host (Format-Age $Savings.generatedAgeSec) -NoNewline -ForegroundColor Cyan
+        Write-Host " old" -NoNewline -ForegroundColor DarkGray
+    }
+    Write-Host $CLEAR_LINE
+
+    if (-not $Savings.exists) {
+        Write-Host "  " -NoNewline
+        Write-Host (Trunc "No gate-savings snapshot yet; run node super-gsd/tools/gate-savings/report.cjs --write." ($Pw - 3)) -NoNewline -ForegroundColor Yellow
+        Write-Host $CLEAR_LINE
+        return
+    }
+
+    $p = $Savings.phase
+    $m = $Savings.milestone
+    $t = $Savings.project
+    $phaseLine = ("phase P{0}: caught {1}, waste points {2}; milestone: caught {3}, points {4}; project: caught {5}, points {6}" -f `
+        $PhaseNum,
+        (Format-SgsdMetricNumber (Read-SgsdNumber $p "totals.caught")),
+        (Format-SgsdMetricNumber (Read-SgsdNumber $p "totals.waste_points")),
+        (Format-SgsdMetricNumber (Read-SgsdNumber $m "totals.caught")),
+        (Format-SgsdMetricNumber (Read-SgsdNumber $m "totals.waste_points")),
+        (Format-SgsdMetricNumber (Read-SgsdNumber $t "totals.caught")),
+        (Format-SgsdMetricNumber (Read-SgsdNumber $t "totals.waste_points")))
+    Write-Host "  " -NoNewline
+    Write-Host (Trunc $phaseLine ($Pw - 3)) -NoNewline -ForegroundColor Green
+    Write-Host $CLEAR_LINE
+
+    $gateLine = ("facts: ATC {0}C/{1}W, MUDA {2}, token degraded {3}, Codex timeouts {4}; points are estimates, counts are evidence." -f `
+        (Format-SgsdMetricNumber (Read-SgsdNumber $t "atc.critical")),
+        (Format-SgsdMetricNumber (Read-SgsdNumber $t "atc.warning")),
+        (Format-SgsdMetricNumber (Read-SgsdNumber $t "muda.caught")),
+        (Format-SgsdMetricNumber (Read-SgsdNumber $t "token_waste.degraded")),
+        (Format-SgsdMetricNumber (Read-SgsdNumber $t "atc.codex_timeouts")))
+    Write-Host "  " -NoNewline
+    Write-Host (Trunc $gateLine ($Pw - 3)) -NoNewline -ForegroundColor Gray
+    Write-Host $CLEAR_LINE
+}
+
 function Get-AtcGateState {
     param([string]$Milestone, [string]$PhaseNum, $Codex, $Verdicts)
     $cells = @(
@@ -940,7 +1037,7 @@ function Write-GateSynopsis {
 }
 
 function Render-CompactCodex {
-    param($Scope, $Codex, $Substrate, $Rows, $Verdicts, $Brief, $PhaseNum, $Pw)
+    param($Scope, $Codex, $Substrate, $Rows, $Verdicts, $Brief, $Savings, $PhaseNum, $Pw)
 
     $ts = Get-Date -Format 'HH:mm:ss'
     Write-Host "SUPER GSD" -NoNewline -ForegroundColor Magenta
@@ -1007,6 +1104,9 @@ function Render-CompactCodex {
     Write-Host $CLEAR_LINE
     Write-Host $CLEAR_LINE
 
+    Write-GateSavingsBlock -Savings $Savings -PhaseNum $PhaseNum -Pw $Pw
+    Write-Host $CLEAR_LINE
+
     Write-Host "CODE REVIEW BRIEF" -NoNewline -ForegroundColor White
     Write-Host $CLEAR_LINE
     $briefLines = @()
@@ -1042,9 +1142,10 @@ function Render {
     $rows = Get-SgsdCodexLogRows -PlanningDir $PlanningDir -MaxRows $rowLimit -PhaseFilter $phaseNum
     $verdicts = Get-SgsdCodexVerdicts -PlanningDir $PlanningDir -MaxRows $verdictLimit -MilestoneFilter $scope.milestone -PhaseFilter $phaseNum
     $brief = Get-CodexOperatorBrief -codex $codex -verdicts $verdicts
+    $savings = Get-GateSavingsSnapshot -Milestone $scope.milestone -PhaseNum $phaseNum
 
     if ($ph -lt 36 -and $env:SGSD_CODEX_FULL -ne "1") {
-        Render-CompactCodex -Scope $scope -Codex $codex -Substrate $substrate -Rows $rows -Verdicts $verdicts -Brief $brief -PhaseNum $phaseNum -Pw $pw
+        Render-CompactCodex -Scope $scope -Codex $codex -Substrate $substrate -Rows $rows -Verdicts $verdicts -Brief $brief -Savings $savings -PhaseNum $phaseNum -Pw $pw
         return
     }
 
@@ -1167,6 +1268,9 @@ function Render {
     Write-Host "  stats " -NoNewline -ForegroundColor DarkGray
     Write-Host (Trunc (Format-AtcStatsLine $atcStats) ($pw - 9)) -NoNewline -ForegroundColor Gray
     Write-Host $CLEAR_LINE
+
+    Write-Host $CLEAR_LINE
+    Write-GateSavingsBlock -Savings $savings -PhaseNum $phaseNum -Pw $pw
 
     if ($expanded) {
         Write-Host $CLEAR_LINE
