@@ -1,0 +1,224 @@
+{
+  "schema_version": 1,
+  "scenarios": [
+    {
+      "id": "token-attribution-poisoned-row",
+      "label": "Token attribution gracefully skips a malformed JSONL row",
+      "target_tool": "super-gsd/tools/token-attribution/report.cjs",
+      "inject_mechanism": "append_malformed_jsonl_row",
+      "tool_invocation_argv": [
+        "node",
+        "<resolved>",
+        "--summarize",
+        "--planning-dir",
+        "<tmpdir>/.planning"
+      ],
+      "expected_reason_codes": [
+        "parse_skipped_malformed_row"
+      ],
+      "canonical_streams_guarded": [
+        "agent-token-spend.jsonl",
+        "context-packet-log.jsonl",
+        "context-complaints.jsonl",
+        "route-decisions.jsonl",
+        "crit-backlog.jsonl"
+      ],
+      "soft_skip_when": null,
+      "edge_guard_miss_classified": false
+    },
+    {
+      "id": "context-packet-missing-capsule",
+      "label": "Context packet falls back to raw input when phase capsule is unavailable",
+      "target_tool": "super-gsd/tools/context-packet/build.cjs",
+      "inject_mechanism": "delete_phase_capsule_file",
+      "tool_invocation_argv": [
+        "node",
+        "<resolved>",
+        "--build-fixture",
+        "--planning-dir",
+        "<tmpdir>/.planning"
+      ],
+      "expected_reason_codes": [
+        "packet_capsule_unavailable_raw_fallback"
+      ],
+      "canonical_streams_guarded": [
+        "context-packet-log.jsonl",
+        "context-complaints.jsonl"
+      ],
+      "soft_skip_when": null,
+      "edge_guard_miss_classified": false
+    },
+    {
+      "id": "dispatch-router-vtp-whitelist-violation",
+      "label": "Dispatch router rejects a non-whitelisted uncertainty type for VTP route",
+      "target_tool": "super-gsd/tools/dispatch-router/route.cjs",
+      "inject_mechanism": "non_whitelisted_uncertainty_type_for_vtp",
+      "tool_invocation_argv": [
+        "node",
+        "<resolved>",
+        "--route-fixture",
+        "--planning-dir",
+        "<tmpdir>/.planning"
+      ],
+      "expected_reason_codes": [
+        "route_match_fallback",
+        "provider_vtp_unavailable"
+      ],
+      "canonical_streams_guarded": [
+        "route-decisions.jsonl",
+        "crit-backlog.jsonl"
+      ],
+      "soft_skip_when": null,
+      "edge_guard_miss_classified": false
+    },
+    {
+      "id": "vtp-bridge-unavailable",
+      "label": "VTP bridge surfaces a degraded sentinel when forced offline",
+      "target_tool": "super-gsd/tools/vtp-bridge/classify.cjs",
+      "inject_mechanism": "env_sgsd_vtp_force_offline_1",
+      "tool_invocation_argv": [
+        "node",
+        "<resolved>",
+        "--bridge",
+        "--uncertainty-type",
+        "architecture_challenge",
+        "--query",
+        "fixture"
+      ],
+      "expected_reason_codes": [
+        "provider_vtp_unavailable"
+      ],
+      "canonical_streams_guarded": [
+        "route-decisions.jsonl"
+      ],
+      "soft_skip_when": null,
+      "edge_guard_miss_classified": false
+    },
+    {
+      "id": "memory-governance-revocation-replay",
+      "label": "Memory governance replays a synthetic revocation row without leaking to live streams",
+      "target_tool": "super-gsd/tools/memory-governance/lifecycle.cjs",
+      "inject_mechanism": "synthetic_revocation_row",
+      "tool_invocation_argv": [
+        "node",
+        "<resolved>",
+        "--process-complaints",
+        "--planning-dir",
+        "<tmpdir>/.planning"
+      ],
+      "expected_reason_codes": [
+        "revoke_applied",
+        "revalidation_required"
+      ],
+      "canonical_streams_guarded": [
+        "memory-revocations.jsonl",
+        "memory-promotions.jsonl",
+        "memory-demotions.jsonl",
+        "memory-revalidations.jsonl"
+      ],
+      "soft_skip_when": "phase_49_writer_unwired",
+      "edge_guard_miss_classified": false
+    },
+    {
+      "id": "redis-adapter-flushdb-recovery",
+      "label": "Redis adapter recovers from a FLUSHDB plus poisoned key event via SQLite fallback",
+      "target_tool": "super-gsd/tools/context-cache/redis-adapter.cjs",
+      "inject_mechanism": "test_hook_simulate_flush_and_poison",
+      "tool_invocation_argv": [
+        "node",
+        "-e",
+        "const r=require('<resolved>'); r._testHook_simulateFlushAndPoison({}).then(o=>{console.log(JSON.stringify(o));process.exit(0);}).catch(e=>{console.error(String(e));process.exit(1);});"
+      ],
+      "expected_reason_codes": [
+        "redis_flushdb_recovered_via_sqlite",
+        "poisoned_unparseable"
+      ],
+      "canonical_streams_guarded": [
+        "redis-projection-log.jsonl"
+      ],
+      "soft_skip_when": "redis_not_available_soft_skip",
+      "edge_guard_miss_classified": false
+    },
+    {
+      "id": "sqlite-context-index-deleted-db",
+      "label": "Context cache rebuild and query degrade gracefully when the SQLite index file is removed",
+      "target_tool": "super-gsd/tools/context-cache/rebuild.cjs",
+      "inject_mechanism": "rm_context_index_db",
+      "tool_invocation_argv": [
+        "node",
+        "<resolved>",
+        "--lookup-fixture",
+        "--planning-dir",
+        "<tmpdir>/.planning"
+      ],
+      "expected_reason_codes": [
+        "index_unavailable",
+        "rebuild_error"
+      ],
+      "canonical_streams_guarded": [
+        "context-packet-log.jsonl"
+      ],
+      "soft_skip_when": null,
+      "edge_guard_miss_classified": false
+    },
+    {
+      "id": "phase-capsule-corrupted-json",
+      "label": "Phase capsule reader returns sentinel without throwing on truncated JSON",
+      "target_tool": "super-gsd/tools/phase-capsule/write.cjs",
+      "inject_mechanism": "truncate_capsule_mid_write",
+      "tool_invocation_argv": [
+        "node",
+        "-e",
+        "const w=require('<resolved>'); console.log(JSON.stringify(w.readCapsule ? w.readCapsule(process.argv[1]) : {ok:false,reason:'reader_unavailable'}));",
+        "<tmpdir>/.planning/milestones/v1.8/phases/36-capsule/PHASE-CAPSULE.json"
+      ],
+      "expected_reason_codes": [
+        "capsule_parse_error"
+      ],
+      "canonical_streams_guarded": [
+        "context-packet-log.jsonl"
+      ],
+      "soft_skip_when": null,
+      "edge_guard_miss_classified": false
+    },
+    {
+      "id": "route-ledger-truncated-stream",
+      "label": "Route ledger reader skips a partial-line tail without throwing",
+      "target_tool": "super-gsd/scripts/lib/route-ledger.cjs",
+      "inject_mechanism": "partial_line_jsonl_write",
+      "tool_invocation_argv": [
+        "node",
+        "-e",
+        "const r=require('<resolved>'); const out = (typeof r.readRows === 'function') ? r.readRows() : []; console.log(JSON.stringify(out));"
+      ],
+      "expected_reason_codes": [
+        "row_skipped_invalid",
+        "tail_skipped_partial_line"
+      ],
+      "canonical_streams_guarded": [
+        "route-decisions.jsonl"
+      ],
+      "soft_skip_when": null,
+      "edge_guard_miss_classified": false
+    },
+    {
+      "id": "edge-guard-missing-emit",
+      "label": "Edge guard logs a structural emit gap as status logged with missing emits populated",
+      "target_tool": "super-gsd/scripts/lib/edge-guard.cjs",
+      "inject_mechanism": "synthetic_gate_with_missing_emit",
+      "tool_invocation_argv": [
+        "node",
+        "-e",
+        "const eg=require('<resolved>'); const r=eg.recordTransition({fromStep:5,toStep:6,phase:'53-fixture',plan:'01',gateName:'phase53_fixture_gate',expectedEmits:['fixture-output.jsonl'],actualEmits:[],projectDir:process.cwd(),gatesYamlPath:'gates.yaml'}); console.log(JSON.stringify(r));"
+      ],
+      "expected_reason_codes": [
+        "edge_guard_halt"
+      ],
+      "canonical_streams_guarded": [
+        "edge-guard-log.jsonl"
+      ],
+      "soft_skip_when": null,
+      "edge_guard_miss_classified": true
+    }
+  ]
+}

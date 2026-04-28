@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://super-gsd.local/schemas/failure-injection/SCENARIOS.schema.json",
+  "title": "FailureInjectionScenarios",
+  "description": "Phase 53-01-T1 closed-vocab 10-scenario manifest. Lock 11: set-membership + byte-equality only. Lock 4: target_tool strings reference Phase 41-52 tools by absolute relative path; the harness require.resolve()s them at scenario dispatch time without copying or forking. additionalProperties:false at top-level and per-entry locks the schema against drift.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "scenarios"],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label",
+          "target_tool",
+          "inject_mechanism",
+          "tool_invocation_argv",
+          "expected_reason_codes",
+          "canonical_streams_guarded",
+          "soft_skip_when",
+          "edge_guard_miss_classified"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "token-attribution-poisoned-row",
+              "context-packet-missing-capsule",
+              "dispatch-router-vtp-whitelist-violation",
+              "vtp-bridge-unavailable",
+              "memory-governance-revocation-replay",
+              "redis-adapter-flushdb-recovery",
+              "sqlite-context-index-deleted-db",
+              "phase-capsule-corrupted-json",
+              "route-ledger-truncated-stream",
+              "edge-guard-missing-emit"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_tool": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^super-gsd/(tools|scripts)/[A-Za-z0-9._/-]+\\.cjs$"
+          },
+          "inject_mechanism": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "minLength": 1
+          },
+          "tool_invocation_argv": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "expected_reason_codes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "canonical_streams_guarded": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "enum": [
+                "agent-token-spend.jsonl",
+                "context-packet-log.jsonl",
+                "context-complaints.jsonl",
+                "route-decisions.jsonl",
+                "crit-backlog.jsonl",
+                "redis-projection-log.jsonl",
+                "edge-guard-log.jsonl",
+                "memory-revocations.jsonl",
+                "memory-promotions.jsonl",
+                "memory-demotions.jsonl",
+                "memory-revalidations.jsonl"
+              ]
+            }
+          },
+          "soft_skip_when": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "string",
+                "enum": [
+                  "phase_49_writer_unwired",
+                  "redis_not_available_soft_skip"
+                ]
+              }
+            ]
+          },
+          "edge_guard_miss_classified": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
