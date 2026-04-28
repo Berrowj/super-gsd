@@ -1828,6 +1828,51 @@ function _selfTest() {
   check('t6_legacy_zero_useful_findings_imputed_ratio_null',
         t6_5_ok, t6_5_detail);
 
+  // T6.6 (W2 ATC fix): PASS-WITH-DEFERRED-N requires every injection gate to
+  // have fired. Median in [0.40, 0.50) band + retention=1.0 + ANY injection
+  // failed -> verdict=FAIL (NOT PASS-WITH-DEFERRED-N). The plan T6
+  // falsifier is explicit: "any injection gate did not fire" -> FAIL,
+  // and "PASS-WITH-DEFERRED-N triggered ... with retention<1.0 [or with]
+  // an injection failure" is a falsifier.
+  let t6_6_ok = false;
+  let t6_6_detail = '';
+  try {
+    const synthScenarios = [
+      { evidence_retention: 1.0, pct_reduction: 0.42, evidence_loss_items: [],
+        verdict: 'FAIL' },
+      { evidence_retention: 1.0, pct_reduction: 0.45, evidence_loss_items: [],
+        verdict: 'FAIL' },
+      { evidence_retention: 1.0, pct_reduction: 0.48, evidence_loss_items: [],
+        verdict: 'FAIL' },
+    ];
+    // F2 did NOT fire -> anyInjectionFailed=true. Per W2 fix the verdict
+    // must drop to FAIL, not PASS-WITH-DEFERRED-N, even though median is in
+    // [0.40, 0.50) and retention === 1.0.
+    const synthInjections = [
+      { id: 'F1', gate_fired: true, skipped: false },
+      { id: 'F2', gate_fired: false, skipped: false },
+    ];
+    const agg = scoring.aggregateGate(synthScenarios, synthInjections);
+    const median = agg.median_pct_reduction;
+    const inDeferredBand = (typeof median === 'number'
+                            && median >= 0.40 && median < 0.50);
+    t6_6_ok = agg.ok === true
+      && agg.verdict === 'FAIL'
+      && agg.any_injection_failed === true
+      && inDeferredBand
+      // Sanity: verdict string must NOT begin with 'PASS-WITH-DEFERRED'.
+      && (typeof agg.verdict === 'string'
+          && agg.verdict.indexOf('PASS-WITH-DEFERRED') !== 0);
+    t6_6_detail = 'verdict=' + agg.verdict
+      + ' median=' + median
+      + ' any_inj_failed=' + agg.any_injection_failed
+      + ' in_deferred_band=' + inDeferredBand;
+  } catch (e) {
+    t6_6_detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('t6_pass_with_deferred_requires_injection_success',
+        t6_6_ok, t6_6_detail);
+
   return results;
 }
 

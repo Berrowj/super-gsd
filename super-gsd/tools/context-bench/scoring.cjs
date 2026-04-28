@@ -341,6 +341,12 @@ function _scoreScenarioImpl(opts) {
                                                           : [];
   const tokensAfterOverride = (opts.tokensAfter === null
     || typeof opts.tokensAfter === 'number') ? opts.tokensAfter : undefined;
+  // mode_used disambiguates "no token spend captured" from "ledger-only mode".
+  // When the caller passes mode_used, we use it to decide the implicit
+  // tokensAfter default (W1 fix per ATC). 'ledger-only' -> null (incomplete);
+  // any other mode (full / full-stub / undefined) -> 0 (real dispatch with
+  // no recorded post-spend, which is a real FAIL not an absence-of-evidence).
+  const modeUsed = typeof opts.modeUsed === 'string' ? opts.modeUsed : null;
 
   if (!scenario) return _degradedRow('scenario_missing');
 
@@ -356,13 +362,23 @@ function _scoreScenarioImpl(opts) {
 
   // tokens_after: caller may explicitly pass null (W2 ledger-only case).
   // When undefined, derive from postRows (sum). When postRows empty AND the
-  // override is undefined, default to 0 (real run with no token spend - this
-  // is a real failure, not 'ledger-only -- incomplete').
+  // override is undefined, branch on mode_used (W1 ATC fix):
+  //   mode_used === 'ledger-only' -> null (real ledger-only branch:
+  //                                  absence-of-evidence, not a FAIL)
+  //   mode_used in {full, full-stub, ...} -> 0 (real dispatch with no
+  //                                              recorded token spend; this
+  //                                              is a real FAIL per plan
+  //                                              T6.1 contract)
+  //   mode_used absent (legacy callers) -> null (preserve prior behavior;
+  //                                              callers that care must
+  //                                              opt in by passing modeUsed)
   let tokensAfter;
   if (tokensAfterOverride !== undefined) {
     tokensAfter = tokensAfterOverride;
   } else if (postRows.length > 0) {
     tokensAfter = _sumTokens(postRows);
+  } else if (modeUsed && modeUsed !== 'ledger-only') {
+    tokensAfter = 0;
   } else {
     tokensAfter = null;
   }
@@ -530,9 +546,12 @@ function _aggregateGateImpl(scenarios, injections) {
     verdict = VERDICTS.FAIL;
   } else if (medianPct >= 0.50 && !anyInjectionFailed) {
     verdict = VERDICTS.PASS;
-  } else if (medianPct >= 0.40 && medianPct < 0.50) {
+  } else if (medianPct >= 0.40 && medianPct < 0.50 && !anyInjectionFailed) {
     // CANDIDATE-WITH-DEBT range. Suffix the verdict with the count of
     // scenarios in the [0.40,0.50) band (caller-readable telemetry).
+    // W2 ATC fix: PASS-WITH-DEFERRED-N requires every injection gate to have
+    // fired. If any injection failed, drop to FAIL (plan T6 falsifier:
+    // "any injection gate did not fire" -> FAIL).
     let band = 0;
     for (let i = 0; i < pcts.length; i++) {
       if (pcts[i] >= 0.40 && pcts[i] < 0.50) band++;
