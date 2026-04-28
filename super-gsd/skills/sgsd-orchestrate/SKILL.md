@@ -30,6 +30,18 @@ Exit conditions (ONLY these 3):
 2. Blocker requiring human input or runtime cannot continue
 3. User says stop/pause
 
+Autopilot continuation rule:
+- In `go` / `auto` / `continue`, phase-close summaries, milestone-midpoint
+  summaries, cost summaries, and "operator review" summaries are informational
+  only. They are never a reason to stop.
+- Never ask "keep pushing?", "pause for operator review?", "continue?", or any
+  equivalent choice question while auto mode is active.
+- If a summary is useful, write it to STATE/narrative/checkpoint artifacts as
+  evidence, then immediately perform the next loop tool call.
+- "Operator review" is valid only after all phases complete, when a real hard
+  stop is hit, or when the user explicitly invoked `next`, `status`, `stop`, or
+  `pause`.
+
 Context percentage is NOT an exit condition. Never self-estimate context use.
 Runtime compaction and external files (`STATE.md`, `ORCHESTRATOR-CHECKPOINT.md`,
 metrics JSONL, and milestone artifacts) are the context-management mechanism.
@@ -608,6 +620,104 @@ REPEAT:
         skill. The orchestrator trusts decision.provider verbatim (modulo null -> claude
         fallback).
 
+     d.7 SELECTIVE VTP BRIDGE CALL (Phase 48, VTPR-01..06)
+        -- Phase 48 selective bridge consumer composition. Why: when Phase 47 routeDispatch
+        returns {provider:'vtp', uncertainty_type, ...}, the orchestrator calls the bridge
+        BEFORE Agent dispatch to fetch a compact source-backed evidence_packet from one
+        mcp__vtp-kb__* tool. The packet is then passed into the Phase 45 context-packet
+        builder via the EXISTING reserved opts slot (build.cjs:707-708) -- Phase 45 source
+        REMAINS UNTOUCHED; the wire is caller-side composition.
+
+        Bindings: A1 local-implementation phases never call VTP (whitelist gate at Gate 2
+        of selectiveVTPCall); A2 research/book/prior-project/architecture-challenge can
+        call VTP via 4-entry frozen VTP_TOOL_MAP (3 active + 1 reserved); A3 MCP failures
+        appended to .planning/metrics/vtp-bridge-failures.jsonl and NEVER injected into
+        evidence_packet.results[]; A4 packets are source-backed (mandatory source_refs +
+        root_source_hashes per PACKET-13 mirror) AND compact (5000-token cap with
+        descending-relevance elision); A5/LOCK-11 routing gated ONLY by uncertainty_type
+        (no embedding/similarity_score/fuzzy_match/cosine accepted).
+
+        When to use: AFTER Step d.6 routeDispatch returns AND BEFORE the Agent() dispatch
+        call in steps 6.b through 6.h, ONLY when decision.provider === 'vtp'. For all
+        other providers (claude / codex / local-script) skip this step.
+
+        Call the bridge:
+        ```javascript
+        const route  = require('super-gsd/tools/dispatch-router/route.cjs');
+        const bridge = require('super-gsd/tools/vtp-bridge/classify.cjs');
+
+        const decision = route.routeDispatch(routeInput);   // Step d.6
+
+        let vtp_evidence_packet = null;
+        if (decision.provider === 'vtp') {
+          vtp_evidence_packet = bridge.selectiveVTPCall({
+            uncertainty_type: routeInput.uncertainty_type,
+            query: <canonical intent or dispatch query string>,
+            planningDir: planningDir,
+            phase: <currentPhase>,
+            milestone: <currentMilestone>,
+          });
+          // Lock 13: bridge NEVER throws upward. Always returns a packet object.
+          // The bridge ALREADY appended one row to route-decisions.jsonl
+          // (boundary='vtp_bridge') and (on failure) one row to
+          // .planning/metrics/vtp-bridge-failures.jsonl. No additional logging
+          // required from the orchestrator at this step.
+        }
+        ```
+
+        Pass the result into the Phase 45 context-packet builder via the EXISTING reserved
+        opts slot (super-gsd/tools/context-packet/build.cjs:707-708; Phase 45 source remains
+        UNTOUCHED -- this is caller-side composition):
+        ```javascript
+        const cp = require('super-gsd/tools/context-packet/build.cjs');
+        const packet = cp.buildPacket(role, intent_ref, {
+          planningDir: planningDir,
+          route_hint: { use_vtp: !!(vtp_evidence_packet && vtp_evidence_packet.ok) },
+          _vtp_packets: (vtp_evidence_packet && vtp_evidence_packet.ok) ? [vtp_evidence_packet] : [],
+        });
+        ```
+
+        FAILURE PATH (A3 binding). When vtp_evidence_packet.ok === false the orchestrator
+        MUST NOT inject the failure into the Agent prompt as if it were research evidence.
+        Instead:
+        - Pass `_vtp_packets: []` (empty array) into the context-packet builder.
+        - Surface vtp_evidence_packet.error_logged_at in the dispatch summary line of the
+          Agent prompt as a status note: `"VTP bridge attempted (uncertainty_type=X);
+          failed; see {error_logged_at}"`. The Agent treats this as a bridge-status note,
+          NOT a research conclusion.
+        - The bridge has already written one row to vtp-bridge-failures.jsonl (with
+          {tool, error_type in FAILURE_KINDS, error_message, retry_at}) and one row to
+          route-decisions.jsonl (boundary='vtp_bridge', status='fail'|'timeout'). The
+          orchestrator does NOT duplicate this logging.
+
+        WHITELIST behavior. When decision.provider !== 'vtp' the orchestrator does NOT call
+        the bridge. Phase 47 has already gated the route. Defense-in-depth: if the bridge
+        is accidentally invoked with a non-whitelist uncertainty_type it returns
+        {ok:false, reason_codes:['not_routed_to_vtp']} with NO MCP call and NO failure-log
+        row (refused != failure). selectiveVTPCall imports route.VTP_WHITELIST BY REFERENCE
+        (no copy; identity-checked in the bridge self-test assertion 11).
+
+        COEXISTENCE with sgsd-vtp-enrichment (Step 6.b.5). The two are distinct and both
+        ship in v1.9:
+        - Step 6.b.5 (sgsd-vtp-enrichment): per-PHASE enrichment between researcher and
+          planner. Runs the 5-tool VTP cascade for broad enrichment of RESEARCH.md.
+        - Step d.7 (Phase 48 bridge -- selectiveVTPCall): per-DISPATCH selective single-shot
+          call. Fires on routeDispatch decision, returns one evidence_packet for the
+          context-packet builder.
+        Both call into the same MCP tool family; both coexist; Phase 48 does NOT replace
+        the enrichment agent.
+
+        FORWARD CONTRACTS (shape only -- no require() of unwritten code):
+        - Phase 49 governance (GOV-04..GOV-08) reads vtp-bridge-failures.jsonl + the
+          route-decisions.jsonl rows where boundary='vtp_bridge', and may promote recurring
+          successful packets to validated_thoughts and demote tools whose failure rate
+          exceeds threshold. Phase 48 ships the data; Phase 49 owns the promotion logic.
+        - Phase 50 cockpit (COCKPIT-04) reads the tail of both streams for the source-mix
+          display.
+        - Phase 51 BENCH (BENCH-05..BENCH-07) reuses the Phase 48 self-test fixtures
+          (vtp_unavailable, mcp_timeout, bad_provenance, compactness) for the
+          utility-per-token measurement.
+
      e. Phase has checked plans, pending tasks → run PLAN LOAD-TIME VALIDATION (Step 6.2) then dispatch per MACH-02 wave plan:
 
         // Require dispatch-planner at orchestrator startup (zero runtime deps)
@@ -932,7 +1042,13 @@ REPEAT:
             });
             if (dispatchResult.exit !== 0 && effective.fallback_to && config.review_providers.fallback_on_error) {
               // Single-retry fallback to Claude per HiveMind centralized-retry pattern (doc:5a50cc9b459e)
-              logDeviation(`GATE_PROVIDER_FALLBACK: ${effective.name} exit=${dispatchResult.exit} → ${effective.fallback_to}`);
+              const providerFailureReason = (dispatchResult.timeout_hit || dispatchResult.exit === 5)
+                ? 'codex_timeout'
+                : (dispatchResult.exit === 4 ? 'codex_auth_missing' : 'codex_provider_error');
+              // Do not write "Codex unavailable" for timeout. Auth/availability and
+              // tier-budget exhaustion are different facts; summaries must preserve
+              // that distinction.
+              logDeviation(`GATE_PROVIDER_FALLBACK: ${effective.name} ${providerFailureReason} exit=${dispatchResult.exit} -> ${effective.fallback_to}`);
               const fallbackProvider = gates.getProvider(effective.fallback_to);
               report = await Agent({
                 subagent_type: fallbackProvider.agent_subagent_type,
@@ -1613,7 +1729,13 @@ REPEAT:
           });
           if (dispatchResult.exit !== 0 && effective.fallback_to && config.review_providers.fallback_on_error) {
             // Single-retry fallback to Claude per HiveMind centralized-retry pattern (doc:5a50cc9b459e)
-            logDeviation(`GATE_PROVIDER_FALLBACK: ${effective.name} exit=${dispatchResult.exit} → ${effective.fallback_to}`);
+            const providerFailureReason = (dispatchResult.timeout_hit || dispatchResult.exit === 5)
+              ? 'codex_timeout'
+              : (dispatchResult.exit === 4 ? 'codex_auth_missing' : 'codex_provider_error');
+            // Do not write "Codex unavailable" for timeout. Auth/availability and
+            // tier-budget exhaustion are different facts; summaries must preserve
+            // that distinction.
+            logDeviation(`GATE_PROVIDER_FALLBACK: ${effective.name} ${providerFailureReason} exit=${dispatchResult.exit} -> ${effective.fallback_to}`);
             const fallbackProvider = gates.getProvider(effective.fallback_to);
             report = await Agent({
               subagent_type: fallbackProvider.agent_subagent_type,
@@ -1834,7 +1956,7 @@ REPEAT:
               // Per CONTEXT D-17: if Codex unavailable, skip entirely.
               // Do NOT fall back to same-vendor challenger — that defeats the purpose
               // of cross-vendor signal (D-17a). Better to skip than produce false signal.
-              logDeviation('VERIFIER_ADVERSARIAL_SKIP: codex unavailable');
+              logDeviation('VERIFIER_ADVERSARIAL_SKIP: codex_auth_unavailable');
             } else {
               const challengerProvider = gates.getProvider(challengerProviderName);
 
@@ -1857,8 +1979,10 @@ REPEAT:
                     _reasoning_effort: dispatchResult.reasoning_effort || config.review_providers.codex_reasoning_effort || 'xhigh'
                   };
                 } else {
-                  // Per CONTEXT D-17: skip on unavailability, no fallback to same-vendor
-                  logDeviation(`VERIFIER_ADVERSARIAL_SKIP: codex-exec.sh exit=${dispatchResult.exit}`);
+                  const providerFailureReason = (dispatchResult.timeout_hit || dispatchResult.exit === 5)
+                    ? 'codex_timeout'
+                    : (dispatchResult.exit === 4 ? 'codex_auth_missing' : 'codex_provider_error');
+                  logDeviation(`VERIFIER_ADVERSARIAL_SKIP: codex-exec.sh ${providerFailureReason} exit=${dispatchResult.exit}`);
                 }
               } else {
                 // Future: agent-type challenger (e.g., if primary ever flips to Codex)
@@ -2222,11 +2346,16 @@ Estimation method:
 9. Script reuse: ALWAYS check ByteRover before creating new utilities.
 10. EXIT only for the 3 valid conditions. Never stop prematurely. Context
     percentage is not one of them; do not self-estimate or halt for it.
-11. CONTEXT ACCUMULATOR: After 5 reports in active context, compress older reports to ONE_LINERs.
+11. NO OPTIONAL REVIEW PROMPTS IN AUTO MODE: If command is `go`, `auto`, or
+    `continue`, never ask whether to keep going, pause, review, checkpoint, or
+    proceed after a phase/milestone/cost summary. Pair the summary with the next
+    Read/Agent/Bash call and continue. Choice questions are valid only for
+    `next`, `status`, `stop`, `pause`, all-phases-complete, or a real hard stop.
+12. CONTEXT ACCUMULATOR: After 5 reports in active context, compress older reports to ONE_LINERs.
     Never hold full report text for more than 2 completed iterations.
-12. REPORT VALIDATION: Always check word count and section presence before parsing.
+13. REPORT VALIDATION: Always check word count and section presence before parsing.
     Log REPORT_OVERLIMIT and MISSING_SECTION — do not exit on format violation.
-13. PHASE ATC GATE: After verification passes, BEFORE marking phase complete —
+14. PHASE ATC GATE: After verification passes, BEFORE marking phase complete —
     run full phase-level ATC review via Step 6.5. This reviews the ENTIRE phase's
     work (all plans, all commits) as a coherent unit, NOT individual commits.
     Classify with Haiku, review with Sonnet (gsd-code-reviewer).
