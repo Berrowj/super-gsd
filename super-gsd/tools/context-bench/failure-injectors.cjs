@@ -270,12 +270,12 @@ const INJECTION_FIXTURES = Object.freeze([
 // ---------------------------------------------------------------------------
 const F17_STUB = Object.freeze({
   id: 'F17',
-  label: 'phase 52 redis cross-binding (contract-only stub)',
+  label: 'phase 52 redis flush + poisoned key (live)',
   inject_point: 'phase-52.redis_adapter',
-  expected_reason_codes: Object.freeze([]),
-  evidence_path: null,
-  applies_to_scenarios: Object.freeze([]),
-  soft_skip_when: 'phase_52_redis_adapter_not_shipped',
+  expected_reason_codes: Object.freeze(['source_hash_drift', 'poisoned_unparseable', 'redis_flushdb_recovered_via_sqlite']),
+  evidence_path: '.planning/metrics/redis-projection-log.jsonl',
+  applies_to_scenarios: Object.freeze(['S1-v17-P32', 'S2-v18-P36']),
+  soft_skip_when: null,
 });
 
 // ---------------------------------------------------------------------------
@@ -885,17 +885,44 @@ function _F16(_ctx) {
   };
 }
 
-// F17: Phase 52 contract-only stub. Returns the documented soft-skip
-// shape; no inject/restore work happens because the Redis adapter is
-// not yet shipped.
-function _F17(_ctx) {
+// F17: Phase 52 live cross-binding. LAZY require of redis-adapter inside
+// inject() ONLY (Pitfall 6) - F1..F16 path picks up zero redis side-effects.
+// 4-step protocol: snapshot log byte length, run _testHook_simulateFlushAndPoison
+// (poison + flush sequentially per Q4), observe tail for 3 reason codes,
+// restore via truncate. Lock 13 wrap on every step.
+function _F17(ctx) {
+  const planningDir = (ctx && ctx.planningDir) ? ctx.planningDir : process.cwd();
+  const logPath = path.join(planningDir, '.planning', 'metrics', 'redis-projection-log.jsonl');
+  const expected = ['source_hash_drift', 'poisoned_unparseable', 'redis_flushdb_recovered_via_sqlite'];
+  let snapshotBytes = 0;
   return {
-    snapshot: function () { return true; },
-    inject: function () { return true; },
-    observe: function () { return true; },
-    restore: function () { return true; },
-    skipped: true,
-    reason: 'phase_52_redis_adapter_not_shipped',
+    snapshot: function () {
+      try { snapshotBytes = fs.existsSync(logPath) ? fs.statSync(logPath).size : 0; return true; } catch (_e) { return false; }
+    },
+    inject: async function () {
+      let adapter = null;
+      try { adapter = require('../context-cache/redis-adapter.cjs'); }
+      catch (_e) { return { skipped: true, reason: 'redis_adapter_unavailable' }; }
+      try {
+        if (!adapter || typeof adapter._testHook_simulateFlushAndPoison !== 'function') return { skipped: true, reason: 'redis_adapter_unavailable' };
+        const r = await adapter._testHook_simulateFlushAndPoison({ projectDir: planningDir });
+        if (r && r.reason === 'redis_not_available_soft_skip') return { skipped: true, reason: 'redis_not_available_soft_skip' };
+        return { ok: !!(r && r.ok), applied: true, source: (r && r.source) ? r.source : 'redis' };
+      } catch (_e) { return { ok: false, applied: false, reason: 'internal_error', source: 'degraded' }; }
+    },
+    observe: function () {
+      try {
+        if (!fs.existsSync(logPath)) return false;
+        const total = fs.statSync(logPath).size;
+        if (total <= snapshotBytes) return false;
+        const tail = fs.readFileSync(logPath, 'utf8').slice(snapshotBytes);
+        for (const code of expected) { if (tail.indexOf('"reason":"' + code + '"') === -1) return false; }
+        return true;
+      } catch (_e) { return false; }
+    },
+    restore: function () {
+      try { if (fs.existsSync(logPath)) fs.truncateSync(logPath, snapshotBytes); return true; } catch (_e) { return false; }
+    },
   };
 }
 

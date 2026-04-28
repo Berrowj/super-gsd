@@ -2660,6 +2660,59 @@ async function selfTest() {
     }
   }));
 
+  // H1 (T6 cross-binding): F17 fixture lazy-requires redis-adapter and
+  // soft-skips when require would throw. Mock require resolution by passing
+  // a planningDir that does not exist; the inject() path still loads the
+  // adapter and either returns soft-skip (no Redis on dev) or ok:* result.
+  // The contract assertion is: F17 inject() returns a non-throwing object
+  // with either skipped:true OR applied:true (never an exception, never
+  // raw undefined). Lock 13 binding.
+  results.push(await _bootstrapAssertAsync('H1_F17_lazy_require_isolated', async function () {
+    const fi = require('../context-bench/failure-injectors.cjs');
+    if (typeof fi.injectFailure !== 'function') {
+      throw new Error('failure-injectors must export injectFailure');
+    }
+    if (fi.INJECTION_FIXTURES.length !== 16) {
+      throw new Error('F1..F16 frozen array must remain length 16; got ' + fi.INJECTION_FIXTURES.length);
+    }
+    const handle = fi.injectFailure('F17', { planningDir: process.cwd() });
+    if (!handle || typeof handle.snapshot !== 'function' || typeof handle.inject !== 'function') {
+      throw new Error('F17 must return 4-step protocol handle');
+    }
+    const snap = handle.snapshot();
+    if (snap !== true) throw new Error('F17 snapshot must return true; got ' + snap);
+    const r = await handle.inject();
+    if (r === undefined || r === null) throw new Error('F17 inject must return object; got ' + r);
+    const isSkipped = r.skipped === true;
+    const isApplied = r.applied === true;
+    const isOk = typeof r.ok === 'boolean';
+    if (!isSkipped && !isApplied && !isOk) {
+      throw new Error('F17 inject must return {skipped|applied|ok}; got ' + JSON.stringify(r));
+    }
+    handle.restore();
+    return { skipped: isSkipped, applied: isApplied };
+  }));
+
+  // H2 (T6 cross-binding): F1..F16 frozen contract still holds post-T6.
+  // Defense against accidental array mutation when F17 was activated.
+  results.push(_bootstrapAssert('H2_F1_F16_frozen_post_T6', function () {
+    const fi = require('../context-bench/failure-injectors.cjs');
+    if (fi.INJECTION_FIXTURES.length !== 16) {
+      throw new Error('INJECTION_FIXTURES.length must be 16 post-T6; got ' + fi.INJECTION_FIXTURES.length);
+    }
+    if (!Object.isFrozen(fi.INJECTION_FIXTURES)) {
+      throw new Error('INJECTION_FIXTURES must remain Object.freeze post-T6');
+    }
+    for (let i = 0; i < 16; i++) {
+      const expected = 'F' + (i + 1);
+      if (fi.INJECTION_FIXTURES[i].id !== expected) {
+        throw new Error('F1..F16 order broken at index ' + i + '; expected ' + expected
+          + ' got ' + fi.INJECTION_FIXTURES[i].id);
+      }
+    }
+    return { len: 16, frozen: true };
+  }));
+
   let pass = 0;
   let fail = 0;
   for (const r of results) {
