@@ -97,27 +97,35 @@ const TASK_KINDS = Object.freeze([
   'general',
 ]);
 
-// 16 closed-enum reason codes. RESEARCH sec 11.2 LOCKED.
+// 18 closed-enum reason codes. RESEARCH sec 11.2 LOCKED + 1 SKILL.md
+// secondary annotation ('context_pressure_high') added per ATC review fix.
+// Self-test assertion 10 enforces length === 18.
 const ROUTE_DECISION_REASONS = Object.freeze([
+  // Primary routing decisions:
   'matched_uncertainty_type',
   'structural_override_local_script',
   'structural_override_codex_review',
   'context_pressure_override_local',
   'context_pressure_override_codex',
   'context_pressure_under_unmovable_route',
+  // Hint consumption:
   'route_hint_consumed_R1',
   'route_hint_consumed_R2',
   'route_hint_consumed_R3',
   'route_hint_consumed_R4',
   'route_hint_consumed_R5',
+  // Fallback signals:
   'provider_codex_unavailable',
   'provider_vtp_unavailable',
   'provider_claude_unavailable',
   'fallback_chain_exhausted',
   'router_internal_error',
-  // 16th + gate bridge reason (envelope is closed-vocab; total array length
-  // is bounded by RESEARCH sec 11.2 closed enum):
+  // Gate bridge:
   'gate_resolved_provider',
+  // Secondary annotation emitted by orchestrator SKILL.md when
+  // decision.context_pressure.over_warn is true (alongside the primary
+  // reason from this enum). Closed-vocab integrity for cockpit consumers.
+  'context_pressure_high',
 ]);
 
 // Subset of reasons used as fallback_reason values.
@@ -849,13 +857,15 @@ function selfTest() {
   // Also assert PROVIDERS imported by reference (not re-defined).
   const providersByRef = (PROVIDERS === tokenAttribution.PROVIDERS);
   // Note: plan sec 3.2 LOCKED enumerates 17 distinct strings (the prose says "16 entries"
-  // but the explicit list contains 6 + 5 + 3 + 1 + 1 + 1 = 17). We use the actual
-  // enumeration count, which is what every consumer actually sees.
+  // but the explicit list contains 6 primary + 5 hint + 3 fallback + 1 exhausted + 1
+  // internal-error + 1 gate-bridge + 1 secondary-annotation = 18). The 18th is the
+  // SKILL.md 'context_pressure_high' secondary annotation closed-enum integrity fix.
   assert('10. ROUTING_TABLE 6-entry frozen + PROVIDERS imported by reference',
     routingTableOk && providersByRef
     && Array.isArray(ROUTE_DECISION_REASONS)
-    && ROUTE_DECISION_REASONS.length === 17
-    && Object.isFrozen(ROUTE_DECISION_REASONS));
+    && ROUTE_DECISION_REASONS.length === 18
+    && Object.isFrozen(ROUTE_DECISION_REASONS)
+    && ROUTE_DECISION_REASONS.includes('context_pressure_high'));
 
   // Assertion 11 -- closed-enum input validation never throws upward (Lock 13).
   let lock13Ok = false;
