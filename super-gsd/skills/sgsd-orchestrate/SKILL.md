@@ -517,6 +517,97 @@ REPEAT:
         If DRIFT leaves no runnable executor path: checkpoint and stop as a real
         blocker/runtime-cannot-continue condition. This is not a context halt.
 
+     d.6 CONSULT DISPATCH-ROUTER BEFORE AGENT INVOCATION (Phase 47, ROUTE-01..05)
+        -- Phase 47 dispatch-router consultation. Why: route work to the cheapest competent
+        executor. Bindings: A1 deterministic_extraction -> local-script; A2 bounded_code_review
+        -> codex when healthy; A3 synthesis_judgment -> claude; A4 VTP only for the 3-entry
+        whitelist {architecture_challenge, prior_memory_lookup, book_lookup}; A5 every fallback
+        emits a closed-vocab reason via existing route-ledger; A6 structural predicates
+        override semantic input (LOCK 11); A7 context_pressure biases away from claude
+        under budget overrun (KAIROS).
+
+        When to use: BEFORE every Agent() dispatch in steps 6.b through 6.h
+        (research / planning / execution / verification / review). The router decides
+        which executor handles the dispatch and the orchestrator emits a single envelope
+        row to route-decisions.jsonl with boundary='dispatch_route'.
+
+        Build the route input (closed-enum vocabulary; no semantic-similarity field):
+        ```javascript
+        const routeInput = {
+          task_kind: <derived from dispatch class; one of TASK_KINDS>,         // extraction|inventory|review|critique|synthesis|planning|verification|lookup|general
+          uncertainty_type: <derived from dispatch class; one of UNCERTAINTY_TYPES>,  // deterministic_extraction|bounded_code_review|synthesis_judgment|architecture_challenge|prior_memory_lookup|book_lookup
+          file_count: <count of files the dispatch will touch (best-known estimate)>,
+          line_count: <estimated diff/output lines>,
+          role: <orchestrator-set role; one of ROLES (Phase 41)>,              // researcher|planner|executor|verifier|reviewer|orchestrator|classifier|other
+          current_role_token_spend: <running spend for that role; from Phase 41 spend ledger or session accumulator>,
+          gate_name: <when task_kind='review' AND a gate is implicated>
+        };
+        ```
+
+        Consult the router:
+        ```javascript
+        const router = require('super-gsd/tools/dispatch-router/route.cjs');
+        const decision = router.routeDispatch(routeInput);
+        ```
+
+        If decision.provider === null (fallback_chain_exhausted): orchestrator degrades to
+        claude and proceeds (47-RESEARCH.md sec.7 LOCKED -- "Caller treats null as 'use
+        default.'" we ARE claude). Otherwise the orchestrator uses decision.provider as the
+        routing hint for Agent() dispatch (e.g., model selection, sub-agent identity, or
+        local-script fallthrough).
+
+        AFTER routeDispatch returns (provider===null OR not), orchestrator emits ONE envelope
+        row via the EXISTING Phase 32 route-ledger (no new ledger; Phase 47 only added the
+        'dispatch_route' value to the closed-enum BOUNDARIES set):
+        ```javascript
+        const rl = require('super-gsd/scripts/lib/route-ledger.cjs');
+        const status = decision.provider === null ? 'fail'
+                     : decision.fallback_used ? 'warn'
+                     : decision.context_pressure?.over_warn ? 'warn'
+                     : 'ok';
+        const reasonCodes = [decision.reason];
+        if (decision.fallback_reason && decision.fallback_reason !== decision.reason) {
+          reasonCodes.push(decision.fallback_reason);
+        }
+        if (decision.context_pressure?.over_warn) {
+          reasonCodes.push('context_pressure_high');
+        }
+        rl.logRouteDecision(planningDir, {
+          boundary: 'dispatch_route',
+          status,
+          phase: <currentPhase>,
+          milestone: <currentMilestone>,
+          reason_codes: reasonCodes,
+          artifacts: [],
+          evidence: [],
+          decision: {
+            task_kind: routeInput.task_kind,
+            uncertainty_type: routeInput.uncertainty_type,
+            primary_provider: decision.primary_provider,
+            chosen_provider: decision.provider,
+            fallback_chain: decision.fallback_chain,
+            fallback_used: decision.fallback_used,
+            fallback_reason: decision.fallback_reason,
+            structural_signals: decision.structural_signals,
+            context_pressure: decision.context_pressure,
+            health: decision.health,
+            hints_consumed: decision.hints_consumed
+          }
+        });
+        ```
+
+        Lock 13 reminder: routeDispatch never throws upward. On internal error it returns
+        the safe-default {provider:'claude', primary_provider:null, reason:'router_internal_error',
+        fallback_used:true, ...}. The orchestrator MUST NOT block on routeDispatch -- continue
+        with claude and emit the envelope row with status='warn' so the failure is visible
+        in cockpit/BENCH.
+
+        A4 reminder: VTP gating is encoded in ROUTING_TABLE structure. The router enforces
+        VTP_WHITELIST = {architecture_challenge, prior_memory_lookup, book_lookup} mechanically.
+        NEVER add a manual "but if VTP feels relevant, override the router" branch in this
+        skill. The orchestrator trusts decision.provider verbatim (modulo null -> claude
+        fallback).
+
      e. Phase has checked plans, pending tasks → run PLAN LOAD-TIME VALIDATION (Step 6.2) then dispatch per MACH-02 wave plan:
 
         // Require dispatch-planner at orchestrator startup (zero runtime deps)
