@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "milestone": "v2.0",
+  "phase": "53",
+  "phase_name": "Gate Failure-Injection Harness",
+  "status": "IN_PROGRESS",
+  "goal": "10-scenario failure-injection harness invoking real SGSD tools against fixtures in temp/container directories. No mock predicates. 10/10 required for v2.0 SHIPPED clean.",
+  "outputs": [
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v2.0/phases/53-gate-failure-injection-harness/53-CONTEXT.md"
+    }
+  ],
+  "files": [
+    ".planning/ROADMAP-AGENT.md",
+    ".planning/ORCHESTRATOR-CHECKPOINT.md",
+    ".planning/STATE.md",
+    ".planning/discussions/2026-04-26-mass-discuss.md",
+    ".planning/milestones/v1.9/SUMMARY.md",
+    ".planning/milestones/v1.9/phases/51-context-stress-benchmark/51-RESEARCH.md",
+    "super-gsd/tools/context-bench/failure-injectors.cjs"
+  ],
+  "decisions": [
+    {
+      "id": "53=C",
+      "summary": "real tool + container isolation; mock predicates forbidden",
+      "source": ".planning/discussions/2026-04-26-mass-discuss.md (locked 2026-04-26)"
+    }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 18
+  },
+  "downstream_contract": {
+    "consumers": ["Phase 54", "Phase 55", "Phase 56", "Phase 57"],
+    "constraints": [
+      "snapshot-inject-observe-restore protocol mandatory; canonical state byte-equality preserved",
+      "real tool invocation required per scenario (spawnSync or require by absolute path); mock predicates forbidden",
+      "failure-injection-log.jsonl envelope-v1 append-only",
+      "release-readiness/score.cjs scenarios bucket = pass/total * 15"
+    ],
+    "extension_points": [
+      "Phase 54 (Restart Chaos) consumes harness pattern for kill-point fixtures",
+      "Phase 55 (Provider Circuit) consumes harness for circuit-breaker scenarios"
+    ]
+  },
+  "bypass_refs": [],
+  "source_commits": [],
+  "source_hashes": {
+    "context": null,
+    "research": null,
+    "plan": [],
+    "verification": null,
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": null,
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-04-28T22:00:00.000Z",
+  "created_by": "orchestrator-auto-synthesize@dispatch-rule-1-corrected",
+  "compression_level": "phase_capsule",
+  "promoted_at": "2026-04-28T22:00:00.000Z",
+  "demoted_at": null,
+  "revoked_at": null,
+  "revoked_reason": null,
+  "allowed_consumers": ["*"],
+  "revalidation_due": null,
+  "supersedes_id": null,
+  "superseded_by_id": null,
+  "revocation_path": "super-gsd/tools/memory-governance/lifecycle.cjs#revoke"
+}
