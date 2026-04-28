@@ -6,7 +6,10 @@
 #
 # Pre-conditions (evaluated in order):
 #   1. config.json handoff.enabled == true   (default: false -- safe by default)
-#   2. .planning/ORCHESTRATOR-CHECKPOINT.md exists with emergency_halt: true
+#   2a. .planning/ORCHESTRATOR-CHECKPOINT.md exists with emergency_halt: true
+#       OR
+#   2b. handoff.recover_unexpected_auto_stop == true AND latest
+#       orchestrator-pulse row is fresh (model stopped without a checkpoint)
 #   3. phase_state != "discussing" (discuss-phase is interactive, must not auto-resume)
 #   4a. .planning/STOP-HANDOFF abort file absent
 #   4b. chain_depth < max_chain_depth
@@ -228,6 +231,8 @@ ABORT_FILE="$ABORT_FILE_RAW"
 ENABLED="false"
 MIN_COOLDOWN=30
 MAX_CHAIN_DEPTH=5
+RECOVER_UNEXPECTED_AUTO_STOP="true"
+UNEXPECTED_STOP_MAX_PULSE_AGE=900
 
 if [[ -f "$CONFIG_FILE" ]]; then
     _enabled=$(node -e "try{var c=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));var v=c.handoff&&c.handoff.enabled!=null?c.handoff.enabled:false;console.log(String(v))}catch(e){console.log('false')}" "$CONFIG_FILE" 2>/dev/null || echo "false")
@@ -238,6 +243,12 @@ if [[ -f "$CONFIG_FILE" ]]; then
 
     _depth=$(node -e "try{var c=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));var v=c.handoff&&c.handoff.max_chain_depth!=null?c.handoff.max_chain_depth:5;console.log(Number(v))}catch(e){console.log(5)}" "$CONFIG_FILE" 2>/dev/null || echo "5")
     MAX_CHAIN_DEPTH="$_depth"
+
+    _recover=$(node -e "try{var c=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));var v=c.handoff&&c.handoff.recover_unexpected_auto_stop!=null?c.handoff.recover_unexpected_auto_stop:true;console.log(String(v))}catch(e){console.log('true')}" "$CONFIG_FILE" 2>/dev/null || echo "true")
+    RECOVER_UNEXPECTED_AUTO_STOP="$_recover"
+
+    _pulse_age=$(node -e "try{var c=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));var v=c.handoff&&c.handoff.unexpected_stop_max_pulse_age_seconds!=null?c.handoff.unexpected_stop_max_pulse_age_seconds:900;console.log(Number(v))}catch(e){console.log(900)}" "$CONFIG_FILE" 2>/dev/null || echo "900")
+    UNEXPECTED_STOP_MAX_PULSE_AGE="$_pulse_age"
 fi
 
 # --- Helper: append JSON row to handoff-log.jsonl ---
@@ -361,20 +372,68 @@ if [[ "$ENABLED" != "true" ]]; then
     exit 0
 fi
 
-# --- PRE-CONDITION 2: checkpoint must exist with emergency_halt: true ---
+_should_recover_unexpected_auto_stop() {
+    local pulse_file="$PLANNING_DIR_RAW/metrics/orchestrator-pulse.jsonl"
+    local state_file="$PLANNING_DIR_RAW/STATE.md"
+    local max_age="${1:-900}"
+
+    [[ "$RECOVER_UNEXPECTED_AUTO_STOP" == "true" ]] || return 1
+    [[ -f "$pulse_file" ]] || return 1
+    [[ -f "$state_file" ]] || return 1
+    [[ -f "$ABORT_FILE" ]] && return 1
+
+    node -e "
+      const fs = require('fs');
+      const pulsePath = process.argv[1];
+      const statePath = process.argv[2];
+      const maxAge = Number(process.argv[3] || 900);
+      function lastJson(path) {
+        const lines = fs.readFileSync(path, 'utf8').split(/\r?\n/).filter(Boolean);
+        for (let i = lines.length - 1; i >= 0; i--) {
+          try { return JSON.parse(lines[i]); } catch (_) {}
+        }
+        return null;
+      }
+      try {
+        const pulse = lastJson(pulsePath);
+        if (!pulse || !pulse.ts) process.exit(1);
+        const age = (Date.now() - Date.parse(pulse.ts)) / 1000;
+        if (!Number.isFinite(age) || age < 0 || age > maxAge) process.exit(1);
+        const state = fs.readFileSync(statePath, 'utf8');
+        if (/roadmap_run:\s*[\s\S]*?completed:/m.test(state)) process.exit(1);
+        if (/status:\s*(complete|completed|all phases complete)/i.test(state)) process.exit(1);
+        process.exit(0);
+      } catch (_) {
+        process.exit(1);
+      }
+    " "$pulse_file" "$state_file" "$max_age" >/dev/null 2>&1
+}
+
+# --- PRE-CONDITION 2: checkpoint OR unexpected autopilot stop ---
+UNEXPECTED_AUTO_STOP=0
 if [[ ! -f "$CHECKPOINT" ]]; then
-    exit 0
+    if _should_recover_unexpected_auto_stop "$UNEXPECTED_STOP_MAX_PULSE_AGE"; then
+        UNEXPECTED_AUTO_STOP=1
+        EMERGENCY_HALT="true"
+    else
+        exit 0
+    fi
 fi
 
-EMERGENCY_HALT=$(grep -m1 "^emergency_halt:" "$CHECKPOINT" | awk '{print $2}' | tr -d '[:space:]')
-if [[ "$EMERGENCY_HALT" != "true" ]]; then
-    exit 0
+if [[ "$UNEXPECTED_AUTO_STOP" != "1" ]]; then
+    EMERGENCY_HALT=$(grep -m1 "^emergency_halt:" "$CHECKPOINT" | awk '{print $2}' | tr -d '[:space:]')
+    if [[ "$EMERGENCY_HALT" != "true" ]]; then
+        exit 0
+    fi
 fi
 
 # --- PRE-CONDITION 3: discuss-phase guard ---
 # If session stopped during /gsd-discuss-phase, handoff must refuse.
 # Discuss-phase is interactive -- operator must resume manually.
-PHASE_STATE=$(grep -m1 "^phase_state:" "$CHECKPOINT" | awk '{print $2}' | tr -d '[:space:]"')
+PHASE_STATE=""
+if [[ -f "$CHECKPOINT" ]]; then
+    PHASE_STATE=$(grep -m1 "^phase_state:" "$CHECKPOINT" | awk '{print $2}' | tr -d '[:space:]"')
+fi
 if [[ "$PHASE_STATE" == "discussing" ]]; then
     _log_row "refused" 0 ",\"refused\":\"discuss_phase_interactive\""
     exit 0
@@ -497,7 +556,7 @@ fi
 # Logs would-spawn row and prints to stderr. No claude CLI invocation.
 if (( DRY_RUN )); then
     SPAWN_CMD="claude --print --dangerously-skip-permissions /sgsd-orchestrate go"
-    _log_row "dry_run" "$CHAIN_DEPTH" ",\"would_spawn\":\"$SPAWN_CMD\""
+    _log_row "dry_run" "$CHAIN_DEPTH" ",\"would_spawn\":\"$SPAWN_CMD\",\"unexpected_auto_stop\":$([[ "$UNEXPECTED_AUTO_STOP" == "1" ]] && echo true || echo false)"
     echo "[sgsd-stop-handoff] DRY RUN: all pre-conditions passed. Would spawn: $SPAWN_CMD" >&2
     exit 0
 fi
@@ -521,7 +580,11 @@ try {
 " "$LOG_PATH" 2>/dev/null || echo "0")
 fi
 
-_log_row "spawned" "$CHAIN_DEPTH" ",\"cumulative_runtime_s\":$CUMULATIVE_S"
+if [[ "$UNEXPECTED_AUTO_STOP" == "1" ]]; then
+    _log_row "unexpected_auto_stop" "$CHAIN_DEPTH" ",\"cumulative_runtime_s\":$CUMULATIVE_S,\"recovery\":\"spawned_without_checkpoint\",\"pulse_age_limit_s\":$UNEXPECTED_STOP_MAX_PULSE_AGE"
+else
+    _log_row "spawned" "$CHAIN_DEPTH" ",\"cumulative_runtime_s\":$CUMULATIVE_S"
+fi
 (claude --print --dangerously-skip-permissions "/sgsd-orchestrate go" >/dev/null 2>&1 &) &
 
 exit 0

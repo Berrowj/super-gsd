@@ -141,9 +141,11 @@
   },
   "model_profile": "quality",
   "handoff": {
-    "enabled": false,
+    "enabled": true,
     "min_cooldown_seconds": 30,
     "max_chain_depth": 5,
+    "recover_unexpected_auto_stop": true,
+    "unexpected_stop_max_pulse_age_seconds": 900,
     "operator_abort_file": ".planning/STOP-HANDOFF",
     "spawn_command": "claude",
     "spawn_args": [
