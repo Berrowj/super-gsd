@@ -1,0 +1,9 @@
+{
+  "intent_id": "fixture-intent",
+  "milestone": "v1.8",
+  "phase": "36",
+  "role": "researcher",
+  "goal": "fixture intent for context-packet-missing-capsule scenario",
+  "files_touched": [],
+  "depends_on_phase_capsules": []
+}
