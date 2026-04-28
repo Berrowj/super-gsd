@@ -1133,6 +1133,270 @@ function _selfTest() {
   check('t4_canonical_fingerprint_guard_full_run',
         finalFpOk, finalFpDetail);
 
+  // -------------------------------------------------------------------
+  // T5 assertions (5). Plan 51-01 lines 432-437:
+  //   T5.1 assertWorkspaceClean rejects 6 forbidden + 3 secret-prefix paranoia
+  //   T5.2 real-dispatch witness (run_id substring; skipped in ledger-only)
+  //   T5.3 mode-downgrade when claudeBinary=null
+  //   T5.4 token ceiling -> verdict=DEGRADED + bench_token_ceiling_exceeded
+  //   T5.5 post_artifacts source byte-equal concat of capsule+bypass+atc
+  // -------------------------------------------------------------------
+
+  // T5.1: assertWorkspaceClean rejects all 6 forbidden anti-cheat strings
+  // PLUS 3 secret-prefix paranoia strings. Extends T2.3.
+  let t5_1_ok = true;
+  let t5_1_detail = '';
+  let t5_1_root = null;
+  try {
+    t5_1_root = fs.mkdtempSync(path.join(os.tmpdir(), 'p51-t5-anticheat-'));
+    const forbidden = (replay.FORBIDDEN_STRINGS || []);
+    const secrets = (replay.SECRET_PREFIXES || []);
+    const totalCases = forbidden.length + secrets.length;
+    if (forbidden.length !== 6 || secrets.length !== 3) {
+      t5_1_ok = false;
+      t5_1_detail = 'vocab len mismatch: forbidden=' + forbidden.length
+                    + ' secrets=' + secrets.length;
+    } else {
+      // 6 forbidden anti-cheat tokens.
+      for (let fi = 0; fi < forbidden.length; fi++) {
+        const tok = forbidden[fi];
+        const dir = fs.mkdtempSync(path.join(t5_1_root, 'fb-' + fi + '-'));
+        fs.writeFileSync(path.join(dir, 'fixture.txt'),
+          'pre ' + tok + ' post', 'utf8');
+        let threw = false;
+        try { replay.assertWorkspaceClean(dir); }
+        catch (_e) { threw = true; }
+        if (!threw) {
+          t5_1_ok = false;
+          t5_1_detail = 'failed_to_reject_forbidden_' + tok;
+          break;
+        }
+      }
+      // 3 secret-prefix paranoia strings.
+      if (t5_1_ok) {
+        for (let si = 0; si < secrets.length; si++) {
+          const sp = secrets[si];
+          const dir = fs.mkdtempSync(path.join(t5_1_root, 'sp-' + si + '-'));
+          // Use synthetic suffixes that contain the prefix verbatim but
+          // are NOT real keys (CLAUDE.md absolute - never write a real
+          // key into any test file, even temp).
+          fs.writeFileSync(path.join(dir, 'fixture.txt'),
+            'leaked ' + sp + 'PLACEHOLDER_NOT_A_REAL_KEY post', 'utf8');
+          let threw = false;
+          try { replay.assertWorkspaceClean(dir); }
+          catch (_e) { threw = true; }
+          if (!threw) {
+            t5_1_ok = false;
+            t5_1_detail = 'failed_to_reject_secret_prefix_' + sp;
+            break;
+          }
+        }
+      }
+      if (t5_1_ok) {
+        t5_1_detail = 'all ' + totalCases
+          + ' cases rejected (6 forbidden + 3 secret prefixes)';
+      }
+    }
+  } catch (e) {
+    t5_1_ok = false;
+    t5_1_detail = 'setup_threw: ' + (e && e.message ? e.message : 'unknown');
+  } finally {
+    if (t5_1_root) {
+      try { fs.rmSync(t5_1_root, { recursive: true, force: true }); }
+      catch (_e) { /* best effort */ }
+    }
+  }
+  check('t5_assert_workspace_clean_rejects_6_plus_3_secret',
+        t5_1_ok, t5_1_detail);
+
+  // T5.2: real-dispatch witness. SKIPPED in ledger-only. We only verify
+  // the witness API contract: _writeWitnessRow appends a row whose
+  // run_id starts with `bench-post-{scenario_id}-`, and _hasWitnessRow
+  // detects it. The actual --mode=full integration uses this same path;
+  // running it with full claude dispatch in the regression self-test
+  // would burn tokens and pollute route-decisions.jsonl, so we exercise
+  // the API in a sandboxed planningDir tmpdir.
+  let t5_2_ok = false;
+  let t5_2_detail = '';
+  let t5_2_root = null;
+  try {
+    t5_2_root = fs.mkdtempSync(path.join(os.tmpdir(), 'p51-t5-witness-'));
+    const fakeMetrics = path.join(t5_2_root, 'metrics');
+    fs.mkdirSync(fakeMetrics, { recursive: true });
+    const sandboxScenario = {
+      scenario_id: 'S1-v17-P32',
+      drawn_from: { milestone: 'v1.7', phase: 32, role: 'researcher' },
+      expected_route: { uncertainty_type: 'synthesis_judgment',
+                        primary: 'claude' },
+    };
+    // Pre-condition: no witness present.
+    const preNo = replay._hasWitnessRow
+      ? replay._hasWitnessRow(t5_2_root, sandboxScenario.scenario_id)
+      : true; // if API absent, force fail
+    // Write the witness via the bench's own writer (Lock 4: not a fork
+    // of routeDispatch; this is a benchmark-internal observability row).
+    const writtenId = replay._writeWitnessRow
+      ? replay._writeWitnessRow(t5_2_root, sandboxScenario, {
+          packet_id: 'sha-test',
+        })
+      : null;
+    const postYes = replay._hasWitnessRow
+      ? replay._hasWitnessRow(t5_2_root, sandboxScenario.scenario_id)
+      : false;
+    // run_id must START WITH the bench prefix (substring match on run_id,
+    // NOT a scenario_id field).
+    const prefix = 'bench-post-' + sandboxScenario.scenario_id + '-';
+    const runIdShape = typeof writtenId === 'string'
+      && writtenId.indexOf(prefix) === 0;
+    t5_2_ok = preNo === false && runIdShape && postYes === true;
+    t5_2_detail = 'pre_no_witness=' + preNo
+      + ' written_id_prefix_ok=' + runIdShape
+      + ' post_witness=' + postYes
+      + (writtenId ? ' run_id=' + writtenId : '');
+  } catch (e) {
+    t5_2_detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  } finally {
+    if (t5_2_root) {
+      try { fs.rmSync(t5_2_root, { recursive: true, force: true }); }
+      catch (_e) { /* best effort */ }
+    }
+  }
+  check('t5_real_dispatch_witness_run_id_substring', t5_2_ok, t5_2_detail);
+
+  // T5.3: mode-downgrade. claudeBinary=null returns mode_used='ledger-only'
+  // with bench_fixture_skipped:claude_cli_unavailable AND partial_report
+  // flag. Lock 13: never throws. Exercises the soft-downgrade contract.
+  let t5_3_ok = false;
+  let t5_3_detail = '';
+  try {
+    const result = replay.replayScenario({
+      scenario: { scenario_id: 'S1-v17-P32',
+                  drawn_from: { milestone: 'v1.7', phase: 32,
+                                role: 'researcher' } },
+      mode: 'full',
+      planningDir: planningDir,
+      claudeBinary: null,
+    });
+    t5_3_ok = result
+      && result.mode_used === 'ledger-only'
+      && result.tokens_after === null
+      && Array.isArray(result.post_artifacts)
+      && result.post_artifacts.length === 0
+      && result.scenario_run_id === null
+      && result.reason === 'bench_fixture_skipped:claude_cli_unavailable'
+      && result.partial_report === true;
+    t5_3_detail = 'mode_used=' + (result && result.mode_used)
+      + ' reason=' + (result && result.reason)
+      + ' partial=' + (result && result.partial_report)
+      + ' artifacts_len=' + (result && result.post_artifacts
+                              && result.post_artifacts.length);
+  } catch (e) {
+    t5_3_detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('t5_mode_downgrade_claude_absent', t5_3_ok, t5_3_detail);
+
+  // T5.4: token ceiling. Synthetic over-budget injection returns
+  // verdict=DEGRADED + bench_token_ceiling_exceeded. The synthetic
+  // injection path is the test hook (replay._injectTokenSpend) so the
+  // assertion does not require a real spawned run.
+  let t5_4_ok = false;
+  let t5_4_detail = '';
+  try {
+    // Reset cumulative spend to a clean baseline.
+    if (typeof replay._resetTokenSpend === 'function') {
+      replay._resetTokenSpend();
+    }
+    const ceiling = (typeof replay.TOKEN_CEILING === 'number')
+                    ? replay.TOKEN_CEILING : 1500000;
+    // Inject a synthetic spend that crosses the ceiling.
+    const result = replay.replayScenario({
+      scenario: { scenario_id: 'S1-v17-P32',
+                  drawn_from: { milestone: 'v1.7', phase: 32,
+                                role: 'researcher' } },
+      mode: 'ledger-only',
+      planningDir: planningDir,
+      claudeBinary: null,
+      _injectTokenSpend: ceiling + 1,
+    });
+    t5_4_ok = result
+      && result.verdict === 'DEGRADED'
+      && result.reason === 'bench_token_ceiling_exceeded';
+    t5_4_detail = 'verdict=' + (result && result.verdict)
+      + ' reason=' + (result && result.reason)
+      + ' ceiling=' + ceiling;
+    // Reset for downstream tests.
+    if (typeof replay._resetTokenSpend === 'function') {
+      replay._resetTokenSpend();
+    }
+  } catch (e) {
+    t5_4_detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('t5_token_ceiling_degraded_verdict', t5_4_ok, t5_4_detail);
+
+  // T5.5: post_artifacts source. _buildPostArtifacts on a synthetic
+  // packet with known capsule_refs + bypass_refs + metadata
+  // .consumed_atc_findings returns an array element-wise byte-equal to
+  // the concat of those three arrays (no reordering, no dedupe, no
+  // transform). Lock 11 byte-equality contract.
+  let t5_5_ok = false;
+  let t5_5_detail = '';
+  try {
+    const C1 = { phase: 31, ref: 'v1.7/P31/canonical-envelope', tag: 'cap-1' };
+    const C2 = { phase: 32, ref: 'v1.7/P32/cookbook',           tag: 'cap-2' };
+    const B1 = { id: 'bypass-1', text: 'CRITICAL: keep verbatim' };
+    const A1 = { kind: 'atc_finding', ref: 'commit-reviews:row-7' };
+    const A2 = { kind: 'atc_finding', ref: 'commit-reviews:row-9' };
+    const fakePacket = {
+      capsule_refs: [C1, C2],
+      bypass_refs: [B1],
+      metadata: {
+        // Forward-compatible name (Phase 45 may emit this directly later;
+        // _buildPostArtifacts prefers it when present).
+        consumed_capsule_decisions: [C1, C2],
+        consumed_atc_findings: [A1, A2],
+        context_source_mix: {
+          raw_evidence: 0, phase_capsule: 2, validated_thought: 0,
+          reusable_rule: 0, guardrail: 0, index_snippet: 0, vtp_packet: 0,
+        },
+      },
+    };
+    const out = replay._buildPostArtifacts
+      ? replay._buildPostArtifacts(fakePacket) : null;
+    const expected = [C1, C2, B1, A1, A2];
+    let elementwiseEqual = Array.isArray(out)
+      && out.length === expected.length;
+    if (elementwiseEqual) {
+      for (let i = 0; i < expected.length; i++) {
+        // Reference equality (no transform, no clone) -- the strongest
+        // form of byte-equality (the same object identity propagated).
+        if (out[i] !== expected[i]) {
+          elementwiseEqual = false;
+          break;
+        }
+      }
+    }
+    // Also probe the fallback path: when metadata.consumed_capsule_decisions
+    // is absent, _buildPostArtifacts falls back to packet.capsule_refs.
+    const fallbackPacket = {
+      capsule_refs: [C1, C2],
+      bypass_refs: [B1],
+      metadata: { context_source_mix: {} },
+    };
+    const fallbackOut = replay._buildPostArtifacts(fallbackPacket);
+    const fallbackOk = Array.isArray(fallbackOut)
+      && fallbackOut.length === 3
+      && fallbackOut[0] === C1
+      && fallbackOut[1] === C2
+      && fallbackOut[2] === B1;
+    t5_5_ok = elementwiseEqual && fallbackOk;
+    t5_5_detail = 'elementwise=' + elementwiseEqual
+      + ' fallback=' + fallbackOk
+      + ' out_len=' + (Array.isArray(out) ? out.length : 'n/a');
+  } catch (e) {
+    t5_5_detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('t5_post_artifacts_byte_equal_concat', t5_5_ok, t5_5_detail);
+
   return results;
 }
 
@@ -1154,6 +1418,66 @@ function _printSelfTest(results) {
 // CLI entry. Lock 13: the CLI surface itself must never throw upward.
 // ---------------------------------------------------------------------------
 
+function _argValue(args, key) {
+  // Support --key=value AND --key value forms.
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === key && i + 1 < args.length) return args[i + 1];
+    const prefix = key + '=';
+    if (a.indexOf(prefix) === 0) return a.slice(prefix.length);
+  }
+  return null;
+}
+
+function _runDryRunFull(milestone) {
+  // T5 stop-rule: `--mode=full --milestone=v1.9 --dry-run` succeeds without
+  // spawning claude. Computes packet shapes via Phase 45 import-by-reference
+  // and reports the per-scenario post_artifacts shape.
+  try {
+    const planningDir = path.resolve(__dirname, '..', '..', '..', '.planning');
+    const out = [];
+    let totalArtifacts = 0;
+    for (let i = 0; i < SCENARIOS.length; i++) {
+      const s = SCENARIOS[i];
+      const r = replay.replayScenario({
+        scenario: s,
+        mode: 'full',
+        planningDir: planningDir,
+        claudeBinary: 'claude',  // present so the dry-run path runs (else
+                                  // falls through to ledger-only).
+        dryRun: true,
+      });
+      const artLen = (r && Array.isArray(r.post_artifacts))
+                     ? r.post_artifacts.length : 0;
+      totalArtifacts += artLen;
+      out.push({
+        scenario_id: s.scenario_id,
+        ok: r && r.ok,
+        mode_used: r && r.mode_used,
+        post_artifacts_count: artLen,
+        packet_id: r && r.packet_id,
+      });
+    }
+    process.stdout.write('dry-run --mode=full --milestone='
+      + (milestone || 'unspecified') + '\n');
+    for (let i = 0; i < out.length; i++) {
+      const r = out[i];
+      process.stdout.write('  ' + r.scenario_id
+        + ' ok=' + r.ok
+        + ' mode_used=' + r.mode_used
+        + ' post_artifacts=' + r.post_artifacts_count
+        + ' packet_id=' + (r.packet_id || 'none') + '\n');
+    }
+    process.stdout.write('---\n');
+    process.stdout.write('dry-run summary: scenarios=' + out.length
+      + ' total_post_artifacts=' + totalArtifacts + '\n');
+    return 0;
+  } catch (_e) {
+    process.stdout.write('dry-run gate_internal_error\n');
+    return 3;
+  }
+}
+
 function _main(argv) {
   try {
     const args = argv.slice(2);
@@ -1163,17 +1487,27 @@ function _main(argv) {
       process.exit(ok ? 0 : 1);
       return;
     }
+    // T5: `--mode=full --milestone=v1.9 --dry-run`. Computes packet shapes
+    // without spawning claude. Lock 13: any failure is a degraded exit.
+    const modeArg = _argValue(args, '--mode');
+    if (modeArg === 'full' && args.indexOf('--dry-run') !== -1) {
+      const ms = _argValue(args, '--milestone');
+      const code = _runDryRunFull(ms);
+      process.exit(code);
+      return;
+    }
     if (args.indexOf('--help') !== -1 || args.length === 0) {
       process.stdout.write(
-        'context-bench harness (Phase 51 skeleton)\n' +
+        'context-bench harness (Phase 51)\n' +
         'usage:\n' +
         '  node super-gsd/tools/context-bench/harness.cjs --self-test\n' +
+        '  node super-gsd/tools/context-bench/harness.cjs --mode=full --milestone=v1.9 --dry-run\n' +
         '  node super-gsd/tools/context-bench/harness.cjs --help\n' +
-        'note: T5/T6/T7 add --run, --report, --gate flags.\n');
+        'note: T6/T7 add --run, --report, --gate flags.\n');
       process.exit(0);
       return;
     }
-    // Unknown args in skeleton: degraded exit (Lock 13: never throw).
+    // Unknown args: degraded exit (Lock 13: never throw).
     process.stdout.write('unknown args; try --help or --self-test\n');
     process.exit(2);
   } catch (_e) {
