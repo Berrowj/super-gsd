@@ -132,6 +132,20 @@ function Format-Age($sec) {
     return "$([math]::Floor($sec / 86400))d"
 }
 
+function Get-SafeAgeSeconds($From) {
+    if ($null -eq $From) { return $null }
+    try {
+        $dt = [DateTime]$From
+        $sec = ((Get-Date) - $dt).TotalSeconds
+        if ([double]::IsNaN($sec) -or [double]::IsInfinity($sec)) { return $null }
+        if ($sec -lt 0) { return 0 }
+        if ($sec -gt [int]::MaxValue) { return [int]::MaxValue }
+        return [int][math]::Floor($sec)
+    } catch {
+        return $null
+    }
+}
+
 function Format-Tokens($n) {
     if ($null -eq $n) { return "--" }
     $v = [double]$n
@@ -143,8 +157,10 @@ function Format-Tokens($n) {
 $script:_TokenSummaryCache = $null
 $script:_TokenSummaryAt = [DateTime]::MinValue
 function Get-TokenAttributionSummary {
-    $age = [int]((Get-Date) - $script:_TokenSummaryAt).TotalSeconds
-    if ($script:_TokenSummaryCache -and $age -lt 30) { return $script:_TokenSummaryCache }
+    if ($script:_TokenSummaryCache) {
+        $age = Get-SafeAgeSeconds $script:_TokenSummaryAt
+        if ($age -ne $null -and $age -lt 30) { return $script:_TokenSummaryCache }
+    }
 
     $repoRoot = Split-Path $PSScriptRoot -Parent
     $collector = Join-Path $repoRoot "tools\token-attribution\collect.cjs"
@@ -391,7 +407,8 @@ function Get-AgentRows {
                 $target = Clean-AgentText "$($e.target)"
                 if (-not $target) { continue }
                 $ts = [DateTime]::Parse($e.ts)
-                $age = [int]($now - $ts).TotalSeconds
+                $age = Get-SafeAgeSeconds $ts
+                if ($age -eq $null) { continue }
                 $role = Get-AgentRole $target
                 $phase = if ($target -match '(?i)Phase\s+([0-9]+)') { $matches[1] } else { "" }
                 $rows += [pscustomobject]@{
@@ -576,7 +593,8 @@ function Render-HaikuSummary {
     Write-Host "> " -NoNewline -ForegroundColor Magenta
     Write-Host "CURRENT STATUS " -NoNewline -ForegroundColor White
     if (Test-Path $NarrativeCache) {
-        $age = [int]((Get-Date) - (Get-Item $NarrativeCache).LastWriteTime).TotalSeconds
+        $age = Get-SafeAgeSeconds (Get-Item $NarrativeCache).LastWriteTime
+        if ($age -eq $null) { $age = 0 }
         Write-Host "(cached " -NoNewline -ForegroundColor DarkGray
         Write-Host "$([math]::Floor($age/60))m ago" -NoNewline -ForegroundColor DarkGray
         Write-Host ")" -NoNewline -ForegroundColor DarkGray
@@ -747,8 +765,8 @@ function Maybe-RefreshHaiku {
     # is fine — we just need *some* recent activity to summarise.
     $activityLogStale = $true
     if (Test-Path $ActivityLog) {
-        $logAge = [int]((Get-Date) - (Get-Item $ActivityLog).LastWriteTime).TotalSeconds
-        if ($logAge -lt 600) { $activityLogStale = $false }
+        $logAge = Get-SafeAgeSeconds (Get-Item $ActivityLog).LastWriteTime
+        if ($logAge -ne $null -and $logAge -lt 600) { $activityLogStale = $false }
     }
 
     $lockFile    = "$NarrativeCache.lock"
@@ -759,7 +777,8 @@ function Maybe-RefreshHaiku {
     if (Test-Path $failStamp) {
         $failCount = [int](Get-Content $failStamp -ErrorAction SilentlyContinue | Select-Object -First 1)
         if ($failCount -gt 0 -and (Test-Path $attemptFile)) {
-            $sinceAttempt = [int]((Get-Date) - (Get-Item $attemptFile).LastWriteTime).TotalSeconds
+            $sinceAttempt = Get-SafeAgeSeconds (Get-Item $attemptFile).LastWriteTime
+            if ($sinceAttempt -eq $null) { $sinceAttempt = [int]::MaxValue }
             $backoff = [Math]::Min(300, 30 * [Math]::Pow(2, [Math]::Min($failCount - 1, 4)))
             if ($sinceAttempt -lt $backoff) { return }
         }
@@ -769,15 +788,15 @@ function Maybe-RefreshHaiku {
     if (-not (Test-Path $NarrativeCache)) {
         $needsRefresh = $true
     } else {
-        $age = [int]((Get-Date) - (Get-Item $NarrativeCache).LastWriteTime).TotalSeconds
-        if ($age -ge $HaikuRefreshSec) { $needsRefresh = $true }
+        $age = Get-SafeAgeSeconds (Get-Item $NarrativeCache).LastWriteTime
+        if ($age -eq $null -or $age -ge $HaikuRefreshSec) { $needsRefresh = $true }
     }
     if (-not $needsRefresh) { return }
 
     # Don't spawn if one is already in flight
     if (Test-Path $lockFile) {
-        $lockAge = [int]((Get-Date) - (Get-Item $lockFile).LastWriteTime).TotalSeconds
-        if ($lockAge -lt 180) { return }   # stale lock after 3min
+        $lockAge = Get-SafeAgeSeconds (Get-Item $lockFile).LastWriteTime
+        if ($lockAge -ne $null -and $lockAge -lt 180) { return }   # stale lock after 3min
     }
 
     # Build snippet — prefer activity-log when fresh, else derive from live
