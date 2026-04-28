@@ -53,12 +53,16 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 
-// ROUTE-02: closed enum of 7 boundary types. Frozen.
+// ROUTE-02: closed enum of 8 boundary types. Frozen.
 // Phase 38 (SAMPLE-04): added 'gate_override' for --force-gates /
 // --skip-gates with --override-reason. Mass-discuss line 187 names
 // this boundary verbatim. Extension preserves the closed-enum
 // contract (no schema field shape change; envelope-v1 still ships
 // additionalProperties: true so envelope contract holds).
+// Phase 47 (ROUTE-01..05): added 'dispatch_route' for general dispatch routing
+// (research, planning, execution, verification, review). Uses the same closed-enum
+// extension pattern as Phase 38 'gate_override'. envelope-v1 contract unchanged
+// (additionalProperties:true at registry/command-envelope-v1.yaml:260).
 const BOUNDARIES = Object.freeze([
   'milestone_promotion',
   'phase_dispatch_first',
@@ -67,6 +71,7 @@ const BOUNDARIES = Object.freeze([
   'codex_route',
   'handoff_decision',
   'gate_override',
+  'dispatch_route',
 ]);
 
 // envelope-v1 status enum (command-envelope-v1.json status.enum). Frozen.
@@ -310,9 +315,9 @@ function selfTest() {
 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rl-'));
   try {
-    // 1. Module exports + frozen constants. Phase 38: 7 entries.
-    assert('1. BOUNDARIES is array of 7',
-      Array.isArray(BOUNDARIES) && BOUNDARIES.length === 7);
+    // 1. Module exports + frozen constants. Phase 47: 8 entries (added 'dispatch_route').
+    assert('1. BOUNDARIES is array of 8',
+      Array.isArray(BOUNDARIES) && BOUNDARIES.length === 8);
     assert('2. STATUSES is array of 6 envelope-v1 states',
       Array.isArray(STATUSES) && STATUSES.length === 6 &&
       STATUSES.includes('ok') && STATUSES.includes('warn') &&
@@ -432,6 +437,32 @@ function selfTest() {
       Array.isArray(lastRow.reason_codes) &&
       lastRow.reason_codes.includes('gate_force_override_with_reason'));
     void r13;
+
+    // 14. Phase 47: dispatch_route boundary accepts envelope-shaped Phase 47 decision.
+    const r14 = appendRow(tmp, {
+      boundary: 'dispatch_route', status: 'ok',
+      phase: '47', milestone: 'v1.9',
+      reason_codes: ['matched_uncertainty_type'],
+      decision: {
+        task_kind: 'review',
+        uncertainty_type: 'bounded_code_review',
+        primary_provider: 'codex',
+        chosen_provider: 'codex',
+        fallback_used: false,
+      },
+    });
+    const rows14 = readRows(tmp);
+    const lastRow14 = rows14[rows14.length - 1];
+    assert('14. dispatch_route boundary accepted; Phase 47 decision payload preserved',
+      lastRow14.boundary === 'dispatch_route' &&
+      lastRow14.decision &&
+      lastRow14.decision.task_kind === 'review' &&
+      lastRow14.decision.uncertainty_type === 'bounded_code_review' &&
+      lastRow14.decision.chosen_provider === 'codex' &&
+      lastRow14.decision.fallback_used === false &&
+      Array.isArray(lastRow14.reason_codes) &&
+      lastRow14.reason_codes.includes('matched_uncertainty_type'));
+    void r14;
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
