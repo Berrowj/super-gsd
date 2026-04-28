@@ -23,6 +23,7 @@ files_modified:
   - super-gsd/tools/context-bench/scenarios/S6-v15-P21.json
   - super-gsd/tools/context-bench/run-self-test.cjs
   - super-gsd/scripts/sgsd-complete-milestone.cjs
+  - super-gsd/skills/sgsd-complete-milestone/SKILL.md
   - .planning/milestones/v1.9/CONTEXT-BENCH-RESULTS.md
   - .planning/metrics/context-bench-runs.jsonl
 autonomous: true
@@ -55,11 +56,11 @@ lessons_path: null
 must_haves:
   truths:
     - "Operator runs `node super-gsd/tools/context-bench/harness.cjs --self-test` and gets 18/18 PASS, exit 0, in <60 seconds, with zero canonical-stream drift."
-    - "Operator runs `node super-gsd/tools/context-bench/harness.cjs --mode=full --milestone=v1.9` and the harness emits .planning/milestones/v1.9/CONTEXT-BENCH-RESULTS.md with a per-scenario table covering S1-S6 + a verdict (PASS|FAIL|PASS-WITH-DEFERRED-N)."
+    - "Operator runs `node super-gsd/tools/context-bench/harness.cjs --mode=full --milestone=v1.9` and the harness emits .planning/milestones/v1.9/CONTEXT-BENCH-RESULTS.md with a per-scenario table covering S1-S6 + a verdict (PASS|FAIL|PASS-WITH-DEFERRED-N|ledger-only — incomplete)."
     - "All 6 baseline scenarios (S1-S6) read their tokens_before from the existing Phase 41 ledger via summarize() (REUSE, never re-aggregate; baseline is never re-run)."
     - "All 16 failure-injection fixtures (F1-F16) execute snapshot/inject/observe/restore in that order; canonical streams (agent-token-spend.jsonl, context-packet-log.jsonl, context-complaints.jsonl, route-decisions.jsonl, crit-backlog.jsonl) have identical mtime+size+sha256 before and after the full F1-F16 run (anti-pollution self-test 11)."
     - "Median pct_reduction across S1-S6 in --mode=full PASS run is >= 0.50 AND every scenario has evidence_retention == 1.0 (BENCH-04 + BENCH-07 gate)."
-    - "Anti-cheat boundary holds: workspace asserted clean of strings 'benchmark', 'score_weight', 'expected_failure', 'oracle', 'anti_cheat_signal' before each post-Sonnet dispatch; Sonnet receives a normal task prompt; commit-reviews/route-ledger entries with matching scenario_id prove the dispatch was real (anti-cheat self-test 4 + anti-cheat assertion 18)."
+    - "Anti-cheat boundary holds: workspace asserted clean of strings 'benchmark', 'score_weight', 'expected_failure', 'oracle', 'anti_cheat_signal' before each post-Sonnet dispatch; Sonnet receives a normal task prompt; route-decisions.jsonl entries with run_id matching prefix 'bench-post-{scenario_id}-' prove the dispatch was real (anti-cheat self-test 4 + anti-cheat assertion 18)."
     - "Phase 41-50 tool trees are byte-untouched: `git diff --quiet -- super-gsd/tools/token-attribution super-gsd/tools/token-waste super-gsd/tools/phase-capsule super-gsd/tools/context-registry super-gsd/tools/context-packet super-gsd/tools/sqlite-context-index super-gsd/tools/dispatch-router super-gsd/tools/vtp-bridge super-gsd/tools/memory-governance super-gsd/scripts/lib/sgsd-cockpit-shell.cjs` exits 0 after Phase 51 ships."
     - "Lock 11 holds: harness scenario selection, evidence oracle, and relationship validation use ONLY set-membership and byte-equality (no embedding, cosine, levenshtein, regex-fuzzy, or semantic_similarity_only signal anywhere in scoring.cjs or replay.cjs)."
     - "Lock 13 holds: all 5 public APIs (runBench, replayScenario, injectFailure, scoreScenario, renderReport) wrap internals in try/catch and return a falsey/degraded-verdict sentinel on error; no path throws upward; --mode=ledger-only succeeds even when claude CLI is absent."
@@ -87,8 +88,8 @@ must_haves:
       provides: "Pure deterministic oracle: utility_per_token + evidence_retention + 6 BENCH-03 metrics; set-membership only (Lock 11)"
       exports:
         - "scoreScenario({scenario, postArtifacts, baselineRows, postRows}) -> {tokens_before, tokens_after, pct_reduction, evidence_retention, evidence_loss_items[], cache_read_ratio_before, cache_read_ratio_after, raw_file_reread_count, context_complaint_count, useful_findings_per_token_before, useful_findings_per_token_after, utility_per_token, utility_per_1k_tokens, verdict}"
-        - "aggregateGate(scenarios[]) -> {median_pct_reduction, total_evidence_loss, verdict in {PASS, FAIL, PASS-WITH-DEFERRED-N}}"
-      contains: "median (NOT mean) aggregator; gate at median >= 0.5 AND retention == 1.0; PASS-WITH-DEFERRED-N permitted only when median in [0.40, 0.50) per VTP-DELTA CANDIDATE-WITH-DEBT clause; HARD FAIL if any scenario retention <1.0 OR median <0.40 OR any injection gate did not fire"
+        - "aggregateGate(scenarios[]) -> {median_pct_reduction, total_evidence_loss, verdict in {PASS, FAIL, PASS-WITH-DEFERRED-N, 'ledger-only — incomplete'}}"
+      contains: "median (NOT mean) aggregator; gate at median >= 0.5 AND retention == 1.0; PASS-WITH-DEFERRED-N permitted only when median in [0.40, 0.50) per VTP-DELTA CANDIDATE-WITH-DEBT clause; HARD FAIL if any scenario retention <1.0 OR median <0.40 OR any injection gate did not fire; tokens_after===null path emits pct_reduction=null + verdict='ledger-only — incomplete' (does NOT pass the 50% bar)"
 
     - path: "super-gsd/tools/context-bench/failure-injectors.cjs"
       provides: "F1..F16 injection catalog with mandatory snapshot/inject/observe/restore protocol"
@@ -103,7 +104,7 @@ must_haves:
         - "replayScenario({scenario, mode, planningDir, fixtureDir, claudeBinary}) -> {tokens_after, post_artifacts[], scenario_run_id}"
         - "readBaselineFromLedger({scenario, planningDir}) -> {tokens, cache_read_ratio, source_event_ids[]}"
         - "assertWorkspaceClean(workspaceRoot) -> throws on anti-cheat violation, never silently passes"
-      contains: "claude CLI invocation mirrors sgsd-blind-live-controller.mjs:104-138 verbatim; --mode=full token ceiling = 1_500_000 across 6 runs (abort with degraded verdict if exceeded); --mode=ledger-only is the DEFAULT (zero Sonnet cost); claude CLI absent => --mode=full transparently downgrades to --mode=ledger-only with bench_fixture_skipped:claude_cli_unavailable reason and partial report"
+      contains: "claude CLI invocation mirrors sgsd-blind-live-controller.mjs:104-138 verbatim; --mode=full token ceiling = 1_500_000 across 6 runs (abort with degraded verdict if exceeded); --mode=ledger-only is the DEFAULT (zero Sonnet cost); claude CLI absent => --mode=full transparently downgrades to --mode=ledger-only with bench_fixture_skipped:claude_cli_unavailable reason and partial report; post_artifacts[] populated DETERMINISTICALLY from packet.metadata.consumed_capsule_decisions + packet.bypass_refs + packet.metadata.consumed_atc_findings (Phase 45 build.cjs emits all three; Lock-11-compliant byte-equality)"
 
     - path: "super-gsd/tools/context-bench/BENCHMARK-REPORT.template.md"
       provides: "Markdown render template for CONTEXT-BENCH-RESULTS.md; deterministic; per-scenario diff table always rendered (Q8 default)"
@@ -147,8 +148,12 @@ must_haves:
       contains: "envelope_version:1, command:logBenchScenarioResult, scenario_id, tokens_before, tokens_after, pct_reduction, evidence_retention, evidence_loss_items[], context_source_mix_before/after (frozen 7-key shape), verdict; additionalProperties:true so extension fields require no schema bump"
 
     - path: "super-gsd/scripts/sgsd-complete-milestone.cjs"
-      provides: "Milestone-close hook calls harness selfTest() before allowing v1.9 milestone close (Phase 51 ships the gate; Phase 52 still has its own gate)"
-      contains: "After existing milestone-close steps, if milestone == 'v1.9' invoke `require('../tools/context-bench/harness.cjs').selfTest()`; if exit !=0 emit milestone_close_blocked:context_bench_self_test_failed and abort close. Wrapped in try/catch (Lock 13)."
+      provides: "NEW thin CJS wrapper invoked by the sgsd-complete-milestone SKILL.md as the v1.9 milestone-close pre-flight gate. Loads harness selfTest() and exits non-zero on failure."
+      contains: "Header doc explaining: (a) operator entry point referenced by CLAUDE.md milestone-close section; (b) called from super-gsd/skills/sgsd-complete-milestone/SKILL.md Step 0 precondition gate; (c) Lock 13 wrap on harness import (missing harness => emits milestone_close_blocked:context_bench_unavailable, exit 1 - never silent advance). Body: when milestone == 'v1.9', require('../tools/context-bench/harness.cjs').selfTest(); exit code propagates."
+
+    - path: "super-gsd/skills/sgsd-complete-milestone/SKILL.md"
+      provides: "Existing milestone-close skill EXTENDED in Step 0 precondition gate to invoke the new sgsd-complete-milestone.cjs wrapper. This is the downstream-consumer wire so the gate actually runs."
+      contains: "ONE new bullet appended to Step 0 precondition list (between existing health probes and the milestone-close metadata row): `node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone {{version}}` (must exit 0; on failure abort milestone close with reason 'milestone_close_blocked:context_bench_self_test_failed'). No other content modified - SCHEMA-02 of the existing skill preserved."
 
   key_links:
     - from: "super-gsd/tools/context-bench/harness.cjs"
@@ -173,7 +178,7 @@ must_haves:
 
     - from: "super-gsd/tools/context-bench/replay.cjs"
       to: "super-gsd/tools/dispatch-router/route.cjs"
-      via: "require() by absolute path; consults route ledger to verify F6/F7 fallback_used"
+      via: "require() by absolute path; consults route ledger to verify F6/F7 fallback_used; Test 18 matches by run_id substring 'bench-post-{scenario_id}-' (NOT a scenario_id field; route.cjs writes run_id only)"
       pattern: "route-decisions\\.jsonl|routeDispatch"
 
     - from: "super-gsd/tools/context-bench/replay.cjs"
@@ -190,6 +195,11 @@ must_haves:
       to: ".planning/metrics/context-complaints.jsonl"
       via: "Reads tail to compute context_complaint_count BENCH-03 metric"
       pattern: "context-complaints\\.jsonl"
+
+    - from: "super-gsd/skills/sgsd-complete-milestone/SKILL.md"
+      to: "super-gsd/scripts/sgsd-complete-milestone.cjs"
+      via: "Step 0 precondition gate adds one bullet: `node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone {{version}}` (must exit 0). This is the downstream-consumer wire so the bench gate actually runs at v1.9 close."
+      pattern: "sgsd-complete-milestone\\.cjs"
 
     - from: "super-gsd/scripts/sgsd-complete-milestone.cjs"
       to: "super-gsd/tools/context-bench/harness.cjs"
@@ -370,7 +380,7 @@ tasks:
       Replaces INJECTION_FIXTURES = Object.freeze([]) placeholder in harness.cjs with require()-loaded 16-entry array.
       Adds 5-8 self-test assertions:
         - Test 2: INJECTION_FIXTURES frozen 16-entry; mutation no-op.
-        - Test 11: All 16 injectors have working restore(); after running F1-F16 (snapshot+inject+restore each), agent-token-spend.jsonl/context-packet-log.jsonl/context-complaints.jsonl/route-decisions.jsonl mtime+size+sha256 unchanged (anti-pollution).
+        - Test 11: All 16 injectors have working restore(); after running F1-F16 (snapshot+inject+restore each), agent-token-spend.jsonl/context-packet-log.jsonl/context-complaints.jsonl/route-decisions.jsonl mtime+size+sha256 unchanged (anti-pollution). Stream-doesnt-yet-exist baseline: when route-decisions.jsonl is absent on disk, the canonical fingerprint is well-defined as sha256(empty bytes) + mtime=0 + size=0; restore() must preserve that absent-file state.
         - Test 12: F1 (missing capsule) inject+observe yields packet_capsule_unavailable_raw_fallback reason code.
         - Test 13: F8 (critical bypass) preserves byte-verbatim CRIT text.
         - Test 14: F10 (prompt injection) wraps in fenced code AND intent-map row flagged with prompt_injection_pattern_treated_as_data; SECRET_PLACEHOLDER_X literal present (no real key prefix).
@@ -402,8 +412,8 @@ tasks:
     input_contract: |
       Reads:
         - super-gsd/tools/harness-benchmark/sgsd-blind-live-controller.mjs lines 42-86 (anti-cheat boundary), 104-138 (claude CLI invocation pattern)
-        - super-gsd/tools/context-packet/build.cjs (buildPacket signature; lines 1-24)
-        - super-gsd/tools/dispatch-router/route.cjs (route-decisions.jsonl row shape)
+        - super-gsd/tools/context-packet/build.cjs (buildPacket signature; lines 1-24; emits packet.metadata.consumed_capsule_decisions, packet.bypass_refs, packet.metadata.consumed_atc_findings - the deterministic post_artifacts source)
+        - super-gsd/tools/dispatch-router/route.cjs (route-decisions.jsonl row shape; row.run_id is the only identifier - NO scenario_id field)
         - .planning/metrics/agent-token-spend.jsonl (Phase 41 collect.cjs writes post rows automatically; replay just tags run_id)
         - 51-RESEARCH.md §2.3 (cost ceiling + replay flow), §2.5 (anti-cheat boundary)
       Inputs from prior tasks: SCENARIOS (T3), assertWorkspaceClean (T2), readBaselineFromLedger (T2).
@@ -412,30 +422,35 @@ tasks:
         - Implements `replayScenario({scenario, mode, planningDir, fixtureDir, claudeBinary})` --mode=full path:
           * Step 1 buildPacket() via Phase 45 (require by absolute path).
           * Step 2 assertWorkspaceClean(workspaceRoot) BEFORE dispatch (anti-cheat boundary §2.5).
-          * Step 3 spawn `claude --print --dangerously-skip-permissions -p "<normal task prompt>"` mirroring blind-live-controller.mjs:104-138 verbatim. Prompt is a NORMAL task ("Research Phase {N} of {milestone} SGSD"), NEVER mentions benchmark/score/test/evaluation (Pitfall 6).
+          * Step 3 spawn `claude --print --dangerously-skip-permissions -p "<normal task prompt>"` mirroring blind-live-controller.mjs:104-138 verbatim. Prompt is a NORMAL task ("Research Phase {N} of {milestone} SGSD"), NEVER mentions benchmark/score/test/evaluation (Pitfall 6). The spawn uses run_id = `bench-post-${scenario.scenario_id}-${ts}` so the unforgeable witness lives in route-decisions.jsonl row.run_id (Phase 47 route.cjs writes run_id, NOT scenario_id - verified at route.cjs:77-130).
           * Step 4 capture token-attribution row written by collect.cjs; tag with run_id_prefix='bench-post-{scenario_id}-'.
-          * Step 5 verify dispatch was real: read .planning/metrics/route-decisions.jsonl tail and assert a row with matching scenario_id-derived run_id exists (anti-cheat assertion 18).
+          * Step 5 populate post_artifacts[] DETERMINISTICALLY: post_artifacts = [...packet.metadata.consumed_capsule_decisions, ...packet.bypass_refs, ...packet.metadata.consumed_atc_findings]. Phase 45 build.cjs emits all three by construction (verified at build.cjs:239-268); the resulting array is byte-equality-checkable and Lock-11-compliant (set-membership only). T6 scoreScenario consumes this array verbatim for the evidence_retention oracle.
+          * Step 6 verify dispatch was real: read .planning/metrics/route-decisions.jsonl tail and assert at least one row exists where row.run_id starts with the prefix `bench-post-${scenario.scenario_id}-` (substring match on run_id, NOT a scenario_id field - Phase 47 does not write scenario_id; row.run_id is the only identifier). Conditional: this assertion runs only when mode_used === 'full' AND claudeBinary != null; in --mode=ledger-only it is skipped (zero rows expected).
           * Token ceiling: $1_500_000 across 6 runs; if exceeded mid-run, abort with verdict=DEGRADED + reason bench_token_ceiling_exceeded.
-          * claude CLI absent: transparently downgrade to --mode=ledger-only with reason bench_fixture_skipped:claude_cli_unavailable; emit partial report. NEVER throws upward (Lock 13).
+          * claude CLI absent: transparently downgrade to --mode=ledger-only with reason bench_fixture_skipped:claude_cli_unavailable; emit partial report. NEVER throws upward (Lock 13). In ledger-only mode, post_artifacts[] is returned as [] (the deterministic absent-source baseline); T6 handles tokens_after===null + post_artifacts===[] by emitting verdict='ledger-only — incomplete'.
         - All 4 anti-cheat invariants from §2.5 enforced as REJECT-on-violation: (1) fixtures live at operator-local path (ctx.fixtureDir defaults to %LOCALAPPDATA%/sgsd-bench/decks or ~/.local/share/sgsd-bench/decks); (2) prompt is normal task; (3) expected_evidence/anti_cheat_signal NEVER copied into workspace; (4) post-run scoring runs against artifact files OUTSIDE workspace; (5) workspace asserted clean before each run.
       Adds 3-5 self-test assertions:
         - Test 4: assertWorkspaceClean rejects all 6 forbidden anti-cheat strings + 3 secret-prefix paranoia strings (extends T2 assertion).
-        - Test 18 (anti-cheat real-dispatch): when --mode=full runs, route-decisions.jsonl gains exactly N rows with matching scenario_id; if N=0 the test FAILS (proves the dispatch was real, not stubbed).
+        - Test 18 (anti-cheat real-dispatch): when --mode=full runs (mode_used==='full' AND claudeBinary != null), route-decisions.jsonl gains >=1 row whose row.run_id starts with prefix `bench-post-${scenario.scenario_id}-`. Match is by run_id substring (the unforgeable witness Phase 47 actually writes), NOT by a scenario_id field (route.cjs does not emit scenario_id). If --mode=full ran but zero matching-prefix rows exist, the test FAILS (proves the dispatch was stubbed, not real). If mode_used==='ledger-only' the assertion is skipped (zero matching rows is expected).
         - Test (replay mode-downgrade): claudeBinary=null returns mode_used='ledger-only' with bench_fixture_skipped:claude_cli_unavailable reason and partial-report flag.
         - Test (token ceiling): synthetic over-budget input returns verdict=DEGRADED + bench_token_ceiling_exceeded.
+        - Test (post_artifacts source): when buildPacket emits a known fixture packet, replayScenario returns post_artifacts that is element-wise byte-equal to the concatenation of packet.metadata.consumed_capsule_decisions + packet.bypass_refs + packet.metadata.consumed_atc_findings (no reordering, no dedupe, no transform).
     hypothesis: |
-      The hybrid replay (Lock R5) is the only way to prove "post-milestone researcher token spend < 50% of baseline" because (a) baseline ledger is real evidence already on disk (no rerun needed), (b) post-run REQUIRES real Sonnet inference against the new packet path - fixtures cannot prove a NEW model run produces fewer tokens than an OLD model run, (c) injection assertions (T4) are deterministic and fixture-driven so they don't need Sonnet. Anti-cheat boundary mirrors sgsd-blind-live-controller.mjs verbatim because that pattern already shipped and self-tested - inventing a new boundary risks introducing leaks. Token ceiling at 1.5M caps Sonnet cost (6 runs * ~50k each * 5x safety margin); claude CLI absence soft-downgrades to ledger-only because Phase 51 must emit a partial report rather than fail outright (Lock 13 + ASSUMPTION A2). Real-dispatch assertion (Test 18) is the ONLY way to prove the replay isn't being stubbed away - route-decisions.jsonl row count is the unforgeable witness.
+      The hybrid replay (Lock R5) is the only way to prove "post-milestone researcher token spend < 50% of baseline" because (a) baseline ledger is real evidence already on disk (no rerun needed), (b) post-run REQUIRES real Sonnet inference against the new packet path - fixtures cannot prove a NEW model run produces fewer tokens than an OLD model run, (c) injection assertions (T4) are deterministic and fixture-driven so they don't need Sonnet. Anti-cheat boundary mirrors sgsd-blind-live-controller.mjs verbatim because that pattern already shipped and self-tested - inventing a new boundary risks introducing leaks. Token ceiling at 1.5M caps Sonnet cost (6 runs * ~50k each * 5x safety margin); claude CLI absence soft-downgrades to ledger-only because Phase 51 must emit a partial report rather than fail outright (Lock 13 + ASSUMPTION A2). Real-dispatch assertion (Test 18) is the ONLY way to prove the replay isn't being stubbed away - route-decisions.jsonl row.run_id substring match on prefix `bench-post-${scenario_id}-` is the unforgeable witness (Phase 47 route.cjs writes run_id but NOT a scenario_id field; matching by run_id substring is the schema-correct check). post_artifacts[] population from packet.metadata.consumed_capsule_decisions + packet.bypass_refs + packet.metadata.consumed_atc_findings is the deterministic, byte-equality-checkable source the T6 evidence_retention oracle requires; without this explicit population step the oracle defaults to 0.0 and every scenario hard-fails for the wrong reason.
     falsifier: |
       Plan is wrong if any of:
         - Sonnet prompt contains 'benchmark','score','test','evaluation' (Pitfall 6).
         - Workspace contains forbidden strings before dispatch (anti-cheat boundary breach).
         - Fixtures live inside project workspace (Pitfall 4).
         - claude CLI absence raises an exception instead of downgrading to ledger-only (Lock 13 violation; Q2 default missed).
-        - --mode=full successfully runs but route-decisions.jsonl gains 0 rows (the dispatch was stubbed, not real - assertion 18 must catch this).
+        - --mode=full successfully runs but route-decisions.jsonl gains 0 rows whose run_id starts with prefix `bench-post-${scenario.scenario_id}-` (the dispatch was stubbed, not real - assertion 18 must catch this; the witness is run_id substring, NOT a scenario_id field).
+        - Test 18 is implemented to look for a `scenario_id` field on route-decisions.jsonl rows (Phase 47 route.cjs does NOT write scenario_id; this would be a schema-mismatch bug that hard-fails every full-mode run for the wrong reason).
         - Token consumption exceeds 1.5M without aborting (cost overrun).
         - replay.cjs forks buildPacket or routeDispatch instead of import-by-reference (Lock 4).
+        - replayScenario returns post_artifacts[] populated from any source OTHER than packet.metadata.consumed_capsule_decisions + packet.bypass_refs + packet.metadata.consumed_atc_findings (any local heuristic, regex, or hand-curated list violates Lock 4 + Lock 11 and breaks the T6 oracle's byte-equality contract).
+        - In --mode=ledger-only, replayScenario returns post_artifacts as anything other than [] (the deterministic absent-source baseline; non-empty would inject phantom evidence into the oracle).
     stop_rule: |
-      `node super-gsd/tools/context-bench/harness.cjs --self-test` exits 0 with all bootstrap + T2 + T3 + T4 + T5 assertions PASS (running ~17-18 of 18). `--mode=full --milestone=v1.9 --dry-run` succeeds (computes packet shapes without spawning claude). Atomic commit `feat(51-01): hybrid replay + claude CLI dispatch + anti-cheat boundary mirror + 1.5M token ceiling`.
+      `node super-gsd/tools/context-bench/harness.cjs --self-test` exits 0 with all bootstrap + T2 + T3 + T4 + T5 assertions PASS (running ~17-18 of 18). `--mode=full --milestone=v1.9 --dry-run` succeeds (computes packet shapes without spawning claude). Atomic commit `feat(51-01): hybrid replay + claude CLI dispatch + anti-cheat boundary mirror + 1.5M token ceiling + deterministic post_artifacts population`.
     verification_cmd: "node super-gsd/tools/context-bench/harness.cjs --self-test"
     expected_ATC_tier: FULL
 
@@ -457,36 +472,45 @@ tasks:
         - .planning/metrics/context-complaints.jsonl (Phase 49 rows; complaint count)
         - super-gsd/tools/token-attribution/report.cjs (summarize() reused for both before and after)
       Inputs from prior tasks: 6 scenarios (T3), 16 injection results (T4), replay outputs (T5), baseline reader (T2).
+      post_artifacts[] contract from T5: scoreScenario consumes postArtifacts as a verbatim array produced by replayScenario as post_artifacts = [...packet.metadata.consumed_capsule_decisions, ...packet.bypass_refs, ...packet.metadata.consumed_atc_findings]. The oracle treats this array as a set of opaque IDs; matching is byte-equality only (Lock 11). In --mode=ledger-only post_artifacts is [] by deterministic contract; the oracle must NOT default to 0.0 in that case - it must short-circuit to the 'ledger-only — incomplete' verdict path documented below.
     output_contract: |
       Writes super-gsd/tools/context-bench/scoring.cjs containing:
         - `scoreScenario({scenario, postArtifacts, baselineRows, postRows})` returning the full row shape from §4.3:
           * tokens_before, tokens_after, pct_reduction
-          * evidence_retention via deterministic set-membership oracle (Lock 11: byte-equality on opaque ID, OR exact path, OR exact source_event_id; NO regex/levenshtein/embedding)
-          * evidence_loss_items[] enumerating the missing required tuples
+            - When tokens_after === null (i.e. --mode=ledger-only ran because claude CLI absent or T5 returned the ledger-only stub), pct_reduction === null. The per-scenario verdict for that case is 'ledger-only — incomplete' (it does NOT pass the 50% bar; it is documented absence-of-evidence, not a PASS).
+          * evidence_retention via deterministic set-membership oracle (Lock 11: byte-equality on opaque ID, OR exact path, OR exact source_event_id; NO regex/levenshtein/embedding). Computed as: |scenario.expected_evidence ∩ postArtifacts| / |scenario.expected_evidence| where intersection is byte-equality on the (kind, ref) tuple. retention === 1.0 iff every required evidence item is byte-present in postArtifacts; otherwise retention < 1.0 and evidence_loss_items[] enumerates the missing tuples.
+          * evidence_loss_items[] enumerating the missing required tuples (kind+ref pairs).
           * cache_read_ratio_before/_after (sum cache_read / sum total)
           * raw_file_reread_count (count rows where context_source_mix.raw_evidence > 0)
           * context_complaint_count (matching scenario run_id)
           * useful_findings_per_token_before/_after
-          * utility_per_token = evidence_retention / tokens_after
-          * utility_per_1k_tokens = (evidence_retention * 1000) / tokens_after  (Q4 default: BOTH forms)
-          * verdict per-scenario: PASS if pct_reduction>=0.5 AND retention==1.0; FAIL otherwise
+            - Legacy-row imputation: ledger rows missing the useful_findings field (pre-Phase 41 retrofit; older roles outside {researcher,executor,planner}) are imputed as useful_findings=0 (least-favorable; never null-ignored). This means: (a) sum(useful_findings) on a baseline of all-legacy rows is 0; (b) when sum_before === 0 the ratio is null and is rendered as em-dash in the report (no division-by-zero, no spurious infinity); (c) retention===1.0 ONLY when post-run rows explicitly emit the same evidence count - legacy zeros never inflate retention by accident.
+          * utility_per_token = evidence_retention / tokens_after (null when tokens_after===null)
+          * utility_per_1k_tokens = (evidence_retention * 1000) / tokens_after (Q4 default: BOTH forms; null when tokens_after===null)
+          * verdict per-scenario:
+            - PASS if pct_reduction>=0.5 AND retention==1.0
+            - FAIL if pct_reduction<0.5 OR retention<1.0 (with tokens_after present)
+            - 'ledger-only — incomplete' if tokens_after===null (W2 documented behavior: incomplete evidence; does NOT pass the 50% bar; does NOT count as FAIL either - it is documented deferred-evidence pending claude CLI availability)
         - `aggregateGate(scenarios[])` returning {median_pct_reduction, total_evidence_loss, verdict}:
-          * verdict = PASS if median>=0.5 AND every retention==1.0 AND every injection gate fired
+          * verdict = PASS if median>=0.5 AND every retention==1.0 AND every injection gate fired AND zero scenarios in 'ledger-only — incomplete'
           * verdict = PASS-WITH-DEFERRED-N if median in [0.40,0.50) AND retention==1.0 (per VTP-DELTA CANDIDATE-WITH-DEBT)
+          * verdict = 'ledger-only — incomplete' if any scenario.verdict === 'ledger-only — incomplete' (W2: cannot pass the 50% bar without post-mode runs; does NOT promote to PASS or PASS-WITH-DEFERRED-N; the harness emits a partial report with the documented absence and the operator is told to re-run --mode=full when claude CLI is available)
           * verdict = FAIL if any retention<1.0 OR median<0.40 OR any injection gate did not fire
-          * Uses MEDIAN not mean (Pitfall 2)
-        - `renderReport({aggregate, scenarios, injections, antiCheat})` reads BENCHMARK-REPORT.template.md and writes .planning/milestones/v1.9/CONTEXT-BENCH-RESULTS.md (deterministic). ALWAYS renders per-scenario diff table even on PASS (Q8 default).
-      Writes super-gsd/tools/context-bench/BENCHMARK-REPORT.template.md with sections: header, aggregate verdict, per-scenario S1-S6 diff table, per-injection F1-F16 gate-fired table, deferred-debt section (only if PASS-WITH-DEFERRED-N), anti-cheat attestation block, sources footer.
+          * Uses MEDIAN not mean (Pitfall 2); median of an array containing nulls excludes nulls and the verdict precondition forbids PASS with any null (the 'ledger-only — incomplete' branch handles nulls)
+        - `renderReport({aggregate, scenarios, injections, antiCheat})` reads BENCHMARK-REPORT.template.md and writes .planning/milestones/v1.9/CONTEXT-BENCH-RESULTS.md (deterministic). ALWAYS renders per-scenario diff table even on PASS (Q8 default). Renders em-dash ('—') in any cell where the metric is null (useful_findings_per_token with sum_before===0; pct_reduction in ledger-only — incomplete rows; etc.).
+      Writes super-gsd/tools/context-bench/BENCHMARK-REPORT.template.md with sections: header, aggregate verdict, per-scenario S1-S6 diff table, per-injection F1-F16 gate-fired table, deferred-debt section (only if PASS-WITH-DEFERRED-N), 'ledger-only — incomplete' section (only if any scenario in that state) explaining the partial-evidence reason and re-run instructions, anti-cheat attestation block, sources footer.
       Wires harness.cjs runBench() to:
         - For each scenario S: call replayScenario, then scoreScenario, then append envelope-v1 row to .planning/metrics/context-bench-runs.jsonl.
         - For each fixture F: call injectFailure, run dependent harness step, observe gate, restore, append envelope-v1 row.
         - Call aggregateGate then renderReport at end.
       Adds 2-3 self-test assertions:
-        - Test 10: empty post-run produces evidence_retention=0.0; harness reports FAIL.
+        - Test 10: empty post-run produces evidence_retention=0.0; harness reports FAIL (NOT 'ledger-only — incomplete' - empty post_artifacts with tokens_after present is a real failure; ledger-only branch keys off tokens_after===null specifically).
         - Test 16: aggregate gate at median>=0.5 + retention=1.0 returns PASS.
         - Test 17: one scenario with retention<1.0 forces overall FAIL even if median>=0.5 (evidence dominance).
+        - Test (ledger-only verdict): scoreScenario invoked with tokens_after===null + post_artifacts===[] returns verdict==='ledger-only — incomplete' AND pct_reduction===null (W2 behavior locked).
+        - Test (legacy zero useful_findings): baselineRows with all useful_findings===undefined imputes to 0; useful_findings_per_token_before === null (sum is 0 - division yields null); rendered as em-dash; retention is unaffected (W3 behavior locked).
     hypothesis: |
-      Scoring + aggregation + rendering must be one task because they share the row schema (§4.3) and the gate logic (§4.4) is a single decision tree. Splitting them risks schema drift (one task computing utility_per_token differently from another). Median (not mean) aggregation is the documented Pitfall 2 fix. PASS-WITH-DEFERRED-N at [0.40, 0.50) implements VTP-DELTA's CANDIDATE-WITH-DEBT clause (REQUIREMENTS.md line 322-323) - graceful tier between hard PASS and hard FAIL. Set-membership-only oracle (no fuzzy match) implements Lock 11 verbatim and Pitfall 3 fix. Q4 default keeps both utility_per_token forms in the JSONL (raw + per-1k for human readability). Q8 default always renders the per-scenario table because the value of the report is the diff, not the verdict.
+      Scoring + aggregation + rendering must be one task because they share the row schema (§4.3) and the gate logic (§4.4) is a single decision tree. Splitting them risks schema drift (one task computing utility_per_token differently from another). Median (not mean) aggregation is the documented Pitfall 2 fix. PASS-WITH-DEFERRED-N at [0.40, 0.50) implements VTP-DELTA's CANDIDATE-WITH-DEBT clause (REQUIREMENTS.md line 322-323) - graceful tier between hard PASS and hard FAIL. Set-membership-only oracle (no fuzzy match) implements Lock 11 verbatim and Pitfall 3 fix. Q4 default keeps both utility_per_token forms in the JSONL (raw + per-1k for human readability). Q8 default always renders the per-scenario table because the value of the report is the diff, not the verdict. The 'ledger-only — incomplete' verdict (W2) is the documented null-pct_reduction handling: when claude CLI is absent the harness must NOT silently report PASS off a baseline-only computation - that would falsely advance the milestone. Legacy useful_findings=0 imputation (W3) prevents pre-retrofit ledger rows from poisoning the per-token utility metric: ratios become null (rendered em-dash) rather than zero, and retention===1.0 is gated on post-run rows explicitly emitting the evidence count.
     falsifier: |
       Plan is wrong if any of:
         - aggregateGate uses mean instead of median (Pitfall 2 violation).
@@ -494,10 +518,14 @@ tasks:
         - Per-scenario utility_per_token differs from VTP-DELTA line 130 formula.
         - Report omits per-scenario table on PASS (Q8 violation - report value is the diff).
         - PASS-WITH-DEFERRED-N triggered outside [0.40, 0.50) median range OR with retention<1.0 (deferred-debt clause violated).
+        - tokens_after===null path emits PASS or PASS-WITH-DEFERRED-N instead of 'ledger-only — incomplete' (W2 violation: a ledger-only run must NOT pass the 50% bar).
+        - Aggregate verdict promotes to PASS when ANY scenario.verdict==='ledger-only — incomplete' (W2 violation: incomplete evidence cannot pass).
+        - Legacy rows with useful_findings missing are coerced to non-zero values OR cause divide-by-zero crashes; correct behavior is impute to 0 then return null when sum is 0 (W3 violation).
+        - retention===1.0 emitted when a required expected_evidence tuple is missing from postArtifacts on byte-equality match (legacy zeros must NEVER inflate retention).
         - context-bench-runs.jsonl rows lack envelope_version:1 OR additionalProperties drift.
         - Self-test 17 fails: evidence dominance not enforced (a high-token-reduction scenario with retention<1.0 should still FAIL the phase).
     stop_rule: |
-      `node super-gsd/tools/context-bench/harness.cjs --self-test` exits 0 with all 18 assertions PASS. `node super-gsd/tools/context-bench/harness.cjs --mode=ledger-only --milestone=v1.9` writes .planning/milestones/v1.9/CONTEXT-BENCH-RESULTS.md (partial verdict acceptable since no Sonnet yet) and appends >=6 rows to .planning/metrics/context-bench-runs.jsonl. Atomic commit `feat(51-01): scoring oracle + median-gate + report renderer + canonical JSONL writer`.
+      `node super-gsd/tools/context-bench/harness.cjs --self-test` exits 0 with all 18 assertions PASS. `node super-gsd/tools/context-bench/harness.cjs --mode=ledger-only --milestone=v1.9` writes .planning/milestones/v1.9/CONTEXT-BENCH-RESULTS.md (verdict='ledger-only — incomplete' since no Sonnet yet) and appends >=6 rows to .planning/metrics/context-bench-runs.jsonl. Atomic commit `feat(51-01): scoring oracle + median-gate + report renderer + canonical JSONL writer + ledger-only verdict + legacy-zero imputation`.
     verification_cmd: "node super-gsd/tools/context-bench/harness.cjs --self-test"
     expected_ATC_tier: FULL
 
@@ -508,39 +536,50 @@ tasks:
       - super-gsd/tools/context-bench/run-self-test.cjs
       - super-gsd/tools/context-bench/harness.cjs
       - super-gsd/scripts/sgsd-complete-milestone.cjs
+      - super-gsd/skills/sgsd-complete-milestone/SKILL.md
     depends_on: ["51-01-T1", "51-01-T2", "51-01-T3", "51-01-T4", "51-01-T5", "51-01-T6"]
     input_contract: |
       Reads:
         - super-gsd/tools/context-bench/harness.cjs (consolidated 18-assertion self-test from T1+T2+T3+T4+T5+T6)
-        - super-gsd/scripts/sgsd-complete-milestone.cjs (existing milestone-close hook; insert pre-close gate)
+        - super-gsd/skills/sgsd-complete-milestone/SKILL.md (the ACTUAL milestone-close skill on disk; super-gsd/scripts/sgsd-complete-milestone.cjs does NOT yet exist - T7 CREATES it as a thin wrapper invoked from the SKILL's Step 0 precondition gate)
         - 51-RESEARCH.md §10 (verifier exit criteria), §10.4 (defer-with-debt)
       Inputs from prior tasks: complete harness; all artifacts in place.
     output_contract: |
       Writes super-gsd/tools/context-bench/run-self-test.cjs:
         - Single-purpose entry: shells `node harness.cjs --self-test`, exits with same code.
         - Documents the run-once protocol in a header comment: "Phase 51 self-test entry. Idempotent: each run snapshots+restores canonical streams (T4 anti-pollution). Operator runs `node super-gsd/tools/context-bench/run-self-test.cjs` for a fast 18-assertion green."
-      Edits super-gsd/scripts/sgsd-complete-milestone.cjs:
-        - When milestone == 'v1.9', BEFORE existing close steps, invoke `require('../tools/context-bench/harness.cjs').selfTest()`.
-        - If selfTest exits non-zero, abort milestone close with reason 'milestone_close_blocked:context_bench_self_test_failed'; do NOT advance milestone.
-        - Wrapped in try/catch (Lock 13: never throws upward; on harness import failure, emit milestone_close_blocked:context_bench_unavailable and abort - explicit failure, not silent).
-        - Phase 52 still has its own milestone-close gate (Phase 51 doesn't replace it; both must pass).
+
+      CREATES (new file, does not yet exist on disk) super-gsd/scripts/sgsd-complete-milestone.cjs:
+        - Header comment: "v1.9 milestone-close pre-flight gate. Invoked by super-gsd/skills/sgsd-complete-milestone/SKILL.md Step 0 precondition list. Operator-runnable directly: `node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone v1.9`."
+        - CLI: parses --milestone arg; when milestone === 'v1.9' invokes `require('../tools/context-bench/harness.cjs').selfTest()`; propagates exit code (0 on green, 1 on fail).
+        - When milestone !== 'v1.9' exit 0 (no-op; future milestones get their own gates).
+        - Lock 13 wrap: try/catch on the harness require(); on import failure write a stderr line `milestone_close_blocked:context_bench_unavailable` and exit 1 (NEVER throws upward; NEVER silently exits 0). On selfTest exit !==0 write stderr `milestone_close_blocked:context_bench_self_test_failed` and exit 1.
+        - ASCII-only literals.
+
+      EDITS super-gsd/skills/sgsd-complete-milestone/SKILL.md (downstream-consumer wire so the gate actually runs):
+        - In Step 0 precondition list, append ONE bullet between the existing health probes and the milestone-close metadata row: `- node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone {{version}} (must exit 0; v1.9 context-bench self-test gate; on failure abort milestone close with reason 'milestone_close_blocked:context_bench_self_test_failed')`.
+        - No other content modified - SCHEMA-02 of the existing skill preserved (frontmatter untouched, all other steps untouched). The bullet is the entirety of the diff.
+
       Final consolidation in harness.cjs:
         - Verify all 18 assertions list-locked (Test 1..18 from RESEARCH §10.2). No 19th assertion sneaked in; no assertion silently disabled.
         - Final self-test assertion 18 (canonical fingerprint guard) covers all 4 source streams: agent-token-spend.jsonl, context-packet-log.jsonl, context-complaints.jsonl, route-decisions.jsonl (mirrors Phase 41 self-test 14).
         - All 5 public APIs (runBench, replayScenario, injectFailure, scoreScenario, renderReport) export from harness top-level and each is try/catch wrapped (Lock 13).
-      Adds documentation block in harness.cjs explaining: dispatch sequence, run-once protocol, --mode flags, --self-test flag, claude CLI requirement, ledger-only fallback, where canonical artifacts land.
+      Adds documentation block in harness.cjs explaining: dispatch sequence, run-once protocol, --mode flags, --self-test flag, claude CLI requirement, ledger-only fallback, where canonical artifacts land, AND the milestone-close consumer chain (SKILL.md Step 0 -> sgsd-complete-milestone.cjs --milestone v1.9 -> harness.selfTest()).
     hypothesis: |
-      Wiring the self-test into the milestone-close gate is what makes the bench non-skippable; without this gate, Phase 51 ships but a future milestone-close could advance v1.9 to closed without the bench actually being green. A single run-self-test.cjs entry point makes the contract operator-runnable in one line. Lock 13 wrap on the milestone-close hook is critical: a missing harness module must produce milestone_close_blocked, NOT silently advance the milestone (silent advance would be the worst-possible Phase 51 failure mode).
+      Wiring the self-test into the milestone-close gate is what makes the bench non-skippable; without this gate, Phase 51 ships but a future milestone-close could advance v1.9 to closed without the bench actually being green. The actual milestone-close surface on disk is super-gsd/skills/sgsd-complete-milestone/SKILL.md (verified by direct ls; the .cjs file W5 originally cited does NOT exist). The cleanest wire is therefore: T7 CREATES super-gsd/scripts/sgsd-complete-milestone.cjs as a thin operator-runnable wrapper (single `require + selfTest + propagate exit code`), and EDITS the SKILL.md Step 0 precondition list to invoke it as one new bullet. This way (a) the gate runs at every v1.9 milestone-close attempt by virtue of the existing skill's auto-trigger, (b) the gate is also operator-runnable directly via `node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone v1.9`, (c) future milestones can extend the same wrapper without touching the skill again, (d) the SKILL.md edit is one bullet only - SCHEMA-02 preserved. A single run-self-test.cjs entry point makes the contract operator-runnable in one line for fast greens. Lock 13 wrap on the wrapper is critical: a missing harness module must produce milestone_close_blocked, NOT silently advance the milestone (silent advance would be the worst-possible Phase 51 failure mode).
     falsifier: |
       Plan is wrong if any of:
         - run-self-test.cjs exits 0 even when harness self-test fails (the entry must propagate exit code).
-        - sgsd-complete-milestone.cjs allows v1.9 milestone close when harness selfTest exits non-zero.
-        - sgsd-complete-milestone.cjs throws upward on a missing harness import (silent advance disguised as crash); Lock 13 requires milestone_close_blocked:context_bench_unavailable instead.
+        - sgsd-complete-milestone.cjs is created but the SKILL.md is not edited (no downstream consumer = the gate never runs at milestone close = the gate is non-binding; W5 violation).
+        - The SKILL.md edit modifies any content other than the one new Step 0 bullet (frontmatter touched, other steps reordered, etc. = SCHEMA-02 drift).
+        - sgsd-complete-milestone.cjs allows v1.9 milestone close (exit 0) when harness selfTest exits non-zero.
+        - sgsd-complete-milestone.cjs throws upward on a missing harness import (silent advance disguised as crash); Lock 13 requires stderr `milestone_close_blocked:context_bench_unavailable` + exit 1 instead.
+        - sgsd-complete-milestone.cjs is targeted at a non-existent file (the W5 root cause: the planner must verify-by-ls before committing to an "edit" verb; T7 explicitly CREATES this file).
         - Any of the 18 assertions silently disabled (running count drops below 18/18 PASS without explicit deferred-debt).
         - Phase 41-50 tool trees are touched: `git diff --quiet -- super-gsd/tools/{token-attribution,token-waste,phase-capsule,context-registry,context-packet,sqlite-context-index,dispatch-router,vtp-bridge,memory-governance} super-gsd/scripts/lib/sgsd-cockpit-shell.cjs` returns non-zero.
         - run-self-test.cjs introduces any new aggregator or oracle (it must be a thin shell over harness --self-test, nothing more).
     stop_rule: |
-      `node super-gsd/tools/context-bench/run-self-test.cjs` exits 0 with 18/18 PASS in <60 seconds. `node super-gsd/scripts/sgsd-complete-milestone.cjs --dry-run --milestone=v1.9` shows the new pre-close gate fires. `git diff --quiet -- super-gsd/tools/token-attribution super-gsd/tools/token-waste super-gsd/tools/phase-capsule super-gsd/tools/context-registry super-gsd/tools/context-packet super-gsd/tools/sqlite-context-index super-gsd/tools/dispatch-router super-gsd/tools/vtp-bridge super-gsd/tools/memory-governance super-gsd/scripts/lib/sgsd-cockpit-shell.cjs` exits 0 (Phase 41-50 byte-untouched). Atomic commit `feat(51-01): 18-assertion self-test entry + milestone-close gate wiring + run-once protocol`.
+      `node super-gsd/tools/context-bench/run-self-test.cjs` exits 0 with 18/18 PASS in <60 seconds. `node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone v1.9` exits 0 (because harness self-test green). `grep -F 'sgsd-complete-milestone.cjs' super-gsd/skills/sgsd-complete-milestone/SKILL.md` returns at least one line (the new Step 0 precondition bullet is present). `git diff --quiet -- super-gsd/tools/token-attribution super-gsd/tools/token-waste super-gsd/tools/phase-capsule super-gsd/tools/context-registry super-gsd/tools/context-packet super-gsd/tools/sqlite-context-index super-gsd/tools/dispatch-router super-gsd/tools/vtp-bridge super-gsd/tools/memory-governance super-gsd/scripts/lib/sgsd-cockpit-shell.cjs` exits 0 (Phase 41-50 byte-untouched). Atomic commit `feat(51-01): 18-assertion self-test entry + milestone-close gate (skill wire + cjs wrapper) + run-once protocol`.
     verification_cmd: "node super-gsd/tools/context-bench/run-self-test.cjs"
     expected_ATC_tier: FULL
 ---
@@ -550,7 +589,7 @@ Phase 51 ships the falsifiable proof that v1.9 actually delivered: a context str
 
 Purpose: Phases 41-50 ship machinery; Phase 51 measures whether the machinery delivered the headline claim. The phase is a tool, not a feature. It lives at super-gsd/tools/context-bench/, ships a deterministic harness + a hybrid (ledger+Sonnet) replay engine + 14 canonical scenario fixtures (6 baseline + the 16 fixture catalog overlays them) + one canonical report at .planning/milestones/v1.9/CONTEXT-BENCH-RESULTS.md. Lock 4 (import-by-reference) is the dominant constraint: Phase 41/43/44/45/47/49 are CONSUMED, never reimplemented, never byte-modified. Lock 11 (no semantic similarity) and Lock 13 (never throws upward) extend verbatim across all 5 public APIs.
 
-Output: 14 NEW files (1 harness CJS, 1 replay CJS, 1 scoring CJS, 1 failure-injectors CJS, 1 schema MD, 1 schema JSON, 1 report template, 6 scenario fixtures, 1 self-test entry), 1 EDITED milestone-close hook, 2 CANONICAL outputs (CONTEXT-BENCH-RESULTS.md + context-bench-runs.jsonl). 7 atomic commits, ASCII-only on every written file, read-only invariant on Phase 41-50 trees, 18-assertion self-test green in <60 seconds, anti-cheat boundary mirrored verbatim from sgsd-blind-live-controller.mjs.
+Output: 14 NEW files (1 harness CJS, 1 replay CJS, 1 scoring CJS, 1 failure-injectors CJS, 1 schema MD, 1 schema JSON, 1 report template, 6 scenario fixtures, 1 self-test entry, 1 milestone-close cjs wrapper), 1 EDITED SKILL.md (sgsd-complete-milestone Step 0 wire; one bullet), 2 CANONICAL outputs (CONTEXT-BENCH-RESULTS.md + context-bench-runs.jsonl). 7 atomic commits, ASCII-only on every written file, read-only invariant on Phase 41-50 trees, 18-assertion self-test green in <60 seconds, anti-cheat boundary mirrored verbatim from sgsd-blind-live-controller.mjs.
 </objective>
 
 <execution_context>
@@ -603,6 +642,8 @@ const CONTEXT_SOURCE_MIX_KEYS = Object.freeze([
 
 // buildPacket({ role, intent, milestone, phase, route_hint, planning_dir }) -> packet
 // packet.body, packet.body_token_estimate, packet.metadata.context_source_mix, packet.bypass_refs
+// packet.metadata.consumed_capsule_decisions[], packet.metadata.consumed_atc_findings[] - the deterministic
+//   sources for T5 post_artifacts[] population (W4 fix; byte-equality-checkable; Lock-11-compliant).
 ```
 
 From super-gsd/tools/context-registry/check.cjs (Phase 44 LOCKED):
@@ -618,8 +659,11 @@ From super-gsd/tools/dispatch-router/route.cjs (Phase 47 LOCKED, lines 77-130):
 // ROUTE_DECISION_REASONS (18 entries) - closed enum, includes:
 //   provider_vtp_unavailable, provider_codex_unavailable, context_pressure_high, ...
 
-// route-decisions.jsonl row shape:
-// { ts, run_id, scenario_id?, decision: { primary, fallback_used, fallback_chain[] }, reason_codes[] }
+// route-decisions.jsonl row shape (verified at route.cjs:77-130):
+// { ts, run_id, decision: { primary, fallback_used, fallback_chain[] }, reason_codes[] }
+// NOTE: NO scenario_id field. The unforgeable witness for Phase 51 Test 18 is row.run_id
+// substring matching the prefix `bench-post-${scenario_id}-` (W1 fix; planner originally
+// asserted a non-existent scenario_id field).
 ```
 
 From super-gsd/tools/phase-capsule/write.cjs (Phase 43 LOCKED, lines 475-509):
@@ -648,11 +692,24 @@ From super-gsd/tools/harness-benchmark/sgsd-blind-live-controller.mjs (existing 
 //   spawn('claude', ['--print', '--dangerously-skip-permissions', '-p', '<normal task prompt>'], { cwd: workspaceRoot })
 ```
 
+From super-gsd/skills/sgsd-complete-milestone/SKILL.md (existing milestone-close skill on disk; Step 0 precondition list):
+```text
+# T7 EDIT TARGET (downstream-consumer wire for the W5 fix):
+# Step 0 precondition list currently contains: codex-exec.sh self-test, provider-health canary,
+# status-consistency check, backlog-schema check, crit-backlog lib self-test.
+# T7 appends ONE new bullet: `node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone {{version}}`
+# (must exit 0). This makes the Phase 51 context-bench self-test gate non-skippable at v1.9 close.
+# super-gsd/scripts/sgsd-complete-milestone.cjs does NOT yet exist - T7 also CREATES it.
+```
+
 From .planning/metrics/agent-token-spend.jsonl (existing 11,294-row Phase 41 ledger):
 ```jsonl
 // envelope-v1 + ext fields. row.token_breakdown.{total_tokens, cache_read_input_tokens, useful_findings}.
 // row.role in ROLES enum. row.milestone, row.phase, row.run_id, row.source_event_id.
 // IS THE BASELINE - never re-run; read by summarize() and tagged by source_event_id.
+// Legacy rows (pre-Phase 41 useful_findings retrofit) may LACK useful_findings; T6 imputes
+// missing useful_findings as 0 (least-favorable; W3 fix) so retention===1.0 only when post
+// explicitly emits the same evidence count - legacy zeros never inflate retention.
 ```
 
 From .planning/analyses/2026-04-27-agent-context-bloat-audit.md (per-role/per-phase ground truth):
@@ -671,7 +728,7 @@ The 8 open questions from 51-RESEARCH.md §15 are resolved IN-PLAN as follows. E
 
 - Q1 (Single PLAN vs split): SINGLE PLAN at task granularity. T1-T7 ship one tool with one self-test surface. Pattern matches Phase 41 (single PLAN, 4 APIs, 14 assertions). Splitting adds plan-orchestration tax for low gain.
 - Q1 (hybrid replay budget cap): TOKEN CEILING = 1,500,000 across 6 post-Sonnet runs (T5 falsifier). Abort behavior: harness emits verdict=DEGRADED + reason `bench_token_ceiling_exceeded`; renders partial report; never throws.
-- Q2 (claude CLI for --mode=full): claude CLI absent => transparent downgrade to --mode=ledger-only with reason `bench_fixture_skipped:claude_cli_unavailable`; emit partial report; PHASE 51 closes PASS-WITH-DEFERRED-N rather than full PASS. Hard dep is forbidden (Lock 13).
+- Q2 (claude CLI for --mode=full): claude CLI absent => transparent downgrade to --mode=ledger-only with reason `bench_fixture_skipped:claude_cli_unavailable`; emit partial report; PHASE 51 closes with aggregate verdict='ledger-only — incomplete' (W2: does NOT pass the 50% bar; documented absence-of-evidence pending claude CLI). Hard dep is forbidden (Lock 13).
 - Q2 (baseline rerun vs ledger): READ FROM LEDGER. 11,294 existing rows are real evidence (Lock R5). T2 wires summarize() by reference; baseline is never re-run.
 - Q3 (Phase 49 capsule IN_PROGRESS soft-skip for F12-F15): Soft-skip with `bench_fixture_skipped:phase_49_writer_unwired` reason code (T4 falsifier). BENCH-04 50% bar is independent of F12-F15 outcome; aggregate verdict can still PASS even if F12-F15 are deferred.
 - Q3 (post-Sonnet run count): 6 (one per S1-S6). Cost ~300k tokens within 1.5M ceiling.
@@ -688,14 +745,14 @@ The 8 open questions from 51-RESEARCH.md §15 are resolved IN-PLAN as follows. E
 | Lock 2 | REQUIREMENTS.md:38 | .planning/ JSONL + git remain canonical. CONTEXT-BENCH-RESULTS.md is rendered, never source-of-truth. context-bench-runs.jsonl is the canonical evidence stream. |
 | Lock 4 | REQUIREMENTS.md:40 | Bench imports Phase 41/43/44/45/47/49 by reference; NEVER reimplements. T2/T4/T5/T6 falsifiers enforce. |
 | Lock 6 | REQUIREMENTS.md:42-51 | F8 + F16 verify critical bypass byte-verbatim preservation (no hash drift, no compression of bypass into validated_thought). |
-| Lock 11 | REQUIREMENTS.md:64-65 | Evidence oracle = set-membership only. NO embedding/cosine/similarity/regex-fuzzy. F11 fixture rejects semantic-only relationships. T6 falsifier enforces. |
+| Lock 11 | REQUIREMENTS.md:64-65 | Evidence oracle = set-membership only. NO embedding/cosine/similarity/regex-fuzzy. F11 fixture rejects semantic-only relationships. T6 falsifier enforces. T5 post_artifacts source (packet.metadata.consumed_capsule_decisions + packet.bypass_refs + packet.metadata.consumed_atc_findings) is byte-equality-checkable by construction. |
 | Lock 12 | REQUIREMENTS.md:66-67 | F10 verifies prompt-injection text wrapped in fenced code block, treated as data not instruction. SECRET_PLACEHOLDER_X literals only (CLAUDE.md absolute rule). |
-| Lock 13 | REQUIREMENTS.md:68-69 | All 5 public APIs (runBench, replayScenario, injectFailure, scoreScenario, renderReport) wrap internals in try/catch and return falsey/degraded sentinels on error. T7 milestone-close hook also Lock 13 wrapped (missing harness => milestone_close_blocked, never silent advance). |
+| Lock 13 | REQUIREMENTS.md:68-69 | All 5 public APIs (runBench, replayScenario, injectFailure, scoreScenario, renderReport) wrap internals in try/catch and return falsey/degraded sentinels on error. T7 milestone-close cjs wrapper also Lock 13 wrapped (missing harness => stderr `milestone_close_blocked:context_bench_unavailable` + exit 1, never silent advance). |
 
 | Read-only Invariant | Source | Enforcement |
 |---------------------|--------|-------------|
 | Phase 41-50 tool trees byte-untouched | 51-CONTEXT.md depends_on; Lock 4 | T7 stop_rule + falsifier: `git diff --quiet -- super-gsd/tools/{token-attribution,token-waste,phase-capsule,context-registry,context-packet,sqlite-context-index,dispatch-router,vtp-bridge,memory-governance} super-gsd/scripts/lib/sgsd-cockpit-shell.cjs` exits 0 after every commit. |
-| Canonical streams not polluted by injection | RESEARCH §3.2; Pitfall 5 | T4 falsifier: self-test 11 hashes 4 source streams pre/post run; restore() must succeed for every F1-F16. |
+| Canonical streams not polluted by injection | RESEARCH §3.2; Pitfall 5 | T4 falsifier: self-test 11 hashes 4 source streams pre/post run; restore() must succeed for every F1-F16. Stream-doesnt-yet-exist baseline (route-decisions.jsonl absent on disk): canonical fingerprint = sha256(empty) + mtime=0 + size=0; restore() preserves absent state. |
 | Anti-cheat workspace cleanliness | RESEARCH §2.5; VTP-DELTA line 271 | T5 falsifier: assertWorkspaceClean called BEFORE every Sonnet dispatch; failed assertion aborts dispatch. |
 </lock_invariants>
 
@@ -714,7 +771,7 @@ Wave 2 (parallel fan-out, all depend only on T1+T2):
 
 Wave 3 (consumers of Wave 2 outputs):
   T6 [scoring + report renderer]          -> scoring.cjs, BENCHMARK-REPORT.template.md, harness.cjs (runBench wiring), CONTEXT-BENCH-RESULTS.md, context-bench-runs.jsonl (depends_on T2,T3,T4,T5)
-  T7 [self-test entry + milestone gate]   -> run-self-test.cjs, harness.cjs (final consolidation), sgsd-complete-milestone.cjs (depends_on all)
+  T7 [self-test entry + milestone gate]   -> run-self-test.cjs, harness.cjs (final consolidation), sgsd-complete-milestone.cjs (CREATE - new file), sgsd-complete-milestone/SKILL.md (one-bullet edit; downstream-consumer wire) (depends_on all)
 ```
 
 Wave 2 files_touched are disjoint EXCEPT for harness.cjs, which each task edits in a different region (SCENARIOS const for T3, INJECTION_FIXTURES const for T4, replay wiring for T5). The executor MUST coordinate harness.cjs edits sequentially or use task-local diff scopes; T6 and T7 coordinate the final harness.cjs consolidation.
@@ -728,45 +785,49 @@ Phase 51 verifier (gsd-verifier dispatch) checks:
 - [ ] All 14 fixture/source files exist:
   - super-gsd/tools/context-bench/{harness.cjs, replay.cjs, scoring.cjs, failure-injectors.cjs, SCENARIO.schema.json, BENCHMARK-REPORT.template.md, scenarios/SCHEMA.md, run-self-test.cjs}
   - super-gsd/tools/context-bench/scenarios/{S1-v17-P32, S2-v18-P36, S3-v18-P40, S4-v16-P26, S5-v17-P34, S6-v15-P21}.json
+  - super-gsd/scripts/sgsd-complete-milestone.cjs (NEW; T7 creates)
+- [ ] super-gsd/skills/sgsd-complete-milestone/SKILL.md Step 0 precondition list contains the bullet invoking sgsd-complete-milestone.cjs (downstream-consumer wire; W5 fix).
 - [ ] All 6 fixtures validate against SCENARIO.schema.json (Ajv round-trip exit 0).
 - [ ] `node super-gsd/tools/context-bench/run-self-test.cjs` exits 0 with 18/18 PASS in <60 seconds.
 - [ ] `node super-gsd/tools/context-bench/harness.cjs --mode=ledger-only --milestone=v1.9` writes:
-  - .planning/milestones/v1.9/CONTEXT-BENCH-RESULTS.md (per-scenario table populated)
+  - .planning/milestones/v1.9/CONTEXT-BENCH-RESULTS.md (per-scenario table populated; verdict='ledger-only — incomplete' when no Sonnet has run)
   - .planning/metrics/context-bench-runs.jsonl (>=6 rows for S1-S6 + up to 16 rows for F1-F16; envelope-v1 + ext fields valid)
-- [ ] Median pct_reduction in --mode=full PASS run >= 0.50 (or PASS-WITH-DEFERRED-N if median in [0.40, 0.50)).
-- [ ] All 6 scenarios in PASS run have evidence_retention == 1.0.
+- [ ] Median pct_reduction in --mode=full PASS run >= 0.50 (or PASS-WITH-DEFERRED-N if median in [0.40, 0.50)). When tokens_after===null on any scenario, aggregate verdict is 'ledger-only — incomplete' (W2: does NOT pass the 50% bar).
+- [ ] All 6 scenarios in PASS run have evidence_retention == 1.0. Retention oracle uses byte-equality on (kind, ref) tuples between scenario.expected_evidence and post_artifacts (which is sourced verbatim from packet.metadata.consumed_capsule_decisions + packet.bypass_refs + packet.metadata.consumed_atc_findings per T5 W4 fix).
 - [ ] All 16 fixtures (or 12 if F12-F15 soft-skipped per Q3) have a corresponding gate_fired=true row in context-bench-runs.jsonl. F17 emits skipped:true, reason:'phase_52_redis_adapter_not_shipped'.
 - [ ] Anti-pollution: no row in crit-backlog.jsonl OR agent-token-spend.jsonl has phase containing 'bench-test' or 'fixture' (per RESEARCH §10.4).
 - [ ] Phase 41-50 byte-untouched: `git diff --quiet -- super-gsd/tools/token-attribution super-gsd/tools/token-waste super-gsd/tools/phase-capsule super-gsd/tools/context-registry super-gsd/tools/context-packet super-gsd/tools/sqlite-context-index super-gsd/tools/dispatch-router super-gsd/tools/vtp-bridge super-gsd/tools/memory-governance super-gsd/scripts/lib/sgsd-cockpit-shell.cjs` exits 0.
 - [ ] Lock 11 audit: `grep -niE "embedding|cosine|levenshtein|fuzzy|semantic_similarity|similarity_score" super-gsd/tools/context-bench/` returns 0 matches outside RESEARCH-quoted comment lines.
 - [ ] Lock 13 audit: every public API (runBench, replayScenario, injectFailure, scoreScenario, renderReport) is wrapped in try/catch (grep on each function name + body for try{).
-- [ ] sgsd-complete-milestone.cjs gate fires when v1.9 milestone close attempted with failing harness self-test.
+- [ ] Test 18 (real-dispatch witness) when --mode=full ran: route-decisions.jsonl gains >=1 row whose row.run_id starts with prefix `bench-post-${scenario_id}-` (W1 fix; matches by run_id substring, NOT a scenario_id field which Phase 47 does not emit).
+- [ ] Legacy useful_findings handling: T6 imputes missing useful_findings as 0; useful_findings_per_token is rendered as em-dash when sum_before===0 (W3 fix); retention===1.0 only when post-run rows explicitly emit the same evidence count.
+- [ ] sgsd-complete-milestone.cjs gate fires when v1.9 milestone close attempted with failing harness self-test (invoked from SKILL.md Step 0 precondition list per W5 wire).
 
-Defer-with-debt allowed if: median pct_reduction in [0.40, 0.50) -> PASS-WITH-DEFERRED-N with explicit deferred row capturing the gap. Hard fail if: any retention <1.0 OR median <0.40 OR injection gate did not fire (excluding soft-skipped F12-F15 with documented reason code).
+Defer-with-debt allowed if: median pct_reduction in [0.40, 0.50) -> PASS-WITH-DEFERRED-N with explicit deferred row capturing the gap. Hard fail if: any retention <1.0 OR median <0.40 OR injection gate did not fire (excluding soft-skipped F12-F15 with documented reason code). Documented incomplete (NOT pass, NOT fail): any scenario tokens_after===null -> aggregate verdict='ledger-only — incomplete' (W2; operator must re-run --mode=full when claude CLI is available).
 </verification>
 
 <success_criteria>
 Phase 51 completes when ALL of the following hold:
 
-1. All 14 NEW files written, ASCII-only, schema-valid, committed.
+1. All 14 NEW files written + 1 SKILL.md edited (one bullet), ASCII-only, schema-valid, committed.
 2. `node super-gsd/tools/context-bench/run-self-test.cjs` exits 0 with 18/18 PASS in <60 seconds.
-3. `node super-gsd/tools/context-bench/harness.cjs --mode=ledger-only --milestone=v1.9` produces a partial CONTEXT-BENCH-RESULTS.md with the per-scenario diff table populated and >=6 rows in context-bench-runs.jsonl.
+3. `node super-gsd/tools/context-bench/harness.cjs --mode=ledger-only --milestone=v1.9` produces a CONTEXT-BENCH-RESULTS.md with the per-scenario diff table populated (verdict='ledger-only — incomplete' when no Sonnet has run; W2) and >=6 rows in context-bench-runs.jsonl.
 4. (When claude CLI available) `node super-gsd/tools/context-bench/harness.cjs --mode=full --milestone=v1.9` produces a PASS verdict (median pct_reduction >= 0.50 AND every retention == 1.0) OR PASS-WITH-DEFERRED-N (median in [0.40, 0.50)).
 5. Phase 41-50 tool trees + sgsd-cockpit-shell.cjs byte-untouched (`git diff --quiet -- ...` exits 0).
 6. Anti-pollution: canonical streams pre/post self-test fingerprint identical (Test 18).
-7. Anti-cheat: workspace clean of forbidden strings before each Sonnet dispatch (Test 4); route-decisions.jsonl proves the dispatch was real, not stubbed (Test 18 real-dispatch).
+7. Anti-cheat: workspace clean of forbidden strings before each Sonnet dispatch (Test 4); route-decisions.jsonl proves the dispatch was real, not stubbed - row.run_id substring match on prefix `bench-post-${scenario_id}-` (Test 18 real-dispatch; W1 fix).
 8. Lock 11/12/13 audits pass (no embedding/similarity tooling; no real credential prefixes; no public API throws upward).
-9. Milestone-close hook in sgsd-complete-milestone.cjs blocks v1.9 milestone close when harness self-test fails.
+9. Milestone-close gate wired: super-gsd/skills/sgsd-complete-milestone/SKILL.md Step 0 invokes super-gsd/scripts/sgsd-complete-milestone.cjs (CREATED in T7), which blocks v1.9 milestone close when harness self-test fails (W5 fix).
 
-Phase 51 produces, by design, evidence for both v1.9's success claim AND v1.9's gracefully-degraded-but-PASS state when external deps are partially available.
+Phase 51 produces, by design, evidence for both v1.9's success claim AND v1.9's gracefully-degraded-but-PASS state when external deps are partially available, AND v1.9's documented-incomplete state when claude CLI is absent (verdict='ledger-only — incomplete'; W2).
 </success_criteria>
 
 <output>
 After completion, create `.planning/milestones/v1.9/phases/51-context-stress-benchmark/51-01-SUMMARY.md` summarizing:
-  - Files created (14 new + 1 edited)
+  - Files created (14 new + 1 SKILL.md edited; W5 wire)
   - Self-test result (18/18 PASS expected)
-  - --mode=full verdict (PASS, PASS-WITH-DEFERRED-N, or FAIL with reason)
-  - Median pct_reduction across S1-S6
+  - --mode=full verdict (PASS, PASS-WITH-DEFERRED-N, 'ledger-only — incomplete', or FAIL with reason)
+  - Median pct_reduction across S1-S6 (or null with em-dash render if all scenarios are 'ledger-only — incomplete')
   - Total evidence_loss across S1-S6
   - Injection gate-fired count (target: 16/16, or 12/16 with documented soft-skip)
   - Lock invariant audit results
