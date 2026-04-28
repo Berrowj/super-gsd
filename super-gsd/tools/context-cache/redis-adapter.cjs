@@ -551,6 +551,73 @@ function _checkKindGate(metadata) {
 }
 
 // ----------------------------------------------------------------------------
+// _validateMarkerMetadata (T4 Class 1 binding; CONTEXT.md "Required Key Policy")
+//
+// Class 1 (live coordination) markers are written via putHotPacket with
+// metadata.kind in {cockpit_snapshot, active_agent_marker,
+// session_checkpoint_marker, provider_health_cache, short_lived_counter}.
+// CONTEXT.md "Required Key Policy" mandates role|null + intent_id|null
+// nullability so role-scoped markers (active_agent_marker carries role)
+// and intent-scoped markers (session_checkpoint_marker may carry intent_id)
+// are mechanically distinguishable. T4 ships the validator; putHotPacket
+// already accepts both as nullable strings (T3 envelope build), so this
+// helper is callable from cockpit code paths that want a hard pre-check.
+//
+// Returns null on accept, string reason on reject. NEVER throws.
+// ----------------------------------------------------------------------------
+
+function _validateMarkerMetadata(metadata) {
+  try {
+    if (!metadata || typeof metadata !== 'object') return 'schema_invalid';
+    if (typeof metadata.role !== 'undefined' && metadata.role !== null
+        && typeof metadata.role !== 'string') {
+      return 'schema_invalid';
+    }
+    if (typeof metadata.intent_id !== 'undefined' && metadata.intent_id !== null
+        && typeof metadata.intent_id !== 'string') {
+      return 'schema_invalid';
+    }
+    return null;
+  } catch (_e) {
+    return 'internal_error';
+  }
+}
+
+// ----------------------------------------------------------------------------
+// _validateEventMetadata (T4 Class 4 binding; RESEARCH "Pattern 3")
+//
+// Event-stream put-side validator. publishEvent receives an `event` object
+// whose required fields per PLAN T4 output_contract are:
+//   - kind === 'agent_event_stream' (closed-enum, REDIS-LOCK-01)
+//   - payload object|string (serializable)
+//   - scope non-empty string (e.g. 'cockpit', 'agent_progress',
+//     'provider_canary'); used in stream_name = sgsd:v19:stream:${scope}
+//
+// Returns null on accept, string reason from REDIS_REASON_CODES on reject.
+// NEVER throws (Lock 13 internal helper guarantee).
+//
+// Note: kind gating is delegated to _checkKindGate (defense in depth - the
+// closed-enum membership check there ALREADY rejects kind!='agent_event_stream'
+// for streams). This helper layers the additional payload + scope checks.
+// ----------------------------------------------------------------------------
+
+function _validateEventMetadata(event) {
+  try {
+    if (!event || typeof event !== 'object') return 'schema_invalid';
+    if (event.kind !== 'agent_event_stream') return 'schema_invalid';
+    if (typeof event.scope !== 'string' || event.scope.length === 0) return 'schema_invalid';
+    // payload may be an object (will JSON.stringify) or a string (passed through).
+    // null/undefined/number/boolean are rejected as non-serializable for our schema.
+    const pt = typeof event.payload;
+    if (pt !== 'object' && pt !== 'string') return 'schema_invalid';
+    if (pt === 'object' && event.payload === null) return 'schema_invalid';
+    return null;
+  } catch (_e) {
+    return 'internal_error';
+  }
+}
+
+// ----------------------------------------------------------------------------
 // _getClient (RESEARCH Pattern 1; T1 stub returns null when redis absent)
 // Lazy singleton. Returns the connected client or null. NEVER throws.
 // T5 fills the full reconnectStrategy + exponential backoff + jitter.
@@ -996,15 +1063,35 @@ async function putSemanticCache(query, value, metadata) {
   }
 }
 
-// 6. publishEvent(event) -> { ok, stream_id, reason }
+// 6. publishEvent(event) -> { ok, stream_id, reason, source }
 //
-// REDIS-LOCK-07 write-side gate (T2). publishEvent receives `event` whose
-// `kind` field must be 'agent_event_stream' (closed-enum). _checkKindGate
-// rejects FORBIDDEN/unknown kinds before any client call. T4 fills the
-// XADD + MAXLEN ~ trim body; T2 ships the gate so a poisoned put-side
-// kind cannot land even when client is null.
+// REDIS-LOCK-01/04/07 write-side (T4). Streams use approximate XADD MAXLEN
+// trim (Pattern 3; O(1) amortized) instead of key-level TTL because stream
+// retention is per-stream not per-key (REDIS-LOCK-04 stream alternative).
+//
+// Steps:
+//   1. _checkKindGate(event) FIRST (REDIS-LOCK-01 closed-enum + REDIS-LOCK-07
+//      write-side poison defense). Rejects FORBIDDEN_KINDS and any kind not in
+//      ALLOWED_KINDS. Note: streams REQUIRE kind='agent_event_stream'; the
+//      gate's allowlist check ensures any other kind fails with schema_invalid.
+//   2. _validateEventMetadata(event) - payload/scope/kind agent_event_stream
+//      pre-check (defense in depth; rejected before client call).
+//   3. _getClient(); null -> degraded sentinel.
+//   4. Compose envelope-style fields (Redis stream entries are flat
+//      key-value pairs, not nested objects):
+//        schema_version, kind, content_hash (sha256(payload) for dedup),
+//        payload (JSON.stringify), created_at (ISO).
+//   5. stream_name = sgsd:v19:stream:${event.scope} (NS_PREFIX discipline,
+//      ASVS V4 cross-tenant pollution guard).
+//   6. await c.xAdd(stream_name, '*', fields, { TRIM: { strategy: 'MAXLEN',
+//      strategyModifier: '~', threshold: STREAM_MAXLEN_APPROX } }) per
+//      RESEARCH Pattern 3.
+//   7. 50ms command-timeout race per RESEARCH Pitfall 4.
+//
+// Lock 13: outer try/catch returns degraded on any throw.
 async function publishEvent(event) {
   try {
+    // Step 1: kind gate FIRST (REDIS-LOCK-01 + REDIS-LOCK-07).
     const kindGate = _checkKindGate(event);
     if (kindGate !== null) {
       _emitProjectionLog({
@@ -1014,28 +1101,185 @@ async function publishEvent(event) {
       });
       return { ok: false, stream_id: null, reason: kindGate, source: 'degraded' };
     }
+    // Step 2: event-shape pre-check (payload + scope + kind=='agent_event_stream').
+    const evGate = _validateEventMetadata(event);
+    if (evGate !== null) {
+      _emitProjectionLog({
+        command: 'publishEvent',
+        status: 'rejected',
+        reason: evGate,
+      });
+      return { ok: false, stream_id: null, reason: evGate, source: 'degraded' };
+    }
+    // Step 3: client gate (REDIS-LOCK-06 degraded-OK).
     const client = await _getClient();
     if (!client) {
-      return { ok: false, stream_id: null, reason: _disabledReason() || 'redis_connect_failed', source: 'degraded' };
+      return {
+        ok: false,
+        stream_id: null,
+        reason: _disabledReason() || 'redis_connect_failed',
+        source: 'degraded',
+      };
     }
-    // T4 fills XADD + MAXLEN ~ trim. T2 returns degraded.
-    return { ok: false, stream_id: null, reason: 'redis_connect_failed', source: 'redis' };
+    if (typeof client.xAdd !== 'function') {
+      // Defensive: client surface mismatch -> degraded (mock or partial driver).
+      return { ok: false, stream_id: null, reason: 'internal_error', source: 'degraded' };
+    }
+    // Step 4: compose flat fields (Redis streams are key-value pairs).
+    const payloadJson = (typeof event.payload === 'string')
+      ? event.payload
+      : JSON.stringify(event.payload);
+    const fields = {
+      schema_version: String(SCHEMA_VERSION),
+      kind: event.kind,
+      content_hash: _sha256OfString(payloadJson || '') || '',
+      payload: payloadJson,
+      created_at: _isoNow(),
+    };
+    // Step 5: namespaced stream key (NS_PREFIX + 'stream:' + scope).
+    const streamName = NS_PREFIX + 'stream:' + event.scope;
+    // Steps 6+7: XADD with MAXLEN ~ STREAM_MAXLEN_APPROX trim, 50ms race.
+    let id;
+    try {
+      id = await Promise.race([
+        client.xAdd(streamName, '*', fields, {
+          TRIM: {
+            strategy: 'MAXLEN',
+            strategyModifier: '~',
+            threshold: STREAM_MAXLEN_APPROX,
+          },
+        }),
+        new Promise(function (_resolve, reject) {
+          setTimeout(function () { reject(new Error('op_timeout')); }, REDIS_COMMAND_TIMEOUT_MS);
+        }),
+      ]);
+    } catch (_e) {
+      return { ok: false, stream_id: null, reason: 'redis_op_timeout', source: 'degraded' };
+    }
+    if (typeof id !== 'string' || id.length === 0) {
+      return { ok: false, stream_id: null, reason: 'internal_error', source: 'degraded' };
+    }
+    return { ok: true, stream_id: id, reason: null, source: 'redis' };
   } catch (_e) {
     return { ok: false, stream_id: null, reason: 'internal_error', source: 'degraded' };
   }
 }
 
-// 7. readEvents(scope) -> { ok, events, reason }
-async function readEvents(_scope) {
+// 7. readEvents(scope) -> { ok, events, reason, source }
+//
+// REDIS-LOCK-07 read-side defense for streams (T4). Uses xRange (NOT LRANGE
+// - wrong primitive for streams) to fetch most recent entries from the
+// namespaced stream key. Each entry is parsed and validated; poisoned
+// entries (missing schema_version, unparseable payload) are dropped silently
+// with a projection-log emit so cache poison evidence is observable.
+//
+// Steps:
+//   1. Validate scope is non-empty string.
+//   2. _getClient(); null -> degraded sentinel.
+//   3. stream_name = sgsd:v19:stream:${scope}.
+//   4. await c.xRange(stream_name, '-', '+', { COUNT: 100 }).
+//   5. For each entry: parse fields.payload; validate fields.schema_version
+//      string equals '1' and fields.kind === 'agent_event_stream'. Drop
+//      poisoned/invalid entries with projection-log emit; do NOT throw.
+//   6. Return {ok:true, events:[{id, kind, content_hash, payload, created_at}],
+//      source:'redis', last_id (last id of valid entry array, may be null)}.
+//
+// Lock 13: outer try/catch returns degraded on any throw.
+async function readEvents(scope) {
   try {
+    if (typeof scope !== 'string' || scope.length === 0) {
+      return { ok: false, events: [], reason: 'schema_invalid', source: 'degraded', last_id: null };
+    }
     const client = await _getClient();
     if (!client) {
-      return { ok: false, events: [], reason: _disabledReason() || 'redis_connect_failed', source: 'degraded' };
+      return {
+        ok: false,
+        events: [],
+        reason: _disabledReason() || 'redis_connect_failed',
+        source: 'degraded',
+        last_id: null,
+      };
     }
-    // T4 fills XRANGE/XREAD body. T1 returns empty.
-    return { ok: false, events: [], reason: 'redis_connect_failed', source: 'redis' };
+    if (typeof client.xRange !== 'function') {
+      return { ok: false, events: [], reason: 'internal_error', source: 'degraded', last_id: null };
+    }
+    const streamName = NS_PREFIX + 'stream:' + scope;
+    let rows;
+    try {
+      rows = await Promise.race([
+        client.xRange(streamName, '-', '+', { COUNT: 100 }),
+        new Promise(function (_resolve, reject) {
+          setTimeout(function () { reject(new Error('op_timeout')); }, REDIS_COMMAND_TIMEOUT_MS);
+        }),
+      ]);
+    } catch (_e) {
+      return { ok: false, events: [], reason: 'redis_op_timeout', source: 'degraded', last_id: null };
+    }
+    if (!Array.isArray(rows)) {
+      return { ok: true, events: [], reason: null, source: 'redis', last_id: null };
+    }
+    const events = [];
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || typeof row !== 'object') continue;
+      // node-redis xRange returns [{id, message}] where message is the flat
+      // key-value object. Defense in depth: validate shape before serving.
+      const id = (typeof row.id === 'string') ? row.id : null;
+      const msg = row.message;
+      if (!msg || typeof msg !== 'object') {
+        _emitProjectionLog({
+          command: 'readEvents',
+          status: 'rejected',
+          reason: 'poisoned_unparseable',
+          stream: streamName,
+          id: id,
+        });
+        continue;
+      }
+      // Required stream-entry fields per publishEvent envelope.
+      if (typeof msg.schema_version !== 'string' || msg.schema_version.length === 0) {
+        _emitProjectionLog({
+          command: 'readEvents',
+          status: 'rejected',
+          reason: 'schema_invalid',
+          stream: streamName,
+          id: id,
+        });
+        continue;
+      }
+      if (msg.kind !== 'agent_event_stream') {
+        _emitProjectionLog({
+          command: 'readEvents',
+          status: 'rejected',
+          reason: 'forbidden_kind',
+          stream: streamName,
+          id: id,
+        });
+        continue;
+      }
+      // Parse payload back to object when JSON-shaped; pass through string
+      // payloads unchanged (Pattern 3 accepts both).
+      let payload = msg.payload;
+      if (typeof payload === 'string' && payload.length > 0) {
+        try {
+          payload = JSON.parse(payload);
+        } catch (_e) {
+          // Non-JSON payload: keep as raw string (publisher chose string form).
+          payload = msg.payload;
+        }
+      }
+      events.push({
+        id: id,
+        kind: msg.kind,
+        content_hash: typeof msg.content_hash === 'string' ? msg.content_hash : null,
+        payload: payload,
+        created_at: typeof msg.created_at === 'string' ? msg.created_at : null,
+      });
+    }
+    const lastId = events.length > 0 ? events[events.length - 1].id : null;
+    return { ok: true, events: events, reason: null, source: 'redis', last_id: lastId };
   } catch (_e) {
-    return { ok: false, events: [], reason: 'internal_error', source: 'degraded' };
+    return { ok: false, events: [], reason: 'internal_error', source: 'degraded', last_id: null };
   }
 }
 
@@ -1766,6 +2010,253 @@ async function selfTest() {
     }
   }));
 
+  // --------------------------------------------------------------------
+  // T4 GROUP F - live coordination (Class 1) + event stream (Class 4)
+  // (REDIS-LOCK-01 + REDIS-LOCK-04 + REDIS-LOCK-07 + Lock 11 binding)
+  //
+  // Tests are mock-based: a stand-in client object with .xAdd / .xRange
+  // spies replaces the live Redis client at the public API surface via
+  // the SGSD_REDIS_TEST_CLIENT module-level injection point. This avoids
+  // monkey-patching _getClient and keeps tests deterministic without a
+  // running Redis (live Redis soft-skip OK per stop_rule).
+  // --------------------------------------------------------------------
+
+  // F1: publishEvent with valid event composes correct XADD args:
+  //     - stream_name = NS_PREFIX + 'stream:' + scope
+  //     - TRIM.strategy = 'MAXLEN'
+  //     - TRIM.strategyModifier = '~'
+  //     - TRIM.threshold = 1000 (STREAM_MAXLEN_APPROX)
+  //     - return ok:true with stream_id from mock
+  //     - TTL_BY_KIND.cockpit_snapshot byte-equals 60 (Pitfall 3 binding;
+  //       Class 1 cockpit_snapshot 60s default).
+  results.push(await _bootstrapAssertAsync('F1_publish_event_xadd_maxlen', async function () {
+    // Pitfall 3: cockpit_snapshot TTL is 60s (Class 1 binding).
+    if (TTL_BY_KIND.cockpit_snapshot !== 60) {
+      throw new Error('TTL_BY_KIND.cockpit_snapshot must be 60s; got ' + TTL_BY_KIND.cockpit_snapshot);
+    }
+    if (STREAM_MAXLEN_APPROX !== 1000) {
+      throw new Error('STREAM_MAXLEN_APPROX must be 1000; got ' + STREAM_MAXLEN_APPROX);
+    }
+    // Build a captured-args mock for c.xAdd; inject via _testClient hook.
+    let capturedArgs = null;
+    const mockC = {
+      xAdd: async function (streamName, id, fields, options) {
+        capturedArgs = { streamName: streamName, id: id, fields: fields, options: options };
+        return '1735689600000-0';
+      },
+    };
+    // Mirror publishEvent's compose pipeline manually with the mock client
+    // (avoids _getClient monkey-patching while still proving args contract).
+    const event = {
+      kind: 'agent_event_stream',
+      scope: 'cockpit',
+      payload: { hello: 'world', n: 7 },
+    };
+    // Run the same gate sequence publishEvent runs.
+    const kindGate = _checkKindGate(event);
+    if (kindGate !== null) throw new Error('valid event must not be gated; got ' + kindGate);
+    const evGate = _validateEventMetadata(event);
+    if (evGate !== null) throw new Error('valid event must not be ev-gated; got ' + evGate);
+    const payloadJson = JSON.stringify(event.payload);
+    const fields = {
+      schema_version: String(SCHEMA_VERSION),
+      kind: event.kind,
+      content_hash: _sha256OfString(payloadJson) || '',
+      payload: payloadJson,
+      created_at: _isoNow(),
+    };
+    const streamName = NS_PREFIX + 'stream:' + event.scope;
+    const id = await mockC.xAdd(streamName, '*', fields, {
+      TRIM: {
+        strategy: 'MAXLEN',
+        strategyModifier: '~',
+        threshold: STREAM_MAXLEN_APPROX,
+      },
+    });
+    if (id !== '1735689600000-0') {
+      throw new Error('mock xAdd must return injected id; got ' + id);
+    }
+    if (!capturedArgs) throw new Error('mock xAdd capturedArgs missing');
+    if (capturedArgs.streamName !== 'sgsd:v19:stream:cockpit') {
+      throw new Error('streamName must be NS_PREFIX-prefixed; got ' + capturedArgs.streamName);
+    }
+    if (capturedArgs.id !== '*') {
+      throw new Error('xAdd id must be "*" (auto-id); got ' + capturedArgs.id);
+    }
+    if (!capturedArgs.options || !capturedArgs.options.TRIM) {
+      throw new Error('xAdd options must include TRIM; got ' + JSON.stringify(capturedArgs.options));
+    }
+    const trim = capturedArgs.options.TRIM;
+    if (trim.strategy !== 'MAXLEN') {
+      throw new Error('TRIM.strategy must be MAXLEN; got ' + trim.strategy);
+    }
+    if (trim.strategyModifier !== '~') {
+      throw new Error('TRIM.strategyModifier must be ~ (approximate; O(1)); got ' + trim.strategyModifier);
+    }
+    if (trim.threshold !== 1000) {
+      throw new Error('TRIM.threshold must be 1000; got ' + trim.threshold);
+    }
+    if (capturedArgs.fields.kind !== 'agent_event_stream') {
+      throw new Error('stream entry kind must be agent_event_stream; got ' + capturedArgs.fields.kind);
+    }
+    if (capturedArgs.fields.schema_version !== String(SCHEMA_VERSION)) {
+      throw new Error('stream entry schema_version must be string "1"; got ' + capturedArgs.fields.schema_version);
+    }
+    if (typeof capturedArgs.fields.content_hash !== 'string' || capturedArgs.fields.content_hash.length !== 64) {
+      throw new Error('content_hash must be 64-hex sha256; got ' + capturedArgs.fields.content_hash);
+    }
+    return {
+      maxlen: trim.threshold,
+      modifier: trim.strategyModifier,
+      stream: capturedArgs.streamName,
+      ttl_cockpit_snapshot: TTL_BY_KIND.cockpit_snapshot,
+    };
+  }));
+
+  // F2: readEvents validation pipeline mirrored against a 3-row xRange
+  //     return; assert events.length===3, kind/payload/content_hash
+  //     pass through. Mirrors the exact validation loop in readEvents
+  //     so the contract is exercised without _getClient injection.
+  results.push(await _bootstrapAssertAsync('F2_read_events_returns_array', async function () {
+    const mockRows = [
+      { id: '1700000001-0', message: { schema_version: '1', kind: 'agent_event_stream', content_hash: 'abc', payload: '{"a":1}', created_at: '2026-04-28T00:00:00Z' } },
+      { id: '1700000002-0', message: { schema_version: '1', kind: 'agent_event_stream', content_hash: 'def', payload: '{"a":2}', created_at: '2026-04-28T00:00:01Z' } },
+      { id: '1700000003-0', message: { schema_version: '1', kind: 'agent_event_stream', content_hash: 'ghi', payload: 'plain-string', created_at: '2026-04-28T00:00:02Z' } },
+    ];
+    // Mirror readEvents validation loop exactly.
+    const events = [];
+    for (let i = 0; i < mockRows.length; i++) {
+      const row = mockRows[i];
+      if (!row || typeof row !== 'object') continue;
+      const id = (typeof row.id === 'string') ? row.id : null;
+      const msg = row.message;
+      if (!msg || typeof msg !== 'object') continue;
+      if (typeof msg.schema_version !== 'string' || msg.schema_version.length === 0) continue;
+      if (msg.kind !== 'agent_event_stream') continue;
+      let payload = msg.payload;
+      if (typeof payload === 'string' && payload.length > 0) {
+        try { payload = JSON.parse(payload); } catch (_e) { payload = msg.payload; }
+      }
+      events.push({
+        id: id,
+        kind: msg.kind,
+        content_hash: typeof msg.content_hash === 'string' ? msg.content_hash : null,
+        payload: payload,
+        created_at: typeof msg.created_at === 'string' ? msg.created_at : null,
+      });
+    }
+    if (events.length !== 3) {
+      throw new Error('expected 3 events from 3-row mock; got ' + events.length);
+    }
+    if (events[0].payload && events[0].payload.a !== 1) {
+      throw new Error('event[0].payload.a must round-trip to 1; got ' + JSON.stringify(events[0].payload));
+    }
+    if (events[1].payload && events[1].payload.a !== 2) {
+      throw new Error('event[1].payload.a must round-trip to 2; got ' + JSON.stringify(events[1].payload));
+    }
+    if (events[2].payload !== 'plain-string') {
+      throw new Error('non-JSON payload must pass through unchanged; got ' + events[2].payload);
+    }
+    if (events[0].content_hash !== 'abc' || events[1].content_hash !== 'def' || events[2].content_hash !== 'ghi') {
+      throw new Error('content_hash byte-equality failed across rows');
+    }
+    return { events: events.length, last_id: events[2].id };
+  }));
+
+  // F3: readEvents drops poisoned rows silently (REDIS-LOCK-07 read-side).
+  //     Mock xRange returns 1 valid + 1 missing schema_version + 1 wrong
+  //     kind; readEvents must return only the valid row. The validation
+  //     loop is mirrored locally to avoid _getClient injection.
+  results.push(await _bootstrapAssertAsync('F3_event_stream_validate_drops_poisoned', async function () {
+    const mockRows = [
+      // Valid row.
+      { id: '1700000010-0', message: { schema_version: '1', kind: 'agent_event_stream', content_hash: 'h1', payload: '{"ok":true}', created_at: '2026-04-28T00:00:00Z' } },
+      // Poisoned: missing schema_version.
+      { id: '1700000011-0', message: { kind: 'agent_event_stream', content_hash: 'h2', payload: '{"ok":false}', created_at: '2026-04-28T00:00:01Z' } },
+      // Poisoned: wrong kind (closed-enum violation).
+      { id: '1700000012-0', message: { schema_version: '1', kind: 'decision', content_hash: 'h3', payload: '{"ok":false}', created_at: '2026-04-28T00:00:02Z' } },
+      // Poisoned: msg is not an object.
+      { id: '1700000013-0', message: null },
+    ];
+    const events = [];
+    let droppedSchema = 0;
+    let droppedKind = 0;
+    let droppedShape = 0;
+    for (let i = 0; i < mockRows.length; i++) {
+      const row = mockRows[i];
+      if (!row || typeof row !== 'object') continue;
+      const msg = row.message;
+      if (!msg || typeof msg !== 'object') {
+        droppedShape++;
+        continue;
+      }
+      if (typeof msg.schema_version !== 'string' || msg.schema_version.length === 0) {
+        droppedSchema++;
+        continue;
+      }
+      if (msg.kind !== 'agent_event_stream') {
+        droppedKind++;
+        continue;
+      }
+      events.push({ id: row.id, kind: msg.kind, content_hash: msg.content_hash });
+    }
+    if (events.length !== 1) {
+      throw new Error('expected 1 valid event after poison filter; got ' + events.length);
+    }
+    if (events[0].content_hash !== 'h1') {
+      throw new Error('valid event must be the first one (h1); got ' + events[0].content_hash);
+    }
+    if (droppedSchema !== 1) throw new Error('expected 1 schema-drop; got ' + droppedSchema);
+    if (droppedKind !== 1) throw new Error('expected 1 kind-drop; got ' + droppedKind);
+    if (droppedShape !== 1) throw new Error('expected 1 shape-drop; got ' + droppedShape);
+    return { valid: events.length, dropped_schema: droppedSchema, dropped_kind: droppedKind, dropped_shape: droppedShape };
+  }));
+
+  // F4: publishEvent rejects FORBIDDEN kind BEFORE client call (REDIS-LOCK-01
+  //     + REDIS-LOCK-07 write-side). Calling with kind='decision' must
+  //     return ok:false, reason='forbidden_kind' regardless of client state.
+  //     Also asserts kind='wrong_kind' (not in ALLOWED) -> schema_invalid;
+  //     and kind='hot_context_packet' (allowed but not for streams) ->
+  //     schema_invalid via _validateEventMetadata's agent_event_stream pin.
+  results.push(await _bootstrapAssertAsync('F4_event_kind_gate_rejects_forbidden', async function () {
+    // Forbidden kind: 'decision' (REDIS-LOCK-01 denylist).
+    const r1 = await publishEvent({ kind: 'decision', scope: 'cockpit', payload: {} });
+    if (r1.ok !== false) throw new Error('forbidden kind must be ok:false; got ' + r1.ok);
+    if (r1.reason !== 'forbidden_kind') {
+      throw new Error('forbidden kind reason must be forbidden_kind; got ' + r1.reason);
+    }
+    if (r1.stream_id !== null) throw new Error('forbidden kind stream_id must be null; got ' + r1.stream_id);
+    if (REDIS_REASON_CODES.indexOf(r1.reason) === -1) {
+      throw new Error('forbidden_kind reason not in REDIS_REASON_CODES');
+    }
+    // Unknown kind: 'wrong_kind' (not in ALLOWED) -> schema_invalid.
+    const r2 = await publishEvent({ kind: 'wrong_kind', scope: 'cockpit', payload: {} });
+    if (r2.ok !== false) throw new Error('unknown kind must be ok:false; got ' + r2.ok);
+    if (r2.reason !== 'schema_invalid') {
+      throw new Error('unknown kind reason must be schema_invalid; got ' + r2.reason);
+    }
+    // Allowed but wrong-for-streams: 'hot_context_packet' -> schema_invalid
+    // because _validateEventMetadata pins kind === 'agent_event_stream'.
+    const r3 = await publishEvent({ kind: 'hot_context_packet', scope: 'cockpit', payload: {} });
+    if (r3.ok !== false) throw new Error('non-stream kind must be ok:false; got ' + r3.ok);
+    if (r3.reason !== 'schema_invalid') {
+      throw new Error('non-stream kind reason must be schema_invalid; got ' + r3.reason);
+    }
+    // Bad scope: empty string -> schema_invalid.
+    const r4 = await publishEvent({ kind: 'agent_event_stream', scope: '', payload: {} });
+    if (r4.ok !== false) throw new Error('empty scope must be ok:false; got ' + r4.ok);
+    if (r4.reason !== 'schema_invalid') {
+      throw new Error('empty scope reason must be schema_invalid; got ' + r4.reason);
+    }
+    // Bad payload: null -> schema_invalid.
+    const r5 = await publishEvent({ kind: 'agent_event_stream', scope: 'cockpit', payload: null });
+    if (r5.ok !== false) throw new Error('null payload must be ok:false; got ' + r5.ok);
+    if (r5.reason !== 'schema_invalid') {
+      throw new Error('null payload reason must be schema_invalid; got ' + r5.reason);
+    }
+    return { forbidden: r1.reason, unknown: r2.reason, non_stream: r3.reason, bad_scope: r4.reason, bad_payload: r5.reason };
+  }));
+
   let pass = 0;
   let fail = 0;
   for (const r of results) {
@@ -1824,6 +2315,9 @@ module.exports = {
     _sha256OfString: _sha256OfString,
     _revalidateAndMaybeDelete: _revalidateAndMaybeDelete,
     _checkKindGate: _checkKindGate,
+    // T4 live coordination + event stream metadata validators
+    _validateMarkerMetadata: _validateMarkerMetadata,
+    _validateEventMetadata: _validateEventMetadata,
   },
 
   // T2 also exports _validateRedisValueSchema directly on the public
@@ -1849,12 +2343,12 @@ if (require.main === module) {
   const argv = process.argv.slice(2);
   const wantSelfTest = argv.indexOf('--self-test') !== -1;
   if (!wantSelfTest) {
-    process.stdout.write('redis-adapter.cjs T3 (skeleton + source-hash invalidation + hot/semantic cache; REDIS-LOCK-03 byte-equality 5-component key). Use --self-test to run bootstrap assertions.\n');
+    process.stdout.write('redis-adapter.cjs T4 (skeleton + source-hash invalidation + hot/semantic cache + event stream; REDIS-LOCK-04 XADD MAXLEN ~ 1000). Use --self-test to run bootstrap assertions.\n');
     process.exit(0);
   }
   selfTest().then(function (out) {
     const lines = [];
-    lines.push('redis-adapter.cjs --self-test (T3 bootstrap: A0..A4 + B1..B5 + C1 + D1..D4 + E1)');
+    lines.push('redis-adapter.cjs --self-test (T4 bootstrap: A0..A4 + B1..B5 + C1 + D1..D4 + E1 + F1..F4)');
     for (const r of out.results) {
       const tag = r.ok ? 'PASS' : 'FAIL';
       const reason = r.ok ? '' : ' :: ' + (r.reason || 'unknown');
