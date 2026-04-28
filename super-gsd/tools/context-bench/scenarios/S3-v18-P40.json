@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "scenario_id": "S3-v18-P40",
+  "drawn_from": {
+    "milestone": "v1.8",
+    "phase": 40,
+    "phase_name": "Phase Folder Audit",
+    "role": "researcher",
+    "agent_type": "gsd-phase-researcher"
+  },
+  "intent": {
+    "goal": "Soft-warn auditor walking .planning/milestones/*/phases/*/ that flags missing CONTEXT/RESEARCH/VERIFICATION/PHASE-CAPSULE artifacts without blocking phase close.",
+    "files_touched": [
+      ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-RESEARCH.md",
+      ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-CONTEXT.md",
+      ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-VERIFICATION.md",
+      ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-01-phase-folder-audit-PLAN.md"
+    ],
+    "depends_on_phase_capsules": [
+      "v1.7/P34",
+      "v1.8/P36",
+      "v1.8/P39"
+    ]
+  },
+  "baseline_signature": {
+    "actual_tokens_total": 122437,
+    "actual_cache_read_tokens": 120416,
+    "source_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:ac46a94773f0c0fd0"
+  },
+  "expected_evidence": [
+    {
+      "kind": "capsule_decision",
+      "ref": "v1.8/P39/gate-keep-kill",
+      "must_appear_in": "packet_body"
+    },
+    {
+      "kind": "bypass_ref",
+      "ref": "v1.8/P40/bypass_refs",
+      "must_appear_in": "packet_body"
+    },
+    {
+      "kind": "atc_finding",
+      "ref": ".planning/milestones/v1.8/phases/40-phase-folder-audit/commit-reviews.jsonl",
+      "must_appear_in": "context_complaint_or_packet"
+    },
+    {
+      "kind": "verifier_verdict",
+      "ref": ".planning/milestones/v1.8/phases/40-phase-folder-audit/40-VERIFICATION.md",
+      "must_appear_in": "context_complaint_or_packet"
+    }
+  ],
+  "anti_cheat_signal": {
+    "must_not_contain_in_packet": [
+      "benchmark",
+      "this is a test",
+      "expected_failure",
+      "score_weight"
+    ],
+    "must_not_set_role_to": [
+      "benchmark_researcher",
+      "test_runner"
+    ]
+  },
+  "expected_route": {
+    "uncertainty_type": "deterministic_extraction",
+    "primary": "claude",
+    "fallback_chain": [
+      "codex"
+    ]
+  }
+}

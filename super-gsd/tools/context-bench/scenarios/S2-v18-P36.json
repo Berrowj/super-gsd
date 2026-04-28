@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "scenario_id": "S2-v18-P36",
+  "drawn_from": {
+    "milestone": "v1.8",
+    "phase": 36,
+    "phase_name": "Gate Value Telemetry",
+    "role": "researcher",
+    "agent_type": "gsd-phase-researcher"
+  },
+  "intent": {
+    "goal": "Append-only .planning/metrics/gate-value-log.jsonl writer plus summarizer that records every gate decision with token cost and value-tier outcome.",
+    "files_touched": [
+      ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-RESEARCH.md",
+      ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-CONTEXT.md",
+      ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-VERIFICATION.md",
+      ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-01-gate-value-telemetry-PLAN.md"
+    ],
+    "depends_on_phase_capsules": [
+      "v1.7/P34",
+      "v1.8/P35"
+    ]
+  },
+  "baseline_signature": {
+    "actual_tokens_total": 171175,
+    "actual_cache_read_tokens": 169326,
+    "source_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a63131664209ffc3b"
+  },
+  "expected_evidence": [
+    {
+      "kind": "capsule_decision",
+      "ref": "v1.7/P34/canonical-review-ledger",
+      "must_appear_in": "packet_body"
+    },
+    {
+      "kind": "bypass_ref",
+      "ref": "v1.8/P36/bypass_refs",
+      "must_appear_in": "packet_body"
+    },
+    {
+      "kind": "atc_finding",
+      "ref": ".planning/milestones/v1.8/phases/36-gate-value-telemetry/commit-reviews.jsonl",
+      "must_appear_in": "context_complaint_or_packet"
+    },
+    {
+      "kind": "verifier_verdict",
+      "ref": ".planning/milestones/v1.8/phases/36-gate-value-telemetry/36-VERIFICATION.md",
+      "must_appear_in": "context_complaint_or_packet"
+    }
+  ],
+  "anti_cheat_signal": {
+    "must_not_contain_in_packet": [
+      "benchmark",
+      "this is a test",
+      "expected_failure",
+      "score_weight"
+    ],
+    "must_not_set_role_to": [
+      "benchmark_researcher",
+      "test_runner"
+    ]
+  },
+  "expected_route": {
+    "uncertainty_type": "synthesis_judgment",
+    "primary": "claude",
+    "fallback_chain": [
+      "codex"
+    ]
+  }
+}

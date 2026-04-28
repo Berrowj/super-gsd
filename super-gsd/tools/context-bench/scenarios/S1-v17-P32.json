@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "scenario_id": "S1-v17-P32",
+  "drawn_from": {
+    "milestone": "v1.7",
+    "phase": 32,
+    "phase_name": "Route Decision Ledger",
+    "role": "researcher",
+    "agent_type": "gsd-phase-researcher"
+  },
+  "intent": {
+    "goal": "Land an append-only .planning/metrics/route-decisions.jsonl ledger plus dispatch-router emitter so every routing decision is observable.",
+    "files_touched": [
+      ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-RESEARCH.md",
+      ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-CONTEXT.md",
+      ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-VERIFICATION.md",
+      "super-gsd/scripts/lib/route-ledger.cjs"
+    ],
+    "depends_on_phase_capsules": [
+      "v1.7/P31"
+    ]
+  },
+  "baseline_signature": {
+    "actual_tokens_total": 198924,
+    "actual_cache_read_tokens": 196648,
+    "source_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:abd1d755259681de7"
+  },
+  "expected_evidence": [
+    {
+      "kind": "capsule_decision",
+      "ref": "v1.7/P31/canonical-envelope",
+      "must_appear_in": "packet_body"
+    },
+    {
+      "kind": "bypass_ref",
+      "ref": "v1.7/P32/bypass_refs",
+      "must_appear_in": "packet_body"
+    },
+    {
+      "kind": "atc_finding",
+      "ref": ".planning/milestones/v1.7/phases/32-route-decision-ledger/commit-reviews.jsonl",
+      "must_appear_in": "context_complaint_or_packet"
+    },
+    {
+      "kind": "verifier_verdict",
+      "ref": ".planning/milestones/v1.7/phases/32-route-decision-ledger/32-VERIFICATION.md",
+      "must_appear_in": "context_complaint_or_packet"
+    }
+  ],
+  "anti_cheat_signal": {
+    "must_not_contain_in_packet": [
+      "benchmark",
+      "this is a test",
+      "expected_failure",
+      "score_weight"
+    ],
+    "must_not_set_role_to": [
+      "benchmark_researcher",
+      "test_runner"
+    ]
+  },
+  "expected_route": {
+    "uncertainty_type": "synthesis_judgment",
+    "primary": "claude",
+    "fallback_chain": [
+      "codex"
+    ]
+  }
+}

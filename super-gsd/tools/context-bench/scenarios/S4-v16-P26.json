@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "scenario_id": "S4-v16-P26",
+  "drawn_from": {
+    "milestone": "v1.6",
+    "phase": 26,
+    "phase_name": "Cockpit Question Contract",
+    "role": "planner",
+    "agent_type": "gsd-planner"
+  },
+  "intent": {
+    "goal": "Define a contract that names the eight operator questions the cockpit must answer and pins each to a measurable data source.",
+    "files_touched": [
+      ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-01-operator-question-contract-PLAN.md",
+      ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-RESEARCH.md",
+      ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-CONTEXT.md",
+      ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-VERIFICATION.md"
+    ],
+    "depends_on_phase_capsules": []
+  },
+  "baseline_signature": {
+    "actual_tokens_total": 94696,
+    "actual_cache_read_tokens": 83853,
+    "source_event_id": "assistant:54c3e039-f409-4116-923d-6c0019bdc9ab:a4b4b87c19222f2aa:4b6ab822-7a5a-4e3e-b194-ea0f99a2234b"
+  },
+  "expected_evidence": [
+    {
+      "kind": "capsule_decision",
+      "ref": "v1.6/P26/operator-question-contract",
+      "must_appear_in": "packet_body"
+    },
+    {
+      "kind": "bypass_ref",
+      "ref": "v1.6/P26/bypass_refs",
+      "must_appear_in": "packet_body"
+    },
+    {
+      "kind": "atc_finding",
+      "ref": ".planning/milestones/v1.6/phases/26-cockpit-question-contract/commit-reviews.jsonl",
+      "must_appear_in": "context_complaint_or_packet"
+    },
+    {
+      "kind": "verifier_verdict",
+      "ref": ".planning/milestones/v1.6/phases/26-cockpit-question-contract/26-VERIFICATION.md",
+      "must_appear_in": "context_complaint_or_packet"
+    }
+  ],
+  "anti_cheat_signal": {
+    "must_not_contain_in_packet": [
+      "benchmark",
+      "this is a test",
+      "expected_failure",
+      "score_weight"
+    ],
+    "must_not_set_role_to": [
+      "benchmark_researcher",
+      "test_runner"
+    ]
+  },
+  "expected_route": {
+    "uncertainty_type": "synthesis_judgment",
+    "primary": "claude",
+    "fallback_chain": [
+      "codex"
+    ]
+  }
+}

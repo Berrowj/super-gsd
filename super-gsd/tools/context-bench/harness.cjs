@@ -61,9 +61,40 @@ const path = require('path');
 // Frozen placeholders. T3 + T4 fill these. Do not unfreeze.
 // ---------------------------------------------------------------------------
 
-// SCENARIOS - filled by T3 with 6 scenario fixtures (S1..S6) loaded from
-// super-gsd/tools/context-bench/scenarios/*.json. Until then, frozen empty.
-const SCENARIOS = Object.freeze([]);
+// SCENARIOS - 6 scenario fixtures (S1..S6) loaded synchronously at module
+// init from super-gsd/tools/context-bench/scenarios/*.json. The loader
+// (Lock 13) is fault-tolerant: a missing or unparseable fixture is dropped
+// rather than thrown so the harness keeps the degraded sentinel surface
+// downstream tasks rely on. T3 self-test 11 asserts len === 6 in the
+// happy path.
+function _loadScenariosSync() {
+  const out = [];
+  const dir = path.join(__dirname, 'scenarios');
+  // Lock 11: fixture set is closed-vocab. The 6 filenames are pinned by
+  // RESEARCH sec 1.3; we do NOT glob the directory so a stray *.json
+  // cannot inject a 7th scenario.
+  const PINNED = [
+    'S1-v17-P32.json',
+    'S2-v18-P36.json',
+    'S3-v18-P40.json',
+    'S4-v16-P26.json',
+    'S5-v17-P34.json',
+    'S6-v15-P21.json',
+  ];
+  for (let i = 0; i < PINNED.length; i++) {
+    const p = path.join(dir, PINNED[i]);
+    try {
+      if (!fs.existsSync(p)) continue;
+      const txt = fs.readFileSync(p, 'utf8');
+      const obj = JSON.parse(txt);
+      if (obj && typeof obj === 'object') out.push(Object.freeze(obj));
+    } catch (_e) {
+      // Lock 13: drop and continue. Self-test detects len mismatch.
+    }
+  }
+  return Object.freeze(out);
+}
+const SCENARIOS = _loadScenariosSync();
 
 // INJECTION_FIXTURES - filled by T4 with the closed-vocab failure injectors
 // (e.g. capsule_decision missing, bypass_ref redaction, atc_finding stub,
@@ -209,6 +240,208 @@ function _isFrozen(v) {
   return Object.isFrozen(v);
 }
 
+// ---------------------------------------------------------------------------
+// T3 hand-rolled SCENARIO.schema.json validator (draft-07 subset). We do
+// NOT pull Ajv into this tree to keep the harness dependency surface zero
+// (Lock 4: no new deps for what set-membership checks already cover). The
+// validator walks the closed enums and required fields the schema pins:
+//   - schema_version === 1
+//   - scenario_id matches /^S[1-6]-v[0-9]+(\.[0-9]+)?-P[0-9]+$/
+//   - drawn_from.role in 8-entry ROLES enum
+//   - expected_evidence[].kind in 6-entry KIND enum
+//   - expected_evidence[].must_appear_in in 4-entry MUST_APPEAR_IN enum
+//   - expected_route.uncertainty_type in 6-entry UNCERTAINTY_TYPES enum
+//   - expected_route.primary in {claude,codex,vtp_bridge}
+//   - expected_route.fallback_chain[i] in same provider enum
+//   - additionalProperties:false at every closed object level
+// Returns { ok: boolean, errors: string[] }.
+// ---------------------------------------------------------------------------
+const _SCHEMA_ROLES = ['researcher', 'planner', 'executor', 'verifier',
+                       'reviewer', 'orchestrator', 'classifier', 'other'];
+const _SCHEMA_KIND = ['capsule_decision', 'bypass_ref', 'atc_finding',
+                      'verifier_verdict', 'validated_thought',
+                      'downstream_constraint'];
+const _SCHEMA_MUST_APPEAR_IN = ['packet_body', 'route_decision',
+                                'context_complaint',
+                                'context_complaint_or_packet'];
+const _SCHEMA_UNCERTAINTY_TYPES = ['deterministic_extraction',
+                                   'bounded_code_review',
+                                   'synthesis_judgment',
+                                   'architecture_challenge',
+                                   'prior_memory_lookup',
+                                   'book_lookup'];
+const _SCHEMA_PROVIDERS = ['claude', 'codex', 'vtp_bridge'];
+
+const _TOP_KEYS = ['schema_version', 'scenario_id', 'drawn_from', 'intent',
+                   'baseline_signature', 'expected_evidence',
+                   'anti_cheat_signal', 'expected_route'];
+const _DRAWN_FROM_KEYS = ['milestone', 'phase', 'phase_name', 'role',
+                          'agent_type'];
+const _INTENT_KEYS = ['goal', 'files_touched', 'depends_on_phase_capsules'];
+const _BASELINE_KEYS = ['actual_tokens_total', 'actual_cache_read_tokens',
+                        'source_event_id'];
+const _EVIDENCE_KEYS = ['kind', 'ref', 'must_appear_in'];
+const _ANTI_CHEAT_KEYS = ['must_not_contain_in_packet',
+                          'must_not_set_role_to'];
+const _ROUTE_KEYS = ['uncertainty_type', 'primary', 'fallback_chain'];
+
+function _checkClosedKeys(obj, allowed, label, errs) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+    errs.push(label + ': not an object');
+    return;
+  }
+  const ks = Object.keys(obj);
+  for (let i = 0; i < ks.length; i++) {
+    if (allowed.indexOf(ks[i]) === -1) {
+      errs.push(label + ': unexpected key ' + JSON.stringify(ks[i]));
+    }
+  }
+  for (let j = 0; j < allowed.length; j++) {
+    if (!Object.prototype.hasOwnProperty.call(obj, allowed[j])) {
+      errs.push(label + ': missing required ' + JSON.stringify(allowed[j]));
+    }
+  }
+}
+
+function _validateScenario(s) {
+  const errs = [];
+  if (!s || typeof s !== 'object' || Array.isArray(s)) {
+    return { ok: false, errors: ['scenario: not an object'] };
+  }
+  _checkClosedKeys(s, _TOP_KEYS, 'scenario', errs);
+  if (s.schema_version !== 1) {
+    errs.push('schema_version !== 1');
+  }
+  if (typeof s.scenario_id !== 'string' ||
+      !/^S[1-6]-v[0-9]+(\.[0-9]+)?-P[0-9]+$/.test(s.scenario_id)) {
+    errs.push('scenario_id: pattern violation: '
+              + JSON.stringify(s.scenario_id));
+  }
+  // drawn_from
+  _checkClosedKeys(s.drawn_from, _DRAWN_FROM_KEYS, 'drawn_from', errs);
+  if (s.drawn_from && typeof s.drawn_from === 'object') {
+    if (typeof s.drawn_from.milestone !== 'string' ||
+        !/^v[0-9]+(\.[0-9]+)?$/.test(s.drawn_from.milestone)) {
+      errs.push('drawn_from.milestone: pattern violation');
+    }
+    if (typeof s.drawn_from.phase !== 'number' ||
+        s.drawn_from.phase < 1 ||
+        Math.floor(s.drawn_from.phase) !== s.drawn_from.phase) {
+      errs.push('drawn_from.phase: must be integer >=1');
+    }
+    if (typeof s.drawn_from.phase_name !== 'string' ||
+        s.drawn_from.phase_name.length < 1) {
+      errs.push('drawn_from.phase_name: must be non-empty string');
+    }
+    if (_SCHEMA_ROLES.indexOf(s.drawn_from.role) === -1) {
+      errs.push('drawn_from.role: not in ROLES enum');
+    }
+    if (typeof s.drawn_from.agent_type !== 'string' ||
+        s.drawn_from.agent_type.length < 1) {
+      errs.push('drawn_from.agent_type: must be non-empty string');
+    }
+  }
+  // intent
+  _checkClosedKeys(s.intent, _INTENT_KEYS, 'intent', errs);
+  if (s.intent && typeof s.intent === 'object') {
+    if (typeof s.intent.goal !== 'string' || s.intent.goal.length < 1) {
+      errs.push('intent.goal: must be non-empty string');
+    }
+    if (!Array.isArray(s.intent.files_touched) ||
+        s.intent.files_touched.length < 2) {
+      errs.push('intent.files_touched: must have >=2 entries');
+    } else {
+      for (let i = 0; i < s.intent.files_touched.length; i++) {
+        if (typeof s.intent.files_touched[i] !== 'string' ||
+            s.intent.files_touched[i].length < 1) {
+          errs.push('intent.files_touched[' + i + ']: not non-empty string');
+        }
+      }
+    }
+    if (!Array.isArray(s.intent.depends_on_phase_capsules)) {
+      errs.push('intent.depends_on_phase_capsules: must be array');
+    }
+  }
+  // baseline_signature
+  _checkClosedKeys(s.baseline_signature, _BASELINE_KEYS,
+                   'baseline_signature', errs);
+  if (s.baseline_signature && typeof s.baseline_signature === 'object') {
+    const bs = s.baseline_signature;
+    if (typeof bs.actual_tokens_total !== 'number' ||
+        bs.actual_tokens_total < 0 ||
+        Math.floor(bs.actual_tokens_total) !== bs.actual_tokens_total) {
+      errs.push('baseline_signature.actual_tokens_total: integer >=0');
+    }
+    if (typeof bs.actual_cache_read_tokens !== 'number' ||
+        bs.actual_cache_read_tokens < 0 ||
+        Math.floor(bs.actual_cache_read_tokens) !==
+          bs.actual_cache_read_tokens) {
+      errs.push('baseline_signature.actual_cache_read_tokens: integer >=0');
+    }
+    if (typeof bs.source_event_id !== 'string' ||
+        bs.source_event_id.length < 1) {
+      errs.push('baseline_signature.source_event_id: non-empty string');
+    }
+  }
+  // expected_evidence
+  if (!Array.isArray(s.expected_evidence) ||
+      s.expected_evidence.length < 3) {
+    errs.push('expected_evidence: must have >=3 entries');
+  } else {
+    for (let i = 0; i < s.expected_evidence.length; i++) {
+      const ev = s.expected_evidence[i];
+      const lbl = 'expected_evidence[' + i + ']';
+      _checkClosedKeys(ev, _EVIDENCE_KEYS, lbl, errs);
+      if (ev && typeof ev === 'object') {
+        if (_SCHEMA_KIND.indexOf(ev.kind) === -1) {
+          errs.push(lbl + '.kind: not in KIND enum');
+        }
+        if (typeof ev.ref !== 'string' || ev.ref.length < 1) {
+          errs.push(lbl + '.ref: non-empty string');
+        }
+        if (_SCHEMA_MUST_APPEAR_IN.indexOf(ev.must_appear_in) === -1) {
+          errs.push(lbl + '.must_appear_in: not in enum');
+        }
+      }
+    }
+  }
+  // anti_cheat_signal
+  _checkClosedKeys(s.anti_cheat_signal, _ANTI_CHEAT_KEYS,
+                   'anti_cheat_signal', errs);
+  if (s.anti_cheat_signal && typeof s.anti_cheat_signal === 'object') {
+    const ac = s.anti_cheat_signal;
+    if (!Array.isArray(ac.must_not_contain_in_packet) ||
+        ac.must_not_contain_in_packet.length < 1) {
+      errs.push('anti_cheat_signal.must_not_contain_in_packet: >=1 entry');
+    }
+    if (!Array.isArray(ac.must_not_set_role_to) ||
+        ac.must_not_set_role_to.length < 1) {
+      errs.push('anti_cheat_signal.must_not_set_role_to: >=1 entry');
+    }
+  }
+  // expected_route
+  _checkClosedKeys(s.expected_route, _ROUTE_KEYS, 'expected_route', errs);
+  if (s.expected_route && typeof s.expected_route === 'object') {
+    const er = s.expected_route;
+    if (_SCHEMA_UNCERTAINTY_TYPES.indexOf(er.uncertainty_type) === -1) {
+      errs.push('expected_route.uncertainty_type: not in enum');
+    }
+    if (_SCHEMA_PROVIDERS.indexOf(er.primary) === -1) {
+      errs.push('expected_route.primary: not in {claude,codex,vtp_bridge}');
+    }
+    if (!Array.isArray(er.fallback_chain)) {
+      errs.push('expected_route.fallback_chain: must be array');
+    } else {
+      for (let i = 0; i < er.fallback_chain.length; i++) {
+        if (_SCHEMA_PROVIDERS.indexOf(er.fallback_chain[i]) === -1) {
+          errs.push('expected_route.fallback_chain[' + i + ']: not in enum');
+        }
+      }
+    }
+  }
+  return { ok: errs.length === 0, errors: errs };
+}
+
 function _hasLock13Wrapper(fn) {
   // Heuristic: function source must contain a top-level try/catch. We do
   // not parse AST; a substring check on the function source is sufficient
@@ -227,9 +460,38 @@ function _selfTest() {
     results.push({ name, ok: !!ok, detail: detail || '' });
   }
 
-  // 1: SCENARIOS frozen (T3 will fill while keeping it frozen).
-  check('SCENARIOS_frozen', _isFrozen(SCENARIOS) && Array.isArray(SCENARIOS),
-        'Object.isFrozen + Array.isArray');
+  // 1: SCENARIOS frozen 6-entry array (T3 fills with S1..S6). Mutation
+  // attempts must be no-ops (Object.freeze enforces that natively in
+  // strict mode this throws; outside strict it silently fails -- we
+  // verify the array length is unchanged after a push attempt).
+  let scenariosFrozenOk = false;
+  let scenariosFrozenDetail = '';
+  try {
+    const lenBefore = Array.isArray(SCENARIOS) ? SCENARIOS.length : -1;
+    let mutationThrew = false;
+    try {
+      // Outside strict mode this is a silent no-op; inside strict it
+      // throws. Either outcome is acceptable as long as the length
+      // does not change.
+      SCENARIOS.push({ injected: 'attempt' });
+    } catch (_em) {
+      mutationThrew = true;
+    }
+    const lenAfter = Array.isArray(SCENARIOS) ? SCENARIOS.length : -2;
+    scenariosFrozenOk = _isFrozen(SCENARIOS) &&
+                       Array.isArray(SCENARIOS) &&
+                       SCENARIOS.length === 6 &&
+                       lenBefore === 6 &&
+                       lenAfter === 6;
+    scenariosFrozenDetail = 'len=' + lenAfter
+                            + ' frozen=' + _isFrozen(SCENARIOS)
+                            + ' mutation_threw=' + mutationThrew;
+  } catch (e) {
+    scenariosFrozenDetail = 'threw: '
+      + (e && e.message ? e.message : 'unknown');
+  }
+  check('SCENARIOS_frozen_6_entry_mutation_noop',
+        scenariosFrozenOk, scenariosFrozenDetail);
 
   // 2: INJECTION_FIXTURES frozen (T4 will fill while keeping it frozen).
   check('INJECTION_FIXTURES_frozen',
@@ -354,23 +616,52 @@ function _selfTest() {
   }
   check('t2_assert_workspace_clean_rejects_6', antiCheatOk, antiCheatDetail);
 
-  // T2.4: mapPhasesToBaseline handles the empty-array placeholder
-  // gracefully (T3 ships the real 6-fixture array). Empty input -> {}.
-  // T3 self-test 9 will assert len=6 once SCENARIOS is filled.
+  // T2.4 (post-T3 evolution): mapPhasesToBaseline now resolves all 6
+  // SCENARIOS to baseline rows. Per the T2 comment that anticipated this
+  // transition ("T3 self-test 9 will assert len=6 once SCENARIOS is
+  // filled"), the assertion flips from "empty -> {}" to "len=6 with each
+  // value carrying the contracted baseline_read_ok shape". Set-membership
+  // + structural equality only (Lock 11). Also probes empty input
+  // separately to keep the empty-safe contract anchored.
   let mapOk = false;
   let mapDetail = '';
   try {
-    const mEmpty = replay.mapPhasesToBaseline(SCENARIOS,
+    // Empty-input branch (degraded contract still holds).
+    const mEmpty = replay.mapPhasesToBaseline([],
       path.resolve(__dirname, '../../../.planning'));
-    mapOk = mEmpty && typeof mEmpty === 'object'
-            && !Array.isArray(mEmpty)
-            && Object.keys(mEmpty).length === 0;
+    const emptyOk = mEmpty && typeof mEmpty === 'object'
+                    && !Array.isArray(mEmpty)
+                    && Object.keys(mEmpty).length === 0;
+    // Real-input branch: 6 fixtures -> 6 keys, each an object with the
+    // contracted baseline keys.
+    const mFull = replay.mapPhasesToBaseline(SCENARIOS,
+      path.resolve(__dirname, '../../../.planning'));
+    const baselineKeys = ['ok', 'reason', 'tokens', 'cache_read_ratio',
+                          'useful_findings_per_100k', 'source_event_ids'];
+    const fullKeys = Object.keys(mFull || {});
+    let shapesOk = fullKeys.length === 6;
+    if (shapesOk) {
+      for (let i = 0; i < SCENARIOS.length; i++) {
+        const sid = SCENARIOS[i].scenario_id;
+        const row = mFull[sid];
+        if (!row) { shapesOk = false; break; }
+        for (let j = 0; j < baselineKeys.length; j++) {
+          if (!Object.prototype.hasOwnProperty.call(row, baselineKeys[j])) {
+            shapesOk = false; break;
+          }
+        }
+        if (!shapesOk) break;
+      }
+    }
+    mapOk = emptyOk && shapesOk;
     mapDetail = 'empty_map_keys=' + Object.keys(mEmpty || {}).length
-                + ' (T3 fills to 6)';
+                + ' full_map_keys=' + fullKeys.length
+                + ' shapes_ok=' + shapesOk;
   } catch (e) {
     mapDetail = 'threw: ' + (e && e.message ? e.message : 'unknown');
   }
-  check('t2_map_phases_to_baseline_empty_safe', mapOk, mapDetail);
+  check('t2_map_phases_to_baseline_empty_and_full',
+        mapOk, mapDetail);
 
   // T2.5: replayScenario stub returns mode_used='ledger-only' when
   // claudeBinary is null. This is the falsifier's explicit anchor:
@@ -396,6 +687,151 @@ function _selfTest() {
   }
   check('t2_replay_stub_ledger_only_when_no_binary',
         replayStubOk, replayStubDetail);
+
+  // -------------------------------------------------------------------
+  // T3 assertions (5). Plan 51-01 lines 322-325 + falsifier:
+  //   - SCENARIO.schema.json validates every shipped fixture
+  //   - every baseline_signature.source_event_id resolves to a real
+  //     ledger row
+  //   - expected_route.primary is in closed enum {claude,codex,vtp_bridge}
+  //   - S2 baseline read (via T2 reader, real scenario_id) returns
+  //     >=150,000 tokens (audit:142 anchor)
+  //   - SCENARIOS frozen 6-entry mutation no-op covered by self-test #1.
+  // The new T3 assertions are 11..15 (10 prior PASS + 5 new = 15).
+  // -------------------------------------------------------------------
+
+  // T3.1: schema round-trip every fixture.
+  let allValid = true;
+  let validDetail = '';
+  const validErrs = [];
+  for (let i = 0; i < SCENARIOS.length; i++) {
+    const v = _validateScenario(SCENARIOS[i]);
+    if (!v.ok) {
+      allValid = false;
+      validErrs.push(SCENARIOS[i].scenario_id + ':'
+                     + v.errors.slice(0, 2).join(';'));
+    }
+  }
+  validDetail = allValid
+    ? 'all ' + SCENARIOS.length + ' fixtures schema-valid'
+    : 'errors=' + validErrs.join(' | ');
+  check('t3_schema_validates_all_fixtures', allValid, validDetail);
+
+  // T3.2: every fixture's baseline_signature.source_event_id resolves to
+  // a real ledger row. Read the JSONL once, build a Set, then probe.
+  let allResolve = true;
+  let resolveDetail = '';
+  const resolveMisses = [];
+  try {
+    const ledgerP = path.resolve(__dirname,
+      '../../../.planning/metrics/agent-token-spend.jsonl');
+    if (!fs.existsSync(ledgerP)) {
+      allResolve = false;
+      resolveDetail = 'ledger_missing: ' + ledgerP;
+    } else {
+      const idSet = Object.create(null);
+      const text = fs.readFileSync(ledgerP, 'utf8');
+      const lines = text.split(/\r?\n/);
+      for (let i = 0; i < lines.length; i++) {
+        const ln = lines[i];
+        if (!ln) continue;
+        let r;
+        try { r = JSON.parse(ln); } catch (_e) { continue; }
+        const tb = r && r.token_breakdown;
+        if (tb && tb.source_event_id) idSet[tb.source_event_id] = true;
+      }
+      for (let j = 0; j < SCENARIOS.length; j++) {
+        const sid = SCENARIOS[j].baseline_signature
+                    && SCENARIOS[j].baseline_signature.source_event_id;
+        if (!sid || !idSet[sid]) {
+          allResolve = false;
+          resolveMisses.push(SCENARIOS[j].scenario_id + '->' + sid);
+        }
+      }
+      resolveDetail = allResolve
+        ? 'all 6 source_event_ids resolved'
+        : 'misses=' + resolveMisses.join(' | ');
+    }
+  } catch (e) {
+    allResolve = false;
+    resolveDetail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('t3_source_event_ids_resolve_in_ledger',
+        allResolve, resolveDetail);
+
+  // T3.3: expected_route.primary closed-enum check (set-membership).
+  // Belt-and-braces vs T3.1 (which already enforces this) so the
+  // assertion is named in the test report and a Lock 11 violation
+  // surfaces with the offending fixture id.
+  let allRouteOk = true;
+  const routeMisses = [];
+  const PROVIDER_ENUM = ['claude', 'codex', 'vtp_bridge'];
+  for (let i = 0; i < SCENARIOS.length; i++) {
+    const er = SCENARIOS[i].expected_route || {};
+    if (PROVIDER_ENUM.indexOf(er.primary) === -1) {
+      allRouteOk = false;
+      routeMisses.push(SCENARIOS[i].scenario_id + '->' + er.primary);
+    }
+  }
+  check('t3_expected_route_primary_in_closed_enum',
+        allRouteOk,
+        allRouteOk
+          ? 'all 6 primaries in {claude,codex,vtp_bridge}'
+          : 'misses=' + routeMisses.join(' | '));
+
+  // T3.4: S2 baseline read >=150,000 tokens. Real scenario_id ships in
+  // T3 so we can run the full end-to-end ledger reader against it.
+  let s2Ok = false;
+  let s2Detail = '';
+  try {
+    const s2 = SCENARIOS.find(function (s) {
+      return s && s.scenario_id === 'S2-v18-P36';
+    }) || null;
+    if (!s2) {
+      s2Detail = 'S2-v18-P36 not in SCENARIOS';
+    } else {
+      const b = replay.readBaselineFromLedger({
+        scenario: s2,
+        planningDir: path.resolve(__dirname, '../../../.planning'),
+      });
+      const tokens = (b && typeof b.tokens === 'number') ? b.tokens : -1;
+      s2Ok = b && b.ok === true && tokens >= 150000;
+      s2Detail = 'reason=' + (b && b.reason)
+                 + ' tokens=' + tokens
+                 + ' (audit:142 anchor: 171,175)';
+    }
+  } catch (e) {
+    s2Detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('t3_s2_baseline_ge_150k_tokens', s2Ok, s2Detail);
+
+  // T3.5: S1-S4 primary='claude'; S5 primary='codex'; S6 primary='vtp_bridge'.
+  // This pins the per-scenario provider matrix the falsifier locks
+  // (RESEARCH 1.3 + plan output_contract). Set-membership only.
+  const PROVIDER_BY_ID = {
+    'S1-v17-P32': 'claude',
+    'S2-v18-P36': 'claude',
+    'S3-v18-P40': 'claude',
+    'S4-v16-P26': 'claude',
+    'S5-v17-P34': 'codex',
+    'S6-v15-P21': 'vtp_bridge',
+  };
+  let matrixOk = true;
+  const matrixMisses = [];
+  for (let i = 0; i < SCENARIOS.length; i++) {
+    const sid = SCENARIOS[i].scenario_id;
+    const want = PROVIDER_BY_ID[sid];
+    const got = (SCENARIOS[i].expected_route || {}).primary;
+    if (!want || want !== got) {
+      matrixOk = false;
+      matrixMisses.push(sid + ' want=' + want + ' got=' + got);
+    }
+  }
+  check('t3_provider_matrix_S1S4_claude_S5_codex_S6_vtp',
+        matrixOk,
+        matrixOk
+          ? 'all 6 fixtures match the locked S1-S4=claude/S5=codex/S6=vtp_bridge matrix'
+          : 'misses=' + matrixMisses.join(' | '));
 
   return results;
 }

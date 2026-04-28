@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "scenario_id": "S6-v15-P21",
+  "drawn_from": {
+    "milestone": "v1.5",
+    "phase": 21,
+    "phase_name": "Vtp Enrichment Gates",
+    "role": "researcher",
+    "agent_type": "gsd-phase-researcher"
+  },
+  "intent": {
+    "goal": "Cross-link the .planning/analyses/ research notes into the VTP enrichment gate dispatch path so an architecture-challenge route surfaces the prior decision history before the orchestrator commits a provider.",
+    "files_touched": [
+      ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-RESEARCH.md",
+      ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-CONTEXT.md",
+      ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-VERIFICATION.md",
+      "super-gsd/agents/sgsd-vtp-enrichment.md"
+    ],
+    "depends_on_phase_capsules": []
+  },
+  "baseline_signature": {
+    "actual_tokens_total": 97818,
+    "actual_cache_read_tokens": 96658,
+    "source_event_id": "assistant:e05ed485-05ef-4965-87f3-f385ab55c621:ad8481dbefd2558f5:eb8d7b24-7ded-474f-aa87-e7615f0d8298"
+  },
+  "expected_evidence": [
+    {
+      "kind": "capsule_decision",
+      "ref": "v1.5/P21/vtp-enrichment-gates",
+      "must_appear_in": "packet_body"
+    },
+    {
+      "kind": "atc_finding",
+      "ref": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/commit-reviews.jsonl",
+      "must_appear_in": "context_complaint_or_packet"
+    },
+    {
+      "kind": "verifier_verdict",
+      "ref": ".planning/milestones/v1.5/phases/21-vtp-enrichment-gates/21-VERIFICATION.md",
+      "must_appear_in": "context_complaint_or_packet"
+    }
+  ],
+  "anti_cheat_signal": {
+    "must_not_contain_in_packet": [
+      "benchmark",
+      "this is a test",
+      "expected_failure",
+      "score_weight"
+    ],
+    "must_not_set_role_to": [
+      "benchmark_researcher",
+      "test_runner"
+    ]
+  },
+  "expected_route": {
+    "uncertainty_type": "architecture_challenge",
+    "primary": "vtp_bridge",
+    "fallback_chain": [
+      "claude"
+    ]
+  }
+}

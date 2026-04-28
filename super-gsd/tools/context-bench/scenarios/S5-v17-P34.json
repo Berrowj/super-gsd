@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "scenario_id": "S5-v17-P34",
+  "drawn_from": {
+    "milestone": "v1.7",
+    "phase": 34,
+    "phase_name": "Canonical Review Ledger",
+    "role": "researcher",
+    "agent_type": "gsd-phase-researcher"
+  },
+  "intent": {
+    "goal": "Aggregator and real-time writer that consolidates per-phase review-row evidence into a single canonical .planning/metrics/review-ledger.jsonl stream with closed-vocab verdict and reason codes.",
+    "files_touched": [
+      ".planning/milestones/v1.7/phases/34-canonical-review-ledger/34-RESEARCH.md",
+      ".planning/milestones/v1.7/phases/34-canonical-review-ledger/34-CONTEXT.md",
+      ".planning/milestones/v1.7/phases/34-canonical-review-ledger/34-VERIFICATION.md",
+      "super-gsd/scripts/lib/review-ledger.cjs"
+    ],
+    "depends_on_phase_capsules": [
+      "v1.7/P32",
+      "v1.7/P33"
+    ]
+  },
+  "baseline_signature": {
+    "actual_tokens_total": 198771,
+    "actual_cache_read_tokens": 196900,
+    "source_event_id": "agent:54c3e039-f409-4116-923d-6c0019bdc9ab:a3707439c546b2d63"
+  },
+  "expected_evidence": [
+    {
+      "kind": "atc_finding",
+      "ref": ".planning/milestones/v1.7/phases/34-canonical-review-ledger/commit-reviews.jsonl",
+      "must_appear_in": "context_complaint_or_packet"
+    },
+    {
+      "kind": "atc_finding",
+      "ref": ".planning/metrics/review-ledger.jsonl#v1.7/P34",
+      "must_appear_in": "context_complaint_or_packet"
+    },
+    {
+      "kind": "verifier_verdict",
+      "ref": ".planning/milestones/v1.7/phases/34-canonical-review-ledger/34-VERIFICATION.md",
+      "must_appear_in": "context_complaint_or_packet"
+    }
+  ],
+  "anti_cheat_signal": {
+    "must_not_contain_in_packet": [
+      "benchmark",
+      "this is a test",
+      "expected_failure",
+      "score_weight"
+    ],
+    "must_not_set_role_to": [
+      "benchmark_researcher",
+      "test_runner"
+    ]
+  },
+  "expected_route": {
+    "uncertainty_type": "bounded_code_review",
+    "primary": "codex",
+    "fallback_chain": [
+      "claude"
+    ]
+  }
+}
