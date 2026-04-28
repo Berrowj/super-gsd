@@ -1435,6 +1435,61 @@ REPEAT:
                 rendered markdown so future operators understand WHY this
                 step is between 6.6.h and 6.6.i (not 6.7 milestone-close).
 
+       i.Y. MEMORY GOVERNANCE COMPLAINT PROCESSING (Phase 49 -- GOV-01; LOCK 13)
+
+            Run Phase 49 processComplaints at phase close. Reads
+            .planning/metrics/context-complaints.jsonl filtered by ts > cursor;
+            classifies each row by reason_codes[]; dispatches deterministic
+            repair (capsule rebuild scheduling, packet rebuild scheduling,
+            thought demote/revoke). NEVER halts phase advance (Lock 13).
+
+            Per design lock 13 (REQUIREMENTS.md:67-68): processComplaints
+            wraps internals in try/catch and returns
+            { repairs_attempted:N, repairs_succeeded:M, ledger_rows:[...] }
+            on success or { ok:false, reason:'<...>_internal_error' } on
+            internal error. Either way, the orchestrator continues to step
+            6.6.i unconditionally. Per RESEARCH sec 7 (Phase 49 49-RESEARCH.md):
+            cursor advances monotonically via .planning/metrics/memory-process-cursor.json,
+            preventing repair-loops (Pitfall 6); max 50 repairs per invocation
+            (defensive bound).
+
+            ```javascript
+            // Phase 49 wire-in: anchor planningDir to process.cwd() at the
+            // orchestrator-skill boundary (mirrors Step 6.6.i.X capsule write
+            // pattern at write.cjs require above).
+            const path = require('path');
+            const { processComplaints } = require(
+              path.join(process.cwd(), 'super-gsd', 'tools', 'memory-governance', 'lifecycle.cjs')
+            );
+            const result = processComplaints({
+              since_ts: undefined,    // undefined -> read from cursor file
+              max_repairs: 50,        // defensive bound; matches Phase 49 default
+            });
+            // result: { repairs_attempted:N, repairs_succeeded:M, ledger_rows:[...] }
+            //      or { ok:false, reason:'<...>_internal_error' } -- NEVER throws.
+            // On failure: processComplaints already appended a row to
+            // .planning/metrics/context-complaints.jsonl with
+            // reason_code:'memory_process_complaints_internal_error'.
+            // Orchestrator continues to 6.6.i unconditionally.
+            ```
+
+            HARD RULES for this gate -- no exceptions:
+
+            G1. processComplaints outcome NEVER blocks step 6.6.i (mark complete /
+                advance). Lock 13 binds.
+            G2. Repair actions are SCHEDULED via .planning/metrics/repair-queue.jsonl
+                envelope-v1 rows; the orchestrator picks up the queue on the
+                NEXT phase loop iteration (or via explicit
+                /gsd-process-repair-queue command). Phase 49 itself does NOT
+                call Phase 45 buildPacket -- that's the orchestrator's job.
+            G3. Cursor file (.planning/metrics/memory-process-cursor.json) is
+                the single source of since_ts truth. Phase 49 reads on entry,
+                writes on exit. Manual edits to the cursor are operator-discretion
+                only; never touch it from the skill.
+            G4. The wire-in MUST cite Phase 49 RESEARCH sec 7 + GOV-01 + Lock 13
+                in the rendered markdown so future operators understand WHY
+                this step is between 6.6.i.X and 6.6.i.
+
        i. Mark phase complete, advance to next phase.
 
   6.7. MILESTONE COMPLETE AUTO-TRIGGER (GOV-13 / D-18a)

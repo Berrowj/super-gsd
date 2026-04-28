@@ -281,6 +281,89 @@ PHASE-CAPSULE.json holds detail. Capsule = projection. Canonical =
 .planning + git.
 </step_4_7b_phase_capsule_backfill>
 
+<step_4_7c2_memory_governance_revalidate>
+## Step 4.7-quater: Memory Governance Revalidation Sweep (Phase 49 -- GOV-08, A6)
+
+After Step 4.7-bis Phase Capsule Backfill completes, sweep all
+PHASE-CAPSULE.json under the closing milestone and call Phase 49 revalidate
+per capsule. revalidate() re-hashes each capsule's source_refs[] against
+current canonical files; mismatches OR existsSync===false set
+revalidation_due=true on the capsule AND append a row to
+.planning/metrics/memory-revalidations.jsonl (envelope-v1).
+
+Per design lock 13 (REQUIREMENTS.md:67-68): revalidate NEVER auto-revokes.
+Drift surfaces as a flag for downstream consumers (Phase 49 loadIndexSnippets,
+Phase 50 cockpit). Revocation is mechanical-but-explicit -- triggered by
+operator decision or by Phase 49 processComplaints classification, never
+by revalidate() itself.
+
+Per RESEARCH sec Q6 (Phase 49 49-RESEARCH.md L1014-1023): read-pulled
+revalidation; lazy on access. The milestone-close sweep is a one-shot
+batch for audit; ongoing drift detection happens at consumption time
+inside loadIndexSnippets.
+
+```javascript
+// Phase 49 wire-in: anchor planningDir to process.cwd() at the
+// orchestrator-skill boundary (mirrors Step 4.7-bis writeAllCapsulesForMilestone
+// pattern).
+const path = require('path');
+const fs = require('fs');
+const { revalidate, _capsuleArtifactId } = require(
+  path.join(process.cwd(), 'super-gsd', 'tools', 'memory-governance', 'lifecycle.cjs')
+);
+const { readCapsule } = require(
+  path.join(process.cwd(), 'super-gsd', 'tools', 'phase-capsule', 'write.cjs')
+);
+const planningDir = path.join(process.cwd(), '.planning');
+const milestoneDir = path.join(planningDir, 'milestones', '{{version}}', 'phases');
+
+let totalChecked = 0;
+let driftDetected = 0;
+let errors = 0;
+
+try {
+  if (fs.existsSync(milestoneDir)) {
+    const phases = fs.readdirSync(milestoneDir);
+    for (const ph of phases) {
+      try {
+        const capPath = path.join(milestoneDir, ph, 'PHASE-CAPSULE.json');
+        if (!fs.existsSync(capPath)) continue;
+        const phaseNum = (ph.match(/^(\d+(?:\.\d+)?)-/) || [])[1];
+        if (!phaseNum) continue;
+        const cap = readCapsule(planningDir, '{{version}}', phaseNum);
+        if (!cap) continue;
+        const artifactId = _capsuleArtifactId(cap);
+        const result = revalidate(artifactId, { planningDir: planningDir });
+        totalChecked++;
+        if (result && result.drift_detected) driftDetected++;
+      } catch (_e) {
+        errors++;
+      }
+    }
+  }
+} catch (_e) {
+  // Lock 13: milestone close NEVER halts on Phase 49 failure.
+}
+// result aggregated: log to context-complaints.jsonl if errors > 0.
+// Step 4.7-ter (intent-map close) continues regardless.
+```
+
+Per lock 5: phase capsule is a PROJECTION; revalidate edits ONLY lifecycle
+fields on the existing PHASE-CAPSULE.json (additive; routed through Phase 43
+schema validation). Per lock 13: revalidate failures continue milestone
+close. Per lock 6: bypass entries are not revalidated (Lock 6 carve-out --
+bypass refs were never promoted past phase_capsule, so their source_refs[]
+are not stored on the capsule for revalidation).
+
+Defer-on-empty: if .planning/milestones/{{version}}/phases/ is absent
+(empty milestone), the walk is a no-op and Step 4.7-ter continues.
+
+memory-revalidations.jsonl: revalidate appends one envelope-v1 row per
+drift-detected capsule. Cockpit (Phase 50) reads this stream for "recently
+revalidated" panel; Phase 51 BENCH-08 reads for evidence_retention metric.
+
+</step_4_7c2_memory_governance_revalidate>
+
 <step_4_7c_intent_packet_close>
 ## Step 4.7-ter: Intent-Map + Packet-Log Close (Phase 45 -- PACKET-00, PACKET-05, Lock 13)
 
