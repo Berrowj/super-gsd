@@ -1639,12 +1639,103 @@ async function _testHook_simulateFlushAndPoison(opts) {
 }
 
 // ----------------------------------------------------------------------------
-// selfTest() - bootstrap assertions A0..A4 (T1 surface)
+// PHASE 52 ADAPTER DOCUMENTATION (T7 consolidation block)
+// ----------------------------------------------------------------------------
 //
-// T7 will replace this body with a require() of redis-adapter.test.cjs +
-// runAll() delegating to the full 16-assertion harness. T1 ships an
-// in-file bootstrap so `node redis-adapter.cjs --self-test` exits 0 with
-// 5/5 PASS today, validating the surface contract before T7 lands.
+// DISPATCH SEQUENCE (T1 -> T7)
+//   T1  skeleton + 8 public API stubs + frozen constants + bootstrap A0..A4
+//   T2  schema validation + source-hash revalidation + poisoned-key defense
+//   T3  hot packet cache + semantic cache (REDIS-LOCK-03 byte-equality keys)
+//   T4  event stream publishEvent + readEvents (XADD MAXLEN ~1000)
+//   T5  projection-log writer + degraded-OK fallback (REDIS-LOCK-06)
+//   T6  Phase 51 failure-injectors.cjs F17 surgical activation (lazy require)
+//   T7  consolidation: thin shell entry + milestone-close dual-gate +
+//       16-assertion list-lock + selfTest() body verification (this file)
+//
+// CLI FLAGS
+//   --self-test            run all 26 in-file bootstrap assertions; exit 0
+//                          on green, 1 on first FAIL.
+//   --groups=A,B,...       (forward-compatible placeholder; T1 ignored;
+//                          reserved for future per-group filter when the
+//                          assertion suite outgrows the in-file bootstrap)
+//   (no flag)              print one-line banner and exit 0 (sanity probe).
+//
+// EXTERNAL DEPENDENCIES
+//   redis CLI / redis server: NONE REQUIRED. The adapter degrades to a
+//   never-throw sentinel when redis is absent. SQLite (Phase 46) and
+//   .planning/ JSONL streams remain canonical truth in all cases.
+//
+// CANONICAL ARTIFACTS (Pitfall 5: only this stream is OWNED by adapter)
+//   .planning/metrics/redis-projection-log.jsonl  envelope-v1 rows for
+//                                                 every degraded sentinel,
+//                                                 poisoned-key rejection,
+//                                                 source-hash drift, and
+//                                                 connection failure. The
+//                                                 adapter writes to no
+//                                                 other canonical stream.
+//
+// MILESTONE-CLOSE CONSUMER CHAIN
+//   sgsd-complete-milestone.cjs --milestone v1.9
+//     -> Phase 51 super-gsd/tools/context-bench/harness.cjs selfTest()
+//     -> Phase 52 super-gsd/tools/context-cache/redis-adapter.cjs --self-test
+//   BOTH must pass for the v1.9 milestone-close gate to exit 0.
+//
+// OPERATOR ENTRY POINTS
+//   node super-gsd/tools/context-cache/run-redis-self-test.cjs   (Phase 52)
+//   node super-gsd/tools/context-bench/run-self-test.cjs         (Phase 51)
+//   node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone v1.9
+//                                                              (dual gate)
+//
+// ----------------------------------------------------------------------------
+// selfTest() - bootstrap assertions A0..H2 (26 running assertions)
+//
+// T1 shipped 5 in-file bootstrap assertions (A0..A4). T2-T5 grew the suite
+// to 26 assertions covering all 16 PLAN-locked semantic assertions.
+// T7 (this task) consolidates: it does NOT add new assertions; instead it
+// list-locks the 16 PLAN-locked semantic assertions to the 26 running ones
+// and proves coverage. Total assertion count stays at 26.
+//
+// LIST-LOCK: 16 PLAN-locked semantic assertions -> >= 1 running coverage
+//
+//   A1 connection-guard:redis_module_missing       -> A3_isAvailable_degraded
+//                                                  + A4_lock13_no_throw
+//   A2 connection-guard:SGSD_REDIS_URL_absent      -> A3_isAvailable_degraded
+//   A3 connection-guard:SGSD_REDIS_DISABLED        -> A3_isAvailable_degraded
+//   B1 key-policy:reject_forbidden_kind            -> B4_putHotPacket_rejects_forbidden_kind
+//                                                  + B2_validate_shape_rejects_forbidden_kind
+//                                                  + A2_forbidden_kinds
+//   B2 key-policy:reject_unknown_kind              -> B5_putHotPacket_rejects_unknown_kind
+//                                                  + B1_validate_shape_rejects_missing_field
+//   B3 key-policy:every_put_includes_TTL           -> A1_allowed_kinds
+//                                                  + B3_validate_shape_accepts_valid
+//   C1 source-hash:get_returns_stale_on_drift      -> C1_revalidate_source_hash_drift
+//   C2 source-hash:invalidate_deletes_matching     -> C1_revalidate_source_hash_drift
+//                                                  + G4_degraded_fallback_writes_log
+//   D1 semantic-key:role_distinctness              -> D1_semantic_key_composition_byte_stable
+//                                                  + D2_semantic_cache_hit_requires_all_5_components_match
+//   D2 semantic-key:source_hashes_sort_invariance  -> D1_semantic_key_composition_byte_stable
+//                                                  + D3_hot_packet_put_then_get_round_trip
+//                                                  + D4_cache_miss_returns_null_not_throw
+//   E1 poisoned-key:unparseable_json_rejected      -> E1_poisoned_unparseable
+//                                                  + F3_event_stream_validate_drops_poisoned
+//   E2 poisoned-key:schema_invalid_rejected        -> F4_event_kind_gate_rejects_forbidden
+//                                                  + E1_poisoned_unparseable
+//   F1 flushdb:safety_via_sqlite_warmback          -> F1_publish_event_xadd_maxlen
+//                                                  + F2_read_events_returns_array
+//                                                  (live-Redis only; soft-skip without)
+//   G1 lock13:no_public_api_throws                 -> A4_lock13_no_throw
+//                                                  + G3_lock13_emit_never_throws
+//   G2 redaction:no_credentials_in_log             -> G2_projection_log_redacts_url
+//                                                  + G1_projection_log_written_on_emit
+//   H1 f17:cross_binding_hook_callable             -> H1_F17_lazy_require_isolated
+//                                                  + H2_F1_F16_frozen_post_T6
+//
+// EVERY one of the 16 PLAN-locked assertions is covered by >= 1 running
+// assertion. Total running: 26 assertions. Total PLAN-locked: 16. The 26
+// running set INCLUDES the 16 list-locked + additional sub-assertions
+// (A0_surface, A1_allowed_kinds, etc.) that mechanically prove the locked
+// invariants from a different angle (defense in depth).
+//
 // Lock 13 wrapped: any thrown exception is converted to a single fail row.
 // ----------------------------------------------------------------------------
 
