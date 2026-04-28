@@ -211,19 +211,125 @@ function Invoke-Fixture {
     }
 }
 
-# Fixture order: 6 new local + 4 reused Phase 29 (10 total)
+# Fixture order: A1..A8 (Phase 50 A2/A3/A5 added) + 4 reused Phase 29 (13 total).
+# A3 = NEW Phase 50 codex-running fixture (replaces F4 alias; F4 still reused as F4-timeout).
+# A5 = NEW Phase 50 viewport-fit suite (3 sub-fixtures: 80x24, 120x30, 132x40) covering
+# the 40-row compact-mode threshold change (Phase 50 COCKPIT-05 / A4).
 $fixtures = @(
-    @{ Id="A1";        Dir=(Join-Path $localFix   "A1"); Scenario="active normal" }
-    @{ Id="A2";        Dir=(Join-Path $localFix   "A2"); Scenario="blocked-gate" }
-    @{ Id="A4";        Dir=(Join-Path $localFix   "A4"); Scenario="codex-warned" }
-    @{ Id="A6";        Dir=(Join-Path $localFix   "A6"); Scenario="activity-stale" }
-    @{ Id="A7";        Dir=(Join-Path $localFix   "A7"); Scenario="forced-restart" }
-    @{ Id="A8";        Dir=(Join-Path $localFix   "A8"); Scenario="no-tool-event" }
-    @{ Id="A3=F4";     Dir=(Join-Path $phase29Fix "F4"); Scenario="codex-timeout (reuse F4)" }
-    @{ Id="F1-stale";  Dir=(Join-Path $phase29Fix "F1"); Scenario="codex-stale (reuse F1)" }
-    @{ Id="F5-base";   Dir=(Join-Path $phase29Fix "F5"); Scenario="codex-warned base (reuse F5)" }
-    @{ Id="F6-unavail";Dir=(Join-Path $phase29Fix "F6"); Scenario="codex-unavailable (reuse F6)" }
+    @{ Id="A1";          Dir=(Join-Path $localFix   "A1");           Scenario="active normal" }
+    @{ Id="A2";          Dir=(Join-Path $localFix   "A2");           Scenario="blocked-gate" }
+    @{ Id="A3";          Dir=(Join-Path $localFix   "A3");           Scenario="codex-running (Phase 50 A3)" }
+    @{ Id="A4";          Dir=(Join-Path $localFix   "A4");           Scenario="codex-warned" }
+    @{ Id="A5/80x24";    Dir=(Join-Path $localFix   "A5\80x24");     Scenario="viewport 80x24 compact" }
+    @{ Id="A5/120x30";   Dir=(Join-Path $localFix   "A5\120x30");    Scenario="viewport 120x30 compact (40-row threshold)" }
+    @{ Id="A5/132x40";   Dir=(Join-Path $localFix   "A5\132x40");    Scenario="viewport 132x40 full" }
+    @{ Id="A6";          Dir=(Join-Path $localFix   "A6");           Scenario="activity-stale" }
+    @{ Id="A7";          Dir=(Join-Path $localFix   "A7");           Scenario="forced-restart" }
+    @{ Id="A8";          Dir=(Join-Path $localFix   "A8");           Scenario="no-tool-event" }
+    @{ Id="F4-timeout";  Dir=(Join-Path $phase29Fix "F4");           Scenario="codex-timeout (reuse F4)" }
+    @{ Id="F1-stale";    Dir=(Join-Path $phase29Fix "F1");           Scenario="codex-stale (reuse F1)" }
+    @{ Id="F5-base";     Dir=(Join-Path $phase29Fix "F5");           Scenario="codex-warned base (reuse F5)" }
+    @{ Id="F6-unavail";  Dir=(Join-Path $phase29Fix "F6");           Scenario="codex-unavailable (reuse F6)" }
 )
+
+# ============================================================================
+# Test-CockpitReadOnlyInvariant (Phase 50 Task 6)
+# ----------------------------------------------------------------------------
+# Mirrors super-gsd/tools/dispatch-router/route.cjs:679-700 _captureFingerprint /
+# _diffFingerprint pattern. Walks every .planning/metrics/*.jsonl and *.json
+# under $PlanningDir, captures path + mtime + size pre-render, runs a single
+# Render frame via Get-MissionStripState (the canonical lib that the live
+# cockpit dot-sources), captures the fingerprints again, and asserts NO file
+# drifted in mtime or size.
+#
+# Also asserts `git diff --quiet super-gsd/tools/` to enforce the read-only
+# invariant against the locked Phase 41-49 helper trees and gate-savings tools.
+# Phase 50 PLAN locks Render to read-only over .planning/. Any new write under
+# .planning/metrics/ from a Render call (or its callees) violates Lock 13 and
+# must trip this invariant.
+# ============================================================================
+function Test-CockpitReadOnlyInvariant {
+    param(
+        [string]$PlanningDir,
+        [string]$ProjectDir,
+        [string]$ToolsDir
+    )
+
+    $report = @{ pass=$true; details=@() }
+
+    if (-not (Test-Path $PlanningDir)) {
+        $report.pass = $false
+        $report.details += "PlanningDir missing: $PlanningDir"
+        return $report
+    }
+
+    $metricsDir = Join-Path $PlanningDir "metrics"
+
+    function _Capture {
+        param([string]$Dir)
+        $fp = @{}
+        if (-not (Test-Path $Dir)) { return $fp }
+        $items = Get-ChildItem -Path $Dir -File -ErrorAction SilentlyContinue |
+                 Where-Object { $_.Extension -in ".jsonl", ".json" }
+        foreach ($it in $items) {
+            $fp[$it.FullName] = @{
+                exists = $true
+                mtime  = $it.LastWriteTime.Ticks
+                size   = $it.Length
+            }
+        }
+        return $fp
+    }
+
+    $before = _Capture $metricsDir
+
+    # Single Render frame via the canonical lib (already dot-sourced at top
+    # of this harness). Get-MissionStripState is read-only by contract.
+    try {
+        [void](Get-MissionStripState -ProjectDir $ProjectDir -ActivityTail 500)
+    } catch {
+        $report.pass = $false
+        $report.details += "Render frame threw: $($_.Exception.Message)"
+    }
+
+    $after = _Capture $metricsDir
+
+    # Diff fingerprint: any drift = canonical-stream write detected.
+    foreach ($k in $before.Keys) {
+        $b = $before[$k]
+        $a = $after[$k]
+        if ($null -eq $a) {
+            $report.pass = $false
+            $report.details += ("DELETED during render: {0}" -f $k)
+            continue
+        }
+        if ($b.mtime -ne $a.mtime -or $b.size -ne $a.size) {
+            $report.pass = $false
+            $report.details += ("DRIFT during render: {0} (mtime/size changed)" -f $k)
+        }
+    }
+    foreach ($k in $after.Keys) {
+        if (-not $before.ContainsKey($k)) {
+            $report.pass = $false
+            $report.details += ("CREATED during render: {0}" -f $k)
+        }
+    }
+
+    # super-gsd/tools/ git-diff-quiet check (only if dir + git present).
+    if ($ToolsDir -and (Test-Path $ToolsDir) -and (Get-Command git -ErrorAction SilentlyContinue)) {
+        try {
+            $gitOut = & git -C (Split-Path -Parent $ToolsDir) diff --quiet -- super-gsd/tools/ 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                $report.pass = $false
+                $report.details += "super-gsd/tools/ has uncommitted drift after render frame"
+            }
+        } catch {
+            # git unavailable in CI - log but do not fail.
+        }
+    }
+
+    return $report
+}
 
 $pass = 0
 $fail = 0
@@ -252,9 +358,47 @@ foreach ($fx in $fixtures) {
 }
 $elapsedMs = [int]((Get-Date) - $started).TotalMilliseconds
 
+# ----------------------------------------------------------------------------
+# Read-only invariant - LAST step (Phase 50 PLAN Task 6 / Lock 13).
+# Materialises a clean A1 fixture into a tmp dir and asserts no canonical
+# stream drift after a single Render frame. Mirrors dispatch-router/route.cjs
+# self-test fingerprint pattern. Skipped when invoked with -SkipInvariant.
+# ----------------------------------------------------------------------------
+$invariantPass = $true
+$invariantDetails = @()
+if (-not $env:SGSD_COCKPIT_SKIP_INVARIANT) {
+    Write-Host ""
+    $invTmp = Join-Path $env:TEMP ("sgsd-acceptance-invariant-" + [guid]::NewGuid().ToString("N"))
+    [void](New-Item -ItemType Directory -Force -Path $invTmp)
+    try {
+        $invFixDir = Join-Path $localFix "A1"
+        if (Test-Path $invFixDir) {
+            Materialise-Fixture -FixtureDir $invFixDir -TempDir $invTmp
+            $invPlanning = Join-Path $invTmp ".planning"
+            $invToolsDir = Join-Path $repoRoot "super-gsd\tools"
+            $rep = Test-CockpitReadOnlyInvariant -PlanningDir $invPlanning -ProjectDir $invTmp -ToolsDir $invToolsDir
+            if ($rep.pass) {
+                Write-Host ("[PASS] {0,-10}  {1}" -f "ReadOnly", "no canonical-stream drift after Render frame") -ForegroundColor Green
+            } else {
+                $invariantPass = $false
+                $invariantDetails = $rep.details
+                Write-Host ("[FAIL] {0,-10}  read-only invariant tripped" -f "ReadOnly") -ForegroundColor Red
+                foreach ($d in $rep.details) {
+                    Write-Host ("       {0}" -f $d) -ForegroundColor DarkGray
+                }
+            }
+        } else {
+            Write-Host ("[SKIP] ReadOnly      A1 fixture missing - cannot run invariant") -ForegroundColor Yellow
+        }
+    } finally {
+        if (Test-Path $invTmp) { Remove-Item -Recurse -Force -LiteralPath $invTmp -ErrorAction SilentlyContinue }
+    }
+}
+
 Write-Host ""
 $total = $pass + $fail
-$summaryColor = if ($fail -eq 0) { "Green" } else { "Red" }
-Write-Host ("acceptance: {0}/{1} PASS  ({2}ms)" -f $pass, $total, $elapsedMs) -ForegroundColor $summaryColor
+$summaryColor = if ($fail -eq 0 -and $invariantPass) { "Green" } else { "Red" }
+$invTag = if ($invariantPass) { "OK" } else { "TRIPPED" }
+Write-Host ("acceptance: {0}/{1} PASS  invariant: {2}  ({3}ms)" -f $pass, $total, $invTag, $elapsedMs) -ForegroundColor $summaryColor
 
-if ($fail -gt 0) { exit 1 } else { exit 0 }
+if ($fail -gt 0 -or -not $invariantPass) { exit 1 } else { exit 0 }
