@@ -1,0 +1,12 @@
+{
+  "envelope_version": 1,
+  "ts": "2026-04-28T20:00:00.000Z",
+  "command": "memory_revoke",
+  "status": "ok",
+  "reason_codes": ["stale"],
+  "artifact_id": "v1.8/36-fixture#abc12345",
+  "details": {
+    "revoked_reason": "stale",
+    "replaced_by_id": null
+  }
+}

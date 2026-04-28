@@ -1,0 +1,13 @@
+{
+  "envelope_version": 1,
+  "ts": "2026-04-28T21:00:00.000Z",
+  "command": "context_complaint",
+  "status": "warn",
+  "reason_codes": ["packet_built_with_omitted_material"],
+  "details": {
+    "milestone": "v1.8",
+    "phase": "36",
+    "intent_id": "fixture-intent",
+    "artifact_id": "v1.8/36-fixture#abc12345"
+  }
+}
