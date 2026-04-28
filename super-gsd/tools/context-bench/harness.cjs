@@ -96,11 +96,13 @@ function _loadScenariosSync() {
 }
 const SCENARIOS = _loadScenariosSync();
 
-// INJECTION_FIXTURES - filled by T4 with the closed-vocab failure injectors
-// (e.g. capsule_decision missing, bypass_ref redaction, atc_finding stub,
-// verifier_verdict mismatch, validated_thought absent, downstream_constraint
-// dropped). Until then, frozen empty.
-const INJECTION_FIXTURES = Object.freeze([]);
+// INJECTION_FIXTURES - 16-entry F1..F16 closed-vocab failure-injection
+// catalog plus F17 contract-only stub (Phase 52 cross-binding). The
+// catalog is loaded from failure-injectors.cjs (T4) by reference; the
+// outer Object.freeze on the imported array is preserved so mutation is
+// a no-op and the array length stays at 16.
+const _injectors = require('./failure-injectors.cjs');
+const INJECTION_FIXTURES = _injectors.INJECTION_FIXTURES;
 
 // BENCH_REASON_CODES - closed-vocab reason codes emitted by the bench when
 // scoring a scenario or recording a route/replay/inject decision. >=10
@@ -832,6 +834,284 @@ function _selfTest() {
         matrixOk
           ? 'all 6 fixtures match the locked S1-S4=claude/S5=codex/S6=vtp_bridge matrix'
           : 'misses=' + matrixMisses.join(' | '));
+
+  // -------------------------------------------------------------------
+  // T4 assertions (5-8). Plan 51-01 lines 380-388:
+  //   - INJECTION_FIXTURES frozen 16-entry; mutation no-op
+  //   - canonical fingerprint guard: 4 streams unchanged after F1-F16
+  //     snapshot+inject+restore round-trip (anti-pollution self-test)
+  //   - F1 (missing capsule) yields packet_capsule_unavailable_raw_fallback
+  //   - F8 (critical bypass) preserves byte-verbatim CRIT text
+  //   - F10 (prompt injection) wraps in fenced code AND intent-map
+  //     flagged with prompt_injection_pattern_treated_as_data;
+  //     SECRET_PLACEHOLDER_X literal, no real key prefix
+  //   - F11 (semantic-only) is REJECTED; v1.6/P26 absent from S2 packet
+  //   - canonical fingerprint guard: 4 source streams unchanged across
+  //     the entire self-test run
+  // -------------------------------------------------------------------
+
+  const planningDir = path.resolve(__dirname, '../../../.planning');
+
+  // Full-run anti-pollution: snapshot the 4 canonical streams BEFORE any
+  // T4 injector touches anything. We compare again at the end (T4.7).
+  const _t4_initialFp = _injectors.snapshotCanonicalStreams(planningDir);
+
+  // T4.1: INJECTION_FIXTURES frozen 16-entry; mutation no-op.
+  let injFrozenOk = false;
+  let injFrozenDetail = '';
+  try {
+    const lenBefore = Array.isArray(INJECTION_FIXTURES)
+                      ? INJECTION_FIXTURES.length : -1;
+    let mutationThrew = false;
+    try {
+      INJECTION_FIXTURES.push({ injected: 'attempt' });
+    } catch (_em) { mutationThrew = true; }
+    const lenAfter = Array.isArray(INJECTION_FIXTURES)
+                     ? INJECTION_FIXTURES.length : -2;
+    injFrozenOk = _isFrozen(INJECTION_FIXTURES)
+      && Array.isArray(INJECTION_FIXTURES)
+      && INJECTION_FIXTURES.length === 16
+      && lenBefore === 16
+      && lenAfter === 16;
+    injFrozenDetail = 'len=' + lenAfter
+      + ' frozen=' + _isFrozen(INJECTION_FIXTURES)
+      + ' mutation_threw=' + mutationThrew;
+  } catch (e) {
+    injFrozenDetail = 'threw: '
+      + (e && e.message ? e.message : 'unknown');
+  }
+  check('t4_INJECTION_FIXTURES_frozen_16_entry_mutation_noop',
+        injFrozenOk, injFrozenDetail);
+
+  // T4.2: anti-pollution canonical fingerprint round-trip across F1..F16.
+  // Snapshot fp_before, run snapshot+inject+restore for each fixture,
+  // snapshot fp_after, assert deep equality. Includes the absent-stream
+  // baseline contract (route-decisions.jsonl on this snapshot is absent;
+  // sha256(empty)+mtime=0+size=0 must round-trip unchanged).
+  let antiPollutionOk = false;
+  let antiPollutionDetail = '';
+  try {
+    const fpBefore = _injectors.snapshotCanonicalStreams(planningDir);
+    const fixtureIds = INJECTION_FIXTURES.map(function (f) { return f.id; });
+    let allRoundTripsOk = true;
+    const failedRoundTrips = [];
+    for (let i = 0; i < fixtureIds.length; i++) {
+      const id = fixtureIds[i];
+      const handle = _injectors.injectFailure(id, {
+        planningDir: planningDir,
+        milestone: 'v1.8',
+        phase: 36,
+      });
+      try {
+        const sOk = handle.snapshot();
+        const iOk = handle.inject();
+        const oOk = handle.observe();
+        const rOk = handle.restore();
+        if (!(sOk && iOk && oOk && rOk)) {
+          // SOFT-SKIP fixtures still return true for all 4 steps.
+          if (!handle.skipped) {
+            allRoundTripsOk = false;
+            failedRoundTrips.push(id + '(steps_failed)');
+          }
+        }
+      } catch (_e) {
+        allRoundTripsOk = false;
+        failedRoundTrips.push(id + '(threw)');
+      }
+    }
+    const fpAfter = _injectors.snapshotCanonicalStreams(planningDir);
+    const cmp = _injectors.compareCanonicalStreams(fpBefore, fpAfter);
+    antiPollutionOk = allRoundTripsOk && cmp.ok;
+    antiPollutionDetail = 'fixtures_run=' + fixtureIds.length
+      + ' round_trips_ok=' + allRoundTripsOk
+      + ' streams_drift=' + (cmp.drift.length === 0
+                              ? 'none' : cmp.drift.join(','))
+      + (failedRoundTrips.length
+          ? ' failed=' + failedRoundTrips.join('|') : '');
+  } catch (e) {
+    antiPollutionDetail = 'threw: '
+      + (e && e.message ? e.message : 'unknown');
+  }
+  check('t4_anti_pollution_fingerprint_round_trip', antiPollutionOk,
+        antiPollutionDetail);
+
+  // T4.3: F1 (missing capsule) declares the
+  // packet_capsule_unavailable_raw_fallback reason in its expected set.
+  // The harness asserts the catalog entry exposes the right reason code
+  // (the T5 replay path will verify the reason is observed at runtime;
+  // T4 verifies the contract).
+  let f1Ok = false;
+  let f1Detail = '';
+  try {
+    const f1 = INJECTION_FIXTURES.find(function (f) { return f.id === 'F1'; });
+    f1Ok = !!f1
+      && Array.isArray(f1.expected_reason_codes)
+      && f1.expected_reason_codes.indexOf(
+           'packet_capsule_unavailable_raw_fallback') !== -1;
+    // Also exercise the inject+observe round-trip end-to-end and
+    // confirm the handle returns the inject_applied reason.
+    const handle = _injectors.injectFailure('F1', {
+      planningDir: planningDir,
+      milestone: 'v1.8', phase: 36,
+    });
+    const ok1 = handle.snapshot();
+    const ok2 = handle.inject();
+    const ok3 = handle.observe();
+    const ok4 = handle.restore();
+    f1Ok = f1Ok && handle.reason === 'inject_applied'
+      && ok1 && ok2 && ok3 && ok4;
+    f1Detail = 'expected_reason=packet_capsule_unavailable_raw_fallback'
+      + ' handle_reason=' + handle.reason;
+  } catch (e) {
+    f1Detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('t4_F1_missing_capsule_reason_code', f1Ok, f1Detail);
+
+  // T4.4: F8 (critical bypass) preserves byte-verbatim CRIT text. The
+  // synthetic CRIT row is captured in the handle's _payload; the mirror
+  // file on disk is asserted byte-equal to JSON.stringify(payload)+'\n'
+  // both before and after inject() (Lock 6: no compression, no rewrite).
+  let f8Ok = false;
+  let f8Detail = '';
+  try {
+    const handle = _injectors.injectFailure('F8', {
+      planningDir: planningDir,
+      milestone: 'v1.8', phase: 36,
+    });
+    const sOk = handle.snapshot();
+    const iOk = handle.inject();
+    const payload = handle._payload ? handle._payload() : null;
+    const mirrorPath = handle._mirrorPath ? handle._mirrorPath() : null;
+    let bytesMatch = false;
+    if (payload && mirrorPath && fs.existsSync(mirrorPath)) {
+      const onDisk = fs.readFileSync(mirrorPath, 'utf8');
+      const expected = JSON.stringify(payload) + '\n';
+      bytesMatch = (onDisk === expected);
+    }
+    const oOk = handle.observe();
+    const rOk = handle.restore();
+    f8Ok = sOk && iOk && oOk && rOk && bytesMatch
+      && payload && payload.severity === 'CRITICAL'
+      && payload.text && payload.text.indexOf('verbatim only') !== -1;
+    f8Detail = 'snapshot=' + sOk + ' inject=' + iOk
+      + ' bytes_match=' + bytesMatch
+      + ' severity=' + (payload && payload.severity);
+  } catch (e) {
+    f8Detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('t4_F8_critical_bypass_byte_verbatim', f8Ok, f8Detail);
+
+  // T4.5: F10 (prompt injection) wraps in fenced code AND intent-map
+  // row flagged with prompt_injection_pattern_treated_as_data;
+  // SECRET_PLACEHOLDER_X literal present (no AKIA/sk-/ghp_ prefix).
+  let f10Ok = false;
+  let f10Detail = '';
+  try {
+    const handle = _injectors.injectFailure('F10', {});
+    const sOk = handle.snapshot();
+    const iOk = handle.inject();
+    const payload = handle._payload ? handle._payload() : null;
+    const oOk = handle.observe();
+    const rOk = handle.restore();
+    let fencedWrapOk = false;
+    let flagOk = false;
+    let placeholderLiteralOk = false;
+    let noRealSecretOk = false;
+    if (payload) {
+      fencedWrapOk = typeof payload.expected_wrap === 'string'
+        && payload.expected_wrap.indexOf('```') === 0
+        && payload.expected_wrap.lastIndexOf('```')
+             > payload.expected_wrap.indexOf('```');
+      flagOk = payload.expected_intent_map_flag
+        === 'prompt_injection_pattern_treated_as_data';
+      placeholderLiteralOk = payload.placeholder
+        === '{SECRET_PLACEHOLDER_X}'
+        && payload.raw_markdown
+        && payload.raw_markdown.indexOf('{SECRET_PLACEHOLDER_X}') !== -1;
+      // CLAUDE.md absolute: no AKIA/sk-/ghp_ prefix anywhere in payload.
+      const allText = JSON.stringify(payload);
+      noRealSecretOk = allText.indexOf('AKIA') === -1
+        && allText.indexOf('sk-') === -1
+        && allText.indexOf('ghp_') === -1;
+    }
+    f10Ok = sOk && iOk && oOk && rOk
+      && fencedWrapOk && flagOk
+      && placeholderLiteralOk && noRealSecretOk;
+    f10Detail = 'fenced=' + fencedWrapOk
+      + ' flag=' + flagOk
+      + ' placeholder=' + placeholderLiteralOk
+      + ' no_real_secret=' + noRealSecretOk;
+  } catch (e) {
+    f10Detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('t4_F10_prompt_injection_fenced_and_flagged', f10Ok, f10Detail);
+
+  // T4.6: F11 (semantic-only) is REJECTED; v1.6/P26 absent from S2
+  // packet body. The fixture catalog declares
+  // intent_relationship_semantic_only_demoted as the reason; we assert
+  // the synthetic payload's structural_reason is null AND the v1.6/P26
+  // tuple is NOT in the S2 fixture's intent.depends_on_phase_capsules
+  // (set-membership only; Lock 11).
+  let f11Ok = false;
+  let f11Detail = '';
+  try {
+    const handle = _injectors.injectFailure('F11', {});
+    const sOk = handle.snapshot();
+    const iOk = handle.inject();
+    const payload = handle._payload ? handle._payload() : null;
+    const oOk = handle.observe();
+    const rOk = handle.restore();
+    const s2 = SCENARIOS.find(function (s) {
+      return s && s.scenario_id === 'S2-v18-P36';
+    }) || null;
+    let s2HasV16P26 = false;
+    if (s2 && s2.intent && Array.isArray(s2.intent.depends_on_phase_capsules)) {
+      const list = s2.intent.depends_on_phase_capsules;
+      for (let i = 0; i < list.length; i++) {
+        const ent = list[i];
+        if (typeof ent === 'string') {
+          if (ent.indexOf('v1.6') !== -1 && ent.indexOf('P26') !== -1) {
+            s2HasV16P26 = true; break;
+          }
+        } else if (ent && typeof ent === 'object') {
+          if (ent.milestone === 'v1.6'
+              && (ent.phase === 26 || ent.phase === '26')) {
+            s2HasV16P26 = true; break;
+          }
+        }
+      }
+    }
+    const structuralReasonNull = payload
+      && payload.structural_reason === null
+      && payload.claimed_reason === 'semantic_similarity_only';
+    f11Ok = sOk && iOk && oOk && rOk
+      && structuralReasonNull
+      && !s2HasV16P26;
+    f11Detail = 'structural_reason_null=' + structuralReasonNull
+      + ' s2_has_v16_p26=' + s2HasV16P26 + ' (must be false)';
+  } catch (e) {
+    f11Detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('t4_F11_semantic_only_rejected_v16_p26_absent_from_S2',
+        f11Ok, f11Detail);
+
+  // T4.7: canonical fingerprint guard - 4 source streams unchanged
+  // across the entire T4 self-test run. Compares fp_initial (taken
+  // before T4.1) against a fresh snapshot here.
+  let finalFpOk = false;
+  let finalFpDetail = '';
+  try {
+    const fpFinal = _injectors.snapshotCanonicalStreams(planningDir);
+    const cmp = _injectors.compareCanonicalStreams(_t4_initialFp, fpFinal);
+    finalFpOk = cmp.ok;
+    finalFpDetail = cmp.ok
+      ? '4 canonical streams unchanged across full T4 run'
+      : 'drift=' + cmp.drift.join(',');
+  } catch (e) {
+    finalFpDetail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('t4_canonical_fingerprint_guard_full_run',
+        finalFpOk, finalFpDetail);
 
   return results;
 }
