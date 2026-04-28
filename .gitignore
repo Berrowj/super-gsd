@@ -16,6 +16,8 @@ _parse_check.ps1
 
 # Live telemetry — append-only, regenerates per session
 .planning/metrics/heartbeat.jsonl
+.planning/metrics/autopilot-watchdog.json
+.planning/metrics/autopilot-watchdog.log
 
 # Failed-write leftovers from narrative generator
 .planning/metrics/*.lastattempt

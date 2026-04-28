@@ -1,0 +1,1 @@
+{"codex_mtime_offset_sec":-60,"viewport":{"cols":132,"rows":40},"expected_compact":false,"note":"A5 132x40 full-mode threshold viewport. AT 40-row threshold so compact-mode MUST NOT trigger; full Render path runs."}

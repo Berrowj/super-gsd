@@ -731,10 +731,48 @@ function Get-CodexCommitCount {
 
 # ── Parsers ──────────────────────────────────────────────────────────────────
 
+function Get-StateBodyValue {
+    param([string]$Text, [string]$Key)
+    if (-not $Text -or -not $Key) { return "" }
+    $m = [regex]::Match($Text, "(?m)^\s*$([regex]::Escape($Key)):\s*`"?([^`"\r\n]+)`"?\s*$")
+    if ($m.Success) { return $m.Groups[1].Value.Trim() }
+    return ""
+}
+
+function Get-MilestoneDisplayName {
+    param([string]$Milestone, [string]$Fallback)
+    if (-not $Milestone) { return $Fallback }
+
+    $readiness = Join-Path $PlanningDir "milestones\$Milestone\MILESTONE-READINESS.md"
+    $readinessName = Get-Frontmatter $readiness "milestone_name"
+    if ($readinessName) { return $readinessName }
+
+    $agentRoadmap = Join-Path $PlanningDir "ROADMAP-AGENT.md"
+    if (Test-Path $agentRoadmap) {
+        try {
+            foreach ($line in (Get-Content $agentRoadmap -ErrorAction SilentlyContinue)) {
+                if ($line -match "^##\s*Milestone\s+$([regex]::Escape($Milestone))\s*(?:[—-]\s*)?(.+)$") {
+                    $name = $Matches[1].Trim()
+                    if ($name) { return $name }
+                }
+            }
+        } catch {}
+    }
+
+    return $Fallback
+}
+
 function Get-StateInfo {
     $stateFile = Join-Path $PlanningDir "STATE.md"
+    $stateText = if (Test-Path $stateFile) { Get-Content $stateFile -Raw -ErrorAction SilentlyContinue } else { "" }
     $status = Get-Frontmatter $stateFile "status"
-    $currentPhase = Get-Frontmatter $stateFile "current_phase"
+    $runMilestone = Get-StateBodyValue $stateText "current_milestone"
+    $runPhase = Get-StateBodyValue $stateText "current_phase"
+
+    $currentPhase = $runPhase
+    if (-not $currentPhase) {
+        $currentPhase = Get-Frontmatter $stateFile "current_phase"
+    }
     if (-not $currentPhase) {
         $currentPhase = Get-Frontmatter $stateFile "phase"
     }
@@ -744,31 +782,51 @@ function Get-StateInfo {
     if (-not $currentPhase -and $status -match '\bPhase\s+([0-9]+)\b') {
         $currentPhase = $matches[1]
     }
+    $milestone = if ($runMilestone) { $runMilestone } else { Get-Frontmatter $stateFile "milestone" }
+    $milestoneName = Get-MilestoneDisplayName $milestone (Get-Frontmatter $stateFile "milestone_name")
+
     return @{
-        milestone     = Get-Frontmatter $stateFile "milestone"
-        milestoneName = Get-Frontmatter $stateFile "milestone_name"
+        milestone     = $milestone
+        milestoneName = $milestoneName
         currentPhase  = $currentPhase
         status        = $status
     }
 }
 
+function Get-RoadmapAgentMilestonePhases {
+    param([string]$Milestone)
+    $out = @()
+    if (-not $Milestone) { return @($out) }
+    $agentRoadmap = Join-Path $PlanningDir "ROADMAP-AGENT.md"
+    if (-not (Test-Path $agentRoadmap)) { return @($out) }
+    try {
+        $raw = Get-Content $agentRoadmap -Raw -ErrorAction SilentlyContinue
+        $sectionPattern = "(?ms)^##\s*Milestone\s+$([regex]::Escape($Milestone))\b.*?\r?\n(.*?)(?=^##\s*Milestone\s+|\z)"
+        $section = [regex]::Match($raw, $sectionPattern)
+        if (-not $section.Success) { return @($out) }
+        foreach ($m in [regex]::Matches($section.Groups[1].Value, "(?m)^###\s*Phase\s+([0-9]+)\s*[—-]?\s*(.*?)\s*$")) {
+            $num = $m.Groups[1].Value
+            $name = $m.Groups[2].Value.Trim()
+            if (-not $name) { $name = "Phase $num" }
+            $out += @{ num = $num; name = $name; done = $false }
+        }
+    } catch {}
+    return @($out)
+}
+
 function Get-RoadmapPhases($milestone) {
     $phasesRoot = if ($milestone) { Join-Path $PlanningDir "milestones\$milestone\phases" } else { "" }
+    $roadmapPhases = @(Get-RoadmapAgentMilestonePhases $milestone)
     if ($phasesRoot -and (Test-Path $phasesRoot)) {
         $nameByPhase = @{}
-        $agentRoadmap = Join-Path $PlanningDir "ROADMAP-AGENT.md"
-        if (Test-Path $agentRoadmap) {
-            try {
-                foreach ($line in (Get-Content $agentRoadmap -ErrorAction SilentlyContinue)) {
-                    if ($line -match '^###\s*Phase\s+([0-9]+)\b(.*)$') {
-                        $tail = $matches[2].Trim() -replace '^[^A-Za-z0-9]+', ''
-                        if ($tail) { $nameByPhase[$matches[1]] = $tail.Trim() }
-                    }
-                }
-            } catch {}
+        foreach ($rp in $roadmapPhases) {
+            if ($rp.num -and $rp.name) { $nameByPhase[$rp.num] = $rp.name }
         }
 
-        $phaseList = @()
+        $phaseByNum = @{}
+        foreach ($rp in $roadmapPhases) {
+            if ($rp.num) { $phaseByNum[$rp.num] = @{ num = $rp.num; name = $rp.name; done = $false } }
+        }
         try {
             foreach ($dir in (Get-ChildItem -Path $phasesRoot -Directory -ErrorAction SilentlyContinue | Sort-Object Name)) {
                 if ($dir.Name -notmatch '^([0-9]+)(?:-|$)') { continue }
@@ -785,11 +843,13 @@ function Get-RoadmapPhases($milestone) {
                     $vStatus = Get-Frontmatter $verification.FullName "status"
                     if ($vStatus -match '^(PASS|PASS-WITH-DEFERRED|CANDIDATE-WITH-DEBT|CANDIDATE)') { $done = $true }
                 }
-                $phaseList += @{ num = $num; name = $name; done = $done }
+                $phaseByNum[$num] = @{ num = $num; name = $name; done = $done }
             }
         } catch {}
+        $phaseList = @($phaseByNum.Values)
         if ($phaseList.Count -gt 0) { return @($phaseList | Sort-Object { [double]$_.num }) }
     }
+    if ($roadmapPhases.Count -gt 0) { return @($roadmapPhases | Sort-Object { [double]$_.num }) }
 
     # Returns array of @{ num; name; done } extracted from ROADMAP.md.
     # Strategy: the SUMMARY LIST (with `- [x] **Phase N: title**` markdown) is the
@@ -1070,6 +1130,14 @@ function Get-InferenceState {
     elseif ($age -lt 600)  { $state = "STUCK" }
     else                   { $state = "DEAD" }
     [pscustomobject]@{ state=$state; ageSec=$age; session=$file.Name }
+}
+
+function Invoke-DashboardBell {
+    # Warp/Windows Terminal turns BEL into an OS notification sound. Repeating
+    # it on every refresh makes a stale dashboard unusable, so sound is opt-in.
+    if ($env:SGSD_COCKPIT_BELL -eq "1") {
+        try { [Console]::Write([char]7) } catch {}
+    }
 }
 
 # ── Heartbeat (silent-hang detector) ─────────────────────────────────────────
@@ -1616,11 +1684,10 @@ function Render {
     }
     if ($hb.state -eq "HUNG") {
         Write-Host "  ⚠ no completion — check transport" -NoNewline -ForegroundColor Red
-        # Bell
-        [Console]::Write([char]7)
+        Invoke-DashboardBell
     } elseif ($hb.state -eq "EMPTY_RESULT") {
         Write-Host "  ⚠ last tool returned empty" -NoNewline -ForegroundColor Red
-        [Console]::Write([char]7)
+        Invoke-DashboardBell
     }
     Write-Host $CLEAR_LINE
 
@@ -1643,10 +1710,10 @@ function Render {
         Write-Host $ageStr -NoNewline -ForegroundColor Cyan
         if ($inf.state -eq "STUCK") {
             Write-Host "  ← Esc + retry recommended" -NoNewline -ForegroundColor Red
-            [Console]::Write([char]7)
+            Invoke-DashboardBell
         } elseif ($inf.state -eq "DEAD") {
             Write-Host "  ← session likely dead" -NoNewline -ForegroundColor DarkRed
-            [Console]::Write([char]7)
+            Invoke-DashboardBell
         }
         Write-Host $CLEAR_LINE
     }

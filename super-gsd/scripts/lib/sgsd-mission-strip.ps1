@@ -28,6 +28,14 @@
 # NOT in this lib. The host owns rendering primitives.
 # ============================================================================
 
+function _Get-StateBodyValue {
+    param([string]$Text, [string]$Key)
+    if (-not $Text -or -not $Key) { return "" }
+    $m = [regex]::Match($Text, "(?m)^\s*$([regex]::Escape($Key)):\s*`"?([^`"\r\n]+)`"?\s*$")
+    if ($m.Success) { return $m.Groups[1].Value.Trim() }
+    return ""
+}
+
 function Get-MissionStripState {
     param(
         [Parameter(Mandatory = $true)]
@@ -62,6 +70,8 @@ function Get-MissionStripState {
         $statePath = Join-Path $ProjectDir ".planning/STATE.md"
         if (Test-Path $statePath) {
             $stateRaw = Get-Content -Raw $statePath -ErrorAction Stop
+            $runMile = _Get-StateBodyValue $stateRaw "current_milestone"
+            $runPhase = _Get-StateBodyValue $stateRaw "current_phase"
             $fmMatch = [regex]::Match($stateRaw, '(?ms)^---\s*\r?\n(.*?)\r?\n---\s*\r?\n')
             if ($fmMatch.Success) {
                 $fm = $fmMatch.Groups[1].Value
@@ -71,6 +81,8 @@ function Get-MissionStripState {
                 $mStatus = [regex]::Match($fm, '(?m)^\s*milestone_status:\s*"?([^"\r\n]+?)"?\s*$')
                 if ($mMile.Success)  { $out.activeMilestone = $mMile.Groups[1].Value.Trim() }
                 if ($mPhase.Success) { $out.activePhase     = $mPhase.Groups[1].Value.Trim() }
+                if ($runMile)        { $out.activeMilestone = $runMile }
+                if ($runPhase)       { $out.activePhase     = $runPhase }
                 if (-not $out.activePhase -and $mStatusLine.Success) {
                     $statusText = $mStatusLine.Groups[1].Value
                     if ($statusText -match '(?i)\bNext:\s*Phase\s+([0-9]+)\b') {

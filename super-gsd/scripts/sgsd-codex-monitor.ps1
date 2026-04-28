@@ -128,11 +128,23 @@ function Format-Flag($value) {
     return "--"
 }
 
+function Get-StateBodyValue {
+    param([string]$Text, [string]$Key)
+    if (-not $Text -or -not $Key) { return "" }
+    $m = [regex]::Match($Text, "(?m)^\s*$([regex]::Escape($Key)):\s*`"?([^`"\r\n]+)`"?\s*$")
+    if ($m.Success) { return $m.Groups[1].Value.Trim() }
+    return ""
+}
+
 function Get-CurrentScope {
     $stateFile = Join-Path $PlanningDir "STATE.md"
     $out = [ordered]@{ milestone = ""; phase = ""; status = "" }
     if (-not (Test-Path $stateFile)) { return [pscustomobject]$out }
-    foreach ($line in (Get-Content $stateFile -TotalCount 30 -ErrorAction SilentlyContinue)) {
+    $stateText = Get-Content $stateFile -Raw -ErrorAction SilentlyContinue
+    $out.milestone = Get-StateBodyValue $stateText "current_milestone"
+    $out.phase = Get-StateBodyValue $stateText "current_phase"
+    $out.status = Get-StateBodyValue $stateText "status"
+    foreach ($line in (Get-Content $stateFile -TotalCount 80 -ErrorAction SilentlyContinue)) {
         if (-not $out.milestone -and $line -match '^milestone:\s*(.+)$') { $out.milestone = $matches[1].Trim().Trim('"', "'") }
         if (-not $out.phase -and $line -match '^(?:current_phase|phase):\s*"?([0-9]+)"?') { $out.phase = $matches[1] }
         if (-not $out.status -and $line -match '^status:\s*(.+)$') { $out.status = $matches[1].Trim().Trim('"', "'") }

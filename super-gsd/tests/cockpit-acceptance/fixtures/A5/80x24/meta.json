@@ -1,0 +1,1 @@
+{"codex_mtime_offset_sec":-60,"viewport":{"cols":80,"rows":24},"expected_compact":true,"note":"A5 80x24 minimum supported viewport. Below 40-row threshold so compact-mode MUST trigger."}

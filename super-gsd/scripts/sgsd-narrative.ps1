@@ -326,35 +326,111 @@ function Get-ToolColor($tool) {
 
 # ── Renderers ────────────────────────────────────────────────────────────────
 
+function Get-StateBodyValue {
+    param([string]$Text, [string]$Key)
+    if (-not $Text -or -not $Key) { return "" }
+    $m = [regex]::Match($Text, "(?m)^\s*$([regex]::Escape($Key)):\s*`"?([^`"\r\n]+)`"?\s*$")
+    if ($m.Success) { return $m.Groups[1].Value.Trim() }
+    return ""
+}
+
+function Get-MilestoneDisplayName {
+    param([string]$Milestone, [string]$Fallback)
+    if (-not $Milestone) { return $Fallback }
+
+    $readiness = Join-Path $PlanningDir "milestones\$Milestone\MILESTONE-READINESS.md"
+    if (Test-Path $readiness) {
+        try {
+            foreach ($line in (Get-Content $readiness -TotalCount 40 -ErrorAction SilentlyContinue)) {
+                if ($line -match '^milestone_name:\s*(.+)$') {
+                    $name = $matches[1].Trim().Trim('"', "'")
+                    if ($name) { return $name }
+                }
+            }
+        } catch {}
+    }
+
+    $agentRoadmap = Join-Path $PlanningDir "ROADMAP-AGENT.md"
+    if (Test-Path $agentRoadmap) {
+        try {
+            foreach ($line in (Get-Content $agentRoadmap -ErrorAction SilentlyContinue)) {
+                if ($line -match "^##\s*Milestone\s+$([regex]::Escape($Milestone))\s*(?:[—-]\s*)?(.+)$") {
+                    $name = $Matches[1].Trim()
+                    if ($name) { return $name }
+                }
+            }
+        } catch {}
+    }
+
+    return $Fallback
+}
+
+function Get-RoadmapAgentMilestonePhases {
+    param([string]$Milestone)
+    $out = @()
+    if (-not $Milestone) { return @($out) }
+    $agentRoadmap = Join-Path $PlanningDir "ROADMAP-AGENT.md"
+    if (-not (Test-Path $agentRoadmap)) { return @($out) }
+    try {
+        $raw = Get-Content $agentRoadmap -Raw -ErrorAction SilentlyContinue
+        $sectionPattern = "(?ms)^##\s*Milestone\s+$([regex]::Escape($Milestone))\b.*?\r?\n(.*?)(?=^##\s*Milestone\s+|\z)"
+        $section = [regex]::Match($raw, $sectionPattern)
+        if (-not $section.Success) { return @($out) }
+        foreach ($m in [regex]::Matches($section.Groups[1].Value, "(?m)^###\s*Phase\s+([0-9]+)\s*[—-]?\s*(.*?)\s*$")) {
+            $num = $m.Groups[1].Value
+            $name = $m.Groups[2].Value.Trim()
+            if (-not $name) { $name = "Phase $num" }
+            $out += [pscustomobject]@{ num = $num; name = $name }
+        }
+    } catch {}
+    return @($out)
+}
+
 function Get-StateScope {
     $stateFile = Join-Path $PlanningDir "STATE.md"
     $out = [ordered]@{ milestone=""; milestoneName=""; phase=""; phaseName=""; total=0; index=0; status="" }
     if (-not (Test-Path $stateFile)) { return [pscustomobject]$out }
     try {
+        $stateText = Get-Content $stateFile -Raw -ErrorAction SilentlyContinue
+        $out.milestone = Get-StateBodyValue $stateText "current_milestone"
+        $out.phase = Get-StateBodyValue $stateText "current_phase"
+        $out.phaseName = Get-StateBodyValue $stateText "current_phase_name"
+        $out.status = Get-StateBodyValue $stateText "status"
+
         foreach ($line in (Get-Content $stateFile -TotalCount 80 -ErrorAction SilentlyContinue)) {
             if (-not $out.milestone -and $line -match '^milestone:\s*(.+)$') { $out.milestone = $matches[1].Trim().Trim('"', "'") }
             if (-not $out.milestoneName -and $line -match '^milestone_name:\s*(.+)$') { $out.milestoneName = $matches[1].Trim().Trim('"', "'") }
             if (-not $out.status -and $line -match '^status:\s*(.+)$') { $out.status = $matches[1].Trim().Trim('"', "'") }
         }
-        if ($out.status -match '(?i)\bNext:\s*Phase\s+([0-9]+)\s*\(([^)]+)\)') {
+        $out.milestoneName = Get-MilestoneDisplayName $out.milestone $out.milestoneName
+
+        if (-not $out.phase -and $out.status -match '(?i)\bNext:\s*Phase\s+([0-9]+)\s*\(([^)]+)\)') {
             $out.phase = $matches[1]; $out.phaseName = $matches[2]
-        } elseif ($out.status -match '\bPhase\s+([0-9]+)\s*\(([^)]+)\)') {
+        } elseif (-not $out.phase -and $out.status -match '\bPhase\s+([0-9]+)\s*\(([^)]+)\)') {
             $out.phase = $matches[1]; $out.phaseName = $matches[2]
-        } elseif ($out.status -match '\bPhase\s+([0-9]+)\b') {
+        } elseif (-not $out.phase -and $out.status -match '\bPhase\s+([0-9]+)\b') {
             $out.phase = $matches[1]
         }
         if ($out.milestone) {
+            $phases = @(Get-RoadmapAgentMilestonePhases $out.milestone)
             $root = Join-Path $PlanningDir "milestones\$($out.milestone)\phases"
-            $phases = @()
-            if (Test-Path $root) {
+            if ($phases.Count -eq 0 -and (Test-Path $root)) {
                 $phases = @(Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue |
                     Where-Object { $_.Name -match '^([0-9]+)' } |
-                    ForEach-Object { [pscustomobject]@{ num = ([regex]::Match($_.Name, '^([0-9]+)').Groups[1].Value); name=$_.Name } } |
+                    ForEach-Object {
+                        $num = ([regex]::Match($_.Name, '^([0-9]+)').Groups[1].Value)
+                        $slug = ($_.Name -replace "^[0-9]+-", "") -replace "-", " "
+                        [pscustomobject]@{ num = $num; name=$slug }
+                    } |
                     Sort-Object { [int]$_.num })
             }
             $out.total = $phases.Count
             for ($i = 0; $i -lt $phases.Count; $i++) {
-                if ($phases[$i].num -eq $out.phase) { $out.index = $i + 1; break }
+                if ($phases[$i].num -eq $out.phase) {
+                    $out.index = $i + 1
+                    if (-not $out.phaseName) { $out.phaseName = $phases[$i].name }
+                    break
+                }
             }
         }
     } catch {}

@@ -1,0 +1,1 @@
+{"codex_mtime_offset_sec":-60,"viewport":{"cols":120,"rows":30},"expected_compact":true,"note":"A5 120x30 default laptop viewport (1366x768 at 14pt Cascadia Mono). Below 40-row threshold so compact-mode MUST trigger - validates Phase 50 COCKPIT-05 / A4 threshold lowering 70 -> 40."}

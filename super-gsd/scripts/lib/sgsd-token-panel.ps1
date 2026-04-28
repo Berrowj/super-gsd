@@ -18,6 +18,14 @@ if (-not (Get-Command Trunc -ErrorAction SilentlyContinue)) {
     }
 }
 
+function Format-SgsdTokenCount {
+    param([double]$Value)
+    if ($Value -ge 1000000000) { return ("{0:n1}B" -f ($Value / 1000000000.0)) }
+    if ($Value -ge 1000000)    { return ("{0:n1}M" -f ($Value / 1000000.0)) }
+    if ($Value -ge 1000)       { return ("{0:n0}k" -f ($Value / 1000.0)) }
+    return ("{0:n0}" -f $Value)
+}
+
 function _SgsdTokenVerdictColor {
     param([string]$Verdict)
     switch ($Verdict) {
@@ -79,10 +87,10 @@ function Format-SgsdTokenPanel {
             try { $total += [int64]([double]$r.total) } catch { }
         }
 
-        $totalK = [int][math]::Round($total / 1000.0)
+        $totalText = Format-SgsdTokenCount $total
         $lines = New-Object System.Collections.ArrayList
 
-        $headerLine = "TOKENS  total {0}k  rows {1}" -f $totalK, $sorted.Count
+        $headerLine = "TOKENS  total {0}  rows {1}" -f $totalText, $sorted.Count
         [void]$lines.Add([pscustomobject]@{
             Line  = (Trunc $headerLine $PaneWidth)
             Color = "White"
@@ -100,9 +108,9 @@ function Format-SgsdTokenPanel {
             try { $cache = [double]$row.cache_read_ratio } catch { $cache = 0.0 }
             try { $found = [int]([double]$row.useful_findings_per_100k) } catch { $found = 0 }
 
-            $rk = [int][math]::Round($rt / 1000.0)
+            $tokenText = Format-SgsdTokenCount $rt
             $cachePct = "{0,4:P0}" -f $cache
-            $lineText = "  {0,-22} {1,8}k  cache {2}  found/100k {3,3}" -f $key, $rk, $cachePct, $found
+            $lineText = "  {0,-18} {1,8}  cache {2}  found/100k {3,3}" -f (Trunc $key 18), $tokenText, $cachePct, $found
             [void]$lines.Add([pscustomobject]@{
                 Line  = (Trunc $lineText $PaneWidth)
                 Color = "Gray"
