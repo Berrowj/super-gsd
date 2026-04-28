@@ -1228,37 +1228,37 @@ const missingEmitsObserved = Array.isArray(r.missing_emits) && r.missing_emits.l
 
 ---
 
-## 17. Open Questions for Planner
+## 17. Open Questions for Planner (RESOLVED)
 
 ### Q1: CRIT-BACKLOG row append site - harness vs post-run script
 
 **RESEARCH RECOMMENDATION:** harness writes inline via `crit-backlog.cjs#appendRow` at the end of `runAll()`. Justification in section 7.1.
 
-**Planner decides:** confirm or override. If override (e.g., a Phase 57-tier post-run aggregator owns the append), document the new site + its run-id correlation rule.
+**RESOLVED:** harness writes inline via `crit-backlog.cjs#appendRow` at end of `runAll()` aggregate stage (53-01-PLAN.md T6 implementation). Single-writer protocol honored.
 
 ### Q2: Parallelism - sequential vs per-stream-isolated parallel
 
 **RESEARCH RECOMMENDATION:** sequential (CONTEXT.md:107 lock). Section 3.1 flow.
 
-**Planner decides:** if a future phase wants per-stream-isolated parallel, document the additional invariants (no two scenarios touch the same `PHASE_53_GUARDED_STREAMS` entry; tmpdir isolation per scenario already supports this), but the v2.0 baseline ships sequential.
+**RESOLVED:** sequential per CONTEXT.md:107 (53-01-PLAN.md T6 outer loop). Per-stream-isolated parallel deferred to a future milestone.
 
 ### Q3: Docker per-scenario containers vs tmpdir cwd
 
 **RESEARCH RECOMMENDATION:** tmpdir cwd (CONTEXT.md:106 + section 3.2). Docker is overkill for tools that already filesystem-isolate via `cwd`.
 
-**Planner decides:** confirm. If a future scenario requires kernel-level isolation (e.g., a tool that touches global state outside `cwd`), Docker becomes valid for that one scenario; until then, tmpdir is sufficient.
+**RESOLVED:** tmpdir via `mkdtempSync(os.tmpdir())` per scenario (53-01-PLAN.md T2 `_setupContainer`). Docker rejected as overkill.
 
 ### Q4: F17 reuse from Phase 51 in scenario 6
 
 **RESEARCH RECOMMENDATION:** spawn child process running `node -e 'require(...)._testHook_simulateFlushAndPoison({}).then(...)'`. Real-process boundary preserved; mock-predicate forbiddance honored (the hook is a real production code path inside a real subprocess). Section 4.6.
 
-**Planner decides:** confirm spawn-via-`node -e` wrapper, OR add a thin `super-gsd/tools/context-cache/run-flushdb-self-test.cjs` entry that the harness spawns directly. Either is acceptable; the wrapper is one extra file.
+**RESOLVED:** spawn-via-`node -e` wrapper around `redis-adapter.cjs#_testHook_simulateFlushAndPoison` (53-01-PLAN.md T4 scenario 6 implementation). Real-process boundary preserved.
 
 ### Q5: Edge-guard-missing-emit (scenario 10) - which gate's emit to drop
 
 **RESEARCH RECOMMENDATION:** synthetic `phase53_fixture_gate` defined in tmpdir's `gates.yaml`. Section 4.10. The harness invents the gate so we control the `expectedEmits` and `actualEmits`; this gives a deterministic, replayable test of `recordTransition`.
 
-**Planner decides:** confirm synthetic-gate approach OR pick a real production gate (e.g., phase-level-ATC's review row append) and feed its expected_emits with a deliberate gap. Synthetic is recommended because it isolates the test from production gate evolution.
+**RESOLVED:** synthetic `phase53_fixture_gate` in tmpdir-only `gates.yaml` (53-01-PLAN.md T5). Production gates not modified — Lock 4 honored; test isolated from production gate evolution.
 
 ### Q6 (NEW from research): Per-scenario timeout granularity
 
@@ -1266,11 +1266,15 @@ const missingEmitsObserved = Array.isArray(r.missing_emits) && r.missing_emits.l
 
 **Recommendation:** 30s per scenario is safe; in practice each scenario should complete in <5s (target tools are local-script CPU-bound). Total budget <120s is achievable. If a scenario regresses past 30s, the timeout fires and the verdict is `verifier_fail` with reason code `scenario_fail_timeout`.
 
+**RESOLVED:** 30s per-scenario timeout via `spawnSync timeout: 30000` (53-01-PLAN.md T2 `_spawnTool`). Total budget <120s; reason code `scenario_fail_timeout` on regression.
+
 ### Q7 (NEW from research): Self-test runtime budget
 
 **Question:** Self-test 16-20 assertions vs Phase 51's 33 assertions. Is the smaller count sufficient?
 
 **Recommendation:** 16-20 is sufficient because Phase 53 has 1 inject mechanic per scenario (10 mechanics) vs Phase 51's 16 fixtures within one tool's harness (16 mechanics + 6 baseline scenarios + scoring oracle = 33). The expected ratio is roughly proportional. Planner can expand to 25-30 if a single assertion would test multiple invariants weakly.
+
+**RESOLVED:** 19-21 assertions running total (T1 5 + T2 5 + T3 3 + T4 4 + T5 3 + T6 2-3 = 19-21). Above 16-20 ceiling permitted; T7 final list-lock against §8.2 row table (53-01-PLAN.md T7 consolidation).
 
 ---
 
