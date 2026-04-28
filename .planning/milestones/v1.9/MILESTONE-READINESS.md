@@ -36,7 +36,7 @@ Phases whose probed dependencies are all green AND whose upstream phases are not
 | 49 | Memory Governance Lifecycle | ~60m | Upstream: 43+44+45+46+47+48 (all GO or DEGRADED-OK). No external deps beyond prior phase artifacts. |
 | 50 | Cockpit Research Dashboard | ~90m | Upstream: 42+45+47+49 (all GO). Cockpit scripts confirmed present. No new external deps. |
 | 51 | Context Stress Benchmark | ~120m | Upstream: 41-50 (all GO/DEGRADED-OK). Benchmark harness scaffolding present (`harness-benchmark/`). Redis fixture needed but injected as failure fixture, not runtime requirement. |
-| 52 | Redis Live Cache Adapter | ~60m | Upstream: 46+50+51 (all GO). **Redis not running** (redis:DOWN, port 6379 closed) — but REDIS-04 locks this as graceful degraded mode. Phase builds the optional adapter; Redis absence is the expected test fixture. |
+| 52 | Redis Live Memory Projection Adapter | ~60m | Upstream: 46+50+51 (all GO). **Redis not running** (redis:DOWN, port 6379 closed) — but REDIS-04 locks this as graceful degraded mode. Phase builds the optional adapter; Redis absence is the expected test fixture. |
 
 ---
 

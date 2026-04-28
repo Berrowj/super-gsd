@@ -32,7 +32,7 @@ remaining v1.9 phases only:
 - Phase 45 - Context Packet Builder
 - Phase 49 - Memory Governance Lifecycle
 - Phase 51 - Context Stress Benchmark
-- Phase 52 - Redis Live Cache Adapter
+- Phase 52 - Redis Live Memory Projection Adapter
 
 This delta refines the already-approved v1.9 architecture. It does not create a
 new milestone, renumber phases, or invalidate completed evidence.
@@ -270,7 +270,7 @@ Add these fixtures to the existing Phase 51 list:
 - Benchmark cannot pass by excluding difficult/critical evidence.
 - Benchmark cannot pass by informing the model that it is being benchmarked.
 
-## Phase 52 Delta - Redis Live Cache Adapter
+## Phase 52 Delta - Redis Live Memory Projection Adapter
 
 Redis remains optional and disposable.
 
@@ -280,9 +280,13 @@ Redis may hold:
 
 - live cockpit state
 - active phase/agent markers
+- session checkpoint markers
 - provider health cache
 - short-lived token counters
 - hot context packet previews
+- semantic cache entries keyed by normalized intent, role, policy, and source
+  hashes
+- event stream rows for cockpit, provider, retry, and agent progress
 - hot validated-thought projections with source hashes
 
 ### Forbidden Redis Content
@@ -304,6 +308,13 @@ Redis must not be the only location for:
 - Redis hot packets are invalidated or rebuilt when source hashes change.
 - Redis may speed cockpit and packet projection, but cannot become the packet
   builder's source of truth.
+- Semantic cache hits require intent, role, context policy, and source-hash
+  compatibility; broad semantic similarity alone is not enough.
+- Redis stream/PubSub projections may drive live progress views, but those
+  views must rebuild from canonical files after Redis loss.
+- Redis keys must carry schema_version, kind, canonical_refs, source_hashes,
+  ttl/retention policy, and registry hash where relevant.
+- Poisoned or stale Redis keys are rejected and logged.
 
 ## Operator Handover Rule
 

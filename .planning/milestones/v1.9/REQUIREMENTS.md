@@ -259,7 +259,8 @@ At milestone close, SGSD must be able to:
 - [ ] **REDIS-01** Add optional `redis-adapter.cjs` only behind the context
   cache interface.
 - [ ] **REDIS-02** Use Redis only for live cockpit state, hot context packets,
-  provider canary cache, active process markers, and short-lived counters.
+  semantic cache entries, provider canary cache, active process/session
+  markers, event streams, and short-lived counters.
 - [ ] **REDIS-03** Prove `FLUSHDB` loses no canonical decisions, debt, phase
   evidence, or capsules.
 - [ ] **REDIS-04** If Redis is unavailable, SGSD runs with SQLite/local files
@@ -268,6 +269,16 @@ At milestone close, SGSD must be able to:
 - [ ] **REDIS-06** Redis may cache hot validated-thought projections only with
   source hashes, and must invalidate or rebuild them when canonical source
   hashes change.
+- [ ] **REDIS-07** Semantic cache hits require normalized intent, role, context
+  policy, phase/milestone, and source-hash compatibility; semantic similarity
+  alone may never inject context.
+- [ ] **REDIS-08** Every Redis key has a schema, key kind, TTL or retention
+  policy, canonical refs, and source-hash metadata; forbidden key kinds are
+  rejected.
+- [ ] **REDIS-09** Redis streams may drive cockpit/progress views, but the same
+  views must degrade to canonical files when Redis is flushed or absent.
+- [ ] **REDIS-10** Poisoned/stale Redis values are rejected and logged instead
+  of being passed into context packets.
 
 ## Phase Map
 
@@ -284,7 +295,7 @@ At milestone close, SGSD must be able to:
 | 49 | Memory Governance Lifecycle | complaints + promotion/demotion/revocation |
 | 50 | Cockpit Research Dashboard | token/context/capsule aware cockpit |
 | 51 | Context Stress Benchmark | before/after benchmark + failure injection |
-| 52 | Redis Live Cache Adapter | optional disposable Redis projection |
+| 52 | Redis Live Memory Projection Adapter | optional Redis semantic/cache/stream projection |
 
 ## Dependencies
 

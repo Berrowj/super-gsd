@@ -298,24 +298,36 @@ Acceptance:
   validated thought, stale abstraction, and missing provenance;
 - benchmark cannot be gamed by telling the model it is being benchmarked.
 
-## Phase 52 - Redis Live Cache Adapter
+## Phase 52 - Redis Live Memory Projection Adapter
 
-Goal: add Redis only if it improves live projections without owning truth.
+Goal: add Redis only if it improves live memory projections without owning
+truth.
 
 Deliverables:
 
 - `super-gsd/tools/context-cache/redis-adapter.cjs`
 - optional boot/readiness probe
 - FLUSHDB safety test
+- semantic cache API keyed by intent/role/source hashes
+- live event stream projection for cockpit/agent progress
+- provider health and active-session checkpoint cache
+- Redis key inventory validator
 
 Acceptance:
 
 - Redis can be disabled without breaking SGSD;
 - Redis flush loses no canonical decisions, debt, evidence, or capsules;
-- Redis stores only live cockpit state, hot packets, provider canary cache,
-  active markers, short-lived counters, or hot validated-thought projections
-  with source hashes;
+- Redis stores only live cockpit state, hot packets, semantic-cache entries,
+  provider canary cache, active markers, session checkpoint markers, event
+  streams, short-lived counters, or hot validated-thought projections with
+  source hashes;
 - Redis hot projections are invalidated or rebuilt when source hashes change;
+- Redis semantic-cache hits require normalized intent, role, context policy,
+  and source-hash compatibility;
+- Redis streams may speed cockpit rendering, but cockpit degrades to canonical
+  files if Redis is flushed or absent;
+- poisoned/stale Redis keys are rejected and logged, not injected into context;
+- Redis key inventory contains zero forbidden canonical-truth kinds;
 - readiness labels Redis optional/degraded, never required.
 
 ## Milestone Close Gate
