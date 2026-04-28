@@ -398,35 +398,123 @@ function Write-GateTrack {
         $color = switch ($c.state) {
             "done" { "Green" }
             "active" { "Yellow" }
+            "warn" { "Yellow" }
             "fail" { "Red" }
+            "skip" { "DarkGray" }
             default { "Red" }
         }
-        $suffix = if ($c.state -eq "fail") { "X" } else { "" }
+        $suffix = if ($c.state -eq "fail") { "X" } elseif ($c.state -eq "warn") { "!" } else { "" }
         Write-Host ("[{0}{1}]" -f $c.letter, $suffix) -NoNewline -ForegroundColor $color
         Write-Host " " -NoNewline
     }
     Write-Host $CLEAR_LINE
 }
 
+function Set-MudaCellFromClass {
+    param([object[]]$Cells, [string]$WasteClass, [string]$Verdict)
+    $idx = switch -Regex ("$WasteClass".ToLowerInvariant()) {
+        '^transport$' { 0; break }
+        '^inventory$' { 1; break }
+        '^motion$' { 2; break }
+        '^waiting$' { 3; break }
+        '^overproduction$' { 4; break }
+        '^extra-processing$|^overprocessing$' { 5; break }
+        '^defects?$' { 6; break }
+        default { -1 }
+    }
+    if ($idx -lt 0 -or $idx -ge $Cells.Count) { return }
+    $state = switch -Regex ("$Verdict".ToUpperInvariant()) {
+        '^PASS$' { "done"; break }
+        '^WARN$' { "warn"; break }
+        '^FAIL$' { "fail"; break }
+        default { "done" }
+    }
+    $Cells[$idx].state = $state
+}
+
+function Get-MudaLogRow {
+    param([string]$PhaseNum)
+    $log = Join-Path $PlanningDir "metrics\muda-log.jsonl"
+    if (-not (Test-Path $log)) { return $null }
+    try {
+        $lines = @(Get-Content $log -Tail 120 -ErrorAction SilentlyContinue)
+        [array]::Reverse($lines)
+        foreach ($line in $lines) {
+            if (-not "$line".Trim()) { continue }
+            try {
+                $row = $line | ConvertFrom-Json -ErrorAction Stop
+                if ("$($row.phase)" -eq "$PhaseNum") { return $row }
+            } catch {}
+        }
+    } catch {}
+    return $null
+}
+
 function Get-MudaGateState {
     param([string]$Milestone, [string]$PhaseNum, $Codex)
     $letters = @("T","I","M","W","O","O","D")
     $cells = @($letters | ForEach-Object { [pscustomobject]@{ letter=$_; state="todo" } })
-    $summary = "MUDA has not run for this phase yet."
+    $summary = "MUDA has not run for P$PhaseNum yet."
+    $details = "Runs after ATC at phase close. T=transport has no SGSD probe yet."
     $phaseDir = Resolve-PhaseDir -Milestone $Milestone -PhaseNum $PhaseNum
     $waste = if ($phaseDir) { Get-ChildItem -Path $phaseDir.FullName -Filter "*WASTE*.md" -File -ErrorAction SilentlyContinue | Select-Object -First 1 } else { $null }
     if ($waste) {
-        foreach ($c in $cells) { $c.state = "done" }
-        $summary = "Waste check exists; use WASTE notes for any flagged cleanup."
+        foreach ($c in $cells) { $c.state = "skip" }
+        $cells[0].state = "skip"
+        $warnCount = 0
+        $failCount = 0
         try {
-            $line = @(Get-Content $waste.FullName -ErrorAction SilentlyContinue | Where-Object { "$_".Trim() -and $_ -notmatch '^\s*#|^---|^\s*[-*]\s*$' } | Select-Object -First 1)
-            if ($line) { $summary = "$line" }
+            $raw = Get-Content $waste.FullName -Raw -ErrorAction SilentlyContinue
+            $wm = [regex]::Match($raw, '(?mi)^warn_count:\s*([0-9]+)')
+            $fm = [regex]::Match($raw, '(?mi)^fail_count:\s*([0-9]+)')
+            if ($wm.Success) { $warnCount = [int]$wm.Groups[1].Value }
+            if ($fm.Success) { $failCount = [int]$fm.Groups[1].Value }
+            foreach ($m in [regex]::Matches($raw, '(?m)^\|\s*([^|]+?)\s*\|\s*(PASS|WARN|FAIL)\s*\|[^|]*\|[^|]*\|\s*([^|]+?)\s*\|')) {
+                $probe = $m.Groups[1].Value.Trim()
+                if ($probe -match '^-+$|^Probe$') { continue }
+                Set-MudaCellFromClass -Cells $cells -WasteClass ($m.Groups[3].Value.Trim()) -Verdict ($m.Groups[2].Value.Trim())
+            }
+            $cellWarnCount = @($cells | Where-Object { $_.state -eq "warn" }).Count
+            $cellFailCount = @($cells | Where-Object { $_.state -eq "fail" }).Count
+            if ($cellWarnCount -gt $warnCount) { $warnCount = $cellWarnCount }
+            if ($cellFailCount -gt $failCount) { $failCount = $cellFailCount }
+            if ($failCount -gt 0) {
+                $summary = "MUDA FAIL: $failCount fail + $warnCount warn; see WASTE.md."
+            } elseif ($warnCount -gt 0) {
+                $summary = "MUDA WARN: $warnCount warning(s); see WASTE.md."
+            } else {
+                $summary = "MUDA PASS: no waste detected by active probes."
+            }
+            $details = "Source: WASTE.md; green=clean, yellow=warn, red=fail, gray=not probed."
         } catch {}
     } elseif ($Codex.step -match '(?i)muda|waste') {
-        $cells[0].state = "active"
+        $cells[4].state = "active"
         $summary = "MUDA review is currently running."
+        $details = "Codex qualitative waste check is active."
+    } else {
+        $row = Get-MudaLogRow -PhaseNum $PhaseNum
+        if ($row) {
+            foreach ($c in $cells) { $c.state = "skip" }
+            $cells[0].state = "skip"
+            if ($row.probes) {
+                foreach ($p in $row.probes.PSObject.Properties) {
+                    $probe = $p.Value
+                    Set-MudaCellFromClass -Cells $cells -WasteClass "$($probe.waste_class)" -Verdict "$($probe.verdict)"
+                }
+            } elseif ($row.fail -ne $null -or $row.warn -ne $null) {
+                foreach ($i in 1..6) { $cells[$i].state = "done" }
+                if ([int]$row.fail -gt 0) { $cells[6].state = "fail" }
+                elseif ([int]$row.warn -gt 0) { $cells[6].state = "warn" }
+            }
+            $fail = if ($row.fail -ne $null) { [int]$row.fail } else { 0 }
+            $warn = if ($row.warn -ne $null) { [int]$row.warn } else { 0 }
+            if ($fail -gt 0) { $summary = "MUDA log says FAIL: $fail fail + $warn warn." }
+            elseif ($warn -gt 0) { $summary = "MUDA log says WARN: $warn warning(s)." }
+            else { $summary = "MUDA log says PASS for P$PhaseNum." }
+            $details = "Source: muda-log.jsonl; WASTE.md not found for this phase."
+        }
     }
-    return [pscustomobject]@{ cells=$cells; summary=$summary }
+    return [pscustomobject]@{ cells=$cells; summary=$summary; details=$details }
 }
 
 function Get-AtcGateState {
@@ -554,6 +642,9 @@ function Render-CompactCodex {
     Write-GateTrack "MUDA" $muda.cells
     Write-Host "  " -NoNewline
     Write-Host (Trunc $muda.summary ($Pw - 3)) -NoNewline -ForegroundColor Gray
+    Write-Host $CLEAR_LINE
+    Write-Host "  " -NoNewline
+    Write-Host (Trunc $muda.details ($Pw - 3)) -NoNewline -ForegroundColor DarkGray
     Write-Host $CLEAR_LINE
 
     $atc = Get-AtcGateState -Milestone $Scope.milestone -PhaseNum $PhaseNum -Codex $Codex -Verdicts $Verdicts
@@ -697,6 +788,15 @@ function Render {
     $phaseEvidence = Get-PhaseEvidenceSummary -Milestone $scope.milestone -PhaseNum $phaseNum
     Write-Host "  evidence " -NoNewline -ForegroundColor DarkGray
     Write-Host ("[{0}] {1}/{2}" -f $phaseEvidence.bits, $phaseEvidence.done, $phaseEvidence.total) -NoNewline -ForegroundColor $(if ($phaseEvidence.done -eq $phaseEvidence.total) { "Green" } elseif ($phaseEvidence.done -gt 0) { "Yellow" } else { "DarkGray" })
+    Write-Host $CLEAR_LINE
+
+    $muda = Get-MudaGateState -Milestone $scope.milestone -PhaseNum $phaseNum -Codex $codex
+    Write-GateTrack "MUDA" $muda.cells
+    Write-Host "  " -NoNewline
+    Write-Host (Trunc $muda.summary ($pw - 3)) -NoNewline -ForegroundColor Gray
+    Write-Host $CLEAR_LINE
+    Write-Host "  " -NoNewline
+    Write-Host (Trunc $muda.details ($pw - 3)) -NoNewline -ForegroundColor DarkGray
     Write-Host $CLEAR_LINE
 
     $atc = Get-AtcGateState -Milestone $scope.milestone -PhaseNum $phaseNum -Codex $codex -Verdicts $verdicts
