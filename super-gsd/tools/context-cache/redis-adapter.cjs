@@ -303,50 +303,214 @@ function _composeSemanticKey(parts) {
 }
 
 // ----------------------------------------------------------------------------
-// _validateRedisValueSchema (REDIS-LOCK-07 binding; T2 fills full body)
-// Closed-enum check on val.kind + presence of required envelope fields.
-// T1 ships the entry-point + ALLOWED_KINDS / FORBIDDEN_KINDS check; T2
-// extends with canonical_refs walk + ttl_seconds bound check.
+// _validateRedisValueSchema (REDIS-LOCK-07 binding; T2 full body)
+//
+// CONTRACT (PLAN line 227 + verification_cmd line 265):
+//   Returns null on a fully-formed valid envelope.
+//   Returns a string reason from REDIS_REASON_CODES on any failure.
+//
+// Required envelope fields (10 mandatory; per 52-CONTEXT.md "Required Key Policy"
+// minus optional intent_id/role which Class 1 markers omit):
+//   schema_version === 1
+//   kind in ALLOWED_KINDS, NOT in FORBIDDEN_KINDS  (Lock 11 byte-equality on Set membership)
+//   milestone:string, phase:string
+//   source_hashes:Array, length>=1, each element string
+//   canonical_refs:Array
+//   created_at:string
+//   ttl_seconds:number, > 0
+//
+// Defense in depth (REDIS-LOCK-07): kind allowlist + denylist are checked
+// independently. A denylisted kind that somehow appears in ALLOWED_KINDS
+// (impossible by frozen Sets, but defended anyway) is rejected as
+// 'forbidden_kind' - the denylist wins.
 // ----------------------------------------------------------------------------
 
 function _validateRedisValueSchema(val) {
-  if (!val || typeof val !== 'object') {
-    return { ok: false, reason: 'schema_invalid' };
-  }
-  if (val.schema_version !== SCHEMA_VERSION) {
-    return { ok: false, reason: 'schema_invalid' };
-  }
+  if (!val || typeof val !== 'object') return 'schema_invalid';
+  if (val.schema_version !== SCHEMA_VERSION) return 'schema_invalid';
   const kind = val.kind;
-  if (typeof kind !== 'string' || kind.length === 0) {
-    return { ok: false, reason: 'schema_invalid' };
+  if (typeof kind !== 'string' || kind.length === 0) return 'schema_invalid';
+  // Denylist check FIRST (defense in depth - REDIS-LOCK-07 Lock 11 byte-equality)
+  if (FORBIDDEN_KINDS.has(kind)) return 'forbidden_kind';
+  // Allowlist check (closed enum)
+  if (!ALLOWED_KINDS.has(kind)) return 'schema_invalid';
+  if (typeof val.milestone !== 'string') return 'schema_invalid';
+  if (typeof val.phase !== 'string') return 'schema_invalid';
+  if (!Array.isArray(val.source_hashes) || val.source_hashes.length < 1) return 'schema_invalid';
+  for (let i = 0; i < val.source_hashes.length; i++) {
+    if (typeof val.source_hashes[i] !== 'string') return 'schema_invalid';
   }
-  if (FORBIDDEN_KINDS.has(kind)) {
-    return { ok: false, reason: 'forbidden_kind' };
-  }
-  if (!ALLOWED_KINDS.has(kind)) {
-    return { ok: false, reason: 'unknown_kind' };
-  }
-  if (!Array.isArray(val.source_hashes)) {
-    return { ok: false, reason: 'schema_invalid' };
-  }
-  if (!Array.isArray(val.canonical_refs)) {
-    return { ok: false, reason: 'schema_invalid' };
-  }
-  if (typeof val.ttl_seconds !== 'number') {
-    return { ok: false, reason: 'schema_invalid' };
-  }
-  return { ok: true };
+  if (!Array.isArray(val.canonical_refs)) return 'schema_invalid';
+  if (typeof val.created_at !== 'string') return 'schema_invalid';
+  if (typeof val.ttl_seconds !== 'number' || val.ttl_seconds <= 0) return 'schema_invalid';
+  return null;
 }
 
 // ----------------------------------------------------------------------------
-// _sourceHashesStillMatch (REDIS-LOCK-02 binding; T2 fills full body)
-// T1 ships a permissive stub that returns { ok: true } so T1 self-tests
-// can call cache APIs without a canonical-refs file system. T2 swaps in
-// the real sha256 walker over canonical_refs.
+// _sha256OfFile (REDIS-LOCK-02 binding; pure helper)
+//
+// LOCK 4 NOTE: Phase 46 rebuild.cjs lines 192-199 contain the canonical
+// 8-line implementation. Per RESEARCH "Don't Hand-Roll" guidance, the
+// function is pure and trivially mirrored - replicating locally rather
+// than require()'ing rebuild.cjs avoids cross-file coupling and honors
+// the Lock 4 boundary (no edits to rebuild.cjs, no reach into its
+// internals). Returns null on any read error so the caller can treat
+// drift conservatively (REDIS-LOCK-02: missing canonical truth = drift).
 // ----------------------------------------------------------------------------
 
-function _sourceHashesStillMatch(_sourceHashes, _canonicalRefs) {
-  return { ok: true };
+function _sha256OfFile(absPath) {
+  try {
+    if (typeof absPath !== 'string' || absPath.length === 0) return null;
+    const buf = fs.readFileSync(absPath);
+    return crypto.createHash('sha256').update(buf).digest('hex');
+  } catch (_e) {
+    return null;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// _sourceHashesStillMatch (REDIS-LOCK-02 binding; T2 full body)
+//
+// Walks canonical_refs[] computing _sha256OfFile per ref, then compares
+// the computed hash array against the stored source_hashes array via
+// sorted byte-equality (Lock 11: NO fuzzy matching, NO subset, NO order
+// tolerance). Returns true only on exact match.
+//
+// Conservative fail-closed (REDIS-LOCK-02 + REDIS-LOCK-07):
+//   - any ref read fails -> _sha256OfFile returns null -> drift -> false
+//   - canonical_refs missing/non-array -> drift -> false
+//   - source_hashes count mismatches canonical_refs count -> drift -> false
+//
+// Resolves canonical_refs against repo root when path is relative; absolute
+// paths pass through. NEVER throws; on any unexpected error returns false.
+// ----------------------------------------------------------------------------
+
+function _sourceHashesStillMatch(sourceHashes, canonicalRefs) {
+  try {
+    if (!Array.isArray(sourceHashes) || !Array.isArray(canonicalRefs)) return false;
+    if (sourceHashes.length !== canonicalRefs.length) return false;
+    if (sourceHashes.length === 0) return false;
+    const repoRoot = _resolveRepoRoot();
+    const computed = [];
+    for (let i = 0; i < canonicalRefs.length; i++) {
+      const ref = canonicalRefs[i];
+      if (typeof ref !== 'string' || ref.length === 0) return false;
+      const abs = path.isAbsolute(ref) ? ref : path.join(repoRoot, ref);
+      const h = _sha256OfFile(abs);
+      if (h === null) return false; // conservative fail-closed
+      computed.push(h);
+    }
+    // Lock 11 byte-equality: sorted-array .every() comparison
+    const a = sourceHashes.slice().sort();
+    const b = computed.slice().sort();
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
+  } catch (_e) {
+    return false;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// _revalidateAndMaybeDelete (REDIS-LOCK-02 + REDIS-LOCK-07 binding; T2)
+//
+// Read-path gate. Given a raw string fetched from Redis under `key`,
+// runs the three poisoned-key defenses in order:
+//   1. JSON.parse - reject 'poisoned_unparseable'
+//   2. _validateRedisValueSchema - reject schema_invalid|forbidden_kind|...
+//   3. _sourceHashesStillMatch - reject 'source_hash_drift'
+//
+// On any rejection: deletes the offending key from Redis (mock or live)
+// and emits a projection-log row with status='rejected' so cache poison
+// evidence is observable. NEVER throws (Lock 13).
+//
+// Inputs:
+//   c          - Redis client (or mock with .del / .get async methods)
+//   key        - string namespaced key (sgsd:v19:...)
+//   raw        - string from c.get(key); null/undefined means miss upstream
+//
+// Returns: { valid: boolean, reason: string, val: object|null }
+//   valid:true,reason:'hit',val:parsed             - serve to caller
+//   valid:false,reason:<code>,val:null             - upstream returns miss/stale
+// ----------------------------------------------------------------------------
+
+async function _revalidateAndMaybeDelete(c, key, raw) {
+  // Defensive: missing inputs map to a generic miss so callers do not
+  // attempt to serve garbage. Lock 13: never throw.
+  if (!c || typeof c.del !== 'function') {
+    return { valid: false, reason: 'internal_error', val: null };
+  }
+  if (typeof raw !== 'string' || raw.length === 0) {
+    return { valid: false, reason: 'miss', val: null };
+  }
+
+  // Defense 1: JSON.parse poisoned-unparseable (Pitfall 5; REDIS-LOCK-07)
+  let val;
+  try {
+    val = JSON.parse(raw);
+  } catch (_e) {
+    try { await c.del(key); } catch (_d) { /* tolerate del failure */ }
+    _emitProjectionLog({
+      command: 'revalidateAndMaybeDelete',
+      status: 'rejected',
+      reason: 'poisoned_unparseable',
+      key: key,
+    });
+    return { valid: false, reason: 'poisoned_unparseable', val: null };
+  }
+
+  // Defense 2: schema validation (REDIS-LOCK-01 closed-enum + REDIS-LOCK-07)
+  const schemaErr = _validateRedisValueSchema(val);
+  if (schemaErr !== null) {
+    try { await c.del(key); } catch (_d) { /* tolerate */ }
+    _emitProjectionLog({
+      command: 'revalidateAndMaybeDelete',
+      status: 'rejected',
+      reason: schemaErr,
+      key: key,
+    });
+    return { valid: false, reason: schemaErr, val: null };
+  }
+
+  // Defense 3: source-hash revalidation (REDIS-LOCK-02 - the core invariant)
+  const matches = _sourceHashesStillMatch(val.source_hashes, val.canonical_refs);
+  if (!matches) {
+    try { await c.del(key); } catch (_d) { /* tolerate */ }
+    _emitProjectionLog({
+      command: 'revalidateAndMaybeDelete',
+      status: 'rejected',
+      reason: 'source_hash_drift',
+      key: key,
+    });
+    return { valid: false, reason: 'source_hash_drift', val: null };
+  }
+
+  return { valid: true, reason: 'hit', val: val };
+}
+
+// ----------------------------------------------------------------------------
+// _checkKindGate (REDIS-LOCK-01 + REDIS-LOCK-07 binding; T2 write-side gate)
+//
+// Lightweight precheck for put-side poison defense. Runs BEFORE _getClient()
+// so a forbidden/unknown kind is rejected mechanically even when Redis is
+// degraded - the write side cannot be a poisoning vector. T3 layers the
+// full envelope-build validation (10 mandatory fields) on top; T2 ships
+// the closed-enum gate.
+//
+// Returns null on accept (kind is in ALLOWED_KINDS, not in FORBIDDEN_KINDS).
+// Returns 'forbidden_kind' | 'schema_invalid' on reject (string from
+// REDIS_REASON_CODES enum).
+// ----------------------------------------------------------------------------
+
+function _checkKindGate(metadata) {
+  if (!metadata || typeof metadata !== 'object') return 'schema_invalid';
+  const kind = metadata.kind;
+  if (typeof kind !== 'string' || kind.length === 0) return 'schema_invalid';
+  if (FORBIDDEN_KINDS.has(kind)) return 'forbidden_kind';
+  if (!ALLOWED_KINDS.has(kind)) return 'schema_invalid';
+  return null;
 }
 
 // ----------------------------------------------------------------------------
@@ -468,13 +632,27 @@ async function getHotPacket(_key) {
 }
 
 // 3. putHotPacket(key, packet, metadata) -> { ok, key, ttl_seconds }
-async function putHotPacket(_key, _packet, _metadata) {
+//
+// REDIS-LOCK-07 hardening (T2): kind allowlist+denylist precheck runs BEFORE
+// _getClient() so a forbidden/unknown kind is mechanically rejected even
+// when Redis is degraded (write-side poison defense). T3 fills the full
+// SET EX + envelope-build path; T2 ships the gate.
+async function putHotPacket(_key, _packet, metadata) {
   try {
+    const kindGate = _checkKindGate(metadata);
+    if (kindGate !== null) {
+      _emitProjectionLog({
+        command: 'putHotPacket',
+        status: 'rejected',
+        reason: kindGate,
+      });
+      return { ok: false, key: null, ttl_seconds: 0, reason: kindGate, source: 'degraded' };
+    }
     const client = await _getClient();
     if (!client) {
       return { ok: false, key: null, ttl_seconds: 0, reason: _disabledReason() || 'redis_connect_failed', source: 'degraded' };
     }
-    // T3 fills the SET EX + schema-validate body. T1 returns degraded.
+    // T3 fills the SET EX + schema-validate body. T2 returns degraded.
     return { ok: false, key: null, ttl_seconds: 0, reason: 'redis_connect_failed', source: 'redis' };
   } catch (_e) {
     return { ok: false, key: null, ttl_seconds: 0, reason: 'internal_error', source: 'degraded' };
@@ -496,13 +674,27 @@ async function getSemanticCache(_query) {
 }
 
 // 5. putSemanticCache(query, value, metadata) -> { ok, key, ttl_seconds }
-async function putSemanticCache(_query, _value, _metadata) {
+//
+// REDIS-LOCK-07 write-side gate (T2). Mirrors putHotPacket: closed-enum
+// kind check before _getClient(). T3 will additionally enforce
+// metadata.kind === 'semantic_cache' specifically; T2 just rejects
+// FORBIDDEN/unknown kinds.
+async function putSemanticCache(_query, _value, metadata) {
   try {
+    const kindGate = _checkKindGate(metadata);
+    if (kindGate !== null) {
+      _emitProjectionLog({
+        command: 'putSemanticCache',
+        status: 'rejected',
+        reason: kindGate,
+      });
+      return { ok: false, key: null, ttl_seconds: 0, reason: kindGate, source: 'degraded' };
+    }
     const client = await _getClient();
     if (!client) {
       return { ok: false, key: null, ttl_seconds: 0, reason: _disabledReason() || 'redis_connect_failed', source: 'degraded' };
     }
-    // T3 fills the body. T1 returns degraded.
+    // T3 fills the body. T2 returns degraded.
     return { ok: false, key: null, ttl_seconds: 0, reason: 'redis_connect_failed', source: 'redis' };
   } catch (_e) {
     return { ok: false, key: null, ttl_seconds: 0, reason: 'internal_error', source: 'degraded' };
@@ -510,13 +702,28 @@ async function putSemanticCache(_query, _value, _metadata) {
 }
 
 // 6. publishEvent(event) -> { ok, stream_id, reason }
-async function publishEvent(_event) {
+//
+// REDIS-LOCK-07 write-side gate (T2). publishEvent receives `event` whose
+// `kind` field must be 'agent_event_stream' (closed-enum). _checkKindGate
+// rejects FORBIDDEN/unknown kinds before any client call. T4 fills the
+// XADD + MAXLEN ~ trim body; T2 ships the gate so a poisoned put-side
+// kind cannot land even when client is null.
+async function publishEvent(event) {
   try {
+    const kindGate = _checkKindGate(event);
+    if (kindGate !== null) {
+      _emitProjectionLog({
+        command: 'publishEvent',
+        status: 'rejected',
+        reason: kindGate,
+      });
+      return { ok: false, stream_id: null, reason: kindGate, source: 'degraded' };
+    }
     const client = await _getClient();
     if (!client) {
       return { ok: false, stream_id: null, reason: _disabledReason() || 'redis_connect_failed', source: 'degraded' };
     }
-    // T4 fills XADD + MAXLEN ~ trim. T1 returns degraded.
+    // T4 fills XADD + MAXLEN ~ trim. T2 returns degraded.
     return { ok: false, stream_id: null, reason: 'redis_connect_failed', source: 'redis' };
   } catch (_e) {
     return { ok: false, stream_id: null, reason: 'internal_error', source: 'degraded' };
@@ -537,17 +744,117 @@ async function readEvents(_scope) {
   }
 }
 
-// 8. invalidateBySourceHash(source_hash) -> { ok, count }
-async function invalidateBySourceHash(_sourceHash) {
+// 8. invalidateBySourceHash(source_hash) -> { ok, count, deleted_count, source, reason }
+//
+// REDIS-LOCK-02 binding (T2). Uses scanIterator (NOT KEYS - O(n) blocking
+// per RESEARCH "State of the Art" deprecation) with MATCH 'sgsd:v19:*'
+// (cross-tenant pollution guard; ASVS V4). For each key: get + parse +
+// check Array.isArray(val.source_hashes) && includes(old_hash); on match
+// c.del + emit projection log row {status:'invalidated',
+// reason:'source_hash_drift'}. Poisoned/unparseable entries are skipped
+// silently (they expire by TTL; the read-path _revalidateAndMaybeDelete
+// handles them).
+//
+// Lock 13: full try/catch wrap. When _getClient() returns null (T1+T2
+// always; T5 wires the real connect path) returns the degraded sentinel
+// with deleted_count:0 and reason='redis_unavailable' / disabled-cause.
+// The SCAN body becomes live the moment a client is non-null (T5+).
+//
+// Input shape:
+//   sourceHashArg can be either a raw string (legacy) or { old_hash:string }
+//   per the user's prompt API. Both shapes accepted; old_hash extracted.
+async function invalidateBySourceHash(sourceHashArg) {
   try {
+    // Normalize input: accept both string and { old_hash } object forms.
+    let oldHash = null;
+    if (typeof sourceHashArg === 'string') {
+      oldHash = sourceHashArg;
+    } else if (sourceHashArg && typeof sourceHashArg === 'object' && typeof sourceHashArg.old_hash === 'string') {
+      oldHash = sourceHashArg.old_hash;
+    }
+    if (typeof oldHash !== 'string' || oldHash.length === 0) {
+      return {
+        ok: false,
+        count: 0,
+        deleted_count: 0,
+        source: 'degraded',
+        reason: 'schema_invalid',
+      };
+    }
+
     const client = await _getClient();
     if (!client) {
-      return { ok: false, count: 0, deleted_count: 0, reason: _disabledReason() || 'redis_connect_failed', source: 'degraded' };
+      // REDIS-LOCK-06: redis absent / disabled / connect-fail -> graceful no-op.
+      return {
+        ok: true,
+        count: 0,
+        deleted_count: 0,
+        source: 'degraded',
+        reason: _disabledReason() || 'redis_unavailable',
+      };
     }
-    // T2 fills SCAN MATCH sgsd:v19:* + DEL by source_hash match. T1 zero.
-    return { ok: false, count: 0, deleted_count: 0, reason: 'redis_connect_failed', source: 'redis' };
+
+    // Live SCAN path (executes only when T5 wires _getClient to return
+    // a real client; pre-T5 this branch is dead).
+    let deleted = 0;
+    if (typeof client.scanIterator !== 'function') {
+      // Defensive: client surface mismatch -> degraded.
+      return {
+        ok: false,
+        count: 0,
+        deleted_count: 0,
+        source: 'degraded',
+        reason: 'internal_error',
+      };
+    }
+    const iter = client.scanIterator({ MATCH: NS_PREFIX + '*', COUNT: 200 });
+    for await (const key of iter) {
+      let raw;
+      try {
+        raw = await client.get(key);
+      } catch (_e) {
+        continue; // skip read failure on this key
+      }
+      if (typeof raw !== 'string' || raw.length === 0) continue;
+      let val;
+      try {
+        val = JSON.parse(raw);
+      } catch (_e) {
+        continue; // poisoned entry; TTL handles it
+      }
+      if (!val || typeof val !== 'object') continue;
+      if (!Array.isArray(val.source_hashes)) continue;
+      if (val.source_hashes.indexOf(oldHash) === -1) continue;
+      try {
+        await client.del(key);
+        deleted++;
+        _emitProjectionLog({
+          command: 'invalidateBySourceHash',
+          status: 'invalidated',
+          reason: 'source_hash_drift',
+          key: key,
+          old_hash: oldHash,
+        });
+      } catch (_e) {
+        // tolerate del failure; do not increment count
+      }
+    }
+
+    return {
+      ok: true,
+      count: deleted,
+      deleted_count: deleted,
+      source: 'redis',
+      reason: deleted > 0 ? 'source_hash_drift' : 'miss',
+    };
   } catch (_e) {
-    return { ok: false, count: 0, deleted_count: 0, reason: 'internal_error', source: 'degraded' };
+    return {
+      ok: false,
+      count: 0,
+      deleted_count: 0,
+      source: 'degraded',
+      reason: 'internal_error',
+    };
   }
 }
 
@@ -756,6 +1063,153 @@ async function selfTest() {
     return { calls: calls.length };
   }));
 
+  // --------------------------------------------------------------------
+  // T2 GROUP B/C/E - source-hash invalidation + poisoned-key defense
+  // (REDIS-LOCK-02 + REDIS-LOCK-07 binding)
+  // --------------------------------------------------------------------
+
+  // B1: _validateRedisValueSchema rejects an envelope missing source_hashes
+  //     (incomplete envelope -> reason 'schema_invalid').
+  results.push(_bootstrapAssert('B1_validate_shape_rejects_missing_field', function () {
+    const incomplete = {
+      schema_version: 1,
+      kind: 'hot_context_packet',
+      milestone: 'v1.9',
+      phase: '52',
+      // source_hashes intentionally missing
+      canonical_refs: [],
+      created_at: new Date().toISOString(),
+      ttl_seconds: 300,
+    };
+    const reason = _validateRedisValueSchema(incomplete);
+    if (reason === null) {
+      throw new Error('expected non-null reason for incomplete envelope');
+    }
+    if (typeof reason !== 'string') {
+      throw new Error('reason must be string; got ' + typeof reason);
+    }
+    if (reason !== 'schema_invalid') {
+      throw new Error('expected reason=schema_invalid; got ' + reason);
+    }
+    if (REDIS_REASON_CODES.indexOf(reason) === -1) {
+      throw new Error('reason not in REDIS_REASON_CODES: ' + reason);
+    }
+    return { reason: reason };
+  }));
+
+  // B2: _validateRedisValueSchema rejects a value with FORBIDDEN kind
+  //     (e.g. kind='decision' - canonical truth, projection-only invariant).
+  //     Defense in depth (REDIS-LOCK-07): denylist wins over allowlist.
+  results.push(_bootstrapAssert('B2_validate_shape_rejects_forbidden_kind', function () {
+    const forbidden = {
+      schema_version: 1,
+      kind: 'decision', // FORBIDDEN
+      milestone: 'v1.9',
+      phase: '52',
+      source_hashes: ['sha256:x'],
+      canonical_refs: ['.planning/x.md'],
+      created_at: new Date().toISOString(),
+      ttl_seconds: 300,
+    };
+    const reason = _validateRedisValueSchema(forbidden);
+    if (reason !== 'forbidden_kind') {
+      throw new Error('expected reason=forbidden_kind; got ' + reason);
+    }
+    // Cross-check: the OTHER 7 forbidden kinds also reject
+    const otherForbidden = ['debt', 'evidence', 'phase_capsule', 'memory_lifecycle',
+      'benchmark_result', 'route_decision', 'validated_thought'];
+    for (const k of otherForbidden) {
+      const r = _validateRedisValueSchema(Object.assign({}, forbidden, { kind: k }));
+      if (r !== 'forbidden_kind') {
+        throw new Error('forbidden kind ' + k + ' should reject with forbidden_kind; got ' + r);
+      }
+    }
+    return { reason: reason, cross_checked: otherForbidden.length };
+  }));
+
+  // B3: _validateRedisValueSchema accepts a fully-formed value.
+  //     Asserts the positive path (returns null) - prevents over-strict
+  //     regressions that would reject all writes.
+  results.push(_bootstrapAssert('B3_validate_shape_accepts_valid', function () {
+    const valid = {
+      schema_version: 1,
+      kind: 'hot_context_packet',
+      milestone: 'v1.9',
+      phase: '52',
+      source_hashes: ['sha256:abc'],
+      canonical_refs: ['.planning/x.md'],
+      created_at: new Date().toISOString(),
+      ttl_seconds: 300,
+    };
+    const reason = _validateRedisValueSchema(valid);
+    if (reason !== null) {
+      throw new Error('expected null (valid); got ' + reason);
+    }
+    return { accepted: true };
+  }));
+
+  // C1: _revalidateAndMaybeDelete with mismatched source_hashes ->
+  //     action=delete, reason=source_hash_drift. Mock c with
+  //     spy-tracked .del to assert deletion happened. canonical_refs
+  //     points at a real file (this very file) but stored hash is bogus
+  //     -> hash mismatch -> drift -> delete.
+  results.push(await _bootstrapAssertAsync('C1_revalidate_source_hash_drift', async function () {
+    let delCalled = false;
+    let delKey = null;
+    const mockC = {
+      del: async function (k) { delCalled = true; delKey = k; return 1; },
+    };
+    const driftValue = {
+      schema_version: 1,
+      kind: 'hot_context_packet',
+      milestone: 'v1.9',
+      phase: '52',
+      // bogus source_hashes that cannot match the real file content
+      source_hashes: ['sha256:0000000000000000000000000000000000000000000000000000000000000000'],
+      canonical_refs: [path.relative(_resolveRepoRoot(), __filename)],
+      created_at: new Date().toISOString(),
+      ttl_seconds: 300,
+    };
+    const raw = JSON.stringify(driftValue);
+    const r = await _revalidateAndMaybeDelete(mockC, 'sgsd:v19:test:drift', raw);
+    if (r.valid !== false) {
+      throw new Error('expected valid:false on drift; got ' + r.valid);
+    }
+    if (r.reason !== 'source_hash_drift') {
+      throw new Error('expected reason=source_hash_drift; got ' + r.reason);
+    }
+    if (!delCalled) {
+      throw new Error('mock c.del must be called on drift (REDIS-LOCK-07)');
+    }
+    if (delKey !== 'sgsd:v19:test:drift') {
+      throw new Error('del must be called with the offending key; got ' + delKey);
+    }
+    return { deleted: true, reason: r.reason };
+  }));
+
+  // E1: _revalidateAndMaybeDelete with non-JSON raw -> action=delete,
+  //     reason=poisoned_unparseable (Pitfall 5; REDIS-LOCK-07 first defense).
+  results.push(await _bootstrapAssertAsync('E1_poisoned_unparseable', async function () {
+    let delCalled = false;
+    const mockC = {
+      del: async function (_k) { delCalled = true; return 1; },
+    };
+    const r = await _revalidateAndMaybeDelete(mockC, 'sgsd:v19:test:poison', 'not json {{{');
+    if (r.valid !== false) {
+      throw new Error('expected valid:false on poison; got ' + r.valid);
+    }
+    if (r.reason !== 'poisoned_unparseable') {
+      throw new Error('expected reason=poisoned_unparseable; got ' + r.reason);
+    }
+    if (!delCalled) {
+      throw new Error('mock c.del must be called on poisoned-unparseable');
+    }
+    if (REDIS_REASON_CODES.indexOf(r.reason) === -1) {
+      throw new Error('reason not in REDIS_REASON_CODES: ' + r.reason);
+    }
+    return { deleted: true, reason: r.reason };
+  }));
+
   let pass = 0;
   let fail = 0;
   for (const r of results) {
@@ -809,7 +1263,16 @@ module.exports = {
     _emitProjectionLog: _emitProjectionLog,
     _disabledReason: _disabledReason,
     _envFlag: _envFlag,
+    // T2 source-hash invalidation + poisoned-key defense (REDIS-LOCK-02/07)
+    _sha256OfFile: _sha256OfFile,
+    _revalidateAndMaybeDelete: _revalidateAndMaybeDelete,
+    _checkKindGate: _checkKindGate,
   },
+
+  // T2 also exports _validateRedisValueSchema directly on the public
+  // surface as the verification_cmd at PLAN line 265 calls it via
+  // `a._validateRedisValueSchema({...})` (NOT via _internals).
+  _validateRedisValueSchema: _validateRedisValueSchema,
 };
 
 // ----------------------------------------------------------------------------
@@ -824,12 +1287,12 @@ if (require.main === module) {
   const argv = process.argv.slice(2);
   const wantSelfTest = argv.indexOf('--self-test') !== -1;
   if (!wantSelfTest) {
-    process.stdout.write('redis-adapter.cjs T1 skeleton. Use --self-test to run bootstrap assertions.\n');
+    process.stdout.write('redis-adapter.cjs T2 (skeleton + source-hash invalidation + poisoned-key defense). Use --self-test to run bootstrap assertions.\n');
     process.exit(0);
   }
   selfTest().then(function (out) {
     const lines = [];
-    lines.push('redis-adapter.cjs --self-test (T1 bootstrap)');
+    lines.push('redis-adapter.cjs --self-test (T2 bootstrap: A0..A4 + B1..B3 + C1 + E1)');
     for (const r of out.results) {
       const tag = r.ok ? 'PASS' : 'FAIL';
       const reason = r.ok ? '' : ' :: ' + (r.reason || 'unknown');
