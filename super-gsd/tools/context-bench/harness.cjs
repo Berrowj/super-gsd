@@ -45,6 +45,19 @@
 'use strict';
 
 // ---------------------------------------------------------------------------
+// T2: Lock 4 import-by-reference. Phase 41 token-attribution `summarize` is
+// the live aggregator the bench reuses for both baseline and post-replay
+// numbers. T2's replay.cjs requires it relatively from the context-bench
+// tree; the self-test below asserts the import is the live function so
+// drift (a stub or a fork) is caught before T3 fixtures land.
+// ---------------------------------------------------------------------------
+const tokenAttr = require('../token-attribution/report.cjs');
+const replay = require('./replay.cjs');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+// ---------------------------------------------------------------------------
 // Frozen placeholders. T3 + T4 fill these. Do not unfreeze.
 // ---------------------------------------------------------------------------
 
@@ -246,6 +259,143 @@ function _selfTest() {
   });
   check('lock13_wrapper_present', lock13Ok,
         'try/catch detected in each public API source');
+
+  // -------------------------------------------------------------------
+  // T2 assertions (5). See plan 51-01 lines 272-277 for the contract.
+  // -------------------------------------------------------------------
+
+  // T2.1: Phase 41 `summarize` import is the LIVE function (Lock 4).
+  // typeof must be 'function' AND arity must be >= 2 (planningDir, opts).
+  const sumIsFn = typeof tokenAttr.summarize === 'function';
+  const sumArity = sumIsFn ? tokenAttr.summarize.length : -1;
+  check('t2_summarize_is_live_function',
+        sumIsFn && sumArity >= 2,
+        'typeof=' + typeof tokenAttr.summarize + ' arity=' + sumArity);
+
+  // T2.2: readBaselineFromLedger is callable and returns the contracted
+  // shape when given a synthesized scenario object. The actual S2 row-
+  // count anchor (>=150,000 tokens for v1.8/P36/researcher) lands in T3
+  // self-test 9 (when real fixtures with scenario_id ship). For T2 we
+  // only assert the shape: keys present, ok+reason set, source_event_ids
+  // is an array. Pointed at the real ledger so a missing role still
+  // returns the documented degraded sentinel rather than throwing.
+  let baselineShapeOk = false;
+  let baselineShapeDetail = '';
+  try {
+    const b = replay.readBaselineFromLedger({
+      scenario: {
+        scenario_id: 'T2-shape-probe',
+        drawn_from: { milestone: 'v1.8', role: 'researcher', phase: '36' },
+      },
+      planningDir: path.resolve(__dirname, '../../../.planning'),
+    });
+    const shapeKeys = ['ok', 'reason', 'tokens', 'cache_read_ratio',
+                       'useful_findings_per_100k', 'source_event_ids'];
+    const allKeysPresent = shapeKeys.every(function (k) {
+      return Object.prototype.hasOwnProperty.call(b, k);
+    });
+    baselineShapeOk = allKeysPresent
+      && Array.isArray(b.source_event_ids)
+      && typeof b.reason === 'string'
+      && typeof b.ok === 'boolean';
+    baselineShapeDetail = 'reason=' + b.reason
+      + ' tokens=' + b.tokens
+      + ' src_ids=' + b.source_event_ids.length;
+  } catch (e) {
+    baselineShapeDetail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('t2_baseline_reader_callable_and_shape',
+        baselineShapeOk, baselineShapeDetail);
+
+  // T2.3: assertWorkspaceClean rejects every forbidden anti-cheat
+  // string. Parametric: build a tmpdir, drop a file containing one
+  // forbidden token, expect the call to throw; repeat for all 6.
+  let antiCheatOk = true;
+  let antiCheatDetail = '';
+  let tmpRoot = null;
+  try {
+    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'p51-t2-anticheat-'));
+    const forbidden = (replay.FORBIDDEN_STRINGS || []);
+    if (forbidden.length !== 6) {
+      antiCheatOk = false;
+      antiCheatDetail = 'FORBIDDEN_STRINGS len=' + forbidden.length
+                        + ' (expected 6)';
+    } else {
+      for (let fi = 0; fi < forbidden.length; fi++) {
+        const tok = forbidden[fi];
+        const dir = fs.mkdtempSync(path.join(tmpRoot, 'case-' + fi + '-'));
+        const file = path.join(dir, 'fixture.txt');
+        fs.writeFileSync(file, 'pre ' + tok + ' post', 'utf8');
+        let threw = false;
+        try {
+          replay.assertWorkspaceClean(dir);
+        } catch (_eAC) {
+          threw = true;
+        }
+        if (!threw) {
+          antiCheatOk = false;
+          antiCheatDetail = 'failed_to_reject_' + tok;
+          break;
+        }
+      }
+      if (antiCheatOk) {
+        antiCheatDetail = 'all 6 forbidden strings rejected';
+      }
+    }
+  } catch (e) {
+    antiCheatOk = false;
+    antiCheatDetail = 'setup_threw: '
+      + (e && e.message ? e.message : 'unknown');
+  } finally {
+    if (tmpRoot) {
+      try { fs.rmSync(tmpRoot, { recursive: true, force: true }); }
+      catch (_eR) { /* best effort */ }
+    }
+  }
+  check('t2_assert_workspace_clean_rejects_6', antiCheatOk, antiCheatDetail);
+
+  // T2.4: mapPhasesToBaseline handles the empty-array placeholder
+  // gracefully (T3 ships the real 6-fixture array). Empty input -> {}.
+  // T3 self-test 9 will assert len=6 once SCENARIOS is filled.
+  let mapOk = false;
+  let mapDetail = '';
+  try {
+    const mEmpty = replay.mapPhasesToBaseline(SCENARIOS,
+      path.resolve(__dirname, '../../../.planning'));
+    mapOk = mEmpty && typeof mEmpty === 'object'
+            && !Array.isArray(mEmpty)
+            && Object.keys(mEmpty).length === 0;
+    mapDetail = 'empty_map_keys=' + Object.keys(mEmpty || {}).length
+                + ' (T3 fills to 6)';
+  } catch (e) {
+    mapDetail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('t2_map_phases_to_baseline_empty_safe', mapOk, mapDetail);
+
+  // T2.5: replayScenario stub returns mode_used='ledger-only' when
+  // claudeBinary is null. This is the falsifier's explicit anchor:
+  // "claudeBinary=null path throws instead of returning
+  //  mode_used='ledger-only' (Lock 13 violation)" -> we assert no throw
+  // AND the literal label match.
+  let replayStubOk = false;
+  let replayStubDetail = '';
+  try {
+    const rs = replay.replayScenario({
+      scenario: { scenario_id: 'T2-replay-probe' },
+      mode: 'ledger-only',
+      claudeBinary: null,
+    });
+    replayStubOk = rs && rs.mode_used === 'ledger-only'
+                   && rs.tokens_after === null
+                   && Array.isArray(rs.post_artifacts)
+                   && rs.scenario_run_id === null;
+    replayStubDetail = 'mode_used=' + (rs && rs.mode_used)
+                       + ' tokens_after=' + (rs && rs.tokens_after);
+  } catch (e) {
+    replayStubDetail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('t2_replay_stub_ledger_only_when_no_binary',
+        replayStubOk, replayStubDetail);
 
   return results;
 }
