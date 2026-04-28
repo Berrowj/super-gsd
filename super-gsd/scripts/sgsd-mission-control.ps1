@@ -1170,6 +1170,29 @@ function Get-ReadinessInfo($milestone) {
     [pscustomobject]@{ status=$status; eta=$eta; gen=$gen; stale=$stale; go=$go; blk=$blk; fc=$fc; path=$path }
 }
 
+# ── Autopilot watchdog banner ────────────────────────────────────────────────
+# Reads the external watchdog output. This is stronger than the cockpit's
+# in-process heartbeat display: it answers whether durable project progress is
+# still happening, not merely whether the dashboard is alive.
+
+function Get-AutopilotWatchdogInfo {
+    $path = Join-Path $PlanningDir "metrics\autopilot-watchdog.json"
+    if (-not (Test-Path $path)) { return $null }
+    try {
+        $raw = Get-Content $path -Raw -ErrorAction SilentlyContinue
+        if (-not $raw) { return $null }
+        $wd = $raw | ConvertFrom-Json
+        $generatedAge = $null
+        if ($wd.generated_at) {
+            $generatedAge = [double](([DateTime]::UtcNow) - ([DateTime]::Parse($wd.generated_at).ToUniversalTime())).TotalSeconds
+        }
+        $wd | Add-Member -NotePropertyName generated_age_sec -NotePropertyValue $generatedAge -Force
+        return $wd
+    } catch {
+        return $null
+    }
+}
+
 # ── Render functions ─────────────────────────────────────────────────────────
 
 function Write-Row {
@@ -1382,8 +1405,24 @@ function Render-CompactMissionControl {
         Write-Row "AUTOMODE unknown: run /gsd-readiness for blocker forecast" "DarkYellow"
     }
 
-    if (Test-Checkpoint) {
-        Write-Row "RESUME checkpoint saved; automode may still be running" "DarkYellow"
+    $watchdog = Get-AutopilotWatchdogInfo
+    if ($watchdog) {
+        $wdAge = if ($null -ne $watchdog.durable_progress_age_min) { "$($watchdog.durable_progress_age_min)m" } else { "?m" }
+        if ($watchdog.status -eq "stalled") {
+            Write-Row (Trunc ("FAILSAFE STALLED: no durable progress $wdAge; recovery packet written") $pw) "Red"
+        } elseif ($watchdog.status -eq "warn") {
+            Write-Row (Trunc ("FAILSAFE warning: durable progress stale $wdAge") $pw) "Yellow"
+        } elseif ($watchdog.status -eq "complete") {
+            Write-Row (Trunc ("FAILSAFE clear: current phase has verification status $($watchdog.verification_status)") $pw) "Green"
+        } else {
+            Write-Row (Trunc ("FAILSAFE armed: last durable progress $wdAge ago") $pw) "DarkGray"
+        }
+    } else {
+        Write-Row "FAILSAFE not armed: boot cockpit to start watchdog" "DarkYellow"
+    }
+
+    if ((Test-Checkpoint) -and (-not $watchdog -or $watchdog.status -ne "stalled")) {
+        Write-Row "RESUME checkpoint exists; use only if current STATE agrees" "DarkYellow"
     }
 
     $hb = Get-Heartbeat

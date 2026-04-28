@@ -16,6 +16,7 @@
 #   powershell -File super-gsd/scripts/sgsd-boot.ps1 -Claude            # also launch Claude (silent)
 #   powershell -File super-gsd/scripts/sgsd-boot.ps1 -Claude -Greet     # also launch Claude with SGSD intro
 #   powershell -File super-gsd/scripts/sgsd-boot.ps1 -Claude -Go        # also launch Claude in AUTO MODE
+#   powershell -File super-gsd/scripts/sgsd-boot.ps1 -WatchdogRecover   # watchdog launches fresh Claude on stall
 # ============================================================================
 
 param(
@@ -27,7 +28,11 @@ param(
     [switch]$Backfill,
     [switch]$Claude,
     [switch]$Go,
-    [switch]$Greet
+    [switch]$Greet,
+    [switch]$NoWatchdog,
+    [switch]$WatchdogRecover,
+    [int]$WatchdogWarnMin = 20,
+    [int]$WatchdogStaleMin = 45
 )
 
 # -Go implies -Claude (auto-send "go" only makes sense if we're launching claude)
@@ -216,7 +221,7 @@ function Stop-SgsdDashboardProcesses {
     } catch { }
 
     $projectRe = [regex]::Escape($ProjectDir)
-    $dashboardRe = 'super-gsd[\\/]scripts[\\/](sgsd-mission-control|sgsd-narrative|sgsd-codex-monitor|sgsd-dashboard-host)\.ps1'
+    $dashboardRe = 'super-gsd[\\/]scripts[\\/](sgsd-mission-control|sgsd-narrative|sgsd-codex-monitor|sgsd-dashboard-host|sgsd-autopilot-watchdog)\.ps1'
     $targets = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
         Where-Object {
             $_.CommandLine -and
@@ -720,6 +725,22 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
         Write-Step "Private knowledge bank optional; fallback=$fallbackCorpus" "OK" DarkGray
     }
 
+    # 9. Autopilot watchdog - external stall detector.
+    # The dashboard can keep rendering even when the SGSD loop has stopped.
+    # This self-test verifies the outside-of-Claude progress failsafe before
+    # the cockpit launches it in monitor mode.
+    $watchdogTool = Join-Path $ProjectDir "super-gsd/tools/autopilot-watchdog/check.cjs"
+    if (Test-Path $watchdogTool) {
+        $null = & node $watchdogTool --self-test 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Step "Autopilot watchdog self-test" "OK" Green
+        } else {
+            Write-Step "Autopilot watchdog self-test failed" "WARN" Yellow
+        }
+    } else {
+        Write-Step "Autopilot watchdog missing" "WARN" Yellow
+    }
+
     Write-Host ""
 }
 
@@ -776,11 +797,39 @@ $sgsd1 = Join-Path $ScriptsDir "sgsd-mission-control.ps1"
 $sgsd2 = Join-Path $ScriptsDir "sgsd-codex-monitor.ps1"
 $sgsd3 = Join-Path $ScriptsDir "sgsd-narrative.ps1"
 $dashboardHost = Join-Path $ScriptsDir "sgsd-dashboard-host.ps1"
+$watchdog = Join-Path $ScriptsDir "sgsd-autopilot-watchdog.ps1"
 
-foreach ($script in @($sgsd1, $sgsd2, $sgsd3, $dashboardHost)) {
+foreach ($script in @($sgsd1, $sgsd2, $sgsd3, $dashboardHost, $watchdog)) {
     if (-not (Test-Path $script)) {
         Write-Host "  MISSING: $script" -ForegroundColor Red
         exit 5
+    }
+}
+
+function Start-AutopilotWatchdog {
+    if ($NoWatchdog) {
+        Write-Step "autopilot watchdog disabled by -NoWatchdog" "WARN" Yellow
+        return
+    }
+
+    $args = @(
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", $watchdog,
+        "-ProjectDir", $ProjectDir,
+        "-IntervalSec", "60",
+        "-WarnMin", "$WatchdogWarnMin",
+        "-StaleMin", "$WatchdogStaleMin",
+        "-Checkpoint"
+    )
+    if ($WatchdogRecover) { $args += "-Recover" }
+
+    try {
+        Start-Process powershell.exe -WindowStyle Hidden -ArgumentList $args | Out-Null
+        $mode = if ($WatchdogRecover) { "checkpoint + recovery launch" } else { "checkpoint only" }
+        Write-Step "autopilot watchdog armed (${WatchdogWarnMin}m warn / ${WatchdogStaleMin}m stall, $mode)" "OK" Green
+    } catch {
+        Write-Step "autopilot watchdog failed to start" "WARN" Yellow
     }
 }
 
@@ -796,6 +845,8 @@ if ($wt) {
     if ($closed -gt 0) {
         Write-Step "closed existing cockpit window(s) ($closed)" "OK" Yellow
     }
+
+    Start-AutopilotWatchdog
 
     $psCmd = "powershell.exe"
 
@@ -857,6 +908,8 @@ if ($wt) {
     if ($closed -gt 0) {
         Write-Step "closed existing cockpit window(s) ($closed)" "OK" Yellow
     }
+
+    Start-AutopilotWatchdog
 
     Start-Process powershell.exe -ArgumentList "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd1, "-ProjectDir", $ProjectDir, "-Name", "SGSD1-Mission-Control"
     Start-Sleep -Milliseconds 300
