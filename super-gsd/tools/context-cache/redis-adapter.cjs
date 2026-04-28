@@ -245,36 +245,120 @@ function _redactRedisUrl(s) {
 }
 
 // ----------------------------------------------------------------------------
-// _emitProjectionLog (T1 deferral stub; T5 wires the canonical writer)
+// _emitProjectionLog (T5 canonical writer; envelope-v1 row to redis-projection-log.jsonl)
 //
-// CONTRACT BOUNDARY (52-01 T1 vs T5):
-//   T1 must NOT perform any fs.appendFileSync / fs.writeFile to the
-//   projection log file. The append-only JSONL writer + envelope-v1 row
-//   schema + Pitfall 1 redaction is T5's deliverable per
-//   52-PLAN.md task split. T1 ships the call sites + the disabled-OK
-//   short-circuits so the 8 public APIs and _getClient compile and test
-//   green; the body here is a deliberate no-op until T5 lands.
+// CONTRACT (REDIS-LOCK-06 + Pitfall 1 + Pitfall 5 + Lock 13):
+//   - Composes a command-envelope-v1 row of shape:
+//       {
+//         envelope_version: 1,
+//         ts: ISO-8601,
+//         command: 'logRedisProjection',
+//         tool_name: 'redis-adapter',
+//         schema_version: 1,
+//         status: row.status (degraded|rejected|invalidated|self_test|...),
+//         reason: row.reason (string from REDIS_REASON_CODES enum where applicable),
+//         ...extension fields (additionalProperties:true: key, kind, source_hash,
+//                              run_id, scenario_id, milestone, phase, ms, steps,
+//                              detail, ...)
+//       }
+//   - Applies _redactRedisUrl on the row.detail string field AND any other
+//     string field whose name might carry a URL (detail, url, redis_url,
+//     command, reason). Pitfall 1: credentials never leak to the log.
+//   - Resolves target = (opts && opts.projectDir) ? join(projectDir, REL) :
+//     join(_resolveRepoRoot(), REL). REL = .planning/metrics/redis-projection-log.jsonl
+//     (Pitfall 5 - ONLY this file; canonical streams never written by adapter).
+//   - mkdirSync parent { recursive: true } for first-write resilience.
+//   - fs.appendFileSync target, JSON.stringify(redactedRow) + '\n', 'utf8'.
+//   - Lock 13: try/catch around appendFileSync; if write fails (disk full /
+//     permission denied / EROFS / dir delete race), silently swallow. NEVER
+//     throws upward. Public APIs that call this stay degraded-OK.
 //
-// Why no-op (not delete):
-//   _getClient and several public-API catch blocks already invoke
-//   _emitProjectionLog; making it a callable no-op preserves call-site
-//   stability, prevents Lock 13 violations from a missing function, and
-//   lets T5's diff be additive (fill the body, no rewiring of callers).
-//
-// T5 will replace this body with the envelope-v1 writer:
-//   - mkdirSync(parent, { recursive: true })
-//   - merge { envelope_version:1, command:'emitProjectionLog', ts } + row
-//   - JSON.stringify with /:[^@:/"\\]*@/g credential redaction
-//   - fs.appendFileSync(logPath, line + '\n', 'utf8')
-// per REDIS-LOCK-06 + projection-log envelope-v1 schema (Phase 41).
-// NEVER throws (Lock 13) - both T1 stub and T5 impl absorb errors.
+// Mirror references:
+//   - super-gsd/tools/token-attribution/collect.cjs (envelope-v1 schema reference;
+//     ts/event/command shape; pattern only - NO require to honor Lock 4).
+//   - super-gsd/scripts/lib/route-ledger.cjs:189-199 (mkdir + appendFileSync
+//     atomic-row pattern for sub-4KB rows on Windows + POSIX).
+//   - super-gsd/tools/context-cache/rebuild.cjs:222-234 (_emitContextIndexComplaint
+//     mirror; same envelope shape, different file).
 // ----------------------------------------------------------------------------
 
-function _emitProjectionLog(_row, _opts) {
-  // TODO(T5): wire fs.appendFileSync per REDIS-LOCK-06 + projection-log
-  // envelope-v1. T1 intentionally no-ops to honor the task-deferral
-  // invariant ("No fs.writeFile/appendFile in T1 skeleton").
-  return;
+function _emitProjectionLog(row, opts) {
+  try {
+    const safeRow = (row && typeof row === 'object') ? row : {};
+
+    // Pitfall 1: redact any string field that may contain a redis URL.
+    // detail/url/redis_url are the canonical carriers; reason/key/command are
+    // also redacted for defense in depth (a malformed caller could embed
+    // credentials in any string field; better to over-redact than under).
+    const redactKeys = ['detail', 'url', 'redis_url', 'reason', 'key', 'command', 'source'];
+    const redacted = {};
+    for (const k of Object.keys(safeRow)) {
+      const v = safeRow[k];
+      if (typeof v === 'string' && redactKeys.indexOf(k) !== -1) {
+        redacted[k] = _redactRedisUrl(v);
+      } else {
+        redacted[k] = v;
+      }
+    }
+
+    // Compose envelope-v1 row. Caller-provided fields (status, reason, key,
+    // kind, source_hash, run_id, scenario_id, milestone, phase, ms, steps)
+    // pass through via additionalProperties:true. Caller-provided command
+    // is preserved as a sub-command discriminator under the canonical
+    // command='logRedisProjection' envelope name.
+    const envelope = {
+      envelope_version: 1,
+      ts: _isoNow(),
+      command: 'logRedisProjection',
+      tool_name: 'redis-adapter',
+      schema_version: SCHEMA_VERSION,
+    };
+    // Caller fields override defaults EXCEPT envelope_version, ts, command,
+    // tool_name, schema_version (those are pinned per envelope-v1 contract).
+    // The caller's `command` field is preserved as `sub_command` so the
+    // envelope-v1 `command` slot stays canonical.
+    if (typeof redacted.command === 'string' && redacted.command.length > 0) {
+      envelope.sub_command = redacted.command;
+    }
+    for (const k of Object.keys(redacted)) {
+      if (k === 'command') continue; // already moved to sub_command
+      if (k === 'envelope_version' || k === 'ts' || k === 'tool_name'
+          || k === 'schema_version') continue; // canonical slots
+      envelope[k] = redacted[k];
+    }
+
+    // Resolve target file path (Pitfall 5 - ONLY redis-projection-log.jsonl).
+    let target;
+    if (opts && typeof opts.projectDir === 'string' && opts.projectDir.length > 0) {
+      target = path.join(opts.projectDir, PROJECTION_LOG_REL);
+    } else {
+      target = _resolveProjectionLogPath();
+    }
+
+    // Lock 13: each FS step is independently try-wrapped so a partial
+    // failure (mkdir works, appendFileSync fails) still returns silently.
+    const dir = path.dirname(target);
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch (_e) {
+      // mkdir may race with another writer; if dir exists at append time
+      // appendFileSync will succeed. If the failure is permission-denied
+      // the appendFileSync below will also fail and we swallow there.
+    }
+
+    const line = JSON.stringify(envelope) + '\n';
+    try {
+      fs.appendFileSync(target, line, 'utf8');
+    } catch (_e) {
+      // Lock 13: disk full / permission denied / EROFS / dir delete race ->
+      // silently swallow. The adapter's degraded-OK contract holds even
+      // when the projection log itself is unwritable.
+    }
+    return;
+  } catch (_e) {
+    // Lock 13 outermost guard: never throw upward under any circumstances.
+    return;
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -683,10 +767,17 @@ async function _getClient() {
 //   - ok:false -> source:'degraded' (any disabled / connect-fail / internal-error path)
 // Downstream cockpit panels and F17 expected_reason_codes can then
 // branch on `source` uniformly across all 8 APIs.
-async function isAvailable(_opts) {
+async function isAvailable(opts) {
   try {
     const reason = _disabledReason();
     if (reason) {
+      // T5: emit projection-log row on degraded path so observability is
+      // uniform across the 8 public APIs (REDIS-LOCK-06 binding).
+      _emitProjectionLog({
+        command: 'isAvailable',
+        status: 'degraded',
+        reason: reason,
+      }, opts);
       return {
         ok: false,
         degraded_reason: reason,
@@ -698,6 +789,11 @@ async function isAvailable(_opts) {
     // wires the connect path. The shape is the contract.
     const client = await _getClient();
     if (!client) {
+      _emitProjectionLog({
+        command: 'isAvailable',
+        status: 'degraded',
+        reason: 'redis_connect_failed',
+      }, opts);
       return {
         ok: false,
         degraded_reason: 'redis_connect_failed',
@@ -712,6 +808,11 @@ async function isAvailable(_opts) {
       metadata: { schema_version: SCHEMA_VERSION },
     };
   } catch (_e) {
+    _emitProjectionLog({
+      command: 'isAvailable',
+      status: 'degraded',
+      reason: 'internal_error',
+    }, opts);
     return {
       ok: false,
       degraded_reason: 'internal_error',
@@ -1398,22 +1499,142 @@ async function invalidateBySourceHash(sourceHashArg) {
 }
 
 // ----------------------------------------------------------------------------
-// _testHook_simulateFlushAndPoison (T5 fills body; T1 stub for F17 binding)
-// Phase 51 F17 cross-binding hook. T1 ships a callable that returns a
-// degraded sentinel so F17_STUB inject() does not crash if it lands before
-// T5 fills the real flush+poison sequence.
+// _testHook_simulateFlushAndPoison (T5 wires body; F17 cross-binding contract)
+//
+// Phase 51 F17 cross-binding hook. Used by failure-injectors.cjs F17 fixture
+// (T6 activation) to drive the live REDIS-LOCK-05 + REDIS-LOCK-07 protocol
+// in 4 steps + projection-log emit:
+//
+//   Step 1 inject poisoned key:
+//     await c.set('sgsd:v19:test:poisoned', 'not json', { EX: 60 })
+//   Step 2 attempt getHotPacket('sgsd:v19:test:poisoned'):
+//     -> reason === 'poisoned_unparseable' (Defense 1 binding)
+//   Step 3 FLUSHDB simulation:
+//     await c.flushDb() (or sendCommand(['FLUSHDB']) per node-redis 5.x)
+//   Step 4 post-flush getHotPacket:
+//     -> reason === 'miss' (canonical files untouched; SQLite warm-back)
+//   Step 5 emit projection-log row with reason='redis_flushdb_recovered_via_sqlite'
+//     so F17 observe() can witness REDIS-LOCK-05 evidence.
+//
+// Soft-skip semantics (REDIS-LOCK-06): if _getClient returns null (no Redis
+// available on dev machine / CI without docker compose up), returns
+// { ok:false, reason:'redis_not_available_soft_skip', steps:[] }. F17
+// observe() treats this as a soft pass.
+//
+// Lock 13 wrap: any exception (network blip mid-step, c.set throws) is
+// caught at outer try/catch; returns degraded sentinel. Never throws upward.
 // ----------------------------------------------------------------------------
 
-async function _testHook_simulateFlushAndPoison(_opts) {
+async function _testHook_simulateFlushAndPoison(opts) {
+  const steps = [];
   try {
-    return {
-      ok: false,
-      steps: [],
-      reason: _disabledReason() || 'redis_connect_failed',
-      source: 'degraded',
-    };
+    const client = await _getClient();
+    if (!client) {
+      // REDIS-LOCK-06 soft-skip: no live Redis -> degraded contract for F17.
+      return {
+        ok: false,
+        steps: [],
+        reason: 'redis_not_available_soft_skip',
+        source: 'degraded',
+      };
+    }
+
+    const poisonedKey = NS_PREFIX + 'test:poisoned';
+
+    // Step 1: inject poisoned (non-JSON) value with 60s TTL.
+    try {
+      await Promise.race([
+        client.set(poisonedKey, 'not json', { EX: 60 }),
+        new Promise(function (_resolve, reject) {
+          setTimeout(function () { reject(new Error('op_timeout')); }, REDIS_COMMAND_TIMEOUT_MS);
+        }),
+      ]);
+      steps.push({ step: 1, name: 'poisoned_key_injected', key: poisonedKey });
+    } catch (_e) {
+      _emitProjectionLog({
+        command: 'simulateFlushAndPoison',
+        status: 'self_test',
+        reason: 'redis_op_timeout',
+        detail: 'step_1_set_failed',
+      }, opts);
+      return { ok: false, steps: steps, reason: 'redis_op_timeout', source: 'degraded' };
+    }
+
+    // Step 2: attempt getHotPacket; expect reason='poisoned_unparseable'.
+    const r2 = await getHotPacket(poisonedKey);
+    if (r2.reason !== 'poisoned_unparseable') {
+      _emitProjectionLog({
+        command: 'simulateFlushAndPoison',
+        status: 'self_test',
+        reason: 'internal_error',
+        detail: 'step_2_expected_poisoned_unparseable_got_' + (r2.reason || 'null'),
+      }, opts);
+      return { ok: false, steps: steps, reason: 'internal_error', source: 'degraded' };
+    }
+    steps.push({ step: 2, name: 'poisoned_key_rejected', reason: r2.reason });
+
+    // Step 3: FLUSHDB simulation. node-redis 5.x exposes flushDb; older
+    // drivers expose sendCommand(['FLUSHDB']). Try the high-level method
+    // first; fall back to sendCommand on AttributeError-like surface.
+    try {
+      let flushFn = null;
+      if (typeof client.flushDb === 'function') {
+        flushFn = function () { return client.flushDb(); };
+      } else if (typeof client.sendCommand === 'function') {
+        flushFn = function () { return client.sendCommand(['FLUSHDB']); };
+      } else {
+        // Defensive: client surface mismatch -> degraded.
+        _emitProjectionLog({
+          command: 'simulateFlushAndPoison',
+          status: 'self_test',
+          reason: 'internal_error',
+          detail: 'step_3_no_flushdb_surface',
+        }, opts);
+        return { ok: false, steps: steps, reason: 'internal_error', source: 'degraded' };
+      }
+      await Promise.race([
+        flushFn(),
+        new Promise(function (_resolve, reject) {
+          setTimeout(function () { reject(new Error('op_timeout')); }, REDIS_COMMAND_TIMEOUT_MS);
+        }),
+      ]);
+      steps.push({ step: 3, name: 'flushdb_executed' });
+    } catch (_e) {
+      _emitProjectionLog({
+        command: 'simulateFlushAndPoison',
+        status: 'self_test',
+        reason: 'redis_op_timeout',
+        detail: 'step_3_flushdb_failed',
+      }, opts);
+      return { ok: false, steps: steps, reason: 'redis_op_timeout', source: 'degraded' };
+    }
+
+    // Step 4: post-flush getHotPacket -> reason='miss' (REDIS-LOCK-05).
+    const r4 = await getHotPacket(poisonedKey);
+    if (r4.reason !== 'miss') {
+      _emitProjectionLog({
+        command: 'simulateFlushAndPoison',
+        status: 'self_test',
+        reason: 'internal_error',
+        detail: 'step_4_expected_miss_got_' + (r4.reason || 'null'),
+      }, opts);
+      return { ok: false, steps: steps, reason: 'internal_error', source: 'degraded' };
+    }
+    steps.push({ step: 4, name: 'post_flush_miss_observed', reason: r4.reason });
+
+    // Step 5: emit canonical evidence row (F17 expected_reason_codes ingestion).
+    _emitProjectionLog({
+      command: 'simulateFlushAndPoison',
+      status: 'self_test',
+      reason: 'redis_flushdb_recovered_via_sqlite',
+      key: poisonedKey,
+      steps_count: steps.length,
+    }, opts);
+    steps.push({ step: 5, name: 'projection_log_emitted', reason: 'redis_flushdb_recovered_via_sqlite' });
+
+    return { ok: true, steps: steps, reason: null, source: 'redis' };
   } catch (_e) {
-    return { ok: false, steps: [], reason: 'internal_error', source: 'degraded' };
+    return { ok: false, steps: steps, reason: 'internal_error', source: 'degraded' };
   }
 }
 
@@ -2257,6 +2478,188 @@ async function selfTest() {
     return { forbidden: r1.reason, unknown: r2.reason, non_stream: r3.reason, bad_scope: r4.reason, bad_payload: r5.reason };
   }));
 
+  // --------------------------------------------------------------------
+  // T5 GROUP G - degraded fallback + projection log writer
+  // (REDIS-LOCK-06 + Pitfall 1 + Lock 13 binding)
+  //
+  // G1 projection_log_written_on_emit: synthetic _emitProjectionLog call
+  //    -> file exists + last row parses as JSON with envelope_version:1.
+  // G2 projection_log_redacts_url: emit with detail carrying credentials
+  //    -> resulting row redacts password segment to '***' (Pitfall 1).
+  // G3 lock13_emit_never_throws: monkey-patch fs.appendFileSync to throw
+  //    -> _emitProjectionLog returns undefined silently (Lock 13).
+  // G4 degraded_fallback_writes_log: SGSD_REDIS_DISABLED=1 -> isAvailable()
+  //    appends a row with reason='redis_disabled_by_env'.
+  // --------------------------------------------------------------------
+
+  // G1: synthetic emit -> file exists, last row valid envelope-v1.
+  results.push(_bootstrapAssert('G1_projection_log_written_on_emit', function () {
+    const target = _resolveProjectionLogPath();
+    // Capture pre-emit byte length (file may not exist; treat absence as 0).
+    let preLen = 0;
+    try {
+      preLen = fs.existsSync(target) ? fs.statSync(target).size : 0;
+    } catch (_e) {
+      preLen = 0;
+    }
+    _emitProjectionLog({
+      command: 'g1_synthetic_emit',
+      status: 'self_test',
+      reason: 'miss',
+      key: 'sgsd:v19:test:g1',
+    });
+    if (!fs.existsSync(target)) {
+      throw new Error('projection log file must exist after _emitProjectionLog; expected ' + target);
+    }
+    const buf = fs.readFileSync(target, 'utf8');
+    if (buf.length <= preLen) {
+      throw new Error('projection log byte length must grow after emit; pre=' + preLen + ' post=' + buf.length);
+    }
+    const lines = buf.split(/\r?\n/).filter(Boolean);
+    if (lines.length < 1) {
+      throw new Error('projection log must have >=1 row; got ' + lines.length);
+    }
+    const last = JSON.parse(lines[lines.length - 1]);
+    if (last.envelope_version !== 1) {
+      throw new Error('last row envelope_version must be 1; got ' + last.envelope_version);
+    }
+    if (last.command !== 'logRedisProjection') {
+      throw new Error('last row command must be logRedisProjection; got ' + last.command);
+    }
+    if (last.tool_name !== 'redis-adapter') {
+      throw new Error('last row tool_name must be redis-adapter; got ' + last.tool_name);
+    }
+    if (typeof last.ts !== 'string' || last.ts.length === 0) {
+      throw new Error('last row ts must be non-empty ISO string');
+    }
+    return { rows_total: lines.length, last_status: last.status, last_reason: last.reason };
+  }));
+
+  // G2: credential redaction (Pitfall 1; ASVS V2/V7 binding).
+  // Emit a row whose detail carries `redis://user:secret@host:6379` and
+  // assert the persisted line contains '***' instead of 'secret'.
+  results.push(_bootstrapAssert('G2_projection_log_redacts_url', function () {
+    const target = _resolveProjectionLogPath();
+    _emitProjectionLog({
+      command: 'g2_credential_test',
+      status: 'degraded',
+      reason: 'redis_connect_failed',
+      detail: 'connect failed: redis://user:secret@host:6379 timeout',
+    });
+    const buf = fs.readFileSync(target, 'utf8');
+    const lines = buf.split(/\r?\n/).filter(Boolean);
+    const last = JSON.parse(lines[lines.length - 1]);
+    if (typeof last.detail !== 'string') {
+      throw new Error('last row detail must be string; got ' + typeof last.detail);
+    }
+    // Must NOT contain the literal password substring.
+    if (last.detail.indexOf(':secret@') !== -1) {
+      throw new Error('credential leak: detail contains :secret@ ; got ' + last.detail);
+    }
+    // Must contain the redaction marker.
+    if (last.detail.indexOf(':***@') === -1) {
+      throw new Error('redaction marker :***@ missing in detail; got ' + last.detail);
+    }
+    // Cross-check: after substituting the redaction marker AWAY entirely
+    // (not to another `:X@` shape), no `:user:pass@` pattern should remain.
+    // Replacing `:***@` with empty string ensures the regex below cannot
+    // re-match the redacted segment itself (defeats self-defeating regex).
+    const credRegex = /:[^@:/]+@/;
+    const lineStr = JSON.stringify(last);
+    const stripped = lineStr.replace(/:\*\*\*@/g, '');
+    if (credRegex.test(stripped)) {
+      throw new Error('credential pattern detected in row beyond redaction marker; stripped=' + stripped);
+    }
+    return { redacted: true, detail_len: last.detail.length };
+  }));
+
+  // G3: Lock 13 emit-never-throws. Force fs.appendFileSync to throw and
+  //     assert _emitProjectionLog returns undefined silently. Restore the
+  //     original on exit so subsequent tests are unaffected.
+  results.push(_bootstrapAssert('G3_lock13_emit_never_throws', function () {
+    const orig = fs.appendFileSync;
+    let threwUpward = false;
+    let returned = 'sentinel';
+    fs.appendFileSync = function () { throw new Error('simulated EROFS'); };
+    try {
+      returned = _emitProjectionLog({
+        command: 'g3_throw_test',
+        status: 'degraded',
+        reason: 'internal_error',
+      });
+    } catch (_e) {
+      threwUpward = true;
+    } finally {
+      fs.appendFileSync = orig;
+    }
+    if (threwUpward) {
+      throw new Error('Lock 13 violation: _emitProjectionLog escaped exception upward');
+    }
+    if (typeof returned !== 'undefined') {
+      throw new Error('_emitProjectionLog must return undefined; got ' + JSON.stringify(returned));
+    }
+    return { lock13_safe: true, returned: 'undefined' };
+  }));
+
+  // G4: degraded fallback writes log row. SGSD_REDIS_DISABLED=1 ->
+  //     isAvailable() emits row with reason in {'redis_disabled_by_env',
+  //     'redis_module_missing'}. The exact reason depends on
+  //     _disabledReason() ordering: if redis npm is absent (CI without
+  //     `npm install redis`), that fires first; if redis npm is present
+  //     and SGSD_REDIS_DISABLED=1, the env-disabled reason fires. Either
+  //     proves the degraded-path emit binding (REDIS-LOCK-06).
+  results.push(await _bootstrapAssertAsync('G4_degraded_fallback_writes_log', async function () {
+    const target = _resolveProjectionLogPath();
+    const prev = process.env.SGSD_REDIS_DISABLED;
+    process.env.SGSD_REDIS_DISABLED = '1';
+    try {
+      const preLen = fs.existsSync(target) ? fs.statSync(target).size : 0;
+      const r = await isAvailable();
+      if (r.ok !== false) {
+        throw new Error('isAvailable must return ok:false when disabled; got ok=' + r.ok);
+      }
+      const postLen = fs.statSync(target).size;
+      if (postLen <= preLen) {
+        throw new Error('isAvailable must append projection log row on degraded path; pre=' + preLen + ' post=' + postLen);
+      }
+      // Tail the new bytes and assert the emitted row carries a valid
+      // degraded reason (either env-disabled or module-missing).
+      const buf = fs.readFileSync(target, 'utf8');
+      const lines = buf.split(/\r?\n/).filter(Boolean);
+      const acceptableReasons = ['redis_disabled_by_env', 'redis_module_missing'];
+      let found = null;
+      for (let i = lines.length - 1; i >= 0; i--) {
+        try {
+          const row = JSON.parse(lines[i]);
+          if (row.sub_command === 'isAvailable'
+              && row.status === 'degraded'
+              && acceptableReasons.indexOf(row.reason) !== -1) {
+            found = row;
+            break;
+          }
+        } catch (_e) {
+          // skip malformed line
+        }
+      }
+      if (!found) {
+        throw new Error('expected isAvailable degraded row with reason in {redis_disabled_by_env|redis_module_missing}; not found in tail');
+      }
+      if (found.envelope_version !== 1) {
+        throw new Error('emitted row envelope_version must be 1; got ' + found.envelope_version);
+      }
+      // Cross-check: returned reason must agree with persisted reason
+      // (orchestrator-side observability parity).
+      if (r.degraded_reason !== found.reason) {
+        throw new Error('isAvailable.degraded_reason (' + r.degraded_reason
+          + ') must match persisted reason (' + found.reason + ')');
+      }
+      return { reason: found.reason, rows_added: postLen - preLen };
+    } finally {
+      if (typeof prev === 'undefined') delete process.env.SGSD_REDIS_DISABLED;
+      else process.env.SGSD_REDIS_DISABLED = prev;
+    }
+  }));
+
   let pass = 0;
   let fail = 0;
   for (const r of results) {
@@ -2343,12 +2746,12 @@ if (require.main === module) {
   const argv = process.argv.slice(2);
   const wantSelfTest = argv.indexOf('--self-test') !== -1;
   if (!wantSelfTest) {
-    process.stdout.write('redis-adapter.cjs T4 (skeleton + source-hash invalidation + hot/semantic cache + event stream; REDIS-LOCK-04 XADD MAXLEN ~ 1000). Use --self-test to run bootstrap assertions.\n');
+    process.stdout.write('redis-adapter.cjs T5 (skeleton + source-hash invalidation + hot/semantic cache + event stream + degraded-fallback projection-log writer; REDIS-LOCK-06 + Pitfall 1 redaction). Use --self-test to run bootstrap assertions.\n');
     process.exit(0);
   }
   selfTest().then(function (out) {
     const lines = [];
-    lines.push('redis-adapter.cjs --self-test (T4 bootstrap: A0..A4 + B1..B5 + C1 + D1..D4 + E1 + F1..F4)');
+    lines.push('redis-adapter.cjs --self-test (T5 bootstrap: A0..A4 + B1..B5 + C1 + D1..D4 + E1 + F1..F4 + G1..G4)');
     for (const r of out.results) {
       const tag = r.ok ? 'PASS' : 'FAIL';
       const reason = r.ok ? '' : ' :: ' + (r.reason || 'unknown');

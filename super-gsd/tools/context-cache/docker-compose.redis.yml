@@ -1,0 +1,58 @@
+# ============================================================================
+# SGSD Phase 52 - Optional dev-time Redis for live cache adapter
+# ============================================================================
+#
+# PURPOSE
+#   Optional dev convenience for operators who want to exercise the live
+#   redis-adapter.cjs path (Class 1 markers, Class 2 hot packets,
+#   Class 3 semantic cache, Class 4 event streams) and the F17 cross-binding
+#   fixture (Phase 51 -> Phase 52). When this compose file is NOT running,
+#   the adapter degrades gracefully to SQLite/local files (REDIS-LOCK-06)
+#   and the orchestrator continues normally.
+#
+# OPERATOR USAGE
+#   Start (detached):
+#     docker compose -f super-gsd/tools/context-cache/docker-compose.redis.yml up -d
+#
+#   Verify reachable (port 6379):
+#     redis-cli -h 127.0.0.1 -p 6379 ping     # expect PONG
+#
+#   Set the env var the adapter reads:
+#     export SGSD_REDIS_URL=redis://localhost:6379/0
+#     # or on Windows PowerShell:
+#     # $env:SGSD_REDIS_URL = "redis://localhost:6379/0"
+#
+#   Run the adapter self-test (24 assertions; G* live-Redis groups exercised):
+#     node super-gsd/tools/context-cache/redis-adapter.cjs --self-test
+#
+#   Tear down (no data loss because no persistence is configured):
+#     docker compose -f super-gsd/tools/context-cache/docker-compose.redis.yml down
+#
+# DESIGN NOTES
+#   - redis:7-alpine: small image; v7 has the streams + scanIterator surface
+#     the adapter requires (XADD MAXLEN ~ 1000, SCAN with MATCH).
+#   - Ephemeral by design: --save "" --appendonly no disables both
+#     RDB snapshots and AOF persistence. Redis is a derived projection only
+#     (REDIS-LOCK-01); canonical truth lives in .planning/ and SQLite, never
+#     in Redis. FLUSHDB is recoverable from canonical (REDIS-LOCK-05).
+#   - No volumes mounted: matches the falsifier "docker-compose.redis.yml
+#     requests volumes or persistence -> plan is wrong" (52-01-T5).
+#   - Bridge networking, port 6379 published on host: makes redis-cli and
+#     local Node processes able to dial localhost:6379 without Docker
+#     network gymnastics.
+#   - container_name pinned (sgsd-redis-dev) so multiple SGSD repos on
+#     one host don't collide; alternatives are unique per checkout.
+#   - Native install + cloud Redis remain valid alternatives; this file
+#     is a convenience, not a requirement.
+# ============================================================================
+
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: sgsd-redis-dev
+    ports:
+      - "6379:6379"
+    command: redis-server --save "" --appendonly no
+    restart: unless-stopped
