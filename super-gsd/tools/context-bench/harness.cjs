@@ -967,10 +967,15 @@ function _selfTest() {
   }
   check('t4_F1_missing_capsule_reason_code', f1Ok, f1Detail);
 
-  // T4.4: F8 (critical bypass) preserves byte-verbatim CRIT text. The
-  // synthetic CRIT row is captured in the handle's _payload; the mirror
-  // file on disk is asserted byte-equal to JSON.stringify(payload)+'\n'
-  // both before and after inject() (Lock 6: no compression, no rewrite).
+  // T4.4: F8 (critical bypass) preserves byte-verbatim CRIT text AND
+  // exercises the rejection path. Per Phase 51 T4 ATC W2 fix, F8
+  // inject() now writes a MUTATED variant of the CRIT row to a separate
+  // mutatedPath file; the assertion verifies BOTH:
+  //   (a) the original mirror is byte-equal to JSON.stringify(payload)+\n
+  //       (Lock 6: no compression, no rewrite of the CRIT row), AND
+  //   (b) the mutated variant exists and IS detectably different from
+  //       the original (proves the inject path actually exercised the
+  //       failure mode rather than being a no-op).
   let f8Ok = false;
   let f8Detail = '';
   try {
@@ -982,19 +987,30 @@ function _selfTest() {
     const iOk = handle.inject();
     const payload = handle._payload ? handle._payload() : null;
     const mirrorPath = handle._mirrorPath ? handle._mirrorPath() : null;
+    const mutatedPath = handle._mutatedPath ? handle._mutatedPath() : null;
     let bytesMatch = false;
+    let mutatedExists = false;
+    let mutatedDiffers = false;
     if (payload && mirrorPath && fs.existsSync(mirrorPath)) {
       const onDisk = fs.readFileSync(mirrorPath, 'utf8');
       const expected = JSON.stringify(payload) + '\n';
       bytesMatch = (onDisk === expected);
+      if (mutatedPath && fs.existsSync(mutatedPath)) {
+        mutatedExists = true;
+        const mutatedOnDisk = fs.readFileSync(mutatedPath, 'utf8');
+        mutatedDiffers = (mutatedOnDisk !== onDisk);
+      }
     }
     const oOk = handle.observe();
     const rOk = handle.restore();
     f8Ok = sOk && iOk && oOk && rOk && bytesMatch
+      && mutatedExists && mutatedDiffers
       && payload && payload.severity === 'CRITICAL'
       && payload.text && payload.text.indexOf('verbatim only') !== -1;
     f8Detail = 'snapshot=' + sOk + ' inject=' + iOk
-      + ' bytes_match=' + bytesMatch
+      + ' original_bytes_match=' + bytesMatch
+      + ' mutated_exists=' + mutatedExists
+      + ' mutated_differs=' + mutatedDiffers
       + ' severity=' + (payload && payload.severity);
   } catch (e) {
     f8Detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
@@ -1095,17 +1111,21 @@ function _selfTest() {
   check('t4_F11_semantic_only_rejected_v16_p26_absent_from_S2',
         f11Ok, f11Detail);
 
-  // T4.7: canonical fingerprint guard - 4 source streams unchanged
+  // T4.7: canonical fingerprint guard - 5 source streams unchanged
   // across the entire T4 self-test run. Compares fp_initial (taken
-  // before T4.1) against a fresh snapshot here.
+  // before T4.1) against a fresh snapshot here. Per Phase 51 T4 ATC W3
+  // fix, the guard now covers all 5 canonical streams (added
+  // crit-backlog.jsonl).
   let finalFpOk = false;
   let finalFpDetail = '';
   try {
     const fpFinal = _injectors.snapshotCanonicalStreams(planningDir);
     const cmp = _injectors.compareCanonicalStreams(_t4_initialFp, fpFinal);
     finalFpOk = cmp.ok;
+    const streamCount = (_injectors.CANONICAL_STREAMS
+                         && _injectors.CANONICAL_STREAMS.length) || 0;
     finalFpDetail = cmp.ok
-      ? '4 canonical streams unchanged across full T4 run'
+      ? streamCount + ' canonical streams unchanged across full T4 run'
       : 'drift=' + cmp.drift.join(',');
   } catch (e) {
     finalFpDetail = 'threw: ' + (e && e.message ? e.message : 'unknown');

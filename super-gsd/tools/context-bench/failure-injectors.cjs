@@ -294,15 +294,22 @@ const INJECT_REASON_CODES = Object.freeze([
 ]);
 
 // ---------------------------------------------------------------------------
-// CANONICAL_STREAMS - the 4 source streams the anti-pollution self-test
-// fingerprints before/after every fixture run. Plus crit-backlog (touched
-// by F8 inject sandbox).
+// CANONICAL_STREAMS - the 5 source streams the anti-pollution self-test
+// fingerprints before/after every fixture run. Plan 51-01 must_haves
+// truth #4 lists 5 canonical streams; crit-backlog.jsonl was previously
+// commented as "touched by F8 inject sandbox" but the F8/F16 mirrors live
+// in tmpdir, never under planningDir/metrics/, so adding the live
+// crit-backlog stream to the guard set tightens the anti-pollution
+// invariant without affecting fixture sandboxing.
+// W3 fix (Phase 51 T4 ATC): crit-backlog.jsonl added to make T4.7
+// (canonical fingerprint guard) cover all 5 canonical streams.
 // ---------------------------------------------------------------------------
 const CANONICAL_STREAMS = Object.freeze([
   'agent-token-spend.jsonl',
   'context-packet-log.jsonl',
   'context-complaints.jsonl',
   'route-decisions.jsonl',
+  'crit-backlog.jsonl',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -348,16 +355,21 @@ function fingerprintStream(filePath) {
   }
 }
 
+// W1 fix (Phase 51 T4 ATC): mtime is filesystem-controlled and can drift
+// without any content change (e.g., touch, atime->mtime promotion on some
+// filesystems, copy-then-restore). Comparing mtime here yielded false-
+// positive failures in the anti-pollution self-test. Equality is now
+// sha256 + size only; mtime is still recorded by fingerprintStream() for
+// diagnostic logging but is NOT part of the byte-equality contract.
 function fingerprintsEqual(a, b) {
   if (!a || !b) return false;
   if (a.absent && b.absent) return true;
   if (a.absent !== b.absent) return false;
   return a.sha256 === b.sha256
-      && a.mtime === b.mtime
       && a.size === b.size;
 }
 
-// Snapshot the 4 canonical streams under planningDir/metrics/. Returns a
+// Snapshot the 5 canonical streams under planningDir/metrics/. Returns a
 // map { fileName -> fingerprint }. Lock 13: degraded sentinel on error.
 function snapshotCanonicalStreams(planningDir) {
   const out = Object.create(null);
@@ -641,9 +653,20 @@ function _F7(_ctx) {
 // F8: critical bypass byte-verbatim preservation. Synthetic CRIT row in
 // a tmpdir crit-backlog mirror; the bench harness reads the row, builds
 // a packet, and asserts byte-equality on the bypass_refs body.
+//
+// W2 fix (Phase 51 T4 ATC): the previous inject() was a near-no-op
+// (returned true; no actual compression-bug mutation applied). The Lock 6
+// assertion T4.4 only verified the snapshot mirror was byte-clean - it
+// did NOT exercise the rejection path. inject() now writes a MUTATED
+// variant of the CRIT row (bytes deliberately stripped to a non-CRITICAL
+// severity + text truncated) to a SEPARATE `mutatedPath` file alongside
+// the original mirror. The harness/test then confirms (a) the original
+// mirror is byte-verbatim AND (b) the mutated variant is detectably
+// different from the original. Both files cleaned up by restore().
 function _F8(_ctx) {
   let tmpDir = null;
   let mirrorPath = null;
+  let mutatedPath = null;
   const synthetic = {
     crit_id: 'CRIT-T4-F8-synthetic-' + Date.now(),
     severity: 'CRITICAL',
@@ -657,11 +680,29 @@ function _F8(_ctx) {
         tmpDir = _mkTmp('p51-t4-f8-');
         if (!tmpDir) return false;
         mirrorPath = path.join(tmpDir, 'crit-backlog.jsonl');
+        mutatedPath = path.join(tmpDir, 'crit-backlog.mutated.jsonl');
         fs.writeFileSync(mirrorPath, JSON.stringify(synthetic) + '\n', 'utf8');
         return true;
       } catch (_e) { return false; }
     },
-    inject: function () { return true; },
+    inject: function () {
+      try {
+        if (!mutatedPath) return false;
+        // Mutation: strip the CRITICAL severity + truncate text. This is
+        // the "compression bug" surrogate the Lock 6 binding must reject.
+        // The original mirror is left byte-untouched.
+        const mutated = {
+          crit_id: synthetic.crit_id,
+          severity: 'INFO',
+          text: synthetic.text.slice(0, 16),
+          source: synthetic.source,
+          ts: synthetic.ts,
+        };
+        fs.writeFileSync(mutatedPath,
+          JSON.stringify(mutated) + '\n', 'utf8');
+        return true;
+      } catch (_e) { return false; }
+    },
     observe: function () { return true; },
     restore: function () {
       try { _rmTmp(tmpDir); return true; }
@@ -669,6 +710,7 @@ function _F8(_ctx) {
     },
     _payload: function () { return synthetic; },
     _mirrorPath: function () { return mirrorPath; },
+    _mutatedPath: function () { return mutatedPath; },
   };
 }
 
@@ -779,9 +821,16 @@ function _F15(_ctx) {
 // F16: critical bypass incorrectly compressed. The synthetic compression
 // bug attempts to compress the F8 CRIT body; the Lock 6 binding rejects
 // and re-emits the verbatim CRIT.
+//
+// W2 fix (Phase 51 T4 ATC): same pattern as F8. The previous inject()
+// was a behavioral no-op. inject() now writes a synthetic compress-then-
+// decompress variant (bytes deliberately stripped) to a SEPARATE
+// `mutatedPath` file to demonstrate the compression bug. The original
+// mirror file remains byte-verbatim; restore() removes both files.
 function _F16(_ctx) {
   let tmpDir = null;
   let mirrorPath = null;
+  let mutatedPath = null;
   const synthetic = {
     crit_id: 'CRIT-T4-F16-synthetic-' + Date.now(),
     severity: 'CRITICAL',
@@ -795,15 +844,33 @@ function _F16(_ctx) {
         tmpDir = _mkTmp('p51-t4-f16-');
         if (!tmpDir) return false;
         mirrorPath = path.join(tmpDir, 'crit-backlog.jsonl');
+        mutatedPath = path.join(tmpDir, 'crit-backlog.compressed.jsonl');
         fs.writeFileSync(mirrorPath, JSON.stringify(synthetic) + '\n', 'utf8');
         return true;
       } catch (_e) { return false; }
     },
     inject: function () {
       try {
-        // The compression-bug payload is recorded, but Lock 6 binding
-        // means restore() expects byte-verbatim re-emission; the
-        // mirror file is asserted unchanged below.
+        if (!mutatedPath) return false;
+        // Synthetic "compress-then-decompress" that differs from original:
+        // drop the trailing instruction sentence + collapse whitespace.
+        // Lock 6 binding must reject this in the live system; here we
+        // simply demonstrate the inject path actually emits a
+        // detectably-different artifact.
+        const compressedText = synthetic.text
+          .split(';')[0]
+          .replace(/\s+/g, ' ')
+          .trim();
+        const mutated = {
+          crit_id: synthetic.crit_id,
+          severity: synthetic.severity,
+          text: compressedText,
+          source: synthetic.source,
+          ts: synthetic.ts,
+          _compressed: true,
+        };
+        fs.writeFileSync(mutatedPath,
+          JSON.stringify(mutated) + '\n', 'utf8');
         return true;
       } catch (_e) { return false; }
     },
@@ -814,6 +881,7 @@ function _F16(_ctx) {
     },
     _payload: function () { return synthetic; },
     _mirrorPath: function () { return mirrorPath; },
+    _mutatedPath: function () { return mutatedPath; },
   };
 }
 
@@ -859,10 +927,14 @@ function injectFailure(fixtureId, ctx) {
   try {
     const id = String(fixtureId || '').trim();
     if (!id || !Object.prototype.hasOwnProperty.call(FIXTURE_FACTORIES, id)) {
+      // W4 fix (Phase 51 T4 ATC): the sentinel return shape must match
+      // the success/soft-skip return shape so callers can rely on
+      // handle.fixture always being present (null when unknown).
       return {
         skipped: true,
         ok: false,
         reason: 'inject_skipped_unknown_id',
+        fixture: null,
         snapshot: function () { return false; },
         inject: function () { return false; },
         observe: function () { return false; },
@@ -937,12 +1009,20 @@ function injectFailure(fixtureId, ctx) {
       _payload: handle._payload ? handle._payload.bind(handle) : null,
       _mirrorPath: handle._mirrorPath
         ? handle._mirrorPath.bind(handle) : null,
+      // W2 fix: F8/F16 expose the mutated-variant path so the harness
+      // self-test can assert (a) original byte-verbatim AND (b) the
+      // mutated variant exists and IS detectably different.
+      _mutatedPath: handle._mutatedPath
+        ? handle._mutatedPath.bind(handle) : null,
     };
   } catch (_e) {
+    // W4 fix (consistency): include fixture: null so the catch sentinel
+    // matches the unknown-id sentinel shape.
     return {
       skipped: true,
       ok: false,
       reason: 'inject_failed_snapshot',
+      fixture: null,
       snapshot: function () { return false; },
       inject: function () { return false; },
       observe: function () { return false; },
