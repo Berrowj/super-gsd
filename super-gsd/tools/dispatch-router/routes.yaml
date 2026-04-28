@@ -21,3 +21,23 @@ table:
   book_lookup:
     primary: vtp
     fallback_chain: [claude]
+
+# ----------------------------------------------------------------
+# Phase 48 (VTPR-01..06): Selective VTP Bridge configuration.
+# Read by super-gsd/tools/vtp-bridge/classify.cjs via the same
+# loadRoutes() helper Phase 47 uses. Compiled fallback inside
+# classify.cjs hard-codes 5000/30000/false if this section is absent.
+# ----------------------------------------------------------------
+vtp_bridge:
+  # Maximum body_token_estimate for an evidence_packet returned by
+  # selectiveVTPCall. When MCP returns more, results are elided
+  # descending-relevance until cumulative tokens fit; reason_codes
+  # gains 'evidence_packet_size_capped'.
+  evidence_packet_max_tokens: 5000
+  # Per-call MCP timeout. Bridge does NOT retry on timeout; failure
+  # row appended to .planning/metrics/vtp-bridge-failures.jsonl
+  # and an empty packet returned (Lock 13 + A3 binding).
+  per_query_timeout_ms: 30000
+  # Phase 48 explicitly does NOT retry. Phase 49 governance may add
+  # a retry policy in a future revision.
+  retry_on_timeout: false

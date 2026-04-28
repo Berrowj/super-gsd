@@ -63,6 +63,10 @@ const crypto = require('crypto');
 // (research, planning, execution, verification, review). Uses the same closed-enum
 // extension pattern as Phase 38 'gate_override'. envelope-v1 contract unchanged
 // (additionalProperties:true at registry/command-envelope-v1.yaml:260).
+// Phase 48 (VTPR-01..06): added 'vtp_bridge' for selective VTP MCP bridge calls
+// (uncertainty_type -> MCP tool dispatch via super-gsd/tools/vtp-bridge/classify.cjs).
+// Same closed-enum extension pattern as Phase 47 'dispatch_route'. envelope-v1
+// contract unchanged (additionalProperties:true at registry/command-envelope-v1.yaml:260).
 const BOUNDARIES = Object.freeze([
   'milestone_promotion',
   'phase_dispatch_first',
@@ -72,6 +76,7 @@ const BOUNDARIES = Object.freeze([
   'handoff_decision',
   'gate_override',
   'dispatch_route',
+  'vtp_bridge',
 ]);
 
 // envelope-v1 status enum (command-envelope-v1.json status.enum). Frozen.
@@ -315,9 +320,9 @@ function selfTest() {
 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rl-'));
   try {
-    // 1. Module exports + frozen constants. Phase 47: 8 entries (added 'dispatch_route').
-    assert('1. BOUNDARIES is array of 8',
-      Array.isArray(BOUNDARIES) && BOUNDARIES.length === 8);
+    // 1. Module exports + frozen constants. Phase 48: 9 entries (added 'vtp_bridge').
+    assert('1. BOUNDARIES is array of 9',
+      Array.isArray(BOUNDARIES) && BOUNDARIES.length === 9);
     assert('2. STATUSES is array of 6 envelope-v1 states',
       Array.isArray(STATUSES) && STATUSES.length === 6 &&
       STATUSES.includes('ok') && STATUSES.includes('warn') &&
@@ -463,6 +468,31 @@ function selfTest() {
       Array.isArray(lastRow14.reason_codes) &&
       lastRow14.reason_codes.includes('matched_uncertainty_type'));
     void r14;
+
+    // 15. Phase 48: vtp_bridge boundary smoke (mirror assertion 14 for new VTP route).
+    const r15 = appendRow(tmp, {
+      boundary: 'vtp_bridge', status: 'ok',
+      phase: '48', milestone: 'v1.9',
+      reason_codes: ['vtp_call_succeeded'],
+      decision: {
+        tool: 'vtp_search_substrate',
+        uncertainty_type: 'architecture_challenge',
+        result_count: 3,
+        body_token_estimate: 1234,
+        elided_count: 0,
+      },
+    });
+    const rows15 = readRows(tmp);
+    const lastRow15 = rows15[rows15.length - 1];
+    assert('15. vtp_bridge boundary accepted; Phase 48 decision payload preserved',
+      lastRow15.boundary === 'vtp_bridge' &&
+      lastRow15.decision &&
+      lastRow15.decision.tool === 'vtp_search_substrate' &&
+      lastRow15.decision.uncertainty_type === 'architecture_challenge' &&
+      lastRow15.decision.result_count === 3 &&
+      Array.isArray(lastRow15.reason_codes) &&
+      lastRow15.reason_codes.includes('vtp_call_succeeded'));
+    void r15;
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
