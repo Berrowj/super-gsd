@@ -427,7 +427,8 @@ function Get-AgentRows {
 }
 
 function Render-AgentOverview {
-    param($pw, $Scope)
+    param($pw, $Scope, [switch]$Compact)
+    $rowsWritten = 0
     $lines = Get-NarrativeLines
     $current = if ($lines.Count -gt 0) { Clean-AgentText ($lines[0]) } else { "Waiting for current Claude narrative." }
     Write-Host "CLAUDE NOW " -NoNewline -ForegroundColor White
@@ -436,17 +437,22 @@ function Render-AgentOverview {
         if ($Scope.total -gt 0) { Write-Host (" ({0}/{1})" -f $Scope.index, $Scope.total) -NoNewline -ForegroundColor DarkGray }
     }
     Write-Host $CLEAR_LINE
+    $rowsWritten++
     Write-Host "  " -NoNewline
     Write-Host (Trunc $current ($pw - 3)) -NoNewline -ForegroundColor Yellow
     Write-Host $CLEAR_LINE
+    $rowsWritten++
 
     $agentRows = @(Get-AgentRows)
-    $active = @($agentRows | Where-Object { $_.active -and @("Research","Executor","Planner") -contains $_.role } | Select-Object -First 3)
+    $activeLimit = if ($Compact) { 2 } else { 3 }
+    $active = @($agentRows | Where-Object { $_.active -and @("Research","Executor","Planner") -contains $_.role } | Select-Object -First $activeLimit)
     Write-Host "ACTIVE AGENTS" -NoNewline -ForegroundColor White
     Write-Host $CLEAR_LINE
+    $rowsWritten++
     if ($active.Count -eq 0) {
         Write-Host "  none" -NoNewline -ForegroundColor DarkGray
         Write-Host $CLEAR_LINE
+        $rowsWritten++
     } else {
         foreach ($a in $active) {
             $phase = if ($a.phase) { "P$($a.phase) " } else { "" }
@@ -455,15 +461,19 @@ function Render-AgentOverview {
             Write-Host "  " -NoNewline
             Write-Host (Trunc ($phase + $a.text) ($pw - 24)) -NoNewline -ForegroundColor Green
             Write-Host $CLEAR_LINE
+            $rowsWritten++
         }
     }
 
-    Render-TokenSpend $pw
+    $tokenAgentLimit = if ($Compact) { 2 } else { 4 }
+    $rowsWritten += Render-TokenSpend $pw -MaxAgents $tokenAgentLimit -NoAudit:$Compact
 
     Write-Host "AGENT HISTORY" -NoNewline -ForegroundColor White
     Write-Host $CLEAR_LINE
+    $rowsWritten++
     $history = @()
     $seen = @{}
+    $historyLimit = if ($Compact) { 2 } else { 5 }
     foreach ($a in $agentRows) {
         if ($a.active) { continue }
         if (-not @("Research","Executor","Planner") -contains $a.role) { continue }
@@ -481,22 +491,26 @@ function Render-AgentOverview {
         if ($a.role -eq "Research") {
             $history += [pscustomobject]@{ role=$a.role; line="$phase $($a.label): research shapes the current plan and review checklist." }
         }
-        if ($history.Count -ge 5) { break }
+        if ($history.Count -ge $historyLimit) { break }
     }
     if ($history.Count -eq 0) {
         Write-Host "  no prior agent records yet" -NoNewline -ForegroundColor DarkGray
         Write-Host $CLEAR_LINE
+        $rowsWritten++
     } else {
         foreach ($h in $history) {
             Write-Host "  " -NoNewline
             Write-Host (Trunc $h.line ($pw - 3)) -NoNewline -ForegroundColor Gray
             Write-Host $CLEAR_LINE
+            $rowsWritten++
         }
     }
+    return $rowsWritten
 }
 
 function Render-TokenSpend {
-    param($pw)
+    param($pw, [int]$MaxAgents = 4, [switch]$NoAudit)
+    $rowsWritten = 0
     $summary = Get-TokenAttributionSummary
     Write-Host "TOKEN SPEND" -NoNewline -ForegroundColor White
     if ($summary -and $summary.scope) {
@@ -506,11 +520,12 @@ function Render-TokenSpend {
         if ($scopeTxt) { Write-Host " $scopeTxt" -NoNewline -ForegroundColor DarkGray }
     }
     Write-Host $CLEAR_LINE
+    $rowsWritten++
 
     if (-not $summary) {
         Write-Host "  no token attribution yet" -NoNewline -ForegroundColor DarkGray
         Write-Host $CLEAR_LINE
-        return
+        return ($rowsWritten + 1)
     }
 
     $agentTotal = Format-Tokens $summary.agent_total_tokens
@@ -529,10 +544,11 @@ function Render-TokenSpend {
     Write-Host " med " -NoNewline -ForegroundColor Gray
     Write-Host $med -NoNewline -ForegroundColor Yellow
     Write-Host $CLEAR_LINE
+    $rowsWritten++
 
     $shown = 0
     foreach ($a in @($summary.by_agent)) {
-        if ($shown -ge 4) { break }
+        if ($shown -ge $MaxAgents) { break }
         $tok = Format-Tokens $a.total_tokens
         $avg = Format-Tokens $a.avg_tokens
         $cand = "$($a.codex_offload_candidate)"
@@ -549,14 +565,17 @@ function Render-TokenSpend {
         Write-Host $cand -NoNewline -ForegroundColor $candColor
         Write-Host $CLEAR_LINE
         $shown++
+        $rowsWritten++
     }
-    if ($summary.ledger_path) {
+    if (-not $NoAudit -and $summary.ledger_path) {
         $ledger = ".planning\metrics\token-attribution.jsonl"
         $appendTxt = if ($summary.appended -gt 0) { " +$($summary.appended) new" } else { "" }
         Write-Host "  audit " -NoNewline -ForegroundColor DarkGray
         Write-Host "$ledger$appendTxt" -NoNewline -ForegroundColor DarkGray
         Write-Host $CLEAR_LINE
+        $rowsWritten++
     }
+    return $rowsWritten
 }
 
 function Render-Header {
@@ -926,16 +945,21 @@ function Render {
     # Non-blocking — pane continues to render the old cache while Haiku runs.
     Maybe-RefreshHaiku
 
+    $compact = ($ph -lt 32)
+
     Render-Header $ts
     Write-Host $CLEAR_LINE
     $scope = Get-StateScope
-    Render-AgentOverview $pw $scope
+    $overviewRows = Render-AgentOverview $pw $scope -Compact:$compact
     Write-Host $CLEAR_LINE
 
-    # Remaining space goes to Ctrl+O stream (min 4 rows)
-    $used = 13
-    $ctrlOBudget = [Math]::Max(4, $ph - $used)
-    Render-CtrlOStream $pw $ctrlOBudget
+    # Remaining space goes to Ctrl+O stream. In the half-height pane, keep the
+    # summary stable and only show the rows that physically fit.
+    $used = 3 + [int]$overviewRows + 1
+    $ctrlOBudget = [Math]::Max(0, $ph - $used - 1)
+    if ($ctrlOBudget -gt 0) {
+        Render-CtrlOStream $pw $ctrlOBudget
+    }
 
     Write-Host $CLEAR_BELOW -NoNewline
 }

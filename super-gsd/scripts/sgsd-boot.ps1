@@ -801,27 +801,27 @@ if ($wt) {
 
     # Cockpit layout:
     #   left-top:    SGSD1 (Mission Control)
-    #   left-bottom: SGSD2 (Codex + gate detail)
-    #   right-full:  SGSD3 (Claude + active agents + tool stream)
+    #   left-bottom: SGSD3 (Claude + active agents + fitted tool stream)
+    #   right-full:  SGSD2 (Codex + gate detail)
     #
     # Build order:
     #   1. SGSD1 fills the tab.
-    #   2. Split right for SGSD3 at full height.
-    #   3. Return left and split SGSD1 horizontally for SGSD2.
-    #   4. Focus SGSD3 so the live Claude pane is active.
+    #   2. Split right for SGSD2 at full height.
+    #   3. Return left and split SGSD1 horizontally for SGSD3.
+    #   4. Focus SGSD2 so the gate pane is active.
     $launchArgs = @(
         "new-tab", "--title", "SGSD-Cockpit", "--startingDirectory", $ProjectDir,
         $psCmd, "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd1, "-ProjectDir", $ProjectDir, "-Name", "SGSD1-Mission-Control",
-        ";", "split-pane", "-V", "--size", "0.50", "--title", "SGSD3-Claude+Agents", "--startingDirectory", $ProjectDir,
-        $psCmd, "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd3, "-ProjectDir", $ProjectDir, "-Name", "SGSD3-Claude+Agents",
-        ";", "move-focus", "left",
-        ";", "split-pane", "-H", "--size", "0.50", "--title", "SGSD2-Codex", "--startingDirectory", $ProjectDir,
+        ";", "split-pane", "-V", "--size", "0.50", "--title", "SGSD2-Codex", "--startingDirectory", $ProjectDir,
         $psCmd, "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd2, "-ProjectDir", $ProjectDir, "-Name", "SGSD2-Codex",
+        ";", "move-focus", "left",
+        ";", "split-pane", "-H", "--size", "0.50", "--title", "SGSD3-Claude+Agents", "--startingDirectory", $ProjectDir,
+        $psCmd, "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd3, "-ProjectDir", $ProjectDir, "-Name", "SGSD3-Claude+Agents",
         ";", "move-focus", "right"
     )
 
     Write-Step "Windows Terminal detected" "OK" Green
-    Write-Host "  Opening Mission + Codex stacked left, Claude+Agents full-height right..."
+    Write-Host "  Opening Mission + Claude stacked left, Codex full-height right..."
     Start-Process -FilePath "wt.exe" -ArgumentList $launchArgs
     Start-Sleep -Milliseconds 500
 
