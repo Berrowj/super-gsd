@@ -87,14 +87,17 @@
 
 // ---------------------------------------------------------------------------
 // Dependencies. Lock 4: no Phase 41-52 tool tree imports here. Only Node
-// stdlib + crit-backlog.cjs (T6 will wire the appendRow call). T2 will add
-// child_process.spawnSync; we keep the require to a comment until T2 to
-// avoid an unused dep at T1.
+// stdlib + crit-backlog.cjs (T6 will wire the appendRow call). T2 wires
+// child_process.spawnSync for the real-process boundary inside _spawnTool.
+// Lock 4 hard rule: harness body MUST NOT require() any target tool; the
+// only legal way to invoke a target tool is spawnSync(command, argv, ...)
+// with command resolved as an absolute file path.
 // ---------------------------------------------------------------------------
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
+const child_process = require('child_process');
 
 // Lock 13: import wrapped. A missing crit-backlog module must surface as a
 // degraded sentinel at runAll() / appendLogRow() time, never as an
@@ -538,37 +541,349 @@ function _runScenarioImpl(scenario, tmpdir) {
   }
 }
 
-// _setupContainer: tmpdir mirror creator. T2 fills with fs.mkdtempSync +
-// .planning subdir scaffolding. T1 stub returns a typed shape so wiring
-// tests can compile.
+// _setupContainer: tmpdir mirror creator. T2 body: mkdtempSync under
+// os.tmpdir() (NEVER under workspace), scaffold .planning/{metrics,
+// milestones,cache} subdirs, optionally pre-populate fixture files for the
+// given scenario id (best-effort; T3-T5 author the fixture content), and
+// snapshot the LIVE planning streams pre-scenario via _fingerprintAllStreams.
+// Returns { ok, tmpdir, planningDir, scenario_id, snapshot_fingerprint }.
+// Lock 13: any failure -> degraded sentinel; never throws upward.
+//
+// Workspace-traversal guard (Pitfall 2 / Lock 4): asserts that the chosen
+// tmpdir.startsWith(os.tmpdir()) AND does NOT include __dirname (the
+// failure-injection tool dir under the project workspace). A regression
+// where tmpdir resolves under the workspace would cause subprocess cwd to
+// resolve .planning/ to the LIVE workspace - the entire anti-pollution
+// invariant collapses.
 function _setupContainer(scenarioId) {
   try {
+    // Strict input contract: scenarioId MUST be a non-empty ASCII string
+    // matching the SCENARIOS schema id pattern. Non-string / empty input
+    // returns the degraded sentinel WITHOUT mkdtemp side-effects (this
+    // also makes the Test 5 Lock 13 bad-input probe FS-clean: passing
+    // null/{}/[]/0/false/'' returns a sentinel and creates no tmpdir).
+    if (typeof scenarioId !== 'string' || scenarioId.length === 0) {
+      return {
+        ok: false,
+        reason: 'container_setup_failed',
+        error: 'scenario_id_must_be_non_empty_string',
+        tmpdir: null,
+        planningDir: null,
+        scenario_id: null,
+        snapshot_fingerprint: null,
+        source: '_setupContainer_input_guard',
+      };
+    }
+    // Sanitize scenario id for use as a directory-name suffix - only
+    // allow [A-Za-z0-9-_] to avoid path traversal injection (T-53-02).
+    if (!/^[A-Za-z0-9_-]+$/.test(scenarioId)) {
+      return {
+        ok: false,
+        reason: 'container_setup_failed',
+        error: 'scenario_id_pattern_violation',
+        tmpdir: null,
+        planningDir: null,
+        scenario_id: null,
+        snapshot_fingerprint: null,
+        source: '_setupContainer_pattern_guard',
+      };
+    }
+    var sid = scenarioId;
+    var prefix = path.join(os.tmpdir(), 'sgsd-fail-inj-' + sid + '-');
+    var tmpdir = fs.mkdtempSync(prefix);
+    // Defense-in-depth guard: tmpdir MUST be under os.tmpdir() AND MUST NOT
+    // be under __dirname. If either invariant breaks, abort: rmSync the
+    // partial dir + return degraded sentinel.
+    var safeUnderTmp = tmpdir.indexOf(os.tmpdir()) === 0;
+    var notUnderWorkspace = tmpdir.indexOf(__dirname) === -1;
+    if (!safeUnderTmp || !notUnderWorkspace) {
+      try { fs.rmSync(tmpdir, { recursive: true, force: true }); } catch (_e) {}
+      return {
+        ok: false,
+        reason: 'container_setup_failed',
+        error: 'workspace_traversal_guard_violated',
+        tmpdir: null,
+        planningDir: null,
+        scenario_id: sid,
+        snapshot_fingerprint: null,
+        source: '_setupContainer_traversal_guard',
+      };
+    }
+    // Scaffold planning subdirs. Recursive mkdirSync is idempotent on
+    // existing paths and never throws on EEXIST when recursive:true.
+    var planningDir = path.join(tmpdir, '.planning');
+    fs.mkdirSync(path.join(planningDir, 'metrics'), { recursive: true });
+    fs.mkdirSync(path.join(planningDir, 'milestones'), { recursive: true });
+    fs.mkdirSync(path.join(planningDir, 'cache'), { recursive: true });
+    // Pre-populate fixture files (best-effort): T3-T5 will author the
+    // actual fixture content under super-gsd/tools/failure-injection/
+    // fixtures/<scenarioId>/. T2 only wires the copy mechanism so the
+    // fixture-dir absent path is the documented degraded shape. Files are
+    // copied into the tmpdir root (NOT planningDir/metrics) so per-scenario
+    // _runScenarioImpl bodies (T3-T5) can resolve them as
+    // path.join(tmpdir, '<basename>') and decide where to inject.
+    var fixturesCopied = 0;
+    try {
+      var fixSrc = path.join(__dirname, 'fixtures', sid);
+      if (fs.existsSync(fixSrc) && fs.statSync(fixSrc).isDirectory()) {
+        var entries = fs.readdirSync(fixSrc);
+        for (var fi = 0; fi < entries.length; fi++) {
+          var name = entries[fi];
+          var src = path.join(fixSrc, name);
+          var dst = path.join(tmpdir, name);
+          try {
+            var st = fs.statSync(src);
+            if (st.isFile()) {
+              fs.copyFileSync(src, dst);
+              fixturesCopied += 1;
+            }
+          } catch (_eC) {}
+        }
+      }
+    } catch (_eFx) {
+      // Lock 13: fixtures absent -> 0 copied; not a setup failure.
+    }
+    // Snapshot LIVE canonical streams (Lock 4: snapshot the live workspace
+    // .planning/metrics, NOT the tmpdir mirror). This is the pre-scenario
+    // anchor that _teardownContainer compares against to enforce the
+    // anti-pollution invariant. We default the live planning dir to the
+    // project workspace under the harness file (super-gsd/.. -> two parents
+    // up from super-gsd/tools/failure-injection/).
+    var liveProjectRoot = path.resolve(__dirname, '..', '..', '..');
+    var livePlanningDir = path.join(liveProjectRoot, '.planning');
+    var snapshot = _fingerprintAllStreams(livePlanningDir);
     return {
       ok: true,
-      stub: true,
+      tmpdir: tmpdir,
+      planningDir: planningDir,
+      scenario_id: sid,
+      snapshot_fingerprint: snapshot,
+      live_planning_dir: livePlanningDir,
+      fixtures_copied: fixturesCopied,
+      source: '_setupContainer_t2',
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      reason: 'container_setup_failed',
+      error: (e && e.message) ? e.message : 'unknown',
       tmpdir: null,
       planningDir: null,
       scenario_id: typeof scenarioId === 'string' ? scenarioId : null,
-      source: '_setupContainer_t1_stub',
-    };
-  } catch (_e) {
-    return {
-      ok: false,
-      reason: 'gate_internal_error',
-      stub: true,
+      snapshot_fingerprint: null,
       source: '_setupContainer_catch',
     };
   }
 }
 
-// _spawnTool: real-process boundary. T2 fills with child_process.spawnSync
-// pattern mirrored from sgsd-blind-live-controller.mjs:104-138. T1 stub
-// returns a typed shape so wiring tests can compile.
+// _spawnTool: real-process boundary. T2 body: spawnSync pattern mirrored
+// from sgsd-blind-live-controller.mjs:104-138 + spawnSyncNode helper at
+// :939-946. Mock-predicate forbiddance enforcement (CONTEXT.md:81 +
+// Pitfall 1): the harness MUST invoke target tools as separate processes
+// via spawnSync. NO require() of the target tool internally - that would
+// share v8 context and let injected env / module cache poison cross
+// scenarios.
+//
+// Two call shapes are supported:
+//   (A) Plan-style: _spawnTool(scenario, tmpdir, extraEnv) - reads
+//       scenario.tool_invocation_argv, resolves <tmpdir> + <resolved>
+//       placeholders, spawns with cwd=tmpdir + env merged.
+//   (B) Direct-style: _spawnTool({command, args, cwd, env, timeoutMs}) -
+//       passthrough for self-test 9 (real-process smoke) and any future
+//       caller that already has a resolved argv.
+// Returns a typed shape per PLAN line 320 + per-task spec:
+//   { ok, argv, cwd, env_overrides, exit_code, signal, stdout, stderr,
+//     stdout_digest, stderr_digest, duration_ms, command_invoked,
+//     timed_out, reason }
+// Lock 13: spawnSync errors (ENOENT, EACCES) -> degraded sentinel; never
+// throws. Timeout -> ok:false, reason:'scenario_fail_timeout', signal!==null.
+// Non-zero exit -> ok:false, reason:'tool_nonzero_exit', exit_code preserved.
 function _spawnTool(scenario, tmpdir, extraEnv) {
   try {
+    // Branch A vs B detection: branch B if first arg is a plain object
+    // with a `command` string field and no `tool_invocation_argv`.
+    var command = null;
+    var args = [];
+    var cwd = null;
+    var envOverrides = {};
+    var timeoutMs = 30000;
+    var srcTag = '_spawnTool_t2_branch_a';
+    if (scenario && typeof scenario === 'object' &&
+        typeof scenario.command === 'string' &&
+        !Array.isArray(scenario.tool_invocation_argv)) {
+      command = scenario.command;
+      args = Array.isArray(scenario.args) ? scenario.args.slice() : [];
+      cwd = typeof scenario.cwd === 'string' ? scenario.cwd : process.cwd();
+      envOverrides = (scenario.env && typeof scenario.env === 'object')
+        ? scenario.env : {};
+      timeoutMs = typeof scenario.timeoutMs === 'number' && scenario.timeoutMs > 0
+        ? scenario.timeoutMs : 30000;
+      srcTag = '_spawnTool_t2_branch_b_direct';
+    } else {
+      // Branch A: scenario manifest entry shape.
+      if (!scenario || typeof scenario !== 'object' ||
+          !Array.isArray(scenario.tool_invocation_argv) ||
+          scenario.tool_invocation_argv.length < 2) {
+        return {
+          ok: false,
+          reason: 'scenario_fail_reason_code_missing',
+          error: 'missing_or_malformed_tool_invocation_argv',
+          argv: [],
+          cwd: tmpdir || null,
+          env_overrides: extraEnv || {},
+          exit_code: null,
+          signal: null,
+          stdout: '',
+          stderr: '',
+          stdout_digest: 'sha256:',
+          stderr_digest: 'sha256:',
+          duration_ms: 0,
+          command_invoked: '',
+          timed_out: false,
+          source: '_spawnTool_t2_argv_guard',
+        };
+      }
+      // Resolve placeholders in argv: <tmpdir> -> tmpdir abs path;
+      // <resolved> -> path.resolve(__dirname, '..', '..', '..', target_tool)
+      // (the target tool path is closed-vocab schema-validated to start
+      // with super-gsd/, so this resolves to the project tool file).
+      var liveProjectRoot = path.resolve(__dirname, '..', '..', '..');
+      var resolvedTarget = '';
+      try {
+        if (typeof scenario.target_tool === 'string') {
+          resolvedTarget = path.join(liveProjectRoot, scenario.target_tool);
+        }
+      } catch (_eR) { resolvedTarget = ''; }
+      var rawArgv = scenario.tool_invocation_argv;
+      var resolvedArgv = [];
+      for (var ai = 0; ai < rawArgv.length; ai++) {
+        var tok = String(rawArgv[ai]);
+        if (tok === '<tmpdir>') {
+          tok = tmpdir || '';
+        } else if (tok === '<resolved>') {
+          tok = resolvedTarget;
+        } else if (tok.indexOf('<tmpdir>') !== -1) {
+          tok = tok.split('<tmpdir>').join(tmpdir || '');
+        } else if (tok.indexOf('<resolved>') !== -1) {
+          tok = tok.split('<resolved>').join(resolvedTarget);
+        }
+        resolvedArgv.push(tok);
+      }
+      command = resolvedArgv[0];
+      args = resolvedArgv.slice(1);
+      cwd = tmpdir || process.cwd();
+      envOverrides = (scenario.env_overrides &&
+                      typeof scenario.env_overrides === 'object')
+        ? scenario.env_overrides : {};
+      if (extraEnv && typeof extraEnv === 'object') {
+        var keysE = Object.keys(extraEnv);
+        for (var ek = 0; ek < keysE.length; ek++) {
+          envOverrides[keysE[ek]] = extraEnv[keysE[ek]];
+        }
+      }
+    }
+    // Mock-predicate forbiddance enforcement (best-effort): command MUST
+    // be a non-empty string. Any path that resolves to '' would mean a
+    // <resolved> token slipped through with no target_tool.
+    if (typeof command !== 'string' || command.length === 0) {
+      return {
+        ok: false,
+        reason: 'scenario_fail_reason_code_missing',
+        error: 'empty_command_after_resolution',
+        argv: [],
+        cwd: cwd,
+        env_overrides: envOverrides,
+        exit_code: null,
+        signal: null,
+        stdout: '',
+        stderr: '',
+        stdout_digest: 'sha256:',
+        stderr_digest: 'sha256:',
+        duration_ms: 0,
+        command_invoked: '',
+        timed_out: false,
+        source: '_spawnTool_t2_command_guard',
+      };
+    }
+    // Real spawnSync invocation. Mirrors sgsd-blind-live-controller.mjs
+    // :939-946 (spawnSyncNode helper) shape: cwd, encoding utf8, timeout,
+    // pipe stdout/stderr. env merges process.env + envOverrides so the
+    // target tool inherits PATH/HOME but the harness can layer per-scenario
+    // SGSD_* env knobs (e.g. SGSD_VTP_FORCE_OFFLINE=1 for scenario 4).
+    var mergedEnv = {};
+    var pkeys = Object.keys(process.env || {});
+    for (var pi = 0; pi < pkeys.length; pi++) {
+      mergedEnv[pkeys[pi]] = process.env[pkeys[pi]];
+    }
+    var ekeys = Object.keys(envOverrides || {});
+    for (var ei = 0; ei < ekeys.length; ei++) {
+      mergedEnv[ekeys[ei]] = envOverrides[ekeys[ei]];
+    }
+    var startedAt = Date.now();
+    var result = child_process.spawnSync(command, args, {
+      cwd: cwd,
+      env: mergedEnv,
+      timeout: timeoutMs,
+      encoding: 'utf8',
+      maxBuffer: 4 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    var elapsed = Date.now() - startedAt;
+    var stdout = (result && typeof result.stdout === 'string')
+      ? result.stdout : '';
+    var stderr = (result && typeof result.stderr === 'string')
+      ? result.stderr : '';
+    var exitCode = (result && typeof result.status === 'number')
+      ? result.status : null;
+    var signal = (result && typeof result.signal !== 'undefined')
+      ? result.signal : null;
+    var spawnError = (result && result.error) ? result.error : null;
+    var timedOut = (signal === 'SIGTERM' || signal === 'SIGKILL') &&
+                    elapsed >= timeoutMs - 50;
+    // Decision tree per spec:
+    //   timeout -> ok:false, reason:'scenario_fail_timeout'
+    //   spawn error (ENOENT etc) -> ok:false, reason:'scenario_fail_lock13_violation'
+    //   non-zero exit -> ok:false, reason:'tool_nonzero_exit'
+    //   exit 0 + no signal -> ok:true
+    var ok = false;
+    var reason = '';
+    if (spawnError) {
+      ok = false;
+      reason = 'scenario_fail_lock13_violation';
+    } else if (timedOut) {
+      ok = false;
+      reason = 'scenario_fail_timeout';
+    } else if (exitCode !== 0) {
+      ok = false;
+      reason = 'tool_nonzero_exit';
+    } else {
+      ok = true;
+      reason = '';
+    }
+    var commandInvoked = command + (args.length > 0 ? ' ' + args.join(' ') : '');
     return {
-      ok: true,
-      stub: true,
+      ok: ok,
+      reason: reason,
+      argv: [command].concat(args),
+      cwd: cwd,
+      env_overrides: envOverrides,
+      exit_code: exitCode,
+      signal: signal,
+      stdout: stdout,
+      stderr: stderr,
+      stdout_digest: 'sha256:' + _sha256OfBytes(Buffer.from(stdout, 'utf8')),
+      stderr_digest: 'sha256:' + _sha256OfBytes(Buffer.from(stderr, 'utf8')),
+      duration_ms: elapsed,
+      command_invoked: commandInvoked,
+      timed_out: timedOut,
+      spawn_error: spawnError ? (spawnError.message || String(spawnError)) : null,
+      source: srcTag,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      reason: 'scenario_fail_lock13_violation',
+      error: (e && e.message) ? e.message : 'unknown',
       argv: (scenario && scenario.tool_invocation_argv) || [],
       cwd: tmpdir || null,
       env_overrides: extraEnv || {},
@@ -579,13 +894,8 @@ function _spawnTool(scenario, tmpdir, extraEnv) {
       stdout_digest: 'sha256:',
       stderr_digest: 'sha256:',
       duration_ms: 0,
-      source: '_spawnTool_t1_stub',
-    };
-  } catch (_e) {
-    return {
-      ok: false,
-      reason: 'scenario_fail_lock13_violation',
-      stub: true,
+      command_invoked: '',
+      timed_out: false,
       source: '_spawnTool_catch',
     };
   }
@@ -773,6 +1083,12 @@ function _selfTestImpl() {
   let lock13Ok = true;
   let lock13Detail = '';
   const badInputs = [null, undefined, {}, [], 'bad', 0, false];
+  // Track any tmpdirs that the bad-input probe accidentally creates
+  // (e.g. _setupContainer('bad') is a valid string and will mkdtemp). The
+  // probe itself does not check the FS contract - it only checks Lock 13
+  // (no throw + object return). Anything created here is cleaned up
+  // before we leave Test 5 so the probe is FS-clean across repeated runs.
+  const lock13TmpdirsToClean = [];
   try {
     for (let ai = 0; ai < apiNames.length; ai++) {
       // Avoid the selfTest infinite-recursion trap: skip selfTest in this
@@ -799,6 +1115,14 @@ function _selfTestImpl() {
             + JSON.stringify(badInputs[bi]);
           break;
         }
+        // FS-cleanup: if the API created a tmpdir as a side effect (only
+        // _setupContainer can; only on string inputs that pass the
+        // pattern guard), record it for teardown after the loop.
+        if (apiNames[ai] === '_setupContainer' &&
+            r.ok === true && typeof r.tmpdir === 'string' &&
+            r.tmpdir.indexOf(os.tmpdir()) === 0) {
+          lock13TmpdirsToClean.push(r.tmpdir);
+        }
       }
       if (!lock13Ok) break;
     }
@@ -818,8 +1142,164 @@ function _selfTestImpl() {
   } catch (e) {
     lock13Ok = false;
     lock13Detail = 'check threw: ' + (e && e.message ? e.message : 'unknown');
+  } finally {
+    // Clean up any tmpdirs the bad-input probe created. force:true
+    // silently swallows ENOENT so this is idempotent.
+    for (let ci = 0; ci < lock13TmpdirsToClean.length; ci++) {
+      try {
+        fs.rmSync(lock13TmpdirsToClean[ci],
+                  { recursive: true, force: true });
+      } catch (_eC) {}
+    }
   }
   check('lock13_wrapper_present_and_ascii_clean', lock13Ok, lock13Detail);
+
+  // ---------------------------------------------------------------------
+  // T2 ASSERTIONS - tests 6-10. Container isolation + spawnSync real-
+  // process boundary + canonical-stream fingerprint guard. Each test sets
+  // up a tmpdir, exercises the helper, and tears down. Lock 13: any throw
+  // collapses the test to FAIL (not propagated upward).
+  // ---------------------------------------------------------------------
+
+  // Test 6 (B1 - tmpdir_traversal_guard): _setupContainer returns a
+  // tmpdir under os.tmpdir(); never resolves to __dirname or any path
+  // under the project workspace. Verifies Pitfall 2 fix: subprocess cwd
+  // would otherwise resolve .planning/ to the LIVE workspace.
+  let b1Ok = false;
+  let b1Detail = '';
+  let b1Tmpdir = null;
+  try {
+    const c = _setupContainer('S99-self-test-traversal');
+    b1Tmpdir = c && c.tmpdir;
+    const underTmp = !!(b1Tmpdir && typeof b1Tmpdir === 'string' &&
+                         b1Tmpdir.indexOf(os.tmpdir()) === 0);
+    const notUnderDir = !!(b1Tmpdir && typeof b1Tmpdir === 'string' &&
+                            b1Tmpdir.indexOf(__dirname) === -1);
+    const planningExists = !!(c && c.planningDir &&
+                               fs.existsSync(c.planningDir));
+    b1Ok = c && c.ok === true && underTmp && notUnderDir && planningExists;
+    b1Detail = 'tmpdir=' + (b1Tmpdir || 'null')
+      + ' under_tmpdir=' + underTmp
+      + ' not_under_workspace=' + notUnderDir
+      + ' planning_dir_exists=' + planningExists;
+  } catch (e) {
+    b1Detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  } finally {
+    try {
+      if (b1Tmpdir) fs.rmSync(b1Tmpdir, { recursive: true, force: true });
+    } catch (_eC) {}
+  }
+  check('tmpdir_traversal_guard', b1Ok, b1Detail);
+
+  // Test 7 (B2 - teardown_idempotent): _teardownContainer called twice on
+  // the same path returns ok:true both times. fs.rmSync force:true makes
+  // the second call a no-op (Pitfall 4 fix - rm-rf must be idempotent).
+  let b2Ok = false;
+  let b2Detail = '';
+  try {
+    const c2 = _setupContainer('S99-self-test-idempotent');
+    if (c2 && c2.ok && c2.tmpdir) {
+      const r1 = _teardownContainer({ tmpdir: c2.tmpdir });
+      const r2 = _teardownContainer({ tmpdir: c2.tmpdir });
+      b2Ok = !!(r1 && r1.ok === true) && !!(r2 && r2.ok === true);
+      b2Detail = 'first=' + (r1 && r1.ok ? 'ok' : 'fail')
+        + ' (removed=' + (r1 && r1.removed) + ')'
+        + ' second=' + (r2 && r2.ok ? 'ok' : 'fail')
+        + ' (removed=' + (r2 && r2.removed)
+        + ', idempotent_noop=' + (r2 && r2.idempotent_noop) + ')';
+    } else {
+      b2Detail = 'setup failed: ' + JSON.stringify(c2);
+    }
+  } catch (e) {
+    b2Detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('teardown_idempotent', b2Ok, b2Detail);
+
+  // Test 8 (B3 - spawn_real_invocation): _spawnTool invoked with a real
+  // node argv returns ok:true + stdout matches the printed string. Proves
+  // the spawnSync boundary is the real-process boundary (NO require() of
+  // target tool internally - mock-predicate forbiddance per CONTEXT.md:81).
+  let b3Ok = false;
+  let b3Detail = '';
+  try {
+    const r3 = _spawnTool({
+      command: process.execPath,
+      args: ['-e', "process.stdout.write('spawn_real_invocation_marker')"],
+      cwd: os.tmpdir(),
+      env: {},
+      timeoutMs: 30000,
+    });
+    const stdoutMatch = !!(r3 && r3.stdout &&
+                            r3.stdout.indexOf('spawn_real_invocation_marker') !== -1);
+    b3Ok = !!(r3 && r3.ok === true && r3.exit_code === 0 && stdoutMatch);
+    b3Detail = 'ok=' + (r3 && r3.ok)
+      + ' exit_code=' + (r3 && r3.exit_code)
+      + ' stdout_match=' + stdoutMatch
+      + ' duration_ms=' + (r3 && r3.duration_ms);
+  } catch (e) {
+    b3Detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('spawn_real_invocation', b3Ok, b3Detail);
+
+  // Test 9 (B4 - fingerprint_byte_equality): _fingerprintAllStreams +
+  // _compareCanonicalStreams round-trip on unchanged streams returns
+  // equal:true. Anchor: fingerprint the LIVE planning dir twice in
+  // immediate succession; nothing changes between calls so equal MUST
+  // be true (W1 fix: mtime excluded from equality).
+  let b4Ok = false;
+  let b4Detail = '';
+  try {
+    const liveProjectRoot = path.resolve(__dirname, '..', '..', '..');
+    const livePlanningDir = path.join(liveProjectRoot, '.planning');
+    const fpA = _fingerprintAllStreams(livePlanningDir);
+    const fpB = _fingerprintAllStreams(livePlanningDir);
+    const cmp = _compareCanonicalStreams(fpA, fpB);
+    const lenOk = Array.isArray(fpA.streams) && fpA.streams.length === 11;
+    b4Ok = !!(cmp && cmp.equal === true) && lenOk;
+    b4Detail = 'equal=' + (cmp && cmp.equal)
+      + ' drift_count=' + (cmp && Array.isArray(cmp.drift) ? cmp.drift.length : 'n/a')
+      + ' streams_count=' + (Array.isArray(fpA.streams) ? fpA.streams.length : 'n/a');
+  } catch (e) {
+    b4Detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('fingerprint_byte_equality', b4Ok, b4Detail);
+
+  // Test 10 (B5 - container_+_teardown_no_drift): _setupContainer +
+  // immediate _teardownContainer leaves canonical streams byte-untouched.
+  // This is the per-scenario anti-pollution invariant: at no point in the
+  // protocol does the harness write to LIVE .planning/metrics/.
+  let b5Ok = false;
+  let b5Detail = '';
+  let b5Tmpdir = null;
+  try {
+    const c5 = _setupContainer('S99-self-test-no-drift');
+    b5Tmpdir = c5 && c5.tmpdir;
+    if (c5 && c5.ok && c5.snapshot_fingerprint) {
+      const t5 = _teardownContainer({
+        tmpdir: c5.tmpdir,
+        snapshot_fingerprint: c5.snapshot_fingerprint,
+        live_planning_dir: c5.live_planning_dir,
+      });
+      b5Ok = !!(t5 && t5.ok === true &&
+                 t5.canonical_state_preserved === true &&
+                 Array.isArray(t5.drift_detected) &&
+                 t5.drift_detected.length === 0);
+      b5Detail = 'teardown_ok=' + (t5 && t5.ok)
+        + ' canonical_state_preserved=' + (t5 && t5.canonical_state_preserved)
+        + ' drift_count=' + (t5 && Array.isArray(t5.drift_detected)
+                              ? t5.drift_detected.length : 'n/a');
+    } else {
+      b5Detail = 'setup_failed: ok=' + (c5 && c5.ok)
+        + ' has_snapshot=' + !!(c5 && c5.snapshot_fingerprint);
+    }
+  } catch (e) {
+    b5Detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  } finally {
+    try {
+      if (b5Tmpdir) fs.rmSync(b5Tmpdir, { recursive: true, force: true });
+    } catch (_eC) {}
+  }
+  check('container_plus_teardown_no_drift', b5Ok, b5Detail);
 
   // ---------------------------------------------------------------------
   // Render + return.
@@ -863,17 +1343,117 @@ function _aggregateResultsImpl(rs) {
   };
 }
 
-function _teardownContainerImpl(_opts) {
-  // T2: fs.rmSync({recursive:true, force:true}) on the per-scenario
-  // tmpdir; idempotent on repeated calls. T1 stub: no FS writes (Lock 4
-  // skeleton is read-only-by-shape) - returns a typed shape so wiring
-  // callers can read the contract.
-  return {
-    ok: true,
-    stub: true,
-    removed: false,
-    source: '_teardownContainerImpl_t1_stub',
-  };
+function _teardownContainerImpl(opts) {
+  // T2 body: 4-step protocol step 4 (restore). Three responsibilities:
+  //   1. Verify the tmpdir IS under os.tmpdir() (defense-in-depth; if a
+  //      caller passed a path under workspace by mistake, refuse to rm-rf).
+  //   2. fs.rmSync(tmpdir, {recursive:true, force:true}) - idempotent
+  //      because force:true silently swallows ENOENT, so calling twice
+  //      returns ok:true the second time.
+  //   3. If snapshot_fingerprint was supplied (per-scenario anti-pollution
+  //      anchor), re-fingerprint the LIVE planning streams and compare for
+  //      drift. drift_detected is the array of stream names that differ -
+  //      empty array means anti-pollution invariant held.
+  // Lock 13: never throws upward; rm errors -> { ok:false, reason }.
+  //
+  // Two call shapes (back-compat with T1 stub):
+  //   _teardownContainer(tmpdirString)  -> rm-rf only, no fingerprint check
+  //   _teardownContainer({tmpdir, snapshot_fingerprint, live_planning_dir})
+  //     -> full rm-rf + fingerprint compare
+  try {
+    var tmpdir = null;
+    var snapshot = null;
+    var livePlanningDir = null;
+    if (typeof opts === 'string') {
+      tmpdir = opts;
+    } else if (opts && typeof opts === 'object') {
+      tmpdir = typeof opts.tmpdir === 'string' ? opts.tmpdir : null;
+      snapshot = (opts.snapshot_fingerprint &&
+                   typeof opts.snapshot_fingerprint === 'object')
+        ? opts.snapshot_fingerprint : null;
+      livePlanningDir = typeof opts.live_planning_dir === 'string'
+        ? opts.live_planning_dir : null;
+    }
+    if (!tmpdir || typeof tmpdir !== 'string') {
+      // No tmpdir supplied - idempotent no-op (e.g. setup failed earlier
+      // and we are still calling teardown in a finally block).
+      return {
+        ok: true,
+        removed: false,
+        idempotent_noop: true,
+        canonical_state_preserved: null,
+        drift_detected: [],
+        source: '_teardownContainerImpl_t2_no_tmpdir',
+      };
+    }
+    // Defense-in-depth guard: refuse to rm-rf any path that is NOT under
+    // os.tmpdir(). This is a Lock 4 mechanical guarantee that the harness
+    // cannot accidentally delete project files even if upstream callers
+    // construct a malformed opts.
+    if (tmpdir.indexOf(os.tmpdir()) !== 0) {
+      return {
+        ok: false,
+        reason: 'gate_internal_error',
+        error: 'tmpdir_not_under_os_tmpdir',
+        removed: false,
+        canonical_state_preserved: null,
+        drift_detected: [],
+        source: '_teardownContainerImpl_t2_guard',
+      };
+    }
+    var existedBefore = false;
+    try { existedBefore = fs.existsSync(tmpdir); } catch (_eX) {}
+    // rmSync with force:true is idempotent: calling on a missing path is a
+    // no-op (does not throw). This is the documented Pitfall 4 fix.
+    try {
+      fs.rmSync(tmpdir, { recursive: true, force: true });
+    } catch (eR) {
+      return {
+        ok: false,
+        reason: 'gate_internal_error',
+        error: (eR && eR.message) ? eR.message : 'rmSync_failed',
+        removed: false,
+        canonical_state_preserved: null,
+        drift_detected: [],
+        source: '_teardownContainerImpl_t2_rm_err',
+      };
+    }
+    // Fingerprint compare: if snapshot was supplied, re-fingerprint the
+    // LIVE planning streams and assert byte-equality. drift_detected is
+    // empty when canonical state is preserved.
+    var canonicalStatePreserved = null;
+    var drift = [];
+    if (snapshot && livePlanningDir) {
+      try {
+        var afterFp = _fingerprintAllStreams(livePlanningDir);
+        var cmp = _compareCanonicalStreams(snapshot, afterFp);
+        canonicalStatePreserved = !!cmp.equal;
+        drift = Array.isArray(cmp.drift) ? cmp.drift : [];
+      } catch (_eF) {
+        canonicalStatePreserved = null;
+        drift = [];
+      }
+    }
+    return {
+      ok: true,
+      removed: existedBefore,
+      idempotent_noop: !existedBefore,
+      canonical_state_preserved: canonicalStatePreserved,
+      drift_detected: drift,
+      tmpdir: tmpdir,
+      source: '_teardownContainerImpl_t2',
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      reason: 'gate_internal_error',
+      error: (e && e.message) ? e.message : 'unknown',
+      removed: false,
+      canonical_state_preserved: null,
+      drift_detected: [],
+      source: '_teardownContainerImpl_t2_catch',
+    };
+  }
 }
 
 function _appendLogRowImpl(row, opts) {
@@ -900,6 +1480,136 @@ function _sha256OfBytes(buf) {
     return crypto.createHash('sha256').update(buf).digest('hex');
   } catch (_e) {
     return '';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fingerprint helpers (T2 deliverables 4 + 5).
+//
+// _fingerprintStream(filePath) - per-file fingerprint with 'absent-source
+//   baseline' shape. Mirrors context-bench/failure-injectors.cjs:319-356
+//   verbatim (W1+W3 fixes already applied):
+//     - file absent      -> { exists:false, sha256:null, size:0, mtime:0 }
+//     - file present     -> { exists:true,  sha256:hex, size:N, mtime:ms }
+//     - file unreadable  -> { exists:true,  sha256:'', size:-1, mtime:-1 }
+//   Conservative absent shape ensures that a missing canonical stream does
+//   NOT silently equal a non-empty stream that drifts to the same hash.
+//
+// _fingerprintsEqual(a, b) - W1 fix (Phase 51 T4 ATC): equality is sha256
+//   + size only, NOT mtime. mtime drifts on read on some filesystems
+//   (atime->mtime promotion), and copy-then-restore can produce false
+//   positives. mtime is recorded for diagnostic logging but excluded from
+//   the byte-equality contract. Absent-vs-absent === true; absent-vs-
+//   present === false (W3 anti-collapse).
+//
+// _fingerprintAllStreams(planningDir) - returns
+//   { streams: [{ path, exists, sha256, size, mtime }, ...] } over the
+//   PHASE_53_GUARDED_STREAMS 11-entry set, each resolved as
+//   path.join(planningDir, 'metrics', name). Used by _setupContainer
+//   (snapshot pre-scenario) and _teardownContainer (compare post-scenario).
+//   Lock 13: any throw -> typed degraded shape with empty streams array.
+//
+// _compareCanonicalStreams(before, after) - byte-equality across all 11
+//   streams (sha256 + size only; mtime excluded). Returns
+//   { equal:bool, drift:[{path, before_sha256, after_sha256, before_size,
+//   after_size}, ...] }. drift array is empty when equal===true.
+// ---------------------------------------------------------------------------
+function _fingerprintStream(filePath) {
+  try {
+    if (!filePath || typeof filePath !== 'string') {
+      return { exists: false, sha256: null, size: 0, mtime: 0 };
+    }
+    if (!fs.existsSync(filePath)) {
+      return { exists: false, sha256: null, size: 0, mtime: 0 };
+    }
+    var buf = null;
+    try { buf = fs.readFileSync(filePath); }
+    catch (_eR) {
+      return { exists: true, sha256: '', size: -1, mtime: -1 };
+    }
+    var st = null;
+    try { st = fs.statSync(filePath); } catch (_eS) { st = null; }
+    return {
+      exists: true,
+      sha256: _sha256OfBytes(buf),
+      size: st ? st.size : buf.length,
+      mtime: st ? Math.floor(st.mtimeMs || 0) : 0,
+    };
+  } catch (_e) {
+    return { exists: false, sha256: null, size: 0, mtime: 0 };
+  }
+}
+
+function _fingerprintsEqual(a, b) {
+  try {
+    if (!a || !b) return false;
+    if (a.exists === false && b.exists === false) return true;
+    if (a.exists !== b.exists) return false;
+    // W1 fix: sha256 + size only; mtime excluded from byte-equality.
+    return a.sha256 === b.sha256 && a.size === b.size;
+  } catch (_e) {
+    return false;
+  }
+}
+
+function _fingerprintAllStreams(planningDir) {
+  try {
+    if (!planningDir || typeof planningDir !== 'string') {
+      return { streams: [] };
+    }
+    var dir = path.join(planningDir, 'metrics');
+    var streams = [];
+    for (var i = 0; i < PHASE_53_GUARDED_STREAMS.length; i++) {
+      var name = PHASE_53_GUARDED_STREAMS[i];
+      var fp = _fingerprintStream(path.join(dir, name));
+      streams.push({
+        path: name,
+        exists: fp.exists,
+        sha256: fp.sha256,
+        size: fp.size,
+        mtime: fp.mtime,
+      });
+    }
+    return { streams: streams };
+  } catch (_e) {
+    return { streams: [] };
+  }
+}
+
+function _compareCanonicalStreams(before, after) {
+  try {
+    if (!before || !after ||
+        !Array.isArray(before.streams) || !Array.isArray(after.streams)) {
+      return { equal: false, drift: [] };
+    }
+    // Build before/after maps keyed by stream path so we can compare
+    // entries even if order differs.
+    var bMap = Object.create(null);
+    var aMap = Object.create(null);
+    for (var i = 0; i < before.streams.length; i++) {
+      bMap[before.streams[i].path] = before.streams[i];
+    }
+    for (var j = 0; j < after.streams.length; j++) {
+      aMap[after.streams[j].path] = after.streams[j];
+    }
+    var drift = [];
+    for (var k = 0; k < PHASE_53_GUARDED_STREAMS.length; k++) {
+      var name = PHASE_53_GUARDED_STREAMS[k];
+      var bEntry = bMap[name] || null;
+      var aEntry = aMap[name] || null;
+      if (!_fingerprintsEqual(bEntry, aEntry)) {
+        drift.push({
+          path: name,
+          before_sha256: bEntry ? bEntry.sha256 : null,
+          after_sha256: aEntry ? aEntry.sha256 : null,
+          before_size: bEntry ? bEntry.size : null,
+          after_size: aEntry ? aEntry.size : null,
+        });
+      }
+    }
+    return { equal: drift.length === 0, drift: drift };
+  } catch (_e) {
+    return { equal: false, drift: [] };
   }
 }
 
@@ -1027,6 +1737,12 @@ module.exports = {
     _validateManifest: _validateManifest,
     _validateScenarioEntry: _validateScenarioEntry,
     _sha256OfBytes: _sha256OfBytes,
+    // T2 fingerprint helpers (used by T3-T5 _runScenarioImpl bodies and
+    // the T2 self-test). Identity-equal to the local-scope refs.
+    _fingerprintStream: _fingerprintStream,
+    _fingerprintsEqual: _fingerprintsEqual,
+    _fingerprintAllStreams: _fingerprintAllStreams,
+    _compareCanonicalStreams: _compareCanonicalStreams,
   },
 };
 
