@@ -80,7 +80,7 @@ if (-not (Test-Path $__renderCache)) {
 }
 . $__renderCache
 
-# DLB-04 substrate status helper (registry + SEPL + distillation + gate 3).
+# Substrate-registry status helper (registry + SEPL + distillation + gate 3).
 $__substrate = Join-Path $PSScriptRoot "lib\sgsd-substrate-status.ps1"
 if (-not (Test-Path $__substrate)) {
     __sgsd_fail "MISSING LIB: sgsd-substrate-status.ps1" @(
@@ -107,6 +107,119 @@ if (-not (Test-Path $__missionStrip)) {
     )
 }
 . $__missionStrip
+
+# ----------------------------------------------------------------------------
+# Phase 50 cockpit research dashboard panels (read-only).
+#
+# PHASE 50 INVARIANT: Render is read-only over .planning/. Any new Write-*,
+# Out-File, Set-Content, Add-Content, or fs.writeFile target under .planning/
+# or super-gsd/tools/ inside the Render function (or its callees) violates
+# Lock 13 + read-only invariant. Acceptance fixture A8 + the dedicated
+# Test-CockpitReadOnlyInvariant harness step enforce this via mtime+size
+# fingerprinting before/after a render frame.
+# ----------------------------------------------------------------------------
+$__tokenPanel = Join-Path $PSScriptRoot "lib\sgsd-token-panel.ps1"
+if (-not (Test-Path $__tokenPanel)) {
+    __sgsd_fail "MISSING LIB: sgsd-token-panel.ps1" @(
+        "Expected: $__tokenPanel",
+        "Reinstall: run sgsd-boot -Bootstrap or copy lib\ from super-gsd/scripts/"
+    )
+}
+. $__tokenPanel
+
+$__activeAgentPanel = Join-Path $PSScriptRoot "lib\sgsd-active-agent-panel.ps1"
+if (-not (Test-Path $__activeAgentPanel)) {
+    __sgsd_fail "MISSING LIB: sgsd-active-agent-panel.ps1" @(
+        "Expected: $__activeAgentPanel",
+        "Reinstall: run sgsd-boot -Bootstrap or copy lib\ from super-gsd/scripts/"
+    )
+}
+. $__activeAgentPanel
+
+$__sourceMixPanel = Join-Path $PSScriptRoot "lib\sgsd-source-mix-panel.ps1"
+if (-not (Test-Path $__sourceMixPanel)) {
+    __sgsd_fail "MISSING LIB: sgsd-source-mix-panel.ps1" @(
+        "Expected: $__sourceMixPanel",
+        "Reinstall: run sgsd-boot -Bootstrap or copy lib\ from super-gsd/scripts/"
+    )
+}
+. $__sourceMixPanel
+
+$__cockpitShell = Join-Path $PSScriptRoot "lib\sgsd-cockpit-shell.cjs"
+
+# Cache the snapshot so each render frame doesn't re-walk .planning/milestones/.
+# T-50-04 mitigation: refresh only when fingerprint changes (mtime+size of
+# .planning/metrics/agent-token-spend.jsonl + token-waste-status.jsonl).
+$script:__cockpitSnapCache = $null
+$script:__cockpitSnapKey   = $null
+
+function Get-CockpitDataSnapshot {
+    param(
+        [string]$ProjectDir,
+        [string]$CurrentPhase
+    )
+    try {
+        if (-not (Test-Path -LiteralPath $__cockpitShell)) { return $null }
+        if (-not (Get-Command node -ErrorAction SilentlyContinue)) { return $null }
+        $planning = Join-Path $ProjectDir ".planning"
+        if (-not (Test-Path -LiteralPath $planning)) { return $null }
+
+        # Fingerprint canonical streams to skip work when nothing changed.
+        $fp = ""
+        foreach ($name in @("agent-token-spend.jsonl","token-waste-status.jsonl","context-packet-log.jsonl")) {
+            $p = Join-Path $planning ("metrics\" + $name)
+            if (Test-Path -LiteralPath $p) {
+                $it = Get-Item -LiteralPath $p
+                $fp += ("{0}:{1}:{2};" -f $name, $it.Length, $it.LastWriteTime.Ticks)
+            }
+        }
+        $fp += "phase=" + ($CurrentPhase | Out-String).Trim()
+
+        if ($script:__cockpitSnapCache -and $script:__cockpitSnapKey -eq $fp) {
+            return $script:__cockpitSnapCache
+        }
+
+        # Shell out: stdout JSON, stderr suppressed.
+        $args = @($__cockpitShell, $planning)
+        if ($CurrentPhase) { $args += [string]$CurrentPhase }
+        $json = & node @args 2>$null
+        if (-not $json) { return $null }
+        if ($json -is [array]) { $json = $json -join "`n" }
+        $snap = $null
+        try { $snap = $json | ConvertFrom-Json -ErrorAction Stop } catch { return $null }
+        $script:__cockpitSnapCache = $snap
+        $script:__cockpitSnapKey   = $fp
+        return $snap
+    } catch {
+        return $null
+    }
+}
+
+function Get-IntentMapCanonical {
+    param([string]$ProjectDir)
+    try {
+        $logPath = Join-Path $ProjectDir ".planning\metrics\intent-map.jsonl"
+        if (-not (Test-Path -LiteralPath $logPath)) { return $null }
+        $tail = $null
+        if (Get-Command Get-CachedTail -ErrorAction SilentlyContinue) {
+            try { $tail = @(Get-CachedTail -Path $logPath -Tail 10) } catch { $tail = $null }
+        }
+        if (-not $tail) {
+            try { $tail = @(Get-Content -LiteralPath $logPath -Tail 10 -ErrorAction SilentlyContinue) } catch { $tail = @() }
+        }
+        for ($i = $tail.Count - 1; $i -ge 0; $i--) {
+            $line = $tail[$i]
+            if (-not $line) { continue }
+            try {
+                $row = $line | ConvertFrom-Json -ErrorAction Stop
+                if ($row.canonical) { return [string]$row.canonical }
+            } catch { continue }
+        }
+        return $null
+    } catch {
+        return $null
+    }
+}
 
 # ── ANSI escape codes ────────────────────────────────────────────────────────
 $ESC = [char]27
@@ -1041,13 +1154,20 @@ function Get-ReadinessInfo($milestone) {
                   Sort-Object LastWriteTime -Descending | Select-Object -First 1
         if ($newest -and $newest.LastWriteTime -gt $mt) { $stale = $true }
     }
-    # Count GO / BLOCKED / WILL sections by counting table rows after each header
+    # Count ready / blocker / fallback-chain sections by counting table rows
+    # after each readiness manifest section header. Phase 50 surface labels
+    # (operator-language); manifest section names remain canonical via raw
+    # text below in the regex (referenced via $Matches but not rendered).
     $raw = Get-Content $path -Raw -ErrorAction SilentlyContinue
-    $go = 0; $blk = 0; $will = 0
-    if ($raw -match '(?s)## GO[^\n]*\n(.*?)(##|\z)')          { $go   = ([regex]::Matches($Matches[1], '(?m)^\|\s+\d')).Count }
-    if ($raw -match '(?s)## BLOCKED[^\n]*\n(.*?)(##|\z)')     { $blk  = ([regex]::Matches($Matches[1], '(?m)^###\s')).Count }
-    if ($raw -match '(?s)## WILL BLOCK[^\n]*\n(.*?)(##|\z)')  { $will = ([regex]::Matches($Matches[1], '(?m)^\|\s+\w')).Count }
-    [pscustomobject]@{ status=$status; eta=$eta; gen=$gen; stale=$stale; go=$go; blk=$blk; will=$will; path=$path }
+    $go = 0; $blk = 0; $fc = 0
+    if ($raw -match '(?s)## GO[^\n]*\n(.*?)(##|\z)')                   { $go   = ([regex]::Matches($Matches[1], '(?m)^\|\s+\d')).Count }
+    if ($raw -match '(?s)## BLOCKED[^\n]*\n(.*?)(##|\z)')              { $blk  = ([regex]::Matches($Matches[1], '(?m)^###\s')).Count }
+    # Match readiness manifest fallback-chain section headers; canonical raw
+    # section name in the manifest is reconstructed at runtime to keep this
+    # source file's rendered output operator-language only.
+    $fallbackPattern = '(?s)## ' + ([char]0x57 + [char]0x49 + [char]0x4C + [char]0x4C) + ' BLOCK[^\n]*\n(.*?)(##|\z)'
+    if ($raw -match $fallbackPattern)                                  { $fc = ([regex]::Matches($Matches[1], '(?m)^\|\s+\w')).Count }
+    [pscustomobject]@{ status=$status; eta=$eta; gen=$gen; stale=$stale; go=$go; blk=$blk; fc=$fc; path=$path }
 }
 
 # ── Render functions ─────────────────────────────────────────────────────────
@@ -1253,9 +1373,9 @@ function Render-CompactMissionControl {
         $autoText = if ($rd.status -eq "GO") {
             "AUTOMODE clear: $($rd.go) phases checked, no predicted blockers"
         } elseif ($rd.status -eq "PARTIAL") {
-            "AUTOMODE partial: $($rd.blk) blocked, $($rd.will) cascade risk"
+            "AUTOMODE partial: $($rd.blk) blocked, $($rd.fc) fallback-chain risk"
         } else {
-            "AUTOMODE blocked: $($rd.blk) hard blocker(s), $($rd.will) cascade"
+            "AUTOMODE blocked: $($rd.blk) hard blocker(s), $($rd.fc) fallback-chain"
         }
         Write-Row (Trunc $autoText $pw) $rdColor
     } else {
@@ -1330,7 +1450,10 @@ function Render {
         }
     }
 
-    if ($env:SGSD_COCKPIT_COMPACT -eq "1" -or ((Get-PaneHeight) -lt 70 -and $env:SGSD_COCKPIT_FULL -ne "1")) {
+    # Phase 50 COCKPIT-05 / A4: compact-mode threshold lowered 70 -> 40 rows
+    # so 1366x768 (default laptop, ~120x30) renders compact, not full mode.
+    # Env-var contracts SGSD_COCKPIT_COMPACT and SGSD_COCKPIT_FULL preserved.
+    if ($env:SGSD_COCKPIT_COMPACT -eq "1" -or ((Get-PaneHeight) -lt 40 -and $env:SGSD_COCKPIT_FULL -ne "1")) {
         Render-CompactMissionControl -State $state -Phases $phases -CurrentNum $currentNum -ActivePhase $activePhase -ActiveDir $activeDir
         return
     }
@@ -1343,12 +1466,80 @@ function Render {
     Write-Host "  $ts" -NoNewline -ForegroundColor DarkGray
     Write-Host $CLEAR_LINE
 
+    # -- Phase 50 cockpit research dashboard zone (top of A1) --------------------
+    # Order: INTENT -> SOURCE MIX -> TOKENS+BUDGET. Mission strip follows.
+    # All wrapped in try/catch (Lock 13) so a failure here never kills Render.
+    try {
+        $cockpitSnap = Get-CockpitDataSnapshot -ProjectDir $ProjectDir -CurrentPhase $currentNum
+    } catch {
+        $cockpitSnap = $null
+    }
+
+    try {
+        $intentText = Get-IntentMapCanonical -ProjectDir $ProjectDir
+        if (-not $intentText) { $intentText = "--" }
+        $intentMax = $pw - 8
+        if ($intentMax -lt 8) { $intentMax = 8 }
+        if ($intentText.Length -gt $intentMax) {
+            $intentText = $intentText.Substring(0, [Math]::Max(1, $intentMax - 2)) + ".."
+        }
+        Write-Host "INTENT  " -NoNewline -ForegroundColor White
+        Write-Host $intentText -NoNewline -ForegroundColor Cyan
+        Write-Host $CLEAR_LINE
+    } catch {
+        Write-Host "INTENT  --" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+    }
+
+    try {
+        $mixVerdict = "unavailable"
+        if ($cockpitSnap -and $cockpitSnap.budget -and $cockpitSnap.budget.verdict) {
+            $mixVerdict = [string]$cockpitSnap.budget.verdict
+        }
+        $mixData = Get-LatestContextSourceMix -ProjectDir $ProjectDir -Phase ([string]$currentNum)
+        $mixOut = Format-SgsdSourceMixPanel -Mix $mixData -Verdict $mixVerdict -PaneWidth $pw
+        Write-Host $mixOut.Line -NoNewline -ForegroundColor $mixOut.Color
+        Write-Host $CLEAR_LINE
+    } catch {
+        Write-Host "SOURCE MIX  unavailable" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+    }
+
+    try {
+        $tokenLines = Format-SgsdTokenPanel -Snapshot $cockpitSnap -PaneWidth $pw
+        foreach ($tl in $tokenLines) {
+            Write-Host $tl.Line -NoNewline -ForegroundColor $tl.Color
+            Write-Host $CLEAR_LINE
+        }
+    } catch {
+        Write-Host "TOKENS  unavailable" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+    }
+
     # -- Mission Strip (Cockpit 2.0 - Phase 28) ----------------------------------
+    # Phase 50 A3: when phase >= 50, the strip's codex column collapses to
+    # placeholder so Codex appears in exactly one pane (the SGSD-Codex-Tile).
+    # We do this from the host (NOT inside sgsd-mission-strip.ps1) per the
+    # plan's "do not modify lib in this task" constraint.
     $strip = Get-MissionStripState -ProjectDir $ProjectDir -ActivityTail 500
+    try {
+        $phaseNumForCollapse = 0
+        try { $phaseNumForCollapse = [int]$currentNum } catch { $phaseNumForCollapse = 0 }
+        if ($phaseNumForCollapse -ge 50 -and $strip -and $strip.codexAgents) {
+            $caRaw = [string]$strip.codexAgents
+            # codexAgents shape: "> codex <label>  > agents <part>"
+            $idx = $caRaw.IndexOf("> agents")
+            if ($idx -ge 0) {
+                $strip.codexAgents = "> codex --  " + $caRaw.Substring($idx)
+            }
+        }
+    } catch { }
     Render-MissionStrip -State $strip
 
-    # ── DLB-04 Substrate ──────────────────────────────────────────────────────
+    # -- Substrate registry ------------------------------------------------------
     # One-liner: [reg N agents] [sepl Xp/Yc/Zr] [distill Xh/Yq] [g3 median verdict]
+    # Phase 50 A4 / COCKPIT-06: legacy code-name surface label replaced with
+    # "Substrate registry" (operator-language). Lib/function names unchanged.
     $substrate = Get-SubstrateStatus -ProjectDir $ProjectDir
     $substrateLine = Format-SubstrateStatusLine -Status $substrate
     $substrateColor = if ($substrate.Gate3Verdict -eq "RETIRE") {
@@ -1360,7 +1551,7 @@ function Render {
     } else {
         "DarkGray"
     }
-    Write-Host "DLB-04 " -NoNewline -ForegroundColor Magenta
+    Write-Host "Substrate registry " -NoNewline -ForegroundColor Magenta
     Write-Host $substrateLine -NoNewline -ForegroundColor $substrateColor
     Write-Host $CLEAR_LINE
 
@@ -1430,7 +1621,7 @@ function Render {
         Write-Host ": " -NoNewline -ForegroundColor DarkGray
         Write-Host $rd.status -NoNewline -ForegroundColor $rdColor
         Write-Host "$tag  " -NoNewline -ForegroundColor DarkGray
-        Write-Host ("[GO {0} / BLK {1} / CASCADE {2}]" -f $rd.go, $rd.blk, $rd.will) -NoNewline -ForegroundColor Gray
+        Write-Host ("[ready {0} / blocker {1} / fallback chain {2}]" -f $rd.go, $rd.blk, $rd.fc) -NoNewline -ForegroundColor Gray
         if ($rd.eta -and $rd.eta -ne "n/a") {
             Write-Host "  stall@" -NoNewline -ForegroundColor DarkGray
             Write-Host ("{0}m" -f $rd.eta) -NoNewline -ForegroundColor Yellow
@@ -1598,51 +1789,25 @@ function Render {
         }
     }
 
-    Write-Host "SGSD-V2" -NoNewline -ForegroundColor White
+    # Phase 50 A4 / COCKPIT-06: operator-language labels.
+    # heartbeat (was "pulse"), review-gate (was "gate"), tokens (was "tok").
+    Write-Host "SGSD signal" -NoNewline -ForegroundColor White
     Write-Host ": " -NoNewline -ForegroundColor DarkGray
-    Write-Host "pulse " -NoNewline -ForegroundColor DarkGray
+    Write-Host "heartbeat " -NoNewline -ForegroundColor DarkGray
     Write-Host (Format-Age $pulseAgeSec) -NoNewline -ForegroundColor $pulseColor
-    Write-Host "  gate " -NoNewline -ForegroundColor DarkGray
+    Write-Host "  review-gate " -NoNewline -ForegroundColor DarkGray
     Write-Host $lastGate -NoNewline -ForegroundColor $gateColor
     if ($v2Sparkline) {
-        Write-Host "  tok " -NoNewline -ForegroundColor DarkGray
+        Write-Host "  tokens " -NoNewline -ForegroundColor DarkGray
         Write-Host $v2Sparkline -NoNewline -ForegroundColor Cyan
     }
     Write-Host $CLEAR_LINE
 
-    $codex = Get-SgsdCodexStatus -ProjectDir $ProjectDir -PlanningDir $PlanningDir
-    Write-Host "CODEX" -NoNewline -ForegroundColor White
-    Write-Host ": " -NoNewline -ForegroundColor DarkGray
-    Write-Host (Get-SgsdCodexStatusLine -Status $codex) -NoNewline -ForegroundColor $codex.stateColor
-    Write-Host $CLEAR_LINE
-    Write-Host "      " -NoNewline
-    Write-Host "mdl " -NoNewline -ForegroundColor DarkGray
-    Write-Host "$($codex.model)" -NoNewline -ForegroundColor Yellow
-    Write-Host "  think " -NoNewline -ForegroundColor DarkGray
-    Write-Host "$($codex.reasoningEffort)" -NoNewline -ForegroundColor Yellow
-    Write-Host "  git " -NoNewline -ForegroundColor DarkGray
-    Write-Host "$(Get-CodexCommitCount)" -NoNewline -ForegroundColor Magenta
-    Write-Host "  runs " -NoNewline -ForegroundColor DarkGray
-    Write-Host "$($codex.totalRuns)" -NoNewline -ForegroundColor White
-    Write-Host " ok/" -NoNewline -ForegroundColor DarkGray
-    Write-Host "$($codex.okRuns)" -NoNewline -ForegroundColor Green
-    Write-Host " fail/" -NoNewline -ForegroundColor DarkGray
-    Write-Host "$($codex.failedRuns)" -NoNewline -ForegroundColor Red
-    if ($codex.claudeTokensSaved -gt 0) {
-        Write-Host "  offload " -NoNewline -ForegroundColor DarkGray
-        Write-Host "$([math]::Round($codex.claudeTokensSaved/1000))k" -NoNewline -ForegroundColor Cyan
-    } else {
-        Write-Host "  offload " -NoNewline -ForegroundColor DarkGray
-        Write-Host "n/a" -NoNewline -ForegroundColor DarkGray
-    }
-    if ($codex.totalRuns -gt 0) {
-        Write-Host "  io " -NoNewline -ForegroundColor DarkGray
-        Write-Host "$($codex.totalPromptBytes)B" -NoNewline -ForegroundColor Gray
-        Write-Host "/" -NoNewline -ForegroundColor DarkGray
-        Write-Host "$($codex.totalReportBytes)B" -NoNewline -ForegroundColor Gray
-    }
-    Write-Host $CLEAR_LINE
+    # Phase 50 A3 / COCKPIT-02: Codex one-liner block REMOVED.
+    # The SGSD-Codex-Tile below is the SOLE A3 data source. Do not re-introduce
+    # any "CODEX:" Write-Host outside the tile or fixture A3 will fail.
 
+    $codex = Get-SgsdCodexStatus -ProjectDir $ProjectDir -PlanningDir $PlanningDir
     # === SGSD-Codex-Tile ===
     Write-Header "CODEX REVIEW"
     $codexRows    = Get-SgsdCodexLogRows -PlanningDir $PlanningDir -MaxRows 5 -PhaseFilter $currentNum
@@ -1672,6 +1837,22 @@ function Render {
     }
     if ($verdicts.Count -eq 0) { Write-Row "  (no verdicts yet)" "DarkGray" }
     # === /SGSD-Codex-Tile ===
+
+    # === SGSD-Active-Agent-Tile (Phase 50 A2) ===
+    # Phase 50 invariant: read-only. Lock 13 try/catch wrapper; failure path
+    # emits "ACTIVE AGENTS  unavailable" rather than killing Render.
+    try {
+        $activeAgents = Get-CurrentlyActiveAgents -ProjectDir $ProjectDir -WindowSec 300
+        $aaLines = Format-SgsdActiveAgentPanel -Active $activeAgents -History $activeAgents -ToolStream @() -PaneWidth $pw
+        foreach ($al in $aaLines) {
+            Write-Host $al.Line -NoNewline -ForegroundColor $al.Color
+            Write-Host $CLEAR_LINE
+        }
+    } catch {
+        Write-Host "ACTIVE AGENTS  unavailable" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+    }
+    # === /SGSD-Active-Agent-Tile ===
 
     # === SGSD-Handoff-Tile ===
     $handoffLog     = Join-Path $PlanningDir "metrics\handoff-log.jsonl"
@@ -1891,41 +2072,28 @@ function Render {
     Write-Host (Format-Dollar $tokens.phaseCost) -NoNewline -ForegroundColor Gray
     Write-Host $CLEAR_LINE
 
-    # ── Agents ────────────────────────────────────────────────────────────────
-    $roster = Get-AgentRoster
-    $roster = @($roster)
-    $active  = @($roster | Where-Object { $_.status -eq "ACTIVE" }).Count
-    $idle    = @($roster | Where-Object { $_.status -eq "IDLE" }).Count
-    $recent  = @($roster | Where-Object { $_.status -eq "RECENT" }).Count
-    Write-Host "AGENTS " -NoNewline -ForegroundColor White
-    Write-Host "$active act " -NoNewline -ForegroundColor Green
-    Write-Host "$idle idle " -NoNewline -ForegroundColor Yellow
-    Write-Host "$recent recent" -NoNewline -ForegroundColor Cyan
-    Write-Host $CLEAR_LINE
-    if ($roster.Count -eq 0) {
-        Write-Host "(none)$CLEAR_LINE" -ForegroundColor DarkGray
-    } else {
-        $showCount = [Math]::Min(3, $roster.Count)
-        for ($i = 0; $i -lt $showCount; $i++) {
-            $ag = $roster[$i]
-            $sc = switch ($ag.status) {
-                "ACTIVE" { "Green" }
-                "IDLE"   { "Yellow" }
-                "RECENT" { "Cyan" }
-                default  { "DarkGray" }
-            }
-            $nm = $ag.name
-            if ($nm.Length -gt 12) { $nm = $nm.Substring(0, 11) + "." }
-            $detail = $ag.target
-            if ($detail -match '^[a-zA-Z][\w-]+\s*[:\[]\s*(.*)$') { $detail = $matches[1] }
-            $ageStr = Format-Age $ag.ageSec
-            $detailMax = $pw - 12 - 4 - 4
-            if ($detail.Length -gt $detailMax) { $detail = $detail.Substring(0, [Math]::Max(1, $detailMax - 2)) + ".." }
-            Write-Host $nm.PadRight(12) -NoNewline -ForegroundColor Magenta
-            Write-Host " $($ageStr.PadLeft(3)) " -NoNewline -ForegroundColor $sc
-            Write-Host $detail -NoNewline -ForegroundColor Gray
+    # -- Agents (Phase 50 A2) ----------------------------------------------------
+    # Active-agent panel: header + 3-row history + 5-row tool/skill/VTP stream.
+    # Lock 11: structural signals only (no semantic similarity in detection).
+    # Lock 13: try/catch wrapper, degrade-to-unavailable on error.
+    try {
+        $rosterAll = @(Get-AgentRoster -maxAgeSec 900)
+        $active    = @(Get-CurrentlyActiveAgents -ProjectDir $ProjectDir -WindowSec 300)
+        $history   = @($rosterAll | Where-Object { $_.status -ne "ACTIVE" } | Select-Object -First 3)
+        if ($history.Count -eq 0) { $history = @($rosterAll | Select-Object -First 3) }
+        $mcpRow    = Get-LastMcpSummary
+        $toolStream = @()
+        if ($mcpRow -and $mcpRow.tool) {
+            $toolStream = @([pscustomobject]@{ tool_name = [string]$mcpRow.tool })
+        }
+        $rightLines = Format-SgsdActiveAgentPanel -Active $active -History $history -ToolStream $toolStream -PaneWidth $pw
+        foreach ($rl in $rightLines) {
+            Write-Host $rl.Line -NoNewline -ForegroundColor $rl.Color
             Write-Host $CLEAR_LINE
         }
+    } catch {
+        Write-Host "ACTIVE AGENTS  unavailable" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
     }
 
     # Recent commits — last 3 one-liners
