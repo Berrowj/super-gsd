@@ -856,7 +856,11 @@ function _revokeInternal(artifact_id, reason, replaced_by_id, opts) {
   const planningDir = _planningDir(opts);
   // Depth-cap walk on replaced_by chain.
   if (replaced_by_id) {
-    const chain = _resolveSupersededChain(replaced_by_id, planningDir, 1);
+    // Chain depth starts at 0 (replaced_by_id IS the first hop); walker
+    // increments to N at each recursion. Cap of 5 means 5 hops permitted
+    // before revoked_chain_too_deep. Off-by-one fix: was depth=1 entering
+    // (effective cap 4), now depth=0 (effective cap 5 matching const).
+    const chain = _resolveSupersededChain(replaced_by_id, planningDir, 0);
     if (chain && chain.ok === false) {
       return { ok: false, reason: 'revoked_chain_too_deep' };
     }
@@ -1673,9 +1677,11 @@ function _runSelfTest() {
     const tmp7b = fs.mkdtempSync(path.join(os.tmpdir(), 'p49-f7b-'));
     const planningDir7b = path.join(tmp7b, '.planning');
     fs.mkdirSync(path.join(planningDir7b, 'metrics'), { recursive: true });
-    // Build a 6-deep chain: A->B->C->D->E->F where F is the outermost.
-    // We are revoking A with replaced_by_id=B; B already has superseded_by_id=C; etc.
-    const chain = ['A', 'B', 'C', 'D', 'E', 'F'];
+    // Build a 7-deep chain: A->B->C->D->E->F->G where G is the outermost.
+    // Cap=5 (post-off-by-one fix): walker starts at depth=0 on first hop B,
+    // so 5-hop chain (B,C,D,E,F at depths 0..4) is permitted; 6th hop G
+    // hits depth=5 which equals cap and rejects with revoked_chain_too_deep.
+    const chain = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
     for (let i = 0; i < chain.length; i++) {
       const ms = 'v1.test';
       const ph = '90' + i;
