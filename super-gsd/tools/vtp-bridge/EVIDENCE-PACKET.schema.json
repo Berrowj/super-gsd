@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VTP Bridge Evidence Packet (Phase 48)",
+  "description": "Shape returned by selectiveVTPCall in super-gsd/tools/vtp-bridge/classify.cjs. The bridge produces ONE evidence_packet per dispatch when Phase 47 routeDispatch returns {provider:'vtp'}. Failures populate reason_codes and produce results:[]; the actual error text is appended to .planning/metrics/vtp-bridge-failures.jsonl, not surfaced in this packet body. A3 binding (MCP failures separated from research conclusions) + A4 binding (compact source-backed evidence). Mirror of Phase 45 PACKET-13 provenance gate (build.cjs:220-234). additionalProperties:false closes the shape; downstream Phase 49/50/51 consume by reference, not by extension.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "envelope_version",
+    "ts",
+    "command",
+    "ok",
+    "uncertainty_type",
+    "query",
+    "results",
+    "source_refs",
+    "root_source_hashes",
+    "reason_codes"
+  ],
+  "properties": {
+    "envelope_version": { "type": "integer", "const": 1 },
+    "ts":               { "type": "string", "format": "date-time" },
+    "command":          { "type": "string", "const": "vtpBridgeEvidence" },
+    "ok":               { "type": "boolean" },
+    "vtp_tool": {
+      "description": "MCP tool name selected from VTP_TOOL_MAP, or null on refused/unhealthy/internal-error path.",
+      "oneOf": [
+        { "type": "string", "enum": ["vtp_search_substrate", "wiki_search", "vtp_route_and_retrieve", "vtp_get_research"] },
+        { "type": "null" }
+      ]
+    },
+    "uncertainty_type": {
+      "description": "One of the 4 VTP_TOOL_MAP keys (3 active + 1 reserved). May be null if input was malformed.",
+      "oneOf": [
+        { "type": "string", "enum": ["architecture_challenge", "prior_memory_lookup", "book_lookup", "research_external_validation"] },
+        { "type": "null" }
+      ]
+    },
+    "query":   { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+    "results": {
+      "description": "Provenance-validated results admitted by _assertResultProvenance. Empty on failure (A3 binding).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["doc_id", "citation"],
+        "properties": {
+          "doc_id":   { "type": "string", "minLength": 1 },
+          "citation": { "type": "string", "minLength": 1 },
+          "title":    { "type": "string" },
+          "excerpt":  { "type": "string" },
+          "score":    { "type": "number" },
+          "source_type": { "type": "string" }
+        }
+      }
+    },
+    "source_refs": {
+      "description": "Mirror of result.doc_id values; mandatory provenance gate (mirror Phase 45 PACKET-13).",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "root_source_hashes": {
+      "description": "sha256 hex digest per admitted result, derived from doc_id + citation. Mandatory.",
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "retrieved_at": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+    "elided_count": { "type": "integer", "minimum": 0 },
+    "rejected_provenance_count": { "type": "integer", "minimum": 0 },
+    "compression_level": {
+      "oneOf": [
+        { "type": "string", "enum": ["validated_thought"] },
+        { "type": "null" }
+      ]
+    },
+    "body_token_estimate": { "type": "integer", "minimum": 0 },
+    "error_logged_at": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+    "reason_codes": {
+      "description": "Closed-enum VTP_BRIDGE_REASONS; populated on every call (success or failure).",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "vtp_call_succeeded",
+          "vtp_call_timeout",
+          "vtp_call_auth_failed",
+          "vtp_call_validation_failed",
+          "vtp_call_returned_empty",
+          "not_routed_to_vtp",
+          "vtp_unavailable",
+          "evidence_packet_size_capped",
+          "evidence_packet_provenance_failed",
+          "bridge_internal_error"
+        ]
+      }
+    },
+    "error": {
+      "description": "Lock 13 sentinel surfaces internal error message here (e.g. _validateInput throw). NEVER carries MCP error text -- those go to vtp-bridge-failures.jsonl.",
+      "oneOf": [{ "type": "string" }, { "type": "null" }]
+    }
+  }
+}
