@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: SGSD-Research (Context Compression, Token Governance, And Research Routing) (queued)
 milestone_status: v1.8 SHIPPED 2026-04-27. v1.9 SLOT-CHANGE 2026-04-27 — SGSD-Research promoted to v1.9 (was Knowledge + Memory Governance, now archived as superseded at .planning/archive/superseded/v1.9-knowledge-memory-governance/). v1.9 phases 41-52 (renumbered from packet 56-67); v2.0 Failure Injection shifted to phases 53-57; v2.1 Distribution + Onboarding shifted to phases 58-62. Source analyses: agent-context-bloat-audit + VTP cross-check. Readiness re-probe required before first Phase 41 dispatch. Phase 41 (Baseline Token Attribution) is auto-defaulted (no interactive discuss).
-status: v1.9 Phase 46 PASS 2026-04-27 (with cleanup). 6/12 phases complete. Advancing to Phase 47 Dispatch Routing Substitution.
-stopped_at: 2026-04-27 — Phase 46 closed PASS @ 095e668; v1.9 advancing to Phase 47.
-last_updated: "2026-04-27T23:35:00Z"
+status: v1.9 Phase 47 PASS 2026-04-27 (post-fix). 7/12 phases complete. Advancing to Phase 48 Selective VTP Bridge.
+stopped_at: 2026-04-27 — Phase 47 closed PASS @ 8c701a2; v1.9 advancing to Phase 48.
+last_updated: "2026-04-28T00:30:00Z"
 last_activity: "2026-04-27 — Phase 41 (Baseline Token Attribution) closed PASS. Three atomic commits 7386a7d (lib + 14-assertion self-test) -> 373e9c1 (11,294-row backfilled ledger) -> d1f72cd (baseline-token-spend.md 7-section bloat report) -> ef90751 (REVISE-fix BLOAT_THRESHOLDS 8->4 keys per CONTEXT spec). Dual-provider ATC: Claude REVISE 1 MEDIUM addressed in-loop; Codex timeout 180s tier (TIER_ANALYSIS) logged as provider_unavailable. LOCK 6 honored: 10,881 of 11,294 rows = 96.3% role=orchestrator surfaces 1.24M-token v1.9/P41 bloat signature. Audit crosscheck markers all present (P36/170k, P40/122k, P41/1,244,893). Cross-phase contracts ready for Phase 42 BUDGET-01 (summarize() consumer), Phase 47 ROUTE-02 (R1-R5 substitution rules), Phase 51 BENCH-01 (baseline as before measurement)."
 progress:
   v1_7:
@@ -90,8 +90,8 @@ roadmap_run:
   backlog_canonical: .planning/metrics/crit-backlog.jsonl
   started: 2026-04-26
   current_milestone: v1.9
-  current_phase: 47
-  current_phase_name: Dispatch Routing Substitution
+  current_phase: 48
+  current_phase_name: Selective VTP Bridge
   v1_9_milestone_codename: SGSD-Research
   v1_9_vtp_delta_active: ".planning/milestones/v1.9/VTP-RESEARCH-DELTA.md (commit 2d8ea5a) — forward-only addendum applies to Phases 45+, 49, 51, 52. Phases 41-44 LOCKED."
   v1_9_progress:
@@ -101,6 +101,7 @@ roadmap_run:
     phase_44: "PASS @ 64bee5e (1 HIGH + 1 MEDIUM Claude in-loop: phase41 dependency-gate dead-branch removal + PHASE43_CMD symbolic deref; 3 LOW accepted; Codex provider_unavailable; 13/13 self-test; F1-F4 binding fixtures green; legal-keys.json 8 ROADMAP categories + 2 derived from 13 canonical sources; content_hash b0a8024bc... stable across 4 runs; 44/44 PHASE-CAPSULE.json consumers[] validate clean)"
     phase_45: "PASS @ f49dc32 (1 HIGH + 2 MEDIUM Claude in-loop: VTP step-7 silent stub trap simplified + step-2 8-step contract documented + em-dash regression fixed same commit; 3 LOW accepted; Codex provider_unavailable; intent-map 10/10 + context-packet 14/14 self-test; F2-F11 binding fixtures green; VTP delta absorbed forward-only; 6-role packets buildable; REASON_VOCAB 13-entry frozen no semantic-only; COMPRESSION_LEVELS 5-entry frozen; depthCap=2 P41-bloat fix; sgsd-orchestrate Step 7.5 + sgsd-complete-milestone Step 4.7-ter wired)"
     phase_46: "PASS @ 095e668 (Claude PASS verdict + 1 MEDIUM cleanup in-loop: dead ternary at rebuild.cjs:340 collapsed; 2 LOW accepted; Codex provider_unavailable; 15/15 self-test; F1-F8 + S9-S13 + ASCII binding fixtures green; manifest_hash d764fb5c... A3-idempotent across delete+rebuild; 145 docs indexed (capsule:44, decision:32, file_summary:56, gate_definition:13); better-sqlite3@^12.9.0 in dependencies; *.db .gitignored; Phase 49 GOV-02 owns step-6 wire-in)"
+    phase_47: "PASS @ 8c701a2 (1 HIGH + 2 MEDIUM Claude in-loop: ROUTE_DECISION_REASONS enum gap closed 17->18 entries adding 'context_pressure_high' + header doc count fix; 1 LOW accepted; Codex provider_unavailable; dispatch-router 15/15 + route-ledger 14/14 self-test; F1-F8 binding fixtures green; A4 VTP 3-entry whitelist mechanically enforced; Lock 11 no-semantic-similarity routeInput; KAIROS context-pressure bias active; Phase 41 PROVIDERS + Phase 42 BUDGETS + Phase 32 logRouteDecision imported BY REFERENCE; route-ledger BOUNDARIES extended 7->8 with 'dispatch_route'; sgsd-orchestrate Step 6.d.6 wire emits envelope per Agent dispatch)"
   v1_9_open_debt: {}
   v1_9_supersedes_archive: .planning/archive/superseded/v1.9-knowledge-memory-governance/
   v1_8_progress:
