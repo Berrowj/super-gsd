@@ -1129,13 +1129,25 @@ function _loadIndexSnippetsInternal(query, opts) {
   }
   if (!queryFn) return [];
 
+  // Phase 46 query resolves dbPath via opts.dbPath OR a __dirname-anchored
+  // fallback that points to the real .planning/cache/context-index.sqlite.
+  // To honor caller-supplied planningDir (Phase 45 self-test passes a tmpdir),
+  // we translate planningDir -> dbPath before calling Phase 46.
+  let dbPath = null;
+  try {
+    if (o.dbPath) dbPath = o.dbPath;
+    else if (planningDir) dbPath = path.join(planningDir, 'cache', 'context-index.sqlite');
+  } catch (_e) { dbPath = null; }
+
   let rows = [];
   try {
-    rows = queryFn(String(query || ''), {
+    const queryOpts = {
       milestone: o.milestone, phase: o.phase, limit: limit,
       kinds: ['capsule', 'decision', 'gate_definition', 'file_summary'],
       filter_invalid: true,
-    });
+    };
+    if (dbPath) queryOpts.dbPath = dbPath;
+    rows = queryFn(String(query || ''), queryOpts);
     if (!Array.isArray(rows)) rows = [];
   } catch (_e) { rows = []; }
 

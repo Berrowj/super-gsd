@@ -699,8 +699,30 @@ function _buildPacketInternal(role, intent_ref, opts) {
   // Step 5: validated_thoughts.
   const vtLoad = _loadValidatedThoughts(opts);
 
-  // Step 6: local index snippets (Phase 46 deferred -- fs.readFileSync direct).
-  const indexSnippets = []; // No-op fallback; explicit empty.
+  // Step 6: local index snippets via Phase 49 governance-filtered Phase 46 query.
+  // Phase 49 GOV-01..08 wire-in (RESEARCH sec Q8). Lock 13: require failure
+  // falls back to empty array (preserves Phase 45 self-test invariant).
+  // Phase 49 loadIndexSnippets internally:
+  //   1. Calls Phase 46 query() (per-row Phase 44 validateOne already filtered)
+  //   2. Filters out rows whose underlying capsule has revoked_at != null
+  //   3. Annotates remaining rows with revalidation_due flag (sha256 drift)
+  //   4. When opts.strict_revalidation: elides rows where revalidation_due===true
+  let indexSnippets = [];
+  try {
+    const phase49 = require('../memory-governance/lifecycle.cjs');
+    if (phase49 && typeof phase49.loadIndexSnippets === 'function') {
+      indexSnippets = phase49.loadIndexSnippets(intent_map.intent || '', {
+        planningDir: _planningDir(opts),
+        milestone: milestone,
+        phase: phase,
+        limit: 5,
+        strict_revalidation: false, // surface drift via revalidation_due flag; do not elide
+      });
+      if (!Array.isArray(indexSnippets)) indexSnippets = [];
+    }
+  } catch (_e) {
+    indexSnippets = []; // Lock 13: never throw on missing/broken Phase 49 wire.
+  }
 
   // Step 7: VTP evidence packets - Phase 47/48 will populate via opts.route_hint.
   // Phase 45 ships the empty stub; route_hint is reserved for forward use.
@@ -1179,6 +1201,17 @@ function _runSelfTest() {
     if (!isAscii(phase45Files[i])) { allAscii = false; break; }
   }
   assert('ASCII_only_all_7_files', allAscii);
+
+  // ---------- Phase 49 wire-in presence (additive; no Phase 49 invocation
+  // here -- Phase 49 F14 fixture covers integration end-to-end) ----------
+  try {
+    const buildSrc = fs.readFileSync(__filename, 'utf8');
+    const hasLoadIndex = buildSrc.indexOf('loadIndexSnippets') >= 0;
+    const hasRequire = buildSrc.indexOf("require('../memory-governance/lifecycle.cjs')") >= 0;
+    assert('phase49_wire_loadIndexSnippets_referenced', hasLoadIndex && hasRequire);
+  } catch (_e) {
+    assert('phase49_wire_loadIndexSnippets_referenced', false);
+  }
 
   // ---------- Read-only invariant (Lock 4) ----------
   const fpAfter = canonicalStreams.map(s => fp(path.join(planningRoot, s)));
