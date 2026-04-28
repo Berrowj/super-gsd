@@ -205,6 +205,9 @@ const FAIL_INJ_REASON_CODES = Object.freeze([
   'aggregate_pass_with_deferred',
   'aggregate_candidate_with_debt',
   'aggregate_fail',
+  // _spawnTool internal verdicts (2 - T2 ATC W1 fix):
+  'tool_nonzero_exit',
+  'container_setup_failed',
 ]);
 
 // ---------------------------------------------------------------------------
