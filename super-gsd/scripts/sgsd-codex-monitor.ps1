@@ -783,6 +783,122 @@ function Get-AtcGateState {
     return [pscustomobject]@{ cells=$cells; summary=$summary; details=$details }
 }
 
+function Get-GateStateColor {
+    param([string]$State)
+    switch ("$State") {
+        "done"   { return "Green" }
+        "active" { return "Yellow" }
+        "warn"   { return "Yellow" }
+        "fail"   { return "Red" }
+        "skip"   { return "DarkGray" }
+        default  { return "Red" }
+    }
+}
+
+function Get-GateStateWord {
+    param([string]$State)
+    switch ("$State") {
+        "done"   { return "done" }
+        "active" { return "running" }
+        "warn"   { return "warning" }
+        "fail"   { return "failed" }
+        "skip"   { return "not probed" }
+        default  { return "not run" }
+    }
+}
+
+function Get-AtcGateDescriptors {
+    return @(
+        [pscustomobject]@{ code="P"; name="Package"; explain="phase docs, plan, evidence, and review inputs are ready" },
+        [pscustomobject]@{ code="C"; name="Claude"; explain="Claude reviewer checks implementation against the phase contract" },
+        [pscustomobject]@{ code="O"; name="Codex"; explain="Codex gives an independent review or records fallback/timeout" },
+        [pscustomobject]@{ code="F"; name="Fixes"; explain="findings are repaired, deferred, or proven irrelevant" },
+        [pscustomobject]@{ code="V"; name="Verdict"; explain="final phase status is written as PASS, debt, or candidate" }
+    )
+}
+
+function Get-MudaGateDescriptors {
+    return @(
+        [pscustomobject]@{ code="T"; name="Transport"; explain="looks for needless handoff between tools or systems; SGSD auto-probe is limited" },
+        [pscustomobject]@{ code="I"; name="Inventory"; explain="looks for unused docs, stale context, and unconsumed artifacts" },
+        [pscustomobject]@{ code="M"; name="Motion"; explain="looks for needless file/tool hopping and repeated scans" },
+        [pscustomobject]@{ code="W"; name="Waiting"; explain="looks for idle blockers, avoidable waits, and queue stalls" },
+        [pscustomobject]@{ code="O"; name="Overprod"; explain="looks for artifacts nobody consumes or duplicate outputs" },
+        [pscustomobject]@{ code="O"; name="Overproc"; explain="looks for over-complex checks, wrappers, or process bloat" },
+        [pscustomobject]@{ code="D"; name="Defects"; explain="looks for rework, broken contracts, and errors that caused repair loops" }
+    )
+}
+
+function Get-GateFocusLine {
+    param(
+        [string]$Name,
+        [object[]]$Cells,
+        [object[]]$Descriptors,
+        [string]$DoneText
+    )
+    foreach ($targetState in @("active", "fail", "warn", "todo", "skip")) {
+        for ($i = 0; $i -lt $Cells.Count -and $i -lt $Descriptors.Count; $i++) {
+            if ("$($Cells[$i].state)" -eq $targetState) {
+                $d = $Descriptors[$i]
+                $word = Get-GateStateWord "$($Cells[$i].state)"
+                return ("{0} focus: {1} {2} is {3} - {4}." -f $Name, $d.code, $d.name, $word, $d.explain)
+            }
+        }
+    }
+    return $DoneText
+}
+
+function Write-GateStepLine {
+    param($Descriptor, [string]$State, [int]$Pw)
+    $color = Get-GateStateColor $State
+    $word = Get-GateStateWord $State
+    $label = ("{0} {1}" -f $Descriptor.code, $Descriptor.name).PadRight(12)
+    Write-Host "  " -NoNewline
+    Write-Host $label -NoNewline -ForegroundColor $color
+    Write-Host " " -NoNewline
+    Write-Host (Trunc ("{0} - {1}" -f $word, $Descriptor.explain) ($Pw - 16)) -NoNewline -ForegroundColor Gray
+    Write-Host $CLEAR_LINE
+}
+
+function Write-GateSynopsis {
+    param($Muda, $Atc, [string]$PhaseNum, [int]$Pw, [switch]$Compact)
+
+    $atcDesc = @(Get-AtcGateDescriptors)
+    $mudaDesc = @(Get-MudaGateDescriptors)
+
+    Write-Host "GATE SYNOPSIS" -NoNewline -ForegroundColor White
+    Write-Host $CLEAR_LINE
+
+    $atcFocus = Get-GateFocusLine -Name "ATC" -Cells $Atc.cells -Descriptors $atcDesc -DoneText "ATC focus: all review stages are complete for this phase."
+    Write-Host "  " -NoNewline
+    Write-Host (Trunc $atcFocus ($Pw - 3)) -NoNewline -ForegroundColor Yellow
+    Write-Host $CLEAR_LINE
+    foreach ($i in 0..($atcDesc.Count - 1)) {
+        Write-GateStepLine -Descriptor $atcDesc[$i] -State "$($Atc.cells[$i].state)" -Pw $Pw
+    }
+
+    Write-Host "  " -NoNewline
+    Write-Host (Trunc "$($Atc.summary)" ($Pw - 3)) -NoNewline -ForegroundColor DarkGray
+    Write-Host $CLEAR_LINE
+
+    if (-not $Compact) { Write-Host $CLEAR_LINE }
+
+    $mudaFocus = Get-GateFocusLine -Name "MUDA" -Cells $Muda.cells -Descriptors $mudaDesc -DoneText "MUDA focus: all active waste probes are complete for this phase."
+    Write-Host "  " -NoNewline
+    Write-Host (Trunc $mudaFocus ($Pw - 3)) -NoNewline -ForegroundColor Yellow
+    Write-Host $CLEAR_LINE
+
+    $mudaLimit = if ($Compact) { 4 } else { $mudaDesc.Count }
+    for ($i = 0; $i -lt $mudaLimit -and $i -lt $mudaDesc.Count; $i++) {
+        Write-GateStepLine -Descriptor $mudaDesc[$i] -State "$($Muda.cells[$i].state)" -Pw $Pw
+    }
+    if ($Compact -and $mudaDesc.Count -gt $mudaLimit) {
+        Write-Host "  " -NoNewline
+        Write-Host (Trunc "More MUDA: Overprod, Overproc, and Defects also run at phase-close waste review." ($Pw - 3)) -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+    }
+}
+
 function Render-CompactCodex {
     param($Scope, $Codex, $Substrate, $Rows, $Verdicts, $Brief, $PhaseNum, $Pw)
 
@@ -862,6 +978,8 @@ function Render-CompactCodex {
         Write-Host (Trunc $line ($Pw - 3)) -NoNewline -ForegroundColor Yellow
         Write-Host $CLEAR_LINE
     }
+    Write-Host $CLEAR_LINE
+    Write-GateSynopsis -Muda $muda -Atc $atc -PhaseNum $PhaseNum -Pw $Pw -Compact
     Write-Host $CLEAR_BELOW -NoNewline
 }
 
@@ -1217,6 +1335,9 @@ function Render {
             Write-Host $CLEAR_LINE
         }
     }
+
+    Write-Host $CLEAR_LINE
+    Write-GateSynopsis -Muda $muda -Atc $atc -PhaseNum $phaseNum -Pw $pw
 
     Write-Host $CLEAR_BELOW -NoNewline
 }
