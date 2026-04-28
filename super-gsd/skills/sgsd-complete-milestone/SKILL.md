@@ -36,6 +36,7 @@ milestone is marked complete.
    - `node super-gsd/tools/status-consistency/check.cjs --milestone {{version}}` (exit 0 = OK)
    - `node super-gsd/tools/backlog-schema/check.cjs` (exit 0 = no schema violations)
    - `node super-gsd/scripts/lib/crit-backlog.cjs --self-test` (exit 0 = lib healthy)
+   - `node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone {{version}}` (must exit 0; v1.9 context-bench self-test gate; on failure abort milestone close with reason 'milestone_close_blocked:context_bench_self_test_failed')
 6. **If provider canary returns UNAVAILABLE (exit 1):** auto mode CONTINUES, but:
    - Append a `verifier_fail` row to `.planning/metrics/crit-backlog.jsonl` via the lib (NOT manual write -- the lib's `_guardCodexUnavailableClaim` requires `provider_health_check: { behavioral: true, available: false }` proof which the canary just produced)
    - Carry the row forward to the milestone's `next-debt-milestone` tag

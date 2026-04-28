@@ -40,6 +40,83 @@
 // STOP RULE (T1)
 //   `node super-gsd/tools/context-bench/harness.cjs --self-test` exits 0
 //   with the bootstrap 3-5 assertions PASS.
+//
+// =============================================================================
+// PHASE 51 OPERATOR DOCUMENTATION (T7 consolidation)
+// =============================================================================
+//
+// DISPATCH SEQUENCE
+//   1. SKILL.md sgsd-complete-milestone Step 0 precondition list invokes
+//        node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone {{version}}
+//      as one bullet alongside the existing health probes. The wrapper
+//      (super-gsd/scripts/sgsd-complete-milestone.cjs) is the milestone-close
+//      pre-flight gate.
+//   2. The wrapper (--milestone v1.9 only; other milestones are no-ops)
+//      requires this file and calls .selfTest(). Lock 13 wraps the require
+//      itself so a missing harness module surfaces as
+//      `milestone_close_blocked:context_bench_unavailable` + exit 1, never
+//      a silent advance.
+//   3. selfTest() runs the same 33-assertion suite executed by the
+//      operator-facing entry below; on any FAIL the wrapper writes
+//      `milestone_close_blocked:context_bench_self_test_failed` + exit 1.
+//
+//   Operator-facing entry (single command, fast green):
+//     node super-gsd/tools/context-bench/run-self-test.cjs
+//   That file is a thin shell over `harness.cjs --self-test` (no new
+//   aggregator, no new oracle).
+//
+// CLI FLAGS
+//   --self-test
+//     Runs the 33-assertion suite. Exit 0 = all green; exit 1 = any FAIL.
+//     Idempotent: T4 anti-pollution snapshots and restores canonical
+//     streams across F1..F16 round-trips. Repeated runs leave the four
+//     canonical JSONL streams (agent-token-spend, context-packet-log,
+//     context-complaints, route-decisions) byte-identical.
+//
+//   --mode=full --milestone=v1.9 --dry-run
+//     Computes packet shapes via Phase 45 import-by-reference for all 6
+//     scenarios without spawning Claude. Fast smoke test of the full
+//     replay path's surface contracts.
+//
+//   --mode=ledger-only --milestone=v1.9
+//     Runs the bench in ledger-only mode (no Claude spawn). Writes
+//     .planning/milestones/v1.9/CONTEXT-BENCH-RESULTS.md and appends >=6
+//     rows to .planning/metrics/context-bench-runs.jsonl. Verdict is
+//     'ledger-only -- incomplete' until a full hybrid replay lands.
+//
+//   --help
+//     Prints the usage block.
+//
+// CLAUDE CLI REQUIREMENT
+//   Full hybrid replay (--mode=full without --dry-run) requires a
+//   resolvable `claude` binary on PATH. When the binary is absent the
+//   replay engine downgrades to ledger-only mode with reason
+//   claude_cli_unavailable; results.verdict = 'ledger-only -- incomplete'.
+//   This is the documented degraded path; the harness self-test does NOT
+//   spawn Claude.
+//
+// LEDGER-ONLY FALLBACK
+//   When tokensAfter cannot be measured (claudeBinary=null OR replay
+//   produced empty post_artifacts), the scoring oracle returns
+//   verdict='ledger-only -- incomplete' rather than a green/red gate.
+//   This is the Lock 13 degraded-verdict sentinel: the gate never throws
+//   upward; it returns a typed verdict the renderer surfaces as a row in
+//   the results table.
+//
+// CANONICAL ARTIFACT LOCATIONS
+//   .planning/milestones/v1.9/CONTEXT-BENCH-RESULTS.md
+//     -> Per-run report. Aggregate verdict, scenarios table (S1..S6),
+//        injections table (F1..F16). Operator-readable + machine-parsable.
+//   .planning/metrics/context-bench-runs.jsonl
+//     -> Append-only run ledger. One row per scenario per run, plus one
+//        injection row per fixture per run. Used for trend analysis.
+//
+// MILESTONE-CLOSE CONSUMER CHAIN
+//   super-gsd/skills/sgsd-complete-milestone/SKILL.md (Step 0 precondition)
+//     -> super-gsd/scripts/sgsd-complete-milestone.cjs --milestone v1.9
+//        -> require('../tools/context-bench/harness.cjs').selfTest()
+//           -> 33-assertion green or milestone close aborts.
+//
 // =============================================================================
 
 'use strict';
@@ -693,6 +770,77 @@ function _hasLock13Wrapper(fn) {
 }
 
 function _selfTest() {
+  // ---------------------------------------------------------------------
+  // T7 LIST-LOCK: 18 RESEARCH-locked semantic assertions (RESEARCH sec 10.2).
+  // The running suite is 33 (5 T1 bootstrap + 5 T2 + 5 T3 + 7 T4 + 5 T5 +
+  // 6 T6 = 33); the 18 below are the SEMANTIC FLOOR. Each of the 18 is
+  // covered by >=1 assertion in the running 33. Removing any of the 18
+  // is a falsifier hit; adding new running assertions is fine as long as
+  // every list-locked semantic is still covered.
+  //
+  //  L1  SCENARIOS frozen 6-entry; mutation no-op
+  //        -> check 'SCENARIOS_frozen_6_entry_mutation_noop' (T1.1)
+  //  L2  INJECTION_FIXTURES frozen 16-entry; mutation no-op
+  //        -> check 't4_INJECTION_FIXTURES_frozen_16_entry_mutation_noop' (T4.1)
+  //  L3  BENCH_REASON_CODES frozen, >=10 entries (closed vocab)
+  //        -> check 'BENCH_REASON_CODES_frozen_ge10' (T1.3)
+  //  L4  All 5 public APIs export AND each Lock-13 wrapped
+  //        -> check 'public_api_5_stubs_present' (T1.4)
+  //           + check 'lock13_wrapper_present' (T1.5)
+  //  L5  Phase 41 summarize is the LIVE function (Lock 4 import-by-ref)
+  //        -> check 't2_summarize_is_live_function' (T2.1)
+  //  L6  Anti-cheat boundary rejects all 6 forbidden strings
+  //        -> check 't2_assert_workspace_clean_rejects_6' (T2.3)
+  //           + extended in 't5_assert_workspace_clean_rejects_6_plus_3_secret' (T5.1)
+  //  L7  Schema validates every shipped fixture (S1..S6)
+  //        -> check 't3_schema_validates_all_fixtures' (T3.1)
+  //  L8  Every baseline_signature.source_event_id resolves in ledger
+  //        -> check 't3_source_event_ids_resolve_in_ledger' (T3.2)
+  //  L9  expected_route.primary in closed enum {claude,codex,vtp_bridge}
+  //        -> check 't3_expected_route_primary_in_closed_enum' (T3.3)
+  //           + check 't3_provider_matrix_S1S4_claude_S5_codex_S6_vtp' (T3.5)
+  //  L10 S2 baseline read >=150,000 tokens (audit:142 anchor)
+  //        -> check 't3_s2_baseline_ge_150k_tokens' (T3.4)
+  //  L11 Anti-pollution: 4 canonical streams byte-identical pre/post
+  //        F1..F16 round-trip
+  //        -> check 't4_anti_pollution_fingerprint_round_trip' (T4.2)
+  //           + check 't4_canonical_fingerprint_guard_full_run' (T4.7)
+  //  L12 F1 (missing capsule) -> packet_capsule_unavailable_raw_fallback
+  //        -> check 't4_F1_missing_capsule_reason_code' (T4.3)
+  //  L13 F8 (critical bypass) -> byte-verbatim CRIT text preserved
+  //        -> check 't4_F8_critical_bypass_byte_verbatim' (T4.4)
+  //  L14 F10 (prompt injection) fenced + intent-map flagged with
+  //        prompt_injection_pattern_treated_as_data; SECRET_PLACEHOLDER_X
+  //        literal (no real key prefix)
+  //        -> check 't4_F10_prompt_injection_fenced_and_flagged' (T4.5)
+  //  L15 F11 (semantic-only) REJECTED; v1.6/P26 absent from S2 packet
+  //        -> check 't4_F11_semantic_only_rejected_v16_p26_absent_from_S2' (T4.6)
+  //  L16 Hybrid replay: claudeBinary=null returns mode_used='ledger-only'
+  //        (NEVER throws -- Lock 13)
+  //        -> check 't2_replay_stub_ledger_only_when_no_binary' (T2.5)
+  //           + check 't5_mode_downgrade_claude_absent' (T5.3)
+  //  L17 1.5M token ceiling triggers degraded verdict
+  //        -> check 't5_token_ceiling_degraded_verdict' (T5.4)
+  //  L18 Aggregate gate: median pct_reduction >=50 AND retention=100 -> PASS;
+  //        empty post_artifacts -> FAIL even when median is high;
+  //        ledger-only verdict surfaces when tokens_after=null;
+  //        legacy zero-useful_findings imputes ratio=null
+  //        -> check 't6_aggregate_gate_pass_median_ge_50_retention_100' (T6.2)
+  //           + check 't6_empty_post_artifacts_with_tokens_present_FAIL' (T6.1)
+  //           + check 't6_evidence_dominance_overrides_high_median' (T6.3)
+  //           + check 't6_ledger_only_verdict_when_tokens_after_null' (T6.4)
+  //           + check 't6_legacy_zero_useful_findings_imputed_ratio_null' (T6.5)
+  //           + check 't6_pass_with_deferred_requires_injection_success' (T6.6)
+  //
+  // The remaining running assertions are non-semantic supplements that
+  // anchor T2 reader shape ('t2_baseline_reader_callable_and_shape',
+  // 't2_map_phases_to_baseline_empty_and_full') and T5 dispatch witness
+  // shape ('t5_real_dispatch_witness_run_id_substring',
+  // 't5_post_artifacts_byte_equal_concat'). Removing any of L1..L18
+  // collapses the semantic contract; removing any of the supplements
+  // is non-fatal but loses shape coverage.
+  // ---------------------------------------------------------------------
+
   const results = [];
   function check(name, ok, detail) {
     results.push({ name, ok: !!ok, detail: detail || '' });
@@ -2018,7 +2166,10 @@ function _main(argv) {
         '  node super-gsd/tools/context-bench/harness.cjs --mode=full --milestone=v1.9 --dry-run\n' +
         '  node super-gsd/tools/context-bench/harness.cjs --mode=ledger-only --milestone=v1.9\n' +
         '  node super-gsd/tools/context-bench/harness.cjs --help\n' +
-        'note: T7 adds the milestone-close gate wrapper.\n');
+        'operator entry (thin shell over --self-test):\n' +
+        '  node super-gsd/tools/context-bench/run-self-test.cjs\n' +
+        'milestone-close gate (invoked by sgsd-complete-milestone Step 0):\n' +
+        '  node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone v1.9\n');
       process.exit(0);
       return;
     }
