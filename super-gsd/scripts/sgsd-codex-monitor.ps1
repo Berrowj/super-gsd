@@ -363,6 +363,22 @@ function Resolve-PhaseDir {
         Select-Object -First 1
 }
 
+function Get-MilestonePhaseDirs {
+    param([string]$Milestone)
+    if (-not $Milestone) { return @() }
+    $root = Join-Path $PlanningDir "milestones\$Milestone\phases"
+    if (-not (Test-Path $root)) { return @() }
+    return @(Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match '^[0-9]+' } |
+        Sort-Object Name)
+}
+
+function Get-PhaseNumFromDirName {
+    param([string]$Name)
+    if ("$Name" -match '^([0-9]+)') { return $Matches[1] }
+    return ""
+}
+
 function Get-PhaseReviewFile {
     param([string]$Milestone, [string]$PhaseNum)
     $dir = Resolve-PhaseDir -Milestone $Milestone -PhaseNum $PhaseNum
@@ -430,6 +446,106 @@ function Set-MudaCellFromClass {
         default { "done" }
     }
     $Cells[$idx].state = $state
+}
+
+function Add-MudaStatsFinding {
+    param($Stats, [string]$WasteClass, [string]$Verdict)
+    $verdictNorm = "$Verdict".ToUpperInvariant()
+    if ($verdictNorm -ne "WARN" -and $verdictNorm -ne "FAIL") { return }
+    $key = switch -Regex ("$WasteClass".ToLowerInvariant()) {
+        '^transport$' { "T"; break }
+        '^inventory$' { "I"; break }
+        '^motion$' { "M"; break }
+        '^waiting$' { "W"; break }
+        '^overproduction$' { "OP"; break }
+        '^extra-processing$|^overprocessing$' { "EP"; break }
+        '^defects?$' { "D"; break }
+        default { "" }
+    }
+    if (-not $key) { return }
+    $Stats.totalCaught++
+    if ($verdictNorm -eq "WARN") { $Stats.warn++ }
+    if ($verdictNorm -eq "FAIL") { $Stats.fail++ }
+    $Stats.byClass[$key] = [int]$Stats.byClass[$key] + 1
+}
+
+function Get-MudaStats {
+    param([string]$Milestone)
+    $stats = [pscustomobject]@{
+        audits = 0
+        phases = 0
+        totalCaught = 0
+        warn = 0
+        fail = 0
+        byClass = [ordered]@{ T=0; I=0; M=0; W=0; OP=0; EP=0; D=0 }
+        source = "none"
+    }
+    $phaseDirs = @(Get-MilestonePhaseDirs -Milestone $Milestone)
+    $stats.phases = $phaseDirs.Count
+    $mudaLog = Join-Path $PlanningDir "metrics\muda-log.jsonl"
+    $logByPhase = @{}
+    if (Test-Path $mudaLog) {
+        try {
+            foreach ($line in (Get-Content $mudaLog -Tail 300 -ErrorAction SilentlyContinue)) {
+                if (-not "$line".Trim()) { continue }
+                try {
+                    $row = $line | ConvertFrom-Json -ErrorAction Stop
+                    $p = "$($row.phase)"
+                    if ($p) { $logByPhase[$p] = $row }
+                } catch {}
+            }
+        } catch {}
+    }
+
+    foreach ($dir in $phaseDirs) {
+        $phaseNum = Get-PhaseNumFromDirName $dir.Name
+        if (-not $phaseNum) { continue }
+        $waste = Get-ChildItem -Path $dir.FullName -Filter "*WASTE*.md" -File -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($waste) {
+            $stats.audits++
+            $stats.source = "WASTE.md"
+            try {
+                $raw = Get-Content $waste.FullName -Raw -ErrorAction SilentlyContinue
+                foreach ($m in [regex]::Matches($raw, '(?m)^\|\s*([^|]+?)\s*\|\s*(PASS|WARN|FAIL)\s*\|[^|]*\|[^|]*\|\s*([^|]+?)\s*\|')) {
+                    $probe = $m.Groups[1].Value.Trim()
+                    if ($probe -match '^-+$|^Probe$') { continue }
+                    Add-MudaStatsFinding -Stats $stats -WasteClass ($m.Groups[3].Value.Trim()) -Verdict ($m.Groups[2].Value.Trim())
+                }
+            } catch {}
+        } elseif ($logByPhase.ContainsKey($phaseNum)) {
+            $stats.audits++
+            if ($stats.source -eq "none") { $stats.source = "muda-log.jsonl" }
+            $row = $logByPhase[$phaseNum]
+            if ($row.probes) {
+                foreach ($p in $row.probes.PSObject.Properties) {
+                    $probe = $p.Value
+                    Add-MudaStatsFinding -Stats $stats -WasteClass "$($probe.waste_class)" -Verdict "$($probe.verdict)"
+                }
+            } elseif ($row.fail -ne $null -or $row.warn -ne $null) {
+                if ([int]$row.fail -gt 0) {
+                    $stats.totalCaught += [int]$row.fail
+                    $stats.fail += [int]$row.fail
+                    $stats.byClass.D = [int]$stats.byClass.D + [int]$row.fail
+                }
+                if ([int]$row.warn -gt 0) {
+                    $stats.totalCaught += [int]$row.warn
+                    $stats.warn += [int]$row.warn
+                    $stats.byClass.D = [int]$stats.byClass.D + [int]$row.warn
+                }
+            }
+        }
+    }
+    return $stats
+}
+
+function Format-MudaStatsLine {
+    param($Stats)
+    if (-not $Stats -or [int]$Stats.phases -eq 0) { return "stats: no milestone phases found" }
+    return ("caught {0} | WARN{1} FAIL{2} | T{3} I{4} M{5} Wait{6} Oprod{7} Oproc{8} D{9} | audits {10}/{11}" -f `
+        [int]$Stats.totalCaught, [int]$Stats.warn, [int]$Stats.fail, `
+        [int]$Stats.byClass.T, [int]$Stats.byClass.I, [int]$Stats.byClass.M, [int]$Stats.byClass.W, `
+        [int]$Stats.byClass.OP, [int]$Stats.byClass.EP, [int]$Stats.byClass.D, `
+        [int]$Stats.audits, [int]$Stats.phases)
 }
 
 function Get-MudaLogRow {
@@ -515,6 +631,76 @@ function Get-MudaGateState {
         }
     }
     return [pscustomobject]@{ cells=$cells; summary=$summary; details=$details }
+}
+
+function Add-AtcFindingCounts {
+    param($Stats, [string]$Provider, [string]$Text)
+    if (-not $Text) { return }
+    $providerKey = if ("$Provider" -match '(?i)codex|openai') { "codex" } else { "claude" }
+    foreach ($m in [regex]::Matches($Text, '(?i)\b([0-9]+)\s+(CRITICAL|CRIT|HIGH|MEDIUM|MED|LOW|WARNING|WARN|WARNINGS)\b')) {
+        $n = [int]$m.Groups[1].Value
+        $sev = switch -Regex ($m.Groups[2].Value.ToUpperInvariant()) {
+            '^CRIT' { "crit"; break }
+            '^HIGH' { "high"; break }
+            '^MED' { "medium"; break }
+            '^LOW' { "low"; break }
+            '^WARN' { "warn"; break }
+            default { "warn" }
+        }
+        $Stats.$providerKey[$sev] = [int]$Stats.$providerKey[$sev] + $n
+        $Stats.totalCaught += $n
+    }
+}
+
+function Get-AtcStats {
+    param([string]$Milestone)
+    $stats = [pscustomobject]@{
+        phases = 0
+        reviews = 0
+        totalCaught = 0
+        fixedPhases = 0
+        codexTimeouts = 0
+        claude = [ordered]@{ crit=0; high=0; medium=0; low=0; warn=0 }
+        codex = [ordered]@{ crit=0; high=0; medium=0; low=0; warn=0 }
+    }
+    $phaseDirs = @(Get-MilestonePhaseDirs -Milestone $Milestone)
+    $stats.phases = $phaseDirs.Count
+    foreach ($dir in $phaseDirs) {
+        $phaseNum = Get-PhaseNumFromDirName $dir.Name
+        if (-not $phaseNum) { continue }
+        $review = Get-PhaseReviewFile -Milestone $Milestone -PhaseNum $phaseNum
+        if (-not $review) { continue }
+        $stats.reviews++
+        try {
+            $raw = Get-Content $review.FullName -Raw -ErrorAction SilentlyContinue
+            foreach ($line in [regex]::Matches($raw, '(?m)^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|')) {
+                $provider = $line.Groups[1].Value.Trim()
+                if ($provider -match '^-+$|^Provider$') { continue }
+                $status = $line.Groups[2].Value.Trim()
+                $findings = $line.Groups[4].Value.Trim()
+                if ($provider -match '(?i)Claude|Codex|OpenAI') {
+                    Add-AtcFindingCounts -Stats $stats -Provider $provider -Text $findings
+                    if ($provider -match '(?i)Codex|OpenAI' -and "$status $findings" -match '(?i)provider_unavailable|tier cap|timeout|timed out|exit=5') {
+                        $stats.codexTimeouts++
+                    }
+                }
+            }
+            if ($raw -match '(?i)post-fix|resolved|closed|addressed|fix(ed)?') { $stats.fixedPhases++ }
+        } catch {}
+    }
+    return $stats
+}
+
+function Format-AtcStatsLine {
+    param($Stats)
+    if (-not $Stats -or [int]$Stats.phases -eq 0) { return "stats: no milestone phases found" }
+    $c = $Stats.claude
+    $o = $Stats.codex
+    return ("caught {0} | Claude CR{1}/H{2}/M{3}/L{4}/W{5} | Codex CR{6}/H{7}/M{8}/L{9}/W{10} | fixed {11} timeout {12} | reviews {13}/{14}" -f `
+        [int]$Stats.totalCaught, `
+        [int]$c.crit, [int]$c.high, [int]$c.medium, [int]$c.low, [int]$c.warn, `
+        [int]$o.crit, [int]$o.high, [int]$o.medium, [int]$o.low, [int]$o.warn, `
+        [int]$Stats.fixedPhases, [int]$Stats.codexTimeouts, [int]$Stats.reviews, [int]$Stats.phases)
 }
 
 function Get-AtcGateState {
@@ -646,6 +832,10 @@ function Render-CompactCodex {
     Write-Host "  " -NoNewline
     Write-Host (Trunc $muda.details ($Pw - 3)) -NoNewline -ForegroundColor DarkGray
     Write-Host $CLEAR_LINE
+    $mudaStats = Get-MudaStats -Milestone $Scope.milestone
+    Write-Host "  stats " -NoNewline -ForegroundColor DarkGray
+    Write-Host (Trunc (Format-MudaStatsLine $mudaStats) ($Pw - 9)) -NoNewline -ForegroundColor Gray
+    Write-Host $CLEAR_LINE
 
     $atc = Get-AtcGateState -Milestone $Scope.milestone -PhaseNum $PhaseNum -Codex $Codex -Verdicts $Verdicts
     Write-GateTrack "ATC" $atc.cells
@@ -654,6 +844,10 @@ function Render-CompactCodex {
     Write-Host $CLEAR_LINE
     Write-Host "  " -NoNewline
     Write-Host (Trunc $atc.details ($Pw - 3)) -NoNewline -ForegroundColor DarkGray
+    Write-Host $CLEAR_LINE
+    $atcStats = Get-AtcStats -Milestone $Scope.milestone
+    Write-Host "  stats " -NoNewline -ForegroundColor DarkGray
+    Write-Host (Trunc (Format-AtcStatsLine $atcStats) ($Pw - 9)) -NoNewline -ForegroundColor Gray
     Write-Host $CLEAR_LINE
     Write-Host $CLEAR_LINE
 
@@ -798,6 +992,10 @@ function Render {
     Write-Host "  " -NoNewline
     Write-Host (Trunc $muda.details ($pw - 3)) -NoNewline -ForegroundColor DarkGray
     Write-Host $CLEAR_LINE
+    $mudaStats = Get-MudaStats -Milestone $scope.milestone
+    Write-Host "  stats " -NoNewline -ForegroundColor DarkGray
+    Write-Host (Trunc (Format-MudaStatsLine $mudaStats) ($pw - 9)) -NoNewline -ForegroundColor Gray
+    Write-Host $CLEAR_LINE
 
     $atc = Get-AtcGateState -Milestone $scope.milestone -PhaseNum $phaseNum -Codex $codex -Verdicts $verdicts
     Write-GateTrack "ATC" $atc.cells
@@ -806,6 +1004,10 @@ function Render {
     Write-Host $CLEAR_LINE
     Write-Host "  " -NoNewline
     Write-Host (Trunc $atc.details ($pw - 3)) -NoNewline -ForegroundColor DarkGray
+    Write-Host $CLEAR_LINE
+    $atcStats = Get-AtcStats -Milestone $scope.milestone
+    Write-Host "  stats " -NoNewline -ForegroundColor DarkGray
+    Write-Host (Trunc (Format-AtcStatsLine $atcStats) ($pw - 9)) -NoNewline -ForegroundColor Gray
     Write-Host $CLEAR_LINE
 
     if ($expanded) {
