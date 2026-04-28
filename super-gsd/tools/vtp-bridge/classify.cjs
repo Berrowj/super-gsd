@@ -450,8 +450,10 @@ function _buildEvidencePacket(uncertainty_type, query, mcpResponse, opts) {
     envelope_version: ENVELOPE_VERSION,
     ts: _isoNow(),
     command: COMMAND_NAME,
-    ok: sanitizedResults.length > 0 || reason_codes.indexOf('vtp_call_succeeded') !== -1
-         || reason_codes.indexOf('vtp_call_returned_empty') !== -1,
+    // ok=true ONLY when sanitized results exist. Empty results (zero source-backed
+    // entries after provenance gating) are a non-success outcome — orchestrator
+    // guards `if (packet.ok)` must NOT inject null context as evidence.
+    ok: sanitizedResults.length > 0,
     vtp_tool: toolName,
     uncertainty_type: uncertainty_type,
     query: typeof query === 'string' ? query : null,
@@ -497,9 +499,17 @@ function _buildFailureSentinelPacket(uncertainty_type, query, failureLogResult, 
 }
 
 // ----------------------------------------------------------------------------
-// PRIVATE: shim invocation with timeout (Promise.race)
+// PRIVATE: shim invocation. Synchronous-only by design — bridge module ships
+// without MCP transport and the orchestrator is the timeout owner.
 // ----------------------------------------------------------------------------
-function _callVtpToolWithTimeout(toolName, args, timeoutMs, _force_response) {
+// CONTRACT: timeoutMs is the BUDGET the caller (orchestrator) must enforce
+// when wiring the MCP shim via _force_response. This function does NOT race
+// promises — it does NOT enforce timeoutMs itself. Routes.yaml carries the
+// numeric budget for orchestrator consumption; the bridge accepts it for
+// schema completeness but the actual timer lives in the shim wrapper. If a
+// future refactor moves to async transports, replace this body with
+// Promise.race over (shim, timer) and update the test fixtures accordingly.
+function _callVtpToolShim(toolName, args, timeoutMs, _force_response) {
   // Synchronous shim invocation when _force_response is provided.
   // _force_response can be either:
   //   - a function (called with (toolName, args); may throw)
@@ -599,7 +609,7 @@ function _selectiveVTPCallInternal(input) {
     // Materialize nested frozen tier/source_types arrays (avoid leaking frozen refs).
     if (Array.isArray(args.source_types)) args.source_types = args.source_types.slice();
     if (Array.isArray(args.tier)) args.tier = args.tier.slice();
-    mcpResponse = _callVtpToolWithTimeout(toolName, args, cfg.per_query_timeout_ms, input._force_vtp_tool_response);
+    mcpResponse = _callVtpToolShim(toolName, args, cfg.per_query_timeout_ms, input._force_vtp_tool_response);
   } catch (err) {
     const kind = _classifyError(err);
     const reason = _reasonForFailureKind(kind);
