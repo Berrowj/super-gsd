@@ -1,16 +1,35 @@
 ---
 checkpoint: full-roadmap-autopilot-run-2
 created: 2026-04-27
-updated: 2026-04-27 (v1.9 active; Phases 41-43 closed PASS; resume at Phase 44)
+updated: 2026-04-28 (v1.9 active; Phases 41-49 SHIPPED, Phase 50 6/6 commits landed; resume at Phase 50 verifier+ATC+close)
 session: opus-4.7-1m
 mode: autonomous
 emergency_halt: false
 context_percent_at_write: "not_self_estimated"
 controlling_principle: Autonomy continues; evidence tells the truth.
-next_unit: "v1.9 Phase 44 (Legal Context Registry) — dispatch gsd-phase-researcher (Rule 2: phase needs RESEARCH.md). Phase 44 builds context-registry/build.cjs + check.cjs + legal-keys.json to reject invented references at packet boundary."
+session_reason_for_pause: "Operator chose to reboot session for fresh context window. All work committed; clean state."
+next_unit: |
+  v1.9 Phase 50 close (verifier + Step 9 Claude ATC + STATE advance to Phase 51).
+  All 6 Phase 50 atomic commits landed:
+    1. 868077a feat(50-01): cockpit-shell.cjs Node bridge
+    2. 3fda039 feat(50-01): sgsd-token-panel.ps1 (A1 cost)
+    3. 8d853ca feat(50-01): sgsd-active-agent-panel.ps1 (A2)
+    4. f4d41e3 feat(50-01): sgsd-source-mix-panel.ps1 (A1 context)
+    5. 31583be fix(50-01): mission-control Codex consolidate + 40-row compact + 3 wires
+    6. 302be20 test(50-01): cockpit-acceptance — read-only invariant + A1-A5 viewport fixtures
+  Operator parallel cockpit commits also landed during Phase 50 (preserve, do not revert):
+    e2d07af, 0c1baf2, 5db05d7, 42d8ea3 (boot/narrative/codex tile improvements)
+  Resume by:
+    a. Dispatch gsd-verifier for Phase 50 goal-backward verification
+    b. Dispatch sgsd-code-reviewer for Step 9 phase-level Claude ATC review
+    c. Apply any in-loop CRITICAL/HIGH/MEDIUM fixes per Phase 41-49 precedent
+    d. Write 50-REVIEW.md, advance STATE.md to Phase 51, commit close
+  THEN Phase 51 (Context Stress Benchmark — proves >=50% researcher token reduction with zero evidence loss; consumes route-decisions + memory-revocations + utility_per_token + evidence_retention).
+  THEN Phase 52 (Redis Live Memory Projection Adapter — contract expanded forward-only at commit 6cb01fb; 52-REDIS-GUIDE-DELTA.md is forward addendum binding semantic cache, session/checkpoint markers, event streams, provider-health cache, source-hash validation, TTL/dedup, poisoned-key rejection, safe FLUSHDB, fallback to SQLite/local files; folder name stays 52-redis-live-cache-adapter for path stability).
+  THEN milestone v1.9 close.
 ---
 
-# Orchestrator Checkpoint - v1.9 Phases 41+42+43 SHIPPED, Phase 44 next
+# Orchestrator Checkpoint - v1.9 Phases 41-49 SHIPPED, Phase 50 6/6 atomic commits landed, close + verifier + ATC pending
 
 ## Status
 
