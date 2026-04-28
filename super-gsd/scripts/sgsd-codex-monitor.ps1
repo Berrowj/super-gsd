@@ -334,13 +334,7 @@ function Get-PhaseGoalBrief {
 
 function Get-PhaseEvidenceSummary {
     param([string]$Milestone, [string]$PhaseNum)
-    $root = Join-Path $PlanningDir "milestones\$Milestone\phases"
-    $dir = $null
-    if (Test-Path $root) {
-        $dir = Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue |
-               Where-Object { $_.Name -eq "$PhaseNum" -or $_.Name.StartsWith("$PhaseNum-") } |
-               Select-Object -First 1
-    }
+    $dir = Resolve-PhaseDir -Milestone $Milestone -PhaseNum $PhaseNum
     $checks = @(
         @{ key="R"; pattern="$PhaseNum-RESEARCH.md" },
         @{ key="C"; pattern="$PhaseNum-CONTEXT.md" },
@@ -357,6 +351,44 @@ function Get-PhaseEvidenceSummary {
         if ($hit) { $done++; $bits += "$($c.key)#" } else { $bits += "$($c.key)." }
     }
     return [pscustomobject]@{ bits=($bits -join " "); done=$done; total=$checks.Count }
+}
+
+function Resolve-PhaseDir {
+    param([string]$Milestone, [string]$PhaseNum)
+    if (-not $Milestone -or -not $PhaseNum) { return $null }
+    $root = Join-Path $PlanningDir "milestones\$Milestone\phases"
+    if (-not (Test-Path $root)) { return $null }
+    return Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -eq "$PhaseNum" -or $_.Name.StartsWith("$PhaseNum-") } |
+        Select-Object -First 1
+}
+
+function Get-PhaseReviewFile {
+    param([string]$Milestone, [string]$PhaseNum)
+    $dir = Resolve-PhaseDir -Milestone $Milestone -PhaseNum $PhaseNum
+    if (-not $dir) { return $null }
+
+    $reviewDir = Join-Path $dir.FullName "reviews"
+    $candidates = @()
+    if (Test-Path $reviewDir) {
+        $direct = Join-Path $reviewDir "$PhaseNum-REVIEW.md"
+        if (Test-Path $direct) { $candidates += Get-Item $direct -ErrorAction SilentlyContinue }
+        $candidates += Get-ChildItem -Path $reviewDir -Filter "*REVIEW*.md" -File -ErrorAction SilentlyContinue
+    }
+    $directAtc = Join-Path $dir.FullName "$PhaseNum-ATC-REVIEW.md"
+    if (Test-Path $directAtc) { $candidates += Get-Item $directAtc -ErrorAction SilentlyContinue }
+    $candidates += Get-ChildItem -Path $dir.FullName -Filter "*ATC-REVIEW*.md" -File -ErrorAction SilentlyContinue
+
+    return @($candidates | Where-Object { $_ } | Sort-Object LastWriteTime -Descending | Select-Object -First 1)
+}
+
+function Get-PhaseCommitReviewFile {
+    param([string]$Milestone, [string]$PhaseNum)
+    $dir = Resolve-PhaseDir -Milestone $Milestone -PhaseNum $PhaseNum
+    if (-not $dir) { return $null }
+    return Get-ChildItem -Path $dir.FullName -Filter "commit-reviews.jsonl" -File -Recurse -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
 }
 
 function Write-GateTrack {
@@ -381,13 +413,7 @@ function Get-MudaGateState {
     $letters = @("T","I","M","W","O","O","D")
     $cells = @($letters | ForEach-Object { [pscustomobject]@{ letter=$_; state="todo" } })
     $summary = "MUDA has not run for this phase yet."
-    $root = Join-Path $PlanningDir "milestones\$Milestone\phases"
-    $phaseDir = $null
-    if (Test-Path $root) {
-        $phaseDir = Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -eq "$PhaseNum" -or $_.Name.StartsWith("$PhaseNum-") } |
-            Select-Object -First 1
-    }
+    $phaseDir = Resolve-PhaseDir -Milestone $Milestone -PhaseNum $PhaseNum
     $waste = if ($phaseDir) { Get-ChildItem -Path $phaseDir.FullName -Filter "*WASTE*.md" -File -ErrorAction SilentlyContinue | Select-Object -First 1 } else { $null }
     if ($waste) {
         foreach ($c in $cells) { $c.state = "done" }
@@ -403,26 +429,84 @@ function Get-MudaGateState {
     return [pscustomobject]@{ cells=$cells; summary=$summary }
 }
 
-function Get-ReviewGateState {
+function Get-AtcGateState {
     param([string]$Milestone, [string]$PhaseNum, $Codex, $Verdicts)
     $cells = @(
-        [pscustomobject]@{ letter="P"; state="todo" },
-        [pscustomobject]@{ letter="R"; state="todo" },
-        [pscustomobject]@{ letter="F"; state="todo" },
-        [pscustomobject]@{ letter="V"; state="todo" }
+        [pscustomobject]@{ letter="P"; state="todo" }, # phase package ready
+        [pscustomobject]@{ letter="C"; state="todo" }, # Claude reviewer
+        [pscustomobject]@{ letter="O"; state="todo" }, # Codex/OpenAI reviewer
+        [pscustomobject]@{ letter="F"; state="todo" }, # findings/fixes
+        [pscustomobject]@{ letter="V"; state="todo" }  # final verdict
     )
-    $summary = "No Codex review evidence for current phase yet."
-    if ($Codex.scopeCurrent -and "$($Codex.state)" -eq "running") {
-        $cells[0].state = "done"; $cells[1].state = "active"
-        $summary = "Codex is reviewing the current phase."
+    $summary = "ATC has not run for P$PhaseNum yet."
+    $details = "Key: P package, C Claude, O Codex, F fixes, V verdict."
+    $reviewFile = Get-PhaseReviewFile -Milestone $Milestone -PhaseNum $PhaseNum
+    $commitFile = Get-PhaseCommitReviewFile -Milestone $Milestone -PhaseNum $PhaseNum
+    $evidence = Get-PhaseEvidenceSummary -Milestone $Milestone -PhaseNum $PhaseNum
+
+    if ($evidence.done -ge 4 -or $reviewFile -or $commitFile) { $cells[0].state = "done" }
+    elseif ($evidence.done -gt 0) { $cells[0].state = "active" }
+
+    $codexCurrent = ($Codex.scopeCurrent -and "$($Codex.phase)" -eq "$PhaseNum")
+    if ($codexCurrent -and "$($Codex.step)" -match '(?i)atc|review') {
+        $cells[2].state = "active"
+        $summary = "ATC running: Codex is reviewing P$PhaseNum."
     }
-    if ($Verdicts.Count -gt 0) {
+
+    if ($commitFile -or $Verdicts.Count -gt 0) {
+        $cells[2].state = "done"
+    }
+
+    if ($reviewFile) {
+        $raw = ""
+        try { $raw = Get-Content $reviewFile.FullName -Raw -ErrorAction SilentlyContinue } catch {}
+
+        $cells[1].state = if ($raw -match '(?i)Claude\s*\(|\|\s*Claude\b|sgsd-code-reviewer') { "done" } else { $cells[1].state }
+        if ($raw -match '(?i)Codex\s*\(|\|\s*Codex\b|sgsd-codex-reviewer') {
+            $cells[2].state = "done"
+        }
+        if ($raw -match '(?i)provider_unavailable|tier cap|timeout|timed out|exit=5') {
+            $cells[2].state = "fail"
+        }
+        if ($raw -match '(?i)Findings|Resolution|HIGH|MEDIUM|LOW|CRIT|WARN') {
+            $cells[3].state = "active"
+        }
+        if ($raw -match '(?i)resolved|post-fix|closed|addressed|fix(ed)?') {
+            $cells[3].state = "done"
+        }
+
+        $verdictText = ""
+        $vm = [regex]::Match($raw, '(?mi)^verdict:\s*(.+)$')
+        if ($vm.Success) {
+            $verdictText = $vm.Groups[1].Value.Trim()
+        } else {
+            $vm = [regex]::Match($raw, '(?is)Final Verdict\s*\r?\n\s*\*\*(.+?)\*\*')
+            if ($vm.Success) { $verdictText = $vm.Groups[1].Value.Trim() }
+        }
+        if ($verdictText) {
+            $cells[4].state = "done"
+            if ($verdictText -match '(?i)FAIL|CRIT|REVISE') { $cells[4].state = "fail" }
+        }
+
+        $claude = if ($cells[1].state -eq "done") { "Claude reviewed" } else { "Claude not recorded" }
+        $codex = if ($cells[2].state -eq "fail") { "Codex timed out or hit tier cap" } elseif ($cells[2].state -eq "done") { "Codex reviewed" } elseif ($cells[2].state -eq "active") { "Codex running" } else { "Codex not recorded" }
+        $fixes = if ($cells[3].state -eq "done") { "fixes closed" } elseif ($cells[3].state -eq "active") { "findings open" } else { "no findings yet" }
+        $summary = "$claude; $codex; $fixes."
+        if ($verdictText) { $summary = "ATC $verdictText - $summary" }
+        $details = "Source: $($reviewFile.Name)"
+    } elseif ($Verdicts.Count -gt 0) {
         foreach ($c in $cells) { $c.state = "done" }
         $latest = $Verdicts[0]
-        if ([int]$latest.critical -gt 0) { $cells[3].state = "fail" }
-        $summary = "$($latest.plan): $($latest.one_liner)"
+        if ([int]$latest.critical -gt 0) { $cells[4].state = "fail" }
+        $summary = "Per-dispatch ATC: $($latest.plan) - $($latest.one_liner)"
+        $details = "No phase review file yet; showing commit review evidence."
+    } elseif ($codexCurrent -and "$($Codex.state)" -eq "timeout") {
+        $cells[2].state = "fail"
+        $summary = "Codex ATC timed out for P$PhaseNum; fallback review evidence is still needed."
+    } elseif ($evidence.done -ge 4) {
+        $summary = "Package looks ready; waiting for ATC review."
     }
-    return [pscustomobject]@{ cells=$cells; summary=$summary }
+    return [pscustomobject]@{ cells=$cells; summary=$summary; details=$details }
 }
 
 function Render-CompactCodex {
@@ -472,10 +556,13 @@ function Render-CompactCodex {
     Write-Host (Trunc $muda.summary ($Pw - 3)) -NoNewline -ForegroundColor Gray
     Write-Host $CLEAR_LINE
 
-    $review = Get-ReviewGateState -Milestone $Scope.milestone -PhaseNum $PhaseNum -Codex $Codex -Verdicts $Verdicts
-    Write-GateTrack "REVIEW" $review.cells
+    $atc = Get-AtcGateState -Milestone $Scope.milestone -PhaseNum $PhaseNum -Codex $Codex -Verdicts $Verdicts
+    Write-GateTrack "ATC" $atc.cells
     Write-Host "  " -NoNewline
-    Write-Host (Trunc $review.summary ($Pw - 3)) -NoNewline -ForegroundColor Gray
+    Write-Host (Trunc $atc.summary ($Pw - 3)) -NoNewline -ForegroundColor Gray
+    Write-Host $CLEAR_LINE
+    Write-Host "  " -NoNewline
+    Write-Host (Trunc $atc.details ($Pw - 3)) -NoNewline -ForegroundColor DarkGray
     Write-Host $CLEAR_LINE
     Write-Host $CLEAR_LINE
 
@@ -610,6 +697,15 @@ function Render {
     $phaseEvidence = Get-PhaseEvidenceSummary -Milestone $scope.milestone -PhaseNum $phaseNum
     Write-Host "  evidence " -NoNewline -ForegroundColor DarkGray
     Write-Host ("[{0}] {1}/{2}" -f $phaseEvidence.bits, $phaseEvidence.done, $phaseEvidence.total) -NoNewline -ForegroundColor $(if ($phaseEvidence.done -eq $phaseEvidence.total) { "Green" } elseif ($phaseEvidence.done -gt 0) { "Yellow" } else { "DarkGray" })
+    Write-Host $CLEAR_LINE
+
+    $atc = Get-AtcGateState -Milestone $scope.milestone -PhaseNum $phaseNum -Codex $codex -Verdicts $verdicts
+    Write-GateTrack "ATC" $atc.cells
+    Write-Host "  " -NoNewline
+    Write-Host (Trunc $atc.summary ($pw - 3)) -NoNewline -ForegroundColor Gray
+    Write-Host $CLEAR_LINE
+    Write-Host "  " -NoNewline
+    Write-Host (Trunc $atc.details ($pw - 3)) -NoNewline -ForegroundColor DarkGray
     Write-Host $CLEAR_LINE
 
     if ($expanded) {
