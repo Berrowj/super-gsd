@@ -240,9 +240,12 @@ function _assertAsciiOnly(buf) {
 }
 
 // JSON serializer that escapes any code-point > 127 as \uXXXX (mirror Phase 43
-// _jsonStringifyAscii). Keeps emitted JSONL ASCII-clean.
-function _jsonStringifyAscii(value) {
-  const raw = JSON.stringify(value);
+// _jsonStringifyAscii). Keeps emitted JSONL ASCII-clean. Optional indent
+// argument matches Phase 43's _jsonStringifyAscii signature so PHASE-CAPSULE.json
+// edits preserve the 2-space pretty-printed format on disk (lifecycle-only edits
+// must NOT collapse the canonical Phase 43 capsule layout).
+function _jsonStringifyAscii(value, indent) {
+  const raw = (indent != null) ? JSON.stringify(value, null, indent) : JSON.stringify(value);
   if (raw == null) return raw;
   let out = '';
   for (let i = 0; i < raw.length; i++) {
@@ -427,9 +430,11 @@ function _editCapsuleLifecycleFields(milestone, phase, edits, planningDir) {
         return { ok: false, reason: 'schema_invalid: ' + (e && e.message) };
       }
     }
-    // Atomic tmp+rename write.
+    // Atomic tmp+rename write. Preserve Phase 43 pretty-print (2-space indent)
+    // so PHASE-CAPSULE.json files keep their canonical layout after lifecycle
+    // edits (Trap 6 + Pitfall 7: lifecycle backfill is additive, not reformatting).
     const tmp = capPath + '.tmp.' + process.pid + '.' + crypto.randomBytes(2).toString('hex');
-    const json = _jsonStringifyAscii(cap) + '\n';
+    const json = _jsonStringifyAscii(cap, 2) + '\n';
     fs.writeFileSync(tmp, json, { encoding: 'utf8' });
     fs.renameSync(tmp, capPath);
     return { ok: true, capsule: cap, path: capPath };
