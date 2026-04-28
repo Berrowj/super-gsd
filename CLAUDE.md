@@ -126,7 +126,7 @@ runtime compaction + external state are the context-management mechanism. ONLY t
 |---|-----------|--------|-------|-------|
 | 0 | Auto mode entering milestone AND no `MILESTONE-READINESS.md` (or stale) | Dispatch milestone readiness audit | sgsd-milestone-readiness | sonnet |
 | 0.5 | READINESS status = BLOCKED or PARTIAL AND user said "go" | Auto-continue on DEGRADED-PATH if one exists; pause only when no runnable path remains | — | — |
-| 1 | Phase not discussed | Suggest /gsd-discuss-phase | — | — |
+| 1 | Phase not discussed / missing CONTEXT.md | AUTO MODE: synthesize CONTEXT.md + discussion decision record from roadmap/checkpoint/audit, then dispatch researcher. INTERACTIVE/NEXT mode: suggest /gsd-discuss-phase. | orchestrator | — |
 | 2 | Phase needs RESEARCH.md | Dispatch researcher | gsd-phase-researcher | sonnet |
 | 3 | Phase needs PLAN.md | Dispatch planner | gsd-planner | sonnet |
 | 4 | Plans need checking | Dispatch checker | gsd-plan-checker | sonnet |

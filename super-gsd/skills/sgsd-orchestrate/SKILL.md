@@ -41,6 +41,11 @@ Autopilot continuation rule:
 - "Operator review" is valid only after all phases complete, when a real hard
   stop is hit, or when the user explicitly invoked `next`, `status`, `stop`, or
   `pause`.
+- Missing phase CONTEXT.md / "not discussed" is not a hard stop in `go` /
+  `auto` / `continue`. In auto mode, synthesize the phase CONTEXT.md and
+  discussion decision record from ROADMAP/STATE/checkpoint/proposal/audit
+  evidence, then immediately continue to research. Only interactive or `next`
+  mode should suggest `/gsd-discuss-phase`.
 
 Context percentage is NOT an exit condition. Never self-estimate context use.
 Runtime compaction and external files (`STATE.md`, `ORCHESTRATOR-CHECKPOINT.md`,
@@ -480,7 +485,14 @@ REPEAT:
 
   6. DETERMINE DISPATCH
      Apply first-match rules:
-     a. Phase needs CONTEXT.md (not discussed) → suggest /gsd-discuss-phase
+     a. Phase needs CONTEXT.md (not discussed):
+        - Auto mode (`go` / `auto` / `continue`) → DO NOT STOP. Synthesize the
+          missing CONTEXT.md and a compact discussion/decision record from
+          ROADMAP.md, STATE.md, ORCHESTRATOR-CHECKPOINT.md, the active milestone
+          proposal, implementation audit, VTP/private-KB hits if available, and
+          existing code evidence. Then continue directly to Step 6.b and
+          dispatch gsd-phase-researcher.
+        - Interactive / `next` mode → suggest /gsd-discuss-phase.
      b. Phase needs RESEARCH.md → dispatch gsd-phase-researcher (Sonnet)
      b.5 VTP ENRICHMENT GATE (Step 6.b.5) — Phase has RESEARCH.md AND config.vtp_enrichment.enabled is true →
          D-08 DEGRADED-MODE CHECK (read cached vtp_available from Step 3.7):
@@ -2444,7 +2456,10 @@ Estimation method:
 15. KARPATHY PRINCIPLES: Four behavioural rules that override everything else
     when they conflict. Enforced mechanically by existing SGSD gates:
       (1) Think Before Coding — surface assumptions, ask when uncertain.
-          Enforced by: gsd-list-phase-assumptions + gsd-discuss-phase before planning.
+          Enforced by: gsd-list-phase-assumptions + gsd-discuss-phase before
+          planning in interactive mode. In auto mode, missing
+          discussion/context is auto-authored from roadmap/checkpoint/audit
+          evidence and recorded before research/planning continues.
       (2) Simplicity First — minimum code that solves the problem.
           Enforced by: ATC 10-point anti-slop checklist at Step 6.5.
       (3) Surgical Changes — touch only what you must; every line traces to the plan.
