@@ -105,6 +105,36 @@ const CAPSULE_FILE_KINDS = Object.freeze([
   'atc_review',
 ]);
 
+// Phase 49 GOV-03: lifecycle fields (additive; optional). Phase 49 backfill
+// walker reads this list to know which keys to populate without re-deriving
+// from the schema file.
+const LIFECYCLE_FIELDS = Object.freeze([
+  'compression_level',
+  'promoted_at',
+  'demoted_at',
+  'revoked_at',
+  'revoked_reason',
+  'allowed_consumers',
+  'revalidation_due',
+  'supersedes_id',
+  'superseded_by_id',
+  'revocation_path',
+]);
+
+// Phase 49 GOV-03: closed-vocab for compression_level. Mirrors Phase 45
+// build.cjs:104 COMPRESSION_LEVELS. Re-declared here (NOT imported) to avoid
+// circular-dep: phase-capsule -> phase49 -> phase45 -> phase-capsule.
+// MUST stay in sync with build.cjs:104 -- if Phase 45 ever adds a level,
+// this list MUST be updated. Phase 49 self-test F1 verifies parity by
+// importing both consts and asserting array equality.
+const COMPRESSION_LEVELS_VOCAB = Object.freeze([
+  'raw_evidence',
+  'phase_capsule',
+  'validated_thought',
+  'reusable_rule',
+  'guardrail',
+]);
+
 // ----------------------------------------------------------------------------
 // PHASE 41 OPTIONAL UPSTREAM IMPORTS (try/catch wrapped per RESEARCH sec 4)
 // ----------------------------------------------------------------------------
@@ -979,6 +1009,60 @@ function _assertCapsuleSchema(obj) {
   if (typeof obj.created_by !== 'string' || !obj.created_by) {
     throw new Error('phase-capsule schema invalid: created_by must be non-empty string');
   }
+
+  // Phase 49 GOV-03: lifecycle field validation (additive, optional).
+  // Each field, if present and non-null, must satisfy schema oneOf.
+  const ISO_TS_PATTERN = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T/;
+
+  if (obj.compression_level !== undefined && obj.compression_level !== null) {
+    if (typeof obj.compression_level !== 'string'
+        || COMPRESSION_LEVELS_VOCAB.indexOf(obj.compression_level) < 0) {
+      throw new Error('phase-capsule schema invalid: compression_level must be in '
+        + JSON.stringify(COMPRESSION_LEVELS_VOCAB) + ' (got "' + obj.compression_level + '")');
+    }
+  }
+
+  const tsFields = ['promoted_at', 'demoted_at', 'revoked_at'];
+  for (const f of tsFields) {
+    if (obj[f] !== undefined && obj[f] !== null) {
+      if (typeof obj[f] !== 'string' || !ISO_TS_PATTERN.test(obj[f])) {
+        throw new Error('phase-capsule schema invalid: ' + f
+          + ' must match ISO timestamp pattern (got "' + obj[f] + '")');
+      }
+    }
+  }
+
+  if (obj.revoked_reason !== undefined && obj.revoked_reason !== null) {
+    if (typeof obj.revoked_reason !== 'string') {
+      throw new Error('phase-capsule schema invalid: revoked_reason must be string or null');
+    }
+  }
+
+  if (obj.allowed_consumers !== undefined && obj.allowed_consumers !== null) {
+    if (!Array.isArray(obj.allowed_consumers)) {
+      throw new Error('phase-capsule schema invalid: allowed_consumers must be array or null');
+    }
+    for (const c of obj.allowed_consumers) {
+      if (typeof c !== 'string') {
+        throw new Error('phase-capsule schema invalid: allowed_consumers[] entries must be strings');
+      }
+    }
+  }
+
+  if (obj.revalidation_due !== undefined && obj.revalidation_due !== null) {
+    if (typeof obj.revalidation_due !== 'boolean') {
+      throw new Error('phase-capsule schema invalid: revalidation_due must be boolean or null');
+    }
+  }
+
+  const stringFields = ['supersedes_id', 'superseded_by_id', 'revocation_path'];
+  for (const f of stringFields) {
+    if (obj[f] !== undefined && obj[f] !== null) {
+      if (typeof obj[f] !== 'string') {
+        throw new Error('phase-capsule schema invalid: ' + f + ' must be string or null');
+      }
+    }
+  }
 }
 
 function _capsulePathFromPhaseDir(phaseDir) {
@@ -1742,6 +1826,77 @@ function _selfTest() {
     rec('12 public APIs never throw upward', false, e.message);
   }
 
+  // -------- 14. Phase 49 GOV-03: lifecycle fields valid + populated --------
+  try {
+    const tmp14 = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-st14-'));
+    const planningDir = path.join(tmp14, '.planning');
+    const phaseDir = path.join(planningDir, 'milestones', 'v1.test', 'phases', '99-lifecycle');
+    fs.mkdirSync(phaseDir, { recursive: true });
+    fs.writeFileSync(path.join(phaseDir, '99-CONTEXT.md'),
+      '---\nphase: 99\n---\n\n## Goal\n\nF14 lifecycle fixture.\n');
+    fs.writeFileSync(path.join(phaseDir, '99-VERIFICATION.md'), '---\nstatus: PASS\n---\n');
+    const r = writeCapsule(planningDir, { milestone: 'v1.test', phase: '99', phaseDir: phaseDir });
+    let cap = r && r.ok ? JSON.parse(fs.readFileSync(r.path, 'utf8')) : null;
+    // Now mutate to populate ALL 10 lifecycle fields and assert schema PASSES.
+    cap.compression_level = 'phase_capsule';
+    cap.promoted_at = '2026-04-27T22:00:00.000Z';
+    cap.demoted_at = '2026-04-27T22:00:00.000Z';
+    cap.revoked_at = '2026-04-27T22:00:00.000Z';
+    cap.revoked_reason = 'stale';
+    cap.allowed_consumers = ['*'];
+    cap.revalidation_due = true;
+    cap.supersedes_id = 'v1.test/98#abcd1234';
+    cap.superseded_by_id = 'v1.test/100#abcd1234';
+    cap.revocation_path = 'super-gsd/tools/memory-governance/lifecycle.cjs#revoke';
+    let okPopulated = false;
+    try { _assertCapsuleSchema(cap); okPopulated = true; } catch (_e) { okPopulated = false; }
+    rec('14 lifecycle 10 fields populated -> schema PASS', okPopulated, '');
+  } catch (e) {
+    rec('14 lifecycle 10 fields populated -> schema PASS', false, e.message);
+  }
+
+  // -------- 15. Phase 49 GOV-03: invalid compression_level rejected --------
+  try {
+    const tmp15 = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-st15-'));
+    const planningDir = path.join(tmp15, '.planning');
+    const phaseDir = path.join(planningDir, 'milestones', 'v1.test', 'phases', '99-lifecycle-bad');
+    fs.mkdirSync(phaseDir, { recursive: true });
+    fs.writeFileSync(path.join(phaseDir, '99-CONTEXT.md'),
+      '---\nphase: 99\n---\n\n## Goal\n\nF15 lifecycle bad-vocab fixture.\n');
+    fs.writeFileSync(path.join(phaseDir, '99-VERIFICATION.md'), '---\nstatus: PASS\n---\n');
+    const r = writeCapsule(planningDir, { milestone: 'v1.test', phase: '99', phaseDir: phaseDir });
+    let cap = r && r.ok ? JSON.parse(fs.readFileSync(r.path, 'utf8')) : null;
+    cap.compression_level = 'trusted';
+    let threw = false;
+    let msg = '';
+    try { _assertCapsuleSchema(cap); } catch (e) { threw = true; msg = e.message; }
+    rec('15 lifecycle compression_level=trusted rejected',
+      threw && /compression_level/.test(msg), msg);
+  } catch (e) {
+    rec('15 lifecycle compression_level=trusted rejected', false, e.message);
+  }
+
+  // -------- 16. Phase 49 GOV-03: bad ISO timestamp rejected --------
+  try {
+    const tmp16 = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-st16-'));
+    const planningDir = path.join(tmp16, '.planning');
+    const phaseDir = path.join(planningDir, 'milestones', 'v1.test', 'phases', '99-lifecycle-bad-ts');
+    fs.mkdirSync(phaseDir, { recursive: true });
+    fs.writeFileSync(path.join(phaseDir, '99-CONTEXT.md'),
+      '---\nphase: 99\n---\n\n## Goal\n\nF16 lifecycle bad-ts fixture.\n');
+    fs.writeFileSync(path.join(phaseDir, '99-VERIFICATION.md'), '---\nstatus: PASS\n---\n');
+    const r = writeCapsule(planningDir, { milestone: 'v1.test', phase: '99', phaseDir: phaseDir });
+    let cap = r && r.ok ? JSON.parse(fs.readFileSync(r.path, 'utf8')) : null;
+    cap.promoted_at = '2026-04-27'; // missing 'T' suffix
+    let threw = false;
+    let msg = '';
+    try { _assertCapsuleSchema(cap); } catch (e) { threw = true; msg = e.message; }
+    rec('16 lifecycle promoted_at=non-ISO rejected',
+      threw && /promoted_at.*pattern/.test(msg), msg);
+  } catch (e) {
+    rec('16 lifecycle promoted_at=non-ISO rejected', false, e.message);
+  }
+
   // -------- 13. PHASE-INDEX.jsonl idempotent (1 row per (ms,phase)) --------
   try {
     const tmp13 = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-st13-'));
@@ -1830,8 +1985,12 @@ if (require.main === module) {
 module.exports = {
   BYPASS_KIND_VOCAB: BYPASS_KIND_VOCAB,
   CAPSULE_FILE_KINDS: CAPSULE_FILE_KINDS,
+  COMPRESSION_LEVELS_VOCAB: COMPRESSION_LEVELS_VOCAB,
+  LIFECYCLE_FIELDS: LIFECYCLE_FIELDS,
   SCHEMA_VERSION: SCHEMA_VERSION,
   STATUS_VOCAB: STATUS_VOCAB,
+  _assertCapsuleSchema: _assertCapsuleSchema,
+  _capsuleContentHash: _capsuleContentHash,
   backfillFromCanonical: backfillFromCanonical,
   capsulePath: capsulePath,
   readCapsule: readCapsule,
