@@ -82,3 +82,5 @@
 {"ts":"2026-04-28T17:54:04.090Z","phase":51,"plan":1,"model":"sonnet","role":"executor","provider":"claude","est_input":6500,"est_output":2200,"total":8700,"classifier_model":"haiku","context_tokens":68045,"task":"T6-fixup"}
 {"ts":"2026-04-28T18:06:07.054Z","phase":51,"plan":1,"model":"sonnet","role":"executor","provider":"claude","est_input":7000,"est_output":2800,"total":9800,"classifier_model":"haiku","context_tokens":94937,"task":"T7"}
 {"ts":"2026-04-28T18:06:07.398Z","phase":51,"plan":1,"model":"sonnet","role":"code_reviewer","provider":"claude","est_input":3500,"est_output":1300,"total":4800,"classifier_model":"haiku","context_tokens":36842,"task":"T7-ATC"}
+{"ts":"2026-04-28T18:21:34.027Z","phase":51,"plan":1,"model":"sonnet","role":"verifier","provider":"claude","est_input":12000,"est_output":3000,"total":15000,"classifier_model":"haiku","context_tokens":106414,"task":"verifier"}
+{"ts":"2026-04-28T18:21:34.175Z","phase":51,"plan":1,"model":"sonnet","role":"code_reviewer","provider":"claude","est_input":13000,"est_output":4500,"total":17500,"classifier_model":"haiku","context_tokens":108048,"task":"phase-level-ATC"}

@@ -520,18 +520,21 @@ function _filterComplaintRowsForScenarioRunId(rows, runId) {
 }
 
 function _replayScenarioImpl(opts) {
-  // T2 introduces the real ledger reader; until then return the
-  // documented stub so downstream tasks have a stable shape.
-  const claudeBinary = (opts && opts.claudeBinary) || null;
-  const mode_used = claudeBinary ? 'full-stub' : 'ledger-only';
-  return { ok: true, reason: 'scenario_replay_degraded_ledger_only',
-           tokens_after: null, post_artifacts: [],
-           scenario_run_id: null, mode_used };
+  // M1 fix (phase-level ATC): delegate to the real T5 hybrid replay
+  // engine in replay.cjs. The Lock 13 try/catch wrapper at the public
+  // replayScenario API above catches any throw; replay.replayScenario
+  // also wraps internally and never throws upward.
+  return replay.replayScenario(opts || {});
 }
 
-function _injectFailureImpl(_opts) {
-  return { ok: false, reason: 'scenario_skipped_schema_mismatch',
-           applied: false, note: 'T1 skeleton; T4 wires injectors' };
+function _injectFailureImpl(opts) {
+  // M1 fix (phase-level ATC): delegate to the real T4 injector catalog
+  // in failure-injectors.cjs. Lock 13 try/catch at the public
+  // injectFailure API above; _injectors.injectFailure also wraps.
+  // Maps {fixtureId, ctx} convention used by external callers.
+  const fixtureId = opts && (opts.fixtureId || opts.id);
+  const ctx = (opts && opts.ctx) || opts || {};
+  return _injectors.injectFailure(fixtureId, ctx);
 }
 
 function _scoreScenarioImpl(opts) {
