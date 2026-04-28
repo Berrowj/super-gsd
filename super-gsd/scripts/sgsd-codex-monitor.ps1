@@ -829,6 +829,18 @@ function Get-MudaGateDescriptors {
     )
 }
 
+function Get-AtcReviewStepDescriptors {
+    return @(
+        [pscustomobject]@{ num="1"; name="First principles"; explain="is this change needed for the phase goal?" },
+        [pscustomobject]@{ num="2"; name="Delete"; explain="can any code, field, doc, or process be removed?" },
+        [pscustomobject]@{ num="3"; name="Simplify"; explain="can the same result be reached with less structure?" },
+        [pscustomobject]@{ num="4"; name="Accelerate"; explain="did the change introduce avoidable latency or token cost?" },
+        [pscustomobject]@{ num="5"; name="Automate"; explain="only automate what survived the first four checks" },
+        [pscustomobject]@{ num="6"; name="Validate"; explain="prove correctness with tests, fixtures, or binding evidence" },
+        [pscustomobject]@{ num="7"; name="Anti-slop"; explain="orphans, dead imports, unused params, duplication, YAGNI, complexity, responsibility" }
+    )
+}
+
 function Get-GateFocusLine {
     param(
         [string]$Name,
@@ -860,6 +872,32 @@ function Write-GateStepLine {
     Write-Host $CLEAR_LINE
 }
 
+function Write-AtcReviewSteps {
+    param([int]$Pw, [switch]$Compact)
+
+    Write-Host "ATC SPACE X CHECKS" -NoNewline -ForegroundColor White
+    Write-Host $CLEAR_LINE
+    Write-Host "  " -NoNewline
+    Write-Host (Trunc "Lite = delete+simplify. Full = seven-step review + anti-slop. Gate = full plus architecture caution." ($Pw - 3)) -NoNewline -ForegroundColor DarkGray
+    Write-Host $CLEAR_LINE
+
+    $steps = @(Get-AtcReviewStepDescriptors)
+    $limit = if ($Compact) { 4 } else { $steps.Count }
+    for ($i = 0; $i -lt $limit -and $i -lt $steps.Count; $i++) {
+        $s = $steps[$i]
+        $label = ("{0}. {1}" -f $s.num, $s.name).PadRight(20)
+        Write-Host "  " -NoNewline
+        Write-Host $label -NoNewline -ForegroundColor Cyan
+        Write-Host (Trunc $s.explain ($Pw - 23)) -NoNewline -ForegroundColor Gray
+        Write-Host $CLEAR_LINE
+    }
+    if ($Compact -and $steps.Count -gt $limit) {
+        Write-Host "  " -NoNewline
+        Write-Host (Trunc "Then: automate only after pruning, validate, and run the anti-slop checklist." ($Pw - 3)) -NoNewline -ForegroundColor Gray
+        Write-Host $CLEAR_LINE
+    }
+}
+
 function Write-GateSynopsis {
     param($Muda, $Atc, [string]$PhaseNum, [int]$Pw, [switch]$Compact)
 
@@ -881,8 +919,10 @@ function Write-GateSynopsis {
     Write-Host (Trunc "$($Atc.summary)" ($Pw - 3)) -NoNewline -ForegroundColor DarkGray
     Write-Host $CLEAR_LINE
 
-    if (-not $Compact) { Write-Host $CLEAR_LINE }
+    Write-Host $CLEAR_LINE
+    Write-AtcReviewSteps -Pw $Pw -Compact:$Compact
 
+    if (-not $Compact) { Write-Host $CLEAR_LINE }
     $mudaFocus = Get-GateFocusLine -Name "MUDA" -Cells $Muda.cells -Descriptors $mudaDesc -DoneText "MUDA focus: all active waste probes are complete for this phase."
     Write-Host "  " -NoNewline
     Write-Host (Trunc $mudaFocus ($Pw - 3)) -NoNewline -ForegroundColor Yellow
