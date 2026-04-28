@@ -1,0 +1,23 @@
+# Phase 47 dispatch routing config. Compiled fallback in route.cjs ROUTING_TABLE
+# is authoritative; this file is an OPTIONAL override surface for cockpit / ops.
+# NEVER redefine BUDGETS or PROVIDERS here -- import by reference from Phase 41/42.
+schema_version: 1
+table:
+  deterministic_extraction:
+    primary: local-script
+    fallback_chain: [claude]
+  bounded_code_review:
+    primary: codex
+    fallback_chain: [claude]
+  synthesis_judgment:
+    primary: claude
+    fallback_chain: []
+  architecture_challenge:
+    primary: vtp
+    fallback_chain: [claude]
+  prior_memory_lookup:
+    primary: vtp
+    fallback_chain: [claude]
+  book_lookup:
+    primary: vtp
+    fallback_chain: [claude]
