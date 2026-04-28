@@ -1880,9 +1880,19 @@ function Render {
     # === SGSD-Active-Agent-Tile (Phase 50 A2) ===
     # Phase 50 invariant: read-only. Lock 13 try/catch wrapper; failure path
     # emits "ACTIVE AGENTS  unavailable" rather than killing Render.
+    # Compact-path mirrors full-render data-prep at line ~2118 so the panel
+    # receives a real history roster and tool stream — not duplicate Active.
     try {
-        $activeAgents = Get-CurrentlyActiveAgents -ProjectDir $ProjectDir -WindowSec 300
-        $aaLines = Format-SgsdActiveAgentPanel -Active $activeAgents -History $activeAgents -ToolStream @() -PaneWidth $pw
+        $rosterAll  = @(Get-AgentRoster -maxAgeSec 900)
+        $active     = @(Get-CurrentlyActiveAgents -ProjectDir $ProjectDir -WindowSec 300)
+        $history    = @($rosterAll | Where-Object { $_.status -ne "ACTIVE" } | Select-Object -First 3)
+        if ($history.Count -eq 0) { $history = @($rosterAll | Select-Object -First 3) }
+        $mcpRow     = Get-LastMcpSummary
+        $toolStream = @()
+        if ($mcpRow -and $mcpRow.tool) {
+            $toolStream = @([pscustomobject]@{ tool_name = [string]$mcpRow.tool })
+        }
+        $aaLines = Format-SgsdActiveAgentPanel -Active $active -History $history -ToolStream $toolStream -PaneWidth $pw
         foreach ($al in $aaLines) {
             Write-Host $al.Line -NoNewline -ForegroundColor $al.Color
             Write-Host $CLEAR_LINE
