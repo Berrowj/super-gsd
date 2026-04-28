@@ -66,10 +66,16 @@
 //   4. restore    rm -rf tmpdir; re-fingerprint live streams; assert
 //                 byte-equality with pre-state (anti-pollution invariant)
 //
-// 8 PUBLIC API NAMES (Lock 13 wrapped; T2-T7 fill bodies)
+// 9 PUBLIC API NAMES (Lock 13 wrapped; T2-T7 fill bodies)
 //   runAll(opts), runScenario(args), selfTest(), aggregateResults(rs),
 //   appendLogRow(row, opts), _runScenarioImpl(scenario, tmpdir),
-//   _setupContainer(scenarioId), _spawnTool(scenario, tmpdir, extraEnv).
+//   _setupContainer(scenarioId), _spawnTool(scenario, tmpdir, extraEnv),
+//   _teardownContainer(opts).
+//   Each is exported at module.exports top-level AND under _internals
+//   (for the helpers _runScenarioImpl/_setupContainer/_spawnTool/
+//   _teardownContainer) by identity (same function reference) so callers
+//   can use either access pattern. selfTest A4 asserts the dual-export
+//   identity to catch export-surface drift.
 //
 // STOP RULE (T1)
 //   `node super-gsd/tools/failure-injection/harness.cjs --self-test` exits
@@ -204,6 +210,26 @@ const FAIL_INJ_REASON_CODES = Object.freeze([
 // edge_guard_miss_classified===true and a structural emit gap can produce
 // this kind). Mirrors crit-backlog.cjs VALID_KINDS subset; T6 uses this
 // when appending a CRIT-BACKLOG row on failure.
+//
+// DISPATCH CONTRACT (single source of truth across the harness pipeline):
+//   * scenarios.json + SCENARIOS.schema.json carry ONE authoritative scenario
+//     classifier field: `edge_guard_miss_classified` (boolean). Only scenario
+//     10 (edge-guard-missing-emit) has it true; all others false. This is
+//     the plan-canonical T1 invariant (PLAN line 261, 578).
+//   * `verdict_kind` is the DERIVED 3-value enum on each per-scenario result
+//     row, computed by T6's `_classifyVerdictKind(scenario, scenarioVerdict)`
+//     per PLAN lines 628-631:
+//       - if scenarioVerdict in ('PASS','PASS-WITH-SOFT-SKIP'): null
+//       - elif scenario.edge_guard_miss_classified === true: 'edge_guard_miss'
+//       - else: 'verifier_fail'
+//   * The mapping is set-membership only (Lock 11 byte-equality on the
+//     boolean): scenario 10 FAIL -> 'edge_guard_miss'; scenarios 1-9 FAIL
+//     -> 'verifier_fail'. The classifier is deterministic and replayable.
+//   * Downstream (T6 aggregateResults, T6 _appendCritBacklogRow) consume
+//     `verdict_kind` from the per-scenario result row, NOT from the manifest
+//     directly. The manifest stays at the boolean source-of-truth; the
+//     pipeline carries the derived enum forward to the CRIT-BACKLOG kind
+//     field (which is the same closed enum minus null).
 // ---------------------------------------------------------------------------
 const VERDICT_KINDS = Object.freeze([null, 'verifier_fail', 'edge_guard_miss']);
 
@@ -365,10 +391,13 @@ function _validateManifest(manifest) {
 }
 
 // ---------------------------------------------------------------------------
-// Public API - 8 stubs. Each wraps internals in try/catch (Lock 13). T2-T7
+// Public API - 9 stubs. Each wraps internals in try/catch (Lock 13). T2-T7
 // replace bodies; the wrappers and signatures stay. Stub bodies return
 // {ok:true, stub:true} (or a documented degraded sentinel) so the bootstrap
 // self-test can verify wiring without spawning subprocesses or writing FS.
+// _teardownContainer is named here (T2 deliverable per header doc) so the
+// public surface is frozen at T1; T2 fills the body inside
+// _teardownContainerImpl without expanding the surface.
 // ---------------------------------------------------------------------------
 
 // runAll: top-level driver. Iterates SCENARIOS, dispatches each through
@@ -562,6 +591,25 @@ function _spawnTool(scenario, tmpdir, extraEnv) {
   }
 }
 
+// _teardownContainer: tmpdir teardown. T2 fills with fs.rmSync({recursive:
+// true, force:true}) per the 4-step protocol step 4 (restore). T1 stub
+// freezes the API surface so downstream tasks (T2-T7) cannot expand it -
+// header doc names this as a T2 deliverable, but the surface must be
+// frozen NOW so T2 fills the body without growing the public/internal
+// names. Lock 13 wrap: never throws upward.
+function _teardownContainer(opts) {
+  try {
+    return _teardownContainerImpl(opts || {});
+  } catch (_e) {
+    return {
+      ok: false,
+      reason: 'gate_internal_error',
+      stub: true,
+      source: '_teardownContainer_catch',
+    };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Internal stubs. T2-T7 replace bodies; signatures stay file-local. None
 // of these write FS or spawn subprocesses at T1.
@@ -651,7 +699,13 @@ function _selfTestImpl() {
                    ? FAIL_INJ_REASON_CODES.length : 'n/a')
           + ' frozen=' + Object.isFrozen(FAIL_INJ_REASON_CODES));
 
-  // 4: All 8 public-API names exist as functions.
+  // 4: All 9 public-API names exist as functions in local scope AND are
+  // exported on module.exports at the top-level with byte-identical
+  // identity (catches export-surface drift where _internals-only exposure
+  // would leave callers using `require(harness)._runScenarioImpl` getting
+  // undefined). 9 APIs = 8 from T1 frozen surface + _teardownContainer
+  // stub (header doc T2 deliverable; surface frozen now so T2 fills body
+  // without expanding names).
   const apis = {
     runAll: runAll,
     runScenario: runScenario,
@@ -661,6 +715,7 @@ function _selfTestImpl() {
     _runScenarioImpl: _runScenarioImpl,
     _setupContainer: _setupContainer,
     _spawnTool: _spawnTool,
+    _teardownContainer: _teardownContainer,
   };
   const apiNames = Object.keys(apis);
   let allFns = true;
@@ -672,11 +727,42 @@ function _selfTestImpl() {
       break;
     }
   }
-  check('public_api_8_stubs_present',
-        allFns && apiNames.length === 8,
-        allFns
-          ? 'all 8 public APIs are functions: ' + apiNames.join(',')
-          : 'missing or non-function: ' + missingApi);
+  // 4b: module.exports shape - each public-API name MUST be present at
+  // the top-level of module.exports as the SAME function reference. This
+  // catches WARN2-class drift where an API is defined in local scope but
+  // accidentally only exposed under `_internals` (callers that do
+  // `require(harness)._runScenarioImpl` would silently get undefined).
+  let exportsOk = true;
+  let missingExport = '';
+  try {
+    const me = module.exports;
+    if (!me || typeof me !== 'object') {
+      exportsOk = false;
+      missingExport = 'module.exports not an object';
+    } else {
+      for (let i = 0; i < apiNames.length; i++) {
+        if (me[apiNames[i]] !== apis[apiNames[i]]) {
+          exportsOk = false;
+          missingExport = apiNames[i]
+            + ' (typeof export=' + typeof me[apiNames[i]]
+            + ', identity_match=' + (me[apiNames[i]] === apis[apiNames[i]]) + ')';
+          break;
+        }
+      }
+    }
+  } catch (e) {
+    exportsOk = false;
+    missingExport = 'module.exports check threw: '
+      + (e && e.message ? e.message : 'unknown');
+  }
+  check('public_api_9_stubs_present',
+        allFns && apiNames.length === 9 && exportsOk,
+        allFns && exportsOk
+          ? 'all 9 public APIs are functions and top-level exports: '
+            + apiNames.join(',')
+          : (allFns
+              ? 'export drift: ' + missingExport
+              : 'missing or non-function: ' + missingApi));
 
   // 5: Lock 13 wrapper + ASCII discipline. Two sub-checks rolled into
   // one assertion so the bootstrap stays at exactly 5 (T1 contract).
@@ -727,7 +813,7 @@ function _selfTestImpl() {
           break;
         }
       }
-      if (lock13Ok) lock13Detail = 'all 8 APIs Lock-13-wrapped + ASCII clean';
+      if (lock13Ok) lock13Detail = 'all 9 APIs Lock-13-wrapped + ASCII clean';
     }
   } catch (e) {
     lock13Ok = false;
@@ -754,6 +840,12 @@ function _selfTestImpl() {
 function _aggregateResultsImpl(rs) {
   // T6: full verdict tree per RESEARCH sec 2.3 (line 211-217). T1 stub
   // returns an empty-clean shape so wiring callers can read the contract.
+  // TODO(T6): the empty-results path below currently returns 'PASS' when
+  // total===0 only because nothing has FAILed; the post-T6 contract is
+  // PLAN line 619-626's full tree (pass===10 -> PASS; ===9+verifier_fail
+  // -> PASS-WITH-DEFERRED-1; any edge_guard_miss -> CANDIDATE-WITH-DEBT;
+  // else FAIL). T6 will replace this entire body with the decision tree
+  // above; the cosmetic empty-input verdict here is INFO-only at T1.
   const total = rs.length;
   const passes = rs.filter(function (r) { return r && r.verdict === 'PASS'; });
   const edgeMisses = rs.filter(function (r) {
@@ -768,6 +860,19 @@ function _aggregateResultsImpl(rs) {
     deferred_count: 0,
     edge_guard_miss_count: edgeMisses.length,
     source: '_aggregateResultsImpl_t1_stub',
+  };
+}
+
+function _teardownContainerImpl(_opts) {
+  // T2: fs.rmSync({recursive:true, force:true}) on the per-scenario
+  // tmpdir; idempotent on repeated calls. T1 stub: no FS writes (Lock 4
+  // skeleton is read-only-by-shape) - returns a typed shape so wiring
+  // callers can read the contract.
+  return {
+    ok: true,
+    stub: true,
+    removed: false,
+    source: '_teardownContainerImpl_t1_stub',
   };
 }
 
@@ -879,15 +984,18 @@ function _main(argv) {
   }
 }
 
-if (require.main === module) {
-  _main(process.argv);
-}
-
 // ---------------------------------------------------------------------------
-// Module exports. Frozen surface + 8 public APIs + (per RESEARCH sec 3
+// Module exports. Frozen surface + 9 public APIs + (per RESEARCH sec 3
 // line 389-399) the same names downstream tasks consume. _internals
-// bag exposes T2-T5 helpers under a single property so the public surface
-// stays small and Lock 4 reviewers can audit at a glance.
+// bag exposes T2-T5 helpers under a single property so Lock 4 reviewers
+// can audit at a glance; top-level dual-exports of _runScenarioImpl /
+// _setupContainer / _spawnTool / _teardownContainer let downstream
+// callers using `require(harness)._runScenarioImpl` see the same
+// function reference (identity-equal). selfTest A4 asserts this.
+//
+// IMPORTANT: this assignment MUST happen BEFORE _main(process.argv)
+// runs - selfTest A4 reads module.exports and would see {} if the CLI
+// dispatch fired first. Tested by running the CLI --self-test entry.
 // ---------------------------------------------------------------------------
 module.exports = {
   // Frozen surface:
@@ -901,13 +1009,27 @@ module.exports = {
   selfTest: selfTest,
   aggregateResults: aggregateResults,
   appendLogRow: appendLogRow,
+  // Dual-exposed internal helpers - top-level for downstream callers
+  // (T2-T7) using `require(harness)._runScenarioImpl` etc. AND under
+  // _internals (below) for Lock 4 audit-at-a-glance grouping. The two
+  // names are identity-equal (same function reference); selfTest A4
+  // asserts this.
+  _runScenarioImpl: _runScenarioImpl,
+  _setupContainer: _setupContainer,
+  _spawnTool: _spawnTool,
+  _teardownContainer: _teardownContainer,
   // Internal helpers exposed for cross-task self-test composition:
   _internals: {
     _runScenarioImpl: _runScenarioImpl,
     _setupContainer: _setupContainer,
     _spawnTool: _spawnTool,
+    _teardownContainer: _teardownContainer,
     _validateManifest: _validateManifest,
     _validateScenarioEntry: _validateScenarioEntry,
     _sha256OfBytes: _sha256OfBytes,
   },
 };
+
+if (require.main === module) {
+  _main(process.argv);
+}
