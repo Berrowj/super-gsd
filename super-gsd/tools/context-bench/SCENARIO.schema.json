@@ -1,0 +1,200 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://super-gsd.local/schemas/context-bench/SCENARIO.schema.json",
+  "title": "ContextBenchScenario",
+  "description": "Phase 51-01-T1 closed-vocab scenario fixture. Lock 11: set-membership + byte-equality only. Lock 4: ground-truth enums imported by reference from token-attribution ROLES, dispatch-router UNCERTAINTY_TYPES, and the harness-benchmark anti-cheat mirror.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scenario_id",
+    "drawn_from",
+    "intent",
+    "baseline_signature",
+    "expected_evidence",
+    "anti_cheat_signal",
+    "expected_route"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "scenario_id": {
+      "type": "string",
+      "pattern": "^S[1-6]-v[0-9]+(\\.[0-9]+)?-P[0-9]+$"
+    },
+    "drawn_from": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["milestone", "phase", "phase_name", "role", "agent_type"],
+      "properties": {
+        "milestone": {
+          "type": "string",
+          "pattern": "^v[0-9]+(\\.[0-9]+)?$"
+        },
+        "phase": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "phase_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "researcher",
+            "planner",
+            "executor",
+            "verifier",
+            "reviewer",
+            "orchestrator",
+            "classifier",
+            "other"
+          ]
+        },
+        "agent_type": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "intent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["goal", "files_touched", "depends_on_phase_capsules"],
+      "properties": {
+        "goal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "files_touched": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "depends_on_phase_capsules": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "baseline_signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actual_tokens_total",
+        "actual_cache_read_tokens",
+        "source_event_id"
+      ],
+      "properties": {
+        "actual_tokens_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "actual_cache_read_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_event_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "expected_evidence": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "ref", "must_appear_in"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "capsule_decision",
+              "bypass_ref",
+              "atc_finding",
+              "verifier_verdict",
+              "validated_thought",
+              "downstream_constraint"
+            ]
+          },
+          "ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "must_appear_in": {
+            "type": "string",
+            "enum": [
+              "packet_body",
+              "route_decision",
+              "context_complaint",
+              "context_complaint_or_packet"
+            ]
+          }
+        }
+      }
+    },
+    "anti_cheat_signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["must_not_contain_in_packet", "must_not_set_role_to"],
+      "properties": {
+        "must_not_contain_in_packet": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "must_not_set_role_to": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "expected_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["uncertainty_type", "primary", "fallback_chain"],
+      "properties": {
+        "uncertainty_type": {
+          "type": "string",
+          "enum": [
+            "deterministic_extraction",
+            "bounded_code_review",
+            "synthesis_judgment",
+            "architecture_challenge",
+            "prior_memory_lookup",
+            "book_lookup"
+          ]
+        },
+        "primary": {
+          "type": "string",
+          "enum": ["claude", "codex", "vtp_bridge"]
+        },
+        "fallback_chain": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["claude", "codex", "vtp_bridge"]
+          }
+        }
+      }
+    }
+  }
+}
