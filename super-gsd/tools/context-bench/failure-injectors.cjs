@@ -1010,18 +1010,21 @@ function injectFailure(fixtureId, ctx) {
       }
     }
 
-    // F17 stub: documented soft-skip for Phase 52.
+    // F17 (Phase 52 T6 W1 fix): the stub-era outer guard
+    // 'bench_fixture_skipped:phase_52_redis_adapter_not_shipped' has been
+    // REMOVED. The redis-adapter NOW SHIPS (T1-T5 landed); the live path
+    // must be reachable via the public injectFailure() API. Soft-skip
+    // semantics for F17 are OWNED by _F17's lazy require try/catch in
+    // inject() (returns {skipped:true, reason:'redis_adapter_unavailable'}
+    // when the adapter cannot be required). The fixture descriptor's
+    // soft_skip_when field handles harness-side soft-skip semantics; the
+    // API call MUST NOT pre-empt the live path. Return the live handle
+    // directly so callers exercise _F17's actual 4-step protocol; the
+    // inner inject() returns the canonical {ok,applied,source} envelope
+    // when redis-adapter is reachable, or {skipped,reason} on lazy
+    // require failure.
     if (id === 'F17') {
-      return {
-        skipped: true,
-        ok: true,
-        reason: 'bench_fixture_skipped:phase_52_redis_adapter_not_shipped',
-        fixture: fixture,
-        snapshot: handle.snapshot.bind(handle),
-        inject:   handle.inject.bind(handle),
-        observe:  handle.observe.bind(handle),
-        restore:  handle.restore.bind(handle),
-      };
+      return handle;
     }
 
     return {
