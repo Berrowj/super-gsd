@@ -89,9 +89,10 @@ roadmap_run:
   locked_decisions: .planning/discussions/2026-04-26-mass-discuss.md
   backlog_canonical: .planning/metrics/crit-backlog.jsonl
   started: 2026-04-26
-  current_milestone: v1.9
-  current_phase: 52
-  current_phase_name: Redis Live Cache Adapter (SHIPPED — v1.9 milestone complete)
+  current_milestone: v2.0
+  current_phase: 53
+  current_phase_name: Gate Failure-Injection Harness (queued — needs CONTEXT/RESEARCH/PLAN)
+  prior_milestone_shipped: v1.9 SHIPPED 2026-04-28 — see .planning/milestones/v1.9/SUMMARY.md
   v1_9_milestone_codename: SGSD-Research
   v1_9_vtp_delta_active: ".planning/milestones/v1.9/VTP-RESEARCH-DELTA.md (commit 2d8ea5a) — forward-only addendum applies to Phases 45+, 49, 51, 52. Phases 41-44 LOCKED."
   v1_9_progress:
