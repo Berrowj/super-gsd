@@ -313,4 +313,5 @@ module.exports = {
   renderReport,
   // Test helpers (exported so T2..T7 self-test additions can compose).
   _selfTest,
+  selfTest: _selfTest,
 };

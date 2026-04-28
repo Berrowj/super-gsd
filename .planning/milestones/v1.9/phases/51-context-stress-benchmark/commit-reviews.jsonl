@@ -1,0 +1,1 @@
+{"ts":"2026-04-28T16:30:38.432Z","plan":"51-01","task":"T1","tier":"FULL","verdict":"pass","critical":0,"warning":2,"one_liner":"T1 skeleton passes all 10 contract checks; _selfTest export deviates from plan artifact contract selfTest() name","provider":"claude-sonnet","commit":"cc1b41b","gate":"per-dispatch-ATC"}
