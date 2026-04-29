@@ -61,6 +61,15 @@ Warp repository workflows live in `.warp/workflows/`:
 - Do not reset or delete user work to recover SGSD. Use checkpoint/state files.
 - For long autonomous sessions, prefer `sg -FullPreflight` before `sg -Go`.
 
+## Asset Index
+
+Single discoverable index of all SGSD-Warp surfaces (workflows / skills /
+prompts / notebook / MCP tools / launch configs / tools / docs):
+
+- `super-gsd/docs/SGSD-WARP-ASSET-INDEX.md`
+
+Validated by `super-gsd/tools/warp-asset-validator/check.cjs`.
+
 ## Warp Integration Direction
 
 Use Warp as the shell and visual ADE around SGSD first. The practical order is:
