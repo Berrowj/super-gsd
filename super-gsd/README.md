@@ -19,6 +19,11 @@ Token-efficient, multi-agent autonomous orchestrator built on GSD 1.0.
 
 ## Installation
 
+If you are onboarding a non-technical friend, use
+[`docs/SGSD-FRIEND-SETUP-WIZARD.md`](docs/SGSD-FRIEND-SETUP-WIZARD.md) first.
+It is the copy/paste setup path with cockpit, boot, resume, and recovery
+explained.
+
 ### Prerequisites
 - **Claude Code** on Max plan (no API keys — everything runs via OAuth)
 - **GSD 1.0**: `npx get-shit-done-cc@latest`

@@ -131,6 +131,8 @@ bash super-gsd/scripts/sgsd-boot.sh --skip-preflight
 
 For an end-to-end first-run walkthrough including the new-project wizard and the example fixture, see [`super-gsd/docs/EXAMPLE-DEMO-WALKTHROUGH.md`](super-gsd/docs/EXAMPLE-DEMO-WALKTHROUGH.md) (11 steps, every command tested live, expected exit codes documented).
 
+For the friend-safe "start here" setup wizard, see [`super-gsd/docs/SGSD-FRIEND-SETUP-WIZARD.md`](super-gsd/docs/SGSD-FRIEND-SETUP-WIZARD.md).
+
 For the cockpit boot startup guide (preflight checks, dashboard layout, `sg` flag matrix), see [`super-gsd/docs/SGSD-BOOT-STARTUP-GUIDE.md`](super-gsd/docs/SGSD-BOOT-STARTUP-GUIDE.md).
 
 ---

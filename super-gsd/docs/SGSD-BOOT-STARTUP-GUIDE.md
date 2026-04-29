@@ -3,6 +3,10 @@
 This guide explains the current recommended way to start Super GSD, the cockpit,
 Claude Code, project memory, and optional private knowledge banks.
 
+If you are setting this up for someone who has never used SGSD before, start
+with [`SGSD-FRIEND-SETUP-WIZARD.md`](SGSD-FRIEND-SETUP-WIZARD.md). This file is
+the deeper boot reference.
+
 Use this when you want the practical answer to:
 
 - What command do I type first?
