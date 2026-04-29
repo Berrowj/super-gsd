@@ -1,0 +1,13 @@
+name: "SGSD: Open Review Artifacts"
+description: List the active phase's ATC-REVIEW + VERIFICATION + WASTE + CONTEXT + PLAN files and last 5 commits. Pair with Warp Code Review panel for full review. Search terms include review, code-review, atc, verification, waste, gates, status.
+command: 'cd "{{project_dir}}"; $milestone = (Select-String -Path .planning/STATE.md -Pattern ''^milestone:\s*(\S+)'' | Select-Object -First 1).Matches.Groups[1].Value; $phase = (Select-String -Path .planning/STATE.md -Pattern ''current_phase:\s*(\S+)'' | Select-Object -First 1).Matches.Groups[1].Value; Write-Host "milestone=$milestone phase=$phase"; $dir = ".planning\milestones\$milestone\phases"; if (Test-Path $dir) { $matchedDir = Get-ChildItem $dir -Directory | Where-Object { $_.Name -match "^$phase-" } | Select-Object -First 1; if ($matchedDir) { Write-Host ""; Write-Host "==> $($matchedDir.FullName)"; Get-ChildItem $matchedDir.FullName -File | Where-Object { $_.Name -match "(ATC-REVIEW|VERIFICATION|WASTE|CONTEXT|PLAN)" } | Select-Object Name,Length,LastWriteTime; Write-Host ""; Write-Host "Last 5 commits affecting this phase folder:"; git log --oneline -5 -- $matchedDir.FullName } } else { Write-Host "(milestone phases dir not found: $dir)" }'
+tags:
+  - sgsd
+  - review
+  - code-review
+  - atc
+  - status
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'
