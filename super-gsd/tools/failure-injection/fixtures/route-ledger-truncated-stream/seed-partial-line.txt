@@ -1,0 +1,1 @@
+{"envelope_version":1,"ts":"2026-04-28T20:00:02.000Z","command":"logRouteDecision","status":"ok","reason_codes":["matched_uncertainty_type"],"artifacts":[],"evidence":[],"next_action":null,"risk":null,"duration_ms":2,"run_id":"2026-04-28T20:00:0

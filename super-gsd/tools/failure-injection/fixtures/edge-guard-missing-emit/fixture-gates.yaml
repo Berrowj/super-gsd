@@ -1,0 +1,5 @@
+gates:
+  - name: phase53_fixture_gate
+    enforcement_mode: soft-warn
+    escalation: halt
+    evidence_emitted: []

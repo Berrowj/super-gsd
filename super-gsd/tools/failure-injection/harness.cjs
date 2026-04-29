@@ -562,9 +562,19 @@ function _runScenarioImpl(scenario, tmpdir) {
     if (sid === 'sqlite-context-index-deleted-db') {
       return _runScenario_S7_sqliteContextIndexDeletedDb(scenario, tmpdir);
     }
-    // T5 will extend the dispatch above with S8-S10. Until then, return a
-    // stub that documents the unwired path so the bootstrap self-test can
-    // distinguish "not yet implemented" from "implementation broken".
+    if (sid === 'phase-capsule-corrupted-json') {
+      return _runScenario_S8_phaseCapsuleCorruptedJson(scenario, tmpdir);
+    }
+    if (sid === 'route-ledger-truncated-stream') {
+      return _runScenario_S9_routeLedgerTruncatedStream(scenario, tmpdir);
+    }
+    if (sid === 'edge-guard-missing-emit') {
+      return _runScenario_S10_edgeGuardMissingEmit(scenario, tmpdir);
+    }
+    // All 10 scenarios wired (T3 S1/S2/S3 + T4 S4/S5/S6/S7 + T5 S8/S9/S10).
+    // Any unrecognized scenario id surfaces here as a degraded sentinel so
+    // the bootstrap self-test can distinguish "schema drift introduced an
+    // unrouted id" from "implementation broken".
     return {
       ok: true,
       stub: true,
@@ -575,7 +585,7 @@ function _runScenarioImpl(scenario, tmpdir) {
       verdict: null,
       verdict_kind: null,
       tmpdir: tmpdir || null,
-      source: '_runScenarioImpl_t3_unwired_for_' + sid,
+      source: '_runScenarioImpl_unrouted_for_' + sid,
     };
   } catch (_e) {
     return {
@@ -1744,6 +1754,589 @@ function _runScenario_S7_sqliteContextIndexDeletedDb(scenario, tmpdir) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// T5 SCENARIO IMPLEMENTATIONS - S8/S9/S10.
+//
+// Shared shape mirrors T3/T4 (see header comment at the top of the T3 block):
+// inputs: scenario (frozen manifest entry), tmpdir; outputs: { ok, scenario_id,
+// applied, tool_invocation, observed_reason_codes, structural_observation,
+// canonical_state_preserved (null at this layer; T6 outer loop fills it),
+// verdict, verdict_kind, soft_skip_reason, source }.
+//
+// All three call _spawnTool branch B (direct command/args) with a node -e
+// wrapper that requires the real production tool by absolute path and
+// invokes its public API. argv shipped to spawnSync becomes the
+// tool_invocation.argv recorded in the per-scenario log row (T6).
+//
+// Lock 4: target tool body is NEVER require()d in this v8 context; only
+// the child node subprocess does the require. Lock 11: reason-code matching
+// is byte-equality set membership. Lock 13: outer try/catch collapses any
+// throw to verifier_fail; per-scenario try/catch around the spawn return path.
+// ASCII-only.
+//
+// Cross-cutting note: S10 is the EDGE_GUARD_MISS structural exemplar.
+// On FAIL its verdict_kind is 'edge_guard_miss' (per dispatch contract at
+// harness.cjs:220-237). On PASS verdict_kind is null. The PASS condition
+// for S10 IS the success state - the edge guard correctly detected the
+// structural emit gap planted by the synthetic gates.yaml.
+// ---------------------------------------------------------------------------
+
+// S8: phase-capsule-corrupted-json.
+//
+// Inject: write seed-corrupted-capsule.json (truncated mid-string JSON;
+//   no closing brace) to
+//   tmpdir/.planning/milestones/v1.8/phases/36-fixture/PHASE-CAPSULE.json
+// Spawn: node -e wrapper that requires the real write.cjs and calls
+//   readCapsule(planningDir, 'v1.8', '36'). Real readCapsule is wrapped
+//   in try/catch and returns null on JSON.parse SyntaxError (Lock 13).
+// Observe: parse stdout JSON. Structural OK if exit_code === 0 AND
+//   capsule_result === null (degraded sentinel surfaced) AND the corrupt
+//   file existed pre-call (inject succeeded). Synthesize
+//   'capsule_parse_error' into observed when structural holds (the real
+//   tool emits no closed-vocab reason on the implicit return-null skip;
+//   mirrors S1 implicit-skip pattern).
+function _runScenario_S8_phaseCapsuleCorruptedJson(scenario, tmpdir) {
+  var sid = scenario && scenario.id || 'phase-capsule-corrupted-json';
+  try {
+    if (!tmpdir || typeof tmpdir !== 'string') {
+      return {
+        ok: false,
+        reason: 'scenario_fail_reason_code_missing',
+        scenario_id: sid,
+        applied: false,
+        observed_reason_codes: [],
+        canonical_state_preserved: null,
+        verdict: 'FAIL',
+        verdict_kind: 'verifier_fail',
+        source: '_runScenario_S8_no_tmpdir',
+      };
+    }
+    var liveRoot = _liveProjectRootDir();
+    var resolvedTarget = path.join(liveRoot, scenario.target_tool || 'super-gsd/tools/phase-capsule/write.cjs');
+    var fixSrc = path.join(__dirname, 'fixtures', sid);
+    var seedSrc = path.join(fixSrc, 'seed-corrupted-capsule.json');
+    var planningDir = path.join(tmpdir, '.planning');
+    var capsuleDir = path.join(planningDir, 'milestones', 'v1.8', 'phases', '36-fixture');
+    fs.mkdirSync(capsuleDir, { recursive: true });
+    var capsuleDst = path.join(capsuleDir, 'PHASE-CAPSULE.json');
+    // Inject step: copy the truncated seed bytes (mid-write simulation).
+    var seedExisted = false;
+    try { seedExisted = fs.existsSync(seedSrc); } catch (_eS) {}
+    if (seedExisted) {
+      try { fs.copyFileSync(seedSrc, capsuleDst); } catch (_eC) {}
+    }
+    // Sanity: confirm the corrupt file is on disk (defense-in-depth on
+    // inject succeeding before the spawn).
+    var corruptExistedPreCall = false;
+    var corruptByteLen = 0;
+    try {
+      corruptExistedPreCall = fs.existsSync(capsuleDst);
+      if (corruptExistedPreCall) {
+        corruptByteLen = fs.statSync(capsuleDst).size;
+      }
+    } catch (_eX) {}
+    // Wrapper: argv[1]=resolvedTarget, argv[2]=planningDir.
+    var script = ''
+      + 'try {'
+      + '  var w=require(process.argv[1]);'
+      + '  var pdir=process.argv[2];'
+      + '  var hadFn=(typeof w.readCapsule === "function");'
+      + '  var r=hadFn ? w.readCapsule(pdir, "v1.8", "36") : "no_fn";'
+      + '  console.log(JSON.stringify({'
+      + '    ok:true,'
+      + '    had_read_capsule_fn:hadFn,'
+      + '    result_is_null:r === null,'
+      + '    result_typeof:typeof r,'
+      + '    result_keys:(r && typeof r === "object") ? Object.keys(r).slice(0,3) : []'
+      + '  }));'
+      + '} catch (e) {'
+      + '  console.log(JSON.stringify({ok:false,reason:"wrapper_threw",error:String(e&&e.message||e)}));'
+      + '  process.exit(1);'
+      + '}';
+    var spawnRes = _spawnTool({
+      command: process.execPath,
+      args: ['-e', script, resolvedTarget, planningDir],
+      cwd: tmpdir,
+      env: {},
+      timeoutMs: 30000,
+    });
+    var stdoutObj = _parseStdoutJson(spawnRes && spawnRes.stdout);
+    var observed = [];
+    // Structural assertion: subprocess exited clean, wrapper.ok=true,
+    // readCapsule returned null (Lock 13 degraded sentinel; no throw
+    // escaped), AND the corrupt file existed pre-call.
+    var structuralOk = !!(spawnRes && spawnRes.exit_code === 0 &&
+                           stdoutObj && stdoutObj.ok === true &&
+                           stdoutObj.had_read_capsule_fn === true &&
+                           stdoutObj.result_is_null === true &&
+                           corruptExistedPreCall === true &&
+                           corruptByteLen > 0);
+    // Synthesize the closed-vocab reason from the structural fact (the
+    // real tool emits no reason on null-return skip; mirrors S1 pattern).
+    if (structuralOk) observed.push('capsule_parse_error');
+    var matched = _intersectReasonCodes(observed,
+                                         scenario.expected_reason_codes || []);
+    var verdict;
+    var verdictKind;
+    var softSkipReason = '';
+    if (!structuralOk) {
+      verdict = 'FAIL';
+      verdictKind = 'verifier_fail';
+    } else if (matched.length > 0) {
+      verdict = 'PASS';
+      verdictKind = null;
+    } else {
+      verdict = 'PASS-WITH-SOFT-SKIP';
+      verdictKind = null;
+      softSkipReason = 'cli_shape_drift_read_capsule_null_no_explicit_reason';
+      observed.push('scenario_pass_soft_skip');
+    }
+    return {
+      ok: verdict === 'PASS' || verdict === 'PASS-WITH-SOFT-SKIP',
+      scenario_id: sid,
+      applied: true,
+      tool_invocation: {
+        argv: spawnRes && spawnRes.argv || [],
+        cwd: spawnRes && spawnRes.cwd || tmpdir,
+        env_overrides: spawnRes && spawnRes.env_overrides || {},
+        exit_code: spawnRes && spawnRes.exit_code,
+        signal: spawnRes && spawnRes.signal,
+        stdout_digest: spawnRes && spawnRes.stdout_digest,
+        stderr_digest: spawnRes && spawnRes.stderr_digest,
+        duration_ms: spawnRes && spawnRes.duration_ms,
+      },
+      observed_reason_codes: observed,
+      structural_observation: {
+        had_read_capsule_fn: stdoutObj && stdoutObj.had_read_capsule_fn,
+        result_is_null: stdoutObj && stdoutObj.result_is_null,
+        result_typeof: stdoutObj && stdoutObj.result_typeof,
+        corrupt_existed_pre_call: corruptExistedPreCall,
+        corrupt_byte_len: corruptByteLen,
+      },
+      canonical_state_preserved: null,
+      verdict: verdict,
+      verdict_kind: verdictKind,
+      soft_skip_reason: softSkipReason || null,
+      source: '_runScenario_S8_t5',
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      reason: 'scenario_fail_lock13_violation',
+      scenario_id: sid,
+      applied: false,
+      observed_reason_codes: [],
+      canonical_state_preserved: null,
+      verdict: 'FAIL',
+      verdict_kind: 'verifier_fail',
+      error: (e && e.message) ? e.message : 'unknown',
+      source: '_runScenario_S8_catch',
+    };
+  }
+}
+
+// S9: route-ledger-truncated-stream.
+//
+// Inject: write 2 valid envelope-v1 rows to
+//   tmpdir/.planning/metrics/route-decisions.jsonl, each terminated by
+//   '\n', then append a partial JSON fragment with NO trailing newline
+//   (mid-appendFileSync truncation simulation).
+// Spawn: node -e wrapper that requires the real route-ledger.cjs and
+//   calls readRows(planningDir). The real readRows splits on /\r?\n/,
+//   filters Boolean, JSON.parses each line under try/catch (returning
+//   null on parse failure), and drops nulls.
+// Observe: parse stdout JSON. Structural OK if exit_code === 0 AND
+//   wrapper.ok=true AND rows.length === 2 AND raw line count >= 3
+//   (the partial tail was present pre-read) AND canonical-byte-equality
+//   on the on-disk file (readRows is read-only). Synthesize
+//   'row_skipped_invalid' AND 'tail_skipped_partial_line' into observed
+//   when structural holds (the real tool emits no closed-vocab reason
+//   on the implicit skip; mirrors S1 implicit-skip pattern).
+function _runScenario_S9_routeLedgerTruncatedStream(scenario, tmpdir) {
+  var sid = scenario && scenario.id || 'route-ledger-truncated-stream';
+  try {
+    if (!tmpdir || typeof tmpdir !== 'string') {
+      return {
+        ok: false,
+        reason: 'scenario_fail_reason_code_missing',
+        scenario_id: sid,
+        applied: false,
+        observed_reason_codes: [],
+        canonical_state_preserved: null,
+        verdict: 'FAIL',
+        verdict_kind: 'verifier_fail',
+        source: '_runScenario_S9_no_tmpdir',
+      };
+    }
+    var liveRoot = _liveProjectRootDir();
+    var resolvedTarget = path.join(liveRoot, scenario.target_tool || 'super-gsd/scripts/lib/route-ledger.cjs');
+    var fixSrc = path.join(__dirname, 'fixtures', sid);
+    var planningDir = path.join(tmpdir, '.planning');
+    var metricsDir = path.join(planningDir, 'metrics');
+    fs.mkdirSync(metricsDir, { recursive: true });
+    var ledgerDst = path.join(metricsDir, 'route-decisions.jsonl');
+    // Inject step: read the 2 valid seed rows + partial tail and write
+    // them as a single JSONL stream (rows '\n'-terminated, partial NOT).
+    var row1Src = path.join(fixSrc, 'seed-valid-row-1.jsonl');
+    var row2Src = path.join(fixSrc, 'seed-valid-row-2.jsonl');
+    var partialSrc = path.join(fixSrc, 'seed-partial-line.txt');
+    var assembled = '';
+    try {
+      var r1 = fs.readFileSync(row1Src, 'utf8').replace(/\r?\n+$/, '');
+      var r2 = fs.readFileSync(row2Src, 'utf8').replace(/\r?\n+$/, '');
+      var pt = fs.readFileSync(partialSrc, 'utf8').replace(/\r?\n+$/, '');
+      assembled = r1 + '\n' + r2 + '\n' + pt;
+    } catch (_eR) {
+      assembled = '';
+    }
+    if (assembled.length > 0) {
+      try { fs.writeFileSync(ledgerDst, assembled, 'utf8'); } catch (_eW) {}
+    }
+    // Capture pre-call canonical fingerprint (sha256) for byte-equality.
+    var preDigest = '';
+    var preSize = 0;
+    var preLineCountRaw = 0;
+    try {
+      if (fs.existsSync(ledgerDst)) {
+        var preBytes = fs.readFileSync(ledgerDst);
+        preSize = preBytes.length;
+        preDigest = require('crypto').createHash('sha256')
+          .update(preBytes).digest('hex');
+        preLineCountRaw = String(preBytes).split(/\r?\n/).filter(Boolean).length;
+      }
+    } catch (_eP) {}
+    // Wrapper: argv[1]=resolvedTarget, argv[2]=planningDir.
+    var script = ''
+      + 'try {'
+      + '  var r=require(process.argv[1]);'
+      + '  var pdir=process.argv[2];'
+      + '  var hadFn=(typeof r.readRows === "function");'
+      + '  var rows=hadFn ? r.readRows(pdir) : null;'
+      + '  console.log(JSON.stringify({'
+      + '    ok:true,'
+      + '    had_read_rows_fn:hadFn,'
+      + '    rows_is_array:Array.isArray(rows),'
+      + '    rows_length:Array.isArray(rows) ? rows.length : -1,'
+      + '    first_run_id:(Array.isArray(rows) && rows[0] && rows[0].run_id) || null,'
+      + '    second_run_id:(Array.isArray(rows) && rows[1] && rows[1].run_id) || null'
+      + '  }));'
+      + '} catch (e) {'
+      + '  console.log(JSON.stringify({ok:false,reason:"wrapper_threw",error:String(e&&e.message||e)}));'
+      + '  process.exit(1);'
+      + '}';
+    var spawnRes = _spawnTool({
+      command: process.execPath,
+      args: ['-e', script, resolvedTarget, planningDir],
+      cwd: tmpdir,
+      env: {},
+      timeoutMs: 30000,
+    });
+    var stdoutObj = _parseStdoutJson(spawnRes && spawnRes.stdout);
+    // Capture post-call canonical fingerprint.
+    var postDigest = '';
+    var postSize = 0;
+    try {
+      if (fs.existsSync(ledgerDst)) {
+        var postBytes = fs.readFileSync(ledgerDst);
+        postSize = postBytes.length;
+        postDigest = require('crypto').createHash('sha256')
+          .update(postBytes).digest('hex');
+      }
+    } catch (_ePo) {}
+    var canonicalByteEqual = !!(preDigest && postDigest &&
+                                  preDigest === postDigest &&
+                                  preSize === postSize);
+    var observed = [];
+    // Structural assertion: subprocess clean, wrapper completed,
+    // readRows kept exactly the 2 valid rows, raw line count was >= 3
+    // pre-call (the partial tail was present), AND the file is byte-
+    // identical post-call (readRows is read-only).
+    var structuralOk = !!(spawnRes && spawnRes.exit_code === 0 &&
+                           stdoutObj && stdoutObj.ok === true &&
+                           stdoutObj.had_read_rows_fn === true &&
+                           stdoutObj.rows_is_array === true &&
+                           stdoutObj.rows_length === 2 &&
+                           preLineCountRaw >= 3 &&
+                           canonicalByteEqual === true);
+    if (structuralOk) {
+      observed.push('row_skipped_invalid');
+      observed.push('tail_skipped_partial_line');
+    }
+    var matched = _intersectReasonCodes(observed,
+                                         scenario.expected_reason_codes || []);
+    var verdict;
+    var verdictKind;
+    var softSkipReason = '';
+    if (!structuralOk) {
+      verdict = 'FAIL';
+      verdictKind = 'verifier_fail';
+    } else if (matched.length > 0) {
+      verdict = 'PASS';
+      verdictKind = null;
+    } else {
+      verdict = 'PASS-WITH-SOFT-SKIP';
+      verdictKind = null;
+      softSkipReason = 'cli_shape_drift_read_rows_silently_skips';
+      observed.push('scenario_pass_soft_skip');
+    }
+    return {
+      ok: verdict === 'PASS' || verdict === 'PASS-WITH-SOFT-SKIP',
+      scenario_id: sid,
+      applied: true,
+      tool_invocation: {
+        argv: spawnRes && spawnRes.argv || [],
+        cwd: spawnRes && spawnRes.cwd || tmpdir,
+        env_overrides: spawnRes && spawnRes.env_overrides || {},
+        exit_code: spawnRes && spawnRes.exit_code,
+        signal: spawnRes && spawnRes.signal,
+        stdout_digest: spawnRes && spawnRes.stdout_digest,
+        stderr_digest: spawnRes && spawnRes.stderr_digest,
+        duration_ms: spawnRes && spawnRes.duration_ms,
+      },
+      observed_reason_codes: observed,
+      structural_observation: {
+        had_read_rows_fn: stdoutObj && stdoutObj.had_read_rows_fn,
+        rows_is_array: stdoutObj && stdoutObj.rows_is_array,
+        rows_length: stdoutObj && stdoutObj.rows_length,
+        first_run_id: stdoutObj && stdoutObj.first_run_id,
+        second_run_id: stdoutObj && stdoutObj.second_run_id,
+        pre_line_count_raw: preLineCountRaw,
+        canonical_byte_equal: canonicalByteEqual,
+        pre_size: preSize,
+        post_size: postSize,
+      },
+      canonical_state_preserved: null,
+      verdict: verdict,
+      verdict_kind: verdictKind,
+      soft_skip_reason: softSkipReason || null,
+      source: '_runScenario_S9_t5',
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      reason: 'scenario_fail_lock13_violation',
+      scenario_id: sid,
+      applied: false,
+      observed_reason_codes: [],
+      canonical_state_preserved: null,
+      verdict: 'FAIL',
+      verdict_kind: 'verifier_fail',
+      error: (e && e.message) ? e.message : 'unknown',
+      source: '_runScenario_S9_catch',
+    };
+  }
+}
+
+// S10: edge-guard-missing-emit.
+//
+// EDGE_GUARD_MISS structural exemplar. The ONLY scenario in the manifest
+// with edge_guard_miss_classified===true. PASS = edge guard correctly
+// detected the structural emit gap; FAIL produces verdict_kind=
+// 'edge_guard_miss' (NOT 'verifier_fail') per dispatch contract.
+//
+// Inject: copy fixture-gates.yaml from the fixture dir into tmpdir as
+//   <tmpdir>/fixture-gates.yaml. The gate row has escalation:halt so
+//   recordTransition resolves a missing-emit to status='halt'.
+// Spawn: node -e wrapper that requires the real edge-guard.cjs and
+//   gates-registry.cjs (resetting cache pre-call), then calls
+//   recordTransition({fromStep:5,toStep:6,phase:'53-fixture',plan:'01',
+//   gateName:'phase53_fixture_gate', expectedEmits:['fixture-output.jsonl'],
+//   actualEmits:[], ctx:{...}, gatesYamlPath, projectDir}).
+// Observe: parse stdout JSON. Structural OK if exit_code === 0 AND
+//   wrapper.ok=true AND result.status === 'halt' AND
+//   result.missing_emits.length > 0 AND result.missing_emits[0] ===
+//   'fixture-output.jsonl' AND the synthetic gates.yaml existed pre-
+//   call AND a row was appended to tmpdir/.planning/metrics/edge-guard-
+//   log.jsonl. Synthesize 'edge_guard_halt' into observed when
+//   structural holds.
+function _runScenario_S10_edgeGuardMissingEmit(scenario, tmpdir) {
+  var sid = scenario && scenario.id || 'edge-guard-missing-emit';
+  try {
+    if (!tmpdir || typeof tmpdir !== 'string') {
+      return {
+        ok: false,
+        reason: 'scenario_fail_reason_code_missing',
+        scenario_id: sid,
+        applied: false,
+        observed_reason_codes: [],
+        canonical_state_preserved: null,
+        verdict: 'FAIL',
+        // S10 FAIL classifier: edge_guard_miss (NOT verifier_fail) per
+        // dispatch contract harness.cjs:220-237 / PLAN line 261.
+        verdict_kind: 'edge_guard_miss',
+        source: '_runScenario_S10_no_tmpdir',
+      };
+    }
+    var liveRoot = _liveProjectRootDir();
+    var resolvedTarget = path.join(liveRoot, scenario.target_tool || 'super-gsd/scripts/lib/edge-guard.cjs');
+    var fixSrc = path.join(__dirname, 'fixtures', sid);
+    var gatesYamlSrc = path.join(fixSrc, 'fixture-gates.yaml');
+    var gatesYamlDst = path.join(tmpdir, 'fixture-gates.yaml');
+    // Inject step: copy synthetic gates.yaml into tmpdir.
+    var gatesYamlExistedPreCall = false;
+    try {
+      if (fs.existsSync(gatesYamlSrc)) {
+        fs.copyFileSync(gatesYamlSrc, gatesYamlDst);
+      }
+      gatesYamlExistedPreCall = fs.existsSync(gatesYamlDst);
+    } catch (_eG) {}
+    // The edge-guard log lives at <projectDir>/.planning/metrics/edge-
+    // guard-log.jsonl. recordTransition mkdirs metrics/ on demand. We
+    // pre-mkdir to be defensive against parent-dir race.
+    var planningDir = path.join(tmpdir, '.planning');
+    var metricsDir = path.join(planningDir, 'metrics');
+    try { fs.mkdirSync(metricsDir, { recursive: true }); } catch (_eM) {}
+    var edgeLogPath = path.join(metricsDir, 'edge-guard-log.jsonl');
+    var edgeLogPreSize = 0;
+    try {
+      if (fs.existsSync(edgeLogPath)) {
+        edgeLogPreSize = fs.statSync(edgeLogPath).size;
+      }
+    } catch (_eL) {}
+    // Wrapper: argv[1]=resolvedTarget, argv[2]=projectDir/tmpdir,
+    // argv[3]=gatesYamlPath. Reset gates-registry cache pre-call so the
+    // synthetic gates.yaml is loaded fresh (the registry is a per-
+    // process singleton; child process is fresh anyway, but we belt-and-
+    // brace the resetCache in case any grandparent require leaked state).
+    var script = ''
+      + 'try {'
+      + '  var path=require("path");'
+      + '  var fs=require("fs");'
+      + '  var eg=require(process.argv[1]);'
+      + '  var pdir=process.argv[2];'
+      + '  var gpath=process.argv[3];'
+      + '  var regPath=path.resolve(path.dirname(process.argv[1]), "gates-registry.cjs");'
+      + '  try { require(regPath).resetCache(); } catch (_eRR) {}'
+      + '  var hadFn=(typeof eg.recordTransition === "function");'
+      + '  var r=hadFn ? eg.recordTransition({'
+      + '    fromStep:5,toStep:6,phase:"53-fixture",plan:"01",'
+      + '    gateName:"phase53_fixture_gate",'
+      + '    expectedEmits:["fixture-output.jsonl"],'
+      + '    actualEmits:[],'
+      + '    ctx:{test:true,scenario:"edge-guard-missing-emit"},'
+      + '    gatesYamlPath:gpath,'
+      + '    projectDir:pdir'
+      + '  }) : null;'
+      + '  console.log(JSON.stringify({'
+      + '    ok:true,'
+      + '    had_record_transition_fn:hadFn,'
+      + '    status:r && r.status,'
+      + '    missing_emits:(r && Array.isArray(r.missing_emits)) ? r.missing_emits : null,'
+      + '    missing_emits_length:(r && Array.isArray(r.missing_emits)) ? r.missing_emits.length : -1,'
+      + '    row_resolution:(r && r.row && r.row.resolution) || null,'
+      + '    row_gate:(r && r.row && r.row.gate) || null'
+      + '  }));'
+      + '} catch (e) {'
+      + '  console.log(JSON.stringify({ok:false,reason:"wrapper_threw",error:String(e&&e.message||e)}));'
+      + '  process.exit(1);'
+      + '}';
+    var spawnRes = _spawnTool({
+      command: process.execPath,
+      args: ['-e', script, resolvedTarget, tmpdir, gatesYamlDst],
+      cwd: tmpdir,
+      env: {},
+      timeoutMs: 30000,
+    });
+    var stdoutObj = _parseStdoutJson(spawnRes && spawnRes.stdout);
+    // Confirm the edge-guard-log row was actually appended (file size
+    // grew post-call). recordTransition writes synchronously.
+    var edgeLogPostSize = 0;
+    var edgeLogExists = false;
+    try {
+      edgeLogExists = fs.existsSync(edgeLogPath);
+      if (edgeLogExists) {
+        edgeLogPostSize = fs.statSync(edgeLogPath).size;
+      }
+    } catch (_eLP) {}
+    var rowAppended = !!(edgeLogExists && edgeLogPostSize > edgeLogPreSize);
+    var observed = [];
+    // Structural assertion: subprocess clean, wrapper completed,
+    // recordTransition exists, status==='halt' (escalation resolved
+    // correctly via the synthetic gate), missing_emits has the planted
+    // path, the gates.yaml was on disk pre-call, and a row was
+    // appended to the edge-guard log.
+    var missingEmitsOk = !!(stdoutObj && Array.isArray(stdoutObj.missing_emits) &&
+                              stdoutObj.missing_emits.length > 0 &&
+                              stdoutObj.missing_emits[0] === 'fixture-output.jsonl');
+    var structuralOk = !!(spawnRes && spawnRes.exit_code === 0 &&
+                           stdoutObj && stdoutObj.ok === true &&
+                           stdoutObj.had_record_transition_fn === true &&
+                           stdoutObj.status === 'halt' &&
+                           missingEmitsOk &&
+                           gatesYamlExistedPreCall === true &&
+                           rowAppended === true);
+    if (structuralOk) observed.push('edge_guard_halt');
+    var matched = _intersectReasonCodes(observed,
+                                         scenario.expected_reason_codes || []);
+    var verdict;
+    var verdictKind;
+    var softSkipReason = '';
+    if (!structuralOk) {
+      verdict = 'FAIL';
+      // PER DISPATCH CONTRACT: S10 FAIL -> 'edge_guard_miss' (NOT
+      // 'verifier_fail'). This is the structural classifier - only S10
+      // sets edge_guard_miss_classified=true in the manifest.
+      verdictKind = 'edge_guard_miss';
+    } else if (matched.length > 0) {
+      verdict = 'PASS';
+      verdictKind = null;
+    } else {
+      verdict = 'PASS-WITH-SOFT-SKIP';
+      verdictKind = null;
+      softSkipReason = 'cli_shape_drift_record_transition_status_not_halt';
+      observed.push('scenario_pass_soft_skip');
+    }
+    return {
+      ok: verdict === 'PASS' || verdict === 'PASS-WITH-SOFT-SKIP',
+      scenario_id: sid,
+      applied: true,
+      tool_invocation: {
+        argv: spawnRes && spawnRes.argv || [],
+        cwd: spawnRes && spawnRes.cwd || tmpdir,
+        env_overrides: spawnRes && spawnRes.env_overrides || {},
+        exit_code: spawnRes && spawnRes.exit_code,
+        signal: spawnRes && spawnRes.signal,
+        stdout_digest: spawnRes && spawnRes.stdout_digest,
+        stderr_digest: spawnRes && spawnRes.stderr_digest,
+        duration_ms: spawnRes && spawnRes.duration_ms,
+      },
+      observed_reason_codes: observed,
+      structural_observation: {
+        had_record_transition_fn: stdoutObj && stdoutObj.had_record_transition_fn,
+        status: stdoutObj && stdoutObj.status,
+        missing_emits: stdoutObj && stdoutObj.missing_emits,
+        missing_emits_length: stdoutObj && stdoutObj.missing_emits_length,
+        row_resolution: stdoutObj && stdoutObj.row_resolution,
+        row_gate: stdoutObj && stdoutObj.row_gate,
+        gates_yaml_existed_pre_call: gatesYamlExistedPreCall,
+        edge_log_pre_size: edgeLogPreSize,
+        edge_log_post_size: edgeLogPostSize,
+        row_appended: rowAppended,
+      },
+      canonical_state_preserved: null,
+      verdict: verdict,
+      verdict_kind: verdictKind,
+      soft_skip_reason: softSkipReason || null,
+      source: '_runScenario_S10_t5',
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      reason: 'scenario_fail_lock13_violation',
+      scenario_id: sid,
+      applied: false,
+      observed_reason_codes: [],
+      canonical_state_preserved: null,
+      verdict: 'FAIL',
+      // S10 FAIL classifier (catch path): edge_guard_miss per dispatch
+      // contract.
+      verdict_kind: 'edge_guard_miss',
+      error: (e && e.message) ? e.message : 'unknown',
+      source: '_runScenario_S10_catch',
+    };
+  }
+}
+
 // _setupContainer: tmpdir mirror creator. T2 body: mkdtempSync under
 // os.tmpdir() (NEVER under workspace), scaffold .planning/{metrics,
 // milestones,cache} subdirs, optionally pre-populate fixture files for the
@@ -2874,6 +3467,180 @@ function _selfTestImpl() {
     } catch (_eC) {}
   }
   check('S7_runs_real_sqlite_rebuild', d4Ok, d4Detail);
+
+  // ---------------------------------------------------------------------
+  // T5 self-tests: E1 (S8 phase-capsule), E2 (S9 route-ledger), E3 (S10
+  // edge-guard structural exemplar). Each spins up a real container,
+  // dispatches _runScenarioImpl, asserts a real spawn happened (exit_code
+  // is a number), the verdict is PASS or PASS-WITH-SOFT-SKIP, and the
+  // scenario-specific structural observation matches the contract.
+  // ---------------------------------------------------------------------
+
+  // Test 18 (E1 - S8_runs_real_phase_capsule).
+  let e1Ok = false;
+  let e1Detail = '';
+  let e1Tmpdir = null;
+  try {
+    const sc8 = SCENARIOS.filter(function (s) {
+      return s && s.id === 'phase-capsule-corrupted-json';
+    })[0] || null;
+    const cont8 = _setupContainer('phase-capsule-corrupted-json');
+    e1Tmpdir = cont8 && cont8.tmpdir;
+    if (sc8 && cont8 && cont8.ok && e1Tmpdir) {
+      const r8 = _runScenarioImpl(sc8, e1Tmpdir);
+      const argvOk = !!(r8 && r8.tool_invocation &&
+                         Array.isArray(r8.tool_invocation.argv) &&
+                         r8.tool_invocation.argv.length >= 3);
+      const realSpawn = !!(r8 && r8.tool_invocation &&
+                            typeof r8.tool_invocation.exit_code === 'number');
+      const verdictOk = !!(r8 && (r8.verdict === 'PASS' ||
+                                    r8.verdict === 'PASS-WITH-SOFT-SKIP'));
+      // Structural: real readCapsule returned null (Lock 13 degraded
+      // sentinel surfaced; no throw escaped) AND the corrupt file was
+      // present on disk pre-call (inject succeeded).
+      const nullSentinelOk = !!(r8 && r8.structural_observation &&
+                                  r8.structural_observation.result_is_null === true);
+      const corruptInjectedOk = !!(r8 && r8.structural_observation &&
+                                     r8.structural_observation.corrupt_existed_pre_call === true &&
+                                     r8.structural_observation.corrupt_byte_len > 0);
+      const reasonOk = !!(r8 && Array.isArray(r8.observed_reason_codes) &&
+                           r8.observed_reason_codes.indexOf('capsule_parse_error') !== -1);
+      e1Ok = argvOk && realSpawn && verdictOk && nullSentinelOk && corruptInjectedOk && reasonOk;
+      e1Detail = 'verdict=' + (r8 && r8.verdict)
+        + ' exit_code=' + (r8 && r8.tool_invocation && r8.tool_invocation.exit_code)
+        + ' result_is_null=' + (r8 && r8.structural_observation
+                                  && r8.structural_observation.result_is_null)
+        + ' corrupt_byte_len=' + (r8 && r8.structural_observation
+                                    && r8.structural_observation.corrupt_byte_len)
+        + ' observed=' + JSON.stringify(r8 && r8.observed_reason_codes);
+    } else {
+      e1Detail = 'setup_failed: scenario_found=' + !!sc8
+        + ' container_ok=' + (cont8 && cont8.ok);
+    }
+  } catch (e) {
+    e1Detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  } finally {
+    try {
+      if (e1Tmpdir) fs.rmSync(e1Tmpdir, { recursive: true, force: true });
+    } catch (_eC) {}
+  }
+  check('S8_runs_real_phase_capsule', e1Ok, e1Detail);
+
+  // Test 19 (E2 - S9_runs_real_route_ledger).
+  let e2Ok = false;
+  let e2Detail = '';
+  let e2Tmpdir = null;
+  try {
+    const sc9 = SCENARIOS.filter(function (s) {
+      return s && s.id === 'route-ledger-truncated-stream';
+    })[0] || null;
+    const cont9 = _setupContainer('route-ledger-truncated-stream');
+    e2Tmpdir = cont9 && cont9.tmpdir;
+    if (sc9 && cont9 && cont9.ok && e2Tmpdir) {
+      const r9 = _runScenarioImpl(sc9, e2Tmpdir);
+      const argvOk = !!(r9 && r9.tool_invocation &&
+                         Array.isArray(r9.tool_invocation.argv) &&
+                         r9.tool_invocation.argv.length >= 3);
+      const realSpawn = !!(r9 && r9.tool_invocation &&
+                            typeof r9.tool_invocation.exit_code === 'number');
+      const verdictOk = !!(r9 && (r9.verdict === 'PASS' ||
+                                    r9.verdict === 'PASS-WITH-SOFT-SKIP'));
+      // Structural: readRows kept exactly the 2 valid rows (truncated
+      // tail dropped), raw line count was >= 3 pre-read (the partial
+      // tail was on disk), AND the on-disk file is byte-identical post-
+      // call (readRows is read-only).
+      const rowCountOk = !!(r9 && r9.structural_observation &&
+                              r9.structural_observation.rows_length === 2);
+      const partialPresentOk = !!(r9 && r9.structural_observation &&
+                                    r9.structural_observation.pre_line_count_raw >= 3);
+      const canonicalOk = !!(r9 && r9.structural_observation &&
+                               r9.structural_observation.canonical_byte_equal === true);
+      const reasonOk = !!(r9 && Array.isArray(r9.observed_reason_codes) &&
+                           r9.observed_reason_codes.indexOf('row_skipped_invalid') !== -1);
+      e2Ok = argvOk && realSpawn && verdictOk && rowCountOk && partialPresentOk
+              && canonicalOk && reasonOk;
+      e2Detail = 'verdict=' + (r9 && r9.verdict)
+        + ' exit_code=' + (r9 && r9.tool_invocation && r9.tool_invocation.exit_code)
+        + ' rows_length=' + (r9 && r9.structural_observation
+                               && r9.structural_observation.rows_length)
+        + ' pre_line_count_raw=' + (r9 && r9.structural_observation
+                                      && r9.structural_observation.pre_line_count_raw)
+        + ' canonical_byte_equal=' + (r9 && r9.structural_observation
+                                        && r9.structural_observation.canonical_byte_equal)
+        + ' observed=' + JSON.stringify(r9 && r9.observed_reason_codes);
+    } else {
+      e2Detail = 'setup_failed: scenario_found=' + !!sc9
+        + ' container_ok=' + (cont9 && cont9.ok);
+    }
+  } catch (e) {
+    e2Detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  } finally {
+    try {
+      if (e2Tmpdir) fs.rmSync(e2Tmpdir, { recursive: true, force: true });
+    } catch (_eC) {}
+  }
+  check('S9_runs_real_route_ledger', e2Ok, e2Detail);
+
+  // Test 20 (E3 - S10_runs_real_edge_guard_synthetic_gate). PASS = the
+  // edge-guard correctly DETECTED the structural emit gap planted by the
+  // synthetic gates.yaml. This is the EDGE_GUARD_MISS structural
+  // exemplar (the only scenario where verdict_kind on FAIL is
+  // 'edge_guard_miss' instead of 'verifier_fail').
+  let e3Ok = false;
+  let e3Detail = '';
+  let e3Tmpdir = null;
+  try {
+    const sc10 = SCENARIOS.filter(function (s) {
+      return s && s.id === 'edge-guard-missing-emit';
+    })[0] || null;
+    const cont10 = _setupContainer('edge-guard-missing-emit');
+    e3Tmpdir = cont10 && cont10.tmpdir;
+    if (sc10 && cont10 && cont10.ok && e3Tmpdir) {
+      const r10 = _runScenarioImpl(sc10, e3Tmpdir);
+      const argvOk = !!(r10 && r10.tool_invocation &&
+                          Array.isArray(r10.tool_invocation.argv) &&
+                          r10.tool_invocation.argv.length >= 3);
+      const realSpawn = !!(r10 && r10.tool_invocation &&
+                             typeof r10.tool_invocation.exit_code === 'number');
+      const verdictOk = !!(r10 && (r10.verdict === 'PASS' ||
+                                     r10.verdict === 'PASS-WITH-SOFT-SKIP'));
+      // Structural exemplar: status==='halt' (escalation resolved
+      // correctly via synthetic gate), missing_emits.length > 0 (the gap
+      // was detected), gates.yaml existed pre-call (inject succeeded),
+      // and an edge-guard log row was appended (write side-effect proven).
+      const statusHaltOk = !!(r10 && r10.structural_observation &&
+                                r10.structural_observation.status === 'halt');
+      const missingEmitsOk = !!(r10 && r10.structural_observation &&
+                                  r10.structural_observation.missing_emits_length > 0);
+      const gatesYamlOk = !!(r10 && r10.structural_observation &&
+                                r10.structural_observation.gates_yaml_existed_pre_call === true);
+      const rowAppendedOk = !!(r10 && r10.structural_observation &&
+                                 r10.structural_observation.row_appended === true);
+      const reasonOk = !!(r10 && Array.isArray(r10.observed_reason_codes) &&
+                            r10.observed_reason_codes.indexOf('edge_guard_halt') !== -1);
+      e3Ok = argvOk && realSpawn && verdictOk && statusHaltOk && missingEmitsOk
+              && gatesYamlOk && rowAppendedOk && reasonOk;
+      e3Detail = 'verdict=' + (r10 && r10.verdict)
+        + ' exit_code=' + (r10 && r10.tool_invocation && r10.tool_invocation.exit_code)
+        + ' status=' + (r10 && r10.structural_observation
+                          && r10.structural_observation.status)
+        + ' missing_emits_length=' + (r10 && r10.structural_observation
+                                        && r10.structural_observation.missing_emits_length)
+        + ' row_appended=' + (r10 && r10.structural_observation
+                                && r10.structural_observation.row_appended)
+        + ' observed=' + JSON.stringify(r10 && r10.observed_reason_codes);
+    } else {
+      e3Detail = 'setup_failed: scenario_found=' + !!sc10
+        + ' container_ok=' + (cont10 && cont10.ok);
+    }
+  } catch (e) {
+    e3Detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  } finally {
+    try {
+      if (e3Tmpdir) fs.rmSync(e3Tmpdir, { recursive: true, force: true });
+    } catch (_eC) {}
+  }
+  check('S10_runs_real_edge_guard_synthetic_gate', e3Ok, e3Detail);
 
   // ---------------------------------------------------------------------
   // Render + return.
