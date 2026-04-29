@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://super-gsd.local/schemas/scenario-suite/SCENARIOS.schema.json",
+  "title": "ScenarioSuiteScenarios",
+  "description": "Phase 56-01 closed-vocab 10-scenario manifest (6 happy + 4 adversarial). Lock 11: byte-equality + set-membership only. Lock 4: target_tool strings reference Phase 41-55 tools by absolute relative path; harness invokes them via spawnSync only. additionalProperties:false locks the schema against drift.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "scenarios"],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label",
+          "kind",
+          "target_tool",
+          "inject_mechanism",
+          "expected_outcome",
+          "expected_reason_codes",
+          "soft_skip_when",
+          "evidence_kind"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "clean-phase-close",
+              "deferred-debt-pass",
+              "soft-skip-codex-unavailable",
+              "redis-on-graceful-degrade",
+              "memory-revocation-replay-clean",
+              "plan-schema-load-valid",
+              "poisoned-plan-md",
+              "race-condition-writes",
+              "malformed-checkpoint",
+              "mid-write-sigkill"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["happy", "adversarial"]
+          },
+          "target_tool": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^super-gsd/(tools|scripts)/[A-Za-z0-9._/-]+\\.cjs$"
+          },
+          "inject_mechanism": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "minLength": 1
+          },
+          "expected_outcome": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "PASS-WITH-DEFERRED-1",
+              "PASS-WITH-SOFT-SKIP",
+              "FAIL-REJECTED"
+            ]
+          },
+          "expected_reason_codes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "soft_skip_when": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "string",
+                "enum": [
+                  "codex_provider_unavailable",
+                  "redis_not_available_soft_skip",
+                  "phase_49_writer_unwired"
+                ]
+              }
+            ]
+          },
+          "evidence_kind": {
+            "type": "string",
+            "enum": ["stdout_exit", "log_row", "fingerprint"]
+          }
+        }
+      }
+    }
+  }
+}

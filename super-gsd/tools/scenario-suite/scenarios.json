@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "scenarios": [
+    {
+      "id": "clean-phase-close",
+      "label": "Phase verifier + ATC + close run cleanly on a happy fixture",
+      "kind": "happy",
+      "target_tool": "super-gsd/tools/plan-schema/validate.cjs",
+      "inject_mechanism": "valid_schema_v2_plan_in_tmpdir",
+      "expected_outcome": "PASS",
+      "expected_reason_codes": [
+        "scenario_pass"
+      ],
+      "soft_skip_when": null,
+      "evidence_kind": "stdout_exit"
+    },
+    {
+      "id": "deferred-debt-pass",
+      "label": "Phase verifier returns PASS-WITH-DEFERRED-1 with one LOW debt entry",
+      "kind": "happy",
+      "target_tool": "super-gsd/scripts/lib/crit-backlog.cjs",
+      "inject_mechanism": "synthetic_low_debt_entry",
+      "expected_outcome": "PASS-WITH-DEFERRED-1",
+      "expected_reason_codes": [
+        "scenario_pass_with_deferred"
+      ],
+      "soft_skip_when": null,
+      "evidence_kind": "stdout_exit"
+    },
+    {
+      "id": "soft-skip-codex-unavailable",
+      "label": "Codex provider unavailable degrades to Claude reviewer (soft-skip path)",
+      "kind": "happy",
+      "target_tool": "super-gsd/scripts/lib/provider-circuit.cjs",
+      "inject_mechanism": "synthetic_open_circuit_state",
+      "expected_outcome": "PASS-WITH-SOFT-SKIP",
+      "expected_reason_codes": [
+        "scenario_pass_soft_skip"
+      ],
+      "soft_skip_when": "codex_provider_unavailable",
+      "evidence_kind": "stdout_exit"
+    },
+    {
+      "id": "redis-on-graceful-degrade",
+      "label": "Redis adapter timeout falls back to SQLite without canonical drift",
+      "kind": "happy",
+      "target_tool": "super-gsd/tools/context-cache/redis-adapter.cjs",
+      "inject_mechanism": "force_sqlite_fallback",
+      "expected_outcome": "PASS-WITH-SOFT-SKIP",
+      "expected_reason_codes": [
+        "scenario_pass_soft_skip",
+        "scenario_pass"
+      ],
+      "soft_skip_when": "redis_not_available_soft_skip",
+      "evidence_kind": "stdout_exit"
+    },
+    {
+      "id": "memory-revocation-replay-clean",
+      "label": "Memory governance lifecycle replays a synthetic revocation row cleanly",
+      "kind": "happy",
+      "target_tool": "super-gsd/tools/memory-governance/lifecycle.cjs",
+      "inject_mechanism": "synthetic_revocation_row",
+      "expected_outcome": "PASS",
+      "expected_reason_codes": [
+        "scenario_pass"
+      ],
+      "soft_skip_when": "phase_49_writer_unwired",
+      "evidence_kind": "stdout_exit"
+    },
+    {
+      "id": "plan-schema-load-valid",
+      "label": "Plan schema validate.cjs accepts a valid schema_v2 PLAN.md in load mode",
+      "kind": "happy",
+      "target_tool": "super-gsd/tools/plan-schema/validate.cjs",
+      "inject_mechanism": "valid_plan_md_load_mode",
+      "expected_outcome": "PASS",
+      "expected_reason_codes": [
+        "scenario_pass"
+      ],
+      "soft_skip_when": null,
+      "evidence_kind": "stdout_exit"
+    },
+    {
+      "id": "poisoned-plan-md",
+      "label": "Schema validator rejects a poisoned PLAN.md with prompt-injection or oversized files_touched",
+      "kind": "adversarial",
+      "target_tool": "super-gsd/tools/plan-schema/validate.cjs",
+      "inject_mechanism": "poisoned_plan_md_oversized_files_touched",
+      "expected_outcome": "FAIL-REJECTED",
+      "expected_reason_codes": [
+        "scenario_adversarial_rejected"
+      ],
+      "soft_skip_when": null,
+      "evidence_kind": "stdout_exit"
+    },
+    {
+      "id": "race-condition-writes",
+      "label": "Concurrent appendFileSync writes preserve single-writer protocol (last-write-wins or lock)",
+      "kind": "adversarial",
+      "target_tool": "super-gsd/scripts/lib/crit-backlog.cjs",
+      "inject_mechanism": "concurrent_jsonl_appends",
+      "expected_outcome": "FAIL-REJECTED",
+      "expected_reason_codes": [
+        "scenario_adversarial_rejected"
+      ],
+      "soft_skip_when": null,
+      "evidence_kind": "stdout_exit"
+    },
+    {
+      "id": "malformed-checkpoint",
+      "label": "Manifest validator rejects ORCHESTRATOR-CHECKPOINT.md missing required fields",
+      "kind": "adversarial",
+      "target_tool": "super-gsd/tools/chaos-restart/manifest-validator.cjs",
+      "inject_mechanism": "missing_required_field_checkpoint",
+      "expected_outcome": "FAIL-REJECTED",
+      "expected_reason_codes": [
+        "scenario_adversarial_rejected"
+      ],
+      "soft_skip_when": null,
+      "evidence_kind": "stdout_exit"
+    },
+    {
+      "id": "mid-write-sigkill",
+      "label": "Mid-appendFileSync SIGKILL leaves a partial-line tail that the reader skips on next read",
+      "kind": "adversarial",
+      "target_tool": "super-gsd/scripts/lib/crit-backlog.cjs",
+      "inject_mechanism": "partial_line_jsonl_tail",
+      "expected_outcome": "FAIL-REJECTED",
+      "expected_reason_codes": [
+        "scenario_adversarial_rejected"
+      ],
+      "soft_skip_when": null,
+      "evidence_kind": "stdout_exit"
+    }
+  ]
+}
