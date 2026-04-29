@@ -9,6 +9,10 @@
 // Phase 54-01-T4: extended with chaos-restart self-test (quad-gate v2.0;
 //                 v1.9 dual-gate AND Phase 53 triple-gate paths preserved
 //                 byte-untouched up to the chaos-restart insertion point).
+// Phase 55-01-T3: extended with provider-circuit self-test (quint-gate v2.0;
+//                 v1.9 dual-gate AND Phase 53 triple-gate AND Phase 54 quad-gate
+//                 paths preserved byte-untouched up to the provider-circuit
+//                 insertion point).
 //
 // Invoked by super-gsd/skills/sgsd-complete-milestone/SKILL.md Step 0
 // precondition list. Operator-runnable directly:
@@ -457,8 +461,85 @@ function _main(argv) {
 
     process.stdout.write('milestone_close_gate: v2.0 chaos-restart '
       + 'self-test green (18/18)\n');
-    process.stdout.write('milestone_close_gate: v2.0 quad-gate '
-      + '(context-bench + redis-adapter + failure-injection + chaos-restart) green\n');
+
+    // -----------------------------------------------------------------------
+    // Phase 55-01-T3: v2.0 quint-gate extension (provider-circuit). Only
+    // reached when milestone === 'v2.0' AND the prior quad-gate (Phase 51 +
+    // Phase 52 + Phase 53 + Phase 54) already passed. One additional
+    // spawnSync invocation:
+    //   6. node super-gsd/scripts/lib/provider-circuit.cjs --self-test
+    //      (>=8 PASS expected; sub-5s; READ-ONLY -- the self-test uses an
+    //      env-overridden tmp state file, never touches canonical
+    //      .planning/metrics/provider-circuit.json).
+    // Lock 13: try/catch on require AND spawnSync; never throw upward.
+    // Lock 4: Phase 41-54 trees byte-untouched; this is a surgical extension
+    // ONLY at this insertion point (the quad-gate green emission above is
+    // preserved as the boundary marker for the chaos-restart gate; the
+    // quint-gate emission moves to AFTER provider-circuit returns green).
+    // -----------------------------------------------------------------------
+
+    let providerCircuitLib = null;
+    try {
+      providerCircuitLib = require('../scripts/lib/provider-circuit.cjs');
+    } catch (e) {
+      process.stderr.write('milestone_close_blocked:provider_circuit_unavailable\n');
+      process.stderr.write('  reason=provider_circuit_require_failed message='
+        + (e && e.message ? e.message : 'unknown') + '\n');
+      process.exit(1);
+      return;
+    }
+
+    if (!providerCircuitLib ||
+        typeof providerCircuitLib.selfTest !== 'function' ||
+        typeof providerCircuitLib.shouldFallback !== 'function' ||
+        typeof providerCircuitLib.recordProviderResult !== 'function' ||
+        typeof providerCircuitLib.getCircuitState !== 'function' ||
+        typeof providerCircuitLib.resetCircuit !== 'function' ||
+        typeof providerCircuitLib.getDefaultFallback !== 'function') {
+      process.stderr.write('milestone_close_blocked:provider_circuit_unavailable\n');
+      process.stderr.write('  reason=provider_circuit_api_export_missing\n');
+      process.exit(1);
+      return;
+    }
+
+    let pcSelfOut = null;
+    try {
+      const child_process5 = require('child_process');
+      const path5 = require('path');
+      const pcLibPath = path5.join(__dirname, 'lib', 'provider-circuit.cjs');
+      const r6 = child_process5.spawnSync(
+        process.execPath,
+        [pcLibPath, '--self-test'],
+        { stdio: 'inherit' }
+      );
+      if (r6.error) {
+        process.stderr.write('milestone_close_blocked:provider_circuit_self_test_failed\n');
+        process.stderr.write('  reason=provider_circuit_spawn_failed message='
+          + (r6.error.message || 'unknown') + '\n');
+        process.exit(1);
+        return;
+      }
+      pcSelfOut = (typeof r6.status === 'number') ? r6.status : 1;
+    } catch (e) {
+      process.stderr.write('milestone_close_blocked:provider_circuit_self_test_failed\n');
+      process.stderr.write('  reason=provider_circuit_self_test_threw message='
+        + (e && e.message ? e.message : 'unknown') + '\n');
+      process.exit(1);
+      return;
+    }
+
+    if (pcSelfOut !== 0) {
+      process.stderr.write('milestone_close_blocked:provider_circuit_self_test_failed\n');
+      process.stderr.write('  reason=provider_circuit_self_test_exit_code='
+        + pcSelfOut + '\n');
+      process.exit(1);
+      return;
+    }
+
+    process.stdout.write('milestone_close_gate: v2.0 provider-circuit '
+      + 'self-test green (>=8/8)\n');
+    process.stdout.write('milestone_close_gate: v2.0 quint-gate '
+      + '(context-bench + redis-adapter + failure-injection + chaos-restart + provider-circuit) green\n');
     process.exit(0);
   } catch (e) {
     // Outer guard: any unexpected error path exits 1 with a stderr tag.
