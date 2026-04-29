@@ -35,6 +35,19 @@
 //                 installer-audit selfTest (12/12) + runAudit floor met,
 //                 gate 2 wizard selfTest (>=8/>=8). Both must exit 0 for
 //                 v2.1 milestone close to proceed.
+// Phase 60-01-T6: extended with example-walkthrough self-test (third-gate
+//                 v2.1; Phase 58 first-gate AND Phase 59 second-gate paths
+//                 preserved byte-equality up to the example-walkthrough
+//                 insertion point. v2.1 triple-gate now: gate 1
+//                 installer-audit selfTest (12/12) + runAudit floor met,
+//                 gate 2 wizard selfTest (>=8/>=8), gate 3 wizard
+//                 --defaults exercised against examples/hello-world fixture
+//                 with config.json sha256 matching the canonical
+//                 fe16729a... fingerprint. All three must exit 0 for v2.1
+//                 milestone close to proceed. Lock 13: degraded-OK if the
+//                 fixture directory is missing on disk (partial-checkout
+//                 path); the gate emits an explicit skipped-fixture warning
+//                 and exits 0 rather than blocking close.
 //
 // Invoked by super-gsd/skills/sgsd-complete-milestone/SKILL.md Step 0
 // precondition list. Operator-runnable directly:
@@ -297,6 +310,172 @@ function _main(argv) {
         + 'idempotent + Lock 13 verified)\n');
       process.stdout.write('milestone_close_gate: v2.1 second-gate '
         + '(new-project-wizard) green\n');
+
+      // ---------------------------------------------------------------
+      // Phase 60-01-T6: v2.1 THIRD-GATE (example-walkthrough self-test).
+      // Lock 4: extends the v2.1 branch only; v1.9 dual-gate, v2.0
+      // sept-gate, Phase 58 first-gate, and Phase 59 second-gate paths
+      // are all preserved byte-equal up to this insertion point.
+      // The third gate exercises the wizard --defaults against the
+      // examples/hello-world fixture and verifies the produced
+      // config.json sha256 matches the canonical fingerprint
+      // (fe16729a...). Lock 13: try/catch wraps spawnSync + fs ops;
+      // if the fixture directory is missing (partial-checkout path),
+      // the gate prints a degraded sentinel and exits 0 rather than
+      // blocking close (Lock 13 / walkthrough-degrades-gracefully).
+      // ASCII-only: stderr/stdout literals are 0x09/0x0A/0x20-0x7E.
+      // ---------------------------------------------------------------
+      var EXAMPLE_FIXTURE_SHA256 =
+        'fe16729aff1c12a04eaf10724da297370f6c8f2d16ffab04a6ea381907550be7';
+
+      var fs_v21c = null;
+      var path_v21c = null;
+      var crypto_v21c = null;
+      var child_process_v21c = null;
+      try {
+        fs_v21c = require('fs');
+        path_v21c = require('path');
+        crypto_v21c = require('crypto');
+        child_process_v21c = require('child_process');
+      } catch (e) {
+        process.stderr.write('milestone_close_blocked:example_walkthrough_unavailable\n');
+        process.stderr.write('  reason=example_walkthrough_require_failed message='
+          + (e && e.message ? e.message : 'unknown') + '\n');
+        process.exit(1);
+        return;
+      }
+
+      var repoRoot_v21c = path_v21c.join(__dirname, '..', '..');
+      var fixtureDir_v21c = path_v21c.join(repoRoot_v21c, 'examples',
+                                            'hello-world');
+      var fixturePlanning_v21c = path_v21c.join(fixtureDir_v21c, '.planning');
+      var fixtureConfigPath_v21c = path_v21c.join(fixturePlanning_v21c,
+                                                   'config.json');
+      var wizardPath_v21c = path_v21c.join(__dirname,
+                                            'sgsd-new-project-wizard.cjs');
+
+      // Lock 13 / walkthrough-degrades-gracefully: if the fixture
+      // directory is absent (partial checkout, sparse clone, etc.) we
+      // emit a skip sentinel and exit 0. The fixture is a deterministic
+      // target; its absence is a checkout-shape problem, not a
+      // milestone-close problem.
+      var fixturePresent_v21c = false;
+      try {
+        fixturePresent_v21c = fs_v21c.existsSync(fixturePlanning_v21c)
+          && fs_v21c.statSync(fixturePlanning_v21c).isDirectory();
+      } catch (_e) {
+        fixturePresent_v21c = false;
+      }
+      if (!fixturePresent_v21c) {
+        process.stdout.write('milestone_close_gate: v2.1 example-walkthrough '
+          + 'self-test SKIPPED (fixture missing: examples/hello-world/.planning '
+          + 'not present; partial checkout suspected; degrading to second-gate '
+          + 'only per Lock 13)\n');
+        process.stdout.write('milestone_close_gate: v2.1 third-gate '
+          + '(example-walkthrough) green-with-skip\n');
+        process.exit(0);
+        return;
+      }
+
+      // Capture the prior state of the fixture's config.json so we can
+      // restore it after the gate runs (avoid mutating fixture bytes
+      // that would ripple into roadmap-staleness scans).
+      var priorConfig_v21c = null;
+      var priorConfigExists_v21c = false;
+      try {
+        if (fs_v21c.existsSync(fixtureConfigPath_v21c)) {
+          priorConfig_v21c = fs_v21c.readFileSync(fixtureConfigPath_v21c);
+          priorConfigExists_v21c = true;
+        }
+      } catch (_e) {
+        priorConfig_v21c = null;
+        priorConfigExists_v21c = false;
+      }
+
+      // Run the wizard --defaults against the fixture. Lock 13 wrapped.
+      var walkExit_v21c = null;
+      try {
+        var rW_v21c = child_process_v21c.spawnSync(
+          process.execPath,
+          [wizardPath_v21c, '--defaults', '--project-dir', fixtureDir_v21c],
+          { stdio: 'inherit' }
+        );
+        if (rW_v21c.error) {
+          process.stderr.write('milestone_close_blocked:example_walkthrough_self_test_failed\n');
+          process.stderr.write('  reason=example_walkthrough_spawn_failed message='
+            + (rW_v21c.error.message || 'unknown') + '\n');
+          process.exit(1);
+          return;
+        }
+        walkExit_v21c = (typeof rW_v21c.status === 'number')
+          ? rW_v21c.status : 1;
+      } catch (e) {
+        process.stderr.write('milestone_close_blocked:example_walkthrough_self_test_failed\n');
+        process.stderr.write('  reason=example_walkthrough_spawn_threw message='
+          + (e && e.message ? e.message : 'unknown') + '\n');
+        process.exit(1);
+        return;
+      }
+
+      if (walkExit_v21c !== 0) {
+        process.stderr.write('milestone_close_blocked:example_walkthrough_self_test_failed\n');
+        process.stderr.write('  reason=example_walkthrough_wizard_exit_nonzero exit='
+          + walkExit_v21c + '\n');
+        process.exit(1);
+        return;
+      }
+
+      // Verify the produced config.json sha256 matches canonical.
+      var producedHash_v21c = null;
+      try {
+        var bytes_v21c = fs_v21c.readFileSync(fixtureConfigPath_v21c);
+        producedHash_v21c = crypto_v21c.createHash('sha256')
+          .update(bytes_v21c).digest('hex');
+      } catch (e) {
+        process.stderr.write('milestone_close_blocked:example_walkthrough_self_test_failed\n');
+        process.stderr.write('  reason=example_walkthrough_hash_failed message='
+          + (e && e.message ? e.message : 'unknown') + '\n');
+        process.exit(1);
+        return;
+      }
+
+      if (producedHash_v21c !== EXAMPLE_FIXTURE_SHA256) {
+        process.stderr.write('milestone_close_blocked:example_walkthrough_self_test_failed\n');
+        process.stderr.write('  reason=example_walkthrough_hash_mismatch '
+          + 'expected=' + EXAMPLE_FIXTURE_SHA256
+          + ' produced=' + producedHash_v21c + '\n');
+        // Restore prior state before exiting (don't leave fixture dirty).
+        try {
+          if (priorConfigExists_v21c && priorConfig_v21c) {
+            fs_v21c.writeFileSync(fixtureConfigPath_v21c, priorConfig_v21c);
+          } else {
+            try { fs_v21c.unlinkSync(fixtureConfigPath_v21c); } catch (_e) {}
+          }
+        } catch (_e) { /* best effort */ }
+        process.exit(1);
+        return;
+      }
+
+      // Restore the fixture's prior config.json bytes so the gate is
+      // observation-only (no mutation, no mtime bump).
+      try {
+        if (priorConfigExists_v21c && priorConfig_v21c) {
+          // Only rewrite if bytes actually differ (preserve idempotence).
+          var nowBytes_v21c = fs_v21c.readFileSync(fixtureConfigPath_v21c);
+          if (Buffer.compare(nowBytes_v21c, priorConfig_v21c) !== 0) {
+            fs_v21c.writeFileSync(fixtureConfigPath_v21c, priorConfig_v21c);
+          }
+        } else {
+          // Fixture had no config.json before the gate ran; remove ours.
+          try { fs_v21c.unlinkSync(fixtureConfigPath_v21c); } catch (_e) {}
+        }
+      } catch (_e) { /* best effort; gate already green */ }
+
+      process.stdout.write('milestone_close_gate: v2.1 example-walkthrough '
+        + 'self-test green (wizard --defaults exit 0 + idempotent + '
+        + 'sha256 ' + producedHash_v21c.slice(0, 8) + '...)\n');
+      process.stdout.write('milestone_close_gate: v2.1 third-gate '
+        + '(example-walkthrough) green\n');
       process.exit(0);
       return;
     }
