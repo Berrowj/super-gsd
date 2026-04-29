@@ -90,9 +90,11 @@ roadmap_run:
   backlog_canonical: .planning/metrics/crit-backlog.jsonl
   started: 2026-04-26
   current_milestone: v2.0
-  current_phase: 53
-  current_phase_name: Gate Failure-Injection Harness (queued — needs CONTEXT/RESEARCH/PLAN)
-  prior_milestone_shipped: v1.9 SHIPPED 2026-04-28 — see .planning/milestones/v1.9/SUMMARY.md
+  current_phase: 54
+  current_phase_name: Restart + Handoff Chaos Tests (queued)
+  prior_milestone_shipped: v1.9 SHIPPED 2026-04-28
+  v2_0_progress:
+    phase_53: "PASS @ 5680d14 (10/10 verifier must-haves, 24/24 self-test, 10/10 run-all in 5.4s, v2.0 triple-gate green 33+26+24+10, F1-F16 frozen byte-untouched, Lock 4/11/13 + Pitfalls 1/2/4/10 verified)"
   v1_9_milestone_codename: SGSD-Research
   v1_9_vtp_delta_active: ".planning/milestones/v1.9/VTP-RESEARCH-DELTA.md (commit 2d8ea5a) — forward-only addendum applies to Phases 45+, 49, 51, 52. Phases 41-44 LOCKED."
   v1_9_progress:
