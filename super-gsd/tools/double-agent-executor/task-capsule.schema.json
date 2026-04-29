@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://super-gsd.local/schemas/task-capsule-v1.json",
+  "title": "SGSD Double-Agent Task Capsule",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "task_id", "goal", "role", "task_kind", "allowed_files", "risk"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "task_id": { "type": "string", "minLength": 1 },
+    "milestone": { "type": ["string", "null"] },
+    "phase": { "type": ["string", "number", "null"] },
+    "plan": { "type": ["string", "null"] },
+    "role": {
+      "type": "string",
+      "enum": ["researcher", "planner", "executor", "verifier", "reviewer", "orchestrator", "classifier", "other"]
+    },
+    "task_kind": {
+      "type": "string",
+      "enum": ["extraction", "inventory", "code_edit", "refactor", "test_repair", "schema_config", "docs", "review", "planning", "verification", "synthesis", "general"]
+    },
+    "goal": { "type": "string", "minLength": 1 },
+    "allowed_files": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "forbidden_files": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "acceptance_commands": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "local_command": { "type": ["string", "null"] },
+    "risk": { "type": "string", "enum": ["low", "medium", "high"] },
+    "ambiguity": { "type": "string", "enum": ["low", "medium", "high"] },
+    "requires_private_knowledge": { "type": "boolean" },
+    "deterministic": { "type": "boolean" },
+    "estimated_line_count": { "type": "number", "minimum": 0 },
+    "max_input_tokens": { "type": "number", "minimum": 1 },
+    "max_output_tokens": { "type": "number", "minimum": 1 },
+    "operator_intent_summary": { "type": ["string", "null"] }
+  }
+}

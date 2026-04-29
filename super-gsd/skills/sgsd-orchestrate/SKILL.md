@@ -1612,6 +1612,64 @@ REPEAT:
        logDeviation('packet_build_exception', e.message);
      }
 
+  7.6. DOUBLE-AGENT EXECUTOR ROUTE (post-v2.1 token hardening)
+     Purpose: before a normal gsd-executor dispatch, decide whether the task
+     should be handled by local-script, Codex, or Claude. This is the
+     execution counterpart to Phase 47 routing. It uses task capsules and
+     writes to the existing route-ledger boundary `execution_route`.
+
+     When to use: BEFORE every gsd-executor dispatch. Do not use it to replace
+     planner/researcher/verifier judgment unless the task is explicitly a
+     deterministic extraction, bounded code edit, schema/config edit, refactor,
+     or test repair.
+
+     Build a task capsule with:
+     ```json
+     {
+       "schema_version": 1,
+       "task_id": "vX-pNN-tMM",
+       "milestone": "vX",
+       "phase": NN,
+       "plan": "NN-MM",
+       "role": "executor",
+       "task_kind": "code_edit|refactor|test_repair|schema_config|extraction|inventory|docs|general",
+       "goal": "one sentence",
+       "allowed_files": ["relative/path.ext"],
+       "forbidden_files": [],
+       "acceptance_commands": ["node path/to/self-test.cjs --self-test"],
+       "risk": "low|medium|high",
+       "ambiguity": "low|medium|high",
+       "requires_private_knowledge": false,
+       "estimated_line_count": 120,
+       "max_input_tokens": 8000,
+       "max_output_tokens": 2000
+     }
+     ```
+
+     Route:
+     ```bash
+     node super-gsd/tools/double-agent-executor/run.cjs \
+       --capsule .planning/tasks/{task_id}.json \
+       --route-only --json
+     ```
+
+     Execution rule:
+     - If chosen_provider is `local-script`, run the local command path and
+       continue only from its report.
+     - If chosen_provider is `codex`, run:
+       `node super-gsd/tools/double-agent-executor/run.cjs --capsule <file> --execute`
+       Codex runs in a git worktree sandbox, may edit only allowed_files,
+       writes a patch/report, runs acceptance commands, and logs
+       `execution_route`.
+     - If Codex fails, times out, violates allowed_files, or has no healthy
+       provider, continue autonomously with Claude gsd-executor and keep the
+       execution_route warning row.
+     - If chosen_provider is `claude`, proceed with normal gsd-executor.
+
+     Hard rule: never give Codex or Claude executor full ROADMAP/STATE/
+     milestone context by default. The capsule + context packet are the
+     execution surface. Broad raw context is a DEVIATION and must be logged.
+
   8. DISPATCH SUB-AGENT
      FIRST: TaskCreate({
        content: "Phase {N}: {agent_type_short} — {one-line goal}",

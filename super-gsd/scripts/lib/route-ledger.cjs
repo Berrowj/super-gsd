@@ -34,7 +34,8 @@
 //   }
 //
 // boundary in {milestone_promotion, phase_dispatch_first, executor_choice,
-//              gate_skip, codex_route, handoff_decision}.
+//              gate_skip, codex_route, handoff_decision, gate_override,
+//              dispatch_route, vtp_bridge, execution_route}.
 //
 // Concurrency: orchestrator is single-threaded; per-dispatch-ATC fires
 // sequentially after parallel waves serialize at SKILL.md:467-471. No
@@ -53,7 +54,7 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 
-// ROUTE-02: closed enum of 8 boundary types. Frozen.
+// ROUTE-02: closed enum of route boundary types. Frozen.
 // Phase 38 (SAMPLE-04): added 'gate_override' for --force-gates /
 // --skip-gates with --override-reason. Mass-discuss line 187 names
 // this boundary verbatim. Extension preserves the closed-enum
@@ -67,6 +68,10 @@ const crypto = require('crypto');
 // (uncertainty_type -> MCP tool dispatch via super-gsd/tools/vtp-bridge/classify.cjs).
 // Same closed-enum extension pattern as Phase 47 'dispatch_route'. envelope-v1
 // contract unchanged (additionalProperties:true at registry/command-envelope-v1.yaml:260).
+// Double-agent executor: added 'execution_route' for primary executor routing
+// (local-script | codex | claude) with task-capsule, token, fallback, and
+// acceptance-test evidence. This extends the existing ledger instead of
+// creating a second routing stream.
 const BOUNDARIES = Object.freeze([
   'milestone_promotion',
   'phase_dispatch_first',
@@ -77,6 +82,7 @@ const BOUNDARIES = Object.freeze([
   'gate_override',
   'dispatch_route',
   'vtp_bridge',
+  'execution_route',
 ]);
 
 // envelope-v1 status enum (command-envelope-v1.json status.enum). Frozen.
@@ -320,9 +326,9 @@ function selfTest() {
 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rl-'));
   try {
-    // 1. Module exports + frozen constants. Phase 48: 9 entries (added 'vtp_bridge').
-    assert('1. BOUNDARIES is array of 9',
-      Array.isArray(BOUNDARIES) && BOUNDARIES.length === 9);
+    // 1. Module exports + frozen constants. Double-agent executor: 10 entries.
+    assert('1. BOUNDARIES is array of 10',
+      Array.isArray(BOUNDARIES) && BOUNDARIES.length === 10);
     assert('2. STATUSES is array of 6 envelope-v1 states',
       Array.isArray(STATUSES) && STATUSES.length === 6 &&
       STATUSES.includes('ok') && STATUSES.includes('warn') &&
@@ -493,6 +499,30 @@ function selfTest() {
       Array.isArray(lastRow15.reason_codes) &&
       lastRow15.reason_codes.includes('vtp_call_succeeded'));
     void r15;
+
+    // 16. Double-agent executor: execution_route boundary smoke.
+    const r16 = appendRow(tmp, {
+      boundary: 'execution_route', status: 'ok',
+      phase: '63', milestone: 'v2.2',
+      reason_codes: ['codex_primary_bounded_task'],
+      artifacts: [{ kind: 'execution_report', path: 'report.json' }],
+      evidence: [{ kind: 'task_capsule', ref: 'capsule.json' }],
+      decision: {
+        task_id: 'self-test',
+        primary_provider: 'codex',
+        chosen_provider: 'codex',
+        fallback_used: false,
+        tests_passed: true,
+      },
+    });
+    const rows16 = readRows(tmp);
+    const lastRow16 = rows16[rows16.length - 1];
+    assert('16. execution_route boundary accepted; executor decision payload preserved',
+      lastRow16.boundary === 'execution_route' &&
+      lastRow16.decision &&
+      lastRow16.decision.primary_provider === 'codex' &&
+      lastRow16.decision.tests_passed === true);
+    void r16;
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
