@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: SGSD-Research (Context Compression, Token Governance, And Research Routing) (queued)
-milestone_status: v1.8 SHIPPED 2026-04-27. v1.9 SLOT-CHANGE 2026-04-27 — SGSD-Research promoted to v1.9 (was Knowledge + Memory Governance, now archived as superseded at .planning/archive/superseded/v1.9-knowledge-memory-governance/). v1.9 phases 41-52 (renumbered from packet 56-67); v2.0 Failure Injection shifted to phases 53-57; v2.1 Distribution + Onboarding shifted to phases 58-62. Source analyses: agent-context-bloat-audit + VTP cross-check. Readiness re-probe required before first Phase 41 dispatch. Phase 41 (Baseline Token Attribution) is auto-defaulted (no interactive discuss).
-status: v1.9 SHIPPED 2026-04-28. All 12 phases (41-52) PASS. Phase 52 closed PASS with 4 LOW deferred. Milestone v1.9 SGSD-Research COMPLETE.
-stopped_at: 2026-04-29 — Phase 56 closed PASS; v2.0 sext-gate green (154 assertions across 7 spawns); 4/5 v2.0 phases shipped; advancing to Phase 57.
-last_updated: "2026-04-29T02:15:00Z"
+milestone_status: v2.0 SHIPPED 2026-04-29. All 5 v2.0 phases (53-57) PASS. Sept-gate green (33+26+24+10+18+8+~21+10+score=97 across 8 spawns). Release readiness score 97/100 GREEN; zero edge_guard_miss rows. v2.1 Distribution + Onboarding queued (phases 58-62).
+status: v2.0 Failure Injection SHIPPED 2026-04-29. All 5 phases (53-57) PASS. Phase 57 closed PASS with 0 deferred (1 out-of-scope pre-existing diff logged). Milestone v2.0 Failure Injection COMPLETE.
+stopped_at: 2026-04-29 — Phase 57 closed PASS; v2.0 sept-gate green (release-readiness score 97/100 GREEN); v2.0 milestone SHIPPED; advancing to v2.1 Phase 58.
+last_updated: "2026-04-29T03:40:00Z"
 last_activity: "2026-04-28 — Phase 50 (Cockpit Research Dashboard) closed PASS. 6 SGSD atomic commits (868077a cockpit-shell bridge -> 3fda039 sgsd-token-panel -> 8d853ca sgsd-active-agent-panel -> f4d41e3 sgsd-source-mix-panel -> 31583be Codex consolidate + 40-row compact + 3 wires -> 302be20 acceptance-fixtures viewport harness) + 4 operator parallel commits preserved (e2d07af 0c1baf2 5db05d7 42d8ea3 cockpit/codex tile improvements) + ae6d151 close (M1 fix + verifier + ATC). Verifier PASS 0-deviations 0-blockers. Phase-level Claude ATC FULL tier (12 files / 4885 added / 121 deleted) verdict=warn 0-CRITICAL 0-HIGH 1-MEDIUM (M1 compact-path A2 panel duplicate args fixed in-loop) 3-LOW (cosmetic, deferred). Codex provider_unavailable. cockpit-shell.cjs --self-test 8/8. MUDA waste audit all probes PASS exit 0. Read-only invariant grep-clean. Single-pane Codex confirmed. Lock 11 + Lock 13 SOUND. Phase 41/42/45/49 tool trees git-diff-quiet (consumed by reference only)."
 progress:
   v1_7:
@@ -89,15 +89,40 @@ roadmap_run:
   locked_decisions: .planning/discussions/2026-04-26-mass-discuss.md
   backlog_canonical: .planning/metrics/crit-backlog.jsonl
   started: 2026-04-26
-  current_milestone: v2.0
-  current_phase: 57
-  current_phase_name: (next v2.0 phase queued)
-  prior_milestone_shipped: v1.9 SHIPPED 2026-04-28
+  current_milestone: v2.1
+  current_phase: 58
+  current_phase_name: "Operator-Facing Cookbook + Migration Path (queued)"
+  prior_milestone_shipped: v2.0 SHIPPED 2026-04-29 (was v1.9 SHIPPED 2026-04-28)
   v2_0_progress:
     phase_53: "PASS @ 5680d14 (10/10 verifier must-haves, 24/24 self-test, 10/10 run-all in 5.4s, v2.0 triple-gate green 33+26+24+10, F1-F16 frozen byte-untouched, Lock 4/11/13 + Pitfalls 1/2/4/10 verified)"
     phase_54: "PASS @ f80a17f (10/10 verifier must-haves, 18/18 self-test PASS green sub-30s, 5/5 run-all PASS chaos_pass, v2.0 quad-gate green 33+26+24+10+18, real subprocess kill via spawnSync timeout=200ms SIGTERM observed across all 5 kill points mid-research/mid-plan/mid-execute/mid-verify/mid-close, manifest validator 6/6 missing-field cases rejected next_unit/controlling_principle/mode/emergency_halt/session/created + 1/1 manifest_valid happy path, 11-stream PHASE_54_GUARDED_STREAMS fingerprint byte-equal pre/post run-all, KILL_POINTS frozen 5-entry ordered + FAIL_INJ_REASON_CODES frozen 14-entry (>=11) + REQUIRED_FIELDS frozen 6-entry ordered, 8 public APIs Lock-13 wrapped (runAll/runChaosScenario/validateManifest/selfTest/aggregateResults/appendLogRow + dual-exposed _internals), Lock 4 verified Phase 41-53 trees + cockpit-shell git-diff-quiet, Lock 11 byte-equality on closed-vocab no regex/fuzzy, Lock 13 never throws upward, ASCII-only across all 4 changed files, envelope-v1 row in chaos-restart-log.jsonl, sgsd-complete-milestone.cjs surgical extension preserves v1.9 dual-gate + Phase 53 triple-gate path byte-equality up to insertion point, MUDA waste audit 0 WARN 0 FAIL exit 0, Plan validates VALID load-mode against plan-schema-v2.json)"
     phase_55: "PASS @ a0eb0cc (8/8 verifier must-haves, 12/12 self-test PASS green sub-5s, v2.0 quint-gate green 33+26+24+10+18+12=123 assertions across 6 spawns, 6 public APIs Lock-13 wrapped (getCircuitState/recordProviderResult/shouldFallback/resetCircuit/getDefaultFallback/selfTest), N=3 consecutive-failure threshold env-overridable via SGSD_CIRCUIT_FAILURE_THRESHOLD, single-success reset rule encoded as A2, atomic tmp+rename writes verified A5, missing-state-file degrades to ok-sentinel A4, per-milestone isolation A9, byte-equality DEFAULT_FALLBACK codex->claude case-sensitive A8, end-to-end open-circuit fixture + bash codex-exec.sh --milestone v2.0 exits 7 (caller routes to Claude), --milestone none baseline path codex runs normally exit 0, schema_version 1 persisted, Lock 4 verified Phase 41-54 byte-untouched except 2 surgical extensions (codex-exec.sh + sgsd-complete-milestone.cjs preserved up to insertion points), Lock 11 byte-equality no fuzzy match, Lock 13 never throws upward + bash probe failures degrade to no-fallback, ASCII-only A7 first_nonascii_idx=-1, MUDA waste audit 5 probes PASS exit 0, Plan validates VALID load-mode against plan-schema-v2.json, sgsd-complete-milestone surgical extension preserves v1.9 dual-gate + Phase 53 triple-gate + Phase 54 quad-gate paths byte-equality up to insertion point, 4 atomic commits 9f99e02->cdc0a30->a0eb0cc + final close commit pending)"
-    phase_56: "PASS @ PENDING (7/7 verifier must-haves, 21/21 self-test PASS green + 10/10 --run-all PASS sub-90s, v2.0 sext-gate green 33+26+24+10+18+12+21+10=154 assertions across 7 spawns, 8 public APIs Lock-13 wrapped (runAll/runScenario/validateScenarioOutcome/selfTest/aggregateResults/appendLogRow + dual-exposed _internals + 4 frozen surfaces SCENARIOS/REASON_CODES/OUTCOMES/PHASE_56_GUARDED_STREAMS), 10 closed-vocab scenarios (6 happy SH1-SH6 + 4 adversarial SA1-SA4), JSON-Schema draft-07 SCENARIOS.schema.json round-trip valid for all 10 entries (additionalProperties:false top-level + per-entry), 11-stream PHASE_56_GUARDED_STREAMS canonical fingerprint byte-equal pre/post --run-all (cross_run_drift=0), real spawnSync subprocess boundary across all 10 scenarios (mock-predicate forbiddance), tmpdir container isolation under os.tmpdir() with workspace-traversal guard, validateScenarioOutcome oracle byte-equality on OUTCOMES enum, adversarial scenarios PASS when under-test tool REJECTS malformed input (FAIL-REJECTED === expected), 4 fixture files (PLAN.md happy x2 + poisoned PLAN.md + malformed checkpoint.md) + 6 README-only fixture dirs, run-self-test.cjs thin shell dual-pass green, sgsd-complete-milestone.cjs surgical extension preserves v1.9 dual-gate + Phase 53 triple-gate + Phase 54 quad-gate + Phase 55 quint-gate paths byte-equality up to insertion point, Lock 4 verified Phase 41-55 trees + sgsd-cockpit-shell.cjs git-diff-quiet, Lock 11 byte-equality + set-membership only no regex/fuzzy, Lock 13 never throws upward across 6 APIs x 7 bad-input probes, ASCII-only first_nonascii_idx=-1 across all 5 changed files, MUDA waste audit 5 probes PASS exit 0, Plan validates VALID load-mode against plan-schema-v2.json, 2 in-loop fixes during build (path mismatch tmpdir/.planning/metrics->tmpdir/metrics + dual async spawn->parent-script Promise.all))"
+    phase_56: "PASS @ 5be6409 (7/7 verifier must-haves, 21/21 self-test PASS green + 10/10 --run-all PASS sub-90s, v2.0 sext-gate green 33+26+24+10+18+12+21+10=154 assertions across 7 spawns, 8 public APIs Lock-13 wrapped (runAll/runScenario/validateScenarioOutcome/selfTest/aggregateResults/appendLogRow + dual-exposed _internals + 4 frozen surfaces SCENARIOS/REASON_CODES/OUTCOMES/PHASE_56_GUARDED_STREAMS), 10 closed-vocab scenarios (6 happy SH1-SH6 + 4 adversarial SA1-SA4), JSON-Schema draft-07 SCENARIOS.schema.json round-trip valid for all 10 entries, 11-stream PHASE_56_GUARDED_STREAMS canonical fingerprint byte-equal pre/post --run-all (cross_run_drift=0), real spawnSync subprocess boundary across all 10 scenarios, tmpdir container isolation, validateScenarioOutcome oracle byte-equality on OUTCOMES enum, adversarial scenarios PASS when under-test tool REJECTS malformed input, 4 fixture files + 6 README-only fixture dirs, run-self-test.cjs thin shell dual-pass green, sgsd-complete-milestone.cjs surgical extension preserves prior gate paths byte-equality, Lock 4 verified Phase 41-55 trees + sgsd-cockpit-shell.cjs git-diff-quiet, Lock 11 byte-equality + set-membership only, Lock 13 never throws upward across 6 APIs x 7 bad-input probes, ASCII-only first_nonascii_idx=-1, MUDA waste audit 5 probes PASS exit 0, Plan validates VALID, 2 in-loop fixes during build)"
+    phase_57: "PASS @ 24ca109+0a8e611 (8/8 verifier must-haves, 15/15 self-test PASS green sub-1s, v2.0 sept-gate green 33+26+24+10+18+8+~21+10+score=97 across 8 spawns, 6 public APIs Lock-13 wrapped (computeScore/getBucketScore/hasEdgeGuardMiss/getColor/selfTest + _internals), 8 frozen BUCKET_NAMES (scenarios/chaos_restart/provider_circuit/scenario_suite/token_governance/memory_governance/routing_quality/lock_invariants) + frozen MAX_POINTS map (15+10+10+15+15+10+10+15=100) + frozen REASON_CODES (10-entry vocab) + frozen COLORS (3-entry GREEN/AMBER/RED), color thresholds GREEN>=70 / AMBER 50-69 / RED<50 + edge_guard_miss override forces RED+score=0+exit=1 mechanically demonstrated by selfTest assertion 5 + standalone --planning-dir <fixture> invocation, live --milestone v2.0 score=97/100 GREEN exit 0, 3 fixture cases (score-70-clean/score-69-amber/score-with-edge-guard-miss), run-self-test.cjs thin shell delegates correctly, sgsd-complete-milestone.cjs surgical sept-gate extension (+112 insertions 0 deletions) preserves v1.9 dual-gate + Phase 53/54/55/56 paths byte-equality up to insertion point + disambiguation via in-proc computeScore() emits precise stderr tag (milestone_close_blocked:edge_guard_miss_present vs milestone_close_blocked:release_score_below_threshold), Lock 4 verified release-readiness/ + sgsd-complete-milestone.cjs are the only Phase-57 changes (1 out-of-scope pre-existing collect.cjs diff logged as deferred D1), Lock 11 byte-equality on verdict/kind closed-vocab no regex/fuzzy, Lock 13 try/catch wraps every public API + bad-input probes, ASCII-only first_nonascii_idx=-1 across all 6 changed files, MUDA waste audit PASS exit 0, Plan validates VALID load-mode against plan-schema-v2.json, v1.9 dual-gate green no regression)"
+  v2_0_complete:
+    shipped: 2026-04-29
+    status: SHIPPED
+    initial_backlog: 0
+    cleared_in_loop: 6
+    accepted: 0
+    false_alarm: 0
+    remaining_unresolved: 0
+    phases: 5
+    plans: 5
+    sept_gate: green
+    release_readiness_score: 97
+    release_readiness_color: GREEN
+    edge_guard_miss_count: 0
+    summary: .planning/milestones/v2.0/SUMMARY.md
+    generated_artifacts:
+      - .planning/metrics/failure-injection-log.jsonl (Phase 53 - 1500+ envelope-v1 rows)
+      - .planning/metrics/chaos-restart-log.jsonl (Phase 54 - aggregate per --run-all)
+      - .planning/metrics/provider-circuit.json (Phase 55 - schema_version 1)
+      - .planning/metrics/scenario-suite-log.jsonl (Phase 56 - per-scenario envelope-v1)
+      - super-gsd/tools/release-readiness/score.cjs (Phase 57 - 8-bucket scorer)
+      - super-gsd/tools/release-readiness/run-self-test.cjs (Phase 57 - thin shell)
+      - super-gsd/tools/release-readiness/fixtures/score-with-edge-guard-miss/crit-backlog.jsonl (Phase 57 - synthetic)
+      - super-gsd/scripts/sgsd-complete-milestone.cjs (Phase 53-57 - sept-gate extension)
   v1_9_milestone_codename: SGSD-Research
   v1_9_vtp_delta_active: ".planning/milestones/v1.9/VTP-RESEARCH-DELTA.md (commit 2d8ea5a) — forward-only addendum applies to Phases 45+, 49, 51, 52. Phases 41-44 LOCKED."
   v1_9_progress:
@@ -124,7 +149,7 @@ roadmap_run:
     phase_38: "PASS @ f265d64"
     phase_39: "PASS @ 3d9c37e"
     phase_40: "PASS @ 3747a63 (2 CRIT + 4 WARN; 2 in-loop, 1 false alarm, 1 accepted; combined anti-slop ~9/10)"
-  milestones_shipped: ["v1.6 SHIPPED-WITH-DEBT-10 @ d510e32", "v1.7 SHIPPED @ 5690c38", "v1.8 SHIPPED @ <pending>"]
+  milestones_shipped: ["v1.6 SHIPPED-WITH-DEBT-10 @ d510e32", "v1.7 SHIPPED @ 5690c38", "v1.8 SHIPPED @ <pending>", "v1.9 SHIPPED @ <pending>", "v2.0 SHIPPED @ <pending>"]
 ---
 
 # Project State
