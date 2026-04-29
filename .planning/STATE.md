@@ -1,13 +1,54 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.2
-milestone_name: SGSD Warp Integration — milestone v2.2 of v2.2-v2.8 roadmap
-milestone_status: "v2.2 5/5 PHASES CLOSED 2026-04-29 — ready for sgsd-complete-milestone (operator decides: SHIPPED-WITH-DEFERRED-5 now, or do M1-M5 manual UI checks first then SHIPPED clean). Auto-run halted after Phase 66 close."
-status: "v2.2 ALL-PHASES-CLOSED 2026-04-29 — awaiting operator: M1-M5 + milestone close decision"
+milestone: v2.6
+milestone_name: SGSD Warp Integration — milestone v2.6 (Review/Recovery/Sharing/Remote Monitoring)
+milestone_status: "v2.6 ACTIVE 2026-04-29 — Phases 84-85 closed; Phase 86 PAUSED per operator override (token control + staleness reconciliation). v2.2-v2.5 SHIPPED 19/19 phases (63-83) earlier this session. STATE.md was stale until 2026-04-29T21:25Z re-sync."
+status: "v2.6 ACTIVE 2026-04-29 — Phase 86 paused on operator token-control override; addressing 7-point list + 3 Phase-85 deferrals before resuming"
 stopped_at: 2026-04-29 — Phase 63 closed PASS-WITH-DEFERRED-5 @ b5b46a8 (Warp Capability Smoke Test; 7 artifacts under .planning/milestones/v2.2/; 13-row evidence matrix in WARP-SMOKE.md; 5 operator UI manual checks M1-M5 pending in MANUAL-CHECKS.md; sg-launched-Claude topology proven empirically — this Claude session itself is the evidence; ~/.warp/launch_configurations/ exists but empty; .warp/workflows lint 4/5 with sgsd-token-current.yaml missing arguments block forwarded to Phase 64; .warpindexingignore missing forwarded to Phase 65 or new ignore-pack phase; tmux not native on Windows; Warp install at ~/AppData/Local/Programs/Warp/Warp.exe; previous roadmap v1.6-v2.1 ROADMAP COMPLETE 2026-04-29 preserved in previous_roadmap block — all 30 phases (26-62) shipped across 6 milestones (v1.6 SHIPPED-WITH-DEBT-10, v1.7-v2.1 SHIPPED clean)).
-last_updated: "2026-04-29T19:55:00Z"
-last_activity: "2026-04-29 — Phase 63 (Warp Capability Smoke Test) closed PASS-WITH-DEFERRED-5 @ b5b46a8. v2.2 milestone scaffolded; 7 artifacts under .planning/milestones/v2.2/ (WARP-SMOKE.md + MANUAL-CHECKS.md + 5 standard phase artifacts CONTEXT/PLAN/RESEARCH/VERIFICATION/ATC-REVIEW). Evidence matrix records 5 PASS rows (Q2/Q3/Q4/Q7/Q8: sg/sgsd/sgsd-setup interactive resolution + sg-keeps-Claude-in-current-tab topology + launch config dir empty), 1 PARTIAL (Q12: 4/5 workflow YAML lint OK; sgsd-token-current.yaml missing arguments block — Phase 64 input), 1 DOCS-CONFIRMED (Q11: WSL/SSH disables Codebase Context per Warp docs), 5 MANUAL-CHECK-REQUIRED (Q1/Q5/Q6/Q9/Q10: workflow searchability + claude/sg utility-bar detection + launch-config active-window behavior + Codebase Context state — operator verifies in Warp UI per MANUAL-CHECKS.md M1-M5). Forwarded to Phase 64+: workflow pack completion (Q12+Q1), AGENTS.md (Phase 65), .warpindexingignore (Phase 65 or new ignore-pack phase), warp-doctor probes (Phase 67), launch-config templates must NOT assume active-window (Phase 78), upstream issue tracking at https://github.com/warpdotdev/warp issues #7326 ACP and #9233 May-Jun 2026 roadmap (Phase 96). No source-file mutations; git diff confined to .planning/milestones/v2.2/. Previous roadmap v1.6-v2.1 SHIPPED 2026-04-29 — see previous_roadmap block."
+last_updated: "2026-04-29T21:25:00Z"
+last_activity: "2026-04-29T21:25Z RE-SYNC — STATE.md was stale (mtime 20:07; latest pulse 21:19; 5 commits since 81-85). Operator override at Phase 85 close flagged: STATE.md staleness + Codex unavailability + context-packet builder dormant + token burn ~21.5M (orchestrator alone ~18M; root context ~775k tokens/turn). Phase 86 PAUSED to address 7-point token-control list + 3 Phase-85 deferrals. Auto-run completed 19/19 phases this session (63-83) plus 84+85; current commits b5b46a8 / d35e92a / eb252f3 / c0201af / 018028e / 5ae2ba0 / 3b2186f / f5fe11a / 4e2b19c / 8dbb9cb / 31907c2 / 0211b0c / dcd039b / 0905cbf / ebfaf7c / 11bb6bb / 2ab84d7 / 6f50232 / 1baf708 / 6021fbb / ad5948d / 72e0d6b / 5914be6 / 6ba04f8 / 22aedd5 / a6b83c8 / bd54eb3 / 5a74bda / 8eb7de8 / e69271e / 7256a76 / 350e101 / 19e544e / 2e8ce85 / 8bad3ad / 347c56a. Original Phase 63 close text preserved in v2_2 progress block below; full per-phase progress in v2_3-v2_6 blocks below. v2.2 milestone scaffolded; 7 artifacts under .planning/milestones/v2.2/ (WARP-SMOKE.md + MANUAL-CHECKS.md + 5 standard phase artifacts CONTEXT/PLAN/RESEARCH/VERIFICATION/ATC-REVIEW). Evidence matrix records 5 PASS rows (Q2/Q3/Q4/Q7/Q8: sg/sgsd/sgsd-setup interactive resolution + sg-keeps-Claude-in-current-tab topology + launch config dir empty), 1 PARTIAL (Q12: 4/5 workflow YAML lint OK; sgsd-token-current.yaml missing arguments block — Phase 64 input), 1 DOCS-CONFIRMED (Q11: WSL/SSH disables Codebase Context per Warp docs), 5 MANUAL-CHECK-REQUIRED (Q1/Q5/Q6/Q9/Q10: workflow searchability + claude/sg utility-bar detection + launch-config active-window behavior + Codebase Context state — operator verifies in Warp UI per MANUAL-CHECKS.md M1-M5). Forwarded to Phase 64+: workflow pack completion (Q12+Q1), AGENTS.md (Phase 65), .warpindexingignore (Phase 65 or new ignore-pack phase), warp-doctor probes (Phase 67), launch-config templates must NOT assume active-window (Phase 78), upstream issue tracking at https://github.com/warpdotdev/warp issues #7326 ACP and #9233 May-Jun 2026 roadmap (Phase 96). No source-file mutations; git diff confined to .planning/milestones/v2.2/. Previous roadmap v1.6-v2.1 SHIPPED 2026-04-29 — see previous_roadmap block."
 progress:
+  v2_6:
+    total_phases: 5
+    completed_phases: 2
+    completed_plans: 2
+    percent: 40
+    phase_84: "1/1 plan complete — PASS ✓ 2026-04-29 @ 2e8ce85 (Code Review Integration Guide + SGSD: Open Review Artifacts workflow; 2-layer review model documented; 15/15 workflow lint)"
+    phase_85: "1/1 plan complete — PASS-WITH-DEFERRED-3 ✓ 2026-04-29 @ 8bad3ad+347c56a (Recovery Packet Upgrade; 1818 bytes ≤4KB; why_stopped + artifact_links + roadmap-complete branch; 44/44 self-test; DEFERRED-1 STATE.md staleness contagion + DEFERRED-2 Codex unavailable Phase 84/85 + DEFERRED-3 context-packet-log.jsonl 24h+ stale — Phase 86 must address)"
+    phase_86: "PAUSED on operator override — Token Control + Staleness Reconciliation. 7-point list (token-control repair / cockpit + recovery staleness probes / token-waste+context-packet wire-in / 200k+500k context warnings / fresh-session resume packets / context-bench full-mode rerun or unproven mark / v2.6 debt record) + 3 Phase-85 deferrals. Originally 'Remote Monitor Packet' but most of that work shipped via Phase 64 workflow + Phase 79 skill"
+    phase_87: "PENDING — Watchdog And Attention Alerts (originally; may re-scope after Phase 86)"
+    phase_88: "PENDING — End-To-End Warp Operator Drill"
+  v2_5:
+    total_phases: 5
+    completed_phases: 5
+    completed_plans: 5
+    percent: 100
+    phase_79: "PASS ✓ 2026-04-29 @ 5a74bda (7 SGSD Warp skills under .agents/skills/; read-only by design)"
+    phase_80: "PASS ✓ 2026-04-29 @ 8eb7de8+e69271e (Warp Plan converter; 4 public APIs Lock-13; 17/17 self-test; READ-ONLY on STATE.md verified mechanically; 9 phase files generated under .planning/analyses/ live test)"
+    phase_81: "PASS ✓ 2026-04-29 @ 7256a76 (SGSD Warp Operator Notebook; 10 runnable PowerShell blocks)"
+    phase_82: "PASS ✓ 2026-04-29 @ 350e101 (7 Warp Agent prompts; mode declared per prompt; none auto-modify)"
+    phase_83: "PASS ✓ 2026-04-29 @ 19e544e (asset cross-index; 47 paths cited 0 missing; validator 5/5 self-test)"
+  v2_4:
+    total_phases: 6
+    completed_phases: 6
+    completed_plans: 6
+    percent: 100
+    phase_73: "PASS ✓ 2026-04-29 @ 6021fbb (12 operator questions mapped to MCP tools; 16 event types frozen for Phase 74)"
+    phase_74: "PASS ✓ 2026-04-29 @ ad5948d (ORCHESTRATOR-LIVE.jsonl contract + writer helper; 9/9 self-test; Lock-13)"
+    phase_75: "PASS ✓ 2026-04-29 @ 72e0d6b+5914be6 (writer integration; --emit CLI + READ-ONLY reader 12/12 self-test + SKILL.md wire-in section)"
+    phase_76: "PASS ✓ 2026-04-29 @ 6ba04f8+22aedd5 (cockpit-state adapter; 10-section snapshot; 4 fixtures; MCP tool 12 unification; warp-mcp 42/42 regression PASS)"
+    phase_77: "PASS ✓ 2026-04-29 @ a6b83c8 (cockpit render helper; PSParser 0 errors; existing 3 cockpit panes UNTOUCHED — operator parallel work preserved)"
+    phase_78: "PASS ✓ 2026-04-29 @ bd54eb3 (Warp launch config templates — operator-workspace + cockpit-only + README; M4 caveat documented)"
+  v2_3:
+    total_phases: 5
+    completed_phases: 5
+    completed_plans: 5
+    percent: 100
+    phase_68: "PASS ✓ 2026-04-29 @ 31907c2 (SGSD MCP read-only contract; 14 tools; ERROR_CODES len=11; REDACTION_CATEGORIES len=7)"
+    phase_69: "PASS ✓ 2026-04-29 @ 0211b0c+dcd039b (MCP server skeleton; JSON-RPC 2.0 stdio; 14 tool stubs; 15/15 self-test)"
+    phase_70: "PASS ✓ 2026-04-29 @ 0905cbf+ebfaf7c (5 core status tools — current_state/current_phase/milestone_status/watchdog/recovery_packet; 21/21 self-test; 10 fixture pairs)"
+    phase_71: "PASS ✓ 2026-04-29 @ 11bb6bb+2ab84d7 (9 operational tools — gate/agent/codex/token/context-bench/commits/cockpit-snapshot/artifact-links/warp-doctor; 30/30 self-test; 28 fixture pairs; live hash-match against git log -1)"
+    phase_72: "PASS ✓ 2026-04-29 @ 6f50232+1baf708 (MCP redaction 7 categories wired into all 14 tools; ERROR_CODES extended len=13; warp-doctor probe 15 upgraded; SGSD-WARP-MCP-SETUP.md; sgsd-mcp-self-test workflow)"
   v2_2:
     total_phases: 5
     completed_phases: 5
