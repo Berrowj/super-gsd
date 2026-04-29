@@ -540,19 +540,21 @@ function executeLocal(capsule, decision, opts) {
     stderr_excerpt: r.stderr.slice(-2000),
     error: r.error,
   };
-  writeJson(reportPath, report);
-  logExecutionRoute(planningDir, capsule, decision, {
-    status: report.status,
-    report_path: reportPath,
-    patch_path: null,
-    changed_files: [],
-    out_of_scope_files: [],
-    tests_passed: accepted,
-    accepted,
-    applied: false,
-    duration_ms: r.duration_ms,
-    token_estimate: { total_estimated_tokens: 0 },
-  });
+  if (o.log !== false) {
+    writeJson(reportPath, report);
+    logExecutionRoute(planningDir, capsule, decision, {
+      status: report.status,
+      report_path: reportPath,
+      patch_path: null,
+      changed_files: [],
+      out_of_scope_files: [],
+      tests_passed: accepted,
+      accepted,
+      applied: false,
+      duration_ms: r.duration_ms,
+      token_estimate: { total_estimated_tokens: 0 },
+    });
+  }
   return report;
 }
 
