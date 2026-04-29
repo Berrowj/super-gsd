@@ -303,6 +303,78 @@ function selfTest() {
     loadOK,
     'load_err=' + loadErr);
 
+  // ---- leg7: Phase 87-01 freshness assertion -- PASS path ---------------
+  // Synthetic env where context-packet-log.jsonl is freshly written and
+  // crit-backlog has zero blocking rows. v2.6 close gate exits 0.
+  // Note: warp-doctor probe operates on projectDir/.planning so we set up
+  // the planning dir as a child of a fresh project root.
+  let leg7Root = null;
+  try {
+    leg7Root = path.join(os.tmpdir(),
+      'sgsd-complete-milestone-self-test-leg7-' + Date.now()
+      + '-' + Math.floor(Math.random() * 1e6));
+    const leg7Planning = path.join(leg7Root, '.planning');
+    fs.mkdirSync(path.join(leg7Planning, 'metrics'), { recursive: true });
+    // No blocking debt rows (empty backlog).
+    _writeCritBacklog(leg7Planning, []);
+    // Fresh context-packet-log.jsonl (mtime now).
+    const fresh7 = path.join(leg7Planning, 'metrics', 'context-packet-log.jsonl');
+    fs.writeFileSync(fresh7,
+      JSON.stringify({ schema_version: 1, ts: _now(),
+        packet_id: 'leg7_synth', role: 'researcher' }) + '\n', 'utf8');
+    // Touch STATE.md so warp-doctor's other freshness probe doesn't degrade.
+    fs.writeFileSync(path.join(leg7Planning, 'STATE.md'),
+      '# state\nactive_milestone: v2.6\n', 'utf8');
+    const r7 = _runGate(['--milestone', 'v2.6', '--planning-dir', leg7Planning]);
+    const r7Green = r7.stdout.indexOf('v2.6 close gate green') !== -1;
+    const r7NotMissing = r7.stderr.indexOf(
+      'context_packet_builder_freshness_missing') === -1;
+    add('leg7_pass_when_freshness_green',
+      r7.status === 0 && r7Green && r7NotMissing,
+      'status=' + r7.status + ' green=' + r7Green
+        + ' freshness_not_missing=' + r7NotMissing);
+  } catch (e) {
+    add('leg7_pass_when_freshness_green', false,
+      'fixture_threw=' + (e && e.message ? e.message : 'unknown'));
+  } finally {
+    if (leg7Root) _rmrfQuiet(leg7Root);
+  }
+
+  // ---- leg8: Phase 87-01 freshness assertion -- MISSING path ------------
+  // Synthetic env with stale context-packet-log.jsonl (mtime 25h+ old).
+  // Empty crit-backlog so the staleness probe is the sole blocker.
+  // Expect: exit 1 with stderr containing
+  // 'context_packet_builder_freshness_missing'.
+  let leg8Root = null;
+  try {
+    leg8Root = path.join(os.tmpdir(),
+      'sgsd-complete-milestone-self-test-leg8-' + Date.now()
+      + '-' + Math.floor(Math.random() * 1e6));
+    const leg8Planning = path.join(leg8Root, '.planning');
+    fs.mkdirSync(path.join(leg8Planning, 'metrics'), { recursive: true });
+    _writeCritBacklog(leg8Planning, []);
+    const stale8 = path.join(leg8Planning, 'metrics', 'context-packet-log.jsonl');
+    fs.writeFileSync(stale8,
+      JSON.stringify({ schema_version: 1, ts: _now(),
+        packet_id: 'leg8_synth_stale', role: 'researcher' }) + '\n', 'utf8');
+    // Backdate mtime by 25 hours so the freshness probe returns MISSING.
+    const stalePast = (Date.now() / 1000) - (25 * 3600);
+    try { fs.utimesSync(stale8, stalePast, stalePast); } catch (_e) { /* ok */ }
+    fs.writeFileSync(path.join(leg8Planning, 'STATE.md'),
+      '# state\nactive_milestone: v2.6\n', 'utf8');
+    const r8 = _runGate(['--milestone', 'v2.6', '--planning-dir', leg8Planning]);
+    const r8Missing = r8.stderr.indexOf(
+      'milestone_close_blocked:context_packet_builder_freshness_missing') !== -1;
+    add('leg8_block_when_freshness_missing',
+      r8.status === 1 && r8Missing,
+      'status=' + r8.status + ' freshness_block=' + r8Missing);
+  } catch (e) {
+    add('leg8_block_when_freshness_missing', false,
+      'fixture_threw=' + (e && e.message ? e.message : 'unknown'));
+  } finally {
+    if (leg8Root) _rmrfQuiet(leg8Root);
+  }
+
   return {
     ok: results.every(function (r) { return r.ok; }),
     results: results,

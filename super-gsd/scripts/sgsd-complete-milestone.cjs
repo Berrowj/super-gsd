@@ -268,9 +268,85 @@ function _main(argv) {
         process.exit(1);
         return;
       }
+
+      // ---------------------------------------------------------------------
+      // Phase 87-01 v2.6 close gate extension: context_packet_builder_freshness
+      // must be PASS at milestone close. The freshness probe (Phase 86 D86.2,
+      // warp-doctor _probe_context_packet_builder_freshness) checks the mtime
+      // of .planning/metrics/context-packet-log.jsonl against a 24h window.
+      // After Phase 87-01 ships orchestrator-hooks.cjs, /sgsd-orchestrate go
+      // refreshes the log via the bash hook on every dispatch. If the probe
+      // returns MISSING (log >24h stale OR Phase 45 absent + dormant), the
+      // close gate refuses SHIPPED-clean and instructs operator to either
+      // refresh via a hook invocation or mark SHIPPED-WITH-CRIT-DEBT.
+      // Lock 13: spawn / parse failures DO NOT fail the gate; only an
+      // explicit MISSING status from a parsed envelope blocks. PASS,
+      // NOT-APPLICABLE, DEGRADED -> continue.
+      // ---------------------------------------------------------------------
+      try {
+        const child_process_v26 = require('child_process');
+        const doctorPath_v26 = path_v26.resolve(__dirname, '..', 'tools',
+          'warp-doctor', 'check.cjs');
+        if (fs_v26.existsSync(doctorPath_v26)) {
+          const doctorRes_v26 = child_process_v26.spawnSync(
+            process.execPath,
+            [doctorPath_v26,
+              '--project', path_v26.dirname(planningDir_v26),
+              '--json'],
+            { encoding: 'utf8', timeout: 10000, windowsHide: true }
+          );
+          let probeStatus_v26 = null;
+          let probeReason_v26 = '';
+          let probeEvidence_v26 = '';
+          if (!doctorRes_v26.error
+              && typeof doctorRes_v26.stdout === 'string'
+              && doctorRes_v26.stdout.length > 0) {
+            try {
+              const env_v26 = JSON.parse(doctorRes_v26.stdout);
+              if (env_v26 && Array.isArray(env_v26.probes)) {
+                for (let pi_v26 = 0; pi_v26 < env_v26.probes.length; pi_v26++) {
+                  const pp_v26 = env_v26.probes[pi_v26];
+                  if (pp_v26
+                      && pp_v26.name === 'context_packet_builder_freshness') {
+                    probeStatus_v26 = pp_v26.status || null;
+                    probeReason_v26 = pp_v26.reason || '';
+                    probeEvidence_v26 = pp_v26.evidence || '';
+                    break;
+                  }
+                }
+              }
+            } catch (_pe_v26) {
+              // Parse failure -- Lock 13: do NOT fail the gate on tooling
+              // hiccups. Continue to the green path.
+            }
+          }
+          if (probeStatus_v26 === 'MISSING') {
+            process.stderr.write(
+              'milestone_close_blocked:context_packet_builder_freshness_missing\n');
+            process.stderr.write('  reason=' + probeReason_v26 + '\n');
+            process.stderr.write('  evidence=' + probeEvidence_v26 + '\n');
+            process.stderr.write(
+              '  Phase 45 builder is dormant (context-packet-log.jsonl '
+              + '>24h stale).\n');
+            process.stderr.write(
+              '  Refresh: node super-gsd/scripts/lib/orchestrator-hooks.cjs '
+              + '--context-packet-build --role researcher --phase v2.6 '
+              + '--milestone v2.6 --project-dir "' + path_v26.dirname(planningDir_v26) + '"\n');
+            process.stderr.write(
+              '  OR mark v2.6 SHIPPED-WITH-CRIT-DEBT explicitly.\n');
+            process.exit(1);
+            return;
+          }
+          // PASS, NOT-APPLICABLE, DEGRADED, or null -> continue.
+        }
+      } catch (_e_v26) {
+        // Lock 13: never throw upward from the freshness assertion.
+      }
+
       process.stdout.write('milestone_close_gate: v2.6 close gate green '
         + '(no open v2_6_debt rows match '
-        + 'context_packet_builder_dormant or context_bench_full_mode_unproven)\n');
+        + 'context_packet_builder_dormant or context_bench_full_mode_unproven; '
+        + 'context_packet_builder_freshness PASS or NOT-APPLICABLE)\n');
       process.exit(0);
       return;
     }

@@ -1612,6 +1612,32 @@ REPEAT:
        logDeviation('packet_build_exception', e.message);
      }
 
+     ## Step 6.b.4 -- Build Context Packet via Bash hook (Phase 87-01 wire-in)
+
+     Step 7.5 above is the in-orchestrator-turn require()-driven build path.
+     For external automation (cron, smoke, hooks called from a non-Claude
+     bash context), the same Phase 45 buildPacket() is exposed as a CLI:
+
+     ```bash
+     node super-gsd/scripts/lib/orchestrator-hooks.cjs --context-packet-build \
+       --role "$AGENT_TYPE" \
+       --phase "$PHASE" \
+       --plan "$PLAN_ID" \
+       --milestone "$MILESTONE" \
+       --project-dir "$PROJECT_DIR"
+     ```
+
+     The hook spawns / require()s super-gsd/tools/context-packet/build.cjs per
+     Phase 45 contract. On success, .planning/metrics/context-packet-log.jsonl
+     mtime updates and the Phase 86 context_packet_builder_freshness probe
+     (warp-doctor) returns PASS. On failure (Phase 45 absent, build sentinel),
+     stdout returns {ok:false,error:...} and the orchestrator continues with
+     the legacy raw-context path per Lock 13.
+
+     Phase 87 ships this hook so the v2.6 close gate (sgsd-complete-milestone
+     --milestone v2.6) can deterministically refresh the freshness probe via
+     a single bash invocation when the orchestrator is not actively running.
+
   7.6. DOUBLE-AGENT EXECUTOR ROUTE (post-v2.1 token hardening)
      Purpose: before a normal gsd-executor dispatch, decide whether the task
      should be handled by local-script, Codex, or Claude. This is the
@@ -2187,6 +2213,32 @@ REPEAT:
       - Mark ROADMAP.md phase progress
       - Log token usage to .planning/metrics/token-log.jsonl
       } // end gates.shouldFire('token-log')
+
+  11.5. TOKEN-WASTE CHECK (Phase 42 wire-in via Phase 87-01 hook)
+      // After committing each plan but before advancing to the next plan,
+      // run the token-waste check via the orchestrator-hooks bash entry.
+      // Lock 13: hook never throws; verdict drives event emission.
+
+      ```bash
+      node super-gsd/scripts/lib/orchestrator-hooks.cjs --token-waste-check \
+        --milestone "$MILESTONE" \
+        --project-dir "$PROJECT_DIR"
+      ```
+
+      The hook spawns super-gsd/tools/token-waste/check.cjs --check --json
+      per Phase 42 contract. Verdict handling (Lock 13: NO 'blocked' verdict):
+      - verdict 'ok' / 'false_positive': continue.
+      - verdict 'warn': hook emits ORCHESTRATOR-LIVE 'token_threshold_crossed'
+        event; orchestrator logs to DEVIATIONS for the phase; continue.
+      - verdict 'degraded': hook emits 'token_threshold_crossed'; orchestrator
+        considers route_hint substitution (researcher_local_script,
+        codex_reviewer_fallback, etc.) on next dispatch; continue.
+      - subprocess fail / parse fail: hook returns {ok:false,error:...};
+        orchestrator logs DEVIATIONS and continues (Lock 13 floor).
+
+      Hard-stop on token spend remains reserved for SGSD-HANDOVER.md:79-86
+      autonomy-halt path; this hook is soft-warn-with-evidence per design
+      lock 13 ("autonomy continues; evidence tells the truth").
 
   12. GIT COMMIT
       Atomic commit per unit:
