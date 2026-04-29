@@ -3,9 +3,21 @@
   "schema_version": 1,
   "tool": "sgsd_recovery_packet",
   "data": {
+    "current_position": {
+      "milestone": "v2.3",
+      "phase": "70",
+      "phase_status": "in-progress",
+      "last_activity_summary": "<exists>true</exists>",
+      "milestone_status_summary": "<contains>v2.3</contains>"
+    },
+    "watchdog_state": "<exists>true</exists>",
+    "why_stopped": "<exists>true</exists>",
     "next_unlock": {
       "from": "checkpoint",
       "text": "<contains>plan 70-01</contains>"
+    },
+    "artifact_links": {
+      "checkpoint": "<exists>true</exists>"
     },
     "resume_command": "/sgsd-orchestrate go"
   },

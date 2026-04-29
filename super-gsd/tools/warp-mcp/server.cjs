@@ -951,17 +951,168 @@ function _tool_sgsd_watchdog_status(args) {
   }
 }
 
+// Phase 85: trim a string to ~200 chars (with ellipsis sentinel) so the
+// recovery packet stays block-sized + attachable. Full STATE.md remains
+// available via sgsd_current_state for operators who need the long form.
+function _trim200(s) {
+  try {
+    if (typeof s !== 'string') return null;
+    if (s.length <= 200) return s;
+    return s.slice(0, 200) + '...';
+  } catch (_e) {
+    return null;
+  }
+}
+
+// Phase 85: derive a 1-line "why_stopped" from the current_state envelope.
+// Heuristic: roadmap-complete > milestone all-phases-closed > clause after
+// "--" or em-dash > generic "active execution" fallback.
+function _deriveWhyStopped(currentState) {
+  try {
+    if (!currentState || typeof currentState !== 'object') {
+      return 'Active execution; no halt reason recorded';
+    }
+    var ms = (typeof currentState.milestone_status === 'string')
+      ? currentState.milestone_status : '';
+    var status = (typeof currentState.status === 'string')
+      ? currentState.status : '';
+    var phase = (typeof currentState.current_phase === 'string')
+      ? currentState.current_phase : '';
+
+    // Roadmap-complete cases.
+    if (phase === 'complete' && /COMPLETE|SHIPPED/i.test(ms)) {
+      return 'ROADMAP COMPLETE -- nothing to resume';
+    }
+    if (/ALL-PHASES-CLOSED/.test(status) || /ALL-PHASES-CLOSED/.test(ms)) {
+      return 'Milestone all phases closed -- awaiting operator decision (close milestone or advance to next)';
+    }
+
+    // Try to extract clause after em-dash or "--" in milestone_status.
+    // Prefer em-dash (U+2014) / en-dash (U+2013); fall back to ASCII "--".
+    // Use Unicode escapes so the source itself stays ASCII (selfTest A11).
+    var emDashRe = new RegExp('[\\u2014\\u2013]\\s*(.{20,200})');
+    var m = ms.match(emDashRe);
+    if (!m) m = ms.match(/--\s*(.{20,200})/);
+    if (m) {
+      var clause = m[1].split(/[.;]/)[0].replace(/^\s+|\s+$/g, '');
+      if (clause.length > 0) {
+        if (clause.length > 200) clause = clause.slice(0, 200);
+        return clause;
+      }
+    }
+    return 'Active execution; no halt reason recorded';
+  } catch (_e) {
+    return 'Active execution; no halt reason recorded';
+  }
+}
+
+// Phase 85: walk .planning/milestones/{milestone}/phases/ and resolve the
+// active phase folder, then return paths (relative to project root) for
+// {NN}-VERIFICATION.md + {NN}-ATC-REVIEW.md plus the orchestrator
+// checkpoint. Returns null fields when files not found (degraded path).
+// When current_phase === 'complete', latest_verification points at the
+// highest-numbered phase's VERIFICATION.md (most recently closed phase).
+function _deriveArtifactLinks(currentState, planningDir, checkpointPath) {
+  var out = {
+    latest_verification: null,
+    latest_atc_review: null,
+    checkpoint: null,
+  };
+  try {
+    // Checkpoint path: relative form when under live .planning, else null.
+    if (typeof checkpointPath === 'string' && checkpointPath.length > 0) {
+      var ckExists = false;
+      try { ckExists = fs.existsSync(checkpointPath); } catch (_ck) { ckExists = false; }
+      if (ckExists) {
+        out.checkpoint = '.planning/ORCHESTRATOR-CHECKPOINT.md';
+      }
+    }
+
+    if (!currentState || typeof currentState !== 'object') return out;
+    var milestone = (typeof currentState.milestone === 'string'
+      && currentState.milestone.length > 0) ? currentState.milestone : null;
+    if (!milestone) return out;
+
+    var phasesDir = path.join(planningDir, 'milestones', milestone, 'phases');
+    var dirExists = false;
+    try { dirExists = fs.existsSync(phasesDir); } catch (_de) { dirExists = false; }
+    if (!dirExists) return out;
+
+    var entries = [];
+    try { entries = fs.readdirSync(phasesDir); } catch (_re) { entries = []; }
+    if (!Array.isArray(entries) || entries.length === 0) return out;
+
+    // Find folders matching NN-... pattern; record (number, folderName).
+    var phaseFolders = [];
+    for (var i = 0; i < entries.length; i++) {
+      var ent = entries[i];
+      if (typeof ent !== 'string') continue;
+      var fm = ent.match(/^(\d+)-/);
+      if (!fm) continue;
+      phaseFolders.push({ num: parseInt(fm[1], 10), name: ent });
+    }
+    if (phaseFolders.length === 0) return out;
+
+    // Sort ascending by num.
+    phaseFolders.sort(function (a, b) { return a.num - b.num; });
+
+    // Resolve target phase folder.
+    var phase = (typeof currentState.current_phase === 'string')
+      ? currentState.current_phase : '';
+    var target = null;
+
+    if (phase === 'complete' || phase.length === 0) {
+      // Roadmap-complete: pick highest-numbered closed phase.
+      target = phaseFolders[phaseFolders.length - 1];
+    } else {
+      // Match by phase number prefix.
+      var pn = parseInt(phase, 10);
+      if (!isNaN(pn)) {
+        for (var pi = 0; pi < phaseFolders.length; pi++) {
+          if (phaseFolders[pi].num === pn) { target = phaseFolders[pi]; break; }
+        }
+      }
+      // Fallback to highest-numbered if no match.
+      if (!target) target = phaseFolders[phaseFolders.length - 1];
+    }
+    if (!target) return out;
+
+    var nn = String(target.num);
+    if (target.num < 10) nn = '0' + nn;
+    var verPath = path.join(phasesDir, target.name, nn + '-VERIFICATION.md');
+    var atcPath = path.join(phasesDir, target.name, nn + '-ATC-REVIEW.md');
+
+    // Build relative-to-project-root paths (forward-slash, stable for clients).
+    var relBase = '.planning/milestones/' + milestone + '/phases/' + target.name + '/';
+    try {
+      if (fs.existsSync(verPath)) out.latest_verification = relBase + nn + '-VERIFICATION.md';
+    } catch (_ve) { /* leave null */ }
+    try {
+      if (fs.existsSync(atcPath)) out.latest_atc_review = relBase + nn + '-ATC-REVIEW.md';
+    } catch (_ae) { /* leave null */ }
+    return out;
+  } catch (_e) {
+    return out;
+  }
+}
+
 function _tool_sgsd_recovery_packet(args) {
   var name = 'sgsd_recovery_packet';
   try {
     var planningDir = _resolvePlanningDir(args);
     var checkpointPath = path.join(planningDir, 'ORCHESTRATOR-CHECKPOINT.md');
 
-    // Compose current_position via current_state tool (delegate; share planningDir).
+    // Compose current_position via current_state tool (delegate; share
+    // planningDir). Pull the FULL envelope first so we can derive the
+    // trimmed, block-sized view + why_stopped + artifact_links.
     var currentStateEnv = _tool_sgsd_current_state(args);
-    var watchdogEnv = _tool_sgsd_watchdog_status(args);
+    // Phase 85: pass tail_rows: 3 to keep watchdog payload small inside
+    // the recovery packet (block-sized budget). Operators wanting more
+    // pulses still call sgsd_watchdog_status directly.
+    var wdArgs = { fixture_planning_dir: (args && args.fixture_planning_dir) || undefined, tail_rows: 3 };
+    var watchdogEnv = _tool_sgsd_watchdog_status(wdArgs);
 
-    var currentPosition = (currentStateEnv && currentStateEnv.ok === true)
+    var fullCurrentState = (currentStateEnv && currentStateEnv.ok === true)
       ? currentStateEnv.data : null;
     var watchdogState = (watchdogEnv && watchdogEnv.ok === true)
       ? watchdogEnv.data : null;
@@ -1010,10 +1161,10 @@ function _tool_sgsd_recovery_packet(args) {
     if (!nextUnlock) {
       // Fallback to STATE.md milestone_status.
       var fallbackText = null;
-      if (currentPosition && typeof currentPosition.milestone_status === 'string') {
-        fallbackText = currentPosition.milestone_status;
-      } else if (currentPosition && typeof currentPosition.status === 'string') {
-        fallbackText = currentPosition.status;
+      if (fullCurrentState && typeof fullCurrentState.milestone_status === 'string') {
+        fallbackText = fullCurrentState.milestone_status;
+      } else if (fullCurrentState && typeof fullCurrentState.status === 'string') {
+        fallbackText = fullCurrentState.status;
       }
       if (!fallbackText) {
         return _makeDegraded(name, 'source_file_missing',
@@ -1025,10 +1176,35 @@ function _tool_sgsd_recovery_packet(args) {
       };
     }
 
+    // Phase 85: trimmed, block-sized current_position view. Only the
+    // fields a Warp Agent block actually needs to show. Long-form lives
+    // in STATE.md and is reachable via sgsd_current_state.
+    var trimmedPosition = null;
+    if (fullCurrentState) {
+      var phaseField = (typeof fullCurrentState.current_phase === 'string'
+        && fullCurrentState.current_phase.length > 0)
+        ? fullCurrentState.current_phase : 'complete';
+      var phaseStatusField = (typeof fullCurrentState.current_phase_status === 'string')
+        ? fullCurrentState.current_phase_status : null;
+      trimmedPosition = {
+        milestone: (typeof fullCurrentState.milestone === 'string')
+          ? fullCurrentState.milestone : null,
+        phase: phaseField,
+        phase_status: phaseStatusField,
+        last_activity_summary: _trim200(fullCurrentState.last_activity),
+        milestone_status_summary: _trim200(fullCurrentState.milestone_status),
+      };
+    }
+
+    var whyStopped = _deriveWhyStopped(fullCurrentState);
+    var artifactLinks = _deriveArtifactLinks(fullCurrentState, planningDir, checkpointPath);
+
     var data = {
-      current_position: currentPosition,
+      current_position: trimmedPosition,
       watchdog_state: watchdogState,
+      why_stopped: whyStopped,
       next_unlock: nextUnlock,
+      artifact_links: artifactLinks,
       resume_command: '/sgsd-orchestrate go',
     };
     return _makeEnvelope(name, data);
@@ -2799,6 +2975,41 @@ function selfTest() {
         && rA42.redacted.arr[1].indexOf('<REDACTED:bearer>') !== -1
         && rA42.redacted.sub.deep.indexOf('<REDACTED:creds>') !== -1,
       'applied=' + rA42.applied.join(','));
+
+    // ----- Phase 85 recovery-packet upgrade assertions A43-A44 -----
+
+    // A43: live recovery_packet response is block-sized (<= 4 KB
+    // serialized). Regression guard against the pre-Phase-85 bloat
+    // where current_position dumped full STATE.md frontmatter (~6 KB).
+    var rA43 = dispatchTool('sgsd_recovery_packet', {});
+    var rA43Size = -1;
+    try { rA43Size = JSON.stringify(rA43).length; } catch (_se) { rA43Size = -1; }
+    add('recovery_packet_response_under_4kb',
+      rA43 && rA43.ok === true && rA43Size > 0 && rA43Size <= 4096,
+      'ok=' + (rA43 ? rA43.ok : '?') + ' size=' + rA43Size);
+
+    // A44: roadmap-complete state -- when current_phase === 'complete'
+    // AND no checkpoint, recovery_packet returns why_stopped containing
+    // "ROADMAP COMPLETE" or "ALL-PHASES-CLOSED" guidance, plus the
+    // standard resume_command. Uses synthetic state-only fixture which
+    // ships current_phase: complete + status: ALL-PHASES-CLOSED.
+    var fxStateOnlyDir = path.join(__dirname, 'fixtures',
+      'sgsd_recovery_packet', '_synthetic_planning_state_only');
+    var rA44 = dispatchTool('sgsd_recovery_packet',
+      { fixture_planning_dir: fxStateOnlyDir });
+    var rA44Why = (rA44 && rA44.data && typeof rA44.data.why_stopped === 'string')
+      ? rA44.data.why_stopped : '';
+    var rA44ArtifactsExist = !!(rA44 && rA44.data && rA44.data.artifact_links
+      && typeof rA44.data.artifact_links === 'object');
+    add('recovery_packet_roadmap_complete_emits_why_stopped',
+      rA44 && rA44.ok === true
+        && (rA44Why.indexOf('ROADMAP COMPLETE') !== -1
+            || rA44Why.indexOf('ALL-PHASES-CLOSED') !== -1
+            || rA44Why.indexOf('all phases closed') !== -1)
+        && rA44ArtifactsExist
+        && rA44.data.resume_command === '/sgsd-orchestrate go',
+      'ok=' + (rA44 ? rA44.ok : '?')
+        + ' why=' + (rA44Why ? rA44Why.slice(0, 60) : '?'));
 
     return {
       ok: results.every(function (r) { return r.ok; }),

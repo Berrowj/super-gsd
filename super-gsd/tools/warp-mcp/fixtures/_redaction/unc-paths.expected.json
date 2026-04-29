@@ -4,7 +4,7 @@
   "tool": "sgsd_recovery_packet",
   "data": {
     "current_position": {
-      "last_activity": "<contains><REDACTED:unc></contains>"
+      "last_activity_summary": "<contains><REDACTED:unc></contains>"
     },
     "resume_command": "/sgsd-orchestrate go"
   },

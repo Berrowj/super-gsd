@@ -349,21 +349,35 @@ Output `_redactions_applied` lists every category that triggered on this respons
 
 **Inputs**: `{}` or `{ include_checkpoint_body?: boolean }` (default true).
 
-**Outputs**:
+**Outputs** (Phase 85 upgrade — block-sized, ≤4 KB serialized, attachable):
 ```json
 {
   "data": {
-    "current_position": { /* output of sgsd_current_state */ },
-    "watchdog_state": { /* output of sgsd_watchdog_status */ },
+    "current_position": {
+      "milestone": "v2.2",
+      "phase": "complete | <NN>",
+      "phase_status": "ALL-PHASES-CLOSED | in-progress | ...",
+      "last_activity_summary": "<200-char trim of STATE.md last_activity, ... if longer>",
+      "milestone_status_summary": "<200-char trim of STATE.md milestone_status>"
+    },
+    "watchdog_state": { /* output of sgsd_watchdog_status (tail_rows=3 for budget) */ },
+    "why_stopped": "ROADMAP COMPLETE -- nothing to resume | <heuristic 1-line>",
     "next_unlock": { "from": "checkpoint" | "state", "text": "..." },
+    "artifact_links": {
+      "latest_verification": ".planning/milestones/.../<NN>-VERIFICATION.md | null",
+      "latest_atc_review": ".planning/milestones/.../<NN>-ATC-REVIEW.md | null",
+      "checkpoint": ".planning/ORCHESTRATOR-CHECKPOINT.md | null"
+    },
     "resume_command": "/sgsd-orchestrate go"
   }
 }
 ```
 
-**Source files**: `.planning/ORCHESTRATOR-CHECKPOINT.md` (if present) + `.planning/STATE.md` (fallback).
+Footnote (Phase 85): pre-upgrade shape returned the FULL `sgsd_current_state` envelope as `current_position` (~6 KB total). Post-upgrade the packet is trimmed to a 5-field summary view; full STATE.md remains reachable via `sgsd_current_state` directly. `why_stopped` heuristic order: roadmap-complete -> milestone-all-phases-closed -> clause after em-dash/`--` -> generic fallback. `artifact_links.latest_verification` points to the highest-numbered phase folder when `current_phase === "complete"` (most recently closed).
 
-**Failure modes**: no checkpoint AND no STATE → `source_file_missing` (degraded). Checkpoint body unparseable → degrade to STATE-only.
+**Source files**: `.planning/ORCHESTRATOR-CHECKPOINT.md` (if present) + `.planning/STATE.md` (fallback) + filesystem walk of `.planning/milestones/{milestone}/phases/` for artifact paths.
+
+**Failure modes**: no checkpoint AND no STATE → `source_file_missing` (degraded). Checkpoint body unparseable → degrade to STATE-only. Phases dir missing → `artifact_links` fields are null but envelope is `ok: true`.
 
 **Redactions**: checkpoint body may include user-pasted env / paths → full redaction-rules pass.
 

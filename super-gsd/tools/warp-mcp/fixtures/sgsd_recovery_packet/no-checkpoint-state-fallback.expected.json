@@ -3,9 +3,23 @@
   "schema_version": 1,
   "tool": "sgsd_recovery_packet",
   "data": {
+    "current_position": {
+      "milestone": "v2.2",
+      "phase": "complete",
+      "phase_status": "ALL-PHASES-CLOSED",
+      "last_activity_summary": "<exists>true</exists>",
+      "milestone_status_summary": "<contains>ALL-PHASES-CLOSED</contains>"
+    },
+    "watchdog_state": "<exists>true</exists>",
+    "why_stopped": "<contains>all phases closed</contains>",
     "next_unlock": {
       "from": "state",
       "text": "<contains>v2.2 ALL-PHASES-CLOSED</contains>"
+    },
+    "artifact_links": {
+      "latest_verification": null,
+      "latest_atc_review": null,
+      "checkpoint": null
     },
     "resume_command": "/sgsd-orchestrate go"
   },
