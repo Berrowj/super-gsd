@@ -29,6 +29,12 @@
 //                 that runs ONLY the installer-audit selfTest -- the v2.0
 //                 evidence buckets do not gate v2.1 close (different scope:
 //                 distribution + onboarding, not failure injection).
+// Phase 59-01-T2: extended with new-project-wizard self-test (second-gate
+//                 v2.1; Phase 58 first-gate path preserved byte-equality up
+//                 to the wizard insertion point. v2.1 dual-gate now: gate 1
+//                 installer-audit selfTest (12/12) + runAudit floor met,
+//                 gate 2 wizard selfTest (>=8/>=8). Both must exit 0 for
+//                 v2.1 milestone close to proceed.
 //
 // Invoked by super-gsd/skills/sgsd-complete-milestone/SKILL.md Step 0
 // precondition list. Operator-runnable directly:
@@ -239,6 +245,58 @@ function _main(argv) {
         + 'mandatory floor met)\n');
       process.stdout.write('milestone_close_gate: v2.1 first-gate '
         + '(installer-audit) green\n');
+
+      // ---------------------------------------------------------------
+      // Phase 59-01-T2: v2.1 SECOND-GATE (new-project wizard self-test).
+      // Lock 4: extends the v2.1 branch only; v1.9 dual-gate, v2.0
+      // sept-gate, and Phase 58 first-gate (lines 159-242 above) are all
+      // preserved byte-equal up to this insertion point. The wizard
+      // self-test (>=8 assertions; shipped 13) covers deep-merge
+      // non-clobber + idempotent + Lock 13 + ASCII; failure of any
+      // assertion blocks v2.1 milestone close. Lock 13: try/catch
+      // wraps require + spawnSync; never throws upward.
+      // ---------------------------------------------------------------
+      let wizardSelfTestExit = null;
+      try {
+        const child_process_v21b = require('child_process');
+        const path_v21b = require('path');
+        const wizardPath = path_v21b.join(__dirname,
+                                           'sgsd-new-project-wizard.cjs');
+        const r_v21b = child_process_v21b.spawnSync(
+          process.execPath,
+          [wizardPath, '--self-test'],
+          { stdio: 'inherit' }
+        );
+        if (r_v21b.error) {
+          process.stderr.write('milestone_close_blocked:wizard_self_test_failed\n');
+          process.stderr.write('  reason=wizard_spawn_failed message='
+            + (r_v21b.error.message || 'unknown') + '\n');
+          process.exit(1);
+          return;
+        }
+        wizardSelfTestExit = (typeof r_v21b.status === 'number')
+          ? r_v21b.status : 1;
+      } catch (e) {
+        process.stderr.write('milestone_close_blocked:wizard_self_test_failed\n');
+        process.stderr.write('  reason=wizard_self_test_threw message='
+          + (e && e.message ? e.message : 'unknown') + '\n');
+        process.exit(1);
+        return;
+      }
+
+      if (wizardSelfTestExit !== 0) {
+        process.stderr.write('milestone_close_blocked:wizard_self_test_failed\n');
+        process.stderr.write('  reason=wizard_self_test_exit_nonzero exit='
+          + wizardSelfTestExit + '\n');
+        process.exit(1);
+        return;
+      }
+
+      process.stdout.write('milestone_close_gate: v2.1 new-project-wizard '
+        + 'self-test green (>=8 assertions PASS; deep-merge non-clobber + '
+        + 'idempotent + Lock 13 verified)\n');
+      process.stdout.write('milestone_close_gate: v2.1 second-gate '
+        + '(new-project-wizard) green\n');
       process.exit(0);
       return;
     }
