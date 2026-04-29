@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_agent_roster",
+  "args": { "phase": "67" },
+  "fixture_planning_dir": "_synthetic_planning_missing",
+  "scenario_description": "degraded path -- activity-log.jsonl missing"
+}

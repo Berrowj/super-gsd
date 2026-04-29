@@ -1,0 +1,9 @@
+{
+  "ok": false,
+  "schema_version": 1,
+  "tool": "sgsd_latest_commits",
+  "data": null,
+  "_truncated": false,
+  "_degraded": true,
+  "error_code": "git_subprocess_failed"
+}

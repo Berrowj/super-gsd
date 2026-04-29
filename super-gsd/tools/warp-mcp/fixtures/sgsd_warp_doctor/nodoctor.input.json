@@ -1,0 +1,5 @@
+{
+  "tool": "sgsd_warp_doctor",
+  "args": { "project_dir": "C:/Users/jack.berrow/AppData/Local/Temp/__warp_mcp_fixture_no_doctor_zzzz_84371" },
+  "scenario_description": "degraded path -- warp-doctor not found at projectDir/super-gsd/tools/warp-doctor/check.cjs"
+}

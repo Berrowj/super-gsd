@@ -1,0 +1,5 @@
+{
+  "tool": "sgsd_warp_doctor",
+  "args": {},
+  "scenario_description": "happy path -- live warp-doctor invocation; matchers use <exists> for the 16 probes"
+}

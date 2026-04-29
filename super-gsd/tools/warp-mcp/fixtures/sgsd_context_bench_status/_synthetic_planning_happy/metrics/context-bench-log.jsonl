@@ -1,0 +1,2 @@
+{"ts":"2026-04-29T10:00:00Z","run_id":"bench-2026-04-29","scenario_id":"S1","verdict":"PASS","tokens_before":150000,"tokens_after":60000}
+{"ts":"2026-04-29T10:30:00Z","run_id":"bench-2026-04-29","scenario_id":"S2","verdict":"PASS","tokens_before":200000,"tokens_after":80000}

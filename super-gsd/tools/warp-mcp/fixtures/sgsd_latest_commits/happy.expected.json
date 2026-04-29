@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "tool": "sgsd_latest_commits",
+  "data": {
+    "commits": [
+      { "hash": "<regex>^[0-9a-f]{7}$</regex>", "ts": "<exists>true</exists>", "author": "<exists>true</exists>", "subject": "<exists>true</exists>", "files_changed": "<exists>true</exists>" },
+      { "hash": "<regex>^[0-9a-f]{7}$</regex>", "ts": "<exists>true</exists>", "author": "<exists>true</exists>", "subject": "<exists>true</exists>", "files_changed": "<exists>true</exists>" },
+      { "hash": "<regex>^[0-9a-f]{7}$</regex>", "ts": "<exists>true</exists>", "author": "<exists>true</exists>", "subject": "<exists>true</exists>", "files_changed": "<exists>true</exists>" }
+    ]
+  },
+  "_truncated": false,
+  "_degraded": false,
+  "_redactions_applied": []
+}

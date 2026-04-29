@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "tool": "sgsd_warp_doctor",
+  "data": {
+    "schema_version": 1,
+    "ts": "<exists>true</exists>",
+    "project_dir": "<exists>true</exists>",
+    "probes": "<exists>true</exists>",
+    "summary": "<exists>true</exists>"
+  },
+  "_truncated": false,
+  "_degraded": false,
+  "_redactions_applied": []
+}

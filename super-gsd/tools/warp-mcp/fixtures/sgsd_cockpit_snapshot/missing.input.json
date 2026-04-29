@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_cockpit_snapshot",
+  "args": {},
+  "fixture_planning_dir": "_synthetic_planning_missing",
+  "scenario_description": "partial-data path -- STATE.md missing; cockpit envelope still ok:true with degraded sections"
+}

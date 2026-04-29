@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_token_spend",
+  "args": { "scope": "all", "group_by": "role" },
+  "fixture_planning_dir": "_synthetic_planning_missing",
+  "scenario_description": "degraded path -- both token-attribution and agent-token-spend missing"
+}

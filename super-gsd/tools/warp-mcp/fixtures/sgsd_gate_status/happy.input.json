@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_gate_status",
+  "args": { "tail_rows": 5 },
+  "fixture_planning_dir": "_synthetic_planning_happy",
+  "scenario_description": "happy path -- synthetic review-ledger.jsonl with 3 phase-level-ATC rows"
+}

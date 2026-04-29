@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "tool": "sgsd_cockpit_snapshot",
+  "data": {
+    "sections": {
+      "current_state": { "_section_degraded": true, "error_code": "source_file_missing" },
+      "current_phase": "<exists>true</exists>",
+      "watchdog": "<exists>true</exists>",
+      "gate": "<exists>true</exists>",
+      "agent": "<exists>true</exists>",
+      "codex": "<exists>true</exists>",
+      "token": "<exists>true</exists>"
+    }
+  },
+  "_truncated": false,
+  "_degraded": false,
+  "_redactions_applied": []
+}

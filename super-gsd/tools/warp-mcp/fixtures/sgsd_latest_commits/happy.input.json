@@ -1,0 +1,5 @@
+{
+  "tool": "sgsd_latest_commits",
+  "args": { "count": 3 },
+  "scenario_description": "happy path -- live git log on this repo; matchers use <exists> for hash/ts/author/subject"
+}

@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "tool": "sgsd_gate_status",
+  "data": {
+    "gates": [
+      { "gate": "phase-level-ATC", "phase": "63", "verdict": "pass", "ts": "2026-04-29T10:00:00Z", "provider": "claude-sonnet", "source": "review-ledger" },
+      { "gate": "phase-level-ATC", "phase": "64", "verdict": "pass", "ts": "2026-04-29T11:00:00Z", "provider": "claude-sonnet", "source": "review-ledger" },
+      { "gate": "phase-level-ATC", "phase": "65", "verdict": "warn", "ts": "2026-04-29T12:00:00Z", "provider": "openai-codex", "source": "review-ledger" }
+    ]
+  },
+  "_truncated": false,
+  "_degraded": false,
+  "_redactions_applied": []
+}

@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_artifact_links",
+  "args": { "milestone": "v2.2" },
+  "fixture_planning_dir": "_synthetic_planning_happy",
+  "scenario_description": "happy path -- 2 synthetic phase folders with assorted artifact files"
+}

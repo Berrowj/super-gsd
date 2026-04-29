@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_codex_status",
+  "args": {},
+  "fixture_planning_dir": "_synthetic_planning_idle",
+  "scenario_description": "idle path -- synthetic codex-live.json with state=idle (recent mtime via git checkout)"
+}

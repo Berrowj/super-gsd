@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "tool": "sgsd_agent_roster",
+  "data": {
+    "phase": "67",
+    "agents": [
+      { "ts": "2026-04-29T09:00:00Z", "agent": "gsd-executor", "model": "sonnet", "task_id": "67-01", "outcome": "pass" },
+      { "ts": "2026-04-29T10:00:00Z", "agent": "gsd-verifier", "model": "sonnet", "task_id": "67-verify", "outcome": "pass" },
+      { "ts": "2026-04-29T11:00:00Z", "agent": "gsd-executor", "model": "sonnet", "task_id": "67-02", "outcome": "pass" }
+    ],
+    "by_agent": {
+      "gsd-executor": 2,
+      "gsd-verifier": 1
+    }
+  },
+  "_truncated": false,
+  "_degraded": false,
+  "_redactions_applied": []
+}

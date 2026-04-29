@@ -77,6 +77,7 @@
 var fs = require('fs');
 var path = require('path');
 var readline = require('readline');
+var child_process = require('child_process');
 
 // ---------------------------------------------------------------------------
 // FROZEN SURFACES
@@ -269,6 +270,101 @@ function _tailJsonl(filePath, n) {
     return rows;
   } catch (_e) {
     return rows;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 71 SHARED HELPERS
+// ---------------------------------------------------------------------------
+// _resolveProjectDir(args)
+//   Resolves the project root for git/spawnSync calls. If
+//   args.fixture_planning_dir is set, returns its parent (synthetic
+//   project root). Otherwise returns repo root (parent of live planning
+//   dir).
+// _clampTailRows(arg, defaultN, maxN)
+//   Resolves tail_rows arg with default + clamp.
+// _trimToTailBudget(envelope, rowsKey)
+//   Stringifies envelope; if > 50KB, halves rows array under data[rowsKey]
+//   until <= 50KB or rows.length === 1; sets _truncated true with
+//   truncated_count + next_cursor sentinel when over.
+// _isStale(filePath, thresholdSec)
+//   Returns true if file mtime older than thresholdSec.
+// ---------------------------------------------------------------------------
+function _resolveProjectDir(args) {
+  try {
+    if (args && typeof args.fixture_planning_dir === 'string'
+        && args.fixture_planning_dir.length > 0) {
+      return path.dirname(args.fixture_planning_dir);
+    }
+    if (args && typeof args.project_dir === 'string'
+        && args.project_dir.length > 0) {
+      return args.project_dir;
+    }
+    return path.join(__dirname, '..', '..', '..');
+  } catch (_e) {
+    return path.join(__dirname, '..', '..', '..');
+  }
+}
+
+function _clampTailRows(arg, defaultN, maxN) {
+  var n = defaultN;
+  if (typeof arg === 'number' && arg > 0 && !isNaN(arg)) {
+    n = Math.floor(arg);
+  }
+  if (n > maxN) n = maxN;
+  if (n < 1) n = 1;
+  return n;
+}
+
+var TAIL_BUDGET_BYTES = 50000;
+
+function _trimToTailBudget(envelope, rowsKey) {
+  try {
+    if (!envelope || !envelope.data || !Array.isArray(envelope.data[rowsKey])) {
+      return envelope;
+    }
+    var rows = envelope.data[rowsKey];
+    var originalLen = rows.length;
+    var serialized = JSON.stringify(envelope);
+    if (typeof serialized === 'string' && serialized.length <= TAIL_BUDGET_BYTES) {
+      envelope._truncated = false;
+      return envelope;
+    }
+    // Halve until fits or length 1.
+    var trimmed = rows.slice();
+    while (trimmed.length > 1) {
+      var half = Math.max(1, Math.floor(trimmed.length / 2));
+      trimmed = trimmed.slice(trimmed.length - half);
+      envelope.data[rowsKey] = trimmed;
+      var s2 = JSON.stringify(envelope);
+      if (typeof s2 === 'string' && s2.length <= TAIL_BUDGET_BYTES) {
+        envelope._truncated = true;
+        envelope.data.truncated_count = originalLen - trimmed.length;
+        envelope.data.next_cursor = 'tail-' + trimmed.length;
+        return envelope;
+      }
+    }
+    // Even with 1 row over budget -- keep length 1 and mark truncated.
+    envelope._truncated = true;
+    envelope.data.truncated_count = originalLen - trimmed.length;
+    envelope.data.next_cursor = 'tail-1';
+    return envelope;
+  } catch (_e) {
+    return envelope;
+  }
+}
+
+function _mtimeSeconds(filePath) {
+  try {
+    if (typeof filePath !== 'string' || filePath.length === 0) return null;
+    if (!fs.existsSync(filePath)) return null;
+    var st = fs.statSync(filePath);
+    if (!st || !st.mtime) return null;
+    var ageMs = Date.now() - st.mtime.getTime();
+    if (isNaN(ageMs)) return null;
+    return Math.floor(ageMs / 1000);
+  } catch (_e) {
+    return null;
   }
 }
 
@@ -753,16 +849,770 @@ function _tool_sgsd_recovery_packet(args) {
   }
 }
 
-// Remaining 9 tools still stubbed (Phase 71).
-var _tool_sgsd_gate_status = _stub('sgsd_gate_status');
-var _tool_sgsd_agent_roster = _stub('sgsd_agent_roster');
-var _tool_sgsd_codex_status = _stub('sgsd_codex_status');
-var _tool_sgsd_token_spend = _stub('sgsd_token_spend');
-var _tool_sgsd_context_bench_status = _stub('sgsd_context_bench_status');
-var _tool_sgsd_latest_commits = _stub('sgsd_latest_commits');
-var _tool_sgsd_cockpit_snapshot = _stub('sgsd_cockpit_snapshot');
-var _tool_sgsd_artifact_links = _stub('sgsd_artifact_links');
-var _tool_sgsd_warp_doctor = _stub('sgsd_warp_doctor');
+// -- Phase 71: 9 real implementations (5, 6, 7, 8, 9, 10, 12, 13, 14) --
+
+// Tool 5: sgsd_gate_status -- gate-value-log + review-ledger tail.
+function _tool_sgsd_gate_status(args) {
+  var name = 'sgsd_gate_status';
+  try {
+    var planningDir = _resolvePlanningDir(args);
+    var tailRows = _clampTailRows(args && args.tail_rows, 10, 25);
+    var gateFilter = (args && typeof args.gate === 'string' && args.gate.length > 0)
+      ? args.gate : null;
+
+    var gateLogPath = path.join(planningDir, 'metrics', 'gate-value-log.jsonl');
+    var reviewLedgerPath = path.join(planningDir, 'metrics', 'review-ledger.jsonl');
+
+    var gateLogRows = _tailJsonl(gateLogPath, tailRows * 4);
+    var reviewLedgerRows = _tailJsonl(reviewLedgerPath, tailRows * 4);
+
+    // Normalize each row into { gate, phase, verdict, ts, provider, source }.
+    var normalized = [];
+    for (var i = 0; i < gateLogRows.length; i++) {
+      var r = gateLogRows[i];
+      if (!r || typeof r !== 'object') continue;
+      normalized.push({
+        gate: (typeof r.gate === 'string') ? r.gate
+          : (r._legacy && typeof r._legacy.tier === 'string') ? r._legacy.tier
+          : 'unknown',
+        phase: (r.phase !== undefined) ? r.phase : null,
+        verdict: (typeof r.verdict === 'string') ? r.verdict
+          : (r._legacy && typeof r._legacy.verdict === 'string') ? r._legacy.verdict
+          : ((typeof r.status === 'string') ? r.status : 'unknown'),
+        ts: (typeof r.ts === 'string') ? r.ts : null,
+        provider: (typeof r.provider === 'string') ? r.provider
+          : (r._legacy && typeof r._legacy.provider === 'string') ? r._legacy.provider
+          : null,
+        source: 'gate-value-log',
+      });
+    }
+    for (var j = 0; j < reviewLedgerRows.length; j++) {
+      var rr = reviewLedgerRows[j];
+      if (!rr || typeof rr !== 'object') continue;
+      var legacy = (rr._legacy && typeof rr._legacy === 'object') ? rr._legacy : {};
+      normalized.push({
+        gate: (typeof legacy.tier === 'string') ? legacy.tier
+          : ((typeof rr.command === 'string') ? rr.command : 'review'),
+        phase: (rr.phase !== undefined) ? rr.phase : null,
+        verdict: (typeof legacy.verdict === 'string') ? legacy.verdict
+          : ((typeof rr.status === 'string') ? rr.status : 'unknown'),
+        ts: (typeof rr.ts === 'string') ? rr.ts : null,
+        provider: (typeof legacy.provider === 'string') ? legacy.provider : null,
+        source: 'review-ledger',
+      });
+    }
+
+    // Sort by ts ascending (best-effort string compare on ISO).
+    normalized.sort(function (a, b) {
+      var at = (typeof a.ts === 'string') ? a.ts : '';
+      var bt = (typeof b.ts === 'string') ? b.ts : '';
+      if (at < bt) return -1;
+      if (at > bt) return 1;
+      return 0;
+    });
+
+    // Apply gate filter if specified.
+    if (gateFilter) {
+      var filtered = [];
+      for (var k = 0; k < normalized.length; k++) {
+        if (normalized[k].gate === gateFilter) filtered.push(normalized[k]);
+      }
+      normalized = filtered;
+    }
+
+    // Take last tailRows.
+    var taken = normalized.slice(Math.max(0, normalized.length - tailRows));
+
+    // Build latest_per_gate map.
+    var latestPerGate = {};
+    for (var m = 0; m < normalized.length; m++) {
+      var row = normalized[m];
+      var gn = row.gate || 'unknown';
+      var prev = latestPerGate[gn];
+      if (!prev) { latestPerGate[gn] = row; continue; }
+      var pt = (typeof prev.ts === 'string') ? prev.ts : '';
+      var ct = (typeof row.ts === 'string') ? row.ts : '';
+      if (ct >= pt) latestPerGate[gn] = row;
+    }
+
+    var env = _makeEnvelope(name, {
+      gates: taken,
+      latest_per_gate: latestPerGate,
+    });
+    return _trimToTailBudget(env, 'gates');
+  } catch (_e) {
+    return _makeDegraded(name, 'internal_error_degraded',
+      'tool threw: ' + ((_e && _e.message) ? _e.message : 'unknown'));
+  }
+}
+
+// Tool 6: sgsd_agent_roster -- activity-log filtered by phase.
+function _tool_sgsd_agent_roster(args) {
+  var name = 'sgsd_agent_roster';
+  try {
+    var planningDir = _resolvePlanningDir(args);
+
+    // Resolve phase filter: args.phase wins; else STATE.md current_phase.
+    var filterPhase = (args && typeof args.phase === 'string' && args.phase.length > 0)
+      ? args.phase : null;
+    if (!filterPhase) {
+      var fm = _parseStateFrontmatter(planningDir);
+      if (fm && fm.roadmap_run && typeof fm.roadmap_run === 'object'
+          && typeof fm.roadmap_run.current_phase === 'string'
+          && fm.roadmap_run.current_phase.length > 0) {
+        filterPhase = fm.roadmap_run.current_phase;
+      }
+    }
+
+    var activityPath = path.join(planningDir, 'metrics', 'activity-log.jsonl');
+    var exists = false;
+    try { exists = fs.existsSync(activityPath); } catch (_xe) { exists = false; }
+    if (!exists) {
+      // Degraded but envelope ok:true with empty array per contract.
+      return _makeDegraded(name, 'source_file_missing',
+        'activity-log.jsonl missing at ' + activityPath);
+    }
+
+    var rows = _tailJsonl(activityPath, 1000);
+    var matched = [];
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (!r || typeof r !== 'object') continue;
+      if (filterPhase) {
+        var rp = r.phase;
+        var rpStr = (rp === null || typeof rp === 'undefined') ? '' : String(rp);
+        if (rpStr !== filterPhase) continue;
+      }
+      matched.push({
+        ts: (typeof r.ts === 'string') ? r.ts : null,
+        agent: (typeof r.agent === 'string') ? r.agent
+          : ((typeof r.tool === 'string') ? r.tool : null),
+        model: (typeof r.model === 'string') ? r.model : null,
+        task_id: (typeof r.task_id === 'string') ? r.task_id
+          : ((typeof r.target === 'string') ? r.target : null),
+        outcome: (typeof r.outcome === 'string') ? r.outcome
+          : ((typeof r.status === 'string') ? r.status : null),
+      });
+    }
+
+    var byAgent = {};
+    for (var k = 0; k < matched.length; k++) {
+      var ag = matched[k].agent || 'unknown';
+      byAgent[ag] = (byAgent[ag] || 0) + 1;
+    }
+
+    return _makeEnvelope(name, {
+      phase: filterPhase,
+      agents: matched,
+      by_agent: byAgent,
+    });
+  } catch (_e) {
+    return _makeDegraded(name, 'internal_error_degraded',
+      'tool threw: ' + ((_e && _e.message) ? _e.message : 'unknown'));
+  }
+}
+
+// Tool 7: sgsd_codex_status -- codex-live.json + codex-log tail; freshness.
+function _tool_sgsd_codex_status(args) {
+  var name = 'sgsd_codex_status';
+  try {
+    var planningDir = _resolvePlanningDir(args);
+    var tailRows = _clampTailRows(args && args.tail_rows, 10, 25);
+
+    var livePath = path.join(planningDir, 'metrics', 'codex-live.json');
+    var logPath = path.join(planningDir, 'metrics', 'codex-log.jsonl');
+
+    var liveExists = false;
+    try { liveExists = fs.existsSync(livePath); } catch (_xe) { liveExists = false; }
+    var logExists = false;
+    try { logExists = fs.existsSync(logPath); } catch (_xe2) { logExists = false; }
+
+    var STALE_THRESHOLD_SEC = 3600;
+    var liveJsonAge = null;
+    var liveJsonObj = null;
+    if (liveExists) {
+      liveJsonAge = _mtimeSeconds(livePath);
+      try {
+        var src = fs.readFileSync(livePath, 'utf8');
+        liveJsonObj = JSON.parse(src);
+      } catch (_pe) {
+        liveJsonObj = null;
+      }
+    }
+
+    var liveState;
+    if (!liveExists && !logExists) {
+      liveState = 'absent';
+    } else if (!liveExists) {
+      liveState = 'absent';
+    } else if (liveJsonAge !== null && liveJsonAge > STALE_THRESHOLD_SEC) {
+      liveState = 'stale';
+    } else if (liveJsonObj && typeof liveJsonObj === 'object'
+        && typeof liveJsonObj.state === 'string') {
+      var s = liveJsonObj.state;
+      if (s === 'running' || s === 'idle' || s === 'complete' || s === 'stale') {
+        liveState = s;
+      } else {
+        liveState = 'idle';
+      }
+    } else {
+      liveState = 'idle';
+    }
+
+    var recentRuns = logExists ? _tailJsonl(logPath, tailRows) : [];
+    var lastRun = recentRuns.length > 0 ? recentRuns[recentRuns.length - 1] : null;
+
+    var env = _makeEnvelope(name, {
+      live_state: liveState,
+      last_run: lastRun,
+      recent_runs: recentRuns,
+      freshness: {
+        live_json_age_seconds: liveJsonAge,
+        stale_threshold_seconds: STALE_THRESHOLD_SEC,
+      },
+    });
+    return _trimToTailBudget(env, 'recent_runs');
+  } catch (_e) {
+    return _makeDegraded(name, 'internal_error_degraded',
+      'tool threw: ' + ((_e && _e.message) ? _e.message : 'unknown'));
+  }
+}
+
+// Tool 8: sgsd_token_spend -- token-attribution + agent-token-spend grouping.
+function _tool_sgsd_token_spend(args) {
+  var name = 'sgsd_token_spend';
+  try {
+    var planningDir = _resolvePlanningDir(args);
+
+    var scope = (args && typeof args.scope === 'string') ? args.scope : 'current';
+    if (scope !== 'current' && scope !== 'milestone' && scope !== 'all') {
+      return _makeDegraded(name, 'invalid_input_schema',
+        'scope must be one of current|milestone|all');
+    }
+    var groupBy = (args && typeof args.group_by === 'string') ? args.group_by : 'role';
+    if (groupBy !== 'role' && groupBy !== 'phase' && groupBy !== 'provider') {
+      return _makeDegraded(name, 'invalid_input_schema',
+        'group_by must be one of role|phase|provider');
+    }
+
+    var attrPath = path.join(planningDir, 'metrics', 'token-attribution.jsonl');
+    var spendPath = path.join(planningDir, 'metrics', 'agent-token-spend.jsonl');
+
+    var attrExists = false;
+    try { attrExists = fs.existsSync(attrPath); } catch (_xe) { attrExists = false; }
+    var spendExists = false;
+    try { spendExists = fs.existsSync(spendPath); } catch (_xe2) { spendExists = false; }
+
+    if (!attrExists && !spendExists) {
+      return _makeDegraded(name, 'source_file_missing',
+        'both token-attribution.jsonl and agent-token-spend.jsonl missing');
+    }
+
+    // Resolve scope filter -- need current milestone+phase from STATE.md.
+    var fm = _parseStateFrontmatter(planningDir);
+    var rr = (fm && fm.roadmap_run && typeof fm.roadmap_run === 'object')
+      ? fm.roadmap_run : {};
+    var currentMilestone = (typeof rr.current_milestone === 'string')
+      ? rr.current_milestone
+      : ((fm && typeof fm.milestone === 'string') ? fm.milestone : null);
+    var currentPhase = (typeof rr.current_phase === 'string')
+      ? rr.current_phase : null;
+
+    function inScope(row) {
+      if (scope === 'all') return true;
+      if (!row || typeof row !== 'object') return false;
+      if (scope === 'milestone') {
+        if (!currentMilestone) return false;
+        return row.milestone === currentMilestone;
+      }
+      // current = same milestone AND same phase (when active phase exists).
+      // If current_phase is 'complete' or absent (between phases / milestone
+      // closed), fall back to milestone-only scope so the cockpit still sees
+      // recent attribution data.
+      if (!currentMilestone) return false;
+      if (row.milestone !== currentMilestone) return false;
+      if (!currentPhase || currentPhase === 'complete') return true;
+      var rpStr = (row.phase === null || typeof row.phase === 'undefined')
+        ? '' : String(row.phase);
+      return rpStr === currentPhase;
+    }
+
+    function extractTokens(row) {
+      // token-attribution: row.usage.{input,output,total}_tokens
+      // agent-token-spend: row.token_breakdown.{input,output,total}_tokens
+      var usage = (row && row.usage && typeof row.usage === 'object') ? row.usage
+        : ((row && row.token_breakdown && typeof row.token_breakdown === 'object')
+          ? row.token_breakdown : null);
+      if (!usage) return null;
+      var inp = (typeof usage.input_tokens === 'number') ? usage.input_tokens : 0;
+      var out = (typeof usage.output_tokens === 'number') ? usage.output_tokens : 0;
+      var tot = (typeof usage.total_tokens === 'number') ? usage.total_tokens
+        : (inp + out);
+      return { input: inp, output: out, total: tot };
+    }
+
+    function groupKey(row) {
+      if (groupBy === 'role') {
+        return (typeof row.role === 'string' && row.role.length > 0) ? row.role
+          : 'unknown';
+      }
+      if (groupBy === 'phase') {
+        var rp = row.phase;
+        if (rp === null || typeof rp === 'undefined') return 'none';
+        return String(rp);
+      }
+      // provider
+      if (typeof row.provider === 'string' && row.provider.length > 0) {
+        return row.provider;
+      }
+      // Try token_breakdown.model prefix as fallback.
+      if (row.token_breakdown && typeof row.token_breakdown.model === 'string') {
+        var m = row.token_breakdown.model;
+        if (m.indexOf('claude') === 0) return 'claude';
+        if (m.indexOf('gpt') === 0 || m.indexOf('o1') === 0) return 'openai';
+        return m;
+      }
+      return 'unknown';
+    }
+
+    // Read all rows -- token attribution is the canonical source.
+    var allRows = [];
+    if (attrExists) {
+      // Pull a generous tail; we then filter and group.
+      var attrAll = _tailJsonl(attrPath, 5000);
+      for (var i = 0; i < attrAll.length; i++) allRows.push(attrAll[i]);
+    } else if (spendExists) {
+      // Fall back to spend rows; flatten token_breakdown into usage.
+      var spendAll = _tailJsonl(spendPath, 5000);
+      for (var j = 0; j < spendAll.length; j++) allRows.push(spendAll[j]);
+    }
+
+    var totals = { input: 0, output: 0, total: 0 };
+    var groups = {};
+    for (var k = 0; k < allRows.length; k++) {
+      var rrow = allRows[k];
+      if (!rrow || typeof rrow !== 'object') continue;
+      if (!inScope(rrow)) continue;
+      var tk = extractTokens(rrow);
+      if (!tk) continue;
+      totals.input += tk.input;
+      totals.output += tk.output;
+      totals.total += tk.total;
+      var gk = groupKey(rrow);
+      if (!groups[gk]) groups[gk] = { key: gk, input: 0, output: 0, total: 0 };
+      groups[gk].input += tk.input;
+      groups[gk].output += tk.output;
+      groups[gk].total += tk.total;
+    }
+
+    var rowsArr = [];
+    var gkeys = Object.keys(groups);
+    for (var gi = 0; gi < gkeys.length; gi++) {
+      rowsArr.push(groups[gkeys[gi]]);
+    }
+    rowsArr.sort(function (a, b) { return b.total - a.total; });
+
+    var env = _makeEnvelope(name, {
+      scope: scope,
+      group_by: groupBy,
+      totals: totals,
+      rows: rowsArr,
+    });
+    return _trimToTailBudget(env, 'rows');
+  } catch (_e) {
+    return _makeDegraded(name, 'internal_error_degraded',
+      'tool threw: ' + ((_e && _e.message) ? _e.message : 'unknown'));
+  }
+}
+
+// Tool 9: sgsd_context_bench_status -- benchmark log latest run.
+function _tool_sgsd_context_bench_status(args) {
+  var name = 'sgsd_context_bench_status';
+  try {
+    var planningDir = _resolvePlanningDir(args);
+    var scenarioFilter = (args && typeof args.scenario === 'string'
+      && args.scenario.length > 0) ? args.scenario : null;
+
+    // Try canonical name first, then legacy name.
+    var primaryPath = path.join(planningDir, 'metrics', 'context-bench-log.jsonl');
+    var fallbackPath = path.join(planningDir, 'metrics', 'context-bench-runs.jsonl');
+    var benchPath = null;
+    try {
+      if (fs.existsSync(primaryPath)) benchPath = primaryPath;
+      else if (fs.existsSync(fallbackPath)) benchPath = fallbackPath;
+    } catch (_xe) { benchPath = null; }
+
+    if (!benchPath) {
+      return _makeDegraded(name, 'source_file_missing',
+        'context-bench-log.jsonl and context-bench-runs.jsonl both missing');
+    }
+
+    var rows = _tailJsonl(benchPath, 500);
+    if (rows.length === 0) {
+      return _makeDegraded(name, 'source_file_missing',
+        'bench log present but empty');
+    }
+
+    // Derive run_id from row.run_id or fallback to row.scenario_id+ts.
+    function rowRunId(row) {
+      if (!row || typeof row !== 'object') return null;
+      if (typeof row.run_id === 'string' && row.run_id.length > 0) return row.run_id;
+      if (typeof row.bench_run_id === 'string' && row.bench_run_id.length > 0) {
+        return row.bench_run_id;
+      }
+      if (typeof row.ts === 'string') {
+        return 'bench-' + row.ts;
+      }
+      return null;
+    }
+
+    // Latest run = last row's run_id (or if null, last row alone).
+    var lastRow = rows[rows.length - 1];
+    var latestId = rowRunId(lastRow);
+    var verdict = (typeof lastRow.verdict === 'string') ? lastRow.verdict
+      : ((typeof lastRow.status === 'string') ? lastRow.status : null);
+
+    // Collect all scenarios from rows matching the latest_id (or last row).
+    var scenarios = [];
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (!r || typeof r !== 'object') continue;
+      var rid = rowRunId(r);
+      if (latestId !== null && rid !== latestId) continue;
+      if (latestId === null && r !== lastRow) continue;
+      if (scenarioFilter
+          && typeof r.scenario_id === 'string'
+          && r.scenario_id !== scenarioFilter) continue;
+      scenarios.push({
+        id: (typeof r.scenario_id === 'string') ? r.scenario_id
+          : ((typeof r.id === 'string') ? r.id : null),
+        verdict: (typeof r.verdict === 'string') ? r.verdict
+          : ((typeof r.status === 'string') ? r.status : null),
+        tokens_pre: (typeof r.tokens_before === 'number') ? r.tokens_before
+          : ((typeof r.tokens_pre === 'number') ? r.tokens_pre : null),
+        tokens_post: (typeof r.tokens_after === 'number') ? r.tokens_after
+          : ((typeof r.tokens_post === 'number') ? r.tokens_post : null),
+      });
+    }
+
+    return _makeEnvelope(name, {
+      latest_run: {
+        run_id: latestId,
+        ts: (typeof lastRow.ts === 'string') ? lastRow.ts : null,
+        verdict: verdict,
+      },
+      scenarios: scenarios,
+    });
+  } catch (_e) {
+    return _makeDegraded(name, 'internal_error_degraded',
+      'tool threw: ' + ((_e && _e.message) ? _e.message : 'unknown'));
+  }
+}
+
+// Tool 10: sgsd_latest_commits -- git log via spawnSync.
+function _tool_sgsd_latest_commits(args) {
+  var name = 'sgsd_latest_commits';
+  try {
+    var projectDir = _resolveProjectDir(args);
+    var count = 10;
+    if (args && typeof args.count === 'number' && args.count > 0) {
+      count = Math.floor(args.count);
+    }
+    if (count > 50) count = 50;
+    if (count < 1) count = 1;
+
+    // Format: %H<TAB>%aI<TAB>%an<TAB>%s
+    var fmt = '--pretty=format:%H%x09%aI%x09%an%x09%s';
+    var result;
+    try {
+      result = child_process.spawnSync('git', [
+        '-C', projectDir,
+        'log',
+        fmt,
+        '-' + count,
+        '--name-only',
+      ], { timeout: 5000, encoding: 'utf8' });
+    } catch (_se) {
+      return _makeDegraded(name, 'git_subprocess_failed',
+        'git spawn threw: ' + ((_se && _se.message) ? _se.message : 'unknown'));
+    }
+
+    if (!result) {
+      return _makeDegraded(name, 'git_subprocess_failed', 'git returned null');
+    }
+    if (result.error) {
+      var ec = result.error.code === 'ETIMEDOUT'
+        ? 'git_subprocess_timeout' : 'git_subprocess_failed';
+      return _makeDegraded(name, ec,
+        'git error: ' + (result.error.message || 'unknown'));
+    }
+    if (result.status === null) {
+      return _makeDegraded(name, 'git_subprocess_timeout',
+        'git timed out (5s)');
+    }
+    if (result.status !== 0) {
+      return _makeDegraded(name, 'git_subprocess_failed',
+        'git exit ' + result.status + ': '
+          + ((typeof result.stderr === 'string') ? result.stderr.slice(0, 200) : ''));
+    }
+
+    var stdout = (typeof result.stdout === 'string') ? result.stdout : '';
+    // Parse: each commit is a header line "HASH\tISO\tAUTHOR\tSUBJECT"
+    // followed by zero or more file path lines, ending with blank line.
+    var lines = stdout.split(/\r?\n/);
+    var commits = [];
+    var current = null;
+    for (var i = 0; i < lines.length; i++) {
+      var ln = lines[i];
+      if (ln === undefined) continue;
+      if (ln.length === 0) {
+        if (current) { commits.push(current); current = null; }
+        continue;
+      }
+      // Header has 3 tabs separating 4 fields.
+      if (ln.indexOf('\t') !== -1 && ln.split('\t').length >= 4) {
+        if (current) { commits.push(current); }
+        var parts = ln.split('\t');
+        current = {
+          hash: parts[0].slice(0, 7),
+          ts: parts[1],
+          author: parts[2],
+          subject: parts.slice(3).join('\t'),
+          files_changed: 0,
+        };
+      } else if (current) {
+        current.files_changed++;
+      }
+    }
+    if (current) commits.push(current);
+
+    return _makeEnvelope(name, { commits: commits });
+  } catch (_e) {
+    return _makeDegraded(name, 'internal_error_degraded',
+      'tool threw: ' + ((_e && _e.message) ? _e.message : 'unknown'));
+  }
+}
+
+// Tool 12: sgsd_cockpit_snapshot -- composes 1+2+4+5+6+7+8 outputs.
+function _tool_sgsd_cockpit_snapshot(args) {
+  var name = 'sgsd_cockpit_snapshot';
+  try {
+    var subKeys = [
+      { key: 'current_state', tool: 'sgsd_current_state', args: args || {} },
+      { key: 'current_phase', tool: 'sgsd_current_phase', args: args || {} },
+      { key: 'watchdog', tool: 'sgsd_watchdog_status', args: args || {} },
+      { key: 'gate', tool: 'sgsd_gate_status', args: args || {} },
+      { key: 'agent', tool: 'sgsd_agent_roster', args: args || {} },
+      { key: 'codex', tool: 'sgsd_codex_status', args: args || {} },
+      { key: 'token', tool: 'sgsd_token_spend',
+        args: Object.assign({}, args || {}, { scope: 'current', group_by: 'role' }) },
+    ];
+
+    var sections = {};
+    for (var i = 0; i < subKeys.length; i++) {
+      var entry = subKeys[i];
+      try {
+        var sub = dispatchTool(entry.tool, entry.args);
+        if (sub && sub.ok === true) {
+          sections[entry.key] = sub.data;
+        } else {
+          sections[entry.key] = {
+            _section_degraded: true,
+            error_code: (sub && typeof sub.error_code === 'string')
+              ? sub.error_code : 'internal_error_degraded',
+          };
+        }
+      } catch (_e) {
+        sections[entry.key] = {
+          _section_degraded: true,
+          error_code: 'internal_error_degraded',
+        };
+      }
+    }
+
+    var env = _makeEnvelope(name, { sections: sections });
+    // 100KB limit for snapshot tool. If over, mark _truncated and trim
+    // each tail-style sub-section's row arrays.
+    try {
+      var ser = JSON.stringify(env);
+      if (typeof ser === 'string' && ser.length > 100000) {
+        env._truncated = true;
+        // Best-effort trim: drop row arrays from gate/agent/codex/token.
+        var trimKeys = ['gate', 'agent', 'codex', 'token'];
+        for (var t = 0; t < trimKeys.length; t++) {
+          var sec = sections[trimKeys[t]];
+          if (sec && !sec._section_degraded) {
+            if (Array.isArray(sec.gates) && sec.gates.length > 5) {
+              sec.gates = sec.gates.slice(sec.gates.length - 5);
+            }
+            if (Array.isArray(sec.agents) && sec.agents.length > 5) {
+              sec.agents = sec.agents.slice(sec.agents.length - 5);
+            }
+            if (Array.isArray(sec.recent_runs) && sec.recent_runs.length > 5) {
+              sec.recent_runs = sec.recent_runs.slice(sec.recent_runs.length - 5);
+            }
+            if (Array.isArray(sec.rows) && sec.rows.length > 10) {
+              sec.rows = sec.rows.slice(0, 10);
+            }
+          }
+        }
+      }
+    } catch (_te) { /* swallow size-check errors */ }
+    return env;
+  } catch (_e) {
+    return _makeDegraded(name, 'internal_error_degraded',
+      'tool threw: ' + ((_e && _e.message) ? _e.message : 'unknown'));
+  }
+}
+
+// Tool 13: sgsd_artifact_links -- per-phase folder enumeration.
+function _tool_sgsd_artifact_links(args) {
+  var name = 'sgsd_artifact_links';
+  try {
+    var planningDir = _resolvePlanningDir(args);
+    var milestone = (args && typeof args.milestone === 'string'
+      && args.milestone.length > 0) ? args.milestone : null;
+    var phaseFilter = (args && typeof args.phase === 'string'
+      && args.phase.length > 0) ? args.phase : null;
+
+    if (!milestone) {
+      var fm = _parseStateFrontmatter(planningDir);
+      if (fm) {
+        var rr = (fm.roadmap_run && typeof fm.roadmap_run === 'object')
+          ? fm.roadmap_run : {};
+        if (typeof rr.current_milestone === 'string'
+            && rr.current_milestone.length > 0) {
+          milestone = rr.current_milestone;
+        } else if (typeof fm.milestone === 'string' && fm.milestone.length > 0) {
+          milestone = fm.milestone;
+        }
+      }
+    }
+
+    if (!milestone) {
+      return _makeDegraded(name, 'source_file_missing',
+        'no milestone arg and no STATE.md current_milestone available');
+    }
+
+    var phasesDir = path.join(planningDir, 'milestones', milestone, 'phases');
+    var phasesDirExists = false;
+    try { phasesDirExists = fs.existsSync(phasesDir); } catch (_xe) { phasesDirExists = false; }
+    if (!phasesDirExists) {
+      return _makeDegraded(name, 'source_file_missing',
+        'phases dir missing: ' + phasesDir);
+    }
+
+    var folderEntries = [];
+    try { folderEntries = fs.readdirSync(phasesDir); } catch (_re) { folderEntries = []; }
+    folderEntries.sort();
+
+    var phases = [];
+    for (var i = 0; i < folderEntries.length; i++) {
+      var folderName = folderEntries[i];
+      if (typeof folderName !== 'string') continue;
+      if (folderName.charAt(0) === '.') continue;
+      var phaseMatch = folderName.match(/^(\d+)-/);
+      if (!phaseMatch) continue;
+      var phaseNum = phaseMatch[1];
+      // Strip leading zero(s) for canonical phase string -- "63" not "063".
+      var canonicalPhase = String(parseInt(phaseNum, 10));
+      if (phaseFilter && canonicalPhase !== phaseFilter
+          && phaseNum !== phaseFilter) continue;
+
+      var folderFull = path.join(phasesDir, folderName);
+      var folderRel = path.join('.planning', 'milestones', milestone,
+        'phases', folderName);
+      var entry = {
+        phase: canonicalPhase,
+        atc_review: null,
+        verification: null,
+        waste: null,
+        context: null,
+      };
+      var files = [];
+      try { files = fs.readdirSync(folderFull); } catch (_fe) { files = []; }
+      for (var fi = 0; fi < files.length; fi++) {
+        var fn = files[fi];
+        if (typeof fn !== 'string') continue;
+        var rel = path.join(folderRel, fn).replace(/\\/g, '/');
+        if (/-ATC-REVIEW\.md$/i.test(fn)) entry.atc_review = rel;
+        else if (/-VERIFICATION\.md$/i.test(fn)) entry.verification = rel;
+        else if (/-WASTE\.md$/i.test(fn)) entry.waste = rel;
+        else if (/-CONTEXT\.md$/i.test(fn)) entry.context = rel;
+      }
+      phases.push(entry);
+    }
+
+    return _makeEnvelope(name, {
+      milestone: milestone,
+      phases: phases,
+    });
+  } catch (_e) {
+    return _makeDegraded(name, 'internal_error_degraded',
+      'tool threw: ' + ((_e && _e.message) ? _e.message : 'unknown'));
+  }
+}
+
+// Tool 14: sgsd_warp_doctor -- shells out to warp-doctor inline.
+function _tool_sgsd_warp_doctor(args) {
+  var name = 'sgsd_warp_doctor';
+  try {
+    var projectDir = _resolveProjectDir(args);
+    if (args && typeof args.project_dir === 'string' && args.project_dir.length > 0) {
+      projectDir = args.project_dir;
+    }
+    var doctorPath = path.join(projectDir, 'super-gsd', 'tools',
+      'warp-doctor', 'check.cjs');
+    var doctorExists = false;
+    try { doctorExists = fs.existsSync(doctorPath); } catch (_xe) { doctorExists = false; }
+    if (!doctorExists) {
+      return _makeDegraded(name, 'source_file_missing',
+        'warp-doctor not found at ' + doctorPath);
+    }
+
+    var result;
+    try {
+      result = child_process.spawnSync('node', [
+        doctorPath,
+        '--project', projectDir,
+        '--json',
+      ], { timeout: 10000, encoding: 'utf8' });
+    } catch (_se) {
+      return _makeDegraded(name, 'internal_error_degraded',
+        'warp-doctor spawn threw: '
+          + ((_se && _se.message) ? _se.message : 'unknown'));
+    }
+
+    if (!result) {
+      return _makeDegraded(name, 'internal_error_degraded',
+        'warp-doctor returned null');
+    }
+    if (result.error) {
+      var msg = (result.error.message || 'unknown');
+      var code = result.error.code === 'ETIMEDOUT'
+        ? 'internal_error_degraded' : 'internal_error_degraded';
+      return _makeDegraded(name, code, 'warp-doctor error: ' + msg);
+    }
+    if (result.status === null) {
+      return _makeDegraded(name, 'internal_error_degraded',
+        'warp-doctor timed out (10s)');
+    }
+    // Note: warp-doctor exits 1 when MISSING probes exist; that is a normal
+    // outcome and the JSON envelope is still valid. We accept any status as
+    // long as stdout parses as JSON.
+    var stdout = (typeof result.stdout === 'string') ? result.stdout : '';
+    var parsed = null;
+    try { parsed = JSON.parse(stdout); } catch (_pe) { parsed = null; }
+    if (!parsed || typeof parsed !== 'object') {
+      return _makeDegraded(name, 'source_file_unparseable',
+        'warp-doctor stdout not valid JSON; status=' + result.status);
+    }
+    return _makeEnvelope(name, parsed);
+  } catch (_e) {
+    return _makeDegraded(name, 'internal_error_degraded',
+      'tool threw: ' + ((_e && _e.message) ? _e.message : 'unknown'));
+  }
+}
 
 // Map<string, function> -- canonical registry. Phase 70/71 patch in
 // real implementations by reassigning these entries.
@@ -1133,37 +1983,28 @@ function selfTest() {
         && r5.error_code === 'invalid_input_schema',
       'error_code=' + (r5 ? r5.error_code : 'null'));
 
-    // A6: every still-stubbed tool (Phase 71's 9 tools) returns
-    // degraded envelope with error_code === 'internal_error_degraded'
-    // and error_message contains 'Phase 70/71'. Phase 70 implemented
-    // tools 1, 2, 3, 4, 11; the remaining 9 are still stubs.
-    var phase71Stubs = [
-      'sgsd_gate_status',
-      'sgsd_agent_roster',
-      'sgsd_codex_status',
-      'sgsd_token_spend',
-      'sgsd_context_bench_status',
-      'sgsd_latest_commits',
-      'sgsd_cockpit_snapshot',
-      'sgsd_artifact_links',
-      'sgsd_warp_doctor',
-    ];
-    var stubsOK = true;
-    var stubDetail = '';
-    for (var i = 0; i < phase71Stubs.length; i++) {
-      var nm = phase71Stubs[i];
-      var rr = dispatchTool(nm, {});
-      if (!rr || rr.ok !== false || rr._degraded !== true
-          || rr.error_code !== 'internal_error_degraded'
-          || typeof rr.error_message !== 'string'
-          || rr.error_message.indexOf('Phase 70/71') === -1) {
-        stubsOK = false;
-        stubDetail = 'failed at ' + nm;
-        break;
+    // A6: all 14 tools real -- no remaining Phase-70/71 stubs after Phase 71
+    // close. Loop through TOOL_NAMES; each must return either ok:true OR a
+    // legitimate degraded envelope (e.g. source_file_missing) -- never the
+    // STUB_MESSAGE sentinel. Token tool needs args; pass scope=current.
+    var anyStub = false;
+    var stubHit = '';
+    for (var ti = 0; ti < TOOL_NAMES.length; ti++) {
+      var nm = TOOL_NAMES[ti];
+      var aa = (nm === 'sgsd_milestone_status') ? { milestone: 'v2.2' }
+        : (nm === 'sgsd_token_spend') ? { scope: 'all', group_by: 'role' }
+        : {};
+      var rr = dispatchTool(nm, aa);
+      if (!rr || typeof rr !== 'object') {
+        anyStub = true; stubHit = nm + ' (no envelope)'; break;
+      }
+      if (rr._degraded === true && typeof rr.error_message === 'string'
+          && rr.error_message.indexOf(STUB_MESSAGE) !== -1) {
+        anyStub = true; stubHit = nm + ' (still stub)'; break;
       }
     }
-    add('every_phase71_stub_returns_phase70_71_degraded', stubsOK,
-      stubDetail || 'all 9 phase-71 stubs OK');
+    add('all_14_tools_real_no_remaining_stubs', !anyStub,
+      anyStub ? ('stub at ' + stubHit) : 'all 14 tools real');
 
     // A7: handleRequest tools/list returns 14 tools.
     var r7 = handleRequest({ jsonrpc: '2.0', method: 'tools/list', id: 1 });
@@ -1299,13 +2140,13 @@ function selfTest() {
     // contract: ok=false, schema_version=1, ts string, tool string,
     // data===null, _truncated=false, _degraded=true,
     // _redactions_applied=[], error_code in ERROR_CODES,
-    // error_message string. Use a still-stubbed tool (sgsd_gate_status)
-    // since the Phase 70 tools now succeed against the live .planning/.
-    var rs = dispatchTool('sgsd_gate_status', {});
+    // error_message string. Use sgsd_milestone_status with no arg --
+    // returns invalid_input_schema deterministic degraded envelope.
+    var rs = dispatchTool('sgsd_milestone_status', {});
     var envOK = rs && rs.ok === false
               && rs.schema_version === 1
               && typeof rs.ts === 'string' && rs.ts.length > 0
-              && rs.tool === 'sgsd_gate_status'
+              && rs.tool === 'sgsd_milestone_status'
               && rs.data === null
               && rs._truncated === false
               && rs._degraded === true
@@ -1394,6 +2235,164 @@ function selfTest() {
         + ' from=' + (r20 && r20.data && r20.data.next_unlock
           ? r20.data.next_unlock.from : '?')
         + ' cmd=' + (r20 && r20.data ? r20.data.resume_command : '?'));
+
+    // ----- Phase 71 live-data assertions A22-A30 -----
+
+    // A22: sgsd_gate_status -- gates array present (may be empty if no
+    // gate-value-log on this checkout); ok:true required.
+    var r22 = dispatchTool('sgsd_gate_status', {});
+    var ok22 = _liveOkOrDegradedOK(r22)
+      && (r22.ok !== true
+        || (r22.data && Array.isArray(r22.data.gates)
+          && r22.data.latest_per_gate
+          && typeof r22.data.latest_per_gate === 'object'));
+    add('live_sgsd_gate_status_returns_gates_array',
+      ok22,
+      'ok=' + (r22 ? r22.ok : '?')
+        + ' gates_len=' + (r22 && r22.data && r22.data.gates
+          ? r22.data.gates.length : '?'));
+
+    // A23: sgsd_agent_roster -- phase field + agents array structure.
+    var r23 = dispatchTool('sgsd_agent_roster', {});
+    var ok23 = _liveOkOrDegradedOK(r23)
+      && (r23.ok !== true
+        || (r23.data && Array.isArray(r23.data.agents)
+          && r23.data.by_agent
+          && typeof r23.data.by_agent === 'object'));
+    add('live_sgsd_agent_roster_returns_agents_array',
+      ok23,
+      'ok=' + (r23 ? r23.ok : '?')
+        + ' phase=' + (r23 && r23.data ? r23.data.phase : '?')
+        + ' agents_len=' + (r23 && r23.data && r23.data.agents
+          ? r23.data.agents.length : '?'));
+
+    // A24: sgsd_codex_status -- live_state in valid enum.
+    var r24 = dispatchTool('sgsd_codex_status', {});
+    var validStates = ['absent', 'stale', 'running', 'idle', 'complete'];
+    var ok24 = _liveOkOrDegradedOK(r24)
+      && (r24.ok !== true
+        || (r24.data && typeof r24.data.live_state === 'string'
+          && validStates.indexOf(r24.data.live_state) !== -1
+          && r24.data.freshness
+          && typeof r24.data.freshness.stale_threshold_seconds === 'number'));
+    add('live_sgsd_codex_status_returns_valid_live_state',
+      ok24,
+      'ok=' + (r24 ? r24.ok : '?')
+        + ' live_state=' + (r24 && r24.data ? r24.data.live_state : '?'));
+
+    // A25: sgsd_token_spend({scope:"current"}) -- totals + rows present.
+    var r25 = dispatchTool('sgsd_token_spend', {
+      scope: 'current', group_by: 'role',
+    });
+    var ok25 = _liveOkOrDegradedOK(r25)
+      && (r25.ok !== true
+        || (r25.data && r25.data.totals
+          && typeof r25.data.totals.total === 'number'
+          && Array.isArray(r25.data.rows)));
+    add('live_sgsd_token_spend_returns_totals_and_rows',
+      ok25,
+      'ok=' + (r25 ? r25.ok : '?')
+        + ' total=' + (r25 && r25.data && r25.data.totals
+          ? r25.data.totals.total : '?')
+        + ' rows_len=' + (r25 && r25.data && r25.data.rows
+          ? r25.data.rows.length : '?'));
+
+    // A26: sgsd_context_bench_status -- may be degraded if no bench log;
+    // ok:true OR _degraded:true with source_file_missing.
+    var r26 = dispatchTool('sgsd_context_bench_status', {});
+    var ok26 = _liveOkOrDegradedOK(r26);
+    add('live_sgsd_context_bench_status_ok_or_source_missing',
+      ok26,
+      'ok=' + (r26 ? r26.ok : '?')
+        + ' err=' + (r26 && r26._degraded ? r26.error_code : '-'));
+
+    // A27: sgsd_latest_commits({count:5}) -- commits array length 5;
+    // first commit hash matches `git log -1 --format=%H` via separate
+    // spawnSync.
+    var r27 = dispatchTool('sgsd_latest_commits', { count: 5 });
+    var ok27 = _liveOkOrDegradedOK(r27);
+    var hashCheckOK = true;
+    if (r27 && r27.ok === true && r27.data && Array.isArray(r27.data.commits)) {
+      if (r27.data.commits.length !== 5) ok27 = false;
+      else {
+        try {
+          var refRes = child_process.spawnSync('git',
+            ['log', '-1', '--format=%H'],
+            { encoding: 'utf8', timeout: 5000 });
+          if (refRes && refRes.status === 0
+              && typeof refRes.stdout === 'string') {
+            var fullHash = refRes.stdout.replace(/\s+$/g, '');
+            var actualHash = r27.data.commits[0].hash;
+            if (typeof actualHash !== 'string'
+                || fullHash.indexOf(actualHash) !== 0) {
+              hashCheckOK = false;
+            }
+          }
+        } catch (_he) { hashCheckOK = false; }
+      }
+    }
+    add('live_sgsd_latest_commits_returns_5_commits_with_matching_first_hash',
+      ok27 && hashCheckOK,
+      'ok=' + (r27 ? r27.ok : '?')
+        + ' len=' + (r27 && r27.data && r27.data.commits
+          ? r27.data.commits.length : '?')
+        + ' hash_match=' + hashCheckOK);
+
+    // A28: sgsd_cockpit_snapshot -- sections object has all 7 keys.
+    var r28 = dispatchTool('sgsd_cockpit_snapshot', {});
+    var requiredSectionKeys = [
+      'current_state', 'current_phase', 'watchdog',
+      'gate', 'agent', 'codex', 'token',
+    ];
+    var ok28 = _liveOkOrDegradedOK(r28)
+      && (r28.ok !== true
+        || (r28.data && r28.data.sections
+          && requiredSectionKeys.every(function (k) {
+            return r28.data.sections.hasOwnProperty(k);
+          })));
+    add('live_sgsd_cockpit_snapshot_has_all_7_sections',
+      ok28,
+      'ok=' + (r28 ? r28.ok : '?')
+        + ' keys=' + (r28 && r28.data && r28.data.sections
+          ? Object.keys(r28.data.sections).length : '?'));
+
+    // A29: sgsd_artifact_links -- milestone + phases array; first phase
+    // entry has expected keys.
+    var r29 = dispatchTool('sgsd_artifact_links', {});
+    var ok29 = _liveOkOrDegradedOK(r29);
+    if (r29 && r29.ok === true) {
+      if (!r29.data || typeof r29.data.milestone !== 'string'
+          || !Array.isArray(r29.data.phases)) {
+        ok29 = false;
+      } else if (r29.data.phases.length > 0) {
+        var p0 = r29.data.phases[0];
+        if (!p0 || typeof p0.phase !== 'string'
+            || !p0.hasOwnProperty('atc_review')
+            || !p0.hasOwnProperty('verification')
+            || !p0.hasOwnProperty('waste')
+            || !p0.hasOwnProperty('context')) {
+          ok29 = false;
+        }
+      }
+    }
+    add('live_sgsd_artifact_links_returns_phases_with_expected_keys',
+      ok29,
+      'ok=' + (r29 ? r29.ok : '?')
+        + ' milestone=' + (r29 && r29.data ? r29.data.milestone : '?')
+        + ' phases_len=' + (r29 && r29.data && r29.data.phases
+          ? r29.data.phases.length : '?'));
+
+    // A30: sgsd_warp_doctor -- probes array length 16 (Phase 67 contract).
+    var r30 = dispatchTool('sgsd_warp_doctor', {});
+    var ok30 = _liveOkOrDegradedOK(r30)
+      && (r30.ok !== true
+        || (r30.data && Array.isArray(r30.data.probes)
+          && r30.data.probes.length === 16));
+    add('live_sgsd_warp_doctor_returns_16_probes',
+      ok30,
+      'ok=' + (r30 ? r30.ok : '?')
+        + ' probes_len=' + (r30 && r30.data && r30.data.probes
+          ? r30.data.probes.length : '?'));
 
     // A21: aggregate fixture-pair test. Walks fixtures/ via loadFixtures
     // and runs each pair through dispatchTool + runMatcher. All pairs

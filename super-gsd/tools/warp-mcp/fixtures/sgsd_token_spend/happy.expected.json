@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "tool": "sgsd_token_spend",
+  "data": {
+    "scope": "all",
+    "group_by": "role",
+    "totals": {
+      "input": 1000,
+      "output": 500,
+      "total": 1500
+    },
+    "rows": [
+      { "key": "orchestrator", "input": 800, "output": 400, "total": 1200 },
+      { "key": "executor", "input": 200, "output": 100, "total": 300 }
+    ]
+  },
+  "_truncated": false,
+  "_degraded": false,
+  "_redactions_applied": []
+}

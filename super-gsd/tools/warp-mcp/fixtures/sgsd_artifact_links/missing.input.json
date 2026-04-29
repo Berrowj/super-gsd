@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_artifact_links",
+  "args": { "milestone": "v9.9" },
+  "fixture_planning_dir": "_synthetic_planning_missing",
+  "scenario_description": "degraded path -- milestone phases dir missing"
+}

@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "tool": "sgsd_artifact_links",
+  "data": {
+    "milestone": "v2.2",
+    "phases": [
+      {
+        "phase": "63",
+        "atc_review": "<contains>63-ATC-REVIEW.md</contains>",
+        "verification": "<contains>63-VERIFICATION.md</contains>",
+        "waste": null,
+        "context": "<contains>63-CONTEXT.md</contains>"
+      },
+      {
+        "phase": "64",
+        "atc_review": null,
+        "verification": "<contains>64-VERIFICATION.md</contains>",
+        "waste": null,
+        "context": "<contains>64-CONTEXT.md</contains>"
+      }
+    ]
+  },
+  "_truncated": false,
+  "_degraded": false,
+  "_redactions_applied": []
+}

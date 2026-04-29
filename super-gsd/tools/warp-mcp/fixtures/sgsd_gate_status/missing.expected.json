@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "tool": "sgsd_gate_status",
+  "data": {
+    "gates": [],
+    "latest_per_gate": {}
+  },
+  "_truncated": false,
+  "_degraded": false,
+  "_redactions_applied": []
+}

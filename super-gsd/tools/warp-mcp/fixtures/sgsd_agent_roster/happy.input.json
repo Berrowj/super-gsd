@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_agent_roster",
+  "args": { "phase": "67" },
+  "fixture_planning_dir": "_synthetic_planning_happy",
+  "scenario_description": "happy path -- synthetic activity-log.jsonl with rows from phase 67"
+}

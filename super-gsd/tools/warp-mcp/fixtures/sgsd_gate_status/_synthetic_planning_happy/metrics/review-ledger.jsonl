@@ -1,0 +1,3 @@
+{"envelope_version":1,"ts":"2026-04-29T10:00:00Z","command":"appendReviewRow","status":"pass","phase":"63","milestone":"v2.2","_legacy":{"tier":"phase-level-ATC","verdict":"pass","provider":"claude-sonnet"}}
+{"envelope_version":1,"ts":"2026-04-29T11:00:00Z","command":"appendReviewRow","status":"pass","phase":"64","milestone":"v2.2","_legacy":{"tier":"phase-level-ATC","verdict":"pass","provider":"claude-sonnet"}}
+{"envelope_version":1,"ts":"2026-04-29T12:00:00Z","command":"appendReviewRow","status":"warn","phase":"65","milestone":"v2.2","_legacy":{"tier":"phase-level-ATC","verdict":"warn","provider":"openai-codex"}}

@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_codex_status",
+  "args": {},
+  "fixture_planning_dir": "_synthetic_planning_absent",
+  "scenario_description": "absent path -- both codex-live.json and codex-log.jsonl missing -> live_state=absent ok:true"
+}

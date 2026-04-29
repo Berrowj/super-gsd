@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_context_bench_status",
+  "args": {},
+  "fixture_planning_dir": "_synthetic_planning_happy",
+  "scenario_description": "happy path -- synthetic context-bench-log.jsonl with 2 scenarios in latest run"
+}

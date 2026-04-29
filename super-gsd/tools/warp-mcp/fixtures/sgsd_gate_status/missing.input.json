@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_gate_status",
+  "args": {},
+  "fixture_planning_dir": "_synthetic_planning_missing",
+  "scenario_description": "degraded path -- both gate-value-log and review-ledger missing; ok:true with empty gates per contract"
+}

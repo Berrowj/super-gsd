@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_cockpit_snapshot",
+  "args": {},
+  "fixture_planning_dir": "_synthetic_planning_happy",
+  "scenario_description": "happy path -- synthetic STATE.md + watchdog files; sub-tools either succeed or section_degraded; envelope ok:true"
+}

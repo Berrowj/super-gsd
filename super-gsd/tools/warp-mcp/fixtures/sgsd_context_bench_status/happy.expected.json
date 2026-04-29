@@ -1,0 +1,18 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "tool": "sgsd_context_bench_status",
+  "data": {
+    "latest_run": {
+      "run_id": "bench-2026-04-29",
+      "verdict": "PASS"
+    },
+    "scenarios": [
+      { "id": "S1", "verdict": "PASS", "tokens_pre": 150000, "tokens_post": 60000 },
+      { "id": "S2", "verdict": "PASS", "tokens_pre": 200000, "tokens_post": 80000 }
+    ]
+  },
+  "_truncated": false,
+  "_degraded": false,
+  "_redactions_applied": []
+}

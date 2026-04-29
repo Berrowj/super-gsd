@@ -1,0 +1,3 @@
+{"ts":"2026-04-29T10:00:00Z","role":"orchestrator","milestone":"v2.3","phase":71,"usage":{"input_tokens":500,"output_tokens":200,"total_tokens":700}}
+{"ts":"2026-04-29T11:00:00Z","role":"orchestrator","milestone":"v2.3","phase":71,"usage":{"input_tokens":300,"output_tokens":200,"total_tokens":500}}
+{"ts":"2026-04-29T12:00:00Z","role":"executor","milestone":"v2.3","phase":71,"usage":{"input_tokens":200,"output_tokens":100,"total_tokens":300}}

@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_token_spend",
+  "args": { "scope": "all", "group_by": "role" },
+  "fixture_planning_dir": "_synthetic_planning_happy",
+  "scenario_description": "happy path -- synthetic token-attribution.jsonl with 2 roles"
+}

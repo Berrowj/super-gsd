@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_context_bench_status",
+  "args": {},
+  "fixture_planning_dir": "_synthetic_planning_missing",
+  "scenario_description": "degraded path -- bench log missing"
+}
