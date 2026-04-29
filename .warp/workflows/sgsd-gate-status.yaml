@@ -1,0 +1,13 @@
+name: "SGSD: Gate Status"
+description: Print the latest gate verdicts from review-ledger and gate-value-log. Search terms include gates, atc, verifier, review, blocked, fail, warn, codex.
+command: 'cd "{{project_dir}}"; Write-Host "=== latest gate value log (tail 20) ==="; if (Test-Path .planning\metrics\gate-value-log.jsonl) { Get-Content .planning\metrics\gate-value-log.jsonl -Encoding UTF8 -Tail 20 } else { Write-Host "(gate-value-log.jsonl missing — Phase 36 not yet shipped or no gates fired)" }; Write-Host ""; Write-Host "=== latest review ledger rows (tail 10) ==="; if (Test-Path .planning\metrics\review-ledger.jsonl) { Get-Content .planning\metrics\review-ledger.jsonl -Encoding UTF8 -Tail 10 } else { Write-Host "(review-ledger.jsonl missing)" }'
+tags:
+  - sgsd
+  - gates
+  - atc
+  - verifier
+  - status
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'

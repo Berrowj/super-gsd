@@ -1,0 +1,13 @@
+name: "SGSD: Warp Doctor"
+description: Run the read-only Warp + SGSD setup diagnostic — 16 probes covering env, profile, workflows, files, launch config, CLI resolvers. Search terms include doctor, diagnose, warp, setup, health, sg, sgsd.
+command: 'cd "{{project_dir}}"; node super-gsd/tools/warp-doctor/check.cjs --project "{{project_dir}}"'
+tags:
+  - sgsd
+  - warp
+  - doctor
+  - diagnose
+  - status
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'

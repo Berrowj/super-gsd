@@ -1,7 +1,12 @@
 name: "SGSD: Token Summary"
-description: Refresh token attribution and print the current milestone/phase token summary.
-command: node super-gsd/tools/token-attribution/collect.cjs --write --all --agent-spend --summary --current
+description: Refresh token attribution and print the current milestone/phase token spend summary. Search terms include token, status, attribution, spend, current.
+command: 'cd "{{project_dir}}"; node super-gsd/tools/token-attribution/collect.cjs --write --all --agent-spend --summary --current'
 tags:
   - sgsd
   - tokens
   - metrics
+  - status
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'

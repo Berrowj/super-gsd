@@ -1,0 +1,13 @@
+name: "SGSD: Remote Monitor Packet"
+description: Print a concise remote-monitor packet for off-machine observation — current state, watchdog, expected next unlock, recovery command, share-safe checklist. Search terms include remote, monitor, share, away, phone, off-machine.
+command: 'cd "{{project_dir}}"; Write-Host "=== SGSD REMOTE MONITOR PACKET ==="; Write-Host "(Capture this block before sharing the Warp session — verify nothing here is private before forwarding.)"; Write-Host ""; Write-Host "[1/4] Current position (STATE.md frontmatter):"; Get-Content .planning\STATE.md -TotalCount 9 -Encoding UTF8; Write-Host ""; Write-Host "[2/4] Watchdog state:"; if (Test-Path .planning\metrics\autopilot-watchdog.json) { Get-Content .planning\metrics\autopilot-watchdog.json -Encoding UTF8 } else { Write-Host "(watchdog absent — autopilot not active)" }; Write-Host ""; Write-Host "[3/4] Expected next unlock:"; if (Test-Path .planning\ORCHESTRATOR-CHECKPOINT.md) { (Get-Content .planning\ORCHESTRATOR-CHECKPOINT.md -Encoding UTF8) -match ''^next_unit:|^operator_action:'' | ForEach-Object { Write-Host $_ } } else { Write-Host "(no checkpoint — auto-run is either active or roadmap-complete)" }; Write-Host ""; Write-Host "[4/4] Resume command on return:"; Write-Host "  /sgsd-orchestrate go     (auto resume from checkpoint or current STATE)"'
+tags:
+  - sgsd
+  - remote
+  - monitor
+  - share
+  - status
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'

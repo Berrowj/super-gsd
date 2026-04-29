@@ -1,0 +1,13 @@
+name: "SGSD: Codex Status"
+description: Print the latest Codex CLI dispatch state — current run, last verdict, freshness. Search terms include codex, review, openai, provider, status.
+command: 'cd "{{project_dir}}"; Write-Host "=== codex-live.json ==="; if (Test-Path .planning\metrics\codex-live.json) { Get-Content .planning\metrics\codex-live.json -Encoding UTF8 } else { Write-Host "(codex-live.json missing — codex not yet dispatched in this milestone)" }; Write-Host ""; Write-Host "=== codex-log.jsonl (tail 10) ==="; if (Test-Path .planning\metrics\codex-log.jsonl) { Get-Content .planning\metrics\codex-log.jsonl -Encoding UTF8 -Tail 10 } else { Write-Host "(codex-log.jsonl missing)" }'
+tags:
+  - sgsd
+  - codex
+  - review
+  - provider
+  - status
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'

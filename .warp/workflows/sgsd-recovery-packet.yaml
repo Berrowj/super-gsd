@@ -1,0 +1,13 @@
+name: "SGSD: Recovery Packet"
+description: Print the SGSD recovery packet — current state, last safe command, artifact links, exact resume instruction. Search terms include recovery, resume, blocked, stuck, checkpoint.
+command: 'cd "{{project_dir}}"; if (Test-Path .planning\ORCHESTRATOR-CHECKPOINT.md) { Get-Content .planning\ORCHESTRATOR-CHECKPOINT.md -Encoding UTF8 } else { Write-Host "No checkpoint open. Read STATE.md frontmatter for current position:`n"; Get-Content .planning\STATE.md -TotalCount 30 -Encoding UTF8 }'
+tags:
+  - sgsd
+  - recovery
+  - resume
+  - blocked
+  - checkpoint
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'

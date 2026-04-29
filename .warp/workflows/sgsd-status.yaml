@@ -1,0 +1,11 @@
+name: "SGSD: Status"
+description: Print the active milestone, phase, and last-activity from .planning/STATE.md frontmatter. Search terms include status, where, current, milestone, phase.
+command: 'cd "{{project_dir}}"; Get-Content .planning/STATE.md -TotalCount 30 -Encoding UTF8'
+tags:
+  - sgsd
+  - status
+  - state
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'

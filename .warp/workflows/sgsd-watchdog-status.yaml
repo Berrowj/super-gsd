@@ -1,0 +1,13 @@
+name: "SGSD: Watchdog Status"
+description: Print the autopilot watchdog state — last pulse, stall detection, attention reasons. Search terms include watchdog, stall, attention, autopilot, alive, dead, stuck.
+command: 'cd "{{project_dir}}"; Write-Host "=== autopilot-watchdog.json ==="; if (Test-Path .planning\metrics\autopilot-watchdog.json) { Get-Content .planning\metrics\autopilot-watchdog.json -Encoding UTF8 } else { Write-Host "(autopilot-watchdog.json missing)" }; Write-Host ""; Write-Host "=== orchestrator-pulse.jsonl (tail 10) ==="; if (Test-Path .planning\metrics\orchestrator-pulse.jsonl) { Get-Content .planning\metrics\orchestrator-pulse.jsonl -Encoding UTF8 -Tail 10 } else { Write-Host "(orchestrator-pulse.jsonl missing)" }'
+tags:
+  - sgsd
+  - watchdog
+  - autopilot
+  - status
+  - attention
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'

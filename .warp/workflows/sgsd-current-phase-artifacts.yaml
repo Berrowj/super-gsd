@@ -1,0 +1,13 @@
+name: "SGSD: Current Phase Artifacts"
+description: List the artifact files in the active milestone's current phase folder. Search terms include phase, artifacts, files, what is active, current.
+command: 'cd "{{project_dir}}"; $milestone = (Select-String -Path .planning/STATE.md -Pattern ''^milestone:\s*(\S+)'' | Select-Object -First 1).Matches.Groups[1].Value; $phase = (Select-String -Path .planning/STATE.md -Pattern ''current_phase:\s*(\S+)'' | Select-Object -First 1).Matches.Groups[1].Value; Write-Host "milestone=$milestone phase=$phase"; $dir = ".planning\milestones\$milestone\phases"; if (Test-Path $dir) { Get-ChildItem $dir -Directory | Where-Object { $_.Name -match "^$phase-" } | ForEach-Object { Write-Host ""; Write-Host "==> $($_.FullName)"; Get-ChildItem $_.FullName -File | Select-Object Name,Length,LastWriteTime } } else { Write-Host "(milestone phases dir not found: $dir)" }'
+tags:
+  - sgsd
+  - phase
+  - artifacts
+  - current
+  - status
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'
