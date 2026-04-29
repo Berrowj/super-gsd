@@ -476,6 +476,105 @@ function _main(argv) {
         + 'sha256 ' + producedHash_v21c.slice(0, 8) + '...)\n');
       process.stdout.write('milestone_close_gate: v2.1 third-gate '
         + '(example-walkthrough) green\n');
+
+      // ---------------------------------------------------------------
+      // Phase 61-01-T3: v2.1 FOURTH-GATE (docs-refresh check). Lock 4:
+      // extends the v2.1 branch only; v1.9 dual-gate, v2.0 sept-gate,
+      // Phase 58 first-gate, Phase 59 second-gate, AND Phase 60 third-
+      // gate paths are all preserved byte-equal up to this insertion
+      // point (bytes 1-478 of the post-Phase-60 file). The fourth gate
+      // performs a closed-vocab grep on README.md to verify the public
+      // docs refresh shipped: VTP mentions must be marked optional only
+      // (zero occurrences of 'vtp.*required' or 'vtp.*must'). The check
+      // is intentionally narrow: it observes the README's VTP-vocab
+      // discipline as a regression sentinel for the Phase 61 docs
+      // refresh. Lock 11: closed-vocab grep on 'required' / 'must' /
+      // 'optional' (no fuzzy matching). Lock 13: README missing on
+      // disk -> gate emits a SKIPPED sentinel and exits 0 rather than
+      // blocking close (partial-checkout / sparse-clone path; the
+      // README is a public-docs surface, its absence is a checkout-
+      // shape problem, not a milestone-close problem).
+      // ASCII-only: stderr/stdout literals are 0x09/0x0A/0x20-0x7E.
+      // ---------------------------------------------------------------
+      var readmePath_v21d = path_v21c.join(repoRoot_v21c, 'README.md');
+
+      var readmePresent_v21d = false;
+      try {
+        readmePresent_v21d = fs_v21c.existsSync(readmePath_v21d)
+          && fs_v21c.statSync(readmePath_v21d).isFile();
+      } catch (_e) {
+        readmePresent_v21d = false;
+      }
+
+      if (!readmePresent_v21d) {
+        // Lock 13: README absent -> degrade gracefully, do NOT block
+        // close. The fourth-gate's purpose is to catch VTP-vocab
+        // regressions in the public docs; if the README is missing
+        // there is no public-docs surface to regress against.
+        process.stdout.write('milestone_close_gate: v2.1 docs-refresh '
+          + 'check SKIPPED (README.md not present at repo root; '
+          + 'partial checkout suspected; degrading to third-gate only '
+          + 'per Lock 13)\n');
+        process.stdout.write('milestone_close_gate: v2.1 fourth-gate '
+          + '(docs-refresh) green-with-skip\n');
+        process.exit(0);
+        return;
+      }
+
+      // Read README and run the closed-vocab grep in-proc (avoid
+      // shelling out to grep so the gate is portable across PowerShell
+      // / cmd.exe / bash without depending on platform grep semantics).
+      var readmeBytes_v21d = null;
+      try {
+        readmeBytes_v21d = fs_v21c.readFileSync(readmePath_v21d, 'utf8');
+      } catch (e) {
+        process.stderr.write('milestone_close_blocked:docs_refresh_self_test_failed\n');
+        process.stderr.write('  reason=docs_refresh_readme_read_failed message='
+          + (e && e.message ? e.message : 'unknown') + '\n');
+        process.exit(1);
+        return;
+      }
+
+      // Closed-vocab regex: 'vtp' (case-insensitive) followed within
+      // the same line by 'required' or 'must' (case-insensitive). Any
+      // match is a Phase 61 regression: the docs refresh mandates VTP
+      // be marked optional only.
+      var vtpRequiredCount_v21d = 0;
+      var vtpAnyCount_v21d = 0;
+      try {
+        var lines_v21d = readmeBytes_v21d.split(/\r?\n/);
+        var rxRequired_v21d = /vtp[^\n]*(required|must)/i;
+        var rxAny_v21d = /vtp/i;
+        for (var li_v21d = 0; li_v21d < lines_v21d.length; li_v21d++) {
+          if (rxAny_v21d.test(lines_v21d[li_v21d])) {
+            vtpAnyCount_v21d++;
+            if (rxRequired_v21d.test(lines_v21d[li_v21d])) {
+              vtpRequiredCount_v21d++;
+            }
+          }
+        }
+      } catch (e) {
+        process.stderr.write('milestone_close_blocked:docs_refresh_self_test_failed\n');
+        process.stderr.write('  reason=docs_refresh_grep_threw message='
+          + (e && e.message ? e.message : 'unknown') + '\n');
+        process.exit(1);
+        return;
+      }
+
+      if (vtpRequiredCount_v21d > 0) {
+        process.stderr.write('milestone_close_blocked:docs_refresh_vtp_required_present\n');
+        process.stderr.write('  reason=vtp_required_count='
+          + vtpRequiredCount_v21d + ' (must be 0; VTP must be marked '
+          + 'optional only per Phase 61 docs refresh)\n');
+        process.exit(1);
+        return;
+      }
+
+      process.stdout.write('milestone_close_gate: v2.1 docs-refresh '
+        + 'check green (vtp_required_count=0; vtp_any_count='
+        + vtpAnyCount_v21d + '; closed-vocab grep on required/must)\n');
+      process.stdout.write('milestone_close_gate: v2.1 fourth-gate '
+        + '(docs-refresh) green\n');
       process.exit(0);
       return;
     }
