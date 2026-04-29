@@ -731,11 +731,24 @@
     }
 
     @media (max-width: 980px) {
+      html,
+      body {
+        max-width: 100vw;
+        overflow-x: hidden;
+      }
       .shell { grid-template-columns: 1fr; }
+      .shell {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+      }
       nav {
         position: relative;
         height: auto;
         padding: 12px;
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
       }
       .brand {
         margin-bottom: 0;
@@ -783,7 +796,12 @@
       .terminal-window,
       .visual,
       .screen {
+        width: 100%;
         max-width: 100%;
+      }
+      main {
+        width: 100%;
+        max-width: 100vw;
       }
       .hero {
         min-height: auto;
@@ -826,7 +844,8 @@
         font-size: 18px;
       }
       .hero h2 {
-        font-size: 42px;
+        font-size: 38px;
+        line-height: 1;
       }
       .hero > p {
         font-size: 19px;
