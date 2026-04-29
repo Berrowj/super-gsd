@@ -163,6 +163,40 @@ function selfTest() {
     const types = getEventTypes();
     assert('A9_get_event_types_same', types === EVENT_TYPES, 'identity=' + (types === EVENT_TYPES));
 
+    // A10: --emit CLI round-trip in a temp dir. spawnSync ourselves with --emit,
+    // verify exit 0 + ok:true on stdout + a row appended to the temp stream.
+    try {
+      const cp = require('child_process');
+      const os = require('os');
+      const tmp2 = path.join(os.tmpdir(), 'live-writer-emit-cli-' + Date.now());
+      fs.mkdirSync(path.join(tmp2, '.planning'), { recursive: true });
+      const eventArg = JSON.stringify({
+        type: 'phase_started',
+        data: { phase: '75', phase_name: 'a10-cli', milestone: 'v2.4' },
+        phase: '75'
+      });
+      const r = cp.spawnSync(process.execPath, [__filename, '--emit', eventArg], {
+        cwd: tmp2,
+        encoding: 'utf8'
+      });
+      const stdoutOk = (r.stdout || '').indexOf('"ok":true') !== -1;
+      const exitOk = r.status === 0;
+      const streamFile = path.join(tmp2, '.planning', 'ORCHESTRATOR-LIVE.jsonl');
+      const fileOk = fs.existsSync(streamFile);
+      let parsed = null;
+      if (fileOk) {
+        const txt = fs.readFileSync(streamFile, 'utf8').trim();
+        try { parsed = JSON.parse(txt); } catch (_e) { parsed = null; }
+      }
+      const shapeOk = !!(parsed && parsed.type === 'phase_started' && parsed.data && parsed.data.phase === '75');
+      assert('A10_emit_cli_roundtrip',
+        exitOk && stdoutOk && fileOk && shapeOk,
+        'exit=' + r.status + ' stdoutOk=' + stdoutOk + ' fileOk=' + fileOk + ' shapeOk=' + shapeOk);
+      try { fs.rmSync(tmp2, { recursive: true, force: true }); } catch (_e) { /* best effort */ }
+    } catch (e) {
+      assert('A10_emit_cli_roundtrip', false, 'threw: ' + (e && e.message));
+    }
+
     const allOk = results.every(r => r.ok);
     return { ok: allOk, results };
   } catch (e) {
@@ -183,8 +217,29 @@ if (require.main === module) {
     }
     process.stdout.write('\nSelf-test: ' + pass + '/' + (pass + fail) + ' passed\n');
     process.exit(st.ok ? 0 : 1);
+  } else if (arg === '--emit') {
+    const eventJson = process.argv[3];
+    if (!eventJson) {
+      process.stderr.write('--emit requires a JSON string argument\n');
+      process.exit(1);
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(eventJson);
+    } catch (e) {
+      process.stderr.write('--emit: invalid JSON: ' + (e && e.message ? e.message : 'parse error') + '\n');
+      process.exit(1);
+    }
+    const result = appendEvent(parsed);
+    if (result.ok) {
+      process.stdout.write('{"ok":true}\n');
+      process.exit(0);
+    } else {
+      process.stdout.write(JSON.stringify(result) + '\n');
+      process.exit(1);
+    }
   } else {
-    process.stdout.write('orchestrator-live-writer.cjs --self-test  (no other CLI flags; this is a library)\n');
+    process.stdout.write('orchestrator-live-writer.cjs --self-test | --emit <json>\n');
     process.exit(0);
   }
 }

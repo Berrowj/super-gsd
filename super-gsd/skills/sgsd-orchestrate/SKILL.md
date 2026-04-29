@@ -2200,6 +2200,47 @@ REPEAT:
 ```
 </loop>
 
+## Live Event Wire-In Points (Phase 74-75)
+
+The orchestrator emits structured events to `.planning/ORCHESTRATOR-LIVE.jsonl`
+via `super-gsd/scripts/lib/orchestrator-live-writer.cjs --emit '<json>'`.
+16 EVENT_TYPES per `super-gsd/docs/ORCHESTRATOR-LIVE-EVENTS.md`. Each fire
+point below is approximate; the writer is Lock-13-wrapped so emit failures
+do NOT crash the run (event-emit is fire-and-forget; legacy ledgers remain
+canonical for correctness).
+
+| Event type | Fires when | Required `data` fields |
+|---|---|---|
+| `run_started` | `/sgsd-orchestrate go` invoked at session start | `mode`, `user_command`, `session_id` |
+| `phase_started` | Loop step 1 detects new active phase | `phase`, `phase_name`, `milestone` |
+| `plan_selected` | Step 4 dispatches a plan to executor | `plan_id`, `title`, `expected_atc_tier` |
+| `agent_dispatched` | Before `Agent()` Sonnet call | `agent`, `model`, `task_id`, `purpose` |
+| `agent_progress` | Optional during long-running task | `task_id`, `current_action`, `files_touched` |
+| `agent_completed` | After agent returns report | `task_id`, `agent`, `outcome`, `summary`, `files_changed` |
+| `codex_started` | Step 6.5 / 9.5 / 9.6 codex dispatch | `step`, `scope`, `prompt_chars` |
+| `codex_completed` | Codex returns | `verdict`, `critical_count`, `warning_count`, `duration_ms` |
+| `gate_started` | Phase-level / per-dispatch gate fire | `gate`, `phase` |
+| `gate_passed` / `gate_warned` / `gate_failed` | Gate outcome | `gate`, `phase`, `verdict`, `evidence_path` |
+| `token_threshold_crossed` | Phase 42 budget check trips | `role`, `threshold_kind`, `actual_value`, `threshold_value` |
+| `checkpoint_written` | Checkpoint protocol fires | `path`, `next_unit`, `reason` |
+| `operator_attention_required` | Hard blocker / 7-reason vocab | `reason`, `context` |
+| `run_completed` | Loop exits via one of 3 valid exits | `outcome`, `duration_seconds` |
+
+The 7 attention reasons (per Phase 87 v2.6 finalization, draft now):
+provider_unavailable / gate_failed_after_retries / credentials_needed /
+destructive_op_blocked / privacy_judgment_needed / no_activity / roadmap_complete.
+
+**Failure mode**: writer returns `{ok:false}` on any error (bad input,
+write failure, etc.). Orchestrator MUST NOT halt on emit failure. The
+event stream is observability; legacy ledgers are correctness.
+
+**v2.4 transition**: legacy ledgers (`activity-log.jsonl`,
+`agent-token-spend.jsonl`, `codex-log.jsonl`, `gate-value-log.jsonl`,
+`orchestrator-pulse.jsonl`) remain canonical for their domains. Phase
+75 wires PARALLEL emits to the live stream; readers (cockpit-state
+adapter Phase 76, MCP `sgsd_cockpit_snapshot`) consume the unified
+stream.
+
 ## Edge-Guard Layer
 
 The edge-guard layer audits every loop-step transition, writing a JSONL row to
