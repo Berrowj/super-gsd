@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "tool": "sgsd_recovery_packet",
+  "data": {
+    "next_unlock": {
+      "from": "state",
+      "text": "<contains>v2.2 ALL-PHASES-CLOSED</contains>"
+    },
+    "resume_command": "/sgsd-orchestrate go"
+  },
+  "_truncated": false,
+  "_degraded": false,
+  "_redactions_applied": []
+}

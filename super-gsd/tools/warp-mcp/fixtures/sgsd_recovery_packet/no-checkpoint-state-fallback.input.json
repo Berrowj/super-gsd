@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_recovery_packet",
+  "args": {},
+  "fixture_planning_dir": "_synthetic_planning_state_only",
+  "scenario_description": "no checkpoint -- falls back to STATE.md milestone_status; next_unlock.from === 'state'"
+}

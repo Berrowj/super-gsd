@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_watchdog_status",
+  "args": {},
+  "fixture_planning_dir": "_synthetic_planning_absent",
+  "scenario_description": "absent path -- empty fixture dir; no watchdog or pulse files"
+}

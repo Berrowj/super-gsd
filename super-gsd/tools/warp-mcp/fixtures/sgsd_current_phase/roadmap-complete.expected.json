@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "tool": "sgsd_current_phase",
+  "data": {
+    "phase": "complete",
+    "milestone": "v2.2",
+    "status": "ALL-PHASES-CLOSED",
+    "deferred_count": 5
+  },
+  "_truncated": false,
+  "_degraded": false,
+  "_redactions_applied": []
+}

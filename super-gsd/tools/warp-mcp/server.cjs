@@ -124,6 +124,155 @@ var MATCHER_TYPES = Object.freeze([
 var STUB_MESSAGE = 'Phase 70/71 implements; this is the skeleton stub';
 
 // ---------------------------------------------------------------------------
+// SHARED INTERNAL HELPERS (Phase 70)
+//   _resolvePlanningDir(args)
+//     Returns the planning dir to read from. If args.fixture_planning_dir
+//     is a non-empty string, returns it (used by fixtures to point at a
+//     synthetic .planning tree). Otherwise returns the live .planning at
+//     the repo root (path.join(__dirname, '../../../.planning')).
+//
+//   _parseStateFrontmatter(planningDir)
+//     Reads STATE.md, extracts content between the first two `---` lines,
+//     parses the YAML-ish frontmatter via a hand-written indent-tracker
+//     (no YAML parser dep). Returns a flat object with nested sub-objects
+//     for `progress` and `roadmap_run`. Returns null on miss/parse error.
+//
+//   _tailJsonl(filePath, n)
+//     Reads a JSONL file, splits by newline, takes last n non-empty rows,
+//     JSON.parses each. Skips parse errors silently. Returns array.
+//     Lock-13 wrapped: missing/error -> [].
+// ---------------------------------------------------------------------------
+function _resolvePlanningDir(args) {
+  try {
+    if (args && typeof args.fixture_planning_dir === 'string'
+        && args.fixture_planning_dir.length > 0) {
+      return args.fixture_planning_dir;
+    }
+    return path.join(__dirname, '..', '..', '..', '.planning');
+  } catch (_e) {
+    return path.join(__dirname, '..', '..', '..', '.planning');
+  }
+}
+
+function _stripQuotes(s) {
+  if (typeof s !== 'string') return s;
+  var t = s.replace(/^\s+|\s+$/g, '');
+  if (t.length >= 2) {
+    var c0 = t.charAt(0);
+    var cN = t.charAt(t.length - 1);
+    if ((c0 === '"' && cN === '"') || (c0 === "'" && cN === "'")) {
+      return t.slice(1, -1);
+    }
+  }
+  return t;
+}
+
+function _countLeadingSpaces(s) {
+  var n = 0;
+  while (n < s.length && s.charAt(n) === ' ') n++;
+  return n;
+}
+
+function _parseStateFrontmatter(planningDir) {
+  try {
+    if (typeof planningDir !== 'string' || planningDir.length === 0) return null;
+    var statePath = path.join(planningDir, 'STATE.md');
+    if (!fs.existsSync(statePath)) return null;
+    var src = '';
+    try { src = fs.readFileSync(statePath, 'utf8'); } catch (_re) { return null; }
+    if (typeof src !== 'string' || src.length === 0) return null;
+
+    // Extract frontmatter between first two `---` lines.
+    var lines = src.split(/\r?\n/);
+    if (lines.length < 2) return null;
+    if (lines[0].replace(/\s+$/, '') !== '---') return null;
+    var endIdx = -1;
+    for (var i = 1; i < lines.length; i++) {
+      if (lines[i].replace(/\s+$/, '') === '---') { endIdx = i; break; }
+    }
+    if (endIdx === -1) return null;
+
+    // Parse k:v with simple indent tracker.
+    var out = {};
+    // stack of { obj, indent }
+    var stack = [{ obj: out, indent: -1 }];
+
+    for (var li = 1; li < endIdx; li++) {
+      var raw = lines[li];
+      if (typeof raw !== 'string') continue;
+      // Skip blank lines and pure-comment lines.
+      var trimmed = raw.replace(/^\s+|\s+$/g, '');
+      if (trimmed.length === 0) continue;
+      if (trimmed.charAt(0) === '#') continue;
+
+      var indent = _countLeadingSpaces(raw);
+
+      // Pop stack while indent <= top.indent
+      while (stack.length > 1 && indent <= stack[stack.length - 1].indent) {
+        stack.pop();
+      }
+      var parent = stack[stack.length - 1].obj;
+
+      // Match `key: value` or `key:` (block opener)
+      var colonIdx = trimmed.indexOf(':');
+      if (colonIdx === -1) continue;
+      var key = trimmed.slice(0, colonIdx).replace(/^\s+|\s+$/g, '');
+      var val = trimmed.slice(colonIdx + 1).replace(/^\s+|\s+$/g, '');
+      // Skip array entries `- ...` -- not used in STATE.md frontmatter
+      // for the fields we care about (progress/roadmap_run are objects).
+      if (key.charAt(0) === '-') continue;
+      if (key.length === 0) continue;
+
+      if (val.length === 0) {
+        // Block opener -- create child object and push onto stack.
+        var child = {};
+        parent[key] = child;
+        stack.push({ obj: child, indent: indent });
+      } else {
+        // Strip wrapping quotes; leave unquoted values as-is.
+        parent[key] = _stripQuotes(val);
+      }
+    }
+    return out;
+  } catch (_e) {
+    return null;
+  }
+}
+
+function _tailJsonl(filePath, n) {
+  var rows = [];
+  try {
+    if (typeof filePath !== 'string' || filePath.length === 0) return rows;
+    if (!fs.existsSync(filePath)) return rows;
+    var src = '';
+    try { src = fs.readFileSync(filePath, 'utf8'); } catch (_re) { return rows; }
+    if (typeof src !== 'string' || src.length === 0) return rows;
+    var lines = src.split(/\r?\n/);
+    var nn = (typeof n === 'number' && n > 0) ? Math.floor(n) : 10;
+    var collected = [];
+    for (var i = lines.length - 1; i >= 0 && collected.length < nn; i--) {
+      var ln = lines[i];
+      if (typeof ln !== 'string') continue;
+      var t = ln.replace(/^\s+|\s+$/g, '');
+      if (t.length === 0) continue;
+      try {
+        var obj = JSON.parse(t);
+        collected.push(obj);
+      } catch (_pe) {
+        // Skip parse errors silently.
+      }
+    }
+    // collected is reverse-chrono; flip back to chrono order.
+    for (var ri = collected.length - 1; ri >= 0; ri--) {
+      rows.push(collected[ri]);
+    }
+    return rows;
+  } catch (_e) {
+    return rows;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // ENVELOPE HELPERS
 // ---------------------------------------------------------------------------
 function _now() {
@@ -182,17 +331,435 @@ function _stub(name) {
   };
 }
 
-var _tool_sgsd_current_state = _stub('sgsd_current_state');
-var _tool_sgsd_current_phase = _stub('sgsd_current_phase');
-var _tool_sgsd_milestone_status = _stub('sgsd_milestone_status');
-var _tool_sgsd_watchdog_status = _stub('sgsd_watchdog_status');
+// -- Phase 70: 5 real implementations (1, 2, 3, 4, 11) --
+function _tool_sgsd_current_state(args) {
+  var name = 'sgsd_current_state';
+  try {
+    var planningDir = _resolvePlanningDir(args);
+    var fm = _parseStateFrontmatter(planningDir);
+    if (!fm) {
+      var statePath = path.join(planningDir, 'STATE.md');
+      var exists = false;
+      try { exists = fs.existsSync(statePath); } catch (_xe) { exists = false; }
+      return _makeDegraded(name,
+        exists ? 'source_file_unparseable' : 'source_file_missing',
+        exists
+          ? 'STATE.md present but frontmatter unparseable'
+          : 'STATE.md not found at ' + statePath);
+    }
+
+    // Resolve current_phase + status from roadmap_run (preferred) or
+    // top-level keys.
+    var rr = (fm.roadmap_run && typeof fm.roadmap_run === 'object')
+      ? fm.roadmap_run : {};
+    var currentPhase = (typeof rr.current_phase === 'string' && rr.current_phase.length > 0)
+      ? rr.current_phase
+      : null;
+    var currentPhaseStatus = (typeof rr.current_phase_status === 'string'
+      && rr.current_phase_status.length > 0)
+      ? rr.current_phase_status
+      : null;
+
+    var data = {
+      milestone: (typeof fm.milestone === 'string') ? fm.milestone : null,
+      milestone_name: (typeof fm.milestone_name === 'string') ? fm.milestone_name : null,
+      milestone_status: (typeof fm.milestone_status === 'string') ? fm.milestone_status : null,
+      status: (typeof fm.status === 'string') ? fm.status : null,
+      last_updated: (typeof fm.last_updated === 'string') ? fm.last_updated : null,
+      last_activity: (typeof fm.last_activity === 'string') ? fm.last_activity : null,
+      current_phase: currentPhase,
+      current_phase_status: currentPhaseStatus,
+    };
+    return _makeEnvelope(name, data);
+  } catch (_e) {
+    return _makeDegraded(name, 'internal_error_degraded',
+      'tool threw: ' + ((_e && _e.message) ? _e.message : 'unknown'));
+  }
+}
+
+function _tool_sgsd_current_phase(args) {
+  var name = 'sgsd_current_phase';
+  try {
+    var planningDir = _resolvePlanningDir(args);
+    var fm = _parseStateFrontmatter(planningDir);
+    if (!fm) {
+      var statePath = path.join(planningDir, 'STATE.md');
+      var exists = false;
+      try { exists = fs.existsSync(statePath); } catch (_xe) { exists = false; }
+      return _makeDegraded(name,
+        exists ? 'source_file_unparseable' : 'source_file_missing',
+        exists
+          ? 'STATE.md present but frontmatter unparseable'
+          : 'STATE.md not found at ' + statePath);
+    }
+
+    var milestone = (typeof fm.milestone === 'string') ? fm.milestone : null;
+    var rr = (fm.roadmap_run && typeof fm.roadmap_run === 'object')
+      ? fm.roadmap_run : {};
+
+    // Phase override via args.phase (string), else default from STATE.md.
+    var phaseArg = (args && typeof args.phase === 'string' && args.phase.length > 0)
+      ? args.phase : null;
+    var phase = phaseArg
+      || ((typeof rr.current_phase === 'string') ? rr.current_phase : null);
+    var phaseStatus = (typeof rr.current_phase_status === 'string')
+      ? rr.current_phase_status : null;
+    var closeCommit = (typeof rr.current_phase_close_commit === 'string')
+      ? rr.current_phase_close_commit : null;
+    var phaseName = (typeof rr.current_phase_name === 'string')
+      ? rr.current_phase_name : null;
+
+    // Roadmap-complete handling -- do not synthesise a false active phase.
+    if (phase === 'complete' || (typeof phase === 'string' && phase.toLowerCase() === 'complete')) {
+      // Compute deferred_count from progress.{milestone}.phase_* PASS-WITH-DEFERRED-N
+      var deferredCount = 0;
+      var deferredSummary = null;
+      if (milestone) {
+        var key = milestone.replace(/[.\-]/g, '_');
+        var prog = (fm.progress && typeof fm.progress === 'object'
+          && fm.progress[key] && typeof fm.progress[key] === 'object')
+          ? fm.progress[key] : null;
+        if (prog) {
+          var pkeys = Object.keys(prog);
+          for (var pi = 0; pi < pkeys.length; pi++) {
+            var pv = prog[pkeys[pi]];
+            if (typeof pv !== 'string') continue;
+            var m = pv.match(/PASS-WITH-DEFERRED-(\d+)/);
+            if (m && m[1]) {
+              deferredCount += parseInt(m[1], 10) || 0;
+            }
+          }
+          if (deferredCount > 0) {
+            deferredSummary = deferredCount + ' deferred items across milestone phases';
+          }
+        }
+      }
+      var dataC = {
+        phase: 'complete',
+        phase_name: phaseName || ((milestone || '?') + ' ALL-PHASES-CLOSED'),
+        milestone: milestone,
+        status: phaseStatus || 'ALL-PHASES-CLOSED',
+        close_commit: closeCommit,
+        plans: [],
+        deferred_count: deferredCount,
+        deferred_summary: deferredSummary,
+      };
+      return _makeEnvelope(name, dataC);
+    }
+
+    // Active phase: try to enumerate plans from phase folder.
+    var plans = [];
+    if (milestone && phase) {
+      var phasesDir = path.join(planningDir, 'milestones', milestone, 'phases');
+      if (fs.existsSync(phasesDir)) {
+        var phaseFolders = [];
+        try { phaseFolders = fs.readdirSync(phasesDir); } catch (_le) { phaseFolders = []; }
+        var pad2 = (phase.length === 1) ? ('0' + phase) : phase;
+        var matchFolder = null;
+        for (var fi = 0; fi < phaseFolders.length; fi++) {
+          var fn = phaseFolders[fi];
+          if (typeof fn !== 'string') continue;
+          if (fn.indexOf(pad2 + '-') === 0 || fn.indexOf(phase + '-') === 0) {
+            matchFolder = fn; break;
+          }
+        }
+        if (matchFolder) {
+          var phaseDirFull = path.join(phasesDir, matchFolder);
+          var entries = [];
+          try { entries = fs.readdirSync(phaseDirFull); } catch (_de) { entries = []; }
+          for (var ei = 0; ei < entries.length; ei++) {
+            var en = entries[ei];
+            if (typeof en !== 'string') continue;
+            // Match {NN}-{NN}-...-PLAN.md pattern.
+            var pm = en.match(/^(\d+)-(\d+)-.*-PLAN\.md$/);
+            if (pm) {
+              plans.push({
+                id: pm[1] + '-' + pm[2],
+                status: 'unknown',
+              });
+            }
+          }
+        }
+      }
+    }
+
+    var dataA = {
+      phase: phase,
+      phase_name: phaseName,
+      milestone: milestone,
+      status: phaseStatus,
+      close_commit: closeCommit,
+      plans: plans,
+      deferred_count: 0,
+      deferred_summary: null,
+    };
+    return _makeEnvelope(name, dataA);
+  } catch (_e) {
+    return _makeDegraded(name, 'internal_error_degraded',
+      'tool threw: ' + ((_e && _e.message) ? _e.message : 'unknown'));
+  }
+}
+
+function _tool_sgsd_milestone_status(args) {
+  var name = 'sgsd_milestone_status';
+  try {
+    var milestoneArg = (args && typeof args.milestone === 'string') ? args.milestone : '';
+    if (milestoneArg.length === 0) {
+      return _makeDegraded(name, 'invalid_input_schema',
+        'milestone arg required (e.g. {milestone:"v2.2"})');
+    }
+    var planningDir = _resolvePlanningDir(args);
+    var fm = _parseStateFrontmatter(planningDir);
+    if (!fm) {
+      var statePath = path.join(planningDir, 'STATE.md');
+      var exists = false;
+      try { exists = fs.existsSync(statePath); } catch (_xe) { exists = false; }
+      return _makeDegraded(name,
+        exists ? 'source_file_unparseable' : 'source_file_missing',
+        exists
+          ? 'STATE.md present but frontmatter unparseable'
+          : 'STATE.md not found at ' + statePath);
+    }
+
+    var key = milestoneArg.replace(/[.\-]/g, '_');
+    var prog = (fm.progress && typeof fm.progress === 'object'
+      && fm.progress[key] && typeof fm.progress[key] === 'object')
+      ? fm.progress[key] : null;
+    if (!prog) {
+      return _makeDegraded(name, 'source_file_missing',
+        'unknown milestone "' + milestoneArg + '" -- no progress.' + key + ' block in STATE.md');
+    }
+
+    var totalPhases = parseInt(prog.total_phases, 10);
+    if (isNaN(totalPhases)) totalPhases = 0;
+    var completedPhases = parseInt(prog.completed_phases, 10);
+    if (isNaN(completedPhases)) completedPhases = 0;
+    var percent = parseInt(prog.percent, 10);
+    if (isNaN(percent)) {
+      percent = (totalPhases > 0)
+        ? Math.floor((completedPhases / totalPhases) * 100)
+        : 0;
+    }
+
+    var phaseSummary = [];
+    var pkeys = Object.keys(prog);
+    for (var pi = 0; pi < pkeys.length; pi++) {
+      var pkn = pkeys[pi];
+      var pmm = pkn.match(/^phase_(\d+)$/);
+      if (!pmm) continue;
+      var pv = prog[pkn];
+      // Extract just the verdict prefix (e.g. PASS, PASS-WITH-DEFERRED-5).
+      var verdict = (typeof pv === 'string') ? pv : '';
+      var vmm = verdict.match(/(PASS-WITH-DEFERRED-\d+|PASS|FAIL|IN-PROGRESS|PENDING)/);
+      var statusVal = vmm ? vmm[1] : verdict.slice(0, 60);
+      phaseSummary.push({
+        phase: pmm[1],
+        status: statusVal,
+      });
+    }
+    // Sort by phase number ascending.
+    phaseSummary.sort(function (a, b) {
+      return parseInt(a.phase, 10) - parseInt(b.phase, 10);
+    });
+
+    // shipped_status: check {milestone}_complete: { status: ... }
+    var shippedStatus = null;
+    var completeBlock = fm[key + '_complete'];
+    if (completeBlock && typeof completeBlock === 'object'
+        && typeof completeBlock.status === 'string') {
+      shippedStatus = completeBlock.status;
+    }
+
+    var data = {
+      milestone: milestoneArg,
+      total_phases: totalPhases,
+      completed_phases: completedPhases,
+      percent: percent,
+      phase_summary: phaseSummary,
+      shipped_status: shippedStatus,
+    };
+    return _makeEnvelope(name, data);
+  } catch (_e) {
+    return _makeDegraded(name, 'internal_error_degraded',
+      'tool threw: ' + ((_e && _e.message) ? _e.message : 'unknown'));
+  }
+}
+
+function _tool_sgsd_watchdog_status(args) {
+  var name = 'sgsd_watchdog_status';
+  try {
+    var planningDir = _resolvePlanningDir(args);
+    var watchdogPath = path.join(planningDir, 'metrics', 'autopilot-watchdog.json');
+    var pulsePath = path.join(planningDir, 'metrics', 'orchestrator-pulse.jsonl');
+    var tailRows = (args && typeof args.tail_rows === 'number'
+      && args.tail_rows > 0)
+      ? Math.min(Math.floor(args.tail_rows), 50)
+      : 10;
+
+    var watchdogObj = null;
+    if (fs.existsSync(watchdogPath)) {
+      try {
+        watchdogObj = JSON.parse(fs.readFileSync(watchdogPath, 'utf8'));
+      } catch (_pe) {
+        watchdogObj = null;
+      }
+    }
+
+    var pulses = _tailJsonl(pulsePath, tailRows);
+
+    // Determine watchdog_state.
+    var watchdogState = 'absent';
+    var lastPulseTs = null;
+    var lastPulseAge = null;
+
+    if (pulses.length > 0) {
+      var last = pulses[pulses.length - 1];
+      if (last && typeof last.ts === 'string') {
+        lastPulseTs = last.ts;
+        try {
+          var ageMs = Date.now() - new Date(last.ts).getTime();
+          if (!isNaN(ageMs)) {
+            lastPulseAge = Math.floor(ageMs / 1000);
+          }
+        } catch (_te) { lastPulseAge = null; }
+      }
+    }
+
+    if (watchdogObj && typeof watchdogObj === 'object') {
+      // Use status from watchdog json if present.
+      if (typeof watchdogObj.status === 'string'
+          && (watchdogObj.status === 'alive'
+              || watchdogObj.status === 'stale'
+              || watchdogObj.status === 'absent')) {
+        watchdogState = watchdogObj.status;
+      } else {
+        // Heuristic: if last pulse age <= warn_min*60 -> alive, else stale.
+        var warnMin = (typeof watchdogObj.warn_min === 'number')
+          ? watchdogObj.warn_min : 20;
+        if (lastPulseAge !== null && lastPulseAge <= warnMin * 60) {
+          watchdogState = 'alive';
+        } else if (lastPulseAge !== null) {
+          watchdogState = 'stale';
+        } else {
+          watchdogState = 'absent';
+        }
+      }
+    } else if (pulses.length > 0) {
+      // Pulse log present but no watchdog json -- alive based on recent pulse.
+      if (lastPulseAge !== null && lastPulseAge <= 20 * 60) {
+        watchdogState = 'alive';
+      } else {
+        watchdogState = 'stale';
+      }
+    }
+
+    var data = {
+      watchdog_state: watchdogState,
+      last_pulse_ts: lastPulseTs,
+      last_pulse_age_seconds: lastPulseAge,
+      recent_pulses: pulses,
+    };
+    return _makeEnvelope(name, data);
+  } catch (_e) {
+    return _makeDegraded(name, 'internal_error_degraded',
+      'tool threw: ' + ((_e && _e.message) ? _e.message : 'unknown'));
+  }
+}
+
+function _tool_sgsd_recovery_packet(args) {
+  var name = 'sgsd_recovery_packet';
+  try {
+    var planningDir = _resolvePlanningDir(args);
+    var checkpointPath = path.join(planningDir, 'ORCHESTRATOR-CHECKPOINT.md');
+
+    // Compose current_position via current_state tool (delegate; share planningDir).
+    var currentStateEnv = _tool_sgsd_current_state(args);
+    var watchdogEnv = _tool_sgsd_watchdog_status(args);
+
+    var currentPosition = (currentStateEnv && currentStateEnv.ok === true)
+      ? currentStateEnv.data : null;
+    var watchdogState = (watchdogEnv && watchdogEnv.ok === true)
+      ? watchdogEnv.data : null;
+
+    // next_unlock: prefer checkpoint over STATE.md.
+    var nextUnlock = null;
+    var checkpointExists = false;
+    try { checkpointExists = fs.existsSync(checkpointPath); } catch (_xe) { checkpointExists = false; }
+
+    if (checkpointExists) {
+      var src = '';
+      try { src = fs.readFileSync(checkpointPath, 'utf8'); } catch (_re) { src = ''; }
+      if (typeof src === 'string' && src.length > 0) {
+        // Try to extract `next_unit:` from frontmatter.
+        var nextText = null;
+        var fmLines = src.split(/\r?\n/);
+        if (fmLines.length > 0 && fmLines[0].replace(/\s+$/, '') === '---') {
+          for (var fli = 1; fli < fmLines.length; fli++) {
+            var fln = fmLines[fli];
+            if (fln.replace(/\s+$/, '') === '---') break;
+            var fmm = fln.match(/^next_unit:\s*(.*)$/);
+            if (fmm) {
+              nextText = _stripQuotes(fmm[1]);
+              break;
+            }
+          }
+        }
+        // Fallback: scan for "## Next Action" section.
+        if (!nextText) {
+          var naIdx = src.indexOf('## Next Action');
+          if (naIdx !== -1) {
+            var rest = src.slice(naIdx);
+            var nextHash = rest.indexOf('\n##', 1);
+            var section = (nextHash !== -1) ? rest.slice(0, nextHash) : rest;
+            nextText = section.replace(/^## Next Action[^\n]*\n+/, '').replace(/^\s+|\s+$/g, '');
+            if (nextText.length > 500) nextText = nextText.slice(0, 500);
+          }
+        }
+        nextUnlock = {
+          from: 'checkpoint',
+          text: nextText || 'checkpoint present but next_unit unparseable',
+        };
+      }
+    }
+
+    if (!nextUnlock) {
+      // Fallback to STATE.md milestone_status.
+      var fallbackText = null;
+      if (currentPosition && typeof currentPosition.milestone_status === 'string') {
+        fallbackText = currentPosition.milestone_status;
+      } else if (currentPosition && typeof currentPosition.status === 'string') {
+        fallbackText = currentPosition.status;
+      }
+      if (!fallbackText) {
+        return _makeDegraded(name, 'source_file_missing',
+          'no checkpoint and no STATE.md milestone_status to fall back on');
+      }
+      nextUnlock = {
+        from: 'state',
+        text: fallbackText,
+      };
+    }
+
+    var data = {
+      current_position: currentPosition,
+      watchdog_state: watchdogState,
+      next_unlock: nextUnlock,
+      resume_command: '/sgsd-orchestrate go',
+    };
+    return _makeEnvelope(name, data);
+  } catch (_e) {
+    return _makeDegraded(name, 'internal_error_degraded',
+      'tool threw: ' + ((_e && _e.message) ? _e.message : 'unknown'));
+  }
+}
+
+// Remaining 9 tools still stubbed (Phase 71).
 var _tool_sgsd_gate_status = _stub('sgsd_gate_status');
 var _tool_sgsd_agent_roster = _stub('sgsd_agent_roster');
 var _tool_sgsd_codex_status = _stub('sgsd_codex_status');
 var _tool_sgsd_token_spend = _stub('sgsd_token_spend');
 var _tool_sgsd_context_bench_status = _stub('sgsd_context_bench_status');
 var _tool_sgsd_latest_commits = _stub('sgsd_latest_commits');
-var _tool_sgsd_recovery_packet = _stub('sgsd_recovery_packet');
 var _tool_sgsd_cockpit_snapshot = _stub('sgsd_cockpit_snapshot');
 var _tool_sgsd_artifact_links = _stub('sgsd_artifact_links');
 var _tool_sgsd_warp_doctor = _stub('sgsd_warp_doctor');
@@ -566,13 +1133,25 @@ function selfTest() {
         && r5.error_code === 'invalid_input_schema',
       'error_code=' + (r5 ? r5.error_code : 'null'));
 
-    // A6: every TOOL_NAMES entry, dispatchTool(name, {}) returns
+    // A6: every still-stubbed tool (Phase 71's 9 tools) returns
     // degraded envelope with error_code === 'internal_error_degraded'
-    // and error_message contains 'Phase 70/71'.
+    // and error_message contains 'Phase 70/71'. Phase 70 implemented
+    // tools 1, 2, 3, 4, 11; the remaining 9 are still stubs.
+    var phase71Stubs = [
+      'sgsd_gate_status',
+      'sgsd_agent_roster',
+      'sgsd_codex_status',
+      'sgsd_token_spend',
+      'sgsd_context_bench_status',
+      'sgsd_latest_commits',
+      'sgsd_cockpit_snapshot',
+      'sgsd_artifact_links',
+      'sgsd_warp_doctor',
+    ];
     var stubsOK = true;
     var stubDetail = '';
-    for (var i = 0; i < TOOL_NAMES.length; i++) {
-      var nm = TOOL_NAMES[i];
+    for (var i = 0; i < phase71Stubs.length; i++) {
+      var nm = phase71Stubs[i];
       var rr = dispatchTool(nm, {});
       if (!rr || rr.ok !== false || rr._degraded !== true
           || rr.error_code !== 'internal_error_degraded'
@@ -583,8 +1162,8 @@ function selfTest() {
         break;
       }
     }
-    add('every_stub_returns_phase70_71_degraded', stubsOK,
-      stubDetail || 'all 14 stubs OK');
+    add('every_phase71_stub_returns_phase70_71_degraded', stubsOK,
+      stubDetail || 'all 9 phase-71 stubs OK');
 
     // A7: handleRequest tools/list returns 14 tools.
     var r7 = handleRequest({ jsonrpc: '2.0', method: 'tools/list', id: 1 });
@@ -720,12 +1299,13 @@ function selfTest() {
     // contract: ok=false, schema_version=1, ts string, tool string,
     // data===null, _truncated=false, _degraded=true,
     // _redactions_applied=[], error_code in ERROR_CODES,
-    // error_message string.
-    var rs = dispatchTool('sgsd_current_state', {});
+    // error_message string. Use a still-stubbed tool (sgsd_gate_status)
+    // since the Phase 70 tools now succeed against the live .planning/.
+    var rs = dispatchTool('sgsd_gate_status', {});
     var envOK = rs && rs.ok === false
               && rs.schema_version === 1
               && typeof rs.ts === 'string' && rs.ts.length > 0
-              && rs.tool === 'sgsd_current_state'
+              && rs.tool === 'sgsd_gate_status'
               && rs.data === null
               && rs._truncated === false
               && rs._degraded === true
@@ -736,6 +1316,124 @@ function selfTest() {
     add('degraded_envelope_shape_conforms',
       envOK,
       'ok=' + (rs ? rs.ok : '?') + ' code=' + (rs ? rs.error_code : '?'));
+
+    // ----- Phase 70 live-data assertions A16-A20 -----
+    // Each calls dispatchTool against the live .planning/. Asserts
+    // result.ok === true OR (_degraded === true AND error_code in
+    // {source_file_missing, source_file_unparseable}). On a checkout
+    // with a real STATE.md + pulse log, all 5 should return ok:true.
+
+    function _liveOkOrDegradedOK(r) {
+      if (!r) return false;
+      if (r.ok === true) return true;
+      if (r._degraded === true
+          && (r.error_code === 'source_file_missing'
+              || r.error_code === 'source_file_unparseable')) {
+        return true;
+      }
+      return false;
+    }
+
+    // A16: sgsd_current_state -- live milestone === 'v2.2'.
+    var r16 = dispatchTool('sgsd_current_state', {});
+    var ok16 = _liveOkOrDegradedOK(r16)
+      && (r16.ok !== true
+        || (r16.data && typeof r16.data.milestone === 'string'
+          && r16.data.milestone.length > 0));
+    add('live_sgsd_current_state_returns_milestone',
+      ok16,
+      'ok=' + (r16 ? r16.ok : '?')
+        + ' milestone=' + (r16 && r16.data ? r16.data.milestone : '?'));
+
+    // A17: sgsd_current_phase -- live current phase string present.
+    var r17 = dispatchTool('sgsd_current_phase', {});
+    var ok17 = _liveOkOrDegradedOK(r17)
+      && (r17.ok !== true
+        || (r17.data && typeof r17.data.phase === 'string'));
+    add('live_sgsd_current_phase_returns_phase',
+      ok17,
+      'ok=' + (r17 ? r17.ok : '?')
+        + ' phase=' + (r17 && r17.data ? r17.data.phase : '?'));
+
+    // A18: sgsd_milestone_status({milestone:'v2.2'}) -- total_phases
+    // and completed_phases numeric.
+    var r18 = dispatchTool('sgsd_milestone_status', { milestone: 'v2.2' });
+    var ok18 = _liveOkOrDegradedOK(r18)
+      && (r18.ok !== true
+        || (r18.data && typeof r18.data.total_phases === 'number'
+          && typeof r18.data.completed_phases === 'number'));
+    add('live_sgsd_milestone_status_returns_counts',
+      ok18,
+      'ok=' + (r18 ? r18.ok : '?')
+        + ' total=' + (r18 && r18.data ? r18.data.total_phases : '?')
+        + ' completed=' + (r18 && r18.data ? r18.data.completed_phases : '?'));
+
+    // A19: sgsd_watchdog_status -- recent_pulses array present.
+    var r19 = dispatchTool('sgsd_watchdog_status', {});
+    var ok19 = _liveOkOrDegradedOK(r19)
+      && (r19.ok !== true
+        || (r19.data && Array.isArray(r19.data.recent_pulses)));
+    add('live_sgsd_watchdog_status_returns_pulses_array',
+      ok19,
+      'ok=' + (r19 ? r19.ok : '?')
+        + ' pulses_len=' + (r19 && r19.data && r19.data.recent_pulses
+          ? r19.data.recent_pulses.length : '?'));
+
+    // A20: sgsd_recovery_packet -- resume_command set; next_unlock.from
+    // is 'checkpoint' or 'state'.
+    var r20 = dispatchTool('sgsd_recovery_packet', {});
+    var ok20 = _liveOkOrDegradedOK(r20)
+      && (r20.ok !== true
+        || (r20.data && r20.data.next_unlock
+          && (r20.data.next_unlock.from === 'checkpoint'
+            || r20.data.next_unlock.from === 'state')
+          && r20.data.resume_command === '/sgsd-orchestrate go'));
+    add('live_sgsd_recovery_packet_returns_resume_command',
+      ok20,
+      'ok=' + (r20 ? r20.ok : '?')
+        + ' from=' + (r20 && r20.data && r20.data.next_unlock
+          ? r20.data.next_unlock.from : '?')
+        + ' cmd=' + (r20 && r20.data ? r20.data.resume_command : '?'));
+
+    // A21: aggregate fixture-pair test. Walks fixtures/ via loadFixtures
+    // and runs each pair through dispatchTool + runMatcher. All pairs
+    // must PASS.
+    var fixturesDirA21 = path.join(__dirname, 'fixtures');
+    var fixturePairs = loadFixtures(fixturesDirA21);
+    var fxAllOK = true;
+    var fxFirstFail = '';
+    var fxPassCount = 0;
+    for (var fxi = 0; fxi < fixturePairs.length; fxi++) {
+      var pair = fixturePairs[fxi];
+      var inArgs = (pair.input && pair.input.args
+        && typeof pair.input.args === 'object'
+        && !Array.isArray(pair.input.args))
+        ? pair.input.args : {};
+      // Splice fixture_planning_dir into args if specified at top level.
+      if (pair.input && typeof pair.input.fixture_planning_dir === 'string'
+          && pair.input.fixture_planning_dir.length > 0) {
+        var resolved = pair.input.fixture_planning_dir;
+        // Allow relative paths anchored at the fixture's directory.
+        if (resolved.charAt(0) !== '/' && resolved.charAt(1) !== ':') {
+          resolved = path.join(path.dirname(pair.input_path), resolved);
+        }
+        inArgs.fixture_planning_dir = resolved;
+      }
+      var actual = dispatchTool(pair.tool, inArgs);
+      var mr = runMatcher(actual, pair.expected);
+      if (mr.ok) {
+        fxPassCount++;
+      } else if (fxAllOK) {
+        fxAllOK = false;
+        fxFirstFail = pair.tool + '/' + pair.scenario
+          + ' mismatch=' + (mr.mismatch_path || '?');
+      }
+    }
+    add('fixture_pair_tests_all_pass',
+      fxAllOK && fixturePairs.length > 0,
+      fxAllOK
+        ? (fxPassCount + '/' + fixturePairs.length + ' pairs PASS')
+        : ('first_fail=' + fxFirstFail));
 
     return {
       ok: results.every(function (r) { return r.ok; }),

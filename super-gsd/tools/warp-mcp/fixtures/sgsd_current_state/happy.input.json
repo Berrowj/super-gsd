@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_current_state",
+  "args": {},
+  "fixture_planning_dir": "_synthetic_planning_happy",
+  "scenario_description": "happy path -- synthetic STATE.md with v2.2 ALL-PHASES-CLOSED state"
+}

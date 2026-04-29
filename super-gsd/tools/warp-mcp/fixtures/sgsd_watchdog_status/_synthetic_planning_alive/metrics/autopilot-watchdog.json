@@ -1,0 +1,9 @@
+{
+  "probe_version": "autopilot-watchdog-v1",
+  "generated_at": "2026-04-29T20:00:00.000Z",
+  "status": "alive",
+  "warn_min": 20,
+  "stale_min": 45,
+  "milestone": "v2.3",
+  "phase": "70"
+}

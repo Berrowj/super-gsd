@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_milestone_status",
+  "args": { "milestone": "v2.2" },
+  "fixture_planning_dir": "_synthetic_planning_happy",
+  "scenario_description": "happy path -- v2.2 milestone progress block parsed correctly"
+}

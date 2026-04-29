@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "tool": "sgsd_watchdog_status",
+  "data": {
+    "watchdog_state": "alive"
+  },
+  "_truncated": false,
+  "_degraded": false,
+  "_redactions_applied": []
+}

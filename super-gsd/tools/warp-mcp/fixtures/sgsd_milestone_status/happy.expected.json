@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "tool": "sgsd_milestone_status",
+  "data": {
+    "milestone": "v2.2",
+    "total_phases": 5,
+    "completed_phases": 5,
+    "percent": 100
+  },
+  "_truncated": false,
+  "_degraded": false,
+  "_redactions_applied": []
+}

@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "tool": "sgsd_watchdog_status",
+  "data": {
+    "watchdog_state": "absent",
+    "last_pulse_ts": null,
+    "last_pulse_age_seconds": null,
+    "recent_pulses": []
+  },
+  "_truncated": false,
+  "_degraded": false,
+  "_redactions_applied": []
+}

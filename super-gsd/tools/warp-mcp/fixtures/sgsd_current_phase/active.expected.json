@@ -1,0 +1,13 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "tool": "sgsd_current_phase",
+  "data": {
+    "phase": "70",
+    "milestone": "v2.3",
+    "status": "in-progress"
+  },
+  "_truncated": false,
+  "_degraded": false,
+  "_redactions_applied": []
+}

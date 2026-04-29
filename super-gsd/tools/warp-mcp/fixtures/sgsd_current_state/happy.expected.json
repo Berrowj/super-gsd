@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "tool": "sgsd_current_state",
+  "data": {
+    "milestone": "v2.2",
+    "milestone_name": "<contains>SGSD Warp Integration</contains>",
+    "current_phase": "complete",
+    "current_phase_status": "ALL-PHASES-CLOSED"
+  },
+  "_truncated": false,
+  "_degraded": false,
+  "_redactions_applied": []
+}

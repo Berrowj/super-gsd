@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_current_phase",
+  "args": {},
+  "fixture_planning_dir": "_synthetic_planning_active",
+  "scenario_description": "active path -- synthetic STATE.md with active phase 70"
+}

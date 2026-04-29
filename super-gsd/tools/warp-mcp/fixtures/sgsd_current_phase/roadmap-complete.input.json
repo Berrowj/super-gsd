@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_current_phase",
+  "args": {},
+  "fixture_planning_dir": "_synthetic_planning_complete",
+  "scenario_description": "roadmap complete -- current_phase: complete, no false active phase"
+}

@@ -1,0 +1,9 @@
+{
+  "ok": false,
+  "schema_version": 1,
+  "tool": "sgsd_current_state",
+  "data": null,
+  "_truncated": false,
+  "_degraded": true,
+  "error_code": "source_file_missing"
+}

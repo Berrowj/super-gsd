@@ -1,0 +1,3 @@
+{"ts":"2026-04-29T19:59:00.000Z","phase":70,"plan":"70-01","iteration":1,"step":"loop_entry","mode":"auto"}
+{"ts":"2026-04-29T19:59:30.000Z","phase":70,"plan":"70-01","iteration":2,"step":"executor_dispatch","mode":"auto"}
+{"ts":"2026-04-29T20:00:00.000Z","phase":70,"plan":"70-01","iteration":3,"step":"executor_complete","mode":"auto"}

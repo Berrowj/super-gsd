@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_recovery_packet",
+  "args": {},
+  "fixture_planning_dir": "_synthetic_planning_checkpoint",
+  "scenario_description": "checkpoint present -- next_unlock.from === 'checkpoint'"
+}

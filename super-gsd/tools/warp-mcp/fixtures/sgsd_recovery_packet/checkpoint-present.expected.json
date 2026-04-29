@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "tool": "sgsd_recovery_packet",
+  "data": {
+    "next_unlock": {
+      "from": "checkpoint",
+      "text": "<contains>plan 70-01</contains>"
+    },
+    "resume_command": "/sgsd-orchestrate go"
+  },
+  "_truncated": false,
+  "_degraded": false,
+  "_redactions_applied": []
+}

@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_milestone_status",
+  "args": { "milestone": "v9.9" },
+  "fixture_planning_dir": "_synthetic_planning_happy",
+  "scenario_description": "unknown milestone -- v9.9 not in progress block; degraded with helpful error"
+}
