@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "task_id": "v2.9-p98-t01",
+  "milestone": "v2.9",
+  "phase": 98,
+  "plan": "98-01",
+  "role": "executor",
+  "task_kind": "code_edit",
+  "goal": "Build harness component registry (yaml), Lock-13 catalog API (cjs), and ≥15-assertion self-test for SGSD AHE substrate.",
+  "allowed_files": [
+    "super-gsd/registry/harness-components.yaml",
+    "super-gsd/tools/harness-components/catalog.cjs",
+    "super-gsd/tools/harness-components/run-self-test.cjs",
+    "super-gsd/docs/SGSD-HARNESS-EVOLUTION.md"
+  ],
+  "forbidden_files": [
+    "super-gsd/registry/agents.yaml",
+    "super-gsd/registry/board-members.yaml",
+    "super-gsd/registry/gates.yaml",
+    "super-gsd/scripts/lib/orchestrator-hooks.cjs",
+    "super-gsd/tools/state-resolver/resolve.cjs"
+  ],
+  "acceptance_commands": [
+    "node super-gsd/tools/harness-components/run-self-test.cjs",
+    "node --check super-gsd/tools/harness-components/catalog.cjs",
+    "node --check super-gsd/tools/harness-components/run-self-test.cjs"
+  ],
+  "risk": "medium",
+  "ambiguity": "low",
+  "requires_private_knowledge": true,
+  "estimated_line_count": 380,
+  "max_input_tokens": 12000,
+  "max_output_tokens": 6000
+}

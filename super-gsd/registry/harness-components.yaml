@@ -1,0 +1,461 @@
+# SGSD Harness Component Registry
+# Phase 98 (v2.9 Agentic Harness Evolution).
+# Closed vocab classes (14): prompt, tool, middleware_hook, skill, agent_config,
+# memory, workflow, mcp_bridge, gate, dashboard, docs, protected_oracle,
+# protected_verifier, protected_model_config.
+# Each row: id, class, paths, owner, edit_policy, test_commands, rollback_method, protected.
+# protected: true rows MUST use a protected_* class.
+#
+# This file is read by super-gsd/tools/harness-components/catalog.cjs.
+# It is NOT loaded into agent prompts. Agents query catalog functions instead.
+
+schema_version: 1
+generated: 2026-04-30
+component_count_target: 25
+
+components:
+
+  # ============================================================
+  # PROMPTS
+  # ============================================================
+
+  - id: claude-md-global
+    class: prompt
+    paths:
+      - CLAUDE.md
+    owner: orchestrator
+    edit_policy: orchestrator-or-operator
+    test_commands:
+      - 'node -e "require(''fs'').statSync(''CLAUDE.md'')"'
+    rollback_method: git-revert
+    protected: false
+
+  - id: agents-md-tool-neutral
+    class: prompt
+    paths:
+      - AGENTS.md
+    owner: orchestrator
+    edit_policy: orchestrator-or-operator
+    test_commands:
+      - 'node -e "require(''fs'').statSync(''AGENTS.md'')"'
+    rollback_method: git-revert
+    protected: false
+
+  - id: warp-md-rule-hierarchy
+    class: prompt
+    paths:
+      - WARP.md
+    owner: orchestrator
+    edit_policy: orchestrator-or-operator
+    test_commands:
+      - 'node -e "require(''fs'').statSync(''WARP.md'')"'
+    rollback_method: git-revert
+    protected: false
+
+  - id: handover-contract-v2
+    class: prompt
+    paths:
+      - super-gsd/registry/handover-contract-v2.yaml
+    owner: orchestrator
+    edit_policy: orchestrator-only
+    test_commands:
+      - 'node -e "require(''fs'').statSync(''super-gsd/registry/handover-contract-v2.yaml'')"'
+    rollback_method: git-revert
+    protected: false
+
+  - id: command-envelope-v1
+    class: prompt
+    paths:
+      - super-gsd/registry/command-envelope-v1.yaml
+    owner: orchestrator
+    edit_policy: orchestrator-only
+    test_commands:
+      - 'node -e "require(''fs'').statSync(''super-gsd/registry/command-envelope-v1.yaml'')"'
+    rollback_method: git-revert
+    protected: false
+
+  # ============================================================
+  # TOOLS
+  # ============================================================
+
+  - id: warp-doctor
+    class: tool
+    paths:
+      - super-gsd/tools/warp-doctor/check.cjs
+      - super-gsd/tools/warp-doctor/run-self-test.cjs
+    owner: tools-team
+    edit_policy: orchestrator-or-operator
+    test_commands:
+      - node super-gsd/tools/warp-doctor/run-self-test.cjs
+    rollback_method: git-revert
+    protected: false
+
+  - id: warp-mcp-read
+    class: tool
+    paths:
+      - super-gsd/tools/warp-mcp/server.cjs
+      - super-gsd/tools/warp-mcp/run-self-test.cjs
+    owner: tools-team
+    edit_policy: orchestrator-or-operator
+    test_commands:
+      - node super-gsd/tools/warp-mcp/run-self-test.cjs
+    rollback_method: git-revert
+    protected: false
+
+  - id: cockpit-state-adapter
+    class: tool
+    paths:
+      - super-gsd/tools/cockpit-state/adapter.cjs
+      - super-gsd/tools/cockpit-state/run-self-test.cjs
+    owner: tools-team
+    edit_policy: orchestrator-or-operator
+    test_commands:
+      - node super-gsd/tools/cockpit-state/run-self-test.cjs
+    rollback_method: git-revert
+    protected: false
+
+  - id: state-resolver
+    class: tool
+    paths:
+      - super-gsd/tools/state-resolver/resolve.cjs
+    owner: tools-team
+    edit_policy: orchestrator-only
+    test_commands:
+      - node super-gsd/tools/state-resolver/resolve.cjs --self-test
+    rollback_method: git-revert
+    protected: false
+
+  - id: double-agent-executor
+    class: tool
+    paths:
+      - super-gsd/tools/double-agent-executor/run.cjs
+    owner: tools-team
+    edit_policy: orchestrator-only
+    test_commands:
+      - node super-gsd/tools/double-agent-executor/run.cjs --self-test
+    rollback_method: git-revert
+    protected: false
+
+  - id: harness-benchmark
+    class: tool
+    paths:
+      - super-gsd/tools/harness-benchmark/sgsd-harness-benchmark.mjs
+      - super-gsd/tools/harness-benchmark/sgsd-blind-live-controller.mjs
+    owner: tools-team
+    edit_policy: orchestrator-or-operator
+    test_commands:
+      - node super-gsd/tools/harness-benchmark/sgsd-harness-benchmark.mjs --profile smoke --output-dir .planning/benchmarks/smoke
+    rollback_method: git-revert
+    protected: false
+
+  - id: failure-injection
+    class: tool
+    paths:
+      - super-gsd/tools/failure-injection/harness.cjs
+    owner: tools-team
+    edit_policy: orchestrator-or-operator
+    test_commands:
+      - 'node -e "require(''./super-gsd/tools/failure-injection/harness.cjs'')"'
+    rollback_method: git-revert
+    protected: false
+
+  - id: context-packet
+    class: tool
+    paths:
+      - super-gsd/tools/context-packet
+    owner: tools-team
+    edit_policy: orchestrator-only
+    test_commands:
+      - 'node -e "require(''fs'').statSync(''super-gsd/tools/context-packet'')"'
+    rollback_method: git-revert
+    protected: false
+
+  - id: harness-components
+    class: tool
+    paths:
+      - super-gsd/tools/harness-components/catalog.cjs
+      - super-gsd/tools/harness-components/run-self-test.cjs
+    owner: tools-team
+    edit_policy: orchestrator-or-operator
+    test_commands:
+      - node super-gsd/tools/harness-components/run-self-test.cjs
+    rollback_method: git-revert
+    protected: false
+
+  # ============================================================
+  # MIDDLEWARE / HOOKS
+  # ============================================================
+
+  - id: orchestrator-hooks
+    class: middleware_hook
+    paths:
+      - super-gsd/scripts/lib/orchestrator-hooks.cjs
+    owner: orchestrator
+    edit_policy: orchestrator-only
+    test_commands:
+      - 'node -e "require(''./super-gsd/scripts/lib/orchestrator-hooks.cjs'')"'
+    rollback_method: git-revert
+    protected: false
+
+  # ============================================================
+  # SKILLS
+  # ============================================================
+
+  - id: sgsd-orchestrate
+    class: skill
+    paths:
+      - super-gsd/skills/sgsd-orchestrate/SKILL.md
+    owner: orchestrator
+    edit_policy: orchestrator-only
+    test_commands:
+      - 'node -e "require(''fs'').statSync(''super-gsd/skills/sgsd-orchestrate/SKILL.md'')"'
+    rollback_method: git-revert
+    protected: false
+
+  - id: sgsd-pause
+    class: skill
+    paths:
+      - super-gsd/skills/sgsd-pause/SKILL.md
+    owner: orchestrator
+    edit_policy: orchestrator-only
+    test_commands:
+      - 'node -e "require(''fs'').statSync(''super-gsd/skills/sgsd-pause/SKILL.md'')"'
+    rollback_method: git-revert
+    protected: false
+
+  - id: sgsd-cockpit-skill
+    class: skill
+    paths:
+      - .agents/skills/sgsd-cockpit/SKILL.md
+    owner: skills-team
+    edit_policy: orchestrator-or-operator
+    test_commands:
+      - 'node -e "require(''fs'').statSync(''.agents/skills/sgsd-cockpit/SKILL.md'')"'
+    rollback_method: git-revert
+    protected: false
+
+  - id: sgsd-recover-skill
+    class: skill
+    paths:
+      - .agents/skills/sgsd-recover/SKILL.md
+    owner: skills-team
+    edit_policy: orchestrator-or-operator
+    test_commands:
+      - 'node -e "require(''fs'').statSync(''.agents/skills/sgsd-recover/SKILL.md'')"'
+    rollback_method: git-revert
+    protected: false
+
+  - id: sgsd-doctor-skill
+    class: skill
+    paths:
+      - .agents/skills/sgsd-doctor/SKILL.md
+    owner: skills-team
+    edit_policy: orchestrator-or-operator
+    test_commands:
+      - 'node -e "require(''fs'').statSync(''.agents/skills/sgsd-doctor/SKILL.md'')"'
+    rollback_method: git-revert
+    protected: false
+
+  # ============================================================
+  # MEMORY
+  # ============================================================
+
+  - id: memory-index
+    class: memory
+    paths:
+      - C:/Users/jack.berrow/.claude/projects/C--Users-jack-berrow-GSDedits/memory/MEMORY.md
+    owner: orchestrator
+    edit_policy: orchestrator-only
+    test_commands:
+      - 'node -e "require(''fs'').statSync(''C:/Users/jack.berrow/.claude/projects/C--Users-jack-berrow-GSDedits/memory/MEMORY.md'')"'
+    rollback_method: manual-edit-restore
+    protected: false
+
+  # ============================================================
+  # WORKFLOWS
+  # ============================================================
+
+  - id: warp-workflows-pack
+    class: workflow
+    paths:
+      - .warp/workflows
+    owner: workflows-team
+    edit_policy: orchestrator-or-operator
+    test_commands:
+      - 'node -e "const fs=require(''fs''); const f=fs.readdirSync(''.warp/workflows'').filter(x=>x.endsWith(''.yaml'')); if(f.length<10) throw new Error(''workflow count low'')"'
+    rollback_method: git-revert
+    protected: false
+
+  # ============================================================
+  # MCP BRIDGES
+  # ============================================================
+
+  - id: warp-mcp-actions
+    class: mcp_bridge
+    paths:
+      - super-gsd/tools/warp-mcp-actions/server.cjs
+      - super-gsd/tools/warp-mcp-actions/run-self-test.cjs
+    owner: tools-team
+    edit_policy: orchestrator-only
+    test_commands:
+      - node super-gsd/tools/warp-mcp-actions/run-self-test.cjs
+    rollback_method: git-revert
+    protected: false
+
+  # ============================================================
+  # GATES
+  # ============================================================
+
+  - id: complete-milestone-gate
+    class: gate
+    paths:
+      - super-gsd/scripts/sgsd-complete-milestone.cjs
+      - super-gsd/scripts/lib/sgsd-complete-milestone-self-test.cjs
+    owner: orchestrator
+    edit_policy: orchestrator-only
+    test_commands:
+      - node super-gsd/scripts/lib/sgsd-complete-milestone-self-test.cjs
+    rollback_method: git-revert
+    protected: false
+
+  - id: plan-schema-validate
+    class: gate
+    paths:
+      - super-gsd/tools/plan-schema/validate.cjs
+    owner: orchestrator
+    edit_policy: orchestrator-only
+    test_commands:
+      - 'node -e "require(''fs'').statSync(''super-gsd/tools/plan-schema/validate.cjs'')"'
+    rollback_method: git-revert
+    protected: false
+
+  - id: gates-registry
+    class: gate
+    paths:
+      - super-gsd/registry/gates.yaml
+      - super-gsd/scripts/lib/gates-registry.cjs
+    owner: orchestrator
+    edit_policy: orchestrator-only
+    test_commands:
+      - 'node -e "require(''./super-gsd/scripts/lib/gates-registry.cjs'')"'
+    rollback_method: git-revert
+    protected: false
+
+  # ============================================================
+  # DASHBOARDS
+  # ============================================================
+
+  - id: cockpit-shell
+    class: dashboard
+    paths:
+      - super-gsd/scripts/lib/sgsd-cockpit-shell.cjs
+    owner: tools-team
+    edit_policy: orchestrator-or-operator
+    test_commands:
+      - node super-gsd/scripts/lib/sgsd-cockpit-shell.cjs --self-test
+    rollback_method: git-revert
+    protected: false
+
+  - id: mission-control-tile
+    class: dashboard
+    paths:
+      - super-gsd/scripts/sgsd-mission-control.ps1
+    owner: tools-team
+    edit_policy: orchestrator-or-operator
+    test_commands:
+      - 'node -e "require(''fs'').statSync(''super-gsd/scripts/sgsd-mission-control.ps1'')"'
+    rollback_method: git-revert
+    protected: false
+
+  # ============================================================
+  # DOCS
+  # ============================================================
+
+  - id: warp-operator-guide
+    class: docs
+    paths:
+      - super-gsd/docs/SGSD-WARP-OPERATOR-GUIDE.md
+    owner: docs-team
+    edit_policy: orchestrator-or-operator
+    test_commands:
+      - 'node -e "require(''fs'').statSync(''super-gsd/docs/SGSD-WARP-OPERATOR-GUIDE.md'')"'
+    rollback_method: git-revert
+    protected: false
+
+  - id: harness-evolution-doc
+    class: docs
+    paths:
+      - super-gsd/docs/SGSD-HARNESS-EVOLUTION.md
+    owner: docs-team
+    edit_policy: orchestrator-or-operator
+    test_commands:
+      - 'node -e "require(''fs'').statSync(''super-gsd/docs/SGSD-HARNESS-EVOLUTION.md'')"'
+    rollback_method: git-revert
+    protected: false
+
+  # ============================================================
+  # PROTECTED ORACLES
+  # ============================================================
+
+  - id: hidden-benchmark-decks
+    class: protected_oracle
+    paths:
+      - .planning/benchmarks/hidden
+    owner: operator
+    edit_policy: operator-only
+    test_commands:
+      - 'node -e "process.exit(0)"'
+    rollback_method: operator-manual
+    protected: true
+
+  - id: scoring-oracle
+    class: protected_oracle
+    paths:
+      - super-gsd/tools/harness-benchmark/sgsd-harness-benchmark.mjs
+    owner: operator
+    edit_policy: operator-only
+    test_commands:
+      - 'node -e "require(''fs'').statSync(''super-gsd/tools/harness-benchmark/sgsd-harness-benchmark.mjs'')"'
+    rollback_method: operator-manual
+    protected: true
+
+  # ============================================================
+  # PROTECTED VERIFIERS
+  # ============================================================
+
+  - id: gsd-verifier-contract
+    class: protected_verifier
+    paths:
+      - super-gsd/agents/gsd-verifier
+    owner: operator
+    edit_policy: operator-only
+    test_commands:
+      - 'node -e "process.exit(0)"'
+    rollback_method: operator-manual
+    protected: true
+
+  # ============================================================
+  # PROTECTED MODEL CONFIG
+  # ============================================================
+
+  - id: model-routing-config
+    class: protected_model_config
+    paths:
+      - .planning/config.json
+    owner: operator
+    edit_policy: operator-only
+    test_commands:
+      - 'node -e "JSON.parse(require(''fs'').readFileSync(''.planning/config.json'',''utf8''))"'
+    rollback_method: operator-manual
+    protected: true
+
+  - id: token-budget-config
+    class: protected_model_config
+    paths:
+      - .planning/metrics/token-log.jsonl
+    owner: operator
+    edit_policy: operator-only
+    test_commands:
+      - 'node -e "process.exit(0)"'
+    rollback_method: operator-manual
+    protected: true
