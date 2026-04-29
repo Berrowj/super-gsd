@@ -5,6 +5,16 @@
 #   - private knowledge-bank directory, if the operator has one
 #   - SGSD's project memory directory
 #   - public/bundled fallback corpus when no private bank exists
+#
+# SCOPE BOUNDARY (Phase 59-01):
+#   This script owns the `knowledge` block ONLY. Project-level keys
+#   (cockpit panel layout, default boot mode, operator preferences) are
+#   owned by sgsd-new-project-wizard.cjs. The two are complementary; each
+#   leaves the other byte-untouched on every run. To configure project
+#   defaults after running sgsd-configure.ps1, run:
+#     node super-gsd/scripts/sgsd-new-project-wizard.cjs --defaults
+#   The wizard is non-destructive (deep-merge, never clobbers existing
+#   keys) and idempotent (re-run produces byte-identical config).
 # ============================================================================
 
 param(
@@ -171,3 +181,18 @@ if ($knowledgeRootResolved) {
     Write-Host "  Private KB:   not configured" -ForegroundColor DarkGray
 }
 Write-Host "  Fallback:     $FallbackCorpus" -ForegroundColor DarkGray
+
+# ----------------------------------------------------------------------------
+# Phase 59-01: optional non-destructive invocation hook to the project-level
+# wizard. The wizard owns project keys (cockpit panes, default boot mode);
+# this hook only suggests it -- never invokes automatically -- so the
+# byte-equality contract for the knowledge block above is preserved.
+# Operators who want the project block can run the suggested command.
+# ----------------------------------------------------------------------------
+$wizardPath = Join-Path $ProjectDir "super-gsd/scripts/sgsd-new-project-wizard.cjs"
+if (Test-Path $wizardPath) {
+    Write-Host ""
+    Write-Host "Project-level defaults (cockpit panes, boot mode) are owned by the wizard:" -ForegroundColor White
+    Write-Host "  node super-gsd/scripts/sgsd-new-project-wizard.cjs --defaults" -ForegroundColor DarkGray
+    Write-Host "Wizard is non-destructive (deep-merge) and idempotent." -ForegroundColor DarkGray
+}
