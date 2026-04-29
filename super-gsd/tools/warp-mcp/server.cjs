@@ -87,6 +87,27 @@ var path = require('path');
 var readline = require('readline');
 var child_process = require('child_process');
 
+// Phase 90-02: state-resolver wires the read-side onto priority-ordered
+// effective state. Loaded lazily so a missing/broken resolver cannot
+// block stdio startup; if require throws, _resolveEffective returns null
+// and callers fall back to STATE.md frontmatter (Phase 70 behaviour).
+var _stateResolverMod = null;
+try {
+  _stateResolverMod = require(path.join(__dirname, '..', 'state-resolver', 'resolve.cjs'));
+} catch (_e) { _stateResolverMod = null; }
+
+function _resolveEffective(args) {
+  try {
+    if (!_stateResolverMod || typeof _stateResolverMod.resolveEffectiveState !== 'function') {
+      return null;
+    }
+    var planningDir = _resolvePlanningDir(args);
+    var env = _stateResolverMod.resolveEffectiveState({ planningDir: planningDir });
+    if (env && env.ok === true) return env;
+    return null;
+  } catch (_e) { return null; }
+}
+
 // ---------------------------------------------------------------------------
 // FROZEN SURFACES
 // ---------------------------------------------------------------------------
@@ -622,7 +643,13 @@ function _tool_sgsd_current_state(args) {
   try {
     var planningDir = _resolvePlanningDir(args);
     var fm = _parseStateFrontmatter(planningDir);
-    if (!fm) {
+
+    // Phase 90-02: resolve effective state up-front. Resolver reads
+    // checkpoint/pulse/activity-log/phase-folders/git ahead of STATE.md;
+    // its return is authoritative when present.
+    var eff = _resolveEffective(args);
+
+    if (!fm && !eff) {
       var statePath = path.join(planningDir, 'STATE.md');
       var exists = false;
       try { exists = fs.existsSync(statePath); } catch (_xe) { exists = false; }
@@ -634,26 +661,46 @@ function _tool_sgsd_current_state(args) {
     }
 
     // Resolve current_phase + status from roadmap_run (preferred) or
-    // top-level keys.
-    var rr = (fm.roadmap_run && typeof fm.roadmap_run === 'object')
+    // top-level keys -- this is the LEGACY STATE.md projection.
+    var rr = (fm && fm.roadmap_run && typeof fm.roadmap_run === 'object')
       ? fm.roadmap_run : {};
-    var currentPhase = (typeof rr.current_phase === 'string' && rr.current_phase.length > 0)
+    var legacyPhase = (typeof rr.current_phase === 'string' && rr.current_phase.length > 0)
       ? rr.current_phase
       : null;
-    var currentPhaseStatus = (typeof rr.current_phase_status === 'string'
+    var legacyPhaseStatus = (typeof rr.current_phase_status === 'string'
       && rr.current_phase_status.length > 0)
       ? rr.current_phase_status
       : null;
+    var legacyMilestone = (fm && typeof fm.milestone === 'string') ? fm.milestone : null;
+
+    // Phase 90-02: when resolver disagrees with STATE.md, the resolver wins
+    // for the canonical fields. Legacy values are echoed under
+    // state_md_* so callers can see the discrepancy.
+    var canonicalMilestone = (eff && eff.milestone) ? eff.milestone : legacyMilestone;
+    var canonicalPhase = (eff && eff.phase) ? eff.phase : legacyPhase;
+    var canonicalPhaseStatus = (eff && eff.phase_status)
+      ? eff.phase_status : legacyPhaseStatus;
 
     var data = {
-      milestone: (typeof fm.milestone === 'string') ? fm.milestone : null,
-      milestone_name: (typeof fm.milestone_name === 'string') ? fm.milestone_name : null,
-      milestone_status: (typeof fm.milestone_status === 'string') ? fm.milestone_status : null,
-      status: (typeof fm.status === 'string') ? fm.status : null,
-      last_updated: (typeof fm.last_updated === 'string') ? fm.last_updated : null,
-      last_activity: (typeof fm.last_activity === 'string') ? fm.last_activity : null,
-      current_phase: currentPhase,
-      current_phase_status: currentPhaseStatus,
+      milestone: canonicalMilestone,
+      milestone_name: (fm && typeof fm.milestone_name === 'string') ? fm.milestone_name : null,
+      milestone_status: (fm && typeof fm.milestone_status === 'string') ? fm.milestone_status : null,
+      status: (fm && typeof fm.status === 'string') ? fm.status : null,
+      last_updated: (fm && typeof fm.last_updated === 'string') ? fm.last_updated : null,
+      last_activity: (fm && typeof fm.last_activity === 'string') ? fm.last_activity : null,
+      current_phase: canonicalPhase,
+      current_phase_status: canonicalPhaseStatus,
+      // Phase 90-02: legacy STATE.md projection echo + resolver metadata.
+      state_md_milestone: legacyMilestone,
+      state_md_current_phase: legacyPhase,
+      state_md_current_phase_status: legacyPhaseStatus,
+      effective_source: (eff && eff.source) ? eff.source : 'state_md_legacy',
+      effective_confidence: (eff && typeof eff.confidence === 'number') ? eff.confidence : 0.40,
+      projection_stale: (eff && eff.projection_stale === true) ? true : false,
+      stale_sources: (eff && Array.isArray(eff.stale_sources)) ? eff.stale_sources.slice() : [],
+      conflicts: (eff && Array.isArray(eff.conflicts)) ? eff.conflicts.slice() : [],
+      recommended_repair: (eff && typeof eff.recommended_repair === 'string')
+        ? eff.recommended_repair : null,
     };
     return _makeEnvelope(name, data);
   } catch (_e) {
@@ -667,7 +714,13 @@ function _tool_sgsd_current_phase(args) {
   try {
     var planningDir = _resolvePlanningDir(args);
     var fm = _parseStateFrontmatter(planningDir);
-    if (!fm) {
+
+    // Phase 90-02: resolve effective state up-front. When fresher than
+    // STATE.md, the resolver supplies the authoritative milestone/phase
+    // and phase_folder enumeration uses that pair.
+    var eff = _resolveEffective(args);
+
+    if (!fm && !eff) {
       var statePath = path.join(planningDir, 'STATE.md');
       var exists = false;
       try { exists = fs.existsSync(statePath); } catch (_xe) { exists = false; }
@@ -678,28 +731,49 @@ function _tool_sgsd_current_phase(args) {
           : 'STATE.md not found at ' + statePath);
     }
 
-    var milestone = (typeof fm.milestone === 'string') ? fm.milestone : null;
-    var rr = (fm.roadmap_run && typeof fm.roadmap_run === 'object')
+    var rr = (fm && fm.roadmap_run && typeof fm.roadmap_run === 'object')
       ? fm.roadmap_run : {};
+    var legacyMilestone = (fm && typeof fm.milestone === 'string') ? fm.milestone : null;
+    var legacyPhase = (typeof rr.current_phase === 'string') ? rr.current_phase : null;
 
-    // Phase override via args.phase (string), else default from STATE.md.
+    // Phase 90-02: prefer resolver's milestone/phase. Args.phase override
+    // still wins over both (callers can probe a specific historical phase).
+    var milestone = (eff && eff.milestone) ? eff.milestone : legacyMilestone;
     var phaseArg = (args && typeof args.phase === 'string' && args.phase.length > 0)
       ? args.phase : null;
-    var phase = phaseArg
-      || ((typeof rr.current_phase === 'string') ? rr.current_phase : null);
-    var phaseStatus = (typeof rr.current_phase_status === 'string')
-      ? rr.current_phase_status : null;
+    var resolvedPhase = (eff && eff.phase) ? eff.phase : legacyPhase;
+    var phase = phaseArg || resolvedPhase;
+    var phaseStatus = (eff && typeof eff.phase_status === 'string'
+      && eff.phase_status.length > 0)
+      ? eff.phase_status
+      : ((typeof rr.current_phase_status === 'string') ? rr.current_phase_status : null);
     var closeCommit = (typeof rr.current_phase_close_commit === 'string')
       ? rr.current_phase_close_commit : null;
-    var phaseName = (typeof rr.current_phase_name === 'string')
-      ? rr.current_phase_name : null;
+    var phaseName = (eff && typeof eff.phase_name === 'string'
+      && eff.phase_name.length > 0)
+      ? eff.phase_name
+      : ((typeof rr.current_phase_name === 'string') ? rr.current_phase_name : null);
+
+    // Phase 90-02: resolver metadata block (shared by complete + active
+    // returns).
+    var resolverMeta = {
+      state_md_milestone: legacyMilestone,
+      state_md_current_phase: legacyPhase,
+      effective_source: (eff && eff.source) ? eff.source : 'state_md_legacy',
+      effective_confidence: (eff && typeof eff.confidence === 'number') ? eff.confidence : 0.40,
+      projection_stale: (eff && eff.projection_stale === true) ? true : false,
+      stale_sources: (eff && Array.isArray(eff.stale_sources)) ? eff.stale_sources.slice() : [],
+      conflicts: (eff && Array.isArray(eff.conflicts)) ? eff.conflicts.slice() : [],
+      recommended_repair: (eff && typeof eff.recommended_repair === 'string')
+        ? eff.recommended_repair : null,
+    };
 
     // Roadmap-complete handling -- do not synthesise a false active phase.
     if (phase === 'complete' || (typeof phase === 'string' && phase.toLowerCase() === 'complete')) {
       // Compute deferred_count from progress.{milestone}.phase_* PASS-WITH-DEFERRED-N
       var deferredCount = 0;
       var deferredSummary = null;
-      if (milestone) {
+      if (milestone && fm) {
         var key = milestone.replace(/[.\-]/g, '_');
         var prog = (fm.progress && typeof fm.progress === 'object'
           && fm.progress[key] && typeof fm.progress[key] === 'object')
@@ -728,6 +802,14 @@ function _tool_sgsd_current_phase(args) {
         plans: [],
         deferred_count: deferredCount,
         deferred_summary: deferredSummary,
+        state_md_milestone: resolverMeta.state_md_milestone,
+        state_md_current_phase: resolverMeta.state_md_current_phase,
+        effective_source: resolverMeta.effective_source,
+        effective_confidence: resolverMeta.effective_confidence,
+        projection_stale: resolverMeta.projection_stale,
+        stale_sources: resolverMeta.stale_sources,
+        conflicts: resolverMeta.conflicts,
+        recommended_repair: resolverMeta.recommended_repair,
       };
       return _makeEnvelope(name, dataC);
     }
@@ -777,6 +859,16 @@ function _tool_sgsd_current_phase(args) {
       plans: plans,
       deferred_count: 0,
       deferred_summary: null,
+      // Phase 90-02: resolver metadata so callers see the discrepancy
+      // between the resolved (canonical) and legacy STATE.md projection.
+      state_md_milestone: resolverMeta.state_md_milestone,
+      state_md_current_phase: resolverMeta.state_md_current_phase,
+      effective_source: resolverMeta.effective_source,
+      effective_confidence: resolverMeta.effective_confidence,
+      projection_stale: resolverMeta.projection_stale,
+      stale_sources: resolverMeta.stale_sources,
+      conflicts: resolverMeta.conflicts,
+      recommended_repair: resolverMeta.recommended_repair,
     };
     return _makeEnvelope(name, dataA);
   } catch (_e) {
@@ -1285,9 +1377,17 @@ function _tool_sgsd_recovery_packet(args) {
     }
 
     if (!nextUnlock) {
-      // Fallback to STATE.md milestone_status.
+      // Phase 90-02: prefer resolver's recommended_repair when STATE.md
+      // is stale. Otherwise fall back to STATE.md milestone_status.
       var fallbackText = null;
-      if (fullCurrentState && typeof fullCurrentState.milestone_status === 'string') {
+      var fallbackFrom = 'state';
+      if (fullCurrentState
+          && fullCurrentState.projection_stale === true
+          && typeof fullCurrentState.recommended_repair === 'string'
+          && fullCurrentState.recommended_repair.length > 0) {
+        fallbackText = fullCurrentState.recommended_repair;
+        fallbackFrom = 'resolver_repair';
+      } else if (fullCurrentState && typeof fullCurrentState.milestone_status === 'string') {
         fallbackText = fullCurrentState.milestone_status;
       } else if (fullCurrentState && typeof fullCurrentState.status === 'string') {
         fallbackText = fullCurrentState.status;
@@ -1297,7 +1397,7 @@ function _tool_sgsd_recovery_packet(args) {
           'no checkpoint and no STATE.md milestone_status to fall back on');
       }
       nextUnlock = {
-        from: 'state',
+        from: fallbackFrom,
         text: fallbackText,
       };
     }
@@ -1355,6 +1455,18 @@ function _tool_sgsd_recovery_packet(args) {
       _state_staleness: stateStaleness,
       _context_warning: contextWarning,
       resume_command: resumeCommand,
+      // Phase 90-02: surface resolver effective-state metadata so the
+      // packet shows the canonical position and the discrepancy with
+      // the legacy STATE.md projection.
+      _effective_source: (fullCurrentState && fullCurrentState.effective_source)
+        ? fullCurrentState.effective_source : 'state_md_legacy',
+      _projection_stale: (fullCurrentState && fullCurrentState.projection_stale === true)
+        ? true : false,
+      _stale_sources: (fullCurrentState && Array.isArray(fullCurrentState.stale_sources))
+        ? fullCurrentState.stale_sources.slice() : [],
+      _recommended_repair: (fullCurrentState
+        && typeof fullCurrentState.recommended_repair === 'string')
+        ? fullCurrentState.recommended_repair : null,
     };
     return _makeEnvelope(name, data);
   } catch (_e) {
@@ -2767,7 +2879,9 @@ function selfTest() {
           ? r19.data.recent_pulses.length : '?'));
 
     // A20: sgsd_recovery_packet -- resume_command set; next_unlock.from
-    // is 'checkpoint' or 'state'. Phase 86: resume_command may be augmented
+    // is 'checkpoint', 'state', or 'resolver_repair' (Phase 90-02 adds
+    // resolver_repair when STATE.md is stale and resolver supplies a
+    // recommended_repair). Phase 86: resume_command may be augmented
     // with "  # CONTEXT WARNING: ..." when context warning level >= soft_200k;
     // accept either the bare form or the augmented prefix.
     var r20 = dispatchTool('sgsd_recovery_packet', {});
@@ -2779,7 +2893,8 @@ function selfTest() {
       && (r20.ok !== true
         || (r20.data && r20.data.next_unlock
           && (r20.data.next_unlock.from === 'checkpoint'
-            || r20.data.next_unlock.from === 'state')
+            || r20.data.next_unlock.from === 'state'
+            || r20.data.next_unlock.from === 'resolver_repair')
           && r20CmdOK));
     add('live_sgsd_recovery_packet_returns_resume_command',
       ok20,

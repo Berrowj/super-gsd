@@ -70,6 +70,26 @@
 var fs = require('fs');
 var path = require('path');
 
+// Phase 90-02: lazy-load the state-resolver. Loaded once at module
+// resolution; if the require throws (deleted/broken), _resolveEffective
+// returns null and _buildObjective falls back to the Phase 76 STATE.md +
+// liveHint behaviour. Lock-13 contract preserved.
+var _stateResolverMod = null;
+try {
+  _stateResolverMod = require(path.join(__dirname, '..', 'state-resolver', 'resolve.cjs'));
+} catch (_e) { _stateResolverMod = null; }
+
+function _resolveEffectiveForCockpit(planningDir) {
+  try {
+    if (!_stateResolverMod || typeof _stateResolverMod.resolveEffectiveState !== 'function') {
+      return null;
+    }
+    var env = _stateResolverMod.resolveEffectiveState({ planningDir: planningDir });
+    if (env && env.ok === true) return env;
+    return null;
+  } catch (_e) { return null; }
+}
+
 // Mirror the closed vocab from Phase 74/75. Local mirror keeps the adapter
 // self-contained for ASCII / READ-ONLY scans (require()'d code is allowed
 // to mutate the disk, but inside this file we declare what we expect).
@@ -474,27 +494,66 @@ function _deriveLivePhaseHint(ctx) {
 }
 
 // Section: objective (Q2)
+//
+// Phase 90-02: state-resolver wires the canonical effective state in.
+// Resolver consults checkpoint > pulse > activity-log > phase folders >
+// git > STATE.md (in that priority order) and returns the authoritative
+// milestone/phase. STATE.md is treated as a legacy projection ONLY when
+// nothing fresher exists. Falls back to Phase 76 behaviour (STATE.md +
+// _deriveLivePhaseHint) if the resolver module is unavailable.
 function _buildObjective(ctx) {
   try {
     var fm = ctx.stateFm || {};
     var rr = (fm.roadmap_run && typeof fm.roadmap_run === 'object')
       ? fm.roadmap_run : {};
 
-    var milestone = (typeof rr.current_milestone === 'string')
+    var legacyMilestone = (typeof rr.current_milestone === 'string')
       ? rr.current_milestone
       : ((typeof fm.milestone === 'string') ? fm.milestone : null);
+    var legacyPhase = (typeof rr.current_phase === 'string')
+      ? rr.current_phase : null;
+    var legacyPhaseName = (typeof rr.current_phase_name === 'string')
+      ? rr.current_phase_name : null;
+    var legacyPhaseStatus = (typeof rr.current_phase_status === 'string')
+      ? rr.current_phase_status : null;
     var milestoneName = (typeof fm.milestone_name === 'string')
       ? fm.milestone_name : null;
-    var phase = (typeof rr.current_phase === 'string')
-      ? rr.current_phase : null;
-    var phaseName = (typeof rr.current_phase_name === 'string')
-      ? rr.current_phase_name : null;
-    var phaseStatus = (typeof rr.current_phase_status === 'string')
-      ? rr.current_phase_status : null;
     var milestoneStatus = (typeof fm.milestone_status === 'string')
       ? fm.milestone_status : null;
 
-    // Derive status: "complete" when phase === complete, else "in-progress" else "unknown".
+    // -- Phase 90-02: resolver-first -----------------------------------
+    var eff = _resolveEffectiveForCockpit(ctx.planningDir);
+    var milestone = legacyMilestone;
+    var phase = legacyPhase;
+    var phaseName = legacyPhaseName;
+    var phaseStatus = legacyPhaseStatus;
+    var source = fm._missing ? 'absent' : 'STATE.md';
+    var projectionStale = false;
+
+    if (eff && eff.phase) {
+      milestone = eff.milestone || legacyMilestone;
+      phase = eff.phase;
+      phaseStatus = eff.phase_status || legacyPhaseStatus;
+      source = eff.source;
+      projectionStale = (eff.projection_stale === true);
+      // Phase 90-02: when STATE.md agrees with resolver on milestone+phase,
+      // prefer STATE.md's curated phase_name (it's the operator-edited
+      // name, often more readable than the title-cased folder slug). Only
+      // adopt resolver's phase_name when STATE.md is stale or its name is
+      // missing.
+      if (!projectionStale
+          && legacyPhase === eff.phase
+          && legacyMilestone === eff.milestone
+          && typeof legacyPhaseName === 'string'
+          && legacyPhaseName.length > 0) {
+        phaseName = legacyPhaseName;
+      } else {
+        phaseName = eff.phase_name || legacyPhaseName;
+      }
+    }
+
+    // Derive status: "complete" when phase === complete, else
+    // "in-progress" else "unknown".
     var status = 'unknown';
     if (typeof phase === 'string' && phase.toLowerCase() === 'complete') {
       status = 'complete';
@@ -502,17 +561,21 @@ function _buildObjective(ctx) {
       status = 'in-progress';
     }
 
-    var source = fm._missing ? 'absent' : 'STATE.md';
-    var liveHint = _deriveLivePhaseHint(ctx);
-    if (liveHint && (!phase || phase.toLowerCase() === 'complete'
-        || (milestone && liveHint.milestone !== milestone)
-        || (milestoneStatus && /complete|closed|halted|awaiting operator/i.test(milestoneStatus)))) {
-      milestone = liveHint.milestone;
-      phase = liveHint.phase;
-      phaseName = liveHint.phase_name || phaseName;
-      phaseStatus = 'in-progress';
-      status = 'in-progress';
-      source = liveHint.source + ' overrides stale STATE.md';
+    // Legacy fallback: if resolver did not run / returned no usable data
+    // AND STATE.md still says "complete", apply Phase 76 _deriveLivePhaseHint
+    // as a last-line guard against a stale roadmap_run.complete.
+    if (!eff) {
+      var liveHint = _deriveLivePhaseHint(ctx);
+      if (liveHint && (!phase || phase.toLowerCase() === 'complete'
+          || (milestone && liveHint.milestone !== milestone)
+          || (milestoneStatus && /complete|closed|halted|awaiting operator/i.test(milestoneStatus)))) {
+        milestone = liveHint.milestone;
+        phase = liveHint.phase;
+        phaseName = liveHint.phase_name || phaseName;
+        phaseStatus = 'in-progress';
+        status = 'in-progress';
+        source = liveHint.source + ' overrides stale STATE.md';
+      }
     }
 
     return {
@@ -523,7 +586,14 @@ function _buildObjective(ctx) {
       phase_name: phaseName,
       phase_status: phaseStatus,
       status: status,
-      source: source
+      source: source,
+      // Phase 90-02 -- expose the discrepancy so cockpit panes can render
+      // a "drift" badge alongside the canonical pair.
+      state_md_milestone: legacyMilestone,
+      state_md_phase: legacyPhase,
+      projection_stale: projectionStale,
+      effective_confidence: (eff && typeof eff.confidence === 'number')
+        ? eff.confidence : null
     };
   } catch (e) {
     return { _degraded: true, error_code: 'internal_error_degraded',
@@ -1120,6 +1190,27 @@ function _buildStaleness(ctx) {
       cpb = { live: false, last_emit_age_hours: null,
         reason: 'context_packet_log_absent' };
     }
+    // Phase 90-02: enrich state_md staleness with resolver's view. The
+    // resolver compares ALL evidence streams (not just mtime drift); when
+    // it flags STATE.md as stale, surface that here so cockpit panes get
+    // a single boolean to render. Lock-13 wrapped: resolver failure
+    // leaves the Phase 86 mtime-only result intact.
+    try {
+      var effForStaleness = _resolveEffectiveForCockpit(planningDir);
+      if (effForStaleness && stateMd && typeof stateMd === 'object') {
+        stateMd.projection_stale = (effForStaleness.projection_stale === true);
+        if (Array.isArray(effForStaleness.stale_sources)
+            && effForStaleness.stale_sources.indexOf('state_md') !== -1) {
+          stateMd.projection_stale = true;
+        }
+        if (typeof effForStaleness.recommended_repair === 'string'
+            && effForStaleness.recommended_repair.length > 0) {
+          stateMd.recommended_repair = effForStaleness.recommended_repair;
+        }
+        stateMd.effective_source = effForStaleness.source;
+      }
+    } catch (_re) { /* keep mtime-only result */ }
+
     return {
       state_md: stateMd,
       context_packet_builder: cpb,
