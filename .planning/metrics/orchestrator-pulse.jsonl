@@ -21,3 +21,33 @@
 {"ts":"2026-04-28T22:32:35.580Z","phase":53,"plan":"01","iteration":2,"step":"loop_entry"}
 {"ts":"2026-04-28T23:04:37.325Z","phase":53,"plan":"01","iteration":3,"step":"loop_entry"}
 {"ts":"2026-04-28T23:20:19.909Z","phase":53,"plan":"01","iteration":4,"step":"loop_entry"}
+{"ts":"2026-04-29T18:27:42.100Z","phase":65,"plan":null,"iteration":1,"step":"loop_entry","mode":"auto","trigger":"sgsd-orchestrate go after Phase 63 close + STATE.md repoint + M1-M5 todos committed"}
+{"ts":"2026-04-29T18:51:48.744Z","phase":64,"plan":"64-01","iteration":2,"step":"loop_entry","mode":"auto","trigger":"after Phase 67 close 018028e; advancing to Phase 64 workflow pack completion"}
+{"ts":"2026-04-29T19:00:38.234Z","phase":66,"plan":"66-01","iteration":3,"step":"loop_entry","mode":"auto","trigger":"after Phase 64 close 5ae2ba0; advancing to Phase 66 operator guide (final v2.2 phase)"}
+{"ts":"2026-04-29T19:13:20.672Z","phase":68,"plan":"68-01","iteration":4,"step":"loop_entry","mode":"auto","trigger":"resumed after invalid halt — operator correction; clearing checkpoint and proceeding to v2.3 Phase 68 MCP Contract"}
+{"ts":"2026-04-29T19:27:14.232Z","phase":70,"plan":"70-01","iteration":5,"step":"loop_entry","mode":"auto","trigger":"after Phase 69 close 0211b0c+dcd039b; advancing to Phase 70 status tool suite (5 tools)"}
+{"ts":"2026-04-29T19:40:49.091Z","phase":71,"plan":"71-01","iteration":6,"step":"loop_entry","mode":"auto","trigger":"after Phase 70 close 0905cbf+ebfaf7c; advancing to Phase 71 — 9 operational tools"}
+{"ts":"2026-04-29T20:03:39.441Z","phase":72,"plan":"72-01","iteration":7,"step":"loop_entry","mode":"auto","trigger":"after Phase 71 close 11bb6bb+2ab84d7; advancing to Phase 72 — redaction + Warp config + setup docs (final v2.3 phase)"}
+{"ts":"2026-04-29T20:23:36.910Z","phase":73,"plan":"73-01","iteration":8,"step":"loop_entry","mode":"auto","trigger":"v2.3 SHIPPED 5/5 (68-72); advancing to v2.4 Phase 73 — operator question model refresh"}
+{"ts":"2026-04-29T20:25:12.654Z","phase":74,"plan":"74-01","iteration":9,"step":"loop_entry","mode":"auto"}
+{"ts":"2026-04-29T20:28:48.430Z","phase":75,"plan":"75-01","iteration":10,"step":"loop_entry","mode":"auto"}
+{"ts":"2026-04-29T20:36:11.314Z","phase":76,"plan":"76-01","iteration":11,"step":"loop_entry","mode":"auto"}
+{"ts":"2026-04-29T20:56:52.671Z","phase":77,"plan":"77-01","iteration":12,"step":"loop_entry","mode":"auto"}
+{"ts":"2026-04-29T20:59:45.787Z","phase":78,"plan":"78-01","iteration":13,"step":"loop_entry","mode":"auto"}
+{"ts":"2026-04-29T21:02:18.137Z","phase":79,"plan":"79-01","iteration":14,"step":"loop_entry","mode":"auto"}
+{"ts":"2026-04-29T21:04:44.544Z","phase":80,"plan":"80-01","iteration":15,"step":"loop_entry","mode":"auto"}
+{"ts":"2026-04-29T21:12:23.622Z","phase":81,"plan":"81-01","iteration":16,"step":"loop_entry","mode":"auto"}
+{"ts":"2026-04-29T21:13:41.891Z","phase":82,"plan":"82-01","iteration":17,"step":"loop_entry","mode":"auto"}
+{"ts":"2026-04-29T21:15:14.127Z","phase":83,"plan":"83-01","iteration":18,"step":"loop_entry","mode":"auto"}
+{"ts":"2026-04-29T21:17:41.820Z","phase":84,"plan":"84-01","iteration":19,"step":"loop_entry","mode":"auto"}
+{"ts":"2026-04-29T21:19:21.827Z","phase":85,"plan":"85-01","iteration":20,"step":"loop_entry","mode":"auto"}
+{"ts":"2026-04-29T21:38:20.683Z","phase":86,"plan":"86-01","iteration":21,"step":"loop_entry","mode":"auto","trigger":"operator override paused 86; re-scoping as token-control+staleness-reconciliation"}
+{"ts":"2026-04-29T22:12:46.833Z","phase":87,"plan":"87-01","iteration":22,"step":"loop_entry","mode":"auto","trigger":"Phase 86 closed a59d5f0 with PASS-WITH-DEFERRED-2; advancing to Phase 87 mandated live wire-in"}
+{"ts":"2026-04-29T22:27:13.120Z","phase":88,"plan":"88-01","iteration":23,"step":"loop_entry","mode":"auto"}
+{"ts":"2026-04-29T22:29:57.476Z","phase":89,"plan":"89-01","iteration":24,"step":"loop_entry","mode":"auto"}
+{"ts":"2026-04-29T22:31:34.884Z","phase":90,"plan":"90-01","iteration":25,"step":"loop_entry","mode":"auto"}
+{"ts":"2026-04-29T23:03:15.404Z","phase":91,"plan":"91-01","iteration":26,"step":"loop_entry","mode":"auto"}
+{"ts":"2026-04-29T23:12:58.971Z","phase":92,"plan":"92-01","iteration":27,"step":"loop_entry","mode":"auto","trigger":"resumed after operator pause; double-agent routing handover absorbed"}
+{"ts":"2026-04-29T23:14:53.585Z","phase":93,"plan":"93-01","iteration":28,"step":"loop_entry","mode":"auto"}
+{"ts":"2026-04-29T23:16:29.126Z","phase":94,"plan":"94-01","iteration":29,"step":"loop_entry","mode":"auto"}
+{"ts":"2026-04-29T23:20:42Z","phase":95,"plan":null,"iteration":30,"step":"loop_entry"}
