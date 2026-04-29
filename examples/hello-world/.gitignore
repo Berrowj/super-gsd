@@ -1,0 +1,8 @@
+# Wizard-generated config - NOT checked in.
+# The fixture must look like a fresh clone (config absent) so the
+# walkthrough's Step 1 expectation (only STATE.md present) holds.
+# The wizard re-creates config.json on every --defaults run; the
+# Phase 60 third-gate restores its prior absence after each gate
+# invocation. See .planning/milestones/v2.1/phases/60-example-project-demo/
+# 60-VERIFICATION.md for the observation-only contract.
+.planning/config.json
