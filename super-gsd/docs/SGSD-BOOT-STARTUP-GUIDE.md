@@ -215,8 +215,8 @@ For most projects, keep the default.
 
 ### Fallback Corpus
 
-If no private knowledge bank exists, SGSD can fall back to local SGSD research
-and project memory.
+If no private knowledge bank exists, SGSD falls back to local SGSD research,
+project memory, and the local SQLite context database.
 
 Recommended default:
 
@@ -270,11 +270,36 @@ else bundled SGSD research
 Do not assume every user has VTP. VTP is one possible private knowledge bank,
 not a required SGSD dependency.
 
+Boot enforces this distinction. On first run, `sgsd-boot.ps1` seeds a local
+knowledge config if `.planning/config.json` has no `knowledge` block:
+
+```text
+private_root:     null
+memory_root:      .planning/memory
+fallback_corpus:  sgsd-bundled-research
+```
+
+It also runs the non-destructive project wizard when the `project` block is
+missing. This gives a new operator local knowledge and cockpit defaults without
+needing VTP.
+
+Redis is separate: it is an optional live projection cache. The local SQLite
+context database is the usable local knowledge database; Redis is never
+canonical and never required for boot.
+
 ---
 
 ## Recommended First Run On A New Project
 
 From the project root:
+
+```powershell
+npm install
+sgsd -NoOpen
+```
+
+The first boot check seeds local defaults automatically. Run `sgsd-setup` only
+when you want to add a private knowledge bank:
 
 ```powershell
 sgsd-setup

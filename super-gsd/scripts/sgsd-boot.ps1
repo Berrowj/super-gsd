@@ -410,6 +410,38 @@ if (-not $SkipPreflight) {
         exit 2
     }
 
+    # 1b. Required local tools. Keep these checks before any Node-backed
+    # wizard/cache probes so a new operator gets a clear missing dependency.
+    $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+    if (-not $nodeCmd) {
+        Write-Step "Node.js missing - install Node.js 22 or newer" "FAIL" Red
+        exit 20
+    }
+    $nodeVersionRaw = (& node --version 2>$null)
+    $nodeMajor = 0
+    if ($nodeVersionRaw -match '^v?(\d+)') { $nodeMajor = [int]$Matches[1] }
+    if ($nodeMajor -ge 22) {
+        Write-Step "Node.js $nodeVersionRaw" "OK" Green
+    } else {
+        Write-Step "Node.js $nodeVersionRaw found; SGSD expects 22+" "FAIL" Red
+        exit 20
+    }
+
+    $gitCmd = Get-Command git -ErrorAction SilentlyContinue
+    if (-not $gitCmd) {
+        Write-Step "Git missing - install Git for Windows" "FAIL" Red
+        exit 21
+    }
+    $gitVersionRaw = (& git --version 2>$null)
+    Write-Step "$gitVersionRaw" "OK" Green
+
+    $betterSqliteOut = & node -e "try{require('better-sqlite3');process.exit(0)}catch(e){process.exit(1)}" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Step "Node dependencies installed (better-sqlite3)" "OK" Green
+    } else {
+        Write-Step "Node dependencies missing - run npm install for local context DB" "WARN" Yellow
+    }
+
     # 2. .planning/memory/MEMORY.md exists (v1.2 consolidated taxonomy)
     $indexPath = Join-Path $ProjectDir ".planning/memory/MEMORY.md"
     $legacyIndexPath = Join-Path $ProjectDir ".brv/context-tree/INDEX.md"
@@ -487,6 +519,63 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
             Write-Host "      bash super-gsd/install.sh --init-project  " -NoNewline -ForegroundColor Cyan
             Write-Host "(full: seed 9 knowledge files)" -ForegroundColor DarkGray
             exit 3
+        }
+    }
+
+    # 2b. First-run local defaults. VTP is private/optional; a new SGSD user
+    # should boot into local project memory + bundled SGSD research without
+    # knowing what VTP is. Existing knowledge/project blocks are preserved.
+    $configPath = Join-Path $ProjectDir ".planning/config.json"
+    $needsKnowledgeConfig = $true
+    $needsProjectConfig = $true
+    $configMalformed = $false
+    if (Test-Path $configPath) {
+        try {
+            $firstRunCfg = Get-Content $configPath -Raw | ConvertFrom-Json
+            if ($firstRunCfg.knowledge) { $needsKnowledgeConfig = $false }
+            if ($firstRunCfg.project) { $needsProjectConfig = $false }
+        } catch {
+            $configMalformed = $true
+        }
+    }
+
+    if ($configMalformed) {
+        Write-Step ".planning/config.json malformed - fix JSON or rerun sgsd-setup" "WARN" Yellow
+    } else {
+        if ($needsKnowledgeConfig) {
+            $configureTool = Join-Path $ScriptsDir "sgsd-configure.ps1"
+            if (Test-Path $configureTool) {
+                $null = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $configureTool `
+                    -ProjectDir $ProjectDir `
+                    -MemoryRoot ".planning/memory" `
+                    -FallbackCorpus "sgsd-bundled-research" `
+                    -NonInteractive 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Step "First-run knowledge defaults seeded (local memory + bundled research)" "OK" Green
+                } else {
+                    Write-Step "First-run knowledge defaults failed - run sgsd-setup" "WARN" Yellow
+                }
+            } else {
+                Write-Step "sgsd-configure.ps1 missing - cannot seed knowledge defaults" "WARN" Yellow
+            }
+        } else {
+            Write-Step "Knowledge config present" "OK" Green
+        }
+
+        if ($needsProjectConfig) {
+            $projectWizard = Join-Path $ScriptsDir "sgsd-new-project-wizard.cjs"
+            if (Test-Path $projectWizard) {
+                $null = & node $projectWizard --defaults --project-dir $ProjectDir 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Step "Project wizard defaults seeded" "OK" Green
+                } else {
+                    Write-Step "Project wizard defaults failed - rerun wizard manually" "WARN" Yellow
+                }
+            } else {
+                Write-Step "sgsd-new-project-wizard.cjs missing - cannot seed project defaults" "WARN" Yellow
+            }
+        } else {
+            Write-Step "Project defaults present" "OK" Green
         }
     }
 
@@ -689,6 +778,7 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
     $memoryRoot = ".planning/memory"
     $fallbackCorpus = "sgsd-bundled-research"
     $vtpEnabled = $false
+    $vtpMcpConfigured = $false
 
     try {
         if (Test-Path $configPath) {
@@ -702,11 +792,11 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
         }
     } catch { }
 
-    if (-not $privateKnowledgeRoot -and (Test-Path $mcpPath)) {
+    if (Test-Path $mcpPath) {
         try {
             $mcp = Get-Content $mcpPath -Raw | ConvertFrom-Json
             $vtpServer = $mcp.mcpServers.PSObject.Properties | Where-Object { $_.Name -eq "vtp-kb" } | Select-Object -First 1
-            if ($vtpServer -and $vtpServer.Value.cwd) { $privateKnowledgeRoot = "$($vtpServer.Value.cwd)" }
+            if ($vtpServer) { $vtpMcpConfigured = $true }
         } catch { }
     }
 
@@ -723,6 +813,71 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
         Write-Step "Knowledge bank missing but enrichment is enabled — run sgsd-setup" "WARN" Yellow
     } else {
         Write-Step "Private knowledge bank optional; fallback=$fallbackCorpus" "OK" DarkGray
+    }
+
+    if ($vtpMcpConfigured -and -not $privateKnowledgeRoot) {
+        Write-Step "VTP MCP configured separately; private KB remains opt-in" "OK" DarkGray
+    }
+
+    # 8b. Local context database and optional Redis projection.
+    # SQLite is the local query database friends can use without VTP. Redis is
+    # only a disposable live cache; never canonical truth and never required.
+    $contextRebuild = Join-Path $ProjectDir "super-gsd/tools/context-cache/rebuild.cjs"
+    if (Test-Path $contextRebuild) {
+        $cacheOut = & node $contextRebuild --status 2>&1
+        $cacheText = ($cacheOut -join "`n")
+        $cacheStatus = $null
+        try { $cacheStatus = $cacheText | ConvertFrom-Json } catch { }
+
+        if ($cacheStatus -and $cacheStatus.ok -eq $true) {
+            $docCount = $cacheStatus.doc_count
+            if ($cacheStatus.source_drift -and $cacheStatus.source_drift.detected -eq $true) {
+                $driftPaths = @()
+                if ($cacheStatus.source_drift.drifted_paths) { $driftPaths = @($cacheStatus.source_drift.drifted_paths) }
+                $driftCount = $driftPaths.Count
+                Write-Step "Local context DB present ($docCount docs) but drifted ($driftCount paths) - run node super-gsd/tools/context-cache/rebuild.cjs --rebuild" "WARN" Yellow
+            } else {
+                Write-Step "Local context DB ready ($docCount docs)" "OK" Green
+            }
+        } elseif ($cacheStatus -and $cacheStatus.error -eq "better_sqlite3_missing") {
+            Write-Step "Local context DB unavailable - run npm install" "WARN" Yellow
+        } elseif ($cacheStatus -and $cacheStatus.error -eq "db_missing") {
+            $rebuildOut = & node $contextRebuild --rebuild 2>&1
+            $rebuildText = ($rebuildOut -join "`n")
+            $rebuildStatus = $null
+            try { $rebuildStatus = $rebuildText | ConvertFrom-Json } catch { }
+            if ($rebuildStatus -and $rebuildStatus.ok -eq $true) {
+                Write-Step "Local context DB built ($($rebuildStatus.doc_count) docs)" "OK" Green
+            } elseif ($rebuildStatus -and $rebuildStatus.error -eq "better_sqlite3_missing") {
+                Write-Step "Local context DB not built - run npm install" "WARN" Yellow
+            } else {
+                Write-Step "Local context DB build failed - run node super-gsd/tools/context-cache/rebuild.cjs --rebuild" "WARN" Yellow
+            }
+        } else {
+            Write-Step "Local context DB status unknown - run node super-gsd/tools/context-cache/rebuild.cjs --status" "WARN" Yellow
+        }
+    } else {
+        Write-Step "Local context DB tool missing" "WARN" Yellow
+    }
+
+    $redisRuntime = (Get-Command redis-server -ErrorAction SilentlyContinue)
+    $dockerRuntime = (Get-Command docker -ErrorAction SilentlyContinue)
+    if ($redisRuntime -or $dockerRuntime) {
+        Write-Step "Redis optional runtime available; local DB remains canonical" "OK" DarkGray
+    } else {
+        Write-Step "Redis optional - not installed; local DB/file fallback active" "OK" DarkGray
+    }
+
+    if ($FullPreflight) {
+        $redisSelfTest = Join-Path $ProjectDir "super-gsd/tools/context-cache/run-redis-self-test.cjs"
+        if (Test-Path $redisSelfTest) {
+            $null = & node $redisSelfTest 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                Write-Step "Redis adapter self-test (degrades without Redis)" "OK" Green
+            } else {
+                Write-Step "Redis adapter self-test failed (non-blocking)" "WARN" Yellow
+            }
+        }
     }
 
     # 9. Autopilot watchdog - external stall detector.

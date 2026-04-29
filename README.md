@@ -60,7 +60,7 @@ Right-sizing models cuts costs **5-20x** with zero quality trade-off.
 ### 1. Prerequisites
 
 - **Claude Code** on **Max plan** ($100-200/month) — [get it here](https://claude.ai/code)
-- **Node.js 20+** — [download](https://nodejs.org)
+- **Node.js 22+** — [download](https://nodejs.org)
 - **Git** — [download](https://git-scm.com)
 
 ### 2. Install
@@ -415,7 +415,7 @@ The example fixture under `examples/hello-world/` is the canonical wizard target
 | Requirement | Details |
 |-------------|---------|
 | Claude Code | Max plan ($100-200/month) |
-| Node.js | v20 or higher |
+| Node.js | v22 or higher |
 | Git | Any recent version |
 | OS | Windows (WSL2), macOS, Linux |
 | API keys | **None** — everything via Max plan OAuth |

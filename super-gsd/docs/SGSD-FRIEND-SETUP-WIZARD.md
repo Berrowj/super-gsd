@@ -58,7 +58,7 @@ You work in the main Claude terminal. You watch the cockpit.
    - SGSD expects you to be logged into Claude Code.
    - SGSD does not need Anthropic API keys for normal use.
 
-2. **Node.js 20 or newer**
+2. **Node.js 22 or newer**
    - Check:
 
    ```powershell
@@ -79,6 +79,16 @@ You work in the main Claude terminal. You watch the cockpit.
    - Windows PowerShell 5.1 works.
    - PowerShell 7 is also fine.
 
+5. **Project Node dependencies**
+   - From the project root, run:
+
+   ```powershell
+   npm install
+   ```
+
+   This installs the local SQLite context database dependency. Without it,
+   SGSD can still start in degraded mode, but local knowledge search is weaker.
+
 ### Optional
 
 1. **Codex CLI**
@@ -88,11 +98,14 @@ You work in the main Claude terminal. You watch the cockpit.
 2. **Redis**
    - Optional fast live projection cache.
    - Never canonical truth.
-   - SGSD must still work without Redis.
+   - Not needed for first boot.
+   - SGSD uses the local SQLite context database and files when Redis is absent.
 
 3. **VTP or another private knowledge bank**
    - Optional private research / memory source.
-   - If missing, SGSD uses local project memory and bundled fallback docs.
+   - VTP is Jack's private knowledge bank, not a required SGSD dependency.
+   - If missing, SGSD uses local project memory, the SQLite context database,
+     and bundled fallback docs.
 
 ---
 
@@ -179,7 +192,21 @@ unless debugging the launcher itself.
 
 ## 4. Configure Knowledge And Memory
 
-Run:
+First boot now seeds safe local defaults automatically:
+
+```text
+private knowledge bank: not configured
+memory root:            .planning/memory
+fallback corpus:        sgsd-bundled-research
+project defaults:       cockpit panels + boot mode
+```
+
+That means a new friend does not need VTP and does not need to know what VTP
+is. SGSD will use local knowledge unless they deliberately configure a private
+knowledge bank.
+
+Run `sgsd-setup` only when they have their own private knowledge folder, such
+as Obsidian, a company docs repo, or a research folder:
 
 ```powershell
 sgsd-setup
@@ -193,16 +220,14 @@ Recommended answers for a first-time user:
 | SGSD memory root | `.planning/memory` |
 | Fallback corpus | `sgsd-bundled-research` |
 
-If they have VTP, Obsidian, a company docs repo, or a research folder, point
-the private knowledge bank at that folder.
-
-If they do not, leave it blank.
+If they do not have one, leave it blank.
 
 ---
 
 ## 5. Initialize Project-Level Defaults
 
-Run the project wizard:
+Boot also runs this automatically if the `project` config block is missing.
+You can run it manually when checking a setup:
 
 ```powershell
 node .\super-gsd\scripts\sgsd-new-project-wizard.cjs --defaults
@@ -245,7 +270,21 @@ Use full preflight when:
 - the repo was just pulled
 - the cockpit looks wrong
 - Codex or VTP paths changed
+- Redis/cache behavior changed
 - you are about to leave automode running for a while
+
+What boot checks for first-run users:
+
+| Area | Boot behavior |
+|---|---|
+| Required tools | Fails clearly if Node 22+ or Git is missing |
+| Node dependencies | Warns to run `npm install` if local context DB deps are missing |
+| Local memory | Requires or bootstraps `.planning/memory` |
+| Knowledge config | Seeds local memory + bundled research if missing |
+| Project config | Runs the non-destructive project wizard if missing |
+| Local database | Checks/builds the SQLite context index when missing |
+| Redis | Reports optional availability; never blocks startup |
+| VTP/private KB | Reports optional presence; local fallback is normal |
 
 ---
 
@@ -500,13 +539,13 @@ Before sharing a project with someone else:
 Recommended friend handover:
 
 ```text
-1. Install Claude Code, Node 20+, and Git.
+1. Install Claude Code, Node 22+, and Git.
 2. Open PowerShell in the project.
-3. Run the shortcut installer.
-4. Run sgsd-setup.
-5. Run node .\super-gsd\scripts\sgsd-new-project-wizard.cjs --defaults.
+3. Run npm install.
+4. Run the shortcut installer.
+5. Run sgsd -NoOpen once; boot seeds local defaults if missing.
 6. Run sg.
-7. Type go in Claude.
+7. Type go in Claude, or run sg -Go.
 ```
 
 ---
@@ -516,20 +555,21 @@ Recommended friend handover:
 For a Windows user starting in the project root:
 
 ```powershell
-# 1. Install SGSD shortcuts
+# 1. Install project dependencies
+npm install
+
+# 2. Install SGSD shortcuts
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\super-gsd\scripts\Install-SgsdShortcut.ps1 -Force
 
-# 2. Reload profile or open a new PowerShell window
+# 3. Reload profile or open a new PowerShell window
 . $PROFILE
 
-# 3. Configure knowledge/memory
-sgsd-setup
-
-# 4. Write project defaults
-node .\super-gsd\scripts\sgsd-new-project-wizard.cjs --defaults
-
-# 5. Full first-run health check
+# 4. Full first-run health check
+# Seeds local knowledge/project defaults if they are missing.
 sg -FullPreflight -NoClaude
+
+# 5. Optional: configure a private knowledge bank later
+# sgsd-setup
 
 # 6. Daily boot
 sg
@@ -559,4 +599,3 @@ After this wizard:
 - `super-gsd/USER-GUIDE.md` - full beginner guide
 - `docs/reports/SGSD-Token-Usage-Before-After-v1.9.html` - token usage story
 - `docs/reports/SGSD-Warp-Integration-ELI5.html` - Warp workflow ideas
-

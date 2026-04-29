@@ -1,119 +1,25 @@
 {
-  "workflow": {
-    "mode": "yolo",
-    "granularity": "standard",
-    "skip_discuss": false,
-    "research": true,
-    "triage_vtp_enrichment": true,
-    "plan_check": true,
-    "verifier": true,
-    "auto_advance": true,
-    "nyquist_validation": true,
-    "security_enforcement": true,
-    "security_asvs_level": 1,
-    "security_block_on": "high",
-    "discuss_mode": "discuss",
-    "research_before_questions": false,
-    "plan_format": "compressed_xml",
-    "agent_report_max_words": 300,
-    "schema_v2_hash": "5867692da13edf8939bc4ab898768e9c5e9938716f4754d4583eaa2f7d0d5631",
-    "plan_fix_retry_cap": 3
-  },
-  "safety": {
-    "always_confirm_destructive": true,
-    "always_confirm_external_services": true
-  },
-  "hooks": {
-    "context_warnings": true
-  },
-  "parallelization": {
-    "enabled": true,
-    "plan_level": true,
-    "task_level": false,
-    "skip_checkpoints": true,
-    "max_concurrent_agents": 3,
-    "min_plans_for_parallel": 2
-  },
-  "model_routing": {
-    "orchestrator": "opus",
-    "researcher": "sonnet",
-    "planner": "sonnet",
-    "plan_checker": "sonnet",
-    "executor": "sonnet",
-    "verifier": "sonnet",
-    "code_reviewer": "sonnet",
-    "classifier": "haiku",
-    "context_selector": "haiku"
-  },
-  "token_efficiency": {
-    "state_read": "frontmatter_only",
-    "context_injection": "brv_query",
-    "context_warning_percent": 70,
-    "checkpoint_threshold_percent": 100000,
-    "max_report_words": 300,
-    "max_prompt_tokens": 1500,
-    "log_usage": true
-  },
-  "deliberation": {
-    "enabled": true,
-    "auto_gate": true,
-    "gate_model": "haiku",
-    "board": [
-      "architect",
-      "pragmatist",
-      "contrarian",
-      "moonshot",
-      "researcher"
-    ],
-    "max_rounds": 2,
-    "trigger_phases_affected": 3
-  },
-  "git": {
-    "branching_strategy": "none",
-    "commit_docs": true,
-    "atomic_commits": true
-  },
   "atc": {
-    "enabled": true,
     "classify_model": "haiku",
-    "skip_threshold_lines": 10,
-    "lite_threshold_lines": 50,
-    "lite_threshold_files": 3,
-    "full_threshold_files": 4,
     "complexity_floor_files": 3,
     "complexity_floor_lines": 100,
+    "enabled": true,
+    "full_threshold_files": 4,
+    "lite_threshold_files": 3,
+    "lite_threshold_lines": 50,
+    "skip_threshold_lines": 10,
     "verifier_adversarial_rate": 0.2
   },
-  "review_providers": {
-    "default_provider": "claude-sonnet-reviewer",
-    "codex_enabled": true,
-    "codex_cli_path": "auto-detect",
-    "codex_model": "gpt-5.5",
-    "codex_reasoning_effort": "xhigh",
-    "codex_timeout_seconds": 180,
-    "fallback_on_error": true,
-    "fallback_max_retries": 1,
-    "kill_critical_count_delta": 5,
-    "kill_claude_tokens_saved": 50000,
-    "codex_qualitative_waste_enabled": true,
-    "codex_timeout_tiers": {
-      "default": 60,
-      "review": 120,
-      "analysis": 180
-    }
-  },
   "browser_verify": {
-    "enabled": true,
-    "base_url": "http://localhost:3000",
-    "routes": [
-      "/"
-    ],
-    "required_endpoints": [],
-    "min_rows_per_route": 1,
-    "load_timeout_ms": 15000,
     "approved_fallbacks": [
       "puppeteer"
     ],
+    "base_url": "http://localhost:3000",
+    "block_on_failure_auto_mode": false,
+    "deferral_ledger_auto_reopen_after_phases": 3,
+    "enabled": true,
+    "fail_on_console_errors": true,
+    "fail_on_network_errors": true,
     "frontend_globs": [
       "**/*.html",
       "**/*.tsx",
@@ -130,49 +36,219 @@
       "pages/**",
       "components/**"
     ],
-    "fail_on_console_errors": true,
-    "fail_on_network_errors": true,
-    "block_on_failure_auto_mode": false,
-    "deferral_ledger_auto_reopen_after_phases": 3
+    "load_timeout_ms": 15000,
+    "min_rows_per_route": 1,
+    "required_endpoints": [],
+    "routes": [
+      "/"
+    ]
   },
-  "overwatcher": {
-    "auto_scan": true,
-    "serve": false
+  "deliberation": {
+    "auto_gate": true,
+    "board": [
+      "architect",
+      "pragmatist",
+      "contrarian",
+      "moonshot",
+      "researcher"
+    ],
+    "enabled": true,
+    "gate_model": "haiku",
+    "max_rounds": 2,
+    "trigger_phases_affected": 3
   },
-  "model_profile": "quality",
+  "git": {
+    "atomic_commits": true,
+    "branching_strategy": "none",
+    "commit_docs": true
+  },
   "handoff": {
     "enabled": true,
-    "min_cooldown_seconds": 30,
+    "log_path": ".planning/metrics/handoff-log.jsonl",
     "max_chain_depth": 5,
-    "recover_unexpected_auto_stop": true,
-    "unexpected_stop_max_pulse_age_seconds": 900,
+    "min_cooldown_seconds": 30,
     "operator_abort_file": ".planning/STOP-HANDOFF",
-    "spawn_command": "claude",
+    "recover_unexpected_auto_stop": true,
     "spawn_args": [
       "--print",
       "--dangerously-skip-permissions",
       "/sgsd-orchestrate go"
     ],
-    "log_path": ".planning/metrics/handoff-log.jsonl"
+    "spawn_command": "claude",
+    "unexpected_stop_max_pulse_age_seconds": 900
   },
-  "vtp_enrichment": {
-    "enabled": false,
-    "challenger_mode": false,
-    "granularity": "tier-based",
-    "empty_hit_policy": "continue",
-    "max_queries_per_gate": 5,
-    "query_seed_max_tokens": 800,
-    "audit_tier_batching": {
-      "critical": "per-finding",
-      "warn": "batched",
-      "pass": "skip"
-    }
+  "hooks": {
+    "context_warnings": true
+  },
+  "knowledge": {
+    "fallback_corpus": "sgsd-bundled-research",
+    "memory_root": ".planning/memory",
+    "notes": "Private knowledge stays optional. SGSD memory is project-local by default. Public sources are discovery targets, not blindly ingested content.",
+    "private_root": null,
+    "public_sources": [
+      {
+        "description": "Local SGSD docs, briefs, decisions, milestones, and seeded project memory.",
+        "enabled": true,
+        "id": "sgsd-bundled-research",
+        "mode": "local",
+        "roots": [
+          "README.md",
+          "super-gsd/docs",
+          ".planning/briefs",
+          ".planning/decisions",
+          ".planning/memory"
+        ]
+      },
+      {
+        "description": "Open computer-science research discovery; use metadata/abstracts first, PDFs only when licensing and relevance are clear.",
+        "enabled": false,
+        "id": "arxiv-cs",
+        "mode": "online",
+        "url": "https://arxiv.org/"
+      },
+      {
+        "description": "Google SRE books for reliability, incident response, toil, SLOs, and operational design.",
+        "enabled": false,
+        "id": "google-sre",
+        "mode": "online",
+        "url": "https://sre.google/books/"
+      },
+      {
+        "description": "NASA systems engineering handbook for lifecycle, verification, validation, and gate discipline.",
+        "enabled": false,
+        "id": "nasa-systems-engineering",
+        "mode": "online",
+        "url": "https://www.nasa.gov/reference/systems-engineering-handbook/"
+      },
+      {
+        "description": "Microsoft REST API guidelines for public API design and governance.",
+        "enabled": false,
+        "id": "microsoft-api-guidelines",
+        "mode": "online",
+        "url": "https://github.com/microsoft/api-guidelines"
+      },
+      {
+        "description": "Architecture of Open Source Applications case studies for real system structure.",
+        "enabled": false,
+        "id": "aosa",
+        "mode": "online",
+        "url": "https://aosabook.org/en/"
+      }
+    ],
+    "version": 1
+  },
+  "model_profile": "quality",
+  "model_routing": {
+    "classifier": "haiku",
+    "code_reviewer": "sonnet",
+    "context_selector": "haiku",
+    "executor": "sonnet",
+    "orchestrator": "opus",
+    "plan_checker": "sonnet",
+    "planner": "sonnet",
+    "researcher": "sonnet",
+    "verifier": "sonnet"
   },
   "muda": {
     "inventory_thresholds": {
-      "warn_per_milestone": 2,
+      "_doc": "MUDAC-02: linear-scale inventory probe thresholds. Final threshold = base * count of dirs in .planning/milestones/. Defaults match codebase fallbacks; absent config block produces identical behaviour.",
       "fail_per_milestone": 5,
-      "_doc": "MUDAC-02: linear-scale inventory probe thresholds. Final threshold = base * count of dirs in .planning/milestones/. Defaults match codebase fallbacks; absent config block produces identical behaviour."
+      "warn_per_milestone": 2
     }
+  },
+  "overwatcher": {
+    "auto_scan": true,
+    "serve": false
+  },
+  "parallelization": {
+    "enabled": true,
+    "max_concurrent_agents": 3,
+    "min_plans_for_parallel": 2,
+    "plan_level": true,
+    "skip_checkpoints": true,
+    "task_level": false
+  },
+  "project": {
+    "cockpit_panel_kinds": [
+      "token",
+      "source_mix",
+      "active_agent",
+      "codex",
+      "intent",
+      "governance",
+      "budget"
+    ],
+    "configured_by": "sgsd-new-project-wizard",
+    "configured_schema": "v1",
+    "default_boot_mode": "auto",
+    "operator_preferences": {
+      "confirm_destructive": true,
+      "verbose_logging": false
+    },
+    "schema_version": 1
+  },
+  "review_providers": {
+    "codex_cli_path": "auto-detect",
+    "codex_enabled": true,
+    "codex_model": "gpt-5.5",
+    "codex_qualitative_waste_enabled": true,
+    "codex_reasoning_effort": "xhigh",
+    "codex_timeout_seconds": 180,
+    "codex_timeout_tiers": {
+      "analysis": 180,
+      "default": 60,
+      "review": 120
+    },
+    "default_provider": "claude-sonnet-reviewer",
+    "fallback_max_retries": 1,
+    "fallback_on_error": true,
+    "kill_claude_tokens_saved": 50000,
+    "kill_critical_count_delta": 5
+  },
+  "safety": {
+    "always_confirm_destructive": true,
+    "always_confirm_external_services": true
+  },
+  "token_efficiency": {
+    "checkpoint_threshold_percent": 100000,
+    "context_injection": "brv_query",
+    "context_warning_percent": 70,
+    "log_usage": true,
+    "max_prompt_tokens": 1500,
+    "max_report_words": 300,
+    "state_read": "frontmatter_only"
+  },
+  "vtp_enrichment": {
+    "audit_tier_batching": {
+      "critical": "per-finding",
+      "pass": "skip",
+      "warn": "batched"
+    },
+    "challenger_mode": false,
+    "empty_hit_policy": "continue",
+    "enabled": false,
+    "granularity": "tier-based",
+    "max_queries_per_gate": 5,
+    "query_seed_max_tokens": 800
+  },
+  "workflow": {
+    "agent_report_max_words": 300,
+    "auto_advance": true,
+    "discuss_mode": "discuss",
+    "granularity": "standard",
+    "mode": "yolo",
+    "nyquist_validation": true,
+    "plan_check": true,
+    "plan_fix_retry_cap": 3,
+    "plan_format": "compressed_xml",
+    "research": true,
+    "research_before_questions": false,
+    "schema_v2_hash": "5867692da13edf8939bc4ab898768e9c5e9938716f4754d4583eaa2f7d0d5631",
+    "security_asvs_level": 1,
+    "security_block_on": "high",
+    "security_enforcement": true,
+    "skip_discuss": false,
+    "triage_vtp_enrichment": true,
+    "verifier": true
   }
 }

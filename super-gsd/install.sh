@@ -4,7 +4,7 @@
 # Prerequisites:
 #   - Claude Code on Max plan (no API keys needed)
 #   - GSD 1.0 installed: npx get-shit-done-cc@latest
-#   - Node.js >= 20
+#   - Node.js >= 22
 #
 # Usage:
 #   bash install.sh [--skip-brv] [--dry-run] [--init-project]
@@ -67,12 +67,12 @@ echo ""
 log "Checking prerequisites..."
 
 if ! command -v node &>/dev/null; then
-  echo "ERROR: Node.js not found. Install Node.js >= 20 first."
+  echo "ERROR: Node.js not found. Install Node.js >= 22 first."
   exit 1
 fi
 NODE_VER=$(node -v | sed 's/v//' | cut -d. -f1)
-if [ "$NODE_VER" -lt 20 ]; then
-  echo "ERROR: Node.js >= 20 required (found v$NODE_VER)"
+if [ "$NODE_VER" -lt 22 ]; then
+  echo "ERROR: Node.js >= 22 required (found v$NODE_VER)"
   exit 1
 fi
 log "Node.js: v$(node -v | sed 's/v//')"

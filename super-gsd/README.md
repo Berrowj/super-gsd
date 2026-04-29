@@ -27,7 +27,7 @@ explained.
 ### Prerequisites
 - **Claude Code** on Max plan (no API keys — everything runs via OAuth)
 - **GSD 1.0**: `npx get-shit-done-cc@latest`
-- **Node.js** >= 20
+- **Node.js** >= 22
 
 ### Quick Install
 
