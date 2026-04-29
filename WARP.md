@@ -3,6 +3,27 @@
 This file gives Warp and local agents a compact guide for working in this SGSD
 repository.
 
+## Rule Hierarchy
+
+Three rule files coexist in this repo. Read in this order:
+
+1. **`AGENTS.md`** — tool-neutral all-agent rules: SGSD truth locations, hard rules
+   (read state from `.planning/`, don't duplicate SGSD gates, VTP optional, preserve
+   `sg` topology, no source mutations without a plan), and the active-roadmap pointer.
+   Read first by every agent.
+2. **`WARP.md`** (this file) — Warp-specific operator instructions and daily commands.
+   Warp's documented behaviour: when both `AGENTS.md` and `WARP.md` exist in the same
+   directory, `WARP.md` takes priority for Warp Agent. So Warp-specific guidance below
+   wins inside Warp; tool-neutral rules from `AGENTS.md` still apply for cross-agent
+   correctness (state truth, gate non-duplication, etc.).
+3. **`CLAUDE.md`** — Claude Code's deep orchestrator contract: autonomous loop,
+   dispatch rules, exit conditions, model routing, checkpoint protocol. Required for
+   Claude Code; ignored by other agents.
+
+Other tool-specific rule files (`.cursorrules`, `.windsurfrules`, `.codex/agents.md`,
+etc.) are not authored in this repo. If a future tool needs them, derive from
+`AGENTS.md`.
+
 ## Daily Commands
 
 - `sg` - boot SGSD cockpit separately and greet Claude in the current terminal.
