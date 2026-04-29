@@ -131,6 +131,8 @@ Full preflight checks the substrate more deeply:
 - Codex CLI self-test passes
 - SGSD memory root exists
 - private knowledge bank is present if configured
+- local SQLite context database is present or buildable
+- Redis adapter degrades cleanly when Redis is absent
 
 Use this when:
 
@@ -142,6 +144,49 @@ Use this when:
 
 The boot process now avoids rebuilding `agents.jsonl` when the agent files have
 not changed, so full preflight should be much faster than before.
+
+---
+
+## Codex Setup
+
+Codex is the optional second reviewer for SGSD. It is not required for boot,
+but it is recommended for autonomous work because it gives ATC and MUDA an
+independent signal outside Claude.
+
+Install and log in:
+
+```powershell
+npm install -g @openai/codex
+codex --version
+codex login
+codex login status
+```
+
+Expected status:
+
+```text
+Logged in using ChatGPT
+```
+
+Verify SGSD can see Codex:
+
+```powershell
+node .\super-gsd\tools\provider-health\check.cjs --provider codex
+```
+
+Run a real contract canary when you want full confidence:
+
+```powershell
+node .\super-gsd\tools\provider-health\check.cjs --provider codex --behavioral
+```
+
+The behavioral canary makes a tiny real Codex call, so it may spend a small
+amount of Codex tokens. Normal fast boot uses the cheaper login-status check.
+
+If Codex is not installed or not logged in, SGSD should continue and record the
+review path as degraded. A backlog row should say what evidence is missing
+(`Codex review missing`) separately from the suspected cause (`not installed`,
+`not logged in`, `timeout`, etc.).
 
 ---
 
@@ -166,6 +211,50 @@ super-gsd/scripts/sgsd-dashboard-host.ps1
 That host exists so dashboard crashes are obvious. If a pane fails, it should
 show a red `SUPER GSD DASHBOARD FAILURE` screen with the script path and error
 instead of silently dropping back to a plain PowerShell prompt.
+
+---
+
+## Gate Model
+
+SGSD gates exist to keep automode honest. They do not all mean "stop". Most
+gates either prove the phase can close, record missing evidence, or downgrade
+status so the operator can see the truth.
+
+The usual phase-close path:
+
+```text
+Package ready
+  -> Claude ATC
+  -> Codex ATC if available
+  -> fix/defer findings
+  -> write honest verdict
+  -> MUDA waste review
+  -> status consistency check
+  -> milestone close gates when all phases finish
+```
+
+The main gates:
+
+| Gate | What it does | If it fails |
+|---|---|---|
+| Readiness | Checks services, local files, provider setup, and known blockers before automode | Marks unattended state partial/blocked; automode can still use fallback chain |
+| ATC | Air-traffic-control style review of contract, code/docs, evidence, and closeout status | Fix in-loop, defer with debt, or mark candidate depending on severity |
+| Codex ATC | Independent Codex review for selected ATC tiers | Missing Codex is degraded evidence, not automatically a hard stop |
+| MUDA | TIMWOOD waste review: transport, inventory, motion, waiting, overproduction, overprocessing, defects | Logs waste and fix opportunities; can drive pruning phases |
+| Status consistency | Rejects impossible status claims such as PASS with open backlog | Fix status/evidence immediately |
+| Release readiness | Milestone-level score/check suite | Blocks clean milestone close or marks shipped-with-debt/candidate |
+
+ATC and MUDA are complementary:
+
+```text
+ATC asks:  Is this safe and correct enough to land?
+MUDA asks: Did we create avoidable waste while landing it?
+```
+
+Codex feeds both when available:
+
+- ATC: independent review of the phase package and changed files.
+- MUDA: qualitative waste review, especially overproduction and overprocessing.
 
 ---
 

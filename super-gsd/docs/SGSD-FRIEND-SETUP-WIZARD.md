@@ -94,6 +94,22 @@ You work in the main Claude terminal. You watch the cockpit.
 1. **Codex CLI**
    - Used for independent review when available.
    - If Codex is unavailable, SGSD records a degraded review path and continues.
+   - Recommended for serious autonomous runs because it gives SGSD a second
+     reviewer outside Claude.
+   - Install globally:
+
+   ```powershell
+   npm install -g @openai/codex
+   codex --version
+   codex login
+   codex login status
+   ```
+
+   Expected login status:
+
+   ```text
+   Logged in using ChatGPT
+   ```
 
 2. **Redis**
    - Optional fast live projection cache.
@@ -250,7 +266,55 @@ wizard_self_test: 13/13 assertions passed
 
 ---
 
-## 6. Run A Startup Health Check
+## 6. Set Up Codex Review
+
+Codex is optional, but recommended.
+
+Plain English:
+
+```text
+Claude builds.
+Codex independently reviews.
+SGSD compares both signals before closing the phase.
+```
+
+Install Codex after `npm install` and before the first full preflight:
+
+```powershell
+npm install -g @openai/codex
+codex --version
+codex login
+codex login status
+```
+
+Then verify SGSD can see it:
+
+```powershell
+node .\super-gsd\tools\provider-health\check.cjs --provider codex
+```
+
+Expected:
+
+```text
+AVAILABLE
+```
+
+For a deeper real-call canary:
+
+```powershell
+node .\super-gsd\tools\provider-health\check.cjs --provider codex --behavioral
+```
+
+That canary may spend a small amount of Codex tokens because it asks Codex to
+return a tiny contract response.
+
+If Codex is not installed, SGSD still boots. The cockpit should show the Codex
+review path as unavailable/degraded, and the phase should continue through
+Claude/fallback review unless that milestone explicitly requires Codex.
+
+---
+
+## 7. Run A Startup Health Check
 
 Fast check:
 
@@ -283,12 +347,13 @@ What boot checks for first-run users:
 | Knowledge config | Seeds local memory + bundled research if missing |
 | Project config | Runs the non-destructive project wizard if missing |
 | Local database | Checks/builds the SQLite context index when missing |
+| Codex | Checks `codex login status`; full preflight can run a real canary |
 | Redis | Reports optional availability; never blocks startup |
 | VTP/private KB | Reports optional presence; local fallback is normal |
 
 ---
 
-## 7. Boot SGSD For Normal Work
+## 8. Boot SGSD For Normal Work
 
 Daily command:
 
@@ -312,7 +377,7 @@ That opens the cockpit and tells Claude to start the autonomous loop.
 
 ---
 
-## 8. What To Type In Claude
+## 9. What To Type In Claude
 
 Inside the Claude terminal:
 
@@ -341,7 +406,7 @@ Useful commands:
 
 ---
 
-## 9. How To Read The Cockpit
+## 10. How To Read The Cockpit
 
 The cockpit is a dashboard, not a place to type.
 
@@ -395,6 +460,48 @@ Important: Codex unavailable is not automatically a hard stop. SGSD should log
 that Codex evidence is missing or degraded, then continue with the fallback
 route unless the milestone explicitly requires Codex.
 
+### How The Gates Fit Together
+
+Every phase is trying to answer one question:
+
+```text
+Can this phase close honestly, with enough evidence, without hiding debt?
+```
+
+The normal close path is:
+
+| Step | Plain name | What it proves |
+|---|---|---|
+| 1 | Package | Phase docs, plan, changed files, and evidence exist |
+| 2 | Claude ATC | Claude reviews whether the work matches the phase contract |
+| 3 | Codex ATC | Codex gives an independent review when available |
+| 4 | Fixes | Findings are fixed, rejected with evidence, or moved to backlog |
+| 5 | Verdict | Phase status is written honestly: PASS, deferred, or candidate |
+| 6 | MUDA | Waste review checks needless work, bloat, waits, rework, and dead artifacts |
+| 7 | Status consistency | SGSD rejects impossible states, such as PASS with open debt |
+| 8 | Milestone close | The milestone runs its final gate set before it is marked shipped |
+
+ATC means "air-traffic-control style review": it checks whether the work is
+safe to land. In SGSD it is not only code review; it also checks the plan,
+evidence, phase contract, files touched, and closeout status.
+
+MUDA is the waste gate. It uses TIMWOOD:
+
+| Letter | Meaning | Example waste it catches |
+|---|---|---|
+| T | Transport | needless handoff between tools or agents |
+| I | Inventory | stale docs, unused outputs, unconsumed artifacts |
+| M | Motion | repeated scanning or file/tool hopping |
+| W | Waiting | idle blockers, avoidable waits, queue stalls |
+| O | Overproduction | docs or abstractions nobody needs |
+| O | Overprocessing | over-complex wrappers, checks, or process bloat |
+| D | Defects | repair loops caused by broken contracts or errors |
+
+Codex is used mainly in ATC and qualitative-waste review. If Codex is missing
+or times out, SGSD should record the missing evidence separately from the
+suspected cause. The fact is "Codex review missing"; the cause might be
+"Codex not installed", "not logged in", or "timeout".
+
 ### Claude + Agents Panel
 
 Use this to understand where tokens are going.
@@ -411,7 +518,7 @@ This panel is useful when you ask: "Why is this taking so long?"
 
 ---
 
-## 10. The First Demo Run
+## 11. The First Demo Run
 
 If someone wants to try SGSD without risking a real project, use the fixture:
 
@@ -437,7 +544,7 @@ This proves:
 
 ---
 
-## 11. Recovery Guide
+## 12. Recovery Guide
 
 ### Cockpit looks stale
 
@@ -523,7 +630,7 @@ Either point it at the right folder or leave it blank.
 
 ---
 
-## 12. Safe Sharing Checklist
+## 13. Safe Sharing Checklist
 
 Before sharing a project with someone else:
 
@@ -542,15 +649,16 @@ Recommended friend handover:
 1. Install Claude Code, Node 22+, and Git.
 2. Open PowerShell in the project.
 3. Run npm install.
-4. Run the shortcut installer.
-5. Run sgsd -NoOpen once; boot seeds local defaults if missing.
-6. Run sg.
-7. Type go in Claude, or run sg -Go.
+4. Optional but recommended: install Codex and run codex login.
+5. Run the shortcut installer.
+6. Run sgsd -NoOpen once; boot seeds local defaults if missing.
+7. Run sg.
+8. Type go in Claude, or run sg -Go.
 ```
 
 ---
 
-## 13. One-Page Copy/Paste
+## 14. One-Page Copy/Paste
 
 For a Windows user starting in the project root:
 
@@ -558,20 +666,30 @@ For a Windows user starting in the project root:
 # 1. Install project dependencies
 npm install
 
-# 2. Install SGSD shortcuts
+# 2. Optional but recommended: install Codex for independent review
+# Skip this block if you do not want Codex yet; SGSD will still run.
+if (-not (Get-Command codex -ErrorAction SilentlyContinue)) {
+  npm install -g @openai/codex
+}
+codex --version
+codex login
+codex login status
+node .\super-gsd\tools\provider-health\check.cjs --provider codex
+
+# 3. Install SGSD shortcuts
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\super-gsd\scripts\Install-SgsdShortcut.ps1 -Force
 
-# 3. Reload profile or open a new PowerShell window
+# 4. Reload profile or open a new PowerShell window
 . $PROFILE
 
-# 4. Full first-run health check
+# 5. Full first-run health check
 # Seeds local knowledge/project defaults if they are missing.
 sg -FullPreflight -NoClaude
 
-# 5. Optional: configure a private knowledge bank later
+# 6. Optional: configure a private knowledge bank later
 # sgsd-setup
 
-# 6. Daily boot
+# 7. Daily boot
 sg
 ```
 
@@ -589,7 +707,7 @@ sg -Go
 
 ---
 
-## 14. Where To Go Next
+## 15. Where To Go Next
 
 After this wizard:
 

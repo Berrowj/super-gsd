@@ -11,6 +11,7 @@ node_modules/
 # Temp executor helpers
 _parse_check.ps1
 .tmp-*.ps1
+.planning/tmp-*
 
 # Super-GSD runtime state — ephemeral per install
 .gsd/

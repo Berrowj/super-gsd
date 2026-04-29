@@ -9,6 +9,7 @@
 #
 # Optional:
 #   -SourceRepo C:\Users\jack.berrow\GSDedits
+#   -InstallCodex
 #   -SkipNpmInstall
 #   -SkipBoot
 # ============================================================================
@@ -16,6 +17,7 @@
 param(
     [string]$ProjectDir = ".",
     [string]$SourceRepo = "C:\Users\jack.berrow\GSDedits",
+    [switch]$InstallCodex,
     [switch]$SkipNpmInstall,
     [switch]$SkipBoot
 )
@@ -168,6 +170,40 @@ try {
         Write-Step "npm install complete"
     }
 
+    if ($InstallCodex) {
+        Write-Host ""
+        Write-Host "Checking optional Codex CLI..." -ForegroundColor White
+        $codexCmd = Get-Command codex -ErrorAction SilentlyContinue
+        if (-not $codexCmd) {
+            Write-Host "Installing Codex CLI globally..." -ForegroundColor White
+            & npm install -g "@openai/codex"
+            if ($LASTEXITCODE -ne 0) { throw "Codex install failed with exit $LASTEXITCODE" }
+            $codexCmd = Get-Command codex -ErrorAction SilentlyContinue
+        }
+        if ($codexCmd) {
+            $codexVersion = (& codex --version 2>$null)
+            Write-Step "Codex CLI $codexVersion"
+            $loginStatus = (& codex login status 2>&1)
+            if (($loginStatus -join "`n") -match 'Logged in') {
+                Write-Step "Codex login active"
+            } else {
+                Write-Step "Codex installed but not logged in - run codex login" "WARN" "Yellow"
+                Write-Host "       Then run: codex login status" -ForegroundColor DarkGray
+            }
+        } else {
+            Write-Step "Codex CLI unavailable after install attempt" "WARN" "Yellow"
+        }
+    } else {
+        $codexCmd = Get-Command codex -ErrorAction SilentlyContinue
+        if ($codexCmd) {
+            $codexVersion = (& codex --version 2>$null)
+            Write-Step "Optional Codex detected: $codexVersion"
+        } else {
+            Write-Step "Optional Codex not installed; SGSD will use degraded/fallback review" "WARN" "Yellow"
+            Write-Host "       To add it later: npm install -g @openai/codex; codex login" -ForegroundColor DarkGray
+        }
+    }
+
     if (-not $SkipBoot) {
         Write-Host ""
         Write-Host "Running SGSD first boot preflight..." -ForegroundColor White
@@ -182,6 +218,11 @@ Write-Host ""
 Write-Host "Demo bootstrap complete." -ForegroundColor Green
 Write-Host "Inspect generated local config:" -ForegroundColor White
 Write-Host "  Get-Content .planning\config.json" -ForegroundColor DarkGray
+Write-Host ""
+Write-Host "Optional Codex setup:" -ForegroundColor White
+Write-Host "  npm install -g @openai/codex" -ForegroundColor DarkGray
+Write-Host "  codex login" -ForegroundColor DarkGray
+Write-Host "  node .\super-gsd\tools\provider-health\check.cjs --provider codex" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "Install shortcuts, then boot:" -ForegroundColor White
 Write-Host "  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\super-gsd\scripts\Install-SgsdShortcut.ps1 -Force" -ForegroundColor DarkGray
