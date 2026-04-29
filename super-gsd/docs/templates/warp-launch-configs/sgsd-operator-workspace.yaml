@@ -1,0 +1,52 @@
+# =============================================================================
+# SGSD Operator Workspace — Warp Launch Configuration Template
+#
+# Phase 78-01 deliverable. Drop into ~/.warp/launch_configurations/ to
+# bootstrap a 4-pane operator workspace. Per Phase 63 finding M4 (status
+# pending), this template opens in a NEW Warp window — not the active
+# window — until Warp CLI control matures upstream.
+#
+# INSTALL:
+#   1. Copy this file to:
+#        $HOME\.warp\launch_configurations\sgsd-operator-workspace.yaml
+#   2. Edit the `cwd` paths if your project root differs from
+#        C:\Users\jack.berrow\GSDedits
+#   3. Open Warp Command Palette (Ctrl+Shift+P) and search for
+#        "Launch Configuration: SGSD Operator Workspace"
+#
+# VERIFY:
+#   `node super-gsd/tools/warp-doctor/check.cjs --json` reports
+#   `launch_config_dir_present` PASS (Phase 67 probe 10).
+#   Phase 78 doesn't add a new probe — re-using Phase 67's existing
+#   probe 10 + probe 15 (mcp_config_present from Phase 72).
+#
+# CAVEATS:
+#   - Per Phase 63 manual check M4, this opens in a NEW Warp window
+#     on Windows. Active-window targeting is not yet stable upstream.
+#   - cwd MUST be absolute or empty per Warp docs.
+#   - SGSD is launched via the standard `sg` shortcut from each pane;
+#     no custom inline orchestrator boot logic.
+# =============================================================================
+
+---
+name: SGSD Operator Workspace
+windows:
+  - tabs:
+      - title: SGSD Main
+        layout:
+          cwd: C:\Users\jack.berrow\GSDedits
+          commands:
+            - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'SGSD operator pane. Type sg to boot.' -ForegroundColor Cyan"
+        split_direction: horizontal
+        panes:
+          - cwd: C:\Users\jack.berrow\GSDedits
+            commands:
+              - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Cockpit pane. Type sgsd to open dashboards.' -ForegroundColor Cyan"
+          - cwd: C:\Users\jack.berrow\GSDedits
+            commands:
+              - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Token / Codex / Gate watch pane. Try: SGSD: Token Summary | SGSD: Codex Status | SGSD: Gate Status from Command Search.' -ForegroundColor Cyan"
+      - title: Shell
+        layout:
+          cwd: C:\Users\jack.berrow\GSDedits
+          commands:
+            - exec: powershell -NoExit -Command ". $PROFILE"

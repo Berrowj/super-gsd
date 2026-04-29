@@ -1,0 +1,36 @@
+# =============================================================================
+# SGSD Cockpit Only — Warp Launch Configuration Template
+#
+# Phase 78-01 deliverable. Lighter-weight workspace: just the 3 cockpit
+# panes (mission-control / narrative / codex-monitor) + a shell. No
+# Claude session.
+#
+# INSTALL:
+#   1. Copy to $HOME\.warp\launch_configurations\sgsd-cockpit-only.yaml
+#   2. Open via Command Palette: "Launch Configuration: SGSD Cockpit Only"
+#
+# CAVEAT: opens in a NEW Warp window per Phase 63 M4 finding.
+# =============================================================================
+
+---
+name: SGSD Cockpit Only
+windows:
+  - tabs:
+      - title: Cockpit
+        layout:
+          cwd: C:\Users\jack.berrow\GSDedits
+          commands:
+            - exec: powershell -NoExit -Command ". $PROFILE; sgsd"
+        split_direction: vertical
+        panes:
+          - cwd: C:\Users\jack.berrow\GSDedits
+            commands:
+              - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Narrative pane. Will populate when SGSD is active.' -ForegroundColor Cyan"
+          - cwd: C:\Users\jack.berrow\GSDedits
+            commands:
+              - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Codex/Gate monitor pane. Try: SGSD: Codex Status from Command Search.' -ForegroundColor Cyan"
+      - title: Shell
+        layout:
+          cwd: C:\Users\jack.berrow\GSDedits
+          commands:
+            - exec: powershell -NoExit -Command ". $PROFILE"
