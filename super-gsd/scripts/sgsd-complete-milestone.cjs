@@ -13,6 +13,16 @@
 //                 v1.9 dual-gate AND Phase 53 triple-gate AND Phase 54 quad-gate
 //                 paths preserved byte-untouched up to the provider-circuit
 //                 insertion point).
+// Phase 56-01-T3: extended with scenario-suite run-self-test (sext-gate v2.0;
+//                 v1.9 dual-gate AND Phase 53 triple-gate AND Phase 54 quad-gate
+//                 AND Phase 55 quint-gate paths preserved byte-untouched up to
+//                 the scenario-suite insertion point).
+// Phase 57-01-T2: extended with release-readiness score (sept-gate v2.0;
+//                 prior six gates preserved byte-untouched up to the
+//                 release-readiness insertion point). The score gate is the
+//                 closing gate: it observes evidence emitted by the prior 6
+//                 gates and refuses milestone close on score<70 OR any
+//                 edge_guard_miss row in .planning/metrics/crit-backlog.jsonl.
 //
 // Invoked by super-gsd/skills/sgsd-complete-milestone/SKILL.md Step 0
 // precondition list. Operator-runnable directly:
@@ -617,6 +627,108 @@ function _main(argv) {
       + 'self-test + run-all green (~21 + 10/10)\n');
     process.stdout.write('milestone_close_gate: v2.0 sext-gate '
       + '(context-bench + redis-adapter + failure-injection + chaos-restart + provider-circuit + scenario-suite) green\n');
+
+    // -----------------------------------------------------------------------
+    // Phase 57-01-T2: v2.0 sept-gate extension (release-readiness). Only
+    // reached when milestone === 'v2.0' AND the prior sext-gate (Phase 51 +
+    // Phase 52 + Phase 53 + Phase 54 + Phase 55 + Phase 56) already passed.
+    // One additional spawnSync invocation:
+    //   8. node super-gsd/tools/release-readiness/score.cjs
+    //      --milestone v2.0
+    //      (8-bucket composite 0-100. Exit 0 if score>=70 AND no
+    //      edge_guard_miss row in crit-backlog.jsonl; exit 1 otherwise.
+    //      READ-ONLY -- the score gate never writes to canonical streams
+    //      and never spawns subprocesses of its own.)
+    // The score gate is the CLOSING gate: it observes evidence emitted by
+    // gates 1-7 and computes a composite readiness score. Hard precondition:
+    // any edge_guard_miss row -> RED + exit 1 regardless of bucket totals.
+    // Lock 13: try/catch on require AND spawnSync; never throw upward.
+    // Lock 4: Phase 41-56 trees byte-untouched; this is a surgical extension
+    // ONLY at this insertion point (the sext-gate green emission above is
+    // preserved as the boundary marker for the scenario-suite gate; the
+    // sept-gate emission moves to AFTER release-readiness returns green).
+    // -----------------------------------------------------------------------
+
+    let releaseReadinessScore = null;
+    try {
+      releaseReadinessScore = require(
+        '../tools/release-readiness/score.cjs');
+    } catch (e) {
+      process.stderr.write('milestone_close_blocked:release_readiness_unavailable\n');
+      process.stderr.write('  reason=release_readiness_require_failed message='
+        + (e && e.message ? e.message : 'unknown') + '\n');
+      process.exit(1);
+      return;
+    }
+
+    if (!releaseReadinessScore ||
+        typeof releaseReadinessScore.computeScore !== 'function' ||
+        typeof releaseReadinessScore.getBucketScore !== 'function' ||
+        typeof releaseReadinessScore.hasEdgeGuardMiss !== 'function' ||
+        typeof releaseReadinessScore.getColor !== 'function' ||
+        typeof releaseReadinessScore.selfTest !== 'function') {
+      process.stderr.write('milestone_close_blocked:release_readiness_unavailable\n');
+      process.stderr.write('  reason=release_readiness_api_export_missing\n');
+      process.exit(1);
+      return;
+    }
+
+    let rrOut = null;
+    try {
+      const child_process7 = require('child_process');
+      const path7 = require('path');
+      const rrScorePath = path7.join(__dirname, '..', 'tools',
+                                      'release-readiness', 'score.cjs');
+      const r8 = child_process7.spawnSync(
+        process.execPath,
+        [rrScorePath, '--milestone', 'v2.0'],
+        { stdio: 'inherit' }
+      );
+      if (r8.error) {
+        process.stderr.write('milestone_close_blocked:release_readiness_score_failed\n');
+        process.stderr.write('  reason=release_readiness_spawn_failed message='
+          + (r8.error.message || 'unknown') + '\n');
+        process.exit(1);
+        return;
+      }
+      rrOut = (typeof r8.status === 'number') ? r8.status : 1;
+    } catch (e) {
+      process.stderr.write('milestone_close_blocked:release_readiness_score_failed\n');
+      process.stderr.write('  reason=release_readiness_score_threw message='
+        + (e && e.message ? e.message : 'unknown') + '\n');
+      process.exit(1);
+      return;
+    }
+
+    if (rrOut !== 0) {
+      // Disambiguate the failure cause via in-proc API call (Lock 13 wrapped
+      // computeScore returns ok:true even on RED; we read the reason field).
+      let scoreSnap = null;
+      try {
+        scoreSnap = releaseReadinessScore.computeScore({ milestone: 'v2.0' });
+      } catch (_e) {
+        scoreSnap = null;
+      }
+      if (scoreSnap && scoreSnap.reason === 'score_red_edge_guard_miss') {
+        process.stderr.write('milestone_close_blocked:edge_guard_miss_present\n');
+        process.stderr.write('  reason=edge_guard_miss_count='
+          + (scoreSnap.edge_guard_miss_count || 0) + '\n');
+      } else {
+        process.stderr.write('milestone_close_blocked:release_score_below_threshold\n');
+        process.stderr.write('  reason=release_score='
+          + (scoreSnap && typeof scoreSnap.score === 'number'
+              ? scoreSnap.score : 'unknown')
+          + ' color=' + (scoreSnap && scoreSnap.color ? scoreSnap.color : 'unknown')
+          + ' threshold=70\n');
+      }
+      process.exit(1);
+      return;
+    }
+
+    process.stdout.write('milestone_close_gate: v2.0 release-readiness '
+      + 'score green (>=70 + no edge_guard_miss)\n');
+    process.stdout.write('milestone_close_gate: v2.0 sept-gate '
+      + '(context-bench + redis-adapter + failure-injection + chaos-restart + provider-circuit + scenario-suite + release-readiness) green\n');
     process.exit(0);
   } catch (e) {
     // Outer guard: any unexpected error path exits 1 with a stderr tag.
