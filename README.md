@@ -50,6 +50,7 @@ Right-sizing models cuts costs **5-20x** with zero quality trade-off.
 | **Script Registry** | Already wrote that utility? The system finds and reuses it instead of recreating. |
 | **Signal Map** | Interactive HTML visualization of your project — phases, dependencies, collisions. |
 | **Token Tracking** | Per-unit logging. Know exactly where your tokens go. |
+| **Double-Agent Executor** | Routes bounded execution tasks to local scripts, Codex, or Claude using task capsules. |
 | **Stuck Detection** | Looping on the same error? Gets warned and tries a different approach. |
 | **No API Keys** | Everything runs through Claude Code Max plan OAuth. Zero external costs. |
 
@@ -62,6 +63,15 @@ Right-sizing models cuts costs **5-20x** with zero quality trade-off.
 - **Claude Code** on **Max plan** ($100-200/month) — [get it here](https://claude.ai/code)
 - **Node.js 22+** — [download](https://nodejs.org)
 - **Git** — [download](https://git-scm.com)
+- **Optional Codex CLI** for independent code review and bounded executor tasks:
+
+```bash
+npm install -g @openai/codex
+codex login
+codex login status
+```
+
+SGSD works without Codex; it falls back to Claude. With Codex available, ATC/code-review gates and bounded double-agent executor tasks can route to Codex where appropriate.
 
 ### 2. Install
 
@@ -176,6 +186,76 @@ For the cockpit boot startup guide (preflight checks, dashboard layout, `sg` fla
 | `/gsd-transition .gsd/` | Migrate from GSD 2.0 (Pi harness) |
 
 Plus all **68 original GSD 1.0 commands** still work.
+
+---
+
+## Double-Agent Executor
+
+SGSD now has a bounded execution router for tasks that do not need the full milestone ceremony.
+
+Instead of always sending every implementation task through Claude, SGSD can build a small **task capsule** and route the work:
+
+```text
+Task capsule
+   |
+   +-- deterministic extraction/inventory -> local-script
+   +-- bounded code edit/refactor/test fix -> Codex, when healthy
+   +-- ambiguous/high-risk/private context -> Claude
+```
+
+The goal is simple: use each worker for what it is best at.
+
+| Worker | Best For | Why |
+|--------|----------|-----|
+| `local-script` | deterministic checks, inventory, schema validation | cheapest and exact |
+| `codex` | bounded code edits, test repair, refactors, schema/config fixes | strong scoped code worker |
+| `claude` | intent, architecture, ambiguity, private context, final judgment | best reasoning and operator-facing synthesis |
+
+The contract is in [`super-gsd/tools/double-agent-executor/`](super-gsd/tools/double-agent-executor/):
+
+- `task-capsule.schema.json` defines the execution surface.
+- `run.cjs` routes and optionally executes the task.
+- `scorecard.cjs` audits provider usage, fallbacks, accepted tasks, timeouts, scope violations, and estimated token movement.
+- route evidence is written to `.planning/metrics/route-decisions.jsonl` with boundary `execution_route`.
+
+Codex execution is sandboxed:
+
+```text
+task capsule -> temporary git worktree -> Codex workspace-write -> diff capture
+             -> allowed_files check -> acceptance commands -> patch/report
+```
+
+It does **not** silently mutate the main worktree. Use `--apply` only when you want an accepted patch applied.
+
+Smoke tests:
+
+```bash
+node super-gsd/tools/double-agent-executor/run.cjs --self-test
+node super-gsd/tools/double-agent-executor/scorecard.cjs --self-test
+node super-gsd/scripts/lib/route-ledger.cjs --self-test
+```
+
+Route-only example:
+
+```bash
+node super-gsd/tools/double-agent-executor/run.cjs \
+  --capsule .planning/tasks/example-task.json \
+  --route-only --json
+```
+
+Live bounded Codex execution, patch only:
+
+```bash
+node super-gsd/tools/double-agent-executor/run.cjs \
+  --capsule .planning/tasks/example-task.json \
+  --execute
+```
+
+Audit routing outcomes:
+
+```bash
+node super-gsd/tools/double-agent-executor/scorecard.cjs
+```
 
 ---
 
