@@ -3,9 +3,12 @@
 # Phase 77-01: Warp-friendly cockpit snapshot renderer.
 #
 # Wraps `node super-gsd/tools/cockpit-state/adapter.cjs --json` and renders
-# the 10-section snapshot to console. Operators can call this directly or
+# the 11-section snapshot to console. Operators can call this directly or
 # wire it into existing cockpit panes (sgsd-mission-control.ps1 etc.) at
 # their pace.
+#
+# Phase 86 update: SECTIONS array grew from 10 to 11 entries with the
+# insertion of `staleness` between `artifacts` and `resume_command`.
 #
 # USAGE:
 #   . super-gsd/scripts/lib/render-cockpit-snapshot.ps1 -ProjectDir <path>
@@ -24,7 +27,7 @@ param(
     [switch]$Help
 )
 
-$SECTIONS = @('now','objective','unlock','blockers','agents','codex','gates','tokens','artifacts','resume_command')
+$SECTIONS = @('now','objective','unlock','blockers','agents','codex','gates','tokens','artifacts','staleness','resume_command')
 
 function Show-Help {
     Write-Host 'render-cockpit-snapshot.ps1 -- Warp-friendly cockpit snapshot renderer' -ForegroundColor Cyan

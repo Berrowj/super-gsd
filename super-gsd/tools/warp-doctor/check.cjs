@@ -106,7 +106,10 @@ const PROBE_NAMES = Object.freeze([
   'claude_cli_resolvable',
   'codex_cli_resolvable',
   'mcp_config_present',
-  'codebase_context_state'
+  'codebase_context_state',
+  // Phase 86: staleness reconciliation probes (operator-override re-scope).
+  'state_md_freshness',
+  'context_packet_builder_freshness'
 ]);
 
 const STATUS_VALUES = Object.freeze([
@@ -134,7 +137,14 @@ const REASON_NOTES = Object.freeze([
   'not_applicable_non_windows',
   'not_applicable_v2_3_not_shipped',
   'manual_check_ui_bound',
-  'probe_internal_error_degraded'
+  'probe_internal_error_degraded',
+  // Phase 86: staleness probes.
+  'state_md_within_threshold',
+  'state_md_drift_exceeded',
+  'context_packet_builder_recent',
+  'context_packet_builder_stale',
+  'not_applicable_pulse_log_absent',
+  'not_applicable_phase_45_dormant'
 ]);
 
 const REQUIRED_YAML_KEYS = Object.freeze(['name', 'command', 'tags']);
@@ -426,6 +436,80 @@ function _probe_codebase_context_state() {
     'manual_check_ui_bound');
 }
 
+// Phase 86: STATE.md staleness probe. Mirrors the warp-mcp recovery
+// packet helper. Compares STATE.md mtime vs the latest
+// orchestrator-pulse.jsonl mtime. PASS when drift <= 30 minutes,
+// MISSING when drift > 30 minutes or STATE.md is absent,
+// NOT-APPLICABLE when the pulse log is absent (cannot determine drift).
+function _probe_state_md_freshness(projectDir) {
+  try {
+    const planningDir = path.join(projectDir, '.planning');
+    const stateMd = path.join(planningDir, 'STATE.md');
+    const pulseLog = path.join(planningDir, 'metrics', 'orchestrator-pulse.jsonl');
+    let stateMtime = null;
+    let pulseMtime = null;
+    try {
+      if (fs.existsSync(stateMd) && fs.statSync(stateMd).isFile()) {
+        stateMtime = fs.statSync(stateMd).mtimeMs;
+      }
+    } catch (_se) { stateMtime = null; }
+    try {
+      if (fs.existsSync(pulseLog) && fs.statSync(pulseLog).isFile()) {
+        pulseMtime = fs.statSync(pulseLog).mtimeMs;
+      }
+    } catch (_pe) { pulseMtime = null; }
+    if (stateMtime === null) {
+      return _mkProbe('state_md_freshness', 'MISSING',
+        'STATE.md not found at ' + stateMd,
+        'missing_file');
+    }
+    if (pulseMtime === null) {
+      return _mkProbe('state_md_freshness', 'NOT-APPLICABLE',
+        'orchestrator-pulse.jsonl absent; cannot determine drift',
+        'not_applicable_pulse_log_absent');
+    }
+    const driftMin = Math.round((pulseMtime - stateMtime) / 60000);
+    const fresh = driftMin <= 30;
+    const evidence = 'drift_minutes=' + driftMin
+      + ' state_mtime=' + new Date(stateMtime).toISOString()
+      + ' pulse_mtime=' + new Date(pulseMtime).toISOString();
+    return _mkProbe('state_md_freshness',
+      fresh ? 'PASS' : 'MISSING',
+      evidence,
+      fresh ? 'state_md_within_threshold' : 'state_md_drift_exceeded');
+  } catch (e) {
+    return _degraded('state_md_freshness', e);
+  }
+}
+
+// Phase 86: context-packet builder freshness probe. Checks the mtime of
+// .planning/metrics/context-packet-log.jsonl. PASS if mtime is within
+// the last 24 hours (Phase 45 builder is firing), MISSING if older than
+// 24 hours (builder dormant), NOT-APPLICABLE when the log is absent
+// (Phase 45 not yet shipped on this checkout).
+function _probe_context_packet_builder_freshness(projectDir) {
+  try {
+    const log = path.join(projectDir, '.planning', 'metrics',
+      'context-packet-log.jsonl');
+    if (!fs.existsSync(log) || !fs.statSync(log).isFile()) {
+      return _mkProbe('context_packet_builder_freshness', 'NOT-APPLICABLE',
+        'context-packet-log.jsonl absent; Phase 45 builder not shipped on this checkout',
+        'not_applicable_phase_45_dormant');
+    }
+    const mtimeMs = fs.statSync(log).mtimeMs;
+    const ageHours = Math.round((Date.now() - mtimeMs) / 3600000);
+    const fresh = ageHours <= 24;
+    const evidence = 'age_hours=' + ageHours
+      + ' last_emit=' + new Date(mtimeMs).toISOString();
+    return _mkProbe('context_packet_builder_freshness',
+      fresh ? 'PASS' : 'MISSING',
+      evidence,
+      fresh ? 'context_packet_builder_recent' : 'context_packet_builder_stale');
+  } catch (e) {
+    return _degraded('context_packet_builder_freshness', e);
+  }
+}
+
 // -- Probe envelope helpers --------------------------------------------------
 
 function _mkProbe(name, status, evidence, reason) {
@@ -484,7 +568,10 @@ function runWarpDoctor(opts) {
       _probe_cli_resolvable('claude_cli_resolvable', 'claude'),
       _probe_cli_resolvable('codex_cli_resolvable', 'codex'),
       _probe_mcp_config(),
-      _probe_codebase_context_state()
+      _probe_codebase_context_state(),
+      // Phase 86: staleness probes.
+      _probe_state_md_freshness(projectDir),
+      _probe_context_packet_builder_freshness(projectDir)
     ];
 
     const summary = {
@@ -547,6 +634,9 @@ function getProbe(name, opts) {
       case 'codex_cli_resolvable':                  return _probe_cli_resolvable(name, 'codex');
       case 'mcp_config_present':                    return _probe_mcp_config();
       case 'codebase_context_state':                return _probe_codebase_context_state();
+      // Phase 86: staleness probes.
+      case 'state_md_freshness':                    return _probe_state_md_freshness(projectDir);
+      case 'context_packet_builder_freshness':      return _probe_context_packet_builder_freshness(projectDir);
       default:                                      return _degraded(name, new Error('switch fall-through'));
     }
   } catch (e) {
@@ -563,8 +653,9 @@ function selfTest() {
   }
 
   try {
-    // A1: PROBE_NAMES frozen, len=16
-    assert('A1_probe_names_frozen_16', Object.isFrozen(PROBE_NAMES) && PROBE_NAMES.length === 16,
+    // A1: PROBE_NAMES frozen, len=18 (Phase 86 extends 16 -> 18 with
+    // staleness probes: state_md_freshness + context_packet_builder_freshness).
+    assert('A1_probe_names_frozen_18', Object.isFrozen(PROBE_NAMES) && PROBE_NAMES.length === 18,
       'len=' + PROBE_NAMES.length + ' frozen=' + Object.isFrozen(PROBE_NAMES));
 
     // A2: STATUS_VALUES frozen, len=5
@@ -596,15 +687,15 @@ function selfTest() {
         break;
       }
     }
-    assert('A6_all_probes_shape_ok', allShapeOk, firstBad || 'all 16 OK');
+    assert('A6_all_probes_shape_ok', allShapeOk, firstBad || 'all 18 OK');
 
-    // A7: runWarpDoctor returns valid envelope
+    // A7: runWarpDoctor returns valid envelope (Phase 86: 18 probes).
     const env = runWarpDoctor({ projectDir: process.cwd() });
     assert('A7_runWarpDoctor_envelope_ok',
       env && env.ok === true &&
       env.schema_version === SCHEMA_VERSION &&
       Array.isArray(env.probes) &&
-      env.probes.length === 16 &&
+      env.probes.length === 18 &&
       typeof env.summary === 'object' &&
       typeof env.exit_code === 'number',
       'schema=' + (env && env.schema_version) + ' probes=' + (env && env.probes && env.probes.length));
@@ -670,6 +761,25 @@ function selfTest() {
     const r15 = _mkProbe('warp_env_present', 'TOTALLY-INVALID-STATUS', 'evidence', 'present_env_var_match');
     assert('A15_mkProbe_rejects_unknown_status', r15.status === 'DEGRADED',
       'status=' + r15.status);
+
+    // A18 (Phase 86): state_md_freshness probe returns a valid status enum
+    // value (PASS / MISSING / NOT-APPLICABLE / DEGRADED) and a reason that
+    // membership-checks against REASON_NOTES.
+    const stp = getProbe('state_md_freshness');
+    const stpStatusOk = stp && STATUS_VALUES.indexOf(stp.status) !== -1;
+    const stpReasonOk = stp && REASON_NOTES.indexOf(stp.reason) !== -1;
+    assert('A18_state_md_freshness_valid_envelope',
+      stpStatusOk && stpReasonOk,
+      'status=' + (stp && stp.status) + ' reason=' + (stp && stp.reason));
+
+    // A19 (Phase 86): context_packet_builder_freshness probe returns a
+    // valid status enum value and reason.
+    const cpf = getProbe('context_packet_builder_freshness');
+    const cpfStatusOk = cpf && STATUS_VALUES.indexOf(cpf.status) !== -1;
+    const cpfReasonOk = cpf && REASON_NOTES.indexOf(cpf.reason) !== -1;
+    assert('A19_context_packet_builder_freshness_valid_envelope',
+      cpfStatusOk && cpfReasonOk,
+      'status=' + (cpf && cpf.status) + ' reason=' + (cpf && cpf.reason));
 
     const allOk = results.every(r => r.ok);
     return { ok: allOk, results };

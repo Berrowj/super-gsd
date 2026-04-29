@@ -104,6 +104,9 @@ var SECTION_KEYS = Object.freeze([
   'gates',
   'tokens',
   'artifacts',
+  // Phase 86: staleness section (operator-override re-scope). Inserted
+  // between artifacts and resume_command so resume_command stays last.
+  'staleness',
   'resume_command'
 ]);
 
@@ -376,6 +379,100 @@ function _buildNow(ctx) {
   }
 }
 
+function _titleFromSlug(slug) {
+  try {
+    if (typeof slug !== 'string' || slug.length === 0) return null;
+    return slug
+      .replace(/-/g, ' ')
+      .replace(/\b[a-z]/g, function (m) { return m.toUpperCase(); });
+  } catch (_e) {
+    return slug || null;
+  }
+}
+
+function _resolvePhaseNumberFromDirs(ctx, phase) {
+  try {
+    if (!phase) return null;
+    var root = path.join(ctx.planningDir, 'milestones');
+    if (!fs.existsSync(root)) return null;
+    var milestones = [];
+    try { milestones = fs.readdirSync(root); } catch (_re) { milestones = []; }
+    var best = null;
+    for (var i = 0; i < milestones.length; i++) {
+      var milestone = milestones[i];
+      var phasesDir = path.join(root, milestone, 'phases');
+      if (!fs.existsSync(phasesDir)) continue;
+      var dirs = [];
+      try { dirs = fs.readdirSync(phasesDir); } catch (_de) { dirs = []; }
+      for (var j = 0; j < dirs.length; j++) {
+        var dn = dirs[j];
+        if (dn.indexOf(String(phase) + '-') !== 0 && dn !== String(phase)) continue;
+        var full = path.join(phasesDir, dn);
+        var st = null;
+        try { st = fs.statSync(full); } catch (_se) { st = null; }
+        var mtime = st ? st.mtimeMs : 0;
+        if (!best || mtime > best.mtimeMs) {
+          best = {
+            milestone: milestone,
+            phase: String(phase),
+            phase_name: _titleFromSlug(dn.replace(/^[0-9]+-?/, '')) || ('Phase ' + phase),
+            mtimeMs: mtime
+          };
+        }
+      }
+    }
+    return best;
+  } catch (_e) {
+    return null;
+  }
+}
+
+function _deriveLivePhaseHint(ctx) {
+  try {
+    var rows = Array.isArray(ctx.activityRows) ? ctx.activityRows : [];
+    var nowMs = Date.now();
+    for (var i = rows.length - 1; i >= 0; i--) {
+      var r = rows[i] || {};
+      var tsMs = null;
+      if (typeof r.ts === 'string') {
+        var parsed = Date.parse(r.ts);
+        if (!isNaN(parsed)) tsMs = parsed;
+      }
+      if (tsMs !== null && (nowMs - tsMs) > 3600 * 1000) continue;
+      var texts = [];
+      if (typeof r.target === 'string') texts.push(r.target);
+      if (typeof r.command_preview === 'string') texts.push(r.command_preview);
+      for (var t = 0; t < texts.length; t++) {
+        var text = texts[t];
+        var pathMatch = text.match(/(?:^|[\\/])\.planning[\\/]milestones[\\/](v[0-9]+(?:\.[0-9]+)?)[\\/]phases[\\/]([0-9]+)-([^\\/"\s]+)/i);
+        if (pathMatch) {
+          return {
+            milestone: pathMatch[1],
+            phase: pathMatch[2],
+            phase_name: _titleFromSlug(pathMatch[3]),
+            source: 'legacy_ledger.activity-log.path'
+          };
+        }
+        var phaseMatch = text.match(/\b(?:Phase\s*|P)([0-9]{1,3})\b/i);
+        if (phaseMatch) {
+          var resolved = _resolvePhaseNumberFromDirs(ctx, phaseMatch[1]);
+          if (resolved) {
+            return {
+              milestone: resolved.milestone,
+              phase: resolved.phase,
+              phase_name: resolved.phase_name,
+              source: 'legacy_ledger.activity-log.phase_mention'
+            };
+          }
+        }
+      }
+    }
+    return null;
+  } catch (_e) {
+    return null;
+  }
+}
+
 // Section: objective (Q2)
 function _buildObjective(ctx) {
   try {
@@ -405,6 +502,19 @@ function _buildObjective(ctx) {
       status = 'in-progress';
     }
 
+    var source = fm._missing ? 'absent' : 'STATE.md';
+    var liveHint = _deriveLivePhaseHint(ctx);
+    if (liveHint && (!phase || phase.toLowerCase() === 'complete'
+        || (milestone && liveHint.milestone !== milestone)
+        || (milestoneStatus && /complete|closed|halted|awaiting operator/i.test(milestoneStatus)))) {
+      milestone = liveHint.milestone;
+      phase = liveHint.phase;
+      phaseName = liveHint.phase_name || phaseName;
+      phaseStatus = 'in-progress';
+      status = 'in-progress';
+      source = liveHint.source + ' overrides stale STATE.md';
+    }
+
     return {
       milestone: milestone,
       milestone_name: milestoneName,
@@ -413,7 +523,7 @@ function _buildObjective(ctx) {
       phase_name: phaseName,
       phase_status: phaseStatus,
       status: status,
-      source: fm._missing ? 'absent' : 'STATE.md'
+      source: source
     };
   } catch (e) {
     return { _degraded: true, error_code: 'internal_error_degraded',
@@ -942,6 +1052,85 @@ function _buildArtifacts(ctx) {
   }
 }
 
+// Section: staleness (Phase 86 operator-override re-scope).
+// Reports STATE.md drift vs latest orchestrator-pulse mtime AND the
+// liveness of the Phase 45 context-packet builder. Lock-13 wrapped:
+// any read failure returns a degraded section sentinel rather than
+// throwing across the buildSnapshot boundary.
+function _buildStaleness(ctx) {
+  try {
+    var planningDir = ctx.planningDir;
+    if (typeof planningDir !== 'string' || planningDir.length === 0) {
+      return { _degraded: true, error_code: 'internal_error_degraded',
+        error: 'staleness: planning dir missing' };
+    }
+    // -- state_md drift ------------------------------------------------
+    var stateMdPath = path.join(planningDir, 'STATE.md');
+    var pulsePath = path.join(planningDir, 'metrics', 'orchestrator-pulse.jsonl');
+    var stateMtime = null;
+    var pulseMtime = null;
+    try {
+      if (fs.existsSync(stateMdPath)) {
+        var sStat = fs.statSync(stateMdPath);
+        if (sStat && sStat.mtime) stateMtime = sStat.mtime.getTime();
+      }
+    } catch (_se) { stateMtime = null; }
+    try {
+      if (fs.existsSync(pulsePath)) {
+        var pStat = fs.statSync(pulsePath);
+        if (pStat && pStat.mtime) pulseMtime = pStat.mtime.getTime();
+      }
+    } catch (_pe) { pulseMtime = null; }
+    var now = Date.now();
+    var stateMd = null;
+    if (stateMtime === null) {
+      stateMd = { stale: null, drift_minutes: null,
+        state_md_age_minutes: null, reason: 'state_md_missing' };
+    } else if (pulseMtime === null) {
+      stateMd = {
+        stale: false,
+        drift_minutes: null,
+        state_md_age_minutes: Math.round((now - stateMtime) / 60000),
+        reason: 'pulse_log_absent'
+      };
+    } else {
+      var driftMin = Math.round((pulseMtime - stateMtime) / 60000);
+      stateMd = {
+        stale: driftMin > 30,
+        drift_minutes: driftMin,
+        state_md_age_minutes: Math.round((now - stateMtime) / 60000)
+      };
+    }
+    // -- context_packet_builder freshness ------------------------------
+    var cpbPath = path.join(planningDir, 'metrics', 'context-packet-log.jsonl');
+    var cpb = null;
+    try {
+      if (fs.existsSync(cpbPath)) {
+        var cStat = fs.statSync(cpbPath);
+        if (cStat && cStat.mtime) {
+          var ageHours = Math.round((now - cStat.mtime.getTime()) / 3600000);
+          cpb = {
+            live: ageHours <= 24,
+            last_emit_age_hours: ageHours
+          };
+        }
+      }
+    } catch (_ce) { cpb = null; }
+    if (!cpb) {
+      cpb = { live: false, last_emit_age_hours: null,
+        reason: 'context_packet_log_absent' };
+    }
+    return {
+      state_md: stateMd,
+      context_packet_builder: cpb,
+      source: 'phase_86_staleness_probe'
+    };
+  } catch (e) {
+    return { _degraded: true, error_code: 'internal_error_degraded',
+      error: 'staleness: ' + ((e && e.message) ? e.message : 'unknown') };
+  }
+}
+
 // Section: resume_command (Q12)
 function _buildResumeCommand(ctx) {
   try {
@@ -994,7 +1183,8 @@ function buildSnapshot(opts) {
       activityRows: activityRows
     };
 
-    // Build all 10 sections defensively.
+    // Build all 11 sections defensively (Phase 86: staleness inserted
+    // between artifacts and resume_command; resume_command stays last).
     var sectionFns = {
       now: _buildNow,
       objective: _buildObjective,
@@ -1005,6 +1195,7 @@ function buildSnapshot(opts) {
       gates: _buildGates,
       tokens: _buildTokens,
       artifacts: _buildArtifacts,
+      staleness: _buildStaleness,
       resume_command: _buildResumeCommand
     };
 
@@ -1072,6 +1263,7 @@ var _internals = {
   _buildGates: _buildGates,
   _buildTokens: _buildTokens,
   _buildArtifacts: _buildArtifacts,
+  _buildStaleness: _buildStaleness,
   _buildResumeCommand: _buildResumeCommand
 };
 
@@ -1087,9 +1279,10 @@ function selfTest() {
   }
 
   try {
-    // A1: SECTION_KEYS frozen + len 10
-    assert('A1_section_keys_frozen_10',
-      Object.isFrozen(SECTION_KEYS) && SECTION_KEYS.length === 10,
+    // A1: SECTION_KEYS frozen + len 11 (Phase 86: staleness inserted
+    // between artifacts and resume_command).
+    assert('A1_section_keys_frozen_11',
+      Object.isFrozen(SECTION_KEYS) && SECTION_KEYS.length === 11,
       'len=' + SECTION_KEYS.length + ' frozen=' + Object.isFrozen(SECTION_KEYS));
 
     // A2: EVENT_TYPES mirror len=16 + frozen
@@ -1106,14 +1299,14 @@ function selfTest() {
       r3 && r3.ok === true && r3.data && typeof r3.data === 'object',
       'ok=' + (r3 && r3.ok));
 
-    // A4: All 10 sections present in r3.data
+    // A4: All 11 sections present in r3.data (Phase 86: staleness added).
     var hasAll = true;
     var missingSec = '';
     for (var i = 0; i < SECTION_KEYS.length; i++) {
       var k = SECTION_KEYS[i];
       if (!r3.data || !(k in r3.data)) { hasAll = false; missingSec = k; break; }
     }
-    assert('A4_all_10_sections_present', hasAll,
+    assert('A4_all_11_sections_present', hasAll,
       missingSec ? ('missing=' + missingSec) : 'all-present');
 
     // A5: buildSnapshot with bad input -> still ok envelope shape
@@ -1227,6 +1420,28 @@ function selfTest() {
     }
     assert('A11_resume_command_default', rcOk,
       'cmd=' + (r6 && r6.data && r6.data.resume_command ? r6.data.resume_command.command : 'null'));
+
+    // A_STALENESS (Phase 86): staleness section present in synthetic snapshot
+    // with state_md + context_packet_builder sub-objects. The synthetic tree
+    // wrote STATE.md but no orchestrator-pulse.jsonl, so state_md.reason
+    // should be 'pulse_log_absent' (drift undeterminable, stale=false).
+    // context_packet_log.jsonl is also absent so context_packet_builder.live
+    // must be false with reason 'context_packet_log_absent'.
+    var stOk = false;
+    if (r6 && r6.data && r6.data.staleness
+        && typeof r6.data.staleness === 'object') {
+      var smd = r6.data.staleness.state_md;
+      var cpb = r6.data.staleness.context_packet_builder;
+      stOk = smd && typeof smd === 'object'
+        && cpb && typeof cpb === 'object'
+        && cpb.live === false;
+    }
+    assert('A_STALENESS_section_present', stOk,
+      'has_section=' + !!(r6 && r6.data && r6.data.staleness)
+        + ' state_md=' + JSON.stringify(r6 && r6.data && r6.data.staleness
+            ? r6.data.staleness.state_md : null)
+        + ' cpb=' + JSON.stringify(r6 && r6.data && r6.data.staleness
+            ? r6.data.staleness.context_packet_builder : null));
 
     // ------------------------------------------------------------------
     // A12-A15: 4 FIXTURE AGGREGATES

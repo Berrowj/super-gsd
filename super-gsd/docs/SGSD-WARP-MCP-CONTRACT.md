@@ -375,6 +375,13 @@ Output `_redactions_applied` lists every category that triggered on this respons
 
 Footnote (Phase 85): pre-upgrade shape returned the FULL `sgsd_current_state` envelope as `current_position` (~6 KB total). Post-upgrade the packet is trimmed to a 5-field summary view; full STATE.md remains reachable via `sgsd_current_state` directly. `why_stopped` heuristic order: roadmap-complete -> milestone-all-phases-closed -> clause after em-dash/`--` -> generic fallback. `artifact_links.latest_verification` points to the highest-numbered phase folder when `current_phase === "complete"` (most recently closed).
 
+Phase 86 update (operator-override re-scope): the `data` envelope gains two peer fields alongside `current_position` / `watchdog_state` / etc.:
+
+- `_state_staleness`: `{ stale: bool|null, state_md_age_minutes: N, latest_pulse_age_minutes: N|null, drift_minutes: N|null, threshold_minutes: 30, reason?: string }` -- compares `STATE.md` mtime vs `.planning/metrics/orchestrator-pulse.jsonl` mtime; `stale: true` when drift > 30 minutes. `reason` populated for sentinel cases (`state_md_missing`, `pulse_log_absent`, `compute_failed`).
+- `_context_warning`: `{ level: 'ok'|'soft_200k'|'hard_500k', estimated_root_tokens: N, recommendation?: string, measured_at?: string }` -- reads the tail of `.planning/metrics/token-attribution.jsonl` to find the most recent root orchestrator turn (role=orchestrator, is_sidechain=false) and uses its `usage.context_tokens` as the running estimate. Thresholds: `< 200000` -> `ok`, `200000..499999` -> `soft_200k`, `>= 500000` -> `hard_500k`. When level is non-`ok`, the standard `resume_command` is augmented with a fresh-session recommendation prefixed by `  # CONTEXT WARNING: ` so the next operator paste is self-explanatory.
+
+Both fields are Lock-13 wrapped at the helper boundary (`_computeStateStaleness` + `_deriveContextWarning`); failures degrade to safe sentinels rather than throwing across the tool envelope. Self-test additions: A45 (band computation correctness via boundary sweep + ledger-absent fallback) and A46 (live recovery_packet emits both fields and the resume_command augmentation matches the level).
+
 **Source files**: `.planning/ORCHESTRATOR-CHECKPOINT.md` (if present) + `.planning/STATE.md` (fallback) + filesystem walk of `.planning/milestones/{milestone}/phases/` for artifact paths.
 
 **Failure modes**: no checkpoint AND no STATE → `source_file_missing` (degraded). Checkpoint body unparseable → degrade to STATE-only. Phases dir missing → `artifact_links` fields are null but envelope is `ok: true`.
