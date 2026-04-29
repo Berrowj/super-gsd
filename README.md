@@ -8,6 +8,17 @@ Built on top of [GSD 1.0](https://github.com/gsd-build/get-shit-done) (68 skills
 
 ---
 
+## What This Repo Is For
+
+Two distinct audiences read this README, and the difference matters:
+
+- **Operator-build (this repo):** You are the SGSD developer / operator. You clone `Berrowj/super-gsd`, hack on the orchestrator + skills + tools, run the milestone-close gates, and ship the framework itself. The directory tree below (`super-gsd/scripts/`, `super-gsd/tools/`, `.planning/milestones/`) is the build surface. Everything in `examples/hello-world/` is a fixture you exercise as part of the v2.1 third-gate; it is not your project.
+- **End-user-install:** Someone using SGSD on **their own** project. They run `install.sh --init-project` from inside their project directory; the installer copies the agents, skills, hooks, templates, and `CLAUDE-OVERLAY.md` into their workspace; they then say `go` and Claude builds their thing. They never edit anything inside `super-gsd/` -- that is library code.
+
+If you are reading this from a fresh checkout of `Berrowj/super-gsd`, you are operator-build. If you are reading this from `super-gsd/README.md` symlinked into your own project's `node_modules` or `.claude/super-gsd/`, you are end-user-install. The Quick Start below covers the end-user-install path; the [Operator Build Workflow](#operator-build-workflow) section near the bottom covers the operator-build path.
+
+---
+
 ## What It Does
 
 ```
@@ -93,6 +104,34 @@ go
 ```
 
 That's it. Claude enters the autonomous loop and builds your project.
+
+### 5. (Optional) Install the `sg` shortcut
+
+Once installed, you can boot the cockpit and Claude greeting from any directory with a one-letter shortcut:
+
+```powershell
+# One-time install (PowerShell)
+powershell -File super-gsd/scripts/Install-SgsdShortcut.ps1
+```
+
+Then anywhere on the system:
+
+```
+sg            # boot cockpit dashboards + greet Claude in current terminal
+sgsd          # boot cockpit only (preflight + 3 dashboards)
+sgsd -Help    # show all flags
+```
+
+The bash fallback (macOS / Linux / Git Bash on Windows) prints the launch commands instead of opening windows directly:
+
+```bash
+bash super-gsd/scripts/sgsd-boot.sh --skip-preflight
+# exit 0; prints SGSD1 / SGSD2 / SGSD3 launch lines
+```
+
+For an end-to-end first-run walkthrough including the new-project wizard and the example fixture, see [`super-gsd/docs/EXAMPLE-DEMO-WALKTHROUGH.md`](super-gsd/docs/EXAMPLE-DEMO-WALKTHROUGH.md) (11 steps, every command tested live, expected exit codes documented).
+
+For the cockpit boot startup guide (preflight checks, dashboard layout, `sg` flag matrix), see [`super-gsd/docs/SGSD-BOOT-STARTUP-GUIDE.md`](super-gsd/docs/SGSD-BOOT-STARTUP-GUIDE.md).
 
 ---
 
@@ -317,9 +356,47 @@ powershell -File super-gsd/scripts/sgsd-boot.ps1
 
 - **SGSD1** Mission Control — milestone progress, session cost, agent roster, DLB-04 one-liner
 - **SGSD2** Narrative — Haiku-generated paragraph of what Claude is currently doing + live Ctrl+O tool stream
-- **SGSD3** Gate Verdict — ATC + Browser + Nyquist + Security gates per phase + full DLB-04 substrate panel
+- **SGSD3** Gate Verdict — ATC + Browser + Nyquist + Security gates per phase + full DLB-04 substrate panel. The VTP/MCP projection panel is **optional**: if no VTP MCP server is configured, the panel renders an empty-state sentinel and the dashboard exits 0 (Phase 48 selective-VTP-bridge wires VTP as a route-gated whitelist; Phase 52 redis-adapter ships VTP-free as the canonical context-cache path).
 
 Each dashboard auto-refreshes via FileSystemWatcher on the files it reads — no polling flicker.
+
+---
+
+## Optional Add-Ons
+
+These integrations are **optional** -- SGSD ships and runs end-to-end without any of them. If your project benefits from one, opt in; otherwise the canonical path is VTP-free.
+
+| Add-On | Status | When To Enable | Default Path Without It |
+|--------|--------|----------------|-------------------------|
+| **VTP / MCP bridge** | optional | Research / book / prior-project / architecture-challenge phases that need external validation. The Phase 48 selective-VTP-bridge ships a 4-entry frozen route whitelist (3 active + 1 reserved); local-impl phases NEVER call VTP. | Local-only knowledge resolution via ByteRover. The redis-adapter (Phase 52) is VTP-free and is the canonical context-cache path. |
+| **Redis live cache** | optional | Multi-process cockpit runs that share context-bench across operators. | In-memory context-bench harness (Phase 51). Single-operator runs never need Redis. |
+| **Codex panel** | optional | Operators who want a side-by-side Codex monitor in SGSD3. | The Gate Verdict dashboard renders without it; the Codex pane is an additive panel. |
+
+The milestone-close gates (`sgsd-complete-milestone.cjs --milestone v1.9 / v2.0 / v2.1`) treat all three add-ons as optional: a missing MCP server, a missing Redis socket, or a missing Codex binary degrade gracefully via Lock 13 (skipped sentinel + exit 0) rather than blocking close.
+
+---
+
+## Operator Build Workflow
+
+This section is for **operator-build** readers (you cloned `Berrowj/super-gsd` and are hacking on the framework itself). End-user-install readers can skip it.
+
+```bash
+# 1. Run the milestone-close gates (must all exit 0 before tagging a release)
+node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone v1.9   # dual-gate (context-bench + redis-adapter)
+node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone v2.0   # sept-gate (failure injection + chaos + provider-circuit + scenario-suite + release-readiness)
+node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone v2.1   # quad-gate (installer-audit + wizard + example-walkthrough + docs-refresh)
+
+# 2. Exercise the example fixture (third-gate target; observation-only)
+node super-gsd/scripts/sgsd-new-project-wizard.cjs --defaults --project-dir examples/hello-world
+
+# 3. Self-test the installer surface (12+ probes, ASCII-only, READ-ONLY invariant)
+node super-gsd/tools/installer-audit/audit.cjs --self-test
+
+# 4. Run the wizard self-test (13/13 assertions; deep-merge non-clobber + idempotent + Lock 13)
+node super-gsd/scripts/sgsd-new-project-wizard.cjs --self-test
+```
+
+The example fixture under `examples/hello-world/` is the canonical wizard target; its `.planning/config.json` sha256 is anchored at `fe16729a...` and any drift in the wizard's `_buildProjectAdditions()` shape (panel reorder, schema bump, key rename) red-fails the v2.1 third-gate. See [`.planning/milestones/v2.1/`](./.planning/milestones/v2.1/) for the full milestone trail.
 
 ---
 
