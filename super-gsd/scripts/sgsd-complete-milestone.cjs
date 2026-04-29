@@ -188,6 +188,94 @@ function _main(argv) {
     }
 
     // -----------------------------------------------------------------------
+    // Phase 86-02 hardening: v2.6 close gate (operator override
+    // 2026-04-29T21:35Z). Refuses SHIPPED-clean while crit-backlog has
+    // open `v2_6_debt` rows whose summary matches
+    // `context_packet_builder_dormant` OR
+    // `context_bench_full_mode_unproven`. Other v2_6_debt rows are
+    // tolerated (orthogonal scope -- e.g., codex provider unavailable).
+    //
+    // Pattern source: super-gsd/tools/release-readiness/score.cjs
+    // (`edge_guard_miss` row blocks SHIPPED-clean). Mirrors that shape
+    // but with v2.6-specific kind + summary regex.
+    //
+    // Backward compat: v1.9 / v2.0 / v2.1 paths are NOT entered for v2.6
+    // -- this branch returns independently. Lock 13: try/catch wraps
+    // fs.existsSync + readFileSync + JSON.parse so this gate NEVER
+    // throws upward. ASCII-only.
+    // -----------------------------------------------------------------------
+    if (milestone === 'v2.6') {
+      const fs_v26 = require('fs');
+      const path_v26 = require('path');
+      let planningDir_v26 = _argValue(args, '--planning-dir');
+      if (typeof planningDir_v26 !== 'string' || planningDir_v26.length === 0) {
+        planningDir_v26 = path_v26.join(process.cwd(), '.planning');
+      }
+      const critBacklogPath_v26 = path_v26.join(
+        planningDir_v26, 'metrics', 'crit-backlog.jsonl');
+      const blockingRows_v26 = [];
+      let scanErr_v26 = '';
+      try {
+        if (fs_v26.existsSync(critBacklogPath_v26)) {
+          const raw_v26 = fs_v26.readFileSync(critBacklogPath_v26, 'utf8');
+          const lines_v26 = raw_v26.split(/\r?\n/);
+          for (let li_v26 = 0; li_v26 < lines_v26.length; li_v26++) {
+            const ln_v26 = lines_v26[li_v26];
+            if (!ln_v26 || ln_v26.length === 0) continue;
+            try {
+              const row_v26 = JSON.parse(ln_v26);
+              if (row_v26 && row_v26.kind === 'v2_6_debt'
+                  && row_v26.resolution === 'open') {
+                const sum_v26 = (typeof row_v26.summary === 'string')
+                  ? row_v26.summary : '';
+                if (/context_packet_builder_dormant/i.test(sum_v26)
+                    || /context_bench_full_mode_unproven/i.test(sum_v26)) {
+                  blockingRows_v26.push(row_v26);
+                }
+              }
+            } catch (_pe_v26) {
+              // skip parse errors per Lock-13 (don't fail the gate on
+              // malformed lines; they're orthogonal to this check).
+            }
+          }
+        }
+      } catch (e_v26) {
+        scanErr_v26 = (e_v26 && e_v26.message) ? e_v26.message : 'unknown';
+        process.stderr.write('milestone_close_blocked:v2_6_debt_scan_failed\n');
+        process.stderr.write('  reason=' + scanErr_v26 + '\n');
+        process.exit(1);
+        return;
+      }
+      if (blockingRows_v26.length > 0) {
+        process.stderr.write(
+          'milestone_close_blocked:v2_6_debt_unresolved\n');
+        process.stderr.write('  ' + blockingRows_v26.length
+          + ' open v2_6_debt rows blocking SHIPPED-clean.\n');
+        for (let bi_v26 = 0; bi_v26 < blockingRows_v26.length; bi_v26++) {
+          const br_v26 = blockingRows_v26[bi_v26];
+          const summary_v26 = (br_v26 && typeof br_v26.summary === 'string')
+            ? br_v26.summary : '<no summary>';
+          const trimmed_v26 = (summary_v26.length > 120)
+            ? summary_v26.substring(0, 120) : summary_v26;
+          process.stderr.write('  - ' + trimmed_v26 + '\n');
+        }
+        process.stderr.write(
+          '  v2.6 may close as SHIPPED-WITH-CRIT-DEBT (operator decision); '
+          + 'this gate refuses SHIPPED-clean.\n');
+        process.stderr.write(
+          '  To proceed: resolve via Phase 87 (live orchestrator wire-in) '
+          + 'OR mark each row resolution=accepted-with-debt.\n');
+        process.exit(1);
+        return;
+      }
+      process.stdout.write('milestone_close_gate: v2.6 close gate green '
+        + '(no open v2_6_debt rows match '
+        + 'context_packet_builder_dormant or context_bench_full_mode_unproven)\n');
+      process.exit(0);
+      return;
+    }
+
+    // -----------------------------------------------------------------------
     // Phase 58-01-T2: v2.1 first-gate (installer-audit self-test).
     // v2.1 scope is distribution + onboarding; the gate is the
     // installer-audit selfTest (>=9 probes pass + frozen surfaces +
