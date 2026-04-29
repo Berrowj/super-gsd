@@ -1,0 +1,30 @@
+{
+  "ok": true,
+  "data": {
+    "now": {
+      "action": "<contains>writing adapter.cjs</contains>",
+      "task_id": "task-active-1",
+      "source": "live_events.agent_progress"
+    },
+    "objective": {
+      "milestone": "v2.4",
+      "phase": "76",
+      "phase_name": "<contains>cockpit-state-adapter</contains>",
+      "status": "in-progress"
+    },
+    "unlock": {
+      "unlocks": "<contains>Phase 77</contains>",
+      "milestone": "v2.4",
+      "phase": "76"
+    },
+    "blockers": {
+      "count": 0
+    },
+    "agents": {
+      "count": 1
+    },
+    "resume_command": {
+      "command": "/sgsd-orchestrate go"
+    }
+  }
+}

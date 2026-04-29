@@ -1,0 +1,18 @@
+{
+  "ok": true,
+  "data": {
+    "objective": {
+      "milestone": "v2.4",
+      "phase": "76",
+      "status": "in-progress"
+    },
+    "blockers": {
+      "count": 2
+    },
+    "resume_command": {
+      "command": "/sgsd-orchestrate go",
+      "next_unit": "<contains>OPENAI_API_KEY</contains>",
+      "reason": "provider_unavailable"
+    }
+  }
+}

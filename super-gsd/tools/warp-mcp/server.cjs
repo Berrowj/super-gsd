@@ -1582,71 +1582,98 @@ function _tool_sgsd_latest_commits(args) {
   }
 }
 
-// Tool 12: sgsd_cockpit_snapshot -- composes 1+2+4+5+6+7+8 outputs.
+// Tool 12: sgsd_cockpit_snapshot -- delegates to Phase 76 cockpit-state
+// adapter (super-gsd/tools/cockpit-state/adapter.cjs). The adapter is the
+// single source of truth for the 10-section snapshot; both this MCP tool
+// and the cockpit-shell consume the same composer to eliminate duplicate
+// composition logic.
 function _tool_sgsd_cockpit_snapshot(args) {
   var name = 'sgsd_cockpit_snapshot';
   try {
-    var subKeys = [
-      { key: 'current_state', tool: 'sgsd_current_state', args: args || {} },
-      { key: 'current_phase', tool: 'sgsd_current_phase', args: args || {} },
-      { key: 'watchdog', tool: 'sgsd_watchdog_status', args: args || {} },
-      { key: 'gate', tool: 'sgsd_gate_status', args: args || {} },
-      { key: 'agent', tool: 'sgsd_agent_roster', args: args || {} },
-      { key: 'codex', tool: 'sgsd_codex_status', args: args || {} },
-      { key: 'token', tool: 'sgsd_token_spend',
-        args: Object.assign({}, args || {}, { scope: 'current', group_by: 'role' }) },
-    ];
-
-    var sections = {};
-    for (var i = 0; i < subKeys.length; i++) {
-      var entry = subKeys[i];
-      try {
-        var sub = dispatchTool(entry.tool, entry.args);
-        if (sub && sub.ok === true) {
-          sections[entry.key] = sub.data;
-        } else {
-          sections[entry.key] = {
-            _section_degraded: true,
-            error_code: (sub && typeof sub.error_code === 'string')
-              ? sub.error_code : 'internal_error_degraded',
-          };
-        }
-      } catch (_e) {
-        sections[entry.key] = {
-          _section_degraded: true,
-          error_code: 'internal_error_degraded',
-        };
-      }
+    // Two args shapes are supported:
+    //   - fixture_planning_dir = path to a synthetic .planning-shaped dir
+    //     (MCP fixture pattern). Pass through as adapter's `planningDir`.
+    //   - default: resolve projectDir via standard helper; adapter
+    //     computes planning = projectDir/.planning.
+    var adapterOpts = {};
+    if (args && typeof args.fixture_planning_dir === 'string'
+        && args.fixture_planning_dir.length > 0) {
+      adapterOpts.planningDir = args.fixture_planning_dir;
+    } else {
+      adapterOpts.projectDir = _resolveProjectDir(args);
     }
 
-    var env = _makeEnvelope(name, { sections: sections });
-    // 100KB limit for snapshot tool. If over, mark _truncated and trim
-    // each tail-style sub-section's row arrays.
+    // Lazy-require the adapter to keep the dispatcher startup independent
+    // of adapter availability. If the adapter is missing or throws on
+    // require, fall back to a degraded envelope.
+    var adapterPath = path.join(__dirname, '..', 'cockpit-state', 'adapter.cjs');
+    var adapter = null;
+    try {
+      adapter = require(adapterPath);
+    } catch (_re) {
+      return _makeDegraded(name, 'source_file_missing',
+        'cockpit-state adapter unavailable: '
+          + ((_re && _re.message) ? _re.message : 'require failed'));
+    }
+    if (!adapter || typeof adapter.buildSnapshot !== 'function') {
+      return _makeDegraded(name, 'source_file_unparseable',
+        'cockpit-state adapter loaded but buildSnapshot missing');
+    }
+
+    var result = null;
+    try {
+      result = adapter.buildSnapshot(adapterOpts);
+    } catch (_be) {
+      return _makeDegraded(name, 'internal_error_degraded',
+        'adapter.buildSnapshot threw: '
+          + ((_be && _be.message) ? _be.message : 'unknown'));
+    }
+
+    if (!result || result.ok !== true) {
+      var ec = (result && typeof result.error_code === 'string')
+        ? result.error_code : 'internal_error_degraded';
+      var em = (result && typeof result.error === 'string')
+        ? result.error : 'adapter returned non-ok';
+      return _makeDegraded(name, ec, em);
+    }
+
+    // Wrap adapter envelope in canonical MCP envelope shape. The adapter
+    // already returns 10 sections under data.{now,objective,...}. We
+    // forward the data block verbatim.
+    var env = _makeEnvelope(name, result.data);
+
+    // Carry forward the section-degraded list and adapter ts as metadata
+    // so cockpit consumers can surface partial-failure state without
+    // re-walking the data tree.
+    if (Array.isArray(result._section_degraded)
+        && result._section_degraded.length > 0) {
+      env._section_degraded = result._section_degraded.slice();
+    }
+
+    // 100KB envelope size budget. If over, trim row-style fields under
+    // gates / agents / codex / tokens and mark _truncated true.
     try {
       var ser = JSON.stringify(env);
       if (typeof ser === 'string' && ser.length > 100000) {
         env._truncated = true;
-        // Best-effort trim: drop row arrays from gate/agent/codex/token.
-        var trimKeys = ['gate', 'agent', 'codex', 'token'];
-        for (var t = 0; t < trimKeys.length; t++) {
-          var sec = sections[trimKeys[t]];
-          if (sec && !sec._section_degraded) {
-            if (Array.isArray(sec.gates) && sec.gates.length > 5) {
-              sec.gates = sec.gates.slice(sec.gates.length - 5);
-            }
-            if (Array.isArray(sec.agents) && sec.agents.length > 5) {
-              sec.agents = sec.agents.slice(sec.agents.length - 5);
-            }
-            if (Array.isArray(sec.recent_runs) && sec.recent_runs.length > 5) {
-              sec.recent_runs = sec.recent_runs.slice(sec.recent_runs.length - 5);
-            }
-            if (Array.isArray(sec.rows) && sec.rows.length > 10) {
-              sec.rows = sec.rows.slice(0, 10);
-            }
-          }
+        var d = env.data || {};
+        if (d.gates && Array.isArray(d.gates.gates) && d.gates.gates.length > 5) {
+          d.gates.gates = d.gates.gates.slice(d.gates.gates.length - 5);
+        }
+        if (d.agents && Array.isArray(d.agents.roster) && d.agents.roster.length > 5) {
+          d.agents.roster = d.agents.roster.slice(d.agents.roster.length - 5);
+        }
+        if (d.codex && Array.isArray(d.codex.recent_runs)
+            && d.codex.recent_runs.length > 5) {
+          d.codex.recent_runs = d.codex.recent_runs.slice(d.codex.recent_runs.length - 5);
+        }
+        if (d.artifacts && Array.isArray(d.artifacts.phases)
+            && d.artifacts.phases.length > 25) {
+          d.artifacts.phases = d.artifacts.phases.slice(0, 25);
         }
       }
     } catch (_te) { /* swallow size-check errors */ }
+
     return env;
   } catch (_e) {
     return _makeDegraded(name, 'internal_error_degraded',
@@ -2534,21 +2561,24 @@ function selfTest() {
 
     // A28: sgsd_cockpit_snapshot -- sections object has all 7 keys.
     var r28 = dispatchTool('sgsd_cockpit_snapshot', {});
+    // Phase 76: tool 12 now delegates to the cockpit-state adapter.
+    // Envelope shape: data.{now, objective, unlock, blockers, agents,
+    // codex, gates, tokens, artifacts, resume_command} (10 sections).
     var requiredSectionKeys = [
-      'current_state', 'current_phase', 'watchdog',
-      'gate', 'agent', 'codex', 'token',
+      'now', 'objective', 'unlock', 'blockers', 'agents',
+      'codex', 'gates', 'tokens', 'artifacts', 'resume_command',
     ];
     var ok28 = _liveOkOrDegradedOK(r28)
       && (r28.ok !== true
-        || (r28.data && r28.data.sections
+        || (r28.data
           && requiredSectionKeys.every(function (k) {
-            return r28.data.sections.hasOwnProperty(k);
+            return r28.data.hasOwnProperty(k);
           })));
-    add('live_sgsd_cockpit_snapshot_has_all_7_sections',
+    add('live_sgsd_cockpit_snapshot_has_all_10_sections',
       ok28,
       'ok=' + (r28 ? r28.ok : '?')
-        + ' keys=' + (r28 && r28.data && r28.data.sections
-          ? Object.keys(r28.data.sections).length : '?'));
+        + ' keys=' + (r28 && r28.data
+          ? Object.keys(r28.data).length : '?'));
 
     // A29: sgsd_artifact_links -- milestone + phases array; first phase
     // entry has expected keys.

@@ -1,0 +1,4 @@
+{"schema_version":1,"ts":"2026-04-29T20:30:00.000Z","type":"run_started","milestone":"v2.4","phase":"76","plan":"76-01","data":{"mode":"auto","user_command":"go","session_id":"fx-active-1"}}
+{"schema_version":1,"ts":"2026-04-29T20:30:01.000Z","type":"phase_started","milestone":"v2.4","phase":"76","plan":"76-01","data":{"phase":"76","phase_name":"cockpit-state-adapter","milestone":"v2.4"}}
+{"schema_version":1,"ts":"2026-04-29T20:30:02.000Z","type":"agent_dispatched","milestone":"v2.4","phase":"76","plan":"76-01","data":{"agent":"gsd-executor","model":"sonnet","task_id":"task-active-1","purpose":"build cockpit-state adapter"}}
+{"schema_version":1,"ts":"2026-04-29T20:30:03.000Z","type":"agent_progress","milestone":"v2.4","phase":"76","plan":"76-01","data":{"task_id":"task-active-1","current_action":"writing adapter.cjs","files_touched":["super-gsd/tools/cockpit-state/adapter.cjs"]}}

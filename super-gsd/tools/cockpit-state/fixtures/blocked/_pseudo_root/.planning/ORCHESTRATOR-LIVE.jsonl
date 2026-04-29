@@ -1,0 +1,4 @@
+{"schema_version":1,"ts":"2026-04-29T20:31:00.000Z","type":"phase_started","milestone":"v2.4","phase":"76","plan":"76-01","data":{"phase":"76","phase_name":"cockpit-state-adapter","milestone":"v2.4"}}
+{"schema_version":1,"ts":"2026-04-29T20:31:01.000Z","type":"agent_dispatched","milestone":"v2.4","phase":"76","plan":"76-01","data":{"agent":"gsd-researcher","model":"sonnet","task_id":"task-blk-1","purpose":"probe credentials"}}
+{"schema_version":1,"ts":"2026-04-29T20:31:02.000Z","type":"operator_attention_required","milestone":"v2.4","phase":"76","plan":"76-01","data":{"reason":"credentials_needed","context":"OPENAI_API_KEY missing; codex provider unavailable"}}
+{"schema_version":1,"ts":"2026-04-29T20:31:03.000Z","type":"checkpoint_written","milestone":"v2.4","phase":"76","plan":"76-01","data":{"path":".planning/ORCHESTRATOR-CHECKPOINT.md","next_unit":"resume after operator sets OPENAI_API_KEY","reason":"provider_unavailable"}}

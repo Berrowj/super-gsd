@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "data": {
+    "objective": {
+      "phase": "76",
+      "status": "in-progress"
+    },
+    "gates": {
+      "latest_per_gate": {
+        "phase-level-ATC": {
+          "verdict": "warn"
+        },
+        "token-log": {
+          "verdict": "pass"
+        }
+      }
+    }
+  }
+}

@@ -3,14 +3,17 @@
   "schema_version": 1,
   "tool": "sgsd_cockpit_snapshot",
   "data": {
-    "sections": {
-      "current_state": { "_section_degraded": true, "error_code": "source_file_missing" },
-      "current_phase": "<exists>true</exists>",
-      "watchdog": "<exists>true</exists>",
-      "gate": "<exists>true</exists>",
-      "agent": "<exists>true</exists>",
-      "codex": "<exists>true</exists>",
-      "token": "<exists>true</exists>"
+    "now": "<exists>true</exists>",
+    "objective": "<exists>true</exists>",
+    "unlock": "<exists>true</exists>",
+    "blockers": "<exists>true</exists>",
+    "agents": "<exists>true</exists>",
+    "codex": "<exists>true</exists>",
+    "gates": "<exists>true</exists>",
+    "tokens": "<exists>true</exists>",
+    "artifacts": "<exists>true</exists>",
+    "resume_command": {
+      "command": "/sgsd-orchestrate go"
     }
   },
   "_truncated": false,

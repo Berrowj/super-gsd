@@ -1,0 +1,18 @@
+{
+  "ok": true,
+  "data": {
+    "now": {
+      "action": "<contains>milestone-closed</contains>",
+      "source": "live_events.run_completed"
+    },
+    "objective": {
+      "milestone": "v2.4",
+      "phase": "complete",
+      "status": "complete",
+      "milestone_status": "ALL-PHASES-CLOSED"
+    },
+    "blockers": {
+      "count": 0
+    }
+  }
+}
