@@ -8,7 +8,13 @@
 - ✅ **v1.4 Clean Close + Codex Visibility + Autonomous Handoff** — Phases 17-20 (shipped 2026-04-24) — [summary](milestones/v1.4/SUMMARY.md) · [requirements](milestones/v1.4-REQUIREMENTS.md) · `git tag v1.4`
 - ✅ **v1.5 VTP Knowledge Primacy + Post-v1.4 Hardening** — Phases 21-25 (shipped 2026-04-25) — [summary](milestones/v1.5/SUMMARY.md) · 21 REQs across VTPE/SEC/MUDAC/CONTRACT/CARRY/INSTR
 - ✅ **v1.6 Cockpit 2.0 + Startup Verification** — Phases 26-30 (shipped 2026-04-27 as SHIPPED-WITH-DEBT-10 after post-hoc Codex rerun; 8 codex-unavail rows cleared) — [summary](milestones/v1.6/SUMMARY.md) · [requirements](milestones/v1.6/REQUIREMENTS.md)
-- 🚧 **v1.7 Stable Command Contracts + Route Intelligence** — Phases 31-35 (active, promoted 2026-04-27) — [requirements](milestones/v1.7/REQUIREMENTS.md) · [surface audit](milestones/v1.7/EXISTING-SURFACE-AUDIT.md) · controlling contract: [ROADMAP-AGENT.md](ROADMAP-AGENT.md)
+- ✅ **v1.7 Stable Command Contracts + Route Intelligence** — Phases 31-35 (shipped 2026-04-27) — [summary](milestones/v1.7/SUMMARY.md) · [requirements](milestones/v1.7/REQUIREMENTS.md)
+- ✅ **v1.8 Gate Fitness + MUDA Pruning** — Phases 36-40 (shipped 2026-04-27) — [summary](milestones/v1.8/SUMMARY.md)
+- ✅ **v1.9 SGSD-Research (Context Compression + Token Governance + Research Routing)** — Phases 41-52 (shipped 2026-04-28) — [summary](milestones/v1.9/SUMMARY.md)
+- ✅ **v2.0 Failure Injection** — Phases 53-57 (shipped 2026-04-29; release-readiness score 97-98/100 GREEN) — [summary](milestones/v2.0/SUMMARY.md)
+- ✅ **v2.1 Distribution + New-User Onboarding** — Phases 58-62 (shipped 2026-04-29) — [summary](milestones/v2.1/SUMMARY.md)
+
+**ROADMAP COMPLETE 2026-04-29** — all 30 phases (26-62) closed across 6 milestones (v1.6 SHIPPED-WITH-DEBT-10; v1.7-v2.1 SHIPPED clean). HEAD: `17ff9d6`. Status-consistency: all 6 milestones OK.
 
 ## Phases
 

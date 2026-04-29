@@ -423,7 +423,8 @@ function readStateScope(projectDir) {
   const out = { milestone: null, phase: null };
   if (!fs.existsSync(statePath)) return out;
   const text = fs.readFileSync(statePath, 'utf8');
-  let m = text.match(/^milestone:\s*("?)([^"\n]+)\1/m);
+  let m = text.match(/^\s*current_milestone:\s*("?)([^"\n]+)\1/m)
+       || text.match(/^milestone:\s*("?)([^"\n]+)\1/m);
   if (m) out.milestone = m[2].trim();
   m = text.match(/current_phase:\s*("?)([0-9]+)\1/m) || text.match(/\bPhase\s+([0-9]+)\b/i);
   if (m) out.phase = m[2] || m[1];
@@ -586,6 +587,21 @@ function runSelfTest() {
     if (wrote.appended !== 2 || wrote2.appended !== 0) throw new Error('idempotent append failed');
     const summary = summarize(readJsonl(path.join(tmp, LEDGER_REL)), { milestone: 'v1.8', phase: '39' });
     if (summary.agent_total_tokens !== 1234) throw new Error('summary failed');
+
+    const planningDir = path.join(tmp, '.planning');
+    fs.mkdirSync(planningDir, { recursive: true });
+    fs.writeFileSync(path.join(planningDir, 'STATE.md'), [
+      'milestone: v1.9',
+      'active:',
+      '  current_milestone: v2.0',
+      '  current_phase: 53',
+      ''
+    ].join('\n'));
+    const activeScope = readStateScope(tmp);
+    if (activeScope.milestone !== 'v2.0' || activeScope.phase !== '53') {
+      throw new Error('current_milestone/current_phase scope precedence failed');
+    }
+
     console.log('token-attribution self-test: PASS');
   } finally {
     try { fs.rmSync(tmp, { recursive: true, force: true }); } catch {}
