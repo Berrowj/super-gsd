@@ -175,7 +175,7 @@ spawnSync invocation; never throws upward.
   proxy is forward-compatible (a future Phase 5N can swap to live data
   without changing the bucket interface).
 - **Q4** (lock_invariants self-check vs. external check): self-check
-  (this module's own ASCII + Lock 13) — running `git diff --quiet -- ...`
+  (this module's own ASCII + Lock 13) - running `git diff --quiet -- ...`
   on Phase 41-56 trees from inside the score module would couple Phase
   57 to repo working-tree state, which is brittle. The lock_invariants
   bucket is intentionally narrow.
