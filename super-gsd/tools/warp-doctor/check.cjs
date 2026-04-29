@@ -379,10 +379,44 @@ function _probe_cli_resolvable(probeName, cmd) {
 }
 
 function _probe_mcp_config() {
-  // Placeholder for v2.3 Phase 68+. Returns NOT-APPLICABLE until MCP ships.
-  return _mkProbe('mcp_config_present', 'NOT-APPLICABLE',
-    'SGSD MCP server not yet shipped; planned v2.3 Phase 68-72',
-    'not_applicable_v2_3_not_shipped');
+  // Phase 72: real check. Scan ~/.warp/ for an MCP config file containing
+  // the SGSD MCP server entry (super-gsd/tools/warp-mcp/server.cjs or
+  // 'super-gsd' as a heuristic). PASS when found, MISSING with actionable
+  // evidence pointing to SGSD-WARP-MCP-SETUP.md when absent. Non-Windows
+  // hosts retain NOT-APPLICABLE because Warp MCP is Windows/macOS only
+  // and we only know the Windows config layout in this project.
+  try {
+    if (process.platform !== 'win32') {
+      return _mkProbe('mcp_config_present', 'NOT-APPLICABLE',
+        'mcp config detection layout is Windows-specific in this project; skipping non-windows',
+        'not_applicable_non_windows');
+    }
+    const home = os.homedir();
+    const candidates = [
+      path.join(home, '.warp', 'mcp_servers.json'),
+      path.join(home, '.warp', 'mcp.json'),
+      path.join(home, '.warp', 'mcp_config.json'),
+      path.join(home, 'AppData', 'Roaming', 'Warp', 'mcp_servers.json'),
+      path.join(home, 'AppData', 'Roaming', 'dev.warp.Warp-Stable', 'mcp_servers.json')
+    ];
+    for (const c of candidates) {
+      try {
+        if (fs.existsSync(c) && fs.statSync(c).isFile()) {
+          const txt = fs.readFileSync(c, 'utf8');
+          if (txt.indexOf('warp-mcp/server.cjs') !== -1
+              || txt.indexOf('warp-mcp\\\\server.cjs') !== -1
+              || txt.indexOf('super-gsd') !== -1) {
+            return _mkProbe('mcp_config_present', 'PASS', c, 'present_file_found');
+          }
+        }
+      } catch (_e) { /* try next */ }
+    }
+    return _mkProbe('mcp_config_present', 'MISSING',
+      'no MCP config found at standard ~/.warp/ paths; see super-gsd/docs/SGSD-WARP-MCP-SETUP.md to configure',
+      'missing_file');
+  } catch (e) {
+    return _degraded('mcp_config_present', e);
+  }
 }
 
 function _probe_codebase_context_state() {
@@ -615,10 +649,17 @@ function selfTest() {
     assert('A12_codebase_context_manual_check', cb && cb.status === 'MANUAL-CHECK-REQUIRED',
       'status=' + (cb && cb.status));
 
-    // A13: mcp_config_present is always NOT-APPLICABLE until v2.3 (D67.6)
+    // A13 (Phase 72 upgrade): mcp_config_present is now a real check.
+    // On Windows the probe scans ~/.warp/ for an MCP config containing the
+    // SGSD entry; status must be PASS or MISSING (no longer the v2.3
+    // NOT-APPLICABLE placeholder). On non-Windows the probe still returns
+    // NOT-APPLICABLE because the config layout is Windows-specific here.
     const mcp = getProbe('mcp_config_present');
-    assert('A13_mcp_config_not_applicable', mcp && mcp.status === 'NOT-APPLICABLE',
-      'status=' + (mcp && mcp.status));
+    const validRealCheckStatus = (process.platform === 'win32')
+      ? (mcp && (mcp.status === 'PASS' || mcp.status === 'MISSING'))
+      : (mcp && mcp.status === 'NOT-APPLICABLE');
+    assert('A13_mcp_config_real_check', validRealCheckStatus,
+      'platform=' + process.platform + ' status=' + (mcp && mcp.status));
 
     // A14: _mkProbe rejects unknown name with DEGRADED (Lock 11 enforcement)
     const r14 = _mkProbe('not_a_probe', 'PASS', 'evidence', 'present_file_found');

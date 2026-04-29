@@ -53,11 +53,19 @@
 //   13. sgsd_artifact_links
 //   14. sgsd_warp_doctor
 //
-// ERROR_CODES (11, frozen) -- VERBATIM from Phase 68 contract
+// ERROR_CODES (13, frozen) -- VERBATIM from Phase 68 contract + Phase 72
+// extension for spawn-error formalization (closes Phase 71 D3 deviation).
 //   source_file_missing, source_file_unparseable, source_file_too_large,
 //   git_subprocess_failed, git_subprocess_timeout, fixture_loader_invalid,
 //   redaction_pass_failed, output_size_exceeded, unknown_tool_name,
-//   invalid_input_schema, internal_error_degraded
+//   invalid_input_schema, internal_error_degraded,
+//   subprocess_failed, subprocess_timeout (Phase 72 -- generic for tool 14).
+//
+// REDACTION_CATEGORIES (7, frozen) -- VERBATIM from Phase 68 contract
+//   env_secrets, bearer_tokens, redis_urls, api_keys_inline,
+//   private_kb_paths, unc_paths, onedrive_paths
+// Wired into all 14 tools via _finalizeEnvelope. Audit-friendly closed
+// vocab; _redactions_applied lists categories that fired (not values).
 //
 // MATCHER_TYPES (4, frozen)
 //   literal, contains, regex, exists
@@ -113,7 +121,56 @@ var ERROR_CODES = Object.freeze([
   'unknown_tool_name',
   'invalid_input_schema',
   'internal_error_degraded',
+  'subprocess_failed',
+  'subprocess_timeout',
 ]);
+
+// REDACTION_CATEGORIES (7, frozen) -- Phase 72 verbatim from contract.
+// Order matters: longer/more-specific patterns run first to avoid the
+// shorter ones gobbling matches (e.g. env_secrets before api_keys_inline).
+var REDACTION_CATEGORIES = Object.freeze([
+  'env_secrets',
+  'bearer_tokens',
+  'redis_urls',
+  'api_keys_inline',
+  'private_kb_paths',
+  'unc_paths',
+  'onedrive_paths',
+]);
+
+// Per-category regex + replacement. Each pattern uses /g for global
+// replace; replacement preserves enough context for an operator to
+// verify the redaction without exposing the secret value.
+var REDACTION_RULES = Object.freeze({
+  env_secrets: {
+    pattern: /([A-Z][A-Z0-9_]*_(?:KEY|TOKEN|SECRET|PASSWORD|API_KEY))\s*=\s*\S+/g,
+    replace: '$1=<REDACTED:env>',
+  },
+  bearer_tokens: {
+    pattern: /Bearer\s+[A-Za-z0-9_.\-]+/g,
+    replace: 'Bearer <REDACTED:bearer>',
+  },
+  redis_urls: {
+    pattern: /redis:\/\/[^@\s/]+@([^\/\s]+)/g,
+    replace: 'redis://<REDACTED:creds>@$1',
+  },
+  api_keys_inline: {
+    pattern: /\b(sk-[A-Za-z0-9]{20,}|AKIA[A-Z0-9]{16}|ghp_[A-Za-z0-9]{36})\b/g,
+    replace: '<REDACTED:apikey>',
+  },
+  private_kb_paths: {
+    pattern: /\.brv[\\\/]private[\\\/][^\s'"]+/g,
+    replace: '<REDACTED:private_kb>',
+  },
+  unc_paths: {
+    pattern: /\\\\[A-Za-z0-9_.\-]+\\[^\s'"]+/g,
+    replace: '<REDACTED:unc>',
+  },
+  onedrive_paths: {
+    pattern: /OneDrive - [A-Za-z0-9 .,_\-]+/g,
+    replace: '<REDACTED:onedrive_org>',
+  },
+});
 
 var MATCHER_TYPES = Object.freeze([
   'literal',
@@ -409,6 +466,138 @@ function _makeDegraded(tool, errorCode, errorMessage) {
     error_code: code,
     error_message: (typeof errorMessage === 'string') ? errorMessage : '',
   };
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 72 REDACTION HELPERS (Lock-13 wrapped; never throw)
+//
+// _applyRedactions(text)
+//   Runs each REDACTION_CATEGORIES rule over the input string. Returns
+//   { redacted: string, applied: string[] }. On non-string input
+//   (null/number/object), returns { redacted: input, applied: [] } so
+//   callers can pass through arbitrary values without try/catch.
+//
+// _redactObject(obj)
+//   Recursive walker. For string leaves, calls _applyRedactions and
+//   substitutes the redacted text. For arrays/objects, walks children
+//   and unions the applied categories. Cycles are not expected in MCP
+//   envelope bodies; depth-bound to 64 as a safety net.
+//
+// _finalizeEnvelope(env)
+//   Wraps a tool's envelope: passes env.data through _redactObject,
+//   updates env.data + env._redactions_applied. Preserves all other
+//   envelope fields (ok, schema_version, ts, tool, etc.). Idempotent
+//   on already-redacted envelopes (zero-match pass yields []).
+// ---------------------------------------------------------------------------
+function _applyRedactions(text) {
+  try {
+    if (typeof text !== 'string') {
+      return { redacted: text, applied: [] };
+    }
+    var result = text;
+    var applied = [];
+    for (var ci = 0; ci < REDACTION_CATEGORIES.length; ci++) {
+      var cat = REDACTION_CATEGORIES[ci];
+      var rule = REDACTION_RULES[cat];
+      if (!rule || !rule.pattern) continue;
+      var before = result;
+      try {
+        result = result.replace(rule.pattern, rule.replace);
+      } catch (_re) {
+        // Defensive: if a single pattern throws, skip it and continue.
+        result = before;
+        continue;
+      }
+      if (result !== before) {
+        applied.push(cat);
+      }
+    }
+    return { redacted: result, applied: applied };
+  } catch (_e) {
+    // Lock-13: any unexpected failure -> pass-through with no redaction.
+    return { redacted: text, applied: [] };
+  }
+}
+
+function _redactObject(obj, depth) {
+  try {
+    var d = (typeof depth === 'number') ? depth : 0;
+    if (d > 64) {
+      // Depth guard: stop walking; return as-is.
+      return { redacted: obj, applied: [] };
+    }
+    if (obj === null || typeof obj === 'undefined') {
+      return { redacted: obj, applied: [] };
+    }
+    if (typeof obj === 'string') {
+      var s = _applyRedactions(obj);
+      return { redacted: s.redacted, applied: s.applied };
+    }
+    if (typeof obj === 'number' || typeof obj === 'boolean') {
+      return { redacted: obj, applied: [] };
+    }
+    if (Array.isArray(obj)) {
+      var outArr = [];
+      var unionA = {};
+      for (var ai = 0; ai < obj.length; ai++) {
+        var rA = _redactObject(obj[ai], d + 1);
+        outArr.push(rA.redacted);
+        for (var aj = 0; aj < rA.applied.length; aj++) {
+          unionA[rA.applied[aj]] = true;
+        }
+      }
+      return { redacted: outArr, applied: Object.keys(unionA) };
+    }
+    if (typeof obj === 'object') {
+      var outObj = {};
+      var unionO = {};
+      var keys = Object.keys(obj);
+      for (var ki = 0; ki < keys.length; ki++) {
+        var k = keys[ki];
+        var rO = _redactObject(obj[k], d + 1);
+        outObj[k] = rO.redacted;
+        for (var kj = 0; kj < rO.applied.length; kj++) {
+          unionO[rO.applied[kj]] = true;
+        }
+      }
+      return { redacted: outObj, applied: Object.keys(unionO) };
+    }
+    return { redacted: obj, applied: [] };
+  } catch (_e) {
+    return { redacted: obj, applied: [] };
+  }
+}
+
+function _finalizeEnvelope(env) {
+  try {
+    if (!env || typeof env !== 'object') return env;
+    // Walk env.data only; envelope chrome (ok, schema_version, ts, tool,
+    // _truncated, _degraded, error_code, error_message) is operator-
+    // controlled and not redacted (no user input flows there).
+    var rd = _redactObject(env.data);
+    // Preserve sort order: REDACTION_CATEGORIES order, only categories
+    // present in applied set.
+    var orderedApplied = [];
+    var appliedSet = {};
+    for (var i = 0; i < rd.applied.length; i++) {
+      appliedSet[rd.applied[i]] = true;
+    }
+    for (var ci = 0; ci < REDACTION_CATEGORIES.length; ci++) {
+      if (appliedSet[REDACTION_CATEGORIES[ci]]) {
+        orderedApplied.push(REDACTION_CATEGORIES[ci]);
+      }
+    }
+    env.data = rd.redacted;
+    env._redactions_applied = orderedApplied;
+    return env;
+  } catch (_e) {
+    // Lock-13: degrade gracefully -- preserve original envelope, mark []
+    if (env && typeof env === 'object'
+        && !Array.isArray(env._redactions_applied)) {
+      env._redactions_applied = [];
+    }
+    return env;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1578,23 +1767,23 @@ function _tool_sgsd_warp_doctor(args) {
         '--json',
       ], { timeout: 10000, encoding: 'utf8' });
     } catch (_se) {
-      return _makeDegraded(name, 'internal_error_degraded',
+      return _makeDegraded(name, 'subprocess_failed',
         'warp-doctor spawn threw: '
           + ((_se && _se.message) ? _se.message : 'unknown'));
     }
 
     if (!result) {
-      return _makeDegraded(name, 'internal_error_degraded',
+      return _makeDegraded(name, 'subprocess_failed',
         'warp-doctor returned null');
     }
     if (result.error) {
       var msg = (result.error.message || 'unknown');
       var code = result.error.code === 'ETIMEDOUT'
-        ? 'internal_error_degraded' : 'internal_error_degraded';
+        ? 'subprocess_timeout' : 'subprocess_failed';
       return _makeDegraded(name, code, 'warp-doctor error: ' + msg);
     }
     if (result.status === null) {
-      return _makeDegraded(name, 'internal_error_degraded',
+      return _makeDegraded(name, 'subprocess_timeout',
         'warp-doctor timed out (10s)');
     }
     // Note: warp-doctor exits 1 when MISSING probes exist; that is a normal
@@ -1678,7 +1867,11 @@ function dispatchTool(name, args) {
       return _makeDegraded(name, 'internal_error_degraded',
         'tool returned non-object');
     }
-    return out;
+    // Phase 72: every envelope passes through redaction finalizer.
+    // Negligible cost (regex over <= 50KB strings); empty
+    // _redactions_applied array when nothing matches. Future-proofs
+    // every tool against accidental path/secret leakage.
+    return _finalizeEnvelope(out);
   } catch (_e) {
     return _makeDegraded(
       (typeof name === 'string') ? name : '?',
@@ -1957,9 +2150,10 @@ function selfTest() {
       Object.isFrozen(TOOL_NAMES) && TOOL_NAMES.length === 14,
       'frozen=' + Object.isFrozen(TOOL_NAMES) + ' len=' + TOOL_NAMES.length);
 
-    // A2: ERROR_CODES frozen, len === 11.
-    add('error_codes_frozen_len_11',
-      Object.isFrozen(ERROR_CODES) && ERROR_CODES.length === 11,
+    // A2: ERROR_CODES frozen, len === 13 (Phase 72 extension: added
+    // subprocess_failed + subprocess_timeout for tool 14 spawn errors).
+    add('error_codes_frozen_len_13',
+      Object.isFrozen(ERROR_CODES) && ERROR_CODES.length === 13,
       'frozen=' + Object.isFrozen(ERROR_CODES) + ' len=' + ERROR_CODES.length);
 
     // A3: MATCHER_TYPES frozen, len === 4.
@@ -2418,7 +2612,16 @@ function selfTest() {
         }
         inArgs.fixture_planning_dir = resolved;
       }
-      var actual = dispatchTool(pair.tool, inArgs);
+      // Phase 72: redaction fixtures live under fixtures/_redaction/ but
+      // exercise real tools. When folder name is not a tool name, fall
+      // back to input.tool field (which IS a real tool name).
+      var dispatchName = pair.tool;
+      if (TOOL_NAMES.indexOf(dispatchName) === -1
+          && pair.input && typeof pair.input.tool === 'string'
+          && TOOL_NAMES.indexOf(pair.input.tool) !== -1) {
+        dispatchName = pair.input.tool;
+      }
+      var actual = dispatchTool(dispatchName, inArgs);
       var mr = runMatcher(actual, pair.expected);
       if (mr.ok) {
         fxPassCount++;
@@ -2433,6 +2636,139 @@ function selfTest() {
       fxAllOK
         ? (fxPassCount + '/' + fixturePairs.length + ' pairs PASS')
         : ('first_fail=' + fxFirstFail));
+
+    // ----- Phase 72 redaction assertions A31-A42 -----
+
+    // A31: REDACTION_CATEGORIES frozen, len === 7.
+    add('redaction_categories_frozen_len_7',
+      Object.isFrozen(REDACTION_CATEGORIES) && REDACTION_CATEGORIES.length === 7,
+      'frozen=' + Object.isFrozen(REDACTION_CATEGORIES)
+        + ' len=' + REDACTION_CATEGORIES.length);
+
+    // A32: ERROR_CODES contains subprocess_failed + subprocess_timeout
+    // (Phase 72 extension; closes Phase 71 D3 deviation).
+    var hasSubprocFail = ERROR_CODES.indexOf('subprocess_failed') !== -1;
+    var hasSubprocTimeout = ERROR_CODES.indexOf('subprocess_timeout') !== -1;
+    add('error_codes_has_subprocess_failed_and_timeout',
+      hasSubprocFail && hasSubprocTimeout,
+      'subprocess_failed=' + hasSubprocFail
+        + ' subprocess_timeout=' + hasSubprocTimeout);
+
+    // A33: env_secrets redaction fires on PROVIDER_API_KEY=value pattern
+    // (matches contract regex [A-Z_]+_(KEY|TOKEN|SECRET|PASSWORD|API_KEY)
+    // followed by =VALUE).
+    var rA33 = _applyRedactions(
+      'OPENAI_API_KEY=plainvaluexyz123 in env');
+    add('redaction_env_secrets_fires',
+      rA33.applied.indexOf('env_secrets') !== -1
+        && rA33.redacted.indexOf('<REDACTED:env>') !== -1
+        && rA33.redacted.indexOf('plainvaluexyz123') === -1,
+      'applied=' + rA33.applied.join(','));
+
+    // A34: bearer_tokens redaction fires.
+    var rA34 = _applyRedactions(
+      'Authorization: Bearer abc.def-XYZ_123tokenvalue here');
+    add('redaction_bearer_tokens_fires',
+      rA34.applied.indexOf('bearer_tokens') !== -1
+        && rA34.redacted.indexOf('<REDACTED:bearer>') !== -1
+        && rA34.redacted.indexOf('abc.def-XYZ_123tokenvalue') === -1,
+      'applied=' + rA34.applied.join(','));
+
+    // A35: redis_urls redaction strips creds, keeps host.
+    var rA35 = _applyRedactions(
+      'connecting to redis://user:password@redis-host.example.com:6379/0');
+    add('redaction_redis_urls_fires',
+      rA35.applied.indexOf('redis_urls') !== -1
+        && rA35.redacted.indexOf('<REDACTED:creds>') !== -1
+        && rA35.redacted.indexOf('redis-host.example.com') !== -1
+        && rA35.redacted.indexOf('user:password') === -1,
+      'applied=' + rA35.applied.join(','));
+
+    // A36: api_keys_inline redaction fires on sk-/ghp_ prefixes.
+    // Note: bare AKIA without env_secrets context is also caught here.
+    var rA36a = _applyRedactions('key=sk-ABCDEFGHIJKLMNOPQRSTUVWXYZ in body');
+    var rA36b = _applyRedactions('see ghp_abcdefghijklmnopqrstuvwxyz0123456789 token');
+    add('redaction_api_keys_inline_fires',
+      rA36a.applied.indexOf('api_keys_inline') !== -1
+        && rA36a.redacted.indexOf('<REDACTED:apikey>') !== -1
+        && rA36b.applied.indexOf('api_keys_inline') !== -1
+        && rA36b.redacted.indexOf('<REDACTED:apikey>') !== -1,
+      'sk_applied=' + rA36a.applied.join(',')
+        + ' ghp_applied=' + rA36b.applied.join(','));
+
+    // A37: private_kb_paths redaction fires on .brv/private/...
+    var rA37 = _applyRedactions(
+      'wrote to .brv/private/concept-graph/v1/decisions.md today');
+    add('redaction_private_kb_paths_fires',
+      rA37.applied.indexOf('private_kb_paths') !== -1
+        && rA37.redacted.indexOf('<REDACTED:private_kb>') !== -1,
+      'applied=' + rA37.applied.join(','));
+
+    // A38: unc_paths redaction fires on \\server\share.
+    var rA38 = _applyRedactions(
+      'see logs at \\\\fileserver01\\share\\logs\\latest.log for details');
+    add('redaction_unc_paths_fires',
+      rA38.applied.indexOf('unc_paths') !== -1
+        && rA38.redacted.indexOf('<REDACTED:unc>') !== -1,
+      'applied=' + rA38.applied.join(','));
+
+    // A39: onedrive_paths redaction fires on "OneDrive - Org Name".
+    var rA39 = _applyRedactions(
+      'C:/Users/jack/OneDrive - John Cullen Lighting/Documents/file.txt');
+    add('redaction_onedrive_paths_fires',
+      rA39.applied.indexOf('onedrive_paths') !== -1
+        && rA39.redacted.indexOf('<REDACTED:onedrive_org>') !== -1
+        && rA39.redacted.indexOf('John Cullen Lighting') === -1,
+      'applied=' + rA39.applied.join(','));
+
+    // A40: Lock-13 -- _applyRedactions on bad input returns
+    // {redacted:input, applied:[]} without throwing.
+    var rA40a = _applyRedactions(null);
+    var rA40b = _applyRedactions(undefined);
+    var rA40c = _applyRedactions(42);
+    var rA40d = _applyRedactions({ nested: 'value' });
+    add('redaction_lock13_bad_input_no_throw',
+      rA40a.redacted === null && rA40a.applied.length === 0
+        && typeof rA40b.redacted === 'undefined' && rA40b.applied.length === 0
+        && rA40c.redacted === 42 && rA40c.applied.length === 0
+        && typeof rA40d.redacted === 'object' && rA40d.applied.length === 0,
+      'null_ok=' + (rA40a.redacted === null)
+        + ' undef_ok=' + (typeof rA40b.redacted === 'undefined')
+        + ' num_ok=' + (rA40c.redacted === 42)
+        + ' obj_ok=' + (typeof rA40d.redacted === 'object'));
+
+    // A41: live tool with no trigger content has _redactions_applied: [].
+    // sgsd_milestone_status({milestone:'v2.2'}) returns aggregate counts;
+    // no user-content fields, so empty redactions array.
+    var rA41 = dispatchTool('sgsd_milestone_status', { milestone: 'v2.2' });
+    add('redaction_negative_case_milestone_status_empty',
+      rA41 && rA41.ok === true
+        && Array.isArray(rA41._redactions_applied)
+        && rA41._redactions_applied.length === 0,
+      'ok=' + (rA41 ? rA41.ok : '?')
+        + ' applied=' + (rA41 && rA41._redactions_applied
+          ? rA41._redactions_applied.join(',') : '?'));
+
+    // A42: _redactObject walks nested structures and unions categories.
+    var sampleNested = {
+      level1: 'MY_SECRET_TOKEN=supersecretvalue123 here',
+      arr: [
+        'normal',
+        'Bearer abc.def-XYZ_123tokenvalue',
+      ],
+      sub: { deep: 'redis://u:p@h.example.com/0' },
+    };
+    var rA42 = _redactObject(sampleNested);
+    var hasEnv = rA42.applied.indexOf('env_secrets') !== -1;
+    var hasBearer = rA42.applied.indexOf('bearer_tokens') !== -1;
+    var hasRedis = rA42.applied.indexOf('redis_urls') !== -1;
+    add('redaction_redact_object_walks_nested_unions_categories',
+      hasEnv && hasBearer && hasRedis
+        && rA42.redacted
+        && rA42.redacted.level1.indexOf('<REDACTED:env>') !== -1
+        && rA42.redacted.arr[1].indexOf('<REDACTED:bearer>') !== -1
+        && rA42.redacted.sub.deep.indexOf('<REDACTED:creds>') !== -1,
+      'applied=' + rA42.applied.join(','));
 
     return {
       ok: results.every(function (r) { return r.ok; }),
@@ -2453,11 +2789,16 @@ var _internals = Object.freeze({
   TOOL_NAMES: TOOL_NAMES,
   ERROR_CODES: ERROR_CODES,
   MATCHER_TYPES: MATCHER_TYPES,
+  REDACTION_CATEGORIES: REDACTION_CATEGORIES,
+  REDACTION_RULES: REDACTION_RULES,
   TOOL_REGISTRY: TOOL_REGISTRY,
   STUB_MESSAGE: STUB_MESSAGE,
   _now: _now,
   _makeEnvelope: _makeEnvelope,
   _makeDegraded: _makeDegraded,
+  _applyRedactions: _applyRedactions,
+  _redactObject: _redactObject,
+  _finalizeEnvelope: _finalizeEnvelope,
   _matchString: _matchString,
   _matchValue: _matchValue,
   _rpcResult: _rpcResult,

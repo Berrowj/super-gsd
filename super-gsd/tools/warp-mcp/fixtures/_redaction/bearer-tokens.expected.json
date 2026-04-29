@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "tool": "sgsd_recovery_packet",
+  "data": {
+    "current_position": {
+      "last_activity": "<contains><REDACTED:bearer></contains>"
+    },
+    "resume_command": "/sgsd-orchestrate go"
+  },
+  "_truncated": false,
+  "_degraded": false,
+  "_redactions_applied": ["bearer_tokens"]
+}

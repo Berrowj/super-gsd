@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_recovery_packet",
+  "args": {},
+  "fixture_planning_dir": "_synthetic_planning_onedrive_paths",
+  "scenario_description": "STATE.md last_activity references a OneDrive org path; expect onedrive_paths redaction (org segment replaced)"
+}

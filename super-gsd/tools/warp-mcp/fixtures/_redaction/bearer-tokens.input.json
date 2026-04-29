@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_recovery_packet",
+  "args": {},
+  "fixture_planning_dir": "_synthetic_planning_bearer_tokens",
+  "scenario_description": "STATE.md last_activity contains a Bearer token; expect bearer_tokens redaction"
+}

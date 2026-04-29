@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_recovery_packet",
+  "args": {},
+  "fixture_planning_dir": "_synthetic_planning_unc_paths",
+  "scenario_description": "STATE.md last_activity references a Windows UNC path; expect unc_paths redaction"
+}

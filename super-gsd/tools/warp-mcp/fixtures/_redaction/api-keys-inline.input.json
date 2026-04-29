@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_recovery_packet",
+  "args": {},
+  "fixture_planning_dir": "_synthetic_planning_api_keys_inline",
+  "scenario_description": "STATE.md last_activity contains a bare sk- prefixed API key (OpenAI-style); expect api_keys_inline redaction"
+}

@@ -1,0 +1,6 @@
+{
+  "tool": "sgsd_recovery_packet",
+  "args": {},
+  "fixture_planning_dir": "_synthetic_planning_redis_urls",
+  "scenario_description": "STATE.md last_activity contains a redis URL with embedded creds; expect redis_urls redaction (creds stripped, host preserved)"
+}
