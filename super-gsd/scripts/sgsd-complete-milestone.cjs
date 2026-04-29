@@ -23,6 +23,12 @@
 //                 closing gate: it observes evidence emitted by the prior 6
 //                 gates and refuses milestone close on score<70 OR any
 //                 edge_guard_miss row in .planning/metrics/crit-backlog.jsonl.
+// Phase 58-01-T2: extended with installer-audit self-test (first-gate v2.1;
+//                 v1.9 dual-gate, v2.0 sept-gate (53/54/55/56/57) paths
+//                 preserved byte-untouched. v2.1 has its own dispatch branch
+//                 that runs ONLY the installer-audit selfTest -- the v2.0
+//                 evidence buckets do not gate v2.1 close (different scope:
+//                 distribution + onboarding, not failure injection).
 //
 // Invoked by super-gsd/skills/sgsd-complete-milestone/SKILL.md Step 0
 // precondition list. Operator-runnable directly:
@@ -139,6 +145,101 @@ function _main(argv) {
         'milestone_close_blocked:missing_milestone_arg\n' +
         'usage: node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone <version>\n');
       process.exit(1);
+      return;
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 58-01-T2: v2.1 first-gate (installer-audit self-test).
+    // v2.1 scope is distribution + onboarding; the gate is the
+    // installer-audit selfTest (>=9 probes pass + frozen surfaces +
+    // READ-ONLY invariant + ASCII-only + Lock 13 never-throws). v1.9 and
+    // v2.0 paths are NOT entered for v2.1 -- this branch returns
+    // independently. Lock 13: try/catch wraps require + spawnSync.
+    // -----------------------------------------------------------------------
+    if (milestone === 'v2.1') {
+      let installerAudit = null;
+      try {
+        installerAudit = require('../tools/installer-audit/audit.cjs');
+      } catch (e) {
+        process.stderr.write('milestone_close_blocked:installer_audit_unavailable\n');
+        process.stderr.write('  reason=installer_audit_require_failed message='
+          + (e && e.message ? e.message : 'unknown') + '\n');
+        process.exit(1);
+        return;
+      }
+
+      if (!installerAudit
+          || typeof installerAudit.selfTest !== 'function'
+          || typeof installerAudit.runAudit !== 'function'
+          || typeof installerAudit.getProbe !== 'function') {
+        process.stderr.write('milestone_close_blocked:installer_audit_unavailable\n');
+        process.stderr.write('  reason=installer_audit_api_export_missing\n');
+        process.exit(1);
+        return;
+      }
+
+      let auditOut = null;
+      try {
+        const child_process_v21 = require('child_process');
+        const path_v21 = require('path');
+        const auditPath = path_v21.join(__dirname, '..', 'tools',
+                                         'installer-audit', 'audit.cjs');
+        const r_v21 = child_process_v21.spawnSync(
+          process.execPath,
+          [auditPath, '--self-test'],
+          { stdio: 'inherit' }
+        );
+        if (r_v21.error) {
+          process.stderr.write('milestone_close_blocked:installer_audit_self_test_failed\n');
+          process.stderr.write('  reason=installer_audit_spawn_failed message='
+            + (r_v21.error.message || 'unknown') + '\n');
+          process.exit(1);
+          return;
+        }
+        auditOut = (typeof r_v21.status === 'number') ? r_v21.status : 1;
+      } catch (e) {
+        process.stderr.write('milestone_close_blocked:installer_audit_self_test_failed\n');
+        process.stderr.write('  reason=installer_audit_self_test_threw message='
+          + (e && e.message ? e.message : 'unknown') + '\n');
+        process.exit(1);
+        return;
+      }
+
+      if (auditOut !== 0) {
+        process.stderr.write('milestone_close_blocked:installer_audit_self_test_failed\n');
+        process.stderr.write('  reason=installer_audit_self_test_exit_nonzero exit='
+          + auditOut + '\n');
+        process.exit(1);
+        return;
+      }
+
+      // Disambiguating snapshot: capture the runAudit summary and
+      // refuse milestone close if the mandatory floor is unmet
+      // (mandatory_missing.length > 0). Lock 13 wrapped.
+      let auditSnap = null;
+      try {
+        auditSnap = installerAudit.runAudit({});
+      } catch (_e) {
+        auditSnap = null;
+      }
+      if (!auditSnap
+          || !auditSnap.summary
+          || auditSnap.summary.mandatory_floor_met !== true) {
+        process.stderr.write('milestone_close_blocked:installer_audit_mandatory_floor_unmet\n');
+        var miss = (auditSnap && auditSnap.summary && Array.isArray(auditSnap.summary.mandatory_missing))
+          ? auditSnap.summary.mandatory_missing.join(',')
+          : 'unknown';
+        process.stderr.write('  reason=mandatory_missing=' + miss + '\n');
+        process.exit(1);
+        return;
+      }
+
+      process.stdout.write('milestone_close_gate: v2.1 installer-audit '
+        + 'self-test green (' + auditSnap.summary.total + ' probes; '
+        + 'mandatory floor met)\n');
+      process.stdout.write('milestone_close_gate: v2.1 first-gate '
+        + '(installer-audit) green\n');
+      process.exit(0);
       return;
     }
 
