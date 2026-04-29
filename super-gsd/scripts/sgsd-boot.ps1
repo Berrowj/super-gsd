@@ -79,6 +79,20 @@ $BashExe = (Get-Command bash -All -ErrorAction SilentlyContinue |
     Where-Object { $_.Source -notmatch 'System32' -and $_.Source -notmatch 'WindowsApps' } |
     Select-Object -First 1 -ExpandProperty Source)
 if (-not $BashExe) {
+    $gitBashCandidates = @(
+        (Join-Path ${env:ProgramFiles} "Git\bin\bash.exe"),
+        (Join-Path ${env:ProgramFiles} "Git\usr\bin\bash.exe"),
+        (Join-Path ${env:ProgramFiles(x86)} "Git\bin\bash.exe"),
+        (Join-Path ${env:ProgramFiles(x86)} "Git\usr\bin\bash.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Git\bin\bash.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Git\usr\bin\bash.exe")
+    ) | Where-Object { $_ -and (Test-Path $_) }
+    $BashExe = $gitBashCandidates | Select-Object -First 1
+    if ($BashExe) {
+        $env:PATH = (Split-Path -Parent $BashExe) + ";" + $env:PATH
+    }
+}
+if (-not $BashExe) {
     Write-Host "ERROR: Git-Bash not found on PATH (only WSL / system32 bash present)" -ForegroundColor Red
     Write-Host "Install Git for Windows: https://git-scm.com/download/win" -ForegroundColor DarkGray
     exit 1
