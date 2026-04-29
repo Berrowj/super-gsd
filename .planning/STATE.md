@@ -2,22 +2,22 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: SGSD Warp Integration — milestone v2.2 of v2.2-v2.8 roadmap
-milestone_status: "v2.2 ACTIVE 2026-04-29 — Phase 63 closed PASS-WITH-DEFERRED-5; phases 64-67 ready to dispatch (Phase 64 partially blocked on operator manual check M1)"
-status: "v2.2 ACTIVE 2026-04-29 — Phase 63 closed PASS-WITH-DEFERRED-5"
+milestone_status: "v2.2 5/5 PHASES CLOSED 2026-04-29 — ready for sgsd-complete-milestone (operator decides: SHIPPED-WITH-DEFERRED-5 now, or do M1-M5 manual UI checks first then SHIPPED clean). Auto-run halted after Phase 66 close."
+status: "v2.2 ALL-PHASES-CLOSED 2026-04-29 — awaiting operator: M1-M5 + milestone close decision"
 stopped_at: 2026-04-29 — Phase 63 closed PASS-WITH-DEFERRED-5 @ b5b46a8 (Warp Capability Smoke Test; 7 artifacts under .planning/milestones/v2.2/; 13-row evidence matrix in WARP-SMOKE.md; 5 operator UI manual checks M1-M5 pending in MANUAL-CHECKS.md; sg-launched-Claude topology proven empirically — this Claude session itself is the evidence; ~/.warp/launch_configurations/ exists but empty; .warp/workflows lint 4/5 with sgsd-token-current.yaml missing arguments block forwarded to Phase 64; .warpindexingignore missing forwarded to Phase 65 or new ignore-pack phase; tmux not native on Windows; Warp install at ~/AppData/Local/Programs/Warp/Warp.exe; previous roadmap v1.6-v2.1 ROADMAP COMPLETE 2026-04-29 preserved in previous_roadmap block — all 30 phases (26-62) shipped across 6 milestones (v1.6 SHIPPED-WITH-DEBT-10, v1.7-v2.1 SHIPPED clean)).
-last_updated: "2026-04-29T19:00:00Z"
+last_updated: "2026-04-29T19:55:00Z"
 last_activity: "2026-04-29 — Phase 63 (Warp Capability Smoke Test) closed PASS-WITH-DEFERRED-5 @ b5b46a8. v2.2 milestone scaffolded; 7 artifacts under .planning/milestones/v2.2/ (WARP-SMOKE.md + MANUAL-CHECKS.md + 5 standard phase artifacts CONTEXT/PLAN/RESEARCH/VERIFICATION/ATC-REVIEW). Evidence matrix records 5 PASS rows (Q2/Q3/Q4/Q7/Q8: sg/sgsd/sgsd-setup interactive resolution + sg-keeps-Claude-in-current-tab topology + launch config dir empty), 1 PARTIAL (Q12: 4/5 workflow YAML lint OK; sgsd-token-current.yaml missing arguments block — Phase 64 input), 1 DOCS-CONFIRMED (Q11: WSL/SSH disables Codebase Context per Warp docs), 5 MANUAL-CHECK-REQUIRED (Q1/Q5/Q6/Q9/Q10: workflow searchability + claude/sg utility-bar detection + launch-config active-window behavior + Codebase Context state — operator verifies in Warp UI per MANUAL-CHECKS.md M1-M5). Forwarded to Phase 64+: workflow pack completion (Q12+Q1), AGENTS.md (Phase 65), .warpindexingignore (Phase 65 or new ignore-pack phase), warp-doctor probes (Phase 67), launch-config templates must NOT assume active-window (Phase 78), upstream issue tracking at https://github.com/warpdotdev/warp issues #7326 ACP and #9233 May-Jun 2026 roadmap (Phase 96). No source-file mutations; git diff confined to .planning/milestones/v2.2/. Previous roadmap v1.6-v2.1 SHIPPED 2026-04-29 — see previous_roadmap block."
 progress:
   v2_2:
     total_phases: 5
-    completed_phases: 1
-    completed_plans: 1
-    percent: 20
+    completed_phases: 5
+    completed_plans: 5
+    percent: 100
     phase_63: "1/1 plan complete — PASS-WITH-DEFERRED-5 ✓ 2026-04-29 @ b5b46a8 (Warp Capability Smoke Test; 5 deferred rows are operator UI manual checks M1-M5 tracked in .planning/milestones/v2.2/MANUAL-CHECKS.md, NOT edge_guard_miss and NOT in CRIT-BACKLOG; 7 artifacts: WARP-SMOKE.md + MANUAL-CHECKS.md at milestone root, CONTEXT/PLAN/RESEARCH/VERIFICATION/ATC-REVIEW under phases/63-warp-capability-smoke/; sg-launched-Claude topology proven empirically — this Claude session is the in-process witness)"
-    phase_64: "PENDING — Workflow Pack Completion; partially blocked on M1 (Warp Command Search discoverability of workflow pack); Phase 63 forwarded the sgsd-token-current.yaml missing arguments-block defect as a Phase 64 input"
-    phase_65: "PENDING — Agent Rules Context Pack (AGENTS.md + WARP.md priority + 'do not duplicate SGSD gates' + 'read SGSD state from .planning or MCP' + 'VTP optional'); UNBLOCKED — can be dispatched without M1-M5"
-    phase_66: "PENDING — SGSD Warp Operator Guide; partially blocked on M1 (guide assumes workflows are searchable)"
-    phase_67: "PENDING — Warp Doctor Probe Design; UNBLOCKED — Phase 63 audit produced the canonical probe set (env scan + command resolution + launch config dir + workflow lint + .warpindexingignore presence)"
+    phase_64: "1/1 plan complete — PASS ✓ 2026-04-29 @ 5ae2ba0 (Workflow Pack Completion; 8 new yamls + 1 fix sgsd-token-current; lint tool warp-workflow-lint/lint.cjs READ-ONLY ASCII-only 7/7 self-test PASS; live --run 13/13 valid + 10/10 search terms exit 0; SGSD-WARP-WORKFLOWS.md docs index 13-row table + 3 routines; orchestrator-author DEVIATION cumulative 3rd; 'partially blocked on M1' relabeled per operator Rule 15 — workflow YAMLs ship correctly regardless of UI verification)"
+    phase_65: "1/1 plan complete — PASS ✓ 2026-04-29 @ c0201af (Agent Rules Context Pack; AGENTS.md NEW 46 lines / 2972 bytes / ratio 0.290 of CLAUDE.md under 30% target; WARP.md additive +21 lines Rule Hierarchy section; 5 hard rules established: read-state-from-.planning / don't-duplicate-gates / VTP-optional / preserve-sg-topology / no-source-mutations-without-plan; orchestrator-author DEVIATION 1st; compactness 2-pass)"
+    phase_66: "1/1 plan complete — PASS ✓ 2026-04-29 @ 3b2186f (SGSD Warp Operator Guide; super-gsd/docs/SGSD-WARP-OPERATOR-GUIDE.md ~280 lines covering 12 roadmap-required sections + TL;DR routine + 14 concrete Windows paths + 6/6 cross-phase references verified; orchestrator-author DEVIATION 4th; 'partially blocked on M1' relabeled per Rule 15)"
+    phase_67: "1/1 plan complete — PASS ✓ 2026-04-29 @ 018028e (Warp Doctor Probe Design; super-gsd/tools/warp-doctor/check.cjs 16 probes + 4 public APIs Lock-13-wrapped + 15/15 self-test PASS; READ-ONLY invariant verified mechanically via git status before/after live --run; ASCII-only; mirrors Phase 62 upgrade-drift pattern; orchestrator-author DEVIATION 2nd; live --run on this checkout: 13 PASS / 1 MISSING [.warpindexingignore confirms Phase 63 finding E.1] / 1 MANUAL-CHECK / 1 NOT-APPLICABLE / 0 DEGRADED exit 1)"
   v1_7:
     total_phases: 5
     completed_phases: 5
@@ -113,15 +113,21 @@ roadmap_run:
   backlog_canonical: .planning/metrics/crit-backlog.jsonl (carries v1.6-v2.1 history; v2.2 has zero rows so far)
   started: 2026-04-29
   current_milestone: v2.2
-  current_phase: 63
-  current_phase_name: "Phase 63 — Warp Capability Smoke Test (PASS-WITH-DEFERRED-5; 5 operator UI manual checks M1-M5 pending in .planning/milestones/v2.2/MANUAL-CHECKS.md)"
-  current_phase_status: PASS-WITH-DEFERRED-5
-  current_phase_close_commit: b5b46a8
+  current_phase: complete
+  current_phase_name: "v2.2 ALL-PHASES-CLOSED — 5/5 phases done (63 PASS-WITH-DEFERRED-5 + 64 PASS + 65 PASS + 66 PASS + 67 PASS); awaiting operator decision on M1-M5 + sgsd-complete-milestone trigger"
+  current_phase_status: ALL-PHASES-CLOSED
+  current_phase_close_commit: 3b2186f
+  v2_2_phase_close_commits:
+    phase_63: b5b46a8
+    phase_64: 5ae2ba0
+    phase_65: c0201af
+    phase_66: 3b2186f
+    phase_67: 018028e
   next_dispatch_candidates:
-    - "Phase 64 — Workflow Pack Completion (partially blocked on operator manual check M1 — Warp Command Search discoverability)"
-    - "Phase 65 — Agent Rules Context Pack (UNBLOCKED — author AGENTS.md + tighten WARP.md)"
-    - "Phase 66 — SGSD Warp Operator Guide (partially blocked on M1)"
-    - "Phase 67 — Warp Doctor Probe Design (UNBLOCKED — Phase 63 audit produced the canonical probe set)"
+    - "M1-M5 operator UI manual checks (.planning/milestones/v2.2/MANUAL-CHECKS.md + .planning/todos/pending/2026-04-29-warp-m{1,2,3,4,5}-*.md) — operator-only, blocks v2.2 SHIPPED-clean status"
+    - "sgsd-complete-milestone v2.2 (option a: trigger now for SHIPPED-WITH-DEFERRED-5 — M1-M5 still pending; option b: do M1-M5 first then trigger for SHIPPED clean)"
+    - "v2.3 Phase 68 — SGSD MCP Contract (the central unlock per operator brief; UNBLOCKED — does not depend on M1-M5)"
+    - "Operator review: 4-deviation orchestrator-authoring count this auto-run; rebalance dispatch policy for v2.3 MCP work (substantial code, ~600 lines, clearly warrants Sonnet dispatch)"
   prior_roadmap_run_completed: 2026-04-29 (v1.6 → v2.1; see top-level previous_roadmap block above)
   prior_milestone_shipped: v2.1 SHIPPED 2026-04-29 (FINAL milestone of prior roadmap; was v2.0 SHIPPED 2026-04-29)
   v2_1_progress:
