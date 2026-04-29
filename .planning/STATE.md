@@ -1,13 +1,23 @@
 ---
 gsd_state_version: 1.0
-milestone: complete
-milestone_name: ROADMAP COMPLETE — all 30 phases (26-62) shipped across 6 milestones
-milestone_status: "ROADMAP COMPLETE 2026-04-29 — all 30 phases (26-62) shipped across 6 milestones (v1.6 SHIPPED-WITH-DEBT-10, v1.7-v2.1 SHIPPED clean)"
-status: "ROADMAP COMPLETE 2026-04-29"
-stopped_at: 2026-04-29 — Phase 62 closed PASS; v2.1 fifth-gate green (upgrade-drift check; 12/12 self-test PASS + 11 probes >= 8 floor + read_only_invariant assertion PASS + git status before/after --run identical); upgrade-drift checker (4 public APIs Lock-13 wrapped, 11 probes covering v1.2/v1.9/v2.0/v2.1 markers, 7-key MIGRATION_NOTES, READ-ONLY enforced); UPGRADE-DRIFT.md (probe table + per-milestone deltas + migration recipe); 2 atomic commits b3dcadf(check.cjs+UPGRADE-DRIFT.md+run-self-test.cjs)+3612c27(fifth-gate wire) + close commit pending; v1.9 dual-gate + v2.0 sept-gate + v2.1 quint-gate all exit 0 (no regression); v2.1 SHIPPED 2026-04-29 (5/5 phases); ROADMAP COMPLETE — all 30 phases (26-62) closed across 6 milestones.
-last_updated: "2026-04-29T05:30:00Z"
-last_activity: "2026-04-28 — Phase 50 (Cockpit Research Dashboard) closed PASS. 6 SGSD atomic commits (868077a cockpit-shell bridge -> 3fda039 sgsd-token-panel -> 8d853ca sgsd-active-agent-panel -> f4d41e3 sgsd-source-mix-panel -> 31583be Codex consolidate + 40-row compact + 3 wires -> 302be20 acceptance-fixtures viewport harness) + 4 operator parallel commits preserved (e2d07af 0c1baf2 5db05d7 42d8ea3 cockpit/codex tile improvements) + ae6d151 close (M1 fix + verifier + ATC). Verifier PASS 0-deviations 0-blockers. Phase-level Claude ATC FULL tier (12 files / 4885 added / 121 deleted) verdict=warn 0-CRITICAL 0-HIGH 1-MEDIUM (M1 compact-path A2 panel duplicate args fixed in-loop) 3-LOW (cosmetic, deferred). Codex provider_unavailable. cockpit-shell.cjs --self-test 8/8. MUDA waste audit all probes PASS exit 0. Read-only invariant grep-clean. Single-pane Codex confirmed. Lock 11 + Lock 13 SOUND. Phase 41/42/45/49 tool trees git-diff-quiet (consumed by reference only)."
+milestone: v2.2
+milestone_name: SGSD Warp Integration — milestone v2.2 of v2.2-v2.8 roadmap
+milestone_status: "v2.2 ACTIVE 2026-04-29 — Phase 63 closed PASS-WITH-DEFERRED-5; phases 64-67 ready to dispatch (Phase 64 partially blocked on operator manual check M1)"
+status: "v2.2 ACTIVE 2026-04-29 — Phase 63 closed PASS-WITH-DEFERRED-5"
+stopped_at: 2026-04-29 — Phase 63 closed PASS-WITH-DEFERRED-5 @ b5b46a8 (Warp Capability Smoke Test; 7 artifacts under .planning/milestones/v2.2/; 13-row evidence matrix in WARP-SMOKE.md; 5 operator UI manual checks M1-M5 pending in MANUAL-CHECKS.md; sg-launched-Claude topology proven empirically — this Claude session itself is the evidence; ~/.warp/launch_configurations/ exists but empty; .warp/workflows lint 4/5 with sgsd-token-current.yaml missing arguments block forwarded to Phase 64; .warpindexingignore missing forwarded to Phase 65 or new ignore-pack phase; tmux not native on Windows; Warp install at ~/AppData/Local/Programs/Warp/Warp.exe; previous roadmap v1.6-v2.1 ROADMAP COMPLETE 2026-04-29 preserved in previous_roadmap block — all 30 phases (26-62) shipped across 6 milestones (v1.6 SHIPPED-WITH-DEBT-10, v1.7-v2.1 SHIPPED clean)).
+last_updated: "2026-04-29T19:00:00Z"
+last_activity: "2026-04-29 — Phase 63 (Warp Capability Smoke Test) closed PASS-WITH-DEFERRED-5 @ b5b46a8. v2.2 milestone scaffolded; 7 artifacts under .planning/milestones/v2.2/ (WARP-SMOKE.md + MANUAL-CHECKS.md + 5 standard phase artifacts CONTEXT/PLAN/RESEARCH/VERIFICATION/ATC-REVIEW). Evidence matrix records 5 PASS rows (Q2/Q3/Q4/Q7/Q8: sg/sgsd/sgsd-setup interactive resolution + sg-keeps-Claude-in-current-tab topology + launch config dir empty), 1 PARTIAL (Q12: 4/5 workflow YAML lint OK; sgsd-token-current.yaml missing arguments block — Phase 64 input), 1 DOCS-CONFIRMED (Q11: WSL/SSH disables Codebase Context per Warp docs), 5 MANUAL-CHECK-REQUIRED (Q1/Q5/Q6/Q9/Q10: workflow searchability + claude/sg utility-bar detection + launch-config active-window behavior + Codebase Context state — operator verifies in Warp UI per MANUAL-CHECKS.md M1-M5). Forwarded to Phase 64+: workflow pack completion (Q12+Q1), AGENTS.md (Phase 65), .warpindexingignore (Phase 65 or new ignore-pack phase), warp-doctor probes (Phase 67), launch-config templates must NOT assume active-window (Phase 78), upstream issue tracking at https://github.com/warpdotdev/warp issues #7326 ACP and #9233 May-Jun 2026 roadmap (Phase 96). No source-file mutations; git diff confined to .planning/milestones/v2.2/. Previous roadmap v1.6-v2.1 SHIPPED 2026-04-29 — see previous_roadmap block."
 progress:
+  v2_2:
+    total_phases: 5
+    completed_phases: 1
+    completed_plans: 1
+    percent: 20
+    phase_63: "1/1 plan complete — PASS-WITH-DEFERRED-5 ✓ 2026-04-29 @ b5b46a8 (Warp Capability Smoke Test; 5 deferred rows are operator UI manual checks M1-M5 tracked in .planning/milestones/v2.2/MANUAL-CHECKS.md, NOT edge_guard_miss and NOT in CRIT-BACKLOG; 7 artifacts: WARP-SMOKE.md + MANUAL-CHECKS.md at milestone root, CONTEXT/PLAN/RESEARCH/VERIFICATION/ATC-REVIEW under phases/63-warp-capability-smoke/; sg-launched-Claude topology proven empirically — this Claude session is the in-process witness)"
+    phase_64: "PENDING — Workflow Pack Completion; partially blocked on M1 (Warp Command Search discoverability of workflow pack); Phase 63 forwarded the sgsd-token-current.yaml missing arguments-block defect as a Phase 64 input"
+    phase_65: "PENDING — Agent Rules Context Pack (AGENTS.md + WARP.md priority + 'do not duplicate SGSD gates' + 'read SGSD state from .planning or MCP' + 'VTP optional'); UNBLOCKED — can be dispatched without M1-M5"
+    phase_66: "PENDING — SGSD Warp Operator Guide; partially blocked on M1 (guide assumes workflows are searchable)"
+    phase_67: "PENDING — Warp Doctor Probe Design; UNBLOCKED — Phase 63 audit produced the canonical probe set (env scan + command resolution + launch config dir + workflow lint + .warpindexingignore presence)"
   v1_7:
     total_phases: 5
     completed_phases: 5
@@ -81,19 +91,39 @@ v1_8_complete:
   generated_artifacts:
     - .planning/milestones/v1.8/gate-keep-kill.md (Phase 39 rubric)
     - .planning/milestones/v1.8/phase-folder-audit.md (Phase 40 audit)
-checkpoint: .planning/ORCHESTRATOR-CHECKPOINT.md (will update at next pause for v1.7 resume)
-roadmap_run:
-  mode: full-autopilot
-  scope: v1.6 → v2.1 (post-renumber: phases 26-62; v1.9 SGSD-Research absorbed prior Knowledge+Memory v1.9)
+checkpoint: .planning/ORCHESTRATOR-CHECKPOINT.md (no checkpoint open; Phase 63 closed PASS-WITH-DEFERRED-5)
+previous_roadmap:
+  scope: v1.6 → v2.1 (phases 26-62)
+  status: ROADMAP COMPLETE 2026-04-29
+  shipped_milestones: "v1.6 SHIPPED-WITH-DEBT-10 @ d510e32, v1.7 SHIPPED @ 5690c38, v1.8 SHIPPED, v1.9 SHIPPED, v2.0 SHIPPED (release-readiness 97 GREEN), v2.1 SHIPPED (final milestone of prior roadmap)"
   controlling_contract: .planning/ROADMAP-AGENT.md
   locked_decisions: .planning/discussions/2026-04-26-mass-discuss.md
-  backlog_canonical: .planning/metrics/crit-backlog.jsonl
+  total_phases_shipped: 30
+  total_milestones_shipped: 6
   started: 2026-04-26
   completed: 2026-04-29
-  current_milestone: complete
-  current_phase: complete
-  current_phase_name: "ROADMAP COMPLETE — all 30 phases (26-62) shipped across 6 milestones"
-  prior_milestone_shipped: v2.1 SHIPPED 2026-04-29 (FINAL milestone of roadmap; was v2.0 SHIPPED 2026-04-29)
+  history_blocks: "Per-phase history retained inline below in roadmap_run sub-blocks (v2_1_progress / v2_0_progress / v2_0_complete / v2_1_complete / v1_9_progress / v1_9_open_debt / v1_9_supersedes_archive / v1_9_milestone_codename / v1_9_vtp_delta_active / v1_8_progress / milestones_shipped). Top-level v1_6_complete / v1_7_complete / v1_8_complete blocks above are also history. progress.v1_7 and progress.v1_6_summary above hold per-phase status snapshots. backlog block above holds residual v1.6 phase_atc=10 unresolved (cockpit may continue to display this; it is historical debt, not active blocker for v2.2)."
+  notes: "Active roadmap (v2.2-v2.8 SGSD Warp Integration) operates against .planning/milestones/warp-integration/ROADMAP.md per .planning/milestones/warp-integration/CLAUDE-HANDOVER.md."
+roadmap_run:
+  mode: operator-led (Phase 63 closed; awaiting operator instruction or M1-M5 manual-check completion before next dispatch)
+  scope: v2.2 → v2.8 (SGSD Warp Integration; phases 63-97; Phase 63 closed; Phases 64-67 ready to dispatch)
+  controlling_contract: .planning/milestones/warp-integration/ROADMAP.md
+  controlling_handover: .planning/milestones/warp-integration/CLAUDE-HANDOVER.md
+  locked_decisions: "Phase 63 D63.1-D63.5 in 63-CONTEXT.md; no roadmap-wide DISCUSS file authored (per-phase decisions go in each {NN}-CONTEXT.md per the lighter-weight per-phase contract used in v2.2-v2.8)"
+  backlog_canonical: .planning/metrics/crit-backlog.jsonl (carries v1.6-v2.1 history; v2.2 has zero rows so far)
+  started: 2026-04-29
+  current_milestone: v2.2
+  current_phase: 63
+  current_phase_name: "Phase 63 — Warp Capability Smoke Test (PASS-WITH-DEFERRED-5; 5 operator UI manual checks M1-M5 pending in .planning/milestones/v2.2/MANUAL-CHECKS.md)"
+  current_phase_status: PASS-WITH-DEFERRED-5
+  current_phase_close_commit: b5b46a8
+  next_dispatch_candidates:
+    - "Phase 64 — Workflow Pack Completion (partially blocked on operator manual check M1 — Warp Command Search discoverability)"
+    - "Phase 65 — Agent Rules Context Pack (UNBLOCKED — author AGENTS.md + tighten WARP.md)"
+    - "Phase 66 — SGSD Warp Operator Guide (partially blocked on M1)"
+    - "Phase 67 — Warp Doctor Probe Design (UNBLOCKED — Phase 63 audit produced the canonical probe set)"
+  prior_roadmap_run_completed: 2026-04-29 (v1.6 → v2.1; see top-level previous_roadmap block above)
+  prior_milestone_shipped: v2.1 SHIPPED 2026-04-29 (FINAL milestone of prior roadmap; was v2.0 SHIPPED 2026-04-29)
   v2_1_progress:
     phase_62: "PASS @ b3dcadf+3612c27 (9/9 verifier must-haves, v2.1 fifth-gate green (upgrade-drift check; 12/12 self-test PASS + 11 probes >= 8 floor + read_only_invariant assertion PASS + git status before/after --run identical), 4 public APIs Lock-13 wrapped (runDrift/getProbe/selfTest + _internals), 11 frozen PROBE_NAMES (>=8; schema_version_2_plans/agent_token_spend_ledger/context_packet_tree/sqlite_context_index_tree/dispatch_router_tree/memory_governance_tree/redis_adapter_present/failure_injection_tree/release_readiness_present/installer_audit_tree/new_project_wizard_present) + frozen VERSION_TAGS len=4 (v1.2/v1.9/v2.0/v2.1) + frozen REASON_NOTES len=8 closed-vocab + frozen MIGRATION_NOTES 7 milestone keys (v1.5_baseline/v1.6_cockpit/v1.7_command_contracts/v1.8_gate_fitness/v1.9_research/v2_0_failure_injection/v2_1_distribution) + SCHEMA_VERSION=1, candidate-paths array per probe (FIRST present wins; deterministic missing fallback to last candidate's reason), live --run reports 11/11 PRESENT in this checkout (v1.2:1+v1.9:6+v2.0:2+v2.1:2; sqlite_context_index_tree resolves to context-cache fallback), READ-ONLY invariant A8 enforces zero fs.writeFileSync/appendFileSync/unlinkSync/mkdirSync/rmSync/rmdirSync in code-only scan (hasWrite=false), operationally verified git status --short before/after --run identical (diff empty), run-self-test.cjs thin spawnSync shell delegates correctly mirroring Phase 58/59 convention, sgsd-complete-milestone.cjs surgical fifth-gate extension (+141 insertions 0 deletions) preserves v1.9 dual-gate + v2.0 sept-gate + Phase 58/59/60/61 v2.1 first/second/third/fourth-gate paths byte-equality up to insertion point at line 597 (post-fourth-gate green stdout, pre-existing process.exit(0)), 5 stderr tags closed-vocab (upgrade_drift_unavailable/upgrade_drift_self_test_threw/upgrade_drift_self_test_failed/upgrade_drift_read_only_invariant_failed/upgrade_drift_probe_count_below_floor), Lock 4 verified Phase 41-61 byte-untouched (zero require of upstream Phase 41-61 modules; check.cjs uses fs.existsSync + fs.statSync only), Lock 11 closed-vocab indexOf membership on PROBE_NAMES + VERSION_TAGS + REASON_NOTES + 'read_only_invariant' assertion name (no regex/fuzzy), Lock 13 try/catch wraps every probe + every public API + bad-input probes (selfTest A3/A4 verify; bad name + non-string both return degraded sentinel without throwing), ASCII-only first_nonascii_idx=-1 across all 4 changed files (check.cjs + run-self-test.cjs + UPGRADE-DRIFT.md + sgsd-complete-milestone.cjs post-insert), UPGRADE-DRIFT.md ships probe table + per-milestone deltas + 6-step migration recipe + CLI usage, --milestone v1.9 + --milestone v2.0 + --milestone v2.1 all exit 0 verified (no regression on prior gates), Plan validates VALID load-mode against plan-schema-v2.json, MUDA waste audit GREEN 0/7 categories triggered, FINAL gate of v1.6->v2.1 roadmap; once exits 0 the entire roadmap is complete, 2 atomic commits b3dcadf(check.cjs+UPGRADE-DRIFT.md+run-self-test.cjs)+3612c27(fifth-gate wire) + close commit pending)"
     phase_61: "PASS @ f776c54+c93c8fe (9/9 verifier must-haves, v2.1 fourth-gate green (docs-refresh check; closed-vocab grep on README.md vtp_required_count=0 vtp_any_count=3 vtp_total=3 all marked optional with Phase 48 selective-VTP-bridge + Phase 52 redis-adapter rationale anchors), README surgical extension +78/-1 (1 deletion is em-dash to '--' swap on a NEW line I authored; pre-existing baseline em-dashes on lines 22-352 byte-untouched per Lock 4) ships preamble 'What This Repo Is For' (operator-build vs end-user-install explicit two-bullet block + cross-link routing), Quick Start step 5 with sg/sgsd shortcut block + Install-SgsdShortcut.ps1 + sgsd-boot.sh --skip-preflight bash fallback (live-tested exit 0 raw stdout captured 61-VERIFICATION.md), SGSD3 cockpit panel callout marks VTP/MCP projection optional with empty-state sentinel + Lock 13 graceful degrade, new Optional Add-Ons section ships VTP/MCP bridge + Redis live cache + Codex panel all marked optional with default-without paths (ByteRover local; in-memory context-bench Phase 51; dashboard renders without Codex), new Operator Build Workflow section inlines milestone-close gates v1.9/v2.0/v2.1 + example fixture exercise + installer-audit selfTest + wizard selfTest, sgsd-complete-milestone.cjs surgical fourth-gate extension (+99 insertions 0 deletions; in-proc fs.readFileSync + line-by-line regex /vtp[^\\n]*(required|must)/i; portable across PowerShell/cmd.exe/bash without depending on platform grep semantics), Lock 4 Phase 41-60 + sgsd-cockpit-shell.cjs git-diff-quiet (bytes 1-478 of post-Phase-60 milestone script byte-equality preserved), Lock 11 closed-vocab regex on 'required'/'must' no fuzzy matching, Lock 13 README-missing path emits SKIPPED sentinel + green-with-skip exit 0 (statically verified lines 499-516 post-insertion), ASCII-only first_nonascii_idx=-1 across milestone script + 5 phase artifacts (61-RESEARCH/61-01-PLAN/61-VERIFICATION/WASTE/commit-reviews.jsonl), 2 stderr tags closed-vocab (docs_refresh_self_test_failed:docs_refresh_readme_read_failed/docs_refresh_grep_threw + 1 success-path warning docs_refresh_vtp_required_present), --milestone v1.9 + --milestone v2.0 + --milestone v2.1 all exit 0 verified (no regression on prior gates), Plan validates VALID load-mode against plan-schema-v2.json, MUDA waste audit GREEN 0/7 categories triggered, sg quick-start command block tested live (sgsd-boot.sh --skip-preflight exit 0; SGSD1/SGSD2/SGSD3 launch lines printed), 2 atomic commits f776c54(README)+c93c8fe(fourth-gate) + close commit pending)"
@@ -195,16 +225,19 @@ roadmap_run:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** Ship an autonomous framework that any Claude Code Max plan user can install with one command and immediately start building software
-**Current focus:** v1.3 — Phase 15 ✓ SHIPPED (all 5 plans complete, verify.mjs 9/9 PASS). Run `sgsd-complete-milestone v1.3` to close the milestone.
+**Current focus:** v2.2 — Phase 63 closed PASS-WITH-DEFERRED-5 @ b5b46a8 (Warp Capability Smoke Test). 5 operator UI manual checks (M1-M5) pending in `.planning/milestones/v2.2/MANUAL-CHECKS.md`. Phase 64-67 ready to dispatch (64 + 66 partially blocked on M1; 65 + 67 unblocked).
 
 ## Current Position
 
-Phase: 15 ✓ COMPLETE (Wave 1-4 shipped 2026-04-24 — CODEX-07 through CODEX-12 all landed)
-Plan: 15-01 ✓ | 15-02 ✓ | 15-03 ✓ | 15-04 ✓ | 15-05 ✓ (5 plans, all waves complete)
-Status: Phase 15 done — ready for sgsd-complete-milestone v1.3
-Last activity: 2026-04-24 — Phase 15 plan 15-05 shipped (CODEX-12 kill condition + verify.mjs 9/9)
+Roadmap: v2.2 → v2.8 SGSD Warp Integration (phases 63-97). Prior roadmap v1.6 → v2.1 SHIPPED 2026-04-29 (see frontmatter `previous_roadmap` block).
+Milestone: v2.2 — Warp Discovery And Operator Baseline (5 phases: 63 ✓ closed, 64-67 ready to dispatch).
+Phase: 63 ✓ closed PASS-WITH-DEFERRED-5 (5 deferred rows are operator UI manual checks, NOT edge_guard_miss; tracked in MANUAL-CHECKS.md not CRIT-BACKLOG).
+Plan: 63-01 ✓ Warp Capability Evidence Collection (13/13 tasks complete).
+Status: Phase 63 done — operator must complete M1-M5 in Warp UI before Phase 64 can dispatch unblocked. Phase 65 and Phase 67 can dispatch immediately.
+Last activity: 2026-04-29 — Phase 63 closed @ b5b46a8 (7 artifacts under .planning/milestones/v2.2/; sg-launched-Claude topology proven empirically; ~/.warp/launch_configurations/ exists empty; .warp/workflows lint 4/5; .warpindexingignore missing forwarded to Phase 65).
 
-Progress: [██████████] 100% (3/3 v1.3 phases complete)
+Progress: [██░░░░░░░░] 20% (1/5 v2.2 phases complete)
+Roadmap progress: [██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 1/35 (1/5 v2.2 + 0/5 v2.3 + 0/6 v2.4 + 0/5 v2.5 + 0/5 v2.6 + 0/5 v2.7 + 0/4 v2.8)
 
 ## Accumulated Context
 
@@ -229,26 +262,33 @@ Progress: [██████████] 100% (3/3 v1.3 phases complete)
 - D017 (21-04): sgsd-board-researcher model=sonnet consistent with all 4 existing board members; board.includes guard in sgsd-ceo ensures backward compat; vote-math expressed as >N/2 (majority) — survives any board.length
 - D018 (22-01): canonicalize_path uses module-scope _CANON_RESOLVED flag (not subshell exit-code) to track fallback — avoids variable-leak across subshells; helper placed after _detect_root() so it's defined before path vars are set
 
-### Open Dependencies (v1.2 scoping-time)
+### Open Dependencies (v2.2 scoping-time)
 
-- **Phase 9** (ATC-147-Evidence) — ✅ COMPLETE. Delivered classification.yaml, gate-bypass.yaml, INTENT.md, evidence/147-review.md, verify.mjs. 2 ATC warnings flagged for Phase 10 consumer (verifier row-arithmetic not enforced, bucket detail-vs-map cross-check missing) — no blockers.
-- **Phase 10** (Gate Policy) — intra-milestone block on Phase 9 CLEARED. Empirical finding count, bucket classification, and token bounds (18,940 upper / 9,340 lower) now available. Ready to discuss.
-- **Phase 12** (Machinery) — intra-milestone block on Phase 11 (schema v2) CLEARED, still blocked on Phase 10 (gate matrix).
-- **Phase 13** (Governance) — intra-milestone block on Phase 10 (gates.yaml precedent) remains; Phase 11 (schema-ownership precedent) CLEARED.
-- **Phase 11** (Plan Schema v2) — ✅ COMPLETE (shipped 2026-04-21).
+- **Phase 63** (Warp Capability Smoke Test) — ✅ CLOSED PASS-WITH-DEFERRED-5 @ b5b46a8. 7 artifacts under .planning/milestones/v2.2/. Forwarded inputs to Phase 64+: workflow pack defect (sgsd-token-current.yaml missing arguments block), missing .warpindexingignore, warp-doctor probe set, launch-config active-window caveat, GitHub upstream tracking URL.
+- **Phase 64** (Workflow Pack Completion) — partially blocked on operator manual check **M1** (Warp Command Search discoverability of workflow pack). Phase 63 forwarded the sgsd-token-current.yaml `arguments:`-block defect as a known input. 8 missing workflows enumerated in roadmap.
+- **Phase 65** (Agent Rules Context Pack) — UNBLOCKED. Author AGENTS.md (tool-neutral), tighten WARP.md (operator-facing), establish rule hierarchy AGENTS.md = all-agent / WARP.md = Warp daily / CLAUDE.md = Claude Code orchestrator contract.
+- **Phase 66** (SGSD Warp Operator Guide) — partially blocked on operator manual check **M1**. Guide assumes workflows are searchable.
+- **Phase 67** (Warp Doctor Probe Design) — UNBLOCKED. Phase 63 audit produced the canonical probe set (env scan + command resolution + launch config dir + workflow lint + .warpindexingignore presence).
 
 ### Pending Todos
 
-- /gsd-discuss-phase 10 — next phase; consumes Phase 9's 09-classification.yaml, 09-gate-bypass.yaml, and the 2 ATC warnings as Phase 10 keep/kill inputs.
-- Phase 10 should address the 2 verifier coverage gaps noted in 09-ATC-REVIEW.md when it designs the keep/kill rubric.
-- At v1.2 close, run GOV-05 post-deliberation scoring audit (milestone-close hook) and re-evaluate retro RQ1 per reopen clause.
+- **M1-M5** (operator UI manual checks) — see `.planning/milestones/v2.2/MANUAL-CHECKS.md`. Operator records results back into `.planning/milestones/v2.2/WARP-SMOKE.md` rows Q1, Q5, Q6, Q9, Q10.
+- Decide next dispatch: Phase 64 (waits on M1), Phase 65 (immediate), or Phase 67 (immediate). Roadmap order is 63 → 64 → 65 → 66 → 67; operator may reorder around the M1 blocker.
+- After v2.2 close: dispatch v2.3 Phase 68 — SGSD MCP Contract (read-only). Per operator brief: "If only one milestone ships, ship the read-only SGSD MCP bridge."
+- Track upstream Warp issues at https://github.com/warpdotdev/warp — #7326 (ACP) and #9233 (May-Jun 2026 roadmap incl. Warp CLI / tmux control mode / wrapper command detection). Surfaced in Phase 96.
 
 ### Blockers/Concerns
 
-- None. All Phase 9 external blockers resolved; v1.2 progress at 40% (2/5 phases).
+- **No active hard blockers.** Phase 63 closed cleanly; v2.2 dispatch path is operator-led.
+- **Soft blocker M1**: Phase 64 design assumes Warp Command Search surfaces the 5 existing workflows. If M1 fails, file upstream issue and forward to Phase 96.
+- **Carried debt**: 10 phase_atc rows in CRIT-BACKLOG from v1.6 (frontmatter `backlog:` block). Tagged to phases 28/29/30 — not active blockers for v2.2; cockpit may continue to display this historical debt.
+- **Note**: 4 modified telemetry ledgers in working tree (.planning/metrics/{activity-log.jsonl, narrative.md, token-attribution.jsonl, token-waste-status.jsonl}) are ambient cockpit churn, unrelated to Phase 63. Will commit separately as `chore(metrics): cockpit telemetry churn` if needed.
 
 ## Session Continuity
 
-Last session: 2026-04-22T16:00:00.000Z
-Stopped at: Phase 9 closed — ready for Phase 10 discussion
-Resume file: .planning/phases/09-atc-147-evidence/09-VERIFICATION.md (includes ATC warnings for Phase 10 consumer)
+Last session: 2026-04-29T19:00:00.000Z
+Stopped at: Phase 63 closed PASS-WITH-DEFERRED-5 @ b5b46a8 — operator pending on M1-M5 manual UI checks; Phase 65/67 dispatchable immediately if operator chooses to advance.
+Resume file: .planning/milestones/v2.2/phases/63-warp-capability-smoke/63-VERIFICATION.md (Phase 63 close evidence) + .planning/milestones/v2.2/MANUAL-CHECKS.md (operator UI checklist)
+Active roadmap contract: .planning/milestones/warp-integration/ROADMAP.md
+Active roadmap handover: .planning/milestones/warp-integration/CLAUDE-HANDOVER.md
+Previous roadmap (history): .planning/ROADMAP-AGENT.md (v1.6 → v2.1 SHIPPED)
