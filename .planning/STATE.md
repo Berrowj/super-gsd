@@ -4,8 +4,8 @@ milestone: v1.9
 milestone_name: SGSD-Research (Context Compression, Token Governance, And Research Routing) (queued)
 milestone_status: v1.8 SHIPPED 2026-04-27. v1.9 SLOT-CHANGE 2026-04-27 — SGSD-Research promoted to v1.9 (was Knowledge + Memory Governance, now archived as superseded at .planning/archive/superseded/v1.9-knowledge-memory-governance/). v1.9 phases 41-52 (renumbered from packet 56-67); v2.0 Failure Injection shifted to phases 53-57; v2.1 Distribution + Onboarding shifted to phases 58-62. Source analyses: agent-context-bloat-audit + VTP cross-check. Readiness re-probe required before first Phase 41 dispatch. Phase 41 (Baseline Token Attribution) is auto-defaulted (no interactive discuss).
 status: v1.9 SHIPPED 2026-04-28. All 12 phases (41-52) PASS. Phase 52 closed PASS with 4 LOW deferred. Milestone v1.9 SGSD-Research COMPLETE.
-stopped_at: 2026-04-28 — Phase 52 closed PASS @ df72a5a; v1.9 milestone SHIPPED.
-last_updated: "2026-04-28T21:30:00Z"
+stopped_at: 2026-04-29 — Phase 54 closed PASS; v2.0 quad-gate green; advancing to Phase 55.
+last_updated: "2026-04-29T02:10:00Z"
 last_activity: "2026-04-28 — Phase 50 (Cockpit Research Dashboard) closed PASS. 6 SGSD atomic commits (868077a cockpit-shell bridge -> 3fda039 sgsd-token-panel -> 8d853ca sgsd-active-agent-panel -> f4d41e3 sgsd-source-mix-panel -> 31583be Codex consolidate + 40-row compact + 3 wires -> 302be20 acceptance-fixtures viewport harness) + 4 operator parallel commits preserved (e2d07af 0c1baf2 5db05d7 42d8ea3 cockpit/codex tile improvements) + ae6d151 close (M1 fix + verifier + ATC). Verifier PASS 0-deviations 0-blockers. Phase-level Claude ATC FULL tier (12 files / 4885 added / 121 deleted) verdict=warn 0-CRITICAL 0-HIGH 1-MEDIUM (M1 compact-path A2 panel duplicate args fixed in-loop) 3-LOW (cosmetic, deferred). Codex provider_unavailable. cockpit-shell.cjs --self-test 8/8. MUDA waste audit all probes PASS exit 0. Read-only invariant grep-clean. Single-pane Codex confirmed. Lock 11 + Lock 13 SOUND. Phase 41/42/45/49 tool trees git-diff-quiet (consumed by reference only)."
 progress:
   v1_7:
@@ -90,11 +90,12 @@ roadmap_run:
   backlog_canonical: .planning/metrics/crit-backlog.jsonl
   started: 2026-04-26
   current_milestone: v2.0
-  current_phase: 54
-  current_phase_name: Restart + Handoff Chaos Tests (queued)
+  current_phase: 55
+  current_phase_name: Provider Backpressure + Timeout Circuits (queued)
   prior_milestone_shipped: v1.9 SHIPPED 2026-04-28
   v2_0_progress:
     phase_53: "PASS @ 5680d14 (10/10 verifier must-haves, 24/24 self-test, 10/10 run-all in 5.4s, v2.0 triple-gate green 33+26+24+10, F1-F16 frozen byte-untouched, Lock 4/11/13 + Pitfalls 1/2/4/10 verified)"
+    phase_54: "PASS @ f80a17f (10/10 verifier must-haves, 18/18 self-test PASS green sub-30s, 5/5 run-all PASS chaos_pass, v2.0 quad-gate green 33+26+24+10+18, real subprocess kill via spawnSync timeout=200ms SIGTERM observed across all 5 kill points mid-research/mid-plan/mid-execute/mid-verify/mid-close, manifest validator 6/6 missing-field cases rejected next_unit/controlling_principle/mode/emergency_halt/session/created + 1/1 manifest_valid happy path, 11-stream PHASE_54_GUARDED_STREAMS fingerprint byte-equal pre/post run-all, KILL_POINTS frozen 5-entry ordered + FAIL_INJ_REASON_CODES frozen 14-entry (>=11) + REQUIRED_FIELDS frozen 6-entry ordered, 8 public APIs Lock-13 wrapped (runAll/runChaosScenario/validateManifest/selfTest/aggregateResults/appendLogRow + dual-exposed _internals), Lock 4 verified Phase 41-53 trees + cockpit-shell git-diff-quiet, Lock 11 byte-equality on closed-vocab no regex/fuzzy, Lock 13 never throws upward, ASCII-only across all 4 changed files, envelope-v1 row in chaos-restart-log.jsonl, sgsd-complete-milestone.cjs surgical extension preserves v1.9 dual-gate + Phase 53 triple-gate path byte-equality up to insertion point, MUDA waste audit 0 WARN 0 FAIL exit 0, Plan validates VALID load-mode against plan-schema-v2.json)"
   v1_9_milestone_codename: SGSD-Research
   v1_9_vtp_delta_active: ".planning/milestones/v1.9/VTP-RESEARCH-DELTA.md (commit 2d8ea5a) — forward-only addendum applies to Phases 45+, 49, 51, 52. Phases 41-44 LOCKED."
   v1_9_progress:

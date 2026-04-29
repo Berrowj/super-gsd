@@ -3,7 +3,7 @@
   "milestone": "v2.0",
   "phase": "54",
   "phase_name": "Restart + Handoff Chaos Tests",
-  "status": "IN_PROGRESS",
+  "status": "COMPLETE",
   "goal": "Mid-phase kill simulation at 5 named points + manifest-shape tests on ORCHESTRATOR-CHECKPOINT.md",
   "outputs": [{"kind": "context", "path": ".planning/milestones/v2.0/phases/54-restart-handoff-chaos-tests/54-CONTEXT.md"}],
   "files": [".planning/ROADMAP-AGENT.md", ".planning/STATE.md"],
