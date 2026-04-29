@@ -1,30 +1,15 @@
 ---
 checkpoint: full-roadmap-autopilot-run-5
 created: 2026-04-28
-updated: 2026-04-28
+updated: 2026-04-29
 session: opus-4.7-1m
 mode: autonomous
 emergency_halt: false
 context_percent_at_write: "not_self_estimated"
 controlling_principle: Autonomy continues; evidence tells the truth.
 autopilot_override: "Missing CONTEXT.md / not-discussed phase is not a stop condition in go/auto/continue. Auto-synthesize context and continue."
-next_unit: |
-  v2.0 Phase 53 Gate Failure-Injection Harness kickoff.
-
-  State is already advanced:
-    current_milestone=v2.0
-    current_phase=53
-    current_phase_name="Gate Failure-Injection Harness (queued - needs CONTEXT/RESEARCH/PLAN)"
-
-  Resume sequence:
-    1. Read STATE.md and ROADMAP/ROADMAP-AGENT v2.0 block.
-    2. Auto-synthesize Phase 53 CONTEXT.md and discussion decision record from
-       roadmap, checkpoint, implementation audit, v1.9 SUMMARY, and existing
-       Phase 51/52 failure-injection artifacts.
-    3. Dispatch research -> plan -> plan-check -> readiness -> executor.
-    4. Run verifier -> phase-level ATC -> MUDA -> close.
-    5. Continue Phases 54-57 without stopping for operator approval.
-    6. Close v2.0, then advance to v2.1 Phases 58-62.
+roadmap_status: COMPLETE
+next_unit: "ROADMAP COMPLETE -- no further phases. v1.6->v2.1 all SHIPPED. All 30 phases (26-62) closed across 6 milestones (v1.6 SHIPPED-WITH-DEBT-10, v1.7-v2.1 SHIPPED clean). v2.1 Phase 62 (Migration + Upgrade Safety) closed PASS 2026-04-29 with 2 atomic commits b3dcadf(check.cjs+UPGRADE-DRIFT.md+run-self-test.cjs)+3612c27(fifth-gate wire) + close commit pending. v2.1 quint-gate green (installer-audit + new-project-wizard + example-walkthrough + docs-refresh + upgrade-drift). v1.9 dual-gate + v2.0 sept-gate + v2.1 quint-gate all exit 0 (no regression). The roadmap_run reaches completed state."
 ---
 
 # Orchestrator Checkpoint - v1.9 Shipped, v2.0 Ready
