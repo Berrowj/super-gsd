@@ -6,6 +6,9 @@
 // Phase 53-01-T7: extended with failure-injection self-test + --run-all
 //                 (triple-gate v2.0; v1.9 dual-gate path preserved
 //                 byte-untouched).
+// Phase 54-01-T4: extended with chaos-restart self-test (quad-gate v2.0;
+//                 v1.9 dual-gate AND Phase 53 triple-gate paths preserved
+//                 byte-untouched up to the chaos-restart insertion point).
 //
 // Invoked by super-gsd/skills/sgsd-complete-milestone/SKILL.md Step 0
 // precondition list. Operator-runnable directly:
@@ -377,8 +380,85 @@ function _main(argv) {
 
     process.stdout.write('milestone_close_gate: v2.0 failure-injection '
       + '--run-all green (10/10)\n');
-    process.stdout.write('milestone_close_gate: v2.0 triple-gate '
-      + '(context-bench + redis-adapter + failure-injection) green\n');
+
+    // -----------------------------------------------------------------------
+    // Phase 54-01-T4: v2.0 quad-gate extension (chaos-restart). Only reached
+    // when milestone === 'v2.0' AND the prior triple-gate (Phase 51 + Phase
+    // 52 + Phase 53) already passed. One additional spawnSync invocation:
+    //   5. node super-gsd/tools/chaos-restart/harness.cjs --self-test
+    //      (18/18 PASS expected; sub-30s; READ-ONLY-by-shape - the run-all
+    //      step in the bootstrap suite uses no_log:true).
+    // The Phase 54 --run-all path is INTENTIONALLY not chained as a separate
+    // 5th spawn here: the harness self-test already exercises the full driver
+    // (assertion 18: runall_canonical_streams_byte_equal proves --run-all
+    // exited PASS without canonical drift), and adding a 5th spawn would
+    // double-write to chaos-restart-log.jsonl on every milestone-close.
+    // Lock 13: try/catch on require AND spawnSync; never throw upward.
+    // Lock 4: Phase 41-53 trees byte-untouched; this is a surgical extension
+    // ONLY at this insertion point.
+    // -----------------------------------------------------------------------
+
+    let chaosRestartHarness = null;
+    try {
+      chaosRestartHarness = require(
+        '../tools/chaos-restart/harness.cjs');
+    } catch (e) {
+      process.stderr.write('milestone_close_blocked:chaos_restart_unavailable\n');
+      process.stderr.write('  reason=chaos_restart_require_failed message='
+        + (e && e.message ? e.message : 'unknown') + '\n');
+      process.exit(1);
+      return;
+    }
+
+    if (!chaosRestartHarness ||
+        typeof chaosRestartHarness.selfTest !== 'function' ||
+        typeof chaosRestartHarness.runAll !== 'function' ||
+        typeof chaosRestartHarness.validateManifest !== 'function') {
+      process.stderr.write('milestone_close_blocked:chaos_restart_unavailable\n');
+      process.stderr.write('  reason=chaos_restart_api_export_missing\n');
+      process.exit(1);
+      return;
+    }
+
+    let crSelfOut = null;
+    try {
+      const child_process4 = require('child_process');
+      const path4 = require('path');
+      const crHarnessPath = path4.join(__dirname, '..', 'tools',
+                                        'chaos-restart', 'harness.cjs');
+      const r5 = child_process4.spawnSync(
+        process.execPath,
+        [crHarnessPath, '--self-test'],
+        { stdio: 'inherit' }
+      );
+      if (r5.error) {
+        process.stderr.write('milestone_close_blocked:chaos_restart_self_test_failed\n');
+        process.stderr.write('  reason=chaos_restart_spawn_failed message='
+          + (r5.error.message || 'unknown') + '\n');
+        process.exit(1);
+        return;
+      }
+      crSelfOut = (typeof r5.status === 'number') ? r5.status : 1;
+    } catch (e) {
+      process.stderr.write('milestone_close_blocked:chaos_restart_self_test_failed\n');
+      process.stderr.write('  reason=chaos_restart_self_test_threw message='
+        + (e && e.message ? e.message : 'unknown') + '\n');
+      process.exit(1);
+      return;
+    }
+
+    if (crSelfOut !== 0) {
+      process.stderr.write('milestone_close_blocked:chaos_restart_self_test_failed\n');
+      process.stderr.write('  reason=chaos_restart_self_test_exit_code='
+        + crSelfOut + '\n');
+      process.exit(1);
+      return;
+    }
+
+    process.stdout.write('milestone_close_gate: v2.0 chaos-restart '
+      + 'self-test green (18/18)\n');
+    process.stdout.write('milestone_close_gate: v2.0 quad-gate '
+      + '(context-bench + redis-adapter + failure-injection + chaos-restart) green\n');
     process.exit(0);
   } catch (e) {
     // Outer guard: any unexpected error path exits 1 with a stderr tag.
