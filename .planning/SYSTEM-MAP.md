@@ -5,7 +5,7 @@
 > `node super-gsd/tools/system-map/generate.cjs --generate`
 
 Schema version: 1
-Generated at: 2026-04-27T11:14:10.459Z
+Generated at: 2026-04-27T11:25:04.528Z
 Generator: super-gsd/tools/system-map/generate.cjs
 
 ## Contents

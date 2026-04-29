@@ -10,6 +10,7 @@ node_modules/
 
 # Temp executor helpers
 _parse_check.ps1
+.tmp-*.ps1
 
 # Super-GSD runtime state — ephemeral per install
 .gsd/
@@ -18,6 +19,11 @@ _parse_check.ps1
 .planning/metrics/heartbeat.jsonl
 .planning/metrics/autopilot-watchdog.json
 .planning/metrics/autopilot-watchdog.log
+.planning/metrics/*-live*.out.log
+.planning/metrics/*-live*.err.log
+.planning/metrics/*-live*.pid
+.planning/metrics/memory-process-cursor.json
+.planning/cache/intent-map/
 
 # Failed-write leftovers from narrative generator
 .planning/metrics/*.lastattempt

@@ -1,6 +1,6 @@
 # SGSD Gate Savings Report
 
-Generated: 2026-04-28T10:44:27.791Z
+Generated: 2026-04-28T10:55:34.904Z
 
 > Waste points are deterministic estimates for comparing gates. Facts and estimates stay separate.
 

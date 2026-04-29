@@ -10,6 +10,8 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 
 - [waste overproduction p29 findings](architecture/anti-patterns/waste-overproduction-p29-findings.md) - P29 findings-=FINDINGS: WARN — overproduction waste
 
+- [waste overproduction p55 findings](architecture/anti-patterns/waste-overproduction-p55-findings.md) - P55 findings-=FINDINGS: WARN — overproduction waste
+
 ## architecture/decisions
 
 - [PI Death & Migration Decision](architecture/decisions/pi-death-migration.md)
@@ -31,6 +33,26 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 - [Orchestrator Patterns - Autonomous Execution](architecture/patterns/orchestrator-patterns.md)
 - [Script Registry - Reuse Before Rewrite](architecture/patterns/script-registry-patterns.md)
 - ["Test Entry"](architecture/patterns/test-entry.md)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -69,6 +91,9 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 - [Path Normalization at First Construction Site](trajectory/hypothesis/v1.1-path-normalization-first-site.md)
 
 ## workflow/feedback
+
+- [Never pause autonomous loop on context pressure or completion mark](workflow/feedback/feedback_no_context_pauses.md) — 2026-04-27 incident: "fuck sake why did you stop. under no circumstances are you suppose to.stop!!!!!!!"; the 3 valid exits are all-complete / hard-blocker / user-says-stop; nothing else
+
 
 - [Auto-accept Claude's recommendations in sequential Q&A unless scope-altering](workflow/feedback/feedback_auto_accept_recommendations.md) - Rip through discuss-phase / deliberation chains picking recommended unless choice changes WHAT ships (not HOW it's built)
 - [After Phase 16 ships, every research/planning/pattern/assumptions dispatch must consume VTP](workflow/feedback/feedback_vtp_enriched_dispatch.md) - Orchestrator writes VTP-EVIDENCE.md before agent dispatch; agents explicitly instructed to use their Phase-16 VTP tools with doc-ID citations. Silent bypass regresses the primitive.

@@ -1,0 +1,5 @@
+{"ts":"__TS_OFFSET_-300__","milestone":"v1.9","phase":"50","plan":"01","tier":"GATE","verdict":"pass","critical":0,"warning":0,"duration_ms":42100,"fallback_triggered":false,"one_liner":"node bridge self-test PASS"}
+{"ts":"__TS_OFFSET_-240__","milestone":"v1.9","phase":"50","plan":"01","tier":"FULL","verdict":"pass","critical":0,"warning":1,"duration_ms":33800,"fallback_triggered":false,"one_liner":"token-panel A1 cost wired"}
+{"ts":"__TS_OFFSET_-180__","milestone":"v1.9","phase":"50","plan":"01","tier":"FULL","verdict":"warn","critical":0,"warning":2,"duration_ms":39200,"fallback_triggered":false,"one_liner":"active-agent panel A2 wired"}
+{"ts":"__TS_OFFSET_-120__","milestone":"v1.9","phase":"50","plan":"01","tier":"GATE","verdict":"pass","critical":0,"warning":0,"duration_ms":51400,"fallback_triggered":false,"one_liner":"source-mix panel A1 context wired"}
+{"ts":"__TS_OFFSET_-60__","milestone":"v1.9","phase":"50","plan":"01","tier":"FULL","verdict":"pass","critical":0,"warning":0,"duration_ms":28700,"fallback_triggered":false,"one_liner":"mission-control consolidation"}

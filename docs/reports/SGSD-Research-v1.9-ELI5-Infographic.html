@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SGSD-Research v1.9 ELI5 Infographic</title>
+  <style>
+    :root {
+      --paper: #f7f3ea;
+      --ink: #171a1f;
+      --muted: #5d6470;
+      --line: #cbc4b7;
+      --panel: #fffdf8;
+      --panel-2: #ede6db;
+      --green: #13805d;
+      --green-bg: #e6f3ed;
+      --amber: #b46a00;
+      --amber-bg: #fff0d7;
+      --red: #ba2d2a;
+      --red-bg: #ffe1df;
+      --blue: #265d9b;
+      --blue-bg: #e4edf8;
+      --violet: #6f4aa5;
+      --violet-bg: #eee6f6;
+      --black: #101216;
+      --shadow: 0 14px 38px rgba(23, 26, 31, 0.11);
+      --mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+      --sans: "Aptos", "Segoe UI", "Trebuchet MS", sans-serif;
+      --serif: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(23, 26, 31, 0.035) 1px, transparent 1px),
+        linear-gradient(rgba(23, 26, 31, 0.035) 1px, transparent 1px),
+        var(--paper);
+      background-size: 28px 28px;
+      font-family: var(--sans);
+      line-height: 1.45;
+    }
+
+    a { color: var(--blue); }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      border-right: 1px solid var(--line);
+      background: rgba(255, 253, 248, 0.88);
+      backdrop-filter: blur(8px);
+      padding: 22px 18px;
+    }
+
+    .brand {
+      border: 2px solid var(--black);
+      padding: 12px;
+      margin-bottom: 18px;
+      background: var(--amber-bg);
+      box-shadow: 4px 4px 0 var(--black);
+    }
+
+    .brand b {
+      display: block;
+      font: 800 18px/1.05 var(--serif);
+    }
+
+    .brand span {
+      display: block;
+      margin-top: 7px;
+      color: var(--muted);
+      font: 12px/1.35 var(--mono);
+    }
+
+    nav a {
+      display: block;
+      padding: 9px 0;
+      color: var(--ink);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(203, 196, 183, 0.8);
+      font-size: 13px;
+    }
+
+    nav a:hover { color: var(--blue); }
+
+    main {
+      width: min(1220px, 100%);
+      padding: 28px 34px 70px;
+    }
+
+    section { margin: 0 0 34px; }
+
+    .hero {
+      min-height: 640px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 420px;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .hero-main,
+    .hero-side,
+    .band,
+    .phase-detail,
+    .phase-card,
+    .story-card,
+    .truth-box,
+    .metric-box,
+    .check-box {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .hero-main {
+      display: grid;
+      align-content: space-between;
+      padding: 28px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero-main::after {
+      content: "";
+      position: absolute;
+      left: 28px;
+      right: 28px;
+      bottom: 28px;
+      height: 10px;
+      background:
+        linear-gradient(90deg,
+          var(--green) 0 18%,
+          var(--amber) 18% 38%,
+          var(--blue) 38% 60%,
+          var(--violet) 60% 76%,
+          var(--red) 76% 84%,
+          var(--green) 84% 100%);
+    }
+
+    .kicker {
+      display: inline-block;
+      width: fit-content;
+      padding: 6px 9px;
+      border: 1px solid var(--black);
+      background: var(--black);
+      color: #fff;
+      font: 12px/1 var(--mono);
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      margin: 26px 0 18px;
+      max-width: 830px;
+      font: 800 64px/0.95 var(--serif);
+    }
+
+    h2 {
+      margin-bottom: 14px;
+      font: 800 30px/1.05 var(--serif);
+    }
+
+    h3 {
+      margin-bottom: 9px;
+      font: 800 18px/1.15 var(--serif);
+    }
+
+    .lead {
+      max-width: 790px;
+      color: #2d333b;
+      font-size: 22px;
+      line-height: 1.32;
+    }
+
+    .plain {
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .hero-side {
+      padding: 18px;
+      background: var(--black);
+      color: #f7f3ea;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .hero-side h2 { color: #fff; }
+
+    .token-gauge {
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 6px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .gauge-line {
+      height: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      background: #242933;
+      margin: 8px 0;
+      display: grid;
+      grid-template-columns: 98fr 2fr;
+    }
+
+    .gauge-line span:first-child { background: var(--red); }
+    .gauge-line span:last-child { background: var(--green); }
+
+    .hero-stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .mini-stat {
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 6px;
+    }
+
+    .mini-stat strong {
+      display: block;
+      color: #fff;
+      font: 800 24px/1 var(--mono);
+    }
+
+    .mini-stat span {
+      display: block;
+      margin-top: 6px;
+      color: #c9c4ba;
+      font-size: 12px;
+    }
+
+    .band {
+      padding: 22px;
+      overflow: hidden;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .before-after {
+      display: grid;
+      grid-template-columns: 1fr 70px 1fr;
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .side-box {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 18px;
+      min-height: 260px;
+      background: #fff;
+    }
+
+    .side-box.bad { background: var(--red-bg); border-color: #e6aaa7; }
+    .side-box.good { background: var(--green-bg); border-color: #a9d4c5; }
+
+    .arrow-box {
+      display: grid;
+      place-items: center;
+      color: var(--black);
+      font: 800 15px/1 var(--mono);
+    }
+
+    .stack {
+      display: grid;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 6px 8px;
+      background: #fff;
+      font: 12px/1.2 var(--mono);
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex: 0 0 auto;
+    }
+
+    .dot.green { background: var(--green); }
+    .dot.amber { background: var(--amber); }
+    .dot.red { background: var(--red); }
+    .dot.blue { background: var(--blue); }
+    .dot.violet { background: var(--violet); }
+
+    .phase-rail {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(74px, 1fr));
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .phase-button {
+      min-height: 98px;
+      border: 1px solid var(--line);
+      border-bottom-width: 4px;
+      border-radius: 6px;
+      padding: 9px;
+      background: #fff;
+      color: var(--ink);
+      text-align: left;
+      cursor: pointer;
+      font: inherit;
+      transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+    }
+
+    .phase-button:hover,
+    .phase-button:focus {
+      outline: none;
+      transform: translateY(-2px);
+      box-shadow: 0 10px 24px rgba(23, 26, 31, 0.12);
+    }
+
+    .phase-button.active {
+      border-color: var(--black);
+      box-shadow: 4px 4px 0 var(--black);
+    }
+
+    .phase-button.measure { border-bottom-color: var(--green); }
+    .phase-button.compress { border-bottom-color: var(--amber); }
+    .phase-button.compile { border-bottom-color: var(--blue); }
+    .phase-button.retrieve { border-bottom-color: var(--violet); }
+    .phase-button.route { border-bottom-color: #7a5b20; }
+    .phase-button.govern { border-bottom-color: #8e4b71; }
+    .phase-button.prove { border-bottom-color: var(--red); }
+
+    .phase-num {
+      display: block;
+      font: 800 18px/1 var(--mono);
+    }
+
+    .phase-label {
+      display: block;
+      margin-top: 8px;
+      font-size: 12px;
+      line-height: 1.15;
+    }
+
+    .phase-detail {
+      margin-top: 16px;
+      padding: 18px;
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 18px;
+    }
+
+    .phase-detail h3 {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .meta-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .meta-list div {
+      border-top: 1px solid var(--line);
+      padding-top: 8px;
+      font-size: 13px;
+    }
+
+    .meta-list b {
+      display: block;
+      margin-bottom: 2px;
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    .phase-flow {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .flow-step {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px;
+      background: #fff;
+      min-height: 118px;
+    }
+
+    .flow-step strong {
+      display: block;
+      margin-bottom: 7px;
+      font: 800 12px/1.1 var(--mono);
+      text-transform: uppercase;
+    }
+
+    .flow-step p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .dependency-map {
+      display: grid;
+      gap: 10px;
+    }
+
+    .dep-row {
+      display: grid;
+      grid-template-columns: 80px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 9px;
+    }
+
+    .dep-row:last-child { border-bottom: 0; padding-bottom: 0; }
+
+    .dep-source {
+      font: 800 16px/1 var(--mono);
+      color: var(--black);
+    }
+
+    .dep-targets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .small-chip {
+      display: inline-flex;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 4px 7px;
+      background: #fff;
+      font: 12px/1 var(--mono);
+    }
+
+    .diagram {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      align-items: stretch;
+      margin-top: 16px;
+    }
+
+    .diagram-node {
+      min-height: 140px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px;
+      background: #fff;
+      position: relative;
+    }
+
+    .diagram-node::after {
+      content: ">";
+      position: absolute;
+      right: -13px;
+      top: 50%;
+      transform: translateY(-50%);
+      font: 800 18px/1 var(--mono);
+      color: var(--muted);
+    }
+
+    .diagram-node:last-child::after { content: ""; }
+
+    .diagram-node b {
+      display: block;
+      margin-bottom: 6px;
+      font: 800 13px/1.15 var(--mono);
+    }
+
+    .diagram-node p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .phase-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .phase-card {
+      padding: 15px;
+      min-height: 190px;
+      box-shadow: none;
+    }
+
+    .phase-card .phase-num { font-size: 15px; color: var(--blue); }
+    .phase-card p { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+
+    .source-line {
+      display: block;
+      margin-top: 10px;
+      color: #3a4049;
+      font: 12px/1.35 var(--mono);
+    }
+
+    .story-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .story-card {
+      padding: 15px;
+      box-shadow: none;
+      min-height: 210px;
+    }
+
+    .story-card b {
+      display: block;
+      margin-bottom: 8px;
+      font: 800 15px/1.2 var(--mono);
+    }
+
+    .story-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .truth-ladder {
+      display: grid;
+      gap: 10px;
+    }
+
+    .truth-box {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+      padding: 13px;
+      box-shadow: none;
+    }
+
+    .truth-box b {
+      font: 800 13px/1.2 var(--mono);
+      color: var(--black);
+    }
+
+    .truth-box p { margin: 0; color: var(--muted); font-size: 13px; }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .metric-box {
+      box-shadow: none;
+      padding: 15px;
+      background: #fff;
+    }
+
+    .metric-box strong {
+      display: block;
+      font: 800 27px/1 var(--mono);
+    }
+
+    .metric-box span {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .check-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .check-box {
+      box-shadow: none;
+      padding: 12px 13px;
+      display: grid;
+      grid-template-columns: 20px 1fr;
+      gap: 9px;
+      align-items: start;
+      font-size: 13px;
+    }
+
+    .check-box::before {
+      content: "";
+      width: 14px;
+      height: 14px;
+      margin-top: 2px;
+      border: 2px solid var(--green);
+      background: var(--green-bg);
+    }
+
+    .footer-note {
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      padding-top: 18px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 1080px) {
+      .shell { grid-template-columns: 1fr; }
+      nav {
+        position: relative;
+        height: auto;
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+      main { padding: 22px 18px 58px; }
+      .hero { grid-template-columns: 1fr; min-height: auto; }
+      .phase-rail { grid-template-columns: repeat(4, 1fr); }
+      .phase-detail { grid-template-columns: 1fr; }
+      .diagram { grid-template-columns: 1fr; }
+      .diagram-node::after { content: "v"; right: 50%; top: auto; bottom: -18px; transform: translateX(50%); }
+      .diagram-node:last-child::after { content: ""; }
+      .phase-grid, .story-grid, .metric-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 700px) {
+      h1 { font-size: 42px; }
+      .lead { font-size: 18px; }
+      .two-col, .before-after, .check-grid { grid-template-columns: 1fr; }
+      .arrow-box { min-height: 42px; }
+      .phase-rail { grid-template-columns: repeat(2, 1fr); }
+      .phase-flow { grid-template-columns: 1fr; }
+      .phase-grid, .story-grid, .metric-grid { grid-template-columns: 1fr; }
+      .truth-box { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav aria-label="Page sections">
+      <div class="brand">
+        <b>SGSD v1.9</b>
+        <span>Research milestone visual map</span>
+      </div>
+      <a href="#why">1. Why v1.9 exists</a>
+      <a href="#before-after">2. Before and after</a>
+      <a href="#phase-map">3. Phase map</a>
+      <a href="#pipeline">4. How the phases connect</a>
+      <a href="#eli5">5. ELI5 role of each phase</a>
+      <a href="#truth">6. Truth vs cache</a>
+      <a href="#redis">7. Redis in plain English</a>
+      <a href="#close">8. What clean close means</a>
+    </nav>
+
+    <main>
+      <section class="hero" id="why">
+        <div class="hero-main">
+          <div>
+            <span class="kicker">Milestone v1.9 / SGSD-Research</span>
+            <h1>Stop making agents reread the world.</h1>
+            <p class="lead">
+              v1.9 turns SGSD from a system that hands every agent a giant messy backpack
+              into a system that gives each agent a small, checked, role-specific work packet.
+            </p>
+          </div>
+          <div class="pill-row" aria-label="Main outcomes">
+            <span class="pill"><span class="dot green"></span>Measure token waste</span>
+            <span class="pill"><span class="dot amber"></span>Compress phase memory</span>
+            <span class="pill"><span class="dot blue"></span>Compile operator intent</span>
+            <span class="pill"><span class="dot violet"></span>Retrieve only relevant proof</span>
+            <span class="pill"><span class="dot red"></span>Benchmark the result</span>
+          </div>
+        </div>
+
+        <aside class="hero-side" aria-label="The headline problem">
+          <h2>The problem in one picture</h2>
+          <div class="token-gauge">
+            <b>Old behavior</b>
+            <div class="gauge-line" aria-label="98 percent cache read">
+              <span></span><span></span>
+            </div>
+            <p class="plain" style="color:#d8d0c2;margin:0;">
+              Most token spend is not useful new thought. It is the parent loop and agents
+              repeatedly carrying huge cached context through small actions.
+            </p>
+          </div>
+          <div class="hero-stat-grid">
+            <div class="mini-stat"><strong>98%</strong><span>cache-read type bloat found in audit patterns</span></div>
+            <div class="mini-stat"><strong>12</strong><span>phases to measure, compress, route, prove</span></div>
+            <div class="mini-stat"><strong>50%</strong><span>minimum researcher-token reduction target</span></div>
+            <div class="mini-stat"><strong>0</strong><span>allowed evidence loss in benchmark scenarios</span></div>
+          </div>
+          <p class="plain" style="color:#d8d0c2;">
+            ELI5: the system kept asking every worker to carry the entire filing cabinet.
+            v1.9 builds labelled folders, a catalogue, a small daily brief, and a dashboard.
+          </p>
+        </aside>
+      </section>
+
+      <section class="band" id="before-after">
+        <h2>Before and after</h2>
+        <div class="before-after">
+          <div class="side-box bad">
+            <h3>Before v1.9: giant backpack</h3>
+            <p>The agent receives broad milestone history, old plans, old reviews, live logs, and scattered memories.</p>
+            <div class="stack">
+              <span class="pill"><span class="dot red"></span>Raw files reread</span>
+              <span class="pill"><span class="dot red"></span>Unclear current phase</span>
+              <span class="pill"><span class="dot red"></span>VTP can be ambient bloat</span>
+              <span class="pill"><span class="dot red"></span>Invented IDs can slip in</span>
+              <span class="pill"><span class="dot red"></span>Cockpit cannot explain token burn</span>
+            </div>
+          </div>
+          <div class="arrow-box">FIXES<br />--></div>
+          <div class="side-box good">
+            <h3>After v1.9: small checked packet</h3>
+            <p>The agent receives only the current role's useful packet, built from capsules, legal IDs, budget rules, and source-backed evidence.</p>
+            <div class="stack">
+              <span class="pill"><span class="dot green"></span>Capsules summarize closed phases</span>
+              <span class="pill"><span class="dot green"></span>Intent English clarifies the command</span>
+              <span class="pill"><span class="dot green"></span>Registry rejects fake references</span>
+              <span class="pill"><span class="dot green"></span>Index finds source-backed snippets</span>
+              <span class="pill"><span class="dot green"></span>Dashboard shows token spend</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="band" id="phase-map">
+        <h2>Phase map: click a phase</h2>
+        <p class="plain">
+          The milestone is a pipeline. It starts by measuring waste, then builds the smaller context
+          machinery, then routes work, then proves the result.
+        </p>
+        <div class="phase-rail" id="phaseRail" aria-label="Interactive phase rail"></div>
+        <div class="phase-detail" id="phaseDetail" aria-live="polite"></div>
+      </section>
+
+      <section class="band" id="pipeline">
+        <h2>How the machinery connects</h2>
+        <div class="diagram" aria-label="Milestone pipeline">
+          <div class="diagram-node">
+            <b>1. Measure</b>
+            <p>Phase 41 and 42 say where tokens go and when spend is unhealthy.</p>
+          </div>
+          <div class="diagram-node">
+            <b>2. Compress</b>
+            <p>Phase 43 turns closed phases into small capsules instead of folders to reread.</p>
+          </div>
+          <div class="diagram-node">
+            <b>3. Validate</b>
+            <p>Phase 44 creates legal IDs so packets cannot invent phases, gates, agents, or artifacts.</p>
+          </div>
+          <div class="diagram-node">
+            <b>4. Compile</b>
+            <p>Phase 45 converts messy operator English into explicit intent and a tiny role packet.</p>
+          </div>
+          <div class="diagram-node">
+            <b>5. Prove</b>
+            <p>Phases 46-52 retrieve, route, govern, display, benchmark, and optionally cache live state.</p>
+          </div>
+        </div>
+
+        <h3 style="margin-top:22px;">Dependency chain</h3>
+        <div class="dependency-map" id="dependencyMap"></div>
+      </section>
+
+      <section class="band" id="eli5">
+        <h2>ELI5: what each phase is, as a normal object</h2>
+        <div class="story-grid">
+          <div class="story-card"><b>41 = the electricity meter</b><p>It tells us which agent is burning tokens, instead of guessing from vibes.</p></div>
+          <div class="story-card"><b>42 = the spending limit</b><p>It says: this role should not need a giant context unless there is a logged reason.</p></div>
+          <div class="story-card"><b>43 = chapter summaries</b><p>At phase close, SGSD writes a capsule so future work reads the summary, not every page.</p></div>
+          <div class="story-card"><b>44 = the official dictionary</b><p>It lists valid phases, gates, agents, statuses, and artifacts so fake names get rejected.</p></div>
+          <div class="story-card"><b>45 = the lunchbox packer</b><p>It turns your command into clear intent, then packs only what the current agent needs.</p></div>
+          <div class="story-card"><b>46 = the library index</b><p>It lets SGSD search summaries and decisions fast without making the index the source of truth.</p></div>
+          <div class="story-card"><b>47 = the traffic controller</b><p>It decides whether local script, Codex, Claude, or VTP should handle a task.</p></div>
+          <div class="story-card"><b>48 = the specialist library pass</b><p>It calls VTP only when books, papers, prior memory, or architecture challenge are truly needed.</p></div>
+          <div class="story-card"><b>49 = the librarian rules</b><p>It controls what becomes memory, what gets revoked, and how complaints repair packets.</p></div>
+          <div class="story-card"><b>50 = the control room</b><p>It redesigns the cockpit so you can see current phase, active agents, token spend, and context mix.</p></div>
+          <div class="story-card"><b>51 = the exam</b><p>It stress-tests before vs after and must prove token reduction without losing evidence.</p></div>
+          <div class="story-card"><b>52 = sticky notes on the desk</b><p>Redis can speed live views and hot packets, but if it disappears, the truth remains safe.</p></div>
+        </div>
+      </section>
+
+      <section class="band" id="truth">
+        <h2>The truth ladder: what owns reality?</h2>
+        <div class="two-col">
+          <div>
+            <p class="plain">
+              v1.9 is careful about memory. It does not let a cache or index become the truth.
+              The truth stays in files, phase artifacts, JSONL ledgers, and git commits.
+            </p>
+            <div class="truth-ladder">
+              <div class="truth-box"><b>Canonical truth</b><p>.planning files, JSONL metrics, phase artifacts, reviews, debt ledgers, git commits.</p></div>
+              <div class="truth-box"><b>Capsules</b><p>Machine-readable summaries built from canonical truth, with hashes and references.</p></div>
+              <div class="truth-box"><b>Indexes</b><p>SQLite and query helpers for fast source-backed retrieval. Rebuildable at any time.</p></div>
+              <div class="truth-box"><b>Packets</b><p>Small role-specific prompts assembled from capsules, registry, index, and critical raw evidence.</p></div>
+              <div class="truth-box"><b>Redis</b><p>Optional hot cache for live state, counters, active markers, and packet previews.</p></div>
+            </div>
+          </div>
+          <div>
+            <h3>What must never happen</h3>
+            <div class="check-grid">
+              <div class="check-box">Redis or SQLite becomes the only place where a decision exists.</div>
+              <div class="check-box">A critical error, stack trace, security issue, or provider outage gets summarized away.</div>
+              <div class="check-box">The packet builder accepts an invented phase, gate, agent, or artifact ID.</div>
+              <div class="check-box">VTP is called just because words sound semantically related.</div>
+              <div class="check-box">Token budgets silently overrun without a warning, degrade row, or reroute reason.</div>
+              <div class="check-box">The benchmark passes by hiding evidence or telling the model it is a benchmark.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="band" id="redis">
+        <h2>Where Redis fits</h2>
+        <div class="two-col">
+          <div class="side-box good">
+            <h3>Redis is useful for live speed</h3>
+            <p>Use it like a whiteboard beside the desk: current phase, active agents, hot packets, provider canary cache, live token counters.</p>
+            <div class="stack">
+              <span class="pill"><span class="dot green"></span>Live cockpit state</span>
+              <span class="pill"><span class="dot green"></span>Hot context packets</span>
+              <span class="pill"><span class="dot green"></span>Provider health cache</span>
+              <span class="pill"><span class="dot green"></span>Short-lived counters</span>
+            </div>
+          </div>
+          <div class="side-box bad">
+            <h3>Redis is not the fix by itself</h3>
+            <p>If SGSD stores giant context in Redis and pastes it back into prompts, token spend stays bad. Redis only helps after packets and capsules exist.</p>
+            <div class="stack">
+              <span class="pill"><span class="dot red"></span>Not canonical memory</span>
+              <span class="pill"><span class="dot red"></span>Not a markdown dump bucket</span>
+              <span class="pill"><span class="dot red"></span>Not required for SGSD to run</span>
+              <span class="pill"><span class="dot red"></span>Not allowed to hide data loss</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="band" id="close">
+        <h2>What clean v1.9 close means</h2>
+        <div class="metric-grid">
+          <div class="metric-box"><strong>50%+</strong><span>researcher token reduction on representative phases</span></div>
+          <div class="metric-box"><strong>0</strong><span>evidence loss in benchmark and failure fixtures</span></div>
+          <div class="metric-box"><strong>5</strong><span>major roles using context packets by default</span></div>
+          <div class="metric-box"><strong>safe</strong><span>Redis can be flushed or absent without losing truth</span></div>
+        </div>
+
+        <h3 style="margin-top:22px;">Close checklist</h3>
+        <div class="check-grid">
+          <div class="check-box">Token-waste check passes or degrades honestly.</div>
+          <div class="check-box">Context packet builder is default for researcher, planner, executor, verifier, and reviewer.</div>
+          <div class="check-box">Intent map builder is the default front-end before packet construction.</div>
+          <div class="check-box">Phase capsules exist and are consumed by downstream phases.</div>
+          <div class="check-box">Legal registry rejects invented references.</div>
+          <div class="check-box">SQLite index rebuild works and preserves source hashes.</div>
+          <div class="check-box">VTP is selective, source-backed, and not ambient context bloat.</div>
+          <div class="check-box">Cockpit clearly shows current work, active agents, and token spend.</div>
+        </div>
+      </section>
+
+      <section class="footer-note">
+        Built from `.planning/milestones/v1.9/ROADMAP.md` and
+        `.planning/milestones/v1.9/REQUIREMENTS.md`. This is an explanatory
+        visual guide, not a replacement for the milestone source files.
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const phases = [
+      {
+        id: 41,
+        lane: "measure",
+        name: "Baseline Token Attribution",
+        eli5: "The electricity meter. It tells us where the token bill is coming from.",
+        goal: "Create a truthful ledger of token spend by role, phase, provider, model, and cache-read ratio.",
+        output: "agent-token-spend.jsonl, token attribution report, substitution candidates.",
+        consumes: "Existing metrics, Claude/Codex logs, current session logs.",
+        unlocks: "Budgets, cockpit token panels, benchmark baseline.",
+        risk: "If this is wrong, every later optimization is just guesswork."
+      },
+      {
+        id: 42,
+        lane: "measure",
+        name: "Token Budget Admission",
+        eli5: "The spending limit. It warns when a job is carrying too much context.",
+        goal: "Make token bloat visible before phase and milestone close.",
+        output: "token-waste/check.cjs, role budget config, close integration.",
+        consumes: "Phase 41 token ledger and role definitions.",
+        unlocks: "Routing decisions, cockpit budget status, benchmark pass/fail.",
+        risk: "Budgets must degrade honestly without silently halting autonomy."
+      },
+      {
+        id: 43,
+        lane: "compress",
+        name: "Phase Capsule Contract",
+        eli5: "Chapter summaries. Future agents read the summary instead of rereading the whole book.",
+        goal: "Make closed phases consumable as small machine-readable capsules.",
+        output: "PHASE-CAPSULE schema, write.cjs, backfilled capsules.",
+        consumes: "Phase artifacts, reviews, evidence, debt, commits, hashes.",
+        unlocks: "Context packets, index rebuild, memory governance.",
+        risk: "Critical failures must stay linked raw and never be summarized away."
+      },
+      {
+        id: 44,
+        lane: "compile",
+        name: "Legal Context Registry",
+        eli5: "The official dictionary. It says which phase, gate, agent, and status names are real.",
+        goal: "Prevent invented references and stale structural hallucinations.",
+        output: "context-registry/build.cjs, check.cjs, legal-keys.json.",
+        consumes: "Gates registry, agent registry, command envelope, phase folders, capsule schema.",
+        unlocks: "Packet validation, cockpit/status consistency, stale key handling.",
+        risk: "The packet builder must reject fake IDs rather than letting them drift into plans."
+      },
+      {
+        id: 45,
+        lane: "compile",
+        name: "Intent Map + Context Packet Builder",
+        eli5: "The lunchbox packer. It turns your words into clear intent, then packs only what the agent needs.",
+        goal: "Replace raw inherited context with small role-specific packets.",
+        output: "intent-map/build.cjs, intent-map/check.cjs, context-packet/build.cjs, packet logs.",
+        consumes: "Capsules, registry, active debt, evidence needs, relationship weights, critical bypass records.",
+        unlocks: "SQLite indexing, routing substitution, VTP selectivity, cockpit source mix.",
+        risk: "This is the main token-saving phase. If packets are broad, v1.9 fails."
+      },
+      {
+        id: 46,
+        lane: "retrieve",
+        name: "SQLite Context Index",
+        eli5: "The library catalogue. It finds the right shelf without owning the book.",
+        goal: "Provide fast local retrieval from rebuildable projections.",
+        output: "context-cache/rebuild.cjs, query.cjs, local SQLite FTS DB.",
+        consumes: "Capsules, decisions, gate definitions, file summaries.",
+        unlocks: "Small packets, local-first retrieval, Redis adapter fallback.",
+        risk: "No phase truth can exist only inside SQLite."
+      },
+      {
+        id: 47,
+        lane: "route",
+        name: "Dispatch Routing Substitution",
+        eli5: "The traffic controller. It sends work to the cheapest competent worker.",
+        goal: "Route deterministic work local-first, bounded review Codex-first, and synthesis to Claude.",
+        output: "Provider substitution policy, router integration, route-decision rows.",
+        consumes: "Budgets, packets, provider health, role definitions.",
+        unlocks: "Selective VTP, lower Claude spend, auditable fallback.",
+        risk: "Wrong routing can save tokens but lose judgment; fallback reasons must be logged."
+      },
+      {
+        id: 48,
+        lane: "route",
+        name: "Selective VTP Bridge",
+        eli5: "The specialist library pass. Use it only when the question really needs the library.",
+        goal: "Make VTP useful without making it ambient context bloat.",
+        output: "VTP route classifier, source-backed evidence packets, MCP failure metadata.",
+        consumes: "Intent uncertainty type, relationship weights, routing policy.",
+        unlocks: "Research-backed packets without pulling VTP into local implementation phases.",
+        risk: "VTP should never fire from broad semantic similarity alone."
+      },
+      {
+        id: 49,
+        lane: "govern",
+        name: "Memory Governance Lifecycle",
+        eli5: "The librarian rules. They decide what becomes memory, what expires, and what gets repaired.",
+        goal: "Govern memory promotion, demotion, revocation, and context complaints.",
+        output: "Complaint lifecycle, memory write admission, lifecycle fields.",
+        consumes: "Capsules, packets, registry, index, VTP packets, complaints.",
+        unlocks: "Better future packets and safer reusable memory.",
+        risk: "Bad memory must be revocable, not silently reused forever."
+      },
+      {
+        id: 50,
+        lane: "govern",
+        name: "Cockpit Research Dashboard",
+        eli5: "The control room. It shows what is happening now without duplicate noise.",
+        goal: "Make current phase, active agents, token spend, context source mix, and blockers visible.",
+        output: "Cockpit projection changes, active-agent panel, token/context budget display.",
+        consumes: "Token ledger, packets, active agents, Codex state, phase map.",
+        unlocks: "Operator trust and fast diagnosis.",
+        risk: "If the cockpit is unclear, the system can be technically correct but operationally useless."
+      },
+      {
+        id: 51,
+        lane: "prove",
+        name: "Context Stress Benchmark",
+        eli5: "The exam. It proves the new system is cheaper without losing answers.",
+        goal: "Compare before vs after and failure-inject the context architecture.",
+        output: "Stress harness, blind scenarios, before/after report, failure fixtures.",
+        consumes: "Everything built in phases 41-50.",
+        unlocks: "Evidence that v1.9 worked and cannot be gamed.",
+        risk: "Benchmark must not leak that it is a benchmark or accept evidence loss."
+      },
+      {
+        id: 52,
+        lane: "prove",
+        name: "Redis Live Cache Adapter",
+        eli5: "Sticky notes on the desk. Useful for speed, disposable if lost.",
+        goal: "Optionally speed live projections without owning truth.",
+        output: "redis-adapter.cjs, optional readiness probe, FLUSHDB safety test.",
+        consumes: "SQLite/index interface, cockpit live state, packets, provider canary data.",
+        unlocks: "Faster cockpit and hot packet reads when Redis exists.",
+        risk: "Redis must be optional and safe to flush."
+      }
+    ];
+
+    const deps = [
+      ["41", ["42", "43", "44"]],
+      ["43 + 44", ["45"]],
+      ["43 + 45", ["46"]],
+      ["42 + 45", ["47"]],
+      ["45 + 47", ["48"]],
+      ["43-48", ["49"]],
+      ["42 + 45 + 47 + 49", ["50"]],
+      ["41-50", ["51"]],
+      ["46 + 50 + 51", ["52"]]
+    ];
+
+    const rail = document.getElementById("phaseRail");
+    const detail = document.getElementById("phaseDetail");
+    const dependencyMap = document.getElementById("dependencyMap");
+
+    function laneName(lane) {
+      return {
+        measure: "Measure",
+        compress: "Compress",
+        compile: "Compile",
+        retrieve: "Retrieve",
+        route: "Route",
+        govern: "Govern",
+        prove: "Prove"
+      }[lane] || lane;
+    }
+
+    function renderRail() {
+      phases.forEach((phase, index) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "phase-button " + phase.lane + (index === 0 ? " active" : "");
+        btn.dataset.phase = phase.id;
+        btn.innerHTML = `<span class="phase-num">P${phase.id}</span><span class="phase-label">${phase.name}</span>`;
+        btn.addEventListener("click", () => selectPhase(phase.id));
+        rail.appendChild(btn);
+      });
+    }
+
+    function selectPhase(id) {
+      const phase = phases.find(p => p.id === Number(id)) || phases[0];
+      document.querySelectorAll(".phase-button").forEach(btn => {
+        btn.classList.toggle("active", Number(btn.dataset.phase) === phase.id);
+      });
+      detail.innerHTML = `
+        <div>
+          <span class="kicker">${laneName(phase.lane)} lane</span>
+          <h3>P${phase.id} ${phase.name}</h3>
+          <p class="plain">${phase.eli5}</p>
+          <div class="meta-list">
+            <div><b>Primary goal</b>${phase.goal}</div>
+            <div><b>Primary output</b>${phase.output}</div>
+          </div>
+        </div>
+        <div>
+          <div class="phase-flow">
+            <div class="flow-step"><strong>Consumes</strong><p>${phase.consumes}</p></div>
+            <div class="flow-step"><strong>Produces</strong><p>${phase.output}</p></div>
+            <div class="flow-step"><strong>Unlocks</strong><p>${phase.unlocks}</p></div>
+            <div class="flow-step"><strong>Watch out</strong><p>${phase.risk}</p></div>
+          </div>
+          <span class="source-line">Source: v1.9 ROADMAP and REQUIREMENTS phase ${phase.id}.</span>
+        </div>
+      `;
+    }
+
+    function renderDependencies() {
+      deps.forEach(([source, targets]) => {
+        const row = document.createElement("div");
+        row.className = "dep-row";
+        row.innerHTML = `
+          <div class="dep-source">${source}</div>
+          <div class="dep-targets">${targets.map(t => `<span class="small-chip">feeds P${t}</span>`).join("")}</div>
+        `;
+        dependencyMap.appendChild(row);
+      });
+    }
+
+    renderRail();
+    renderDependencies();
+    selectPhase(41);
+  </script>
+</body>
+</html>

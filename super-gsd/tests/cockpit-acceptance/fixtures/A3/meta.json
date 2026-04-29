@@ -1,0 +1,1 @@
+{"codex_mtime_offset_sec":-25,"activity_mtime_offset_sec":-30,"note":"A3 codex running mid-band: state=running, recent updatedAt, totalRuns=12, claudeTokensSaved=245000. Asserts SGSD-Codex-Tile is the SOLE Codex pane (case-insensitive 'codex' appears exactly once outside the tile block: in the tile header)."}

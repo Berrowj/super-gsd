@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-28T10:44:27.791Z",
+  "generated_at": "2026-04-28T10:55:34.904Z",
   "scoring": {
     "note": "waste_points are deterministic estimates for comparing gates; they are not exact dollars or exact tokens.",
     "weights": {

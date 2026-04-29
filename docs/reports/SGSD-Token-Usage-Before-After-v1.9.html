@@ -1,0 +1,702 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SGSD Token Usage Before And After v1.9</title>
+  <style>
+    :root {
+      --bg: #0b0e13;
+      --panel: #111720;
+      --panel-2: #151d28;
+      --ink: #edf4ff;
+      --muted: #9ba9b9;
+      --line: #263241;
+      --green: #33d17a;
+      --amber: #f6c65b;
+      --orange: #ff8a4c;
+      --red: #ff5570;
+      --cyan: #45d6e8;
+      --blue: #6aa7ff;
+      --pink: #ff66c4;
+      --violet: #ad8cff;
+      --shadow: 0 24px 90px rgba(0, 0, 0, .45);
+      --radius: 8px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background:
+        linear-gradient(180deg, rgba(69, 214, 232, .06), transparent 360px),
+        linear-gradient(90deg, rgba(255, 102, 196, .04), transparent 42%),
+        var(--bg);
+      color: var(--ink);
+      line-height: 1.45;
+    }
+
+    main {
+      width: min(1480px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 56px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap: 16px;
+      align-items: stretch;
+      min-height: 500px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.012)), var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .hero-copy {
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+    }
+
+    .eyebrow {
+      color: var(--cyan);
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      font-size: 12px;
+    }
+
+    h1 {
+      margin: 14px 0 12px;
+      font-size: 68px;
+      line-height: .95;
+      letter-spacing: 0;
+      max-width: 980px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 24px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+      color: var(--ink);
+    }
+
+    p { margin: 0; color: var(--muted); }
+
+    .lead {
+      font-size: 19px;
+      max-width: 900px;
+      color: #d9e6f5;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 28px;
+    }
+
+    .metric {
+      min-height: 138px;
+      padding: 16px;
+      background: rgba(0,0,0,.22);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .metric .label {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0;
+      font-weight: 800;
+    }
+
+    .metric .value {
+      font-size: 34px;
+      font-weight: 900;
+      color: var(--ink);
+      line-height: 1;
+      margin: 10px 0;
+    }
+
+    .metric .note {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .hero-aside {
+      padding: 22px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .flow {
+      display: grid;
+      gap: 8px;
+    }
+
+    .flow-row {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      background: rgba(0,0,0,.22);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: var(--radius);
+    }
+
+    .flow-row strong {
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    .flow-row span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .section {
+      margin-top: 16px;
+      padding: 22px;
+    }
+
+    .two {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .three {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .period-card {
+      padding: 18px;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      position: relative;
+      overflow: hidden;
+      min-height: 220px;
+    }
+
+    .period-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 4px;
+      background: var(--accent, var(--cyan));
+    }
+
+    .period-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      margin-bottom: 14px;
+    }
+
+    .period-title b { font-size: 18px; }
+    .period-title span { color: var(--muted); font-size: 13px; }
+
+    .big-number {
+      font-size: 38px;
+      font-weight: 900;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .stat-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .stat-line {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 13px;
+      border-top: 1px solid rgba(255,255,255,.07);
+      padding-top: 8px;
+    }
+
+    .stat-line strong { color: var(--ink); }
+
+    .bar-wrap {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .bar {
+      display: grid;
+      grid-template-columns: 145px 1fr 96px;
+      gap: 10px;
+      align-items: center;
+      font-size: 13px;
+    }
+
+    .bar .name {
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .track {
+      height: 12px;
+      background: #0a0f16;
+      border: 1px solid rgba(255,255,255,.08);
+      overflow: hidden;
+      border-radius: 999px;
+    }
+
+    .fill {
+      height: 100%;
+      width: var(--w);
+      background: var(--c, var(--cyan));
+      border-radius: 999px;
+    }
+
+    .bar .num {
+      text-align: right;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .phase-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .phase {
+      min-height: 118px;
+      padding: 10px;
+      background: rgba(0,0,0,.22);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .phase .id {
+      font-weight: 900;
+      color: var(--cyan);
+    }
+
+    .phase .title {
+      font-size: 12px;
+      color: var(--muted);
+      min-height: 34px;
+    }
+
+    .phase .phase-bar {
+      height: 42px;
+      border-radius: 4px;
+      background: linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,.02)), var(--c);
+      transform-origin: bottom;
+      transform: scaleY(var(--h));
+    }
+
+    .phase .tokens {
+      font-size: 12px;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .callout {
+      padding: 18px;
+      border-radius: var(--radius);
+      background: rgba(69, 214, 232, .08);
+      border: 1px solid rgba(69, 214, 232, .22);
+    }
+
+    .callout strong {
+      color: var(--cyan);
+    }
+
+    .ladder {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .step {
+      padding: 12px;
+      background: rgba(0,0,0,.22);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: var(--radius);
+      min-height: 150px;
+    }
+
+    .step .n {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--cyan);
+      color: #061017;
+      font-weight: 900;
+      margin-bottom: 10px;
+    }
+
+    .step p {
+      font-size: 13px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      overflow: hidden;
+      border-radius: var(--radius);
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.07);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0;
+      background: rgba(0,0,0,.20);
+    }
+
+    td strong { color: var(--ink); }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .tag {
+      display: inline-block;
+      padding: 3px 7px;
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 999px;
+      color: var(--ink);
+      background: rgba(255,255,255,.05);
+      font-size: 12px;
+      margin: 2px 4px 2px 0;
+    }
+
+    .warn {
+      border-color: rgba(246,198,91,.35);
+      background: rgba(246,198,91,.08);
+    }
+
+    .footer {
+      margin-top: 16px;
+      padding: 18px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 1100px) {
+      .hero, .two { grid-template-columns: 1fr; }
+      .three { grid-template-columns: 1fr; }
+      .phase-grid { grid-template-columns: repeat(4, 1fr); }
+      .ladder { grid-template-columns: repeat(2, 1fr); }
+      h1 { font-size: 46px; }
+    }
+
+    @media (max-width: 640px) {
+      main { width: min(100vw - 18px, 1480px); padding-top: 10px; }
+      .hero-grid { grid-template-columns: 1fr; }
+      .bar { grid-template-columns: 1fr; }
+      .bar .num { text-align: left; }
+      .phase-grid, .ladder { grid-template-columns: 1fr; }
+      h1 { font-size: 34px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div class="panel hero-copy">
+        <div>
+          <div class="eyebrow">SGSD telemetry report - generated 2026-04-29</div>
+          <h1>Token usage before and after milestone v1.9</h1>
+          <p class="lead">
+            v1.9 was the milestone that stopped SGSD treating context as one giant backpack. It added
+            attribution, token budgets, phase capsules, context packets, a SQLite index, routing rules,
+            VTP gating, memory governance, benchmark fixtures, and a Redis projection adapter.
+          </p>
+        </div>
+
+        <div class="hero-grid">
+          <div class="metric">
+            <div class="label">Before v1.9</div>
+            <div class="value">736.0M</div>
+            <div class="note">context-token traffic across v1.6-v1.8 telemetry rows</div>
+          </div>
+          <div class="metric">
+            <div class="label">During v1.9</div>
+            <div class="value">451.6M</div>
+            <div class="note">the expensive build-out that installed the measuring tools</div>
+          </div>
+          <div class="metric">
+            <div class="label">After v1.9</div>
+            <div class="value">22.9M</div>
+            <div class="note">recorded v2.0-v2.1 telemetry rows after the controls existed</div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="panel hero-aside">
+        <h2>The ELI5 version</h2>
+        <div class="flow">
+          <div class="flow-row">
+            <strong>Before</strong>
+            <span>Claude kept carrying the whole project history into too many turns.</span>
+          </div>
+          <div class="flow-row">
+            <strong>Problem</strong>
+            <span>Most spend came from orchestration and repeated context, not useful new work.</span>
+          </div>
+          <div class="flow-row">
+            <strong>v1.9 fix</strong>
+            <span>Make small signed packets, indexes, capsules, and route decisions.</span>
+          </div>
+          <div class="flow-row">
+            <strong>After</strong>
+            <span>Later phases can ask for the right slice instead of rereading the warehouse.</span>
+          </div>
+          <div class="flow-row">
+            <strong>Redis role</strong>
+            <span>Fast live projection only. SQLite and files remain canonical truth.</span>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="panel section">
+      <h2>At-a-glance result</h2>
+      <div class="three">
+        <div class="period-card" style="--accent: var(--red)">
+          <div class="period-title"><b>Before v1.9</b><span>v1.6-v1.8</span></div>
+          <div class="big-number">49.1M</div>
+          <p>average context-token traffic per roadmap phase, using 15 expected phases.</p>
+          <div class="stat-list">
+            <div class="stat-line"><span>Total rows</span><strong>4,057</strong></div>
+            <div class="stat-line"><span>Cache-read share</span><strong>94.9%</strong></div>
+            <div class="stat-line"><span>Output tokens</span><strong>3.09M</strong></div>
+            <div class="stat-line"><span>Orchestrator share</span><strong>67.3%</strong></div>
+          </div>
+        </div>
+
+        <div class="period-card" style="--accent: var(--amber)">
+          <div class="period-title"><b>During v1.9</b><span>12 phases</span></div>
+          <div class="big-number">37.6M</div>
+          <p>average per v1.9 phase while the control system itself was being built.</p>
+          <div class="stat-list">
+            <div class="stat-line"><span>Total rows</span><strong>3,463</strong></div>
+            <div class="stat-line"><span>Cache-read share</span><strong>92.7%</strong></div>
+            <div class="stat-line"><span>Output tokens</span><strong>2.18M</strong></div>
+            <div class="stat-line"><span>Orchestrator share</span><strong>27.0%</strong></div>
+          </div>
+        </div>
+
+        <div class="period-card" style="--accent: var(--green)">
+          <div class="period-title"><b>After v1.9</b><span>v2.0-v2.1</span></div>
+          <div class="big-number">2.3M</div>
+          <p>average per roadmap phase in the post-v1.9 recorded telemetry.</p>
+          <div class="stat-list">
+            <div class="stat-line"><span>Total rows</span><strong>148</strong></div>
+            <div class="stat-line"><span>Cache-read share</span><strong>89.4%</strong></div>
+            <div class="stat-line"><span>Output tokens</span><strong>187K</strong></div>
+            <div class="stat-line"><span>Recorded reduction</span><strong>95.3%</strong></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="two">
+      <div class="panel section">
+        <h2>Where the tokens moved</h2>
+        <p>
+          Before v1.9, orchestration was the obvious heavyweight. During v1.9, spend moved into
+          measured roles because SGSD was building the researcher, reviewer, packet, capsule, and
+          routing machinery. That is healthier because the work has an owner and a measurable output.
+        </p>
+
+        <div class="bar-wrap">
+          <div class="bar">
+            <div class="name">Before: orchestrator</div>
+            <div class="track"><div class="fill" style="--w:67%;--c:var(--red)"></div></div>
+            <div class="num">495.7M</div>
+          </div>
+          <div class="bar">
+            <div class="name">Before: reviewer</div>
+            <div class="track"><div class="fill" style="--w:21%;--c:var(--amber)"></div></div>
+            <div class="num">153.5M</div>
+          </div>
+          <div class="bar">
+            <div class="name">Before: executor</div>
+            <div class="track"><div class="fill" style="--w:4%;--c:var(--blue)"></div></div>
+            <div class="num">31.5M</div>
+          </div>
+          <div class="bar">
+            <div class="name">During: reviewer</div>
+            <div class="track"><div class="fill" style="--w:33%;--c:var(--cyan)"></div></div>
+            <div class="num">150.2M</div>
+          </div>
+          <div class="bar">
+            <div class="name">During: researcher</div>
+            <div class="track"><div class="fill" style="--w:30%;--c:var(--violet)"></div></div>
+            <div class="num">133.5M</div>
+          </div>
+          <div class="bar">
+            <div class="name">During: orchestrator</div>
+            <div class="track"><div class="fill" style="--w:27%;--c:var(--orange)"></div></div>
+            <div class="num">122.1M</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel section">
+        <h2>What v1.9 actually changed</h2>
+        <div class="ladder">
+          <div class="step"><div class="n">1</div><h3>Measure</h3><p>Phase 41 created the attribution ledger and proved orchestration was the largest consumer.</p></div>
+          <div class="step"><div class="n">2</div><h3>Budget</h3><p>Phase 42 added admission checks so expensive runs are warned before dispatch.</p></div>
+          <div class="step"><div class="n">3</div><h3>Compress</h3><p>Phase 43 created phase capsules so later work reads a compact signed summary.</p></div>
+          <div class="step"><div class="n">4</div><h3>Packet</h3><p>Phase 45 built role-specific packets so agents get enough context, not everything.</p></div>
+          <div class="step"><div class="n">5</div><h3>Index</h3><p>Phase 46 added SQLite FTS so local search replaces broad manual rereads.</p></div>
+          <div class="step"><div class="n">6</div><h3>Route</h3><p>Phases 47-52 route work to local scripts, VTP, memory, Codex, or Redis projection.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel section">
+      <h2>v1.9 phase heatmap</h2>
+      <p>
+        The tallest bars are where v1.9 paid the build cost: context packet builder, memory governance,
+        cockpit dashboard, baseline attribution, and phase capsule backfill. The last two phases are
+        much smaller because the harness and Redis adapter run mostly through deterministic local code.
+      </p>
+      <div class="phase-grid">
+        <div class="phase"><div><div class="id">P41</div><div class="title">Baseline token attribution</div></div><div class="phase-bar" style="--h:.78;--c:var(--cyan)"></div><div class="tokens">47.2M</div></div>
+        <div class="phase"><div><div class="id">P42</div><div class="title">Token budget admission</div></div><div class="phase-bar" style="--h:.56;--c:var(--blue)"></div><div class="tokens">33.5M</div></div>
+        <div class="phase"><div><div class="id">P43</div><div class="title">Phase capsule contract</div></div><div class="phase-bar" style="--h:.79;--c:var(--cyan)"></div><div class="tokens">47.8M</div></div>
+        <div class="phase"><div><div class="id">P44</div><div class="title">Legal context registry</div></div><div class="phase-bar" style="--h:.45;--c:var(--blue)"></div><div class="tokens">27.3M</div></div>
+        <div class="phase"><div><div class="id">P45</div><div class="title">Context packet builder</div></div><div class="phase-bar" style="--h:1;--c:var(--orange)"></div><div class="tokens">60.2M</div></div>
+        <div class="phase"><div><div class="id">P46</div><div class="title">SQLite context index</div></div><div class="phase-bar" style="--h:.49;--c:var(--blue)"></div><div class="tokens">29.4M</div></div>
+        <div class="phase"><div><div class="id">P47</div><div class="title">Dispatch substitution</div></div><div class="phase-bar" style="--h:.50;--c:var(--blue)"></div><div class="tokens">30.1M</div></div>
+        <div class="phase"><div><div class="id">P48</div><div class="title">Selective VTP bridge</div></div><div class="phase-bar" style="--h:.39;--c:var(--green)"></div><div class="tokens">23.2M</div></div>
+        <div class="phase"><div><div class="id">P49</div><div class="title">Memory governance</div></div><div class="phase-bar" style="--h:.93;--c:var(--orange)"></div><div class="tokens">55.9M</div></div>
+        <div class="phase"><div><div class="id">P50</div><div class="title">Research cockpit</div></div><div class="phase-bar" style="--h:.81;--c:var(--amber)"></div><div class="tokens">49.0M</div></div>
+        <div class="phase"><div><div class="id">P51</div><div class="title">Stress benchmark</div></div><div class="phase-bar" style="--h:.05;--c:var(--green)"></div><div class="tokens">2.8M</div></div>
+        <div class="phase"><div><div class="id">P52</div><div class="title">Redis projection</div></div><div class="phase-bar" style="--h:.05;--c:var(--green)"></div><div class="tokens">2.9M</div></div>
+      </div>
+    </section>
+
+    <section class="two">
+      <div class="panel section">
+        <h2>Waste caught by gates</h2>
+        <p>
+          Token reduction is only useful if quality stays high. The gate ledger says SGSD caught
+          218 issues or waste signals for 677 deterministic waste points. v1.9 alone contributed
+          54 caught items and 183 points.
+        </p>
+        <table style="margin-top:16px">
+          <thead>
+            <tr><th>Gate</th><th class="num">Caught</th><th class="num">Waste points</th><th>What it means</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>ATC</strong></td><td class="num">200</td><td class="num">598</td><td>Architecture, correctness, anti-slop, and review defects caught.</td></tr>
+            <tr><td><strong>MUDA</strong></td><td class="num">4</td><td class="num">12</td><td>Lean waste findings across inventory, overproduction, and defects.</td></tr>
+            <tr><td><strong>Token waste</strong></td><td class="num">14</td><td class="num">67</td><td>13 degraded context-spend checks and 1 warning.</td></tr>
+            <tr><td><strong>Gate value</strong></td><td class="num">0</td><td class="num">0</td><td>Logged as available, but no value rows yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel section">
+        <h2>What counts as improvement</h2>
+        <div class="callout">
+          <p><strong>The win is not just fewer tokens.</strong> The real win is that context now has shape: phase capsules, legal context keys, packet manifests, route decisions, source hashes, admission checks, and cache projections.</p>
+        </div>
+        <table style="margin-top:16px">
+          <thead>
+            <tr><th>Before v1.9</th><th>After v1.9</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Long orchestration turns carried broad project history.</td><td>Context packets carry the current phase, relevant links, and signed evidence.</td></tr>
+            <tr><td>Agents repeatedly rediscovered prior phase facts.</td><td>Phase capsules and indexes provide compact handover facts.</td></tr>
+            <tr><td>Research could scan internal files without clear admission.</td><td>VTP and research routes are gated by question type and source class.</td></tr>
+            <tr><td>Redis was an idea for memory.</td><td>Redis is explicitly projection-only with SQLite/files as canonical truth.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel section">
+      <h2>How to read the numbers without fooling ourselves</h2>
+      <div class="three">
+        <div class="callout warn">
+          <h3>1. Context traffic is not the same as bill</h3>
+          <p>These totals include cache-read tokens. They show how much context SGSD moved through the model, not a direct invoice line.</p>
+        </div>
+        <div class="callout warn">
+          <h3>2. Older rows have attribution drift</h3>
+          <p>v1.9 fixed attribution. Some old phase labels are noisy, so period totals use milestone stamps while phase bars use known v1.9 phases.</p>
+        </div>
+        <div class="callout warn">
+          <h3>3. After-v1.9 is early but meaningful</h3>
+          <p>v2.0-v2.1 telemetry is lighter and cleaner, but it should keep being watched as more runs accumulate.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel section">
+      <h2>Source evidence</h2>
+      <table>
+        <thead>
+          <tr><th>Source</th><th>What it proves</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>.planning/metrics/agent-token-spend.jsonl</code></td><td>26,819 token attribution rows used for period, role, and phase summaries.</td></tr>
+          <tr><td><code>.planning/milestones/v1.9/baseline-token-spend.md</code></td><td>Phase 41 baseline: 11,294 rows, 3.86B lifetime context tokens, 96.4% cache-read share, 96.3% orchestrator signature.</td></tr>
+          <tr><td><code>.planning/milestones/v1.9/token-waste.md</code></td><td>v1.9 token-waste verdicts: 13 degraded, 1 warn, 2 ok, and 14 orchestrator trim candidates.</td></tr>
+          <tr><td><code>.planning/metrics/gate-savings.md</code></td><td>Gate savings totals: 218 caught items, 677 waste points, and v1.9's 54 caught / 183 points.</td></tr>
+          <tr><td><code>.planning/milestones/v1.9/SUMMARY.md</code></td><td>The phase-by-phase deliverables that explain why v1.9 changed token behavior.</td></tr>
+        </tbody>
+      </table>
+      <div class="footer">
+        Report generated as a static artifact for operator review. It is intentionally explanatory, not a replacement for the canonical JSONL ledgers.
+      </div>
+    </section>
+  </main>
+</body>
+</html>
