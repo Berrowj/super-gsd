@@ -2721,19 +2721,257 @@ function _teardownContainer(opts) {
 // of these write FS or spawn subprocesses at T1.
 // ---------------------------------------------------------------------------
 
-function _runAllImpl(_opts) {
-  // T6: outer loop over SCENARIOS -> runScenario -> appendLogRow ->
-  // aggregateResults -> CRIT-BACKLOG single-writer pass. T1 stub returns
-  // an empty PASS-clean envelope so the wiring test can read shape.
-  return {
-    ok: true,
-    stub: true,
-    pass_count: 0,
-    total: SCENARIOS.length,
-    verdict: 'PASS',
-    results: [],
-    source: '_runAllImpl_t1_stub',
-  };
+function _runAllImpl(opts) {
+  // T6 outer driver. Per PLAN lines 604-617:
+  //   1. Generate run_id (envelope-v1 unforgeable witness; failinj prefix +
+  //      ISO compact ts + 4 hex). All 10 rows in one --run-all share this id.
+  //   2. Fingerprint live planning streams BEFORE first scenario.
+  //   3. For each SCENARIO sequentially:
+  //        a. _setupContainer(sid) -> tmpdir + per-scenario snapshot.
+  //        b. _runScenarioImpl(scenario, tmpdir) -> per-scenario result.
+  //        c. Compare canonical_state via _teardownContainer(opts) (drift
+  //           detection); if drift detected, force verdict='FAIL',
+  //           verdict_kind='verifier_fail', set canonical_state_preserved
+  //           and canonical_drift on the result.
+  //        d. _appendLogRowImpl(envelope-v1 row) for this scenario.
+  //   4. Fingerprint live planning streams AFTER all 10 scenarios; assert
+  //      no drift (cross-scenario anti-pollution invariant).
+  //   5. aggregateResults(results) -> verdict + exit_code.
+  //   6. On PASS-WITH-DEFERRED-N or CANDIDATE-WITH-DEBT or FAIL: append
+  //      CRIT-BACKLOG rows inline (Q1 single-writer protocol; AFTER the
+  //      per-scenario fingerprint phase so canonical-state guard is stable).
+  //   7. Return { run_id, verdict, scenarios, aggregate, exit_code, ok }.
+  //
+  // Lock 13: outer try/catch + degraded sentinel; never throws upward.
+  try {
+    // run_id: envelope-v1 unforgeable witness. Format:
+    //   failinj-YYYYMMDDTHHMMSSZ-XXXX  (ISO compact + 4 hex)
+    var nowIso = new Date().toISOString();
+    var isoCompact = nowIso.replace(/[-:]/g, '').replace(/\..*Z$/, 'Z');
+    var rand4 = crypto.randomBytes(2).toString('hex');
+    var runId = 'failinj-' + isoCompact + '-' + rand4;
+    var liveProjectRoot = _liveProjectRootDir();
+    var livePlanningDir = (opts && typeof opts.planningDir === 'string')
+      ? opts.planningDir
+      : path.join(liveProjectRoot, '.planning');
+    // Cross-scenario anti-pollution snapshot: BEFORE first scenario.
+    var preRunFp;
+    try { preRunFp = _fingerprintAllStreams(livePlanningDir); }
+    catch (_eFp) { preRunFp = { streams: [] }; }
+    var results = [];
+    var scenariosCopy = SCENARIOS;
+    for (var si = 0; si < scenariosCopy.length; si++) {
+      var sc = scenariosCopy[si];
+      var sid = (sc && sc.id) || ('unknown_' + si);
+      // Sanitize sid for _setupContainer (mkdtemp suffix); the scenarios.json
+      // schema already constrains the id pattern, so this is defense-in-depth.
+      var safeSid = String(sid).replace(/[^A-Za-z0-9_-]/g, '_');
+      var container = null;
+      var scenarioResult = null;
+      var perScenarioPreFp = null;
+      try {
+        container = _setupContainer(safeSid);
+        if (!container || !container.ok) {
+          // Setup failed: surface a typed FAIL row, do NOT abort the run.
+          scenarioResult = {
+            ok: false,
+            scenario_id: sid,
+            scenario: sc,
+            applied: false,
+            tool_invocation: null,
+            observed_reason_codes: [],
+            canonical_state_preserved: null,
+            canonical_drift: [],
+            verdict: 'FAIL',
+            verdict_kind: 'verifier_fail',
+            reason: (container && container.reason)
+                      || 'container_setup_failed',
+            source: '_runAllImpl_setup_failed',
+          };
+        } else {
+          perScenarioPreFp = container.snapshot_fingerprint;
+          // Per-scenario execution. _runScenarioImpl wraps in its own
+          // try/catch and never throws; a Lock 13 violation surfaces as
+          // verdict='FAIL', verdict_kind='verifier_fail'.
+          var rawResult = _runScenarioImpl(sc, container.tmpdir);
+          if (!rawResult || typeof rawResult !== 'object') {
+            scenarioResult = {
+              ok: false,
+              scenario_id: sid,
+              scenario: sc,
+              applied: false,
+              tool_invocation: null,
+              observed_reason_codes: [],
+              canonical_state_preserved: null,
+              canonical_drift: [],
+              verdict: 'FAIL',
+              verdict_kind: 'verifier_fail',
+              reason: 'scenario_fail_lock13_violation',
+              source: '_runAllImpl_no_result',
+            };
+          } else {
+            scenarioResult = rawResult;
+            // Attach scenario back-reference for aggregator classification.
+            scenarioResult.scenario = sc;
+          }
+          // Per-scenario teardown + canonical fingerprint compare. The
+          // tmpdir is rm-rfd here; the snapshot vs. live compare is the
+          // anti-pollution anchor for THIS scenario.
+          var teardown = _teardownContainer({
+            tmpdir: container.tmpdir,
+            snapshot_fingerprint: perScenarioPreFp,
+            live_planning_dir: livePlanningDir,
+          });
+          // canonical_state_preserved: per-scenario layer fills it from
+          // teardown compare. Drift detected -> force verdict=FAIL,
+          // verdict_kind=verifier_fail (canonical drift is a real fail
+          // regardless of structural pass).
+          if (teardown && typeof teardown.canonical_state_preserved
+                          === 'boolean') {
+            scenarioResult.canonical_state_preserved =
+              teardown.canonical_state_preserved;
+            scenarioResult.canonical_drift = Array.isArray(teardown.drift_detected)
+              ? teardown.drift_detected.map(function (d) { return d.path; })
+              : [];
+            if (teardown.canonical_state_preserved === false) {
+              scenarioResult.verdict = 'FAIL';
+              scenarioResult.verdict_kind = _classifyVerdictKind(sc, scenarioResult);
+              scenarioResult.reason = scenarioResult.reason
+                || 'scenario_fail_canonical_drift';
+            }
+          }
+        }
+      } catch (_eS) {
+        scenarioResult = {
+          ok: false,
+          scenario_id: sid,
+          scenario: sc,
+          applied: false,
+          tool_invocation: null,
+          observed_reason_codes: [],
+          canonical_state_preserved: null,
+          canonical_drift: [],
+          verdict: 'FAIL',
+          verdict_kind: 'verifier_fail',
+          reason: 'scenario_fail_lock13_violation',
+          error: (_eS && _eS.message) ? _eS.message : 'unknown',
+          source: '_runAllImpl_loop_catch',
+        };
+      }
+      // Re-derive verdict_kind to ensure it matches the classification rule
+      // (handles the case where a per-scenario impl returned an inconsistent
+      // verdict_kind).
+      scenarioResult.verdict_kind = _classifyVerdictKind(sc, scenarioResult);
+      // Append envelope-v1 row for this scenario. All 10 rows of a single
+      // --run-all share the same run_id (Phase 57 groupBy invariant).
+      var envelopeRow = _buildEnvelopeRow(runId, sc, scenarioResult,
+                                          (container && container.tmpdir) || null);
+      try {
+        _appendLogRowImpl(envelopeRow,
+                          { planningDir: livePlanningDir });
+      } catch (_eA) {
+        // Lock 13: appendLogRow already swallows; but defensive double-wrap.
+      }
+      results.push(scenarioResult);
+    }
+    // Cross-run AFTER fingerprint - anti-pollution invariant across all 10
+    // scenarios. _appendLogRowImpl writes one canonical stream
+    // (failure-injection-log.jsonl) which is NOT in PHASE_53_GUARDED_STREAMS,
+    // so guarded streams should still be byte-equal.
+    var postRunFp;
+    try { postRunFp = _fingerprintAllStreams(livePlanningDir); }
+    catch (_eFp2) { postRunFp = { streams: [] }; }
+    var crossRunCmp = _compareCanonicalStreams(preRunFp, postRunFp);
+    var aggregate = _aggregateResultsImpl(results);
+    // CRIT-BACKLOG single-writer pass (Q1 resolution). AFTER per-scenario
+    // fingerprint phase. Append rows ONLY for non-pass scenarios per the
+    // verdict tree:
+    //   verdict='PASS'                    -> no rows
+    //   verdict='PASS-WITH-DEFERRED-1'    -> 1 verifier_fail row
+    //   verdict='CANDIDATE-WITH-DEBT'     -> at least 1 edge_guard_miss row
+    //                                        + any other failed rows
+    //   verdict='FAIL'                    -> N verifier_fail / edge_guard_miss
+    //                                        rows for each FAILed scenario
+    var critRowsAppended = 0;
+    var critRowErrors = [];
+    if (aggregate && aggregate.verdict !== 'PASS') {
+      if (_critBacklog && typeof _critBacklog.appendRow === 'function') {
+        for (var ri = 0; ri < results.length; ri++) {
+          var rr = results[ri];
+          if (!rr) continue;
+          var rv = rr.verdict;
+          var rIsPass = (rv === 'PASS' || rv === 'PASS-WITH-SOFT-SKIP');
+          if (rIsPass) continue;
+          var rkind = rr.verdict_kind;
+          if (rkind !== 'verifier_fail' && rkind !== 'edge_guard_miss') {
+            // Defensive default. Should not happen given _classifyVerdictKind.
+            rkind = 'verifier_fail';
+          }
+          var summary = 'failure-injection scenario ' + (rr.scenario_id || 'unknown')
+            + ' verdict=' + (rv || 'FAIL')
+            + ' kind=' + rkind
+            + ' run_id=' + runId;
+          if (rr.canonical_state_preserved === false) {
+            summary += ' canonical_drift=' + (Array.isArray(rr.canonical_drift)
+              ? rr.canonical_drift.length : 0);
+          }
+          try {
+            _critBacklog.appendRow(livePlanningDir, {
+              kind: rkind,
+              phase: '53',
+              plan: '01',
+              milestone: 'v2.0',
+              summary: summary,
+              evidence_path: '.planning/metrics/failure-injection-log.jsonl',
+              tagged_for_milestone: 'v2.0',
+            });
+            critRowsAppended += 1;
+          } catch (eC) {
+            critRowErrors.push({
+              scenario_id: rr.scenario_id || null,
+              error: (eC && eC.message) ? eC.message : 'unknown',
+            });
+          }
+        }
+      } else {
+        critRowErrors.push({ error: 'crit_backlog_module_unavailable' });
+      }
+    }
+    var passCount = aggregate && typeof aggregate.pass_count === 'number'
+      ? aggregate.pass_count : 0;
+    var verdict = (aggregate && aggregate.verdict) || 'FAIL';
+    var exitCode = (aggregate && typeof aggregate.exit_code === 'number')
+      ? aggregate.exit_code : 1;
+    return {
+      ok: verdict === 'PASS' || verdict === 'PASS-WITH-DEFERRED-1',
+      run_id: runId,
+      verdict: verdict,
+      pass_count: passCount,
+      total: results.length,
+      results: results,
+      scenarios: results,
+      aggregate: aggregate,
+      exit_code: exitCode,
+      cross_run_drift_count: (crossRunCmp && Array.isArray(crossRunCmp.drift))
+        ? crossRunCmp.drift.length : 0,
+      crit_rows_appended: critRowsAppended,
+      crit_row_errors: critRowErrors,
+      source: '_runAllImpl_t6',
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      reason: 'scenario_fail_lock13_violation',
+      run_id: null,
+      pass_count: 0,
+      total: 0,
+      verdict: 'FAIL',
+      exit_code: 1,
+      results: [],
+      error: (e && e.message) ? e.message : 'unknown',
+      source: '_runAllImpl_t6_catch',
+    };
+  }
 }
 
 function _selfTestImpl() {
@@ -3643,6 +3881,219 @@ function _selfTestImpl() {
   check('S10_runs_real_edge_guard_synthetic_gate', e3Ok, e3Detail);
 
   // ---------------------------------------------------------------------
+  // T6 self-tests: F1 (aggregate PASS), F2 (PASS-WITH-DEFERRED-1),
+  // F3 (CANDIDATE-WITH-DEBT), F4 (envelope-v1 row shape).
+  // Synthetic per-scenario result rows; no real subprocess spawns. Lock 11
+  // byte-equality on edge_guard_miss_classified + verdict set-membership.
+  // ---------------------------------------------------------------------
+
+  // F1: aggregate_pass_when_10_of_10. Synthesize 10 PASS results -> verdict
+  // 'PASS', edge_guard_miss_count=0, deferred_count=0, exit_code=0.
+  let f1Ok = false;
+  let f1Detail = '';
+  try {
+    const f1Results = [];
+    for (let f1i = 0; f1i < 10; f1i++) {
+      const f1Sc = SCENARIOS[f1i] || { id: 'sc_' + f1i,
+                                        edge_guard_miss_classified: false };
+      f1Results.push({
+        scenario: f1Sc,
+        scenario_id: f1Sc.id,
+        verdict: 'PASS',
+        verdict_kind: null,
+        canonical_state_preserved: true,
+      });
+    }
+    const f1Agg = _aggregateResultsImpl(f1Results);
+    f1Ok = !!(f1Agg && f1Agg.verdict === 'PASS' &&
+                f1Agg.pass_count === 10 &&
+                f1Agg.total === 10 &&
+                f1Agg.deferred_count === 0 &&
+                f1Agg.edge_guard_miss_count === 0 &&
+                f1Agg.exit_code === 0 &&
+                f1Agg.fail_count === 0);
+    f1Detail = 'verdict=' + (f1Agg && f1Agg.verdict)
+      + ' pass=' + (f1Agg && f1Agg.pass_count)
+      + ' total=' + (f1Agg && f1Agg.total)
+      + ' deferred=' + (f1Agg && f1Agg.deferred_count)
+      + ' edge_miss=' + (f1Agg && f1Agg.edge_guard_miss_count)
+      + ' exit=' + (f1Agg && f1Agg.exit_code);
+  } catch (e) {
+    f1Detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('F1_aggregate_pass_when_10_of_10', f1Ok, f1Detail);
+
+  // F2: aggregate_pass_with_deferred_when_9_of_10_no_edge_miss. 9 PASS
+  // + 1 verifier_fail (S5 not S10; edge_guard_miss_classified=false) ->
+  // verdict 'PASS-WITH-DEFERRED-1', exit_code=0, deferred=1, edge_miss=0.
+  let f2Ok = false;
+  let f2Detail = '';
+  try {
+    const f2Results = [];
+    for (let f2i = 0; f2i < 10; f2i++) {
+      const f2Sc = SCENARIOS[f2i] || { id: 'sc_' + f2i,
+                                        edge_guard_miss_classified: false };
+      // Fail S5 (memory-governance-revocation-replay; edge_guard_miss
+      // classified=false) - not S10. Lock 11: byte-equality on the boolean.
+      if (f2i === 4) {
+        f2Results.push({
+          scenario: f2Sc,
+          scenario_id: f2Sc.id,
+          verdict: 'FAIL',
+          verdict_kind: 'verifier_fail',
+          canonical_state_preserved: true,
+          observed_reason_codes: [],
+        });
+      } else {
+        f2Results.push({
+          scenario: f2Sc,
+          scenario_id: f2Sc.id,
+          verdict: 'PASS',
+          verdict_kind: null,
+          canonical_state_preserved: true,
+        });
+      }
+    }
+    const f2Agg = _aggregateResultsImpl(f2Results);
+    f2Ok = !!(f2Agg && f2Agg.verdict === 'PASS-WITH-DEFERRED-1' &&
+                f2Agg.pass_count === 9 &&
+                f2Agg.total === 10 &&
+                f2Agg.deferred_count === 1 &&
+                f2Agg.edge_guard_miss_count === 0 &&
+                f2Agg.exit_code === 0 &&
+                f2Agg.fail_count === 1);
+    f2Detail = 'verdict=' + (f2Agg && f2Agg.verdict)
+      + ' pass=' + (f2Agg && f2Agg.pass_count)
+      + ' deferred=' + (f2Agg && f2Agg.deferred_count)
+      + ' edge_miss=' + (f2Agg && f2Agg.edge_guard_miss_count)
+      + ' fail=' + (f2Agg && f2Agg.fail_count)
+      + ' exit=' + (f2Agg && f2Agg.exit_code);
+  } catch (e) {
+    f2Detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('F2_aggregate_pass_with_deferred_when_9_of_10_no_edge_miss',
+        f2Ok, f2Detail);
+
+  // F3: aggregate_candidate_with_debt_when_S10_fails. 9 PASS + S10 FAIL
+  // (edge_guard_miss_classified=true) -> verdict 'CANDIDATE-WITH-DEBT',
+  // exit_code=1, edge_guard_miss_count=1. Pitfall 10: must not promote to
+  // PASS-WITH-DEFERRED-1 just because pass_count===9.
+  let f3Ok = false;
+  let f3Detail = '';
+  try {
+    const f3Results = [];
+    for (let f3i = 0; f3i < 10; f3i++) {
+      const f3Sc = SCENARIOS[f3i] || { id: 'sc_' + f3i,
+                                        edge_guard_miss_classified:
+                                          (f3i === 9) };
+      if (f3i === 9) {
+        f3Results.push({
+          scenario: f3Sc,
+          scenario_id: f3Sc.id,
+          verdict: 'FAIL',
+          verdict_kind: 'edge_guard_miss',
+          canonical_state_preserved: true,
+          observed_reason_codes: [],
+        });
+      } else {
+        f3Results.push({
+          scenario: f3Sc,
+          scenario_id: f3Sc.id,
+          verdict: 'PASS',
+          verdict_kind: null,
+          canonical_state_preserved: true,
+        });
+      }
+    }
+    const f3Agg = _aggregateResultsImpl(f3Results);
+    f3Ok = !!(f3Agg && f3Agg.verdict === 'CANDIDATE-WITH-DEBT' &&
+                f3Agg.pass_count === 9 &&
+                f3Agg.total === 10 &&
+                f3Agg.edge_guard_miss_count === 1 &&
+                f3Agg.exit_code === 1 &&
+                f3Agg.fail_count === 1);
+    f3Detail = 'verdict=' + (f3Agg && f3Agg.verdict)
+      + ' pass=' + (f3Agg && f3Agg.pass_count)
+      + ' edge_miss=' + (f3Agg && f3Agg.edge_guard_miss_count)
+      + ' fail=' + (f3Agg && f3Agg.fail_count)
+      + ' exit=' + (f3Agg && f3Agg.exit_code);
+  } catch (e) {
+    f3Detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  }
+  check('F3_aggregate_candidate_with_debt_when_S10_fails', f3Ok, f3Detail);
+
+  // F4: envelope_v1_row_shape. Synthetic appendLogRow call to a tmpdir
+  // (NOT the live workspace .planning) so this self-test stays read-only-
+  // by-shape on the live dir. Verify enriched row has envelope_version=1,
+  // ts (ISO), command='logFailureInjectionScenario', run_id, scenario_id,
+  // and that JSON.parse round-trips.
+  let f4Ok = false;
+  let f4Detail = '';
+  let f4Tmpdir = null;
+  try {
+    f4Tmpdir = fs.mkdtempSync(path.join(os.tmpdir(),
+                                          'sgsd-fail-inj-self-f4-'));
+    const f4PlanningDir = path.join(f4Tmpdir, '.planning');
+    fs.mkdirSync(path.join(f4PlanningDir, 'metrics'), { recursive: true });
+    const f4Row = {
+      run_id: 'failinj-20260428T000000Z-0001',
+      scenario_id: 'token-attribution-poisoned-row',
+      verdict: 'PASS',
+      verdict_kind: null,
+      observed_reason_codes: ['parse_skipped_malformed_row'],
+      canonical_state_preserved: true,
+      tool_invocation: { argv: ['node', '-e', 'x'], exit_code: 0 },
+      inject_applied: true,
+      reason_codes: ['scenario_pass'],
+    };
+    const f4Append = appendLogRow(f4Row, { planningDir: f4PlanningDir });
+    const f4Path = path.join(f4PlanningDir, 'metrics',
+                              'failure-injection-log.jsonl');
+    let f4Parsed = null;
+    let f4LineCount = 0;
+    if (fs.existsSync(f4Path)) {
+      const f4Txt = fs.readFileSync(f4Path, 'utf8');
+      const f4Lines = f4Txt.split(/\r?\n/).filter(Boolean);
+      f4LineCount = f4Lines.length;
+      if (f4Lines.length > 0) f4Parsed = JSON.parse(f4Lines[0]);
+    }
+    const tsIsIso = !!(f4Parsed && typeof f4Parsed.ts === 'string' &&
+      /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}/.test(f4Parsed.ts));
+    f4Ok = !!(f4Append && f4Append.ok === true &&
+                f4Append.written === true &&
+                f4LineCount === 1 &&
+                f4Parsed &&
+                f4Parsed.envelope_version === 1 &&
+                tsIsIso &&
+                f4Parsed.command === 'logFailureInjectionScenario' &&
+                f4Parsed.run_id === f4Row.run_id &&
+                f4Parsed.scenario_id === f4Row.scenario_id &&
+                f4Parsed.tool_name === 'failure-injection-harness' &&
+                f4Parsed.schema_version === 1 &&
+                f4Parsed.phase === '53' &&
+                f4Parsed.milestone === 'v2.0' &&
+                f4Parsed.verdict === 'PASS' &&
+                f4Parsed.verdict_kind === null &&
+                Array.isArray(f4Parsed.observed_reason_codes) &&
+                f4Parsed.observed_reason_codes[0]
+                  === 'parse_skipped_malformed_row');
+    f4Detail = 'written=' + (f4Append && f4Append.written)
+      + ' line_count=' + f4LineCount
+      + ' env_v=' + (f4Parsed && f4Parsed.envelope_version)
+      + ' command=' + (f4Parsed && f4Parsed.command)
+      + ' ts_iso=' + tsIsIso
+      + ' run_id_match=' + (f4Parsed && f4Parsed.run_id === f4Row.run_id)
+      + ' sid_match=' + (f4Parsed && f4Parsed.scenario_id === f4Row.scenario_id);
+  } catch (e) {
+    f4Detail = 'threw: ' + (e && e.message ? e.message : 'unknown');
+  } finally {
+    try {
+      if (f4Tmpdir) fs.rmSync(f4Tmpdir, { recursive: true, force: true });
+    } catch (_eC) {}
+  }
+  check('F4_envelope_v1_row_shape', f4Ok, f4Detail);
+
+  // ---------------------------------------------------------------------
   // Render + return.
   // ---------------------------------------------------------------------
   const passCount = results.filter(function (r) { return r.ok; }).length;
@@ -3659,28 +4110,86 @@ function _selfTestImpl() {
 }
 
 function _aggregateResultsImpl(rs) {
-  // T6: full verdict tree per RESEARCH sec 2.3 (line 211-217). T1 stub
-  // returns an empty-clean shape so wiring callers can read the contract.
-  // TODO(T6): the empty-results path below currently returns 'PASS' when
-  // total===0 only because nothing has FAILed; the post-T6 contract is
-  // PLAN line 619-626's full tree (pass===10 -> PASS; ===9+verifier_fail
-  // -> PASS-WITH-DEFERRED-1; any edge_guard_miss -> CANDIDATE-WITH-DEBT;
-  // else FAIL). T6 will replace this entire body with the decision tree
-  // above; the cosmetic empty-input verdict here is INFO-only at T1.
-  const total = rs.length;
-  const passes = rs.filter(function (r) { return r && r.verdict === 'PASS'; });
-  const edgeMisses = rs.filter(function (r) {
-    return r && r.verdict_kind === 'edge_guard_miss';
-  });
+  // T6: full verdict tree per PLAN line 619-626 + Pitfall 10. Walks
+  // per-scenario rows and emits the run-level summary. Lock 11: byte-equality
+  // on edge_guard_miss_classified (boolean) + verdict string set-membership.
+  //
+  //   pass_count = scenarios with verdict in {'PASS','PASS-WITH-SOFT-SKIP'}
+  //   edge_guard_miss_count = scenarios with edge_guard_miss_classified===true
+  //                            AND NOT in pass set (i.e., S10 failed)
+  //   failed_with_real_drift = scenarios with canonical_state_preserved===false
+  //
+  // Decision tree (Pitfall 10: any edge_guard_miss -> CANDIDATE-WITH-DEBT,
+  // regardless of pass_count; never promote to PASS-WITH-DEFERRED-N just
+  // because pass_count===9):
+  //   if edge_guard_miss_count > 0  -> CANDIDATE-WITH-DEBT, exit 1
+  //   elif pass_count === total     -> PASS, exit 0
+  //   elif pass_count === total - 1 -> PASS-WITH-DEFERRED-1, exit 0
+  //   else                          -> FAIL, exit 1
+  var total = rs.length;
+  var passCount = 0;
+  var edgeMissCount = 0;
+  var failedWithDrift = 0;
+  var verdictKindSummary = {
+    null_count: 0,
+    verifier_fail: 0,
+    edge_guard_miss: 0,
+  };
+  for (var i = 0; i < rs.length; i++) {
+    var r = rs[i];
+    if (!r) continue;
+    var v = r.verdict;
+    var isPass = (v === 'PASS' || v === 'PASS-WITH-SOFT-SKIP');
+    if (isPass) passCount += 1;
+    // Edge-guard-miss is a property of the scenario manifest entry combined
+    // with a non-pass verdict on that scenario.
+    var sc = r.scenario || null;
+    var classifiedEdgeGuard = !!(sc && sc.edge_guard_miss_classified === true);
+    if (!isPass && classifiedEdgeGuard) edgeMissCount += 1;
+    if (r.canonical_state_preserved === false) failedWithDrift += 1;
+    if (r.verdict_kind === null || typeof r.verdict_kind === 'undefined') {
+      verdictKindSummary.null_count += 1;
+    } else if (r.verdict_kind === 'verifier_fail') {
+      verdictKindSummary.verifier_fail += 1;
+    } else if (r.verdict_kind === 'edge_guard_miss') {
+      verdictKindSummary.edge_guard_miss += 1;
+    }
+  }
+  var verdict;
+  var exitCode;
+  var deferredCount = 0;
+  var failCount = total - passCount;
+  // Pitfall 10 priority: edge_guard_miss > everything.
+  if (edgeMissCount > 0) {
+    verdict = 'CANDIDATE-WITH-DEBT';
+    exitCode = 1;
+    deferredCount = failCount;
+  } else if (passCount === total) {
+    verdict = 'PASS';
+    exitCode = 0;
+    deferredCount = 0;
+  } else if (passCount === total - 1) {
+    verdict = 'PASS-WITH-DEFERRED-1';
+    exitCode = 0;
+    deferredCount = 1;
+  } else {
+    verdict = 'FAIL';
+    exitCode = 1;
+    deferredCount = failCount;
+  }
   return {
-    ok: true,
-    stub: true,
-    pass: passes.length,
+    ok: verdict === 'PASS' || verdict === 'PASS-WITH-DEFERRED-1',
+    pass: passCount,
+    pass_count: passCount,
     total: total,
-    verdict: total === 0 ? 'PASS' : 'FAIL',
-    deferred_count: 0,
-    edge_guard_miss_count: edgeMisses.length,
-    source: '_aggregateResultsImpl_t1_stub',
+    verdict: verdict,
+    exit_code: exitCode,
+    deferred_count: deferredCount,
+    fail_count: failCount,
+    edge_guard_miss_count: edgeMissCount,
+    failed_with_real_drift: failedWithDrift,
+    verdict_kind_summary: verdictKindSummary,
+    source: '_aggregateResultsImpl_t6',
   };
 }
 
@@ -3798,20 +4307,187 @@ function _teardownContainerImpl(opts) {
 }
 
 function _appendLogRowImpl(row, opts) {
-  // T6: fs.appendFileSync to .planning/metrics/failure-injection-log.jsonl
-  // with envelope-v1 conformance. T1 stub: no FS writes (Lock 4 skeleton
-  // is read-only-by-shape).
+  // T6: envelope-v1 wrap + fs.appendFileSync to
+  // .planning/metrics/failure-injection-log.jsonl. additionalProperties:true
+  // (envelope-v1 base + 8 extension fields per Section 5.1; caller supplies
+  // scenario/result-specific fields via `row`). Lock 13: never throws upward;
+  // FS errors swallowed silently and surfaced via { ok:false, written:false }.
+  try {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) {
+      return {
+        ok: false,
+        written: false,
+        reason: 'row_must_be_object',
+        source: '_appendLogRowImpl_input_guard',
+      };
+    }
+    var planningDir = (opts && typeof opts.planningDir === 'string')
+      ? opts.planningDir
+      : path.join(_liveProjectRootDir(), '.planning');
+    var metricsDir = path.join(planningDir, 'metrics');
+    var jsonlPath = path.join(metricsDir, 'failure-injection-log.jsonl');
+    // Ensure metrics dir exists. recursive:true is idempotent.
+    try {
+      if (!fs.existsSync(metricsDir)) {
+        fs.mkdirSync(metricsDir, { recursive: true });
+      }
+    } catch (_eM) {
+      // mkdir failure surfaces as written:false; never throw.
+      return {
+        ok: false,
+        written: false,
+        reason: 'mkdir_failed',
+        source: '_appendLogRowImpl_mkdir_err',
+      };
+    }
+    // Envelope-v1 base fields (per Section 5.1). The caller-supplied row
+    // keys override base defaults so the per-scenario tool_invocation,
+    // verdict, observed_reason_codes etc. flow through. additionalProperties:
+    // true means we keep all caller fields verbatim.
+    var nowIso = new Date().toISOString();
+    var enriched = {
+      envelope_version: 1,
+      ts: row.ts || nowIso,
+      command: row.command || 'logFailureInjectionScenario',
+      schema_version: row.schema_version || 1,
+      tool_name: row.tool_name || 'failure-injection-harness',
+      status: row.status || null,
+      reason_codes: Array.isArray(row.reason_codes) ? row.reason_codes : [],
+      artifacts: Array.isArray(row.artifacts) ? row.artifacts : [],
+      evidence: Array.isArray(row.evidence) ? row.evidence : [],
+      next_action: ('next_action' in row) ? row.next_action : null,
+      risk: ('risk' in row) ? row.risk : null,
+      duration_ms: ('duration_ms' in row) ? row.duration_ms : null,
+      run_id: row.run_id || null,
+      phase: row.phase || '53',
+      milestone: row.milestone || 'v2.0',
+      // 8 extension fields (envelope-v1 additionalProperties:true):
+      scenario_id: ('scenario_id' in row) ? row.scenario_id : null,
+      tool_invocation: ('tool_invocation' in row) ? row.tool_invocation : null,
+      inject_applied: ('inject_applied' in row) ? row.inject_applied : null,
+      observed_reason_codes: Array.isArray(row.observed_reason_codes)
+        ? row.observed_reason_codes : [],
+      canonical_state_preserved: ('canonical_state_preserved' in row)
+        ? row.canonical_state_preserved : null,
+      canonical_drift: Array.isArray(row.canonical_drift)
+        ? row.canonical_drift : [],
+      verdict: ('verdict' in row) ? row.verdict : null,
+      verdict_kind: ('verdict_kind' in row) ? row.verdict_kind : null,
+    };
+    // additionalProperties:true - copy any extension keys the caller passed
+    // that we did not already include in enriched.
+    var rowKeys = Object.keys(row);
+    for (var ki = 0; ki < rowKeys.length; ki++) {
+      var k = rowKeys[ki];
+      if (!Object.prototype.hasOwnProperty.call(enriched, k)) {
+        enriched[k] = row[k];
+      }
+    }
+    var line = JSON.stringify(enriched) + '\n';
+    try {
+      fs.appendFileSync(jsonlPath, line, 'utf8');
+    } catch (_eW) {
+      return {
+        ok: false,
+        written: false,
+        reason: 'append_failed',
+        source: '_appendLogRowImpl_append_err',
+      };
+    }
+    return {
+      ok: true,
+      written: true,
+      jsonl_path: jsonlPath,
+      bytes_written: Buffer.byteLength(line, 'utf8'),
+      source: '_appendLogRowImpl_t6',
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      written: false,
+      reason: 'gate_internal_error',
+      error: (e && e.message) ? e.message : 'unknown',
+      source: '_appendLogRowImpl_catch',
+    };
+  }
+}
+
+// _classifyVerdictKind: derives the 3-value enum (null | 'verifier_fail' |
+// 'edge_guard_miss') for a per-scenario result row per PLAN lines 628-631.
+// Pure boolean + set-membership; deterministic; no fuzzy matching.
+//   - if scenarioResult.verdict in {'PASS','PASS-WITH-SOFT-SKIP'}: null
+//   - elif scenario.edge_guard_miss_classified === true: 'edge_guard_miss'
+//   - else: 'verifier_fail'
+function _classifyVerdictKind(scenario, scenarioResult) {
+  try {
+    if (!scenarioResult || typeof scenarioResult !== 'object') {
+      return 'verifier_fail';
+    }
+    var v = scenarioResult.verdict;
+    if (v === 'PASS' || v === 'PASS-WITH-SOFT-SKIP') return null;
+    if (scenario && scenario.edge_guard_miss_classified === true) {
+      return 'edge_guard_miss';
+    }
+    return 'verifier_fail';
+  } catch (_e) {
+    return 'verifier_fail';
+  }
+}
+
+// _buildEnvelopeRow: construct the envelope-v1 row body from a per-scenario
+// result. The caller passes through to _appendLogRowImpl which enriches with
+// the envelope-v1 base fields. Returns a plain object with the 8 extension
+// fields populated + the closed-vocab reason_codes and the run_id. PLAN
+// line 642.
+function _buildEnvelopeRow(runId, scenario, result, tmpdir) {
+  var sid = (scenario && scenario.id) || (result && result.scenario_id) || null;
+  var verdict = (result && result.verdict) || null;
+  var verdictKind = _classifyVerdictKind(scenario, result);
+  // Status: 'ok' iff verdict in pass set; 'fail' otherwise. envelope-v1
+  // canonical 2-value enum.
+  var isPass = (verdict === 'PASS' || verdict === 'PASS-WITH-SOFT-SKIP');
+  var status = isPass ? 'ok' : 'fail';
+  // Aggregate-side reason_codes for the envelope itself (closed-vocab subset
+  // of FAIL_INJ_REASON_CODES). Per-scenario observed_reason_codes (from the
+  // target tool) ride in the extension field.
+  var envelopeReasonCodes = [];
+  if (verdict === 'PASS') envelopeReasonCodes.push('scenario_pass');
+  else if (verdict === 'PASS-WITH-SOFT-SKIP') {
+    envelopeReasonCodes.push('scenario_pass_soft_skip');
+  } else if (result && result.canonical_state_preserved === false) {
+    envelopeReasonCodes.push('scenario_fail_canonical_drift');
+  } else if (verdictKind === 'edge_guard_miss') {
+    envelopeReasonCodes.push('scenario_fail_structural_edge_guard_miss');
+  } else if (result && result.reason === 'scenario_fail_timeout') {
+    envelopeReasonCodes.push('scenario_fail_timeout');
+  } else if (result && result.reason === 'scenario_fail_lock13_violation') {
+    envelopeReasonCodes.push('scenario_fail_lock13_violation');
+  } else {
+    envelopeReasonCodes.push('scenario_fail_reason_code_missing');
+  }
   return {
-    ok: true,
-    stub: true,
-    written: false,
-    rowKeys: row && typeof row === 'object'
-      ? Object.keys(row)
+    run_id: runId,
+    scenario_id: sid,
+    status: status,
+    reason_codes: envelopeReasonCodes,
+    duration_ms: (result && result.tool_invocation
+                   && typeof result.tool_invocation.duration_ms === 'number')
+      ? result.tool_invocation.duration_ms
+      : null,
+    tool_invocation: (result && result.tool_invocation) || null,
+    inject_applied: !!(result && result.applied),
+    observed_reason_codes: Array.isArray(result && result.observed_reason_codes)
+      ? result.observed_reason_codes
       : [],
-    optsSeen: opts && typeof opts === 'object'
-      ? Object.keys(opts)
+    canonical_state_preserved: (result && 'canonical_state_preserved' in result)
+      ? result.canonical_state_preserved
+      : null,
+    canonical_drift: Array.isArray(result && result.canonical_drift)
+      ? result.canonical_drift
       : [],
-    source: '_appendLogRowImpl_t1_stub',
+    verdict: verdict,
+    verdict_kind: verdictKind,
+    tmpdir: tmpdir || null,
   };
 }
 
@@ -4011,14 +4687,36 @@ function _main(argv) {
       return;
     }
     if (args.indexOf('--run-all') !== -1) {
-      // T6 wires the real driver. T1 stub: emit a typed warning + exit
-      // non-zero so an accidental milestone-close gate run does not
-      // silently advance.
-      process.stderr.write(
-        '[failure-injection harness] --run-all is not wired at T1; ' +
-        'returns scenario_fail_lock13_violation sentinel until T6.\n'
+      // T6: real driver. Iterate all 10 scenarios, write envelope-v1 rows
+      // to .planning/metrics/failure-injection-log.jsonl, aggregate verdict,
+      // append CRIT-BACKLOG rows on FAIL/CANDIDATE-WITH-DEBT.
+      var runRes = runAll({});
+      var rsResults = (runRes && Array.isArray(runRes.results))
+        ? runRes.results : [];
+      for (var i = 0; i < rsResults.length; i++) {
+        var rr = rsResults[i];
+        var tag = (rr && (rr.verdict === 'PASS'
+                            || rr.verdict === 'PASS-WITH-SOFT-SKIP'))
+          ? 'PASS' : 'FAIL';
+        process.stdout.write(
+          '[' + tag + '] ' + (rr && rr.scenario_id) + ' verdict='
+          + (rr && rr.verdict) + ' kind='
+          + (rr && rr.verdict_kind) + ' observed='
+          + JSON.stringify(rr && rr.observed_reason_codes) + '\n'
+        );
+      }
+      process.stdout.write(
+        'run-all: pass=' + (runRes && runRes.pass_count) + '/'
+        + (runRes && runRes.total)
+        + ' verdict=' + (runRes && runRes.verdict)
+        + ' run_id=' + (runRes && runRes.run_id)
+        + ' crit_rows_appended=' + (runRes && runRes.crit_rows_appended)
+        + ' cross_run_drift=' + (runRes && runRes.cross_run_drift_count)
+        + '\n'
       );
-      process.exit(1);
+      var exitCode = (runRes && typeof runRes.exit_code === 'number')
+        ? runRes.exit_code : 1;
+      process.exit(exitCode);
       return;
     }
     // Unknown flag.
