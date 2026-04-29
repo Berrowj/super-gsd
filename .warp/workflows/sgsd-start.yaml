@@ -1,0 +1,11 @@
+name: "SGSD: Start"
+description: Boot the SGSD cockpit in a separate window and greet Claude in the current Warp tab.
+command: 'sg -ProjectDir "{{project_dir}}"'
+tags:
+  - sgsd
+  - claude
+  - cockpit
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'

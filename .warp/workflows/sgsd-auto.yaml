@@ -1,0 +1,11 @@
+name: "SGSD: Auto Mode"
+description: Boot the cockpit and send go to Claude for the autonomous SGSD loop.
+command: 'sg -Go -ProjectDir "{{project_dir}}"'
+tags:
+  - sgsd
+  - auto
+  - claude
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'

@@ -169,6 +169,52 @@ instead of silently dropping back to a plain PowerShell prompt.
 
 ---
 
+## Using SGSD In Warp
+
+Warp is a good shell for SGSD because `sg` keeps Claude Code in the current
+terminal while opening the cockpit separately.
+
+Recommended Warp flow:
+
+```powershell
+cd C:\Users\jack.berrow\GSDedits
+sg
+```
+
+You do not need to boot Claude first. Type `sg` inside Warp and let SGSD start
+Claude in that same tab.
+
+This repository also ships Warp workflow files in:
+
+```text
+.warp/workflows/
+```
+
+Available workflows:
+
+| Workflow | What It Runs |
+|---|---|
+| `SGSD: Start` | `sg -ProjectDir "{{project_dir}}"` |
+| `SGSD: Auto Mode` | `sg -Go -ProjectDir "{{project_dir}}"` |
+| `SGSD: Cockpit Only` | `sgsd -ProjectDir "{{project_dir}}"` |
+| `SGSD: Token Summary` | Current token attribution summary |
+| `SGSD: Full Preflight` | `sg -FullPreflight -ProjectDir "{{project_dir}}"` |
+
+If Warp cannot find `sg`, reload your PowerShell profile in that Warp tab:
+
+```powershell
+. $PROFILE
+Get-Command sg
+```
+
+If Warp starts a different shell profile from your normal PowerShell, rerun:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\super-gsd\scripts\Install-SgsdShortcut.ps1 -Force
+```
+
+---
+
 ## Knowledge Setup
 
 Run:

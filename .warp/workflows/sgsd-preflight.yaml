@@ -1,0 +1,11 @@
+name: "SGSD: Full Preflight"
+description: Run the full SGSD preflight before opening cockpit and greeting Claude.
+command: 'sg -FullPreflight -ProjectDir "{{project_dir}}"'
+tags:
+  - sgsd
+  - preflight
+  - startup
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'

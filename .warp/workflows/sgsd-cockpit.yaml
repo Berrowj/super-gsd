@@ -1,0 +1,11 @@
+name: "SGSD: Cockpit Only"
+description: Open SGSD mission control, narrative, and Codex/gate dashboard panes without starting Claude.
+command: 'sgsd -ProjectDir "{{project_dir}}"'
+tags:
+  - sgsd
+  - cockpit
+  - dashboard
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'

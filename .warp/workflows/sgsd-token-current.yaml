@@ -1,0 +1,7 @@
+name: "SGSD: Token Summary"
+description: Refresh token attribution and print the current milestone/phase token summary.
+command: node super-gsd/tools/token-attribution/collect.cjs --write --all --agent-spend --summary --current
+tags:
+  - sgsd
+  - tokens
+  - metrics
