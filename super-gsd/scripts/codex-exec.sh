@@ -52,6 +52,14 @@ PLAN_TAG=""
 STEP_TAG=""
 RETRY_ON_TIMEOUT_ESCALATE=false
 SELF_TEST_EXIT_PRIORITY=false
+# Phase 55-01: provider-circuit milestone tag. Optional. When unset OR set to
+# the literal string "none", the circuit-breaker pre-check is a no-op (legacy
+# Phase 14-54 byte-equivalent path). When set, codex-exec consults
+# provider-circuit.cjs.shouldFallback({milestone, provider:"codex"}) BEFORE
+# invoking the codex CLI; if fallback_active, exit 7 (provider_fallback_active)
+# so the caller can route to Claude. After every codex invocation, the result
+# is recorded via provider-circuit.cjs.recordProviderResult.
+MILESTONE_TAG=""
 
 json_escape() {
     printf '%s' "${1:-}" | awk '
@@ -79,6 +87,7 @@ while [[ $# -gt 0 ]]; do
         --plan)        PLAN_TAG="$2"; shift 2 ;;
         --step)         STEP_TAG="$2"; shift 2 ;;
         --timeout-tier) TIMEOUT_TIER="$2"; shift 2 ;;
+        --milestone)    MILESTONE_TAG="$2"; shift 2 ;;
         --self-test)    SELF_TEST=true;    shift ;;
         --skip-network) SKIP_NETWORK=true; shift ;;
         --retry-on-timeout-escalate)    RETRY_ON_TIMEOUT_ESCALATE=true;  shift ;;
@@ -498,6 +507,84 @@ if [[ "$DRY_RUN" == true ]]; then
     exit 0
 fi
 
+# ── Phase 55-01: Provider Circuit Breaker pre-check ─────────────────────────
+# When --milestone is set (and not "none"), consult provider-circuit.cjs.
+# shouldFallback({milestone, provider:"codex"}) BEFORE invoking the codex CLI.
+# If the circuit is open (fallback_active=true), exit 7 immediately so the
+# caller can route to Claude. Lock 13: any error in the probe is degraded to
+# "no fallback" -- we never block a codex invocation because the probe broke.
+# Lock 4: when --milestone is unset OR equals "none", this block is a no-op
+# (preserves Phase 14-54 byte-equivalent invocation path).
+provider_circuit_should_fallback() {
+    local milestone="$1"
+    if [[ -z "$milestone" || "$milestone" == "none" ]]; then
+        echo "false"
+        return 0
+    fi
+    if ! command -v node >/dev/null 2>&1; then
+        echo "false"
+        return 0
+    fi
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null || echo "")"
+    if [[ -z "$script_dir" || ! -f "$script_dir/lib/provider-circuit.cjs" ]]; then
+        echo "false"
+        return 0
+    fi
+    local result
+    result="$(SGSD_CIRCUIT_PROBE_MILESTONE="$milestone" node -e '
+        try {
+            var pc = require(process.argv[1]);
+            var r = pc.shouldFallback({
+                milestone: process.env.SGSD_CIRCUIT_PROBE_MILESTONE,
+                provider: "codex",
+            });
+            process.stdout.write(r && r.fallback_active === true ? "true" : "false");
+        } catch (e) {
+            process.stdout.write("false");
+        }
+    ' "$script_dir/lib/provider-circuit.cjs" 2>/dev/null || echo "false")"
+    echo "$result"
+}
+
+provider_circuit_record_result() {
+    # $1 = milestone, $2 = "true" for ok, "false" for failure
+    local milestone="$1"
+    local ok_flag="$2"
+    if [[ -z "$milestone" || "$milestone" == "none" ]]; then
+        return 0
+    fi
+    if ! command -v node >/dev/null 2>&1; then
+        return 0
+    fi
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null || echo "")"
+    if [[ -z "$script_dir" || ! -f "$script_dir/lib/provider-circuit.cjs" ]]; then
+        return 0
+    fi
+    SGSD_CIRCUIT_REC_MILESTONE="$milestone" \
+    SGSD_CIRCUIT_REC_OK="$ok_flag" \
+    node -e '
+        try {
+            var pc = require(process.argv[1]);
+            pc.recordProviderResult({
+                milestone: process.env.SGSD_CIRCUIT_REC_MILESTONE,
+                provider: "codex",
+                ok: process.env.SGSD_CIRCUIT_REC_OK === "true",
+            });
+        } catch (e) { /* Lock 13: never throw upward */ }
+    ' "$script_dir/lib/provider-circuit.cjs" >/dev/null 2>&1 || true
+}
+
+if [[ -n "$MILESTONE_TAG" && "$MILESTONE_TAG" != "none" ]]; then
+    PCIRCUIT_PRECHECK="$(provider_circuit_should_fallback "$MILESTONE_TAG")"
+    if [[ "$PCIRCUIT_PRECHECK" == "true" ]]; then
+        echo "codex-exec: provider_fallback_active milestone=$MILESTONE_TAG provider=codex" >&2
+        echo "codex-exec: circuit breaker open -- caller should route to Claude reviewer" >&2
+        exit 7
+    fi
+fi
+
 # ── Real invocation ─────────────────────────────────────────────────────────
 TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 START_MS="$(date +%s%3N 2>/dev/null || echo 0)"
@@ -650,6 +737,8 @@ if [[ $RC -eq 124 ]]; then
             >> "$OBS_LOG" 2>/dev/null || true
     fi
     echo "codex-exec: timeout after ${TIMEOUT}s" >&2
+    # Phase 55-01: record failure into provider-circuit (Lock 13 internal).
+    provider_circuit_record_result "$MILESTONE_TAG" "false"
     exit 5
 fi
 
@@ -661,6 +750,8 @@ if [[ $RC -ne 0 ]]; then
         append_narrative_event "codex_fallback" "auth-denied step=$STEP_TAG" "lastfail"
         echo "codex-exec: auth-denied (codex stderr matched auth/401/unauthorized)" >&2
         head -c 200 "$STDERR_TMP" >&2 ; echo >&2
+        # Phase 55-01: auth-denied is a provider failure; record it.
+        provider_circuit_record_result "$MILESTONE_TAG" "false"
         exit 4
     fi
     write_live_state "error" 1 "false" 0
@@ -668,6 +759,8 @@ if [[ $RC -ne 0 ]]; then
     append_narrative_event "codex_fallback" "error exit=$RC step=$STEP_TAG" "lastfail"
     echo "codex-exec: codex exit=$RC (generic failure)" >&2
     head -c 200 "$STDERR_TMP" >&2 ; echo >&2
+    # Phase 55-01: generic provider failure; record it.
+    provider_circuit_record_result "$MILESTONE_TAG" "false"
     exit 1
 fi
 
@@ -705,6 +798,8 @@ if [[ $awk_rc -ne 0 || -z "$parsed" ]]; then
     append_jsonl 6 "false" 0
     append_narrative_event "codex_fallback" "parse_failure step=$STEP_TAG" "lastfail"
     echo "codex-exec: report contract violation — one or more of FINDINGS/CRITICAL/WARNINGS/PASS_RATE/ONE_LINER missing from codex stdout" >&2
+    # Phase 55-01: contract-violation is a provider failure; record it.
+    provider_circuit_record_result "$MILESTONE_TAG" "false"
     exit 6
 fi
 
@@ -721,4 +816,6 @@ append_jsonl 0 "false" "$REPORT_BYTES"
 append_narrative_event "codex_completed" "ok step=$STEP_TAG dur=${DURATION_MS}ms bytes=$REPORT_BYTES" "latest"
 
 echo "codex-exec: OK — $REPORT_OUT written (${REPORT_BYTES}B), codex took ${DURATION_MS}ms"
+# Phase 55-01: success closes the circuit (resets consecutive_failures to 0).
+provider_circuit_record_result "$MILESTONE_TAG" "true"
 exit 0
