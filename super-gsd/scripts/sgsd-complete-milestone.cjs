@@ -3,10 +3,14 @@
 // super-gsd/scripts/sgsd-complete-milestone.cjs
 // Phase 51-01-T7: v1.9 milestone-close pre-flight gate (context-bench).
 // Phase 52-01-T7: extended with redis-adapter self-test (dual-gate v1.9).
+// Phase 53-01-T7: extended with failure-injection self-test + --run-all
+//                 (triple-gate v2.0; v1.9 dual-gate path preserved
+//                 byte-untouched).
 //
 // Invoked by super-gsd/skills/sgsd-complete-milestone/SKILL.md Step 0
 // precondition list. Operator-runnable directly:
 //   node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone v1.9
+//   node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone v2.0
 //
 // CONTRACT
 //   --milestone v1.9 -> dual gate. Step 1 require harness.cjs and call
@@ -15,15 +19,25 @@
 //                       (Phase 52). BOTH must pass. Propagate the exit
 //                       code (0 = green = milestone close may proceed;
 //                       1 = fail = milestone close MUST abort).
+//   --milestone v2.0 -> triple gate. Step 1 Phase 51 context-bench
+//                       self-test (33/33). Step 2 Phase 52 redis-adapter
+//                       self-test (26/26). Step 3 Phase 53 failure-
+//                       injection self-test (24/24). Step 4 Phase 53
+//                       --run-all (10/10 scenarios end-to-end). All four
+//                       spawns must exit 0 for the gate to exit 0.
 //   --milestone <other> -> exit 0 no-op (future milestones add their own
 //                          gates here without touching the SKILL.md).
 //
 // ORDERING
-//   Phase 51 context-bench runs FIRST. If it fails, we exit 1 immediately
-//   (the redis check is skipped - keeps stderr signal clean and avoids
-//   spurious projection-log rows when the prior gate already blocked).
-//   Only when context-bench passes do we run redis-adapter.selfTest(); only
-//   when BOTH pass does the gate exit 0.
+//   v1.9: context-bench FIRST (fail-fast); only when it passes do we run
+//   redis-adapter; only when BOTH pass does the gate exit 0.
+//   v2.0: context-bench FIRST, then redis-adapter, then failure-injection
+//   --self-test (24/24), then failure-injection --run-all (10/10). Stop
+//   at the first failure; never run a later gate if an earlier one is red.
+//   Fail-fast preserves stderr signal clarity (one tag per real failure)
+//   and avoids spurious envelope-v1 rows being appended to
+//   .planning/metrics/failure-injection-log.jsonl when an upstream gate
+//   already blocked the milestone close.
 //
 // LOCK 13 (never throws upward)
 //   - require('harness.cjs') is wrapped in try/catch. Import failure
@@ -43,6 +57,19 @@
 //   - redis-adapter.selfTest() exit !== 0 writes stderr
 //     `milestone_close_blocked:redis_adapter_self_test_failed` and
 //     exits 1.
+//   - require('failure-injection/harness.cjs') is wrapped in try/catch.
+//     Import failure writes stderr
+//     `milestone_close_blocked:failure_injection_unavailable` and exits 1.
+//     We never silently exit 0 on failure-injection import failure -- the
+//     Phase 53 worst-case mirrors Phase 51 and 52: a v2.0 milestone close
+//     that advanced without the harness actually running would be the
+//     unrecoverable failure mode the gate exists to prevent.
+//   - failure-injection harness.cjs --self-test (spawnSync) exit !== 0
+//     writes stderr `milestone_close_blocked:failure_injection_self_test_failed`
+//     and exits 1.
+//   - failure-injection harness.cjs --run-all (spawnSync) exit !== 0
+//     writes stderr `milestone_close_blocked:failure_injection_run_all_failed`
+//     and exits 1.
 //   - Any other unexpected throw is caught by the outer try/catch and
 //     surfaces as a stderr error tag + exit 1; never throws upward.
 //
@@ -98,19 +125,22 @@ function _main(argv) {
       return;
     }
 
-    // Future-proof: only v1.9 is gated by the context-bench right now.
+    // Future-proof: v1.9 (dual-gate) and v2.0 (triple-gate) are wired.
     // Other milestones get their own gates added here as they need them;
     // until then this script is a deterministic no-op for them so the
     // SKILL.md call is harmless.
-    if (milestone !== 'v1.9') {
+    if (milestone !== 'v1.9' && milestone !== 'v2.0') {
       process.stdout.write('milestone_close_gate: no-op for milestone '
-        + milestone + ' (only v1.9 is gated by context-bench)\n');
+        + milestone + ' (only v1.9 dual-gate and v2.0 triple-gate are wired)\n');
       process.exit(0);
       return;
     }
 
-    // v1.9 path: require + selfTest + propagate exit code. Lock 13:
-    // every step is wrapped so this script NEVER throws upward.
+    // Both v1.9 and v2.0 share Phase 51 (context-bench) + Phase 52
+    // (redis-adapter) gates. v2.0 additionally chains Phase 53. The
+    // shared section runs first; the v2.0-only triple-gate extension
+    // runs after the shared dual-gate is green. Lock 13: every step is
+    // wrapped so this script NEVER throws upward.
     let harness = null;
     try {
       harness = require('../tools/context-bench/harness.cjs');
@@ -218,8 +248,137 @@ function _main(argv) {
       return;
     }
 
-    process.stdout.write('milestone_close_gate: v1.9 redis-adapter self-test green\n');
-    process.stdout.write('milestone_close_gate: v1.9 dual-gate (context-bench + redis-adapter) green\n');
+    process.stdout.write('milestone_close_gate: ' + milestone
+      + ' redis-adapter self-test green\n');
+
+    if (milestone === 'v1.9') {
+      process.stdout.write('milestone_close_gate: v1.9 dual-gate '
+        + '(context-bench + redis-adapter) green\n');
+      process.exit(0);
+      return;
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase 53-01-T7: v2.0 triple-gate extension. Only reached when
+    // milestone === 'v2.0' AND the shared dual-gate (Phase 51 + Phase 52)
+    // already passed. Two additional spawnSync invocations:
+    //   3. node super-gsd/tools/failure-injection/harness.cjs --self-test
+    //      (24/24 PASS expected; sub-60s; READ-ONLY).
+    //   4. node super-gsd/tools/failure-injection/harness.cjs --run-all
+    //      (10/10 PASS expected; appends one envelope-v1 row per scenario
+    //      to .planning/metrics/failure-injection-log.jsonl as the
+    //      witness of the live-tool exercise).
+    // Both must exit 0 for the v2.0 gate to exit 0. Lock 13: try/catch
+    // on the require import (precondition only - we never call selfTest
+    // through the in-proc API; we use spawnSync to mirror the operator-
+    // facing entry and to keep the gate's exit-code path consistent
+    // across all four spawns) AND on each spawnSync; never throw upward.
+    // Pitfall mirror of Phase 52: avoid in-proc require of harness.cjs
+    // running scenarios in the parent's process (would risk pollution of
+    // canonical streams via the Phase 53 _setupContainer fingerprint
+    // probe paths). spawnSync is the gate's contract.
+    // -----------------------------------------------------------------------
+
+    let failureInjectionHarness = null;
+    try {
+      failureInjectionHarness = require(
+        '../tools/failure-injection/harness.cjs');
+    } catch (e) {
+      process.stderr.write('milestone_close_blocked:failure_injection_unavailable\n');
+      process.stderr.write('  reason=failure_injection_require_failed message='
+        + (e && e.message ? e.message : 'unknown') + '\n');
+      process.exit(1);
+      return;
+    }
+
+    if (!failureInjectionHarness ||
+        typeof failureInjectionHarness.selfTest !== 'function' ||
+        typeof failureInjectionHarness.runAll !== 'function') {
+      process.stderr.write('milestone_close_blocked:failure_injection_unavailable\n');
+      process.stderr.write('  reason=failure_injection_api_export_missing\n');
+      process.exit(1);
+      return;
+    }
+
+    // Step 3: failure-injection --self-test (24/24).
+    let fiSelfOut = null;
+    try {
+      const child_process2 = require('child_process');
+      const path2 = require('path');
+      const fiHarnessPath = path2.join(__dirname, '..', 'tools',
+                                        'failure-injection', 'harness.cjs');
+      const r3 = child_process2.spawnSync(
+        process.execPath,
+        [fiHarnessPath, '--self-test'],
+        { stdio: 'inherit' }
+      );
+      if (r3.error) {
+        process.stderr.write('milestone_close_blocked:failure_injection_self_test_failed\n');
+        process.stderr.write('  reason=failure_injection_spawn_failed message='
+          + (r3.error.message || 'unknown') + '\n');
+        process.exit(1);
+        return;
+      }
+      fiSelfOut = (typeof r3.status === 'number') ? r3.status : 1;
+    } catch (e) {
+      process.stderr.write('milestone_close_blocked:failure_injection_self_test_failed\n');
+      process.stderr.write('  reason=failure_injection_self_test_threw message='
+        + (e && e.message ? e.message : 'unknown') + '\n');
+      process.exit(1);
+      return;
+    }
+
+    if (fiSelfOut !== 0) {
+      process.stderr.write('milestone_close_blocked:failure_injection_self_test_failed\n');
+      process.stderr.write('  reason=failure_injection_self_test_exit_code='
+        + fiSelfOut + '\n');
+      process.exit(1);
+      return;
+    }
+
+    process.stdout.write('milestone_close_gate: v2.0 failure-injection '
+      + 'self-test green (24/24)\n');
+
+    // Step 4: failure-injection --run-all (10/10).
+    let fiRunAllOut = null;
+    try {
+      const child_process3 = require('child_process');
+      const path3 = require('path');
+      const fiHarnessPath3 = path3.join(__dirname, '..', 'tools',
+                                         'failure-injection', 'harness.cjs');
+      const r4 = child_process3.spawnSync(
+        process.execPath,
+        [fiHarnessPath3, '--run-all'],
+        { stdio: 'inherit' }
+      );
+      if (r4.error) {
+        process.stderr.write('milestone_close_blocked:failure_injection_run_all_failed\n');
+        process.stderr.write('  reason=failure_injection_run_all_spawn_failed message='
+          + (r4.error.message || 'unknown') + '\n');
+        process.exit(1);
+        return;
+      }
+      fiRunAllOut = (typeof r4.status === 'number') ? r4.status : 1;
+    } catch (e) {
+      process.stderr.write('milestone_close_blocked:failure_injection_run_all_failed\n');
+      process.stderr.write('  reason=failure_injection_run_all_threw message='
+        + (e && e.message ? e.message : 'unknown') + '\n');
+      process.exit(1);
+      return;
+    }
+
+    if (fiRunAllOut !== 0) {
+      process.stderr.write('milestone_close_blocked:failure_injection_run_all_failed\n');
+      process.stderr.write('  reason=failure_injection_run_all_exit_code='
+        + fiRunAllOut + '\n');
+      process.exit(1);
+      return;
+    }
+
+    process.stdout.write('milestone_close_gate: v2.0 failure-injection '
+      + '--run-all green (10/10)\n');
+    process.stdout.write('milestone_close_gate: v2.0 triple-gate '
+      + '(context-bench + redis-adapter + failure-injection) green\n');
     process.exit(0);
   } catch (e) {
     // Outer guard: any unexpected error path exits 1 with a stderr tag.

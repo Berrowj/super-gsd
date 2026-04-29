@@ -81,6 +81,83 @@
 //   `node super-gsd/tools/failure-injection/harness.cjs --self-test` exits
 //   0 with the bootstrap 5 assertions PASS. scenarios.json + SCENARIOS.
 //   schema.json present, ASCII-clean, and round-trip-validate every entry.
+//
+// =============================================================================
+// PHASE 53 T1->T7 DISPATCH SEQUENCE (final, list-locked at T7)
+// =============================================================================
+//
+// T1 - skeleton: 10-entry frozen scenarios.json + SCENARIOS.schema.json +
+//      9 public-API stubs + Object.freeze frames + Lock 13 outer wraps.
+//      Self-test: 5 bootstrap assertions.
+//
+// T2 - container isolation + spawnSync real-process boundary + 11-stream
+//      canonical fingerprint guard (W1 fix: mtime excluded). Self-test
+//      adds B1-B5 (running 10 assertions).
+//
+// T3 - scenarios S1/S2/S3 (token-attribution, context-packet, dispatch-
+//      router). Self-test adds C1-C3 (running 13 assertions).
+//
+// T4 - scenarios S4/S5/S6/S7 (vtp-bridge, memory-governance, redis-
+//      adapter, sqlite-context-index). Self-test adds D1-D4 (running 17
+//      assertions).
+//
+// T5 - scenarios S8/S9/S10 (phase-capsule, route-ledger, edge-guard).
+//      Self-test adds E1-E3 (running 20 assertions).
+//
+// T6 - runAll() outer loop + aggregateResults() verdict decision tree
+//      (Pitfall 10: edge_guard_miss > deferred-N) + envelope-v1 JSONL
+//      writer + CRIT-BACKLOG single-writer integration. Self-test adds
+//      F1-F4 (final 24 assertions).
+//
+// T7 - consolidation only. NO new assertions. Adds:
+//        a. Thin-shell operator entry
+//           super-gsd/tools/failure-injection/run-self-test.cjs
+//           which spawnSyncs `--self-test` then `--run-all` for dual-pass
+//           green in one invocation.
+//        b. Triple-gate extension to
+//           super-gsd/scripts/sgsd-complete-milestone.cjs
+//           --milestone v2.0 path: Phase 51 context-bench self-test
+//           (33/33) -> Phase 52 redis-adapter self-test (26/26) ->
+//           Phase 53 failure-injection self-test (24/24) -> Phase 53
+//           --run-all (10/10). Fail-fast ordering. Lock 13 wrapped on
+//           each spawn. v1.9 dual-gate path preserved byte-untouched.
+//        c. List-lock comment block at the top of selfTest() enumerating
+//           the 18 PLAN-locked semantic invariants covered by the 24
+//           running assertions.
+//
+// CLI ENTRY POINTS
+//   node super-gsd/tools/failure-injection/harness.cjs --self-test
+//     -> Run the 24-assertion bootstrap. Exit 0 on all-PASS.
+//   node super-gsd/tools/failure-injection/harness.cjs --run-all
+//     -> Run all 10 scenarios end-to-end against live tools in per-
+//        scenario tmpdirs. Append envelope-v1 rows to
+//        .planning/metrics/failure-injection-log.jsonl. Aggregate
+//        verdict via Pitfall-10-aware decision tree. Exit 0 on
+//        verdict in {PASS, PASS-WITH-DEFERRED-1}.
+//   node super-gsd/tools/failure-injection/run-self-test.cjs
+//     -> Operator-facing thin shell. spawnSync `--self-test` then
+//        spawnSync `--run-all`. Exit 0 only on dual-pass green.
+//        Fail-fast on bootstrap red.
+//
+// MILESTONE-CLOSE CONSUMER CHAIN
+//   super-gsd/scripts/sgsd-complete-milestone.cjs --milestone v2.0
+//     -> Lock 13 wrapped require + spawnSync sequence:
+//        Step 1: context-bench harness.cjs.selfTest()       (Phase 51)
+//        Step 2: redis-adapter spawnSync --self-test         (Phase 52)
+//        Step 3: failure-injection spawnSync --self-test     (Phase 53)
+//        Step 4: failure-injection spawnSync --run-all       (Phase 53)
+//     -> Each step's failure tag (stderr): one of
+//        milestone_close_blocked:context_bench_unavailable
+//        milestone_close_blocked:context_bench_self_test_failed
+//        milestone_close_blocked:redis_adapter_unavailable
+//        milestone_close_blocked:redis_adapter_self_test_failed
+//        milestone_close_blocked:failure_injection_unavailable
+//        milestone_close_blocked:failure_injection_self_test_failed
+//        milestone_close_blocked:failure_injection_run_all_failed
+//     -> All four green: gate exits 0, milestone close may proceed.
+//   super-gsd/scripts/sgsd-complete-milestone.cjs --milestone v1.9
+//     -> Phase 51 + Phase 52 only (Phase 53 NOT chained on v1.9 path).
+//
 // =============================================================================
 
 'use strict';
@@ -2977,10 +3054,78 @@ function _runAllImpl(opts) {
 function _selfTestImpl() {
   // ---------------------------------------------------------------------
   // T1 BOOTSTRAP: 5 assertions covering Object.freeze + schema round-trip
-  // + public-API surface + Lock 13 wrapping + ASCII discipline. T2 will
-  // append 3-4 (running 7-9), T3+T4+T5 each append per-scenario shape
-  // assertions, T6 appends 4-6 aggregator/JSONL/CRIT-BACKLOG assertions.
-  // T7 list-locks the 16-20 semantic floor (running 19-21 acceptable).
+  // + public-API surface + Lock 13 wrapping + ASCII discipline. T2
+  // appended 5 (B1-B5; running 10), T3+T4+T5 each appended per-scenario
+  // shape assertions (C1-C3, D1-D4, E1-E3; running 20), T6 appended 4
+  // aggregator/JSONL assertions (F1-F4; running 24). T7 consolidation
+  // only - NO new assertions. The 24 assertions list-locked below cover
+  // 18 PLAN-locked semantic invariants (53-RESEARCH.md sec 4 + sec 5).
+  //
+  // T7 LIST-LOCK: 24 ASSERTIONS / 18 SEMANTIC INVARIANTS COVERED
+  //
+  //   Bootstrap (T1, 5 tests):
+  //     1.  SCENARIOS_frozen_10_entry_mutation_noop      [Lock 11 freeze]
+  //     2.  schema_round_trip_all_10_entries             [Lock 11 closed-vocab]
+  //     3.  FAIL_INJ_REASON_CODES_frozen_ge11            [reason vocabulary]
+  //     4.  public_api_9_stubs_present                   [Lock 13 surface +
+  //                                                       module.exports
+  //                                                       identity-equal]
+  //     5.  lock13_wrapper_present_and_ascii_clean       [Lock 13 + ASCII]
+  //
+  //   Container + spawnSync + fingerprint (T2, 5 tests):
+  //     6.  tmpdir_traversal_guard                       [Pitfall 2 fix]
+  //     7.  teardown_idempotent                          [Pitfall 4 fix]
+  //     8.  spawn_real_invocation                        [mock-predicate
+  //                                                       forbiddance,
+  //                                                       CONTEXT.md:81]
+  //     9.  fingerprint_byte_equality                    [W1 fix - mtime
+  //                                                       excluded]
+  //     10. container_plus_teardown_no_drift             [anti-pollution
+  //                                                       invariant per
+  //                                                       scenario]
+  //
+  //   Per-scenario impl smoke (T3-T5, 10 tests):
+  //     11. S1_runs_real_token_attribution               [token-attribution
+  //                                                       poisoned-row]
+  //     12. S2_runs_real_context_packet                  [context-packet
+  //                                                       missing-capsule]
+  //     13. S3_runs_real_dispatch_router                 [VTP whitelist
+  //                                                       violation +
+  //                                                       provider !== vtp]
+  //     14. S4_runs_real_vtp_classify                    [VTP unavailable
+  //                                                       offline override]
+  //     15. S5_runs_real_memory_governance               [revocation replay
+  //                                                       byte-equal]
+  //     16. S6_runs_real_redis_testhook                  [soft-skip OR
+  //                                                       success path]
+  //     17. S7_runs_real_sqlite_rebuild                  [happy OR degraded
+  //                                                       path]
+  //     18. S8_runs_real_phase_capsule                   [corrupted JSON
+  //                                                       capsule_parse_error]
+  //     19. S9_runs_real_route_ledger                    [truncated stream
+  //                                                       row_skipped_invalid]
+  //     20. S10_runs_real_edge_guard_synthetic_gate      [edge_guard_halt
+  //                                                       missing-emit
+  //                                                       structural exemplar]
+  //
+  //   Aggregator + envelope-v1 writer (T6, 4 tests):
+  //     21. F1_aggregate_pass_when_10_of_10              [verdict tree PASS]
+  //     22. F2_aggregate_pass_with_deferred_when_9_of_10_no_edge_miss
+  //                                                      [verdict tree
+  //                                                       PASS-WITH-DEFERRED-1]
+  //     23. F3_aggregate_candidate_with_debt_when_S10_fails
+  //                                                      [Pitfall 10:
+  //                                                       edge_guard_miss
+  //                                                       priority over
+  //                                                       deferred-N]
+  //     24. F4_envelope_v1_row_shape                     [JSONL writer +
+  //                                                       envelope_version=1
+  //                                                       + run_id grouping]
+  //
+  //   Total: 24 assertions covering the closed set of T1-T6 contract surfaces.
+  //   T7 adds NO new tests - per 53-RESEARCH.md sec 6 falsifier, the
+  //   consolidation task is forbidden from extending the count.
+  //
   // ---------------------------------------------------------------------
   const results = [];
   function check(name, ok, detail) {
