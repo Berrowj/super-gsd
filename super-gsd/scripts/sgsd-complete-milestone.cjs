@@ -538,8 +538,85 @@ function _main(argv) {
 
     process.stdout.write('milestone_close_gate: v2.0 provider-circuit '
       + 'self-test green (>=8/8)\n');
-    process.stdout.write('milestone_close_gate: v2.0 quint-gate '
-      + '(context-bench + redis-adapter + failure-injection + chaos-restart + provider-circuit) green\n');
+
+    // -----------------------------------------------------------------------
+    // Phase 56-01-T3: v2.0 sext-gate extension (scenario-suite). Only reached
+    // when milestone === 'v2.0' AND the prior quint-gate (Phase 51 + Phase 52
+    // + Phase 53 + Phase 54 + Phase 55) already passed. One additional
+    // spawnSync invocation:
+    //   7. node super-gsd/tools/scenario-suite/run-self-test.cjs
+    //      (~21 self-test assertions + 10/10 --run-all; sub-90s; READ-ONLY-
+    //      by-shape on canonical streams - the run-all step writes one
+    //      envelope-v1 row per scenario to scenario-suite-log.jsonl which
+    //      is NOT in PHASE_56_GUARDED_STREAMS).
+    // Lock 13: try/catch on require AND spawnSync; never throw upward.
+    // Lock 4: Phase 41-55 trees byte-untouched; this is a surgical extension
+    // ONLY at this insertion point (the quint-gate green emission above is
+    // preserved as the boundary marker for the provider-circuit gate; the
+    // sext-gate emission moves to AFTER the scenario-suite returns green).
+    // -----------------------------------------------------------------------
+
+    let scenarioSuiteHarness = null;
+    try {
+      scenarioSuiteHarness = require(
+        '../tools/scenario-suite/harness.cjs');
+    } catch (e) {
+      process.stderr.write('milestone_close_blocked:scenario_suite_unavailable\n');
+      process.stderr.write('  reason=scenario_suite_require_failed message='
+        + (e && e.message ? e.message : 'unknown') + '\n');
+      process.exit(1);
+      return;
+    }
+
+    if (!scenarioSuiteHarness ||
+        typeof scenarioSuiteHarness.selfTest !== 'function' ||
+        typeof scenarioSuiteHarness.runAll !== 'function' ||
+        typeof scenarioSuiteHarness.validateScenarioOutcome !== 'function') {
+      process.stderr.write('milestone_close_blocked:scenario_suite_unavailable\n');
+      process.stderr.write('  reason=scenario_suite_api_export_missing\n');
+      process.exit(1);
+      return;
+    }
+
+    let ssRunSelfOut = null;
+    try {
+      const child_process6 = require('child_process');
+      const path6 = require('path');
+      const ssRunSelfPath = path6.join(__dirname, '..', 'tools',
+                                        'scenario-suite', 'run-self-test.cjs');
+      const r7 = child_process6.spawnSync(
+        process.execPath,
+        [ssRunSelfPath],
+        { stdio: 'inherit' }
+      );
+      if (r7.error) {
+        process.stderr.write('milestone_close_blocked:scenario_suite_self_test_failed\n');
+        process.stderr.write('  reason=scenario_suite_spawn_failed message='
+          + (r7.error.message || 'unknown') + '\n');
+        process.exit(1);
+        return;
+      }
+      ssRunSelfOut = (typeof r7.status === 'number') ? r7.status : 1;
+    } catch (e) {
+      process.stderr.write('milestone_close_blocked:scenario_suite_self_test_failed\n');
+      process.stderr.write('  reason=scenario_suite_self_test_threw message='
+        + (e && e.message ? e.message : 'unknown') + '\n');
+      process.exit(1);
+      return;
+    }
+
+    if (ssRunSelfOut !== 0) {
+      process.stderr.write('milestone_close_blocked:scenario_suite_self_test_failed\n');
+      process.stderr.write('  reason=scenario_suite_self_test_exit_code='
+        + ssRunSelfOut + '\n');
+      process.exit(1);
+      return;
+    }
+
+    process.stdout.write('milestone_close_gate: v2.0 scenario-suite '
+      + 'self-test + run-all green (~21 + 10/10)\n');
+    process.stdout.write('milestone_close_gate: v2.0 sext-gate '
+      + '(context-bench + redis-adapter + failure-injection + chaos-restart + provider-circuit + scenario-suite) green\n');
     process.exit(0);
   } catch (e) {
     // Outer guard: any unexpected error path exits 1 with a stderr tag.
