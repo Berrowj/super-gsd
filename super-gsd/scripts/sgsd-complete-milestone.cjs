@@ -48,6 +48,26 @@
 //                 fixture directory is missing on disk (partial-checkout
 //                 path); the gate emits an explicit skipped-fixture warning
 //                 and exits 0 rather than blocking close.
+// Phase 61-01-T3: extended with docs-refresh check (fourth-gate v2.1;
+//                 prior three v2.1 gates preserved byte-equality up to
+//                 the docs-refresh insertion point). Closed-vocab grep
+//                 on README.md verifying VTP mentions are marked
+//                 optional only (vtp_required_count=0).
+// Phase 62-01-T1: extended with upgrade-drift check (fifth-gate v2.1;
+//                 prior four v2.1 gates preserved byte-equality up to
+//                 the upgrade-drift insertion point). v2.1 quint-gate
+//                 now: gate 1 installer-audit + gate 2 wizard + gate 3
+//                 example-walkthrough + gate 4 docs-refresh + gate 5
+//                 upgrade-drift selfTest (>=8 self-test) AND runDrift
+//                 probe count (>=8 probes) AND READ-ONLY assertion
+//                 (selfTest A8 hasWrite=false). Lock 4: only the v2.1
+//                 branch is extended; v1.9 dual-gate AND v2.0 sept-gate
+//                 paths are preserved byte-equality byte-for-byte. Lock
+//                 13: upgrade-drift module unavailable -> emits
+//                 milestone_close_blocked:upgrade_drift_unavailable
+//                 stderr tag, never throws upward. The fifth-gate is
+//                 the FINAL gate of the v1.6 -> v2.1 roadmap; once it
+//                 exits 0 the entire roadmap is complete.
 //
 // Invoked by super-gsd/skills/sgsd-complete-milestone/SKILL.md Step 0
 // precondition list. Operator-runnable directly:
@@ -575,6 +595,127 @@ function _main(argv) {
         + vtpAnyCount_v21d + '; closed-vocab grep on required/must)\n');
       process.stdout.write('milestone_close_gate: v2.1 fourth-gate '
         + '(docs-refresh) green\n');
+
+      // ---------------------------------------------------------------
+      // Phase 62-01-T1: v2.1 FIFTH-GATE (upgrade-drift check). Lock 4:
+      // extends the v2.1 branch only; v1.9 dual-gate, v2.0 sept-gate,
+      // and prior four v2.1 gates (Phase 58 first / Phase 59 second /
+      // Phase 60 third / Phase 61 fourth) paths are all preserved
+      // byte-equal up to this insertion point. The fifth gate is the
+      // FINAL gate of the v1.6 -> v2.1 roadmap. It runs the upgrade-
+      // drift selfTest and asserts:
+      //   (a) selfTest exit_code 0 (>=8 in-tree assertions PASS)
+      //   (b) runDrift().probes.length >= 8 (>=8 probes per
+      //       ROADMAP-AGENT.md line 770)
+      //   (c) read-only invariant (selfTest A8 'read_only_invariant'
+      //       PASS -> hasWrite === false on the source code substring
+      //       scan)
+      // Lock 11: closed-vocab indexOf membership on the assertion name
+      // 'read_only_invariant' (no fuzzy / regex). Lock 13: upgrade-
+      // drift module unavailable on disk -> emit
+      // milestone_close_blocked:upgrade_drift_unavailable stderr tag
+      // and exit 1. Selftest threw -> emit
+      // milestone_close_blocked:upgrade_drift_self_test_threw and
+      // exit 1. ASCII-only literals (0x09/0x0A/0x20-0x7E).
+      // ---------------------------------------------------------------
+      var driftModulePath_v21e = path_v21c.join(__dirname, '..', 'tools',
+        'upgrade-drift', 'check.cjs');
+
+      var driftMod_v21e = null;
+      try {
+        driftMod_v21e = require(driftModulePath_v21e);
+      } catch (e) {
+        process.stderr.write('milestone_close_blocked:upgrade_drift_unavailable\n');
+        process.stderr.write('  reason=upgrade_drift_require_failed message='
+          + (e && e.message ? e.message : 'unknown') + '\n');
+        process.exit(1);
+        return;
+      }
+
+      if (!driftMod_v21e
+          || typeof driftMod_v21e.selfTest !== 'function'
+          || typeof driftMod_v21e.runDrift !== 'function') {
+        process.stderr.write('milestone_close_blocked:upgrade_drift_unavailable\n');
+        process.stderr.write('  reason=upgrade_drift_export_missing\n');
+        process.exit(1);
+        return;
+      }
+
+      // (a) selfTest exit_code 0 (>=8 PASS).
+      var driftSelf_v21e = null;
+      try {
+        driftSelf_v21e = driftMod_v21e.selfTest();
+      } catch (e) {
+        process.stderr.write('milestone_close_blocked:upgrade_drift_self_test_threw\n');
+        process.stderr.write('  reason=upgrade_drift_selfTest_threw message='
+          + (e && e.message ? e.message : 'unknown') + '\n');
+        process.exit(1);
+        return;
+      }
+
+      if (!driftSelf_v21e || driftSelf_v21e.ok !== true
+          || !Array.isArray(driftSelf_v21e.results)
+          || driftSelf_v21e.results.length < 8) {
+        process.stderr.write('milestone_close_blocked:upgrade_drift_self_test_failed\n');
+        process.stderr.write('  reason=upgrade_drift_selfTest_not_all_pass results='
+          + (driftSelf_v21e && Array.isArray(driftSelf_v21e.results)
+            ? driftSelf_v21e.results.length : 0)
+          + ' ok=' + (driftSelf_v21e ? driftSelf_v21e.ok : 'null') + '\n');
+        process.exit(1);
+        return;
+      }
+
+      // (c) read_only_invariant PASS in selfTest results (closed-vocab
+      // indexOf membership on assertion name).
+      var readOnlyOK_v21e = false;
+      for (var ri_v21e = 0; ri_v21e < driftSelf_v21e.results.length; ri_v21e++) {
+        var r_v21e = driftSelf_v21e.results[ri_v21e];
+        if (r_v21e && r_v21e.name === 'read_only_invariant'
+            && r_v21e.ok === true) {
+          readOnlyOK_v21e = true;
+          break;
+        }
+      }
+      if (readOnlyOK_v21e !== true) {
+        process.stderr.write('milestone_close_blocked:upgrade_drift_read_only_invariant_failed\n');
+        process.stderr.write('  reason=upgrade_drift_selfTest_read_only_assertion_not_pass\n');
+        process.exit(1);
+        return;
+      }
+
+      // (b) runDrift().probes.length >= 8.
+      var driftSnap_v21e = null;
+      try {
+        driftSnap_v21e = driftMod_v21e.runDrift({});
+      } catch (e) {
+        process.stderr.write('milestone_close_blocked:upgrade_drift_self_test_threw\n');
+        process.stderr.write('  reason=upgrade_drift_runDrift_threw message='
+          + (e && e.message ? e.message : 'unknown') + '\n');
+        process.exit(1);
+        return;
+      }
+
+      if (!driftSnap_v21e || !Array.isArray(driftSnap_v21e.probes)
+          || driftSnap_v21e.probes.length < 8) {
+        process.stderr.write('milestone_close_blocked:upgrade_drift_probe_count_below_floor\n');
+        process.stderr.write('  reason=upgrade_drift_probe_count='
+          + (driftSnap_v21e && Array.isArray(driftSnap_v21e.probes)
+            ? driftSnap_v21e.probes.length : 0)
+          + ' (must be >=8 per ROADMAP-AGENT.md line 770)\n');
+        process.exit(1);
+        return;
+      }
+
+      process.stdout.write('milestone_close_gate: v2.1 upgrade-drift '
+        + 'self-test green ('
+        + driftSelf_v21e.results.length + '/'
+        + driftSelf_v21e.results.length + ' PASS; probes='
+        + driftSnap_v21e.probes.length + '; read-only invariant green)\n');
+      process.stdout.write('milestone_close_gate: v2.1 fifth-gate '
+        + '(upgrade-drift) green\n');
+      process.stdout.write('milestone_close_gate: v2.1 quint-gate '
+        + '(installer-audit + new-project-wizard + example-walkthrough '
+        + '+ docs-refresh + upgrade-drift) green\n');
       process.exit(0);
       return;
     }
