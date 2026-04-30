@@ -264,10 +264,77 @@ function _main(argv) {
           return;
         }
 
+        // Phase 105 extension: AHE-EVAL-03/05 -- check transfer eval.
+        // Any keep-verdict change without a transfer record is a blocker.
+        // Critical regressions in transfer also block clean ship.
+        let transferBlockers_v29 = [];
+        try {
+          const xfer_v29 = require('../tools/harness-transfer/evaluate.cjs');
+          const tx_v29 = xfer_v29.readTransfers(projectDir_v29);
+          if (tx_v29.ok) {
+            // Build map of change_id -> transfer present + critical?
+            const xferByChange_v29 = {};
+            for (const tr_v29 of tx_v29.rows) {
+              if (tr_v29 && tr_v29.change_id) {
+                if (!xferByChange_v29[tr_v29.change_id]) {
+                  xferByChange_v29[tr_v29.change_id] = {
+                    has_transfer: false, critical: false
+                  };
+                }
+                xferByChange_v29[tr_v29.change_id].has_transfer = true;
+                if (tr_v29.critical_regression === true) {
+                  xferByChange_v29[tr_v29.change_id].critical = true;
+                }
+              }
+            }
+            // Read attribution rows; for each verdict=keep without transfer or with critical, block.
+            try {
+              const att_v29 = attribution_v29.readAttributions(projectDir_v29);
+              if (att_v29.ok) {
+                for (const a_v29 of att_v29.rows) {
+                  if (!a_v29 || a_v29.verdict !== 'keep') continue;
+                  const xc_v29 = xferByChange_v29[a_v29.change_id];
+                  if (!xc_v29 || !xc_v29.has_transfer) {
+                    transferBlockers_v29.push({
+                      change_id: a_v29.change_id,
+                      reason: 'keep_verdict_without_transfer_record'
+                    });
+                  } else if (xc_v29.critical === true) {
+                    transferBlockers_v29.push({
+                      change_id: a_v29.change_id,
+                      reason: 'transfer_critical_regression'
+                    });
+                  }
+                }
+              }
+            } catch (_e_att) { /* tolerated */ }
+          }
+        } catch (_e_xfer) {
+          // Phase 104 module unavailable -- not a blocker if no manifests exist.
+        }
+
+        if (transferBlockers_v29.length > 0) {
+          process.stderr.write(
+            'milestone_close_blocked:v2_9_transfer_eval_missing_or_critical\n');
+          for (const b_v29 of transferBlockers_v29) {
+            process.stderr.write('  -- change_id=' + b_v29.change_id
+              + ' reason=' + b_v29.reason + '\n');
+          }
+          process.stderr.write(
+            '  AHE-EVAL-03/05: keep-verdict candidates need transfer records '
+            + 'with no critical regression.\n');
+          process.stderr.write(
+            '  Or mark v2.9 SHIPPED-WITH-UNPROVEN-HARNESS-EVOLUTION '
+            + 'explicitly (operator decision).\n');
+          process.exit(1);
+          return;
+        }
+
         process.stdout.write('milestone_close_gate: v2.9 close gate green '
           + '(0 unattributed harness change manifest rows; '
           + scan_v29.total_manifests + ' manifests / '
-          + scan_v29.total_attributions + ' attributions)\n');
+          + scan_v29.total_attributions + ' attributions; '
+          + '0 transfer-blocking changes)\n');
         process.exit(0);
         return;
       } catch (e_v29) {

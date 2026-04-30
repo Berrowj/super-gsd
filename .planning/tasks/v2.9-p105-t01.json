@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "task_id": "v2.9-p105-t01",
+  "milestone": "v2.9",
+  "phase": 105,
+  "plan": "105-01",
+  "role": "executor",
+  "task_kind": "code_edit",
+  "goal": "Extend v2.9 close gate with transfer+regression check, author v2.9 SUMMARY.md, append Phase 100-105 sections to SGSD-HARNESS-EVOLUTION.md. Defer warp-mcp and cockpit-state integration (count-pinned self-tests).",
+  "allowed_files": [
+    "super-gsd/scripts/sgsd-complete-milestone.cjs",
+    "super-gsd/docs/SGSD-HARNESS-EVOLUTION.md",
+    ".planning/milestones/v2.9/SUMMARY.md"
+  ],
+  "forbidden_files": [
+    "super-gsd/tools/warp-mcp/server.cjs",
+    "super-gsd/tools/cockpit-state/adapter.cjs",
+    "super-gsd/tools/harness-attribution/attribute.cjs",
+    "super-gsd/tools/harness-transfer/evaluate.cjs"
+  ],
+  "acceptance_commands": [
+    "node super-gsd/scripts/lib/sgsd-complete-milestone-self-test.cjs",
+    "node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone v2.9"
+  ],
+  "risk": "high",
+  "ambiguity": "low",
+  "requires_private_knowledge": true,
+  "estimated_line_count": 380,
+  "max_input_tokens": 12000,
+  "max_output_tokens": 6000
+}
