@@ -69,3 +69,5 @@
 {"ts":"2026-04-30T00:27:33Z","phase":104,"plan":"104-01","iteration":39,"step":"phase_close","milestone":"v2.9","verdict":"PASS","self_test":"18/18"}
 {"ts":"2026-04-30T00:28:16Z","phase":105,"plan":"105-01","iteration":40,"step":"loop_entry","milestone":"v2.9"}
 {"ts":"2026-04-30T00:33:29Z","phase":105,"plan":"105-01","iteration":40,"step":"phase_close","milestone":"v2.9","verdict":"PASS-WITH-DEFERRED-2","self_test":"8/8+gate-live-green"}
+{"ts":"2026-04-30T09:39:28Z","phase":"meta","plan":"no-stop-validator","iteration":41,"step":"loop_entry","milestone":"v2.9"}
+{"ts":"2026-04-30T09:42:07Z","phase":"meta","plan":"no-stop-validator","iteration":41,"step":"validator_close","milestone":"v2.9","verdict":"PASS","self_test":"16/16"}

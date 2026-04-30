@@ -24,6 +24,40 @@ The ONLY time to ask the user anything:
 
 **If in doubt: DO IT, don't ask.** The user chose autonomous mode. Respect that choice.
 
+## NOTIFICATION POLICY — REQUIRED FOR AUTONOMOUS MODE
+
+The operator wants phone push notifications via the Claude mobile app
+(`PushNotification` tool — sends desktop notif + pushes to phone if Remote
+Control is connected).
+
+**Send a `PushNotification` (status: "proactive") at EVERY one of these events:**
+
+1. **Phase close** — every time a phase reaches its terminal verdict (PASS,
+   PASS-WITH-DEFERRED-N, SKIPPED-WAITING-FOR-UPSTREAM, BLOCKED). One push per
+   phase. Format: `"P{N} {verdict} — {one-line summary, <120 chars}"`.
+2. **Milestone close** — when ALL phases of a milestone reach terminal verdicts.
+   Format: `"v{X.Y} ALL-PHASES-CLOSED — {N}/{N} phases, {self_test_total} green, {deferred_count} deferred"`.
+3. **Stop event** — for ANY of the 3 valid exit conditions:
+   - all-phases-complete (entire roadmap done)
+   - hard-blocker (real blocker; runtime cannot continue)
+   - user-stop (operator said pause/stop)
+   Format: `"STOP: {reason} — {one-line context}"`.
+
+**Do NOT push on:**
+- Routine commits within a phase (too noisy).
+- Individual self-test runs (covered by phase close).
+- Status checks the operator just initiated (they're watching).
+- Re-runs of already-completed work.
+
+**Format rules:**
+- Under 200 chars (mobile OSes truncate).
+- One line, no markdown.
+- Lead with the verdict/outcome, not the noun.
+- "P98 PASS — harness component substrate, 21/21 self-test" beats "Phase 98 done".
+
+If `PushNotification` returns "push wasn't sent", that's expected — it means
+Remote Control isn't connected. Continue normally; don't retry.
+
 ## Super GSD — Autonomous Execution Engine
 
 This project uses **Super GSD** for token-efficient autonomous execution.
