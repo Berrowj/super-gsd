@@ -33,7 +33,7 @@ name: SGSD Operator Workspace
 windows:
   - tabs:
       - title: "🤖 SGSD Main"
-        color: purple
+        color: magenta
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:
@@ -47,7 +47,7 @@ windows:
             commands:
               - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Token / Codex / Gate watch pane. Try: SGSD: Token Summary | SGSD: Codex Status | SGSD: Gate Status from Command Search.' -ForegroundColor Cyan"
       - title: "🤖 Shell"
-        color: purple
+        color: magenta
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:

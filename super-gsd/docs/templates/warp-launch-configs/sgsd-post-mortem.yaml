@@ -21,7 +21,7 @@ name: SGSD Post-Mortem
 windows:
   - tabs:
       - title: "📋 Post-Mortem"
-        color: gray
+        color: white
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:
