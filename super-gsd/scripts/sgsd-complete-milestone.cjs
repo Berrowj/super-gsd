@@ -188,6 +188,97 @@ function _main(argv) {
     }
 
     // -----------------------------------------------------------------------
+    // Phase 101-01: v2.9 close gate (Agentic Harness Evolution).
+    // Refuses SHIPPED-clean while harness-change-manifest.jsonl has any
+    // candidate change_id without a matching attribution row, or with
+    // a verdict=revert attribution that has not yet been applied.
+    //
+    // AHE-GOV-04 contract: a milestone with unattributed candidate
+    // edits cannot ship clean.
+    //
+    // Lock 13: try/catch around all reads. Independent return path.
+    // Backward compat: v1.9 / v2.0 / v2.1 / v2.6 / other paths NOT entered
+    // for v2.9 -- this branch returns independently.
+    // -----------------------------------------------------------------------
+    if (milestone === 'v2.9') {
+      try {
+        const path_v29 = require('path');
+        const planningDir_v29 = path_v29.join(__dirname, '..', '..',
+          '.planning');
+        let attribution_v29 = null;
+        try {
+          attribution_v29 = require(
+            '../tools/harness-attribution/attribute.cjs');
+        } catch (e_v29_req) {
+          process.stderr.write(
+            'milestone_close_blocked:harness_attribution_unavailable\n');
+          process.stderr.write('  reason=harness_attribution_require_failed message='
+            + (e_v29_req && e_v29_req.message ? e_v29_req.message : 'unknown')
+            + '\n');
+          process.exit(1);
+          return;
+        }
+
+        if (!attribution_v29
+            || typeof attribution_v29.findUnattributedManifests !== 'function') {
+          process.stderr.write(
+            'milestone_close_blocked:harness_attribution_unavailable\n');
+          process.stderr.write(
+            '  reason=findUnattributedManifests_export_missing\n');
+          process.exit(1);
+          return;
+        }
+
+        const projectDir_v29 = path_v29.dirname(planningDir_v29);
+        const scan_v29 = attribution_v29.findUnattributedManifests({
+          projectDir: projectDir_v29
+        });
+
+        if (!scan_v29 || scan_v29.ok !== true) {
+          process.stderr.write(
+            'milestone_close_blocked:harness_attribution_scan_failed\n');
+          process.stderr.write('  errors='
+            + JSON.stringify((scan_v29 && scan_v29.errors) || []) + '\n');
+          process.exit(1);
+          return;
+        }
+
+        if (scan_v29.unattributed && scan_v29.unattributed.length > 0) {
+          process.stderr.write(
+            'milestone_close_blocked:v2_9_unattributed_candidates\n');
+          process.stderr.write('  ' + scan_v29.unattributed.length
+            + ' unattributed harness change manifest rows blocking SHIPPED-clean.\n');
+          process.stderr.write('  total_manifests=' + scan_v29.total_manifests
+            + ' total_attributions=' + scan_v29.total_attributions + '\n');
+          for (const u_v29 of scan_v29.unattributed) {
+            process.stderr.write('  -- change_id=' + u_v29.change_id
+              + ' reason=' + u_v29.reason + '\n');
+          }
+          process.stderr.write(
+            '  AHE-GOV-04: every candidate harness edit must have an '
+            + 'attribution verdict before clean ship.\n');
+          process.stderr.write(
+            '  Run: node super-gsd/tools/harness-attribution/attribute.cjs '
+            + '<args> for each open change_id, then re-attempt close.\n');
+          process.exit(1);
+          return;
+        }
+
+        process.stdout.write('milestone_close_gate: v2.9 close gate green '
+          + '(0 unattributed harness change manifest rows; '
+          + scan_v29.total_manifests + ' manifests / '
+          + scan_v29.total_attributions + ' attributions)\n');
+        process.exit(0);
+        return;
+      } catch (e_v29) {
+        process.stderr.write('milestone_close_blocked:v2_9_gate_threw\n');
+        process.stderr.write('  message=' + (e_v29 && e_v29.message ? e_v29.message : 'unknown') + '\n');
+        process.exit(1);
+        return;
+      }
+    }
+
+    // -----------------------------------------------------------------------
     // Phase 86-02 hardening: v2.6 close gate (operator override
     // 2026-04-29T21:35Z). Refuses SHIPPED-clean while crit-backlog has
     // open `v2_6_debt` rows whose summary matches

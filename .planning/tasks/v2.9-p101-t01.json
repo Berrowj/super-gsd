@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "task_id": "v2.9-p101-t01",
+  "milestone": "v2.9",
+  "phase": 101,
+  "plan": "101-01",
+  "role": "executor",
+  "task_kind": "code_edit",
+  "goal": "Build harness attribution scorer (cjs) with 6-verdict closed vocab + rollback recommendation + 12+ self-test, plus minimal v2.9 milestone-close gate branch.",
+  "allowed_files": [
+    "super-gsd/tools/harness-attribution/attribute.cjs",
+    "super-gsd/tools/harness-attribution/run-self-test.cjs",
+    "super-gsd/scripts/sgsd-complete-milestone.cjs"
+  ],
+  "forbidden_files": [
+    "super-gsd/tools/harness-manifest/manifest.cjs",
+    "super-gsd/tools/harness-evidence/distill.cjs",
+    "super-gsd/tools/harness-components/catalog.cjs",
+    "super-gsd/tools/double-agent-executor/run.cjs"
+  ],
+  "acceptance_commands": [
+    "node super-gsd/tools/harness-attribution/run-self-test.cjs",
+    "node super-gsd/scripts/lib/sgsd-complete-milestone-self-test.cjs",
+    "node --check super-gsd/tools/harness-attribution/attribute.cjs"
+  ],
+  "risk": "high",
+  "ambiguity": "low",
+  "requires_private_knowledge": true,
+  "estimated_line_count": 380,
+  "max_input_tokens": 12000,
+  "max_output_tokens": 6000
+}
