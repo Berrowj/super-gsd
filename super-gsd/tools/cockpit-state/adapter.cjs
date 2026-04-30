@@ -127,6 +127,11 @@ var SECTION_KEYS = Object.freeze([
   // Phase 86: staleness section (operator-override re-scope). Inserted
   // between artifacts and resume_command so resume_command stays last.
   'staleness',
+  // Post-v2.9 (DEFERRED-2 closed): harness_evolution AHE summary.
+  // Reads .planning/metrics/harness-{change-manifest,attribution,
+  // transfer,ablation,evolution-log}.jsonl heads. Inserted between
+  // staleness and resume_command so resume_command stays last.
+  'harness_evolution',
   'resume_command'
 ]);
 
@@ -1222,6 +1227,94 @@ function _buildStaleness(ctx) {
   }
 }
 
+// Section: harness_evolution (post-v2.9 DEFERRED-2 closed).
+// Reads JSONL ledgers from Phases 100-104 and surfaces:
+//   - manifest_count: total harness change manifests
+//   - attribution_count: total attribution rows
+//   - latest_verdict: most recent attribution verdict (or null)
+//   - latest_change_id: most recent manifest change_id (or null)
+//   - transfer_count: total transfer records
+//   - critical_regressions: count of transfers with critical_regression=true
+//   - ablation_count: total ablation records
+//   - evolution_log_count: total runner-emitted events
+// Lock 13: never throws; degraded envelope on read failure.
+function _buildHarnessEvolution(ctx) {
+  try {
+    var planningDir_he = (ctx && ctx.planningDir) || '';
+    if (!planningDir_he) {
+      return { _degraded: true, error_code: 'no_planning_dir',
+        error: 'planningDir not in ctx' };
+    }
+    var path_he = require('path');
+    var fs_he = require('fs');
+
+    function _countLines(rel) {
+      try {
+        var p = path_he.join(planningDir_he, 'metrics', rel);
+        if (!fs_he.existsSync(p)) return 0;
+        var src = fs_he.readFileSync(p, 'utf8');
+        return src.split(/\r?\n/).filter(function (l) { return l.length > 0; }).length;
+      } catch (_e_count) { return 0; }
+    }
+
+    function _lastJsonRow(rel) {
+      try {
+        var p = path_he.join(planningDir_he, 'metrics', rel);
+        if (!fs_he.existsSync(p)) return null;
+        var src = fs_he.readFileSync(p, 'utf8');
+        var lines = src.split(/\r?\n/);
+        for (var i = lines.length - 1; i >= 0; i--) {
+          if (!lines[i] || /^\s*$/.test(lines[i])) continue;
+          try { return JSON.parse(lines[i]); } catch (_e_p) { /* skip malformed */ }
+        }
+        return null;
+      } catch (_e_last) { return null; }
+    }
+
+    var lastManifest_he = _lastJsonRow('harness-change-manifest.jsonl');
+    var lastAttribution_he = _lastJsonRow('harness-attribution.jsonl');
+    var manifestCount_he = _countLines('harness-change-manifest.jsonl');
+    var attributionCount_he = _countLines('harness-attribution.jsonl');
+    var transferCount_he = _countLines('harness-transfer.jsonl');
+    var ablationCount_he = _countLines('harness-ablation.jsonl');
+    var evolutionLogCount_he = _countLines('harness-evolution-log.jsonl');
+
+    // Critical regression count by walking transfer JSONL.
+    var criticalReg_he = 0;
+    try {
+      var txPath_he = path_he.join(planningDir_he, 'metrics', 'harness-transfer.jsonl');
+      if (fs_he.existsSync(txPath_he)) {
+        var txSrc_he = fs_he.readFileSync(txPath_he, 'utf8');
+        var txLines_he = txSrc_he.split(/\r?\n/);
+        for (var ti_he = 0; ti_he < txLines_he.length; ti_he++) {
+          if (!txLines_he[ti_he]) continue;
+          try {
+            var row_he = JSON.parse(txLines_he[ti_he]);
+            if (row_he && row_he.critical_regression === true) criticalReg_he++;
+          } catch (_e_tx) { /* skip */ }
+        }
+      }
+    } catch (_e_crit) { /* tolerate */ }
+
+    return {
+      schema_version: 1,
+      manifest_count: manifestCount_he,
+      attribution_count: attributionCount_he,
+      transfer_count: transferCount_he,
+      ablation_count: ablationCount_he,
+      evolution_log_count: evolutionLogCount_he,
+      critical_regressions: criticalReg_he,
+      latest_change_id: (lastManifest_he && lastManifest_he.change_id) || null,
+      latest_verdict: (lastAttribution_he && lastAttribution_he.verdict) || null,
+      latest_attribution_change_id:
+        (lastAttribution_he && lastAttribution_he.change_id) || null
+    };
+  } catch (e) {
+    return { _degraded: true, error_code: 'internal_error_degraded',
+      error: 'harness_evolution: ' + ((e && e.message) ? e.message : 'unknown') };
+  }
+}
+
 // Section: resume_command (Q12)
 function _buildResumeCommand(ctx) {
   try {
@@ -1274,8 +1367,9 @@ function buildSnapshot(opts) {
       activityRows: activityRows
     };
 
-    // Build all 11 sections defensively (Phase 86: staleness inserted
-    // between artifacts and resume_command; resume_command stays last).
+    // Build all 12 sections defensively (Phase 86: staleness inserted
+    // between artifacts and resume_command; post-v2.9: harness_evolution
+    // inserted between staleness and resume_command; resume_command stays last).
     var sectionFns = {
       now: _buildNow,
       objective: _buildObjective,
@@ -1287,6 +1381,7 @@ function buildSnapshot(opts) {
       tokens: _buildTokens,
       artifacts: _buildArtifacts,
       staleness: _buildStaleness,
+      harness_evolution: _buildHarnessEvolution,
       resume_command: _buildResumeCommand
     };
 
@@ -1370,10 +1465,10 @@ function selfTest() {
   }
 
   try {
-    // A1: SECTION_KEYS frozen + len 11 (Phase 86: staleness inserted
-    // between artifacts and resume_command).
-    assert('A1_section_keys_frozen_11',
-      Object.isFrozen(SECTION_KEYS) && SECTION_KEYS.length === 11,
+    // A1: SECTION_KEYS frozen + len 12 (Phase 86: staleness inserted;
+    // post-v2.9: harness_evolution inserted between staleness and resume_command).
+    assert('A1_section_keys_frozen_12',
+      Object.isFrozen(SECTION_KEYS) && SECTION_KEYS.length === 12,
       'len=' + SECTION_KEYS.length + ' frozen=' + Object.isFrozen(SECTION_KEYS));
 
     // A2: EVENT_TYPES mirror len=16 + frozen
@@ -1390,14 +1485,15 @@ function selfTest() {
       r3 && r3.ok === true && r3.data && typeof r3.data === 'object',
       'ok=' + (r3 && r3.ok));
 
-    // A4: All 11 sections present in r3.data (Phase 86: staleness added).
+    // A4: All 12 sections present in r3.data (Phase 86: staleness added;
+    // post-v2.9: harness_evolution added).
     var hasAll = true;
     var missingSec = '';
     for (var i = 0; i < SECTION_KEYS.length; i++) {
       var k = SECTION_KEYS[i];
       if (!r3.data || !(k in r3.data)) { hasAll = false; missingSec = k; break; }
     }
-    assert('A4_all_11_sections_present', hasAll,
+    assert('A4_all_12_sections_present', hasAll,
       missingSec ? ('missing=' + missingSec) : 'all-present');
 
     // A5: buildSnapshot with bad input -> still ok envelope shape

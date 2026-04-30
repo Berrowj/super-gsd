@@ -128,6 +128,10 @@ var TOOL_NAMES = Object.freeze([
   'sgsd_cockpit_snapshot',
   'sgsd_artifact_links',
   'sgsd_warp_doctor',
+  // Post-v2.9 (DEFERRED-1 closed): harness-evolution status surface.
+  // Reads JSONL ledgers from Phases 100-104 and returns counts +
+  // latest verdict + latest change_id + critical regression count.
+  'sgsd_harness_evolution_status',
 ]);
 
 var ERROR_CODES = Object.freeze([
@@ -2267,6 +2271,87 @@ function _tool_sgsd_warp_doctor(args) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Tool: sgsd_harness_evolution_status (post-v2.9 DEFERRED-1 closed)
+// Reads JSONL ledgers from Phases 100-104 and returns counts + latest
+// verdict + critical regression count. Lock-13: degraded envelope on
+// failure, never throws.
+// ---------------------------------------------------------------------------
+function _tool_sgsd_harness_evolution_status(args) {
+  var name = 'sgsd_harness_evolution_status';
+  try {
+    var projectDir = _resolveProjectDir(args);
+    if (args && typeof args.project_dir === 'string' && args.project_dir.length > 0) {
+      projectDir = args.project_dir;
+    }
+    var metricsDir = path.join(projectDir, '.planning', 'metrics');
+
+    function _countNonEmpty(rel) {
+      try {
+        var p = path.join(metricsDir, rel);
+        if (!fs.existsSync(p)) return 0;
+        var src = fs.readFileSync(p, 'utf8');
+        return src.split(/\r?\n/).filter(function (l) { return l.length > 0; }).length;
+      } catch (_e_c) { return 0; }
+    }
+
+    function _lastJson(rel) {
+      try {
+        var p = path.join(metricsDir, rel);
+        if (!fs.existsSync(p)) return null;
+        var src = fs.readFileSync(p, 'utf8');
+        var lines = src.split(/\r?\n/);
+        for (var i = lines.length - 1; i >= 0; i--) {
+          if (!lines[i] || /^\s*$/.test(lines[i])) continue;
+          try { return JSON.parse(lines[i]); } catch (_e_p) { /* skip */ }
+        }
+        return null;
+      } catch (_e_l) { return null; }
+    }
+
+    var lastManifest = _lastJson('harness-change-manifest.jsonl');
+    var lastAttribution = _lastJson('harness-attribution.jsonl');
+    var manifestCount = _countNonEmpty('harness-change-manifest.jsonl');
+    var attributionCount = _countNonEmpty('harness-attribution.jsonl');
+    var transferCount = _countNonEmpty('harness-transfer.jsonl');
+    var ablationCount = _countNonEmpty('harness-ablation.jsonl');
+    var evolutionLogCount = _countNonEmpty('harness-evolution-log.jsonl');
+
+    var criticalReg = 0;
+    try {
+      var txPath = path.join(metricsDir, 'harness-transfer.jsonl');
+      if (fs.existsSync(txPath)) {
+        var txSrc = fs.readFileSync(txPath, 'utf8');
+        var txLines = txSrc.split(/\r?\n/);
+        for (var ti = 0; ti < txLines.length; ti++) {
+          if (!txLines[ti]) continue;
+          try {
+            var row = JSON.parse(txLines[ti]);
+            if (row && row.critical_regression === true) criticalReg++;
+          } catch (_e_tx) { /* skip */ }
+        }
+      }
+    } catch (_e_crit) { /* tolerate */ }
+
+    return _makeEnvelope(name, {
+      schema_version: 1,
+      manifest_count: manifestCount,
+      attribution_count: attributionCount,
+      transfer_count: transferCount,
+      ablation_count: ablationCount,
+      evolution_log_count: evolutionLogCount,
+      critical_regressions: criticalReg,
+      latest_change_id: (lastManifest && lastManifest.change_id) || null,
+      latest_verdict: (lastAttribution && lastAttribution.verdict) || null,
+      latest_attribution_change_id:
+        (lastAttribution && lastAttribution.change_id) || null
+    });
+  } catch (_e) {
+    return _makeDegraded(name, 'internal_error_degraded',
+      'tool threw: ' + ((_e && _e.message) ? _e.message : 'unknown'));
+  }
+}
+
 // Map<string, function> -- canonical registry. Phase 70/71 patch in
 // real implementations by reassigning these entries.
 var TOOL_REGISTRY = new Map();
@@ -2284,6 +2369,7 @@ TOOL_REGISTRY.set('sgsd_recovery_packet', _tool_sgsd_recovery_packet);
 TOOL_REGISTRY.set('sgsd_cockpit_snapshot', _tool_sgsd_cockpit_snapshot);
 TOOL_REGISTRY.set('sgsd_artifact_links', _tool_sgsd_artifact_links);
 TOOL_REGISTRY.set('sgsd_warp_doctor', _tool_sgsd_warp_doctor);
+TOOL_REGISTRY.set('sgsd_harness_evolution_status', _tool_sgsd_harness_evolution_status);
 
 // ---------------------------------------------------------------------------
 // PUBLIC API: listTools (Lock-13 wrapped)
@@ -2609,9 +2695,10 @@ function selfTest() {
   }
 
   try {
-    // A1: TOOL_NAMES frozen, len === 14.
-    add('tool_names_frozen_len_14',
-      Object.isFrozen(TOOL_NAMES) && TOOL_NAMES.length === 14,
+    // A1: TOOL_NAMES frozen, len === 15 (post-v2.9 DEFERRED-1 closed:
+    // sgsd_harness_evolution_status added).
+    add('tool_names_frozen_len_15',
+      Object.isFrozen(TOOL_NAMES) && TOOL_NAMES.length === 15,
       'frozen=' + Object.isFrozen(TOOL_NAMES) + ' len=' + TOOL_NAMES.length);
 
     // A2: ERROR_CODES frozen, len === 13 (Phase 72 extension: added
@@ -2641,10 +2728,11 @@ function selfTest() {
         && r5.error_code === 'invalid_input_schema',
       'error_code=' + (r5 ? r5.error_code : 'null'));
 
-    // A6: all 14 tools real -- no remaining Phase-70/71 stubs after Phase 71
-    // close. Loop through TOOL_NAMES; each must return either ok:true OR a
-    // legitimate degraded envelope (e.g. source_file_missing) -- never the
-    // STUB_MESSAGE sentinel. Token tool needs args; pass scope=current.
+    // A6: all 15 tools real -- no remaining Phase-70/71 stubs after Phase 71
+    // close, plus post-v2.9 sgsd_harness_evolution_status. Loop through
+    // TOOL_NAMES; each must return either ok:true OR a legitimate degraded
+    // envelope (e.g. source_file_missing) -- never the STUB_MESSAGE sentinel.
+    // Token tool needs args; pass scope=current.
     var anyStub = false;
     var stubHit = '';
     for (var ti = 0; ti < TOOL_NAMES.length; ti++) {
@@ -2661,15 +2749,15 @@ function selfTest() {
         anyStub = true; stubHit = nm + ' (still stub)'; break;
       }
     }
-    add('all_14_tools_real_no_remaining_stubs', !anyStub,
-      anyStub ? ('stub at ' + stubHit) : 'all 14 tools real');
+    add('all_15_tools_real_no_remaining_stubs', !anyStub,
+      anyStub ? ('stub at ' + stubHit) : 'all 15 tools real');
 
-    // A7: handleRequest tools/list returns 14 tools.
+    // A7: handleRequest tools/list returns 15 tools.
     var r7 = handleRequest({ jsonrpc: '2.0', method: 'tools/list', id: 1 });
-    add('handle_request_tools_list_returns_14',
+    add('handle_request_tools_list_returns_15',
       r7 && r7.jsonrpc === '2.0' && r7.id === 1
         && r7.result && Array.isArray(r7.result.tools)
-        && r7.result.tools.length === 14,
+        && r7.result.tools.length === 15,
       'len=' + (r7 && r7.result && r7.result.tools
         ? r7.result.tools.length : '?'));
 
@@ -2755,8 +2843,9 @@ function selfTest() {
       'lit=' + m1.ok + ' contains=' + m2.ok + ' regex=' + m3.ok
         + ' exists_defined=' + m4a.ok + ' exists_undefined=' + m4b.ok);
 
-    // A13: TOOL_NAMES verbatim from Phase 68 contract -- 14 named
-    // tools. Each name MUST be present.
+    // A13: TOOL_NAMES verbatim from Phase 68 contract (14 named tools)
+    // plus post-v2.9 sgsd_harness_evolution_status (15th). Each name
+    // MUST be present.
     var requiredNames = [
       'sgsd_current_state',
       'sgsd_current_phase',
@@ -2772,17 +2861,18 @@ function selfTest() {
       'sgsd_cockpit_snapshot',
       'sgsd_artifact_links',
       'sgsd_warp_doctor',
+      'sgsd_harness_evolution_status',
     ];
-    var verbatimOK = requiredNames.length === 14;
+    var verbatimOK = requiredNames.length === 15;
     var missingName = '';
     for (var ri = 0; ri < requiredNames.length; ri++) {
       if (TOOL_NAMES.indexOf(requiredNames[ri]) === -1) {
         verbatimOK = false; missingName = requiredNames[ri]; break;
       }
     }
-    add('tool_names_verbatim_phase_68_contract',
+    add('tool_names_verbatim_phase_68_plus_v29',
       verbatimOK,
-      missingName ? ('missing=' + missingName) : 'all 14 verbatim');
+      missingName ? ('missing=' + missingName) : 'all 15 verbatim');
 
     // A14: loadFixtures with non-existent dir returns []; never throws.
     var threwLF = false;

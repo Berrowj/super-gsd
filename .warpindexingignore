@@ -1,0 +1,52 @@
+# Warp Codebase Context indexing exclusions for SGSD.
+# Authored 2026-04-30 (post-v2.9 UI cleanup; M5 side action).
+# Goal: focus Warp Agent on high-value docs and source; exclude large
+# generated artifacts that bloat indexing without adding signal.
+
+# Append-only telemetry (regenerates per session)
+.planning/metrics/*.jsonl
+.planning/metrics/*.json
+.planning/metrics/*.log
+
+# Append-only AHE ledgers (Phase 99-104; regenerable)
+.planning/harness-evolution/runs/
+
+# Auto-memory and build artifacts
+.bg-shell/
+node_modules/
+.gsd/
+
+# Archived planning artifacts (superseded snapshots)
+.planning/archive/
+.planning/superseded/
+
+# Generated benchmarks output (operator regenerates)
+.planning/benchmarks/*/RUN.json
+.planning/benchmarks/*/*.html
+.planning/benchmarks/hidden/
+
+# Reports
+docs/reports/
+*.html
+
+# Symlinks to external projects (not portable)
+wiki/
+
+# Genesis-wave reference dumps (legacy)
+custom-gsd-extract/
+gsd-orchestrator-kit/
+
+# Lock files / databases
+*.db
+*.db-wal
+*.db-shm
+*.lock
+
+# Operator-local sensitive
+.env
+.claude/
+
+# Temp and lastattempt leftovers
+.planning/tmp-*
+.planning/metrics/*.lastattempt
+.planning/metrics/*.lastfail
