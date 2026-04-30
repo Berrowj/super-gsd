@@ -14,6 +14,13 @@
         "mcp"
       ],
       "cwd": "C:/Users/jack.berrow/Voice-Text-Plan"
+    },
+    "sgsd": {
+      "command": "node",
+      "args": [
+        "C:/Users/jack.berrow/GSDedits/super-gsd/tools/warp-mcp/server.cjs"
+      ],
+      "cwd": "C:/Users/jack.berrow/GSDedits"
     }
   }
 }
