@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "task_id": "v2.9-p104-t01",
+  "milestone": "v2.9",
+  "phase": 104,
+  "plan": "104-01",
+  "role": "executor",
+  "task_kind": "code_edit",
+  "goal": "Build harness transfer evaluator (cjs) with frozen-before-run enforcement, critical-regression detector, 8-axis environment schema, report writer, and 10+ assertion self-test (no LLM, no real benchmark).",
+  "allowed_files": [
+    "super-gsd/tools/harness-transfer/evaluate.cjs",
+    "super-gsd/tools/harness-transfer/run-self-test.cjs"
+  ],
+  "forbidden_files": [
+    "super-gsd/tools/harness-benchmark/sgsd-harness-benchmark.mjs",
+    "super-gsd/tools/harness-benchmark/sgsd-blind-live-controller.mjs",
+    "super-gsd/tools/harness-ablation/ablate.cjs",
+    "super-gsd/tools/harness-evolution/run.cjs",
+    "super-gsd/tools/harness-attribution/attribute.cjs",
+    "super-gsd/tools/harness-manifest/manifest.cjs"
+  ],
+  "acceptance_commands": [
+    "node super-gsd/tools/harness-transfer/run-self-test.cjs",
+    "node --check super-gsd/tools/harness-transfer/evaluate.cjs"
+  ],
+  "risk": "high",
+  "ambiguity": "low",
+  "requires_private_knowledge": true,
+  "estimated_line_count": 360,
+  "max_input_tokens": 12000,
+  "max_output_tokens": 6000
+}
