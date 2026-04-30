@@ -16,7 +16,8 @@
 name: SGSD Cockpit Only
 windows:
   - tabs:
-      - title: Cockpit
+      - title: "📊 Cockpit"
+        color: orange
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:
@@ -29,7 +30,8 @@ windows:
           - cwd: C:\Users\jack.berrow\GSDedits
             commands:
               - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Codex/Gate monitor pane. Try: SGSD: Codex Status from Command Search.' -ForegroundColor Cyan"
-      - title: Shell
+      - title: "📊 Shell"
+        color: orange
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:

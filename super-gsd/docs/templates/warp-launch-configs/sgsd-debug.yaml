@@ -18,7 +18,8 @@
 name: SGSD Debug Session
 windows:
   - tabs:
-      - title: Debug
+      - title: "🔧 Debug"
+        color: red
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:

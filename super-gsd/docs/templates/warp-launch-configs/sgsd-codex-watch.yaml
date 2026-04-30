@@ -18,7 +18,8 @@
 name: SGSD Codex Watch
 windows:
   - tabs:
-      - title: Codex Watch
+      - title: "🧪 Codex Watch"
+        color: green
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:

@@ -18,7 +18,8 @@
 name: SGSD Remote Monitor
 windows:
   - tabs:
-      - title: Remote Monitor
+      - title: "🛰 Remote Monitor"
+        color: cyan
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:
