@@ -1,0 +1,13 @@
+name: "SGSD: Memory Status"
+description: Show .planning/memory MEMORY.md index and recent memory governance entries. Search terms include memory, governance, byterover, brv, recall, context-tree.
+command: 'cd "{{project_dir}}"; Write-Host "=== .planning/memory/MEMORY.md ===" -ForegroundColor Cyan; if (Test-Path .planning\memory\MEMORY.md) { Get-Content .planning\memory\MEMORY.md -TotalCount 60 -Encoding UTF8 } else { Write-Host "no MEMORY.md yet" -ForegroundColor Yellow }; Write-Host ""; Write-Host "=== Recent memory files ===" -ForegroundColor Cyan; if (Test-Path .planning\memory) { Get-ChildItem .planning\memory\*.md -Exclude MEMORY.md 2>$null | Sort-Object LastWriteTime -Descending | Select-Object -First 10 | ForEach-Object { Write-Host ("- {0}  ({1:yyyy-MM-dd HH:mm})" -f $_.Name, $_.LastWriteTime) } }'
+tags:
+  - sgsd
+  - memory
+  - governance
+  - byterover
+  - recall
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'

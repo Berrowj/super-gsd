@@ -1,0 +1,13 @@
+name: "SGSD: All Self-Tests"
+description: Run every SGSD self-test in one shot — double-agent executor, scorecard, route-ledger, cockpit-shell, cockpit-regression, warp-doctor, warp-mcp. Search terms include self-test, verify, test, all, regression, smoke, check, doctor.
+command: 'cd "{{project_dir}}"; Write-Host "=== SGSD self-test suite ===" -ForegroundColor Cyan; Write-Host "1/7 double-agent executor"; node super-gsd\tools\double-agent-executor\run.cjs --self-test 2>&1 | Select-Object -Last 2; Write-Host "2/7 scorecard"; node super-gsd\tools\double-agent-executor\scorecard.cjs --self-test 2>&1 | Select-Object -Last 1; Write-Host "3/7 route-ledger"; node super-gsd\scripts\lib\route-ledger.test.cjs 2>&1 | Select-Object -Last 1; Write-Host "4/7 cockpit-shell"; node super-gsd\scripts\lib\sgsd-cockpit-shell.cjs --self-test 2>&1 | Select-Object -Last 1; Write-Host "5/7 cockpit-regression"; node super-gsd\tests\cockpit-regression\check.cjs 2>&1 | Select-Object -Last 1; Write-Host "6/7 warp-doctor"; node super-gsd\tools\warp-doctor\run-self-test.cjs 2>&1 | Select-Object -Last 1; Write-Host "7/7 warp-mcp"; node super-gsd\tools\warp-mcp\run-self-test.cjs 2>&1 | Select-Object -Last 1; Write-Host ""; Write-Host "All tests done." -ForegroundColor Green'
+tags:
+  - sgsd
+  - self-test
+  - verify
+  - regression
+  - smoke
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'

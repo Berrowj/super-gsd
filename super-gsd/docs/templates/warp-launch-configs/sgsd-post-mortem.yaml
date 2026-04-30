@@ -1,0 +1,40 @@
+# =============================================================================
+# SGSD Post-Mortem — Warp Launch Configuration
+#
+# 4-pane workspace for investigating a failed phase, blocked run, or
+# milestone-close audit:
+#   - Top-left:    git log + last 10 commits with phase IDs
+#   - Top-right:   STATE.md frontmatter + ORCHESTRATOR-CHECKPOINT (if any)
+#   - Bottom-left: latest WASTE.md / VERIFICATION.md across active milestone
+#   - Bottom-right: free shell for /gsd-forensics and ad-hoc git commands
+#
+# Pairs with the SGSD: Recovery Packet, SGSD: Open Review Artifacts, and
+# SGSD: Resume workflows. Use after a blocker to reconstruct what happened.
+#
+# INSTALL:
+#   1. Copy to $HOME\.warp\launch_configurations\sgsd-post-mortem.yaml
+#   2. Command Palette (Ctrl+Shift+P) → "Launch Configuration: SGSD Post-Mortem"
+# =============================================================================
+
+---
+name: SGSD Post-Mortem
+windows:
+  - tabs:
+      - title: Post-Mortem
+        layout:
+          cwd: C:\Users\jack.berrow\GSDedits
+          commands:
+            - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Recent commits with phase markers:' -ForegroundColor Yellow; git log --oneline -15"
+        split_direction: vertical
+        panes:
+          - cwd: C:\Users\jack.berrow\GSDedits
+            commands:
+              - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'STATE.md + checkpoint:' -ForegroundColor Yellow; Get-Content .planning\STATE.md -TotalCount 30 -Encoding UTF8; Write-Host '---' -ForegroundColor DarkGray; if (Test-Path .planning\ORCHESTRATOR-CHECKPOINT.md) { Get-Content .planning\ORCHESTRATOR-CHECKPOINT.md -Encoding UTF8 } else { Write-Host 'no checkpoint open' -ForegroundColor DarkYellow }"
+            split_direction: horizontal
+            panes:
+              - cwd: C:\Users\jack.berrow\GSDedits
+                commands:
+                  - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Latest WASTE/VERIFICATION across active milestone:' -ForegroundColor Yellow; $ms = Get-ChildItem .planning\milestones -Directory | Sort-Object Name -Descending | Select-Object -First 1; if ($ms) { Get-ChildItem (Join-Path $ms.FullName 'phases\*\*-WASTE.md'),(Join-Path $ms.FullName 'phases\*\*-VERIFICATION.md') 2>$null | Sort-Object LastWriteTime -Descending | Select-Object -First 5 | ForEach-Object { Write-Host ('-- ' + $_.FullName.Substring($_.FullName.LastIndexOf('milestones'))) -ForegroundColor Cyan } }"
+              - cwd: C:\Users\jack.berrow\GSDedits
+                commands:
+                  - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Free shell. Try: /gsd-forensics (in Claude) | git log --all --decorate' -ForegroundColor Cyan"

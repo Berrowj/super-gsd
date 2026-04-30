@@ -1,0 +1,30 @@
+# =============================================================================
+# SGSD Remote Monitor — Warp Launch Configuration
+#
+# 2-pane workspace optimized for off-machine observation (e.g. you're on
+# the phone via Warp Remote Control or sharing the screen). Output is
+# redacted-friendly:
+#   - Top:    SGSD remote-monitor packet (concise, share-safe)
+#   - Bottom: free shell tied to the same project
+#
+# Pairs with the SGSD: Remote Monitor Packet workflow.
+#
+# INSTALL:
+#   1. Copy to $HOME\.warp\launch_configurations\sgsd-remote-monitor.yaml
+#   2. Command Palette (Ctrl+Shift+P) → "Launch Configuration: SGSD Remote Monitor"
+# =============================================================================
+
+---
+name: SGSD Remote Monitor
+windows:
+  - tabs:
+      - title: Remote Monitor
+        layout:
+          cwd: C:\Users\jack.berrow\GSDedits
+          commands:
+            - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Remote-monitor packet (refresh: rerun command):' -ForegroundColor Cyan; if (Test-Path super-gsd\scripts\sgsd-remote-monitor.ps1) { & super-gsd\scripts\sgsd-remote-monitor.ps1 } else { Get-Content .planning\STATE.md -TotalCount 30 -Encoding UTF8 }"
+        split_direction: horizontal
+        panes:
+          - cwd: C:\Users\jack.berrow\GSDedits
+            commands:
+              - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Free shell. Try: SGSD: Remote Monitor Packet | SGSD: Watchdog Status' -ForegroundColor Cyan"

@@ -1,0 +1,13 @@
+name: "SGSD: Pause (write checkpoint hint)"
+description: Print the checkpoint-write reminder so you can pause an SGSD session cleanly. Real pause/checkpoint runs inside Claude via /sgsd-pause. Search terms include pause, stop, checkpoint, save, exit, away.
+command: 'cd "{{project_dir}}"; Write-Host "=== Pause an SGSD session ===" -ForegroundColor Yellow; Write-Host "Inside Claude, run: /sgsd-pause" -ForegroundColor Cyan; Write-Host "That writes .planning/ORCHESTRATOR-CHECKPOINT.md and stops the loop." -ForegroundColor DarkGray; Write-Host ""; Write-Host "Current state:" -ForegroundColor Yellow; Get-Content .planning\STATE.md -TotalCount 12 -Encoding UTF8'
+tags:
+  - sgsd
+  - pause
+  - checkpoint
+  - stop
+  - save
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'

@@ -1,0 +1,13 @@
+name: "SGSD: Project Stats"
+description: Quick project stats summary — milestone count, active phase, recent commit volume, repo size. Search terms include stats, summary, count, metrics, project, overview.
+command: 'cd "{{project_dir}}"; Write-Host "=== SGSD Project Stats ===" -ForegroundColor Cyan; $ms = (Get-ChildItem .planning\milestones -Directory 2>$null).Count; Write-Host ("Milestones: {0}" -f $ms); $phases = (Get-ChildItem .planning\milestones\*\phases -Directory 2>$null).Count; Write-Host ("Phases (all milestones): {0}" -f $phases); $commits24h = (git log --since="24 hours ago" --oneline 2>$null | Measure-Object).Count; Write-Host ("Commits last 24h: {0}" -f $commits24h); $commits7d = (git log --since="7 days ago" --oneline 2>$null | Measure-Object).Count; Write-Host ("Commits last 7d: {0}" -f $commits7d); $workflows = (Get-ChildItem .warp\workflows\*.yaml 2>$null).Count; Write-Host ("Warp workflows: {0}" -f $workflows); $launchers = (Get-ChildItem $HOME\.warp\launch_configurations\*.yaml 2>$null).Count; Write-Host ("Launch configurations: {0}" -f $launchers); Write-Host ""; Write-Host "Active phase:" -ForegroundColor Cyan; (Select-String -Path .planning\STATE.md -Pattern "phase_\d+:.*ACTIVE" 2>$null | Select-Object -First 1).Line'
+tags:
+  - sgsd
+  - stats
+  - summary
+  - metrics
+  - overview
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'
