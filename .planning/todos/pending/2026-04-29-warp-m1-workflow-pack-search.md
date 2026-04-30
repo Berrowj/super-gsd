@@ -27,7 +27,7 @@ Phase 63 audit confirmed all 5 workflow YAMLs exist at `.warp/workflows/` and 4/
 Steps (full version in `.planning/milestones/v2.2/MANUAL-CHECKS.md` § M1):
 
 1. Open Warp in `C:\Users\jack.berrow\GSDedits`.
-2. Open Command Search (`Ctrl+P` or palette icon).
+2. Open Command Palette (`Ctrl+Shift+P` on Windows; `Ctrl+P` is paste-last).
 3. Type `SGSD:` (with the colon).
 4. Confirm all 5 workflows appear:
    - `SGSD: Auto Mode`

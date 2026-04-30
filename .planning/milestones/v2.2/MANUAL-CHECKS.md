@@ -45,8 +45,8 @@ buttons no one can press.
 **Steps**:
 
 1. Open Warp in `C:\Users\jack.berrow\GSDedits`.
-2. Open Command Search (default keybinding `Ctrl+P` or click the address-bar
-   command-palette icon).
+2. Open Command Palette (`Ctrl+Shift+P` on Windows; not `Ctrl+P` which is
+   paste-last) or click the address-bar command-palette icon.
 3. Type `SGSD:` (with the colon).
 4. Confirm all 5 workflows appear:
    - `SGSD: Auto Mode`
