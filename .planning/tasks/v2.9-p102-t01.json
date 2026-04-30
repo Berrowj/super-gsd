@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "task_id": "v2.9-p102-t01",
+  "milestone": "v2.9",
+  "phase": 102,
+  "plan": "102-01",
+  "role": "executor",
+  "task_kind": "code_edit",
+  "goal": "Build harness-evolution outer loop runner (cjs) with 4 modes (dry-run/proposal-only/apply-candidate/attribute-only), protected-surface guard, evolution-log JSONL append, README, and 15+ assertion self-test (no LLM).",
+  "allowed_files": [
+    "super-gsd/tools/harness-evolution/run.cjs",
+    "super-gsd/tools/harness-evolution/run-self-test.cjs",
+    "super-gsd/tools/harness-evolution/README.md"
+  ],
+  "forbidden_files": [
+    "super-gsd/tools/harness-attribution/attribute.cjs",
+    "super-gsd/tools/harness-manifest/manifest.cjs",
+    "super-gsd/tools/harness-evidence/distill.cjs",
+    "super-gsd/tools/harness-components/catalog.cjs",
+    "super-gsd/tools/double-agent-executor/run.cjs",
+    "super-gsd/tools/warp-mcp-actions/server.cjs"
+  ],
+  "acceptance_commands": [
+    "node super-gsd/tools/harness-evolution/run-self-test.cjs",
+    "node --check super-gsd/tools/harness-evolution/run.cjs"
+  ],
+  "risk": "high",
+  "ambiguity": "low",
+  "requires_private_knowledge": true,
+  "estimated_line_count": 380,
+  "max_input_tokens": 12000,
+  "max_output_tokens": 6000
+}
