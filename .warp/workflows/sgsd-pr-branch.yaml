@@ -1,0 +1,13 @@
+name: "SGSD: PR Branch (filter .planning)"
+description: Create a clean PR branch by filtering out .planning/ commits — ready for code review. Wraps the /gsd-pr-branch skill. Search terms include pr, pull-request, branch, review, ship, deploy, filter.
+command: 'cd "{{project_dir}}"; Write-Host "Run /gsd-pr-branch in Claude to invoke the skill. Or for git CLI:" -ForegroundColor Yellow; Write-Host "  git log --oneline master..HEAD -- ''super-gsd/'' ''AGENTS.md'' ''WARP.md'' ''.warp/'' | head -20"; git log --oneline master..HEAD -- super-gsd/ AGENTS.md WARP.md .warp/ 2>$null | Select-Object -First 20'
+tags:
+  - sgsd
+  - pr
+  - branch
+  - review
+  - ship
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'

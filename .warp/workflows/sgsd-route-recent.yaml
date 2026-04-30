@@ -1,0 +1,13 @@
+name: "SGSD: Route Decisions Recent"
+description: Show the last 10 double-agent execution_route decisions — provider chosen, why, fallback used, compiled-private-context state. Reads .planning/metrics/route-decisions.jsonl. Search terms include route, codex, claude, executor, why, context, compiled, decision.
+command: 'cd "{{project_dir}}"; if (Test-Path .planning\metrics\route-decisions.jsonl) { Get-Content .planning\metrics\route-decisions.jsonl -Tail 10 -Encoding UTF8 | ForEach-Object { try { $r=($_ | ConvertFrom-Json); if ($r.boundary -eq "execution_route") { [pscustomobject]@{ ts=$r.ts; phase=$r.phase; provider=$r.decision.chosen_provider; primary=$r.decision.primary_provider; compiled=$r.decision.private_context_compiled; tests=$r.decision.tests_passed; why=($r.reason_codes -join ",") } } } catch { } } | Format-Table -AutoSize } else { Write-Host "No route-decisions.jsonl yet -- no double-agent routes logged." }'
+tags:
+  - sgsd
+  - route
+  - codex
+  - executor
+  - decision
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'

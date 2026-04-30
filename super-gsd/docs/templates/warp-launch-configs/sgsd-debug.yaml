@@ -1,0 +1,38 @@
+# =============================================================================
+# SGSD Debug Session — Warp Launch Configuration
+#
+# 4-pane workspace tuned for diagnosing a stuck/failing run:
+#   - Top-left:    warp-doctor live probe
+#   - Top-right:   STATE.md frontmatter
+#   - Bottom-left: live ORCHESTRATOR-LIVE.jsonl tail
+#   - Bottom-right: free shell for ad-hoc commands
+#
+# INSTALL:
+#   1. Copy to $HOME\.warp\launch_configurations\sgsd-debug.yaml
+#   2. Open via Command Palette (Ctrl+Shift+P) → "Launch Configuration: SGSD Debug Session"
+#
+# CAVEAT: opens in a NEW Warp window per Phase 63 M4 finding.
+# =============================================================================
+
+---
+name: SGSD Debug Session
+windows:
+  - tabs:
+      - title: Debug
+        layout:
+          cwd: C:\Users\jack.berrow\GSDedits
+          commands:
+            - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'warp-doctor probe:' -ForegroundColor Cyan; node super-gsd/tools/warp-doctor/check.cjs --project C:\Users\jack.berrow\GSDedits"
+        split_direction: vertical
+        panes:
+          - cwd: C:\Users\jack.berrow\GSDedits
+            commands:
+              - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'STATE.md:' -ForegroundColor Cyan; Get-Content .planning\STATE.md -TotalCount 30 -Encoding UTF8"
+            split_direction: horizontal
+            panes:
+              - cwd: C:\Users\jack.berrow\GSDedits
+                commands:
+                  - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'ORCHESTRATOR-LIVE.jsonl tail (Ctrl+C to stop):' -ForegroundColor Cyan; if (Test-Path .planning\ORCHESTRATOR-LIVE.jsonl) { Get-Content .planning\ORCHESTRATOR-LIVE.jsonl -Tail 10 -Wait } else { Write-Host 'no live file yet' }"
+              - cwd: C:\Users\jack.berrow\GSDedits
+                commands:
+                  - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Free shell. Try: SGSD: Recovery Packet | SGSD: Live Pulse Tail' -ForegroundColor Cyan"

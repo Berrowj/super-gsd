@@ -1,0 +1,13 @@
+name: "SGSD: Live Pulse Tail"
+description: Tail the last 20 ORCHESTRATOR-LIVE.jsonl events to see the current orchestrator stream — agent dispatches, gate verdicts, codex events, token thresholds, checkpoints. Search terms include live, pulse, stream, events, orchestrator, tail, watch.
+command: 'cd "{{project_dir}}"; if (Test-Path .planning\ORCHESTRATOR-LIVE.jsonl) { Get-Content .planning\ORCHESTRATOR-LIVE.jsonl -Tail 20 -Encoding UTF8 | ForEach-Object { try { ($_ | ConvertFrom-Json) | Format-Table ts, type, milestone, phase -AutoSize } catch { $_ } } } else { Write-Host "No ORCHESTRATOR-LIVE.jsonl yet -- live event contract not bootstrapped." }'
+tags:
+  - sgsd
+  - live
+  - pulse
+  - stream
+  - events
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'

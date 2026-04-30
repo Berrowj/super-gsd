@@ -1,0 +1,13 @@
+name: "SGSD: Resume"
+description: Resume an SGSD session from the last checkpoint. Reads ORCHESTRATOR-CHECKPOINT.md, prints the next-action, then opens Claude with the resume command pre-loaded. Search terms include resume, restart, continue, recover, checkpoint, after pause.
+command: 'cd "{{project_dir}}"; if (Test-Path .planning\ORCHESTRATOR-CHECKPOINT.md) { Write-Host "=== CHECKPOINT FOUND ===" -ForegroundColor Cyan; Get-Content .planning\ORCHESTRATOR-CHECKPOINT.md -Encoding UTF8; Write-Host "`n=== Next: type ''/sgsd-orchestrate go'' in Claude ===" -ForegroundColor Yellow } else { Write-Host "No checkpoint open. Use SGSD: Status / SGSD: Recovery Packet to inspect state." -ForegroundColor Yellow }'
+tags:
+  - sgsd
+  - resume
+  - checkpoint
+  - restart
+  - continue
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'

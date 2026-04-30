@@ -1,0 +1,13 @@
+name: "SGSD: Harness Evolution Status"
+description: Print the active v2.9 Agentic Harness Evolution run state — components, predictions, attribution, rollback gate. Reads the latest run summary from .planning/harness-evolution/runs/. Search terms include ahe, harness, evolution, components, attribution, rollback, prediction.
+command: 'cd "{{project_dir}}"; node -e "const fs=require(''fs'');const p=''.planning/harness-evolution/runs'';if(!fs.existsSync(p)){console.log(''no AHE runs yet -- v2.9 not active'');process.exit(0);}const runs=fs.readdirSync(p).filter(x=>fs.statSync(p+''/''+x).isDirectory()).sort().reverse();if(!runs.length){console.log(''no AHE runs in '' + p);process.exit(0);}const latest=p+''/''+runs[0];console.log(''Latest AHE run: ''+runs[0]);for(const f of [''run-summary.json'',''attribution.json'',''ledger.jsonl'']){const fp=latest+''/''+f;if(fs.existsSync(fp)){const text=fs.readFileSync(fp,''utf8'').slice(0,2000);console.log(''-- ''+f+'' --'');console.log(text);}}"'
+tags:
+  - sgsd
+  - ahe
+  - harness
+  - evolution
+  - status
+arguments:
+  - name: project_dir
+    description: Project root containing .planning and super-gsd.
+    default_value: 'C:\Users\jack.berrow\GSDedits'
