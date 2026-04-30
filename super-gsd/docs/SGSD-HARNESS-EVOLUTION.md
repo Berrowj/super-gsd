@@ -159,7 +159,104 @@ Expected: `harness-components-catalog-self-test: 21/21 passed`.
 When in doubt, prefer `tool` for runnable code and `docs` for prose. Use
 `prompt` only for files that ARE loaded into agent context.
 
+---
+
+# Phase 99 -- Trajectory Evidence Corpus
+
+## Why this exists
+
+AHE-P-02: distill experience before asking for change. The agent should not
+read millions of raw tokens. It should read a layered corpus with
+drill-down pointers.
+
+`super-gsd/tools/harness-evidence/distill.cjs` reads SGSD's 7 JSONL log
+surfaces + optional benchmark RUN.json/REPORT.md and emits:
+
+```
+.planning/harness-evolution/runs/<run_id>/
+  OVERVIEW.md     -- compressed summary, <=4KB by default
+  INDEX.json      -- machine-readable pointer index
+  tasks/<phase>_<plan>.md  -- per-group reports (pointers, not raw copies)
+```
+
+## CLI
+
+```powershell
+# Distill the latest pulse window automatically
+node super-gsd/tools/harness-evidence/distill.cjs
+
+# Distill a specific time window
+node super-gsd/tools/harness-evidence/distill.cjs `
+  --since 2026-04-30T00:00:00Z `
+  --until 2026-04-30T23:59:59Z `
+  --run-id v2.9-overnight
+
+# Include a benchmark report
+node super-gsd/tools/harness-evidence/distill.cjs `
+  --benchmark .planning/benchmarks/ahe-paper-smoke `
+  --run-id ahe-smoke-distill
+```
+
+## Library API
+
+Lock-13: never throws.
+
+```javascript
+const distill = require('super-gsd/tools/harness-evidence/distill.cjs');
+
+const r = distill.distillRun({
+  projectDir: process.cwd(),
+  run_id: 'overnight',
+  since: '2026-04-30T00:00:00Z'
+});
+if (!r.ok) console.error(r.errors);
+console.log('overview:', r.overview_path);
+console.log('tasks:', r.task_paths.length);
+```
+
+## Closed-vocab root causes (11)
+
+```
+state_projection_drift
+missing_context_packet
+provider_unavailable
+gate_false_negative
+gate_false_positive
+token_budget_breach
+duplicate_verification
+incomplete_artifact
+hidden_fault_uncaught
+successful_recovery_pattern
+unknown
+```
+
+`unknown` catches the long tail. Adding new labels is a Phase 99+ change
+to `ROOT_CAUSES` in `distill.cjs` (frozen via `Object.freeze`).
+
+## Pointers, not copies
+
+Per-task .md files contain phase/plan + label set + first-5-event
+summaries + grep hints into source JSONL. Full raw events stay in source
+files; the corpus does not duplicate them. This keeps per-task reports
+small and avoids the million-token-prompt failure mode the AHE paper
+warns against.
+
+## Operator note: time-windowing
+
+The full historical log set has thousands of unique phase:plan
+combinations. Always use `--since` (and optionally `--until`) for
+post-run analysis to keep the per-task corpus tractable. The default
+"no window" path is only for live monitoring of the current iteration.
+
+## Self-test
+
+```powershell
+node super-gsd/tools/harness-evidence/run-self-test.cjs
+```
+
+Expected: `harness-evidence-distill-self-test: 18/18 passed`.
+
 ## Footer
 
-Source: SGSD v2.9 Agentic Harness Evolution roadmap, Phase 98.
+Source: SGSD v2.9 Agentic Harness Evolution roadmap, Phases 98-99.
 Maintainer: orchestrator. Operator owns protected rows.

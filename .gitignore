@@ -31,6 +31,9 @@ _parse_check.ps1
 .planning/metrics/*.lastfail
 .planning/metrics/*.lock
 
+# v2.9 AHE harness-evolution runtime corpus (regenerable from JSONL sources)
+.planning/harness-evolution/runs/
+
 # Symlink to external Voice-Text-Plan project — not portable
 wiki/
 

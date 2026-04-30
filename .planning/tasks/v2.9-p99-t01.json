@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "task_id": "v2.9-p99-t01",
+  "milestone": "v2.9",
+  "phase": 99,
+  "plan": "99-01",
+  "role": "executor",
+  "task_kind": "code_edit",
+  "goal": "Build trajectory evidence distiller (cjs) with rule-based root-cause classifier and 12+ assertion self-test for SGSD AHE corpus.",
+  "allowed_files": [
+    "super-gsd/tools/harness-evidence/distill.cjs",
+    "super-gsd/tools/harness-evidence/run-self-test.cjs",
+    "super-gsd/docs/SGSD-HARNESS-EVOLUTION.md"
+  ],
+  "forbidden_files": [
+    "super-gsd/tools/harness-components/catalog.cjs",
+    "super-gsd/tools/harness-components/run-self-test.cjs",
+    "super-gsd/registry/harness-components.yaml",
+    "super-gsd/scripts/lib/orchestrator-hooks.cjs"
+  ],
+  "acceptance_commands": [
+    "node super-gsd/tools/harness-evidence/run-self-test.cjs",
+    "node --check super-gsd/tools/harness-evidence/distill.cjs",
+    "node --check super-gsd/tools/harness-evidence/run-self-test.cjs"
+  ],
+  "risk": "medium",
+  "ambiguity": "low",
+  "requires_private_knowledge": true,
+  "estimated_line_count": 380,
+  "max_input_tokens": 12000,
+  "max_output_tokens": 6000
+}
