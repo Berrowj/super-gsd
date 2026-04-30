@@ -42,6 +42,11 @@
     "estimated_line_count": { "type": "number", "minimum": 0 },
     "max_input_tokens": { "type": "number", "minimum": 1 },
     "max_output_tokens": { "type": "number", "minimum": 1 },
-    "operator_intent_summary": { "type": ["string", "null"] }
+    "operator_intent_summary": { "type": ["string", "null"] },
+    "harness_change_id": {
+      "type": ["string", "null"],
+      "pattern": "^ch-[a-z0-9-]+$",
+      "description": "Phase 100 cross-link to harness-change-manifest entry. Optional. When set, route-decisions evidence array adds a harness_change_manifest ref."
+    }
   }
 }

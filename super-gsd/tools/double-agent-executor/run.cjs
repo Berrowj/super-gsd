@@ -56,6 +56,11 @@ const LOCAL_TASK_KINDS = Object.freeze([
   'extraction', 'inventory',
 ]);
 
+const ROUTING_MATRIX_VERSION = 'execution-weighted-v1';
+
+const CODEX_ALLOWED_FILE_LIMIT = 6;
+const CODEX_ESTIMATED_LINE_LIMIT = 400;
+
 function repoRoot() {
   return path.resolve(__dirname, '..', '..', '..');
 }
@@ -151,6 +156,9 @@ function normalizeCapsule(raw) {
   c.phase = c.phase === undefined ? null : String(c.phase);
   c.milestone = c.milestone === undefined ? null : c.milestone;
   c.plan = c.plan === undefined ? null : c.plan;
+  c.harness_change_id = (typeof c.harness_change_id === 'string' && c.harness_change_id.length > 0)
+    ? c.harness_change_id
+    : null;
   return c;
 }
 
@@ -179,12 +187,150 @@ function isCodexBounded(capsule) {
   return CODEX_TASK_KINDS.includes(capsule.task_kind)
     && capsule.role === 'executor'
     && capsule.allowed_files.length > 0
-    && capsule.allowed_files.length <= 6
-    && capsule.estimated_line_count <= 400
+    && capsule.allowed_files.length <= CODEX_ALLOWED_FILE_LIMIT
+    && capsule.estimated_line_count <= CODEX_ESTIMATED_LINE_LIMIT
     && capsule.risk !== 'high'
     && capsule.ambiguity !== 'high'
     && !capsule.requires_private_knowledge
     && hasMechanicalAcceptance(capsule);
+}
+
+function isReviewTask(capsule) {
+  return capsule.task_kind === 'review';
+}
+
+function scoreEvidence(provider, delta, code, detail) {
+  return {
+    provider,
+    delta,
+    code,
+    detail: detail || null,
+  };
+}
+
+function addScore(scores, evidence, provider, delta, code, detail) {
+  scores[provider] += delta;
+  evidence.push(scoreEvidence(provider, delta, code, detail));
+}
+
+function buildExecutionScorecard(capsule, health) {
+  const scores = { 'local-script': 0, codex: 0, claude: 0 };
+  const evidence = [];
+  const vetoes = { 'local-script': [], codex: [], claude: [] };
+
+  const localLike = capsule.deterministic || LOCAL_TASK_KINDS.includes(capsule.task_kind);
+  const codexLike = CODEX_TASK_KINDS.includes(capsule.task_kind);
+  const claudeLike = CLAUDE_TASK_KINDS.includes(capsule.task_kind);
+  const hasAcceptance = hasMechanicalAcceptance(capsule);
+  const fileCount = capsule.allowed_files.length;
+  const boundedFiles = fileCount > 0 && fileCount <= CODEX_ALLOWED_FILE_LIMIT;
+  const boundedLines = capsule.estimated_line_count <= CODEX_ESTIMATED_LINE_LIMIT;
+  const lowAmbiguity = capsule.ambiguity === 'low';
+  const lowRisk = capsule.risk === 'low';
+  const mediumRisk = capsule.risk === 'medium';
+  const tokenPressure = capsule.max_input_tokens <= 8000 || capsule.max_output_tokens <= 2000;
+
+  if (capsule.deterministic) addScore(scores, evidence, 'local-script', 5, 'deterministic_task');
+  if (capsule.local_command) addScore(scores, evidence, 'local-script', 3, 'local_command_available');
+  if (LOCAL_TASK_KINDS.includes(capsule.task_kind)) addScore(scores, evidence, 'local-script', 4, 'local_task_kind');
+  if (hasAcceptance) addScore(scores, evidence, 'local-script', 1, 'acceptance_command_available');
+  if (codexLike) addScore(scores, evidence, 'local-script', -2, 'code_work_not_local_primary');
+  if (capsule.risk === 'high') addScore(scores, evidence, 'local-script', -2, 'high_risk_not_local');
+  if (capsule.ambiguity === 'high') addScore(scores, evidence, 'local-script', -3, 'high_ambiguity_not_local');
+  if (capsule.requires_private_knowledge) addScore(scores, evidence, 'local-script', -2, 'private_knowledge_not_local');
+
+  if (codexLike) addScore(scores, evidence, 'codex', 4, 'codex_task_kind');
+  if (isReviewTask(capsule)) addScore(scores, evidence, 'codex', 3, 'codex_review_task');
+  if (capsule.role === 'executor') addScore(scores, evidence, 'codex', 2, 'executor_role');
+  if (hasAcceptance) addScore(scores, evidence, 'codex', 4, 'mechanical_acceptance_available');
+  if (boundedFiles) addScore(scores, evidence, 'codex', 3, 'bounded_allowed_files', String(fileCount));
+  if (boundedLines) addScore(scores, evidence, 'codex', 2, 'bounded_estimated_line_count', String(capsule.estimated_line_count));
+  if (lowAmbiguity) addScore(scores, evidence, 'codex', 2, 'low_ambiguity');
+  if (lowRisk || mediumRisk) addScore(scores, evidence, 'codex', lowRisk ? 2 : 1, 'acceptable_risk', capsule.risk);
+  if (tokenPressure) addScore(scores, evidence, 'codex', 2, 'token_budget_pressure');
+  if (capsule.risk === 'high') addScore(scores, evidence, 'codex', -6, 'high_risk_penalty');
+  if (capsule.ambiguity === 'high') addScore(scores, evidence, 'codex', -6, 'high_ambiguity_penalty');
+  if (capsule.requires_private_knowledge) addScore(scores, evidence, 'codex', -6, 'private_knowledge_penalty');
+  if (!hasAcceptance && (codexLike || isReviewTask(capsule))) addScore(scores, evidence, 'codex', -4, 'missing_acceptance_penalty');
+
+  if (claudeLike) addScore(scores, evidence, 'claude', 5, 'claude_judgment_task_kind');
+  if (capsule.risk === 'high') addScore(scores, evidence, 'claude', 5, 'high_risk_requires_judgment');
+  if (capsule.ambiguity === 'high') addScore(scores, evidence, 'claude', 5, 'high_ambiguity_requires_judgment');
+  if (capsule.requires_private_knowledge) addScore(scores, evidence, 'claude', 5, 'private_knowledge_required');
+  if (!hasAcceptance) addScore(scores, evidence, 'claude', 2, 'no_mechanical_acceptance');
+  if (!boundedFiles) addScore(scores, evidence, 'claude', 2, 'unbounded_files');
+  if (!boundedLines) addScore(scores, evidence, 'claude', 2, 'large_change');
+  if (capsule.task_kind === 'docs' || capsule.task_kind === 'general' || capsule.task_kind === 'verification') {
+    addScore(scores, evidence, 'claude', 1, 'general_or_docs_judgment');
+  }
+  if (codexLike && hasAcceptance && boundedFiles && capsule.risk !== 'high' && capsule.ambiguity !== 'high') {
+    addScore(scores, evidence, 'claude', -1, 'bounded_code_work_prefers_codex');
+  }
+  if (tokenPressure) addScore(scores, evidence, 'claude', -2, 'token_budget_pressure');
+
+  if (!localLike) vetoes['local-script'].push('not_deterministic_or_local_task_kind');
+  if (!capsule.local_command) vetoes['local-script'].push('local_command_missing');
+
+  if (!(codexLike || isReviewTask(capsule))) vetoes.codex.push('task_kind_not_codex_suitable');
+  if (codexLike && capsule.role !== 'executor') vetoes.codex.push('codex_execution_requires_executor_role');
+  if (capsule.risk === 'high') vetoes.codex.push('high_risk_requires_claude');
+  if (capsule.ambiguity === 'high') vetoes.codex.push('high_ambiguity_requires_claude');
+  if (capsule.requires_private_knowledge) vetoes.codex.push('private_knowledge_requires_claude');
+  if (!health.codex.healthy) vetoes.codex.push('codex_provider_unhealthy');
+  if (codexLike && !hasAcceptance) vetoes.codex.push('mechanical_acceptance_missing');
+  if (codexLike && fileCount === 0) vetoes.codex.push('allowed_files_missing');
+  if (codexLike && fileCount > CODEX_ALLOWED_FILE_LIMIT) vetoes.codex.push('allowed_files_over_limit');
+  if (codexLike && capsule.estimated_line_count > CODEX_ESTIMATED_LINE_LIMIT) vetoes.codex.push('estimated_line_count_over_limit');
+
+  return {
+    version: ROUTING_MATRIX_VERSION,
+    scores,
+    evidence,
+    vetoes,
+    eligible: {
+      'local-script': vetoes['local-script'].length === 0,
+      codex: vetoes.codex.length === 0,
+      claude: true,
+    },
+    limits: {
+      codex_allowed_files: CODEX_ALLOWED_FILE_LIMIT,
+      codex_estimated_line_count: CODEX_ESTIMATED_LINE_LIMIT,
+    },
+  };
+}
+
+function bestEligibleProvider(matrix) {
+  const ordered = PROVIDERS
+    .filter((p) => matrix.eligible[p])
+    .sort((a, b) => {
+      const d = matrix.scores[b] - matrix.scores[a];
+      if (d !== 0) return d;
+      return PROVIDERS.indexOf(a) - PROVIDERS.indexOf(b);
+    });
+  return ordered[0] || 'claude';
+}
+
+function bestScoredProvider(matrix) {
+  return PROVIDERS
+    .slice()
+    .sort((a, b) => {
+      const d = matrix.scores[b] - matrix.scores[a];
+      if (d !== 0) return d;
+      return PROVIDERS.indexOf(a) - PROVIDERS.indexOf(b);
+    })[0] || 'claude';
+}
+
+function winningReason(provider, matrix) {
+  const items = matrix.evidence
+    .filter((e) => e.provider === provider && e.delta > 0)
+    .sort((a, b) => b.delta - a.delta)
+    .slice(0, 3)
+    .map((e) => e.code);
+  return items.join(', ') || 'fallback_provider';
+}
+
+function hasOnlyProviderHealthCodexVeto(matrix) {
+  return matrix.vetoes.codex.length === 1 && matrix.vetoes.codex[0] === 'codex_provider_unhealthy';
 }
 
 function routeCapsule(rawCapsule, opts) {
@@ -192,58 +338,41 @@ function routeCapsule(rawCapsule, opts) {
   const o = opts || {};
   const health = { codex: codexHealth(o) };
   const reason_codes = [];
-  let provider = 'claude';
-  let primary = 'claude';
+  const matrix = buildExecutionScorecard(capsule, health);
+  const rawBestProvider = bestScoredProvider(matrix);
+  let provider = bestEligibleProvider(matrix);
+  let primary = provider;
   let fallback_used = false;
   let fallback_reason = null;
-  let route_class = 'claude_judgment';
+  let route_class = provider + '_weighted';
 
-  if (capsule.deterministic || LOCAL_TASK_KINDS.includes(capsule.task_kind)) {
+  if (rawBestProvider === 'local-script' && !matrix.eligible['local-script']) {
     primary = 'local-script';
-    provider = capsule.local_command ? 'local-script' : 'claude';
-    fallback_used = !capsule.local_command;
-    fallback_reason = capsule.local_command ? null : 'local_command_missing';
-    route_class = 'deterministic_local';
-    reason_codes.push(capsule.local_command ? 'local_script_primary_deterministic' : 'local_script_missing_fallback_claude');
-  } else if (CLAUDE_TASK_KINDS.includes(capsule.task_kind)
-      || capsule.risk === 'high'
-      || capsule.ambiguity === 'high'
-      || capsule.requires_private_knowledge) {
-    primary = 'claude';
-    provider = 'claude';
-    route_class = 'claude_required';
-    reason_codes.push('claude_primary_judgment_required');
-  } else if (isCodexBounded(capsule)) {
+    fallback_used = true;
+    fallback_reason = matrix.vetoes['local-script'][0] || 'local_script_vetoed';
+    route_class = 'local_script_vetoed_fallback';
+    reason_codes.push('local_script_vetoed_fallback_claude');
+  } else if (rawBestProvider === 'codex'
+      && !matrix.eligible.codex
+      && hasOnlyProviderHealthCodexVeto(matrix)) {
     primary = 'codex';
-    if (health.codex.healthy) {
-      provider = 'codex';
-      route_class = 'codex_bounded_execution';
-      reason_codes.push('codex_primary_bounded_task');
-    } else {
-      provider = 'claude';
-      fallback_used = true;
-      fallback_reason = 'provider_codex_unavailable';
-      route_class = 'codex_unavailable_fallback';
-      reason_codes.push('codex_unhealthy_fallback_claude');
-    }
-  } else if (capsule.task_kind === 'review') {
-    primary = 'codex';
-    if (health.codex.healthy) {
-      provider = 'codex';
-      route_class = 'codex_review';
-      reason_codes.push('codex_primary_review');
-    } else {
-      provider = 'claude';
-      fallback_used = true;
-      fallback_reason = 'provider_codex_unavailable';
-      route_class = 'codex_review_fallback';
-      reason_codes.push('codex_unhealthy_fallback_claude');
-    }
-  } else {
-    primary = 'claude';
     provider = 'claude';
-    route_class = 'claude_default';
-    reason_codes.push('claude_primary_unbounded_or_no_tests');
+    fallback_used = true;
+    fallback_reason = matrix.vetoes.codex[0] || 'codex_vetoed';
+    route_class = fallback_reason === 'codex_provider_unhealthy'
+      ? 'codex_unavailable_fallback'
+      : 'codex_vetoed_fallback';
+    reason_codes.push(fallback_reason === 'codex_provider_unhealthy'
+      ? 'codex_unhealthy_fallback_claude'
+      : 'codex_vetoed_fallback_claude');
+  }
+
+  if (provider === 'local-script') reason_codes.push('local_script_primary_weighted');
+  else if (provider === 'codex') {
+    reason_codes.push(isReviewTask(capsule) ? 'codex_primary_review' : 'codex_primary_bounded_task');
+  } else if (!reason_codes.length) {
+    const codexSafetyVeto = matrix.vetoes.codex.some((v) => v !== 'codex_provider_unhealthy');
+    reason_codes.push(codexSafetyVeto ? 'claude_primary_safety_veto' : 'claude_primary_weighted');
   }
 
   return {
@@ -257,6 +386,8 @@ function routeCapsule(rawCapsule, opts) {
     fallback_used,
     fallback_reason,
     reason_codes,
+    scorecard: matrix,
+    winning_reason: winningReason(provider, matrix),
     candidate_providers: candidateProviders(capsule),
     health,
     budget: {
@@ -581,6 +712,9 @@ function logExecutionRoute(planningDir, capsule, decision, result) {
   if (r.patch_path && fs.existsSync(r.patch_path)) artifacts.push({ kind: 'execution_patch', path: path.relative(repoRoot(), r.patch_path) });
 
   const evidence = [{ kind: 'task_capsule', ref: capsule.task_id }];
+  if (capsule.harness_change_id) {
+    evidence.push({ kind: 'harness_change_manifest', ref: capsule.harness_change_id });
+  }
 
   return routeLedger.logRouteDecision(planningDir, {
     boundary: 'execution_route',
@@ -601,6 +735,11 @@ function logExecutionRoute(planningDir, capsule, decision, result) {
       chosen_provider: decision.chosen_provider,
       fallback_used: decision.fallback_used,
       fallback_reason: decision.fallback_reason,
+      winning_reason: decision.winning_reason,
+      routing_matrix_version: decision.scorecard ? decision.scorecard.version : null,
+      scores: decision.scorecard ? decision.scorecard.scores : null,
+      vetoes: decision.scorecard ? decision.scorecard.vetoes : null,
+      score_evidence: decision.scorecard ? decision.scorecard.evidence : [],
       candidate_providers: decision.candidate_providers,
       allowed_files_count: capsule.allowed_files.length,
       changed_files: r.changed_files || [],
@@ -727,16 +866,28 @@ function selfTest() {
     const codexRoute = routeCapsule(base, { forceCodexHealth: true });
     assert('3. bounded code edit routes to Codex when healthy',
       codexRoute.chosen_provider === 'codex' && codexRoute.primary_provider === 'codex');
+    assert('3b. bounded code edit includes weighted score evidence',
+      codexRoute.scorecard
+      && codexRoute.scorecard.version === ROUTING_MATRIX_VERSION
+      && codexRoute.scorecard.scores.codex > codexRoute.scorecard.scores.claude
+      && codexRoute.scorecard.vetoes.codex.length === 0);
 
     const fallbackRoute = routeCapsule(base, { forceCodexHealth: false });
     assert('4. bounded code edit falls back to Claude when Codex unhealthy',
       fallbackRoute.chosen_provider === 'claude'
       && fallbackRoute.primary_provider === 'codex'
       && fallbackRoute.fallback_used === true);
+    assert('4b. unhealthy Codex is recorded as provider fallback only',
+      fallbackRoute.fallback_reason === 'codex_provider_unhealthy'
+      && fallbackRoute.scorecard.vetoes.codex.length === 1);
 
     const highRisk = routeCapsule(Object.assign({}, base, { risk: 'high' }), { forceCodexHealth: true });
     assert('5. high-risk task routes to Claude',
       highRisk.chosen_provider === 'claude' && highRisk.primary_provider === 'claude');
+    assert('5b. high-risk Codex veto is not mislabelled as provider fallback',
+      highRisk.fallback_used === false
+      && highRisk.reason_codes.includes('claude_primary_safety_veto')
+      && highRisk.scorecard.vetoes.codex.includes('high_risk_requires_claude'));
 
     const local = routeCapsule(Object.assign({}, base, {
       task_id: 'self-test-local',
@@ -764,6 +915,10 @@ function selfTest() {
       rows.length === 1 && rows[0].decision.task_id === 'self-test-code');
     assert('8. execution route row preserves token estimate',
       rows[0].decision.token_estimate.total_estimated_tokens === 123);
+    assert('8b. execution route row preserves scores and vetoes',
+      rows[0].decision.routing_matrix_version === ROUTING_MATRIX_VERSION
+      && rows[0].decision.scores.codex > rows[0].decision.scores.claude
+      && Array.isArray(rows[0].decision.score_evidence));
 
     const routeOnlyResult = runCapsule(base, {
       routeOnly: true,

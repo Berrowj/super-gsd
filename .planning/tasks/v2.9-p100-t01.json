@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "task_id": "v2.9-p100-t01",
+  "milestone": "v2.9",
+  "phase": 100,
+  "plan": "100-01",
+  "role": "executor",
+  "task_kind": "code_edit",
+  "goal": "Build harness change manifest schema (json), Lock-13 manifest ledger (cjs), task-capsule schema, and minimal additive harness_change_id field on double-agent-executor with 15+ assertion self-test.",
+  "allowed_files": [
+    "super-gsd/tools/harness-manifest/MANIFEST.schema.json",
+    "super-gsd/tools/harness-manifest/manifest.cjs",
+    "super-gsd/tools/harness-manifest/run-self-test.cjs",
+    "super-gsd/tools/double-agent-executor/task-capsule.schema.json",
+    "super-gsd/tools/double-agent-executor/run.cjs"
+  ],
+  "forbidden_files": [
+    "super-gsd/tools/harness-components/catalog.cjs",
+    "super-gsd/tools/harness-evidence/distill.cjs",
+    "super-gsd/registry/harness-components.yaml"
+  ],
+  "acceptance_commands": [
+    "node super-gsd/tools/harness-manifest/run-self-test.cjs",
+    "node super-gsd/tools/double-agent-executor/run.cjs --self-test",
+    "node --check super-gsd/tools/harness-manifest/manifest.cjs"
+  ],
+  "risk": "medium",
+  "ambiguity": "low",
+  "requires_private_knowledge": true,
+  "estimated_line_count": 400,
+  "max_input_tokens": 12000,
+  "max_output_tokens": 6000
+}

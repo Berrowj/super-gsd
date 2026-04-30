@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "sgsd-harness-change-manifest-v1",
+  "title": "SGSD Harness Change Manifest Entry",
+  "description": "One falsifiable prediction record for a candidate harness edit. Phase 100 of v2.9 AHE.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "change_id",
+    "component_id",
+    "component_class",
+    "files",
+    "evidence_ids",
+    "root_cause",
+    "targeted_fix",
+    "predicted_fixes",
+    "predicted_regressions",
+    "expected_token_delta",
+    "expected_gate_delta",
+    "rollback_method",
+    "protected_surface_check"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "change_id": {
+      "type": "string",
+      "pattern": "^ch-[a-z0-9-]+$",
+      "minLength": 5,
+      "maxLength": 80
+    },
+    "component_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Must exist as id in super-gsd/registry/harness-components.yaml"
+    },
+    "component_class": {
+      "type": "string",
+      "enum": [
+        "prompt", "tool", "middleware_hook", "skill", "agent_config",
+        "memory", "workflow", "mcp_bridge", "gate", "dashboard", "docs",
+        "protected_oracle", "protected_verifier", "protected_model_config"
+      ]
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "evidence_ids": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "root_cause": {
+      "type": "string",
+      "enum": [
+        "state_projection_drift", "missing_context_packet",
+        "provider_unavailable", "gate_false_negative", "gate_false_positive",
+        "token_budget_breach", "duplicate_verification",
+        "incomplete_artifact", "hidden_fault_uncaught",
+        "successful_recovery_pattern", "unknown"
+      ]
+    },
+    "targeted_fix": { "type": "string", "minLength": 1, "maxLength": 240 },
+    "predicted_fixes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "predicted_regressions": {
+      "type": "array",
+      "minItems": 0,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "expected_token_delta": { "type": "integer" },
+    "expected_gate_delta": { "type": "integer" },
+    "rollback_method": {
+      "type": "string",
+      "enum": ["git-revert", "manual-edit-restore", "operator-manual", "none"]
+    },
+    "protected_surface_check": { "type": "string", "enum": ["true", "false"] },
+    "operator_override_id": {
+      "type": ["string", "null"],
+      "minLength": 1
+    }
+  }
+}
