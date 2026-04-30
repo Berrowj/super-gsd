@@ -5,16 +5,16 @@ Warp Agent can call read-only SGSD state queries directly. The server is
 the canonical bridge between Warp and the SGSD planning state on this
 machine.
 
-**Status**: v2.3 read-only -- 14 tools, 7-category redaction, 42+ self-test
-assertions. Write-capable controlled actions land separately in v2.7
-(Phase 89-90) behind their own contract.
+**Status**: v2.3 read-only + v2.9 extension -- **15 tools**, 7-category
+redaction, **47/47 self-test assertions**. Write-capable controlled actions
+land separately in v2.7 (Phase 89-90) behind their own contract.
 
 **Independent of any VTP MCP** (the VTP knowledge-graph MCP is unrelated;
 both can coexist; they have separate config entries and separate audit logs).
 
 ## 1. Overview
 
-The SGSD MCP server speaks raw JSON-RPC 2.0 over stdio. It exposes 14
+The SGSD MCP server speaks raw JSON-RPC 2.0 over stdio. It exposes 15
 read-only tools that surface live planning state without ever writing to
 disk:
 
@@ -33,7 +33,12 @@ disk:
 | 11 | sgsd_recovery_packet | 4-block recovery packet (resume command) |
 | 12 | sgsd_cockpit_snapshot | one-shot composed snapshot for Warp Agent |
 | 13 | sgsd_artifact_links | per-phase ATC-REVIEW / VERIFICATION / WASTE |
-| 14 | sgsd_warp_doctor | shells out to warp-doctor; returns 16 probes |
+| 14 | sgsd_warp_doctor | shells out to warp-doctor; returns 18 probes |
+| 15 | sgsd_harness_evolution_status | v2.9 extension: AHE run/component status |
+
+> Tools 1-14 are the Phase 68 frozen contract
+> (`SGSD-WARP-MCP-CONTRACT.md`). Tool 15 is the v2.9 Agentic Harness
+> Evolution extension; all 15 are exposed by the same `server.cjs`.
 
 Every envelope includes `_redactions_applied` listing the closed-vocab
 categories that fired (env_secrets / bearer_tokens / redis_urls /
@@ -81,7 +86,7 @@ server entry:
         "C:\\Users\\jack.berrow\\GSDedits\\super-gsd\\tools\\warp-mcp\\server.cjs"
       ],
       "transport": "stdio",
-      "description": "SGSD read-only state bridge (v2.3, 14 tools)"
+      "description": "SGSD read-only state bridge (v2.3 + v2.9 extension, 15 tools)"
     }
   }
 }
@@ -99,16 +104,17 @@ Notes:
   the JSON file mentions either `warp-mcp/server.cjs` or `super-gsd`.
 
 After saving the file, restart Warp (Cmd/Ctrl+Q then relaunch). On next
-launch the Warp Agent will discover the SGSD MCP server and the 14 tools
+launch the Warp Agent will discover the SGSD MCP server and the 15 tools
 become available in Agent calls.
 
 ## 4. Verify
 
 There are two verification paths.
 
-### 4a. From Warp Command Search (recommended)
+### 4a. From Warp Command Palette (recommended)
 
-1. Open Warp Command Search (default keybind Ctrl+P).
+1. Open Warp Command Palette (`Ctrl+Shift+P` on Windows; `Ctrl+P` is
+   paste-last). On macOS use `Cmd+Shift+P`.
 2. Type `MCP` -- you should see the workflow `SGSD: MCP Self-Test`.
 3. Run it. The workflow expands to:
 
@@ -119,12 +125,12 @@ cd "C:\Users\jack.berrow\GSDedits"; node super-gsd/tools/warp-mcp/run-self-test.
 Expected output ends with:
 
 ```
-warp_mcp_self_test: 42/42 assertions passed
+warp_mcp_self_test: 47/47 assertions passed
 ```
 
-Exit code 0 on full pass. The 42 assertions cover:
+Exit code 0 on full pass. The 47 assertions cover:
 
-- Frozen vocab (TOOL_NAMES len=14, ERROR_CODES len=13, MATCHER_TYPES
+- Frozen vocab (TOOL_NAMES len=15, ERROR_CODES len=13, MATCHER_TYPES
   len=4, REDACTION_CATEGORIES len=7).
 - Dispatcher Lock-13 (unknown tool, null args, malformed JSON).
 - JSON-RPC envelopes (parse error -32700, invalid request -32600,
@@ -132,10 +138,13 @@ Exit code 0 on full pass. The 42 assertions cover:
 - READ-ONLY invariant (banned-token scan).
 - ASCII-only source.
 - Matcher engine (literal / contains / regex / exists).
-- 14 live tool dispatches against the real `.planning/` tree.
+- 15 live tool dispatches against the real `.planning/` tree (includes
+  the v2.9 `sgsd_harness_evolution_status` extension).
 - 35 fixture-pair assertions (28 status fixtures + 7 redaction fixtures).
 - 7 per-category redaction fires plus Lock-13 on bad input plus negative
   case (no-trigger envelope yields `[]` applied list).
+- Recovery-packet specific assertions (under-4kb size, roadmap-complete
+  why-stopped, context-warning levels, hard-500k branch).
 
 ### 4b. From terminal directly
 

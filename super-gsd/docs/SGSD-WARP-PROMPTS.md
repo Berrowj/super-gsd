@@ -188,7 +188,8 @@ DO NOT trigger sgsd-complete-milestone yourself. Just report readiness.
 4. (For P4) Drag the relevant file into the prompt as attached context.
 
 **Save to Warp Drive Prompts**:
-1. `Cmd+P` (or `Ctrl+P`) → "Add Prompt".
+1. `Cmd+Shift+P` (macOS) or `Ctrl+Shift+P` (Windows) → "Add Prompt".
+   (Plain `Ctrl+P` on Windows is paste-last, not the palette.)
 2. Paste the prompt body.
 3. Name it `SGSD: <P1 name>` etc.
 4. Searchable in Command Search via the same `SGSD:` prefix as workflows.

@@ -1,5 +1,5 @@
 name: "SGSD: MCP Self-Test"
-description: Run the SGSD MCP server's 42+ assertion self-test (READ-ONLY). Verifies frozen vocab, dispatcher Lock-13, JSON-RPC envelopes, redaction coverage, fixture pairs, and live tool calls. Search terms include mcp, self-test, verify, status, doctor.
+description: Run the SGSD MCP server's 47-assertion self-test (READ-ONLY). Verifies frozen vocab (15 tools, 13 errors, 4 matchers, 7 redaction categories), dispatcher Lock-13, JSON-RPC envelopes, redaction coverage, fixture pairs, and live tool calls. Search terms include mcp, self-test, verify, status, doctor.
 command: 'cd "{{project_dir}}"; node super-gsd/tools/warp-mcp/run-self-test.cjs'
 tags:
   - sgsd

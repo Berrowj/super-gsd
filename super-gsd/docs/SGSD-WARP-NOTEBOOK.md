@@ -127,7 +127,8 @@ Or just one section:
 To make these blocks searchable in Warp Command Search:
 
 1. Open Warp.
-2. `Cmd+P` (or `Ctrl+P`) → "Notebook: New".
+2. `Cmd+Shift+P` (macOS) or `Ctrl+Shift+P` (Windows) → "Notebook: New".
+   (Plain `Ctrl+P` on Windows is paste-last, not the palette.)
 3. Paste each block above into a separate notebook cell.
 4. Save as "SGSD Operator Notebook".
 
