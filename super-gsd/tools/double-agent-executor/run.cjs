@@ -133,6 +133,36 @@ function validateCapsule(raw) {
   for (const cmd of c.acceptance_commands || []) {
     if (typeof cmd !== 'string' || !cmd.trim()) errors.push('acceptance_commands contains empty command');
   }
+  if (c.context_packet !== undefined) {
+    if (!c.context_packet || typeof c.context_packet !== 'object' || Array.isArray(c.context_packet)) {
+      errors.push('context_packet must be an object');
+    } else {
+      const cp = c.context_packet;
+      if (cp.compiled_by !== undefined
+          && !['claude', 'operator', 'local-script'].includes(cp.compiled_by)) {
+        errors.push('context_packet.compiled_by must be one of claude, operator, local-script');
+      }
+      if (cp.summary !== undefined
+          && (typeof cp.summary !== 'string' || !cp.summary.trim())) {
+        errors.push('context_packet.summary must be a non-empty string');
+      }
+      if (cp.source_refs !== undefined) {
+        if (!Array.isArray(cp.source_refs)) {
+          errors.push('context_packet.source_refs must be an array');
+        } else {
+          for (const f of cp.source_refs) {
+            if (!isSafeRelativePath(f)) {
+              errors.push('context_packet.source_refs contains unsafe path: ' + f);
+            }
+          }
+        }
+      }
+      if (cp.private_context_compiled !== undefined
+          && typeof cp.private_context_compiled !== 'boolean') {
+        errors.push('context_packet.private_context_compiled must be boolean');
+      }
+    }
+  }
   return { ok: errors.length === 0, errors };
 }
 
@@ -159,7 +189,21 @@ function normalizeCapsule(raw) {
   c.harness_change_id = (typeof c.harness_change_id === 'string' && c.harness_change_id.length > 0)
     ? c.harness_change_id
     : null;
+  if (c.context_packet && typeof c.context_packet === 'object' && !Array.isArray(c.context_packet)) {
+    const cp = Object.assign({}, c.context_packet);
+    if (Array.isArray(cp.source_refs)) {
+      cp.source_refs = uniq(cp.source_refs).map(slash);
+    }
+    c.context_packet = cp;
+  }
   return c;
+}
+
+function hasCompiledPrivateContext(capsule) {
+  return !!(capsule
+    && capsule.context_packet
+    && typeof capsule.context_packet === 'object'
+    && capsule.context_packet.private_context_compiled === true);
 }
 
 function codexHealth(opts) {
@@ -191,7 +235,7 @@ function isCodexBounded(capsule) {
     && capsule.estimated_line_count <= CODEX_ESTIMATED_LINE_LIMIT
     && capsule.risk !== 'high'
     && capsule.ambiguity !== 'high'
-    && !capsule.requires_private_knowledge
+    && (!capsule.requires_private_knowledge || hasCompiledPrivateContext(capsule))
     && hasMechanicalAcceptance(capsule);
 }
 
@@ -250,7 +294,13 @@ function buildExecutionScorecard(capsule, health) {
   if (tokenPressure) addScore(scores, evidence, 'codex', 2, 'token_budget_pressure');
   if (capsule.risk === 'high') addScore(scores, evidence, 'codex', -6, 'high_risk_penalty');
   if (capsule.ambiguity === 'high') addScore(scores, evidence, 'codex', -6, 'high_ambiguity_penalty');
-  if (capsule.requires_private_knowledge) addScore(scores, evidence, 'codex', -6, 'private_knowledge_penalty');
+  if (capsule.requires_private_knowledge) {
+    if (hasCompiledPrivateContext(capsule)) {
+      addScore(scores, evidence, 'codex', 3, 'compiled_private_context_available');
+    } else {
+      addScore(scores, evidence, 'codex', -6, 'private_knowledge_penalty');
+    }
+  }
   if (!hasAcceptance && (codexLike || isReviewTask(capsule))) addScore(scores, evidence, 'codex', -4, 'missing_acceptance_penalty');
 
   if (claudeLike) addScore(scores, evidence, 'claude', 5, 'claude_judgment_task_kind');
@@ -275,7 +325,9 @@ function buildExecutionScorecard(capsule, health) {
   if (codexLike && capsule.role !== 'executor') vetoes.codex.push('codex_execution_requires_executor_role');
   if (capsule.risk === 'high') vetoes.codex.push('high_risk_requires_claude');
   if (capsule.ambiguity === 'high') vetoes.codex.push('high_ambiguity_requires_claude');
-  if (capsule.requires_private_knowledge) vetoes.codex.push('private_knowledge_requires_claude');
+  if (capsule.requires_private_knowledge && !hasCompiledPrivateContext(capsule)) {
+    vetoes.codex.push('private_context_not_compiled');
+  }
   if (!health.codex.healthy) vetoes.codex.push('codex_provider_unhealthy');
   if (codexLike && !hasAcceptance) vetoes.codex.push('mechanical_acceptance_missing');
   if (codexLike && fileCount === 0) vetoes.codex.push('allowed_files_missing');
@@ -367,10 +419,19 @@ function routeCapsule(rawCapsule, opts) {
       : 'codex_vetoed_fallback_claude');
   }
 
+  const claudeReasonAlreadySet = reason_codes.length > 0;
+  if (capsule.requires_private_knowledge) {
+    if (hasCompiledPrivateContext(capsule) && provider === 'codex') {
+      reason_codes.push('compiled_private_context_available');
+    } else if (!hasCompiledPrivateContext(capsule) && provider === 'claude') {
+      reason_codes.push('private_context_not_compiled');
+    }
+  }
+
   if (provider === 'local-script') reason_codes.push('local_script_primary_weighted');
   else if (provider === 'codex') {
     reason_codes.push(isReviewTask(capsule) ? 'codex_primary_review' : 'codex_primary_bounded_task');
-  } else if (!reason_codes.length) {
+  } else if (!claudeReasonAlreadySet) {
     const codexSafetyVeto = matrix.vetoes.codex.some((v) => v !== 'codex_provider_unhealthy');
     reason_codes.push(codexSafetyVeto ? 'claude_primary_safety_veto' : 'claude_primary_weighted');
   }
@@ -742,6 +803,11 @@ function logExecutionRoute(planningDir, capsule, decision, result) {
       score_evidence: decision.scorecard ? decision.scorecard.evidence : [],
       candidate_providers: decision.candidate_providers,
       allowed_files_count: capsule.allowed_files.length,
+      context_packet_present: !!capsule.context_packet,
+      private_context_compiled: hasCompiledPrivateContext(capsule),
+      context_source_refs_count: (capsule.context_packet && Array.isArray(capsule.context_packet.source_refs))
+        ? capsule.context_packet.source_refs.length
+        : 0,
       changed_files: r.changed_files || [],
       out_of_scope_files: r.out_of_scope_files || [],
       tests_passed: !!r.tests_passed,
@@ -955,6 +1021,83 @@ function selfTest() {
     assert('11. local-script execution runs and is accepted',
       localResult.mode === 'local-script'
       && localResult.result.status === 'accepted');
+
+    const privateNoContext = routeCapsule(Object.assign({}, base, {
+      task_id: 'self-test-private-no-context',
+      requires_private_knowledge: true,
+    }), { forceCodexHealth: true });
+    assert('12. private knowledge without compiled context routes to Claude',
+      privateNoContext.chosen_provider === 'claude'
+      && privateNoContext.scorecard.vetoes.codex.includes('private_context_not_compiled')
+      && !privateNoContext.scorecard.vetoes.codex.includes('private_knowledge_requires_claude')
+      && privateNoContext.reason_codes.includes('private_context_not_compiled'));
+
+    const privateWithContext = routeCapsule(Object.assign({}, base, {
+      task_id: 'self-test-private-compiled',
+      requires_private_knowledge: true,
+      context_packet: {
+        compiled_by: 'claude',
+        summary: 'Phase 87 plan slice + relevant cockpit-shell route map.',
+        source_refs: [
+          '.planning/milestones/v2.6/phases/87-live-orchestrator-context-packet-enforcement/87-CONTEXT.md',
+          'super-gsd/scripts/lib/sgsd-cockpit-shell.cjs',
+        ],
+        private_context_compiled: true,
+      },
+    }), { forceCodexHealth: true });
+    assert('13. private knowledge with compiled context routes to Codex',
+      privateWithContext.chosen_provider === 'codex'
+      && privateWithContext.scorecard.vetoes.codex.length === 0
+      && privateWithContext.reason_codes.includes('compiled_private_context_available')
+      && privateWithContext.scorecard.evidence.some((e) => e.code === 'compiled_private_context_available' && e.delta > 0));
+
+    const highRiskCompiled = routeCapsule(Object.assign({}, base, {
+      task_id: 'self-test-high-risk-compiled',
+      risk: 'high',
+      requires_private_knowledge: true,
+      context_packet: {
+        compiled_by: 'claude',
+        summary: 'High-risk surgical migration; Claude must keep judgment.',
+        source_refs: ['super-gsd/tools/example.cjs'],
+        private_context_compiled: true,
+      },
+    }), { forceCodexHealth: true });
+    assert('14. high risk plus compiled context still routes to Claude',
+      highRiskCompiled.chosen_provider === 'claude'
+      && highRiskCompiled.scorecard.vetoes.codex.includes('high_risk_requires_claude')
+      && !highRiskCompiled.scorecard.vetoes.codex.includes('private_context_not_compiled'));
+
+    const invalidContextPacket = validateCapsule(Object.assign({}, base, {
+      context_packet: {
+        compiled_by: 'claude',
+        source_refs: ['../escape.md'],
+        private_context_compiled: true,
+      },
+    }));
+    assert('15. invalid context_packet.source_refs path fails validation',
+      invalidContextPacket.ok === false
+      && invalidContextPacket.errors.some((e) => /context_packet\.source_refs/.test(e)));
+
+    logExecutionRoute(planningDir, privateWithContext.capsule, privateWithContext, {
+      status: 'accepted_patch_written',
+      report_path: path.join(planningDir, 'artifacts', 'p.json'),
+      patch_path: path.join(planningDir, 'artifacts', 'p.patch'),
+      changed_files: ['super-gsd/tools/example.cjs'],
+      out_of_scope_files: [],
+      tests_passed: true,
+      accepted: true,
+      applied: false,
+      duration_ms: 9,
+      token_estimate: { total_estimated_tokens: 222 },
+    });
+    const compiledRows = routeLedger.readRows(planningDir)
+      .filter((r) => r.boundary === 'execution_route')
+      .filter((r) => r.decision && r.decision.task_id === 'self-test-private-compiled');
+    assert('16. route ledger preserves private_context_compiled and source ref count',
+      compiledRows.length === 1
+      && compiledRows[0].decision.private_context_compiled === true
+      && compiledRows[0].decision.context_packet_present === true
+      && compiledRows[0].decision.context_source_refs_count === 2);
   } catch (e) {
     fail++;
     failures.push({ name: 'self-test exception', detail: e.stack || e.message });
@@ -1006,6 +1149,7 @@ module.exports = {
   PROVIDERS,
   validateCapsule,
   normalizeCapsule,
+  hasCompiledPrivateContext,
   routeCapsule,
   runCapsule,
   logExecutionRoute,

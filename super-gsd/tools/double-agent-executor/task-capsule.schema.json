@@ -47,6 +47,21 @@
       "type": ["string", "null"],
       "pattern": "^ch-[a-z0-9-]+$",
       "description": "Phase 100 cross-link to harness-change-manifest entry. Optional. When set, route-decisions evidence array adds a harness_change_manifest ref."
+    },
+    "context_packet": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Compiled-by-Claude private SGSD context attached to bounded Codex tasks. When private_context_compiled === true, Codex may execute the task without receiving broad roadmap/state context.",
+      "properties": {
+        "compiled_by": { "type": "string", "enum": ["claude", "operator", "local-script"] },
+        "summary": { "type": "string", "minLength": 1 },
+        "source_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "private_context_compiled": { "type": "boolean" }
+      }
     }
   }
 }
