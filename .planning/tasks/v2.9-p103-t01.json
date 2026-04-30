@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "task_id": "v2.9-p103-t01",
+  "milestone": "v2.9",
+  "phase": 103,
+  "plan": "103-01",
+  "role": "executor",
+  "task_kind": "code_edit",
+  "goal": "Build harness ablation runner (cjs) with workspace-isolation contract, interference detection rules, ablation JSONL ledger, and 10+ assertion self-test (no real benchmark, no LLM).",
+  "allowed_files": [
+    "super-gsd/tools/harness-ablation/ablate.cjs",
+    "super-gsd/tools/harness-ablation/run-self-test.cjs"
+  ],
+  "forbidden_files": [
+    "super-gsd/tools/harness-benchmark/sgsd-harness-benchmark.mjs",
+    "super-gsd/tools/harness-benchmark/sgsd-blind-live-controller.mjs",
+    "super-gsd/tools/harness-evolution/run.cjs",
+    "super-gsd/tools/harness-attribution/attribute.cjs",
+    "super-gsd/tools/harness-manifest/manifest.cjs",
+    "super-gsd/tools/harness-evidence/distill.cjs",
+    "super-gsd/tools/harness-components/catalog.cjs"
+  ],
+  "acceptance_commands": [
+    "node super-gsd/tools/harness-ablation/run-self-test.cjs",
+    "node --check super-gsd/tools/harness-ablation/ablate.cjs"
+  ],
+  "risk": "high",
+  "ambiguity": "low",
+  "requires_private_knowledge": true,
+  "estimated_line_count": 380,
+  "max_input_tokens": 12000,
+  "max_output_tokens": 6000
+}
