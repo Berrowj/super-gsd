@@ -22,12 +22,15 @@ windows:
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:
-            - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Recent commits:' -ForegroundColor Green; git log --oneline -10"
+            - exec: |-
+                powershell -NoExit -Command ". $PROFILE; Write-Host 'Recent commits:' -ForegroundColor Green; git log --oneline -10"
         split_direction: horizontal
         panes:
           - cwd: C:\Users\jack.berrow\GSDedits
             commands:
-              - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Open SGSD: Open Review Artifacts (Ctrl+Shift+P) for ATC + Verification + Waste of active phase' -ForegroundColor Green"
+              - exec: |-
+                  powershell -NoExit -Command ". $PROFILE; Write-Host 'Open SGSD: Open Review Artifacts (Ctrl+Shift+P) for ATC + Verification + Waste of active phase' -ForegroundColor Green"
           - cwd: C:\Users\jack.berrow\GSDedits
             commands:
-              - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Free shell. Try: gh pr list | gh pr view | git diff master..HEAD' -ForegroundColor Cyan"
+              - exec: |-
+                  powershell -NoExit -Command ". $PROFILE; Write-Host 'Free shell. Try: gh pr list | gh pr view | git diff master..HEAD' -ForegroundColor Cyan"
