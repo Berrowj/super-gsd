@@ -37,18 +37,22 @@ windows:
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:
-            - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'SGSD operator pane. Type sg to boot.' -ForegroundColor Cyan"
+            - exec: |-
+                powershell -NoExit -Command ". $PROFILE; Write-Host 'SGSD operator pane. Type sg to boot.' -ForegroundColor Cyan"
         split_direction: horizontal
         panes:
           - cwd: C:\Users\jack.berrow\GSDedits
             commands:
-              - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Cockpit pane. Type sgsd to open dashboards.' -ForegroundColor Cyan"
+              - exec: |-
+                  powershell -NoExit -Command ". $PROFILE; Write-Host 'Cockpit pane. Type sgsd to open dashboards.' -ForegroundColor Cyan"
           - cwd: C:\Users\jack.berrow\GSDedits
             commands:
-              - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Token / Codex / Gate watch pane. Try: SGSD: Token Summary | SGSD: Codex Status | SGSD: Gate Status from Command Search.' -ForegroundColor Cyan"
+              - exec: |-
+                  powershell -NoExit -Command ". $PROFILE; Write-Host 'Token / Codex / Gate watch pane. Try: SGSD: Token Summary | SGSD: Codex Status | SGSD: Gate Status from Command Search.' -ForegroundColor Cyan"
       - title: "🤖 Shell"
         color: magenta
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:
-            - exec: powershell -NoExit -Command ". $PROFILE"
+            - exec: |-
+                powershell -NoExit -Command ". $PROFILE"
