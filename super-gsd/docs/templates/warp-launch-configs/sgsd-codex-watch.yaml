@@ -23,12 +23,15 @@ windows:
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:
-            - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Codex status (Ctrl+C to refresh):' -ForegroundColor Blue; while ($true) { Clear-Host; Get-Content .planning\metrics\codex-log.jsonl -Tail 5 -Encoding UTF8 2>$null; Start-Sleep -Seconds 5 }"
+            - exec: |-
+                powershell -NoExit -Command ". $PROFILE; Write-Host 'Codex status (Ctrl+C to refresh):' -ForegroundColor Blue; while ($true) { Clear-Host; Get-Content .planning\metrics\codex-log.jsonl -Tail 5 -Encoding UTF8 2>$null; Start-Sleep -Seconds 5 }"
         split_direction: horizontal
         panes:
           - cwd: C:\Users\jack.berrow\GSDedits
             commands:
-              - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'route-decisions tail (last 10 execution_route rows):' -ForegroundColor Blue; Get-Content .planning\metrics\route-decisions.jsonl -Tail 10 -Encoding UTF8 2>$null"
+              - exec: |-
+                  powershell -NoExit -Command ". $PROFILE; Write-Host 'route-decisions tail (last 10 execution_route rows):' -ForegroundColor Blue; Get-Content .planning\metrics\route-decisions.jsonl -Tail 10 -Encoding UTF8 2>$null"
           - cwd: C:\Users\jack.berrow\GSDedits
             commands:
-              - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Free shell. Try: SGSD: Route Decisions Recent | SGSD: Codex Status' -ForegroundColor Cyan"
+              - exec: |-
+                  powershell -NoExit -Command ". $PROFILE; Write-Host 'Free shell. Try: SGSD: Route Decisions Recent | SGSD: Codex Status' -ForegroundColor Cyan"
