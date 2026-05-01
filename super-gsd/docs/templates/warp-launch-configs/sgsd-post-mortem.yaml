@@ -25,17 +25,21 @@ windows:
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:
-            - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Recent commits with phase markers:' -ForegroundColor Yellow; git log --oneline -15"
+            - exec: |-
+                powershell -NoExit -Command ". $PROFILE; Write-Host 'Recent commits with phase markers:' -ForegroundColor Yellow; git log --oneline -15"
         split_direction: vertical
         panes:
           - cwd: C:\Users\jack.berrow\GSDedits
             commands:
-              - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'STATE.md + checkpoint:' -ForegroundColor Yellow; Get-Content .planning\STATE.md -TotalCount 30 -Encoding UTF8; Write-Host '---' -ForegroundColor DarkGray; if (Test-Path .planning\ORCHESTRATOR-CHECKPOINT.md) { Get-Content .planning\ORCHESTRATOR-CHECKPOINT.md -Encoding UTF8 } else { Write-Host 'no checkpoint open' -ForegroundColor DarkYellow }"
+              - exec: |-
+                  powershell -NoExit -Command ". $PROFILE; Write-Host 'STATE.md + checkpoint:' -ForegroundColor Yellow; Get-Content .planning\STATE.md -TotalCount 30 -Encoding UTF8; Write-Host '---' -ForegroundColor DarkGray; if (Test-Path .planning\ORCHESTRATOR-CHECKPOINT.md) { Get-Content .planning\ORCHESTRATOR-CHECKPOINT.md -Encoding UTF8 } else { Write-Host 'no checkpoint open' -ForegroundColor DarkYellow }"
             split_direction: horizontal
             panes:
               - cwd: C:\Users\jack.berrow\GSDedits
                 commands:
-                  - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Latest WASTE/VERIFICATION across active milestone:' -ForegroundColor Yellow; $ms = Get-ChildItem .planning\milestones -Directory | Sort-Object Name -Descending | Select-Object -First 1; if ($ms) { Get-ChildItem (Join-Path $ms.FullName 'phases\*\*-WASTE.md'),(Join-Path $ms.FullName 'phases\*\*-VERIFICATION.md') 2>$null | Sort-Object LastWriteTime -Descending | Select-Object -First 5 | ForEach-Object { Write-Host ('-- ' + $_.FullName.Substring($_.FullName.LastIndexOf('milestones'))) -ForegroundColor Cyan } }"
+                  - exec: |-
+                      powershell -NoExit -Command ". $PROFILE; Write-Host 'Latest WASTE/VERIFICATION across active milestone:' -ForegroundColor Yellow; $ms = Get-ChildItem .planning\milestones -Directory | Sort-Object Name -Descending | Select-Object -First 1; if ($ms) { Get-ChildItem (Join-Path $ms.FullName 'phases\*\*-WASTE.md'),(Join-Path $ms.FullName 'phases\*\*-VERIFICATION.md') 2>$null | Sort-Object LastWriteTime -Descending | Select-Object -First 5 | ForEach-Object { Write-Host ('-- ' + $_.FullName.Substring($_.FullName.LastIndexOf('milestones'))) -ForegroundColor Cyan } }"
               - cwd: C:\Users\jack.berrow\GSDedits
                 commands:
-                  - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Free shell. Try: /gsd-forensics (in Claude) | git log --all --decorate' -ForegroundColor Cyan"
+                  - exec: |-
+                      powershell -NoExit -Command ". $PROFILE; Write-Host 'Free shell. Try: /gsd-forensics (in Claude) | git log --all --decorate' -ForegroundColor Cyan"
