@@ -23,9 +23,11 @@ windows:
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:
-            - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Remote-monitor packet (refresh: rerun command):' -ForegroundColor Cyan; if (Test-Path super-gsd\scripts\sgsd-remote-monitor.ps1) { & super-gsd\scripts\sgsd-remote-monitor.ps1 } else { Get-Content .planning\STATE.md -TotalCount 30 -Encoding UTF8 }"
+            - exec: |-
+                powershell -NoExit -Command ". $PROFILE; Write-Host 'Remote-monitor packet (refresh: rerun command):' -ForegroundColor Cyan; if (Test-Path super-gsd\scripts\sgsd-remote-monitor.ps1) { & super-gsd\scripts\sgsd-remote-monitor.ps1 } else { Get-Content .planning\STATE.md -TotalCount 30 -Encoding UTF8 }"
         split_direction: horizontal
         panes:
           - cwd: C:\Users\jack.berrow\GSDedits
             commands:
-              - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Free shell. Try: SGSD: Remote Monitor Packet | SGSD: Watchdog Status' -ForegroundColor Cyan"
+              - exec: |-
+                  powershell -NoExit -Command ". $PROFILE; Write-Host 'Free shell. Try: SGSD: Remote Monitor Packet | SGSD: Watchdog Status' -ForegroundColor Cyan"
