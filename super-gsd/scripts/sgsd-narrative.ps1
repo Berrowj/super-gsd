@@ -310,7 +310,7 @@ function Summarize-ToolInput($tool, $inp) {
 function Get-ToolColor($tool) {
     if ("$tool" -match '^mcp__|vtp|skill') { return "Cyan" }
     switch ($tool) {
-        "Codex"      { return "DarkYellow" }
+        "Codex"      { return "Blue" }
         "Read"       { return "Cyan" }
         "Write"      { return "Green" }
         "Edit"       { return "Green" }
@@ -386,9 +386,79 @@ function Get-RoadmapAgentMilestonePhases {
     return @($out)
 }
 
+function Resolve-LivePhaseNumber {
+    param([string]$PhaseNum)
+    if (-not $PhaseNum) { return $null }
+    try {
+        $milestonesRoot = Join-Path $PlanningDir "milestones"
+        if (-not (Test-Path $milestonesRoot)) { return $null }
+        $hits = @(Get-ChildItem -Path $milestonesRoot -Directory -ErrorAction SilentlyContinue |
+            ForEach-Object {
+                $phaseRoot = Join-Path $_.FullName "phases"
+                if (-not (Test-Path $phaseRoot)) { return }
+                Get-ChildItem -Path $phaseRoot -Directory -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Name -match "^$([regex]::Escape($PhaseNum))(?:-|$)" }
+            } |
+            Sort-Object LastWriteTime -Descending)
+        if ($hits.Count -eq 0) { return $null }
+        $d = $hits[0]
+        $slug = ($d.Name -replace "^[0-9]+-", "") -replace "-", " "
+        $name = (Get-Culture).TextInfo.ToTitleCase($slug)
+        return [pscustomobject]@{
+            milestone = $d.Parent.Parent.Name
+            phase     = $PhaseNum
+            phaseName = $name
+        }
+    } catch { return $null }
+}
+
+function Get-LivePhaseHint {
+    param([int]$Tail = 240, [int]$MaxAgeSec = 3600)
+    if (-not (Test-Path $ActivityLog)) { return $null }
+    try {
+        $now = Get-Date
+        $lines = @(Get-CachedTail $ActivityLog $Tail)
+        for ($i = $lines.Count - 1; $i -ge 0; $i--) {
+            $line = $lines[$i]
+            if (-not $line) { continue }
+            try {
+                $e = $line | ConvertFrom-Json -ErrorAction Stop
+                $ts = if ($e.ts) { [DateTime]::Parse("$($e.ts)").ToLocalTime() } else { $null }
+                $age = if ($ts) { [int]($now - $ts).TotalSeconds } else { $null }
+                if ($age -ne $null -and $age -gt $MaxAgeSec) { continue }
+                foreach ($text in @("$($e.target)", "$($e.command_preview)")) {
+                    if (-not $text) { continue }
+                    $m = [regex]::Match($text, '(?i)(?:^|[\\/])\.planning[\\/]milestones[\\/](v[0-9]+(?:\.[0-9]+)?)[\\/]phases[\\/]([0-9]+)-([^\\/"\s]+)')
+                    if ($m.Success) {
+                        $slug = ($m.Groups[3].Value -replace '-', ' ')
+                        $name = (Get-Culture).TextInfo.ToTitleCase($slug)
+                        return [pscustomobject]@{
+                            milestone = $m.Groups[1].Value
+                            phase     = $m.Groups[2].Value
+                            phaseName = $name
+                            ageSec    = $age
+                            source    = "activity-log target path"
+                        }
+                    }
+                    $pm = [regex]::Match($text, '(?i)\b(?:Phase\s*|P)([0-9]{1,3})\b')
+                    if ($pm.Success) {
+                        $resolved = Resolve-LivePhaseNumber $pm.Groups[1].Value
+                        if ($resolved) {
+                            $resolved | Add-Member -NotePropertyName ageSec -NotePropertyValue $age -Force
+                            $resolved | Add-Member -NotePropertyName source -NotePropertyValue "activity-log phase mention" -Force
+                            return $resolved
+                        }
+                    }
+                }
+            } catch { continue }
+        }
+    } catch { }
+    return $null
+}
+
 function Get-StateScope {
     $stateFile = Join-Path $PlanningDir "STATE.md"
-    $out = [ordered]@{ milestone=""; milestoneName=""; phase=""; phaseName=""; total=0; index=0; status="" }
+    $out = [ordered]@{ milestone=""; milestoneName=""; phase=""; phaseName=""; total=0; index=0; status=""; source="STATE.md" }
     if (-not (Test-Path $stateFile)) { return [pscustomobject]$out }
     try {
         $stateText = Get-Content $stateFile -Raw -ErrorAction SilentlyContinue
@@ -410,6 +480,17 @@ function Get-StateScope {
             $out.phase = $matches[1]; $out.phaseName = $matches[2]
         } elseif (-not $out.phase -and $out.status -match '\bPhase\s+([0-9]+)\b') {
             $out.phase = $matches[1]
+        }
+        if ($out.phase -and "$($out.phase)" -notmatch '^[0-9]+$') {
+            $out.phase = ""
+        }
+
+        $liveHint = Get-LivePhaseHint
+        if ($liveHint -and ((-not $out.phase) -or "$($out.status)" -match '(?i)complete|closed|halted|awaiting operator' -or ($out.milestone -and $liveHint.milestone -ne $out.milestone))) {
+            $out.milestone = $liveHint.milestone
+            $out.phase = $liveHint.phase
+            $out.phaseName = $liveHint.phaseName
+            $out.source = "live activity"
         }
         if ($out.milestone) {
             $phases = @(Get-RoadmapAgentMilestonePhases $out.milestone)
@@ -502,6 +583,66 @@ function Get-AgentRows {
     return @($rows | Sort-Object ts -Descending)
 }
 
+function Get-ExecutionRouteSummary {
+    param($Scope, $AgentRows, [string]$CurrentNarrative)
+    $routePath = Join-Path $PlanningDir "metrics\route-decisions.jsonl"
+    try {
+        if (Test-Path $routePath) {
+            $rows = @()
+            foreach ($line in (Get-CachedTail $routePath 120)) {
+                try {
+                    $r = $line | ConvertFrom-Json -ErrorAction Stop
+                    if ($r.boundary -eq "execution_route") { $rows += $r }
+                } catch {}
+            }
+            if ($rows.Count -gt 0) {
+                $phase = if ($Scope.phase) { "$($Scope.phase)" } else { "" }
+                $current = @($rows | Where-Object { "$($_.phase)" -eq $phase })
+                $row = if ($current.Count -gt 0) { $current[-1] } else { $rows[-1] }
+                $d = $row.decision
+                $provider = if ($d.chosen_provider) { "$($d.chosen_provider)" } elseif ($d.primary_provider) { "$($d.primary_provider)" } else { "unknown" }
+                $providerLabel = switch ($provider) {
+                    "codex"        { "Codex" }
+                    "claude"       { "Claude" }
+                    "local-script" { "Local script" }
+                    default        { $provider }
+                }
+                $task = if ($d.task_id -and $d.task_kind) { "$($d.task_id) ($($d.task_kind))" } elseif ($d.task_id) { "$($d.task_id)" } elseif ($d.task_kind) { "$($d.task_kind)" } else { "execution task" }
+                $why = "route logged"
+                $reasons = @($row.reason_codes)
+                if ($d.fallback_used -and $d.fallback_reason) {
+                    $why = "fallback: $($d.fallback_reason)"
+                } elseif ($reasons -contains "codex_primary_bounded_task") {
+                    $why = "Codex chosen: bounded edit, allowed files, tests available"
+                } elseif ($reasons -contains "local_script_primary_deterministic") {
+                    $why = "local script chosen: deterministic command"
+                } elseif ($reasons -contains "claude_primary_judgment_required") {
+                    $why = "Claude chosen: judgement or private context needed"
+                } elseif ($reasons -contains "claude_primary_unbounded_or_no_tests") {
+                    $why = "Claude chosen: unbounded task or no safe test contract"
+                } elseif ($d.route_class) {
+                    $why = "$($d.route_class)" -replace '_', ' '
+                }
+                if ($current.Count -eq 0 -and $phase) {
+                    $why = "no P$phase route yet; last route was P$($row.phase)"
+                    $providerLabel = "Claude"
+                    $task = "direct SGSD agent execution"
+                }
+                return [pscustomobject]@{ provider=$providerLabel; task=$task; why=$why; color=$(if ($providerLabel -eq "Codex") { "Blue" } elseif ($providerLabel -eq "Local script") { "Green" } else { "Yellow" }) }
+            }
+        }
+    } catch {}
+
+    $active = @($AgentRows | Where-Object { $_.active -and @("Research","Executor","Planner") -contains $_.role } | Select-Object -First 1)
+    $taskText = if ($active.Count -gt 0) { $active[0].text } elseif ($CurrentNarrative) { $CurrentNarrative } else { "direct SGSD execution" }
+    return [pscustomobject]@{
+        provider = "Claude"
+        task = $taskText
+        why = "no execution route logged yet; using live Claude/agent activity"
+        color = "Yellow"
+    }
+}
+
 function Render-AgentOverview {
     param($pw, $Scope, [switch]$Compact)
     $rowsWritten = 0
@@ -543,6 +684,18 @@ function Render-AgentOverview {
 
     $tokenAgentLimit = if ($Compact) { 2 } else { 4 }
     $rowsWritten += Render-TokenSpend $pw -MaxAgents $tokenAgentLimit -NoAudit:$Compact
+
+    $exec = Get-ExecutionRouteSummary -Scope $Scope -AgentRows $agentRows -CurrentNarrative $current
+    Write-Host "EXECUTOR " -NoNewline -ForegroundColor White
+    Write-Host $exec.provider -NoNewline -ForegroundColor $exec.color
+    Write-Host "  " -NoNewline
+    Write-Host (Trunc $exec.task ($pw - 18)) -NoNewline -ForegroundColor $exec.color
+    Write-Host $CLEAR_LINE
+    $rowsWritten++
+    Write-Host "WHY      " -NoNewline -ForegroundColor White
+    Write-Host (Trunc $exec.why ($pw - 9)) -NoNewline -ForegroundColor Gray
+    Write-Host $CLEAR_LINE
+    $rowsWritten++
 
     Write-Host "AGENT HISTORY" -NoNewline -ForegroundColor White
     Write-Host $CLEAR_LINE
@@ -834,7 +987,7 @@ function Render-CtrlOStream {
         $toolPad = "$($t.tool)".PadRight(10)
         $color = Get-ToolColor $t.tool
         $origin = if ($t.tool -eq "Codex") { "CODEX>" } else { "CLAUDE>" }
-        $originColor = if ($t.tool -eq "Codex") { "DarkYellow" } else { "DarkGray" }
+        $originColor = if ($t.tool -eq "Codex") { "Blue" } else { "DarkGray" }
         $summary = if ($t.tool -eq "Codex" -and $t.inp.summary) { "$($t.inp.summary)" } else { Summarize-ToolInput $t.tool $t.inp }
         $summary = Trunc ($summary -replace '\s+', ' ') ($pw - 30)
         Write-Host $tsStr -NoNewline -ForegroundColor DarkGray

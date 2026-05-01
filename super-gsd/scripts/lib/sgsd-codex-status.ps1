@@ -404,7 +404,7 @@ function Get-SgsdCodexTimelineRows {
             ts = $event.ts
             tool = "Codex"
             summary = "$($event.label) $($event.detail)"
-            color = "DarkYellow"
+            color = "Blue"
         })
     }
 
@@ -417,7 +417,7 @@ function Get-SgsdCodexTimelineRows {
                 $status.state, $status.model, $status.reasoningEffort, `
                 $(if ($null -ne $status.exit) { $status.exit } else { "--" }), `
                 $status.promptBytes, $status.reportBytes)
-            color = "DarkYellow"
+            color = "Blue"
         })
     }
 

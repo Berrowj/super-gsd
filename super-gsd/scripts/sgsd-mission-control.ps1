@@ -55,6 +55,7 @@ try {
 }
 
 $PlanningDir = Join-Path $ProjectDir ".planning"
+$ActivityLog = Join-Path $PlanningDir "metrics\activity-log.jsonl"
 if (-not (Test-Path $PlanningDir)) {
     __sgsd_fail "NO .planning/ DIRECTORY FOUND" @(
         "Project dir: $ProjectDir",
@@ -166,7 +167,7 @@ function Get-CockpitDataSnapshot {
 
         # Fingerprint canonical streams to skip work when nothing changed.
         $fp = ""
-        foreach ($name in @("agent-token-spend.jsonl","token-waste-status.jsonl","context-packet-log.jsonl")) {
+        foreach ($name in @("agent-token-spend.jsonl","token-waste-status.jsonl","context-packet-log.jsonl","route-decisions.jsonl")) {
             $p = Join-Path $planning ("metrics\" + $name)
             if (Test-Path -LiteralPath $p) {
                 $it = Get-Item -LiteralPath $p
@@ -762,6 +763,76 @@ function Get-MilestoneDisplayName {
     return $Fallback
 }
 
+function Resolve-LivePhaseNumber {
+    param([string]$PhaseNum)
+    if (-not $PhaseNum) { return $null }
+    try {
+        $milestonesRoot = Join-Path $PlanningDir "milestones"
+        if (-not (Test-Path $milestonesRoot)) { return $null }
+        $hits = @(Get-ChildItem -Path $milestonesRoot -Directory -ErrorAction SilentlyContinue |
+            ForEach-Object {
+                $phaseRoot = Join-Path $_.FullName "phases"
+                if (-not (Test-Path $phaseRoot)) { return }
+                Get-ChildItem -Path $phaseRoot -Directory -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Name -match "^$([regex]::Escape($PhaseNum))(?:-|$)" }
+            } |
+            Sort-Object LastWriteTime -Descending)
+        if ($hits.Count -eq 0) { return $null }
+        $d = $hits[0]
+        $slug = ($d.Name -replace "^[0-9]+-", "") -replace "-", " "
+        $name = (Get-Culture).TextInfo.ToTitleCase($slug)
+        return [pscustomobject]@{
+            milestone = $d.Parent.Parent.Name
+            phase     = $PhaseNum
+            phaseName = $name
+        }
+    } catch { return $null }
+}
+
+function Get-LivePhaseHint {
+    param([int]$Tail = 240, [int]$MaxAgeSec = 3600)
+    if (-not (Test-Path $ActivityLog)) { return $null }
+    try {
+        $now = Get-Date
+        $lines = @(Get-CachedTail $ActivityLog $Tail)
+        for ($i = $lines.Count - 1; $i -ge 0; $i--) {
+            $line = $lines[$i]
+            if (-not $line) { continue }
+            try {
+                $e = $line | ConvertFrom-Json -ErrorAction Stop
+                $ts = if ($e.ts) { [DateTime]::Parse("$($e.ts)").ToLocalTime() } else { $null }
+                $age = if ($ts) { [int]($now - $ts).TotalSeconds } else { $null }
+                if ($age -ne $null -and $age -gt $MaxAgeSec) { continue }
+                foreach ($text in @("$($e.target)", "$($e.command_preview)")) {
+                    if (-not $text) { continue }
+                    $m = [regex]::Match($text, '(?i)(?:^|[\\/])\.planning[\\/]milestones[\\/](v[0-9]+(?:\.[0-9]+)?)[\\/]phases[\\/]([0-9]+)-([^\\/"\s]+)')
+                    if ($m.Success) {
+                        $slug = ($m.Groups[3].Value -replace '-', ' ')
+                        $name = (Get-Culture).TextInfo.ToTitleCase($slug)
+                        return [pscustomobject]@{
+                            milestone = $m.Groups[1].Value
+                            phase     = $m.Groups[2].Value
+                            phaseName = $name
+                            ageSec    = $age
+                            source    = "activity-log target path"
+                        }
+                    }
+                    $pm = [regex]::Match($text, '(?i)\b(?:Phase\s*|P)([0-9]{1,3})\b')
+                    if ($pm.Success) {
+                        $resolved = Resolve-LivePhaseNumber $pm.Groups[1].Value
+                        if ($resolved) {
+                            $resolved | Add-Member -NotePropertyName ageSec -NotePropertyValue $age -Force
+                            $resolved | Add-Member -NotePropertyName source -NotePropertyValue "activity-log phase mention" -Force
+                            return $resolved
+                        }
+                    }
+                }
+            } catch { continue }
+        }
+    } catch { }
+    return $null
+}
+
 function Get-StateInfo {
     $stateFile = Join-Path $PlanningDir "STATE.md"
     $stateText = if (Test-Path $stateFile) { Get-Content $stateFile -Raw -ErrorAction SilentlyContinue } else { "" }
@@ -782,13 +853,30 @@ function Get-StateInfo {
     if (-not $currentPhase -and $status -match '\bPhase\s+([0-9]+)\b') {
         $currentPhase = $matches[1]
     }
+    $phaseState = ""
+    if ($currentPhase -and "$currentPhase" -notmatch '^[0-9]+$') {
+        $phaseState = "$currentPhase"
+        $currentPhase = ""
+    }
     $milestone = if ($runMilestone) { $runMilestone } else { Get-Frontmatter $stateFile "milestone" }
     $milestoneName = Get-MilestoneDisplayName $milestone (Get-Frontmatter $stateFile "milestone_name")
+    $stateSource = "STATE.md"
+
+    $liveHint = Get-LivePhaseHint
+    if ($liveHint -and ((-not $currentPhase) -or $phaseState -or "$status" -match '(?i)complete|closed|halted|awaiting operator' -or ($milestone -and $liveHint.milestone -ne $milestone))) {
+        $milestone = $liveHint.milestone
+        $milestoneName = Get-MilestoneDisplayName $milestone $milestoneName
+        $currentPhase = $liveHint.phase
+        $phaseState = ""
+        $stateSource = "live activity"
+    }
 
     return @{
         milestone     = $milestone
         milestoneName = $milestoneName
         currentPhase  = $currentPhase
+        phaseState    = $phaseState
+        source        = $stateSource
         status        = $status
     }
 }
@@ -1416,6 +1504,70 @@ function Format-EvidenceLine {
     return "EVIDENCE done: $doneText | left: $leftText"
 }
 
+function Get-ExecutionRouteRows {
+    param(
+        $Snapshot,
+        [string]$CurrentNum,
+        [object[]]$Roster,
+        [int]$PaneWidth
+    )
+
+    $rows = @()
+    $max = if ($PaneWidth -gt 20) { $PaneWidth } else { 80 }
+    $exec = $null
+    if ($Snapshot -and $Snapshot.executionRoute) { $exec = $Snapshot.executionRoute }
+
+    if (-not $exec -or $exec.unavailable) {
+        $activeAgent = $Roster | Where-Object { $_.status -eq "ACTIVE" } | Select-Object -First 1
+        $who = if ($activeAgent) { "Claude agent" } else { "Claude" }
+        $what = if ($activeAgent) { $activeAgent.target } else { "direct SGSD execution" }
+        $rows += [pscustomobject]@{
+            Text = Trunc ("EXECUTOR {0}: {1}" -f $who, $what) $max
+            Color = "DarkYellow"
+        }
+        $rows += [pscustomobject]@{
+            Text = Trunc "WHY route ledger unavailable; falling back to live SGSD agent signal" $max
+            Color = "DarkGray"
+        }
+        return $rows
+    }
+
+    $provider = if ($exec.provider_label) { [string]$exec.provider_label } else { "Claude" }
+    $providerColor = switch ([string]$exec.provider) {
+        "codex"        { "Blue" }
+        "local-script" { "Green" }
+        "claude"       { "Yellow" }
+        default        { "DarkYellow" }
+    }
+
+    $scope = "current"
+    if (-not $exec.has_rows) {
+        $scope = "default"
+    }
+
+    $what = if ($exec.what) { [string]$exec.what } else { "execution task" }
+    $phaseLabel = if ($CurrentNum) { "P$CurrentNum" } else { "P?" }
+
+    $rows += [pscustomobject]@{
+        Text = Trunc ("EXECUTOR {0} {1} {2}: {3}" -f $provider, $scope, $phaseLabel, $what) $max
+        Color = $providerColor
+    }
+
+    $why = if ($exec.why) { [string]$exec.why } else { "route reason unavailable" }
+    $bits = @("WHY $why")
+    if ($exec.fallback_used -and $exec.fallback_reason) { $bits += ("fallback " + [string]$exec.fallback_reason) }
+    if ($exec.tests_passed) { $bits += "tests pass" }
+    if ($exec.accepted) { $bits += "accepted" }
+    if ($exec.estimated_tokens -ne $null) { $bits += ("est " + [string]$exec.estimated_tokens + "tok") }
+
+    $rows += [pscustomobject]@{
+        Text = Trunc ($bits -join " | ") $max
+        Color = $(if ($exec.current_phase_match -or -not $exec.has_rows) { "White" } else { "DarkGray" })
+    }
+
+    return $rows
+}
+
 function Render-CompactMissionControl {
     param(
         $State,
@@ -1435,21 +1587,34 @@ function Render-CompactMissionControl {
     for ($i = 0; $i -lt $Phases.Count; $i++) {
         if ($Phases[$i].num -eq $CurrentNum) { $idx = $i; break }
     }
-    $ordinal = if ($idx -ge 0) { $idx + 1 } else { "?" }
-    $phaseName = if ($ActivePhase) { $ActivePhase.name } else { "unknown phase" }
+    $isMilestoneComplete = ((-not $CurrentNum) -and $total -gt 0 -and $done -eq $total)
+    $ordinal = if ($idx -ge 0) { $idx + 1 } elseif ($isMilestoneComplete) { $total } else { "?" }
+    $phaseName = if ($ActivePhase) { $ActivePhase.name } elseif ($isMilestoneComplete) { "milestone complete" } else { "unknown phase" }
     $goal = Simplify-GoalText (Get-PhaseGoalBrief $CurrentNum)
     $evidence = Get-PhaseEvidenceSummary -PhaseDir $ActiveDir -PhaseNum $CurrentNum
     $backlog = Get-BacklogSummary -Milestone $ms -PhaseNum $CurrentNum
     $phaseMap = Get-PhaseMapText -Phases $Phases -CurrentNum $CurrentNum
+    try { $cockpitSnap = Get-CockpitDataSnapshot -ProjectDir $ProjectDir -CurrentPhase $CurrentNum } catch { $cockpitSnap = $null }
 
-    Write-Row ("MISSION {0}  P{1} ({2}/{3})  {4}" -f $ms, $(if ($CurrentNum) { $CurrentNum } else { "?" }), $ordinal, $(if ($total -gt 0) { $total } else { "?" }), (Trunc $phaseName ([Math]::Max(10, $pw - 34)))) "Yellow"
+    if ($isMilestoneComplete) {
+        Write-Row ("MISSION {0}  COMPLETE ({1}/{2})  {3}" -f $ms, $done, $(if ($total -gt 0) { $total } else { "?" }), (Trunc $phaseName ([Math]::Max(10, $pw - 36)))) "Green"
+    } else {
+        Write-Row ("MISSION {0}  P{1} ({2}/{3})  {4}" -f $ms, $(if ($CurrentNum) { $CurrentNum } else { "?" }), $ordinal, $(if ($total -gt 0) { $total } else { "?" }), (Trunc $phaseName ([Math]::Max(10, $pw - 34)))) "Yellow"
+    }
+    if ($State.source -and $State.source -ne "STATE.md") {
+        Write-Row ("SOURCE   " + $State.source + " overrides stale STATE.md") "DarkYellow"
+    }
     if ($msName) { Write-Row ("MILESTONE " + (Trunc $msName ([Math]::Max(10, $pw - 10)))) "White" }
     Write-Row ("PROGRESS [{0}] {1}/{2} phases done" -f (Make-Bar $pct 14), $done, $total) "Green"
     Render-PhaseMapVisual -Phases $Phases -CurrentNum $CurrentNum
 
     $nextPhase = $null
     if ($idx -ge 0 -and $idx -lt ($Phases.Count - 1)) { $nextPhase = $Phases[$idx + 1] }
-    Write-Row ("CURRENT  P{0}  {1}" -f $(if ($CurrentNum) { $CurrentNum } else { "?" }), (Trunc $phaseName ([Math]::Max(10, $pw - 14)))) "Yellow"
+    if ($isMilestoneComplete) {
+        Write-Row "CURRENT  milestone complete; awaiting milestone close / next promotion" "Green"
+    } else {
+        Write-Row ("CURRENT  P{0}  {1}" -f $(if ($CurrentNum) { $CurrentNum } else { "?" }), (Trunc $phaseName ([Math]::Max(10, $pw - 14)))) "Yellow"
+    }
     if ($goal) { Write-Row ("GOAL     " + (Trunc $goal ([Math]::Max(10, $pw - 9)))) "White" }
     if ($nextPhase) {
         Write-Row ("NEXT     P{0}  {1}" -f $nextPhase.num, (Trunc $nextPhase.name ([Math]::Max(10, $pw - 14)))) "Gray"
@@ -1509,6 +1674,10 @@ function Render-CompactMissionControl {
     Write-Row ("COST O {0}  S {1}  H {2}  total {3}  P{4} {5}" -f (Format-Dollar ($tokens.opus * $RATE_OPUS)), (Format-Dollar ($tokens.sonnet * $RATE_SONNET)), (Format-Dollar ($tokens.haiku * $RATE_HAIKU)), (Format-Dollar $tokens.cost), $(if ($CurrentNum) { $CurrentNum } else { "?" }), (Format-Dollar $tokens.phaseCost)) "Green"
 
     $roster = @(Get-AgentRoster)
+    foreach ($er in @(Get-ExecutionRouteRows -Snapshot $cockpitSnap -CurrentNum $CurrentNum -Roster $roster -PaneWidth $pw)) {
+        Write-Row $er.Text $er.Color
+    }
+
     $active = @($roster | Where-Object { $_.status -eq "ACTIVE" }).Count
     $idle = @($roster | Where-Object { $_.status -eq "IDLE" }).Count
     $recent = @($roster | Where-Object { $_.status -eq "RECENT" }).Count
@@ -1620,6 +1789,17 @@ function Render {
         }
     } catch {
         Write-Host "TOKENS  unavailable" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+    }
+
+    try {
+        $execRoster = @(Get-AgentRoster)
+        foreach ($er in @(Get-ExecutionRouteRows -Snapshot $cockpitSnap -CurrentNum $currentNum -Roster $execRoster -PaneWidth $pw)) {
+            Write-Host $er.Text -NoNewline -ForegroundColor $er.Color
+            Write-Host $CLEAR_LINE
+        }
+    } catch {
+        Write-Host "EXECUTOR unavailable" -NoNewline -ForegroundColor DarkGray
         Write-Host $CLEAR_LINE
     }
 
