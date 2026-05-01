@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 # Super GSD - P5 - Codex Monitor
 # ============================================================================
 
@@ -1048,6 +1048,120 @@ function Write-GateSynopsis {
     }
 }
 
+function Format-CodexBlockTier {
+    param([string]$Tier)
+    if (-not $Tier) { return '?' }
+    switch -Regex ($Tier) {
+        '^per-dispatch-ATC$|^per_dispatch_ATC$' { return 'ATC' }
+        '^phase-level-ATC$|^phase_level_ATC$'   { return 'ATCph' }
+        '^muda'                                  { return 'MUDA' }
+        '^smoke|^self-test'                      { return 'SMOKE' }
+        default                                  { return $Tier.ToUpper() }
+    }
+}
+
+function Render-CodexHistoryBlocks {
+    # Renders Option B history blocks: one bordered block per recent codex
+    # session. Inserts a "running" block at the top if a codex session is live.
+    # Each block: cyan header (tier + project + plan + time), gray one-liner
+    # body, color-coded footer (verdict + counts).
+    param(
+        $Verdicts,
+        $LiveCodex,
+        [string]$ProjectName,
+        [int]$Pw,
+        [int]$MaxBlocks = 3
+    )
+
+    $hasVerdicts = $Verdicts -and $Verdicts.Count -gt 0
+    $isRunning   = $LiveCodex -and "$($LiveCodex.state)" -eq 'running'
+    if (-not $hasVerdicts -and -not $isRunning) {
+        Write-Host "  (no codex sessions yet)" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+        return
+    }
+
+    $blocks = New-Object System.Collections.Generic.List[object]
+
+    if ($isRunning) {
+        $startTs = $null
+        if ($LiveCodex.startedAt) { try { $startTs = [DateTime]::Parse($LiveCodex.startedAt) } catch {} }
+        $blocks.Add([pscustomobject]@{
+            isLive   = $true
+            tier     = if ($LiveCodex.step) { "$($LiveCodex.step)" } else { '' }
+            plan     = if ($LiveCodex.plan) { "$($LiveCodex.plan)" } else { '?' }
+            ts       = if ($startTs) { $startTs } else { Get-Date }
+            verdict  = ''
+            crit     = 0
+            warn     = 0
+            oneLiner = if ($LiveCodex.oneLiner) { "$($LiveCodex.oneLiner)" } else { 'running...' }
+        })
+    }
+
+    $remaining = [Math]::Max(0, $MaxBlocks - $blocks.Count)
+    foreach ($v in @($Verdicts | Select-Object -First $remaining)) {
+        $blocks.Add([pscustomobject]@{
+            isLive   = $false
+            tier     = "$($v.tier)"
+            plan     = "$($v.plan)"
+            ts       = $v.ts
+            verdict  = "$($v.verdict)"
+            crit     = [int]$v.critical
+            warn     = [int]$v.warning
+            oneLiner = "$($v.one_liner)"
+        })
+    }
+
+    foreach ($b in $blocks) {
+        $tierLabel = Format-CodexBlockTier $b.tier
+        $timeLabel = if ($b.ts) { try { ([DateTime]$b.ts).ToString('HH:mm:ss') } catch { '--:--:--' } } else { '--:--:--' }
+
+        # Header: ╭─ 🧪 TIER · project · plan ─── HH:mm:ss ─╮
+        # Note: 🧪 is a 2-char surrogate pair in UTF-16, so its .Length is 2.
+        $headerCore = "🧪 {0} · {1} · {2}" -f $tierLabel, $ProjectName, $b.plan
+        $fixedLen   = 3 + $headerCore.Length + 1 + 1 + $timeLabel.Length + 3
+        $dashes     = [Math]::Max(1, $Pw - $fixedLen)
+        $headerLine = "╭─ {0} {1} {2} ─╮" -f $headerCore, ('─' * $dashes), $timeLabel
+        Write-Host $headerLine -NoNewline -ForegroundColor Cyan
+        Write-Host $CLEAR_LINE
+
+        # Body: indented one-liner, truncated to pane width
+        $body    = if ($b.oneLiner -and "$($b.oneLiner)".Trim() -ne '') { "$($b.oneLiner)" } else { '(no summary)' }
+        $bodyMax = $Pw - 4
+        if ($body.Length -gt $bodyMax) { $body = $body.Substring(0, [Math]::Max(1, $bodyMax - 2)) + '..' }
+        Write-Host ("  " + $body) -NoNewline -ForegroundColor Gray
+        Write-Host $CLEAR_LINE
+
+        # Footer: ╰─ glyph VERDICT · C=N W=N ───────╯
+        if ($b.isLive) {
+            $glyph = '▸'; $verdictText = 'RUNNING'; $footerColor = 'Yellow'; $countsText = '...'
+        } else {
+            $vNorm = "$($b.verdict)".ToUpperInvariant()
+            $glyph = switch -Regex ($vNorm) {
+                'PASS|OK'           { '✓' }
+                'WARN'              { '⚠' }
+                'FAIL|CRIT|REVISE'  { '✗' }
+                default             { '·' }
+            }
+            $footerColor = switch -Regex ($vNorm) {
+                'PASS|OK'           { 'Green' }
+                'WARN'              { 'Yellow' }
+                'FAIL|CRIT|REVISE'  { 'Red' }
+                default             { 'DarkGray' }
+            }
+            $verdictText = if ($vNorm) { $vNorm } else { '?' }
+            $countsText  = "C={0} W={1}" -f $b.crit, $b.warn
+        }
+        $footerCore     = "{0} {1} · {2}" -f $glyph, $verdictText, $countsText
+        $footerFixedLen = 3 + $footerCore.Length + 1 + 1
+        $footerDashes   = [Math]::Max(1, $Pw - $footerFixedLen)
+        $footerLine     = "╰─ {0} {1}╯" -f $footerCore, ('─' * $footerDashes)
+        Write-Host $footerLine -NoNewline -ForegroundColor $footerColor
+        Write-Host $CLEAR_LINE
+        Write-Host $CLEAR_LINE
+    }
+}
+
 function Render-CompactCodex {
     param($Scope, $Codex, $Substrate, $Rows, $Verdicts, $Brief, $Savings, $PhaseNum, $Pw)
 
@@ -1131,6 +1245,11 @@ function Render-CompactCodex {
         Write-Host $CLEAR_LINE
     }
     Write-Host $CLEAR_LINE
+
+    Write-Host "RECENT CODEX SESSIONS" -NoNewline -ForegroundColor White
+    Write-Host $CLEAR_LINE
+    Render-CodexHistoryBlocks -Verdicts $Verdicts -LiveCodex $Codex -ProjectName (Split-Path $ProjectDir -Leaf) -Pw $Pw -MaxBlocks 2
+
     Write-GateSynopsis -Muda $muda -Atc $atc -PhaseNum $PhaseNum -Pw $Pw -Compact
     Write-Host $CLEAR_BELOW -NoNewline
 }
@@ -1491,6 +1610,11 @@ function Render {
             Write-Host $CLEAR_LINE
         }
     }
+
+    Write-Host $CLEAR_LINE
+    Write-Host "RECENT CODEX SESSIONS" -NoNewline -ForegroundColor White
+    Write-Host $CLEAR_LINE
+    Render-CodexHistoryBlocks -Verdicts $verdicts -LiveCodex $codex -ProjectName (Split-Path $ProjectDir -Leaf) -Pw $pw -MaxBlocks 3
 
     Write-Host $CLEAR_LINE
     Write-GateSynopsis -Muda $muda -Atc $atc -PhaseNum $phaseNum -Pw $pw
