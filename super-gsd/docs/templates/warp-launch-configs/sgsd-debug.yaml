@@ -23,17 +23,21 @@ windows:
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:
-            - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'warp-doctor probe:' -ForegroundColor Cyan; node super-gsd/tools/warp-doctor/check.cjs --project C:\Users\jack.berrow\GSDedits"
+            - exec: |-
+                powershell -NoExit -Command ". $PROFILE; Write-Host 'warp-doctor probe:' -ForegroundColor Cyan; node super-gsd/tools/warp-doctor/check.cjs --project C:\Users\jack.berrow\GSDedits"
         split_direction: vertical
         panes:
           - cwd: C:\Users\jack.berrow\GSDedits
             commands:
-              - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'STATE.md:' -ForegroundColor Cyan; Get-Content .planning\STATE.md -TotalCount 30 -Encoding UTF8"
+              - exec: |-
+                  powershell -NoExit -Command ". $PROFILE; Write-Host 'STATE.md:' -ForegroundColor Cyan; Get-Content .planning\STATE.md -TotalCount 30 -Encoding UTF8"
             split_direction: horizontal
             panes:
               - cwd: C:\Users\jack.berrow\GSDedits
                 commands:
-                  - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'ORCHESTRATOR-LIVE.jsonl tail (Ctrl+C to stop):' -ForegroundColor Cyan; if (Test-Path .planning\ORCHESTRATOR-LIVE.jsonl) { Get-Content .planning\ORCHESTRATOR-LIVE.jsonl -Tail 10 -Wait } else { Write-Host 'no live file yet' }"
+                  - exec: |-
+                      powershell -NoExit -Command ". $PROFILE; Write-Host 'ORCHESTRATOR-LIVE.jsonl tail (Ctrl+C to stop):' -ForegroundColor Cyan; if (Test-Path .planning\ORCHESTRATOR-LIVE.jsonl) { Get-Content .planning\ORCHESTRATOR-LIVE.jsonl -Tail 10 -Wait } else { Write-Host 'no live file yet' }"
               - cwd: C:\Users\jack.berrow\GSDedits
                 commands:
-                  - exec: powershell -NoExit -Command ". $PROFILE; Write-Host 'Free shell. Try: SGSD: Recovery Packet | SGSD: Live Pulse Tail' -ForegroundColor Cyan"
+                  - exec: |-
+                      powershell -NoExit -Command ". $PROFILE; Write-Host 'Free shell. Try: SGSD: Recovery Packet | SGSD: Live Pulse Tail' -ForegroundColor Cyan"
