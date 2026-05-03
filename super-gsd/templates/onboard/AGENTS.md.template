@@ -1,0 +1,46 @@
+# Agent Rules — Per-Repo Agent Behavior
+
+This file defines per-repo rules for AI coding agents (Claude Code, Codex,
+Cursor, etc.) operating in this project. Read by agents at session start
+to calibrate context, conventions, and constraints specific to this repo.
+
+## Project Identity
+
+- **Repo**: `{{REPO_NAME}}`
+- **Type**: TODO — describe (e.g. "ERP suite", "API service", "data pipeline")
+- **Primary language**: TODO
+- **Owner**: TODO
+
+## Conventions
+
+- **Commit style**: Conventional commits (`feat(scope):`, `fix(scope):`, etc.)
+- **Branching**: `main` is the default branch. Feature branches off `main`.
+- **Testing**: TODO — describe test framework + how to run
+- **Linting**: TODO — describe linter + how to run
+
+## Constraints
+
+- TODO — list things agents should NOT do (e.g. "don't touch the auth module
+  without explicit approval", "this is production code, no destructive ops",
+  etc.)
+
+## Domain Knowledge
+
+TODO — capture domain-specific terms, business rules, or context that
+agents need to make sensible decisions. Examples:
+
+- "A 'quote' has at minimum: customer, line items, validity period"
+- "Don't refer to customers by raw IDs — always resolve via the customer
+  service first"
+- etc.
+
+## SGSD Integration
+
+This repo uses Super GSD for autonomous execution.
+
+- Plans live under `.planning/milestones/<id>/phases/<phase>/`
+- State is tracked in `.planning/STATE.md`
+- Orchestrator entry point: `/sgsd-orchestrate go`
+
+See `super-gsd/CLAUDE-OVERLAY.md` (junction) for the canonical orchestrator
+behavior shared across SGSD-onboarded repos.

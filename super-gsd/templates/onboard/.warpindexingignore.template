@@ -1,0 +1,30 @@
+# SGSD-managed exclusions for Warp's Codebase Context indexer.
+# These paths are noisy or load-bearing for SGSD's own state — Warp's AI
+# shouldn't be indexing them.
+
+.planning/
+.git/
+node_modules/
+dist/
+build/
+out/
+.next/
+.turbo/
+.cache/
+coverage/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# super-gsd/ is a junction to the canonical SGSD framework — Warp can index
+# the slash commands and agent definitions if you want, but the Rust/Node
+# tooling subdirs are usually noise.
+super-gsd/Cargo.lock
+super-gsd/target/
+super-gsd/node_modules/
+super-gsd/tools/*/node_modules/
+
+# Build artifacts
+*.log
+*.lock

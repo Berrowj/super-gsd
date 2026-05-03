@@ -1,0 +1,35 @@
+---
+gsd_state_version: 1.0
+milestone: M001
+milestone_name: "TODO — set milestone name in /gsd-new-milestone or /sgsd-discuss-phase"
+status: PLANNING
+opened: "{{TODAY}}"
+last_updated: "{{TODAY}}T00:00:00Z"
+last_activity: "{{TODAY}}T00:00:00Z newly-onboarded repo, no SGSD activity yet"
+progress:
+  M001:
+    total_phases: 0
+    completed_phases: 0
+    completed_plans: 0
+    percent: 0
+---
+
+# Project State
+
+This file is auto-managed by SGSD. The frontmatter above is the canonical
+source for current milestone / phase / progress. Body content is free-form
+and may include human-readable notes, blockers, or links to phase artifacts.
+
+## Quick Start
+
+This repo was just onboarded to SGSD. Suggested next steps:
+
+1. **Run `/gsd-new-project` or `/gsd-new-milestone`** to set up the first
+   milestone with proper requirements and roadmap.
+2. **Run `/sgsd-orchestrate go`** once a milestone has phases planned.
+
+## Notes
+
+- Replace `M001` and the milestone_name above with your actual first milestone.
+- Once you ship phases, the orchestrator will update this frontmatter
+  automatically — leave it under SGSD control going forward.

@@ -1,0 +1,16 @@
+
+# ── SGSD-managed entries (added by /sgsd-onboard) ────────────────────────────
+# Per-machine SGSD state that should not be committed across machines.
+# The agent registry, planning history, and milestone artifacts ARE committed
+# (those are the project's intellectual capital). Only volatile per-run state
+# is excluded here.
+
+.planning/ORCHESTRATOR-CHECKPOINT.md
+.planning/ORCHESTRATOR-LIVE.jsonl
+.planning/metrics/codex-live.json
+.planning/metrics/*-status.jsonl
+
+# super-gsd/ may be a junction to a sibling install — don't commit if it's
+# a symlink/junction (no useful diff, breaks across machines).
+# (Comment line — git itself will commit junctions as either real dirs or
+# nothing depending on git config; tune to your preference.)
