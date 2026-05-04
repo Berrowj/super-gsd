@@ -1705,6 +1705,22 @@ function Render {
     # silently in Warp's PTY without throwing, breaking the previous try/catch.
     Write-Host $HOME_POS -NoNewline
 
+    # Project switcher header — only when 2+ SGSD repos are discoverable.
+    # Active project is highlighted; 1-9 swaps repos, q quits, r refreshes.
+    if ($global:SgsdProjects -and $global:SgsdProjects.Count -gt 1) {
+        $currentLeaf = Split-Path -Leaf $script:ProjectDir
+        Write-Host "PROJECTS" -NoNewline -ForegroundColor White
+        for ($i = 0; $i -lt $global:SgsdProjects.Count; $i++) {
+            $p = $global:SgsdProjects[$i]
+            $isCurrent = ($p.Name -eq $currentLeaf)
+            $color = if ($isCurrent) { 'Cyan' } else { 'DarkGray' }
+            Write-Host (' [{0}]' -f ($i+1)) -NoNewline -ForegroundColor $color
+            Write-Host (' ' + $p.Name) -NoNewline -ForegroundColor $color
+        }
+        Write-Host '   1-9 swap · q quit · r refresh' -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+    }
+
     $pw = Get-PaneWidth
     $state = Get-StateInfo
     $phases = Get-RoadmapPhases $state.milestone
@@ -2429,6 +2445,49 @@ function Render {
     Write-Host $CLEAR_BELOW -NoNewline
 }
 
+# ── Project switcher: discovery + re-target helper ──────────────────────────
+# Walks ~/ for any directory containing .planning/STATE.md to build the list
+# of SGSD repos the cockpit can swap between. Capped at 9 (1-9 keystrokes).
+function Get-SgsdProjects {
+    $found = @()
+    try {
+        $candidates = Get-ChildItem -Directory -LiteralPath $env:USERPROFILE -ErrorAction SilentlyContinue
+        foreach ($dir in $candidates) {
+            if ($found.Count -ge 9) { break }
+            if (Test-Path -LiteralPath (Join-Path $dir.FullName '.planning\STATE.md')) {
+                $found += [pscustomobject]@{
+                    Name = $dir.Name
+                    Path = $dir.FullName
+                }
+            }
+        }
+    } catch {}
+    return @($found)
+}
+
+# Re-targets the cockpit to a different repo without restarting. Updates the
+# script-scope project paths, invalidates the snapshot cache, re-paths the
+# FileSystemWatcher, and forces a full redraw on next tick.
+function Switch-CockpitProject {
+    param([string]$NewPath)
+    if (-not (Test-Path -LiteralPath $NewPath)) { return }
+    try { $script:ProjectDir = (Resolve-Path -LiteralPath $NewPath).Path } catch { return }
+    $script:PlanningDir = Join-Path $script:ProjectDir '.planning'
+    $script:ActivityLog = Join-Path $script:PlanningDir 'metrics\activity-log.jsonl'
+    $script:__cockpitSnapCache = $null
+    $script:__cockpitSnapKey   = $null
+    if ($script:watcher) {
+        try {
+            $script:watcher.EnableRaisingEvents = $false
+            $script:watcher.Path = $script:PlanningDir
+            $script:watcher.EnableRaisingEvents = $true
+        } catch {}
+    }
+    $global:needsRedraw = $true
+}
+
+$global:SgsdProjects = Get-SgsdProjects
+
 # ── File watcher + main loop ─────────────────────────────────────────────────
 # Enter alt screen buffer so redraws never pollute Warp scrollback.
 Write-Host "$ALT_ENTER$ESC[2J$ESC[H$HIDE_CURSOR" -NoNewline
@@ -2448,6 +2507,25 @@ $lastHeartbeat = [DateTime]::MinValue
 [Console]::TreatControlCAsInput = $false
 try {
     while ($true) {
+        # Non-blocking keypress for in-cockpit project switcher: 1-9 swap,
+        # q quit, r force redraw. Skips if no input is queued in the console.
+        if ([Console]::KeyAvailable) {
+            try {
+                $key = [Console]::ReadKey($true)
+                $ch  = $key.KeyChar
+                if ($ch -ge '1' -and $ch -le '9') {
+                    $idx = [int][char]$ch - [int][char]'1'
+                    if ($global:SgsdProjects -and $idx -lt $global:SgsdProjects.Count) {
+                        Switch-CockpitProject $global:SgsdProjects[$idx].Path
+                    }
+                } elseif ($ch -eq 'q' -or $ch -eq 'Q') {
+                    break
+                } elseif ($ch -eq 'r' -or $ch -eq 'R') {
+                    $global:needsRedraw = $true
+                }
+            } catch {}
+        }
+
         if ($global:needsRedraw -or (((Get-Date) - $lastHeartbeat).TotalSeconds -ge $Heartbeat)) {
             $global:needsRedraw = $false
             $lastHeartbeat = Get-Date
