@@ -188,6 +188,33 @@ function global:sgsd-watch {
     Write-Host "sgsd-watch: live title started (Role=$Role, refresh=${IntervalSeconds}s)" -ForegroundColor Green
 }
 
+function global:sgsd-watch-codex {
+    # Tails the codex-executor live stream for the current SGSD project.
+    # Walks up from cwd to find .planning/, ensures the live file exists
+    # (Get-Content -Wait can't attach to a non-existent file), then follows
+    # it forever. Codex executor sessions overwrite the file at start; the
+    # tailer survives because PowerShell re-reads on growth.
+    param([string]$ProjectDir = (Get-Location).Path)
+    $current = $ProjectDir
+    while ($current -and (Test-Path -LiteralPath $current)) {
+        if (Test-Path -LiteralPath (Join-Path $current '.planning')) { break }
+        $parent = Split-Path -Parent $current
+        if (-not $parent -or $parent -eq $current) {
+            Write-Host "sgsd-watch-codex: no .planning/ ancestor found from $ProjectDir" -ForegroundColor Red
+            return
+        }
+        $current = $parent
+    }
+    $f = Join-Path $current '.planning\metrics\codex-executor-live.txt'
+    if (-not (Test-Path -LiteralPath $f)) {
+        New-Item -ItemType File -Path $f -Force | Out-Null
+        Write-Host "sgsd-watch-codex: created empty $f (waiting for first codex executor run)" -ForegroundColor DarkYellow
+    } else {
+        Write-Host "sgsd-watch-codex: tailing $f" -ForegroundColor Cyan
+    }
+    Get-Content -Wait -LiteralPath $f
+}
+
 function global:Test-SgsdRepoCue {
     $cwd = (Get-Location).Path
     if ($cwd -eq $global:__SgsdLastDir) { return }
