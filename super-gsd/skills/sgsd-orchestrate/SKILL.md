@@ -804,7 +804,53 @@ REPEAT:
         const dispatchPlanner = require('super-gsd/scripts/lib/dispatch-planner.cjs');
 
         const waves = dispatchPlanner.buildDispatchPlan(plan);
-        for (const w of waves) {
+
+        // ── EXECUTOR ROUTING DECISION (load-bearing, applies to all waves below) ──
+        // Read .planning/config.json → review_providers.executor_provider.
+        // Default 'claude'. If 'codex': route every executor dispatch in this
+        // phase via Bash shell-out to super-gsd/scripts/codex-executor.sh
+        // (codex CLI does the file edits directly under --full-auto). Codex
+        // CANNOT share workspace state across parallel invocations; force
+        // serial execution regardless of dispatch-planner.cjs's wave plan.
+        // See "## Executor Routing — Claude vs Codex" section above for full
+        // semantics, failure modes, and config schema.
+        const executorProvider = (() => {
+          try {
+            const fs = require('fs');
+            const cfg = JSON.parse(fs.readFileSync('.planning/config.json', 'utf8'));
+            return (cfg.review_providers && cfg.review_providers.executor_provider) || 'claude';
+          } catch (e) { return 'claude'; }
+        })();
+
+        if (executorProvider === 'codex') {
+          // CODEX EXECUTOR PATH — flatten all waves into serial dispatches.
+          // Each task: write prompt to disk, Bash codex-executor.sh, read
+          // report file, run Step 9 (process report) + Step 9.5 (per-dispatch
+          // ATC) on the diff codex committed inside its --full-auto sandbox.
+          const allTasks = waves.flatMap(w => w.taskIds);
+          for (const taskId of allTasks) {
+            // 1. Compose the executor prompt (same shape as Agent() prompt) and write to a temp path
+            //    under .planning/phases/{N}/{NN-PP}-CODEX-EXECUTOR-PROMPT.md
+            const promptPath = `.planning/phases/{phaseDir}/{taskId}-CODEX-EXECUTOR-PROMPT.md`;
+            const reportPath = `.planning/phases/{phaseDir}/{taskId}-CODEX-EXECUTOR-REPORT.md`;
+            // 2. Write prompt file
+            Write(promptPath, executorPromptFor(taskId, plan));
+            // 3. Shell out — wrapper streams codex stdout to .planning/metrics/codex-executor-live.txt
+            //    so a tail pane (sgsd-watch-codex) shows progress in real time.
+            Bash(`super-gsd/scripts/codex-executor.sh ` +
+                 `--prompt-file ${promptPath} --report-out ${reportPath} ` +
+                 `--workspace . --phase ${phaseNum} --plan ${taskId}`);
+            // 4. Read the report file (codex's free-form stdout); treat as the
+            //    Agent() return-value equivalent for downstream processing.
+            const report = Read(reportPath);
+            // 5. Step 9: process report + commit (codex already committed inside
+            //    --full-auto, but verify the diff and run any post-dispatch hygiene).
+            // 6. Step 9.5: per-dispatch ATC review on the diff codex produced.
+            //    [Step 9 + Step 9.5 — same as Claude path; see existing flow]
+          }
+        } else {
+          // CLAUDE EXECUTOR PATH (default / legacy) — original wave logic below.
+          for (const w of waves) {
           if (w.serial || w.taskIds.length === 1) {
             // Serial wave: dispatch gsd-executor (Sonnet) for each task sequentially
             for (const taskId of w.taskIds) {
@@ -832,6 +878,7 @@ REPEAT:
             }
           }
         }
+        }  // end else (Claude executor path) — pairs with `if (executorProvider === 'codex')` above
 
         NOTE — spike verdict: 12-02-00 observed PARALLEL_CONFIRMED. The parallel branch is a
         live execution path. Disjoint-files waves will genuinely fan out concurrently.
