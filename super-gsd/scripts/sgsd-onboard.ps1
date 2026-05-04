@@ -170,6 +170,53 @@ function Install-SgsdComponent {
             Write-Host "    ✓ appended SGSD entries to .gitignore" -ForegroundColor Green
             return $true
         }
+        'claude-md' {
+            $p = Join-Path $ProjectDir 'CLAUDE.md'
+            $snippet = Read-Template 'claude-md-snippet.template'
+            if (-not $snippet) { Write-Host "    ✗ snippet missing" -ForegroundColor Red; return $false }
+            $existing = if (Test-Path -LiteralPath $p) { [System.IO.File]::ReadAllText($p) } else { '' }
+            if ($existing -match 'BEGIN sgsd-overlay') {
+                Write-Host "    ⓘ CLAUDE.md already has SGSD overlay markers — skipping (use /sgsd-overlay-refresh to update)" -ForegroundColor DarkYellow
+                return $true
+            }
+            $combined = if ($existing) { $existing.TrimEnd() + "`n" + $snippet } else { "# CLAUDE.md`n" + $snippet }
+            Write-FileWithBom -Path $p -Content $combined
+            Write-Host "    ✓ appended SGSD overlay section to CLAUDE.md" -ForegroundColor Green
+            return $true
+        }
+        'warp-workflows' {
+            # Junction <repo>/.warp/workflows/ → canonical workflows at GSDedits root.
+            # The .warp/ parent dir may not exist yet; create it first. Don't recurse-
+            # junction the whole .warp/ because the operator may have repo-specific
+            # tab-configs we shouldn't shadow.
+            $warpDir   = Join-Path $ProjectDir '.warp'
+            $linkPath  = Join-Path $warpDir 'workflows'
+            $canonical = 'C:\Users\jack.berrow\GSDedits\.warp\workflows'
+            if (-not (Test-Path -LiteralPath $canonical)) {
+                Write-Host "    ✗ canonical workflows dir not found at $canonical" -ForegroundColor Red
+                return $false
+            }
+            if (Test-Path -LiteralPath $linkPath) { Write-Host "    ⓘ .warp/workflows/ already present — leaving alone" -ForegroundColor DarkYellow; return $true }
+            if (-not (Test-Path -LiteralPath $warpDir)) { New-Item -ItemType Directory -Force -Path $warpDir | Out-Null }
+            $out = cmd /c "mklink /J `"$linkPath`" `"$canonical`"" 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "    ✓ junction .warp/workflows/ → $canonical" -ForegroundColor Green
+                Write-Host "    ⓘ canonical workflows have GSDedits-rooted defaults; override project_dir per invocation" -ForegroundColor DarkYellow
+                return $true
+            }
+            Write-Host "    ✗ mklink failed: $out" -ForegroundColor Red
+            return $false
+        }
+        'resource-registry' {
+            # Empty agents.jsonl placeholder — populated later by /gsd-intel refresh
+            # which scans super-gsd/agents/*.md and builds the canonical registry.
+            $regDir = Join-Path $ProjectDir '.planning\resource-registry'
+            $regFile = Join-Path $regDir 'agents.jsonl'
+            if (-not (Test-Path -LiteralPath $regDir)) { New-Item -ItemType Directory -Force -Path $regDir | Out-Null }
+            if (-not (Test-Path -LiteralPath $regFile)) { New-Item -ItemType File -Force -Path $regFile | Out-Null }
+            Write-Host "    ✓ created .planning/resource-registry/agents.jsonl (empty — populate via /gsd-intel refresh)" -ForegroundColor Green
+            return $true
+        }
         'warp-md' {
             $p = Join-Path $ProjectDir 'WARP.md'
             if (Test-Path -LiteralPath $p) { Write-Host "    ⓘ WARP.md already present — leaving alone" -ForegroundColor DarkYellow; return $true }

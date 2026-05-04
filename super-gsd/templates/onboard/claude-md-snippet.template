@@ -1,0 +1,23 @@
+
+<!-- BEGIN sgsd-overlay (managed by /sgsd-onboard — do not edit between markers) -->
+
+## SGSD Overlay
+
+This repo uses Super GSD for autonomous orchestration. The framework lives at
+`super-gsd/` (directory junction to the canonical install at
+`C:\Users\jack.berrow\GSDedits\super-gsd`). The full orchestrator contract is
+in `super-gsd/CLAUDE-OVERLAY.md` — read that first.
+
+Quick reference:
+- `.planning/STATE.md` — current milestone/phase state
+- `.planning/milestones/` — phase plans + artifacts
+- `.planning/metrics/` — telemetry (codex-log, activity-log, narrative, etc.)
+- `/sgsd-orchestrate go` — start the autonomous loop
+- `/sgsd-discuss-phase <N>` — gather context before planning
+- `/gsd-plan-phase <N>` — produce a PLAN.md from CONTEXT.md
+- `/sgsd-onboard --check` — readiness check across 15 SGSD components
+
+To refresh this overlay against the canonical version, run
+`/sgsd-overlay-refresh` (re-replaces content between these markers).
+
+<!-- END sgsd-overlay -->
