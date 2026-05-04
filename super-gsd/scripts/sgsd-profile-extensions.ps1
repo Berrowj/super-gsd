@@ -1,4 +1,4 @@
-# =============================================================================
+﻿# =============================================================================
 # SGSD Profile Extensions
 # =============================================================================
 # Repo-resident PowerShell helpers that add at-a-glance SGSD state to any
@@ -143,10 +143,49 @@ function global:Get-SgsdTabState {
 
 function global:Update-SgsdTitle {
     try {
-        $s = Get-SgsdTabState
-        $title = '{0} SGSD {1}/{2}{3}{4}' -f $s.Emoji, $s.Milestone, $s.Phase, $s.Provider, $s.Elapsed
-        $Host.UI.RawUI.WindowTitle = $title
+        # Multi-repo aware: walk up from cwd to find the current tab's SGSD
+        # root, fall back to $global:__SgsdRepoRoot only if we're not in an
+        # SGSD repo. Earlier behavior always used the hardcoded GSDedits root,
+        # which gave the wrong title in non-GSDedits tabs.
+        $effectiveRoot = $null
+        $cur = (Get-Location).Path
+        while ($cur -and (Test-Path -LiteralPath $cur)) {
+            if (Test-Path -LiteralPath (Join-Path $cur '.planning\STATE.md')) { $effectiveRoot = $cur; break }
+            $parent = Split-Path -Parent $cur
+            if (-not $parent -or $parent -eq $cur) { break }
+            $cur = $parent
+        }
+        if (-not $effectiveRoot) { $effectiveRoot = $global:__SgsdRepoRoot }
+
+        $prevRoot = $global:__SgsdRepoRoot
+        $global:__SgsdRepoRoot = $effectiveRoot
+        try {
+            $s = Get-SgsdTabState
+            $repoLeaf = if ($effectiveRoot) { Split-Path -Leaf $effectiveRoot } else { '?' }
+            $title = '{0} SGSD {1}·{2}/{3}{4}{5}' -f $s.Emoji, $repoLeaf, $s.Milestone, $s.Phase, $s.Provider, $s.Elapsed
+            $Host.UI.RawUI.WindowTitle = $title
+        } finally {
+            $global:__SgsdRepoRoot = $prevRoot
+        }
     } catch { }
+}
+
+function global:sgsd-watch {
+    # Convenience wrapper: starts the OSC-driven tab-title watcher in the
+    # current tab against whatever repo is cwd-detected. No args needed in
+    # the common case — just `cd <repo>` then `sgsd-watch`.
+    param(
+        [ValidateSet('claude','codex','cockpit','review','debug','post-mortem','remote-monitor','token-audit')]
+        [string]$Role = 'claude',
+        [int]$IntervalSeconds = 120
+    )
+    $candidate = 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\lib\sgsd-tab-init.ps1'
+    if (-not (Test-Path -LiteralPath $candidate)) {
+        Write-Host "sgsd-watch: cannot find sgsd-tab-init.ps1 at $candidate" -ForegroundColor Red
+        return
+    }
+    & $candidate -Role $Role -ProjectDir (Get-Location).Path -IntervalSeconds $IntervalSeconds
+    Write-Host "sgsd-watch: live title started (Role=$Role, refresh=${IntervalSeconds}s)" -ForegroundColor Green
 }
 
 function global:Test-SgsdRepoCue {
