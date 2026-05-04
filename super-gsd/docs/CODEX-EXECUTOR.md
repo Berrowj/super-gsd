@@ -83,6 +83,36 @@ Set `executor_provider: "codex"` once the SKILL.md routing change ships.
 The `codex_executor_*` overrides are read by the wrapper today and let you
 A/B different reasoning levels (`low` / `medium` / `high` / `xhigh`).
 
+## Live monitoring (operator-side)
+
+While Codex executes, its stdout is `tee`'d to a stable per-project file at
+`.planning/metrics/codex-executor-live.txt`. The wrapper writes a START
+banner, lets codex output flow through, then writes an END banner with exit
+code + duration. The file is overwritten each invocation so a single pane
+can follow every codex executor session.
+
+Open a separate PowerShell pane (or new Warp tab) cd'd into the project
+root and run:
+
+```powershell
+Get-Content -Wait C:\Users\jack.berrow\project-clarity-erp\.planning\metrics\codex-executor-live.txt
+```
+
+That tails the file forever. While codex is running, you'll see its tool
+calls / reasoning / file edits stream in real time. Between sessions the
+file holds the last codex run's output. Press `Ctrl+C` to exit the tail.
+
+POSIX equivalent (Git Bash / WSL):
+
+```bash
+tail -F project-clarity-erp/.planning/metrics/codex-executor-live.txt
+```
+
+The orchestrator (Claude Code) sees no streaming output — the `Bash()` call
+to `codex-executor.sh` blocks until codex finishes — so the tail pane is
+the only way to watch progress in real time. After completion the full
+output is also persisted to the per-plan `--report-out` file.
+
 ## Telemetry
 
 Each invocation appends one row to `.planning/metrics/codex-executor-log.jsonl`:

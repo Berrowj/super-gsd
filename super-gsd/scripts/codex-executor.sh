@@ -154,19 +154,44 @@ TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 START_MS="$(date +%s%3N 2>/dev/null || echo 0)"
 STDOUT_TMP="$(mktemp -t codex-exec-stdout.XXXXXX)"
 STDERR_TMP="$(mktemp -t codex-exec-stderr.XXXXXX)"
+# Live tee target so a watching pane can follow codex output in real time.
+# Path is project-rooted + stable (overwritten each invocation), so the
+# operator runs `Get-Content -Wait` on it ONCE in a separate pane and follows
+# every subsequent codex executor session.
+LIVE_OUT="$PROJECT/.planning/metrics/codex-executor-live.txt"
+mkdir -p "$(dirname "$LIVE_OUT")"
+{
+    echo "============================================================"
+    echo "codex-executor START  ts=$TS  phase=${PHASE_TAG:-?}  plan=${PLAN_TAG:-?}"
+    echo "model=$CODEX_MODEL  effort=$CODEX_REASONING_EFFORT  timeout=${TIMEOUT_SECONDS}s"
+    echo "workspace=$CODEX_CD  prompt=$PROMPT_FILE  report=$REPORT_OUT"
+    echo "============================================================"
+} > "$LIVE_OUT"
+
 trap 'rm -f "$STDOUT_TMP" "$STDERR_TMP" "${REPORT_OUT}.tmp" 2>/dev/null || true' EXIT
 
 set +e
 if [[ "$CODEX_LAUNCHER" == "cmd" ]]; then
     timeout "${TIMEOUT_SECONDS}s" bash -c 'cat "$0" | cmd.exe /c codex exec --full-auto --model "$1" -c "model_reasoning_effort=\"$2\"" --skip-git-repo-check --cd "$3" -' \
         "$PROMPT_FILE" "$CODEX_MODEL" "$CODEX_REASONING_EFFORT" "$CODEX_CD" \
-        > "$STDOUT_TMP" 2> "$STDERR_TMP"
+        2> "$STDERR_TMP" \
+        | tee -a "$LIVE_OUT" \
+        > "$STDOUT_TMP"
+    RC=${PIPESTATUS[0]}
 else
     timeout "${TIMEOUT_SECONDS}s" bash -c 'cat "$0" | codex exec --full-auto --model "$1" -c "model_reasoning_effort=\"$2\"" --skip-git-repo-check --cd "$3" -' \
         "$PROMPT_FILE" "$CODEX_MODEL" "$CODEX_REASONING_EFFORT" "$CODEX_CD" \
-        > "$STDOUT_TMP" 2> "$STDERR_TMP"
+        2> "$STDERR_TMP" \
+        | tee -a "$LIVE_OUT" \
+        > "$STDOUT_TMP"
+    RC=${PIPESTATUS[0]}
 fi
-RC=$?
+{
+    echo ""
+    echo "============================================================"
+    echo "codex-executor END    exit=$RC  duration=$(( ($(date +%s%3N 2>/dev/null || echo 0) - START_MS) / 1000 ))s"
+    echo "============================================================"
+} >> "$LIVE_OUT"
 set -e
 
 END_MS="$(date +%s%3N 2>/dev/null || echo 0)"
