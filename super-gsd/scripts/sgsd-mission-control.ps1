@@ -905,6 +905,36 @@ function Get-RoadmapAgentMilestonePhases {
 function Get-RoadmapPhases($milestone) {
     $phasesRoot = if ($milestone) { Join-Path $PlanningDir "milestones\$milestone\phases" } else { "" }
     $roadmapPhases = @(Get-RoadmapAgentMilestonePhases $milestone)
+
+    # Also try milestone-specific ROADMAP.md (.planning/milestones/<m>/ROADMAP.md).
+    # This lets /sgsd-onboard scaffold a per-milestone roadmap that the cockpit
+    # picks up automatically — without falling back to the root ROADMAP.md
+    # (which is usually from a previous milestone and shows wrong phase data).
+    if ($milestone -and $roadmapPhases.Count -eq 0) {
+        $milestoneRoadmap = Join-Path $PlanningDir "milestones\$milestone\ROADMAP.md"
+        if (Test-Path $milestoneRoadmap) {
+            try {
+                $msContent = Get-Content $milestoneRoadmap -Raw -ErrorAction SilentlyContinue
+                if ($msContent) {
+                    $msSeen = @{}
+                    $rxMs = [regex]'(?m)^\s*-\s*\[(x| )\]\s*\*{0,2}Phase\s+(\d+(?:\.\d+)?):\s*\*{0,2}(.+?)\*{0,2}\s*$'
+                    $tmp = @()
+                    foreach ($m in $rxMs.Matches($msContent)) {
+                        $num = $m.Groups[2].Value
+                        if ($msSeen.ContainsKey($num)) { continue }
+                        $msSeen[$num] = $true
+                        $name = $m.Groups[3].Value.Trim()
+                        $name = $name -replace '\s*\*+\s*$', '' -replace '^\s*\*+\s*', ''
+                        if ($name -match '^(.+?)\s*(?:[-—]|\(completed|\*\*)') { $name = $matches[1].Trim() }
+                        $done = ($m.Groups[1].Value -eq "x")
+                        $tmp += @{ num = $num; name = $name; done = $done }
+                    }
+                    if ($tmp.Count -gt 0) { $roadmapPhases = $tmp }
+                }
+            } catch {}
+        }
+    }
+
     if ($phasesRoot -and (Test-Path $phasesRoot)) {
         $nameByPhase = @{}
         foreach ($rp in $roadmapPhases) {
@@ -989,7 +1019,45 @@ function Get-RoadmapPhases($milestone) {
             }
         }
     }
-    return @($phases | Sort-Object { [double]$_.num })
+    if ($phases.Count -gt 0) { return @($phases | Sort-Object { [double]$_.num }) }
+
+    # Last-resort: STATE.md frontmatter fallback. When no roadmap file exists
+    # at all (or the root ROADMAP.md is from a previous milestone leaving us
+    # with bogus old phase numbers), synthesize a small phase list from the
+    # progress.total_phases / completed_phases / current_phase frontmatter.
+    # The synthetic list shows a window around current_phase so the cockpit
+    # strip is contextually correct even when no roadmap file is authoritative.
+    $statePath = Join-Path $PlanningDir 'STATE.md'
+    if (Test-Path $statePath) {
+        try {
+            $totalPhases = $null
+            $completedPhases = $null
+            $currentPhase = $null
+            $inProgress = $false
+            foreach ($line in (Get-Content $statePath -TotalCount 50 -ErrorAction SilentlyContinue)) {
+                if ($line -match '^progress:') { $inProgress = $true; continue }
+                if ($inProgress -and $line -match '^\s+total_phases:\s*(\d+)') { $totalPhases = [int]$matches[1] }
+                elseif ($inProgress -and $line -match '^\s+completed_phases:\s*(\d+)') { $completedPhases = [int]$matches[1] }
+                elseif ($inProgress -and $line -notmatch '^\s+') { $inProgress = $false }
+                if ($line -match '^current_phase:\s*"?(\d+)"?') { $currentPhase = [int]$matches[1] }
+            }
+            if ($currentPhase) {
+                $startPhase = [Math]::Max(1, $currentPhase - 5)
+                $endPhase   = $currentPhase + 5
+                $synth = @()
+                for ($i = $startPhase; $i -le $endPhase; $i++) {
+                    $synth += @{
+                        num = "$i"
+                        name = "Phase $i"
+                        done = ($i -lt $currentPhase)
+                    }
+                }
+                if ($synth.Count -gt 0) { return @($synth | Sort-Object { [double]$_.num }) }
+            }
+        } catch {}
+    }
+
+    return @()
 }
 
 function Get-ActivePhaseDir($phaseNum, $milestone) {
