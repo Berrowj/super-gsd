@@ -170,6 +170,59 @@ function Install-SgsdComponent {
             Write-Host "    ✓ appended SGSD entries to .gitignore" -ForegroundColor Green
             return $true
         }
+        'warp-md' {
+            $p = Join-Path $ProjectDir 'WARP.md'
+            if (Test-Path -LiteralPath $p) { Write-Host "    ⓘ WARP.md already present — leaving alone" -ForegroundColor DarkYellow; return $true }
+            $tpl = Read-Template 'WARP.md.template'
+            if (-not $tpl) { Write-Host "    ✗ template missing" -ForegroundColor Red; return $false }
+            Write-FileWithBom -Path $p -Content (Apply-TemplateVars $tpl $vars)
+            Write-Host "    ✓ wrote WARP.md (review the TODO marker)" -ForegroundColor Green
+            return $true
+        }
+        'mcp-json' {
+            $p = Join-Path $ProjectDir '.mcp.json'
+            if (Test-Path -LiteralPath $p) { Write-Host "    ⓘ .mcp.json already present — leaving alone" -ForegroundColor DarkYellow; return $true }
+            $tpl = Read-Template 'mcp.json.template'
+            if (-not $tpl) { Write-Host "    ✗ template missing" -ForegroundColor Red; return $false }
+            $localVars = $vars.Clone()
+            $localVars['PROJECT_DIR_FORWARD_SLASH'] = ($ProjectDir -replace '\\', '/')
+            Write-FileWithBom -Path $p -Content (Apply-TemplateVars $tpl $localVars)
+            Write-Host "    ✓ wrote .mcp.json with SGSD MCP server entry" -ForegroundColor Green
+            return $true
+        }
+        'auto-memory' {
+            # Junction ~/.claude/projects/<encoded>/memory/ → .planning/memory/
+            # so Claude Code's auto-memory writes are git-tracked under the repo.
+            $repoLeaf2 = Split-Path -Leaf $ProjectDir
+            $encoded   = ($ProjectDir -replace '[\\:]', '-') -replace '^-', ''
+            $autoMem   = Join-Path $env:USERPROFILE ".claude\projects\$encoded\memory"
+            $target    = Join-Path $ProjectDir '.planning\memory'
+            if (-not (Test-Path -LiteralPath $target)) {
+                Write-Host "    ✗ target $target doesn't exist — run memory-tree component first" -ForegroundColor Red
+                return $false
+            }
+            if (Test-Path -LiteralPath $autoMem) {
+                # Already exists. If it's a junction, we're done. Otherwise leave alone (don't risk losing user data).
+                try {
+                    $item = Get-Item -LiteralPath $autoMem -Force -ErrorAction SilentlyContinue
+                    if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                        Write-Host "    ⓘ auto-memory junction already in place — skipping" -ForegroundColor DarkYellow
+                        return $true
+                    }
+                } catch {}
+                Write-Host "    ✗ $autoMem exists and is not a junction — manual migration required (rename + retry)" -ForegroundColor Red
+                return $false
+            }
+            $parentDir = Split-Path -Parent $autoMem
+            if (-not (Test-Path -LiteralPath $parentDir)) { New-Item -ItemType Directory -Force -Path $parentDir | Out-Null }
+            $out = cmd /c "mklink /J `"$autoMem`" `"$target`"" 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "    ✓ junction $autoMem → $target" -ForegroundColor Green
+                return $true
+            }
+            Write-Host "    ✗ mklink failed: $out" -ForegroundColor Red
+            return $false
+        }
         default {
             Write-Host "    ⓘ component '$ComponentId' not yet auto-installable — see fix hint" -ForegroundColor DarkYellow
             return $false
@@ -190,7 +243,10 @@ Format-SgsdReadinessReport $report
 
 if ($Check) { exit 0 }
 
-$todo = @($report | Where-Object { $_.Status -eq 'MISSING' })
+# Install-list = MISSING (always) + WARN (handled by installers that can fix
+# the warn condition: missing optional files, partially-populated dirs, etc.).
+# Components in the WARN bucket whose installer is a no-op silently skip.
+$todo = @($report | Where-Object { $_.Status -eq 'MISSING' -or $_.Status -eq 'WARN' })
 if ($todo.Count -eq 0) {
     Write-Host "Nothing to install — repo is fully onboarded." -ForegroundColor Green
     Write-Host ""
@@ -198,7 +254,9 @@ if ($todo.Count -eq 0) {
 }
 
 if (-not $All) {
-    Write-Host "$($todo.Count) missing component(s) can be auto-installed." -ForegroundColor White
+    $missCount = @($todo | Where-Object { $_.Status -eq 'MISSING' }).Count
+    $warnCount = @($todo | Where-Object { $_.Status -eq 'WARN' }).Count
+    Write-Host "$($todo.Count) component(s) can be installed ($missCount missing, $warnCount warn)." -ForegroundColor White
     Write-Host "Install all? [Y]es / [n]o (review each) / [q]uit: " -NoNewline -ForegroundColor Yellow
     $resp = Read-Host
     if ($resp -match '^q') { Write-Host "Aborted." -ForegroundColor DarkGray; exit 0 }

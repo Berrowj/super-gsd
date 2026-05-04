@@ -1,0 +1,45 @@
+# WARP.md
+
+Warp-specific instructions for `{{REPO_NAME}}`. Warp Agent reads this file
+when both `AGENTS.md` and `WARP.md` exist in the same directory; per Warp's
+documented behavior, `WARP.md` takes priority for Warp Agent (`AGENTS.md`
+still applies as the cross-agent baseline).
+
+## Rule Hierarchy
+
+Three rule files coexist in this repo. Read in this order:
+
+1. **`AGENTS.md`** — tool-neutral, all-agent rules. Project identity, conventions,
+   constraints. Read first by every agent.
+2. **`WARP.md`** (this file) — Warp-specific operator commands and daily workflow.
+3. **`CLAUDE.md`** — Claude Code's orchestrator contract. Required for Claude
+   Code; ignored by other agents.
+
+## Daily Commands
+
+- `sg` — boot SGSD cockpit + greet Claude in the current terminal.
+- `sg -Go` — boot cockpit and send `go` to Claude for autonomous mode.
+- `sgsd` — cockpit only.
+- `/sgsd-orchestrate go` — start the autonomous SGSD loop.
+- `/sgsd-discuss-phase <N>` — gather context before planning a phase.
+
+## Project Shape
+
+This is a SGSD-onboarded repo. The framework lives at `super-gsd/`
+(directory junction to the canonical install at `C:\Users\jack.berrow\GSDedits\super-gsd`).
+
+- `.planning/STATE.md` — current milestone/phase state.
+- `.planning/milestones/` — per-milestone plans and phase artifacts.
+- `.planning/metrics/` — cockpit, token, Codex, routing, and gate ledgers.
+- `super-gsd/` — junction to SGSD framework runtime.
+
+## Project-Specific Notes
+
+TODO — add anything Warp Agent should know about this repo specifically.
+Examples: dev server commands, deploy procedures, environment variables,
+database conventions, common debugging entry points.
+
+## Workflows
+
+Repo-local workflows can be added in `.warp/workflows/`. See the canonical
+SGSD workflow set under the `super-gsd/` junction for examples.

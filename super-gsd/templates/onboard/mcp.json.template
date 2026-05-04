@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "sgsd": {
+      "command": "node",
+      "args": [
+        "C:/Users/jack.berrow/GSDedits/super-gsd/tools/warp-mcp/server.cjs"
+      ],
+      "cwd": "{{PROJECT_DIR_FORWARD_SLASH}}"
+    }
+  }
+}
