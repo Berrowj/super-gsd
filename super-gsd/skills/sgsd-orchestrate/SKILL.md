@@ -271,6 +271,74 @@ On resume (checkpoint exists):
 3. Skip cold start — enter loop at next_unit
 </cold_start>
 
+<executor_routing>
+## Executor Routing — Claude vs Codex
+
+**Where to check:** `.planning/config.json → review_providers.executor_provider`. Default `"claude"`. Legal values: `"claude"` (existing path, dispatches gsd-executor via Agent), `"codex"` (new path, dispatches Codex CLI via Bash shell-out).
+
+**Why this exists:** historically the orchestrator only routed code execution through Claude Sonnet via `Agent(subagent_type: "gsd-executor", model: "sonnet")`. Some operators (especially on cost-sensitive or Codex-preferring projects) want Codex GPT-5.5 to do all code execution, with Claude reserved for orchestration / planning / verification only. This section defines the routing rule the Auto Loop applies at every executor dispatch site.
+
+**Rule:** at EVERY executor dispatch in this skill (Step 8 single-task dispatch, parallel-wave fan-out, schema-fix dispatch, gap-fill dispatch — anywhere `Agent(subagent_type: "gsd-executor", ...)` would fire) — FIRST consult the config value, then route accordingly:
+
+```
+provider = readConfig(".planning/config.json").review_providers?.executor_provider ?? "claude"
+
+if (provider == "codex") {
+    // Codex executor path: shell-out via codex-executor.sh
+    promptPath = writeTempPromptFile(executorPrompt)
+    reportPath = ".planning/phases/{N}/{NN-PP}-CODEX-EXECUTOR-REPORT.md"
+    Bash(`super-gsd/scripts/codex-executor.sh \
+            --prompt-file ${promptPath} \
+            --report-out  ${reportPath} \
+            --workspace   ${projectDir} \
+            --phase       ${phaseNum} \
+            --plan        ${planId}`)
+    // codex-executor.sh exits 0 on success, writes free-form codex stdout to
+    // reportPath, JSONL-logs to .planning/metrics/codex-executor-log.jsonl.
+    report = Read(reportPath)
+    // Codex made its own commits inside --full-auto sandbox; orchestrator
+    // verifies via git log + per-dispatch ATC just like Claude path.
+    proceedToATC(report, planId, phaseNum)
+} else {
+    // Claude executor path (legacy / default): Agent dispatch
+    Agent(subagent_type: "gsd-executor", model: "sonnet", mode: "auto",
+          run_in_background: false, prompt: { ... })
+    // Existing Step 8 → Step 9 (process report) → Step 9.5 (per-dispatch ATC)
+}
+```
+
+**Per-dispatch ATC and downstream gates fire identically in both paths.** Codex executor's report file is treated as the equivalent of an Agent() return value: per-dispatch ATC reviews the diff just the same; phase-level ATC, MUDA audit, and verifier all run on whatever was committed regardless of which model produced it. The only difference is the MECHANISM of code production (Agent vs Bash).
+
+**Parallel-wave behavior:** when `executor_provider == "codex"`, parallel waves serialize. Codex CLI invocations cannot share workspace state safely (each `--full-auto` session assumes exclusive write access). If `dispatch-planner.cjs` returns a parallel wave, force serial when `provider == "codex"` — process taskIds one at a time. Note this in any logged dispatch_route_decision.
+
+**Telemetry:**
+- Claude path: writes to `.planning/metrics/codex-log.jsonl` (only when codex reviews fire), `token-log.jsonl` (Agent token costs), and `commit-reviews.jsonl` (verdicts).
+- Codex path: writes to `.planning/metrics/codex-executor-log.jsonl` (the wrapper's own log) PLUS `.planning/metrics/codex-log.jsonl` if reviewer also fires post-dispatch.
+
+**Idempotent re-routing:** the rule re-evaluates per-dispatch from current config. If operator flips `executor_provider` mid-phase, subsequent dispatches in that phase use the new path. No need to restart the orchestrator.
+
+**Failure modes:**
+- codex-executor.sh exits 3 → codex CLI not on $PATH. Halt with hard-blocker; suggest `npm i -g @openai/codex`.
+- Exits 4 → auth-denied (OPENAI_API_KEY set, or codex stderr matched auth/401). Halt with hard-blocker; suggest `unset OPENAI_API_KEY` and `codex login`.
+- Exits 5 → timeout (default 1200s). Treat like Agent() timeout: log, continue to next dispatch, surface in cockpit.
+- Exits 1 → generic codex failure. Treat like Agent() failure: log, continue, surface.
+
+**Operator opt-in:** add to `.planning/config.json`:
+
+```json
+{
+  "review_providers": {
+    "executor_provider": "codex",
+    "codex_executor_model": "gpt-5.5",
+    "codex_executor_reasoning_effort": "xhigh"
+  }
+}
+```
+
+Once set, ALL executor work in subsequent dispatches goes through Codex GPT-5.5. Claude continues to orchestrate, plan, verify, classify, and review — that role-split is the operator's stated goal of "Opus orchestrates, Codex executes".
+
+</executor_routing>
+
 <loop>
 ## The Auto Loop
 
