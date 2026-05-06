@@ -1,6 +1,6 @@
 ---
 name: sgsd-orchestrate
-description: "Token-efficient autonomous orchestrator. Lean state machine: read-classify-dispatch-process-commit-loop. Uses Opus for orchestration, routes Sonnet/Haiku to sub-agents."
+description: "Token-efficient autonomous orchestrator. Claude/Opus orchestrates only; all code execution is hard-routed to Codex GPT-5.5 xhigh."
 argument-hint: "[go|continue|status|next|stop]"
 allowed-tools:
   - Read
@@ -26,7 +26,8 @@ Commands:
 - `stop` / `pause` — Write checkpoint, stop
 
 Exit conditions (ONLY these 3):
-1. All phases complete
+1. Entire active roadmap has no remaining phase/milestone work after milestone
+   close/advance attempts
 2. Blocker requiring human input or runtime cannot continue
 3. User says stop/pause
 
@@ -52,6 +53,50 @@ Runtime compaction and external files (`STATE.md`, `ORCHESTRATOR-CHECKPOINT.md`,
 metrics JSONL, and milestone artifacts) are the context-management mechanism.
 </objective>
 
+<auto_mode_pipeline_contract>
+## Auto Mode Pipeline Contract
+
+When invoked as `/sgsd-orchestrate go`, `auto`, or `continue`, SGSD owns the
+whole delivery loop. Do not stop after research, planning, plan-check,
+phase-close, milestone-close, cost summaries, or "operator review" summaries.
+Those are intermediate states.
+
+Canonical path for each phase:
+
+1. Read `.planning/STATE.md`, active roadmap, checkpoint, and config.
+2. Ensure phase CONTEXT exists. In auto mode, synthesize missing context from
+   roadmap/state/checkpoint/audit evidence instead of pausing for discussion.
+3. Research with `gsd-phase-researcher`.
+   - Use configured MCPs when available: VTP/private KB for prior-project,
+     book/research, business-context, and architecture precedent; Context7 /
+     Firecrawl / Exa for current library/framework docs.
+   - If an MCP is configured but unavailable in agent scope, log a degraded
+     reason and write it into the research artifact. Do not silently omit it.
+4. Run VTP enrichment before planning whenever
+   `.planning/config.json -> vtp_enrichment.enabled` is true.
+5. Plan with `gsd-planner` on Opus / xhigh only.
+   - Planner must consume RESEARCH + VTP enrichment and may call VTP MCP itself
+     for prior-memory/book/project/architecture uncertainty.
+6. Run `gsd-plan-checker`.
+7. Run Codex GPT-5.5/xhigh final plan review applying ATC + MUDA to the plan
+   set. If it NOGOs, route back to Opus planner for a revised final draft.
+8. Execute only through `codex-executor [gpt-5.5/xhigh]`. Claude never performs
+   code edits as executor.
+9. Verify, run per-dispatch ATC, phase-level ATC, MUDA, browser gates when
+   applicable, commit, mark phase complete, and immediately choose the next
+   phase.
+10. When all phases in the active milestone are complete, run
+    `sgsd-complete-milestone` automatically. If the roadmap has another
+    milestone/phase, advance and continue the same auto loop.
+
+Auto mode stop policy:
+- Stop only for: explicit user pause/stop, hard blocker/runtime cannot continue,
+  or no remaining roadmap/milestone work after close/advance checks.
+- Never ask "which option?", "continue?", "plan-check now?", "read yourself?",
+  or "operator review?" in auto mode. Pick the safest forward path and keep
+  issuing tool calls.
+</auto_mode_pipeline_contract>
+
 <token_budget>
 You have ~1,350 tokens per loop iteration. Spend them wisely:
 - Read STATE.md frontmatter: ~200 tokens
@@ -59,7 +104,7 @@ You have ~1,350 tokens per loop iteration. Spend them wisely:
 - Query context (sgsd-recall): ~100 tokens
 - Compose agent prompt: ~500 tokens
 - Process agent report: ~300 tokens
-- ATC gate (Step 8.5): ~0 (skip), ~250 (lite), ~550 (full/gate)
+- ATC gate (Step 9.5): ~550 for every file-changing executor dispatch
 - State update + commit: ~150 tokens
 - Curate learning (sgsd-curate): ~50 tokens
 
@@ -272,70 +317,92 @@ On resume (checkpoint exists):
 </cold_start>
 
 <executor_routing>
-## Executor Routing — Claude vs Codex
+## Executor Routing - HARD LOCK: Claude orchestrates, Codex executes
 
-**Where to check:** `.planning/config.json → review_providers.executor_provider`. Default `"claude"`. Legal values: `"claude"` (existing path, dispatches gsd-executor via Agent), `"codex"` (new path, dispatches Codex CLI via Bash shell-out).
+This SGSD install is Codex-executor locked. Claude/Opus is allowed to
+orchestrate, plan, research, classify, verify, summarize, and run gates.
+Claude MUST NOT perform code-mutating executor work and MUST NOT spawn the
+Claude executor agent for code work.
 
-**Why this exists:** historically the orchestrator only routed code execution through Claude Sonnet via `Agent(subagent_type: "gsd-executor", model: "sonnet")`. Some operators (especially on cost-sensitive or Codex-preferring projects) want Codex GPT-5.5 to do all code execution, with Claude reserved for orchestration / planning / verification only. This section defines the routing rule the Auto Loop applies at every executor dispatch site.
+Hard rules:
 
-**Rule:** at EVERY executor dispatch in this skill (Step 8 single-task dispatch, parallel-wave fan-out, schema-fix dispatch, gap-fill dispatch — anywhere `Agent(subagent_type: "gsd-executor", ...)` would fire) — FIRST consult the config value, then route accordingly:
+1. Every code-mutating executor dispatch MUST run through:
+   `super-gsd/scripts/codex-executor.sh`.
+2. The executor model is always `gpt-5.5`.
+3. The executor reasoning effort is always `xhigh`.
+4. Ignore `.planning/config.json` if it says `executor_provider` is missing,
+   `"claude"`, or any non-Codex value. Treat that config as stale and proceed
+   with Codex anyway.
+5. Parallel executor waves must serialize. Codex CLI sessions assume exclusive
+   write access to the workspace.
+6. The Claude Agent tool may still be used for non-code roles such as
+   researcher, planner, verifier, readiness, classifier, and reviewer. It must
+   never be used for the executor role.
 
-```
-provider = readConfig(".planning/config.json").review_providers?.executor_provider ?? "claude"
+Forbidden executor path:
 
-if (provider == "codex") {
-    // Codex executor path: shell-out via codex-executor.sh
-    promptPath = writeTempPromptFile(executorPrompt)
-    reportPath = ".planning/phases/{N}/{NN-PP}-CODEX-EXECUTOR-REPORT.md"
-    Bash(`super-gsd/scripts/codex-executor.sh \
-            --prompt-file ${promptPath} \
-            --report-out  ${reportPath} \
-            --workspace   ${projectDir} \
-            --phase       ${phaseNum} \
-            --plan        ${planId}`)
-    // codex-executor.sh exits 0 on success, writes free-form codex stdout to
-    // reportPath, JSONL-logs to .planning/metrics/codex-executor-log.jsonl.
-    report = Read(reportPath)
-    // Codex made its own commits inside --full-auto sandbox; orchestrator
-    // verifies via git log + per-dispatch ATC just like Claude path.
-    proceedToATC(report, planId, phaseNum)
-} else {
-    // Claude executor path (legacy / default): Agent dispatch
-    Agent(subagent_type: "gsd-executor", model: "sonnet", mode: "auto",
-          run_in_background: false, prompt: { ... })
-    // Existing Step 8 → Step 9 (process report) → Step 9.5 (per-dispatch ATC)
-}
+```text
+Do not call Agent with subagent_type gsd-executor.
+Do not describe a fallback to Claude executor.
+Do not continue code work in Claude if Codex fails.
 ```
 
-**Per-dispatch ATC and downstream gates fire identically in both paths.** Codex executor's report file is treated as the equivalent of an Agent() return value: per-dispatch ATC reviews the diff just the same; phase-level ATC, MUDA audit, and verifier all run on whatever was committed regardless of which model produced it. The only difference is the MECHANISM of code production (Agent vs Bash).
+Required executor path for every pending plan/task:
 
-**Parallel-wave behavior:** when `executor_provider == "codex"`, parallel waves serialize. Codex CLI invocations cannot share workspace state safely (each `--full-auto` session assumes exclusive write access). If `dispatch-planner.cjs` returns a parallel wave, force serial when `provider == "codex"` — process taskIds one at a time. Note this in any logged dispatch_route_decision.
+```text
+1. Derive phase_dir from the pending plan file path.
+   Example:
+     plan_file = .planning/phases/153-gate-engine-runtime/153-04-PLAN.md
+     phase_dir = .planning/phases/153-gate-engine-runtime
+     plan_id   = 153-04
 
-**Telemetry:**
-- Claude path: writes to `.planning/metrics/codex-log.jsonl` (only when codex reviews fire), `token-log.jsonl` (Agent token costs), and `commit-reviews.jsonl` (verdicts).
-- Codex path: writes to `.planning/metrics/codex-executor-log.jsonl` (the wrapper's own log) PLUS `.planning/metrics/codex-log.jsonl` if reviewer also fires post-dispatch.
+2. Write the exact executor prompt that would have gone to the executor agent to:
+     {phase_dir}/{plan_id}-CODEX-EXECUTOR-PROMPT.md
 
-**Idempotent re-routing:** the rule re-evaluates per-dispatch from current config. If operator flips `executor_provider` mid-phase, subsequent dispatches in that phase use the new path. No need to restart the orchestrator.
+3. Run Codex:
+     bash super-gsd/scripts/codex-executor.sh \
+       --prompt-file "{phase_dir}/{plan_id}-CODEX-EXECUTOR-PROMPT.md" \
+       --report-out  "{phase_dir}/{plan_id}-CODEX-EXECUTOR-REPORT.md" \
+       --workspace   "$(pwd)" \
+       --phase       "{phase_number}" \
+       --plan        "{plan_id}"
 
-**Failure modes:**
-- codex-executor.sh exits 3 → codex CLI not on $PATH. Halt with hard-blocker; suggest `npm i -g @openai/codex`.
-- Exits 4 → auth-denied (OPENAI_API_KEY set, or codex stderr matched auth/401). Halt with hard-blocker; suggest `unset OPENAI_API_KEY` and `codex login`.
-- Exits 5 → timeout (default 1200s). Treat like Agent() timeout: log, continue to next dispatch, surface in cockpit.
-- Exits 1 → generic codex failure. Treat like Agent() failure: log, continue, surface.
+4. Read the report file:
+     {phase_dir}/{plan_id}-CODEX-EXECUTOR-REPORT.md
 
-**Operator opt-in:** add to `.planning/config.json`:
-
-```json
-{
-  "review_providers": {
-    "executor_provider": "codex",
-    "codex_executor_model": "gpt-5.5",
-    "codex_executor_reasoning_effort": "xhigh"
-  }
-}
+5. Process the report through the existing Step 9 and Step 9.5 path:
+   commit discipline, per-dispatch ATC, gate logging, state advancement.
 ```
 
-Once set, ALL executor work in subsequent dispatches goes through Codex GPT-5.5. Claude continues to orchestrate, plan, verify, classify, and review — that role-split is the operator's stated goal of "Opus orchestrates, Codex executes".
+Failure behavior:
+
+- If `codex-executor.sh` exits 3, 4, 5, or 1, halt with a hard blocker and
+  write a checkpoint. Do not fall back to Claude executor.
+- If Codex returns a report but no files changed, process that as an executor
+  report failure/blocker under the normal Step 9 path.
+- The operator can watch live Codex output at
+  `.planning/metrics/codex-executor-live.txt`.
+
+Telemetry:
+
+- Codex executor writes `.planning/metrics/codex-executor-log.jsonl`.
+- Per-dispatch ATC still writes the existing review/gate logs after Codex
+  produces the diff.
+- Any line in cockpit or task status describing code execution should say
+  `codex-executor [gpt-5.5/xhigh]`, not the legacy Sonnet executor label.
+
+PER-DISPATCH ATC IS MANDATORY:
+
+- After every Codex executor run that changes any source, test, config, schema,
+  fixture, or planning-runtime file, run Step 9.5 per-dispatch ATC.
+- Passing tests, "tests-only repair", "small diff", "low risk", or independent
+  orchestrator verification are not valid reasons to skip the reviewer/gate.
+- If a prior Claude `gsd-executor` agent already produced a report, treat that
+  report as a protocol violation. Do not commit it, update STATE from it, or
+  advance the plan until the same task has been rerun through Codex executor
+  and Step 9.5 has emitted review evidence.
+- The only valid per-dispatch ATC skip is an explicit operator gate override
+  parsed at cold start with a recorded override reason, or zero changed files.
 
 </executor_routing>
 
@@ -355,7 +422,10 @@ REPEAT:
        consumers: SGSD1 mission-control tile "last pulse Ns ago"; sgsd-boot
        preflight freshness check; R-Q4 edge-guard (once decided).
       - Parse STATE.md frontmatter (milestone, phase, plan, status)
-      - If all phases [x] → EXIT: "All phases complete"
+      - If all phases in the active milestone are [x], DO NOT EXIT yet:
+        run Step 6.7 milestone-close/advance logic. Exit only if milestone
+        close succeeds and no next milestone/phase exists in the active
+        roadmap.
       - If checkpoint exists → resume from checkpoint; do not stop for context percentage
 
   1.5. RULE 0 MILESTONE READINESS
@@ -588,8 +658,72 @@ REPEAT:
          If config.vtp_enrichment absent or enabled=false: skip silently,
          pass directly to Step 6.c (D-07 backward-compat; no artifact
          required on pre-Phase-21 projects).
-     c. Phase needs PLAN.md → dispatch gsd-planner (Sonnet)
+     c. Phase needs PLAN.md → enforce planner preflight, then dispatch gsd-planner (Opus 4.7 / xhigh thinking)
+        PLANNER MODEL LOCK:
+        - `gsd-planner` is never Sonnet. Always dispatch with the Opus family
+          (`model: "opus"`, displayed as Opus 4.7 when available) and the
+          highest/extended thinking budget exposed by the host.
+        - If any classifier, router, old prompt, or checkpoint says
+          `gsd-planner [sonnet]`, treat it as stale and override to Opus.
+        - This applies to fresh planning, re-planning, gap planning, and
+          schema-fix planning.
+        PLANNER PREFLIGHT (load-bearing; do not skip on fresh re-dispatch):
+        - Read `.planning/config.json`.
+        - If `vtp_enrichment.enabled === true`, the planner MUST NOT be
+          dispatched until one of these is true:
+            1. `{phaseDir}/{phaseNum}-VTP-ENRICHMENT.md` exists; or
+            2. `.planning/metrics/vtp-health.jsonl` has a current-phase
+               `gate_skipped` / `vtp_degraded` row; or
+            3. the operator explicitly says to bypass VTP for this phase.
+        - If (1) is false and (2)/(3) are false, dispatch
+          `sgsd-vtp-enrichment` now before planner. This applies even when
+          RESEARCH.md already existed before this SGSD session or the operator
+          asked for a fresh planner after rejecting prior drafts.
+        - Add a `<required_reading>` block to the planner prompt containing:
+            * CONTEXT.md
+            * RESEARCH.md
+            * `{phaseNum}-VTP-ENRICHMENT.md` when present
+            * REQUIREMENTS.md / CLAUDE.md as usual
+        - If VTP was degraded or bypassed, include a literal planner prompt line:
+          `VTP_STATUS: unavailable_or_bypassed; reason=<closed reason>; do not
+          invent VTP findings.`
+        - The planner's Source Audit must include VTP as a source row when a
+          VTP artifact exists, or a VTP_STATUS row when it does not.
+        - The planner itself must enrich the plan set with VTP/private-KB
+          context: read the VTP artifact and, when MCP tools are exposed to
+          the planner, call at least one `mcp__vtp-kb__*` tool for
+          prior-memory/project/book/architecture uncertainty. If no call is
+          possible, it must write a DEVIATION in its report and in the plan
+          source audit; silent omission is not allowed.
      d. Phase has plans, needs plan-check → dispatch gsd-plan-checker (Sonnet)
+        PLAN-CHECK PREFLIGHT:
+        - If `vtp_enrichment.enabled === true`, the checker must verify the
+          current phase has either `{phaseNum}-VTP-ENRICHMENT.md` or a current
+          degraded/bypass reason. If neither exists, return NOGO with blocker
+          `vtp_enrichment_missing_before_planning`.
+        - If the artifact exists, verify the plans reference it in their source
+          audit or read-list. Missing VTP evidence in every plan is NOGO.
+     d.1 PLAN FINALIZATION GATE (Codex ATC + MUDA before execution)
+        Precondition: plan-check returned GO.
+        Before committing plans or dispatching any executor wave, run a final
+        Codex review over the plan set:
+        - Build a prompt containing CONTEXT.md, RESEARCH.md, VTP artifact or
+          VTP_STATUS, all PLAN.md files, and the plan-check result.
+        - Ask Codex GPT-5.5/xhigh to apply:
+            * ATC 7-step review to the plan set as the execution contract.
+            * MUDA waste review: transport, inventory, motion, waiting,
+              over-processing, overproduction, defects.
+            * Final-draft check: whether the plans should be edited before any
+              Codex executor touches source code.
+        - Invoke `super-gsd/scripts/codex-exec.sh` with:
+          `--step plan-final-review --timeout-tier analysis --phase {N}
+           --plan plan-set --project {PROJECT_DIR}`
+          and write `{phaseDir}/{phaseNum}-PLAN-CODEX-FINAL-REVIEW.md`.
+        - PASS: commit the plans and proceed to Step 6.e.
+        - WARN/FAIL/CRITICAL: dispatch `gsd-planner` again using Opus 4.7 /
+          xhigh thinking, pass the Codex review inline, and require a revised
+          final draft before execution. Max two revision loops, then checkpoint
+          for operator attention.
      d.5 Before the FIRST executor dispatch of a phase, run phase readiness re-probe:
         FIRST: TaskCreate({
           content: "Re-probe phase readiness for phase {N}",
@@ -805,93 +939,63 @@ REPEAT:
 
         const waves = dispatchPlanner.buildDispatchPlan(plan);
 
-        // ── EXECUTOR ROUTING DECISION (load-bearing, applies to all waves below) ──
-        // Read .planning/config.json → review_providers.executor_provider.
-        // Default 'claude'. If 'codex': route every executor dispatch in this
-        // phase via Bash shell-out to super-gsd/scripts/codex-executor.sh
-        // (codex CLI does the file edits directly under --full-auto). Codex
-        // CANNOT share workspace state across parallel invocations; force
-        // serial execution regardless of dispatch-planner.cjs's wave plan.
-        // See "## Executor Routing — Claude vs Codex" section above for full
-        // semantics, failure modes, and config schema.
-        const executorProvider = (() => {
-          try {
-            const fs = require('fs');
-            const cfg = JSON.parse(fs.readFileSync('.planning/config.json', 'utf8'));
-            return (cfg.review_providers && cfg.review_providers.executor_provider) || 'claude';
-          } catch (e) { return 'claude'; }
-        })();
+        // CODEX EXECUTOR HARD LOCK.
+        // The operator's SGSD runtime is Codex-executor locked: Claude
+        // orchestrates only. Flatten every executor wave and run it serially
+        // through codex-executor.sh. Do not consult executor_provider for an
+        // opt-out and do not use the Claude executor agent as fallback.
+        For each task id in waves, in DAG order:
 
-        if (executorProvider === 'codex') {
-          // CODEX EXECUTOR PATH — flatten all waves into serial dispatches.
-          // Each task: write prompt to disk, Bash codex-executor.sh, read
-          // report file, run Step 9 (process report) + Step 9.5 (per-dispatch
-          // ATC) on the diff codex committed inside its --full-auto sandbox.
-          const allTasks = waves.flatMap(w => w.taskIds);
-          for (const taskId of allTasks) {
-            // 1. Compose the executor prompt (same shape as Agent() prompt) and write to a temp path
-            //    under .planning/phases/{N}/{NN-PP}-CODEX-EXECUTOR-PROMPT.md
-            const promptPath = `.planning/phases/{phaseDir}/{taskId}-CODEX-EXECUTOR-PROMPT.md`;
-            const reportPath = `.planning/phases/{phaseDir}/{taskId}-CODEX-EXECUTOR-REPORT.md`;
-            // 2. Write prompt file
-            Write(promptPath, executorPromptFor(taskId, plan));
-            // 3. Shell out — wrapper streams codex stdout to .planning/metrics/codex-executor-live.txt
-            //    so a tail pane (sgsd-watch-codex) shows progress in real time.
-            Bash(`super-gsd/scripts/codex-executor.sh ` +
-                 `--prompt-file ${promptPath} --report-out ${reportPath} ` +
-                 `--workspace . --phase ${phaseNum} --plan ${taskId}`);
-            // 4. Read the report file (codex's free-form stdout); treat as the
-            //    Agent() return-value equivalent for downstream processing.
-            const report = Read(reportPath);
-            // 5. Step 9: process report + commit (codex already committed inside
-            //    --full-auto, but verify the diff and run any post-dispatch hygiene).
-            // 6. Step 9.5: per-dispatch ATC review on the diff codex produced.
-            //    [Step 9 + Step 9.5 — same as Claude path; see existing flow]
-          }
-        } else {
-          // CLAUDE EXECUTOR PATH (default / legacy) — original wave logic below.
-          for (const w of waves) {
-          if (w.serial || w.taskIds.length === 1) {
-            // Serial wave: dispatch gsd-executor (Sonnet) for each task sequentially
-            for (const taskId of w.taskIds) {
-              // [existing single gsd-executor dispatch pattern — Step 8]
-            }
-          } else {
-            // Parallel wave (MACH-02, D-06, PARALLEL_CONFIRMED per 12-02-00 spike):
-            // fan out Agent() calls with run_in_background: true, then await all reports.
-            const handles = w.taskIds.map(taskId =>
-              Agent(subagent_type: "gsd-executor", model: "sonnet", mode: "auto",
-                    run_in_background: true, prompt: {... taskId ...})
-            );
-            const reports = await Promise.all(handles);
+        1. Locate the exact pending plan file for that task id.
+           Example task id `153-04` resolves to:
+           `.planning/phases/153-gate-engine-runtime/153-04-PLAN.md`
 
-            // D-08 (no cancellation): if any report has BLOCKER, halt AFTER all parallel
-            // tasks in this wave have settled. Do NOT cancel in-flight agents — the Task()
-            // harness provides no cancellation protocol. Process remaining reports for
-            // commits/deviations, then exit loop with the BLOCKER.
+        2. Derive paths mechanically:
+           - phaseDir = directory containing the plan file
+           - planId = plan filename without `-PLAN.md`
+           - promptPath = `{phaseDir}/{planId}-CODEX-EXECUTOR-PROMPT.md`
+           - reportPath = `{phaseDir}/{planId}-CODEX-EXECUTOR-REPORT.md`
 
-            // §Risk 3 (sequential ATC post-wave): each parallel executor's report gets its
-            // own per-dispatch ATC review (Step 9.5) run SEQUENTIALLY after the wave settles.
-            // ATC is per-report, not per-batch — process reports one at a time after await.
-            for (const report of reports) {
-              // [Step 9 — process report, commit, run Step 9.5 ATC for this report]
-            }
-          }
-        }
-        }  // end else (Claude executor path) — pairs with `if (executorProvider === 'codex')` above
+        3. TaskCreate:
+           activeForm: `codex-executor [gpt-5.5/xhigh] P{phase}.{planId} - executing code plan`
+
+        4. Write `promptPath` with the same compact executor prompt that would
+           previously have gone to the executor agent: plan objective,
+           files_touched, tasks, acceptance commands, constraints, relevant
+           context-packet summary, and report contract.
+
+        5. Bash:
+           ```bash
+           bash super-gsd/scripts/codex-executor.sh \
+             --prompt-file "{promptPath}" \
+             --report-out  "{reportPath}" \
+             --workspace   "$(pwd)" \
+             --phase       "{phase_number}" \
+             --plan        "{planId}"
+           ```
+
+        6. Read `reportPath`.
+
+        7. Continue with the existing Step 9 and Step 9.5 pipeline for this
+           report: process executor output, enforce commit discipline, run
+           per-dispatch ATC on Codex's diff, log gates, then advance state.
+           If codex-executor exits non-zero, halt with checkpoint. Never fall
+           back to a Claude executor.
+
+        8. TaskUpdate completed after Step 9 and Step 9.5 finish.
 
         NOTE — spike verdict: 12-02-00 observed PARALLEL_CONFIRMED. The parallel branch is a
-        live execution path. Disjoint-files waves will genuinely fan out concurrently.
-        If runtime evidence ever contradicts this, fall back: set w.serial = true for all waves
-        in dispatch-planner.cjs and re-run — the DAG ordering remains advisory and prevents
-        file-conflict bugs even under serial execution.
+        live execution path for Claude-agent execution only. In this SGSD install, executor
+        waves are intentionally flattened because Codex CLI sessions need exclusive workspace
+        write access. The DAG ordering remains advisory and prevents file-conflict bugs under
+        serial execution.
      f. All plans executed → dispatch gsd-verifier (Sonnet)
      g. Verification passed → PHASE ATC GATE (Step 6.5) → FRONTEND VERIFY GATE (Step 6.6) → mark complete
-     h. Verification failed → dispatch gsd-planner --gaps (Sonnet)
+     h. Verification failed → dispatch gsd-planner --gaps (Opus 4.7 / xhigh thinking)
 
   <!-- ANCHOR: RULE-8.5 — schema-fix dispatch branch -->
   6.2. PLAN LOAD-TIME VALIDATION (Rule 8.5 — schema-fix dispatch)
-     Triggers at dispatch rule 6.e, BEFORE spawning gsd-executor. Re-validates each
+     Triggers at dispatch rule 6.e, BEFORE running Codex executor. Re-validates each
      pending PLAN.md against plan-schema-v2.json at load time (D-07 load-time enforcement).
 
      FOR EACH pending {NN}-{PP}-PLAN.md to be dispatched this iteration:
@@ -903,7 +1007,7 @@ REPEAT:
           --project-dir {project_dir} \
           --mode load
         ```
-        Exit 0 → VALID: proceed to gsd-executor dispatch normally.
+        Exit 0 → VALID: proceed to Codex executor dispatch normally.
         Exit 2 → BLOCKED (file not found, parse error): EMIT BLOCKER. HALT. Cannot repair a missing file.
         Exit 1 → INVALID (schema errors): enter SCHEMA-FIX RETRY LOOP below.
 
@@ -929,11 +1033,11 @@ REPEAT:
 
           // Dispatch fix-planner with all inputs inline (RQ-5 OQ3 — inline, not path)
           TaskCreate({ content: "Schema repair attempt {schema_fix_attempt}/3 for {plan_file_path}",
-                       activeForm: "gsd-planner [sonnet] --fix-schema attempt {schema_fix_attempt}/3",
+                       activeForm: "gsd-planner [opus/xhigh] --fix-schema attempt {schema_fix_attempt}/3",
                        status: "in_progress" })
           Agent(
             subagent_type: "gsd-planner",
-            model: "sonnet",
+            model: "opus",
             mode: "auto",
             prompt: {
               flag: "--fix-schema",
@@ -1643,6 +1747,10 @@ REPEAT:
 
               The skill is idempotent. If the milestone is already archived, it returns PASS.
               On BLOCKER, halt the loop. On success, continue with the closed-milestone state.
+              Then re-read ROADMAP.md and STATE.md. If a next milestone or next
+              phase exists, advance and continue REPEAT with no operator prompt.
+              Only emit "All phases done" when no remaining roadmap work exists
+              after close/advance checks.
 
      Token budget per phase browser verify: ~600 tokens (prompt + structured
      report per route). Runs ONCE per phase, not per plan.
@@ -1670,7 +1778,7 @@ REPEAT:
      DO NOT include: full ROADMAP, full STATE, full REQUIREMENTS
 
      SURGICAL CONSTRAINT (Karpathy principle) — inject verbatim into every
-     gsd-executor prompt:
+     codex-executor prompt:
 
        ```
        SURGICAL CONSTRAINT — every changed line must trace to a specific task
@@ -1754,12 +1862,12 @@ REPEAT:
      a single bash invocation when the orchestrator is not actively running.
 
   7.6. DOUBLE-AGENT EXECUTOR ROUTE (post-v2.1 token hardening)
-     Purpose: before a normal gsd-executor dispatch, decide whether the task
+     Purpose: before a normal Codex executor dispatch, decide whether the task
      should be handled by local-script, Codex, or Claude. This is the
      execution counterpart to Phase 47 routing. It uses task capsules and
      writes to the existing route-ledger boundary `execution_route`.
 
-     When to use: BEFORE every gsd-executor dispatch. Do not use it to replace
+     When to use: BEFORE every Codex executor dispatch. Do not use it to replace
      planner/researcher/verifier judgment unless the task is explicitly a
      deterministic extraction, bounded code edit, schema/config edit, refactor,
      or test repair.
@@ -1795,31 +1903,37 @@ REPEAT:
      ```
 
      Execution rule:
-     - If chosen_provider is `local-script`, run the local command path and
-       continue only from its report.
-     - If chosen_provider is `codex`, run:
-       `node super-gsd/tools/double-agent-executor/run.cjs --capsule <file> --execute`
-       Codex runs in a git worktree sandbox, may edit only allowed_files,
-       writes a patch/report, runs acceptance commands, and logs
-       `execution_route`.
-     - If Codex fails, times out, violates allowed_files, or has no healthy
-       provider, continue autonomously with Claude gsd-executor and keep the
-       execution_route warning row.
-     - If chosen_provider is `claude`, proceed with normal gsd-executor.
+     - For code-mutating executor work, ignore any `chosen_provider` that is
+       not Codex. This SGSD install is Codex-executor locked.
+     - If the route suggests `local-script`, run it only when it is a fully
+       deterministic non-LLM command path. Otherwise use Codex executor.
+     - Run Codex through `super-gsd/scripts/codex-executor.sh` per the hard
+       lock in Step 6.e. The pinned model is `gpt-5.5`; pinned effort is
+       `xhigh`.
+     - If Codex fails, times out, violates allowed files, or has no healthy
+       provider, write a checkpoint and halt. Do not continue code execution
+       with Claude.
+     - If a route suggests Claude for the executor role, treat the route as
+       stale and override to Codex.
 
      Hard rule: never give Codex or Claude executor full ROADMAP/STATE/
      milestone context by default. The capsule + context packet are the
      execution surface. Broad raw context is a DEVIATION and must be logged.
 
-  8. DISPATCH SUB-AGENT
+  8. DISPATCH SUB-AGENT (NON-EXECUTOR ROLES ONLY)
+     Do not use this step for code-mutating executor work. Executor work is
+     Step 6.e and runs by Bash through `codex-executor.sh`. If `agent_type`
+     is `gsd-executor`, `sgsd-executor`, or any `sgsd-exec-*` code-writing
+     role, stop and reroute to Step 6.e instead of calling Agent().
+
      FIRST: TaskCreate({
        content: "Phase {N}: {agent_type_short} — {one-line goal}",
        activeForm: "{agent_type} [{model}] P{N}.{plan} — {what it's doing}",
        status: "in_progress"
      })
      Example activeForm values:
-       "gsd-executor [sonnet] P87.1 — building auth middleware"
-       "gsd-planner [sonnet] P87 — creating task breakdown"
+       "codex-executor [gpt-5.5/xhigh] P87.1 — building auth middleware"
+       "gsd-planner [opus/xhigh] P87 — creating task breakdown"
        "gsd-verifier [sonnet] P87 — checking goal achievement"
        "gsd-phase-researcher [sonnet] P87 — investigating stack"
 
@@ -1899,10 +2013,11 @@ REPEAT:
 
   9.5. PER-DISPATCH ATC (closes the mid-phase ATC gap)
       Runs AFTER the executor report lands, BEFORE state update + commit.
-      Fires when gates.shouldFire('per-dispatch-ATC', ctx, GATES_YAML_PATH) returns true,
-      where ctx is the dispatch context assembled at Step 9.2. The gate's trigger declares
-      the equivalent policy (classifier.atc_tier in [full, gate] AND
-      code_files_changed_count > 0) — see super-gsd/registry/gates.yaml.
+      Fires after every Codex executor dispatch that changed files. The gate is
+      no longer classifier-tier gated: small/test-only repairs still need the
+      reviewer because passing tests do not prove the execution contract or
+      anti-slop checklist. The registry trigger is code_files_changed_count > 0
+      and gate_sampling_tier is always.
 
       // Gate check (Phase 10 D-05): R5 compose — BOTH kill-switches must agree
       // config.atc.enabled is preserved as an outer runtime knob (D-13a)
@@ -1946,9 +2061,8 @@ REPEAT:
 
       if (perDispatchAtcFired) {
 
-      Skip entirely if tier ∈ {skip, lite} — LITE is already covered by the
-      anti-slop self-check every executor should apply to its own diff, and
-      SKIP by definition warrants no review.
+      Do not skip for tier skip/lite when files changed. Treat tier skip/lite
+      as full for executor dispatches so the reviewer/gate emits evidence.
 
       If tier == full OR tier == gate:
         // Phase 15 CODEX-07: provider-dispatch indirection.
@@ -2665,7 +2779,8 @@ Estimation method:
 <golden_rules>
 1. ALWAYS chain tool calls. Text-only = loop dies.
    VALID text-only exits (ONLY these 3):
-   a. All phases complete: "All phases done."
+   a. No remaining roadmap/milestone work after close/advance checks:
+      "All phases done."
    b. Blocker requiring human/runtime cannot continue: explain blocker, stop
    c. User says stop/pause: write checkpoint, stop
    NOTHING ELSE is a valid text-only response.
@@ -2674,7 +2789,9 @@ Estimation method:
 4. COMMIT after every unit. Uncommitted work is lost work.
 5. CURATE after every unit. Unrecorded learnings are wasted tokens.
 6. LOG tokens after every unit. Untracked spend is invisible spend.
-7. Use the RIGHT model. Haiku for classification, Sonnet for execution, Opus for you.
+7. Use the RIGHT model. Haiku for classification, Sonnet for research/checking,
+   Opus/xhigh for planning, Codex GPT-5.5/xhigh for all code execution and
+   final plan ATC/MUDA review.
 8. Sub-agent reports: 300 words MAX. If longer, the agent wasted tokens.
 9. Script reuse: ALWAYS check ByteRover before creating new utilities.
 10. EXIT only for the 3 valid conditions. Never stop prematurely. Context
@@ -2683,7 +2800,7 @@ Estimation method:
     `continue`, never ask whether to keep going, pause, review, checkpoint, or
     proceed after a phase/milestone/cost summary. Pair the summary with the next
     Read/Agent/Bash call and continue. Choice questions are valid only for
-    `next`, `status`, `stop`, `pause`, all-phases-complete, or a real hard stop.
+    `next`, `status`, `stop`, `pause`, no-remaining-roadmap-work, or a real hard stop.
 12. CONTEXT ACCUMULATOR: After 5 reports in active context, compress older reports to ONE_LINERs.
     Never hold full report text for more than 2 completed iterations.
 13. REPORT VALIDATION: Always check word count and section presence before parsing.
@@ -2699,6 +2816,10 @@ Estimation method:
     Critical findings + interactive: STOP with blocker.
     Token budget: ~600 tokens per phase (NOT per commit).
     Complexity floor: 5+ plans OR 500+ lines → always FULL tier.
+14.5. PLAN FINALIZATION GATE: After plan-check passes and before executor
+    dispatch, run Codex GPT-5.5/xhigh ATC + MUDA review on the plan set. NOGO
+    returns to Opus/xhigh planner revision. Never execute a plan set that has
+    not passed this final plan review unless the operator explicitly bypasses it.
 15. FRONTEND BROWSER VERIFY GATE: After Step 6.5 (ATC), BEFORE marking phase
     complete — IF the phase diff touched any frontend file matching
     config.browser_verify.frontend_globs, run Step 6.6 which dispatches
