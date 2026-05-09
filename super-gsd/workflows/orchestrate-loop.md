@@ -4,7 +4,7 @@ Referenced by `/sgsd-orchestrate` skill. This is the engine.
 
 ## Entry Points
 
-### Auto Mode (`go` / `auto` / `continue`)
+### Auto Mode (`/sgsd-orchestrate auto` / `go` / `auto` / `continue`)
 ```
 1. Cold start or checkpoint resume
 2. Enter loop
@@ -94,7 +94,7 @@ Read .planning/STATE.md (offset: 0, limit: 30)
 
 Check exit conditions:
 - All phases `[x]` in ROADMAP? → EXIT: all complete
-- Real blocker/runtime cannot continue? → write checkpoint, EXIT
+- Operator-only blocker remains after board plus separate Codex challenge? → write checkpoint, EXIT
 - User said stop/pause? → write checkpoint, EXIT
 
 Context percentage is observability only. Do not checkpoint or stop because of
@@ -135,36 +135,32 @@ Agent(
   description: "Select context for phase {N}",
   model: "haiku",
   prompt: "Select context: goal='{task_goal}', files=[{list}], type={type}
-           Return JSON: {brv_queries, file_reads, error_rules, scripts_to_check}"
+           Return JSON: {sgsd_recall_queries, file_reads, error_rules, scripts_to_check}"
 )
 ```
 
-### Step 4: Query ByteRover
+### Step 4: Query SGSD Memory
 
 ```bash
-# Step 4: Query ByteRover (sgsd-recall-local.js — no API key required)
-BRV_BIN="$(find super-gsd/overwatcher ~/.claude/hooks -name sgsd-recall-local.js 2>/dev/null | head -1)"
+# Step 4: Query SGSD memory (DLB-01; no API key required)
+RECALL_BIN="super-gsd/scripts/sgsd-recall.sh"
 
-# Run up to 3 queries from context_selector output (brv_queries array)
-BRV_RESULTS=""
-for Q in "${BRV_QUERIES[@]}"; do
-  RESULT=$(node "$BRV_BIN" "$Q" --max 3 --format json 2>/dev/null)
-  BRV_RESULTS+="$RESULT"
+# Run up to 3 queries from context_selector output (sgsd_recall_queries array)
+SGSD_MEMORY_RESULTS=""
+for Q in "${SGSD_RECALL_QUERIES[@]}"; do
+  RESULT=$(bash "$RECALL_BIN" "$Q" --limit 3 2>/dev/null)
+  SGSD_MEMORY_RESULTS+="$RESULT"
 done
 
-# Script registry check — for each scripts_to_check entry
+# Script registry check - for each scripts_to_check entry
 EXISTING_SCRIPTS=""
 for S in "${SCRIPTS_TO_CHECK[@]}"; do
-  HITS=$(node "$BRV_BIN" "scripts $S" --domain scripts --max 2 --format json 2>/dev/null)
-  # If results returned, format as "EXISTING: {path} — {snippet}"
-  if [ -n "$HITS" ] && [ "$HITS" != "[]" ]; then
-    EXISTING_SCRIPTS+=$(node -e "
-      const r=JSON.parse('$HITS');
-      r.forEach(h=>console.log('EXISTING: '+h.path+' — '+h.snippet.substring(0,80)));
-    ")
+  HITS=$(bash "$RECALL_BIN" "scripts $S" --type script --limit 2 2>/dev/null)
+  if [ -n "$HITS" ]; then
+    EXISTING_SCRIPTS+="$HITS"
   fi
 done
-# BRV_RESULTS and EXISTING_SCRIPTS passed to Step 6 (prompt composition)
+# SGSD_MEMORY_RESULTS and EXISTING_SCRIPTS passed to Step 6 (prompt composition)
 ```
 
 ### Step 5: Determine Dispatch
@@ -175,24 +171,32 @@ Apply dispatch table (first match wins):
 Check phase directory: .planning/phases/{NN}-*/
 
 IF no CONTEXT.md AND config.skip_discuss != true:
-  → ACTION: suggest /gsd-discuss-phase {N}
-  → In auto mode: /gsd-discuss-phase {N} --auto
+  → AUTO MODE: synthesize CONTEXT.md from roadmap/state/checkpoint evidence
+  → INTERACTIVE/NEXT: suggest /gsd-discuss-phase {N}
 
 IF no RESEARCH.md AND config.research == true:
-  → DISPATCH: gsd-phase-researcher (Sonnet)
-  → PROMPT: phase goal + requirements + brv results
+  → DISPATCH: codex-exec.sh phase-research (GPT-5.5/xhigh)
+  → PROMPT: phase goal + requirements + SGSD memory results
+
+IF RESEARCH.md exists AND VTP enrichment enabled AND no VTP artifact/status:
+  → DISPATCH: sgsd-vtp-enrichment
+  → PROMPT: CONTEXT.md + RESEARCH.md + VTP MCP cascade
 
 IF no PLAN.md files:
-  → DISPATCH: gsd-planner (Sonnet)
-  → PROMPT: phase goal + CONTEXT.md key sections + requirements + brv results
+  → DISPATCH: gsd-planner (Opus 4.7/xhigh)
+  → PROMPT: phase goal + CONTEXT.md + RESEARCH.md + VTP artifact/status
 
 IF PLAN.md exists but no PLAN-CHECKER results AND config.plan_check == true:
   → DISPATCH: gsd-plan-checker (Sonnet)
   → PROMPT: plan files + phase goal
 
+IF plan-check passed but no Codex final plan review:
+  → DISPATCH: codex-exec.sh plan-final-review (GPT-5.5/xhigh)
+  → PROMPT: CONTEXT.md + RESEARCH.md + VTP artifact/status + all PLAN files
+
 IF PLAN.md files exist with unchecked tasks (no SUMMARY.md):
-  → DISPATCH: gsd-executor (Sonnet)
-  → PROMPT: compressed plan XML + executor overlay + brv results
+  → DISPATCH: codex-executor.sh (GPT-5.5/xhigh)
+  → PROMPT: compressed plan XML + executor overlay + SGSD memory results
 
 IF all plans have SUMMARY.md but no VERIFICATION.md AND config.verifier == true:
   → DISPATCH: gsd-verifier (Sonnet)
@@ -204,7 +208,7 @@ IF VERIFICATION.md exists AND status == "passed":
   → CONTINUE loop
 
 IF VERIFICATION.md exists AND status == "gaps_found":
-  → DISPATCH: gsd-planner --gaps (Sonnet)
+  → DISPATCH: gsd-planner --gaps (Opus 4.7/xhigh)
   → PROMPT: verification gaps + phase goal
 
 IF no more phases:
@@ -221,7 +225,7 @@ Phase 4 at start of session:
 
 Rule 0: no match (no checkpoint)
 Rule 2: no match (CONTEXT.md present)
-Rule 3: MATCH → dispatch gsd-phase-researcher, model=sonnet (from config.model_routing.researcher)
+Rule 3: MATCH → dispatch codex-exec.sh phase-research, model=gpt-5.5/xhigh
 → Correct dispatch confirmed.
 
 ### Step 6: Compose Prompt
@@ -232,10 +236,10 @@ Build the sub-agent prompt from template:
 {task_plan_or_phase_goal}
 
 {appropriate overlay (executor/planner/verifier)}
-  EXISTING_SCRIPTS = {brv script query results}
-  RELEVANT_DECISIONS = {brv decision query results}
-  RELEVANT_PATTERNS = {brv pattern query results}
-  ERROR_RULES = {brv error rule query results}
+  EXISTING_SCRIPTS = {sgsd-recall script query results}
+  RELEVANT_DECISIONS = {sgsd-recall decision query results}
+  RELEVANT_PATTERNS = {sgsd-recall pattern query results}
+  ERROR_RULES = {sgsd-recall error rule query results}
 
 <files_to_read>
 {file_reads from context selector, max 5 files}
@@ -244,7 +248,7 @@ Build the sub-agent prompt from template:
 
 Token budget check:
 - Count words in composed prompt * 1.3
-- If >1,500 tokens: trim file_reads first, then brv results
+- If >1,500 tokens: trim file_reads first, then SGSD memory results
 - Never trim the plan itself
 
 ### Step 7: Dispatch
@@ -301,12 +305,17 @@ Parse the report:
 FILES_CHANGED → list for git add
 VERIFICATION → check all passed; if any failed, log
 DEVIATIONS → collect for phase summary
-BLOCKERS → if any: EXIT with blocker description
+BLOCKERS → if any: run board recovery plus separate Codex challenge before any exit
 SCRIPTS_CREATED → prepare for sgsd-curate
 ONE_LINER → use in commit message and state update
 ```
 
 ### Step 8.5: ATC Gate
+
+ATC reviewer dispatch is Codex-first. Resolve the reviewer through
+`gates.resolveReviewerProvider(...)`, invoke `super-gsd/scripts/codex-exec.sh`
+when the gate provider is `codex-cli-reviewer`, and fall back to Claude only
+after a Codex provider failure or invalid report contract.
 
 ```bash
 # Run AFTER Step 8 (Process Result) and BEFORE Step 12 (Git Commit)
@@ -438,8 +447,8 @@ fi
 ### Step 9: Curate Learnings
 
 ```bash
-# Step 9: Curate Learnings (sgsd-curate-local.js)
-BRV_CURATE="$(find super-gsd/overwatcher ~/.claude/hooks -name sgsd-curate-local.js 2>/dev/null | head -1)"
+# Step 9: Curate Learnings (DLB-01)
+SGSD_CURATE="super-gsd/scripts/sgsd-curate.sh"
 
 # Curate each new script from agent report SCRIPTS_CREATED section
 # SCRIPTS_CREATED format: "path | purpose: what | interface: signature"
@@ -448,38 +457,25 @@ for SCRIPT_LINE in "${SCRIPTS_CREATED[@]}"; do
   PURPOSE=$(echo "$SCRIPT_LINE" | cut -d'|' -f2 | sed 's/purpose: //' | xargs)
   IFACE=$(echo "$SCRIPT_LINE" | cut -d'|' -f3 | sed 's/interface: //' | xargs)
   SLUG=$(basename "$SPATH" .js)
-  node "$BRV_CURATE" "$PURPOSE. Interface: $IFACE" \
-    --domain "scripts/nodejs" \
-    --title "$SLUG" \
-    --importance 60 \
-    --maturity draft \
-    --tags "script,utility,nodejs" \
-    --keywords "$SLUG,script"
+  printf '%s\n' "$PURPOSE. Interface: $IFACE" |
+    bash "$SGSD_CURATE" --type script --slug "$SLUG" --summary "$PURPOSE" --tags "script,utility,nodejs"
 done
 
 # Curate new patterns from DEVIATIONS (if any contain "new pattern:" prefix)
 for DEV in "${DEVIATIONS[@]}"; do
   if [[ "$DEV" == *"new pattern:"* ]]; then
     PATTERN_TEXT="${DEV#*new pattern:}"
-    node "$BRV_CURATE" "$PATTERN_TEXT" \
-      --domain "patterns/orchestrator" \
-      --title "Pattern: $(echo $PATTERN_TEXT | cut -c1-40)" \
-      --importance 55 \
-      --maturity draft \
-      --tags "pattern,orchestrator" \
-      --keywords "pattern,orchestrator"
+    SLUG=$(echo "$PATTERN_TEXT" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//' | cut -c1-60)
+    printf '%s\n' "$PATTERN_TEXT" |
+      bash "$SGSD_CURATE" --type pattern --slug "$SLUG" --summary "$(echo "$PATTERN_TEXT" | cut -c1-80)" --tags "pattern,orchestrator"
   fi
 done
 
 # Curate verifier CURATE_* entries
 for CURATE_ENTRY in "${CURATE_ENTRIES[@]}"; do
-  node "$BRV_CURATE" "$CURATE_ENTRY" \
-    --domain "patterns/verified" \
-    --title "$(echo $CURATE_ENTRY | cut -c1-50)" \
-    --importance 65 \
-    --maturity validated \
-    --tags "verified,pattern" \
-    --keywords "verified,pattern"
+  SLUG=$(echo "$CURATE_ENTRY" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//' | cut -c1-60)
+  printf '%s\n' "$CURATE_ENTRY" |
+    bash "$SGSD_CURATE" --type pattern --slug "$SLUG" --summary "$(echo "$CURATE_ENTRY" | cut -c1-80)" --tags "verified,pattern"
 done
 ```
 
@@ -547,8 +543,8 @@ Read `.planning/STATE.md` → this is a tool call → loop continues.
 
 ## Checkpoint Write
 
-Triggered by: user says stop/pause OR a real blocker/runtime failure means the
-loop cannot continue.
+Triggered by: user says stop/pause OR board plus separate Codex challenge cannot
+produce a safe local path for an operator-only blocker.
 
 ```markdown
 ---
@@ -576,7 +572,7 @@ model_breakdown:
 {remaining plans in phase, remaining phases in milestone}
 
 ## Learnings Curated
-{what was added to ByteRover this session}
+{what was added to SGSD memory this session}
 ```
 
 Commit checkpoint, then STOP (text-only response).

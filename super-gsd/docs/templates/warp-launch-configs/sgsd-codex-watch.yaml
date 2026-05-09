@@ -1,5 +1,5 @@
 # =============================================================================
-# SGSD Codex Watch — Warp Launch Configuration
+# SGSD Codex Watch - Warp Launch Configuration
 #
 # 3-pane workspace for watching the double-agent executor when Codex is doing
 # bounded code edits:
@@ -11,27 +11,27 @@
 #
 # INSTALL:
 #   1. Copy to $HOME\.warp\launch_configurations\sgsd-codex-watch.yaml
-#   2. Command Palette (Ctrl+Shift+P) → "Launch Configuration: SGSD Codex Watch"
+#   2. Command Palette (Ctrl+Shift+P) -> "Launch Configuration: SGSD Codex Watch"
 # =============================================================================
 
 ---
 name: SGSD Codex Watch
 windows:
   - tabs:
-      - title: "🧪 Codex Watch"
+      - title: "Codex Watch"
         color: green
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:
             - exec: |-
-                powershell -NoExit -Command ". $PROFILE; Write-Host 'Codex status (Ctrl+C to refresh):' -ForegroundColor Blue; while ($true) { Clear-Host; Get-Content .planning\metrics\codex-log.jsonl -Tail 5 -Encoding UTF8 2>$null; Start-Sleep -Seconds 5 }"
+                powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; $esc=[char]27; Write-Host 'Codex status (Ctrl+C to refresh):' -ForegroundColor Blue; while ($true) { Write-Host ('' + $esc + '[H') -NoNewline; Get-Content .planning\metrics\codex-log.jsonl -Tail 5 -Encoding UTF8 2>$null; Write-Host ('' + $esc + '[0J') -NoNewline; Start-Sleep -Seconds 5 }"
         split_direction: horizontal
         panes:
           - cwd: C:\Users\jack.berrow\GSDedits
             commands:
               - exec: |-
-                  powershell -NoExit -Command ". $PROFILE; Write-Host 'route-decisions tail (last 10 execution_route rows):' -ForegroundColor Blue; Get-Content .planning\metrics\route-decisions.jsonl -Tail 10 -Encoding UTF8 2>$null"
+                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'route-decisions tail (last 10 execution_route rows):' -ForegroundColor Blue; Get-Content .planning\metrics\route-decisions.jsonl -Tail 10 -Encoding UTF8 2>$null"
           - cwd: C:\Users\jack.berrow\GSDedits
             commands:
               - exec: |-
-                  powershell -NoExit -Command ". $PROFILE; Write-Host 'Free shell. Try: SGSD: Route Decisions Recent | SGSD: Codex Status' -ForegroundColor Cyan"
+                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'Free shell. Try: SGSD: Route Decisions Recent | SGSD: Codex Status' -ForegroundColor Cyan"

@@ -36,7 +36,8 @@ function Write-DashboardFailure {
         [string]$Detail
     )
 
-    Clear-Host
+    $esc = [char]27
+    Write-Host "$esc[H$esc[0J" -NoNewline
     Write-Host "SUPER GSD DASHBOARD FAILURE" -ForegroundColor Red
     Write-Host "----------------------------" -ForegroundColor Red
     Write-Host "Pane:    $Name" -ForegroundColor White

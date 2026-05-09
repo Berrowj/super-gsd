@@ -13,6 +13,10 @@ if (-not (Test-Path (Join-Path $ProjectDir ".planning"))) {
     exit 1
 }
 
+$ESC = [char]27
+$HOME_POS = "$ESC[H"
+$CLEAR_BELOW = "$ESC[0J"
+
 function Get-StateValue($file, $key) {
     if (Test-Path $file) {
         $match = Select-String -Path $file -Pattern "^${key}:\s*(.*)$" -List
@@ -45,7 +49,7 @@ function Format-Tokens($n) {
 }
 
 while ($true) {
-    Clear-Host
+    Write-Host $HOME_POS -NoNewline
 
     # Header
     Write-Host "================================================================" -ForegroundColor Cyan
@@ -187,6 +191,7 @@ while ($true) {
     Write-Host ""
     Write-Host "================================================================" -ForegroundColor DarkGray
     Write-Host "Project: $ProjectDir" -ForegroundColor DarkGray
+    Write-Host $CLEAR_BELOW -NoNewline
 
     Start-Sleep -Seconds $RefreshSec
 }

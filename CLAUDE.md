@@ -3,6 +3,57 @@
 > Drop this into your project's CLAUDE.md (append or replace the GSD section).
 > Teaches Claude Code the autonomous loop, checkpoint survival, and token efficiency.
 
+## BEHAVIORAL GUIDELINES - Karpathy principles
+
+Four rules override everything else. They are derived from Andrej Karpathy's
+observations on LLM coding pitfalls. If these guidelines conflict with anything
+later in this file, these guidelines win.
+
+### 1. Think Before Coding
+
+Don't assume. Don't hide confusion. Surface tradeoffs.
+- State assumptions explicitly. If uncertain, ask rather than guess silently.
+- If multiple interpretations exist, present them. Do not pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop, name what is confusing, and ask.
+
+### 2. Simplicity First
+
+Minimum code that solves the problem. Nothing speculative.
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No flexibility or configurability that was not requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+- Test: would a senior engineer say this is overcomplicated? If yes, simplify.
+
+### 3. Surgical Changes
+
+Touch only what you must. Clean up only your own mess.
+- Do not improve adjacent code, comments, or formatting.
+- Do not refactor things that are not broken.
+- Match existing style even if you would do it differently.
+- If you notice unrelated dead code, mention it in DEVIATIONS. Do not delete it.
+- Remove imports, variables, and functions that your changes made unused; do
+  not remove pre-existing dead code.
+- Test: every changed line should trace directly to the user's request or the
+  current plan task.
+
+### 4. Goal-Driven Execution
+
+Define success criteria. Loop until verified.
+- Transform vague tasks into verifiable goals before coding.
+- For multi-step tasks, state a brief plan with per-step verification.
+- Strong success criteria let the orchestrator loop independently. Weak
+  criteria force clarification after every step.
+
+**Enforcement mechanism inside SGSD:** these four principles are mechanically
+enforced by the ATC Gate, the Nyquist validation gate, and the surgical
+constraint injected into every executor prompt. Violations show up in
+DEVIATIONS and phase-level violations can block phase closure.
+
+**Further reading:** <https://github.com/forrestchang/andrej-karpathy-skills>
+
 ## PERMISSIONS — CRITICAL FOR AUTONOMOUS MODE
 
 **NEVER ask the user for confirmation, approval, or permission during autonomous execution.**
@@ -61,25 +112,96 @@ Remote Control isn't connected. Continue normally; don't retry.
 ## Super GSD — Autonomous Execution Engine
 
 This project uses **Super GSD** for token-efficient autonomous execution.
-State lives in `.planning/`. Memory lives in `.brv/context-tree/` (ByteRover).
+State lives in `.planning/`. SGSD memory lives in `.brv/context-tree/`.
 
 ### On Every New Session — DO THIS FIRST
 
 1. **Check for checkpoint:** `Read .planning/ORCHESTRATOR-CHECKPOINT.md` — if found, resume from `next_unit`. Don't ask, just go.
 2. **Read state:** `Read .planning/STATE.md` (frontmatter only, offset 0, limit 30) — active milestone, phase, progress.
-3. **Check ByteRover:** `brv-query "session start current state"` — pull relevant context.
-4. If user says "go" / "auto" / "continue" / "run" → enter auto mode immediately. No confirmation.
+3. **Cascade read (DLB-03):** Before planning any phase, read `.planning/PROJECT.md` core-value + `.planning/milestones/{active_milestone}/INTENT.md` + last completed phase `SUMMARY.md`. For the first phase of a milestone, INTENT.md alone. This is mandatory; skipped cascade = phase drift.
+4. **Check memory:** `sgsd-recall "session start current state"` — pull relevant context.
+5. If user says "go" / "auto" / "continue" / "run" → enter auto mode immediately. No confirmation.
 
 ### What the User Says → What You Do
 
 | User Says | You Do |
 |-----------|--------|
-| "go" / "auto" / "run" / "continue" | **Enter AUTO MODE** — start the loop, no questions |
+| "go" / "auto" / "run" / "continue" / "/sgsd-orchestrate auto" | **Enter AUTO MODE** — start the loop, no questions |
 | "next" | Execute ONE unit, then stop and report |
 | "status" / "where are we?" | Read STATE.md frontmatter, report position |
 | "stop" / "pause" | Write checkpoint, stop looping |
-| "deliberate" | Run /gsd-deliberate for strategic decision |
-| "audit tokens" | Run /gsd-token-audit --quick |
+| "deliberate" | Run /sgsd-deliberate for strategic decision |
+| "audit tokens" | Run /sgsd-token-audit --quick |
+| **Planning intent detected** (see below) | **Run /sgsd-triage first** — let it route to deliberate/orchestrate/muda |
+
+### Planning-intent detection (auto-invoke /sgsd-triage)
+
+When the operator's message contains planning or figuring-out intent, invoke
+`/sgsd-triage` before doing any other work. Do not improvise your own planning;
+the triage skill runs the planning pipeline, classifies the result, and routes
+to the right continuation. It respects DELIBERATION-FLOOR.
+
+**Auto-invoke triggers (high confidence):**
+
+- Starts with "I'm thinking about...", "I want to figure out...", "How should we...",
+  "What if we...", "Let's plan...", "Let's explore...", "Design...",
+  "Architect...", "Evaluate...", or "Should we..."
+- Describes a problem or ambition without asking for immediate execution.
+- Mentions tradeoffs, alternatives, or multiple valid approaches.
+- Asks a research-style question the operator clearly wants thought through.
+
+**Do not auto-invoke when:**
+
+- The operator asks a direct factual question.
+- The operator explicitly requests execution.
+- The operator is mid-build and asking for a specific code change.
+- The question is trivial and can be answered inline in under five minutes.
+
+**Ambiguous?** Do not auto-invoke. Ask: "sounds like a planning question - want
+me to run /sgsd-triage?"
+
+### Auto-mode orchestration contract
+
+Canonical command: `/sgsd-orchestrate auto`. Treat `/SGSD-orchestrate auto` as
+the same operator intent; slash command implementations may still be lowercase.
+
+In auto mode, SGSD owns the whole delivery loop. Phase-close summaries,
+milestone-close summaries, cost summaries, research completion, planning
+completion, and "operator review" summaries are intermediate states. Do not stop
+there; write evidence and immediately continue with a tool call.
+
+Canonical phase path:
+
+1. Read state, roadmap, checkpoint, and config.
+2. Ensure phase CONTEXT exists. If missing in auto mode, synthesize it from
+   roadmap/state/checkpoint/audit evidence instead of pausing for discussion.
+3. Research with Codex GPT-5.5/xhigh via SGSD's Codex wrapper. Claude should
+   orchestrate the research prompt and process the report, not perform the
+   research itself.
+4. Run VTP enrichment after research when `.planning/config.json` enables it.
+   If VTP MCP is absent, write an explicit degraded/bypass reason and continue.
+5. Plan with Opus 4.7 / xhigh. The planner must consume RESEARCH plus VTP
+   enrichment or the explicit VTP_STATUS row.
+6. Run a quick Codex plan review applying ATC + MUDA before execution. NOGO
+   routes back to Opus planner for a revised final draft.
+7. Execute code only through `codex-executor [gpt-5.5/xhigh]`.
+8. Verify, run required gates, commit, close/advance phase or milestone, and
+   immediately continue until no roadmap work remains.
+
+Blocker recovery policy:
+
+- Ordinary Codex blockers, malformed reports, plan uncertainty, missing local
+  context, and implementation dead ends must not stop the loop immediately.
+- First invoke the SGSD board (`sgsd-ceo` with the minimal board roster from
+  `super-gsd/registry/board-members.yaml`) and ask for a concrete recovery
+  decision.
+- Then send the board decision to a separate Codex review/challenge instance.
+- Choose the safest actionable recommendation, log the decision, and resume the
+  loop.
+- Stop only when the user explicitly pauses/stops, all roadmap work is complete,
+  or board plus Codex recovery cannot produce a safe local path because the
+  remaining blocker is credentials, destructive ambiguity, external access, or
+  another operator-only boundary.
 
 ---
 
@@ -104,14 +226,14 @@ repeat {
   → { complexity, model, atc_tier, deliberate }
 
   // 3. SELECT CONTEXT (~100 tokens)
-  Agent(model: "haiku", prompt: "Select context: goal, files → brv_queries, file_reads")
-  → { brv_queries, file_reads, scripts_to_check }
+  Agent(model: "haiku", prompt: "Select context: goal, files → sgsd_recall_queries, file_reads")
+  → { sgsd_recall_queries, file_reads, scripts_to_check }
 
-  // 4. QUERY BYTEROVER (~200-600 tokens)
-  brv-query for each query → relevant decisions, patterns, scripts
+  // 4. QUERY SGSD MEMORY (~200-600 tokens)
+  sgsd-recall for each query → relevant decisions, patterns, scripts
 
   // 5. COMPOSE PROMPT (~500 tokens)
-  Build agent prompt: compressed plan + overlay + brv results
+  Build agent prompt: compressed plan + overlay + SGSD memory results
 
   // 6. DISPATCH
   Agent(model: "{from classifier}", prompt: "{composed}")
@@ -121,9 +243,9 @@ repeat {
   Parse: FILES_CHANGED, VERIFICATION, DEVIATIONS, BLOCKERS, SCRIPTS_CREATED, ONE_LINER
 
   // 8. CURATE LEARNINGS
-  If SCRIPTS_CREATED → brv-curate to scripts/
-  If DEVIATIONS contain new patterns → brv-curate
-  If verifier found anti-patterns → brv-curate
+  If SCRIPTS_CREATED → sgsd-curate to scripts/
+  If DEVIATIONS contain new patterns → sgsd-curate
+  If verifier found anti-patterns → sgsd-curate
 
   // 9. UPDATE STATE
   Update STATE.md progress
@@ -147,7 +269,7 @@ repeat {
 ### Exit Conditions (ONLY these 3)
 
 1. **All phases complete** → text-only: "All phases done."
-2. **Blocker** → needs human decision or runtime cannot continue, stop and explain
+2. **Exhausted blocker** → board plus separate Codex challenge cannot produce a safe local path
 3. **User says stop/pause** → write checkpoint, stop
 
 **Nothing else is a valid exit.** Not phase boundaries. Not milestone boundaries.
@@ -160,16 +282,18 @@ runtime compaction + external state are the context-management mechanism. ONLY t
 |---|-----------|--------|-------|-------|
 | 0 | Auto mode entering milestone AND no `MILESTONE-READINESS.md` (or stale) | Dispatch milestone readiness audit | sgsd-milestone-readiness | sonnet |
 | 0.5 | READINESS status = BLOCKED or PARTIAL AND user said "go" | Auto-continue on DEGRADED-PATH if one exists; pause only when no runnable path remains | — | — |
-| 1 | Phase not discussed / missing CONTEXT.md | AUTO MODE: synthesize CONTEXT.md + discussion decision record from roadmap/checkpoint/audit, then dispatch researcher. INTERACTIVE/NEXT mode: suggest /gsd-discuss-phase. | orchestrator | — |
-| 2 | Phase needs RESEARCH.md | Dispatch researcher | gsd-phase-researcher | sonnet |
-| 3 | Phase needs PLAN.md | Dispatch planner | gsd-planner | sonnet |
+| 1 | Phase not discussed | AUTO MODE: synthesize CONTEXT.md from roadmap/state/checkpoint evidence; INTERACTIVE/NEXT: suggest /gsd-discuss-phase | orchestrator | — |
+| 2 | Phase needs RESEARCH.md | Dispatch Codex research via `codex-exec.sh` | codex-research | gpt-5.5/xhigh |
+| 2.5 | Research complete and VTP enabled | Dispatch VTP enrichment | sgsd-vtp-enrichment | sonnet |
+| 3 | Phase needs PLAN.md | Dispatch planner | gsd-planner | opus 4.7/xhigh |
 | 4 | Plans need checking | Dispatch checker | gsd-plan-checker | sonnet |
+| 4.2 | Plan check passed | Run Codex plan-final ATC + MUDA review | codex-exec.sh | gpt-5.5/xhigh |
 | 4.5 | About to make FIRST executor dispatch of a phase | Dispatch phase-readiness re-probe | sgsd-phase-readiness | haiku |
 | 4.6 | Phase-readiness returned DRIFT | Continue on deterministic degraded/local path; checkpoint only if no runnable executor path remains | — | — |
 | 5 | Pending tasks exist | Dispatch executor | gsd-executor | sonnet |
 | 6 | All plans executed | Dispatch verifier | gsd-verifier | sonnet |
 | 7 | Verification passed | Mark complete, advance | orchestrator | — |
-| 8 | Verification failed | Dispatch planner --gaps | gsd-planner | sonnet |
+| 8 | Verification failed | Dispatch planner --gaps | gsd-planner | opus 4.7/xhigh |
 | 9 | All phases complete | Exit loop | — | — |
 
 ### Readiness Gates — unattended-run contract
@@ -188,15 +312,19 @@ Readiness is **stale** if any phase directory under the active milestone has an 
 |------|-------|-----|
 | Orchestrator (you) | Opus | Judgment, dispatch, synthesis |
 | Classifier | Haiku | 50-token classification |
-| Context selector | Haiku | Pick relevant brv-queries |
-| All execution agents | Sonnet | Detailed plans make Sonnet sufficient |
+| Context selector | Haiku | Pick relevant sgsd-recall queries |
+| Research | Codex GPT-5.5/xhigh | Read-only research report via SGSD Codex wrapper |
+| Planner | Opus 4.7/xhigh | High-judgment plan synthesis |
+| Plan final review | Codex GPT-5.5/xhigh | Fast ATC + MUDA challenge before execution |
+| Code execution | Codex GPT-5.5/xhigh | Claude orchestrates; Codex edits |
+| Verifier/checker/board | Sonnet unless specified | Bounded review or deliberation roles |
 
 ### Sub-Agent Prompt Composition
 
 Every sub-agent prompt includes:
 1. **Compressed task plan** (XML format, ~800 tokens)
 2. **Overlay** (efficiency rules + report format, ~80 tokens)
-3. **ByteRover results** (decisions, patterns, scripts, ~400-600 tokens)
+3. **SGSD memory results** (decisions, patterns, scripts, ~400-600 tokens)
 4. **files_to_read block** (minimal, only what's needed)
 
 Total prompt budget: <1,500 tokens. If over, trim file_reads first.
@@ -216,7 +344,8 @@ Max 300 words. No intro. No recap.
 
 ### Checkpoint Protocol
 
-When user says pause/stop OR a real blocker means runtime cannot continue:
+When user says pause/stop OR board plus separate Codex challenge cannot resolve
+a real runtime/operator-only blocker:
 
 **Step 1:** Write `.planning/ORCHESTRATOR-CHECKPOINT.md`
   - Use `Write` tool (not Bash echo)
@@ -230,7 +359,7 @@ When user says pause/stop OR a real blocker means runtime cannot continue:
   ```
 
 **Step 3:** STOP with text-only response
-  "Checkpoint written. Next session: /gsd-orchestrate go"
+  "Checkpoint written. Next session: /sgsd-orchestrate go"
 
 **On next session start — Step 1 of EVERY session:**
   Read `.planning/ORCHESTRATOR-CHECKPOINT.md`
@@ -248,17 +377,32 @@ When user says pause/stop OR a real blocker means runtime cannot continue:
 ### Token Efficiency Rules
 
 - Read STATE.md **frontmatter only** (offset 0, limit 30) — not full file
-- Query ByteRover instead of loading full .md files
+- Query SGSD memory instead of loading full .md files
 - Sub-agent reports: 300 words max
 - Plans: compressed XML (~800 tokens, not ~2,000)
 - Haiku for classification (~50 tokens), not Opus
 - Log all token usage to `.planning/metrics/token-log.jsonl`
 - Script reuse: query before creating new utilities
 
-### ByteRover Integration
+### Memory Retrieval (DLB-01 - replaces ByteRover)
 
-- `brv-query "{terms}"` — retrieve relevant knowledge (~200 tokens per result)
-- `brv-curate "{content}"` — store new patterns, decisions, scripts
-- Query BEFORE dispatching (inject results into agent prompt)
-- Curate AFTER processing (capture learnings from agent report)
-- Scripts: always check `brv-query "scripts {purpose}"` before creating new ones
+Per DLB-01 (`.planning/decisions/DLB-01-memory-topology.md`), the SGSD-global
+memory tier is a git-native filesystem store at `.brv/context-tree/` with an
+`INDEX.md` catalogue. The shell wrappers below are the stable callable
+interface; legacy ByteRover command wrappers are not part of the live contract.
+
+- `sgsd-recall "{terms}"` — grep INDEX.md by query terms, emit top-N file
+  contents with `<!-- sgsd-recall: type/slug -->` framing (~200 tokens per
+  result). Supports `--type`, `--limit`, `--paths-only`. Lives at
+  `super-gsd/scripts/sgsd-recall.sh`; auto-walks up from CWD to find
+  `.brv/context-tree/`.
+- `sgsd-curate --type T --slug S --summary "<=80 chars" [--tags "a,b"] < body.md`
+  — atomic write of a new entry + INDEX.md update. Types:
+  `pattern | anti-pattern | decision | expertise | script`.
+- Query BEFORE dispatching (inject results into agent prompt).
+- Curate AFTER processing (capture learnings from agent report).
+- Scripts: always check `sgsd-recall "scripts {purpose}"` before creating
+  new ones.
+
+Revisit BM25 ranking infrastructure only at the 40-file tripwire. Until then,
+grep + INDEX.md curation discipline is sufficient.

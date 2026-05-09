@@ -40,6 +40,9 @@ if (-not (Test-Path $PlanningDir)) {
 }
 
 $ErrorActionPreference = "SilentlyContinue"
+$MetricsDir = Join-Path $PlanningDir "metrics"
+$ActivityLog = Join-Path $MetricsDir "activity-log.jsonl"
+$ClaudeEli5Cache = Join-Path $MetricsDir "claude-eli5.md"
 
 . (Join-Path $PSScriptRoot "lib\sgsd-render-cache.ps1")
 . (Join-Path $PSScriptRoot "lib\sgsd-substrate-status.ps1")
@@ -81,10 +84,34 @@ function Write-Host {
 }
 
 function Get-PaneWidth {
+    try {
+        $sttySize = (& sh -lc 'stty size 2>/dev/null' | Select-Object -First 1)
+        if ("$sttySize" -match '^\s*[0-9]+\s+([0-9]+)\s*$' -and [int]$matches[1] -gt 20) { return ([int]$matches[1] - 1) }
+    } catch {}
+    try {
+        $tmuxWidth = if ($env:TMUX_PANE) {
+            & tmux display-message -p -t $env:TMUX_PANE '#{pane_width}' 2>$null | Select-Object -First 1
+        } else {
+            & tmux display-message -p '#{pane_width}' 2>$null | Select-Object -First 1
+        }
+        if ("$tmuxWidth" -match '^[0-9]+$' -and [int]$tmuxWidth -gt 20) { return ([int]$tmuxWidth - 1) }
+    } catch {}
     try { return [Console]::WindowWidth - 1 } catch { return 70 }
 }
 
 function Get-PaneHeight {
+    try {
+        $sttySize = (& sh -lc 'stty size 2>/dev/null' | Select-Object -First 1)
+        if ("$sttySize" -match '^\s*([0-9]+)\s+[0-9]+\s*$' -and [int]$matches[1] -gt 8) { return [int]$matches[1] }
+    } catch {}
+    try {
+        $tmuxHeight = if ($env:TMUX_PANE) {
+            & tmux display-message -p -t $env:TMUX_PANE '#{pane_height}' 2>$null | Select-Object -First 1
+        } else {
+            & tmux display-message -p '#{pane_height}' 2>$null | Select-Object -First 1
+        }
+        if ("$tmuxHeight" -match '^[0-9]+$' -and [int]$tmuxHeight -gt 8) { return [int]$tmuxHeight }
+    } catch {}
     try { return [Console]::WindowHeight } catch { return 30 }
 }
 
@@ -138,14 +165,16 @@ function Get-StateBodyValue {
 
 function Get-CurrentScope {
     $stateFile = Join-Path $PlanningDir "STATE.md"
-    $out = [ordered]@{ milestone = ""; phase = ""; status = "" }
+    $out = [ordered]@{ milestone = ""; alias = ""; phase = ""; status = "" }
     if (-not (Test-Path $stateFile)) { return [pscustomobject]$out }
     $stateText = Get-Content $stateFile -Raw -ErrorAction SilentlyContinue
     $out.milestone = Get-StateBodyValue $stateText "current_milestone"
+    $out.alias = Get-StateBodyValue $stateText "alias"
     $out.phase = Get-StateBodyValue $stateText "current_phase"
     $out.status = Get-StateBodyValue $stateText "status"
     foreach ($line in (Get-Content $stateFile -TotalCount 80 -ErrorAction SilentlyContinue)) {
         if (-not $out.milestone -and $line -match '^milestone:\s*(.+)$') { $out.milestone = $matches[1].Trim().Trim('"', "'") }
+        if (-not $out.alias -and $line -match '^alias:\s*(.+)$') { $out.alias = $matches[1].Trim().Trim('"', "'") }
         if (-not $out.phase -and $line -match '^(?:current_phase|phase):\s*"?([0-9]+)"?') { $out.phase = $matches[1] }
         if (-not $out.status -and $line -match '^status:\s*(.+)$') { $out.status = $matches[1].Trim().Trim('"', "'") }
         if (-not $out.phase -and $line -match '^status:\s*.*\bNext:\s*Phase\s+([0-9]+)\b') { $out.phase = $matches[1] }
@@ -365,24 +394,111 @@ function Get-PhaseEvidenceSummary {
     return [pscustomobject]@{ bits=($bits -join " "); done=$done; total=$checks.Count }
 }
 
+function Get-ScopeMilestoneKeys {
+    param([string]$Milestone)
+    $keys = @()
+    if ($Milestone) { $keys += "$Milestone" }
+    $stateFile = Join-Path $PlanningDir "STATE.md"
+    if (Test-Path -LiteralPath $stateFile) {
+        try {
+            foreach ($line in (Get-Content -LiteralPath $stateFile -TotalCount 100 -ErrorAction SilentlyContinue)) {
+                if ($line -match '^(?:milestone|alias|current_milestone):\s*(.+)$') {
+                    $keys += $matches[1].Trim().Trim('"', "'")
+                }
+            }
+        } catch {}
+    }
+    return @($keys | Where-Object { $_ -and "$_".Trim() } | Select-Object -Unique)
+}
+
+function Get-PhaseSearchRoots {
+    param([string]$Milestone)
+    $seen = @{}
+    $roots = @()
+    foreach ($key in @(Get-ScopeMilestoneKeys -Milestone $Milestone)) {
+        $p = Join-Path $PlanningDir "milestones\$key\phases"
+        if ((Test-Path -LiteralPath $p) -and -not $seen.ContainsKey((Resolve-Path -LiteralPath $p).Path)) {
+            $resolved = (Resolve-Path -LiteralPath $p).Path
+            $seen[$resolved] = $true
+            $roots += $resolved
+        }
+    }
+    $rootPhases = Join-Path $PlanningDir "phases"
+    if (Test-Path -LiteralPath $rootPhases) {
+        $resolved = (Resolve-Path -LiteralPath $rootPhases).Path
+        if (-not $seen.ContainsKey($resolved)) {
+            $seen[$resolved] = $true
+            $roots += $resolved
+        }
+    }
+    return @($roots)
+}
+
+function Get-CurrentMilestonePhaseNums {
+    param([string]$Milestone)
+    $nums = @{}
+    $scope = Get-CurrentScope
+    $current = "$($scope.phase)"
+    if ($current -match '^[0-9]+$') { $nums[$current] = $true }
+
+    $stateFile = Join-Path $PlanningDir "STATE.md"
+    $stateText = if (Test-Path -LiteralPath $stateFile) { Get-Content -LiteralPath $stateFile -Raw -ErrorAction SilentlyContinue } else { "" }
+    if ($stateText) {
+        foreach ($m in [regex]::Matches($stateText, '(?i)\bPhases?\s+([0-9]+)\s*[-–—]\s*([0-9]+)\b')) {
+            $a = [int]$m.Groups[1].Value
+            $b = [int]$m.Groups[2].Value
+            if ($a -le $b -and ($current -notmatch '^[0-9]+$' -or ([int]$current -ge $a -and [int]$current -le $b))) {
+                for ($i = $a; $i -le $b; $i++) { $nums["$i"] = $true }
+            }
+        }
+        foreach ($m in [regex]::Matches($stateText, '(?m)^phase_([0-9]+)_')) {
+            $nums[$m.Groups[1].Value] = $true
+        }
+    }
+
+    foreach ($key in @(Get-ScopeMilestoneKeys -Milestone $Milestone)) {
+        $index = Join-Path $PlanningDir "milestones\$key\PHASE-INDEX.jsonl"
+        if (-not (Test-Path -LiteralPath $index)) { continue }
+        try {
+            foreach ($line in (Get-Content -LiteralPath $index -ErrorAction SilentlyContinue)) {
+                if (-not "$line".Trim()) { continue }
+                try {
+                    $row = $line | ConvertFrom-Json -ErrorAction Stop
+                    if ("$($row.phase)" -match '^[0-9]+$') { $nums["$($row.phase)"] = $true }
+                } catch {}
+            }
+        } catch {}
+    }
+    return @($nums.Keys | Sort-Object { [int]$_ })
+}
+
 function Resolve-PhaseDir {
     param([string]$Milestone, [string]$PhaseNum)
-    if (-not $Milestone -or -not $PhaseNum) { return $null }
-    $root = Join-Path $PlanningDir "milestones\$Milestone\phases"
-    if (-not (Test-Path $root)) { return $null }
-    return Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -eq "$PhaseNum" -or $_.Name.StartsWith("$PhaseNum-") } |
-        Select-Object -First 1
+    if (-not $PhaseNum) { return $null }
+    $hits = @()
+    foreach ($root in @(Get-PhaseSearchRoots -Milestone $Milestone)) {
+        $hits += Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -eq "$PhaseNum" -or $_.Name.StartsWith("$PhaseNum-") }
+    }
+    return @($hits | Sort-Object LastWriteTime -Descending | Select-Object -First 1)
 }
 
 function Get-MilestonePhaseDirs {
     param([string]$Milestone)
-    if (-not $Milestone) { return @() }
-    $root = Join-Path $PlanningDir "milestones\$Milestone\phases"
-    if (-not (Test-Path $root)) { return @() }
-    return @(Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -match '^[0-9]+' } |
-        Sort-Object Name)
+    $wanted = @{}
+    foreach ($n in @(Get-CurrentMilestonePhaseNums -Milestone $Milestone)) { $wanted["$n"] = $true }
+    $byPhase = @{}
+    foreach ($root in @(Get-PhaseSearchRoots -Milestone $Milestone)) {
+        foreach ($dir in @(Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^[0-9]+' })) {
+            if ($dir.Name -notmatch '^([0-9]+)') { continue }
+            $num = $matches[1]
+            if ($wanted.Count -gt 0 -and -not $wanted.ContainsKey($num)) { continue }
+            if (-not $byPhase.ContainsKey($num) -or $dir.LastWriteTime -gt $byPhase[$num].LastWriteTime) {
+                $byPhase[$num] = $dir
+            }
+        }
+    }
+    return @($byPhase.GetEnumerator() | Sort-Object { [int]$_.Key } | ForEach-Object { $_.Value })
 }
 
 function Get-PhaseNumFromDirName {
@@ -436,6 +552,172 @@ function Write-GateTrack {
         Write-Host " " -NoNewline
     }
     Write-Host $CLEAR_LINE
+}
+
+function Get-SgsdItemAgeSec {
+    param($Item)
+    if (-not $Item) { return $null }
+    try { return [int]((Get-Date) - $Item.LastWriteTime).TotalSeconds } catch { return $null }
+}
+
+function Get-SgsdTimestampAgeSec {
+    param($Value)
+    if (-not $Value) { return $null }
+    try { return [int]((Get-Date) - ([DateTime]::Parse("$Value"))).TotalSeconds } catch { return $null }
+}
+
+function Get-NewestAgeSec {
+    param([object[]]$Cells)
+    $ages = @($Cells | Where-Object { $_.ageSec -ne $null } | ForEach-Object { [int]$_.ageSec })
+    if ($ages.Count -eq 0) { return $null }
+    return @($ages | Sort-Object | Select-Object -First 1)[0]
+}
+
+function New-CompactGateCell {
+    param([string]$Letter, [string]$State, $AgeSec = $null)
+    return [pscustomobject]@{ letter = $Letter; state = $State; ageSec = $AgeSec }
+}
+
+function Get-PhaseEvidenceGateCells {
+    param([string]$Milestone, [string]$PhaseNum)
+    $dir = Resolve-PhaseDir -Milestone $Milestone -PhaseNum $PhaseNum
+    $cells = @()
+    $defs = @(
+        @{ letter="R"; pattern="$PhaseNum-RESEARCH.md"; recurse=$false },
+        @{ letter="C"; pattern="$PhaseNum-CONTEXT.md"; recurse=$false },
+        @{ letter="P"; pattern="*-PLAN.md"; recurse=$false },
+        @{ letter="V"; pattern="$PhaseNum-VERIFICATION.md"; recurse=$false },
+        @{ letter="A"; special="review" },
+        @{ letter="X"; special="commit" }
+    )
+    foreach ($d in $defs) {
+        $item = $null
+        if ($d.special -eq "review") {
+            $item = Get-PhaseReviewFile -Milestone $Milestone -PhaseNum $PhaseNum
+        } elseif ($d.special -eq "commit") {
+            $item = Get-PhaseCommitReviewFile -Milestone $Milestone -PhaseNum $PhaseNum
+        } elseif ($dir) {
+            $item = Get-ChildItem -Path $dir.FullName -Filter $d.pattern -File -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending |
+                Select-Object -First 1
+        }
+        $state = if ($item) { "done" } else { "todo" }
+        $cells += New-CompactGateCell -Letter $d.letter -State $state -AgeSec (Get-SgsdItemAgeSec $item)
+    }
+    return @($cells)
+}
+
+function Convert-GateCellsForCompact {
+    param([object[]]$Cells, $DefaultAgeSec = $null)
+    $out = @()
+    foreach ($c in @($Cells)) {
+        $age = if ($c.PSObject.Properties["ageSec"]) { $c.ageSec } else { $DefaultAgeSec }
+        if (($age -eq $null) -and "$($c.state)" -notin @("todo")) { $age = $DefaultAgeSec }
+        $out += New-CompactGateCell -Letter "$($c.letter)" -State "$($c.state)" -AgeSec $age
+    }
+    return @($out)
+}
+
+function Get-AtcCompactGateCells {
+    param([string]$Milestone, [string]$PhaseNum, $Atc, $Codex, $Verdicts)
+    $phaseCells = @(Get-PhaseEvidenceGateCells -Milestone $Milestone -PhaseNum $PhaseNum)
+    $review = Get-PhaseReviewFile -Milestone $Milestone -PhaseNum $PhaseNum
+    $commit = Get-PhaseCommitReviewFile -Milestone $Milestone -PhaseNum $PhaseNum
+    $reviewAge = Get-SgsdItemAgeSec $review
+    $commitAge = Get-SgsdItemAgeSec $commit
+    $packageAge = Get-NewestAgeSec @($phaseCells | Where-Object { $_.letter -match '^[RCPV]$' })
+    $codexAge = if ($Codex -and $Codex.updatedAgeSec -ne $null) { [int]$Codex.updatedAgeSec } else { $commitAge }
+    if ($Verdicts -and $Verdicts.Count -gt 0 -and $Verdicts[0].ts) {
+        $verdictAge = Get-SgsdTimestampAgeSec $Verdicts[0].ts
+        if ($verdictAge -ne $null) { $codexAge = $verdictAge }
+    }
+
+    $cells = @($Atc.cells)
+    $out = @()
+    for ($i = 0; $i -lt $cells.Count; $i++) {
+        $age = switch ($i) {
+            0 { $packageAge; break }
+            1 { $reviewAge; break }
+            2 { $codexAge; break }
+            3 { if ($reviewAge -ne $null) { $reviewAge } else { $commitAge }; break }
+            4 { if ($reviewAge -ne $null) { $reviewAge } else { $commitAge }; break }
+            default { $null }
+        }
+        if ("$($cells[$i].state)" -eq "todo") { $age = $null }
+        $out += New-CompactGateCell -Letter "$($cells[$i].letter)" -State "$($cells[$i].state)" -AgeSec $age
+    }
+    return @($out)
+}
+
+function Get-MudaCompactGateCells {
+    param([string]$Milestone, [string]$PhaseNum, $Muda)
+    $phaseDir = Resolve-PhaseDir -Milestone $Milestone -PhaseNum $PhaseNum
+    $waste = if ($phaseDir) {
+        Get-ChildItem -Path $phaseDir.FullName -Filter "*WASTE*.md" -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+    } else { $null }
+    $age = Get-SgsdItemAgeSec $waste
+    if ($age -eq $null) {
+        $row = Get-MudaLogRow -PhaseNum $PhaseNum
+        if ($row) {
+            foreach ($field in @("ts", "timestamp", "generated_at")) {
+                if ($row.PSObject.Properties[$field]) {
+                    $age = Get-SgsdTimestampAgeSec $row.PSObject.Properties[$field].Value
+                    if ($age -ne $null) { break }
+                }
+            }
+        }
+    }
+    return @(Convert-GateCellsForCompact -Cells $Muda.cells -DefaultAgeSec $age)
+}
+
+function Get-CompactGateColor {
+    param([string]$State)
+    switch ("$State") {
+        "done"   { return "Green" }
+        "active" { return "DarkYellow" }
+        "warn"   { return "DarkYellow" }
+        "fail"   { return "Red" }
+        "skip"   { return "DarkGray" }
+        default  { return "Red" }
+    }
+}
+
+function Format-CompactGateAge {
+    param($AgeSec)
+    if ($AgeSec -eq $null) { return "--" }
+    if ([int]$AgeSec -lt 10) { return "now" }
+    return (Format-Age ([int]$AgeSec))
+}
+
+function Write-CompactGateRow {
+    param([string]$Name, [object[]]$Cells, [int]$Pw)
+    Write-Host $Name.PadRight(7) -NoNewline -ForegroundColor White
+    $used = 7
+    foreach ($cell in @($Cells)) {
+        $token = "[{0} {1}]" -f $cell.letter, (Format-CompactGateAge $cell.ageSec)
+        if (($used + $token.Length + 1) -gt $Pw) { break }
+        Write-Host $token -NoNewline -ForegroundColor (Get-CompactGateColor "$($cell.state)")
+        Write-Host " " -NoNewline
+        $used += $token.Length + 1
+    }
+    Write-Host $CLEAR_LINE
+}
+
+function Write-VerifyGatesPanel {
+    param([string]$Milestone, [string]$PhaseNum, $Codex, [object[]]$Verdicts, [int]$Pw)
+    $phaseCells = @(Get-PhaseEvidenceGateCells -Milestone $Milestone -PhaseNum $PhaseNum)
+    $atc = Get-AtcGateState -Milestone $Milestone -PhaseNum $PhaseNum -Codex $Codex -Verdicts $Verdicts
+    $muda = Get-MudaGateState -Milestone $Milestone -PhaseNum $PhaseNum -Codex $Codex
+
+    Write-Host "VERIFY GATES" -NoNewline -ForegroundColor White
+    Write-Host "  " -NoNewline
+    Write-Host "last run: green done, orange running/warn, red missing/fail" -NoNewline -ForegroundColor DarkGray
+    Write-Host $CLEAR_LINE
+    Write-CompactGateRow -Name "FILES" -Cells $phaseCells -Pw $Pw
+    Write-CompactGateRow -Name "ATC" -Cells @(Get-AtcCompactGateCells -Milestone $Milestone -PhaseNum $PhaseNum -Atc $atc -Codex $Codex -Verdicts $Verdicts) -Pw $Pw
+    Write-CompactGateRow -Name "MUDA" -Cells @(Get-MudaCompactGateCells -Milestone $Milestone -PhaseNum $PhaseNum -Muda $muda) -Pw $Pw
 }
 
 function Set-MudaCellFromClass {
@@ -844,7 +1126,9 @@ function Get-AtcGateState {
         $raw = ""
         try { $raw = Get-Content $reviewFile.FullName -Raw -ErrorAction SilentlyContinue } catch {}
 
-        $cells[1].state = if ($raw -match '(?i)Claude\s*\(|\|\s*Claude\b|sgsd-code-reviewer') { "done" } else { $cells[1].state }
+        if ($raw -match '(?i)\bClaude\b|\bSonnet\b|provider:\s*claude|gsd-code-reviewer') {
+            $cells[1].state = "done"
+        }
         if ($raw -match '(?i)Codex\s*\(|\|\s*Codex\b|sgsd-codex-reviewer') {
             $cells[2].state = "done"
         }
@@ -1048,6 +1332,520 @@ function Write-GateSynopsis {
     }
 }
 
+function Quote-PowerShellLiteral {
+    param([string]$Value)
+    if ($null -eq $Value) { return "''" }
+    return "'" + ($Value -replace "'", "''") + "'"
+}
+
+function Quote-ProcessArgument {
+    param([string]$Value)
+    if ($null -eq $Value) { return '""' }
+    return '"' + ($Value -replace '"', '\"') + '"'
+}
+
+function Clean-ClaudeActionText {
+    param([string]$Text)
+    if (-not $Text) { return "" }
+    $s = "$Text"
+    $s = $s -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
+    $s = $s -replace '\s+', ' '
+    $s = $s.Trim()
+    if ($s.Length -gt 420) { $s = $s.Substring(0, 418) + ".." }
+    return $s
+}
+
+function Convert-ClaudeActionToPlain {
+    param([string]$Tool, [string]$Text)
+    $t = Clean-ClaudeActionText $Text
+    if (-not $t) { return "" }
+
+    if ($t.TrimStart().StartsWith("{")) {
+        try {
+            $j = $t | ConvertFrom-Json -ErrorAction Stop
+            if ($j.skill) {
+                $arg = if ($j.args) { Clean-ClaudeActionText "$($j.args)" } else { "" }
+                return Clean-ClaudeActionText ("used skill {0}{1}" -f $j.skill, $(if ($arg) { " - $arg" } else { "" }))
+            }
+        } catch {}
+    }
+
+    if ($Tool -match '^(Write|Read|Edit)$') {
+        $leaf = Split-Path -Leaf $t
+        $parent = Split-Path -Leaf (Split-Path -Parent $t)
+        $verb = switch ($Tool) {
+            "Write" { "wrote" }
+            "Read" { "read" }
+            "Edit" { "edited" }
+            default { "used" }
+        }
+        if ($leaf) { return "$verb $parent/$leaf" }
+    }
+    if ($Tool -eq "Bash") {
+        if ($t -match '(?i)\bgit\s+commit\b') { return "committed the current phase/checkpoint work" }
+        if ($t -match '(?i)\bgit\s+add\b') { return "staged phase artifacts for commit" }
+        if ($t -match '(?i)\bpython3?\b.*156-0[1-5]-PLAN\.md') { return "amended the Phase 156 plan files" }
+        if ($t -match '(?i)\bgrep\b|rg\s+-n|Select-String') { return "checked evidence in the phase files" }
+        if ($t -match '(?i)\bls\b|dir\b') { return "inspected project files" }
+        if ($t -match '(?i)\bcat\b|sed\b|Get-Content') { return "read project context" }
+    }
+    if ($Tool -match 'Agent|TaskCreate') { return $t }
+    if ($Tool -eq "TaskUpdate") { return "updated the visible task state" }
+    return $t
+}
+
+function Wrap-SgsdText {
+    param(
+        [string]$Text,
+        [int]$Width
+    )
+    if (-not $Text) { return @() }
+    if ($Width -lt 12) { $Width = 12 }
+    $words = @($Text -split '\s+' | Where-Object { $_ })
+    $lines = @()
+    $line = ""
+    foreach ($word in $words) {
+        while ($word.Length -gt $Width) {
+            if ($line) {
+                $lines += $line
+                $line = ""
+            }
+            $lines += $word.Substring(0, $Width)
+            $word = $word.Substring($Width)
+        }
+        if (-not $word) { continue }
+        if (-not $line) {
+            $line = $word
+        } elseif (($line.Length + 1 + $word.Length) -le $Width) {
+            $line += " " + $word
+        } else {
+            $lines += $line
+            $line = $word
+        }
+    }
+    if ($line) { $lines += $line }
+    return @($lines)
+}
+
+function Get-PhaseContextForEli5 {
+    param([string]$Milestone, [string]$PhaseNum)
+    $dir = Resolve-PhaseDir -Milestone $Milestone -PhaseNum $PhaseNum
+    $title = if ($PhaseNum) { "Phase $PhaseNum" } else { "current phase" }
+    $why = Get-PhaseGoalBrief $PhaseNum
+    if ($dir) {
+        try {
+            foreach ($filter in @("$PhaseNum-CONTEXT.md", "$PhaseNum-RESEARCH.md", "*-PLAN.md")) {
+                foreach ($file in @(Get-ChildItem -Path $dir.FullName -Filter $filter -File -ErrorAction SilentlyContinue | Sort-Object Name)) {
+                    $raw = Get-Content -LiteralPath $file.FullName -Raw -ErrorAction SilentlyContinue
+                    if (-not $raw) { continue }
+                    if ($title -eq "Phase $PhaseNum") {
+                        $hm = [regex]::Match($raw, "(?m)^#\s*Phase\s+$([regex]::Escape($PhaseNum))\s*:\s*(.+?)(?:\s+[-\u2013\u2014]\s+\w+)?\s*$")
+                        if ($hm.Success) { $title = Clean-MarkdownInline $hm.Groups[1].Value }
+                    }
+                    if (-not $why) {
+                        $sec = [regex]::Match($raw, '(?ims)^##+\s*(?:Phase\s+Boundary|Why|Goal|Objective|Purpose|Intent|Mission)\s*:?\s*\r?\n(.+?)(?=^##+\s|\z)')
+                        if ($sec.Success) {
+                            $why = Clean-MarkdownInline $sec.Groups[1].Value
+                            if ($why.Length -gt 420) { $why = $why.Substring(0, 418) + ".." }
+                        }
+                    }
+                    if ($title -ne "Phase $PhaseNum" -and $why) { break }
+                }
+                if ($title -ne "Phase $PhaseNum" -and $why) { break }
+            }
+        } catch {}
+    }
+    if (-not $why) { $why = "complete the current phase with enough evidence for SGSD to move the milestone forward" }
+    $milestoneLabel = if ($Milestone) { $Milestone } else { "current milestone" }
+    return [pscustomobject]@{
+        milestone = $milestoneLabel
+        phase = if ($PhaseNum) { "P$PhaseNum" } else { "P?" }
+        title = $title
+        why = $why
+        unlock = "$milestoneLabel close / next roadmap step"
+    }
+}
+
+function Get-VtpUsageForEli5 {
+    param([string]$Milestone, [string]$PhaseNum)
+
+    $out = [ordered]@{
+        used = $false
+        status = "missing"
+        artifact = ""
+        ageSec = $null
+        hits = $null
+        queries = $null
+        docs = @()
+        helped = @()
+    }
+
+    $dir = Resolve-PhaseDir -Milestone $Milestone -PhaseNum $PhaseNum
+    $artifact = $null
+    if ($dir) {
+        $artifact = Get-ChildItem -Path $dir.FullName -Filter "*VTP-ENRICHMENT.md" -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+    }
+    if (-not $artifact) {
+        $fallbackRoots = @((Join-Path $PlanningDir "phases"), (Join-Path $PlanningDir "milestones")) | Where-Object { Test-Path $_ }
+        foreach ($root in $fallbackRoots) {
+            $candidate = Get-ChildItem -Path $root -Recurse -Filter "*VTP-ENRICHMENT.md" -File -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending |
+                Select-Object -First 1
+            if ($candidate -and ((-not $artifact) -or $candidate.LastWriteTime -gt $artifact.LastWriteTime)) {
+                $artifact = $candidate
+            }
+        }
+    }
+
+    if ($artifact) {
+        $out.used = $true
+        $out.artifact = $artifact.FullName
+        try { $out.ageSec = [int]((Get-Date) - $artifact.LastWriteTime).TotalSeconds } catch {}
+        $raw = Get-Content -LiteralPath $artifact.FullName -Raw -ErrorAction SilentlyContinue
+        if ($raw) {
+            if ($raw -match '(?m)^vtp_status:\s*(.+)$') { $out.status = $matches[1].Trim() } else { $out.status = "present" }
+            if ($raw -match '(?m)^(?:total_hits|cumulative_hits):\s*([0-9]+)') { try { $out.hits = [int]$matches[1] } catch {} }
+            if ($raw -match '(?m)^query_count:\s*([0-9]+)') { try { $out.queries = [int]$matches[1] } catch {} }
+
+            $docs = New-Object System.Collections.Generic.List[string]
+            foreach ($line in ($raw -split "`n")) {
+                if ($line -match '\*\*([^*]+)\*\*.*`(doc:[^`]+)`') {
+                    $d = "{0} ({1})" -f (Clean-MarkdownInline $matches[1]), (Clean-MarkdownInline $matches[2])
+                    if ($d -and -not $docs.Contains($d)) { $docs.Add($d) }
+                    if ($docs.Count -ge 5) { break }
+                    continue
+                }
+                if ($line -match '`([^`]*(?:SUBSTRATE|substrate|protocol|paper)[^`]*)`') {
+                    $d = Clean-MarkdownInline $matches[1]
+                    if ($d -and -not $docs.Contains($d)) { $docs.Add($d) }
+                }
+                if ($docs.Count -ge 5) { break }
+            }
+            $out.docs = @($docs | Select-Object -First 5)
+
+            $help = New-Object System.Collections.Generic.List[string]
+            foreach ($line in ($raw -split "`n")) {
+                if ($line -match '^\s*\d+\.\s+\*\*(.+?)\*\*') {
+                    $h = Clean-MarkdownInline $matches[1]
+                    if ($h -and -not $help.Contains($h)) { $help.Add($h) }
+                }
+                if ($help.Count -ge 4) { break }
+            }
+            if ($help.Count -eq 0) {
+                foreach ($line in ($raw -split "`n")) {
+                    if ($line -match '^\|\s*\d+\s*\|\s*([^|]+)\|\s*([^|]+)\|') {
+                        $h = Clean-MarkdownInline ($matches[1] + ": " + $matches[2])
+                        if ($h -and -not $help.Contains($h)) { $help.Add($h) }
+                    }
+                    if ($help.Count -ge 4) { break }
+                }
+            }
+            $out.helped = @($help | Select-Object -First 4)
+        }
+    }
+
+    return [pscustomobject]$out
+}
+
+function Get-ClaudeActionRows {
+    param([int]$Tail = 80, [int]$MaxRows = 14)
+    $rows = @()
+    if (-not (Test-Path $ActivityLog)) { return @($rows) }
+    try {
+        $lines = @(Get-Content -LiteralPath $ActivityLog -Tail $Tail -ErrorAction SilentlyContinue)
+        [array]::Reverse($lines)
+        foreach ($line in $lines) {
+            if (-not "$line".Trim()) { continue }
+            try {
+                $e = $line | ConvertFrom-Json -ErrorAction Stop
+                $tool = "$($e.tool)"
+                $kind = "$($e.kind)"
+                $target = Clean-ClaudeActionText "$($e.target)"
+                $cmd = Clean-ClaudeActionText "$($e.command_preview)"
+                $text = if ($target) { $target } else { $cmd }
+                if (-not $text) { continue }
+                $isAgentAction = ($tool -match '^(Agent|TaskCreate)$' -or $kind -match '^(Agent|TaskCreate)$')
+                if ((-not $isAgentAction) -and "$tool $kind $text" -match '(?i)\bcodex\b|CODEX-|sgsd-watch-codex|commit-reviews\.jsonl') { continue }
+                if ($tool -match '^(Read|Write|Edit|Bash|Agent|TaskCreate|Skill|Grep|Glob|TodoWrite|TaskUpdate)$' -or $kind -match '^(Agent|TaskCreate)$') {
+                    $plain = Convert-ClaudeActionToPlain -Tool $tool -Text $text
+                    if (-not $plain) { continue }
+                    $age = $null
+                    try { $age = [int]((Get-Date) - ([DateTime]::Parse("$($e.ts)"))).TotalSeconds } catch {}
+                    $rows += [pscustomobject]@{
+                        tool = if ($tool) { $tool } elseif ($kind) { $kind } else { "Claude" }
+                        text = $text
+                        plain = $plain
+                        ageSec = $age
+                    }
+                }
+                if ($rows.Count -ge $MaxRows) { break }
+            } catch {}
+        }
+    } catch {}
+    return @($rows)
+}
+
+function Get-LocalClaudeEli5 {
+    param([object[]]$Rows, [string]$PhaseNum, $Context)
+    if (-not $Context) { $Context = Get-PhaseContextForEli5 -Milestone "" -PhaseNum $PhaseNum }
+    if (-not $Rows -or $Rows.Count -eq 0) {
+        return @(
+            "ELI5: Claude is waiting for the next visible action in $($Context.phase) $($Context.title). This phase matters because $($Context.why)",
+            "- What: no fresh Bash, Edit, Read, Skill, or Agent action has landed in the activity log yet.",
+            "- Why: SGSD needs those actions to prove the phase is actually moving, not just sitting in a checkpoint.",
+            "- Context: this work sits inside $($Context.milestone) and should unlock $($Context.unlock)."
+        )
+    }
+    $first = $Rows[0]
+    $out = @()
+    $out += ("ELI5: Claude is working inside {0} {1}. Right now it is doing the plumbing/checkpoint work around {2}, so the phase can keep moving with evidence instead of guesswork." -f $Context.phase, $Context.title, $first.plain)
+    $out += ("- What: latest action is {0}: {1}." -f $first.tool, $first.plain)
+    $out += ("- Why: {0}" -f $Context.why)
+    $out += ("- Context: this belongs to {0}; finishing it should unlock {1}." -f $Context.milestone, $Context.unlock)
+    $next = @($Rows | Select-Object -Skip 1 -First 1)
+    if ($next.Count -gt 0) {
+        $out += ("- Nearby action: {0}: {1}." -f $next[0].tool, $next[0].plain)
+    }
+    return @($out)
+}
+
+function Maybe-RefreshClaudeEli5 {
+    param([string]$PhaseNum, $Context)
+    $rows = @(Get-ClaudeActionRows)
+    if ($rows.Count -eq 0) { return }
+    if (-not $Context) { $Context = Get-PhaseContextForEli5 -Milestone "" -PhaseNum $PhaseNum }
+    $vtpUsage = Get-VtpUsageForEli5 -Milestone $Context.milestone -PhaseNum $PhaseNum
+
+    $cacheAge = $null
+    if (Test-Path $ClaudeEli5Cache) {
+        try { $cacheAge = [int]((Get-Date) - (Get-Item $ClaudeEli5Cache).LastWriteTime).TotalSeconds } catch {}
+    }
+    if ($cacheAge -ne $null -and $cacheAge -lt 45) { return }
+
+    $lock = "$ClaudeEli5Cache.lock"
+    if (Test-Path $lock) {
+        try {
+            $lockAge = [int]((Get-Date) - (Get-Item $lock).LastWriteTime).TotalSeconds
+            if ($lockAge -lt 90) { return }
+        } catch {}
+    }
+
+    $snippet = ($rows | Select-Object -First 12 | ForEach-Object {
+        $age = if ($_.ageSec -ne $null) { Format-Age $_.ageSec } else { "--" }
+        "{0} ago | {1}: {2}" -f $age, $_.tool, $_.plain
+    }) -join "`n"
+    if (-not $snippet) { return }
+
+    $vtpText = "VTP not used for this phase yet."
+    if ($vtpUsage.used) {
+        $docText = if ($vtpUsage.docs.Count -gt 0) { ($vtpUsage.docs -join "; ") } else { "document names not listed in artifact" }
+        $helpText = if ($vtpUsage.helped.Count -gt 0) { ($vtpUsage.helped -join "; ") } else { "artifact exists but no synthesis bullets were parsed" }
+        $hitText = if ($vtpUsage.hits -ne $null) { "$($vtpUsage.hits) hits" } else { "hits unknown" }
+        $vtpText = "VTP artifact: $hitText. Documents used: $docText. Helped by: $helpText."
+    }
+
+    try {
+        Set-Content -Path $lock -Value (Get-Date).ToString("o") -Encoding ascii
+        $prompt = @"
+You are a Haiku ELI5 narrator for Jack watching Claude Code inside SGSD.
+Only explain Claude actions. Do not mention Codex, ATC, MUDA, gates, budgets, or routing unless Claude is directly acting on them.
+Write a wrapped, explanatory plain-English status: what Claude is doing now, why it matters, and how it fits the current phase/milestone.
+Use the phase context below. Do not just repeat tool names.
+Answer in this exact format:
+ELI5: <2 short sentences>
+- What: <plain-English current action>
+- Why: <why this action matters for the phase>
+- Context: <how it relates to the milestone/phase>
+- Next: <likely next step or operator implication>
+
+Milestone: $($Context.milestone)
+Current phase: $($Context.phase) $($Context.title)
+Phase why: $($Context.why)
+Unlocks: $($Context.unlock)
+VTP context: $vtpText
+
+Recent Claude actions:
+$snippet
+"@
+        $promptFile = [System.IO.Path]::GetTempFileName()
+        $workerFile = [System.IO.Path]::GetTempFileName() + ".ps1"
+        Set-Content -Path $promptFile -Value $prompt -Encoding utf8
+        $worker = @"
+`$ErrorActionPreference = 'SilentlyContinue'
+try {
+    `$psi = [System.Diagnostics.ProcessStartInfo]::new()
+    `$psi.FileName = 'claude'
+    `$psi.Arguments = '--print --dangerously-skip-permissions --model claude-haiku-4-5-20251001 --tools "" --strict-mcp-config --mcp-config "{\"mcpServers\":{}}" --no-session-persistence'
+    `$psi.RedirectStandardInput = `$true
+    `$psi.RedirectStandardOutput = `$true
+    `$psi.RedirectStandardError = `$true
+    `$psi.UseShellExecute = `$false
+    `$psi.CreateNoWindow = `$true
+    `$p = [System.Diagnostics.Process]::Start(`$psi)
+    `$p.StandardInput.Write((Get-Content -LiteralPath $(Quote-PowerShellLiteral $promptFile) -Raw))
+    `$p.StandardInput.Close()
+    if (`$p.WaitForExit(45000)) {
+        `$stdout = `$p.StandardOutput.ReadToEnd().Trim()
+        if (`$stdout -and `$stdout.Length -gt 20) {
+            Set-Content -LiteralPath $(Quote-PowerShellLiteral $ClaudeEli5Cache) -Value `$stdout -Encoding utf8
+        }
+    } else {
+        try { `$p.Kill() } catch {}
+    }
+} finally {
+    Remove-Item -LiteralPath $(Quote-PowerShellLiteral $lock) -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $(Quote-PowerShellLiteral $promptFile) -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $(Quote-PowerShellLiteral $workerFile) -Force -ErrorAction SilentlyContinue
+}
+"@
+        Set-Content -Path $workerFile -Value $worker -Encoding utf8
+        $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
+        if (-not $pwsh) { $pwsh = "pwsh" }
+        $psi = [System.Diagnostics.ProcessStartInfo]::new()
+        $psi.FileName = $pwsh
+        $psi.Arguments = "-NoLogo -NoProfile -File " + (Quote-ProcessArgument $workerFile)
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        [void][System.Diagnostics.Process]::Start($psi)
+    } catch {
+        try { Remove-Item -LiteralPath $lock -Force -ErrorAction SilentlyContinue } catch {}
+    }
+}
+
+function Write-ClaudeEli5Panel {
+    param([string]$PhaseNum, [int]$Pw, [string]$Milestone = "")
+    $ctx = Get-PhaseContextForEli5 -Milestone $Milestone -PhaseNum $PhaseNum
+    $vtpUsage = Get-VtpUsageForEli5 -Milestone $Milestone -PhaseNum $PhaseNum
+    Maybe-RefreshClaudeEli5 -PhaseNum $PhaseNum -Context $ctx
+
+    Write-Host "CLAUDE ELI5" -NoNewline -ForegroundColor White
+    Write-Host "  " -NoNewline
+    Write-Host "Haiku, Claude actions only" -NoNewline -ForegroundColor DarkGray
+    Write-Host $CLEAR_LINE
+
+    $lines = @()
+    if (Test-Path $ClaudeEli5Cache) {
+        try { $lines = @(Get-Content -LiteralPath $ClaudeEli5Cache -TotalCount 8 -ErrorAction SilentlyContinue | Where-Object { "$_".Trim() }) } catch {}
+    }
+    if ($lines.Count -eq 0) {
+        $lines = @(Get-LocalClaudeEli5 -Rows @(Get-ClaudeActionRows -MaxRows 6) -PhaseNum $PhaseNum -Context $ctx)
+        Write-Host "  " -NoNewline
+        Write-Host "(Haiku refreshing; local summary shown)" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+    }
+
+    $maxLines = 14
+    $written = 0
+    foreach ($line in @($lines | Select-Object -First 8)) {
+        $clean = Clean-ClaudeActionText $line
+        if (-not $clean) { continue }
+        $color = if ($clean -match '^ELI5:') { "Yellow" } elseif ($clean -match '^-') { "Gray" } else { "White" }
+        $prefix = if ($clean -match '^-\s*') { "  " } else { "  " }
+        $textWidth = [Math]::Max(16, $Pw - 5)
+        foreach ($wrapped in @(Wrap-SgsdText -Text $clean -Width $textWidth)) {
+            if ($written -ge $maxLines) { break }
+            Write-Host $prefix -NoNewline
+            Write-Host $wrapped -NoNewline -ForegroundColor $color
+            Write-Host $CLEAR_LINE
+            $written++
+            $prefix = "    "
+        }
+        if ($written -ge $maxLines) { break }
+    }
+
+    if ($vtpUsage.used) {
+        Write-Host "  " -NoNewline
+        Write-Host "VTP USED" -NoNewline -ForegroundColor Cyan
+        $meta = @()
+        if ($vtpUsage.hits -ne $null) { $meta += "$($vtpUsage.hits) hits" }
+        if ($vtpUsage.queries -ne $null) { $meta += "$($vtpUsage.queries) queries" }
+        if ($vtpUsage.ageSec -ne $null) { $meta += (Format-Age $vtpUsage.ageSec) + " old" }
+        if ($meta.Count -gt 0) {
+            Write-Host "  " -NoNewline
+            Write-Host ($meta -join " / ") -NoNewline -ForegroundColor DarkGray
+        }
+        Write-Host $CLEAR_LINE
+
+        $docLine = if ($vtpUsage.docs.Count -gt 0) {
+            "Docs: " + (($vtpUsage.docs | Select-Object -First 3) -join "; ")
+        } else {
+            "Docs: VTP enrichment artifact present, but document names were not parsed."
+        }
+        foreach ($wrapped in @(Wrap-SgsdText -Text $docLine -Width ([Math]::Max(16, $Pw - 5)))) {
+            Write-Host "    " -NoNewline
+            Write-Host $wrapped -NoNewline -ForegroundColor Gray
+            Write-Host $CLEAR_LINE
+        }
+
+        $helpLine = if ($vtpUsage.helped.Count -gt 0) {
+            "Helped: " + (($vtpUsage.helped | Select-Object -First 3) -join "; ")
+        } else {
+            "Helped: VTP artifact exists; open it for detailed synthesis."
+        }
+        foreach ($wrapped in @(Wrap-SgsdText -Text $helpLine -Width ([Math]::Max(16, $Pw - 5)))) {
+            Write-Host "    " -NoNewline
+            Write-Host $wrapped -NoNewline -ForegroundColor DarkGray
+            Write-Host $CLEAR_LINE
+        }
+    }
+}
+
+function Render-ClaudeNowPanel {
+    param($Scope, [string]$PhaseNum, [int]$Pw)
+
+    $ts = Get-Date -Format 'HH:mm:ss'
+    $ctx = Get-PhaseContextForEli5 -Milestone $Scope.milestone -PhaseNum $PhaseNum
+    $phaseEvidence = Get-PhaseEvidenceSummary -Milestone $Scope.milestone -PhaseNum $PhaseNum
+    $codex = Get-SgsdCodexStatus -ProjectDir $ProjectDir -PlanningDir $PlanningDir
+    $verdicts = Get-SgsdCodexVerdicts -PlanningDir $PlanningDir -MaxRows 2 -MilestoneFilter $Scope.milestone -PhaseFilter $PhaseNum
+
+    Write-Host "SUPER GSD" -NoNewline -ForegroundColor Magenta
+    Write-Host " ! " -NoNewline -ForegroundColor Cyan
+    Write-Host "Claude Now" -NoNewline -ForegroundColor White
+    Write-Host "  " -NoNewline
+    Write-Host ("{0}/{1}" -f $ctx.milestone, $ctx.phase) -NoNewline -ForegroundColor Yellow
+    Write-Host "  $ts" -NoNewline -ForegroundColor DarkGray
+    Write-Host $CLEAR_LINE
+
+    Write-Host "PHASE " -NoNewline -ForegroundColor White
+    Write-Host (Trunc ("{0}  {1}" -f $ctx.phase, $ctx.title) ($Pw - 7)) -NoNewline -ForegroundColor Yellow
+    Write-Host $CLEAR_LINE
+
+    Write-Host "EVIDENCE " -NoNewline -ForegroundColor White
+    Write-Host ("[{0}] {1}/{2}" -f $phaseEvidence.bits, $phaseEvidence.done, $phaseEvidence.total) -NoNewline -ForegroundColor $(if ($phaseEvidence.done -eq $phaseEvidence.total) { "Green" } elseif ($phaseEvidence.done -gt 0) { "Yellow" } else { "DarkGray" })
+    Write-Host $CLEAR_LINE
+
+    Write-Host $CLEAR_LINE
+    Write-VerifyGatesPanel -Milestone $Scope.milestone -PhaseNum $PhaseNum -Codex $codex -Verdicts $verdicts -Pw $Pw
+
+    Write-Host $CLEAR_LINE
+    Write-ClaudeEli5Panel -PhaseNum $PhaseNum -Pw $Pw -Milestone $Scope.milestone
+
+    $rows = @(Get-ClaudeActionRows -MaxRows 4)
+    if ($rows.Count -gt 0) {
+        Write-Host $CLEAR_LINE
+        Write-Host "RECENT CLAUDE ACTIONS" -NoNewline -ForegroundColor White
+        Write-Host $CLEAR_LINE
+        foreach ($row in $rows) {
+            $age = if ($row.ageSec -ne $null) { (Format-Age $row.ageSec) + " ago" } else { "recent" }
+            $line = "{0}: {1} ({2})" -f $row.tool, $row.plain, $age
+            $first = $true
+            foreach ($wrapped in @(Wrap-SgsdText -Text $line -Width ([Math]::Max(16, $Pw - 6)) | Select-Object -First 2)) {
+                Write-Host ($(if ($first) { "  - " } else { "    " })) -NoNewline -ForegroundColor DarkGray
+                Write-Host $wrapped -NoNewline -ForegroundColor Gray
+                Write-Host $CLEAR_LINE
+                $first = $false
+            }
+        }
+    }
+
+    Write-Host $CLEAR_BELOW -NoNewline
+}
+
 function Format-CodexBlockTier {
     param([string]$Tier)
     if (-not $Tier) { return '?' }
@@ -1162,8 +1960,55 @@ function Render-CodexHistoryBlocks {
     }
 }
 
+function Get-CodexExecutorScopeLabel {
+    param($Executor, $PhaseNum)
+    if (-not $Executor) { return "no executor telemetry" }
+    if (-not $Executor.scopeCurrent -and $Executor.staleScope) {
+        return "current P$PhaseNum; last $($Executor.staleScope)"
+    }
+    if ($Executor.phase -or $Executor.plan) {
+        return (@("P$($Executor.phase)", "$($Executor.plan)") | Where-Object { $_ -and "$_".Trim() -ne "" }) -join " / "
+    }
+    return "waiting for first codex-executor run"
+}
+
+function Write-CodexExecutorLiveBlock {
+    param($Executor, $PhaseNum, $Pw, [switch]$Compact)
+
+    Write-Host "CODEX EXECUTOR LIVE" -NoNewline -ForegroundColor White
+    Write-Host $CLEAR_LINE
+    if (-not $Executor) {
+        Write-Host "  unavailable" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+        return
+    }
+
+    $age = if ($null -ne $Executor.updatedAgeSec) { Format-Age $Executor.updatedAgeSec } else { "--" }
+    $scope = Get-CodexExecutorScopeLabel -Executor $Executor -PhaseNum $PhaseNum
+    $model = "{0}/{1}" -f $(if ($Executor.model) { $Executor.model } else { "gpt-5.5" }), $(if ($Executor.reasoningEffort) { $Executor.reasoningEffort } else { "xhigh" })
+    $line = "  status={0} age={1} scope={2} model={3} runs={4}/{5}" -f $Executor.state, $age, $scope, $model, [int]$Executor.okRuns, [int]$Executor.totalRuns
+    if ($null -ne $Executor.exit) { $line += " exit=$($Executor.exit)" }
+    Write-Host (Trunc $line ($Pw - 1)) -NoNewline -ForegroundColor $Executor.stateColor
+    Write-Host $CLEAR_LINE
+
+    if ($Executor.liveTail) {
+        Write-Host "  now " -NoNewline -ForegroundColor DarkGray
+        Write-Host (Trunc "$($Executor.liveTail)" ($Pw - 7)) -NoNewline -ForegroundColor $(if ($Executor.state -eq "running") { "Yellow" } else { "Gray" })
+        Write-Host $CLEAR_LINE
+    } elseif ($Executor.state -eq "not-fired") {
+        Write-Host "  now waiting; open a tail pane with sgsd-watch-codex -OpenWindow" -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+    }
+
+    if (-not $Compact) {
+        Write-Host "  live file " -NoNewline -ForegroundColor DarkGray
+        Write-Host (Trunc "$($Executor.livePath)" ($Pw - 13)) -NoNewline -ForegroundColor DarkGray
+        Write-Host $CLEAR_LINE
+    }
+}
+
 function Render-CompactCodex {
-    param($Scope, $Codex, $Substrate, $Rows, $Verdicts, $Brief, $Savings, $PhaseNum, $Pw)
+    param($Scope, $Codex, $Executor, $Substrate, $Rows, $Verdicts, $Brief, $Savings, $PhaseNum, $Pw)
 
     $ts = Get-Date -Format 'HH:mm:ss'
     Write-Host "SUPER GSD" -NoNewline -ForegroundColor Magenta
@@ -1203,34 +2048,10 @@ function Render-CompactCodex {
     Write-Host $CLEAR_LINE
     Write-Host $CLEAR_LINE
 
-    $muda = Get-MudaGateState -Milestone $Scope.milestone -PhaseNum $PhaseNum -Codex $Codex
-    Write-GateTrack "MUDA" $muda.cells
-    Write-Host "  " -NoNewline
-    Write-Host (Trunc $muda.summary ($Pw - 3)) -NoNewline -ForegroundColor Gray
-    Write-Host $CLEAR_LINE
-    Write-Host "  " -NoNewline
-    Write-Host (Trunc $muda.details ($Pw - 3)) -NoNewline -ForegroundColor DarkGray
-    Write-Host $CLEAR_LINE
-    $mudaStats = Get-MudaStats -Milestone $Scope.milestone
-    Write-Host "  stats " -NoNewline -ForegroundColor DarkGray
-    Write-Host (Trunc (Format-MudaStatsLine $mudaStats) ($Pw - 9)) -NoNewline -ForegroundColor Gray
+    Write-CodexExecutorLiveBlock -Executor $Executor -PhaseNum $PhaseNum -Pw $Pw -Compact
     Write-Host $CLEAR_LINE
 
-    $atc = Get-AtcGateState -Milestone $Scope.milestone -PhaseNum $PhaseNum -Codex $Codex -Verdicts $Verdicts
-    Write-GateTrack "ATC" $atc.cells
-    Write-Host "  " -NoNewline
-    Write-Host (Trunc $atc.summary ($Pw - 3)) -NoNewline -ForegroundColor Gray
-    Write-Host $CLEAR_LINE
-    Write-Host "  " -NoNewline
-    Write-Host (Trunc $atc.details ($Pw - 3)) -NoNewline -ForegroundColor DarkGray
-    Write-Host $CLEAR_LINE
-    $atcStats = Get-AtcStats -Milestone $Scope.milestone
-    Write-Host "  stats " -NoNewline -ForegroundColor DarkGray
-    Write-Host (Trunc (Format-AtcStatsLine $atcStats) ($Pw - 9)) -NoNewline -ForegroundColor Gray
-    Write-Host $CLEAR_LINE
-    Write-Host $CLEAR_LINE
-
-    Write-GateSavingsBlock -Savings $Savings -PhaseNum $PhaseNum -Pw $Pw
+    Write-ClaudeEli5Panel -PhaseNum $PhaseNum -Pw $Pw -Milestone $Scope.milestone
     Write-Host $CLEAR_LINE
 
     Write-Host "CODE REVIEW BRIEF" -NoNewline -ForegroundColor White
@@ -1250,7 +2071,6 @@ function Render-CompactCodex {
     Write-Host $CLEAR_LINE
     Render-CodexHistoryBlocks -Verdicts $Verdicts -LiveCodex $Codex -ProjectName (Split-Path $ProjectDir -Leaf) -Pw $Pw -MaxBlocks 2
 
-    Write-GateSynopsis -Muda $muda -Atc $atc -PhaseNum $PhaseNum -Pw $Pw -Compact
     Write-Host $CLEAR_BELOW -NoNewline
 }
 
@@ -1267,8 +2087,13 @@ function Render {
     $ts = Get-Date -Format 'HH:mm:ss'
     $scope = Get-CurrentScope
     $phaseNum = $scope.phase
+    if ($env:SGSD_CODEX_FULL -ne "1") {
+        Render-ClaudeNowPanel -Scope $scope -PhaseNum $phaseNum -Pw $pw
+        return
+    }
     $substrate = Get-SubstrateStatus -ProjectDir $ProjectDir
     $codex = Get-SgsdCodexStatus -ProjectDir $ProjectDir -PlanningDir $PlanningDir
+    $executor = Get-SgsdCodexExecutorStatus -PlanningDir $PlanningDir -CurrentPhase $phaseNum
     $vtp = Get-SgsdVtpMcpStatus -ProjectDir $ProjectDir -PlanningDir $PlanningDir
     $rows = Get-SgsdCodexLogRows -PlanningDir $PlanningDir -MaxRows $rowLimit -PhaseFilter $phaseNum
     $verdicts = Get-SgsdCodexVerdicts -PlanningDir $PlanningDir -MaxRows $verdictLimit -MilestoneFilter $scope.milestone -PhaseFilter $phaseNum
@@ -1276,7 +2101,7 @@ function Render {
     $savings = Get-GateSavingsSnapshot -Milestone $scope.milestone -PhaseNum $phaseNum
 
     if ($ph -lt 36 -and $env:SGSD_CODEX_FULL -ne "1") {
-        Render-CompactCodex -Scope $scope -Codex $codex -Substrate $substrate -Rows $rows -Verdicts $verdicts -Brief $brief -Savings $savings -PhaseNum $phaseNum -Pw $pw
+        Render-CompactCodex -Scope $scope -Codex $codex -Executor $executor -Substrate $substrate -Rows $rows -Verdicts $verdicts -Brief $brief -Savings $savings -PhaseNum $phaseNum -Pw $pw
         return
     }
 
@@ -1332,6 +2157,8 @@ function Render {
     Write-Host "tok" -NoNewline -ForegroundColor DarkGray
     Write-Host $CLEAR_LINE
 
+    Write-CodexExecutorLiveBlock -Executor $executor -PhaseNum $phaseNum -Pw $pw
+
     $scopeParts = @($codex.phase, $codex.plan, $codex.step) | Where-Object { $_ -and "$_".Trim() -ne "" }
     Write-Host "SCOPE" -NoNewline -ForegroundColor White
     Write-Host ": " -NoNewline -ForegroundColor DarkGray
@@ -1374,34 +2201,8 @@ function Render {
     Write-Host ("[{0}] {1}/{2}" -f $phaseEvidence.bits, $phaseEvidence.done, $phaseEvidence.total) -NoNewline -ForegroundColor $(if ($phaseEvidence.done -eq $phaseEvidence.total) { "Green" } elseif ($phaseEvidence.done -gt 0) { "Yellow" } else { "DarkGray" })
     Write-Host $CLEAR_LINE
 
-    $muda = Get-MudaGateState -Milestone $scope.milestone -PhaseNum $phaseNum -Codex $codex
-    Write-GateTrack "MUDA" $muda.cells
-    Write-Host "  " -NoNewline
-    Write-Host (Trunc $muda.summary ($pw - 3)) -NoNewline -ForegroundColor Gray
     Write-Host $CLEAR_LINE
-    Write-Host "  " -NoNewline
-    Write-Host (Trunc $muda.details ($pw - 3)) -NoNewline -ForegroundColor DarkGray
-    Write-Host $CLEAR_LINE
-    $mudaStats = Get-MudaStats -Milestone $scope.milestone
-    Write-Host "  stats " -NoNewline -ForegroundColor DarkGray
-    Write-Host (Trunc (Format-MudaStatsLine $mudaStats) ($pw - 9)) -NoNewline -ForegroundColor Gray
-    Write-Host $CLEAR_LINE
-
-    $atc = Get-AtcGateState -Milestone $scope.milestone -PhaseNum $phaseNum -Codex $codex -Verdicts $verdicts
-    Write-GateTrack "ATC" $atc.cells
-    Write-Host "  " -NoNewline
-    Write-Host (Trunc $atc.summary ($pw - 3)) -NoNewline -ForegroundColor Gray
-    Write-Host $CLEAR_LINE
-    Write-Host "  " -NoNewline
-    Write-Host (Trunc $atc.details ($pw - 3)) -NoNewline -ForegroundColor DarkGray
-    Write-Host $CLEAR_LINE
-    $atcStats = Get-AtcStats -Milestone $scope.milestone
-    Write-Host "  stats " -NoNewline -ForegroundColor DarkGray
-    Write-Host (Trunc (Format-AtcStatsLine $atcStats) ($pw - 9)) -NoNewline -ForegroundColor Gray
-    Write-Host $CLEAR_LINE
-
-    Write-Host $CLEAR_LINE
-    Write-GateSavingsBlock -Savings $savings -PhaseNum $phaseNum -Pw $pw
+    Write-ClaudeEli5Panel -PhaseNum $phaseNum -Pw $pw -Milestone $scope.milestone
 
     if ($expanded) {
         Write-Host $CLEAR_LINE
@@ -1615,9 +2416,6 @@ function Render {
     Write-Host "RECENT CODEX SESSIONS" -NoNewline -ForegroundColor White
     Write-Host $CLEAR_LINE
     Render-CodexHistoryBlocks -Verdicts $verdicts -LiveCodex $codex -ProjectName (Split-Path $ProjectDir -Leaf) -Pw $pw -MaxBlocks 3
-
-    Write-Host $CLEAR_LINE
-    Write-GateSynopsis -Muda $muda -Atc $atc -PhaseNum $phaseNum -Pw $pw
 
     Write-Host $CLEAR_BELOW -NoNewline
 }

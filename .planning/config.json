@@ -190,6 +190,9 @@
   "review_providers": {
     "codex_cli_path": "auto-detect",
     "codex_enabled": true,
+    "executor_provider": "codex",
+    "codex_executor_model": "gpt-5.5",
+    "codex_executor_reasoning_effort": "xhigh",
     "codex_model": "gpt-5.5",
     "codex_qualitative_waste_enabled": true,
     "codex_reasoning_effort": "xhigh",
@@ -226,7 +229,7 @@
     },
     "challenger_mode": false,
     "empty_hit_policy": "continue",
-    "enabled": false,
+    "enabled": true,
     "granularity": "tier-based",
     "max_queries_per_gate": 5,
     "query_seed_max_tokens": 800
@@ -249,6 +252,12 @@
     "security_enforcement": true,
     "skip_discuss": false,
     "triage_vtp_enrichment": true,
-    "verifier": true
+    "verifier": true,
+    "planner_model": "opus",
+    "planner_reasoning_effort": "xhigh",
+    "plan_final_codex_review": true,
+    "plan_final_muda_review": true,
+    "auto_continue_until_roadmap_complete": true,
+    "planning_pipeline_enforced": true
   }
 }

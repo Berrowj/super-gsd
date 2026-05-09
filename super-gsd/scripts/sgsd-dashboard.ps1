@@ -391,7 +391,7 @@ function Get-CodexStats($codexLog, $milestoneStartTs) {
     return $stats
 }
 
-Clear-Host
+Write-Host "$HOME_POS$CLEAR_BELOW" -NoNewline
 $firstRun = $true
 
 # Track how many lines we wrote last iteration for proper overwrite
@@ -405,7 +405,7 @@ function W-Line {
 }
 
 while ($true) {
-    # Reset cursor to top (no Clear-Host, preserves scroll)
+    # Reset cursor to top without clearing the screen; this preserves scroll.
     try {
         if (-not $firstRun) {
             [Console]::SetCursorPosition(0, 0)
@@ -413,7 +413,7 @@ while ($true) {
         $firstRun = $false
     } catch {
         # Fallback if console doesn't support SetCursorPosition
-        Clear-Host
+        Write-Host $HOME_POS -NoNewline
     }
 
     $script:linesWritten = 0

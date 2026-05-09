@@ -1,7 +1,7 @@
 ---
 name: sgsd-orchestrate
-description: "Token-efficient autonomous orchestrator. Claude/Opus orchestrates only; all code execution is hard-routed to Codex GPT-5.5 xhigh."
-argument-hint: "[go|continue|status|next|stop]"
+description: "Token-efficient autonomous orchestrator. Claude/Opus orchestrates only; research, plan review, and code execution are hard-routed to Codex GPT-5.5 xhigh."
+argument-hint: "[go|auto|continue|status|next|stop]"
 allowed-tools:
   - Read
   - Write
@@ -21,6 +21,9 @@ result, commit, and loop. Every response includes a tool call. Text-only = loop 
 
 Commands:
 - `go` / `auto` / `continue` — Enter autonomous loop until exit condition
+- `/sgsd-orchestrate auto` is the canonical hard-loop command. Treat operator
+  variants such as `/SGSD-orchestrate auto` as the same intent; implementation
+  lookup may still require lowercase slash command names.
 - `next` — Execute ONE unit, then report and stop
 - `status` — Read state, report position, stop
 - `stop` / `pause` — Write checkpoint, stop
@@ -28,7 +31,9 @@ Commands:
 Exit conditions (ONLY these 3):
 1. Entire active roadmap has no remaining phase/milestone work after milestone
    close/advance attempts
-2. Blocker requiring human input or runtime cannot continue
+2. Board plus a separate Codex challenge cannot produce a safe local recovery
+   path because the remaining blocker is credentials, destructive ambiguity,
+   external access, or another operator-only boundary
 3. User says stop/pause
 
 Autopilot continuation rule:
@@ -39,9 +44,9 @@ Autopilot continuation rule:
   equivalent choice question while auto mode is active.
 - If a summary is useful, write it to STATE/narrative/checkpoint artifacts as
   evidence, then immediately perform the next loop tool call.
-- "Operator review" is valid only after all phases complete, when a real hard
-  stop is hit, or when the user explicitly invoked `next`, `status`, `stop`, or
-  `pause`.
+- "Operator review" is valid only after all phases complete, after the
+  board-plus-Codex recovery path is exhausted, or when the user explicitly
+  invoked `next`, `status`, `stop`, or `pause`.
 - Missing phase CONTEXT.md / "not discussed" is not a hard stop in `go` /
   `auto` / `continue`. In auto mode, synthesize the phase CONTEXT.md and
   discussion decision record from ROADMAP/STATE/checkpoint/proposal/audit
@@ -53,10 +58,39 @@ Runtime compaction and external files (`STATE.md`, `ORCHESTRATOR-CHECKPOINT.md`,
 metrics JSONL, and milestone artifacts) are the context-management mechanism.
 </objective>
 
+<blocker_recovery_hard_loop>
+## Blocker Recovery Hard Loop
+
+In auto mode, ordinary blockers do not stop the loop. If any later section says
+to halt, checkpoint, or ask the operator because Codex failed, a report was
+malformed, a plan is uncertain, context is missing, VTP is degraded, tests fail,
+or an implementation path dead-ends, run this recovery path first:
+
+1. Write a compact blocker brief under the active phase directory:
+   `{phaseDir}/{phaseNum}-BLOCKER-RECOVERY-BRIEF.md`.
+   Include the failed command/report path, attempted plan, constraints, files
+   touched, and the next desired outcome.
+2. Invoke the SGSD board via `/sgsd-deliberate {brief}` or direct board agents
+   using `super-gsd/registry/board-members.yaml`:
+   - default minimal board from `board-registry.resolveRoster(brief)`
+   - `sgsd-ceo` synthesizes the decision
+3. Write the board memo under `.planning/decisions/` or the phase directory.
+4. Send the board decision to a separate Codex challenge using
+   `super-gsd/scripts/codex-exec.sh` with `--step blocker-recovery-challenge`.
+5. Choose the safest actionable recommendation from board plus Codex, log a
+   closed-vocab recovery row to `.planning/metrics/route-decisions.jsonl`, and
+   resume the loop at the next executable step.
+
+Only after this path fails may auto mode stop for a blocker, and only when the
+remaining issue is operator-only: missing credentials, destructive ambiguity,
+external access, legal/safety boundary, or no local command/tool can progress.
+Explicit user `stop` / `pause` still wins immediately.
+</blocker_recovery_hard_loop>
+
 <auto_mode_pipeline_contract>
 ## Auto Mode Pipeline Contract
 
-When invoked as `/sgsd-orchestrate go`, `auto`, or `continue`, SGSD owns the
+When invoked as `/sgsd-orchestrate auto`, `go`, `auto`, or `continue`, SGSD owns the
 whole delivery loop. Do not stop after research, planning, plan-check,
 phase-close, milestone-close, cost summaries, or "operator review" summaries.
 Those are intermediate states.
@@ -66,15 +100,17 @@ Canonical path for each phase:
 1. Read `.planning/STATE.md`, active roadmap, checkpoint, and config.
 2. Ensure phase CONTEXT exists. In auto mode, synthesize missing context from
    roadmap/state/checkpoint/audit evidence instead of pausing for discussion.
-3. Research with `gsd-phase-researcher`.
-   - Use configured MCPs when available: VTP/private KB for prior-project,
-     book/research, business-context, and architecture precedent; Context7 /
-     Firecrawl / Exa for current library/framework docs.
-   - If an MCP is configured but unavailable in agent scope, log a degraded
-     reason and write it into the research artifact. Do not silently omit it.
+3. Research with Codex GPT-5.5/xhigh via `super-gsd/scripts/codex-exec.sh`.
+   Claude composes the research prompt and processes the report; Claude does
+   not perform phase research itself in auto mode.
+   - Use configured MCP/context artifacts when available. VTP/private KB
+     enrichment happens in Step 4, after the Codex research artifact exists.
+   - If an MCP is configured but unavailable in the current tool scope, log a
+     degraded reason and write it into the research artifact. Do not silently
+     omit it.
 4. Run VTP enrichment before planning whenever
    `.planning/config.json -> vtp_enrichment.enabled` is true.
-5. Plan with `gsd-planner` on Opus / xhigh only.
+5. Plan with `gsd-planner` on Opus 4.7 / xhigh only.
    - Planner must consume RESEARCH + VTP enrichment and may call VTP MCP itself
      for prior-memory/book/project/architecture uncertainty.
 6. Run `gsd-plan-checker`.
@@ -90,8 +126,9 @@ Canonical path for each phase:
     milestone/phase, advance and continue the same auto loop.
 
 Auto mode stop policy:
-- Stop only for: explicit user pause/stop, hard blocker/runtime cannot continue,
-  or no remaining roadmap/milestone work after close/advance checks.
+- Stop only for: explicit user pause/stop, no remaining roadmap/milestone work
+  after close/advance checks, or a blocker that remains operator-only after the
+  Blocker Recovery Hard Loop.
 - Never ask "which option?", "continue?", "plan-check now?", "read yourself?",
   or "operator review?" in auto mode. Pick the safest forward path and keep
   issuing tool calls.
@@ -335,8 +372,9 @@ Hard rules:
    with Codex anyway.
 5. Parallel executor waves must serialize. Codex CLI sessions assume exclusive
    write access to the workspace.
-6. The Claude Agent tool may still be used for non-code roles such as
-   researcher, planner, verifier, readiness, classifier, and reviewer. It must
+6. The Claude Agent tool may still be used for non-code roles such as planner,
+   verifier, readiness, classifier, board, and fallback reviewer. In auto mode,
+   phase research is Codex-first, not a Claude researcher dispatch. Claude must
    never be used for the executor role.
 
 Forbidden executor path:
@@ -376,8 +414,9 @@ Required executor path for every pending plan/task:
 
 Failure behavior:
 
-- If `codex-executor.sh` exits 3, 4, 5, or 1, halt with a hard blocker and
-  write a checkpoint. Do not fall back to Claude executor.
+- If `codex-executor.sh` exits 3, 4, 5, or 1, run the Blocker Recovery Hard
+  Loop and resume if it yields a safe local path. Do not fall back to Claude
+  executor.
 - If Codex returns a report but no files changed, process that as an executor
   report failure/blocker under the normal Step 9 path.
 - The operator can watch live Codex output at
@@ -574,14 +613,14 @@ REPEAT:
        type: "{create|modify|test}",
        keywords: "{domain keywords}"
      })
-     → Returns: { brv_queries, file_reads, error_rules, scripts_to_check }
+     → Returns: { sgsd_recall_queries, file_reads, error_rules, scripts_to_check }
      AFTER: TaskUpdate(same taskId, status: "completed")
      } // end gates.shouldFire('context-selector-haiku')
 
-  5. QUERY BYTEROVER
+  5. QUERY SGSD MEMORY
      // Gate check (Phase 10 D-03): sgsd-recall-queries fires unless classifier.complexity == trivial
      if (gates.shouldFire('sgsd-recall-queries', ctx, GATES_YAML_PATH)) {
-     For each brv_query: execute sgsd-recall → collect results (~200 tokens each)
+     For each sgsd_recall_query: execute sgsd-recall → collect results (~200 tokens each)
      For each script_to_check: search for existing utility to reuse
      Total context injection target: <1000 tokens
      } // end gates.shouldFire('sgsd-recall-queries')
@@ -629,9 +668,16 @@ REPEAT:
           ROADMAP.md, STATE.md, ORCHESTRATOR-CHECKPOINT.md, the active milestone
           proposal, implementation audit, VTP/private-KB hits if available, and
           existing code evidence. Then continue directly to Step 6.b and
-          dispatch gsd-phase-researcher.
+          dispatch Codex research.
         - Interactive / `next` mode → suggest /gsd-discuss-phase.
-     b. Phase needs RESEARCH.md → dispatch gsd-phase-researcher (Sonnet)
+     b. Phase needs RESEARCH.md → dispatch Codex research (GPT-5.5 / xhigh)
+        via `super-gsd/scripts/codex-exec.sh`.
+        Write the prompt to `{phaseDir}/{phaseNum}-CODEX-RESEARCH-PROMPT.md`
+        and the report to `{phaseDir}/{phaseNum}-RESEARCH.md`. Invoke:
+        `--step phase-research --timeout-tier analysis --phase {N}
+        --plan research --project {PROJECT_DIR}`. Claude may compose the
+        bounded prompt and normalize the report, but must not do the research
+        itself in auto mode.
      b.5 VTP ENRICHMENT GATE (Step 6.b.5) — Phase has RESEARCH.md AND config.vtp_enrichment.enabled is true →
          D-08 DEGRADED-MODE CHECK (read cached vtp_available from Step 3.7):
            if vtp_available === false:
@@ -649,8 +695,10 @@ REPEAT:
          always; tools 3+4+5 only if hits > 0), writes VTP-ENRICHMENT.md
          per D-04 shape to phaseDir (VTPE-05: always write, even on zero
          hits). Escalation:
-           on status=api_error  → EMIT BLOCKER, EXIT loop (orchestrator
-                                   halts; human restarts MCP)
+           on status=api_error  → write VTP_STATUS degraded row, run Blocker
+                                   Recovery Hard Loop if the phase cannot
+                                   safely continue without VTP; otherwise
+                                   continue to Step 6.c
            on status=empty_hit  → artifact written with empty_hit:true +
                                    rationale; continue to Step 6.c
            on status=success    → artifact written with hits; continue to
@@ -979,8 +1027,8 @@ REPEAT:
         7. Continue with the existing Step 9 and Step 9.5 pipeline for this
            report: process executor output, enforce commit discipline, run
            per-dispatch ATC on Codex's diff, log gates, then advance state.
-           If codex-executor exits non-zero, halt with checkpoint. Never fall
-           back to a Claude executor.
+           If codex-executor exits non-zero, run the Blocker Recovery Hard
+           Loop. Never fall back to a Claude executor.
 
         8. TaskUpdate completed after Step 9 and Step 9.5 finish.
 
@@ -1008,7 +1056,9 @@ REPEAT:
           --mode load
         ```
         Exit 0 → VALID: proceed to Codex executor dispatch normally.
-        Exit 2 → BLOCKED (file not found, parse error): EMIT BLOCKER. HALT. Cannot repair a missing file.
+        Exit 2 → BLOCKED (file not found, parse error): run the Blocker
+        Recovery Hard Loop. If the board plus Codex cannot reconstruct a safe
+        local plan path, then checkpoint as operator-only.
         Exit 1 → INVALID (schema errors): enter SCHEMA-FIX RETRY LOOP below.
 
      b. SCHEMA-FIX RETRY LOOP (on exit 1 only):
@@ -1770,7 +1820,7 @@ REPEAT:
   7. COMPOSE PROMPT
      Build sub-agent prompt from:
      - Task plan (compressed XML format)
-     - ByteRover query results (relevant decisions, patterns, error rules)
+     - SGSD memory query results (relevant decisions, patterns, error rules)
      - Existing scripts to reuse (if found)
      - Efficiency rules header (80 tokens)
      - Surgical constraint header (see below, ~70 tokens) — MANDATORY for every executor dispatch
@@ -1911,8 +1961,8 @@ REPEAT:
        lock in Step 6.e. The pinned model is `gpt-5.5`; pinned effort is
        `xhigh`.
      - If Codex fails, times out, violates allowed files, or has no healthy
-       provider, write a checkpoint and halt. Do not continue code execution
-       with Claude.
+       provider, run the Blocker Recovery Hard Loop. Do not continue code
+       execution with Claude.
      - If a route suggests Claude for the executor role, treat the route as
        stale and override to Codex.
 
@@ -1935,7 +1985,7 @@ REPEAT:
        "codex-executor [gpt-5.5/xhigh] P87.1 — building auth middleware"
        "gsd-planner [opus/xhigh] P87 — creating task breakdown"
        "gsd-verifier [sonnet] P87 — checking goal achievement"
-       "gsd-phase-researcher [sonnet] P87 — investigating stack"
+       "codex-research [gpt-5.5/xhigh] P87 — investigating stack"
 
      THEN: Agent(
        subagent_type: "{agent_type}",
@@ -1960,15 +2010,15 @@ REPEAT:
      - FILES_CHANGED → log for commit
      - VERIFICATION → check all passed
      - DEVIATIONS → log for phase summary
-     - BLOCKERS → if any, EXIT with blocker
-     - SCRIPTS_CREATED → curate into ByteRover script registry
+     - BLOCKERS → if any, run Blocker Recovery Hard Loop before any exit
+     - SCRIPTS_CREATED → curate into SGSD script registry
      - ONE_LINER → use in commit message
 
      PROCESS RESULT — parse all 6 sections:
        FILES_CHANGED  → stage these exact paths for git (never git add -A)
        VERIFICATION   → if any item shows ✗: log warning, continue (don't EXIT)
        DEVIATIONS     → collect; "new pattern:" prefix triggers sgsd-curate
-       BLOCKERS       → if non-empty and not "none": EXIT with blocker text
+       BLOCKERS       → if non-empty and not "none": run Blocker Recovery Hard Loop
        SCRIPTS_CREATED→ each "path | purpose | interface" line → sgsd-curate scripts/
        ONE_LINER      → use verbatim in git commit message
 
@@ -2656,7 +2706,8 @@ The `--self-test` CLI is the GATE-04 verification surface. It:
 This is the single command that satisfies GATE-04 without a separate test harness.
 
 <checkpoint_protocol>
-When user says stop/pause OR a hard blocker/runtime failure means the loop cannot continue:
+When user says stop/pause OR the Blocker Recovery Hard Loop has failed and the
+remaining issue is operator-only:
 
 **No self-estimated context halts.** The orchestrator must never estimate its
 own context percentage and stop. If the runtime compacts context, resume from
@@ -2712,12 +2763,12 @@ resume_instruction: "Enter loop at next_unit without re-briefing user"
 - {remaining phases in milestone}
 
 ## Learnings Curated
-- {patterns/decisions curated to ByteRover this session}
+- {patterns/decisions curated to SGSD memory this session}
 ```
 
-Then commit the checkpoint and STOP only for the explicit user/hard-blocker
-condition that triggered this protocol. Context pressure alone is never a
-valid trigger.
+Then commit the checkpoint and STOP only for the explicit user pause/stop or
+operator-only blocker that triggered this protocol after board plus Codex
+recovery failed. Context pressure alone is never a valid trigger.
 </checkpoint_protocol>
 
 <commit_discipline>
@@ -2732,7 +2783,8 @@ NEVER:
   - Amend a prior commit
   - Use git add . or git add -A
 
-If git commit fails: check git status, resolve conflict, retry ONCE. If still fails: EXIT with blocker.
+If git commit fails: check git status, resolve conflict, retry ONCE. If still
+fails, run the Blocker Recovery Hard Loop before deciding it is operator-only.
 </commit_discipline>
 
 <token_logging>
@@ -2781,7 +2833,8 @@ Estimation method:
    VALID text-only exits (ONLY these 3):
    a. No remaining roadmap/milestone work after close/advance checks:
       "All phases done."
-   b. Blocker requiring human/runtime cannot continue: explain blocker, stop
+   b. Operator-only blocker remains after Blocker Recovery Hard Loop: explain
+      board + Codex attempts, then stop
    c. User says stop/pause: write checkpoint, stop
    NOTHING ELSE is a valid text-only response.
 2. NEVER do heavy work yourself. Dispatch to sub-agents.
@@ -2789,18 +2842,21 @@ Estimation method:
 4. COMMIT after every unit. Uncommitted work is lost work.
 5. CURATE after every unit. Unrecorded learnings are wasted tokens.
 6. LOG tokens after every unit. Untracked spend is invisible spend.
-7. Use the RIGHT model. Haiku for classification, Sonnet for research/checking,
-   Opus/xhigh for planning, Codex GPT-5.5/xhigh for all code execution and
-   final plan ATC/MUDA review.
+7. Use the RIGHT model. Haiku for classification, Codex GPT-5.5/xhigh for
+   phase research, final plan ATC/MUDA review, and all code execution;
+   Opus 4.7/xhigh for planning; Sonnet for checking/verifier/board roles
+   unless a gate says otherwise.
 8. Sub-agent reports: 300 words MAX. If longer, the agent wasted tokens.
-9. Script reuse: ALWAYS check ByteRover before creating new utilities.
+9. Script reuse: ALWAYS check `sgsd-recall "scripts {purpose}"` before
+   creating new utilities.
 10. EXIT only for the 3 valid conditions. Never stop prematurely. Context
     percentage is not one of them; do not self-estimate or halt for it.
 11. NO OPTIONAL REVIEW PROMPTS IN AUTO MODE: If command is `go`, `auto`, or
     `continue`, never ask whether to keep going, pause, review, checkpoint, or
     proceed after a phase/milestone/cost summary. Pair the summary with the next
     Read/Agent/Bash call and continue. Choice questions are valid only for
-    `next`, `status`, `stop`, `pause`, no-remaining-roadmap-work, or a real hard stop.
+    `next`, `status`, `stop`, `pause`, no-remaining-roadmap-work, or an
+    operator-only stop after board plus Codex recovery failed.
 12. CONTEXT ACCUMULATOR: After 5 reports in active context, compress older reports to ONE_LINERs.
     Never hold full report text for more than 2 completed iterations.
 13. REPORT VALIDATION: Always check word count and section presence before parsing.
@@ -2808,7 +2864,8 @@ Estimation method:
 14. PHASE ATC GATE: After verification passes, BEFORE marking phase complete —
     run full phase-level ATC review via Step 6.5. This reviews the ENTIRE phase's
     work (all plans, all commits) as a coherent unit, NOT individual commits.
-    Classify with Haiku, review with Sonnet (gsd-code-reviewer).
+    Classify with Haiku, review through Codex-first `codex-exec.sh` via
+    `gates.resolveReviewerProvider('phase-level-ATC')`.
     Writes .planning/phases/{NN}-*/{NN}-ATC-REVIEW.md
     Critical findings + auto mode: log GATE_AUTO_HALT, write {NN}-ATC-GAP-PLAN.md,
     add an expiring DEVIATIONS entry, and do not mark the phase complete until

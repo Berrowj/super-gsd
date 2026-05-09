@@ -3,9 +3,9 @@
 # ============================================================================
 # One-command cockpit launcher. Preflights the substrate, refreshes the
 # Agents registry, then opens the three live dashboards (SGSD1/2/3) in a
-# single Windows Terminal window with three panes.
+# single Windows Terminal window with three cockpit panes.
 #
-# Falls back to three separate PowerShell windows if Windows Terminal (wt.exe)
+# Falls back to separate PowerShell windows if Windows Terminal (wt.exe)
 # is not installed.
 #
 # Usage:
@@ -16,6 +16,8 @@
 #   powershell -File super-gsd/scripts/sgsd-boot.ps1 -Claude            # also launch Claude (silent)
 #   powershell -File super-gsd/scripts/sgsd-boot.ps1 -Claude -Greet     # also launch Claude with SGSD intro
 #   powershell -File super-gsd/scripts/sgsd-boot.ps1 -Claude -Go        # also launch Claude in AUTO MODE
+#   powershell -File super-gsd/scripts/sgsd-boot.ps1 -NoCodexTail       # do not open Codex watch window
+#   powershell -File super-gsd/scripts/sgsd-boot.ps1 -RaiseCockpit      # opt in to foreground activation
 #   powershell -File super-gsd/scripts/sgsd-boot.ps1 -WatchdogRecover   # watchdog launches fresh Claude on stall
 # ============================================================================
 
@@ -29,6 +31,8 @@ param(
     [switch]$Claude,
     [switch]$Go,
     [switch]$Greet,
+    [switch]$NoCodexTail,
+    [switch]$RaiseCockpit,
     [switch]$NoWatchdog,
     [switch]$WatchdogRecover,
     [int]$WatchdogWarnMin = 20,
@@ -150,6 +154,8 @@ public static class SgsdNativeWindow {
 function Stop-CockpitWindows {
     $patterns = @(
         'SGSD-Cockpit',
+        'SGSD-Codex-Raw',
+        'SGSD-Codex-Narrator',
         'SGSD2-Codex',
         'SGSD3-Claude',
         'SGSD3-Codex',
@@ -235,7 +241,7 @@ function Stop-SgsdDashboardProcesses {
     } catch { }
 
     $projectRe = [regex]::Escape($ProjectDir)
-    $dashboardRe = 'super-gsd[\\/]scripts[\\/](sgsd-mission-control|sgsd-narrative|sgsd-codex-monitor|sgsd-dashboard-host|sgsd-autopilot-watchdog)\.ps1'
+    $dashboardRe = 'super-gsd[\\/]scripts[\\/](sgsd-mission-control|sgsd-narrative|sgsd-codex-monitor|sgsd-dashboard-host|sgsd-autopilot-watchdog|sgsd-watch-codex|sgsd-open-codex-watch)\.ps1'
     $targets = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
         Where-Object {
             $_.CommandLine -and
@@ -593,6 +599,48 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
         }
     }
 
+    # 2c. Cross-repo feature propagation guard.
+    # Safe repair refreshes global SGSD agents, legacy planning-agent SGSD
+    # contracts, and project feature defaults
+    # (Codex executor, VTP enrichment, weighted triage/context flags). It does
+    # NOT move project-local agent shadows; those are reported because they can
+    # override refined global agents.
+    $featureAudit = Join-Path $ProjectDir "super-gsd/tools/feature-propagation/audit.cjs"
+    if (Test-Path $featureAudit) {
+        $auditOut = & node $featureAudit --project-dir $ProjectDir --repair-safe --json 2>&1
+        $auditText = ($auditOut -join "`n")
+        $audit = $null
+        try { $audit = $auditText | ConvertFrom-Json } catch { }
+
+        if ($audit -and $audit.ok -eq $true) {
+            Write-Step "Feature propagation OK (Codex/VTP/CLAUDE.md/agent contracts)" "OK" Green
+        } elseif ($audit) {
+            $issueText = if ($audit.issues) { (@($audit.issues) -join ", ") } else { "unknown" }
+            Write-Step "Feature propagation drift detected" "WARN" Yellow
+            Write-Host "       issues: $issueText" -ForegroundColor DarkGray
+            if ($audit.summary -and $audit.summary.drifted_local_agent_shadows -gt 0) {
+                Write-Host "       local agent shadows drifted: $($audit.summary.drifted_local_agent_shadows) (run repair before auto mode)" -ForegroundColor DarkYellow
+            }
+            if ($audit.summary -and $audit.summary.global_legacy_agent_patch_issues -gt 0) {
+                Write-Host "       legacy planning agents missing SGSD VTP contract patches: $($audit.summary.global_legacy_agent_patch_issues)" -ForegroundColor DarkYellow
+            }
+            if ($audit.summary -and $audit.summary.stale_super_gsd_tree -eq $true) {
+                Write-Host "       stale standalone super-gsd tree detected; junction to canonical GSDedits copy" -ForegroundColor DarkYellow
+            }
+            if ($audit.summary -and $audit.summary.project_claude_md_missing -gt 0) {
+                Write-Host "       project CLAUDE.md stale: $($audit.summary.project_claude_md_missing) missing SGSD contract markers" -ForegroundColor DarkYellow
+                if ($audit.project_claude_md -and $audit.project_claude_md.missing) {
+                    Write-Host "       CLAUDE.md missing: $((@($audit.project_claude_md.missing) -join ', '))" -ForegroundColor DarkGray
+                }
+            }
+        } else {
+            Write-Step "Feature propagation audit parse failed" "WARN" Yellow
+            Write-Host "       run: node super-gsd/tools/feature-propagation/audit.cjs --project-dir '$ProjectDir'" -ForegroundColor DarkGray
+        }
+    } else {
+        Write-Step "Feature propagation audit tool missing" "WARN" Yellow
+    }
+
     # 3. curate-pipe smoke test (DLB-04 Day 0 gate)
     # Mirror sgsd-curate.sh's mode detection: if MEMORY.md exists, curate runs
     # in v1.2 mode (writes .planning/memory/architecture/patterns/ + appends
@@ -761,10 +809,47 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
                 Write-Step "Provider-health (codex) AVAILABLE [$phMode]" "OK" Green
             } else {
                 Write-Step "Provider-health (codex) UNAVAILABLE [exit $phRc] — see metrics/codex-log.jsonl" "WARN" Yellow
+        }
+    }
+
+    # Codex live watcher / narrator relay. This is the operator-side handoff
+    # surface: raw stream stays live while Haiku summarisation runs in a hidden
+    # relay worker and writes codex-eli5-relay.* under .planning/metrics.
+    $codexWatchPs = Join-Path $ScriptsDir "sgsd-watch-codex.ps1"
+    $codexWatchOpenPs = Join-Path $ScriptsDir "sgsd-open-codex-watch.ps1"
+    $watcherFiles = @($codexWatchPs, $codexWatchOpenPs)
+    $watcherMissing = @($watcherFiles | Where-Object { -not (Test-Path -LiteralPath $_) })
+    if ($watcherMissing.Count -gt 0) {
+        Write-Step "Codex watch relay missing: $($watcherMissing -join ', ')" "WARN" Yellow
+    } else {
+        $parseErrors = @()
+        foreach ($watcherFile in $watcherFiles) {
+            try {
+                $tokens = $null
+                $errors = $null
+                [System.Management.Automation.Language.Parser]::ParseFile($watcherFile, [ref]$tokens, [ref]$errors) | Out-Null
+                if ($errors -and $errors.Count -gt 0) { $parseErrors += "$watcherFile ($($errors.Count) parser errors)" }
+            } catch {
+                $parseErrors += "$watcherFile ($($_.Exception.Message))"
             }
         }
+        $watcherText = Get-Content -LiteralPath $codexWatchPs -Raw -ErrorAction SilentlyContinue
+        $relayContractOk = $watcherText -match 'NarrateWorker' -and
+            $watcherText -match 'Start-NarratorRelay' -and
+            $watcherText -match 'codex-eli5-relay' -and
+            $watcherText -match '--strict-mcp-config' -and
+            $watcherText -match '--no-session-persistence'
 
-        # Codex responsibilities — list gates whose reviewer_provider is codex-cli-reviewer.
+        if ($parseErrors.Count -gt 0) {
+            Write-Step "Codex watch relay parser errors: $($parseErrors -join '; ')" "WARN" Yellow
+        } elseif (-not $relayContractOk) {
+            Write-Step "Codex watch relay contract missing (NarrateWorker / relay / stripped Haiku flags)" "WARN" Yellow
+        } else {
+            Write-Step "Codex watch relay ready (raw + narrator handoff)" "OK" Green
+        }
+    }
+
+    # Codex responsibilities — list gates whose reviewer_provider is codex-cli-reviewer.
         # Split per-gate (lookahead at next name:) and inspect each block in
         # isolation — a single regex with .*? was crossing gate boundaries
         # when a closer gate had no reviewer_provider field.
@@ -823,6 +908,8 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
 
     if ($privateKnowledgeRoot -and (Test-Path $privateKnowledgeRoot)) {
         Write-Step "Private knowledge bank present ($privateKnowledgeRoot)" "OK" Green
+    } elseif ($vtpEnabled -and $vtpMcpConfigured) {
+        Write-Step "VTP enrichment enabled via configured MCP; private KB path not required" "OK" Green
     } elseif ($vtpEnabled) {
         Write-Step "Knowledge bank missing but enrichment is enabled — run sgsd-setup" "WARN" Yellow
     } else {
@@ -838,7 +925,8 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
     # only a disposable live cache; never canonical truth and never required.
     $contextRebuild = Join-Path $ProjectDir "super-gsd/tools/context-cache/rebuild.cjs"
     if (Test-Path $contextRebuild) {
-        $cacheOut = & node $contextRebuild --status 2>&1
+        $activePlanningDir = Join-Path $ProjectDir ".planning"
+        $cacheOut = & node $contextRebuild --status --planning-dir $activePlanningDir 2>&1
         $cacheText = ($cacheOut -join "`n")
         $cacheStatus = $null
         try { $cacheStatus = $cacheText | ConvertFrom-Json } catch { }
@@ -856,7 +944,7 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
         } elseif ($cacheStatus -and $cacheStatus.error -eq "better_sqlite3_missing") {
             Write-Step "Local context DB unavailable - run npm install" "WARN" Yellow
         } elseif ($cacheStatus -and $cacheStatus.error -eq "db_missing") {
-            $rebuildOut = & node $contextRebuild --rebuild 2>&1
+            $rebuildOut = & node $contextRebuild --rebuild --planning-dir $activePlanningDir 2>&1
             $rebuildText = ($rebuildOut -join "`n")
             $rebuildStatus = $null
             try { $rebuildStatus = $rebuildText | ConvertFrom-Json } catch { }
@@ -874,10 +962,20 @@ list items. sgsd-curate appends; sgsd-recall greps. Auto-memory reads this.
         Write-Step "Local context DB tool missing" "WARN" Yellow
     }
 
+    $redisCli = (Get-Command redis-cli -ErrorAction SilentlyContinue)
     $redisRuntime = (Get-Command redis-server -ErrorAction SilentlyContinue)
     $dockerRuntime = (Get-Command docker -ErrorAction SilentlyContinue)
-    if ($redisRuntime -or $dockerRuntime) {
-        Write-Step "Redis optional runtime available; local DB remains canonical" "OK" DarkGray
+    $redisPong = $false
+    if ($redisCli) {
+        try {
+            $redisPing = & redis-cli ping 2>$null
+            if ("$redisPing".Trim() -eq "PONG") { $redisPong = $true }
+        } catch { }
+    }
+    if ($redisPong) {
+        Write-Step "Redis active (PONG); local DB remains canonical" "OK" Green
+    } elseif ($redisRuntime -or $dockerRuntime) {
+        Write-Step "Redis available but not active; local DB/file fallback active" "OK" DarkGray
     } else {
         Write-Step "Redis optional - not installed; local DB/file fallback active" "OK" DarkGray
     }
@@ -953,9 +1051,11 @@ if ($NoOpen) {
     Write-Host "NoOpen flag set - skipping dashboard launch." -ForegroundColor DarkGray
     Write-Host ""
     Write-Host "Start manually with:"
-    Write-Host "  powershell -File super-gsd/scripts/sgsd-mission-control.ps1 -ProjectDir '$ProjectDir'"
-    Write-Host "  powershell -File super-gsd/scripts/sgsd-codex-monitor.ps1   -ProjectDir '$ProjectDir'"
-    Write-Host "  powershell -File super-gsd/scripts/sgsd-narrative.ps1       -ProjectDir '$ProjectDir'"
+    Write-Host "  powershell -NoProfile -ExecutionPolicy Bypass -File super-gsd/scripts/sgsd-mission-control.ps1 -ProjectDir '$ProjectDir'"
+    Write-Host "  powershell -NoProfile -ExecutionPolicy Bypass -File super-gsd/scripts/sgsd-codex-monitor.ps1   -ProjectDir '$ProjectDir'"
+    Write-Host "  powershell -NoProfile -ExecutionPolicy Bypass -File super-gsd/scripts/sgsd-narrative.ps1       -ProjectDir '$ProjectDir'"
+    Write-Host "  powershell -NoProfile -ExecutionPolicy Bypass -File super-gsd/scripts/sgsd-open-codex-watch.ps1 -ProjectDir '$ProjectDir'"
+    Write-Host "  powershell -NoProfile -ExecutionPolicy Bypass -File super-gsd/scripts/sgsd-watch-codex.ps1      -ProjectDir '$ProjectDir' -Narrate"
     exit 0
 }
 
@@ -967,11 +1067,47 @@ $sgsd2 = Join-Path $ScriptsDir "sgsd-codex-monitor.ps1"
 $sgsd3 = Join-Path $ScriptsDir "sgsd-narrative.ps1"
 $dashboardHost = Join-Path $ScriptsDir "sgsd-dashboard-host.ps1"
 $watchdog = Join-Path $ScriptsDir "sgsd-autopilot-watchdog.ps1"
+$codexWatch = Join-Path $ScriptsDir "sgsd-watch-codex.ps1"
+$codexWatchOpen = Join-Path $ScriptsDir "sgsd-open-codex-watch.ps1"
 
-foreach ($script in @($sgsd1, $sgsd2, $sgsd3, $dashboardHost, $watchdog)) {
+foreach ($script in @($sgsd1, $sgsd2, $sgsd3, $dashboardHost, $watchdog, $codexWatch, $codexWatchOpen)) {
     if (-not (Test-Path $script)) {
         Write-Host "  MISSING: $script" -ForegroundColor Red
         exit 5
+    }
+}
+
+function Start-CodexLiveTail {
+    if ($NoCodexTail) {
+        Write-Step "codex watch window disabled by -NoCodexTail" "WARN" Yellow
+        return
+    }
+    if (-not (Test-Path -LiteralPath $codexWatch)) {
+        Write-Step "codex watch script missing" "WARN" Yellow
+        return
+    }
+    try {
+        if ($wt -and (Test-Path -LiteralPath $codexWatchOpen)) {
+            $codexOpenArgs = @(
+                "-NoProfile",
+                "-ExecutionPolicy", "Bypass",
+                "-File", $codexWatchOpen,
+                "-ProjectDir", $ProjectDir
+            )
+            if ($RaiseCockpit) { $codexOpenArgs += "-Foreground" }
+            Start-Process powershell.exe -WindowStyle Hidden -ArgumentList $codexOpenArgs | Out-Null
+            $watchFocus = if ($RaiseCockpit) { "foreground" } else { "minimized/no-focus" }
+            Write-Step "codex watch window opened (raw + narrator relay split, $watchFocus)" "OK" Green
+        } else {
+            $watchStyle = if ($RaiseCockpit) { "Normal" } else { "Minimized" }
+            Start-Process powershell.exe -WindowStyle $watchStyle -ArgumentList "-NoExit", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $codexWatch, "-ProjectDir", $ProjectDir
+            Start-Sleep -Milliseconds 250
+            Start-Process powershell.exe -WindowStyle $watchStyle -ArgumentList "-NoExit", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $codexWatch, "-ProjectDir", $ProjectDir, "-Narrate"
+            $watchFocus = if ($RaiseCockpit) { "foreground" } else { "minimized/no-focus" }
+            Write-Step "codex watch windows opened (raw + narrator, $watchFocus)" "OK" Green
+        }
+    } catch {
+        Write-Step "codex watch window failed to open" "WARN" Yellow
     }
 }
 
@@ -1020,51 +1156,50 @@ if ($wt) {
     $psCmd = "powershell.exe"
 
     # Cockpit layout:
-    #   left-top:    SGSD1 (Mission Control)
-    #   left-bottom: SGSD3 (Claude + active agents + fitted tool stream)
-    #   right-full:  SGSD2 (Codex + gate detail)
+    #   left-top:     SGSD1 (Mission Control)
+    #   left-bottom:  SGSD3 (Claude + active agents + fitted tool stream)
+    #   right-full:   SGSD2 (Codex executor + ATC/gate/SpaceX detail)
     #
-    # Build order:
-    #   1. SGSD1 fills the tab.
-    #   2. Split right for SGSD2 at full height.
-    #   3. Return left and split SGSD1 horizontally for SGSD3.
-    #   4. Focus SGSD2 so the gate pane is active.
+    # Build order matters: create SGSD2 as the right full-height pane first,
+    # focus the first/left leaf pane directly, then split SGSD1 horizontally.
+    # `move-focus left` proved unreliable inside chained wt commands; `first`
+    # targets the original Mission Control pane regardless of split focus state.
     $launchArgs = @(
+        "-w", "new",
         "new-tab", "--title", "SGSD-Cockpit", "--startingDirectory", $ProjectDir,
         $psCmd, "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd1, "-ProjectDir", $ProjectDir, "-Name", "SGSD1-Mission-Control",
-        ";", "split-pane", "-V", "--size", "0.50", "--title", "SGSD2-Codex", "--startingDirectory", $ProjectDir,
+        ";", "split-pane", "-V", "--size", "0.55", "--title", "SGSD2-Codex", "--startingDirectory", $ProjectDir,
         $psCmd, "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd2, "-ProjectDir", $ProjectDir, "-Name", "SGSD2-Codex",
-        ";", "move-focus", "left",
+        ";", "move-focus", "first",
         ";", "split-pane", "-H", "--size", "0.50", "--title", "SGSD3-Claude+Agents", "--startingDirectory", $ProjectDir,
-        $psCmd, "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd3, "-ProjectDir", $ProjectDir, "-Name", "SGSD3-Claude+Agents",
-        ";", "move-focus", "right"
+        $psCmd, "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd3, "-ProjectDir", $ProjectDir, "-Name", "SGSD3-Claude+Agents"
     )
-
     Write-Step "Windows Terminal detected" "OK" Green
-    Write-Host "  Opening Mission + Claude stacked left, Codex full-height right..."
-    Start-Process -FilePath "wt.exe" -ArgumentList $launchArgs
+    $cockpitWindowStyle = if ($RaiseCockpit) { "Normal" } else { "Minimized" }
+    $cockpitFocus = if ($RaiseCockpit) { "foreground" } else { "minimized/no-focus" }
+    Write-Host "  Opening fresh WT window ($cockpitFocus): Mission + Claude stacked left, Codex/ATC full-height right..."
+    Start-Process -FilePath "wt.exe" -ArgumentList $launchArgs -WindowStyle $cockpitWindowStyle
     Start-Sleep -Milliseconds 500
 
-    # Raise the MRU Windows Terminal window to foreground so the new tab is
-    # actually visible. Without this, new-tab silently lands in a minimized
-    # or off-screen WT instance (confirmed failure path 2026-04-23). Uses
-    # WScript.Shell AppActivate (shipped with Windows since forever, no
-    # Add-Type needed). Non-fatal on error — tab still exists, operator can
-    # Alt+Tab to find the cockpit.
-    try {
-        $wtProc = Get-Process WindowsTerminal -ErrorAction SilentlyContinue |
-                  Where-Object { $_.MainWindowHandle -ne 0 } |
-                  Sort-Object StartTime -Descending |
-                  Select-Object -First 1
-        if ($wtProc) {
-            $shell = New-Object -ComObject WScript.Shell
-            $shell.AppActivate($wtProc.Id) | Out-Null
+    if ($RaiseCockpit) {
+        # Foreground activation is opt-in. The default boot path avoids
+        # stealing focus from the terminal where `sg` was typed.
+        try {
+            $wtProc = Get-Process WindowsTerminal -ErrorAction SilentlyContinue |
+                      Where-Object { $_.MainWindowHandle -ne 0 } |
+                      Sort-Object StartTime -Descending |
+                      Select-Object -First 1
+            if ($wtProc) {
+                $shell = New-Object -ComObject WScript.Shell
+                $shell.AppActivate($wtProc.Id) | Out-Null
+            }
+        } catch {
+            Write-Host "  (note: couldn't auto-raise WT window - Alt+Tab to SGSD-Cockpit tab)" -ForegroundColor DarkYellow
         }
-    } catch {
-        Write-Host "  (note: couldn't auto-raise WT window — Alt+Tab to SGSD-Cockpit tab)" -ForegroundColor DarkYellow
     }
     Write-Host ""
     Write-Host "Cockpit launched." -ForegroundColor Green
+    Start-CodexLiveTail
 } else {
     # Fallback - three separate PowerShell windows
     Write-Step "Windows Terminal not found - using separate PowerShell windows" "WARN" Yellow
@@ -1080,15 +1215,17 @@ if ($wt) {
 
     Start-AutopilotWatchdog
 
-    Start-Process powershell.exe -ArgumentList "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd1, "-ProjectDir", $ProjectDir, "-Name", "SGSD1-Mission-Control"
+    $dashboardWindowStyle = if ($RaiseCockpit) { "Normal" } else { "Minimized" }
+    Start-Process powershell.exe -WindowStyle $dashboardWindowStyle -ArgumentList "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd1, "-ProjectDir", $ProjectDir, "-Name", "SGSD1-Mission-Control"
     Start-Sleep -Milliseconds 300
-    Start-Process powershell.exe -ArgumentList "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd2, "-ProjectDir", $ProjectDir, "-Name", "SGSD2-Codex"
+    Start-Process powershell.exe -WindowStyle $dashboardWindowStyle -ArgumentList "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd2, "-ProjectDir", $ProjectDir, "-Name", "SGSD2-Codex"
     Start-Sleep -Milliseconds 300
-    Start-Process powershell.exe -ArgumentList "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd3, "-ProjectDir", $ProjectDir, "-Name", "SGSD3-Claude+Agents"
+    Start-Process powershell.exe -WindowStyle $dashboardWindowStyle -ArgumentList "-NoExit", "-NoProfile", "-File", $dashboardHost, "-DashboardScript", $sgsd3, "-ProjectDir", $ProjectDir, "-Name", "SGSD3-Claude+Agents"
 
     Write-Host ""
     Write-Host "Three dashboards opened in separate windows." -ForegroundColor Green
     Write-Host "Install Windows Terminal for a single-window cockpit: https://aka.ms/terminal" -ForegroundColor DarkGray
+    Start-CodexLiveTail
 }
 
 Write-Host ""
@@ -1123,7 +1260,8 @@ if ($Claude) {
         $cmdString = "Set-Location -LiteralPath '$ProjectDir'; $claudeLine"
         $desc = "Claude Code (--dangerously-skip-permissions$kickoffDesc)"
         Write-Step "launching $desc in a new window" "OK" Green
-        Start-Process powershell.exe -ArgumentList @("-NoExit", "-NoProfile", "-Command", $cmdString)
+        $claudeWindowStyle = if ($RaiseCockpit) { "Normal" } else { "Minimized" }
+        Start-Process powershell.exe -WindowStyle $claudeWindowStyle -ArgumentList @("-NoExit", "-NoProfile", "-Command", $cmdString)
     }
     Write-Host ""
 }
@@ -1137,18 +1275,18 @@ if (-not $Claude) {
     Write-Host "       sgsd -Claude -Greet   # auto-launch + Claude greets and waits for instructions" -ForegroundColor DarkGray
     Write-Host "       sgsd -Claude -Go      # auto-launch + enter AUTO MODE immediately" -ForegroundColor DarkGray
     Write-Host "  2. In Claude Code, tell it what to build (or say 'go' for AUTO MODE)."
-    Write-Host "  3. Watch the three dashboards for live state."
+    Write-Host "  3. Watch the cockpit plus the separate Codex watch window (minimized unless -RaiseCockpit was used)."
 } elseif ($Greet) {
-    Write-Host "  1. Switch to the Claude Code window that just opened."
+    Write-Host "  1. Restore/switch to the Claude Code window that just opened."
     Write-Host "  2. Claude will introduce SGSD and ask what to build — answer it."
-    Write-Host "  3. Watch the three dashboards for live state."
+    Write-Host "  3. Watch the cockpit plus the separate Codex watch window (minimized unless -RaiseCockpit was used)."
 } elseif ($Go) {
-    Write-Host "  1. Switch to the Claude Code window that just opened - AUTO MODE already engaged."
-    Write-Host "  2. Watch the three dashboards for live state."
+    Write-Host "  1. Restore/switch to the Claude Code window that just opened - AUTO MODE already engaged."
+    Write-Host "  2. Watch the cockpit plus the separate Codex watch window (minimized unless -RaiseCockpit was used)."
 } else {
-    Write-Host "  1. Switch to the Claude Code window that just opened."
+    Write-Host "  1. Restore/switch to the Claude Code window that just opened."
     Write-Host "  2. Tell it what to build (or say 'go' for AUTO MODE, or re-run with -Greet next time)."
-    Write-Host "  3. Watch the three dashboards for live state."
+    Write-Host "  3. Watch the cockpit plus the separate Codex watch window (minimized unless -RaiseCockpit was used)."
 }
 Write-Host ""
 Write-Host "  To pause anytime:  /sgsd-pause"
