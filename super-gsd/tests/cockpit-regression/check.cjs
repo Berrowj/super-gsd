@@ -182,6 +182,20 @@ function run() {
       && /EXECUTOR/.test(mission)
       && /WHY/.test(mission),
       'Mission Control lost executor route strip');
+    assert('Mission Control renders Codex executor telemetry in Codex tile',
+      /Get-SgsdCodexExecutorStatus/.test(mission)
+      && /CODEX EXECUTOR \/ REVIEW/.test(mission)
+      && /separate Codex watch window/.test(mission),
+      'Mission Control must surface codex-executor-live/log state, not only reviewer verdicts');
+    assert('Mission Control reads current milestone phase evidence from root phases and PHASE-INDEX',
+      /function Get-MilestoneRoadmapPhases/.test(mission)
+      && /function Merge-SgsdPhaseEvidence/.test(mission)
+      && /function Resolve-SgsdPhaseDir/.test(mission)
+      && /function Get-PhaseSearchRoots/.test(mission)
+      && /PHASE-INDEX\.jsonl/.test(mission)
+      && /Join-Path \$PlanningDir "phases"/.test(mission)
+      && /\(\?i\)\^\(PASS\|PASSED/.test(mission),
+      'Mission Control must not show 0/N complete when current milestone evidence lives in .planning/phases plus PHASE-INDEX');
 
     const narrative = read('super-gsd/scripts/sgsd-narrative.ps1');
     assert('Claude+Agents pane renders EXECUTOR and WHY route rows',
@@ -195,10 +209,139 @@ function run() {
       && /live activity/.test(narrative),
       'Narrative pane must not trust stale STATE.md when live activity has a newer phase');
 
+    const tabWatcher = read('super-gsd/scripts/lib/sgsd-tab-watcher.ps1');
+    assert('Tab watcher title updates use silent ST terminator, not BEL',
+      !/\[char\]7/.test(tabWatcher)
+      && /OSC 0: ESC \] 0 ; <text> ST/.test(tabWatcher)
+      && tabWatcher.includes("[char]27 + '\\')"),
+      'OSC title updates must use ST (ESC \\\\), not BEL ([char]7), to avoid audible terminal pings');
+
+    const renderCache = read('super-gsd/scripts/lib/sgsd-render-cache.ps1');
+    assert('Render cache has calm default refresh with explicit fast/slow overrides',
+      /function Get-SgsdRenderMinIntervalMs/.test(renderCache)
+      && /SGSD_COCKPIT_MIN_REFRESH_MS/.test(renderCache)
+      && /SGSD_COCKPIT_LOW_MOTION/.test(renderCache)
+      && /SGSD_COCKPIT_FAST/.test(renderCache)
+      && /5000/.test(renderCache)
+      && /8000/.test(renderCache),
+      'Cockpit redraw cadence must be configurable and default calmer than 2s');
+
+    const codexStatus = read('super-gsd/scripts/lib/sgsd-codex-status.ps1');
+    assert('Shared Codex status helper reads executor live and completion streams',
+      /function Get-SgsdCodexExecutorStatus/.test(codexStatus)
+      && /codex-executor-live\.txt/.test(codexStatus)
+      && /codex-executor-log\.jsonl/.test(codexStatus)
+      && /function Get-SgsdCodexExecutorStatusLine/.test(codexStatus),
+      'Cockpit must read executor telemetry separately from reviewer telemetry');
+    assert('Shared Codex verdict reader keeps root .planning/phases rows under milestone filtering',
+      /Root-scoped projects/.test(codexStatus)
+      && /\$src -match '\(\?i\)\[/.test(codexStatus)
+      && /milestones/.test(codexStatus)
+      && /phase filter/.test(codexStatus),
+      'Root-scoped commit-reviews.jsonl rows must survive MilestoneFilter so current ATC is visible');
+
+    assert('Codex executor running state survives long tails',
+      /TotalCount 12/.test(codexStatus)
+      && /Long runs can push the START banner out/.test(codexStatus)
+      && /Tail 160/.test(codexStatus)
+      && /\$hasStart -and -not \$hasEnd/.test(codexStatus),
+      'Executor status must read the live file header, not only the tail, or long runs look not-fired');
+
+    const codexMonitor = read('super-gsd/scripts/sgsd-codex-monitor.ps1');
+    assert('Codex monitor renders live executor block',
+      /Get-SgsdCodexExecutorStatus/.test(codexMonitor)
+      && /CODEX EXECUTOR LIVE/.test(codexMonitor)
+      && /Write-CodexExecutorLiveBlock/.test(codexMonitor),
+      'Codex monitor must show live executor activity, not only review verdicts');
+    assert('Codex monitor resolves current phase artifacts from root phases and milestone aliases',
+      /function Get-ScopeMilestoneKeys/.test(codexMonitor)
+      && /function Get-CurrentMilestonePhaseNums/.test(codexMonitor)
+      && /function Get-PhaseSearchRoots/.test(codexMonitor)
+      && /PHASE-INDEX\.jsonl/.test(codexMonitor)
+      && /Join-Path \$PlanningDir "phases"/.test(codexMonitor),
+      'Codex monitor ATC/MUDA/Gate Synopsis must find .planning/phases/<phase> artifacts for root-scoped projects');
+
+    const watchCodex = read('super-gsd/scripts/sgsd-watch-codex.ps1');
+    const profileExtensions = read('super-gsd/scripts/sgsd-profile-extensions.ps1');
+    assert('Operator can open a dedicated PowerShell Codex tail window',
+      /param\([\s\S]*\[switch\]\$OpenWindow/.test(watchCodex)
+      && /param\([\s\S]*\[switch\]\$Narrate/.test(watchCodex)
+      && /Start-SgsdBackgroundProcess/.test(watchCodex)
+      && /Resolve-PowerShellWorkerExecutable/.test(watchCodex)
+      && /Minimized/.test(watchCodex)
+      && /codex-executor-live\.txt/.test(watchCodex)
+      && /codex-live-output\.txt/.test(watchCodex)
+      && /Invoke-HaikuNarrator/.test(watchCodex)
+      && /function global:sgsd-watch-codex/.test(profileExtensions)
+      && /-OpenWindow:\$OpenWindow/.test(profileExtensions)
+      && /-Narrate:\$Narrate/.test(profileExtensions),
+      'sgsd-watch-codex must support raw tailing plus -Narrate/-OpenWindow ELI5 mode');
+
+    assert('Codex narrator wraps text and requests architecture diagrams',
+      /function Get-CodexPaneWidth/.test(watchCodex)
+      && /function Get-NarratorContentLayout/.test(watchCodex)
+      && /function Get-SgsdNarratorContext/.test(watchCodex)
+      && /function New-NarratorRawFallbackSummary/.test(watchCodex)
+      && /function Split-WrappedText/.test(watchCodex)
+      && /function Write-WrappedNarratorLine/.test(watchCodex)
+      && /function Write-NarratorHeader/.test(watchCodex)
+      && /LeftPad/.test(watchCodex)
+      && /OUT OF SYNC/.test(watchCodex)
+      && /live local fallback/.test(watchCodex)
+      && /Raw stream live/.test(watchCodex)
+      && /\[int\]\$NarrateSec = 60/.test(watchCodex)
+      && /\[int\]\$ChunkChars = 6000/.test(watchCodex)
+      && /PHASE WHY:/.test(watchCodex)
+      && /ProjectContext/.test(watchCodex)
+      && /Quote Trust Engine/.test(watchCodex)
+      && /architecture-style ASCII diagram/.test(watchCodex)
+      && /\+----------------------\+/.test(watchCodex)
+      && /Every output line must fit within/.test(watchCodex),
+      'Narrator pane must center/wrap long lines, preserve last good summaries on timeout, slow its default cadence, include phase context, and ask Haiku for boxed visual diagrams');
+
+    const boot = read('super-gsd/scripts/sgsd-boot.ps1');
+    assert('SG launch boots separate Codex watch window by default',
+      /function Start-CodexLiveTail/.test(boot)
+      && /sgsd-watch-codex\.ps1/.test(boot)
+      && /SGSD-Codex-Raw/.test(boot)
+      && /SGSD-Codex-Narrator/.test(boot)
+      && /split-pane/.test(boot)
+      && /"-Narrate"/.test(boot)
+      && /\[switch\]\$NoCodexTail/.test(boot),
+      'sgsd-boot/sg must open a separate raw+narrator Codex watch window unless -NoCodexTail is passed');
+
+    const codexExecutor = read('super-gsd/scripts/codex-executor.sh');
+    assert('Codex executor live file captures stdout and stderr',
+      /tee -a "\$LIVE_OUT" -a "\$WATCH_OUT" > "\$STDERR_TMP"/.test(codexExecutor)
+      && /tee -a "\$LIVE_OUT" -a "\$WATCH_OUT"[\s\\\n\r]*> "\$STDOUT_TMP"/.test(codexExecutor)
+      && /codex-live-output\.txt/.test(codexExecutor),
+      'Live tail must include Codex progress even when the CLI writes to stderr');
+
+    const codexReview = read('super-gsd/scripts/codex-exec.sh');
+    assert('Codex review/gate checks stream to the same live tail',
+      /codex-live-output\.txt/.test(codexReview)
+      && /codex-review START/.test(codexReview)
+      && /codex-review END/.test(codexReview)
+      && /tee -a "\$WATCH_OUT" > "\$STDERR_TMP"/.test(codexReview)
+      && /tee -a "\$WATCH_OUT"[\s\\\n\r]*> "\$STDOUT_TMP"/.test(codexReview),
+      'Codex gate/review checks must be visible in the dedicated live PowerShell tail');
+
     const ps1 = parsePowerShell('super-gsd/scripts/sgsd-mission-control.ps1');
     assert('Mission Control PowerShell parser OK', ps1.ok, ps1.stderr || ps1.stdout);
     const ps2 = parsePowerShell('super-gsd/scripts/sgsd-narrative.ps1');
     assert('Narrative PowerShell parser OK', ps2.ok, ps2.stderr || ps2.stdout);
+    const ps3 = parsePowerShell('super-gsd/scripts/lib/sgsd-tab-watcher.ps1');
+    assert('Tab watcher PowerShell parser OK', ps3.ok, ps3.stderr || ps3.stdout);
+    const ps4 = parsePowerShell('super-gsd/scripts/lib/sgsd-render-cache.ps1');
+    assert('Render cache PowerShell parser OK', ps4.ok, ps4.stderr || ps4.stdout);
+    const ps5 = parsePowerShell('super-gsd/scripts/lib/sgsd-codex-status.ps1');
+    assert('Codex status PowerShell parser OK', ps5.ok, ps5.stderr || ps5.stdout);
+    const ps6 = parsePowerShell('super-gsd/scripts/sgsd-codex-monitor.ps1');
+    assert('Codex monitor PowerShell parser OK', ps6.ok, ps6.stderr || ps6.stdout);
+    const ps7 = parsePowerShell('super-gsd/scripts/sgsd-watch-codex.ps1');
+    assert('Codex tail script PowerShell parser OK', ps7.ok, ps7.stderr || ps7.stdout);
+    const ps8 = parsePowerShell('super-gsd/scripts/sgsd-profile-extensions.ps1');
+    assert('Profile extensions PowerShell parser OK', ps8.ok, ps8.stderr || ps8.stdout);
 
     assert('cockpit-shell selfTest still passes',
       cockpitShell.selfTest() === true,

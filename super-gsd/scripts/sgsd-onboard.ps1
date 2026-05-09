@@ -14,9 +14,11 @@ param(
     [switch]$Check
 )
 
-# UTF-8 output for emoji + box-drawing
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$OutputEncoding = [System.Text.Encoding]::UTF8
+# UTF-8 output for emoji + box-drawing. Best-effort under managed CLM shells.
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+} catch {}
 
 try { $ProjectDir = (Resolve-Path -LiteralPath $ProjectDir -ErrorAction Stop).Path } catch {
     Write-Host "ERR: cannot resolve project dir '$ProjectDir'" -ForegroundColor Red

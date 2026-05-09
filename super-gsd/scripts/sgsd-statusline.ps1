@@ -24,7 +24,7 @@
 # ============================================================================
 
 $ErrorActionPreference = 'SilentlyContinue'
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
 # ─── Parse stdin JSON (Claude Code session context) ─────────────────────────
 $stdin = [Console]::In.ReadToEnd()

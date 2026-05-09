@@ -31,9 +31,12 @@ param(
     [int]$IntervalSeconds = 120
 )
 
-# UTF-8 output for OSC + emoji + box-drawing
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$OutputEncoding = [System.Text.Encoding]::UTF8
+# UTF-8 output for OSC + emoji + box-drawing. Best-effort because managed
+# ConstrainedLanguage shells reject static property setters.
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+} catch {}
 
 try { $ProjectDir = (Resolve-Path -LiteralPath $ProjectDir -ErrorAction Stop).Path } catch {}
 

@@ -4,8 +4,9 @@
 # ============================================================================
 # One shell primitive for the Codex-CLI review path: takes a prompt file,
 # pipes it on stdin to `codex exec`, wraps with GNU `timeout`, parses the
-# 5-field `code-reviewer-v1` report contract, writes the parsed report
-# atomically, and appends one provenance row to .planning/metrics/codex-log.jsonl.
+# required `code-reviewer-v1` summary fields, preserves additive
+# FINDINGS_DETAIL rows, writes the parsed report atomically, and appends one
+# provenance row to .planning/metrics/codex-log.jsonl.
 #
 # OAuth-only (D-02/D-02a): if $OPENAI_API_KEY is set the wrapper refuses to
 # run (exit 4). It does NOT unset-then-run; that would silently degrade the
@@ -37,6 +38,20 @@
 # ============================================================================
 
 set -u
+
+# SSH/non-login shells on dev boxes often skip ~/.bashrc user PATH additions.
+# Codex is installed as a user-local Node shim, so make that path deterministic
+# before probing `codex` or invoking scripts with /usr/bin/env node.
+if [[ -d "$HOME/.local/bin" ]]; then
+    PATH="$HOME/.local/bin:$PATH"
+fi
+if [[ -d "$HOME/.nvm/versions/node" ]]; then
+    SGSD_NODE_BIN="$(find "$HOME/.nvm/versions/node" -maxdepth 2 -type d -name bin 2>/dev/null | sort -V | tail -1)"
+    if [[ -n "$SGSD_NODE_BIN" ]]; then
+        PATH="$SGSD_NODE_BIN:$PATH"
+    fi
+fi
+export PATH
 
 # ── Defaults ────────────────────────────────────────────────────────────────
 PROMPT_FILE=""
@@ -592,12 +607,24 @@ START_MS="$(date +%s%3N 2>/dev/null || echo 0)"
 STDOUT_TMP="$(mktemp -t codex-stdout.XXXXXX)"
 STDERR_TMP="$(mktemp -t codex-stderr.XXXXXX)"
 trap 'rm -f "$STDOUT_TMP" "$STDERR_TMP" "${REPORT_OUT}.tmp" 2>/dev/null || true' EXIT
+WATCH_OUT="$PROJECT/.planning/metrics/codex-live-output.txt"
+mkdir -p "$(dirname "$WATCH_OUT")"
+{
+    echo ""
+    echo "============================================================"
+    echo "codex-review START  ts=$TS  phase=${PHASE_TAG:-?}  plan=${PLAN_TAG:-?}  step=${STEP_TAG:-?}"
+    echo "model=$CODEX_MODEL  effort=$CODEX_REASONING_EFFORT  timeout=${TIMEOUT}s"
+    echo "project=$CODEX_PROJECT  prompt=$PROMPT_FILE  report=$REPORT_OUT"
+    echo "============================================================"
+} >> "$WATCH_OUT"
 
 set +e
 timeout "${TIMEOUT}s" bash -c 'if [[ "$2" == "cmd" ]]; then cat "$0" | cmd.exe /c codex exec --model "$4" -c "model_reasoning_effort=\"$5\"" --sandbox read-only --ephemeral --skip-git-repo-check --cd "$1" -; else cat "$0" | "$3" exec --model "$4" -c "model_reasoning_effort=\"$5\"" --sandbox read-only --ephemeral --skip-git-repo-check --cd "$1" -; fi' \
     "$PROMPT_FILE" "$CODEX_PROJECT" "$CODEX_LAUNCHER" "$CODEX_COMMAND" "$CODEX_MODEL" "$CODEX_REASONING_EFFORT" \
-    >"$STDOUT_TMP" 2>"$STDERR_TMP"
-RC=$?
+    2> >(tee -a "$WATCH_OUT" > "$STDERR_TMP") \
+    | tee -a "$WATCH_OUT" \
+    > "$STDOUT_TMP"
+RC=${PIPESTATUS[0]}
 set -e
 
 END_MS="$(date +%s%3N 2>/dev/null || echo 0)"
@@ -606,6 +633,12 @@ if [[ "$START_MS" -gt 0 && "$END_MS" -ge "$START_MS" ]]; then
 else
     DURATION_MS=0
 fi
+{
+    echo ""
+    echo "============================================================"
+    echo "codex-review END    exit=$RC  duration=$(( DURATION_MS / 1000 ))s"
+    echo "============================================================"
+} >> "$WATCH_OUT"
 
 PROMPT_BYTES=0
 if [[ -f "$PROMPT_FILE" ]]; then
@@ -764,20 +797,38 @@ if [[ $RC -ne 0 ]]; then
     exit 1
 fi
 
-# ── Report parse (D-03) — extract the 5 fields from stdout ─────────────────
+# ── Report parse (D-03) — extract required fields + additive details ────────
 # code-reviewer-v1 contract lines:
 #   FINDINGS: ...
 #   CRITICAL: ...
 #   WARNINGS: ...
 #   PASS_RATE: ...
 #   ONE_LINER: ...
-# Take the LAST occurrence of each (codex may echo prompt). Preserve line text.
+#   FINDINGS_DETAIL: ...   (optional, repeatable, preserved)
+# Use the last FINDINGS-started contract block (codex may echo the prompt or
+# retry in stdout). Preserve line text so citations and severity tags survive.
 parsed="$(awk '
-    /^FINDINGS:/  { findings  = $0 }
-    /^CRITICAL:/  { critical  = $0 }
-    /^WARNINGS:/  { warnings  = $0 }
-    /^PASS_RATE:/ { pass_rate = $0 }
-    /^ONE_LINER:/ { one_liner = $0 }
+    /^FINDINGS:/ {
+        in_block = 1
+        findings = $0
+        critical = ""
+        warnings = ""
+        pass_rate = ""
+        one_liner = ""
+        detail = ""
+        next
+    }
+    /^CRITICAL:/  { if (in_block) critical  = $0; next }
+    /^WARNINGS:/  { if (in_block) warnings  = $0; next }
+    /^PASS_RATE:/ { if (in_block) pass_rate = $0; next }
+    /^ONE_LINER:/ { if (in_block) one_liner = $0; next }
+    /^FINDINGS_DETAIL:/ {
+        if (in_block) {
+            if (detail != "") detail = detail "\n"
+            detail = detail $0
+        }
+        next
+    }
     END {
         if (findings == "" || critical == "" || warnings == "" || pass_rate == "" || one_liner == "") {
             # Print a machine marker on stderr so the wrapper can detect missing fields.
@@ -789,6 +840,7 @@ parsed="$(awk '
         print warnings
         print pass_rate
         print one_liner
+        if (detail != "") print detail
     }
 ' "$STDOUT_TMP" 2>/dev/null)"
 awk_rc=$?

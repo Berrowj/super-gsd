@@ -99,6 +99,7 @@ var PROBE_NAMES = Object.freeze([
   'better_sqlite3_optional',
   'planning_dir_present',
   'super_gsd_tree_present',
+  'feature_propagation_optional',
 ]);
 
 var SOURCE_VALUES = Object.freeze(['present', 'missing', 'optional']);
@@ -381,6 +382,33 @@ function _probeSuperGsdTreePresent(opts) {
   }
 }
 
+function _probeFeaturePropagationOptional(opts) {
+  try {
+    var root = _resolveProjectRoot(opts);
+    var p = path.join(root, 'super-gsd', 'tools', 'feature-propagation', 'audit.cjs');
+    if (!fs.existsSync(p)) {
+      return _mkProbe('feature_propagation_optional', false, null,
+        'optional', 'optional_module_missing');
+    }
+    var audit = require(p);
+    if (!audit || typeof audit.runAudit !== 'function') {
+      return _mkProbe('feature_propagation_optional', false, p,
+        'optional', 'optional_module_missing');
+    }
+    var snap = audit.runAudit({ projectDir: root });
+    var issueCount = (snap && Array.isArray(snap.issues)) ? snap.issues.length : -1;
+    if (snap && snap.ok === true) {
+      return _mkProbe('feature_propagation_optional', true,
+        'issues=0', 'present', 'read_only_filesystem_probe');
+    }
+    return _mkProbe('feature_propagation_optional', false,
+      'issues=' + issueCount, 'optional', 'read_only_filesystem_probe');
+  } catch (_e) {
+    return _mkProbe('feature_propagation_optional', false, null,
+      'optional', 'probe_internal_error_degraded');
+  }
+}
+
 // ---------------------------------------------------------------------------
 // PROBE DISPATCH
 // ---------------------------------------------------------------------------
@@ -398,6 +426,7 @@ function _runOneProbe(name, opts) {
     case 'better_sqlite3_optional': return _probeBetterSqlite3Optional();
     case 'planning_dir_present':    return _probePlanningDirPresent(opts);
     case 'super_gsd_tree_present':  return _probeSuperGsdTreePresent(opts);
+    case 'feature_propagation_optional': return _probeFeaturePropagationOptional(opts);
     default:
       return _mkProbe(name, false, null, 'missing', 'probe_internal_error_degraded');
   }

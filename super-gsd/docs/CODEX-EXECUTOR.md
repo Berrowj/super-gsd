@@ -47,65 +47,90 @@ Codex will:
 4. Write a free-form report to `--report-out` (its stdout)
 5. JSONL-log to `.planning/metrics/codex-executor-log.jsonl`
 
-## Orchestrator integration (future phase)
+## Orchestrator integration
 
-Today the SGSD orchestrator dispatches executor work via:
-```
-Agent(subagent_type: "gsd-executor", model: "sonnet", ...)
-```
+This SGSD install is hardwired so Claude/Opus orchestrates only and all
+code-mutating executor work runs through `codex-executor.sh`.
 
-To route to Codex instead, the orchestrator needs to:
+Now the orchestrator must:
 
-1. Read `.planning/config.json → review_providers.executor_provider`
-2. If `"codex"`: invoke via Bash (`codex-executor.sh ...`), then read the
-   report file
-3. If `"claude"` (default): existing Agent() path
+1. Write the executor prompt to `{phaseDir}/{planId}-CODEX-EXECUTOR-PROMPT.md`
+2. Invoke `codex-executor.sh` via Bash
+3. Read `{phaseDir}/{planId}-CODEX-EXECUTOR-REPORT.md`
+4. Process that report through the normal Step 9 and Step 9.5 commit/gate path
 
-That routing change is a real modification to `super-gsd/skills/sgsd-orchestrate/SKILL.md`
-and is scheduled as its own phase. Until then, operators can manually invoke
-`codex-executor.sh` for individual executor dispatches as shown above.
+There is no Claude executor fallback. If Codex fails, the orchestrator writes a
+checkpoint and halts with a blocker.
 
 ## Config schema
 
-Add to `.planning/config.json` to pin Codex executor settings (defaults shown):
+Optional visible project hint:
 
 ```json
 {
   "review_providers": {
-    "executor_provider": "claude",
+    "executor_provider": "codex",
     "codex_executor_model": "gpt-5.5",
     "codex_executor_reasoning_effort": "xhigh"
   }
 }
 ```
 
-Set `executor_provider: "codex"` once the SKILL.md routing change ships.
-The `codex_executor_*` overrides are read by the wrapper today and let you
-A/B different reasoning levels (`low` / `medium` / `high` / `xhigh`).
+`executor_provider` is retained only as a visible project hint. The wrapper does
+not read model/effort overrides. Executor runtime is pinned to:
+
+- model: `gpt-5.5`
+- reasoning effort: `xhigh`
 
 ## Live monitoring (operator-side)
 
-While Codex executes, its stdout is `tee`'d to a stable per-project file at
-`.planning/metrics/codex-executor-live.txt`. The wrapper writes a START
-banner, lets codex output flow through, then writes an END banner with exit
-code + duration. The file is overwritten each invocation so a single pane
-can follow every codex executor session.
+While Codex executes, its stdout/stderr is `tee`'d to:
 
-Open a separate PowerShell pane (or new Warp tab) cd'd into the project
-root and run:
+- `.planning/metrics/codex-executor-live.txt` for cockpit executor status.
+- `.planning/metrics/codex-live-output.txt` for the dedicated operator tail.
+
+Codex gate/review checks also append stdout/stderr to
+`.planning/metrics/codex-live-output.txt`, so one PowerShell window follows
+both executor work and gate checking.
+
+`sg` opens a separate Codex watch window by default. That window is split into
+the raw Codex stream and a Claude Haiku ELI5 narrator. The narrator reads the
+combined live file and asks Haiku for a bounded summary with boxed
+architecture-style ASCII diagrams. The narrator renderer centers the summary as
+a readable column and wraps prose to the current pane width so long filenames,
+risks, and next-action lines remain visible instead of disappearing off the
+right edge. By default, narration refreshes every 60 seconds over the last 6000
+characters of Codex output to keep token spend and visual churn under control.
+The prompt includes the active SGSD phase/plan context and requires a `PHASE
+WHY` section, so summaries explain how a test, hook, or module affects the Quote
+Trust Engine rather than only describing the file edit.
+
+Open the same narrated view manually from any SGSD project tab:
 
 ```powershell
-Get-Content -Wait C:\Users\jack.berrow\project-clarity-erp\.planning\metrics\codex-executor-live.txt
+sgsd-watch-codex -Narrate
 ```
 
-That tails the file forever. While codex is running, you'll see its tool
+Open it in a separate PowerShell window:
+
+```powershell
+sgsd-watch-codex -OpenWindow -Narrate
+```
+
+Raw tail mode remains available:
+
+```powershell
+sgsd-watch-codex
+```
+
+The raw tail follows the combined live file forever. While Codex is running, you'll see its tool
 calls / reasoning / file edits stream in real time. Between sessions the
 file holds the last codex run's output. Press `Ctrl+C` to exit the tail.
 
 POSIX equivalent (Git Bash / WSL):
 
 ```bash
-tail -F project-clarity-erp/.planning/metrics/codex-executor-live.txt
+tail -F project-clarity-erp/.planning/metrics/codex-live-output.txt
 ```
 
 The orchestrator (Claude Code) sees no streaming output — the `Bash()` call

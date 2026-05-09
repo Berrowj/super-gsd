@@ -1,5 +1,5 @@
 # =============================================================================
-# SGSD Cockpit Only — Warp Launch Configuration Template
+# SGSD Cockpit Only - Warp Launch Configuration Template
 #
 # Phase 78-01 deliverable. Lighter-weight workspace: just the 3 cockpit
 # panes (mission-control / narrative / codex-monitor) + a shell. No
@@ -22,27 +22,27 @@
 name: SGSD Cockpit Only
 windows:
   - tabs:
-      - title: "📊 Cockpit"
+      - title: "Cockpit"
         color: yellow
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:
             - exec: |-
-                powershell -NoExit -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\lib\sgsd-tab-init.ps1' -Role 'cockpit' -ProjectDir 'C:\Users\jack.berrow\GSDedits'; sgsd"
+                powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\lib\sgsd-tab-init.ps1' -Role 'cockpit' -ProjectDir 'C:\Users\jack.berrow\GSDedits'; sgsd"
         split_direction: vertical
         panes:
           - cwd: C:\Users\jack.berrow\GSDedits
             commands:
               - exec: |-
-                  powershell -NoExit -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'Narrative pane. Will populate when SGSD is active.' -ForegroundColor Cyan"
+                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'Narrative pane. Will populate when SGSD is active.' -ForegroundColor Cyan"
           - cwd: C:\Users\jack.berrow\GSDedits
             commands:
               - exec: |-
-                  powershell -NoExit -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'Codex/Gate monitor pane. Try: SGSD: Codex Status from Command Search.' -ForegroundColor Cyan"
-      - title: "📊 Shell"
+                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'Codex/Gate monitor pane. Try: SGSD: Codex Status from Command Search.' -ForegroundColor Cyan"
+      - title: "Shell"
         color: yellow
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:
             - exec: |-
-                powershell -NoExit -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'"
+                powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'"

@@ -325,10 +325,34 @@ function Get-CachedTail($path, $count) {
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 function Get-PaneWidth {
+    try {
+        $sttySize = (& sh -lc 'stty size 2>/dev/null' | Select-Object -First 1)
+        if ("$sttySize" -match '^\s*[0-9]+\s+([0-9]+)\s*$' -and [int]$matches[1] -gt 20) { return ([int]$matches[1] - 1) }
+    } catch {}
+    try {
+        $tmuxWidth = if ($env:TMUX_PANE) {
+            & tmux display-message -p -t $env:TMUX_PANE '#{pane_width}' 2>$null | Select-Object -First 1
+        } else {
+            & tmux display-message -p '#{pane_width}' 2>$null | Select-Object -First 1
+        }
+        if ("$tmuxWidth" -match '^[0-9]+$' -and [int]$tmuxWidth -gt 20) { return ([int]$tmuxWidth - 1) }
+    } catch {}
     try { return [Console]::WindowWidth - 1 } catch { return 50 }
 }
 
 function Get-PaneHeight {
+    try {
+        $sttySize = (& sh -lc 'stty size 2>/dev/null' | Select-Object -First 1)
+        if ("$sttySize" -match '^\s*([0-9]+)\s+[0-9]+\s*$' -and [int]$matches[1] -gt 8) { return [int]$matches[1] }
+    } catch {}
+    try {
+        $tmuxHeight = if ($env:TMUX_PANE) {
+            & tmux display-message -p -t $env:TMUX_PANE '#{pane_height}' 2>$null | Select-Object -First 1
+        } else {
+            & tmux display-message -p '#{pane_height}' 2>$null | Select-Object -First 1
+        }
+        if ("$tmuxHeight" -match '^[0-9]+$' -and [int]$tmuxHeight -gt 8) { return [int]$tmuxHeight }
+    } catch {}
     try { return [Console]::WindowHeight } catch { return 30 }
 }
 
@@ -767,13 +791,20 @@ function Resolve-LivePhaseNumber {
     param([string]$PhaseNum)
     if (-not $PhaseNum) { return $null }
     try {
+        $roots = @()
+        $rootPhases = Join-Path $PlanningDir "phases"
+        if (Test-Path -LiteralPath $rootPhases) { $roots += $rootPhases }
         $milestonesRoot = Join-Path $PlanningDir "milestones"
-        if (-not (Test-Path $milestonesRoot)) { return $null }
-        $hits = @(Get-ChildItem -Path $milestonesRoot -Directory -ErrorAction SilentlyContinue |
+        if (Test-Path $milestonesRoot) {
+            $roots += @(Get-ChildItem -Path $milestonesRoot -Directory -ErrorAction SilentlyContinue |
+                ForEach-Object {
+                    $phaseRoot = Join-Path $_.FullName "phases"
+                    if (Test-Path $phaseRoot) { $phaseRoot }
+                })
+        }
+        $hits = @($roots |
             ForEach-Object {
-                $phaseRoot = Join-Path $_.FullName "phases"
-                if (-not (Test-Path $phaseRoot)) { return }
-                Get-ChildItem -Path $phaseRoot -Directory -ErrorAction SilentlyContinue |
+                Get-ChildItem -Path $_ -Directory -ErrorAction SilentlyContinue |
                     Where-Object { $_.Name -match "^$([regex]::Escape($PhaseNum))(?:-|$)" }
             } |
             Sort-Object LastWriteTime -Descending)
@@ -781,8 +812,10 @@ function Resolve-LivePhaseNumber {
         $d = $hits[0]
         $slug = ($d.Name -replace "^[0-9]+-", "") -replace "-", " "
         $name = (Get-Culture).TextInfo.ToTitleCase($slug)
+        $stateFile = Join-Path $PlanningDir "STATE.md"
+        $milestone = if ($d.FullName -match '(?i)[\\/]milestones[\\/]([^\\/]+)[\\/]phases[\\/]') { $matches[1] } else { Get-Frontmatter $stateFile "milestone" }
         return [pscustomobject]@{
-            milestone = $d.Parent.Parent.Name
+            milestone = $milestone
             phase     = $PhaseNum
             phaseName = $name
         }
@@ -805,7 +838,7 @@ function Get-LivePhaseHint {
                 if ($age -ne $null -and $age -gt $MaxAgeSec) { continue }
                 foreach ($text in @("$($e.target)", "$($e.command_preview)")) {
                     if (-not $text) { continue }
-                    $m = [regex]::Match($text, '(?i)(?:^|[\\/])\.planning[\\/]milestones[\\/](v[0-9]+(?:\.[0-9]+)?)[\\/]phases[\\/]([0-9]+)-([^\\/"\s]+)')
+                    $m = [regex]::Match($text, '(?i)(?:^|[\\/])\.planning[\\/]milestones[\\/]([^\\/]+)[\\/]phases[\\/]([0-9]+)-([^\\/"\s]+)')
                     if ($m.Success) {
                         $slug = ($m.Groups[3].Value -replace '-', ' ')
                         $name = (Get-Culture).TextInfo.ToTitleCase($slug)
@@ -815,6 +848,19 @@ function Get-LivePhaseHint {
                             phaseName = $name
                             ageSec    = $age
                             source    = "activity-log target path"
+                        }
+                    }
+                    $rm = [regex]::Match($text, '(?i)(?:^|[\\/])\.planning[\\/]phases[\\/]([0-9]+)-([^\\/"\s]+)')
+                    if ($rm.Success) {
+                        $slug = ($rm.Groups[2].Value -replace '-', ' ')
+                        $name = (Get-Culture).TextInfo.ToTitleCase($slug)
+                        $stateFile = Join-Path $PlanningDir "STATE.md"
+                        return [pscustomobject]@{
+                            milestone = Get-Frontmatter $stateFile "milestone"
+                            phase     = $rm.Groups[1].Value
+                            phaseName = $name
+                            ageSec    = $age
+                            source    = "activity-log root phase path"
                         }
                     }
                     $pm = [regex]::Match($text, '(?i)\b(?:Phase\s*|P)([0-9]{1,3})\b')
@@ -902,9 +948,164 @@ function Get-RoadmapAgentMilestonePhases {
     return @($out)
 }
 
+function Get-SgsdMilestoneKeys {
+    param([string]$Milestone)
+    $keys = @()
+    if ($Milestone) { $keys += "$Milestone" }
+    $stateFile = Join-Path $PlanningDir "STATE.md"
+    if (Test-Path -LiteralPath $stateFile) {
+        try {
+            foreach ($line in (Get-Content -LiteralPath $stateFile -TotalCount 100 -ErrorAction SilentlyContinue)) {
+                if ($line -match '^(?:milestone|alias|current_milestone):\s*(.+)$') {
+                    $keys += $matches[1].Trim().Trim('"', "'")
+                }
+            }
+        } catch {}
+    }
+    return @($keys | Where-Object { $_ -and "$_".Trim() } | Select-Object -Unique)
+}
+
+function Get-MilestoneRoadmapPhases {
+    param([string]$Milestone)
+    foreach ($key in @(Get-SgsdMilestoneKeys -Milestone $Milestone)) {
+        $milestoneRoadmap = Join-Path $PlanningDir "milestones\$key\ROADMAP.md"
+        if (-not (Test-Path -LiteralPath $milestoneRoadmap)) { continue }
+        try {
+            $msContent = Get-Content -LiteralPath $milestoneRoadmap -Raw -ErrorAction SilentlyContinue
+            if (-not $msContent) { continue }
+            $seen = @{}
+            $tmp = @()
+            $rxMs = [regex]'(?m)^\s*-\s*\[(x| )\]\s*\*{0,2}Phase\s+(\d+(?:\.\d+)?):\s*\*{0,2}(.+?)\*{0,2}\s*$'
+            foreach ($m in $rxMs.Matches($msContent)) {
+                $num = $m.Groups[2].Value
+                if ($seen.ContainsKey($num)) { continue }
+                $seen[$num] = $true
+                $name = $m.Groups[3].Value.Trim()
+                $name = $name -replace '\s*\*+\s*$', '' -replace '^\s*\*+\s*', ''
+                if ($name -match '^(.+?)\s*(?:[-\u2013\u2014]|\(completed|\*\*)') { $name = $matches[1].Trim() }
+                $tmp += @{ num = $num; name = $name; done = ($m.Groups[1].Value -eq "x") }
+            }
+            if ($tmp.Count -gt 0) { return @($tmp | Sort-Object { [double]$_.num }) }
+        } catch {}
+    }
+    return @()
+}
+
+function Get-PhaseSearchRoots {
+    param([string]$Milestone)
+    $seen = @{}
+    $roots = @()
+    foreach ($key in @(Get-SgsdMilestoneKeys -Milestone $Milestone)) {
+        $p = Join-Path $PlanningDir "milestones\$key\phases"
+        if (Test-Path -LiteralPath $p) {
+            $resolved = (Resolve-Path -LiteralPath $p).Path
+            if (-not $seen.ContainsKey($resolved)) {
+                $seen[$resolved] = $true
+                $roots += $resolved
+            }
+        }
+    }
+    $rootPhases = Join-Path $PlanningDir "phases"
+    if (Test-Path -LiteralPath $rootPhases) {
+        $resolved = (Resolve-Path -LiteralPath $rootPhases).Path
+        if (-not $seen.ContainsKey($resolved)) {
+            $seen[$resolved] = $true
+            $roots += $resolved
+        }
+    }
+    return @($roots)
+}
+
+function Resolve-SgsdPhaseDir {
+    param([string]$PhaseNum, [string]$Milestone)
+    if (-not $PhaseNum) { return $null }
+    $hits = @()
+    foreach ($root in @(Get-PhaseSearchRoots -Milestone $Milestone)) {
+        $hits += Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -eq "$PhaseNum" -or $_.Name.StartsWith("$PhaseNum-") }
+    }
+    return @($hits | Sort-Object LastWriteTime -Descending | Select-Object -First 1)
+}
+
+function Get-PhaseIndexDoneMap {
+    param([string]$Milestone)
+    $done = @{}
+    foreach ($key in @(Get-SgsdMilestoneKeys -Milestone $Milestone)) {
+        $index = Join-Path $PlanningDir "milestones\$key\PHASE-INDEX.jsonl"
+        if (-not (Test-Path -LiteralPath $index)) { continue }
+        try {
+            foreach ($line in (Get-Content -LiteralPath $index -ErrorAction SilentlyContinue)) {
+                if (-not "$line".Trim()) { continue }
+                try {
+                    $row = $line | ConvertFrom-Json -ErrorAction Stop
+                    $phase = "$($row.phase)"
+                    if ($phase -match '^[0-9]+$' -and "$($row.status)" -match '(?i)^(PASS|COMPLETE|CLOSED|SHIPPED)') {
+                        $done[$phase] = $true
+                    }
+                } catch {}
+            }
+        } catch {}
+    }
+    return $done
+}
+
+function Test-SgsdPhaseDone {
+    param([string]$PhaseNum, [string]$Milestone)
+    if (-not $PhaseNum) { return $false }
+    $indexDone = Get-PhaseIndexDoneMap -Milestone $Milestone
+    if ($indexDone.ContainsKey($PhaseNum)) { return $true }
+
+    $stateFile = Join-Path $PlanningDir "STATE.md"
+    if (Test-Path -LiteralPath $stateFile) {
+        try {
+            $raw = Get-Content -LiteralPath $stateFile -Raw -ErrorAction SilentlyContinue
+            if ($raw -match "(?m)^phase_$([regex]::Escape($PhaseNum))_(?:capsule|verification_doc|atc_review_doc):") {
+                return $true
+            }
+        } catch {}
+    }
+
+    $dir = Resolve-SgsdPhaseDir -PhaseNum $PhaseNum -Milestone $Milestone
+    if (-not $dir) { return $false }
+    $capsule = Join-Path $dir.FullName "PHASE-CAPSULE.json"
+    if (Test-Path -LiteralPath $capsule) {
+        try {
+            $cap = Get-Content -LiteralPath $capsule -Raw -ErrorAction SilentlyContinue
+            if ($cap -match '(?i)"status"\s*:\s*"(PASS|COMPLETE|CLOSED|SHIPPED)"') { return $true }
+        } catch {}
+        return $true
+    }
+    $verification = Get-ChildItem -Path $dir.FullName -Filter "*-VERIFICATION.md" -File -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($verification) {
+        $vStatus = Get-Frontmatter $verification.FullName "status"
+        if ("$vStatus" -match '(?i)^(PASS|PASSED|PASS-WITH-DEFERRED|CANDIDATE-WITH-DEBT|CANDIDATE|COMPLETE|CLOSED)') { return $true }
+        try {
+            $vHead = Get-Content -LiteralPath $verification.FullName -TotalCount 40 -ErrorAction SilentlyContinue
+            if (($vHead -join "`n") -match '(?i)\b(Status:\s*)?PASS(?:ED)?\b') { return $true }
+        } catch {}
+    }
+    return $false
+}
+
+function Merge-SgsdPhaseEvidence {
+    param([object[]]$Phases, [string]$Milestone)
+    $out = @()
+    foreach ($p in @($Phases)) {
+        if (-not $p.num) { continue }
+        $out += @{
+            num  = "$($p.num)"
+            name = if ($p.name) { "$($p.name)" } else { "Phase $($p.num)" }
+            done = ([bool]$p.done -or (Test-SgsdPhaseDone -PhaseNum "$($p.num)" -Milestone $Milestone))
+        }
+    }
+    return @($out | Sort-Object { [double]$_.num })
+}
+
 function Get-RoadmapPhases($milestone) {
     $phasesRoot = if ($milestone) { Join-Path $PlanningDir "milestones\$milestone\phases" } else { "" }
     $roadmapPhases = @(Get-RoadmapAgentMilestonePhases $milestone)
+    $milestoneRoadmapPhases = @(Get-MilestoneRoadmapPhases $milestone)
+    if ($milestoneRoadmapPhases.Count -gt 0) { $roadmapPhases = $milestoneRoadmapPhases }
 
     # Also try milestone-specific ROADMAP.md (.planning/milestones/<m>/ROADMAP.md).
     # This lets /sgsd-onboard scaffold a per-milestone roadmap that the cockpit
@@ -965,9 +1166,9 @@ function Get-RoadmapPhases($milestone) {
             }
         } catch {}
         $phaseList = @($phaseByNum.Values)
-        if ($phaseList.Count -gt 0) { return @($phaseList | Sort-Object { [double]$_.num }) }
+        if ($phaseList.Count -gt 0) { return @(Merge-SgsdPhaseEvidence -Phases $phaseList -Milestone $milestone) }
     }
-    if ($roadmapPhases.Count -gt 0) { return @($roadmapPhases | Sort-Object { [double]$_.num }) }
+    if ($roadmapPhases.Count -gt 0) { return @(Merge-SgsdPhaseEvidence -Phases $roadmapPhases -Milestone $milestone) }
 
     # Returns array of @{ num; name; done } extracted from ROADMAP.md.
     # Strategy: the SUMMARY LIST (with `- [x] **Phase N: title**` markdown) is the
@@ -1019,7 +1220,7 @@ function Get-RoadmapPhases($milestone) {
             }
         }
     }
-    if ($phases.Count -gt 0) { return @($phases | Sort-Object { [double]$_.num }) }
+    if ($phases.Count -gt 0) { return @(Merge-SgsdPhaseEvidence -Phases $phases -Milestone $milestone) }
 
     # Last-resort: STATE.md frontmatter fallback. When no roadmap file exists
     # at all (or the root ROADMAP.md is from a previous milestone leaving us
@@ -1061,21 +1262,7 @@ function Get-RoadmapPhases($milestone) {
 }
 
 function Get-ActivePhaseDir($phaseNum, $milestone) {
-    $phasesDir = if ($milestone) {
-        Join-Path $PlanningDir "milestones\$milestone\phases"
-    } else {
-        Join-Path $PlanningDir "phases"
-    }
-    if (-not (Test-Path $phasesDir)) {
-        $phasesDir = Join-Path $PlanningDir "phases"
-    }
-    if (-not (Test-Path $phasesDir)) { return $null }
-    try {
-        $d = Get-ChildItem -Path $phasesDir -Directory -ErrorAction SilentlyContinue |
-             Where-Object { $_.Name -eq "$phaseNum" -or $_.Name.StartsWith("$phaseNum-") } |
-             Select-Object -First 1
-        return $d
-    } catch { return $null }
+    return Resolve-SgsdPhaseDir -PhaseNum $phaseNum -Milestone $milestone
 }
 
 function Get-Waves($phaseDir) {
@@ -1572,6 +1759,354 @@ function Format-EvidenceLine {
     return "EVIDENCE done: $doneText | left: $leftText"
 }
 
+function ConvertTo-OperatorBrief {
+    param([string]$Text)
+    if (-not $Text) { return "" }
+    $s = "$Text"
+    $s = $s -replace '\r', "`n"
+    $lines = @()
+    foreach ($line in ($s -split "`n")) {
+        $l = "$line".Trim()
+        if (-not $l) { continue }
+        if ($l -match '^(---|```|~~~)$') { continue }
+        if ($l -match '^\s*#') { continue }
+        if ($l -match '^\s*<[^>]+>\s*$') { continue }
+        $lines += $l
+        if ($lines.Count -ge 2) { break }
+    }
+    if ($lines.Count -gt 0) { $s = $lines -join " " }
+    $s = $s -replace '^\s*[-*]\s+', ''
+    $s = $s -replace '^\s*\d+[.)]\s+', ''
+    $s = $s -replace '\[[ xX]\]\s*', ''
+    $s = $s -replace '\*\*([^*]+)\*\*', '$1'
+    $s = $s -replace '\*([^*]+)\*', '$1'
+    $s = $s -replace '`([^`]+)`', '$1'
+    $s = $s -replace '\[([^\]]+)\]\([^)]+\)', '$1'
+    $s = $s -replace '<[^>]+>', ''
+    $s = $s -replace '\s+', ' '
+    $s = $s.Trim()
+    return $s.Trim(@([char]34, [char]39, [char]32, [char]45, [char]58, [char]9))
+}
+
+function Get-PhaseDocTitle {
+    param(
+        $PhaseDir,
+        [string]$PhaseNum
+    )
+    if (-not $PhaseDir -or -not (Test-Path -LiteralPath $PhaseDir.FullName)) { return "" }
+    foreach ($filter in @("$PhaseNum-CONTEXT.md", "$PhaseNum-RESEARCH.md", "*-PLAN.md")) {
+        foreach ($file in @(Get-ChildItem -Path $PhaseDir.FullName -Filter $filter -File -ErrorAction SilentlyContinue | Sort-Object Name)) {
+            try {
+                foreach ($line in (Get-Content -LiteralPath $file.FullName -TotalCount 12 -ErrorAction SilentlyContinue)) {
+                    if ($line -match "^\s*#\s*Phase\s+$([regex]::Escape($PhaseNum))\s*:\s*(.+?)\s*(?:[-\u2013\u2014]\s*(?:Context|Research|Plan).*)?$") {
+                        $title = ConvertTo-OperatorBrief $matches[1]
+                        if ($title) { return $title }
+                    }
+                }
+            } catch {}
+        }
+    }
+    return ""
+}
+
+function Get-PhaseDocBrief {
+    param(
+        $PhaseDir,
+        [string]$PhaseNum,
+        [string]$Kind = "why"
+    )
+    if (-not $PhaseDir -or -not (Test-Path -LiteralPath $PhaseDir.FullName)) { return "" }
+
+    $headingPattern = if ($Kind -eq "unlock") {
+        '(?:Unlocks?|Unblocks?|Enables?|Outcome|Exit|Done\s+When|Acceptance)'
+    } else {
+        '(?:Phase\s+Boundary|Phase\s+Why|Why|Goal|Objective|Purpose|Intent|Mission)'
+    }
+
+    $files = @()
+    foreach ($filter in @("$PhaseNum-CONTEXT.md", "$PhaseNum-RESEARCH.md", "*-PLAN.md", "$PhaseNum-VERIFICATION.md")) {
+        $files += @(Get-ChildItem -Path $PhaseDir.FullName -Filter $filter -File -ErrorAction SilentlyContinue | Sort-Object Name)
+    }
+    foreach ($file in @($files | Select-Object -Unique)) {
+        try {
+            $raw = Get-Content -LiteralPath $file.FullName -Raw -ErrorAction SilentlyContinue
+            if (-not $raw) { continue }
+            $section = [regex]::Match($raw, "(?ims)^##+\s*$headingPattern\s*:?\s*\r?\n(.+?)(?=^##+\s|\z)")
+            if ($section.Success) {
+                $brief = ConvertTo-OperatorBrief $section.Groups[1].Value
+                if ($brief) { return $brief }
+            }
+            $line = [regex]::Match($raw, "(?im)^\s*(?:\*\*)?$headingPattern(?:\*\*)?\s*:\s*(.+)$")
+            if ($line.Success) {
+                $brief = ConvertTo-OperatorBrief $line.Groups[1].Value
+                if ($brief) { return $brief }
+            }
+        } catch {}
+    }
+    return ""
+}
+
+function Get-OperatorRoadText {
+    param(
+        [object[]]$Phases,
+        [string]$CurrentNum
+    )
+    if (-not $Phases -or $Phases.Count -eq 0) { return "roadmap unavailable" }
+    $idx = -1
+    for ($i = 0; $i -lt $Phases.Count; $i++) {
+        if ($Phases[$i].num -eq $CurrentNum) { $idx = $i; break }
+    }
+    $parts = @()
+    $doneTail = @()
+    if ($idx -gt 0) {
+        $doneTail = @($Phases[0..($idx - 1)] | Where-Object { $_.done } | Select-Object -Last 3)
+    } else {
+        $doneTail = @($Phases | Where-Object { $_.done } | Select-Object -Last 3)
+    }
+    foreach ($p in $doneTail) { $parts += "P$($p.num) ok" }
+    if ($CurrentNum) {
+        $parts += "P$CurrentNum NOW"
+    } elseif ($doneTail.Count -eq $Phases.Count) {
+        $parts += "MILESTONE CLOSE"
+    } else {
+        $parts += "NOW ?"
+    }
+    if ($idx -ge 0 -and $idx -lt ($Phases.Count - 1)) {
+        $parts += "P$($Phases[$idx + 1].num) next"
+    } else {
+        $parts += "CLOSE"
+    }
+    return ($parts -join " > ")
+}
+
+function Get-OperatorRoadSegments {
+    param(
+        [object[]]$Phases,
+        [string]$CurrentNum
+    )
+    if (-not $Phases -or $Phases.Count -eq 0) {
+        return @([pscustomobject]@{ Text = "roadmap unavailable"; Color = "DarkGray" })
+    }
+    $idx = -1
+    for ($i = 0; $i -lt $Phases.Count; $i++) {
+        if ($Phases[$i].num -eq $CurrentNum) { $idx = $i; break }
+    }
+
+    $nodes = @()
+    $doneTail = @()
+    if ($idx -gt 0) {
+        $doneTail = @($Phases[0..($idx - 1)] | Where-Object { $_.done } | Select-Object -Last 3)
+    } else {
+        $doneTail = @($Phases | Where-Object { $_.done } | Select-Object -Last 3)
+    }
+    foreach ($p in $doneTail) { $nodes += [pscustomobject]@{ Text = "P$($p.num) ok"; Color = "Green" } }
+
+    if ($CurrentNum) {
+        $nodes += [pscustomobject]@{ Text = "P$CurrentNum NOW"; Color = "DarkYellow" }
+    } elseif ($doneTail.Count -eq $Phases.Count) {
+        $nodes += [pscustomobject]@{ Text = "MILESTONE CLOSE"; Color = "DarkYellow" }
+    } else {
+        $nodes += [pscustomobject]@{ Text = "NOW ?"; Color = "DarkYellow" }
+    }
+
+    if ($idx -ge 0 -and $idx -lt ($Phases.Count - 1)) {
+        $nodes += [pscustomobject]@{ Text = "P$($Phases[$idx + 1].num) next"; Color = "Red" }
+    } else {
+        $nodes += [pscustomobject]@{ Text = "CLOSE"; Color = "Red" }
+    }
+
+    $segments = @()
+    for ($i = 0; $i -lt $nodes.Count; $i++) {
+        if ($i -gt 0) { $segments += [pscustomobject]@{ Text = " > "; Color = "DarkGray" } }
+        $segments += $nodes[$i]
+    }
+    return @($segments)
+}
+
+function Get-OperatorNowText {
+    param(
+        $Snapshot,
+        [object[]]$Roster,
+        [string]$CurrentNum
+    )
+    $activeAgent = @($Roster | Where-Object { $_.status -eq "ACTIVE" } | Select-Object -First 1)
+    if ($activeAgent.Count -gt 0 -and $activeAgent[0].target) {
+        return ConvertTo-OperatorBrief ([string]$activeAgent[0].target)
+    }
+
+    $exec = $null
+    if ($Snapshot -and $Snapshot.executionRoute) { $exec = $Snapshot.executionRoute }
+    if ($exec -and -not $exec.unavailable) {
+        $provider = if ($exec.provider_label) { [string]$exec.provider_label } else { "Claude" }
+        $what = if ($exec.what) { ConvertTo-OperatorBrief ([string]$exec.what) } else { "direct SGSD execution" }
+        return ("{0}: {1}" -f $provider, $what)
+    }
+
+    if ($CurrentNum) { return "Waiting for the next SGSD action on P$CurrentNum" }
+    return "Waiting for the next SGSD action"
+}
+
+function Get-OperatorUnlockText {
+    param(
+        [object[]]$Phases,
+        [string]$CurrentNum,
+        [string]$Milestone,
+        [string]$MilestoneName,
+        $ActiveDir
+    )
+    $docUnlock = Get-PhaseDocBrief -PhaseDir $ActiveDir -PhaseNum $CurrentNum -Kind "unlock"
+    if ($docUnlock) { return $docUnlock }
+
+    $idx = -1
+    for ($i = 0; $i -lt $Phases.Count; $i++) {
+        if ($Phases[$i].num -eq $CurrentNum) { $idx = $i; break }
+    }
+    if ($idx -ge 0 -and $idx -lt ($Phases.Count - 1)) {
+        return ("P{0}: {1}" -f $Phases[$idx + 1].num, $Phases[$idx + 1].name)
+    }
+    if ($MilestoneName) { return "$Milestone close: $MilestoneName" }
+    if ($Milestone) { return "$Milestone close / next roadmap" }
+    return "milestone close / next roadmap"
+}
+
+function Write-OperatorBoxRow {
+    param(
+        [string]$Label,
+        [string]$Text,
+        [int]$Width,
+        [string]$LabelColor = "Cyan",
+        [string]$TextColor = "White"
+    )
+    $labelWidth = 7
+    $innerWidth = [Math]::Max(20, $Width - 4)
+    $textWidth = [Math]::Max(8, $innerWidth - $labelWidth - 2)
+    $labelText = (Trunc $Label $labelWidth).PadRight($labelWidth)
+    $body = (Trunc $Text $textWidth).PadRight($textWidth)
+    Write-Host "| " -NoNewline -ForegroundColor DarkGray
+    Write-Host $labelText -NoNewline -ForegroundColor $LabelColor
+    Write-Host " " -NoNewline -ForegroundColor DarkGray
+    Write-Host $body -NoNewline -ForegroundColor $TextColor
+    Write-Host " |" -NoNewline -ForegroundColor DarkGray
+    Write-Host $CLEAR_LINE
+}
+
+function Write-OperatorRoadBoxRow {
+    param(
+        [object[]]$Segments,
+        [int]$Width
+    )
+    $labelWidth = 7
+    $innerWidth = [Math]::Max(20, $Width - 4)
+    $textWidth = [Math]::Max(8, $innerWidth - $labelWidth - 2)
+    Write-Host "| " -NoNewline -ForegroundColor DarkGray
+    Write-Host "ROAD   " -NoNewline -ForegroundColor Green
+    Write-Host " " -NoNewline -ForegroundColor DarkGray
+
+    $used = 0
+    foreach ($seg in @($Segments)) {
+        if ($used -ge $textWidth) { break }
+        $part = "$($seg.Text)"
+        $remain = $textWidth - $used
+        if ($part.Length -gt $remain) { $part = Trunc $part $remain }
+        Write-Host $part -NoNewline -ForegroundColor $seg.Color
+        $used += $part.Length
+    }
+    if ($used -lt $textWidth) {
+        Write-Host (" " * ($textWidth - $used)) -NoNewline
+    }
+    Write-Host " |" -NoNewline -ForegroundColor DarkGray
+    Write-Host $CLEAR_LINE
+}
+
+function Render-OperatorMapPanel {
+    param(
+        $State,
+        [object[]]$Phases,
+        [string]$CurrentNum,
+        $ActivePhase,
+        $ActiveDir,
+        $Snapshot,
+        [object[]]$Roster
+    )
+    $pw = Get-PaneWidth
+    $w = [Math]::Min([Math]::Max(1, $pw), 132)
+    $inner = [Math]::Max(10, $w - 2)
+    $ms = if ($State.milestone) { [string]$State.milestone } else { "M?" }
+    $msName = if ($State.milestoneName) { [string]$State.milestoneName } else { "milestone" }
+    $phaseDocTitle = Get-PhaseDocTitle -PhaseDir $ActiveDir -PhaseNum $CurrentNum
+    $phaseName = if ($phaseDocTitle) { $phaseDocTitle } elseif ($ActivePhase -and $ActivePhase.name) { [string]$ActivePhase.name } elseif ($CurrentNum) { "Phase $CurrentNum" } else { "milestone close" }
+    $roadSegments = Get-OperatorRoadSegments -Phases $Phases -CurrentNum $CurrentNum
+    $now = Get-OperatorNowText -Snapshot $Snapshot -Roster $Roster -CurrentNum $CurrentNum
+    $why = Get-PhaseDocBrief -PhaseDir $ActiveDir -PhaseNum $CurrentNum -Kind "why"
+    if (-not $why) { $why = Simplify-GoalText (Get-PhaseGoalBrief $CurrentNum) }
+    if (-not $why) { $why = "Complete this phase with enough evidence that the milestone can move forward." }
+    $unlock = Get-OperatorUnlockText -Phases $Phases -CurrentNum $CurrentNum -Milestone $ms -MilestoneName $msName -ActiveDir $ActiveDir
+
+    Write-Host ("+" + ("-" * ($inner)) + "+") -NoNewline -ForegroundColor DarkGray
+    Write-Host $CLEAR_LINE
+    Write-OperatorBoxRow -Label "MAP" -Text ("{0}  {1}" -f $ms, $msName) -Width $w -LabelColor Magenta -TextColor White
+    Write-OperatorRoadBoxRow -Segments $roadSegments -Width $w
+    Write-OperatorBoxRow -Label "BUILD" -Text ("P{0} {1}" -f $(if ($CurrentNum) { $CurrentNum } else { "?" }), $phaseName) -Width $w -LabelColor Yellow -TextColor Yellow
+    Write-OperatorBoxRow -Label "NOW" -Text $now -Width $w -LabelColor Cyan -TextColor White
+    Write-OperatorBoxRow -Label "WHY" -Text $why -Width $w -LabelColor Cyan -TextColor Gray
+    Write-OperatorBoxRow -Label "UNLOCK" -Text $unlock -Width $w -LabelColor Green -TextColor Green
+    Write-Host ("+" + ("-" * ($inner)) + "+") -NoNewline -ForegroundColor DarkGray
+    Write-Host $CLEAR_LINE
+}
+
+function Render-MissionEssentials {
+    param(
+        $State,
+        [string]$CurrentNum,
+        $ActiveDir,
+        [object[]]$Roster,
+        [int]$PaneWidth
+    )
+    $pw = if ($PaneWidth -gt 20) { $PaneWidth } else { Get-PaneWidth }
+
+    $evidence = Get-PhaseEvidenceSummary -PhaseDir $ActiveDir -PhaseNum $CurrentNum
+    Write-Row (Trunc (Format-EvidenceLine $evidence) $pw) $(if ($evidence.done -eq $evidence.total) { "Green" } elseif ($evidence.done -gt 0) { "Yellow" } else { "DarkGray" })
+
+    $hb = Get-Heartbeat
+    $hbBits = @("heartbeat $($hb.state)")
+    if ($hb.lastTool) { $hbBits += ("last {0} {1} ago" -f $hb.lastTool, (Format-Age $hb.lastStart)) }
+    $hbColor = switch ($hb.state) {
+        "RUNNING"      { "Green" }
+        "SLOW"         { "Yellow" }
+        "HUNG"         { "Red" }
+        "EMPTY_RESULT" { "Red" }
+        "IDLE"         { "DarkGray" }
+        default        { "DarkGray" }
+    }
+    Write-Row (Trunc ("HEALTH   " + ($hbBits -join " | ")) $pw) $hbColor
+
+    $inf = Get-InferenceState
+    if ($inf) {
+        $mins = [int]($inf.ageSec / 60); $secs = $inf.ageSec % 60
+        $ageStr = if ($mins -gt 0) { "${mins}m ${secs}s" } else { "${secs}s" }
+        $infColor = switch ($inf.state) { "LIVE" {"Green"} "SLOW" {"Yellow"} "STUCK" {"Red"} "DEAD" {"DarkRed"} default {"DarkGray"} }
+        Write-Row (Trunc ("CLAUDE   inference {0}; jsonl age {1}" -f $inf.state, $ageStr) $pw) $infColor
+    }
+
+    $rd = Get-ReadinessInfo $State.milestone
+    if ($rd) {
+        $rdColor = switch ($rd.status) { "GO" {"Green"} "PARTIAL" {"Yellow"} "BLOCKED" {"Red"} default {"DarkGray"} }
+        Write-Row (Trunc ("AUTO     {0}: ready {1} / blockers {2} / fallback {3}" -f $rd.status, $rd.go, $rd.blk, $rd.fc) $pw) $rdColor
+    }
+
+    if (Test-Checkpoint) {
+        Write-Row "RESUME   checkpoint present: /sgsd-resume" "DarkYellow"
+    }
+
+    $active = @($Roster | Where-Object { $_.status -eq "ACTIVE" }).Count
+    $idle = @($Roster | Where-Object { $_.status -eq "IDLE" }).Count
+    $recent = @($Roster | Where-Object { $_.status -eq "RECENT" }).Count
+    Write-Row ("AGENTS   {0} active / {1} idle / {2} recent" -f $active, $idle, $recent) "White"
+    foreach ($a in @($Roster | Select-Object -First 2)) {
+        Write-Row ("  {0,-8} {1}  {2}" -f $a.name, (Format-Age $a.ageSec), (Trunc $a.target ([Math]::Max(10, $pw - 20)))) $(if ($a.status -eq "ACTIVE") { "Green" } elseif ($a.status -eq "IDLE") { "Yellow" } else { "Cyan" })
+    }
+}
+
 function Get-ExecutionRouteRows {
     param(
         $Snapshot,
@@ -1663,6 +2198,44 @@ function Render-CompactMissionControl {
     $backlog = Get-BacklogSummary -Milestone $ms -PhaseNum $CurrentNum
     $phaseMap = Get-PhaseMapText -Phases $Phases -CurrentNum $CurrentNum
     try { $cockpitSnap = Get-CockpitDataSnapshot -ProjectDir $ProjectDir -CurrentPhase $CurrentNum } catch { $cockpitSnap = $null }
+    $roster = @(Get-AgentRoster)
+
+    Render-OperatorMapPanel -State $State -Phases $Phases -CurrentNum $CurrentNum -ActivePhase $ActivePhase -ActiveDir $ActiveDir -Snapshot $cockpitSnap -Roster $roster
+    Render-MissionEssentials -State $State -CurrentNum $CurrentNum -ActiveDir $ActiveDir -Roster $roster -PaneWidth $pw
+    Write-Host $CLEAR_BELOW -NoNewline
+    return
+
+    if ((Get-PaneHeight) -lt 26) {
+        Write-Row (Trunc (Format-EvidenceLine $evidence) $pw) $(if ($evidence.done -eq $evidence.total) { "Green" } elseif ($evidence.done -gt 0) { "Yellow" } else { "DarkGray" })
+        Write-Row ("DEBT     {0}" -f $backlog.text) $(if ($backlog.edge -gt 0) { "Red" } elseif ($backlog.phase -gt 0) { "Yellow" } else { "Green" })
+
+        $rd = Get-ReadinessInfo $State.milestone
+        if ($rd) {
+            $rdColor = switch ($rd.status) { "GO" {"Green"} "PARTIAL" {"Yellow"} "BLOCKED" {"Red"} default {"DarkGray"} }
+            Write-Row (Trunc ("AUTO     {0}: ready {1} / blockers {2} / fallback {3}" -f $rd.status, $rd.go, $rd.blk, $rd.fc) $pw) $rdColor
+        }
+
+        $watchdog = Get-AutopilotWatchdogInfo
+        if ($watchdog) {
+            $wdAge = if ($null -ne $watchdog.durable_progress_age_min) { "$($watchdog.durable_progress_age_min)m" } else { "?m" }
+            $wdColor = switch ($watchdog.status) { "stalled" {"Red"} "warn" {"Yellow"} "complete" {"Green"} default {"DarkGray"} }
+            Write-Row (Trunc ("SAFE     {0}: durable progress age {1}" -f $watchdog.status, $wdAge) $pw) $wdColor
+        }
+
+        foreach ($er in @(Get-ExecutionRouteRows -Snapshot $cockpitSnap -CurrentNum $CurrentNum -Roster $roster -PaneWidth $pw)) {
+            Write-Row $er.Text $er.Color
+        }
+
+        $active = @($roster | Where-Object { $_.status -eq "ACTIVE" }).Count
+        $idle = @($roster | Where-Object { $_.status -eq "IDLE" }).Count
+        $recent = @($roster | Where-Object { $_.status -eq "RECENT" }).Count
+        Write-Row ("AGENTS   {0} active / {1} idle / {2} recent" -f $active, $idle, $recent) "White"
+        foreach ($a in @($roster | Select-Object -First 2)) {
+            Write-Row ("  {0,-8} {1}  {2}" -f $a.name, (Format-Age $a.ageSec), (Trunc $a.target ([Math]::Max(10, $pw - 20)))) $(if ($a.status -eq "ACTIVE") { "Green" } elseif ($a.status -eq "IDLE") { "Yellow" } else { "Cyan" })
+        }
+        Write-Host $CLEAR_BELOW -NoNewline
+        return
+    }
 
     if ($isMilestoneComplete) {
         Write-Row ("MISSION {0}  COMPLETE ({1}/{2})  {3}" -f $ms, $done, $(if ($total -gt 0) { $total } else { "?" }), (Trunc $phaseName ([Math]::Max(10, $pw - 36)))) "Green"
@@ -1741,7 +2314,6 @@ function Render-CompactMissionControl {
     $tokens = Get-TokenStats
     Write-Row ("COST O {0}  S {1}  H {2}  total {3}  P{4} {5}" -f (Format-Dollar ($tokens.opus * $RATE_OPUS)), (Format-Dollar ($tokens.sonnet * $RATE_SONNET)), (Format-Dollar ($tokens.haiku * $RATE_HAIKU)), (Format-Dollar $tokens.cost), $(if ($CurrentNum) { $CurrentNum } else { "?" }), (Format-Dollar $tokens.phaseCost)) "Green"
 
-    $roster = @(Get-AgentRoster)
     foreach ($er in @(Get-ExecutionRouteRows -Snapshot $cockpitSnap -CurrentNum $CurrentNum -Roster $roster -PaneWidth $pw)) {
         Write-Row $er.Text $er.Color
     }
@@ -1834,6 +2406,17 @@ function Render {
     } catch {
         $cockpitSnap = $null
     }
+    $operatorRoster = @(Get-AgentRoster)
+
+    try {
+        Render-OperatorMapPanel -State $state -Phases $phases -CurrentNum $currentNum -ActivePhase $activePhase -ActiveDir $activeDir -Snapshot $cockpitSnap -Roster $operatorRoster
+    } catch {
+        Write-Row "OPERATOR MAP unavailable" "DarkGray"
+    }
+
+    Render-MissionEssentials -State $state -CurrentNum $currentNum -ActiveDir $activeDir -Roster $operatorRoster -PaneWidth $pw
+    Write-Host $CLEAR_BELOW -NoNewline
+    return
 
     try {
         $intentText = Get-IntentMapCanonical -ProjectDir $ProjectDir
@@ -1877,7 +2460,7 @@ function Render {
     }
 
     try {
-        $execRoster = @(Get-AgentRoster)
+        $execRoster = $operatorRoster
         foreach ($er in @(Get-ExecutionRouteRows -Snapshot $cockpitSnap -CurrentNum $currentNum -Roster $execRoster -PaneWidth $pw)) {
             Write-Host $er.Text -NoNewline -ForegroundColor $er.Color
             Write-Host $CLEAR_LINE
@@ -2178,8 +2761,25 @@ function Render {
     # any "CODEX:" Write-Host outside the tile or fixture A3 will fail.
 
     $codex = Get-SgsdCodexStatus -ProjectDir $ProjectDir -PlanningDir $PlanningDir
+    $codexExec = Get-SgsdCodexExecutorStatus -PlanningDir $PlanningDir -CurrentPhase $currentNum
     # === SGSD-Codex-Tile ===
-    Write-Header "CODEX REVIEW"
+    Write-Header "CODEX EXECUTOR / REVIEW"
+    $execAgeStr = if ($null -ne $codexExec.updatedAgeSec) { Format-Age $codexExec.updatedAgeSec } else { '--' }
+    $execScope = if (-not $codexExec.scopeCurrent -and $codexExec.staleScope) {
+        "old:$($codexExec.staleScope)"
+    } elseif ($codexExec.phase -or $codexExec.plan) {
+        (@("P$($codexExec.phase)", "$($codexExec.plan)") | Where-Object { $_ -and "$_".Trim() -ne "" }) -join "/"
+    } else {
+        "idle"
+    }
+    $execLine = "  executor:" + $codexExec.state + " upd:" + $execAgeStr + " scope:" + $execScope + " model:" + $codexExec.model + "/" + $codexExec.reasoningEffort + " runs:" + $codexExec.okRuns + "/" + $codexExec.totalRuns
+    if ($null -ne $codexExec.exit) { $execLine += " exit:" + $codexExec.exit }
+    Write-Row $execLine $codexExec.stateColor
+    if ($codexExec.liveTail) {
+        Write-Row ("  live: " + $codexExec.liveTail) $(if ($codexExec.state -eq 'running') { 'Yellow' } else { 'DarkGray' })
+    } elseif ($codexExec.state -eq 'not-fired') {
+        Write-Row "  live: waiting for first codex run (separate Codex watch window; raw: sgsd-watch-codex)" "DarkGray"
+    }
     $codexRows    = Get-SgsdCodexLogRows -PlanningDir $PlanningDir -MaxRows 5 -PhaseFilter $currentNum
     $normalizedState = if ($codex.state -eq 'ok' -or $codex.state -eq 'not-fired') { 'idle' } else { "$($codex.state)" }
     $stateColor   = switch ($normalizedState) {

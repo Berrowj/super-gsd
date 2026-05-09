@@ -1,9 +1,10 @@
 # codex-exec.sh — Codex CLI provider wrapper
 
 Bash wrapper around `codex exec` used by the Phase 14 review-provider substrate.
-Ships prompt via **stdin pipe**, wraps with GNU `timeout`, parses the 5-field
-`code-reviewer-v1` report contract, writes the report atomically, and appends
-one provenance row to `.planning/metrics/codex-log.jsonl`.
+Ships prompt via **stdin pipe**, wraps with GNU `timeout`, parses the required
+`code-reviewer-v1` summary fields, preserves additive `FINDINGS_DETAIL:` rows,
+writes the report atomically, and appends one provenance row to
+`.planning/metrics/codex-log.jsonl`.
 
 ## Codex runtime
 
@@ -32,7 +33,7 @@ codex-exec.sh --prompt-file <path> --report-out <path>
 | Flag            | Req?     | Purpose                                                                 |
 | --------------- | -------- | ----------------------------------------------------------------------- |
 | `--prompt-file` | required | Path to prompt file (piped on stdin to `codex exec -`)                  |
-| `--report-out`  | required | Destination for parsed 5-line report; written atomically via `tmp+mv`   |
+| `--report-out`  | required | Destination for parsed report; required summary fields plus any `FINDINGS_DETAIL:` rows; written atomically via `tmp+mv` |
 | `--timeout`     | optional | Seconds (default from `.planning/config.json` → `review_providers.codex_timeout_seconds`, fallback 30) |
 | `--dry-run`     | optional | Print resolved command + auth status + config; return 0 without calling `codex` |
 | `--project`     | optional | `--cd` target for codex; default = repo root via `.planning/` walk-up   |
@@ -50,6 +51,11 @@ codex-exec.sh --prompt-file <path> --report-out <path>
 | 4    | Auth denied — `OPENAI_API_KEY` set in env (refuse-to-run), OR codex stderr matched `/auth\|401\|unauthori[sz]ed/i` |
 | 5    | Timeout — GNU `timeout` returned 124                                   |
 | 6    | Report contract violation — one or more of `FINDINGS:`/`CRITICAL:`/`WARNINGS:`/`PASS_RATE:`/`ONE_LINER:` missing from codex stdout |
+
+`FINDINGS_DETAIL:` is optional and repeatable. The wrapper preserves those rows
+from the final contract block verbatim because file:line citations and concrete
+repair notes live there. Extra detail rows must not affect exit code 6 as long
+as the five required summary fields are present.
 
 ## OAuth hygiene (D-02 / D-02a)
 

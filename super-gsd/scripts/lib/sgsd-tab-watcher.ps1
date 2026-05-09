@@ -43,8 +43,12 @@ param(
 )
 
 # Force UTF-8 so emoji + glyph characters survive the OSC 0 write to Warp.
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$OutputEncoding = [System.Text.Encoding]::UTF8
+# Best-effort because managed ConstrainedLanguage shells reject static property
+# setters; title updates should still run with plain ASCII fallback.
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+} catch {}
 
 # Clamp interval to keep the watcher polite. <60s thrashes; >600s defeats the
 # point of "live" updates.
@@ -206,9 +210,10 @@ function Compose-TabTitle {
 
 function Set-WarpTabTitle {
     param([string]$Title)
-    # OSC 0: ESC ] 0 ; <text> BEL — sets window/icon title together. Warp picks
-    # this up as the tab label.
-    [Console]::Write([char]27 + ']0;' + $Title + [char]7)
+    # OSC 0: ESC ] 0 ; <text> ST sets window/icon title together. Warp picks
+    # this up as the tab label. Use ST (ESC \) instead of BEL so title refreshes
+    # never trigger the Windows/Warp notification sound.
+    [Console]::Write([char]27 + ']0;' + $Title + [char]27 + '\')
 }
 
 # ── Main loop ───────────────────────────────────────────────────────────────

@@ -2,10 +2,11 @@
 # ============================================================================
 # codex-executor.sh — Codex-CLI wrapper for EXECUTOR work (file-mutating)
 # ============================================================================
-# Sibling of codex-exec.sh. While codex-exec.sh is locked to the 5-field
-# code-reviewer-v1 contract (FINDINGS / CRITICAL / WARNINGS / PASS_RATE /
-# ONE_LINER), this wrapper invokes Codex for OPEN-ENDED EXECUTOR work — Codex
-# edits files in the workspace, runs commands, and returns a free-form report.
+# Sibling of codex-exec.sh. While codex-exec.sh is locked to the
+# code-reviewer-v1 summary contract (FINDINGS / CRITICAL / WARNINGS /
+# PASS_RATE / ONE_LINER, plus optional FINDINGS_DETAIL rows), this wrapper
+# invokes Codex for OPEN-ENDED EXECUTOR work — Codex edits files in the
+# workspace, runs commands, and returns a free-form report.
 #
 # Why a separate wrapper:
 #   - Different contract (no 5-field structure)
@@ -41,6 +42,20 @@
 # ============================================================================
 
 set -u
+
+# SSH/non-login shells on dev boxes often skip ~/.bashrc user PATH additions.
+# Codex and Claude are installed as user-local Node shims, so make that path
+# deterministic before probing `codex` or invoking scripts with /usr/bin/env node.
+if [[ -d "$HOME/.local/bin" ]]; then
+    PATH="$HOME/.local/bin:$PATH"
+fi
+if [[ -d "$HOME/.nvm/versions/node" ]]; then
+    SGSD_NODE_BIN="$(find "$HOME/.nvm/versions/node" -maxdepth 2 -type d -name bin 2>/dev/null | sort -V | tail -1)"
+    if [[ -n "$SGSD_NODE_BIN" ]]; then
+        PATH="$SGSD_NODE_BIN:$PATH"
+    fi
+fi
+export PATH
 
 PROMPT_FILE=""
 REPORT_OUT=""
@@ -93,25 +108,11 @@ while [[ "$d" != "/" && "$d" != "" ]]; do
 done
 
 # Codex runtime config — mirrors codex-exec.sh defaults so Codex is stable
-# across review and executor calls.
+# across review and executor calls. In executor mode these values are now
+# intentionally pinned by policy.
 CODEX_MODEL="gpt-5.5"
 CODEX_REASONING_EFFORT="xhigh"
-if [[ -f "$PROJECT/.planning/config.json" ]] && command -v node >/dev/null 2>&1; then
-    cfg="$(node -e '
-        try {
-            const j=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));
-            const r=j.review_providers||{};
-            if (r.codex_executor_model) process.stdout.write("M="+r.codex_executor_model+"\n");
-            if (r.codex_executor_reasoning_effort) process.stdout.write("E="+r.codex_executor_reasoning_effort+"\n");
-        } catch (e) {}
-    ' "$PROJECT/.planning/config.json" 2>/dev/null || true)"
-    while IFS='=' read -r key val; do
-        case "$key" in
-            M) [[ -n "$val" ]] && CODEX_MODEL="$val" ;;
-            E) [[ -n "$val" ]] && CODEX_REASONING_EFFORT="$val" ;;
-        esac
-    done <<< "$cfg"
-fi
+# Hard lock: do not override executor model/effort from project config.
 
 # Path translation: Windows → POSIX for Bash, Windows → wsl path → Win for cmd.exe.
 if [[ "$WORKSPACE" =~ ^[A-Za-z]:\\ ]] && command -v wslpath >/dev/null 2>&1; then
@@ -159,6 +160,7 @@ STDERR_TMP="$(mktemp -t codex-exec-stderr.XXXXXX)"
 # operator runs `Get-Content -Wait` on it ONCE in a separate pane and follows
 # every subsequent codex executor session.
 LIVE_OUT="$PROJECT/.planning/metrics/codex-executor-live.txt"
+WATCH_OUT="$PROJECT/.planning/metrics/codex-live-output.txt"
 mkdir -p "$(dirname "$LIVE_OUT")"
 {
     echo "============================================================"
@@ -167,6 +169,14 @@ mkdir -p "$(dirname "$LIVE_OUT")"
     echo "workspace=$CODEX_CD  prompt=$PROMPT_FILE  report=$REPORT_OUT"
     echo "============================================================"
 } > "$LIVE_OUT"
+{
+    echo ""
+    echo "============================================================"
+    echo "codex-executor START  ts=$TS  phase=${PHASE_TAG:-?}  plan=${PLAN_TAG:-?}"
+    echo "model=$CODEX_MODEL  effort=$CODEX_REASONING_EFFORT  timeout=${TIMEOUT_SECONDS}s"
+    echo "workspace=$CODEX_CD  prompt=$PROMPT_FILE  report=$REPORT_OUT"
+    echo "============================================================"
+} >> "$WATCH_OUT"
 
 trap 'rm -f "$STDOUT_TMP" "$STDERR_TMP" "${REPORT_OUT}.tmp" 2>/dev/null || true' EXIT
 
@@ -174,15 +184,15 @@ set +e
 if [[ "$CODEX_LAUNCHER" == "cmd" ]]; then
     timeout "${TIMEOUT_SECONDS}s" bash -c 'cat "$0" | cmd.exe /c codex exec --full-auto --model "$1" -c "model_reasoning_effort=\"$2\"" --skip-git-repo-check --cd "$3" -' \
         "$PROMPT_FILE" "$CODEX_MODEL" "$CODEX_REASONING_EFFORT" "$CODEX_CD" \
-        2> "$STDERR_TMP" \
-        | tee -a "$LIVE_OUT" \
+        2> >(tee -a "$LIVE_OUT" -a "$WATCH_OUT" > "$STDERR_TMP") \
+        | tee -a "$LIVE_OUT" -a "$WATCH_OUT" \
         > "$STDOUT_TMP"
     RC=${PIPESTATUS[0]}
 else
     timeout "${TIMEOUT_SECONDS}s" bash -c 'cat "$0" | codex exec --full-auto --model "$1" -c "model_reasoning_effort=\"$2\"" --skip-git-repo-check --cd "$3" -' \
         "$PROMPT_FILE" "$CODEX_MODEL" "$CODEX_REASONING_EFFORT" "$CODEX_CD" \
-        2> "$STDERR_TMP" \
-        | tee -a "$LIVE_OUT" \
+        2> >(tee -a "$LIVE_OUT" -a "$WATCH_OUT" > "$STDERR_TMP") \
+        | tee -a "$LIVE_OUT" -a "$WATCH_OUT" \
         > "$STDOUT_TMP"
     RC=${PIPESTATUS[0]}
 fi
@@ -192,6 +202,12 @@ fi
     echo "codex-executor END    exit=$RC  duration=$(( ($(date +%s%3N 2>/dev/null || echo 0) - START_MS) / 1000 ))s"
     echo "============================================================"
 } >> "$LIVE_OUT"
+{
+    echo ""
+    echo "============================================================"
+    echo "codex-executor END    exit=$RC  duration=$(( ($(date +%s%3N 2>/dev/null || echo 0) - START_MS) / 1000 ))s"
+    echo "============================================================"
+} >> "$WATCH_OUT"
 set -e
 
 END_MS="$(date +%s%3N 2>/dev/null || echo 0)"

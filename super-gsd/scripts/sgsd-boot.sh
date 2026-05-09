@@ -16,6 +16,19 @@
 
 set -u
 
+# SSH/non-login shells on dev boxes often skip ~/.bashrc user PATH additions.
+# Keep boot health checks consistent with interactive Warp tabs.
+if [[ -d "$HOME/.local/bin" ]]; then
+    PATH="$HOME/.local/bin:$PATH"
+fi
+if [[ -d "$HOME/.nvm/versions/node" ]]; then
+    SGSD_NODE_BIN="$(find "$HOME/.nvm/versions/node" -maxdepth 2 -type d -name bin 2>/dev/null | sort -V | tail -1)"
+    if [[ -n "$SGSD_NODE_BIN" ]]; then
+        PATH="$SGSD_NODE_BIN:$PATH"
+    fi
+fi
+export PATH
+
 PROJECT=""
 SKIP_PREFLIGHT=false
 
@@ -135,6 +148,55 @@ if [[ "$SKIP_PREFLIGHT" != true ]]; then
                 step WARN "Agents registry sync failed (non-blocking)"
             fi
         fi
+    fi
+
+    # SSH readiness: non-login shells must see the same SGSD runtime as the
+    # interactive workstation. Repair safe drift before Claude auto mode starts.
+    if command -v node >/dev/null 2>&1; then
+        step OK "Node.js available ($(node --version 2>/dev/null || echo unknown))"
+    else
+        step FAIL "Node.js missing from PATH - SGSD health checks cannot run"
+        exit 5
+    fi
+
+    if command -v claude >/dev/null 2>&1; then
+        step OK "Claude CLI available"
+    else
+        step FAIL "Claude CLI missing from PATH"
+        exit 6
+    fi
+
+    if command -v codex >/dev/null 2>&1; then
+        step OK "Codex CLI available"
+    else
+        step FAIL "Codex CLI missing from PATH"
+        exit 7
+    fi
+    CODEX_LOGIN_STATUS="$(codex login status 2>&1 || true)"
+    if printf '%s' "$CODEX_LOGIN_STATUS" | grep -qi '^Logged in'; then
+        step OK "Codex auth ready ($(printf '%s' "$CODEX_LOGIN_STATUS" | head -1))"
+    else
+        step FAIL "Codex auth missing - run codex login before SGSD auto mode"
+        exit 8
+    fi
+
+    FEATURE_AUDIT="$PROJECT/super-gsd/tools/feature-propagation/audit.cjs"
+    if [[ -f "$FEATURE_AUDIT" ]]; then
+        AUDIT_JSON="$(node "$FEATURE_AUDIT" --project-dir "$PROJECT" --repair-safe --json 2>/dev/null || true)"
+        AUDIT_OK="$(printf '%s' "$AUDIT_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{let j=JSON.parse(s);process.stdout.write(j.ok?"ok":"drift")}catch(e){process.stdout.write("parse_fail")}})' 2>/dev/null || echo parse_fail)"
+        AUDIT_ISSUES="$(printf '%s' "$AUDIT_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{let j=JSON.parse(s);process.stdout.write((j.issues||[]).join(","))}catch(e){process.stdout.write("parse_fail")}})' 2>/dev/null || echo parse_fail)"
+        if [[ "$AUDIT_OK" == "ok" ]]; then
+            step OK "Feature propagation OK (Codex executor + gates + global agents)"
+        else
+            step WARN "Feature propagation drift detected: ${AUDIT_ISSUES:-unknown}"
+            if printf '%s' "$AUDIT_ISSUES" | grep -Eq 'legacy_gsd_executor_not_disabled|orchestrator_protocol_markers_missing_or_stale'; then
+                step FAIL "Executor/gate protocol drift remains after safe repair"
+                exit 9
+            fi
+        fi
+    else
+        step FAIL "Feature propagation audit missing"
+        exit 10
     fi
 
     # Substrate one-liner via a tiny inline reader

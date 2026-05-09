@@ -8,7 +8,9 @@
 #     sgsd -NoOpen         # preflight only
 #     sgsd -SkipPreflight  # skip checks, just open dashboards
 #     sgsd -Claude -Greet  # launch Claude with SGSD intro, then wait
+#     sgsd -NoCodexTail    # do not open the Codex live tail window
 #     sg                   # cockpit + Claude greeting in the current terminal
+#     sgsd-watch-codex     # live Codex raw/narrator watcher from any project
 #     sgsd-setup           # configure knowledge bank + SGSD memory roots
 #     sgsd -Help           # show flags
 #
@@ -116,6 +118,7 @@ function sgsd {
         [switch]`$Claude,
         [switch]`$Go,
         [switch]`$Greet,
+        [switch]`$NoCodexTail,
         [switch]`$Help,
         [string]`$ProjectDir = `$null
     )
@@ -130,9 +133,11 @@ function sgsd {
         Write-Host '  sgsd -Claude         Also launch Claude Code (--dangerously-skip-permissions)'
         Write-Host '  sgsd -Claude -Go     Launch Claude Code + auto-send ''go'' to enter AUTO MODE'
         Write-Host '  sgsd -Claude -Greet  Launch Claude Code + SGSD intro, then wait'
+        Write-Host '  sgsd -NoCodexTail    Launch cockpit without Codex live tail window'
         Write-Host '  sg                   Fast boot: cockpit + Claude greeting in this terminal'
         Write-Host '  sg -FullPreflight    Same, but run full SGSD preflight first'
         Write-Host '  sg -Go               Same, but send ''go'' to Claude instead of greeting'
+        Write-Host '  sgsd-watch-codex     Live Codex raw/narrator watcher from any project'
         Write-Host '  sgsd-setup           Configure knowledge bank + SGSD memory roots'
         Write-Host '  sgsd -ProjectDir X   Explicit project directory'
         Write-Host '  sgsd -Help           This help'
@@ -165,7 +170,7 @@ function sgsd {
 
     if (-not `$ProjectDir) { `$ProjectDir = `$projectRoot }
 
-    `$args = @('-File', `$bootScript, '-ProjectDir', `$ProjectDir)
+    `$args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', `$bootScript, '-ProjectDir', `$ProjectDir)
     if (`$NoOpen)         { `$args += '-NoOpen' }
     if (`$SkipPreflight)  { `$args += '-SkipPreflight' }
     if (`$Bootstrap)      { `$args += '-Bootstrap' }
@@ -173,6 +178,7 @@ function sgsd {
     if (`$Claude)         { `$args += '-Claude' }
     if (`$Go)             { `$args += '-Go' }
     if (`$Greet)          { `$args += '-Greet' }
+    if (`$NoCodexTail)    { `$args += '-NoCodexTail' }
 
     & powershell.exe @args
 }
@@ -213,6 +219,77 @@ function sg {
         `$greetMsg = 'You are booting in Super GSD mode. Do these four things in your first response: (1) read .planning/STATE.md frontmatter and report current milestone status in one line, (2) report active agent count grouped by model from .planning/resource-registry/agents.jsonl, (3) confirm the SGSD cockpit dashboards are open in the other window, (4) ask the operator what they want to build. Do NOT enter auto mode - wait for their first instruction.'
         & claude --dangerously-skip-permissions `$greetMsg
     }
+}
+
+function __SgsdFindScript {
+    param([Parameter(Mandatory=`$true)][string]`$RelativeScript)
+
+    `$d = (Get-Location).Path
+    while (`$d -and `$d -ne (Split-Path -Parent `$d)) {
+        `$candidate = Join-Path `$d ("super-gsd\scripts\" + `$RelativeScript)
+        if (Test-Path `$candidate) { return `$candidate }
+        `$d = Split-Path -Parent `$d
+    }
+
+    `$bootFallback = '$BootScript'
+    `$scriptsDir = Split-Path -Parent `$bootFallback
+    `$fallback = Join-Path `$scriptsDir `$RelativeScript
+    if (Test-Path `$fallback) { return `$fallback }
+    return `$null
+}
+
+function sgsd-watch-codex {
+    [CmdletBinding()]
+    param(
+        [string]`$ProjectDir = (Get-Location).Path,
+        [switch]`$OpenWindow,
+        [switch]`$Narrate,
+        [int]`$PollMs = 150,
+        [int]`$TailLines = 100,
+        [int]`$NarrateSec = 60,
+        [int]`$ChunkChars = 6000,
+        [int]`$NarratorTimeoutSec = 120
+    )
+
+    `$script = __SgsdFindScript 'sgsd-watch-codex.ps1'
+    if (-not `$script) {
+        Write-Host 'sgsd-watch-codex script not found. Reinstall SGSD shortcut.' -ForegroundColor Red
+        return
+    }
+    & `$script -ProjectDir `$ProjectDir -OpenWindow:`$OpenWindow -Narrate:`$Narrate -PollMs `$PollMs -TailLines `$TailLines -NarrateSec `$NarrateSec -ChunkChars `$ChunkChars -NarratorTimeoutSec `$NarratorTimeoutSec
+}
+
+function sgsd-open-codex-watch {
+    [CmdletBinding()]
+    param(
+        [string]`$ProjectDir = (Get-Location).Path,
+        [int]`$NarrateSec = 60,
+        [int]`$ChunkChars = 6000,
+        [int]`$NarratorTimeoutSec = 120
+    )
+
+    `$script = __SgsdFindScript 'sgsd-open-codex-watch.ps1'
+    if (-not `$script) {
+        Write-Host 'sgsd-open-codex-watch script not found. Reinstall SGSD shortcut.' -ForegroundColor Red
+        return
+    }
+    & `$script -ProjectDir `$ProjectDir -NarrateSec `$NarrateSec -ChunkChars `$ChunkChars -NarratorTimeoutSec `$NarratorTimeoutSec
+}
+
+function sgsd-watch {
+    [CmdletBinding()]
+    param(
+        [ValidateSet('claude','codex','cockpit','review','debug','post-mortem','remote-monitor','token-audit')]
+        [string]`$Role = 'claude',
+        [int]`$IntervalSeconds = 120
+    )
+
+    `$init = __SgsdFindScript 'lib\sgsd-tab-init.ps1'
+    if (-not `$init) {
+        Write-Host 'sgsd-tab-init.ps1 not found. Reinstall SGSD shortcut.' -ForegroundColor Red
+        return
+    }
+    & `$init -Role `$Role -ProjectDir (Get-Location).Path -IntervalSeconds `$IntervalSeconds
 }
 
 function sgsd-setup {
@@ -322,10 +399,7 @@ if ($installed.Count -eq 0 -and $skipped.Count -eq 0) {
 }
 Write-Host "  Install root: $InstallRoot" -ForegroundColor DarkGray
 Write-Host ""
-Write-Host "To activate in the current shell:" -ForegroundColor White
-Write-Host "  . `$PROFILE" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Or open a new PowerShell window, then run:"
+Write-Host "Open a new PowerShell window, then run:"
 Write-Host "  sgsd          " -NoNewline -ForegroundColor Cyan
 Write-Host "(boot cockpit)"
 Write-Host "  sg            " -NoNewline -ForegroundColor Cyan

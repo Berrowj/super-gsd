@@ -1,10 +1,10 @@
 # =============================================================================
-# SGSD Operator Workspace — Warp Launch Configuration Template
+# SGSD Operator Workspace - Warp Launch Configuration Template
 #
 # Phase 78-01 deliverable. Drop into ~/.warp/launch_configurations/ to
 # bootstrap a 4-pane operator workspace. Per Phase 63 finding M4 (status
-# pending), this template opens in a NEW Warp window — not the active
-# window — until Warp CLI control matures upstream.
+# pending), this template opens in a NEW Warp window - not the active
+# window - until Warp CLI control matures upstream.
 #
 # INSTALL:
 #   1. Copy this file to:
@@ -17,7 +17,7 @@
 # VERIFY:
 #   `node super-gsd/tools/warp-doctor/check.cjs --json` reports
 #   `launch_config_dir_present` PASS (Phase 67 probe 10).
-#   Phase 78 doesn't add a new probe — re-using Phase 67's existing
+#   Phase 78 doesn't add a new probe - re-using Phase 67's existing
 #   probe 10 + probe 15 (mcp_config_present from Phase 72).
 #
 # CAVEATS:
@@ -32,27 +32,27 @@
 name: SGSD Operator Workspace
 windows:
   - tabs:
-      - title: "🤖 SGSD Main"
+      - title: "SGSD Main"
         color: magenta
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:
             - exec: |-
-                powershell -NoExit -Command ". $PROFILE; Write-Host 'SGSD operator pane. Type sg to boot.' -ForegroundColor Cyan"
+                powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'SGSD operator pane. Type sg to boot.' -ForegroundColor Cyan"
         split_direction: horizontal
         panes:
           - cwd: C:\Users\jack.berrow\GSDedits
             commands:
               - exec: |-
-                  powershell -NoExit -Command ". $PROFILE; Write-Host 'Cockpit pane. Type sgsd to open dashboards.' -ForegroundColor Cyan"
+                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'Cockpit pane. Type sgsd to open dashboards.' -ForegroundColor Cyan"
           - cwd: C:\Users\jack.berrow\GSDedits
             commands:
               - exec: |-
-                  powershell -NoExit -Command ". $PROFILE; Write-Host 'Token / Codex / Gate watch pane. Try: SGSD: Token Summary | SGSD: Codex Status | SGSD: Gate Status from Command Search.' -ForegroundColor Cyan"
-      - title: "🤖 Shell"
+                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'Token / Codex / Gate watch pane. Try: SGSD: Token Summary | SGSD: Codex Status | SGSD: Gate Status from Command Search.' -ForegroundColor Cyan"
+      - title: "Shell"
         color: magenta
         layout:
           cwd: C:\Users\jack.berrow\GSDedits
           commands:
             - exec: |-
-                powershell -NoExit -Command ". $PROFILE"
+                powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'"

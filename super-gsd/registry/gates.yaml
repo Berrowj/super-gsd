@@ -12,8 +12,8 @@
 # ============================================================================
 
 schema_version: 2
-registry_version: 2.2.0
-last_updated: 2026-04-24
+registry_version: 2.2.1
+last_updated: 2026-05-05
 
 # Enforcement modes:
 #   hard-halt    — gate fire blocks orchestrator until resolved
@@ -39,11 +39,8 @@ gates:
     category: code-quality
     step: 9.5
     enforcement_mode: hard-halt
-    gate_sampling_tier: low-risk-skip
+    gate_sampling_tier: always
     trigger:
-      - field: classifier.atc_tier
-        op: in
-        value: [full, gate]
       - field: code_files_changed_count
         op: gt
         value: 0
@@ -65,7 +62,7 @@ gates:
     category: code-quality
     step: 6.5
     enforcement_mode: amortized
-    gate_sampling_tier: low-risk-skip
+    gate_sampling_tier: always
     trigger: []
     reviewer_agent: sgsd-code-reviewer
     reviewer_provider: codex-cli-reviewer

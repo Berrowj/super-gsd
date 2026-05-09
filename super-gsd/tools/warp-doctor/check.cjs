@@ -109,7 +109,11 @@ const PROBE_NAMES = Object.freeze([
   'codebase_context_state',
   // Phase 86: staleness reconciliation probes (operator-override re-scope).
   'state_md_freshness',
-  'context_packet_builder_freshness'
+  'context_packet_builder_freshness',
+  // Codex operator surface: raw stream + narrator relay.
+  'codex_watch_script_present',
+  'codex_watch_launcher_present',
+  'codex_watch_relay_contract'
 ]);
 
 const STATUS_VALUES = Object.freeze([
@@ -144,7 +148,10 @@ const REASON_NOTES = Object.freeze([
   'context_packet_builder_recent',
   'context_packet_builder_stale',
   'not_applicable_pulse_log_absent',
-  'not_applicable_phase_45_dormant'
+  'not_applicable_phase_45_dormant',
+  // Codex watch relay probes.
+  'present_relay_contract',
+  'missing_relay_contract'
 ]);
 
 const REQUIRED_YAML_KEYS = Object.freeze(['name', 'command', 'tags']);
@@ -510,6 +517,36 @@ function _probe_context_packet_builder_freshness(projectDir) {
   }
 }
 
+function _probe_codex_watch_relay_contract(projectDir) {
+  try {
+    const p = path.join(projectDir, 'super-gsd', 'scripts', 'sgsd-watch-codex.ps1');
+    if (!fs.existsSync(p) || !fs.statSync(p).isFile()) {
+      return _mkProbe('codex_watch_relay_contract', 'MISSING',
+        p, 'missing_file');
+    }
+    const txt = fs.readFileSync(p, 'utf8');
+    const required = [
+      'NarrateWorker',
+      'Start-NarratorRelay',
+      'codex-eli5-relay',
+      '--strict-mcp-config',
+      '--no-session-persistence',
+      'live local fallback'
+    ];
+    const missing = required.filter(s => txt.indexOf(s) === -1);
+    if (missing.length) {
+      return _mkProbe('codex_watch_relay_contract', 'MISSING',
+        'missing markers: ' + missing.join(', '),
+        'missing_relay_contract');
+    }
+    return _mkProbe('codex_watch_relay_contract', 'PASS',
+      'relay handoff markers present; Haiku call is isolated from display loop',
+      'present_relay_contract');
+  } catch (e) {
+    return _degraded('codex_watch_relay_contract', e);
+  }
+}
+
 // -- Probe envelope helpers --------------------------------------------------
 
 function _mkProbe(name, status, evidence, reason) {
@@ -571,7 +608,12 @@ function runWarpDoctor(opts) {
       _probe_codebase_context_state(),
       // Phase 86: staleness probes.
       _probe_state_md_freshness(projectDir),
-      _probe_context_packet_builder_freshness(projectDir)
+      _probe_context_packet_builder_freshness(projectDir),
+      _probe_repo_file('codex_watch_script_present', projectDir,
+        path.join('super-gsd', 'scripts', 'sgsd-watch-codex.ps1')),
+      _probe_repo_file('codex_watch_launcher_present', projectDir,
+        path.join('super-gsd', 'scripts', 'sgsd-open-codex-watch.ps1')),
+      _probe_codex_watch_relay_contract(projectDir)
     ];
 
     const summary = {
@@ -637,6 +679,9 @@ function getProbe(name, opts) {
       // Phase 86: staleness probes.
       case 'state_md_freshness':                    return _probe_state_md_freshness(projectDir);
       case 'context_packet_builder_freshness':      return _probe_context_packet_builder_freshness(projectDir);
+      case 'codex_watch_script_present':            return _probe_repo_file(name, projectDir, path.join('super-gsd', 'scripts', 'sgsd-watch-codex.ps1'));
+      case 'codex_watch_launcher_present':          return _probe_repo_file(name, projectDir, path.join('super-gsd', 'scripts', 'sgsd-open-codex-watch.ps1'));
+      case 'codex_watch_relay_contract':            return _probe_codex_watch_relay_contract(projectDir);
       default:                                      return _degraded(name, new Error('switch fall-through'));
     }
   } catch (e) {
@@ -653,9 +698,8 @@ function selfTest() {
   }
 
   try {
-    // A1: PROBE_NAMES frozen, len=18 (Phase 86 extends 16 -> 18 with
-    // staleness probes: state_md_freshness + context_packet_builder_freshness).
-    assert('A1_probe_names_frozen_18', Object.isFrozen(PROBE_NAMES) && PROBE_NAMES.length === 18,
+    // A1: PROBE_NAMES frozen, len=21 (Phase 86 18 + Codex watch relay 3).
+    assert('A1_probe_names_frozen_21', Object.isFrozen(PROBE_NAMES) && PROBE_NAMES.length === 21,
       'len=' + PROBE_NAMES.length + ' frozen=' + Object.isFrozen(PROBE_NAMES));
 
     // A2: STATUS_VALUES frozen, len=5
@@ -687,15 +731,15 @@ function selfTest() {
         break;
       }
     }
-    assert('A6_all_probes_shape_ok', allShapeOk, firstBad || 'all 18 OK');
+    assert('A6_all_probes_shape_ok', allShapeOk, firstBad || 'all 21 OK');
 
-    // A7: runWarpDoctor returns valid envelope (Phase 86: 18 probes).
+    // A7: runWarpDoctor returns valid envelope (Phase 86 + Codex relay: 21 probes).
     const env = runWarpDoctor({ projectDir: process.cwd() });
     assert('A7_runWarpDoctor_envelope_ok',
       env && env.ok === true &&
       env.schema_version === SCHEMA_VERSION &&
       Array.isArray(env.probes) &&
-      env.probes.length === 18 &&
+      env.probes.length === 21 &&
       typeof env.summary === 'object' &&
       typeof env.exit_code === 'number',
       'schema=' + (env && env.schema_version) + ' probes=' + (env && env.probes && env.probes.length));

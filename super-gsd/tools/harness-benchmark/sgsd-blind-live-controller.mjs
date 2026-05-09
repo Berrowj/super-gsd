@@ -467,12 +467,12 @@ function launchMonitors(stdoutPath, stderrPath) {
     const wt = spawn('wt.exe', [
       'new-tab',
       '--title', 'SGSD stdout',
-      'powershell.exe', '-NoExit', '-ExecutionPolicy', 'Bypass', '-File', stdoutScript,
+      'powershell.exe', '-NoExit', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', stdoutScript,
       ';',
       'split-pane',
       '-H',
       '--title', 'SGSD stderr',
-      'powershell.exe', '-NoExit', '-ExecutionPolicy', 'Bypass', '-File', stderrScript,
+      'powershell.exe', '-NoExit', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', stderrScript,
     ], {
       detached: true,
       stdio: 'ignore',
@@ -484,11 +484,11 @@ function launchMonitors(stdoutPath, stderrPath) {
   }
 
   try {
-    const left = spawn('powershell.exe', ['-NoExit', '-ExecutionPolicy', 'Bypass', '-File', stdoutScript], {
+    const left = spawn('powershell.exe', ['-NoExit', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', stdoutScript], {
       detached: true,
       stdio: 'ignore',
     });
-    const right = spawn('powershell.exe', ['-NoExit', '-ExecutionPolicy', 'Bypass', '-File', stderrScript], {
+    const right = spawn('powershell.exe', ['-NoExit', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', stderrScript], {
       detached: true,
       stdio: 'ignore',
     });

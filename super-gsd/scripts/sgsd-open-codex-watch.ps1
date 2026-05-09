@@ -8,8 +8,8 @@
 param(
     [string]$ProjectDir = (Get-Location).Path,
     [string]$WatchScript = '',
-    [int]$NarrateSec = 15,
-    [int]$ChunkChars = 3000,
+    [int]$NarrateSec = 60,
+    [int]$ChunkChars = 6000,
     [int]$NarratorTimeoutSec = 120,
     [decimal]$NarratorSize = 0.45,
     [switch]$Foreground

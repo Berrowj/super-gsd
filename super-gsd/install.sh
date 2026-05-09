@@ -16,6 +16,19 @@
 
 set -e
 
+# SSH/non-login shells can miss user-local Node shims because ~/.bashrc exits
+# early. Make installer prerequisites match the SG/boot runtime.
+if [ -d "$HOME/.local/bin" ]; then
+  PATH="$HOME/.local/bin:$PATH"
+fi
+if [ -d "$HOME/.nvm/versions/node" ]; then
+  SGSD_NODE_BIN="$(find "$HOME/.nvm/versions/node" -maxdepth 2 -type d -name bin 2>/dev/null | sort -V | tail -1)"
+  if [ -n "$SGSD_NODE_BIN" ]; then
+    PATH="$SGSD_NODE_BIN:$PATH"
+  fi
+fi
+export PATH
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(pwd)"
 CLAUDE_DIR="$HOME/.claude"
@@ -93,6 +106,10 @@ for agent in "$SCRIPT_DIR/agents/"*.md; do
   copy_file "$agent" "$AGENTS_DIR/$name"
   AGENT_COUNT=$((AGENT_COUNT + 1))
 done
+if [ -f "$SCRIPT_DIR/agents/sgsd-executor.md" ]; then
+  copy_file "$SCRIPT_DIR/agents/sgsd-executor.md" "$AGENTS_DIR/gsd-executor.md"
+  log "  legacy gsd-executor disabled -> Codex executor only"
+fi
 log "  $AGENT_COUNT agents installed"
 
 # ── Step 2: Install skills ──

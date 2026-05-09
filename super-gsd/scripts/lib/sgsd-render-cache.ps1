@@ -21,10 +21,40 @@
 # FSWatcher on .planning/ fires for every metrics append, so a single Agent
 # dispatch can trip `$global:needsRedraw` ten times in a second. Without this
 # guard the Render loop does the full ~80 ms work burst for each trip.
+# Default to a calmer 5s paint cadence because line-by-line terminal redraws are
+# visually noisy in Warp/Windows Terminal. Operators can opt back into the old
+# 2s cadence with SGSD_COCKPIT_FAST=1, or set SGSD_COCKPIT_MIN_REFRESH_MS to a
+# specific 1000..60000 ms value.
 $script:_lastRenderAt = [DateTime]::MinValue
+
+function Get-SgsdRenderMinIntervalMs {
+    param([int]$RequestedMs = 2000)
+
+    $effective = $RequestedMs
+    $raw = $env:SGSD_COCKPIT_MIN_REFRESH_MS
+    if ($raw) {
+        $parsed = 0
+        if ([int]::TryParse($raw, [ref]$parsed)) {
+            if ($parsed -lt 1000)  { $parsed = 1000 }
+            if ($parsed -gt 60000) { $parsed = 60000 }
+            return $parsed
+        }
+    }
+
+    if ($env:SGSD_COCKPIT_LOW_MOTION -eq "1" -and $effective -lt 8000) {
+        return 8000
+    }
+
+    if ($env:SGSD_COCKPIT_FAST -ne "1" -and $effective -lt 5000) {
+        return 5000
+    }
+
+    return $effective
+}
 
 function Test-RenderDue {
     param([int]$MinIntervalMs = 2000)
+    $MinIntervalMs = Get-SgsdRenderMinIntervalMs -RequestedMs $MinIntervalMs
     $now = [DateTime]::UtcNow
     $sinceMs = ($now - $script:_lastRenderAt).TotalMilliseconds
     if ($sinceMs -lt $MinIntervalMs) { return $false }

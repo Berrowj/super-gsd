@@ -6,6 +6,8 @@
 #   .planning/config.json
 #   .planning/metrics/codex-live.json
 #   .planning/metrics/codex-log.jsonl
+#   .planning/metrics/codex-executor-live.txt
+#   .planning/metrics/codex-executor-log.jsonl
 #   .planning/metrics/activity-log.jsonl
 #   super-gsd/registry/gates.yaml
 # ============================================================================
@@ -296,6 +298,245 @@ function Get-SgsdCodexStatus {
     return [pscustomobject]$out
 }
 
+function Get-SgsdShortAge {
+    param($Seconds)
+    if ($null -eq $Seconds) { return "--" }
+    $sec = [Math]::Max(0, [int]$Seconds)
+    if ($sec -lt 60) { return "${sec}s" }
+    if ($sec -lt 3600) { return "$([math]::Floor($sec / 60))m" }
+    if ($sec -lt 86400) { return "$([math]::Floor($sec / 3600))h" }
+    return "$([math]::Floor($sec / 86400))d"
+}
+
+function Get-SgsdCodexExecutorStatus {
+    <#
+    .SYNOPSIS
+      Reads Codex executor live telemetry for cockpit rendering.
+
+    .DESCRIPTION
+      Reviewer telemetry lives in codex-live.json/codex-log.jsonl. Executor
+      telemetry is separate because Codex now performs open-ended code work via
+      codex-executor.sh. This helper reads:
+        - .planning/metrics/codex-executor-live.txt  (live stdout/stderr tail)
+        - .planning/metrics/codex-executor-log.jsonl (completed invocations)
+
+      It never throws. Callers can render the returned object directly in the
+      main cockpit, the Codex monitor, or a compact status strip.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$PlanningDir,
+        [string]$CurrentPhase = ""
+    )
+
+    $livePath = Join-Path $PlanningDir "metrics\codex-executor-live.txt"
+    $logPath  = Join-Path $PlanningDir "metrics\codex-executor-log.jsonl"
+
+    $out = [ordered]@{
+        enabled = $true
+        role = "executor"
+        state = "not-fired"
+        stateColor = "DarkGray"
+        phase = ""
+        plan = ""
+        model = "gpt-5.5"
+        reasoningEffort = "xhigh"
+        timeoutSeconds = 1200
+        startedAt = ""
+        durationMs = 0
+        durationSec = $null
+        exit = $null
+        promptFile = ""
+        reportOut = ""
+        promptBytes = 0
+        reportBytes = 0
+        stderrPreview = ""
+        timeoutHit = $null
+        updatedAgeSec = $null
+        livePath = $livePath
+        logPath = $logPath
+        liveExists = $false
+        liveTail = ""
+        totalRuns = 0
+        okRuns = 0
+        failedRuns = 0
+        timeoutRuns = 0
+        currentPhase = $CurrentPhase
+        scopeCurrent = $true
+        staleScope = ""
+        watcherCommand = "sgsd-watch-codex"
+        openWindowCommand = "sgsd-watch-codex -OpenWindow"
+    }
+
+    if (-not $out.currentPhase) {
+        $statePath = Join-Path $PlanningDir "STATE.md"
+        if (Test-Path -LiteralPath $statePath) {
+            try {
+                foreach ($line in (Get-Content -LiteralPath $statePath -TotalCount 80 -ErrorAction SilentlyContinue)) {
+                    if (-not $out.currentPhase -and $line -match '^(?:current_phase|phase):\s*"?([0-9]+)"?') {
+                        $out.currentPhase = $matches[1]
+                    }
+                    if (-not $out.currentPhase -and $line -match '^status:\s*.*\bNext:\s*Phase\s+([0-9]+)\b') {
+                        $out.currentPhase = $matches[1]
+                    }
+                    if (-not $out.currentPhase -and $line -match '^status:\s*.*\bPhase\s+([0-9]+)\b') {
+                        $out.currentPhase = $matches[1]
+                    }
+                }
+            } catch {}
+        }
+    }
+
+    $latestLog = $null
+    if (Test-Path -LiteralPath $logPath) {
+        try {
+            $rows = New-Object System.Collections.Generic.List[object]
+            foreach ($line in (Get-Content -LiteralPath $logPath -ErrorAction SilentlyContinue)) {
+                if (-not "$line".Trim()) { continue }
+                try { $rows.Add(($line | ConvertFrom-Json -ErrorAction Stop)) } catch {}
+            }
+            $out.totalRuns = $rows.Count
+            foreach ($row in $rows) {
+                $exitCode = $null
+                try { $exitCode = [int]$row.exit } catch {}
+                $isTimeout = ($exitCode -eq 124 -or $exitCode -eq 5 -or $row.timeout_hit -eq $true)
+                if ($exitCode -eq 0) { $out.okRuns = [int]$out.okRuns + 1 }
+                elseif ($isTimeout) { $out.timeoutRuns = [int]$out.timeoutRuns + 1; $out.failedRuns = [int]$out.failedRuns + 1 }
+                elseif ($null -ne $exitCode) { $out.failedRuns = [int]$out.failedRuns + 1 }
+                $latestLog = $row
+            }
+        } catch {}
+    }
+
+    if ($latestLog) {
+        $out.phase = "$($latestLog.phase)"
+        $out.plan = "$($latestLog.plan)"
+        if ($latestLog.model) { $out.model = "$($latestLog.model)" }
+        if ($latestLog.reasoning_effort) { $out.reasoningEffort = "$($latestLog.reasoning_effort)" }
+        try { $out.exit = [int]$latestLog.exit } catch { $out.exit = $latestLog.exit }
+        try { $out.durationMs = [int]$latestLog.duration_ms } catch {}
+        try { $out.promptBytes = [int]$latestLog.prompt_bytes } catch {}
+        try { $out.reportBytes = [int]$latestLog.report_bytes } catch {}
+        if ($null -ne $latestLog.timeout_hit) { $out.timeoutHit = [bool]$latestLog.timeout_hit }
+        $out.stderrPreview = "$($latestLog.stderr_preview)"
+        try { $out.updatedAgeSec = [int]((Get-Date) - ([DateTime]::Parse("$($latestLog.ts)"))).TotalSeconds } catch {}
+        $out.state = if ($out.exit -eq 0) { "ok" } elseif ($out.exit -eq 124 -or $out.exit -eq 5 -or $out.timeoutHit -eq $true) { "timeout" } else { "error" }
+    }
+
+    if (Test-Path -LiteralPath $livePath) {
+        $out.liveExists = $true
+        try {
+            $item = Get-Item -LiteralPath $livePath -ErrorAction SilentlyContinue
+            if ($item) { $out.updatedAgeSec = [int]((Get-Date) - $item.LastWriteTime).TotalSeconds }
+        } catch {}
+
+        try {
+            # codex-executor-live.txt is overwritten at invocation start, then grows
+            # for the duration of the run. Long runs can push the START banner out
+            # of the tail, so read the small header separately and use the tail only
+            # for current activity / END detection.
+            $hasStart = $false
+            $hasEnd = $false
+            $headerLines = @(Get-Content -LiteralPath $livePath -TotalCount 12 -ErrorAction SilentlyContinue)
+            foreach ($lineRaw in $headerLines) {
+                $line = "$lineRaw"
+                if ($line -match '^codex-executor START\s+ts=(\S+)\s+phase=([^\s]+)\s+plan=([^\s]+)') {
+                    $hasStart = $true
+                    $out.startedAt = $matches[1]
+                    $out.phase = $matches[2]
+                    $out.plan = $matches[3]
+                    $out.exit = $null
+                    $out.durationSec = $null
+                    $out.state = "running"
+                } elseif ($line -match '^model=([^\s]+)\s+effort=([^\s]+)\s+timeout=([0-9]+)s') {
+                    $out.model = $matches[1]
+                    $out.reasoningEffort = $matches[2]
+                    try { $out.timeoutSeconds = [int]$matches[3] } catch {}
+                } elseif ($line -match '^workspace=(.*?)\s+prompt=(.*?)\s+report=(.*)$') {
+                    $out.promptFile = $matches[2].Trim()
+                    $out.reportOut = $matches[3].Trim()
+                }
+            }
+
+            $lines = @(Get-Content -LiteralPath $livePath -Tail 160 -ErrorAction SilentlyContinue)
+            for ($i = 0; $i -lt $lines.Count; $i++) {
+                $line = "$($lines[$i])"
+                if ($line -match '^codex-executor START\s+ts=(\S+)\s+phase=([^\s]+)\s+plan=([^\s]+)') {
+                    $hasStart = $true
+                    $hasEnd = $false
+                    $out.startedAt = $matches[1]
+                    $out.phase = $matches[2]
+                    $out.plan = $matches[3]
+                    $out.exit = $null
+                    $out.durationSec = $null
+                    $out.state = "running"
+                } elseif ($line -match '^model=([^\s]+)\s+effort=([^\s]+)\s+timeout=([0-9]+)s') {
+                    $out.model = $matches[1]
+                    $out.reasoningEffort = $matches[2]
+                    try { $out.timeoutSeconds = [int]$matches[3] } catch {}
+                } elseif ($line -match '^workspace=(.*?)\s+prompt=(.*?)\s+report=(.*)$') {
+                    $out.promptFile = $matches[2].Trim()
+                    $out.reportOut = $matches[3].Trim()
+                } elseif ($line -match '^codex-executor END\s+exit=([0-9]+)\s+duration=([0-9]+)s') {
+                    $hasEnd = $true
+                    try { $out.exit = [int]$matches[1] } catch { $out.exit = $matches[1] }
+                    try {
+                        $out.durationSec = [int]$matches[2]
+                        $out.durationMs = [int]$out.durationSec * 1000
+                    } catch {}
+                    $out.state = if ($out.exit -eq 0) { "ok" } elseif ($out.exit -eq 124 -or $out.exit -eq 5) { "timeout" } else { "error" }
+                }
+            }
+
+            if ($hasStart -and -not $hasEnd) { $out.state = "running" }
+
+            for ($i = $lines.Count - 1; $i -ge 0; $i--) {
+                $candidate = "$($lines[$i])".Trim()
+                if (-not $candidate) { continue }
+                if ($candidate -match '^=+$') { continue }
+                if ($candidate -match '^codex-executor (START|END)\b') { continue }
+                if ($candidate -match '^model=') { continue }
+                if ($candidate -match '^workspace=') { continue }
+                $out.liveTail = $candidate
+                break
+            }
+        } catch {}
+    }
+
+    if ($out.currentPhase -and $out.phase -and "$($out.phase)" -ne "?" -and "$($out.phase)" -ne "$($out.currentPhase)") {
+        $oldScope = @("P$($out.phase)", $out.plan) | Where-Object { $_ -and "$_".Trim() -ne "" }
+        $out.scopeCurrent = $false
+        $out.staleScope = if ($oldScope.Count -gt 0) { $oldScope -join " / " } else { "$($out.phase)" }
+        if ($out.state -ne "running") { $out.state = "stale" }
+    }
+
+    $out.stateColor = switch -Regex ($out.state) {
+        '^running$' { "Yellow" }
+        '^ok$' { "Green" }
+        '^(timeout|error|auth-denied)$' { "Red" }
+        '^stale$' { "DarkGray" }
+        default { "DarkGray" }
+    }
+
+    return [pscustomobject]$out
+}
+
+function Get-SgsdCodexExecutorStatusLine {
+    param($Status)
+    if (-not $Status) { return "executor --" }
+    $age = Get-SgsdShortAge $Status.updatedAgeSec
+    $scope = if (-not $Status.scopeCurrent -and $Status.staleScope) {
+        "current P$($Status.currentPhase); last $($Status.staleScope)"
+    } elseif ($Status.phase -or $Status.plan) {
+        (@("P$($Status.phase)", $Status.plan) | Where-Object { $_ -and "$_".Trim() -ne "" }) -join "/"
+    } else {
+        "no executor run yet"
+    }
+    $model = "{0}/{1}" -f $(if ($Status.model) { $Status.model } else { "gpt-5.5" }), $(if ($Status.reasoningEffort) { $Status.reasoningEffort } else { "xhigh" })
+    $line = "executor {0} [{1}] [{2}] [{3}]" -f $Status.state, $age, $model, $scope
+    if ($Status.liveTail) { $line += " " + $Status.liveTail }
+    return $line
+}
+
 function Get-SgsdGateReviewerProvider {
     param(
         [string]$Content,
@@ -472,7 +713,12 @@ function Get-SgsdCodexVerdicts {
             foreach ($f in $files) {
                 try {
                     $src = "$($f.FullName)"
-                    if ($MilestoneFilter -and $src -notmatch [regex]::Escape("\milestones\$MilestoneFilter\")) { continue }
+                    # Root-scoped projects such as Clarity keep current phase evidence
+                    # under `.planning/phases/` while the live milestone identifier lives
+                    # in STATE.md. Only apply the milestone path filter to files that are
+                    # actually under `.planning/milestones/<id>/`; otherwise phase filter
+                    # is the authoritative scope.
+                    if ($MilestoneFilter -and $src -match '(?i)[\\/]milestones[\\/]' -and $src -notmatch [regex]::Escape("\milestones\$MilestoneFilter\")) { continue }
                     if ($PhaseFilter -and $src -notmatch [regex]::Escape("\phases\$PhaseFilter-")) { continue }
                     foreach ($line in (Get-Content $f.FullName -ErrorAction SilentlyContinue)) {
                         if (-not "$line".Trim()) { continue }

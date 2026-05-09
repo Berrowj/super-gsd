@@ -22,6 +22,19 @@
 
 set -e
 
+# SSH/non-login shells on dev boxes often skip ~/.bashrc user PATH additions.
+# Headless auto mode needs the same node/claude/codex shims as interactive SG.
+if [[ -d "$HOME/.local/bin" ]]; then
+  PATH="$HOME/.local/bin:$PATH"
+fi
+if [[ -d "$HOME/.nvm/versions/node" ]]; then
+  SGSD_NODE_BIN="$(find "$HOME/.nvm/versions/node" -maxdepth 2 -type d -name bin 2>/dev/null | sort -V | tail -1)"
+  if [[ -n "$SGSD_NODE_BIN" ]]; then
+    PATH="$SGSD_NODE_BIN:$PATH"
+  fi
+fi
+export PATH
+
 # ── Config ──
 PROJECT_DIR="${1:-.}"
 MAX_RUNS=50              # safety cap — stop after N restarts
