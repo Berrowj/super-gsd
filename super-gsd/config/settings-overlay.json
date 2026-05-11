@@ -86,7 +86,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/.claude/super-gsd/scripts/sgsd-stop-handoff.sh",
+            "command": "node ~/.claude/hooks/sgsd-stop-handoff.js",
             "timeout": 60
           }
         ]

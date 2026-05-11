@@ -32,6 +32,19 @@ hooks:
     lifecycle_events:
       - {event: registered, ts: 2026-04-21, note: "Node-in-Bash write to settings.json, Phase D"}
 
+  - name: sgsd-stop-handoff
+    event: Stop
+    matcher: "*"
+    script: ~/.claude/hooks/sgsd-stop-handoff.js
+    timeout_sec: 60
+    reads: [.planning/config.json, .planning/ORCHESTRATOR-CHECKPOINT.md, .planning/metrics/orchestrator-pulse.jsonl]
+    writes: .planning/metrics/handoff-log.jsonl
+    depends_on: []
+    failure_mode: silent
+    state: active
+    owner_dlb: DLB-06
+    notes: "Node launcher pins Git Bash on Windows before invoking scripts/sgsd-stop-handoff.sh"
+
   - name: sgsd-activity-logger
     event: PreToolUse
     matcher: "*"

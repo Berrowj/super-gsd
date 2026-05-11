@@ -79,6 +79,26 @@ const target = readJsonOrEmpty(targetPath);
 let added = 0;
 let skipped = 0;
 let setScalars = 0;
+let upgraded = 0;
+
+function isStopHandoffLauncher(entry) {
+    const cmds = (entry.hooks || []).map(h => normalizeCommand(h.command)).filter(Boolean);
+    return cmds.length === 1 && cmds[0] === 'node ~/.claude/hooks/sgsd-stop-handoff.js';
+}
+
+function isLegacyStopHandoff(entry) {
+    const cmds = (entry.hooks || []).map(h => normalizeCommand(h.command)).filter(Boolean);
+    if (cmds.length !== 1) return false;
+    const command = cmds[0];
+    return command.includes('/.claude/super-gsd/scripts/sgsd-stop-handoff.sh') ||
+        command.includes('~/.claude/super-gsd/scripts/sgsd-stop-handoff.sh');
+}
+
+function shouldUpgradeEntry(event, existing, overlayEntry) {
+    if (event !== 'Stop') return false;
+    if ((existing.matcher || '') !== (overlayEntry.matcher || '')) return false;
+    return isStopHandoffLauncher(overlayEntry) && isLegacyStopHandoff(existing);
+}
 
 // ── Merge scalar/object top-level keys (statusLine, env, etc.) ──
 // These are single-value keys, not arrays. Overlay overwrites target ONLY
@@ -106,6 +126,12 @@ if (overlay.hooks && typeof overlay.hooks === 'object') {
         if (!Array.isArray(target.hooks[event])) target.hooks[event] = [];
 
         for (const entry of overlayEntries) {
+            const upgradeIndex = target.hooks[event].findIndex(existing => shouldUpgradeEntry(event, existing, entry));
+            if (upgradeIndex >= 0) {
+                target.hooks[event][upgradeIndex] = entry;
+                upgraded++;
+                continue;
+            }
             const dup = target.hooks[event].find(existing => isSameEntry(existing, entry));
             if (dup) {
                 skipped++;
@@ -122,5 +148,9 @@ const tmpPath = targetPath + '.tmp';
 fs.mkdirSync(path.dirname(targetPath), { recursive: true });
 fs.writeFileSync(tmpPath, JSON.stringify(target, null, 2) + '\n', 'utf8');
 fs.renameSync(tmpPath, targetPath);
+
+if (upgraded > 0) {
+    console.log(`[merge-settings] ${upgraded} legacy hook-entries upgraded`);
+}
 
 console.log(`[merge-settings] ${added} hook-entries added, ${setScalars} top-level keys set, ${skipped} already-present → ${targetPath}`);
