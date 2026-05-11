@@ -97,6 +97,11 @@ Check exit conditions:
 - Operator-only blocker remains after board plus separate Codex challenge? → write checkpoint, EXIT
 - User said stop/pause? → write checkpoint, EXIT
 
+Codex Windows file-read failures are not operator-only blockers while a local
+patch route exists. If direct Codex executor fails with `CreateProcessAsUserW`,
+`error 216`, or equivalent file-read blocked output, run Codex read-pack patch
+mode before board recovery or checkpointing.
+
 Context percentage is observability only. Do not checkpoint or stop because of
 context percentage. Runtime compaction + external state are the context-management
 mechanism.
@@ -197,6 +202,8 @@ IF plan-check passed but no Codex final plan review:
 IF PLAN.md files exist with unchecked tasks (no SUMMARY.md):
   → DISPATCH: codex-executor.sh (GPT-5.5/xhigh)
   → PROMPT: compressed plan XML + executor overlay + SGSD memory results
+  → FALLBACK: on Windows read-block, run codex-patch-executor.sh with
+     {planId}-CODEX-FILES.txt so Codex authors a unified diff from a read-pack
 
 IF all plans have SUMMARY.md but no VERIFICATION.md AND config.verifier == true:
   → DISPATCH: gsd-verifier (Sonnet)
@@ -305,7 +312,8 @@ Parse the report:
 FILES_CHANGED → list for git add
 VERIFICATION → check all passed; if any failed, log
 DEVIATIONS → collect for phase summary
-BLOCKERS → if any: run board recovery plus separate Codex challenge before any exit
+BLOCKERS → if any: for Codex read-block run patch mode first; otherwise run
+            board recovery plus separate Codex challenge before any exit
 SCRIPTS_CREATED → prepare for sgsd-curate
 ONE_LINER → use in commit message and state update
 ```

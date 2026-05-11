@@ -316,6 +316,20 @@ function run() {
       && /tee -a "\$LIVE_OUT" -a "\$WATCH_OUT"[\s\\\n\r]*> "\$STDOUT_TMP"/.test(codexExecutor)
       && /codex-live-output\.txt/.test(codexExecutor),
       'Live tail must include Codex progress even when the CLI writes to stderr');
+    assert('Codex executor routes Windows read-blocks to patch fallback',
+      /CreateProcessAsUserW/.test(codexExecutor)
+      && /--patch-fallback-files/.test(codexExecutor)
+      && /codex-patch-executor\.sh/.test(codexExecutor)
+      && /exit 8/.test(codexExecutor),
+      'Windows Codex file-read failures must not become immediate operator-only stops');
+
+    const codexPatchExecutor = read('super-gsd/scripts/codex-patch-executor.sh');
+    assert('Codex patch executor enforces read-pack and allowlist',
+      /PATCH_BEGIN/.test(codexPatchExecutor)
+      && /apply --check/.test(codexPatchExecutor)
+      && /patch touched non-allowlisted path/.test(codexPatchExecutor)
+      && /mode":"patch-readpack/.test(codexPatchExecutor),
+      'Patch fallback must have a strict patch contract, allowlist guard, and telemetry mode');
 
     const codexReview = read('super-gsd/scripts/codex-exec.sh');
     assert('Codex review/gate checks stream to the same live tail',

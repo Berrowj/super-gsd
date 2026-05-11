@@ -67,6 +67,13 @@ The ONLY time to ask the user anything:
 
 **If in doubt: DO IT, don't ask.** The user chose autonomous mode. Respect that choice.
 
+Codex host read failures are routing problems, not operator decisions, while
+`super-gsd/scripts/codex-patch-executor.sh` can run. If Windows Codex reports
+`CreateProcessAsUserW`, `error 216`, or an equivalent file-read block, build a
+bounded `{planId}-CODEX-FILES.txt` allowlist/read-pack and let Codex author a
+unified diff through patch mode. Claude may assemble the read-pack and apply
+Codex's patch; Claude must not author the code delta.
+
 ## Super GSD — Autonomous Execution Engine
 
 This project uses **Super GSD** for token-efficient autonomous execution.
@@ -177,7 +184,7 @@ repeat {
 ### Exit Conditions (ONLY these 3)
 
 1. **All phases complete** → text-only: "All phases done."
-2. **Blocker** → needs human decision or runtime cannot continue, stop and explain
+2. **Blocker** → direct Codex, Codex read-pack patch mode, and board+Codex recovery cannot produce a safe local path
 3. **User says stop/pause** → write checkpoint, stop
 
 **Nothing else is a valid exit.** Not phase boundaries. Not milestone boundaries.
@@ -196,7 +203,8 @@ runtime compaction + external state are the context-management mechanism. ONLY t
 | 4 | Plans need checking | Dispatch checker | gsd-plan-checker | sonnet |
 | 4.5 | About to make FIRST executor dispatch of a phase | Dispatch phase-readiness re-probe | sgsd-phase-readiness | haiku |
 | 4.6 | Phase-readiness returned DRIFT | Continue on deterministic degraded/local path; checkpoint only if no runnable executor path remains | — | — |
-| 5 | Pending tasks exist | Dispatch executor | gsd-executor | sonnet |
+| 5 | Pending tasks exist | Dispatch Codex executor with `{planId}-CODEX-FILES.txt` fallback allowlist | codex-executor.sh | gpt-5.5/xhigh |
+| 5.1 | Codex executor hits Windows file-read block | Run Codex read-pack patch executor; Codex authors unified diff, SGSD applies it | codex-patch-executor.sh | gpt-5.5/xhigh |
 | 6 | All plans executed | Dispatch verifier | gsd-verifier | sonnet |
 | 7 | Verification passed | Mark complete, advance | orchestrator | — |
 | 8 | Verification failed | Dispatch planner --gaps | gsd-planner | sonnet |
@@ -227,7 +235,8 @@ Readiness is **stale** if any phase directory under
 | Orchestrator (you) | Opus | Judgment, dispatch, synthesis |
 | Classifier | Haiku | 50-token classification |
 | Context selector | Haiku | Pick relevant brv-queries |
-| All execution agents | Sonnet | Detailed plans make Sonnet sufficient |
+| Code execution | Codex GPT-5.5/xhigh | Claude orchestrates; Codex edits; patch mode handles Windows read-blocks |
+| Verifier/checker/board | Sonnet unless specified | Bounded review or deliberation roles |
 
 ### Sub-Agent Prompt Composition
 
@@ -254,7 +263,8 @@ Max 300 words. No intro. No recap.
 
 ### Checkpoint Protocol
 
-When user says pause/stop OR a real blocker means runtime cannot continue:
+When user says pause/stop OR a real blocker means runtime cannot continue after
+direct Codex, Codex read-pack patch mode, and board+Codex recovery have failed:
 
 **Step 1:** Write `.planning/ORCHESTRATOR-CHECKPOINT.md`
   - Use `Write` tool (not Bash echo)

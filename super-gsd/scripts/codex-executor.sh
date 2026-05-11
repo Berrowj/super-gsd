@@ -27,6 +27,8 @@
 #   --timeout N     seconds (default: 1200 = 20 min, vs 60s for review)
 #   --phase N       JSONL log tag (numeric)
 #   --plan NN-PP    JSONL log tag (string)
+#   --patch-fallback-files <p>
+#                  newline-separated allowlist for read-pack patch fallback
 #   --dry-run       print resolved invocation, exit 0 without calling codex
 #
 # Exit codes (mirror codex-exec.sh shapes where applicable):
@@ -35,6 +37,7 @@
 #   3  codex binary not on PATH
 #   4  auth-denied (OPENAI_API_KEY set OR codex stderr matched auth/401/unauth)
 #   5  timeout (GNU timeout returned 124)
+#   8  Windows Codex file-read blocked and no patch fallback file was supplied
 #
 # OAuth hygiene: same as codex-exec.sh — refuses to run if OPENAI_API_KEY is
 # set in environment (would silently degrade auth provenance). Use OAuth via
@@ -64,6 +67,7 @@ TIMEOUT_SECONDS="1200"
 DRY_RUN=false
 PHASE_TAG=""
 PLAN_TAG=""
+PATCH_FALLBACK_FILES=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -73,6 +77,7 @@ while [[ $# -gt 0 ]]; do
         --timeout)     TIMEOUT_SECONDS="$2"; shift 2 ;;
         --phase)       PHASE_TAG="$2";   shift 2 ;;
         --plan)        PLAN_TAG="$2";    shift 2 ;;
+        --patch-fallback-files) PATCH_FALLBACK_FILES="$2"; shift 2 ;;
         --dry-run)     DRY_RUN=true;     shift ;;
         --help|-h)     head -50 "$0" | tail -45; exit 0 ;;
         *)             echo "codex-executor: unexpected arg '$1'" >&2; exit 1 ;;
@@ -147,6 +152,9 @@ if [[ "$DRY_RUN" == true ]]; then
     echo "  workspace: $WORKSPACE  (codex --cd: $CODEX_CD)"
     echo "  prompt:   $PROMPT_FILE"
     echo "  report:   $REPORT_OUT"
+    if [[ -n "$PATCH_FALLBACK_FILES" ]]; then
+        echo "  patch-fallback-files: $PATCH_FALLBACK_FILES"
+    fi
     exit 0
 fi
 
@@ -241,6 +249,23 @@ if [[ $RC -eq 124 ]]; then
     exit 5
 fi
 if [[ $RC -ne 0 ]]; then
+    if grep -qiE '(CreateProcessAsUserW|error[ =:]?216|os error 216|file read.*blocked|cannot read file)' "$STDERR_TMP" "$STDOUT_TMP" 2>/dev/null; then
+        echo "codex-executor: Windows Codex file-read failure detected; routing to read-pack patch fallback" >&2
+        if [[ -n "$PATCH_FALLBACK_FILES" ]]; then
+            SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+            bash "$SCRIPT_DIR/codex-patch-executor.sh" \
+                --prompt-file "$PROMPT_FILE" \
+                --report-out "$REPORT_OUT" \
+                --workspace "$WORKSPACE" \
+                --files "$PATCH_FALLBACK_FILES" \
+                --timeout "$TIMEOUT_SECONDS" \
+                --phase "$PHASE_TAG" \
+                --plan "$PLAN_TAG"
+            exit $?
+        fi
+        echo "codex-executor: read-pack patch fallback requires --patch-fallback-files" >&2
+        exit 8
+    fi
     if grep -qiE '(auth|401|unauthori[sz]ed)' "$STDERR_TMP" 2>/dev/null; then
         echo "codex-executor: auth-denied" >&2
         head -c 200 "$STDERR_TMP" >&2; echo >&2

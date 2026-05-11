@@ -184,7 +184,9 @@ Canonical phase path:
    enrichment or the explicit VTP_STATUS row.
 6. Run a quick Codex plan review applying ATC + MUDA before execution. NOGO
    routes back to Opus planner for a revised final draft.
-7. Execute code only through `codex-executor [gpt-5.5/xhigh]`.
+7. Execute code only through `codex-executor [gpt-5.5/xhigh]`. If Windows
+   Codex cannot read files (`CreateProcessAsUserW`, `error 216`, or equivalent),
+   use Codex read-pack patch mode before treating it as a blocker.
 8. Verify, run required gates, commit, close/advance phase or milestone, and
    immediately continue until no roadmap work remains.
 
@@ -198,6 +200,10 @@ Blocker recovery policy:
 - Then send the board decision to a separate Codex review/challenge instance.
 - Choose the safest actionable recommendation, log the decision, and resume the
   loop.
+- Codex host read failures are routing problems, not operator decisions, while
+  `super-gsd/scripts/codex-patch-executor.sh` can run. Claude may assemble the
+  bounded read-pack and apply Codex's unified diff; Claude must not author the
+  code delta.
 - Stop only when the user explicitly pauses/stops, all roadmap work is complete,
   or board plus Codex recovery cannot produce a safe local path because the
   remaining blocker is credentials, destructive ambiguity, external access, or
@@ -290,7 +296,8 @@ runtime compaction + external state are the context-management mechanism. ONLY t
 | 4.2 | Plan check passed | Run Codex plan-final ATC + MUDA review | codex-exec.sh | gpt-5.5/xhigh |
 | 4.5 | About to make FIRST executor dispatch of a phase | Dispatch phase-readiness re-probe | sgsd-phase-readiness | haiku |
 | 4.6 | Phase-readiness returned DRIFT | Continue on deterministic degraded/local path; checkpoint only if no runnable executor path remains | — | — |
-| 5 | Pending tasks exist | Dispatch executor | gsd-executor | sonnet |
+| 5 | Pending tasks exist | Dispatch Codex executor with `{planId}-CODEX-FILES.txt` fallback allowlist | codex-executor.sh | gpt-5.5/xhigh |
+| 5.1 | Codex executor hits Windows file-read block | Run Codex read-pack patch executor; Codex authors unified diff, SGSD applies it | codex-patch-executor.sh | gpt-5.5/xhigh |
 | 6 | All plans executed | Dispatch verifier | gsd-verifier | sonnet |
 | 7 | Verification passed | Mark complete, advance | orchestrator | — |
 | 8 | Verification failed | Dispatch planner --gaps | gsd-planner | opus 4.7/xhigh |
@@ -316,7 +323,7 @@ Readiness is **stale** if any phase directory under the active milestone has an 
 | Research | Codex GPT-5.5/xhigh | Read-only research report via SGSD Codex wrapper |
 | Planner | Opus 4.7/xhigh | High-judgment plan synthesis |
 | Plan final review | Codex GPT-5.5/xhigh | Fast ATC + MUDA challenge before execution |
-| Code execution | Codex GPT-5.5/xhigh | Claude orchestrates; Codex edits |
+| Code execution | Codex GPT-5.5/xhigh | Claude orchestrates; Codex edits; patch mode handles Windows read-blocks |
 | Verifier/checker/board | Sonnet unless specified | Bounded review or deliberation roles |
 
 ### Sub-Agent Prompt Composition
@@ -345,7 +352,8 @@ Max 300 words. No intro. No recap.
 ### Checkpoint Protocol
 
 When user says pause/stop OR board plus separate Codex challenge cannot resolve
-a real runtime/operator-only blocker:
+a real runtime/operator-only blocker after direct Codex, Codex read-pack patch
+mode, and any configured remote/Linux Codex route have failed:
 
 **Step 1:** Write `.planning/ORCHESTRATOR-CHECKPOINT.md`
   - Use `Write` tool (not Bash echo)

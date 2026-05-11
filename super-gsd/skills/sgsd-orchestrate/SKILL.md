@@ -66,6 +66,15 @@ to halt, checkpoint, or ask the operator because Codex failed, a report was
 malformed, a plan is uncertain, context is missing, VTP is degraded, tests fail,
 or an implementation path dead-ends, run this recovery path first:
 
+Codex-on-Windows read failures are not operator-only blockers. If stderr/stdout
+contains `CreateProcessAsUserW`, `error 216`, `os error 216`, or any equivalent
+"Codex cannot read files" symptom, immediately route the same executor prompt
+through `super-gsd/scripts/codex-patch-executor.sh` with a bounded allowlisted
+read-pack. Claude may assemble the read-pack and apply Codex's unified diff;
+Claude must not author the code delta. Only after direct Codex, patch-mode
+Codex, and any configured Linux/SSH Codex route all fail may this enter board
+recovery.
+
 1. Write a compact blocker brief under the active phase directory:
    `{phaseDir}/{phaseNum}-BLOCKER-RECOVERY-BRIEF.md`.
    Include the failed command/report path, attempted plan, constraints, files
@@ -117,7 +126,8 @@ Canonical path for each phase:
 7. Run Codex GPT-5.5/xhigh final plan review applying ATC + MUDA to the plan
    set. If it NOGOs, route back to Opus planner for a revised final draft.
 8. Execute only through `codex-executor [gpt-5.5/xhigh]`. Claude never performs
-   code edits as executor.
+   code edits as executor. If Windows Codex cannot read files, use Codex
+   read-pack patch mode before any blocker checkpoint.
 9. Verify, run per-dispatch ATC, phase-level ATC, MUDA, browser gates when
    applicable, commit, mark phase complete, and immediately choose the next
    phase.
@@ -417,6 +427,11 @@ Failure behavior:
 - If `codex-executor.sh` exits 3, 4, 5, or 1, run the Blocker Recovery Hard
   Loop and resume if it yields a safe local path. Do not fall back to Claude
   executor.
+- If `codex-executor.sh` exits 8 or reports `CreateProcessAsUserW=216` /
+  equivalent Windows file-read failure, do not checkpoint for operator
+  infrastructure. Run `super-gsd/scripts/codex-patch-executor.sh` with the
+  prewritten `{planId}-CODEX-FILES.txt` allowlist. This keeps Codex as the code
+  author while SGSD supplies the read-pack and applies Codex's unified diff.
 - If Codex returns a report but no files changed, process that as an executor
   report failure/blocker under the normal Step 9 path.
 - The operator can watch live Codex output at
@@ -1003,6 +1018,7 @@ REPEAT:
            - planId = plan filename without `-PLAN.md`
            - promptPath = `{phaseDir}/{planId}-CODEX-EXECUTOR-PROMPT.md`
            - reportPath = `{phaseDir}/{planId}-CODEX-EXECUTOR-REPORT.md`
+           - filesPath = `{phaseDir}/{planId}-CODEX-FILES.txt`
 
         3. TaskCreate:
            activeForm: `codex-executor [gpt-5.5/xhigh] P{phase}.{planId} - executing code plan`
@@ -1012,6 +1028,12 @@ REPEAT:
            files_touched, tasks, acceptance commands, constraints, relevant
            context-packet summary, and report contract.
 
+        4.5. Write `filesPath` with one repository-relative path per line for
+           every existing or intended file the task may touch. Derive it from
+           plan frontmatter `files_touched`, task text, and the file-collision
+           DAG. This is used only if direct Codex hits a Windows host read
+           failure; it is not permission to touch unrelated files.
+
         5. Bash:
            ```bash
            bash super-gsd/scripts/codex-executor.sh \
@@ -1019,7 +1041,8 @@ REPEAT:
              --report-out  "{reportPath}" \
              --workspace   "$(pwd)" \
              --phase       "{phase_number}" \
-             --plan        "{planId}"
+             --plan        "{planId}" \
+             --patch-fallback-files "{filesPath}"
            ```
 
         6. Read `reportPath`.
@@ -1027,8 +1050,10 @@ REPEAT:
         7. Continue with the existing Step 9 and Step 9.5 pipeline for this
            report: process executor output, enforce commit discipline, run
            per-dispatch ATC on Codex's diff, log gates, then advance state.
-           If codex-executor exits non-zero, run the Blocker Recovery Hard
-           Loop. Never fall back to a Claude executor.
+           If codex-executor exits 8 or logs a Windows read-block, run
+           `codex-patch-executor.sh` with `filesPath` if the wrapper has not
+           already done so. If any other non-zero exit remains, run the Blocker
+           Recovery Hard Loop. Never fall back to a Claude executor.
 
         8. TaskUpdate completed after Step 9 and Step 9.5 finish.
 

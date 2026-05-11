@@ -24,7 +24,16 @@ not a structured review verdict.
 | Exit code 6 (contract violation) | Yes | N/A |
 
 Both wrappers share: OAuth-only auth, GNU timeout wrapper, JSONL logging,
-WSL/Windows path translation, exit codes 3 (no PATH) / 4 (auth) / 5 (timeout).
+WSL/Windows path translation, exit codes 3 (no PATH) / 4 (auth) / 5
+(timeout). `codex-executor.sh` exits 8 when a Windows file-read block is
+detected and no `--patch-fallback-files` allowlist was supplied.
+
+`codex-patch-executor.sh` is the executor fallback for Windows hosts where the
+Codex CLI cannot read files (`CreateProcessAsUserW=216` / `error 216`). SGSD
+builds a bounded allowlisted read-pack, Codex authors a unified diff, and SGSD
+validates/applies that diff locally. This is still a Codex-authored code path;
+Claude may assemble the read-pack and apply the patch, but Claude does not
+write the code delta.
 
 ## Manual usage
 
@@ -55,12 +64,16 @@ code-mutating executor work runs through `codex-executor.sh`.
 Now the orchestrator must:
 
 1. Write the executor prompt to `{phaseDir}/{planId}-CODEX-EXECUTOR-PROMPT.md`
-2. Invoke `codex-executor.sh` via Bash
+2. Write `{planId}-CODEX-FILES.txt` with one repo-relative allowed path per
+   line, then invoke `codex-executor.sh` via Bash with
+   `--patch-fallback-files {planId}-CODEX-FILES.txt`
 3. Read `{phaseDir}/{planId}-CODEX-EXECUTOR-REPORT.md`
 4. Process that report through the normal Step 9 and Step 9.5 commit/gate path
 
-There is no Claude executor fallback. If Codex fails, the orchestrator writes a
-checkpoint and halts with a blocker.
+There is no Claude executor fallback. If direct Codex fails because Windows
+blocks file reads, `codex-executor.sh` routes to `codex-patch-executor.sh`
+before any blocker checkpoint. If direct Codex and patch-mode Codex both fail,
+the orchestrator runs the board + separate Codex blocker-recovery challenge.
 
 ## Config schema
 
