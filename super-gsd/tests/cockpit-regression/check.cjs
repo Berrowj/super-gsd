@@ -320,16 +320,19 @@ function run() {
       /CreateProcessAsUserW/.test(codexExecutor)
       && /--patch-fallback-files/.test(codexExecutor)
       && /codex-patch-executor\.sh/.test(codexExecutor)
+      && /codex_read_block_detected/.test(codexExecutor)
+      && /falsely record a completed executor run/.test(codexExecutor)
       && /exit 8/.test(codexExecutor),
-      'Windows Codex file-read failures must not become immediate operator-only stops');
+      'Windows Codex file-read failures must route before success handling, including rc=0 report-body failures');
 
     const codexPatchExecutor = read('super-gsd/scripts/codex-patch-executor.sh');
     assert('Codex patch executor enforces read-pack and allowlist',
       /PATCH_BEGIN/.test(codexPatchExecutor)
-      && /apply --check/.test(codexPatchExecutor)
+      && /apply --recount --check/.test(codexPatchExecutor)
+      && /git apply --recount failed/.test(codexPatchExecutor)
       && /patch touched non-allowlisted path/.test(codexPatchExecutor)
       && /mode":"patch-readpack/.test(codexPatchExecutor),
-      'Patch fallback must have a strict patch contract, allowlist guard, and telemetry mode');
+      'Patch fallback must have a strict patch contract, allowlist guard, explicit apply failure, and telemetry mode');
 
     const codexReview = read('super-gsd/scripts/codex-exec.sh');
     assert('Codex review/gate checks stream to the same live tail',

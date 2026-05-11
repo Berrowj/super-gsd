@@ -8,7 +8,7 @@
 # wrapper validates/applies that patch locally.
 # ============================================================================
 
-set -u
+set -euo pipefail
 
 PROMPT_FILE=""
 REPORT_OUT=""
@@ -306,8 +306,14 @@ if [[ "$APPLY_PATCH" == true ]]; then
         GIT_WORKSPACE="$(wslpath -w "$WORKSPACE" 2>/dev/null || echo "$WORKSPACE")"
         GIT_PATCH_TMP="$(wslpath -w "$PATCH_TMP" 2>/dev/null || echo "$PATCH_TMP")"
     fi
-    git -C "$GIT_WORKSPACE" apply --check "$GIT_PATCH_TMP"
-    git -C "$GIT_WORKSPACE" apply "$GIT_PATCH_TMP"
+    if ! git -C "$GIT_WORKSPACE" apply --recount --check "$GIT_PATCH_TMP"; then
+        echo "codex-patch-executor: git apply --recount --check failed" >&2
+        exit 6
+    fi
+    if ! git -C "$GIT_WORKSPACE" apply --recount "$GIT_PATCH_TMP"; then
+        echo "codex-patch-executor: git apply --recount failed" >&2
+        exit 6
+    fi
     {
         echo
         echo "SGSD_PATCH_APPLY: success"

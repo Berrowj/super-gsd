@@ -29,11 +29,18 @@ WSL/Windows path translation, exit codes 3 (no PATH) / 4 (auth) / 5
 detected and no `--patch-fallback-files` allowlist was supplied.
 
 `codex-patch-executor.sh` is the executor fallback for Windows hosts where the
-Codex CLI cannot read files (`CreateProcessAsUserW=216` / `error 216`). SGSD
-builds a bounded allowlisted read-pack, Codex authors a unified diff, and SGSD
+Codex CLI cannot read files (`CreateProcessAsUserW=216` / `error 216`). This
+detection checks stdout/report text as well as non-zero failures because Codex
+can return exit 0 while putting the read-block in the report body. SGSD builds a
+bounded allowlisted read-pack, Codex authors a unified diff, and SGSD
 validates/applies that diff locally. This is still a Codex-authored code path;
 Claude may assemble the read-pack and apply the patch, but Claude does not
 write the code delta.
+
+Patch mode applies with `git apply --recount --check` followed by
+`git apply --recount`. The recount is intentional: Codex sometimes emits
+correct diff content with stale hunk counts. If either command fails, the
+wrapper exits non-zero and does not append `SGSD_PATCH_APPLY: success`.
 
 ## Manual usage
 

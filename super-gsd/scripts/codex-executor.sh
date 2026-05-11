@@ -227,6 +227,36 @@ cp "$STDOUT_TMP" "$REPORT_OUT.tmp"
 mv "$REPORT_OUT.tmp" "$REPORT_OUT"
 REPORT_BYTES=$(wc -c < "$REPORT_OUT" | tr -d ' ')
 
+codex_read_block_detected() {
+    grep -qiE '(CreateProcessAsUserW|error[ =:]?216|os error 216|file read.*blocked|cannot read file)' \
+        "$STDERR_TMP" "$STDOUT_TMP" "$REPORT_OUT" 2>/dev/null
+}
+
+run_patch_fallback() {
+    echo "codex-executor: Windows Codex file-read failure detected; routing to read-pack patch fallback" >&2
+    if [[ -n "$PATCH_FALLBACK_FILES" ]]; then
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+        bash "$SCRIPT_DIR/codex-patch-executor.sh" \
+            --prompt-file "$PROMPT_FILE" \
+            --report-out "$REPORT_OUT" \
+            --workspace "$WORKSPACE" \
+            --files "$PATCH_FALLBACK_FILES" \
+            --timeout "$TIMEOUT_SECONDS" \
+            --phase "$PHASE_TAG" \
+            --plan "$PLAN_TAG"
+        exit $?
+    fi
+    echo "codex-executor: read-pack patch fallback requires --patch-fallback-files" >&2
+    exit 8
+}
+
+# Codex CLI on Windows can return exit 0 while placing the read-block failure
+# in stdout/report text. Detect this before success handling or telemetry would
+# falsely record a completed executor run.
+if [[ $RC -ne 124 ]] && codex_read_block_detected; then
+    run_patch_fallback
+fi
+
 # JSONL log
 LOG="$PROJECT/.planning/metrics/codex-executor-log.jsonl"
 mkdir -p "$(dirname "$LOG")"
@@ -249,23 +279,6 @@ if [[ $RC -eq 124 ]]; then
     exit 5
 fi
 if [[ $RC -ne 0 ]]; then
-    if grep -qiE '(CreateProcessAsUserW|error[ =:]?216|os error 216|file read.*blocked|cannot read file)' "$STDERR_TMP" "$STDOUT_TMP" 2>/dev/null; then
-        echo "codex-executor: Windows Codex file-read failure detected; routing to read-pack patch fallback" >&2
-        if [[ -n "$PATCH_FALLBACK_FILES" ]]; then
-            SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-            bash "$SCRIPT_DIR/codex-patch-executor.sh" \
-                --prompt-file "$PROMPT_FILE" \
-                --report-out "$REPORT_OUT" \
-                --workspace "$WORKSPACE" \
-                --files "$PATCH_FALLBACK_FILES" \
-                --timeout "$TIMEOUT_SECONDS" \
-                --phase "$PHASE_TAG" \
-                --plan "$PLAN_TAG"
-            exit $?
-        fi
-        echo "codex-executor: read-pack patch fallback requires --patch-fallback-files" >&2
-        exit 8
-    fi
     if grep -qiE '(auth|401|unauthori[sz]ed)' "$STDERR_TMP" 2>/dev/null; then
         echo "codex-executor: auth-denied" >&2
         head -c 200 "$STDERR_TMP" >&2; echo >&2
