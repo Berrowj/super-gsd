@@ -13,7 +13,7 @@ Built on top of [GSD 1.0](https://github.com/gsd-build/get-shit-done) (68 skills
 Two distinct audiences read this README, and the difference matters:
 
 - **Operator-build (this repo):** You are the SGSD developer / operator. You clone `Berrowj/super-gsd`, hack on the orchestrator + skills + tools, run the milestone-close gates, and ship the framework itself. The directory tree below (`super-gsd/scripts/`, `super-gsd/tools/`, `.planning/milestones/`) is the build surface. Everything in `examples/hello-world/` is a fixture you exercise as part of the v2.1 third-gate; it is not your project.
-- **End-user-install:** Someone using SGSD on **their own** project. They run `install.sh --init-project` from inside their project directory; the installer copies the agents, skills, hooks, templates, and `CLAUDE-OVERLAY.md` into their workspace; they then say `go` and Claude builds their thing. They never edit anything inside `super-gsd/` -- that is library code.
+- **End-user-install:** Someone using SGSD on **their own** project. They run safe local setup (`bash super-gsd/install.sh --init-project`) from inside their project directory; it creates project-local `.planning/`, `.planning/memory/`, config, and `CLAUDE.md` without touching global Claude permissions. Global Claude commands/hooks require the separate `--install-global` opt-in, and global auto-approve requires the separate `--enable-autoapprove` opt-in.
 
 If you are reading this from a fresh checkout of `Berrowj/super-gsd`, you are operator-build. If you are reading this from `super-gsd/README.md` symlinked into your own project's `node_modules` or `.claude/super-gsd/`, you are end-user-install. The Quick Start below covers the end-user-install path; the [Operator Build Workflow](#operator-build-workflow) section near the bottom covers the operator-build path.
 
@@ -320,19 +320,19 @@ Old way: Load ALL 30 knowledge files = ~30,000 tokens wasted
 New way: Query for relevant 3 results = ~600 tokens used
 ```
 
-Knowledge lives in `.brv/context-tree/` as markdown files with scored metadata. The local BM25 search engine runs in <1ms with **no API key**.
+Current SGSD memory lives in `.planning/memory/` with a `MEMORY.md` catalog readable by auto-memory and `sgsd-recall`. Legacy `.brv/context-tree/` projects should be migrated with `sgsd-memory-migrate`; the current installer does not install ByteRover or create `.brv`.
 
 Agents curate new patterns as they work — the knowledge base grows automatically.
 
 ---
 
-## Permissions — Fully Autonomous
+## Permissions - Explicit Opt-In
 
-The installer automatically sets Claude Code to **never ask for permission** during autonomous mode:
+The installer no longer changes Claude Code permissions by default. Auto-approve is a global Claude setting, so it must be enabled separately and deliberately:
 
 ```bash
-# What the installer sets (you don't need to run this)
-claude config set --global autoApprove "Bash,Read,Write,Edit,Glob,Grep,Agent"
+# Dangerous: affects every Claude Code session for this OS user
+bash super-gsd/install.sh --enable-autoapprove
 ```
 
 To toggle:
@@ -341,7 +341,7 @@ To toggle:
 claude config set --global autoApprove ""
 
 # Re-enable
-claude config set --global autoApprove "Bash,Read,Write,Edit,Glob,Grep,Agent"
+bash super-gsd/install.sh --enable-autoapprove
 ```
 
 ---
@@ -356,9 +356,9 @@ super-gsd/
 ├── templates/       11 reusable document formats
 ├── workflows/       4 engine specifications
 ├── config/          3 configuration files
-├── brv-seed/        9 knowledge seed files
+├── brv-seed/        legacy knowledge seed files for migration only
 ├── overwatcher/     Signal map visualization
-├── install.sh       One-command installer
+├── install.sh       safe installer: doctor/local/global/autoapprove modes
 ├── CLAUDE-OVERLAY.md   The orchestrator brain
 ├── USER-GUIDE.html     Complete HTML guide (open in browser)
 ├── USER-GUIDE.md       Same guide in markdown
@@ -389,7 +389,7 @@ After the `v1.1` close, the CEO/Board ran a 2-round deliberation on adopting the
 | **Day 0** | `sgsd-curate.sh` slug guard + installer smoke-test | Fixes FINDING-18 — no curation loop ships on a broken write-pipe. |
 | **Wave A** | `sgsd-registry-sync.sh` + `agents.jsonl` | Scoped Agents resource manifest — one JSONL record per agent with sha/model/tools. |
 | **Wave B** | `sgsd-sepl-propose.sh` + `sgsd-sepl-commit.sh` | Operator-gated propose→commit loop at resource grain. Never auto-commits. |
-| **Wave C** | `sgsd-distill-milestone.sh` | Milestone-close Haiku extraction over phase trajectories (SUMMARY + VERIFICATION + WASTE). |
+| **Wave C** | `sgsd-distill-milestone.sh` | Milestone-close trajectory extraction over phase trajectories (SUMMARY + VERIFICATION + WASTE). |
 
 ### Triple hallucination gate (stacked)
 
@@ -398,7 +398,7 @@ Three independent safeguards on the distillation pipeline — each proposed by a
 | # | Gate | Author | Target failure |
 |---|------|--------|----------------|
 | 1 | `type=trajectory-hypothesis` + classifier firewall | Architect | Premature surfacing of uncalibrated patterns into dispatch decisions |
-| 2 | Two-phase-citation Haiku validation | Moonshot | Single-phase coincidences hallucinated as cross-cutting patterns |
+| 2 | Two-phase-citation classifier validation | Moonshot | Single-phase coincidences hallucinated as cross-cutting patterns |
 | 3 | Operator novelty rating 1-3; median < 2/3 retires | Contrarian | The mechanism itself — obvious-lessons dressed as insights |
 
 ### Usage
@@ -417,7 +417,7 @@ bash super-gsd/scripts/sgsd-sepl-commit.sh .planning/proposals/<file>.md --apply
 
 # At milestone close: distil trajectories → hypothesis tier (classifier-firewalled)
 bash super-gsd/scripts/sgsd-distill-milestone.sh v1.1 --exclude-phase-type self-audit > prompt.txt
-# orchestrator dispatches Haiku with prompt.txt → hypotheses.json
+# orchestrator dispatches Codex with prompt.txt -> hypotheses.json
 cat hypotheses.json | bash super-gsd/scripts/sgsd-distill-milestone.sh v1.1 --ingest
 
 # Operator rates each hypothesis (Gate 3)
@@ -427,7 +427,7 @@ printf '3\n2\n3\n3\n3\n2\n3\n' | bash super-gsd/scripts/sgsd-distill-milestone.s
 
 ### Live v1.1 results
 
-First production pass distilled phases 01-07 (self-audit excluded): **7 hypotheses** passed Gate 2 (≥2 phase citations) → `.brv/context-tree/trajectory-hypothesis/`; **3 singletons** quarantined → `candidate/`. Gate 3 rating pending operator input.
+First production pass distilled phases 01-07 (self-audit excluded): **7 hypotheses** passed Gate 2 (>=2 phase citations) -> `.planning/memory/trajectory/hypothesis/`; **3 singletons** quarantined -> `.planning/memory/trajectory/candidate/`. Gate 3 rating pending operator input.
 
 Full rationale + four DLB memos in [`.planning/decisions/`](.planning/decisions/).
 
@@ -445,7 +445,7 @@ powershell -File super-gsd/scripts/sgsd-boot.ps1
 `sgsd-boot` runs a curate-pipe smoke test, refreshes the agents manifest, and opens the three live dashboards:
 
 - **SGSD1** Mission Control — milestone progress, session cost, agent roster, DLB-04 one-liner
-- **SGSD2** Narrative — Haiku-generated paragraph of what Claude is currently doing + live Ctrl+O tool stream
+- **SGSD2** Narrative — live paragraph of what Claude is currently doing + live Ctrl+O tool stream
 - **SGSD3** Gate Verdict — ATC + Browser + Nyquist + Security gates per phase + full DLB-04 substrate panel. The VTP/MCP projection panel is **optional**: if no VTP MCP server is configured, the panel renders an empty-state sentinel and the dashboard exits 0 (Phase 48 selective-VTP-bridge wires VTP as a route-gated whitelist; Phase 52 redis-adapter ships VTP-free as the canonical context-cache path).
 
 Each dashboard auto-refreshes via FileSystemWatcher on the files it reads — no polling flicker.
@@ -458,7 +458,7 @@ These integrations are **optional** -- SGSD ships and runs end-to-end without an
 
 | Add-On | Status | When To Enable | Default Path Without It |
 |--------|--------|----------------|-------------------------|
-| **VTP / MCP bridge** | optional | Research / book / prior-project / architecture-challenge phases that need external validation. The Phase 48 selective-VTP-bridge ships a 4-entry frozen route whitelist (3 active + 1 reserved); local-impl phases NEVER call VTP. | Local-only knowledge resolution via ByteRover. The redis-adapter (Phase 52) is VTP-free and is the canonical context-cache path. |
+| **VTP / MCP bridge** | optional | Research / book / prior-project / architecture-challenge phases that need external validation. The Phase 48 selective-VTP-bridge ships a 4-entry frozen route whitelist (3 active + 1 reserved); local-impl phases NEVER call VTP. | Local-only `.planning/memory` + bundled SGSD docs. The redis-adapter (Phase 52) is VTP-free and is the canonical context-cache path. |
 | **Redis live cache** | optional | Multi-process cockpit runs that share context-bench across operators. | In-memory context-bench harness (Phase 51). Single-operator runs never need Redis. |
 | **Codex panel** | optional | Operators who want a side-by-side Codex monitor in SGSD3. | The Gate Verdict dashboard renders without it; the Codex pane is an additive panel. |
 
@@ -494,7 +494,7 @@ The example fixture under `examples/hello-world/` is the canonical wizard target
 
 - [Claude Code](https://claude.ai/code) — Anthropic's AI coding CLI
 - [GSD 1.0](https://github.com/gsd-build/get-shit-done) — The foundation framework (68 skills, 24 agents)
-- [ByteRover](https://github.com/campfirein/byterover-cli) — Context tree structure (local query engine, no API)
+- SGSD local memory — `.planning/memory/MEMORY.md` plus `sgsd-recall`; no ByteRover install required.
 
 ---
 

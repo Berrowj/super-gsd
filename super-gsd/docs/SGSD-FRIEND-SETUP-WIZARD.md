@@ -170,6 +170,33 @@ Expected:
 True
 ```
 
+Run the safe installer checks and local project setup:
+
+```powershell
+bash super-gsd/install.sh --doctor
+bash super-gsd/install.sh --init-project
+```
+
+This creates or verifies only project-local SGSD files: `.planning/`,
+`.planning/memory/`, `.planning/config.json`, metrics skeletons, and
+`CLAUDE.md`. It does not touch global Claude permissions and it does not
+install ByteRover.
+
+Global Claude commands/hooks are separate and optional:
+
+```powershell
+bash super-gsd/install.sh --install-global --dry-run
+bash super-gsd/install.sh --install-global
+```
+
+Global auto-approval is also separate. Do not run this on an unfamiliar
+machine unless you want every Claude Code session for that OS user to stop
+asking for tool approvals:
+
+```powershell
+bash super-gsd/install.sh --enable-autoapprove
+```
+
 ---
 
 ## 3. Install The Shortcuts
@@ -683,11 +710,13 @@ Recommended friend handover:
 1. Install Claude Code, Node 22+, and Git.
 2. Open PowerShell in the project.
 3. Run npm install.
-4. Optional but recommended: install Codex and run codex login.
-5. Run the shortcut installer.
-6. Run sgsd -NoOpen once; boot seeds local defaults if missing.
-7. Run sg.
-8. Type go in Claude, or run sg -Go.
+4. Install Codex and run codex login.
+5. Run `bash super-gsd/install.sh --doctor`.
+6. Run `bash super-gsd/install.sh --init-project`.
+7. Run the shortcut installer.
+8. Run sgsd -NoOpen once; boot confirms local defaults.
+9. Run sg.
+10. Type go in Claude, or run sg -Go.
 ```
 
 ---
@@ -709,20 +738,24 @@ codex login
 codex login status
 node .\super-gsd\tools\provider-health\check.cjs --provider codex
 
-# 3. Install SGSD shortcuts
+# 3. Safe SGSD local setup
+bash super-gsd/install.sh --doctor
+bash super-gsd/install.sh --init-project
+
+# 4. Install SGSD shortcuts
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\super-gsd\scripts\Install-SgsdShortcut.ps1 -Force
 
-# 4. Reload profile or open a new PowerShell window
+# 5. Reload profile or open a new PowerShell window
 . $PROFILE
 
-# 5. Full first-run health check
+# 6. Full first-run health check
 # Seeds local knowledge/project defaults if they are missing.
 sg -FullPreflight -NoClaude
 
-# 6. Configure local memory/fallback knowledge and print provider readiness
+# 7. Configure local memory/fallback knowledge and print provider readiness
 sgsd-setup -NonInteractive
 
-# 7. Daily boot
+# 8. Daily boot
 sg
 ```
 

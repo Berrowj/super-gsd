@@ -6,7 +6,7 @@
 > it all in one shortcut.
 >
 > **What this is NOT:** the orchestrator basics. For "what is sgsd-orchestrate,
-> how does the loop work, what's ByteRover" — read `super-gsd/USER-GUIDE.md`
+> how does the loop work, how does `.planning/memory` work" — read `super-gsd/USER-GUIDE.md`
 > first. This guide assumes you've done that and now want the full
 > observability + gate-check stack running.
 
@@ -14,15 +14,16 @@
 
 ## TL;DR
 
-1. Install GSD 1.0 base (`npx get-shit-done-cc --claude --global`)
-2. Install the Super GSD overlay (`bash super-gsd/install.sh`)
-3. Install `gsd-browser` — Linux/macOS native, Windows via WSL + wrapper
-4. Install `phase-verifier.mjs` (part of this repo, Node >= 18)
-5. Install dashboard scripts (`sgsd1`, `sgsd2`, `sgsd3`) as .cmd wrappers on PATH
-6. Add `browser_verify` + `atc` blocks to your project's `.planning/config.json`
-7. Add `data-loaded` / `data-empty-reason` attributes to every page component
-8. Add Warp launch configuration for your project
-9. Open Warp palette → Launch Configuration → your project → you're done
+1. Run SGSD doctor (`bash super-gsd/install.sh --doctor`)
+2. Initialize the project-local SGSD files (`bash super-gsd/install.sh --init-project`)
+3. Install global Claude overlay only if you want global slash commands/hooks (`bash super-gsd/install.sh --install-global`)
+4. Install `gsd-browser` — Linux/macOS native, Windows via WSL + wrapper
+5. Install `phase-verifier.mjs` (part of this repo, Node >= 18)
+6. Install dashboard scripts (`sgsd1`, `sgsd2`, `sgsd3`) as .cmd wrappers on PATH
+7. Add `browser_verify` + `atc` blocks to your project's `.planning/config.json`
+8. Add `data-loaded` / `data-empty-reason` attributes to every page component
+9. Add Warp launch configuration for your project
+10. Open Warp palette → Launch Configuration → your project → you're done
 
 Total time first install: ~30 minutes. Every project after that: ~5 minutes.
 
@@ -36,7 +37,7 @@ below will silently skip things or fail in ways that are hard to diagnose.
 | Requirement | Version | Check command |
 |---|---|---|
 | **Claude Code CLI** | any | `claude --version` |
-| **Node.js** | ≥ 18 (≥ 20 recommended) | `node --version` |
+| **Node.js** | >= 22 | `node --version` |
 | **Git** | any recent | `git --version` |
 | **Windows PowerShell** | 5.1 or later | `$PSVersionTable.PSVersion` |
 | **WSL2 (Windows only)** | Ubuntu 22.04+ | `wsl --status` |
@@ -45,7 +46,8 @@ below will silently skip things or fail in ways that are hard to diagnose.
 
 ### Recommended but optional
 
-- **ByteRover** for cross-session memory (install via `super-gsd/install.sh`)
+- **VTP/private KB** for richer research context. Without it, SGSD uses
+  project-local `.planning/memory` and bundled SGSD docs.
 - **Vite / Next.js dev server** — needed for the browser verify gate on
   frontend phases
 
@@ -90,7 +92,8 @@ anywhere special — anywhere you can `cd` to is fine.
 ```powershell
 git clone https://github.com/YOUR-ORG/GSDedits C:\Users\YOU\GSDedits
 cd C:\Users\YOU\GSDedits\super-gsd
-bash install.sh
+bash install.sh --doctor
+bash install.sh --init-project
 ```
 
 > **Note for Windows:** `install.sh` needs bash. Use the bash shell shipped
@@ -98,22 +101,42 @@ bash install.sh
 > also works but the install targets `$HOME\.claude` on Windows, so Git Bash
 > is simpler.
 
-What the installer does:
-- Copies 7 Super GSD agents to `~/.claude/agents/`
-- Copies 8 skills (slash commands) to `~/.claude/commands/`
-- Adds hook scripts for activity logging + checkpoints
-- Installs the CLAUDE overlay template
-- Optionally seeds ByteRover (skip with `--skip-brv`)
+What the safe local installer does:
+- Creates `.planning/` scaffolding in the current project.
+- Creates `.planning/memory/` and `MEMORY.md`.
+- Copies `CLAUDE-OVERLAY.md` to `CLAUDE.md` only if no `CLAUDE.md` exists.
+- Leaves `~/.claude`, global hooks, global commands, global npm packages, and
+  Claude `autoApprove` untouched.
+
+Global install is separate and explicit:
+
+```powershell
+bash install.sh --install-global
+```
+
+Global auto-approve is separate and dangerous:
+
+```powershell
+bash install.sh --enable-autoapprove
+```
 
 Verify:
+
+```powershell
+ls .planning\config.json
+ls .planning\memory\MEMORY.md
+ls CLAUDE.md
+```
+
+If you also chose `--install-global`, verify the global overlay separately:
 
 ```powershell
 ls $HOME\.claude\agents\sgsd-*.md
 ls $HOME\.claude\commands\sgsd-*
 ```
 
-You should see files. If not, re-run install.sh with `-x` to see what's
-happening (`bash -x install.sh`).
+If expected files are missing, re-run the relevant mode with `-x` to see what's
+happening, for example `bash -x install.sh --init-project`.
 
 ---
 
@@ -223,7 +246,7 @@ The workspace has three live dashboard panes:
 | Pane | Script | Purpose |
 |---|---|---|
 | **P3 Mission Control** | `sgsd1` / `sgsd-mission-control.ps1` | milestone · phase · waves · agents · cost |
-| **P4 Narrative** | `sgsd2` / `sgsd-narrative.ps1` | Haiku summary + live Ctrl+O tool stream |
+| **P4 Narrative** | `sgsd2` / `sgsd-narrative.ps1` | live summary + live Ctrl+O tool stream |
 | **P5 Gate Verdict** | `sgsd3` / `sgsd-gate-verdict.ps1` | ATC · browser verify · deferral ledger |
 
 The PowerShell scripts live in `super-gsd/scripts/`. The `.cmd` wrappers live
@@ -611,7 +634,7 @@ uninstall section of `super-gsd/USER-GUIDE.md`.
 ## 16. What this guide does NOT cover (read the other docs)
 
 - **The orchestrator loop** — `super-gsd/USER-GUIDE.md` §7
-- **ByteRover memory** — `super-gsd/USER-GUIDE.md` §8
+- **SGSD memory** — `.planning/memory/MEMORY.md` plus `sgsd-recall`
 - **CEO/Board deliberation** — `super-gsd/USER-GUIDE.md` §9
 - **ATC 7-step framework** — `super-gsd/USER-GUIDE.md` §10, or
   `C:\Users\YOU\.claude\atc\*.md`

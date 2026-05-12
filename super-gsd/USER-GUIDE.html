@@ -876,7 +876,7 @@ tbody td strong {
     <li class="toc-section"><a>Usage</a></li>
     <li><a href="#s6">6. Commands</a></li>
     <li><a href="#s7">7. Autonomous Loop</a></li>
-    <li><a href="#s8">8. Memory (ByteRover)</a></li>
+    <li><a href="#s8">8. Memory (.planning/memory)</a></li>
     <li><a href="#s9">9. Strategic Decisions</a></li>
     <li class="toc-section"><a>Advanced</a></li>
     <li><a href="#s10">10. Quality Gates (ATC)</a></li>
@@ -898,6 +898,10 @@ tbody td strong {
   <section id="hero">
     <div class="hero-badge">Complete User Guide</div>
     <h1>Super GSD</h1>
+    <div class="callout warning">
+      <div class="callout-title">Current setup note (May 2026)</div>
+      Older SGSD material used ByteRover / <code>.brv</code>. Current SGSD memory is <code>.planning/memory/</code> with <code>MEMORY.md</code> and <code>sgsd-recall</code>. Do not install ByteRover for a fresh SGSD project. Use <code>README.md</code> and <code>super-gsd/docs/SGSD-FRIEND-SETUP-WIZARD.md</code> as the canonical fresh-clone setup docs.
+    </div>
     <p class="hero-tagline">Tell it what to build. Walk away. Come back when it's done.</p>
     <div class="hero-meta">
       <span class="hero-pill"><span class="dot"></span> v1.0</span>
@@ -944,7 +948,7 @@ tbody td strong {
       <div class="card">
         <span class="card-icon">🎯</span>
         <div class="card-title">Right Brain, Right Job</div>
-        <div class="card-desc">Opus for strategy, Sonnet for coding, Haiku for quick classifications. Efficient by design.</div>
+        <div class="card-desc">Opus 4.7 xhigh for orchestration. Codex for research, planning, coding, verification, ATC, and gate checks.</div>
       </div>
     </div>
 
@@ -955,7 +959,7 @@ tbody td strong {
         <tbody>
           <tr><td>You tell it what to do, one thing at a time</td><td>You say "go" and it does everything</td></tr>
           <tr><td>Forgets everything when you start a new chat</td><td>Remembers decisions, patterns, and scripts across sessions</td></tr>
-          <tr><td>Uses one model for everything</td><td>Routes Opus/Sonnet/Haiku based on task complexity</td></tr>
+          <tr><td>Uses one model for everything</td><td>Keeps Opus on orchestration and Codex on delivery work</td></tr>
           <tr><td>No quality checks</td><td>Automatic quality gates before every commit</td></tr>
           <tr><td>If it crashes, you start over</td><td>Checkpoint system — picks up exactly where it stopped</td></tr>
           <tr><td>Loads entire files into memory (wasteful)</td><td>Queries only the relevant bits (80% less token usage)</td></tr>
@@ -967,8 +971,8 @@ tbody td strong {
     <p>Super GSD is built <em>on top of</em> GSD 1.0. Think of GSD 1.0 as the foundation (68 skills, 24 agents) and Super GSD as the upgrade that adds:</p>
     <ul>
       <li>Autonomous orchestrator loop</li>
-      <li>Multi-model routing (Opus / Sonnet / Haiku)</li>
-      <li>ByteRover memory with local search</li>
+      <li>Locked Opus/Codex routing</li>
+      <li><code>.planning/memory</code> with local recall</li>
       <li>CEO/Board deliberation for big decisions</li>
       <li>ATC quality gates</li>
       <li>Overwatcher signal map visualization</li>
@@ -995,8 +999,8 @@ tbody td strong {
       </div>
       <div class="card">
         <span class="card-icon">📦</span>
-        <div class="card-title">Node.js v20+</div>
-        <div class="card-desc">Check: <code>node --version</code>. Needs to say v20 or higher. Download the LTS version from nodejs.org.</div>
+        <div class="card-title">Node.js v22+</div>
+        <div class="card-desc">Check: <code>node --version</code>. Needs to say v22 or higher. Download the LTS version from nodejs.org.</div>
       </div>
       <div class="card">
         <span class="card-icon">🌿</span>
@@ -1049,7 +1053,7 @@ tbody td strong {
 ├── <span class="dir">templates/</span>       <span class="comment">← 11 reusable document formats</span>
 ├── <span class="dir">workflows/</span>       <span class="comment">← 4 engine specification documents</span>
 ├── <span class="dir">config/</span>          <span class="comment">← 3 configuration files</span>
-├── <span class="dir">brv-seed/</span>        <span class="comment">← 9 knowledge files for the memory system</span>
+├── <span class="dir">brv-seed/</span>        <span class="comment">← legacy knowledge seed files for migration only</span>
 ├── <span class="dir">overwatcher/</span>     <span class="comment">← Signal map visualization tools</span>
 ├── install.sh       <span class="comment">← The one-command installer</span>
 ├── CLAUDE-OVERLAY.md <span class="comment">← The "brain" — teaches Claude the loop</span>
@@ -1074,18 +1078,16 @@ tbody td strong {
     <p>Open your terminal. Navigate to your project directory. Then run:</p>
     <pre><span class="cmd">bash</span> super-gsd/install.sh <span class="flag">--init-project</span></pre>
 
-    <p>That's it. The installer will:</p>
+    <p>That's it. The safe local installer will:</p>
     <ol>
-      <li>Check that Node.js is installed (and tell you if it's not)</li>
-      <li>Install GSD 1.0 if you don't have it already</li>
-      <li>Copy 7 agent definitions to <code>~/.claude/agents/</code></li>
-      <li>Copy 8 skill commands to <code>~/.claude/commands/</code></li>
-      <li>Copy 5 hooks to <code>~/.claude/hooks/</code></li>
-      <li>Copy templates, workflows, and config files</li>
-      <li>Install ByteRover (the memory system)</li>
-      <li>Seed 9 knowledge files into the memory system</li>
-      <li>Create <code>.planning/</code> directory in your project</li>
-      <li>Create <code>CLAUDE.md</code> file that teaches Claude the orchestrator loop</li>
+      <li>Check that Node.js, Git, Claude Code, and Codex are visible</li>
+      <li>Create the local <code>.planning/</code> skeleton</li>
+      <li>Create <code>.planning/config.json</code> if it is missing</li>
+      <li>Create <code>.planning/memory/</code> and <code>MEMORY.md</code></li>
+      <li>Create append-only metrics logs</li>
+      <li>Create <code>CLAUDE.md</code> if it is missing</li>
+      <li>Sync local registry files used by SGSD</li>
+      <li>Leave <code>~/.claude</code> and Claude <code>autoApprove</code> untouched</li>
     </ol>
 
     <h3>What If Something Goes Wrong?</h3>
@@ -1099,7 +1101,7 @@ tbody td strong {
 
     <div class="callout warning">
       <div class="callout-title">"Node.js not found"</div>
-      Install Node.js v20+ from <a href="https://nodejs.org" style="color:var(--accent)">nodejs.org</a> (pick the LTS version).
+      Install Node.js v22+ from <a href="https://nodejs.org" style="color:var(--accent)">nodejs.org</a> (pick the LTS version).
     </div>
 
     <div class="callout warning">
@@ -1108,65 +1110,30 @@ tbody td strong {
       <code>chmod +x super-gsd/install.sh</code>
     </div>
 
-    <h3>The Manual Way</h3>
-    <p>If the installer doesn't work, here's every command:</p>
+    <h3>The Explicit Way</h3>
+    <p>Use the split modes when you want to see exactly what changes are local and what changes are global:</p>
 
-    <pre><span class="comment"># 1. Install GSD 1.0 (skip if you already have it)</span>
-<span class="cmd">npx</span> get-shit-done-cc@latest
+    <pre><span class="comment"># Read-only checks</span>
+<span class="cmd">bash</span> super-gsd/install.sh <span class="flag">--doctor</span>
 
-<span class="comment"># 2. Copy agents</span>
-<span class="cmd">cp</span> super-gsd/agents/*.md ~/.claude/agents/
+<span class="comment"># Project-local setup only</span>
+<span class="cmd">bash</span> super-gsd/install.sh <span class="flag">--init-project</span>
 
-<span class="comment"># 3. Copy skills</span>
-<span class="keyword">for</span> d in super-gsd/skills/gsd-*/; do
-  name=$(<span class="cmd">basename</span> <span class="string">"$d"</span>)
-  <span class="cmd">mkdir</span> -p ~/.claude/commands/$name
-  <span class="cmd">cp</span> <span class="string">"$d/SKILL.md"</span> ~/.claude/commands/$name/
-done
+<span class="comment"># Optional global Claude agents, commands, hooks, templates</span>
+<span class="cmd">bash</span> super-gsd/install.sh <span class="flag">--install-global</span>
 
-<span class="comment"># 4. Copy hooks + query engine</span>
-<span class="cmd">cp</span> super-gsd/hooks/*.js ~/.claude/hooks/
-<span class="cmd">cp</span> super-gsd/overwatcher/brv-query-local.js ~/.claude/hooks/
+<span class="comment"># Optional and global: allow Claude Code to run without permission prompts</span>
+<span class="cmd">bash</span> super-gsd/install.sh <span class="flag">--enable-autoapprove</span></pre>
 
-<span class="comment"># 5. Copy templates and workflows</span>
-<span class="cmd">mkdir</span> -p ~/.claude/get-shit-done/templates/super-gsd/overwatcher
-<span class="cmd">mkdir</span> -p ~/.claude/get-shit-done/workflows
-<span class="cmd">mkdir</span> -p ~/.claude/get-shit-done/config
-<span class="cmd">cp</span> super-gsd/templates/* ~/.claude/get-shit-done/templates/super-gsd/
-<span class="cmd">cp</span> super-gsd/workflows/* ~/.claude/get-shit-done/workflows/
-<span class="cmd">cp</span> super-gsd/config/model-routing.json ~/.claude/get-shit-done/config/
-<span class="cmd">cp</span> super-gsd/overwatcher/*.js ~/.claude/get-shit-done/templates/super-gsd/overwatcher/
-
-<span class="comment"># 6. Set up ByteRover memory (no API key needed!)</span>
-<span class="cmd">npm</span> install -g byterover-cli
-<span class="cmd">brv</span> vc init
-<span class="cmd">brv</span> connectors install <span class="string">"Claude Code"</span> --type mcp
-<span class="cmd">rm</span> -rf .brv/context-tree/.git
-
-<span class="comment"># 7. Seed the memory with knowledge</span>
-<span class="cmd">mkdir</span> -p .brv/context-tree/{patterns,anti-patterns,expertise,decisions,error-rules,scripts,domain}
-<span class="keyword">for</span> f in super-gsd/brv-seed/domains/*.md; do
-  name=$(<span class="cmd">basename</span> <span class="string">"$f"</span> .md)
-  <span class="comment"># files copied to the right subfolder by type</span>
-done
-
-<span class="comment"># 8. Initialize your project</span>
-<span class="cmd">mkdir</span> -p .planning/{phases,metrics,briefs,decisions,deliberations,overwatcher}
-<span class="cmd">cp</span> super-gsd/config/planning-config-overlay.json .planning/config.json
-<span class="cmd">touch</span> .planning/metrics/token-log.jsonl
-<span class="cmd">cp</span> super-gsd/CLAUDE-OVERLAY.md CLAUDE.md
-
-<span class="comment"># 9. Restart Claude Code</span></pre>
-
-    <h3>After Installing — Merge Hook Registrations</h3>
-    <p>You need to add the Super GSD hooks to <code>~/.claude/settings.json</code>. The easiest way: open Claude Code and say:</p>
+    <h3>After Global Install — Merge Hook Registrations</h3>
+    <p>If you run <code>--install-global</code>, SGSD merges hook registrations into <code>~/.claude/settings.json</code>. The local <code>--init-project</code> path does not touch global Claude config.</p>
 
     <div class="callout info">
       <div class="callout-title">Tell Claude</div>
-      Merge the hook registrations from super-gsd/config/settings-overlay.json into my ~/.claude/settings.json. Don't remove any existing hooks — just add the new ones.
+      If you want global SGSD commands and hooks, run <code>bash super-gsd/install.sh --install-global</code>. Use <code>--dry-run</code> first if you want to preview the writes.
     </div>
 
-    <p>Then <strong>restart Claude Code</strong> (close and reopen). New skills and hooks only load on startup.</p>
+    <p>Then <strong>restart Claude Code</strong> (close and reopen). New global skills and hooks only load on startup.</p>
 
     <h3>Verify Everything Works</h3>
     <p>After restarting, run these checks:</p>
@@ -1177,7 +1144,7 @@ done
 /gsd-token-audit --quick
 
 <span class="comment"># Test the memory system</span>
-<span class="cmd">node</span> ~/.claude/hooks/brv-query-local.js <span class="string">"orchestrator dispatch loop"</span></pre>
+<span class="cmd">sgsd-recall</span> <span class="string">"orchestrator dispatch loop"</span></pre>
 
     <p>If all three work, you're good to go!</p>
   </section>
@@ -1190,8 +1157,8 @@ done
     <h2>Auto Mode &amp; Permissions</h2>
 
     <div class="permissions-block">
-      <h3>Auto Mode = No Permission Prompts</h3>
-      <p style="color:var(--text-muted);margin-top:0.5rem;font-size:0.9rem;">By default, Claude Code asks for your approval before running tools. In autonomous mode, that would interrupt the loop constantly — defeating the purpose. Auto mode silences all prompts so Super GSD can run unattended.</p>
+      <h3>Auto Mode Is Explicit</h3>
+      <p style="color:var(--text-muted);margin-top:0.5rem;font-size:0.9rem;">By default, Claude Code asks for your approval before running tools. SGSD's safe installer leaves global permissions alone. Auto mode is a deliberate separate command because it affects every Claude Code session on the machine.</p>
 
       <div class="callout warning" style="margin-top:1rem">
         <div class="callout-title">What This Means</div>
@@ -1200,8 +1167,8 @@ done
 
       <div class="toggle-group">
         <div class="toggle-item enable">
-          <div class="toggle-item-label">Enable Auto Mode (fully autonomous)</div>
-          <pre><span class="cmd">claude config set</span> --global autoApprove <span class="string">"Bash,Read,Write,Edit,Glob,Grep,Agent"</span></pre>
+          <div class="toggle-item-label">Enable Auto Mode (global)</div>
+          <pre><span class="cmd">bash</span> super-gsd/install.sh <span class="flag">--enable-autoapprove</span></pre>
         </div>
         <div class="toggle-item disable">
           <div class="toggle-item-label">Disable Auto Mode (back to prompts)</div>
@@ -1209,7 +1176,7 @@ done
         </div>
       </div>
 
-      <p style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted)">The install script sets autoApprove automatically as part of <code>--init-project</code>. You don't need to run this manually unless you want to toggle it later.</p>
+      <p style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted)">The install script does not set autoApprove as part of <code>--init-project</code> or <code>--install-global</code>.</p>
     </div>
 
     <h3>Sub-Agents and Auto Mode</h3>
@@ -1219,7 +1186,7 @@ done
       <table>
         <thead><tr><th>Setting</th><th>Effect</th><th>When to Use</th></tr></thead>
         <tbody>
-          <tr><td><code>autoApprove: "Bash,Read,Write,Edit,Glob,Grep,Agent"</code></td><td>All tools approved silently</td><td>Running Super GSD autonomously</td></tr>
+          <tr><td><code>bash super-gsd/install.sh --enable-autoapprove</code></td><td>All listed tools approved silently</td><td>Only on trusted machines/projects</td></tr>
           <tr><td><code>autoApprove: ""</code></td><td>Every tool use asks for permission</td><td>Interactive sessions, unfamiliar codebases</td></tr>
           <tr><td>Sub-agent <code>mode: "auto"</code></td><td>Agent runs without user confirmation</td><td>Set in agent definition files — don't change</td></tr>
         </tbody>
@@ -1378,7 +1345,7 @@ done
       <div class="pipeline-step">
         <div class="pipeline-step-num">02</div>
         <div class="pipeline-step-name">CLASSIFY</div>
-        <div class="pipeline-step-desc">What kind of work? (Haiku — tiny, fast, cheap)</div>
+        <div class="pipeline-step-desc">What kind of work? (routing and gate policy)</div>
       </div>
       <div class="pipeline-step">
         <div class="pipeline-step-num">03</div>
@@ -1393,7 +1360,7 @@ done
       <div class="pipeline-step">
         <div class="pipeline-step-num">05</div>
         <div class="pipeline-step-name">DISPATCH</div>
-        <div class="pipeline-step-desc">Spawn a Sonnet agent with the prompt</div>
+        <div class="pipeline-step-desc">Hand delivery work to Codex with evidence requirements</div>
       </div>
       <div class="pipeline-step">
         <div class="pipeline-step-num">06</div>
@@ -1433,25 +1400,25 @@ done
       <p style="margin-top:0.5rem">Nothing else stops it. Not phase or milestone boundaries. Not time. Only these 4.</p>
     </div>
 
-    <h3>The Three Brains</h3>
+    <h3>The Current Provider Split</h3>
     <div class="model-cards">
       <div class="model-card opus">
         <div class="model-card-name">Opus</div>
-        <div class="model-card-role">Big Brain — Orchestrator</div>
+        <div class="model-card-role">Orchestrator</div>
         <div class="model-card-desc">Makes decisions about <em>what</em> to do. Strategy, synthesis, judgment. Reads state, dispatches workers, synthesizes results.</div>
         <div class="model-card-cost">$$$$ per token</div>
       </div>
       <div class="model-card sonnet">
-        <div class="model-card-name">Sonnet</div>
-        <div class="model-card-role">Medium Brain — Workers</div>
-        <div class="model-card-desc">Actually writes code, creates plans, reviews work. The main workhorse for all execution tasks.</div>
+        <div class="model-card-name">Codex</div>
+        <div class="model-card-role">Delivery Worker</div>
+        <div class="model-card-desc">Researches, plans, writes code, verifies work, and runs gate evidence. This is the default execution route.</div>
         <div class="model-card-cost">$$ per token</div>
       </div>
       <div class="model-card haiku">
-        <div class="model-card-name">Haiku</div>
-        <div class="model-card-role">Small Brain — Classifier</div>
-        <div class="model-card-desc">Quick checks: "Is this simple or complex?" "Which files are relevant?" 20x cheaper than Opus for work that doesn't need Opus-level thinking.</div>
-        <div class="model-card-cost">$ per token</div>
+        <div class="model-card-name">Legacy Claude Workers</div>
+        <div class="model-card-role">Disabled By Default</div>
+        <div class="model-card-desc">Sonnet and Haiku routes are legacy only in fresh-clone SGSD and are not fallbacks for Codex.</div>
+        <div class="model-card-cost">n/a</div>
       </div>
     </div>
   </section>
@@ -1461,15 +1428,15 @@ done
   <!-- S8 -->
   <section class="section" id="s8">
     <div class="section-number">Section 08</div>
-    <h2>The Memory System (ByteRover)</h2>
+    <h2>The Memory System (<code>.planning/memory</code>)</h2>
 
     <h3>The Problem It Solves</h3>
     <p>Regular Claude Code loads ALL memory files into every conversation. If you have 30 knowledge files, that's ~30,000 tokens eaten before Claude even reads your question.</p>
     <p>Super GSD is smarter. It <strong>queries</strong> for relevant knowledge — like Google search instead of reading every book in the library.</p>
 
-    <h3>The Context Tree</h3>
+    <h3>The Memory Tree</h3>
     <div class="tree">
-<span class="dir">.brv/context-tree/</span>
+<span class="dir">.planning/memory/</span>
 ├── <span class="dir">patterns/</span>           <span class="comment">← "How to do X correctly"</span>
 ├── <span class="dir">anti-patterns/</span>      <span class="comment">← "What NOT to do"</span>
 ├── <span class="dir">decisions/</span>          <span class="comment">← "Why we chose X over Y"</span>
@@ -1491,7 +1458,7 @@ done
 
     <h3>Querying (Finding Knowledge)</h3>
     <p>Before dispatching a worker agent, the orchestrator searches memory:</p>
-    <pre><span class="cmd">node</span> ~/.claude/hooks/brv-query-local.js <span class="string">"auth middleware JWT patterns"</span></pre>
+    <pre><span class="cmd">sgsd-recall</span> <span class="string">"auth middleware JWT patterns"</span></pre>
     <p>Returns the top matches with relevance scores. Only relevant results (~200–600 tokens) get injected into the worker's prompt — not all 30 files.</p>
 
     <h3>Curating (Adding Knowledge)</h3>
@@ -1500,7 +1467,7 @@ done
 
     <div class="callout tip">
       <div class="callout-title">No API Key Required</div>
-      ByteRover normally needs an API key to process curations. We built a <strong>local query engine</strong> that works without any API. It searches files directly using BM25 text matching. Fast (~0ms), free, offline.
+      Fresh SGSD projects use local markdown memory, not ByteRover. The recall path works offline and can be backed by optional private MCP knowledge sources when present.
     </div>
   </section>
 
@@ -1594,10 +1561,10 @@ done
       </div>
     </div>
 
-    <p>Haiku classifies every change into a tier. Small = skip checks. Big = full review. This saves tokens on trivial changes while catching problems on important ones.</p>
+    <p>The gate classifier assigns every change to a tier. Small = light checks. Big = full review. This saves time on trivial changes while catching problems on important ones.</p>
 
     <h3>The Safety Floor</h3>
-    <p>Even if Haiku thinks it's small, if the change touches more than 3 files OR more than 100 lines, it gets bumped up to FULL automatically. This prevents the small brain from accidentally letting a big change through without review.</p>
+    <p>Even if a change initially looks small, if it touches more than 3 files OR more than 100 lines, it gets bumped up to FULL automatically. This prevents a broad change from slipping through without review.</p>
 
     <h3>The Stuck Detector</h3>
     <p>If Claude makes the same tool call 3+ times in a row (writing the same file, running the same failing command), a hook fires and says: "You're stuck. Stop, re-read the error, try a different approach." This prevents infinite loops.</p>
@@ -1649,7 +1616,7 @@ done
     <p>Even on the Max plan (unlimited), tokens = time. More tokens = slower responses. Super GSD is designed to be efficient, but you should know where your tokens go.</p>
 
     <h3>The Token Log</h3>
-    <p>Every agent dispatch gets logged to <code>.planning/metrics/token-log.jsonl</code>. Each entry records: when it happened, which phase and plan, which model (Opus/Sonnet/Haiku), what role, and estimated input/output tokens.</p>
+    <p>Every agent dispatch gets logged to <code>.planning/metrics/token-log.jsonl</code>. Each entry records: when it happened, which phase and plan, which provider/model handled the work, what role, and estimated input/output tokens.</p>
 
     <h3>Checking Usage</h3>
     <pre><span class="comment"># Quick summary</span>
@@ -1666,12 +1633,12 @@ done
       <table>
         <thead><tr><th>Component</th><th>% of Tokens</th><th>Why</th></tr></thead>
         <tbody>
-          <tr><td>Executor agents (Sonnet)</td><td style="color:var(--orange);font-weight:700">~60%</td><td>Writing code — the actual work</td></tr>
-          <tr><td>Planner agents (Sonnet)</td><td>~15%</td><td>Creating task plans</td></tr>
+          <tr><td>Codex delivery</td><td style="color:var(--orange);font-weight:700">~60%</td><td>Research, planning, coding, verification, and gate evidence</td></tr>
+          <tr><td>Plan/context work</td><td>~15%</td><td>Creating task plans and context packets</td></tr>
           <tr><td>Orchestrator (Opus)</td><td>~10%</td><td>Making dispatch decisions</td></tr>
-          <tr><td>Verifier agents (Sonnet)</td><td>~8%</td><td>Checking work quality</td></tr>
-          <tr><td>Context injection (ByteRover)</td><td>~5%</td><td>Relevant knowledge lookup</td></tr>
-          <tr><td>Classifiers (Haiku)</td><td style="color:var(--green);font-weight:700">~2%</td><td>Quick classifications</td></tr>
+          <tr><td>Gate checks</td><td>~8%</td><td>Checking work quality</td></tr>
+          <tr><td>Context injection (<code>.planning/memory</code>)</td><td>~5%</td><td>Relevant knowledge lookup</td></tr>
+          <tr><td>Routing/classification</td><td style="color:var(--green);font-weight:700">~2%</td><td>Lightweight deterministic decisions</td></tr>
         </tbody>
       </table>
     </div>
@@ -1726,7 +1693,7 @@ done
 
     <p>This will:</p>
     <ol>
-      <li>Read your <code>.gsd/DECISIONS.md</code> — import decisions into ByteRover memory</li>
+      <li>Read your <code>.gsd/DECISIONS.md</code> — import decisions into <code>.planning/memory</code></li>
       <li>Read your <code>.gsd/KNOWLEDGE.md</code> — import patterns and anti-patterns</li>
       <li>Read your <code>.gsd/REQUIREMENTS.md</code> — merge into <code>.planning/REQUIREMENTS.md</code></li>
       <li>Map your milestones — completed work gets marked done, pending work becomes phases</li>
@@ -1755,17 +1722,17 @@ done
     </ul>
 
     <h3>"Permission denied" errors</h3>
-    <p>Claude Code asks for permission before running tools. For autonomous mode, you need to allow everything:</p>
-    <pre><span class="cmd">claude config set</span> --global autoApprove <span class="string">"Bash,Read,Write,Edit,Glob,Grep,Agent"</span></pre>
+    <p>Claude Code asks for permission before running tools. SGSD leaves global permissions alone unless you explicitly enable auto-approval:</p>
+    <pre><span class="cmd">bash</span> super-gsd/install.sh <span class="flag">--enable-autoapprove</span></pre>
 
-    <h3>"brv-query-local returns no results"</h3>
-    <p>Check that the context tree has files:</p>
-    <pre><span class="cmd">find</span> .brv/context-tree/ -name <span class="string">"*.md"</span> | wc -l
-<span class="comment"># Should be at least 9. If 0, re-seed:</span>
+    <h3>"sgsd-recall returns no results"</h3>
+    <p>Check that the memory tree has files:</p>
+    <pre><span class="cmd">find</span> .planning/memory/ -name <span class="string">"*.md"</span> | wc -l
+<span class="comment"># Should include MEMORY.md. If empty, re-seed:</span>
 <span class="cmd">bash</span> super-gsd/install.sh <span class="flag">--init-project</span></pre>
 
     <h3>"Node.js version too old"</h3>
-    <pre><span class="cmd">node</span> --version  <span class="comment"># Needs to be v20+</span></pre>
+    <pre><span class="cmd">node</span> --version  <span class="comment"># Needs to be v22+</span></pre>
     <p>Update from <a href="https://nodejs.org" style="color:var(--accent)">nodejs.org</a>.</p>
 
     <h3>"gsd-tools errors"</h3>
@@ -1804,22 +1771,22 @@ cat .planning/ORCHESTRATOR-CHECKPOINT.json
           <tr><td>ATC</td><td>Air Traffic Control — the quality gate system that checks code before commits</td></tr>
           <tr><td>Board</td><td>The 4 debate agents (Architect, Pragmatist, Contrarian, Moonshot) in /gsd-deliberate</td></tr>
           <tr><td>Brief</td><td>A structured decision document given to the CEO/Board for deliberation</td></tr>
-          <tr><td>ByteRover</td><td>The memory system — stores knowledge in <code>.brv/context-tree/</code></td></tr>
+          <tr><td>SGSD memory</td><td>The local memory system — stores knowledge in <code>.planning/memory/</code></td></tr>
           <tr><td>CEO</td><td>The orchestrator agent in /gsd-deliberate that manages the board debate</td></tr>
           <tr><td>Checkpoint</td><td>A saved state file that lets the loop resume after stopping</td></tr>
           <tr><td>Claude Code</td><td>Anthropic's AI coding CLI — the foundation Super GSD runs on</td></tr>
-          <tr><td>Context tree</td><td>The directory structure in <code>.brv/context-tree/</code> where knowledge lives</td></tr>
+          <tr><td>Memory tree</td><td>The directory structure in <code>.planning/memory/</code> where knowledge lives</td></tr>
           <tr><td>Context window</td><td>How much "memory" Claude has in one conversation (~200K tokens for Opus)</td></tr>
           <tr><td>Curate</td><td>Save new knowledge to the memory system</td></tr>
           <tr><td>Decision Memo</td><td>The output of /gsd-deliberate — board stances, tensions, recommendation</td></tr>
           <tr><td>Dispatch</td><td>Send a task to a worker agent</td></tr>
           <tr><td>GSD</td><td>Get Shit Done — the framework name</td></tr>
-          <tr><td>Haiku</td><td>The smallest/cheapest Claude model — used for quick classifications</td></tr>
+          <tr><td>Haiku</td><td>Legacy Claude small-model route; not used by default in fresh-clone SGSD</td></tr>
           <tr><td>Hook</td><td>A background script that runs automatically on certain events</td></tr>
           <tr><td>JSONL</td><td>JSON Lines — a log format where each line is a JSON object</td></tr>
           <tr><td>Max plan</td><td>Anthropic's subscription plan ($100–200/month) — no per-token billing</td></tr>
           <tr><td>Milestone</td><td>A major version of your project (v1.0, v2.0, etc.)</td></tr>
-          <tr><td>Model routing</td><td>Choosing which AI model (Opus/Sonnet/Haiku) for each task</td></tr>
+          <tr><td>Model routing</td><td>Keeping Opus on orchestration and Codex on research/planning/coding/gates</td></tr>
           <tr><td>OAuth</td><td>How Claude Code authenticates — uses your Max plan, no API key</td></tr>
           <tr><td>Opus</td><td>The largest/smartest Claude model — used for orchestration and strategy</td></tr>
           <tr><td>Orchestrator</td><td>The main loop that reads state, dispatches agents, processes results</td></tr>
@@ -1830,7 +1797,7 @@ cat .planning/ORCHESTRATOR-CHECKPOINT.json
           <tr><td>ROADMAP.md</td><td>The list of phases with checkboxes showing what's done</td></tr>
           <tr><td>Signal map</td><td>HTML visualization showing project health, phases, dependencies</td></tr>
           <tr><td>Skill</td><td>A slash command you can type (e.g., <code>/gsd-orchestrate</code>)</td></tr>
-          <tr><td>Sonnet</td><td>The medium Claude model — used for coding, planning, reviewing</td></tr>
+          <tr><td>Sonnet</td><td>Legacy Claude worker route; not used by default and not a Codex fallback</td></tr>
           <tr><td>STATE.md</td><td>Where you are right now — milestone, phase, plan, progress</td></tr>
           <tr><td>Token</td><td>A unit of text (~4 characters). More tokens = more cost/time</td></tr>
           <tr><td>Wave</td><td>A group of plans that can run in parallel</td></tr>
@@ -1851,11 +1818,11 @@ cat .planning/ORCHESTRATOR-CHECKPOINT.json
         <div class="cheat-group-title">Install</div>
         <div class="cheat-row">
           <span class="cheat-cmd">bash super-gsd/install.sh --init-project</span>
-          <span class="cheat-desc">One-command install</span>
+          <span class="cheat-desc">Safe local setup</span>
         </div>
         <div class="cheat-row">
-          <span class="cheat-cmd">claude config set --global autoApprove "..."</span>
-          <span class="cheat-desc">Enable auto mode</span>
+          <span class="cheat-cmd">bash super-gsd/install.sh --install-global</span>
+          <span class="cheat-desc">Optional global commands/hooks</span>
         </div>
         <div class="cheat-row">
           <span class="cheat-cmd"># Restart Claude Code</span>
@@ -1934,8 +1901,8 @@ cat .planning/ORCHESTRATOR-CHECKPOINT.json
       <div class="cheat-group">
         <div class="cheat-group-title">Permissions Toggle</div>
         <div class="cheat-row">
-          <span class="cheat-cmd">claude config set --global autoApprove "Bash,Read,Write,Edit,Glob,Grep,Agent"</span>
-          <span class="cheat-desc">Enable auto</span>
+          <span class="cheat-cmd">bash super-gsd/install.sh --enable-autoapprove</span>
+          <span class="cheat-desc">Enable global auto mode</span>
         </div>
         <div class="cheat-row">
           <span class="cheat-cmd">claude config set --global autoApprove ""</span>

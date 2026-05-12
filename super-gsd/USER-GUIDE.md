@@ -3,6 +3,12 @@
 > **Read this if you've never used Super GSD before.**
 > It explains everything from "what is this?" to "how do I make it build my entire project while I sleep?"
 
+> **Current setup note (May 2026):** older SGSD material used
+> ByteRover/`.brv`. Current SGSD memory is `.planning/memory/` with
+> `MEMORY.md` and `sgsd-recall`. Do not install ByteRover for a fresh SGSD
+> project. Use `README.md` and `super-gsd/docs/SGSD-FRIEND-SETUP-WIZARD.md` as
+> the canonical fresh-clone setup docs until this full guide is rewritten.
+
 ---
 
 ## Table of Contents
@@ -14,7 +20,7 @@
 5. [Your First Project](#5-your-first-project)
 6. [The Commands — What Can I Say?](#6-the-commands--what-can-i-say)
 7. [How The Autonomous Loop Works](#7-how-the-autonomous-loop-works)
-8. [The Memory System (ByteRover)](#8-the-memory-system-byterover)
+8. [The Memory System (`.planning/memory`)](#8-the-memory-system-planningmemory)
 9. [Strategic Decisions (CEO/Board)](#9-strategic-decisions-ceoboard)
 10. [Quality Gates (ATC)](#10-quality-gates-atc)
 11. [The Signal Map (Overwatcher)](#11-the-signal-map-overwatcher)
@@ -39,7 +45,7 @@ It's a **framework** that sits on top of [Claude Code](https://claude.ai/code) (
 - **Manages its own memory** — remembers what worked, what didn't, what patterns to follow
 - **Checks its own quality** — reviews code before committing, catches problems early
 - **Survives crashes** — if it runs out of memory, it saves its place and picks up exactly where it left off
-- **Uses the right brain for the right job** — expensive smart model (Opus) for big decisions, cheaper model (Sonnet) for coding, cheapest model (Haiku) for quick classifications
+- **Uses the right engine for the right job** — Opus 4.7 stays in xhigh orchestration mode, while Codex handles research, planning, coding, verification, ATC, and gate checks
 
 ### How is this different from regular Claude Code?
 
@@ -47,7 +53,7 @@ It's a **framework** that sits on top of [Claude Code](https://claude.ai/code) (
 |---|---|
 | You tell it what to do, one thing at a time | You say "go" and it does everything |
 | It forgets everything when you start a new chat | It remembers decisions, patterns, and scripts across sessions |
-| Uses one model for everything | Routes Opus/Sonnet/Haiku based on task complexity |
+| Uses one model for everything | Keeps Opus on orchestration and Codex on delivery work |
 | No quality checks | Automatic quality gates before every commit |
 | If it crashes, you start over | Checkpoint system — picks up exactly where it stopped |
 | Loads entire files into memory (wasteful) | Queries only the relevant bits (80% less token usage) |
@@ -57,8 +63,8 @@ It's a **framework** that sits on top of [Claude Code](https://claude.ai/code) (
 Super GSD is built ON TOP of GSD 1.0. Think of GSD 1.0 as the foundation (68 skills, 24 agents) and Super GSD as the upgrade that adds:
 
 - Autonomous orchestrator loop
-- Multi-model routing
-- ByteRover memory with local search
+- Locked Opus/Codex routing
+- `.planning/memory` with local recall
 - CEO/Board deliberation for big decisions
 - ATC quality gates
 - Overwatcher signal map visualization
@@ -78,9 +84,9 @@ You keep everything GSD 1.0 has. Super GSD just adds more.
    - This is important: Super GSD does NOT use API keys. Everything runs through your Max plan subscription. No surprise bills.
    - Install: https://claude.ai/code
 
-2. **Node.js** — Version 20 or higher
+2. **Node.js** — Version 22 or higher
    - Check if you have it: open a terminal and type `node --version`
-   - If it says `v20.something` or higher, you're good
+   - If it says `v22.something` or higher, you're good
    - If not, download from: https://nodejs.org (pick the LTS version)
 
 3. **Git** — Version control
@@ -138,7 +144,7 @@ super-gsd/
 ├── templates/       ← 11 reusable document formats
 ├── workflows/       ← 4 engine specification documents
 ├── config/          ← 3 configuration files
-├── brv-seed/        ← 9 knowledge files for the memory system
+├── brv-seed/        ← legacy knowledge seed files for migration only
 ├── overwatcher/     ← Signal map visualization tools
 ├── install.sh       ← The one-command installer
 ├── CLAUDE-OVERLAY.md ← The "brain" — teaches Claude the loop
@@ -163,15 +169,12 @@ bash super-gsd/install.sh --init-project
 That's it. The installer will:
 
 1. Check that Node.js is installed (and tell you if it's not)
-2. Install GSD 1.0 if you don't have it already
-3. Copy 7 agent definitions to `~/.claude/agents/`
-4. Copy 8 skill commands to `~/.claude/commands/`
-5. Copy 5 hooks to `~/.claude/hooks/`
-6. Copy templates, workflows, and config files
-7. Install ByteRover (the memory system)
-8. Seed 9 knowledge files into the memory system
-9. Create `.planning/` directory in your project
-10. Create `CLAUDE.md` file that teaches Claude the orchestrator loop
+2. Create `.planning/` directory in your project
+3. Create `.planning/memory/` and `MEMORY.md`
+4. Create `.planning/config.json` when missing
+5. Create `CLAUDE.md` from the SGSD overlay when missing
+6. Leave `~/.claude`, global hooks, global commands, global npm packages, and
+   Claude `autoApprove` untouched
 
 At the end, it prints a summary of what it installed and what to do next.
 
@@ -183,7 +186,7 @@ npx get-shit-done-cc@latest
 ```
 Then run the installer again.
 
-**"Node.js not found"** — Install Node.js from https://nodejs.org (version 20+)
+**"Node.js not found"** — Install Node.js from https://nodejs.org (version 22+)
 
 **"Permission denied"** — You might need to make the installer executable first:
 ```bash
@@ -195,58 +198,19 @@ chmod +x super-gsd/install.sh
 If you'd rather do it step by step (or the installer doesn't work), here's every command:
 
 ```bash
-# 1. Install GSD 1.0 (skip if you already have it)
-npx get-shit-done-cc@latest
-
-# 2. Copy agents
-cp super-gsd/agents/*.md ~/.claude/agents/
-
-# 3. Copy skills
-for d in super-gsd/skills/gsd-*/; do
-  name=$(basename "$d")
-  mkdir -p ~/.claude/commands/$name
-  cp "$d/SKILL.md" ~/.claude/commands/$name/
-done
-
-# 4. Copy hooks + query engine
-cp super-gsd/hooks/*.js ~/.claude/hooks/
-cp super-gsd/overwatcher/brv-query-local.js ~/.claude/hooks/
-
-# 5. Copy templates and workflows
-mkdir -p ~/.claude/get-shit-done/templates/super-gsd/overwatcher
-mkdir -p ~/.claude/get-shit-done/workflows
-mkdir -p ~/.claude/get-shit-done/config
-cp super-gsd/templates/* ~/.claude/get-shit-done/templates/super-gsd/
-cp super-gsd/workflows/* ~/.claude/get-shit-done/workflows/
-cp super-gsd/config/model-routing.json ~/.claude/get-shit-done/config/
-cp super-gsd/overwatcher/*.js ~/.claude/get-shit-done/templates/super-gsd/overwatcher/
-
-# 6. Set up ByteRover memory (no API key needed!)
-npm install -g byterover-cli
-brv vc init
-brv connectors install "Claude Code" --type mcp
-rm -rf .brv/context-tree/.git  # remove nested git repo
-
-# 7. Seed the memory with knowledge
-mkdir -p .brv/context-tree/{patterns,anti-patterns,expertise,decisions,error-rules,scripts,domain}
-for f in super-gsd/brv-seed/domains/*.md; do
-  name=$(basename "$f" .md)
-  if echo "$name" | grep -q "anti-pattern"; then
-    cp "$f" .brv/context-tree/anti-patterns/
-  elif echo "$name" | grep -q "expertise\|deliberation"; then
-    cp "$f" .brv/context-tree/expertise/
-  else
-    cp "$f" .brv/context-tree/patterns/
-  fi
-done
-
-# 8. Initialize your project
+# 1. Initialize your project-local SGSD state
 mkdir -p .planning/{phases,metrics,briefs,decisions,deliberations,overwatcher}
+mkdir -p .planning/memory/{architecture/patterns,architecture/anti-patterns,architecture/decisions,architecture/expertise,code,domain,project,reference,errors,trajectory/hypothesis,trajectory/candidate,trajectory/lesson}
+printf "# Memory Index\n\nFormat: one markdown list item per file, readable by auto-memory and sgsd-recall.\n" > .planning/memory/MEMORY.md
 cp super-gsd/config/planning-config-overlay.json .planning/config.json
 touch .planning/metrics/token-log.jsonl
 cp super-gsd/CLAUDE-OVERLAY.md CLAUDE.md
 
-# 9. Done! Now restart Claude Code.
+# 2. Optional global Claude overlay, if you want slash commands/hooks everywhere
+bash super-gsd/install.sh --install-global
+
+# 3. Optional global auto-approve, only when you deliberately want it
+bash super-gsd/install.sh --enable-autoapprove
 ```
 
 ### After Installing — One More Thing
@@ -285,7 +249,7 @@ Should show token usage (even if it's empty — that's fine for a new project).
 Test the memory system:
 
 ```bash
-node ~/.claude/hooks/brv-query-local.js "orchestrator dispatch loop"
+sgsd-recall "orchestrator dispatch loop"
 ```
 
 Should return ranked results from the knowledge base.
@@ -415,10 +379,10 @@ READ → CLASSIFY → QUERY → COMPOSE → DISPATCH → PROCESS → CURATE → 
 Think of it like a factory assembly line that never stops:
 
 1. **READ** — "Where am I?" (reads STATE.md — just the header, not the whole file)
-2. **CLASSIFY** — "What kind of work is next?" (Haiku brain — tiny, fast, cheap)
+2. **CLASSIFY** — "What kind of work is next?" (deterministic routing and gate policy)
 3. **QUERY** — "What do I already know about this?" (searches memory for relevant patterns)
 4. **COMPOSE** — "What should I tell the worker?" (builds a very specific instruction prompt)
-5. **DISPATCH** — "Worker, go do this." (spawns a Sonnet agent with the prompt)
+5. **DISPATCH** — "Worker, go do this." (hands delivery work to Codex with the prompt and evidence requirements)
 6. **PROCESS** — "What did the worker report back?" (reads the structured report)
 7. **CURATE** — "Did we learn anything new?" (saves new patterns to memory)
 8. **COMMIT** — "Save the work." (git commit — one per task, always)
@@ -443,19 +407,19 @@ Nothing else stops it. Not phase boundaries. Not milestone boundaries. Not "I've
 
 ### The Three Brains
 
-Super GSD uses three different AI models, each for what they're best at:
+Super GSD uses a locked current provider split:
 
 | Brain | Name | Cost | Used For |
 |---|---|---|---|
-| Big Brain | Opus | $$$$ | The orchestrator — makes decisions about WHAT to do. Strategy, synthesis, judgment. |
-| Medium Brain | Sonnet | $$ | The workers — actually writes code, creates plans, reviews work. |
-| Small Brain | Haiku | $ | Quick checks — "is this task simple or complex?", "which files are relevant?" |
+| Orchestrator | Claude / Opus | $$$$ | Reads state, decides the next step, composes prompts, and synthesizes results. |
+| Delivery worker | Codex GPT-5.5 / xhigh | $$ | Research, planning, plan-check, code execution, verification, ATC, and MUDA gates. |
+| Legacy Claude workers | Sonnet / Haiku | n/a | Not used by default in fresh-clone SGSD and not a Codex fallback. |
 
-This saves you a LOT of money (or tokens on Max plan). Using Opus for everything would be like hiring a CEO to file paperwork. Haiku costs 20x less than Opus for work that doesn't need Opus-level thinking.
+This keeps Claude focused on orchestration and keeps delivery work on Codex.
 
 ---
 
-## 8. The Memory System (ByteRover)
+## 8. The Memory System (`.planning/memory`)
 
 ### The Problem It Solves
 
@@ -465,10 +429,10 @@ Super GSD is smarter. It **queries** for relevant knowledge — like Google sear
 
 ### How It Works
 
-Your project has a `.brv/context-tree/` folder. Inside are markdown files organized by topic:
+Your project has a `.planning/memory/` folder. Inside are markdown files organized by topic:
 
 ```
-.brv/context-tree/
+.planning/memory/
 ├── patterns/           ← "How to do X correctly"
 ├── anti-patterns/      ← "What NOT to do"
 ├── decisions/          ← "Why we chose X over Y"
@@ -495,7 +459,7 @@ maturity: core        # draft → validated → core
 Before dispatching a worker agent, the orchestrator searches the memory:
 
 ```bash
-node ~/.claude/hooks/brv-query-local.js "auth middleware JWT patterns"
+sgsd-recall "auth middleware JWT patterns"
 ```
 
 This returns the top matches with relevance scores. Only the relevant results (~200-600 tokens) get injected into the worker's prompt — NOT all 30 files.
@@ -508,7 +472,9 @@ You can also add knowledge manually — just write a `.md` file with frontmatter
 
 ### No API Key Required!
 
-This is important. ByteRover normally needs an API key to process curations. We built a **local query engine** that works without any API. It searches files directly using BM25 text matching. Fast (~0ms), free, offline.
+The current memory path is local markdown plus `MEMORY.md`. `sgsd-recall`
+searches the project-local memory catalog; VTP/private KB is optional and
+degrades cleanly when absent.
 
 ---
 
@@ -569,11 +535,11 @@ ATC stands for "Air Traffic Control" — like at an airport. Before every commit
 | **FULL** | Medium change (50+ lines, 4+ files) | Full 7-step review + 10-point anti-slop checklist | ~500 |
 | **GATE** | Big change (new system, API, architecture) | Full review + "You should probably run /sgsd-deliberate first" | ~500+ |
 
-Haiku (the small brain) classifies every change into a tier. If it's small, skip the checks. If it's big, run the full review. This saves tokens on trivial changes while catching problems on important ones.
+The gate classifier assigns every change to a tier. If it's small, SGSD can keep checks light. If it's big, SGSD runs the full review path. This saves time on trivial changes while catching problems on important ones.
 
 ### The Safety Floor
 
-Even if Haiku thinks it's small, if the change touches more than 3 files OR more than 100 lines, it gets bumped up to FULL automatically. This prevents the small brain from accidentally letting a big change through without review.
+Even if a change initially looks small, if it touches more than 3 files OR more than 100 lines, it gets bumped up to FULL automatically. This prevents a broad change from slipping through without review.
 
 ### The Stuck Detector
 
@@ -627,7 +593,7 @@ Every agent dispatch gets logged to `.planning/metrics/token-log.jsonl`. Each en
 
 - When it happened
 - Which phase and plan
-- Which model (Opus/Sonnet/Haiku)
+- Which provider/model handled the work (Opus orchestration, Codex delivery)
 - What role (executor, planner, classifier, etc.)
 - Estimated input and output tokens
 
@@ -657,12 +623,12 @@ Typical breakdown:
 
 | Component | % of Tokens | Why |
 |---|---|---|
-| Executor agents (Sonnet) | ~60% | Writing code — the actual work |
-| Planner agents (Sonnet) | ~15% | Creating task plans |
+| Codex delivery | ~60% | Research, planning, coding, verification, and gate evidence |
+| Plan/context work | ~15% | Creating task plans and context packets |
 | Orchestrator (Opus) | ~10% | Making dispatch decisions |
-| Verifier agents (Sonnet) | ~8% | Checking work quality |
-| Classifiers (Haiku) | ~2% | Quick classifications |
-| Context injection (ByteRover) | ~5% | Relevant knowledge lookup |
+| Gate checks | ~8% | Checking work quality |
+| Routing/classification | ~2% | Lightweight deterministic decisions |
+| Context injection (`.planning/memory`) | ~5% | Relevant knowledge lookup |
 
 ---
 
@@ -712,7 +678,7 @@ Super GSD can import all of that:
 
 This will:
 
-1. Read your `.gsd/DECISIONS.md` — import decisions into the ByteRover memory
+1. Read your `.gsd/DECISIONS.md` — import decisions into `.planning/memory`
 2. Read your `.gsd/KNOWLEDGE.md` — import patterns and anti-patterns
 3. Read your `.gsd/REQUIREMENTS.md` — merge into `.planning/REQUIREMENTS.md`
 4. Map your milestones — completed work gets marked done, pending work becomes phases
@@ -734,23 +700,27 @@ The loop stays alive because every response includes a tool call. If Claude send
 
 ### "Permission denied" errors
 
-Claude Code asks for permission before running tools. For autonomous mode, you need to allow everything:
+Claude Code asks for permission before running tools. The safe installer leaves global permissions alone. Only enable global auto-approval deliberately, and only on machines/projects you trust:
 
 ```bash
-claude config set --global autoApprove "Bash,Read,Write,Edit,Glob,Grep,Agent"
+bash super-gsd/install.sh --enable-autoapprove
 ```
 
-This makes it fully autonomous — no permission popups.
-
-### "brv-query-local returns no results"
-
-Check that the context tree has files:
+This changes your global Claude Code config. To disable it again:
 
 ```bash
-find .brv/context-tree/ -name "*.md" | wc -l
+claude config set --global autoApprove ""
 ```
 
-Should be at least 9. If it's 0, re-seed:
+### "sgsd-recall returns no results"
+
+Check that the memory tree has files:
+
+```bash
+find .planning/memory/ -name "*.md" | wc -l
+```
+
+Should include at least `MEMORY.md`. If it's empty, re-seed the local project:
 
 ```bash
 bash super-gsd/install.sh --init-project
@@ -762,7 +732,7 @@ bash super-gsd/install.sh --init-project
 node --version
 ```
 
-Needs to be v20+. Update from https://nodejs.org.
+Needs to be v22+. Update from https://nodejs.org.
 
 ### "gsd-tools errors"
 
@@ -806,22 +776,22 @@ The token logger hook fires on Agent tool calls. If you haven't dispatched any a
 | **ATC** | Air Traffic Control — the quality gate system that checks code before commits |
 | **Board** | The 4 debate agents (Architect, Pragmatist, Contrarian, Moonshot) in /sgsd-deliberate |
 | **Brief** | A structured decision document given to the CEO/Board for deliberation |
-| **ByteRover** | The memory system — stores knowledge in `.brv/context-tree/` |
+| **SGSD memory** | The local memory system — stores knowledge in `.planning/memory/` |
 | **CEO** | The orchestrator agent in /sgsd-deliberate that manages the board debate |
 | **Checkpoint** | A saved state file that lets the loop resume after stopping |
 | **Claude Code** | Anthropic's AI coding CLI — the foundation Super GSD runs on |
-| **Context tree** | The directory structure in `.brv/context-tree/` where knowledge lives |
+| **Memory tree** | The directory structure in `.planning/memory/` where knowledge lives |
 | **Context window** | How much "memory" Claude has in one conversation (~200K tokens for Opus) |
 | **Curate** | Save new knowledge to the memory system |
 | **Decision Memo** | The output of /sgsd-deliberate — board stances, tensions, recommendation |
 | **Dispatch** | Send a task to a worker agent |
 | **GSD** | Get Shit Done — the framework name |
-| **Haiku** | The smallest/cheapest Claude model — used for quick classifications |
+| **Haiku** | Legacy Claude small-model route; not used by default in fresh-clone SGSD |
 | **Hook** | A background script that runs automatically on certain events |
 | **JSONL** | JSON Lines — a log format where each line is a JSON object |
 | **Max plan** | Anthropic's subscription plan ($100-200/month) — no per-token billing |
 | **Milestone** | A major version of your project (v1.0, v2.0, etc.) |
-| **Model routing** | Choosing which AI model (Opus/Sonnet/Haiku) for each task |
+| **Model routing** | Keeping Opus on orchestration and Codex on research/planning/coding/gates |
 | **OAuth** | How Claude Code authenticates — uses your Max plan, no API key |
 | **Opus** | The largest/smartest Claude model — used for orchestration and strategy |
 | **Orchestrator** | The main loop that reads state, dispatches agents, processes results |
@@ -832,7 +802,7 @@ The token logger hook fires on Agent tool calls. If you haven't dispatched any a
 | **ROADMAP.md** | The list of phases with checkboxes showing what's done |
 | **Signal map** | HTML visualization showing project health, phases, dependencies |
 | **Skill** | A slash command you can type (e.g., `/sgsd-orchestrate`) |
-| **Sonnet** | The medium Claude model — used for coding, planning, reviewing |
+| **Sonnet** | Legacy Claude worker route; not used by default and not a Codex fallback |
 | **STATE.md** | Where you are right now — milestone, phase, plan, progress |
 | **Token** | A unit of text (~4 characters). More tokens = more cost/time |
 | **Wave** | A group of plans that can run in parallel |
@@ -845,7 +815,8 @@ The token logger hook fires on Agent tool calls. If you haven't dispatched any a
 ```bash
 # Install
 bash super-gsd/install.sh --init-project
-claude config set --global autoApprove "Bash,Read,Write,Edit,Glob,Grep,Agent"
+# Optional, global, and deliberately separate:
+# bash super-gsd/install.sh --enable-autoapprove
 # Restart Claude Code
 
 # Set up project
