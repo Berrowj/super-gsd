@@ -5,9 +5,11 @@
 #   - private knowledge-bank directory, if the operator has one
 #   - SGSD's project memory directory
 #   - public/bundled fallback corpus when no private bank exists
+#   - read-only Claude/Codex readiness reporting for first-run operators
 #
 # SCOPE BOUNDARY (Phase 59-01):
-#   This script owns the `knowledge` block ONLY. Project-level keys
+#   This script owns the `knowledge` block ONLY. Provider readiness is reported
+#   to the console but never written to config. Project-level keys
 #   (cockpit panel layout, default boot mode, operator preferences) are
 #   owned by sgsd-new-project-wizard.cjs. The two are complementary; each
 #   leaves the other byte-untouched on every run. To configure project
@@ -42,6 +44,99 @@ if (-not (Test-Path $planningDir)) {
     Write-Host "ERROR: .planning directory not found at $planningDir" -ForegroundColor Red
     Write-Host "Run SGSD install/backfill first, then rerun sgsd-setup." -ForegroundColor DarkGray
     exit 2
+}
+
+function Get-SgsdCliStatus {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [string[]]$VersionArgs = @("--version")
+    )
+
+    $cmd = Get-Command $Name -ErrorAction SilentlyContinue
+    if (-not $cmd) {
+        return [pscustomobject]@{
+            Name = $Name
+            Found = $false
+            Version = ""
+            Detail = "not on PATH"
+        }
+    }
+
+    $version = ""
+    try {
+        $out = & $Name @VersionArgs 2>&1 | Select-Object -First 1
+        if ($out) { $version = ($out | Out-String).Trim() }
+    } catch {
+        $version = "version check failed: $($_.Exception.Message)"
+    }
+
+    return [pscustomobject]@{
+        Name = $Name
+        Found = $true
+        Version = $version
+        Detail = $cmd.Source
+    }
+}
+
+function Test-SgsdCodexLogin {
+    $codex = Get-Command codex -ErrorAction SilentlyContinue
+    if (-not $codex) {
+        return [pscustomobject]@{
+            Available = $false
+            Detail = "codex not on PATH; run: npm install -g @openai/codex"
+        }
+    }
+
+    $oldErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $out = & codex login status 2>&1 | Out-String
+        if ($out -match "Logged in") {
+            return [pscustomobject]@{
+                Available = $true
+                Detail = ($out -replace "\s+", " ").Trim()
+            }
+        }
+        return [pscustomobject]@{
+            Available = $false
+            Detail = "codex login not confirmed; run: codex login"
+        }
+    } catch {
+        return [pscustomobject]@{
+            Available = $false
+            Detail = "codex login status failed: $($_.Exception.Message)"
+        }
+    } finally {
+        $ErrorActionPreference = $oldErrorActionPreference
+    }
+}
+
+function Write-SgsdProviderReadiness {
+    Write-Host ""
+    Write-Host "SGSD provider readiness" -ForegroundColor White
+
+    $claude = Get-SgsdCliStatus -Name "claude"
+    if ($claude.Found) {
+        Write-Host "  Claude Code CLI: found ($($claude.Version))" -ForegroundColor Green
+    } else {
+        Write-Host "  Claude Code CLI: missing - install/login with Claude Code, then run: claude" -ForegroundColor Yellow
+    }
+
+    $codex = Get-SgsdCliStatus -Name "codex"
+    if ($codex.Found) {
+        Write-Host "  Codex CLI:      found ($($codex.Version))" -ForegroundColor Green
+    } else {
+        Write-Host "  Codex CLI:      missing - run: npm install -g @openai/codex" -ForegroundColor Yellow
+    }
+
+    $codexLogin = Test-SgsdCodexLogin
+    if ($codexLogin.Available) {
+        Write-Host "  Codex login:    available" -ForegroundColor Green
+    } else {
+        Write-Host "  Codex login:    not ready - $($codexLogin.Detail)" -ForegroundColor Yellow
+    }
+
+    Write-Host "  API keys:       not requested; SGSD uses Claude/Codex CLI OAuth for normal setup" -ForegroundColor DarkGray
 }
 
 if (-not $NonInteractive) {
@@ -181,6 +276,8 @@ if ($knowledgeRootResolved) {
     Write-Host "  Private KB:   not configured" -ForegroundColor DarkGray
 }
 Write-Host "  Fallback:     $FallbackCorpus" -ForegroundColor DarkGray
+
+Write-SgsdProviderReadiness
 
 # ----------------------------------------------------------------------------
 # Phase 59-01: optional non-destructive invocation hook to the project-level

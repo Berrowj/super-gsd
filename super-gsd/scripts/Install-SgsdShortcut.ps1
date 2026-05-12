@@ -11,7 +11,7 @@
 #     sgsd -NoCodexTail    # do not open the Codex live tail window
 #     sg                   # cockpit + Claude greeting in the current terminal
 #     sgsd-watch-codex     # live Codex raw/narrator watcher from any project
-#     sgsd-setup           # configure knowledge bank + SGSD memory roots
+#     sgsd-setup           # configure knowledge/memory + show Claude/Codex readiness
 #     sgsd -Help           # show flags
 #
 # The installed function walks up the current directory looking for a
@@ -138,7 +138,7 @@ function sgsd {
         Write-Host '  sg -FullPreflight    Same, but run full SGSD preflight first'
         Write-Host '  sg -Go               Same, but send ''go'' to Claude instead of greeting'
         Write-Host '  sgsd-watch-codex     Live Codex raw/narrator watcher from any project'
-        Write-Host '  sgsd-setup           Configure knowledge bank + SGSD memory roots'
+        Write-Host '  sgsd-setup           Configure knowledge/memory + show Claude/Codex readiness'
         Write-Host '  sgsd -ProjectDir X   Explicit project directory'
         Write-Host '  sgsd -Help           This help'
         return
@@ -407,7 +407,7 @@ Write-Host "(cockpit + Claude greeting in this terminal)"
 Write-Host "  sgsd-refresh  " -NoNewline -ForegroundColor Cyan
 Write-Host "(refresh cockpit)"
 Write-Host "  sgsd-setup    " -NoNewline -ForegroundColor Cyan
-Write-Host "(configure knowledge + memory)"
+Write-Host "(configure knowledge + memory + Claude/Codex readiness)"
 Write-Host "  SGSD-Cockpit  " -NoNewline -ForegroundColor Cyan
 Write-Host "(boot cockpit shortcut)"
 Write-Host "  sgsd -NoOpen  " -NoNewline -ForegroundColor Cyan

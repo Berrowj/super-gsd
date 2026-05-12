@@ -20,12 +20,12 @@
 //       are built via concatenation so they cannot self-trigger the
 //       scan.
 //     - Stay ASCII-only. selfTest A11 enforces.
-//     - Carry frozen vocabularies: TOOL_NAMES (14), ERROR_CODES (11),
+//     - Carry frozen vocabularies: TOOL_NAMES (15), ERROR_CODES (13),
 //       MATCHER_TYPES (4).
 //
 // 6 PUBLIC APIs (Lock-13 wrapped)
 //   - listTools()
-//       -> { tools: [<14 names>] }
+//       -> { tools: [<15 names>] }
 //   - dispatchTool(name, args)
 //       -> universal envelope (ok or degraded)
 //   - handleRequest(jsonRpcRequest)
@@ -37,7 +37,7 @@
 //   - selfTest()
 //       -> { ok, results:[...] } (12+ assertions)
 //
-// TOOL_NAMES (14, frozen) -- VERBATIM from Phase 68 contract
+// TOOL_NAMES (15, frozen) -- Phase 68 contract plus v2.9 extension
 //   1.  sgsd_current_state
 //   2.  sgsd_current_phase
 //   3.  sgsd_milestone_status
@@ -52,6 +52,7 @@
 //   12. sgsd_cockpit_snapshot
 //   13. sgsd_artifact_links
 //   14. sgsd_warp_doctor
+//   15. sgsd_harness_evolution_status
 //
 // ERROR_CODES (13, frozen) -- VERBATIM from Phase 68 contract + Phase 72
 // extension for spawn-error formalization (closes Phase 71 D3 deviation).
@@ -64,7 +65,7 @@
 // REDACTION_CATEGORIES (7, frozen) -- VERBATIM from Phase 68 contract
 //   env_secrets, bearer_tokens, redis_urls, api_keys_inline,
 //   private_kb_paths, unc_paths, onedrive_paths
-// Wired into all 14 tools via _finalizeEnvelope. Audit-friendly closed
+// Wired into all 15 tools via _finalizeEnvelope. Audit-friendly closed
 // vocab; _redactions_applied lists categories that fired (not values).
 //
 // MATCHER_TYPES (4, frozen)
@@ -3143,15 +3144,15 @@ function selfTest() {
         + ' phases_len=' + (r29 && r29.data && r29.data.phases
           ? r29.data.phases.length : '?'));
 
-    // A30: sgsd_warp_doctor -- probes array length 18 (Phase 86 extends
-    // 16 -> 18 with state_md_freshness + context_packet_builder_freshness
-    // staleness probes).
+    // A30: sgsd_warp_doctor -- probes array length 21 (Phase 86 extended
+    // 16 -> 18 with staleness probes; later Codex watch relay probes
+    // brought the live doctor to 21).
     var r30 = dispatchTool('sgsd_warp_doctor', {});
     var ok30 = _liveOkOrDegradedOK(r30)
       && (r30.ok !== true
         || (r30.data && Array.isArray(r30.data.probes)
-          && r30.data.probes.length === 18));
-    add('live_sgsd_warp_doctor_returns_18_probes',
+          && r30.data.probes.length === 21));
+    add('live_sgsd_warp_doctor_returns_21_probes',
       ok30,
       'ok=' + (r30 ? r30.ok : '?')
         + ' probes_len=' + (r30 && r30.data && r30.data.probes

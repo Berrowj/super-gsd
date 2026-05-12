@@ -149,9 +149,21 @@ not changed, so full preflight should be much faster than before.
 
 ## Codex Setup
 
-Codex is the optional second reviewer for SGSD. It is not required for boot,
-but it is recommended for autonomous work because it gives ATC and MUDA an
-independent signal outside Claude.
+Codex is required for the current source-changing automode path. SGSD can boot
+without Codex so the cockpit can explain the degraded state, but a fresh friend
+install is not ready for unattended coding until `codex login status` works.
+
+Current routing contract:
+
+| Surface | Runtime |
+|---|---|
+| Orchestration | Claude / Opus |
+| Planning | Opus 4.7 / xhigh |
+| Phase research | Codex GPT-5.5 / xhigh |
+| Plan-final ATC + MUDA challenge | Codex GPT-5.5 / xhigh |
+| Source-changing execution | Codex GPT-5.5 / xhigh |
+| Per-dispatch and phase-level ATC | Codex CLI reviewer |
+| Verifier/checker/readiness/enrichment roles | Sonnet or Haiku where still declared |
 
 Install and log in:
 
@@ -183,10 +195,11 @@ node .\super-gsd\tools\provider-health\check.cjs --provider codex --behavioral
 The behavioral canary makes a tiny real Codex call, so it may spend a small
 amount of Codex tokens. Normal fast boot uses the cheaper login-status check.
 
-If Codex is not installed or not logged in, SGSD should continue and record the
-review path as degraded. A backlog row should say what evidence is missing
-(`Codex review missing`) separately from the suspected cause (`not installed`,
-`not logged in`, `timeout`, etc.).
+If Codex is not installed or not logged in, SGSD should record the Codex path as
+degraded. A backlog row should say what evidence is missing (`Codex review
+missing`) separately from the suspected cause (`not installed`, `not logged in`,
+`timeout`, etc.). Repair Codex before starting unattended source-changing
+automode.
 
 ---
 

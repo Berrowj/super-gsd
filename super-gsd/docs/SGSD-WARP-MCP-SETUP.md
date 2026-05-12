@@ -33,7 +33,7 @@ disk:
 | 11 | sgsd_recovery_packet | 4-block recovery packet (resume command) |
 | 12 | sgsd_cockpit_snapshot | one-shot composed snapshot for Warp Agent |
 | 13 | sgsd_artifact_links | per-phase ATC-REVIEW / VERIFICATION / WASTE |
-| 14 | sgsd_warp_doctor | shells out to warp-doctor; returns 18 probes |
+| 14 | sgsd_warp_doctor | shells out to warp-doctor; currently returns 21 probes |
 | 15 | sgsd_harness_evolution_status | v2.9 extension: AHE run/component status |
 
 > Tools 1-14 are the Phase 68 frozen contract
@@ -59,14 +59,17 @@ The server is shipped in-tree at:
 super-gsd/tools/warp-mcp/server.cjs
 ```
 
-It has zero runtime dependencies (Node.js stdlib only). On this machine
-the canonical absolute path is:
+It has zero runtime dependencies (Node.js stdlib only). Use the absolute path
+for your clone. For example, if the repo is at
+`C:\Users\alex\projects\super-gsd`, the server path is:
 
 ```
-C:\Users\jack.berrow\GSDedits\super-gsd\tools\warp-mcp\server.cjs
+C:\Users\alex\projects\super-gsd\super-gsd\tools\warp-mcp\server.cjs
 ```
 
-If you cloned the repo elsewhere, substitute that path everywhere below.
+The checked-in template at `super-gsd/templates/onboard/mcp.json.template`
+uses `{{PROJECT_DIR_FORWARD_SLASH}}` so new operators do not inherit Jack's
+local path.
 Node.js 18+ is recommended (the server uses `child_process.spawnSync`
 with timeouts and the global URL parser; both are stable on 18+).
 
@@ -83,7 +86,7 @@ server entry:
     "sgsd": {
       "command": "node",
       "args": [
-        "C:\\Users\\jack.berrow\\GSDedits\\super-gsd\\tools\\warp-mcp\\server.cjs"
+        "C:\\Users\\alex\\projects\\super-gsd\\super-gsd\\tools\\warp-mcp\\server.cjs"
       ],
       "transport": "stdio",
       "description": "SGSD read-only state bridge (v2.3 + v2.9 extension, 15 tools)"
@@ -98,8 +101,8 @@ Notes:
   newline-delimited over stdin/stdout.
 - `args` must use absolute paths in JSON (Warp does not interpolate
   `~` or `$HOME`). On Windows escape backslashes as `\\`.
-- Replace the path with your actual checkout location if not the default
-  shown above. The warp-doctor `mcp_config_present` probe will report
+- Replace the path with your actual checkout location. The warp-doctor
+  `mcp_config_present` probe will report
   PASS regardless of which exact candidate path Warp uses, as long as
   the JSON file mentions either `warp-mcp/server.cjs` or `super-gsd`.
 
@@ -119,7 +122,7 @@ There are two verification paths.
 3. Run it. The workflow expands to:
 
 ```
-cd "C:\Users\jack.berrow\GSDedits"; node super-gsd/tools/warp-mcp/run-self-test.cjs
+cd "C:\Users\alex\projects\super-gsd"; node super-gsd/tools/warp-mcp/run-self-test.cjs
 ```
 
 Expected output ends with:
@@ -149,7 +152,7 @@ Exit code 0 on full pass. The 47 assertions cover:
 ### 4b. From terminal directly
 
 ```
-cd C:\Users\jack.berrow\GSDedits
+cd C:\Users\alex\projects\super-gsd
 node super-gsd/tools/warp-mcp/run-self-test.cjs
 ```
 
@@ -163,7 +166,7 @@ was upgraded in Phase 72 from a NOT-APPLICABLE placeholder to a real
 check. Run:
 
 ```
-node super-gsd/tools/warp-doctor/check.cjs --project "C:\Users\jack.berrow\GSDedits"
+node super-gsd/tools/warp-doctor/check.cjs --project "C:\Users\alex\projects\super-gsd"
 ```
 
 Expected probe 15 status:

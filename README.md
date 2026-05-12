@@ -1,10 +1,10 @@
 # Super GSD
 
-**Say "go" and it builds your entire project.**
+**Say "go" and it runs the SGSD orchestration loop.**
 
-Super GSD is a token-efficient, multi-agent autonomous orchestrator for [Claude Code](https://claude.ai/code). It turns Claude from a helpful assistant into a fully autonomous software engineer that plans, codes, tests, reviews, and commits — without you lifting a finger.
+Super GSD is a token-efficient, multi-agent autonomous orchestrator for [Claude Code](https://claude.ai/code). It turns Claude from a helpful assistant into a controlled autonomous engineering loop that plans, dispatches Codex, runs checks, records evidence, and keeps moving.
 
-Built on top of [GSD 1.0](https://github.com/gsd-build/get-shit-done) (68 skills, 24 agents). Everything runs on your Claude Code Max plan — **no API keys, no surprise bills**.
+Built on top of [GSD 1.0](https://github.com/gsd-build/get-shit-done) (68 skills, 24 agents). The current SGSD path uses Claude Code OAuth plus Codex CLI OAuth. It does not require Anthropic or OpenAI API keys for normal use.
 
 ---
 
@@ -28,15 +28,16 @@ Super GSD: *builds your entire project autonomously*
 
 The orchestrator reads your project state, figures out what to do next, dispatches the right AI agent, processes the result, commits the code, and loops — until everything is done or you say stop.
 
-### The Three Brains
+### The Runtime Roles
 
-| Brain | Model | Cost | Does What |
-|-------|-------|------|-----------|
-| Strategy | **Opus** | $$$ | Orchestrates the loop. Makes dispatch decisions. Synthesizes board debates. |
-| Execution | **Sonnet** | $ | Writes code, creates plans, reviews quality, verifies work. |
-| Classification | **Haiku** | ¢ | Quick task scoring, context selection, change tier classification. |
+| Role | Runtime | Does What |
+|-------|---------|-----------|
+| Orchestration | **Claude / Opus** | Reads `.planning/`, decides next step, composes prompts, synthesizes results, never authors executor code. |
+| Planning | **Opus 4.7 / xhigh** | Produces and repairs phase plans from research, VTP status, and current repo state. |
+| Research / plan-final review / code execution / Codex-owned gates | **Codex GPT-5.5 / xhigh** | Performs phase research, ATC + MUDA plan challenge, file-mutating executor work, per-dispatch ATC, phase-level ATC, and qualitative waste review. |
+| Bounded non-code checks | **Sonnet / Haiku where still declared** | Verifier, checker, classifier, readiness, and enrichment roles only. Sonnet is not the code executor. |
 
-Right-sizing models cuts costs **5-20x** with zero quality trade-off.
+For a new install, make sure both `claude` and `codex` are installed and logged in before expecting unattended automode to edit code.
 
 ### Key Features
 
@@ -50,9 +51,9 @@ Right-sizing models cuts costs **5-20x** with zero quality trade-off.
 | **Script Registry** | Already wrote that utility? The system finds and reuses it instead of recreating. |
 | **Signal Map** | Interactive HTML visualization of your project — phases, dependencies, collisions. |
 | **Token Tracking** | Per-unit logging. Know exactly where your tokens go. |
-| **Double-Agent Executor** | Routes bounded execution tasks to local scripts, Codex, or Claude using task capsules. |
+| **Codex Executor Lock** | Source-changing executor work runs through Codex GPT-5.5/xhigh, with read-pack patch fallback for Windows host read blocks. |
 | **Stuck Detection** | Looping on the same error? Gets warned and tries a different approach. |
-| **No API Keys** | Everything runs through Claude Code Max plan OAuth. Zero external costs. |
+| **No API Keys** | Normal setup uses Claude Code and Codex CLI OAuth. Do not paste Anthropic/OpenAI API keys into SGSD setup. |
 
 ---
 
@@ -60,10 +61,10 @@ Right-sizing models cuts costs **5-20x** with zero quality trade-off.
 
 ### 1. Prerequisites
 
-- **Claude Code** on **Max plan** ($100-200/month) — [get it here](https://claude.ai/code)
-- **Node.js 22+** — [download](https://nodejs.org)
-- **Git** — [download](https://git-scm.com)
-- **Optional Codex CLI** for independent code review and bounded executor tasks:
+- **Claude Code** logged in with a plan that can run Opus - [get it here](https://claude.ai/code)
+- **Node.js 22+** - [download](https://nodejs.org)
+- **Git** - [download](https://git-scm.com)
+- **Codex CLI** logged in. SGSD's current executor/gate path expects Codex:
 
 ```bash
 npm install -g @openai/codex
@@ -71,41 +72,43 @@ codex login
 codex login status
 ```
 
-SGSD works without Codex; it falls back to Claude. With Codex available, ATC/code-review gates and bounded double-agent executor tasks can route to Codex where appropriate.
+If Codex is missing, SGSD can still boot and show the cockpit, but source-changing automode is not friend-ready. Install/log in to Codex before asking SGSD to build unattended.
 
 ### 2. Install
 
 ```bash
 # Clone the repo
 git clone https://github.com/Berrowj/super-gsd.git
+cd super-gsd
 
-# Go to your project directory
-cd your-project
+# Install local Node dependencies
+npm install
 
-# Run the installer
-bash /path/to/super-gsd/install.sh --init-project
+# Install PowerShell shortcuts
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\super-gsd\scripts\Install-SgsdShortcut.ps1 -Force
 ```
 
-The installer:
-- Installs GSD 1.0 (if not already present)
-- Copies 7 agents, 8 skills, 5 hooks
-- Sets up ByteRover memory (no API key needed)
-- Seeds 9 knowledge files
-- Creates `.planning/` directory
-- Sets permissions for fully autonomous mode
-- Creates `CLAUDE.md` that teaches Claude the loop
+For a fresh clone of this repository, those commands install dependencies and register the `sg`, `sgsd`, `sgsd-setup`, and `sgsd-watch-codex` PowerShell helpers. The checked-in repo already contains `super-gsd/`, `.planning/`, `CLAUDE.md`, `AGENTS.md`, and the Warp workflow files.
 
-### 3. Set Up Your Project
+### 3. First-Run Setup Check
 
-```bash
-# Open Claude Code in your project
-claude
+Open a new PowerShell window, then run:
 
-# Create your project plan
-/gsd-new-project
+```powershell
+cd C:\path\to\super-gsd
+sgsd-setup -NonInteractive
+node .\super-gsd\scripts\sgsd-new-project-wizard.cjs --defaults
+node .\super-gsd\scripts\sgsd-new-project-wizard.cjs --self-test
+sg -FullPreflight -NoClaude
 ```
 
-Answer the questions about what you're building. Claude creates PROJECT.md, REQUIREMENTS.md, and ROADMAP.md.
+Expected wizard result:
+
+```text
+wizard_self_test: 13/13 assertions passed
+```
+
+VTP/private knowledge is optional. If setup asks for a private knowledge bank and you do not have one, leave it blank.
 
 ### 4. Go
 
@@ -113,7 +116,7 @@ Answer the questions about what you're building. Claude creates PROJECT.md, REQU
 go
 ```
 
-That's it. Claude enters the autonomous loop and builds your project.
+That's it. Claude enters the SGSD loop, orchestrates the run, and dispatches Codex for the current code/research/gate surfaces.
 
 ### 5. (Optional) Install the `sg` shortcut
 
@@ -193,6 +196,12 @@ Plus all **68 original GSD 1.0 commands** still work.
 
 SGSD now has a bounded execution router for tasks that do not need the full milestone ceremony.
 
+For the main SGSD phase executor, the current contract is stricter: source-changing
+work runs through `super-gsd/scripts/codex-executor.sh` with Codex GPT-5.5/xhigh.
+The double-agent router below is still useful for bounded task capsules and
+route evidence, but it is not permission for Claude/Sonnet to author executor
+code in the SGSD orchestrator loop.
+
 Instead of always sending every implementation task through Claude, SGSD can build a small **task capsule** and route the work:
 
 ```text
@@ -269,8 +278,8 @@ node super-gsd/tools/double-agent-executor/scorecard.cjs
 │  2. Classify (Haiku) ──── "What kind of task?"           │
 │  3. Query Memory ──────── "What do I know about this?"   │
 │  4. Compose Prompt ────── Build agent instruction         │
-│  5. Dispatch (Sonnet) ─── Agent does the work            │
-│  6. Process Report ────── Parse structured result         │
+│  5. Dispatch Codex ───── Research/review/code as needed  │
+│  6. Process Report ───── Parse structured result         │
 │  7. Curate Learnings ──── Save new patterns to memory    │
 │  8. Quality Gate ──────── ATC check before commit         │
 │  9. Git Commit ────────── Atomic, per task, always        │

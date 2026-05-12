@@ -1,10 +1,9 @@
 # Codex as Executor
 
-Codex (gpt-5.5) can do open-ended code execution work as an alternative to
-Claude Sonnet. Until now, SGSD's Codex usage was reviewer-only (per-dispatch
-ATC, phase-level ATC, MUDA audits — see `.planning/metrics/codex-log.jsonl`).
-This doc describes the **executor** path: Codex edits files, runs commands,
-commits work, and returns a free-form report.
+Codex (gpt-5.5/xhigh) is the current SGSD source-changing executor. SGSD still
+uses Claude/Opus for orchestration and Opus for planning, but Claude/Sonnet is
+not the code executor. This doc describes the **executor** path: Codex edits
+files, runs commands, commits work, and returns a free-form report.
 
 ## Why a separate wrapper
 

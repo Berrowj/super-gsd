@@ -30,8 +30,8 @@ You ask one thing -> Claude does one thing -> waits.
 SGSD:
 
 ```text
-You say "go" -> SGSD plans, dispatches agents, writes code,
-runs checks, commits, and keeps going.
+You say "go" -> Claude/Opus orchestrates, Opus plans, Codex researches,
+writes code, runs Codex-owned gates, and SGSD records evidence.
 ```
 
 The cockpit is the dashboard. It is read-only. It tells you:
@@ -79,23 +79,10 @@ You work in the main Claude terminal. You watch the cockpit.
    - Windows PowerShell 5.1 works.
    - PowerShell 7 is also fine.
 
-5. **Project Node dependencies**
-   - From the project root, run:
-
-   ```powershell
-   npm install
-   ```
-
-   This installs the local SQLite context database dependency. Without it,
-   SGSD can still start in degraded mode, but local knowledge search is weaker.
-
-### Optional
-
-1. **Codex CLI**
-   - Used for independent review when available.
-   - If Codex is unavailable, SGSD records a degraded review path and continues.
-   - Recommended for serious autonomous runs because it gives SGSD a second
-     reviewer outside Claude.
+5. **Codex CLI**
+   - Current SGSD uses Codex GPT-5.5/xhigh for phase research, plan-final
+     ATC/MUDA review, source-changing execution, per-dispatch ATC,
+     phase-level ATC, and qualitative waste review.
    - Install globally:
 
    ```powershell
@@ -111,13 +98,28 @@ You work in the main Claude terminal. You watch the cockpit.
    Logged in using ChatGPT
    ```
 
-2. **Redis**
+   If Codex is missing, `sg` can still boot the cockpit, but the install is
+   not ready for unattended source-changing automode.
+
+6. **Project Node dependencies**
+   - From the project root, run:
+
+   ```powershell
+   npm install
+   ```
+
+   This installs the local SQLite context database dependency. Without it,
+   SGSD can still start in degraded mode, but local knowledge search is weaker.
+
+### Optional
+
+1. **Redis**
    - Optional fast live projection cache.
    - Never canonical truth.
    - Not needed for first boot.
    - SGSD uses the local SQLite context database and files when Redis is absent.
 
-3. **VTP or another private knowledge bank**
+2. **VTP or another private knowledge bank**
    - Optional private research / memory source.
    - VTP is Jack's private knowledge bank, not a required SGSD dependency.
    - If missing, SGSD uses local project memory, the SQLite context database,
@@ -138,10 +140,17 @@ my-project/
   src/
 ```
 
-If they already have a project, copy the `super-gsd/` folder into the project
-root.
+If they are cloning this repository, the root already contains `super-gsd/`:
 
-If they are cloning this repository, the root already contains `super-gsd/`.
+```powershell
+git clone https://github.com/Berrowj/super-gsd.git
+cd super-gsd
+npm install
+```
+
+If they already have a separate project, copy the `super-gsd/` folder plus the
+root `CLAUDE.md`, `AGENTS.md`, `WARP.md`, and `.planning/` starter files into
+that project root. Do not copy Jack's private VTP folder or local `.env` files.
 
 Then open PowerShell in the project root:
 
@@ -221,8 +230,8 @@ That means a new friend does not need VTP and does not need to know what VTP
 is. SGSD will use local knowledge unless they deliberately configure a private
 knowledge bank.
 
-Run `sgsd-setup` only when they have their own private knowledge folder, such
-as Obsidian, a company docs repo, or a research folder:
+Run `sgsd-setup` during first setup. It configures memory/private knowledge and
+prints Claude/Codex readiness. It does not store API keys or login tokens.
 
 ```powershell
 sgsd-setup
@@ -237,6 +246,17 @@ Recommended answers for a first-time user:
 | Fallback corpus | `sgsd-bundled-research` |
 
 If they do not have one, leave it blank.
+
+Expected provider readiness lines:
+
+```text
+Claude Code CLI: found
+Codex CLI: found
+Codex login: available
+```
+
+If one is missing, run the command printed by setup, usually `claude` to finish
+Claude login or `codex login` for Codex.
 
 ---
 
@@ -264,18 +284,30 @@ Expected final line:
 wizard_self_test: 13/13 assertions passed
 ```
 
+MCP setup is optional. If the friend uses Warp Agent or another MCP-capable
+client, start from the checked-in template:
+
+```text
+super-gsd/templates/onboard/mcp.json.template
+```
+
+Replace `{{PROJECT_DIR_FORWARD_SLASH}}` with the clone path using forward
+slashes, for example `C:/Users/alex/projects/super-gsd`. The SGSD MCP is
+separate from VTP; VTP/private KB MCP servers are never required for a new
+operator.
+
 ---
 
-## 6. Set Up Codex Review
+## 6. Set Up Codex
 
-Codex is optional, but recommended.
+Codex is required for the current source-changing SGSD executor path.
 
 Plain English:
 
 ```text
-Claude builds.
-Codex independently reviews.
-SGSD compares both signals before closing the phase.
+Claude/Opus orchestrates and plans.
+Codex GPT-5.5/xhigh researches, edits files, and runs Codex-owned gates.
+SGSD records the evidence and advances only through the gate path.
 ```
 
 Install Codex after `npm install` and before the first full preflight:
@@ -309,8 +341,8 @@ That canary may spend a small amount of Codex tokens because it asks Codex to
 return a tiny contract response.
 
 If Codex is not installed, SGSD still boots. The cockpit should show the Codex
-review path as unavailable/degraded, and the phase should continue through
-Claude/fallback review unless that milestone explicitly requires Codex.
+path as unavailable/degraded, but a friend should not start unattended
+source-changing automode until Codex is installed and logged in.
 
 ---
 
@@ -456,9 +488,9 @@ It should answer:
 - what did each gate catch?
 - what still needs review?
 
-Important: Codex unavailable is not automatically a hard stop. SGSD should log
-that Codex evidence is missing or degraded, then continue with the fallback
-route unless the milestone explicitly requires Codex.
+Important: Codex unavailable is a setup problem for source-changing automode.
+SGSD should log that Codex evidence is missing or degraded; a new operator
+should fix Codex login before leaving automode unattended.
 
 ### How The Gates Fit Together
 
@@ -609,8 +641,9 @@ Run:
 node .\super-gsd\tools\provider-health\check.cjs --provider codex --behavioral
 ```
 
-If it still fails, continue. SGSD should mark Codex review as degraded and use
-fallback review.
+If it still fails, do not start unattended source-changing automode. SGSD can
+still boot and report the degraded Codex path, but the friend-ready fix is to
+repair `codex login` first.
 
 ### Redis is missing
 
@@ -666,8 +699,7 @@ For a Windows user starting in the project root:
 # 1. Install project dependencies
 npm install
 
-# 2. Optional but recommended: install Codex for independent review
-# Skip this block if you do not want Codex yet; SGSD will still run.
+# 2. Required for source-changing automode: install Codex
 if (-not (Get-Command codex -ErrorAction SilentlyContinue)) {
   npm install -g @openai/codex
 }
@@ -686,8 +718,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\super-gsd\scripts\Inst
 # Seeds local knowledge/project defaults if they are missing.
 sg -FullPreflight -NoClaude
 
-# 6. Optional: configure a private knowledge bank later
-# sgsd-setup
+# 6. Configure local memory/fallback knowledge and print provider readiness
+sgsd-setup -NonInteractive
 
 # 7. Daily boot
 sg
