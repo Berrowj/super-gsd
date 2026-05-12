@@ -1,29 +1,29 @@
 {
   "model_routing": {
     "orchestrator": {
-      "model": "opus",
+      "model": "opus-4.7-xhigh",
       "budget_per_unit": 1500,
-      "notes": "Lean state machine. Read-dispatch-process-commit-loop. Never does heavy work."
+      "notes": "Lean state machine. Read-dispatch-process-commit-loop. Never authors research, plans, code, or gates."
     },
     "deliberation": {
-      "ceo": { "model": "opus", "budget": 2000 },
-      "board_members": { "model": "sonnet", "budget_per_member": 2000, "max_round_2": 1500 }
+      "ceo": { "model": "opus-4.7-xhigh", "budget": 2000 },
+      "board_members": { "model": "codex-gpt-5.5-xhigh", "budget_per_member": 2000, "max_round_2": 1500 }
     },
     "execution": {
-      "researcher": { "model": "sonnet", "budget": 3000 },
-      "planner": { "model": "sonnet", "budget": 2500 },
-      "plan_checker": { "model": "sonnet", "budget": 1500 },
-      "executor": { "model": "sonnet", "budget": 4000 },
-      "verifier": { "model": "sonnet", "budget": 3000 },
-      "code_reviewer": { "model": "sonnet", "budget": 2500 },
-      "code_fixer": { "model": "sonnet", "budget": 2000 }
+      "researcher": { "model": "codex-gpt-5.5-xhigh", "budget": 3000 },
+      "planner": { "model": "codex-gpt-5.5-xhigh", "budget": 2500 },
+      "plan_checker": { "model": "codex-gpt-5.5-xhigh", "budget": 1500 },
+      "executor": { "model": "codex-gpt-5.5-xhigh", "budget": 4000 },
+      "verifier": { "model": "codex-gpt-5.5-xhigh", "budget": 3000 },
+      "code_reviewer": { "model": "codex-gpt-5.5-xhigh", "budget": 2500 },
+      "code_fixer": { "model": "codex-gpt-5.5-xhigh", "budget": 2000 }
     },
     "lightweight": {
-      "classifier": { "model": "haiku", "budget": 200 },
-      "context_selector": { "model": "haiku", "budget": 300 },
-      "commit_writer": { "model": "haiku", "budget": 150 },
-      "stuck_detector": { "model": "haiku", "budget": 200 },
-      "decay_scorer": { "model": "haiku", "budget": 150 }
+      "classifier": { "model": "codex-gpt-5.5-xhigh", "budget": 200 },
+      "context_selector": { "model": "codex-gpt-5.5-xhigh", "budget": 300 },
+      "commit_writer": { "model": "codex-gpt-5.5-xhigh", "budget": 150 },
+      "stuck_detector": { "model": "codex-gpt-5.5-xhigh", "budget": 200 },
+      "decay_scorer": { "model": "codex-gpt-5.5-xhigh", "budget": 150 }
     }
   },
   "token_efficiency": {
@@ -37,7 +37,6 @@
   },
   "cost_ratios": {
     "opus": 1.0,
-    "sonnet": 0.2,
-    "haiku": 0.05
+    "codex": 0.2
   }
 }

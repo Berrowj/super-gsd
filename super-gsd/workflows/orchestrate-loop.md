@@ -265,7 +265,7 @@ Token budget check:
 CONFIG_MODEL=$(cat .planning/config.json | node -e "
   const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
   const role=process.env.AGENT_ROLE||'executor';
-  process.stdout.write(c.model_routing?.[role]||'sonnet');
+  process.stdout.write(c.model_routing?.[role]||'codex');
 ")
 DISPATCH_MODEL="${CLASSIFIER_MODEL:-$CONFIG_MODEL}"
 
@@ -616,5 +616,5 @@ Commit checkpoint, then STOP (text-only response).
 | Verification all failed | Dispatch planner --gaps, don't EXIT |
 | sgsd-recall fails/unavailable | Fall back to reading .planning/ files directly |
 | git commit fails | Check status, resolve, retry once |
-| Classifier returns unexpected format | Default: model=sonnet, atc_tier=lite |
+| Classifier returns unexpected format | Default: model=codex, atc_tier=lite |
 | Context fills before checkpoint written | Write emergency checkpoint with last known state |

@@ -1,6 +1,6 @@
 {
   "atc": {
-    "classify_model": "haiku",
+    "classify_model": "codex",
     "complexity_floor_files": 3,
     "complexity_floor_lines": 100,
     "enabled": true,
@@ -53,7 +53,7 @@
       "researcher"
     ],
     "enabled": true,
-    "gate_model": "haiku",
+    "gate_model": "codex",
     "max_rounds": 2,
     "trigger_phases_affected": 3
   },
@@ -139,15 +139,15 @@
   },
   "model_profile": "quality",
   "model_routing": {
-    "classifier": "haiku",
-    "code_reviewer": "sonnet",
-    "context_selector": "haiku",
-    "executor": "sonnet",
+    "classifier": "codex",
+    "code_reviewer": "codex",
+    "context_selector": "codex",
+    "executor": "codex",
     "orchestrator": "opus",
-    "plan_checker": "sonnet",
-    "planner": "sonnet",
-    "researcher": "sonnet",
-    "verifier": "sonnet"
+    "plan_checker": "codex",
+    "planner": "codex",
+    "researcher": "codex",
+    "verifier": "codex"
   },
   "muda": {
     "inventory_thresholds": {
@@ -202,9 +202,9 @@
       "default": 60,
       "review": 120
     },
-    "default_provider": "claude-sonnet-reviewer",
-    "fallback_max_retries": 1,
-    "fallback_on_error": true,
+    "default_provider": "codex-cli-reviewer",
+    "fallback_max_retries": 0,
+    "fallback_on_error": false,
     "kill_claude_tokens_saved": 50000,
     "kill_critical_count_delta": 5
   },
@@ -253,7 +253,7 @@
     "skip_discuss": false,
     "triage_vtp_enrichment": true,
     "verifier": true,
-    "planner_model": "opus",
+    "planner_model": "codex",
     "planner_reasoning_effort": "xhigh",
     "plan_final_codex_review": true,
     "plan_final_muda_review": true,

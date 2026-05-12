@@ -23,14 +23,14 @@
   },
   "model_routing": {
     "orchestrator": "opus",
-    "researcher": "sonnet",
-    "planner": "sonnet",
-    "plan_checker": "sonnet",
-    "executor": "sonnet",
-    "verifier": "sonnet",
-    "code_reviewer": "sonnet",
-    "classifier": "haiku",
-    "context_selector": "haiku"
+    "researcher": "codex",
+    "planner": "codex",
+    "plan_checker": "codex",
+    "executor": "codex",
+    "verifier": "codex",
+    "code_reviewer": "codex",
+    "classifier": "codex",
+    "context_selector": "codex"
   },
   "token_efficiency": {
     "state_read": "frontmatter_only",
@@ -52,7 +52,7 @@
   "deliberation": {
     "enabled": true,
     "auto_gate": true,
-    "gate_model": "haiku",
+    "gate_model": "codex",
     "board": ["architect", "pragmatist", "contrarian", "moonshot"],
     "max_rounds": 2,
     "trigger_phases_affected": 3
@@ -64,7 +64,7 @@
   },
   "atc": {
     "enabled": true,
-    "classify_model": "haiku",
+    "classify_model": "codex",
     "skip_threshold_lines": 10,
     "lite_threshold_lines": 50,
     "lite_threshold_files": 3

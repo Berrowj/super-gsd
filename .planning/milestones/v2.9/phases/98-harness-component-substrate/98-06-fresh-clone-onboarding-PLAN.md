@@ -4,7 +4,7 @@ Goal: make a GitHub clone usable by a new SGSD operator without relying on Jack'
 
 Scope:
 
-- Update friend-facing README/setup docs so the current runtime contract is explicit: Claude/Opus orchestrates, Opus plans, Codex GPT-5.5/xhigh handles research, plan-final review, code execution, and Codex-owned gates; Sonnet remains only for bounded non-code verifier/checker/enrichment roles where the contract still says so.
+- Update friend-facing README/setup docs so the current runtime contract is explicit: Claude/Opus orchestrates, Codex GPT-5.5/xhigh handles research, planning, plan-check, verification, code execution, and Codex-owned gates; Sonnet is not a fresh-clone default provider or fallback.
 - Keep VTP/private KB optional and document the no-private-KB path as normal.
 - Make setup guidance ask/check for Claude Code and Codex CLI readiness without storing API keys or credentials.
 - Replace hard-coded Jack paths in generic MCP onboarding templates with project-dir placeholders.

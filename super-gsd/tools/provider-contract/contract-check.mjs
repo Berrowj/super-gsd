@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // @sgsd/contract-check — provider-contract parser-comparator for code-reviewer-v1.
 //
-// Why this exists: Phase 14 lands two reviewer providers (claude-sonnet-reviewer
-// agent + codex-cli-reviewer shell) that must both emit the same 5-field report
+// Why this exists: Phase 14 landed reviewer providers including the current
+// codex-cli-reviewer shell and a legacy Claude/Sonnet contract fixture. Any
+// active provider must emit the same 5-field report
 // contract. The orchestrator can't trust prose claims of "contract parity" —
 // every claim must be backed by parse-structure evidence that a mechanical tool
 // can independently verify.

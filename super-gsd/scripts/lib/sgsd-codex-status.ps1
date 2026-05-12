@@ -52,10 +52,10 @@ function Get-SgsdCodexStatus {
 
     $out = [ordered]@{
         enabled = $false
-        defaultProvider = "claude-sonnet-reviewer"
+        defaultProvider = "codex-cli-reviewer"
         model = "gpt-5.5"
         reasoningEffort = "xhigh"
-        fallbackOnError = $true
+        fallbackOnError = $false
         phaseAtcProvider = $null
         perDispatchProvider = $null
         state = "not-fired"

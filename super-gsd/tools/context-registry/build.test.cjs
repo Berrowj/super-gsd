@@ -129,7 +129,7 @@ function buildSyntheticRepo(tmpRoot, opts) {
 
   // 4. review-providers.yaml -- 1 reviewer.
   fs.writeFileSync(path.join(tmpRoot, 'super-gsd', 'registry', 'review-providers.yaml'),
-    'providers:\n  - name: claude-sonnet-reviewer\n    invocation: agent\n    state: active\n');
+    'providers:\n  - name: codex-cli-reviewer\n    invocation: shell\n    state: active\n');
 
   // 5. command-envelope-v1.yaml -- 1 emitter + 2 reason_codes (1 active + 1 future).
   fs.writeFileSync(path.join(tmpRoot, 'super-gsd', 'registry', 'command-envelope-v1.yaml'),

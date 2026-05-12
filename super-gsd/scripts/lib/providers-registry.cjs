@@ -45,12 +45,12 @@ const DEFAULT_CONFIG_PATH = path.resolve(
 );
 
 const DEFAULT_CONFIG = {
-  default_provider: 'claude-sonnet-reviewer',
-  codex_enabled: false,
+  default_provider: 'codex-cli-reviewer',
+  codex_enabled: true,
   codex_cli_path: 'auto-detect',
   codex_timeout_seconds: 30,
-  fallback_on_error: true,
-  fallback_max_retries: 1,
+  fallback_on_error: false,
+  fallback_max_retries: 0,
 };
 
 function _requireYaml() {

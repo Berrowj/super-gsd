@@ -34,8 +34,8 @@ invocation_types:
   - shell
 
 # Populated per Phase 14 Plan 14-02 (D-05, D-05a, D-10, D-12).
-# Order: agent-backed provider first (default), shell-backed second.
-# All rows state:active at v1.3 ship.
+# Current default: Codex shell provider. The Claude/Sonnet row is retained as a
+# legacy contract fixture only; fresh-clone SGSD does not fall back to it.
 
 providers:
 
@@ -45,7 +45,7 @@ providers:
     auth: claude-max-oauth
     report_contract: code-reviewer-v1
     timeout_seconds: 60
-    state: active
+    state: inactive
     version: 1.0
 
   - name: codex-cli-reviewer
@@ -54,6 +54,5 @@ providers:
     auth: codex-pro-oauth
     report_contract: code-reviewer-v1
     timeout_seconds: 30
-    fallback_to: claude-sonnet-reviewer
     state: active
     version: 1.0

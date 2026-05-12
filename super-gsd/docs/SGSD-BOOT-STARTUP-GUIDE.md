@@ -158,12 +158,12 @@ Current routing contract:
 | Surface | Runtime |
 |---|---|
 | Orchestration | Claude / Opus |
-| Planning | Opus 4.7 / xhigh |
+| Planning | Codex GPT-5.5 / xhigh |
 | Phase research | Codex GPT-5.5 / xhigh |
-| Plan-final ATC + MUDA challenge | Codex GPT-5.5 / xhigh |
+| Plan-check / ATC / MUDA / verification | Codex GPT-5.5 / xhigh |
 | Source-changing execution | Codex GPT-5.5 / xhigh |
 | Per-dispatch and phase-level ATC | Codex CLI reviewer |
-| Verifier/checker/readiness/enrichment roles | Sonnet or Haiku where still declared |
+| Sonnet fallback | Disabled in fresh-clone default config |
 
 Install and log in:
 

@@ -1,6 +1,6 @@
 ---
 name: sgsd-orchestrate
-description: "Token-efficient autonomous orchestrator. Claude/Opus orchestrates only; research, plan review, and code execution are hard-routed to Codex GPT-5.5 xhigh."
+description: "Token-efficient autonomous orchestrator. Claude/Opus orchestrates only; research, planning, plan-check, verification, gates, and code execution are hard-routed to Codex GPT-5.5 xhigh."
 argument-hint: "[go|auto|continue|status|next|stop]"
 allowed-tools:
   - Read
@@ -104,6 +104,16 @@ whole delivery loop. Do not stop after research, planning, plan-check,
 phase-close, milestone-close, cost summaries, or "operator review" summaries.
 Those are intermediate states.
 
+Current provider lock:
+
+- Orchestration is Claude/Opus 4.7 with xhigh thinking.
+- Codex GPT-5.5/xhigh owns research, planning, plan-check, verification,
+  source-changing execution, per-dispatch ATC, phase-level ATC, MUDA, and other
+  Codex-owned gates.
+- Sonnet is not a fresh-clone default provider and is not a Codex fallback. If
+  any later legacy branch says to dispatch Sonnet for those surfaces, override
+  it and route through Codex.
+
 Canonical path for each phase:
 
 1. Read `.planning/STATE.md`, active roadmap, checkpoint, and config.
@@ -119,18 +129,19 @@ Canonical path for each phase:
      omit it.
 4. Run VTP enrichment before planning whenever
    `.planning/config.json -> vtp_enrichment.enabled` is true.
-5. Plan with `gsd-planner` on Opus 4.7 / xhigh only.
-   - Planner must consume RESEARCH + VTP enrichment and may call VTP MCP itself
-     for prior-memory/book/project/architecture uncertainty.
-6. Run `gsd-plan-checker`.
+5. Plan with Codex GPT-5.5/xhigh.
+   - Planner prompt must consume RESEARCH + VTP enrichment and may call VTP MCP
+     itself for prior-memory/book/project/architecture uncertainty when the MCP
+     is present.
+6. Run Codex plan-check.
 7. Run Codex GPT-5.5/xhigh final plan review applying ATC + MUDA to the plan
-   set. If it NOGOs, route back to Opus planner for a revised final draft.
+   set. If it NOGOs, route back to Codex planning for a revised final draft.
 8. Execute only through `codex-executor [gpt-5.5/xhigh]`. Claude never performs
    code edits as executor. If Windows Codex cannot read files, use Codex
    read-pack patch mode before any blocker checkpoint.
-9. Verify, run per-dispatch ATC, phase-level ATC, MUDA, browser gates when
-   applicable, commit, mark phase complete, and immediately choose the next
-   phase.
+9. Verify and run per-dispatch ATC, phase-level ATC, MUDA, browser gates when
+   applicable through Codex/local SGSD gate scripts, commit, mark phase
+   complete, and immediately choose the next phase.
 10. When all phases in the active milestone are complete, run
     `sgsd-complete-milestone` automatically. If the roadmap has another
     milestone/phase, advance and continue the same auto loop.
@@ -366,10 +377,10 @@ On resume (checkpoint exists):
 <executor_routing>
 ## Executor Routing - HARD LOCK: Claude orchestrates, Codex executes
 
-This SGSD install is Codex-executor locked. Claude/Opus is allowed to
-orchestrate, plan, research, classify, verify, summarize, and run gates.
-Claude MUST NOT perform code-mutating executor work and MUST NOT spawn the
-Claude executor agent for code work.
+This SGSD install is Codex-delivery locked. Claude/Opus is allowed to
+orchestrate and summarize. Codex owns planning, research, classification,
+verification, gates, and code-mutating executor work. Claude MUST NOT perform
+those delivery roles and MUST NOT spawn Claude/Sonnet agents for them.
 
 Hard rules:
 
@@ -382,15 +393,17 @@ Hard rules:
    with Codex anyway.
 5. Parallel executor waves must serialize. Codex CLI sessions assume exclusive
    write access to the workspace.
-6. The Claude Agent tool may still be used for non-code roles such as planner,
-   verifier, readiness, classifier, board, and fallback reviewer. In auto mode,
-   phase research is Codex-first, not a Claude researcher dispatch. Claude must
-   never be used for the executor role.
+6. The Claude Agent tool must not be used as the default planner, researcher,
+   verifier, checker, readiness probe, classifier, reviewer, fallback reviewer,
+   or executor. In auto mode, those delivery roles are Codex-first and
+   Codex-only unless the operator explicitly changes the provider contract.
 
 Forbidden executor path:
 
 ```text
 Do not call Agent with subagent_type gsd-executor.
+Do not call Agent with Sonnet for planner, researcher, verifier, checker,
+readiness, classifier, reviewer, or fallback reviewer.
 Do not describe a fallback to Claude executor.
 Do not continue code work in Claude if Codex fails.
 ```
@@ -2867,9 +2880,10 @@ Estimation method:
 4. COMMIT after every unit. Uncommitted work is lost work.
 5. CURATE after every unit. Unrecorded learnings are wasted tokens.
 6. LOG tokens after every unit. Untracked spend is invisible spend.
-7. Use the RIGHT model. Haiku for classification, Codex GPT-5.5/xhigh for
-   phase research, final plan ATC/MUDA review, and all code execution;
-   Opus 4.7/xhigh for planning; Sonnet for checking/verifier/board roles
+7. Use the RIGHT provider. Claude/Opus 4.7/xhigh orchestrates only. Codex
+   GPT-5.5/xhigh handles classification/routing, phase research, planning,
+   final plan ATC/MUDA review, verification, gates, and all code execution.
+   Sonnet is not a fresh-clone default provider or Codex fallback.
    unless a gate says otherwise.
 8. Sub-agent reports: 300 words MAX. If longer, the agent wasted tokens.
 9. Script reuse: ALWAYS check `sgsd-recall "scripts {purpose}"` before

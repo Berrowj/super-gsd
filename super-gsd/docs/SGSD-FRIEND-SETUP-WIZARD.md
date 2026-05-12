@@ -30,8 +30,8 @@ You ask one thing -> Claude does one thing -> waits.
 SGSD:
 
 ```text
-You say "go" -> Claude/Opus orchestrates, Opus plans, Codex researches,
-writes code, runs Codex-owned gates, and SGSD records evidence.
+You say "go" -> Claude/Opus orchestrates, Codex researches, plans, writes
+code, verifies, runs Codex-owned gates, and SGSD records evidence.
 ```
 
 The cockpit is the dashboard. It is read-only. It tells you:
@@ -80,9 +80,9 @@ You work in the main Claude terminal. You watch the cockpit.
    - PowerShell 7 is also fine.
 
 5. **Codex CLI**
-   - Current SGSD uses Codex GPT-5.5/xhigh for phase research, plan-final
-     ATC/MUDA review, source-changing execution, per-dispatch ATC,
-     phase-level ATC, and qualitative waste review.
+   - Current SGSD uses Codex GPT-5.5/xhigh for phase research, planning,
+     plan-check, ATC/MUDA review, source-changing execution, verification,
+     per-dispatch ATC, phase-level ATC, and qualitative waste review.
    - Install globally:
 
    ```powershell
@@ -306,7 +306,8 @@ Plain English:
 
 ```text
 Claude/Opus orchestrates and plans.
-Codex GPT-5.5/xhigh researches, edits files, and runs Codex-owned gates.
+Codex GPT-5.5/xhigh researches, plans, edits files, verifies, and runs
+Codex-owned gates.
 SGSD records the evidence and advances only through the gate path.
 ```
 

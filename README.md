@@ -33,9 +33,8 @@ The orchestrator reads your project state, figures out what to do next, dispatch
 | Role | Runtime | Does What |
 |-------|---------|-----------|
 | Orchestration | **Claude / Opus** | Reads `.planning/`, decides next step, composes prompts, synthesizes results, never authors executor code. |
-| Planning | **Opus 4.7 / xhigh** | Produces and repairs phase plans from research, VTP status, and current repo state. |
-| Research / plan-final review / code execution / Codex-owned gates | **Codex GPT-5.5 / xhigh** | Performs phase research, ATC + MUDA plan challenge, file-mutating executor work, per-dispatch ATC, phase-level ATC, and qualitative waste review. |
-| Bounded non-code checks | **Sonnet / Haiku where still declared** | Verifier, checker, classifier, readiness, and enrichment roles only. Sonnet is not the code executor. |
+| Research / planning / code / gates | **Codex GPT-5.5 / xhigh** | Performs phase research, plan synthesis and repair, plan-check, file-mutating executor work, verification, per-dispatch ATC, phase-level ATC, MUDA, and qualitative waste review. |
+| Sonnet | **Not used by default** | Fresh-clone SGSD does not route research, planning, code, or gates to Sonnet and does not use Sonnet as Codex fallback. |
 
 For a new install, make sure both `claude` and `codex` are installed and logged in before expecting unattended automode to edit code.
 
@@ -116,7 +115,7 @@ VTP/private knowledge is optional. If setup asks for a private knowledge bank an
 go
 ```
 
-That's it. Claude enters the SGSD loop, orchestrates the run, and dispatches Codex for the current code/research/gate surfaces.
+That's it. Claude enters the SGSD loop, orchestrates the run, and dispatches Codex for research, planning, code, and gates.
 
 ### 5. (Optional) Install the `sg` shortcut
 
@@ -275,7 +274,7 @@ node super-gsd/tools/double-agent-executor/scorecard.cjs
 │                  ORCHESTRATOR (Opus)                      │
 │                                                           │
 │  1. Read STATE.md ──────── "Where am I?"                 │
-│  2. Classify (Haiku) ──── "What kind of task?"           │
+│  2. Classify (Codex/local) ─ "What kind of task?"        │
 │  3. Query Memory ──────── "What do I know about this?"   │
 │  4. Compose Prompt ────── Build agent instruction         │
 │  5. Dispatch Codex ───── Research/review/code as needed  │

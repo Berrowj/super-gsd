@@ -16,17 +16,17 @@ Before dispatching any agent:
 | # | Condition | Check | Action | Agent | Model |
 |---|-----------|-------|--------|-------|-------|
 | 0 | Checkpoint exists | `.planning/ORCHESTRATOR-CHECKPOINT.md` exists | Resume from checkpoint | — | — |
-| 0.1 | Milestone readiness missing/stale | `.planning/milestones/{id}/MILESTONE-READINESS.md` absent or older than phase dirs | Dispatch readiness audit | sgsd-milestone-readiness | sonnet |
+| 0.1 | Milestone readiness missing/stale | `.planning/milestones/{id}/MILESTONE-READINESS.md` absent or older than phase dirs | Run readiness audit through Codex/local checks | codex-readiness | gpt-5.5/xhigh |
 | 0.2 | Readiness PARTIAL/BLOCKED | Manifest has degraded path | Continue on degraded path; stop only if no runnable path remains | — | — |
 | 1 | Deliberation needed | classifier.deliberate == true | Suggest /sgsd-deliberate | sgsd-ceo | opus |
 | 2 | Phase not discussed | No `{NN}-CONTEXT.md` AND skip_discuss != true | /gsd-discuss-phase --auto | — | — |
-| 3 | Phase needs research | No `{NN}-RESEARCH.md` AND research == true | Dispatch researcher | gsd-phase-researcher | sonnet |
-| 4 | Phase needs plans | No `{NN}-*-PLAN.md` files | Dispatch planner | gsd-planner | sonnet |
-| 5 | Plans need checking | PLAN.md exists, no checker result, plan_check == true | Dispatch checker | gsd-plan-checker | sonnet |
-| 6 | Plans need executing | PLAN.md exists, no matching SUMMARY.md | Dispatch executor | gsd-executor | sonnet |
-| 7 | All plans executed | All plans have SUMMARY.md | Dispatch verifier | gsd-verifier | sonnet |
+| 3 | Phase needs research | No `{NN}-RESEARCH.md` AND research == true | Dispatch Codex research | codex-research | gpt-5.5/xhigh |
+| 4 | Phase needs plans | No `{NN}-*-PLAN.md` files | Dispatch Codex planning | codex-plan | gpt-5.5/xhigh |
+| 5 | Plans need checking | PLAN.md exists, no checker result, plan_check == true | Dispatch Codex plan-check | codex-plan-check | gpt-5.5/xhigh |
+| 6 | Plans need executing | PLAN.md exists, no matching SUMMARY.md | Dispatch Codex executor | codex-executor.sh | gpt-5.5/xhigh |
+| 7 | All plans executed | All plans have SUMMARY.md | Dispatch Codex verifier | codex-verify | gpt-5.5/xhigh |
 | 8 | Verification passed | VERIFICATION.md status == "passed" | Mark complete, advance | orchestrator | — |
-| 9 | Verification failed | VERIFICATION.md status == "gaps_found" | Dispatch planner --gaps | gsd-planner | sonnet |
+| 9 | Verification failed | VERIFICATION.md status == "gaps_found" | Dispatch Codex planner --gaps | codex-plan | gpt-5.5/xhigh |
 | 10 | Phase complete | All checks pass | Advance to next phase | orchestrator | — |
 | 11 | All phases done | No incomplete phases in ROADMAP.md | EXIT: all complete | — | — |
 
@@ -101,7 +101,7 @@ From `.planning/config.json`:
 ```bash
 # Read model_routing from config.json
 CONFIG=$(cat .planning/config.json)
-MODEL_EXECUTOR=$(echo "$CONFIG" | node -e "const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));process.stdout.write(c.model_routing?.executor||'sonnet')")
-MODEL_CLASSIFIER=$(echo "$CONFIG" | node -e "const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));process.stdout.write(c.model_routing?.classifier||'haiku')")
+MODEL_EXECUTOR=$(echo "$CONFIG" | node -e "const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));process.stdout.write(c.model_routing?.executor||'codex')")
+MODEL_CLASSIFIER=$(echo "$CONFIG" | node -e "const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));process.stdout.write(c.model_routing?.classifier||'codex')")
 MODEL_ORCHESTRATOR=$(echo "$CONFIG" | node -e "const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));process.stdout.write(c.model_routing?.orchestrator||'opus')")
 ```

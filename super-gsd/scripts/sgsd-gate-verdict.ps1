@@ -742,8 +742,8 @@ function Get-CodexAuditStatus {
 
     $out = [ordered]@{
         enabled = $false
-        defaultProvider = "claude-sonnet-reviewer"
-        fallbackOnError = $true
+        defaultProvider = "codex-cli-reviewer"
+        fallbackOnError = $false
         phaseAtcProvider = $null
         perDispatchProvider = $null
         state = "not-fired"
