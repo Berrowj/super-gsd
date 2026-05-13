@@ -452,6 +452,36 @@ Each dashboard auto-refreshes via FileSystemWatcher on the files it reads — no
 
 ---
 
+### Remote tmux boot over SSH
+
+For a remote project that has `.planning/` but does not vendor `super-gsd/`
+inside the repo, use the global-install launcher:
+
+```bash
+ssh devcp -t 'bash ~/.claude/super-gsd/scripts/sgsd-remote-tmux.sh --project /opt/clarity/project-clarity-erp --session clarity-sgsd --greet'
+```
+
+From Windows, the companion launcher opens a local terminal that SSHes into the
+same remote tmux cockpit:
+
+```powershell
+powershell -File super-gsd/scripts/sgsd-remote-launch.ps1 -HostName devcp -ProjectDir /opt/clarity/project-clarity-erp -Greet
+```
+
+Optional server shortcut:
+
+```bash
+mkdir -p ~/bin
+ln -sf ~/.claude/super-gsd/scripts/sgsd-remote-tmux.sh ~/bin/sgclarity
+ssh devcp -t 'sgclarity --greet'
+```
+
+Use `--go` instead of `--greet` only when you want Claude to enter autonomous
+mode immediately. Avoid unconditional `.bashrc` auto-attach; use the explicit
+SSH command so ordinary SSH/scp/git operations still work.
+
+---
+
 ## Optional Add-Ons
 
 These integrations are **optional** -- SGSD ships and runs end-to-end without any of them. If your project benefits from one, opt in; otherwise the canonical path is VTP-free.
