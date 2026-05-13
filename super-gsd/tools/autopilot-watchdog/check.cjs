@@ -102,6 +102,10 @@ function parseFrontmatter(text) {
   return fm;
 }
 
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function getState(root) {
   const statePath = path.join(root, '.planning', 'STATE.md');
   const text = readText(statePath);
@@ -138,22 +142,43 @@ function getState(root) {
 
 function findActivePhaseDir(root, milestone, phase) {
   if (!milestone || !phase) return null;
-  const phaseRoot = path.join(root, '.planning', 'milestones', milestone, 'phases');
-  if (!exists(phaseRoot)) return null;
-  try {
-    const dirs = fs.readdirSync(phaseRoot, { withFileTypes: true })
-      .filter(d => d.isDirectory() && d.name.match(new RegExp(`^${phase}(?:-|$)`)));
-    if (dirs.length === 0) return null;
-    return path.join(phaseRoot, dirs[0].name);
-  } catch {
-    return null;
+  const phaseRoots = [
+    path.join(root, '.planning', 'milestones', milestone, 'phases'),
+    path.join(root, '.planning', 'phases')
+  ];
+  const phaseRe = new RegExp(`^${escapeRegExp(phase)}(?:-|$)`);
+  for (const phaseRoot of phaseRoots) {
+    if (!exists(phaseRoot)) continue;
+    try {
+      const dirs = fs.readdirSync(phaseRoot, { withFileTypes: true })
+        .filter(d => d.isDirectory() && d.name.match(phaseRe));
+      if (dirs.length > 0) return path.join(phaseRoot, dirs[0].name);
+    } catch {}
   }
+  return null;
+}
+
+function canWriteSharedCheckpoint(checkpointPath) {
+  const existing = readText(checkpointPath);
+  if (!existing) return true;
+  const fm = parseFrontmatter(existing);
+  return fm.generated_by === VERSION;
+}
+
+function writeWatchdogCheckpoint(root, recovery) {
+  const checkpointPath = path.join(root, '.planning', 'ORCHESTRATOR-CHECKPOINT.md');
+  if (!canWriteSharedCheckpoint(checkpointPath)) return false;
+  writeText(
+    checkpointPath,
+    recovery.replace('# Autopilot Stall Recovery', '# Orchestrator Checkpoint - Autopilot Stall Recovery')
+  );
+  return true;
 }
 
 function phaseNameFromDir(phaseDir, phase) {
   if (!phaseDir) return '';
   const base = path.basename(phaseDir);
-  return base.replace(new RegExp(`^${phase}-?`), '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  return base.replace(new RegExp(`^${escapeRegExp(phase)}-?`), '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function latestMtimeUnder(dir, maxFiles = 800) {
@@ -281,7 +306,7 @@ Do not rely on conversation memory. Read these files first:
 1. .planning/STATE.md
 2. .planning/ORCHESTRATOR-CHECKPOINT.md if present
 3. .planning/AUTOPILOT-RECOVERY.md
-4. The active phase folder under .planning/milestones/${milestone}/phases/
+4. The active phase folder under .planning/milestones/${milestone}/phases/ or .planning/phases/
 5. git status --short and git log --oneline -8
 
 Recover by inspecting what artifacts are missing for phase ${phase}, finishing or repairing the current phase, committing only scoped changes, updating STATE.md, and then continue with /sgsd-orchestrate go.
@@ -335,7 +360,7 @@ function writeOutputs(root, result, checkpoint) {
     const recovery = buildRecoveryMarkdown(result);
     writeText(path.join(root, '.planning', 'AUTOPILOT-RECOVERY.md'), recovery);
     if (checkpoint) {
-      writeText(path.join(root, '.planning', 'ORCHESTRATOR-CHECKPOINT.md'), recovery.replace('# Autopilot Stall Recovery', '# Orchestrator Checkpoint - Autopilot Stall Recovery'));
+      writeWatchdogCheckpoint(root, recovery);
     }
     appendStallIfNew(root, result);
   }
@@ -452,6 +477,57 @@ function selfTest() {
     writeText(path.join(phaseDir, '99-VERIFICATION.md'), `---\nstatus: PASS\n---\n`);
     r = check(tmp, { warnMin: 1, staleMin: 2 });
     if (r.status !== 'complete') throw new Error(`expected complete, got ${r.status}`);
+
+    const flat = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-watchdog-flat-'));
+    try {
+      const flatPhaseDir = path.join(flat, '.planning', 'phases', 'v22-11-classifier');
+      ensureDir(flatPhaseDir);
+      writeText(path.join(flat, '.planning', 'STATE.md'), `---\nmilestone: v2.2\nmilestone_name: Flat Phase Test\ncurrent_phase: v22-11-classifier\nstatus: Phase v22-11 active\n---\n`);
+      writeText(path.join(flatPhaseDir, 'CONTEXT.md'), '# flat phase artifact\n');
+      r = check(flat, { warnMin: 1, staleMin: 2 });
+      if (r.active_phase_dir !== '.planning/phases/v22-11-classifier') {
+        throw new Error(`expected flat active phase dir, got ${r.active_phase_dir}`);
+      }
+      if (r.latest_durable_source !== 'active phase artifacts') {
+        throw new Error(`expected flat artifact durable source, got ${r.latest_durable_source}`);
+      }
+    } finally {
+      fs.rmSync(flat, { recursive: true, force: true });
+    }
+
+    const ck = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-watchdog-checkpoint-'));
+    try {
+      const ckPhaseDir = path.join(ck, '.planning', 'milestones', 'vX', 'phases', '98-checkpoint');
+      ensureDir(ckPhaseDir);
+      writeText(path.join(ck, '.planning', 'STATE.md'), `---\nmilestone: vX\ncurrent_phase: 98\nstatus: Phase 98 active\n---\n`);
+      writeText(path.join(ckPhaseDir, '98-CONTEXT.md'), '# checkpoint test\n');
+      const old = new Date(Date.now() - 10 * 60 * 1000);
+      for (const p of [
+        path.join(ck, '.planning', 'STATE.md'),
+        ckPhaseDir,
+        path.join(ckPhaseDir, '98-CONTEXT.md')
+      ]) fs.utimesSync(p, old, old);
+      r = check(ck, { warnMin: 1, staleMin: 2 });
+      if (r.status !== 'stalled') throw new Error(`expected checkpoint fixture stalled, got ${r.status}`);
+
+      const checkpointPath = path.join(ck, '.planning', 'ORCHESTRATOR-CHECKPOINT.md');
+      const operatorCheckpoint = `---\ngenerated_by: operator\n---\n# Operator Checkpoint\n`;
+      writeText(checkpointPath, operatorCheckpoint);
+      writeOutputs(ck, r, true);
+      if (readText(checkpointPath) !== operatorCheckpoint) {
+        throw new Error('expected operator checkpoint to be preserved');
+      }
+
+      const watchdogCheckpoint = `---\ngenerated_by: ${VERSION}\n---\n# Old Watchdog Checkpoint\n`;
+      writeText(checkpointPath, watchdogCheckpoint);
+      writeOutputs(ck, r, true);
+      const rewritten = readText(checkpointPath);
+      if (rewritten === watchdogCheckpoint || !rewritten.includes('# Orchestrator Checkpoint - Autopilot Stall Recovery')) {
+        throw new Error('expected watchdog checkpoint to be rewritten');
+      }
+    } finally {
+      fs.rmSync(ck, { recursive: true, force: true });
+    }
     console.log('autopilot-watchdog self-test: PASS');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
