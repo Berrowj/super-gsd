@@ -3,6 +3,7 @@ name: sgsd-workflow-auditor
 description: Process-mining synthesis agent. Reads the deterministic AUDIT-METRICS.json produced by tools/process-audit/analyze.js and writes WORKFLOW-AUDIT.md — a human-readable report with top-10 ranked improvements for accuracy, efficiency, and speed. Does NOT recompute numbers — trusts the analyzer for quantitative truth.
 tools: Read, Write, Bash, Grep, Glob
 model: sonnet
+status: legacy-disabled
 ---
 
 <role>

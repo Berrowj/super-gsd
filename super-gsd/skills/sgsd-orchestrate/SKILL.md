@@ -82,6 +82,9 @@ recovery.
 2. Invoke the SGSD board via `/sgsd-deliberate {brief}` or direct board agents
    using `super-gsd/registry/board-members.yaml`:
    - default minimal board from `board-registry.resolveRoster(brief)`
+   - fresh-clone board dispatch is Sonnet-free; active default is
+     `sgsd-board-architect`, `sgsd-board-contrarian`, and `sgsd-ceo`
+   - Architect and Contrarian require Opus 4.7 with xhigh reasoning intent
    - `sgsd-ceo` synthesizes the decision
 3. Write the board memo under `.planning/decisions/` or the phase directory.
 4. Send the board decision to a separate Codex challenge using
@@ -108,8 +111,8 @@ Current provider lock:
 
 - Orchestration is Claude/Opus 4.7 with xhigh thinking.
 - Codex GPT-5.5/xhigh owns research, planning, plan-check, verification,
-  source-changing execution, per-dispatch ATC, phase-level ATC, MUDA, and other
-  Codex-owned gates.
+  source-changing execution, spec-compliance review, per-dispatch ATC,
+  phase-level ATC, MUDA, and other Codex-owned gates.
 - Sonnet is not a fresh-clone default provider and is not a Codex fallback. If
   any later legacy branch says to dispatch Sonnet for those surfaces, override
   it and route through Codex.
@@ -137,12 +140,18 @@ Canonical path for each phase:
 7. Run Codex GPT-5.5/xhigh final plan review applying ATC + MUDA to the plan
    set. If it NOGOs, route back to Codex planning for a revised final draft.
 8. Execute only through `codex-executor [gpt-5.5/xhigh]`. Claude never performs
-   code edits as executor. If Windows Codex cannot read files, use Codex
-   read-pack patch mode before any blocker checkpoint.
-9. Verify and run per-dispatch ATC, phase-level ATC, MUDA, browser gates when
+   code edits as executor. Treat each Codex executor dispatch as a serial
+   subagent-driven-development implementer run: fresh bounded prompt, one
+   task/plan, no inherited Codex context, and no parallel Codex file writers in
+   the same workspace. If Windows Codex cannot read files, use Codex read-pack
+   patch mode before any blocker checkpoint.
+9. Run Codex spec-compliance review over raw artifacts before ATC: PLAN,
+   executor report, git diff, and verification output. The spec reviewer must
+   not rely on the executor's own summary as proof.
+10. Verify and run per-dispatch ATC, phase-level ATC, MUDA, browser gates when
    applicable through Codex/local SGSD gate scripts, commit, mark phase
    complete, and immediately choose the next phase.
-10. When all phases in the active milestone are complete, run
+11. When all phases in the active milestone are complete, run
     `sgsd-complete-milestone` automatically. If the roadmap has another
     milestone/phase, advance and continue the same auto loop.
 
@@ -158,10 +167,11 @@ Auto mode stop policy:
 <token_budget>
 You have ~1,350 tokens per loop iteration. Spend them wisely:
 - Read STATE.md frontmatter: ~200 tokens
-- Classify (Haiku): ~50 tokens
+- Classify (frontmatter/cache or Codex/local): ~50 tokens
 - Query context (sgsd-recall): ~100 tokens
 - Compose agent prompt: ~500 tokens
 - Process agent report: ~300 tokens
+- Spec-compliance review (Step 9.4): ~300 for every file-changing executor dispatch
 - ATC gate (Step 9.5): ~550 for every file-changing executor dispatch
 - State update + commit: ~150 tokens
 - Curate learning (sgsd-curate): ~50 tokens
@@ -419,6 +429,8 @@ Required executor path for every pending plan/task:
 
 2. Write the exact executor prompt that would have gone to the executor agent to:
      {phase_dir}/{plan_id}-CODEX-EXECUTOR-PROMPT.md
+   Include the SDD implementer contract: fresh context, one task/plan only,
+   run verification, self-review, and report concerns/blockers explicitly.
 
 3. Run Codex:
      bash super-gsd/scripts/codex-executor.sh \
@@ -431,8 +443,14 @@ Required executor path for every pending plan/task:
 4. Read the report file:
      {phase_dir}/{plan_id}-CODEX-EXECUTOR-REPORT.md
 
-5. Process the report through the existing Step 9 and Step 9.5 path:
-   commit discipline, per-dispatch ATC, gate logging, state advancement.
+5. Run Step 9.4 spec-compliance review and write:
+     {phase_dir}/{plan_id}-SPEC-REVIEW.md
+   The reviewer reads raw artifacts: PLAN, Codex executor report, git diff, and
+   verification output. It must not accept the executor's own summary as proof.
+
+6. Process the report through the existing Step 9, Step 9.4, and Step 9.5 path:
+   commit discipline, spec compliance, per-dispatch ATC, gate logging, state
+   advancement.
 ```
 
 Failure behavior:
@@ -453,15 +471,34 @@ Failure behavior:
 Telemetry:
 
 - Codex executor writes `.planning/metrics/codex-executor-log.jsonl`.
+- Spec-compliance review writes `{planId}-SPEC-REVIEW.md` before ATC. This is
+  the first SDD reviewer stage and answers "did Codex implement the plan?"
 - Per-dispatch ATC still writes the existing review/gate logs after Codex
-  produces the diff.
+  produces the diff and spec compliance passes. This is the second SDD reviewer
+  stage and answers "is the implementation safe and well built?"
 - Any line in cockpit or task status describing code execution should say
   `codex-executor [gpt-5.5/xhigh]`, not the legacy Sonnet executor label.
+
+SPEC COMPLIANCE IS MANDATORY BEFORE ATC:
+
+- After every Codex executor run that changes files, run Step 9.4 before Step
+  9.5. A failing spec review means the implementation is not done; dispatch a
+  Codex fix/replan and do not advance state or run ATC as if the task passed.
+- The spec reviewer checks only plan conformance: missing requirements,
+  extra/unrequested scope, task completion, and whether verification evidence
+  maps to acceptance criteria. It does not replace ATC/code-quality review.
+- The spec reviewer must inspect raw artifacts: the PLAN file, the git diff,
+  command output, and the executor report. Agent-written summaries are hints,
+  not evidence.
+- If a task changes zero files, log that Step 9.4 is not applicable and handle
+  the executor report as a normal no-change failure/blocker if files were
+  expected.
 
 PER-DISPATCH ATC IS MANDATORY:
 
 - After every Codex executor run that changes any source, test, config, schema,
-  fixture, or planning-runtime file, run Step 9.5 per-dispatch ATC.
+  fixture, or planning-runtime file and has passed Step 9.4, run Step 9.5
+  per-dispatch ATC.
 - Passing tests, "tests-only repair", "small diff", "low risk", or independent
   orchestrator verification are not valid reasons to skip the reviewer/gate.
 - If a prior Claude `gsd-executor` agent already produced a report, treat that
@@ -508,14 +545,13 @@ REPEAT:
       If missing or stale:
         FIRST: TaskCreate({
           content: "Run milestone readiness for {milestone}",
-          activeForm: "sgsd-milestone-readiness [sonnet] probing unattended run path",
+          activeForm: "codex-readiness [gpt-5.5/xhigh] probing unattended run path",
           status: "in_progress"
         })
-        THEN: Agent(subagent_type: "sgsd-milestone-readiness", model: "sonnet", mode: "auto", prompt: {
-          milestone: "{milestone}",
-          output_path: ".planning/milestones/{milestone}/MILESTONE-READINESS.md",
-          instruction: "Probe all phase prerequisites. Never read secret values. Write GO / BLOCKED / WILL-BLOCK / DEGRADED-PATH."
-        })
+        THEN: run Codex/local readiness tooling and write:
+          `.planning/milestones/{milestone}/MILESTONE-READINESS.md`
+          The probe must never read secret values. It writes GO / BLOCKED /
+          WILL-BLOCK / DEGRADED-PATH with evidence.
         AFTER: TaskUpdate(same taskId, status: "completed")
 
       Behavior by manifest status:
@@ -527,9 +563,10 @@ REPEAT:
           blocker/runtime-cannot-continue condition. This is not a context halt.
 
   2. CLASSIFY
-     // Gate check (Phase 10 D-01): fires unless registry disables this gate
+     // Gate check (legacy name: classifier-haiku) fires unless registry disables this gate.
+     // Fresh-clone SGSD derives or runs Codex/local classification; it does not spawn Haiku.
      if (gates.shouldFire('classifier-haiku', ctx, GATES_YAML_PATH)) {
-     // SCHEMA-04: v2 plans skip Haiku classifier spawn — derive classifier result from frontmatter
+     // SCHEMA-04: v2 plans skip classifier spawn — derive classifier result from frontmatter
      // Frontmatter is already parsed at this point (schema_version read for D-12 drift check at Step 3.5)
 
      IF plan frontmatter has schema_version == 2:
@@ -571,8 +608,8 @@ REPEAT:
        Append to .planning/metrics/token-log.jsonl:
          {"ts":"{ISO}","phase":N,"plan":P,"event":"classifier_skip","reason":"schema_version==2","synthetic_result":{classifier_result}}
 
-     ELSE (schema_version absent or schema_version == 1 — v1 path with MACH-01 cache):
-       // MACH-01: attempt cache read before spawning Haiku classifier
+      ELSE (schema_version absent or schema_version == 1 — v1 path with MACH-01 cache):
+        // MACH-01: attempt cache read before running the Codex/local classifier
        // classifierCache = require('super-gsd/scripts/lib/classifier-cache.cjs')
        const cached = classifierCache.readCache(planFilePath);
        if (cached) {
@@ -597,24 +634,27 @@ REPEAT:
          // Log cache-hit event for D-04 accounting
          Append to .planning/metrics/token-log.jsonl:
            {"ts":"{ISO}","phase":N,"plan":P,"event":"classifier_skip","role":"classifier-skip","reason":"sidecar_hit","verdict":{cached}}
-       } else {
-         // Cache miss — spawn Haiku classifier as before, then write sidecar
-         FIRST: TaskCreate({
-           content: "Classify phase {N} complexity",
-           activeForm: "gsd-classifier [haiku] classifying P{N}",
-           status: "in_progress"
-         })
-         THEN: Agent(subagent_type: "sgsd-classifier", model: "haiku", mode: "auto", prompt: {
-           goal: "{phase goal from ROADMAP}",
-           files: "{estimated files}",
-           lines: "{estimated lines}",
-           type: "{feature|bugfix|refactor}"
-         })
-         → Returns: { complexity, model, atc_tier, deliberate, work_risk, reason }
-         AFTER: TaskUpdate(same taskId, status: "completed")
-         // Write verdict to sidecar so subsequent tasks in this plan hit cache
-         classifierCache.writeCache(planFilePath, classifier_result);
-       }
+        } else {
+          // Cache miss — derive a conservative classifier result from plan evidence.
+          // If evidence is insufficient, run Codex/local classification through
+          // `super-gsd/scripts/codex-exec.sh --step classify`.
+          FIRST: TaskCreate({
+            content: "Classify phase {N} complexity",
+            activeForm: "codex-classifier [gpt-5.5/xhigh] classifying P{N}",
+            status: "in_progress"
+          })
+          THEN: classifier_result = {
+            complexity: "standard|heavy",
+            model: "codex",
+            atc_tier: "light|full",
+            deliberate: false,
+            work_risk: "low|medium|high",
+            reason: "frontmatter/cache miss — Codex/local classifier"
+          }
+          AFTER: TaskUpdate(same taskId, status: "completed")
+          // Write verdict to sidecar so subsequent tasks in this plan hit cache
+          classifierCache.writeCache(planFilePath, classifier_result);
+        }
      } // end gates.shouldFire('classifier-haiku')
 
   3. CHECK DELIBERATION GATE
@@ -627,20 +667,16 @@ REPEAT:
      If classifier.atc_tier == "gate" AND auto mode:
        → Log "GATE_AUTO_REPLAN", run FULL checks, and require a fix/replan path
 
-  4. SELECT CONTEXT (spawn Haiku context-selector)
-     // Gate check (Phase 10 D-02): context-selector-haiku gate fires unless disabled
+  4. SELECT CONTEXT (derive SGSD memory queries)
+     // Gate check (legacy name: context-selector-haiku) fires unless disabled.
+     // Fresh-clone SGSD derives context locally; it does not spawn Haiku.
      if (gates.shouldFire('context-selector-haiku', ctx, GATES_YAML_PATH)) {
      FIRST: TaskCreate({
        content: "Select context for phase {N}",
-       activeForm: "sgsd-context-selector [haiku] picking queries for P{N}",
+       activeForm: "sgsd-context-selector [local] picking recall queries for P{N}",
        status: "in_progress"
      })
-     THEN: Agent(subagent_type: "sgsd-context-selector", model: "haiku", mode: "auto", prompt: {
-       goal: "{task goal}",
-       files: "{task files}",
-       type: "{create|modify|test}",
-       keywords: "{domain keywords}"
-     })
+     THEN: derive from plan goal, task files, task type, and domain keywords.
      → Returns: { sgsd_recall_queries, file_reads, error_rules, scripts_to_check }
      AFTER: TaskUpdate(same taskId, status: "completed")
      } // end gates.shouldFire('context-selector-haiku')
@@ -715,7 +751,7 @@ REPEAT:
                {"ts":"{ISO}","phase":N,"plan":P,"event":"gate_skipped","reason":"vtp_degraded"}
              continue directly to Step 6.c (no sub-agent dispatch, no artifact required)
            // else vtp_available === true: proceed normally below
-         dispatch sgsd-vtp-enrichment sub-agent (model: sonnet). Gate
+          run optional VTP enrichment through configured MCP/Codex synthesis. Gate
          precondition: gates.shouldFire('vtp-enrichment', ctx).
          Sub-agent calls vtp-enrichment-gate.cjs composeSubAgentSpec() to
          build 800-token 3-source seed (CONTEXT domain + REQ-IDs AC +
@@ -734,13 +770,14 @@ REPEAT:
          If config.vtp_enrichment absent or enabled=false: skip silently,
          pass directly to Step 6.c (D-07 backward-compat; no artifact
          required on pre-Phase-21 projects).
-     c. Phase needs PLAN.md → enforce planner preflight, then dispatch gsd-planner (Opus 4.7 / xhigh thinking)
+     c. Phase needs PLAN.md → enforce planner preflight, then dispatch Codex planner (GPT-5.5 / xhigh)
         PLANNER MODEL LOCK:
-        - `gsd-planner` is never Sonnet. Always dispatch with the Opus family
-          (`model: "opus"`, displayed as Opus 4.7 when available) and the
-          highest/extended thinking budget exposed by the host.
+        - Planning is a Codex-owned surface in fresh-clone/default SGSD.
+          Dispatch through `super-gsd/scripts/codex-exec.sh` with model
+          GPT-5.5 and reasoning effort xhigh.
         - If any classifier, router, old prompt, or checkpoint says
-          `gsd-planner [sonnet]`, treat it as stale and override to Opus.
+          `gsd-planner [sonnet]` or `gsd-planner [opus]`, treat it as stale
+          for this surface and route through Codex.
         - This applies to fresh planning, re-planning, gap planning, and
           schema-fix planning.
         PLANNER PREFLIGHT (load-bearing; do not skip on fresh re-dispatch):
@@ -771,7 +808,7 @@ REPEAT:
           prior-memory/project/book/architecture uncertainty. If no call is
           possible, it must write a DEVIATION in its report and in the plan
           source audit; silent omission is not allowed.
-     d. Phase has plans, needs plan-check → dispatch gsd-plan-checker (Sonnet)
+     d. Phase has plans, needs plan-check → dispatch Codex plan-check
         PLAN-CHECK PREFLIGHT:
         - If `vtp_enrichment.enabled === true`, the checker must verify the
           current phase has either `{phaseNum}-VTP-ENRICHMENT.md` or a current
@@ -796,22 +833,18 @@ REPEAT:
            --plan plan-set --project {PROJECT_DIR}`
           and write `{phaseDir}/{phaseNum}-PLAN-CODEX-FINAL-REVIEW.md`.
         - PASS: commit the plans and proceed to Step 6.e.
-        - WARN/FAIL/CRITICAL: dispatch `gsd-planner` again using Opus 4.7 /
-          xhigh thinking, pass the Codex review inline, and require a revised
-          final draft before execution. Max two revision loops, then checkpoint
-          for operator attention.
+        - WARN/FAIL/CRITICAL: dispatch Codex planner again, pass the Codex
+          review inline, and require a revised final draft before execution.
+          Max two revision loops, then checkpoint for operator attention.
      d.5 Before the FIRST executor dispatch of a phase, run phase readiness re-probe:
         FIRST: TaskCreate({
           content: "Re-probe phase readiness for phase {N}",
-          activeForm: "sgsd-phase-readiness [haiku] checking drift before executor",
+          activeForm: "codex-readiness [gpt-5.5/xhigh] checking drift before executor",
           status: "in_progress"
         })
-        THEN: Agent(subagent_type: "sgsd-phase-readiness", model: "haiku", mode: "auto", prompt: {
-          milestone: "{milestone}",
-          phase: "{N}",
-          manifest: ".planning/milestones/{milestone}/MILESTONE-READINESS.md",
-          instruction: "Re-probe only this phase's live prerequisites. Return GO, DRIFT, or MANIFEST_MISSING."
-        })
+        THEN: run Codex/local phase readiness re-probe for `{milestone}` phase `{N}`.
+          Update `.planning/milestones/{milestone}/MILESTONE-READINESS.md`
+          or append DRIFT evidence to `.planning/metrics/readiness-log.jsonl`.
         AFTER: TaskUpdate(same taskId, status: "completed")
 
         If MANIFEST_MISSING: re-run Rule 0 milestone readiness immediately.
@@ -1032,6 +1065,7 @@ REPEAT:
            - promptPath = `{phaseDir}/{planId}-CODEX-EXECUTOR-PROMPT.md`
            - reportPath = `{phaseDir}/{planId}-CODEX-EXECUTOR-REPORT.md`
            - filesPath = `{phaseDir}/{planId}-CODEX-FILES.txt`
+           - specReviewPath = `{phaseDir}/{planId}-SPEC-REVIEW.md`
 
         3. TaskCreate:
            activeForm: `codex-executor [gpt-5.5/xhigh] P{phase}.{planId} - executing code plan`
@@ -1039,7 +1073,9 @@ REPEAT:
         4. Write `promptPath` with the same compact executor prompt that would
            previously have gone to the executor agent: plan objective,
            files_touched, tasks, acceptance commands, constraints, relevant
-           context-packet summary, and report contract.
+           context-packet summary, and report contract. Add the SDD implementer
+           contract: fresh Codex context, this task only, verify before report,
+           self-review, and explicit DONE/DONE_WITH_CONCERNS/BLOCKED status.
 
         4.5. Write `filesPath` with one repository-relative path per line for
            every existing or intended file the task may touch. Derive it from
@@ -1060,24 +1096,26 @@ REPEAT:
 
         6. Read `reportPath`.
 
-        7. Continue with the existing Step 9 and Step 9.5 pipeline for this
-           report: process executor output, enforce commit discipline, run
-           per-dispatch ATC on Codex's diff, log gates, then advance state.
+        7. Continue with the existing Step 9, Step 9.4, and Step 9.5 pipeline
+           for this report: process executor output, enforce commit discipline,
+           run spec-compliance review on raw PLAN/diff/report/verification
+           artifacts, run per-dispatch ATC on Codex's diff after spec PASS, log
+           gates, then advance state.
            If codex-executor exits 8 or logs a Windows read-block, run
            `codex-patch-executor.sh` with `filesPath` if the wrapper has not
            already done so. If any other non-zero exit remains, run the Blocker
            Recovery Hard Loop. Never fall back to a Claude executor.
 
-        8. TaskUpdate completed after Step 9 and Step 9.5 finish.
+        8. TaskUpdate completed after Step 9, Step 9.4, and Step 9.5 finish.
 
         NOTE — spike verdict: 12-02-00 observed PARALLEL_CONFIRMED. The parallel branch is a
         live execution path for Claude-agent execution only. In this SGSD install, executor
         waves are intentionally flattened because Codex CLI sessions need exclusive workspace
         write access. The DAG ordering remains advisory and prevents file-conflict bugs under
         serial execution.
-     f. All plans executed → dispatch gsd-verifier (Sonnet)
+     f. All plans executed → dispatch Codex verifier
      g. Verification passed → PHASE ATC GATE (Step 6.5) → FRONTEND VERIFY GATE (Step 6.6) → mark complete
-     h. Verification failed → dispatch gsd-planner --gaps (Opus 4.7 / xhigh thinking)
+     h. Verification failed → dispatch Codex planner --gaps (GPT-5.5 / xhigh)
 
   <!-- ANCHOR: RULE-8.5 — schema-fix dispatch branch -->
   6.2. PLAN LOAD-TIME VALIDATION (Rule 8.5 — schema-fix dispatch)
@@ -1121,13 +1159,11 @@ REPEAT:
 
           // Dispatch fix-planner with all inputs inline (RQ-5 OQ3 — inline, not path)
           TaskCreate({ content: "Schema repair attempt {schema_fix_attempt}/3 for {plan_file_path}",
-                       activeForm: "gsd-planner [opus/xhigh] --fix-schema attempt {schema_fix_attempt}/3",
+                       activeForm: "codex-plan [gpt-5.5/xhigh] --fix-schema attempt {schema_fix_attempt}/3",
                        status: "in_progress" })
-          Agent(
-            subagent_type: "gsd-planner",
-            model: "opus",
-            mode: "auto",
-            prompt: {
+          Run `super-gsd/scripts/codex-exec.sh` with step `schema-fix-plan`
+          and prompt payload:
+            {
               flag: "--fix-schema",
               plan_file_path: {plan_file_path},
               error_envelope: {error_envelope},  // inline JSON, not a path
@@ -1135,7 +1171,6 @@ REPEAT:
               locked_fields: {locked_fields},
               attempt_K: {schema_fix_attempt}
             }
-          )
           // Planner writes: {plan_file_path}.fix-attempt-{schema_fix_attempt}.md
           TaskUpdate(taskId, status: "completed")
 
@@ -1240,15 +1275,9 @@ REPEAT:
           - Total files changed, lines added, lines removed
           - List of all plans completed (from phase directory)
 
-       b. Classify phase tier via Haiku (sgsd-classifier):
-          Agent(
-            subagent_type: "sgsd-classifier",
-            model: "haiku",
-            mode: "auto",
-            prompt: "Phase-level ATC classify: phase={N}, plans={count},
-                     total_files={N}, total_lines={N}, goal='{phase goal}'.
-                     Return tier: lite|full|gate"
-          )
+       b. Classify phase tier via frontmatter/cache or Codex/local classifier:
+          Inputs: phase={N}, plans={count}, total_files={N},
+          total_lines={N}, goal='{phase goal}'. Return tier: lite|full|gate.
           Note: phase-level is always at least LITE — no skip tier.
           Complexity floor: phases with 5+ plans or 500+ lines → always FULL
 
@@ -1340,12 +1369,7 @@ REPEAT:
             // No reviewer_provider declared on gate — skip dispatch, log info
             logInfo('GATE_NO_PROVIDER: phase-level-ATC has no reviewer_provider; skipping review dispatch');
           } else if (effective.invocation === 'agent') {
-            report = await Agent({
-              subagent_type: effective.agent_subagent_type,
-              model: effective.agent_model || 'sonnet',
-              mode: 'auto',
-              prompt: composedPrompt   // composedPrompt contains phase/goal/tier/diff_summary/plans/checks/report_format
-            });
+            throw new Error('STALE_AGENT_PROVIDER_DISABLED: phase ATC must use Codex/local provider');
           } else if (effective.invocation === 'shell') {
             // Shell dispatch: codex-exec.sh
             const promptFile = writeTempPrompt(composedPrompt);
@@ -1360,23 +1384,17 @@ REPEAT:
               retryOnTimeoutEscalate: true,  // D-05 #5: auto-escalate once to analysis on timeout
             });
             if (dispatchResult.exit !== 0 && effective.fallback_to && config.review_providers.fallback_on_error) {
-              // Single-retry fallback to Claude per HiveMind centralized-retry pattern (doc:5a50cc9b459e)
+              // Fresh-clone SGSD does not fall back to Claude/Sonnet. Route
+              // through the Blocker Recovery Hard Loop or an explicit operator
+              // configured non-Claude provider.
               const providerFailureReason = (dispatchResult.timeout_hit || dispatchResult.exit === 5)
                 ? 'codex_timeout'
                 : (dispatchResult.exit === 4 ? 'codex_auth_missing' : 'codex_provider_error');
               // Do not write "Codex unavailable" for timeout. Auth/availability and
               // tier-budget exhaustion are different facts; summaries must preserve
               // that distinction.
-              logDeviation(`GATE_PROVIDER_FALLBACK: ${effective.name} ${providerFailureReason} exit=${dispatchResult.exit} -> ${effective.fallback_to}`);
-              const fallbackProvider = gates.getProvider(effective.fallback_to);
-              report = await Agent({
-                subagent_type: fallbackProvider.agent_subagent_type,
-                model: fallbackProvider.agent_model || 'sonnet',
-                mode: 'auto',
-                prompt: composedPrompt
-              });
-              // Tag the report row as claude-via-fallback for CODEX-10 metric accuracy
-              report._provider = 'claude-via-fallback';
+              logDeviation(`GATE_PROVIDER_NO_CLAUDE_FALLBACK: ${effective.name} ${providerFailureReason} exit=${dispatchResult.exit}`);
+              runBlockerRecoveryHardLoop({ reason: providerFailureReason, step: '6.5' });
             } else if (dispatchResult.exit !== 0) {
               // Both providers failed — hard blocker per CONTEXT D-02c
               logDeviation('GATE_PROVIDER_DOUBLE_FAIL: both codex-cli-reviewer and fallback failed');
@@ -1386,16 +1404,8 @@ REPEAT:
               // CXOPS-02: secondary contract check — codex exited 0 but report may be malformed.
               const validation = validateContract(dispatchResult.report);
               if (!validation.valid) {
-                logDeviation(`GATE_PROVIDER_FALLBACK: openai-codex exit=0 but contract invalid — missing: ${validation.missing.join(', ')} → ${effective.fallback_to} (parse_failure)`);
-                const fallbackProvider = gates.getProvider(effective.fallback_to);
-                report = await Agent({
-                  subagent_type: fallbackProvider.agent_subagent_type,
-                  model: fallbackProvider.agent_model || 'sonnet',
-                  mode: 'auto',
-                  prompt: composedPrompt
-                });
-                report._provider = 'claude-via-fallback';
-                report._fallback_reason = 'parse_failure';
+                logDeviation(`GATE_PROVIDER_CONTRACT_INVALID: openai-codex exit=0 but contract invalid — missing: ${validation.missing.join(', ')}`);
+                runBlockerRecoveryHardLoop({ reason: 'parse_failure', step: '6.5' });
               } else {
                 report = {
                   content: dispatchResult.report,
@@ -1518,8 +1528,8 @@ REPEAT:
 
           This writes:
             * {PHASE_DIR}/WASTE.md — human-readable per-probe verdict table
-            * .brv/context-tree/anti-patterns/waste-{class}-p{N}-{slug}.md for
-              each WARN/FAIL finding (via sgsd-curate, INDEX.md updates
+            * .planning/memory/architecture/anti-patterns/waste-{class}-p{N}-{slug}.md for
+              each WARN/FAIL finding (via sgsd-curate, MEMORY.md updates
               atomically)
             * .planning/metrics/muda-log.jsonl — one line per audit run
 
@@ -2021,8 +2031,8 @@ REPEAT:
      })
      Example activeForm values:
        "codex-executor [gpt-5.5/xhigh] P87.1 — building auth middleware"
-       "gsd-planner [opus/xhigh] P87 — creating task breakdown"
-       "gsd-verifier [sonnet] P87 — checking goal achievement"
+       "codex-plan [gpt-5.5/xhigh] P87 — creating task breakdown"
+       "codex-verifier [gpt-5.5/xhigh] P87 — checking goal achievement"
        "codex-research [gpt-5.5/xhigh] P87 — investigating stack"
 
      THEN: Agent(
@@ -2099,8 +2109,57 @@ REPEAT:
      // updating predicate-eval.cjs's DISPATCH_CONTEXT_FIELDS registry.
      ```
 
+  9.4. SPEC COMPLIANCE REVIEW (SDD first reviewer stage)
+      Runs AFTER the executor report lands and dispatch context is built,
+      BEFORE per-dispatch ATC, state update, or commit. Fires after every Codex
+      executor dispatch that changed files. This is the subagent-driven-
+      development spec reviewer stage: it asks whether Codex implemented the
+      PLAN exactly, not whether the implementation is elegant.
+
+      Evidence artifact:
+
+      ```text
+      {phaseDir}/{planId}-SPEC-REVIEW.md
+      ```
+
+      Compose the spec review prompt for Codex GPT-5.5/xhigh with these raw
+      inputs, in this order:
+
+      1. The exact `{planId}-PLAN.md` text or compacted frontmatter/tasks.
+      2. The executor prompt path and executor report path.
+      3. `git diff -- {files_changed}` or the smallest raw diff that covers all
+         changed files.
+      4. Verification command output from the executor report and any local
+         commands the orchestrator just ran.
+
+      The reviewer must not treat the executor's own summary as proof. Summary
+      lines can point to evidence, but PASS requires raw plan/diff/test
+      alignment.
+
+      Required report contract:
+
+      ```text
+      SPEC_VERDICT: pass|fix_required|blocked
+      MISSING_REQUIREMENTS: none|<plan task ids / acceptance criteria not met>
+      EXTRA_SCOPE: none|<unrequested changes or behavior>
+      VERIFICATION_MAPPING: <which raw command/diff evidence proves each acceptance criterion>
+      ONE_LINER: <short operator-readable summary>
+      ```
+
+      If `SPEC_VERDICT=pass`, continue to Step 9.5 ATC.
+
+      If `SPEC_VERDICT=fix_required`, do not run ATC yet and do not commit.
+      Dispatch a Codex fix pass using the original executor prompt plus the
+      spec-review findings, then repeat Step 9.4 on the new diff/report.
+
+      If `SPEC_VERDICT=blocked`, run the Blocker Recovery Hard Loop with
+      reason `spec_compliance_blocked`.
+
+      If no files changed but the plan expected changes, treat Step 9.4 as
+      `fix_required` unless the PLAN was explicitly verification-only.
+
   9.5. PER-DISPATCH ATC (closes the mid-phase ATC gap)
-      Runs AFTER the executor report lands, BEFORE state update + commit.
+      Runs AFTER Step 9.4 spec compliance passes, BEFORE state update + commit.
       Fires after every Codex executor dispatch that changed files. The gate is
       no longer classifier-tier gated: small/test-only repairs still need the
       reviewer because passing tests do not prove the execution contract or
@@ -2177,12 +2236,7 @@ REPEAT:
           // No reviewer_provider declared on gate — skip dispatch, log info
           logInfo('GATE_NO_PROVIDER: per-dispatch-ATC has no reviewer_provider; skipping review dispatch');
         } else if (effective.invocation === 'agent') {
-          report = await Agent({
-            subagent_type: effective.agent_subagent_type,
-            model: effective.agent_model || 'sonnet',
-            mode: 'auto',
-            prompt: composedPrompt   // composedPrompt contains scope/phase/plan/files/tier/checks
-          });
+          throw new Error('STALE_AGENT_PROVIDER_DISABLED: per-dispatch ATC must use Codex/local provider');
         } else if (effective.invocation === 'shell') {
           // Shell dispatch: codex-exec.sh
           const promptFile = writeTempPrompt(composedPrompt);
@@ -2196,23 +2250,17 @@ REPEAT:
             timeoutTier: 'analysis',  // D-05 #3: phase-level-ATC -> analysis tier (90s, not review 120s)
           });
           if (dispatchResult.exit !== 0 && effective.fallback_to && config.review_providers.fallback_on_error) {
-            // Single-retry fallback to Claude per HiveMind centralized-retry pattern (doc:5a50cc9b459e)
+            // Fresh-clone SGSD does not fall back to Claude/Sonnet. Route
+            // through the Blocker Recovery Hard Loop or an explicit operator
+            // configured non-Claude provider.
             const providerFailureReason = (dispatchResult.timeout_hit || dispatchResult.exit === 5)
               ? 'codex_timeout'
               : (dispatchResult.exit === 4 ? 'codex_auth_missing' : 'codex_provider_error');
             // Do not write "Codex unavailable" for timeout. Auth/availability and
             // tier-budget exhaustion are different facts; summaries must preserve
             // that distinction.
-            logDeviation(`GATE_PROVIDER_FALLBACK: ${effective.name} ${providerFailureReason} exit=${dispatchResult.exit} -> ${effective.fallback_to}`);
-            const fallbackProvider = gates.getProvider(effective.fallback_to);
-            report = await Agent({
-              subagent_type: fallbackProvider.agent_subagent_type,
-              model: fallbackProvider.agent_model || 'sonnet',
-              mode: 'auto',
-              prompt: composedPrompt
-            });
-            // Tag the report row as claude-via-fallback for CODEX-10 metric accuracy
-            report._provider = 'claude-via-fallback';
+            logDeviation(`GATE_PROVIDER_NO_CLAUDE_FALLBACK: ${effective.name} ${providerFailureReason} exit=${dispatchResult.exit}`);
+            runBlockerRecoveryHardLoop({ reason: providerFailureReason, step: '9.5' });
           } else if (dispatchResult.exit !== 0) {
             // Both providers failed — hard blocker per CONTEXT D-02c
             logDeviation('GATE_PROVIDER_DOUBLE_FAIL: both codex-cli-reviewer and fallback failed');
@@ -2222,16 +2270,8 @@ REPEAT:
               // CXOPS-02: secondary contract check — codex exited 0 but report may be malformed.
               const validation = validateContract(dispatchResult.report);
               if (!validation.valid) {
-                logDeviation(`GATE_PROVIDER_FALLBACK: openai-codex exit=0 but contract invalid — missing: ${validation.missing.join(', ')} → ${effective.fallback_to} (parse_failure)`);
-                const fallbackProvider = gates.getProvider(effective.fallback_to);
-                report = await Agent({
-                  subagent_type: fallbackProvider.agent_subagent_type,
-                  model: fallbackProvider.agent_model || 'sonnet',
-                  mode: 'auto',
-                  prompt: composedPrompt
-                });
-                report._provider = 'claude-via-fallback';
-                report._fallback_reason = 'parse_failure';
+                logDeviation(`GATE_PROVIDER_CONTRACT_INVALID: openai-codex exit=0 but contract invalid — missing: ${validation.missing.join(', ')}`);
+                runBlockerRecoveryHardLoop({ reason: 'parse_failure', step: '9.5' });
               } else {
                 report = {
                   content: dispatchResult.report,
@@ -2272,7 +2312,7 @@ REPEAT:
         // commit-reviews.jsonl gains provider: field for CODEX-10 metric accuracy
         Write verdict as a one-line JSONL append to
           `.planning/phases/{NN}/commit-reviews.jsonl`:
-          {"ts":"{ISO}","plan":"{NN-PP}","tier":"full|gate","verdict":"pass|warn|fail","critical":N,"warning":N,"one_liner":"...","provider":"{openai-codex|claude-sonnet|claude-via-fallback}","model":"gpt-5.5","reasoning_effort":"xhigh"}
+          {"ts":"{ISO}","plan":"{NN-PP}","tier":"full|gate","verdict":"pass|warn|fail","critical":N,"warning":N,"one_liner":"...","provider":"openai-codex","model":"gpt-5.5","reasoning_effort":"xhigh"}
 
         appendPerDispatchReviewEvidence(report, {
           gate: 'per-dispatch-ATC',
@@ -2383,8 +2423,8 @@ REPEAT:
 
        If all three conditions met:
 
-         a. TaskCreate({content: "Phase {N} adversarial challenger", activeForm:
-            "gsd-verifier [sonnet] P{N} — contrarian pass"})
+          a. TaskCreate({content: "Phase {N} adversarial challenger", activeForm:
+             "codex-verifier [gpt-5.5/xhigh] P{N} — contrarian pass"})
 
          b. Compose challenger prompt by prepending the D-13a contrarian header VERBATIM:
 
@@ -2412,10 +2452,8 @@ REPEAT:
             // routing is orthogonal to the gate-reviewer routing — it has its own rule:
             // always dispatch to the non-primary vendor. This distinction is intentional.
 
-            const primary = 'claude-sonnet-verifier';  // Phase 15: primary verifier is always Claude
-            const challengerProviderName = (primary === 'claude-sonnet-verifier')
-              ? 'codex-cli-reviewer'       // Claude primary → Codex challenger
-              : 'claude-sonnet-reviewer';  // Future-proofing: Codex primary → Claude challenger
+            const primary = 'openai-codex-verifier';
+            const challengerProviderName = 'codex-cli-reviewer';
 
             let challengerReport;
 
@@ -2453,14 +2491,7 @@ REPEAT:
                   logDeviation(`VERIFIER_ADVERSARIAL_SKIP: codex-exec.sh ${providerFailureReason} exit=${dispatchResult.exit}`);
                 }
               } else {
-                // Future: agent-type challenger (e.g., if primary ever flips to Codex)
-                challengerReport = await Agent({
-                  subagent_type: challengerProvider.agent_subagent_type,
-                  model: challengerProvider.agent_model || 'sonnet',
-                  mode: 'auto',
-                  prompt: challengerPrompt
-                });
-                challengerReport._provider = 'claude';
+                logDeviation('VERIFIER_ADVERSARIAL_SKIP: stale non-Codex challenger provider disabled');
               }
 
               if (challengerReport) {
@@ -2469,7 +2500,7 @@ REPEAT:
                 appendTokenLogRow({
                   role: 'adversarial_verifier',
                   provider: challengerReport._provider,
-                  model: challengerReport._model || (challengerProvider.invocation === 'shell' ? 'codex' : (challengerProvider.agent_model || 'sonnet')),
+                  model: challengerReport._model || 'codex',
                   ...(challengerReport._reasoning_effort ? { reasoning_effort: challengerReport._reasoning_effort } : {})
                 });
               }
@@ -2583,7 +2614,7 @@ canonical for correctness).
 | `run_started` | `/sgsd-orchestrate go` invoked at session start | `mode`, `user_command`, `session_id` |
 | `phase_started` | Loop step 1 detects new active phase | `phase`, `phase_name`, `milestone` |
 | `plan_selected` | Step 4 dispatches a plan to executor | `plan_id`, `title`, `expected_atc_tier` |
-| `agent_dispatched` | Before `Agent()` Sonnet call | `agent`, `model`, `task_id`, `purpose` |
+| `agent_dispatched` | Before Codex/local delivery dispatch | `agent`, `model`, `task_id`, `purpose` |
 | `agent_progress` | Optional during long-running task | `task_id`, `current_action`, `files_touched` |
 | `agent_completed` | After agent returns report | `task_id`, `agent`, `outcome`, `summary`, `files_changed` |
 | `codex_started` | Step 6.5 / 9.5 / 9.6 codex dispatch | `step`, `scope`, `prompt_chars` |
@@ -2766,8 +2797,8 @@ units_this_session: {N}
 estimated_tokens_used: {N}
 model_breakdown:
   opus: {N}
-  sonnet: {N}
-  haiku: {N}
+  codex: {N}
+  legacy_disabled: {N}
 context_percent_at_write: "not_self_estimated"
 emergency_halt: false
 approaches_tried_and_abandoned: []
@@ -2836,28 +2867,28 @@ const tokenLogRow = {
   ts: new Date().toISOString(),
   phase: currentPhase,            // integer
   plan: currentPlan,              // integer
-  model: dispatchedModel,         // 'sonnet' | 'haiku' | 'codex' | ...
+  model: dispatchedModel,         // 'opus' | 'codex' | ...
   role: agentRole,                // 'code_reviewer' | 'adversarial_verifier' | 'executor' |
                                   // 'verifier' | 'classifier' | 'context_selector'
-  provider: dispatchProvider,     // 'claude' | 'openai-codex' | 'claude-via-fallback'
-  reasoning_effort: reasoningEffort, // Codex-only, e.g. 'xhigh'; omit/blank for Claude rows
+  provider: dispatchProvider,     // 'claude-opus' | 'openai-codex' | explicit external provider
+  reasoning_effort: reasoningEffort, // Codex/OpenAI reasoning effort, e.g. 'xhigh'
   est_input: estimatedInputTokens,
   est_output: estimatedOutputTokens,
   total: estimatedInputTokens + estimatedOutputTokens,
-  classifier_model: classifierModel,  // 'haiku' (the classify step model)
+  classifier_model: classifierModel,  // 'frontmatter' | 'cache' | 'codex-local'
   context_tokens: contextWindowUsed
 };
 // provider value is derived from dispatch path:
-//   Agent() dispatch          → 'claude'
+//   Opus orchestration        → 'claude-opus'
 //   shellDispatch exit 0      → 'openai-codex'
-//   shellDispatch + fallback  → 'claude-via-fallback'
+//   shellDispatch + recovery  → 'openai-codex' plus route decision row
 // NOTE: the wrapper (codex-exec.sh) refuses to run if OPENAI_API_KEY is set (exits 4);
 //       per CONTEXT D-02a. It does NOT defensively unset the key.
 ```
 
 Example serialized JSONL row (what actually lands in token-log.jsonl):
 ```json
-{"ts":"2026-04-24T12:00:00Z","phase":15,"plan":3,"model":"codex","role":"code_reviewer","provider":"openai-codex","est_input":500,"est_output":200,"total":700,"classifier_model":"haiku","context_tokens":1200}
+{"ts":"2026-04-24T12:00:00Z","phase":15,"plan":3,"model":"codex","role":"code_reviewer","provider":"openai-codex","est_input":500,"est_output":200,"total":700,"classifier_model":"frontmatter","context_tokens":1200}
 ```
 
 Estimation method:
@@ -2903,7 +2934,7 @@ Estimation method:
 14. PHASE ATC GATE: After verification passes, BEFORE marking phase complete —
     run full phase-level ATC review via Step 6.5. This reviews the ENTIRE phase's
     work (all plans, all commits) as a coherent unit, NOT individual commits.
-    Classify with Haiku, review through Codex-first `codex-exec.sh` via
+    Classify from frontmatter/cache or Codex/local, review through Codex-first `codex-exec.sh` via
     `gates.resolveReviewerProvider('phase-level-ATC')`.
     Writes .planning/phases/{NN}-*/{NN}-ATC-REVIEW.md
     Critical findings + auto mode: log GATE_AUTO_HALT, write {NN}-ATC-GAP-PLAN.md,
@@ -2919,7 +2950,7 @@ Estimation method:
 15. FRONTEND BROWSER VERIFY GATE: After Step 6.5 (ATC), BEFORE marking phase
     complete — IF the phase diff touched any frontend file matching
     config.browser_verify.frontend_globs, run Step 6.6 which dispatches
-    sgsd-browser (Sonnet) to verify every route in config.browser_verify.routes
+    browser verification tooling to verify every route in config.browser_verify.routes
     against the live dev server. Catches broken pages, console errors, network
     failures, and a11y regressions that unit tests and ATC miss.
     Writes .planning/phases/{NN}-*/{NN}-BROWSER-REVIEW.md with screenshots.

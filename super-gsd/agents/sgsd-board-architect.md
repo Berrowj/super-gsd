@@ -2,7 +2,10 @@
 name: sgsd-board-architect
 description: Technical Architect board member. Evaluates feasibility, system design, tech debt, implementation risk. Spawned by sgsd-ceo during deliberation.
 tools: Read, Grep, Glob
-model: sonnet
+model: opus
+model_variant: opus-4.7
+reasoning_effort: xhigh
+status: active
 ---
 
 <role>

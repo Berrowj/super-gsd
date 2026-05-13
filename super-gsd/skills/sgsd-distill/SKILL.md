@@ -1,6 +1,6 @@
 ---
 name: sgsd-distill
-description: "Trajectory distillation — extract abstract reusable principles from a closed milestone's phases. DLB-04 Wave C. Three modes: prepare (emit Haiku prompt + corpus), ingest (triple-gate routing), rate (operator novelty 1-3)."
+description: "Trajectory distillation — extract abstract reusable principles from a closed milestone's phases. DLB-04 Wave C. Three modes: prepare (emit Codex/local prompt + corpus), ingest (triple-gate routing), rate (operator novelty 1-3)."
 allowed-tools:
   - Read
   - Write
@@ -11,7 +11,7 @@ allowed-tools:
 <objective>
 Run the DLB-04 trajectory-distillation pipeline end-to-end on a closed milestone. Produce abstract reusable principles (trajectory-hypotheses) that survive a triple hallucination gate: Architect (typed hypothesis tier), Moonshot (two-phase citation), Contrarian (operator novelty rating).
 
-Called after a milestone closes — NOT after a phase. First run produces hypotheses routed to `.brv/context-tree/trajectory-hypothesis/`. Cross-milestone confirmation at the NEXT milestone's close promotes them to `trajectory-lesson/` (classifier-readable).
+Called after a milestone closes — NOT after a phase. First run produces hypotheses routed to `.planning/memory/trajectory/hypothesis/`. Cross-milestone confirmation at the NEXT milestone's close promotes them to `.planning/memory/trajectory/lesson/` (classifier-readable).
 </objective>
 
 <script_location>
@@ -29,26 +29,26 @@ Ask the user if not provided:
 - Which milestone to distil? (default: most-recently-closed, read from STATE.md)
 - Phase types to exclude? (default: `self-audit` — audit phases produce install-defect corpora that aren't representative of dispatch behaviour; see DLB-04 Contrarian stance)
 
-## Step 2: PREPARE — emit Haiku prompt
+## Step 2: PREPARE — emit Codex/local prompt
 
 ```bash
 bash <path>/sgsd-distill-milestone.sh <milestone> --exclude-phase-type self-audit > /tmp/distill-prompt-<milestone>.txt
 ```
 
-The output is a Haiku extraction prompt + embedded corpus (1000-2000 lines). Also writes `.planning/milestones/<milestone>/DISTILL-REQUEST.md` as an audit record.
+The output is a Codex/local extraction prompt + embedded corpus (1000-2000 lines). Also writes `.planning/milestones/<milestone>/DISTILL-REQUEST.md` as an audit record.
 
-## Step 3: Dispatch Haiku extraction
+## Step 3: Dispatch Codex/local extraction
 
 ```
 Agent({
   description: "Distil <milestone> trajectories",
   subagent_type: "Explore",
-  model: "haiku",
+  model: "codex",
   prompt: "Read the file at <absolute path to prompt>. Follow the rules verbatim. Return ONLY a JSON array wrapped in ```json ... ``` — no prose."
 })
 ```
 
-Haiku returns 5-10 candidate principles in the strict schema `{slug, title, principle, cites, evidence}`.
+The extractor returns 5-10 candidate principles in the strict schema `{slug, title, principle, cites, evidence}`.
 
 ## Step 4: INGEST — apply triple gate
 
@@ -60,8 +60,8 @@ cat .planning/milestones/<milestone>/DISTILL-OUTPUT.json | \
 ```
 
 Routing (automatic):
-- ≥2 phase citations → `.brv/context-tree/trajectory-hypothesis/<milestone>-<slug>.md` (Gate 2 pass)
-- 1 citation        → `.brv/context-tree/trajectory-hypothesis/candidate/<milestone>-<slug>.md` (Gate 2 quarantine)
+- ≥2 phase citations → `.planning/memory/trajectory/hypothesis/<milestone>-<slug>.md` (Gate 2 pass)
+- 1 citation        → `.planning/memory/trajectory/candidate/<milestone>-<slug>.md` (Gate 2 quarantine)
 - All files frontmatter-tagged `type: trajectory-hypothesis` (Gate 1 — never trajectory-lesson)
 
 ## Step 5: RATE — Gate 3 operator novelty
@@ -79,7 +79,7 @@ Or run interactively in a bash shell. Ratings go to `.planning/metrics/distillat
 ## Step 6: Commit atomically
 
 ```bash
-git add .planning/milestones/<milestone>/DISTILL-{PROMPT,OUTPUT,REQUEST}* .brv/context-tree/trajectory-hypothesis/
+git add .planning/milestones/<milestone>/DISTILL-{PROMPT,OUTPUT,REQUEST}* .planning/memory/trajectory/
 git commit -m "feat(distill): <milestone> trajectory distillation — N hypotheses + M candidates"
 ```
 

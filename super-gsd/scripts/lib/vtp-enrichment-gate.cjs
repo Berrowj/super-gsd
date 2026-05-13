@@ -356,7 +356,7 @@ function composeSubAgentSpec(opts) {
   const seed = buildQuerySeed({ phaseDir, projectDir, phaseContext, requirements, researchFindings });
   return {
     sub_agent_type: 'sgsd-vtp-enrichment',
-    model: 'sonnet',
+    model: 'codex',
     seed,
     tools: VTP_TOOLS,
     cascade_rule: 'tools 1+2 always; tools 3+4+5 only if hits > 0 from tools 1+2 (D-01); cap 5 queries (D-03)',
@@ -657,7 +657,7 @@ function runSelfTest() {
         if (r4.status !== 'pending') fail(`Test4: expected pending, got ${r4.status}`);
         if (passed && !r4.sub_agent_spec) fail('Test4: sub_agent_spec missing');
         if (passed && r4.sub_agent_spec.sub_agent_type !== 'sgsd-vtp-enrichment') fail('Test4: wrong sub_agent_type');
-        if (passed && r4.sub_agent_spec.model !== 'sonnet') fail('Test4: model should be sonnet (D-06)');
+        if (passed && r4.sub_agent_spec.model !== 'codex') fail('Test4: model should be codex (fresh-clone provider lock)');
         if (passed && !Array.isArray(r4.sub_agent_spec.tools)) fail('Test4: tools not array');
         if (passed && r4.sub_agent_spec.tools.length !== 5) fail(`Test4: expected 5 tools, got ${r4.sub_agent_spec.tools.length}`);
       } finally {

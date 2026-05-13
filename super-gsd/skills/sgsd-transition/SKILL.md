@@ -13,7 +13,7 @@ allowed-tools:
 
 <objective>
 One-time migration command for users transitioning from GSD 2.0 (Pi harness) back to
-Claude Code with Super GSD. Reads .gsd/ artifacts, curates knowledge into ByteRover,
+Claude Code with Super GSD. Reads .gsd/ artifacts, curates knowledge into SGSD memory,
 maps completed work into .planning/ structure.
 
 $ARGUMENTS: path to .gsd/ directory (defaults to ./.gsd/)
@@ -53,16 +53,16 @@ Read `.gsd/DECISIONS.md` in chunks (100 lines at a time).
 For each decision (D001, D002, ...):
 1. Extract: ID, decision text, choice, rationale
 2. Classify domain (architecture, api, database, auth, testing, etc.)
-3. Curate into ByteRover:
+3. Curate into SGSD memory:
    ```
-   brv-curate "{decision_id}: {choice} — {rationale}"
+   sgsd-curate --type decision --slug "{decision_id}" --summary "{choice}" < decision.md
      domain: decisions/{classified_domain}
      importance: 70
      tags: [decision, {domain}]
    ```
 
 Skip decisions that are clearly superseded by later ones (same topic, later date).
-Log: "Migrated {N} decisions into ByteRover decisions/ domain"
+Log: "Migrated {N} decisions into SGSD memory decisions"
 </step_2_decisions>
 
 <step_3_knowledge>
@@ -71,7 +71,7 @@ Log: "Migrated {N} decisions into ByteRover decisions/ domain"
 Read `.gsd/KNOWLEDGE.md`.
 For each principle/rule/anti-pattern:
 1. Classify: pattern | anti-pattern | error-rule | domain-knowledge
-2. Curate into ByteRover:
+2. Curate into SGSD memory:
    - Patterns → patterns/{domain}
    - Anti-patterns → anti-patterns/
    - Error rules → error-rules/
@@ -126,8 +126,8 @@ Write `.planning/TRANSITION-REPORT.md`:
 **Target**: .planning/
 
 ## Migrated
-- Decisions: {N} → ByteRover decisions/ ({skipped} skipped as superseded)
-- Knowledge: {N} → ByteRover patterns/ + anti-patterns/ + error-rules/
+- Decisions: {N} → `.planning/memory/architecture/decisions/` ({skipped} skipped as superseded)
+- Knowledge: {N} → `.planning/memory/architecture/{patterns,anti-patterns}/` + `.planning/memory/errors/`
 - Requirements: {N} merged into .planning/REQUIREMENTS.md
 - Milestones: {N} → {M} phases in ROADMAP.md
 
@@ -137,7 +137,7 @@ Write `.planning/TRANSITION-REPORT.md`:
 ## Manual Review Needed
 - {items that need human decision}
 
-## ByteRover Context Tree
+## SGSD Memory Tree
 {summary of what was curated and where}
 ```
 

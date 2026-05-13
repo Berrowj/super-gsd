@@ -223,7 +223,7 @@ NEVER auto-fire the next skill. The FLOOR invariant applies here too — operato
 **Example 5 — trivial / inline**
 > Operator: "What's `phases_affected` default in a brief?"
 >
-> Triage detects <5-min question → Path D → answer inline (no skill chain): *"It's an integer the operator fills in. The Haiku gate requires >=3 to proceed with deliberation."*
+> Triage detects <5-min question → Path D → answer inline (no skill chain): *"It's an integer the operator fills in. The deliberation gate requires >=3 to proceed."*
 
 </examples>
 

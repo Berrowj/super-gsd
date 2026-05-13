@@ -22,6 +22,23 @@ $repoHttps = "https://github.com/Berrowj/super-gsd.git"
 
 function Log($msg) { Write-Host "  [sgsd-update] $msg" }
 
+function Get-SgsdGitBash {
+    $resolved = Get-Command bash -All -ErrorAction SilentlyContinue |
+        Where-Object { $_.Source -notmatch 'System32' -and $_.Source -notmatch 'WindowsApps' } |
+        Select-Object -First 1 -ExpandProperty Source
+    if ($resolved) { return $resolved }
+
+    $candidates = @(
+        (Join-Path ${env:ProgramFiles} "Git\bin\bash.exe"),
+        (Join-Path ${env:ProgramFiles} "Git\usr\bin\bash.exe"),
+        (Join-Path ${env:ProgramFiles(x86)} "Git\bin\bash.exe"),
+        (Join-Path ${env:ProgramFiles(x86)} "Git\usr\bin\bash.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Git\bin\bash.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Git\usr\bin\bash.exe")
+    ) | Where-Object { $_ -and (Test-Path $_) }
+    return ($candidates | Select-Object -First 1)
+}
+
 # Clone source if missing
 if (-not (Test-Path (Join-Path $Source ".git"))) {
     if ($Check) {
@@ -85,7 +102,12 @@ if (Test-Path ".\.planning") {
 
 Log "Running installer..."
 $installScript = Join-Path $Source "super-gsd\install.sh"
-& bash $installScript @installArgs
+$bashExe = Get-SgsdGitBash
+if (-not $bashExe) {
+    Log "Git Bash not found. Install Git for Windows or run install.sh from a real bash."
+    exit 5
+}
+& $bashExe $installScript @installArgs
 if ($LASTEXITCODE -ne 0) {
     Log "Installer exited non-zero (see above)"
     exit 5

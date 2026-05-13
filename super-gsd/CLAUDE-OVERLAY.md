@@ -87,7 +87,7 @@ Codex's patch; Claude must not author the code delta.
 ## Super GSD — Autonomous Execution Engine
 
 This project uses **Super GSD** for token-efficient autonomous execution.
-State lives in `.planning/`. Memory lives in `.brv/context-tree/` (ByteRover).
+State lives in `.planning/`. Memory lives in project-local `.planning/memory/`.
 
 ### On Every New Session — DO THIS FIRST
 
@@ -147,18 +147,18 @@ repeat {
   Read .planning/STATE.md frontmatter
 
   // 2. CLASSIFY (~50 tokens)
-  Agent(model: "haiku", prompt: "Classify: goal, files, lines, type → JSON")
-  → { complexity, model, atc_tier, deliberate }
+  Derive classifier result from plan frontmatter/cache or run Codex/local check
+  → { complexity, model: "codex|opus", atc_tier, deliberate }
 
   // 3. SELECT CONTEXT (~100 tokens)
-  Agent(model: "haiku", prompt: "Select context: goal, files → brv_queries, file_reads")
-  → { brv_queries, file_reads, scripts_to_check }
+  Derive context selection from plan evidence + sgsd-recall terms
+  → { sgsd_recall_queries, file_reads, scripts_to_check }
 
-  // 4. QUERY BYTEROVER (~200-600 tokens)
+  // 4. QUERY SGSD MEMORY (~200-600 tokens)
   sgsd-recall for each query → relevant decisions, patterns, scripts
 
   // 5. COMPOSE PROMPT (~500 tokens)
-  Build agent prompt: compressed plan + overlay + brv results
+  Build agent prompt: compressed plan + overlay + SGSD memory results
 
   // 6. DISPATCH
   Agent(model: "{from classifier}", prompt: "{composed}")
@@ -243,8 +243,8 @@ Readiness is **stale** if any phase directory under
 | Role | Model | Why |
 |------|-------|-----|
 | Orchestrator (you) | Opus | Judgment, dispatch, synthesis |
-| Classifier | Haiku | 50-token classification |
-| Context selector | Haiku | Pick relevant brv-queries |
+| Classifier | Codex/local | Derive from plan frontmatter/cache; no Haiku spawn |
+| Context selector | Codex/local | Pick relevant sgsd-recall queries from plan evidence |
 | Code execution | Codex GPT-5.5/xhigh | Claude orchestrates; Codex edits; patch mode handles Windows read-blocks |
 | Verifier/checker/gates | Codex GPT-5.5/xhigh | Verification, readiness, ATC, MUDA, and plan-check |
 
@@ -253,7 +253,7 @@ Readiness is **stale** if any phase directory under
 Every sub-agent prompt includes:
 1. **Compressed task plan** (XML format, ~800 tokens)
 2. **Overlay** (efficiency rules + report format, ~80 tokens)
-3. **ByteRover results** (decisions, patterns, scripts, ~400-600 tokens)
+3. **SGSD memory results** (decisions, patterns, scripts, ~400-600 tokens)
 4. **files_to_read block** (minimal, only what's needed)
 
 Total prompt budget: <1,500 tokens. If over, trim file_reads first.
@@ -306,27 +306,28 @@ direct Codex, Codex read-pack patch mode, and board+Codex recovery have failed:
 ### Token Efficiency Rules
 
 - Read STATE.md **frontmatter only** (offset 0, limit 30) — not full file
-- Query ByteRover instead of loading full .md files
+- Query SGSD memory instead of loading full .md files
 - Sub-agent reports: 300 words max
 - Plans: compressed XML (~800 tokens, not ~2,000)
-- Haiku for classification (~50 tokens), not Opus
+- Codex/local classifier from frontmatter/cache; do not spawn Haiku
 - Log all token usage to `.planning/metrics/token-log.jsonl`
 - Script reuse: query before creating new utilities
 
-### Memory Retrieval (DLB-01 — replaces ByteRover)
+### Memory Retrieval (DLB-01 - replaces ByteRover)
 
 Per DLB-01 (`.planning/decisions/DLB-01-memory-topology.md`), the SGSD-global
-memory tier is a git-native filesystem store at `.brv/context-tree/` with an
-`INDEX.md` catalogue. The shell wrappers below are the stable callable
-interface; the dead `brv-query` / `brv-curate` no-ops (and the unconnected
-`brv` MCP) have been removed.
+memory tier is a project-local filesystem store at `.planning/memory/` with a
+`MEMORY.md` catalogue. The shell wrappers below are the stable callable
+interface; legacy BRV/ByteRover command wrappers are not part of the live
+contract.
 
 - `sgsd-recall "{terms}"` — grep INDEX.md by query terms, emit top-N file
   contents with `<!-- sgsd-recall: type/slug -->` framing (~200 tokens per
   result). Supports `--type`, `--limit`, `--paths-only`. Lives at
   `super-gsd/scripts/sgsd-recall.sh`; auto-walks up from CWD to find
-  `.brv/context-tree/`.
-- `sgsd-curate --type T --slug S --summary "≤80 chars" [--tags "a,b"] < body.md`
+  `.planning/memory/`, with read-only legacy fallback for unmigrated BRV
+  projects.
+- `sgsd-curate --type T --slug S --summary "<=80 chars" [--tags "a,b"] < body.md`
   — atomic write of a new entry + INDEX.md update. Types:
   `pattern | anti-pattern | decision | expertise | script`.
 - Query BEFORE dispatching (inject results into agent prompt).

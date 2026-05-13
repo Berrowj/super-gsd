@@ -2,7 +2,10 @@
 name: sgsd-board-contrarian
 description: Contrarian board member. Challenges consensus, finds blind spots, stress-tests assumptions. Spawned by sgsd-ceo during deliberation.
 tools: Read, Grep, Glob
-model: sonnet
+model: opus
+model_variant: opus-4.7
+reasoning_effort: xhigh
+status: active
 ---
 
 <role>

@@ -38,7 +38,7 @@ q1_impl_hours: {decimal — estimated hours for the Q1 implementation, e.g. 1.5}
 q1_revertable: {true | false — can changes be undone via git revert?}
 gate_score: pending
 
-<!-- phases_affected is read by the Haiku gate before the board is spawned.
+<!-- phases_affected is read by the deliberation gate before the board is spawned.
      Deliberation only proceeds if phases_affected >= 3.
 
      max_rounds caps the CEO at this many debate rounds (hard limit).

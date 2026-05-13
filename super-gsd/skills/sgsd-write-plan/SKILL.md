@@ -70,7 +70,7 @@ schema_version: 2
 tasks:
   - id: t1
     agent: <agent-name>          # e.g. gsd-executor, gsd-planner, gsd-phase-researcher
-    model: haiku|sonnet|opus
+    model: codex|opus
     files_touched:               # list of file paths this task creates or modifies
       - path/to/file.ext
     input_contract: <what this task receives — data, files, flags>
@@ -204,8 +204,8 @@ Report the following:
    narrative. The schema only validates the frontmatter.
 
 3. **schema_version: 2 is always set.** Never omit it. Without it, the orchestrator's classifier
-   skip-path (SCHEMA-04) will not fire, and the plan will route through the Haiku classifier
-   even when `model` and `expected_ATC_tier` are declared.
+   skip-path (SCHEMA-04) will not fire, and the plan will route through a slower Codex/local
+   classification repair even when `model` and `expected_ATC_tier` are declared.
 
 4. **Do NOT modify validate.cjs or plan-schema-v2.json** from within this skill. Those files are
    owned by plans 11-01 and 11-02 respectively. If the schema needs updating, open a new phase.

@@ -19,6 +19,10 @@
 //     identical entry already exists, skip. Running the installer twice does
 //     not produce duplicate hook registrations.
 //   - Preserves every existing user entry; only ADDS.
+//   - Expands hook commands under ~/.claude/hooks to absolute paths before
+//     writing settings.json. Claude Code may execute hook commands through cmd
+//     on Windows, where "~" is not expanded and Node treats it as a literal
+//     project-relative path.
 //   - Skips the _comment key from the overlay.
 //   - Atomic write: settings.json.tmp + rename.
 // ============================================================================
@@ -64,22 +68,86 @@ function isSameEntry(a, b) {
     return true;
 }
 
+function homeSlash() {
+    return os.homedir().replace(/\\/g, '/').replace(/\/+$/, '');
+}
+
+function escapeRegex(s) {
+    return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function realizeCommand(command) {
+    const raw = String(command || '');
+    const home = homeSlash();
+    return raw.replace(
+        /node\s+["']?(~|\$HOME|%USERPROFILE%)[\\/]\.claude[\\/]hooks[\\/]([^"'\s]+)["']?/gi,
+        (_, _homeToken, hookPath) => `node "${home}/.claude/hooks/${String(hookPath).replace(/\\/g, '/')}"`
+    );
+}
+
 function normalizeCommand(command) {
-    return String(command || '')
+    const home = escapeRegex(homeSlash());
+    return realizeCommand(command)
         .replace(/"/g, '')
         .replace(/\$HOME/g, '~')
+        .replace(/%USERPROFILE%/gi, '~')
         .replace(/\\/g, '/')
+        .replace(new RegExp(home, 'gi'), '~')
         .replace(/\s+/g, ' ')
         .trim();
 }
 
-const overlay = readJsonOrEmpty(overlayPath);
-const target = readJsonOrEmpty(targetPath);
+function realizeCommands(value) {
+    if (Array.isArray(value)) return value.map(realizeCommands);
+    if (!value || typeof value !== 'object') return value;
+    const out = {};
+    for (const [key, child] of Object.entries(value)) {
+        out[key] = key === 'command' && typeof child === 'string'
+            ? realizeCommand(child)
+            : realizeCommands(child);
+    }
+    return out;
+}
+
+const overlay = realizeCommands(readJsonOrEmpty(overlayPath));
+const target = realizeCommands(readJsonOrEmpty(targetPath));
 
 let added = 0;
 let skipped = 0;
 let setScalars = 0;
 let upgraded = 0;
+let deduped = 0;
+
+function dedupeExistingHooks(settings) {
+    if (!settings.hooks || typeof settings.hooks !== 'object') return 0;
+    let removed = 0;
+    for (const event of Object.keys(settings.hooks)) {
+        const entries = settings.hooks[event];
+        if (!Array.isArray(entries)) continue;
+        const kept = [];
+        for (const entry of entries) {
+            if (kept.find(existing => isSameEntry(existing, entry))) {
+                removed++;
+                continue;
+            }
+            kept.push(entry);
+        }
+        settings.hooks[event] = kept;
+    }
+    return removed;
+}
+
+function isSgsdStatusLine(value) {
+    const command = normalizeCommand(value && value.command);
+    return command.includes('/.claude/hooks/sgsd-statusline.js') ||
+        command.includes('sgsd-statusline.ps1');
+}
+
+function isSameStatusLine(a, b) {
+    return normalizeCommand(a && a.command) === normalizeCommand(b && b.command);
+}
+
+deduped += dedupeExistingHooks(target);
 
 function isStopHandoffLauncher(entry) {
     const cmds = (entry.hooks || []).map(h => normalizeCommand(h.command)).filter(Boolean);
@@ -107,6 +175,11 @@ function shouldUpgradeEntry(event, existing, overlayEntry) {
 for (const key of Object.keys(overlay)) {
     if (key === '_comment' || key === 'hooks') continue;
     if (Object.prototype.hasOwnProperty.call(target, key)) {
+        if (key === 'statusLine' && isSgsdStatusLine(target[key]) && !isSameStatusLine(target[key], overlay[key])) {
+            target[key] = overlay[key];
+            upgraded++;
+            continue;
+        }
         skipped++;
     } else {
         target[key] = overlay[key];
@@ -151,6 +224,9 @@ fs.renameSync(tmpPath, targetPath);
 
 if (upgraded > 0) {
     console.log(`[merge-settings] ${upgraded} legacy hook-entries upgraded`);
+}
+if (deduped > 0) {
+    console.log(`[merge-settings] ${deduped} duplicate hook-entries removed`);
 }
 
 console.log(`[merge-settings] ${added} hook-entries added, ${setScalars} top-level keys set, ${skipped} already-present → ${targetPath}`);

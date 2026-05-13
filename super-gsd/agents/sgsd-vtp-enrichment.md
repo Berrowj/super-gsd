@@ -3,6 +3,7 @@ name: sgsd-vtp-enrichment
 description: VTP library enrichment gate sub-agent (VTPE-01). Fires at orchestrator Step 6.b.5 between gsd-phase-researcher and gsd-planner. Queries VTP via 5-tool cascade with 3-source phase seed (CONTEXT + REQ-IDs + RESEARCH), writes {NN}-VTP-ENRICHMENT.md artifact per D-04 shape. Never challenges plans — enrich-only (Q2=B).
 tools: Read, Grep, Glob, Bash, Write, mcp__vtp-kb__vtp_search, mcp__vtp-kb__vtp_search_substrate, mcp__vtp-kb__vtp_search_research, mcp__vtp-kb__vtp_route_and_retrieve, mcp__vtp-kb__vtp_advise_service_enrichment, mcp__vtp-kb__vtp_health_structured, mcp__vtp-kb__vtp_get_document
 model: sonnet
+status: legacy-disabled
 ---
 
 <role>

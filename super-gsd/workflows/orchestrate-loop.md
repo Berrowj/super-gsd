@@ -119,29 +119,22 @@ if [ ! -f "$MANIFEST" ] || [ "$PHASE_DIR" -nt "$MANIFEST" ]; then
 fi
 ```
 
-### Step 2: Classify (Haiku)
+### Step 2: Classify (Codex/local)
 
 ```
-Agent(
-  description: "Classify phase {N}",
-  model: "haiku",
-  prompt: "Classify: goal='{goal}', files={N}, lines~{N}, type={type}
-           Return JSON: {complexity, model, atc_tier, deliberate, reason}"
-)
+Derive from plan frontmatter/cache, or run a small Codex/local classifier.
+Return JSON: {complexity, model, atc_tier, deliberate, reason}
 ```
 
 If `deliberate: true` and not in auto mode → suggest `/sgsd-deliberate`
 If `deliberate: true` and in auto mode → log warning, skip deliberation
 
-### Step 3: Select Context (Haiku)
+### Step 3: Select Context (Codex/local)
 
 ```
-Agent(
-  description: "Select context for phase {N}",
-  model: "haiku",
-  prompt: "Select context: goal='{task_goal}', files=[{list}], type={type}
-           Return JSON: {sgsd_recall_queries, file_reads, error_rules, scripts_to_check}"
-)
+Derive from plan evidence and `sgsd-recall` terms, or run a small Codex/local
+context selector. Return JSON:
+{sgsd_recall_queries, file_reads, error_rules, scripts_to_check}
 ```
 
 ### Step 4: Query SGSD Memory
@@ -188,11 +181,11 @@ IF RESEARCH.md exists AND VTP enrichment enabled AND no VTP artifact/status:
   → PROMPT: CONTEXT.md + RESEARCH.md + VTP MCP cascade
 
 IF no PLAN.md files:
-  → DISPATCH: gsd-planner (Opus 4.7/xhigh)
+  → DISPATCH: codex-exec.sh phase-planner (GPT-5.5/xhigh)
   → PROMPT: phase goal + CONTEXT.md + RESEARCH.md + VTP artifact/status
 
 IF PLAN.md exists but no PLAN-CHECKER results AND config.plan_check == true:
-  → DISPATCH: gsd-plan-checker (Sonnet)
+  → DISPATCH: codex-exec.sh plan-checker (GPT-5.5/xhigh)
   → PROMPT: plan files + phase goal
 
 IF plan-check passed but no Codex final plan review:
@@ -200,13 +193,16 @@ IF plan-check passed but no Codex final plan review:
   → PROMPT: CONTEXT.md + RESEARCH.md + VTP artifact/status + all PLAN files
 
 IF PLAN.md files exist with unchecked tasks (no SUMMARY.md):
-  → DISPATCH: codex-executor.sh (GPT-5.5/xhigh)
-  → PROMPT: compressed plan XML + executor overlay + SGSD memory results
+  → DISPATCH: codex-executor.sh (GPT-5.5/xhigh), serial SDD implementer mode
+  → PROMPT: compressed plan XML + executor overlay + SGSD memory results +
+     fresh-context/one-task/self-review contract
   → FALLBACK: on Windows read-block, run codex-patch-executor.sh with
      {planId}-CODEX-FILES.txt so Codex authors a unified diff from a read-pack
+  → REVIEW-1: codex-exec.sh spec-compliance review over raw PLAN/diff/report/tests
+  → REVIEW-2: per-dispatch ATC/code-quality review after spec PASS
 
 IF all plans have SUMMARY.md but no VERIFICATION.md AND config.verifier == true:
-  → DISPATCH: gsd-verifier (Sonnet)
+  → DISPATCH: codex-exec.sh verifier (GPT-5.5/xhigh)
   → PROMPT: phase goal + must-haves + verifier overlay
 
 IF VERIFICATION.md exists AND status == "passed":
@@ -215,7 +211,7 @@ IF VERIFICATION.md exists AND status == "passed":
   → CONTINUE loop
 
 IF VERIFICATION.md exists AND status == "gaps_found":
-  → DISPATCH: gsd-planner --gaps (Opus 4.7/xhigh)
+  → DISPATCH: codex-exec.sh planner --gaps (GPT-5.5/xhigh)
   → PROMPT: verification gaps + phase goal
 
 IF no more phases:
@@ -318,12 +314,37 @@ SCRIPTS_CREATED → prepare for sgsd-curate
 ONE_LINER → use in commit message and state update
 ```
 
+### Step 8.4: Spec Compliance Review
+
+Run after each file-changing `codex-executor.sh` dispatch and before ATC.
+This is the first subagent-driven-development reviewer stage.
+
+Inputs must be raw artifacts, not just the executor's summary:
+
+- `{planId}-PLAN.md`
+- `{planId}-CODEX-EXECUTOR-REPORT.md`
+- `git diff -- {files_changed}`
+- verification command output
+
+Emit `{planId}-SPEC-REVIEW.md` with:
+
+```text
+SPEC_VERDICT: pass|fix_required|blocked
+MISSING_REQUIREMENTS: none|...
+EXTRA_SCOPE: none|...
+VERIFICATION_MAPPING: ...
+ONE_LINER: ...
+```
+
+Only `SPEC_VERDICT: pass` may proceed to ATC. `fix_required` dispatches a
+Codex fix pass; `blocked` enters the blocker recovery loop.
+
 ### Step 8.5: ATC Gate
 
 ATC reviewer dispatch is Codex-first. Resolve the reviewer through
 `gates.resolveReviewerProvider(...)`, invoke `super-gsd/scripts/codex-exec.sh`
-when the gate provider is `codex-cli-reviewer`, and fall back to Claude only
-after a Codex provider failure or invalid report contract.
+when the gate provider is `codex-cli-reviewer`, and do not fall back to
+Claude/Sonnet reviewers in the fresh-clone/default route.
 
 ```bash
 # Run AFTER Step 8 (Process Result) and BEFORE Step 12 (Git Commit)
@@ -334,7 +355,7 @@ ATC_ENABLED=$(cat .planning/config.json | node -e "
 
 if [ "$ATC_ENABLED" = "true" ]; then
 
-  # Complexity floor (QA-05): escalate regardless of Haiku output
+  # Complexity floor (QA-05): escalate regardless of classifier output
   FLOOR_FILES=$(cat .planning/config.json | node -e "
     const c=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
     process.stdout.write(String(c.atc?.complexity_floor_files||3));
@@ -349,9 +370,9 @@ if [ "$ATC_ENABLED" = "true" ]; then
   # Estimate lines from report word count as proxy (or parse diff if available)
   LINES_EST=$(echo "$AGENT_REPORT" | wc -w)
 
-  # Haiku classification (~50 tokens)
+  # Codex/local classification (~50 tokens)
   ATC_RESULT=$(Agent(
-    model: "haiku",
+    model: "codex",
     prompt: "ATC classify: files_changed=${FILES_COUNT}, lines_changed~${LINES_EST}, new_files=${NEW_FILES_COUNT}, has_api_change=${HAS_API_CHANGE}
              Return JSON only: {\"tier\": \"skip|lite|full|gate\", \"reason\": \"one sentence\"}"
   ))

@@ -9,7 +9,7 @@
     "schema_version": {
       "type": "integer",
       "enum": [2],
-      "description": "v2 plans skip Haiku classifier (SCHEMA-04)"
+      "description": "v2 plans skip spawned classifier agents (SCHEMA-04)"
     },
     "tasks": {
       "type": "array",
@@ -63,7 +63,7 @@
         "required": {
           "id": "task must declare 'id' (SCHEMA-02)",
           "agent": "task must declare 'agent' (SCHEMA-02)",
-          "model": "task must declare 'model' as haiku|sonnet|opus (SCHEMA-02)",
+          "model": "task must declare 'model' as codex|opus (SCHEMA-02)",
           "files_touched": "task must declare 'files_touched' array with >=1 entry (SCHEMA-02)",
           "input_contract": "task must declare 'input_contract' (SCHEMA-02)",
           "output_contract": "task must declare 'output_contract' (SCHEMA-02)",
@@ -83,7 +83,7 @@
         },
         "model": {
           "type": "string",
-          "enum": ["haiku", "sonnet", "opus"],
+          "enum": ["codex", "opus"],
           "description": "Model routed to the agent; used for classifier-skip derivation (SCHEMA-02, SCHEMA-04)."
         },
         "files_touched": {

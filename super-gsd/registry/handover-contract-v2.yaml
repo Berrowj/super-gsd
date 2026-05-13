@@ -29,7 +29,7 @@ input:
   task:                            # per-task block from v2 PLAN.md
     id: string                     # e.g. "T3"
     agent: string                  # this agent's slug (sgsd-exec-backend)
-    model: string                  # haiku | sonnet | opus
+    model: string                  # codex | opus
     files_touched: [string]        # absolute or repo-rel paths
     depends_on: [string]           # other task ids
     input_contract: object         # per-agent-category expected inputs
@@ -42,8 +42,8 @@ input:
     expertise_ref: string          # pointer to super-gsd/expertise/{name}.md
 
   context:
-    brv_queries: [string]          # executed pre-dispatch
-    brv_results: [object]          # results (capped by token budget)
+    sgsd_recall_queries: [string]  # executed pre-dispatch
+    sgsd_recall_results: [object]  # results (capped by token budget)
     intent: string                 # DLB-03 injection (from INTENT.md)
     prior_errors: [string]         # looked up per task (sgsd-recall error-rules)
     surgical_constraint: string    # MANDATORY header (Karpathy principle)
@@ -148,7 +148,7 @@ validation:
     - registry_entry_exists: super-gsd/registry/agents.yaml
     - frontmatter_declares_contract: handover_contract: v2
     - emits_declared: non-empty emits list
-    - model_declared: one of [haiku, sonnet, opus]
+    - model_declared: one of [codex, opus]
   failure_modes:
     - missing_expertise: BLOCKER (boot FAIL)
     - missing_registry_entry: BLOCKER (boot FAIL)

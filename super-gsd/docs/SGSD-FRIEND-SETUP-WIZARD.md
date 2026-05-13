@@ -332,7 +332,7 @@ Codex is required for the current source-changing SGSD executor path.
 Plain English:
 
 ```text
-Claude/Opus orchestrates and plans.
+Claude/Opus orchestrates and chooses the next action.
 Codex GPT-5.5/xhigh researches, plans, edits files, verifies, and runs
 Codex-owned gates.
 SGSD records the evidence and advances only through the gate path.

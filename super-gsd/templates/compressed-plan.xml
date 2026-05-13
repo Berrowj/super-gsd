@@ -2,7 +2,7 @@
      Target: ~800 tokens (vs ~2,000 in GSD 1.0)
      Rule: Every token must justify itself. XML over prose. -->
 
-<plan phase="{NN}" task="{PP}" model="{sonnet|haiku}" wave="{N}">
+<plan phase="{NN}" task="{PP}" model="{codex|opus}" wave="{N}">
 <goal>{One sentence: what this task delivers}</goal>
 <files>{comma-separated list of files to create/modify}</files>
 <deps>{comma-separated plan IDs this depends on, or "none"}</deps>

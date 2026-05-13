@@ -144,7 +144,6 @@ super-gsd/
 ├── templates/       ← 11 reusable document formats
 ├── workflows/       ← 4 engine specification documents
 ├── config/          ← 3 configuration files
-├── brv-seed/        ← legacy knowledge seed files for migration only
 ├── overwatcher/     ← Signal map visualization tools
 ├── install.sh       ← The one-command installer
 ├── CLAUDE-OVERLAY.md ← The "brain" — teaches Claude the loop
@@ -412,6 +411,7 @@ Super GSD uses a locked current provider split:
 | Brain | Name | Cost | Used For |
 |---|---|---|---|
 | Orchestrator | Claude / Opus | $$$$ | Reads state, decides the next step, composes prompts, and synthesizes results. |
+| Strategy board | Claude / Opus 4.7 xhigh | $$$$ | Architect and Contrarian decision review when `/sgsd-deliberate` is needed. |
 | Delivery worker | Codex GPT-5.5 / xhigh | $$ | Research, planning, plan-check, code execution, verification, ATC, and MUDA gates. |
 | Legacy Claude workers | Sonnet / Haiku | n/a | Not used by default in fresh-clone SGSD and not a Codex fallback. |
 
@@ -497,14 +497,18 @@ Claude asks you what decision you need to make. It creates a "brief" — a struc
 - **Constraints** — Non-negotiable limits
 - **Key Questions** — The specific things to decide
 
-Then it spawns 4 "board members" — each with a different perspective:
+Then it resolves the active board from `super-gsd/registry/board-members.yaml`.
+The default fresh-clone board is Sonnet-free: CEO + Architect + Contrarian all
+run as Opus 4.7/xhigh. Pragmatist and Moonshot remain disabled escalation slots
+until explicitly reactivated.
 
 | Role | Personality | What They Ask |
 |---|---|---|
+| **CEO** | Synthesizer | "What decision follows from the evidence and unresolved tension?" |
 | **Architect** | Technical, methodical | "Can we actually build this? What breaks at scale?" |
-| **Pragmatist** | Skeptical of ambition | "What's the simplest version that ships? What's the 80% solution?" |
 | **Contrarian** | Professionally paranoid | "What assumption hasn't been tested? What if this fails?" |
-| **Moonshot** | Thinks big | "Are we thinking too small? What's the 10x version?" |
+| **Pragmatist** | Disabled escalation slot | "What's the simplest version that ships? What's the 80% solution?" |
+| **Moonshot** | Disabled escalation slot | "Are we thinking too small? What's the 10x version?" |
 
 They each give their position (SUPPORT / OPPOSE / MODIFY). If they disagree, they debate (Round 2). The CEO synthesizes everything into a **Decision Memo** with:
 
@@ -516,7 +520,7 @@ They each give their position (SUPPORT / OPPOSE / MODIFY). If they disagree, the
 
 ### The Gate — Don't Waste Tokens
 
-Not every decision needs a 4-person board meeting. The system checks: "Does this affect 3 or more phases?" If not, it tells you to just decide and move on. This saves ~10,000 tokens per skipped deliberation.
+Not every decision needs a board meeting. The system checks: "Does this affect 3 or more phases?" If not, it tells you to just decide and move on. This saves tokens per skipped deliberation.
 
 ---
 
@@ -774,7 +778,7 @@ The token logger hook fires on Agent tool calls. If you haven't dispatched any a
 |---|---|
 | **Agent** | A specialized AI worker with a specific job (executor, planner, verifier, etc.) |
 | **ATC** | Air Traffic Control — the quality gate system that checks code before commits |
-| **Board** | The 4 debate agents (Architect, Pragmatist, Contrarian, Moonshot) in /sgsd-deliberate |
+| **Board** | The Opus decision board in /sgsd-deliberate; fresh-clone default is CEO + Architect + Contrarian |
 | **Brief** | A structured decision document given to the CEO/Board for deliberation |
 | **SGSD memory** | The local memory system — stores knowledge in `.planning/memory/` |
 | **CEO** | The orchestrator agent in /sgsd-deliberate that manages the board debate |

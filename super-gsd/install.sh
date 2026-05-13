@@ -17,6 +17,22 @@ if [ -d "$HOME/.nvm/versions/node" ]; then
 fi
 export PATH
 
+normalize_windows_home() {
+  case "$(uname -s 2>/dev/null || echo unknown)" in
+    MINGW*|MSYS*|CYGWIN*)
+      if command -v cygpath >/dev/null 2>&1 && [ -n "${USERPROFILE:-}" ]; then
+        win_home="$(cygpath -u "$USERPROFILE" 2>/dev/null || true)"
+        if [ -n "$win_home" ] && [ -d "$win_home" ] && [ "${HOME:-}" != "$win_home" ]; then
+          HOME="$win_home"
+          export HOME
+        fi
+      fi
+      ;;
+  esac
+}
+
+normalize_windows_home
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(pwd)"
 CLAUDE_DIR="$HOME/.claude"
@@ -100,8 +116,32 @@ copy_file() {
   if [ "$DRY_RUN" = true ]; then
     log "DRY RUN: $1 -> $2"
   else
+    if [ -e "$2" ] && command -v readlink >/dev/null 2>&1; then
+      src_real="$(readlink -f "$1" 2>/dev/null || true)"
+      dst_real="$(readlink -f "$2" 2>/dev/null || true)"
+      if [ -n "$src_real" ] && [ "$src_real" = "$dst_real" ]; then
+        log "  same file, skipping copy: $2"
+        return 0
+      fi
+    fi
     mkdir -p "$(dirname "$2")"
-    cp "$1" "$2"
+    if [ -d "$1" ]; then
+      cp -R "$1" "$2"
+    else
+      cp "$1" "$2"
+    fi
+  fi
+}
+
+remove_path_if_exists() {
+  target="$1"
+  if [ "$DRY_RUN" = true ]; then
+    log "DRY RUN: would remove legacy asset $target"
+    return 0
+  fi
+  if [ -e "$target" ]; then
+    rm -rf "$target"
+    log "  removed legacy asset: $target"
   fi
 }
 
@@ -110,6 +150,30 @@ is_legacy_brv_asset() {
     *brv*|*BRV*) return 0 ;;
     *) return 1 ;;
   esac
+}
+
+remove_legacy_global_assets() {
+  remove_path_if_exists "$COMMANDS_DIR/sgsd-brv-setup"
+  remove_path_if_exists "$HOOKS_DIR/brv-query-local.js"
+  remove_path_if_exists "$HOOKS_DIR/brv-curate-local.js"
+  remove_path_if_exists "$TEMPLATES_DIR/brv-seed"
+  remove_path_if_exists "$TEMPLATES_DIR/executor-brv-overlay.xml"
+  remove_path_if_exists "$TEMPLATES_DIR/planner-brv-overlay.xml"
+  remove_path_if_exists "$TEMPLATES_DIR/verifier-brv-overlay.xml"
+  remove_path_if_exists "$TEMPLATES_DIR/overwatcher/brv-query-local.js"
+  remove_path_if_exists "$TEMPLATES_DIR/overwatcher/brv-curate-local.js"
+}
+
+frontmatter_field() {
+  awk -v f="$2" '
+    /^---[[:space:]]*$/ { if (in_fm) exit; in_fm = 1; next }
+    in_fm && $0 ~ "^"f":" {
+      sub("^"f":[[:space:]]*", "")
+      gsub(/^"|"$|^'\''|'\''$/, "")
+      print
+      exit
+    }
+  ' "$1"
 }
 
 require_node_22() {
@@ -228,6 +292,13 @@ install_global_assets() {
   for agent in "$SCRIPT_DIR/agents/"*.md; do
     [ -f "$agent" ] || continue
     name="$(basename "$agent")"
+    agent_model="$(frontmatter_field "$agent" model)"
+    case "$agent_model" in
+      sonnet|haiku)
+        log "  skipping legacy Claude agent $name ($agent_model not a fresh-clone route)"
+        continue
+        ;;
+    esac
     copy_file "$agent" "$AGENTS_DIR/$name"
     AGENT_COUNT=$((AGENT_COUNT + 1))
   done
@@ -291,6 +362,7 @@ install_global_assets() {
     name="$(basename "$ow")"
     copy_file "$ow" "$TEMPLATES_DIR/overwatcher/$name"
   done
+  remove_legacy_global_assets
   log "  Templates + overwatcher installed"
 
   echo ""

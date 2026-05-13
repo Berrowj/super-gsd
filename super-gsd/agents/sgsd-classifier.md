@@ -3,6 +3,7 @@ name: sgsd-classifier
 description: Lightweight task classifier. Scores complexity, selects model, determines ATC tier. Spawned by orchestrator before dispatch.
 tools: Read, Grep, Glob
 model: haiku
+status: legacy-disabled
 ---
 
 <role>
@@ -23,7 +24,7 @@ Return EXACTLY this JSON. No prose. No explanation.
 ```json
 {
   "complexity": "light|standard|heavy",
-  "model": "haiku|sonnet|opus",
+  "model": "codex|opus",
   "atc_tier": "skip|lite|full|gate",
   "deliberate": false,
   "work_risk": "low|medium|high",
@@ -34,9 +35,9 @@ Return EXACTLY this JSON. No prose. No explanation.
 
 <rules>
 Complexity scoring:
-- light: <10 lines, 1 file, no new files, no API changes → model: haiku
-- standard: 10-100 lines, 1-5 files, known patterns → model: sonnet
-- heavy: 100+ lines, 5+ files, new architecture, API changes → model: sonnet (opus only if orchestrator override)
+- light: <10 lines, 1 file, no new files, no API changes -> model: codex
+- standard: 10-100 lines, 1-5 files, known patterns -> model: codex
+- heavy: 100+ lines, 5+ files, new architecture, API changes -> model: codex (opus only if orchestrator override)
 
 ATC tier:
 - skip: <10 lines, 1 file, no new files

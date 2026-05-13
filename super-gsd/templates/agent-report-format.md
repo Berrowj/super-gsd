@@ -31,7 +31,7 @@ ONE_LINER: JWT auth middleware with refresh rotation using jose library
 2. VERIFICATION: Every verify command from the plan + result. Include exit code.
 3. DEVIATIONS: Deviation rule number + type + one-liner. "none" if clean execution.
 4. BLOCKERS: Anything preventing completion. "none" if all tasks done.
-5. SCRIPTS_CREATED: Any new utility/helper/hook created. Path + purpose + interface signature. Orchestrator curates these into ByteRover script registry.
+5. SCRIPTS_CREATED: Any new utility/helper/hook created. Path + purpose + interface signature. Orchestrator curates these into SGSD memory script registry.
 6. ONE_LINER: Substantive summary. Not "implemented feature" — what specifically was built.
 
 ## Token Budget

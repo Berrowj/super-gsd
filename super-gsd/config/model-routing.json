@@ -30,7 +30,7 @@
     "sub_agent_report_max_words": 300,
     "plan_format": "compressed_xml",
     "state_read": "frontmatter_only",
-    "context_injection": "brv_query",
+    "context_injection": "sgsd_recall",
     "agent_rules_header_tokens": 80,
     "context_warning_percent": 70,
     "checkpoint_threshold_percent": 100000

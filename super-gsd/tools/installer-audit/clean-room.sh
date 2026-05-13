@@ -190,10 +190,10 @@ step "install.sh --dry-run (no mutation)" \
   "bash '$TMPDIR_ROOT/super-gsd/install.sh' --dry-run --skip-brv 2>&1 | head -40" \
   "auto"
 
-# 5. ByteRover login (interactive in real install). Marked PROMPT.
-step "byterover login (interactive prompt expected)" \
-  "true" \
-  "prompt"
+# 5. SGSD memory scaffold (local, no external login).
+step "sgsd memory scaffold present" \
+  "test -d '$TMPDIR_ROOT/.planning/memory' || mkdir -p '$TMPDIR_ROOT/.planning/memory'" \
+  "auto"
 
 # 6. Claude CLI login (interactive in real install). Marked PROMPT.
 step "claude login (interactive prompt expected)" \

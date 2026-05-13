@@ -9,8 +9,8 @@ units_this_session: {N}
 estimated_tokens_used: {N}
 model_breakdown:
   opus: {N}
-  sonnet: {N}
-  haiku: {N}
+  codex: {N}
+  legacy_disabled: {N}
 context_percent_at_write: "not_self_estimated"
 emergency_halt: false
 approaches_tried_and_abandoned: []
@@ -43,4 +43,4 @@ resume_instruction: "Enter loop at next_unit without re-briefing user"
 - {remaining phases in milestone}
 
 ## Learnings Curated
-- {patterns/decisions curated to ByteRover this session}
+- {patterns/decisions curated to SGSD memory this session}

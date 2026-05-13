@@ -3,6 +3,7 @@ name: sgsd-code-reviewer
 description: ATC 7-step + 10-point anti-slop code reviewer, Claude-backed. Mirrors sgsd-codex-reviewer report contract (code-reviewer-v1) exactly so phase-level contract-check harness can compare dual-provider reviews byte-for-byte. Delegates to gsd-code-reviewer for the underlying review logic; this stub declares the v2 handover contract (invocation discriminator + report_contract version).
 tools: Read, Grep, Glob
 model: sonnet
+status: legacy-disabled
 invocation: agent
 agent_subagent_type: gsd-code-reviewer
 report_contract: code-reviewer-v1

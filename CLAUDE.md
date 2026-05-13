@@ -112,7 +112,7 @@ Remote Control isn't connected. Continue normally; don't retry.
 ## Super GSD — Autonomous Execution Engine
 
 This project uses **Super GSD** for token-efficient autonomous execution.
-State lives in `.planning/`. SGSD memory lives in `.brv/context-tree/`.
+State lives in `.planning/`. SGSD memory lives in `.planning/memory/`.
 
 ### On Every New Session — DO THIS FIRST
 
@@ -169,8 +169,8 @@ Current provider lock:
 
 - Orchestration is Claude/Opus 4.7 with xhigh thinking.
 - Codex GPT-5.5/xhigh owns phase research, planning, plan-check, verification,
-  source-changing execution, per-dispatch ATC, phase-level ATC, MUDA, and other
-  Codex-owned gates.
+  source-changing execution, spec-compliance review, per-dispatch ATC,
+  phase-level ATC, MUDA, and other Codex-owned gates.
 - Sonnet is not a fresh-clone default provider and is not a Codex fallback. If a
   later legacy line says to dispatch Sonnet for one of those surfaces, treat it
   as stale and route through Codex instead.
@@ -194,10 +194,16 @@ Canonical phase path:
    enrichment or the explicit VTP_STATUS row.
 6. Run a quick Codex plan review applying ATC + MUDA before execution. NOGO
    routes back to Codex planning for a revised final draft.
-7. Execute code only through `codex-executor [gpt-5.5/xhigh]`. If Windows
+7. Execute code only through `codex-executor [gpt-5.5/xhigh]`. Treat each
+   executor dispatch as a fresh subagent-driven-development implementer run:
+   bounded prompt, no inherited Codex context, one task/plan at a time, and no
+   parallel Codex file writers in the same workspace. If Windows
    Codex cannot read files (`CreateProcessAsUserW`, `error 216`, or equivalent),
    use Codex read-pack patch mode before treating it as a blocker.
-8. Verify and run required gates through Codex/local SGSD gate scripts, commit,
+8. Run Codex spec-compliance review over raw artifacts before ATC: PLAN,
+   Codex executor report, git diff, and verification output. Do not let the
+   spec reviewer rely on the executor's own summary.
+9. Verify and run required gates through Codex/local SGSD gate scripts, commit,
    close/advance phase or milestone, and immediately continue until no roadmap
    work remains.
 
@@ -239,11 +245,11 @@ repeat {
   Read .planning/STATE.md frontmatter
 
   // 2. CLASSIFY (~50 tokens)
-  Agent(model: "haiku", prompt: "Classify: goal, files, lines, type → JSON")
-  → { complexity, model, atc_tier, deliberate }
+  Derive classifier result from plan frontmatter/cache or run Codex/local check
+  → { complexity, model: "codex|opus", atc_tier, deliberate }
 
   // 3. SELECT CONTEXT (~100 tokens)
-  Agent(model: "haiku", prompt: "Select context: goal, files → sgsd_recall_queries, file_reads")
+  Derive context selection from plan evidence + sgsd-recall terms
   → { sgsd_recall_queries, file_reads, scripts_to_check }
 
   // 4. QUERY SGSD MEMORY (~200-600 tokens)
@@ -307,8 +313,9 @@ runtime compaction + external state are the context-management mechanism. ONLY t
 | 4.2 | Plan check passed | Run Codex plan-final ATC + MUDA review | codex-exec.sh | gpt-5.5/xhigh |
 | 4.5 | About to make FIRST executor dispatch of a phase | Run phase-readiness re-probe | codex-readiness | gpt-5.5/xhigh |
 | 4.6 | Phase-readiness returned DRIFT | Continue on deterministic degraded/local path; checkpoint only if no runnable executor path remains | — | — |
-| 5 | Pending tasks exist | Dispatch Codex executor with `{planId}-CODEX-FILES.txt` fallback allowlist | codex-executor.sh | gpt-5.5/xhigh |
+| 5 | Pending tasks exist | Dispatch serial SDD Codex executor with `{planId}-CODEX-FILES.txt` fallback allowlist | codex-executor.sh | gpt-5.5/xhigh |
 | 5.1 | Codex executor hits Windows file-read block | Run Codex read-pack patch executor; Codex authors unified diff, SGSD applies it | codex-patch-executor.sh | gpt-5.5/xhigh |
+| 5.4 | Codex changed files | Run spec-compliance review against raw PLAN/diff/report/verification artifacts before ATC | codex-exec.sh | gpt-5.5/xhigh |
 | 6 | All plans executed | Dispatch Codex verifier | codex-verify | gpt-5.5/xhigh |
 | 7 | Verification passed | Mark complete, advance | orchestrator | — |
 | 8 | Verification failed | Dispatch Codex planner --gaps | codex-plan | gpt-5.5/xhigh |
@@ -318,7 +325,7 @@ runtime compaction + external state are the context-management mechanism. ONLY t
 
 Rule 0 is the **milestone pre-flight**. It runs ONCE at the start of auto mode on a fresh or stale milestone and probes every phase's external deps upfront. Its purpose is to ensure that when you say "go" and walk away, the run either completes OR finds the degraded path within 2 minutes — not 4 hours in.
 
-Rule 4.5 is the **phase drift check**. It re-probes only the current phase's deps right before the first executor burns tokens. Cheap (haiku, <10s), catches environmental drift mid-run (Docker dying, VPN dropping). Drift is not a reason to stop if a deterministic local/degraded path remains.
+Rule 4.5 is the **phase drift check**. It re-probes only the current phase's deps right before the first executor burns tokens. Cheap (Codex/local, <10s), catches environmental drift mid-run (Docker dying, VPN dropping). Drift is not a reason to stop if a deterministic local/degraded path remains.
 
 Manifests live at `.planning/milestones/{id}/MILESTONE-READINESS.md`. Drift events append to `.planning/metrics/readiness-log.jsonl`. Dashboards (SGSD1 banner, SGSD3 card) read these directly.
 
@@ -332,7 +339,8 @@ Readiness is **stale** if any phase directory under the active milestone has an 
 | Research | Codex GPT-5.5/xhigh | Read-only research report via SGSD Codex wrapper |
 | Planner | Codex GPT-5.5/xhigh | Plan synthesis and repair |
 | Plan final review | Codex GPT-5.5/xhigh | Fast ATC + MUDA challenge before execution |
-| Code execution | Codex GPT-5.5/xhigh | Claude orchestrates; Codex edits; patch mode handles Windows read-blocks |
+| Code execution | Codex GPT-5.5/xhigh | Serial SDD implementer run; Claude orchestrates; Codex edits; patch mode handles Windows read-blocks |
+| Spec compliance | Codex GPT-5.5/xhigh | Independent review of raw PLAN, diff, executor report, and verification before ATC |
 | Verifier/checker/gates | Codex GPT-5.5/xhigh | Verification, readiness, ATC, MUDA, and plan-check |
 
 ### Sub-Agent Prompt Composition
@@ -397,22 +405,24 @@ mode, and any configured remote/Linux Codex route have failed:
 - Query SGSD memory instead of loading full .md files
 - Sub-agent reports: 300 words max
 - Plans: compressed XML (~800 tokens, not ~2,000)
-- Haiku for classification (~50 tokens), not Opus
+- Codex/local classifier routes for classification, not Opus
 - Log all token usage to `.planning/metrics/token-log.jsonl`
 - Script reuse: query before creating new utilities
 
 ### Memory Retrieval (DLB-01 - replaces ByteRover)
 
 Per DLB-01 (`.planning/decisions/DLB-01-memory-topology.md`), the SGSD-global
-memory tier is a git-native filesystem store at `.brv/context-tree/` with an
-`INDEX.md` catalogue. The shell wrappers below are the stable callable
-interface; legacy ByteRover command wrappers are not part of the live contract.
+memory tier is a project-local filesystem store at `.planning/memory/` with a
+`MEMORY.md` catalogue. The shell wrappers below are the stable callable
+interface; legacy BRV/ByteRover command wrappers are not part of the live
+contract.
 
 - `sgsd-recall "{terms}"` — grep INDEX.md by query terms, emit top-N file
   contents with `<!-- sgsd-recall: type/slug -->` framing (~200 tokens per
   result). Supports `--type`, `--limit`, `--paths-only`. Lives at
   `super-gsd/scripts/sgsd-recall.sh`; auto-walks up from CWD to find
-  `.brv/context-tree/`.
+  `.planning/memory/`, with read-only legacy fallback for unmigrated BRV
+  projects.
 - `sgsd-curate --type T --slug S --summary "<=80 chars" [--tags "a,b"] < body.md`
   — atomic write of a new entry + INDEX.md update. Types:
   `pattern | anti-pattern | decision | expertise | script`.

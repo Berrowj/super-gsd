@@ -3,6 +3,7 @@ name: sgsd-phase-readiness
 description: Lightweight per-phase dependency re-probe. Runs immediately before the first executor dispatch of each phase to catch environmental drift (service died mid-run, VPN dropped, container stopped). Reads the phase's slice of MILESTONE-READINESS.md and re-runs only that phase's probes. Fast, cheap, and the second line of defence after the milestone-level audit.
 tools: Read, Write, Bash, Grep
 model: haiku
+status: legacy-disabled
 ---
 
 <role>

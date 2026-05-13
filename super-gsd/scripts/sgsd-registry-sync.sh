@@ -1,25 +1,19 @@
 #!/usr/bin/env bash
 # ============================================================================
-# sgsd-registry-sync — materialise the Agents resource-registry manifest
+# sgsd-registry-sync - materialise the Agents resource-registry manifest
 # ============================================================================
-# Per DLB-04 Q1 (1c, scoped) — walk super-gsd/agents/*.md, extract the
-# minimal resource record, atomically write .planning/resource-registry/agents.jsonl.
+# Walk super-gsd/agents/*.md, extract the minimal resource record, and
+# atomically write .planning/resource-registry/agents.jsonl.
 #
-# Schema (one JSON object per line):
+# Schema, one JSON object per line:
 #   {"id","path","sha","mtime","model","tools","description","status"}
 #
-# Scoped to Agents ONLY (not Prompts, not Environments, not Tools/Memory which
-# already have their own inventories via git + INDEX.md). Manifest is read-only
-# from the orchestrator's perspective — the classifier consults it pre-dispatch
-# for agent-selection queries. This script is the sole writer.
-#
-# Coupling rule (from Architect R2 blind-spot concession):
-#   The manifest has no justification without a named v1.2 consumer. That
-#   consumer is the MUDA classifier's pre-dispatch query. If the read-path
-#   wire-up slips, the manifest is still cheap to keep (no op overhead),
-#   but the kill check runs at v1.2 close via metrics/sepl-log.jsonl absence.
-#
-# Atomic: .tmp + rename. No partial writes.
+# Fresh-clone routing policy:
+#   - Claude Sonnet/Haiku agent files are legacy declarations unless a future
+#     file explicitly opts back in with a non-default status.
+#   - Write/Edit/Bash-capable executor contracts with no Claude model are
+#     logical Codex routes and remain active as model=codex.
+#   - External Codex contracts remain active.
 #
 # Usage:
 #   sgsd-registry-sync.sh [--root PATH] [--dry-run]
@@ -39,7 +33,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Resolve root (walk up until super-gsd/agents/ found)
 if [[ -z "$ROOT" ]]; then
     d="$(pwd -P)"
     while [[ "$d" != "/" && "$d" != "" ]]; do
@@ -50,90 +43,118 @@ if [[ -z "$ROOT" ]]; then
         d="$(dirname "$d")"
     done
 fi
+
 if [[ -z "$ROOT" || ! -d "$ROOT/super-gsd/agents" ]]; then
     echo "sgsd-registry-sync: no super-gsd/agents/ found above $(pwd). Pass --root or run from a project root." >&2
     exit 3
 fi
 
-AGENTS_DIR="$ROOT/super-gsd/agents"
-REGISTRY_DIR="$ROOT/.planning/resource-registry"
-MANIFEST="$REGISTRY_DIR/agents.jsonl"
-TMP="$MANIFEST.tmp"
-
-mkdir -p "$REGISTRY_DIR"
-
-# Extract a single YAML frontmatter field from an agent file.
-# Matches lines like "name: value" or "model: haiku" within the first ---...--- block.
-# Strips surrounding quotes. Returns empty string if missing.
-extract_field() {
-    local file="$1" field="$2"
-    awk -v f="$field" '
-        /^---[[:space:]]*$/ { if (in_fm) exit; in_fm = 1; next }
-        in_fm && $0 ~ "^"f":" {
-            sub("^"f":[[:space:]]*", "")
-            gsub(/^"|"$|^'\''|'\''$/, "")
-            print
-            exit
-        }
-    ' "$file"
-}
-
-# JSON-escape a string (quotes, backslashes, control chars).
-json_escape() {
-    printf '%s' "$1" | sed \
-        -e 's/\\/\\\\/g' \
-        -e 's/"/\\"/g' \
-        -e 's/\x08/\\b/g' \
-        -e 's/\x0c/\\f/g' \
-        -e 's/\x0a/\\n/g' \
-        -e 's/\x0d/\\r/g' \
-        -e 's/\x09/\\t/g'
-}
-
-count=0
-# Write to tmp first so a failure mid-walk doesn't leave a partial manifest
-: > "$TMP"
-
-for agent_file in "$AGENTS_DIR"/*.md; do
-    [[ -f "$agent_file" ]] || continue
-
-    base="$(basename "$agent_file")"
-    rel_path="super-gsd/agents/$base"
-    agent_id="$(extract_field "$agent_file" name)"
-    [[ -z "$agent_id" ]] && agent_id="${base%.md}"
-
-    model="$(extract_field "$agent_file" model)"
-    [[ -z "$model" ]] && model="unspecified"
-
-    tools="$(extract_field "$agent_file" tools)"
-    description="$(extract_field "$agent_file" description)"
-
-    # git hash-object gives the blob sha1 — stable, content-addressable, matches
-    # what git stores. Falls back to empty string if not in a git repo.
-    sha="$(git -C "$ROOT" hash-object "$agent_file" 2>/dev/null || echo "")"
-
-    # Portable mtime (GNU stat or BSD stat)
-    mtime="$(stat -c %Y "$agent_file" 2>/dev/null || stat -f %m "$agent_file" 2>/dev/null || echo 0)"
-
-    # Escape for JSON embedding
-    id_esc="$(json_escape "$agent_id")"
-    path_esc="$(json_escape "$rel_path")"
-    model_esc="$(json_escape "$model")"
-    tools_esc="$(json_escape "$tools")"
-    desc_esc="$(json_escape "$description")"
-    sha_esc="$(json_escape "$sha")"
-
-    printf '{"id":"%s","path":"%s","sha":"%s","mtime":%s,"model":"%s","tools":"%s","description":"%s","status":"active"}\n' \
-        "$id_esc" "$path_esc" "$sha_esc" "$mtime" "$model_esc" "$tools_esc" "$desc_esc" >> "$TMP"
-    count=$((count + 1))
-done
-
-if [[ "$DRY_RUN" == true ]]; then
-    echo "DRY RUN — would write $MANIFEST ($count records):"
-    cat "$TMP"
-    rm -f "$TMP"
-    exit 0
+NODE_BIN="${NODE_BIN:-}"
+if [[ -z "$NODE_BIN" ]]; then
+    if command -v node >/dev/null 2>&1; then
+        NODE_BIN="node"
+    elif command -v node.exe >/dev/null 2>&1; then
+        NODE_BIN="node.exe"
+    else
+        echo "sgsd-registry-sync: node is required" >&2
+        exit 4
+    fi
 fi
 
-mv "$TMP" "$MANIFEST"
-echo "sgsd-registry-sync: wrote $count agent records to $MANIFEST"
+NODE_ROOT="$ROOT"
+if [[ "$NODE_BIN" == *node.exe && "$NODE_ROOT" == /mnt/* ]] && command -v wslpath >/dev/null 2>&1; then
+    NODE_ROOT="$(wslpath -w "$NODE_ROOT")"
+fi
+
+"$NODE_BIN" - "$NODE_ROOT" "$DRY_RUN" <<'NODE'
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+
+const root = path.resolve(process.argv[2]);
+const dryRun = process.argv[3] === 'true';
+const agentsDir = path.join(root, 'super-gsd', 'agents');
+const registryDir = path.join(root, '.planning', 'resource-registry');
+const manifest = path.join(registryDir, 'agents.jsonl');
+const tmp = manifest + '.tmp';
+
+function parseFrontmatter(text) {
+  const out = {};
+  const lines = text.split(/\r?\n/);
+  if (lines[0] !== '---') return out;
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i] === '---') break;
+    const m = lines[i].match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    if (!m) continue;
+    let value = m[2].trim();
+    if ((value.startsWith('"') && value.endsWith('"'))
+        || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    out[m[1]] = value;
+  }
+  return out;
+}
+
+function gitBlobSha(buffer) {
+  return crypto
+    .createHash('sha1')
+    .update(Buffer.from('blob ' + buffer.length + '\0'))
+    .update(buffer)
+    .digest('hex');
+}
+
+function hasMutatingTools(tools) {
+  return /(^|[,\s])(Write|Edit|Bash)([,\s]|$)/.test(tools || '');
+}
+
+function deriveStatusAndModel(fm) {
+  let model = fm.model || '';
+  let status = fm.status || 'active';
+  if (!model) {
+    model = hasMutatingTools(fm.tools) ? 'codex' : 'unspecified';
+  }
+  if (status === 'active' && (model === 'sonnet' || model === 'haiku')) {
+    status = 'legacy-disabled';
+  }
+  if ((fm.description || '').startsWith('DISABLED')) {
+    status = 'disabled';
+  }
+  return { model, status };
+}
+
+const names = fs.readdirSync(agentsDir)
+  .filter((name) => name.endsWith('.md'))
+  .sort();
+
+const rows = names.map((name) => {
+  const file = path.join(agentsDir, name);
+  const buffer = fs.readFileSync(file);
+  const fm = parseFrontmatter(buffer.toString('utf8'));
+  const derived = deriveStatusAndModel(fm);
+  const st = fs.statSync(file);
+  return {
+    id: fm.name || name.replace(/\.md$/, ''),
+    path: 'super-gsd/agents/' + name,
+    sha: gitBlobSha(buffer),
+    mtime: Math.floor(st.mtimeMs / 1000),
+    model: derived.model,
+    tools: fm.tools || '',
+    description: fm.description || '',
+    status: derived.status
+  };
+});
+
+const body = rows.map((row) => JSON.stringify(row)).join('\n') + '\n';
+
+if (dryRun) {
+  process.stdout.write('DRY RUN - would write ' + manifest + ' (' + rows.length + ' records):\n');
+  process.stdout.write(body);
+  process.exit(0);
+}
+
+fs.mkdirSync(registryDir, { recursive: true });
+fs.writeFileSync(tmp, body);
+fs.renameSync(tmp, manifest);
+process.stdout.write('sgsd-registry-sync: wrote ' + rows.length + ' agent records to ' + manifest + '\n');
+NODE

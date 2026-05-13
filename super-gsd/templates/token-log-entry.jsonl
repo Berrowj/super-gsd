@@ -1,1 +1,1 @@
-{"ts":"2026-04-08T14:23:00Z","phase":27,"plan":1,"model":"sonnet","role":"executor","est_input":1200,"est_output":800,"total":2000,"classifier_model":"haiku","context_tokens":400,"scripts_reused":0,"scripts_created":1}
+{"ts":"2026-04-08T14:23:00Z","phase":27,"plan":1,"model":"codex","role":"executor","provider":"openai-codex","reasoning_effort":"xhigh","est_input":1200,"est_output":800,"total":2000,"classifier_model":"frontmatter","context_tokens":400,"scripts_reused":0,"scripts_created":1}

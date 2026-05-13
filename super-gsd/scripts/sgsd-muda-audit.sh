@@ -5,8 +5,8 @@
 # Wraps sgsd-muda-probe and produces:
 #   1. A human-readable WASTE.md in the phase dir
 #   2. For each WARN/FAIL probe, a curated waste-finding entry via sgsd-curate
-#      into .brv/context-tree/anti-patterns/ — so future classifier consults
-#      (when the read path lands post-v1.2) see them ranked by recurrence.
+#      into .planning/memory/architecture/anti-patterns/ so future classifier
+#      consults see them ranked by recurrence.
 #
 # Per DLB-02's CONVERGENT decision: write-path only, no two-tier, no seed
 # library, no fold with sgsd-token-audit yet. This script is the entire MUDA
@@ -244,7 +244,7 @@ exit_code: $PROBE_EXIT
 $(if [[ $fail_count -eq 0 && $warn_count -eq 0 ]]; then
     echo "All active probes PASS. No waste detected by current watchdogs. Phase is clean per DLB-02 Day-2 criteria."
 elif [[ $fail_count -gt 0 ]]; then
-    echo "**$fail_count FAIL** + $warn_count WARN across active probes. Findings curated to \`.brv/context-tree/anti-patterns/\` for future classifier consult."
+    echo "**$fail_count FAIL** + $warn_count WARN across active probes. Findings curated to \`.planning/memory/architecture/anti-patterns/\` for future classifier consult."
 else
     echo "$warn_count WARN (no FAIL) across active probes. Findings curated."
 fi)
@@ -321,9 +321,9 @@ the earlier finding pre-dispatch so the executor can avoid the same cost.
 See [DLB-02 memo](../../decisions/DLB-02-muda-learning-loop.md) for the
 broader waste-detection design. Individual probe fixes:
 
-- **defects** (haiku_fails): check \`claude --print\` auth, PATH, and model
+- **defects** (narrator/classifier failures): check \`claude --print\` auth, PATH, and model
   compatibility. Clear \`narrative.md.lastfail\` after fix.
-- **waiting** (narrative_age_sec): ensure the Haiku background worker is
+- **waiting** (narrative_age_sec): ensure the narrator background worker is
   running; check for stale \`narrative.md.lock\`.
 - **motion** (git_spawn_pct): review dashboards / skills for N+1 git
   invocation patterns. Batch via \`Invoke-CachedGit\` (see DLB-01 render-cache).

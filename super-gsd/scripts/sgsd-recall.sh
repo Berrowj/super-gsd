@@ -2,10 +2,10 @@
 # ============================================================================
 # sgsd-recall — retrieve matching entries from the SGSD context tree
 # ============================================================================
-# Per DLB-01 (memory topology): the SGSD-global memory tier is a git-native
-# filesystem store at .brv/context-tree/ with a catalogue at INDEX.md. This
-# script is the stable, callable retrieval interface that replaces the dead
-# `brv-query` / `mcp__brv__*` no-ops.
+# Per DLB-01 (memory topology): current SGSD memory is a project-local
+# filesystem store at .planning/memory/ with a catalogue at MEMORY.md. This
+# script is the stable callable retrieval interface; it keeps a read-only
+# legacy .brv/context-tree fallback only for unmigrated projects.
 #
 # Usage:
 #   sgsd-recall "query terms"                 → top-3 matches by index scan

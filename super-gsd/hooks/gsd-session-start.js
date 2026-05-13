@@ -18,13 +18,9 @@
 const fs = require('fs');
 const path = require('path');
 
-function toUnixPath(p) {
-  return p.replace(/^([A-Za-z]):\\/, (_, d) => `/mnt/${d.toLowerCase()}/`)
-           .replace(/\\/g, '/');
-}
-
-const CHECKPOINT_PATH = path.join(toUnixPath(process.cwd()), '.planning', 'ORCHESTRATOR-CHECKPOINT.md');
-const STATE_PATH = path.join(toUnixPath(process.cwd()), '.planning', 'STATE.md');
+const CHECKPOINT_PATH = path.join(process.cwd(), '.planning', 'ORCHESTRATOR-CHECKPOINT.md');
+const STATE_PATH = path.join(process.cwd(), '.planning', 'STATE.md');
+const MEMORY_PATH = path.join(process.cwd(), '.planning', 'memory');
 
 try {
   const parts = [];
@@ -54,10 +50,9 @@ try {
     }
   }
 
-  // Check for ByteRover
-  const brvPath = path.join(toUnixPath(process.cwd()), '.brv');
-  if (fs.existsSync(brvPath)) {
-    parts.push('ByteRover context tree: active');
+  // Check for SGSD memory
+  if (fs.existsSync(MEMORY_PATH)) {
+    parts.push('SGSD memory: .planning/memory active');
   }
 
   if (parts.length > 0) {

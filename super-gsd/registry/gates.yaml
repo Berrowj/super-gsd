@@ -76,13 +76,13 @@ gates:
   # ── category: process-hygiene ─────────────────────────────────────────────
 
   - name: classifier-haiku
-    repair_instruction: "Re-run the classifier dispatch with Agent(model='haiku', task='classify'); if Haiku is offline, fall back to a single-shot Sonnet classify and log DEVIATIONS."
+    repair_instruction: "Legacy gate name. Derive classifier result from plan frontmatter/cache or run Codex/local classify; do not spawn Haiku/Sonnet."
     category: process-hygiene
     step: 2
     enforcement_mode: soft-warn
     gate_sampling_tier: always
     trigger: []
-    reviewer_agent: haiku
+    reviewer_agent: codex
     evidence_emitted: []
     escalation: log-only
     source_dlb: DLB-02
@@ -90,13 +90,13 @@ gates:
     version: 2.0
 
   - name: context-selector-haiku
-    repair_instruction: "Re-run the context-selector dispatch with Agent(model='haiku', task='select_context'); if empty, retry with broader recall query."
+    repair_instruction: "Legacy gate name. Derive sgsd_recall_queries from plan evidence and retry with broader recall terms if empty."
     category: process-hygiene
     step: 4
     enforcement_mode: soft-warn
     gate_sampling_tier: always
     trigger: []
-    reviewer_agent: haiku
+    reviewer_agent: codex
     evidence_emitted: []
     escalation: log-only
     source_dlb: DLB-02

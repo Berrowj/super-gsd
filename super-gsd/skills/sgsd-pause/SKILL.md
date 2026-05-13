@@ -47,8 +47,8 @@ units_this_session: {N}
 estimated_tokens_used: {N}
 model_breakdown:
   opus: {N}
-  sonnet: {N}
-  haiku: {N}
+  codex: {N}
+  legacy_disabled: {N}
 ---
 
 ## Completed This Session
@@ -63,7 +63,7 @@ model_breakdown:
 - ...
 
 ## Learnings Curated This Session
-{Any patterns/scripts curated to ByteRover}
+{Any patterns/scripts curated to SGSD memory}
 
 ## Resume Instructions
 1. Read this checkpoint

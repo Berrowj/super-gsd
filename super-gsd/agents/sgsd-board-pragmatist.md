@@ -2,7 +2,8 @@
 name: sgsd-board-pragmatist
 description: Pragmatist board member. Focuses on execution risk, timeline reality, resource constraints, what actually ships. Spawned by sgsd-ceo during deliberation.
 tools: Read, Grep, Glob
-model: sonnet
+model: disabled
+status: legacy-disabled
 ---
 
 <role>

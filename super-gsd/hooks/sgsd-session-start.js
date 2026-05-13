@@ -30,7 +30,7 @@ const path = require('path');
 // Avoid Unix-path conversion helpers: they produce /mnt/c/... paths that break native FS ops.
 const CHECKPOINT_PATH  = path.join(process.cwd(), '.planning', 'ORCHESTRATOR-CHECKPOINT.md');
 const STATE_PATH       = path.join(process.cwd(), '.planning', 'STATE.md');
-const BRV_PATH         = path.join(process.cwd(), '.brv');
+const MEMORY_PATH      = path.join(process.cwd(), '.planning', 'memory');
 const HANDOFF_LOG_PATH = path.join(process.cwd(), '.planning', 'metrics', 'handoff-log.jsonl');
 
 try {
@@ -57,9 +57,9 @@ try {
     }
   }
 
-  // ── 3. ByteRover context ─────────────────────────────────────────────────
-  if (fs.existsSync(BRV_PATH)) {
-    parts.push('ByteRover context tree: active');
+  // ── 3. SGSD memory ────────────────────────────────────────────────────────
+  if (fs.existsSync(MEMORY_PATH)) {
+    parts.push('SGSD memory: .planning/memory active');
   }
 
   if (parts.length > 0) {

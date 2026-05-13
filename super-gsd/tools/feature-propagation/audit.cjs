@@ -44,7 +44,7 @@ const REQUIRED_CLAUDE_MD_MARKERS = Object.freeze([
   { code: 'auto_command_missing', text: '/sgsd-orchestrate auto' },
   { code: 'codex_research_missing', text: 'Research with Codex GPT-5.5/xhigh' },
   { code: 'vtp_after_research_missing', text: 'Run VTP enrichment after research' },
-  { code: 'opus_planner_missing', text: 'Opus 4.7 / xhigh' },
+  { code: 'codex_planner_missing', text: 'Dispatch Codex planning' },
   { code: 'codex_plan_review_missing', text: 'Codex plan review' },
   { code: 'board_recovery_missing', text: 'Blocker recovery policy' },
   { code: 'separate_codex_challenge_missing', text: 'separate Codex' },
@@ -155,7 +155,7 @@ const CORE_CONFIG_DEFAULTS = Object.freeze({
   workflow: Object.freeze({
     research: true,
     triage_vtp_enrichment: true,
-    planner_model: 'opus',
+    planner_model: 'codex',
     planner_reasoning_effort: 'xhigh',
     plan_final_codex_review: true,
     plan_final_muda_review: true,
@@ -557,7 +557,7 @@ function ensureConfigDefaults(ctx, actions, safeRepair) {
   ensureObj('workflow');
   setIfDifferent(cfg.workflow, 'research', true, 'workflow.research');
   setIfDifferent(cfg.workflow, 'triage_vtp_enrichment', true, 'workflow.triage_vtp_enrichment');
-  setIfDifferent(cfg.workflow, 'planner_model', 'opus', 'workflow.planner_model');
+  setIfDifferent(cfg.workflow, 'planner_model', 'codex', 'workflow.planner_model');
   setIfDifferent(cfg.workflow, 'planner_reasoning_effort', 'xhigh', 'workflow.planner_reasoning_effort');
   setIfDifferent(cfg.workflow, 'plan_final_codex_review', true, 'workflow.plan_final_codex_review');
   setIfDifferent(cfg.workflow, 'plan_final_muda_review', true, 'workflow.plan_final_muda_review');
@@ -751,7 +751,7 @@ function selfTest() {
   try {
     add('schema_version_locked', SCHEMA_VERSION === 1, String(SCHEMA_VERSION));
     add('codex_defaults_locked', CODEX_MODEL === 'gpt-5.5' && CODEX_EFFORT === 'xhigh', CODEX_MODEL + '/' + CODEX_EFFORT);
-    add('planner_defaults_locked', CORE_CONFIG_DEFAULTS.workflow.planner_model === 'opus' && CORE_CONFIG_DEFAULTS.workflow.planner_reasoning_effort === 'xhigh', CORE_CONFIG_DEFAULTS.workflow.planner_model + '/' + CORE_CONFIG_DEFAULTS.workflow.planner_reasoning_effort);
+    add('planner_defaults_locked', CORE_CONFIG_DEFAULTS.workflow.planner_model === 'codex' && CORE_CONFIG_DEFAULTS.workflow.planner_reasoning_effort === 'xhigh', CORE_CONFIG_DEFAULTS.workflow.planner_model + '/' + CORE_CONFIG_DEFAULTS.workflow.planner_reasoning_effort);
     add('auto_mode_defaults_locked', CORE_CONFIG_DEFAULTS.workflow.auto_continue_until_roadmap_complete === true && CORE_CONFIG_DEFAULTS.workflow.planning_pipeline_enforced === true, String(CORE_CONFIG_DEFAULTS.workflow.auto_continue_until_roadmap_complete));
     add('claude_md_marker_set_declared', REQUIRED_CLAUDE_MD_MARKERS.length >= 10 && REQUIRED_CLAUDE_MD_MARKERS.some((r) => r.code === 'codex_research_missing'), String(REQUIRED_CLAUDE_MD_MARKERS.length));
     add('required_vtp_agents_declared', REQUIRED_VTP_AGENTS.length === 2 && REQUIRED_VTP_AGENTS.indexOf('sgsd-vtp-enrichment.md') !== -1, REQUIRED_VTP_AGENTS.join(','));

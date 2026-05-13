@@ -97,9 +97,11 @@ bash install.sh --init-project
 ```
 
 > **Note for Windows:** `install.sh` needs bash. Use the bash shell shipped
-> with Git for Windows (it's at `C:\Program Files\Git\bin\bash.exe`). WSL bash
-> also works but the install targets `$HOME\.claude` on Windows, so Git Bash
-> is simpler.
+> with Git for Windows. From PowerShell, prefer:
+> `& "$env:LOCALAPPDATA\Programs\Git\bin\bash.exe" install.sh --doctor`.
+> Do not use the `C:\Windows\System32\bash.exe` WSL shim for SGSD install;
+> it has a separate Linux home and may not have Node/Codex. The installer
+> normalizes Git Bash `HOME` to `%USERPROFILE%` before touching `.claude`.
 
 What the safe local installer does:
 - Creates `.planning/` scaffolding in the current project.
@@ -292,7 +294,7 @@ to add two blocks:
 
   "atc": {
     "enabled": true,
-    "classify_model": "haiku",
+    "classify_model": "codex-local",
     "skip_threshold_lines": 10,
     "lite_threshold_lines": 50,
     "lite_threshold_files": 3,
@@ -542,6 +544,9 @@ Means the script can't find the active session JSONL. Two common causes:
 
 You're running the Linux `install.sh` under Git Bash instead of WSL. Re-run
 inside WSL: `wsl -e bash -c '<curl command>'`.
+
+This applies only to `gsd-browser`. SGSD's own `super-gsd/install.sh` should
+use Git Bash on Windows so it targets the Windows Claude/Codex install.
 
 ### Gate 1 blocker: "gsd-browser unavailable"
 

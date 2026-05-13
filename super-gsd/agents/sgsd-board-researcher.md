@@ -2,7 +2,8 @@
 name: sgsd-board-researcher
 description: Researcher board member. Queries VTP library for book/paper/meeting precedent to confirm or refine proposals. Spawned by sgsd-ceo during deliberation.
 tools: Read, Grep, Glob, mcp__vtp-kb__vtp_search, mcp__vtp-kb__vtp_search_substrate, mcp__vtp-kb__vtp_search_research, mcp__vtp-kb__vtp_get_document, mcp__vtp-kb__vtp_route_and_retrieve
-model: sonnet
+model: disabled
+status: legacy-disabled
 ---
 
 <role>

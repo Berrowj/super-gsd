@@ -34,20 +34,21 @@
   },
   "token_efficiency": {
     "state_read": "frontmatter_only",
-    "context_injection": "brv_query",
+    "context_injection": "sgsd_recall",
     "context_warning_percent": 70,
     "checkpoint_threshold_percent": 100000,
     "max_report_words": 300,
     "max_prompt_tokens": 1500,
     "log_usage": true
   },
-  "byterover": {
+  "memory": {
     "enabled": true,
     "query_before_dispatch": true,
     "curate_after_dispatch": true,
     "script_registry": true,
     "max_queries_per_dispatch": 3,
-    "max_context_tokens": 1000
+    "max_context_tokens": 1000,
+    "root": ".planning/memory"
   },
   "deliberation": {
     "enabled": true,

@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # ============================================================================
-# sgsd-curate — write a new entry to the SGSD context tree and update INDEX.md
+# sgsd-curate — write a new entry to SGSD memory and update MEMORY.md
 # ============================================================================
-# Per DLB-01 (memory topology): curation replaces the dead `brv-curate` no-ops.
-# This script writes a new .md file under .brv/context-tree/<type>/<slug>.md
-# with YAML frontmatter, then atomically updates INDEX.md so the entry is
-# immediately retrievable by sgsd-recall.
+# Per DLB-01 (memory topology): curation writes to project-local
+# .planning/memory/ by default. A read-only legacy .brv/context-tree fallback
+# remains for unmigrated projects.
 #
 # Usage:
 #   sgsd-curate --type pattern --slug my-new-pattern --summary "≤80 chars" [opts] < body.md

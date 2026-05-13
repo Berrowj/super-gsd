@@ -43,7 +43,7 @@ agents:
   # ─── Category C — Execution specialists (Phase C, 2026-04-21) ────────────────
   - name: sgsd-exec-backend
     category: C
-    model_default: sonnet
+    model_default: codex
     agent_file: super-gsd/agents/sgsd-exec-backend.md
     installed_at: ~/.claude/agents/sgsd-exec-backend.md
     expertise_ref: super-gsd/expertise/sgsd-exec-backend.md
@@ -65,7 +65,7 @@ agents:
 
   - name: sgsd-exec-ui
     category: C
-    model_default: sonnet
+    model_default: codex
     agent_file: super-gsd/agents/sgsd-exec-ui.md
     installed_at: ~/.claude/agents/sgsd-exec-ui.md
     expertise_ref: super-gsd/expertise/sgsd-exec-ui.md
@@ -88,7 +88,7 @@ agents:
 
   - name: sgsd-exec-test
     category: C
-    model_default: sonnet
+    model_default: codex
     agent_file: super-gsd/agents/sgsd-exec-test.md
     installed_at: ~/.claude/agents/sgsd-exec-test.md
     expertise_ref: super-gsd/expertise/sgsd-exec-test.md
@@ -110,7 +110,7 @@ agents:
 
   - name: sgsd-exec-refactor
     category: C
-    model_default: sonnet
+    model_default: codex
     agent_file: super-gsd/agents/sgsd-exec-refactor.md
     installed_at: ~/.claude/agents/sgsd-exec-refactor.md
     expertise_ref: super-gsd/expertise/sgsd-exec-refactor.md
@@ -132,7 +132,7 @@ agents:
 
   - name: sgsd-exec-fix
     category: C
-    model_default: sonnet
+    model_default: codex
     agent_file: super-gsd/agents/sgsd-exec-fix.md
     installed_at: ~/.claude/agents/sgsd-exec-fix.md
     expertise_ref: super-gsd/expertise/sgsd-exec-fix.md
@@ -154,7 +154,7 @@ agents:
 
   - name: sgsd-exec-config
     category: C
-    model_default: sonnet
+    model_default: codex
     agent_file: super-gsd/agents/sgsd-exec-config.md
     installed_at: ~/.claude/agents/sgsd-exec-config.md
     expertise_ref: super-gsd/expertise/sgsd-exec-config.md
@@ -176,7 +176,7 @@ agents:
 
   - name: sgsd-exec-docs
     category: C
-    model_default: sonnet
+    model_default: codex
     agent_file: super-gsd/agents/sgsd-exec-docs.md
     installed_at: ~/.claude/agents/sgsd-exec-docs.md
     expertise_ref: super-gsd/expertise/sgsd-exec-docs.md
@@ -197,7 +197,7 @@ agents:
 
   - name: sgsd-exec-integration
     category: C
-    model_default: sonnet
+    model_default: codex
     agent_file: super-gsd/agents/sgsd-exec-integration.md
     installed_at: ~/.claude/agents/sgsd-exec-integration.md
     expertise_ref: super-gsd/expertise/sgsd-exec-integration.md
@@ -223,7 +223,7 @@ agents:
 _example_entry:
   name: sgsd-exec-backend
   category: C
-  model_default: sonnet
+  model_default: codex
   agent_file: ~/.claude/agents/sgsd-exec-backend.md
   expertise_ref: super-gsd/expertise/sgsd-exec-backend.md
   input_contract_ref: super-gsd/registry/handover-contract-v2.yaml#input

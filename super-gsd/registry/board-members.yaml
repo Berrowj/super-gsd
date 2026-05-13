@@ -7,14 +7,16 @@
 # ============================================================================
 
 schema_version: 2
-registry_version: 2.1.0
-last_updated: 2026-04-22
-board_version: v2-runtime-resolved
+registry_version: 2.2.0
+last_updated: 2026-05-13
+board_version: v3-opus-no-sonnet
 
 board_members:
   - name: sgsd-board-architect
     role: Technical Architect
-    model_default: sonnet
+    model_default: opus
+    model_variant: opus-4.7
+    reasoning_effort: xhigh
     expertise_ref: super-gsd/expertise/sgsd-board-architect.md
     supersedes: sgsd-sgsd-board-architect
     perspective:
@@ -32,7 +34,7 @@ board_members:
 
   - name: sgsd-board-pragmatist
     role: Execution Pragmatist
-    model_default: sonnet
+    model_default: disabled
     expertise_ref: super-gsd/expertise/sgsd-board-pragmatist.md
     supersedes: sgsd-sgsd-board-pragmatist
     perspective:
@@ -44,13 +46,15 @@ board_members:
       - "Will this actually ship in the time we have?"
       - "Who executes it and do they have capacity?"
       - "What's the smallest version that meets the real need?"
-    state: active
+    state: legacy-disabled
     version: 2.0
     owner_dlb: DLB-05
 
   - name: sgsd-board-contrarian
     role: Contrarian Challenger
-    model_default: sonnet
+    model_default: opus
+    model_variant: opus-4.7
+    reasoning_effort: xhigh
     expertise_ref: super-gsd/expertise/sgsd-board-contrarian.md
     supersedes: sgsd-sgsd-board-contrarian
     perspective:
@@ -68,7 +72,7 @@ board_members:
 
   - name: sgsd-board-moonshot
     role: Moonshot Visionary
-    model_default: sonnet
+    model_default: disabled
     expertise_ref: super-gsd/expertise/sgsd-board-moonshot.md
     supersedes: sgsd-sgsd-board-moonshot
     perspective:
@@ -79,13 +83,15 @@ board_members:
       - "What would this look like if we were 10x more ambitious?"
       - "Is the proposed scope actually the right scope?"
       - "What structural change would make this irrelevant?"
-    state: active
+    state: legacy-disabled
     version: 2.0
     owner_dlb: DLB-05
 
   - name: sgsd-ceo
     role: CEO (synthesizer / orchestrator)
     model_default: opus
+    model_variant: opus-4.7
+    reasoning_effort: xhigh
     expertise_ref: super-gsd/expertise/sgsd-ceo.md
     supersedes: ssgsd-ceo
     perspective: meta

@@ -9,8 +9,8 @@
 #   .planning/resource-registry/agents.jsonl
 #   .planning/proposals/*.md
 #   .planning/metrics/sepl-log.jsonl
-#   .brv/context-tree/trajectory-hypothesis/*.md
-#   .brv/context-tree/trajectory-hypothesis/candidate/*.md
+#   .planning/memory/trajectory/hypothesis/*.md
+#   .planning/memory/trajectory/candidate/*.md
 #   .planning/metrics/distillation-novelty.jsonl
 # ============================================================================
 
@@ -61,7 +61,7 @@ function Get-SubstrateStatus {
     }
 
     # Trajectory hypotheses
-    $hypDir = Join-Path $ProjectDir ".brv/context-tree/trajectory-hypothesis"
+    $hypDir = Join-Path $ProjectDir ".planning/memory/trajectory/hypothesis"
     if (Test-Path $hypDir) {
         $hyp = Get-ChildItem $hypDir -Filter "*.md" -ErrorAction SilentlyContinue | Where-Object { -not $_.PSIsContainer }
         $result.HypothesesCount = $hyp.Count
@@ -70,7 +70,7 @@ function Get-SubstrateStatus {
         }
     }
 
-    $candDir = Join-Path $ProjectDir ".brv/context-tree/trajectory-hypothesis/candidate"
+    $candDir = Join-Path $ProjectDir ".planning/memory/trajectory/candidate"
     if (Test-Path $candDir) {
         $result.CandidatesCount = (Get-ChildItem $candDir -Filter "*.md" -ErrorAction SilentlyContinue).Count
     }

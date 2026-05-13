@@ -9,15 +9,15 @@
 #
 # THREE MODES (invoke one at a time):
 #
-#   1. PREPARE  — gather corpus + emit Haiku prompt to stdout
+#   1. PREPARE  — gather corpus + emit Codex/local prompt to stdout
 #         sgsd-distill-milestone.sh <milestone> [--exclude-phase-type TYPE]
 #
 #         Orchestrator flow:
 #           PROMPT=$(bash sgsd-distill-milestone.sh v1.1 --exclude-phase-type self-audit)
-#           OUTPUT_JSON=$(Agent(model:"haiku", prompt:"$PROMPT") emits JSON)
+#           OUTPUT_JSON=$(codex/local extractor emits JSON)
 #           echo "$OUTPUT_JSON" | bash sgsd-distill-milestone.sh v1.1 --ingest
 #
-#   2. INGEST   — read Haiku output JSON on stdin, apply TRIPLE GATE, route
+#   2. INGEST   — read extractor output JSON on stdin, apply TRIPLE GATE, route
 #         sgsd-distill-milestone.sh <milestone> --ingest
 #
 #         Gate 1 (Architect):  type=trajectory-hypothesis (never -lesson)
@@ -40,8 +40,8 @@
 #   ]
 #
 # Output paths (per milestone pass):
-#   .brv/context-tree/trajectory-hypothesis/{ms}-{slug}.md           ← ≥2 cites
-#   .brv/context-tree/trajectory-hypothesis/candidate/{ms}-{slug}.md ← 1 cite
+#   .planning/memory/trajectory/hypothesis/{ms}-{slug}.md           ← ≥2 cites
+#   .planning/memory/trajectory/candidate/{ms}-{slug}.md            ← 1 cite
 #   .planning/milestones/{ms}/DISTILL-REQUEST.md   (corpus record)
 #   .planning/metrics/distillation-novelty.jsonl   (novelty-rating log)
 #
@@ -86,7 +86,7 @@ fi
 if [[ -z "$ROOT" ]]; then
     d="$(pwd -P)"
     while [[ "$d" != "/" && "$d" != "" ]]; do
-        if [[ -d "$d/.planning" && -d "$d/.brv/context-tree" ]]; then
+        if [[ -d "$d/.planning" && -d "$d/.planning/memory" ]]; then
             ROOT="$d"
             break
         fi
@@ -94,14 +94,14 @@ if [[ -z "$ROOT" ]]; then
     done
 fi
 if [[ -z "$ROOT" || ! -d "$ROOT/.planning" ]]; then
-    echo "sgsd-distill-milestone: no .planning/ + .brv/context-tree/ found. Pass --root." >&2
+    echo "sgsd-distill-milestone: no .planning/ + .planning/memory/ found. Pass --root." >&2
     exit 3
 fi
 
 PHASES_DIR="$ROOT/.planning/phases"
-TREE="$ROOT/.brv/context-tree"
-HYP_DIR="$TREE/trajectory-hypothesis"
-CAND_DIR="$HYP_DIR/candidate"
+TREE="$ROOT/.planning/memory/trajectory"
+HYP_DIR="$TREE/hypothesis"
+CAND_DIR="$TREE/candidate"
 MS_DIR="$ROOT/.planning/milestones/$MILESTONE"
 NOVELTY_LOG="$ROOT/.planning/metrics/distillation-novelty.jsonl"
 
@@ -142,7 +142,7 @@ if [[ "$MODE" == "prepare" ]]; then
         done < <(list_phases)
     }
 
-    # Emit the Haiku prompt to stdout (orchestrator pipes this to Agent).
+    # Emit the extractor prompt to stdout (orchestrator pipes this to Codex/local runner).
     # Also write a record to DISTILL-REQUEST.md for auditability.
     PROMPT=$(cat <<'PROMPT_HEADER'
 You are a trajectory-distillation extractor. Your job is to read a corpus of
@@ -193,7 +193,7 @@ PROMPT_HEADER
         printf '%s\n\n' "---"
         printf '# Distillation request for milestone %s\n\n' "$MILESTONE"
         printf 'Prompt (emitted to stdout) + embedded corpus.\n'
-        printf 'Orchestrator dispatches Haiku with this prompt, pipes output JSON to --ingest.\n'
+        printf 'Orchestrator dispatches Codex/local extraction with this prompt, pipes output JSON to --ingest.\n'
     } > "$REQUEST"
 
     exit 0

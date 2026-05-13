@@ -1,62 +1,85 @@
 # Orchestrator Prompt Composition Guide
 
-How the orchestrator builds sub-agent prompts with ByteRover context injection.
+How the orchestrator builds Codex-first prompts with SGSD memory context.
 
 ## Composition Steps
 
-### 1. Get Classification (Haiku)
+### 1. Classify From Plan Evidence
 
-```
-Agent(model: "haiku", prompt: "
-Classify: goal='{phase_goal}', files={file_count}, lines={est_lines}, type={phase_type}
-Return JSON: {complexity, model, atc_tier, deliberate, reason}")
-```
+Use plan frontmatter, cached classifier sidecars, and local deterministic checks.
+Do not spawn Haiku/Sonnet for classification on a fresh clone.
 
-### 2. Get Context Selection (Haiku)
+Expected classifier shape:
 
-```
-Agent(model: "haiku", prompt: "
-Select context for: goal='{task_goal}', files=[{file_list}], type={task_type}
-Return JSON: {brv_queries, file_reads, error_rules, scripts_to_check}")
-```
-
-### 3. Execute ByteRover Queries
-
-For each brv_query from step 2:
-```
-sgsd-recall "{query_string}"
-→ Collect results, ~200 tokens each, max 3 queries = ~600 tokens
+```json
+{
+  "complexity": "trivial|simple|standard|complex",
+  "model": "codex|opus",
+  "atc_tier": "light|full",
+  "deliberate": false,
+  "reason": "brief evidence-based rationale"
+}
 ```
 
-For each scripts_to_check entry from context selector:
+### 2. Select Context
+
+Derive context from the active plan, relevant files, and recent SGSD state.
+
+Expected context shape:
+
+```json
+{
+  "sgsd_recall_queries": ["scripts provider health", "memory migration"],
+  "file_reads": ["relative/path.ext"],
+  "error_rules": [],
+  "scripts_to_check": ["provider health check"]
+}
+```
+
+### 3. Execute SGSD Memory Queries
+
+For each `sgsd_recall_query`:
+
 ```bash
-BRV_BIN="$(find super-gsd/overwatcher ~/.claude/hooks -name sgsd-recall-local.js 2>/dev/null | head -1)"
-HITS=$(node "$BRV_BIN" "scripts $PURPOSE" --domain scripts --max 2 --format json 2>/dev/null)
-# Format each hit as EXISTING: line for injection
-EXISTING_LINES=$(node -e "
-  const r=JSON.parse(process.argv[1]||'[]');
-  r.forEach(h=>console.log('EXISTING: '+h.path+' — '+h.snippet.substring(0,80)));
-" "$HITS")
-# Accumulate into EXISTING_SCRIPTS variable for Step 5
-EXISTING_SCRIPTS+="$EXISTING_LINES\n"
+super-gsd/scripts/sgsd-recall.sh "{query_string}" --limit 3
 ```
-If HITS is empty or "[]", skip — do not inject empty EXISTING lines.
+
+Collect results at roughly 200 tokens each. Prefer `.planning/memory/`; the
+recall script may use read-only legacy fallback for unmigrated BRV projects.
+
+For each `scripts_to_check` entry:
+
+```bash
+super-gsd/scripts/sgsd-recall.sh "scripts {purpose}" --type script --limit 2 --paths-only
+```
+
+Format matches as:
+
+```text
+EXISTING: {path} - {80-char purpose}
+```
+
+Skip empty matches. Do not inject empty placeholder blocks.
 
 ### 4. Read Minimal Files
 
-For each file_read from step 2:
+For each file read:
+
+```text
+Read(file_path, offset=0, limit=50)
 ```
-Read(file_path, offset=0, limit=50)  // Only what's needed, not full file
-```
+
+Read only the required region, not full files by default.
 
 ### 5. Compose Final Prompt
 
-Template (for executor):
-```
+Executor template:
+
+```text
 {compressed_plan_xml}
 
-{executor_brv_overlay with placeholders filled:
-  EXISTING_SCRIPTS = one "EXISTING: {path} — {80-char description}" per match, or "none"
+{executor_overlay with placeholders filled:
+  EXISTING_SCRIPTS = one "EXISTING: {path} - {80-char purpose}" per match, or "none"
   RELEVANT_DECISIONS = sgsd-recall decision results
   RELEVANT_PATTERNS = sgsd-recall pattern results
   ERROR_RULES = sgsd-recall error rule results
@@ -67,54 +90,58 @@ Template (for executor):
 </files_to_read>
 ```
 
-Template (for planner):
-```
+Planner template:
+
+```text
 Phase {N}: {goal}
 Requirements: {requirement IDs}
 Success criteria: {from ROADMAP}
 
-{planner_brv_overlay with placeholders filled}
+{planner_overlay with placeholders filled}
 
 {CONTEXT.md key sections if they exist}
 ```
 
-Template (for verifier):
-```
+Verifier template:
+
+```text
 Phase {N}: {goal}
 Plans executed: {list}
 Must-haves: {from ROADMAP success criteria}
 
-{verifier_brv_overlay}
+{verifier_overlay}
 ```
 
 ### 6. Dispatch
 
-```
-Agent(
-  description: "{role}: phase {N}",
-  model: "{from classifier}",
-  prompt: "{composed prompt}"
-)
+Codex owns research, planning, source-changing execution, verification, ATC,
+MUDA, and plan checks. Sonnet/Haiku are legacy-disabled and must not be used as
+fresh-clone fallbacks.
+
+```text
+codex-exec.sh --role "{role}" --plan "{plan_id}" --reasoning xhigh
 ```
 
 ### 7. Process Report
 
 Parse structured report:
-- FILES_CHANGED → track for commit
-- VERIFICATION → validate all passed
-- DEVIATIONS → log for phase summary
-- BLOCKERS → EXIT if any
-- SCRIPTS_CREATED → curate to ByteRover scripts/
-- ONE_LINER → commit message
-- CURATE_* → curate discoveries to ByteRover
+
+- FILES_CHANGED -> track for commit
+- VERIFICATION -> validate all passed
+- DEVIATIONS -> log for phase summary
+- BLOCKERS -> exit only if no local/degraded/Codex path remains
+- SCRIPTS_CREATED -> curate to SGSD memory scripts/
+- ONE_LINER -> commit message
+- CURATE_* -> curate discoveries to SGSD memory
 
 ### Token Budget Check
 
-After composition, estimate total tokens:
-- Plan XML: count words * 1.3
-- Overlay: ~80 tokens (fixed)
-- sgsd-recall results: ~200 per query * N queries
-- file_reads: sum of lines * ~2 tokens/line
-- TOTAL should be under 1,500 tokens for the prompt
+Estimate total tokens:
 
-If over 1,500: trim file_reads first, then sgsd-recall results, never trim the plan.
+- Plan XML: count words * 1.3
+- Overlay: ~80 tokens
+- SGSD memory results: ~200 per query * N queries
+- file_reads: sum of lines * ~2 tokens/line
+
+Target: under 1,500 prompt tokens. If over budget, trim file reads first, then
+recall results. Never trim the plan below its required success criteria.

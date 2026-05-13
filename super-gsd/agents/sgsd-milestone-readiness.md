@@ -3,6 +3,7 @@ name: sgsd-milestone-readiness
 description: Pre-flight readiness auditor for an entire milestone. Walks every phase's PLAN.md, extracts external dependencies (services, binaries, env vars, upstream artifacts), runs live probes, and produces MILESTONE-READINESS.md with GO / BLOCKED / WILL-BLOCK / DEGRADED-PATH sections. Must run once before the first executor dispatch of a milestone so unattended auto-runs either complete or fail in the first 2 minutes.
 tools: Read, Write, Bash, Grep, Glob
 model: sonnet
+status: legacy-disabled
 ---
 
 <role>
@@ -16,7 +17,7 @@ You run ONCE per milestone. Do not duplicate work the phase-readiness agent will
 - `.planning/ROADMAP.md` → phase list for this milestone
 - `.planning/phases/{NN}-*/PLAN.md` → per-phase plans with tasks and acceptance criteria
 - `CLAUDE.md` (project root) → rules that imply live dependencies (e.g. `feedback_live_verification`)
-- `.brv/` context tree (optional) → recurring dependency patterns
+- `.planning/memory/` (optional) -> recurring dependency patterns
 </inputs>
 
 <process>
@@ -94,7 +95,7 @@ Write `.planning/milestones/{milestone}/MILESTONE-READINESS.md` (create dirs as 
 
 ## Step 7 — Curate learnings
 
-If you discovered a new dependency pattern not already in `.brv/` (e.g. a new env var convention, a new service), emit a `sgsd-curate` suggestion in the report so the orchestrator can persist it.
+If you discovered a new dependency pattern not already in `.planning/memory/` (e.g. a new env var convention, a new service), emit a `sgsd-curate` suggestion in the report so the orchestrator can persist it.
 
 </process>
 

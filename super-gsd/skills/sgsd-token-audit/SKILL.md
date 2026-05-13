@@ -103,12 +103,12 @@ Modes:
 2. Analyze:
    - Total tokens across all sessions
    - Trend: increasing or decreasing per unit?
-   - Model distribution: % opus vs sonnet vs haiku
+   - Model distribution: % opus vs codex vs legacy-disabled routes
    - Top 5 most expensive phases (by total tokens)
    - Average tokens per agent type
    - Context injection efficiency (sgsd-recall tokens vs total)
 3. Recommendations:
-   - Phases where Sonnet could be downgraded to Haiku
+   - Phases where stale Claude-agent routes should be converted to Codex/local
    - Agent types consistently under budget (could use smaller model)
    - Patterns in stuck/retry phases
    - Context files that should be compressed or archived
@@ -121,7 +121,7 @@ Modes:
 1. Find all .md files:
    ```bash
    find .planning/ -name "*.md" -type f
-   find .brv/context-tree/ -name "*.md" -type f 2>/dev/null
+   find .planning/memory/ -name "*.md" -type f 2>/dev/null
    ```
 2. For each file:
    - Size in bytes
@@ -188,7 +188,7 @@ const codexCrits = reviewRows
   .reduce((sum, r) => sum + (r.critical_count || 0), 0);
 
 const claudeCrits = reviewRows
-  .filter(r => ['claude-sonnet', 'claude-via-fallback'].includes(r.provider))
+  .filter(r => ['claude-opus', 'claude-via-legacy'].includes(r.provider))
   .reduce((sum, r) => sum + (r.critical_count || 0), 0);
 
 const critical_count_delta = codexCrits - claudeCrits;
@@ -236,7 +236,7 @@ Per CONTEXT D-21, in this order:
 1. **config flip:** Set `config.review_providers.codex_enabled: false` in `.planning/config.json`
    using Node-in-bash (never read-then-print the file contents).
 2. **Anti-pattern curation:** shell to `sgsd-curate.sh` to write:
-   `.brv/context-tree/anti-patterns/multimodal-codex-retired-{milestone}.md`
+   `.planning/memory/architecture/anti-patterns/multimodal-codex-retired-{milestone}.md`
    with content: metrics that fired the kill, thresholds, milestone ID.
 3. **MILESTONES.md append:** Add one-line summary:
    "{milestone} Codex Multimodal: RETIRED per kill condition (delta={N}, saved={K})."

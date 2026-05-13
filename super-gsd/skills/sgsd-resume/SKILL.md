@@ -60,13 +60,13 @@ done
 
 If inconsistencies found: report them, suggest `/gsd-health --repair`.
 
-## Step 3: Query ByteRover for Context
+## Step 3: Query SGSD Memory for Context
 
 ```
 sgsd-recall "current project state recent decisions"
 ```
 
-Inject relevant results into working memory for the session.
+Inject relevant `.planning/memory/` results into working memory for the session.
 
 ## Step 4: Enter Loop or Report
 
