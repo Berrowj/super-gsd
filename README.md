@@ -471,9 +471,10 @@ powershell -File super-gsd/scripts/sgsd-remote-launch.ps1 -HostName devcp -Proje
 Optional server shortcut:
 
 ```bash
-mkdir -p ~/bin
+mkdir -p ~/.local/bin ~/bin
+ln -sf ~/.claude/super-gsd/scripts/sgsd-remote-tmux.sh ~/.local/bin/sgclarity
 ln -sf ~/.claude/super-gsd/scripts/sgsd-remote-tmux.sh ~/bin/sgclarity
-ssh devcp -t 'sgclarity --greet'
+ssh devcp -t '~/.local/bin/sgclarity --greet'
 ```
 
 Use `--go` instead of `--greet` only when you want Claude to enter autonomous

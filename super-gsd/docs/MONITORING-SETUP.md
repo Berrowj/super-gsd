@@ -168,9 +168,10 @@ bash super-gsd/scripts/sgsd-agent-dashboard.sh /path/to/project
 ssh devcp -t 'bash ~/.claude/super-gsd/scripts/sgsd-remote-tmux.sh --project /opt/clarity/project-clarity-erp --session clarity-sgsd --greet'
 
 # Optional alias on devcp after --install-global:
-mkdir -p ~/bin
+mkdir -p ~/.local/bin ~/bin
+ln -sf ~/.claude/super-gsd/scripts/sgsd-remote-tmux.sh ~/.local/bin/sgclarity
 ln -sf ~/.claude/super-gsd/scripts/sgsd-remote-tmux.sh ~/bin/sgclarity
-ssh devcp -t 'sgclarity --greet'
+ssh devcp -t '~/.local/bin/sgclarity --greet'
 ```
 
 The remote tmux launcher opens four panes: operator Claude, mission control,
