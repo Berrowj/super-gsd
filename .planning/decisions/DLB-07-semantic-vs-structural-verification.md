@@ -60,13 +60,13 @@ Validation rules:
 - **SCHEMA-10**: any entry missing `input`, `expected_outcome`, or `verification_cmd` → reject
 - The verification command must run against real data (production Mongo doc, real API response, real file on disk). Fixtures don't count. This rule is enforced by the plan author and reviewed at plan-check, not parsed by the validator.
 
-### Rule 2 — Phase verification treats uniform results as alarms (deferred enforcement)
+### Rule 2 — Phase verification treats uniform results as alarms (Layer 4 documented; mechanical flag is soft)
 
-100% / 0% / 14-of-14 / "all probes failed" / "all docs blocked" — any uniform result across a non-trivial sample is suspicious until explained. The verifier must demand a written explanation before close. Soft rule today; mechanical enforcement requires a verifier hook that doesn't exist yet.
+100% / 0% / 14-of-14 / "all probes failed" / "all docs blocked" — any uniform result across a non-trivial sample is suspicious until explained. The verifier must demand a written explanation before close. **Codified in sgsd-audit anti-gaming Rule 9** as `uniform_result_warning: true` frontmatter signal; full mechanical blocking requires a verifier hook that doesn't yet act on the signal.
 
-### Rule 3 — Operator-eyeball ACs are DONE or the phase is REMEDIATION (deferred enforcement)
+### Rule 3 — Operator-eyeball ACs are DONE or the phase is REMEDIATION (Layer 4 anti-gaming rule)
 
-If a phase's acceptance criteria include "operator captures screenshot" or any human verification step, that step is DONE before close or the phase is REMEDIATION (not PASS / not WARN). No more "post-session follow-up" punts. Soft rule today; mechanical enforcement requires the audit-gate skill (`sgsd-audit`) to have canonical source in this repo first.
+If a phase's acceptance criteria include "operator captures screenshot" or any human verification step, that step is DONE before close or the phase is REMEDIATION (not PASS / not WARN). No more "post-session follow-up" punts. **Codified in sgsd-audit anti-gaming Rule 10**. The audit-gate skill now lives at `super-gsd/skills/sgsd-audit/SKILL.md` as single-file canonical source (2026-05-18).
 
 ## Layered Protection Plan
 
@@ -76,7 +76,7 @@ If a phase's acceptance criteria include "operator captures screenshot" or any h
 | 2. **DLB-07 in git** | `.planning/decisions/DLB-07-*.md` | **This document.** Every future agent reading the repo sees the rule. |
 | 3. **Schema-level mechanical enforcement** | `super-gsd/templates/plan-schema-v2.json` + `super-gsd/tools/plan-schema/validate.cjs` | **P97.5 deliverable.** Plans without semantic ACs reject at write-time and load-time. |
 | 4. SGSD memory entry | `.planning/memory/architecture/patterns/semantic-vs-structural-verification.md` | **P97.5 deliverable.** Orchestrator sees the rule at session start. |
-| 5. Audit-gate close enforcement | `super-gsd/skills/sgsd-audit/SKILL.md` (canonical source must first be added) | **Deferred** — `sgsd-audit` currently has no source in this repo, only an installed copy at `~/.claude/commands/sgsd-audit/SKILL.md`. Adding canonical source is a separate phase. |
+| 5. Audit-gate close enforcement | `super-gsd/skills/sgsd-audit/SKILL.md` (single-file canonical source, 2026-05-18) | **LANDED 2026-05-18.** sgsd-audit now lives in `super-gsd/skills/`; consolidated single-file rewrite inlines the legacy `layer1-existence.md` / `layer2-evidence.md` / `OUTPUT-WRITER.md` sidecars. Adds **Layer 4: Semantic-AC enforcement** which reads `semantic_acceptance_criteria` from PLAN.md frontmatter, executes each `verification_cmd` against real data, binds exit codes to the audit verdict, and rejects fixture-paths via the real-data guard. Skill version bumped to `sgsd-audit@v2`. Soft enforcement at phase close, blocking at milestone close per DLB-03. Carve-out: `skip_gates: ["layer-4-semantic-ac"]` with required `skip_reason:` for historic exemption. |
 | 6. Re-audit existing v22 phases against new rule | Clarity-side, not this repo | **Out of scope here.** |
 
 Layer 3 is the load-bearing change. Layers 1, 2, 4 are documentation that future-Claude reads but cannot be forced to obey. Layer 5 would make phase close itself impossible without a passing semantic AC, but it depends on a prior phase that doesn't exist yet.

@@ -146,12 +146,18 @@ Live test result against current repo: GREEN (0 manifests / 0 attributions /
   or the harness-evolution/run.cjs CLI.
 
 ### Other gaps inherited from v2.8
-1. STATE.md re-sync to v2.9 ALL-PHASES-CLOSED status.
+1. ~~STATE.md re-sync to v2.9 ALL-PHASES-CLOSED status.~~ **CLOSED 2026-05-18** @ 2b0f9f2.
 2. v2.6 SHIPPED-clean operator decision (debt rows resolved).
 3. v1.9 CONTEXT-BENCH full-mode rerun.
 4. M1-M5 manual UI checks (operator-led).
 5. Phase 95 ACP spike re-entry (when Warp #7326 ships).
 6. Phase 96 SGSD-WARP-UPSTREAM-PROPOSAL.md submission timing.
+
+### Post-close additions (2026-05-18)
+1. **DLB-07 (Semantic vs Structural Verification)** ratified after Clarity ERP 2026-05-18 incident.
+2. **P97.5 Semantic Verification Gate** (decimal-prework phase added retroactively in v2.9). Schema enforcement of `semantic_acceptance_criteria` via `plan-schema-v2.json` + `validate.cjs` (SCHEMA-09 / SCHEMA-10). 5/5 fixture tests green. Commit chain 34520c0 → 9901568 → 2fa3bbc → 6e66ad0.
+3. **DLB-07 Layer 5 — Audit-gate enforcement landed** post-v2.9-close. `super-gsd/skills/sgsd-audit/SKILL.md` added as single-file canonical source (inlines legacy `layer1-existence.md` / `layer2-evidence.md` / `OUTPUT-WRITER.md` sidecars). Adds Layer 4: Semantic-AC enforcement that executes each plan's `verification_cmd` against real data, with fixture-path guard. Skill version `sgsd-audit@v2`.
+4. **97.5-BACKFILL.md** surfaces 18 of 19 v2.9 plans pre-dating P97.5 schema; each needs `skip_gates: ["layer-4-semantic-ac"]` + `skip_reason:` exemption OR per-phase semantic-AC backfill at next dispatch.
 
 ## Measured Deltas (placeholder for operator)
 
