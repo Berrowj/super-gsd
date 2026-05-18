@@ -72,6 +72,7 @@ Claude/SGSD must read these before Phase 98:
 
 | Phase | Name | Goal |
 |---:|---|---|
+| 97.5 | Semantic Verification Gate | Mechanically reject plans whose acceptance criteria are 100% structural. Adds required `semantic_acceptance_criteria` array to plan schema v2 + SCHEMA-09/-10 validator errors. Inserted 2026-05-18 in response to Clarity ERP audit-gate incident (DLB-07). |
 | 98 | Harness Component Substrate | Make SGSD harness components explicit, file-addressable, owned, and rollbackable. |
 | 99 | Trajectory Evidence Corpus | Distill long SGSD runs into layered evidence: overview, per-task reports, drill-down traces. |
 | 100 | Change Manifest Prediction Ledger | Require every harness edit to declare evidence, root cause, expected fixes, and regression risks. |
