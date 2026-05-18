@@ -1,0 +1,11 @@
+super-gsd/templates/plan-schema-v2.json
+super-gsd/tools/plan-schema/validate.cjs
+super-gsd/tools/plan-schema/fixtures/missing-semantic-ac.md
+super-gsd/tools/plan-schema/fixtures/empty-semantic-ac.md
+super-gsd/tools/plan-schema/fixtures/incomplete-semantic-ac.md
+super-gsd/tools/plan-schema/fixtures/good-semantic-ac.md
+super-gsd/tools/plan-schema/validate.test.cjs
+.planning/milestones/v1.2/phases/11-plan-schema-v2/fixtures/good-plan.md
+.planning/milestones/v2.9/phases/97.5-semantic-verification-gate/97.5-01-schema-enforcement-PLAN.md
+.planning/milestones/v2.9/phases/97.5-semantic-verification-gate/97.5-CONTEXT.md
+.planning/decisions/DLB-07-semantic-vs-structural-verification.md

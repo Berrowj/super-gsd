@@ -3,13 +3,27 @@
   "title": "Plan Schema v2",
   "description": "Canonical YAML-frontmatter schema for SGSD v2 PLAN.md files",
   "type": "object",
-  "required": ["schema_version", "tasks"],
+  "required": ["schema_version", "tasks", "semantic_acceptance_criteria"],
   "additionalProperties": true,
+  "errorMessage": {
+    "required": {
+      "semantic_acceptance_criteria": "plan must declare 'semantic_acceptance_criteria' array with >=1 entry (SCHEMA-09)"
+    }
+  },
   "properties": {
     "schema_version": {
       "type": "integer",
       "enum": [2],
       "description": "v2 plans skip spawned classifier agents (SCHEMA-04)"
+    },
+    "semantic_acceptance_criteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/semantic_ac" },
+      "errorMessage": {
+        "minItems": "plan 'semantic_acceptance_criteria' must contain >=1 entry (SCHEMA-09)"
+      },
+      "description": "Each entry: a falsifiable claim that a real-world input produces a specific outcome (DLB-07, SCHEMA-09)."
     },
     "tasks": {
       "type": "array",
@@ -45,6 +59,23 @@
     }
   },
   "definitions": {
+    "semantic_ac": {
+      "type": "object",
+      "required": ["input", "expected_outcome", "verification_cmd"],
+      "additionalProperties": true,
+      "errorMessage": {
+        "required": {
+          "input": "semantic_acceptance_criterion must declare 'input' (SCHEMA-10)",
+          "expected_outcome": "semantic_acceptance_criterion must declare 'expected_outcome' (SCHEMA-10)",
+          "verification_cmd": "semantic_acceptance_criterion must declare 'verification_cmd' (SCHEMA-10)"
+        }
+      },
+      "properties": {
+        "input": { "type": "string", "description": "Description of the real-world input the verification command exercises." },
+        "expected_outcome": { "type": "string", "description": "What the system must produce for the input to pass." },
+        "verification_cmd": { "type": "string", "description": "Shell command that runs against real data and exits 0 iff expected_outcome holds." }
+      }
+    },
     "task": {
       "type": "object",
       "required": [
