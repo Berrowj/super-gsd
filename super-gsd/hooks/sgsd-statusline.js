@@ -49,6 +49,62 @@ function readFrontmatter(filePath) {
   }
 }
 
+function getMilestonePhaseStats(root, milestone) {
+  if (!milestone) return null;
+  const phasesDir = path.join(root, '.planning', 'milestones', milestone, 'phases');
+  if (!fs.existsSync(phasesDir)) return null;
+  let total = 0, completed = 0;
+  let current = null;
+  let entries;
+  try { entries = fs.readdirSync(phasesDir, { withFileTypes: true }); } catch { return null; }
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    total++;
+    const dir = path.join(phasesDir, entry.name);
+    let files;
+    try { files = fs.readdirSync(dir); } catch { continue; }
+    const verifyFile = files.find(f => /VERIFICATION\.md$/i.test(f));
+    let isPass = false;
+    if (verifyFile) {
+      const fm = readFrontmatter(path.join(dir, verifyFile));
+      if (fm.status && /^PASS/.test(fm.status)) isPass = true;
+    }
+    if (isPass) {
+      completed++;
+    } else if (!current) {
+      const m = entry.name.match(/^(\d+(?:\.\d+)?)-/);
+      current = m ? m[1] : entry.name;
+    }
+  }
+  return { total, completed, current };
+}
+
+function getCodexStatus(root) {
+  const logPath = path.join(root, '.planning', 'metrics', 'codex-executor-log.jsonl');
+  if (!fs.existsSync(logPath)) return null;
+  try {
+    const content = fs.readFileSync(logPath, 'utf8');
+    const lines = content.split(/\r?\n/).filter(Boolean);
+    if (lines.length === 0) return null;
+    const last = lines[lines.length - 1];
+    const tsMatch = last.match(/"ts":"([^"]+)"/);
+    const exitMatch = last.match(/"exit":(-?\d+)/);
+    const modeMatch = last.match(/"mode":"([^"]+)"/);
+    if (!tsMatch || !exitMatch) return null;
+    const tsMs = Date.parse(tsMatch[1]);
+    const ago = isNaN(tsMs) ? null : Math.max(0, Math.floor((Date.now() - tsMs) / 1000));
+    return { exit: parseInt(exitMatch[1], 10), ago, mode: modeMatch ? modeMatch[1] : 'unknown' };
+  } catch { return null; }
+}
+
+function formatAgo(seconds) {
+  if (seconds == null) return '?';
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  return `${Math.floor(seconds / 86400)}d`;
+}
+
 function findProjectRoot() {
   let dir = process.cwd();
   for (let i = 0; i < 10; i++) {
@@ -118,34 +174,27 @@ function render(data) {
   const statePath = path.join(root, '.planning', 'STATE.md');
   const state = readFrontmatter(statePath);
 
-  // Read ROADMAP for progress count
-  const milestoneRoadmapPath = state.milestone
-    ? path.join(root, '.planning', 'milestones', state.milestone, 'ROADMAP.md')
-    : null;
-  const fallbackRoadmapPath = path.join(root, '.planning', 'ROADMAP.md');
-  const roadmapPath =
-    milestoneRoadmapPath && fs.existsSync(milestoneRoadmapPath)
-      ? milestoneRoadmapPath
-      : fallbackRoadmapPath;
-  let total = 0;
-  let completed = 0;
-  if (roadmapPath && fs.existsSync(roadmapPath)) {
-    const roadmap = fs.readFileSync(roadmapPath, 'utf8');
-    total = (roadmap.match(/- \[/g) || []).length;
-    completed = (roadmap.match(/- \[x\]/g) || []).length;
-  }
-
   // Milestone + phase progress
   const milestone = state.milestone || 'v?';
-  const currentPhase = state.current_phase || '?';
-  if (total > 0) {
-    const pct = Math.round((completed / total) * 100);
+  const phaseStats = getMilestonePhaseStats(root, milestone);
+  if (phaseStats && phaseStats.total > 0) {
+    const pct = Math.round((phaseStats.completed / phaseStats.total) * 100);
     const bar = makeBar(pct, 6);
-    const progressStr = `${milestone} P${currentPhase}/${total} ${bar} ${pct}%`;
+    const currentTag = phaseStats.current ? ` P${phaseStats.current}` : '';
+    const progressStr = `${milestone}${currentTag} ${phaseStats.completed}/${phaseStats.total} ${bar} ${pct}%`;
     parts.push(colorByPct(progressStr, pct));
   } else {
     parts.push(`\x1b[33m${milestone}\x1b[0m`);
   }
+
+  // Codex status badge
+  const codex = getCodexStatus(root);
+  if (codex) {
+    const color = codex.exit === 0 ? '\x1b[32m' : '\x1b[31m';
+    const label = codex.exit === 0 ? 'codex:ok' : 'codex:fail';
+    parts.push(`${color}${label}\x1b[0m \x1b[2m${formatAgo(codex.ago)}\x1b[0m`);
+  }
+
   // Session total tokens
   const tokenStr = getSessionTokens(root);
   if (tokenStr) parts.push(`\x1b[2mΣ${tokenStr}\x1b[0m`);

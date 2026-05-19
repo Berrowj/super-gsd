@@ -1,0 +1,2 @@
+super-gsd/hooks/sgsd-statusline.js
+.planning/metrics/codex-executor-log.jsonl
