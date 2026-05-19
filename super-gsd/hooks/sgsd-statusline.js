@@ -33,25 +33,17 @@ function toUnixPath(p) {
                    .replace(/\\/g, '/');
 }
 
-function readFrontmatter(filePath, limit = 40) {
+function readFrontmatter(filePath) {
   try {
     const content = fs.readFileSync(filePath, 'utf8');
-    const lines = content.split('\n').slice(0, limit);
-    const match = lines.join('\n').match(/^---\n([\s\S]*?)\n---/);
+    const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
     if (!match) return {};
-    const fm = {};
-    for (const line of match[1].split('\n')) {
-      const kv = line.match(/^(\w[\w_-]*)\s*:\s*(.*)$/);
-      if (kv) {
-        let val = kv[2].trim().replace(/^["']|["']$/g, '');
-        // Try parse as number or bool
-        if (/^\d+$/.test(val)) val = parseInt(val);
-        else if (val === 'true') val = true;
-        else if (val === 'false') val = false;
-        fm[kv[1]] = val;
-      }
+    const data = {};
+    for (const line of match[1].split(/\r?\n/)) {
+      const pair = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+      if (pair) data[pair[1]] = pair[2].replace(/^["']|["']$/g, '');
     }
-    return fm;
+    return data;
   } catch {
     return {};
   }
@@ -127,15 +119,21 @@ function render(data) {
   const state = readFrontmatter(statePath);
 
   // Read ROADMAP for progress count
-  let completed = 0;
+  const milestoneRoadmapPath = state.milestone
+    ? path.join(root, '.planning', 'milestones', state.milestone, 'ROADMAP.md')
+    : null;
+  const fallbackRoadmapPath = path.join(root, '.planning', 'ROADMAP.md');
+  const roadmapPath =
+    milestoneRoadmapPath && fs.existsSync(milestoneRoadmapPath)
+      ? milestoneRoadmapPath
+      : fallbackRoadmapPath;
   let total = 0;
-  try {
-    const roadmap = fs.readFileSync(path.join(root, '.planning', 'ROADMAP.md'), 'utf8');
-    const matches = roadmap.match(/^\- \[/gm);
-    total = matches ? matches.length : 0;
-    const doneMatches = roadmap.match(/^\- \[x\]/gm);
-    completed = doneMatches ? doneMatches.length : 0;
-  } catch {}
+  let completed = 0;
+  if (roadmapPath && fs.existsSync(roadmapPath)) {
+    const roadmap = fs.readFileSync(roadmapPath, 'utf8');
+    total = (roadmap.match(/- \[/g) || []).length;
+    completed = (roadmap.match(/- \[x\]/g) || []).length;
+  }
 
   // Milestone + phase progress
   const milestone = state.milestone || 'v?';
@@ -148,36 +146,6 @@ function render(data) {
   } else {
     parts.push(`\x1b[33m${milestone}\x1b[0m`);
   }
-
-  // Current agent activity (agent-level, not phase-level)
-  const lastAgent = getLastAgent(root);
-  if (lastAgent) {
-    // Color by model: opus=purple, sonnet=blue, haiku=cyan
-    const modelColor = lastAgent.model === 'opus' ? '\x1b[35m' :
-                        lastAgent.model === 'sonnet' ? '\x1b[34m' :
-                        lastAgent.model === 'haiku' ? '\x1b[36m' : '\x1b[37m';
-    const agentStr = `${modelColor}${lastAgent.role}\x1b[0m \x1b[2m[${lastAgent.model}]\x1b[0m`;
-    parts.push(agentStr);
-
-    // Show agent's token cost if >0
-    if (lastAgent.total > 0) {
-      const t = lastAgent.total < 1000 ? `${lastAgent.total}` :
-                lastAgent.total < 1000000 ? `${Math.round(lastAgent.total/1000)}K` :
-                `${(lastAgent.total/1000000).toFixed(1)}M`;
-      parts.push(`\x1b[33m${t}\x1b[0m`);
-    }
-  } else {
-    // Fallback to phase state
-    const phaseState = state.status || state.phase_state || '';
-    const currentPlanDir = findCurrentPhaseDir(root, currentPhase);
-    if (currentPlanDir) {
-      const pendingPlan = findPendingPlan(currentPlanDir, currentPhase);
-      if (pendingPlan) {
-        parts.push(`\x1b[36m${phaseState || 'exec'} ${pendingPlan}\x1b[0m`);
-      }
-    }
-  }
-
   // Session total tokens
   const tokenStr = getSessionTokens(root);
   if (tokenStr) parts.push(`\x1b[2mΣ${tokenStr}\x1b[0m`);
