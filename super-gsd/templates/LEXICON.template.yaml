@@ -1,0 +1,10 @@
+# Per-milestone lexicon. Use this for overloaded terms with multiple valid senses.
+terms:
+  <term>:
+    senses:
+      - id: <sense-id>
+        meaning: "..."
+        # Optional: fields associated with this sense.
+        fields: [...]
+        # Optional: personas that usually mean this sense when using the term.
+        personas: [...]

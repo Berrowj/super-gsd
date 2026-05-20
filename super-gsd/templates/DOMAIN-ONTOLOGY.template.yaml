@@ -1,0 +1,12 @@
+# Per-milestone domain ontology. Names the core entities and their relationships.
+entities:
+  <entity-name>:
+    # Child entities or concrete types under this concept.
+    children: [...]
+    # Authoritative systems for each aspect of this entity.
+    source_of_truth:
+      <aspect>: <authoritative-system>
+    # Invariants that must remain true when agents reason about this entity.
+    invariants: [...]
+    # Optional: behavioral actions for entities that represent processes.
+    actions: [...]

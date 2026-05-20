@@ -1,0 +1,57 @@
+milestone_id: "v3.0"
+title: "SGSD-PRO - Codex-native + Mesh Memory Lite + Context Authority"
+business_why: |
+  v3.0 exists because SGSD needs stronger context continuity and evidence
+  discipline after the Clarity ERP incident exposed how brittle agent handoffs
+  become when context is lost between gates. ATC reliability also needs typed
+  evidence, not raw prose, so claims can be validated, refuted, or escalated
+  without collapsing back into operator guesswork.
+primary_user_outcome: |
+  Preserve milestone context across gates, validate claims against evidence,
+  detect echoing or stale projections, and provide bounded pseudo-operator
+  recommendations without replacing the real operator or SGSD control plane.
+entry_criteria:
+  - "DLB-07 semantic vs structural verification landed at commit 2fa3bbc"
+  - "plan-schema-v2 SCHEMA-09/-10 enforcement is live"
+  - "sgsd-audit v2 Layer 4 semantic-AC enforcement landed at commit 699936f"
+  - "Statusline reliability fixes landed at commits 5a26023 and 6cd6c2f"
+  - "SGSD-PRO master proposal is ingested under .planning/proposals/"
+  - "Pi2Pi transcript and Mesh Memory Protocol paper are ingested"
+exit_criteria:
+  - "All four MVP success fixtures are green: false-CRIT refutation, context-aware pseudo-operator recommendation, visible lineage chain, and production/SAP/Mongo/Qdrant carve-out escalation"
+  - "DLB-08 Mesh Memory Lite implementation complete"
+  - "DLB-09 first Codex Pro Mode phase shipped"
+  - "DLB-10 Context Authority capsule defined for v3.0 with all six YAML files"
+  - "Every v3.0 PLAN.md ships with semantic_acceptance_criteria from day one"
+
+personas:
+  - id: operator
+    priority: primary
+    wants: [clear next action, safe gates, verified critical findings, auditable decisions]
+    does_not_want: [false escalation, noisy reviewer chatter, hidden production mutation]
+  - id: codex-executor
+    priority: secondary
+    wants: [bounded scope, explicit allowed files, acceptance commands, schema shapes]
+    does_not_want: [ambiguous file lists, open-ended architectural drift, raw prose dispatches]
+  - id: claude-orchestrator
+    priority: secondary
+    wants: [typed dispatches, gate evidence, phase transitions, control-plane continuity]
+    does_not_want: [raw prose claims, untyped receipts, context loss between agents]
+source_of_truth:
+  cmb_schema: super-gsd/schemas/cmb.schema.json
+  plan_schema: super-gsd/templates/plan-schema-v2.json
+  codex_profiles: super-gsd/registry/codex-profiles.yaml
+  mesh_ledger: .planning/mesh/memory/cmbs.jsonl
+  decisions: .planning/decisions/
+non_goals:
+  - "No Pi-agent-harness dependency"
+  - "No sym-mesh-channel critical-path dependency"
+  - "No concurrent autonomous agent mesh"
+  - "No executor-authored CMBs in MVP"
+  - "No embedding-backed SVAF (Tier 3)"
+  - "No autonomous production / SAP / Mongo / Qdrant destructive writes"
+  - "No replacement of SGSD central control plane"
+operator_preferences:
+  review_gate_policy: "verified critical findings block; unverified route to dispute"
+  default_bias: "preserve auditability over speed"
+  acceptable_override: "allowed when reviewer claim refuted by current file:line evidence"

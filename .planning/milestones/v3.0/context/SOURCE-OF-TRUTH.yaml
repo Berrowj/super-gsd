@@ -1,0 +1,37 @@
+data_classes:
+  cmb_schema:
+    authoritative_system: file
+    canonical_path: super-gsd/schemas/cmb.schema.json
+  plan_schema:
+    authoritative_system: file
+    canonical_path: super-gsd/templates/plan-schema-v2.json
+  plan_locked_schema:
+    authoritative_system: file
+    canonical_path: super-gsd/schemas/plan-locked.schema.json
+  codex_profiles:
+    authoritative_system: file
+    canonical_path: super-gsd/registry/codex-profiles.yaml
+  codex_hooks:
+    authoritative_system: file
+    canonical_path: .codex/hooks.json
+  mesh_memory_ledger:
+    authoritative_system: append-only-jsonl
+    canonical_path: .planning/mesh/memory/cmbs.jsonl
+  pro_mode_stoplight_ledger:
+    authoritative_system: append-only-jsonl
+    canonical_path: .planning/metrics/pro-mode-stoplight.jsonl
+  codex_tool_events_ledger:
+    authoritative_system: append-only-jsonl
+    canonical_path: .planning/metrics/codex-tool-events.jsonl
+  v3_0_intent:
+    authoritative_system: file
+    canonical_path: .planning/milestones/v3.0/INTENT.md
+  v3_0_requirements:
+    authoritative_system: file
+    canonical_path: .planning/milestones/v3.0/REQUIREMENTS.md
+  v3_0_roadmap:
+    authoritative_system: file
+    canonical_path: .planning/milestones/v3.0/ROADMAP.md
+  dlb_decisions:
+    authoritative_system: file
+    canonical_path: .planning/decisions/

@@ -1,0 +1,7 @@
+# Per-milestone source-of-truth registry. Use this to stop agents guessing authority.
+data_classes:
+  <data-class>:
+    authoritative_system: "..."
+    # Optional file, directory, database, or ledger path.
+    canonical_path: "..."
+    notes: "..."

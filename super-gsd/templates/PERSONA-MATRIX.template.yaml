@@ -1,0 +1,12 @@
+# Per-milestone persona retrieval matrix. Use this to bias context lookup by role.
+personas:
+  <persona-id>:
+    # Topics this persona should see early in context retrieval.
+    cares_about: [...]
+    # Topics this persona usually does not need unless explicitly requested.
+    usually_ignores: [...]
+    search_bias:
+      # Include signals that should be promoted for this persona.
+      include: [...]
+      # Suppress signals that are usually noise for this persona.
+      suppress: [...]

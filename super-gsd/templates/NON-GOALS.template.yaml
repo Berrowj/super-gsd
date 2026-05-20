@@ -1,0 +1,6 @@
+# Per-milestone non-goals. Use this to preserve scope boundaries during execution.
+non_goals:
+  - id: NG-<NN>
+    statement: "..."
+    rationale: "..."
+    out_of_scope_for: ["this milestone", "this project", ...]

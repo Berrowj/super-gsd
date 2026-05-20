@@ -1,0 +1,15 @@
+entities:
+  cmb:
+    children: [execution_receipt, review_finding, evidence_verdict, decision_recommendation, operator_precedent, context_anchor, promotion_decision]
+    source_of_truth:
+      shape: super-gsd/schemas/cmb.schema.json
+      ledger: .planning/mesh/memory/cmbs.jsonl
+    invariants: [typed, append-only, content-hash-keyed, lineage-tracked, CAT7-enveloped]
+  cmb_class:
+    children: [observation, claim, claim_with_authority, decision, decision_highest, projection]
+  authority_level:
+    children: [observation, claim, claim_with_authority, decision, decision_highest, projection]
+  carve_out:
+    children: [production_mutation, credential_or_security, milestone_scope_change, commercial_legal_policy, low_confidence, destructive_or_irreversible]
+    source_of_truth:
+      enforcement: super-gsd/tools/mesh-memory/escalation-gate.cjs

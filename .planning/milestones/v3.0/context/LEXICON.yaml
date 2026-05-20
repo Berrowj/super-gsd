@@ -1,0 +1,34 @@
+terms:
+  authority_level:
+    senses:
+      - id: cmb_authority_field
+        meaning: "Top-level CMB field declaring the cognitive class of the CMB (observation|claim|claim_with_authority|decision|decision_highest|projection)"
+        personas: [codex-executor, claude-orchestrator]
+      - id: decision_authority_tier
+        meaning: "Body field on decision_recommendation; integer 1-3 indicating how much authority the pseudo_operator's recommendation carries"
+        personas: [operator, claude-orchestrator]
+  carve_out:
+    senses:
+      - id: escalation_carve_out
+        meaning: "A hard rule that forces real_operator_required=true regardless of pseudo-op confidence (production mutation, credentials, scope change, commercial impact, low confidence, destructive)"
+        personas: [operator]
+  tier:
+    senses:
+      - id: evidence_validator_tier
+        meaning: "Tier 0 deterministic / Tier 1 heuristic / Tier 2 LLM-judge in pseudo_operator / Tier 3 embedding-SVAF (not in v3.0)"
+        personas: [claude-orchestrator]
+  stoplight:
+    senses:
+      - id: codex_pro_routing
+        meaning: "GREEN bounded executor / AMBER goal lane or app-lab / RED no execution route to operator"
+        personas: [claude-orchestrator]
+  CAT7:
+    senses:
+      - id: cmb_envelope
+        meaning: "Fixed 7-field cognitive header on every CMB (focus, issue, intent, motivation, commitment, perspective, mood)"
+        personas: [codex-executor, claude-orchestrator]
+  fixture_path_in_real_data_check:
+    senses:
+      - id: dlb07_real_data_guard
+        meaning: "Reason code emitted by evidence_validator when a review_finding's file_path resolves under fixtures/, mock/, or __mocks__/ - semantic ACs must hit real data per DLB-07"
+        personas: [claude-orchestrator]

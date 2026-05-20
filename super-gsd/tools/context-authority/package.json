@@ -1,0 +1,13 @@
+{
+  "name": "sgsd-context-authority",
+  "version": "1.0.0",
+  "description": "DLB-10.1 Context Authority capsule - per-milestone YAML capsules projected into mesh as context_anchor CMBs",
+  "main": "context-composer.cjs",
+  "type": "commonjs",
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "ajv": "^8.18.0",
+    "ajv-formats": "^3.0.1",
+    "ajv-errors": "^3.0.0"
+  }
+}

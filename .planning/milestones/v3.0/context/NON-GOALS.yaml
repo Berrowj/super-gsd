@@ -1,0 +1,29 @@
+non_goals:
+  - id: NG-01
+    statement: "No Pi-agent-harness dependency"
+    rationale: "Anthropic OAuth ToS forbids Pi for Claude"
+    out_of_scope_for: ["this milestone", "this project until ToS changes"]
+  - id: NG-02
+    statement: "No sym-mesh-channel critical-path dependency"
+    rationale: "Anthropic plugin propagation unresolved (github.com/anthropics/claude-plugins-official/issues/1512); optional experiment branch only"
+    out_of_scope_for: ["this milestone"]
+  - id: NG-03
+    statement: "No concurrent autonomous agent mesh"
+    rationale: "Logical peers + sequential runtime; single Windows 11 box; honest framing"
+    out_of_scope_for: ["this milestone", "v3.1 unless N>=10 mesh demand emerges"]
+  - id: NG-04
+    statement: "No executor-authored CMBs in MVP"
+    rationale: "SGSD wrapper emits execution_receipt CMBs from observable facts; agents emit claims, not observations"
+    out_of_scope_for: ["this milestone"]
+  - id: NG-05
+    statement: "No embedding-backed SVAF (Tier 3)"
+    rationale: "Tier 0+1 deterministic+heuristic + Tier 2 LLM judge sufficient for MVP; embeddings deferred until evidence justifies cost"
+    out_of_scope_for: ["this milestone", "v3.1"]
+  - id: NG-06
+    statement: "No autonomous production / SAP / Mongo / Qdrant destructive writes"
+    rationale: "Hard carve-out in escalation_gate; pseudo-op cannot bypass regardless of confidence"
+    out_of_scope_for: ["permanently - safety architecture"]
+  - id: NG-07
+    statement: "No replacement of SGSD central control plane"
+    rationale: "Mesh-shaped memory, central-shaped runtime; SGSD owns mission/gates/promotion"
+    out_of_scope_for: ["permanently - architectural axiom"]

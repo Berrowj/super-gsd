@@ -1,0 +1,38 @@
+# Per-milestone context capsule. Canonical source-of-truth for WHY this milestone exists.
+# Keep this file milestone-specific. It should explain the user outcome and the
+# operating preferences that should bias downstream retrieval and review.
+milestone_id: "v?.?"
+title: "..."
+business_why: |
+  ...
+primary_user_outcome: |
+  ...
+
+# Entry criteria describe what must already be true before this milestone starts.
+entry_criteria:
+  - "..."
+
+# Exit criteria describe what proves the milestone is complete.
+exit_criteria:
+  - "..."
+
+# Personas describe who the milestone serves and what each role is trying to avoid.
+personas:
+  - id: <role-id>
+    priority: primary|secondary
+    wants: [...]
+    does_not_want: [...]
+
+# Map each data class to the system or file that is authoritative for it.
+source_of_truth:
+  <data-class>: <authoritative-system>
+
+# Non-goals prevent retrieval and execution from treating deferred ideas as scope.
+non_goals:
+  - "..."
+
+# Operator preferences capture durable policy defaults for this milestone.
+operator_preferences:
+  review_gate_policy: "..."
+  default_bias: "..."
+  acceptable_override: "..."

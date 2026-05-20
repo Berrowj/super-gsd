@@ -1,0 +1,19 @@
+personas:
+  operator:
+    cares_about: [milestone progress, gate verdicts, real risks, decision precedents]
+    usually_ignores: [routine commits, low-confidence reviewer chatter, fix-round iteration]
+    search_bias:
+      include: [decision_recommendation, operator_precedent, promotion_decision]
+      suppress: [routine execution_receipt without follow-up review_finding]
+  codex-executor:
+    cares_about: [plan-locked allowed_files, acceptance commands, schema shapes]
+    usually_ignores: [milestone-level context, persona priorities]
+    search_bias:
+      include: [PLAN-LOCKED.md, schemas, fixtures]
+      suppress: [milestone INTENT/ROADMAP unless explicitly cited]
+  claude-orchestrator:
+    cares_about: [phase transitions, dispatch contracts, evidence chains]
+    usually_ignores: [low-level code details, codex internal reasoning]
+    search_bias:
+      include: [CONTEXT.md, PLAN.md, VERIFICATION.md, STATE.md]
+      suppress: [routine metric JSONL spam]
