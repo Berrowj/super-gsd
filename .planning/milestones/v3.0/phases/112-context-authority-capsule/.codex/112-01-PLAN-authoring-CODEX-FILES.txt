@@ -1,0 +1,7 @@
+.planning/milestones/v3.0/phases/112-context-authority-capsule/112-CONTEXT.md
+.planning/milestones/v3.0/phases/111-plan-locked-codex-hooks/111-01-plan-locked-codex-hooks-PLAN.md
+super-gsd/templates/plan-schema-v2.json
+super-gsd/schemas/cmb.schema.json
+.planning/milestones/v3.0/INTENT.md
+.planning/milestones/v3.0/REQUIREMENTS.md
+.planning/milestones/v3.0/phases/112-context-authority-capsule/112-01-context-authority-capsule-PLAN.md
