@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SGSD v3.0 SGSD-PRO — Operator User Guide</title>
+<style>
+  :root {
+    --bg: #07111f;
+    --bg2: #0c1a2f;
+    --panel: rgba(255,255,255,0.06);
+    --panel2: rgba(255,255,255,0.10);
+    --ink: #f3f7ff;
+    --muted: #aebbd0;
+    --dim: #7a8aa8;
+    --line: rgba(255,255,255,0.14);
+    --cyan: #67e8f9;
+    --blue: #60a5fa;
+    --violet: #c084fc;
+    --green: #86efac;
+    --amber: #facc15;
+    --red: #fb7185;
+    --orange: #fdba74;
+    --pink: #f9a8d4;
+    --shadow: 0 22px 60px rgba(0,0,0,0.4);
+    --radius: 18px;
+    --radius2: 12px;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(circle at 10% 0%, rgba(103,232,249,0.16), transparent 40%),
+      radial-gradient(circle at 88% 8%, rgba(192,132,252,0.14), transparent 35%),
+      linear-gradient(145deg, var(--bg), var(--bg2) 48%, #08101c);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.52;
+    min-height: 100vh;
+  }
+  a { color: var(--cyan); text-decoration: none; border-bottom: 1px dotted var(--cyan); }
+  a:hover { text-decoration: none; border-bottom: 1px solid var(--cyan); }
+  code { font-family: var(--mono); background: rgba(255,255,255,0.08); padding: 1px 6px; border-radius: 4px; font-size: 0.92em; color: var(--cyan); }
+  pre {
+    font-family: var(--mono);
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius2);
+    padding: 14px 18px;
+    overflow-x: auto;
+    font-size: 0.86em;
+    color: #cfe1ff;
+    line-height: 1.55;
+  }
+  pre code { background: none; padding: 0; color: inherit; }
+  h1, h2, h3, h4 { letter-spacing: -0.018em; line-height: 1.2; margin: 0; }
+  h1 { font-size: 2.6rem; font-weight: 800; }
+  h2 { font-size: 1.8rem; font-weight: 700; margin-top: 50px; padding-top: 10px; border-top: 1px solid var(--line); }
+  h3 { font-size: 1.25rem; font-weight: 700; margin-top: 28px; color: var(--cyan); }
+  h4 { font-size: 1.0rem; font-weight: 700; margin-top: 18px; color: var(--violet); }
+  p { color: var(--ink); }
+  ul, ol { padding-left: 1.4em; }
+  li { margin-bottom: 6px; }
+
+  .page { width: min(1240px, calc(100vw - 32px)); margin: 0 auto; padding: 28px 0 100px; }
+
+  .nav {
+    position: sticky; top: 0; z-index: 30;
+    backdrop-filter: blur(18px);
+    background: linear-gradient(90deg, rgba(7,17,31,0.92), rgba(12,26,47,0.85));
+    border-bottom: 1px solid var(--line);
+  }
+  .nav-inner {
+    width: min(1240px, calc(100vw - 32px));
+    margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 14px 0;
+    font-size: 0.92rem;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: -0.02em; }
+  .brand-mark {
+    width: 32px; height: 32px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--cyan), var(--violet));
+    box-shadow: 0 0 22px rgba(103,232,249,0.3);
+  }
+  .nav-links { display: flex; gap: 14px; flex-wrap: wrap; }
+  .nav-links a { color: var(--muted); border: 0; padding: 6px 10px; border-radius: 6px; }
+  .nav-links a:hover { color: var(--cyan); background: var(--panel); }
+
+  .hero { padding: 50px 0 30px; }
+  .hero h1 { background: linear-gradient(135deg, var(--cyan) 30%, var(--violet)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero .tag { display: inline-block; font-family: var(--mono); font-size: 0.78rem; color: var(--green); border: 1px solid var(--green); padding: 4px 10px; border-radius: 20px; margin-bottom: 16px; }
+  .hero .lede { font-size: 1.18rem; color: var(--muted); max-width: 820px; margin-top: 12px; }
+  .hero .pills { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 22px; font-size: 0.84rem; }
+  .pill { background: var(--panel); border: 1px solid var(--line); padding: 6px 12px; border-radius: 16px; color: var(--muted); }
+  .pill strong { color: var(--ink); }
+
+  section { margin-top: 22px; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 16px 0;
+    box-shadow: var(--shadow);
+  }
+  .panel.compact { padding: 16px 20px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  @media (max-width: 920px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  }
+
+  .eli5 {
+    background: linear-gradient(135deg, rgba(192,132,252,0.10), rgba(103,232,249,0.06));
+    border-left: 3px solid var(--violet);
+    border-radius: var(--radius2);
+    padding: 16px 22px;
+    margin: 16px 0;
+  }
+  .eli5 strong { color: var(--violet); display: block; margin-bottom: 4px; font-size: 0.9rem; letter-spacing: 0.06em; text-transform: uppercase; }
+  .eli5 p { margin: 0; color: var(--ink); }
+
+  .note { background: rgba(250,204,21,0.06); border-left: 3px solid var(--amber); border-radius: var(--radius2); padding: 12px 18px; margin: 14px 0; }
+  .note strong { color: var(--amber); }
+  .danger { background: rgba(251,113,133,0.08); border-left: 3px solid var(--red); border-radius: var(--radius2); padding: 12px 18px; margin: 14px 0; }
+  .danger strong { color: var(--red); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 0.92rem;
+  }
+  th, td { border-bottom: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
+  th { color: var(--cyan); font-weight: 600; font-size: 0.82rem; letter-spacing: 0.04em; text-transform: uppercase; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .stack {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 18px;
+    background: rgba(0,0,0,0.25);
+    border-radius: var(--radius2);
+    border: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 0.84rem;
+  }
+  .layer {
+    padding: 10px 14px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .layer .role { color: var(--dim); font-size: 0.78rem; }
+
+  .cmb-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius2);
+    padding: 14px 16px;
+    height: 100%;
+  }
+  .cmb-card h4 { margin: 0 0 6px 0; font-size: 0.95rem; font-family: var(--mono); color: var(--cyan); }
+  .cmb-card .cls {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+  .cls-obs { background: rgba(134,239,172,0.15); color: var(--green); }
+  .cls-claim { background: rgba(250,204,21,0.15); color: var(--amber); }
+  .cls-claim-auth { background: rgba(253,186,116,0.15); color: var(--orange); }
+  .cls-decision { background: rgba(96,165,250,0.15); color: var(--blue); }
+  .cls-decision-high { background: rgba(192,132,252,0.18); color: var(--violet); }
+  .cls-projection { background: rgba(103,232,249,0.15); color: var(--cyan); }
+  .cmb-card p { font-size: 0.86rem; color: var(--muted); margin: 4px 0; }
+
+  .flow {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 18px;
+    background: rgba(0,0,0,0.25);
+    border-radius: var(--radius2);
+    border: 1px solid var(--line);
+  }
+  .flow-node {
+    padding: 10px 14px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 0.84rem;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .flow-node .num { display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; background: var(--violet); color: var(--bg); border-radius: 50%; font-weight: 700; font-size: 0.78rem; }
+  .flow-arrow { color: var(--muted); text-align: center; font-size: 1.1rem; margin: -4px 0; }
+
+  .stoplight {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0;
+  }
+  .light {
+    border-radius: var(--radius2);
+    padding: 16px 18px;
+    border: 1px solid var(--line);
+  }
+  .light.green { background: rgba(134,239,172,0.07); border-color: var(--green); }
+  .light.amber { background: rgba(250,204,21,0.07); border-color: var(--amber); }
+  .light.red { background: rgba(251,113,133,0.07); border-color: var(--red); }
+  .light h4 { margin-top: 0; font-family: var(--mono); }
+  .light.green h4 { color: var(--green); }
+  .light.amber h4 { color: var(--amber); }
+  .light.red h4 { color: var(--red); }
+  .light ul { margin: 6px 0 0 0; padding-left: 1.2em; font-size: 0.88rem; color: var(--muted); }
+
+  .carveout {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 14px;
+    background: rgba(251,113,133,0.04);
+    border: 1px solid rgba(251,113,133,0.25);
+    border-radius: var(--radius2);
+    margin: 6px 0;
+  }
+  .carveout .icon { font-size: 1.3rem; line-height: 1; flex-shrink: 0; }
+  .carveout .text { font-size: 0.9rem; color: var(--ink); }
+  .carveout .text strong { color: var(--red); display: block; margin-bottom: 2px; font-family: var(--mono); font-size: 0.85rem; }
+
+  .arch-row {
+    display: grid; grid-template-columns: 80px 1fr; gap: 14px; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--line);
+  }
+  .arch-row:last-child { border-bottom: 0; }
+  .arch-row .id { font-family: var(--mono); color: var(--violet); font-size: 0.85rem; font-weight: 700; }
+  .arch-row .body strong { color: var(--cyan); }
+  .arch-row .body p { margin: 2px 0 0 0; color: var(--muted); font-size: 0.86rem; }
+
+  details {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius2);
+    padding: 12px 16px;
+    margin: 10px 0;
+  }
+  details > summary {
+    cursor: pointer;
+    color: var(--cyan);
+    font-weight: 600;
+    list-style: none;
+    padding: 4px 0;
+  }
+  details > summary::after {
+    content: '+';
+    float: right;
+    color: var(--muted);
+    font-weight: 400;
+  }
+  details[open] > summary::after { content: '−'; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > div, details > p, details > pre, details > ul, details > ol { margin-top: 10px; }
+
+  .footer {
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    color: var(--dim);
+    font-size: 0.86rem;
+    text-align: center;
+  }
+
+  .kbd {
+    display: inline-block;
+    font-family: var(--mono);
+    background: rgba(255,255,255,0.10);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.82em;
+    color: var(--ink);
+  }
+
+  .toc {
+    position: sticky; top: 70px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius2);
+    padding: 16px 18px;
+    font-size: 0.86rem;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+  }
+  .toc ol { padding-left: 1.2em; margin: 6px 0; }
+  .toc a { color: var(--muted); border: 0; }
+  .toc a:hover { color: var(--cyan); }
+
+  .layout {
+    display: grid; grid-template-columns: 240px 1fr; gap: 30px;
+  }
+  @media (max-width: 1100px) {
+    .layout { grid-template-columns: 1fr; }
+    .toc { position: static; max-height: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="nav-inner">
+    <div class="brand"><div class="brand-mark"></div> SGSD v3.0 — SGSD-PRO</div>
+    <div class="nav-links">
+      <a href="#what">What</a>
+      <a href="#mental-model">Mental Model</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#cmbs">CMBs</a>
+      <a href="#workflow">Workflow</a>
+      <a href="#carve-outs">Carve-outs</a>
+      <a href="#usability">Usability</a>
+      <a href="#examples">Examples</a>
+      <a href="#reference">Reference</a>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+
+<header class="hero">
+  <span class="tag">v3.0 ALL-PHASES-CLOSED · 2026-05-21</span>
+  <h1>SGSD v3.0 SGSD-PRO</h1>
+  <p class="lede">
+    Operator user guide for the v3.0 substrate: mesh-shaped cognitive memory + Codex-native execution lanes + Context Authority capsule.
+    SGSD is still the air traffic control; v3.0 just gave it radar, a flight recorder, and a duty officer who knows when to pick up the red phone.
+  </p>
+  <div class="pills">
+    <span class="pill"><strong>7</strong> phases shipped (P106–P112)</span>
+    <span class="pill"><strong>149</strong> self-test assertions green</span>
+    <span class="pill"><strong>4/4</strong> MVP exit fixtures incl. restraint proof</span>
+    <span class="pill"><strong>3</strong> new design decisions (DLB-08 / -09 / -10)</span>
+    <span class="pill"><strong>14</strong> new tools · <strong>2</strong> schemas · <strong>6</strong> capsule templates</span>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="toc">
+    <strong>Contents</strong>
+    <ol>
+      <li><a href="#what">What is SGSD v3.0?</a></li>
+      <li><a href="#mental-model">Mental model</a></li>
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#cmbs">The seven CMB types</a></li>
+      <li><a href="#workflow">Workflow (operator → close)</a></li>
+      <li><a href="#stoplight">Codex Pro Mode lanes</a></li>
+      <li><a href="#carve-outs">Hard carve-outs</a></li>
+      <li><a href="#context-authority">Context Authority</a></li>
+      <li><a href="#usability">Usability guide</a></li>
+      <li><a href="#examples">Examples</a></li>
+      <li><a href="#reference">Quick reference</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+<section id="what">
+  <h2>1. What is SGSD v3.0?</h2>
+
+  <div class="eli5">
+    <strong>ELI5</strong>
+    <p>SGSD is a system that helps you build software with AI agents without losing your mind. v3.0 makes the agents remember what they said, why they accepted things, and what's safe to do without asking you. You still get woken up for the important stuff — but only the important stuff.</p>
+  </div>
+
+  <p>v2.x SGSD orchestrated Codex through one big "send it to Codex" pipe. It worked but had three structural problems:</p>
+
+  <ol>
+    <li><strong>Reviewers hallucinated and blocked good code.</strong> ATC v22-13c on Clarity ERP returned CRIT against file:line evidence that refuted the claim. SGSD's rule "if CRIT then fail" treated a false positive as a hard stop.</li>
+    <li><strong>Boards escalated to operator because context was lost.</strong> Each agent re-derived understanding from raw transcripts. Milestone WHY + persona priority + decision precedents didn't carry agent-to-agent.</li>
+    <li><strong>Memory died between sessions.</strong> No per-role "what I understood, why I accepted it, where it came from, whether it's original or echoed" persistence.</li>
+  </ol>
+
+  <p>v3.0 SGSD-PRO adds a lineaged role-filtered cognitive memory layer underneath SGSD's existing central control plane. The shape is stolen from <a href="https://arxiv.org/abs/2604.19540" target="_blank">Mesh Memory Protocol</a> and <a href="https://youtu.be/PIdETjcXNIk" target="_blank">Pi2Pi</a>, but the implementation is SGSD-native — no Pi-harness, no sym-mesh-channel, single-machine Windows-friendly.</p>
+
+  <h3>Three substrates shipped</h3>
+
+  <div class="grid-3">
+    <div class="cmb-card">
+      <h4>DLB-08 Mesh Memory Lite</h4>
+      <p>Seven typed CMBs (Cognitive Memory Blocks), CAT7 envelope, lineage DAG, O(1) echo detection, Tier 0+1 evidence validator, pseudo-operator peer, hard-carve-out escalation gate.</p>
+    </div>
+    <div class="cmb-card">
+      <h4>DLB-09 Codex Pro Mode</h4>
+      <p>10 typed Codex profiles, GREEN/AMBER/RED stoplight routing, native Codex review as first-class gate, PLAN-LOCKED.md formal contract, 5 fail-CLOSED Codex hooks.</p>
+    </div>
+    <div class="cmb-card">
+      <h4>DLB-10 Context Authority</h4>
+      <p>Per-milestone YAML capsule (MILESTONE-CONTEXT, PERSONA-MATRIX, DOMAIN-ONTOLOGY, LEXICON, SOURCE-OF-TRUTH, NON-GOALS) projected into the mesh as context_anchor CMBs with staleness detection.</p>
+    </div>
+  </div>
+</section>
+
+<section id="mental-model">
+  <h2>2. The mental model</h2>
+
+  <div class="panel">
+    <pre>
+SGSD             = air traffic control
+Codex / Claude   = aircraft
+Mesh Memory Lite = shared radar + black box + radio protocol
+Pseudo operator  = trained duty officer
+Real operator    = commander, only called when authority is exceeded
+</pre>
+  </div>
+
+  <div class="eli5">
+    <strong>The architectural axiom</strong>
+    <p><em>Mesh-shaped memory, central-shaped runtime.</em> We're NOT building concurrent autonomous mesh convergence. We're building lineaged role-filtered memory under a central serialised orchestrator. Honest framing prevents claims we cannot back at N=1 machine.</p>
+  </div>
+
+  <h3>The four binding invariants</h3>
+  <ol>
+    <li><strong>Observation / claim / decision are different classes.</strong> SGSD emits observations (execution_receipt). Agents emit claims (review_finding). Validators emit verdicts (evidence_verdict). Pseudo-operator emits decisions (decision_recommendation). Operators emit precedents (operator_precedent). <strong>SGSD must never treat a claim CMB as an observation CMB.</strong></li>
+    <li><strong>CAT7 wraps; doesn't replace.</strong> CAT7 fields cite the YAML anchors; they don't invent new ontology terms. Canonical truth stays in YAML capsules.</li>
+    <li><strong>Hard carve-outs override LLM confidence.</strong> Production mutation / credentials / scope change / commercial impact / low confidence / destructive operations all force <code>real_operator_required: true</code> regardless of how confident the pseudo-operator's Tier 2 LLM judge is.</li>
+    <li><strong>Mesh-shaped memory, central-shaped runtime.</strong> Logical peers; sequential execution. No concurrent autonomous claims we can't back.</li>
+  </ol>
+</section>
+
+<section id="architecture">
+  <h2>3. Architecture</h2>
+
+  <p>The v3.0 stack, top-down:</p>
+
+  <div class="stack">
+    <div class="layer"><span><strong>Operator</strong></span><span class="role">final authority; called only when carve-outs fire</span></div>
+    <div class="layer"><span><strong>SGSD Orchestrator (Claude/Opus)</strong></span><span class="role">central control plane; dispatches; promotes</span></div>
+    <div class="layer"><span><strong>Codex Pro Mode (DLB-09)</strong></span><span class="role">profile-resolver → stoplight → native-review-runner</span></div>
+    <div class="layer"><span><strong>PLAN-LOCKED + hooks (DLB-09.2)</strong></span><span class="role">formal lock contract + 5 fail-CLOSED safety rails</span></div>
+    <div class="layer"><span><strong>Codex Executor (GPT-5.5 / xhigh)</strong></span><span class="role">bounded source mutations; emits raw report</span></div>
+    <div class="layer"><span><strong>execution_receipt writer</strong></span><span class="role">SGSD wrapper observes facts; emits observation CMB</span></div>
+    <div class="layer"><span><strong>native-review-runner / SGSD ATC</strong></span><span class="role">emit review_finding claim CMBs</span></div>
+    <div class="layer"><span><strong>evidence_validator (DLB-08.4)</strong></span><span class="role">Tier 0 + 1 admission → evidence_verdict CMBs</span></div>
+    <div class="layer"><span><strong>lineage + echo detector (DLB-08.5)</strong></span><span class="role">DAG walks + O(1) ancestor-set intersection</span></div>
+    <div class="layer"><span><strong>pseudo_operator_peer (DLB-08.6)</strong></span><span class="role">decision_recommendation w/ Tier 2 LLM judge</span></div>
+    <div class="layer"><span><strong>escalation_gate (DLB-08.7)</strong></span><span class="role">hard carve-outs; routes to real operator</span></div>
+    <div class="layer"><span><strong>Context Authority (DLB-10)</strong></span><span class="role">YAML capsule → context_anchor CMBs</span></div>
+    <div class="layer"><span><strong>Mesh Memory Ledger</strong></span><span class="role">.planning/mesh/memory/cmbs.jsonl — append-only</span></div>
+  </div>
+
+  <div class="eli5">
+    <strong>How information flows</strong>
+    <p>Codex executes work → SGSD observes what happened → reviewer claims what might be wrong → evidence_validator checks whether the claim holds against current HEAD → pseudo-operator reads validated claims + context anchors + operator precedents → decides what SGSD should do → escalation_gate either lets SGSD continue OR routes to real operator. Every step writes a typed CMB to the mesh ledger so future agents can walk the lineage and not re-derive understanding.</p>
+  </div>
+</section>
+
+<section id="cmbs">
+  <h2>4. The seven CMB types</h2>
+
+  <p>A <strong>Cognitive Memory Block</strong> (CMB) is the atomic unit of v3.0 mesh memory. Every CMB has:</p>
+  <ul>
+    <li>A unique <code>key</code> (sha256 of canonical payload, or semantic <code>cmb-...</code> identifier)</li>
+    <li>A <code>type</code> (one of the seven below)</li>
+    <li>A <code>cat7</code> envelope: <code>focus / issue / intent / motivation / commitment / perspective / mood</code></li>
+    <li>A type-specific <code>body</code></li>
+    <li>A <code>lineage</code> (parents + ancestors of content-hash keys)</li>
+    <li>An <code>authority_level</code> declaring its cognitive class</li>
+  </ul>
+
+  <div class="grid-3">
+    <div class="cmb-card">
+      <span class="cls cls-obs">observation</span>
+      <h4>execution_receipt</h4>
+      <p><strong>Who emits:</strong> SGSD wrapper (never an agent)</p>
+      <p><strong>Purpose:</strong> Record what actually changed and what checks actually ran. Observable facts only.</p>
+      <p><strong>Body:</strong> <code>commit_before/after</code>, <code>changed_files</code>, <code>tests_run</code>, <code>report_path/hash</code>, <code>acceptance_criteria_touched</code></p>
+    </div>
+    <div class="cmb-card">
+      <span class="cls cls-claim">claim</span>
+      <h4>review_finding</h4>
+      <p><strong>Who emits:</strong> ATC / Codex native review / board reviewers</p>
+      <p><strong>Purpose:</strong> A claim about risk, correctness, missing coverage, or policy breach.</p>
+      <p><strong>Body:</strong> <code>severity</code>, <code>claim</code>, <code>current_commit</code>, optional <code>file_path/line_*/quoted_excerpt</code></p>
+    </div>
+    <div class="cmb-card">
+      <span class="cls cls-claim-auth">claim w/ authority</span>
+      <h4>evidence_verdict</h4>
+      <p><strong>Who emits:</strong> evidence_validator</p>
+      <p><strong>Purpose:</strong> Classify a review_finding as VERIFIED / REFUTED / STALE / UNVERIFIED / GUARDED CRIT.</p>
+      <p><strong>Body:</strong> <code>evidence_status</code>, <code>tier_used</code> (0|1), <code>decision_basis</code>, optional <code>refuting_evidence</code></p>
+    </div>
+    <div class="cmb-card">
+      <span class="cls cls-decision">decision</span>
+      <h4>decision_recommendation</h4>
+      <p><strong>Who emits:</strong> pseudo_operator_peer</p>
+      <p><strong>Purpose:</strong> What SGSD should do given evidence + context + policy.</p>
+      <p><strong>Body:</strong> <code>recommendation</code>, <code>authority_level</code> (1-3), <code>confidence</code> (0-1), <code>real_operator_required</code>, <code>context_pack_id</code>, <code>carve_outs_triggered</code></p>
+    </div>
+    <div class="cmb-card">
+      <span class="cls cls-decision-high">decision · highest</span>
+      <h4>operator_precedent</h4>
+      <p><strong>Who emits:</strong> real operator</p>
+      <p><strong>Purpose:</strong> Make operator decisions reusable. Highest authority unless superseded.</p>
+      <p><strong>Body:</strong> <code>precedent</code>, decision context</p>
+    </div>
+    <div class="cmb-card">
+      <span class="cls cls-projection">projection</span>
+      <h4>context_anchor</h4>
+      <p><strong>Who emits:</strong> context_authority (composer)</p>
+      <p><strong>Purpose:</strong> Project YAML capsule content into the mesh. Canonical truth stays in YAML.</p>
+      <p><strong>Body:</strong> <code>canonical_source_path</code>, <code>canonical_source_hash</code>, <code>projection_summary</code></p>
+    </div>
+    <div class="cmb-card">
+      <span class="cls cls-decision">decision · terminal</span>
+      <h4>promotion_decision</h4>
+      <p><strong>Who emits:</strong> SGSD</p>
+      <p><strong>Purpose:</strong> Record state transition (PASS / PASS_WITH_REFUTED_REVIEW / FAIL_VERIFIED / NEEDS_OPERATOR / STALE_REVIEW).</p>
+      <p><strong>Body:</strong> <code>verdict</code>, <code>phase</code></p>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>The nuclear safety sign on the door:</strong> SGSD must <strong>never</strong> treat an agent claim CMB as an observation CMB. The schema enforces this via <code>created_by</code> + <code>role</code> + <code>type</code> constraints with SCHEMA-MML-02 errorMessages. Conflating claim and observation is how model-generated memory becomes fake truth.
+  </div>
+</section>
+
+<section id="workflow">
+  <h2>5. Workflow — operator says "go" to phase close</h2>
+
+  <p>What actually happens when you say <code>/sgsd-orchestrate auto</code> on a v3.0 phase:</p>
+
+  <div class="flow">
+    <div class="flow-node"><span class="num">1</span><span>Operator: <code>go</code>. SGSD reads STATE.md + active phase CONTEXT.md.</span></div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node"><span class="num">2</span><span>SGSD dispatches Codex to author PLAN-LOCKED.md (v2-schema + lock metadata).</span></div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node"><span class="num">3</span><span>profile-resolver picks Codex profile based on phase type, risk, allowed_files.</span></div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node"><span class="num">4</span><span>stoplight classifies dispatch context as GREEN / AMBER / RED.</span></div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node"><span class="num">5</span><span>GREEN: Codex executor dispatched with hooks active. AMBER: goal lane or app-lab. RED: stop; route to escalation_gate.</span></div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node"><span class="num">6</span><span>Codex hook <code>block-secret-leak</code> runs on every prompt; <code>block-forbidden-write</code> + <code>enforce-allowed-files</code> run on every tool use; <code>log-tool-event</code> on every result; <code>validate-stop-contract</code> on stop.</span></div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node"><span class="num">7</span><span>SGSD wrapper observes diff + tests + report → emits <code>execution_receipt</code> CMB to mesh ledger.</span></div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node"><span class="num">8</span><span>native-review-runner reviews diff → emits one <code>review_finding</code> CMB per finding (lineage parent = receipt).</span></div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node"><span class="num">9</span><span>evidence_validator (Tier 0 deterministic + Tier 1 heuristic) emits <code>evidence_verdict</code> CMB per finding.</span></div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node"><span class="num">10</span><span>echo-detector intersects incoming claim's ancestors with SGSD's own produced keys. Repeat-claims flagged.</span></div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node"><span class="num">11</span><span>pseudo_operator_peer reads evidence_verdicts + context_anchors + operator_precedents → emits <code>decision_recommendation</code>.</span></div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node"><span class="num">12</span><span>escalation_gate checks 6 hard carve-outs. If ANY fire → <code>real_operator_required: true</code> regardless of confidence.</span></div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node"><span class="num">13</span><span>SGSD emits <code>promotion_decision</code> (PASS / PASS_WITH_REFUTED_REVIEW / NEEDS_OPERATOR) → phase close OR escalation packet.</span></div>
+  </div>
+
+  <div class="eli5">
+    <strong>Why this is better than v2.x</strong>
+    <p>In v2.x: Codex returned a prose report → SGSD ATC parsed it loosely → if "CRIT" appeared, hard stop. False positives froze the loop. In v3.0: every claim becomes a typed CMB with lineage. Every claim is evidence-validated. Stale echoes are detected. Hard carve-outs prevent autonomous production writes. Operator escalation requires context-pack + pseudo-op recommendation first.</p>
+  </div>
+</section>
+
+<section id="stoplight">
+  <h2>6. Codex Pro Mode — the 10 lanes</h2>
+
+  <p>SGSD no longer "sends it to Codex" generically. Every dispatch resolves to one of 10 typed profiles, each with its own sandbox / approval / write-permission / hooks-requirement.</p>
+
+  <table>
+    <thead>
+      <tr><th>Profile</th><th>Sandbox</th><th>Use case</th><th>Native review?</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>codex.readonly.audit</code></td><td>read-only</td><td>Inspecting code without changes</td><td>—</td></tr>
+      <tr><td><code>codex.plan</code></td><td>read-only</td><td>Authoring a PLAN.md or PLAN-LOCKED.md</td><td>—</td></tr>
+      <tr><td><code>codex.goal</code></td><td>workspace-write</td><td>Bounded objective in temp worktree</td><td>✓</td></tr>
+      <tr><td><code>codex.execute.bounded</code></td><td>workspace-write</td><td>Source mutation in current workspace</td><td>✓</td></tr>
+      <tr><td><code>codex.execute.patch</code></td><td>read-only (read-pack)</td><td>Windows Codex file-read workaround</td><td>—</td></tr>
+      <tr><td><code>codex.review.native</code></td><td>read-only</td><td>First-class review gate; emits review_finding CMBs</td><td>—</td></tr>
+      <tr><td><code>codex.review.swarm</code></td><td>read-only</td><td>Multi-reviewer (security / regression / tests / contract / muda)</td><td>—</td></tr>
+      <tr><td><code>codex.cockpit.brief</code></td><td>read-only</td><td>Quick status / dashboard summary</td><td>—</td></tr>
+      <tr><td><code>codex.app_lab</code></td><td>workspace-write</td><td>Risky refactor exploration in isolated worktree</td><td>✓</td></tr>
+      <tr><td><code>codex.cloud_lab</code></td><td>workspace-write</td><td>Long-running research that doesn't need local state</td><td>✓</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Stoplight routing</h3>
+  <p>Before any Codex run gets write permission, SGSD classifies it:</p>
+
+  <div class="stoplight">
+    <div class="light green">
+      <h4>● GREEN</h4>
+      <p>Bounded executor runs.</p>
+      <ul>
+        <li>locked_plan: true</li>
+        <li>allowed_files ≤ 12</li>
+        <li>acceptance_command exists</li>
+        <li>risk: low | medium</li>
+        <li>no production writes</li>
+        <li>no secrets required</li>
+      </ul>
+    </div>
+    <div class="light amber">
+      <h4>● AMBER</h4>
+      <p>Goal lane or app-lab.</p>
+      <ul>
+        <li>long validation loop</li>
+        <li>broad bounded roots</li>
+        <li>temp worktree required</li>
+        <li>human/board review before apply</li>
+      </ul>
+    </div>
+    <div class="light red">
+      <h4>● RED</h4>
+      <p>No execution. Route to board/operator.</p>
+      <ul>
+        <li>no locked_plan</li>
+        <li>no acceptance command</li>
+        <li>high ambiguity</li>
+        <li>production / SAP / Mongo / Qdrant mutation</li>
+        <li>secrets required</li>
+        <li>destructive command required</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="carve-outs">
+  <h2>7. Hard carve-outs (the restraint case)</h2>
+
+  <p>The escalation_gate enforces 6 hard rules. <strong>If any rule fires, real operator is required regardless of pseudo-operator confidence.</strong></p>
+
+  <div class="carveout">
+    <span class="icon">🏭</span>
+    <div class="text"><strong>production_mutation</strong>Any write to SAP, Mongo, Qdrant, Elasticsearch, customer DB, or `prod*` files</div>
+  </div>
+  <div class="carveout">
+    <span class="icon">🔑</span>
+    <div class="text"><strong>credential_or_security</strong>Any reference to <code>*.env</code>, <code>secrets/</code>, <code>credentials/</code>, tokens, keys, certs, or auth/security changes</div>
+  </div>
+  <div class="carveout">
+    <span class="icon">🎯</span>
+    <div class="text"><strong>milestone_scope_change</strong>Introducing or removing a milestone-level commitment</div>
+  </div>
+  <div class="carveout">
+    <span class="icon">💼</span>
+    <div class="text"><strong>commercial_legal_policy</strong>Pricing, contracts, public statements, customer-visible commitments</div>
+  </div>
+  <div class="carveout">
+    <span class="icon">⚠️</span>
+    <div class="text"><strong>low_confidence</strong>Pseudo-operator confidence &lt; 0.70</div>
+  </div>
+  <div class="carveout">
+    <span class="icon">💥</span>
+    <div class="text"><strong>destructive_or_irreversible</strong>git history rewrite, force-push, DROP TABLE, anything not easily undoable</div>
+  </div>
+
+  <div class="danger">
+    <strong>Fixture D — proved by SAC-P109-05:</strong> A test case where pseudo-operator has VERIFIED_CRIT evidence + LLM-judge confidence 0.95 + target_systems=[<code>sap</code>] returns <code>real_operator_required: true</code> with <code>carve_outs_triggered: ['production_mutation']</code>. The duty officer knows when to pick up the red phone. Autonomous loop cannot bypass real operator authority on production mutation regardless of how confident the LLM judge is.
+  </div>
+</section>
+
+<section id="context-authority">
+  <h2>8. Context Authority capsule</h2>
+
+  <p>Every v3.0+ milestone gets 6 hand-authored YAML files under <code>.planning/milestones/{milestone}/context/</code>:</p>
+
+  <div class="grid-2">
+    <div class="cmb-card">
+      <h4>MILESTONE-CONTEXT.yaml</h4>
+      <p>Milestone WHY, primary user outcome, personas (with priority), source-of-truth mappings, non-goals, operator preferences.</p>
+    </div>
+    <div class="cmb-card">
+      <h4>PERSONA-MATRIX.yaml</h4>
+      <p>Per-persona <code>cares_about</code> / <code>usually_ignores</code> / <code>search_bias.include</code> / <code>search_bias.suppress</code>.</p>
+    </div>
+    <div class="cmb-card">
+      <h4>DOMAIN-ONTOLOGY.yaml</h4>
+      <p>Entity types, their children, source-of-truth mappings per aspect, invariants, behavioral actions.</p>
+    </div>
+    <div class="cmb-card">
+      <h4>LEXICON.yaml</h4>
+      <p>Polysemy + domain-specific terminology. Terms with senses + which personas typically mean which sense.</p>
+    </div>
+    <div class="cmb-card">
+      <h4>SOURCE-OF-TRUTH.yaml</h4>
+      <p>Per data-class: authoritative system + canonical path (file or DB). Where to look when there's a conflict.</p>
+    </div>
+    <div class="cmb-card">
+      <h4>NON-GOALS.yaml</h4>
+      <p>Explicit out-of-scope items with rationale + which scope (this milestone / this project / permanently).</p>
+    </div>
+  </div>
+
+  <p>The <code>context-composer.cjs --milestone vX.Y</code> projects all 6 into the mesh ledger as <code>context_anchor</code> CMBs with <code>canonical_source_path</code> + <code>canonical_source_hash</code>. If the source file's sha256 changes, the anchor is "stale" and must be re-projected before use.</p>
+
+  <div class="eli5">
+    <strong>Why YAML is canonical, not the mesh CMB</strong>
+    <p>YAML files live in git and can be hand-edited / reviewed / diff'd by humans. Mesh CMBs are projections — fast for agents to consume but not authoritative. If the two diverge, YAML wins and the anchor gets re-projected. This prevents the mesh layer from becoming a second source of truth that nobody can audit.</p>
+  </div>
+</section>
+
+<section id="usability">
+  <h2>9. Usability guide</h2>
+
+  <h3>Starting a new milestone</h3>
+  <pre>1. Create .planning/milestones/{milestone}/INTENT.md (mission + outcome)
+2. Create .planning/milestones/{milestone}/ROADMAP.md (phases + exit criteria)
+3. Create .planning/milestones/{milestone}/REQUIREMENTS.md (REQ-* coverage matrix)
+4. Author the 6 Context Authority YAML files:
+     cp super-gsd/templates/MILESTONE-CONTEXT.template.yaml \
+        .planning/milestones/{milestone}/context/MILESTONE-CONTEXT.yaml
+     # (repeat for the other 5 templates)
+     # edit each to match this milestone
+5. Run context-composer to publish anchors:
+     node super-gsd/tools/context-authority/context-composer.cjs \
+       --milestone {milestone}
+6. Update .planning/STATE.md frontmatter (milestone, milestone_status, status)
+7. Start phase work: /sgsd-orchestrate auto</pre>
+
+  <h3>Authoring a phase</h3>
+  <pre>1. Create .planning/milestones/{m}/phases/{NN-slug}/{NN}-CONTEXT.md
+   - Lock binding invariants
+   - List files this phase will create
+   - Specify semantic acceptance criteria (real-data; SCHEMA-09 enforced)
+2. SGSD auto-dispatches Codex to author PLAN-LOCKED.md
+3. SGSD auto-dispatches Codex executor under stoplight + hooks
+4. Run the phase's run-self-test.cjs to verify
+5. Author {NN}-VERIFICATION.md
+6. Update STATE.md progress block</pre>
+
+  <h3>Common operator commands</h3>
+
+  <table>
+    <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>/sgsd-orchestrate auto</code></td><td>Enter auto mode; SGSD runs the dispatch loop without further confirmation</td></tr>
+      <tr><td><code>go</code> / <code>carry on</code> / <code>continue</code></td><td>Same as auto-mode trigger; advance to next dispatch</td></tr>
+      <tr><td><code>stop</code> / <code>pause</code></td><td>Write checkpoint, stop looping</td></tr>
+      <tr><td><code>status</code></td><td>SGSD reads STATE.md frontmatter and reports current milestone/phase position</td></tr>
+      <tr><td><code>/sgsd-audit {phase}</code></td><td>Run sgsd-audit@v2 (4-layer evidence audit incl. semantic-AC enforcement)</td></tr>
+      <tr><td><code>node super-gsd/tools/mesh-memory/run-self-test.cjs</code></td><td>Run the 102-assertion mesh memory self-test</td></tr>
+      <tr><td><code>node super-gsd/tools/codex-pro/run-self-test.cjs</code></td><td>Run the 15-assertion Codex Pro Mode self-test</td></tr>
+      <tr><td><code>node super-gsd/tools/codex-hooks/run-self-test.cjs</code></td><td>Run the 15-assertion Codex hooks self-test</td></tr>
+      <tr><td><code>node super-gsd/tools/context-authority/run-self-test.cjs</code></td><td>Run the 17-assertion Context Authority self-test</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Inspecting mesh memory</h3>
+
+  <pre># Recent CMBs (latest first)
+tail -20 .planning/mesh/memory/cmbs.jsonl | jq .
+
+# All evidence_verdicts that REFUTED a CRIT
+grep '"type":"evidence_verdict"' .planning/mesh/memory/cmbs.jsonl | \
+  grep REFUTED_CRIT | jq .
+
+# Walk lineage of a specific CMB (provenance backward through parents)
+node super-gsd/tools/mesh-memory/lineage.cjs --provenance &lt;cmb-key&gt;
+
+# Compute hash of a CMB to verify echo-by-content
+node super-gsd/tools/mesh-memory/cmb-hash.cjs &lt;cmb-file.json&gt;
+
+# Recent Codex Pro Mode routing decisions
+tail -10 .planning/metrics/pro-mode-stoplight.jsonl | jq .
+
+# Recent Codex hook events (audit trail)
+tail -20 .planning/metrics/codex-tool-events.jsonl | jq .</pre>
+</section>
+
+<section id="examples">
+  <h2>10. Examples</h2>
+
+  <details>
+    <summary><strong>Example 1 — A false CRIT from ATC gets refuted automatically</strong></summary>
+    <ol>
+      <li>Codex executor implements a schema change in <code>app/services/models.py</code>.</li>
+      <li>SGSD wrapper emits <code>execution_receipt</code>: commit_after=<code>54000ffd</code>, changed_files=[<code>models.py</code>], tests_run=[18 python pass, 22 frontend pass].</li>
+      <li>ATC reviewer reads diff, emits <code>review_finding</code>: severity=CRIT, claim="event model omits method/confidence fields", file_path=<code>models.py</code>, line_start=73, line_end=76, quoted_excerpt="...".</li>
+      <li><code>evidence_validator</code> Tier 0 deterministic check: <code>models.py:73-76</code> is read from disk at HEAD; quoted_excerpt is compared. Match? No — the file DOES contain the fields the claim says are missing.</li>
+      <li><code>evidence_validator</code> emits <code>evidence_verdict</code>: evidence_status=REFUTED_CRIT, decision_basis="claim contradicted by file at lines 73-76 at HEAD", refuting_evidence=[<code>models.py:73-76</code>].</li>
+      <li><code>pseudo_operator_peer</code> reads the refuted verdict, builds decision context. No carve-outs fire (no production_mutation, no credentials, confidence high).</li>
+      <li><code>pseudo_operator_peer</code> emits <code>decision_recommendation</code>: recommendation="PASS_WITH_REFUTED_REVIEW", authority_level=3, confidence=0.93, real_operator_required=false.</li>
+      <li>SGSD emits <code>promotion_decision</code>: verdict=PASS_WITH_REFUTED_REVIEW, phase=N.</li>
+      <li><strong>Operator is NOT woken.</strong> The false CRIT was structurally caught. Audit trail in mesh ledger preserves all 5 CMBs for future review.</li>
+    </ol>
+  </details>
+
+  <details>
+    <summary><strong>Example 2 — Production mutation forces escalation (Fixture D)</strong></summary>
+    <ol>
+      <li>A phase's PLAN-LOCKED.md declares <code>target_systems: [sap]</code> + <code>destructive: true</code>.</li>
+      <li>stoplight classifies → <strong>RED</strong> (production_writes triggers RED criteria).</li>
+      <li>SGSD does NOT dispatch Codex. Instead routes to escalation_gate.</li>
+      <li><code>escalation_gate.checkCarveOuts(context)</code> returns: <code>carve_outs_triggered=['production_mutation']</code>, <code>allow_autonomous=false</code>, <code>real_operator_required=true</code>.</li>
+      <li>Even if pseudo_operator_peer's Tier 2 LLM judge had confidence 0.99, the production_mutation carve-out is HARD — it overrides confidence.</li>
+      <li>SGSD writes an escalation packet (decision_recommendation with <code>real_operator_required: true</code> + cited carve-outs + missing-context list + structured choice options) and stops the loop with a clear status to the operator.</li>
+      <li><strong>Operator IS woken</strong> with full context. This is the right outcome — production writes need human authority.</li>
+    </ol>
+  </details>
+
+  <details>
+    <summary><strong>Example 3 — Echo detection catches a recycled claim</strong></summary>
+    <ol>
+      <li>Phase N: ATC emits <code>review_finding</code> A with claim "missing provenance fields". evidence_validator marks REFUTED_CRIT (file has the fields).</li>
+      <li>Phase N+1: Same code area, ATC RE-EMITS <code>review_finding</code> A' with same claim. evidence_validator runs.</li>
+      <li><code>echo_detector</code> computes ancestors(A') and intersects with SGSD's own produced keys. The previously-emitted <code>evidence_verdict</code> for A is found in the intersection.</li>
+      <li><code>echo_detected: true</code> is flagged on the new CMB's body.</li>
+      <li>pseudo_operator_peer sees the echo flag + the prior refutation → recommends PASS_WITH_REFUTED_REVIEW without burning new evidence-validation cycles.</li>
+      <li>The "ATC keeps re-emitting the same false positive" failure mode (Clarity v22-13c root cause class) is structurally prevented from looping.</li>
+    </ol>
+  </details>
+
+  <details>
+    <summary><strong>Example 4 — Context Authority resolves a persona conflict</strong></summary>
+    <ol>
+      <li>Decision: "Should the product search index include BOM child items alongside parent products?"</li>
+      <li>Without v3.0: board would deliberate, lack persona priority, escalate to operator.</li>
+      <li>With v3.0: pseudo_operator_peer reads PERSONA-MATRIX.yaml context_anchor → sees sales is primary, procurement is secondary.</li>
+      <li>Cross-references SOURCE-OF-TRUTH.yaml → confirms product structure lives in BOM DB; web visibility owned by web catalogue.</li>
+      <li>Cross-references LEXICON.yaml → "product" has senses sellable_product (sales) and bom_component (procurement); the question is about default search behavior.</li>
+      <li>pseudo_operator_peer emits <code>decision_recommendation</code>: "Index BOM children but suppress in default sales-facing result set; expose via procurement filter." Cites context anchors as evidence. confidence=0.87, real_operator_required=false.</li>
+      <li>SGSD continues. Operator not woken. Audit trail in mesh ledger.</li>
+    </ol>
+  </details>
+</section>
+
+<section id="reference">
+  <h2>11. Quick reference</h2>
+
+  <h3>File locations</h3>
+  <table>
+    <thead><tr><th>What</th><th>Path</th></tr></thead>
+    <tbody>
+      <tr><td>CMB schema</td><td><code>super-gsd/schemas/cmb.schema.json</code></td></tr>
+      <tr><td>PLAN-LOCKED schema</td><td><code>super-gsd/schemas/plan-locked.schema.json</code></td></tr>
+      <tr><td>Plan schema v2 (predecessor)</td><td><code>super-gsd/templates/plan-schema-v2.json</code></td></tr>
+      <tr><td>Codex profile registry</td><td><code>super-gsd/registry/codex-profiles.yaml</code></td></tr>
+      <tr><td>Codex hook config</td><td><code>.codex/hooks.json</code></td></tr>
+      <tr><td>Mesh memory tools</td><td><code>super-gsd/tools/mesh-memory/</code></td></tr>
+      <tr><td>Codex Pro Mode tools</td><td><code>super-gsd/tools/codex-pro/</code></td></tr>
+      <tr><td>PLAN-LOCKED validator</td><td><code>super-gsd/tools/plan-lock/</code></td></tr>
+      <tr><td>Codex hook scripts</td><td><code>super-gsd/tools/codex-hooks/</code></td></tr>
+      <tr><td>Context Authority tools</td><td><code>super-gsd/tools/context-authority/</code></td></tr>
+      <tr><td>Context Authority templates</td><td><code>super-gsd/templates/*.template.yaml</code></td></tr>
+      <tr><td>Mesh memory ledger (runtime)</td><td><code>.planning/mesh/memory/cmbs.jsonl</code></td></tr>
+      <tr><td>Codex Pro Mode stoplight log</td><td><code>.planning/metrics/pro-mode-stoplight.jsonl</code></td></tr>
+      <tr><td>Codex hook events log</td><td><code>.planning/metrics/codex-tool-events.jsonl</code></td></tr>
+      <tr><td>Per-milestone context capsule</td><td><code>.planning/milestones/{m}/context/*.yaml</code></td></tr>
+      <tr><td>DLB-08 design lock</td><td><code>.planning/decisions/DLB-08-MESH-MEMORY-LITE.md</code></td></tr>
+      <tr><td>v3.0 SUMMARY</td><td><code>.planning/milestones/v3.0/SUMMARY.md</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>The DLB chain</h3>
+  <table>
+    <thead><tr><th>DLB</th><th>Topic</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>DLB-07</td><td>Semantic vs structural verification (Clarity ERP post-mortem)</td><td>v2.9 P97.5</td></tr>
+      <tr><td>DLB-08</td><td>Mesh Memory Lite (CMB substrate + validators + lineage + pseudo-op)</td><td>v3.0 P106-P109</td></tr>
+      <tr><td>DLB-09</td><td>Codex Pro Mode (typed lanes + stoplight + PLAN-LOCKED + hooks)</td><td>v3.0 P110-P111</td></tr>
+      <tr><td>DLB-10</td><td>Context Authority (capsule + projection)</td><td>v3.0 P112</td></tr>
+    </tbody>
+  </table>
+
+  <h3>The five evidence verdicts</h3>
+  <table>
+    <thead><tr><th>Status</th><th>Means</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td><code>VERIFIED_CRIT</code></td><td>Claim is true at HEAD with file:line + quoted_excerpt match</td><td>Blocks promotion</td></tr>
+      <tr><td><code>REFUTED_CRIT</code></td><td>Claim is false at HEAD; current code contradicts</td><td>Routes to PASS_WITH_REFUTED_REVIEW</td></tr>
+      <tr><td><code>STALE_CRIT</code></td><td>Claim refers to old code that's since changed</td><td>Does not block; flagged</td></tr>
+      <tr><td><code>UNVERIFIED_CRIT</code></td><td>Claim has no file:line reference; cannot deterministically check</td><td>Routes to dispute lane or operator</td></tr>
+      <tr><td><code>GUARDED_CRIT</code></td><td>Claim may be valid but presence only verified, not content</td><td>Continues with caution flag</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="faq">
+  <h2>12. FAQ</h2>
+
+  <details>
+    <summary>Why no Pi-agent-harness?</summary>
+    <p>Anthropic's OAuth Terms of Service forbid non-Anthropic harnesses calling Claude via OAuth. Operator constraint; not a technical limitation.</p>
+  </details>
+
+  <details>
+    <summary>Why no sym-mesh-channel?</summary>
+    <p>The MMP paper's <code>sym-mesh-channel</code> plugin is a great reference implementation but its Anthropic Plugin Directory propagation was still unresolved as of 2026-04-21 (github.com/anthropics/claude-plugins-official/issues/1512). Optional experiment branch only; not in v3.0 critical path.</p>
+  </details>
+
+  <details>
+    <summary>Why not concurrent autonomous mesh like the MMP paper?</summary>
+    <p>Single-machine Windows 11 box. The MMP paper's N=3 mesh runs on Mac+Windows with Bonjour mDNS. We get the SEMANTIC properties (per-field admission, lineage, remix) but not the concurrent-autonomous properties. Honest framing: <em>mesh-shaped memory, central-shaped runtime.</em></p>
+  </details>
+
+  <details>
+    <summary>Why don't executors emit CMBs?</summary>
+    <p>Agents emit claims. SGSD emits observations. Conflating the two is how model-generated memory becomes fake truth. SGSD's <code>execution_receipt.cjs</code> wraps the executor and emits an observation CMB from observable facts (git diff, test results, report hash). The executor itself never authors a CMB in MVP.</p>
+  </details>
+
+  <details>
+    <summary>How does pseudo_operator_peer decide when to escalate?</summary>
+    <p>It calls <code>escalation_gate.checkCarveOuts(context)</code>. If ANY of the 6 hard rules fire (production_mutation, credential_or_security, milestone_scope_change, commercial_legal_policy, low_confidence, destructive_or_irreversible), <code>real_operator_required=true</code> is forced regardless of LLM-judge confidence.</p>
+  </details>
+
+  <details>
+    <summary>What's the difference between SCHEMA-09 and SCHEMA-MML-02?</summary>
+    <p><code>SCHEMA-09</code> is from v2.9 / DLB-07 / plan-schema-v2: rejects PLAN.md files without <code>semantic_acceptance_criteria</code>. <code>SCHEMA-MML-02</code> is from v3.0 / DLB-08 / cmb.schema.json: rejects CMBs where the <code>created_by</code> role doesn't match the CMB type (e.g. an agent trying to author an execution_receipt).</p>
+  </details>
+
+  <details>
+    <summary>Where do operator_precedent CMBs come from?</summary>
+    <p>Currently, manually — when the operator makes a decision touching SGSD state, you can append an operator_precedent CMB to the ledger as a reusable precedent. Future v3.1 work could auto-emit these from AskUserQuestion responses, but that's not in v3.0.</p>
+  </details>
+
+  <details>
+    <summary>How do I add a new Codex hook?</summary>
+    <p>(1) Write the hook script under <code>super-gsd/tools/codex-hooks/&lt;name&gt;.cjs</code> with stdin JSON parsing + exit 0/non-0 contract. (2) Add it to <code>.codex/hooks.json</code> under the appropriate event. (3) Extend <code>super-gsd/tools/codex-hooks/run-self-test.cjs</code> to cover the new hook. Run the self-test to verify.</p>
+  </details>
+
+  <details>
+    <summary>What if the mesh memory ledger gets too big?</summary>
+    <p>The ledger is append-only JSONL. At 10K-100K CMBs it's still tractable for grep + lineage walks. Beyond that, future v3.1 work could partition by milestone, compact superseded CMBs, or index via Qdrant (deferred per NG-05). Until then: don't worry about it.</p>
+  </details>
+
+  <details>
+    <summary>Can I use v3.0 without DLB-10 (Context Authority)?</summary>
+    <p>Yes. DLB-08 (Mesh Memory Lite) + DLB-09 (Codex Pro Mode) work standalone. DLB-10 capsule is OPT-IN: if a milestone has the 6 YAML files, pseudo_operator_peer reads context anchors; if not, it falls back to milestone INTENT/REQUIREMENTS only.</p>
+  </details>
+</section>
+
+<div class="footer">
+  Generated 2026-05-21 · SGSD v3.0 SGSD-PRO milestone close
+  · DLB-08 Mesh Memory Lite + DLB-09 Codex Pro Mode + DLB-10 Context Authority
+  · <a href="https://github.com/Berrowj/super-gsd" target="_blank">github.com/Berrowj/super-gsd</a>
+</div>
+
+  </main>
+</div>
+
+</div>
+
+</body>
+</html>
