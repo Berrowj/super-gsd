@@ -13,14 +13,14 @@ legacy_activity_v2_6: "2026-04-29T21:25Z RE-SYNC — STATE.md was stale (mtime 2
 progress:
   v3_0:
     total_phases: 7
-    completed_phases: 3
-    completed_plans: 3
-    percent: 43
-    phase_106: "PASS ✓ 2026-05-20 @ 390ef1a (Mesh CMB Schema and Canonical Hashing; DLB-08.1; cmb.schema.json + 17 fixtures; 14/14 schema self-tests green; SCHEMA-MML-02/-03 ajv-errors fire correctly)"
-    phase_107: "PASS ✓ 2026-05-20 @ c45c24c (cmb-validate + cmb-hash + execution-receipt + review-finding-writer + 20-assertion self-test; mesh memory ledger live with 2 CMBs from writer self-tests; all P106 SACs retired green; ajv multi-instance bug fixed in-loop)"
-    phase_108: "PASS ✓ 2026-05-20 (lineage DAG + evidence_validator + echo_detector + seed-ledger + sgsd-audit soft wire-in; 49/49 self-test green; 7 Codex dispatches across 5 fix rounds; emitted CMBs schema-conformant for all classes)"
-    phase_109: "ACTIVE — pseudo_operator peer + escalation gate w/ hard carve-outs (DLB-08.6+.7)"
-    phase_110: "PENDING — Codex Pro Mode lanes + stoplight routing + native review (DLB-09.1)"
+    completed_phases: 4
+    completed_plans: 4
+    percent: 57
+    phase_106: "PASS ✓ 2026-05-20 @ 390ef1a (Mesh CMB Schema and Canonical Hashing; DLB-08.1)"
+    phase_107: "PASS ✓ 2026-05-20 @ c45c24c (cmb-validate + cmb-hash + execution-receipt + review-finding-writer; 20-assertion self-test)"
+    phase_108: "PASS ✓ 2026-05-20 @ cf03b53 (lineage DAG + evidence_validator + echo_detector + seed-ledger + sgsd-audit soft wire-in; 49/49)"
+    phase_109: "PASS ✓ 2026-05-20 (escalation_gate + pseudo_operator_peer; 102/102 self-test; ZERO fix rounds; **Fixture D PROVED** — production_mutation overrides confidence 0.95; DLB-08 Mesh Memory Lite LAYER COMPLETE)"
+    phase_110: "ACTIVE — Codex Pro Mode lanes + stoplight routing + native review (DLB-09.1)"
     phase_111: "PENDING — PLAN-LOCKED.md formal lock + .codex/hooks.json safety rails (DLB-09.2)"
     phase_112: "PENDING — Context Authority capsule (MILESTONE-CONTEXT/PERSONA-MATRIX/DOMAIN-ONTOLOGY/LEXICON/SOURCE-OF-TRUTH/NON-GOALS) (DLB-10.1)"
   v2_9:

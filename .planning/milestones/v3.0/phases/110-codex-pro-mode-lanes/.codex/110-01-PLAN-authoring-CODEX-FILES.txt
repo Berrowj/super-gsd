@@ -1,0 +1,5 @@
+.planning/milestones/v3.0/phases/110-codex-pro-mode-lanes/110-CONTEXT.md
+.planning/milestones/v3.0/phases/109-pseudo-operator-escalation/109-01-pseudo-operator-escalation-PLAN.md
+super-gsd/templates/plan-schema-v2.json
+.planning/proposals/2026-05-20-sgsd-pro-mode-codex-context-authority-plan.md
+.planning/milestones/v3.0/phases/110-codex-pro-mode-lanes/110-01-codex-pro-mode-lanes-PLAN.md
