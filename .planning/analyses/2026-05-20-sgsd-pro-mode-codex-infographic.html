@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SGSD Pro Mode — Codex-Native Upgrade Infographic</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --bg2: #0c1a2f;
+      --panel: rgba(255,255,255,0.075);
+      --panel2: rgba(255,255,255,0.105);
+      --ink: #f3f7ff;
+      --muted: #aebbd0;
+      --line: rgba(255,255,255,0.16);
+      --cyan: #67e8f9;
+      --blue: #60a5fa;
+      --violet: #c084fc;
+      --green: #86efac;
+      --amber: #facc15;
+      --red: #fb7185;
+      --orange: #fdba74;
+      --shadow: 0 22px 60px rgba(0,0,0,0.33);
+      --radius: 24px;
+      --radius2: 16px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 10% 0%, rgba(103,232,249,0.18), transparent 36%),
+        radial-gradient(circle at 82% 8%, rgba(192,132,252,0.16), transparent 33%),
+        linear-gradient(145deg, var(--bg), var(--bg2) 48%, #08101c);
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.48;
+    }
+
+    a { color: var(--cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .page {
+      width: min(1240px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 80px;
+    }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(18px);
+      background: linear-gradient(90deg, rgba(7,17,31,0.86), rgba(12,26,47,0.76));
+      border-bottom: 1px solid var(--line);
+    }
+
+    .nav-inner {
+      width: min(1240px, calc(100vw - 32px));
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--cyan), var(--violet));
+      box-shadow: 0 0 24px rgba(103,232,249,0.26);
+      position: relative;
+    }
+    .brand-mark::after {
+      content: "";
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(7,17,31,0.88);
+      border-radius: 50%;
+      position: absolute;
+      left: 9px;
+      top: 9px;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .nav-links a {
+      color: var(--muted);
+      padding: 6px 9px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+    }
+    .nav-links a:hover {
+      color: var(--ink);
+      text-decoration: none;
+      border-color: rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+    }
+
+    .hero {
+      position: relative;
+      margin-top: 28px;
+      padding: 52px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 32px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.045)),
+        radial-gradient(circle at 90% 20%, rgba(103,232,249,0.14), transparent 36%),
+        radial-gradient(circle at 20% 85%, rgba(192,132,252,0.16), transparent 38%);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: -60px;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
+      background-size: 28px 28px;
+      mask-image: radial-gradient(circle at 70% 30%, black, transparent 66%);
+      pointer-events: none;
+    }
+
+    .hero-content { position: relative; z-index: 1; }
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: rgba(103,232,249,0.10);
+      border: 1px solid rgba(103,232,249,0.28);
+      color: #cffafe;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    h1 {
+      margin: 22px 0 12px;
+      font-size: clamp(42px, 7vw, 86px);
+      line-height: 0.94;
+      letter-spacing: -0.07em;
+      max-width: 960px;
+    }
+    .hero p {
+      max-width: 860px;
+      font-size: clamp(17px, 2.1vw, 23px);
+      color: var(--muted);
+      margin: 0 0 26px;
+    }
+
+    .hero-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 28px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 13px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.075);
+      border: 1px solid rgba(255,255,255,0.13);
+      color: #eaf2ff;
+      font-size: 13px;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--cyan);
+      box-shadow: 0 0 14px currentColor;
+    }
+
+    section { margin-top: 34px; }
+    .section-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
+      margin: 0 0 16px;
+    }
+    .eyebrow {
+      color: var(--cyan);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    h2 {
+      margin: 0;
+      font-size: clamp(28px, 3vw, 42px);
+      letter-spacing: -0.04em;
+      line-height: 1.02;
+    }
+    .section-note {
+      color: var(--muted);
+      max-width: 540px;
+      font-size: 15px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .grid.sidebar { grid-template-columns: 1.16fr 0.84fr; }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,0.13);
+      border-radius: var(--radius);
+      box-shadow: 0 14px 40px rgba(0,0,0,0.20);
+      overflow: hidden;
+    }
+    .card.pad { padding: 22px; }
+    .card h3 {
+      margin: 0 0 10px;
+      font-size: 22px;
+      letter-spacing: -0.025em;
+    }
+    .card p { color: var(--muted); margin: 0; }
+    .caption { color: var(--muted); font-size: 13px; }
+    .small { font-size: 13px; color: var(--muted); }
+    .strong { color: var(--ink); font-weight: 800; }
+
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .metric {
+      padding: 18px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .metric .num {
+      font-size: 34px;
+      font-weight: 900;
+      letter-spacing: -0.06em;
+      line-height: 1;
+      margin-bottom: 7px;
+    }
+    .metric .label { font-size: 13px; color: var(--muted); }
+
+    .split-line {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 16px;
+      align-items: stretch;
+    }
+    .role-card {
+      padding: 22px;
+      border-radius: 22px;
+      min-height: 220px;
+      position: relative;
+      overflow: hidden;
+    }
+    .role-card.control {
+      background: linear-gradient(145deg, rgba(96,165,250,0.20), rgba(255,255,255,0.06));
+      border: 1px solid rgba(96,165,250,0.30);
+    }
+    .role-card.fabric {
+      background: linear-gradient(145deg, rgba(192,132,252,0.20), rgba(255,255,255,0.06));
+      border: 1px solid rgba(192,132,252,0.30);
+    }
+    .role-card .tag {
+      display: inline-flex;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.10);
+      font-size: 12px;
+      color: #eaf2ff;
+      border: 1px solid rgba(255,255,255,0.14);
+      margin-bottom: 12px;
+    }
+    .divider-arrow {
+      width: 76px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--cyan);
+      font-size: 42px;
+      font-weight: 900;
+    }
+
+    .architecture-svg, .workflow-svg, .routing-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      background:
+        radial-gradient(circle at 30% 20%, rgba(103,232,249,0.08), transparent 35%),
+        rgba(255,255,255,0.025);
+    }
+    svg text { font-family: var(--sans); }
+
+    .lane-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .lane {
+      padding: 18px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.065);
+      border: 1px solid rgba(255,255,255,0.12);
+      transition: transform .16s ease, border-color .16s ease, background .16s ease;
+      cursor: pointer;
+    }
+    .lane:hover, .lane.active {
+      transform: translateY(-2px);
+      border-color: rgba(103,232,249,0.38);
+      background: rgba(103,232,249,0.085);
+    }
+    .lane .lane-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .lane-name { font-weight: 900; letter-spacing: -0.02em; }
+    .lane-chip {
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      color: var(--muted);
+      font-size: 11px;
+      border: 1px solid rgba(255,255,255,0.10);
+    }
+    .lane p { font-size: 13px; }
+
+    .detail-panel {
+      min-height: 100%;
+      padding: 22px;
+      background: linear-gradient(145deg, rgba(103,232,249,0.095), rgba(255,255,255,0.05));
+      border: 1px solid rgba(103,232,249,0.22);
+      border-radius: var(--radius);
+    }
+    .detail-panel ul { margin: 12px 0 0 18px; padding: 0; color: var(--muted); }
+    .detail-panel li { margin: 6px 0; }
+
+    .swimlane {
+      display: grid;
+      grid-template-columns: 170px repeat(5, 1fr);
+      border: 1px solid rgba(255,255,255,0.13);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: rgba(255,255,255,0.045);
+    }
+    .swimlane > div {
+      padding: 14px;
+      border-right: 1px solid rgba(255,255,255,0.10);
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+    }
+    .swimlane > div:nth-child(6n) { border-right: 0; }
+    .swimlane .head {
+      background: rgba(255,255,255,0.08);
+      color: #eaf2ff;
+      font-weight: 800;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .swimlane .role { color: var(--cyan); font-weight: 900; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      color: var(--muted);
+    }
+    .badge.green { color: #dcfce7; background: rgba(134,239,172,0.11); border-color: rgba(134,239,172,0.22); }
+    .badge.amber { color: #fef9c3; background: rgba(250,204,21,0.11); border-color: rgba(250,204,21,0.25); }
+    .badge.red { color: #ffe4e6; background: rgba(251,113,133,0.11); border-color: rgba(251,113,133,0.25); }
+
+    .roadmap {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+    }
+    .phase {
+      position: relative;
+      padding: 18px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.065);
+      border: 1px solid rgba(255,255,255,0.12);
+      min-height: 245px;
+    }
+    .phase::after {
+      content: "→";
+      position: absolute;
+      right: -14px;
+      top: 24px;
+      color: rgba(255,255,255,0.28);
+      font-size: 24px;
+      z-index: 1;
+    }
+    .phase:last-child::after { display: none; }
+    .phase-num {
+      width: 38px;
+      height: 38px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      background: linear-gradient(135deg, rgba(103,232,249,0.24), rgba(192,132,252,0.18));
+      border: 1px solid rgba(255,255,255,0.18);
+      margin-bottom: 12px;
+    }
+    .phase h3 { font-size: 18px; margin-bottom: 8px; }
+    .phase ul { color: var(--muted); padding-left: 18px; margin: 12px 0 0; font-size: 13px; }
+    .phase li { margin: 5px 0; }
+
+    .stack {
+      display: grid;
+      gap: 10px;
+    }
+    .stack-item {
+      display: grid;
+      grid-template-columns: 38px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.11);
+    }
+    .stack-num {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: rgba(103,232,249,0.12);
+      border: 1px solid rgba(103,232,249,0.20);
+      font-weight: 900;
+      color: #cffafe;
+    }
+
+    .code {
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 18px;
+      padding: 16px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      color: #dbeafe;
+      overflow: auto;
+      white-space: pre;
+    }
+
+    .tree {
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.7;
+      color: #dbeafe;
+    }
+    .tree .new { color: var(--green); }
+    .tree .edit { color: var(--amber); }
+    .tree .note { color: var(--muted); }
+
+    .decision-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      overflow: hidden;
+      border-radius: var(--radius);
+      border: 1px solid rgba(255,255,255,0.13);
+      background: rgba(255,255,255,0.045);
+    }
+    .decision-table th, .decision-table td {
+      padding: 14px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+      vertical-align: top;
+      font-size: 13px;
+    }
+    .decision-table th {
+      color: #eaf2ff;
+      background: rgba(255,255,255,0.08);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+    .decision-table tr:last-child td { border-bottom: 0; }
+    .decision-table td { color: var(--muted); }
+    .decision-table .lane-label { color: var(--ink); font-weight: 900; }
+
+    .footer {
+      margin-top: 36px;
+      padding: 26px;
+      border-radius: var(--radius);
+      background: rgba(255,255,255,0.065);
+      border: 1px solid rgba(255,255,255,0.13);
+      color: var(--muted);
+    }
+    .source-list {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 14px;
+      padding: 0;
+      list-style: none;
+    }
+    .source-list li {
+      padding: 12px;
+      background: rgba(255,255,255,0.055);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 14px;
+      font-size: 13px;
+    }
+
+    .callout {
+      padding: 18px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(134,239,172,0.10), rgba(103,232,249,0.075));
+      border: 1px solid rgba(134,239,172,0.18);
+    }
+    .callout.warn {
+      background: linear-gradient(135deg, rgba(250,204,21,0.11), rgba(251,113,133,0.07));
+      border-color: rgba(250,204,21,0.20);
+    }
+    .callout h3 { margin-bottom: 8px; }
+
+    .print-hint { color: var(--muted); font-size: 13px; margin-top: 12px; }
+
+    @media (max-width: 1000px) {
+      .grid.two, .grid.three, .grid.four, .grid.sidebar, .lane-grid, .roadmap, .source-list { grid-template-columns: 1fr; }
+      .metric-row { grid-template-columns: repeat(2, 1fr); }
+      .split-line { grid-template-columns: 1fr; }
+      .divider-arrow { width: 100%; transform: rotate(90deg); }
+      .swimlane { grid-template-columns: 1fr; }
+      .swimlane > div { border-right: 0 !important; }
+      .phase::after { display: none; }
+      .hero { padding: 32px 24px; }
+      .nav-inner { align-items: flex-start; flex-direction: column; }
+      .nav-links { justify-content: flex-start; }
+    }
+
+    @media print {
+      body { background: #07111f; }
+      .nav { position: static; }
+      .page { width: 100%; padding: 0 12px 24px; }
+      .card, .hero, .footer { box-shadow: none; break-inside: avoid; }
+      section { break-inside: avoid; }
+      a { color: #67e8f9; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <div class="brand"><div class="brand-mark"></div><span>SGSD Pro Mode</span></div>
+      <div class="nav-links">
+        <a href="#model">Mental model</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#workflow">Workflow</a>
+        <a href="#lanes">Codex lanes</a>
+        <a href="#routing">Routing</a>
+        <a href="#roadmap">Roadmap</a>
+        <a href="#edits">Repo edits</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="page">
+    <header class="hero">
+      <div class="hero-content">
+        <div class="kicker"><span class="dot"></span> Codex-native upgrade map · May 2026</div>
+        <h1>SGSD Pro Mode: control plane + Codex execution fabric</h1>
+        <p>
+          The upgrade is not “let Codex run everything”. The win is a typed, auditable execution system where SGSD owns state, gates, memory and promotion — while Codex handles planning, bounded execution, goal loops, review and specialist safety checks.
+        </p>
+        <div class="hero-pills">
+          <span class="pill"><span class="dot"></span> `/plan` for plan lock</span>
+          <span class="pill"><span class="dot"></span> `/goal` for long-running phase finishers</span>
+          <span class="pill"><span class="dot"></span> `/review` for independent diff review</span>
+          <span class="pill"><span class="dot"></span> Hooks for hard safety rails</span>
+          <span class="pill"><span class="dot"></span> Skills for reusable SGSD behaviours</span>
+        </div>
+        <div class="metric-row">
+          <div class="metric"><div class="num">8</div><div class="label">Codex lane types to add</div></div>
+          <div class="metric"><div class="num">14</div><div class="label">Recommended Pro Mode loop steps</div></div>
+          <div class="metric"><div class="num">5</div><div class="label">Implementation phases</div></div>
+          <div class="metric"><div class="num">1</div><div class="label">Final authority: SGSD ATC</div></div>
+        </div>
+      </div>
+    </header>
+
+    <section id="current">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">Current foundation</div>
+          <h2>What SGSD already has</h2>
+        </div>
+        <div class="section-note">
+          The repo already points in the right direction: Opus/Claude orchestrates, Codex performs research/planning/code/gates, source mutation is locked behind Codex, and bounded tasks can route through temporary worktrees.
+        </div>
+      </div>
+      <div class="grid three">
+        <article class="card pad">
+          <h3>Runtime role split</h3>
+          <p><span class="strong">Opus/Claude</span> reads `.planning/`, decides next step and synthesises results. <span class="strong">Codex GPT‑5.5/xhigh</span> handles research, planning, code work, verification, ATC, gates and MUDA.</p>
+        </article>
+        <article class="card pad">
+          <h3>Codex executor lock</h3>
+          <p>Source-changing executor work is already routed through `super-gsd/scripts/codex-executor.sh`, with read-pack patch fallback for Windows host read blocks.</p>
+        </article>
+        <article class="card pad">
+          <h3>Double-agent router</h3>
+          <p>Bounded task capsules can route to local scripts, Codex or Claude. Codex execution uses a temporary git worktree, allowed-files checks, acceptance commands and patch/report output.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="model">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">Mental model</div>
+          <h2>Codex-native, not Codex-led</h2>
+        </div>
+        <div class="section-note">This is the central governance rule. Codex is powerful, but SGSD must remain the stateful control plane.</div>
+      </div>
+      <div class="split-line">
+        <div class="role-card control">
+          <div class="tag">Control plane</div>
+          <h3>SGSD owns the mission</h3>
+          <p>State, roadmap, memory, phase order, locked plans, allowed surfaces, quality gates, stoplights, ledgers, checkpoints, operator sign-off and promotion.</p>
+          <br />
+          <span class="badge green">Authority</span>
+          <span class="badge amber">Governance</span>
+          <span class="badge red">Stop rules</span>
+        </div>
+        <div class="divider-arrow">→</div>
+        <div class="role-card fabric">
+          <div class="tag">Execution fabric</div>
+          <h3>Codex owns bounded work</h3>
+          <p>Repo discovery, `/plan`, `/goal`, patch creation, bounded edits, native review, swarm review, hooks, skills, worktree experiments and app/cloud lab drafts.</p>
+          <br />
+          <span class="badge green">Implementation</span>
+          <span class="badge amber">Validation loop</span>
+          <span class="badge red">No promotion power</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">Target architecture</div>
+          <h2>The SGSD Pro Mode map</h2>
+        </div>
+        <div class="section-note">A single control plane dispatches typed Codex lanes, while hooks, skills and gates enforce behaviour around every run.</div>
+      </div>
+      <div class="card">
+        <svg class="architecture-svg" viewBox="0 0 1200 700" role="img" aria-label="SGSD Pro Mode target architecture">
+          <defs>
+            <marker id="arrowCyan" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L0,6 L9,3 z" fill="#67e8f9" />
+            </marker>
+            <linearGradient id="coreGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#60a5fa" stop-opacity="0.7" />
+              <stop offset="1" stop-color="#c084fc" stop-opacity="0.55" />
+            </linearGradient>
+            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+              <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          <rect width="1200" height="700" rx="24" fill="rgba(255,255,255,0.01)" />
+
+          <!-- connectors -->
+          <g stroke="#67e8f9" stroke-opacity="0.45" stroke-width="2.5" fill="none" marker-end="url(#arrowCyan)">
+            <path d="M600 316 C500 220 420 190 300 150" />
+            <path d="M600 316 C725 210 805 185 995 145" />
+            <path d="M600 350 C475 350 385 348 270 345" />
+            <path d="M600 350 C730 350 810 350 1010 345" />
+            <path d="M600 384 C500 486 410 522 300 560" />
+            <path d="M600 384 C735 496 820 520 995 560" />
+            <path d="M600 316 C600 238 600 195 600 118" />
+            <path d="M600 384 C600 482 600 530 600 620" />
+          </g>
+
+          <!-- central core -->
+          <g filter="url(#glow)">
+            <rect x="415" y="255" width="370" height="190" rx="34" fill="url(#coreGrad)" stroke="rgba(255,255,255,0.42)" />
+            <text x="600" y="304" text-anchor="middle" fill="#ffffff" font-size="30" font-weight="900">SGSD Control Plane</text>
+            <text x="600" y="338" text-anchor="middle" fill="#e8f6ff" font-size="16">state · memory · gates · stoplights · promotion</text>
+            <text x="600" y="379" text-anchor="middle" fill="#dbeafe" font-size="14">Reads PLAN-LOCKED.md and dispatches typed Codex lanes</text>
+            <rect x="510" y="396" width="180" height="32" rx="16" fill="rgba(7,17,31,0.45)" stroke="rgba(255,255,255,0.22)" />
+            <text x="600" y="417" text-anchor="middle" fill="#cffafe" font-size="14" font-weight="800">Final authority: ATC</text>
+          </g>
+
+          <!-- nodes -->
+          <g>
+            <rect x="120" y="86" width="250" height="105" rx="22" fill="rgba(255,255,255,0.075)" stroke="rgba(255,255,255,0.18)" />
+            <text x="245" y="127" text-anchor="middle" fill="#cffafe" font-size="22" font-weight="900">Codex /plan</text>
+            <text x="245" y="154" text-anchor="middle" fill="#aebbd0" font-size="13">PLAN-DRAFT → PLAN-LOCKED</text>
+
+            <rect x="850" y="86" width="250" height="105" rx="22" fill="rgba(255,255,255,0.075)" stroke="rgba(255,255,255,0.18)" />
+            <text x="975" y="127" text-anchor="middle" fill="#f0abfc" font-size="22" font-weight="900">Codex /goal</text>
+            <text x="975" y="154" text-anchor="middle" fill="#aebbd0" font-size="13">long-running phase finisher</text>
+
+            <rect x="76" y="292" width="270" height="110" rx="22" fill="rgba(255,255,255,0.075)" stroke="rgba(255,255,255,0.18)" />
+            <text x="211" y="334" text-anchor="middle" fill="#86efac" font-size="22" font-weight="900">Bounded executor</text>
+            <text x="211" y="363" text-anchor="middle" fill="#aebbd0" font-size="13">small edits · tests · patches</text>
+
+            <rect x="855" y="292" width="270" height="110" rx="22" fill="rgba(255,255,255,0.075)" stroke="rgba(255,255,255,0.18)" />
+            <text x="990" y="334" text-anchor="middle" fill="#fdba74" font-size="22" font-weight="900">Native /review</text>
+            <text x="990" y="363" text-anchor="middle" fill="#aebbd0" font-size="13">prioritised findings · no edits</text>
+
+            <rect x="120" y="508" width="250" height="105" rx="22" fill="rgba(255,255,255,0.075)" stroke="rgba(255,255,255,0.18)" />
+            <text x="245" y="548" text-anchor="middle" fill="#67e8f9" font-size="22" font-weight="900">Hooks</text>
+            <text x="245" y="576" text-anchor="middle" fill="#aebbd0" font-size="13">block unsafe commands & writes</text>
+
+            <rect x="850" y="508" width="250" height="105" rx="22" fill="rgba(255,255,255,0.075)" stroke="rgba(255,255,255,0.18)" />
+            <text x="975" y="548" text-anchor="middle" fill="#c4b5fd" font-size="22" font-weight="900">Skills</text>
+            <text x="975" y="576" text-anchor="middle" fill="#aebbd0" font-size="13">reusable SGSD behaviours</text>
+
+            <rect x="475" y="55" width="250" height="90" rx="22" fill="rgba(255,255,255,0.075)" stroke="rgba(255,255,255,0.18)" />
+            <text x="600" y="94" text-anchor="middle" fill="#fef9c3" font-size="21" font-weight="900">Stoplight router</text>
+            <text x="600" y="121" text-anchor="middle" fill="#aebbd0" font-size="13">GREEN · AMBER · RED</text>
+
+            <rect x="475" y="585" width="250" height="90" rx="22" fill="rgba(255,255,255,0.075)" stroke="rgba(255,255,255,0.18)" />
+            <text x="600" y="625" text-anchor="middle" fill="#93c5fd" font-size="21" font-weight="900">Ledgers & cockpit</text>
+            <text x="600" y="652" text-anchor="middle" fill="#aebbd0" font-size="13">metrics · checkpoint · evidence</text>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <section id="workflow">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">Pro Mode loop</div>
+          <h2>From “go” to promotion</h2>
+        </div>
+        <div class="section-note">This flow keeps autonomy high but prevents Codex from becoming an unsupervised repo gremlin.</div>
+      </div>
+      <div class="card">
+        <svg class="workflow-svg" viewBox="0 0 1200 650" role="img" aria-label="SGSD Pro Mode workflow">
+          <defs>
+            <marker id="arrowFlow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#67e8f9" /></marker>
+          </defs>
+          <rect width="1200" height="650" rx="24" fill="rgba(255,255,255,0.01)" />
+          <g stroke="#67e8f9" stroke-opacity="0.50" stroke-width="2.2" fill="none" marker-end="url(#arrowFlow)">
+            <path d="M158 122 L258 122"/><path d="M438 122 L538 122"/><path d="M718 122 L818 122"/>
+            <path d="M960 166 C960 205 160 205 160 256"/>
+            <path d="M258 300 L538 300"/><path d="M718 300 L818 300"/>
+            <path d="M960 344 C960 382 160 382 160 434"/>
+            <path d="M258 478 L538 478"/><path d="M718 478 L818 478"/>
+          </g>
+          <g font-size="13" fill="#aebbd0">
+            <g>
+              <rect x="50" y="78" width="158" height="88" rx="18" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.16)"/>
+              <text x="129" y="112" text-anchor="middle" fill="#ffffff" font-size="16" font-weight="900">1 · Read state</text>
+              <text x="129" y="136" text-anchor="middle">STATE + checkpoint</text>
+            </g>
+            <g>
+              <rect x="300" y="78" width="158" height="88" rx="18" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.16)"/>
+              <text x="379" y="112" text-anchor="middle" fill="#ffffff" font-size="16" font-weight="900">2 · Classify</text>
+              <text x="379" y="136" text-anchor="middle">task shape + risk</text>
+            </g>
+            <g>
+              <rect x="580" y="78" width="158" height="88" rx="18" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.16)"/>
+              <text x="659" y="112" text-anchor="middle" fill="#ffffff" font-size="16" font-weight="900">3 · Context</text>
+              <text x="659" y="136" text-anchor="middle">memory + VTP</text>
+            </g>
+            <g>
+              <rect x="860" y="78" width="158" height="88" rx="18" fill="rgba(103,232,249,0.10)" stroke="rgba(103,232,249,0.25)"/>
+              <text x="939" y="112" text-anchor="middle" fill="#cffafe" font-size="16" font-weight="900">4 · Research</text>
+              <text x="939" y="136" text-anchor="middle">Codex read-only</text>
+            </g>
+            <g>
+              <rect x="50" y="256" width="158" height="88" rx="18" fill="rgba(103,232,249,0.10)" stroke="rgba(103,232,249,0.25)"/>
+              <text x="129" y="290" text-anchor="middle" fill="#cffafe" font-size="16" font-weight="900">5 · /plan</text>
+              <text x="129" y="314" text-anchor="middle">PLAN-DRAFT</text>
+            </g>
+            <g>
+              <rect x="580" y="256" width="158" height="88" rx="18" fill="rgba(250,204,21,0.10)" stroke="rgba(250,204,21,0.24)"/>
+              <text x="659" y="290" text-anchor="middle" fill="#fef9c3" font-size="16" font-weight="900">6 · Plan-check</text>
+              <text x="659" y="314" text-anchor="middle">challenge + repair</text>
+            </g>
+            <g>
+              <rect x="860" y="256" width="158" height="88" rx="18" fill="rgba(134,239,172,0.10)" stroke="rgba(134,239,172,0.24)"/>
+              <text x="939" y="290" text-anchor="middle" fill="#dcfce7" font-size="16" font-weight="900">7 · Lock plan</text>
+              <text x="939" y="314" text-anchor="middle">execution authority</text>
+            </g>
+            <g>
+              <rect x="50" y="434" width="158" height="88" rx="18" fill="rgba(250,204,21,0.10)" stroke="rgba(250,204,21,0.24)"/>
+              <text x="129" y="468" text-anchor="middle" fill="#fef9c3" font-size="16" font-weight="900">8 · Stoplight</text>
+              <text x="129" y="492" text-anchor="middle">pick lane</text>
+            </g>
+            <g>
+              <rect x="300" y="434" width="158" height="88" rx="18" fill="rgba(192,132,252,0.10)" stroke="rgba(192,132,252,0.25)"/>
+              <text x="379" y="468" text-anchor="middle" fill="#f5d0fe" font-size="16" font-weight="900">9 · Execute</text>
+              <text x="379" y="492" text-anchor="middle">bounded / goal / patch</text>
+            </g>
+            <g>
+              <rect x="580" y="434" width="158" height="88" rx="18" fill="rgba(253,186,116,0.10)" stroke="rgba(253,186,116,0.25)"/>
+              <text x="659" y="468" text-anchor="middle" fill="#ffedd5" font-size="16" font-weight="900">10 · /review</text>
+              <text x="659" y="492" text-anchor="middle">native diff review</text>
+            </g>
+            <g>
+              <rect x="860" y="434" width="158" height="88" rx="18" fill="rgba(96,165,250,0.10)" stroke="rgba(96,165,250,0.25)"/>
+              <text x="939" y="468" text-anchor="middle" fill="#dbeafe" font-size="16" font-weight="900">11–14 · ATC</text>
+              <text x="939" y="492" text-anchor="middle">verify · commit · ledger</text>
+            </g>
+          </g>
+          <g>
+            <rect x="320" y="252" width="150" height="96" rx="22" fill="rgba(7,17,31,0.68)" stroke="rgba(255,255,255,0.16)"/>
+            <text x="395" y="290" text-anchor="middle" fill="#ffffff" font-size="16" font-weight="900">Board resolves</text>
+            <text x="395" y="315" text-anchor="middle" fill="#aebbd0" font-size="13">ambiguity before code</text>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <section id="lanes">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">Codex lanes</div>
+          <h2>Use the right Codex mode for the job</h2>
+        </div>
+        <div class="section-note">Click a lane to see how it should behave inside SGSD Pro Mode.</div>
+      </div>
+      <div class="grid sidebar">
+        <div class="lane-grid" id="laneGrid">
+          <div class="lane active" data-lane="plan"><div class="lane-top"><span class="lane-name">codex.plan</span><span class="lane-chip">/plan</span></div><p>For ambiguous or complex work before implementation. Produces plan drafts and plan-lock inputs.</p></div>
+          <div class="lane" data-lane="goal"><div class="lane-top"><span class="lane-name">codex.goal</span><span class="lane-chip">/goal</span></div><p>For long-running phase finishers with a verifiable stopping condition and validation loop.</p></div>
+          <div class="lane" data-lane="bounded"><div class="lane-top"><span class="lane-name">execute.bounded</span><span class="lane-chip">worktree</span></div><p>For small bounded code edits, test fixes, refactors and schema/config changes.</p></div>
+          <div class="lane" data-lane="patch"><div class="lane-top"><span class="lane-name">execute.patch</span><span class="lane-chip">diff-only</span></div><p>For safest fallback. Codex returns a unified diff from a read pack; SGSD validates before applying.</p></div>
+          <div class="lane" data-lane="review"><div class="lane-top"><span class="lane-name">review.native</span><span class="lane-chip">/review</span></div><p>Dedicated read-only code review of selected diffs or uncommitted changes.</p></div>
+          <div class="lane" data-lane="swarm"><div class="lane-top"><span class="lane-name">review.swarm</span><span class="lane-chip">subagents</span></div><p>Parallel read-only reviewers: security, regression, tests, contract and MUDA.</p></div>
+          <div class="lane" data-lane="hooks"><div class="lane-top"><span class="lane-name">hooks.guard</span><span class="lane-chip">policy</span></div><p>Lifecycle checks that block unsafe shell commands, secret leaks and forbidden writes.</p></div>
+          <div class="lane" data-lane="skills"><div class="lane-top"><span class="lane-name">skills.pack</span><span class="lane-chip">SKILL.md</span></div><p>Codex-native SGSD behaviours: ATC review, plan lock, MUDA, cockpit brief and VTP bridge.</p></div>
+          <div class="lane" data-lane="lab"><div class="lane-top"><span class="lane-name">app/cloud lab</span><span class="lane-chip">prototype</span></div><p>Isolated exploration lane for alternative implementations, app threads and PR drafts.</p></div>
+        </div>
+        <aside class="detail-panel" id="laneDetail">
+          <h3>codex.plan</h3>
+          <p>Use when the task is complex, ambiguous or architectural. It should not mutate source. It produces a plan artefact SGSD can challenge, revise and lock.</p>
+          <ul>
+            <li><span class="strong">Inputs:</span> state, roadmap, phase notes, constraints.</li>
+            <li><span class="strong">Outputs:</span> PLAN-DRAFT.md, risks, file scope, acceptance commands.</li>
+            <li><span class="strong">Gate:</span> no source changes until PLAN-LOCKED.md exists.</li>
+          </ul>
+        </aside>
+      </div>
+    </section>
+
+    <section id="routing">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">Stoplight routing</div>
+          <h2>Execution should be earned</h2>
+        </div>
+        <div class="section-note">Before any Codex run gets write permission, SGSD classifies it as GREEN, AMBER or RED.</div>
+      </div>
+      <div class="grid two">
+        <div class="card">
+          <svg class="routing-svg" viewBox="0 0 620 520" role="img" aria-label="Stoplight routing diagram">
+            <defs>
+              <marker id="arrowRoute" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#67e8f9" /></marker>
+            </defs>
+            <rect width="620" height="520" rx="24" fill="rgba(255,255,255,0.01)"/>
+            <g stroke="#67e8f9" stroke-opacity="0.44" stroke-width="2.4" fill="none" marker-end="url(#arrowRoute)">
+              <path d="M310 115 L310 172" />
+              <path d="M310 258 C210 294 150 332 112 398" />
+              <path d="M310 258 L310 392" />
+              <path d="M310 258 C425 297 490 334 525 398" />
+            </g>
+            <rect x="190" y="45" width="240" height="70" rx="20" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.16)"/>
+            <text x="310" y="82" text-anchor="middle" fill="#ffffff" font-size="20" font-weight="900">PLAN-LOCKED.md</text>
+            <text x="310" y="102" text-anchor="middle" fill="#aebbd0" font-size="12">required before mutation</text>
+
+            <rect x="205" y="172" width="210" height="86" rx="24" fill="rgba(250,204,21,0.11)" stroke="rgba(250,204,21,0.28)"/>
+            <text x="310" y="210" text-anchor="middle" fill="#fef9c3" font-size="22" font-weight="900">Stoplight</text>
+            <text x="310" y="235" text-anchor="middle" fill="#aebbd0" font-size="12">scope · risk · commands · data writes</text>
+
+            <g>
+              <circle cx="112" cy="423" r="48" fill="rgba(134,239,172,0.14)" stroke="rgba(134,239,172,0.45)"/>
+              <text x="112" y="415" text-anchor="middle" fill="#dcfce7" font-size="18" font-weight="900">GREEN</text>
+              <text x="112" y="439" text-anchor="middle" fill="#aebbd0" font-size="12">bounded exec</text>
+            </g>
+            <g>
+              <circle cx="310" cy="423" r="48" fill="rgba(250,204,21,0.14)" stroke="rgba(250,204,21,0.45)"/>
+              <text x="310" y="415" text-anchor="middle" fill="#fef9c3" font-size="18" font-weight="900">AMBER</text>
+              <text x="310" y="439" text-anchor="middle" fill="#aebbd0" font-size="12">goal / lab</text>
+            </g>
+            <g>
+              <circle cx="525" cy="423" r="48" fill="rgba(251,113,133,0.14)" stroke="rgba(251,113,133,0.45)"/>
+              <text x="525" y="415" text-anchor="middle" fill="#ffe4e6" font-size="18" font-weight="900">RED</text>
+              <text x="525" y="439" text-anchor="middle" fill="#aebbd0" font-size="12">no execution</text>
+            </g>
+          </svg>
+        </div>
+        <div class="card pad">
+          <h3>Routing rules</h3>
+          <div class="stack">
+            <div class="stack-item"><div class="stack-num">G</div><div><span class="strong">GREEN</span><br><span class="small">Locked plan, small allowed-files set, acceptance commands exist, low/medium risk, no production writes.</span></div><span class="badge green">bounded</span></div>
+            <div class="stack-item"><div class="stack-num">A</div><div><span class="strong">AMBER</span><br><span class="small">Long-running but bounded, temp worktree required, validation loop exists, human review before apply.</span></div><span class="badge amber">goal</span></div>
+            <div class="stack-item"><div class="stack-num">R</div><div><span class="strong">RED</span><br><span class="small">No locked plan, no acceptance command, high ambiguity, destructive action, secrets, or direct live-data mutation.</span></div><span class="badge red">block</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="gates">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">Safety stack</div>
+          <h2>The rails around autonomy</h2>
+        </div>
+        <div class="section-note">The aim is high output without mystery edits. Every phase gets explicit gates, evidence and rollback paths.</div>
+      </div>
+      <div class="grid two">
+        <div class="card pad">
+          <h3>Control stack</h3>
+          <div class="stack">
+            <div class="stack-item"><div class="stack-num">1</div><div><span class="strong">Plan lock</span><br><span class="small">No source mutation unless PLAN-LOCKED.md exists.</span></div><span class="badge">contract</span></div>
+            <div class="stack-item"><div class="stack-num">2</div><div><span class="strong">Temp worktree</span><br><span class="small">Goal and bounded execution happen away from the main worktree.</span></div><span class="badge">isolation</span></div>
+            <div class="stack-item"><div class="stack-num">3</div><div><span class="strong">Codex hooks</span><br><span class="small">Block unsafe commands, secrets, forbidden paths and stop-contract gaps.</span></div><span class="badge">guard</span></div>
+            <div class="stack-item"><div class="stack-num">4</div><div><span class="strong">Native review</span><br><span class="small">Dedicated Codex `/review` checks the diff without touching the tree.</span></div><span class="badge">review</span></div>
+            <div class="stack-item"><div class="stack-num">5</div><div><span class="strong">SGSD ATC</span><br><span class="small">Final promotion authority checks evidence, safety and phase contract.</span></div><span class="badge green">authority</span></div>
+          </div>
+        </div>
+        <div class="card pad">
+          <h3>Hook events to use</h3>
+          <table class="decision-table">
+            <thead><tr><th>Event</th><th>Use inside SGSD</th></tr></thead>
+            <tbody>
+              <tr><td class="lane-label">UserPromptSubmit</td><td>Reject secrets, production credentials, vague mutation requests, missing phase capsule.</td></tr>
+              <tr><td class="lane-label">PreToolUse</td><td>Block destructive shell commands and writes outside allowed roots.</td></tr>
+              <tr><td class="lane-label">PostToolUse</td><td>Append tool events to `.planning/metrics/codex-tool-events.jsonl`.</td></tr>
+              <tr><td class="lane-label">Stop</td><td>Validate result contract, required artefacts, checkpoint and reported acceptance commands.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="swimlane">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">Responsibility split</div>
+          <h2>Who does what in Pro Mode</h2>
+        </div>
+        <div class="section-note">The split prevents role drift. SGSD directs. Codex executes. Humans approve sensitive transitions.</div>
+      </div>
+      <div class="swimlane">
+        <div class="head">Actor</div><div class="head">Planning</div><div class="head">Execution</div><div class="head">Review</div><div class="head">Promotion</div><div class="head">Evidence</div>
+        <div class="role">SGSD / Opus</div><div>Reads state, classifies phase, assembles context.</div><div>Dispatches lane only after route decision.</div><div>Runs ATC/spec compliance.</div><div>Final authority.</div><div>Updates checkpoint and ledgers.</div>
+        <div class="role">Codex</div><div>`/plan`, plan repair, contract drafting.</div><div>Bounded edits, patch output, `/goal` phase finisher.</div><div>`/review`, swarm review, MUDA review.</div><div>No independent promotion.</div><div>Writes structured reports.</div>
+        <div class="role">Hooks</div><div>Reject unsafe prompts.</div><div>Block forbidden commands/writes.</div><div>Capture tool evidence.</div><div>Validate stop contract.</div><div>Tool-event ledger.</div>
+        <div class="role">Operator</div><div>Approves high-risk plans.</div><div>Unblocks credentials or prod boundaries.</div><div>Checks NOGO/P0 items.</div><div>Approves merge/promote.</div><div>Signs off milestone.</div>
+      </div>
+    </section>
+
+    <section id="roadmap">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">Implementation roadmap</div>
+          <h2>Five practical phases</h2>
+        </div>
+        <div class="section-note">Start with safety and clarity, then add more autonomy. Do not start with `/goal`; start with the rails that make `/goal` safe.</div>
+      </div>
+      <div class="roadmap">
+        <article class="phase">
+          <div class="phase-num">1</div>
+          <h3>Policy + docs lock</h3>
+          <p class="small">Make current truth unambiguous.</p>
+          <ul>
+            <li>AGENTS.md priorities</li>
+            <li>CLAUDE.md boundaries</li>
+            <li>Architecture drift fix</li>
+            <li>Plan-lock rule</li>
+          </ul>
+        </article>
+        <article class="phase">
+          <div class="phase-num">2</div>
+          <h3>Review + hooks</h3>
+          <p class="small">Add deterministic rails before bigger autonomy.</p>
+          <ul>
+            <li>Native review runner</li>
+            <li>PreToolUse policy</li>
+            <li>Stop validator</li>
+            <li>Tool-event ledger</li>
+          </ul>
+        </article>
+        <article class="phase">
+          <div class="phase-num">3</div>
+          <h3>Skill sync</h3>
+          <p class="small">Package SGSD behaviours as Codex-native skills.</p>
+          <ul>
+            <li>sgsd-atc-review</li>
+            <li>sgsd-plan-lock</li>
+            <li>sgsd-muda-review</li>
+            <li>sgsd-cockpit-brief</li>
+          </ul>
+        </article>
+        <article class="phase">
+          <div class="phase-num">4</div>
+          <h3>Goal lane</h3>
+          <p class="small">Enable `/goal` only for eligible phases.</p>
+          <ul>
+            <li>Temp worktree required</li>
+            <li>Validation commands</li>
+            <li>Checkpoint log</li>
+            <li>Goal ledger</li>
+          </ul>
+        </article>
+        <article class="phase">
+          <div class="phase-num">5</div>
+          <h3>App/cloud lab</h3>
+          <p class="small">Use Codex app/cloud for isolated exploration.</p>
+          <ul>
+            <li>Alternative approaches</li>
+            <li>Draft PRs</li>
+            <li>Experiment capsules</li>
+            <li>SGSD validates merge</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section id="edits">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">Repo edits</div>
+          <h2>What I’d add/change</h2>
+        </div>
+        <div class="section-note">This is the concrete folder-level implementation sketch for SGSD Pro Mode.</div>
+      </div>
+      <div class="grid two">
+        <div class="card pad">
+          <h3>New Pro Mode surface</h3>
+          <div class="tree">
+            <span class="edit">AGENTS.md</span> <span class="note"># add Codex review priorities</span><br>
+            <span class="edit">CLAUDE.md</span> <span class="note"># clarify orchestration vs execution</span><br>
+            <span class="edit">SUPER-GSD-ARCHITECTURE.md</span> <span class="note"># fix drift</span><br>
+            <span class="new">.codex/hooks.json</span><br>
+            <span class="new">.agents/skills/sgsd-atc-review/SKILL.md</span><br>
+            <span class="new">.agents/skills/sgsd-plan-lock/SKILL.md</span><br>
+            <span class="new">super-gsd/tools/codex-pro/</span><br>
+            &nbsp;&nbsp;<span class="new">profile-resolver.cjs</span><br>
+            &nbsp;&nbsp;<span class="new">stoplight.cjs</span><br>
+            &nbsp;&nbsp;<span class="new">goal-runner.cjs</span><br>
+            &nbsp;&nbsp;<span class="new">native-review-runner.cjs</span><br>
+            &nbsp;&nbsp;<span class="new">skill-sync.cjs</span><br>
+            <span class="new">super-gsd/tools/codex-hooks/</span><br>
+            &nbsp;&nbsp;<span class="new">block-forbidden-write.cjs</span><br>
+            &nbsp;&nbsp;<span class="new">block-secret-leak.cjs</span><br>
+            &nbsp;&nbsp;<span class="new">validate-stop-contract.cjs</span><br>
+            <span class="new">super-gsd/scripts/codex-goal-executor.sh</span><br>
+            <span class="new">.planning/metrics/codex-goal-ledger.jsonl</span>
+          </div>
+        </div>
+        <div class="card pad">
+          <h3>Command layer</h3>
+          <div class="code">/sgsd-codex doctor
+/sgsd-codex plan &lt;phase&gt;
+/sgsd-codex goal &lt;phase&gt;
+/sgsd-codex review &lt;phase&gt;
+/sgsd-codex swarm-review &lt;phase&gt;
+/sgsd-codex app-lab &lt;phase&gt;
+/sgsd-codex skills sync
+/sgsd-codex status</div>
+          <p class="print-hint">The commands are intentionally operator-facing. Under the hood, they should just call typed profiles, hooks and existing SGSD ledgers.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="contracts">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">Contracts</div>
+          <h2>Every Codex run should return structured evidence</h2>
+        </div>
+        <div class="section-note">This is what keeps Pro Mode auditable instead of “agent said it did a thing”.</div>
+      </div>
+      <div class="grid two">
+        <div class="card pad">
+          <h3>Goal capsule</h3>
+          <div class="code">{
+  "phase": "p107-contract-normalisation",
+  "lane": "codex.goal",
+  "objective_file": ".planning/.../GOAL.md",
+  "allowed_roots": ["src/search/", "tests/search/"],
+  "forbidden_roots": [".git/", "secrets/", "prod/"],
+  "validation_commands": [
+    "npm test -- search",
+    "npm run typecheck"
+  ],
+  "stop_when": [
+    "validation passes",
+    "max changed files exceeded",
+    "production credential required"
+  ],
+  "checkpoint_every": "after_each_validation_attempt"
+}</div>
+        </div>
+        <div class="card pad">
+          <h3>Result contract</h3>
+          <div class="code">{
+  "phase": "p107-contract-normalisation",
+  "executor": "codex.goal",
+  "status": "complete | blocked | failed",
+  "git_commit_before": "...",
+  "git_commit_after": "...",
+  "files_changed": [],
+  "commands_run": [],
+  "acceptance_commands": [],
+  "writes_performed": true,
+  "services_touched": {
+    "sap": "none",
+    "mongo": "none",
+    "qdrant": "none"
+  },
+  "stop_conditions_triggered": [],
+  "requires_operator_review": true
+}</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="decision">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">Decision matrix</div>
+          <h2>Which lane should SGSD pick?</h2>
+        </div>
+        <div class="section-note">The practical routing cheat sheet.</div>
+      </div>
+      <table class="decision-table">
+        <thead>
+          <tr><th>Task shape</th><th>Best lane</th><th>Why</th><th>Hard guardrail</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Complex, ambiguous feature or architecture change</td><td class="lane-label">codex.plan</td><td>Explores options before touching files.</td><td>No source mutation before plan lock.</td></tr>
+          <tr><td>Multi-step refactor with tests and clear end condition</td><td class="lane-label">codex.goal</td><td>Can iterate across checkpoints until validation passes.</td><td>Temp worktree + explicit stop condition.</td></tr>
+          <tr><td>Small file-scoped code edit or test repair</td><td class="lane-label">execute.bounded</td><td>Fast, scoped implementation with acceptance commands.</td><td>Allowed-files check before apply.</td></tr>
+          <tr><td>Host read blocks, maximum safety needed, or apply later</td><td class="lane-label">execute.patch</td><td>Diff-only output can be validated before mutation.</td><td>Unified diff path validation.</td></tr>
+          <tr><td>Uncommitted changes need independent check</td><td class="lane-label">review.native</td><td>Codex `/review` returns prioritised actionable findings.</td><td>Read-only; no edits.</td></tr>
+          <tr><td>High-sensitivity phase before promote</td><td class="lane-label">review.swarm</td><td>Multiple read-only viewpoints: security, regression, tests, contract, MUDA.</td><td>No parallel writers.</td></tr>
+          <tr><td>Risky prototype or alternative implementation</td><td class="lane-label">app/cloud lab</td><td>Separate experiment lane; SGSD later validates.</td><td>No direct promotion from lab.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="summary">
+      <div class="grid two">
+        <div class="callout">
+          <h3>North-star architecture</h3>
+          <p><span class="strong">SGSD = control plane.</span> Codex = specialist execution fabric. Hooks = guardrails. Skills = reusable behaviours. `/plan` = plan drafting. `/goal` = long-running phase finisher. `/review` = independent code reviewer. ATC = final authority.</p>
+        </div>
+        <div class="callout warn">
+          <h3>The one thing not to do</h3>
+          <p>Do not turn Pro Mode into “Codex, run the repo”. Turn it into “SGSD, choose the best Codex lane, enforce the contract, observe the work, review the result, then promote only when gates pass.”</p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <h3>Sources used for this infographic</h3>
+      <p>This document combines the live public SGSD repo shape with current Codex feature documentation. Repo-specific claims are based on the public `Berrowj/super-gsd` README; Codex feature claims are based on OpenAI developer docs.</p>
+      <ul class="source-list">
+        <li><a href="https://github.com/Berrowj/super-gsd" target="_blank" rel="noreferrer">Berrowj/super-gsd public repository</a> — runtime roles, executor lock, double-agent executor.</li>
+        <li><a href="https://developers.openai.com/codex/learn/best-practices" target="_blank" rel="noreferrer">Codex best practices</a> — plan-first workflow guidance.</li>
+        <li><a href="https://developers.openai.com/codex/use-cases/follow-goals" target="_blank" rel="noreferrer">Codex `/goal` docs</a> — long-running objectives with verifiable stopping conditions.</li>
+        <li><a href="https://developers.openai.com/codex/cli/features" target="_blank" rel="noreferrer">Codex CLI features</a> — local `/review`, sandbox/access modes and web search notes.</li>
+        <li><a href="https://developers.openai.com/codex/hooks" target="_blank" rel="noreferrer">Codex hooks</a> — lifecycle hook events and policy enforcement.</li>
+        <li><a href="https://developers.openai.com/codex/skills" target="_blank" rel="noreferrer">Codex skills</a> — `SKILL.md`, progressive disclosure and skill activation.</li>
+      </ul>
+    </footer>
+  </main>
+
+  <script>
+    const details = {
+      plan: {
+        title: "codex.plan",
+        body: "Use when the task is complex, ambiguous or architectural. It should not mutate source. It produces a plan artefact SGSD can challenge, revise and lock.",
+        bullets: ["Inputs: state, roadmap, phase notes, constraints.", "Outputs: PLAN-DRAFT.md, risks, file scope, acceptance commands.", "Gate: no source changes until PLAN-LOCKED.md exists."]
+      },
+      goal: {
+        title: "codex.goal",
+        body: "Use only for a durable objective that is bigger than one prompt but smaller than an open backlog. It needs validation commands, stop conditions and checkpoints.",
+        bullets: ["Inputs: GOAL.md, PLAN-LOCKED.md, allowed roots, validation commands.", "Outputs: goal report, result JSON, checkpoint log, diff.", "Gate: temp worktree required; no live data mutation."]
+      },
+      bounded: {
+        title: "codex.execute.bounded",
+        body: "Best for small file-scoped code edits, refactors, test repairs and config fixes. This should be the default write lane for GREEN tasks.",
+        bullets: ["Inputs: task capsule, allowed files, acceptance commands.", "Outputs: patch/report, route evidence, test result.", "Gate: allowed-files and changed-lines thresholds."]
+      },
+      patch: {
+        title: "codex.execute.patch",
+        body: "Maximum safety lane. Codex receives a read-pack and returns a unified diff. SGSD validates paths and applies only if allowed.",
+        bullets: ["Inputs: read pack, exact target files, patch instructions.", "Outputs: unified diff and rationale.", "Gate: SGSD applies after validation, not Codex."]
+      },
+      review: {
+        title: "codex.review.native",
+        body: "Use Codex's dedicated /review flow for independent local code review. It inspects the selected diff and returns prioritised findings without editing.",
+        bullets: ["Inputs: uncommitted changes, branch diff or commit SHA.", "Outputs: CODEX-NATIVE-REVIEW.md.", "Gate: P0/P1 findings block promotion."]
+      },
+      swarm: {
+        title: "codex.review.swarm",
+        body: "Parallel read-only reviewers are useful before milestone promotion or high-sensitivity work. Keep them as reviewers, not writers.",
+        bullets: ["Agents: security, regression, tests, contract, MUDA.", "Outputs: consensus GO/NOGO and finding list.", "Gate: no parallel writers in the same workspace."]
+      },
+      hooks: {
+        title: "hooks.guard",
+        body: "Codex lifecycle hooks turn policy into deterministic checks rather than prompt wishes. Use them to block unsafe behaviour before it happens.",
+        bullets: ["UserPromptSubmit: reject secrets and vague mutation prompts.", "PreToolUse: block destructive commands and forbidden writes.", "Stop: validate reports, checkpoint and acceptance commands."]
+      },
+      skills: {
+        title: "skills.pack",
+        body: "Package SGSD behaviours as Codex-native skills so they can activate cleanly without dumping every instruction into every prompt.",
+        bullets: ["Create .agents/skills/sgsd-atc-review/SKILL.md.", "Create sgsd-plan-lock, sgsd-muda-review, sgsd-cockpit-brief.", "Use concise descriptions so implicit activation works."]
+      },
+      lab: {
+        title: "codex.app/cloud lab",
+        body: "Use app/cloud/worktree experiments for alternatives, prototypes and PR drafts. They can propose, but SGSD still validates and promotes.",
+        bullets: ["Inputs: phase capsule and experiment goal.", "Outputs: branch/worktree, diff, report, PR draft.", "Gate: no direct promotion from lab output."]
+      }
+    };
+
+    const laneGrid = document.getElementById('laneGrid');
+    const laneDetail = document.getElementById('laneDetail');
+    laneGrid.addEventListener('click', (event) => {
+      const card = event.target.closest('.lane');
+      if (!card) return;
+      document.querySelectorAll('.lane').forEach(el => el.classList.remove('active'));
+      card.classList.add('active');
+      const data = details[card.dataset.lane];
+      laneDetail.innerHTML = `<h3>${data.title}</h3><p>${data.body}</p><ul>${data.bullets.map(item => `<li>${item}</li>`).join('')}</ul>`;
+    });
+  </script>
+</body>
+</html>
