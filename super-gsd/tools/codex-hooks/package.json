@@ -1,0 +1,10 @@
+{
+  "name": "@super-gsd/codex-hooks",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Codex hook safety rails for Super GSD PLAN-LOCKED execution.",
+  "scripts": {
+    "self-test": "node run-self-test.cjs"
+  }
+}

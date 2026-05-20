@@ -1,0 +1,17 @@
+{
+  "name": "@super-gsd/plan-lock",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "PLAN-LOCKED.md schema validation for Super GSD.",
+  "scripts": {
+    "validate": "node validate-plan-locked.cjs",
+    "self-test:valid": "node validate-plan-locked.cjs --self-test-valid",
+    "self-test:incomplete": "node validate-plan-locked.cjs --self-test-incomplete"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-errors": "^3.0.0",
+    "js-yaml": "^4.1.0"
+  }
+}
