@@ -1,0 +1,780 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://super-gsd.local/schemas/cmb.schema.json",
+  "title": "Context Memory Block",
+  "description": "DLB-08 Mesh Memory Lite CMB contract.",
+  "type": "object",
+  "required": [
+    "type"
+  ],
+  "properties": {
+    "key": {
+      "$ref": "#/definitions/sha256Hex"
+    },
+    "type": {
+      "$ref": "#/definitions/cmbType"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "created_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "role": {
+      "$ref": "#/definitions/role"
+    },
+    "milestone_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "phase_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "cat7": {
+      "$ref": "#/definitions/cat7"
+    },
+    "body": {
+      "type": "object"
+    },
+    "lineage": {
+      "$ref": "#/definitions/lineage"
+    },
+    "authority_level": {
+      "$ref": "#/definitions/authorityLevel"
+    },
+    "evidence_refs": {
+      "$ref": "#/definitions/stringArray"
+    },
+    "status": {
+      "$ref": "#/definitions/status"
+    }
+  },
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "$ref": "#/definitions/executionReceipt"
+    },
+    {
+      "$ref": "#/definitions/reviewFinding"
+    },
+    {
+      "$ref": "#/definitions/evidenceVerdict"
+    },
+    {
+      "$ref": "#/definitions/decisionRecommendation"
+    },
+    {
+      "$ref": "#/definitions/operatorPrecedent"
+    },
+    {
+      "$ref": "#/definitions/contextAnchor"
+    },
+    {
+      "$ref": "#/definitions/promotionDecision"
+    }
+  ],
+  "errorMessage": {
+    "required": {
+      "type": "CMB must declare 'type' (SCHEMA-MML-01)"
+    }
+  },
+  "definitions": {
+    "cmbType": {
+      "type": "string",
+      "enum": [
+        "execution_receipt",
+        "review_finding",
+        "evidence_verdict",
+        "decision_recommendation",
+        "operator_precedent",
+        "context_anchor",
+        "promotion_decision"
+      ]
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "sgsd",
+        "reviewer",
+        "evidence_validator",
+        "pseudo_operator",
+        "operator",
+        "context_authority"
+      ]
+    },
+    "authorityLevel": {
+      "type": "string",
+      "enum": [
+        "observation",
+        "claim",
+        "claim_with_authority",
+        "decision",
+        "decision_highest",
+        "projection"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "emitted",
+        "admitted",
+        "remixed",
+        "superseded",
+        "stale"
+      ]
+    },
+    "sha256Hex": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    },
+    "stringArray": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "cat7": {
+      "type": "object",
+      "required": [
+        "focus",
+        "issue",
+        "intent",
+        "motivation",
+        "commitment",
+        "perspective",
+        "mood"
+      ],
+      "properties": {
+        "focus": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issue": {
+          "type": "string",
+          "minLength": 1
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 1
+        },
+        "motivation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commitment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "perspective": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mood": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "object",
+              "required": [
+                "label"
+              ],
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "valence": {
+                  "type": "number",
+                  "minimum": -1,
+                  "maximum": 1
+                },
+                "arousal": {
+                  "type": "number",
+                  "minimum": -1,
+                  "maximum": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "errorMessage": {
+        "required": {
+          "focus": "CMB must declare all seven CAT7 fields (SCHEMA-MML-03)",
+          "issue": "CMB must declare all seven CAT7 fields (SCHEMA-MML-03)",
+          "intent": "CMB must declare all seven CAT7 fields (SCHEMA-MML-03)",
+          "motivation": "CMB must declare all seven CAT7 fields (SCHEMA-MML-03)",
+          "commitment": "CMB must declare all seven CAT7 fields (SCHEMA-MML-03)",
+          "perspective": "CMB must declare all seven CAT7 fields (SCHEMA-MML-03)",
+          "mood": "CMB must declare all seven CAT7 fields (SCHEMA-MML-03)"
+        }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "required": [
+        "parents",
+        "ancestors"
+      ],
+      "properties": {
+        "parents": {
+          "$ref": "#/definitions/stringArray"
+        },
+        "ancestors": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "common": {
+      "type": "object",
+      "required": [
+        "key",
+        "type",
+        "created_at",
+        "created_by",
+        "role",
+        "milestone_id",
+        "phase_id",
+        "cat7",
+        "body",
+        "lineage",
+        "authority_level",
+        "evidence_refs",
+        "status"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/definitions/sha256Hex"
+        },
+        "type": {
+          "$ref": "#/definitions/cmbType"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "created_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "$ref": "#/definitions/role"
+        },
+        "milestone_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "phase_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cat7": {
+          "$ref": "#/definitions/cat7"
+        },
+        "body": {
+          "type": "object"
+        },
+        "lineage": {
+          "$ref": "#/definitions/lineage"
+        },
+        "authority_level": {
+          "$ref": "#/definitions/authorityLevel"
+        },
+        "evidence_refs": {
+          "$ref": "#/definitions/stringArray"
+        },
+        "status": {
+          "$ref": "#/definitions/status"
+        }
+      }
+    },
+    "executionReceipt": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/common"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "execution_receipt"
+            },
+            "created_by": {
+              "type": "string",
+              "pattern": "^(sgsd|sgsd-wrapper)$",
+              "errorMessage": "execution_receipt may only be emitted by SGSD/system roles (SCHEMA-MML-02)"
+            },
+            "role": {
+              "const": "sgsd"
+            },
+            "authority_level": {
+              "const": "observation"
+            },
+            "body": {
+              "$ref": "#/definitions/executionReceiptBody"
+            }
+          }
+        }
+      ]
+    },
+    "reviewFinding": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/common"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "review_finding"
+            },
+            "created_by": {
+              "type": "string",
+              "pattern": "^(atc-v[0-9]+|reviewer|reviewer-[A-Za-z0-9_-]+|[A-Za-z0-9_-]*review[A-Za-z0-9_-]*|[A-Za-z0-9_-]*verifier[A-Za-z0-9_-]*|edge-guard|muda-auditor)$",
+              "errorMessage": "review_finding may only be emitted by reviewer-class roles (SCHEMA-MML-02)"
+            },
+            "role": {
+              "const": "reviewer"
+            },
+            "authority_level": {
+              "const": "claim"
+            },
+            "body": {
+              "$ref": "#/definitions/reviewFindingBody"
+            }
+          }
+        }
+      ]
+    },
+    "evidenceVerdict": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/common"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "evidence_verdict"
+            },
+            "created_by": {
+              "const": "evidence_validator",
+              "errorMessage": "evidence_verdict may only be emitted by evidence_validator (SCHEMA-MML-02)"
+            },
+            "role": {
+              "const": "evidence_validator"
+            },
+            "authority_level": {
+              "const": "claim_with_authority"
+            },
+            "lineage": {
+              "type": "object",
+              "properties": {
+                "parents": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "body": {
+              "$ref": "#/definitions/evidenceVerdictBody"
+            }
+          }
+        }
+      ]
+    },
+    "decisionRecommendation": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/common"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "decision_recommendation"
+            },
+            "created_by": {
+              "const": "pseudo_operator",
+              "errorMessage": "decision_recommendation may only be emitted by pseudo_operator (SCHEMA-MML-02)"
+            },
+            "role": {
+              "const": "pseudo_operator"
+            },
+            "authority_level": {
+              "const": "decision"
+            },
+            "body": {
+              "$ref": "#/definitions/decisionRecommendationBody"
+            }
+          }
+        }
+      ]
+    },
+    "operatorPrecedent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/common"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "operator_precedent"
+            },
+            "created_by": {
+              "const": "operator",
+              "errorMessage": "operator_precedent may only be emitted by operator (SCHEMA-MML-02)"
+            },
+            "role": {
+              "const": "operator"
+            },
+            "authority_level": {
+              "const": "decision_highest"
+            },
+            "body": {
+              "$ref": "#/definitions/operatorPrecedentBody"
+            }
+          }
+        }
+      ]
+    },
+    "contextAnchor": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/common"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "context_anchor"
+            },
+            "created_by": {
+              "const": "context_authority",
+              "errorMessage": "context_anchor may only be emitted by context_authority (SCHEMA-MML-02)"
+            },
+            "role": {
+              "const": "context_authority"
+            },
+            "authority_level": {
+              "const": "projection"
+            },
+            "body": {
+              "$ref": "#/definitions/contextAnchorBody"
+            }
+          }
+        }
+      ]
+    },
+    "promotionDecision": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/common"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "promotion_decision"
+            },
+            "created_by": {
+              "const": "sgsd",
+              "errorMessage": "promotion_decision may only be emitted by SGSD/system roles (SCHEMA-MML-02)"
+            },
+            "role": {
+              "const": "sgsd"
+            },
+            "authority_level": {
+              "const": "decision"
+            },
+            "body": {
+              "$ref": "#/definitions/promotionDecisionBody"
+            }
+          }
+        }
+      ]
+    },
+    "executionReceiptBody": {
+      "type": "object",
+      "required": [
+        "commit_before",
+        "commit_after",
+        "changed_files",
+        "tests_run",
+        "report_path",
+        "report_hash",
+        "acceptance_criteria_touched"
+      ],
+      "properties": {
+        "commit_before": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{7,40}$"
+        },
+        "commit_after": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{7,40}$"
+        },
+        "changed_files": {
+          "$ref": "#/definitions/stringArray"
+        },
+        "tests_run": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "command",
+              "result",
+              "count"
+            ],
+            "properties": {
+              "command": {
+                "type": "string",
+                "minLength": 1
+              },
+              "result": {
+                "type": "string",
+                "minLength": 1
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "report_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "report_hash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "acceptance_criteria_touched": {
+          "$ref": "#/definitions/stringArray"
+        }
+      },
+      "additionalProperties": false
+    },
+    "reviewFindingBody": {
+      "type": "object",
+      "required": [
+        "severity",
+        "claim",
+        "current_commit"
+      ],
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": [
+            "CRIT",
+            "WARN",
+            "INFO"
+          ]
+        },
+        "claim": {
+          "type": "string",
+          "minLength": 1
+        },
+        "current_commit": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{7,40}$"
+        },
+        "file_path": {
+          "type": "string"
+        },
+        "line_start": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "line_end": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "quoted_excerpt": {
+          "type": "string"
+        },
+        "violated_invariant": {
+          "type": "string"
+        },
+        "reproducer_command": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidenceVerdictBody": {
+      "type": "object",
+      "required": [
+        "evidence_status",
+        "tier_used",
+        "decision_basis"
+      ],
+      "properties": {
+        "evidence_status": {
+          "type": "string",
+          "enum": [
+            "VERIFIED_CRIT",
+            "REFUTED_CRIT",
+            "STALE_CRIT",
+            "UNVERIFIED_CRIT",
+            "GUARDED_CRIT"
+          ]
+        },
+        "tier_used": {
+          "type": "integer",
+          "enum": [
+            0,
+            1
+          ]
+        },
+        "decision_basis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "refuting_evidence": {
+          "$ref": "#/definitions/stringArray"
+        },
+        "tests_refuting": {
+          "$ref": "#/definitions/stringArray"
+        }
+      },
+      "additionalProperties": false
+    },
+    "decisionRecommendationBody": {
+      "type": "object",
+      "required": [
+        "recommendation",
+        "authority_level",
+        "confidence",
+        "real_operator_required",
+        "context_pack_id",
+        "evidence_refs",
+        "carve_outs_triggered"
+      ],
+      "properties": {
+        "recommendation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority_level": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "real_operator_required": {
+          "type": "boolean"
+        },
+        "context_pack_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_refs": {
+          "$ref": "#/definitions/stringArray"
+        },
+        "carve_outs_triggered": {
+          "$ref": "#/definitions/stringArray"
+        }
+      },
+      "additionalProperties": false
+    },
+    "operatorPrecedentBody": {
+      "type": "object",
+      "required": [
+        "precedent"
+      ],
+      "properties": {
+        "precedent": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decision_basis": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "contextAnchorBody": {
+      "type": "object",
+      "required": [
+        "canonical_source_path",
+        "canonical_source_hash",
+        "projection_summary"
+      ],
+      "properties": {
+        "canonical_source_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonical_source_hash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "projection_summary": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "promotionDecisionBody": {
+      "type": "object",
+      "required": [
+        "verdict",
+        "phase"
+      ],
+      "properties": {
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "PASS",
+            "PASS_WITH_REFUTED_REVIEW",
+            "PASS_WITH_WARNINGS",
+            "FAIL_VERIFIED",
+            "NEEDS_OPERATOR",
+            "STALE_REVIEW"
+          ]
+        },
+        "phase": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

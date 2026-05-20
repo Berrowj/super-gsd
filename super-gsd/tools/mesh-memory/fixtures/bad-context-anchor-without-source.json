@@ -1,0 +1,28 @@
+{
+  "key": "9999999999999999999999999999999999999999999999999999999999999999",
+  "type": "context_anchor",
+  "created_at": "2026-05-20T09:40:00Z",
+  "created_by": "context_authority",
+  "role": "context_authority",
+  "milestone_id": "v3.0",
+  "phase_id": "106",
+  "cat7": {
+    "focus": "context projection",
+    "issue": "missing source",
+    "intent": "demonstrate rejection",
+    "motivation": "source-backed projections",
+    "commitment": "reject unanchored context",
+    "perspective": "test fixture",
+    "mood": "negative"
+  },
+  "body": {
+    "projection_summary": "This projection lacks canonical source fields."
+  },
+  "lineage": {
+    "parents": [],
+    "ancestors": []
+  },
+  "authority_level": "projection",
+  "evidence_refs": [],
+  "status": "emitted"
+}

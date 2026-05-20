@@ -1,0 +1,28 @@
+{
+  "key": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "created_at": "2026-05-20T10:10:00Z",
+  "created_by": "sgsd",
+  "role": "sgsd",
+  "milestone_id": "v3.0",
+  "phase_id": "106",
+  "cat7": {
+    "focus": "missing discriminator",
+    "issue": "type omitted",
+    "intent": "demonstrate rejection",
+    "motivation": "require discriminated CMBs",
+    "commitment": "reject missing type",
+    "perspective": "test fixture",
+    "mood": "negative"
+  },
+  "body": {
+    "verdict": "PASS",
+    "phase": "106"
+  },
+  "lineage": {
+    "parents": [],
+    "ancestors": []
+  },
+  "authority_level": "decision",
+  "evidence_refs": [],
+  "status": "emitted"
+}

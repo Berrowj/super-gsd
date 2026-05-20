@@ -1,0 +1,30 @@
+{
+  "key": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "type": "review_finding",
+  "created_at": "2026-05-20T10:05:00Z",
+  "created_by": "atc-v4",
+  "role": "reviewer",
+  "milestone_id": "v3.0",
+  "phase_id": "106",
+  "cat7": {
+    "focus": "review authority",
+    "issue": "missing evidence verdict",
+    "intent": "demonstrate rejection",
+    "motivation": "claims need validation",
+    "commitment": "reject unvalidated authority",
+    "perspective": "test fixture",
+    "mood": "negative"
+  },
+  "body": {
+    "severity": "CRIT",
+    "claim": "This review finding incorrectly claims validated authority.",
+    "current_commit": "4a5b6c7"
+  },
+  "lineage": {
+    "parents": [],
+    "ancestors": []
+  },
+  "authority_level": "claim_with_authority",
+  "evidence_refs": [],
+  "status": "emitted"
+}
