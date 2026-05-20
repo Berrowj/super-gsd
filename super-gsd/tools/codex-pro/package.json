@@ -1,0 +1,13 @@
+{
+  "name": "sgsd-codex-pro",
+  "version": "1.0.0",
+  "description": "DLB-09.1 Codex Pro Mode lanes - profile-resolver + stoplight + native-review-runner",
+  "main": "profile-resolver.cjs",
+  "type": "commonjs",
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "ajv": "^8.18.0",
+    "ajv-formats": "^3.0.1",
+    "ajv-errors": "^3.0.0"
+  }
+}
