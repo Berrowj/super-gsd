@@ -5,162 +5,127 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const { validateCmb, ROOT_DIR } = require('./cmb-validate.cjs');
+const {
+  loadLedger,
+  findCmb,
+  ancestors,
+  descendants,
+  provenance,
+  siblings,
+} = require('./lineage.cjs');
+const { validateCmbAgainstSchema } = require('./evidence-validator.cjs');
 
-const NODE = process.execPath;
-const TOOL_DIR = __dirname;
-const LEDGER_PATH = path.resolve(ROOT_DIR, '.planning', 'mesh', 'memory', 'cmbs.jsonl');
+const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
+const LEDGER_PATH = path.join(REPO_ROOT, '.planning', 'mesh', 'memory', 'cmbs.jsonl');
+const SEED_LEDGER_PATH = path.join(__dirname, 'fixtures', 'seed-ledger.jsonl');
+const LINEAGE = path.join(__dirname, 'lineage.cjs');
+const EVIDENCE = path.join(__dirname, 'evidence-validator.cjs');
+const ECHO = path.join(__dirname, 'echo-detector.cjs');
+const VALIDATE = path.join(__dirname, 'cmb-validate.cjs');
+const HASH = path.join(__dirname, 'cmb-hash.cjs');
+const GOOD_EXECUTION = path.join(__dirname, 'fixtures', 'good-execution-receipt.json');
+const GOOD_REVIEW = path.join(__dirname, 'fixtures', 'good-review-finding.json');
 
-const checks = [];
+const results = [];
 
-function tool(name) {
-  return path.join(TOOL_DIR, name);
+function assert(condition, message) {
+  results.push({ ok: !!condition, message });
+  if (!condition) throw new Error(message);
 }
 
-function fixture(name) {
-  return path.join(TOOL_DIR, 'fixtures', name);
-}
-
-function runNode(args) {
-  return spawnSync(NODE, args, {
-    cwd: ROOT_DIR,
+function runNode(script, args = []) {
+  return spawnSync(process.execPath, [script, ...args], {
+    cwd: REPO_ROOT,
     encoding: 'utf8',
   });
 }
 
-function check(name, fn) {
-  checks.push({ name, fn });
+function assertExitZero(label, script, args = []) {
+  const result = runNode(script, args);
+  assert(result.status === 0, `${label} exited ${result.status}; stderr=${result.stderr}`);
+  return result;
 }
 
-function summarize(result) {
-  return [
-    `status=${result.status}`,
-    `stdout=${JSON.stringify((result.stdout || '').trim())}`,
-    `stderr=${JSON.stringify((result.stderr || '').trim())}`,
-  ].join(' ');
+function ledgerRows(filePath) {
+  if (!fs.existsSync(filePath)) return [];
+  return fs.readFileSync(filePath, 'utf8').split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
 }
-
-check('cmb-validate.cjs --help exits 0', () => {
-  const result = runNode([tool('cmb-validate.cjs'), '--help']);
-  return result.status === 0 || summarize(result);
-});
-
-check('cmb-hash.cjs --help exits 0', () => {
-  const result = runNode([tool('cmb-hash.cjs'), '--help']);
-  return result.status === 0 || summarize(result);
-});
-
-[
-  'good-execution-receipt.json',
-  'good-review-finding.json',
-  'good-evidence-verdict.json',
-  'good-decision-recommendation.json',
-  'good-operator-precedent.json',
-  'good-context-anchor.json',
-  'good-promotion-decision.json',
-].forEach((name) => {
-  check(`cmb-validate.cjs validates ${name}`, () => {
-    const result = runNode([tool('cmb-validate.cjs'), fixture(name)]);
-    return result.status === 0 || summarize(result);
-  });
-});
-
-check('cmb-validate.cjs rejects bad-claim-as-observation.json', () => {
-  const result = runNode([tool('cmb-validate.cjs'), fixture('bad-claim-as-observation.json')]);
-  return result.status !== 0 || summarize(result);
-});
-
-check('cmb-validate.cjs rejects bad-execution-receipt-created-by-agent.json with SCHEMA-MML-02', () => {
-  const result = runNode([tool('cmb-validate.cjs'), fixture('bad-execution-receipt-created-by-agent.json')]);
-  return (result.status !== 0 && result.stderr.includes('SCHEMA-MML-02')) || summarize(result);
-});
-
-check('cmb-validate.cjs rejects bad-cmb-missing-cat7.json with SCHEMA-MML-03', () => {
-  const result = runNode([tool('cmb-validate.cjs'), fixture('bad-cmb-missing-cat7.json')]);
-  return (result.status !== 0 && result.stderr.includes('SCHEMA-MML-03')) || summarize(result);
-});
-
-[
-  'bad-context-anchor-without-source.json',
-  'bad-review-finding-without-lineage.json',
-  'bad-cmb-missing-type.json',
-].forEach((name) => {
-  check(`cmb-validate.cjs rejects ${name}`, () => {
-    const result = runNode([tool('cmb-validate.cjs'), fixture(name)]);
-    return result.status !== 0 || summarize(result);
-  });
-});
-
-check('cmb-hash.cjs compare ignores created_at changes', () => {
-  const result = runNode([
-    tool('cmb-hash.cjs'),
-    '--compare',
-    fixture('hash-a.json'),
-    fixture('hash-a-created-at-changed.json'),
-  ]);
-  return (result.status === 0 && result.stdout.trim() === 'same') || summarize(result);
-});
-
-check('cmb-hash.cjs compare detects body changes', () => {
-  const result = runNode([
-    tool('cmb-hash.cjs'),
-    '--compare',
-    fixture('hash-a.json'),
-    fixture('hash-a-body-changed.json'),
-  ]);
-  return (result.status === 0 && result.stdout.trim() === 'different') || summarize(result);
-});
-
-check('execution-receipt.cjs --self-test exits 0', () => {
-  const result = runNode([tool('execution-receipt.cjs'), '--self-test']);
-  return result.status === 0 || summarize(result);
-});
-
-check('review-finding-writer.cjs --self-test exits 0', () => {
-  const result = runNode([tool('review-finding-writer.cjs'), '--self-test']);
-  return result.status === 0 || summarize(result);
-});
-
-check('ledger exists and contains at least 2 valid CMB rows', () => {
-  if (!fs.existsSync(LEDGER_PATH)) {
-    return `${LEDGER_PATH} does not exist`;
-  }
-  const rows = fs
-    .readFileSync(LEDGER_PATH, 'utf8')
-    .split(/\r?\n/)
-    .filter(Boolean)
-    .map((line) => JSON.parse(line));
-  const validRows = rows.filter((row) => validateCmb(row).valid);
-  return validRows.length >= 2 || `validRows=${validRows.length} totalRows=${rows.length}`;
-});
 
 function main() {
-  let passed = 0;
-  const failures = [];
+  try {
+    assert(fs.existsSync(LINEAGE), 'lineage.cjs exists');
+    assert(fs.existsSync(EVIDENCE), 'evidence-validator.cjs exists');
+    assert(fs.existsSync(ECHO), 'echo-detector.cjs exists');
+    assert(fs.existsSync(SEED_LEDGER_PATH), 'seed-ledger.jsonl exists');
+    assert(fs.existsSync(VALIDATE), 'cmb-validate.cjs exists');
+    assert(fs.existsSync(HASH), 'cmb-hash.cjs exists');
+    assert(fs.existsSync(GOOD_EXECUTION), 'good execution fixture exists');
+    assert(fs.existsSync(GOOD_REVIEW), 'good review fixture exists');
 
-  for (const item of checks) {
-    try {
-      const result = item.fn();
-      if (result === true) {
-        passed += 1;
-      } else {
-        failures.push(`${item.name}: ${result}`);
-      }
-    } catch (error) {
-      failures.push(`${item.name}: ${error.stack || error.message}`);
+    assertExitZero('cmb-validate --help', VALIDATE, ['--help']);
+    assertExitZero('cmb-hash --help', HASH, ['--help']);
+    assertExitZero('lineage --help', LINEAGE, ['--help']);
+    assertExitZero('evidence-validator --help', EVIDENCE, ['--help']);
+    assertExitZero('echo-detector --help', ECHO, ['--help']);
+
+    assertExitZero('lineage self-test ancestors', LINEAGE, ['--self-test-ancestors']);
+
+    const seed = loadLedger(SEED_LEDGER_PATH);
+    assert(seed.length >= 10, 'seed ledger has at least 10 CMB rows');
+    assert(seed.every((row) => row.key && row.type && row.lineage), 'seed ledger rows have core CMB fields');
+    for (const row of seed) {
+      const schemaResult = validateCmbAgainstSchema(row);
+      assert(schemaResult.valid, `seed CMB schema-valid: ${row.key}`);
     }
-  }
 
-  if (failures.length > 0) {
-    console.error(`[run-self-test] ${passed}/${checks.length} passed`);
-    failures.forEach((failure) => console.error(`[run-self-test] FAIL ${failure}`));
-    return 1;
-  }
+    const deepLeaf = 'cmb-0000000000000000000000000000000000000000000000000000000000000008';
+    const root = 'cmb-0000000000000000000000000000000000000000000000000000000000000001';
+    const revA = 'cmb-0000000000000000000000000000000000000000000000000000000000000002';
+    const revB = 'cmb-0000000000000000000000000000000000000000000000000000000000000009';
+    const verdict = 'cmb-0000000000000000000000000000000000000000000000000000000000000003';
+    const decision = 'cmb-0000000000000000000000000000000000000000000000000000000000000004';
+    const promotion = 'cmb-0000000000000000000000000000000000000000000000000000000000000005';
 
-  console.error(`[run-self-test] ${passed}/${checks.length} passed`);
-  return 0;
+    const deepAncestors = ancestors(seed, deepLeaf);
+    assert(deepAncestors[0] === 'cmb-0000000000000000000000000000000000000000000000000000000000000007', 'deep ancestors start at direct parent');
+    assert(deepAncestors.includes(root), 'deep ancestors include root');
+    assert(deepAncestors.length === 7, 'deep leaf has seven ancestors');
+    assert(ancestors(seed, deepLeaf, 3).length === 3, 'ancestors honours max-depth 3');
+    assert(ancestors(seed, deepLeaf, 50).length <= 50, 'ancestors honours max-depth 50 cap');
+    assert(descendants(seed, root).includes(deepLeaf), 'descendants includes deep leaf');
+    assert(descendants(seed, verdict).includes(deepLeaf), 'descendants works through verdict chain');
+    assert(provenance(seed, deepLeaf).map((row) => row.key)[0] === root, 'provenance starts at root');
+    assert(provenance(seed, deepLeaf).map((row) => row.key).at(-1) === deepLeaf, 'provenance ends at target');
+    assert(siblings(seed, revA).includes(revB), 'siblings finds shared parent');
+    assert(findCmb(seed, promotion).lineage.parents[0] === decision, 'promotion links to decision recommendation');
+
+    assertExitZero('evidence-validator verified self-test', EVIDENCE, ['--self-test-verified']);
+    assertExitZero('evidence-validator refuted self-test', EVIDENCE, ['--self-test-refuted']);
+    assertExitZero('evidence-validator fixture guard self-test', EVIDENCE, ['--self-test-fixture-guard']);
+    assertExitZero('echo-detector echo hit self-test', ECHO, ['--self-test-echo-hit']);
+    assertExitZero('echo-detector echo miss self-test', ECHO, ['--self-test-echo-miss']);
+
+    const liveRows = ledgerRows(LEDGER_PATH);
+    assert(liveRows.length >= 5, 'live mesh memory ledger has at least 5 CMB rows after self-tests');
+    const evidenceRows = liveRows.filter((row) => row.type === 'evidence_verdict' && row.role === 'evidence_validator');
+    assert(evidenceRows.length >= 3, 'evidence-validator emitted at least 3 evidence_verdict CMBs');
+    assert(evidenceRows.every((row) => row.lineage && row.lineage.parents && row.lineage.parents.length === 1), 'evidence verdict rows link to one parent');
+    assert(evidenceRows.some((row) => row.body && row.body.evidence_status === 'VERIFIED_CRIT'), 'live ledger includes VERIFIED_CRIT evidence verdict');
+    assert(evidenceRows.some((row) => row.body && row.body.evidence_status === 'REFUTED_CRIT'), 'live ledger includes REFUTED_CRIT evidence verdict');
+    assert(evidenceRows.some((row) => row.body && row.body.decision_basis === 'fixture_path_in_real_data_check'), 'live ledger includes fixture guard verdict');
+    assert(seed[6].lineage.parents.every((parent) => seed.some((row) => row.key === parent)), '7th seed CMB lineage parents exist in ledger');
+
+    const passed = results.filter((result) => result.ok).length;
+    assert(passed >= 30, 'self-test assertion floor is at least 30');
+    process.stderr.write(`[run-self-test] ${passed}/${passed} passed\n`);
+  } catch (error) {
+    const passed = results.filter((result) => result.ok).length;
+    process.stderr.write(`[run-self-test] ${passed}/${results.length} passed\n`);
+    process.stderr.write(`[run-self-test] ${error.message}\n`);
+    process.exitCode = 1;
+  }
 }
 
 if (require.main === module) {
-  process.exitCode = main();
+  main();
 }

@@ -248,6 +248,12 @@ Skip gracefully if dev stack is down (port 5173 not responding). Record SKIPPED 
 </layer_3>
 
 <layer_4>
+### Layer 4 - Optional: emit evidence_verdict CMBs (v3.0+)
+
+When SGSD v3.0 DLB-08 Mesh Memory Lite is present (super-gsd/tools/mesh-memory/), each SAC verification MAY also emit one `evidence_verdict` CMB to the project's mesh memory ledger via `super-gsd/tools/mesh-memory/evidence-validator.cjs`. This is opt-in; the existing prose-report path remains for projects without the mesh layer.
+
+When emitted, the evidence_verdict CMB's `lineage.parents[0]` SHOULD reference the corresponding `review_finding` CMB (or, when no claim CMB exists, the upstream `execution_receipt`'s key).
+
 ## Step 5 — Layer 4 (NEW, DLB-07): Semantic-AC enforcement
 
 The load-bearing layer of DLB-07's protection plan. Catches the "Clarity 2026-05-18" failure class: structural ACs all green while end-to-end behavior broken.

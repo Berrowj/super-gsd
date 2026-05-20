@@ -1,0 +1,2 @@
+super-gsd/tools/mesh-memory/run-self-test.cjs
+super-gsd/tools/mesh-memory/fixtures/seed-ledger.jsonl

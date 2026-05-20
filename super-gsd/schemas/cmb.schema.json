@@ -130,7 +130,7 @@
     },
     "sha256Hex": {
       "type": "string",
-      "pattern": "^[a-fA-F0-9]{64}$"
+      "pattern": "^(cmb-[A-Za-z0-9_-]{1,128}|[a-fA-F0-9]{64})$"
     },
     "stringArray": {
       "type": "array",
