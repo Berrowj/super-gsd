@@ -1,0 +1,40 @@
+{
+  "manifest_version": "1.0.0",
+  "generated_at": "2026-05-21T10:10:00Z",
+  "chronicle_schema": "super-gsd/schemas/chronicle.schema.json",
+  "manifest_schema": "super-gsd/schemas/chronicle-manifest.schema.json",
+  "generator_versions": {
+    "context_pack_builder": "schema-fixture",
+    "chronicle_schema": "1.0.0",
+    "manifest_schema": "1.0.0"
+  },
+  "chronicles": [
+    {
+      "path": "super-gsd/chronicles/phase-113.json",
+      "hash": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "source_cmb_ids": [
+    "cmb-2026-05-21-001"
+  ],
+  "source_test_runs": [
+    {
+      "command": "node -e \"JSON.parse(require('fs').readFileSync('super-gsd/schemas/chronicle.schema.json'))\"",
+      "result": "pass",
+      "commit": "0123456"
+    }
+  ],
+  "source_commits": [
+    "0123456789abcdef0123456789abcdef01234567"
+  ],
+  "source_file_paths": [
+    {
+      "path": ".planning/STATE.md",
+      "hash": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "path": ".planning/milestones/v3.1/ROADMAP.md",
+      "hash": "2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  ]
+}

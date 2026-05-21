@@ -1,0 +1,117 @@
+{
+  "chronicle_version": "1.0.0",
+  "chronicle_type": "phase",
+  "id": "phase-113-reference-citations",
+  "title": "Reference Citation Chronicle",
+  "generated_at": "2026-05-21T10:30:00Z",
+  "source": {
+    "milestone_id": "v3.1",
+    "phase_id": "113",
+    "source_file_paths": [
+      ".planning/milestones/v3.1/phases/113-chronicle-schema/PLAN.md"
+    ]
+  },
+  "sections": {
+    "observations": [
+      {
+        "id": "obs-1",
+        "heading": "References only",
+        "signifier_role": "observations",
+        "body": "Citations are compact reference strings.",
+        "citations": [
+          "cmb-2026-05-21-001"
+        ]
+      }
+    ],
+    "claims": [
+      {
+        "id": "claim-1",
+        "heading": "By reference",
+        "signifier_role": "claims",
+        "body": "Claims cite CMB IDs, files, tests, or commit SHAs by reference.",
+        "citations": [
+          "cmb-2026-05-21-001",
+          "super-gsd/schemas/cmb.schema.json",
+          "test:chronicle:claims",
+          "0123456789abcdef0123456789abcdef01234567"
+        ]
+      }
+    ],
+    "evidence_verdicts": [
+      {
+        "id": "verdict-1",
+        "heading": "No embedded CMB",
+        "signifier_role": "evidence_verdicts",
+        "body": "Full evidence bodies are excluded from citations."
+      }
+    ],
+    "decisions": [
+      {
+        "id": "decision-1",
+        "heading": "Strings only",
+        "signifier_role": "decisions",
+        "body": "The citation array does not accept objects."
+      }
+    ],
+    "denominators": [
+      {
+        "id": "denom-1",
+        "heading": "Citation scope",
+        "signifier_role": "denominators",
+        "body": "Reference strings define the citation boundary."
+      }
+    ],
+    "synthesis": [
+      {
+        "id": "synth-1",
+        "heading": "Citation summary",
+        "signifier_role": "synthesis",
+        "body": "The narrative remains auditable through reference citations.",
+        "citations": [
+          "cmb-2026-05-21-001",
+          "0123456789abcdef0123456789abcdef01234567"
+        ]
+      }
+    ],
+    "autonomy_disclosure": [
+      {
+        "id": "auto-1",
+        "heading": "Autonomy",
+        "signifier_role": "autonomy_disclosure",
+        "body": "The citation examples do not assert runtime verification."
+      }
+    ]
+  },
+  "diagrams": [
+    {
+      "puml_source": "@startuml\n[Citation] --> [Reference]\n@enduml",
+      "rendered_svg": "super-gsd/chronicles/reference-citations.svg",
+      "repo_path_labels": [
+        "super-gsd/schemas/cmb.schema.json"
+      ],
+      "arrow_intent_labels": [
+        "citation resolves externally"
+      ]
+    }
+  ],
+  "assets": [
+    "super-gsd/chronicles/reference-citations.svg"
+  ],
+  "denominators": {
+    "scope_excluded": [
+      "embedded CMB bodies"
+    ],
+    "carve_outs_not_fired": [
+      "inline evidence exception"
+    ],
+    "alternatives_rejected": [
+      "citation objects"
+    ],
+    "assumptions_made": [
+      "references resolve outside the chronicle"
+    ],
+    "gates_skipped": [
+      "citation dereference gate"
+    ]
+  }
+}

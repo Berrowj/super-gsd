@@ -1,0 +1,509 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://super-gsd.local/schemas/chronicle.schema.json",
+  "title": "SGSD Chronicle",
+  "description": "Schema-only chronicle artifact for phase and milestone evidence narratives.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "chronicle_version",
+    "chronicle_type",
+    "id",
+    "title",
+    "generated_at",
+    "source",
+    "sections",
+    "diagrams",
+    "assets",
+    "denominators"
+  ],
+  "properties": {
+    "chronicle_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "chronicle_type": {
+      "type": "string",
+      "enum": [
+        "phase",
+        "milestone"
+      ]
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "milestone_id",
+        "source_file_paths"
+      ],
+      "properties": {
+        "milestone_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "phase_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_file_paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "sections": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observations",
+        "claims",
+        "evidence_verdicts",
+        "decisions",
+        "denominators",
+        "synthesis",
+        "autonomy_disclosure"
+      ],
+      "properties": {
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/observations_section"
+          }
+        },
+        "claims": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/claims_section"
+          }
+        },
+        "evidence_verdicts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/evidence_verdicts_section"
+          }
+        },
+        "decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/decisions_section"
+          }
+        },
+        "denominators": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/denominators_section"
+          }
+        },
+        "synthesis": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/synthesis_section"
+          }
+        },
+        "autonomy_disclosure": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/autonomy_disclosure_section"
+          }
+        }
+      }
+    },
+    "diagrams": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/diagram"
+      }
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^(?!https?://)(?!//).+$",
+        "errorMessage": "CHRONICLE-04: assets[] forbids external URLs"
+      }
+    },
+    "denominators": {
+      "$ref": "#/definitions/denominators_contract"
+    },
+    "denominators_empty_reason": {
+      "type": "string",
+      "minLength": 1,
+      "errorMessage": "CHRONICLE-07: denominators_empty_reason must be a non-empty string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "not": {
+          "required": [
+            "denominators_empty_reason"
+          ]
+        }
+      },
+      "then": {
+        "properties": {
+          "denominators": {
+            "properties": {
+              "scope_excluded": {
+                "minItems": 1,
+                "errorMessage": {
+                  "minItems": "CHRONICLE-07: empty denominator arrays require denominators_empty_reason"
+                }
+              },
+              "carve_outs_not_fired": {
+                "minItems": 1,
+                "errorMessage": {
+                  "minItems": "CHRONICLE-07: empty denominator arrays require denominators_empty_reason"
+                }
+              },
+              "alternatives_rejected": {
+                "minItems": 1,
+                "errorMessage": {
+                  "minItems": "CHRONICLE-07: empty denominator arrays require denominators_empty_reason"
+                }
+              },
+              "assumptions_made": {
+                "minItems": 1,
+                "errorMessage": {
+                  "minItems": "CHRONICLE-07: empty denominator arrays require denominators_empty_reason"
+                }
+              },
+              "gates_skipped": {
+                "minItems": 1,
+                "errorMessage": {
+                  "minItems": "CHRONICLE-07: empty denominator arrays require denominators_empty_reason"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "errorMessage": {
+    "required": {
+      "denominators": "CHRONICLE-06: chronicle root missing denominators object"
+    }
+  },
+  "definitions": {
+    "citation": {
+      "type": "string",
+      "minLength": 1,
+      "errorMessage": "CHRONICLE-08: citations[] items must be by-reference strings only"
+    },
+    "citation_array": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/citation"
+      },
+      "errorMessage": {
+        "type": "CHRONICLE-08: citations[] must be an array of by-reference strings"
+      }
+    },
+    "claim_citations": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/citation_array"
+        },
+        {
+          "minItems": 1,
+          "errorMessage": {
+            "minItems": "CHRONICLE-01: claim node missing citations[]"
+          }
+        }
+      ]
+    },
+    "synthesis_citations": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/citation_array"
+        },
+        {
+          "minItems": 1,
+          "errorMessage": {
+            "minItems": "CHRONICLE-02: synthesis node missing citations[]"
+          }
+        }
+      ]
+    },
+    "section_common": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "heading",
+        "signifier_role",
+        "body"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "heading": {
+          "type": "string",
+          "minLength": 1
+        },
+        "signifier_role": {
+          "type": "string",
+          "enum": [
+            "observations",
+            "claims",
+            "evidence_verdicts",
+            "decisions",
+            "denominators",
+            "synthesis",
+            "autonomy_disclosure"
+          ],
+          "errorMessage": "CHRONICLE-03: section signifier_role must be a Norman signifier class"
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1
+        },
+        "citations": {
+          "$ref": "#/definitions/citation_array"
+        }
+      },
+      "errorMessage": {
+        "required": {
+          "signifier_role": "CHRONICLE-03: section node missing signifier_role"
+        }
+      }
+    },
+    "observations_section": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/section_common"
+        },
+        {
+          "properties": {
+            "signifier_role": {
+              "const": "observations",
+              "errorMessage": "CHRONICLE-03: observations section signifier_role must match its bucket"
+            }
+          }
+        }
+      ]
+    },
+    "claims_section": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/section_common"
+        },
+        {
+          "required": [
+            "citations"
+          ],
+          "properties": {
+            "signifier_role": {
+              "const": "claims",
+              "errorMessage": "CHRONICLE-03: claims section signifier_role must match its bucket"
+            },
+            "citations": {
+              "$ref": "#/definitions/claim_citations"
+            }
+          },
+          "errorMessage": {
+            "required": {
+              "citations": "CHRONICLE-01: claim node missing citations[]"
+            }
+          }
+        }
+      ]
+    },
+    "evidence_verdicts_section": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/section_common"
+        },
+        {
+          "properties": {
+            "signifier_role": {
+              "const": "evidence_verdicts",
+              "errorMessage": "CHRONICLE-03: evidence verdict section signifier_role must match its bucket"
+            }
+          }
+        }
+      ]
+    },
+    "decisions_section": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/section_common"
+        },
+        {
+          "properties": {
+            "signifier_role": {
+              "const": "decisions",
+              "errorMessage": "CHRONICLE-03: decisions section signifier_role must match its bucket"
+            }
+          }
+        }
+      ]
+    },
+    "denominators_section": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/section_common"
+        },
+        {
+          "properties": {
+            "signifier_role": {
+              "const": "denominators",
+              "errorMessage": "CHRONICLE-03: denominators section signifier_role must match its bucket"
+            }
+          }
+        }
+      ]
+    },
+    "synthesis_section": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/section_common"
+        },
+        {
+          "required": [
+            "citations"
+          ],
+          "properties": {
+            "signifier_role": {
+              "const": "synthesis",
+              "errorMessage": "CHRONICLE-03: synthesis section signifier_role must match its bucket"
+            },
+            "citations": {
+              "$ref": "#/definitions/synthesis_citations"
+            }
+          },
+          "errorMessage": {
+            "required": {
+              "citations": "CHRONICLE-02: synthesis node missing citations[]"
+            }
+          }
+        }
+      ]
+    },
+    "autonomy_disclosure_section": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/section_common"
+        },
+        {
+          "properties": {
+            "signifier_role": {
+              "const": "autonomy_disclosure",
+              "errorMessage": "CHRONICLE-03: autonomy disclosure section signifier_role must match its bucket"
+            }
+          }
+        }
+      ]
+    },
+    "diagram": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "puml_source",
+        "rendered_svg",
+        "repo_path_labels",
+        "arrow_intent_labels"
+      ],
+      "properties": {
+        "puml_source": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?![\\s\\S]*!include\\s+[Hh][Tt][Tt][Pp][Ss]?://)[\\s\\S]*$",
+          "errorMessage": "CHRONICLE-05: diagrams[].puml_source forbids remote !include URLs"
+        },
+        "rendered_svg": {
+          "type": "string",
+          "minLength": 1
+        },
+        "repo_path_labels": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "arrow_intent_labels": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "errorMessage": {
+        "required": {
+          "puml_source": "CHRONICLE-05: diagrams[] require puml_source",
+          "rendered_svg": "CHRONICLE-05: diagrams[] require rendered_svg",
+          "repo_path_labels": "CHRONICLE-05: diagrams[] require repo_path_labels[]",
+          "arrow_intent_labels": "CHRONICLE-05: diagrams[] require arrow_intent_labels[]"
+        }
+      }
+    },
+    "denominator_array": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "denominators_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope_excluded",
+        "carve_outs_not_fired",
+        "alternatives_rejected",
+        "assumptions_made",
+        "gates_skipped"
+      ],
+      "properties": {
+        "scope_excluded": {
+          "$ref": "#/definitions/denominator_array"
+        },
+        "carve_outs_not_fired": {
+          "$ref": "#/definitions/denominator_array"
+        },
+        "alternatives_rejected": {
+          "$ref": "#/definitions/denominator_array"
+        },
+        "assumptions_made": {
+          "$ref": "#/definitions/denominator_array"
+        },
+        "gates_skipped": {
+          "$ref": "#/definitions/denominator_array"
+        }
+      },
+      "errorMessage": {
+        "required": {
+          "scope_excluded": "CHRONICLE-06: denominators.scope_excluded[] missing",
+          "carve_outs_not_fired": "CHRONICLE-06: denominators.carve_outs_not_fired[] missing",
+          "alternatives_rejected": "CHRONICLE-06: denominators.alternatives_rejected[] missing",
+          "assumptions_made": "CHRONICLE-06: denominators.assumptions_made[] missing",
+          "gates_skipped": "CHRONICLE-06: denominators.gates_skipped[] missing"
+        }
+      }
+    }
+  }
+}

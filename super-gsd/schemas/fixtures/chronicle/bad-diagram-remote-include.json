@@ -1,0 +1,110 @@
+{
+  "chronicle_version": "1.0.0",
+  "chronicle_type": "phase",
+  "id": "bad-diagram-remote-include",
+  "title": "Bad Diagram Chronicle",
+  "generated_at": "2026-05-21T11:20:00Z",
+  "source": {
+    "milestone_id": "v3.1",
+    "phase_id": "113",
+    "source_file_paths": [
+      ".planning/milestones/v3.1/phases/113-chronicle-schema/PLAN.md"
+    ]
+  },
+  "sections": {
+    "observations": [
+      {
+        "id": "obs-1",
+        "heading": "Valid observation",
+        "signifier_role": "observations",
+        "body": "Observation is valid."
+      }
+    ],
+    "claims": [
+      {
+        "id": "claim-1",
+        "heading": "Valid claim",
+        "signifier_role": "claims",
+        "body": "Claim is valid.",
+        "citations": [
+          "P113-01"
+        ]
+      }
+    ],
+    "evidence_verdicts": [
+      {
+        "id": "verdict-1",
+        "heading": "Valid verdict",
+        "signifier_role": "evidence_verdicts",
+        "body": "Verdict is valid."
+      }
+    ],
+    "decisions": [
+      {
+        "id": "decision-1",
+        "heading": "Valid decision",
+        "signifier_role": "decisions",
+        "body": "Decision is valid."
+      }
+    ],
+    "denominators": [
+      {
+        "id": "denom-1",
+        "heading": "Valid denominator section",
+        "signifier_role": "denominators",
+        "body": "Denominator section is valid."
+      }
+    ],
+    "synthesis": [
+      {
+        "id": "synth-1",
+        "heading": "Valid synthesis",
+        "signifier_role": "synthesis",
+        "body": "Synthesis is valid.",
+        "citations": [
+          "P113-01"
+        ]
+      }
+    ],
+    "autonomy_disclosure": [
+      {
+        "id": "auto-1",
+        "heading": "Valid autonomy",
+        "signifier_role": "autonomy_disclosure",
+        "body": "Autonomy section is valid."
+      }
+    ]
+  },
+  "diagrams": [
+    {
+      "puml_source": "@startuml\n!include https://example.com/remote-style.puml\n[A] --> [B]\n@enduml",
+      "rendered_svg": "super-gsd/chronicles/bad-diagram.svg",
+      "repo_path_labels": [
+        "super-gsd/schemas/chronicle.schema.json"
+      ],
+      "arrow_intent_labels": [
+        "valid arrow"
+      ]
+    }
+  ],
+  "assets": [
+    "super-gsd/chronicles/bad-diagram.svg"
+  ],
+  "denominators": {
+    "scope_excluded": [
+      "runtime"
+    ],
+    "carve_outs_not_fired": [
+      "none"
+    ],
+    "alternatives_rejected": [
+      "none"
+    ],
+    "assumptions_made": [
+      "fixture isolates remote include"
+    ],
+    "gates_skipped": [
+      "none"
+    ]
+  }
+}

@@ -1,0 +1,110 @@
+{
+  "chronicle_version": "1.0.0",
+  "chronicle_type": "phase",
+  "id": "phase-113",
+  "title": "Phase 113 Chronicle",
+  "generated_at": "2026-05-21T10:00:00Z",
+  "source": {
+    "milestone_id": "v3.1",
+    "phase_id": "113",
+    "source_file_paths": [
+      ".planning/milestones/v3.1/phases/113-chronicle-schema/PLAN.md"
+    ]
+  },
+  "sections": {
+    "observations": [
+      {
+        "id": "obs-1",
+        "heading": "Scope",
+        "signifier_role": "observations",
+        "body": "Phase 113 is schema-only."
+      }
+    ],
+    "claims": [
+      {
+        "id": "claim-1",
+        "heading": "No runtime",
+        "signifier_role": "claims",
+        "body": "No executable tools are added by the schema fixture.",
+        "citations": [
+          "P113-01"
+        ]
+      }
+    ],
+    "evidence_verdicts": [
+      {
+        "id": "verdict-1",
+        "heading": "Fixture parses",
+        "signifier_role": "evidence_verdicts",
+        "body": "The fixture is representative JSON evidence."
+      }
+    ],
+    "decisions": [
+      {
+        "id": "decision-1",
+        "heading": "By reference",
+        "signifier_role": "decisions",
+        "body": "Citations remain reference strings."
+      }
+    ],
+    "denominators": [
+      {
+        "id": "denom-1",
+        "heading": "Denominator record",
+        "signifier_role": "denominators",
+        "body": "Denominator categories are recorded at the chronicle root."
+      }
+    ],
+    "synthesis": [
+      {
+        "id": "synth-1",
+        "heading": "Phase summary",
+        "signifier_role": "synthesis",
+        "body": "The chronicle summarizes schema evidence without embedding full evidence bodies.",
+        "citations": [
+          "P113-01"
+        ]
+      }
+    ],
+    "autonomy_disclosure": [
+      {
+        "id": "auto-1",
+        "heading": "Autonomy",
+        "signifier_role": "autonomy_disclosure",
+        "body": "The executor followed a locked file list."
+      }
+    ]
+  },
+  "diagrams": [
+    {
+      "puml_source": "@startuml\n[PLAN] --> [Schema]\n@enduml",
+      "rendered_svg": "super-gsd/chronicles/phase-113.svg",
+      "repo_path_labels": [
+        "super-gsd/schemas/chronicle.schema.json"
+      ],
+      "arrow_intent_labels": [
+        "plan constrains schema"
+      ]
+    }
+  ],
+  "assets": [
+    "super-gsd/schemas/chronicle.schema.json"
+  ],
+  "denominators": {
+    "scope_excluded": [
+      "runtime integrations"
+    ],
+    "carve_outs_not_fired": [
+      "optional VTP bridge"
+    ],
+    "alternatives_rejected": [
+      "executable validator"
+    ],
+    "assumptions_made": [
+      "chronicles are JSON artifacts"
+    ],
+    "gates_skipped": [
+      "release gate not part of schema fixture"
+    ]
+  }
+}

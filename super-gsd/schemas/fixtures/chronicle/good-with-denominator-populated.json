@@ -1,0 +1,110 @@
+{
+  "chronicle_version": "1.0.0",
+  "chronicle_type": "phase",
+  "id": "phase-113-denominators-populated",
+  "title": "Populated Denominator Chronicle",
+  "generated_at": "2026-05-21T10:15:00Z",
+  "source": {
+    "milestone_id": "v3.1",
+    "phase_id": "113",
+    "source_file_paths": [
+      ".planning/milestones/v3.1/phases/113-chronicle-schema/PLAN.md"
+    ]
+  },
+  "sections": {
+    "observations": [
+      {
+        "id": "obs-1",
+        "heading": "Populated",
+        "signifier_role": "observations",
+        "body": "Every denominator category is populated."
+      }
+    ],
+    "claims": [
+      {
+        "id": "claim-1",
+        "heading": "Complete contract",
+        "signifier_role": "claims",
+        "body": "The root denominator contract contains all five arrays.",
+        "citations": [
+          "cmb-denominator-contract"
+        ]
+      }
+    ],
+    "evidence_verdicts": [
+      {
+        "id": "verdict-1",
+        "heading": "No empty categories",
+        "signifier_role": "evidence_verdicts",
+        "body": "No empty reason is needed when all categories are populated."
+      }
+    ],
+    "decisions": [
+      {
+        "id": "decision-1",
+        "heading": "Keep explicit",
+        "signifier_role": "decisions",
+        "body": "All denominator buckets remain explicit."
+      }
+    ],
+    "denominators": [
+      {
+        "id": "denom-1",
+        "heading": "Five buckets",
+        "signifier_role": "denominators",
+        "body": "Each denominator array has at least one entry."
+      }
+    ],
+    "synthesis": [
+      {
+        "id": "synth-1",
+        "heading": "Complete denominator summary",
+        "signifier_role": "synthesis",
+        "body": "The fixture demonstrates the populated denominator path.",
+        "citations": [
+          "cmb-denominator-contract"
+        ]
+      }
+    ],
+    "autonomy_disclosure": [
+      {
+        "id": "auto-1",
+        "heading": "Autonomy",
+        "signifier_role": "autonomy_disclosure",
+        "body": "No autonomous gate closure is represented."
+      }
+    ]
+  },
+  "diagrams": [
+    {
+      "puml_source": "@startuml\n[Denominators] --> [Five arrays]\n@enduml",
+      "rendered_svg": "super-gsd/chronicles/denominators.svg",
+      "repo_path_labels": [
+        "super-gsd/schemas/chronicle.schema.json"
+      ],
+      "arrow_intent_labels": [
+        "contract requires buckets"
+      ]
+    }
+  ],
+  "assets": [
+    "super-gsd/chronicles/denominators.svg"
+  ],
+  "denominators": {
+    "scope_excluded": [
+      "non-schema implementation"
+    ],
+    "carve_outs_not_fired": [
+      "manual release carve-out"
+    ],
+    "alternatives_rejected": [
+      "single notes field"
+    ],
+    "assumptions_made": [
+      "source refs are stable"
+    ],
+    "gates_skipped": [
+      "runtime gate"
+    ]
+  }
+}

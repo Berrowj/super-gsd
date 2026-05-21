@@ -1,0 +1,109 @@
+{
+  "chronicle_version": "1.0.0",
+  "chronicle_type": "milestone",
+  "id": "milestone-v3.1",
+  "title": "v3.1 Chronicle",
+  "generated_at": "2026-05-21T10:05:00Z",
+  "source": {
+    "milestone_id": "v3.1",
+    "source_file_paths": [
+      ".planning/milestones/v3.1/ROADMAP.md"
+    ]
+  },
+  "sections": {
+    "observations": [
+      {
+        "id": "obs-1",
+        "heading": "Milestone scope",
+        "signifier_role": "observations",
+        "body": "The milestone chronicle aggregates phase evidence references."
+      }
+    ],
+    "claims": [
+      {
+        "id": "claim-1",
+        "heading": "Evidence linked",
+        "signifier_role": "claims",
+        "body": "Milestone claims cite references instead of embedding evidence bodies.",
+        "citations": [
+          ".planning/milestones/v3.1/ROADMAP.md"
+        ]
+      }
+    ],
+    "evidence_verdicts": [
+      {
+        "id": "verdict-1",
+        "heading": "Reference complete",
+        "signifier_role": "evidence_verdicts",
+        "body": "Referenced paths are represented as strings."
+      }
+    ],
+    "decisions": [
+      {
+        "id": "decision-1",
+        "heading": "Manifest pairing",
+        "signifier_role": "decisions",
+        "body": "The manifest records source hashes separately."
+      }
+    ],
+    "denominators": [
+      {
+        "id": "denom-1",
+        "heading": "Skipped gates",
+        "signifier_role": "denominators",
+        "body": "Skipped gate context is represented in the root denominator contract."
+      }
+    ],
+    "synthesis": [
+      {
+        "id": "synth-1",
+        "heading": "Milestone summary",
+        "signifier_role": "synthesis",
+        "body": "The milestone chronicle keeps narrative synthesis traceable to roadmap references.",
+        "citations": [
+          ".planning/milestones/v3.1/ROADMAP.md"
+        ]
+      }
+    ],
+    "autonomy_disclosure": [
+      {
+        "id": "auto-1",
+        "heading": "Operator boundary",
+        "signifier_role": "autonomy_disclosure",
+        "body": "Autonomy boundaries are explicit in their own section."
+      }
+    ]
+  },
+  "diagrams": [
+    {
+      "puml_source": "@startuml\n[Milestone] --> [Phase]\n@enduml",
+      "rendered_svg": "super-gsd/chronicles/milestone-v3.1.svg",
+      "repo_path_labels": [
+        ".planning/milestones/v3.1/ROADMAP.md"
+      ],
+      "arrow_intent_labels": [
+        "milestone contains phase"
+      ]
+    }
+  ],
+  "assets": [
+    "super-gsd/chronicles/milestone-v3.1.svg"
+  ],
+  "denominators": {
+    "scope_excluded": [
+      "future milestone work"
+    ],
+    "carve_outs_not_fired": [
+      "inactive recovery path"
+    ],
+    "alternatives_rejected": [
+      "inline CMB bodies"
+    ],
+    "assumptions_made": [
+      "roadmap is canonical"
+    ],
+    "gates_skipped": [
+      "no release close in fixture"
+    ]
+  }
+}

@@ -1,0 +1,111 @@
+{
+  "chronicle_version": "1.0.0",
+  "chronicle_type": "phase",
+  "id": "phase-113-puml",
+  "title": "PUML Chronicle",
+  "generated_at": "2026-05-21T10:25:00Z",
+  "source": {
+    "milestone_id": "v3.1",
+    "phase_id": "113",
+    "source_file_paths": [
+      ".planning/milestones/v3.1/phases/113-chronicle-schema/PLAN.md"
+    ]
+  },
+  "sections": {
+    "observations": [
+      {
+        "id": "obs-1",
+        "heading": "PUML stored",
+        "signifier_role": "observations",
+        "body": "The diagram stores PlantUML source inline."
+      }
+    ],
+    "claims": [
+      {
+        "id": "claim-1",
+        "heading": "Remote includes forbidden",
+        "signifier_role": "claims",
+        "body": "The schema allows local source while rejecting remote includes.",
+        "citations": [
+          "DLB-11-R1"
+        ]
+      }
+    ],
+    "evidence_verdicts": [
+      {
+        "id": "verdict-1",
+        "heading": "Labels present",
+        "signifier_role": "evidence_verdicts",
+        "body": "Repo path labels and arrow intent labels are both present."
+      }
+    ],
+    "decisions": [
+      {
+        "id": "decision-1",
+        "heading": "Keep source",
+        "signifier_role": "decisions",
+        "body": "Rendered SVG does not replace source PUML."
+      }
+    ],
+    "denominators": [
+      {
+        "id": "denom-1",
+        "heading": "Diagram scope",
+        "signifier_role": "denominators",
+        "body": "Remote includes are outside the allowed diagram scope."
+      }
+    ],
+    "synthesis": [
+      {
+        "id": "synth-1",
+        "heading": "Diagram summary",
+        "signifier_role": "synthesis",
+        "body": "The fixture demonstrates local PUML source with required labels.",
+        "citations": [
+          "DLB-11-R1"
+        ]
+      }
+    ],
+    "autonomy_disclosure": [
+      {
+        "id": "auto-1",
+        "heading": "Autonomy",
+        "signifier_role": "autonomy_disclosure",
+        "body": "Diagram rendering is not performed by this fixture."
+      }
+    ]
+  },
+  "diagrams": [
+    {
+      "puml_source": "@startuml\n!include ./super-gsd/diagrams/local-style.puml\n[Chronicle] --> [Manifest]\n@enduml",
+      "rendered_svg": "super-gsd/chronicles/puml.svg",
+      "repo_path_labels": [
+        "super-gsd/schemas/chronicle.schema.json",
+        "super-gsd/schemas/chronicle-manifest.schema.json"
+      ],
+      "arrow_intent_labels": [
+        "chronicle is indexed by manifest"
+      ]
+    }
+  ],
+  "assets": [
+    "super-gsd/chronicles/puml.svg"
+  ],
+  "denominators": {
+    "scope_excluded": [
+      "remote PUML include"
+    ],
+    "carve_outs_not_fired": [
+      "renderer exception"
+    ],
+    "alternatives_rejected": [
+      "SVG-only diagrams"
+    ],
+    "assumptions_made": [
+      "local include paths are repository relative"
+    ],
+    "gates_skipped": [
+      "diagram rendering gate"
+    ]
+  }
+}
