@@ -1,0 +1,41 @@
+@startuml
+title v3.1 Phase 115 — Phase gate progression
+
+skinparam shadowing false
+skinparam backgroundColor #FAF7F2
+skinparam defaultFontName "Arial"
+skinparam activity {
+  BackgroundColor #FAF7F2
+  BorderColor #2C2826
+  FontColor #2C2826
+}
+skinparam component {
+  BackgroundColor<<shipped>> #7CB479
+  BackgroundColor<<inflight>> #C97B5B
+  BackgroundColor<<risk>> #E6A23C
+  BackgroundColor<<readonly>> #5C6776
+  BorderColor #2C2826
+  FontColor #2C2826
+}
+
+start
+#5C6776:.planning/STATE.md\n1. read active milestone and phase;
+-> "anchors phase context";
+#5C6776:.planning/milestones/warp-integration/ROADMAP.md\n2. confirm locked roadmap scope;
+-> "checks planned Dispatch A boundary";
+#C97B5B:super-gsd/tools/chronicle/templates/puml/*.puml\n3. author diagram templates;
+-> "creates static PlantUML surfaces";
+#C97B5B:super-gsd/tools/chronicle/templates/sections/*.md\n4. author section templates;
+-> "creates cited markdown slots";
+#C97B5B:super-gsd/tools/chronicle/templates/style.css\n5. author chronicle styles;
+-> "binds clarity-board-deck palette";
+#7CB479:super-gsd/schemas/chronicle.schema.json\n6. preserve frozen schema contract;
+-> "avoids renderer/schema mutation";
+#E6A23C:plantuml.jar\n7. render SVG if operator-installed;
+-> "falls back to degraded path when absent";
+#7CB479:super-gsd/tools/mesh-memory/evidence-validator.cjs\n8. verify CMB-backed evidence path;
+stop
+
+{{gate_stages}}
+
+@enduml

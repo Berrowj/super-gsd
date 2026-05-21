@@ -1,0 +1,69 @@
+@startuml
+title v3.1 Phase 115 — Files changed/read/at-risk/protected/out-of-scope map
+
+skinparam shadowing false
+skinparam backgroundColor #FAF7F2
+skinparam defaultFontName "Arial"
+skinparam defaultTextAlignment center
+skinparam component {
+  BackgroundColor<<shipped>> #7CB479
+  BackgroundColor<<inflight>> #C97B5B
+  BackgroundColor<<risk>> #E6A23C
+  BackgroundColor<<readonly>> #5C6776
+  BorderColor #2C2826
+  FontColor #2C2826
+}
+skinparam package {
+  BackgroundColor #FAF7F2
+  BorderColor #5C6776
+  FontColor #2C2826
+}
+
+left to right direction
+
+package "created" {
+  component "super-gsd/tools/chronicle/templates/puml/architecture.puml" as created_architecture <<inflight>>
+  component "super-gsd/tools/chronicle/templates/puml/lineage-dag.puml" as created_lineage <<inflight>>
+  component "super-gsd/tools/chronicle/templates/puml/gate-waterfall.puml" as created_gate <<inflight>>
+  component "super-gsd/tools/chronicle/templates/puml/file-impact.puml" as created_file_impact <<inflight>>
+  component "super-gsd/tools/chronicle/templates/puml/persona-lanes.puml" as created_persona_lanes <<inflight>>
+  component "super-gsd/tools/chronicle/templates/puml/timeline.puml" as created_timeline <<inflight>>
+  component "super-gsd/tools/chronicle/templates/sections/eli5.md" as created_eli5 <<inflight>>
+  component "super-gsd/tools/chronicle/templates/sections/remember-tomorrow.md" as created_remember <<inflight>>
+  component "super-gsd/tools/chronicle/templates/sections/risks.md" as created_risks <<inflight>>
+  component "super-gsd/tools/chronicle/templates/sections/persona-impact.md" as created_persona_impact <<inflight>>
+  component "super-gsd/tools/chronicle/templates/style.css" as created_style <<inflight>>
+}
+
+package "modified" {
+  note "Dispatch A modifies no existing files." as modified_none
+}
+
+package "read-only" {
+  component ".planning/STATE.md" as readonly_state <<readonly>>
+  component ".planning/milestones/warp-integration/ROADMAP.md" as readonly_roadmap <<readonly>>
+  component ".planning/mesh/memory/cmbs.jsonl" as readonly_cmbs <<readonly>>
+}
+
+package "protected" {
+  component "super-gsd/schemas/cmb.schema.json" as protected_cmb_schema <<shipped>>
+  component "super-gsd/schemas/chronicle.schema.json" as protected_chronicle_schema <<shipped>>
+  component "super-gsd/schemas/chronicle-manifest.schema.json" as protected_manifest_schema <<shipped>>
+}
+
+package "out-of-scope" {
+  component "super-gsd/tools/chronicle/render-html.cjs" as oos_render <<risk>>
+  component "super-gsd/tools/chronicle/build-context-pack.cjs" as oos_context <<risk>>
+  component "super-gsd/tools/chronicle/cmb-validate-helper.cjs" as oos_helper <<risk>>
+}
+
+readonly_state --> created_architecture : "supplies active phase label"
+readonly_roadmap --> created_gate : "confirms Dispatch A template scope"
+readonly_cmbs --> created_lineage : "provides render-time lineage rows"
+created_architecture --> protected_chronicle_schema : "documents schema dependency"
+created_file_impact --> oos_render : "marks renderer work for Dispatch B"
+created_style --> oos_context : "stays template-only with no builder edits"
+
+{{file_impact_zones}}
+
+@enduml

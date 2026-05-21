@@ -1,0 +1,278 @@
+:root {
+  --sage: #7CB479;
+  --terracotta: #C97B5B;
+  --amber: #E6A23C;
+  --slate: #5C6776;
+  --paper: #FAF7F2;
+  --ink: #2C2826;
+  --line: rgba(44, 40, 38, 0.18);
+  --panel: #FFFFFF;
+  --muted: rgba(44, 40, 38, 0.68);
+  --shadow: 0 12px 32px rgba(44, 40, 38, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--paper);
+}
+
+.chronicle {
+  width: min(1120px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 32px 0 56px;
+}
+
+.chronicle-header {
+  display: grid;
+  gap: 12px;
+  padding: 24px 0 20px;
+  border-bottom: 2px solid var(--ink);
+}
+
+.chronicle-title {
+  margin: 0;
+  font-size: clamp(1.75rem, 2.6vw, 2.75rem);
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.chronicle-subtitle,
+.chronicle-meta {
+  margin: 0;
+  color: var(--muted);
+}
+
+.chronicle-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 0.9rem;
+}
+
+.chronicle-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 24px;
+  align-items: start;
+}
+
+.chronicle-main,
+.chronicle-aside {
+  display: grid;
+  gap: 20px;
+}
+
+.chronicle-section {
+  padding: 22px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.chronicle-section h2,
+.chronicle-section h3 {
+  margin: 0 0 12px;
+  line-height: 1.18;
+  letter-spacing: 0;
+}
+
+.chronicle-section p {
+  margin: 0 0 12px;
+}
+
+.chronicle-section p:last-child {
+  margin-bottom: 0;
+}
+
+.status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 650;
+}
+
+.status-chip.shipped {
+  background: var(--sage);
+}
+
+.status-chip.in-flight {
+  background: var(--terracotta);
+}
+
+.status-chip.at-risk,
+.status-chip.degraded {
+  background: var(--amber);
+}
+
+.status-chip.read-only {
+  background: var(--slate);
+  color: #FFFFFF;
+}
+
+.evidence {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-left: 4px solid var(--slate);
+  background: rgba(92, 103, 118, 0.1);
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
+.diagram {
+  overflow: auto;
+  padding: 16px;
+  background: #FFFFFF;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.diagram svg,
+.diagram img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.file-list,
+.decision-list,
+.risk-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #FFFFFF;
+}
+
+th,
+td {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: rgba(124, 180, 121, 0.18);
+  font-weight: 700;
+}
+
+.risk-table th {
+  background: rgba(230, 162, 60, 0.2);
+}
+
+.persona-table th {
+  background: rgba(201, 123, 91, 0.2);
+}
+
+.callout {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--terracotta);
+  border-radius: 8px;
+  background: #FFFFFF;
+}
+
+.callout.warning {
+  border-left-color: var(--amber);
+}
+
+.callout.context {
+  border-left-color: var(--slate);
+}
+
+code,
+pre {
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}
+
+code {
+  padding: 0.12rem 0.28rem;
+  border-radius: 4px;
+  background: rgba(44, 40, 38, 0.08);
+}
+
+pre {
+  overflow: auto;
+  padding: 14px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: #FFFFFF;
+}
+
+a {
+  color: var(--ink);
+  text-decoration-color: var(--terracotta);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 3px solid var(--amber);
+  outline-offset: 3px;
+}
+
+@media (max-width: 860px) {
+  .chronicle {
+    width: min(100% - 20px, 1120px);
+    padding-top: 20px;
+  }
+
+  .chronicle-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chronicle-section {
+    padding: 18px;
+  }
+}
+
+@media print {
+  body {
+    background: #FFFFFF;
+  }
+
+  .chronicle {
+    width: 100%;
+    padding: 0;
+  }
+
+  .chronicle-section {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+
+  a {
+    color: var(--ink);
+  }
+}

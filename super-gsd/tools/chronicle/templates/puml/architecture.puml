@@ -1,0 +1,80 @@
+@startuml
+title v3.1 Phase 115 — Architecture-at-a-glance
+
+skinparam shadowing false
+skinparam backgroundColor #FAF7F2
+skinparam defaultFontName "Arial"
+skinparam defaultTextAlignment center
+skinparam component {
+  BackgroundColor<<shipped>> #7CB479
+  BackgroundColor<<inflight>> #C97B5B
+  BackgroundColor<<risk>> #E6A23C
+  BackgroundColor<<readonly>> #5C6776
+  BorderColor #2C2826
+  FontColor #2C2826
+}
+skinparam package {
+  BackgroundColor #FAF7F2
+  BorderColor #5C6776
+  FontColor #2C2826
+}
+
+package "super-gsd/schemas/" {
+  component "super-gsd/schemas/cmb.schema.json" as schema_cmb <<shipped>>
+  component "super-gsd/schemas/chronicle.schema.json" as schema_chronicle <<shipped>>
+  component "super-gsd/schemas/chronicle-manifest.schema.json" as schema_manifest <<shipped>>
+}
+
+package "super-gsd/tools/mesh-memory/" {
+  component "super-gsd/tools/mesh-memory/cmb-validate.cjs" as mesh_cmb_validate <<shipped>>
+  component "super-gsd/tools/mesh-memory/cmb-hash.cjs" as mesh_cmb_hash <<shipped>>
+  component "super-gsd/tools/mesh-memory/lineage.cjs" as mesh_lineage <<shipped>>
+  component "super-gsd/tools/mesh-memory/execution-receipt.cjs" as mesh_execution_receipt <<shipped>>
+  component "super-gsd/tools/mesh-memory/review-finding-writer.cjs" as mesh_review_finding_writer <<shipped>>
+  component "super-gsd/tools/mesh-memory/evidence-validator.cjs" as mesh_evidence_validator <<shipped>>
+  component "super-gsd/tools/mesh-memory/escalation-gate.cjs" as mesh_escalation_gate <<shipped>>
+  component "super-gsd/tools/mesh-memory/pseudo-operator-peer.cjs" as mesh_pseudo_operator_peer <<shipped>>
+}
+
+package "super-gsd/tools/chronicle/" {
+  component "super-gsd/tools/chronicle/build-context-pack.cjs" as chronicle_context <<inflight>>
+  component "super-gsd/tools/chronicle/cmb-validate-helper.cjs" as chronicle_validate_helper <<inflight>>
+  component "super-gsd/tools/chronicle/render-html.cjs" as chronicle_render <<inflight>>
+}
+
+package "super-gsd/tools/codex-pro/" {
+  component "super-gsd/tools/codex-pro/profile-resolver.cjs" as codex_profile <<shipped>>
+  component "super-gsd/tools/codex-pro/stoplight.cjs" as codex_stoplight <<shipped>>
+  component "super-gsd/tools/codex-pro/native-review-runner.cjs" as codex_review <<shipped>>
+}
+
+package "super-gsd/tools/codex-hooks/" {
+  component "super-gsd/tools/codex-hooks/* (5 hook scripts)" as codex_hooks <<shipped>>
+}
+
+package "super-gsd/tools/context-authority/" {
+  component "super-gsd/tools/context-authority/context-anchor-writer.cjs" as context_anchor_writer <<shipped>>
+  component "super-gsd/tools/context-authority/context-composer.cjs" as context_composer <<shipped>>
+}
+
+package "super-gsd/scripts/" {
+  component "super-gsd/scripts/codex-exec.sh" as codex_exec <<shipped>>
+  component "super-gsd/scripts/codex-executor.sh" as codex_executor <<shipped>>
+  component "super-gsd/scripts/codex-patch-executor.sh" as codex_patch_executor <<shipped>>
+}
+
+component ".planning/mesh/memory/cmbs.jsonl" as cmb_ledger <<readonly>>
+component "plantuml.jar" as plantuml_jar <<risk>>
+
+chronicle_render --> chronicle_context : "reads CHRONICLE-CONTEXT.json"
+chronicle_context --> cmb_ledger : "filters CMBs by phase_id"
+chronicle_render --> plantuml_jar : "renders PUML to SVG (fallback if absent)"
+mesh_evidence_validator --> mesh_lineage : "walks DAG depth <=50"
+codex_hooks --> codex_exec : "intercepts pre/post tool events"
+chronicle_validate_helper --> schema_chronicle : "validates fixtures"
+mesh_cmb_validate --> schema_cmb : "validates CMB envelopes"
+context_composer --> context_anchor_writer : "reads context-anchor capsule"
+codex_exec --> mesh_execution_receipt : "writes execution_receipt CMB"
+chronicle_render --> schema_manifest : "validates chronicle manifest output"
+
+@enduml

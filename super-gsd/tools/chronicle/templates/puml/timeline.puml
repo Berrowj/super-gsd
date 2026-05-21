@@ -1,0 +1,43 @@
+@startuml
+title v3.1 Phase 115 — Phase timeline
+
+skinparam shadowing false
+skinparam backgroundColor #FAF7F2
+skinparam defaultFontName "Arial"
+skinparam sequence {
+  ArrowColor #2C2826
+  LifeLineBorderColor #5C6776
+  LifeLineBackgroundColor #FAF7F2
+  ParticipantBorderColor #2C2826
+  ParticipantFontColor #2C2826
+}
+skinparam component {
+  BackgroundColor<<shipped>> #7CB479
+  BackgroundColor<<inflight>> #C97B5B
+  BackgroundColor<<risk>> #E6A23C
+  BackgroundColor<<readonly>> #5C6776
+  BorderColor #2C2826
+  FontColor #2C2826
+}
+
+participant ".planning/STATE.md" as state <<readonly>>
+participant ".planning/milestones/warp-integration/ROADMAP.md" as roadmap <<readonly>>
+participant "super-gsd/tools/chronicle/templates/puml/*.puml" as puml_templates <<inflight>>
+participant "super-gsd/tools/chronicle/templates/sections/*.md" as section_templates <<inflight>>
+participant "super-gsd/tools/chronicle/templates/style.css" as style_css <<inflight>>
+participant "super-gsd/tools/chronicle/render-html.cjs" as renderer <<risk>>
+participant "plantuml.jar" as plantuml <<risk>>
+participant "super-gsd/tools/mesh-memory/evidence-validator.cjs" as evidence_validator <<shipped>>
+
+state -> roadmap : "1. confirms active roadmap"
+roadmap -> puml_templates : "2. locks diagram template scope"
+puml_templates -> section_templates : "3. aligns diagram slots with text slots"
+section_templates -> style_css : "4. shares chronicle class names"
+style_css -> renderer : "5. waits for Dispatch B integration"
+renderer -> plantuml : "6. requests optional SVG rendering"
+plantuml -> renderer : "7. returns SVG or degraded-path signal"
+renderer -> evidence_validator : "8. attaches evidence citations"
+
+{{timeline_events}}
+
+@enduml

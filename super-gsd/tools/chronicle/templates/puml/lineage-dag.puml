@@ -1,0 +1,40 @@
+@startuml
+title v3.1 Phase 115 — CMB lineage graph
+
+skinparam shadowing false
+skinparam backgroundColor #FAF7F2
+skinparam defaultFontName "Arial"
+skinparam defaultTextAlignment center
+skinparam component {
+  BackgroundColor<<shipped>> #7CB479
+  BackgroundColor<<inflight>> #C97B5B
+  BackgroundColor<<risk>> #E6A23C
+  BackgroundColor<<readonly>> #5C6776
+  BorderColor #2C2826
+  FontColor #2C2826
+}
+
+left to right direction
+
+component ".planning/mesh/memory/cmbs.jsonl" as cmb_ledger <<readonly>>
+component "super-gsd/tools/mesh-memory/lineage.cjs" as lineage_tool <<shipped>>
+component "super-gsd/tools/mesh-memory/evidence-validator.cjs" as evidence_validator <<shipped>>
+component "super-gsd/tools/chronicle/build-context-pack.cjs" as context_pack <<inflight>>
+component "super-gsd/tools/chronicle/render-html.cjs" as html_renderer <<inflight>>
+
+component ".planning/mesh/memory/cmbs.jsonl\n{{cmb_node_root}}" as cmb_root <<readonly>>
+component ".planning/mesh/memory/cmbs.jsonl\n{{cmb_node_parent}}" as cmb_parent <<readonly>>
+component ".planning/mesh/memory/cmbs.jsonl\n{{cmb_node_child}}" as cmb_child <<readonly>>
+
+cmb_ledger --> lineage_tool : "streams phase CMB rows"
+lineage_tool --> cmb_root : "anchors selected phase_id"
+cmb_root --> cmb_parent : "links parent_cmb_id"
+cmb_parent --> cmb_child : "links child_cmb_id"
+evidence_validator --> lineage_tool : "checks DAG ancestry depth <=50"
+context_pack --> cmb_ledger : "filters lineage source rows"
+html_renderer --> context_pack : "embeds lineage data for chronicle"
+
+{{cmb_nodes}}
+{{cmb_edges}}
+
+@enduml

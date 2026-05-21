@@ -1,0 +1,43 @@
+@startuml
+title v3.1 Phase 115 — Persona impact lanes
+
+skinparam shadowing false
+skinparam backgroundColor #FAF7F2
+skinparam defaultFontName "Arial"
+skinparam activity {
+  BackgroundColor #FAF7F2
+  BorderColor #2C2826
+  FontColor #2C2826
+}
+skinparam component {
+  BackgroundColor<<shipped>> #7CB479
+  BackgroundColor<<inflight>> #C97B5B
+  BackgroundColor<<risk>> #E6A23C
+  BackgroundColor<<readonly>> #5C6776
+  BorderColor #2C2826
+  FontColor #2C2826
+}
+
+|Operator|
+start
+#5C6776:.planning/STATE.md\nchecks current milestone and phase;
+-> "starts from canonical state";
+|Codex executor|
+#C97B5B:super-gsd/tools/chronicle/templates/puml/*.puml\ncreates diagram templates only;
+-> "hands static templates to renderer";
+|Claude orchestrator|
+#7CB479:super-gsd/scripts/codex-exec.sh\ntracks Dispatch A execution receipt;
+-> "records executor outcome";
+|Reviewer|
+#7CB479:super-gsd/tools/mesh-memory/review-finding-writer.cjs\ncaptures review findings as CMBs;
+-> "links findings to evidence";
+|Future maintainer|
+#C97B5B:super-gsd/tools/chronicle/templates/sections/persona-impact.md\nreads persona impact slots;
+-> "uses citations to trace change effect";
+|Chronicle reader|
+#C97B5B:super-gsd/tools/chronicle/templates/style.css\nscans rendered chronicle output;
+stop
+
+{{persona_lanes}}
+
+@enduml
