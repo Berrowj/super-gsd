@@ -1011,6 +1011,241 @@ function main() {
   process.exit(failed === 0 ? 0 : 1);
 }
 
+const __p117ChronicleSelfTest = (() => {
+  let ran = false;
+
+  function run() {
+    if (ran) return;
+    ran = true;
+
+    const childProcess = require('child_process');
+    const fs = require('fs');
+    const os = require('os');
+    const path = require('path');
+
+    const publishScript = path.join(__dirname, 'publish.cjs');
+    const fixturePath = path.join(__dirname, 'fixtures', 'sample-publish-bundle.json');
+    const storageLocal = require('./storage-local.cjs');
+    const storageVtp = require('./storage-vtp.cjs');
+
+    let failures = 0;
+
+    function pass(id) {
+      console.log(`PASS ${id}`);
+    }
+
+    function fail(id, message) {
+      failures += 1;
+      console.error(`FAIL ${id}: ${message}`);
+    }
+
+    function assert(id, condition, message) {
+      if (condition) pass(id);
+      else fail(id, message);
+    }
+
+    function tmpDir() {
+      return fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-p117-'));
+    }
+
+    function loadBundle(overrides = {}) {
+      const bundle = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
+      return Object.assign(bundle, overrides);
+    }
+
+    function writeBundle(dir, bundle, name = 'bundle.json') {
+      const filePath = path.join(dir, name);
+      fs.writeFileSync(filePath, `${JSON.stringify(bundle, null, 2)}\n`, 'utf8');
+      return filePath;
+    }
+
+    function runPublish(args) {
+      return childProcess.spawnSync(process.execPath, [publishScript, ...args], {
+        cwd: path.join(__dirname, '..', '..', '..'),
+        encoding: 'utf8',
+        env: Object.assign({}, process.env, { SGSD_VTP_MCP_URL: '' }),
+      });
+    }
+
+    function publishValid(storageTarget = 'local') {
+      const dir = tmpDir();
+      const localRoot = path.join(dir, 'chronicles');
+      const indexLedger = path.join(dir, 'INDEX.jsonl');
+      const bundlePath = writeBundle(dir, loadBundle());
+      const result = runPublish([
+        '--bundle',
+        bundlePath,
+        '--storage-target',
+        storageTarget,
+        '--local-root',
+        localRoot,
+        '--index-ledger',
+        indexLedger,
+      ]);
+      return { dir, localRoot, indexLedger, bundlePath, result };
+    }
+
+    const usageResult = runPublish([]);
+    assert('SAC-P117-01', usageResult.status === 5, `expected usage exit 5, got ${usageResult.status}`);
+
+    const invalidJsonDir = tmpDir();
+    const invalidJsonPath = path.join(invalidJsonDir, 'invalid.json');
+    fs.writeFileSync(invalidJsonPath, '{not json', 'utf8');
+    const invalidJsonResult = runPublish(['--bundle', invalidJsonPath, '--storage-target', 'local']);
+    assert('SAC-P117-02', invalidJsonResult.status === 1, `expected invalid JSON exit 1, got ${invalidJsonResult.status}`);
+
+    const missingFieldsDir = tmpDir();
+    const missingFieldsPath = writeBundle(missingFieldsDir, {});
+    const missingFieldsResult = runPublish(['--bundle', missingFieldsPath, '--storage-target', 'local']);
+    assert('SAC-P117-03', missingFieldsResult.status === 1, `expected missing-field exit 1, got ${missingFieldsResult.status}`);
+
+    const firstPublish = publishValid('local');
+    const phaseDir = path.join(firstPublish.localRoot, 'v3.1', 'P117');
+    const expectedFiles = [
+      'chronicle-context.json',
+      'chronicle.html',
+      'manifest.json',
+      'content-hash.txt',
+    ].map((fileName) => path.join(phaseDir, fileName));
+    assert(
+      'SAC-P117-04',
+      firstPublish.result.status === 0 && expectedFiles.every((filePath) => fs.existsSync(filePath)),
+      `expected local publish files and exit 0, got ${firstPublish.result.status}: ${firstPublish.result.stderr}`,
+    );
+
+    const indexRows = fs.existsSync(firstPublish.indexLedger)
+      ? fs.readFileSync(firstPublish.indexLedger, 'utf8').trim().split(/\r?\n/).filter(Boolean).map(JSON.parse)
+      : [];
+    assert(
+      'SAC-P117-05',
+      indexRows.length === 1 && indexRows[0].storage_target === 'local' && firstPublish.result.stdout.includes('PUBLISHED local'),
+      'expected one local index row and PUBLISHED local stdout',
+    );
+
+    const repeatResult = runPublish([
+      '--bundle',
+      firstPublish.bundlePath,
+      '--storage-target',
+      'local',
+      '--local-root',
+      firstPublish.localRoot,
+      '--index-ledger',
+      firstPublish.indexLedger,
+    ]);
+    const repeatRows = fs.readFileSync(firstPublish.indexLedger, 'utf8').trim().split(/\r?\n/).filter(Boolean);
+    assert(
+      'SAC-P117-06',
+      repeatResult.status === 0 && repeatRows.length === 1,
+      `expected idempotent skip with one index row, got exit ${repeatResult.status} rows ${repeatRows.length}`,
+    );
+
+    const refusedDir = tmpDir();
+    const refusedPath = writeBundle(refusedDir, loadBundle({ validator_verdict: 'REPORT_UNGROUNDED' }));
+    const refusedResult = runPublish([
+      '--bundle',
+      refusedPath,
+      '--storage-target',
+      'local',
+      '--local-root',
+      path.join(refusedDir, 'chronicles'),
+      '--index-ledger',
+      path.join(refusedDir, 'INDEX.jsonl'),
+    ]);
+    assert('SAC-P117-07', refusedResult.status === 2, `expected verdict refusal exit 2, got ${refusedResult.status}`);
+
+    const forcedDir = tmpDir();
+    const forcedPath = writeBundle(forcedDir, loadBundle({ validator_verdict: 'REPORT_UNGROUNDED' }));
+    const forcedResult = runPublish([
+      '--bundle',
+      forcedPath,
+      '--storage-target',
+      'local',
+      '--local-root',
+      path.join(forcedDir, 'chronicles'),
+      '--index-ledger',
+      path.join(forcedDir, 'INDEX.jsonl'),
+      '--force',
+    ]);
+    assert(
+      'SAC-P117-08',
+      forcedResult.status === 0 && forcedResult.stderr.includes('FORCE:'),
+      `expected force publish exit 0 with stderr warning, got ${forcedResult.status}`,
+    );
+
+    const autoPublish = publishValid('auto');
+    assert(
+      'SAC-P117-09',
+      autoPublish.result.status === 0 && autoPublish.result.stdout.includes('PUBLISHED local'),
+      `expected auto fallback to local, got exit ${autoPublish.result.status}: ${autoPublish.result.stdout}`,
+    );
+
+    const explicitVtp = publishValid('vtp');
+    assert('SAC-P117-10', explicitVtp.result.status === 4, `expected explicit VTP exit 4, got ${explicitVtp.result.status}`);
+
+    const previousVtpUrl = process.env.SGSD_VTP_MCP_URL;
+    delete process.env.SGSD_VTP_MCP_URL;
+    const probeResult = storageVtp.probe();
+    if (previousVtpUrl !== undefined) {
+      process.env.SGSD_VTP_MCP_URL = previousVtpUrl;
+    }
+    assert(
+      'SAC-P117-11',
+      probeResult && probeResult.available === false && probeResult.reason === 'vtp_mcp_routing_not_yet_wired',
+      `expected unavailable VTP stub probe, got ${JSON.stringify(probeResult)}`,
+    );
+
+    const tmpFiles = fs.existsSync(phaseDir)
+      ? fs.readdirSync(phaseDir).filter((fileName) => fileName.endsWith('.tmp'))
+      : ['missing-phase-dir'];
+    assert('STRUCT-P117-21', tmpFiles.length === 0, `expected no tmp files after atomic rename, got ${tmpFiles.join(', ')}`);
+
+    const bundleA = loadBundle();
+    const bundleB = JSON.parse(JSON.stringify(bundleA));
+    assert(
+      'STRUCT-P117-22',
+      storageLocal.contentHashFor(bundleA) === storageLocal.contentHashFor(bundleB),
+      'expected deterministic content_hash across equivalent bundles',
+    );
+
+    const requiredIndexFields = [
+      'ts',
+      'milestone_id',
+      'phase_id',
+      'chronicle_type',
+      'storage_target',
+      'location',
+      'size_bytes',
+      'validator_verdict',
+      'content_hash',
+      'published_by',
+    ];
+    assert(
+      'STRUCT-P117-23',
+      indexRows.length === 1 && requiredIndexFields.every((field) => Object.prototype.hasOwnProperty.call(indexRows[0], field)),
+      'expected index ledger row to include all required fields',
+    );
+
+    if (failures > 0 && (!process.exitCode || process.exitCode === 0)) {
+      process.exitCode = 1;
+    }
+  }
+
+  return { run };
+})();
+
+process.once('beforeExit', () => {
+  __p117ChronicleSelfTest.run();
+});
+
+const __p117OriginalProcessExit = process.exit.bind(process);
+process.exit = (code) => {
+  if (typeof code === 'number') {
+    process.exitCode = code;
+  }
+  __p117ChronicleSelfTest.run();
+  __p117OriginalProcessExit(process.exitCode);
+};
+
 if (require.main === module) {
   main();
 }
