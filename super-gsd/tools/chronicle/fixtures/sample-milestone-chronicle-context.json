@@ -1,0 +1,148 @@
+{
+  "chronicle_version": "1.0",
+  "chronicle_type": "milestone",
+  "id": "chronicle-v3.1-milestone",
+  "title": "Milestone Chronicle: v3.1",
+  "generated_at": "2026-05-21T00:00:00.000Z",
+  "source": {
+    "milestone_id": "v3.1",
+    "phase_id": "milestone",
+    "source_file_paths": [
+      ".planning/milestones/v3.1/phases/119-milestone-chronicle-roadmap-miner/119-CONTEXT.md"
+    ]
+  },
+  "sections": {
+    "observations": [
+      {
+        "id": "P119-observation",
+        "heading": "P119 milestone roll-up",
+        "signifier_role": "observations",
+        "body": "P119 closes v3.1 by rolling phase chronicle contexts into a milestone-level artifact.",
+        "citations": [
+          ".planning/milestones/v3.1/phases/P119/CONTEXT.md"
+        ]
+      }
+    ],
+    "claims": [
+      {
+        "id": "P119-claim",
+        "heading": "Forward-only default",
+        "signifier_role": "claims",
+        "body": "Milestone-level chronicle context preserves grounded phase evidence without requiring the v3.0 retrospective by default.",
+        "citations": [
+          ".planning/milestones/v3.1/phases/P119/PLAN.md"
+        ]
+      }
+    ],
+    "evidence_verdicts": [
+      {
+        "id": "P119-verdict",
+        "heading": "Schema fixture verdict",
+        "signifier_role": "evidence_verdicts",
+        "body": "Golden milestone fixture validates against chronicle.schema.json.",
+        "citations": [
+          "super-gsd/tools/chronicle/fixtures/sample-milestone-chronicle-context.json"
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "id": "P119-decision",
+        "heading": "Roadmap miner scope",
+        "signifier_role": "decisions",
+        "body": "Roadmap mining is emitted as JSON and keeps fog score optional when the cockpit-sidecar scorer is unavailable.",
+        "citations": [
+          ".planning/milestones/v3.1/phases/P119/PLAN.md"
+        ]
+      }
+    ],
+    "denominators": [
+      {
+        "id": "P119-denominator-1",
+        "heading": "scope_excluded",
+        "signifier_role": "denominators",
+        "body": "Roadmap miner emits JSON only; milestone HTML synthesis is out of scope.",
+        "citations": [
+          ".planning/milestones/v3.1/phases/P119/CONTEXT.md"
+        ]
+      },
+      {
+        "id": "P119-denominator-2",
+        "heading": "carve_outs_not_fired",
+        "signifier_role": "denominators",
+        "body": "No production, credential, SAP, Mongo, Qdrant, Elasticsearch, destructive, or commercial carve-out fired for the fixture.",
+        "citations": [
+          "DLB-11"
+        ]
+      },
+      {
+        "id": "P119-denominator-3",
+        "heading": "alternatives_rejected",
+        "signifier_role": "denominators",
+        "body": "HTML synthesis for roadmap mining was rejected to keep the miner JSON-only.",
+        "citations": [
+          ".planning/milestones/v3.1/phases/P119/CONTEXT.md"
+        ]
+      },
+      {
+        "id": "P119-denominator-4",
+        "heading": "assumptions_made",
+        "signifier_role": "denominators",
+        "body": "The fixture is synthetic and exists only to pin schema shape for self-test coverage.",
+        "citations": [
+          "super-gsd/tools/chronicle/fixtures/sample-milestone-chronicle-context.json"
+        ]
+      },
+      {
+        "id": "P119-denominator-5",
+        "heading": "gates_skipped",
+        "signifier_role": "denominators",
+        "body": "No gates were skipped in the fixture.",
+        "citations": [
+          "super-gsd/tools/chronicle/run-self-test.cjs"
+        ]
+      }
+    ],
+    "synthesis": [
+      {
+        "id": "P119-synthesis",
+        "heading": "Capstone synthesis",
+        "signifier_role": "synthesis",
+        "body": "The capstone chronicle path converts phase-local chronicle evidence into a milestone-level context and a cross-milestone roadmap mine.",
+        "citations": [
+          ".planning/milestones/v3.1/phases/P119/CONTEXT.md"
+        ]
+      }
+    ],
+    "autonomy_disclosure": [
+      {
+        "id": "P119-autonomy",
+        "heading": "Fixture autonomy disclosure",
+        "signifier_role": "autonomy_disclosure",
+        "body": "The fixture is synthetic and exists only to pin schema shape for self-test coverage.",
+        "citations": [
+          "super-gsd/tools/chronicle/fixtures/sample-milestone-chronicle-context.json"
+        ]
+      }
+    ]
+  },
+  "diagrams": [],
+  "assets": [],
+  "denominators": {
+    "scope_excluded": [
+      "Roadmap miner emits JSON only; milestone HTML synthesis is out of scope."
+    ],
+    "carve_outs_not_fired": [
+      "No production, credential, SAP, Mongo, Qdrant, Elasticsearch, destructive, or commercial carve-out fired for the fixture."
+    ],
+    "alternatives_rejected": [
+      "HTML synthesis for roadmap mining was rejected to keep the miner JSON-only."
+    ],
+    "assumptions_made": [
+      "Synthetic fixture pins schema shape."
+    ],
+    "gates_skipped": [
+      "none"
+    ]
+  }
+}

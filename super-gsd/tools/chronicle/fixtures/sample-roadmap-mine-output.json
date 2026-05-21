@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-05-21T00:00:00.000Z",
+  "source": {
+    "planning_root": ".planning",
+    "chronicle_index": ".planning/chronicles/INDEX.jsonl",
+    "validator_log": ".planning/metrics/chronicle-validation-log.jsonl",
+    "executor_log": ".planning/metrics/codex-executor-log.jsonl",
+    "token_attribution": ".planning/metrics/token-attribution.jsonl"
+  },
+  "milestones": [
+    {
+      "milestone_id": "v3.1",
+      "summary_path": ".planning/milestones/v3.1/SUMMARY.md",
+      "phases_total": 3,
+      "phases_passed": 3,
+      "chronicle_verdicts": {
+        "REPORT_GROUNDED": 2,
+        "REPORT_UNGROUNDED": 0,
+        "REPORT_BROKEN": 0,
+        "REPORT_CONTAMINATED": 0,
+        "missing": 1
+      },
+      "dispatch_count_total": 4,
+      "token_spend_total": 12345,
+      "patch_round_distribution": {
+        "zero": 1,
+        "one": 1,
+        "two_plus": 1
+      },
+      "fog_score_avg": null,
+      "recurring_drift_classes": [
+        {
+          "class": "fixture-regeneration-required",
+          "count": 2,
+          "phases": [
+            "P118",
+            "P119"
+          ]
+        },
+        {
+          "class": "two-plus-patch-rounds",
+          "count": 1,
+          "phases": [
+            "P119"
+          ]
+        }
+      ],
+      "warnings": [
+        "fog-score.cjs unavailable; fog_score_avg set to null"
+      ]
+    }
+  ],
+  "cross_milestone_patterns": [
+    {
+      "class": "fixture-regeneration-required",
+      "occurrences": 2,
+      "milestones": [
+        "v3.0",
+        "v3.1"
+      ]
+    }
+  ],
+  "warnings": []
+}

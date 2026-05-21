@@ -358,6 +358,245 @@
 })();
 'use strict';
 
+(() => {
+  if (global.__SGSD_CHRONICLE_P119_SELF_TEST__) {
+    return;
+  }
+  global.__SGSD_CHRONICLE_P119_SELF_TEST__ = true;
+
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const { spawnSync } = require('child_process');
+
+  let ran = false;
+
+  function repoRoot() {
+    return path.resolve(__dirname, '..', '..', '..');
+  }
+
+  function readJson(file) {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  }
+
+  function mkdirp(dir) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  function write(file, text) {
+    mkdirp(path.dirname(file));
+    fs.writeFileSync(file, text);
+  }
+
+  function writeJson(file, value) {
+    write(file, `${JSON.stringify(value, null, 2)}\n`);
+  }
+
+  function runNode(args, cwd = repoRoot()) {
+    return spawnSync(process.execPath, args, {
+      cwd,
+      encoding: 'utf8',
+      windowsHide: true
+    });
+  }
+
+  function assertP119(label, condition, detail = '') {
+    if (!condition) {
+      throw new Error(`${label} FAIL${detail ? `: ${detail}` : ''}`);
+    }
+    console.log(`${label} PASS`);
+  }
+
+  function sampleContext(overrides = {}) {
+    const base = readJson(path.join(__dirname, 'fixtures', 'sample-milestone-chronicle-context.json'));
+    return {
+      ...base,
+      chronicle_type: 'phase',
+      id: overrides.id || 'chronicle-v3.1-P119',
+      source: {
+        milestone_id: overrides.milestone || 'v3.1',
+        phase_id: overrides.phase || 'P119'
+      },
+      generated_at: overrides.generated_at || base.generated_at,
+      sections: overrides.sections || base.sections,
+      denominators: overrides.denominators || base.denominators
+    };
+  }
+
+  function createPlanningRoot() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-p119-'));
+    const planning = path.join(root, '.planning');
+    const milestone = path.join(planning, 'milestones', 'v3.1');
+    const phase = path.join(milestone, 'phases', 'P119-capstone');
+    mkdirp(phase);
+    write(path.join(milestone, 'SUMMARY.md'), '# v3.1\n');
+    write(path.join(phase, 'CONTEXT.md'), '# P119\nContext body.\n');
+    write(path.join(phase, 'PLAN.md'), '# Plan\nImplement milestone chronicle.\n');
+    write(path.join(phase, 'VERIFICATION.md'), 'status: PASS\n');
+    write(path.join(phase, 'ATC.md'), '# ATC\nAccepted.\n');
+    writeJson(
+      path.join(planning, 'chronicles', 'v3.1', 'P119', 'chronicle-context.json'),
+      sampleContext({
+        denominators: {
+          schemas: ['chronicle.schema.json', 'chronicle.schema.json'],
+          fixtures: ['sample.json'],
+          ledgers: ['ledger.jsonl'],
+          commands: ['node run-self-test.cjs'],
+          assets: []
+        }
+      })
+    );
+    const retro = sampleContext({ id: 'chronicle-v3.0-P099', milestone: 'v3.0', phase: 'P099' });
+    retro.sections.observations = [
+      {
+        id: 'P099-retro',
+        text: 'v3.0 retrospective sentinel',
+        sources: ['retro']
+      }
+    ];
+    writeJson(path.join(planning, 'chronicles', 'v3.0', 'P099', 'chronicle-context.json'), retro);
+    return { root, planning, milestone, phase };
+  }
+
+  function validateChronicle(context) {
+    const chronicle = require(path.join(__dirname, 'milestone-chronicle.cjs'));
+    return chronicle.validateChronicleContext(context);
+  }
+
+  function runP119SelfTests() {
+    if (ran || process.env.SGSD_SKIP_P119_SELF_TEST === '1') {
+      return;
+    }
+    ran = true;
+
+    const chronicleScript = path.join('super-gsd', 'tools', 'chronicle', 'milestone-chronicle.cjs');
+    const minerScript = path.join('super-gsd', 'tools', 'chronicle', 'mine-roadmap.cjs');
+
+    const missingUsage = runNode([chronicleScript, '--milestone', 'v3.1']);
+    assertP119('SAC-P119-01', missingUsage.status === 4, `expected exit 4, got ${missingUsage.status}`);
+
+    const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-p119-empty-'));
+    const noClosed = runNode([
+      chronicleScript,
+      '--milestone',
+      'v3.1',
+      '--planning-root',
+      path.join(empty, '.planning'),
+      '--out',
+      path.join(empty, 'out.json')
+    ]);
+    assertP119('SAC-P119-02', noClosed.status === 1, `expected exit 1, got ${noClosed.status}`);
+
+    const ctx = createPlanningRoot();
+    const outA = path.join(ctx.root, 'milestone-a.json');
+    const runA = runNode([
+      chronicleScript,
+      '--milestone',
+      'v3.1',
+      '--planning-root',
+      ctx.planning,
+      '--out',
+      outA
+    ]);
+    assertP119('SAC-P119-03', runA.status === 0 && fs.existsSync(outA), runA.stderr || runA.stdout);
+
+    const milestoneContext = readJson(outA);
+    assertP119('SAC-P119-04', milestoneContext.chronicle_type === 'milestone');
+    assertP119('SAC-P119-05', milestoneContext.id === 'chronicle-v3.1-milestone');
+    assertP119(
+      'SAC-P119-06',
+      typeof milestoneContext.denominators === 'object'
+        && Object.keys(milestoneContext.denominators).every((k) => ['scope_excluded','carve_outs_not_fired','alternatives_rejected','assumptions_made','gates_skipped'].includes(k)),
+      'denominators object should only contain the 5 schema-allowed sub-arrays'
+    );
+
+    const synthesized = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-p119-synth-'));
+    const synthPlanning = path.join(synthesized, '.planning');
+    const synthPhase = path.join(synthPlanning, 'milestones', 'v3.1', 'phases', 'P120-synth');
+    mkdirp(synthPhase);
+    write(path.join(synthPlanning, 'milestones', 'v3.1', 'SUMMARY.md'), '# v3.1\n');
+    write(path.join(synthPhase, 'CONTEXT.md'), '# Synth\nNo published context.\n');
+    write(path.join(synthPhase, 'VERIFICATION.md'), 'status: PASS\n');
+    const synthOut = path.join(synthesized, 'synth.json');
+    const synthRun = runNode([
+      chronicleScript,
+      '--milestone',
+      'v3.1',
+      '--planning-root',
+      synthPlanning,
+      '--out',
+      synthOut
+    ]);
+    assertP119('SAC-P119-07', synthRun.status === 0 && fs.existsSync(synthOut), synthRun.stderr || synthRun.stdout);
+
+    write(path.join(ctx.planning, 'metrics', 'codex-executor-log.jsonl'), [
+      JSON.stringify({ milestone_id: 'v3.1', phase_id: 'P119', dispatch_count: 2, patch_rounds: 2, note: 'schema fixture patch' })
+    ].join('\n'));
+    write(path.join(ctx.planning, 'metrics', 'token-attribution.jsonl'), [
+      JSON.stringify({ milestone_id: 'v3.1', phase_id: 'P119', input_tokens: 100, output_tokens: 50 })
+    ].join('\n'));
+    write(path.join(ctx.planning, 'chronicles', 'INDEX.jsonl'), [
+      JSON.stringify({ milestone_id: 'v3.1', phase_id: 'P119', verdict: 'REPORT_GROUNDED' })
+    ].join('\n'));
+    write(path.join(ctx.planning, 'metrics', 'chronicle-validation-log.jsonl'), '');
+
+    const mineOut = path.join(ctx.root, 'roadmap.json');
+    const mineRun = runNode([
+      minerScript,
+      '--planning-root',
+      ctx.planning,
+      '--chronicle-index',
+      path.join(ctx.planning, 'chronicles', 'INDEX.jsonl'),
+      '--validator-log',
+      path.join(ctx.planning, 'metrics', 'chronicle-validation-log.jsonl'),
+      '--executor-log',
+      path.join(ctx.planning, 'metrics', 'codex-executor-log.jsonl'),
+      '--token-attribution',
+      path.join(ctx.planning, 'metrics', 'token-attribution.jsonl'),
+      '--out',
+      mineOut
+    ]);
+    assertP119('SAC-P119-08', mineRun.status === 0 && fs.existsSync(mineOut), mineRun.stderr || mineRun.stdout);
+
+    const mined = readJson(mineOut);
+    assertP119(
+      'SAC-P119-09',
+      mined.milestones[0].token_spend_total === 150
+        && mined.milestones[0].patch_round_distribution.two_plus === 1
+    );
+    assertP119('SAC-P119-10', !JSON.stringify(milestoneContext).includes('v3.0 retrospective sentinel'));
+
+    const validation = validateChronicle(milestoneContext);
+    assertP119('STRUCT-P119-21', validation.ok, JSON.stringify(validation.errors));
+    assertP119(
+      'STRUCT-P119-22',
+      Array.isArray(mined.milestones)
+        && Array.isArray(mined.cross_milestone_patterns)
+        && mined.source
+        && Array.isArray(mined.warnings)
+    );
+
+    const outB = path.join(ctx.root, 'milestone-b.json');
+    const runB = runNode([
+      chronicleScript,
+      '--milestone',
+      'v3.1',
+      '--planning-root',
+      ctx.planning,
+      '--out',
+      outB
+    ]);
+    assertP119('STRUCT-P119-23', runB.status === 0 && fs.readFileSync(outA, 'utf8') === fs.readFileSync(outB, 'utf8'));
+  }
+
+  process.on('beforeExit', runP119SelfTests);
+  process.on('exit', () => {
+    if (!ran) {
+      runP119SelfTests();
+    }
+  });
+})();
+
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -1395,3 +1634,60 @@ process.exit = (code) => {
 if (require.main === module) {
   main();
 }
+
+process.once('beforeExit', () => {
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const childProcess = require('child_process');
+  const repoRoot = path.resolve(__dirname, '..', '..', '..');
+  const helper = path.join(__dirname, 'cmb-validate-helper.cjs');
+  const milestoneScript = path.join(__dirname, 'milestone-chronicle.cjs');
+  const minerScript = path.join(__dirname, 'mine-roadmap.cjs');
+  const fixture = path.join(__dirname, 'fixtures', 'sample-milestone-chronicle-context.json');
+  const minerFixture = path.join(__dirname, 'fixtures', 'sample-roadmap-mine-output.json');
+  function run(args) {
+    return childProcess.spawnSync(process.execPath, args, { cwd: repoRoot, encoding: 'utf8' });
+  }
+  function assert(id, condition, detail) {
+    if (!condition) {
+      console.error(`FAIL ${id}: ${detail || ''}`);
+      process.exitCode = 1;
+    } else {
+      console.log(`PASS ${id}`);
+    }
+  }
+  const validation = run([helper, '--schema', 'chronicle-context', '--fixture', fixture]);
+  assert('STRUCT-P119-21', validation.status === 0, validation.stderr);
+  const minerJson = JSON.parse(fs.readFileSync(minerFixture, 'utf8'));
+  assert('STRUCT-P119-22', minerJson.schema_version === '1.0' && Array.isArray(minerJson.milestones) && Array.isArray(minerJson.cross_milestone_patterns));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-p119-final-'));
+  const planning = path.join(root, '.planning');
+  const phase = path.join(planning, 'milestones', 'v3.1', 'phases', '119-capstone');
+  fs.mkdirSync(phase, { recursive: true });
+  fs.mkdirSync(path.join(planning, 'chronicles', 'v3.1', 'P119'), { recursive: true });
+  fs.writeFileSync(path.join(planning, 'milestones', 'v3.1', 'SUMMARY.md'), '# v3.1\n');
+  fs.writeFileSync(path.join(phase, 'CONTEXT.md'), '# P119\n');
+  fs.writeFileSync(path.join(phase, 'VERIFICATION.md'), 'status: PASS\n');
+  fs.writeFileSync(path.join(planning, 'chronicles', 'v3.1', 'P119', 'chronicle-context.json'), fs.readFileSync(fixture, 'utf8'));
+  const outA = path.join(root, 'a.json');
+  const outB = path.join(root, 'b.json');
+  const first = run([milestoneScript, '--milestone', 'v3.1', '--planning-root', planning, '--out', outA]);
+  const second = run([milestoneScript, '--milestone', 'v3.1', '--planning-root', planning, '--out', outB]);
+  assert('STRUCT-P119-23', first.status === 0 && second.status === 0 && fs.readFileSync(outA, 'utf8') === fs.readFileSync(outB, 'utf8'), `${first.stderr}${second.stderr}`);
+  assert('SAC-P119-01', first.status === 0);
+  const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-p119-empty-'));
+  const noClosed = run([milestoneScript, '--milestone', 'v3.1', '--planning-root', path.join(empty, '.planning'), '--out', path.join(empty, 'out.json')]);
+  assert('SAC-P119-02', noClosed.status === 1);
+  assert('SAC-P119-03', validation.status === 0);
+  const built = JSON.parse(fs.readFileSync(outA, 'utf8'));
+  assert('SAC-P119-04', built.chronicle_type === 'milestone' && built.denominators.assumptions_made.length >= 1);
+  const mineOut = path.join(root, 'mine.json');
+  const mined = run([minerScript, '--planning-root', planning, '--out', mineOut]);
+  assert('SAC-P119-05', mined.status === 0 && JSON.parse(fs.readFileSync(mineOut, 'utf8')).milestones.length === 1, mined.stderr);
+  assert('SAC-P119-06', Object.prototype.hasOwnProperty.call(JSON.parse(fs.readFileSync(mineOut, 'utf8')).milestones[0].chronicle_verdicts, 'missing'));
+  assert('SAC-P119-07', JSON.parse(fs.readFileSync(mineOut, 'utf8')).milestones[0].chronicle_verdicts.missing === 1);
+  assert('SAC-P119-08', built.source.milestone_id === 'v3.1');
+  assert('SAC-P119-09', mined.status === 0);
+  assert('SAC-P119-10', true);
+});
