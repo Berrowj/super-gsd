@@ -184,6 +184,81 @@ Eight risks re-checked at every v3.1 phase close:
 
 After P119, every v3.1 phase has cognitive completeness as a binding gate, plus a first cross-milestone retrospective lens.
 
+## Refinements — VTP MCP enrichment + PUML directive (2026-05-21)
+
+After the v1 design lock, a VTP MCP enrichment pass + operator architecture-diagram directive surfaced six binding refinements. None alter the 7-phase shape; all sharpen invariants. Evidence: 12 hits across mesh-memory-protocol, shift-up-se-guardrails-for-ai-native-development, gated-coordination-multi-agent-collaboration, forage-v2-knowledge-evolution-autonomous-agents, norman-design-of-everyday-things, security-of-long-term-memory-llm-agents-survey.
+
+### R1 — PlantUML as canonical diagram source (operator directive)
+
+All architecture / lineage / flow / persona-lane diagrams in v3.1 chronicles are authored as **PlantUML `.puml` source files**, committed in `super-gsd/tools/chronicle/templates/puml/`, pre-rendered to SVG at chronicle build time via local `plantuml.jar`, and inlined into the HTML output. PUML source is ALSO embedded in the chronicle HTML inside collapsible `<details><summary>PUML source</summary>...</details>` blocks (transparency invariant).
+
+Binding sub-rules:
+
+1. **Components must be labelled with actual repo paths** (e.g., `super-gsd/tools/mesh-memory/lineage.cjs`, `.planning/mesh/memory/cmbs.jsonl`, `super-gsd/schemas/cmb.schema.json`) — not abstract names.
+2. **Arrows must be labelled with intent** (e.g., `writes execution_receipt CMB`, `reads context-anchor capsule`, `validates against schema`) — not bare lines.
+3. **Visual style modelled on clarity-board-deck (2).pdf**: colour-coded status (sage = shipped, terracotta = added in this phase, amber = at-risk, slate = read-only / context-only), clear typography, no decoration without purpose.
+4. **No external PUML includes** (`!include http://...` forbidden). Validator (P116) rejects.
+5. **Rendering toolchain**: `java -jar plantuml.jar -tsvg <file.puml>` invoked from `build-context-pack.cjs` (P114). Operator owns `plantuml.jar` install; absence is a hard precondition failure caught by the first chronicle render (REPORT_TOOLCHAIN_MISSING — not REPORT_UNGROUNDED).
+6. **Fallback**: if `plantuml.jar` is unavailable AND operator explicitly opts in via `skip_gates: ["puml-render"]` with `skip_reason:`, the hand-coded SVG generator (v3.0 fallback) renders the diagram with a visible "PUML source available; rendered via fallback generator" banner.
+
+### R2 — Denominator sub-panel under Agent Autonomy Disclosure (Forage V2 finding)
+
+The Forage V2 paper documents "denominator blindness": agents systematically underestimate what they did NOT cover when self-evaluating. The Chronicle Layer counters this by making the denominator EXPLICIT.
+
+Every phase chronicle includes a `denominators[]` array under the Agent Autonomy Disclosure section, surfacing:
+
+- **scope_excluded**: what was deliberately out-of-scope (cited to CONTEXT.md non-goals)
+- **carve_outs_not_fired**: hard carve-outs (production / SAP / Mongo / Qdrant / Elasticsearch / credentials / scope change / commercial impact / confidence<0.70 / destructive) that COULD have fired but didn't (cited to escalation_gate logs)
+- **alternatives_rejected**: plan alternatives considered and rejected during PLAN-CHECK (cited to PLAN review CMBs)
+- **assumptions_made**: assumptions baked into execution without operator confirmation (cited to RESEARCH.md or PLAN.md)
+- **gates_skipped**: any `skip_gates:` invocation during the phase (cited to skip_reason CMBs)
+
+Schema enforces `denominators[]` required-but-may-be-empty. Empty must come with `denominators_empty_reason:` (e.g., "single-file change; no alternatives existed").
+
+### R3 — Chronicle Writer is a deterministic tool, never a Codex dispatch
+
+The Chronicle Writer role is BINDING-LOCKED to a deterministic Node.js tool (`super-gsd/tools/chronicle/render-html.cjs`). No agent-driven prose synthesis. All "synthesis" sections (ELI5, "remember tomorrow", risks, persona impact) are TEMPLATE-DRIVEN with cited evidence injected from CMBs + planning artefacts.
+
+This removes the "chronicle becomes another agent opinion" drift risk at its root: a deterministic tool emitting templated prose with cited slots cannot hallucinate. If a template slot has no evidence to inject, the renderer emits a `MISSING_EVIDENCE` placeholder + the validator rejects with REPORT_UNGROUNDED.
+
+Templates live in `super-gsd/tools/chronicle/templates/sections/` (one per chronicle section). Operator authors templates; chronicle writer fills slots. Operator (not agent) can iterate templates between phases.
+
+### R4 — Chronicle Validator benchmark fixtures
+
+Mirroring v3.0 P109 Fixtures A/B/C/D pattern: the Chronicle Validator (P116) must validate against a labelled benchmark of known-good and known-bad chronicle fixtures. Self-test asserts:
+
+- All `good-*` fixtures return REPORT_GROUNDED
+- All `bad-*` fixtures return REPORT_UNGROUNDED with the expected CHRONICLE-XX error code
+- Throughput floor: validator processes a baseline chronicle in <2s (offline; no network)
+
+Fixture directory: `super-gsd/tools/chronicle/benchmarks/`. Minimum 8 fixtures (4 good × 4 bad classes). P116 SAC requires benchmark green AND ≥95% precision on a held-out set authored at P119.
+
+### R5 — Chronicle stores CMB references by-ID, not by-value
+
+Confirms and tightens the existing storage routing: the chronicle JSON / manifest stores **CMB IDs** for evidence, not full CMB bodies. The chronicle HTML may inline short evidence excerpts (≤120 chars) for operator readability, but the canonical reference is always the CMB key. Mesh ledger (`.planning/mesh/memory/cmbs.jsonl`) remains the single source of truth.
+
+Storage adapter (P117) MUST NOT serialise full CMB bodies into chronicle storage. Validator (P116) cross-checks: chronicle citations resolve to live CMB IDs in the ledger; broken citations → REPORT_BROKEN_CITATION (new error code).
+
+### R6 — Norman signifiers in HTML structure
+
+Following *The Design of Everyday Things* (D. Norman, 1988): the chronicle's HTML structure is built from explicit signifiers, not bare divs. Each section uses `<section role="claims|observations|decisions|evidence-verdicts|denominators|synthesis|autonomy-disclosure">` with the role attribute as a signifier of cognitive class. Screen readers and validators both consume the role; future operator-trained models can too.
+
+Fog Score is the conceptual-model feedback signal: operator sees a single number, drills into a "must-read" section list if elevated.
+
+### Refinement-driven file additions
+
+| File | Phase | Purpose |
+|---|---|---|
+| `super-gsd/tools/chronicle/templates/puml/architecture.puml` | P115 | Architecture-at-a-glance PUML template (sage/terracotta colour scheme) |
+| `super-gsd/tools/chronicle/templates/puml/lineage-dag.puml` | P115 | CMB lineage graph PUML template |
+| `super-gsd/tools/chronicle/templates/puml/gate-waterfall.puml` | P115 | Gate waterfall PUML template |
+| `super-gsd/tools/chronicle/templates/puml/file-impact.puml` | P115 | File impact map PUML template |
+| `super-gsd/tools/chronicle/templates/puml/persona-lanes.puml` | P115 | Persona impact lanes PUML template |
+| `super-gsd/tools/chronicle/templates/puml/timeline.puml` | P115 | Phase timeline PUML template |
+| `super-gsd/tools/chronicle/templates/sections/*.md` | P115 | Section templates (cited-slot driven) |
+| `super-gsd/tools/chronicle/benchmarks/good-*.json` (≥4) | P116 | Validator benchmark — known-grounded |
+| `super-gsd/tools/chronicle/benchmarks/bad-*.json` (≥4) | P116 | Validator benchmark — known-ungrounded |
+
 ## Cross-references
 
 - `.planning/milestones/v3.1/INTENT.md` — milestone strategic frame
@@ -194,3 +269,5 @@ After P119, every v3.1 phase has cognitive completeness as a binding gate, plus 
 - `.planning/analyses/2026-05-21-sgsd-v3-user-guide.html` — POC for HTML style + ELI5 idiom
 - `super-gsd/schemas/cmb.schema.json` — CMB types chronicle consumes as evidence
 - `super-gsd/tools/mesh-memory/*` — runtime inputs to context-pack builder
+- VTP enrichment evidence: `mesh-memory-protocol`, `shift-up-se-guardrails-for-ai-native-development`, `gated-coordination-multi-agent-collaboration`, `forage-v2-knowledge-evolution-autonomous-agents`, `norman-design-of-everyday-things`, `security-of-long-term-memory-llm-agents-survey`
+- Visual reference: `C:\Users\jack.berrow\Downloads\clarity-board-deck (2).pdf` — sage/terracotta colour-coded architecture style
