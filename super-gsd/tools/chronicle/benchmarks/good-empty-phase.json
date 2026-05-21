@@ -1,0 +1,49 @@
+{
+  "name": "good-empty-phase",
+  "expected_verdict": "REPORT_GROUNDED",
+  "expected_exit": 0,
+  "chronicle_html": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Phase 116 Chronicle</title><style>:root{--sage:#7CB479;}</style></head><body></body></html>",
+  "chronicle_context": {
+    "chronicle_version": "1.0",
+    "chronicle_type": "phase",
+    "id": "chronicle-v3.1-116",
+    "title": "Phase 116 Chronicle",
+    "generated_at": "2026-05-21T00:00:00.000Z",
+    "source": {
+      "milestone_id": "v3.1",
+      "phase_id": "116",
+      "source_file_paths": [
+        ".planning/mesh/memory/cmbs.jsonl",
+        ".planning/milestones/v3.1/phases/116-test-phase/CONTEXT.md"
+      ]
+    },
+    "sections": {
+      "observations": [],
+      "claims": [],
+      "evidence_verdicts": [],
+      "decisions": [],
+      "denominators": [],
+      "synthesis": [],
+      "autonomy_disclosure": []
+    },
+    "denominators": {
+      "scope_excluded": [
+        "non-goal-1"
+      ],
+      "carve_outs_not_fired": [
+        "production_mutation"
+      ],
+      "alternatives_rejected": [
+        "alt-A"
+      ],
+      "assumptions_made": [
+        "no execution_receipt CMBs found for phase 116"
+      ],
+      "gates_skipped": []
+    },
+    "denominators_empty_reason": "no observations recorded for this phase",
+    "diagrams": [],
+    "assets": []
+  },
+  "mesh_ledger_cmbs": []
+}

@@ -1,0 +1,57 @@
+{
+  "name": "bad-ungrounded-claim",
+  "expected_verdict": "REPORT_UNGROUNDED",
+  "expected_exit": 1,
+  "chronicle_html": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Phase 116 Chronicle</title><style>:root{--sage:#7CB479;}</style></head><body><section role=\"claims\"><article id=\"claims-1\"><h3>claims 1</h3><p>reviewer asserted</p></article></section></body></html>",
+  "chronicle_context": {
+    "chronicle_version": "1.0",
+    "chronicle_type": "phase",
+    "id": "chronicle-v3.1-116",
+    "title": "Phase 116 Chronicle",
+    "generated_at": "2026-05-21T00:00:00.000Z",
+    "source": {
+      "milestone_id": "v3.1",
+      "phase_id": "116",
+      "source_file_paths": [
+        ".planning/mesh/memory/cmbs.jsonl",
+        ".planning/milestones/v3.1/phases/116-test-phase/CONTEXT.md"
+      ]
+    },
+    "sections": {
+      "observations": [],
+      "claims": [
+        {
+          "id": "claims-1",
+          "heading": "claims 1",
+          "signifier_role": "claims",
+          "body": "reviewer asserted",
+          "citations": []
+        }
+      ],
+      "evidence_verdicts": [],
+      "decisions": [],
+      "denominators": [],
+      "synthesis": [],
+      "autonomy_disclosure": []
+    },
+    "denominators": {
+      "scope_excluded": [
+        "non-goal-1"
+      ],
+      "carve_outs_not_fired": [
+        "production_mutation"
+      ],
+      "alternatives_rejected": [
+        "alt-A"
+      ],
+      "assumptions_made": [
+        "baseline"
+      ],
+      "gates_skipped": []
+    },
+    "denominators_empty_reason": "baseline fixture: gates_skipped intentionally empty",
+    "diagrams": [],
+    "assets": []
+  },
+  "mesh_ledger_cmbs": []
+}

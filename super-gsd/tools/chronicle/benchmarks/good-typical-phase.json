@@ -1,0 +1,186 @@
+{
+  "name": "good-typical-phase",
+  "expected_verdict": "REPORT_GROUNDED",
+  "expected_exit": 0,
+  "chronicle_html": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Phase 116 Chronicle</title><style>:root{--sage:#7CB479;}</style></head><body><section role=\"observations\"><article id=\"observations-1\"><h3>observations 1</h3><p>phase executed cleanly</p><a data-citation=\"cmb-good-001\">cmb-good-001</a></article></section><section role=\"claims\"><article id=\"claims-1\"><h3>claims 1</h3><p>reviewer approved patches</p><a data-citation=\"cmb-good-002\">cmb-good-002</a></article></section><section role=\"evidence_verdicts\"><article id=\"evidence_verdicts-1\"><h3>evidence_verdicts 1</h3><p>validator agreed</p><a data-citation=\"cmb-good-003\">cmb-good-003</a></article></section><section role=\"decisions\"><article id=\"decisions-1\"><h3>decisions 1</h3><p>promote to PASS</p><a data-citation=\"cmb-good-004\">cmb-good-004</a></article></section></body></html>",
+  "chronicle_context": {
+    "chronicle_version": "1.0",
+    "chronicle_type": "phase",
+    "id": "chronicle-v3.1-116",
+    "title": "Phase 116 Chronicle",
+    "generated_at": "2026-05-21T00:00:00.000Z",
+    "source": {
+      "milestone_id": "v3.1",
+      "phase_id": "116",
+      "source_file_paths": [
+        ".planning/mesh/memory/cmbs.jsonl",
+        ".planning/milestones/v3.1/phases/116-test-phase/CONTEXT.md"
+      ]
+    },
+    "sections": {
+      "observations": [
+        {
+          "id": "observations-1",
+          "heading": "observations 1",
+          "signifier_role": "observations",
+          "body": "phase executed cleanly",
+          "citations": [
+            "cmb-good-001"
+          ]
+        }
+      ],
+      "claims": [
+        {
+          "id": "claims-1",
+          "heading": "claims 1",
+          "signifier_role": "claims",
+          "body": "reviewer approved patches",
+          "citations": [
+            "cmb-good-002"
+          ]
+        }
+      ],
+      "evidence_verdicts": [
+        {
+          "id": "evidence_verdicts-1",
+          "heading": "evidence_verdicts 1",
+          "signifier_role": "evidence_verdicts",
+          "body": "validator agreed",
+          "citations": [
+            "cmb-good-003"
+          ]
+        }
+      ],
+      "decisions": [
+        {
+          "id": "decisions-1",
+          "heading": "decisions 1",
+          "signifier_role": "decisions",
+          "body": "promote to PASS",
+          "citations": [
+            "cmb-good-004"
+          ]
+        }
+      ],
+      "denominators": [],
+      "synthesis": [],
+      "autonomy_disclosure": []
+    },
+    "denominators": {
+      "scope_excluded": [
+        "non-goal-1"
+      ],
+      "carve_outs_not_fired": [
+        "production_mutation"
+      ],
+      "alternatives_rejected": [
+        "alt-A"
+      ],
+      "assumptions_made": [
+        "baseline"
+      ],
+      "gates_skipped": []
+    },
+    "denominators_empty_reason": "baseline fixture: gates_skipped intentionally empty",
+    "diagrams": [],
+    "assets": []
+  },
+  "mesh_ledger_cmbs": [
+    {
+      "id": "cmb-good-001",
+      "class": "execution_receipt",
+      "created_at": "2026-05-21T00:00:00.000Z",
+      "milestone_id": "v3.1",
+      "phase_id": "116",
+      "body": {
+        "summary": "cmb cmb-good-001 body"
+      },
+      "citations": [],
+      "cat7": {
+        "focus": "phase-116",
+        "issue": "test",
+        "intent": "fixture",
+        "motivation": "benchmark",
+        "commitment": "low",
+        "perspective": "executor",
+        "mood": "neutral"
+      },
+      "created_by": {
+        "role": "sgsd",
+        "authority_level": "observation"
+      }
+    },
+    {
+      "id": "cmb-good-002",
+      "class": "review_finding",
+      "created_at": "2026-05-21T00:00:00.000Z",
+      "milestone_id": "v3.1",
+      "phase_id": "116",
+      "body": {
+        "summary": "cmb cmb-good-002 body"
+      },
+      "citations": [],
+      "cat7": {
+        "focus": "phase-116",
+        "issue": "test",
+        "intent": "fixture",
+        "motivation": "benchmark",
+        "commitment": "low",
+        "perspective": "executor",
+        "mood": "neutral"
+      },
+      "created_by": {
+        "role": "sgsd",
+        "authority_level": "observation"
+      }
+    },
+    {
+      "id": "cmb-good-003",
+      "class": "evidence_verdict",
+      "created_at": "2026-05-21T00:00:00.000Z",
+      "milestone_id": "v3.1",
+      "phase_id": "116",
+      "body": {
+        "summary": "cmb cmb-good-003 body"
+      },
+      "citations": [],
+      "cat7": {
+        "focus": "phase-116",
+        "issue": "test",
+        "intent": "fixture",
+        "motivation": "benchmark",
+        "commitment": "low",
+        "perspective": "executor",
+        "mood": "neutral"
+      },
+      "created_by": {
+        "role": "sgsd",
+        "authority_level": "observation"
+      }
+    },
+    {
+      "id": "cmb-good-004",
+      "class": "promotion_decision",
+      "created_at": "2026-05-21T00:00:00.000Z",
+      "milestone_id": "v3.1",
+      "phase_id": "116",
+      "body": {
+        "summary": "cmb cmb-good-004 body"
+      },
+      "citations": [],
+      "cat7": {
+        "focus": "phase-116",
+        "issue": "test",
+        "intent": "fixture",
+        "motivation": "benchmark",
+        "commitment": "low",
+        "perspective": "executor",
+        "mood": "neutral"
+      },
+      "created_by": {
+        "role": "sgsd",
+        "authority_level": "observation"
+      }
+    }
+  ]
+}

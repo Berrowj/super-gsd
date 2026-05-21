@@ -1,0 +1,151 @@
+{
+  "name": "good-milestone-rollup",
+  "expected_verdict": "REPORT_GROUNDED",
+  "expected_exit": 0,
+  "chronicle_html": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>v3.1 Milestone Chronicle</title><style>:root{--sage:#7CB479;}</style></head><body><section role=\"observations\"><article id=\"observations-P116\"><h3>observations P116</h3><p>P116 closed PASS</p><a data-citation=\"cmb-ms-116\">cmb-ms-116</a></article><article id=\"observations-P115\"><h3>observations P115</h3><p>P115 closed PASS</p><a data-citation=\"cmb-ms-115\">cmb-ms-115</a></article></section><section role=\"decisions\"><article id=\"decisions-1\"><h3>decisions 1</h3><p>milestone closed all 7 phases</p><a data-citation=\"cmb-ms-close\">cmb-ms-close</a></article></section></body></html>",
+  "chronicle_context": {
+    "chronicle_version": "1.0",
+    "chronicle_type": "milestone",
+    "id": "chronicle-v3.1-milestone",
+    "title": "v3.1 Milestone Chronicle",
+    "generated_at": "2026-05-21T00:00:00.000Z",
+    "source": {
+      "milestone_id": "v3.1",
+      "phase_id": "milestone",
+      "source_file_paths": [
+        ".planning/mesh/memory/cmbs.jsonl",
+        ".planning/milestones/v3.1/phases/milestone-test-phase/CONTEXT.md"
+      ]
+    },
+    "sections": {
+      "observations": [
+        {
+          "id": "observations-P116",
+          "heading": "observations P116",
+          "signifier_role": "observations",
+          "body": "P116 closed PASS",
+          "citations": [
+            "cmb-ms-116"
+          ]
+        },
+        {
+          "id": "observations-P115",
+          "heading": "observations P115",
+          "signifier_role": "observations",
+          "body": "P115 closed PASS",
+          "citations": [
+            "cmb-ms-115"
+          ]
+        }
+      ],
+      "claims": [],
+      "evidence_verdicts": [],
+      "decisions": [
+        {
+          "id": "decisions-1",
+          "heading": "decisions 1",
+          "signifier_role": "decisions",
+          "body": "milestone closed all 7 phases",
+          "citations": [
+            "cmb-ms-close"
+          ]
+        }
+      ],
+      "denominators": [],
+      "synthesis": [],
+      "autonomy_disclosure": []
+    },
+    "denominators": {
+      "scope_excluded": [
+        "non-goal-1"
+      ],
+      "carve_outs_not_fired": [
+        "production_mutation"
+      ],
+      "alternatives_rejected": [
+        "alt-A"
+      ],
+      "assumptions_made": [
+        "baseline"
+      ],
+      "gates_skipped": []
+    },
+    "denominators_empty_reason": "baseline fixture: gates_skipped intentionally empty",
+    "diagrams": [],
+    "assets": []
+  },
+  "mesh_ledger_cmbs": [
+    {
+      "id": "cmb-ms-116",
+      "class": "execution_receipt",
+      "created_at": "2026-05-21T00:00:00.000Z",
+      "milestone_id": "v3.1",
+      "phase_id": "116",
+      "body": {
+        "summary": "cmb cmb-ms-116 body"
+      },
+      "citations": [],
+      "cat7": {
+        "focus": "phase-116",
+        "issue": "test",
+        "intent": "fixture",
+        "motivation": "benchmark",
+        "commitment": "low",
+        "perspective": "executor",
+        "mood": "neutral"
+      },
+      "created_by": {
+        "role": "sgsd",
+        "authority_level": "observation"
+      }
+    },
+    {
+      "id": "cmb-ms-115",
+      "class": "execution_receipt",
+      "created_at": "2026-05-21T00:00:00.000Z",
+      "milestone_id": "v3.1",
+      "phase_id": "116",
+      "body": {
+        "summary": "cmb cmb-ms-115 body"
+      },
+      "citations": [],
+      "cat7": {
+        "focus": "phase-116",
+        "issue": "test",
+        "intent": "fixture",
+        "motivation": "benchmark",
+        "commitment": "low",
+        "perspective": "executor",
+        "mood": "neutral"
+      },
+      "created_by": {
+        "role": "sgsd",
+        "authority_level": "observation"
+      }
+    },
+    {
+      "id": "cmb-ms-close",
+      "class": "promotion_decision",
+      "created_at": "2026-05-21T00:00:00.000Z",
+      "milestone_id": "v3.1",
+      "phase_id": "116",
+      "body": {
+        "summary": "cmb cmb-ms-close body"
+      },
+      "citations": [],
+      "cat7": {
+        "focus": "phase-116",
+        "issue": "test",
+        "intent": "fixture",
+        "motivation": "benchmark",
+        "commitment": "low",
+        "perspective": "executor",
+        "mood": "neutral"
+      },
+      "created_by": {
+        "role": "sgsd",
+        "authority_level": "observation"
+      }
+    }
+  ]
+}

@@ -1,6 +1,217 @@
 #!/usr/bin/env node
 'use strict';
 
+;(() => {
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const childProcess = require('child_process');
+
+  const benchmarkNames = [
+    'good-typical-phase',
+    'good-empty-phase',
+    'good-puml-fallback',
+    'good-milestone-rollup',
+    'bad-ungrounded-claim',
+    'bad-broken-citation',
+    'bad-missing-evidence-no-reason',
+    'bad-external-cdn-leaked',
+  ];
+
+  const validatorPath = path.join(__dirname, 'validate-chronicle.cjs');
+  const wrapperPath = path.resolve(__dirname, '..', '..', 'scripts', 'chronicle-validate.sh');
+  const repoRoot = path.resolve(__dirname, '..', '..', '..');
+  let p116Ran = false;
+  let p116Failures = 0;
+
+  function pass(id) {
+    console.log(`PASS ${id}`);
+  }
+
+  function fail(id, message) {
+    p116Failures += 1;
+    console.error(`FAIL ${id}: ${message}`);
+  }
+
+  function loadFixture(name) {
+    const file = path.join(__dirname, 'benchmarks', `${name}.json`);
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  }
+
+  function unpackFixture(fixture, options = {}) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), `sgsd-chronicle-${fixture.name}-`));
+    const chroniclePath = path.join(dir, 'chronicle.html');
+    const contextPath = path.join(dir, 'CHRONICLE-CONTEXT.json');
+    const ledgerPath = path.join(dir, 'mesh-ledger.json');
+    const ledgerJsonlPath = path.join(dir, 'mesh-ledger.jsonl');
+    const context = options.context || fixture.chronicle_context;
+    const ledger = options.ledger || fixture.mesh_ledger_cmbs || [];
+
+    fs.writeFileSync(chroniclePath, options.html || fixture.chronicle_html, 'utf8');
+    fs.writeFileSync(contextPath, JSON.stringify(context, null, 2), 'utf8');
+    fs.writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2), 'utf8');
+    fs.writeFileSync(ledgerJsonlPath, ledger.map((row) => JSON.stringify(row)).join('\n') + (ledger.length ? '\n' : ''), 'utf8');
+
+    return { dir, chroniclePath, contextPath, ledgerPath, ledgerJsonlPath };
+  }
+
+  function parseValidatorReport(stdout) {
+    const text = String(stdout || '').trim();
+    const start = text.indexOf('{');
+    if (start < 0) throw new Error(`validator stdout did not include JSON: ${text}`);
+    return JSON.parse(text.slice(start));
+  }
+
+  function runValidator(fixture, options = {}) {
+    const unpacked = unpackFixture(fixture, options);
+    const args = [
+      validatorPath,
+      '--chronicle',
+      unpacked.chroniclePath,
+      '--context',
+      unpacked.contextPath,
+      '--mesh-ledger',
+      options.jsonlLedger ? unpacked.ledgerJsonlPath : unpacked.ledgerPath,
+      '--repo-root',
+      repoRoot,
+    ];
+    if (options.lenient) args.push('--lenient');
+    const result = childProcess.spawnSync(process.execPath, args, { encoding: 'utf8' });
+    let report = null;
+    try {
+      report = parseValidatorReport(result.stdout);
+    } catch (error) {
+      report = { verdict: 'PARSE_ERROR', exit_code: result.status ?? 99, parse_error: error.message };
+    }
+    return { ...unpacked, result, report };
+  }
+
+  function runWrapper(fixture) {
+    const unpacked = unpackFixture(fixture);
+    const args = [
+      wrapperPath,
+      '--chronicle',
+      unpacked.chroniclePath,
+      '--context',
+      unpacked.contextPath,
+      '--mesh-ledger',
+      unpacked.ledgerPath,
+    ];
+    const result = childProcess.spawnSync('bash', args, { encoding: 'utf8', cwd: repoRoot });
+    return { ...unpacked, result };
+  }
+
+  function assertFixture(id, fixtureName, options = {}) {
+    const fixture = loadFixture(fixtureName);
+    const run = runValidator(fixture, options);
+    const expectedExit = options.expectedExit ?? fixture.expected_exit;
+    const expectedVerdict = options.expectedVerdict ?? fixture.expected_verdict;
+    const actualExit = run.result.status;
+    if (actualExit !== expectedExit) {
+      fail(id, `expected exit ${expectedExit}, got ${actualExit}; stderr=${run.result.stderr}`);
+      return run;
+    }
+    if (run.report.verdict !== expectedVerdict) {
+      fail(id, `expected verdict ${expectedVerdict}, got ${run.report.verdict}`);
+      return run;
+    }
+    if (options.stderrIncludes && !String(run.result.stderr || '').includes(options.stderrIncludes)) {
+      fail(id, `stderr did not include ${options.stderrIncludes}`);
+      return run;
+    }
+    pass(id);
+    return run;
+  }
+
+  function assertWrapper(id, fixtureName) {
+    const fixture = loadFixture(fixtureName);
+    const run = runWrapper(fixture);
+    if (run.result.error) {
+      fail(id, `wrapper invocation failed: ${run.result.error.message}`);
+      return run;
+    }
+    if (run.result.status !== fixture.expected_exit) {
+      fail(id, `expected wrapper exit ${fixture.expected_exit}, got ${run.result.status}; stderr=${run.result.stderr}`);
+      return run;
+    }
+    if (!String(run.result.stdout || '').includes(fixture.expected_verdict)) {
+      fail(id, `wrapper stdout did not include ${fixture.expected_verdict}`);
+      return run;
+    }
+    pass(id);
+    return run;
+  }
+
+  function assertStructLogRow(id) {
+    const fixture = loadFixture('good-typical-phase');
+    const before = path.join(repoRoot, '.planning', 'metrics', 'chronicle-validation-log.jsonl');
+    const previous = fs.existsSync(before) ? fs.readFileSync(before, 'utf8').trim().split(/\r?\n/).filter(Boolean).length : 0;
+    const run = runWrapper(fixture);
+    if (run.result.error || run.result.status !== 0) {
+      fail(id, `wrapper did not complete for log schema check: ${run.result.error ? run.result.error.message : run.result.stderr}`);
+      return;
+    }
+    const lines = fs.readFileSync(before, 'utf8').trim().split(/\r?\n/).filter(Boolean);
+    if (lines.length <= previous) {
+      fail(id, 'wrapper did not append chronicle-validation-log row');
+      return;
+    }
+    const row = JSON.parse(lines[lines.length - 1]);
+    const valid = typeof row.ts === 'string' &&
+      typeof row.phase === 'string' &&
+      typeof row.milestone === 'string' &&
+      typeof row.verdict === 'string' &&
+      Number.isInteger(row.exit_code) &&
+      Number.isInteger(row.duration_ms);
+    if (!valid) {
+      fail(id, `log row schema mismatch: ${JSON.stringify(row)}`);
+      return;
+    }
+    pass(id);
+  }
+
+  function runP116SelfTests() {
+    if (p116Ran) return;
+    p116Ran = true;
+
+    assertFixture('SAC-P116-01', 'good-typical-phase');
+    assertFixture('SAC-P116-02', 'good-empty-phase');
+    assertFixture('SAC-P116-03', 'good-puml-fallback');
+    assertFixture('SAC-P116-04', 'good-milestone-rollup');
+    assertFixture('SAC-P116-05', 'bad-ungrounded-claim', { stderrIncludes: 'CHRONICLE-01' });
+    assertFixture('SAC-P116-06', 'bad-broken-citation');
+    assertFixture('SAC-P116-07', 'bad-missing-evidence-no-reason');
+    assertFixture('SAC-P116-08', 'bad-external-cdn-leaked');
+    assertFixture('SAC-P116-09', 'bad-broken-citation', { lenient: true, expectedExit: 0, expectedVerdict: 'REPORT_GROUNDED' });
+    assertWrapper('SAC-P116-10', 'good-typical-phase');
+    assertWrapper('SAC-P116-11', 'bad-broken-citation');
+    assertFixture('SAC-P116-12', 'good-typical-phase', { jsonlLedger: true });
+    assertFixture('SAC-P116-13', 'good-puml-fallback', { jsonlLedger: true });
+
+    try {
+      for (const name of benchmarkNames) loadFixture(name);
+      pass('STRUCT-P116-21');
+    } catch (error) {
+      fail('STRUCT-P116-21', error.message);
+    }
+
+    assertStructLogRow('STRUCT-P116-22');
+
+    const started = Date.now();
+    const throughput = assertFixture('STRUCT-P116-23', 'good-typical-phase');
+    const wall = Date.now() - started;
+    if (throughput.result.status === 0 && wall >= 2000) {
+      fail('STRUCT-P116-23', `expected validator throughput <2000ms, got ${wall}ms`);
+    }
+
+    if (p116Failures > 0) process.exitCode = 1;
+  }
+
+  process.once('beforeExit', runP116SelfTests);
+  process.once('exit', runP116SelfTests);
+})();
+'use strict';
+
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
