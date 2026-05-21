@@ -1,0 +1,90 @@
+{
+  "cmbs": [
+    {
+      "body": {
+        "summary": "Third receipt body must not appear in context output."
+      },
+      "class": "execution_receipt",
+      "created_at": "2026-05-21T10:01:00.000Z",
+      "id": "cmb-exec-003",
+      "milestone_id": "sample-milestone",
+      "phase_id": "114"
+    },
+    {
+      "body": {
+        "summary": "First receipt body must not appear in context output."
+      },
+      "class": "execution_receipt",
+      "created_at": "2026-05-21T10:00:00.000Z",
+      "id": "cmb-exec-001",
+      "milestone_id": "sample-milestone",
+      "phase_id": "114"
+    },
+    {
+      "body": {
+        "summary": "Verdict body must not appear in context output."
+      },
+      "class": "evidence_verdict",
+      "created_at": "2026-05-21T10:04:00.000Z",
+      "id": "cmb-verdict-001",
+      "milestone_id": "sample-milestone",
+      "phase_id": "114"
+    },
+    {
+      "body": {
+        "summary": "Review body must not appear in context output."
+      },
+      "class": "review_finding",
+      "created_at": "2026-05-21T10:02:00.000Z",
+      "id": "cmb-review-001",
+      "milestone_id": "sample-milestone",
+      "phase_id": "114"
+    },
+    {
+      "body": {
+        "summary": "Promotion body must not appear in context output."
+      },
+      "class": "promotion_decision",
+      "created_at": "2026-05-21T10:06:00.000Z",
+      "id": "cmb-promotion-001",
+      "milestone_id": "sample-milestone",
+      "phase_id": "114"
+    },
+    {
+      "body": {
+        "summary": "Second receipt body must not appear in context output."
+      },
+      "class": "execution_receipt",
+      "created_at": "2026-05-21T10:01:00.000Z",
+      "id": "cmb-exec-002",
+      "milestone_id": "sample-milestone",
+      "phase_id": "114"
+    },
+    {
+      "body": {
+        "summary": "Second review body must not appear in context output."
+      },
+      "class": "review_finding",
+      "created_at": "2026-05-21T10:03:00.000Z",
+      "id": "cmb-review-002",
+      "milestone_id": "sample-milestone",
+      "phase_id": "114"
+    },
+    {
+      "body": {
+        "summary": "Decision body must not appear in context output."
+      },
+      "class": "decision_recommendation",
+      "created_at": "2026-05-21T10:05:00.000Z",
+      "id": "cmb-decision-001",
+      "milestone_id": "sample-milestone",
+      "phase_id": "114"
+    }
+  ],
+  "context_md": "---\nnon_goals:\n  - a\n  - b\n  - c\n---\n# Sample Context\n\nSynthetic phase context.\n",
+  "milestone_id": "sample-milestone",
+  "phase_id": "114",
+  "plan_md": "---\nskip_gates:\n  - puml-render\n---\n# Sample Plan\n\nSynthetic phase plan.\n",
+  "verification_md": "# Sample Verification\n\nSynthetic verification notes.\n"
+}
+

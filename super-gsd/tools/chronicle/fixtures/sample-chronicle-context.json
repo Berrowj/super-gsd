@@ -1,0 +1,212 @@
+{
+  "assets": [],
+  "chronicle_type": "phase",
+  "chronicle_version": "1.0",
+  "denominators": {
+    "alternatives_rejected": [],
+    "assumptions_made": [],
+    "carve_outs_not_fired": [],
+    "gates_skipped": [
+      "cockpit_state_absent",
+      "puml-render"
+    ],
+    "scope_excluded": [
+      "a",
+      "b",
+      "c"
+    ]
+  },
+  "denominators_empty_reason": "carve_out_log_not_yet_implemented; no alternatives_rejected logged for this phase; no assumptions_made logged for this phase; no carve_outs_not_fired logged for this phase",
+  "diagrams": [],
+  "generated_at": "2026-05-21T10:06:00.000Z",
+  "id": "sample-milestone-P114",
+  "sections": {
+    "autonomy_disclosure": [
+      {
+        "body": "cockpit_signals_absent",
+        "citations": [
+          "cockpit-state"
+        ],
+        "heading": "Agent Autonomy Disclosure",
+        "id": "autonomy-disclosure-1",
+        "signifier_role": "autonomy_disclosure"
+      }
+    ],
+    "claims": [
+      {
+        "body": "Review body .",
+        "citations": [
+          "cmb-review-001"
+        ],
+        "heading": "claims 1",
+        "id": "claims-1",
+        "signifier_role": "claims"
+      },
+      {
+        "body": "Second review body .",
+        "citations": [
+          "cmb-review-002"
+        ],
+        "heading": "claims 2",
+        "id": "claims-2",
+        "signifier_role": "claims"
+      }
+    ],
+    "decisions": [
+      {
+        "body": "Decision body .",
+        "citations": [
+          "cmb-decision-001"
+        ],
+        "heading": "decisions 1",
+        "id": "decisions-1",
+        "signifier_role": "decisions"
+      },
+      {
+        "body": "Promotion body .",
+        "citations": [
+          "cmb-promotion-001"
+        ],
+        "heading": "decisions 2",
+        "id": "decisions-2",
+        "signifier_role": "decisions"
+      }
+    ],
+    "denominators": [
+      {
+        "body": "MISSING_EVIDENCE alternatives_rejected",
+        "citations": [
+          "denominator:alternatives_rejected"
+        ],
+        "heading": "alternatives_rejected",
+        "id": "denominators-1",
+        "signifier_role": "denominators"
+      },
+      {
+        "body": "MISSING_EVIDENCE assumptions_made",
+        "citations": [
+          "denominator:assumptions_made"
+        ],
+        "heading": "assumptions_made",
+        "id": "denominators-2",
+        "signifier_role": "denominators"
+      },
+      {
+        "body": "MISSING_EVIDENCE carve_outs_not_fired",
+        "citations": [
+          "denominator:carve_outs_not_fired"
+        ],
+        "heading": "carve_outs_not_fired",
+        "id": "denominators-3",
+        "signifier_role": "denominators"
+      },
+      {
+        "body": "cockpit_state_absent; puml-render",
+        "citations": [
+          "denominator:gates_skipped"
+        ],
+        "heading": "gates_skipped",
+        "id": "denominators-4",
+        "signifier_role": "denominators"
+      },
+      {
+        "body": "a; b; c",
+        "citations": [
+          "denominator:scope_excluded"
+        ],
+        "heading": "scope_excluded",
+        "id": "denominators-5",
+        "signifier_role": "denominators"
+      }
+    ],
+    "evidence_verdicts": [
+      {
+        "body": "Verdict body .",
+        "citations": [
+          "cmb-verdict-001"
+        ],
+        "heading": "evidence verdicts 1",
+        "id": "evidence_verdicts-1",
+        "signifier_role": "evidence_verdicts"
+      }
+    ],
+    "observations": [
+      {
+        "body": "First receipt body .",
+        "citations": [
+          "cmb-exec-001"
+        ],
+        "heading": "observations 1",
+        "id": "observations-1",
+        "signifier_role": "observations"
+      },
+      {
+        "body": "Second receipt body .",
+        "citations": [
+          "cmb-exec-002"
+        ],
+        "heading": "observations 2",
+        "id": "observations-2",
+        "signifier_role": "observations"
+      },
+      {
+        "body": "Third receipt body .",
+        "citations": [
+          "cmb-exec-003"
+        ],
+        "heading": "observations 3",
+        "id": "observations-3",
+        "signifier_role": "observations"
+      }
+    ],
+    "synthesis": [
+      {
+        "body": "MISSING_EVIDENCE slot=eli5",
+        "citations": [
+          "MISSING_EVIDENCE:eli5"
+        ],
+        "heading": "eli5",
+        "id": "synthesis-1",
+        "signifier_role": "synthesis"
+      },
+      {
+        "body": "MISSING_EVIDENCE slot=remember_tomorrow",
+        "citations": [
+          "MISSING_EVIDENCE:remember_tomorrow"
+        ],
+        "heading": "remember_tomorrow",
+        "id": "synthesis-2",
+        "signifier_role": "synthesis"
+      },
+      {
+        "body": "MISSING_EVIDENCE slot=risks",
+        "citations": [
+          "MISSING_EVIDENCE:risks"
+        ],
+        "heading": "risks",
+        "id": "synthesis-3",
+        "signifier_role": "synthesis"
+      },
+      {
+        "body": "MISSING_EVIDENCE slot=persona_impact",
+        "citations": [
+          "MISSING_EVIDENCE:persona_impact"
+        ],
+        "heading": "persona_impact",
+        "id": "synthesis-4",
+        "signifier_role": "synthesis"
+      }
+    ]
+  },
+  "source": {
+    "milestone_id": "sample-milestone",
+    "phase_id": "114",
+    "source_file_paths": [
+      ".planning/mesh/memory/cmbs.jsonl",
+      ".planning/milestones/sample-milestone/phases/114-sample-phase/CONTEXT.md",
+      ".planning/milestones/sample-milestone/phases/114-sample-phase/PLAN.md",
+      ".planning/milestones/sample-milestone/phases/114-sample-phase/VERIFICATION.md"
+    ]
+  },
+  "title": "Chronicle Context P114"
+}
