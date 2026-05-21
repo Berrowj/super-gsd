@@ -1,0 +1,79 @@
+{
+  "milestone": "v3.1",
+  "phase": "118",
+  "generated_at": "2026-05-21T00:00:00.000Z",
+  "latest_chronicle": {
+    "location": ".planning/chronicles/v3.1/118/report.md",
+    "validator_verdict": "REPORT_GROUNDED",
+    "published_at": "2026-05-21T00:00:00.000Z"
+  },
+  "binding_gate_status": "GREEN",
+  "fog_score": {
+    "score": 13,
+    "tier": "low",
+    "must_read_sections": [],
+    "breakdown": {
+      "dispatch_count": 6,
+      "token_spend": 0.5,
+      "files_changed": 1.5,
+      "review_loops": 0,
+      "disputed_claims_count": 0,
+      "stale_findings_count": 0,
+      "plan_revisions": 0,
+      "unresolved_risks_count": 0,
+      "minutes_since_operator_decision": 1,
+      "dependency_depth": 4
+    }
+  },
+  "recent_chronicles": [
+    {
+      "milestone": "v3.1",
+      "phase": "118",
+      "location": ".planning/chronicles/v3.1/118/report.md",
+      "validator_verdict": "REPORT_GROUNDED",
+      "published_at": "2026-05-21T00:00:00.000Z"
+    },
+    {
+      "milestone": "v3.1",
+      "phase": "116",
+      "location": ".planning/chronicles/v3.1/116/report.md",
+      "validator_verdict": "REPORT_PRESENT",
+      "published_at": "2026-05-21T00:00:00.000Z"
+    },
+    {
+      "milestone": "v3.1",
+      "phase": "115",
+      "location": ".planning/chronicles/v3.1/115/report.md",
+      "validator_verdict": "REPORT_PRESENT",
+      "published_at": "2026-05-21T00:00:00.000Z"
+    },
+    {
+      "milestone": "v3.1",
+      "phase": "114",
+      "location": ".planning/chronicles/v3.1/114/report.md",
+      "validator_verdict": "REPORT_PRESENT",
+      "published_at": "2026-05-21T00:00:00.000Z"
+    },
+    {
+      "milestone": "v3.1",
+      "phase": "113",
+      "location": ".planning/chronicles/v3.1/113/report.md",
+      "validator_verdict": "REPORT_PRESENT",
+      "published_at": "2026-05-21T00:00:00.000Z"
+    }
+  ],
+  "signals": {
+    "dispatch_count": 2,
+    "token_spend": 5000,
+    "files_changed": 3,
+    "review_loops": 0,
+    "disputed_claims_count": 0,
+    "stale_findings_count": 0,
+    "plan_revisions": 0,
+    "unresolved_risks_count": 0,
+    "minutes_since_operator_decision": 5,
+    "dependency_depth": 1,
+    "commits_in_phase": 0
+  },
+  "warnings": []
+}

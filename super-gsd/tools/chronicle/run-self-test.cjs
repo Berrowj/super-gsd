@@ -1,5 +1,151 @@
 #!/usr/bin/env node
 'use strict';
+(() => {
+  const assert = require('assert');
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const { computeFogScore } = require('../cockpit-sidecar/fog-score.cjs');
+  const { run: runSidecar } = require('../cockpit-sidecar/cockpit-sidecar.cjs');
+
+  const fixturesDir = path.join(__dirname, 'fixtures');
+  const fogInputsPath = path.join(fixturesDir, 'sample-fog-inputs.json');
+  const sidecarOutputPath = path.join(fixturesDir, 'sample-sidecar-output.json');
+  let p118Assertions = 0;
+
+  function pass(id, condition, detail) {
+    assert.ok(condition, detail || id);
+    p118Assertions += 1;
+    console.log(`PASS ${id}`);
+  }
+
+  function readJson(filePath) {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  }
+
+  function writeJsonl(filePath, rows) {
+    fs.writeFileSync(filePath, `${rows.map((row) => JSON.stringify(row)).join('\n')}\n`);
+  }
+
+  function buildSyntheticSidecarOutput() {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-sidecar-'));
+    const statePath = path.join(tempDir, 'STATE.md');
+    const chroniclePath = path.join(tempDir, 'INDEX.jsonl');
+    const validatorPath = path.join(tempDir, 'validator.jsonl');
+    const executorPath = path.join(tempDir, 'executor.jsonl');
+    const tokenPath = path.join(tempDir, 'tokens.jsonl');
+
+    fs.writeFileSync(
+      statePath,
+      [
+        '---',
+        'milestone: v3.1',
+        'phase: 118',
+        'phase_start_ref: HEAD',
+        'files_changed: 3',
+        'minutes_since_operator_decision: 5',
+        'dependency_depth: 1',
+        'plan_revisions: 0',
+        '---',
+        ''
+      ].join('\n')
+    );
+
+    writeJsonl(
+      chroniclePath,
+      Array.from({ length: 6 }, (_unused, index) => ({
+        milestone: 'v3.1',
+        phase: index === 5 ? '118' : String(112 + index),
+        location: index === 5 ? '.planning/chronicles/v3.1/118/report.md' : `.planning/chronicles/v3.1/${112 + index}/report.md`,
+        validator_verdict: index === 5 ? 'REPORT_GROUNDED' : 'REPORT_PRESENT',
+        published_at: '2026-05-21T00:00:00.000Z'
+      }))
+    );
+    writeJsonl(validatorPath, [
+      {
+        milestone: 'v3.1',
+        phase: '118',
+        binding_gate_status: 'GREEN',
+        review_loops: 0,
+        disputed_claims_count: 0,
+        stale_findings_count: 0,
+        unresolved_risks_count: 0
+      }
+    ]);
+    writeJsonl(executorPath, [
+      { milestone: 'v3.1', phase: '118', agent: 'codex-a' },
+      { milestone: 'v3.1', phase: '118', agent: 'codex-b' }
+    ]);
+    writeJsonl(tokenPath, [{ milestone: 'v3.1', phase: '118', token_spend: 5000 }]);
+
+    const result = runSidecar([
+      '--cockpit-state',
+      statePath,
+      '--chronicle-index',
+      chroniclePath,
+      '--validator-log',
+      validatorPath,
+      '--executor-log',
+      executorPath,
+      '--token-attribution',
+      tokenPath,
+      '--milestone',
+      'v3.1',
+      '--phase',
+      '118',
+      '--json'
+    ]);
+    const output = JSON.parse(result.stdout);
+    output.generated_at = '2026-05-21T00:00:00.000Z';
+    fs.rmSync(tempDir, { recursive: true, force: true });
+    return output;
+  }
+
+  const cases = readJson(fogInputsPath);
+  const low = computeFogScore(cases.low_tier.inputs);
+  const high = computeFogScore(cases.high_tier.inputs);
+  const clamp = computeFogScore(cases.boundary_clamp.inputs);
+  const empty = computeFogScore({});
+  const disputed = computeFogScore({ disputed_claims_count: 1 });
+  const revised = computeFogScore({ plan_revisions: 1 });
+
+  pass('SAC-118-01', low.tier === cases.low_tier.expected.tier && low.score <= cases.low_tier.expected.score_lte);
+  pass('SAC-118-02', high.tier === cases.high_tier.expected.tier && high.score >= cases.high_tier.expected.score_gte);
+  pass('SAC-118-03', clamp.score === cases.boundary_clamp.expected.score && clamp.tier === cases.boundary_clamp.expected.tier);
+  pass('SAC-118-04', empty.score === 0 && empty.tier === 'low');
+  pass('SAC-118-05', high.must_read_sections.includes('architecture') && high.must_read_sections.includes('file_impact'));
+  pass('SAC-118-06', disputed.must_read_sections.includes('claims') && disputed.must_read_sections.includes('evidence_verdicts'));
+  pass('SAC-118-07', revised.must_read_sections.includes('decisions') && revised.must_read_sections.includes('denominators'));
+
+  const sidecarOutput = buildSyntheticSidecarOutput();
+  fs.writeFileSync(sidecarOutputPath, `${JSON.stringify(sidecarOutput, null, 2)}\n`);
+  const golden = readJson(sidecarOutputPath);
+  pass('SAC-118-08', golden.recent_chronicles.length === 5);
+  pass('SAC-118-09', golden.binding_gate_status === 'GREEN' && golden.latest_chronicle.validator_verdict === 'REPORT_GROUNDED');
+
+  const textResult = runSidecar([
+    '--cockpit-state',
+    sidecarOutputPath,
+    '--chronicle-index',
+    '__missing-index.jsonl',
+    '--validator-log',
+    '__missing-validator.jsonl',
+    '--executor-log',
+    '__missing-executor.jsonl',
+    '--token-attribution',
+    '__missing-tokens.jsonl',
+    '--milestone',
+    'v3.1',
+    '--phase',
+    '118',
+    '--text'
+  ]);
+  pass('SAC-118-10', textResult.stdout.includes('Fog score:') && textResult.exitCode === 0);
+  pass('STRUCT-118-01', typeof computeFogScore === 'function' && typeof runSidecar === 'function');
+  pass('STRUCT-118-02', golden.fog_score.breakdown.dispatch_count === 6 && golden.signals.commits_in_phase === 0);
+  console.log(`PASS STRUCT-118-COUNT ${p118Assertions} P118 assertions`);
+})();
+'use strict';
 
 ;(() => {
   const fs = require('fs');

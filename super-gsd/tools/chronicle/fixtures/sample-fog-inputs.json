@@ -1,0 +1,56 @@
+{
+  "low_tier": {
+    "inputs": {
+      "dispatch_count": 2,
+      "token_spend": 5000,
+      "files_changed": 3,
+      "review_loops": 0,
+      "disputed_claims_count": 0,
+      "stale_findings_count": 0,
+      "plan_revisions": 0,
+      "unresolved_risks_count": 0,
+      "minutes_since_operator_decision": 5,
+      "dependency_depth": 1
+    },
+    "expected": {
+      "score_lte": 30,
+      "tier": "low"
+    }
+  },
+  "high_tier": {
+    "inputs": {
+      "dispatch_count": 12,
+      "token_spend": 200000,
+      "files_changed": 50,
+      "review_loops": 5,
+      "disputed_claims_count": 3,
+      "stale_findings_count": 2,
+      "plan_revisions": 4,
+      "unresolved_risks_count": 6,
+      "minutes_since_operator_decision": 90,
+      "dependency_depth": 6
+    },
+    "expected": {
+      "score_gte": 61,
+      "tier": "high"
+    }
+  },
+  "boundary_clamp": {
+    "inputs": {
+      "dispatch_count": 1000,
+      "token_spend": 10000000,
+      "files_changed": 1000,
+      "review_loops": 100,
+      "disputed_claims_count": 50,
+      "stale_findings_count": 50,
+      "plan_revisions": 50,
+      "unresolved_risks_count": 50,
+      "minutes_since_operator_decision": 10000,
+      "dependency_depth": 100
+    },
+    "expected": {
+      "score": 100,
+      "tier": "high"
+    }
+  }
+}
