@@ -272,38 +272,14 @@ function loadSchema(repoRoot) {
   return null;
 }
 
+const { requireDependency: requireDep } = require('./lib/require-dep.cjs');
+
 function loadAjv(repoRoot) {
-  const candidates = [
-    path.join(repoRoot, 'super-gsd', 'tools', 'plan-schema', 'node_modules', 'ajv'),
-    path.join(repoRoot, 'super-gsd', 'node_modules', 'ajv'),
-    path.join(repoRoot, 'node_modules', 'ajv'),
-    path.join(__dirname, '..', 'plan-schema', 'node_modules', 'ajv'),
-    'ajv',
-  ];
-  for (const candidate of candidates) {
-    try {
-      return require(candidate);
-    } catch (_error) {
-      // Try next candidate.
-    }
-  }
-  return null;
+  return requireDep('ajv', { repoRoot, strict: false });
 }
 
 function loadAjvErrors(repoRoot) {
-  const candidates = [
-    path.join(repoRoot, 'super-gsd', 'tools', 'plan-schema', 'node_modules', 'ajv-errors'),
-    path.join(__dirname, '..', 'plan-schema', 'node_modules', 'ajv-errors'),
-    'ajv-errors',
-  ];
-  for (const candidate of candidates) {
-    try {
-      return require(candidate);
-    } catch (_error) {
-      // Try next candidate.
-    }
-  }
-  return null;
+  return requireDep('ajv-errors', { repoRoot, strict: false });
 }
 
 function validateContextSchema(context, repoRoot, findings) {

@@ -421,36 +421,15 @@ function rollUpMilestoneContext({ milestone, phaseContexts }) {
   };
 }
 
+const { requireDependency: requireDep } = require('./lib/require-dep.cjs');
+
 function resolveAjv() {
-  const candidates = [
-    path.join(REPO_ROOT, 'super-gsd', 'tools', 'plan-schema', 'node_modules', 'ajv'),
-    path.join(REPO_ROOT, 'super-gsd', 'node_modules', 'ajv'),
-    'ajv'
-  ];
-  for (const candidate of candidates) {
-    try {
-      return require(candidate);
-    } catch (_) {
-      // Try the next known install location.
-    }
-  }
-  throw new Error('Unable to load ajv from plan-schema/node_modules');
+  return requireDep('ajv', { repoRoot: REPO_ROOT });
 }
 
 function tryApplyAjvErrors(ajv) {
-  const candidates = [
-    path.join(REPO_ROOT, 'super-gsd', 'tools', 'plan-schema', 'node_modules', 'ajv-errors'),
-    path.join(REPO_ROOT, 'super-gsd', 'node_modules', 'ajv-errors'),
-    'ajv-errors'
-  ];
-  for (const candidate of candidates) {
-    try {
-      require(candidate)(ajv);
-      return;
-    } catch (_) {
-      // ajv-errors improves messages but is not required for validation.
-    }
-  }
+  const plugin = requireDep('ajv-errors', { repoRoot: REPO_ROOT, strict: false });
+  if (plugin) plugin(ajv);
 }
 
 function schemaPath() {

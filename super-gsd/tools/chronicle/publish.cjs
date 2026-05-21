@@ -78,22 +78,7 @@ function parseArgs(argv) {
   return opts;
 }
 
-function requirePlanSchemaModule(moduleName) {
-  const candidates = [
-    path.join(__dirname, '..', 'plan-schema', 'node_modules', moduleName),
-    path.join(__dirname, '..', '..', 'node_modules', moduleName),
-    moduleName,
-  ];
-  let lastError;
-  for (const candidate of candidates) {
-    try {
-      return require(candidate);
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError;
-}
+const { requireDependency: requirePlanSchemaModule } = require('./lib/require-dep.cjs');
 
 function loadJson(filePath, label) {
   try {

@@ -98,20 +98,10 @@ function readJson(filePath, missingCode) {
   }
 }
 
+const { requireDependency: requireDep } = require('./lib/require-dep.cjs');
+
 function loadAjv() {
-  const candidates = [
-    path.join(__dirname, '..', 'plan-schema', 'node_modules', 'ajv'),
-    path.join(__dirname, '..', '..', 'plan-schema', 'node_modules', 'ajv'),
-    'ajv'
-  ];
-  for (const candidate of candidates) {
-    try {
-      return require(candidate);
-    } catch (error) {
-      if (error.code !== 'MODULE_NOT_FOUND') throw error;
-    }
-  }
-  return null;
+  return requireDep('ajv', { strict: false });
 }
 
 function validateContext(context) {

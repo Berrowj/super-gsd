@@ -15,23 +15,7 @@ const SCHEMA_ALIASES = {
   cmb: 'cmb.schema.json',
 };
 
-function requireDependency(name) {
-  const candidates = [
-    path.resolve(TOOL_DIR, '..', 'plan-schema', 'node_modules', name),
-    path.resolve(TOOL_DIR, 'node_modules', name),
-    name,
-  ];
-  const failures = [];
-  for (const candidate of candidates) {
-    try {
-      const mod = require(candidate);
-      return mod && mod.default ? mod.default : mod;
-    } catch (error) {
-      failures.push(`${candidate}: ${error.message}`);
-    }
-  }
-  throw new Error(`Unable to load dependency "${name}". Tried: ${failures.join('; ')}`);
-}
+const { requireDependency } = require('./lib/require-dep.cjs');
 
 function usage() {
   return [
