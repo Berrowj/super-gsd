@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.2",
+  "phase": "126",
+  "phase_name": "Cockpit Answer First Surface",
+  "status": "PASS",
+  "goal": "After P126, `cockpit-sidecar.cjs --text` renders the D4 answer-first block \u2014 North Star first, one DO-NEXT action, one alert (`+N more`), supporting detail demoted. A `--brief` mode prints only the top three lines. A `--html` snapshot renders the same content against the P120 shared design system. The existing `--json` keys stay byte-stable; `north_star` + `alerts` are added as additive keys.",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v3.2/phases/126-cockpit-answer-first-surface/126-01-cockpit-answer-first-surface-PLAN.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v3.2/phases/126-cockpit-answer-first-surface/126-CONTEXT.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v3.2/phases/126-cockpit-answer-first-surface/126-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/milestones/v3.2/phases/126-cockpit-answer-first-surface/126-01-cockpit-answer-first-surface-PLAN.md",
+    ".planning/milestones/v3.2/phases/126-cockpit-answer-first-surface/126-CONTEXT.md",
+    ".planning/milestones/v3.2/phases/126-cockpit-answer-first-surface/126-VERIFICATION.md",
+    "super-gsd/tools/cockpit-sidecar/cockpit-sidecar.cjs",
+    "super-gsd/tools/cockpit-sidecar/run-self-test.cjs"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 26
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "041872e4250627578c2f8fe185fac55748f9cb3b",
+      "subject": "feat(126-01): answer-first cockpit surface",
+      "ts": "2026-05-22T14:45:40+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v3.2/phases/126-cockpit-answer-first-surface/126-CONTEXT.md",
+      "sha256": "49cafecb2228eb041228893fcc005d9b4a8fdf37201436a20c9b06e9da4b8663"
+    },
+    "research": null,
+    "plan": [
+      {
+        "path": ".planning/milestones/v3.2/phases/126-cockpit-answer-first-surface/126-01-cockpit-answer-first-surface-PLAN.md",
+        "sha256": "03e3fbf73092fb79744989b85e361e2d51abe0485c1b82a045f037dae2d0c30c"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v3.2/phases/126-cockpit-answer-first-surface/126-VERIFICATION.md",
+      "sha256": "59632bb4e593e57bbfb5fa0083b2505fbdb1b2ee7975cca5250ca081f78be27e"
+    },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS",
+      "ref": ".planning/milestones/v3.2/phases/126-cockpit-answer-first-surface/126-VERIFICATION.md"
+    },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-05-22T14:04:41.840Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@69c36b9db789"
+}

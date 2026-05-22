@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.2",
+  "phase": "124",
+  "phase_name": "Cockpit Research Design",
+  "status": "PASS",
+  "goal": "After P124, SGSD has a locked, book-grounded cockpit design spec answering: what form factor (terminal / HTML / both), what the North-Star ranking surfaces, what the alert grammar is, and how `cockpit-sidecar.cjs` evolves into a glanceable answer-first surface. Every design choice cites a retrieved book principle or is explicitly flagged un-grounded.",
+  "outputs": [
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v3.2/phases/124-cockpit-research-design/124-CONTEXT.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v3.2/phases/124-cockpit-research-design/124-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v3.2/phases/124-cockpit-research-design/124-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/milestones/v3.2/phases/124-cockpit-research-design/124-COCKPIT-DESIGN-SPEC.md",
+    ".planning/milestones/v3.2/phases/124-cockpit-research-design/124-CONTEXT.md",
+    ".planning/milestones/v3.2/phases/124-cockpit-research-design/124-RESEARCH.md",
+    ".planning/milestones/v3.2/phases/124-cockpit-research-design/124-VERIFICATION.md"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 26
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "aa1fb36d700ae56e7e6078b56aa47f6aefe05f7e",
+      "subject": "docs(124): cockpit research + locked design spec \u2014 WS-B phase 1",
+      "ts": "2026-05-22T14:13:14+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v3.2/phases/124-cockpit-research-design/124-CONTEXT.md",
+      "sha256": "e035ec1fd22ce0caf73f546dc255f88d6fef17229c12522681dd9c89a1c7d0ac"
+    },
+    "research": {
+      "path": ".planning/milestones/v3.2/phases/124-cockpit-research-design/124-RESEARCH.md",
+      "sha256": "b982920d403b6796a01aa88c5e6f80c27f228a682c7253c788f6ef812cb2e220"
+    },
+    "plan": [],
+    "verification": {
+      "path": ".planning/milestones/v3.2/phases/124-cockpit-research-design/124-VERIFICATION.md",
+      "sha256": "39fb3f0583d5980b4e74fcb2466baaf1d4e597cb3df4aa6fb20a57df8e3dafd4"
+    },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS",
+      "ref": ".planning/milestones/v3.2/phases/124-cockpit-research-design/124-VERIFICATION.md"
+    },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-05-22T14:04:39.344Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@69c36b9db789"
+}

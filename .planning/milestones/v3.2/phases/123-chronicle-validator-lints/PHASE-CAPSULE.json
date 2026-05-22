@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.2",
+  "phase": "123",
+  "phase_name": "Chronicle Validator Lints",
+  "status": "PASS",
+  "goal": "After P123, the chronicle validator enforces the v3.2 design contract: jargon-free ELI5, takeaway headings, one primary next-action, takeaway figcaptions, and full P120 conformance. WS-A (chronicle HTML upgrade) is then complete \u2014 the renderer produces the gold-reference shape AND the validator guarantees it.",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v3.2/phases/123-chronicle-validator-lints/123-01-chronicle-validator-lints-PLAN.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v3.2/phases/123-chronicle-validator-lints/123-CONTEXT.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v3.2/phases/123-chronicle-validator-lints/123-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/milestones/v3.2/phases/123-chronicle-validator-lints/123-01-chronicle-validator-lints-PLAN.md",
+    ".planning/milestones/v3.2/phases/123-chronicle-validator-lints/123-CONTEXT.md",
+    ".planning/milestones/v3.2/phases/123-chronicle-validator-lints/123-VERIFICATION.md",
+    "super-gsd/tools/chronicle/benchmarks/bad-jargon-eli5.json",
+    "super-gsd/tools/chronicle/benchmarks/bad-multi-primary-action.json",
+    "super-gsd/tools/chronicle/benchmarks/good-v32-conformant.json",
+    "super-gsd/tools/chronicle/run-self-test.cjs",
+    "super-gsd/tools/chronicle/validate-chronicle.cjs"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 26
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "9f6648bbc8ec30d5a4ddac4d88b5eea735c59fc5",
+      "subject": "feat(v3.2/P123): chronicle validator lints + conformance wiring (DLB-12.4)",
+      "ts": "2026-05-22T13:53:29+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v3.2/phases/123-chronicle-validator-lints/123-CONTEXT.md",
+      "sha256": "748491372578a631511a061327e20e6129f40a1423e556b0e6aea70690635588"
+    },
+    "research": null,
+    "plan": [
+      {
+        "path": ".planning/milestones/v3.2/phases/123-chronicle-validator-lints/123-01-chronicle-validator-lints-PLAN.md",
+        "sha256": "46df85899ea97f38de55b1b150ac6fb49469834f9a638f526fb07028b630e7e0"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v3.2/phases/123-chronicle-validator-lints/123-VERIFICATION.md",
+      "sha256": "41dd6f2acde3929ed134039797e8b8d9dbf58381107bb4ff6a305adde17bb0d7"
+    },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS",
+      "ref": ".planning/milestones/v3.2/phases/123-chronicle-validator-lints/123-VERIFICATION.md"
+    },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-05-22T14:04:38.187Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@69c36b9db789"
+}

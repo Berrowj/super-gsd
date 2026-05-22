@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.2",
+  "phase": "122",
+  "phase_name": "Chronicle Renderer Rebuild",
+  "status": "PASS",
+  "goal": "After P122, `render-html.cjs` run on a P121-shaped CHRONICLE-CONTEXT.json produces HTML structurally conformant to `chronicle-gold-reference.html` and passing the P120 conformance checker's binding chronicle rules. The chronicle self-test stays green (zero regression on the validator/builder substrate; the renderer's own assertions are rewritten for the new layout).",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v3.2/phases/122-chronicle-renderer-rebuild/122-01-chronicle-renderer-rebuild-PLAN.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v3.2/phases/122-chronicle-renderer-rebuild/122-CONTEXT.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v3.2/phases/122-chronicle-renderer-rebuild/122-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/milestones/v3.2/phases/122-chronicle-renderer-rebuild/122-01-chronicle-renderer-rebuild-PLAN.md",
+    ".planning/milestones/v3.2/phases/122-chronicle-renderer-rebuild/122-CONTEXT.md",
+    ".planning/milestones/v3.2/phases/122-chronicle-renderer-rebuild/122-VERIFICATION.md",
+    "super-gsd/tools/chronicle/fixtures/sample-rendered-chronicle.html",
+    "super-gsd/tools/chronicle/render-html.cjs",
+    "super-gsd/tools/chronicle/run-self-test.cjs",
+    "super-gsd/tools/chronicle/templates/sections/eli5.md",
+    "super-gsd/tools/chronicle/templates/sections/operator-decision.md",
+    "super-gsd/tools/chronicle/templates/sections/persona-impact.md",
+    "super-gsd/tools/chronicle/templates/sections/remember-tomorrow.md",
+    "super-gsd/tools/chronicle/templates/sections/risks.md",
+    "super-gsd/tools/chronicle/templates/sections/why-scqa.md",
+    "super-gsd/tools/chronicle/templates/style.css"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 26
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "2e4b46178a1125cdedbd417d6ecb1061536a3461",
+      "subject": "feat(v3.2/P122): chronicle renderer rebuilt to the gold reference (DLB-12.3)",
+      "ts": "2026-05-22T04:30:33+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v3.2/phases/122-chronicle-renderer-rebuild/122-CONTEXT.md",
+      "sha256": "b319c7c5b8c7173a1db63b20b081e7e2e72cc8b5a19ad12db4d9d103ca616bb5"
+    },
+    "research": null,
+    "plan": [
+      {
+        "path": ".planning/milestones/v3.2/phases/122-chronicle-renderer-rebuild/122-01-chronicle-renderer-rebuild-PLAN.md",
+        "sha256": "26ccbae18c8f50ae9930a34c9a3effc505ec71925b1a30feb02c5d0a73d8d3a3"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v3.2/phases/122-chronicle-renderer-rebuild/122-VERIFICATION.md",
+      "sha256": "ed94cf4b13faa055be73d4dc17f32cdd665593eb1af6ac750834966ed2813438"
+    },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS",
+      "ref": ".planning/milestones/v3.2/phases/122-chronicle-renderer-rebuild/122-VERIFICATION.md"
+    },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-05-22T14:04:37.045Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@69c36b9db789"
+}

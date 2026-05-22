@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.2",
+  "phase": "120",
+  "phase_name": "Shared Design System",
+  "status": "PASS",
+  "goal": "Ship the shared design-system stylesheet + the 12-rule conformance checker + a self-test. After this phase, both the chronicle renderer (P122) and the cockpit surface (P126) have one stylesheet to consume and one checklist to pass \u2014 no per-surface CSS divergence is possible.",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v3.2/phases/120-shared-design-system/120-01-shared-design-system-PLAN.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v3.2/phases/120-shared-design-system/120-CONTEXT.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v3.2/phases/120-shared-design-system/120-VERIFICATION.md"
+    }
+  ],
+  "files": [],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 26
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v3.2/phases/120-shared-design-system/120-CONTEXT.md",
+      "sha256": "446b31ff82e70c8af35ff62fd1d3b17cca1d03c0ef2bc3e5990d2f5b037a7f11"
+    },
+    "research": null,
+    "plan": [
+      {
+        "path": ".planning/milestones/v3.2/phases/120-shared-design-system/120-01-shared-design-system-PLAN.md",
+        "sha256": "f23e648ee20ada48b0a2a5c0e8cddc4dfbc7435a6e75f83dc92f21a7e34e109c"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v3.2/phases/120-shared-design-system/120-VERIFICATION.md",
+      "sha256": "44d6db9d49f7e455e5ef08b0246fd6880e2d944d56af633a439ebbf51e751ad3"
+    },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS",
+      "ref": ".planning/milestones/v3.2/phases/120-shared-design-system/120-VERIFICATION.md"
+    },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-05-22T14:04:26.404Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@69c36b9db789"
+}

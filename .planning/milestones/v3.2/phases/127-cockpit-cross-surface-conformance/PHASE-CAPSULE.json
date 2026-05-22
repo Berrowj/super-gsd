@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.2",
+  "phase": "127",
+  "phase_name": "Cockpit Cross Surface Conformance",
+  "status": "PASS",
+  "goal": "After P127, the cockpit `--html` snapshot passes `conformance-check.cjs --surface cockpit` with zero binding failures, and the cockpit self-test includes a cross-surface assertion proving the chronicle gold-reference and the cockpit snapshot both satisfy their shared binding rules. v3.2 WS-B is then complete.",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v3.2/phases/127-cockpit-cross-surface-conformance/127-01-cockpit-cross-surface-conformance-PLAN.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v3.2/phases/127-cockpit-cross-surface-conformance/127-CONTEXT.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v3.2/phases/127-cockpit-cross-surface-conformance/127-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/milestones/v3.2/phases/127-cockpit-cross-surface-conformance/127-01-cockpit-cross-surface-conformance-PLAN.md",
+    ".planning/milestones/v3.2/phases/127-cockpit-cross-surface-conformance/127-CONTEXT.md",
+    ".planning/milestones/v3.2/phases/127-cockpit-cross-surface-conformance/127-VERIFICATION.md",
+    "super-gsd/tools/cockpit-sidecar/cockpit-sidecar.cjs",
+    "super-gsd/tools/cockpit-sidecar/run-self-test.cjs"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 26
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "69c36b9db78954db249205bf4dd96584896aeb8a",
+      "subject": "feat(127-01): cross-surface conformance \u2014 WS-B complete",
+      "ts": "2026-05-22T14:51:21+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v3.2/phases/127-cockpit-cross-surface-conformance/127-CONTEXT.md",
+      "sha256": "ef9fa0493b4c864954e11ad65031baad5e39fa17199a6eb866dcc4ebd72733ba"
+    },
+    "research": null,
+    "plan": [
+      {
+        "path": ".planning/milestones/v3.2/phases/127-cockpit-cross-surface-conformance/127-01-cockpit-cross-surface-conformance-PLAN.md",
+        "sha256": "b339e5abd1ef71413fb3910efa18b3e9a83c0eda0aa23a86170535b2c50b2bfb"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v3.2/phases/127-cockpit-cross-surface-conformance/127-VERIFICATION.md",
+      "sha256": "70e8f9af84093426ddb38882869e7ec518f93eef9afa642b3b1ed31e7237615b"
+    },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS",
+      "ref": ".planning/milestones/v3.2/phases/127-cockpit-cross-surface-conformance/127-VERIFICATION.md"
+    },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-05-22T14:04:43.446Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@69c36b9db789"
+}

@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.2",
+  "phase": "125",
+  "phase_name": "Cockpit Alert Grammar",
+  "status": "PASS",
+  "goal": "After P125, two new deterministic modules under `super-gsd/tools/cockpit-sidecar/` compute, from the same live ledger inputs the sidecar already reads, (a) the single North Star via a first-match priority cascade and (b) the ranked alert set \u2014 all candidate alerts evaluated, exactly one surfaced, the rest counted. P126 then renders them; P125 ships the logic + self-test only.",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v3.2/phases/125-cockpit-alert-grammar/125-01-cockpit-alert-grammar-PLAN.md"
+    },
+    {
+      "kind": "context",
+      "path": ".planning/milestones/v3.2/phases/125-cockpit-alert-grammar/125-CONTEXT.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v3.2/phases/125-cockpit-alert-grammar/125-VERIFICATION.md"
+    }
+  ],
+  "files": [
+    ".planning/milestones/v3.2/phases/125-cockpit-alert-grammar/125-01-cockpit-alert-grammar-PLAN.md",
+    ".planning/milestones/v3.2/phases/125-cockpit-alert-grammar/125-CONTEXT.md",
+    ".planning/milestones/v3.2/phases/125-cockpit-alert-grammar/125-VERIFICATION.md",
+    "super-gsd/tools/cockpit-sidecar/alert-grammar.cjs",
+    "super-gsd/tools/cockpit-sidecar/north-star.cjs",
+    "super-gsd/tools/cockpit-sidecar/run-self-test.cjs"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 26
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "dd743d020f7ed3757be385c8776ee93743a01e4b",
+      "subject": "feat(125-01): cockpit North-Star ranking + alert grammar",
+      "ts": "2026-05-22T14:31:39+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v3.2/phases/125-cockpit-alert-grammar/125-CONTEXT.md",
+      "sha256": "2291a544cd38f43f021ffe10d5522b9ad61afe8e40ee8ccca6bda4276901960c"
+    },
+    "research": null,
+    "plan": [
+      {
+        "path": ".planning/milestones/v3.2/phases/125-cockpit-alert-grammar/125-01-cockpit-alert-grammar-PLAN.md",
+        "sha256": "99fda31d19ce2d2dbc2ab7f45da9d2549642892cccac4d3b044d565f295e780e"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v3.2/phases/125-cockpit-alert-grammar/125-VERIFICATION.md",
+      "sha256": "6edebcf7c47390db5f34178d1e6a361f1223c27ca5c69022653421edfc9e6981"
+    },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS",
+      "ref": ".planning/milestones/v3.2/phases/125-cockpit-alert-grammar/125-VERIFICATION.md"
+    },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-05-22T14:04:40.630Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@69c36b9db789"
+}
