@@ -1,0 +1,161 @@
+{
+  "schema_version": "1.0",
+  "rules": [
+    {
+      "id": "R01",
+      "name": "Lead with the operator decision",
+      "source_book": "The Minto Pyramid Principle + Storytelling with Data",
+      "citation": "book_figures Image00085 score 0.79; book_passages storytelling-with-data ::0255 score 0.62",
+      "check_type": "structural",
+      "severity": "binding",
+      "applies_to": ["chronicle", "cockpit"],
+      "description": "First <section> carries role=operator-decision / North-Star banner."
+    },
+    {
+      "id": "R02",
+      "name": "Section headings are testable governing statements",
+      "source_book": "The Minto Pyramid Principle + Storytelling with Data",
+      "citation": "book_figures Image00080 score 0.63; book_passages storytelling-with-data ::0132 score 0.74",
+      "check_type": "advisory",
+      "severity": "advisory",
+      "applies_to": ["chronicle", "cockpit"],
+      "description": "Reviewer confirms each heading makes a falsifiable takeaway, not a topic label."
+    },
+    {
+      "id": "R03",
+      "name": "Frame \"why\" as Situation-Complication-Question",
+      "source_book": "The Minto Pyramid Principle",
+      "citation": "book_figures Image00201 score 0.68; book_figures Image00190 score 0.67",
+      "check_type": "structural",
+      "severity": "binding",
+      "applies_to": ["chronicle"],
+      "description": "A why-section contains Situation, Complication, and Question structure."
+    },
+    {
+      "id": "R04",
+      "name": "One recommended next action, alternatives folded",
+      "source_book": "Made to Stick",
+      "citation": "book_passages made-to-stick ::0160 score 0.71; book_passages made-to-stick ::0170 score 0.70",
+      "check_type": "structural",
+      "severity": "binding",
+      "applies_to": ["chronicle", "cockpit"],
+      "description": "Exactly one recommended next action is visible; alternatives live in collapsed details."
+    },
+    {
+      "id": "R05",
+      "name": "Every claim is a one-click testable credential",
+      "source_book": "Made to Stick",
+      "citation": "book_passages made-to-stick ::0103 score 0.65; book_passages made-to-stick ::0179 score 0.64",
+      "check_type": "structural",
+      "severity": "binding",
+      "applies_to": ["chronicle", "cockpit"],
+      "description": "Every claim block links to evidence or carries a data-evidence credential."
+    },
+    {
+      "id": "R06",
+      "name": "Pair every metric with its telling instance",
+      "source_book": "Made to Stick",
+      "citation": "book_passages made-to-stick ::0108 score 0.63",
+      "check_type": "structural",
+      "severity": "binding",
+      "applies_to": ["chronicle", "cockpit"],
+      "description": "Each metric has a concrete telling instance or data-instance annotation."
+    },
+    {
+      "id": "R07",
+      "name": "Collapse never delete; declutter by default-folding",
+      "source_book": "Storytelling with Data",
+      "citation": "book_passages storytelling-with-data ::0102 score 0.71",
+      "check_type": "presence",
+      "severity": "binding",
+      "applies_to": ["chronicle", "cockpit"],
+      "description": "At least one supporting detail block is present and default-collapsed."
+    },
+    {
+      "id": "R08",
+      "name": "Spell the \"So What?\" in text",
+      "source_book": "Storytelling with Data",
+      "citation": "book_figures c06f002 score 0.64; book_passages storytelling-with-data ::0189 score 0.70",
+      "check_type": "presence",
+      "severity": "binding",
+      "applies_to": ["chronicle"],
+      "description": "Every <figure> includes a <figcaption> that states the implication."
+    },
+    {
+      "id": "R09",
+      "name": "Match the diagram type to the question type",
+      "source_book": "The Back of the Napkin",
+      "citation": "book_passages the-back-of-the-napkin ::0067 score 0.77; book_passages the-back-of-the-napkin ::0069 score 0.67",
+      "check_type": "advisory",
+      "severity": "advisory",
+      "applies_to": ["chronicle"],
+      "description": "Reviewer confirms each diagram form matches the question it answers."
+    },
+    {
+      "id": "R10",
+      "name": "Make the layout mirror the logic",
+      "source_book": "The Minto Pyramid Principle + Storytelling with Data",
+      "citation": "book_figures Image00048 score 0.76; book_passages storytelling-with-data ::0097 score 0.71",
+      "check_type": "structural",
+      "severity": "binding",
+      "applies_to": ["chronicle", "cockpit"],
+      "description": "Heading levels progress monotonically without skipping logic levels."
+    },
+    {
+      "id": "R11",
+      "name": "Write against the Curse of Knowledge (jargon lint)",
+      "source_book": "Made to Stick",
+      "citation": "book_passages made-to-stick ::0013 score 0.68; book_passages made-to-stick ::0074 score 0.69",
+      "check_type": "lint",
+      "severity": "binding",
+      "applies_to": ["chronicle", "cockpit"],
+      "description": "ELI5 or synthesis text does not contain unexpanded internal SGSD terms."
+    },
+    {
+      "id": "R12",
+      "name": "Tune diagrams to an execution-oriented operator",
+      "source_book": "The Back of the Napkin",
+      "citation": "book_passages the-back-of-the-napkin ::0055 score 0.70",
+      "check_type": "advisory",
+      "severity": "advisory",
+      "applies_to": ["chronicle", "cockpit"],
+      "description": "Reviewer confirms diagrams emphasize operator execution, thresholds, and next action."
+    }
+  ],
+  "groups": {
+    "cockpit": {
+      "principles": [
+        {
+          "id": "C1",
+          "name": "Preattentive single-focus",
+          "citation": "storytelling-with-data ::0107 score 0.69",
+          "rule": "exactly one element grabs the eye"
+        },
+        {
+          "id": "C2",
+          "name": "Colour used sparingly",
+          "citation": "storytelling-with-data ::0109 score 0.67",
+          "rule": "highlighting everything highlights nothing"
+        },
+        {
+          "id": "C3",
+          "name": "One North Star not five",
+          "citation": "made-to-stick ::0018 score 0.57",
+          "rule": "rank, do not list"
+        },
+        {
+          "id": "C4",
+          "name": "Information overload is the default",
+          "citation": "the-back-of-the-napkin ::0030 score 0.64",
+          "rule": "the cockpit does the active looking for the operator"
+        },
+        {
+          "id": "C5",
+          "name": "Threshold-to-alert grammar",
+          "citation": "designing-machine-learning-systems ch8 ::0025 score 0.66",
+          "rule": "condition + duration + channel"
+        }
+      ]
+    }
+  }
+}

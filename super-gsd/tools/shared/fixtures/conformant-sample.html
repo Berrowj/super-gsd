@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>SGSD P120 Conformant Fixture</title>
+  </head>
+  <body>
+    <main>
+      <section role="operator-decision" class="decision north-star">
+        <p class="kicker">North Star</p>
+        <h1>Ship the shared checker only after deterministic evidence is green</h1>
+        <p class="recommended-action"><strong>Recommended next action:</strong> run the local self-test and keep the foundation private until it passes.</p>
+        <details>
+          <summary>Alternatives considered</summary>
+          <p>Keep the stylesheet private to chronicle, or add a reviewer-only checklist. Both are lower leverage than a shared rule registry.</p>
+        </details>
+      </section>
+
+      <section id="why" class="scqa">
+        <div data-scqa="situation">
+          <h2>Situation: chronicle and cockpit need the same visual contract</h2>
+          <p>The two surfaces should share one stable design vocabulary.</p>
+        </div>
+        <div data-scqa="complication">
+          <h3>Complication: duplicated styling weakens gate evidence</h3>
+          <p>Separate local rules make review outcomes harder to compare.</p>
+        </div>
+        <div data-scqa="question">
+          <h3>Question: which foundation proves conformance without adding UI?</h3>
+          <p>A deterministic checker can validate the binding rules before any operator-facing work lands.</p>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <p class="kicker">Evidence</p>
+          <h2>The rule registry turns design claims into repeatable checks</h2>
+        </div>
+        <article class="claim" data-evidence="fixtures/conformant-sample.html#registry">
+          <h3>Every binding claim can be opened from the rendered surface</h3>
+          <p>Evidence path: <a class="credential" href="#registry">registry fixture credential</a>.</p>
+        </article>
+        <div class="metric" data-instance="SAC-P120-03">
+          <h3>Metric: 12 rules</h3>
+          <p class="metric-value">12</p>
+          <p class="telling-instance">Telling instance: SAC-P120-03 checks that the conformant sample has zero binding failures.</p>
+        </div>
+        <figure data-question-type="flow" data-diagram-type="sequence" data-sqvid="execution-quantity-comparison">
+          <div role="img" aria-label="Registry flows into checker, fixtures, and self-test">Registry -> Checker -> Fixtures -> Self-test</div>
+          <figcaption>So What? The foundation can fail locally before it reaches chronicle or cockpit.</figcaption>
+        </figure>
+        <p class="synthesis">In plain terms, the page has one decision, evidence for the claim, and a concrete example for the metric.</p>
+      </section>
+    </main>
+  </body>
+</html>
