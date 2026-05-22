@@ -1,6 +1,13 @@
-# What to remember tomorrow
+# Remember tomorrow
 
-- Key files: {{key_files}}
-- Key decisions: {{key_decisions}}
-- Risks to watch: {{risks_to_watch}}
-- Check the cited evidence before changing the renderer.
+Carry this forward into the next phase:
+
+{{remember_tomorrow.primary}}
+
+Evidence to re-check before relying on it:
+
+{{remember_tomorrow.recheck}}
+
+Operator note:
+
+{{remember_tomorrow.operator_note}}

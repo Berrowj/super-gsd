@@ -1,7 +1,9 @@
-# What changed (ELI5)
+# What changed, in plain terms
 
-In this phase, SGSD shipped {{file_count}} files implementing {{phase_name}}. {{eli5_one_liner}}
+{{eli5.summary}}
 
-The most important change: {{key_change_summary}}.
+The short version:
 
-[Evidence: {{key_change_citation}}]
+{{eli5.bullets}}
+
+So what for the operator: {{eli5.impact}}

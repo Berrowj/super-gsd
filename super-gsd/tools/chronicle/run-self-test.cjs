@@ -1212,344 +1212,6 @@ function validateBuilderOutputPath(filePath) {
   return runNode([VALIDATOR, '--schema', 'chronicle-context', '--fixture', filePath]);
 }
 
-const chronicleP115Fs = require('fs');
-const chronicleP115Path = require('path');
-const chronicleP115Os = require('os');
-const chronicleP115ChildProcess = require('child_process');
-
-const chronicleP115Root = chronicleP115Path.resolve(__dirname, '..', '..', '..');
-const chronicleP115Renderer = chronicleP115Path.join(__dirname, 'render-html.cjs');
-const chronicleP115Fallback = chronicleP115Path.join(__dirname, 'svg-fallback-generator.cjs');
-const chronicleP115SampleContext = chronicleP115Path.join(__dirname, 'fixtures', 'sample-chronicle-context.json');
-const chronicleP115Golden = chronicleP115Path.join(__dirname, 'fixtures', 'sample-rendered-chronicle.html');
-let chronicleP115RenderedRun = null;
-let chronicleP115RenderedRunSecond = null;
-let chronicleP115P113Run = null;
-
-function chronicleP115Assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
-
-function ensureRenderedRun() {
-  if (chronicleP115RenderedRun) return chronicleP115RenderedRun;
-  const out = chronicleP115Path.join(chronicleP115Os.tmpdir(), 'sgsd-p115-sample-rendered-chronicle.html');
-  const result = chronicleP115ChildProcess.spawnSync(process.execPath, [
-    chronicleP115Renderer,
-    '--context',
-    chronicleP115SampleContext,
-    '--out',
-    out,
-    '--skip-puml-render'
-  ], {
-    cwd: chronicleP115Root,
-    encoding: 'utf8',
-    maxBuffer: 20 * 1024 * 1024
-  });
-  chronicleP115RenderedRun = {
-    status: result.status,
-    stdout: result.stdout || '',
-    stderr: result.stderr || '',
-    out,
-    html: chronicleP115Fs.existsSync(out) ? chronicleP115Fs.readFileSync(out, 'utf8') : ''
-  };
-  return chronicleP115RenderedRun;
-}
-
-function ensureRenderedRunSecond() {
-  if (chronicleP115RenderedRunSecond) return chronicleP115RenderedRunSecond;
-  const out = chronicleP115Path.join(chronicleP115Os.tmpdir(), 'sgsd-p115-sample-rendered-chronicle-second.html');
-  const result = chronicleP115ChildProcess.spawnSync(process.execPath, [
-    chronicleP115Renderer,
-    '--context',
-    chronicleP115SampleContext,
-    '--out',
-    out,
-    '--skip-puml-render'
-  ], {
-    cwd: chronicleP115Root,
-    encoding: 'utf8',
-    maxBuffer: 20 * 1024 * 1024
-  });
-  chronicleP115RenderedRunSecond = {
-    status: result.status,
-    stdout: result.stdout || '',
-    stderr: result.stderr || '',
-    out,
-    html: chronicleP115Fs.existsSync(out) ? chronicleP115Fs.readFileSync(out, 'utf8') : ''
-  };
-  return chronicleP115RenderedRunSecond;
-}
-
-function chronicleP115Walk(dir, predicate, depth = 0) {
-  if (depth > 8 || !chronicleP115Fs.existsSync(dir)) return null;
-  const entries = chronicleP115Fs.readdirSync(dir, { withFileTypes: true })
-    .sort((left, right) => left.name.localeCompare(right.name));
-  for (const entry of entries) {
-    const fullPath = chronicleP115Path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      const found = chronicleP115Walk(fullPath, predicate, depth + 1);
-      if (found) return found;
-    } else if (predicate(fullPath)) {
-      return fullPath;
-    }
-  }
-  return null;
-}
-
-function findP113ChronicleContext() {
-  const planningRoot = chronicleP115Path.join(chronicleP115Root, '.planning');
-  return chronicleP115Walk(planningRoot, (filePath) => {
-    if (chronicleP115Path.basename(filePath) !== 'CHRONICLE-CONTEXT.json') return false;
-    try {
-      const text = chronicleP115Fs.readFileSync(filePath, 'utf8');
-      return /P113|Phase\s*113|phase[-_ ]?113/i.test(text);
-    } catch (error) {
-      return false;
-    }
-  });
-}
-
-function ensureP113RenderedRun() {
-  if (chronicleP115P113Run) return chronicleP115P113Run;
-  const contextPath = findP113ChronicleContext();
-  if (!contextPath) {
-    console.warn('WARN STRUCT-P115-24-P113-DOGFOOD skipped: P113 CHRONICLE-CONTEXT.json not found');
-    chronicleP115P113Run = {
-      status: 0,
-      stdout: '',
-      stderr: 'P113 dogfood skipped: context missing',
-      out: '',
-      html: ensureRenderedRun().html,
-      skipped: true
-    };
-    return chronicleP115P113Run;
-  }
-  const out = chronicleP115Path.join(chronicleP115Os.tmpdir(), 'sgsd-p113-dogfood-chronicle.html');
-  const result = chronicleP115ChildProcess.spawnSync(process.execPath, [
-    chronicleP115Renderer,
-    '--context',
-    contextPath,
-    '--out',
-    out,
-    '--skip-puml-render'
-  ], {
-    cwd: chronicleP115Root,
-    encoding: 'utf8',
-    maxBuffer: 20 * 1024 * 1024
-  });
-  chronicleP115P113Run = {
-    status: result.status,
-    stdout: result.stdout || '',
-    stderr: result.stderr || '',
-    out,
-    html: chronicleP115Fs.existsSync(out) ? chronicleP115Fs.readFileSync(out, 'utf8') : ''
-  };
-  return chronicleP115P113Run;
-}
-
-function chronicleP115SectionRoles(html) {
-  const roles = new Set();
-  for (const match of html.matchAll(/<section\b[^>]*\brole="([^"]+)"/g)) {
-    roles.add(match[1]);
-  }
-  return roles;
-}
-
-function chronicleP115AssertSelfContained(html) {
-  chronicleP115Assert(!/<script\b[^>]*\bsrc=/i.test(html), 'external script tag found');
-  chronicleP115Assert(!/<link\b[^>]*\bhref=/i.test(html), 'external stylesheet link found');
-  chronicleP115Assert(!/\bsrc=["'](?:https?:)?\/\//i.test(html), 'external src URL found');
-  chronicleP115Assert(!/\bhref=["'](?:https?:)?\/\//i.test(html), 'external href URL found');
-}
-
-assertions.push(
-  {
-    id: 'SAC-P115-01',
-    alias: 'renderer exists',
-    run: () => chronicleP115Assert(chronicleP115Fs.existsSync(chronicleP115Renderer), 'render-html.cjs missing')
-  },
-  {
-    id: 'SAC-P115-02',
-    alias: 'fallback generator exists',
-    run: () => chronicleP115Assert(chronicleP115Fs.existsSync(chronicleP115Fallback), 'svg-fallback-generator.cjs missing')
-  },
-  {
-    id: 'SAC-P115-03',
-    alias: 'golden fixture exists',
-    run: () => chronicleP115Assert(chronicleP115Fs.existsSync(chronicleP115Golden), 'sample-rendered-chronicle.html missing')
-  },
-  {
-    id: 'SAC-P115-04',
-    alias: 'dispatch templates complete',
-    run: () => {
-      const templatesRoot = chronicleP115Path.join(__dirname, 'templates');
-      const expected = [
-        'style.css',
-        'puml/architecture.puml',
-        'puml/lineage-dag.puml',
-        'puml/gate-waterfall.puml',
-        'puml/file-impact.puml',
-        'puml/persona-lanes.puml',
-        'puml/timeline.puml',
-        'sections/eli5.md',
-        'sections/remember-tomorrow.md',
-        'sections/risks.md',
-        'sections/persona-impact.md'
-      ];
-      for (const relative of expected) {
-        chronicleP115Assert(chronicleP115Fs.existsSync(chronicleP115Path.join(templatesRoot, relative)), `template missing: ${relative}`);
-      }
-    }
-  },
-  {
-    id: 'SAC-P115-05',
-    alias: 'renderer exits zero on sample context',
-    run: () => {
-      const result = ensureRenderedRun();
-      chronicleP115Assert(result.status === 0, `renderer exit ${result.status}: ${result.stderr}`);
-      chronicleP115Assert(result.html.length > 0, 'renderer produced empty HTML');
-    }
-  },
-  {
-    id: 'SAC-P115-06',
-    alias: 'html document shell',
-    run: () => {
-      const html = ensureRenderedRun().html;
-      chronicleP115Assert(html.startsWith('<!doctype html>'), 'doctype missing');
-      chronicleP115Assert(/<html lang="en">/.test(html), 'lang attribute missing');
-      chronicleP115Assert(/<meta charset="utf-8">/.test(html), 'charset missing');
-    }
-  },
-  {
-    id: 'SAC-P115-07',
-    alias: 'inline stylesheet only',
-    run: () => {
-      const html = ensureRenderedRun().html;
-      chronicleP115Assert(/<style>[\s\S]+<\/style>/.test(html), 'inline style missing');
-      chronicleP115Assert(!/<link\b/i.test(html), 'link tag found');
-    }
-  },
-  {
-    id: 'SAC-P115-08',
-    alias: 'required section roles',
-    run: () => {
-      const roles = chronicleP115SectionRoles(ensureRenderedRun().html);
-      ['observations', 'claims', 'evidence_verdicts', 'decisions', 'denominators', 'synthesis', 'autonomy_disclosure'].forEach((role) => {
-        chronicleP115Assert(roles.has(role), `section role missing: ${role}`);
-      });
-    }
-  },
-  {
-    id: 'SAC-P115-09',
-    alias: 'six embedded svgs',
-    run: () => {
-      const count = (ensureRenderedRun().html.match(/<svg\b/g) || []).length;
-      chronicleP115Assert(count === 6, `expected 6 svgs, got ${count}`);
-    }
-  },
-  {
-    id: 'SAC-P115-10',
-    alias: 'six puml source disclosures',
-    run: () => {
-      const html = ensureRenderedRun().html;
-      const details = (html.match(/<details><summary>PUML source<\/summary>/g) || []).length;
-      chronicleP115Assert(details === 6, `expected 6 PUML details, got ${details}`);
-    }
-  },
-  {
-    id: 'SAC-P115-11',
-    alias: 'no raw template slots',
-    run: () => {
-      const html = ensureRenderedRun().html;
-      chronicleP115Assert(!/{{\s*[A-Za-z0-9_]+\s*}}/.test(html), 'raw template slot leaked');
-    }
-  },
-  {
-    id: 'SAC-P115-12',
-    alias: 'fallback generator supports six diagrams',
-    run: () => {
-      const fallback = require(chronicleP115Fallback);
-      ['architecture', 'lineage-dag', 'gate-waterfall', 'file-impact', 'persona-lanes', 'timeline'].forEach((name) => {
-        const svg = fallback.generate(name, {});
-        chronicleP115Assert(/^<svg\b/.test(svg), `fallback did not return svg for ${name}`);
-        chronicleP115Assert(/fallback SVG/.test(svg), `fallback label missing for ${name}`);
-      });
-    }
-  },
-  {
-    id: 'SAC-P115-13',
-    alias: 'external puml include rejected',
-    run: () => {
-      const tempRoot = chronicleP115Fs.mkdtempSync(chronicleP115Path.join(chronicleP115Os.tmpdir(), 'sgsd-p115-puml-include-'));
-      const templateRoot = chronicleP115Path.join(tempRoot, 'templates');
-      chronicleP115Fs.mkdirSync(chronicleP115Path.join(templateRoot, 'puml'), { recursive: true });
-      chronicleP115Fs.mkdirSync(chronicleP115Path.join(templateRoot, 'sections'), { recursive: true });
-      chronicleP115Fs.writeFileSync(chronicleP115Path.join(templateRoot, 'style.css'), ':root{--clarity-sage:#9bb89c}', 'utf8');
-      ['architecture', 'lineage-dag', 'gate-waterfall', 'file-impact', 'persona-lanes', 'timeline'].forEach((name) => {
-        const body = name === 'architecture' ? '@startuml\n!include https://example.test/bad.puml\n@enduml\n' : '@startuml\n@enduml\n';
-        chronicleP115Fs.writeFileSync(chronicleP115Path.join(templateRoot, 'puml', `${name}.puml`), body, 'utf8');
-      });
-      ['eli5', 'remember-tomorrow', 'risks', 'persona-impact'].forEach((name) => {
-        chronicleP115Fs.writeFileSync(chronicleP115Path.join(templateRoot, 'sections', `${name}.md`), `# ${name}\n{{phase_name}}\n`, 'utf8');
-      });
-      const result = chronicleP115ChildProcess.spawnSync(process.execPath, [
-        chronicleP115Renderer,
-        '--context',
-        chronicleP115SampleContext,
-        '--out',
-        chronicleP115Path.join(tempRoot, 'out.html'),
-        '--templates-dir',
-        templateRoot,
-        '--skip-puml-render'
-      ], {
-        cwd: chronicleP115Root,
-        encoding: 'utf8',
-        maxBuffer: 20 * 1024 * 1024
-      });
-      chronicleP115Assert(result.status === 6, `expected exit 6, got ${result.status}: ${result.stderr}`);
-      chronicleP115Assert(/REPORT_PUML_EXTERNAL_INCLUDE: architecture\.puml/.test(result.stderr), 'external include report missing');
-    }
-  },
-  {
-    id: 'STRUCT-P115-21',
-    alias: 'rendered chronicle self-contained',
-    run: () => chronicleP115AssertSelfContained(ensureRenderedRun().html)
-  },
-  {
-    id: 'STRUCT-P115-22-GOLDEN-PARITY',
-    alias: 'sample render matches golden fixture',
-    run: () => {
-      const html = ensureRenderedRun().html;
-      let golden = chronicleP115Fs.readFileSync(chronicleP115Golden, 'utf8');
-      if (/^<!-- P115 golden bootstrap/.test(golden)) {
-        chronicleP115Fs.writeFileSync(chronicleP115Golden, html, 'utf8');
-        golden = chronicleP115Fs.readFileSync(chronicleP115Golden, 'utf8');
-      }
-      chronicleP115Assert(html === golden, 'rendered sample does not match golden fixture byte-for-byte');
-    }
-  },
-  {
-    id: 'STRUCT-P115-23',
-    alias: 'sample render deterministic',
-    run: () => {
-      const first = ensureRenderedRun();
-      const second = ensureRenderedRunSecond();
-      chronicleP115Assert(second.status === 0, `second renderer exit ${second.status}: ${second.stderr}`);
-      chronicleP115Assert(first.html === second.html, 'two sample renders differ');
-    }
-  },
-  {
-    id: 'STRUCT-P115-24-P113-DOGFOOD',
-    alias: 'P113 real chronicle dogfood render',
-    run: () => {
-      const result = ensureP113RenderedRun();
-      chronicleP115Assert(result.status === 0, `P113 renderer exit ${result.status}: ${result.stderr}`);
-      chronicleP115Assert((result.html.match(/<svg\b/g) || []).length === 6, 'P113 render does not contain 6 SVGs');
-      chronicleP115Assert(chronicleP115SectionRoles(result.html).size >= 7, 'P113 render missing section roles');
-      chronicleP115AssertSelfContained(result.html);
-    }
-  }
-);
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -1822,6 +1484,450 @@ process.exit = (code) => {
   __p117ChronicleSelfTest.run();
   __p117OriginalProcessExit(process.exitCode);
 };
+
+p122AppendRendererAssertions();
+
+function p122AppendRendererAssertions() {
+  const p122Assertion = (condition, message) => {
+    if (!condition) {
+      throw new Error(message);
+    }
+    return true;
+  };
+
+  const p122Renderer = () => require('./render-html.cjs');
+
+  const p122ReadRendererSource = () => {
+    const fs = require('fs');
+    const path = require('path');
+    return fs.readFileSync(path.join(__dirname, 'render-html.cjs'), 'utf8');
+  };
+
+  const p122Clone = (value) => JSON.parse(JSON.stringify(value));
+
+  const p122Text = (value) =>
+    String(value || '')
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&#39;/g, "'")
+      .replace(/&quot;/g, '"')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const p122RegexEscape = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  const p122Title = (id) =>
+    String(id)
+      .split(/[-_]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+
+  const p122SectionTemplate = (id, index, sectionRoles) => {
+    const title = p122Title(id);
+    const diagramTitle = `P122 ${title} evidence map`;
+    const diagramCaption = `Evidence flow for ${title} with source anchors and operator consequences.`;
+    const why = {
+      situation: {
+        text: `${title} has a stable context slot for the cumulative chronicle.`,
+        evidence_path: '.planning/STATE.md',
+      },
+      complication: {
+        text: `${title} must remain renderable without live services.`,
+        evidence_path: '.planning/metrics/gates.jsonl',
+      },
+      question: {
+        text: `What should the operator decide from ${title}?`,
+        evidence_path: '.planning/milestones/warp-integration/ROADMAP.md',
+      },
+      answer: {
+        text: `${title} renders as deterministic evidence for P122.`,
+        evidence_path: 'super-gsd/tools/chronicle/render-html.cjs',
+      },
+    };
+
+    return {
+      id,
+      key: id,
+      slug: id,
+      section_id: id,
+      role: sectionRoles[id] || 'operator-evidence',
+      title,
+      heading: title,
+      signal: 'high',
+      confidence: 'high',
+      summary: `${title} summary for the P122 renderer self-test fixture.`,
+      body: [
+        `${title} body paragraph ${index + 1} captures the evidence path and decision surface.`,
+        `${title} secondary paragraph keeps the renderer fixture representative without external assets.`,
+      ],
+      why,
+      scqa: why,
+      slots: [
+        { id: 'situation', label: 'Situation', value: why.situation.text, evidence_path: why.situation.evidence_path },
+        { id: 'complication', label: 'Complication', value: why.complication.text, evidence_path: why.complication.evidence_path },
+        { id: 'question', label: 'Question', value: why.question.text, evidence_path: why.question.evidence_path },
+        { id: 'answer', label: 'Answer', value: why.answer.text, evidence_path: why.answer.evidence_path },
+      ],
+      evidence: [
+        {
+          id: `${id}-evidence`,
+          label: `${title} source`,
+          summary: `${title} source evidence is present.`,
+          path: '.planning/metrics/gates.jsonl',
+          evidence_path: '.planning/metrics/gates.jsonl',
+        },
+      ],
+      diagram: {
+        title: diagramTitle,
+        caption: diagramCaption,
+        type: 'flow',
+        nodes: ['context', 'render', 'operator'],
+        edges: [
+          ['context', 'render'],
+          ['render', 'operator'],
+        ],
+      },
+      diagrams: [
+        {
+          title: diagramTitle,
+          caption: diagramCaption,
+          type: 'flow',
+          nodes: ['context', 'render', 'operator'],
+          edges: [
+            ['context', 'render'],
+            ['render', 'operator'],
+          ],
+        },
+      ],
+    };
+  };
+
+  const p122FallbackContext = () => {
+    const { SECTION_ORDER, SECTION_ROLES } = p122Renderer();
+    const sections = Object.fromEntries(
+      SECTION_ORDER.map((id, index) => [id, p122SectionTemplate(id, index, SECTION_ROLES)])
+    );
+
+    return {
+      title: 'P122 Chronicle Renderer Fixture',
+      subtitle: 'Deterministic cumulative chronicle context',
+      generated_at: '2026-05-22T00:00:00.000Z',
+      generatedAt: '2026-05-22T00:00:00.000Z',
+      big_idea: {
+        text: 'The renderer should convert P121-shaped context into an operator-readable chronicle.',
+        evidence_path: '.planning/milestones/warp-integration/ROADMAP.md',
+      },
+      fog: {
+        summary: 'Only local evidence is used; external assets and live network dependencies are absent.',
+        evidence_path: '.planning/metrics/gates.jsonl',
+      },
+      next: {
+        action: 'Use the chronicle output as the operator decision surface.',
+        owner: 'operator',
+        evidence_path: '.planning/STATE.md',
+      },
+      sections,
+    };
+  };
+
+  const p122LoadFixtureContext = () => {
+    const fs = require('fs');
+    const path = require('path');
+    const fixturePath = path.join(__dirname, 'fixtures', 'sample-chronicle-context.json');
+    if (!fs.existsSync(fixturePath)) {
+      return {};
+    }
+    return JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
+  };
+
+  const p122MergeSections = (fixtureSections, fallbackSections, sectionOrder) => {
+    if (Array.isArray(fixtureSections)) {
+      const byId = new Map(
+        fixtureSections.map((section) => [
+          section.id || section.key || section.slug || section.section_id || section.sectionId,
+          section,
+        ])
+      );
+      return sectionOrder.map((id) => ({ ...fallbackSections[id], ...(byId.get(id) || {}) }));
+    }
+
+    if (fixtureSections && typeof fixtureSections === 'object') {
+      return Object.fromEntries(
+        sectionOrder.map((id) => [id, { ...fallbackSections[id], ...(fixtureSections[id] || {}) }])
+      );
+    }
+
+    return fallbackSections;
+  };
+
+  const p122SampleContext = () => {
+    const fallback = p122FallbackContext();
+    const fixture = p122LoadFixtureContext();
+    const { SECTION_ORDER } = p122Renderer();
+    return {
+      ...fallback,
+      ...fixture,
+      generated_at: fixture.generated_at || fixture.generatedAt || fallback.generated_at,
+      generatedAt: fixture.generatedAt || fixture.generated_at || fallback.generatedAt,
+      big_idea: fixture.big_idea || fallback.big_idea,
+      fog: fixture.fog || fallback.fog,
+      next: fixture.next || fallback.next,
+      sections: p122MergeSections(fixture.sections, fallback.sections, SECTION_ORDER),
+    };
+  };
+
+  const p122SectionMatcher = (id) => {
+    const escaped = p122RegexEscape(id);
+    return new RegExp(
+      `<section\\b(?=[^>]*(?:id|data-section-id|data-section|data-section-key)\\s*=\\s*["']${escaped}["'])[^>]*>[\\s\\S]*?<\\/section>`,
+      'i'
+    );
+  };
+
+  const p122FindSectionBlock = (html, id) => {
+    const exact = html.match(p122SectionMatcher(id));
+    if (exact) {
+      return exact[0];
+    }
+    const title = p122Title(id);
+    const byTitle = html.match(
+      new RegExp(`<section\\b[^>]*>[\\s\\S]*?${p122RegexEscape(title)}[\\s\\S]*?<\\/section>`, 'i')
+    );
+    return byTitle ? byTitle[0] : '';
+  };
+
+  const p122SectionIndex = (html, id) => {
+    const escaped = p122RegexEscape(id);
+    const attrMatch = html.match(
+      new RegExp(
+        `<section\\b[^>]*(?:id|data-section-id|data-section|data-section-key)\\s*=\\s*["']${escaped}["'][^>]*>`,
+        'i'
+      )
+    );
+    if (attrMatch && attrMatch.index !== undefined) {
+      return attrMatch.index;
+    }
+    return html.indexOf(p122Title(id));
+  };
+
+  const p122UpdateSection = (context, id, patch) => {
+    if (Array.isArray(context.sections)) {
+      const index = context.sections.findIndex((section) =>
+        [section.id, section.key, section.slug, section.section_id, section.sectionId].includes(id)
+      );
+      const targetIndex = index >= 0 ? index : 0;
+      context.sections[targetIndex] = { ...context.sections[targetIndex], ...patch };
+      return context;
+    }
+
+    context.sections = context.sections || {};
+    context.sections[id] = { ...(context.sections[id] || {}), ...patch };
+    return context;
+  };
+
+  const p122BindingFailures = (result) => {
+    const failures = [];
+    const seen = new Set();
+    const visit = (value) => {
+      if (typeof value === 'string') {
+        if (/binding[- ]rule/i.test(value) && /\bFAIL\b/i.test(value)) {
+          failures.push(value);
+        }
+        return;
+      }
+
+      if (!value || typeof value !== 'object' || seen.has(value)) {
+        return;
+      }
+      seen.add(value);
+
+      if (Array.isArray(value)) {
+        value.forEach(visit);
+        return;
+      }
+
+      const status = String(value.status || value.outcome || value.result || value.level || '').toUpperCase();
+      const serialized = JSON.stringify(value).toLowerCase();
+      if (status === 'FAIL' && (serialized.includes('binding-rule') || serialized.includes('binding rule'))) {
+        failures.push(value);
+      }
+
+      Object.values(value).forEach(visit);
+    };
+
+    visit(result);
+    return failures;
+  };
+
+  assertions.push(
+    {
+      id: 'SAC-P122-01',
+      run: () => {
+        const { renderChronicleHtml } = p122Renderer();
+        const html = renderChronicleHtml(p122SampleContext());
+        const firstSection = html.match(/<section\b[^>]*>/i);
+        return p122Assertion(
+          firstSection && /\brole\s*=\s*["']operator-decision["']/i.test(firstSection[0]),
+          'first rendered section must have role="operator-decision"'
+        );
+      },
+    },
+    {
+      id: 'SAC-P122-02',
+      run: () => {
+        const { SECTION_ORDER, renderChronicleHtml } = p122Renderer();
+        const html = renderChronicleHtml(p122SampleContext());
+        const indexes = SECTION_ORDER.map((id) => p122SectionIndex(html, id));
+        p122Assertion(indexes.every((index) => index >= 0), 'rendered HTML must contain every SECTION_ORDER section');
+        return p122Assertion(
+          indexes.every((index, position) => position === 0 || index > indexes[position - 1]),
+          'rendered HTML sections must follow SECTION_ORDER'
+        );
+      },
+    },
+    {
+      id: 'SAC-P122-03',
+      run: () => {
+        const { renderChronicleHtml } = p122Renderer();
+        const { checkConformance } = require('../shared/conformance-check.cjs');
+        const html = renderChronicleHtml(p122SampleContext());
+        const result = checkConformance(html, 'chronicle');
+        return p122Assertion(
+          p122BindingFailures(result).length === 0,
+          'shared conformance checker reported binding-rule FAIL'
+        );
+      },
+    },
+    {
+      id: 'SAC-P122-04',
+      run: () => {
+        const { renderChronicleHtml } = p122Renderer();
+        const html = renderChronicleHtml(p122SampleContext());
+        p122Assertion(!/\b(?:src|href)\s*=\s*["']https?:\/\//i.test(html), 'src/href must not reference http(s) URLs');
+        p122Assertion(!/<script\b[^>]*\bsrc\s*=/i.test(html), 'HTML must not contain <script src>');
+        p122Assertion(
+          !/<link\b(?=[^>]*\brel\s*=\s*["']stylesheet["'])(?=[^>]*\bhref\s*=)[^>]*>/i.test(html),
+          'HTML must not contain external stylesheet links'
+        );
+        return p122Assertion(!/@font-face/i.test(html), 'HTML must not contain @font-face');
+      },
+    },
+    {
+      id: 'SAC-P122-05',
+      run: () => {
+        const { SECTION_ORDER, renderChronicleHtml } = p122Renderer();
+        const lowSignalId = SECTION_ORDER[Math.min(1, SECTION_ORDER.length - 1)];
+        const context = p122UpdateSection(p122SampleContext(), lowSignalId, {
+          signal: 'low',
+          body: ['Low-signal P122 evidence should be disclosed only on demand.'],
+        });
+        const html = renderChronicleHtml(context);
+        const section = p122FindSectionBlock(html, lowSignalId);
+        return p122Assertion(
+          /<details\b(?![^>]*\bopen\b)[^>]*>/i.test(section),
+          'low-signal section body must render inside a collapsed <details>'
+        );
+      },
+    },
+    {
+      id: 'SAC-P122-06',
+      run: () => {
+        const { renderChronicleHtml } = p122Renderer();
+        const context = p122SampleContext();
+        const html = renderChronicleHtml(context);
+        const figures = html.match(/<figure\b[\s\S]*?<\/figure>/gi) || [];
+        p122Assertion(figures.length > 0, 'rendered HTML must include at least one <figure>');
+        return figures.every((figure) => {
+          const figcaption = figure.match(/<figcaption\b[^>]*>([\s\S]*?)<\/figcaption>/i);
+          p122Assertion(figcaption, 'every <figure> must contain a <figcaption>');
+          const captionText = p122Text(figcaption[1]);
+          const heading = figure.match(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]>/i);
+          const titleText = heading ? p122Text(heading[1]) : '';
+          return p122Assertion(
+            captionText && (!titleText || captionText !== titleText),
+            'figure caption text must differ from the diagram title'
+          );
+        });
+      },
+    },
+    {
+      id: 'SAC-P122-07',
+      run: () =>
+        p122Assertion(
+          !/:root\s*\{/i.test(p122ReadRendererSource()),
+          'render-html.cjs must not contain a divergent :root block'
+        ),
+    },
+    {
+      id: 'SAC-P122-08',
+      run: () => {
+        const { renderChronicleHtml } = p122Renderer();
+        const context = p122SampleContext();
+        const first = renderChronicleHtml(context);
+        const second = renderChronicleHtml(context);
+        return p122Assertion(first === second, 'rendering the same context twice must be byte-identical');
+      },
+    },
+    {
+      id: 'SAC-P122-09',
+      run: () => {
+        const { SECTION_ORDER, renderChronicleHtml } = p122Renderer();
+        const missingId = SECTION_ORDER[Math.min(2, SECTION_ORDER.length - 1)];
+        const context = p122UpdateSection(p122SampleContext(), missingId, {
+          evidence: [],
+          why: {
+            situation: { text: '', evidence_path: '' },
+            complication: { text: '', evidence_path: '' },
+            question: { text: '', evidence_path: '' },
+            answer: { text: '', evidence_path: '' },
+          },
+          scqa: {
+            situation: { text: '', evidence_path: '' },
+            complication: { text: '', evidence_path: '' },
+            question: { text: '', evidence_path: '' },
+            answer: { text: '', evidence_path: '' },
+          },
+          slots: [
+            { id: 'situation', label: 'Situation', value: '', evidence_path: '' },
+            { id: 'complication', label: 'Complication', value: '', evidence_path: '' },
+            { id: 'question', label: 'Question', value: '', evidence_path: '' },
+            { id: 'answer', label: 'Answer', value: '', evidence_path: '' },
+          ],
+        });
+        const html = renderChronicleHtml(context);
+        return p122Assertion(
+          /<span\b[^>]*\bclass\s*=\s*["'][^"']*\bmissing-evidence\b[^"']*["'][^>]*>/i.test(html),
+          'unfilled slot must render a <span class="missing-evidence">'
+        );
+      },
+    },
+    {
+      id: 'SAC-P122-10',
+      run: () => {
+        const { SECTION_ORDER, SECTION_ROLES } = p122Renderer();
+        p122Assertion(Array.isArray(SECTION_ORDER), 'SECTION_ORDER must be an array');
+        p122Assertion(SECTION_ORDER.length === 11, 'SECTION_ORDER must contain exactly 11 entries');
+        return p122Assertion(
+          SECTION_ORDER.every((id) => Object.prototype.hasOwnProperty.call(SECTION_ROLES, id)),
+          'every SECTION_ORDER id must have a SECTION_ROLES mapping'
+        );
+      },
+    },
+    {
+      id: 'STRUCT-P122-21',
+      run: () => {
+        const { renderChronicleHtml } = p122Renderer();
+        const html = renderChronicleHtml(p122SampleContext());
+        p122Assertion(/<nav\b/i.test(html), 'rendered HTML must include <nav>');
+        return p122Assertion(/<header\b/i.test(html), 'rendered HTML must include <header>');
+      },
+    }
+  );
+}
 
 if (require.main === module) {
   main();

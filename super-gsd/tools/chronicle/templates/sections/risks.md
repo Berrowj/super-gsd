@@ -1,7 +1,5 @@
 # Risks and rollback
 
-| Open risks | Rollback steps |
-| --- | --- |
-| {{open_risks}} | {{rollback_steps}} |
-
-[Evidence: {{risk_evidence}}]
+| Risk still open | Trigger to watch | Rollback or mitigation | Owner |
+| --- | --- | --- | --- |
+| {{risks.risk}} | {{risks.trigger}} | {{risks.rollback}} | {{risks.owner}} |

@@ -1,7 +1,13 @@
 # Persona impact
 
-| Persona | What changes | Evidence |
-| --- | --- | --- |
-| {{personas}} | {{persona_changes}} | {{persona_evidence}} |
+Operator impact, stated plainly:
 
-[Evidence: {{persona_evidence}}]
+{{persona_impact.operator}}
+
+Sub-agent impact:
+
+{{persona_impact.sub_agents}}
+
+Reviewer impact:
+
+{{persona_impact.reviewer}}
