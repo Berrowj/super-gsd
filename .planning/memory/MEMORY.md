@@ -113,6 +113,7 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 ## workflow/feedback
 
 - [Never pause autonomous loop on context pressure or completion mark](workflow/feedback/feedback_no_context_pauses.md) — 2026-04-27 incident: "fuck sake why did you stop. under no circumstances are you suppose to.stop!!!!!!!"; the 3 valid exits are all-complete / hard-blocker / user-says-stop; nothing else
+- [No PII in the repo — git identity is "operator"](feedback_no_pii_in_repo.md) — 2026-05-22: operator de-doxxed super-gsd; never write real name/email into tracked files, commit messages, or commit identity; commit as operator <operator@users.noreply.github.com>
 
 
 - [Auto-accept Claude's recommendations in sequential Q&A unless scope-altering](workflow/feedback/feedback_auto_accept_recommendations.md) - Rip through discuss-phase / deliberation chains picking recommended unless choice changes WHAT ships (not HOW it's built)

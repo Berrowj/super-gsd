@@ -3,11 +3,14 @@
 > **Read this if you've never used Super GSD before.**
 > It explains everything from "what is this?" to "how do I make it build my entire project while I sleep?"
 
-> **Current setup note (May 2026):** older SGSD material used
-> ByteRover/`.brv`. Current SGSD memory is `.planning/memory/` with
-> `MEMORY.md` and `sgsd-recall`. Do not install ByteRover for a fresh SGSD
-> project. Use `README.md` and `super-gsd/docs/SGSD-FRIEND-SETUP-WIZARD.md` as
-> the canonical fresh-clone setup docs until this full guide is rewritten.
+> **Current as of v3.2 (2026-05-22).** Older SGSD material used
+> ByteRover/`.brv` and an Opus→Sonnet→Haiku provider split. Both are obsolete.
+> Current SGSD memory is `.planning/memory/` with `MEMORY.md` and `sgsd-recall`
+> (plus the v3.0 Mesh Memory Lite ledger); the provider model is Claude/Opus 4.7
+> orchestrating and Codex GPT-5.5/xhigh executing. Do not install ByteRover for
+> a fresh SGSD project. `README.md`,
+> `super-gsd/docs/SGSD-FRIEND-SETUP-WIZARD.md`, and the repo-root
+> `SUPER-GSD-ARCHITECTURE.md` are the canonical current references.
 
 ---
 
@@ -395,14 +398,19 @@ So the orchestrator makes sure every response includes at least one tool call. "
 
 ### When Does It Stop?
 
-Only 4 things stop the loop:
+Only 3 things stop the loop:
 
 1. **All phases are done** — Mission accomplished! Nothing left to do.
-2. **Memory is 70% full** — Claude saves a checkpoint file and stops. Next time you say "go", it picks up exactly where it left off.
-3. **It's stuck** — Something needs a human decision. Claude explains what it needs and waits.
-4. **You say "stop"** — Claude saves progress and stops.
+2. **A real blocker survives automated recovery** — something needs a human
+   decision (credentials, a destructive choice, external access). Before
+   stopping, SGSD runs the board plus a separate Codex challenge to look for a
+   safe local path; only when that fails does it checkpoint and stop.
+3. **You say "stop"** — Claude saves progress and stops.
 
-Nothing else stops it. Not phase boundaries. Not milestone boundaries. Not "I've been running for a while." Only these 4 things.
+Nothing else stops it. Not phase boundaries. Not milestone boundaries. Not "I've
+been running for a while." Not the context window filling up — if the runtime
+compacts context, SGSD just resumes from external `.planning/` state. Only these
+3 things.
 
 ### The Three Brains
 
@@ -844,4 +852,4 @@ continue                  # or /sgsd-resume
 
 ---
 
-*Super GSD v1.0 — Ship it.*
+*Super GSD — v3.2 (Operator Comprehension System), shipped 2026-05-22. Ship it.*

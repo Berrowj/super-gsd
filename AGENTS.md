@@ -4,7 +4,13 @@ Tool-neutral rules for any agent (Warp, Claude Code, Codex, ACP). Compact; defer
 
 ## Project
 
-Super GSD (SGSD) — autonomous Claude-Code orchestration. Milestones → phases → plans → sub-agents under gates with evidence. Runtime: `sg` (boots cockpit + greets Claude in current Warp tab).
+Super GSD (SGSD) — a typed, auditable autonomous software-delivery engine.
+Milestones → phases → plans → bounded executor dispatches under gates with
+evidence. The control plane (Claude / Opus 4.7) orchestrates only and never
+writes code; the execution fabric (Codex GPT-5.5 at xhigh) does all research,
+planning, code, verification, and gate work. Runtime: `sg` (boots cockpit +
+greets Claude in current Warp tab). Current milestone: v3.2 SHIPPED
+(Operator Comprehension System).
 
 ## Truth Locations
 
@@ -14,7 +20,7 @@ Super GSD (SGSD) — autonomous Claude-Code orchestration. Milestones → phases
 - `.planning/metrics/*.jsonl` — append-only evidence ledgers (token, codex, gates, MUDA, edge-guard, route).
 - `.planning/milestones/{milestone}/phases/{NN-…}/*.md` — per-phase CONTEXT/RESEARCH/PLAN/VERIFICATION/ATC.
 
-Active roadmap: v2.2-v2.8 at `.planning/milestones/warp-integration/ROADMAP.md`. Prior (v1.6-v2.1, COMPLETE 2026-04-29) preserved in STATE.md `previous_roadmap:`.
+Latest milestone: v3.2 Operator Comprehension System (ALL-PHASES-CLOSED 2026-05-22). Per-milestone roadmaps live at `.planning/milestones/{milestone}/ROADMAP.md`; full milestone history is `.planning/MILESTONES.md`. v3.3 scoping is an open operator decision.
 
 ## Rule Hierarchy
 
@@ -42,5 +48,5 @@ Don't invent SGSD commands. File a phase plan or `.warp/workflows/` entry.
 ## Per-Agent Pointers
 
 - **Claude Code**: also load `CLAUDE.md` (loop, dispatch, exit conditions, model routing, checkpoint).
-- **Warp Agent**: also load `WARP.md`. Use SGSD MCP for state queries once v2.3 (Phase 68+) ships; until then read `.planning/STATE.md` frontmatter via Codebase Context.
+- **Warp Agent**: also load `WARP.md`. Use the SGSD MCP for state queries where available; otherwise read `.planning/STATE.md` frontmatter via Codebase Context.
 - **Codex / Other CLIs**: this file is your contract. Read `.planning/` directly.

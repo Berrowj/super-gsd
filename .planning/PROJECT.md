@@ -2,73 +2,84 @@
 
 ## What This Is
 
-A token-efficient, multi-agent autonomous orchestrator built on GSD 1.0.
-Combines the best of GSD 1.0 (68 skills, 24 agents), GSD 2.0's orchestrator
-patterns (auto loop, checkpoint survival, dispatch rules), and new capabilities
-(CEO/Board deliberation, ByteRover memory, model routing, ATC quality gates,
-Overwatcher signal maps). Post-v1.1: adds self-auditing discipline, evidence
-gates, FLOOR governance, and a trajectory-distillation substrate for
-cross-milestone learning.
+A typed, auditable autonomous software-delivery engine. You give it a roadmap,
+say *go*, and it researches, plans, builds, reviews, gates, and closes the work
+phase after phase while keeping a complete, evidence-backed record of everything
+it did and everything it deliberately did not do.
+
+It is built on one architectural rule: **the control plane and the execution
+fabric are two different things.** A stateful orchestrator (Claude / Opus 4.7)
+owns state, gates, memory, and promotion — and never writes code. A stateless
+executor (Codex GPT-5.5 at xhigh) does the bounded code work, one locked plan at
+a time. Nothing reaches the main branch without evidence a human or a
+deterministic gate can re-check.
+
+Built on the GSD 1.0 skill base, it adds the autonomous orchestrator loop,
+CEO/Board deliberation, a project-local memory tier with role-filtered mesh
+memory, ATC quality gates, the Chronicle Layer, and the answer-first Cockpit.
 
 ## Core Value
 
 Ship an autonomous framework that any Claude Code Max plan user can install with
-one command and immediately start building software — with the AI managing its own
-token efficiency, model selection, memory, quality gates, and crash recovery.
+one command and immediately start building software — with the AI managing its
+own token efficiency, provider routing, memory, quality gates, crash recovery,
+and operator comprehension.
 
 ## Current State
 
-**Shipped:** v1.4 Clean Close + Codex Visibility + Autonomous Handoff (2026-04-24) — 4 phases (17-20), 10 plans, ~110 commits, 17/17 REQ-IDs, 16 Codex invocations + ~32k Claude tokens saved, all CRITs cleared, handoff disabled by default. See `.planning/milestones/v1.4/SUMMARY.md`.
+**Shipped:** v3.2 Operator Comprehension System (2026-05-22) — 8 phases
+(P120-P127). DLB-12 complete: the chronicle HTML upgraded to a book-mined gold
+reference (chronicle self-test 111/111) and the live cockpit rebuilt answer-first
+(cockpit self-test 18/18), both governed by one shared design system and 12
+book-grounded comprehension rules. Cross-surface conformance machine-checked.
+See `.planning/milestones/v3.2/SUMMARY.md`.
 
-**Previously shipped:**
-- v1.1 Self-Audit (2026-04-21) — 8 phases, 15 plans, full gap audit + 6/6 verifier + evidence L1/L2 PASS + ATC LITE clean
-- v1.2 Evidence-First Sharpening (Phases 9-13, formally closed 2026-04-24 via v1.4 CLEAN-06 — `git tag v1.2`)
-- v1.3 Multimodal Review — Codex Integration (2026-04-24) — 3 phases (14-16), 12 plans, first live Codex invocation + provider substrate shipped
+**The v3.x line (operator-facing):**
+- v3.0 SGSD-PRO (2026-05-21) — DLB-08 Mesh Memory Lite + DLB-09 Codex Pro Mode +
+  DLB-10 Context Authority. 7 phases (P106-P112); 232 self-test assertions
+  across 4 integrated runners; 4/4 MVP fixtures green.
+- v3.1 Chronicle Layer (2026-05-21) — DLB-11. 7 phases (P113-P119); every phase
+  close ships a validated HTML projection of SGSD truth; 96/96 self-test.
+- v3.2 Operator Comprehension System (2026-05-22) — DLB-12.
 
-**v1.3 Historic moment:** First live Codex sub-agent invocation captured 2026-04-24T02:39:05Z via the MUDA qualitative probe path. The config → `resolveReviewerProvider` → `shellDispatch` → `codex-exec.sh` → `codex exec` pipe is operational end-to-end (`model: gpt-5.4, sandbox: read-only`). SGSD is now cross-vendor at review-shaped gate surfaces.
+**Earlier line:** v1.1-v1.5 (foundation, evidence-first sharpening, multimodal
+Codex review, VTP knowledge primacy), v1.6-v2.1 (cockpit, command contracts,
+gate fitness, research routing, failure injection, distribution — ROADMAP
+COMPLETE 2026-04-29), v2.2-v2.8 Warp integration, v2.9 Agentic Harness Evolution.
+Full history in `.planning/MILESTONES.md`.
 
-**Post-milestone landing (pre-v1.3):** DLB-01..06 deliberations shipped (memory topology, MUDA write-path, intent continuity, resource substrate, VTP audit sharpening, central distribution) plus SGSD v2 Phase A-E (registry + 8 executors + heartbeat + statusline + mission-control tile).
+**Provider model (current).** Claude / Opus 4.7 orchestrates only — judgment,
+dispatch, synthesis, gates, promotion. Codex GPT-5.5 at xhigh reasoning effort
+is the execution fabric for all research, planning, plan-check, code execution,
+verification, spec-review, ATC, and gate work. Sonnet/Haiku are not default
+providers; the legacy Claude worker agents are disabled for code execution.
 
-## Current Milestone: v1.5 VTP Knowledge Primacy + Post-v1.4 Hardening
+## Next Milestone
 
-**Goal:** Elevate the VTP knowledge library (operator-curated books, papers, prior research) from passive MCP server into active enrichment gate on every research + audit decision, close Phase 20 Codex-acknowledged security surfaces, calibrate MUDA aggregation across 3-phase accumulated findings, fully adopt richer-output contract Codex began emitting spontaneously in v1.4 Phase 20, and close Phase 17-19 carryover WARNs + wire edge-guard + dashboard math + timeout observability. Operator directive 2026-04-24: *"lean on VTP MCP for enrichment of ideas, problem solving, forward thinking... extra gates towards the end of each research phase that calls on the MCP to enrich or come up with a better idea from our library."*
-
-**Design posture (Q1-Q4 locked during scoping):**
-- Q2=B enrich-only — no challenger mode (preserves autonomy)
-- Q3=A hard-required artifact — VTP-ENRICHMENT.md MUST exist; empty-hit continues autonomously with explicit zero-hits statement; only VTP API errors block
-
-**Target features (6 categories, 21 REQ-IDs, 5 phases, 13 plans):**
-
-- **VTPE (Phase 21 — VTP Enrichment Gates):** research→planning enrichment gate, audit workflow cross-reference (sgsd-audit + sgsd-muda-audit + gsd-audit-milestone), milestone-close library cross-reference, design-policy config locks, empty-hit artifact discipline, **sgsd-board-researcher 5th deliberation voice** (queries VTP library during CEO/Board rounds)
-- **SEC (Phase 22 — Security Hardening):** symlink canonicalize on handoff paths, fs flock concurrent-write guard on handoff-log.jsonl
-- **MUDAC (Phase 23 — MUDA Calibration):** 5-probe aggregation loop completeness, inventory threshold recalibration, sgsd-muda-probe.sh flat-path mirror-fix, summary text accuracy vs raw JSON verdict
-- **CONTRACT (Phase 24 — Richer Output Contract):** FINDINGS_DETAIL prompt-engineering follow-up, validateContract extended parsing, ATC-REVIEW.md detail rendering
-- **CARRY + INSTR (Phase 25 — Carryover + Telemetry):** awk anchor sentinel-replace, providers-registry JSDoc narrative audit, dogfood audit strictness (filter fallback rows), edge-guard layer wiring, dashboard offload math audit, timeout observability metric
-
-**Dependencies:** Phase 17 ∥ Phase 18 (independent). Phase 19 benefits from Phase 18's real Codex activity. Phase 20 serializes after Phase 19 (needs MC surfaces to extend).
-
-**Success criteria for milestone close:**
-- Zero v1.3 carry-over tech debt items remaining open
-- `git tag v1.2` exists; v1.2 archive files in place
-- At least one `.planning/phases/*/commit-reviews.jsonl` row with `provider: openai-codex` and valid FINDINGS contract
-- Mission-control dashboard visibly reflects Codex activity during autonomous runs
-- **Autonomous handoff proven end-to-end:** at least one emergency_halt checkpoint during v1.4's own phases triggers the Stop hook, spawns a fresh claude session, resumes at next_unit without operator intervention. `.planning/metrics/handoff-log.jsonl` contains the chain event as evidence.
+v3.3 scoping is an open operator decision. Queued debt from v3.2:
+conformance-gate promotion (advisory → binding on the chronicle path), cockpit
+live-data threading (`prior_fog_high` from STATE/ledger), a full canonical
+STATE.md re-sync, and resolving the Windows Codex `CreateProcessAsUserW 216`
+read-block so executor dispatches stop needing full-file in-report emission.
 
 ## Key Decisions
 
-- D001: Opus orchestrates, Sonnet executes, Haiku classifies
-- D002: Compressed XML plans (~800 tokens vs ~2,000 prose)
+- D001: Claude/Opus 4.7 orchestrates only (never writes code); Codex GPT-5.5/xhigh is the execution fabric — research, planning, code, verification, gates
+- D002: Compressed XML plans (~800 tokens vs ~2,000 prose); v2 YAML-frontmatter plan schema is canonical
 - D003: Structured 300-word agent reports
 - D004: JSONL token logging
-- D005: Frontmatter-only reads + brv-query-local
+- D005: Frontmatter-only reads + `sgsd-recall` over `.planning/memory/`
 - D006: No API keys — Max plan OAuth only
-- D007 (DLB-01): Git-native filesystem memory tier, no MCP, 40-file tripwire
+- D007 (DLB-01): Git-native filesystem memory tier at `.planning/memory/`, no MCP, 40-file tripwire (ByteRover removed)
 - D008 (DLB-02): MUDA write-path only with kill condition
 - D009 (DLB-03): Structural intent injection + cascade rule + coverage kill check
 - D010 (DLB-04): Scoped Agents manifest + operator-gated SEPL + trajectory-hypothesis distillation
 - D011 (2026-04-21 retro): FLOOR gate operates per-brief; cascade does not trigger re-inheritance
 - D012 (2026-04-21 retro): AGP-P-02 resource-protocol scope is a floor, not a ceiling
 - D013 (2026-04-21 retro): Lightweight decision-note format `YYYY-MM-DD-slug.md` sits alongside `DLB-NN` for below-FLOOR revertable decisions
+- D014 (DLB-07): Semantic verification — plans need real-data `semantic_acceptance_criteria`; structural pass alone cannot close a phase
+- D015 (DLB-08): Mesh Memory Lite — 7 typed CMB classes; a claim CMB is never treated as an observation CMB; hard operator carve-outs survive any confidence level
+- D016 (DLB-11): A phase is not cognitively complete until the operator can understand it — chronicle validation is a binding phase-close gate
 
 ## Constraints
 
@@ -95,4 +106,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Key Decisions audit
 
 ---
-*Last updated: 2026-04-21 after v1.1 milestone archive*
+*Last updated: 2026-05-22 after v3.2 milestone close*

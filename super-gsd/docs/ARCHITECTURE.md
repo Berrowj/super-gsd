@@ -1,8 +1,19 @@
 # Super GSD — Architecture
 
-> Living document. Last updated 2026-04-19 after the DLB-01/02/03 + ATC-9.5 wave.
+> Living document. Brought current 2026-05-22 to v3.2 (Operator Comprehension
+> System). Previously updated 2026-04-19 after the DLB-01/02/03 + ATC-9.5 wave.
 > Every diagram below is a Mermaid block — renders in any markdown viewer that
 > supports Mermaid (GitHub, VS Code, Obsidian, most chat UIs).
+
+> **Provider model (current).** Claude / Opus 4.7 orchestrates ONLY — judgment,
+> dispatch, synthesis, gates, promotion; it never writes code. Codex GPT-5.5 at
+> xhigh reasoning effort is the execution fabric for all research, planning,
+> plan-check, source-changing execution, verification, spec-review, ATC, and
+> gate work, dispatched via `super-gsd/scripts/codex-executor.sh` /
+> `codex-exec.sh`. Sonnet/Haiku are not default providers; the legacy Claude
+> worker agents are disabled for code execution and are not Codex fallbacks.
+> Sections that still show Haiku/Sonnet describe the original v1.x design and
+> are labelled as history.
 
 ## 1. System overview
 
@@ -13,27 +24,27 @@ flowchart TB
         dash["3 dashboards<br/>(sgsd1 mission-control<br/>sgsd2 narrative<br/>sgsd3 gate-verdict)"]
     end
 
-    subgraph orch[Orchestrator — Opus 4.x]
-        loop["13-step loop<br/>read → classify → dispatch →<br/>process → review → commit → curate"]
+    subgraph orch[Control plane — Claude / Opus 4.7]
+        loop["13-step loop<br/>read → classify → stoplight → dispatch →<br/>process → spec+ATC review → commit → curate"]
         state[".planning/STATE.md<br/>.planning/ROADMAP.md<br/>.planning/ORCHESTRATOR-CHECKPOINT.md"]
     end
 
-    subgraph agents[Sub-agents — Haiku / Sonnet]
-        cls["sgsd-classifier (Haiku)<br/>complexity + atc_tier + deliberate"]
-        ctx["sgsd-context-selector (Haiku)<br/>recall queries + file reads"]
-        res["gsd-phase-researcher (Sonnet)"]
-        pln["gsd-planner (Sonnet)"]
-        exe["gsd-executor (Sonnet)"]
-        ver["gsd-verifier (Sonnet)"]
-        rev["gsd-code-reviewer (Sonnet)<br/>ATC reviews"]
-        brd["Board (4 × Sonnet)<br/>architect • pragmatist<br/>contrarian • moonshot"]
+    subgraph agents[Execution fabric — Codex GPT-5.5 / xhigh]
+        cls["classifier (Codex/local deterministic)<br/>complexity + atc_tier + deliberate"]
+        res["research lane"]
+        pln["planning lane"]
+        exe["executor lane<br/>codex-executor.sh / patch mode"]
+        ver["verification lane"]
+        rev["spec-review + ATC lanes"]
+        brd["Board (Opus 4.7)<br/>CEO • architect • contrarian"]
     end
 
-    subgraph mem[Memory tier — DLB-01]
-        tree[".brv/context-tree/<br/>patterns · anti-patterns ·<br/>decisions · expertise · scripts"]
-        idx[".brv/context-tree/INDEX.md<br/>17-row catalogue"]
-        recall["sgsd-recall.sh<br/>grep INDEX + read top-N"]
-        curate["sgsd-curate.sh<br/>write new entry +<br/>update INDEX atomically"]
+    subgraph mem[Memory tier — DLB-01 + DLB-08]
+        tree[".planning/memory/<br/>patterns · anti-patterns ·<br/>decisions · expertise · code"]
+        idx[".planning/memory/MEMORY.md<br/>recall index"]
+        mesh[".planning/mesh/memory/cmbs.jsonl<br/>Mesh Memory Lite — 7 CMB classes<br/>lineage DAG + echo detection"]
+        recall["sgsd-recall.sh<br/>grep index + read top-N"]
+        curate["sgsd-curate.sh<br/>write new entry +<br/>update index atomically"]
     end
 
     subgraph gates[Quality gates — phase close]
@@ -56,11 +67,13 @@ flowchart TB
 
     cmd --> loop
     loop <--> state
-    loop --> cls & ctx
-    ctx --> recall
+    loop --> cls
+    loop --> recall
     recall --> tree & idx
     loop --> res & pln & exe & ver & rev & brd
     exe -.report.-> loop
+    exe -.execution_receipt CMB.-> mesh
+    rev -.review_finding CMB.-> mesh
     loop -.atc_tier.-> rev
     loop -.on-dispatch.-> curate
     curate --> tree & idx
@@ -80,17 +93,17 @@ flowchart TB
 ```mermaid
 flowchart TD
     S1["1. READ STATE<br/>STATE.md frontmatter"]
-    S2["2. CLASSIFY (Haiku)<br/>→ complexity · atc_tier ·<br/>deliberate · model"]
+    S2["2. CLASSIFY (Codex/local)<br/>→ complexity · atc_tier ·<br/>deliberate · provider"]
     S3["3. DELIBERATION GATE<br/>if atc_tier == gate<br/>or deliberate"]
-    S4["4. SELECT CONTEXT (Haiku)<br/>→ brv_queries · file_reads"]
+    S4["4. SELECT CONTEXT<br/>→ sgsd-recall queries · file_reads"]
     S5["5. QUERY MEMORY<br/>sgsd-recall each query"]
     S55["5.5. INTENT INJECTION (DLB-03)<br/>read milestone INTENT.md<br/>build &lt;intent&gt; header"]
-    S6["6. DETERMINE DISPATCH<br/>match rules a-h"]
-    S65["6.5 ATC · 6.55 MUDA ·<br/>6.6 Browser · 6.7 Evidence<br/>(phase-close only)"]
+    S6["6. STOPLIGHT + DISPATCH<br/>GREEN/AMBER/RED + match rules"]
+    S65["6.5 ATC · 6.55 MUDA ·<br/>6.6 Browser · 6.7 Evidence audit<br/>chronicle build+validate (phase-close)"]
     S7["7. COMPOSE PROMPT<br/>plan + memory + intent"]
-    S8["8. DISPATCH SUB-AGENT<br/>TaskCreate + Agent + TaskUpdate"]
+    S8["8. DISPATCH CODEX<br/>codex-executor.sh / codex-exec.sh"]
     S9["9. PROCESS RESULT<br/>parse 6-section report"]
-    S95["9.5. PER-DISPATCH ATC<br/>if tier ∈ full/gate<br/>AND code files touched"]
+    S95["9.5. SPEC-COMPLIANCE + PER-DISPATCH ATC<br/>Codex review of raw PLAN/diff/<br/>report/verification"]
     S10["10. CURATE LEARNINGS<br/>sgsd-curate new patterns"]
     S11["11. UPDATE STATE<br/>STATE.md · ROADMAP.md ·<br/>token-log.jsonl"]
     S12["12. GIT COMMIT<br/>atomic · specific files"]
@@ -102,36 +115,41 @@ flowchart TD
     S65 -.then phase close.-> S11
 ```
 
-## 3. Memory retrieval tier (DLB-01)
+## 3. Memory tiers (DLB-01 recall + DLB-08 mesh)
 
 ```mermaid
 flowchart LR
-    subgraph source["Authoritative store — git-tracked"]
-        tree[".brv/context-tree/<br/>17 .md files in 5 subdirs"]
-        idx["INDEX.md<br/>1 row per file<br/>≤80-char summary"]
+    subgraph source["Tier 1 — recall memory (git-tracked)"]
+        tree[".planning/memory/<br/>typed .md entries in subdirs"]
+        idx["MEMORY.md<br/>1 row per entry<br/>≤80-char summary"]
     end
 
     subgraph reader["Retrieval"]
         recall["sgsd-recall.sh<br/>--type · --limit · --paths-only"]
-        alg["1. grep INDEX rows for terms<br/>2. rank by distinct-term count<br/>3. read top-N file bodies<br/>4. emit with &lt;!-- sgsd-recall --&gt; framing"]
+        alg["1. grep index rows for terms<br/>2. rank by distinct-term count<br/>3. read top-N entry bodies<br/>4. emit with &lt;!-- sgsd-recall --&gt; framing"]
     end
 
     subgraph writer["Curation"]
         curate["sgsd-curate.sh<br/>--type · --slug · --summary<br/>--tags · --maturity"]
-        atomic["1. write .md to correct subdir<br/>2. append INDEX.md row<br/>3. rollback if index fails<br/>4. git-tracked"]
+        atomic["1. write .md to correct subdir<br/>2. append MEMORY.md row<br/>3. rollback if index fails<br/>4. git-tracked"]
     end
 
-    subgraph dead["Legacy (preserved, not invoked)"]
-        brvq["brv-query-local.js (212 lines)<br/>BM25 — dormant until 40-file tripwire"]
-        brvc["brv-curate-local.js (131 lines)"]
-        mcp[".mcp.json<br/>(empty — brv entry removed)"]
+    subgraph meshT["Tier 2 — Mesh Memory Lite (DLB-08, v3.0)"]
+        ledger[".planning/mesh/memory/cmbs.jsonl<br/>append-only; 7 CMB classes"]
+        lineage["lineage.cjs — DAG walker<br/>echo-detector.cjs — O(1)"]
+        evval["evidence-validator.cjs<br/>VERIFIED/REFUTED/STALE/<br/>UNVERIFIED/GUARDED"]
+        esc["escalation-gate.cjs<br/>hard operator carve-outs"]
     end
 
     recall --> alg --> idx
     alg -.on hit.-> tree
     curate --> atomic --> tree & idx
-    source -.40-file tripwire.-> brvq
+    ledger --> lineage & evval
+    evval --> esc
 ```
+
+> Legacy `.brv/context-tree/` ByteRover content is migration input only — not
+> invoked at runtime. BM25 ranking is revisited only at the 40-file tripwire.
 
 ## 4. Quality gates pipeline (what runs when)
 
@@ -140,7 +158,7 @@ flowchart TD
     start[Every dispatch]
     clsTier{"classifier.atc_tier<br/>per-unit"}
     s95L["Step 9.5 LITE<br/>executor self-check<br/>(no extra agent)"]
-    s95F["Step 9.5 FULL<br/>gsd-code-reviewer single-dispatch<br/>~250 tokens"]
+    s95F["Step 9.5 FULL<br/>Codex spec-review + ATC<br/>single-dispatch"]
     s95G["Step 9.5 GATE<br/>interactive → BLOCK<br/>auto → bypass + log"]
     s95S["SKIP tier<br/>no review"]
 
@@ -158,7 +176,7 @@ flowchart TD
     moreUnits -->|no, verification passes| phaseClose
 
     subgraph phaseClose["Phase close — Step 6.x chain (runs once per phase)"]
-        p65["6.5 Phase ATC<br/>Haiku classify + Sonnet review<br/>cross-plan architecture"]
+        p65["6.5 Phase ATC<br/>Codex classify + Codex review<br/>cross-plan architecture"]
         p655["6.55 MUDA audit<br/>3 probes → WASTE.md<br/>+ curated findings"]
         p66["6.6 Browser verify<br/>phase-verifier.mjs<br/>(if frontend files touched)"]
         p67["6.7 Evidence audit<br/>/sgsd-audit L1+L2+L3"]
@@ -192,7 +210,7 @@ flowchart TB
     recur -.kill signal.-> ops["Operator decides:<br/>retire skill / tighten thresholds"]
     check -.&lt; 50% coverage.-> ops2["Operator decides:<br/>tighten INTENT.md author discipline<br/>or audit injection logic"]
 
-    audit -.curate anti-pattern.-> tree2[".brv/context-tree/<br/>anti-patterns/"]
+    audit -.curate anti-pattern.-> tree2[".planning/memory/<br/>anti-patterns/"]
 ```
 
 ## 6. File layout
@@ -200,15 +218,17 @@ flowchart TB
 ```mermaid
 flowchart TB
     root[GSDedits/]
-    root --> brvRoot[".brv/context-tree/<br/>memory store (17 files)"]
-    root --> planRoot[".planning/<br/>per-project state"]
+    root --> planRoot[".planning/<br/>per-project state + memory"]
     root --> sgRoot[super-gsd/]
 
-    planRoot --> phases[phases/<br/>per-phase artefacts]
+    planRoot --> phases[milestones/{v}/phases/<br/>per-phase artefacts]
     planRoot --> metrics[metrics/<br/>jsonl logs]
     planRoot --> decisions[decisions/<br/>DLB memos]
     planRoot --> briefs[briefs/<br/>deliberation briefs]
     planRoot --> delibs[deliberations/<br/>round-by-round logs]
+    planRoot --> memDir[memory/<br/>tier-1 recall memory]
+    planRoot --> meshDir[mesh/memory/<br/>tier-2 CMB ledger]
+    planRoot --> chronDir[chronicles/<br/>phase + milestone HTML]
 
     phases --> phaseDir["08-sgsd-self-audit/<br/>CONTEXT · RESEARCH · PLAN ·<br/>PLANCHECK · VERIFICATION ·<br/>ATC-REVIEW · AUDIT · WASTE ·<br/>SUMMARY · commit-reviews.jsonl"]
 
@@ -220,26 +240,29 @@ flowchart TB
     sgRoot --> hooks["hooks/<br/>gsd-session-start · gsd-token-logger ·<br/>gsd-stuck-detector · gsd-checkpoint-writer ·<br/>gsd-context-monitor ·<br/>sgsd-activity-logger · sgsd-heartbeat ·<br/>sgsd-statusline"]
     sgRoot --> config["config/<br/>settings-overlay.json ·<br/>planning-config-overlay.json ·<br/>model-routing.json"]
     sgRoot --> tmpl["templates/<br/>compressed-plan.xml ·<br/>milestone-intent.md ·<br/>planner-brv-overlay.xml ·<br/>orchestrator-prompt-composer.md ·<br/>brief-template.md"]
-    sgRoot --> tools["tools/<br/>phase-verifier/<br/>process-audit/"]
-    sgRoot --> ow[overwatcher/<br/>brv-query-local.js (dormant)<br/>brv-curate-local.js (dormant)<br/>overwatcher-launcher.js]
+    sgRoot --> tools["tools/<br/>chronicle/ · cockpit-sidecar/ ·<br/>mesh-memory/ · codex-pro/ ·<br/>codex-hooks/ · context-authority/ ·<br/>harness-*/ · shared/ · system-map/"]
+    sgRoot --> ow[overwatcher/<br/>overwatcher-launcher.js<br/>(legacy brv-*.js dormant)]
     sgRoot --> docs[docs/<br/>ARCHITECTURE.md (this file) ·<br/>MONITORING-SETUP.md ·<br/>SGSD-WORKSPACE-GUIDE.md ·<br/>SESSION-DEBRIEF.md ·<br/>audits/]
 ```
 
-## 7. Model routing
+## 7. Model routing (current — v3.0+)
 
-| Role | Model | Why |
-|------|-------|-----|
-| Orchestrator (the loop) | Opus 4.x (1M context) | Judgment, dispatch, synthesis, deliberation CEO |
-| sgsd-classifier | Haiku 4.5 | 50-token classification; runs per loop iteration |
-| sgsd-context-selector | Haiku 4.5 | Pick relevant `sgsd-recall` queries |
-| gsd-phase-researcher | Sonnet 4.x | Investigation, not judgment |
-| gsd-planner | Sonnet 4.x | Compressed XML plans |
-| gsd-plan-checker | Sonnet 4.x | Gap detection against the plan |
-| gsd-executor | Sonnet 4.x | The actual code work |
-| gsd-verifier | Sonnet 4.x | Goal-backward evidence check |
-| gsd-code-reviewer | Sonnet 4.x | ATC reviews (per-dispatch + phase-level) |
-| Board (sgsd-board-*) | Sonnet 4.x × 4 | Round 1 + Round 2 deliberation |
-| Haiku narrative (dashboards) | Haiku 4.5 via `claude --print` | Summarises tool stream every ~5 min |
+| Role | Provider | Why |
+|------|----------|-----|
+| Orchestrator (the loop) | Claude / Opus 4.7 (1M context), xhigh | Judgment, dispatch, synthesis, deliberation CEO. Never writes code. |
+| Board (sgsd-ceo + board-*) | Claude / Opus 4.7, xhigh | Default fresh-clone board: CEO + Architect + Contrarian |
+| Classifier / context selection | Codex / local deterministic | Derived from plan frontmatter/cache or a Codex/local check |
+| Phase research | Codex GPT-5.5, xhigh | Read-only research report via the SGSD Codex wrapper |
+| Planning | Codex GPT-5.5, xhigh | Plan synthesis and repair |
+| Plan-check / plan-final ATC | Codex GPT-5.5, xhigh | Gap detection + ATC/MUDA challenge before execution |
+| Code execution | Codex GPT-5.5, xhigh | Source-changing work; serial SDD run; patch mode on Windows read-blocks |
+| Spec-compliance review | Codex GPT-5.5, xhigh | Independent review of raw PLAN, diff, report, verification |
+| Verification / readiness / ATC / MUDA | Codex GPT-5.5, xhigh | Verification and all gate work |
+| Legacy Claude workers (gsd-*) | disabled | Not a default provider; not a Codex fallback |
+
+Codex dispatch is routed through Codex Pro Mode — 10 typed lanes
+(`super-gsd/registry/codex-profiles.yaml`) and a GREEN/AMBER/RED earned-execution
+stoplight. See §10.
 
 ## 8. Data-flow shortlist — what lives where
 
@@ -259,7 +282,9 @@ flowchart TB
 | `.planning/metrics/intent-log.jsonl` | Step 5.5 injection | sgsd-intent-check | per-dispatch |
 | `.planning/metrics/muda-log.jsonl` | sgsd-muda-audit | sgsd-muda-recurrence | per-audit |
 | `.planning/metrics/audit-log.jsonl` | /sgsd-audit | budget accountability | per-audit |
-| `.brv/context-tree/` + INDEX.md | sgsd-curate | sgsd-recall, orchestrator | per-lesson |
+| `.planning/memory/` + MEMORY.md | sgsd-curate | sgsd-recall, orchestrator | per-lesson |
+| `.planning/mesh/memory/cmbs.jsonl` | mesh-memory writers | lineage/echo/evidence-validator | per-CMB |
+| `.planning/chronicles/{v}/P{NN}/` | chronicle renderer | operator, validator | per-phase |
 | `~/.claude/projects/<encoded>/<session>.jsonl` | Claude Code harness | sgsd-ctx, dashboards | per-message |
 
 > **Catalog moved (Phase 35, v1.7) -- DEPRECATED.** The agent / gate /
@@ -278,12 +303,56 @@ flowchart TB
 
 ## 9. Golden invariants
 
-- Orchestrator never does heavy work — only dispatches
+- Orchestrator never writes code or does heavy work — only dispatches
+- Code execution is Codex GPT-5.5/xhigh; Opus orchestrates only
+- Every executor run is rated GREEN/AMBER/RED before it touches a file
 - Every sub-agent report ≤ 300 words
 - Sub-agent reports emit 6 fixed sections: `FILES_CHANGED · VERIFICATION · DEVIATIONS · BLOCKERS · SCRIPTS_CREATED · ONE_LINER`
-- Every Agent() dispatch wrapped in `TaskCreate` + `TaskUpdate` for live visibility
+- A claim CMB is never treated as an observation CMB (DLB-08)
 - Atomic commits — one per unit, never batched, never amended
 - Every loop response contains a tool call — text-only responses kill the loop
-- Only three valid exit conditions: all-phases-complete · blocker needing human/runtime cannot continue · user says stop
+- Only three valid exit conditions: all-phases-complete · blocker surviving board+Codex recovery / operator-only boundary · user says stop
 - Anti-slop 10-point checklist applies to every FULL/GATE commit
+- A phase is not cognitively complete until the operator can understand it — chronicle validation is a binding phase-close gate (DLB-11)
 - MUDA + intent kill conditions are signals, not auto-retirements — the operator decides
+
+## 10. v2.9–v3.2 — the agentic + comprehension layers
+
+The v1.x diagrams above describe the control loop. Four milestones since
+April 2026 added new subsystems on top; each milestone's
+`.planning/milestones/{v}/SUMMARY.md` carries the per-phase detail.
+
+**v2.9 Agentic Harness Evolution (P98–105).** A closed AHE loop —
+component → evidence → predicted edit → measured outcome → keep/revert/pivot —
+across six `super-gsd/tools/harness-*/` tools (component registry, evidence
+distiller, falsifiable change manifest, attribution + rollback gate, evolution
+runner, ablation + transfer). A protected-surface contract keeps scoring
+oracles, verifiers, model config, and budget un-editable by the loop.
+P97.5 + DLB-07 added the semantic verification gate: `validate.cjs` mechanically
+enforces `semantic_acceptance_criteria` and `sgsd-audit@v2` Layer 4 runs each
+plan's `verification_cmd` against real data at phase close.
+
+**v3.0 SGSD-PRO (P106–112).** Three subsystems: **Mesh Memory Lite** (DLB-08 —
+the tier-2 CMB ledger in §3); **Codex Pro Mode** (DLB-09 — 10 typed Codex lanes
+in `codex-profiles.yaml`, the GREEN/AMBER/RED stoplight, 5 fail-CLOSED Codex
+hooks via `.codex/hooks.json`, and the PLAN-LOCKED schema extending
+plan-schema-v2); and **Context Authority** (DLB-10 — 6 per-milestone YAML
+capsule templates projected into `context_anchor` CMBs).
+
+**v3.1 Chronicle Layer (P113–119, DLB-11).** Every phase close ships a validated
+**Operator Chronicle** — a deterministic HTML projection of mesh memory +
+artefacts + git evidence, written by `super-gsd/tools/chronicle/render-html.cjs`
+and re-checked by `validate-chronicle.cjs` (a binding gate — `REPORT_UNGROUNDED`
+halts the close). The chronicle cites every claim by CMB ID, ships a denominator
+panel, and is offline-survivable (inline SVG, committed PlantUML source). The
+**Fog Score** is a deterministic per-phase cognitive-cost metric.
+
+**v3.2 Operator Comprehension System (P120–127, DLB-12).** One shared design
+system (`super-gsd/tools/shared/sgsd-design-system.css` + `design-rules.json`
+with 12 book-mined rules R01–R12, machine-checked by `conformance-check.cjs`)
+across two answer-first surfaces: the upgraded chronicle (gold-reference render,
+chronicle self-test 111/111) and the live cockpit
+(`super-gsd/tools/cockpit-sidecar/cockpit-sidecar.cjs` — North-Star banner, one
+alert, `--brief`/`--html` modes, cockpit self-test 18/18). Both stay
+deterministic; the cockpit evolves the sidecar only and never touches the v2.9
+Lock-13 frozen cockpit array.

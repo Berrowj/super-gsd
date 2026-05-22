@@ -10,7 +10,7 @@
         ".planning/phases/{N}/commit-reviews.jsonl"
       ],
       "expertise_ref": "super-gsd/expertise/sgsd-exec-backend.md",
-      "model_default": "sonnet",
+      "model_default": "codex",
       "name": "sgsd-exec-backend",
       "pick_heuristic": "files_touched match backend globs (*.py, *.go, *.ts server, *.rb, *.java) minus frontend paths",
       "state": "active",
@@ -26,7 +26,7 @@
         ".planning/phases/{N}/commit-reviews.jsonl"
       ],
       "expertise_ref": "super-gsd/expertise/sgsd-exec-config.md",
-      "model_default": "sonnet",
+      "model_default": "codex",
       "name": "sgsd-exec-config",
       "pick_heuristic": "files_touched are config-shaped (Dockerfile, *.yaml/yml, docker-compose, .env*, .github/workflows/, terraform)",
       "state": "active",
@@ -41,7 +41,7 @@
         ".planning/metrics/token-log.jsonl"
       ],
       "expertise_ref": "super-gsd/expertise/sgsd-exec-docs.md",
-      "model_default": "sonnet",
+      "model_default": "codex",
       "name": "sgsd-exec-docs",
       "pick_heuristic": "files_touched are all *.md",
       "state": "active",
@@ -57,7 +57,7 @@
         ".planning/phases/{N}/commit-reviews.jsonl"
       ],
       "expertise_ref": "super-gsd/expertise/sgsd-exec-fix.md",
-      "model_default": "sonnet",
+      "model_default": "codex",
       "name": "sgsd-exec-fix",
       "pick_heuristic": "task is bug-fix (reproduce → failing test → fix → verify)",
       "state": "active",
@@ -73,7 +73,7 @@
         ".planning/phases/{N}/commit-reviews.jsonl"
       ],
       "expertise_ref": "super-gsd/expertise/sgsd-exec-integration.md",
-      "model_default": "sonnet",
+      "model_default": "codex",
       "name": "sgsd-exec-integration",
       "pick_heuristic": "task is connecting pre-built parts (no new business logic, wiring only)",
       "state": "active",
@@ -89,7 +89,7 @@
         ".planning/phases/{N}/commit-reviews.jsonl"
       ],
       "expertise_ref": "super-gsd/expertise/sgsd-exec-refactor.md",
-      "model_default": "sonnet",
+      "model_default": "codex",
       "name": "sgsd-exec-refactor",
       "pick_heuristic": "task is zero-behavior-change structural change",
       "state": "active",
@@ -105,7 +105,7 @@
         ".planning/phases/{N}/commit-reviews.jsonl"
       ],
       "expertise_ref": "super-gsd/expertise/sgsd-exec-test.md",
-      "model_default": "sonnet",
+      "model_default": "codex",
       "name": "sgsd-exec-test",
       "pick_heuristic": "task goal is test-writing as primary artifact (files_touched all *_test.*/*.spec.*)",
       "state": "active",
@@ -122,7 +122,7 @@
         ".planning/phases/{N}/{N}-BROWSER-REVIEW.md"
       ],
       "expertise_ref": "super-gsd/expertise/sgsd-exec-ui.md",
-      "model_default": "sonnet",
+      "model_default": "codex",
       "name": "sgsd-exec-ui",
       "pick_heuristic": "files_touched match *.tsx/*.jsx/*.vue/*.svelte/*.css/*.scss",
       "state": "active",
@@ -189,7 +189,7 @@
           "What's the actual implementation cost?",
           "What downstream coupling will this create?"
         ],
-        "model_default": "sonnet",
+        "model_default": "opus",
         "name": "sgsd-board-architect",
         "perspective": [
           "feasibility",
@@ -207,7 +207,7 @@
           "What's the strongest argument AGAINST this we haven't heard?",
           "What invariant does this silently violate?"
         ],
-        "model_default": "sonnet",
+        "model_default": "opus",
         "name": "sgsd-board-contrarian",
         "perspective": [
           "challenges consensus",
@@ -224,7 +224,7 @@
           "Is the proposed scope actually the right scope?",
           "What structural change would make this irrelevant?"
         ],
-        "model_default": "sonnet",
+        "model_default": "disabled",
         "name": "sgsd-board-moonshot",
         "perspective": [
           "challenges incremental thinking",
@@ -232,7 +232,7 @@
           "prevents scope timidity"
         ],
         "role": "Moonshot Visionary",
-        "state": "active",
+        "state": "legacy-disabled",
         "version": 2
       },
       {
@@ -241,7 +241,7 @@
           "Who executes it and do they have capacity?",
           "What's the smallest version that meets the real need?"
         ],
-        "model_default": "sonnet",
+        "model_default": "disabled",
         "name": "sgsd-board-pragmatist",
         "perspective": [
           "execution risk",
@@ -250,7 +250,7 @@
           "what actually ships"
         ],
         "role": "Execution Pragmatist",
-        "state": "active",
+        "state": "legacy-disabled",
         "version": 2
       },
       {
@@ -289,7 +289,7 @@
       "name": "command-envelope-v1",
       "registry_path": "super-gsd/registry/command-envelope-v1.yaml",
       "schema_path": "super-gsd/templates/command-envelope-v1.json",
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "collides_with": [],
@@ -347,8 +347,8 @@
       "evidence_emitted": [],
       "name": "classifier-haiku",
       "repair_command": null,
-      "repair_instruction": "Re-run the classifier dispatch with Agent(model='haiku', task='classify'); if Haiku is offline, fall back to a single-shot Sonnet classify and log DEVIATIONS.",
-      "reviewer_agent": "haiku",
+      "repair_instruction": "Legacy gate name. Derive classifier result from plan frontmatter/cache or run Codex/local classify; do not spawn Haiku/Sonnet.",
+      "reviewer_agent": "codex",
       "reviewer_provider": null,
       "state": "active",
       "step": 2,
@@ -362,8 +362,8 @@
       "evidence_emitted": [],
       "name": "context-selector-haiku",
       "repair_command": null,
-      "repair_instruction": "Re-run the context-selector dispatch with Agent(model='haiku', task='select_context'); if empty, retry with broader recall query.",
-      "reviewer_agent": "haiku",
+      "repair_instruction": "Legacy gate name. Derive sgsd_recall_queries from plan evidence and retry with broader recall terms if empty.",
+      "reviewer_agent": "codex",
       "reviewer_provider": null,
       "state": "active",
       "step": 4,
@@ -399,7 +399,7 @@
       "reviewer_provider": "codex-cli-reviewer",
       "state": "active",
       "step": 9.5,
-      "trigger_clause_count": 2,
+      "trigger_clause_count": 1,
       "version": 2
     },
     {
@@ -529,13 +529,20 @@
       "version": 2.1
     }
   ],
-  "generated_at": "2026-04-27T11:25:04.528Z",
+  "generated_at": "2026-05-22T15:37:28.116Z",
   "libs": [
     {
       "ext": ".cjs",
-      "lines": 56,
+      "lines": 74,
       "name": "board-registry.cjs",
       "path": "super-gsd/scripts/lib/board-registry.cjs",
+      "purpose": "(no banner)"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 93,
+      "name": "board-registry.test.cjs",
+      "path": "super-gsd/scripts/lib/board-registry.test.cjs",
       "purpose": "(no banner)"
     },
     {
@@ -543,6 +550,13 @@
       "lines": 90,
       "name": "classifier-cache.cjs",
       "path": "super-gsd/scripts/lib/classifier-cache.cjs",
+      "purpose": "(no banner)"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 59,
+      "name": "codex-sdd-contract.test.cjs",
+      "path": "super-gsd/scripts/lib/codex-sdd-contract.test.cjs",
       "purpose": "(no banner)"
     },
     {
@@ -582,10 +596,59 @@
     },
     {
       "ext": ".cjs",
-      "lines": 117,
+      "lines": 599,
+      "name": "gate-value-log.cjs",
+      "path": "super-gsd/scripts/lib/gate-value-log.cjs",
+      "purpose": "SGSD - GATE-VALUE-LOG canonical writer for gate-fitness telemetry"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 141,
+      "name": "gate-value-log.test.cjs",
+      "path": "super-gsd/scripts/lib/gate-value-log.test.cjs",
+      "purpose": "SGSD - gate-value-log local fallback test (Phase 36 Patch 4)"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 135,
       "name": "gates-registry.cjs",
       "path": "super-gsd/scripts/lib/gates-registry.cjs",
       "purpose": "(no banner)"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 717,
+      "name": "muda-deletion-candidates.cjs",
+      "path": "super-gsd/scripts/lib/muda-deletion-candidates.cjs",
+      "purpose": "SGSD - MUDA-DELETION-CANDIDATES heuristic finder + WASTE.md renderer"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 218,
+      "name": "muda-deletion-candidates.test.cjs",
+      "path": "super-gsd/scripts/lib/muda-deletion-candidates.test.cjs",
+      "purpose": "SGSD - MUDA-DELETION-CANDIDATES local-fallback test (Phase 37)"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 620,
+      "name": "orchestrator-hooks.cjs",
+      "path": "super-gsd/scripts/lib/orchestrator-hooks.cjs",
+      "purpose": "super-gsd/scripts/lib/orchestrator-hooks.cjs"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 368,
+      "name": "orchestrator-live-reader.cjs",
+      "path": "super-gsd/scripts/lib/orchestrator-live-reader.cjs",
+      "purpose": "super-gsd/scripts/lib/orchestrator-live-reader.cjs"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 247,
+      "name": "orchestrator-live-writer.cjs",
+      "path": "super-gsd/scripts/lib/orchestrator-live-writer.cjs",
+      "purpose": "super-gsd/scripts/lib/orchestrator-live-writer.cjs"
     },
     {
       "ext": ".cjs",
@@ -596,10 +659,24 @@
     },
     {
       "ext": ".cjs",
+      "lines": 900,
+      "name": "provider-circuit.cjs",
+      "path": "super-gsd/scripts/lib/provider-circuit.cjs",
+      "purpose": "super-gsd/scripts/lib/provider-circuit.cjs"
+    },
+    {
+      "ext": ".cjs",
       "lines": 175,
       "name": "providers-registry.cjs",
       "path": "super-gsd/scripts/lib/providers-registry.cjs",
       "purpose": "(no banner)"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 157,
+      "name": "render-cockpit-snapshot.ps1",
+      "path": "super-gsd/scripts/lib/render-cockpit-snapshot.ps1",
+      "purpose": "super-gsd/scripts/lib/render-cockpit-snapshot.ps1"
     },
     {
       "ext": ".cjs",
@@ -617,31 +694,87 @@
     },
     {
       "ext": ".cjs",
-      "lines": 443,
+      "lines": 559,
       "name": "route-ledger.cjs",
       "path": "super-gsd/scripts/lib/route-ledger.cjs",
       "purpose": "SGSD - ROUTE-LEDGER canonical writer for routing decisions"
     },
     {
       "ext": ".ps1",
-      "lines": 698,
+      "lines": 165,
+      "name": "run-operator-drill.ps1",
+      "path": "super-gsd/scripts/lib/run-operator-drill.ps1",
+      "purpose": "super-gsd/scripts/lib/run-operator-drill.ps1"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 489,
+      "name": "sampling-decider.cjs",
+      "path": "super-gsd/scripts/lib/sampling-decider.cjs",
+      "purpose": "SGSD - SAMPLING-DECIDER 3x3 work-risk x gate-tier matrix"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 174,
+      "name": "sampling-decider.test.cjs",
+      "path": "super-gsd/scripts/lib/sampling-decider.test.cjs",
+      "purpose": "(no banner)"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 215,
+      "name": "sgsd-active-agent-panel.ps1",
+      "path": "super-gsd/scripts/lib/sgsd-active-agent-panel.ps1",
+      "purpose": "Phase 50 A2 active-agent panel."
+    },
+    {
+      "ext": ".cjs",
+      "lines": 431,
+      "name": "sgsd-cockpit-shell.cjs",
+      "path": "super-gsd/scripts/lib/sgsd-cockpit-shell.cjs",
+      "purpose": "Phase 50 read-only Node bridge."
+    },
+    {
+      "ext": ".ps1",
+      "lines": 944,
       "name": "sgsd-codex-status.ps1",
       "path": "super-gsd/scripts/lib/sgsd-codex-status.ps1",
       "purpose": "Super GSD · Shared Codex reviewer status helpers"
     },
     {
+      "ext": ".cjs",
+      "lines": 418,
+      "name": "sgsd-complete-milestone-self-test.cjs",
+      "path": "super-gsd/scripts/lib/sgsd-complete-milestone-self-test.cjs",
+      "purpose": "super-gsd/scripts/lib/sgsd-complete-milestone-self-test.cjs"
+    },
+    {
       "ext": ".ps1",
-      "lines": 430,
+      "lines": 442,
       "name": "sgsd-mission-strip.ps1",
       "path": "super-gsd/scripts/lib/sgsd-mission-strip.ps1",
       "purpose": "Super GSD - Mission Strip (Cockpit 2.0 - Phase 28)"
     },
     {
       "ext": ".ps1",
-      "lines": 171,
+      "lines": 243,
+      "name": "sgsd-readiness.ps1",
+      "path": "super-gsd/scripts/lib/sgsd-readiness.ps1",
+      "purpose": "sgsd-readiness.ps1"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 201,
       "name": "sgsd-render-cache.ps1",
       "path": "super-gsd/scripts/lib/sgsd-render-cache.ps1",
       "purpose": "Super GSD · Dashboard render cache library"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 138,
+      "name": "sgsd-source-mix-panel.ps1",
+      "path": "super-gsd/scripts/lib/sgsd-source-mix-panel.ps1",
+      "purpose": "Phase 50 A1 source-mix panel."
     },
     {
       "ext": ".ps1",
@@ -649,6 +782,27 @@
       "name": "sgsd-substrate-status.ps1",
       "path": "super-gsd/scripts/lib/sgsd-substrate-status.ps1",
       "purpose": "Super GSD · DLB-04 Substrate Status Helper"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 85,
+      "name": "sgsd-tab-init.ps1",
+      "path": "super-gsd/scripts/lib/sgsd-tab-init.ps1",
+      "purpose": "sgsd-tab-init.ps1"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 238,
+      "name": "sgsd-tab-watcher.ps1",
+      "path": "super-gsd/scripts/lib/sgsd-tab-watcher.ps1",
+      "purpose": "sgsd-tab-watcher.ps1"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 146,
+      "name": "sgsd-token-panel.ps1",
+      "path": "super-gsd/scripts/lib/sgsd-token-panel.ps1",
+      "purpose": "Phase 50 A1 cost panel."
     },
     {
       "ext": ".cjs",
@@ -686,7 +840,7 @@
       "invocation": "agent",
       "name": "claude-sonnet-reviewer",
       "report_contract": "code-reviewer-v1",
-      "state": "active",
+      "state": "inactive",
       "timeout_seconds": 60,
       "version": 1
     },
@@ -705,21 +859,63 @@
   "scripts": [
     {
       "ext": ".ps1",
-      "lines": 354,
+      "lines": 428,
       "name": "Install-SgsdShortcut.ps1",
       "path": "super-gsd/scripts/Install-SgsdShortcut.ps1",
       "purpose": "Super GSD - Install sgsd shortcut"
     },
     {
       "ext": ".sh",
-      "lines": 724,
+      "lines": 106,
+      "name": "chronicle-validate.sh",
+      "path": "super-gsd/scripts/chronicle-validate.sh",
+      "purpose": "(no banner)"
+    },
+    {
+      "ext": ".sh",
+      "lines": 873,
       "name": "codex-exec.sh",
       "path": "super-gsd/scripts/codex-exec.sh",
       "purpose": "codex-exec — bash wrapper around `codex exec` for Phase 14 provider substrate"
     },
     {
+      "ext": ".sh",
+      "lines": 293,
+      "name": "codex-executor.sh",
+      "path": "super-gsd/scripts/codex-executor.sh",
+      "purpose": "codex-executor.sh — Codex-CLI wrapper for EXECUTOR work (file-mutating)"
+    },
+    {
+      "ext": ".sh",
+      "lines": 327,
+      "name": "codex-patch-executor.sh",
+      "path": "super-gsd/scripts/codex-patch-executor.sh",
+      "purpose": "codex-patch-executor.sh - Codex executor fallback for Windows read-blocks"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 167,
+      "name": "install-vtp-remote-services.ps1",
+      "path": "super-gsd/scripts/install-vtp-remote-services.ps1",
+      "purpose": "(no banner)"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 20,
+      "name": "install-vtp-services-elevated.ps1",
+      "path": "super-gsd/scripts/install-vtp-services-elevated.ps1",
+      "purpose": "Bootstrap wrapper for the VTP-MCP service install."
+    },
+    {
+      "ext": ".ps1",
+      "lines": 67,
+      "name": "install-vtp-tasks-userscope.ps1",
+      "path": "super-gsd/scripts/install-vtp-tasks-userscope.ps1",
+      "purpose": "User-scope Scheduled Tasks for VTP MCP + tunnel."
+    },
+    {
       "ext": ".js",
-      "lines": 126,
+      "lines": 232,
       "name": "merge-settings.js",
       "path": "super-gsd/scripts/merge-settings.js",
       "purpose": "Super GSD · merge-settings.js"
@@ -733,7 +929,7 @@
     },
     {
       "ext": ".ps1",
-      "lines": 192,
+      "lines": 197,
       "name": "sgsd-agent-dashboard.ps1",
       "path": "super-gsd/scripts/sgsd-agent-dashboard.ps1",
       "purpose": "Super GSD Agent Dashboard - Windows PowerShell"
@@ -747,28 +943,42 @@
     },
     {
       "ext": ".ps1",
-      "lines": 933,
+      "lines": 131,
+      "name": "sgsd-autopilot-watchdog.ps1",
+      "path": "super-gsd/scripts/sgsd-autopilot-watchdog.ps1",
+      "purpose": "Super GSD - Autopilot Watchdog"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 1294,
       "name": "sgsd-boot.ps1",
       "path": "super-gsd/scripts/sgsd-boot.ps1",
       "purpose": "Super GSD - Boot Command"
     },
     {
       "ext": ".sh",
-      "lines": 177,
+      "lines": 239,
       "name": "sgsd-boot.sh",
       "path": "super-gsd/scripts/sgsd-boot.sh",
       "purpose": "Super GSD · Boot Command (bash fallback)"
     },
     {
       "ext": ".ps1",
-      "lines": 849,
+      "lines": 2446,
       "name": "sgsd-codex-monitor.ps1",
       "path": "super-gsd/scripts/sgsd-codex-monitor.ps1",
       "purpose": "Super GSD - P5 - Codex Monitor"
     },
     {
+      "ext": ".cjs",
+      "lines": 1647,
+      "name": "sgsd-complete-milestone.cjs",
+      "path": "super-gsd/scripts/sgsd-complete-milestone.cjs",
+      "purpose": "super-gsd/scripts/sgsd-complete-milestone.cjs"
+    },
+    {
       "ext": ".ps1",
-      "lines": 173,
+      "lines": 295,
       "name": "sgsd-configure.ps1",
       "path": "super-gsd/scripts/sgsd-configure.ps1",
       "purpose": "Super GSD - Project Knowledge Setup"
@@ -796,14 +1006,14 @@
     },
     {
       "ext": ".sh",
-      "lines": 261,
+      "lines": 260,
       "name": "sgsd-curate.sh",
       "path": "super-gsd/scripts/sgsd-curate.sh",
-      "purpose": "sgsd-curate — write a new entry to the SGSD context tree and update INDEX.md"
+      "purpose": "sgsd-curate — write a new entry to SGSD memory and update MEMORY.md"
     },
     {
       "ext": ".ps1",
-      "lines": 68,
+      "lines": 69,
       "name": "sgsd-dashboard-host.ps1",
       "path": "super-gsd/scripts/sgsd-dashboard-host.ps1",
       "purpose": "Super GSD - Dashboard Pane Host"
@@ -824,6 +1034,13 @@
     },
     {
       "ext": ".ps1",
+      "lines": 230,
+      "name": "sgsd-first-run-demo.ps1",
+      "path": "super-gsd/scripts/sgsd-first-run-demo.ps1",
+      "purpose": "SGSD - First-Run Demo Bootstrap"
+    },
+    {
+      "ext": ".ps1",
       "lines": 1412,
       "name": "sgsd-gate-verdict.ps1",
       "path": "super-gsd/scripts/sgsd-gate-verdict.ps1",
@@ -838,7 +1055,7 @@
     },
     {
       "ext": ".sh",
-      "lines": 185,
+      "lines": 198,
       "name": "sgsd-headless.sh",
       "path": "super-gsd/scripts/sgsd-headless.sh",
       "purpose": "Super GSD Headless Runner"
@@ -866,14 +1083,14 @@
     },
     {
       "ext": ".ps1",
-      "lines": 1999,
+      "lines": 3209,
       "name": "sgsd-mission-control.ps1",
       "path": "super-gsd/scripts/sgsd-mission-control.ps1",
       "purpose": "Super GSD · P3 · Mission Control"
     },
     {
       "ext": ".sh",
-      "lines": 503,
+      "lines": 539,
       "name": "sgsd-muda-audit.sh",
       "path": "super-gsd/scripts/sgsd-muda-audit.sh",
       "purpose": "sgsd-muda-audit — per-phase waste audit that writes WASTE.md + curates findings"
@@ -894,10 +1111,38 @@
     },
     {
       "ext": ".ps1",
-      "lines": 877,
+      "lines": 1244,
       "name": "sgsd-narrative.ps1",
       "path": "super-gsd/scripts/sgsd-narrative.ps1",
       "purpose": "Super GSD · P4 · Narrative + Ctrl+O Stream (v5)"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 49,
+      "name": "sgsd-new-project-wizard-self-test.cjs",
+      "path": "super-gsd/scripts/sgsd-new-project-wizard-self-test.cjs",
+      "purpose": "super-gsd/scripts/sgsd-new-project-wizard-self-test.cjs"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 760,
+      "name": "sgsd-new-project-wizard.cjs",
+      "path": "super-gsd/scripts/sgsd-new-project-wizard.cjs",
+      "purpose": "super-gsd/scripts/sgsd-new-project-wizard.cjs"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 356,
+      "name": "sgsd-onboard.ps1",
+      "path": "super-gsd/scripts/sgsd-onboard.ps1",
+      "purpose": "sgsd-onboard.ps1"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 94,
+      "name": "sgsd-open-codex-watch.ps1",
+      "path": "super-gsd/scripts/sgsd-open-codex-watch.ps1",
+      "purpose": "sgsd-open-codex-watch.ps1"
     },
     {
       "ext": ".ps1",
@@ -914,6 +1159,13 @@
       "purpose": "sgsd-overlay-refresh.sh — bash mirror of sgsd-overlay-refresh.ps1"
     },
     {
+      "ext": ".ps1",
+      "lines": 270,
+      "name": "sgsd-profile-extensions.ps1",
+      "path": "super-gsd/scripts/sgsd-profile-extensions.ps1",
+      "purpose": "SGSD Profile Extensions"
+    },
+    {
       "ext": ".sh",
       "lines": 172,
       "name": "sgsd-recall.sh",
@@ -922,10 +1174,31 @@
     },
     {
       "ext": ".sh",
-      "lines": 139,
+      "lines": 160,
       "name": "sgsd-registry-sync.sh",
       "path": "super-gsd/scripts/sgsd-registry-sync.sh",
-      "purpose": "sgsd-registry-sync — materialise the Agents resource-registry manifest"
+      "purpose": "sgsd-registry-sync - materialise the Agents resource-registry manifest"
+    },
+    {
+      "ext": ".sh",
+      "lines": 90,
+      "name": "sgsd-registry-sync.test.sh",
+      "path": "super-gsd/scripts/sgsd-registry-sync.test.sh",
+      "purpose": "(no banner)"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 116,
+      "name": "sgsd-remote-launch.ps1",
+      "path": "super-gsd/scripts/sgsd-remote-launch.ps1",
+      "purpose": "Super GSD remote launcher"
+    },
+    {
+      "ext": ".sh",
+      "lines": 241,
+      "name": "sgsd-remote-tmux.sh",
+      "path": "super-gsd/scripts/sgsd-remote-tmux.sh",
+      "purpose": "Super GSD remote tmux launcher"
     },
     {
       "ext": ".sh",
@@ -957,7 +1230,7 @@
     },
     {
       "ext": ".sh",
-      "lines": 527,
+      "lines": 590,
       "name": "sgsd-stop-handoff.sh",
       "path": "super-gsd/scripts/sgsd-stop-handoff.sh",
       "purpose": "sgsd-stop-handoff.sh -- Claude Code Stop hook for autonomous session handoff"
@@ -971,7 +1244,7 @@
     },
     {
       "ext": ".ps1",
-      "lines": 101,
+      "lines": 123,
       "name": "sgsd-update.ps1",
       "path": "super-gsd/scripts/sgsd-update.ps1",
       "purpose": "sgsd-update.ps1 — DLB-06 Wave A (PowerShell mirror of sgsd-update.sh)"
@@ -982,16 +1255,48 @@
       "name": "sgsd-update.sh",
       "path": "super-gsd/scripts/sgsd-update.sh",
       "purpose": "sgsd-update — DLB-06 Wave A"
+    },
+    {
+      "ext": ".ps1",
+      "lines": 967,
+      "name": "sgsd-watch-codex.ps1",
+      "path": "super-gsd/scripts/sgsd-watch-codex.ps1",
+      "purpose": "sgsd-watch-codex.ps1"
+    },
+    {
+      "ext": ".cjs",
+      "lines": 246,
+      "name": "vtp-tunnel-supervisor.cjs",
+      "path": "super-gsd/scripts/vtp-tunnel-supervisor.cjs",
+      "purpose": "VTP MCP tunnel supervisor."
     }
   ],
   "skills": [
     {
       "allowed_tools": [
         "Read",
-        "Bash"
+        "Write",
+        "Edit",
+        "Glob",
+        "Grep",
+        "Bash",
+        "Agent"
+      ],
+      "argument_hint": "[phase_number] — e.g. /sgsd-audit 124  or  /sgsd-audit (auto-detect from STATE.md)",
+      "description": "Evidence-gated audit skill. Catches the 'file never existed' class of implementation-vs-roadmap gap (M026's 22%-gap root cause). Merges ATC SpaceX gate + Karpathy evidence-over-assertions + optional runtime probes + DLB-07 semantic-AC enforcement. Produces AUDIT.md + REMEDIATION.md for every phase close.",
+      "name": "sgsd-audit",
+      "skill_path": "super-gsd/skills/sgsd-audit/SKILL.md"
+    },
+    {
+      "allowed_tools": [
+        "Bash",
+        "Read",
+        "Write",
+        "Glob",
+        "Grep"
       ],
       "argument_hint": null,
-      "description": "Bring an existing super-gsd project up to current DLB-04 scaffolding. Creates .planning/metrics + proposals + resource-registry + trajectory-hypothesis dirs and empty append-log files that newer scripts expect. Safe: only creates, never overwrites. Fixes the silent-curate-skip MUDA audit issue on older projects.",
+      "description": "Backfill an existing project with the current SGSD planning and memory scaffold. Uses .planning/memory; does not create BRV/ByteRover assets.",
       "name": "sgsd-backfill",
       "skill_path": "super-gsd/skills/sgsd-backfill/SKILL.md"
     },
@@ -1008,19 +1313,6 @@
       "description": "Browser automation for frontend debugging, UI verification, visual testing, and form testing. Wraps gsd-browser CLI (Rust/CDP). Use during execute-phase for frontend work, verify-work for UI validation, and debug for visual issues.",
       "name": "sgsd-browser",
       "skill_path": "super-gsd/skills/sgsd-browser/SKILL.md"
-    },
-    {
-      "allowed_tools": [
-        "Read",
-        "Write",
-        "Bash",
-        "Glob",
-        "Grep"
-      ],
-      "argument_hint": "[--seed-only | --verify]",
-      "description": "Initialize ByteRover context tree for Super GSD. Seeds domain knowledge, configures MCP connector, verifies integration.",
-      "name": "sgsd-brv-setup",
-      "skill_path": "super-gsd/skills/sgsd-brv-setup/SKILL.md"
     },
     {
       "allowed_tools": [
@@ -1061,7 +1353,7 @@
         "Agent"
       ],
       "argument_hint": null,
-      "description": "Trajectory distillation — extract abstract reusable principles from a closed milestone's phases. DLB-04 Wave C. Three modes: prepare (emit Haiku prompt + corpus), ingest (triple-gate routing), rate (operator novelty 1-3).",
+      "description": "Trajectory distillation — extract abstract reusable principles from a closed milestone's phases. DLB-04 Wave C. Three modes: prepare (emit Codex/local prompt + corpus), ingest (triple-gate routing), rate (operator novelty 1-3).",
       "name": "sgsd-distill",
       "skill_path": "super-gsd/skills/sgsd-distill/SKILL.md"
     },
@@ -1081,7 +1373,7 @@
         "Bash"
       ],
       "argument_hint": null,
-      "description": "Run the MUDA (8-waste) watchdog probes on a phase. DLB-02. Captures haiku-fails, narrative staleness, git-spawn rate, extra-processing, and inventory. Writes WASTE.md + curates findings. Fires at phase close when files_changed>=4 OR diff_lines>=100.",
+      "description": "Run the MUDA (8-waste) watchdog probes on a phase. DLB-02. Captures classifier failures, narrative staleness, git-spawn rate, extra-processing, and inventory. Writes WASTE.md + curates findings. Fires at phase close when files_changed>=4 OR diff_lines>=100.",
       "name": "sgsd-muda-audit",
       "skill_path": "super-gsd/skills/sgsd-muda-audit/SKILL.md"
     },
@@ -1097,8 +1389,8 @@
         "TaskCreate",
         "TaskUpdate"
       ],
-      "argument_hint": "[go|continue|status|next|stop]",
-      "description": "Token-efficient autonomous orchestrator. Lean state machine: read-classify-dispatch-process-commit-loop. Uses Opus for orchestration, routes Sonnet/Haiku to sub-agents.",
+      "argument_hint": "[go|auto|continue|status|next|stop]",
+      "description": "Token-efficient autonomous orchestrator. Claude/Opus orchestrates only; research, planning, plan-check, verification, gates, and code execution are hard-routed to Codex GPT-5.5 xhigh.",
       "name": "sgsd-orchestrate",
       "skill_path": "super-gsd/skills/sgsd-orchestrate/SKILL.md"
     },

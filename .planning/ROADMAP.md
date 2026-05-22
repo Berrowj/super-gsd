@@ -13,8 +13,15 @@
 - ✅ **v1.9 SGSD-Research (Context Compression + Token Governance + Research Routing)** — Phases 41-52 (shipped 2026-04-28) — [summary](milestones/v1.9/SUMMARY.md)
 - ✅ **v2.0 Failure Injection** — Phases 53-57 (shipped 2026-04-29; release-readiness score 97-98/100 GREEN) — [summary](milestones/v2.0/SUMMARY.md)
 - ✅ **v2.1 Distribution + New-User Onboarding** — Phases 58-62 (shipped 2026-04-29) — [summary](milestones/v2.1/SUMMARY.md)
+- ✅ **v2.2–v2.8 Warp Integration** — Phases 63-97 (shipped 2026-04-29 → 2026-05; v2.8 release gate 149/149 self-tests, READY-WITH-DEFERRED) — [roadmap](milestones/warp-integration/ROADMAP.md)
+- ✅ **v2.9 Agentic Harness Evolution** — Phases 97.5, 98-105 (shipped 2026-05-18; ALL-PHASES-CLOSED PASS-WITH-DEFERRED-2; 131/131 new self-test) — [summary](milestones/v2.9/SUMMARY.md)
+- ✅ **v3.0 SGSD-PRO — Codex-native + Mesh Memory Lite + Context Authority** — Phases 106-112 (shipped 2026-05-21; ALL-PHASES-CLOSED PASS; 4/4 MVP fixtures green) — [summary](milestones/v3.0/SUMMARY.md)
+- ✅ **v3.1 SGSD Chronicle Layer** — Phases 113-119 (shipped 2026-05-21; ALL-PHASES-CLOSED; 96/96 self-test) — [summary](milestones/v3.1/SUMMARY.md)
+- ✅ **v3.2 Operator Comprehension System** — Phases 120-127 (shipped 2026-05-22; ALL-PHASES-CLOSED PASS; chronicle 111/111, cockpit 18/18) — [summary](milestones/v3.2/SUMMARY.md)
 
 **ROADMAP COMPLETE 2026-04-29** — all 30 phases (26-62) closed across 6 milestones (v1.6 SHIPPED-WITH-DEBT-10; v1.7-v2.1 SHIPPED clean). HEAD: `17ff9d6`. Status-consistency: all 6 milestones OK.
+
+**v2.2–v3.2 SHIPPED 2026-05-22** — milestones v2.2-v3.2 (phases 63-127) all closed; the v3.x operator-facing line (Codex-native control plane → Chronicle Layer → Operator Comprehension System) complete. Next: v3.3 scoping is an open operator decision. Per-phase detail lives in each milestone's `SUMMARY.md`.
 
 ## Phases
 

@@ -72,3 +72,120 @@
 
 ---
 
+## v1.4 Clean Close + Codex Visibility + Autonomous Handoff (Shipped: 2026-04-24)
+
+**Phases:** 17-20 (10 plans, ~110 commits). Swept v1.3 tech debt, hardened the
+Codex path, wired Codex activity into mission-control surfaces, and closed the
+autonomous-handoff loop (Stop hook + safety rails + telemetry; disabled by
+default). 17/17 REQ-IDs, 16 Codex invocations, all CRITs cleared.
+**Git tag:** `v1.4`.
+
+## v1.5 VTP Knowledge Primacy + Post-v1.4 Hardening (Shipped: 2026-04-25)
+
+**Phases:** 21-25 (13 plans, 21 REQs). Elevated the VTP knowledge library from a
+passive MCP server into an active enrichment gate on every research + audit
+decision; closed Phase 20 security surfaces; calibrated MUDA aggregation;
+adopted the richer Codex output contract; wired the edge-guard layer.
+
+## v1.6 Cockpit 2.0 + Startup Verification (Shipped: 2026-04-27)
+
+**Phases:** 26-30. SHIPPED-WITH-DEBT-10 after a post-hoc Codex rerun cleared
+8 codex-unavailable rows.
+
+## v1.7 Stable Command Contracts + Route Intelligence (Shipped: 2026-04-27)
+
+**Phases:** 31-35. Stable command contracts + route intelligence. Phase 35
+introduced the auto-generated `.planning/SYSTEM-MAP.md` catalog.
+
+## v1.8 Gate Fitness + MUDA Pruning (Shipped: 2026-04-27)
+
+**Phases:** 36-40.
+
+## v1.9 SGSD-Research — Context Compression + Token Governance + Research Routing (Shipped: 2026-04-28)
+
+**Phases:** 41-52.
+
+## v2.0 Failure Injection (Shipped: 2026-04-29)
+
+**Phases:** 53-57. Release-readiness score 97-98/100 GREEN.
+
+## v2.1 Distribution + New-User Onboarding (Shipped: 2026-04-29)
+
+**Phases:** 58-62. ROADMAP COMPLETE 2026-04-29 — all 30 phases (26-62) closed
+across 6 milestones (v1.6 SHIPPED-WITH-DEBT-10; v1.7-v2.1 SHIPPED clean).
+
+## v2.2–v2.8 Warp Integration (Shipped: 2026-04-29 → 2026-05)
+
+**Phases:** 63-97. The Warp-integration roadmap — Warp launch topology, workflow
+pack, MCP wiring, capability smoke tests, and the v2.8 release gate (Phase 97;
+149/149 self-tests; READY-WITH-DEFERRED). See
+`.planning/milestones/warp-integration/`.
+
+## v2.9 Agentic Harness Evolution (Shipped: 2026-05-18)
+
+**Phases:** 97.5, 98-105 (ALL-PHASES-CLOSED PASS-WITH-DEFERRED-2).
+
+Turned SGSD from a hand-improved orchestrator into an observability-driven
+harness with a closed AHE loop (component → evidence → predicted edit →
+measured outcome → keep/revert/pivot). Six `harness-*` tools shipped a 35-row
+component registry, evidence distiller, falsifiable change manifest, attribution
++ rollback gate, evolution runner, and ablation + transfer evaluator —
+131/131 new self-test assertions PASS. A protected-surface contract keeps
+scoring oracles, verifiers, model config, and budget un-editable by the loop.
+P97.5 + **DLB-07** added the semantic verification gate (`semantic_acceptance_criteria`
+mechanically enforced via `plan-schema-v2.json` / `validate.cjs`;
+`sgsd-audit@v2` Layer 4). See `.planning/milestones/v2.9/SUMMARY.md`.
+
+## v3.0 SGSD-PRO — Codex-native + Mesh Memory Lite + Context Authority (Shipped: 2026-05-21)
+
+**Phases:** 106-112 (ALL-PHASES-CLOSED PASS; 4/4 MVP fixtures green; 0 deferred).
+
+Three subsystems beneath the control plane:
+- **DLB-08 Mesh Memory Lite** — a lineaged, role-filtered cognitive memory
+  ledger (`.planning/mesh/memory/cmbs.jsonl`); 7 typed CMB classes, a CAT7
+  envelope, a lineage DAG with O(1) echo detection, and an evidence validator
+  that classifies reviewer claims VERIFIED/REFUTED/STALE/UNVERIFIED/GUARDED so a
+  reviewer hallucination can no longer block promotion.
+- **DLB-09 Codex Pro Mode** — 10 typed Codex lanes (`codex-profiles.yaml`), a
+  GREEN/AMBER/RED earned-execution stoplight, 5 fail-CLOSED Codex hooks, and the
+  PLAN-LOCKED schema extending plan-schema-v2.
+- **DLB-10 Context Authority** — 6 per-milestone YAML capsule templates
+  projected into `context_anchor` CMBs.
+
+232 self-test assertions green across 4 integrated runners. Fixture D proved a
+production-SAP write still escalates to the real operator even at LLM-judge
+confidence 0.95. See `.planning/milestones/v3.0/SUMMARY.md`.
+
+## v3.1 SGSD Chronicle Layer (Shipped: 2026-05-21)
+
+**Phases:** 113-119 (ALL-PHASES-CLOSED; 96/96 self-test).
+
+**DLB-11** added the Operator Chronicle Layer: every phase close ships a
+validated HTML projection of SGSD truth (mesh memory + artefacts + git evidence)
+that the operator reads to keep cognitive grip. The chronicle is a deterministic
+projection — written by `render-html.cjs`, re-checked by `validate-chronicle.cjs`
+as a binding gate (`REPORT_UNGROUNDED` halts the close), citing every claim by
+CMB ID, with a denominator panel and a deterministic per-phase **Fog Score**.
+Offline-survivable: inline SVG, committed PlantUML source. See
+`.planning/milestones/v3.1/SUMMARY.md`.
+
+## v3.2 Operator Comprehension System (Shipped: 2026-05-22)
+
+**Phases:** 120-127 (ALL-PHASES-CLOSED PASS).
+
+**DLB-12** made SGSD's self-explanation world-class across both operator-facing
+surfaces. One shared design system (`sgsd-design-system.css` + `design-rules.json`
+— 12 book-mined comprehension rules R01-R12, machine-checked by
+`conformance-check.cjs`) backs two answer-first surfaces:
+- **Workstream A** rebuilt the chronicle HTML to a book-grounded gold reference
+  (Operator Decision Panel first, 11-section answer-first order, SCQA, fog
+  gauge) — chronicle self-test 111/111.
+- **Workstream B** rebuilt the live cockpit (`cockpit-sidecar.cjs`) answer-first
+  — a North-Star banner, one alert, `--brief`/`--html` modes — cockpit self-test
+  18/18.
+
+Cross-surface conformance machine-checked: cockpit `--html` and the chronicle
+gold-reference both `binding_fail=0`. See `.planning/milestones/v3.2/SUMMARY.md`.
+
+---
+
