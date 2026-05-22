@@ -337,7 +337,7 @@ function renderHtml(output) {
     '  <main class="sgsd-cockpit">',
     '    <section role="operator-decision" class="operator-decision">',
     `      <p class="eyebrow">${escapeHtml(northStarLine(output))}</p>`,
-    `      <p class="do-next">▸ DO NEXT: ${escapeHtml(recommendedAction(output.north_star && output.north_star.code))}</p>`,
+    `      <p class="do-next recommended-action">▸ DO NEXT: ${escapeHtml(recommendedAction(output.north_star && output.north_star.code))}</p>`,
     '    </section>',
     alertHtml.trimEnd(),
     '    <details class="supporting-block">',

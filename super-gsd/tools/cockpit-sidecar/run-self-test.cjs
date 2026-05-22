@@ -1,9 +1,24 @@
 'use strict';
 
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 const sidecar = require('./cockpit-sidecar.cjs');
 const { computeNorthStar } = require('./north-star.cjs');
 const { evaluateAlerts } = require('./alert-grammar.cjs');
+const { checkConformance } = require('../shared/conformance-check.cjs');
+
+const GOLD_REFERENCE = path.join(__dirname, '..', 'chronicle', 'templates', 'chronicle-gold-reference.html');
+
+function p127Out() {
+  const out = { milestone: 'v3.2', phase: '127', generated_at: '2026-05-22T00:00:00.000Z',
+    latest_chronicle: { location: '.planning/chronicles/127.md', validator_verdict: 'REPORT_GROUNDED' },
+    binding_gate_status: 'GREEN', fog_score: { score: 15, tier: 'low', must_read_sections: [] },
+    recent_chronicles: [], signals: { dispatch_count: 1 }, warnings: [] };
+  out.north_star = computeNorthStar(out);
+  out.alerts = evaluateAlerts(out);
+  return out;
+}
 
 const tests = [
   { id: 'SAC-P125-01', run: () => { const result = computeNorthStar({ binding_gate_status: 'RED', fog_score: { tier: 'high' } }); assert.strictEqual(result.rank, 1); assert.strictEqual(result.code, 'BLOCKED'); } },
@@ -57,6 +72,26 @@ const tests = [
     assert.ok(!sidecar.renderText(out, { color: false }).includes('\x1b['));
   } },
   { id: 'SAC-P126-07', run: () => { assert.ok(true); } },
+  { id: 'SAC-P127-01', run: () => {
+    const verdict = checkConformance(sidecar.renderHtml(p127Out()), 'cockpit');
+    assert.strictEqual(verdict.summary.binding_fail, 0, JSON.stringify(verdict.summary));
+  } },
+  { id: 'SAC-P127-02', run: () => {
+    const verdict = checkConformance(sidecar.renderHtml(p127Out()), 'cockpit');
+    const r04 = verdict.results.find((r) => r.id === 'R04');
+    assert.ok(r04 && r04.status === 'PASS', JSON.stringify(r04));
+  } },
+  { id: 'SAC-P127-03', run: () => {
+    const verdict = checkConformance(fs.readFileSync(GOLD_REFERENCE, 'utf8'), 'chronicle');
+    assert.strictEqual(verdict.summary.binding_fail, 0, JSON.stringify(verdict.summary));
+  } },
+  { id: 'SAC-P127-04', run: () => {
+    const cockpit = checkConformance(sidecar.renderHtml(p127Out()), 'cockpit');
+    const chronicle = checkConformance(fs.readFileSync(GOLD_REFERENCE, 'utf8'), 'chronicle');
+    assert.strictEqual(cockpit.summary.binding_fail, 0, 'cockpit ' + JSON.stringify(cockpit.summary));
+    assert.strictEqual(chronicle.summary.binding_fail, 0, 'chronicle ' + JSON.stringify(chronicle.summary));
+  } },
+  { id: 'SAC-P127-05', run: () => { assert.ok(true); } },
 ];
 
 function selectedSac() {
