@@ -41,3 +41,18 @@ wiki/
 # live equivalents now maintained under super-gsd/ and .claude/skills/
 custom-gsd-extract/
 gsd-orchestrator-kit/
+
+# Runtime telemetry & per-install state — regenerated each session, not
+# portable, and carries machine-local paths. Not tracked in a shared repo.
+.planning/metrics/
+.planning/mesh/
+.planning/cache/
+.planning/ORCHESTRATOR-LIVE.jsonl
+.planning/ORCHESTRATOR-CHECKPOINT.md
+.planning/AUTOPILOT-RECOVERY.md
+
+# Scratch space for executor dispatch prompts/reports
+.tmp-sgsd/
+
+# Nested working copy — not a real source tree
+super-gsd/source/

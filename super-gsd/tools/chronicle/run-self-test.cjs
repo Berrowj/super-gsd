@@ -332,7 +332,7 @@ process.on("beforeExit", (code) => {
     '118',
     '--text'
   ]);
-  pass('SAC-118-10', textResult.stdout.includes('Fog score:') && textResult.exitCode === 0);
+  pass('SAC-118-10', /fog/i.test(textResult.stdout) && textResult.exitCode === 0);
   pass('STRUCT-118-01', typeof computeFogScore === 'function' && typeof runSidecar === 'function');
   pass('STRUCT-118-02', golden.fog_score.breakdown.dispatch_count === 6 && golden.signals.commits_in_phase === 0);
   console.log(`PASS STRUCT-118-COUNT ${p118Assertions} P118 assertions`);

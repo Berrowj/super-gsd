@@ -1,13 +1,23 @@
 {
   "name": "sgsd",
-  "version": "1.9.0",
-  "description": "Super GSD - autonomous execution engine",
+  "version": "3.2.0",
+  "description": "Super GSD - autonomous software-delivery engine",
   "private": true,
   "engines": {
     "node": ">=22.0.0"
   },
+  "scripts": {
+    "test": "node super-gsd/tools/chronicle/run-self-test.cjs && node super-gsd/tools/cockpit-sidecar/run-self-test.cjs",
+    "test:chronicle": "node super-gsd/tools/chronicle/run-self-test.cjs",
+    "test:cockpit": "node super-gsd/tools/cockpit-sidecar/run-self-test.cjs"
+  },
   "dependencies": {
-    "better-sqlite3": "^12.9.0"
+    "ajv": "^8.18.0",
+    "ajv-errors": "^3.0.0",
+    "ajv-formats": "^3.0.1",
+    "better-sqlite3": "^12.9.0",
+    "gray-matter": "^4.0.3",
+    "js-yaml": "^4.1.0"
   },
   "optionalDependencies": {
     "redis": "^5.12.1"

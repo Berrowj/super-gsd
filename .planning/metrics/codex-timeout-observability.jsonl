@@ -1,8 +1,0 @@
-{"ts":"2026-04-27T00:42:16Z","tier_requested":"analysis","tier_actual_via_retry":"analysis","duration_ms":180000,"exit_code":124,"step":"muda-qualitative","phase":"29","plan":"null"}
-{"ts":"2026-04-27T00:46:38Z","tier_requested":"analysis","tier_actual_via_retry":"analysis","duration_ms":180000,"exit_code":124,"step":"muda-qualitative","phase":"29","plan":"null"}
-{"ts":"2026-04-27T04:59:23Z","tier_requested":"analysis","tier_actual_via_retry":"analysis","duration_ms":180000,"exit_code":124,"step":"muda-qualitative","phase":"30","plan":"null"}
-{"ts":"2026-04-27T10:09:53Z","tier_requested":"phase-atc","tier_actual_via_retry":"phase-atc","duration_ms":420000,"exit_code":124,"step":"phase-atc","phase":"34","plan":"34-01"}
-{"ts":"2026-04-27T17:32:11Z","tier_requested":"phase-level-ATC","tier_actual_via_retry":"phase-level-ATC","duration_ms":180000,"exit_code":124,"step":"phase-level-ATC","phase":"41","plan":"41-01"}
-{"ts":"2026-04-28T15:11:29Z","tier_requested":"analysis","tier_actual_via_retry":"analysis","duration_ms":180000,"exit_code":124,"step":"muda-qualitative","phase":"50","plan":"null"}
-{"ts":"2026-04-28T18:25:23Z","tier_requested":"analysis","tier_actual_via_retry":"analysis","duration_ms":180000,"exit_code":124,"step":"muda-qualitative","phase":"51","plan":"null"}
-{"ts":"2026-04-28T21:12:55Z","tier_requested":"analysis","tier_actual_via_retry":"analysis","duration_ms":180000,"exit_code":124,"step":"muda-qualitative","phase":"52","plan":"null"}

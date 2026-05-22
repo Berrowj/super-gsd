@@ -141,4 +141,4 @@ point if Warp accepts the contract.
 ## Footer
 
 Source: SGSD Warp Integration roadmap, Phase 96.
-Contact: jack.berrow@googlemail.com (operator).
+Contact: the SGSD operator.
