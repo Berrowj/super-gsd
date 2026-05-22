@@ -1929,6 +1929,167 @@ function p122AppendRendererAssertions() {
   );
 }
 
+p123AppendChronicleValidatorLintAssertions();
+
+function p123AppendChronicleValidatorLintAssertions() {
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const childProcess = require('child_process');
+
+  const p123RepoRoot = path.resolve(__dirname, '..', '..', '..');
+  const p123Validator = path.join(__dirname, 'validate-chronicle.cjs');
+
+  const p123LoadFixture = (name) =>
+    JSON.parse(fs.readFileSync(path.join(__dirname, 'benchmarks', `${name}.json`), 'utf8'));
+
+  const p123WriteJson = (file, value) => {
+    fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+  };
+
+  const p123RunValidator = (fixture, overrides = {}) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), `sgsd-p123-${fixture.name || 'fixture'}-`));
+    const chroniclePath = path.join(dir, 'chronicle.html');
+    const contextPath = path.join(dir, 'CHRONICLE-CONTEXT.json');
+    const ledgerPath = path.join(dir, 'mesh-ledger.json');
+    fs.writeFileSync(chroniclePath, overrides.html || fixture.chronicle_html, 'utf8');
+    p123WriteJson(contextPath, overrides.context || fixture.chronicle_context);
+    p123WriteJson(ledgerPath, overrides.ledger || fixture.mesh_ledger_cmbs || []);
+    const result = childProcess.spawnSync(process.execPath, [
+      p123Validator,
+      '--chronicle',
+      chroniclePath,
+      '--context',
+      contextPath,
+      '--mesh-ledger',
+      ledgerPath,
+      '--repo-root',
+      p123RepoRoot,
+    ], { encoding: 'utf8' });
+    const start = String(result.stdout || '').indexOf('{');
+    const report = start >= 0 ? JSON.parse(result.stdout.slice(start)) : { verdict: 'PARSE_ERROR', warnings: [], findings: [] };
+    return { result, report };
+  };
+
+  const p123WarningCodes = (report) => (report.warnings || []).map((warning) => warning.code);
+  const p123FindingCodes = (report) => (report.findings || []).map((finding) => finding.code);
+
+  const p123V32Html = (patch = '') => `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Good v3.2 Chronicle</title><style>.primary-action{font-weight:700;}</style></head><body>
+<section role="operator-decision" data-role="operator-decision" class="operator-decision north-star"><h2>The validator keeps one operator decision visible</h2><p>Recommended next action: close P123 after the validator passes.</p></section>
+<section id="why" data-role="why" class="why scqa"><h2>The evidence explains why this closes</h2><p>Situation: P123 adds validator lints. Complication: drift can hide in rendered HTML. Question: What should the operator trust?</p></section>
+<section id="eli5" data-role="eli5" class="eli5"><h2>The plain-language view removes internal labels</h2><p>The report explains the decision without private shorthand.</p></section>
+<section id="synthesis" data-role="synthesis" class="synthesis"><h2>The synthesis ties evidence to action</h2><p>The validator reads the rendered page and checks the operator-facing structure.</p></section>
+<section id="claims" role="claim" data-role="claim" class="claim" data-citation="cmb-p123-good-001"><h2>The claim has a source</h2><p>Evidence path: .planning/metrics/gates.jsonl</p><a data-citation="cmb-p123-good-001">cmb-p123-good-001</a></section>
+<section id="what-happens-next" data-role="what-happens-next"><h2>The next step is singular</h2><p><span class="primary-action recommended-action" data-primary="true">Close P123 after self-test passes.</span></p><details><summary>Alternatives</summary><p>Re-run only if evidence changes.</p></details></section>
+<figure data-title="Evidence flow"><h3>Evidence flow</h3><svg viewBox="0 0 10 10"><path d="M1 5h8"/></svg><figcaption>The diagram shows the validator reading rendered evidence before phase close.</figcaption></figure>
+${patch}</body></html>`;
+
+  const p123V32Fixture = (patch = '') => ({
+    name: 'p123-inline',
+    expected_verdict: 'REPORT_GROUNDED',
+    expected_exit: 0,
+    chronicle_html: p123V32Html(patch),
+    chronicle_context: JSON.parse(
+      fs.readFileSync(path.join(__dirname, 'benchmarks', 'good-typical-phase.json'), 'utf8')
+    ).chronicle_context,
+    mesh_ledger_cmbs: [{
+      id: 'cmb-p123-good-001',
+      class: 'execution_receipt',
+      created_at: '2026-05-22T00:00:00.000Z',
+      milestone_id: 'v3.2',
+      phase_id: '123',
+      body: { summary: 'P123 validator fixture evidence' }
+    }]
+  });
+
+  assertions.push(
+    {
+      id: 'SAC-P123-01',
+      run: () => {
+        const run = p123RunValidator(p123LoadFixture('bad-jargon-eli5'));
+        return run.result.status === 0 &&
+          run.report.verdict === 'REPORT_GROUNDED' &&
+          p123WarningCodes(run.report).includes('CHRONICLE-JARGON') &&
+          JSON.stringify(run.report.warnings).includes('CMB') &&
+          JSON.stringify(run.report.warnings).includes('SAC');
+      },
+    },
+    {
+      id: 'SAC-P123-02',
+      run: () => {
+        const run = p123RunValidator(p123V32Fixture('<section id="label-test"><h2>Validator Output</h2><p>Label heading fixture.</p></section>'));
+        return run.report.verdict === 'REPORT_GROUNDED' &&
+          p123WarningCodes(run.report).includes('CHRONICLE-TAKEAWAY-HEADING');
+      },
+    },
+    {
+      id: 'SAC-P123-03',
+      run: () => {
+        const run = p123RunValidator(p123LoadFixture('bad-multi-primary-action'));
+        return run.result.status === 1 &&
+          run.report.verdict === 'REPORT_UNGROUNDED' &&
+          p123FindingCodes(run.report).includes('CHRONICLE-ONE-PRIMARY-ACTION');
+      },
+    },
+    {
+      id: 'SAC-P123-04',
+      run: () => {
+        const run = p123RunValidator(p123V32Fixture('<figure data-title="Repeated title"><h3>Repeated title</h3><svg viewBox="0 0 10 10"></svg><figcaption>Repeated title</figcaption></figure>'));
+        return run.report.verdict === 'REPORT_GROUNDED' &&
+          p123WarningCodes(run.report).includes('CHRONICLE-FIGCAPTION-TAKEAWAY');
+      },
+    },
+    {
+      id: 'SAC-P123-05',
+      run: () => {
+        // Per 123-CONTEXT.md SAC-P123-05: a bare-label section heading yields a
+        // CHRONICLE-TAKEAWAY-HEADING advisory; the advisory never flips the verdict.
+        const run = p123RunValidator(
+          p123V32Fixture('<section id="bare-label-heading"><h2>Risks</h2><p>Bare noun-label heading fixture.</p></section>')
+        );
+        return run.report.verdict === 'REPORT_GROUNDED' &&
+          p123WarningCodes(run.report).includes('CHRONICLE-TAKEAWAY-HEADING');
+      },
+    },
+    {
+      id: 'SAC-P123-06',
+      run: () => {
+        const fixture = p123V32Fixture('<script type="application/json" id="self-reported-lints">{"warnings":[],"primary_actions":1}</script>');
+        fixture.chronicle_html = fixture.chronicle_html.replace(
+          '<span class="primary-action recommended-action" data-primary="true">Close P123 after self-test passes.</span>',
+          '<span class="primary-action recommended-action" data-primary="true">Close P123 after self-test passes.</span><span class="primary-action recommended-action" data-primary="true">Also rewrite the renderer.</span>'
+        );
+        const run = p123RunValidator(fixture);
+        return run.report.verdict === 'REPORT_UNGROUNDED' &&
+          p123FindingCodes(run.report).includes('CHRONICLE-ONE-PRIMARY-ACTION');
+      },
+    },
+    {
+      id: 'SAC-P123-07',
+      run: () => p123RunValidator(p123LoadFixture('good-typical-phase')).report.verdict === 'REPORT_GROUNDED',
+    },
+    {
+      id: 'SAC-P123-08',
+      run: () => {
+        const fixture = p123LoadFixture('good-typical-phase');
+        fixture.chronicle_html = fixture.chronicle_html.replace('</body>', '<section id="eli5" data-role="eli5"><h2>ELI5</h2><p>CMB appears in a legacy report.</p></section></body>');
+        const run = p123RunValidator(fixture);
+        return run.report.verdict === 'REPORT_GROUNDED' &&
+          p123WarningCodes(run.report).includes('CHRONICLE-JARGON');
+      },
+    },
+    {
+      id: 'SAC-P123-09',
+      run: () => {
+        const run = p123RunValidator(p123LoadFixture('good-v32-conformant'));
+        return run.result.status === 0 &&
+          run.report.verdict === 'REPORT_GROUNDED' &&
+          (run.report.warnings || []).length === 0;
+      },
+    }
+  );
+}
+
 if (require.main === module) {
   main();
 }

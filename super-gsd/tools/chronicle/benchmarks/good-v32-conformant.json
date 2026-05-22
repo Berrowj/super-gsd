@@ -1,0 +1,113 @@
+{
+  "name": "good-v32-conformant",
+  "expected_verdict": "REPORT_GROUNDED",
+  "expected_exit": 0,
+  "chronicle_html": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Good v3.2 Chronicle</title><style>.primary-action{font-weight:700;}</style></head><body><section role=\"operator-decision\" data-role=\"operator-decision\" class=\"operator-decision north-star\"><h2>The validator keeps one operator decision visible</h2><p>Recommended next action: close P123 after the validator passes.</p></section><section id=\"why\" data-role=\"why\" class=\"why scqa\"><h2>The evidence explains why this closes</h2><p>Situation: P123 adds validator lints. Complication: drift can hide in rendered HTML. Question: What should the operator trust?</p></section><section id=\"eli5\" data-role=\"eli5\" class=\"eli5\"><h2>The plain-language view removes internal labels</h2><p>The report explains the decision without private shorthand.</p></section><section id=\"synthesis\" data-role=\"synthesis\" class=\"synthesis\"><h2>The synthesis ties evidence to action</h2><p>The validator reads the rendered page and checks the operator-facing structure.</p></section><section id=\"claims\" role=\"claim\" data-role=\"claim\" class=\"claim\" data-citation=\"cmb-p123-good-001\"><h2>The claim has a source</h2><p>Evidence path: .planning/metrics/gates.jsonl</p><a data-citation=\"cmb-p123-good-001\">cmb-p123-good-001</a></section><section id=\"what-happens-next\" data-role=\"what-happens-next\"><h2>The next step is singular</h2><p><span class=\"primary-action recommended-action\" data-primary=\"true\">Close P123 after self-test passes.</span></p><details><summary>Alternatives</summary><p>Re-run only if evidence changes.</p></details></section><figure data-title=\"Evidence flow\"><h3>Evidence flow</h3><svg viewBox=\"0 0 10 10\"><path d=\"M1 5h8\"/></svg><figcaption>The diagram shows the validator reading rendered evidence before phase close.</figcaption></figure></body></html>",
+  "chronicle_context": {
+    "chronicle_version": "2.0",
+    "chronicle_type": "phase",
+    "id": "chronicle-v3.2-123-good",
+    "title": "Good v3.2 Chronicle",
+    "generated_at": "2026-05-22T00:00:00.000Z",
+    "source": {
+      "milestone_id": "v3.2",
+      "phase_id": "123",
+      "source_file_paths": [
+        ".planning/milestones/v3.2/phases/123-chronicle-validator-lints/123-CONTEXT.md"
+      ]
+    },
+    "sections": {
+      "observations": [
+        {
+          "id": "observations-1",
+          "heading": "observations 1",
+          "signifier_role": "observations",
+          "body": "v3.2 conformant fixture rendered cleanly",
+          "citations": [
+            "cmb-p123-good-001"
+          ]
+        }
+      ],
+      "claims": [
+        {
+          "id": "claims-1",
+          "heading": "claims 1",
+          "signifier_role": "claims",
+          "body": "validator passes the conformant chronicle",
+          "citations": [
+            "cmb-p123-good-001"
+          ]
+        }
+      ],
+      "evidence_verdicts": [
+        {
+          "id": "evidence_verdicts-1",
+          "heading": "evidence_verdicts 1",
+          "signifier_role": "evidence_verdicts",
+          "body": "all binding checks remain grounded",
+          "citations": [
+            "cmb-p123-good-001"
+          ]
+        }
+      ],
+      "decisions": [
+        {
+          "id": "decisions-1",
+          "heading": "decisions 1",
+          "signifier_role": "decisions",
+          "body": "close P123 after self-test passes",
+          "citations": [
+            "cmb-p123-good-001"
+          ]
+        }
+      ],
+      "synthesis": [],
+      "denominators": [],
+      "autonomy_disclosure": []
+    },
+    "denominators": {
+      "scope_excluded": [
+        "non-goal-1"
+      ],
+      "carve_outs_not_fired": [
+        "production_mutation"
+      ],
+      "alternatives_rejected": [
+        "alt-A"
+      ],
+      "assumptions_made": [
+        "baseline"
+      ],
+      "gates_skipped": []
+    },
+    "denominators_empty_reason": "baseline fixture: gates_skipped intentionally empty",
+    "diagrams": [],
+    "assets": []
+  },
+  "mesh_ledger_cmbs": [
+    {
+      "id": "cmb-p123-good-001",
+      "class": "execution_receipt",
+      "created_at": "2026-05-22T00:00:00.000Z",
+      "milestone_id": "v3.2",
+      "phase_id": "123",
+      "body": {
+        "summary": "P123 good fixture evidence"
+      },
+      "citations": [],
+      "cat7": {
+        "focus": "phase-123",
+        "issue": "test",
+        "intent": "fixture",
+        "motivation": "benchmark",
+        "commitment": "low",
+        "perspective": "executor",
+        "mood": "neutral"
+      },
+      "created_by": {
+        "role": "sgsd",
+        "authority_level": "observation"
+      }
+    }
+  ]
+}

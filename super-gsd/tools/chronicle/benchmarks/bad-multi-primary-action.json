@@ -1,0 +1,113 @@
+{
+  "name": "bad-multi-primary-action",
+  "expected_verdict": "REPORT_UNGROUNDED",
+  "expected_exit": 1,
+  "chronicle_html": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>P123 Multi Action Fixture</title><style>.primary-action{font-weight:700;}</style></head><body><section role=\"operator-decision\" data-role=\"operator-decision\" class=\"operator-decision north-star\"><h2>The validator rejects competing primary actions</h2><p>Recommended next action: choose one action before close.</p></section><section id=\"why\" data-role=\"why\" class=\"why scqa\"><h2>The evidence explains why this fails</h2><p>Situation: the report shows next steps. Complication: two primary actions split attention. Question: What should happen now?</p></section><section id=\"eli5\" data-role=\"eli5\" class=\"eli5\"><h2>The plain-language view is clear</h2><p>The report avoids private shorthand.</p></section><section id=\"synthesis\" data-role=\"synthesis\" class=\"synthesis\"><h2>The synthesis points at the action conflict</h2><p>The rendered page has two highlighted next actions.</p></section><section id=\"claims\" role=\"claim\" data-role=\"claim\" class=\"claim\" data-citation=\"cmb-p123-action-001\"><h2>The evidence claim has a citation</h2><p>Evidence path: .planning/metrics/gates.jsonl</p><a data-citation=\"cmb-p123-action-001\">cmb-p123-action-001</a></section><section id=\"what-happens-next\" data-role=\"what-happens-next\"><h2>The next step is split</h2><p><span class=\"primary-action recommended-action\" data-primary=\"true\">Close P123 now.</span></p><p><span class=\"primary-action recommended-action\" data-primary=\"true\">Rewrite the renderer now.</span></p><details><summary>Alternatives</summary><p>Alternatives are folded, but the primaries are not.</p></details></section><figure data-title=\"Action conflict\"><h3>Action conflict</h3><svg viewBox=\"0 0 10 10\"><path d=\"M1 5h8\"/></svg><figcaption>The diagram shows two visible primary actions competing for operator attention.</figcaption></figure></body></html>",
+  "chronicle_context": {
+    "chronicle_version": "2.0",
+    "chronicle_type": "phase",
+    "id": "chronicle-v3.2-123-multi-action",
+    "title": "P123 Multi Action Fixture",
+    "generated_at": "2026-05-22T00:00:00.000Z",
+    "source": {
+      "milestone_id": "v3.2",
+      "phase_id": "123",
+      "source_file_paths": [
+        ".planning/milestones/v3.2/phases/123-chronicle-validator-lints/123-CONTEXT.md"
+      ]
+    },
+    "sections": {
+      "observations": [
+        {
+          "id": "observations-1",
+          "heading": "observations 1",
+          "signifier_role": "observations",
+          "body": "multi-action fixture rendered cleanly",
+          "citations": [
+            "cmb-p123-action-001"
+          ]
+        }
+      ],
+      "claims": [
+        {
+          "id": "claims-1",
+          "heading": "claims 1",
+          "signifier_role": "claims",
+          "body": "the next-action section exposes two primary actions",
+          "citations": [
+            "cmb-p123-action-001"
+          ]
+        }
+      ],
+      "evidence_verdicts": [
+        {
+          "id": "evidence_verdicts-1",
+          "heading": "evidence_verdicts 1",
+          "signifier_role": "evidence_verdicts",
+          "body": "validator must fail the binding action count",
+          "citations": [
+            "cmb-p123-action-001"
+          ]
+        }
+      ],
+      "decisions": [
+        {
+          "id": "decisions-1",
+          "heading": "decisions 1",
+          "signifier_role": "decisions",
+          "body": "require one primary action before close",
+          "citations": [
+            "cmb-p123-action-001"
+          ]
+        }
+      ],
+      "synthesis": [],
+      "denominators": [],
+      "autonomy_disclosure": []
+    },
+    "denominators": {
+      "scope_excluded": [
+        "non-goal-1"
+      ],
+      "carve_outs_not_fired": [
+        "production_mutation"
+      ],
+      "alternatives_rejected": [
+        "alt-A"
+      ],
+      "assumptions_made": [
+        "baseline"
+      ],
+      "gates_skipped": []
+    },
+    "denominators_empty_reason": "baseline fixture: gates_skipped intentionally empty",
+    "diagrams": [],
+    "assets": []
+  },
+  "mesh_ledger_cmbs": [
+    {
+      "id": "cmb-p123-action-001",
+      "class": "execution_receipt",
+      "created_at": "2026-05-22T00:00:00.000Z",
+      "milestone_id": "v3.2",
+      "phase_id": "123",
+      "body": {
+        "summary": "P123 multi-action fixture evidence"
+      },
+      "citations": [],
+      "cat7": {
+        "focus": "phase-123",
+        "issue": "test",
+        "intent": "fixture",
+        "motivation": "benchmark",
+        "commitment": "low",
+        "perspective": "executor",
+        "mood": "neutral"
+      },
+      "created_by": {
+        "role": "sgsd",
+        "authority_level": "observation"
+      }
+    }
+  ]
+}

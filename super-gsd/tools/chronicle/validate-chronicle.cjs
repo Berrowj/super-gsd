@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const childProcess = require('child_process');
+const { checkConformance } = require('../shared/conformance-check.cjs');
 
 const VERDICTS = {
   GROUNDED: { name: 'REPORT_GROUNDED', exitCode: 0 },
@@ -107,6 +108,12 @@ function stripTags(value) {
   return decodeHtml(String(value || '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
 }
 
+function stripScriptsAndStyles(value) {
+  return String(value || '')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ');
+}
+
 function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
@@ -157,6 +164,7 @@ function parseHtml(html) {
   const externalUrls = [];
   const svgCount = (html.match(/<svg\b/gi) || []).length;
   const detailsCount = (html.match(/<details\b/gi) || []).length;
+  const figures = [];
 
   const externalPattern = /https?:\/\/[^"' <>)]+|<script\b[^>]*\bsrc\s*=\s*["'][^"']+["'][^>]*>|<link\b[^>]*\brel\s*=\s*["']stylesheet["'][^>]*\bhref\s*=\s*["'][^"']+["'][^>]*>/gi;
   let externalMatch;
@@ -191,6 +199,22 @@ function parseHtml(html) {
     });
   }
 
+  const figurePattern = /<figure\b([^>]*)>([\s\S]*?)<\/figure>/gi;
+  let figureMatch;
+  while ((figureMatch = figurePattern.exec(html)) !== null) {
+    const body = figureMatch[2] || '';
+    const heading = body.match(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]>/i);
+    const caption = body.match(/<figcaption\b[^>]*>([\s\S]*?)<\/figcaption>/i);
+    const attrs = attrMap(figureMatch[1]);
+    figures.push({
+      attrs,
+      title: stripTags(attrs['data-title'] || attrs['aria-label'] || (heading ? heading[1] : '')),
+      figcaption: caption ? stripTags(caption[1]) : '',
+      text: stripTags(body),
+      index: figureMatch.index,
+    });
+  }
+
   const sectionPattern = /<section\b([^>]*)>([\s\S]*?)<\/section>/gi;
   let sectionMatch;
   while ((sectionMatch = sectionPattern.exec(html)) !== null) {
@@ -210,6 +234,7 @@ function parseHtml(html) {
       role: attrs.role || '',
       signifierRole: attrs['data-signifier-role'] || attrs.signifier_role || attrs['data-role'] || '',
       kind: attrs['data-kind'] || '',
+      rawBody: body,
       className: attrs.class || '',
       reason: attrs['data-reason'] || attrs['data-empty-reason'] || attrs['aria-description'] || '',
       claim: isClaimSection(attrs, body),
@@ -222,6 +247,7 @@ function parseHtml(html) {
 
   return {
     sections,
+    figures,
     citations: dedupeCitations(citations),
     missingEvidence,
     externalUrls,
@@ -505,6 +531,221 @@ function validateContamination(parsed, findings) {
   }
 }
 
+function warning(code, message, extra = {}) {
+  return { code, message, ...extra };
+}
+
+function pushWarning(warnings, code, message, extra = {}) {
+  warnings.push(warning(code, message, extra));
+}
+
+function headingText(section) {
+  const heading = String(section.rawBody || '').match(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]>/i);
+  if (heading) return stripTags(heading[1]);
+  return section.attrs['aria-label'] || section.attrs['data-title'] || section.id || '';
+}
+
+function words(value) {
+  return String(value || '').trim().split(/\s+/).filter(Boolean);
+}
+
+function hasTakeawaySignal(value) {
+  const text = String(value || '').trim();
+  if (!text) return false;
+  if (/[;:,.!?]/.test(text)) return true;
+  if (/\d/.test(text)) return true;
+  if (/\b(is|are|was|were|has|have|had|will|must|should|can|cannot|keeps?|needs?|shows?|proves?|passes?|fails?|blocks?|unblocks?|ships?|requires?|drives?|reduces?|raises?|turns?|moves?|uses?|runs?|adds?|removes?|validates?|grounds?|rejects?)\b/i.test(text)) return true;
+  return words(text).length > 2;
+}
+
+function lintTakeawayHeadings(parsed, warnings) {
+  for (const section of parsed.sections) {
+    const heading = headingText(section);
+    if (!heading) continue;
+    if (words(heading).length <= 2 && !hasTakeawaySignal(heading)) {
+      pushWarning(
+        warnings,
+        'CHRONICLE-TAKEAWAY-HEADING',
+        `section ${section.id} heading "${heading}" is a bare label, not a takeaway statement`,
+        { section: section.id, heading }
+      );
+    }
+  }
+}
+
+function lintFigcaptions(parsed, warnings) {
+  for (const figure of parsed.figures) {
+    if (!figure.title || !figure.figcaption) continue;
+    if (figure.title.toLowerCase() === figure.figcaption.toLowerCase()) {
+      pushWarning(
+        warnings,
+        'CHRONICLE-FIGCAPTION-TAKEAWAY',
+        `figure figcaption repeats diagram title "${figure.title}"`,
+        { title: figure.title }
+      );
+    }
+  }
+}
+
+function scopeLooksLike(section, names) {
+  const haystack = [
+    section.id,
+    section.role,
+    section.signifierRole,
+    section.kind,
+    section.className,
+    section.attrs['data-role'],
+    section.attrs['data-section'],
+    section.attrs['aria-label'],
+  ].join(' ');
+  return names.some((name) => new RegExp(`\\b${name}\\b`, 'i').test(haystack));
+}
+
+function lintScopes(parsed) {
+  return parsed.sections.filter((section) => scopeLooksLike(section, ['eli5', 'synthesis']));
+}
+
+function termPattern(term) {
+  if (term === 'REPORT_') return /\bREPORT_[A-Z0-9_]+/g;
+  if (term === 'signifier_role') return /\bsignifier_role\b/g;
+  if (term === 'escalation_gate') return /\bescalation_gate\b/g;
+  return new RegExp(`\\b${term}\\b`, 'g');
+}
+
+function termIsGlossed(term, text, index) {
+  const prefix = String(text || '').slice(0, Math.max(0, index + 80));
+  const patterns = {
+    CMB: /\b(Capability Maturity Board\s*\(CMB\)|CMB\s*\(Capability Maturity Board\))/i,
+    SAC: /\b(Semantic Acceptance Criteria\s*\(SAC\)|Success Acceptance Criteria\s*\(SAC\)|SAC\s*\((Semantic|Success) Acceptance Criteria\))/i,
+    ATC: /\b(Acceptance Test Checkpoint\s*\(ATC\)|ATC\s*\(Acceptance Test Checkpoint\))/i,
+    MUDA: /\b(lean waste\s*\(MUDA\)|waste\s*\(MUDA\)|MUDA\s*\(waste\))/i,
+    signifier_role: /\bsignifier role\b/i,
+    REPORT_: /\breport verdict\b|\breport prefix\b/i,
+    escalation_gate: /\bescalation gate\b/i,
+  };
+  return patterns[term] ? patterns[term].test(prefix) : false;
+}
+
+function lintJargon(parsed, warnings) {
+  const denied = ['CMB', 'SAC', 'ATC', 'MUDA', 'signifier_role', 'REPORT_', 'escalation_gate'];
+  for (const section of lintScopes(parsed)) {
+    const text = section.text || '';
+    for (const term of denied) {
+      const pattern = termPattern(term);
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        if (termIsGlossed(term, text, match.index)) continue;
+        pushWarning(
+          warnings,
+          'CHRONICLE-JARGON',
+          `section ${section.id} uses un-glossed internal term ${match[0]}`,
+          { section: section.id, term: match[0] }
+        );
+      }
+    }
+  }
+}
+
+function sectionRawText(section) {
+  return stripTags(section.rawBody || section.text || '');
+}
+
+function nextActionSections(parsed) {
+  const matches = parsed.sections.filter((section) => scopeLooksLike(section, ['what-happens-next', 'whats-next', 'next']));
+  if (matches.length) return matches;
+  return parsed.sections.filter((section) => /\b(what happens next|next action|recommended next action|do this next)\b/i.test(section.text));
+}
+
+function countPrimaryActionsInHtml(raw) {
+  const source = String(raw || '');
+  // Count distinct ELEMENTS that are a primary action — never sum independent
+  // regex passes. An element with both class="primary-action" and
+  // data-primary="true" is ONE primary action, not two.
+  const tags = source.match(/<[a-zA-Z][^>]*>/g) || [];
+  let explicit = 0;
+  for (const tag of tags) {
+    const isClassOrRole = /\b(?:class|data-role)\s*=\s*["'][^"']*\b(?:primary-action|recommended-action|north-star-action|next-action)\b[^"']*["']/i.test(tag);
+    const isDataPrimary = /\bdata-primary\s*=\s*["']true["']/i.test(tag);
+    const isPrimaryButton = /^<(?:a|button)\b/i.test(tag) && /\bclass\s*=\s*["'][^"']*\bprimary\b/i.test(tag);
+    if (isClassOrRole || isDataPrimary || isPrimaryButton) explicit += 1;
+  }
+  if (explicit > 0) return explicit;
+  const text = stripTags(source);
+  const phraseCount = (text.match(/\brecommended next action\b/gi) || []).length;
+  if (phraseCount > 0) return phraseCount;
+  return 0;
+}
+
+function validateOnePrimaryAction(parsed, findings) {
+  const sections = nextActionSections(parsed);
+  if (!sections.length) return;
+  const count = sections.reduce((total, section) => total + countPrimaryActionsInHtml(section.rawBody || ''), 0);
+  if (count !== 1) {
+    findings.push(finding(
+      'REPORT_UNGROUNDED',
+      'CHRONICLE-ONE-PRIMARY-ACTION',
+      `what happens next must expose exactly one primary action; found ${count}`,
+    ));
+  }
+}
+
+const ADVISORY_CONFORMANCE_FAILURES = new Set(['R11']);
+
+function isLegacyChronicle(context, parsed) {
+  const version = String(context.chronicle_version || context.version || '');
+  const sourceMilestone = String(context.source && context.source.milestone_id || '');
+  const hasV32Signals = parsed.sections.some((section) => (
+    section.role === 'operator-decision' ||
+    /\b(operator-decision|north-star|next-action|recommended-action|eli5|synthesis|scqa)\b/i.test(section.className) ||
+    /\b(operator-decision|north-star|next-action|recommended-action|eli5|synthesis|scqa)\b/i.test(section.attrs['data-role'] || '')
+  ));
+  const explicitModern =
+    /^v3\.[2-9]\b/.test(sourceMilestone) ||
+    /^v3\.[2-9]\b/.test(version) ||
+    (/^\d+(?:\.\d+)?$/.test(version) && Number(version) >= 2);
+
+  if (explicitModern) return false;
+  if (version === '1.0' || /^v3\.1\b/.test(sourceMilestone)) return true;
+  return !hasV32Signals;
+}
+
+function validateConformance(html, context, parsed, findings, warnings) {
+  const result = checkConformance(html, 'chronicle');
+  const allFailures = result.results.filter((item) => item.severity === 'binding' && item.status === 'FAIL');
+  const advisoryFailures = allFailures.filter((item) => ADVISORY_CONFORMANCE_FAILURES.has(item.id));
+  const failures = allFailures.filter((item) => !ADVISORY_CONFORMANCE_FAILURES.has(item.id));
+
+  for (const failure of advisoryFailures) {
+    pushWarning(
+      warnings,
+      'CHRONICLE-CONFORMANCE-ADVISORY',
+      `P120 conformance advisory rule ${failure.id} failed: ${failure.detail}`,
+      { rule: failure.id }
+    );
+  }
+
+  if (!failures.length) return result;
+
+  if (isLegacyChronicle(context, parsed)) {
+    pushWarning(
+      warnings,
+      'CHRONICLE-CONFORMANCE-LEGACY',
+      `legacy chronicle skipped binding P120 conformance gate: ${failures.map((item) => item.id).join(', ')}`,
+      { failed_rules: failures.map((item) => item.id) }
+    );
+    return result;
+  }
+
+  for (const failure of failures) {
+    findings.push(finding(
+      'REPORT_UNGROUNDED',
+      'CHRONICLE-CONFORMANCE',
+      `P120 conformance binding rule ${failure.id} failed: ${failure.detail}`,
+    ));
+  }
+  return result;
+}
+
 function finding(verdict, code, message) {
   return { verdict, code, message };
 }
@@ -521,6 +762,7 @@ function run(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
   const repoRoot = path.resolve(args.repoRoot || process.cwd());
   const findings = [];
+  const warnings = [];
 
   const html = readText(args.chronicle, 'chronicle');
   const context = parseJson(readText(args.context, 'context'), 'context');
@@ -535,6 +777,11 @@ function run(argv = process.argv.slice(2)) {
   validateRoles(parsed, context, findings);
   validateMissingEvidence(parsed, context, findings);
   validateContamination(parsed, findings);
+  lintJargon(parsed, warnings);
+  lintTakeawayHeadings(parsed, warnings);
+  validateOnePrimaryAction(parsed, findings);
+  lintFigcaptions(parsed, warnings);
+  const conformance = validateConformance(html, context, parsed, findings, warnings);
 
   const verdict = chooseVerdict(findings, args.lenient);
   const report = {
@@ -551,8 +798,11 @@ function run(argv = process.argv.slice(2)) {
       embedded_svg: parsed.svgCount,
       details: parsed.detailsCount,
       findings: findings.length,
+      warnings: warnings.length,
     },
     findings,
+    warnings,
+    conformance,
   };
 
   for (const item of findings) {
@@ -584,5 +834,9 @@ module.exports = {
   run,
   resolveCitation,
   validateClaims,
+  validateConformance,
+  validateOnePrimaryAction,
+  lintJargon,
+  lintTakeawayHeadings,
   validateMissingEvidence,
 };
