@@ -5,6 +5,8 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { computeFogScore } = require('./fog-score.cjs');
+const { computeNorthStar } = require('./north-star.cjs');
+const { evaluateAlerts } = require('./alert-grammar.cjs');
 
 const DEFAULTS = { cockpitState: '.planning/STATE.md', chronicleIndex: '.planning/chronicles/INDEX.jsonl',
   validatorLog: '.planning/metrics/chronicle-validation-log.jsonl',
@@ -24,7 +26,7 @@ function usage() {
     'Usage: node super-gsd/tools/cockpit-sidecar/cockpit-sidecar.cjs [options]',
     '  --cockpit-state <path> --chronicle-index <path> --validator-log <path>',
     '  --executor-log <path> --token-attribution <path>',
-    '  --milestone <id> --phase <id> --json|--text'
+    '  --milestone <id> --phase <id> --json|--text|--brief|--html'
   ].join('\n');
 }
 
@@ -34,7 +36,7 @@ function parseArgs(argv) {
     const arg = argv[index];
     if (arg === '--help' || arg === '-h') {
       options.help = true;
-    } else if (arg === '--json' || arg === '--text') {
+    } else if (arg === '--json' || arg === '--text' || arg === '--brief' || arg === '--html') {
       options.format = arg.slice(2);
     } else if (VALUE_OPTIONS[arg]) {
       const value = argv[index + 1];
@@ -218,24 +220,140 @@ function buildSignals({ executorRows, tokenRows, validatorRow, state, milestone,
   return signals;
 }
 
-function renderText(output) {
+function recommendedAction(code) {
+  switch (code) {
+    case 'BLOCKED':
+      return 'resolve the binding gate before close';
+    case 'CHRONICLE_FAILED':
+      return 'fix the chronicle citation, re-validate';
+    case 'NEEDS_OPERATOR':
+      return 'operator decision required — see blockers';
+    case 'HEAVY_PHASE':
+      return 'read the must-read chronicle sections';
+    case 'ON_TRACK':
+      return 'continue — advance to the next phase';
+    default:
+      return 'review cockpit state';
+  }
+}
+
+function valueOr(value, fallback) {
+  return value === undefined || value === null || value === '' ? fallback : value;
+}
+
+function latestChroniclePath(output) {
   const latest = output.latest_chronicle;
+  return latest && latest.location ? latest.location : 'none';
+}
+
+function northStarLine(output) {
+  const northStar = output.north_star || {};
+  const code = northStar.code || 'UNKNOWN';
+  const message = northStar.message || 'review cockpit state';
+  return `NORTH STAR [${code}]: ${message}`;
+}
+
+function alertLine(output) {
+  const alerts = output.alerts || {};
+  if (!alerts.top) return null;
+  const more = alerts.others_count > 0 ? `  (+${alerts.others_count} more)` : '';
+  return `⚠ ${alerts.top.signal}${more}`;
+}
+
+function withColor(line, color, enabled) {
+  return enabled ? `${color}${line}\x1b[0m` : line;
+}
+
+function useColor(opts) {
+  return Object.prototype.hasOwnProperty.call(opts || {}, 'color') ? Boolean(opts.color) : Boolean(process.stdout.isTTY);
+}
+
+function answerFirstLines(output, opts) {
+  const color = useColor(opts);
+  const lines = [
+    withColor(northStarLine(output), '\x1b[1m\x1b[36m', color),
+    `▸ DO NEXT: ${recommendedAction(output.north_star && output.north_star.code)}`
+  ];
+  const alert = alertLine(output);
+  if (alert) lines.push(withColor(alert, '\x1b[1m\x1b[33m', color));
+  return lines;
+}
+
+function supportingLines(output) {
+  const fog = output.fog_score || {};
+  const signals = output.signals || {};
   return [
-    `Milestone: ${output.milestone || 'null'}`,
-    `Phase: ${output.phase || 'null'}`,
-    `Generated: ${output.generated_at}`,
-    `Latest chronicle: ${latest ? latest.location : 'none'}`,
-    `Validator verdict: ${latest ? latest.validator_verdict || 'null' : 'null'}`,
-    `Binding gate: ${output.binding_gate_status || 'null'}`,
-    `Fog score: ${output.fog_score.score} (${output.fog_score.tier})`,
-    `Must read: ${output.fog_score.must_read_sections.join(', ') || 'none'}`,
-    `Dispatches: ${output.signals.dispatch_count}`,
-    `Token spend: ${output.signals.token_spend}`,
-    `Files changed: ${output.signals.files_changed}`,
-    `Commits in phase: ${output.signals.commits_in_phase}`,
-    `Recent chronicles: ${output.recent_chronicles.length}`,
-    `Warnings: ${output.warnings.length ? output.warnings.join('; ') : 'none'}`
-  ].join('\n');
+    'SUPPORTING',
+    `${output.milestone || 'null'}/${output.phase || 'null'}`,
+    `gate ${output.binding_gate_status || 'null'}`,
+    `fog ${valueOr(fog.tier, 'n/a')} / ${valueOr(fog.score, 'n/a')}`,
+    `dispatches ${valueOr(signals.dispatch_count, 'n/a')}`,
+    `latest chronicle ${latestChroniclePath(output)}`
+  ];
+}
+
+function renderText(output, opts = {}) {
+  return answerFirstLines(output, opts).concat([''], supportingLines(output)).join('\n');
+}
+
+function renderBrief(output) {
+  return answerFirstLines(output, { color: Boolean(process.stdout.isTTY) }).join('\n');
+}
+
+function escapeHtml(value) {
+  return String(value === undefined || value === null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderHtml(output) {
+  let designSystemCss = '';
+  try {
+    designSystemCss = fs.readFileSync(path.join(__dirname, '..', 'shared', 'sgsd-design-system.css'), 'utf8');
+  } catch (_error) {
+    designSystemCss = '';
+  }
+
+  const alert = alertLine(output);
+  const alertHtml = alert ? `    <div class="callout" role="alert">${escapeHtml(alert)}</div>\n` : '';
+  const fog = output.fog_score || {};
+  const signals = output.signals || {};
+
+  return [
+    '<!doctype html>',
+    '<html lang="en">',
+    '<head>',
+    '  <meta charset="utf-8">',
+    '  <meta name="viewport" content="width=device-width, initial-scale=1">',
+    '  <title>SGSD Cockpit</title>',
+    '  <style>',
+    designSystemCss,
+    '  </style>',
+    '</head>',
+    '<body>',
+    '  <main class="sgsd-cockpit">',
+    '    <section role="operator-decision" class="operator-decision">',
+    `      <p class="eyebrow">${escapeHtml(northStarLine(output))}</p>`,
+    `      <p class="do-next">▸ DO NEXT: ${escapeHtml(recommendedAction(output.north_star && output.north_star.code))}</p>`,
+    '    </section>',
+    alertHtml.trimEnd(),
+    '    <details class="supporting-block">',
+    '      <summary>Supporting state</summary>',
+    '      <dl>',
+    `        <dt>Scope</dt><dd>${escapeHtml(output.milestone || 'null')}/${escapeHtml(output.phase || 'null')}</dd>`,
+    `        <dt>Gate</dt><dd>${escapeHtml(output.binding_gate_status || 'null')}</dd>`,
+    `        <dt>Fog</dt><dd>${escapeHtml(valueOr(fog.tier, 'n/a'))} / ${escapeHtml(valueOr(fog.score, 'n/a'))}</dd>`,
+    `        <dt>Dispatches</dt><dd>${escapeHtml(valueOr(signals.dispatch_count, 'n/a'))}</dd>`,
+    `        <dt>Latest chronicle</dt><dd>${escapeHtml(latestChroniclePath(output))}</dd>`,
+    '      </dl>',
+    '    </details>',
+    '  </main>',
+    '</body>',
+    '</html>'
+  ].filter((line) => line !== '').join('\n');
 }
 
 function run(rawArgs = process.argv.slice(2)) {
@@ -264,7 +382,13 @@ function run(rawArgs = process.argv.slice(2)) {
   const output = { milestone, phase, generated_at: new Date().toISOString(),
     latest_chronicle: latestChronicle(latestRow), binding_gate_status: gateStatus(validatorRow, latestRow),
     fog_score: computeFogScore(fogInput), recent_chronicles: recent, signals, warnings };
-  return { exitCode: 0, stdout: options.format === 'text' ? renderText(output) : JSON.stringify(output, null, 2) };
+  output.north_star = computeNorthStar(output);
+  output.alerts = evaluateAlerts(output);
+
+  if (options.format === 'text') return { exitCode: 0, stdout: renderText(output) };
+  if (options.format === 'brief') return { exitCode: 0, stdout: renderBrief(output) };
+  if (options.format === 'html') return { exitCode: 0, stdout: renderHtml(output) };
+  return { exitCode: 0, stdout: JSON.stringify(output, null, 2) };
 }
 
 if (require.main === module) {
@@ -278,4 +402,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { run, parseArgs, readJsonl, readCockpitState };
+module.exports = { run, parseArgs, readJsonl, readCockpitState, renderText, renderBrief, renderHtml, recommendedAction };
