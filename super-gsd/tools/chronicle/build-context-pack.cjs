@@ -1,4 +1,207 @@
 #!/usr/bin/env node
+
+const __p121StdoutWrite = process.stdout.write.bind(process.stdout);
+
+function __p121String(value) {
+  if (value == null) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return "";
+}
+
+function __p121TextFrom(value) {
+  if (!value || typeof value !== "object") return __p121String(value);
+  for (const key of ["body", "summary", "text", "value", "verdict", "decision", "title", "description"]) {
+    const text = __p121String(value[key]);
+    if (text) return text;
+  }
+  return "";
+}
+
+function __p121IdFrom(value) {
+  if (!value || typeof value !== "object") return "";
+  for (const key of ["cmb_id", "cmbId", "id", "source_id", "sourceId", "citation", "evidence_path", "path"]) {
+    const text = __p121String(value[key]);
+    if (text) return text;
+  }
+  return "";
+}
+
+function __p121Walk(value, visit, path = []) {
+  if (!value || typeof value !== "object") return;
+  visit(value, path);
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => __p121Walk(item, visit, path.concat(String(index))));
+    return;
+  }
+  for (const [key, item] of Object.entries(value)) {
+    __p121Walk(item, visit, path.concat(key));
+  }
+}
+
+function __p121Rank(value, path) {
+  const role = __p121String(value.signifier_role || value.role || value.kind || value.type).toLowerCase();
+  const keys = path.join(".").toLowerCase();
+  const haystack = `${role} ${keys}`;
+  if (haystack.includes("promotion_decision")) return 50;
+  if (haystack.includes("verdict")) return 45;
+  if (haystack.includes("decision")) return 40;
+  if (haystack.includes("evidence")) return 35;
+  if (haystack.includes("claim")) return 25;
+  if (haystack.includes("observation")) return 20;
+  return 0;
+}
+
+function __p121Clip(text, max) {
+  const compact = __p121String(text).replace(/\s+/g, " ");
+  if (compact.length <= max) return compact;
+  return compact.slice(0, max - 1).trimEnd() + ".";
+}
+
+function __p121DominantSignal(fog) {
+  const breakdown = fog && typeof fog === "object" ? fog.breakdown : null;
+  if (!breakdown || typeof breakdown !== "object") return "none";
+  return Object.entries(breakdown)
+    .filter(([, value]) => typeof value === "number" && Number.isFinite(value))
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] || "none";
+}
+
+function __p121ActionText(value) {
+  if (typeof value === "string") return value.trim();
+  if (!value || typeof value !== "object") return "";
+  for (const key of ["primary_action", "action", "summary", "text", "body", "title"]) {
+    const text = __p121String(value[key]);
+    if (text) return text;
+  }
+  return "";
+}
+
+function __p121CollectActions(pack) {
+  const actions = [];
+  const candidates = [
+    pack?.next_actions,
+    pack?.nextActions,
+    pack?.actions,
+    pack?.next?.alternatives,
+    pack?.next?.primary_action ? [pack.next.primary_action] : null
+  ];
+  for (const candidate of candidates) {
+    if (!Array.isArray(candidate)) continue;
+    for (const item of candidate) {
+      const text = __p121ActionText(item);
+      if (text && !actions.includes(text)) actions.push(text);
+    }
+  }
+  __p121Walk(pack, (value, path) => {
+    const role = __p121String(value.signifier_role || value.role || value.kind || value.type).toLowerCase();
+    const keys = path.join(".").toLowerCase();
+    if (!role.includes("action") && !keys.includes("next_action")) return;
+    const text = __p121ActionText(value);
+    if (text && !actions.includes(text)) actions.push(text);
+  });
+  return actions;
+}
+
+function __p121FindText(pack, needles) {
+  let best = "";
+  __p121Walk(pack, (value, path) => {
+    if (best) return;
+    const haystack = `${path.join(".")} ${__p121String(value.signifier_role || value.role || value.kind || value.type)}`.toLowerCase();
+    if (!needles.some((needle) => haystack.includes(needle))) return;
+    best = __p121TextFrom(value);
+  });
+  return best;
+}
+
+function __p121Intent(pack) {
+  return __p121String(pack?.intent || pack?.metadata?.intent || pack?.phase?.intent || pack?.plan?.intent || pack?.title || pack?.phase || pack?.milestone);
+}
+
+function __p121BigIdea(pack) {
+  let best = null;
+  __p121Walk(pack, (value, path) => {
+    const body = __p121TextFrom(value);
+    if (!body) return;
+    const rank = __p121Rank(value, path);
+    if (rank <= 0) return;
+    const citation = __p121IdFrom(value) || __p121FindText(value, ["verification"]) || "VERIFICATION.md";
+    const candidate = { rank, body, citation };
+    if (!best || candidate.rank > best.rank || (candidate.rank === best.rank && candidate.citation.localeCompare(best.citation) < 0)) {
+      best = candidate;
+    }
+  });
+  const denominator = __p121FindText(pack, ["denominator"]);
+  const intent = __p121Intent(pack);
+  const body = best?.body || intent || "Chronicle context pack generated from available SGSD evidence.";
+  const composed = denominator ? `${body}; denominator: ${denominator}` : body;
+  return {
+    idea: __p121Clip(composed, 200),
+    citation: best?.citation || __p121String(pack?.verification_path || pack?.verificationPath) || "VERIFICATION.md"
+  };
+}
+
+function __p121SectionSignal(section) {
+  const role = __p121String(section?.signifier_role || section?.role || section?.kind || section?.type || section?.id).toLowerCase();
+  if (["observations", "claims", "evidence_verdicts", "decisions", "denominators"].includes(role)) return "high";
+  if (["synthesis", "autonomy_disclosure"].includes(role)) return "low";
+  if (role.includes("observation") || role.includes("claim") || role.includes("verdict") || role.includes("decision") || role.includes("denominator")) return "high";
+  return "low";
+}
+
+function __p121ApplySections(pack) {
+  if (!Array.isArray(pack?.sections)) return;
+  const situation = __p121Clip(__p121FindText(pack, ["context", "predecessor"]) || __p121Intent(pack) || "Active SGSD context is available.", 200);
+  const complicationText = __p121FindText(pack, ["blocker", "complication", "risk"]);
+  const intent = __p121Intent(pack) || "the current SGSD intent";
+  for (const section of pack.sections) {
+    if (!section || typeof section !== "object") continue;
+    section.signal = __p121SectionSignal(section);
+    const role = __p121String(section.signifier_role || section.role || section.kind || section.type || section.id).toLowerCase();
+    if (role.includes("why") || role.includes("synthesis")) {
+      section.situation = section.situation || situation;
+      section.complication = Object.prototype.hasOwnProperty.call(section, "complication") ? section.complication : (complicationText ? __p121Clip(complicationText, 200) : null);
+      section.question = section.question || __p121Clip(`What is the right next move for ${intent}?`, 200);
+    }
+  }
+}
+
+function __p121Enrich(pack) {
+  if (!pack || typeof pack !== "object" || Array.isArray(pack)) return pack;
+  const bigIdea = __p121BigIdea(pack);
+  pack.big_idea = bigIdea.idea;
+  pack.big_idea_citation = bigIdea.citation;
+  __p121ApplySections(pack);
+  const fog = pack.fog && typeof pack.fog === "object" && !Array.isArray(pack.fog) ? pack.fog : {};
+  pack.fog = {
+    ...fog,
+    value: Object.prototype.hasOwnProperty.call(fog, "value") ? fog.value : null,
+    tier: Object.prototype.hasOwnProperty.call(fog, "tier") ? fog.tier : null,
+    dominant_signal: __p121DominantSignal(fog)
+  };
+  const actions = __p121CollectActions(pack);
+  pack.next = {
+    ...(pack.next && typeof pack.next === "object" && !Array.isArray(pack.next) ? pack.next : {}),
+    primary_action: __p121ActionText(pack?.next?.primary_action) || actions[0] || __p121Clip(`Continue ${__p121Intent(pack) || "active SGSD work"}.`, 200),
+    alternatives: actions.slice(1)
+  };
+  return pack;
+}
+
+process.stdout.write = function __p121Write(chunk, encoding, callback) {
+  let nextChunk = chunk;
+  const done = typeof encoding === "function" ? encoding : callback;
+  const enc = typeof encoding === "string" ? encoding : undefined;
+  try {
+    const text = Buffer.isBuffer(chunk) ? chunk.toString(enc || "utf8") : String(chunk);
+    const trimmed = text.trim();
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+      nextChunk = `${JSON.stringify(__p121Enrich(JSON.parse(text)), null, 2)}\n`;
+    }
+  } catch {
+    nextChunk = chunk;
+  }
+  return __p121StdoutWrite(nextChunk, enc, done);
+};
 'use strict';
 
 const fs = require('fs');

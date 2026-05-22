@@ -1,0 +1,50 @@
+{
+  "chronicle_version": "v3.2",
+  "generated_at": "2026-05-22T00:00:00.000Z",
+  "title": "Answer-first chronicle context",
+  "big_idea": "Promotion decision stays evidence-led; denominator: all claims resolve to cited CMB evidence before release.",
+  "big_idea_citation": "CMB-P121-DECISION-01",
+  "fog": {
+    "value": 0.18,
+    "tier": "low",
+    "breakdown": {
+      "evidence": 3,
+      "ambiguity": 1,
+      "missing": 0
+    },
+    "dominant_signal": "evidence"
+  },
+  "next": {
+    "primary_action": "Run the chronicle self-test after rebuilding the sample context pack.",
+    "alternatives": [
+      "Inspect schema fixture coverage for optional v3.2 fields.",
+      "Compare the rebuilt sample context pack against the golden fixture."
+    ]
+  },
+  "sections": [
+    {
+      "id": "answer-first",
+      "heading": "Answer First",
+      "signifier_role": "synthesis",
+      "signal": "low",
+      "situation": "Phase 121 upgrades the chronicle context model while keeping v3.1 fixtures valid.",
+      "complication": null,
+      "question": "How can the builder emit richer answer-first context without making old fixtures invalid?",
+      "body": "Keep the schema additions optional and make the builder populate the v3.2 fields deterministically."
+    },
+    {
+      "id": "decision",
+      "heading": "Decision",
+      "signifier_role": "decisions",
+      "signal": "high",
+      "body": "The builder is the enforcement point for answer-first chronicle fields."
+    },
+    {
+      "id": "denominator",
+      "heading": "Denominator",
+      "signifier_role": "denominators",
+      "signal": "high",
+      "body": "All new fields must be present in builder output and absent-tolerant in schema validation."
+    }
+  ]
+}

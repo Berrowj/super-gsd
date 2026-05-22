@@ -18,6 +18,41 @@
     "denominators"
   ],
   "properties": {
+    "big_idea": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "big_idea_citation": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fog": {
+      "type": "object",
+      "properties": {
+        "value": {},
+        "tier": {},
+        "dominant_signal": {
+      "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "next": {
+      "type": "object",
+      "properties": {
+        "primary_action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "alternatives": {
+          "type": "array",
+        "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
     "chronicle_version": {
       "type": "string",
       "minLength": 1
@@ -71,12 +106,12 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "observations",
+              "observations",
         "claims",
         "evidence_verdicts",
         "decisions",
         "denominators",
-        "synthesis",
+              "synthesis",
         "autonomy_disclosure"
       ],
       "properties": {
@@ -244,6 +279,21 @@
       ]
     },
     "section_common": {
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "signal": {
+              "type": "string",
+              "enum": [
+                "high",
+                "low"
+              ],
+              "errorMessage": "CHRONICLE-SIGNAL-01 section signal must be high or low"
+            }
+          }
+        }
+      ],
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -376,6 +426,23 @@
     },
     "synthesis_section": {
       "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "situation": {
+              "type": "string"
+            },
+            "complication": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "question": {
+              "type": "string"
+            }
+          }
+        },
         {
           "$ref": "#/definitions/section_common"
         },

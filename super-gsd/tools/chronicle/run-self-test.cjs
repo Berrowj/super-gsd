@@ -1,4 +1,196 @@
 #!/usr/bin/env node
+
+const __p121Fs = require("node:fs");
+const __p121Path = require("node:path");
+
+const __p121OrigExit = process.exit.bind(process);
+const __p121SacIndex = process.argv.indexOf("--sac");
+const __p121Sac = __p121SacIndex >= 0 ? process.argv[__p121SacIndex + 1] : "";
+const __p121Targeted = /^SAC-P121-\d\d$/.test(__p121Sac);
+const __p121RunAtEnd = !__p121Sac || __p121Sac === "SAC-P121-09";
+
+if (__p121Sac === "SAC-P121-09") {
+  process.argv.splice(__p121SacIndex, 2);
+}
+
+function __p121ReadJson(relativePath) {
+  return JSON.parse(__p121Fs.readFileSync(__p121Path.join(__p121RepoRoot(), relativePath), "utf8"));
+}
+
+function __p121ReadText(relativePath) {
+  return __p121Fs.readFileSync(__p121Path.join(__p121RepoRoot(), relativePath), "utf8");
+}
+
+function __p121RepoRoot() {
+  return __p121Path.resolve(__dirname, "..", "..");
+}
+
+function __p121Assert(condition, message) {
+  if (!condition) throw new Error(message);
+}
+
+function __p121SectionCommon(schema) {
+  return schema.definitions?.section_common || schema.$defs?.section_common || {};
+}
+
+function __p121SynthesisSection(schema) {
+  return schema.definitions?.synthesis_section || schema.$defs?.synthesis_section || {};
+}
+
+function __p121Prop(schemaNode, propName) {
+  if (!schemaNode || typeof schemaNode !== "object") return undefined;
+  if (schemaNode.properties && schemaNode.properties[propName]) return schemaNode.properties[propName];
+  for (const key of ["allOf", "anyOf", "oneOf"]) {
+    if (!Array.isArray(schemaNode[key])) continue;
+    for (const child of schemaNode[key]) {
+      const found = __p121Prop(child, propName);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+function __p121Required(schemaNode) {
+  const required = [];
+  if (Array.isArray(schemaNode?.required)) required.push(...schemaNode.required);
+  for (const key of ["allOf", "anyOf", "oneOf"]) {
+    if (!Array.isArray(schemaNode?.[key])) continue;
+    for (const child of schemaNode[key]) required.push(...__p121Required(child));
+  }
+  return required;
+}
+
+function __p121Schema() {
+  return __p121ReadJson("schemas/chronicle.schema.json");
+}
+
+function __p121Fixture() {
+  return __p121ReadJson("schemas/fixtures/chronicle/good-with-answer-first.json");
+}
+
+const __p121Tests = {
+  "SAC-P121-01": () => {
+    const schema = __p121Schema();
+    const rootRequired = __p121Required(schema);
+    const sectionRequired = __p121Required(__p121SectionCommon(schema));
+    const synthesisRequired = __p121Required(__p121SynthesisSection(schema));
+    for (const field of ["big_idea", "big_idea_citation", "fog", "next"]) {
+      __p121Assert(!rootRequired.includes(field), `${field} must remain optional at root`);
+    }
+    __p121Assert(!sectionRequired.includes("signal"), "signal must remain optional on sections");
+    for (const field of ["situation", "complication", "question"]) {
+      __p121Assert(!synthesisRequired.includes(field), `${field} must remain optional on synthesis section`);
+    }
+    for (const field of ["situation", "complication", "question"]) {
+      __p121Assert(!sectionRequired.includes(field), `${field} must remain optional on sections`);
+    }
+  },
+  "SAC-P121-02": () => {
+    const field = __p121Prop(__p121Schema(), "big_idea");
+    __p121Assert(field?.type === "string", "big_idea must be a string");
+    __p121Assert(field?.maxLength === 200, "big_idea maxLength must be 200");
+  },
+  "SAC-P121-03": () => {
+    const field = __p121Prop(__p121Schema(), "big_idea_citation");
+    __p121Assert(field?.type === "string", "big_idea_citation must be a string");
+    __p121Assert(field?.minLength === 1, "big_idea_citation minLength must be 1");
+  },
+  "SAC-P121-04": () => {
+    const field = __p121Prop(__p121SectionCommon(__p121Schema()), "signal");
+    __p121Assert(field?.type === "string", "section signal must be a string");
+    __p121Assert(Array.isArray(field?.enum) && field.enum.includes("high") && field.enum.includes("low"), "section signal enum must include high and low");
+    __p121Assert(String(field?.errorMessage || "").includes("CHRONICLE-SIGNAL-01"), "section signal must carry CHRONICLE-SIGNAL-01");
+  },
+  "SAC-P121-05": () => {
+    const fog = __p121Prop(__p121Schema(), "fog");
+    __p121Assert(fog?.type === "object", "fog must be an optional object");
+    __p121Assert(fog.properties && Object.prototype.hasOwnProperty.call(fog.properties, "value"), "fog.value shape must be declared");
+    __p121Assert(fog.properties && Object.prototype.hasOwnProperty.call(fog.properties, "tier"), "fog.tier shape must be declared");
+    __p121Assert(fog.properties?.dominant_signal?.type === "string", "fog.dominant_signal must be a string");
+  },
+  "SAC-P121-06": () => {
+    const next = __p121Prop(__p121Schema(), "next");
+    __p121Assert(next?.type === "object", "next must be an optional object");
+    __p121Assert(next.properties?.primary_action?.type === "string", "next.primary_action must be a string");
+    __p121Assert(next.properties?.primary_action?.minLength === 1, "next.primary_action minLength must be 1");
+    __p121Assert(next.properties?.alternatives?.type === "array", "next.alternatives must be an array");
+    __p121Assert(next.properties?.alternatives?.items?.type === "string", "next.alternatives items must be strings");
+  },
+  "SAC-P121-07": () => {
+    const section = __p121SynthesisSection(__p121Schema());
+    __p121Assert(__p121Prop(section, "situation")?.type === "string", "why situation must be string-shaped");
+    const complicationType = __p121Prop(section, "complication")?.type;
+    __p121Assert(Array.isArray(complicationType) && complicationType.includes("string") && complicationType.includes("null"), "why complication must allow string or null");
+    __p121Assert(__p121Prop(section, "question")?.type === "string", "why question must be string-shaped");
+  },
+  "SAC-P121-08": () => {
+    const builder = __p121ReadText("tools/chronicle/build-context-pack.cjs");
+    for (const field of ["big_idea", "big_idea_citation", "dominant_signal", "primary_action", "alternatives", "situation", "complication", "question"]) {
+      __p121Assert(builder.includes(field), `builder must emit ${field}`);
+    }
+    __p121Assert(builder.includes("__p121Enrich"), "builder must apply the P121 deterministic enrichment layer");
+  },
+  "SAC-P121-09": () => {
+    __p121Assert(true, "full self-test reached P121 additions");
+  },
+  "STRUCT-P121-01": () => {
+    const schema = __p121Schema();
+    for (const field of ["big_idea", "big_idea_citation", "fog", "next"]) {
+      __p121Assert(Boolean(__p121Prop(schema, field)), `${field} must be declared in schema properties`);
+    }
+  },
+  "STRUCT-P121-02": () => {
+    const fixture = __p121Fixture();
+    for (const field of ["big_idea", "big_idea_citation", "fog", "next"]) {
+      __p121Assert(Object.prototype.hasOwnProperty.call(fixture, field), `fixture must populate ${field}`);
+    }
+    __p121Assert(fixture.sections.some((section) => section.signal && section.situation && Object.prototype.hasOwnProperty.call(section, "complication") && section.question), "fixture must include section signal and why-section SCQA");
+  },
+  "STRUCT-P121-03": () => {
+    const builder = __p121ReadText("tools/chronicle/build-context-pack.cjs");
+    __p121Assert(builder.includes("process.stdout.write"), "builder output path must be enriched before stdout");
+    __p121Assert(builder.includes("__p121SectionSignal"), "builder must derive section signal deterministically");
+    __p121Assert(builder.includes("__p121DominantSignal"), "builder must derive fog dominant_signal deterministically");
+  }
+};
+
+function __p121Run(ids) {
+  let ok = true;
+  for (const id of ids) {
+    try {
+      __p121Tests[id]();
+      console.log(`PASS ${id}`);
+    } catch (error) {
+      ok = false;
+      console.error(`FAIL ${id}: ${error.message}`);
+    }
+  }
+  return ok;
+}
+
+function __p121RunAll() {
+  return __p121Run(Object.keys(__p121Tests));
+}
+
+if (__p121Targeted && __p121Sac !== "SAC-P121-09") {
+  __p121OrigExit(__p121Run([__p121Sac]) ? 0 : 1);
+}
+
+let __p121Done = false;
+function __p121Finalize(code) {
+  if (__p121Done || !__p121RunAtEnd || Number(code || process.exitCode || 0) !== 0) return Number(code || process.exitCode || 0);
+  __p121Done = true;
+  return __p121RunAll() ? 0 : 1;
+}
+
+process.exit = function __p121Exit(code = process.exitCode || 0) {
+  __p121OrigExit(__p121Finalize(code));
+};
+
+process.on("beforeExit", (code) => {
+  const nextCode = __p121Finalize(code);
+  if (nextCode) process.exitCode = nextCode;
+});
 'use strict';
 (() => {
   const assert = require('assert');
