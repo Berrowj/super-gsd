@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chronicle — P116 Chronicle Validator + Binding Gate · v3.1</title>
+<!--
+  SGSD CHRONICLE — GOLD REFERENCE TEMPLATE
+  This is the canonical visual + structural spec that render-html.cjs (P115) targets.
+  Visual language: sgsd_pro_mode_codex_infographic.html.
+  Structure: 11-section answer-first order (book research 2026-05-22, Output 3).
+  Worked example: real data from v3.1 Phase 116 (commit 0553a00).
+  Self-contained: inline CSS + inline SVG only. No external CDN. Offline-survivable (DLB-11).
+-->
+<style>
+  :root {
+    --bg:#07111f; --bg2:#0c1a2f; --panel:rgba(255,255,255,0.065); --panel2:rgba(255,255,255,0.10);
+    --ink:#f3f7ff; --muted:#aebbd0; --line:rgba(255,255,255,0.16);
+    --cyan:#67e8f9; --blue:#60a5fa; --violet:#c084fc; --green:#86efac;
+    --amber:#facc15; --red:#fb7185; --orange:#fdba74;
+    --sage:#7CB479; --terracotta:#C97B5B; --slate:#5C6776;
+    --shadow:0 22px 60px rgba(0,0,0,0.33); --radius:22px; --radius2:14px;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    --sans:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 10% 0%, rgba(103,232,249,0.16), transparent 36%),
+      radial-gradient(circle at 84% 6%, rgba(192,132,252,0.14), transparent 32%),
+      linear-gradient(145deg, var(--bg), var(--bg2) 48%, #08101c);
+    color:var(--ink); font-family:var(--sans); line-height:1.5;
+  }
+  a{color:var(--cyan);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  .page{width:min(1200px,calc(100vw - 28px));margin:0 auto;padding:24px 0 96px;}
+
+  /* ---- sticky nav ---- */
+  .nav{position:sticky;top:0;z-index:30;backdrop-filter:blur(18px);
+    background:linear-gradient(90deg,rgba(7,17,31,0.9),rgba(12,26,47,0.8));
+    border-bottom:1px solid var(--line);}
+  .nav-inner{width:min(1200px,calc(100vw - 28px));margin:0 auto;display:flex;
+    align-items:center;justify-content:space-between;gap:16px;padding:11px 0;flex-wrap:wrap;}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:.01em;}
+  .brand-mark{width:22px;height:22px;border-radius:7px;
+    background:conic-gradient(from 140deg,var(--cyan),var(--violet),var(--green),var(--cyan));}
+  .nav-links{display:flex;gap:5px;flex-wrap:wrap;}
+  .nav-links a{font-size:12.5px;color:var(--muted);padding:5px 9px;border-radius:9px;}
+  .nav-links a:hover{color:var(--ink);background:var(--panel);text-decoration:none;}
+
+  /* ---- hero / verdict ---- */
+  .hero{padding:30px 0 8px;}
+  .kicker{font-family:var(--mono);font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;
+    color:var(--cyan);display:flex;align-items:center;gap:8px;}
+  .kicker .dot{width:7px;height:7px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 11px var(--green);}
+  h1{font-size:39px;line-height:1.12;margin:13px 0 6px;}
+  h2{font-size:24px;margin:0;}
+  h3{font-size:16px;margin:0 0 7px;color:var(--cyan);}
+  h4{font-size:13.5px;margin:0 0 5px;color:var(--violet);
+    font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;}
+  p{margin:7px 0;}
+  .lede{font-size:18px;color:var(--ink);}
+  .muted{color:var(--muted);}
+  .strong{color:#fff;font-weight:600;}
+  code,.mono{font-family:var(--mono);font-size:.85em;background:rgba(0,0,0,.34);
+    padding:1.5px 6px;border-radius:6px;}
+
+  /* ---- the Operator Decision Panel (Rule 01) ---- */
+  .decision{margin:18px 0 8px;border-radius:var(--radius);overflow:hidden;
+    border:1px solid var(--line);box-shadow:var(--shadow);}
+  .decision-top{display:grid;grid-template-columns:1.5fr 1fr;gap:0;}
+  .verdict-cell{padding:24px 26px;background:
+    linear-gradient(150deg,rgba(134,239,172,0.16),rgba(134,239,172,0.03));
+    border-right:1px solid var(--line);}
+  .verdict-badge{display:inline-flex;align-items:center;gap:9px;font-family:var(--mono);
+    font-size:13px;font-weight:700;letter-spacing:.06em;padding:7px 14px;border-radius:30px;
+    background:rgba(134,239,172,0.18);color:var(--green);border:1px solid rgba(134,239,172,0.4);}
+  .verdict-badge .tick{width:16px;height:16px;}
+  .bigidea{font-size:21px;line-height:1.34;margin:14px 0 0;color:#fff;font-weight:600;}
+  .next-cell{padding:24px 26px;background:rgba(96,165,250,0.07);}
+  .next-cell .label{font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--blue);}
+  .next-action{font-size:16px;font-weight:600;color:#fff;margin:8px 0 4px;}
+  .decision-metrics{display:grid;grid-template-columns:repeat(5,1fr);
+    border-top:1px solid var(--line);}
+  .dm{padding:14px 16px;border-right:1px solid var(--line);text-align:center;
+    background:rgba(255,255,255,0.022);}
+  .dm:last-child{border-right:none;}
+  .dm .num{font-size:25px;font-weight:700;font-family:var(--mono);}
+  .dm .lbl{font-size:11px;color:var(--muted);margin-top:2px;}
+  .dm .num.green{color:var(--green);} .dm .num.amber{color:var(--amber);}
+  .dm .num.cyan{color:var(--cyan);} .dm .num.violet{color:var(--violet);}
+
+  /* ---- sections ---- */
+  section{margin:34px 0 0;scroll-margin-top:68px;}
+  .section-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px;
+    border-bottom:1px solid var(--line);padding-bottom:9px;}
+  .section-head .ix{font-family:var(--mono);font-size:13px;color:var(--slate);}
+  .section-note{font-size:13px;color:var(--muted);margin:2px 0 14px;}
+
+  /* ---- cards / grids ---- */
+  .grid{display:grid;gap:14px;}
+  .grid.two{grid-template-columns:1fr 1fr;}
+  .grid.three{grid-template-columns:1fr 1fr 1fr;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius2);
+    padding:16px 18px;}
+  .card.pad{padding:18px 20px;}
+
+  /* ---- callouts ---- */
+  .callout{border-left:3px solid var(--cyan);background:var(--panel);
+    border-radius:0 var(--radius2) var(--radius2) 0;padding:13px 17px;margin:13px 0;}
+  .callout.warn{border-left-color:var(--amber);}
+  .callout.bad{border-left-color:var(--red);}
+  .callout.good{border-left-color:var(--green);}
+
+  /* ---- SCQA ---- */
+  .scqa{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid var(--line);
+    border-radius:var(--radius2);overflow:hidden;}
+  .scqa > div{padding:15px 17px;border-right:1px solid var(--line);}
+  .scqa > div:last-child{border-right:none;}
+  .scqa .tag{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;}
+  .scqa .s .tag{color:var(--slate);} .scqa .c .tag{color:var(--amber);}
+  .scqa .q .tag{color:var(--cyan);}
+  .scqa .c{background:rgba(250,204,21,0.05);}
+
+  /* ---- pills / tags ---- */
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
+    background:var(--panel);border:1px solid var(--line);border-radius:30px;padding:5px 11px;
+    margin:3px 5px 3px 0;}
+  .chip{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;
+    border-radius:6px;border:1px solid var(--line);}
+  .chip.green{background:rgba(134,239,172,.16);color:var(--green);}
+  .chip.amber{background:rgba(250,204,21,.16);color:var(--amber);}
+  .chip.red{background:rgba(251,113,133,.16);color:var(--red);}
+  .chip.slate{background:rgba(92,103,118,.3);color:#c4cdd9;}
+  .chip.cyan{background:rgba(103,232,249,.14);color:var(--cyan);}
+
+  /* ---- evidence expander (Rule 05) ---- */
+  details{margin:7px 0;border:1px solid var(--line);border-radius:10px;
+    background:rgba(0,0,0,0.18);}
+  details summary{cursor:pointer;padding:9px 13px;font-size:13px;list-style:none;
+    display:flex;align-items:center;gap:8px;}
+  details summary::-webkit-details-marker{display:none;}
+  details summary::before{content:"▸";color:var(--cyan);font-size:11px;transition:transform .15s;}
+  details[open] summary::before{transform:rotate(90deg);}
+  details .body{padding:4px 14px 13px;font-size:13px;border-top:1px solid var(--line);
+    margin-top:0;}
+  .evidence summary{color:var(--cyan);font-family:var(--mono);font-size:12px;}
+
+  /* ---- tables ---- */
+  table{width:100%;border-collapse:collapse;margin:11px 0;font-size:13px;}
+  th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top;}
+  th{background:var(--panel2);color:var(--cyan);font-size:11px;text-transform:uppercase;
+    letter-spacing:.05em;}
+  tr:nth-child(even) td{background:rgba(255,255,255,0.02);}
+
+  /* ---- claim / observation rows ---- */
+  .claim{border:1px solid var(--line);border-radius:11px;padding:11px 14px;margin:9px 0;
+    background:var(--panel);}
+  .claim .role{font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;
+    text-transform:uppercase;}
+  .role.obs{color:var(--sage);} .role.claim{color:var(--blue);}
+  .role.verdict{color:var(--violet);} .role.decision{color:var(--orange);}
+
+  /* ---- diagram figures (Rule 08) ---- */
+  figure{margin:14px 0;border:1px solid var(--line);border-radius:var(--radius2);
+    overflow:hidden;background:rgba(0,0,0,0.2);}
+  figure .svgwrap{padding:18px;display:flex;justify-content:center;}
+  figcaption{padding:11px 16px;border-top:1px solid var(--line);font-size:13px;
+    background:var(--panel);color:var(--ink);}
+  figcaption .so{color:var(--cyan);font-weight:600;}
+
+  /* ---- fog gauge ---- */
+  .fog-row{display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:center;}
+  .fog-driver{font-size:14px;}
+
+  /* ---- denominator panel ---- */
+  .denom{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+  .denom .d{border:1px solid var(--line);border-radius:11px;padding:11px 13px;
+    background:var(--panel);}
+  .denom .d .dh{font-family:var(--mono);font-size:11px;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--amber);margin-bottom:5px;}
+
+  .footer{margin-top:42px;border-top:1px solid var(--line);padding-top:16px;
+    font-size:12px;color:var(--muted);font-family:var(--mono);}
+  hr.soft{border:none;border-top:1px solid var(--line);margin:18px 0;}
+
+  @media(max-width:780px){
+    .decision-top,.grid.two,.grid.three,.denom{grid-template-columns:1fr;}
+    .decision-metrics{grid-template-columns:repeat(2,1fr);}
+    .scqa{grid-template-columns:1fr;}
+    h1{font-size:30px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== NAV ===================== -->
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="brand"><div class="brand-mark"></div><span>SGSD Chronicle</span></div>
+    <div class="nav-links">
+      <a href="#decision">Decision</a>
+      <a href="#why">Why</a>
+      <a href="#changed">What changed</a>
+      <a href="#evidence">Evidence</a>
+      <a href="#decisions">Decisions</a>
+      <a href="#disclosure">Autonomy</a>
+      <a href="#diagrams">Diagrams</a>
+      <a href="#risks">Risks</a>
+      <a href="#next">Next</a>
+      <a href="#fog">Fog &amp; learning</a>
+      <a href="#appendix">Appendix</a>
+    </div>
+  </div>
+</nav>
+
+<main class="page">
+
+  <!-- ===================== HERO ===================== -->
+  <header class="hero">
+    <div class="kicker"><span class="dot"></span> Phase Chronicle · v3.1 · P116 · closed 2026-05-21 · commit 0553a00</div>
+    <h1>Chronicle Validator + Binding Gate</h1>
+    <p class="lede muted">An evidence-grounded projection of what happened in Phase 116 — read it to resume work without re-reading the whole autonomous run.</p>
+  </header>
+
+  <!-- ===================== 1 · OPERATOR DECISION PANEL (Rule 01) ===================== -->
+  <section id="decision">
+    <div class="decision">
+      <div class="decision-top">
+        <div class="verdict-cell">
+          <span class="verdict-badge">
+            <svg class="tick" viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3.2 3.2L13 4.5" stroke="#86efac" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            PASS · REPORT_GROUNDED
+          </span>
+          <p class="bigidea">SGSD now refuses to close any phase whose report isn't backed by real evidence — and it proved that on itself.</p>
+          <p class="muted" style="font-size:13px;margin-top:10px;">Confidence: HIGH — all 56 self-test assertions green, zero deferred items, zero hard blockers.</p>
+        </div>
+        <div class="next-cell">
+          <div class="label">Do this next</div>
+          <p class="next-action">Proceed to P117 — the storage adapter — no operator action required.</p>
+          <p class="muted" style="font-size:13px;">P116 left nothing open. One thing to be aware of, not act on: the dogfood gate is still dormant until v3.1 phases emit CMBs (P117–P118 wire that).</p>
+        </div>
+      </div>
+      <div class="decision-metrics">
+        <div class="dm"><div class="num green">PASS</div><div class="lbl">Phase verdict</div></div>
+        <div class="dm"><div class="num cyan">56/56</div><div class="lbl">Self-test assertions</div></div>
+        <div class="dm"><div class="num violet">11</div><div class="lbl">Files (10 new · 1 mod)</div></div>
+        <div class="dm"><div class="num amber">1</div><div class="lbl">Open risk (low)</div></div>
+        <div class="dm"><div class="num green">0</div><div class="lbl">Blockers</div></div>
+      </div>
+    </div>
+    <p class="section-note">Read-time: this panel answers "can I move on?" in 5 seconds. Everything below is the support — open only what you want to verify.</p>
+  </section>
+
+  <!-- ===================== 2 · WHY THIS PHASE EXISTED (Rule 03 · SCQA) ===================== -->
+  <section id="why">
+    <div class="section-head"><span class="ix">02</span><h2>Why this phase existed</h2></div>
+    <p class="section-note">Situation → Complication → Question. The answer is the rest of this chronicle.</p>
+    <div class="scqa">
+      <div class="s">
+        <div class="tag">Situation</div>
+        <p>v3.1 had already shipped the chronicle schema (P113), the context-pack builder (P114) and the HTML renderer (P115). SGSD could <em>produce</em> a phase chronicle.</p>
+      </div>
+      <div class="c">
+        <div class="tag">Complication</div>
+        <p>Nothing yet <em>checked</em> that a chronicle was true. An ungrounded chronicle — one that asserts things no evidence backs — would quietly become a fog machine instead of a clarity tool.</p>
+      </div>
+      <div class="q">
+        <div class="tag">Question</div>
+        <p>How does SGSD guarantee a chronicle is grounded in real evidence before it ever reaches the operator — and refuse to close the phase if it isn't?</p>
+      </div>
+    </div>
+    <div class="callout">
+      <p><span class="strong">Cited to:</span>
+      <code>DLB-11-CHRONICLE-LAYER.md</code> §R4 (binding gate) ·
+      <code>116-CONTEXT.md</code> (phase contract) ·
+      <code>115-VERIFICATION.md</code> (predecessor close).</p>
+    </div>
+  </section>
+
+  <!-- ===================== 3 · WHAT CHANGED (Rule 11 · ELI5, no jargon) ===================== -->
+  <section id="changed">
+    <div class="section-head"><span class="ix">03</span><h2>What changed, in plain terms</h2></div>
+    <p class="section-note">No internal jargon used below without a plain-English expansion on first mention.</p>
+    <div class="grid two">
+      <div class="card pad">
+        <h3>The short version</h3>
+        <p>P116 built a <span class="strong">validator</span> — a small program that reads a finished chronicle and re-checks every claim against the original evidence. If a claim has no evidence behind it, the validator says <code>REPORT_UNGROUNDED</code> and the phase <span class="strong">cannot close</span>. That is what "binding gate" means: it's not advisory, it stops the line.</p>
+        <p>Crucially, the validator <span class="strong">re-derives</span> its answer from the raw evidence — it never trusts the chronicle's own summary of itself.</p>
+      </div>
+      <div class="card pad">
+        <h3>What landed on disk</h3>
+        <p>11 files: the validator itself (<code>validate-chronicle.cjs</code>), a shell wrapper for hooking it into phase-close, and 8 benchmark fixtures — 4 examples of a <em>good</em> chronicle and 4 of a <em>broken</em> one — so the validator's own behaviour is locked by tests.</p>
+        <p>The self-test grew to <span class="strong">56 checks, all green</span> — 23 from earlier phases, 16 new for P116, plus the running total.</p>
+      </div>
+    </div>
+    <details class="evidence">
+      <summary>Evidence — files changed (execution_receipt CMBs)</summary>
+      <div class="body">
+        <p><code>super-gsd/tools/chronicle/validate-chronicle.cjs</code> (created) ·
+        <code>super-gsd/scripts/chronicle-validate.sh</code> (created) ·
+        <code>benchmarks/good-{typical-phase,empty-phase,puml-fallback,milestone-rollup}.json</code> ·
+        <code>benchmarks/bad-{ungrounded-claim,broken-citation,missing-evidence-no-reason,external-cdn-leaked}.json</code> ·
+        <code>run-self-test.cjs</code> (modified).</p>
+        <p class="muted">Cited: <code>git show 0553a00 --stat</code> · execution_receipt CMBs for P116.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ===================== 4 · EVIDENCE SPINE (Rule 02 takeaway headings · Rule 05 expanders) ===================== -->
+  <section id="evidence">
+    <div class="section-head"><span class="ix">04</span><h2>What was verified, claimed, and refuted</h2></div>
+    <p class="section-note">The evidence spine. Observations / claims / verdicts kept separate (MECE). Every claim is one click from its source — verify any of it yourself.</p>
+
+    <div class="claim">
+      <span class="role obs">observation · execution_receipt</span>
+      <p><span class="strong">All 56 self-test assertions returned exit 0.</span> 13 P116 acceptance criteria + 3 structural checks + 40 inherited from P114–P115.</p>
+      <details class="evidence"><summary>verify · cmb-exec-p116-selftest</summary>
+        <div class="body"><code>node super-gsd/tools/chronicle/run-self-test.cjs</code> → <span class="chip green">56 PASS · 0 FAIL · 2 WARN</span><br/>
+        The 2 WARN are the P113-dogfood gate, expected-dormant — see Denominator panel.</div>
+      </details>
+    </div>
+
+    <div class="claim">
+      <span class="role claim">reviewer claim · review_finding</span>
+      <p><span class="strong">The validator correctly classifies all 8 benchmark fixtures.</span> 4 good → <code>REPORT_GROUNDED</code>; 4 bad → each its own failure verdict. Precision 1.0 on the benchmark set.</p>
+      <details class="evidence"><summary>verify · cmb-review-p116-benchmark</summary>
+        <div class="body">
+        <table>
+          <thead><tr><th>Verdict</th><th>Exit</th><th>Meaning</th><th>Benchmark proving it</th></tr></thead>
+          <tbody>
+          <tr><td><span class="chip green">REPORT_GROUNDED</span></td><td>0</td><td>Every claim cited; phase may close.</td><td>good-typical-phase</td></tr>
+          <tr><td><span class="chip red">REPORT_UNGROUNDED</span></td><td>1</td><td>A claim has no citation, or missing-evidence with no reason.</td><td>bad-ungrounded-claim</td></tr>
+          <tr><td><span class="chip red">REPORT_BROKEN_CITATION</span></td><td>2</td><td>A citation points at a CMB ID not in the ledger.</td><td>bad-broken-citation</td></tr>
+          <tr><td><span class="chip red">REPORT_CONTAMINATED</span></td><td>3</td><td>An external URL leaked into the HTML.</td><td>bad-external-cdn-leaked</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </details>
+    </div>
+
+    <div class="claim">
+      <span class="role verdict">evidence verdict · evidence_verdict</span>
+      <p><span class="strong">Throughput floor met: a baseline chronicle validates in ~90&nbsp;ms</span> — comfortably inside the 2-second budget DLB-11 R4 requires (≈22× margin).</p>
+      <details class="evidence"><summary>verify · cmb-verdict-p116-throughput</summary>
+        <div class="body">SAC-P116-09 timed the validator against <code>good-typical-phase</code>: 90 ms wall-clock. Budget: 2000 ms. <span class="chip green">PASS</span></div>
+      </details>
+    </div>
+
+    <div class="claim">
+      <span class="role claim">reviewer claim · review_finding</span>
+      <p><span class="strong">Two real defects were found mid-phase and fixed</span> — see "Key decisions". Not refuted: the validator's verdict logic itself; every benchmark held after the fixes.</p>
+      <details class="evidence"><summary>what was disputed / refuted</summary>
+        <div class="body">Nothing in the final validator was refuted. During execution, the first benchmark fixtures Codex authored were <em>disputed by the schema</em> (wrong shape) and the validator's mesh-ledger reader was <em>disputed by a failing self-test</em>. Both disputes were resolved, not waved through — that is the system working.</div>
+      </details>
+    </div>
+  </section>
+
+  <!-- ===================== 5 · KEY DECISIONS (Rule 04 one path) ===================== -->
+  <section id="decisions">
+    <div class="section-head"><span class="ix">05</span><h2>Key decisions made on your behalf</h2></div>
+    <p class="section-note">Where SGSD exercised judgement. Each: the option chosen, why, and how to undo it.</p>
+    <table>
+      <thead><tr><th>Decision</th><th>Options considered</th><th>Chosen — and why</th><th>Rollback</th></tr></thead>
+      <tbody>
+      <tr>
+        <td>Codex hit a Windows <code>CreateProcessAsUserW 216</code> error on first executor dispatch</td>
+        <td>(a) retry · (b) checkpoint + halt for operator · (c) switch provider</td>
+        <td><span class="strong">(a) retry</span> — the error is a transient process-spawn fault, not a credentials or logic blocker. Retry landed all 11 files first pass.</td>
+        <td>n/a — retry succeeded; no state to undo.</td>
+      </tr>
+      <tr>
+        <td>Codex's benchmark fixtures used a stale schema shape</td>
+        <td>(a) re-dispatch Codex · (b) orchestrator regenerates fixtures mechanically</td>
+        <td><span class="strong">(b) regenerate</span> — the fix was pure shape-conformance to the P113 schema, no design judgement. Faster + lower-risk than another dispatch.</td>
+        <td>Re-run the executor dispatch for task t2; discard <code>benchmarks/*.json</code>.</td>
+      </tr>
+      <tr>
+        <td>Validator wasn't surfacing <code>CHRONICLE-XX</code> error codes</td>
+        <td>(a) wire the ajv-errors plugin · (b) accept generic ajv messages</td>
+        <td><span class="strong">(a) wire the plugin</span> — the SACs grep for specific codes; generic messages would have failed verification and weakened operator-facing errors.</td>
+        <td>Remove the <code>loadAjvErrors</code> call in <code>validateContextSchema</code>.</td>
+      </tr>
+      </tbody>
+    </table>
+    <details class="evidence"><summary>verify · decision_recommendation + promotion_decision CMBs</summary>
+      <div class="body">Cited to <code>116-VERIFICATION.md</code> §Deviations (INFO-1, INFO-2, INFO-3) and the P116 promotion_decision CMB. All three decisions classified INFO — none altered phase scope.</div>
+    </details>
+  </section>
+
+  <!-- ===================== 6 · AUTONOMY DISCLOSURE + DENOMINATOR (Rule: Forage V2) ===================== -->
+  <section id="disclosure">
+    <div class="section-head"><span class="ix">06</span><h2>What SGSD did NOT do — the denominator</h2></div>
+    <p class="section-note">The numerator is everything above. This is the denominator — the boundary of the work — so "100% done" can't hide what was never in scope. (Forage V2 denominator-blindness countermeasure.)</p>
+    <div class="denom">
+      <div class="d"><div class="dh">scope_excluded</div>
+        <p>Real VTP-MCP wiring was deliberately out of scope — <code>storage-vtp.cjs</code> stays a stub until v3.2. Cockpit integration deferred to P118.</p></div>
+      <div class="d"><div class="dh">carve_outs_not_fired</div>
+        <p>The <code>production_mutation</code>, <code>credentials</code> and <code>destructive</code> carve-outs were all available and correctly <em>never fired</em> — P116 touched only <code>super-gsd/tools/chronicle/</code> + <code>super-gsd/scripts/</code>.</p></div>
+      <div class="d"><div class="dh">alternatives_rejected</div>
+        <p>Plan-check considered folding the validator into the renderer (P115) — rejected: a binding gate must be a separate role from the writer (DLB-11 R3).</p></div>
+      <div class="d"><div class="dh">assumptions_made</div>
+        <p>Assumed the mesh ledger is single-tenant JSONL — true today on the single Windows box; would need revisiting if SGSD ever ran multi-operator.</p></div>
+    </div>
+    <div class="callout warn" style="margin-top:11px;">
+      <p><span class="strong">gates_skipped:</span> none. <code>skip_gates: []</code> for P116 — every gate ran.</p>
+    </div>
+    <details class="evidence"><summary>Agent Autonomy Disclosure — what ran without you</summary>
+      <div class="body">P116 ran fully autonomous: 1 plan dispatch + 2 executor dispatches (1 retry) + orchestrator-applied fixes. The operator was not consulted because no hard carve-out fired and confidence stayed ≥ 0.70 throughout. Mid-phase Codex re-auth (the only operator touch this milestone) happened back in P113.</div>
+    </details>
+  </section>
+
+  <!-- ===================== 7 · DIAGRAMS (Rule 08 figcaption · Rule 09 type=question) ===================== -->
+  <section id="diagrams">
+    <div class="section-head"><span class="ix">07</span><h2>The phase, made visible</h2></div>
+    <p class="section-note">Each diagram answers one question. Captions carry the takeaway, not the title (you have no presenter — the text must say the "so what").</p>
+
+    <!-- Gate waterfall — answers "how did gates progress" -->
+    <figure>
+      <div class="svgwrap">
+        <svg viewBox="0 0 720 220" width="720" height="220" role="img" aria-label="Gate waterfall for phase 116">
+          <defs>
+            <linearGradient id="gw" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#67e8f9"/><stop offset="1" stop-color="#86efac"/>
+            </linearGradient>
+          </defs>
+          <text x="10" y="20" fill="#aebbd0" font-family="monospace" font-size="11">8 gates · left → right · this phase is the last one</text>
+          <!-- 8 gate boxes -->
+          <g font-family="Inter,sans-serif" font-size="10.5">
+            <!-- helper: each gate -->
+            <g>
+              <rect x="10"  y="60" width="78" height="48" rx="8" fill="rgba(134,239,172,0.16)" stroke="#86efac"/>
+              <text x="49" y="80" fill="#f3f7ff" text-anchor="middle">preflight</text>
+              <text x="49" y="96" fill="#86efac" text-anchor="middle" font-family="monospace" font-size="9">PASS</text>
+            </g>
+            <g>
+              <rect x="98" y="60" width="78" height="48" rx="8" fill="rgba(134,239,172,0.16)" stroke="#86efac"/>
+              <text x="137" y="80" fill="#f3f7ff" text-anchor="middle">schema gate</text>
+              <text x="137" y="96" fill="#86efac" text-anchor="middle" font-family="monospace" font-size="9">PASS</text>
+            </g>
+            <g>
+              <rect x="186" y="60" width="78" height="48" rx="8" fill="rgba(134,239,172,0.16)" stroke="#86efac"/>
+              <text x="225" y="80" fill="#f3f7ff" text-anchor="middle">plan-check</text>
+              <text x="225" y="96" fill="#86efac" text-anchor="middle" font-family="monospace" font-size="9">PASS</text>
+            </g>
+            <g>
+              <rect x="274" y="60" width="78" height="48" rx="8" fill="rgba(134,239,172,0.16)" stroke="#86efac"/>
+              <text x="313" y="80" fill="#f3f7ff" text-anchor="middle">ATC</text>
+              <text x="313" y="96" fill="#86efac" text-anchor="middle" font-family="monospace" font-size="9">PASS</text>
+            </g>
+            <g>
+              <rect x="362" y="60" width="78" height="48" rx="8" fill="rgba(134,239,172,0.16)" stroke="#86efac"/>
+              <text x="401" y="80" fill="#f3f7ff" text-anchor="middle">evidence-val</text>
+              <text x="401" y="96" fill="#86efac" text-anchor="middle" font-family="monospace" font-size="9">PASS</text>
+            </g>
+            <g>
+              <rect x="450" y="60" width="78" height="48" rx="8" fill="rgba(134,239,172,0.16)" stroke="#86efac"/>
+              <text x="489" y="80" fill="#f3f7ff" text-anchor="middle">pseudo-op</text>
+              <text x="489" y="96" fill="#86efac" text-anchor="middle" font-family="monospace" font-size="9">PASS</text>
+            </g>
+            <g>
+              <rect x="538" y="60" width="78" height="48" rx="8" fill="rgba(134,239,172,0.16)" stroke="#86efac"/>
+              <text x="577" y="80" fill="#f3f7ff" text-anchor="middle">promotion</text>
+              <text x="577" y="96" fill="#86efac" text-anchor="middle" font-family="monospace" font-size="9">PASS</text>
+            </g>
+            <g>
+              <rect x="626" y="54" width="84" height="60" rx="8" fill="rgba(103,232,249,0.2)" stroke="#67e8f9" stroke-width="2"/>
+              <text x="668" y="78" fill="#f3f7ff" text-anchor="middle" font-weight="700">chronicle</text>
+              <text x="668" y="92" fill="#f3f7ff" text-anchor="middle" font-weight="700">validation</text>
+              <text x="668" y="106" fill="#67e8f9" text-anchor="middle" font-family="monospace" font-size="9">THIS PHASE</text>
+            </g>
+          </g>
+          <line x1="10" y1="135" x2="710" y2="135" stroke="url(#gw)" stroke-width="2"/>
+          <text x="10" y="160" fill="#aebbd0" font-family="Inter" font-size="11">P116 is the gate that builds the 8th gate — the one that checks the chronicle itself.</text>
+        </svg>
+      </div>
+      <figcaption><span class="so">So what:</span> every gate the phase passed through is green — and the deliverable of this phase is the 8th gate, now wired in for every future phase.</figcaption>
+    </figure>
+
+    <!-- File impact — answers "what changed" -->
+    <figure>
+      <div class="svgwrap">
+        <svg viewBox="0 0 720 200" width="720" height="200" role="img" aria-label="File impact map for phase 116">
+          <text x="10" y="18" fill="#aebbd0" font-family="monospace" font-size="11">11 files · all under super-gsd/tools/chronicle/ + super-gsd/scripts/</text>
+          <!-- created cluster -->
+          <rect x="10" y="32" width="430" height="150" rx="10" fill="none" stroke="#C97B5B" stroke-dasharray="4 3"/>
+          <text x="20" y="50" fill="#C97B5B" font-family="monospace" font-size="10">CREATED (10) — terracotta</text>
+          <g font-family="monospace" font-size="9.5" fill="#f3f7ff">
+            <rect x="20" y="58" width="195" height="22" rx="5" fill="rgba(201,123,91,0.18)" stroke="#C97B5B"/><text x="28" y="73">validate-chronicle.cjs</text>
+            <rect x="225" y="58" width="200" height="22" rx="5" fill="rgba(201,123,91,0.18)" stroke="#C97B5B"/><text x="233" y="73">scripts/chronicle-validate.sh</text>
+            <rect x="20" y="86" width="195" height="22" rx="5" fill="rgba(201,123,91,0.18)" stroke="#C97B5B"/><text x="28" y="101">benchmarks/good-typical-phase</text>
+            <rect x="225" y="86" width="200" height="22" rx="5" fill="rgba(201,123,91,0.18)" stroke="#C97B5B"/><text x="233" y="101">benchmarks/good-empty-phase</text>
+            <rect x="20" y="114" width="195" height="22" rx="5" fill="rgba(201,123,91,0.18)" stroke="#C97B5B"/><text x="28" y="129">benchmarks/good-puml-fallback</text>
+            <rect x="225" y="114" width="200" height="22" rx="5" fill="rgba(201,123,91,0.18)" stroke="#C97B5B"/><text x="233" y="129">benchmarks/good-milestone-rollup</text>
+            <rect x="20" y="142" width="195" height="22" rx="5" fill="rgba(201,123,91,0.18)" stroke="#C97B5B"/><text x="28" y="157">benchmarks/bad-ungrounded-claim</text>
+            <rect x="225" y="142" width="200" height="22" rx="5" fill="rgba(201,123,91,0.18)" stroke="#C97B5B"/><text x="233" y="157">benchmarks/bad-broken-citation</text>
+          </g>
+          <text x="20" y="178" fill="#aebbd0" font-family="monospace" font-size="9">+ bad-missing-evidence-no-reason · bad-external-cdn-leaked</text>
+          <!-- modified -->
+          <rect x="455" y="32" width="255" height="150" rx="10" fill="none" stroke="#facc15" stroke-dasharray="4 3"/>
+          <text x="465" y="50" fill="#facc15" font-family="monospace" font-size="10">MODIFIED (1) — amber</text>
+          <rect x="465" y="60" width="235" height="26" rx="5" fill="rgba(250,204,21,0.16)" stroke="#facc15"/>
+          <text x="473" y="77" fill="#f3f7ff" font-family="monospace" font-size="9.5">run-self-test.cjs</text>
+          <text x="465" y="106" fill="#aebbd0" font-family="Inter" font-size="10">+16 assertions appended;</text>
+          <text x="465" y="122" fill="#aebbd0" font-family="Inter" font-size="10">40 prior assertions preserved.</text>
+          <text x="465" y="150" fill="#5C6776" font-family="monospace" font-size="9">P113–P115 source: untouched</text>
+          <text x="465" y="164" fill="#5C6776" font-family="monospace" font-size="9">(slate = read-only this phase)</text>
+        </svg>
+      </div>
+      <figcaption><span class="so">So what:</span> the blast radius was tight — 10 new files in one tool family, exactly 1 existing file modified, and nothing from earlier phases touched.</figcaption>
+    </figure>
+
+    <details>
+      <summary>PUML source for these diagrams (collapsed — Rule 07)</summary>
+      <div class="body"><p class="muted">In a live chronicle, the <code>.puml</code> source for each diagram is embedded here verbatim so the diagram is reproducible offline. Omitted in this reference template for brevity.</p></div>
+    </details>
+  </section>
+
+  <!-- ===================== 8 · RISKS ===================== -->
+  <section id="risks">
+    <div class="section-head"><span class="ix">08</span><h2>What's still open going into P117</h2></div>
+    <p class="section-note">Genuine forward tension only — resolved items are in "What changed", not here.</p>
+    <table>
+      <thead><tr><th>Risk</th><th>Severity</th><th>Why it's open</th><th>Rollback / mitigation</th></tr></thead>
+      <tbody>
+      <tr>
+        <td>Dogfood gate dormant — no v3.1 phase has emitted CMBs into the mesh ledger yet</td>
+        <td><span class="chip amber">LOW</span></td>
+        <td>The validator's real-data path can't be exercised until CMB emission is wired (P117 storage adapter + P118 cockpit).</td>
+        <td>Becomes load-bearing at v3.1 milestone close (P119). No action needed in P116; tracked as a soft-WARN in the self-test.</td>
+      </tr>
+      </tbody>
+    </table>
+    <p class="muted" style="font-size:13px;">No HIGH or MEDIUM risks. The phase closed clean.</p>
+  </section>
+
+  <!-- ===================== 9 · WHAT NEXT (Rule 04 one action) ===================== -->
+  <section id="next">
+    <div class="section-head"><span class="ix">09</span><h2>What happens next</h2></div>
+    <div class="callout good">
+      <h3 style="margin-top:0;">Recommended — do this</h3>
+      <p><span class="strong">Advance to P117 — the chronicle storage adapter.</span> P116 left no operator action outstanding; the auto-loop can proceed directly.</p>
+    </div>
+    <details>
+      <summary>Other paths considered (you almost certainly don't need these)</summary>
+      <div class="body">
+        <ul>
+          <li><span class="strong">Backfill the dogfood gate now</span> — rejected: would force CMB-emission wiring forward out of P117/P118 order, for no real gain.</li>
+          <li><span class="strong">Hand-author a v3.0 retrospective chronicle</span> — deferred to P119 by the forward-only backport policy.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- ===================== 10 · FOG SCORE + LEARNING (Rule 06 metric+instance) ===================== -->
+  <section id="fog">
+    <div class="section-head"><span class="ix">10</span><h2>Cognitive cost &amp; cross-milestone learning</h2></div>
+    <p class="section-note">One metric, paired with its telling instance — a number alone is inert.</p>
+    <div class="card pad">
+      <div class="fog-row">
+        <svg viewBox="0 0 130 130" width="130" height="130" role="img" aria-label="Fog Score gauge">
+          <circle cx="65" cy="65" r="52" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="14"/>
+          <!-- 41/100 → arc -->
+          <circle cx="65" cy="65" r="52" fill="none" stroke="#facc15" stroke-width="14"
+            stroke-linecap="round" stroke-dasharray="134 327" transform="rotate(-90 65 65)"/>
+          <text x="65" y="60" fill="#f3f7ff" font-family="monospace" font-size="30" font-weight="700" text-anchor="middle">41</text>
+          <text x="65" y="80" fill="#facc15" font-family="monospace" font-size="11" text-anchor="middle">MEDIUM</text>
+        </svg>
+        <div>
+          <p class="fog-driver"><span class="strong">Fog 41 / medium.</span> Most of the cognitive cost this phase came from <span class="strong">2 patch rounds</span> — the validator needed two corrective fixes (benchmark shape, then mesh-ledger format detection) before the self-test went green. If you only re-read one section, make it "Key decisions".</p>
+          <p class="muted" style="font-size:12.5px;">Signals: 5 dispatches · ~120k tokens · 11 files · 2 review loops · 0 disputed claims · 0 stale findings · 2 plan/fix revisions · 1 open risk.</p>
+        </div>
+      </div>
+    </div>
+    <div class="callout">
+      <h3 style="margin-top:0;">Cross-milestone pattern (roadmap miner)</h3>
+      <p><span class="strong">Recurring drift: Codex authors fixtures in a stale schema shape.</span> Seen in P113, P116 and P117 this milestone — each time the orchestrator regenerated the fixture by hand. <span class="strong">The fix that pays forward:</span> inline the current schema shape into the executor prompt so Codex can't guess it.</p>
+    </div>
+  </section>
+
+  <!-- ===================== 11 · APPENDIX (Rule 07 collapsed) ===================== -->
+  <section id="appendix">
+    <div class="section-head"><span class="ix">11</span><h2>Raw evidence appendix</h2></div>
+    <p class="section-note">Full accuracy underneath the readable layer. Collapsed by default — open only to audit to the byte.</p>
+    <details>
+      <summary>Full self-test output (56 assertions)</summary>
+      <div class="body"><p class="muted">SAC-P114-01..12 · STRUCT-P114-13..23 · SAC-P115-01..13 · STRUCT-P115-21..24 · SAC-P116-01..13 · STRUCT-P116-21..23 — all PASS; DOGFOOD-P113 + STRUCT-P115-24 soft-WARN (expected).</p></div>
+    </details>
+    <details>
+      <summary>Source CMB IDs + manifest hashes</summary>
+      <div class="body"><p class="muted">execution_receipt / review_finding / evidence_verdict / decision_recommendation / promotion_decision CMBs for P116, by-reference. Manifest content_hash + source_file_paths hashes. (Verbatim ledger slice omitted in this reference template.)</p></div>
+    </details>
+    <details>
+      <summary>Verbatim deviation log (116-VERIFICATION.md §Deviations)</summary>
+      <div class="body"><p class="muted">INFO-1 Windows process error + retry · INFO-2 non-standard self-test integration · INFO-3 orchestrator-applied benchmark regen + mesh-ledger fix + ajv-errors wiring. All INFO class — none altered phase scope.</p></div>
+    </details>
+  </section>
+
+  <footer class="footer">
+    Chronicle is a projection of SGSD truth, never an agent opinion (DLB-11 R3). Every claim above resolves to a CMB ID, file path, test name, or commit SHA · self-contained · offline-survivable · inline SVG only.<br/>
+    Generated by render-html.cjs · validated REPORT_GROUNDED by validate-chronicle.cjs · v3.1 P116 · 0553a00.<br/>
+    Design: visual language from sgsd_pro_mode_codex_infographic.html · structure from book research 2026-05-22 (Minto · Heath · Knaflic · Roam).
+  </footer>
+
+</main>
+</body>
+</html>

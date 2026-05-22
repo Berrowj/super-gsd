@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SGSD Chronicle HTML — Book-Mined Design Research</title>
+<style>
+  :root {
+    --bg:#0b1220; --bg2:#111a2e; --panel:rgba(255,255,255,0.05); --panel2:rgba(255,255,255,0.08);
+    --ink:#eef3fb; --muted:#9fb0c8; --line:rgba(255,255,255,0.14);
+    --cyan:#67e8f9; --green:#86efac; --amber:#fbbf24; --red:#fb7185; --violet:#c4b5fd;
+    --sage:#7CB479; --terracotta:#C97B5B;
+    --mono:ui-monospace,Menlo,Consolas,monospace; --sans:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:linear-gradient(160deg,var(--bg),var(--bg2));color:var(--ink);font-family:var(--sans);line-height:1.55;}
+  .page{width:min(1180px,calc(100vw - 32px));margin:0 auto;padding:32px 0 96px;}
+  h1{font-size:34px;margin:0 0 6px;}
+  h2{font-size:25px;margin:44px 0 6px;border-bottom:1px solid var(--line);padding-bottom:8px;}
+  h3{font-size:18px;margin:24px 0 8px;color:var(--cyan);}
+  h4{font-size:15px;margin:16px 0 6px;color:var(--violet);}
+  p,li{color:var(--ink);}
+  .muted{color:var(--muted);}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan);}
+  code,.mono{font-family:var(--mono);font-size:.86em;background:rgba(0,0,0,.32);padding:1px 5px;border-radius:5px;}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;}
+  th{background:var(--panel2);color:var(--cyan);font-size:12px;text-transform:uppercase;letter-spacing:.04em;}
+  tr:nth-child(even) td{background:rgba(255,255,255,0.022);}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:14px 0;}
+  .callout{border-left:3px solid var(--cyan);background:var(--panel);border-radius:0 12px 12px 0;padding:14px 18px;margin:16px 0;}
+  .callout.warn{border-left-color:var(--amber);}
+  .callout.bad{border-left-color:var(--red);}
+  .callout.good{border-left-color:var(--green);}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--line);margin:2px 4px 2px 0;}
+  .tag.minto{background:rgba(196,181,253,.14);color:var(--violet);}
+  .tag.stick{background:rgba(251,191,36,.14);color:var(--amber);}
+  .tag.swd{background:rgba(103,232,249,.14);color:var(--cyan);}
+  .tag.napkin{background:rgba(124,180,121,.18);color:var(--sage);}
+  .ba{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:10px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+  .ba > div{padding:12px 14px;}
+  .ba .before{background:rgba(251,113,133,.07);border-right:1px solid var(--line);}
+  .ba .after{background:rgba(134,239,172,.07);}
+  .ba .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;}
+  .ba .before .lbl{color:var(--red);}
+  .ba .after .lbl{color:var(--green);}
+  .src{font-family:var(--mono);font-size:11.5px;color:var(--muted);}
+  ol li,ul li{margin:4px 0;}
+  .rule{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:12px 0;}
+  .rule .rname{font-size:16px;color:var(--green);font-weight:600;}
+  .secorder{counter-reset:so;}
+  .strong{color:#fff;font-weight:600;}
+  @media(max-width:720px){.ba{grid-template-columns:1fr;}.ba .before{border-right:none;border-bottom:1px solid var(--line);}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="kicker">SGSD documentation research · evidence-grounded · 2026-05-22</div>
+<h1>Chronicle HTML — Book-Mined Design Research</h1>
+<p class="muted">Retrieve-per-book-first, synthesize-second. Every principle below is grounded in a passage actually retrieved from the VTP Qdrant knowledge base — chunk/figure IDs, collection names, and similarity scores are cited inline. Synthesis (translation into SGSD design rules) is marked separately from direct evidence.</p>
+
+<div class="callout warn">
+<h3 style="margin-top:0;">Corpus coverage — read this first</h3>
+<p>The task named 7 books. <span class="strong">4 are in the VTP database; 3 are not.</span> No principles were invented for the absent books.</p>
+<table>
+<thead><tr><th>Book</th><th>Status</th><th>Collection</th><th>Evidence basis</th></tr></thead>
+<tbody>
+<tr><td>The Minto Pyramid Principle</td><td style="color:var(--green);">PRESENT</td><td><code>book_figures</code></td><td>236 vision-ingested scanned pages (no extractable text → vision pipeline). ~20 pages retrieved, all HIGH confidence, scores 0.61–0.83.</td></tr>
+<tr><td>Made to Stick — Heath &amp; Heath</td><td style="color:var(--green);">PRESENT</td><td><code>book_passages</code></td><td>~17 chunks retrieved, scores 0.62–0.71.</td></tr>
+<tr><td>Storytelling with Data: Let's Practice — Knaflic</td><td style="color:var(--green);">PRESENT</td><td><code>book_passages</code> + <code>book_figures</code></td><td>Workbook edition. ~15 chunks retrieved, scores 0.62–0.74.</td></tr>
+<tr><td>The Back of the Napkin — Roam</td><td style="color:var(--green);">PRESENT</td><td><code>book_passages</code> + <code>book_figures</code></td><td>~12 chunks retrieved, scores 0.65–0.77.</td></tr>
+<tr><td>Resonate — Duarte</td><td style="color:var(--red);">ABSENT</td><td>—</td><td>Author-name + concept queries against both collections returned 0 Duarte records.</td></tr>
+<tr><td>Simply Said — Sullivan</td><td style="color:var(--red);">ABSENT</td><td>—</td><td>0 Sullivan records in either collection.</td></tr>
+<tr><td>Thing Explainer — Munroe</td><td style="color:var(--red);">ABSENT</td><td>—</td><td>0 Munroe records in either collection.</td></tr>
+</tbody>
+</table>
+<p><span class="strong">Impact of the gap.</span> The 4 present books cover the structural core of the Chronicle-HTML problem: <em>section order</em> (Minto), <em>wording &amp; memorability</em> (Made to Stick), <em>metric/visual panels</em> (Storytelling with Data), <em>diagrams</em> (Back of the Napkin). The 3 absent books would have added: presentation arc (Resonate — substantially overlaps Storytelling with Data's narrative-arc material), tone/concision (Simply Said — overlaps Made to Stick's "Simple"), and radical vocabulary restriction (Thing Explainer — overlaps Made to Stick's "Concrete/Simple" and the curse-of-knowledge thesis). <span class="strong">Recommendation:</span> ingest those 3 later for completeness, but they are not blocking — the present 4 are the load-bearing ones for HTML design.</p>
+</div>
+
+<!-- ===================== OUTPUT 1 ===================== -->
+<h2>Output 1 — Evidence table</h2>
+<p class="muted">Each row: a principle actually retrieved, the supporting passage, why it matters for SGSD Chronicle HTML, which Chronicle section it applies to, retrieval confidence, and the risk if misapplied.</p>
+
+<table>
+<thead><tr><th>Book</th><th>Retrieved principle</th><th>Supporting passage (collection · id · score)</th><th>Why it matters for SGSD</th><th>Applicable section</th><th>Conf.</th><th>Risk if misapplied</th></tr></thead>
+<tbody>
+<tr>
+<td><span class="tag minto">Minto</span></td>
+<td><span class="strong">Top-down / answer-first.</span> Present the summarising idea before its support; otherwise readers impose their own grouping logic on sentences received in sequence.</td>
+<td><span class="src">book_figures · Image00085 (p.5) · 0.79</span> — "presenting the summarising idea before its supporting items is the single most important act in clear writing"</td>
+<td>Operator should never reconstruct the verdict from evidence. Verdict + confidence + next action belong at the very top.</td>
+<td>At-a-glance / Operator Decision Panel</td>
+<td>HIGH</td>
+<td>If "answer" is an agent opinion rather than a cited verdict, you front-load an unverified claim. Mitigate: the top-line answer must be the validator verdict, not prose.</td>
+</tr>
+<tr>
+<td><span class="tag minto">Minto</span></td>
+<td><span class="strong">SCQA introduction.</span> Situation (reader already accepts as true) → Complication (creates tension) → Question → Answer.</td>
+<td><span class="src">book_figures · Image00201 (p.202) · 0.68</span> — "the Situation anchors the reader and the Complication creates tension"; <span class="src">Image00190 (p.191) · 0.67</span> — "Situation should open with a statement the reader already accepts as true"</td>
+<td>Gives the "Why this phase existed" section a non-arbitrary shape: known state → what broke / what was missing → the question the phase answered → what shipped.</td>
+<td>Why this phase existed</td>
+<td>HIGH</td>
+<td>Forcing SCQA where there is no genuine complication produces fake drama. Skip the Complication if the phase is routine.</td>
+</tr>
+<tr>
+<td><span class="tag minto">Minto</span></td>
+<td><span class="strong">MECE grouping + governing thought.</span> Every group must be mutually exclusive, collectively exhaustive, and roll up to one testable summary statement — not a vague one.</td>
+<td><span class="src">book_figures · Image00198 (p.199) · 0.64</span> — "deriving summary statements from MECE groupings"; <span class="src">Image00080 (p.108) · 0.63</span> — "upgrading vague governing-thought statements into testable, idea-rich assertions"</td>
+<td>Chronicle sections (observations / claims / verdicts / decisions / denominators) are already MECE-shaped by the 7 signifier roles. The per-section heading should be a testable governing statement, not a noun.</td>
+<td>All section headings</td>
+<td>HIGH</td>
+<td>Over-abstraction: a governing thought so high-level it says nothing ("Phase progressed"). Keep it falsifiable.</td>
+</tr>
+<tr>
+<td><span class="tag minto">Minto</span></td>
+<td><span class="strong">Visual layout must reinforce logic.</span> The eye perceives logical structure before the mind processes content.</td>
+<td><span class="src">book_figures · Image00048 (p.49) · 0.76</span> — "visual layout must reinforce pyramid logic — the eye perceives logical structure before the mind processes it"</td>
+<td>Indentation, heading hierarchy and whitespace in the HTML should mirror the chronicle's logical tree. A reader should see the structure before reading a word.</td>
+<td>Whole-document CSS / hierarchy</td>
+<td>HIGH</td>
+<td>Decorative hierarchy that doesn't match logical hierarchy actively misleads. Heading levels must equal nesting depth.</td>
+</tr>
+<tr>
+<td><span class="tag stick">Stick</span></td>
+<td><span class="strong">Curse of Knowledge.</span> Once you know something you can't imagine not knowing it; experts escalate to abstraction and lose the audience.</td>
+<td><span class="src">book_passages · made-to-stick…::ch00::0013 · 0.68</span> — tapper/listener experiment, "a tune playing in her head employees can't hear"; <span class="src">::0074 · 0.69</span> — engineers made drawings "increasingly elaborate", which "further hampered communication"</td>
+<td>The Chronicle Writer tool runs with full phase context — it IS the cursed expert. Templates must force concrete, operator-level language.</td>
+<td>ELI5 / synthesis sections</td>
+<td>HIGH</td>
+<td>None — this is a warning, not a technique. The danger is ignoring it.</td>
+</tr>
+<tr>
+<td><span class="tag stick">Stick</span></td>
+<td><span class="strong">Testable credential / "see for yourself".</span> A falsifiable claim the reader can verify themselves beats assertion.</td>
+<td><span class="src">book_passages · made-to-stick…::ch00::0103 · 0.65</span> — Wendy's "any customer with a ruler could verify"; <span class="src">::0179 · 0.64</span> — "you let them see for themselves"</td>
+<td>This is exactly what a cited CMB ID / file path / commit SHA is — a testable credential. The HTML should make every citation one click from its evidence.</td>
+<td>Evidence panels / every claim node</td>
+<td>HIGH</td>
+<td>A citation that doesn't resolve is worse than none — it's a broken testable credential. The validator's REPORT_BROKEN_CITATION already guards this.</td>
+</tr>
+<tr>
+<td><span class="tag stick">Stick</span></td>
+<td><span class="strong">Vivid detail &gt; barrage of statistics.</span> A few concrete details can be more persuasive than many statistics; the most obvious credibility source isn't always best.</td>
+<td><span class="src">book_passages · made-to-stick…::ch00::0108 · 0.63</span> — "a few vivid details might be more persuasive than a barrage of statistics"</td>
+<td>The Fog Score and metric panels risk being a statistics barrage. Pair each metric with one concrete instance ("3 plan revisions — the schema-shape fix that recurred").</td>
+<td>Fog Score / metric panels</td>
+<td>MEDIUM</td>
+<td>Dropping metrics for anecdotes loses auditability. Keep both: metric + its one telling instance.</td>
+</tr>
+<tr>
+<td><span class="tag stick">Stick</span></td>
+<td><span class="strong">Decision paralysis.</span> Excessive choice or ambiguous situations produce anxiety and inaction; relentless prioritisation beats it.</td>
+<td><span class="src">book_passages · made-to-stick…::ch00::0160 · 0.71</span> &amp; <span class="src">::0170 · 0.70</span> — "decision paralysis — the anxiety and irrationality from excessive choice"</td>
+<td>The "What happens next" section must name ONE recommended next action, not a menu. Alternatives belong in a collapsed sub-panel.</td>
+<td>What happens next / next-action</td>
+<td>HIGH</td>
+<td>Hiding alternatives entirely removes operator agency. Show one recommendation prominently, alternatives one fold down.</td>
+</tr>
+<tr>
+<td><span class="tag stick">Stick</span></td>
+<td><span class="strong">Accuracy vs accessibility is a false choice.</span> "If a message can't be used to make predictions or decisions, it is without value, no matter how accurate."</td>
+<td><span class="src">book_passages · made-to-stick…::ch00::0036 · 0.69</span></td>
+<td>A chronicle that is fully accurate but unreadable has failed its job. Cognitive completeness (DLB-11) is the same claim.</td>
+<td>Whole document / philosophy</td>
+<td>HIGH</td>
+<td>Used as licence to drop precision. The chronicle keeps a raw-evidence appendix — accessibility on top, accuracy underneath.</td>
+</tr>
+<tr>
+<td><span class="tag swd">SwD</span></td>
+<td><span class="strong">Declutter — remove what doesn't need to be there.</span> Each removed element makes the data stand out more and frees space for what matters.</td>
+<td><span class="src">book_passages · storytelling-with-data…::ch00::0102 · 0.71</span> — "great value in identifying and removing things in our visuals that don't need to be there"</td>
+<td>The current chronicle has 17 sections. Default-collapse low-signal ones; the appendix should be a <code>&lt;details&gt;</code>, not a wall.</td>
+<td>Whole document / section visibility</td>
+<td>HIGH</td>
+<td>Decluttering load-bearing evidence to look clean = hiding truth. Collapse, never delete; the validator still checks hidden content.</td>
+</tr>
+<tr>
+<td><span class="tag swd">SwD</span></td>
+<td><span class="strong">Takeaway titles vs descriptive titles.</span> Slides get takeaway titles (the "so what?"); graphs get descriptive titles. Annotate important points directly on the visual.</td>
+<td><span class="src">book_passages · storytelling-with-data…::ch00::0132 · 0.74</span> — "descriptive titles for graphs, takeaway titles for slides"; <span class="src">::0151 · 0.74</span> — "annotate important points directly on graph"</td>
+<td>Section headings should be takeaways ("Validator caught 2 ungrounded claims — both fixed"), not labels ("Validator Output"). Diagram captions should carry the takeaway.</td>
+<td>All section headings / diagram captions</td>
+<td>HIGH</td>
+<td>A takeaway title asserts a conclusion — it must be cited like any claim, or it becomes agent opinion.</td>
+</tr>
+<tr>
+<td><span class="tag swd">SwD</span></td>
+<td><span class="strong">Z-pattern reading — upper-left orient.</span> Without cues the audience starts top-left and zig-zags; titles/labels go upper-left-most so they see how to read before they reach the data.</td>
+<td><span class="src">book_passages · storytelling-with-data…::ch00::0097 · 0.71</span> — "upper-left-most justifying graph and axis titles… audience sees how to read the data before they get to the data itself"</td>
+<td>Each panel: heading + reading key in the top-left, data/detail below-right. The Operator Decision Panel belongs top-left of the whole page.</td>
+<td>All panels / diagrams</td>
+<td>HIGH</td>
+<td>Low — purely a layout heuristic. Safe.</td>
+</tr>
+<tr>
+<td><span class="tag swd">SwD</span></td>
+<td><span class="strong">Narrative arc — plot / rising action / climax.</span> Identify the tension that exists <em>for the audience</em>; written reports must carry the "So What?" in text.</td>
+<td><span class="src">book_passages · storytelling-with-data…::ch00::0189 · 0.70</span> — plot/rising-action/climax defined as "tension for your audience"; <span class="src">book_figures · c06f002 · 0.64</span> — "written reports rely on text for the 'So What?'"</td>
+<td>The chronicle is consumed asynchronously (written, not presented) — so every section must spell out its "So What?" in text; it cannot rely on a presenter.</td>
+<td>Every section / synthesis</td>
+<td>HIGH</td>
+<td>Manufacturing tension where the phase was routine. Tension must be real (a genuine risk, a refuted claim).</td>
+</tr>
+<tr>
+<td><span class="tag swd">SwD</span></td>
+<td><span class="strong">Big Idea — one sentence.</span> Concision is hard precisely because you are close to the work; write long, then trim.</td>
+<td><span class="src">book_passages · storytelling-with-data…::ch00::0255 · 0.62</span> — "getting it down to a single sentence is hard… write a few sentences first, then trim"</td>
+<td>Every chronicle needs a single-sentence Big Idea at the very top, beside the verdict.</td>
+<td>At-a-glance</td>
+<td>MEDIUM</td>
+<td>A one-sentence Big Idea that overclaims is dangerous. It must be derivable from the verdict + denominators.</td>
+</tr>
+<tr>
+<td><span class="tag napkin">Napkin</span></td>
+<td><span class="strong">Make the complex understandable by making it VISIBLE — not by making it simple.</span></td>
+<td><span class="src">book_passages · the-back-of-the-napkin::ch00::0057 · 0.75</span> — "the real goal of visual thinking is to make the complex understandable by making it visible — not by making it simple"</td>
+<td>Justifies the 6 PUML diagrams. Don't dumb down the lineage DAG — render it so its structure is visible.</td>
+<td>All diagram sections</td>
+<td>HIGH</td>
+<td>Used as licence for elaborate diagrams nobody reads. "Visible" still means legible at a glance.</td>
+</tr>
+<tr>
+<td><span class="tag napkin">Napkin</span></td>
+<td><span class="strong">Six ways of seeing → six frameworks.</span> who/what→portrait, how-much→chart, where→map, when→timeline, how→flowchart, why→plot. The question type determines the diagram type.</td>
+<td><span class="src">book_passages · the-back-of-the-napkin::ch00::0067 · 0.77</span> &amp; <span class="src">::0069 · 0.67</span> — the &lt;6&gt;&lt;6&gt; model; "timing is the critical factor (when) so the model tells us the right framework is a timeline"</td>
+<td>SGSD's 6 PUML templates should each map to a question type — file-impact = "what changed" (portrait), timeline = "when" (timeline), lineage-dag = "how" (flowchart), gate-waterfall = "how" (flowchart). Confirms the diagram set is principled.</td>
+<td>PUML diagram selection</td>
+<td>HIGH</td>
+<td>Picking a diagram type that doesn't match the question (a pie chart for a "when" question) actively confuses.</td>
+</tr>
+<tr>
+<td><span class="tag napkin">Napkin</span></td>
+<td><span class="strong">SQVID — tune the diagram to the audience.</span> Five lenses (Simple↔Elaborate, Quality↔Quantity, Vision↔Execution, Individual↔Comparison, Change↔Status-quo) used as a "graphic equalizer."</td>
+<td><span class="src">book_passages · the-back-of-the-napkin::ch00::0055 · 0.70</span> — "use the SQVID like a graphic equalizer… for project managers skew quantitative + execution"</td>
+<td>The operator is an execution-oriented technical audience → chronicle diagrams should skew Execution + Quantity + Comparison, not Vision + Simple. Confirms gate-waterfall &amp; file-impact over abstract concept art.</td>
+<td>Diagram styling decisions</td>
+<td>MEDIUM</td>
+<td>Over-tuning to "execution" can strip the one Vision-level diagram (architecture) that gives orientation. Keep one.</td>
+</tr>
+<tr>
+<td><span class="tag napkin">Napkin</span></td>
+<td><span class="strong">Place the central node first.</span> Build a concept map by placing the "Heart of the System" node before adding anything around it.</td>
+<td><span class="src">book_figures · the-back-of-the-napkin · 202_img01 · 0.67</span> — "placing the central node before adding any surrounding detail"</td>
+<td>The architecture PUML should visually anchor on one node (the mesh ledger or the phase under review) so the operator's eye lands there first.</td>
+<td>Architecture / lineage diagrams</td>
+<td>MEDIUM</td>
+<td>Low — a layout heuristic for diagram authoring.</td>
+</tr>
+<tr>
+<td><span class="tag napkin">Napkin</span></td>
+<td><span class="strong">Hand-drawn / rough beats polished.</span> Audiences respond better to rough images; spontaneity makes them "less intimidating and more inviting."</td>
+<td><span class="src">book_passages · the-back-of-the-napkin::ch00::0016 · 0.74</span> — "audiences respond better to hand-drawn images… less intimidating and more inviting"</td>
+<td>The SVG fallback generator's plainer output is not a defect — a rougher, simpler diagram can be <em>more</em> inviting than a dense plantuml render. Lean into it.</td>
+<td>svg-fallback-generator / diagrams</td>
+<td>MEDIUM</td>
+<td>"Rough" is not "wrong." Fallback diagrams must still be accurate; only the polish is optional.</td>
+</tr>
+</tbody>
+</table>
+
+<!-- ===================== OUTPUT 2 ===================== -->
+<h2>Output 2 — SGSD handover design rules</h2>
+<p class="muted">Practical rules for Chronicle HTML. Each: rule, source book(s), reason, SGSD example, implementation suggestion.</p>
+
+<div class="rule">
+<div class="rname">Rule 01 — Lead with the operator decision</div>
+<p><span class="tag minto">Minto</span> <span class="tag swd">SwD</span> &nbsp;<span class="src">Image00085 p.5 · 0.79 · storytelling-with-data ::0255</span></p>
+<p><span class="strong">Reason:</span> The reader must never reconstruct the conclusion from the evidence. Minto: top-down ordering is "the single most important act in clear writing." SwD: a one-sentence Big Idea anchors everything.</p>
+<p><span class="strong">SGSD example:</span> A fixed Operator Decision Panel at the top: phase verdict (PASS / PASS-WITH-DEFERRED / BLOCKED), validator verdict (REPORT_GROUNDED), confidence, files changed count, open risks count, ONE recommended next action.</p>
+<p><span class="strong">Implementation:</span> New <code>&lt;section role="operator-decision"&gt;</code> rendered first, above all evidence. Every field is a cited projection — the verdict comes from VERIFICATION.md, not prose.</p>
+</div>
+
+<div class="rule">
+<div class="rname">Rule 02 — Section headings are testable governing statements</div>
+<p><span class="tag minto">Minto</span> <span class="tag swd">SwD</span> &nbsp;<span class="src">Image00080 p.108 · 0.63 · storytelling-with-data ::0132 · 0.74</span></p>
+<p><span class="strong">Reason:</span> Minto: a governing thought must be a testable, idea-rich assertion, not a vague label. SwD: takeaway titles carry the "so what?".</p>
+<p><span class="strong">SGSD example:</span> Not "Validator Output" but "Validator caught 2 ungrounded claims — both re-cited and re-validated". Not "Risks" but "1 unresolved risk: plantuml.jar still absent on the build host".</p>
+<p><span class="strong">Implementation:</span> Section-template <code>{{heading}}</code> slot becomes a cited synthesis node — filled from CMB evidence, validated like any claim. Empty evidence → MISSING_EVIDENCE → REPORT_UNGROUNDED.</p>
+</div>
+
+<div class="rule">
+<div class="rname">Rule 03 — Frame "why this phase existed" as Situation → Complication → Question</div>
+<p><span class="tag minto">Minto</span> &nbsp;<span class="src">Image00201 p.202 · 0.68 · Image00190 p.191 · 0.67</span></p>
+<p><span class="strong">Reason:</span> The Situation anchors the reader in something they already accept; the Complication creates genuine tension; the Question is what the phase answered.</p>
+<p><span class="strong">SGSD example:</span> S: "v3.0 shipped the mesh substrate." C: "But the operator still went brain-foggy after long autonomous runs." Q: "How does SGSD explain a phase well enough to keep the operator attached?" A: the phase deliverable.</p>
+<p><span class="strong">Implementation:</span> <code>why-phase-existed.md</code> template gains explicit <code>{{situation}} {{complication}} {{question}}</code> slots, each cited to CONTEXT.md / INTENT.md. Complication slot is optional — omit for routine phases (no fake drama).</p>
+</div>
+
+<div class="rule">
+<div class="rname">Rule 04 — One recommended next action, alternatives one fold down</div>
+<p><span class="tag stick">Stick</span> &nbsp;<span class="src">made-to-stick ::0160 · 0.71 · ::0170 · 0.70</span></p>
+<p><span class="strong">Reason:</span> Decision paralysis: a menu of choices produces operator inaction. Relentless prioritisation beats it.</p>
+<p><span class="strong">SGSD example:</span> "Next: install plantuml.jar, then re-run P115 render." — not "Options: (a) install jar (b) skip_gates (c) defer (d) …".</p>
+<p><span class="strong">Implementation:</span> "What happens next" renders exactly one primary action prominently; the roadmap-miner's alternatives go in a collapsed <code>&lt;details&gt;Other paths considered&lt;/details&gt;</code>.</p>
+</div>
+
+<div class="rule">
+<div class="rname">Rule 05 — Every claim is a one-click testable credential</div>
+<p><span class="tag stick">Stick</span> &nbsp;<span class="src">made-to-stick ::0103 · 0.65 · ::0179 · 0.64</span></p>
+<p><span class="strong">Reason:</span> "See for yourself" — a falsifiable, reader-verifiable claim beats assertion. A cited CMB ID / file path / commit SHA IS a testable credential.</p>
+<p><span class="strong">SGSD example:</span> Each claim node's citation renders as an inline expandable showing the CMB body excerpt + a copy-able <code>git show &lt;sha&gt;</code> / file path.</p>
+<p><span class="strong">Implementation:</span> render-html.cjs wraps every <code>citations[]</code> entry in <code>&lt;details class="evidence"&gt;</code> with the resolved excerpt inline. Validator's REPORT_BROKEN_CITATION already guarantees the credential resolves.</p>
+</div>
+
+<div class="rule">
+<div class="rname">Rule 06 — Pair every metric with its one telling instance</div>
+<p><span class="tag stick">Stick</span> &nbsp;<span class="src">made-to-stick ::0108 · 0.63</span></p>
+<p><span class="strong">Reason:</span> "A few vivid details may be more persuasive than a barrage of statistics." A number alone is inert.</p>
+<p><span class="strong">SGSD example:</span> Fog Score panel: "Fog 58 / medium — driven mostly by 4 plan revisions; the recurring one was the Codex stale-schema-shape fix."</p>
+<p><span class="strong">Implementation:</span> fog-score.cjs already returns a <code>breakdown</code>; the renderer surfaces the top-1 contributing signal as a plain-language sentence beside the number.</p>
+</div>
+
+<div class="rule">
+<div class="rname">Rule 07 — Collapse, never delete; declutter by default-folding</div>
+<p><span class="tag swd">SwD</span> &nbsp;<span class="src">storytelling-with-data ::0102 · 0.71</span></p>
+<p><span class="strong">Reason:</span> Removing low-signal elements makes the signal stand out — but a chronicle is an audit artefact, so hidden ≠ gone.</p>
+<p><span class="strong">SGSD example:</span> Raw-evidence appendix, full lineage DAG, and the PUML source blocks render inside <code>&lt;details&gt;</code> collapsed by default; the validator still parses the hidden content.</p>
+<p><span class="strong">Implementation:</span> render-html.cjs marks sections <code>signal: high|low</code>; low-signal sections emit collapsed. Fog Score high → auto-expand the must-read sections.</p>
+</div>
+
+<div class="rule">
+<div class="rname">Rule 08 — Spell the "So What?" in text — the chronicle has no presenter</div>
+<p><span class="tag swd">SwD</span> &nbsp;<span class="src">book_figures c06f002 · 0.64 · storytelling-with-data ::0189 · 0.70</span></p>
+<p><span class="strong">Reason:</span> Written reports (unlike live presentations) cannot rely on a speaker to deliver the takeaway — the text must carry it.</p>
+<p><span class="strong">SGSD example:</span> Every diagram gets a one-line caption stating the conclusion ("Gate waterfall: all 8 gates green except chronicle-validation, which is the phase you are reading").</p>
+<p><span class="strong">Implementation:</span> Each PUML render is wrapped with a mandatory <code>&lt;figcaption&gt;</code> takeaway slot; empty caption → MISSING_EVIDENCE.</p>
+</div>
+
+<div class="rule">
+<div class="rname">Rule 09 — Match the diagram type to the question type</div>
+<p><span class="tag napkin">Napkin</span> &nbsp;<span class="src">the-back-of-the-napkin ::0067 · 0.77 · ::0069 · 0.67</span></p>
+<p><span class="strong">Reason:</span> The &lt;6&gt;&lt;6&gt; model: who/what→portrait, how-much→chart, where→map, when→timeline, how→flowchart, why→plot. Question type dictates diagram type.</p>
+<p><span class="strong">SGSD example:</span> "What changed" → file-impact map (portrait of what). "When did stages run" → timeline. "How did evidence flow" → lineage-dag flowchart. "How did gates progress" → gate-waterfall flowchart.</p>
+<p><span class="strong">Implementation:</span> Document the question→diagram mapping in the P115 template README; reject a 7th diagram unless it answers a question the existing 6 don't.</p>
+</div>
+
+<div class="rule">
+<div class="rname">Rule 10 — Make the layout mirror the logic</div>
+<p><span class="tag minto">Minto</span> <span class="tag swd">SwD</span> &nbsp;<span class="src">Image00048 p.49 · 0.76 · storytelling-with-data ::0097 · 0.71</span></p>
+<p><span class="strong">Reason:</span> The eye reads structure before content; readers zig-zag from top-left. Indentation and heading levels must equal logical nesting.</p>
+<p><span class="strong">SGSD example:</span> Heading level = signifier nesting depth. Reading key (what this section proves) sits top-left of each panel; evidence sits below-right.</p>
+<p><span class="strong">Implementation:</span> style.css heading scale strictly tied to section depth; no decorative heading sizes. Panel grid: title row top-left-aligned.</p>
+</div>
+
+<div class="rule">
+<div class="rname">Rule 11 — Write against the Curse of Knowledge — the Chronicle Writer IS the cursed expert</div>
+<p><span class="tag stick">Stick</span> &nbsp;<span class="src">made-to-stick ::0013 · 0.68 · ::0074 · 0.69</span></p>
+<p><span class="strong">Reason:</span> The Writer runs with full phase context; left free it escalates to abstraction (exactly the engineers' "increasingly elaborate drawings" failure).</p>
+<p><span class="strong">SGSD example:</span> ELI5 template forbids: CMB-class names, schema keyword jargon, internal acronyms — unless first defined inline.</p>
+<p><span class="strong">Implementation:</span> A validator lint pass — <code>CHRONICLE-JARGON</code> warning — flags ELI5/synthesis sections containing un-expanded internal terms from a denylist (CMB, SAC, ATC, MUDA, signifier_role…).</p>
+</div>
+
+<div class="rule">
+<div class="rname">Rule 12 — Tune diagrams to an execution-oriented operator (SQVID)</div>
+<p><span class="tag napkin">Napkin</span> &nbsp;<span class="src">the-back-of-the-napkin ::0055 · 0.70</span></p>
+<p><span class="strong">Reason:</span> SQVID as a graphic equalizer — a technical execution audience wants Quantity + Execution + Comparison, not Vision + Simple abstractions.</p>
+<p><span class="strong">SGSD example:</span> Diagrams show concrete counts, real repo paths, before/after deltas — keep exactly one Vision-level diagram (architecture) for orientation.</p>
+<p><span class="strong">Implementation:</span> Already largely true (file-impact, gate-waterfall are execution-skewed). Document the SQVID setting in the P115 README so future diagrams stay tuned.</p>
+</div>
+
+<!-- ===================== OUTPUT 3 ===================== -->
+<h2>Output 3 — Recommended HTML section order</h2>
+<p class="muted">Top-down (Minto): conclusion first, support beneath, appendix last. Declutter (SwD): low-signal sections collapsed by default. The order below is the proposed canonical chronicle layout.</p>
+
+<div class="secorder">
+<div class="card">
+<h4>1 · Operator Decision Panel <span class="tag minto">Minto</span> <span class="tag swd">SwD</span></h4>
+<p><span class="strong">Purpose:</span> Answer-first. The operator gets verdict + next action in 5 seconds.</p>
+<p><span class="strong">Contains:</span> phase verdict · validator verdict · confidence · files-changed count · open-risk count · one-sentence Big Idea · one recommended next action.</p>
+<p><span class="strong">Must NOT contain:</span> evidence detail, narrative, agent prose. Every field is a cited projection.</p>
+<p class="muted">Helps the operator: decide in seconds whether they need to read further at all.</p>
+</div>
+<div class="card">
+<h4>2 · Why this phase existed (S-C-Q) <span class="tag minto">Minto</span></h4>
+<p><span class="strong">Purpose:</span> Orient the reader in known ground, then the tension, then the question answered.</p>
+<p><span class="strong">Contains:</span> Situation (cited to predecessor SUMMARY) · Complication (optional, cited to CONTEXT/INTENT) · Question.</p>
+<p><span class="strong">Must NOT contain:</span> the answer (that is the rest of the document) or manufactured drama.</p>
+<p class="muted">Helps the operator: rebuild the mental model of why this work happened.</p>
+</div>
+<div class="card">
+<h4>3 · What changed (ELI5) <span class="tag stick">Stick</span></h4>
+<p><span class="strong">Purpose:</span> Plain-language summary that defeats the Curse of Knowledge.</p>
+<p><span class="strong">Contains:</span> concrete prose — files, behaviour change, the one most important change + its citation.</p>
+<p><span class="strong">Must NOT contain:</span> un-expanded internal jargon, schema keywords, CMB-class names.</p>
+<p class="muted">Helps the operator: understand the change without decoding the substrate.</p>
+</div>
+<div class="card">
+<h4>4 · What was verified · What reviewers claimed · What was refuted <span class="tag stick">Stick</span> <span class="tag minto">Minto</span></h4>
+<p><span class="strong">Purpose:</span> The evidence spine — testable credentials. MECE: observations / claims / evidence-verdicts kept separate.</p>
+<p><span class="strong">Contains:</span> claim nodes, each with one-click citations to CMB IDs / tests / commits.</p>
+<p><span class="strong">Must NOT contain:</span> uncited claims (→ REPORT_UNGROUNDED), validator self-report taken on trust.</p>
+<p class="muted">Helps the operator: trust the verdict by spot-checking any claim themselves.</p>
+</div>
+<div class="card">
+<h4>5 · Key decisions made <span class="tag stick">Stick</span></h4>
+<p><span class="strong">Purpose:</span> What SGSD decided, with the option chosen and why.</p>
+<p><span class="strong">Contains:</span> decision_recommendation + promotion_decision + operator_precedent CMBs; chosen path + rationale + rollback.</p>
+<p><span class="strong">Must NOT contain:</span> a menu with no recommendation.</p>
+<p class="muted">Helps the operator: see where their authority was exercised on their behalf.</p>
+</div>
+<div class="card">
+<h4>6 · Agent Autonomy Disclosure + Denominator panel <span class="tag stick">Stick</span> <span class="tag minto">Minto</span></h4>
+<p><span class="strong">Purpose:</span> What SGSD decided without the operator — and explicitly what it did NOT do.</p>
+<p><span class="strong">Contains:</span> the 5 denominator sub-arrays (scope_excluded / carve_outs_not_fired / alternatives_rejected / assumptions_made / gates_skipped).</p>
+<p><span class="strong">Must NOT contain:</span> an empty panel with no <code>denominators_empty_reason</code>.</p>
+<p class="muted">Helps the operator: see the boundary of the work — the denominator, not just the numerator.</p>
+</div>
+<div class="card">
+<h4>7 · Diagrams — file impact · gate waterfall · timeline · lineage <span class="tag napkin">Napkin</span></h4>
+<p><span class="strong">Purpose:</span> Make the complex visible. Each diagram answers one question type.</p>
+<p><span class="strong">Contains:</span> 6 PUML renders, each with a mandatory takeaway <code>&lt;figcaption&gt;</code> + collapsed PUML source.</p>
+<p><span class="strong">Must NOT contain:</span> a diagram whose caption restates the title instead of the takeaway.</p>
+<p class="muted">Helps the operator: grasp structure pre-cognitively, before reading.</p>
+</div>
+<div class="card">
+<h4>8 · Risks &amp; rollback <span class="tag swd">SwD</span></h4>
+<p><span class="strong">Purpose:</span> Genuine forward tension — what could still go wrong.</p>
+<p><span class="strong">Contains:</span> open risks, each with severity + rollback step + citation.</p>
+<p><span class="strong">Must NOT contain:</span> invented risks for drama; resolved risks (those go in "what changed").</p>
+<p class="muted">Helps the operator: know what to watch before the next phase.</p>
+</div>
+<div class="card">
+<h4>9 · What happens next <span class="tag stick">Stick</span></h4>
+<p><span class="strong">Purpose:</span> One recommended next action — beat decision paralysis.</p>
+<p><span class="strong">Contains:</span> the single primary action; alternatives collapsed in <code>&lt;details&gt;</code>.</p>
+<p><span class="strong">Must NOT contain:</span> an un-prioritised option menu.</p>
+<p class="muted">Helps the operator: resume immediately without re-deciding.</p>
+</div>
+<div class="card">
+<h4>10 · Fog Score + cross-milestone learning <span class="tag stick">Stick</span> <span class="tag swd">SwD</span></h4>
+<p><span class="strong">Purpose:</span> Cognitive-cost metric + roadmap-miner patterns — each metric paired with its telling instance.</p>
+<p><span class="strong">Contains:</span> Fog Score + top contributing signal in plain language; recurring drift classes.</p>
+<p><span class="strong">Must NOT contain:</span> a statistics barrage with no concrete instance.</p>
+<p class="muted">Helps the operator: see whether SGSD is getting better or worse over time.</p>
+</div>
+<div class="card">
+<h4>11 · Raw evidence appendix <span class="tag swd">SwD</span> (collapsed)</h4>
+<p><span class="strong">Purpose:</span> Full accuracy underneath the accessible layer — the false-choice resolved.</p>
+<p><span class="strong">Contains:</span> full CMB ledger slice, full lineage DAG, all PUML source, manifest hashes.</p>
+<p><span class="strong">Must NOT contain:</span> anything not also referenced above; it is the substrate, not new content.</p>
+<p class="muted">Helps the operator: audit to the byte when they need to — and ignore it when they don't.</p>
+</div>
+</div>
+
+<div class="callout">
+<p><span class="strong">Change vs current 17-section layout:</span> the current chronicle has good raw material but a flat 17-section list. This collapses it to <span class="strong">11 ordered sections</span>, 3 of which (7, 10, 11) hold most of the old detail in collapsed form. The reorder is pure Minto: decision → why → what → evidence → decisions → disclosure → visuals → risk → next → metrics → appendix.</p>
+</div>
+
+<!-- ===================== OUTPUT 4 ===================== -->
+<h2>Output 4 — Before / after rewrites</h2>
+<p class="muted">SGSD-style content rewritten using the retrieved principles. The "before" examples are realistic current-style chronicle output.</p>
+
+<h3>4.1 — Phase verdict</h3>
+<div class="ba">
+<div class="before"><div class="lbl">Before</div><p>Phase 116 status: PASS. Verification ran 16 SAC assertions plus 3 STRUCT assertions across the validator surface; all returned exit 0. Self-test cumulative 56/56.</p></div>
+<div class="after"><div class="lbl">After</div><p><span class="strong">P116 PASSED — the chronicle validator is now a binding gate.</span> All 56 self-test assertions green. You can rely on it to halt any phase whose chronicle isn't grounded in real evidence.</p></div>
+</div>
+<p class="src">Principle: Minto top-down (lead with the conclusion the operator needs) + Stick "accuracy is worthless if it can't drive a decision" (made-to-stick ::0036). The "after" states the <em>so what</em> — the gate is now usable.</p>
+
+<h3>4.2 — Validator output</h3>
+<div class="ba">
+<div class="before"><div class="lbl">Before</div><p>validate-chronicle.cjs emitted REPORT_UNGROUNDED (exit 1) on 2 nodes. ajv-errors surfaced CHRONICLE-01 on /sections/claims/0/citations and CHRONICLE-02 on /sections/synthesis/1/citations.</p></div>
+<div class="after"><div class="lbl">After</div><p><span class="strong">The validator caught 2 claims with no evidence behind them — both are now fixed.</span> One was a review finding with an empty citation list; one was an ELI5 sentence with no source. Each was re-cited to a real CMB and re-validated to REPORT_GROUNDED. <span class="src">[see evidence: cmb-review-002, cmb-exec-014]</span></p></div>
+</div>
+<p class="src">Principle: Stick Curse of Knowledge — <code>REPORT_UNGROUNDED</code>/<code>CHRONICLE-01</code>/<code>/sections/claims/0</code> are tapper-noise the operator can't hear (made-to-stick ::0013). The "after" keeps the testable credential (the CMB IDs) but leads with plain language.</p>
+
+<h3>4.3 — Recurring drift class (roadmap miner)</h3>
+<div class="ba">
+<div class="before"><div class="lbl">Before</div><p>recurring_drift_classes: ["schema-shape-divergence-in-codex-benchmarks"]. occurrences: 3. milestones: ["v3.1"].</p></div>
+<div class="after"><div class="lbl">After</div><p><span class="strong">Same mistake, three times this milestone: Codex keeps authoring fixtures in an out-of-date schema shape.</span> It happened in P113, P116 and P117 — each time the orchestrator had to regenerate the fixture by hand. <span class="strong">Fix that pays forward:</span> inline the current schema shape into the executor prompt so Codex can't guess.</p></div>
+</div>
+<p class="src">Principle: Stick vivid detail beats a stat (made-to-stick ::0108) + Stick decision paralysis → one action (made-to-stick ::0170). The number "3" becomes a concrete story with a single recommended fix.</p>
+
+<h3>4.4 — Fog Score</h3>
+<div class="ba">
+<div class="before"><div class="lbl">Before</div><p>fog_score: { value: 58, tier: "medium", breakdown: { dispatch_count: 36, plan_revisions: 32, token_spend: 14.5, review_loops: 10, ... } }</p></div>
+<div class="after"><div class="lbl">After</div><p><span class="strong">Fog Score 58 / medium — read the ELI5, Decisions and Risks sections before you resume.</span> Most of the fog this phase came from <span class="strong">4 plan revisions</span> — the plan was re-cut more than usual, so the &ldquo;why&rdquo; is worth re-reading.</p></div>
+</div>
+<p class="src">Principle: SwD pair the metric with its telling instance + declutter the breakdown (storytelling-with-data ::0102, ::0108). The raw <code>breakdown</code> object collapses to one sentence naming the dominant signal; the full object moves to the appendix.</p>
+
+<h3>4.5 — Denominator panel</h3>
+<div class="ba">
+<div class="before"><div class="lbl">Before</div><p>denominators: { scope_excluded: ["non-goal-1","non-goal-2"], carve_outs_not_fired: ["production_mutation"], alternatives_rejected: [], assumptions_made: ["baseline"], gates_skipped: [] }</p></div>
+<div class="after"><div class="lbl">After</div><p><span class="strong">What SGSD deliberately did NOT do this phase:</span> it stayed out of 2 declared non-goals; it did <em>not</em> touch production (the <code>production_mutation</code> carve-out was available and correctly never fired); it skipped no gates. <span class="strong">One assumption it made without asking you:</span> the baseline fixture shape — worth a glance if that surprises you.</p></div>
+</div>
+<p class="src">Principle: Minto governing thought — turn a vague field dump into a testable assertion (Image00080 · 0.63). The reader learns the <em>boundary</em> of the work, framed as prose, not a JSON object.</p>
+
+<!-- ===================== OUTPUT 5 ===================== -->
+<h2>Output 5 — Questions SGSD should answer every phase</h2>
+<p class="muted">A checklist the Chronicle Writer / Validator / Roadmap Miner should be able to answer for every phase. Grouped by concern; each group cites the book lens behind it.</p>
+
+<div class="card">
+<h4>Operator understanding <span class="tag minto">Minto</span> <span class="tag stick">Stick</span></h4>
+<ul>
+<li>Can the operator get the verdict + next action without scrolling? (Minto answer-first)</li>
+<li>Is the Big Idea expressible in one sentence?</li>
+<li>Does the ELI5 use any internal term not defined inline? (Curse-of-Knowledge lint)</li>
+<li>Would someone who skipped the whole autonomous run understand what changed?</li>
+</ul>
+</div>
+<div class="card">
+<h4>Evidence trust <span class="tag stick">Stick</span></h4>
+<ul>
+<li>Does every claim resolve to a CMB ID / file / test / commit the operator can open?</li>
+<li>Are there any broken citations? (REPORT_BROKEN_CITATION)</li>
+<li>Is each claim a testable credential — can the operator verify it themselves?</li>
+<li>Where the chronicle asserts a takeaway-title conclusion, is that conclusion itself cited?</li>
+</ul>
+</div>
+<div class="card">
+<h4>Cognitive load <span class="tag swd">SwD</span></h4>
+<ul>
+<li>How many sections are open by default — and is that the minimum?</li>
+<li>Is every low-signal section collapsed rather than deleted?</li>
+<li>Does each panel put its reading key top-left, before the data?</li>
+<li>What is the Fog Score, and does it auto-expand the must-read sections?</li>
+</ul>
+</div>
+<div class="card">
+<h4>Risk &amp; denominator <span class="tag stick">Stick</span> <span class="tag minto">Minto</span></h4>
+<ul>
+<li>What did SGSD deliberately NOT do? (5 denominator sub-arrays)</li>
+<li>Which hard carve-outs were available but did not fire?</li>
+<li>What assumptions were made without operator confirmation?</li>
+<li>Which open risks survive into the next phase, and what is each rollback?</li>
+</ul>
+</div>
+<div class="card">
+<h4>Visual explanation <span class="tag napkin">Napkin</span></h4>
+<ul>
+<li>Does each diagram answer one of the six question types (who/what, how-much, where, when, how, why)?</li>
+<li>Does every diagram have a takeaway caption — not a restated title?</li>
+<li>Is the diagram tuned to an execution-oriented operator (Quantity + Execution + Comparison)?</li>
+<li>Does the architecture diagram anchor on one central node?</li>
+</ul>
+</div>
+<div class="card">
+<h4>Cross-milestone learning <span class="tag stick">Stick</span> <span class="tag swd">SwD</span></h4>
+<ul>
+<li>Did any drift class recur — and is it paired with a concrete instance + one fix?</li>
+<li>Is the Fog Score trending up or down vs prior phases?</li>
+<li>What pattern from a past milestone resembles this one?</li>
+</ul>
+</div>
+<div class="card">
+<h4>Next action <span class="tag stick">Stick</span></h4>
+<ul>
+<li>Is there exactly one prominently recommended next action?</li>
+<li>Are alternatives available but folded away, not deleted?</li>
+<li>Could the operator resume work from the chronicle alone, without re-deciding?</li>
+</ul>
+</div>
+
+<!-- ===================== OUTPUT 6 ===================== -->
+<h2>Output 6 — Implementation recommendations</h2>
+<p class="muted">Concrete engineering changes, mapped to the existing v3.1 chronicle toolchain.</p>
+
+<h3>HTML layout changes (render-html.cjs)</h3>
+<ul>
+<li>Add <code>&lt;section role="operator-decision"&gt;</code> as the mandatory first section (Rule 01). Renders verdict + Big Idea + one next action.</li>
+<li>Collapse the 17-section output to the 11-section order in Output 3. Sections 7/10/11 default-collapsed via <code>&lt;details&gt;</code>.</li>
+<li>Every <code>citations[]</code> entry renders as an inline <code>&lt;details class="evidence"&gt;</code> with the resolved CMB excerpt (Rule 05).</li>
+<li>Every diagram gets a mandatory <code>&lt;figcaption&gt;</code> takeaway slot (Rule 08).</li>
+<li>Heading level strictly = section nesting depth; panel titles top-left-aligned (Rule 10).</li>
+</ul>
+
+<h3>Template changes (templates/sections/*.md)</h3>
+<ul>
+<li><code>why-phase-existed.md</code>: add <code>{{situation}} {{complication}} {{question}}</code> slots; complication optional (Rule 03).</li>
+<li>All section headings become cited <code>{{heading}}</code> takeaway slots, not static labels (Rule 02).</li>
+<li><code>whats-next.md</code>: one <code>{{primary_action}}</code> slot + a <code>{{alternatives[]}}</code> block rendered collapsed (Rule 04).</li>
+<li>Fog Score template: add <code>{{dominant_signal_sentence}}</code> slot beside the number (Rule 06).</li>
+</ul>
+
+<h3>Prompt changes (context-pack builder + Chronicle Writer)</h3>
+<ul>
+<li>build-context-pack.cjs: emit a <code>dominant_fog_signal</code> field (highest-weighted breakdown entry) so the renderer can write the telling-instance sentence.</li>
+<li>Chronicle Writer template instructions: forbid un-expanded internal terms in ELI5/synthesis (Rule 11).</li>
+</ul>
+
+<h3>Validator checks (validate-chronicle.cjs)</h3>
+<ul>
+<li>New non-fatal lint <code>CHRONICLE-JARGON</code>: warn when an ELI5 / synthesis node contains a denylisted internal term (CMB, SAC, ATC, MUDA, signifier_role, REPORT_*) not expanded on first use (Rule 11).</li>
+<li>New check: every <code>&lt;figcaption&gt;</code> must differ from its diagram title (catches restated-title captions — Rule 08).</li>
+<li>New check: "What happens next" must contain exactly one primary action node (Rule 04).</li>
+</ul>
+
+<h3>Data fields to add</h3>
+<ul>
+<li><code>chronicle_context.big_idea</code> — single-sentence string, cited.</li>
+<li><code>chronicle_context.sections[].signal: "high"|"low"</code> — drives default-collapse.</li>
+<li><code>chronicle_context.fog.dominant_signal</code> — string, the top breakdown contributor.</li>
+<li><code>chronicle_context.next.primary_action</code> + <code>next.alternatives[]</code> — split the current flat next-action list.</li>
+</ul>
+
+<h3>Visual components to add</h3>
+<ul>
+<li>Operator Decision Panel component — fixed, top, colour-coded by verdict.</li>
+<li>Inline evidence-expander component — wraps every citation.</li>
+<li>Fog gauge with a one-line plain-language driver caption.</li>
+</ul>
+
+<h3>Anti-patterns to block</h3>
+<ul>
+<li>Uncited takeaway titles (a heading that asserts a conclusion with no citation).</li>
+<li>Diagram captions that restate the title instead of the takeaway.</li>
+<li>Option menus in "What happens next" with no recommended action.</li>
+<li>Internal jargon in ELI5 without inline definition.</li>
+<li>Deleting (vs collapsing) low-signal sections — the validator must still see them.</li>
+<li>Manufactured Complication / tension where the phase was routine.</li>
+</ul>
+
+<!-- ===================== OUTPUT 7 ===================== -->
+<h2>Output 7 — Final book ranking for SGSD Chronicle HTML</h2>
+
+<table>
+<thead><tr><th>Rank</th><th>Book</th><th>Primary use</th><th>Secondary use</th><th>Strongest principle found</th><th>SGSD should copy</th><th>SGSD should avoid</th></tr></thead>
+<tbody>
+<tr>
+<td><span class="strong">1</span></td>
+<td><span class="tag minto">The Minto Pyramid Principle</span></td>
+<td>HTML section order</td>
+<td>Section headings as governing thoughts</td>
+<td>Answer-first top-down ordering — "the single most important act in clear writing" (Image00085 · 0.79)</td>
+<td>The Operator Decision Panel + the 11-section answer-first order + SCQA for "why this phase existed".</td>
+<td>Don't force SCQA where there is no real Complication; don't let "governing thoughts" become so abstract they are untestable.</td>
+</tr>
+<tr>
+<td><span class="strong">2</span></td>
+<td><span class="tag stick">Made to Stick</span></td>
+<td>Wording of every operator-facing sentence</td>
+<td>Trust / evidence framing</td>
+<td>Curse of Knowledge — the cursed expert escalates to abstraction (made-to-stick ::0013, ::0074)</td>
+<td>The jargon lint, "see for yourself" testable credentials, one-action-not-a-menu, vivid-detail-with-the-metric.</td>
+<td>Don't chase "stickiness" with emotional storytelling — a chronicle is an audit artefact; emotion is not a goal, clarity is.</td>
+</tr>
+<tr>
+<td><span class="strong">3</span></td>
+<td><span class="tag swd">Storytelling with Data</span></td>
+<td>Metric / Fog Score / diagram panels</td>
+<td>Default-collapse decluttering</td>
+<td>Declutter — every removed element makes the signal stand out (storytelling-with-data ::0102)</td>
+<td>Takeaway titles, collapse-don't-delete, z-pattern top-left layout, the written "So What?" rule.</td>
+<td>Don't import live-presentation techniques (build-piece-by-piece) — the chronicle is read alone, asynchronously.</td>
+</tr>
+<tr>
+<td><span class="strong">4</span></td>
+<td><span class="tag napkin">The Back of the Napkin</span></td>
+<td>Diagram type selection (the 6 PUMLs)</td>
+<td>Tuning diagrams to the operator (SQVID)</td>
+<td>Make complex things understandable by making them visible, not simple (the-back-of-the-napkin ::0057)</td>
+<td>The question-type→diagram-type mapping; central-node-first; accept rough fallback SVG as a feature.</td>
+<td>Don't over-tune to "execution" and strip the one Vision-level orientation diagram (architecture).</td>
+</tr>
+<tr>
+<td colspan="7" style="background:rgba(251,113,133,.08);"><span class="strong">Not in corpus</span> — Resonate (Duarte), Simply Said (Sullivan), Thing Explainer (Munroe). Not ranked: no retrieval evidence. Expected contribution if ingested: Resonate → presentation arc (overlaps SwD); Simply Said → tone/concision (overlaps Made to Stick "Simple"); Thing Explainer → radical vocabulary restriction (overlaps Made to Stick "Concrete" + the Curse-of-Knowledge thesis). Ingest for completeness; none is blocking.</td>
+</tr>
+</tbody>
+</table>
+
+<h2>Cross-book synthesis — where they agree, disagree, converge</h2>
+<div class="card">
+<h4>Where the 4 books agree</h4>
+<ul>
+<li><span class="strong">Conclusion before support.</span> Minto's top-down ordering, SwD's "lead with the ending" narrative flow, and Stick's "don't bury the lead / inverted pyramid" are the same rule in three vocabularies.</li>
+<li><span class="strong">The expert is the problem.</span> Stick's Curse of Knowledge, Minto's "readers impose their own grouping logic", and Napkin's "audience gets it before you stop explaining" all say: the author over-estimates the reader's context.</li>
+<li><span class="strong">Structure is perceived before content.</span> Minto ("the eye perceives logical structure first") and SwD (z-pattern, Gestalt) agree the layout itself is a message.</li>
+</ul>
+<h4>Where they diverge</h4>
+<ul>
+<li><span class="strong">Simplicity.</span> Napkin explicitly warns against equating clarity with simplification — "make it visible, not simple." Stick's "Simple" element pushes the other way (find the core, compact it). Resolution for SGSD: simplify the <em>wording</em> (Stick), but do not simplify the <em>diagrams</em> below legibility (Napkin) — keep the lineage DAG complete.</li>
+<li><span class="strong">Emotion.</span> Stick wants emotional resonance; Minto is coldly logical. For an audit artefact consumed by one technical operator, Minto wins — emotion is not a chronicle goal.</li>
+</ul>
+<h4>Same principle, different language</h4>
+<p>"Answer first" = Minto top-down = SwD lead-with-the-ending = Stick inverted pyramid / Commander's Intent. "Testable credential" (Stick) = "the eye perceives structure / verify for yourself" instinct = SGSD's cited CMB ID. "Governing thought" (Minto) = "takeaway title" (SwD) = "Big Idea" (SwD) = "core message" (Stick Simple).</p>
+</div>
+
+<div class="callout good">
+<h3 style="margin-top:0;">Bottom line</h3>
+<p>The single highest-value change is <span class="strong">Rule 01 + Output 3</span>: add an answer-first Operator Decision Panel and collapse the flat 17-section layout into the 11-section top-down order. That one reorder is endorsed by all 4 books under different names and directly serves DLB-11's cognitive-completeness axiom. Everything else (jargon lint, takeaway titles, evidence expanders, one-action-next) is incremental polish on top of it.</p>
+</div>
+
+<hr style="border:none;border-top:1px solid var(--line);margin:40px 0 16px;" />
+<p class="src">Retrieval provenance: VTP Qdrant <code>book_passages</code> + <code>book_figures</code> collections, bge-base-en-v1.5 embeddings. The Minto Pyramid Principle is vision-ingested (scanned pages, no extractable text) — its evidence is vision-description text, not verbatim quotation, hence paraphrase-only. Made to Stick / Storytelling with Data / Back of the Napkin are text-ingested. 3 of 7 named books (Resonate, Simply Said, Thing Explainer) are absent from both collections; no principles were synthesised for them. Direct evidence = retrieved passage content; synthesis = the translation into SGSD design rules, which is the orchestrator's reasoning and is labelled as such throughout.</p>
+
+</div>
+</body>
+</html>
