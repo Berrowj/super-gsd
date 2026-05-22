@@ -8,7 +8,7 @@
 #   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\sgsd-first-run-demo.ps1
 #
 # Optional:
-#   -SourceRepo C:\Users\jack.berrow\GSDedits
+#   -SourceRepo C:\Users\user\GSDedits
 #   -InstallCodex
 #   -SkipNpmInstall
 #   -SkipBoot
@@ -16,7 +16,7 @@
 
 param(
     [string]$ProjectDir = ".",
-    [string]$SourceRepo = "C:\Users\jack.berrow\GSDedits",
+    [string]$SourceRepo = "C:\Users\user\GSDedits",
     [switch]$InstallCodex,
     [switch]$SkipNpmInstall,
     [switch]$SkipBoot

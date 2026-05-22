@@ -3,7 +3,7 @@ phase: 63
 artifact: verification
 created: 2026-04-29
 status: PASS-WITH-DEFERRED-5
-operator: jack.berrow
+operator: user
 verifier: orchestrator (this Claude session)
 ---
 
@@ -57,7 +57,7 @@ edge-guard misses or correctness violations. They are tracked in
 
 1. They are not gate failures — they are unprovable from terminal.
 2. The deferral is policy-driven (Rule 14), not a quality compromise.
-3. Each item has a concrete operator step, owner (jack.berrow), and
+3. Each item has a concrete operator step, owner (user), and
    recording protocol.
 
 If/when M1-M5 fail and surface real defects (e.g., Warp doesn't detect

@@ -10,7 +10,7 @@
 #   1. Copy this file to:
 #        $HOME\.warp\launch_configurations\sgsd-operator-workspace.yaml
 #   2. Edit the `cwd` paths if your project root differs from
-#        C:\Users\jack.berrow\GSDedits
+#        C:\Users\user\GSDedits
 #   3. Open Warp Command Palette (Ctrl+Shift+P) and search for
 #        "Launch Configuration: SGSD Operator Workspace"
 #
@@ -35,24 +35,24 @@ windows:
       - title: "SGSD Main"
         color: magenta
         layout:
-          cwd: C:\Users\jack.berrow\GSDedits
+          cwd: C:\Users\user\GSDedits
           commands:
             - exec: |-
-                powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'SGSD operator pane. Type sg to boot.' -ForegroundColor Cyan"
+                powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'SGSD operator pane. Type sg to boot.' -ForegroundColor Cyan"
         split_direction: horizontal
         panes:
-          - cwd: C:\Users\jack.berrow\GSDedits
+          - cwd: C:\Users\user\GSDedits
             commands:
               - exec: |-
-                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'Cockpit pane. Type sgsd to open dashboards.' -ForegroundColor Cyan"
-          - cwd: C:\Users\jack.berrow\GSDedits
+                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'Cockpit pane. Type sgsd to open dashboards.' -ForegroundColor Cyan"
+          - cwd: C:\Users\user\GSDedits
             commands:
               - exec: |-
-                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'Token / Codex / Gate watch pane. Try: SGSD: Token Summary | SGSD: Codex Status | SGSD: Gate Status from Command Search.' -ForegroundColor Cyan"
+                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'Token / Codex / Gate watch pane. Try: SGSD: Token Summary | SGSD: Codex Status | SGSD: Gate Status from Command Search.' -ForegroundColor Cyan"
       - title: "Shell"
         color: magenta
         layout:
-          cwd: C:\Users\jack.berrow\GSDedits
+          cwd: C:\Users\user\GSDedits
           commands:
             - exec: |-
-                powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'"
+                powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'"

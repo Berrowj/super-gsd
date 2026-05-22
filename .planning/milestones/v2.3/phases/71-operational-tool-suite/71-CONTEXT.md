@@ -4,7 +4,7 @@ phase_name: Operational Tool Suite
 milestone: v2.3
 roadmap: warp-integration
 created: 2026-04-29
-operator: jack.berrow
+operator: user
 status: in-progress
 deviation_from_standard: standard 10-step (code phase, FULL tier ATC; bigger scope -- 9 tools)
 ---

@@ -79,7 +79,7 @@
   "decisions": [
     {
       "id": "MD-27.1",
-      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\discussions\\2026-04-26-mass-discuss.md:row-27.1",
+      "source": "C:\\Users\\user\\GSDedits\\.planning\\discussions\\2026-04-26-mass-discuss.md:row-27.1",
       "text": "| 27.1 `cockpit-state.json` | NO. Cockpit derives state from existing 13 metric streams every refresh. |"
     }
   ],

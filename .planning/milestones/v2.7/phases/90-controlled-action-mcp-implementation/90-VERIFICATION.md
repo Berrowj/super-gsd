@@ -1,7 +1,7 @@
 ---
 phase: 90
 status: PASS
-operator: jack.berrow
+operator: user
 verifier: orchestrator (this Claude session)
 executor_dispatches: 2
   - gsd-executor (Sonnet) agentId a44a66bef9737dc6d; commit dae0550 (90-01 controlled-action server)

@@ -1,6 +1,6 @@
 param(
     [int[]]$Kill = @(18524, 20460, 26732),
-    [string]$ProjectDir = "C:\Users\jack.berrow\project-clarity-erp"
+    [string]$ProjectDir = "C:\Users\user\project-clarity-erp"
 )
 
 $ErrorActionPreference = "SilentlyContinue"
@@ -76,6 +76,6 @@ try {
 
 Write-Host ""
 Write-Host "=== 4. Relaunch command (paste in each Windows Terminal pane) ===" -ForegroundColor Yellow
-Write-Host '  powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-mission-control.ps1" -ProjectDir "C:\Users\jack.berrow\project-clarity-erp"' -ForegroundColor Cyan
-Write-Host '  powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-narrative.ps1"        -ProjectDir "C:\Users\jack.berrow\project-clarity-erp"' -ForegroundColor Cyan
-Write-Host '  powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-gate-verdict.ps1"     -ProjectDir "C:\Users\jack.berrow\project-clarity-erp"' -ForegroundColor Cyan
+Write-Host '  powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\user\GSDedits\super-gsd\scripts\sgsd-mission-control.ps1" -ProjectDir "C:\Users\user\project-clarity-erp"' -ForegroundColor Cyan
+Write-Host '  powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\user\GSDedits\super-gsd\scripts\sgsd-narrative.ps1"        -ProjectDir "C:\Users\user\project-clarity-erp"' -ForegroundColor Cyan
+Write-Host '  powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\user\GSDedits\super-gsd\scripts\sgsd-gate-verdict.ps1"     -ProjectDir "C:\Users\user\project-clarity-erp"' -ForegroundColor Cyan

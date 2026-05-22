@@ -58,7 +58,7 @@ Two deviations assessed — both ACCEPTABLE (see Deviations section below).
 
 ## Runtime Probes
 
-All probes run from `C:/Users/jack.berrow/GSDedits`:
+All probes run from `C:/Users/user/GSDedits`:
 
 | Probe | Command | Result | Status |
 |-------|---------|--------|--------|

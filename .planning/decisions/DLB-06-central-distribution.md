@@ -16,7 +16,7 @@ Adopt the coherent stance **(1a, 2b, 3-deferred, 4b)** plus a **UNANIMOUS meta-d
 
 The deliberation's honest signal: **three of four board members explicitly acknowledged Contrarian's "reject framing" cost-ratio critique has real weight.** Architect R2: *"Contrarian's cost-ratio argument has real weight and I will not paper over it."* Pragmatist R2: *"Contrarian is right on the meta."* Moonshot R2: *"Contrarian's reject framing lands at 70%."* The technical answers (Q1a ship `sgsd-update`, Q2b session-start prompt, Q3 defer, Q4 local) are a narrow synthesis; the meta-decision to establish a deliberation floor is the deliberation's most important output.
 
-**Q1 + Q2 substantive unanimity:** All four agents converged on Q1a (thin `sgsd-update` wrapper) and Q2b (session-start drift-check prompt), driven by Moonshot's factual refutation of the "zero incidents" attack — Jack's Add-Content on laptop A this morning has already created a concrete pending drift event when the next session opens on laptop B. Contrarian's (C)-verdict that this belongs to "per-project CLAUDE.md git hygiene" rather than "super-gsd distribution" is logged as a legitimate framing dispute, but the operational effect is the same either way: session-start check-and-prompt prevents the silent regression regardless of which distribution-vs-hygiene frame you pick.
+**Q1 + Q2 substantive unanimity:** All four agents converged on Q1a (thin `sgsd-update` wrapper) and Q2b (session-start drift-check prompt), driven by Moonshot's factual refutation of the "zero incidents" attack — the operator’s Add-Content on laptop A this morning has already created a concrete pending drift event when the next session opens on laptop B. Contrarian's (C)-verdict that this belongs to "per-project CLAUDE.md git hygiene" rather than "super-gsd distribution" is logged as a legitimate framing dispute, but the operational effect is the same either way: session-start check-and-prompt prevents the silent regression regardless of which distribution-vs-hygiene frame you pick.
 
 **Q3 (pinning) deferred by unanimous sequencing logic:** DLB-05's 5 Waves are unbuilt. Pinning a project to a SHA on a mid-flight master is false precision. Revisit after Wave A + B commit. Architect moved 3b→3a-deferred; Pragmatist held 3a-deferred; Contrarian rejects; only Moonshot holds 3b. 3/1 defer.
 
@@ -46,7 +46,7 @@ The deliberation's honest signal: **three of four board members explicitly ackno
 
 ### The laptop-B incident — is it "drift" or "operator hygiene"?
 
-Moonshot's factual refutation: Jack Add-Content'd the super-gsd overlay to ERP's CLAUDE.md on laptop A this morning. Laptop B doesn't have it. Opening ERP on laptop B tomorrow silently reopens the gsd-executor gap that was fixed 8 hours ago.
+Moonshot's factual refutation: the operator Add-Content'd the super-gsd overlay to ERP's CLAUDE.md on laptop A this morning. Laptop B doesn't have it. Opening ERP on laptop B tomorrow silently reopens the gsd-executor gap that was fixed 8 hours ago.
 
 Contrarian's (C)-verdict: wrong problem class. ERP's CLAUDE.md is per-project and per-machine; super-gsd's distribution scope doesn't include content that operators manually appended to project-local files. The fix is git-tracking ERP's CLAUDE.md and pulling, not super-gsd sync.
 
@@ -86,7 +86,7 @@ Architect's defense: "Getting 2a+3b locked in the record as a deliberated invari
 
 - **Adopting DELIBERATION-FLOOR.md risks under-governance.** Some "1-hour" decisions surface real architectural tensions only after shipping. *Mitigation*: the floor rule is not "skip documentation" — it is "skip formal board deliberation." A 1-paragraph decision note in `.planning/decisions/` is still required, and milestone-close retrospective scans for shipped-under-floor items that should have been deliberated.
 
-- **Laptop-B incident wasn't prevented by today's deliberation.** The actual fix (append overlay to ERP's CLAUDE.md) was done manually before this brief was even written. DLB-06 addresses the general pattern, not this specific incident. Jack still needs to manually append on laptop B or git-track ERP's CLAUDE.md. *Mitigation*: the Next Actions include a README note about multi-machine overlay maintenance until Q1a ships.
+- **Laptop-B incident wasn't prevented by today's deliberation.** The actual fix (append overlay to ERP's CLAUDE.md) was done manually before this brief was even written. DLB-06 addresses the general pattern, not this specific incident. the operator still needs to manually append on laptop B or git-track ERP's CLAUDE.md. *Mitigation*: the Next Actions include a README note about multi-machine overlay maintenance until Q1a ships.
 
 - **Moonshot's (4c) may be right eventually.** By deferring, we accept the risk that cross-project framework-wisdom never compounds (DLB-03 combustion-engine framing stays unresolved at the inter-project grain). *Mitigation*: v1.3 milestone close retrospective explicitly checks whether framework-wisdom drift across projects has surfaced concretely; if yes, reopen with evidence.
 

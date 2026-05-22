@@ -8,7 +8,7 @@ PASS/FAIL/MANUAL-CHECK row per step.
 ## Run
 
 ```powershell
-& super-gsd/scripts/lib/run-operator-drill.ps1 -ProjectDir 'C:\Users\jack.berrow\GSDedits'
+& super-gsd/scripts/lib/run-operator-drill.ps1 -ProjectDir 'C:\Users\user\GSDedits'
 ```
 
 The script runs the automatable steps; manual UI steps are listed at the

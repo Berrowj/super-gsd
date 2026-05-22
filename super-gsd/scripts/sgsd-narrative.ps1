@@ -179,11 +179,11 @@ function Get-TokenAttributionSummary {
 
 # Encode a project directory the way Claude Code does for its session index:
 # replace path separators with dashes, drop drive colon.
-#   C:\Users\jack.berrow\project-clarity-erp  →  C--Users-jack-berrow-project-clarity-erp
+#   C:\Users\user\project-clarity-erp  →  C--Users-user-project-clarity-erp
 function Encode-ProjectPath($path) {
     # Claude Code encoding: colon, backslash, forward-slash, AND dot all become
     # dashes. The drive-letter colon + backslash produces the double-dash prefix:
-    #   C:\Users\jack.berrow\project-clarity-erp  ->  C--Users-jack-berrow-project-clarity-erp
+    #   C:\Users\user\project-clarity-erp  ->  C--Users-user-project-clarity-erp
     # DO NOT collapse consecutive dashes — the double dash after the drive
     # letter is meaningful and must be preserved.
     # Strip trailing path separators first — otherwise a trailing backslash from

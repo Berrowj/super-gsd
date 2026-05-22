@@ -75,7 +75,7 @@
   "decisions": [
     {
       "id": "37-locked",
-      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.8\\phases\\37-muda-deletion-candidates\\37-CONTEXT.md:locked-decision",
+      "source": "C:\\Users\\user\\GSDedits\\.planning\\milestones\\v1.8\\phases\\37-muda-deletion-candidates\\37-CONTEXT.md:locked-decision",
       "text": "\n3 heuristics fixed. No graph-walk or semantic deep-dive in v1.8;\nmechanical thresholds only. Locked in mass-discuss 2026-04-26.\n"
     }
   ],

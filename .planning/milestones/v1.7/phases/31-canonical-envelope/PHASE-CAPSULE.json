@@ -73,7 +73,7 @@
   "decisions": [
     {
       "id": "31-locked",
-      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.7\\phases\\31-canonical-envelope\\31-CONTEXT.md:locked-decision",
+      "source": "C:\\Users\\user\\GSDedits\\.planning\\milestones\\v1.7\\phases\\31-canonical-envelope\\31-CONTEXT.md:locked-decision",
       "text": "\nNew `envelope-v1` schema, separate file from `code-reviewer-v1`,\n`review-providers-v1`, `handover-contract-v2`, and `plan-schema-v2`.\nDifferent abstraction level (command-output, not agent-report or plan-shape).\n"
     }
   ],

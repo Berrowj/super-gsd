@@ -2,7 +2,7 @@
 phase: 68
 artifact: research
 created: 2026-04-29
-operator: jack.berrow
+operator: user
 ---
 
 # Phase 68 -- Research: SGSD MCP Contract

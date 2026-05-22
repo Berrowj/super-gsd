@@ -3,7 +3,7 @@ title: SGSD Agent Context Bloat Audit
 created: 2026-04-27
 status: draft-for-implementation
 scope:
-  repo: C:/Users/jack.berrow/GSDedits
+  repo: C:/Users/user/GSDedits
   primary_focus: gsd-phase-researcher token bloat
   sampled_milestones: [v1.8, v1.9]
   sampled_phases: [36, 37, 38, 39, 40, 41]

@@ -1,8 +1,8 @@
 # SGSD + Warp Convergence Audit
 
 Date: 2026-04-29
-Project: C:\Users\jack.berrow\GSDedits
-Depends on: C:\Users\jack.berrow\GSDedits\.planning\analyses\2026-04-29-warp-ecosystem-atlas.md
+Project: C:\Users\user\GSDedits
+Depends on: C:\Users\user\GSDedits\.planning\analyses\2026-04-29-warp-ecosystem-atlas.md
 
 ## Purpose
 
@@ -88,7 +88,7 @@ Missing today:
 Operator opens Warp in:
 
 ```powershell
-C:\Users\jack.berrow\GSDedits
+C:\Users\user\GSDedits
 ```
 
 Then either:
@@ -642,7 +642,7 @@ SGSD should run in PowerShell, Windows Terminal, VS Code terminal, and Warp. War
 
 ### Warning 3: Do Not Make VTP Required
 
-VTP is Jack's private knowledge base. Warp integration must prompt for optional knowledge roots and degrade to SGSD's included research/docs.
+VTP is the operator’s private knowledge base. Warp integration must prompt for optional knowledge roots and degrade to SGSD's included research/docs.
 
 ### Warning 4: Do Not Replace Gates With Agent Confidence
 

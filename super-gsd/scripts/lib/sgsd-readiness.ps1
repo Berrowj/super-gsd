@@ -33,7 +33,7 @@ function Resolve-SgsdHome {
         $current = $parent
     }
 
-    $wellKnown = 'C:\Users\jack.berrow\GSDedits\super-gsd'
+    $wellKnown = 'C:\Users\user\GSDedits\super-gsd'
     if (Test-Path -LiteralPath $wellKnown) { return (Resolve-Path -LiteralPath $wellKnown).Path }
     return $null
 }
@@ -182,7 +182,7 @@ function Test-SgsdReadiness {
         'Append SGSD entries: .planning/metrics/*.jsonl, .planning/ORCHESTRATOR-CHECKPOINT.md, etc.'
 
     # 15. Auto-memory junction
-    # Encoded path: ~/.claude/projects/C--Users-jack-berrow-<repo>/memory/
+    # Encoded path: ~/.claude/projects/C--Users-user-<repo>/memory/
     $repoLeaf = Split-Path -Leaf $ProjectDir
     $encoded  = ($ProjectDir -replace '[\\:]', '-') -replace '^-', ''
     $autoMem  = Join-Path $env:USERPROFILE ".claude\projects\$encoded\memory"

@@ -14,7 +14,7 @@ const candidates = [
 ];
 ```
 
-The first candidate (bare `name`) resolves `ajv` from `C:\Users\jack.berrow\node_modules\ajv` — a different physical install than `ajv-errors`, which only resolves via the third candidate (plan-schema/node_modules). The result: ajv-errors tries to extend a DIFFERENT ajv instance than the one constructed. Compile throws with "Error compiling schema, function code: ..." dumping the generated function body.
+The first candidate (bare `name`) resolves `ajv` from `C:\Users\user\node_modules\ajv` — a different physical install than `ajv-errors`, which only resolves via the third candidate (plan-schema/node_modules). The result: ajv-errors tries to extend a DIFFERENT ajv instance than the one constructed. Compile throws with "Error compiling schema, function code: ..." dumping the generated function body.
 
 ## The fix
 

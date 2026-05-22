@@ -85,7 +85,7 @@ This pattern is already documented in the orchestrator's own research flow.
 
 Claude Code runs on Windows. Hooks run in Node.js via the Windows Node binary (not WSL2). `process.cwd()` returns Windows-format paths (`C:\Users\...`). Node.js `path.join` on Windows inserts backslashes. `fs.appendFileSync` on Windows paths works from Windows Node, but if any hook command is routed through WSL bash, the path breaks.
 
-The actual risk: hooks are registered as `node ~/.claude/hooks/gsd-token-logger.js` in `settings.json`. On Windows, `~` resolves to the Windows home (`C:\Users\jack.berrow`). The `path.join(process.cwd(), '.planning', 'metrics', 'token-log.jsonl')` in `gsd-token-logger.js` will produce a valid Windows path when Node runs on Windows.
+The actual risk: hooks are registered as `node ~/.claude/hooks/gsd-token-logger.js` in `settings.json`. On Windows, `~` resolves to the Windows home (`C:\Users\user`). The `path.join(process.cwd(), '.planning', 'metrics', 'token-log.jsonl')` in `gsd-token-logger.js` will produce a valid Windows path when Node runs on Windows.
 
 **Specific normalization needed:** `gsd-stuck-detector.js` and `gsd-context-monitor.js` write to `os.tmpdir()` (returns `C:\Users\...\AppData\Local\Temp` on Windows). That works. The real normalization need is in `gsd-session-start.js` and `gsd-checkpoint-writer.js` which call `fs.existsSync(path.join(process.cwd(), ...))`. If `process.cwd()` ever returns a mixed path (e.g. from a WSL-launched Claude session), paths break.
 

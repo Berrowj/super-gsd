@@ -1,5 +1,5 @@
 {
-  "remote_host": "jack@your-clarity-build-host.example.com",
+  "remote_host": "user@your-clarity-build-host.example.com",
   "remote_port": 22,
   "local_mcp_port": 4101,
   "remote_bind_port": 4101,

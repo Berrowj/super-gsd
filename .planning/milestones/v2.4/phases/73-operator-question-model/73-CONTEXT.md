@@ -4,7 +4,7 @@ phase_name: Operator Question Model Refresh
 milestone: v2.4
 roadmap: warp-integration
 created: 2026-04-29
-operator: jack.berrow
+operator: user
 status: in-progress
 deviation_from_standard: docs-only design phase (orchestrator-authored — small, well-defined synthesis)
 ---

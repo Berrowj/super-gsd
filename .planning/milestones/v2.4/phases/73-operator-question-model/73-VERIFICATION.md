@@ -3,7 +3,7 @@ phase: 73
 artifact: verification
 created: 2026-04-29
 status: PASS
-operator: jack.berrow
+operator: user
 ---
 
 # Phase 73 -- Verification

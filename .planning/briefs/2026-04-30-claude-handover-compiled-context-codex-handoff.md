@@ -7,7 +7,7 @@ Claude compiles the relevant private SGSD context.
 ## Working Directory
 
 ```text
-C:\Users\jack.berrow\GSDedits
+C:\Users\user\GSDedits
 ```
 
 ## Goal
@@ -298,7 +298,7 @@ Explain:
 Run:
 
 ```powershell
-cd "C:\Users\jack.berrow\GSDedits"
+cd "C:\Users\user\GSDedits"
 
 node --check super-gsd/tools/double-agent-executor/run.cjs
 node super-gsd/tools/double-agent-executor/run.cjs --self-test
@@ -346,7 +346,7 @@ execute safe implementation work without receiving broad roadmap/state context.
 
 ```text
 Read this handover first:
-C:\Users\jack.berrow\GSDedits\.planning\briefs\2026-04-30-claude-handover-compiled-context-codex-handoff.md
+C:\Users\user\GSDedits\.planning\briefs\2026-04-30-claude-handover-compiled-context-codex-handoff.md
 
 Then implement the Compiled Context Codex Handoff patch. Keep the change scoped
 to the double-agent executor, task-capsule schema, README, cockpit route reason

@@ -9,7 +9,7 @@ covers_smoke_row: Q9
 files:
   - .planning/milestones/v2.2/WARP-SMOKE.md (row Q9)
   - .planning/milestones/v2.2/MANUAL-CHECKS.md (M4 full steps)
-  - C:\Users\jack.berrow\.warp\launch_configurations\ (currently empty)
+  - C:\Users\user\.warp\launch_configurations\ (currently empty)
 informs_phase: 78 (Launch Configuration Templates)
 ---
 
@@ -21,14 +21,14 @@ Phase 63 confirmed `~/.warp/launch_configurations/` exists but is **empty** (the
 
 Steps (full version in `.planning/milestones/v2.2/MANUAL-CHECKS.md` § M4):
 
-1. Place this minimal fixture at `C:\Users\jack.berrow\.warp\launch_configurations\smoke-test.yaml`:
+1. Place this minimal fixture at `C:\Users\user\.warp\launch_configurations\smoke-test.yaml`:
    ```yaml
    ---
    name: SMOKE Test
    windows:
      - tabs:
          - layout:
-             cwd: C:\Users\jack.berrow\GSDedits
+             cwd: C:\Users\user\GSDedits
              commands:
                - exec: pwd
    ```

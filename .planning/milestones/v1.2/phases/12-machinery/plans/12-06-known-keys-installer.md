@@ -39,7 +39,7 @@ tasks:
       - Post-patch verify re-parses for all 7 keys
       - Final message reminds operator to commit in the separate repo
       10-03-01-cross-repo-probe.yaml confirms `repo_status: separate` (core.cjs is in
-      C:/Users/jack.berrow/.claude, GSDedits is in C:/Users/jack.berrow/GSDedits) — so the
+      C:/Users/user/.claude, GSDedits is in C:/Users/user/GSDedits) — so the
       script's cross-repo notice path WILL fire.
       Research §Portability note: bash (not sh). WSL, mac, Linux all have bash. Node is a
       dep regardless because core.cjs is a Node file.
@@ -175,7 +175,7 @@ must_haves:
       contains: "sections ERG-02 Closure, Cross-Repo Context, Artifacts, Commit SHAs, Wave 1 Peers"
   key_links:
     - from: "super-gsd/scripts/patch-gsd-tools-known-keys.sh"
-      to: "C:/Users/jack.berrow/.claude/get-shit-done/bin/lib/core.cjs (cross-repo target)"
+      to: "C:/Users/user/.claude/get-shit-done/bin/lib/core.cjs (cross-repo target)"
       via: "Node-in-bash regex patcher targeting KNOWN_TOP_LEVEL Set"
       pattern: "KNOWN_TOP_LEVEL"
     - from: "super-gsd/README.md"

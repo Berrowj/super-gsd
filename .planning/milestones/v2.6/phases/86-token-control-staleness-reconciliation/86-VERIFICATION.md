@@ -1,7 +1,7 @@
 ---
 phase: 86
 status: PASS-WITH-DEFERRED-2
-operator: jack.berrow
+operator: user
 verifier: orchestrator (this Claude session)
 executor_dispatches: 2
   - gsd-executor (Sonnet) agentId a46b3a6e05ab0fd85; commit 29ea0cd (initial detection)

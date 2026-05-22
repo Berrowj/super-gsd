@@ -40,7 +40,7 @@ Do not blindly execute all of this. Promote one milestone at a time.
 Primary source:
 
 ```text
-C:\Users\jack.berrow\GSDedits\docs\reports\SGSD-VTP-Visual-Handbook.html
+C:\Users\user\GSDedits\docs\reports\SGSD-VTP-Visual-Handbook.html
 ```
 
 The handbook's final red-pen conclusion is the controlling theme:
@@ -158,7 +158,7 @@ book-first workbench before touching implementation plans.
 | v1.8 Gate fitness, MUDA pruning | Fundamentals of Software Architecture; Strategic Monoliths and Microservices; Balancing Coupling in Software Design; The Mythical Man-Month; A Philosophy of Software Design | ISO-Bench; Why LLMs Aren't Scientists Yet; Shift-Up | Which gates catch real defects, which gates create drag, and which should be deleted, merged, sampled, or kept? |
 | v1.9 Knowledge relevance, memory governance | The LLM Mesh; Clean Architecture; Domain-Driven Design; Patterns of Enterprise Application Architecture; Fundamentals of Data Engineering | Mnemonic Sovereignty; Skill-RAG; Thought-Retriever; Experience Compression; When to Forget | Does each knowledge hit or memory write change a decision, and can SGSD prove provenance, privacy, retention, and relevance? |
 | v2.0 Failure injection | Designing Data-Intensive Applications; Fundamentals of Software Architecture; Practical MLOps; Designing Machine Learning Systems; Database Internals | HiveMind; Why LLMs Aren't Scientists Yet; ISO-Bench; memory-security papers | Which realistic failures would damage SGSD, and do the gates catch them with actionable repair paths? |
-| v2.1 Distribution, onboarding | Don't Make Me Think; The Design of Everyday Things; Software Architecture for Developers; Writing Effective Use Cases; Clean Architecture | Shift-Up; Forage V2; Self-Evolving Terminal Agents; Thought-Retriever | Can a stranger install, run, understand, and upgrade SGSD without Jack's VTP repo or milestone history? |
+| v2.1 Distribution, onboarding | Don't Make Me Think; The Design of Everyday Things; Software Architecture for Developers; Writing Effective Use Cases; Clean Architecture | Shift-Up; Forage V2; Self-Evolving Terminal Agents; Thought-Retriever | Can a stranger install, run, understand, and upgrade SGSD without the operator’s VTP repo or milestone history? |
 
 Claude should not cite these works decoratively. For every promoted phase,
 extract one or two concrete rules from the relevant books, then turn them into
@@ -171,8 +171,8 @@ Claude should not simply implement this list. Claude should enrich it.
 Before promoting any milestone, Claude must also read:
 
 ```text
-C:\Users\jack.berrow\GSDedits\.planning\milestones\HANDBOOK-FUTURE-IMPLEMENTATION-AUDIT.md
-C:\Users\jack.berrow\GSDedits\.planning\milestones\VIO-ROADMAP-ENRICHMENT.md
+C:\Users\user\GSDedits\.planning\milestones\HANDBOOK-FUTURE-IMPLEMENTATION-AUDIT.md
+C:\Users\user\GSDedits\.planning\milestones\VIO-ROADMAP-ENRICHMENT.md
 ```
 
 The implementation audit is now a promotion prerequisite because several

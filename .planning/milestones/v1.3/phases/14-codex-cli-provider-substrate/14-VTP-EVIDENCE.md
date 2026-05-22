@@ -60,10 +60,10 @@ When Claude Code spawns the MCP server, `process.cwd()` resolves to the **caller
 Attempted call on 2026-04-23:
 ```
 mcp__vtp-kb__vtp_route_and_retrieve(raw_query=..., context=...)
-→ Error: ENOENT: no such file or directory, open 'C:\Users\jack.berrow\GSDedits\kb-data\substrate\chunks.jsonl'
+→ Error: ENOENT: no such file or directory, open 'C:\Users\user\GSDedits\kb-data\substrate\chunks.jsonl'
 ```
 
-Expected resolution path: `C:\Users\jack.berrow\Voice-Text-Plan\kb-data\substrate\chunks.jsonl` (exists).
+Expected resolution path: `C:\Users\user\Voice-Text-Plan\kb-data\substrate\chunks.jsonl` (exists).
 
 **Proper fix** (for Voice-Text-Plan, not this project): replace `process.cwd()` with script-location-based resolution using `fileURLToPath(import.meta.url)` + `dirname()` to derive project root from the installed entry point. Rebuild dist, verify.
 

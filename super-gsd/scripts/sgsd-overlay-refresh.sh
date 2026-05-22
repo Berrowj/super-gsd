@@ -41,7 +41,7 @@ candidates=()
 candidates+=(
     "$HOME/.claude/super-gsd/source/super-gsd/CLAUDE-OVERLAY.md"
     "$(dirname "$0")/../CLAUDE-OVERLAY.md"
-    "/c/Users/jack.berrow/GSDedits/super-gsd/CLAUDE-OVERLAY.md"
+    "/c/Users/user/GSDedits/super-gsd/CLAUDE-OVERLAY.md"
 )
 
 OVERLAY_SRC=""

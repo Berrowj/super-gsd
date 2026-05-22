@@ -17,14 +17,14 @@
 #      SGSD-launched workspaces. (Recommended.)
 #
 #   2. A purely-local profile NOT in OneDrive, e.g. write a one-line file at
-#      C:\Users\jack.berrow\sgsd-init.ps1 containing:
-#          . "C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1"
+#      C:\Users\user\sgsd-init.ps1 containing:
+#          . "C:\Users\user\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1"
 #      and dot-source THAT from a manually-launched local profile when you
 #      want SGSD features. Don't put the dot-source in your OneDrive
 #      $PROFILE.
 #
 #   3. Manual one-off: just run
-#          . C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1
+#          . C:\Users\user\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1
 #      in any tab you want to enable for the rest of that session.
 #
 # WHAT IT ADDS:
@@ -42,7 +42,7 @@
 # tab.
 # =============================================================================
 
-$global:__SgsdRepoRoot = 'C:\Users\jack.berrow\GSDedits'
+$global:__SgsdRepoRoot = 'C:\Users\user\GSDedits'
 $global:__SgsdLastDir  = $null
 $global:__SgsdTabTipShown = $false
 
@@ -179,7 +179,7 @@ function global:sgsd-watch {
         [string]$Role = 'claude',
         [int]$IntervalSeconds = 120
     )
-    $candidate = 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\lib\sgsd-tab-init.ps1'
+    $candidate = 'C:\Users\user\GSDedits\super-gsd\scripts\lib\sgsd-tab-init.ps1'
     if (-not (Test-Path -LiteralPath $candidate)) {
         Write-Host "sgsd-watch: cannot find sgsd-tab-init.ps1 at $candidate" -ForegroundColor Red
         return

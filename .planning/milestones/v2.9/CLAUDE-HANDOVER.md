@@ -16,11 +16,11 @@ Use the VTP-enriched paper as the core design source, but implement in SGSD's ex
 
 ## First Files To Read
 
-1. `C:\Users\jack.berrow\GSDedits\.planning\milestones\v2.9\ROADMAP.md`
-2. `C:\Users\jack.berrow\GSDedits\.planning\milestones\v2.9\REQUIREMENTS.md`
-3. `C:\Users\jack.berrow\GSDedits\.planning\milestones\v2.9\VTP-AHE-EVIDENCE.md`
-4. `C:\Users\jack.berrow\Voice-Text-Plan\wiki\research\agentic-harness-engineering-observability-driven-automatic-evolution-of-coding-a.md`
-5. `C:\Users\jack.berrow\Voice-Text-Plan\wiki\research\agentic-harness-engineering-observability-driven-automatic-evolution-of-coding-a.enrichment.json`
+1. `C:\Users\user\GSDedits\.planning\milestones\v2.9\ROADMAP.md`
+2. `C:\Users\user\GSDedits\.planning\milestones\v2.9\REQUIREMENTS.md`
+3. `C:\Users\user\GSDedits\.planning\milestones\v2.9\VTP-AHE-EVIDENCE.md`
+4. `C:\Users\user\Voice-Text-Plan\wiki\research\agentic-harness-engineering-observability-driven-automatic-evolution-of-coding-a.md`
+5. `C:\Users\user\Voice-Text-Plan\wiki\research\agentic-harness-engineering-observability-driven-automatic-evolution-of-coding-a.enrichment.json`
 
 ## Execution Rules
 
@@ -35,7 +35,7 @@ Use the VTP-enriched paper as the core design source, but implement in SGSD's ex
 ## Suggested Start
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
+cd C:\Users\user\GSDedits
 /gsd-discuss-phase 98
 ```
 

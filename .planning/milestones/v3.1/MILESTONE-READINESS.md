@@ -36,12 +36,12 @@ Phases whose primary path has a missing dep but where DLB-11 specifies an explic
 **Missing deps:**
 - `java` binary: NOT FOUND in PATH (`java --version` exit 127)
 - `plantuml.jar`: NOT FOUND at any of 6 probed paths:
-  - `C:\Users\jack.berrow\plantuml.jar` — absent
+  - `C:\Users\user\plantuml.jar` — absent
   - `C:\tools\plantuml.jar` — absent
   - `C:\Program Files\PlantUML\plantuml.jar` — absent
   - `C:\Program Files (x86)\PlantUML\plantuml.jar` — absent
   - `%USERPROFILE%\plantuml.jar` — absent
-  - `C:\Users\jack.berrow\Downloads\plantuml.jar` — absent
+  - `C:\Users\user\Downloads\plantuml.jar` — absent
 
 **DLB-11 R1 fallback (explicit, operator-authorized):** `skip_gates: ["puml-render"]` with `skip_reason:` routes the renderer to `super-gsd/tools/chronicle/svg-fallback-generator.cjs` (hand-coded SVG generator with visible "PUML source available; rendered via fallback generator" banner). This file does NOT yet exist — P115 ships it. P115 execution itself creates the fallback generator.
 
@@ -50,7 +50,7 @@ Phases whose primary path has a missing dep but where DLB-11 specifies an explic
 **One-liner fix (preferred — install Java + plantuml.jar):**
 ```powershell
 # Download plantuml.jar from https://plantuml.com/download
-# Place at: C:\Users\jack.berrow\plantuml.jar
+# Place at: C:\Users\user\plantuml.jar
 # Install JDK: winget install Microsoft.OpenJDK.21
 # Then remove skip_gates from P115 PLAN
 ```
@@ -113,12 +113,12 @@ If operator installs Java + plantuml.jar before P115 entry, all 7 phases run ful
 | 2026-05-21T00:00Z | P113 | plan-schema-v2.json | Read file + JSON parse check | PASS — valid JSON, draft-07 |
 | 2026-05-21T00:00Z | P113 | plan-locked.schema.json | Read file + JSON parse check | PASS — valid JSON, in super-gsd/schemas/ |
 | 2026-05-21T00:00Z | P113 | cmb.schema.json | Read file + JSON parse check | PASS — valid JSON, in super-gsd/schemas/ |
-| 2026-05-21T00:00Z | P115 | plantuml.jar (path 1) | test -f C:\Users\jack.berrow\plantuml.jar | FAIL — absent |
+| 2026-05-21T00:00Z | P115 | plantuml.jar (path 1) | test -f C:\Users\user\plantuml.jar | FAIL — absent |
 | 2026-05-21T00:00Z | P115 | plantuml.jar (path 2) | test -f C:\tools\plantuml.jar | FAIL — absent |
 | 2026-05-21T00:00Z | P115 | plantuml.jar (path 3) | test -f C:\Program Files\PlantUML\plantuml.jar | FAIL — absent |
 | 2026-05-21T00:00Z | P115 | plantuml.jar (path 4) | test -f C:\Program Files (x86)\PlantUML\plantuml.jar | FAIL — absent |
 | 2026-05-21T00:00Z | P115 | plantuml.jar (path 5) | test -f %USERPROFILE%\plantuml.jar | FAIL — absent |
-| 2026-05-21T00:00Z | P115 | plantuml.jar (path 6) | test -f C:\Users\jack.berrow\Downloads\plantuml.jar | FAIL — absent |
+| 2026-05-21T00:00Z | P115 | plantuml.jar (path 6) | test -f C:\Users\user\Downloads\plantuml.jar | FAIL — absent |
 | 2026-05-21T00:00Z | P115 | svg-fallback-generator.cjs | file presence | ABSENT — expected; P115 ships it |
 | 2026-05-21T00:00Z | P116 | benchmark fixtures good-*.json | file presence | ABSENT — expected; P116 ships them |
 | 2026-05-21T00:00Z | P116 | benchmark fixtures bad-*.json | file presence | ABSENT — expected; P116 ships them |
@@ -131,7 +131,7 @@ If operator installs Java + plantuml.jar before P115 entry, all 7 phases run ful
 
 - P113 and P114 are fully GO. You can run `/sgsd-orchestrate auto` immediately and these will complete unattended.
 - Before P115 first executor dispatch, choose one of:
-  - **Option A (preferred):** Install Java + plantuml.jar: `winget install Microsoft.OpenJDK.21` then place `plantuml.jar` at `C:\Users\jack.berrow\plantuml.jar`. The orchestrator will detect Java at P115 phase-readiness re-probe and remove the DEGRADED flag.
+  - **Option A (preferred):** Install Java + plantuml.jar: `winget install Microsoft.OpenJDK.21` then place `plantuml.jar` at `C:\Users\user\plantuml.jar`. The orchestrator will detect Java at P115 phase-readiness re-probe and remove the DEGRADED flag.
   - **Option B (fast):** Add `skip_gates: ["puml-render"]` + `skip_reason: "java+plantuml.jar absent; svg-fallback-generator.cjs ships this phase"` to the P115 PLAN frontmatter before first executor dispatch. PUML `.puml` source files are still authored and committed; only the pre-render is skipped.
 - VTP storage is optional. Local fallback `.planning/chronicles/` is always safe. No action needed.
 - Never paste API key values — use `secure_env_collect` for secrets.

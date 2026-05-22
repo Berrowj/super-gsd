@@ -4,7 +4,7 @@ phase_name: Agent Rules Context Pack
 milestone: v2.2
 roadmap: warp-integration
 created: 2026-04-29
-operator: jack.berrow
+operator: user
 status: in-progress
 deviation_from_standard: docs-only (Step 1 pattern-mapper skipped, Step 7 MUDA skipped, ATC docs-only LITE tier)
 unblocked: yes (does not depend on M1-M5 manual UI checks)
@@ -33,7 +33,7 @@ the rule-file hierarchy and codify the don't-duplicate-SGSD-gates / read-state-f
   behavior rather than duplicating it.
 - **D65.4**: VTP / private knowledge bank optionality is a first-class rule.
   AGENTS.md must say: "VTP / private KB is optional; agents must degrade
-  gracefully when it is absent." This protects non-Jack installs (the v2.1
+  gracefully when it is absent." This protects non-operator installs (the v2.1
   Phase 61 README refresh did the user-facing version of this; AGENTS.md does
   the agent-instruction version).
 - **D65.5**: SGSD truth locations are explicit. AGENTS.md lists the canonical

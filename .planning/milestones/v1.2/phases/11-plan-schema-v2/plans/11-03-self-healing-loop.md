@@ -156,7 +156,7 @@ Self-check the planner must perform before writing the fix attempt:
 - [ ] All ajv errors from error_envelope are addressed in the fix
   </action>
   <verify>
-    <automated>grep -n "fix_schema_mode\|fix-schema" "C:/Users/jack.berrow/GSDedits/custom-gsd-extract/claude-agents/gsd-planner.md" | head -20</automated>
+    <automated>grep -n "fix_schema_mode\|fix-schema" "C:/Users/user/GSDedits/custom-gsd-extract/claude-agents/gsd-planner.md" | head -20</automated>
   </verify>
   <done>
 - gsd-planner.md contains <fix_schema_mode> section
@@ -216,7 +216,7 @@ This prevents the planner from corrupting them.
 Do NOT change any existing dispatch rules. Only add Rule 8.5 and the retry block.
   </action>
   <verify>
-    <automated>grep -n "8\.5\|fix-schema\|fix_schema\|fix-attempt" "C:/Users/jack.berrow/GSDedits/super-gsd/skills/sgsd-orchestrate/SKILL.md" | head -20</automated>
+    <automated>grep -n "8\.5\|fix-schema\|fix_schema\|fix-attempt" "C:/Users/user/GSDedits/super-gsd/skills/sgsd-orchestrate/SKILL.md" | head -20</automated>
   </verify>
   <done>
 - Rule 8.5 present in dispatch table
@@ -247,7 +247,7 @@ Do NOT change any existing dispatch rules. Only add Rule 8.5 and the retry block
 </threat_model>
 
 <verification>
-grep -c "fix_schema_mode\|fix-schema" C:/Users/jack.berrow/GSDedits/custom-gsd-extract/claude-agents/gsd-planner.md && grep -c "8\.5" C:/Users/jack.berrow/GSDedits/super-gsd/skills/sgsd-orchestrate/SKILL.md
+grep -c "fix_schema_mode\|fix-schema" C:/Users/user/GSDedits/custom-gsd-extract/claude-agents/gsd-planner.md && grep -c "8\.5" C:/Users/user/GSDedits/super-gsd/skills/sgsd-orchestrate/SKILL.md
 </verification>
 
 <success_criteria>

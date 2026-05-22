@@ -82,12 +82,12 @@
   "decisions": [
     {
       "id": "MD-28.1",
-      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\discussions\\2026-04-26-mass-discuss.md:row-28.1",
+      "source": "C:\\Users\\user\\GSDedits\\.planning\\discussions\\2026-04-26-mass-discuss.md:row-28.1",
       "text": "| 28.1 Strip position | Top of mission-control pane, replacing existing 1-line header. |"
     },
     {
       "id": "MD-28.2",
-      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\discussions\\2026-04-26-mass-discuss.md:row-28.2",
+      "source": "C:\\Users\\user\\GSDedits\\.planning\\discussions\\2026-04-26-mass-discuss.md:row-28.2",
       "text": "| 28.2 Strip line count | 6 lines: mission, objective+unlock, model, blocker, codex+agents, next. |"
     }
   ],

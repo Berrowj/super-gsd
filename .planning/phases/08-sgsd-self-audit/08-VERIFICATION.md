@@ -11,7 +11,7 @@ overrides_applied: 1
 overrides:
   - must_have: "2026-04-12-sgsd-gap-audit.md filename"
     reason: "Plan was drafted 2026-04-12; re-start moved execution to 2026-04-19. Current-date filename (2026-04-19-sgsd-gap-audit.md) is correct per current-date convention; plan's date was stale before any work began. No semantic change — same 9-section deliverable at same path prefix."
-    accepted_by: "jack.berrow"
+    accepted_by: "user"
     accepted_at: "2026-04-19T19:30:00Z"
 ---
 

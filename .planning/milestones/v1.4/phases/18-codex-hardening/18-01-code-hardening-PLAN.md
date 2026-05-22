@@ -66,13 +66,13 @@ Output: Modified codex-exec.sh (--self-test / --skip-network flags + probe harne
 </objective>
 
 <execution_context>
-@C:/Users/jack.berrow/GSDedits/.claude/get-shit-done/workflows/execute-plan.md
+@C:/Users/user/GSDedits/.claude/get-shit-done/workflows/execute-plan.md
 </execution_context>
 
 <context>
-@C:/Users/jack.berrow/GSDedits/.planning/REQUIREMENTS.md
-@C:/Users/jack.berrow/GSDedits/.planning/milestones/v1.4/phases/18-codex-hardening/18-CONTEXT.md
-@C:/Users/jack.berrow/GSDedits/.planning/milestones/v1.4/phases/18-codex-hardening/18-RESEARCH.md
+@C:/Users/user/GSDedits/.planning/REQUIREMENTS.md
+@C:/Users/user/GSDedits/.planning/milestones/v1.4/phases/18-codex-hardening/18-CONTEXT.md
+@C:/Users/user/GSDedits/.planning/milestones/v1.4/phases/18-codex-hardening/18-RESEARCH.md
 
 <interfaces>
 <!-- Key contracts extracted from source. Executor uses these directly. -->

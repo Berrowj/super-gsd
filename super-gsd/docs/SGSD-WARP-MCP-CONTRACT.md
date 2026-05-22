@@ -331,7 +331,7 @@ Output `_redactions_applied` lists every category that triggered on this respons
 {
   "data": {
     "commits": [
-      { "hash": "8dbb9cb", "ts": "<ISO>", "author": "Jack Berrow", "subject": "...", "files_changed": 5 }
+      { "hash": "8dbb9cb", "ts": "<ISO>", "author": "the operator", "subject": "...", "files_changed": 5 }
     ]
   }
 }

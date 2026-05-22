@@ -3,9 +3,9 @@ milestone: v2.2
 phase: 63
 artifact: warp-smoke
 created: 2026-04-29
-operator: jack.berrow
+operator: user
 machine: Windows 11 Pro 10.0.26100
-warp_install: C:\Users\jack.berrow\AppData\Local\Programs\Warp\Warp.exe
+warp_install: C:\Users\user\AppData\Local\Programs\Warp\Warp.exe
 warp_env: TERM_PROGRAM=WarpTerminal, WARP_HONOR_PS1=0, WARP_USE_SSH_WRAPPER=1
 session_topology: this Phase 63 was authored from inside an sg-launched Claude session, providing direct in-process evidence
 ---
@@ -34,9 +34,9 @@ out into `MANUAL-CHECKS.md`.
 | Q5 | Does direct `claude` launch get detected by Warp as a third-party CLI agent? | MANUAL-CHECK-REQUIRED | `claude` is `ExternalScript` at `~/AppData/Roaming/npm/claude.ps1`; `CLAUDECODE` env vars set in invoked process. UI utility-bar appearance not provable from terminal. | MANUAL-CHECKS.md item M2 |
 | Q6 | Does `sg`-launched Claude get detected by Warp? | MANUAL-CHECK-REQUIRED (wiring PASS) | `& claude` is synchronous in `sg`'s PowerShell; this session has both `CLAUDECODE` and `TERM_PROGRAM=WarpTerminal` set. Detection-env wiring confirmed. UI utility-bar visibility still requires operator confirmation. | MANUAL-CHECKS.md item M3 |
 | Q7 | Does `sg` keep Claude in the current terminal and open the cockpit separately? | PASS | Profile line 100 (`sgsd @bootArgs` opens cockpit) + line 117/120 (`& claude` synchronous). This Phase 63 was authored from the originating PowerShell tab — direct empirical evidence. | — |
-| Q8 | Where are Warp launch configs stored on this machine? | PASS | `C:\Users\jack.berrow\.warp\launch_configurations\` exists; **directory is empty**. | — |
+| Q8 | Where are Warp launch configs stored on this machine? | PASS | `C:\Users\user\.warp\launch_configurations\` exists; **directory is empty**. | — |
 | Q9 | Can a launch config open into the active window, or only a new window? | MANUAL-CHECK-REQUIRED | Launch dir is empty (no fixture to test). Per Warp docs, launch configs open new windows by default. Active-window targeting via palette is unconfirmed on Windows. Warp CLI control is on the May-Jun 2026 roadmap (issue #9233). | MANUAL-CHECKS.md item M4; Phase 78 |
-| Q10 | Is Warp Codebase Context working for `C:\Users\jack.berrow\GSDedits`? | MANUAL-CHECK-REQUIRED | `.warpindexingignore` is **missing**. Codebase Context state is not exposed to terminal. | MANUAL-CHECKS.md item M5; Phase 65 (ignore-pack) |
+| Q10 | Is Warp Codebase Context working for `C:\Users\user\GSDedits`? | MANUAL-CHECK-REQUIRED | `.warpindexingignore` is **missing**. Codebase Context state is not exposed to terminal. | MANUAL-CHECKS.md item M5; Phase 65 (ignore-pack) |
 | Q11 | Would WSL/tmux break Codebase Context or agent detection? | DOCS-CONFIRMED | Per official Warp docs, Codebase Context is disabled in WSL/SSH sessions. `tmux` not installed natively on this Windows host (only via WSL). SGSD currently runs in native Windows PowerShell — unaffected. | — |
 | Q12 | Do existing workflows validate as YAML? | PARTIAL — 4/5 PASS, 1 FAIL | All 5 parse and have `name`/`command`/`tags`. `sgsd-token-current.yaml` is missing the `arguments:` block (no `project_dir` parameter). | Phase 64 |
 | Q13 | What manual checks still need operator confirmation? | See `MANUAL-CHECKS.md` | 5 items M1-M5. | — |

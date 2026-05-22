@@ -1,11 +1,11 @@
 repo_status: separate
-gsd_tools_root: C:/Users/jack.berrow/.claude
-local_root: C:/Users/jack.berrow/GSDedits
+gsd_tools_root: C:/Users/user/.claude
+local_root: C:/Users/user/GSDedits
 action_for_10_03_04: skip-patch-external
 probed_at: "2026-04-22T00:00:00Z"
 notes: >
   core.cjs lives at ~/.claude/get-shit-done/bin/lib/core.cjs inside the
-  C:/Users/jack.berrow/.claude git repo — a separate repository from GSDedits.
+  C:/Users/user/.claude git repo — a separate repository from GSDedits.
   Task 10-03-04 MUST NOT attempt to commit changes to core.cjs from the
   GSDedits executor. The operator must apply the D-13b patch manually.
   See Q8 in 10-RESEARCH.md for the exact lines to add to KNOWN_TOP_LEVEL.

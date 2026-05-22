@@ -6,8 +6,8 @@ Linux.
 
 The current deployment is intentionally personal:
 
-- Windows user: `C:\Users\jack.berrow`
-- VTP repo: `C:\Users\jack.berrow\Voice-Text-Plan`
+- Windows user: `C:\Users\user`
+- VTP repo: `C:\Users\user\Voice-Text-Plan`
 - Linux user/host: `jackberrow@devcp`
 - Remote bridge: `/home/jackberrow/.local/bin/vtp-mcp-bridge`
 
@@ -94,8 +94,8 @@ require Windows service privileges.
 ```powershell
 Get-ScheduledTask -TaskName VTP-*
 netstat -ano | findstr ":4101"
-Get-Content C:\Users\jack.berrow\Voice-Text-Plan\.planning\logs\services\vtp-mcp.err.log -Tail 20
-Get-Content C:\Users\jack.berrow\Voice-Text-Plan\.planning\logs\services\vtp-tunnel.err.log -Tail 20
+Get-Content C:\Users\user\Voice-Text-Plan\.planning\logs\services\vtp-mcp.err.log -Tail 20
+Get-Content C:\Users\user\Voice-Text-Plan\.planning\logs\services\vtp-tunnel.err.log -Tail 20
 ```
 
 Expected:

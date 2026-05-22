@@ -4,13 +4,13 @@ Runnable command blocks for daily SGSD operations from Warp. Copy any
 block into a Warp tab and run; or import the whole notebook into Warp
 Drive (instructions at the bottom).
 
-> All blocks assume project root `C:\Users\jack.berrow\GSDedits`. Edit
+> All blocks assume project root `C:\Users\user\GSDedits`. Edit
 > the `cd` commands if your install differs.
 
 ## Daily Start
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
+cd C:\Users\user\GSDedits
 sg
 ```
 
@@ -21,7 +21,7 @@ daily routine.
 ## Autonomous Mode
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
+cd C:\Users\user\GSDedits
 sg -Go
 ```
 
@@ -31,7 +31,7 @@ all-phases-complete / hard-blocker / user-says-stop.
 ## Status Check
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
+cd C:\Users\user\GSDedits
 Get-Content .planning\STATE.md -TotalCount 30 -Encoding UTF8
 ```
 
@@ -44,14 +44,14 @@ echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"sgsd_current_stat
 ## Token Summary
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
+cd C:\Users\user\GSDedits
 node super-gsd/tools/token-attribution/collect.cjs --write --all --agent-spend --summary --current
 ```
 
 ## Gate Status
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
+cd C:\Users\user\GSDedits
 Write-Host "=== latest gate value log (tail 20) ==="
 if (Test-Path .planning\metrics\gate-value-log.jsonl) {
   Get-Content .planning\metrics\gate-value-log.jsonl -Encoding UTF8 -Tail 20
@@ -63,7 +63,7 @@ if (Test-Path .planning\metrics\gate-value-log.jsonl) {
 ## Recovery Packet
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
+cd C:\Users\user\GSDedits
 if (Test-Path .planning\ORCHESTRATOR-CHECKPOINT.md) {
   Get-Content .planning\ORCHESTRATOR-CHECKPOINT.md -Encoding UTF8
 } else {
@@ -75,7 +75,7 @@ if (Test-Path .planning\ORCHESTRATOR-CHECKPOINT.md) {
 ## Remote Monitor Packet
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
+cd C:\Users\user\GSDedits
 Write-Host "=== SGSD REMOTE MONITOR PACKET ==="
 Write-Host "(Capture this block before sharing the Warp session.)"
 Write-Host ""
@@ -96,28 +96,28 @@ Write-Host "  /sgsd-orchestrate go     (auto resume from checkpoint or current S
 ## Setup Health Check
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
-node super-gsd/tools/warp-doctor/check.cjs --project "C:/Users/jack.berrow/GSDedits"
+cd C:\Users\user\GSDedits
+node super-gsd/tools/warp-doctor/check.cjs --project "C:/Users/user/GSDedits"
 ```
 
 ## MCP Self-Test
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
+cd C:\Users\user\GSDedits
 node super-gsd/tools/warp-mcp/run-self-test.cjs
 ```
 
 ## Cockpit Snapshot Render (Warp PowerShell)
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
-& super-gsd/scripts/lib/render-cockpit-snapshot.ps1 -ProjectDir 'C:/Users/jack.berrow/GSDedits'
+cd C:\Users\user\GSDedits
+& super-gsd/scripts/lib/render-cockpit-snapshot.ps1 -ProjectDir 'C:/Users/user/GSDedits'
 ```
 
 Or just one section:
 
 ```powershell
-& super-gsd/scripts/lib/render-cockpit-snapshot.ps1 -ProjectDir 'C:/Users/jack.berrow/GSDedits' -Section blockers
+& super-gsd/scripts/lib/render-cockpit-snapshot.ps1 -ProjectDir 'C:/Users/user/GSDedits' -Section blockers
 ```
 
 ---

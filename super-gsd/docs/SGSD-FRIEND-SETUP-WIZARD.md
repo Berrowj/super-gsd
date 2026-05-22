@@ -121,7 +121,7 @@ You work in the main Claude terminal. You watch the cockpit.
 
 2. **VTP or another private knowledge bank**
    - Optional private research / memory source.
-   - VTP is Jack's private knowledge bank, not a required SGSD dependency.
+   - VTP is the operator’s private knowledge bank, not a required SGSD dependency.
    - If missing, SGSD uses local project memory, the SQLite context database,
      and bundled fallback docs.
 
@@ -150,7 +150,7 @@ npm install
 
 If they already have a separate project, copy the `super-gsd/` folder plus the
 root `CLAUDE.md`, `AGENTS.md`, `WARP.md`, and `.planning/` starter files into
-that project root. Do not copy Jack's private VTP folder or local `.env` files.
+that project root. Do not copy the operator’s private VTP folder or local `.env` files.
 
 Then open PowerShell in the project root:
 

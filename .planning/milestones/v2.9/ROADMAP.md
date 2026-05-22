@@ -48,14 +48,14 @@ run evidence -> distilled root causes -> predicted harness edit -> next run verd
 
 Claude/SGSD must read these before Phase 98:
 
-1. `C:\Users\jack.berrow\Voice-Text-Plan\wiki\research\agentic-harness-engineering-observability-driven-automatic-evolution-of-coding-a.md`
-2. `C:\Users\jack.berrow\Voice-Text-Plan\wiki\research\agentic-harness-engineering-observability-driven-automatic-evolution-of-coding-a.enrichment.json`
-3. `C:\Users\jack.berrow\GSDedits\.planning\milestones\v2.9\VTP-AHE-EVIDENCE.md`
-4. `C:\Users\jack.berrow\GSDedits\super-gsd\tools\harness-benchmark\README.md`
-5. `C:\Users\jack.berrow\GSDedits\super-gsd\tools\double-agent-executor\README.md`
-6. `C:\Users\jack.berrow\GSDedits\super-gsd\tools\state-resolver\resolve.cjs`
-7. `C:\Users\jack.berrow\GSDedits\super-gsd\scripts\lib\orchestrator-hooks.cjs`
-8. `C:\Users\jack.berrow\GSDedits\.planning\milestones\warp-integration\ROADMAP.md`
+1. `C:\Users\user\Voice-Text-Plan\wiki\research\agentic-harness-engineering-observability-driven-automatic-evolution-of-coding-a.md`
+2. `C:\Users\user\Voice-Text-Plan\wiki\research\agentic-harness-engineering-observability-driven-automatic-evolution-of-coding-a.enrichment.json`
+3. `C:\Users\user\GSDedits\.planning\milestones\v2.9\VTP-AHE-EVIDENCE.md`
+4. `C:\Users\user\GSDedits\super-gsd\tools\harness-benchmark\README.md`
+5. `C:\Users\user\GSDedits\super-gsd\tools\double-agent-executor\README.md`
+6. `C:\Users\user\GSDedits\super-gsd\tools\state-resolver\resolve.cjs`
+7. `C:\Users\user\GSDedits\super-gsd\scripts\lib\orchestrator-hooks.cjs`
+8. `C:\Users\user\GSDedits\.planning\milestones\warp-integration\ROADMAP.md`
 
 ## Non-Negotiable Rules
 
@@ -94,7 +94,7 @@ Claude/SGSD must read these before Phase 98:
 When the operator activates v2.9 later, start with:
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
+cd C:\Users\user\GSDedits
 /sgsd-orchestrate go
 ```
 

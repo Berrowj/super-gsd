@@ -36,7 +36,7 @@ function __sgsd_fail($title, $detail) {
     Write-Host ""
     Write-Host "    Fix: run from the project dir, or pass it explicitly:" -ForegroundColor Gray
     Write-Host "      sgsd1 C:\path\to\project" -ForegroundColor Gray
-    Write-Host "    Default fallback: C:\Users\jack.berrow\GSDedits"      -ForegroundColor Gray
+    Write-Host "    Default fallback: C:\Users\user\GSDedits"      -ForegroundColor Gray
     Write-Host ""
     if ($Host.Name -ne 'ConsoleHost' -or $env:SGSD_NO_PAUSE_ON_ERROR) { exit 1 }
     Write-Host "    Press any key to close this window..." -ForegroundColor DarkGray
@@ -63,7 +63,7 @@ if (-not (Test-Path $PlanningDir)) {
         "",
         "SGSD dashboards require a project root that contains .planning/.",
         "If the sgsd1.cmd launcher passed the wrong path, you can override:",
-        "  sgsd1 C:\Users\jack.berrow\GSDedits"
+        "  sgsd1 C:\Users\user\GSDedits"
     )
 }
 

@@ -3,7 +3,7 @@ milestone: v2.2
 phase: 63
 artifact: manual-checks
 created: 2026-04-29
-operator: jack.berrow
+operator: user
 purpose: UI-bound facts that cannot be proven from terminal — operator must verify in Warp and record results.
 ---
 
@@ -44,7 +44,7 @@ buttons no one can press.
 
 **Steps**:
 
-1. Open Warp in `C:\Users\jack.berrow\GSDedits`.
+1. Open Warp in `C:\Users\user\GSDedits`.
 2. Open Command Palette (`Ctrl+Shift+P` on Windows; not `Ctrl+P` which is
    paste-last) or click the address-bar command-palette icon.
 3. Type `SGSD:` (with the colon).
@@ -77,7 +77,7 @@ Warp detects Claude Code when launched directly.
 1. Open a fresh Warp PowerShell tab (no `sg`, no `sgsd`).
 2. Run:
    ```powershell
-   cd C:\Users\jack.berrow\GSDedits
+   cd C:\Users\user\GSDedits
    claude --dangerously-skip-permissions
    ```
 3. Observe the Warp UI:
@@ -136,14 +136,14 @@ unreliable; this item re-tests against the current Warp version.
 a fixture):
 
 1. Place this minimal fixture at
-   `C:\Users\jack.berrow\.warp\launch_configurations\smoke-test.yaml`:
+   `C:\Users\user\.warp\launch_configurations\smoke-test.yaml`:
    ```yaml
    ---
    name: SMOKE Test
    windows:
      - tabs:
          - layout:
-             cwd: C:\Users\jack.berrow\GSDedits
+             cwd: C:\Users\user\GSDedits
              commands:
                - exec: pwd
    ```

@@ -4,7 +4,7 @@ phase_name: Warp Doctor Probe Design
 milestone: v2.2
 roadmap: warp-integration
 created: 2026-04-29
-operator: jack.berrow
+operator: user
 status: in-progress
 deviation_from_standard: standard 10-step (code phase, FULL tier ATC, READ-ONLY invariant enforced like upgrade-drift Phase 62)
 unblocked: yes (does not depend on M1-M5 manual UI checks; all probes are filesystem/env/profile-grep operations)
@@ -73,7 +73,7 @@ healthy?" that v2.2 onward depends on.
 ## Acceptance
 
 1. `node super-gsd/tools/warp-doctor/run-self-test.cjs` exits 0.
-2. `node super-gsd/tools/warp-doctor/check.cjs --project C:\Users\jack.berrow\GSDedits`
+2. `node super-gsd/tools/warp-doctor/check.cjs --project C:\Users\user\GSDedits`
    exits 0 (or 1 with actionable instructions; doctor never aborts hard).
 3. `node super-gsd/tools/warp-doctor/check.cjs --project ... --json` emits
    parseable JSON conforming to `{ok, schema_version, ts, probes:[...], summary:{...}}`.

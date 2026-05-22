@@ -279,7 +279,7 @@ terminal while opening the cockpit separately.
 Recommended Warp flow:
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
+cd C:\Users\user\GSDedits
 sg
 ```
 

@@ -5,7 +5,7 @@ REM Waits for MCP to be listening before starting ssh, so the tunnel does not
 REM thrash if the MCP server is slow to come up.
 
 setlocal
-set "PROJ=C:\Users\jack.berrow\Voice-Text-Plan"
+set "PROJ=C:\Users\user\Voice-Text-Plan"
 set "LOGDIR=%PROJ%\.planning\logs\services"
 set "OUT=%LOGDIR%\vtp-tunnel.out.log"
 set "ERR=%LOGDIR%\vtp-tunnel.err.log"

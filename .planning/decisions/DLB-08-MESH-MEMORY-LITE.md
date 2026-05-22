@@ -42,7 +42,7 @@ Pi2Pi is the operational shape. MMP is the formal protocol underneath. Both inte
 | `review_finding` | claim | ATC / Codex reviewer / board reviewer | medium/low (until validated) | A claim about risk, correctness, missing coverage, or policy breach |
 | `evidence_verdict` | claim-with-authority | evidence_validator role | high for deterministic file/test claims; medium for semantic | Classify a review_finding as VERIFIED, REFUTED, STALE, UNVERIFIED, or GUARDED |
 | `decision_recommendation` | decision | pseudo_operator role | bounded by authority_level + confidence + carve-out check | What SGSD should do given evidence + milestone context + policy |
-| `operator_precedent` | decision | real operator | highest (unless superseded) | Make Jack's decisions reusable |
+| `operator_precedent` | decision | real operator | highest (unless superseded) | Make the operator’s decisions reusable |
 | `context_anchor` | projection | context-authority subsystem | high, but canonical source remains the YAML/MD file | Make YAML/MD context searchable/remixable while preserving canonical truth |
 | `promotion_decision` | decision (terminal) | SGSD | high (records state transition) | PASS, FAIL_VERIFIED, PASS_WITH_REFUTED_REVIEW, NEEDS_OPERATOR |
 

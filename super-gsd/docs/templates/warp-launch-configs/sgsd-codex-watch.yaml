@@ -21,17 +21,17 @@ windows:
       - title: "Codex Watch"
         color: green
         layout:
-          cwd: C:\Users\jack.berrow\GSDedits
+          cwd: C:\Users\user\GSDedits
           commands:
             - exec: |-
-                powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; $esc=[char]27; Write-Host 'Codex status (Ctrl+C to refresh):' -ForegroundColor Blue; while ($true) { Write-Host ('' + $esc + '[H') -NoNewline; Get-Content .planning\metrics\codex-log.jsonl -Tail 5 -Encoding UTF8 2>$null; Write-Host ('' + $esc + '[0J') -NoNewline; Start-Sleep -Seconds 5 }"
+                powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; $esc=[char]27; Write-Host 'Codex status (Ctrl+C to refresh):' -ForegroundColor Blue; while ($true) { Write-Host ('' + $esc + '[H') -NoNewline; Get-Content .planning\metrics\codex-log.jsonl -Tail 5 -Encoding UTF8 2>$null; Write-Host ('' + $esc + '[0J') -NoNewline; Start-Sleep -Seconds 5 }"
         split_direction: horizontal
         panes:
-          - cwd: C:\Users\jack.berrow\GSDedits
+          - cwd: C:\Users\user\GSDedits
             commands:
               - exec: |-
-                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'route-decisions tail (last 10 execution_route rows):' -ForegroundColor Blue; Get-Content .planning\metrics\route-decisions.jsonl -Tail 10 -Encoding UTF8 2>$null"
-          - cwd: C:\Users\jack.berrow\GSDedits
+                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'route-decisions tail (last 10 execution_route rows):' -ForegroundColor Blue; Get-Content .planning\metrics\route-decisions.jsonl -Tail 10 -Encoding UTF8 2>$null"
+          - cwd: C:\Users\user\GSDedits
             commands:
               - exec: |-
-                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'Free shell. Try: SGSD: Route Decisions Recent | SGSD: Codex Status' -ForegroundColor Cyan"
+                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'Free shell. Try: SGSD: Route Decisions Recent | SGSD: Codex Status' -ForegroundColor Cyan"

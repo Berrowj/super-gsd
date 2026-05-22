@@ -83,12 +83,12 @@
   "decisions": [
     {
       "id": "MD-29.1",
-      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\discussions\\2026-04-26-mass-discuss.md:row-29.1",
+      "source": "C:\\Users\\user\\GSDedits\\.planning\\discussions\\2026-04-26-mass-discuss.md:row-29.1",
       "text": "| 29.1 Codex stale threshold | 1 hour mtime. |"
     },
     {
       "id": "MD-29.2",
-      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\discussions\\2026-04-26-mass-discuss.md:row-29.2",
+      "source": "C:\\Users\\user\\GSDedits\\.planning\\discussions\\2026-04-26-mass-discuss.md:row-29.2",
       "text": "| 29.2 Agents pane scope | Current phase only. |"
     }
   ],

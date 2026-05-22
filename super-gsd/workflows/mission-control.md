@@ -196,13 +196,13 @@ done
 ```bash
 # From a separate terminal (Windows Terminal, not Warp):
 wsl
-bash ~/.gsd/tmux/mission-control/super-gsd-dashboard.sh /mnt/c/Users/jack.berrow/PROJECT_NAME
+bash ~/.gsd/tmux/mission-control/super-gsd-dashboard.sh /mnt/c/Users/user/PROJECT_NAME
 ```
 
 Or via tmux for split panes:
 ```bash
 tmux new-session -s gsd-monitor \; \
-  send-keys "bash ~/.gsd/tmux/mission-control/super-gsd-dashboard.sh /mnt/c/Users/jack.berrow/PROJECT" Enter \; \
+  send-keys "bash ~/.gsd/tmux/mission-control/super-gsd-dashboard.sh /mnt/c/Users/user/PROJECT" Enter \; \
   split-window -v \; \
-  send-keys "bash ~/.gsd/tmux/mission-control/super-gsd-atc-log.sh /mnt/c/Users/jack.berrow/PROJECT" Enter
+  send-keys "bash ~/.gsd/tmux/mission-control/super-gsd-atc-log.sh /mnt/c/Users/user/PROJECT" Enter
 ```

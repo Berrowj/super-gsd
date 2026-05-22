@@ -1,7 +1,7 @@
 # Claude Handover - SGSD Warp Integration
 
 Date: 2026-04-29
-Project: C:\Users\jack.berrow\GSDedits
+Project: C:\Users\user\GSDedits
 Mission: begin the SGSD Warp Integration roadmap after completed v2.1.
 
 ## Current State
@@ -30,15 +30,15 @@ MCP = structured bridge between them
 
 Read these before doing anything:
 
-1. `C:\Users\jack.berrow\GSDedits\.planning\analyses\2026-04-29-warp-ecosystem-atlas.md`
-2. `C:\Users\jack.berrow\GSDedits\.planning\analyses\2026-04-29-sgsd-warp-convergence-audit.md`
-3. `C:\Users\jack.berrow\GSDedits\.planning\analyses\2026-04-29-sgsd-warp-native-research-plan.md`
-4. `C:\Users\jack.berrow\GSDedits\.planning\analyses\2026-04-29-sgsd-warp-incorporation-plan.md`
-5. `C:\Users\jack.berrow\GSDedits\.planning\milestones\warp-integration\ROADMAP.md`
-6. `C:\Users\jack.berrow\GSDedits\WARP.md`
-7. `C:\Users\jack.berrow\GSDedits\docs\superpowers\specs\2026-04-11-sgsd-warp-layout-design.md`
-8. `C:\Users\jack.berrow\GSDedits\docs\reports\SGSD-Warp-Integration-ELI5.html`
-9. `C:\Users\jack.berrow\GSDedits\.planning\STATE.md`
+1. `C:\Users\user\GSDedits\.planning\analyses\2026-04-29-warp-ecosystem-atlas.md`
+2. `C:\Users\user\GSDedits\.planning\analyses\2026-04-29-sgsd-warp-convergence-audit.md`
+3. `C:\Users\user\GSDedits\.planning\analyses\2026-04-29-sgsd-warp-native-research-plan.md`
+4. `C:\Users\user\GSDedits\.planning\analyses\2026-04-29-sgsd-warp-incorporation-plan.md`
+5. `C:\Users\user\GSDedits\.planning\milestones\warp-integration\ROADMAP.md`
+6. `C:\Users\user\GSDedits\WARP.md`
+7. `C:\Users\user\GSDedits\docs\superpowers\specs\2026-04-11-sgsd-warp-layout-design.md`
+8. `C:\Users\user\GSDedits\docs\reports\SGSD-Warp-Integration-ELI5.html`
+9. `C:\Users\user\GSDedits\.planning\STATE.md`
 
 ## First Command Sequence
 
@@ -47,7 +47,7 @@ Do not immediately edit code.
 Start with an audit:
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
+cd C:\Users\user\GSDedits
 git status --short
 Get-Content .planning\STATE.md -TotalCount 80
 Get-ChildItem .warp\workflows -File | Sort-Object Name
@@ -57,7 +57,7 @@ Get-Command sg,sgsd -ErrorAction SilentlyContinue
 Then begin proposed Phase 63 from:
 
 ```text
-C:\Users\jack.berrow\GSDedits\.planning\milestones\warp-integration\ROADMAP.md
+C:\Users\user\GSDedits\.planning\milestones\warp-integration\ROADMAP.md
 ```
 
 ## Hard Rules
@@ -73,6 +73,7 @@ C:\Users\jack.berrow\GSDedits\.planning\milestones\warp-integration\ROADMAP.md
 9. Use `.planning` as durable truth.
 10. Use Warp for operator UX, not SGSD state truth.
 11. If remote/cloud Warp/Oz is considered, remember cloud agents cannot read uncommitted local files.
+12. If starting a new roadmap from a completed roadmap, update `.planning\STATE.md` to the new active milestone/phase before or atomically with the first phase scaffold. Do not create new phase artifacts while canonical state still says `ROADMAP COMPLETE`.
 
 ## Execution Order
 
@@ -87,12 +88,28 @@ Recommended order:
 
 If time is short, prioritize v2.3 over UI polish. The read-only MCP bridge is the central unlock.
 
+## Newly Discovered Lifecycle Requirement
+
+During Phase 63 bootstrap, the cockpit appeared stale because `.planning\STATE.md`
+still reported the previous v1.6-v2.1 roadmap as `ROADMAP COMPLETE` while new
+v2.2 / Phase 63 artifacts already existed. The cockpit correctly trusted
+`STATE.md`; the bug was the missing new-roadmap activation step.
+
+Carry this forward:
+
+- Phase 64 must define a new-roadmap activation command or workflow.
+- Phase 67 `warp-doctor` / `sgsd-doctor` must detect this mismatch.
+- Future orchestrator rules must activate `STATE.md` before creating the first
+  phase artifacts of a new roadmap.
+- Do not treat this as the operator-only; any user can hit it after finishing one
+  roadmap and starting another.
+
 ## What To Build First
 
 Phase 63 is evidence only. It should produce:
 
 ```text
-C:\Users\jack.berrow\GSDedits\.planning\milestones\v2.2\WARP-SMOKE.md
+C:\Users\user\GSDedits\.planning\milestones\v2.2\WARP-SMOKE.md
 ```
 
 It must answer:

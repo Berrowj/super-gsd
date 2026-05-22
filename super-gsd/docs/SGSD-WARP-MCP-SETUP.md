@@ -68,7 +68,7 @@ C:\Users\alex\projects\super-gsd\super-gsd\tools\warp-mcp\server.cjs
 ```
 
 The checked-in template at `super-gsd/templates/onboard/mcp.json.template`
-uses `{{PROJECT_DIR_FORWARD_SLASH}}` so new operators do not inherit Jack's
+uses `{{PROJECT_DIR_FORWARD_SLASH}}` so new operators do not inherit the operator’s
 local path.
 Node.js 18+ is recommended (the server uses `child_process.spawnSync`
 with timeouts and the global URL parser; both are stable on 18+).

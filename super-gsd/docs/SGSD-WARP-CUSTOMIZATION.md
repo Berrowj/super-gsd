@@ -108,7 +108,7 @@ These add at-a-glance status to your terminal that Warp will surface.
 # Add to your $PROFILE. Sets terminal title to "SGSD vX.Y / P{N}" so the
 # Warp tab name is always your current SGSD position.
 function Update-SgsdTitle {
-    $statePath = "C:\Users\jack.berrow\GSDedits\.planning\STATE.md"
+    $statePath = "C:\Users\user\GSDedits\.planning\STATE.md"
     if (-not (Test-Path $statePath)) { return }
     $front = Get-Content $statePath -TotalCount 30 -Encoding UTF8 | Out-String
     $milestone = if ($front -match 'milestone:\s*(\S+)') { $Matches[1] } else { '?' }
@@ -149,10 +149,10 @@ $ExecutionContext.InvokeCommand.LocationChangedAction = { Test-SgsdRepoCue }
 
 ```powershell
 # Add to your $PROFILE.
-function sgsd-status { Get-Content C:\Users\jack.berrow\GSDedits\.planning\STATE.md -TotalCount 30 -Encoding UTF8 }
-function sgsd-doctor { node C:\Users\jack.berrow\GSDedits\super-gsd\tools\warp-doctor\check.cjs --project C:\Users\jack.berrow\GSDedits }
-function sgsd-pulse  { Get-Content C:\Users\jack.berrow\GSDedits\.planning\ORCHESTRATOR-LIVE.jsonl -Tail 20 -Encoding UTF8 }
-function sgsd-route  { Get-Content C:\Users\jack.berrow\GSDedits\.planning\metrics\route-decisions.jsonl -Tail 10 -Encoding UTF8 }
+function sgsd-status { Get-Content C:\Users\user\GSDedits\.planning\STATE.md -TotalCount 30 -Encoding UTF8 }
+function sgsd-doctor { node C:\Users\user\GSDedits\super-gsd\tools\warp-doctor\check.cjs --project C:\Users\user\GSDedits }
+function sgsd-pulse  { Get-Content C:\Users\user\GSDedits\.planning\ORCHESTRATOR-LIVE.jsonl -Tail 20 -Encoding UTF8 }
+function sgsd-route  { Get-Content C:\Users\user\GSDedits\.planning\metrics\route-decisions.jsonl -Tail 10 -Encoding UTF8 }
 ```
 
 ---
@@ -202,7 +202,7 @@ by the same `SGSD:` prefix as workflows.
 
 **Settings → AI → Codebase Context**. Confirm:
 - Auto-indexing: ON (matches `settings.toml:agent_mode_codebase_context_auto_indexing = true`)
-- Repo path: `C:\Users\jack.berrow\GSDedits` is in the indexed list
+- Repo path: `C:\Users\user\GSDedits` is in the indexed list
 - Excluded patterns: `.warpindexingignore` is being honoured (verify by
   asking Agent about `.planning/metrics` — it should say not indexed)
 
@@ -223,7 +223,7 @@ fits SGSD agent dispatches.
 ## 4. Full inventory check — run this anytime
 
 ```powershell
-node C:\Users\jack.berrow\GSDedits\super-gsd\tools\warp-doctor\check.cjs --project C:\Users\jack.berrow\GSDedits
+node C:\Users\user\GSDedits\super-gsd\tools\warp-doctor\check.cjs --project C:\Users\user\GSDedits
 ```
 
 Healthy state today:

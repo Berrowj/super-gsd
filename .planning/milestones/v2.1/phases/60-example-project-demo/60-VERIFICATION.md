@@ -61,7 +61,7 @@ exit 0
 
 ```
 $ cd examples/hello-world && node ../../super-gsd/scripts/sgsd-new-project-wizard.cjs --defaults
-wizard_run ok=true configPath=C:\Users\jack.berrow\GSDedits\examples\hello-world\.planning\config.json written=true
+wizard_run ok=true configPath=C:\Users\user\GSDedits\examples\hello-world\.planning\config.json written=true
   defaults_used=true dry_run=false idempotent_skip=false clobbered=0
 exit 0
 ```
@@ -98,7 +98,7 @@ exit 0
 
 ```
 $ cd examples/hello-world && node ../../super-gsd/scripts/sgsd-new-project-wizard.cjs --defaults
-wizard_run ok=true configPath=C:\Users\jack.berrow\GSDedits\examples\hello-world\.planning\config.json written=false
+wizard_run ok=true configPath=C:\Users\user\GSDedits\examples\hello-world\.planning\config.json written=false
   defaults_used=true dry_run=false idempotent_skip=true clobbered=0
 exit 0
 ```
@@ -119,7 +119,7 @@ internal verification.
 
 ```
 $ cd examples/hello-world && node ../../super-gsd/scripts/sgsd-new-project-wizard.cjs --defaults --dry-run
-wizard_run ok=true configPath=C:\Users\jack.berrow\GSDedits\examples\hello-world\.planning\config.json written=false
+wizard_run ok=true configPath=C:\Users\user\GSDedits\examples\hello-world\.planning\config.json written=false
   defaults_used=true dry_run=true idempotent_skip=true clobbered=0
 exit 0
 ```
@@ -153,7 +153,7 @@ $ node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone v2.1 | tail -8
 wizard_self_test: 13/13 assertions passed
 milestone_close_gate: v2.1 new-project-wizard self-test green (>=8 assertions PASS; deep-merge non-clobber + idempotent + Lock 13 verified)
 milestone_close_gate: v2.1 second-gate (new-project-wizard) green
-wizard_run ok=true configPath=C:\Users\jack.berrow\GSDedits\examples\hello-world\.planning\config.json written=false
+wizard_run ok=true configPath=C:\Users\user\GSDedits\examples\hello-world\.planning\config.json written=false
   defaults_used=true dry_run=false idempotent_skip=true clobbered=0
 milestone_close_gate: v2.1 example-walkthrough self-test green (wizard --defaults exit 0 + idempotent + sha256 fe16729a...)
 milestone_close_gate: v2.1 third-gate (example-walkthrough) green

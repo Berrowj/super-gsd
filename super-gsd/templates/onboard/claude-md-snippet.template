@@ -5,7 +5,7 @@
 
 This repo uses Super GSD for autonomous orchestration. The framework lives at
 `super-gsd/` (directory junction to the canonical install at
-`C:\Users\jack.berrow\GSDedits\super-gsd`). The full orchestrator contract is
+`C:\Users\user\GSDedits\super-gsd`). The full orchestrator contract is
 in `super-gsd/CLAUDE-OVERLAY.md` — read that first.
 
 Quick reference:

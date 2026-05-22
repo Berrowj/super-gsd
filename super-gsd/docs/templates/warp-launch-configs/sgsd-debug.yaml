@@ -21,23 +21,23 @@ windows:
       - title: "Debug"
         color: red
         layout:
-          cwd: C:\Users\jack.berrow\GSDedits
+          cwd: C:\Users\user\GSDedits
           commands:
             - exec: |-
-                powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'warp-doctor probe:' -ForegroundColor Cyan; node super-gsd/tools/warp-doctor/check.cjs --project C:\Users\jack.berrow\GSDedits"
+                powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'warp-doctor probe:' -ForegroundColor Cyan; node super-gsd/tools/warp-doctor/check.cjs --project C:\Users\user\GSDedits"
         split_direction: vertical
         panes:
-          - cwd: C:\Users\jack.berrow\GSDedits
+          - cwd: C:\Users\user\GSDedits
             commands:
               - exec: |-
-                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'STATE.md:' -ForegroundColor Cyan; Get-Content .planning\STATE.md -TotalCount 30 -Encoding UTF8"
+                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'STATE.md:' -ForegroundColor Cyan; Get-Content .planning\STATE.md -TotalCount 30 -Encoding UTF8"
             split_direction: horizontal
             panes:
-              - cwd: C:\Users\jack.berrow\GSDedits
+              - cwd: C:\Users\user\GSDedits
                 commands:
                   - exec: |-
-                      powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'ORCHESTRATOR-LIVE.jsonl tail (Ctrl+C to stop):' -ForegroundColor Cyan; if (Test-Path .planning\ORCHESTRATOR-LIVE.jsonl) { Get-Content .planning\ORCHESTRATOR-LIVE.jsonl -Tail 10 -Wait } else { Write-Host 'no live file yet' }"
-              - cwd: C:\Users\jack.berrow\GSDedits
+                      powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'ORCHESTRATOR-LIVE.jsonl tail (Ctrl+C to stop):' -ForegroundColor Cyan; if (Test-Path .planning\ORCHESTRATOR-LIVE.jsonl) { Get-Content .planning\ORCHESTRATOR-LIVE.jsonl -Tail 10 -Wait } else { Write-Host 'no live file yet' }"
+              - cwd: C:\Users\user\GSDedits
                 commands:
                   - exec: |-
-                      powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'Free shell. Try: SGSD: Recovery Packet | SGSD: Live Pulse Tail' -ForegroundColor Cyan"
+                      powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'Free shell. Try: SGSD: Recovery Packet | SGSD: Live Pulse Tail' -ForegroundColor Cyan"

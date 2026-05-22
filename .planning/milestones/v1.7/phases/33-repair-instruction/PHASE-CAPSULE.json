@@ -74,7 +74,7 @@
   "decisions": [
     {
       "id": "33-locked",
-      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.7\\phases\\33-repair-instruction\\33-CONTEXT.md:locked-decision",
+      "source": "C:\\Users\\user\\GSDedits\\.planning\\milestones\\v1.7\\phases\\33-repair-instruction\\33-CONTEXT.md:locked-decision",
       "text": "\n- **33=C** (under 26.3): repair_command: optional, gated by 4-AND safety predicate\n- **26.3 4-AND**: deterministic AND safe AND local AND auth-free (verbatim from mass-discuss)\n"
     }
   ],

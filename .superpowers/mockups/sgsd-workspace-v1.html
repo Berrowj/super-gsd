@@ -725,7 +725,7 @@
 
   <h3>Pane inventory (maps to decision <code>D3</code>)</h3>
   <ul>
-    <li><span class="pill">P1</span> <b>Main Orchestrator</b> — the actual <code>claude --dangerously-skip-permissions</code> session. Biggest pane, spans both rows on the left. This is where Jack types and reads live tool output. Everything else observes it.</li>
+    <li><span class="pill">P1</span> <b>Main Orchestrator</b> — the actual <code>claude --dangerously-skip-permissions</code> session. Biggest pane, spans both rows on the left. This is where the operator types and reads live tool output. Everything else observes it.</li>
     <li><span class="pill">P2</span> <b>Liveness Monitor</b> (<code>sgsd3</code>, new) — one huge word: ALIVE / THINKING / STUCK / DEAD. 1-second refresh. Signal sources: <code>claude.exe</code> pid + CPU, <code>.planning/metrics/activity-log.jsonl</code> last line age, <code>STATE.md</code> mtime, <code>git log</code>. Rules are hardcoded and hard to misread.</li>
     <li><span class="pill">P3</span> <b>Mission Control</b> (<code>sgsd1</code>, rewritten) — milestone progress, phase progress, full wave list with names, agent roster, pulse, tokens/cost. This is the "where are we in the plan" pane. 10-second refresh.</li>
     <li><span class="pill">P4</span> <b>Narrative Feed</b> (<code>sgsd2</code>, rewritten) — task tree (TaskCreate/TaskUpdate replay), Haiku-generated narrative (5-min cadence, token budget), and a recent-activity tail. This is the "what just happened" pane.</li>
@@ -762,13 +762,13 @@
     <li><b>Failure mode at 1280×720:</b> P4 and P6 collapse their internal sub-sections to 3 lines each. P3 hides waves 6–8 (still shows count). Never wraps.</li>
   </ul>
 
-  <h3>What Jack needs to answer in the spec (<code>D1–D7</code>)</h3>
+  <h3>What the operator needs to answer in the spec (<code>D1–D7</code>)</h3>
   <p>
     This mockup assumes <b>Warp on Windows directly</b> as the substrate (<code>D1-A</code>
-    or <code>D1-B</code>). If Jack lands on <code>D1-C</code> (tmux inside WSL),
+    or <code>D1-B</code>). If the operator lands on <code>D1-C</code> (tmux inside WSL),
     the same 6-pane layout still applies but the renderer moves to bash scripts
     and tmux borders replace the CSS ones. <b>The pane inventory does not change.</b>
-    Jack should react to this mockup first — we'll regenerate with the right
+    the operator should react to this mockup first — we'll regenerate with the right
     substrate once D1 is locked.
   </p>
 

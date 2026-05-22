@@ -43,7 +43,7 @@ The acceptance check (Task 5) requires a clean additive diff.
 
 ## Acceptance (Plan-Level)
 
-- `AGENTS.md` exists at `C:\Users\jack.berrow\GSDedits\AGENTS.md`.
+- `AGENTS.md` exists at `C:\Users\user\GSDedits\AGENTS.md`.
 - `WARP.md` has a Rule Hierarchy section.
 - Both files commit atomically with the Phase 65 close.
 - All 5 task acceptance criteria pass.

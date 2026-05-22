@@ -23,7 +23,7 @@ files_touched:
 | 3 | TL;DR Operator Routine at end | 5-section daily loop summary -- daily start / daily check / daily recovery / daily diagnose / off-machine |
 | 4 | Cross-link to Phase 63-67 deliverables | WARP-SMOKE.md / MANUAL-CHECKS.md / AGENTS.md / WARP.md / SGSD-WARP-WORKFLOWS.md / warp-doctor / warp-workflow-lint each cited by exact path |
 | 5 | Verify all required sections present via grep | grep against the 12 section names returns 12/12 |
-| 6 | Verify >=10 concrete paths via grep | grep `C:\\Users\\jack\.berrow` returns >=10 occurrences |
+| 6 | Verify >=10 concrete paths via grep | grep `C:\\Users\\user` returns >=10 occurrences |
 
 ## Surgical Constraint (Karpathy)
 

@@ -72,7 +72,7 @@
   "decisions": [
     {
       "id": "32-locked",
-      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.7\\phases\\32-route-decision-ledger\\32-CONTEXT.md:locked-decision",
+      "source": "C:\\Users\\user\\GSDedits\\.planning\\milestones\\v1.7\\phases\\32-route-decision-ledger\\32-CONTEXT.md:locked-decision",
       "text": "\n**Boundary-only**: Phase 32 lands one wire-in (codex_route at SKILL.md\nStep 9.5 per-dispatch ATC), not all 6 boundaries. ROUTE-03 specifies\n\"\u22651 boundary in production\"; doubling up is gilding. The other 5\nboundaries (milestone_promotion, phase_dispatch_first, executor_choice,\ngate_skip, handoff_decision) are documented as v1.8+ candidates with\nexact file:line wire-in targets pre-identified in 32-RESEARCH.md \u00a71.\n"
     }
   ],

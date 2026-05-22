@@ -263,11 +263,11 @@ components:
   - id: memory-index
     class: memory
     paths:
-      - C:/Users/jack.berrow/.claude/projects/C--Users-jack-berrow-GSDedits/memory/MEMORY.md
+      - C:/Users/user/.claude/projects/C--Users-user-GSDedits/memory/MEMORY.md
     owner: orchestrator
     edit_policy: orchestrator-only
     test_commands:
-      - 'node -e "require(''fs'').statSync(''C:/Users/jack.berrow/.claude/projects/C--Users-jack-berrow-GSDedits/memory/MEMORY.md'')"'
+      - 'node -e "require(''fs'').statSync(''C:/Users/user/.claude/projects/C--Users-user-GSDedits/memory/MEMORY.md'')"'
     rollback_method: manual-edit-restore
     protected: false
 

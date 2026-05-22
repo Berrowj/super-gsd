@@ -6,8 +6,8 @@ VTP slug: `agentic-harness-engineering-observability-driven-automatic-evolution-
 
 Local source:
 
-- `C:\Users\jack.berrow\Voice-Text-Plan\wiki\research\agentic-harness-engineering-observability-driven-automatic-evolution-of-coding-a.md`
-- `C:\Users\jack.berrow\Voice-Text-Plan\wiki\research\agentic-harness-engineering-observability-driven-automatic-evolution-of-coding-a.enrichment.json`
+- `C:\Users\user\Voice-Text-Plan\wiki\research\agentic-harness-engineering-observability-driven-automatic-evolution-of-coding-a.md`
+- `C:\Users\user\Voice-Text-Plan\wiki\research\agentic-harness-engineering-observability-driven-automatic-evolution-of-coding-a.enrichment.json`
 
 ## Paper Takeaway
 
@@ -54,7 +54,7 @@ component -> evidence -> predicted edit -> measured next-run outcome -> keep/rev
 
 ## Local Sanity Checks Run Before Drafting
 
-These checks were run on 2026-04-30 from `C:\Users\jack.berrow\GSDedits`:
+These checks were run on 2026-04-30 from `C:\Users\user\GSDedits`:
 
 ```powershell
 node super-gsd/tools/state-resolver/resolve.cjs --json
@@ -68,7 +68,7 @@ Observed:
 - State resolver reported active v2.7 / Phase 92 from fresh pulse evidence and flagged `STATE.md` as stale projection.
 - State resolver self-test passed 14/14.
 - Warp MCP self-test passed 47/47.
-- Harness benchmark passed 49/49 and wrote report to `C:\Users\jack.berrow\GSDedits\.planning\benchmarks\ahe-paper-smoke\REPORT.md`.
+- Harness benchmark passed 49/49 and wrote report to `C:\Users\user\GSDedits\.planning\benchmarks\ahe-paper-smoke\REPORT.md`.
 
 ## Design Decision
 

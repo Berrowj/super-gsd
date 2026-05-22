@@ -514,7 +514,7 @@ diff_lines:               parseDiffLines(),
 ### Q8 — ERG-02 installer script shape (D-19..D-21)
 
 **Verified facts about the patch target:**
-- File: `C:/Users/jack.berrow/.claude/get-shit-done/bin/lib/core.cjs:322-331`. [VERIFIED: grep]
+- File: `C:/Users/user/.claude/get-shit-done/bin/lib/core.cjs:322-331`. [VERIFIED: grep]
 - Current code:
   ```javascript
   const KNOWN_TOP_LEVEL = new Set([
@@ -531,7 +531,7 @@ diff_lines:               parseDiffLines(),
 - The 7 CONTEXT-required keys (`safety`, `model_routing`, `token_efficiency`, `deliberation`, `atc`, `browser_verify`, `overwatcher`) are top-level containers present in `.planning/config.json` but NOT in `VALID_CONFIG_KEYS` (config.cjs:14) as dot-prefixed keys, so they don't get auto-included and they aren't in the hardcoded second line. [VERIFIED: grep on both files]
 - Target insertion point: line 326 — after `'git', 'workflow', 'planning', 'hooks', 'features',` append `'safety', 'model_routing', 'token_efficiency', 'deliberation', 'atc', 'browser_verify', 'overwatcher',`.
 - `.planning/config.json` confirms these are the 7 containers currently emitting warnings. [VERIFIED: Read lines 21,36,47,55,68,78,107]
-- Cross-repo location: the file is in `C:/Users/jack.berrow/.claude/` which is a separate git repo per `.planning/phases/10-gate-policy/10-03-01-cross-repo-probe.yaml`. The GSDedits executor MUST NOT commit there.
+- Cross-repo location: the file is in `C:/Users/user/.claude/` which is a separate git repo per `.planning/phases/10-gate-policy/10-03-01-cross-repo-probe.yaml`. The GSDedits executor MUST NOT commit there.
 
 **Recommended patch technique: Node-in-bash (not sed/awk).**
 

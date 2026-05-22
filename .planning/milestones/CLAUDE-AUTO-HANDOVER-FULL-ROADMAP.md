@@ -23,7 +23,7 @@ branch: master
 Cloud/remote path rule:
 
 - If running in Claude Remote, work from the cloned repo root.
-- Treat Windows `C:\Users\jack.berrow\GSDedits\...` paths as source-location
+- Treat Windows `C:\Users\user\GSDedits\...` paths as source-location
   hints only.
 - Translate those paths to relative repo paths before reading or editing.
 - Do not stop because the Windows path is unavailable in the cloud checkout.

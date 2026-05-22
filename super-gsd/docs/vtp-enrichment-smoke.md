@@ -8,7 +8,7 @@ This runbook is the manual-verification layer that RESEARCH.md §Validation Arch
 
 ## Preflight
 
-- [ ] `.mcp.json` lists `vtp-kb` server pointing at `C:/Users/jack.berrow/Voice-Text-Plan/dist/cli.js`.
+- [ ] `.mcp.json` lists `vtp-kb` server pointing at `C:/Users/user/Voice-Text-Plan/dist/cli.js`.
 - [ ] `node super-gsd/scripts/lib/vtp-context-composer.cjs --self-test` exits 0 (unit-level green).
 - [ ] `.planning/config.json` has `workflow.triage_vtp_enrichment: true`.
 - [ ] `jq -e '.workflow.triage_vtp_enrichment == true' .planning/config.json` returns exit 0.
@@ -27,7 +27,7 @@ This runbook is the manual-verification layer that RESEARCH.md §Validation Arch
 
 ## Dimension 3: Triage Step 0 VTP-failure path (graceful-fail)
 
-1. Temporarily break the MCP binding: edit `.mcp.json` to point `vtp-kb.args` at a nonexistent path (e.g., `C:/Users/jack.berrow/Voice-Text-Plan/dist/DOES-NOT-EXIST.js`). Alternately set a 1ms timeout env override if the composer supports it.
+1. Temporarily break the MCP binding: edit `.mcp.json` to point `vtp-kb.args` at a nonexistent path (e.g., `C:/Users/user/Voice-Text-Plan/dist/DOES-NOT-EXIST.js`). Alternately set a 1ms timeout env override if the composer supports it.
 2. Invoke `/sgsd-triage` on the same canned message from Dim 2.
 3. Expected:
    - A routing-log row still appears, but with `reflection_verdict: null`, `evidence_hit_count: 0`, `top_doc_id: null`, and `failure_reason` naming the error (e.g. `vtp_timeout:...` or `mcp_...`).

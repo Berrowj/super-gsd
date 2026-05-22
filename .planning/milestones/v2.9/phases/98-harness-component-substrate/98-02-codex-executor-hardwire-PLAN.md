@@ -23,9 +23,9 @@ files_touched:
   - super-gsd/registry/gates.yaml
   - super-gsd/tools/feature-propagation/audit.cjs
   - super-gsd/tests/cockpit-regression/check.cjs
-  - C:/Users/jack.berrow/.claude/commands/sgsd-orchestrate/SKILL.md
-  - C:/Users/jack.berrow/.claude/agents/sgsd-executor.md
-  - C:/Users/jack.berrow/.claude/agents/gsd-executor.md
+  - C:/Users/user/.claude/commands/sgsd-orchestrate/SKILL.md
+  - C:/Users/user/.claude/agents/sgsd-executor.md
+  - C:/Users/user/.claude/agents/gsd-executor.md
 ---
 
 # Plan 98-02

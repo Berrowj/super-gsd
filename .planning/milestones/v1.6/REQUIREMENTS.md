@@ -95,7 +95,7 @@ The VIO conversation search changes v1.6 in four ways:
 The controlling VIO source for promotion is:
 
 ```text
-C:\Users\jack.berrow\GSDedits\.planning\milestones\VIO-ROADMAP-ENRICHMENT.md
+C:\Users\user\GSDedits\.planning\milestones\VIO-ROADMAP-ENRICHMENT.md
 ```
 
 ## Requirements

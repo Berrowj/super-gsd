@@ -5,10 +5,10 @@ type: execute
 wave: A
 depends_on: []
 files_modified:
-  - C:\Users\jack.berrow\GSDedits\super-gsd\scripts\lib\vtp-context-composer.cjs
-  - C:\Users\jack.berrow\GSDedits\super-gsd\skills\sgsd-triage\SKILL.md
-  - C:\Users\jack.berrow\GSDedits\.planning\config.json
-  - C:\Users\jack.berrow\GSDedits\super-gsd\docs\vtp-enrichment-smoke.md
+  - C:\Users\user\GSDedits\super-gsd\scripts\lib\vtp-context-composer.cjs
+  - C:\Users\user\GSDedits\super-gsd\skills\sgsd-triage\SKILL.md
+  - C:\Users\user\GSDedits\.planning\config.json
+  - C:\Users\user\GSDedits\super-gsd\docs\vtp-enrichment-smoke.md
 autonomous: true
 requirements:
   - VTP-04
@@ -71,11 +71,11 @@ Output: composer CJS module + patched triage SKILL.md + config toggle + smoke do
 </execution_context>
 
 <context>
-@C:\Users\jack.berrow\GSDedits\.planning\STATE.md
-@C:\Users\jack.berrow\GSDedits\.planning\ROADMAP.md
-@C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-CONTEXT.md
-@C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-RESEARCH.md
-@C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md
+@C:\Users\user\GSDedits\.planning\STATE.md
+@C:\Users\user\GSDedits\.planning\ROADMAP.md
+@C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-CONTEXT.md
+@C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-RESEARCH.md
+@C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md
 
 <interfaces>
 <!-- Key structural contracts extracted from codebase. Executor uses these directly — no exploration. -->
@@ -235,13 +235,13 @@ Downstream agents must re-query VTP for tier-specific evidence at call time usin
 
 <task type="auto" tdd="true">
   <name>Task 1: Ship vtp-context-composer.cjs with callVtp wrapper + --self-test</name>
-  <files>C:\Users\jack.berrow\GSDedits\super-gsd\scripts\lib\vtp-context-composer.cjs</files>
+  <files>C:\Users\user\GSDedits\super-gsd\scripts\lib\vtp-context-composer.cjs</files>
   <read_first>
-    - C:\Users\jack.berrow\GSDedits\super-gsd\scripts\lib\gates-registry.cjs (module shape + cache singleton — lines 1-96)
-    - C:\Users\jack.berrow\GSDedits\super-gsd\scripts\lib\edge-guard.cjs (JSONL writer + --self-test CLI — lines 83-265)
-    - C:\Users\jack.berrow\GSDedits\super-gsd\scripts\lib\context-gauge.cjs (zero-dep pure-function shape)
-    - C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md (§vtp-context-composer.cjs section)
-    - C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-RESEARCH.md (§Node CJS Module Conventions + §JSONL Telemetry Shape + §Validation Architecture)
+    - C:\Users\user\GSDedits\super-gsd\scripts\lib\gates-registry.cjs (module shape + cache singleton — lines 1-96)
+    - C:\Users\user\GSDedits\super-gsd\scripts\lib\edge-guard.cjs (JSONL writer + --self-test CLI — lines 83-265)
+    - C:\Users\user\GSDedits\super-gsd\scripts\lib\context-gauge.cjs (zero-dep pure-function shape)
+    - C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md (§vtp-context-composer.cjs section)
+    - C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-RESEARCH.md (§Node CJS Module Conventions + §JSONL Telemetry Shape + §Validation Architecture)
   </read_first>
   <behavior>
     - compose({milestone:'v1.3',phase:16,active_file:'...',blockers:[],explicit_constraints:['D-07'],recent_turns:[],recent_errors:[]}) returns an object with ALL fields from every TIER's field list populated (or null when absent).
@@ -259,7 +259,7 @@ Downstream agents must re-query VTP for tier-specific evidence at call time usin
     - --self-test exits 0 on all asserts passing, 1 on first failure with a reason string naming the failing key/case. Uses fs.mkdtempSync temp dir — never touches real .planning/metrics/.
   </behavior>
   <action>
-Create `C:\Users\jack.berrow\GSDedits\super-gsd\scripts\lib\vtp-context-composer.cjs` matching the CJS module skeleton shown in <interfaces>. Structure:
+Create `C:\Users\user\GSDedits\super-gsd\scripts\lib\vtp-context-composer.cjs` matching the CJS module skeleton shown in <interfaces>. Structure:
 
 1. `'use strict';` on line 1.
 2. JSDoc block with `Exports: {...}` list and per-export one-line signature (verbatim from <interfaces>).
@@ -362,7 +362,7 @@ Per CLAUDE.md security rule: `compose()` MUST NOT include env-var values in `rec
 **Commit:** `feat(16-01): add vtp-context-composer.cjs with callVtp wrapper + self-test`
   </action>
   <verify>
-    <automated>node "C:/Users/jack.berrow/GSDedits/super-gsd/scripts/lib/vtp-context-composer.cjs" --self-test</automated>
+    <automated>node "C:/Users/user/GSDedits/super-gsd/scripts/lib/vtp-context-composer.cjs" --self-test</automated>
   </verify>
   <acceptance_criteria>
     - `node super-gsd/scripts/lib/vtp-context-composer.cjs --self-test` exits 0 with stdout `PASS`.
@@ -380,14 +380,14 @@ Per CLAUDE.md security rule: `compose()` MUST NOT include env-var values in `rec
 <task type="auto">
   <name>Task 2: Wire sgsd-triage Step 0 + add workflow.triage_vtp_enrichment config key</name>
   <files>
-    C:\Users\jack.berrow\GSDedits\super-gsd\skills\sgsd-triage\SKILL.md
-    C:\Users\jack.berrow\GSDedits\.planning\config.json
+    C:\Users\user\GSDedits\super-gsd\skills\sgsd-triage\SKILL.md
+    C:\Users\user\GSDedits\.planning\config.json
   </files>
   <read_first>
-    - C:\Users\jack.berrow\GSDedits\super-gsd\skills\sgsd-triage\SKILL.md (lines 1-50 — current frontmatter + process block)
-    - C:\Users\jack.berrow\GSDedits\super-gsd\skills\sgsd-complete-milestone\SKILL.md (lines 1-20 + lines 90-120 — VTP-tool frontmatter + in-body canonical-name invocation)
-    - C:\Users\jack.berrow\GSDedits\.planning\config.json (workflow block — lines 1-20)
-    - C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md (§sgsd-triage/SKILL.md section + §sepl SKILL.md frontmatter example)
+    - C:\Users\user\GSDedits\super-gsd\skills\sgsd-triage\SKILL.md (lines 1-50 — current frontmatter + process block)
+    - C:\Users\user\GSDedits\super-gsd\skills\sgsd-complete-milestone\SKILL.md (lines 1-20 + lines 90-120 — VTP-tool frontmatter + in-body canonical-name invocation)
+    - C:\Users\user\GSDedits\.planning\config.json (workflow block — lines 1-20)
+    - C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md (§sgsd-triage/SKILL.md section + §sepl SKILL.md frontmatter example)
   </read_first>
   <action>
 **File 1: `super-gsd/skills/sgsd-triage/SKILL.md` — patch frontmatter + inject Step 0**
@@ -490,7 +490,7 @@ Ensure the JSON remains valid — verify with `node -e "JSON.parse(require('fs')
 **Commit:** `feat(16-01): wire sgsd-triage Step 0 VTP enrichment + config toggle`
   </action>
   <verify>
-    <automated>node -e "const c=JSON.parse(require('fs').readFileSync('C:/Users/jack.berrow/GSDedits/.planning/config.json','utf8'));if(c.workflow.triage_vtp_enrichment!==true){process.exit(1)};console.log('config_ok')" &amp;&amp; grep -q "mcp__vtp-kb__vtp_route_and_retrieve" "C:/Users/jack.berrow/GSDedits/super-gsd/skills/sgsd-triage/SKILL.md" &amp;&amp; grep -q "## Step 0: VTP Enrichment" "C:/Users/jack.berrow/GSDedits/super-gsd/skills/sgsd-triage/SKILL.md" &amp;&amp; grep -n "## Step 0\|## Step 1" "C:/Users/jack.berrow/GSDedits/super-gsd/skills/sgsd-triage/SKILL.md" | head -2</automated>
+    <automated>node -e "const c=JSON.parse(require('fs').readFileSync('C:/Users/user/GSDedits/.planning/config.json','utf8'));if(c.workflow.triage_vtp_enrichment!==true){process.exit(1)};console.log('config_ok')" &amp;&amp; grep -q "mcp__vtp-kb__vtp_route_and_retrieve" "C:/Users/user/GSDedits/super-gsd/skills/sgsd-triage/SKILL.md" &amp;&amp; grep -q "## Step 0: VTP Enrichment" "C:/Users/user/GSDedits/super-gsd/skills/sgsd-triage/SKILL.md" &amp;&amp; grep -n "## Step 0\|## Step 1" "C:/Users/user/GSDedits/super-gsd/skills/sgsd-triage/SKILL.md" | head -2</automated>
   </verify>
   <acceptance_criteria>
     - `jq -e '.workflow.triage_vtp_enrichment == true' .planning/config.json` returns 0.
@@ -508,10 +508,10 @@ Ensure the JSON remains valid — verify with `node -e "JSON.parse(require('fs')
 
 <task type="auto">
   <name>Task 3: Write manual smoke runbook for Wave A primitive</name>
-  <files>C:\Users\jack.berrow\GSDedits\super-gsd\docs\vtp-enrichment-smoke.md</files>
+  <files>C:\Users\user\GSDedits\super-gsd\docs\vtp-enrichment-smoke.md</files>
   <read_first>
-    - C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-RESEARCH.md (§Validation Architecture — 8 dimensions + Wave 0 Gaps)
-    - C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md (§Graceful-Fail / Circuit-Breaker)
+    - C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-RESEARCH.md (§Validation Architecture — 8 dimensions + Wave 0 Gaps)
+    - C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md (§Graceful-Fail / Circuit-Breaker)
   </read_first>
   <action>
 Create a smoke-test runbook at `super-gsd/docs/vtp-enrichment-smoke.md` that an operator can execute by hand to verify the Wave A primitive works end-to-end. This is the manual-verification layer RESEARCH.md §Validation Architecture called out as Wave 0 Gap #5.
@@ -527,7 +527,7 @@ Create a smoke-test runbook at `super-gsd/docs/vtp-enrichment-smoke.md` that an 
 
 ## Preflight
 
-- [ ] `.mcp.json` lists `vtp-kb` server pointing at `C:/Users/jack.berrow/Voice-Text-Plan/dist/cli.js`.
+- [ ] `.mcp.json` lists `vtp-kb` server pointing at `C:/Users/user/Voice-Text-Plan/dist/cli.js`.
 - [ ] `node super-gsd/scripts/lib/vtp-context-composer.cjs --self-test` exits 0 (unit-level green).
 - [ ] `.planning/config.json` has `workflow.triage_vtp_enrichment: true`.
 
@@ -583,7 +583,7 @@ Create a smoke-test runbook at `super-gsd/docs/vtp-enrichment-smoke.md` that an 
 **Commit:** `docs(16-01): add VTP enrichment smoke runbook`
   </action>
   <verify>
-    <automated>test -f "C:/Users/jack.berrow/GSDedits/super-gsd/docs/vtp-enrichment-smoke.md" &amp;&amp; grep -q "Dimension 2: Triage Step 0 happy path" "C:/Users/jack.berrow/GSDedits/super-gsd/docs/vtp-enrichment-smoke.md" &amp;&amp; grep -q "Dimension 3: Triage Step 0 VTP-failure path" "C:/Users/jack.berrow/GSDedits/super-gsd/docs/vtp-enrichment-smoke.md" &amp;&amp; grep -q "Dimension 4: Agent-tier VTP-call instrumentation" "C:/Users/jack.berrow/GSDedits/super-gsd/docs/vtp-enrichment-smoke.md" &amp;&amp; grep -q "Dimension 6: Config toggle disables Step 0" "C:/Users/jack.berrow/GSDedits/super-gsd/docs/vtp-enrichment-smoke.md"</automated>
+    <automated>test -f "C:/Users/user/GSDedits/super-gsd/docs/vtp-enrichment-smoke.md" &amp;&amp; grep -q "Dimension 2: Triage Step 0 happy path" "C:/Users/user/GSDedits/super-gsd/docs/vtp-enrichment-smoke.md" &amp;&amp; grep -q "Dimension 3: Triage Step 0 VTP-failure path" "C:/Users/user/GSDedits/super-gsd/docs/vtp-enrichment-smoke.md" &amp;&amp; grep -q "Dimension 4: Agent-tier VTP-call instrumentation" "C:/Users/user/GSDedits/super-gsd/docs/vtp-enrichment-smoke.md" &amp;&amp; grep -q "Dimension 6: Config toggle disables Step 0" "C:/Users/user/GSDedits/super-gsd/docs/vtp-enrichment-smoke.md"</automated>
   </verify>
   <acceptance_criteria>
     - File `super-gsd/docs/vtp-enrichment-smoke.md` exists.

@@ -73,7 +73,7 @@
   "decisions": [
     {
       "id": "35-locked",
-      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.7\\phases\\35-generated-system-map\\35-CONTEXT.md:locked-decision",
+      "source": "C:\\Users\\user\\GSDedits\\.planning\\milestones\\v1.7\\phases\\35-generated-system-map\\35-CONTEXT.md:locked-decision",
       "text": "\n**Registries + frontmatter only** -- NO dependency graph in v1.7.\nPhase 35 is a CATALOG generator, not a topology analyzer. The\ndeferral preserves scope; a graph could be a v1.8+ phase if needed.\n"
     }
   ],

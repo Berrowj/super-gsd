@@ -74,7 +74,7 @@
   "decisions": [
     {
       "id": "40-locked",
-      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.8\\phases\\40-phase-folder-audit\\40-CONTEXT.md:locked-decision",
+      "source": "C:\\Users\\user\\GSDedits\\.planning\\milestones\\v1.8\\phases\\40-phase-folder-audit\\40-CONTEXT.md:locked-decision",
       "text": "\nSoft-warn auditor only. NO folder modification. NO blocking. Operator\ndiscretion on remediation.\n"
     }
   ],

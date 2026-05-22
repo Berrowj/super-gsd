@@ -488,8 +488,8 @@ YES — indirectly: `<loop>` block line 160 checks `If all phases [x] → EXIT: 
 **Install location decision:**
 
 Environment facts:
-- Global `C:/Users/jack.berrow/.claude/skills/` contains 40+ skills including existing `gsd-complete-milestone` (126 lines, legacy v1).
-- Project-local `C:/Users/jack.berrow/GSDedits/.claude/skills/` does NOT exist.
+- Global `C:/Users/user/.claude/skills/` contains 40+ skills including existing `gsd-complete-milestone` (126 lines, legacy v1).
+- Project-local `C:/Users/user/GSDedits/.claude/skills/` does NOT exist.
 - Project-repo `super-gsd/skills/` contains 19 SGSD-native skills (sgsd-* prefix).
 - Phase 12 patched `core.cjs` for cross-repo reachability.
 

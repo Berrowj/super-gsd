@@ -75,12 +75,12 @@ Output: sgsd-stop-handoff.sh (modified — rails complete), .planning/config.jso
 </objective>
 
 <execution_context>
-@C:\Users\jack.berrow\.claude\get-shit-done\workflows\execute-plan.md
+@C:\Users\user\.claude\get-shit-done\workflows\execute-plan.md
 </execution_context>
 
 <context>
-@C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.4\phases\20-autonomous-handoff\20-CONTEXT.md
-@C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.4\phases\20-autonomous-handoff\20-RESEARCH.md
+@C:\Users\user\GSDedits\.planning\milestones\v1.4\phases\20-autonomous-handoff\20-CONTEXT.md
+@C:\Users\user\GSDedits\.planning\milestones\v1.4\phases\20-autonomous-handoff\20-RESEARCH.md
 
 <interfaces>
 <!-- Contracts from 20-01 output. No codebase exploration needed. -->

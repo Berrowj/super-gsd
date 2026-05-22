@@ -287,7 +287,7 @@ tools: Read, Bash, Grep, Glob, Write, mcp__vtp-kb__vtp_search_substrate
 
 **In-body patch:** when mapping patterns, call `vtp_search_substrate` with `source_types` + `topics` filters to retrieve analog code/doc references alongside in-repo Grep.
 
-**IMPORTANT per E-01:** the original VTP-06 target `gsd-pattern-mapper.md` does NOT exist in this directory (verified via Glob). Phase 16 patches `gsd-codebase-mapper.md` instead. The global `gsd-pattern-mapper` at `C:\Users\jack.berrow\.claude\agents\` is out of scope.
+**IMPORTANT per E-01:** the original VTP-06 target `gsd-pattern-mapper.md` does NOT exist in this directory (verified via Glob). Phase 16 patches `gsd-codebase-mapper.md` instead. The global `gsd-pattern-mapper` at `C:\Users\user\.claude\agents\` is out of scope.
 
 ---
 

@@ -5,7 +5,7 @@ kind: floor-gated
 brief: .planning/briefs/2026-04-21-sgsd-v2-retro-and-forward.md
 parent_brief: .planning/briefs/2026-04-21-orchestrator-contract.md
 scope: "RQ1-RQ4 — retro on Phase A-E + v1.2 sequencing"
-operator: jack.berrow
+operator: user
 reviewer: none (FLOOR below-threshold, revertable)
 revertable: true
 gate_score: below-floor-shipped

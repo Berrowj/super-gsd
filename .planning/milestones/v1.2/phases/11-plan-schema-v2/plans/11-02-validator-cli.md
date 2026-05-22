@@ -145,7 +145,7 @@ Note: gray-matter handles YAML frontmatter parsing safely (multi-line strings, q
 js-yaml is gray-matter's peer dep. Do NOT add these to any root package.json (none exists per RQ-1).
   </action>
   <verify>
-    <automated>node -e "require('C:/Users/jack.berrow/GSDedits/super-gsd/tools/plan-schema/node_modules/ajv'); console.log('ajv ok')"</automated>
+    <automated>node -e "require('C:/Users/user/GSDedits/super-gsd/tools/plan-schema/node_modules/ajv'); console.log('ajv ok')"</automated>
   </verify>
   <done>package.json exists at super-gsd/tools/plan-schema/; node_modules present with ajv, ajv-formats, ajv-errors, gray-matter</done>
 </task>
@@ -186,7 +186,7 @@ lessons_path warning (D-04): after validation passes, if lessons_path is set,
   check if the file exists; if not, console.error warning and continue (do not exit 1).
   </action>
   <verify>
-    <automated>cd C:/Users/jack.berrow/GSDedits && node super-gsd/tools/plan-schema/validate.cjs --plan-file .planning/phases/11-plan-schema-v2/plans/11-01-schema-file.md --mode load; echo "Exit: $?"</automated>
+    <automated>cd C:/Users/user/GSDedits && node super-gsd/tools/plan-schema/validate.cjs --plan-file .planning/phases/11-plan-schema-v2/plans/11-01-schema-file.md --mode load; echo "Exit: $?"</automated>
   </verify>
   <done>
 - validate.cjs exits 0 for a well-formed v2 plan
@@ -217,7 +217,7 @@ lessons_path warning (D-04): after validation passes, if lessons_path is set,
 </threat_model>
 
 <verification>
-cd C:/Users/jack.berrow/GSDedits && node super-gsd/tools/plan-schema/validate.cjs --plan-file .planning/phases/11-plan-schema-v2/plans/11-01-schema-file.md --mode load && echo "VALID exit 0 OK"
+cd C:/Users/user/GSDedits && node super-gsd/tools/plan-schema/validate.cjs --plan-file .planning/phases/11-plan-schema-v2/plans/11-01-schema-file.md --mode load && echo "VALID exit 0 OK"
 </verification>
 
 <success_criteria>

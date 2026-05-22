@@ -56,3 +56,6 @@ gsd-orchestrator-kit/
 
 # Nested working copy — not a real source tree
 super-gsd/source/
+
+# Operator-local MCP server config — machine-specific paths, not portable
+.mcp.json

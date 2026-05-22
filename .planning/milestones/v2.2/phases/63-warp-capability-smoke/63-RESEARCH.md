@@ -2,10 +2,10 @@
 phase: 63
 artifact: research
 created: 2026-04-29
-operator: jack.berrow
+operator: user
 machine: Windows 11 Pro 10.0.26100
 shell: Windows PowerShell 5.1
-warp_install_path: C:\Users\jack.berrow\AppData\Local\Programs\Warp\Warp.exe
+warp_install_path: C:\Users\user\AppData\Local\Programs\Warp\Warp.exe
 warp_env_observed: TERM_PROGRAM=WarpTerminal
 session_topology: sg-launched-Claude (this Phase 63 session is the live evidence)
 ---
@@ -26,7 +26,7 @@ lives in `.planning/milestones/v2.2/WARP-SMOKE.md`.
 | `sgsd-setup` | NO | YES | profile lines 124-167 |
 
 **Profile path**:
-`C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1`
+`C:\Users\user\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1`
 
 **Implication**: `Get-Command sg` returning NOTFOUND under `-Command` is **not
 a defect**; it is the expected behavior of non-interactive PowerShell. Warp
@@ -128,7 +128,7 @@ appearance itself is a UI fact and is recorded as MANUAL-CHECK-REQUIRED.
 ### B.3 Warp Install Path
 
 ```
-C:\Users\jack.berrow\AppData\Local\Programs\Warp\Warp.exe   EXISTS
+C:\Users\user\AppData\Local\Programs\Warp\Warp.exe   EXISTS
 C:\Program Files\Warp\Warp.exe                               MISSING
 C:\Program Files\WarpDotDev\WarpDotDev.exe                   MISSING
 ```
@@ -139,10 +139,10 @@ Warp on this machine is a per-user install under `LOCALAPPDATA\Programs\Warp`.
 
 ### C.1 Directory
 
-`C:\Users\jack.berrow\.warp\launch_configurations` — **EXISTS, EMPTY**.
+`C:\Users\user\.warp\launch_configurations` — **EXISTS, EMPTY**.
 
 The 2026-04-11 layout spec referenced
-`C:/Users/jack.berrow/.warp/launch_configurations/gsdedits-workspace.yaml`
+`C:/Users/user/.warp/launch_configurations/gsdedits-workspace.yaml`
 as the trial config. That file is no longer present. No saved launch
 configurations exist on this machine today.
 
@@ -338,7 +338,7 @@ Warp smoke test. Whoever commits these next should commit them as
 | Artifact | Value | Captured |
 |---|---|---|
 | Date | 2026-04-29 | this session |
-| Project root | `C:\Users\jack.berrow\GSDedits` | this session |
+| Project root | `C:\Users\user\GSDedits` | this session |
 | OS | Windows 11 Pro 10.0.26100 | system info |
 | PowerShell | 5.1 (Windows PowerShell) | session |
 | Warp install | `~/AppData/Local/Programs/Warp/Warp.exe` | filesystem probe |

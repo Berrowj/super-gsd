@@ -22,7 +22,7 @@ explaining install + caveats. Operators copy the YAMLs to
   `sgsd-cockpit-only.yaml` (3 cockpit + shell). Per Phase 78 roadmap
   acceptance.
 - D78.2: All `cwd:` values absolute per Warp docs. Use literal
-  `C:\Users\jack.berrow\GSDedits`; README documents how operators on
+  `C:\Users\user\GSDedits`; README documents how operators on
   other paths edit.
 - D78.3: Phase 63 manual check M4 caveat noted in BOTH templates and
   README — opens in NEW Warp window on Windows; active-window targeting

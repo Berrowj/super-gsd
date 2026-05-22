@@ -4,7 +4,7 @@ You are a fresh SDD implementer. No inherited context.
 
 ## The bug
 
-`getCodexStatus()` in `super-gsd/hooks/sgsd-statusline.js` uses `JSON.parse(lines[lines.length - 1])`. But `codex-executor.sh` emits JSONL rows whose `stderr_preview` field contains unescaped Windows paths like `workdir: C:\Users\jack.berrow\...`. The unescaped backslashes break JSON parsing (`Bad escaped character`). `JSON.parse` throws, the try/catch returns null, and the codex-status badge never renders.
+`getCodexStatus()` in `super-gsd/hooks/sgsd-statusline.js` uses `JSON.parse(lines[lines.length - 1])`. But `codex-executor.sh` emits JSONL rows whose `stderr_preview` field contains unescaped Windows paths like `workdir: C:\Users\user\...`. The unescaped backslashes break JSON parsing (`Bad escaped character`). `JSON.parse` throws, the try/catch returns null, and the codex-status badge never renders.
 
 ## The fix — regex extraction fallback
 

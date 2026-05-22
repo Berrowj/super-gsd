@@ -4,7 +4,7 @@ phase_name: Workflow Pack Completion
 milestone: v2.2
 roadmap: warp-integration
 created: 2026-04-29
-operator: jack.berrow
+operator: user
 status: in-progress
 deviation_from_standard: code+docs (workflow YAMLs + lint tool + docs index); FULL tier ATC; READ-ONLY invariant on lint tool
 unblocked: dispatched per Rule 15 ("continue with non-blocked work where possible") despite roadmap "partially blocked on M1" label -- workflow YAMLs ship correctly regardless of UI search-time validation; M1 confirms post-ship

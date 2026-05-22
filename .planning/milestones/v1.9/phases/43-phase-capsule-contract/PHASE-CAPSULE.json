@@ -57,22 +57,22 @@
   "decisions": [
     {
       "id": "RESEARCH-DERIV-1",
-      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.9\\phases\\43-phase-capsule-contract\\43-RESEARCH.md:open-derivations-row-1",
+      "source": "C:\\Users\\user\\GSDedits\\.planning\\milestones\\v1.9\\phases\\43-phase-capsule-contract\\43-RESEARCH.md:open-derivations-row-1",
       "text": "| Field | Source |"
     },
     {
       "id": "RESEARCH-DERIV-2",
-      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.9\\phases\\43-phase-capsule-contract\\43-RESEARCH.md:open-derivations-row-2",
+      "source": "C:\\Users\\user\\GSDedits\\.planning\\milestones\\v1.9\\phases\\43-phase-capsule-contract\\43-RESEARCH.md:open-derivations-row-2",
       "text": "| `consumers[]` | CONTEXT.md `unblocks:` + RESEARCH.md \"Phase N PACKET-XX\" / \"consumes\" / \"forward contract\" references |"
     },
     {
       "id": "RESEARCH-DERIV-3",
-      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.9\\phases\\43-phase-capsule-contract\\43-RESEARCH.md:open-derivations-row-3",
+      "source": "C:\\Users\\user\\GSDedits\\.planning\\milestones\\v1.9\\phases\\43-phase-capsule-contract\\43-RESEARCH.md:open-derivations-row-3",
       "text": "| `constraints[]` | RESEARCH.md cross-phase prose + audit:474-476 `future_constraints` pattern |"
     },
     {
       "id": "RESEARCH-DERIV-4",
-      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.9\\phases\\43-phase-capsule-contract\\43-RESEARCH.md:open-derivations-row-4",
+      "source": "C:\\Users\\user\\GSDedits\\.planning\\milestones\\v1.9\\phases\\43-phase-capsule-contract\\43-RESEARCH.md:open-derivations-row-4",
       "text": "| `extension_points[]` | RESEARCH.md \"may extend\" / \"may add\" / \"extension protocol\" prose -- copied verbatim with file:line |"
     }
   ],

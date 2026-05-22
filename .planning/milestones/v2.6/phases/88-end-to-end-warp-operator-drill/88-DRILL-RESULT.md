@@ -2,8 +2,8 @@
 phase: 88
 artifact: drill-result
 created: 2026-04-29T23:28:16Z
-operator: jack.berrow
-project_dir: C:\Users\jack.berrow\GSDedits
+operator: user
+project_dir: C:\Users\user\GSDedits
 summary: 7 PASS / 0 FAIL / 4 MANUAL-CHECK (of 11 steps)
 ---
 
@@ -11,7 +11,7 @@ summary: 7 PASS / 0 FAIL / 4 MANUAL-CHECK (of 11 steps)
 
 ## Run
 
-`& super-gsd/scripts/lib/run-operator-drill.ps1 -ProjectDir 'C:\Users\jack.berrow\GSDedits'`
+`& super-gsd/scripts/lib/run-operator-drill.ps1 -ProjectDir 'C:\Users\user\GSDedits'`
 
 ## Per-step verdicts
 
@@ -36,7 +36,7 @@ summary: 7 PASS / 0 FAIL / 4 MANUAL-CHECK (of 11 steps)
 These are not blockers per se — they require operator UI participation that
 this terminal-based drill cannot perform. Operator records here once verified:
 
-- [ ] Step 1: Warp window confirmed open in `C:\Users\jack.berrow\GSDedits`.
+- [ ] Step 1: Warp window confirmed open in `C:\Users\user\GSDedits`.
 - [ ] Step 4: Warp Agent prompt P1 (Current Status Explainer) returns response citing real MCP data (not hallucinated).
 - [ ] Step 6: Cockpit panes (sgsd1 / sgsd2 / sgsd3) opened in separate Windows Terminal window from the Warp tab where Claude is running.
 - [ ] Step 9: Warp Code Review panel opens; recent commits visible.
@@ -55,7 +55,7 @@ Operator decision: SHIPPED-clean (after manual checks confirmed) OR SHIPPED-WITH
 
 The drill script is idempotent. Re-run anytime via:
 ```powershell
-& super-gsd/scripts/lib/run-operator-drill.ps1 -ProjectDir 'C:\Users\jack.berrow\GSDedits'
+& super-gsd/scripts/lib/run-operator-drill.ps1 -ProjectDir 'C:\Users\user\GSDedits'
 ```
 
 Output captured here represents 2026-04-29T23:28:16Z snapshot.

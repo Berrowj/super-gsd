@@ -2,35 +2,35 @@
 
 **Status:** Draft · Session 1 (Problem capture + decision questions)
 **Date:** 2026-04-11
-**Author:** Jack Berrow + Claude (pair design session)
-**Scope:** The full Warp terminal workspace Jack runs when working with SGSD on any project. Panes, launch, agent visibility, gate-verdict surfacing, cross-pane coordination. Supersedes the narrower dashboard spec for layout questions; the dashboard spec stays as the sub-design for pane internals.
+**Author:** the operator + Claude (pair design session)
+**Scope:** The full Warp terminal workspace the operator runs when working with SGSD on any project. Panes, launch, agent visibility, gate-verdict surfacing, cross-pane coordination. Supersedes the narrower dashboard spec for layout questions; the dashboard spec stays as the sub-design for pane internals.
 
 **Related docs:**
 - `docs/superpowers/specs/2026-04-11-sgsd-dashboard-design.md` — sibling spec, narrower (just sgsd1/sgsd2 pane internals). This spec decides where those panes live and how they're spawned. The sibling decides what's inside them.
 - `super-gsd/skills/sgsd-orchestrate/SKILL.md` — orchestrator loop the workspace observes.
 - `super-gsd/tools/phase-verifier/phase-verifier.mjs` — mechanical verifier the workspace must surface verdicts from.
-- `C:/Users/jack.berrow/.warp/launch_configurations/gsdedits-workspace.yaml` — current (trial) launch config, to be replaced or evolved.
-- `C:/Users/jack.berrow/.gsd/tmux/tmux-clarity.sh` — existing tmux-based layout for comparison.
+- `C:/Users/user/.warp/launch_configurations/gsdedits-workspace.yaml` — current (trial) launch config, to be replaced or evolved.
+- `C:/Users/user/.gsd/tmux/tmux-clarity.sh` — existing tmux-based layout for comparison.
 
 ---
 
 ## 1. Problem statement
 
-Jack runs SGSD against two large codebases (`project-clarity-erp`, `GSDedits` itself, and occasional one-offs) and needs a Warp terminal workspace that:
+the operator runs SGSD against two large codebases (`project-clarity-erp`, `GSDedits` itself, and occasional one-offs) and needs a Warp terminal workspace that:
 
-1. **Lets him see every agent the orchestrator spawns, live, without ambiguity.** Current state: the main Claude pane shows a single stream of orchestrator output, sub-agents are embedded as tool-call blocks that scroll past, and the dashboard surfaces at most one recent agent. Jack cannot confidently answer "what is agent #3 doing right now?" at any given moment. This has been the #1 trust problem in the last five sessions.
+1. **Lets him see every agent the orchestrator spawns, live, without ambiguity.** Current state: the main Claude pane shows a single stream of orchestrator output, sub-agents are embedded as tool-call blocks that scroll past, and the dashboard surfaces at most one recent agent. the operator cannot confidently answer "what is agent #3 doing right now?" at any given moment. This has been the #1 trust problem in the last five sessions.
 
-2. **Runs the orchestrator, the dashboards, the dev server, the gate-verdict feed, and ad-hoc shells without Jack manually wiring panes every session.** The current state is: Jack launches panes by hand each time (or uses a partial launch config that opens a new Warp window instead of reusing the current one). Nothing is reusable across projects without copying YAML.
+2. **Runs the orchestrator, the dashboards, the dev server, the gate-verdict feed, and ad-hoc shells without the operator manually wiring panes every session.** The current state is: the operator launches panes by hand each time (or uses a partial launch config that opens a new Warp window instead of reusing the current one). Nothing is reusable across projects without copying YAML.
 
-3. **Surfaces gate verdicts and deferral-ledger entries loudly.** When Step 6.5 (ATC) or Step 6.6 (browser verify) blocks, the main Claude pane prints it in line with thousands of other tool outputs. Jack has scrolled past blockers. The workspace must promote these to a persistent visible surface Jack cannot miss.
+3. **Surfaces gate verdicts and deferral-ledger entries loudly.** When Step 6.5 (ATC) or Step 6.6 (browser verify) blocks, the main Claude pane prints it in line with thousands of other tool outputs. the operator has scrolled past blockers. The workspace must promote these to a persistent visible surface the operator cannot miss.
 
 4. **Handles the Windows / WSL / Warp reality honestly.** `gsd-browser` only has Linux+macOS binaries. `warp.exe` on Windows is the cloud Oz CLI, not a local pane controller. Programmatic split-pane inside the current Warp window is not available on Windows. tmux inside WSL is the only mechanism that supports "script spawns a new pane with a command". Any design that pretends Warp on Windows can do CLI-triggered splits is a lie.
 
 5. **Has one launch command per project.** Typing `sgsd-start clarity` (or equivalent) should open the complete workspace for that project — orchestrator pane, dashboard, narrative, liveness monitor, dev server, logs tail, and whatever else the design lands on — with correct project paths in every pane, in < 3 seconds.
 
-6. **Survives a context reset.** When Jack /pauses and comes back, the same layout spins up again, reads the checkpoint, and resumes without ceremony.
+6. **Survives a context reset.** When the operator /pauses and comes back, the same layout spins up again, reads the checkpoint, and resumes without ceremony.
 
-**Goal of this series:** design the terminal workspace Jack actually wants. Output is (a) a pane inventory, (b) a launch mechanism that works on Windows+Warp+WSL, (c) an agent-visibility strategy that solves the #1 trust problem, (d) a gate-verdict surface that is impossible to miss, and (e) a per-project profile system so clarity and gsdedits don't collide. The output of this series is code (PowerShell / bash / launch configs / small tools) committed to this repo, not just documents.
+**Goal of this series:** design the terminal workspace the operator actually wants. Output is (a) a pane inventory, (b) a launch mechanism that works on Windows+Warp+WSL, (c) an agent-visibility strategy that solves the #1 trust problem, (d) a gate-verdict surface that is impossible to miss, and (e) a per-project profile system so clarity and gsdedits don't collide. The output of this series is code (PowerShell / bash / launch configs / small tools) committed to this repo, not just documents.
 
 ---
 
@@ -39,7 +39,7 @@ Jack runs SGSD against two large codebases (`project-clarity-erp`, `GSDedits` it
 - **Not rewriting the orchestrator.** The orchestrator and its gates stay as they are. The workspace observes.
 - **Not rewriting the dashboard internals.** Covered by the sibling dashboard spec.
 - **Not picking a shell.** PowerShell, bash, or Node — we choose per-component based on what fits, not for consistency.
-- **Not supporting non-Warp terminals.** Jack uses Warp. If Warp has to defer a job to tmux-inside-WSL, fine. But Windows Terminal / alacritty / iTerm are out of scope.
+- **Not supporting non-Warp terminals.** the operator uses Warp. If Warp has to defer a job to tmux-inside-WSL, fine. But Windows Terminal / alacritty / iTerm are out of scope.
 - **Not designing for teams.** One user, one machine, two or three repos.
 - **Not theming.** Colour choices are a dashboard-spec concern.
 
@@ -47,9 +47,9 @@ Jack runs SGSD against two large codebases (`project-clarity-erp`, `GSDedits` it
 
 ## 3. The seven decisions (Session 1 output)
 
-This session produces **decisions**, not code. Every other session depends on these being locked. Jack edits this section inline (or on the phone call, or via ByteRover, whichever he prefers) until every row has a resolved value.
+This session produces **decisions**, not code. Every other session depends on these being locked. the operator edits this section inline (or on the phone call, or via ByteRover, whichever he prefers) until every row has a resolved value.
 
-Each decision has: the question, the candidate answers, the tradeoff summary, and a placeholder for Jack's choice.
+Each decision has: the question, the candidate answers, the tradeoff summary, and a placeholder for the operator’s choice.
 
 ### Decision D1 — Primary workspace substrate
 
@@ -70,11 +70,11 @@ Each decision has: the question, the candidate answers, the tradeoff summary, an
 - D1-C is the technically superior answer: tmux can spawn panes, name them, send keys, script layout recipes. You pay the "my terminal is now running tmux inside WSL inside Warp" ergonomic tax.
 - D1-D keeps some things in Warp's nice UX and moves the scripted panes into WSL. Increased complexity.
 
-**Jack's decision:** _<fill in — this is the keystone decision, everything else in this spec hangs on it>_
+**the operator’s decision:** _<fill in — this is the keystone decision, everything else in this spec hangs on it>_
 
 ### Decision D2 — Agent visibility strategy
 
-**Question:** How does Jack see what each orchestrator sub-agent is doing in real time?
+**Question:** How does the operator see what each orchestrator sub-agent is doing in real time?
 
 **Candidates:**
 
@@ -92,7 +92,7 @@ Each decision has: the question, the candidate answers, the tradeoff summary, an
 - D2-D is the "truest" option but rewrites the orchestrator's loop model fundamentally.
 
 **Recommendation:** D2-C.
-**Jack's decision:** _<fill in>_
+**the operator’s decision:** _<fill in>_
 
 ### Decision D3 — Pane inventory
 
@@ -110,7 +110,7 @@ Each decision has: the question, the candidate answers, the tradeoff summary, an
 | P6 | Dev Server | `npm run dev` for the active project | Yes | per-project |
 | P7 | Shell | Ad-hoc git / curl / whatever | Yes | - |
 
-**Jack's decisions:**
+**the operator’s decisions:**
 - D3.1 — Keep, cut, merge, or reorder which panes? _<fill>_
 - D3.2 — Any missing pane? (e.g. dedicated logs tail, separate test runner, ByteRover explorer?) _<fill>_
 - D3.3 — Min number of panes you're willing to have on screen at once? _<fill — e.g. 3 / 5 / 7>_
@@ -129,7 +129,7 @@ Each decision has: the question, the candidate answers, the tradeoff summary, an
 | D4-D | A hybrid: palette-triggered Warp launch config + tmux inside one tab | Yes | Yes | No |
 
 **Depends on:** D1.
-**Jack's decision:** _<fill — probably locked once D1 is answered>_
+**the operator’s decision:** _<fill — probably locked once D1 is answered>_
 
 ### Decision D5 — Gate verdict surfacing
 
@@ -144,7 +144,7 @@ Each decision has: the question, the candidate answers, the tradeoff summary, an
 - D5-E: All of the above.
 
 **Recommendation:** D5-A + D5-B (authoritative pane + system notification).
-**Jack's decision:** _<fill>_
+**the operator’s decision:** _<fill>_
 
 ### Decision D6 — Per-project profiles
 
@@ -158,11 +158,11 @@ Each decision has: the question, the candidate answers, the tradeoff summary, an
 - D6-D: An environment variable `SGSD_PROJECT_DIR` set per Warp tab.
 
 **Recommendation:** D6-B (explicit registry) + D6-C (cwd fallback).
-**Jack's decision:** _<fill>_
+**the operator’s decision:** _<fill>_
 
 ### Decision D7 — Session resume behaviour
 
-**Question:** When Jack types `sgsd-start clarity` after a context reset, what should happen?
+**Question:** When the operator types `sgsd-start clarity` after a context reset, what should happen?
 
 **Candidates:**
 - D7-A: Fresh workspace every time. Orchestrator reads checkpoint on startup.
@@ -170,7 +170,7 @@ Each decision has: the question, the candidate answers, the tradeoff summary, an
 - D7-C: Checkpoint determines whether to auto-`/sgsd-orchestrate go` on startup.
 
 **Recommendation:** D7-B (detect existing) + D7-C (auto-resume from checkpoint).
-**Jack's decision:** _<fill>_
+**the operator’s decision:** _<fill>_
 
 ---
 
@@ -194,7 +194,7 @@ D7 (session resume) ──► D4 (launch mechanism)
 
 ## 5. Open questions (for Session 1 interactive)
 
-Jack should answer these before I produce Session 2 (wireframe + launch script skeleton):
+the operator should answer these before I produce Session 2 (wireframe + launch script skeleton):
 
 1. **Q1 — D1 resolution.** Which substrate? Warp-only, Warp+tmux hybrid, or full tmux-inside-WSL? My recommendation: **D1-C (tmux inside WSL)** because D2-C (agent log replay) works best when panes can be scripted, and D1-A/B cannot script pane creation on Windows Warp. But it trades ergonomic familiarity. Your call.
 
@@ -214,7 +214,7 @@ Jack should answer these before I produce Session 2 (wireframe + launch script s
 
 ## 6. Session plan
 
-- **Session 1 (this doc):** Problem, seven decisions, open questions. **Output:** this file with Jack's answers filled into D1–D7 and Q1–Q7.
+- **Session 1 (this doc):** Problem, seven decisions, open questions. **Output:** this file with the operator’s answers filled into D1–D7 and Q1–Q7.
 - **Session 2:** Pane wireframe + launch script skeleton. Based on the substrate choice in D1, I produce (a) an ASCII mockup of the screen layout at three terminal sizes (1920×1080, 2560×1440, laptop), (b) a skeleton `sgsd-start` script that creates the workspace, (c) stubs for each new pane (liveness monitor, gate verdict board).
 - **Session 3:** Agent visibility wire-up. Implement D2-C (the orchestrator-writes-live-log option) end-to-end: edit `sgsd-orchestrate` SKILL.md to append on every TaskCreate/TaskUpdate/BLOCKER; build the consumer pane(s) that replay the file.
 - **Session 4:** Gate verdict surface. Implement D5. New `sgsd4` pane reading BROWSER-REVIEW.md + ATC-REVIEW.md + DEFERRAL-LEDGER.md. Notifications if D5-B wins.

@@ -73,7 +73,7 @@
   "decisions": [
     {
       "id": "34-locked",
-      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.7\\phases\\34-canonical-review-ledger\\34-CONTEXT.md:locked-decision",
+      "source": "C:\\Users\\user\\GSDedits\\.planning\\milestones\\v1.7\\phases\\34-canonical-review-ledger\\34-CONTEXT.md:locked-decision",
       "text": "\nNONE for Phase 34 in `.planning/discussions/2026-04-26-mass-discuss.md`\n(default-auto). 16 derivation calls all locked in 34-RESEARCH.md \u00a711.\n"
     }
   ],

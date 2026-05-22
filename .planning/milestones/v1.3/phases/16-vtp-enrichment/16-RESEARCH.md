@@ -40,10 +40,10 @@ core-GSD surface (VTP-06 target is invalid as written).
 
 ## VTP MCP Tool Surface Verification
 
-All 11 tools declared in CONTEXT.md canonical_refs were located in `C:\Users\jack.berrow\Voice-Text-Plan\src\mcp\tools\*.ts` via `registerTool(` scan. `.mcp.json` wires the server as:
+All 11 tools declared in CONTEXT.md canonical_refs were located in `C:\Users\user\Voice-Text-Plan\src\mcp\tools\*.ts` via `registerTool(` scan. `.mcp.json` wires the server as:
 
 ```json
-{ "vtp-kb": { "command": "node", "args": ["C:/Users/jack.berrow/Voice-Text-Plan/dist/cli.js", "mcp"] } }
+{ "vtp-kb": { "command": "node", "args": ["C:/Users/user/Voice-Text-Plan/dist/cli.js", "mcp"] } }
 ```
 
 No MCP-config changes required. Every tool below verified via `Grep registerTool\(` + file read.
@@ -558,30 +558,30 @@ From `./CLAUDE.md` (Super GSD Orchestrator) and `~/.claude/CLAUDE.md` (global):
 ## Sources
 
 ### Primary (HIGH confidence — read directly)
-- `C:\Users\jack.berrow\Voice-Text-Plan\src\mcp\tools\intent-routing.ts` — all 9 intent-routing tool schemas
-- `C:\Users\jack.berrow\Voice-Text-Plan\src\mcp\tools\service-enrichment.ts` — advise tool schema
-- `C:\Users\jack.berrow\Voice-Text-Plan\src\mcp\tools\substrate.ts` — substrate + evidence-bundle + get-document schemas
-- `C:\Users\jack.berrow\Voice-Text-Plan\src\mcp\tools\research.ts` — research tool registrations (verified names)
-- `C:\Users\jack.berrow\Voice-Text-Plan\src\mcp\tools\wiki.ts` — wiki tool registrations (verified names)
-- `C:\Users\jack.berrow\Voice-Text-Plan\reports\sgsd-triage-vtp-operator-guide.md` — full operating guide
-- `C:\Users\jack.berrow\Voice-Text-Plan\reports\sgsd-triage-vtp-mcp-payloads.md` — request/response examples for all 11 tools
-- `C:\Users\jack.berrow\GSDedits\super-gsd\skills\sgsd-complete-milestone\SKILL.md` — VTP-integration precedent
-- `C:\Users\jack.berrow\GSDedits\super-gsd\skills\sgsd-triage\SKILL.md` — Step 0 injection site
-- `C:\Users\jack.berrow\GSDedits\super-gsd\skills\sgsd-sepl\SKILL.md` — sepl structure
-- `C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-sepl-propose.sh` — proposal-frontmatter source of truth
-- `C:\Users\jack.berrow\GSDedits\super-gsd\scripts\lib\gates-registry.cjs` — CJS module pattern (singleton + cache)
-- `C:\Users\jack.berrow\GSDedits\super-gsd\scripts\lib\edge-guard.cjs` — CJS module pattern (JSONL writer + --self-test)
-- `C:\Users\jack.berrow\GSDedits\super-gsd\scripts\lib\classifier-cache.cjs` — CJS module pattern (sidecar, mtime-invalidated)
-- `C:\Users\jack.berrow\GSDedits\super-gsd\scripts\lib\context-gauge.cjs` — CJS module pattern (zero-dep pure-function)
-- `C:\Users\jack.berrow\GSDedits\custom-gsd-extract\claude-agents\gsd-phase-researcher.md` — agent frontmatter shape
-- `C:\Users\jack.berrow\GSDedits\custom-gsd-extract\claude-agents\gsd-planner.md` — agent frontmatter shape
-- `C:\Users\jack.berrow\GSDedits\custom-gsd-extract\claude-agents\gsd-assumptions-analyzer.md` — agent frontmatter shape
-- `C:\Users\jack.berrow\GSDedits\.planning\config.json` — existing workflow.* keys
-- `C:\Users\jack.berrow\GSDedits\.planning\metrics\*.jsonl` — 8 telemetry files for house-shape audit
-- `C:\Users\jack.berrow\GSDedits\.mcp.json` — VTP server wiring
+- `C:\Users\user\Voice-Text-Plan\src\mcp\tools\intent-routing.ts` — all 9 intent-routing tool schemas
+- `C:\Users\user\Voice-Text-Plan\src\mcp\tools\service-enrichment.ts` — advise tool schema
+- `C:\Users\user\Voice-Text-Plan\src\mcp\tools\substrate.ts` — substrate + evidence-bundle + get-document schemas
+- `C:\Users\user\Voice-Text-Plan\src\mcp\tools\research.ts` — research tool registrations (verified names)
+- `C:\Users\user\Voice-Text-Plan\src\mcp\tools\wiki.ts` — wiki tool registrations (verified names)
+- `C:\Users\user\Voice-Text-Plan\reports\sgsd-triage-vtp-operator-guide.md` — full operating guide
+- `C:\Users\user\Voice-Text-Plan\reports\sgsd-triage-vtp-mcp-payloads.md` — request/response examples for all 11 tools
+- `C:\Users\user\GSDedits\super-gsd\skills\sgsd-complete-milestone\SKILL.md` — VTP-integration precedent
+- `C:\Users\user\GSDedits\super-gsd\skills\sgsd-triage\SKILL.md` — Step 0 injection site
+- `C:\Users\user\GSDedits\super-gsd\skills\sgsd-sepl\SKILL.md` — sepl structure
+- `C:\Users\user\GSDedits\super-gsd\scripts\sgsd-sepl-propose.sh` — proposal-frontmatter source of truth
+- `C:\Users\user\GSDedits\super-gsd\scripts\lib\gates-registry.cjs` — CJS module pattern (singleton + cache)
+- `C:\Users\user\GSDedits\super-gsd\scripts\lib\edge-guard.cjs` — CJS module pattern (JSONL writer + --self-test)
+- `C:\Users\user\GSDedits\super-gsd\scripts\lib\classifier-cache.cjs` — CJS module pattern (sidecar, mtime-invalidated)
+- `C:\Users\user\GSDedits\super-gsd\scripts\lib\context-gauge.cjs` — CJS module pattern (zero-dep pure-function)
+- `C:\Users\user\GSDedits\custom-gsd-extract\claude-agents\gsd-phase-researcher.md` — agent frontmatter shape
+- `C:\Users\user\GSDedits\custom-gsd-extract\claude-agents\gsd-planner.md` — agent frontmatter shape
+- `C:\Users\user\GSDedits\custom-gsd-extract\claude-agents\gsd-assumptions-analyzer.md` — agent frontmatter shape
+- `C:\Users\user\GSDedits\.planning\config.json` — existing workflow.* keys
+- `C:\Users\user\GSDedits\.planning\metrics\*.jsonl` — 8 telemetry files for house-shape audit
+- `C:\Users\user\GSDedits\.mcp.json` — VTP server wiring
 
 ### Secondary (MEDIUM confidence — cited from CONTEXT.md)
-- `C:\Users\jack.berrow\Voice-Text-Plan\reports\sgsd-triage-vtp-routing-handoff.md` — not directly read this session (trusted via CONTEXT.md reference)
+- `C:\Users\user\Voice-Text-Plan\reports\sgsd-triage-vtp-routing-handoff.md` — not directly read this session (trusted via CONTEXT.md reference)
 - VTP Phase 31 (substrate) + Phase 32 (intent routing) ship history — trusted via prior-art block
 
 ### Tertiary (LOW confidence — none this phase)

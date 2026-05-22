@@ -123,7 +123,7 @@ Read-only diagnostic + utility tools shipped across v2.2-v2.5:
 ## Validate
 
 ```bash
-node super-gsd/tools/warp-asset-validator/check.cjs --project C:\Users\jack.berrow\GSDedits
+node super-gsd/tools/warp-asset-validator/check.cjs --project C:\Users\user\GSDedits
 ```
 
 Validates every cited path exists. Exit 0 = clean; exit 1 = missing path.

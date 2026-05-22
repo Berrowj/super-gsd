@@ -748,7 +748,7 @@ function loadIndexSnippets(query, opts) {
 
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
-| A1 | 44 existing capsules need backfill | §"Lifecycle Backfill" | Backfill scope mis-sized — `find /c/Users/jack.berrow/GSDedits/.planning/milestones -name PHASE-CAPSULE.json | wc -l` returned 44, but new captures since research time may shift this number ±1-2. **MITIGATION:** Backfill task uses dynamic discovery (`fs.readdirSync` walk); doesn't hardcode count. [VERIFIED: bash count=44 at research time] |
+| A1 | 44 existing capsules need backfill | §"Lifecycle Backfill" | Backfill scope mis-sized — `find /c/Users/user/GSDedits/.planning/milestones -name PHASE-CAPSULE.json | wc -l` returned 44, but new captures since research time may shift this number ±1-2. **MITIGATION:** Backfill task uses dynamic discovery (`fs.readdirSync` walk); doesn't hardcode count. [VERIFIED: bash count=44 at research time] |
 | A2 | Promotion threshold "≥3 evidence rows" for raw→capsule | §4.2 | Phase 51 BENCH-07 may reveal this threshold either too loose (poisoned thoughts pass) or too tight (legitimate reuse blocked). **MITIGATION:** Threshold is config-driven via lifecycle-config block; tunable without code change. [ASSUMED] |
 | A3 | Promotion threshold "≥3 distinct phases of reuse" for thought→rule | §4.2 | Same as A2. **MITIGATION:** Same. [ASSUMED] |
 | A4 | Repair-loop max 50 per invocation prevents infinite loops | §6 + Pitfall 6 | A pathological complaint stream could still saturate. **MITIGATION:** `since_ts` cursor advances monotonically; even at 50 per call, eventual progress is guaranteed. [ASSUMED] |

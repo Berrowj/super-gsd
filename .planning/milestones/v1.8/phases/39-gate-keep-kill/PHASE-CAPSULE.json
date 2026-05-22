@@ -75,7 +75,7 @@
   "decisions": [
     {
       "id": "39-locked",
-      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.8\\phases\\39-gate-keep-kill\\39-CONTEXT.md:locked-decision",
+      "source": "C:\\Users\\user\\GSDedits\\.planning\\milestones\\v1.8\\phases\\39-gate-keep-kill\\39-CONTEXT.md:locked-decision",
       "text": "\nMechanical rubric only; manual override at milestone close (operator\ninspects rubric output before applying any kill recommendations).\n"
     }
   ],

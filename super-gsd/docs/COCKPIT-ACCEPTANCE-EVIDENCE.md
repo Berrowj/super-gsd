@@ -49,7 +49,7 @@ The active project repo currently has a private knowledge bank installed,
 so the boot script emits the **present** branch:
 
 ```
-[OK] Private knowledge bank present (C:/Users/jack.berrow/Voice-Text-Plan)
+[OK] Private knowledge bank present (C:/Users/user/Voice-Text-Plan)
 ```
 
 Both branches of the KNOW-01 contract are valid evidence:

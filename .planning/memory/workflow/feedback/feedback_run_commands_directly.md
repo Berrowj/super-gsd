@@ -6,7 +6,7 @@ originSessionId: 383f3687-d752-4f3b-8935-5c48d88dd028
 ---
 Run PowerShell and shell commands directly via `powershell.exe -NoProfile -Command "..."` (or plain bash) through the Bash tool. Do NOT default to giving the operator paste-blocks to run in their own terminal.
 
-**Why:** Operator (Jack, 2026-04-20) called out that the middleman copy-paste pattern — Claude gives a command, operator pastes into PowerShell, pastes output back — is annoying and unnecessary. Claude Code's Bash tool can invoke `powershell.exe -Command "..."` directly; results come back in the tool result. This was a pattern choice, not a platform limitation.
+**Why:** Operator (the operator, 2026-04-20) called out that the middleman copy-paste pattern — Claude gives a command, operator pastes into PowerShell, pastes output back — is annoying and unnecessary. Claude Code's Bash tool can invoke `powershell.exe -Command "..."` directly; results come back in the tool result. This was a pattern choice, not a platform limitation.
 
 **How to apply:** Default to direct execution. Hand paste-blocks to the operator ONLY when:
 1. The operation is destructive and operator should sanity-check first (`rm -rf`, `git reset --hard`, `git push --force`, anything that could expose credentials).

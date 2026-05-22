@@ -113,7 +113,7 @@ gaps:
 
 **Fix actions (in order):**
 1. Edit line 894 of `custom-gsd-extract/claude-agents/gsd-planner.md`: replace `task.goal` with `task.hypothesis`
-2. Run: `cp "C:/Users/jack.berrow/GSDedits/custom-gsd-extract/claude-agents/gsd-planner.md" ~/.claude/agents/gsd-planner.md`
+2. Run: `cp "C:/Users/user/GSDedits/custom-gsd-extract/claude-agents/gsd-planner.md" ~/.claude/agents/gsd-planner.md`
 
 ---
 

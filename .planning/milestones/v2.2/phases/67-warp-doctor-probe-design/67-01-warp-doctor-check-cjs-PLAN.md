@@ -56,7 +56,7 @@ Seeded from Phase 63 audit findings:
 | 6 | Implement JSON renderer (`--json` flag) | Stable schema: `{ok, schema_version, ts, probes:[...], summary:{...}}` |
 | 7 | Implement selfTest with 12-15 assertions | A1=PROBE_NAMES frozen+length; A2=REASON_NOTES frozen; A3-A4=bad input degraded; A5=READ-ONLY scan; A6=ASCII-only; A7-A14=per-probe shape |
 | 8 | Run `node run-self-test.cjs` and capture output | Exit 0; all assertions PASS |
-| 9 | Run `node check.cjs --project C:\Users\jack.berrow\GSDedits` and capture output | Exit 0 or 1 with actionable; no fs writes |
+| 9 | Run `node check.cjs --project C:\Users\user\GSDedits` and capture output | Exit 0 or 1 with actionable; no fs writes |
 | 10 | Verify READ-ONLY invariant via git diff before/after live --run | `git status` byte-identical |
 
 ## Surgical Constraint (Karpathy)
@@ -79,7 +79,7 @@ node super-gsd/tools/warp-doctor/run-self-test.cjs
 #   no .warp/* files modified
 #   no super-gsd/* files modified (other than the 2 new tool files)
 
-node super-gsd/tools/warp-doctor/check.cjs --project C:\Users\jack.berrow\GSDedits
+node super-gsd/tools/warp-doctor/check.cjs --project C:\Users\user\GSDedits
 # Expected:
 #   table emitted with 16 probes
 #   summary line showing N PASS / N MISSING / N MANUAL-CHECK / N N-A

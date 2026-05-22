@@ -77,7 +77,7 @@ Every phase close (and milestone close) generates a validated Operator Chronicle
 ## First Execution Command
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
+cd C:\Users\user\GSDedits
 /sgsd-orchestrate auto
 ```
 

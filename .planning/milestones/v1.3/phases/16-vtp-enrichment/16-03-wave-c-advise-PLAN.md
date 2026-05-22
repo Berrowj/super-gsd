@@ -6,10 +6,10 @@ wave: C
 depends_on:
   - 16-01
 files_modified:
-  - C:\Users\jack.berrow\GSDedits\super-gsd\skills\sgsd-vtp-advise\SKILL.md
-  - C:\Users\jack.berrow\GSDedits\super-gsd\skills\sgsd-sepl\SKILL.md
-  - C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-sepl-propose.sh
-  - C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-sepl-propose.test.sh
+  - C:\Users\user\GSDedits\super-gsd\skills\sgsd-vtp-advise\SKILL.md
+  - C:\Users\user\GSDedits\super-gsd\skills\sgsd-sepl\SKILL.md
+  - C:\Users\user\GSDedits\super-gsd\scripts\sgsd-sepl-propose.sh
+  - C:\Users\user\GSDedits\super-gsd\scripts\sgsd-sepl-propose.test.sh
 autonomous: true
 requirements:
   - VTP-08a
@@ -78,11 +78,11 @@ Output: 1 new skill file + 1 sepl skill patch + 1 sepl propose-script patch + 1 
 </execution_context>
 
 <context>
-@C:\Users\jack.berrow\GSDedits\.planning\STATE.md
-@C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-CONTEXT.md
-@C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-RESEARCH.md
-@C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md
-@C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-01-SUMMARY.md
+@C:\Users\user\GSDedits\.planning\STATE.md
+@C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-CONTEXT.md
+@C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-RESEARCH.md
+@C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md
+@C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-01-SUMMARY.md
 
 <interfaces>
 <!-- Verbatim contracts extracted from RESEARCH.md + PATTERNS.md — executor uses these directly -->
@@ -211,12 +211,12 @@ Backward compat: `sgsd-sepl-commit.sh` uses `grep ^status:` — agnostic to addi
 
 <task type="auto">
   <name>Task 1: Create /sgsd-vtp-advise standalone skill (VTP-08a)</name>
-  <files>C:\Users\jack.berrow\GSDedits\super-gsd\skills\sgsd-vtp-advise\SKILL.md</files>
+  <files>C:\Users\user\GSDedits\super-gsd\skills\sgsd-vtp-advise\SKILL.md</files>
   <read_first>
-    - C:\Users\jack.berrow\GSDedits\super-gsd\skills\sgsd-complete-milestone\SKILL.md (full file — VTP-tool frontmatter + tiered VTP call pattern + SUMMARY.md output shape)
-    - C:\Users\jack.berrow\GSDedits\super-gsd\skills\sgsd-muda-audit\SKILL.md (first 40 lines — standalone-skill `<objective>` + `<process>` body shape)
-    - C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md (§sgsd-vtp-advise section)
-    - C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-RESEARCH.md (§VTP MCP Tool Surface row 10 + Risk 4 on 9-enum)
+    - C:\Users\user\GSDedits\super-gsd\skills\sgsd-complete-milestone\SKILL.md (full file — VTP-tool frontmatter + tiered VTP call pattern + SUMMARY.md output shape)
+    - C:\Users\user\GSDedits\super-gsd\skills\sgsd-muda-audit\SKILL.md (first 40 lines — standalone-skill `<objective>` + `<process>` body shape)
+    - C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md (§sgsd-vtp-advise section)
+    - C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-RESEARCH.md (§VTP MCP Tool Surface row 10 + Risk 4 on 9-enum)
   </read_first>
   <action>
 Create `super-gsd/skills/sgsd-vtp-advise/SKILL.md` — a new standalone skill. The parent directory `super-gsd/skills/sgsd-vtp-advise/` does NOT exist yet — first create it via Bash `mkdir -p`, then write the file.
@@ -378,7 +378,7 @@ Echo `"Advise report written to .planning/advise/{YYYY-MM-DD}-{slug}.md"` and ex
 **Commit:** `feat(16-03): add /sgsd-vtp-advise standalone skill (VTP-08a)`
   </action>
   <verify>
-    <automated>test -f "C:/Users/jack.berrow/GSDedits/super-gsd/skills/sgsd-vtp-advise/SKILL.md" &amp;&amp; grep -q "name: sgsd-vtp-advise" "C:/Users/jack.berrow/GSDedits/super-gsd/skills/sgsd-vtp-advise/SKILL.md" &amp;&amp; grep -q "mcp__vtp-kb__vtp_advise_service_enrichment" "C:/Users/jack.berrow/GSDedits/super-gsd/skills/sgsd-vtp-advise/SKILL.md" &amp;&amp; grep -q "retrieval, routing, evaluation, tooling, memory, observability, safety, workflow, planning" "C:/Users/jack.berrow/GSDedits/super-gsd/skills/sgsd-vtp-advise/SKILL.md" &amp;&amp; grep -q "vtp-context-composer" "C:/Users/jack.berrow/GSDedits/super-gsd/skills/sgsd-vtp-advise/SKILL.md"</automated>
+    <automated>test -f "C:/Users/user/GSDedits/super-gsd/skills/sgsd-vtp-advise/SKILL.md" &amp;&amp; grep -q "name: sgsd-vtp-advise" "C:/Users/user/GSDedits/super-gsd/skills/sgsd-vtp-advise/SKILL.md" &amp;&amp; grep -q "mcp__vtp-kb__vtp_advise_service_enrichment" "C:/Users/user/GSDedits/super-gsd/skills/sgsd-vtp-advise/SKILL.md" &amp;&amp; grep -q "retrieval, routing, evaluation, tooling, memory, observability, safety, workflow, planning" "C:/Users/user/GSDedits/super-gsd/skills/sgsd-vtp-advise/SKILL.md" &amp;&amp; grep -q "vtp-context-composer" "C:/Users/user/GSDedits/super-gsd/skills/sgsd-vtp-advise/SKILL.md"</automated>
   </verify>
   <acceptance_criteria>
     - File `super-gsd/skills/sgsd-vtp-advise/SKILL.md` exists (parent directory created).
@@ -397,16 +397,16 @@ Echo `"Advise report written to .planning/advise/{YYYY-MM-DD}-{slug}.md"` and ex
 <task type="auto">
   <name>Task 2: Extend sgsd-sepl with major-proposal auto-advise (VTP-08b) + ship bash test</name>
   <files>
-    C:\Users\jack.berrow\GSDedits\super-gsd\skills\sgsd-sepl\SKILL.md
-    C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-sepl-propose.sh
-    C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-sepl-propose.test.sh
+    C:\Users\user\GSDedits\super-gsd\skills\sgsd-sepl\SKILL.md
+    C:\Users\user\GSDedits\super-gsd\scripts\sgsd-sepl-propose.sh
+    C:\Users\user\GSDedits\super-gsd\scripts\sgsd-sepl-propose.test.sh
   </files>
   <read_first>
-    - C:\Users\jack.berrow\GSDedits\super-gsd\skills\sgsd-sepl\SKILL.md (full file — current allowed-tools + body structure)
-    - C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-sepl-propose.sh (full file — especially lines 131-181 where HEREDOC + mkdir live)
-    - C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-sepl-commit.sh (first 50 lines — confirm `grep ^status:` agnostic to extra keys)
-    - C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-RESEARCH.md (§sepl Major-Proposal Detection Feasibility + §Risk 5 + §Risk 7)
-    - C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md (§sgsd-sepl SKILL.md section)
+    - C:\Users\user\GSDedits\super-gsd\skills\sgsd-sepl\SKILL.md (full file — current allowed-tools + body structure)
+    - C:\Users\user\GSDedits\super-gsd\scripts\sgsd-sepl-propose.sh (full file — especially lines 131-181 where HEREDOC + mkdir live)
+    - C:\Users\user\GSDedits\super-gsd\scripts\sgsd-sepl-commit.sh (first 50 lines — confirm `grep ^status:` agnostic to extra keys)
+    - C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-RESEARCH.md (§sepl Major-Proposal Detection Feasibility + §Risk 5 + §Risk 7)
+    - C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md (§sgsd-sepl SKILL.md section)
   </read_first>
   <action>
 **File 1: `super-gsd/skills/sgsd-sepl/SKILL.md` — extend allowed-tools + document branch**
@@ -705,7 +705,7 @@ fi
 - `test(16-03): add sgsd-sepl-propose bash test for major-detection coverage`
   </action>
   <verify>
-    <automated>grep -q "mcp__vtp-kb__vtp_advise_service_enrichment" "C:/Users/jack.berrow/GSDedits/super-gsd/skills/sgsd-sepl/SKILL.md" &amp;&amp; grep -q "is_major_proposal" "C:/Users/jack.berrow/GSDedits/super-gsd/scripts/sgsd-sepl-propose.sh" &amp;&amp; grep -q "MAJOR_REASON" "C:/Users/jack.berrow/GSDedits/super-gsd/scripts/sgsd-sepl-propose.sh" &amp;&amp; grep -q "vtp_advise_applied" "C:/Users/jack.berrow/GSDedits/super-gsd/scripts/sgsd-sepl-propose.sh" &amp;&amp; test -x "C:/Users/jack.berrow/GSDedits/super-gsd/scripts/sgsd-sepl-propose.test.sh" &amp;&amp; bash "C:/Users/jack.berrow/GSDedits/super-gsd/scripts/sgsd-sepl-propose.test.sh"</automated>
+    <automated>grep -q "mcp__vtp-kb__vtp_advise_service_enrichment" "C:/Users/user/GSDedits/super-gsd/skills/sgsd-sepl/SKILL.md" &amp;&amp; grep -q "is_major_proposal" "C:/Users/user/GSDedits/super-gsd/scripts/sgsd-sepl-propose.sh" &amp;&amp; grep -q "MAJOR_REASON" "C:/Users/user/GSDedits/super-gsd/scripts/sgsd-sepl-propose.sh" &amp;&amp; grep -q "vtp_advise_applied" "C:/Users/user/GSDedits/super-gsd/scripts/sgsd-sepl-propose.sh" &amp;&amp; test -x "C:/Users/user/GSDedits/super-gsd/scripts/sgsd-sepl-propose.test.sh" &amp;&amp; bash "C:/Users/user/GSDedits/super-gsd/scripts/sgsd-sepl-propose.test.sh"</automated>
   </verify>
   <acceptance_criteria>
     - `super-gsd/skills/sgsd-sepl/SKILL.md` allowed-tools contains `mcp__vtp-kb__vtp_advise_service_enrichment` AND `mcp__vtp-kb__vtp_route_and_retrieve`.

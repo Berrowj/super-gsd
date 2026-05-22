@@ -29,9 +29,9 @@ Live run timestamp: `2026-04-29T03:05:14.672Z`
 | 7  | `docker_optional`           | present  | Docker version 29.4.0, build 9d7ad9f                                 | present_version_captured        |
 | 8  | `codex_cli_optional`        | optional | null                                                                 | optional_not_installed          |
 | 9  | `claude_cli_optional`       | optional | null                                                                 | optional_not_installed          |
-| 10 | `better_sqlite3_optional`   | present  | C:\Users\jack.berrow\GSDedits\node_modules\better-sqlite3\lib\index.js | present_no_version_command      |
-| 11 | `planning_dir_present`      | present  | C:\Users\jack.berrow\GSDedits\.planning                              | read_only_filesystem_probe      |
-| 12 | `super_gsd_tree_present`    | present  | C:\Users\jack.berrow\GSDedits\super-gsd                              | read_only_filesystem_probe      |
+| 10 | `better_sqlite3_optional`   | present  | C:\Users\user\GSDedits\node_modules\better-sqlite3\lib\index.js | present_no_version_command      |
+| 11 | `planning_dir_present`      | present  | C:\Users\user\GSDedits\.planning                              | read_only_filesystem_probe      |
+| 12 | `super_gsd_tree_present`    | present  | C:\Users\user\GSDedits\super-gsd                              | read_only_filesystem_probe      |
 
 **Summary:** total=12, present=9, missing=0, optional=3,
 `mandatory_floor_met=true` (all of {node_version, npm, git} present and
@@ -52,8 +52,8 @@ Live run timestamp: `2026-04-29T03:05:24Z` -> `2026-04-29T03:05:48Z`
 ```
 ============================================================
 clean-room install walk
-  repo_root  = /c/Users/jack.berrow/GSDedits
-  tmpdir     = /c/Users/JACK~1.BER/AppData/Local/Temp/sgsd-cleanroom-bw7v2u
+  repo_root  = /c/Users/user/GSDedits
+  tmpdir     = /c/Users/USER~1/AppData/Local/Temp/sgsd-cleanroom-bw7v2u
   dry_run    = false
   keep_tmp   = false
   ts_started = 2026-04-29T03:05:24Z

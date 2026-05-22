@@ -14,7 +14,7 @@ key_files:
   created: []
   modified:
     - "super-gsd/skills/sgsd-orchestrate/SKILL.md"
-    - "/c/Users/jack.berrow/.claude/agents/gsd-planner.md"
+    - "/c/Users/user/.claude/agents/gsd-planner.md"
 decisions:
   - "Framework file gsd-planner.md is canonical at ~/.claude/agents/gsd-planner.md (outside this repo, gitignored extract at custom-gsd-extract/)"
   - "Rule 8.5 placed as Step 6.2 (between dispatch letter e and f) with ANCHOR marker for 11-04/05"
@@ -78,7 +78,7 @@ Added to `super-gsd/skills/sgsd-orchestrate/SKILL.md`:
 - **Found during:** Task 1
 - **Issue:** `custom-gsd-extract/claude-agents/gsd-planner.md` is listed in the plan's `files_modified` but the directory is gitignored. The canonical gsd-planner.md lives at `~/.claude/agents/gsd-planner.md` (GSD framework, outside this repo).
 - **Fix:** Applied changes to the canonical file at `~/.claude/agents/gsd-planner.md` and synced the local extract copy. Task 1 changes are correct and operational — the planner agent will use the canonical file at invocation time.
-- **Files modified:** `/c/Users/jack.berrow/.claude/agents/gsd-planner.md` (canonical, not tracked in this repo)
+- **Files modified:** `/c/Users/user/.claude/agents/gsd-planner.md` (canonical, not tracked in this repo)
 - **Commit:** N/A — framework file is outside git scope of this repo. Task 2 (SKILL.md) committed at c582d23.
 
 **Note for 11-04/05:** The ANCHOR marker `<!-- ANCHOR: RULE-8.5 -->` is on line 185 of SKILL.md. Subsequent plans should add their sections after Step 6.2 using this marker as a pattern-match target.
@@ -93,6 +93,6 @@ No new network endpoints, auth paths, file access patterns, or schema changes at
 
 ## Self-Check: PASSED
 
-- `/c/Users/jack.berrow/.claude/agents/gsd-planner.md` contains `<fix_schema_mode>` section: FOUND
+- `/c/Users/user/.claude/agents/gsd-planner.md` contains `<fix_schema_mode>` section: FOUND
 - `super-gsd/skills/sgsd-orchestrate/SKILL.md` contains "Rule 8.5" / "6.2": FOUND
 - Task 2 commit c582d23: FOUND (`git log --oneline | grep c582d23`)

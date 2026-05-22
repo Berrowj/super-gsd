@@ -9,4 +9,4 @@ tags:
 arguments:
   - name: project_dir
     description: Project root containing .planning and super-gsd.
-    default_value: 'C:\Users\jack.berrow\GSDedits'
+    default_value: 'C:\Users\user\GSDedits'

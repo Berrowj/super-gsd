@@ -35,7 +35,7 @@ The core principle from both research and books is:
 
 Input report:
 
-`C:\Users\jack.berrow\GSDedits\.planning\analyses\2026-04-27-agent-context-bloat-audit.md`
+`C:\Users\user\GSDedits\.planning\analyses\2026-04-27-agent-context-bloat-audit.md`
 
 Research pass:
 

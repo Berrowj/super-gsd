@@ -53,7 +53,7 @@ SGSD: Remote Monitor Packet  -> capture this block before sharing the Warp
 ## Validation
 
 ```bash
-node super-gsd/tools/warp-workflow-lint/lint.cjs --project C:\Users\jack.berrow\GSDedits
+node super-gsd/tools/warp-workflow-lint/lint.cjs --project C:\Users\user\GSDedits
 # Acceptance:
 #   13/13 valid
 #   all 10 search terms covered (start, auto, cockpit, token, recovery,
@@ -76,7 +76,7 @@ node super-gsd/tools/warp-workflow-lint/lint.cjs --self-test
    arguments:
      - name: project_dir
        description: Project root containing .planning and super-gsd.
-       default_value: 'C:\Users\jack.berrow\GSDedits'
+       default_value: 'C:\Users\user\GSDedits'
    ```
 2. Run `node super-gsd/tools/warp-workflow-lint/lint.cjs --project ...` and confirm exit 0.
 3. Re-index Warp's command palette (typically auto-detected; if not, restart Warp).

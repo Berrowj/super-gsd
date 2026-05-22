@@ -1,7 +1,7 @@
 # Warp Ecosystem Atlas For SGSD
 
 Date: 2026-04-29
-Project: C:\Users\jack.berrow\GSDedits
+Project: C:\Users\user\GSDedits
 Purpose: understand Warp deeply before deciding how SGSD should integrate with it.
 
 ## Executive Summary

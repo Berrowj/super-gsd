@@ -14,7 +14,7 @@ the Cockpit 2.0 milestone in auto mode.
 For a full unattended roadmap run from v1.6 through v2.1, use this file instead:
 
 ```text
-C:\Users\jack.berrow\GSDedits\.planning\milestones\CLAUDE-AUTO-HANDOVER-FULL-ROADMAP.md
+C:\Users\user\GSDedits\.planning\milestones\CLAUDE-AUTO-HANDOVER-FULL-ROADMAP.md
 ```
 
 ## Operator Intent
@@ -64,31 +64,31 @@ after Claude starts.
 Read these first, in this order:
 
 ```text
-C:\Users\jack.berrow\GSDedits\CLAUDE.md
-C:\Users\jack.berrow\GSDedits\.planning\STATE.md
-C:\Users\jack.berrow\GSDedits\.planning\ROADMAP.md
-C:\Users\jack.berrow\GSDedits\.planning\milestones\CLAUDE-AUTO-HANDOVER-v1.6-COCKPIT-2.0.md
-C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.6-PROPOSED-REQUIREMENTS.md
-C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.6-PROPOSED-PHASES.md
-C:\Users\jack.berrow\GSDedits\.planning\milestones\COCKPIT-2.0-SCOPE.md
-C:\Users\jack.berrow\GSDedits\.planning\milestones\VIO-ROADMAP-ENRICHMENT.md
-C:\Users\jack.berrow\GSDedits\.planning\milestones\HANDBOOK-FUTURE-IMPLEMENTATION-AUDIT.md
-C:\Users\jack.berrow\GSDedits\.planning\milestones\HANDBOOK-FUTURE-ROADMAP.md
-C:\Users\jack.berrow\GSDedits\docs\reports\SGSD-VTP-Book-Enrichment-Map.html
-C:\Users\jack.berrow\GSDedits\docs\reports\SGSD-VTP-Visual-Handbook.html
-C:\Users\jack.berrow\GSDedits\super-gsd\docs\SGSD-BOOT-STARTUP-GUIDE.md
+C:\Users\user\GSDedits\CLAUDE.md
+C:\Users\user\GSDedits\.planning\STATE.md
+C:\Users\user\GSDedits\.planning\ROADMAP.md
+C:\Users\user\GSDedits\.planning\milestones\CLAUDE-AUTO-HANDOVER-v1.6-COCKPIT-2.0.md
+C:\Users\user\GSDedits\.planning\milestones\v1.6-PROPOSED-REQUIREMENTS.md
+C:\Users\user\GSDedits\.planning\milestones\v1.6-PROPOSED-PHASES.md
+C:\Users\user\GSDedits\.planning\milestones\COCKPIT-2.0-SCOPE.md
+C:\Users\user\GSDedits\.planning\milestones\VIO-ROADMAP-ENRICHMENT.md
+C:\Users\user\GSDedits\.planning\milestones\HANDBOOK-FUTURE-IMPLEMENTATION-AUDIT.md
+C:\Users\user\GSDedits\.planning\milestones\HANDBOOK-FUTURE-ROADMAP.md
+C:\Users\user\GSDedits\docs\reports\SGSD-VTP-Book-Enrichment-Map.html
+C:\Users\user\GSDedits\docs\reports\SGSD-VTP-Visual-Handbook.html
+C:\Users\user\GSDedits\super-gsd\docs\SGSD-BOOT-STARTUP-GUIDE.md
 ```
 
 Read these implementation files before code changes:
 
 ```text
-C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-mission-control.ps1
-C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-narrative.ps1
-C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-codex-monitor.ps1
-C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-dashboard-host.ps1
-C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-boot.ps1
-C:\Users\jack.berrow\GSDedits\super-gsd\scripts\Install-SgsdShortcut.ps1
-C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-configure.ps1
+C:\Users\user\GSDedits\super-gsd\scripts\sgsd-mission-control.ps1
+C:\Users\user\GSDedits\super-gsd\scripts\sgsd-narrative.ps1
+C:\Users\user\GSDedits\super-gsd\scripts\sgsd-codex-monitor.ps1
+C:\Users\user\GSDedits\super-gsd\scripts\sgsd-dashboard-host.ps1
+C:\Users\user\GSDedits\super-gsd\scripts\sgsd-boot.ps1
+C:\Users\user\GSDedits\super-gsd\scripts\Install-SgsdShortcut.ps1
+C:\Users\user\GSDedits\super-gsd\scripts\sgsd-configure.ps1
 ```
 
 ## VTP / Knowledge Use
@@ -135,20 +135,20 @@ existing-surface audit.
 Create:
 
 ```text
-C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.6\REQUIREMENTS.md
-C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.6\EXISTING-SURFACE-AUDIT.md
-C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.6\phases\26-cockpit-operator-question-contract\
-C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.6\phases\27-cockpit-data-source-objective-tree-audit\
-C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.6\phases\28-mission-control-2-layout\
-C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.6\phases\29-agent-codex-visibility-lanes\
-C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.6\phases\30-startup-verification-cockpit-acceptance\
+C:\Users\user\GSDedits\.planning\milestones\v1.6\REQUIREMENTS.md
+C:\Users\user\GSDedits\.planning\milestones\v1.6\EXISTING-SURFACE-AUDIT.md
+C:\Users\user\GSDedits\.planning\milestones\v1.6\phases\26-cockpit-operator-question-contract\
+C:\Users\user\GSDedits\.planning\milestones\v1.6\phases\27-cockpit-data-source-objective-tree-audit\
+C:\Users\user\GSDedits\.planning\milestones\v1.6\phases\28-mission-control-2-layout\
+C:\Users\user\GSDedits\.planning\milestones\v1.6\phases\29-agent-codex-visibility-lanes\
+C:\Users\user\GSDedits\.planning\milestones\v1.6\phases\30-startup-verification-cockpit-acceptance\
 ```
 
 Update:
 
 ```text
-C:\Users\jack.berrow\GSDedits\.planning\ROADMAP.md
-C:\Users\jack.berrow\GSDedits\.planning\STATE.md
+C:\Users\user\GSDedits\.planning\ROADMAP.md
+C:\Users\user\GSDedits\.planning\STATE.md
 ```
 
 Only update active state for v1.6. Leave all future roadmap seeds as proposed.
@@ -196,7 +196,7 @@ Read existing sources first:
 Deliver code changes mainly in:
 
 ```text
-C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-mission-control.ps1
+C:\Users\user\GSDedits\super-gsd\scripts\sgsd-mission-control.ps1
 ```
 
 Goal:
@@ -211,8 +211,8 @@ Goal:
 Deliver code changes mainly in:
 
 ```text
-C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-narrative.ps1
-C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-codex-monitor.ps1
+C:\Users\user\GSDedits\super-gsd\scripts\sgsd-narrative.ps1
+C:\Users\user\GSDedits\super-gsd\scripts\sgsd-codex-monitor.ps1
 ```
 
 Goal:
@@ -295,13 +295,13 @@ Stop and write a checkpoint only if:
 At the end, produce:
 
 ```text
-C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.6\SUMMARY.md
-C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.6\VERIFICATION.md
-C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.6\phases\26-*\26-VERIFICATION.md
-C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.6\phases\27-*\27-VERIFICATION.md
-C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.6\phases\28-*\28-VERIFICATION.md
-C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.6\phases\29-*\29-VERIFICATION.md
-C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.6\phases\30-*\30-VERIFICATION.md
+C:\Users\user\GSDedits\.planning\milestones\v1.6\SUMMARY.md
+C:\Users\user\GSDedits\.planning\milestones\v1.6\VERIFICATION.md
+C:\Users\user\GSDedits\.planning\milestones\v1.6\phases\26-*\26-VERIFICATION.md
+C:\Users\user\GSDedits\.planning\milestones\v1.6\phases\27-*\27-VERIFICATION.md
+C:\Users\user\GSDedits\.planning\milestones\v1.6\phases\28-*\28-VERIFICATION.md
+C:\Users\user\GSDedits\.planning\milestones\v1.6\phases\29-*\29-VERIFICATION.md
+C:\Users\user\GSDedits\.planning\milestones\v1.6\phases\30-*\30-VERIFICATION.md
 ```
 
 Final response should include:
@@ -316,14 +316,14 @@ Final response should include:
 ## Prompt To Paste Into Claude
 
 ```text
-You are in C:\Users\jack.berrow\GSDedits.
+You are in C:\Users\user\GSDedits.
 
 Run SGSD v1.6 Cockpit 2.0 And Startup Verification in autonomous mode.
 
 Operator approval: promote v1.6 only. Do not activate v1.7+.
 
 Read this mission packet first:
-C:\Users\jack.berrow\GSDedits\.planning\milestones\CLAUDE-AUTO-HANDOVER-v1.6-COCKPIT-2.0.md
+C:\Users\user\GSDedits\.planning\milestones\CLAUDE-AUTO-HANDOVER-v1.6-COCKPIT-2.0.md
 
 Then follow it exactly:
 - audit first,

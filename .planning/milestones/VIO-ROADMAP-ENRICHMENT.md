@@ -177,7 +177,7 @@ Roadmap impact:
 - v1.6 should verify the optional knowledge configuration that already exists.
 - v1.9 should become the deeper knowledge-provider and memory-governance
   milestone.
-- v2.1 public onboarding should never assume Jack's VTP corpus exists.
+- v2.1 public onboarding should never assume the operator’s VTP corpus exists.
 
 ## Cockpit 2.0 Operator Questions
 
@@ -213,9 +213,9 @@ main build. The main build is the cockpit operator model.
 When Claude promotes the next milestone, it should read this file alongside:
 
 ```text
-C:\Users\jack.berrow\GSDedits\.planning\milestones\HANDBOOK-FUTURE-IMPLEMENTATION-AUDIT.md
-C:\Users\jack.berrow\GSDedits\docs\reports\SGSD-VTP-Book-Enrichment-Map.html
-C:\Users\jack.berrow\GSDedits\docs\reports\SGSD-VTP-Visual-Handbook.html
+C:\Users\user\GSDedits\.planning\milestones\HANDBOOK-FUTURE-IMPLEMENTATION-AUDIT.md
+C:\Users\user\GSDedits\docs\reports\SGSD-VTP-Book-Enrichment-Map.html
+C:\Users\user\GSDedits\docs\reports\SGSD-VTP-Visual-Handbook.html
 ```
 
 Claude should then replace every `CLAUDE_ENRICHMENT_SLOT` with:

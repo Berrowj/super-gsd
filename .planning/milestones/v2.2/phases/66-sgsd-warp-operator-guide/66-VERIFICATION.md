@@ -3,7 +3,7 @@ phase: 66
 artifact: verification
 created: 2026-04-29
 status: PASS
-operator: jack.berrow
+operator: user
 verifier: orchestrator (this Claude session)
 ---
 

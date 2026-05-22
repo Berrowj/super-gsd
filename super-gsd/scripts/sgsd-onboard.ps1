@@ -193,7 +193,7 @@ function Install-SgsdComponent {
             # tab-configs we shouldn't shadow.
             $warpDir   = Join-Path $ProjectDir '.warp'
             $linkPath  = Join-Path $warpDir 'workflows'
-            $canonical = 'C:\Users\jack.berrow\GSDedits\.warp\workflows'
+            $canonical = 'C:\Users\user\GSDedits\.warp\workflows'
             if (-not (Test-Path -LiteralPath $canonical)) {
                 Write-Host "    ✗ canonical workflows dir not found at $canonical" -ForegroundColor Red
                 return $false

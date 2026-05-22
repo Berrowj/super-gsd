@@ -18,7 +18,7 @@ key_files:
     - .planning/phases/09-atc-147-evidence/verify.mjs
     - .planning/config.json
 decisions:
-  - "10-03-01 probe: core.cjs is in separate repo (C:/Users/jack.berrow/.claude) — 10-03-04 skipped core.cjs patch; operator must apply D-13b manually"
+  - "10-03-01 probe: core.cjs is in separate repo (C:/Users/user/.claude) — 10-03-04 skipped core.cjs patch; operator must apply D-13b manually"
   - "Hybrid SKILL.md integration: prose preserved, gates.shouldFire calls added inside existing step bodies (20 total refs, 9 distinct call sites)"
   - "Step 9.2 BUILD DISPATCH CONTEXT added with all 11 Q2 fields; Step 3.6 LOAD GATES REGISTRY cold-start block added"
 metrics:
@@ -40,8 +40,8 @@ Wired `gates.shouldFire` at all 9 SKILL.md call sites, retrofitted 09-verify.mjs
 
 **Result: SEPARATE**
 
-- `core.cjs` lives at `C:/Users/jack.berrow/.claude/get-shit-done/bin/lib/core.cjs`
-- That path belongs to git repo root `C:/Users/jack.berrow/.claude` — separate from GSDedits (`C:/Users/jack.berrow/GSDedits`)
+- `core.cjs` lives at `C:/Users/user/.claude/get-shit-done/bin/lib/core.cjs`
+- That path belongs to git repo root `C:/Users/user/.claude` — separate from GSDedits (`C:/Users/user/GSDedits`)
 - **Action for 10-03-04:** `skip-patch-external`
 - Probe YAML written to `.planning/phases/10-gate-policy/10-03-01-cross-repo-probe.yaml`
 
@@ -113,7 +113,7 @@ Both exit 0. Phase 10 closed.
 
 **D-13b — core.cjs KNOWN_TOP_LEVEL patch (external repo)**
 
-The cross-repo probe (10-03-01) confirmed `core.cjs` is in a separate git repository (`C:/Users/jack.berrow/.claude`). The GSDedits executor cannot commit to that repo.
+The cross-repo probe (10-03-01) confirmed `core.cjs` is in a separate git repository (`C:/Users/user/.claude`). The GSDedits executor cannot commit to that repo.
 
 To suppress the `gsd-tools: warning: unknown config key(s)` warnings, the operator must manually edit:
 

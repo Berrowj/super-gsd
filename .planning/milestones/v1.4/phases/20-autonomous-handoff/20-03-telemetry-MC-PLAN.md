@@ -82,12 +82,12 @@ Output: 4 modified files, 1 atomic commit.
 </objective>
 
 <execution_context>
-@C:\Users\jack.berrow\.claude\get-shit-done\workflows\execute-plan.md
+@C:\Users\user\.claude\get-shit-done\workflows\execute-plan.md
 </execution_context>
 
 <context>
-@C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.4\phases\20-autonomous-handoff\20-CONTEXT.md
-@C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.4\phases\20-autonomous-handoff\20-RESEARCH.md
+@C:\Users\user\GSDedits\.planning\milestones\v1.4\phases\20-autonomous-handoff\20-CONTEXT.md
+@C:\Users\user\GSDedits\.planning\milestones\v1.4\phases\20-autonomous-handoff\20-RESEARCH.md
 
 <interfaces>
 <!-- Contracts the executor needs. Read files before editing — each file has unique structure. -->

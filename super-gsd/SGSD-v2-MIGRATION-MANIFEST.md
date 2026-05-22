@@ -414,7 +414,7 @@ hooks:
 decisions:
   - step: 9.5
     name: per-dispatch-ATC
-    rule_source: C:/Users/jack.berrow/.claude/atc/07-CHECKLIST.md
+    rule_source: C:/Users/user/.claude/atc/07-CHECKLIST.md
     applies_when: tier in [FULL, GATE]
     skip_when: tier == SKIP
     enforcement_mode: hard-halt    # hard-halt | soft-warn | amortized (per R-Q2 three-tier)
@@ -627,7 +627,7 @@ These surfaced during manifest drafting and are genuine open decisions:
 
 ## 11. Citations Summary
 
-Every sharpening in this manifest traces to specific principle IDs in the 9-paper corpus (stored in `C:\Users\jack.berrow\Voice-Text-Plan\wiki\research\*.enrichment.json`, junctioned to `C:\Users\jack.berrow\GSDedits\wiki\research\`).
+Every sharpening in this manifest traces to specific principle IDs in the 9-paper corpus (stored in `C:\Users\user\Voice-Text-Plan\wiki\research\*.enrichment.json`, junctioned to `C:\Users\user\GSDedits\wiki\research\`).
 
 **Paper → principle IDs most cited here:**
 - AGP (Autogenesis): P-01, P-02, P-03, P-04, P-05, P-07, P-08 (Section 4 registry, Section 2.1, 2.7, 2.9)

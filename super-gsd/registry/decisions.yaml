@@ -26,7 +26,7 @@ _example_entry:
   step: "9.5"
   name: per-dispatch-ATC
   category: gate-enforcement
-  rule_source: C:/Users/jack.berrow/.claude/atc/07-CHECKLIST.md
+  rule_source: C:/Users/user/.claude/atc/07-CHECKLIST.md
   applies_when:
     - classifier.atc_tier in [full, gate]
     - FILES_CHANGED non-empty

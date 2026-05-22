@@ -4,7 +4,7 @@ phase_name: Warp Capability Smoke Test
 milestone: v2.2
 roadmap: warp-integration
 created: 2026-04-29
-operator: jack.berrow
+operator: user
 status: in-progress
 deviation_from_standard: docs-only / evidence-only phase (no per-dispatch ATC, no MUDA trigger)
 ---

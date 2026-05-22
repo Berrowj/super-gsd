@@ -43,14 +43,14 @@ Output: 18-DOGFOOD-AUDIT.md (created) + REQUIREMENTS.md (CXOPS-03/04 ticked).
 </objective>
 
 <execution_context>
-@C:/Users/jack.berrow/GSDedits/.claude/get-shit-done/workflows/execute-plan.md
+@C:/Users/user/GSDedits/.claude/get-shit-done/workflows/execute-plan.md
 </execution_context>
 
 <context>
-@C:/Users/jack.berrow/GSDedits/.planning/REQUIREMENTS.md
-@C:/Users/jack.berrow/GSDedits/.planning/milestones/v1.4/phases/18-codex-hardening/18-CONTEXT.md
-@C:/Users/jack.berrow/GSDedits/.planning/milestones/v1.4/phases/18-codex-hardening/18-RESEARCH.md
-@C:/Users/jack.berrow/GSDedits/.planning/milestones/v1.4/phases/18-codex-hardening/18-01-SUMMARY.md
+@C:/Users/user/GSDedits/.planning/REQUIREMENTS.md
+@C:/Users/user/GSDedits/.planning/milestones/v1.4/phases/18-codex-hardening/18-CONTEXT.md
+@C:/Users/user/GSDedits/.planning/milestones/v1.4/phases/18-codex-hardening/18-RESEARCH.md
+@C:/Users/user/GSDedits/.planning/milestones/v1.4/phases/18-codex-hardening/18-01-SUMMARY.md
 
 <interfaces>
 <!-- Evidence sources. Executor reads these to populate DOGFOOD-AUDIT.md. -->

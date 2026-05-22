@@ -3,7 +3,7 @@ REM Restart-on-crash loop for the VTP MCP HTTP server.
 REM Invoked by launch-vtp-mcp.vbs (hidden window) which is triggered at logon.
 
 setlocal
-set "PROJ=C:\Users\jack.berrow\Voice-Text-Plan"
+set "PROJ=C:\Users\user\Voice-Text-Plan"
 set "LOGDIR=%PROJ%\.planning\logs\services"
 set "OUT=%LOGDIR%\vtp-mcp.out.log"
 set "ERR=%LOGDIR%\vtp-mcp.err.log"

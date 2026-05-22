@@ -547,7 +547,7 @@
 <h1>SGSD Workspace <span class="v">· Visual Mockup v3 · 2026-04-11</span></h1>
 <div class="meta">
   Design anchor for <code>docs/superpowers/specs/2026-04-11-sgsd-warp-layout-design.md</code>.
-  Responds to Jack's v1 feedback. Mock data reflects <b>project-clarity-erp</b> mid-execution on Phase 89 Wave 2.
+  Responds to the operator’s v1 feedback. Mock data reflects <b>project-clarity-erp</b> mid-execution on Phase 89 Wave 2.
 </div>
 
 <div class="changelog">
@@ -770,7 +770,7 @@ tests/api/test_procurement_data_stock_value_v2.py::test_trueAtp_deducts_returns 
                 <span class="tool Read">Read</span>
                 <span class="summary">tests/api/test_procurement_data_stock_value_v2.py</span>
               </div>
-              <div class="ctrlo-body"><span class="k">file_path:</span> /C:/Users/jack.berrow/project-clarity-erp/tests/api/test_procurement_data_stock_value_v2.py
+              <div class="ctrlo-body"><span class="k">file_path:</span> /C:/Users/user/project-clarity-erp/tests/api/test_procurement_data_stock_value_v2.py
 <span class="k">→ returned</span> 247 lines</div>
             </div>
 
@@ -1036,7 +1036,7 @@ tests/api/test_procurement_data_stock_value_v2.py::test_trueAtp_deducts_returns 
 
   <h3>Changes from v1 (in order)</h3>
   <ul>
-    <li><span class="pill" style="background:rgba(255,85,85,0.2);color:var(--red);">killed</span> <b>P2 Liveness Monitor</b> — Jack said not needed. Liveness info (claude.exe running, last activity, last commit) is now absorbed into the P3 agents row + pulse indicator in the pane header.</li>
+    <li><span class="pill" style="background:rgba(255,85,85,0.2);color:var(--red);">killed</span> <b>P2 Liveness Monitor</b> — the operator said not needed. Liveness info (claude.exe running, last activity, last commit) is now absorbed into the P3 agents row + pulse indicator in the pane header.</li>
     <li><span class="pill" style="background:rgba(255,184,108,0.2);color:var(--orange);">moved</span> <b>P3 Mission Control to top-right</b>.</li>
     <li><span class="pill" style="background:rgba(80,250,123,0.2);color:var(--green);">added</span> in P3: <b>last phase built</b> (P88 green), <b>current phase</b> (P89 orange), <b>next phase</b> (P90 white), <b>current wave</b> (W2 orange), <b>next wave</b> (W3 white). Exactly what you asked for.</li>
     <li><span class="pill" style="background:rgba(80,250,123,0.2);color:var(--green);">added</span> in P3: two <b>big red counters</b> for remaining work — <code>9 phases</code> and <code>47 sub-waves</code>. These are the "how much is left in this milestone" gut-check.</li>
@@ -1067,7 +1067,7 @@ tests/api/test_procurement_data_stock_value_v2.py::test_trueAtp_deducts_returns 
   <ul>
     <li><b>For tool_use entries:</b> one collapsed row (timestamp + tool name + summary of input) with an expandable body showing the full <code>input</code> JSON.</li>
     <li><b>For tool_result entries:</b> merged into the preceding tool_use row as a <code>→ stdout / → exit</code> footer.</li>
-    <li><b>For Agent spawns:</b> highlighted in magenta — these are the orchestrator dispatching sub-agents, the thing Jack most wants to track.</li>
+    <li><b>For Agent spawns:</b> highlighted in magenta — these are the orchestrator dispatching sub-agents, the thing the operator most wants to track.</li>
     <li><b>For TaskCreate/TaskUpdate:</b> the "what's active right now" signal, rendered at the top of the stream so it stays visible.</li>
   </ul>
   <p>

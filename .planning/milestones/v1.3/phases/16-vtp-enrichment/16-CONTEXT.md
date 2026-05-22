@@ -4,7 +4,7 @@
 **Status:** Ready for planning
 
 **Research errata (from 16-RESEARCH.md, applied inline below):**
-- **E-01** — VTP-06 originally targeted `gsd-pattern-mapper.md`. That file does **not** exist in `custom-gsd-extract/claude-agents/` (it lives only at `C:\Users\jack.berrow\.claude\agents\gsd-pattern-mapper.md` as a global). Per D-03 (patch vendored in-place, no new agents), VTP-06 is re-targeted to `gsd-codebase-mapper.md` (verified exists). The `gsd-pattern-mapper` agent type remains available for runtime dispatch (pattern-mapping step in /gsd-plan-phase still works); Phase 16 simply doesn't patch it.
+- **E-01** — VTP-06 originally targeted `gsd-pattern-mapper.md`. That file does **not** exist in `custom-gsd-extract/claude-agents/` (it lives only at `C:\Users\user\.claude\agents\gsd-pattern-mapper.md` as a global). Per D-03 (patch vendored in-place, no new agents), VTP-06 is re-targeted to `gsd-codebase-mapper.md` (verified exists). The `gsd-pattern-mapper` agent type remains available for runtime dispatch (pattern-mapping step in /gsd-plan-phase still works); Phase 16 simply doesn't patch it.
 - **E-02** — VTP context-object field is `current_task` (not `current_focus` as D-07 wrote). D-07's fast-path predicate updated inline.
 - **E-03** — `vtp_route_and_retrieve` has **no native `elapsed_ms`** in its response. Composer must wrap every MCP call with `Date.now()` brackets and emit elapsed_ms itself. New composer-consumer contract: "no direct MCP calls — always via composer helpers." VTP-04 updated inline.
 **Scope note:** Lifts the deferred item from `.planning/milestones/v1.2/phases/13-governance/13-CONTEXT.md §deferred:237` ("VTP integration for intra-phase research briefs — not just milestone-close. Could ingest VTP context at phase discuss-time too.") into first-class v1.3 work. Extends the Phase-13 `sgsd-complete-milestone` precedent (milestone-close VTP integration) into every SGSD planning/research surface.
@@ -47,7 +47,7 @@ Derived from `/sgsd-discuss-phase 16` on 2026-04-23. Full audit trail in `16-DIS
 
 ### Patch Surface Strategy
 
-- **D-02:** The installed `sgsd-triage` SKILL.md at `C:\Users\jack.berrow\.claude\commands\sgsd-triage\SKILL.md` differs from source **at the line-ending level only** (CRLF vs LF). MD5 matches byte-for-byte after CRLF-normalization. The drift flag in the seed was a false positive. Patch the source `super-gsd/skills/sgsd-triage/SKILL.md` directly. No `/sgsd-overlay-refresh` required before this phase. Install-time CRLF conversion is expected harness behaviour.
+- **D-02:** The installed `sgsd-triage` SKILL.md at `C:\Users\user\.claude\commands\sgsd-triage\SKILL.md` differs from source **at the line-ending level only** (CRLF vs LF). MD5 matches byte-for-byte after CRLF-normalization. The drift flag in the seed was a false positive. Patch the source `super-gsd/skills/sgsd-triage/SKILL.md` directly. No `/sgsd-overlay-refresh` required before this phase. Install-time CRLF conversion is expected harness behaviour.
 
 - **D-03:** Patch all 7 core GSD agents in-place at `custom-gsd-extract/claude-agents/` (vendored local fork, not a submodule). No `sgsd-*` promotion in this phase. The enrichment is `allowed-tools:` frontmatter addition + one paragraph on WHEN to call VTP — that is tool-access, not new capability. The binding memory rule (`feedback_sgsd_rename_rule.md`) requires `sgsd-*` prefix only when we've enriched with a v2 handover contract or research-paper principles, which we are not. **Future trigger for promotion:** if a subsequent phase adds >50 lines of new reasoning, expertise-file scaffolding, or a changed output contract to `gsd-phase-researcher` or `gsd-planner`, promote then — recorded in `<deferred>`.
 
@@ -96,17 +96,17 @@ Derived from `/sgsd-discuss-phase 16` on 2026-04-23. Full audit trail in `16-DIS
 **Downstream agents MUST read these before planning or implementing.**
 
 ### VTP source-of-truth reports (read-only; these are the contract)
-- `C:\Users\jack.berrow\Voice-Text-Plan\reports\sgsd-triage-vtp-routing-handoff.md` — architecture overview, 5-tier data model, SGSD integration guidance.
-- `C:\Users\jack.berrow\Voice-Text-Plan\reports\sgsd-triage-vtp-operator-guide.md` — operating rules, decision logic, context-object shape, anti-patterns.
-- `C:\Users\jack.berrow\Voice-Text-Plan\reports\sgsd-triage-vtp-mcp-payloads.md` — exact MCP payload examples + response fields for every tool.
-- `C:\Users\jack.berrow\Voice-Text-Plan\src\mcp\tools\service-enrichment.ts` — `vtp_advise_service_enrichment` tool definition + output schema.
-- `C:\Users\jack.berrow\Voice-Text-Plan\src\service-enrichment\advisor.ts` — scoring logic, AREA_PROFILES, bloat-risk adjustment.
-- `C:\Users\jack.berrow\Voice-Text-Plan\scripts\test-mcp-service-enrichment-tool.ts` — canonical test payload using SGSD-triage as the subject service.
+- `C:\Users\user\Voice-Text-Plan\reports\sgsd-triage-vtp-routing-handoff.md` — architecture overview, 5-tier data model, SGSD integration guidance.
+- `C:\Users\user\Voice-Text-Plan\reports\sgsd-triage-vtp-operator-guide.md` — operating rules, decision logic, context-object shape, anti-patterns.
+- `C:\Users\user\Voice-Text-Plan\reports\sgsd-triage-vtp-mcp-payloads.md` — exact MCP payload examples + response fields for every tool.
+- `C:\Users\user\Voice-Text-Plan\src\mcp\tools\service-enrichment.ts` — `vtp_advise_service_enrichment` tool definition + output schema.
+- `C:\Users\user\Voice-Text-Plan\src\service-enrichment\advisor.ts` — scoring logic, AREA_PROFILES, bloat-risk adjustment.
+- `C:\Users\user\Voice-Text-Plan\scripts\test-mcp-service-enrichment-tool.ts` — canonical test payload using SGSD-triage as the subject service.
 
 ### Existing SGSD VTP-integration precedent
 - `super-gsd/skills/sgsd-complete-milestone/SKILL.md` — proven pattern: VTP tools declared in `allowed-tools:` frontmatter (`mcp__vtp-kb__vtp_search`, `vtp_list_research`, `vtp_ingest_research`). Phase 16 extends this pattern across more surfaces.
 - `.planning/milestones/v1.2/phases/13-governance/13-CONTEXT.md §deferred:237` — the deferred item this phase lifts.
-- `C:\Users\jack.berrow\.claude\projects\C--Users-jack-berrow-GSDedits\memory\workflow\feedback\feedback_sgsd_rename_rule.md` — binding rule on when to use `sgsd-*` prefix (relevant to D-03).
+- `C:\Users\user\.claude\projects\C--Users-user-GSDedits\memory\workflow\feedback\feedback_sgsd_rename_rule.md` — binding rule on when to use `sgsd-*` prefix (relevant to D-03).
 
 ### Super-GSD skills — patch surfaces (Wave A/C)
 - `super-gsd/skills/sgsd-triage/SKILL.md` — add Step 0 VTP-enrichment call before existing Step 1 (brainstorming). Composer builds context; VTP response parsed into `selected_query` + reflection + top-3 doc-IDs; feeds brainstorming. (VTP-01)

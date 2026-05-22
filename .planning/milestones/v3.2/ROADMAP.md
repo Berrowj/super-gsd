@@ -66,6 +66,6 @@ Make SGSD explain itself world-class across both operator-facing surfaces. Upgra
 ## First Execution Command
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
+cd C:\Users\user\GSDedits
 /sgsd-orchestrate auto
 ```

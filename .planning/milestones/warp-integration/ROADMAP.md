@@ -1,7 +1,7 @@
 # SGSD Warp Integration Roadmap
 
 Date: 2026-04-29
-Project: C:\Users\jack.berrow\GSDedits
+Project: C:\Users\user\GSDedits
 Status: proposed execution roadmap, not yet activated in `.planning/STATE.md`
 Previous roadmap: v1.6 through v2.1 complete, phases 26-62 shipped
 Proposed next phase range: 63-97
@@ -17,15 +17,15 @@ SGSD should remain the source of truth for autonomous execution, gates, telemetr
 
 Claude must read these files before starting Phase 63:
 
-1. `C:\Users\jack.berrow\GSDedits\.planning\analyses\2026-04-29-warp-ecosystem-atlas.md`
-2. `C:\Users\jack.berrow\GSDedits\.planning\analyses\2026-04-29-sgsd-warp-convergence-audit.md`
-3. `C:\Users\jack.berrow\GSDedits\.planning\analyses\2026-04-29-sgsd-warp-native-research-plan.md`
-4. `C:\Users\jack.berrow\GSDedits\.planning\analyses\2026-04-29-sgsd-warp-incorporation-plan.md`
-5. `C:\Users\jack.berrow\GSDedits\docs\superpowers\specs\2026-04-11-sgsd-warp-layout-design.md`
-6. `C:\Users\jack.berrow\GSDedits\docs\reports\SGSD-Warp-Integration-ELI5.html`
-7. `C:\Users\jack.berrow\GSDedits\WARP.md`
-8. `C:\Users\jack.berrow\GSDedits\.planning\STATE.md`
-9. `C:\Users\jack.berrow\GSDedits\.planning\ROADMAP-AGENT.md`
+1. `C:\Users\user\GSDedits\.planning\analyses\2026-04-29-warp-ecosystem-atlas.md`
+2. `C:\Users\user\GSDedits\.planning\analyses\2026-04-29-sgsd-warp-convergence-audit.md`
+3. `C:\Users\user\GSDedits\.planning\analyses\2026-04-29-sgsd-warp-native-research-plan.md`
+4. `C:\Users\user\GSDedits\.planning\analyses\2026-04-29-sgsd-warp-incorporation-plan.md`
+5. `C:\Users\user\GSDedits\docs\superpowers\specs\2026-04-11-sgsd-warp-layout-design.md`
+6. `C:\Users\user\GSDedits\docs\reports\SGSD-Warp-Integration-ELI5.html`
+7. `C:\Users\user\GSDedits\WARP.md`
+8. `C:\Users\user\GSDedits\.planning\STATE.md`
+9. `C:\Users\user\GSDedits\.planning\ROADMAP-AGENT.md`
 
 ## Global Execution Rules
 
@@ -41,6 +41,7 @@ Claude must read these files before starting Phase 63:
 10. Use `.planning` as the durable audit trail.
 11. Add acceptance tests or smoke checks to every code phase.
 12. Redact secrets/private paths from any shared/MCP output unless the path is intentionally local operator evidence.
+13. When a new roadmap starts after `STATE.md` reports a completed roadmap, activate the new roadmap in `STATE.md` before or atomically with the first phase scaffold. Do not leave `.planning/milestones/{new}` newer than `STATE.md` while `STATE.md` still says `milestone: complete`.
 
 ## Standard Phase Artifacts
 
@@ -101,7 +102,7 @@ Tasks:
 - Confirm whether Warp detects `sg`-launched Claude.
 - Confirm launch config storage path.
 - Confirm whether launch configs can open into the active window or only new windows.
-- Confirm Codebase Context status for `C:\Users\jack.berrow\GSDedits`.
+- Confirm Codebase Context status for `C:\Users\user\GSDedits`.
 - Confirm whether WSL/tmux would disable Codebase Context.
 - Record screenshots only if safe and useful.
 
@@ -142,6 +143,8 @@ Tasks:
 - Add defaults for `project_dir`.
 - Add YAML validation test.
 - Add a small index of workflow names in docs.
+- Add or specify a new-roadmap activation command/workflow, such as `SGSD: Start New Roadmap` or `sgsd-start-roadmap`, that updates `.planning/STATE.md` before creating the first phase artifacts.
+- Carry forward the Phase 63 state-source mismatch as a product requirement: users starting a new SGSD roadmap after `ROADMAP COMPLETE` must not see the cockpit stuck on the prior completed roadmap.
 
 Outputs:
 
@@ -153,6 +156,7 @@ Acceptance:
 - YAML parser validates all workflows.
 - Workflow names/descriptions include start, auto, cockpit, token, recovery, gates, watchdog, Codex, blocked, status.
 - Workflows call stable SGSD commands, not ad-hoc logic.
+- Phase 64 documentation defines how a new roadmap is activated from `ROADMAP COMPLETE` without causing a cockpit/STATE mismatch.
 
 ## Phase 65 - Agent Rules Context Pack
 
@@ -253,6 +257,8 @@ Tasks:
   - launch config path exists or missing with guidance.
   - MCP config presence if later phase exists.
   - Codebase Context cannot be checked directly unless Warp exposes local evidence; mark manual check.
+  - `STATE.md` lifecycle mismatch: detect when the newest `.planning/milestones/*/phases/*` artifact is newer than `STATE.md` while `STATE.md` still reports `milestone: complete` or `ROADMAP COMPLETE`.
+  - New-roadmap activation drift: detect when `.planning/milestones/{latest}` exists but `STATE.md` points at a prior completed roadmap.
 - Output concise table.
 - Add self-test with fixture repo.
 
@@ -264,8 +270,9 @@ Outputs:
 Acceptance:
 
 - `node super-gsd/tools/warp-doctor/run-self-test.cjs` passes.
-- `node super-gsd/tools/warp-doctor/check.cjs --project C:\Users\jack.berrow\GSDedits` exits 0 or warns with actionable instructions.
+- `node super-gsd/tools/warp-doctor/check.cjs --project C:\Users\user\GSDedits` exits 0 or warns with actionable instructions.
 - No write operations.
+- Doctor warns with an explicit repair instruction if new phase artifacts exist but canonical `STATE.md` still says the previous roadmap is complete.
 
 ---
 

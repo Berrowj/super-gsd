@@ -1,7 +1,7 @@
 # Phase Brief — Live Tab-Title Watcher
 
 Date: 2026-04-30
-Project: C:\Users\jack.berrow\GSDedits
+Project: C:\Users\user\GSDedits
 Status: DRAFT — not yet inserted into a roadmap. Operator decides placement (next v2.10 inception phase OR insert as 87.x / 105.x).
 
 ## Goal

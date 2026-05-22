@@ -53,7 +53,7 @@ $ node super-gsd/tools/mesh-memory/run-self-test.cjs
 
 ## Diagnostic: ajv multi-instance resolution bug (fixed in-loop)
 
-During the first self-test pass, 8/20 passed and 12 failed with ajv "Error compiling schema, function code: ..." dumps. Root cause: `requireDependency()` in `cmb-validate.cjs` had `name` (bare module name) as the first candidate, which Node resolved to `C:\Users\jack.berrow\node_modules\ajv` (a different physical install than ajv-errors, which only existed in `super-gsd/tools/plan-schema/node_modules/`). The ajv-errors plugin tried to extend a different ajv instance than the one constructed → compile threw.
+During the first self-test pass, 8/20 passed and 12 failed with ajv "Error compiling schema, function code: ..." dumps. Root cause: `requireDependency()` in `cmb-validate.cjs` had `name` (bare module name) as the first candidate, which Node resolved to `C:\Users\user\node_modules\ajv` (a different physical install than ajv-errors, which only existed in `super-gsd/tools/plan-schema/node_modules/`). The ajv-errors plugin tried to extend a different ajv instance than the one constructed → compile threw.
 
 Fix: candidate order reordered so `plan-schema/node_modules` is tried first, forcing all three (`ajv`, `ajv-formats`, `ajv-errors`) to resolve from the same install. Compile now succeeds; 20/20 self-test green.
 

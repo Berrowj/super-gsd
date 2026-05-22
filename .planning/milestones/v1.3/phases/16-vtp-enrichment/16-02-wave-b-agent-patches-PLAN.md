@@ -6,10 +6,10 @@ wave: B
 depends_on:
   - 16-01
 files_modified:
-  - C:\Users\jack.berrow\GSDedits\custom-gsd-extract\claude-agents\gsd-phase-researcher.md
-  - C:\Users\jack.berrow\GSDedits\custom-gsd-extract\claude-agents\gsd-planner.md
-  - C:\Users\jack.berrow\GSDedits\custom-gsd-extract\claude-agents\gsd-codebase-mapper.md
-  - C:\Users\jack.berrow\GSDedits\custom-gsd-extract\claude-agents\gsd-assumptions-analyzer.md
+  - C:\Users\user\GSDedits\custom-gsd-extract\claude-agents\gsd-phase-researcher.md
+  - C:\Users\user\GSDedits\custom-gsd-extract\claude-agents\gsd-planner.md
+  - C:\Users\user\GSDedits\custom-gsd-extract\claude-agents\gsd-codebase-mapper.md
+  - C:\Users\user\GSDedits\custom-gsd-extract\claude-agents\gsd-assumptions-analyzer.md
 autonomous: true
 requirements:
   - VTP-02
@@ -80,11 +80,11 @@ Output: 4 patched agent files. Each patch adds VTP tool access to the `tools:` c
 </execution_context>
 
 <context>
-@C:\Users\jack.berrow\GSDedits\.planning\STATE.md
-@C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-CONTEXT.md
-@C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-RESEARCH.md
-@C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md
-@C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-01-SUMMARY.md
+@C:\Users\user\GSDedits\.planning\STATE.md
+@C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-CONTEXT.md
+@C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-RESEARCH.md
+@C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md
+@C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-01-SUMMARY.md
 
 <interfaces>
 <!-- Key contracts extracted from RESEARCH.md + PATTERNS.md — executor uses these verbatim -->
@@ -155,14 +155,14 @@ CONTEXT.md D-07 references `current_focus` but VTP's ContextInput uses `current_
 <task type="auto">
   <name>Task 1: Patch gsd-phase-researcher (VTP-02) + gsd-planner (VTP-03)</name>
   <files>
-    C:\Users\jack.berrow\GSDedits\custom-gsd-extract\claude-agents\gsd-phase-researcher.md
-    C:\Users\jack.berrow\GSDedits\custom-gsd-extract\claude-agents\gsd-planner.md
+    C:\Users\user\GSDedits\custom-gsd-extract\claude-agents\gsd-phase-researcher.md
+    C:\Users\user\GSDedits\custom-gsd-extract\claude-agents\gsd-planner.md
   </files>
   <read_first>
-    - C:\Users\jack.berrow\GSDedits\custom-gsd-extract\claude-agents\gsd-phase-researcher.md (full file — tools: line + first role block)
-    - C:\Users\jack.berrow\GSDedits\custom-gsd-extract\claude-agents\gsd-planner.md (full file — tools: line + first role block)
-    - C:\Users\jack.berrow\GSDedits\super-gsd\skills\sgsd-complete-milestone\SKILL.md (lines 90-115 — in-body canonical-name invocation prose style)
-    - C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md (§gsd-phase-researcher.md + §gsd-planner.md sections)
+    - C:\Users\user\GSDedits\custom-gsd-extract\claude-agents\gsd-phase-researcher.md (full file — tools: line + first role block)
+    - C:\Users\user\GSDedits\custom-gsd-extract\claude-agents\gsd-planner.md (full file — tools: line + first role block)
+    - C:\Users\user\GSDedits\super-gsd\skills\sgsd-complete-milestone\SKILL.md (lines 90-115 — in-body canonical-name invocation prose style)
+    - C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md (§gsd-phase-researcher.md + §gsd-planner.md sections)
   </read_first>
   <action>
 **File 1: `custom-gsd-extract/claude-agents/gsd-phase-researcher.md` — VTP-02**
@@ -239,7 +239,7 @@ When drafting PLAN.md for non-trivial plans, ground your architecture decisions 
 - `feat(16-02): add VTP plan-tier tools + WHEN paragraph to gsd-planner`
   </action>
   <verify>
-    <automated>grep -q "mcp__vtp-kb__vtp_search_research" "C:/Users/jack.berrow/GSDedits/custom-gsd-extract/claude-agents/gsd-phase-researcher.md" &amp;&amp; grep -q "mcp__vtp-kb__vtp_get_research" "C:/Users/jack.berrow/GSDedits/custom-gsd-extract/claude-agents/gsd-phase-researcher.md" &amp;&amp; grep -q "mcp__vtp-kb__vtp_research_gate" "C:/Users/jack.berrow/GSDedits/custom-gsd-extract/claude-agents/gsd-phase-researcher.md" &amp;&amp; grep -q "vtp-context-composer" "C:/Users/jack.berrow/GSDedits/custom-gsd-extract/claude-agents/gsd-phase-researcher.md" &amp;&amp; grep -q "mcp__vtp-kb__vtp_route_and_retrieve" "C:/Users/jack.berrow/GSDedits/custom-gsd-extract/claude-agents/gsd-planner.md" &amp;&amp; grep -q "mcp__vtp-kb__vtp_search_substrate" "C:/Users/jack.berrow/GSDedits/custom-gsd-extract/claude-agents/gsd-planner.md" &amp;&amp; grep -q "vtp-context-composer" "C:/Users/jack.berrow/GSDedits/custom-gsd-extract/claude-agents/gsd-planner.md"</automated>
+    <automated>grep -q "mcp__vtp-kb__vtp_search_research" "C:/Users/user/GSDedits/custom-gsd-extract/claude-agents/gsd-phase-researcher.md" &amp;&amp; grep -q "mcp__vtp-kb__vtp_get_research" "C:/Users/user/GSDedits/custom-gsd-extract/claude-agents/gsd-phase-researcher.md" &amp;&amp; grep -q "mcp__vtp-kb__vtp_research_gate" "C:/Users/user/GSDedits/custom-gsd-extract/claude-agents/gsd-phase-researcher.md" &amp;&amp; grep -q "vtp-context-composer" "C:/Users/user/GSDedits/custom-gsd-extract/claude-agents/gsd-phase-researcher.md" &amp;&amp; grep -q "mcp__vtp-kb__vtp_route_and_retrieve" "C:/Users/user/GSDedits/custom-gsd-extract/claude-agents/gsd-planner.md" &amp;&amp; grep -q "mcp__vtp-kb__vtp_search_substrate" "C:/Users/user/GSDedits/custom-gsd-extract/claude-agents/gsd-planner.md" &amp;&amp; grep -q "vtp-context-composer" "C:/Users/user/GSDedits/custom-gsd-extract/claude-agents/gsd-planner.md"</automated>
   </verify>
   <acceptance_criteria>
     - gsd-phase-researcher.md `tools:` line contains all 4 new tools (`vtp_search_research`, `vtp_get_research`, `vtp_research_gate`, `vtp_route_and_retrieve`).
@@ -255,13 +255,13 @@ When drafting PLAN.md for non-trivial plans, ground your architecture decisions 
 <task type="auto">
   <name>Task 2: Patch gsd-codebase-mapper (VTP-06 per E-01) + gsd-assumptions-analyzer (VTP-07)</name>
   <files>
-    C:\Users\jack.berrow\GSDedits\custom-gsd-extract\claude-agents\gsd-codebase-mapper.md
-    C:\Users\jack.berrow\GSDedits\custom-gsd-extract\claude-agents\gsd-assumptions-analyzer.md
+    C:\Users\user\GSDedits\custom-gsd-extract\claude-agents\gsd-codebase-mapper.md
+    C:\Users\user\GSDedits\custom-gsd-extract\claude-agents\gsd-assumptions-analyzer.md
   </files>
   <read_first>
-    - C:\Users\jack.berrow\GSDedits\custom-gsd-extract\claude-agents\gsd-codebase-mapper.md (full file — tools: line + first role block)
-    - C:\Users\jack.berrow\GSDedits\custom-gsd-extract\claude-agents\gsd-assumptions-analyzer.md (full file — tools: line + first role block)
-    - C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md (§gsd-codebase-mapper.md + §gsd-assumptions-analyzer.md sections)
+    - C:\Users\user\GSDedits\custom-gsd-extract\claude-agents\gsd-codebase-mapper.md (full file — tools: line + first role block)
+    - C:\Users\user\GSDedits\custom-gsd-extract\claude-agents\gsd-assumptions-analyzer.md (full file — tools: line + first role block)
+    - C:\Users\user\GSDedits\.planning\milestones\v1.3\phases\16-vtp-enrichment\16-PATTERNS.md (§gsd-codebase-mapper.md + §gsd-assumptions-analyzer.md sections)
   </read_first>
   <action>
 **File 1: `custom-gsd-extract/claude-agents/gsd-codebase-mapper.md` — VTP-06 (per E-01)**
@@ -336,7 +336,7 @@ When analyzing assumptions, stress them against VTP's wiki narrative corpus for 
 - `feat(16-02): add VTP wiki-contradiction tools to gsd-assumptions-analyzer`
   </action>
   <verify>
-    <automated>grep -q "mcp__vtp-kb__vtp_search_substrate" "C:/Users/jack.berrow/GSDedits/custom-gsd-extract/claude-agents/gsd-codebase-mapper.md" &amp;&amp; grep -q "vtp-context-composer" "C:/Users/jack.berrow/GSDedits/custom-gsd-extract/claude-agents/gsd-codebase-mapper.md" &amp;&amp; grep -q "per E-01" "C:/Users/jack.berrow/GSDedits/custom-gsd-extract/claude-agents/gsd-codebase-mapper.md" &amp;&amp; grep -q "mcp__vtp-kb__wiki_find_contradictions" "C:/Users/jack.berrow/GSDedits/custom-gsd-extract/claude-agents/gsd-assumptions-analyzer.md" &amp;&amp; grep -q "mcp__vtp-kb__wiki_search" "C:/Users/jack.berrow/GSDedits/custom-gsd-extract/claude-agents/gsd-assumptions-analyzer.md" &amp;&amp; grep -q "vtp-context-composer" "C:/Users/jack.berrow/GSDedits/custom-gsd-extract/claude-agents/gsd-assumptions-analyzer.md"</automated>
+    <automated>grep -q "mcp__vtp-kb__vtp_search_substrate" "C:/Users/user/GSDedits/custom-gsd-extract/claude-agents/gsd-codebase-mapper.md" &amp;&amp; grep -q "vtp-context-composer" "C:/Users/user/GSDedits/custom-gsd-extract/claude-agents/gsd-codebase-mapper.md" &amp;&amp; grep -q "per E-01" "C:/Users/user/GSDedits/custom-gsd-extract/claude-agents/gsd-codebase-mapper.md" &amp;&amp; grep -q "mcp__vtp-kb__wiki_find_contradictions" "C:/Users/user/GSDedits/custom-gsd-extract/claude-agents/gsd-assumptions-analyzer.md" &amp;&amp; grep -q "mcp__vtp-kb__wiki_search" "C:/Users/user/GSDedits/custom-gsd-extract/claude-agents/gsd-assumptions-analyzer.md" &amp;&amp; grep -q "vtp-context-composer" "C:/Users/user/GSDedits/custom-gsd-extract/claude-agents/gsd-assumptions-analyzer.md"</automated>
   </verify>
   <acceptance_criteria>
     - gsd-codebase-mapper.md `tools:` line contains `mcp__vtp-kb__vtp_search_substrate`.

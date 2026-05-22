@@ -3284,7 +3284,7 @@ function selfTest() {
 
     // A39: onedrive_paths redaction fires on "OneDrive - Org Name".
     var rA39 = _applyRedactions(
-      'C:/Users/jack/OneDrive - John Cullen Lighting/Documents/file.txt');
+      'C:/Users/user/OneDrive - John Cullen Lighting/Documents/file.txt');
     add('redaction_onedrive_paths_fires',
       rA39.applied.indexOf('onedrive_paths') !== -1
         && rA39.redacted.indexOf('<REDACTED:onedrive_org>') !== -1

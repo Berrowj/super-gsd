@@ -7,7 +7,7 @@
 
 ## Agent File Path
 
-`C:\Users\jack.berrow\GSDedits\custom-gsd-extract\claude-agents\gsd-verifier.md`
+`C:\Users\user\GSDedits\custom-gsd-extract\claude-agents\gsd-verifier.md`
 
 The gsd-verifier agent definition is at `custom-gsd-extract/claude-agents/gsd-verifier.md`.
 There is no `super-gsd/agents/gsd-verifier.md` — the agent lives in the custom-gsd-extract path.

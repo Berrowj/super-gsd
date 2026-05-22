@@ -30,7 +30,7 @@ The visibility gap was identified at Phase 15 close: `sgsd-codex-status.ps1` was
 
 - Pure additive: no existing API changed
 - Syntax validation required: `bash -n codex-exec.sh`, `node --check merge-settings.js`, PSParser tokenize both `.ps1` files
-- Claimed authorship: operator (Jack). Not edited by Claude in the delivery session — found in loose state, validated, committed.
+- Claimed authorship: operator (the operator). Not edited by Claude in the delivery session — found in loose state, validated, committed.
 
 ## Out of Scope
 

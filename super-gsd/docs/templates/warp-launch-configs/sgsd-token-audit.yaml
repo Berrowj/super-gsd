@@ -20,17 +20,17 @@ windows:
       - title: "Token Audit"
         color: yellow
         layout:
-          cwd: C:\Users\jack.berrow\GSDedits
+          cwd: C:\Users\user\GSDedits
           commands:
             - exec: |-
-                powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'Token attribution (refresh on demand):' -ForegroundColor Yellow; node super-gsd/tools/token-attribution/report.cjs .planning 2>$null | Select-String -Pattern 'role|phase|total|cost' | Select-Object -First 30"
+                powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'Token attribution (refresh on demand):' -ForegroundColor Yellow; node super-gsd/tools/token-attribution/report.cjs .planning 2>$null | Select-String -Pattern 'role|phase|total|cost' | Select-Object -First 30"
         split_direction: horizontal
         panes:
-          - cwd: C:\Users\jack.berrow\GSDedits
+          - cwd: C:\Users\user\GSDedits
             commands:
               - exec: |-
-                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'token-waste-status tail (last 10):' -ForegroundColor Yellow; Get-Content .planning\metrics\token-waste-status.jsonl -Tail 10 -Encoding UTF8 2>$null"
-          - cwd: C:\Users\jack.berrow\GSDedits
+                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'token-waste-status tail (last 10):' -ForegroundColor Yellow; Get-Content .planning\metrics\token-waste-status.jsonl -Tail 10 -Encoding UTF8 2>$null"
+          - cwd: C:\Users\user\GSDedits
             commands:
               - exec: |-
-                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'Free shell. Try: /sgsd-token-audit --quick (in Claude) | SGSD: Token Summary (workflow)' -ForegroundColor Cyan"
+                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; Write-Host 'Free shell. Try: /sgsd-token-audit --quick (in Claude) | SGSD: Token Summary (workflow)' -ForegroundColor Cyan"

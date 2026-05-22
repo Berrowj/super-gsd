@@ -76,7 +76,7 @@ Fixture D is the safety case — autonomy without restraint is unsafe.
 When P106 CONTEXT.md is reviewed and the operator authorises implementation:
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
+cd C:\Users\user\GSDedits
 # write 106-01-PLAN.md against plan-schema-v2 (with semantic_acceptance_criteria)
 # then dispatch Codex via super-gsd/scripts/codex-executor.sh with read-pack fallback
 ```

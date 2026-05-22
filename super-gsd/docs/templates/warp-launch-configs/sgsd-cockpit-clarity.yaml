@@ -17,24 +17,24 @@ windows:
       - title: "Clarity Cockpit"
         color: yellow
         layout:
-          cwd: C:\Users\jack.berrow\project-clarity-erp
+          cwd: C:\Users\user\project-clarity-erp
           commands:
             - exec: |-
-                powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\lib\sgsd-tab-init.ps1' -Role 'cockpit' -ProjectDir 'C:\Users\jack.berrow\project-clarity-erp'; & 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-mission-control.ps1' -ProjectDir 'C:\Users\jack.berrow\project-clarity-erp'"
+                powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\user\GSDedits\super-gsd\scripts\lib\sgsd-tab-init.ps1' -Role 'cockpit' -ProjectDir 'C:\Users\user\project-clarity-erp'; & 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-mission-control.ps1' -ProjectDir 'C:\Users\user\project-clarity-erp'"
         split_direction: vertical
         panes:
-          - cwd: C:\Users\jack.berrow\project-clarity-erp
+          - cwd: C:\Users\user\project-clarity-erp
             commands:
               - exec: |-
-                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; & 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-narrative.ps1' -ProjectDir 'C:\Users\jack.berrow\project-clarity-erp'"
-          - cwd: C:\Users\jack.berrow\project-clarity-erp
+                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; & 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-narrative.ps1' -ProjectDir 'C:\Users\user\project-clarity-erp'"
+          - cwd: C:\Users\user\project-clarity-erp
             commands:
               - exec: |-
-                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; & 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-codex-monitor.ps1' -ProjectDir 'C:\Users\jack.berrow\project-clarity-erp'"
+                  powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'; & 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-codex-monitor.ps1' -ProjectDir 'C:\Users\user\project-clarity-erp'"
       - title: "Clarity Shell"
         color: yellow
         layout:
-          cwd: C:\Users\jack.berrow\project-clarity-erp
+          cwd: C:\Users\user\project-clarity-erp
           commands:
             - exec: |-
-                powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'"
+                powershell -NoExit -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Users\user\GSDedits\super-gsd\scripts\sgsd-profile-extensions.ps1'"

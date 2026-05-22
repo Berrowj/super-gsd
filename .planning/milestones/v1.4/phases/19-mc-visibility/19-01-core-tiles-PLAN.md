@@ -118,12 +118,12 @@ Output: 3 modified PS scripts, 3 atomic commits, 1 SUMMARY.
 </objective>
 
 <execution_context>
-@C:\Users\jack.berrow\.claude\get-shit-done\workflows\execute-plan.md
+@C:\Users\user\.claude\get-shit-done\workflows\execute-plan.md
 </execution_context>
 
 <context>
-@C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.4\phases\19-mc-visibility\19-CONTEXT.md
-@C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.4\phases\19-mc-visibility\19-RESEARCH.md
+@C:\Users\user\GSDedits\.planning\milestones\v1.4\phases\19-mc-visibility\19-CONTEXT.md
+@C:\Users\user\GSDedits\.planning\milestones\v1.4\phases\19-mc-visibility\19-RESEARCH.md
 
 <interfaces>
 <!-- Key contracts the executor needs. Extracted from codebase. No codebase exploration needed. -->

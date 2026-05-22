@@ -200,7 +200,7 @@ to document that session-start drift warnings are expected behavior. If CLAUDE-O
 does not exist, skip this step (do not create it for Phase 11 scope).
   </action>
   <verify>
-    <automated>grep -n "schema_pin_drift\|schema_v2_hash" "C:/Users/jack.berrow/GSDedits/super-gsd/skills/sgsd-orchestrate/SKILL.md" | head -10</automated>
+    <automated>grep -n "schema_pin_drift\|schema_v2_hash" "C:/Users/user/GSDedits/super-gsd/skills/sgsd-orchestrate/SKILL.md" | head -10</automated>
   </verify>
   <done>
 - Orchestrator cold-start contains sha256 drift check using Node built-in crypto

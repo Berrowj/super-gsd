@@ -2,7 +2,7 @@
 
 How to drive SGSD from Warp on Windows, end-to-end, from blank session to autonomous run to safe off-machine monitoring. Separates **Warp UX** (operator surface) from **SGSD execution truth** (`.planning/` files).
 
-> Audience: solo operator (Jack) on Windows 11 + Warp + Claude Code + Codex. Pairs with `WARP.md` (rules) and `AGENTS.md` (tool-neutral all-agent contract). For the deep orchestrator contract, see `CLAUDE.md`. For the workflow catalogue, see `super-gsd/docs/SGSD-WARP-WORKFLOWS.md`.
+> Audience: solo operator (the operator) on Windows 11 + Warp + Claude Code + Codex. Pairs with `WARP.md` (rules) and `AGENTS.md` (tool-neutral all-agent contract). For the deep orchestrator contract, see `CLAUDE.md`. For the workflow catalogue, see `super-gsd/docs/SGSD-WARP-WORKFLOWS.md`.
 
 ## What Warp Adds Over Plain PowerShell
 
@@ -21,7 +21,7 @@ PowerShell is the baseline runtime — SGSD must remain runnable in it (operator
 ## Daily Start
 
 ```
-Open Warp -> tab in C:\Users\jack.berrow\GSDedits
+Open Warp -> tab in C:\Users\user\GSDedits
 Run workflow:  SGSD: Start          (or just type 'sg')
 ```
 
@@ -189,10 +189,10 @@ if (Test-Path .planning\ORCHESTRATOR-CHECKPOINT.md) {
 node super-gsd/tools/token-attribution/collect.cjs --write --all --agent-spend --summary --current
 
 # Manual workflow lint
-node super-gsd/tools/warp-workflow-lint/lint.cjs --project C:\Users\jack.berrow\GSDedits
+node super-gsd/tools/warp-workflow-lint/lint.cjs --project C:\Users\user\GSDedits
 
 # Manual setup health check
-node super-gsd/tools/warp-doctor/check.cjs --project C:\Users\jack.berrow\GSDedits
+node super-gsd/tools/warp-doctor/check.cjs --project C:\Users\user\GSDedits
 ```
 
 Everything in `super-gsd/tools/*` and `super-gsd/scripts/*` is designed to work in plain PowerShell without Warp. Warp adds discoverability and operator UX; it does NOT add capability.
@@ -259,11 +259,11 @@ These are AGENTS.md hard rules (1, 2, 5) and operator brief Rules (1, 2, 9, 10) 
 
 | Path | What |
 |---|---|
-| `C:\Users\jack.berrow\GSDedits` | Project root (this checkout) |
-| `C:\Users\jack.berrow\AppData\Local\Programs\Warp\Warp.exe` | Warp install |
-| `C:\Users\jack.berrow\.warp\launch_configurations\` | Warp launch configs (currently empty -- M4) |
-| `C:\Users\jack.berrow\AppData\Roaming\npm\claude.ps1` | Claude Code CLI |
-| `C:\Users\jack.berrow\AppData\Roaming\npm\codex.ps1` | Codex CLI |
+| `C:\Users\user\GSDedits` | Project root (this checkout) |
+| `C:\Users\user\AppData\Local\Programs\Warp\Warp.exe` | Warp install |
+| `C:\Users\user\.warp\launch_configurations\` | Warp launch configs (currently empty -- M4) |
+| `C:\Users\user\AppData\Roaming\npm\claude.ps1` | Claude Code CLI |
+| `C:\Users\user\AppData\Roaming\npm\codex.ps1` | Codex CLI |
 | `~\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1` | PowerShell profile (defines `sg`, `sgsd`, `sgsd-setup`) |
 | `.planning/STATE.md` | Active state (frontmatter cockpit-readable) |
 | `.planning/milestones/{milestone}/ROADMAP.md` | Active milestone roadmap |

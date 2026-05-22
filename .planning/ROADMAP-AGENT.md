@@ -6,7 +6,7 @@ discuss_artifact: .planning/discussions/2026-04-26-mass-discuss.md
 backlog: .planning/CRIT-BACKLOG.md
 mission_packet: .planning/milestones/CLAUDE-AUTO-HANDOVER-FULL-ROADMAP.md
 status: ready-for-execution
-operator: jack.berrow
+operator: user
 ---
 
 # Agent Roadmap — v1.6 → v2.1

@@ -626,7 +626,7 @@ function Invoke-HaikuNarrator {
     $safeWidth = [Math]::Max(72, [Math]::Min($DisplayWidth, 140))
 
     $prompt = @(
-        'You are an ELI5 narrator for Jack watching Codex work live inside SGSD.',
+        'You are an ELI5 narrator for the operator watching Codex work live inside SGSD.',
         '',
         'Explain this recent Codex output in plain English. Do not pretend to know more',
         'than the log shows. Preserve exact filenames, test names, phase numbers, and',

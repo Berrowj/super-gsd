@@ -214,7 +214,7 @@
   },
   "token_efficiency": {
     "checkpoint_threshold_percent": 100000,
-    "context_injection": "brv_query",
+    "context_injection": "sgsd_recall",
     "context_warning_percent": 70,
     "log_usage": true,
     "max_prompt_tokens": 1500,

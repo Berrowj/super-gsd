@@ -250,7 +250,7 @@ SGSD can recolour that badge unless Warp/Claude exposes a renderer hook.
 Run these after edits:
 
 ```powershell
-cd "C:\Users\jack.berrow\GSDedits"
+cd "C:\Users\user\GSDedits"
 
 node --check super-gsd/tools/double-agent-executor/run.cjs
 node super-gsd/tools/double-agent-executor/run.cjs --self-test
@@ -292,7 +292,7 @@ Copy/paste this into Claude if needed:
 
 ```text
 Read this handover first:
-C:\Users\jack.berrow\GSDedits\.planning\briefs\2026-04-30-claude-handover-double-agent-routing-and-codex-blue.md
+C:\Users\user\GSDedits\.planning\briefs\2026-04-30-claude-handover-double-agent-routing-and-codex-blue.md
 
 Then resume SGSD normally. For every future gsd-executor dispatch, use Step 7.6:
 build a task capsule, run double-agent-executor route-only, obey the selected

@@ -130,7 +130,7 @@ without `data-row` still work but are less robust against layout churn.
 ```bash
 # Direct invocation (what the orchestrator does)
 node super-gsd/tools/phase-verifier/phase-verifier.mjs \
-  --project-dir C:/Users/jack.berrow/project-clarity-erp \
+  --project-dir C:/Users/user/project-clarity-erp \
   --phase 89
 
 # Exit codes
@@ -147,9 +147,9 @@ an approved substitute, commit this file to the phase directory:
 
 substitute: puppeteer
 reason: gsd-browser installation failed on this CI runner (see .planning/logs/browser-install.log)
-declared_by: jack
+declared_by: user
 declared_at: 2026-04-11
-approved_by: jack
+approved_by: user
 ```
 
 The substitute must be listed in `config.browser_verify.approved_fallbacks`

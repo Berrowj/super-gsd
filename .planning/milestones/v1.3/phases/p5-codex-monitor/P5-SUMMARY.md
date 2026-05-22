@@ -25,7 +25,7 @@ decisions:
   - "json_escape() factored out of stderr_preview inline awk and reused across all emission sites — avoids duplication"
   - "normalizeCommand() in merge-settings.js prevents duplicate hook registration under quote/path/whitespace variance"
   - "Get-SgsdCodexStatus centralises state-reading: 5 source files read once, consumed by 3 scripts — prevents divergent parsers"
-  - "Operator (Jack) claimed authorship — found in loose state at Phase 15 close, validated + committed without Claude edit"
+  - "Operator (the operator) claimed authorship — found in loose state at Phase 15 close, validated + committed without Claude edit"
   - "MC tile wiring deferred to Phase 19 MC-01 — P5 ships the substrate, not the surface"
 metrics:
   duration: unknown (operator-authored, not timed)

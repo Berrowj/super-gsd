@@ -223,7 +223,7 @@ Key constraints to include in SKILL.md:
 - D-13: schema_path is canonical at super-gsd/templates/plan-schema-v2.json in GSDedits repo
   </action>
   <verify>
-    <automated>test -f "C:/Users/jack.berrow/GSDedits/super-gsd/skills/sgsd-write-plan/SKILL.md" && grep -c "validate.cjs" "C:/Users/jack.berrow/GSDedits/super-gsd/skills/sgsd-write-plan/SKILL.md"</automated>
+    <automated>test -f "C:/Users/user/GSDedits/super-gsd/skills/sgsd-write-plan/SKILL.md" && grep -c "validate.cjs" "C:/Users/user/GSDedits/super-gsd/skills/sgsd-write-plan/SKILL.md"</automated>
   </verify>
   <done>
 - super-gsd/skills/sgsd-write-plan/SKILL.md exists
@@ -274,7 +274,7 @@ v1 plans: no schema_version or schema_version: 1 → existing path unchanged.
 v2 plans: schema_version: 2 → synthetic result, no Haiku spawn.
   </action>
   <verify>
-    <automated>grep -n "schema_version.*2\|SCHEMA-04\|classifier skip" "C:/Users/jack.berrow/GSDedits/super-gsd/skills/sgsd-orchestrate/SKILL.md" | head -15</automated>
+    <automated>grep -n "schema_version.*2\|SCHEMA-04\|classifier skip" "C:/Users/user/GSDedits/super-gsd/skills/sgsd-orchestrate/SKILL.md" | head -15</automated>
   </verify>
   <done>
 - Orchestrator Step 2 has pre-branch checking schema_version
@@ -305,7 +305,7 @@ v2 plans: schema_version: 2 → synthetic result, no Haiku spawn.
 </threat_model>
 
 <verification>
-ls C:/Users/jack.berrow/GSDedits/super-gsd/skills/sgsd-write-plan/SKILL.md && grep -c "validate.cjs" C:/Users/jack.berrow/GSDedits/super-gsd/skills/sgsd-write-plan/SKILL.md
+ls C:/Users/user/GSDedits/super-gsd/skills/sgsd-write-plan/SKILL.md && grep -c "validate.cjs" C:/Users/user/GSDedits/super-gsd/skills/sgsd-write-plan/SKILL.md
 </verification>
 
 <success_criteria>

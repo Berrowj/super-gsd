@@ -8,7 +8,7 @@ requirements: [ERG-02]
 dependency_graph:
   requires:
     - .planning/phases/10-gate-policy/10-03-01-cross-repo-probe.yaml
-    - C:/Users/jack.berrow/.claude/get-shit-done/bin/lib/core.cjs (cross-repo target)
+    - C:/Users/user/.claude/get-shit-done/bin/lib/core.cjs (cross-repo target)
   provides:
     - super-gsd/scripts/patch-gsd-tools-known-keys.sh
     - super-gsd/README.md § Post-install section
@@ -79,16 +79,16 @@ the correct diff against the live `core.cjs` at line 326.
 
 Per `.planning/phases/10-gate-policy/10-03-01-cross-repo-probe.yaml`:
 - `repo_status: separate`
-- `core.cjs` is in `C:/Users/jack.berrow/.claude` (a different git repo from GSDedits)
+- `core.cjs` is in `C:/Users/user/.claude` (a different git repo from GSDedits)
 
 The script detects this at runtime via `git -C "$CORE_DIR" rev-parse --show-toplevel`
 compared to the current repo root. When different, it prints:
 
 ```
-NOTE: core.cjs lives in a separate git repo at C:/Users/jack.berrow/.claude
+NOTE: core.cjs lives in a separate git repo at C:/Users/user/.claude
       The patch will be applied but NOT auto-committed there.
       After this script completes, run:
-        cd C:/Users/jack.berrow/.claude && git add bin/lib/core.cjs && git commit ...
+        cd C:/Users/user/.claude && git add bin/lib/core.cjs && git commit ...
 ```
 
 **Operator action required after running the script:** commit `bin/lib/core.cjs` in

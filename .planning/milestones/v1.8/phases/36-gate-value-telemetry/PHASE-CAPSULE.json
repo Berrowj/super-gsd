@@ -75,7 +75,7 @@
   "decisions": [
     {
       "id": "36-locked",
-      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.8\\phases\\36-gate-value-telemetry\\36-CONTEXT.md:locked-decision",
+      "source": "C:\\Users\\user\\GSDedits\\.planning\\milestones\\v1.8\\phases\\36-gate-value-telemetry\\36-CONTEXT.md:locked-decision",
       "text": "\nOutcome + retroactive fields, **no cost** (no time/$$/etc. in log).\nLocked in `.planning/discussions/2026-04-26-mass-discuss.md`.\n"
     }
   ],

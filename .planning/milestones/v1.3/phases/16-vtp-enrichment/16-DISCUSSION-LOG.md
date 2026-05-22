@@ -37,7 +37,7 @@
 ```
 === File sizes ===
 10265 super-gsd/skills/sgsd-triage/SKILL.md
-10454 C:/Users/jack.berrow/.claude/commands/sgsd-triage/SKILL.md
+10454 C:/Users/user/.claude/commands/sgsd-triage/SKILL.md
 
 === MD5 after normalizing line endings ===
 241be8ec8f2357080662d6fbba73d601 (source)

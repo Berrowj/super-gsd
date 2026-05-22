@@ -1,7 +1,7 @@
 ---
 phase: 87
 status: PASS
-operator: jack.berrow
+operator: user
 verifier: orchestrator (this Claude session)
 executor_dispatch: gsd-executor (Sonnet) agentId abe424dffcb881746
 executor_commit: b1c7259

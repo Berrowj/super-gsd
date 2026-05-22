@@ -19,7 +19,7 @@
 # the operator from getting their shell.
 #
 # Usage from launch-config yaml exec:
-#   powershell -NoExit -ExecutionPolicy Bypass -Command "& 'C:\Users\jack.berrow\GSDedits\super-gsd\scripts\lib\sgsd-tab-init.ps1' -Role cockpit -ProjectDir 'C:\Users\jack.berrow\GSDedits'; sgsd"
+#   powershell -NoExit -ExecutionPolicy Bypass -Command "& 'C:\Users\user\GSDedits\super-gsd\scripts\lib\sgsd-tab-init.ps1' -Role cockpit -ProjectDir 'C:\Users\user\GSDedits'; sgsd"
 
 param(
     [Parameter(Mandatory=$true)]

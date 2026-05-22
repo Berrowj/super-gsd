@@ -2,7 +2,7 @@
 phase: 65
 artifact: research
 created: 2026-04-29
-operator: jack.berrow
+operator: user
 authored_by: orchestrator (Opus, in-session — see DEVIATIONS in 65-VERIFICATION.md)
 ---
 

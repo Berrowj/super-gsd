@@ -1,7 +1,7 @@
 # SGSD + Warp Incorporation Plan
 
 Date: 2026-04-29
-Project: C:\Users\jack.berrow\GSDedits
+Project: C:\Users\user\GSDedits
 
 ## Current Warp Facts
 
@@ -53,7 +53,7 @@ What this gives:
 Operator flow:
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
+cd C:\Users\user\GSDedits
 # In Warp Command Search / Workflow Search:
 # SGSD: Start
 # SGSD: Auto Mode
@@ -97,7 +97,7 @@ Acceptance criteria:
 
 - Warp's built-in agent can explain the SGSD project without loading the full handbook.
 - Claude Code, Codex, and Warp Agent all find the same project rules.
-- No VTP-specific assumption blocks non-Jack installs.
+- No VTP-specific assumption blocks non-operator installs.
 
 ### Level 4: ACP Bridge
 

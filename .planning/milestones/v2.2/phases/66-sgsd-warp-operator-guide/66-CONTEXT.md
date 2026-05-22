@@ -4,7 +4,7 @@ phase_name: SGSD Warp Operator Guide
 milestone: v2.2
 roadmap: warp-integration
 created: 2026-04-29
-operator: jack.berrow
+operator: user
 status: in-progress
 deviation_from_standard: docs-only (no pattern-mapper, no MUDA, ATC docs-only LITE)
 unblocked: dispatched per Rule 15 ("continue with non-blocked work where possible") -- guide ships authored content; M1 verifies UI behaviour the guide describes (post-ship validation)
@@ -32,7 +32,7 @@ surface) from SGSD execution truth (`.planning/`).
   the operator on this checkout. Other-install adaptation lives in
   README.md (Phase 61 work).
 - **D66.3**: VTP/private KB optionality is a first-class section
-  (operator brief Rule 6). Guide must acknowledge non-Jack installs
+  (operator brief Rule 6). Guide must acknowledge non-operator installs
   and reference the Phase 48 selective-bridge contract.
 - **D66.4**: Daily-routine TL;DR at the bottom. Operator should be
   able to read just the TL;DR section and execute the full daily loop.

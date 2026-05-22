@@ -3,7 +3,7 @@ phase: 64
 artifact: verification
 created: 2026-04-29
 status: PASS
-operator: jack.berrow
+operator: user
 verifier: orchestrator (this Claude session)
 ---
 
@@ -23,7 +23,7 @@ index of workflow names in docs."
 | 8 missing workflows added | YES | sgsd-status / sgsd-recovery-packet / sgsd-gate-status / sgsd-watchdog-status / sgsd-codex-status / sgsd-current-phase-artifacts / sgsd-warp-doctor / sgsd-remote-monitor-packet (8/8 from roadmap) |
 | sgsd-token-current.yaml `arguments:` block fix | YES | Phase 63 finding D.2 closed |
 | All workflows include search-term keywords | YES | 10/10 required terms (start, auto, cockpit, token, recovery, gates, watchdog, codex, blocked, status) covered across descriptions |
-| `arguments:` defaults for project_dir | YES | 13/13 yamls have `default_value: 'C:\Users\jack.berrow\GSDedits'` |
+| `arguments:` defaults for project_dir | YES | 13/13 yamls have `default_value: 'C:\Users\user\GSDedits'` |
 | YAML validation test | YES | `super-gsd/tools/warp-workflow-lint/lint.cjs` -- 7/7 self-test PASS, 13/13 live --run + 10/10 search terms PASS, READ-ONLY, ASCII-only |
 | Workflow names index in docs | YES | `super-gsd/docs/SGSD-WARP-WORKFLOWS.md` -- 13-row table + 3 operator routines + add-a-new recipe + constraints + Related links |
 | Workflows call stable SGSD commands | YES | every command is `cd "{{project_dir}}"; <stable-cmd>`; no ad-hoc inline logic; Phase 67's warp-doctor is the only new tool referenced (a Phase 67 deliverable) |

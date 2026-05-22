@@ -75,7 +75,7 @@ $MemoryRoot = Join-Path $ProjectDir ".planning\memory"
 $LegacyBrvRoot = Join-Path $ProjectDir ".brv\context-tree"
 
 # Derive encoded auto-memory path (Claude Code convention):
-#   "C:\Users\jack.berrow\project-clarity-erp" -> "C--Users-jack-berrow-project-clarity-erp"
+#   "C:\Users\user\project-clarity-erp" -> "C--Users-user-project-clarity-erp"
 # Rules: ':' -> '-', '\' -> '-', '.' -> '-'. Leading 'C:' becomes 'C-' (the
 # colon eats one dash, then the first '\' adds another, producing 'C--').
 $encoded = ($ProjectDir -replace ':', '-') -replace '\\', '-' -replace '\.', '-'

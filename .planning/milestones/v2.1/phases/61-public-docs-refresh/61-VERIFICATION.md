@@ -38,7 +38,7 @@ explicitly.
 ## Closed-vocab grep on README.md (Lock 11)
 
 ```
-$ cd C:\Users\jack.berrow\GSDedits && grep -ic "vtp.*required\|vtp.*must" README.md
+$ cd C:\Users\user\GSDedits && grep -ic "vtp.*required\|vtp.*must" README.md
 0
 $ grep -ic "vtp" README.md
 3
@@ -70,12 +70,12 @@ the correct section of the README.
 ## sg quick-start live test (raw stdout capture)
 
 ```
-$ cd C:\Users\jack.berrow\GSDedits && bash super-gsd/scripts/sgsd-boot.sh --skip-preflight
+$ cd C:\Users\user\GSDedits && bash super-gsd/scripts/sgsd-boot.sh --skip-preflight
 
 ================================================
           SUPER GSD - Boot Command
 ================================================
-  Project: /c/Users/jack.berrow/GSDedits
+  Project: /c/Users/user/GSDedits
 
 LAUNCH
 ------
@@ -84,13 +84,13 @@ Bash on Linux/macOS cannot portably open new terminal windows.
 Run each dashboard in its own terminal:
 
   # Terminal 1 - SGSD1 Mission Control
-  powershell.exe -File /c/Users/jack.berrow/GSDedits/super-gsd/scripts/sgsd-mission-control.ps1 -ProjectDir '/c/Users/jack.berrow/GSDedits'
+  powershell.exe -File /c/Users/user/GSDedits/super-gsd/scripts/sgsd-mission-control.ps1 -ProjectDir '/c/Users/user/GSDedits'
 
   # Terminal 2 - SGSD2 Narrative
-  powershell.exe -File /c/Users/jack.berrow/GSDedits/super-gsd/scripts/sgsd-narrative.ps1       -ProjectDir '/c/Users/jack.berrow/GSDedits'
+  powershell.exe -File /c/Users/user/GSDedits/super-gsd/scripts/sgsd-narrative.ps1       -ProjectDir '/c/Users/user/GSDedits'
 
   # Terminal 3 - SGSD3 Codex + VTP/MCP
-  powershell.exe -File /c/Users/jack.berrow/GSDedits/super-gsd/scripts/sgsd-codex-monitor.ps1   -ProjectDir '/c/Users/jack.berrow/GSDedits'
+  powershell.exe -File /c/Users/user/GSDedits/super-gsd/scripts/sgsd-codex-monitor.ps1   -ProjectDir '/c/Users/user/GSDedits'
 
 On Windows with Windows Terminal installed, prefer the PowerShell version:
   powershell -File super-gsd/scripts/sgsd-boot.ps1
@@ -116,7 +116,7 @@ $ node super-gsd/scripts/sgsd-complete-milestone.cjs --milestone v2.1 | tail -10
 wizard_self_test: 13/13 assertions passed
 milestone_close_gate: v2.1 new-project-wizard self-test green (>=8 assertions PASS; deep-merge non-clobber + idempotent + Lock 13 verified)
 milestone_close_gate: v2.1 second-gate (new-project-wizard) green
-wizard_run ok=true configPath=C:\Users\jack.berrow\GSDedits\examples\hello-world\.planning\config.json written=true
+wizard_run ok=true configPath=C:\Users\user\GSDedits\examples\hello-world\.planning\config.json written=true
   defaults_used=true dry_run=false idempotent_skip=false clobbered=0
 milestone_close_gate: v2.1 example-walkthrough self-test green (wizard --defaults exit 0 + idempotent + sha256 fe16729a...)
 milestone_close_gate: v2.1 third-gate (example-walkthrough) green

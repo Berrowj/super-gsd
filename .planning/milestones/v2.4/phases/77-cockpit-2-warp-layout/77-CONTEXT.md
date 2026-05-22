@@ -44,7 +44,7 @@ have substantial operator-parallel-work modifications in flight; Phase
 ## Acceptance
 
 1. PowerShell parser check passes (0 errors).
-2. `powershell -NoProfile -Command "& super-gsd/scripts/lib/render-cockpit-snapshot.ps1 -ProjectDir 'C:/Users/jack.berrow/GSDedits'"` exits 0 with 10 sections rendered.
+2. `powershell -NoProfile -Command "& super-gsd/scripts/lib/render-cockpit-snapshot.ps1 -ProjectDir 'C:/Users/user/GSDedits'"` exits 0 with 10 sections rendered.
 3. `-Section blockers` filters to one section.
 4. `-Json` returns raw adapter output.
 5. Empty section data shows empty-state placeholder, not crash.

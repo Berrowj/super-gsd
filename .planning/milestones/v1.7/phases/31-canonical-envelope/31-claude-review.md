@@ -77,11 +77,11 @@ Post-fix anti-slop: 10/10. All 3 WARN findings cleared.
 
 ## Reviewed (absolute paths)
 
-- `C:\Users\jack.berrow\GSDedits\super-gsd\templates\command-envelope-v1.json`
-- `C:\Users\jack.berrow\GSDedits\super-gsd\registry\command-envelope-v1.yaml`
-- `C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.7\phases\31-canonical-envelope\31-01-canonical-envelope-PLAN.md`
-- `C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.7\phases\31-canonical-envelope\31-VERIFICATION.md`
-- `C:\Users\jack.berrow\GSDedits\.planning\milestones\v1.7\EXISTING-SURFACE-AUDIT.md`
+- `C:\Users\user\GSDedits\super-gsd\templates\command-envelope-v1.json`
+- `C:\Users\user\GSDedits\super-gsd\registry\command-envelope-v1.yaml`
+- `C:\Users\user\GSDedits\.planning\milestones\v1.7\phases\31-canonical-envelope\31-01-canonical-envelope-PLAN.md`
+- `C:\Users\user\GSDedits\.planning\milestones\v1.7\phases\31-canonical-envelope\31-VERIFICATION.md`
+- `C:\Users\user\GSDedits\.planning\milestones\v1.7\EXISTING-SURFACE-AUDIT.md`
 
 ## One-liner
 

@@ -19,9 +19,9 @@ param(
 )
 
 # Convert project name to Claude Code's session folder format
-# C:\Users\jack.berrow\project-clarity-erp -> C--Users-jack-berrow-project-clarity-erp
+# C:\Users\user\project-clarity-erp -> C--Users-user-project-clarity-erp
 $sessionRoot = "$env:USERPROFILE\.claude\projects"
-$projectSlug = "C--Users-jack-berrow-$Project"
+$projectSlug = "C--Users-user-$Project"
 $projectDir = Join-Path $sessionRoot $projectSlug
 
 if (-not (Test-Path $projectDir)) {
@@ -29,7 +29,7 @@ if (-not (Test-Path $projectDir)) {
     Write-Host ""
     Write-Host "Available projects:" -ForegroundColor Yellow
     Get-ChildItem $sessionRoot -Directory | ForEach-Object {
-        $name = $_.Name -replace "^C--Users-jack-berrow-", ""
+        $name = $_.Name -replace "^C--Users-user-", ""
         Write-Host "  $name" -ForegroundColor Gray
     }
     exit 1

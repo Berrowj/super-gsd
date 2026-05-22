@@ -1649,7 +1649,7 @@ function Maybe-RefreshClaudeEli5 {
     try {
         Set-Content -Path $lock -Value (Get-Date).ToString("o") -Encoding ascii
         $prompt = @"
-You are a Haiku ELI5 narrator for Jack watching Claude Code inside SGSD.
+You are a Haiku ELI5 narrator for the operator watching Claude Code inside SGSD.
 Only explain Claude actions. Do not mention Codex, ATC, MUDA, gates, budgets, or routing unless Claude is directly acting on them.
 Write a wrapped, explanatory plain-English status: what Claude is doing now, why it matters, and how it fits the current phase/milestone.
 Use the phase context below. Do not just repeat tool names.

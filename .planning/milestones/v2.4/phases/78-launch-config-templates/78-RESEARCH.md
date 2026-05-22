@@ -21,7 +21,7 @@ authored_by: orchestrator (Opus)
 
 ### D2 — Literal cwd paths, not placeholders
 
-Per operator brief Rule 13 ("docs phases include concrete file paths"), the templates use the literal `C:\Users\jack.berrow\GSDedits`. README documents how to edit for other installs.
+Per operator brief Rule 13 ("docs phases include concrete file paths"), the templates use the literal `C:\Users\user\GSDedits`. README documents how to edit for other installs.
 
 ### D3 — No new warp-doctor probe
 

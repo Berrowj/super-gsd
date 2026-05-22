@@ -28,7 +28,7 @@ ONE RESERVED OBJECTION: Trajectory distillation produces abstract principles onl
 
 FINAL POSITION: (defer Q1, 2a, 3c, 4b) — concede to Contrarian on Q1 (no v1.2 consumer, defer manifest entirely); hold 3c (defer distillation to v1.3 with two milestones of non-install data).
 
-FINDING-18 STATUS: Partially broken. Script at `super-gsd/scripts/sgsd-curate.sh` is syntactically complete with atomicity and rollback. Smoke-test command: `echo "test body" | bash super-gsd/scripts/sgsd-curate.sh --type pattern --slug finding-18-smoke --summary "smoke test entry" --root /mnt/c/Users/jack.berrow/GSDedits && grep "finding-18-smoke" .brv/context-tree/INDEX.md`. INDEX.md shows a malformed anti-pattern row at line 37 (`waste-waiting-p08-narrative-stale-2026-04-19-20-01-38z`) — curate script ran but produced a pathological slug. Write path works; slug discipline does not. **Partially broken.**
+FINDING-18 STATUS: Partially broken. Script at `super-gsd/scripts/sgsd-curate.sh` is syntactically complete with atomicity and rollback. Smoke-test command: `echo "test body" | bash super-gsd/scripts/sgsd-curate.sh --type pattern --slug finding-18-smoke --summary "smoke test entry" --root /mnt/c/Users/user/GSDedits && grep "finding-18-smoke" .brv/context-tree/INDEX.md`. INDEX.md shows a malformed anti-pattern row at line 37 (`waste-waiting-p08-narrative-stale-2026-04-19-20-01-38z`) — curate script ran but produced a pathological slug. Write path works; slug discipline does not. **Partially broken.**
 
 WHERE YOU MOVED: R1 said "manifest-only." Now concede to Contrarian on Q1. Architect's blind spot admission is my concession point: no v1.2 read-path consumer = write-only trap = MUDA's "inventory" waste. Building a registry nobody reads is exactly the scope-creep I oppose.
 

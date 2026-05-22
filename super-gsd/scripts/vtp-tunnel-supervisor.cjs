@@ -23,7 +23,7 @@
  *     "remote_port": 22,
  *     "local_mcp_port": 4101,
  *     "remote_bind_port": 4101,
- *     "ssh_identity": "C:/Users/jack.berrow/.ssh/id_ed25519",  // optional
+ *     "ssh_identity": "C:/Users/user/.ssh/id_ed25519",  // optional
  *     "extra_ssh_args": []
  *   }
  *

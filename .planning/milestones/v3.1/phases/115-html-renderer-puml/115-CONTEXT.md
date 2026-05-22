@@ -205,5 +205,5 @@ semantic_acceptance_criteria:
 - `.planning/milestones/v3.1/MILESTONE-READINESS.md` — P115 DEGRADED-PATH (plantuml.jar absent → fallback generator)
 - `.planning/milestones/v3.1/phases/114-context-pack-builder/114-VERIFICATION.md` — predecessor; P115 consumes CHRONICLE-CONTEXT.json from P114 builder
 - `.planning/analyses/2026-05-21-sgsd-v3-user-guide.html` — POC for HTML style + ELI5 idiom
-- `C:\Users\jack.berrow\Downloads\clarity-board-deck (2).pdf` — visual style reference (sage / terracotta colour scheme)
+- `C:\Users\user\Downloads\clarity-board-deck (2).pdf` — visual style reference (sage / terracotta colour scheme)
 - `super-gsd/tools/mesh-memory/lineage.cjs` — pattern for the lineage-dag.puml node/edge derivation

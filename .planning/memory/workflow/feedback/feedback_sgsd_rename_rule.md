@@ -9,7 +9,7 @@ Do NOT rename `gsd-*` agents to `sgsd-*` as a bulk migration step. Only switch t
 1. **Active upgrade:** the agent has been enriched with — at minimum — the v2 handover contract (`super-gsd/registry/handover-contract-v2.yaml`), a dedicated expertise file at `super-gsd/expertise/{name}.md`, and explicit research-principle citations in its frontmatter. The upgrade itself is what earns the new prefix.
 2. **Genuinely new agent:** we've created it from scratch (e.g. the 8 `sgsd-exec-*` specialists — backend, ui, test, refactor, fix, config, docs, integration — which didn't exist before). New-from-scratch inherits the `sgsd-` prefix naturally.
 
-**Why:** Operator (Jack, 2026-04-21) explicitly corrected a mid-migration bulk-fork attempt: "I do not want you to change the names of GSD to SGSD unless we have actively upgraded it either with research paper enrichment or creating an entire new agent." The prefix is a meaningful signal — bulk-renaming makes it meaningless. It should track actual SGSD-v2 contract compliance, not aspirational target state.
+**Why:** Operator (the operator, 2026-04-21) explicitly corrected a mid-migration bulk-fork attempt: "I do not want you to change the names of GSD to SGSD unless we have actively upgraded it either with research paper enrichment or creating an entire new agent." The prefix is a meaningful signal — bulk-renaming makes it meaningless. It should track actual SGSD-v2 contract compliance, not aspirational target state.
 
 **How to apply:**
 - Migration manifest's "rename table" represents the *eventual target state* once each agent is upgraded. It is NOT a Phase B mass-rename list.

@@ -26,7 +26,7 @@ Three rule files coexist in this repo. Read in this order:
 ## Project Shape
 
 This is a SGSD-onboarded repo. The framework lives at `super-gsd/`
-(directory junction to the canonical install at `C:\Users\jack.berrow\GSDedits\super-gsd`).
+(directory junction to the canonical install at `C:\Users\user\GSDedits\super-gsd`).
 
 - `.planning/STATE.md` — current milestone/phase state.
 - `.planning/milestones/` — per-milestone plans and phase artifacts.

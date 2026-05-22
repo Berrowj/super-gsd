@@ -17,7 +17,7 @@ operators can import into Warp Drive Notebooks.
 - D81.1: 9+ runnable PowerShell blocks covering: daily start / auto mode /
   status / token summary / gate status / recovery / remote monitor /
   warp-doctor / mcp self-test / cockpit render.
-- D81.2: Each block uses LITERAL paths (`C:\Users\jack.berrow\GSDedits`),
+- D81.2: Each block uses LITERAL paths (`C:\Users\user\GSDedits`),
   not placeholders. Operator brief Rule 13.
 - D81.3: Import-to-Warp-Drive instructions + export-back instructions.
 - D81.4: Cross-references to OPERATOR-GUIDE / WORKFLOWS / MCP-SETUP /

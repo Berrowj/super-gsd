@@ -9,7 +9,7 @@ covers_smoke_row: Q5
 files:
   - .planning/milestones/v2.2/WARP-SMOKE.md (row Q5)
   - .planning/milestones/v2.2/MANUAL-CHECKS.md (M2 full steps)
-  - C:\Users\jack.berrow\AppData\Roaming\npm\claude.ps1
+  - C:\Users\user\AppData\Roaming\npm\claude.ps1
 informs_phase: 65 (rules), 66 (operator guide), 78 (launch configs)
 ---
 
@@ -26,7 +26,7 @@ Steps (full version in `.planning/milestones/v2.2/MANUAL-CHECKS.md` § M2):
 1. Open a fresh Warp PowerShell tab (no `sg`, no `sgsd`).
 2. Run:
    ```powershell
-   cd C:\Users\jack.berrow\GSDedits
+   cd C:\Users\user\GSDedits
    claude --dangerously-skip-permissions
    ```
 3. Observe:

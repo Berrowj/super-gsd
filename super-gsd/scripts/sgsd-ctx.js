@@ -29,7 +29,7 @@ const os = require('os');
 
 function encodeProjectPath(p) {
     // Match Claude Code's session-dir encoding:
-    //   C:\Users\jack.berrow\GSDedits  →  C--Users-jack-berrow-GSDedits
+    //   C:\Users\user\GSDedits  →  C--Users-user-GSDedits
     // Colon, backslash, forward-slash, and dot all become dashes.
     // Trailing separators stripped first so tab-completion artefacts don't fuzz.
     const stripped = p.replace(/[\\\/]+$/, '');

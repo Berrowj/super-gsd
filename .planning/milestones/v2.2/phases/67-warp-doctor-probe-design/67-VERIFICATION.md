@@ -3,7 +3,7 @@ phase: 67
 artifact: verification
 created: 2026-04-29
 status: PASS
-operator: jack.berrow
+operator: user
 verifier: orchestrator (this Claude session)
 ---
 
@@ -48,7 +48,7 @@ with fixture repo. No write operations."
 
 ```
 Warp Doctor -- 2026-04-29T18:46:15.417Z
-Project: C:\Users\jack.berrow\GSDedits
+Project: C:\Users\user\GSDedits
 
 PROBE                                  STATUS                  EVIDENCE
 -----                                  ------                  --------

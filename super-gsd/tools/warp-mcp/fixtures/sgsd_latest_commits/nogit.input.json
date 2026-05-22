@@ -1,5 +1,5 @@
 {
   "tool": "sgsd_latest_commits",
-  "args": { "count": 3, "project_dir": "C:/Users/jack.berrow/AppData/Local/Temp/__warp_mcp_fixture_nonexistent_zzzz_84371" },
+  "args": { "count": 3, "project_dir": "C:/Users/user/AppData/Local/Temp/__warp_mcp_fixture_nonexistent_zzzz_84371" },
   "scenario_description": "degraded path -- git -C on nonexistent dir -> git_subprocess_failed"
 }

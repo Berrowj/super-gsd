@@ -75,5 +75,15 @@
     "dependency_depth": 1,
     "commits_in_phase": 0
   },
-  "warnings": []
+  "warnings": [],
+  "north_star": {
+    "rank": 5,
+    "code": "ON_TRACK",
+    "message": "ON TRACK — v3.1/118"
+  },
+  "alerts": {
+    "top": null,
+    "others_count": 0,
+    "all": []
+  }
 }

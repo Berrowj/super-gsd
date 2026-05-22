@@ -1,7 +1,7 @@
 # SGSD + Warp Native Research Plan
 
 Date: 2026-04-29
-Project: C:\Users\jack.berrow\GSDedits
+Project: C:\Users\user\GSDedits
 Status: research-backed plan, ready to convert into SGSD phases
 
 ## Executive Recommendation
@@ -52,15 +52,15 @@ Official Warp sources reviewed:
 
 Local SGSD sources reviewed:
 
-- C:\Users\jack.berrow\GSDedits\.planning\analyses\2026-04-29-sgsd-warp-incorporation-plan.md
-- C:\Users\jack.berrow\GSDedits\WARP.md
-- C:\Users\jack.berrow\GSDedits\docs\reports\SGSD-Warp-Integration-ELI5.html
-- C:\Users\jack.berrow\GSDedits\docs\superpowers\specs\2026-04-11-sgsd-warp-layout-design.md
-- C:\Users\jack.berrow\GSDedits\.warp\workflows\sgsd-start.yaml
-- C:\Users\jack.berrow\GSDedits\.warp\workflows\sgsd-auto.yaml
-- C:\Users\jack.berrow\GSDedits\.warp\workflows\sgsd-cockpit.yaml
-- C:\Users\jack.berrow\GSDedits\.warp\workflows\sgsd-token-current.yaml
-- C:\Users\jack.berrow\GSDedits\.warp\workflows\sgsd-preflight.yaml
+- C:\Users\user\GSDedits\.planning\analyses\2026-04-29-sgsd-warp-incorporation-plan.md
+- C:\Users\user\GSDedits\WARP.md
+- C:\Users\user\GSDedits\docs\reports\SGSD-Warp-Integration-ELI5.html
+- C:\Users\user\GSDedits\docs\superpowers\specs\2026-04-11-sgsd-warp-layout-design.md
+- C:\Users\user\GSDedits\.warp\workflows\sgsd-start.yaml
+- C:\Users\user\GSDedits\.warp\workflows\sgsd-auto.yaml
+- C:\Users\user\GSDedits\.warp\workflows\sgsd-cockpit.yaml
+- C:\Users\user\GSDedits\.warp\workflows\sgsd-token-current.yaml
+- C:\Users\user\GSDedits\.warp\workflows\sgsd-preflight.yaml
 
 ## Current Warp Facts That Matter
 
@@ -289,7 +289,7 @@ Tasks:
 - Confirm Warp detects Claude Code and Codex when launched through `sg` and direct commands.
 - Confirm where Warp stores launch configs on this Windows install.
 - Confirm whether current Windows Warp can open a saved launch configuration into the active window.
-- Confirm Codebase Context is enabled for `C:\Users\jack.berrow\GSDedits`.
+- Confirm Codebase Context is enabled for `C:\Users\user\GSDedits`.
 
 Acceptance:
 

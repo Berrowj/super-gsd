@@ -3,7 +3,7 @@ title: Mass discuss for v1.6 → v2.1 full-roadmap autopilot
 date: 2026-04-26
 scope: substitutes for /gsd-discuss-phase across phases 26-55 (with 5 phases pre-discussed live; remainder auto-defaulted)
 status: locked
-operator: jack.berrow
+operator: user
 controlling_principle: Autonomy continues; evidence tells the truth.
 ---
 

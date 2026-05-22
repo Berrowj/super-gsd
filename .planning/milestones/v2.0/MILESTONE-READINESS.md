@@ -30,7 +30,7 @@ All external dependencies are present and verified. The executor can be dispatch
 |---|---|
 | Node.js v22.22.2 | OK |
 | child_process.spawnSync | OK |
-| os.tmpdir() writable (C:\Users\JACK~1.BER\AppData\Local\Temp) | OK |
+| os.tmpdir() writable (C:\Users\USER~1\AppData\Local\Temp) | OK |
 | super-gsd/tools/context-bench/failure-injectors.cjs (Phase 51 precedent) | PRESENT |
 | super-gsd/tools/context-cache/redis-adapter.cjs (Phase 52, scenario 6) | PRESENT |
 | super-gsd/scripts/lib/crit-backlog.cjs (loadable) | OK |
@@ -133,7 +133,7 @@ The following are not blockers but are informational:
 |---|---|---|---|
 | 1 | Node.js version | `node --version` | v22.22.2 OK |
 | 2 | child_process.spawnSync | `node -e "require('child_process').spawnSync"` | OK |
-| 3 | os.tmpdir() writable | `node -e "fs.mkdirSync+writeFile+rmSync"` | WRITABLE at C:\Users\JACK~1.BER\AppData\Local\Temp |
+| 3 | os.tmpdir() writable | `node -e "fs.mkdirSync+writeFile+rmSync"` | WRITABLE at C:\Users\USER~1\AppData\Local\Temp |
 | 4 | Phase 51 failure-injectors.cjs | `test -f super-gsd/tools/context-bench/failure-injectors.cjs` | PRESENT |
 | 5 | Phase 52 redis-adapter.cjs | `test -f super-gsd/tools/context-cache/redis-adapter.cjs` | PRESENT |
 | 6 | crit-backlog.cjs | `test -f + node -e require()` | PRESENT, LOADABLE |

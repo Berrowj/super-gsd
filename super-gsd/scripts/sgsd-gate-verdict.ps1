@@ -71,7 +71,7 @@ function __sgsd_fail($title, $detail) {
     Write-Host ""
     Write-Host "    Fix: run from the project dir, or pass it explicitly:" -ForegroundColor Gray
     Write-Host "      sgsd3 C:\path\to\project" -ForegroundColor Gray
-    Write-Host "    Default fallback: C:\Users\jack.berrow\GSDedits"      -ForegroundColor Gray
+    Write-Host "    Default fallback: C:\Users\user\GSDedits"      -ForegroundColor Gray
     Write-Host ""
     # Keep the error visible in -NoExit panes. Bypass on fully automated runs.
     if ($Host.Name -ne 'ConsoleHost' -or $env:SGSD_NO_PAUSE_ON_ERROR) { exit 1 }
@@ -98,7 +98,7 @@ if (-not (Test-Path $PlanningDir)) {
         "",
         "SGSD dashboards require a project root that contains .planning/.",
         "If the sgsd3.cmd launcher passed the wrong path, you can override:",
-        "  sgsd3 C:\Users\jack.berrow\GSDedits"
+        "  sgsd3 C:\Users\user\GSDedits"
     )
 }
 
@@ -1258,7 +1258,7 @@ function Render {
         Write-Host $CLEAR_LINE
     }
 
-    # Last phase gate summary — reference point so Jack knows what "good" looks like
+    # Last phase gate summary — reference point so the operator knows what "good" looks like
     $last = Get-LastPhaseGates
     if ($last) {
         Write-Host "LAST " -NoNewline -ForegroundColor White

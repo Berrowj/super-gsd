@@ -108,7 +108,7 @@ helps for:
 ## Cumulative phase diff trick
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
+cd C:\Users\user\GSDedits
 
 # Find the phase's first commit:
 $phase = "76"  # adjust

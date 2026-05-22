@@ -4,7 +4,7 @@ phase_name: SGSD MCP Contract
 milestone: v2.3
 roadmap: warp-integration
 created: 2026-04-29
-operator: jack.berrow
+operator: user
 status: in-progress
 deviation_from_standard: docs-only design phase (Step 1 pattern-mapper skipped, Step 7 MUDA skipped, ATC docs-only LITE)
 unblocked: yes (does not depend on M1-M5 manual UI checks; the contract is design-doc work that v2.3 Phase 69+ implements against)

@@ -2,7 +2,7 @@
 phase: 70
 artifact: research
 created: 2026-04-29
-operator: jack.berrow
+operator: user
 authored_by: orchestrator (Opus); code authored by gsd-executor (Sonnet) agentId a98f98d2cb60b457f
 ---
 

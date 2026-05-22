@@ -19,7 +19,7 @@ Copy-Item super-gsd/docs/templates/warp-launch-configs/*.yaml `
           $HOME/.warp/launch_configurations/
 
 # Verify:
-node super-gsd/tools/warp-doctor/check.cjs --project C:\Users\jack.berrow\GSDedits
+node super-gsd/tools/warp-doctor/check.cjs --project C:\Users\user\GSDedits
 # Expected: launch_config_dir_present probe shows the YAML files counted
 ```
 
@@ -31,7 +31,7 @@ node super-gsd/tools/warp-doctor/check.cjs --project C:\Users\jack.berrow\GSDedi
   roadmap). Phase 78 does NOT promise active-window behavior — operator
   Rule 14 / Phase 63 M4 documents this.
 - **cwd must be absolute** or empty per Warp docs. Templates use
-  `C:\Users\jack.berrow\GSDedits` literally; edit if your project root differs.
+  `C:\Users\user\GSDedits` literally; edit if your project root differs.
 - **`sg` shortcut required**: panes call `sgsd` via the PowerShell profile.
   Templates assume the `sg`/`sgsd` functions are loaded (verify with
   Phase 67 warp-doctor probes 2-4).

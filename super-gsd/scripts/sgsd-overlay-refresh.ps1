@@ -42,7 +42,7 @@ if ($Source) { $overlayCandidates += $Source }
 $overlayCandidates += @(
     (Join-Path $HOME ".claude\super-gsd\source\super-gsd\CLAUDE-OVERLAY.md"),
     (Join-Path $PSScriptRoot "..\CLAUDE-OVERLAY.md"),
-    "C:\Users\jack.berrow\GSDedits\super-gsd\CLAUDE-OVERLAY.md"
+    "C:\Users\user\GSDedits\super-gsd\CLAUDE-OVERLAY.md"
 )
 
 $overlaySource = $null

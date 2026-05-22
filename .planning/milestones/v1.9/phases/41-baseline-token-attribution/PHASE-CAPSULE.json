@@ -85,7 +85,7 @@
   "decisions": [
     {
       "id": "41-locked",
-      "source": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\milestones\\v1.9\\phases\\41-baseline-token-attribution\\41-CONTEXT.md:locked-decision",
+      "source": "C:\\Users\\user\\GSDedits\\.planning\\milestones\\v1.9\\phases\\41-baseline-token-attribution\\41-CONTEXT.md:locked-decision",
       "text": "\n41 auto-defaulted from SGSD-Research handover packet (no interactive\ndiscuss). All 11 derivation calls locked in `41-RESEARCH.md` \u00a711.\n"
     }
   ],
