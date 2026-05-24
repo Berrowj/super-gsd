@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.3",
+  "phase": "133",
+  "phase_name": "PowerShell Monitor Keep/Kill Migration (Terminal Fallback)",
+  "status": "PASS",
+  "goal": "Surgical edits to sgsd-codex-monitor.ps1 per the brief's keep/kill audit, re-scoped lighter post-P132. KILL Write-GateSavingsBlock; add -Drill switch gating 4 drill-in panels (Get-MudaStats / Get-AtcStats / Write-AtcReviewSteps / Write-GateStepLine); add 3 BAND region banner comments. Net -33 lines.",
+  "outputs": [
+    { "kind": "plan", "path": ".planning/milestones/v3.3/phases/133-cockpit-monitor-migration/133-01-monitor-migration-PLAN-LOCKED.md" },
+    { "kind": "context", "path": ".planning/milestones/v3.3/phases/133-cockpit-monitor-migration/133-CONTEXT.md" },
+    { "kind": "verification", "path": ".planning/milestones/v3.3/phases/133-cockpit-monitor-migration/133-VERIFICATION.md" }
+  ],
+  "files": [
+    ".planning/milestones/v3.3/phases/133-cockpit-monitor-migration/133-01-monitor-migration-PLAN-LOCKED.md",
+    ".planning/milestones/v3.3/phases/133-cockpit-monitor-migration/133-CONTEXT.md",
+    ".planning/milestones/v3.3/phases/133-cockpit-monitor-migration/133-VERIFICATION.md",
+    "super-gsd/scripts/sgsd-codex-monitor.ps1",
+    "super-gsd/tools/cockpit-sidecar/run-self-test.cjs"
+  ],
+  "sac_ids": ["SAC-P133-01", "SAC-P133-02", "SAC-P133-03"],
+  "self_test_command": "node super-gsd/tools/cockpit-sidecar/run-self-test.cjs",
+  "self_test_result": "pass",
+  "self_test_count": "53/53",
+  "decisions": [
+    { "id": "P133-rescope", "decided_at": "2026-05-24", "decision": "Re-narrowed from heavy panel-by-panel migration to surgical KILL + flag + banners. localhost-live (P132) is the primary surface; PS monitor is now fallback only. Rest of panel work deferred to maintenance phase." }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 12,
+    "deferred_items": [
+      "Original keep/kill MERGE verdicts (Render-ClaudeNowPanel → Band 1, Write-CompactGateRow → Band 2, Write-GateSynopsis → Band 1)",
+      "Original DECLUTTER verdict (Render-CodexHistoryBlocks → last 3 only)",
+      "Eight other panel-level edits from the brief lines 168-189"
+    ],
+    "carried_forward_total": null
+  },
+  "downstream_contract": {
+    "consumers": ["P134 (conformance lint covers PS fallback among 4 surfaces — checks for Write-GateSavingsBlock absence as part of v3.3 conformance)"],
+    "constraints": ["sgsd-codex-monitor.ps1 invocations without -Drill flag hide drill-in panels by default"],
+    "extension_points": ["Future maintenance phase can apply the remaining keep/kill verdicts as separate surgical commits"]
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    { "sha": "8d1232f", "subject": "feat(v3.3): P133 CONTEXT + PLAN-LOCKED — PS monitor migration (re-scoped lighter)", "ts": "2026-05-24" },
+    { "sha": "be0e05c", "subject": "feat(P133-T1): PS monitor surgical edits — KILL + Drill flag + BAND banners", "ts": "2026-05-24" },
+    { "sha": "49a820e", "subject": "test(P133-T2): SAC-P133-01..03 — PS monitor migration grep assertions", "ts": "2026-05-24" }
+  ],
+  "source_hashes": {
+    "context": { "path": ".planning/milestones/v3.3/phases/133-cockpit-monitor-migration/133-CONTEXT.md", "sha256": "9dbc71e32b20cdc66c89932779ef8c6d33d73b26238dab025849990a5d19d22b" },
+    "research": null,
+    "plan": [{ "path": ".planning/milestones/v3.3/phases/133-cockpit-monitor-migration/133-01-monitor-migration-PLAN-LOCKED.md", "sha256": "96a516eb50305995a8d7d38d01bf39d36f223208f7d33646d999f716b29d209f" }],
+    "verification": { "path": ".planning/milestones/v3.3/phases/133-cockpit-monitor-migration/133-VERIFICATION.md", "sha256": "98108cc1d6e67a03868c4d46cbc32221ac97aae29ffc7ea544e969aba2aee338" },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": { "verdict": "PASS", "ref": ".planning/milestones/v3.3/phases/133-cockpit-monitor-migration/133-VERIFICATION.md" },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      { "task": "P133-T1", "executor": "codex-patch-executor.sh", "result": "surgical edits applied (-33 lines net)" },
+      { "task": "P133-T2", "executor": "codex-patch-executor.sh", "result": "3 grep SACs appended (19 insertions)" },
+      { "task": "P133-T3", "executor": "orchestrator", "result": "phase-close artefacts authored after 53/53 self-test green" }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-05-24T00:00:00.000Z",
+  "created_by": "orchestrator (Claude Opus 4.7, 1M context)"
+}
