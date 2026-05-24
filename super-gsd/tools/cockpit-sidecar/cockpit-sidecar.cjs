@@ -5,12 +5,29 @@ const fs = require('fs');
 const path = require('path');
 const { computeStagePipeline } = require('./stage-pipeline.cjs');
 const { renderAnsi } = require('./sparkline.cjs');
+const { computeRationale } = require('./rationale.cjs');
 
 function attachStagePipeline(output, opts) {
   const phaseDir = (opts && opts.phase_dir) || null;
   const vtpEnabled = !opts || opts.vtp_enabled !== false;
   const blocker = (opts && opts.blocker) || null;
   output.stage_pipeline = computeStagePipeline({ phase_dir: phaseDir, vtp_enabled: vtpEnabled, blocker });
+  return output;
+}
+
+function attachRationale(output, opts) {
+  const milestoneId = (opts && opts.milestone) || output.milestone;
+  const phaseId = (opts && opts.phase) || output.phase;
+  if (!milestoneId || !phaseId) {
+    output.rationale = computeRationale({});
+    return output;
+  }
+  const phaseDir = (opts && opts.phase_dir) || null;
+  const projectMd = '.planning/PROJECT.md';
+  const intentMd = `.planning/milestones/${milestoneId}/INTENT.md`;
+  const lastSummaryMd = (opts && opts.last_summary_md) || null;
+  const contextMd = phaseDir ? `${phaseDir}/${phaseId}-CONTEXT.md` : null;
+  output.rationale = computeRationale({ project_md: projectMd, intent_md: intentMd, last_summary_md: lastSummaryMd, context_md: contextMd });
   return output;
 }
 const { execFileSync } = require('child_process');
@@ -21,11 +38,12 @@ const { evaluateAlerts } = require('./alert-grammar.cjs');
 const DEFAULTS = { cockpitState: '.planning/STATE.md', chronicleIndex: '.planning/chronicles/INDEX.jsonl',
   validatorLog: '.planning/metrics/chronicle-validation-log.jsonl',
   executorLog: '.planning/metrics/codex-executor-log.jsonl',
-  tokenAttribution: '.planning/metrics/token-attribution.jsonl', format: 'json' };
+  tokenAttribution: '.planning/metrics/token-attribution.jsonl', format: 'json', bands: ['1', '2'] };
 
 const VALUE_OPTIONS = { '--cockpit-state': 'cockpitState', '--chronicle-index': 'chronicleIndex',
   '--validator-log': 'validatorLog', '--executor-log': 'executorLog',
-  '--token-attribution': 'tokenAttribution', '--milestone': 'milestone', '--phase': 'phase' };
+  '--token-attribution': 'tokenAttribution', '--milestone': 'milestone', '--phase': 'phase',
+  '--bands': 'bands' };
 
 const FOG_SIGNALS = ['dispatch_count', 'token_spend', 'files_changed', 'review_loops',
   'disputed_claims_count', 'stale_findings_count', 'plan_revisions', 'unresolved_risks_count',
@@ -36,8 +54,17 @@ function usage() {
     'Usage: node super-gsd/tools/cockpit-sidecar/cockpit-sidecar.cjs [options]',
     '  --cockpit-state <path> --chronicle-index <path> --validator-log <path>',
     '  --executor-log <path> --token-attribution <path>',
-    '  --milestone <id> --phase <id> --json|--text|--brief|--html'
+    '  --milestone <id> --phase <id> --bands <1,2,3|all> --json|--text|--brief|--html'
   ].join('\n');
+}
+
+function parseBands(value) {
+  const raw = Array.isArray(value) ? value.join(',') : String(value || '1,2');
+  const parts = raw.split(',').map((part) => part.trim()).filter(Boolean);
+  const expanded = parts.includes('all') ? ['1', '2', '3'] : parts;
+  const invalid = expanded.find((part) => !['1', '2', '3'].includes(part));
+  if (invalid) throw new Error(`invalid --bands value ${invalid}`);
+  return Array.from(new Set(expanded));
 }
 
 function parseArgs(argv) {
@@ -46,12 +73,14 @@ function parseArgs(argv) {
     const arg = argv[index];
     if (arg === '--help' || arg === '-h') {
       options.help = true;
+    } else if (arg.startsWith('--bands=')) {
+      options.bands = parseBands(arg.slice('--bands='.length));
     } else if (arg === '--json' || arg === '--text' || arg === '--brief' || arg === '--html') {
       options.format = arg.slice(2);
     } else if (VALUE_OPTIONS[arg]) {
       const value = argv[index + 1];
       if (!value || value.startsWith('--')) throw new Error(`missing value for ${arg}`);
-      options[VALUE_OPTIONS[arg]] = value;
+      options[VALUE_OPTIONS[arg]] = VALUE_OPTIONS[arg] === 'bands' ? parseBands(value) : value;
       index += 1;
     } else {
       throw new Error(`unknown option ${arg}`);
@@ -383,8 +412,25 @@ function trendLine(label, value, chip) {
   return `${label.padEnd(10)} ${String(numeric).padStart(5)}  ${sparkline}  ${chip}`;
 }
 
+function renderRationaleSection(output) {
+  const rationale = output.rationale || {};
+  const rows = [
+    ['WHY THIS PHASE', rationale.why_this_phase],
+    ['CONTEXT', rationale.context],
+    ['ELI5', rationale.eli5],
+    ['WHAT IS', rationale.what_is],
+    ['WHAT COULD BE', rationale.what_could_be],
+    ['EVIDENCE TRAIL', rationale.evidence_trail],
+  ];
+  const lines = [topRule('BAND 3 RATIONALE')];
+  rows.forEach(([label, value]) => lines.push(boxLine(label), boxLine(valueOr(value, 'n/a'))));
+  lines.push(bottomRule());
+  return lines;
+}
+
 function renderText(output, opts = {}) {
   const color = useColor(opts);
+  const bands = parseBands(opts.bands || ['1', '2']);
   const northStar = output.north_star || {};
   const message = northStar.message || northStarLine(output);
   const alert = alertLine(output);
@@ -417,6 +463,10 @@ function renderText(output, opts = {}) {
     boxLine(trendLine('tokens', valueOr(signals.token_spend, 0), trendChip(signals.token_spend, 100000, 500000))),
     bottomRule()
   );
+
+  if (bands.includes('3')) {
+    lines.push('', ...renderRationaleSection(output));
+  }
 
   return lines.join('\n');
 }
@@ -519,8 +569,9 @@ function run(rawArgs = process.argv.slice(2)) {
     if (cfg && cfg.workflow && cfg.workflow.triage_vtp_enrichment === false) vtpEnabled = false;
   } catch (_e) { /* default true */ }
   attachStagePipeline(output, { phase_dir: phaseDirGuess, vtp_enabled: vtpEnabled });
+  attachRationale(output, { phase_dir: phaseDirGuess });
 
-  if (options.format === 'text') return { exitCode: 0, stdout: renderText(output) };
+  if (options.format === 'text') return { exitCode: 0, stdout: renderText(output, options) };
   if (options.format === 'brief') return { exitCode: 0, stdout: renderBrief(output) };
   if (options.format === 'html') return { exitCode: 0, stdout: renderHtml(output) };
   return { exitCode: 0, stdout: JSON.stringify(output, null, 2) };
@@ -539,3 +590,4 @@ if (require.main === module) {
 
 module.exports = { run, parseArgs, readJsonl, readCockpitState, renderText, renderBrief, renderHtml, recommendedAction };
 module.exports.attachStagePipeline = attachStagePipeline;
+module.exports.attachRationale = attachRationale;
