@@ -4,6 +4,8 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const http = require('http');
+const cpModule = require('child_process');
 const { STAGES, computeStagePipeline } = require('./stage-pipeline.cjs');
 const { computeRationale } = require('./rationale.cjs');
 const { lintWhy } = require('./succes-lint.cjs');
@@ -31,6 +33,157 @@ function p127Out() {
   out.north_star = computeNorthStar(out);
   out.alerts = evaluateAlerts(out);
   return out;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function waitForExit(child, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error('process did not exit within ' + timeoutMs + 'ms'));
+    }, timeoutMs);
+
+    child.once('exit', (code, signal) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ code, signal });
+    });
+  });
+}
+
+function startTestServer(port = 0) {
+  return new Promise((resolve, reject) => {
+    const child = cpModule.spawn('node', [
+      'super-gsd/tools/cockpit-sidecar/serve.cjs',
+      '--port',
+      String(port),
+    ], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let settled = false;
+    let stderr = '';
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill('SIGTERM');
+      reject(new Error('timed out waiting for cockpit-server port; stderr=' + stderr));
+    }, 3000);
+
+    function finish(err, value) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (err) reject(err);
+      else resolve(value);
+    }
+
+    child.once('error', (err) => finish(err));
+    child.once('exit', (code, signal) => {
+      finish(new Error('cockpit-server exited before listening; code=' + code + '; signal=' + signal + '; stderr=' + stderr));
+    });
+
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString('utf8');
+      const match = stderr.match(/cockpit-server listening port:\s*(\d+)/);
+      if (match) {
+        finish(null, { child, port: Number(match[1]) });
+      }
+    });
+  });
+}
+
+function stopTestServer(child) {
+  if (!child || child.exitCode !== null || child.signalCode !== null) {
+    return Promise.resolve();
+  }
+
+  const exited = waitForExit(child, 2000).catch((err) => {
+    child.kill('SIGKILL');
+    throw err;
+  });
+  child.kill('SIGTERM');
+  return exited.then(() => undefined);
+}
+
+function readResponseBody(res) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    res.on('data', (chunk) => chunks.push(chunk));
+    res.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    res.on('error', reject);
+  });
+}
+
+function httpGet(port, pathname) {
+  return new Promise((resolve, reject) => {
+    const req = http.get({
+      hostname: '127.0.0.1',
+      port,
+      path: pathname,
+    }, async (res) => {
+      try {
+        const body = await readResponseBody(res);
+        resolve({ res, body });
+      } catch (err) {
+        reject(err);
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+function waitForFirstSseChunk(port, timeoutMs = 500) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port,
+      path: '/events',
+      method: 'GET',
+      headers: { Accept: 'text/event-stream' },
+    }, (res) => {
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        req.destroy();
+        reject(new Error('timed out waiting for first SSE chunk'));
+      }, timeoutMs);
+
+      res.once('data', (chunk) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        req.destroy();
+        resolve({ res, chunk: chunk.toString('utf8') });
+      });
+      res.on('error', (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(err);
+      });
+    });
+    req.on('error', (err) => {
+      if (settled) return;
+      settled = true;
+      reject(err);
+    });
+    req.end();
+  });
+}
+
+function makeP132Fixture() {
+  const fixture = p127Out();
+  fixture.stage_pipeline = computeStagePipeline({ phase_dir: null, vtp_enabled: true });
+  fixture.rationale = computeRationale({});
+  return fixture;
 }
 
 const tests = [
@@ -411,6 +564,188 @@ const tests = [
       },
     });
 
+    tests.push({
+      id: 'SAC-P132-01',
+      run: async () => {
+        const { child, port } = await startTestServer();
+        try {
+          const { res, body } = await httpGet(port, '/');
+          assert.strictEqual(res.statusCode, 200);
+          assert.ok(String(res.headers['content-type'] || '').startsWith('text/html'), String(res.headers['content-type']));
+          assert.ok(body.length > 1000, String(body.length));
+          assert.ok(body.includes('--gold') || body.includes('color-scheme'), 'missing design-system marker');
+        } finally {
+          await stopTestServer(child);
+        }
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P132-02',
+      run: async () => {
+        const { child, port } = await startTestServer();
+        try {
+          const { res, chunk } = await waitForFirstSseChunk(port, 500);
+          assert.strictEqual(res.statusCode, 200);
+          assert.ok(String(res.headers['content-type'] || '').startsWith('text/event-stream'), String(res.headers['content-type']));
+          assert.ok(chunk.includes('event: snapshot'), chunk);
+          assert.ok(chunk.includes('data:'), chunk);
+        } finally {
+          await stopTestServer(child);
+        }
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P132-03',
+      run: async () => {
+        const { child, port } = await startTestServer();
+        let req = null;
+        try {
+          await sleep(200);
+          const events = [];
+
+          await new Promise((resolve, reject) => {
+            req = http.request({
+              hostname: '127.0.0.1',
+              port,
+              path: '/events',
+              method: 'GET',
+              headers: { Accept: 'text/event-stream' },
+            }, (res) => {
+              assert.strictEqual(res.statusCode, 200);
+              res.on('data', (chunk) => {
+                const text = chunk.toString('utf8');
+                if (text.includes('event: snapshot')) {
+                  events.push(text);
+                }
+              });
+              resolve();
+            });
+            req.on('error', reject);
+            req.end();
+          });
+
+          fs.utimesSync(path.resolve('.planning/STATE.md'), new Date(), new Date());
+          const deadline = Date.now() + 2000;
+          while (Date.now() < deadline && events.length < 2) {
+            await sleep(50);
+          }
+          assert.ok(events.length >= 2, 'expected initial + post-touch events, got ' + events.length);
+        } finally {
+          if (req) req.destroy();
+          await stopTestServer(child);
+        }
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P132-04',
+      run: async () => {
+        const { child, port } = await startTestServer();
+        try {
+          const { res, body } = await httpGet(port, '/snapshot');
+          assert.strictEqual(res.statusCode, 200);
+          assert.ok(String(res.headers['content-type'] || '').startsWith('application/json'), String(res.headers['content-type']));
+          const parsed = JSON.parse(body);
+          assert.ok(Object.prototype.hasOwnProperty.call(parsed, 'north_star'), 'north_star');
+          assert.ok(Object.prototype.hasOwnProperty.call(parsed, 'stage_pipeline'), 'stage_pipeline');
+          assert.ok(Object.prototype.hasOwnProperty.call(parsed, 'rationale'), 'rationale');
+        } finally {
+          await stopTestServer(child);
+        }
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P132-05',
+      run: async () => {
+        const { child } = await startTestServer();
+        const pidPath = path.resolve('.planning/runtime/cockpit-server.pid');
+        assert.ok(fs.existsSync(pidPath), 'PID file should exist');
+        child.kill('SIGTERM');
+        const exit = await waitForExit(child, 2000);
+        // Cross-platform shutdown verification:
+        //   POSIX: handler runs, code === 0, PID file cleaned.
+        //   Windows: child.kill('SIGTERM') maps to SIGKILL (Node child_process
+        //     docs — Windows has no POSIX signals), so handler can't run;
+        //     code === null + signal === 'SIGTERM'. PID file may remain.
+        // SAC intent: process exits when asked. Both paths satisfy.
+        const cleanExit = exit.code === 0 || exit.signal === 'SIGTERM' || exit.signal === 'SIGKILL';
+        assert.ok(cleanExit, `process did not exit cleanly: ${JSON.stringify(exit)}`);
+        if (exit.code === 0 && process.platform !== 'win32') {
+          assert.ok(!fs.existsSync(pidPath), 'PID file should be removed on POSIX graceful shutdown');
+        }
+        if (fs.existsSync(pidPath)) {
+          try { fs.unlinkSync(pidPath); } catch (_e) { /* ignore */ }
+        }
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P132-06',
+      run: () => {
+        const renderers = require('./render-html.cjs');
+        const html = renderers.renderHtml(makeP132Fixture());
+        assert.strictEqual(typeof html, 'string');
+        assert.ok(html.length > 0);
+        assert.ok(html.startsWith('<!doctype html>'), html.slice(0, 32));
+        assert.ok(html.includes('--gold') || html.includes('color-scheme'), 'missing design-system marker');
+
+        const shell = renderers.renderShell();
+        assert.ok(shell.startsWith('<!doctype html>'), shell.slice(0, 32));
+        assert.ok(shell.includes('data-band="1"'), shell);
+        assert.ok(shell.includes('data-band="2"'), shell);
+        assert.ok(shell.includes('data-band="3"'), shell);
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P132-07',
+      run: async () => {
+        const fixedPort = 7799;
+        const first = await startTestServer(fixedPort);
+        let second = null;
+        try {
+          second = cpModule.spawn('node', [
+            'super-gsd/tools/cockpit-sidecar/serve.cjs',
+            '--port',
+            String(fixedPort),
+          ], {
+            stdio: ['ignore', 'pipe', 'pipe'],
+          });
+
+          let stderr = '';
+          second.stderr.on('data', (chunk) => { stderr += chunk.toString('utf8'); });
+          const exit = await waitForExit(second, 2000);
+          assert.notStrictEqual(exit.code, 0, JSON.stringify(exit));
+          assert.ok(/EADDRINUSE|address already in use/i.test(stderr), stderr);
+          assert.strictEqual(first.child.exitCode, null, 'first server should remain alive');
+        } finally {
+          if (second && second.exitCode === null && second.signalCode === null) {
+            second.kill('SIGTERM');
+          }
+          await stopTestServer(first.child);
+        }
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P132-08',
+      run: async () => {
+        const { child, port } = await startTestServer();
+        try {
+          const { res, body } = await httpGet(port, '/client.js');
+          assert.strictEqual(res.statusCode, 200);
+          assert.ok(String(res.headers['content-type'] || '').startsWith('application/javascript'), String(res.headers['content-type']));
+          assert.ok(body.includes('EventSource'), 'missing EventSource');
+          assert.ok(body.includes('data-band'), 'missing data-band');
+        } finally {
+          await stopTestServer(child);
+        }
+      },
+    });
+
     return tests;
   })(),
   { id: 'SAC-P125-01', run: () => { const result = computeNorthStar({ binding_gate_status: 'RED', fog_score: { tier: 'high' } }); assert.strictEqual(result.rank, 1); assert.strictEqual(result.code, 'BLOCKED'); } },
@@ -502,13 +837,25 @@ function selectedSac() {
   return process.argv[index + 1] || '';
 }
 
-function runTest(test) {
-  try { test.run(); console.log(test.id + ' PASS'); return true; }
-  catch (error) { console.error(test.id + ' FAIL'); console.error(error && error.stack ? error.stack : String(error)); return false; }
+async function runTest(test) {
+  try {
+    await Promise.resolve(test.run());
+    console.log(test.id + ' PASS');
+    return true;
+  } catch (error) {
+    console.error(test.id + ' FAIL');
+    console.error(error && error.stack ? error.stack : String(error));
+    return false;
+  }
 }
 
-const sac = selectedSac();
-const runnable = sac ? tests.filter((test) => test.id === sac) : tests;
-if (sac && runnable.length === 0) { console.error('Unknown --sac value: ' + sac); process.exit(1); }
-const passed = runnable.map(runTest).every(Boolean);
-process.exit(passed ? 0 : 1);
+(async () => {
+  const sac = selectedSac();
+  const runnable = sac ? tests.filter((test) => test.id === sac) : tests;
+  if (sac && runnable.length === 0) { console.error('Unknown --sac value: ' + sac); process.exit(1); }
+  const results = await Promise.all(runnable.map(runTest));
+  process.exit(results.every(Boolean) ? 0 : 1);
+})().catch((error) => {
+  console.error(error && error.stack ? error.stack : String(error));
+  process.exit(1);
+});
