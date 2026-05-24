@@ -5,7 +5,10 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { STAGES, computeStagePipeline } = require('./stage-pipeline.cjs');
+const { computeRationale } = require('./rationale.cjs');
+const { lintWhy } = require('./succes-lint.cjs');
 const cockpitSidecarP128 = require('./cockpit-sidecar.cjs');
+const child_process = require('child_process');
 
 function makeFakePhaseDir(files) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-stage-'));
@@ -251,6 +254,120 @@ const tests = [
           assert.ok(valid.has(alert.palette_tier), alert.palette_tier);
         }
         assert.strictEqual(result.top.palette_tier, 'danger');
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P130-01',
+      run: () => {
+        const dir = makeFakePhaseDir(['PROJECT.md', 'INTENT.md', 'SUMMARY.md', 'CONTEXT.md']);
+        try {
+          const projectMd = path.join(dir, 'PROJECT.md');
+          const intentMd = path.join(dir, 'INTENT.md');
+          const summaryMd = path.join(dir, 'SUMMARY.md');
+          const contextMd = path.join(dir, 'CONTEXT.md');
+
+          fs.writeFileSync(projectMd, [
+            '---',
+            'project: fixture-project',
+            '---',
+            '# Fixture Project',
+            'Core value fixture content.',
+            '',
+          ].join('\n'));
+          fs.writeFileSync(intentMd, [
+            '---',
+            'why: Fixture intent explains why the phase matters.',
+            'outcome_delivered: Fixture outcome unlocks the next cockpit drill-in.',
+            '---',
+            '# Fixture Intent',
+            'Intent body fixture content.',
+            '',
+          ].join('\n'));
+          fs.writeFileSync(summaryMd, [
+            '# Fixture Summary',
+            '',
+            '## Summary',
+            'Fixture summary paragraph from the previous phase.',
+            '',
+          ].join('\n'));
+          fs.writeFileSync(contextMd, [
+            '---',
+            'phase_name: Fixture Band 3 Phase',
+            '---',
+            '# Fixture Context',
+            'Fixture context opening paragraph.',
+            '',
+            '## Goal',
+            'Fixture goal explains why this phase exists.',
+            '',
+          ].join('\n'));
+
+          const result = computeRationale({
+            project_md: projectMd,
+            intent_md: intentMd,
+            last_summary_md: summaryMd,
+            context_md: contextMd,
+          });
+          const keys = ['context', 'eli5', 'what_is', 'what_could_be', 'why_this_phase', 'evidence_trail'];
+          assert.deepStrictEqual(Object.keys(result), keys);
+          for (const key of keys) {
+            assert.strictEqual(typeof result[key], 'string', key);
+            assert.ok(result[key].trim().length > 0, key);
+          }
+        } finally {
+          fs.rmSync(dir, { recursive: true, force: true });
+        }
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P130-02',
+      run: () => {
+        const result = computeRationale({
+          project_md: '.planning/PROJECT.md',
+          intent_md: '.planning/milestones/v3.3/INTENT.md',
+          last_summary_md: null,
+          context_md: '.planning/milestones/v3.3/phases/130-cockpit-band3-rationale/130-CONTEXT.md',
+        });
+        assert.ok(/\.(md|cjs|js|json|ts|py|sh)\b/i.test(result.evidence_trail), result.evidence_trail);
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P130-03',
+      run: () => {
+        const result = lintWhy('We should build it because it would be nice to have.');
+        assert.strictEqual(result.ok, false);
+        assert.ok(result.violations.length >= 2, JSON.stringify(result));
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P130-04',
+      run: () => {
+        const result = lintWhy('P130 ships rationale.cjs (super-gsd/tools/cockpit-sidecar/rationale.cjs:1-80) cascading from PROJECT.md INTENT.md SUMMARY.md per DLB-03; unlocks P132 localhost-live.');
+        assert.strictEqual(result.ok, true);
+        assert.strictEqual(result.violations.length, 0, JSON.stringify(result));
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P130-05',
+      run: () => {
+        let defaultOutput;
+        let band3Output;
+        try {
+          defaultOutput = child_process.execFileSync('node', ['super-gsd/tools/cockpit-sidecar/cockpit-sidecar.cjs', '--text'], { encoding: 'utf8' });
+          band3Output = child_process.execFileSync('node', ['super-gsd/tools/cockpit-sidecar/cockpit-sidecar.cjs', '--text', '--bands=3'], { encoding: 'utf8' });
+        } catch (error) {
+          if (error && error.code === 'ENOENT') return;
+          throw error;
+        }
+        assert.ok(!defaultOutput.includes('WHY THIS PHASE'), defaultOutput);
+        assert.ok(band3Output.includes('WHY THIS PHASE'), band3Output);
+        assert.ok(defaultOutput.includes('NORTH STAR'), defaultOutput);
+        assert.ok(band3Output.includes('NORTH STAR'), band3Output);
       },
     });
 
