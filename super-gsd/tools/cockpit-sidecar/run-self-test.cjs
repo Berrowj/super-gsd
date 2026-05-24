@@ -1010,11 +1010,37 @@ const tests = [
     tests.push({ id: 'SAC-P138-08', run: () => {
       // Live SSE timing probe — would require booting a server. Static surrogate:
       // assert the serve.cjs heartbeat interval is 15000ms (proves the contract).
+      // NOTE: The REAL liveness proof is browser-smoke.cjs (see SAC-P138.5-01).
+      // 2026-05-25 incident: source-grep alone shipped a visually broken cockpit.
       const src = fs.readFileSync('super-gsd/tools/cockpit-sidecar/serve.cjs', 'utf8');
       const match = src.match(/setInterval\([\s\S]+?,\s*(\d+)\s*\)/);
       assert.ok(match, 'serve.cjs heartbeat setInterval not found');
       const ms = parseInt(match[1], 10);
       assert.ok(ms === 15000, `expected 15000ms ping, got ${ms}`);
+    }});
+
+    tests.push({ id: 'SAC-P138.5-01', run: () => {
+      // Browser-smoke gate witness — the most-recent cockpit-touching phase MUST
+      // have a verdict=PASS artifact at .planning/runtime/cockpit-smoke-<N>-verdict.json.
+      // This SAC is the structural mirror of the operator standing instruction
+      // "ALWAYS verify via web browser". Without a verdict.json on disk, we have
+      // no proof the cockpit ever actually served, only that the source files
+      // mentioned the right symbols.
+      const runtimeDir = path.join('.planning', 'runtime');
+      assert.ok(fs.existsSync(runtimeDir), 'runtime dir missing — no browser-smoke ever run');
+      const entries = fs.readdirSync(runtimeDir).filter((f) => /^cockpit-smoke-.+-verdict\.json$/.test(f));
+      assert.ok(entries.length > 0, 'no cockpit-smoke-*-verdict.json artifacts found — run browser-smoke.cjs at phase close');
+      // Use the newest verdict file
+      const sorted = entries
+        .map((f) => ({ f, m: fs.statSync(path.join(runtimeDir, f)).mtimeMs }))
+        .sort((a, b) => b.m - a.m);
+      const newest = path.join(runtimeDir, sorted[0].f);
+      const verdict = JSON.parse(fs.readFileSync(newest, 'utf8'));
+      assert.strictEqual(verdict.verdict, 'PASS', `newest browser-smoke verdict is ${verdict.verdict} (${newest}) — phase MUST NOT close`);
+      // Every individual check must also be ok
+      for (const [name, check] of Object.entries(verdict.checks || {})) {
+        assert.ok(check.ok, `browser-smoke check ${name} failed: ${check.detail}`);
+      }
     }});
 
     tests.push({ id: 'SAC-P137-08', run: () => {
