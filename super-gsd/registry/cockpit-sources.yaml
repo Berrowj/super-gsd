@@ -1,0 +1,57 @@
+schema_version: 1
+sources:
+  - id: mission
+    section_id: sec-mission
+    write_path: ".planning/STATE.md"
+    cadence_ms: 5000
+    stale_after_ms: 30000
+    dead_after_ms: 120000
+    description: "Mission card — current phase objective, owner, risk tier"
+
+  - id: telemetry
+    section_id: sec-telemetry
+    derived: true
+    cadence_ms: 5000
+    stale_after_ms: 15000
+    dead_after_ms: 60000
+    description: "5-channel sparkline rail derived from metrics + state"
+
+  - id: architecture
+    section_id: sec-architecture
+    write_path: ".planning/milestones/{milestone}/phases/{phase}/CONTEXT.md"
+    cadence_ms: 60000
+    stale_after_ms: 300000
+    dead_after_ms: 1800000
+    description: "Phase dataflow diagram derived from CONTEXT + plan files"
+
+  - id: milestone
+    section_id: sec-milestone
+    write_path: ".planning/milestones/{milestone}/INTENT.md"
+    cadence_ms: 60000
+    stale_after_ms: 600000
+    dead_after_ms: 3600000
+    description: "Milestone dependency map + phase strip"
+
+  - id: memory
+    section_id: sec-memory
+    write_path: ".planning/memory/MEMORY.md"
+    cadence_ms: 30000
+    stale_after_ms: 300000
+    dead_after_ms: 1800000
+    description: "Cognitive memory graph — observations, claims, decisions"
+
+  - id: evidence
+    section_id: sec-evidence
+    write_path: ".planning/metrics/"
+    cadence_ms: 10000
+    stale_after_ms: 60000
+    dead_after_ms: 300000
+    description: "Gate flow + ATC history + MUDA probes + verification cards"
+
+  - id: events
+    section_id: sec-events
+    write_path: ".planning/metrics/token-log.jsonl"
+    cadence_ms: 5000
+    stale_after_ms: 30000
+    dead_after_ms: 180000
+    description: "Streaming event tape — token usage, dispatches, commits"

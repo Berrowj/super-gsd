@@ -545,6 +545,203 @@ if (require.main === module) {
   }
 }
 
+// ============================================================================
+// v3.4 / P137 — 14-key data contract expansion via stub attachers.
+// Each attacher emits a minimal valid shape; P139-P142 fill them with real data.
+// Additive: existing v3.3 keys untouched. SAC-P127/P128/P134 preserved.
+// ============================================================================
+
+function attachMission(output) {
+  output.mission = {
+    phase_id: output.phase || null,
+    phase_title: '',
+    objective: '',
+    why_running: '',
+    unlocks: '',
+    risk_tier: 'low',
+    risk_reasons: [],
+    operator_decision_required: false,
+    decision_prompt: null,
+    success_criteria: [],
+  };
+  return output;
+}
+
+function attachPipeline(output) {
+  output.pipeline = {
+    active_index: 0,
+    blocker: null,
+    why_running: null,
+    unlocks: null,
+    stages: [],
+  };
+  return output;
+}
+
+function attachAgents(output) {
+  const emptyAgent = {
+    handle: '',
+    model: '',
+    role: '',
+    status: 'idle',
+    task: '',
+    since_sec: 0,
+    last_action: '',
+    recent_actions: [],
+  };
+  output.agents = {
+    claude: Object.assign({}, emptyAgent),
+    codex: Object.assign({}, emptyAgent, { effort: null }),
+    last_handoff: { from: '', to: '', payload: '', t_off: '', kind: '' },
+  };
+  return output;
+}
+
+function attachArchitecture(output) {
+  output.architecture = { nodes: [], edges: [] };
+  return output;
+}
+
+function attachMilestoneMap(output) {
+  output.milestone_map = {
+    milestones: [],
+    current: output.milestone || '',
+    phases: [],
+    unlocks: null,
+    details: {},
+  };
+  return output;
+}
+
+function attachMemoryGraph(output) {
+  output.memory_graph = {
+    sources: [],
+    current_consumer: null,
+    current_action: null,
+  };
+  return output;
+}
+
+function attachLineage(output) {
+  output.lineage = { title: '', steps: [] };
+  return output;
+}
+
+function attachGateFlow(output) {
+  const emptyStage = (id, name) => ({
+    id, name,
+    verdict: 'pending',
+    blocking: false,
+    summary: '',
+    gates: [],
+  });
+  output.gate_flow = {
+    stages: [
+      emptyStage('context', 'CONTEXT'),
+      emptyStage('plan', 'PLAN'),
+      emptyStage('execute', 'EXECUTE'),
+      emptyStage('verify', 'VERIFY'),
+      emptyStage('close', 'CLOSE'),
+    ],
+    atc_history: [],
+    muda_probes: [],
+  };
+  return output;
+}
+
+function attachEvidence(output) {
+  output.evidence = {
+    last_run_at_sec_ago: 0,
+    summary: '',
+    categories: [],
+    unresolved: [],
+  };
+  return output;
+}
+
+function attachTelemetry(output) {
+  const channel = (label, unit) => ({
+    value: 0, target: 0, max: 100,
+    normal_max: 30, attn_max: 60, severe_max: 90,
+    history: [],
+    label, unit,
+  });
+  output.telemetry = {
+    fog: channel('fog', 'score'),
+    dispatches: channel('dispatches', 'count'),
+    tokens: channel('tokens', 'tokens'),
+    context: channel('context', 'percent'),
+    elapsed: channel('elapsed', 'sec'),
+  };
+  return output;
+}
+
+function attachAlarms(output) {
+  output.alarms = [];
+  return output;
+}
+
+function attachEvents(output) {
+  output.events = [];
+  return output;
+}
+
+function attachLearnings(output) {
+  output.learnings = [];
+  return output;
+}
+
+function attachSources(output, opts) {
+  const options = opts || {};
+  try {
+    const liveness = require('./liveness.cjs');
+    output._sources = liveness.computeLiveness({
+      registry_path: options.registry_path,
+      now: options.now,
+      statFn: options.statFn,
+      project_root: options.project_root,
+      state: options.state,
+    });
+  } catch (_e) {
+    output._sources = {};
+  }
+  return output;
+}
+
+function attachAll(output, opts) {
+  attachMission(output);
+  attachPipeline(output);
+  attachAgents(output);
+  attachArchitecture(output);
+  attachMilestoneMap(output);
+  attachMemoryGraph(output);
+  attachLineage(output);
+  attachGateFlow(output);
+  attachEvidence(output);
+  attachTelemetry(output);
+  attachAlarms(output);
+  attachEvents(output);
+  attachLearnings(output);
+  if (!output.rationale) attachRationale(output, opts || {});
+  attachSources(output, opts || {});
+  return output;
+}
+
 module.exports = { run, parseArgs, readJsonl, readCockpitState, renderText, renderBrief, renderHtml, recommendedAction };
 module.exports.attachStagePipeline = attachStagePipeline;
 module.exports.attachRationale = attachRationale;
+module.exports.attachMission = attachMission;
+module.exports.attachPipeline = attachPipeline;
+module.exports.attachAgents = attachAgents;
+module.exports.attachArchitecture = attachArchitecture;
+module.exports.attachMilestoneMap = attachMilestoneMap;
+module.exports.attachMemoryGraph = attachMemoryGraph;
+module.exports.attachLineage = attachLineage;
+module.exports.attachGateFlow = attachGateFlow;
+module.exports.attachEvidence = attachEvidence;
+module.exports.attachTelemetry = attachTelemetry;
+module.exports.attachAlarms = attachAlarms;
+module.exports.attachEvents = attachEvents;
+module.exports.attachLearnings = attachLearnings;
+module.exports.attachSources = attachSources;
+module.exports.attachAll = attachAll;

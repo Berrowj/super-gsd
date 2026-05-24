@@ -866,6 +866,118 @@ const tests = [
       }
     }});
 
+    tests.push({ id: 'SAC-P137-01', run: () => {
+      const yamlPath = path.join('super-gsd', 'tools', 'plan-schema', 'node_modules', 'js-yaml');
+      const yaml = require(path.resolve(yamlPath));
+      const doc = yaml.load(fs.readFileSync('super-gsd/registry/cockpit-sources.yaml', 'utf8'));
+      assert.strictEqual(doc.schema_version, 1, 'schema_version != 1');
+      assert.strictEqual(doc.sources.length, 7, `expected 7 sources, got ${doc.sources.length}`);
+      const wanted = ['sec-mission','sec-telemetry','sec-architecture','sec-milestone','sec-memory','sec-evidence','sec-events'];
+      const got = doc.sources.map((s) => s.section_id);
+      for (const id of wanted) assert.ok(got.includes(id), `missing section_id ${id}`);
+    }});
+
+    tests.push({ id: 'SAC-P137-02', run: () => {
+      const liveness = require('./liveness.cjs');
+      const fakeStat = () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false });
+      const result = liveness.computeLiveness({
+        statFn: fakeStat,
+        state: { milestone: 'v3.4', phase: '137' },
+      });
+      const expectedIds = ['mission','telemetry','architecture','milestone','memory','evidence','events'];
+      for (const id of expectedIds) {
+        assert.ok(result[id], `missing ${id}`);
+        const entry = result[id];
+        assert.ok(['fresh','degraded','stale','dead'].includes(entry.tier), `bad tier for ${id}: ${entry.tier}`);
+        assert.ok('age_ms' in entry, `${id} missing age_ms`);
+        assert.ok('last_seen' in entry, `${id} missing last_seen`);
+        assert.ok('excused' in entry, `${id} missing excused`);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P137-03', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, {
+        statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }),
+        state: { milestone: 'v3.2', phase: '127' },
+      });
+      const wanted = ['mission','pipeline','agents','architecture','milestone_map','memory_graph','lineage','gate_flow','evidence','telemetry','alarms','events','learnings','rationale','_sources'];
+      for (const k of wanted) assert.ok(k in out, `missing key ${k}`);
+    }});
+
+    tests.push({ id: 'SAC-P137-04', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, {
+        statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }),
+        state: { milestone: 'v3.2', phase: '127' },
+      });
+      const roundtrip = JSON.parse(JSON.stringify(out));
+      for (const k of ['milestone','phase','generated_at','latest_chronicle','binding_gate_status','fog_score','recent_chronicles','signals','warnings','north_star','alerts']) {
+        assert.ok(k in roundtrip, `pre-existing key lost after round-trip: ${k}`);
+      }
+      assert.ok(roundtrip._sources, '_sources lost in round-trip');
+      assert.strictEqual(roundtrip.mission.phase_id, '127');
+    }});
+
+    tests.push({ id: 'SAC-P137-05', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, {
+        statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }),
+        state: { milestone: 'v3.2', phase: '127' },
+      });
+      assert.doesNotThrow(() => sidecar2.renderText(out, { color: false }));
+      assert.doesNotThrow(() => sidecar2.renderHtml(out));
+      assert.doesNotThrow(() => sidecar2.renderBrief(out));
+    }});
+
+    tests.push({ id: 'SAC-P137-06', run: () => {
+      const rules = require('../shared/design-rules.json');
+      const ids = rules.rules.map((r) => r.id);
+      assert.ok(ids.includes('R19'), 'design-rules missing R19');
+      const r19 = rules.rules.find((r) => r.id === 'R19');
+      assert.ok(r19.applies_to.includes('cockpit-html'), 'R19 missing cockpit-html surface');
+      assert.ok(r19.applies_to.includes('monitor'), 'R19 missing monitor surface');
+      for (const want of ['R13','R14','R15','R16','R17','R18']) {
+        assert.ok(ids.includes(want), 'design-rules regressed: missing ' + want);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P137-07', run: () => {
+      const source = fs.readFileSync('super-gsd/tools/shared/conformance-check.cjs', 'utf8');
+      assert.ok(source.includes('function checkR19'), 'conformance-check missing function checkR19');
+      for (const want of ['R13','R14','R15','R16','R17','R18']) {
+        assert.ok(source.includes('function check' + want), 'conformance-check regressed: missing check' + want);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P137-08', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, {
+        statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }),
+        state: { milestone: 'v3.2', phase: '127' },
+      });
+      // SAC intent: R19 wiring is correct on a fresh _sources block. Verify on
+      // both 'cockpit' and 'monitor' surfaces (both fire R19). 'cockpit-html'
+      // would also fire R13/R14/R15/R18 against bare JSON (no HTML markers),
+      // and 'cockpit' fires chronicle-style R01/R04/R07 against JSON. The
+      // surface-wiring quirks predate P137; R19 firing PASS is what we lock.
+      const json = JSON.stringify(out);
+      for (const surface of ['cockpit', 'monitor', 'cockpit-html']) {
+        const verdict = checkConformance(json, surface);
+        const r19 = verdict.results.find((r) => r.id === 'R19');
+        assert.ok(r19, `${surface}: R19 missing from verdict`);
+        assert.strictEqual(r19.status, 'PASS', `${surface}: R19 ${r19.status} — ${r19.detail || r19.reason}`);
+      }
+      // R16 still passes when applicable (cockpit surface fires R16).
+      const r16Verdict = checkConformance(json, 'cockpit');
+      const r16 = r16Verdict.results.find((r) => r.id === 'R16');
+      assert.ok(r16 && r16.status === 'PASS', JSON.stringify(r16));
+    }});
+
     return tests;
   })(),
   { id: 'SAC-P125-01', run: () => { const result = computeNorthStar({ binding_gate_status: 'RED', fog_score: { tier: 'high' } }); assert.strictEqual(result.rank, 1); assert.strictEqual(result.code, 'BLOCKED'); } },

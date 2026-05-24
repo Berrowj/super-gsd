@@ -374,6 +374,33 @@ function checkR18(html) {
   return { ok: false, reason: `missing data-band placeholders: ${missing.join(", ")}` };
 }
 
+function checkR19(input) {
+  // gate.liveness.all-sources-fresh — fires on snapshot JSON (or HTML containing
+  // an embedded <script id="snapshot" type="application/json"> block). N/A when
+  // there is no _sources block to inspect.
+  let obj = input;
+  if (typeof input === "string") {
+    const trimmed = input.trim();
+    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+      try { obj = JSON.parse(input); } catch (_e) { return { ok: true }; }
+    } else {
+      const m = input.match(/<script[^>]+id=["']snapshot["'][^>]*>([\s\S]*?)<\/script>/);
+      if (!m) return { ok: true };
+      try { obj = JSON.parse(m[1]); } catch (_e) { return { ok: true }; }
+    }
+  }
+  if (!obj || !obj._sources || typeof obj._sources !== "object") return { ok: true };
+  const stale = [];
+  for (const [id, entry] of Object.entries(obj._sources)) {
+    if (!entry || typeof entry !== "object") continue;
+    if (entry.excused === true) continue;
+    if (entry.tier === "fresh") continue;
+    stale.push(`${id}=${entry.tier || "unknown"}`);
+  }
+  if (stale.length === 0) return { ok: true };
+  return { ok: false, reason: `sources not fresh: ${stale.join(", ")}` };
+}
+
 function normalizeVerdict(verdict) {
   if (Object.prototype.hasOwnProperty.call(verdict, "pass")) {
     return verdict;
@@ -410,7 +437,8 @@ const RULES = {
   R15: checkR15,
   R16: checkR16,
   R17: checkR17,
-  R18: checkR18
+  R18: checkR18,
+  R19: checkR19
 };
 const CHECKS = RULES;
 

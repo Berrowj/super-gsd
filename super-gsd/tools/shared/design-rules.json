@@ -180,6 +180,16 @@
       "severity": "binding",
       "applies_to": ["cockpit-html"],
       "description": "renderShell() output contains data-band=\"1\", data-band=\"2\", and data-band=\"3\" attributes (the SPA's swap-target placeholders)."
+    },
+    {
+      "id": "R19",
+      "name": "gate.liveness.all-sources-fresh",
+      "source_book": "v3.4 INTENT invariant #10 — liveness contract",
+      "citation": ".planning/milestones/v3.4/INTENT.md (binding invariant 10)",
+      "check_type": "structural",
+      "severity": "binding",
+      "applies_to": ["cockpit-html", "monitor", "cockpit"],
+      "description": "Every entry in the snapshot's _sources block has tier='fresh' or excused=true. Snapshots without a _sources key pass N/A. Operator-visible meaning: no cockpit section silently goes stale."
     }
   ],
   "groups": {
