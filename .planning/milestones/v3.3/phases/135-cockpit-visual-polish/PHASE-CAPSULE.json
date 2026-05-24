@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.3",
+  "phase": "135",
+  "phase_name": "Cockpit Visual Polish (Design Spec Locked → Implementation Deferred to v3.4)",
+  "status": "PASS-WITH-DEFERRED-IMPLEMENTATION-TO-v3.4",
+  "goal": "P135 was scoped as a client.js polish phase to match the brief HTML quality bar. After operator feedback on the minimal live cockpit output, the scope shifted: operator engaged Claude Design to produce a full IA-rewrite design pack. P135 closes with the design package as the deliverable; implementation is rescoped to milestone v3.4 (8 phases P136-P143).",
+  "outputs": [
+    { "kind": "context",      "path": ".planning/milestones/v3.3/phases/135-cockpit-visual-polish/135-CONTEXT.md" },
+    { "kind": "verification", "path": ".planning/milestones/v3.3/phases/135-cockpit-visual-polish/135-VERIFICATION.md" },
+    { "kind": "design_pack",  "path": ".planning/milestones/v3.4/design-pack/" }
+  ],
+  "files": [
+    ".planning/milestones/v3.3/phases/135-cockpit-visual-polish/135-CONTEXT.md",
+    ".planning/milestones/v3.3/phases/135-cockpit-visual-polish/135-VERIFICATION.md",
+    ".planning/milestones/v3.3/phases/135-cockpit-visual-polish/135-DESIGN-PACKAGE.md",
+    ".planning/milestones/v3.3/phases/135-cockpit-visual-polish/135-DESIGN-SPEC.md",
+    ".planning/milestones/v3.3/phases/135-cockpit-visual-polish/135-DESIGN-ADDENDUM-V2.md",
+    ".planning/milestones/v3.3/phases/135-cockpit-visual-polish/135-INTEGRATION-MAP.md",
+    ".planning/milestones/v3.3/phases/135-cockpit-visual-polish/135-GATES-EXPLAINER.md",
+    ".planning/milestones/v3.3/phases/135-cockpit-visual-polish/135-MOCKUP.html",
+    ".planning/milestones/v3.4/design-pack/Cockpit.html",
+    ".planning/milestones/v3.4/design-pack/Cockpit Dark.html",
+    ".planning/milestones/v3.4/design-pack/Cockpit v1.html",
+    ".planning/milestones/v3.4/design-pack/DESIGN-THESIS.md",
+    ".planning/milestones/v3.4/design-pack/HANDOFF-PROMPT.md",
+    ".planning/milestones/v3.4/design-pack/mc-app.jsx",
+    ".planning/milestones/v3.4/design-pack/mc-arch.jsx",
+    ".planning/milestones/v3.4/design-pack/mc-components.jsx",
+    ".planning/milestones/v3.4/design-pack/mc-state.jsx",
+    ".planning/milestones/v3.4/design-pack/cockpit-app.jsx",
+    ".planning/milestones/v3.4/design-pack/cockpit-bands.jsx",
+    ".planning/milestones/v3.4/design-pack/tweaks-panel.jsx"
+  ],
+  "sac_ids": [
+    "SAC-P135-design-spec-locked",
+    "SAC-P135-handoff-readable",
+    "SAC-P135-data-contract-documented",
+    "SAC-P135-no-regression"
+  ],
+  "self_test_command": "node super-gsd/tools/cockpit-sidecar/run-self-test.cjs",
+  "self_test_result": "pass",
+  "self_test_count": "53/53",
+  "decisions": [
+    { "id": "P135-scope-shift", "decided_at": "2026-05-24", "decision": "Implementation deferred to v3.4. P135 closes with design pack as the deliverable; v3.4 phases P136-P143 implement." },
+    { "id": "v3.4-liveness-contract", "decided_at": "2026-05-24", "decision": "Operator concern: parts of SGSD must not silently go stale or lose connection. v3.4 baked-in: Cockpit Source Registry · per-source heartbeat · staleness pills · liveness conformance gate · SSE keep-alive + reconnect." }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 8,
+    "deferred_items": [
+      "v3.4 P136 — design tokens + IA scaffold",
+      "v3.4 P137 — snapshot data contract expansion + source registry + liveness heartbeat",
+      "v3.4 P138 — sticky chrome + SSE keep-alive + reconnect badge",
+      "v3.4 P139 — §1 Mission + §2 Telemetry components",
+      "v3.4 P140 — §3 Architecture + §4 Milestone SVG diagrams",
+      "v3.4 P141 — §5 Memory + §6 Evidence",
+      "v3.4 P142 — §7 Event tape + alarm drawer + rationale drawer + 5-second test conformance",
+      "v3.4 P143 — conformance promotion + liveness coverage SAC"
+    ],
+    "carried_forward_total": null
+  },
+  "downstream_contract": {
+    "consumers": ["v3.4 P136-P143 (implementation phases)"],
+    "constraints": [
+      "Light command-room palette only (no dark theme in v3.4; dark variant deferred to v3.5+)",
+      "IBM Plex Sans + IBM Plex Mono + Big Shoulders Display 900 (no other type families)",
+      "5-second test contract: sticky ScanBar answers NOW/WHY/JUST-CHANGED/RISK/DO-NEXT/EVIDENCE",
+      "Orthogonal connectors only in diagrams (HVH default, viaX/viaY for forks)",
+      "Memory typing: observation (solid) / claim (outlined/validated/refuted) / decision (yellow stripe + terminal feel)",
+      "Liveness contract: every cockpit source enumerated in cockpit-sources.yaml; per-source freshness tier visible per section; no silent staleness"
+    ],
+    "extension_points": ["v3.5+ may add dark variant; tweaks-panel.jsx provides a design-tuning UI pattern that could ship as an operator preference layer"]
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    { "sha": "(this commit)", "subject": "docs(P135): close with design-pack deliverable; defer implementation to v3.4", "ts": "2026-05-24" }
+  ],
+  "source_hashes": {
+    "context": { "path": ".planning/milestones/v3.3/phases/135-cockpit-visual-polish/135-CONTEXT.md", "sha256": "4c5cf51f2c19fda1d19171395657ada019e5343c39f2eee817f724cc5fbc497e" },
+    "research": null,
+    "plan": null,
+    "verification": { "path": ".planning/milestones/v3.3/phases/135-cockpit-visual-polish/135-VERIFICATION.md", "sha256": "6b3ff9c3b6dc5cb7bedfa1f027b1603d4ee96c8cdc666a35f1d07a0d21732db4" },
+    "design_pack_thesis": { "path": ".planning/milestones/v3.4/design-pack/DESIGN-THESIS.md", "sha256": "e3c50586342f0c87ce6c849a0ba42a753e5e46c9e9377b58b19099e4c5cf77f1" },
+    "design_pack_handoff": { "path": ".planning/milestones/v3.4/design-pack/HANDOFF-PROMPT.md", "sha256": "73d34056939d73ea5df8fae3c6bbe42371a1b11bda770dda7e908526b095c32a" },
+    "design_pack_cockpit_html": { "path": ".planning/milestones/v3.4/design-pack/Cockpit.html", "sha256": "4d997100c1360b0a599bc4698563ad665d3f73953114dc62b4b5df390f3d1180" },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": { "verdict": "PASS-WITH-DEFERRED", "ref": ".planning/milestones/v3.3/phases/135-cockpit-visual-polish/135-VERIFICATION.md" },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      { "task": "P135-design-spec", "executor": "operator + Claude Design", "result": "design pack delivered: Cockpit.html (1791 lines) + 6 JSX modules + DESIGN-THESIS.md + HANDOFF-PROMPT.md; implementation deferred to v3.4" }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-05-24T00:00:00.000Z",
+  "created_by": "orchestrator (Claude Opus 4.7, 1M context)"
+}

@@ -1,0 +1,278 @@
+# ============================================================================
+# SGSD v2 Gates Registry
+# ============================================================================
+# Quality gates declared as resources: enforcement mode, rule source, emits.
+# Separated from decisions.yaml because gate enforcement has its own
+# lifecycle (hard/soft/amortized per R-Q2 three-tier policy).
+#
+# Source: SGSD-v2-MIGRATION-MANIFEST.md §4.4
+# Research grounding: HCC-P-07 (ablation test necessity), LLMS-P-03/P-08
+# (verification + peer review), ISO-P-01 (execution + semantic), ASS-P-07
+# (retain-then-escalate default).
+# ============================================================================
+
+schema_version: 2
+registry_version: 2.2.1
+last_updated: 2026-05-05
+
+# Enforcement modes:
+#   hard-halt    — gate fire blocks orchestrator until resolved
+#   soft-warn    — gate fire logs DEVIATIONS + continues
+#   amortized    — gate fires at boundary only (phase/plan), not per-dispatch
+#   disabled     — gate is defined but not enforced
+enforcement_modes:
+  - hard-halt
+  - soft-warn
+  - amortized
+  - disabled
+
+# Populated per Phase 10 Plan 10-01 (D-01..D-09 + D-12).
+# Order: category (code-quality → process-hygiene → functional → verify-completeness),
+# then step number ascending within category (D-15a). All rows state:active (D-15b).
+
+gates:
+
+  # ── category: code-quality ────────────────────────────────────────────────
+
+  - name: per-dispatch-ATC
+    repair_instruction: "Read the latest commit-reviews.jsonl row in `.planning/phases/{N}/`, address the CRIT verdict, re-commit, and re-dispatch the executor to refire ATC."
+    category: code-quality
+    step: 9.5
+    enforcement_mode: hard-halt
+    gate_sampling_tier: always
+    trigger:
+      - field: code_files_changed_count
+        op: gt
+        value: 0
+    checks:
+      - ATC 7-step
+      - 10-point anti-slop checklist
+      - ΔComplexity ≤ 0
+    reviewer_agent: sgsd-code-reviewer
+    reviewer_provider: codex-cli-reviewer
+    evidence_emitted:
+      - .planning/phases/{N}/commit-reviews.jsonl
+    escalation: halt
+    source_dlb: DLB-02
+    state: active
+    version: 2.0
+
+  - name: phase-level-ATC
+    repair_instruction: "Read `.planning/milestones/{ms}/phases/{NN}-*/{NN}-ATC-REVIEW.md`. Address each WARN/CRIT in a follow-up commit; re-run gsd-verifier to refire phase-level-ATC."
+    category: code-quality
+    step: 6.5
+    enforcement_mode: amortized
+    gate_sampling_tier: always
+    trigger: []
+    reviewer_agent: sgsd-code-reviewer
+    reviewer_provider: codex-cli-reviewer
+    evidence_emitted:
+      - .planning/phases/{N}/{N}-ATC-REVIEW.md
+    escalation: halt
+    source_dlb: DLB-02
+    state: active
+    version: 2.0
+
+  # ── category: process-hygiene ─────────────────────────────────────────────
+
+  - name: classifier-haiku
+    repair_instruction: "Legacy gate name. Derive classifier result from plan frontmatter/cache or run Codex/local classify; do not spawn Haiku/Sonnet."
+    category: process-hygiene
+    step: 2
+    enforcement_mode: soft-warn
+    gate_sampling_tier: always
+    trigger: []
+    reviewer_agent: codex
+    evidence_emitted: []
+    escalation: log-only
+    source_dlb: DLB-02
+    state: active
+    version: 2.0
+
+  - name: context-selector-haiku
+    repair_instruction: "Legacy gate name. Derive sgsd_recall_queries from plan evidence and retry with broader recall terms if empty."
+    category: process-hygiene
+    step: 4
+    enforcement_mode: soft-warn
+    gate_sampling_tier: always
+    trigger: []
+    reviewer_agent: codex
+    evidence_emitted: []
+    escalation: log-only
+    source_dlb: DLB-02
+    state: active
+    version: 2.0
+
+  - name: sgsd-recall-queries
+    repair_instruction: "Run `bash super-gsd/scripts/sgsd-recall.sh '<query>'` for each recall term in the plan; if memory tree empty, mark dispatch as cold-start and continue."
+    category: process-hygiene
+    step: 5
+    enforcement_mode: soft-warn
+    gate_sampling_tier: sampled-rate-50
+    trigger:
+      - field: classifier.complexity
+        op: neq
+        value: trivial
+    script: super-gsd/scripts/sgsd-recall.sh
+    evidence_emitted: []
+    escalation: log-only
+    source_dlb: DLB-02
+    state: active
+    version: 2.0
+
+  - name: intent-injection
+    repair_instruction: "Re-compose the dispatch prompt and re-inject the intent block from the plan frontmatter; verify the agent received it via the dispatch report's INTENT echo."
+    category: process-hygiene
+    step: 5.5
+    enforcement_mode: soft-warn
+    gate_sampling_tier: always
+    trigger: []
+    evidence_emitted: []
+    escalation: log-only
+    source_dlb: DLB-02
+    state: active
+    version: 2.0
+
+  - name: MUDA-waste-audit
+    repair_instruction: "Run `bash super-gsd/scripts/sgsd-muda-audit.sh --phase {N}` and address findings in `.planning/phases/{N}/WASTE.md`; rerun until WARN-or-PASS."
+    repair_command: "bash super-gsd/scripts/sgsd-muda-audit.sh --dry-run"
+    category: process-hygiene
+    step: 6.55
+    enforcement_mode: soft-warn
+    gate_sampling_tier: low-risk-skip
+    trigger:
+      - any:
+          - field: files_changed_count
+            op: gte
+            value: 4
+          - field: diff_lines
+            op: gte
+            value: 100
+      - field: phase_type
+        op: not_in
+        value: [docs, config, refactor]
+    script: super-gsd/scripts/sgsd-muda-audit.sh
+    evidence_emitted:
+      - .planning/phases/{N}/WASTE.md
+    escalation: log-only
+    source_dlb: DLB-02
+    state: active
+    version: 2.0
+
+  - name: qualitative-waste-audit
+    repair_instruction: "Re-dispatch sgsd-code-reviewer with --qualitative-waste against the latest WASTE.md; address findings in a follow-up commit."
+    category: process-hygiene
+    step: 6.55
+    enforcement_mode: soft-warn
+    gate_sampling_tier: sampled-rate-50
+    trigger:
+      - field: phase_type
+        op: not_in
+        value: [docs, config]
+      - field: diff_lines
+        op: gte
+        value: 200
+      - field: mechanical_muda_verdict
+        op: in
+        value: [PASS, WARN]
+    reviewer_provider: codex-cli-reviewer
+    evidence_emitted:
+      - .planning/phases/{N}/WASTE.md
+    escalation: log-only
+    source_dlb: DLB-02
+    state: active
+    version: 2.0
+
+  - name: sgsd-curate-learnings
+    repair_instruction: "Run `bash super-gsd/scripts/sgsd-curate.sh` to write learnings under `.planning/memory/`; verify with `grep -r '<pattern>' .planning/memory/`."
+    repair_command: "bash super-gsd/scripts/sgsd-curate.sh --dry-run"
+    category: process-hygiene
+    step: 10
+    enforcement_mode: soft-warn
+    gate_sampling_tier: sampled-rate-50
+    trigger:
+      - any:
+          - field: new_pattern_detected
+            op: eq
+            value: true
+          - field: script_created
+            op: eq
+            value: true
+          - field: error_discovered
+            op: eq
+            value: true
+    script: super-gsd/scripts/sgsd-curate.sh
+    evidence_emitted: []
+    escalation: log-only
+    source_dlb: DLB-02
+    state: active
+    version: 2.0
+
+  - name: token-log
+    repair_instruction: "Append the missing token row to `.planning/metrics/token-log.jsonl` from the dispatch report; re-run the milestone token reconciliation script."
+    category: process-hygiene
+    step: 11
+    enforcement_mode: soft-warn
+    gate_sampling_tier: always
+    trigger: []
+    evidence_emitted: []
+    escalation: log-only
+    source_dlb: DLB-02
+    state: active
+    version: 2.0
+
+  # ── category: verify-completeness ────────────────────────────────────────
+
+  - name: vtp-enrichment
+    repair_instruction: "Run `node super-gsd/scripts/lib/vtp-enrichment-gate.cjs --phase {N}`; if VTP api_error, fall back per fallback-chain (sgsd-memory) and log provider_unavailable."
+    category: process-hygiene
+    step: 6.15
+    enforcement_mode: soft-warn  # api_error escalates to hard-halt via orchestrator code
+    gate_sampling_tier: low-risk-skip
+    trigger:
+      - field: research_phase_complete
+        op: eq
+        value: true
+      - field: vtp_enrichment_enabled
+        op: eq
+        value: true
+    evidence_emitted:
+      - .planning/milestones/{version}/phases/{NN}-*/{NN}-VTP-ENRICHMENT.md
+    escalation: block_on_api_error
+    source_dlb: VTPE-01
+    state: active
+    version: 2.1
+
+  # ── category: verify-completeness ────────────────────────────────────────
+
+  - name: verifier-row-arithmetic
+    repair_instruction: "Open `.planning/phases/{N}/{N}-verify.mjs`, fix the row-count mismatch (expected vs actual), and re-run `node {N}-verify.mjs`."
+    category: verify-completeness
+    step: 0
+    enforcement_mode: soft-warn
+    gate_sampling_tier: always
+    trigger:
+      - field: phase_has_verify_mjs
+        op: eq
+        value: true
+    evidence_emitted: []
+    escalation: log-only
+    source_dlb: DLB-02
+    state: active
+    version: 2.0
+
+  - name: verifier-detail-vs-summary
+    repair_instruction: "Reconcile detail rows with the summary block in `{N}-VERIFICATION.md`; either expand the summary or delete the orphan detail rows; re-run verifier."
+    category: verify-completeness
+    step: 0
+    enforcement_mode: soft-warn
+    gate_sampling_tier: always
+    trigger:
+      - field: phase_has_verify_mjs
+        op: eq
+        value: true
+    evidence_emitted: []
+    escalation: log-only
+    source_dlb: DLB-02
+    state: active
+    version: 2.0
