@@ -2,9 +2,11 @@
 # Super GSD - P5 - Codex Monitor
 # ============================================================================
 
+[CmdletBinding()]
 param(
     [string]$ProjectDir = ".",
-    [int]$Heartbeat = 30
+    [int]$Heartbeat = 30,
+    [switch]$Drill
 )
 
 function __sgsd_fail {
@@ -1050,50 +1052,6 @@ function Get-GateSavingsSnapshot {
     return [pscustomobject]$out
 }
 
-function Write-GateSavingsBlock {
-    param($Savings, [string]$PhaseNum, [int]$Pw)
-
-    Write-Host "GATE VALUE" -NoNewline -ForegroundColor White
-    if ($Savings.exists -and $Savings.generatedAgeSec -ne $null) {
-        Write-Host "  snapshot " -NoNewline -ForegroundColor DarkGray
-        Write-Host (Format-Age $Savings.generatedAgeSec) -NoNewline -ForegroundColor Cyan
-        Write-Host " old" -NoNewline -ForegroundColor DarkGray
-    }
-    Write-Host $CLEAR_LINE
-
-    if (-not $Savings.exists) {
-        Write-Host "  " -NoNewline
-        Write-Host (Trunc "No gate-savings snapshot yet; run node super-gsd/tools/gate-savings/report.cjs --write." ($Pw - 3)) -NoNewline -ForegroundColor Yellow
-        Write-Host $CLEAR_LINE
-        return
-    }
-
-    $p = $Savings.phase
-    $m = $Savings.milestone
-    $t = $Savings.project
-    $phaseLine = ("phase P{0}: caught {1}, waste points {2}; milestone: caught {3}, points {4}; project: caught {5}, points {6}" -f `
-        $PhaseNum,
-        (Format-SgsdMetricNumber (Read-SgsdNumber $p "totals.caught")),
-        (Format-SgsdMetricNumber (Read-SgsdNumber $p "totals.waste_points")),
-        (Format-SgsdMetricNumber (Read-SgsdNumber $m "totals.caught")),
-        (Format-SgsdMetricNumber (Read-SgsdNumber $m "totals.waste_points")),
-        (Format-SgsdMetricNumber (Read-SgsdNumber $t "totals.caught")),
-        (Format-SgsdMetricNumber (Read-SgsdNumber $t "totals.waste_points")))
-    Write-Host "  " -NoNewline
-    Write-Host (Trunc $phaseLine ($Pw - 3)) -NoNewline -ForegroundColor Green
-    Write-Host $CLEAR_LINE
-
-    $gateLine = ("facts: ATC {0}C/{1}W, MUDA {2}, token degraded {3}, Codex timeouts {4}; points are estimates, counts are evidence." -f `
-        (Format-SgsdMetricNumber (Read-SgsdNumber $t "atc.critical")),
-        (Format-SgsdMetricNumber (Read-SgsdNumber $t "atc.warning")),
-        (Format-SgsdMetricNumber (Read-SgsdNumber $t "muda.caught")),
-        (Format-SgsdMetricNumber (Read-SgsdNumber $t "token_waste.degraded")),
-        (Format-SgsdMetricNumber (Read-SgsdNumber $t "atc.codex_timeouts")))
-    Write-Host "  " -NoNewline
-    Write-Host (Trunc $gateLine ($Pw - 3)) -NoNewline -ForegroundColor Gray
-    Write-Host $CLEAR_LINE
-}
-
 function Get-AtcGateState {
     param([string]$Milestone, [string]$PhaseNum, $Codex, $Verdicts)
     $cells = @(
@@ -1305,7 +1263,9 @@ function Write-GateSynopsis {
     Write-Host (Trunc $atcFocus ($Pw - 3)) -NoNewline -ForegroundColor Yellow
     Write-Host $CLEAR_LINE
     foreach ($i in 0..($atcDesc.Count - 1)) {
-        Write-GateStepLine -Descriptor $atcDesc[$i] -State "$($Atc.cells[$i].state)" -Pw $Pw
+        if ($Drill) {
+            Write-GateStepLine -Descriptor $atcDesc[$i] -State "$($Atc.cells[$i].state)" -Pw $Pw
+        }
     }
 
     Write-Host "  " -NoNewline
@@ -1313,7 +1273,9 @@ function Write-GateSynopsis {
     Write-Host $CLEAR_LINE
 
     Write-Host $CLEAR_LINE
-    Write-AtcReviewSteps -Pw $Pw -Compact:$Compact
+    if ($Drill) {
+        Write-AtcReviewSteps -Pw $Pw -Compact:$Compact
+    }
 
     if (-not $Compact) { Write-Host $CLEAR_LINE }
     $mudaFocus = Get-GateFocusLine -Name "MUDA" -Cells $Muda.cells -Descriptors $mudaDesc -DoneText "MUDA focus: all active waste probes are complete for this phase."
@@ -1323,7 +1285,9 @@ function Write-GateSynopsis {
 
     $mudaLimit = if ($Compact) { 4 } else { $mudaDesc.Count }
     for ($i = 0; $i -lt $mudaLimit -and $i -lt $mudaDesc.Count; $i++) {
-        Write-GateStepLine -Descriptor $mudaDesc[$i] -State "$($Muda.cells[$i].state)" -Pw $Pw
+        if ($Drill) {
+            Write-GateStepLine -Descriptor $mudaDesc[$i] -State "$($Muda.cells[$i].state)" -Pw $Pw
+        }
     }
     if ($Compact -and $mudaDesc.Count -gt $mudaLimit) {
         Write-Host "  " -NoNewline
@@ -2169,6 +2133,7 @@ function Render {
     Write-Host (Trunc $scopeLine ($pw - 8)) -NoNewline -ForegroundColor Cyan
     Write-Host $CLEAR_LINE
 
+    # ─── BAND 1 · GOVERNING THOUGHT (visceral) ────────────────────
     Write-Host $CLEAR_LINE
     Write-Host "CURRENT STATUS" -NoNewline -ForegroundColor White
     Write-Host $CLEAR_LINE
@@ -2188,6 +2153,7 @@ function Render {
         Write-Host $CLEAR_LINE
     }
 
+    # ─── BAND 2 · MECE SUPPORTING (behavioral) ────────────────────
     Write-Host $CLEAR_LINE
     Write-Host "PHASE CONTEXT" -NoNewline -ForegroundColor White
     Write-Host $CLEAR_LINE
@@ -2205,6 +2171,7 @@ function Render {
     Write-Host $CLEAR_LINE
     Write-ClaudeEli5Panel -PhaseNum $phaseNum -Pw $pw -Milestone $scope.milestone
 
+    # ─── BAND 3 · RATIONALE (reflective · drill-in) ───────────────
     if ($expanded) {
         Write-Host $CLEAR_LINE
         Write-Host $(if ($codex.scopeCurrent) { "ACTIVE CODEX DETAIL" } else { "LAST OLD CODEX DETAIL" }) -NoNewline -ForegroundColor White
