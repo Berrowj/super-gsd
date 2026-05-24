@@ -66,6 +66,14 @@
   --paper: var(--surface);
   --paper-raised: var(--bg-3);
   --paper-tint: var(--bg-2);
+
+  /* P138.5 hotfix — alias dark-era --bg/--bg2/--panel to light values so
+     any selector using them (notably the body gradient at line ~132)
+     resolves to the v3.4 light command-room palette. */
+  --bg: var(--page);
+  --bg2: var(--surface);
+  --panel: var(--bg-2);
+  --panel2: var(--bg-3);
 }
 
 :root.dark-era-disabled {
@@ -129,10 +137,229 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 10% 0%, rgba(103,232,249,0.16), transparent 36%),
-    radial-gradient(circle at 84% 6%, rgba(192,132,252,0.14), transparent 32%),
-    linear-gradient(145deg, var(--bg), var(--bg2) 48%, #08101c);
+  background: var(--page);
+  color: var(--ink);
+}
+
+/* ============================================================================
+   v3.4 chrome — sticky command-room shell. Renders the regions reserved by
+   renderShell() (chrome / command / scanbar / sec-nav) + the 7 IA sections.
+   ============================================================================ */
+
+main.sgsd-cockpit {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  font-family: var(--sans);
+  color: var(--ink);
+  background: var(--page);
+}
+
+main.sgsd-cockpit .chrome {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-mid);
+}
+main.sgsd-cockpit .chrome-host { font-weight: 600; color: var(--ink); }
+main.sgsd-cockpit .chrome-path,
+main.sgsd-cockpit .chrome-build,
+main.sgsd-cockpit .chrome-phase { color: var(--ink-mid); }
+main.sgsd-cockpit .chrome-phase { color: var(--live); font-weight: 600; }
+main.sgsd-cockpit .chrome-hotkeys { margin-left: auto; color: var(--ink-dim); }
+
+main.sgsd-cockpit .chrome-conn [data-conn="state"] {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  background: var(--bg-2);
+  color: var(--ink-mid);
+}
+main.sgsd-cockpit [data-conn-tier="live"]         { background: var(--live-bg);   color: var(--live);   border: 1px solid var(--live-line); }
+main.sgsd-cockpit [data-conn-tier="reconnecting"] { background: var(--attn-bg);   color: var(--attn);   border: 1px solid var(--attn-line); }
+main.sgsd-cockpit [data-conn-tier="offline"]      { background: var(--severe-bg); color: var(--severe); border: 1px solid var(--severe-line); }
+main.sgsd-cockpit [data-conn-tier="stale"]        { background: var(--severe-bg); color: var(--severe); border: 1px solid var(--severe-line); }
+main.sgsd-cockpit [data-conn-tier="pending"]      { background: var(--bg-2);      color: var(--ink-dim); }
+
+main.sgsd-cockpit .command-strip {
+  position: sticky;
+  top: 33px;
+  z-index: 9;
+  display: flex;
+  gap: 1.5rem;
+  padding: 0.6rem 1rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--ink);
+}
+main.sgsd-cockpit .command-strip strong { font-weight: 600; color: var(--ink-mid); margin-right: 0.4rem; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+main.sgsd-cockpit .cmd-risk { margin-left: auto; }
+
+main.sgsd-cockpit .scanbar {
+  position: sticky;
+  top: 70px;
+  z-index: 8;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border-bottom: 2px solid var(--line-strong);
+}
+main.sgsd-cockpit .scan-cell {
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 60px;
+}
+main.sgsd-cockpit .scan-label {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--ink-dim);
+}
+main.sgsd-cockpit .scan-value {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.3;
+}
+
+main.sgsd-cockpit .sec-nav {
+  position: sticky;
+  top: 130px;
+  z-index: 7;
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.5rem 1rem;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+main.sgsd-cockpit .sec-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  color: var(--ink);
+  text-decoration: none;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-family: var(--sans);
+}
+main.sgsd-cockpit .sec-nav-link:hover { background: var(--bg-3); }
+main.sgsd-cockpit .sec-pill {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  color: var(--ink-dim);
+}
+main.sgsd-cockpit .sec-pill-fresh     { background: var(--live-bg);   color: var(--live); }
+main.sgsd-cockpit .sec-pill-degraded  { background: var(--attn-bg);   color: var(--attn); }
+main.sgsd-cockpit .sec-pill-stale     { background: var(--severe-bg); color: var(--severe); }
+main.sgsd-cockpit .sec-pill-dead      { background: var(--severe-bg); color: var(--severe); }
+main.sgsd-cockpit .sec-pill-pending   { background: var(--bg-3);      color: var(--ink-dim); }
+
+main.sgsd-cockpit .ia-section {
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid var(--line-dim);
+  background: var(--page);
+}
+main.sgsd-cockpit .ia-section[aria-label]::before {
+  content: attr(aria-label);
+  display: block;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+}
+
+main.sgsd-cockpit .band-1 { background: var(--surface); }
+main.sgsd-cockpit .band-2 { background: var(--bg-2); }
+main.sgsd-cockpit .band-3 { background: var(--bg-3); }
+
+main.sgsd-cockpit .northstar {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 28px;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  margin: 0 0 0.5rem;
+  line-height: 1.2;
+}
+main.sgsd-cockpit .northstar strong { color: var(--live); margin-right: 0.5rem; }
+main.sgsd-cockpit .do-next { font-size: 14px; color: var(--ink); margin: 0.25rem 0; }
+main.sgsd-cockpit .do-next strong { color: var(--ink-mid); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; margin-right: 0.4rem; }
+main.sgsd-cockpit .alert {
+  display: inline-flex;
+  gap: 0.5rem;
+  padding: 6px 12px;
+  border-radius: 4px;
+  background: var(--attn-bg);
+  color: var(--attn);
+  border: 1px solid var(--attn-line);
+  font-size: 13px;
+  margin-top: 0.5rem;
+}
+
+main.sgsd-cockpit .stage-pipeline {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+main.sgsd-cockpit .stage {
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-mid);
+}
+main.sgsd-cockpit .stage-done    { background: var(--done-bg);   color: var(--done);   border-color: var(--done-line); }
+main.sgsd-cockpit .stage-active  { background: var(--live-bg);   color: var(--live);   border-color: var(--live-line); font-weight: 600; }
+main.sgsd-cockpit .stage-blocked { background: var(--severe-bg); color: var(--severe); border-color: var(--severe-line); }
+
+main.sgsd-cockpit .trend-strip {
+  display: flex;
+  gap: 1.5rem;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-mid);
+  margin-top: 0.5rem;
+}
+
+main.sgsd-cockpit .bottom-drawer {
+  padding: 1rem 2rem;
+  border-top: 2px solid var(--line-strong);
+  background: var(--surface);
+  font-size: 12px;
+  color: var(--ink-dim);
 }
 
 main,
