@@ -7,6 +7,7 @@ const os = require('os');
 const { STAGES, computeStagePipeline } = require('./stage-pipeline.cjs');
 const { computeRationale } = require('./rationale.cjs');
 const { lintWhy } = require('./succes-lint.cjs');
+const { lintEli5 } = require('./eli5-lint.cjs');
 const cockpitSidecarP128 = require('./cockpit-sidecar.cjs');
 const child_process = require('child_process');
 
@@ -368,6 +369,45 @@ const tests = [
         assert.ok(band3Output.includes('WHY THIS PHASE'), band3Output);
         assert.ok(defaultOutput.includes('NORTH STAR'), defaultOutput);
         assert.ok(band3Output.includes('NORTH STAR'), band3Output);
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P131-01',
+      run: () => {
+        const r = lintEli5('Everything looks fine right now. We are ready for the next step.');
+        assert.ok(r.ok, 'benign text should pass');
+        assert.ok(r.out_of_list_count <= 2, 'minimal violations');
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P131-02',
+      run: () => {
+        const r = lintEli5('The SAC schema mandates idempotent invariants under concurrent dispatch.');
+        assert.ok(!r.ok, 'jargon text should fail');
+        assert.ok(r.out_of_list_count >= 4, 'expected >=4 non-glossed violations: ' + r.out_of_list_count);
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P131-03',
+      run: () => {
+        const input = 'The orchestrator (the part that picks what to do next) is waiting.';
+        const r = lintEli5(input);
+        const entry = r.violations.find((violation) => violation.word === 'orchestrator');
+        assert.ok(entry, 'expected orchestrator violation entry');
+        assert.strictEqual(entry.glossed, true, 'orchestrator should be marked glossed');
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P131-04',
+      run: () => {
+        const psContent = fs.readFileSync('super-gsd/scripts/sgsd-codex-monitor.ps1', 'utf8');
+        const arcPhrases = ['What is now', 'What could be', 'S.T.A.R.', 'Call to action'];
+        const matches = arcPhrases.filter((p) => psContent.includes(p)).length;
+        assert.ok(matches >= 3, 'expected at least 3 Duarte arc phrase matches: ' + matches);
       },
     });
 
