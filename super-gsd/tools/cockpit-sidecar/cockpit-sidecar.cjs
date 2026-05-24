@@ -485,50 +485,7 @@ function escapeHtml(value) {
 }
 
 function renderHtml(output) {
-  let designSystemCss = '';
-  try {
-    designSystemCss = fs.readFileSync(path.join(__dirname, '..', 'shared', 'sgsd-design-system.css'), 'utf8');
-  } catch (_error) {
-    designSystemCss = '';
-  }
-
-  const alert = alertLine(output);
-  const alertHtml = alert ? `    <div class="callout" role="alert">${escapeHtml(alert)}</div>\n` : '';
-  const fog = output.fog_score || {};
-  const signals = output.signals || {};
-
-  return [
-    '<!doctype html>',
-    '<html lang="en">',
-    '<head>',
-    '  <meta charset="utf-8">',
-    '  <meta name="viewport" content="width=device-width, initial-scale=1">',
-    '  <title>SGSD Cockpit</title>',
-    '  <style>',
-    designSystemCss,
-    '  </style>',
-    '</head>',
-    '<body>',
-    '  <main class="sgsd-cockpit">',
-    '    <section role="operator-decision" class="operator-decision">',
-    `      <p class="eyebrow">${escapeHtml(northStarLine(output))}</p>`,
-    `      <p class="do-next recommended-action">▸ DO NEXT: ${escapeHtml(recommendedAction(output.north_star && output.north_star.code))}</p>`,
-    '    </section>',
-    alertHtml.trimEnd(),
-    '    <details class="supporting-block">',
-    '      <summary>Supporting state</summary>',
-    '      <dl>',
-    `        <dt>Scope</dt><dd>${escapeHtml(output.milestone || 'null')}/${escapeHtml(output.phase || 'null')}</dd>`,
-    `        <dt>Gate</dt><dd>${escapeHtml(output.binding_gate_status || 'null')}</dd>`,
-    `        <dt>Fog</dt><dd>${escapeHtml(valueOr(fog.tier, 'n/a'))} / ${escapeHtml(valueOr(fog.score, 'n/a'))}</dd>`,
-    `        <dt>Dispatches</dt><dd>${escapeHtml(valueOr(signals.dispatch_count, 'n/a'))}</dd>`,
-    `        <dt>Latest chronicle</dt><dd>${escapeHtml(latestChroniclePath(output))}</dd>`,
-    '      </dl>',
-    '    </details>',
-    '  </main>',
-    '</body>',
-    '</html>'
-  ].filter((line) => line !== '').join('\n');
+  return require('./render-html.cjs').renderHtml(output);
 }
 
 function run(rawArgs = process.argv.slice(2)) {
