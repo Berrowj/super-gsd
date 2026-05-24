@@ -3,6 +3,15 @@
 
 const fs = require('fs');
 const path = require('path');
+const { computeStagePipeline } = require('./stage-pipeline.cjs');
+
+function attachStagePipeline(output, opts) {
+  const phaseDir = (opts && opts.phase_dir) || null;
+  const vtpEnabled = !opts || opts.vtp_enabled !== false;
+  const blocker = (opts && opts.blocker) || null;
+  output.stage_pipeline = computeStagePipeline({ phase_dir: phaseDir, vtp_enabled: vtpEnabled, blocker });
+  return output;
+}
 const { execFileSync } = require('child_process');
 const { computeFogScore } = require('./fog-score.cjs');
 const { computeNorthStar } = require('./north-star.cjs');
@@ -384,6 +393,16 @@ function run(rawArgs = process.argv.slice(2)) {
     fog_score: computeFogScore(fogInput), recent_chronicles: recent, signals, warnings };
   output.north_star = computeNorthStar(output);
   output.alerts = evaluateAlerts(output);
+  const phaseSlugVal = id(first(cockpit.state, ['phase_slug', 'active_phase_slug']));
+  const phaseDirGuess = milestone && phase
+    ? `.planning/milestones/${milestone}/phases/${phase}${phaseSlugVal ? '-' + phaseSlugVal : ''}`
+    : null;
+  let vtpEnabled = true;
+  try {
+    const cfg = JSON.parse(fs.readFileSync(absolutePath('.planning/config.json'), 'utf8'));
+    if (cfg && cfg.workflow && cfg.workflow.triage_vtp_enrichment === false) vtpEnabled = false;
+  } catch (_e) { /* default true */ }
+  attachStagePipeline(output, { phase_dir: phaseDirGuess, vtp_enabled: vtpEnabled });
 
   if (options.format === 'text') return { exitCode: 0, stdout: renderText(output) };
   if (options.format === 'brief') return { exitCode: 0, stdout: renderBrief(output) };
@@ -403,3 +422,4 @@ if (require.main === module) {
 }
 
 module.exports = { run, parseArgs, readJsonl, readCockpitState, renderText, renderBrief, renderHtml, recommendedAction };
+module.exports.attachStagePipeline = attachStagePipeline;
