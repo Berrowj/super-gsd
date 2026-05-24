@@ -3,6 +3,15 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const { STAGES, computeStagePipeline } = require('./stage-pipeline.cjs');
+const cockpitSidecarP128 = require('./cockpit-sidecar.cjs');
+
+function makeFakePhaseDir(files) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-stage-'));
+  for (const f of files) fs.writeFileSync(path.join(dir, f), '# stub\n');
+  return dir;
+}
 const sidecar = require('./cockpit-sidecar.cjs');
 const { computeNorthStar } = require('./north-star.cjs');
 const { evaluateAlerts } = require('./alert-grammar.cjs');
@@ -21,6 +30,135 @@ function p127Out() {
 }
 
 const tests = [
+  ...(() => {
+    const tests = [];
+
+    tests.push({
+      id: 'SAC-P128-01',
+      run: () => {
+        assert.ok(Array.isArray(STAGES), 'STAGES must be array');
+        assert.ok(Object.isFrozen(STAGES), 'STAGES must be frozen');
+        assert.strictEqual(STAGES.length, 5, '5 stages exactly');
+        assert.deepStrictEqual(
+          STAGES.map((stage) => stage.name),
+          ['research', 'vtp-enrich', 'plan', 'execute', 'verify'],
+        );
+
+        for (const stage of STAGES) {
+          assert.ok(Object.isFrozen(stage), 'each stage must be frozen');
+          assert.strictEqual(typeof stage.name, 'string');
+          assert.strictEqual(typeof stage.owner, 'string');
+          assert.strictEqual(typeof stage.sla_minutes, 'number');
+          assert.ok(stage.sla_minutes > 0, 'sla_minutes > 0');
+          assert.strictEqual(typeof stage.artifact_glob, 'string');
+        }
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P128-02',
+      run: () => {
+        assert.strictEqual(typeof computeStagePipeline, 'function');
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P128-03',
+      run: () => {
+        const dir = makeFakePhaseDir(['RESEARCH.md']);
+        try {
+          const result = computeStagePipeline({ phase_dir: dir, vtp_enabled: true });
+          assert.strictEqual(result.stages[0].status, 'done');
+          assert.strictEqual(result.stages[1].status, 'active');
+          assert.strictEqual(result.active_index, 1);
+        } finally {
+          fs.rmSync(dir, { recursive: true, force: true });
+        }
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P128-04',
+      run: () => {
+        const dir = makeFakePhaseDir(['RESEARCH.md']);
+        try {
+          const result = computeStagePipeline({ phase_dir: dir, vtp_enabled: false });
+          assert.strictEqual(result.stages[1].status, 'done');
+          assert.strictEqual(result.stages[2].status, 'active');
+        } finally {
+          fs.rmSync(dir, { recursive: true, force: true });
+        }
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P128-05',
+      run: () => {
+        const dir = makeFakePhaseDir([
+          'RESEARCH.md',
+          'VTP-ENRICHMENT.md',
+          '128-01-foo-PLAN-LOCKED.md',
+        ]);
+        try {
+          const result = computeStagePipeline({
+            phase_dir: dir,
+            vtp_enabled: true,
+            blocker: 'codex_read_216',
+          });
+          assert.strictEqual(result.stages[2].status, 'done');
+          assert.strictEqual(result.stages[3].status, 'blocked');
+          assert.strictEqual(result.blocker, 'codex_read_216');
+        } finally {
+          fs.rmSync(dir, { recursive: true, force: true });
+        }
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P128-06',
+      run: () => {
+        const output = cockpitSidecarP128.attachStagePipeline(p127Out(), { phase_dir: null });
+        assert.ok(output.stage_pipeline);
+        assert.ok(Array.isArray(output.stage_pipeline.stages));
+        assert.strictEqual(output.stage_pipeline.stages.length, 5);
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P128-07',
+      run: () => {
+        const sample = p127Out();
+        const beforeKeys = Object.keys(sample);
+        const output = cockpitSidecarP128.attachStagePipeline(sample, { phase_dir: null });
+
+        for (const key of beforeKeys) {
+          assert.ok(Object.prototype.hasOwnProperty.call(output, key), key);
+        }
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P128-08',
+      run: () => {
+        const output = cockpitSidecarP128.attachStagePipeline(p127Out(), { phase_dir: null });
+        const parsed = JSON.parse(JSON.stringify(output));
+        assert.ok(parsed.stage_pipeline);
+        assert.strictEqual(parsed.stage_pipeline.stages.length, 5);
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P128-09',
+      run: () => {
+        const output = cockpitSidecarP128.attachStagePipeline(p127Out(), { phase_dir: null });
+        assert.doesNotThrow(() => cockpitSidecarP128.renderText(output));
+        assert.doesNotThrow(() => cockpitSidecarP128.renderHtml(output));
+        assert.doesNotThrow(() => cockpitSidecarP128.renderBrief(output));
+      },
+    });
+
+    return tests;
+  })(),
   { id: 'SAC-P125-01', run: () => { const result = computeNorthStar({ binding_gate_status: 'RED', fog_score: { tier: 'high' } }); assert.strictEqual(result.rank, 1); assert.strictEqual(result.code, 'BLOCKED'); } },
   { id: 'SAC-P125-02', run: () => { const result = computeNorthStar({ binding_gate_status: 'GREEN', latest_chronicle: { validator_verdict: 'REPORT_BROKEN_CITATION' } }); assert.strictEqual(result.rank, 2); assert.strictEqual(result.code, 'CHRONICLE_FAILED'); } },
   { id: 'SAC-P125-03', run: () => { const result = computeNorthStar({ binding_gate_status: 'GREEN', latest_chronicle: { validator_verdict: 'REPORT_GROUNDED' }, fog_score: { tier: 'low' }, milestone: 'v3.2', phase: '125' }); assert.strictEqual(result.rank, 5); assert.strictEqual(result.code, 'ON_TRACK'); } },
