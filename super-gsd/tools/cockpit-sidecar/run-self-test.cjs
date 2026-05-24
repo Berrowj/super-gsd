@@ -157,6 +157,103 @@ const tests = [
       },
     });
 
+    tests.push({
+      id: 'SAC-P129-01',
+      run: () => {
+        const sample = { milestone: 'v3.3', phase: '129', latest_chronicle: { validator_verdict: 'REPORT_GROUNDED' }, binding_gate_status: 'GREEN', fog_score: { score: 10, tier: 'low' }, recent_chronicles: [], signals: { dispatch_count: 1, token_spend: 1000 }, warnings: [], phase_dir: null };
+        sample.north_star = computeNorthStar(sample);
+        sample.alerts = evaluateAlerts(sample);
+        sample.stage_pipeline = computeStagePipeline({ phase_dir: null, vtp_enabled: true });
+        const lines = sidecar.renderText(sample, { color: false }).split(/\r?\n/);
+        const ruleLines = lines.filter((line) => /─{5,}/.test(line));
+        assert.ok(ruleLines.length >= 3, String(ruleLines.length));
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P129-02',
+      run: () => {
+        const sample = { milestone: 'v3.3', phase: '129', latest_chronicle: {}, binding_gate_status: 'RED', fog_score: { score: 85, tier: 'high' }, prior_fog_high: true, recent_chronicles: [], signals: { dispatch_count: 1, token_spend: 1000 }, warnings: [] };
+        sample.north_star = computeNorthStar(sample);
+        sample.alerts = evaluateAlerts(sample);
+        sample.stage_pipeline = computeStagePipeline({ phase_dir: null, vtp_enabled: true });
+        const rendered = sidecar.renderText(sample, { color: true });
+        const boldCount = (rendered.match(/\x1b\[1m/g) || []).length;
+        assert.ok(boldCount >= 1, String(boldCount));
+        assert.ok(boldCount <= 2, String(boldCount));
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P129-03',
+      run: () => {
+        const sample = {
+          milestone: 'v3.3',
+          phase: '129',
+          latest_chronicle: { validator_verdict: 'REPORT_GROUNDED' },
+          binding_gate_status: 'GREEN',
+          fog_score: { score: 10, tier: 'low' },
+          recent_chronicles: [],
+          signals: { dispatch_count: 1, token_spend: 1000 },
+          warnings: [],
+          stage_pipeline: {
+            stages: [
+              { name: 'research', status: 'done' },
+              { name: 'vtp-enrich', status: 'done' },
+              { name: 'plan', status: 'active' },
+              { name: 'execute', status: 'pending' },
+              { name: 'verify', status: 'pending' },
+            ],
+            active_index: 2,
+          },
+        };
+        sample.north_star = computeNorthStar(sample);
+        sample.alerts = evaluateAlerts(sample);
+        const stageLine = sidecar.renderText(sample, { color: false }).split(/\r?\n/).find((line) => line.includes('research') && (line.includes('plan') || line.includes('vtp-enrich'))) || '';
+        assert.ok(stageLine.includes('✓'), stageLine);
+        assert.ok(stageLine.includes('⏳'), stageLine);
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P129-04',
+      run: () => {
+        const sample = { milestone: 'v3.3', phase: '129', latest_chronicle: { validator_verdict: 'REPORT_GROUNDED' }, binding_gate_status: 'GREEN', fog_score: { score: 38, tier: 'medium' }, recent_chronicles: [], signals: { fog_score: 38, dispatch_count: 7, token_spend: 2400000 }, warnings: [] };
+        sample.north_star = computeNorthStar(sample);
+        sample.alerts = evaluateAlerts(sample);
+        sample.stage_pipeline = computeStagePipeline({ phase_dir: null, vtp_enabled: true });
+        const blockLines = sidecar.renderText(sample, { color: false }).split(/\r?\n/).filter((line) => /[▁▂▃▄▅▆▇█]/.test(line));
+        assert.ok(blockLines.length >= 3, String(blockLines.length));
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P129-05',
+      run: () => {
+        const sample = { milestone: 'v3.3', phase: '129', latest_chronicle: { validator_verdict: 'REPORT_GROUNDED' }, binding_gate_status: 'GREEN', fog_score: { score: 10, tier: 'low' }, recent_chronicles: [], signals: { dispatch_count: 1, token_spend: 1000 }, warnings: [] };
+        sample.north_star = computeNorthStar(sample);
+        sample.alerts = evaluateAlerts(sample);
+        sample.stage_pipeline = computeStagePipeline({ phase_dir: null, vtp_enabled: true });
+        const lines = sidecar.renderBrief(sample).split(/\r?\n/).filter((line) => line.trim());
+        assert.ok(lines.length <= 4, String(lines.length));
+        assert.ok(lines[0].includes(sample.north_star.message), lines[0]);
+        assert.ok(/DO NEXT/i.test(lines[1]), lines[1]);
+      },
+    });
+
+    tests.push({
+      id: 'SAC-P129-06',
+      run: () => {
+        const result = evaluateAlerts({ binding_gate_status: 'RED', fog_score: { score: 85 }, prior_fog_high: true, signals: { dispatch_count: 15 }, latest_chronicle: {}, warnings: [] });
+        const valid = new Set(['accent', 'success', 'attention', 'severe', 'danger', 'done']);
+        for (const alert of result.all) {
+          assert.ok(Object.prototype.hasOwnProperty.call(alert, 'palette_tier'), JSON.stringify(alert));
+          assert.ok(valid.has(alert.palette_tier), alert.palette_tier);
+        }
+        assert.strictEqual(result.top.palette_tier, 'danger');
+      },
+    });
+
     return tests;
   })(),
   { id: 'SAC-P125-01', run: () => { const result = computeNorthStar({ binding_gate_status: 'RED', fog_score: { tier: 'high' } }); assert.strictEqual(result.rank, 1); assert.strictEqual(result.code, 'BLOCKED'); } },
@@ -169,7 +266,17 @@ const tests = [
     const out = { binding_gate_status: 'RED', latest_chronicle: {}, fog_score: { tier: 'high' }, signals: {}, warnings: [], milestone: 'v3.2', phase: '126' };
     out.north_star = computeNorthStar(out);
     out.alerts = evaluateAlerts(out);
-    const firstNonBorder = sidecar.renderText(out, { color: false }).split(/\r?\n/).find((line) => line.trim() && !/^[=\-\s]+$/.test(line)) || '';
+    // v3.3 layout note: renderText now opens with a box-drawing header line
+    // (┌─ NORTH STAR ─...─┐) before the data line. Test intent preserved:
+    // first line containing actual content (not box-drawing chrome) must include BLOCKED.
+    const firstNonBorder = sidecar.renderText(out, { color: false }).split(/\r?\n/).find((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return false;
+      if (/^[=\-\s]+$/.test(trimmed)) return false;
+      // skip box-drawing header/separator lines like "┌─ NORTH STAR ──...─┐" or "├──────┤"
+      if (/^[─━│┌┐└┘├┤\s]*(?:NORTH STAR|DO NEXT|STAGE|WHY|UNLOCK|BLOCK|fog|dispatch|tokens)?[─━│┌┐└┘├┤\s]*$/.test(trimmed)) return false;
+      return true;
+    }) || '';
     assert.ok(firstNonBorder.includes('BLOCKED'), firstNonBorder);
   } },
   { id: 'SAC-P126-02', run: () => {

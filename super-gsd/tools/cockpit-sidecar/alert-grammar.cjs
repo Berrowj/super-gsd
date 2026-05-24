@@ -29,6 +29,21 @@ function isBenignWarning(warning) {
   return BENIGN_WARNING_PREFIXES.some((prefix) => firstToken.startsWith(prefix));
 }
 
+function paletteTierForSignal(signal) {
+  switch (signal) {
+    case 'binding_gate_status':
+    case 'validator_verdict':
+      return 'danger';
+    case 'fog_score':
+      return 'severe';
+    case 'dispatch_count':
+    case 'warnings':
+      return 'attention';
+    default:
+      return 'accent';
+  }
+}
+
 function evaluateAlerts(state) {
   const source = asObject(state);
   const verdict = source.latest_chronicle?.validator_verdict || source.validator_verdict;
@@ -53,6 +68,10 @@ function evaluateAlerts(state) {
 
   if (nonBenignWarnings.length > 0) {
     all.push({ signal: 'warnings', channel: 'terminal', detail: nonBenignWarnings });
+  }
+
+  for (const alert of all) {
+    alert.palette_tier = paletteTierForSignal(alert.signal);
   }
 
   return {
