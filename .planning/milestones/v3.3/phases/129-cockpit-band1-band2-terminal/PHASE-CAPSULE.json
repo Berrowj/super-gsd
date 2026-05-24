@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.3",
+  "phase": "129",
+  "phase_name": "Cockpit Bands 1+2 Terminal Layout",
+  "status": "PASS",
+  "goal": "After P129, super-gsd/tools/cockpit-sidecar/cockpit-sidecar.cjs --text emits the v3.3 3-band terminal layout for Bands 1 + 2 (NORTH STAR + DO NEXT + ⚠ alert; stage pipeline strip + WHY/UNLOCK/BLOCK + sparkline trend strip). A new sparkline.cjs module provides renderAnsi (Unicode-block) and renderSvg (inline SVG) helpers used by terminal + future HTML surfaces. alert-grammar.cjs adds an additive palette_tier field per GitHub Primer 5-tier mapping. renderBrief preserved at ≤4 lines.",
+  "outputs": [
+    { "kind": "plan",         "path": ".planning/milestones/v3.3/phases/129-cockpit-band1-band2-terminal/129-01-band1-band2-terminal-PLAN-LOCKED.md" },
+    { "kind": "context",      "path": ".planning/milestones/v3.3/phases/129-cockpit-band1-band2-terminal/129-CONTEXT.md" },
+    { "kind": "verification", "path": ".planning/milestones/v3.3/phases/129-cockpit-band1-band2-terminal/129-VERIFICATION.md" }
+  ],
+  "files": [
+    ".planning/milestones/v3.3/phases/129-cockpit-band1-band2-terminal/129-01-band1-band2-terminal-PLAN-LOCKED.md",
+    ".planning/milestones/v3.3/phases/129-cockpit-band1-band2-terminal/129-CONTEXT.md",
+    ".planning/milestones/v3.3/phases/129-cockpit-band1-band2-terminal/129-VERIFICATION.md",
+    "super-gsd/tools/cockpit-sidecar/sparkline.cjs",
+    "super-gsd/tools/cockpit-sidecar/cockpit-sidecar.cjs",
+    "super-gsd/tools/cockpit-sidecar/alert-grammar.cjs",
+    "super-gsd/tools/cockpit-sidecar/run-self-test.cjs"
+  ],
+  "sac_ids": [
+    "SAC-P129-01", "SAC-P129-02", "SAC-P129-03", "SAC-P129-04", "SAC-P129-05", "SAC-P129-06"
+  ],
+  "self_test_command": "node super-gsd/tools/cockpit-sidecar/run-self-test.cjs",
+  "self_test_result": "pass",
+  "self_test_count": "33/33",
+  "decisions": [
+    { "id": "SAC-P129-05-relax", "decided_at": "2026-05-24", "decision": "Original SAC-P129-05 expected renderBrief line 1 to equal north_star.message; relaxed to substring-containment after Codex correctly identified inconsistency with v3.2 renderBrief's 'NORTH STAR [CODE]: message' prefix. Test intent preserved." },
+    { "id": "SAC-P126-01-filter", "decided_at": "2026-05-24", "decision": "Extended SAC-P126-01 'first non-border' filter regex to also skip v3.3 box-drawing header lines (┌─ NORTH STAR ─...─┐). Test intent (first DATA line must contain BLOCKED for RED gate) preserved." }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": null
+  },
+  "downstream_contract": {
+    "consumers": ["P130 (Band 3 rationale renders below Band 2)", "P132 (localhost-live HTML cockpit reuses sparkline.renderSvg + stage strip + trend strip grammar)", "P134 (conformance gate covers Band 1+2 rules across all 4 surfaces)"],
+    "constraints": ["Band 1 = one loud line (North Star), one DO NEXT, ≤1 alert", "Band 2 = stage strip + WHY/UNLOCK/BLOCK + trend strip (3 sparkline lines)", "renderBrief ≤ 4 lines", "alert.palette_tier ∈ {accent, success, attention, severe, danger, done}"],
+    "extension_points": ["sparkline.cjs renderSvg consumed by P132 localhost-live", "palette_tier mapping table extensible for new signal types"]
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    { "sha": "1941ac5", "subject": "feat(v3.3): P129 CONTEXT + PLAN-LOCKED — bands 1+2 terminal layout", "ts": "2026-05-24" },
+    { "sha": "ffe75aa", "subject": "feat(P129-T1): sparkline.cjs — renderAnsi + renderSvg (pure, zero deps)", "ts": "2026-05-24" },
+    { "sha": "d1cacf0", "subject": "feat(P129-T2): renderText 3-band layout — Band 1 + Band 2 + sparkline trend strip", "ts": "2026-05-24" },
+    { "sha": "4df5f07", "subject": "feat(P129-T3): alert palette_tier + SAC-P129-01..06 + SAC-P126-01 v3.3-layout filter", "ts": "2026-05-24" }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v3.3/phases/129-cockpit-band1-band2-terminal/129-CONTEXT.md",
+      "sha256": "e383b8ebd3b105514107a3fdd535d0c6826f394aed52b42f4afcc1c952136525"
+    },
+    "research": null,
+    "plan": [
+      {
+        "path": ".planning/milestones/v3.3/phases/129-cockpit-band1-band2-terminal/129-01-band1-band2-terminal-PLAN-LOCKED.md",
+        "sha256": "d96522cc48bc34b960b64a712445dae29ce2df7c1dc844abacd72b2e384d3209"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v3.3/phases/129-cockpit-band1-band2-terminal/129-VERIFICATION.md",
+      "sha256": "c4a83389e18fd849719b3f5e3bcd902cd4ee021b68db7d6ea521d8d2a5e4e45e"
+    },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS",
+      "ref": ".planning/milestones/v3.3/phases/129-cockpit-band1-band2-terminal/129-VERIFICATION.md"
+    },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      { "task": "P129-T1", "executor": "codex-executor.sh", "result": "completed (sparkline.cjs created via OS file API under shell-exec block)" },
+      { "task": "P129-T2", "executor": "codex-executor.sh → codex-patch-executor.sh", "result": "first dispatch returned FILES_CHANGED: none (Codex refused mutation without verification); patch-mode recovery via 8-file read-pack succeeded; 117 insertions applied" },
+      { "task": "P129-T3", "executor": "codex-patch-executor.sh", "result": "first dispatch returned empty PATCH (Codex caught SAC-P129-05/renderBrief inconsistency); orchestrator-relaxed SAC; second dispatch applied 116 insertions; orchestrator added SAC-P126-01 layout-aware filter to preserve v3.2 SAC under new layout" },
+      { "task": "P129-T4", "executor": "orchestrator", "result": "orchestrator-authored VERIFICATION.md + PHASE-CAPSULE.json after verifying full self-test 33/33 green (P128-T4 pattern; Codex correctly refuses to claim PASS without precondition self-test capability)" }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-05-24T00:00:00.000Z",
+  "created_by": "orchestrator (Claude Opus 4.7, 1M context) — phase-capsule/write.cjs script unavailable in this session"
+}
