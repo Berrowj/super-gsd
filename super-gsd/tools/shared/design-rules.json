@@ -120,6 +120,66 @@
       "severity": "advisory",
       "applies_to": ["chronicle", "cockpit"],
       "description": "Reviewer confirms diagrams emphasize operator execution, thresholds, and next action."
+    },
+    {
+      "id": "R13",
+      "name": "Band 1 carries exactly one loud line",
+      "source_book": "Don't Make Me Think (Krug) + v3.2 R04",
+      "citation": "krug-dont-make-me-think research paper (visual hierarchy — one loud element)",
+      "check_type": "structural",
+      "severity": "binding",
+      "applies_to": ["cockpit-html"],
+      "description": "Exactly one element in the Band 1 region carries the prominence treatment (north-star OR recommended-action class)."
+    },
+    {
+      "id": "R14",
+      "name": "Stage-pipeline strip has 5 cells",
+      "source_book": "operator JCL Project Clarity Suite pattern (5-stage SGSD pipeline)",
+      "citation": "wiki/meetings/project-clarity-extraction.md::Idea-0 (re-scoped to 5 stages per Q-D 2026-05-24)",
+      "check_type": "structural",
+      "severity": "binding",
+      "applies_to": ["cockpit-html"],
+      "description": "Band 2 stage-pipeline renders 5 cells (research, vtp-enrich, plan, execute, verify)."
+    },
+    {
+      "id": "R15",
+      "name": "Band 3 subheadings (when visible) all 6 present",
+      "source_book": "Heath SUCCES + Duarte arc + Minto SCQA",
+      "citation": "made-to-stick + resonate + pyramid-principle (canonical)",
+      "check_type": "structural",
+      "severity": "binding",
+      "applies_to": ["cockpit-html"],
+      "description": "When Band 3 is rendered (not hidden), all 6 subhead labels appear: WHY THIS PHASE, CONTEXT, ELI5, WHAT IS, WHAT COULD BE, EVIDENCE TRAIL."
+    },
+    {
+      "id": "R16",
+      "name": "Alert palette_tier from Primer 5-tier set",
+      "source_book": "GitHub Primer design system (5-tier functional colour)",
+      "citation": "wiki/research/github-primer-design-system.md::Functional colour tiers",
+      "check_type": "structural",
+      "severity": "binding",
+      "applies_to": ["cockpit"],
+      "description": "Every alert in cockpit-sidecar --json output has palette_tier in {accent, success, attention, severe, danger, done}."
+    },
+    {
+      "id": "R17",
+      "name": "ELI5 passes Munroe common-words lint",
+      "source_book": "Munroe — Thing Explainer (ten-hundred)",
+      "citation": "canonical knowledge — operator-folder PDFs (not yet VTP-indexed)",
+      "check_type": "structural",
+      "severity": "advisory",
+      "applies_to": ["cockpit-html", "monitor"],
+      "description": "When ELI5 text is present in the artifact, eli5-lint.lintEli5(text).out_of_list_count <= 5 (informational warn; binding promotion deferred)."
+    },
+    {
+      "id": "R18",
+      "name": "Localhost-live shell has 3 data-band placeholders",
+      "source_book": "v3.3 brief — 3-band IA",
+      "citation": ".planning/briefs/2026-05-24-cockpit-v3.3-assessment.md (3-band architecture)",
+      "check_type": "structural",
+      "severity": "binding",
+      "applies_to": ["cockpit-html"],
+      "description": "renderShell() output contains data-band=\"1\", data-band=\"2\", and data-band=\"3\" attributes (the SPA's swap-target placeholders)."
     }
   ],
   "groups": {
