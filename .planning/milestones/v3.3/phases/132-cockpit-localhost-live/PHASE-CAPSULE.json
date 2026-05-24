@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.3",
+  "phase": "132",
+  "phase_name": "Localhost-Live HTML Cockpit (PRIMARY SURFACE)",
+  "status": "PASS",
+  "goal": "After P132, a Node http server with Server-Sent Events + fs.watch serves the 3-band cockpit as a live HTML SPA at localhost:7777. New render-html.cjs (self-contained renderHtml + renderShell). New serve.cjs (490 lines, full server). New client.js (vanilla-JS DOM-diff). New start-cockpit-server.ps1 (PowerShell boot wrapper). cockpit-sidecar.cjs renderHtml replaced with one-line delegation. 8 SAC tests; cross-platform SIGTERM semantics handled.",
+  "outputs": [
+    { "kind": "plan",         "path": ".planning/milestones/v3.3/phases/132-cockpit-localhost-live/132-01-localhost-live-PLAN-LOCKED.md" },
+    { "kind": "context",      "path": ".planning/milestones/v3.3/phases/132-cockpit-localhost-live/132-CONTEXT.md" },
+    { "kind": "verification", "path": ".planning/milestones/v3.3/phases/132-cockpit-localhost-live/132-VERIFICATION.md" }
+  ],
+  "files": [
+    ".planning/milestones/v3.3/phases/132-cockpit-localhost-live/132-01-localhost-live-PLAN-LOCKED.md",
+    ".planning/milestones/v3.3/phases/132-cockpit-localhost-live/132-CONTEXT.md",
+    ".planning/milestones/v3.3/phases/132-cockpit-localhost-live/132-VERIFICATION.md",
+    "super-gsd/tools/cockpit-sidecar/render-html.cjs",
+    "super-gsd/tools/cockpit-sidecar/serve.cjs",
+    "super-gsd/tools/cockpit-sidecar/client.js",
+    "super-gsd/scripts/start-cockpit-server.ps1",
+    "super-gsd/tools/cockpit-sidecar/cockpit-sidecar.cjs",
+    "super-gsd/tools/cockpit-sidecar/run-self-test.cjs"
+  ],
+  "sac_ids": ["SAC-P132-01", "SAC-P132-02", "SAC-P132-03", "SAC-P132-04", "SAC-P132-05", "SAC-P132-06", "SAC-P132-07", "SAC-P132-08"],
+  "self_test_command": "node super-gsd/tools/cockpit-sidecar/run-self-test.cjs",
+  "self_test_result": "pass",
+  "self_test_count": "50/50",
+  "decisions": [
+    { "id": "P132-T1-self-contained", "decided_at": "2026-05-24", "decision": "render-html.cjs renderHtml MUST be self-contained (all helpers inlined) — JIT-extraction first attempt failed because Function() sandbox couldn't see cockpit-sidecar.cjs scope helpers" },
+    { "id": "P132-T2-snapshot-parse", "decided_at": "2026-05-24", "decision": "serve.cjs must JSON.parse the cockpit-sidecar.run() wrapper's stdout before broadcasting; storing the wrapper {exitCode, stdout} corrupts the snapshot contract" },
+    { "id": "SAC-P132-05-cross-platform", "decided_at": "2026-05-24", "decision": "SAC accepts both POSIX graceful exit (code===0) and Windows signal-termination (signal==='SIGTERM') — child.kill('SIGTERM') maps to SIGKILL on Windows per Node child_process docs; handler can't run cross-platform" }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 2,
+    "deferred_items": [
+      "fs.watch on Windows may miss events on networked drives — 2-second polling fallback not implemented (only fs.watch); revisit if SAC-P132-03 flakes",
+      "Band 2 trend strip in client.js currently shows current value only (no historical samples cached server-side); rich sparkline trend deferred"
+    ],
+    "carried_forward_total": null
+  },
+  "downstream_contract": {
+    "consumers": ["P133 (PS monitor migration — terminal fallback to localhost-live primary)", "P134 (conformance covers all 4 surfaces including localhost-live HTML)"],
+    "constraints": ["serve.cjs --port flag accepts integer (0 for ephemeral)", "SSE event format: 'event: snapshot\\ndata: {JSON}\\n\\n'", "GET /snapshot returns cockpit-sidecar JSON verbatim", "renderShell() data-band attributes are stable contract"],
+    "extension_points": ["serve.cjs route table easily extensible for /control endpoints in future phases"]
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    { "sha": "f505d03", "subject": "feat(v3.3): P132 CONTEXT + PLAN-LOCKED — localhost-live HTML cockpit (PRIMARY SURFACE)", "ts": "2026-05-24" },
+    { "sha": "20932d9", "subject": "feat(P132-T1): render-html.cjs (self-contained) + cockpit-sidecar delegates", "ts": "2026-05-24" },
+    { "sha": "fd18cb9", "subject": "feat(P132-T2): serve.cjs — Node http+SSE+fs.watch server", "ts": "2026-05-24" },
+    { "sha": "2000e72", "subject": "feat(P132-T3): client.js — vanilla-JS browser DOM-diff", "ts": "2026-05-24" },
+    { "sha": "bf97d45", "subject": "feat(P132-T4): start-cockpit-server.ps1 — background boot + health poll", "ts": "2026-05-24" },
+    { "sha": "5ba5bec", "subject": "test(P132-T5): SAC-P132-01..08 — localhost cockpit + cross-platform SIGTERM relax", "ts": "2026-05-24" }
+  ],
+  "source_hashes": {
+    "context": { "path": ".planning/milestones/v3.3/phases/132-cockpit-localhost-live/132-CONTEXT.md", "sha256": "378ae9a84bd2d260185d5cac37fd98ee72aeb4baa0c6fe8744bb3bc70f510209" },
+    "research": null,
+    "plan": [{ "path": ".planning/milestones/v3.3/phases/132-cockpit-localhost-live/132-01-localhost-live-PLAN-LOCKED.md", "sha256": "776e207550d1205f87869b74c31475c1229ad552de7652d3e99c05922fe29b96" }],
+    "verification": { "path": ".planning/milestones/v3.3/phases/132-cockpit-localhost-live/132-VERIFICATION.md", "sha256": "bf987a6c8084845075ad26bfe93ebe1efe822b8251d1528801bf5fe5aff8c726" },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": { "verdict": "PASS", "ref": ".planning/milestones/v3.3/phases/132-cockpit-localhost-live/132-VERIFICATION.md" },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      { "task": "P132-T1", "executor": "codex-executor.sh → codex-patch-executor.sh", "result": "first attempt: JIT-extraction failed at runtime (Function() sandbox missing helpers); re-dispatched via patch-mode with self-contained spec; final 126 insertions" },
+      { "task": "P132-T2", "executor": "codex-executor.sh → codex-patch-executor.sh", "result": "first dispatch: 490 lines + snapshot wrapper bug; orchestrator caught via smoke test; patch fix applied; final 490 lines correct" },
+      { "task": "P132-T3", "executor": "codex-executor.sh", "result": "completed in one shot; 4973-byte vanilla JS client" },
+      { "task": "P132-T4", "executor": "codex-executor.sh", "result": "completed; 53-line PS boot wrapper" },
+      { "task": "P132-T5", "executor": "codex-patch-executor.sh", "result": "343 insertions + async runner; SAC-P132-05 cross-platform SIGTERM relax orchestrator-applied (Windows signal semantics differ from POSIX)" },
+      { "task": "P132-T6", "executor": "orchestrator", "result": "orchestrator-authored after 50/50 self-test green" }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-05-24T00:00:00.000Z",
+  "created_by": "orchestrator (Claude Opus 4.7, 1M context)"
+}
