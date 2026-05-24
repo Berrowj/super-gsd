@@ -746,6 +746,25 @@ const tests = [
       },
     });
 
+    tests.push({ id: 'SAC-P133-01', run: () => {
+      const content = fs.readFileSync('super-gsd/scripts/sgsd-codex-monitor.ps1', 'utf8');
+      const matches = content.match(/Write-GateSavingsBlock/g) || [];
+      assert.strictEqual(matches.length, 0, `Expected 0 matches, got ${matches.length}`);
+    }});
+
+    tests.push({ id: 'SAC-P133-02', run: () => {
+      const content = fs.readFileSync('super-gsd/scripts/sgsd-codex-monitor.ps1', 'utf8');
+      assert.ok(content.includes('BAND 1'), 'BAND 1 banner missing');
+      assert.ok(content.includes('BAND 2'), 'BAND 2 banner missing');
+      assert.ok(content.includes('BAND 3'), 'BAND 3 banner missing');
+    }});
+
+    tests.push({ id: 'SAC-P133-03', run: () => {
+      const content = fs.readFileSync('super-gsd/scripts/sgsd-codex-monitor.ps1', 'utf8');
+      const matches = content.match(/\$Drill/g) || [];
+      assert.ok(matches.length >= 2, `Expected >= 2 \$Drill references, got ${matches.length}`);
+    }});
+
     return tests;
   })(),
   { id: 'SAC-P125-01', run: () => { const result = computeNorthStar({ binding_gate_status: 'RED', fog_score: { tier: 'high' } }); assert.strictEqual(result.rank, 1); assert.strictEqual(result.code, 'BLOCKED'); } },
