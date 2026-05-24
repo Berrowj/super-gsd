@@ -322,9 +322,11 @@ async function start(options = {}) {
       }
 
       clients.add(res);
+      // v3.4 INTENT invariant #10 — liveness contract: 15s ping; client flips
+      // data-conn=RECONNECTING after 2 missed pings (30s silence).
       const heartbeat = setInterval(() => {
         writeSse(res, ': keep-alive\n\n');
-      }, 25000);
+      }, 15000);
       heartbeats.set(res, heartbeat);
 
       req.on('close', () => {

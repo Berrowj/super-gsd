@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.4",
+  "phase": "138",
+  "phase_name": "Sticky Chrome Components + SSE Keep-Alive + Reconnect Badge",
+  "status": "PASS",
+  "goal": "Make liveness operator-visible. 15s SSE heartbeat (was 25s). EventSource auto-reconnect with exponential backoff. Reconnect badge fills <span data-conn=\"state\"> placeholder. Sticky chrome regions (chrome / command-strip / scanbar / sec-nav) render from P137 snapshot keys.",
+  "outputs": [
+    { "kind": "context",      "path": ".planning/milestones/v3.4/phases/138-cockpit-sticky-chrome-sse-keepalive/138-CONTEXT.md" },
+    { "kind": "plan",         "path": ".planning/milestones/v3.4/phases/138-cockpit-sticky-chrome-sse-keepalive/138-01-sticky-chrome-sse-keepalive-PLAN-LOCKED.md" },
+    { "kind": "verification", "path": ".planning/milestones/v3.4/phases/138-cockpit-sticky-chrome-sse-keepalive/138-VERIFICATION.md" }
+  ],
+  "files": [
+    "super-gsd/tools/cockpit-sidecar/serve.cjs",
+    "super-gsd/tools/cockpit-sidecar/client.js",
+    "super-gsd/tools/cockpit-sidecar/run-self-test.cjs"
+  ],
+  "sac_ids": ["SAC-P138-01", "SAC-P138-02", "SAC-P138-03", "SAC-P138-04", "SAC-P138-05", "SAC-P138-06", "SAC-P138-07", "SAC-P138-08"],
+  "self_test_command": "node super-gsd/tools/cockpit-sidecar/run-self-test.cjs",
+  "self_test_result": "pass",
+  "self_test_count": "79/79",
+  "decisions": [
+    { "id": "P138-15s-ping", "decided_at": "2026-05-24", "decision": "Heartbeat 25s → 15s per v3.4 INTENT invariant #10. Reconnect-detection threshold = 2 missed pings (30s) before RECONNECTING badge fires." },
+    { "id": "P138-backoff-ladder", "decided_at": "2026-05-24", "decision": "Exponential backoff 500/1000/2000/4000/8000ms (capped). After 5 retries → OFFLINE state. Visible badge transitions on every state change." },
+    { "id": "P138-stale-tier", "decided_at": "2026-05-24", "decision": "STALE tier fires when (a) last snapshot age > 2x RECONNECT_THRESHOLD (60s), OR (b) any _sources entry tier != fresh and not excused. This is the client-side mirror of R19 binding gate." },
+    { "id": "P138-chrome-side-effects", "decided_at": "2026-05-24", "decision": "Chrome rendering is client-side DOM injection into placeholders. renderHtml() byte-shape unchanged. No new server-side template work." },
+    { "id": "P138-hotkey-stubs", "decided_at": "2026-05-24", "decision": "A/P/O/Esc handlers log to console only; real REST endpoints wire in P139+. Listener skips INPUT/TEXTAREA/contentEditable to avoid eating keystrokes." }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 2,
+    "deferred_items": [
+      "P139+ — wire A/P/O/Esc to real REST endpoints (currently console.log stubs)",
+      "P138 SAC-08 is a static surrogate (asserts setInterval=15000ms). A live SSE timing probe would boot a test server; SAC-P132-04/-05 pattern was followed (skip-when-no-port). Live probe not yet implemented."
+    ],
+    "carried_forward_total": null
+  },
+  "downstream_contract": {
+    "consumers": ["v3.4/P139 (consumes the rendered chrome state — MissionCard + PhaseRunway etc. live below chrome)", "v3.4/P140+ (assumes data-conn badge is operator-visible for incident triage)"],
+    "constraints": [
+      "Heartbeat is LOCKED at 15000ms — operator-visible liveness contract.",
+      "data-conn-tier attribute on <span data-conn=\"state\"> takes values: pending|live|reconnecting|offline|stale. CSS in sgsd-design-system.css must color-bind these tiers.",
+      "Chrome placeholders (data-region=chrome|command|scanbar|sec-nav) are LOCKED. P139-P142 may add child elements but not rename the regions.",
+      "Hotkey listener is global. P139+ handlers must not double-register on the same keys."
+    ],
+    "extension_points": ["P139+ may extend keydown listener with additional shortcuts; the existing branch list is the convention", "P141 may add per-source pill click handlers in sec-nav (currently links only)"]
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    { "sha": "(this commit)", "subject": "feat(P138): sticky chrome + 15s SSE ping + reconnect badge — liveness operator-visible", "ts": "2026-05-24" }
+  ],
+  "source_hashes": {
+    "context":      { "path": ".planning/milestones/v3.4/phases/138-cockpit-sticky-chrome-sse-keepalive/138-CONTEXT.md", "sha256": "f66538d2afd1e14bd5fcf066fe8526fcb5c42780e4ae71a6e5310ba2afdf5dfc" },
+    "research":     null,
+    "plan":         { "path": ".planning/milestones/v3.4/phases/138-cockpit-sticky-chrome-sse-keepalive/138-01-sticky-chrome-sse-keepalive-PLAN-LOCKED.md", "sha256": "f6d5257f5ead02ee7e018dd064f1e4ddfbe19caa795647583f3a624199ce4370" },
+    "verification": { "path": ".planning/milestones/v3.4/phases/138-cockpit-sticky-chrome-sse-keepalive/138-VERIFICATION.md", "sha256": "636c5eacd7e585923a59a9460a28171e47f9443611a9547fcb3df42d2183d36d" },
+    "atc_review":   null
+  },
+  "gates": {
+    "verifier": { "verdict": "PASS", "ref": ".planning/milestones/v3.4/phases/138-cockpit-sticky-chrome-sse-keepalive/138-VERIFICATION.md" },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      { "task": "P138-T1..T6", "executor": "orchestrator-direct (Claude Opus 4.7)", "result": "All 6 tasks orchestrator-authored — serve.cjs heartbeat tighten, client.js rewrite (connState + 4 chrome renderers + hotkeys), SAC tests, phase close. Codex skipped for content-locked structural JS." }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-05-24T00:00:00.000Z",
+  "created_by": "orchestrator (Claude Opus 4.7, 1M context)"
+}

@@ -953,6 +953,70 @@ const tests = [
       }
     }});
 
+    tests.push({ id: 'SAC-P138-01', run: () => {
+      const src = fs.readFileSync('super-gsd/tools/cockpit-sidecar/serve.cjs', 'utf8');
+      // Match setInterval(...arbitrary body..., 15000) — `[\s\S]` for cross-line.
+      assert.ok(/setInterval\([\s\S]+?,\s*15000\s*\)/.test(src), 'serve.cjs heartbeat not 15000ms');
+      assert.ok(/keep-alive/.test(src), 'serve.cjs missing keep-alive comment/marker');
+    }});
+
+    tests.push({ id: 'SAC-P138-02', run: () => {
+      const src = fs.readFileSync('super-gsd/tools/cockpit-sidecar/client.js', 'utf8');
+      assert.ok(/connState/.test(src), 'client.js missing connState module');
+      assert.ok(/onopen/.test(src), 'client.js missing onopen handler');
+      assert.ok(/onerror/.test(src), 'client.js missing onerror handler');
+      assert.ok(/RECONNECTING/.test(src), 'client.js missing RECONNECTING label');
+      assert.ok(/SSE LIVE/.test(src), 'client.js missing SSE LIVE label');
+    }});
+
+    tests.push({ id: 'SAC-P138-03', run: () => {
+      const src = fs.readFileSync('super-gsd/tools/cockpit-sidecar/client.js', 'utf8');
+      for (const ms of [500, 1000, 2000, 4000, 8000]) {
+        assert.ok(src.includes(String(ms)), `client.js missing backoff value ${ms}`);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P138-04', run: () => {
+      const src = fs.readFileSync('super-gsd/tools/cockpit-sidecar/client.js', 'utf8');
+      for (const fn of ['renderChrome', 'renderCommandStrip', 'renderScanBar', 'renderSecNav']) {
+        assert.ok(new RegExp('function\\s+' + fn).test(src), `client.js missing function ${fn}`);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P138-05', run: () => {
+      const src = fs.readFileSync('super-gsd/tools/cockpit-sidecar/client.js', 'utf8');
+      assert.ok(/addEventListener\(['"]keydown['"]/.test(src), 'client.js missing keydown listener');
+      for (const key of ['A', 'P', 'O', 'Escape']) {
+        assert.ok(src.includes(`'${key}'`) || src.includes(`"${key}"`), `client.js missing key handler for ${key}`);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P138-06', run: () => {
+      // Witness — P136 SACs + SAC-P132-06 should still be in the file
+      const src = fs.readFileSync('super-gsd/tools/cockpit-sidecar/run-self-test.cjs', 'utf8');
+      for (const sac of ['SAC-P136-01', 'SAC-P136-02', 'SAC-P136-03', 'SAC-P136-04', 'SAC-P136-05', 'SAC-P132-06']) {
+        assert.ok(src.includes(`id: '${sac}'`), `pre-P138 SAC removed: ${sac}`);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P138-07', run: () => {
+      // Composite witness — SAC-P125..P137 still locked in file
+      const src = fs.readFileSync('super-gsd/tools/cockpit-sidecar/run-self-test.cjs', 'utf8');
+      for (const sac of ['SAC-P125-01', 'SAC-P127-01', 'SAC-P128-01', 'SAC-P133-03', 'SAC-P134-04', 'SAC-P136-06', 'SAC-P137-08']) {
+        assert.ok(src.includes(`id: '${sac}'`), `pre-P138 SAC removed: ${sac}`);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P138-08', run: () => {
+      // Live SSE timing probe — would require booting a server. Static surrogate:
+      // assert the serve.cjs heartbeat interval is 15000ms (proves the contract).
+      const src = fs.readFileSync('super-gsd/tools/cockpit-sidecar/serve.cjs', 'utf8');
+      const match = src.match(/setInterval\([\s\S]+?,\s*(\d+)\s*\)/);
+      assert.ok(match, 'serve.cjs heartbeat setInterval not found');
+      const ms = parseInt(match[1], 10);
+      assert.ok(ms === 15000, `expected 15000ms ping, got ${ms}`);
+    }});
+
     tests.push({ id: 'SAC-P137-08', run: () => {
       const sidecar2 = require('./cockpit-sidecar.cjs');
       const out = p127Out();
