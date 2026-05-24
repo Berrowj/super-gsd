@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const { computeStagePipeline } = require('./stage-pipeline.cjs');
+const { renderAnsi } = require('./sparkline.cjs');
 
 function attachStagePipeline(output, opts) {
   const phaseDir = (opts && opts.phase_dir) || null;
@@ -301,8 +302,123 @@ function supportingLines(output) {
   ];
 }
 
+const BOX_WIDTH = 69;
+const INNER_WIDTH = BOX_WIDTH - 2;
+const DEFAULT_STAGES = ['research', 'vtp-enrich', 'plan', 'execute', 'verify'];
+const STATUS_MARKS = { done: '✓', active: '⏳', blocked: '🛑', pending: '' };
+const ALERT_COLORS = {
+  accent: '\x1b[36m',
+  success: '\x1b[32m',
+  attention: '\x1b[33m',
+  severe: '\x1b[35m',
+  danger: '\x1b[31m',
+  done: '\x1b[32m',
+};
+
+function visibleLength(value) {
+  return String(value).replace(/\x1b\[[0-9;]*m/g, '').length;
+}
+
+function fitText(value, width) {
+  const text = String(value === undefined || value === null ? '' : value);
+  const visible = visibleLength(text);
+  if (visible <= width) return text + ' '.repeat(width - visible);
+  if (width <= 1) return '…'.slice(0, width);
+  return text.slice(0, Math.max(0, width - 1)) + '…';
+}
+
+function boxLine(content) {
+  return `│ ${fitText(content, INNER_WIDTH - 2)} │`;
+}
+
+function topRule(title) {
+  const label = `─ ${title} `;
+  return `┌${label}${'─'.repeat(Math.max(0, BOX_WIDTH - 2 - label.length))}┐`;
+}
+
+function midRule() {
+  return `├${'─'.repeat(BOX_WIDTH - 2)}┤`;
+}
+
+function bottomRule() {
+  return `└${'─'.repeat(BOX_WIDTH - 2)}┘`;
+}
+
+function alertColor(output) {
+  const tier = output && output.alerts && output.alerts.top && output.alerts.top.palette_tier;
+  return ALERT_COLORS[tier] || ALERT_COLORS.attention;
+}
+
+function stageCells(output) {
+  const pipeline = output.stage_pipeline || {};
+  const stages = Array.isArray(pipeline.stages) && pipeline.stages.length > 0
+    ? pipeline.stages.slice(0, 5)
+    : DEFAULT_STAGES.map((name) => ({ name, status: 'pending' }));
+
+  return stages.map((stage) => {
+    const mark = STATUS_MARKS[stage.status] || '';
+    return mark ? `${stage.name} ${mark}` : stage.name;
+  }).join('  ');
+}
+
+function activeStage(output) {
+  const pipeline = output.stage_pipeline || {};
+  const stages = Array.isArray(pipeline.stages) ? pipeline.stages : [];
+  return stages.find((stage) => stage.status === 'active' || stage.status === 'blocked') ||
+    stages[pipeline.active_index] ||
+    null;
+}
+
+function trendChip(value, warnAt, dangerAt) {
+  const numeric = toNumber(value);
+  if (numeric >= dangerAt) return 'high';
+  if (numeric >= warnAt) return 'med';
+  return 'low';
+}
+
+function trendLine(label, value, chip) {
+  const numeric = valueOr(value, 'n/a');
+  const sparkValue = toNumber(value);
+  const sparkline = renderAnsi([sparkValue], { width: 16 });
+  return `${label.padEnd(10)} ${String(numeric).padStart(5)}  ${sparkline}  ${chip}`;
+}
+
 function renderText(output, opts = {}) {
-  return answerFirstLines(output, opts).concat([''], supportingLines(output)).join('\n');
+  const color = useColor(opts);
+  const northStar = output.north_star || {};
+  const message = northStar.message || northStarLine(output);
+  const alert = alertLine(output);
+  const signals = output.signals || {};
+  const fog = output.fog_score || {};
+  const pipeline = output.stage_pipeline || {};
+  const stage = activeStage(output) || {};
+  const eta = valueOr(stage.sla_minutes, '—');
+  const unlock = valueOr(pipeline.unlock || pipeline.unlocks || pipeline.next_unlock, '—');
+  const blocker = valueOr(pipeline.blocker, 'nothing');
+
+  const lines = [
+    topRule('NORTH STAR'),
+    boxLine(withColor(message, '\x1b[1m\x1b[36m', color)),
+    midRule(),
+    boxLine(`▸ DO NEXT: ${recommendedAction(northStar.code)}`),
+  ];
+
+  if (alert) lines.push(boxLine(withColor(alert, alertColor(output), color)));
+
+  lines.push(
+    midRule(),
+    boxLine(`STAGE  ${stageCells(output)}`),
+    boxLine(`WHY    ${valueOr(stage.owner, '—')} · cause: — · ETA: ~${eta}m`),
+    boxLine(`UNLOCK ${unlock}`),
+    boxLine(`BLOCK  ${blocker}`),
+    boxLine(''),
+    boxLine(trendLine('fog', valueOr(fog.score, 0), valueOr(fog.tier, trendChip(fog.score, 30, 60)))),
+    boxLine(trendLine('dispatch', valueOr(signals.dispatch_count, 0), trendChip(signals.dispatch_count, 8, 12))),
+    boxLine(trendLine('tokens', valueOr(signals.token_spend, 0), trendChip(signals.token_spend, 100000, 500000))),
+    bottomRule()
+  );
+
+  return lines.join('\n');
 }
 
 function renderBrief(output) {
