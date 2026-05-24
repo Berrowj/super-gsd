@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.3",
+  "phase": "130",
+  "phase_name": "Cockpit Band 3 Rationale Layer",
+  "status": "PASS",
+  "goal": "After P130, super-gsd/tools/cockpit-sidecar/cockpit-sidecar.cjs --json additively contains a 6-field rationale key (context, eli5, what_is, what_could_be, why_this_phase, evidence_trail) derived from the DLB-03 mandatory cascade (PROJECT.md + INTENT.md + last SUMMARY.md + active CONTEXT.md). The --bands flag opt-in (default 1,2; --bands=3 reveals reflective layer) demotes Band 3 to drill-in per Krug visual-hierarchy. SUCCES-lint mechanically validates WHY blocks (artefact ref + phase ref + ≤60 words).",
+  "outputs": [
+    { "kind": "plan",         "path": ".planning/milestones/v3.3/phases/130-cockpit-band3-rationale/130-01-band3-rationale-PLAN-LOCKED.md" },
+    { "kind": "context",      "path": ".planning/milestones/v3.3/phases/130-cockpit-band3-rationale/130-CONTEXT.md" },
+    { "kind": "verification", "path": ".planning/milestones/v3.3/phases/130-cockpit-band3-rationale/130-VERIFICATION.md" }
+  ],
+  "files": [
+    ".planning/milestones/v3.3/phases/130-cockpit-band3-rationale/130-01-band3-rationale-PLAN-LOCKED.md",
+    ".planning/milestones/v3.3/phases/130-cockpit-band3-rationale/130-CONTEXT.md",
+    ".planning/milestones/v3.3/phases/130-cockpit-band3-rationale/130-VERIFICATION.md",
+    "super-gsd/tools/cockpit-sidecar/rationale.cjs",
+    "super-gsd/tools/cockpit-sidecar/succes-lint.cjs",
+    "super-gsd/tools/cockpit-sidecar/cockpit-sidecar.cjs",
+    "super-gsd/tools/cockpit-sidecar/run-self-test.cjs"
+  ],
+  "sac_ids": ["SAC-P130-01", "SAC-P130-02", "SAC-P130-03", "SAC-P130-04", "SAC-P130-05"],
+  "self_test_command": "node super-gsd/tools/cockpit-sidecar/run-self-test.cjs",
+  "self_test_result": "pass",
+  "self_test_count": "38/38",
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 1,
+    "deferred_items": ["YAML block-folded scalar (>-) leaks into computeRationale output fields; cosmetic only; defer to P131 ELI5 upgrade or later"],
+    "carried_forward_total": null
+  },
+  "downstream_contract": {
+    "consumers": ["P131 (ELI5 upgrade reads rationale.eli5 field; succes-lint extended with Munroe word-list check)", "P132 (localhost-live cockpit renders all 3 bands)", "P134 (conformance covers SUCCES-lint binding)"],
+    "constraints": ["rationale fields: 6 named string fields", "lintWhy contract: {ok, violations}", "--bands flag values: comma-separated subset of {1,2,3} or 'all'"],
+    "extension_points": ["succes-lint extensible with Munroe common-words check (P131)"]
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    { "sha": "3fbb662", "subject": "feat(v3.3): P130 CONTEXT + PLAN-LOCKED — Band 3 rationale layer", "ts": "2026-05-24" },
+    { "sha": "a7f50b0", "subject": "feat(P130-T1): rationale.cjs — pure cascade reader", "ts": "2026-05-24" },
+    { "sha": "0f211f9", "subject": "feat(P130-T2): succes-lint.cjs — mechanical WHY lint", "ts": "2026-05-24" },
+    { "sha": "2ccc4c2", "subject": "feat(P130-T3): cockpit Band 3 wiring + --bands flag", "ts": "2026-05-24" },
+    { "sha": "88d6cc7", "subject": "test(P130-T4): SAC-P130-01..05 — cascade + lint + --bands behavior", "ts": "2026-05-24" }
+  ],
+  "source_hashes": {
+    "context": { "path": ".planning/milestones/v3.3/phases/130-cockpit-band3-rationale/130-CONTEXT.md", "sha256": "e7e2be8ea682f9f13019a678baa48bf2ed3c0d455c73d8ffd7befce46a585e7d" },
+    "research": null,
+    "plan": [{ "path": ".planning/milestones/v3.3/phases/130-cockpit-band3-rationale/130-01-band3-rationale-PLAN-LOCKED.md", "sha256": "5855723c10726c255155adbf3e7f80993c2fad4eb5cc2d9ffab7d0f897211bc3" }],
+    "verification": { "path": ".planning/milestones/v3.3/phases/130-cockpit-band3-rationale/130-VERIFICATION.md", "sha256": "190cd7f5786f7b8d9fceb244f3801ce9d1b403a357670f67ba54c4ab7ad3c3a0" },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": { "verdict": "PASS", "ref": ".planning/milestones/v3.3/phases/130-cockpit-band3-rationale/130-VERIFICATION.md" },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      { "task": "P130-T1", "executor": "codex-executor.sh", "result": "completed (rationale.cjs created via OS file API)" },
+      { "task": "P130-T2", "executor": "codex-executor.sh", "result": "completed (succes-lint.cjs created via OS file API)" },
+      { "task": "P130-T3", "executor": "codex-patch-executor.sh", "result": "57 insertions applied via read-pack patch mode" },
+      { "task": "P130-T4", "executor": "codex-patch-executor.sh", "result": "117 insertions applied via read-pack patch mode" },
+      { "task": "P130-T5", "executor": "orchestrator", "result": "orchestrator-authored after green self-test 38/38" }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-05-24T00:00:00.000Z",
+  "created_by": "orchestrator (Claude Opus 4.7, 1M context)"
+}
