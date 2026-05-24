@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.3",
+  "phase": "131",
+  "phase_name": "Cockpit ELI5 Upgraded — Munroe + Duarte",
+  "status": "PASS",
+  "goal": "After P131, the cockpit's ELI5 narration (Get-LocalClaudeEli5 in sgsd-codex-monitor.ps1) prompts the Haiku narrator for a 4-beat Duarte arc (What is now / What could be / S.T.A.R. moment / Call to action) and writes in common words. A mechanical Node lint module (eli5-lint.cjs) validates ELI5 text against a 1539-word allowlist (Munroe ten-hundred + SGSD vocabulary). Inline-gloss patterns (parens or em-dash) are recognized so technical terms can be introduced with their plain-words definition. Lint is informational at this phase; binding promotion deferred to P134.",
+  "outputs": [
+    { "kind": "plan",         "path": ".planning/milestones/v3.3/phases/131-cockpit-eli5-upgraded/131-01-eli5-upgraded-PLAN-LOCKED.md" },
+    { "kind": "context",      "path": ".planning/milestones/v3.3/phases/131-cockpit-eli5-upgraded/131-CONTEXT.md" },
+    { "kind": "verification", "path": ".planning/milestones/v3.3/phases/131-cockpit-eli5-upgraded/131-VERIFICATION.md" }
+  ],
+  "files": [
+    ".planning/milestones/v3.3/phases/131-cockpit-eli5-upgraded/131-01-eli5-upgraded-PLAN-LOCKED.md",
+    ".planning/milestones/v3.3/phases/131-cockpit-eli5-upgraded/131-CONTEXT.md",
+    ".planning/milestones/v3.3/phases/131-cockpit-eli5-upgraded/131-VERIFICATION.md",
+    "super-gsd/tools/cockpit-sidecar/eli5-common-words.txt",
+    "super-gsd/tools/cockpit-sidecar/eli5-lint.cjs",
+    "super-gsd/scripts/sgsd-codex-monitor.ps1",
+    "super-gsd/tools/cockpit-sidecar/run-self-test.cjs"
+  ],
+  "sac_ids": ["SAC-P131-01", "SAC-P131-02", "SAC-P131-03", "SAC-P131-04"],
+  "self_test_command": "node super-gsd/tools/cockpit-sidecar/run-self-test.cjs",
+  "self_test_result": "pass",
+  "self_test_count": "42/42",
+  "decisions": [
+    { "id": "SAC-P131-03-refinement", "decided_at": "2026-05-24", "decision": "Original SAC-P131-03 asked for absolute count comparison (glossed text fewer violations than bare). Orchestrator refined T4's test to check the glossed-flag boolean directly on the orchestrator violation entry — the gloss text itself can contain non-common words that confound count comparison. Same spec-intent (gloss-detection works), more robust test." }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": null
+  },
+  "downstream_contract": {
+    "consumers": ["P132 (localhost-live cockpit serves the ELI5 panel)", "P134 (conformance lint binding promotion)"],
+    "constraints": ["lintEli5 contract: {ok, violations, total_words, out_of_list_count}", "violation entry: {word, line_number, glossed}", "common-words.txt is the single source of truth for 'common'"],
+    "extension_points": ["common-words.txt can be appended without breaking lint contract", "maxViolations is per-call configurable via opts"]
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    { "sha": "1c1dc99", "subject": "feat(v3.3): P131 CONTEXT + PLAN-LOCKED — ELI5 upgraded (Munroe + Duarte)", "ts": "2026-05-24" },
+    { "sha": "892505a", "subject": "feat(P131-T1): eli5-common-words.txt — 1539-word allowlist (Munroe + SGSD vocab)", "ts": "2026-05-24" },
+    { "sha": "c78d9c7", "subject": "feat(P131-T2): eli5-lint.cjs — Munroe word-list + gloss recognition", "ts": "2026-05-24" },
+    { "sha": "65ed9de", "subject": "feat(P131-T3): Get-LocalClaudeEli5 prompt extended with Duarte 4-beat arc", "ts": "2026-05-24" },
+    { "sha": "a367142", "subject": "test(P131-T4): SAC-P131-01..04 — Munroe lint + Duarte arc presence", "ts": "2026-05-24" }
+  ],
+  "source_hashes": {
+    "context": { "path": ".planning/milestones/v3.3/phases/131-cockpit-eli5-upgraded/131-CONTEXT.md", "sha256": "0d9a7777e14b7c5ab952e63dac62ab019906495b2e490534ca7e7ec2475d7868" },
+    "research": null,
+    "plan": [{ "path": ".planning/milestones/v3.3/phases/131-cockpit-eli5-upgraded/131-01-eli5-upgraded-PLAN-LOCKED.md", "sha256": "679f84fa79250615df2c15ed4d931e431a6c2ba13bc249b8401621f1f2ca8a5a" }],
+    "verification": { "path": ".planning/milestones/v3.3/phases/131-cockpit-eli5-upgraded/131-VERIFICATION.md", "sha256": "1df998800b24ace412c7eb157800e5ae111d547b8cd97ed5cba0894f39ba4a23" },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": { "verdict": "PASS", "ref": ".planning/milestones/v3.3/phases/131-cockpit-eli5-upgraded/131-VERIFICATION.md" },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      { "task": "P131-T1", "executor": "codex-executor.sh", "result": "1539-word allowlist created via OS file API" },
+      { "task": "P131-T2", "executor": "codex-executor.sh", "result": "lint module created; orchestrator refined SAC-P131-03 spec ambiguity for T4" },
+      { "task": "P131-T3", "executor": "codex-patch-executor.sh", "result": "7+/6- prompt edit applied via read-pack patch mode" },
+      { "task": "P131-T4", "executor": "codex-patch-executor.sh", "result": "40 insertions applied" },
+      { "task": "P131-T5", "executor": "orchestrator", "result": "orchestrator-authored after green self-test 42/42" }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-05-24T00:00:00.000Z",
+  "created_by": "orchestrator (Claude Opus 4.7, 1M context)"
+}
