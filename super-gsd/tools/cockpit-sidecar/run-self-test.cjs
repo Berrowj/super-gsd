@@ -807,6 +807,65 @@ const tests = [
       assert.ok(typeof result.summary.binding_fail === 'number', 'binding_fail not a number');
     }});
 
+    tests.push({ id: 'SAC-P136-01', run: () => {
+      const css = fs.readFileSync('super-gsd/tools/shared/sgsd-design-system.css', 'utf8');
+      const required = [
+        ['--page', '#F6F7F4'],
+        ['--surface', '#FFFFFF'],
+        ['--ink', '#151A1E'],
+        ['--line', '#D6DBD2'],
+        ['--live', '#006D77'],
+        ['--done', '#2F7D5C'],
+        ['--attn', '#B7791F'],
+        ['--severe', '#B42318'],
+        ['--indigo', '#515E9C'],
+      ];
+      for (const [name, value] of required) {
+        const re = new RegExp(name.replace(/-/g, '\\-') + '\\s*:\\s*' + value.replace(/[#]/g, '\\#'), 'i');
+        assert.ok(re.test(css), `missing token "${name}: ${value}"`);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P136-02', run: () => {
+      const renderers = require('./render-html.cjs');
+      const shell = renderers.renderShell();
+      assert.ok(/<link[^>]+fonts\.googleapis[^>]+IBM\+Plex\+Sans/.test(shell), 'missing IBM Plex Sans link');
+      assert.ok(/<link[^>]+fonts\.googleapis[^>]+IBM\+Plex\+Mono/.test(shell), 'missing IBM Plex Mono link');
+      assert.ok(/<link[^>]+fonts\.googleapis[^>]+Big\+Shoulders\+Display/.test(shell), 'missing Big Shoulders Display link');
+    }});
+
+    tests.push({ id: 'SAC-P136-03', run: () => {
+      const renderers = require('./render-html.cjs');
+      const shell = renderers.renderShell();
+      for (const band of ['1', '2', '3']) {
+        assert.ok(shell.includes(`data-band="${band}"`), `shell missing data-band="${band}"`);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P136-04', run: () => {
+      const renderers = require('./render-html.cjs');
+      const shell = renderers.renderShell();
+      for (const id of ['sec-mission','sec-telemetry','sec-architecture','sec-milestone','sec-memory','sec-evidence','sec-events']) {
+        assert.ok(shell.includes(`id="${id}"`), `shell missing id="${id}"`);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P136-05', run: () => {
+      const renderers = require('./render-html.cjs');
+      const shell = renderers.renderShell();
+      assert.ok(shell.includes('<span data-conn="state"'), 'shell missing <span data-conn="state">');
+    }});
+
+    tests.push({ id: 'SAC-P136-06', run: () => {
+      // Composite SAC — the suite as a whole must pass. Asserted via exit code
+      // when the full self-test runs (this test asserts a structural witness:
+      // the prior P125-P134 SACs are still present in the file).
+      const source = fs.readFileSync('super-gsd/tools/cockpit-sidecar/run-self-test.cjs', 'utf8');
+      for (const sac of ['SAC-P125-01','SAC-P127-01','SAC-P128-01','SAC-P132-06','SAC-P133-03','SAC-P134-04']) {
+        assert.ok(source.includes(`id: '${sac}'`), `pre-existing SAC removed: ${sac}`);
+      }
+    }});
+
     return tests;
   })(),
   { id: 'SAC-P125-01', run: () => { const result = computeNorthStar({ binding_gate_status: 'RED', fog_score: { tier: 'high' } }); assert.strictEqual(result.rank, 1); assert.strictEqual(result.code, 'BLOCKED'); } },

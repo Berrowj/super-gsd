@@ -95,6 +95,53 @@ function renderHtml(output) {
 }
 
 function renderShell(opts) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SGSD Cockpit</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@900&display=swap">
+<style>
+${designSystemCss}
+</style>
+</head>
+<body>
+<main class="sgsd-cockpit">
+
+  <header class="chrome" data-region="chrome">
+    <span class="chrome-host">localhost:7777</span>
+    <span class="chrome-path">cockpit</span>
+    <span class="chrome-build">v3.4</span>
+    <span class="chrome-phase" data-source="phase"></span>
+    <span class="chrome-conn" data-region="conn"><span data-conn="state">SSE PENDING</span></span>
+    <span class="chrome-hotkeys">hotkeys: A approve · P pause · O open · Esc abort</span>
+  </header>
+
+  <section class="command-strip" data-region="command" data-source="command"></section>
+
+  <section class="scanbar" data-region="scanbar" data-source="scanbar"
+           aria-label="ScanBar — 5 second answer panel"></section>
+
+  <nav class="sec-nav" data-region="sec-nav"></nav>
+
+  <section id="sec-mission"      data-source="mission"      data-band="1"   class="ia-section band band-1"  aria-label="Mission"></section>
+  <section id="sec-telemetry"    data-source="telemetry"    data-band="2"   class="ia-section band band-2"  aria-label="Telemetry"></section>
+  <section id="sec-architecture" data-source="architecture" data-band="3"   class="ia-section band band-3"  aria-label="Architecture" style="display:none"></section>
+  <section id="sec-milestone"    data-source="milestone"                    class="ia-section"              aria-label="Milestone"></section>
+  <section id="sec-memory"       data-source="memory"                       class="ia-section"              aria-label="Memory"></section>
+  <section id="sec-evidence"     data-source="evidence"                     class="ia-section"              aria-label="Evidence"></section>
+  <section id="sec-events"       data-source="events"                       class="ia-section"              aria-label="Events"></section>
+
+  <aside class="bottom-drawer" data-region="bottom" data-source="bottom"></aside>
+
+</main>
+<script src="/client.js" defer></script>
+</body>
+</html>`;
   void opts;
 
   return `<!doctype html>

@@ -11,6 +11,64 @@
   --amber:#facc15; --red:#fb7185; --orange:#fdba74;
   --sage:#7CB479; --terracotta:#C97B5B; --slate:#5C6776;
   --shadow:0 22px 60px rgba(0,0,0,0.33); --radius2:14px;
+  color-scheme: light;
+
+  --page: #F6F7F4;
+  --surface: #FFFFFF;
+  --ink: #151A1E;
+  --line: #D6DBD2;
+  --live: #006D77;
+  --done: #2F7D5C;
+  --attn: #B7791F;
+  --severe: #B42318;
+  --indigo: #515E9C;
+
+  --bg-0: var(--page);
+  --bg-1: var(--surface);
+  --bg-2: #FAFBF8;
+  --bg-3: #EEF1ED;
+
+  --crit: #B42318;
+  --crit-bg: rgba(180,35,24,0.10);
+  --crit-line: rgba(180,35,24,0.50);
+
+  --line-strong: #B9C0B0;
+  --line-dim: #E8EBE3;
+
+  --ink-strong: #050708;
+  --ink-mid: #4B5560;
+  --ink-dim: #6B7480;
+  --ink-faint: #98A0A8;
+
+  --live-bg: rgba(0,109,119,0.10);
+  --live-line: rgba(0,109,119,0.40);
+  --done-bg: rgba(47,125,92,0.10);
+  --done-line: rgba(47,125,92,0.42);
+  --attn-bg: rgba(183,121,31,0.12);
+  --attn-line: rgba(183,121,31,0.45);
+  --severe-bg: rgba(180,35,24,0.10);
+  --severe-line: rgba(180,35,24,0.50);
+  --indigo-bg: rgba(81,94,156,0.10);
+  --indigo-line: rgba(81,94,156,0.42);
+
+  --sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --display: 'Big Shoulders Display', 'IBM Plex Sans Condensed', sans-serif;
+
+  --pad-x: 1rem;
+  --pad-y: 0.75rem;
+  --gap: 0.75rem;
+  --row-h: 26px;
+
+  --gold-ink: var(--ink);
+  --gold-muted: var(--ink-dim);
+  --gold-line: var(--line);
+  --paper: var(--surface);
+  --paper-raised: var(--bg-3);
+  --paper-tint: var(--bg-2);
+}
+
+:root.dark-era-disabled {
   color-scheme: dark;
   --sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;

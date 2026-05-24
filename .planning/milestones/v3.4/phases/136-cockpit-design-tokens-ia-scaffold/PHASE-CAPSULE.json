@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.4",
+  "phase": "136",
+  "phase_name": "Cockpit Design Tokens + IA Scaffold (Light Editorial Palette + IBM Plex + renderShell Refactor)",
+  "status": "PASS",
+  "goal": "Land v3.4 light command-room visual foundation (palette + IBM Plex type stack) and refactor renderShell() to the new 7-section IA scaffold with reserved liveness DOM hooks. Structural plumbing only — no data wiring, no sticky behavior, no component bodies.",
+  "outputs": [
+    { "kind": "context",      "path": ".planning/milestones/v3.4/phases/136-cockpit-design-tokens-ia-scaffold/136-CONTEXT.md" },
+    { "kind": "plan",         "path": ".planning/milestones/v3.4/phases/136-cockpit-design-tokens-ia-scaffold/136-01-design-tokens-ia-scaffold-PLAN-LOCKED.md" },
+    { "kind": "verification", "path": ".planning/milestones/v3.4/phases/136-cockpit-design-tokens-ia-scaffold/136-VERIFICATION.md" }
+  ],
+  "files": [
+    "super-gsd/tools/shared/sgsd-design-system.css",
+    "super-gsd/tools/cockpit-sidecar/render-html.cjs",
+    "super-gsd/tools/cockpit-sidecar/run-self-test.cjs"
+  ],
+  "sac_ids": ["SAC-P136-01", "SAC-P136-02", "SAC-P136-03", "SAC-P136-04", "SAC-P136-05", "SAC-P136-06"],
+  "self_test_command": "node super-gsd/tools/cockpit-sidecar/run-self-test.cjs",
+  "self_test_result": "pass",
+  "self_test_count": "63/63",
+  "decisions": [
+    { "id": "P136-token-namespace", "decided_at": "2026-05-24", "decision": "SAC-locked token names are --page/--surface/--ink/--line + 5 semantic. Design pack used --bg-0/--bg-1; alias chain --bg-0: var(--page) lets the prototype HTML resolve while SGSD canonical names stay in the contract." },
+    { "id": "P136-font-loading", "decided_at": "2026-05-24", "decision": "Google Fonts via <link> tags in renderShell head (not @import from CSS). Decision: link tags don't block render and let P138 prefetch them." },
+    { "id": "P136-dark-variant-removal", "decided_at": "2026-05-24", "decision": "Dark prod cockpit removed (color-scheme:light only). Cockpit Dark.html preserved in design pack for v3.5+ revival." },
+    { "id": "P136-liveness-dom-hooks-only", "decided_at": "2026-05-24", "decision": "P136 reserves liveness DOM hooks (data-conn=\"state\" + per-section data-source) but does not wire SSE keep-alive or staleness probes. P137 brings the source registry; P138 lights the pills." },
+    { "id": "P136-T1-deviation-defer", "decided_at": "2026-05-24", "decision": "T1 left old dark tokens as dead code in :root (Codex defensive preservation under Windows shell-block). Functionally inert (overridden by alias chain). Cleanup deferred to P137 wiring sweep." }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 1,
+    "deferred_items": [
+      "P137 (or follow-up tidy) — remove dead-code dark tokens from sgsd-design-system.css :root block + delete :root.dark-era-disabled selector"
+    ],
+    "carried_forward_total": null
+  },
+  "downstream_contract": {
+    "consumers": ["v3.4/P137 (snapshot data contract + source registry)", "v3.4/P138 (sticky chrome + SSE keep-alive + reconnect badge)", "v3.4/P139-P142 (component implementations against section IDs)"],
+    "constraints": [
+      "Section IDs are LOCKED: sec-mission, sec-telemetry, sec-architecture, sec-milestone, sec-memory, sec-evidence, sec-events. These become localStorage keys (sgsd-sec-{id}) for collapsible state per HANDOFF-PROMPT.md.",
+      "data-source attribute on each section is LOCKED to its section's short name. P137 cockpit-sources.yaml entries must resolve to these names.",
+      "<span data-conn=\"state\"> placeholder is LOCKED. P138 textContent updates this span via SSE connection state; no DOM re-rendering.",
+      "renderHtml() byte-shape preserved. SAC-P127-01..05 + SAC-P134-03 remain binding."
+    ],
+    "extension_points": ["v3.5+ can revive Cockpit Dark.html as :root.theme-dark variant; the alias chain in sgsd-design-system.css is already shaped for it (--gold-ink: var(--ink), etc.)"]
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    { "sha": "(this commit)", "subject": "feat(P136): light palette + IA scaffold renderShell + SAC tests — v3.4 visual foundation", "ts": "2026-05-24" }
+  ],
+  "source_hashes": {
+    "context":      { "path": ".planning/milestones/v3.4/phases/136-cockpit-design-tokens-ia-scaffold/136-CONTEXT.md", "sha256": "e5a6cae18f9a4c9f04a10a02eb0814c77487a0b68a9d9a9ebf57f3357452e74a" },
+    "research":     null,
+    "plan":         { "path": ".planning/milestones/v3.4/phases/136-cockpit-design-tokens-ia-scaffold/136-01-design-tokens-ia-scaffold-PLAN-LOCKED.md", "sha256": "340b2ce2d7adfe85e1ce6ada41f4e5e5be91e12248339621f400b9b329d80b98" },
+    "verification": { "path": ".planning/milestones/v3.4/phases/136-cockpit-design-tokens-ia-scaffold/136-VERIFICATION.md", "sha256": "599f4dd7526699e18c698ee98215cb07777c52956c0c3a0cd70cf42314360053" },
+    "atc_review":   null
+  },
+  "gates": {
+    "verifier": { "verdict": "PASS", "ref": ".planning/milestones/v3.4/phases/136-cockpit-design-tokens-ia-scaffold/136-VERIFICATION.md" },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      { "task": "P136-T1", "executor": "codex-executor.sh", "task_id": "b12898g8d", "result": "exit 0; sgsd-design-system.css light token swap; Codex verification blocked by Windows shell-exec (CreateProcessAsUserW 216); orchestrator-verified 57/57 PASS" },
+      { "task": "P136-T2", "executor": "codex-executor.sh", "task_id": "b1e7vzaci", "result": "exit 0; renderShell rewritten to 7-section IA + liveness hooks + 3 font links; Codex verification blocked by same; orchestrator-verified 57/57 + manual shell-content witness for all SAC preconditions" },
+      { "task": "P136-T3", "executor": "orchestrator-direct (Claude)", "result": "SAC-P136-01..06 appended; 63/63 PASS" }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-05-24T00:00:00.000Z",
+  "created_by": "orchestrator (Claude Opus 4.7, 1M context)"
+}
