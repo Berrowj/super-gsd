@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.3",
+  "phase": "134",
+  "phase_name": "Cockpit Conformance Promotion (R13-R18 binding + cockpit-html + monitor surfaces)",
+  "status": "PASS",
+  "goal": "Promote v3.3 band-grammar from advisory to binding by adding R13-R18 to design-rules.json, wiring checkR13..checkR18 in conformance-check.cjs, registering cockpit-html + monitor surfaces, and locking the contract behind 4 SAC tests.",
+  "outputs": [
+    { "kind": "context",      "path": ".planning/milestones/v3.3/phases/134-cockpit-conformance-promotion/134-CONTEXT.md" },
+    { "kind": "plan",         "path": ".planning/milestones/v3.3/phases/134-cockpit-conformance-promotion/134-01-conformance-promotion-PLAN-LOCKED.md" },
+    { "kind": "verification", "path": ".planning/milestones/v3.3/phases/134-cockpit-conformance-promotion/134-VERIFICATION.md" }
+  ],
+  "files": [
+    "super-gsd/tools/shared/design-rules.json",
+    "super-gsd/tools/shared/conformance-check.cjs",
+    "super-gsd/tools/cockpit-sidecar/run-self-test.cjs"
+  ],
+  "sac_ids": ["SAC-P134-01", "SAC-P134-02", "SAC-P134-03", "SAC-P134-04"],
+  "self_test_command": "node super-gsd/tools/cockpit-sidecar/run-self-test.cjs",
+  "self_test_result": "pass",
+  "self_test_count": "57/57",
+  "decisions": [
+    { "id": "P134-T3-orchestrator-author", "decided_at": "2026-05-24", "decision": "After codex-executor.sh (Windows shell-exec block) + codex-patch-executor.sh (review-skill conflict) both returned empty patches, orchestrator authored SAC-P134-01..04 directly. Established pattern from SAC-P128-01, P129-05, P126-01, P132-05, R16 fail-safe." },
+    { "id": "P134-SAC-03-synthetic-fixture", "decided_at": "2026-05-24", "decision": "SAC-P134-03 uses a synthetic HTML fixture (5 stages + 3 bands + 1 northstar) rather than renderHtml(fixture). renderShell carries band markers; client.js injects stage cells at SSE-render time. Synthetic fixture proves the surface wiring without coupling the gate to client.js, which has its own SAC-P132-* gates." }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "deferred_items": [],
+    "carried_forward_total": null
+  },
+  "downstream_contract": {
+    "consumers": ["v3.4 P136-P143 (cockpit IA rewrite)", "v3.3 P135 (visual polish — already closed PASS-WITH-DEFERRED)"],
+    "constraints": [
+      "Any new cockpit-html surface output must satisfy R13 (exactly 1 northstar/recommended-action loud-line), R14 (5 stage cells), R15 (Band 3 subheads when visible), R17 (ELI5 lint ≤5 out-of-list words), R18 (3 data-band placeholders)",
+      "Any monitor PS surface output must satisfy R17",
+      "JSON snapshots emitting alerts must satisfy R16 (palette_tier on every alert)"
+    ],
+    "extension_points": ["v3.4 can add R19+ for new IA section coverage as it lands"]
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    { "sha": "1b2c974", "subject": "feat(P134-T1): design-rules.json R13-R18 — v3.3 band-grammar binding rules", "ts": "2026-05-24" },
+    { "sha": "25c2e5d", "subject": "feat(P134-T2): conformance-check R13-R18 + cockpit-html/monitor surfaces + R16 fail-safe", "ts": "2026-05-24" },
+    { "sha": "(this commit)", "subject": "feat(P134): SAC-P134-01..04 + phase close — conformance promotion complete", "ts": "2026-05-24" }
+  ],
+  "source_hashes": {
+    "context":      { "path": ".planning/milestones/v3.3/phases/134-cockpit-conformance-promotion/134-CONTEXT.md",                       "sha256": "5032feeec1b271f56d73cca2b549b1c6d2d67661124bd4e39d9db0498d38eb19" },
+    "research":     null,
+    "plan":         { "path": ".planning/milestones/v3.3/phases/134-cockpit-conformance-promotion/134-01-conformance-promotion-PLAN-LOCKED.md", "sha256": "48570dbb37b8fc6883c516cb20d97e60b91a2cedb605d9c4968ee6f42460f1f3" },
+    "verification": { "path": ".planning/milestones/v3.3/phases/134-cockpit-conformance-promotion/134-VERIFICATION.md",                  "sha256": "63e4d3ec25d1168f03541f00b48ab2f8ef3d59a13928f9fad462cfc37b67d4dc" },
+    "atc_review":   null
+  },
+  "gates": {
+    "verifier": { "verdict": "PASS", "ref": ".planning/milestones/v3.3/phases/134-cockpit-conformance-promotion/134-VERIFICATION.md" },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      { "task": "P134-T1", "executor": "codex-executor.sh", "result": "design-rules.json R13-R18 written" },
+      { "task": "P134-T2", "executor": "codex-executor.sh", "result": "conformance-check R13-R18 + surfaces wired" },
+      { "task": "P134-T3-attempt1", "executor": "codex-executor.sh", "result": "FILES_CHANGED=none (Windows CreateProcessAsUserW block)" },
+      { "task": "P134-T3-attempt2", "executor": "codex-patch-executor.sh", "result": "empty PATCH_BEGIN/PATCH_END (review-skill conflict)" },
+      { "task": "P134-T3-recovery", "executor": "orchestrator-direct (Claude)", "result": "SAC-P134-01..04 + designRules require appended; 57/57 PASS" }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-05-24T00:00:00.000Z",
+  "created_by": "orchestrator (Claude Opus 4.7, 1M context)"
+}

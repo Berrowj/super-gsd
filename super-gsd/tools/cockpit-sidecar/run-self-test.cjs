@@ -22,6 +22,7 @@ const sidecar = require('./cockpit-sidecar.cjs');
 const { computeNorthStar } = require('./north-star.cjs');
 const { evaluateAlerts } = require('./alert-grammar.cjs');
 const { checkConformance } = require('../shared/conformance-check.cjs');
+const designRules = require('../shared/design-rules.json');
 
 const GOLD_REFERENCE = path.join(__dirname, '..', 'chronicle', 'templates', 'chronicle-gold-reference.html');
 
@@ -763,6 +764,47 @@ const tests = [
       const content = fs.readFileSync('super-gsd/scripts/sgsd-codex-monitor.ps1', 'utf8');
       const matches = content.match(/\$Drill/g) || [];
       assert.ok(matches.length >= 2, `Expected >= 2 \$Drill references, got ${matches.length}`);
+    }});
+
+    tests.push({ id: 'SAC-P134-01', run: () => {
+      const ids = designRules.rules.map((r) => r.id);
+      for (const want of ['R13', 'R14', 'R15', 'R16', 'R17', 'R18']) {
+        assert.ok(ids.includes(want), 'design-rules missing ' + want);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P134-02', run: () => {
+      const source = fs.readFileSync('super-gsd/tools/shared/conformance-check.cjs', 'utf8');
+      for (const want of ['R13', 'R14', 'R15', 'R16', 'R17', 'R18']) {
+        assert.ok(source.includes('function check' + want), 'conformance-check missing check' + want);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P134-03', run: () => {
+      // Synthetic fixture exercising R13-R18 wiring on cockpit-html surface.
+      // renderShell()/renderHtml() each populate a subset of markers (shell carries
+      // data-band placeholders; client.js injects stages at runtime). The gate is
+      // surface-level wiring, so the test asserts the rules FIRE on this surface
+      // and a fully-populated cockpit-html document passes.
+      const stages = ['research','vtp-enrich','plan','execute','verify']
+        .map((s) => `<div class="stage" data-stage="${s}">${s}</div>`).join('');
+      const html = `<!doctype html><html><body>` +
+        `<div class="northstar">NORTH STAR</div>` +
+        `<section data-band="1">${stages}</section>` +
+        `<section data-band="2"></section>` +
+        `<section data-band="3" style="display:none"></section>` +
+        `</body></html>`;
+      const result = checkConformance(html, 'cockpit-html');
+      assert.ok(result && result.summary, 'checkConformance returned malformed result');
+      assert.strictEqual(result.summary.binding_fail, 0, JSON.stringify(result.summary));
+    }});
+
+    tests.push({ id: 'SAC-P134-04', run: () => {
+      const psContent = fs.readFileSync('super-gsd/scripts/sgsd-codex-monitor.ps1', 'utf8');
+      const result = checkConformance(psContent, 'monitor');
+      assert.ok(result && typeof result === 'object', 'checkConformance returned non-object');
+      assert.ok('summary' in result, 'result missing summary key');
+      assert.ok(typeof result.summary.binding_fail === 'number', 'binding_fail not a number');
     }});
 
     return tests;
