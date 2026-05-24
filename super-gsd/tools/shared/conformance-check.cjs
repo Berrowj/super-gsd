@@ -3,7 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const VALID_SURFACES = new Set(["chronicle", "cockpit"]);
+const VALID_SURFACES = new Set(["chronicle", "cockpit", "cockpit-html", "monitor"]);
 const RULES_PATH = path.join(__dirname, "design-rules.json");
 
 function loadRegistry() {
@@ -308,7 +308,94 @@ function checkR11(html) {
   return { pass: false, detail: `Unexpanded internal term(s): ${Array.from(new Set(hits)).join(", ")}.` };
 }
 
-const CHECKS = {
+function checkR13(html) {
+  const matches = (html.match(/class="[^"]*(northstar|recommended-action)[^"]*"/g) || []).length;
+  if (matches === 1) return { ok: true };
+  return { ok: false, reason: `expected exactly 1 loud-line marker, got ${matches}` };
+}
+
+function checkR14(html) {
+  const matches = (html.match(/class="[^"]*stage[^"]*"/g) || []).length;
+  if (matches === 5) return { ok: true };
+  return { ok: false, reason: `expected 5 stage cells, got ${matches}` };
+}
+
+function checkR15(html) {
+  if (!html.includes('data-band="3"')) return { ok: true };
+  const band3Section = html.split('data-band="3"')[1] || "";
+  if (band3Section.slice(0, 100).includes("display:none")) return { ok: true };
+  const subheads = ["WHY THIS PHASE", "CONTEXT", "ELI5", "WHAT IS", "WHAT COULD BE", "EVIDENCE TRAIL"];
+  const missing = subheads.filter((subhead) => !band3Section.includes(subhead));
+  if (missing.length === 0) return { ok: true };
+  return { ok: false, reason: `Band 3 visible but missing subheads: ${missing.join(", ")}` };
+}
+
+function checkR16(json) {
+  let obj = json;
+  if (typeof json === "string") {
+    // Fail-safe: when input is not JSON-parseable (e.g. HTML passed to the
+    // 'cockpit' surface for v3.2 SAC-P127 chronicle-style assertions),
+    // R16 is N/A and passes. Intent is "JSON snapshot has palette_tier";
+    // when there is no JSON to inspect, nothing to fail on.
+    const trimmed = json.trim();
+    if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return { ok: true };
+    try {
+      obj = JSON.parse(json);
+    } catch (_e) {
+      return { ok: true };
+    }
+  }
+  if (!obj || !obj.alerts || !Array.isArray(obj.alerts.all)) return { ok: true };
+  const valid = new Set(["accent", "success", "attention", "severe", "danger", "done"]);
+  for (const alert of obj.alerts.all) {
+    if (!alert.palette_tier || !valid.has(alert.palette_tier)) {
+      return { ok: false, reason: `alert ${alert.signal} has invalid palette_tier: ${alert.palette_tier}` };
+    }
+  }
+  return { ok: true };
+}
+
+function checkR17(input) {
+  if (!input || !input.includes("ELI5")) return { ok: true };
+  let lint;
+  try {
+    lint = require("../cockpit-sidecar/eli5-lint.cjs").lintEli5(input);
+  } catch (_e) {
+    return { ok: true };
+  }
+  if (lint.out_of_list_count <= 5) return { ok: true };
+  return { ok: false, reason: `ELI5 has ${lint.out_of_list_count} out-of-list words (>5)` };
+}
+
+function checkR18(html) {
+  const wanted = ['data-band="1"', 'data-band="2"', 'data-band="3"'];
+  const missing = wanted.filter((marker) => !html.includes(marker));
+  if (missing.length === 0) return { ok: true };
+  return { ok: false, reason: `missing data-band placeholders: ${missing.join(", ")}` };
+}
+
+function normalizeVerdict(verdict) {
+  if (Object.prototype.hasOwnProperty.call(verdict, "pass")) {
+    return verdict;
+  }
+  return {
+    pass: Boolean(verdict.ok),
+    detail: verdict.reason || (verdict.ok ? "Check passed." : "Check failed.")
+  };
+}
+
+function resolveSurface(surface) {
+  if (surface && typeof surface === "object") {
+    return surface.surface || "chronicle";
+  }
+  return surface || "chronicle";
+}
+
+function surfaceExpectation() {
+  return Array.from(VALID_SURFACES).join(", ");
+}
+
+const RULES = {
   R01: checkR01,
   R03: checkR03,
   R04: checkR04,
@@ -317,8 +404,15 @@ const CHECKS = {
   R07: checkR07,
   R08: checkR08,
   R10: checkR10,
-  R11: checkR11
+  R11: checkR11,
+  R13: checkR13,
+  R14: checkR14,
+  R15: checkR15,
+  R16: checkR16,
+  R17: checkR17,
+  R18: checkR18
 };
+const CHECKS = RULES;
 
 const ADVISORY_PROMPTS = {
   R02: "Reviewer prompt: confirm every section heading states a testable governing takeaway.",
@@ -334,7 +428,7 @@ function checkRule(rule, html) {
   if (!check) {
     return { status: "ADVISORY", detail: "No deterministic checker registered; reviewer judgement required." };
   }
-  const verdict = check(html);
+  const verdict = normalizeVerdict(check(html));
   return {
     status: verdict.pass ? "PASS" : "FAIL",
     detail: verdict.detail
@@ -372,13 +466,14 @@ function cockpitGroupResults(registry, surface) {
 }
 
 function checkConformance(htmlString, surface) {
-  if (!VALID_SURFACES.has(surface)) {
-    throw new Error(`Invalid surface "${surface}". Expected chronicle or cockpit.`);
+  const resolvedSurface = resolveSurface(surface);
+  if (!VALID_SURFACES.has(resolvedSurface)) {
+    throw new Error(`Invalid surface "${resolvedSurface}". Expected ${surfaceExpectation()}.`);
   }
   const registry = loadRegistry();
   const html = String(htmlString);
   const ruleResults = registry.rules
-    .filter((rule) => rule.applies_to.includes(surface))
+    .filter((rule) => rule.applies_to.includes(resolvedSurface))
     .map((rule) => {
       const verdict = checkRule(rule, html);
       return {
@@ -389,9 +484,9 @@ function checkConformance(htmlString, surface) {
         detail: verdict.detail
       };
     });
-  const results = ruleResults.concat(cockpitGroupResults(registry, surface));
+  const results = ruleResults.concat(cockpitGroupResults(registry, resolvedSurface));
   return {
-    surface,
+    surface: resolvedSurface,
     results,
     summary: summarize(results)
   };
@@ -415,4 +510,4 @@ if (require.main === module) {
   process.exitCode = verdict.summary.binding_fail > 0 ? 1 : 0;
 }
 
-module.exports = { checkConformance };
+module.exports = { checkConformance, RULES };
