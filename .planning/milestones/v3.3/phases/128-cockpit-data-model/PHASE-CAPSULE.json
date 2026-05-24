@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.3",
+  "phase": "128",
+  "phase_name": "Cockpit Stage-Pipeline Data Model",
+  "status": "PASS",
+  "goal": "After P128, super-gsd/tools/cockpit-sidecar/cockpit-sidecar.cjs --json output additively contains a deterministic stage_pipeline key describing the 5-stage SGSD phase lifecycle (research, vtp-enrich, plan, execute, verify) with per-stage owner / sla_minutes / status (done|active|pending|blocked) and an optional blocker flag. Foundation for v3.3 P129-P132. Zero changes to v3.2 --json key byte-shape.",
+  "outputs": [
+    { "kind": "plan",         "path": ".planning/milestones/v3.3/phases/128-cockpit-data-model/128-01-stage-pipeline-PLAN-LOCKED.md" },
+    { "kind": "context",      "path": ".planning/milestones/v3.3/phases/128-cockpit-data-model/128-CONTEXT.md" },
+    { "kind": "verification", "path": ".planning/milestones/v3.3/phases/128-cockpit-data-model/128-VERIFICATION.md" }
+  ],
+  "files": [
+    ".planning/milestones/v3.3/phases/128-cockpit-data-model/128-01-stage-pipeline-PLAN-LOCKED.md",
+    ".planning/milestones/v3.3/phases/128-cockpit-data-model/128-CONTEXT.md",
+    ".planning/milestones/v3.3/phases/128-cockpit-data-model/128-VERIFICATION.md",
+    "super-gsd/tools/cockpit-sidecar/stage-pipeline.cjs",
+    "super-gsd/tools/cockpit-sidecar/cockpit-sidecar.cjs",
+    "super-gsd/tools/cockpit-sidecar/run-self-test.cjs"
+  ],
+  "sac_ids": [
+    "SAC-P128-01", "SAC-P128-02", "SAC-P128-03", "SAC-P128-04", "SAC-P128-05",
+    "SAC-P128-06", "SAC-P128-07", "SAC-P128-08", "SAC-P128-09"
+  ],
+  "self_test_command": "node super-gsd/tools/cockpit-sidecar/run-self-test.cjs",
+  "self_test_result": "pass",
+  "self_test_count": "27/27",
+  "decisions": [
+    { "id": "Q-D", "answered_at": "2026-05-24", "decision": "dropped discuss stage; pipeline is 5 stages — auto-mode synthesizes CONTEXT.md per CLAUDE.md" },
+    { "id": "Q-A", "deferred_at": "2026-05-24", "decision": "ORDER-PIPELINE-SPEC.pdf integration deferred; ship P128 with default 5; material additions become P128.5 if surfaced" }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 1,
+    "deferred_items": ["P128.5 follow-on if ORDER-PIPELINE-SPEC.pdf surfaces material additions"],
+    "carried_forward_total": null
+  },
+  "downstream_contract": {
+    "consumers": ["P129 (renderText/renderBrief 3-band layout)", "P130 (Band 3 rationale)", "P132 (localhost-live SSE)"],
+    "constraints": ["stage_pipeline.stages.length === 5", "stage status enum: done|active|pending|blocked"],
+    "extension_points": ["stage_pipeline.blocker is an opaque string for now; P133+ may formalize a blocker enum"]
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    { "sha": "d8ebaf452", "subject": "feat(P128): PLAN-LOCKED — stage-pipeline data model (4 tasks, 9 SACs, validate ✓)", "ts": "2026-05-24" },
+    { "sha": "339d137",   "subject": "feat(P128-T1): stage-pipeline.cjs — 5 frozen STAGES + computeStagePipeline", "ts": "2026-05-24" },
+    { "sha": "249597d",   "subject": "feat(P128-T2): additive --json stage_pipeline key + attachStagePipeline export", "ts": "2026-05-24" },
+    { "sha": "543d921",   "subject": "test(P128-T3): SAC-P128-01..09 + orchestrator SAC-drift correction", "ts": "2026-05-24" }
+  ],
+  "source_hashes": {
+    "context": {
+      "path": ".planning/milestones/v3.3/phases/128-cockpit-data-model/128-CONTEXT.md",
+      "sha256": "a4c361d93ab80e01289ef6a4d811a64c9d7df5ae15cf3c044d50108fcf16923f"
+    },
+    "research": null,
+    "plan": [
+      {
+        "path": ".planning/milestones/v3.3/phases/128-cockpit-data-model/128-01-stage-pipeline-PLAN-LOCKED.md",
+        "sha256": "8cdf7b93ecc264455ff912992afcb904cb495916c7cef0be0ee8b06d0e19e224"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v3.3/phases/128-cockpit-data-model/128-VERIFICATION.md",
+      "sha256": "6946ef84fce94c9c89fa157a732e4e93b57d9484c922e3b7639eb1d0ecdfffd7"
+    },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "PASS",
+      "ref": ".planning/milestones/v3.3/phases/128-cockpit-data-model/128-VERIFICATION.md"
+    },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      { "task": "P128-T1", "executor": "codex-executor.sh", "result": "completed (artefact written via OS file API; shell-exec blocked by Windows 216)" },
+      { "task": "P128-T2", "executor": "codex-executor.sh", "result": "completed (additive wiring; shell-exec blocked but file mutation succeeded)" },
+      { "task": "P128-T3", "executor": "codex-executor.sh", "result": "completed (9 tests appended; orchestrator-corrected SAC-P128-01 SAC-drift; full suite 27/27 green)" },
+      { "task": "P128-T4", "executor": "orchestrator", "result": "Codex correctly aborted under shell-exec block (could not run precondition self-test); orchestrator authored VERIFICATION.md + PHASE-CAPSULE.json directly after verifying green self-test" }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-05-24T00:00:00.000Z",
+  "created_by": "orchestrator (Claude Opus 4.7, 1M context) — phase-capsule/write.cjs script unavailable in this session"
+}
