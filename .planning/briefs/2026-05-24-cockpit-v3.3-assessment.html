@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SGSD v3.3 Cockpit — Live Contextual Awareness</title>
+  <meta name="description" content="The brief, explained — applying its own 17 design principles to itself.">
+  <style>
+    /* Inlined from super-gsd/tools/shared/sgsd-design-system.css for self-contained viewing */
+    :root {
+      --bg:#07111f; --bg2:#0c1a2f; --panel:rgba(255,255,255,0.065); --panel2:rgba(255,255,255,0.10);
+      --gold-ink:#f3f7ff; --gold-muted:#aebbd0; --gold-line:rgba(255,255,255,0.16);
+      --cyan:#67e8f9; --blue:#60a5fa; --violet:#c084fc; --green:#86efac;
+      --amber:#facc15; --red:#fb7185; --orange:#fdba74;
+      --sage:#7CB479; --terracotta:#C97B5B; --slate:#5C6776;
+      --shadow:0 22px 60px rgba(0,0,0,0.33); --radius2:14px;
+      color-scheme: dark;
+      --sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --ink: var(--gold-ink); --ink-strong:#ffffff; --ink-muted: var(--gold-muted); --ink-soft:#7f8ca0;
+      --paper: var(--bg); --paper-raised: var(--panel); --paper-tint: var(--panel2);
+      --line: var(--gold-line); --line-strong: rgba(255,255,255,0.26);
+      --gold:#b98a2f; --gold-strong:#91661d; --gold-soft:#f2dfb8;
+      --green-soft: rgba(134,239,172,0.16); --blue-soft: rgba(96,165,250,0.14);
+      --red-soft: rgba(251,113,133,0.16); --violet-soft: rgba(192,132,252,0.14);
+      --amber-soft: rgba(250,204,21,0.14);
+      --shadow-soft: 0 1px 2px rgba(0,0,0,0.18), 0 10px 30px rgba(0,0,0,0.22);
+      --shadow-inset: inset 0 1px 0 rgba(255,255,255,0.08);
+      --radius-sm:4px; --radius:8px; --radius-lg:12px;
+      --space-1:0.25rem; --space-2:0.5rem; --space-3:0.75rem; --space-4:1rem;
+      --space-5:1.25rem; --space-6:1.5rem; --space-8:2rem; --space-10:2.5rem;
+      --measure:76rem;
+    }
+    *{box-sizing:border-box}
+    html{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;text-rendering:optimizeLegibility}
+    body{margin:0;min-height:100vh;background:
+      radial-gradient(circle at 10% 0%, rgba(103,232,249,0.14), transparent 36%),
+      radial-gradient(circle at 84% 6%, rgba(192,132,252,0.12), transparent 32%),
+      linear-gradient(145deg, var(--bg), var(--bg2) 48%, #08101c);
+    }
+    main,.page{width:min(100% - 2rem, var(--measure));margin-inline:auto}
+    a{color:var(--blue);text-decoration-thickness:0.08em;text-underline-offset:0.18em}
+    a:hover{color:var(--gold-soft)}
+    h1,h2,h3,h4{color:var(--ink-strong);line-height:1.18;margin:0 0 var(--space-3)}
+    h1{font-size:clamp(2rem,4vw,3.25rem);max-width:18ch;letter-spacing:-0.01em}
+    h2{font-size:clamp(1.4rem,2.4vw,2.1rem)}
+    h3{font-size:1.15rem}
+    h4{font-size:0.95rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--gold-soft)}
+    p{margin:0 0 var(--space-4)}
+    small,.meta,.kicker{color:var(--ink-muted);font-size:0.875rem}
+    code,kbd,pre{font-family:var(--mono)}
+    pre{overflow:auto;border:1px solid var(--line);border-radius:var(--radius);background:rgba(0,0,0,0.32);color:#e9eef7;padding:var(--space-4);font-size:0.85rem}
+    section{padding-block:var(--space-8)}
+    .section-head{display:grid;gap:var(--space-2);max-width:52rem;margin-bottom:var(--space-5)}
+    .section-head .kicker{color:var(--gold-soft);font-weight:700;text-transform:uppercase;letter-spacing:0.06em}
+    .lede{color:var(--ink-muted);font-size:1.1rem;max-width:64ch}
+
+    /* Bands */
+    .band{border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--space-5);margin-block:var(--space-4);background:var(--paper-raised);box-shadow:var(--shadow-soft)}
+    .band-label{display:inline-block;font-size:0.7rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold-soft);font-weight:800;margin-bottom:var(--space-2)}
+    .band-1{border-color:var(--gold);border-left:6px solid var(--gold);background:linear-gradient(135deg, rgba(185,138,47,0.12), var(--paper-raised))}
+    .band-1 .northstar{font-size:1.6rem;font-weight:800;color:var(--ink-strong);letter-spacing:-0.005em;margin-bottom:var(--space-3)}
+    .band-1 .do-next{font-size:1.05rem;font-weight:700;color:var(--gold-soft);margin-bottom:var(--space-2)}
+    .band-1 .alert{display:inline-flex;align-items:center;gap:var(--space-2);background:var(--amber-soft);border:1px solid var(--amber);color:var(--amber);padding:0.35rem 0.75rem;border-radius:999px;font-weight:700;font-size:0.85rem}
+    .band-2 .row{display:flex;gap:var(--space-3);align-items:baseline;margin-bottom:var(--space-2);font-size:0.95rem}
+    .band-2 .row-key{min-width:11rem;color:var(--ink-muted);font-weight:700;font-size:0.85rem;text-transform:uppercase;letter-spacing:0.04em}
+    .band-2 .row-val{color:var(--ink)}
+    .band-3 .row{display:grid;grid-template-columns:11rem 1fr;gap:var(--space-3);align-items:baseline;margin-bottom:var(--space-3);font-size:0.92rem}
+    .band-3 .row-key{color:var(--ink-muted);font-weight:700;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em}
+
+    /* Stage pipeline */
+    .pipeline{display:flex;gap:0;align-items:stretch;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:rgba(0,0,0,0.18);margin-bottom:var(--space-3)}
+    .stage{flex:1;padding:var(--space-3) var(--space-2);text-align:center;border-right:1px solid var(--line);position:relative;font-size:0.82rem}
+    .stage:last-child{border-right:none}
+    .stage .stage-name{font-weight:800;text-transform:uppercase;letter-spacing:0.05em;font-size:0.72rem;margin-bottom:var(--space-1)}
+    .stage .stage-owner{font-size:0.7rem;color:var(--ink-soft);font-family:var(--mono)}
+    .stage.done{background:var(--green-soft);color:var(--green)}
+    .stage.active{background:var(--amber-soft);color:var(--amber);box-shadow:inset 0 -2px 0 var(--amber)}
+    .stage.pending{background:transparent;color:var(--ink-soft)}
+    .stage.blocked{background:var(--red-soft);color:var(--red)}
+
+    /* Chips & badges */
+    .chip{display:inline-flex;align-items:center;gap:var(--space-1);padding:0.18rem 0.55rem;border:1px solid var(--line);border-radius:999px;background:var(--paper-tint);color:var(--ink-muted);font:700 0.72rem/1 var(--sans);white-space:nowrap;margin-right:var(--space-1)}
+    .chip.canonical{border-color:var(--violet);color:var(--violet);background:var(--violet-soft)}
+    .chip.substrate{border-color:var(--blue);color:var(--blue);background:var(--blue-soft)}
+    .chip.operator{border-color:var(--gold);color:var(--gold-soft);background:rgba(185,138,47,0.18)}
+    .chip.success{border-color:var(--green);color:var(--green);background:var(--green-soft)}
+    .chip.danger{border-color:var(--red);color:var(--red);background:var(--red-soft)}
+    .chip.attention{border-color:var(--amber);color:var(--amber);background:var(--amber-soft)}
+
+    /* Cards & grid */
+    .grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(min(100%, 18rem), 1fr));gap:var(--space-4)}
+    .card{border:1px solid var(--line);border-radius:var(--radius);background:var(--paper-raised);box-shadow:var(--shadow-soft);padding:var(--space-5)}
+    .card h3{margin-bottom:var(--space-2)}
+    .card .citation{margin-top:var(--space-2);display:flex;flex-wrap:wrap;gap:var(--space-1)}
+    .principle-id{display:inline-block;background:var(--gold);color:#1c1303;font-weight:900;padding:0.1rem 0.45rem;border-radius:var(--radius-sm);font-family:var(--mono);font-size:0.8rem;margin-right:var(--space-2)}
+
+    /* SCQA */
+    .scqa{display:grid;gap:var(--space-3);border:1px solid var(--line);border-radius:var(--radius);background:var(--paper-raised);padding:var(--space-5);margin-block:var(--space-4)}
+    .scqa-row{display:grid;grid-template-columns:4rem 1fr;gap:var(--space-3);border-left:3px solid var(--gold-soft);padding-left:var(--space-3)}
+    .scqa-label{font-weight:800;color:var(--gold-soft);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.06em;align-self:start;padding-top:0.18rem}
+    .scqa-answer{border-left-color:var(--gold)}
+    .scqa-answer .scqa-label{color:var(--gold)}
+
+    /* Callouts */
+    .callout{border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:var(--radius);background:var(--blue-soft);padding:var(--space-4);margin-block:var(--space-4)}
+    .callout.warning{border-left-color:var(--red);background:var(--red-soft)}
+    .callout.success{border-left-color:var(--green);background:var(--green-soft)}
+    .callout.note{border-left-color:var(--gold);background:rgba(185,138,47,0.10)}
+
+    /* Tables */
+    table{width:100%;border-collapse:collapse;border:1px solid var(--line);background:var(--paper-raised);border-radius:var(--radius);overflow:hidden}
+    th,td{border-bottom:1px solid var(--line);padding:var(--space-3);text-align:left;vertical-align:top;font-size:0.9rem}
+    th{background:var(--paper-tint);color:var(--ink-strong);font-size:0.78rem;text-transform:uppercase;letter-spacing:0.05em}
+    tr:last-child td{border-bottom:none}
+
+    /* Roam 6×6 grid */
+    .roam-grid{display:grid;grid-template-columns:repeat(3, 1fr);gap:var(--space-3);margin-block:var(--space-4)}
+    .roam-tile{border:1px solid var(--line);border-radius:var(--radius);padding:var(--space-4);background:var(--paper-raised)}
+    .roam-tile .symbol{font-size:1.6rem;margin-bottom:var(--space-2)}
+    .roam-tile .what{font-weight:800;color:var(--ink-strong);margin-bottom:var(--space-1)}
+    .roam-tile .frame{color:var(--gold-soft);font-size:0.85rem;margin-bottom:var(--space-2);font-weight:700}
+    .roam-tile .where{font-size:0.82rem;color:var(--ink-muted)}
+
+    /* Sparkline (inline SVG demo) */
+    .sparkline-row{display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-2);font-size:0.92rem}
+    .sparkline-row .label{min-width:9rem;color:var(--ink-muted);font-weight:700;font-size:0.85rem;text-transform:uppercase;letter-spacing:0.04em}
+    .sparkline-row .value{font-family:var(--mono);font-weight:700;color:var(--ink-strong);min-width:4rem}
+    .sparkline-row svg{flex:0 0 110px}
+
+    /* Keep/kill audit table */
+    .audit-table .verdict-keep{color:var(--green);font-weight:800}
+    .audit-table .verdict-kill{color:var(--red);font-weight:800}
+    .audit-table .verdict-merge{color:var(--amber);font-weight:800}
+    .audit-table .verdict-drillin{color:var(--blue);font-weight:800}
+
+    /* Footer */
+    footer{border-top:1px solid var(--line);padding-block:var(--space-6);color:var(--ink-muted);font-size:0.85rem;margin-top:var(--space-8)}
+    footer ul{padding-left:var(--space-5)}
+
+    /* Header */
+    .hero{padding-block:var(--space-10) var(--space-6)}
+    .hero .kicker{color:var(--gold-soft);font-weight:800;text-transform:uppercase;letter-spacing:0.08em;font-size:0.85rem;margin-bottom:var(--space-3)}
+    .hero .lede{margin-top:var(--space-2);font-size:1.2rem;max-width:60ch}
+    .hero .meta-row{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-top:var(--space-4)}
+
+    @media (max-width: 760px){
+      .pipeline{flex-direction:column}
+      .stage{border-right:none;border-bottom:1px solid var(--line)}
+      .stage:last-child{border-bottom:none}
+      .roam-grid{grid-template-columns:1fr}
+      .band-3 .row{grid-template-columns:1fr;gap:var(--space-1)}
+    }
+  </style>
+</head>
+<body>
+<main class="page">
+
+<!-- HERO -->
+<header class="hero">
+  <div class="kicker">SGSD Brief · 2026-05-24 · approved</div>
+  <h1>The cockpit explains itself.</h1>
+  <p class="lede">v3.3 translates the v3.1 chronicle's answer-first explanation grammar into a live cockpit. The operator gets full contextual awareness during the run — not just at phase close. This page is the explainer of that brief, applying its own 17 design principles to itself so you can react to the grammar visually.</p>
+  <div class="meta-row">
+    <span class="chip">milestone v3.3 (target)</span>
+    <span class="chip">6 originating phases · 7 touched</span>
+    <span class="chip success">design system locked</span>
+    <span class="chip success">localhost-live HTML cockpit approved</span>
+    <span class="chip">predecessor v3.2 / DLB-12</span>
+  </div>
+</header>
+
+<!-- LEAD WITH THE GOVERNING THOUGHT (Minto answer-first) -->
+<section>
+  <div class="section-head">
+    <span class="kicker">Step 1 · Lead with the answer</span>
+    <h2>What v3.3 ships, in one sentence.</h2>
+    <p class="lede">Minto's Pyramid Principle: the governing thought lives at the top. Every supporting point branches from it. Every detail nests below the branch. So we start here.</p>
+  </div>
+
+  <div class="band band-1">
+    <span class="band-label">Band 1 · Governing Thought (visceral · always loud)</span>
+    <div class="northstar">A live cockpit that answers <em>where are we, why, what unlocks next, what to do</em> — in under 10 seconds of scanning.</div>
+    <div class="do-next">▸ DO NEXT: scope v3.3 milestone, open P128 (stage-pipeline data model).</div>
+    <div><span class="alert">⚠ 9 design books in operator folder, not yet indexed in VTP (+0 other)</span></div>
+  </div>
+
+  <p class="lede" style="margin-top:var(--space-5)">That box <em>is</em> the new cockpit's Band 1, rendered against the v3.2 design system tokens. Three pieces of information. One loud line. Honoured by Minto, Krug, Sullivan, and the v3.2 R04 rule shipped 2 days ago.</p>
+</section>
+
+<!-- BAND 2 DEMO -->
+<section>
+  <div class="section-head">
+    <span class="kicker">Step 2 · Show the supporting MECE points</span>
+    <h2>The next layer: where, why, what unlocks, what blocks.</h2>
+    <p class="lede">Operator's "Project Clarity Suite" pattern (already validated at JCL with named stage owners + SLA + blocker flags) becomes the cockpit stage pipeline. Norman's feedback rule (>1s needs cause + ETA) drives the run panel. Five MECE branches, no overlap, exhaustive.</p>
+  </div>
+
+  <div class="band band-2">
+    <span class="band-label">Band 2 · MECE Supporting Points (behavioral · scannable)</span>
+
+    <div class="pipeline" role="img" aria-label="Phase 128 stage pipeline">
+      <div class="stage done"><div class="stage-name">discuss ✓</div><div class="stage-owner">operator+claude</div></div>
+      <div class="stage done"><div class="stage-name">research ✓</div><div class="stage-owner">codex/xhigh</div></div>
+      <div class="stage done"><div class="stage-name">vtp ✓</div><div class="stage-owner">vtp-enrich</div></div>
+      <div class="stage active"><div class="stage-name">plan ⏳</div><div class="stage-owner">codex/xhigh</div></div>
+      <div class="stage pending"><div class="stage-name">execute</div><div class="stage-owner">codex/xhigh</div></div>
+      <div class="stage pending"><div class="stage-name">verify</div><div class="stage-owner">codex/xhigh</div></div>
+    </div>
+
+    <div class="row"><span class="row-key">WHY RUNNING</span><span class="row-val">codex planning · cause: SAC drift correction · ETA: ~3 min · owner: codex-plan</span></div>
+    <div class="row"><span class="row-key">UNLOCKS</span><span class="row-val">P129 (terminal bands 1-2) · P130 (rationale layer) · P131 (ELI5 upgrade)</span></div>
+    <div class="row"><span class="row-key">BLOCKED-BY</span><span class="row-val" style="color:var(--green)">nothing</span></div>
+
+    <div style="margin-top:var(--space-4);padding-top:var(--space-3);border-top:1px solid var(--line)">
+      <div class="sparkline-row">
+        <span class="label">fog</span>
+        <span class="value">38</span>
+        <svg viewBox="0 0 110 24" width="110" height="24" aria-hidden="true">
+          <polyline fill="none" stroke="var(--amber)" stroke-width="1.6" points="0,16 14,14 28,18 42,12 56,15 70,11 84,13 98,8 110,9"/>
+        </svg>
+        <span class="chip" style="font-size:0.65rem">low ↓</span>
+      </div>
+      <div class="sparkline-row">
+        <span class="label">dispatches</span>
+        <span class="value">7</span>
+        <svg viewBox="0 0 110 24" width="110" height="24" aria-hidden="true">
+          <polyline fill="none" stroke="var(--blue)" stroke-width="1.6" points="0,20 14,18 28,18 42,16 56,15 70,14 84,12 98,11 110,10"/>
+        </svg>
+        <span class="chip" style="font-size:0.65rem">steady ↑</span>
+      </div>
+      <div class="sparkline-row">
+        <span class="label">tokens</span>
+        <span class="value">2.4M</span>
+        <svg viewBox="0 0 110 24" width="110" height="24" aria-hidden="true">
+          <polyline fill="none" stroke="var(--violet)" stroke-width="1.6" points="0,21 14,19 28,17 42,15 56,13 70,11 84,9 98,7 110,5"/>
+        </svg>
+        <span class="chip attention" style="font-size:0.65rem">climbing</span>
+      </div>
+    </div>
+  </div>
+
+  <p class="lede" style="margin-top:var(--space-5)">Sparklines are <a href="#cite-tufte">Tufte's contribution</a>: word-sized intense trend lines, zero extra panel space. Three lines tell the operator at a glance whether things are heating up. The "what unlocks" row is the <a href="#cite-duarte">Duarte arc beat 2</a> — the cockpit narrates forward, not just inward.</p>
+</section>
+
+<!-- BAND 3 DEMO -->
+<section>
+  <div class="section-head">
+    <span class="kicker">Step 3 · Reflective rationale (on demand)</span>
+    <h2>Why this phase matters — the rationale layer.</h2>
+    <p class="lede">Norman's third level (reflective). Heath's SUCCES test for stickiness. Munroe's ten-hundred constraint for plain language. Duarte's what-is / what-could-be beat for the story arc. The operator never has to scan logs to find this — it's curated, always one click away.</p>
+  </div>
+
+  <div class="band band-3">
+    <span class="band-label">Band 3 · Rationale / Story (reflective · drill-in)</span>
+
+    <div class="row">
+      <span class="row-key">Context</span>
+      <span>v3.2 closed the answer-first cockpit-sidecar (compact, 405 lines, 18/18 self-test). The PowerShell live monitor (2,446 lines, 15 panels) is the surface the operator actually watches, and it pre-dates the v3.2 answer-first discipline. Two complaints (freshness + usefulness) drove this brief.</span>
+    </div>
+
+    <div class="row">
+      <span class="row-key">ELI5 (Munroe)</span>
+      <span>The dashboard the operator watches all day still shows a wall of numbers. We're rebuilding it so the most important thing is at the top in big letters, the next-most-important things are below it in a row, and the long story (why we are doing this, what comes next) is one click away. Same picture as the report we write when a phase finishes — but live.</span>
+    </div>
+
+    <div class="row">
+      <span class="row-key">What is now</span>
+      <span>Two surfaces, two grammars: a tight answer-first sidecar (v3.2) <em>and</em> a sprawling pre-v3.2 panel-soup monitor. Operator switches windows to triangulate.</span>
+    </div>
+
+    <div class="row">
+      <span class="row-key">What could be</span>
+      <span>One surface, one grammar: the answer-first discipline extended across all bands, with the v3.1 chronicle's explanation experience translated into live terms. One conformance gate covers chronicle + sidecar + live monitor.</span>
+    </div>
+
+    <div class="row">
+      <span class="row-key">Why this phase</span>
+      <span>v3.2 proved the chronicle-as-validated-projection pattern works. v3.3 closes the loop: the same explanation grammar, but at run-time. Without it the cockpit redesign stays half-done — answer-first sidecar in one window, panel-soup monitor in the other.</span>
+    </div>
+
+    <div class="row">
+      <span class="row-key">Evidence trail</span>
+      <span style="font-family:var(--mono);font-size:0.82rem">
+        <a href="#cite-clarity">project-clarity-extraction.md::Idea-0</a> ·
+        <a href="#cite-tufte">tufte-visual-display-data-density.md::sparklines</a> ·
+        <a href="#cite-norman">design-of-everyday-things.md::feedback-ETA</a> ·
+        <code>v3.2/SUMMARY.md::lines-86-106</code> ·
+        <code>v3.2/phases/124/COCKPIT-DESIGN-SPEC.md</code>
+      </span>
+    </div>
+  </div>
+
+  <p class="lede" style="margin-top:var(--space-5)">Band 3 is what the operator <em>drills into</em> when they want the why. Most of the time it sits below the fold. The cockpit defaults to Band 1 + Band 2; Band 3 unfurls on scroll or on demand. (Same idea as v3.2's <code>--brief</code> flag, generalised across all surfaces.)</p>
+</section>
+
+<!-- SCQA reasoning demo -->
+<section>
+  <div class="section-head">
+    <span class="kicker">Step 4 · Reason at top-down</span>
+    <h2>SCQA — how every cockpit section opens.</h2>
+    <p class="lede">Minto's Situation / Complication / Question / Answer structure isn't just for documents. It's how each cockpit section answers the operator's mental model in the same shape, every time. Predictability is a feature.</p>
+  </div>
+
+  <div class="scqa">
+    <div class="scqa-row"><span class="scqa-label">S</span><span>v3.2 shipped a tight answer-first cockpit-sidecar with binding conformance + 18/18 self-test. v3.1 shipped chronicle HTML with the same explanation grammar.</span></div>
+    <div class="scqa-row"><span class="scqa-label">C</span><span>But the surface operator watches all day (sgsd-codex-monitor.ps1, 2,446 lines, 15 panels) pre-dates v3.2's discipline. It is stale and noisy.</span></div>
+    <div class="scqa-row"><span class="scqa-label">Q</span><span>How do we translate the v3.1 chronicle experience into a live cockpit without rewriting from scratch?</span></div>
+    <div class="scqa-row scqa-answer"><span class="scqa-label">A</span><span><strong>Extend v3.2's answer-first grammar across all bands; migrate the PowerShell monitor panel-by-panel against a keep/kill audit grounded in 17 cited principles.</strong></span></div>
+  </div>
+</section>
+
+<!-- 17 PRINCIPLES -->
+<section>
+  <div class="section-head">
+    <span class="kicker">Step 5 · Citations &amp; principles</span>
+    <h2>17 cited design principles, with provenance.</h2>
+    <p class="lede">Each principle maps to a specific cockpit decision. Citation chips show provenance: <span class="chip substrate">VTP-SUBSTRATE</span> = indexed and queried; <span class="chip canonical">CANONICAL</span> = book in operator folder, not yet indexed, applied from training knowledge; <span class="chip operator">OPERATOR</span> = operator's own validated pattern.</p>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3><span class="principle-id">P1</span>Sharp-edged 100% stages</h3>
+      <p>Every stage is binary: ✓ done / ⏳ active / ⏸ pending / 🛑 blocked. No percent fields. Wires to existing <code>semantic_acceptance_criteria</code> schema (P97.5 / DLB-07).</p>
+      <div class="citation"><span class="chip substrate">VTP-SUBSTRATE</span><span class="chip">Brooks · Mythical Man-Month</span></div>
+    </div>
+    <div class="card">
+      <h3><span class="principle-id">P2</span>Cause + ETA on every &gt;1s op</h3>
+      <p>Codex dispatch panel shows <em>cause running</em> + <em>predicted finish</em>. ETA derived from rolling P50 of last 5 same-stage runs.</p>
+      <div class="citation"><span class="chip substrate">VTP-SUBSTRATE</span><span class="chip">Norman · Design of Everyday Things</span></div>
+    </div>
+    <div class="card">
+      <h3><span class="principle-id">P3</span>6-stage pipeline + SLA + owner + blocker</h3>
+      <p>The phase walks through 6 named stages. Each has named owner (Codex/Claude/operator), SLA window, time-in-stage, blocker flag. Identical to operator's JCL order-pipeline pattern.</p>
+      <div class="citation"><span class="chip operator">OPERATOR</span><span class="chip operator">ORDER-PIPELINE-SPEC.pdf</span></div>
+    </div>
+    <div class="card">
+      <h3><span class="principle-id">P4</span>Data-ink ratio</h3>
+      <p>Every cockpit pixel justifies itself. Audit weapon for the 15+ panels in <code>sgsd-codex-monitor.ps1</code>: presumed-guilty-of-noise until proven useful.</p>
+      <div class="citation"><span class="chip substrate">VTP-SUBSTRATE</span><span class="chip">Tufte · Visual Display</span></div>
+    </div>
+    <div class="card">
+      <h3><span class="principle-id">P5</span>Sparklines at zero space cost</h3>
+      <p>12-px inline sparkline next to <code>fog_score</code>, <code>dispatch_count</code>, <code>token_spend</code> showing 24h trend. (See the live demo in Band 2 above.)</p>
+      <div class="citation"><span class="chip substrate">VTP-SUBSTRATE</span><span class="chip">Tufte · Sparklines</span></div>
+    </div>
+    <div class="card">
+      <h3><span class="principle-id">P6</span>Macro &amp; micro both legible</h3>
+      <p>Step-back screenshot test: overall pattern reads. Lean-in screenshot test: each value reads. Both must pass before lock.</p>
+      <div class="citation"><span class="chip substrate">VTP-SUBSTRATE</span><span class="chip">Tufte · 6 tests</span></div>
+    </div>
+    <div class="card">
+      <h3><span class="principle-id">P7</span>Visual hierarchy — one loud line</h3>
+      <p>Each band has exactly one loud element (colour/size/weight). All other content monochrome supporting. Already shipped in v3.2 R04; v3.3 extends per-section.</p>
+      <div class="citation"><span class="chip substrate">VTP-SUBSTRATE</span><span class="chip">Krug · Don't Make Me Think</span></div>
+    </div>
+    <div class="card">
+      <h3><span class="principle-id">P8</span>3-layer cognition</h3>
+      <p>Visceral (Band 1) → behavioral (Band 2) → reflective (Band 3). Currently <code>sgsd-codex-monitor.ps1</code> interleaves all three; v3.3 separates them spatially.</p>
+      <div class="citation"><span class="chip substrate">VTP-SUBSTRATE</span><span class="chip">Norman · 3-level</span></div>
+    </div>
+    <div class="card">
+      <h3><span class="principle-id">P9</span>Main success scenario + extensions</h3>
+      <p>Each phase = goal-pursuit story. Happy path = 6-stage pipeline. Extensions = named events (<code>SAC_DRIFT</code>, <code>CODEX_FILE_BLOCK</code>, <code>BOARD_INTERRUPT</code>, <code>OPERATOR_PAUSE</code>). When an extension fires, cockpit shows it + recovery path.</p>
+      <div class="citation"><span class="chip substrate">VTP-SUBSTRATE</span><span class="chip">Cockburn · Use Cases</span></div>
+    </div>
+    <div class="card">
+      <h3><span class="principle-id">P10</span>Minto SCQA + governing thought + MECE</h3>
+      <p>Each major section opens with SCQA. Governing thought = section heading. Supporting elements are MECE — no overlap, exhaustive.</p>
+      <div class="citation"><span class="chip canonical">CANONICAL</span><span class="chip">Minto · Pyramid Principle</span></div>
+    </div>
+    <div class="card">
+      <h3><span class="principle-id">P11</span>SUCCES test on every WHY panel</h3>
+      <p>WHY panel must pass: <strong>S</strong>imple · <strong>U</strong>nexpected · <strong>C</strong>oncrete · <strong>C</strong>redible · <strong>St</strong>ories. (Drop <strong>E</strong>motional — wrong audience.)</p>
+      <div class="citation"><span class="chip canonical">CANONICAL</span><span class="chip">Heath · Made to Stick</span></div>
+    </div>
+    <div class="card">
+      <h3><span class="principle-id">P12</span>6×6 visual frame mapping</h3>
+      <p>Each data type uses its native visual frame (see Roam 6×6 table below). Stop using text-block for all six.</p>
+      <div class="citation"><span class="chip canonical">CANONICAL</span><span class="chip">Roam · Back of the Napkin</span></div>
+    </div>
+    <div class="card">
+      <h3><span class="principle-id">P13</span>Common-words constraint on ELI5</h3>
+      <p>ELI5 panel is lint-checked against a controllable common-words list. Out-of-list terms must be glossed inline. Mechanically testable. Honours v3.2 R11.</p>
+      <div class="citation"><span class="chip canonical">CANONICAL</span><span class="chip">Munroe · Thing Explainer</span></div>
+    </div>
+    <div class="card">
+      <h3><span class="principle-id">P14</span>What is / what could be — arc beat</h3>
+      <p>Arc panel narrates: <em>what is now</em> → <em>what could be</em> → S.T.A.R. moment (binding unlock) → call to action (DO NEXT).</p>
+      <div class="citation"><span class="chip canonical">CANONICAL</span><span class="chip">Duarte · Resonate</span></div>
+    </div>
+    <div class="card">
+      <h3><span class="principle-id">P15</span>Audience-first ≤10 words per top-line</h3>
+      <p>Audience = operator's current decision. Every panel begins with the answer for that decision. Top-line statements ≤10 words (already in v3.2 <code>--brief</code>).</p>
+      <div class="citation"><span class="chip canonical">CANONICAL</span><span class="chip">Sullivan · Simply Said</span></div>
+    </div>
+    <div class="card">
+      <h3><span class="principle-id">P16</span>Declutter-then-highlight binary</h3>
+      <p>Migration audit for each PowerShell panel is binary: declutter (strip + keep) or kill (off-stage). The "highlight one thing" rule = v3.2 R04 extended.</p>
+      <div class="citation"><span class="chip canonical">CANONICAL</span><span class="chip">Knaflic · Let's Practice!</span></div>
+    </div>
+    <div class="card">
+      <h3><span class="principle-id">P17</span>5-tier functional colour</h3>
+      <p>accent / success / attention / severe / danger / done — for the alert grammar in <code>alert-grammar.cjs</code>. No more than 5 colours across the surface.</p>
+      <div class="citation"><span class="chip substrate">VTP-SUBSTRATE</span><span class="chip">GitHub Primer</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ROAM 6×6 MAPPING -->
+<section>
+  <div class="section-head">
+    <span class="kicker">Step 6 · Visual frames</span>
+    <h2>Roam 6×6 — every data type gets its native shape.</h2>
+    <p class="lede">Dan Roam's argument: there are six kinds of questions humans ask, and six matching visual frames. Use the wrong frame and the picture lies. Use the right one and the answer jumps off the page.</p>
+  </div>
+
+  <div class="roam-grid">
+    <div class="roam-tile">
+      <div class="symbol">👤</div>
+      <div class="what">WHO / WHAT</div>
+      <div class="frame">→ portrait</div>
+      <div class="where">Band 1 supporting + Band 2 stage-owner cells. The active phase, the current agent.</div>
+    </div>
+    <div class="roam-tile">
+      <div class="symbol">📊</div>
+      <div class="what">HOW MUCH</div>
+      <div class="frame">→ chart / sparkline</div>
+      <div class="where">Band 2 trend strip (fog · dispatches · tokens). Inline 12-px sparklines.</div>
+    </div>
+    <div class="roam-tile">
+      <div class="symbol">⏱</div>
+      <div class="what">WHEN</div>
+      <div class="frame">→ timeline / pipeline</div>
+      <div class="where">Band 2 STAGE PIPELINE. The six named stages strip with progress + SLA.</div>
+    </div>
+    <div class="roam-tile">
+      <div class="symbol">🗺</div>
+      <div class="what">WHERE</div>
+      <div class="frame">→ dependency map</div>
+      <div class="where">Band 3 UNLOCKS / WHY anchor. Small graph render of phase ↔ neighbour.</div>
+    </div>
+    <div class="roam-tile">
+      <div class="symbol">↦</div>
+      <div class="what">HOW</div>
+      <div class="frame">→ flowchart</div>
+      <div class="where">Band 2 WHY-RUNNING when extension fired. Gate-chain recovery path.</div>
+    </div>
+    <div class="roam-tile">
+      <div class="symbol">💭</div>
+      <div class="what">WHY</div>
+      <div class="frame">→ multi-variable text</div>
+      <div class="where">Band 3 WHY THIS PHASE. The rationale block — concrete, cited, story-shaped.</div>
+    </div>
+  </div>
+</section>
+
+<!-- KEEP/KILL AUDIT -->
+<section>
+  <div class="section-head">
+    <span class="kicker">Step 7 · The audit</span>
+    <h2>Keep / kill / merge — applied to today's monitor.</h2>
+    <p class="lede">Knaflic's declutter-or-highlight is binary. Krug's presumed-guilty-noise is the audit weapon. Each existing panel in <code>sgsd-codex-monitor.ps1</code> goes through this matrix before v3.3 migration.</p>
+  </div>
+
+  <table class="audit-table">
+    <thead>
+      <tr><th>Today's panel</th><th>Source line</th><th>v3.3 verdict</th><th>Target band / notes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>Write-ClaudeEli5Panel</code></td><td>1719</td><td class="verdict-keep">KEEP &amp; EXPAND</td><td>Band 3 ELI5 — wire Munroe common-words lint, Duarte arc structure into the prompt</td></tr>
+      <tr><td><code>Get-PhaseContextForEli5</code></td><td>1430</td><td class="verdict-keep">KEEP &amp; EXPAND</td><td>Band 3 Context feed — cascade-read PROJECT.md + INTENT.md + last SUMMARY.md</td></tr>
+      <tr><td><code>Get-PhaseGoalBrief</code></td><td>361</td><td class="verdict-keep">KEEP</td><td>Band 3 WHY THIS PHASE primary source</td></tr>
+      <tr><td><code>Get-PhaseEvidenceSummary</code></td><td>376</td><td class="verdict-keep">KEEP</td><td>Band 3 EVIDENCE TRAIL — one-line citations</td></tr>
+      <tr><td><code>Write-VerifyGatesPanel</code></td><td>708</td><td class="verdict-keep">KEEP</td><td>Band 2 — gate-shaped already; align colours to Primer 5-tier</td></tr>
+      <tr><td><code>Write-CompactGateRow</code></td><td>694</td><td class="verdict-merge">MERGE</td><td>Convert to Band 2 stage-pipeline cell grammar</td></tr>
+      <tr><td><code>Render-CodexHistoryBlocks</code></td><td>1861</td><td class="verdict-merge">DECLUTTER</td><td>Band 2 — show last 3 entries only; rest accessible on drill</td></tr>
+      <tr><td><code>Render-ClaudeNowPanel</code></td><td>1797</td><td class="verdict-merge">MERGE → Band 1</td><td>Feeds governing thought; do not duplicate</td></tr>
+      <tr><td><code>Get-MudaStats</code></td><td>766</td><td class="verdict-drillin">DRILL-IN</td><td>Band 2 sparkline (trend) + Band 3 evidence on drill</td></tr>
+      <tr><td><code>Get-AtcStats</code></td><td>949</td><td class="verdict-drillin">DRILL-IN</td><td>Band 2 sparkline + Band 3 evidence</td></tr>
+      <tr><td><code>Write-AtcReviewSteps</code></td><td>1268</td><td class="verdict-drillin">DRILL-IN</td><td>Band 3 evidence (high-frequency, low-signal-per-row → demote)</td></tr>
+      <tr><td><code>Write-GateStepLine</code></td><td>1256</td><td class="verdict-drillin">DRILL-IN</td><td>Band 3 evidence</td></tr>
+      <tr><td><code>Write-GateSavingsBlock</code></td><td>1053</td><td class="verdict-kill">KILL (off-stage)</td><td>Operationally low-decision-value; available via report</td></tr>
+      <tr><td><code>Write-GateSynopsis</code></td><td>1294</td><td class="verdict-merge">MERGE → Band 1</td><td>If it carries the governing thought today, feed it into North Star</td></tr>
+      <tr><td><code>Get-VtpUsageForEli5</code></td><td>1469</td><td class="verdict-keep">KEEP</td><td>Band 3 ELI5 grounding — already on the right band</td></tr>
+    </tbody>
+  </table>
+
+  <p class="lede" style="margin-top:var(--space-5)">Verdict count: <strong>5 KEEP</strong> · <strong>3 MERGE</strong> · <strong>1 DECLUTTER</strong> · <strong>4 DRILL-IN</strong> · <strong>1 KILL (off-stage)</strong> · <strong>1 MERGE → Band 1</strong>. The current panel-soup is <em>not</em> mostly noise — it's mostly mis-banded. Reorganisation, not deletion.</p>
+</section>
+
+<!-- 6 PHASES -->
+<section>
+  <div class="section-head">
+    <span class="kicker">Step 8 · Phase decomposition</span>
+    <h2>Six phases get v3.3 across the line.</h2>
+    <p class="lede">Five originate this milestone (P128-P132). P133 inherits scope from the v3.2 backlog (conformance gate promotion advisory→binding). Each phase touches a small bounded set of files; the <code>--json</code> contract stays byte-stable.</p>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>P128 · cockpit-v33-data-model</h3>
+      <p>Stage-pipeline data model (6 named stages + owner/SLA/blocker). Additive keys to the <code>--json</code> contract.</p>
+      <p style="font-family:var(--mono);font-size:0.78rem;color:var(--ink-muted)">cockpit-sidecar.cjs · stage-pipeline.cjs (new)</p>
+      <div class="citation"><span class="chip operator">P3 OPERATOR</span><span class="chip substrate">P1 Brooks</span></div>
+    </div>
+    <div class="card">
+      <h3>P129 · band1-band2-terminal</h3>
+      <p>Rebuild <code>renderText</code> + <code>renderBrief</code> into 3-band terminal layout. Add sparkline rendering. Align alert palette to Primer 5-tier.</p>
+      <p style="font-family:var(--mono);font-size:0.78rem;color:var(--ink-muted)">cockpit-sidecar.cjs · sparkline.cjs (new) · alert-grammar.cjs (extend)</p>
+      <div class="citation"><span class="chip substrate">P5 P7 P17</span></div>
+    </div>
+    <div class="card">
+      <h3>P130 · band3-rationale</h3>
+      <p>Rationale layer pipeline: cascade-read CONTEXT.md / INTENT.md / SUMMARY.md. SUCCES self-test for the WHY panel.</p>
+      <p style="font-family:var(--mono);font-size:0.78rem;color:var(--ink-muted)">cockpit-sidecar.cjs · rationale.cjs (new)</p>
+      <div class="citation"><span class="chip canonical">P10 P11 P14</span></div>
+    </div>
+    <div class="card">
+      <h3>P131 · eli5-upgraded</h3>
+      <p>Munroe-constraint lint on ELI5 output. Common-words list. Duarte arc structure for the narration prompt.</p>
+      <p style="font-family:var(--mono);font-size:0.78rem;color:var(--ink-muted)">sgsd-codex-monitor.ps1 (ELI5 prompt) · eli5-lint.cjs (new)</p>
+      <div class="citation"><span class="chip canonical">P13 P14 P15</span></div>
+    </div>
+    <div class="card" style="border-color:var(--gold);background:linear-gradient(135deg, rgba(185,138,47,0.10), var(--paper-raised))">
+      <h3>P132 · localhost-live <span class="chip success" style="font-size:0.65rem;margin-left:0.4rem">NEW · PRIMARY SURFACE</span></h3>
+      <p>Node http server with SSE + <code>fs.watch</code> serving the 3-band cockpit as a live HTML SPA at <code>localhost:7777</code>. Reuses the v3.2 <code>--html</code> renderer + <code>sgsd-design-system.css</code>. DOM-diff updates only the cells that changed — no flicker. PowerShell monitor demoted to terminal fallback.</p>
+      <p style="font-family:var(--mono);font-size:0.78rem;color:var(--ink-muted)">serve.cjs (new) · client.js (new) · cockpit-sidecar.cjs (extract render) · start-cockpit-server.ps1 (new)</p>
+      <div class="citation"><span class="chip success">SSE · fs.watch · DOM-diff</span><span class="chip">~1-2s freshness</span></div>
+    </div>
+    <div class="card">
+      <h3>P133 · monitor-migration</h3>
+      <p>Apply keep/kill audit to <code>sgsd-codex-monitor.ps1</code> — port only what survives as the terminal <em>fallback</em>; rest off-stage. Lighter than originally scoped now that localhost HTML is primary.</p>
+      <p style="font-family:var(--mono);font-size:0.78rem;color:var(--ink-muted)">sgsd-codex-monitor.ps1 (light edit)</p>
+      <div class="citation"><span class="chip canonical">P16 P4 P8</span></div>
+    </div>
+    <div class="card">
+      <h3>P134 · conformance-promotion</h3>
+      <p>Promote v3.2 conformance advisory→binding. <strong>Now covers four surfaces:</strong> chronicle HTML, sidecar <code>--html</code>, localhost-live cockpit, terminal fallback.</p>
+      <p style="font-family:var(--mono);font-size:0.78rem;color:var(--ink-muted)">conformance-check.cjs · design-rules.json · self-tests</p>
+      <div class="citation"><span class="chip">v3.2 backlog inheritance</span></div>
+    </div>
+  </div>
+
+  <div class="callout success" style="margin-top:var(--space-6)">
+    <h4>Why P132 was inserted (2026-05-24 architectural amendment)</h4>
+    <p>The original 6-phase brief ended with monitor migration. After discussing primary-surface choice, the localhost HTML cockpit became the obvious lead: shares grammar with chronicle + sidecar <code>--html</code> (one design system, one conformance gate covers all four surfaces), avoids 100-line-of-PowerShell-per-panel extension cost, and v3.2's <code>--html</code> mode already does 60% of the work. Lag is not a concern at SGSD's grain — 1-2s SSE freshness is well below stage-transition rate (5s-30min). PowerShell monitor stays as terminal fallback during transition; P133 scope shrinks correspondingly.</p>
+  </div>
+</section>
+
+<!-- ACCEPTANCE TEST -->
+<section>
+  <div class="section-head">
+    <span class="kicker">Step 9 · The acceptance bar</span>
+    <h2>Five questions, ten seconds each.</h2>
+    <p class="lede">v3.3 is done when an operator can answer all five of these in ≤ 10 seconds, each, just by looking at the cockpit. No log-grepping. No window-switching. No tab-counting.</p>
+  </div>
+
+  <div class="grid">
+    <div class="card"><h4>Q1</h4><p><strong>Where are we right now?</strong></p><p style="color:var(--ink-muted);font-size:0.9rem">Band 1 NORTH STAR + Band 2 STAGE PIPELINE</p></div>
+    <div class="card"><h4>Q2</h4><p><strong>What's the one thing I should do?</strong></p><p style="color:var(--ink-muted);font-size:0.9rem">Band 1 DO NEXT</p></div>
+    <div class="card"><h4>Q3</h4><p><strong>Is anything blocking?</strong></p><p style="color:var(--ink-muted);font-size:0.9rem">Band 1 ALERT + Band 2 BLOCKED-BY</p></div>
+    <div class="card"><h4>Q4</h4><p><strong>Why does this phase matter?</strong></p><p style="color:var(--ink-muted);font-size:0.9rem">Band 3 WHY THIS PHASE</p></div>
+    <div class="card"><h4>Q5</h4><p><strong>What does this unlock?</strong></p><p style="color:var(--ink-muted);font-size:0.9rem">Band 2 UNLOCKS + Band 3 WHAT COULD BE</p></div>
+  </div>
+</section>
+
+<!-- OPEN QUESTIONS -->
+<section>
+  <div class="section-head">
+    <span class="kicker">Step 10 · Open</span>
+    <h2>Four things that need operator decision before P128 starts.</h2>
+  </div>
+
+  <div class="callout note">
+    <h4>Q-A · ORDER-PIPELINE-SPEC.pdf</h4>
+    <p>Point me at the file path so I read it before the stage-pipeline data model is locked. Likely formalizes the Project Clarity Suite 6-stage pattern. <span class="chip operator">unread</span></p>
+  </div>
+
+  <div class="callout">
+    <h4>Q-B · Ingest the 9 named books into VTP</h4>
+    <p>Without ingestion, future planning/research/chronicle/conformance can't cite passages. Recommended as parallel workstream during v3.3 planning so by P133 the conformance gate can lint against real book IDs, not canonical recall. <span class="chip">parallel</span></p>
+  </div>
+
+  <div class="callout warning">
+    <h4>Q-C · book_passages Qdrant — fetch failed</h4>
+    <p>11/11 enrichment queries to <code>vtp_search_book_passages</code> returned fetch failed while substrate hybrid worked. Separate infrastructure ticket — not blocking v3.3 scoping but should be filed. <span class="chip danger">infra</span></p>
+  </div>
+
+  <div class="callout">
+    <h4>Q-D · Are these the right 6 stage names?</h4>
+    <p>Default: <code>discuss → research → vtp-enrich → plan → execute → verify</code>. Matches <code>sgsd-orchestrate auto</code> but skips classifier, pattern-map, ATC, MUDA. Should those be stages (visible) or events-within-stages (extensions)? Default: events-within-stages, surfaced via Cockburn extensions. Confirm before P128.</p>
+  </div>
+</section>
+
+<!-- FOOTER / CITATIONS -->
+<footer>
+  <div class="section-head">
+    <h3>Citations &amp; provenance</h3>
+  </div>
+
+  <p><strong>VTP-substrate (indexed):</strong></p>
+  <ul>
+    <li id="cite-brooks">Brooks · <code>wiki/books/the-mythical-man-month.md</code> — sharp-edged 100% milestones</li>
+    <li id="cite-norman">Norman · <code>wiki/books/the-design-of-everyday-things-revised-and-expanded-edition.md</code> — feedback + ETA + 3-level cognition</li>
+    <li id="cite-krug">Krug · <code>wiki/books/don-t-make-me-think-revisited-...</code> + <code>wiki/research/krug-dont-make-me-think.md</code> — visual hierarchy + scannability</li>
+    <li id="cite-tufte">Tufte · <code>wiki/research/tufte-visual-display-data-density.md</code> — data-ink + sparklines + macro/micro</li>
+    <li id="cite-cockburn">Cockburn · <code>wiki/books/writing-effective-use-cases.md</code> — main success scenario + extensions</li>
+    <li id="cite-strategic">Vernon · <code>wiki/books/strategic-monoliths-and-microservices.md</code> — Miller's 7±2 + tacit knowledge transfer</li>
+    <li id="cite-sap">Bass et al · <code>wiki/books/software-architecture-in-practice.md</code> — rationale as first-class artifact</li>
+    <li id="cite-primer">GitHub Primer · <code>wiki/research/github-primer-design-system.md</code> — 5-tier functional colour</li>
+    <li id="cite-clarity"><strong>Operator's own pattern</strong> · <code>wiki/meetings/project-clarity-extraction.md</code> · Idea 0 (Project Clarity Suite) — 6-stage pipeline with SLA + named owner + blocker flag — strongest single hit in the entire enrichment</li>
+  </ul>
+
+  <p><strong>Canonical (operator folder, not yet indexed):</strong></p>
+  <ul>
+    <li id="cite-minto">Minto · <em>Pyramid Principle</em> — SCQA, governing thought, MECE</li>
+    <li id="cite-heath">Heath &amp; Heath · <em>Made to Stick</em> — SUCCES framework</li>
+    <li id="cite-roam">Roam · <em>Back of the Napkin</em> — 6×6 visual frames + SQVID</li>
+    <li id="cite-munroe">Munroe · <em>Thing Explainer</em> — common-words constraint</li>
+    <li id="cite-duarte">Duarte · <em>Resonate</em> — what-is / what-could-be arc</li>
+    <li id="cite-sullivan">Sullivan · <em>Simply Said</em> — audience-first + ≤10 words</li>
+    <li id="cite-knaflic">Knaflic · <em>Storytelling with Data: Let's Practice!</em> — declutter + highlight one thing</li>
+  </ul>
+
+  <p><strong>Operator spec (in folder, unread):</strong></p>
+  <ul>
+    <li>ORDER-PIPELINE-SPEC.pdf — formalises the Project Clarity Suite stages (presumed); needs file path</li>
+  </ul>
+
+  <p><strong>Predecessor SGSD artifacts:</strong></p>
+  <ul>
+    <li><code>.planning/milestones/v3.2/phases/124-cockpit-research-design/124-COCKPIT-DESIGN-SPEC.md</code> — locked predecessor</li>
+    <li><code>.planning/milestones/v3.2/SUMMARY.md</code> · lines 86-106 — DLB-12 design system + Connections + next-milestone seed</li>
+    <li><code>.planning/briefs/2026-05-24-cockpit-v3.3-assessment.md</code> — the markdown brief this page explains</li>
+    <li><code>.planning/metrics/vtp-routing-log.jsonl</code> — VTP routing log (triage + brainstorm enrichment dispatches, 2026-05-24)</li>
+  </ul>
+
+  <p style="margin-top:var(--space-6);font-size:0.8rem;color:var(--ink-soft)">
+    Generated 2026-05-24 · operator + Claude (Opus 4.7, 1M context) · explains
+    <code>.planning/briefs/2026-05-24-cockpit-v3.3-assessment.md</code>
+  </p>
+</footer>
+
+</main>
+</body>
+</html>
