@@ -1206,6 +1206,52 @@ const tests = [
       }
     }});
 
+    tests.push({ id: 'SAC-P140-01', run: () => {
+      const src = fs.readFileSync('super-gsd/tools/cockpit-sidecar/client.js', 'utf8');
+      for (const fn of ['renderArchitecture', 'renderMilestone']) {
+        assert.ok(new RegExp('function\\s+' + fn).test(src), `client.js missing function ${fn}`);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P140-02', run: async () => {
+      const result = await fetchRenderedDom();
+      const archMatches = (result.html.match(/class="[^"]*arch-node[^"]*"/g) || []).length;
+      assert.ok(archMatches >= 3, `expected >=3 arch-node elements in rendered DOM, got ${archMatches}`);
+    }});
+
+    tests.push({ id: 'SAC-P140-03', run: async () => {
+      const result = await fetchRenderedDom();
+      assert.ok(/class="[^"]*milestone-strip[^"]*"/.test(result.html), 'rendered DOM missing milestone-strip');
+      const cells = (result.html.match(/class="[^"]*ms-cell[^"]*"/g) || []).length;
+      assert.ok(cells >= 4, `expected >=4 ms-cell elements, got ${cells}`);
+    }});
+
+    tests.push({ id: 'SAC-P140-04', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, {
+        statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }),
+        state: { milestone: 'v3.2', phase: '127' },
+      });
+      assert.ok(Array.isArray(out.architecture.nodes) && out.architecture.nodes.length >= 3, `architecture.nodes >=3, got ${out.architecture.nodes.length}`);
+      assert.ok(Array.isArray(out.milestone_map.phases) && out.milestone_map.phases.length >= 4, `milestone_map.phases >=4, got ${out.milestone_map.phases.length}`);
+    }});
+
+    tests.push({ id: 'SAC-P140-05', run: () => {
+      const verdictPath = path.join('.planning', 'runtime', 'cockpit-smoke-140-verdict.json');
+      assert.ok(fs.existsSync(verdictPath), `browser-smoke verdict for P140 missing at ${verdictPath}`);
+      const v = JSON.parse(fs.readFileSync(verdictPath, 'utf8'));
+      assert.strictEqual(v.verdict, 'PASS', `P140 browser-smoke verdict = ${v.verdict}`);
+    }});
+
+    tests.push({ id: 'SAC-P140-06', run: () => {
+      // Witness — all prior SACs still present
+      const src = fs.readFileSync('super-gsd/tools/cockpit-sidecar/run-self-test.cjs', 'utf8');
+      for (const sac of ['SAC-P125-01','SAC-P132-06','SAC-P136-06','SAC-P137-08','SAC-P138-08','SAC-P139-09','SAC-P139-10']) {
+        assert.ok(src.includes(`id: '${sac}'`), `pre-P140 SAC removed: ${sac}`);
+      }
+    }});
+
     tests.push({ id: 'SAC-P138.5-01', run: () => {
       // Browser-smoke gate witness — the most-recent cockpit-touching phase MUST
       // have a verdict=PASS artifact at .planning/runtime/cockpit-smoke-<N>-verdict.json.

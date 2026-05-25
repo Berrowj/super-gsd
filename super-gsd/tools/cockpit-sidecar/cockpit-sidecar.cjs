@@ -822,17 +822,127 @@ function attachAgents(output) {
 }
 
 function attachArchitecture(output) {
-  output.architecture = { nodes: [], edges: [] };
+  // P140: derive a node+edge graph from the active phase's CONTEXT.md
+  // "Authoritative inputs" section + a default SGSD-flow chain.
+  const nodes = [];
+  const edges = [];
+  const defaults = [
+    { id: 'state',         kind: 'artefact', label: 'STATE.md',      x: 0, y: 0 },
+    { id: 'intent',        kind: 'artefact', label: 'INTENT.md',     x: 1, y: 0 },
+    { id: 'context',       kind: 'artefact', label: 'CONTEXT.md',    x: 2, y: 0 },
+    { id: 'plan',          kind: 'artefact', label: 'PLAN-LOCKED.md', x: 3, y: 0 },
+    { id: 'execute',       kind: 'actor',    label: 'execute',       x: 4, y: 0 },
+    { id: 'verification',  kind: 'sink',     label: 'VERIFICATION.md', x: 5, y: 0 },
+    { id: 'capsule',       kind: 'sink',     label: 'PHASE-CAPSULE.json', x: 6, y: 0 },
+  ];
+  for (const n of defaults) nodes.push(n);
+  const linearOrder = ['state', 'intent', 'context', 'plan', 'execute', 'verification', 'capsule'];
+  for (let i = 0; i < linearOrder.length - 1; i++) {
+    edges.push({ from: linearOrder[i], to: linearOrder[i + 1], kind: 'flow', viaX: null, viaY: null });
+  }
+  // Augment with phase-specific files from the active phase CONTEXT.md
+  try {
+    const milestone = output.milestone;
+    const phase = output.phase || (output.mission && output.mission.phase_id);
+    if (milestone && phase) {
+      const phaseDirRoot = path.join('.planning', 'milestones', milestone, 'phases');
+      const dirs = fs.readdirSync(phaseDirRoot);
+      const match = dirs.find((d) => d.startsWith(String(phase) + '-'));
+      if (match) {
+        const contextPath = path.join(phaseDirRoot, match, String(phase) + '-CONTEXT.md');
+        if (fs.existsSync(contextPath)) {
+          const text = fs.readFileSync(contextPath, 'utf8');
+          const inputsBlock = text.match(/##\s*Authoritative inputs\s*\n+([\s\S]*?)(?:\n##|\n$)/);
+          if (inputsBlock) {
+            const fileRefs = [...inputsBlock[1].matchAll(/`?([a-zA-Z0-9_./-]+\.(?:cjs|js|md|json|css|html|yaml|jsx))`?/g)]
+              .map((m) => m[1])
+              .filter((s, i, a) => a.indexOf(s) === i)
+              .slice(0, 6);
+            fileRefs.forEach((file, i) => {
+              const id = 'ph-' + i;
+              nodes.push({ id, kind: 'artefact', label: file.split('/').pop(), x: 0, y: i + 1 });
+              edges.push({ from: id, to: 'execute', kind: 'consumes', viaX: null, viaY: null });
+            });
+          }
+        }
+      }
+    }
+  } catch (_e) { /* fallback to defaults only */ }
+  output.architecture = { nodes, edges };
   return output;
 }
 
 function attachMilestoneMap(output) {
+  const milestone = output.milestone;
+  const currentPhase = String(output.phase || (output.mission && output.mission.phase_id) || '');
+  const milestones = [
+    { id: 'v3.2', label: 'v3.2', status: 'done',    focus: 'Operator comprehension' },
+    { id: 'v3.3', label: 'v3.3', status: 'done',    focus: 'Live contextual awareness' },
+    { id: 'v3.4', label: 'v3.4', status: 'active',  focus: 'Cockpit IA rewrite (light)' },
+    { id: 'v3.5', label: 'v3.5', status: 'pending', focus: 'Polish + tape sidebar' },
+  ];
+  let phases = [];
+  const details = {};
+  try {
+    if (milestone) {
+      const phaseDirRoot = path.join('.planning', 'milestones', milestone, 'phases');
+      const dirs = fs.readdirSync(phaseDirRoot)
+        .filter((d) => /^\d+(?:\.\d+)?-/.test(d))
+        .sort((a, b) => parseFloat(a) - parseFloat(b));
+      for (const dir of dirs) {
+        const idNum = dir.split('-')[0];
+        const capsulePath = path.join(phaseDirRoot, dir, 'PHASE-CAPSULE.json');
+        const contextPath = path.join(phaseDirRoot, dir, idNum + '-CONTEXT.md');
+        let status = 'pending';
+        let title = dir.replace(/^\d+(?:\.\d+)?-/, '').replace(/-/g, ' ');
+        if (fs.existsSync(capsulePath)) {
+          status = 'done';
+          try {
+            const cap = JSON.parse(fs.readFileSync(capsulePath, 'utf8'));
+            if (cap.phase_name) title = cap.phase_name;
+            details[idNum] = {
+              title,
+              eli5: '',
+              why: cap.goal || '',
+              context: '',
+              unlocks: (cap.downstream_contract && (cap.downstream_contract.consumers || []).join(', ')) || '',
+              outcome: cap.status || status,
+              files: cap.files || [],
+              duration: '',
+              owner: cap.created_by || '',
+            };
+          } catch (_e) { /* keep defaults */ }
+        } else if (fs.existsSync(contextPath)) {
+          status = 'active';
+          try {
+            const text = fs.readFileSync(contextPath, 'utf8');
+            const titleMatch = text.match(/^phase_name:\s*(.+)$/m);
+            if (titleMatch) title = titleMatch[1].trim();
+            const goalMatch = text.match(/##\s*Goal\s*\n+([\s\S]*?)(?:\n##|\n$)/);
+            details[idNum] = {
+              title,
+              eli5: '',
+              why: goalMatch ? goalMatch[1].trim().slice(0, 200) : '',
+              context: '',
+              unlocks: '',
+              outcome: 'in progress',
+              files: [],
+              duration: '',
+              owner: 'orchestrator',
+            };
+          } catch (_e) { /* keep defaults */ }
+        }
+        if (idNum === currentPhase) status = 'current';
+        phases.push({ id: idNum, label: 'P' + idNum, status, sub: title.slice(0, 40), current: idNum === currentPhase, note: null });
+      }
+    }
+  } catch (_e) { /* leave empty */ }
   output.milestone_map = {
-    milestones: [],
-    current: output.milestone || '',
-    phases: [],
-    unlocks: null,
-    details: {},
+    milestones,
+    current: milestone || '',
+    phases,
+    unlocks: (output.mission && output.mission.unlocks) || null,
+    details,
   };
   return output;
 }

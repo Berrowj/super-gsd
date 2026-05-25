@@ -132,6 +132,8 @@
     renderSecNav(snap);
     renderMission(snap);
     renderTelemetry(snap);
+    renderArchitecture(snap);
+    renderMilestone(snap);
     renderEvents(snap);
 
     // Band 1 + Band 2 are now owned by renderMission / renderTelemetry (P139).
@@ -488,6 +490,76 @@
           '<div class="scan-sub mono">' + c.sub + '</div>' +
         '</div>';
       }).join('');
+  }
+
+  function renderArchitecture(snapshot) {
+    const section = document.getElementById('sec-architecture');
+    if (!section) return;
+    section.style.display = '';
+    const arch = snapshot.architecture || { nodes: [], edges: [] };
+    const nodes = Array.isArray(arch.nodes) ? arch.nodes : [];
+    const edges = Array.isArray(arch.edges) ? arch.edges : [];
+    if (!nodes.length) {
+      const empty = '<div class="arch-empty mono">no architecture data</div>';
+      if (section.innerHTML !== empty) section.innerHTML = empty;
+      return;
+    }
+    const nodesHtml = nodes.map(function (n) {
+      const kind = escape(n.kind || 'artefact');
+      return '' +
+        '<div class="arch-node arch-kind-' + kind + '" data-id="' + escape(n.id) + '">' +
+          '<span class="arch-kind">' + kind + '</span>' +
+          '<span class="arch-label">' + escape(n.label || n.id) + '</span>' +
+        '</div>';
+    }).join('');
+    const edgesHtml = edges.map(function (e) {
+      return '<div class="arch-edge"><span class="arch-edge-from mono">' + escape(e.from) + '</span><span class="arch-edge-arrow">→</span><span class="arch-edge-to mono">' + escape(e.to) + '</span><span class="arch-edge-kind">' + escape(e.kind || 'flow') + '</span></div>';
+    }).join('');
+    const html =
+      '<div class="arch-pane">' +
+        '<div class="arch-nodes">' + nodesHtml + '</div>' +
+        '<div class="arch-edges">' + edgesHtml + '</div>' +
+      '</div>';
+    if (section.innerHTML !== html) section.innerHTML = html;
+  }
+
+  function renderMilestone(snapshot) {
+    const section = document.getElementById('sec-milestone');
+    if (!section) return;
+    const mm = snapshot.milestone_map || { milestones: [], phases: [], details: {} };
+    const stripHtml = (mm.milestones || []).map(function (m, i) {
+      const sep = i > 0 ? '<span class="ms-sep" aria-hidden="true">→</span>' : '';
+      return '' +
+        sep +
+        '<div class="ms-cell ms-' + escape(m.status) + '" data-id="' + escape(m.id) + '">' +
+          '<span class="ms-id">' + escape(m.label) + '</span>' +
+          '<span class="ms-focus">' + escape(m.focus || '') + '</span>' +
+          '<span class="ms-stat">' + escape(m.status) + '</span>' +
+        '</div>';
+    }).join('');
+    const phasesHtml = (mm.phases || []).map(function (p) {
+      const tier = p.status === 'done' ? 'done' : (p.status === 'current' ? 'live' : 'pending');
+      return '' +
+        '<div class="ms-phase tier-' + tier + '" data-id="' + escape(p.id) + '">' +
+          '<span class="ms-phase-id">' + escape(p.label) + '</span>' +
+          '<span class="ms-phase-sub">' + escape(p.sub || '') + '</span>' +
+          '<span class="ms-phase-stat">' + escape(p.status) + '</span>' +
+        '</div>';
+    }).join('');
+    const currentDetail = mm.details && mm.details[String(snapshot.phase || '')];
+    const detailHtml = currentDetail
+      ? '<div class="phase-detail-panel">' +
+          '<h3 class="pd-title">P' + escape(snapshot.phase) + ' · ' + escape(currentDetail.title || '') + '</h3>' +
+          '<p class="pd-why"><strong>Why:</strong> ' + escape(currentDetail.why || '') + '</p>' +
+          (currentDetail.unlocks ? '<p class="pd-unlocks"><strong>Unlocks:</strong> ' + escape(currentDetail.unlocks) + '</p>' : '') +
+          '<p class="pd-outcome"><strong>Outcome:</strong> ' + escape(currentDetail.outcome || '') + '</p>' +
+        '</div>'
+      : '';
+    const html =
+      '<div class="milestone-strip">' + stripHtml + '</div>' +
+      '<div class="milestone-phases">' + phasesHtml + '</div>' +
+      detailHtml;
+    if (section.innerHTML !== html) section.innerHTML = html;
   }
 
   function renderEvents(snapshot) {

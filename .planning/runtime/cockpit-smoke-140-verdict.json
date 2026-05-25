@@ -1,0 +1,87 @@
+{
+  "phase": "140",
+  "port": 59619,
+  "timestamp": "2026-05-25T01:03:27.029Z",
+  "checks": {
+    "server_healthy": {
+      "ok": true,
+      "detail": "server responded HTTP 200 on /snapshot"
+    },
+    "root_html_status": {
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    "root_html_doctype": {
+      "ok": true,
+      "detail": "<!doctype html>\n<html lang=\"en\">\n<head>\n"
+    },
+    "root_html_chrome_class": {
+      "ok": true,
+      "detail": "expected class=\"chrome\" header"
+    },
+    "root_html_scanbar": {
+      "ok": true,
+      "detail": "expected scanbar region"
+    },
+    "root_html_data_conn": {
+      "ok": true,
+      "detail": "expected data-conn=\"state\" placeholder"
+    },
+    "root_html_seven_sections": {
+      "ok": true,
+      "detail": "all 7 sections present"
+    },
+    "root_html_font_links": {
+      "ok": true,
+      "detail": "all 3 font links present"
+    },
+    "root_html_inline_light_palette": {
+      "ok": true,
+      "detail": "inline style must declare --page: #F6F7F4"
+    },
+    "root_html_no_dark_gradient": {
+      "ok": true,
+      "detail": "body must NOT carry dark navy gradient #08101c"
+    },
+    "client_js_status": {
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    "client_js_parses": {
+      "ok": true
+    },
+    "client_js_connstate": {
+      "ok": true,
+      "detail": "client.js must contain connState reconnect module"
+    },
+    "client_js_renderers": {
+      "ok": true,
+      "detail": "all 4 chrome renderers present"
+    },
+    "snapshot_status": {
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    "snapshot_json": {
+      "ok": true,
+      "detail": "keys: 27"
+    },
+    "sse_keepalive_count": {
+      "ok": true,
+      "detail": "1 keep-alive line(s) in 18s window"
+    },
+    "sse_first_keepalive_in_16s": {
+      "ok": true,
+      "detail": "first keep-alive at +15007ms"
+    }
+  },
+  "verdict": "PASS",
+  "sse_sample_lines": [
+    "event: snapshot",
+    "data: {\"milestone\":\"v3.4\",\"phase\":\"140\",\"generated_at\":\"2026-05-25T01:03:27.942Z\",\"latest_chronicle\":null,\"binding_gate_status\":null,\"fog_score\":{\"score\":100,\"tier\":\"high\",\"must_read_sections\":[\"summa",
+    ": keep-alive",
+    "event: snapshot",
+    "data: {\"milestone\":\"v3.4\",\"phase\":\"140\",\"generated_at\":\"2026-05-25T01:03:44.222Z\",\"latest_chronicle\":null,\"binding_gate_status\":null,\"fog_score\":{\"score\":100,\"tier\":\"high\",\"must_read_sections\":[\"summa"
+  ],
+  "html_artifact": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\runtime\\cockpit-smoke-140.html"
+}
