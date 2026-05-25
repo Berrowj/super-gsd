@@ -134,6 +134,8 @@
     renderTelemetry(snap);
     renderArchitecture(snap);
     renderMilestone(snap);
+    renderMemory(snap);
+    renderEvidence(snap);
     renderEvents(snap);
 
     // Band 1 + Band 2 are now owned by renderMission / renderTelemetry (P139).
@@ -559,6 +561,92 @@
       '<div class="milestone-strip">' + stripHtml + '</div>' +
       '<div class="milestone-phases">' + phasesHtml + '</div>' +
       detailHtml;
+    if (section.innerHTML !== html) section.innerHTML = html;
+  }
+
+  function renderMemory(snapshot) {
+    const section = document.getElementById('sec-memory');
+    if (!section) return;
+    const mg = snapshot.memory_graph || { sources: [] };
+    const lineage = snapshot.lineage || { steps: [] };
+    if (!mg.sources.length && !lineage.steps.length) {
+      const empty = '<div class="memory-empty mono">no memory entries yet</div>';
+      if (section.innerHTML !== empty) section.innerHTML = empty;
+      return;
+    }
+    const cardsHtml = (mg.sources || []).map(function (s) {
+      const type = escape(s.type || 'observation');
+      const valid = s.validation ? '<span class="mem-valid mem-valid-' + escape(s.validation) + '">' + escape(s.validation) + '</span>' : '';
+      return '' +
+        '<div class="memory-card mem-' + type + '" data-id="' + escape(s.id) + '">' +
+          '<header class="mem-head"><span class="mem-type">' + type + '</span><span class="mem-kind">' + escape(s.kind || '') + '</span>' + valid + '</header>' +
+          '<div class="mem-label">' + escape(s.label || '') + '</div>' +
+          '<div class="mem-detail mono">' + escape(s.detail || '') + '</div>' +
+        '</div>';
+    }).join('');
+    const lineageHtml = (lineage.steps || []).map(function (st, i) {
+      const sep = i > 0 ? '<span class="lin-sep" aria-hidden="true">→</span>' : '';
+      return sep + '<div class="lin-step lin-' + escape(st.type) + (st.terminal ? ' lin-terminal' : '') + '">' +
+        '<span class="lin-icon">' + escape(st.icon || '·') + '</span>' +
+        '<span class="lin-label">' + escape(st.label || '') + '</span>' +
+        '<span class="lin-stage mono">' + escape(st.stage || '') + '</span>' +
+      '</div>';
+    }).join('');
+    const html =
+      '<div class="memory-pane">' +
+        '<div class="memory-mesh">' + cardsHtml + '</div>' +
+        '<div class="lineage-chain"><span class="lin-title lbl">' + escape(lineage.title || 'Lineage') + '</span>' + lineageHtml + '</div>' +
+      '</div>';
+    if (section.innerHTML !== html) section.innerHTML = html;
+  }
+
+  function renderEvidence(snapshot) {
+    const section = document.getElementById('sec-evidence');
+    if (!section) return;
+    const gf = snapshot.gate_flow || { stages: [], atc_history: [], muda_probes: [] };
+    const ev = snapshot.evidence || { summary: {}, categories: [], unresolved: [] };
+    const stagesHtml = (gf.stages || []).map(function (s) {
+      const gates = (s.gates || []).map(function (g) {
+        const concept = g.concept ? '<span class="gate-concept gate-concept-' + escape(g.concept.toLowerCase()) + '">' + escape(g.concept) + '</span>' : '';
+        return '<div class="gate-row gate-' + escape(g.status) + '">' +
+          '<span class="gate-name mono">' + escape(g.name) + '</span>' +
+          concept +
+          '<span class="gate-detail">' + escape(g.detail || '') + '</span>' +
+        '</div>';
+      }).join('');
+      return '<div class="gate-stage gate-stage-' + escape(s.verdict) + '">' +
+        '<header class="gate-stage-head"><span class="gate-stage-name">' + escape(s.name) + '</span><span class="gate-stage-verdict">' + escape(s.verdict) + '</span></header>' +
+        '<div class="gate-stage-gates">' + gates + '</div>' +
+      '</div>';
+    }).join('');
+    const summary = ev.summary || { green: 0, warn: 0, fail: 0 };
+    const summaryHtml = '<div class="evidence-summary">' +
+      '<span class="es-green">' + (summary.green || 0) + ' green</span>' +
+      '<span class="es-warn">' + (summary.warn || 0) + ' warn</span>' +
+      '<span class="es-fail">' + (summary.fail || 0) + ' fail</span>' +
+    '</div>';
+    const cardsHtml = (ev.categories || []).map(function (c) {
+      const itemsHtml = (c.items || []).slice(0, 6).map(function (it) {
+        return '<li class="ec-item ec-' + escape(it.status) + '"><span class="ec-code mono">' + escape(it.code) + '</span><span class="ec-detail">' + escape(it.detail) + '</span></li>';
+      }).join('');
+      return '<div class="evidence-card">' +
+        '<header class="ec-head">' + escape(c.name) + '</header>' +
+        '<ul class="ec-list">' + itemsHtml + '</ul>' +
+      '</div>';
+    }).join('');
+    const mudaHtml = '<div class="muda-probes">' +
+      '<span class="lbl">MUDA waste audit</span>' +
+      (gf.muda_probes || []).map(function (p) {
+        return '<span class="muda-probe muda-' + escape(p.status) + '" title="' + escape(p.detail || '') + '">' + escape(p.name) + '</span>';
+      }).join('') +
+    '</div>';
+    const html =
+      '<div class="evidence-pane">' +
+        '<div class="gate-flow">' + stagesHtml + '</div>' +
+        summaryHtml +
+        '<div class="evidence-cards">' + cardsHtml + '</div>' +
+        mudaHtml +
+      '</div>';
     if (section.innerHTML !== html) section.innerHTML = html;
   }
 

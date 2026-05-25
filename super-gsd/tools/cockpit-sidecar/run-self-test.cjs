@@ -1252,6 +1252,52 @@ const tests = [
       }
     }});
 
+    tests.push({ id: 'SAC-P141-01', run: () => {
+      const src = fs.readFileSync('super-gsd/tools/cockpit-sidecar/client.js', 'utf8');
+      for (const fn of ['renderMemory', 'renderEvidence']) {
+        assert.ok(new RegExp('function\\s+' + fn).test(src), `client.js missing function ${fn}`);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P141-02', run: async () => {
+      const result = await fetchRenderedDom();
+      const cards = (result.html.match(/class="[^"]*memory-card[^"]*"/g) || []).length;
+      assert.ok(cards >= 3, `expected >=3 memory-card elements, got ${cards}`);
+    }});
+
+    tests.push({ id: 'SAC-P141-03', run: async () => {
+      const result = await fetchRenderedDom();
+      const stages = (result.html.match(/class="[^"]*gate-stage[^"]*"/g) || []).length;
+      assert.ok(stages >= 5, `expected >=5 gate-stage elements, got ${stages}`);
+      const ec = (result.html.match(/class="[^"]*evidence-card[^"]*"/g) || []).length;
+      assert.ok(ec >= 1, `expected >=1 evidence-card, got ${ec}`);
+    }});
+
+    tests.push({ id: 'SAC-P141-04', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, {
+        statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }),
+        state: { milestone: 'v3.2', phase: '127' },
+      });
+      assert.ok(out.memory_graph.sources.length >= 3, `memory_graph.sources >=3, got ${out.memory_graph.sources.length}`);
+      assert.strictEqual(out.gate_flow.stages.length, 5, `gate_flow.stages.length === 5, got ${out.gate_flow.stages.length}`);
+    }});
+
+    tests.push({ id: 'SAC-P141-05', run: () => {
+      const verdictPath = path.join('.planning', 'runtime', 'cockpit-smoke-141-verdict.json');
+      assert.ok(fs.existsSync(verdictPath), `browser-smoke verdict for P141 missing at ${verdictPath}`);
+      const v = JSON.parse(fs.readFileSync(verdictPath, 'utf8'));
+      assert.strictEqual(v.verdict, 'PASS', `P141 browser-smoke verdict = ${v.verdict}`);
+    }});
+
+    tests.push({ id: 'SAC-P141-06', run: () => {
+      const src = fs.readFileSync('super-gsd/tools/cockpit-sidecar/run-self-test.cjs', 'utf8');
+      for (const sac of ['SAC-P125-01','SAC-P132-06','SAC-P136-06','SAC-P137-08','SAC-P138-08','SAC-P139-09','SAC-P140-05']) {
+        assert.ok(src.includes(`id: '${sac}'`), `pre-P141 SAC removed: ${sac}`);
+      }
+    }});
+
     tests.push({ id: 'SAC-P138.5-01', run: () => {
       // Browser-smoke gate witness — the most-recent cockpit-touching phase MUST
       // have a verdict=PASS artifact at .planning/runtime/cockpit-smoke-<N>-verdict.json.

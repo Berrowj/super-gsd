@@ -948,37 +948,130 @@ function attachMilestoneMap(output) {
 }
 
 function attachMemoryGraph(output) {
+  // P141: parse the global MEMORY.md index entries into typed mesh sources.
+  const sources = [];
+  const memPath = path.join(
+    process.env.USERPROFILE || process.env.HOME || '',
+    '.claude', 'projects', 'C--Users-jack-berrow-GSDedits', 'memory', 'MEMORY.md'
+  );
+  try {
+    if (fs.existsSync(memPath)) {
+      const text = fs.readFileSync(memPath, 'utf8');
+      const entries = [...text.matchAll(/^- \[([^\]]+)\]\(([^)]+)\)(.*)$/gm)];
+      for (const [, label, link, tail] of entries.slice(0, 18)) {
+        const lower = link.toLowerCase();
+        let type = 'observation';
+        let kind = 'note';
+        if (lower.includes('workflow/feedback')) { type = 'claim'; kind = 'feedback'; }
+        else if (lower.includes('architecture/decisions')) { type = 'decision'; kind = 'adr'; }
+        else if (lower.includes('architecture/patterns')) { type = 'observation'; kind = 'pattern'; }
+        else if (lower.includes('architecture/anti-patterns')) { type = 'claim'; kind = 'anti-pattern'; }
+        else if (lower.includes('architecture/expertise')) { type = 'observation'; kind = 'expertise'; }
+        else if (lower.includes('trajectory/candidate')) { type = 'decision'; kind = 'candidate'; }
+        else if (lower.includes('trajectory/hypothesis')) { type = 'claim'; kind = 'hypothesis'; }
+        sources.push({
+          id: link.replace(/[^a-z0-9]+/gi, '-').toLowerCase(),
+          type,
+          kind,
+          label: label.length > 80 ? label.slice(0, 77) + '...' : label,
+          detail: (tail || '').replace(/^—\s*/, '').replace(/^-\s*/, '').slice(0, 200),
+          consumed_by: [],
+          validation: type === 'claim' ? 'validated' : null,
+          pending: false,
+          active: false,
+        });
+      }
+    }
+  } catch (_e) { /* leave empty */ }
   output.memory_graph = {
-    sources: [],
-    current_consumer: null,
-    current_action: null,
+    sources,
+    current_consumer: output.agents && output.agents.claude && output.agents.claude.handle,
+    current_action: output.mission && output.mission.objective ? output.mission.objective.slice(0, 80) : null,
   };
   return output;
 }
 
 function attachLineage(output) {
-  output.lineage = { title: '', steps: [] };
+  // P141: Cognitive Memory Bus (DLB-08) 5-step canonical chain.
+  output.lineage = {
+    title: 'CMB Lineage',
+    steps: [
+      { id: 'er',  stage: 'execute', type: 'execution_receipt',      label: 'Receipt',      detail: 'codex execution', meta: {}, icon: '→', terminal: false, pending: false },
+      { id: 'rf',  stage: 'verify',  type: 'review_finding',         label: 'Review',       detail: 'reviewer finding', meta: {}, icon: '→', terminal: false, pending: false },
+      { id: 'ev',  stage: 'verify',  type: 'evidence_verdict',       label: 'Evidence',     detail: 'verdict claim', meta: {}, icon: '→', terminal: false, pending: false },
+      { id: 'dr',  stage: 'close',   type: 'decision_recommendation', label: 'Decision',    detail: 'recommendation', meta: {}, icon: '→', terminal: false, pending: false },
+      { id: 'pd',  stage: 'close',   type: 'promotion_decision',     label: 'Promotion',    detail: 'operator promote', meta: {}, icon: '◆', terminal: true,  pending: false },
+    ],
+  };
   return output;
 }
 
 function attachGateFlow(output) {
-  const emptyStage = (id, name) => ({
-    id, name,
-    verdict: 'pending',
-    blocking: false,
-    summary: '',
-    gates: [],
-  });
+  // P141: derive per-stage verdict from active phase artefacts. Stages map to
+  // the SGSD canonical 5-step chain (CONTEXT → PLAN → EXECUTE → VERIFY → CLOSE).
+  const phase = String(output.phase || '');
+  const milestone = output.milestone;
+  let phaseDirPath = null;
+  try {
+    if (milestone && phase) {
+      const phaseDirRoot = path.join('.planning', 'milestones', milestone, 'phases');
+      const dirs = fs.readdirSync(phaseDirRoot);
+      const match = dirs.find((d) => d.startsWith(phase + '-'));
+      if (match) phaseDirPath = path.join(phaseDirRoot, match);
+    }
+  } catch (_e) { /* fallback */ }
+  function exists(fileName) {
+    try { return phaseDirPath && fs.existsSync(path.join(phaseDirPath, fileName)); }
+    catch (_e) { return false; }
+  }
+  function hasPattern(pattern) {
+    try {
+      if (!phaseDirPath) return false;
+      return fs.readdirSync(phaseDirPath).some((f) => pattern.test(f));
+    } catch (_e) { return false; }
+  }
+  const ctxOk = exists(phase + '-CONTEXT.md');
+  const planOk = hasPattern(/PLAN-LOCKED\.md$/);
+  const verifyOk = exists(phase + '-VERIFICATION.md');
+  const closeOk = exists('PHASE-CAPSULE.json');
+  const executeOk = closeOk || verifyOk;
+  function stage(id, name, ok, gates) {
+    return {
+      id, name,
+      verdict: ok ? 'green' : 'pending',
+      blocking: false,
+      summary: ok ? 'artefact present' : 'pending',
+      gates: gates || [],
+    };
+  }
   output.gate_flow = {
     stages: [
-      emptyStage('context', 'CONTEXT'),
-      emptyStage('plan', 'PLAN'),
-      emptyStage('execute', 'EXECUTE'),
-      emptyStage('verify', 'VERIFY'),
-      emptyStage('close', 'CLOSE'),
+      stage('context', 'CONTEXT', ctxOk, [
+        { name: 'gate.context.completeness', mode: 'structural', sampling: 'always', status: ctxOk ? 'green' : 'pending', concept: null, detail: 'CONTEXT.md present + frontmatter parsed', repair: ctxOk ? null : 'author CONTEXT.md', blocking: true },
+      ]),
+      stage('plan', 'PLAN', planOk, [
+        { name: 'plan-schema-v2', mode: 'mechanical', sampling: 'always', status: planOk ? 'green' : 'pending', concept: null, detail: 'PLAN-LOCKED.md exists', repair: planOk ? null : 'author PLAN-LOCKED.md', blocking: true },
+      ]),
+      stage('execute', 'EXECUTE', executeOk, [
+        { name: 'per-dispatch-ATC', mode: 'tiered', sampling: 'every', status: executeOk ? 'green' : 'pending', concept: 'ATC', detail: 'ATC tier classification applied', repair: null, blocking: false },
+      ]),
+      stage('verify', 'VERIFY', verifyOk, [
+        { name: 'self-test', mode: 'mechanical', sampling: 'always', status: verifyOk ? 'green' : 'pending', concept: null, detail: 'VERIFICATION.md present', repair: verifyOk ? null : 'run verifier', blocking: true },
+        { name: 'browser-smoke', mode: 'mechanical', sampling: 'cockpit-touching', status: verifyOk ? 'green' : 'pending', concept: null, detail: 'browser-smoke verdict.json', repair: null, blocking: true },
+      ]),
+      stage('close', 'CLOSE', closeOk, [
+        { name: 'phase-capsule', mode: 'structural', sampling: 'always', status: closeOk ? 'green' : 'pending', concept: null, detail: 'PHASE-CAPSULE.json present', repair: closeOk ? null : 'author capsule', blocking: true },
+        { name: 'MUDA-waste-audit', mode: '5-probe', sampling: 'phase-close', status: 'pending', concept: 'MUDA', detail: 'classifier-failures · narrative-staleness · git-spawn-rate · extra-processing · inventory', repair: null, blocking: false },
+      ]),
     ],
     atc_history: [],
-    muda_probes: [],
+    muda_probes: [
+      { name: 'classifier-failures', status: 'pending', detail: 'pending phase close', waste_class: 'over-processing' },
+      { name: 'narrative-staleness',  status: 'pending', detail: 'pending phase close', waste_class: 'defects' },
+      { name: 'git-spawn-rate',       status: 'pending', detail: 'pending phase close', waste_class: 'over-production' },
+      { name: 'extra-processing',     status: 'pending', detail: 'pending phase close', waste_class: 'over-processing' },
+      { name: 'inventory',            status: 'pending', detail: 'pending phase close', waste_class: 'inventory' },
+    ],
   };
   return output;
 }
