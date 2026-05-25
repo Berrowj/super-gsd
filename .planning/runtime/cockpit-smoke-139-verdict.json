@@ -1,7 +1,7 @@
 {
   "phase": "139",
-  "port": 59212,
-  "timestamp": "2026-05-25T00:33:02.985Z",
+  "port": 50825,
+  "timestamp": "2026-05-25T00:52:25.489Z",
   "checks": {
     "server_healthy": {
       "ok": true,
@@ -72,13 +72,13 @@
     },
     "sse_first_keepalive_in_16s": {
       "ok": true,
-      "detail": "first keep-alive at +15007ms"
+      "detail": "first keep-alive at +15015ms"
     }
   },
   "verdict": "PASS",
   "sse_sample_lines": [
     "event: snapshot",
-    "data: {\"milestone\":\"v3.4\",\"phase\":\"139\",\"generated_at\":\"2026-05-25T00:33:03.384Z\",\"latest_chronicle\":null,\"binding_gate_status\":null,\"fog_score\":{\"score\":100,\"tier\":\"high\",\"must_read_sections\":[\"summa",
+    "data: {\"milestone\":\"v3.4\",\"phase\":\"139\",\"generated_at\":\"2026-05-25T00:52:26.154Z\",\"latest_chronicle\":null,\"binding_gate_status\":null,\"fog_score\":{\"score\":100,\"tier\":\"high\",\"must_read_sections\":[\"summa",
     ": keep-alive"
   ],
   "html_artifact": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\runtime\\cockpit-smoke-139.html"

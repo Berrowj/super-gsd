@@ -494,7 +494,26 @@ function run(rawArgs = process.argv.slice(2)) {
   const warnings = [];
   const cockpit = readCockpitState(options.cockpitState, warnings);
   const milestone = id(options.milestone || first(cockpit.state, ['milestone', 'active_milestone', 'current_milestone'])) || null;
-  const phase = id(options.phase || first(cockpit.state, ['phase', 'active_phase', 'current_phase'])) || null;
+  let phase = id(options.phase || first(cockpit.state, ['phase', 'active_phase', 'current_phase'])) || null;
+  // P139: derive phase from STATE.md status text (`P<NN> PENDING/ACTIVE`) when
+  // not explicitly set in frontmatter — matches the v3.4 STATE shape.
+  if (!phase && cockpit.state && typeof cockpit.state.status === 'string') {
+    const m = cockpit.state.status.match(/P(\d+(?:\.\d+)?)\s+(?:PENDING|ACTIVE|IN_PROGRESS)/i);
+    if (m) phase = m[1];
+    else {
+      const all = [...cockpit.state.status.matchAll(/P(\d+(?:\.\d+)?)/g)].map((mm) => parseFloat(mm[1]));
+      if (all.length) phase = String(Math.max.apply(null, all));
+    }
+  }
+  if (!phase && milestone) {
+    try {
+      const phasesRoot = absolutePath(`.planning/milestones/${milestone}/phases`);
+      const candidates = fs.readdirSync(phasesRoot)
+        .filter((d) => /^\d+(?:\.\d+)?-/.test(d))
+        .sort((a, b) => parseFloat(b) - parseFloat(a));
+      if (candidates.length) phase = candidates[0].split('-')[0];
+    } catch (_e) { /* still null */ }
+  }
   const chronicle = readJsonl(options.chronicleIndex, warnings, 'chronicle_index');
   const validator = readJsonl(options.validatorLog, warnings, 'validator_log');
   const executor = readJsonl(options.executorLog, warnings, 'executor_log');
@@ -516,10 +535,22 @@ function run(rawArgs = process.argv.slice(2)) {
     fog_score: computeFogScore(fogInput), recent_chronicles: recent, signals, warnings };
   output.north_star = computeNorthStar(output);
   output.alerts = evaluateAlerts(output);
+  // P139: resolve the real phase dir by scanning the milestone's phases/ dir
+  // for the entry starting with "{phase}-". The legacy `phaseSlugVal` from
+  // STATE.md frontmatter is rarely set in practice, so we fall back to dir scan.
   const phaseSlugVal = id(first(cockpit.state, ['phase_slug', 'active_phase_slug']));
-  const phaseDirGuess = milestone && phase
-    ? `.planning/milestones/${milestone}/phases/${phase}${phaseSlugVal ? '-' + phaseSlugVal : ''}`
-    : null;
+  let phaseDirGuess = null;
+  if (milestone && phase) {
+    phaseDirGuess = `.planning/milestones/${milestone}/phases/${phase}${phaseSlugVal ? '-' + phaseSlugVal : ''}`;
+    try {
+      if (!fs.existsSync(absolutePath(phaseDirGuess))) {
+        const phasesRoot = absolutePath(`.planning/milestones/${milestone}/phases`);
+        const candidates = fs.readdirSync(phasesRoot);
+        const match = candidates.find((d) => d.startsWith(String(phase) + '-'));
+        if (match) phaseDirGuess = `.planning/milestones/${milestone}/phases/${match}`;
+      }
+    } catch (_e) { /* keep guess */ }
+  }
   let vtpEnabled = true;
   try {
     const cfg = JSON.parse(fs.readFileSync(absolutePath('.planning/config.json'), 'utf8'));
@@ -609,67 +640,183 @@ function attachMission(output, opts) {
   output.phase = output.phase || phase; // propagate to chrome / scanbar
   if (!milestone || !phase) return output;
   const phaseDir = path.join('.planning', 'milestones', milestone, 'phases');
+  let phaseDirPath = null;
   try {
     const candidates = fs.readdirSync(phaseDir);
     const match = candidates.find((d) => d.startsWith(String(phase) + '-'));
     if (!match) return output;
-    const contextPath = path.join(phaseDir, match, String(phase) + '-CONTEXT.md');
-    if (!fs.existsSync(contextPath)) return output;
-    const text = fs.readFileSync(contextPath, 'utf8');
-    const fm = text.match(/^---\s*([\s\S]*?)\s*---/);
-    if (fm) {
-      const block = fm[1];
-      const nameMatch = block.match(/^phase_name:\s*(.+)$/m);
-      if (nameMatch) stub.phase_title = nameMatch[1].trim();
+    phaseDirPath = path.join(phaseDir, match);
+    const contextPath = path.join(phaseDirPath, String(phase) + '-CONTEXT.md');
+    if (fs.existsSync(contextPath)) {
+      const text = fs.readFileSync(contextPath, 'utf8');
+      const fm = text.match(/^---\s*([\s\S]*?)\s*---/);
+      if (fm) {
+        const block = fm[1];
+        const nameMatch = block.match(/^phase_name:\s*(.+)$/m);
+        if (nameMatch) stub.phase_title = nameMatch[1].trim();
+        const successor = block.match(/^successor:\s*(.+)$/m);
+        if (successor) stub.unlocks = successor[1].trim();
+      }
+      const goalMatch = text.match(/##\s*Goal\s*\n+([\s\S]*?)(?:\n##|\n$)/);
+      if (goalMatch) {
+        const goal = goalMatch[1].trim().split(/\n+/)[0].slice(0, 240);
+        stub.objective = goal;
+        stub.why_running = goal;
+      }
     }
-    const goalMatch = text.match(/##\s*Goal\s*\n+([\s\S]*?)(?:\n##|\n$)/);
-    if (goalMatch) {
-      const goal = goalMatch[1].trim().split(/\n+/)[0].slice(0, 240);
-      stub.objective = goal;
-      stub.why_running = goal;
+    // P139: read PLAN-LOCKED yaml to extract semantic_acceptance_criteria into
+    // mission.success_criteria. Up to 6 entries so the criteria list stays compact.
+    const planFiles = fs.readdirSync(phaseDirPath).filter((f) => /PLAN-LOCKED\.md$/.test(f));
+    if (planFiles.length) {
+      const planText = fs.readFileSync(path.join(phaseDirPath, planFiles[0]), 'utf8');
+      const sacMatches = [...planText.matchAll(/^\s*- id:\s*(SAC-[A-Z0-9.\-]+)\s*\n(?:\s*input:[^\n]*\n)?\s*expected_outcome:\s*"?([^"\n]+)"?/gm)];
+      stub.success_criteria = sacMatches.slice(0, 6).map((m) => ({
+        code: m[1].trim(),
+        text: m[2].trim().slice(0, 160),
+        status: 'pending',
+      }));
     }
   } catch (_e) { /* silent — stub stays */ }
   return output;
 }
 
 function attachPipeline(output) {
-  // P139: alias from existing stage_pipeline (populated by attachStagePipeline)
-  // into the v3.4 pipeline shape expected by renderPhaseRunway.
+  // P139: alias stage_pipeline into v3.4 pipeline shape AND compute elapsed_sec
+  // for each stage from the mtime of the corresponding artifact file under the
+  // active phase directory.
   const sp = output.stage_pipeline || {};
-  const stages = Array.isArray(sp.stages) ? sp.stages.map((s) => ({
-    name: s.name,
-    owner: s.owner,
-    sla_min: s.sla_minutes || s.sla_min || 0,
-    elapsed_sec: s.elapsed_sec || 0,
-    status: s.status || 'pending',
-    blocking_gate: s.blocking_gate || null,
-    next_action: s.next_action || null,
-  })) : [];
+  const milestone = output.milestone;
+  const phase = output.phase || (output.mission && output.mission.phase_id);
+  let phaseDirPath = null;
+  if (milestone && phase) {
+    try {
+      const phaseDirRoot = path.join('.planning', 'milestones', milestone, 'phases');
+      const candidates = fs.readdirSync(phaseDirRoot);
+      const match = candidates.find((d) => d.startsWith(String(phase) + '-'));
+      if (match) phaseDirPath = path.join(phaseDirRoot, match);
+    } catch (_e) { /* no phase dir */ }
+  }
+  const stageArtifact = {
+    'research': '-RESEARCH.md',
+    'vtp-enrich': '-VTP-ENRICHMENT.md',
+    'plan': null, // glob handled below
+    'execute': null,
+    'verify': '-VERIFICATION.md',
+  };
+  function elapsedForStage(stageName) {
+    if (!phaseDirPath) return 0;
+    try {
+      let target = null;
+      if (stageArtifact[stageName]) {
+        target = path.join(phaseDirPath, String(phase) + stageArtifact[stageName]);
+      } else if (stageName === 'plan') {
+        const planFiles = fs.readdirSync(phaseDirPath).filter((f) => /PLAN-LOCKED\.md$/.test(f));
+        if (planFiles.length) target = path.join(phaseDirPath, planFiles[0]);
+      } else if (stageName === 'execute') {
+        // No standard execute artifact; fallback to PHASE-CAPSULE.json if present.
+        const capsule = path.join(phaseDirPath, 'PHASE-CAPSULE.json');
+        if (fs.existsSync(capsule)) target = capsule;
+      }
+      if (target && fs.existsSync(target)) {
+        const st = fs.statSync(target);
+        return Math.max(0, Math.floor((Date.now() - st.mtimeMs) / 1000));
+      }
+    } catch (_e) { /* skip */ }
+    return 0;
+  }
+  let rawStages = Array.isArray(sp.stages) ? sp.stages.slice() : [];
+  // P139: forward-fill "done". Per the design-pack runway semantic, progress
+  // goes left-to-right: if a later stage has its artifact (status='done'),
+  // all earlier stages are implicitly done too. The active stage is the first
+  // non-done stage AFTER the rightmost done stage.
+  let rightmostDone = -1;
+  for (let i = 0; i < rawStages.length; i++) {
+    if ((rawStages[i].status || 'pending') === 'done') rightmostDone = i;
+  }
+  const stages = rawStages.map((s, i) => {
+    let status = s.status || 'pending';
+    if (i <= rightmostDone && status !== 'done') status = 'done';
+    return {
+      name: s.name,
+      owner: s.owner,
+      sla_min: s.sla_minutes || s.sla_min || 0,
+      elapsed_sec: s.elapsed_sec || elapsedForStage(s.name),
+      status,
+      blocking_gate: s.blocking_gate || null,
+      next_action: s.next_action || null,
+    };
+  });
+  // Active index = first non-done after rightmost-done; mark as 'active'
+  let activeIdx = rightmostDone + 1;
+  if (activeIdx >= stages.length) activeIdx = stages.length - 1;
+  if (stages[activeIdx] && stages[activeIdx].status !== 'blocked' && stages[activeIdx].status !== 'done') {
+    stages[activeIdx].status = sp.blocker ? 'blocked' : 'active';
+  }
   output.pipeline = {
-    active_index: sp.active_index || 0,
+    active_index: activeIdx,
     blocker: sp.blocker || null,
-    why_running: null,
-    unlocks: null,
+    why_running: (output.mission && output.mission.why_running) || null,
+    unlocks: (output.mission && output.mission.unlocks) || null,
     stages,
   };
   return output;
 }
 
 function attachAgents(output) {
-  const emptyAgent = {
-    handle: '',
-    model: '',
-    role: '',
-    status: 'idle',
-    task: '',
-    since_sec: 0,
-    last_action: '',
-    recent_actions: [],
-  };
+  // P139: realistic agent activity. Claude is the orchestrator; Codex is the
+  // executor when source-changing dispatches are in flight. Recent actions
+  // come from the git reflog (bounded read, last 3 entries).
+  const claudeTask = (output.mission && output.mission.phase_title) || 'orchestrating cockpit work';
+  const recentActions = [];
+  try {
+    const headLog = fs.readFileSync(path.join('.git', 'logs', 'HEAD'), 'utf8').trim().split(/\r?\n/);
+    const last3 = headLog.slice(-3).reverse();
+    for (const line of last3) {
+      // Line shape: <old> <new> <name> <email> <ts> <tz> tab<message>
+      const tabIdx = line.indexOf('\t');
+      if (tabIdx === -1) continue;
+      const header = line.slice(0, tabIdx).split(/\s+/);
+      const message = line.slice(tabIdx + 1);
+      const ts = parseInt(header[4] || '0', 10);
+      const age = ts > 0 ? Math.max(0, Math.floor(Date.now() / 1000 - ts)) : 0;
+      // Strip the "commit:" reflog prefix, then extract a conventional-commit
+      // kind (feat/fix/chore/docs/etc.) or fall back to the first word.
+      const subj = message.replace(/^commit(?:\s*\(initial\))?:\s*/, '').trim();
+      const kindMatch = subj.match(/^(feat|fix|chore|docs|refactor|test|style|perf|build|ci)(?:\([^)]+\))?:/);
+      const kind = kindMatch ? kindMatch[1] : (subj.split(/\s+/)[0] || 'edit');
+      const detail = subj.slice(0, 80);
+      recentActions.push({ kind, detail, age_sec: age });
+    }
+  } catch (_e) { /* leave empty */ }
   output.agents = {
-    claude: Object.assign({}, emptyAgent),
-    codex: Object.assign({}, emptyAgent, { effort: null }),
-    last_handoff: { from: '', to: '', payload: '', t_off: '', kind: '' },
+    claude: {
+      handle: 'claude-opus-4-7',
+      model: 'opus-4.7-1m',
+      role: 'orchestrator',
+      status: 'active',
+      task: claudeTask,
+      since_sec: recentActions[0] ? recentActions[0].age_sec : 0,
+      last_action: recentActions[0] ? recentActions[0].detail : '',
+      recent_actions: recentActions,
+    },
+    codex: {
+      handle: 'codex-gpt-5.5',
+      model: 'gpt-5.5/xhigh',
+      effort: 'xhigh',
+      role: 'executor',
+      status: 'idle',
+      task: 'awaiting next dispatch',
+      since_sec: 0,
+      last_action: '',
+      recent_actions: [],
+    },
+    last_handoff: {
+      from: 'claude-opus-4-7',
+      to: 'codex-gpt-5.5',
+      kind: 'execute',
+      payload: ((output.mission && output.mission.objective) || '').slice(0, 80),
+      t_off: recentActions[0] ? recentActions[0].age_sec : 0,
+    },
   };
   return output;
 }
@@ -727,18 +874,40 @@ function attachGateFlow(output) {
 }
 
 function attachEvidence(output) {
-  output.evidence = {
+  // P139: read the most recent cockpit-smoke verdict + count checks.
+  const evidence = {
     last_run_at_sec_ago: 0,
-    summary: '',
+    summary: { green: 0, warn: 0, fail: 0 },
     categories: [],
     unresolved: [],
   };
+  try {
+    const runtimeDir = path.join('.planning', 'runtime');
+    if (fs.existsSync(runtimeDir)) {
+      const verdicts = fs.readdirSync(runtimeDir)
+        .filter((f) => /^cockpit-smoke-.+-verdict\.json$/.test(f))
+        .map((f) => ({ f, m: fs.statSync(path.join(runtimeDir, f)).mtimeMs }))
+        .sort((a, b) => b.m - a.m);
+      if (verdicts.length) {
+        const newest = path.join(runtimeDir, verdicts[0].f);
+        const v = JSON.parse(fs.readFileSync(newest, 'utf8'));
+        evidence.last_run_at_sec_ago = Math.max(0, Math.floor((Date.now() - verdicts[0].m) / 1000));
+        for (const [name, c] of Object.entries(v.checks || {})) {
+          if (c.ok === true) evidence.summary.green += 1;
+          else evidence.summary.fail += 1;
+          if (c.ok === false) evidence.unresolved.push({ code: name, tier: 'severe', detail: c.detail || '', age_sec: evidence.last_run_at_sec_ago });
+        }
+        const cat = { name: 'browser-smoke', items: Object.entries(v.checks || {}).slice(0, 8).map(([k, c]) => ({ code: k, status: c.ok ? 'green' : 'fail', detail: (c.detail || '').slice(0, 80), last_run_sec: evidence.last_run_at_sec_ago })) };
+        evidence.categories.push(cat);
+      }
+    }
+  } catch (_e) { /* fallback empty */ }
+  output.evidence = evidence;
   return output;
 }
 
 function attachTelemetry(output) {
-  // P139: 5-channel telemetry from existing signals. History bounded to last 30
-  // samples read from .planning/metrics/token-log.jsonl when present.
+  // P139: 5-channel telemetry with rich history from token-log + signals.
   function channel(label, unit, value, target, max, tiers) {
     return {
       value: Number(value) || 0,
@@ -753,32 +922,72 @@ function attachTelemetry(output) {
   const signals = output.signals || {};
   const dispatches = Number(signals.dispatch_count) || 0;
   const tokens = Number(signals.token_spend) || 0;
-  // Best-effort token-log tail for history. Bounded: read at most 200 lines.
   let tokenHistory = [];
   let fogHistory = [];
+  let dispatchHistory = [];
   try {
     const logPath = '.planning/metrics/token-log.jsonl';
     if (fs.existsSync(logPath)) {
       const raw = fs.readFileSync(logPath, 'utf8');
       const lines = raw.trim().split(/\r?\n/).slice(-30);
+      let runningTotal = 0;
+      let runningDispatches = 0;
       for (const line of lines) {
         try {
           const row = JSON.parse(line);
-          if (typeof row.tokens === 'number') tokenHistory.push(row.tokens);
+          // Per actual log shape: each row is an Agent dispatch with .total
+          // (token count for that dispatch). Sum gives a monotonic series.
+          const lineTokens = typeof row.tokens === 'number'
+            ? row.tokens
+            : (typeof row.token_spend === 'number'
+                ? row.token_spend
+                : (typeof row.total === 'number' ? row.total : null));
+          if (lineTokens != null) {
+            runningTotal += lineTokens;
+            tokenHistory.push(runningTotal);
+          }
           if (typeof row.fog === 'number') fogHistory.push(row.fog);
+          // Every log row is essentially a dispatch (Agent/Bash tool call).
+          runningDispatches += 1;
+          dispatchHistory.push(runningDispatches);
         } catch (_e) { /* skip malformed */ }
       }
     }
   } catch (_e) { /* silent */ }
+  // Compute elapsed from active phase CONTEXT.md mtime
+  let elapsed = 0;
+  try {
+    const milestone = output.milestone;
+    const phase = output.phase || (output.mission && output.mission.phase_id);
+    if (milestone && phase) {
+      const phaseDirRoot = path.join('.planning', 'milestones', milestone, 'phases');
+      const candidates = fs.readdirSync(phaseDirRoot);
+      const match = candidates.find((d) => d.startsWith(String(phase) + '-'));
+      if (match) {
+        const contextPath = path.join(phaseDirRoot, match, String(phase) + '-CONTEXT.md');
+        if (fs.existsSync(contextPath)) {
+          const st = fs.statSync(contextPath);
+          elapsed = Math.min(7200, Math.max(0, Math.floor((Date.now() - st.mtimeMs) / 1000)));
+        }
+      }
+    }
+  } catch (_e) { /* default 0 */ }
   output.telemetry = {
-    fog:        channel('fog', 'score',    fog,        0,    100,    [30, 60, 90]),
-    dispatches: channel('dispatches', '',  dispatches, 0,    20,     [5, 10, 15]),
-    tokens:     channel('tokens', '',      tokens,     0,    500000, [100000, 250000, 400000]),
-    context:    channel('context', '%',    0,          0,    100,    [50, 75, 90]),
-    elapsed:    channel('elapsed', 'sec',  0,          0,    3600,   [600, 1800, 3000]),
+    fog:        channel('fog', 'score',    fog,        40,    100,    [30, 60, 90]),
+    dispatches: channel('dispatches', '',  dispatches, 5,     20,     [5, 10, 15]),
+    tokens:     channel('tokens', '',      tokens,     200000, 500000, [100000, 250000, 400000]),
+    context:    channel('context', '%',    0,          50,    100,    [50, 75, 90]),
+    elapsed:    channel('elapsed', 'sec',  elapsed,    900,   3600,   [600, 1800, 3000]),
   };
+  // Wire histories where available
   if (tokenHistory.length) output.telemetry.tokens.history = tokenHistory;
   if (fogHistory.length) output.telemetry.fog.history = fogHistory;
+  if (dispatchHistory.length) output.telemetry.dispatches.history = dispatchHistory;
+  // Synthesize a small history for elapsed so sparkline draws something
+  if (elapsed > 0) {
+    const steps = 10;
+    output.telemetry.elapsed.history = Array.from({ length: steps }, (_, i) => Math.floor(elapsed * (i + 1) / steps));
+  }
   return output;
 }
 
@@ -788,7 +997,32 @@ function attachAlarms(output) {
 }
 
 function attachEvents(output) {
-  output.events = [];
+  // P139: events tape derived from git reflog tail (last 10 commits as events).
+  const events = [];
+  try {
+    const headLog = fs.readFileSync(path.join('.git', 'logs', 'HEAD'), 'utf8').trim().split(/\r?\n/);
+    const last10 = headLog.slice(-10).reverse();
+    const now = Math.floor(Date.now() / 1000);
+    for (const line of last10) {
+      const tabIdx = line.indexOf('\t');
+      if (tabIdx === -1) continue;
+      const header = line.slice(0, tabIdx).split(/\s+/);
+      const message = line.slice(tabIdx + 1);
+      const ts = parseInt(header[4] || '0', 10);
+      const ageSec = ts > 0 ? Math.max(0, now - ts) : 0;
+      const subj = message.replace(/^commit(?:\s*\(initial\))?:\s*/, '').trim();
+      const kindMatch = subj.match(/^(feat|fix|chore|docs|refactor|test|style|perf|build|ci)(?:\([^)]+\))?:/);
+      const type = kindMatch ? kindMatch[1] : 'event';
+      events.push({
+        t_off: ageSec < 60 ? ageSec + 's' : Math.floor(ageSec / 60) + 'm',
+        type,
+        tier: type === 'fix' ? 'attn' : 'ok',
+        detail: subj.slice(0, 120),
+        created_at: ts * 1000,
+      });
+    }
+  } catch (_e) { /* leave empty */ }
+  output.events = events;
   return output;
 }
 

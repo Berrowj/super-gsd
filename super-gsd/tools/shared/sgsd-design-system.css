@@ -1765,3 +1765,53 @@ button{font-family:inherit;color:inherit}
   .command{grid-template-columns:1fr}
   .cmd-cell{border-right:none !important}
 }
+
+/* ============================================================================
+   v3.4 P139 §7 Event tape (renderEvents in client.js). Minimal styling
+   pending full §7 component build in P142.
+   ============================================================================ */
+.event-tape {
+  background: var(--bg-1);
+  border-top: 1px solid var(--line);
+  padding: 0.5rem 1rem;
+}
+.event-tape-empty {
+  padding: 1rem;
+  color: var(--ink-dim);
+  font-size: 0.78rem;
+}
+.event-row {
+  display: grid;
+  grid-template-columns: 60px 80px 1fr;
+  gap: 0.75rem;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--line-dim);
+  font-size: 0.72rem;
+  align-items: baseline;
+}
+.event-row[data-tier="attn"] .ev-type { color: var(--attn); }
+.event-row[data-tier="severe"] .ev-type { color: var(--severe); }
+.event-row[data-tier="ok"] .ev-type { color: var(--done); }
+.ev-off { color: var(--ink-dim); }
+.ev-type { font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.ev-detail { color: var(--ink-mid); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* IA section default padding */
+main.sgsd-cockpit .ia-section {
+  padding: 1.25rem 1.5rem;
+  background: var(--bg-0);
+}
+main.sgsd-cockpit .ia-section[aria-label]::before {
+  content: attr(aria-label);
+  display: block;
+  font-family: var(--display, 'Big Shoulders Display'), sans-serif;
+  font-weight: 900;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+}
+main.sgsd-cockpit .band-1 { background: var(--bg-1); }
+main.sgsd-cockpit .band-2 { background: var(--bg-2); }
+main.sgsd-cockpit .band-3 { background: var(--bg-3); }

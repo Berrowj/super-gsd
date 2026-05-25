@@ -132,6 +132,7 @@
     renderSecNav(snap);
     renderMission(snap);
     renderTelemetry(snap);
+    renderEvents(snap);
 
     // Band 1 + Band 2 are now owned by renderMission / renderTelemetry (P139).
     // Band 3 (sec-architecture) keeps legacy renderBand(3) until P140 lands the
@@ -431,6 +432,9 @@
     const nextVerb = escape((snapshot.next_action && snapshot.next_action.verb) || 'review');
     const nextTarget = escape((snapshot.next_action && snapshot.next_action.target) || mission.phase_title || '—');
     const handle = escape(owner.handle || 'claude');
+    const timeLeftSec = Number(snapshot.time_left_sec) || 0;
+    const timeLbl = timeLeftSec > 0 ? fmtClock(timeLeftSec) : '—';
+    const timeTier = timeLeftSec > 0 && timeLeftSec < 60 ? 'crit' : (timeLeftSec > 0 && timeLeftSec < 300 ? 'attn' : '');
     region.innerHTML = '' +
       '<div class="cmd-cell cmd-obj"><span class="lbl"><span class="pip"></span>Objective</span>' +
         '<span class="val"><span class="ms">' + objMs + '</span><span class="ph"> / ' + objPh + '</span> ' + objName + '</span>' +
@@ -443,6 +447,12 @@
       '</div>' +
       '<div class="cmd-cell cmd-risk" data-tier="' + riskTier + '"><span class="lbl"><span class="pip"></span>Risk</span>' +
         '<span class="val">' + risk + '</span>' +
+      '</div>' +
+      '<div class="cmd-cell cmd-time" data-tier="' + escape(timeTier) + '"><span class="lbl"><span class="pip"></span>Time left · plan</span>' +
+        '<span class="val mono">' + timeLbl + '</span>' +
+      '</div>' +
+      '<div class="cmd-cell cmd-controls"><span class="lbl"><span class="pip"></span>Controls</span>' +
+        '<span class="val mono">A · P · O · Esc</span>' +
       '</div>';
   }
 
@@ -478,6 +488,28 @@
           '<div class="scan-sub mono">' + c.sub + '</div>' +
         '</div>';
       }).join('');
+  }
+
+  function renderEvents(snapshot) {
+    const section = document.getElementById('sec-events');
+    if (!section) return;
+    const events = Array.isArray(snapshot.events) ? snapshot.events.slice(0, 12) : [];
+    if (!events.length) {
+      const empty = '<div class="event-tape-empty mono">no events yet</div>';
+      if (section.innerHTML !== empty) section.innerHTML = empty;
+      return;
+    }
+    const rows = events.map(function (ev) {
+      const tier = escape(ev.tier || 'ok');
+      return '' +
+        '<div class="event-row" data-tier="' + tier + '">' +
+          '<span class="ev-off mono">' + escape(ev.t_off || '') + '</span>' +
+          '<span class="ev-type">' + escape(ev.type || 'event') + '</span>' +
+          '<span class="ev-detail mono">' + escape(ev.detail || '') + '</span>' +
+        '</div>';
+    }).join('');
+    const html = '<div class="event-tape">' + rows + '</div>';
+    if (section.innerHTML !== html) section.innerHTML = html;
   }
 
   function renderSecNav(snapshot) {

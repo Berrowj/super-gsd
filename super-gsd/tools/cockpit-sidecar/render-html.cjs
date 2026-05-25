@@ -101,6 +101,7 @@ function renderHtml(output) {
 }
 
 function renderShell(opts) {
+  void opts;
   // P139.5: re-read CSS on every call so live edits to sgsd-design-system.css
   // show up without restarting serve.cjs.
   designSystemCss = loadDesignSystemCss();
@@ -109,11 +110,9 @@ function renderShell(opts) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SGSD Cockpit</title>
+<title>SGSD Cockpit · Mission Control</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Big+Shoulders+Display:wght@500;700;800;900&display=swap">
 <style>
 ${designSystemCss}
 </style>
@@ -122,20 +121,30 @@ ${designSystemCss}
 <main class="sgsd-cockpit">
 
   <header class="chrome" data-region="chrome">
-    <span class="chrome-host">localhost:7777</span>
-    <span class="chrome-path">cockpit</span>
-    <span class="chrome-build">v3.4</span>
-    <span class="chrome-phase" data-source="phase"></span>
-    <span class="chrome-conn" data-region="conn"><span data-conn="state">SSE PENDING</span></span>
-    <span class="chrome-hotkeys">hotkeys: A approve · P pause · O open · Esc abort</span>
+    <span class="crumb"><b data-source="host">localhost:7777</b></span>
+    <span class="div">·</span>
+    <span class="crumb"><b>cockpit</b></span>
+    <span class="div">·</span>
+    <span class="crumb"><b data-source="build">v3.4</b></span>
+    <span class="div">·</span>
+    <span class="crumb chrome-phase" data-source="phase">no active phase</span>
+    <span class="spacer"></span>
+    <span class="sse" data-conn="state-wrap"><span class="dot"></span><span data-conn="state">SSE PENDING</span></span>
+    <span class="kbd">
+      hotkeys
+      <kbd>A</kbd><span>approve</span>
+      <kbd>P</kbd><span>pause</span>
+      <kbd>O</kbd><span>open</span>
+      <kbd>Esc</kbd><span>abort</span>
+    </span>
   </header>
 
-  <section class="command-strip" data-region="command" data-source="command"></section>
+  <section class="command" data-region="command" data-source="command" aria-label="Command strip"></section>
 
   <section class="scanbar" data-region="scanbar" data-source="scanbar"
            aria-label="ScanBar — 5 second answer panel"></section>
 
-  <nav class="sec-nav" data-region="sec-nav"></nav>
+  <nav class="sec-nav" data-region="sec-nav" aria-label="Section navigation"></nav>
 
   <section id="sec-mission"      data-source="mission"      data-band="1"   class="ia-section band band-1"  aria-label="Mission"></section>
   <section id="sec-telemetry"    data-source="telemetry"    data-band="2"   class="ia-section band band-2"  aria-label="Telemetry"></section>
@@ -147,27 +156,6 @@ ${designSystemCss}
 
   <aside class="bottom-drawer" data-region="bottom" data-source="bottom"></aside>
 
-</main>
-<script src="/client.js" defer></script>
-</body>
-</html>`;
-  void opts;
-
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SGSD Cockpit</title>
-<style>
-${designSystemCss}
-</style>
-</head>
-<body>
-<main class="sgsd-cockpit">
-<section data-band="1" class="band band-1" aria-label="Band 1"></section>
-<section data-band="2" class="band band-2" aria-label="Band 2"></section>
-<section data-band="3" class="band band-3" aria-label="Band 3" style="display:none"></section>
 </main>
 <script src="/client.js" defer></script>
 </body>
