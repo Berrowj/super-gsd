@@ -716,14 +716,166 @@
     const done = phases.filter(function (p) { return p.status === 'done'; }).length;
     const active = phases.filter(function (p) { return p.status === 'current' || p.status === 'active'; }).length;
     const pending = phases.filter(function (p) { return p.status === 'pending'; }).length;
+    let milestoneSvg = '';
+    try { milestoneSvg = renderMilestoneSvg(snapshot, mm); }
+    catch (e) { milestoneSvg = '<div class="ms-svg-err mono">milestone svg threw: ' + escape(e.message) + '</div>'; }
+    const currentPhaseDetail = currentDetail
+      ? renderMilestonePhaseDetail(snapshot, currentDetail)
+      : '';
     const html =
       renderSectionHeader('4', 'Milestone Dependency', 'MILESTONE',
         (mm.current || 'v3.4') + ' · ' + done + ' done / ' + active + ' active / ' + pending + ' pending',
         'Where this phase sits in the active milestone, what runs before / after it, and what it unlocks.') +
+      '<div class="milestone-frame">' +
+        '<header class="milestone-frame-head">' +
+          '<span class="milestone-frame-title mono">MILESTONE DEPENDENCY · v3.2 → v3.3 → v3.4 · CLICK ANY PHASE FOR CONTEXT</span>' +
+          '<span class="milestone-frame-tags">' +
+            '<span class="frame-tag tag-live">DONE</span>' +
+            '<span class="frame-tag tag-new">ACTIVE</span>' +
+            '<span class="frame-tag tag-edit">PAUSED</span>' +
+            '<span class="frame-tag tag-ro">PENDING</span>' +
+          '</span>' +
+        '</header>' +
+        '<div class="milestone-body">' +
+          '<div class="milestone-svg-wrap">' + milestoneSvg + '</div>' +
+          currentPhaseDetail +
+        '</div>' +
+      '</div>' +
       '<div class="milestone-strip">' + stripHtml + '</div>' +
-      '<div class="milestone-phases">' + phasesHtml + '</div>' +
-      detailHtml;
+      '<div class="milestone-phases">' + phasesHtml + '</div>';
     if (section.innerHTML !== html) section.innerHTML = html;
+  }
+
+  function renderMilestoneSvg(snapshot, mm) {
+    // Per screenshot #13: 3-column SVG showing v3.2 (DONE), v3.3 (ACTIVE)
+    // with all phases inside, v3.4 (PENDING). Active milestone shows phase
+    // pills in a row + T1-T4 sub-tasks below + NOW indicator + CLOSE node.
+    const W = 1200, H = 360;
+    const currentMilestone = mm.current || 'v3.4';
+    const phases = mm.phases || [];
+    const currentPhase = String(snapshot.phase || '');
+    const activeCnt = phases.filter(function (p) { return p.status === 'current' || p.status === 'active'; }).length;
+    // Columns: prev / active / next
+    const ms = mm.milestones || [];
+    const prevMs = ms[ms.findIndex(function (m) { return m.id === currentMilestone; }) - 1] || { id: 'v3.2', focus: 'prev' };
+    const activeMs = ms.find(function (m) { return m.id === currentMilestone; }) || { id: currentMilestone };
+    const nextMs = ms[ms.findIndex(function (m) { return m.id === currentMilestone; }) + 1] || { id: 'v3.5', focus: 'next' };
+
+    // Geometry
+    const colPrevX = 40, colPrevW = 200;
+    const colActiveX = 280, colActiveW = 640;
+    const colNextX = 960, colNextW = 200;
+    const headerY = 60;
+    const phaseRowY = 120;
+    const phaseW = 90, phaseH = 50;
+    const subRowY = 200;
+    const subW = 70, subH = 40;
+    const currentRowY = 280;
+    const currentW = 110, currentH = 50;
+    const closeBoxX = 1010, closeBoxY = 270, closeBoxW = 80, closeBoxH = 50;
+
+    function milestoneBox(x, w, label, status, focus, h) {
+      const fill = status === 'done' ? 'var(--done-bg)' : status === 'active' ? 'var(--live-bg)' : 'var(--bg-2)';
+      const stroke = status === 'done' ? 'var(--done)' : status === 'active' ? 'var(--live)' : 'var(--ink-faint)';
+      const dash = status === 'pending' ? ' stroke-dasharray="6 4"' : '';
+      const statusUp = String(status || 'pending').toUpperCase();
+      const focusLine = focus
+        ? '<text class="ms-svg-focus mono" x="' + (x + 14) + '" y="' + (headerY + 50) + '">' + escape(focus.slice(0, 30)) + '</text>'
+        : '';
+      const innerLines = h > 100
+        ? '<text class="ms-svg-info" x="' + (x + 14) + '" y="' + (headerY + 75) + '">' + (status === 'done' ? 'phases closed' : status === 'active' ? phases.length + ' phases · ' + (activeCnt ? activeCnt + ' active' : 'closing') : 'next milestone') + '</text>'
+        : '';
+      return '<g class="ms-svg-box ms-svg-' + status + '">' +
+        '<rect x="' + x + '" y="' + headerY + '" width="' + w + '" height="' + h + '" rx="6" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2"' + dash + '/>' +
+        '<text class="ms-svg-label" x="' + (x + 14) + '" y="' + (headerY + 25) + '">' + escape(label) + ' (' + statusUp + ')</text>' +
+        focusLine + innerLines +
+      '</g>';
+    }
+    const milestonesHtml = [
+      milestoneBox(colPrevX, colPrevW, prevMs.id, 'done', prevMs.focus, 230),
+      milestoneBox(colActiveX, colActiveW, activeMs.id, 'active', activeMs.focus || 'current', 230),
+      milestoneBox(colNextX, colNextW, nextMs.id, 'pending', nextMs.focus, 230),
+    ].join('');
+    // Phase pills inside active milestone column
+    const visPhases = phases.slice(0, 6);
+    const phasePadX = (colActiveW - visPhases.length * phaseW - (visPhases.length - 1) * 10) / 2;
+    const phaseHtml = visPhases.map(function (p, i) {
+      const x = colActiveX + phasePadX + i * (phaseW + 10);
+      const isCurrent = p.id === currentPhase;
+      const status = isCurrent ? 'active' : p.status === 'current' ? 'active' : (p.status === 'done' ? 'done' : 'pending');
+      const fill = status === 'done' ? 'var(--done-bg)' : status === 'active' ? 'var(--live)' : 'var(--bg-1)';
+      const stroke = status === 'done' ? 'var(--done)' : status === 'active' ? 'var(--live)' : 'var(--ink-faint)';
+      const textFill = status === 'active' ? 'var(--bg-1)' : 'var(--ink)';
+      const check = p.status === 'done' ? '<text class="ms-svg-check" x="' + (x + phaseW / 2) + '" y="' + (phaseRowY + phaseH - 6) + '" text-anchor="middle">✓</text>' : '';
+      const nowLabel = isCurrent ? '<text class="ms-svg-now mono" x="' + (x + phaseW / 2) + '" y="' + (phaseRowY + phaseH - 6) + '" text-anchor="middle">NOW</text>' : '';
+      return '<g class="ms-svg-phase" data-id="' + escape(p.id) + '">' +
+        '<rect x="' + x + '" y="' + phaseRowY + '" width="' + phaseW + '" height="' + phaseH + '" rx="3" fill="' + fill + '" stroke="' + stroke + '" stroke-width="1.5"/>' +
+        '<text class="ms-svg-phase-id" x="' + (x + phaseW / 2) + '" y="' + (phaseRowY + 22) + '" text-anchor="middle" fill="' + textFill + '">' + escape(p.label || ('P' + p.id)) + '</text>' +
+        check + nowLabel +
+      '</g>';
+    }).join('');
+    // Sub-tasks row (T1-T4)
+    const subTasks = ['T1','T2','T3','T4'];
+    const subPadX = (colActiveW - subTasks.length * subW - (subTasks.length - 1) * 16) / 2;
+    const subHtml = subTasks.map(function (t, i) {
+      const x = colActiveX + subPadX + i * (subW + 16);
+      const status = i < 2 ? 'done' : 'pending';
+      const fill = status === 'done' ? 'var(--done-bg)' : 'var(--severe-bg)';
+      const stroke = status === 'done' ? 'var(--done)' : 'var(--severe)';
+      const mark = status === 'done' ? '✓' : '‖';
+      return '<g class="ms-svg-sub">' +
+        '<rect x="' + x + '" y="' + subRowY + '" width="' + subW + '" height="' + subH + '" rx="3" fill="' + fill + '" stroke="' + stroke + '" stroke-width="1.5"/>' +
+        '<text class="ms-svg-sub-id" x="' + (x + subW / 2) + '" y="' + (subRowY + 18) + '" text-anchor="middle">' + escape(t) + '</text>' +
+        '<text class="ms-svg-sub-mark" x="' + (x + subW / 2) + '" y="' + (subRowY + 32) + '" text-anchor="middle" fill="' + stroke + '">' + mark + '</text>' +
+      '</g>';
+    }).join('');
+    // CLOSE node + arrows
+    const closeHtml =
+      '<g class="ms-svg-close">' +
+        '<rect x="' + closeBoxX + '" y="' + closeBoxY + '" width="' + closeBoxW + '" height="' + closeBoxH + '" rx="6" fill="var(--attn-bg)" stroke="var(--attn)" stroke-width="1.5" stroke-dasharray="6 4"/>' +
+        '<text class="ms-svg-close-id" x="' + (closeBoxX + closeBoxW / 2) + '" y="' + (closeBoxY + closeBoxH / 2 + 5) + '" text-anchor="middle">CLOSE</text>' +
+      '</g>';
+    // Arrows: prev → active, active → next, sub-tasks → current
+    const arrowsHtml =
+      // prev → active
+      '<path d="M' + (colPrevX + colPrevW) + ',' + (headerY + 115) + ' L' + colActiveX + ',' + (headerY + 115) + '" fill="none" stroke="var(--done)" stroke-width="2" marker-end="url(#ms-arrow)"/>' +
+      // active → close
+      '<path d="M' + (colActiveX + colActiveW) + ',' + (closeBoxY + closeBoxH / 2) + ' L' + closeBoxX + ',' + (closeBoxY + closeBoxH / 2) + '" fill="none" stroke="var(--live)" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ms-arrow)"/>';
+    return '<svg class="ms-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMinYMin meet">' +
+      '<defs>' +
+        '<marker id="ms-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
+          '<path d="M 0 0 L 10 5 L 0 10 z" fill="var(--ink-mid)"/>' +
+        '</marker>' +
+      '</defs>' +
+      milestonesHtml + arrowsHtml + phaseHtml + subHtml + closeHtml +
+    '</svg>';
+  }
+
+  function renderMilestonePhaseDetail(snapshot, detail) {
+    // Right-side phase detail panel with SUMMARY / WHY / UNLOCKS / EVIDENCE / RAW tabs.
+    return '' +
+      '<div class="phase-detail">' +
+        '<header class="pd-head">' +
+          '<span class="pd-id mono">P' + escape(snapshot.phase || '—') + '</span>' +
+          '<span class="pd-status pd-status-active">ACTIVE</span>' +
+          '<span class="pd-tag mono">this phase</span>' +
+        '</header>' +
+        '<h3 class="pd-title">' + escape((detail.title || '').toUpperCase()) + '</h3>' +
+        '<p class="pd-blurb">' + escape((detail.outcome || '').slice(0, 80)) + '</p>' +
+        '<div class="pd-tabs">' +
+          '<button class="pd-tab active">SUMMARY</button>' +
+          '<button class="pd-tab">WHY</button>' +
+          '<button class="pd-tab">UNLOCKS</button>' +
+          '<button class="pd-tab">EVIDENCE</button>' +
+          '<button class="pd-tab">RAW</button>' +
+        '</div>' +
+        '<div class="pd-body">' +
+          (detail.why ? '<div class="pd-row"><span class="lbl">Why it ran</span><div class="pd-val">' + escape(detail.why) + '</div></div>' : '') +
+          (detail.context ? '<div class="pd-row"><span class="lbl">Context</span><div class="pd-val">' + escape(detail.context) + '</div></div>' : '') +
+          (detail.unlocks ? '<div class="pd-row"><span class="lbl">Unlocks</span><div class="pd-val">' + escape(detail.unlocks.slice(0, 120)) + '</div></div>' : '') +
+          (detail.outcome ? '<div class="pd-row"><span class="lbl">Outcome</span><div class="pd-val">' + escape(detail.outcome) + '</div></div>' : '') +
+        '</div>' +
+      '</div>';
   }
 
   function renderMemory(snapshot) {

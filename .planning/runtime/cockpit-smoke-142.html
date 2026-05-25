@@ -2641,6 +2641,154 @@ main.sgsd-cockpit .ia-section[data-collapsed="true"] > *:not(.sec-header) {
 }
 .ev-unresolved-row:first-child { border-top: none; }
 .ev-unresolved-row span:first-child { min-width: 140px; color: var(--attn); font-weight: 600; }
+
+/* ============================================================================
+   P142.3 — §4 Milestone Dependency SVG (per screenshot #13).
+   3-column SVG with v3.2 done / v3.3 active (with phase pills + T1-T4) /
+   v3.4 pending boxes + arrows + CLOSE node + right-side phase detail panel
+   with tabs.
+   ============================================================================ */
+.milestone-frame {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+.milestone-frame-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0.9rem;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+}
+.milestone-frame-title {
+  font: 600 0.7rem/1 var(--mono);
+  letter-spacing: 0.06em;
+  color: var(--ink-mid);
+  text-transform: uppercase;
+}
+.milestone-frame-tags { display: flex; gap: 6px; }
+.milestone-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 0;
+  align-items: stretch;
+}
+.milestone-svg-wrap { padding: 1rem; overflow-x: auto; }
+.ms-svg { width: 100%; height: auto; min-width: 900px; }
+.ms-svg-label {
+  font: 700 0.85rem/1 var(--display, 'Big Shoulders Display'), sans-serif;
+  letter-spacing: 0.04em;
+  fill: var(--ink);
+}
+.ms-svg-focus {
+  font: 500 11px/1 var(--mono);
+  fill: var(--ink-mid);
+}
+.ms-svg-info {
+  font: 500 11px/1 var(--mono);
+  fill: var(--ink-dim);
+}
+.ms-svg-phase-id {
+  font: 700 13px/1 var(--mono);
+  letter-spacing: 0.04em;
+}
+.ms-svg-check {
+  font: 700 12px/1 var(--mono);
+  fill: var(--done);
+}
+.ms-svg-now {
+  font: 700 9px/1 var(--mono);
+  letter-spacing: 0.08em;
+  fill: var(--bg-1);
+}
+.ms-svg-sub-id {
+  font: 700 11px/1 var(--mono);
+  fill: var(--ink);
+}
+.ms-svg-sub-mark {
+  font: 700 13px/1 var(--mono);
+}
+.ms-svg-close-id {
+  font: 700 13px/1 var(--mono);
+  letter-spacing: 0.06em;
+  fill: var(--attn);
+}
+
+.phase-detail {
+  padding: 1rem 1.25rem;
+  border-left: 1px solid var(--line);
+  background: var(--bg-2);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.pd-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pd-id {
+  font: 700 1rem/1 var(--mono);
+  letter-spacing: 0.04em;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--bg-1);
+  color: var(--ink-strong);
+}
+.pd-status {
+  padding: 3px 8px;
+  border-radius: 2px;
+  font: 600 0.6rem/1 var(--mono);
+  letter-spacing: 0.08em;
+}
+.pd-status-active { background: var(--live-bg); color: var(--live); border: 1px solid var(--live-line); }
+.pd-tag {
+  margin-left: auto;
+  font: 500 0.66rem/1 var(--mono);
+  color: var(--ink-dim);
+  letter-spacing: 0.04em;
+}
+.pd-title {
+  font: 900 1.05rem/1.15 var(--display, 'Big Shoulders Display'), sans-serif;
+  letter-spacing: 0.02em;
+  margin: 0;
+  color: var(--ink-strong);
+  text-transform: uppercase;
+}
+.pd-blurb {
+  font: 500 0.78rem/1.4 var(--sans);
+  color: var(--ink-mid);
+  margin: 0;
+}
+.pd-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--line);
+  margin-top: 0.5rem;
+}
+.pd-tab {
+  background: transparent;
+  border: none;
+  padding: 0.35rem 0.5rem;
+  font: 600 0.62rem/1 var(--mono);
+  letter-spacing: 0.08em;
+  color: var(--ink-dim);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.pd-tab.active { color: var(--live); border-bottom-color: var(--live); }
+.pd-body { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.5rem; }
+.pd-row { display: flex; flex-direction: column; gap: 2px; }
+.pd-row .lbl { font-size: 9px; letter-spacing: 0.1em; }
+.pd-row .pd-val {
+  font: 500 0.78rem/1.4 var(--sans);
+  color: var(--ink);
+}
 </style>
 </head>
 <body>
