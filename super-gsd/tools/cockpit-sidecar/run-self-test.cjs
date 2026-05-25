@@ -1282,11 +1282,14 @@ const tests = [
     }});
 
     tests.push({ id: 'SAC-P141-03', run: async () => {
+      // P142.2: §6 Evidence rebuilt per design-pack screenshot #7. New class
+      // names: .ev-stage (5 large stage cards) + .ev-detail-col (4 columns)
+      // instead of the older .gate-stage / .evidence-card grid.
       const result = await fetchRenderedDom();
-      const stages = (result.html.match(/class="[^"]*gate-stage[^"]*"/g) || []).length;
-      assert.ok(stages >= 5, `expected >=5 gate-stage elements, got ${stages}`);
-      const ec = (result.html.match(/class="[^"]*evidence-card[^"]*"/g) || []).length;
-      assert.ok(ec >= 1, `expected >=1 evidence-card, got ${ec}`);
+      const stages = (result.html.match(/class="ev-stage ev-stage-/g) || []).length;
+      assert.ok(stages >= 5, `expected >=5 ev-stage elements, got ${stages}`);
+      const cols = (result.html.match(/class="ev-detail-col"/g) || []).length;
+      assert.ok(cols >= 4, `expected >=4 ev-detail-col elements, got ${cols}`);
     }});
 
     tests.push({ id: 'SAC-P141-04', run: () => {

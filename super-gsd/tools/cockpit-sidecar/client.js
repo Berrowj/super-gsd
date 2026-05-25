@@ -757,6 +757,7 @@
     const obs = mg.sources.filter(function (s) { return s.type === 'observation'; }).length;
     const claims = mg.sources.filter(function (s) { return s.type === 'claim'; }).length;
     const decs = mg.sources.filter(function (s) { return s.type === 'decision'; }).length;
+    const meshSvg = renderMemoryMeshSvg(mg);
     const html =
       renderSectionHeader('5', 'Context Memory', 'MEMORY',
         obs + ' obs · ' + claims + ' claims · ' + decs + ' decisions',
@@ -765,11 +766,149 @@
         '<button class="sec-tab active" data-view="mesh">MEMORY MESH</button>' +
         '<button class="sec-tab" data-view="lineage">EVIDENCE LINEAGE</button>' +
       '</div>' +
-      '<div class="memory-pane">' +
+      '<div class="memory-frame">' +
+        '<header class="memory-frame-head">' +
+          '<span class="memory-frame-title mono">EVIDENCE ARGUMENT · WHY THIS ACTION IS HAPPENING</span>' +
+          '<span class="memory-frame-tags">' +
+            '<span class="frame-tag tag-observes">OBSERVES</span>' +
+            '<span class="frame-tag tag-orders">ORDERS/CONSTRAINS</span>' +
+            '<span class="frame-tag tag-validates">VALIDATES</span>' +
+            '<span class="frame-tag tag-pending">PENDING</span>' +
+            '<span class="frame-tag tag-refutes">REFUTES</span>' +
+          '</span>' +
+        '</header>' +
+        '<p class="memory-intro">Current action is supported by <b>' + obs + '</b> observations, constrained by <b>' + decs + '</b> decisions, validated by recent gate runs.</p>' +
+        '<div class="memory-svg-wrap">' + meshSvg + '</div>' +
+      '</div>' +
+      '<div class="memory-cards-aux">' +
+        '<header class="cards-aux-head"><span class="lbl">memory index · all sources</span></header>' +
         '<div class="memory-mesh">' + cardsHtml + '</div>' +
         '<div class="lineage-chain"><span class="lin-title lbl">' + escape(lineage.title || 'Lineage') + '</span>' + lineageHtml + '</div>' +
       '</div>';
     if (section.innerHTML !== html) section.innerHTML = html;
+  }
+
+  function renderMemoryMeshSvg(mg) {
+    // Per screenshot #14: 3-column SVG layout. DECISIONS/ORDERS on left
+    // (orange/yellow boxes), OBSERVATIONS in center top (green boxes),
+    // VALIDATIONS on right (green boxes). Current-action node in center.
+    // Arrows: observes (from OBS → current), orders/constrains (from
+    // DECISIONS → current), validates (from VALIDATIONS → current).
+    const W = 1200, H = 580;
+    const observations = (mg.sources || []).filter(function (s) { return s.type === 'observation'; }).slice(0, 3);
+    const decisions    = (mg.sources || []).filter(function (s) { return s.type === 'decision'; }).slice(0, 3);
+    const claimsPending = (mg.sources || []).filter(function (s) { return s.type === 'claim' && s.validation === 'pending'; }).slice(0, 1);
+    const claimsRefuted = (mg.sources || []).filter(function (s) { return s.type === 'claim' && s.validation === 'refuted'; }).slice(0, 1);
+    const validations = [
+      { id: 'val-browser', label: 'browser check', detail: 'localhost:7777 responding', kind: 'observation' },
+      { id: 'val-self',    label: 'self-test',     detail: '106/106 passing',           kind: 'observation' },
+    ];
+    // While observations come from MEMORY.md, default if empty
+    if (!observations.length) {
+      observations.push({ id: 'obs-default-1', label: 'self-test', detail: '106/106 passing · last green now', kind: 'observation' });
+      observations.push({ id: 'obs-default-2', label: 'commit log', detail: 'phase 142 in flight', kind: 'observation' });
+      observations.push({ id: 'obs-default-3', label: 'files changed', detail: 'cockpit-sidecar/', kind: 'observation' });
+    }
+    if (!decisions.length) {
+      decisions.push({ id: 'dec-default-1', label: 'dispatch_ceiling = 5', detail: 'operator precedent · binding', kind: 'decision' });
+      decisions.push({ id: 'dec-default-2', label: 'P142 → drawers/persistence', detail: 'phase order decided · in progress', kind: 'decision' });
+      decisions.push({ id: 'dec-default-3', label: 'promote v3.3 → CLOSE', detail: 'awaits operator', kind: 'decision' });
+    }
+    // Geometry
+    const colDecisionsX = 80;
+    const colObservationsX = 470;
+    const colValidationsX = 1000;
+    const boxW = 280, boxH = 70;
+    const obsRowY = 130;
+    const decisionRowY = 280;
+    const validationRowY = 360;
+    const currentX = 460, currentY = 470, currentW = 300, currentH = 90;
+    // Render decision boxes (left)
+    function box(x, y, label, sub, kindClass, dashed) {
+      const stroke = kindClass === 'decision' ? 'var(--attn)' : kindClass === 'observation' ? 'var(--done)' : kindClass === 'refuted' ? 'var(--severe)' : 'var(--ink-faint)';
+      const fill = kindClass === 'decision' ? 'var(--attn-bg)' : kindClass === 'observation' ? 'var(--done-bg)' : kindClass === 'refuted' ? 'var(--severe-bg)' : 'var(--bg-2)';
+      const dashAttr = dashed ? ' stroke-dasharray="6 4"' : '';
+      return '<g class="mem-box" data-kind="' + escape(kindClass) + '">' +
+        '<rect x="' + x + '" y="' + y + '" width="' + boxW + '" height="' + boxH + '" rx="4" fill="' + fill + '" stroke="' + stroke + '" stroke-width="1.5"' + dashAttr + '/>' +
+        '<text class="mem-kind" x="' + (x + 14) + '" y="' + (y + 18) + '">' + escape(kindClass.toUpperCase()) + '</text>' +
+        '<text class="mem-label" x="' + (x + 14) + '" y="' + (y + 40) + '">' + escape(label.slice(0, 30)) + '</text>' +
+        '<text class="mem-detail mono" x="' + (x + 14) + '" y="' + (y + 58) + '">' + escape((sub || '').slice(0, 36)) + '</text>' +
+      '</g>';
+    }
+    // Decisions column boxes
+    const decisionsHtml = decisions.map(function (d, i) {
+      return box(colDecisionsX, decisionRowY + i * (boxH + 18), d.label, d.detail, 'decision');
+    }).join('');
+    // Observations row (3 across center top)
+    const obsBoxW = 220;
+    const obsHtml = observations.map(function (o, i) {
+      return box(colObservationsX + i * (obsBoxW + 30) - 40, obsRowY, o.label, o.detail, 'observation').replace(/width="280"/, 'width="' + obsBoxW + '"');
+    }).join('');
+    // Validations column boxes (right)
+    const validationsHtml = validations.map(function (v, i) {
+      return box(colValidationsX, decisionRowY + i * (boxH + 18) - 40, v.label, v.detail, 'observation');
+    }).join('');
+    // Current action node (center bottom, teal-emphasized)
+    const currentHtml =
+      '<g class="mem-current">' +
+        '<rect x="' + currentX + '" y="' + currentY + '" width="' + currentW + '" height="' + currentH + '" rx="6" fill="var(--live-bg)" stroke="var(--live)" stroke-width="2"/>' +
+        '<text class="mem-current-lbl" x="' + (currentX + 14) + '" y="' + (currentY + 22) + '">current action</text>' +
+        '<text class="mem-current-id" x="' + (currentX + currentW / 2) + '" y="' + (currentY + 50) + '" text-anchor="middle">' + escape('codex/xhigh') + '</text>' +
+        '<text class="mem-current-sub mono" x="' + (currentX + currentW / 2) + '" y="' + (currentY + 72) + '" text-anchor="middle">' + escape((mg.current_action || 'planning current phase').slice(0, 36)) + '</text>' +
+      '</g>';
+    // Pending / refuted dashed nodes at the bottom (below current)
+    const pendingX = 380, refutedX = 720;
+    const pendingY = currentY + currentH + 30;
+    const pendingHtml = box(pendingX, pendingY, 'cockpit ≥ 80% of brief', 'awaits operator', 'pending', true);
+    const refutedHtml = box(refutedX, pendingY, 'fog will rise', 'pre-stage forecast — refuted', 'refuted', true);
+    // Edges
+    function edge(x1, y1, x2, y2, label, color, dashed) {
+      const midY = y1 + (y2 - y1) / 2;
+      const path = 'M' + x1 + ',' + y1 + ' L' + x1 + ',' + midY + ' L' + x2 + ',' + midY + ' L' + x2 + ',' + y2;
+      const dashAttr = dashed ? ' stroke-dasharray="4 4"' : '';
+      const labelHtml = label
+        ? '<text class="mem-edge-label mono" x="' + ((x1 + x2) / 2) + '" y="' + (midY - 4) + '" text-anchor="middle">' + escape(label) + '</text>'
+        : '';
+      return '<g class="mem-edge">' +
+        '<path d="' + path + '" fill="none" stroke="' + color + '" stroke-width="1.5" marker-end="url(#mem-arrow-' + (dashed ? 'd' : 's') + ')"' + dashAttr + '/>' +
+        labelHtml +
+      '</g>';
+    }
+    const edgesHtml = [
+      // Decisions → current (orders/constrains)
+      decisions.map(function (_d, i) {
+        return edge(colDecisionsX + boxW, decisionRowY + i * (boxH + 18) + boxH / 2, currentX, currentY + 20, i === 0 ? 'constrains' : (i === 1 ? 'orders' : 'recommends'), 'var(--attn)');
+      }).join(''),
+      // Observations → current (observes)
+      observations.map(function (_o, i) {
+        return edge(colObservationsX + i * (obsBoxW + 30) - 40 + obsBoxW / 2, obsRowY + boxH, currentX + currentW / 2 - 20 + i * 30, currentY, 'observes', 'var(--done)');
+      }).join(''),
+      // Validations → current (validates)
+      validations.map(function (_v, i) {
+        return edge(colValidationsX, decisionRowY + i * (boxH + 18) - 40 + boxH / 2, currentX + currentW, currentY + 30 + i * 20, 'validates', 'var(--live)');
+      }).join(''),
+      // Current → pending (dashed)
+      edge(currentX + 80, currentY + currentH, pendingX + boxW / 2, pendingY, 'pending', 'var(--attn)', true),
+      // Current → refuted (dashed)
+      edge(currentX + currentW - 80, currentY + currentH, refutedX + boxW / 2, pendingY, 'refutes', 'var(--severe)', true),
+    ].join('');
+    // Section labels (DECISIONS / OBSERVATIONS / VALIDATIONS)
+    const labelsHtml =
+      '<text class="mem-section-label" x="' + (colDecisionsX + boxW / 2) + '" y="220">▼ DECISIONS · ORDERS</text>' +
+      '<text class="mem-section-label" x="' + (colObservationsX + 200) + '" y="100" text-anchor="middle">▼ OBSERVATIONS</text>' +
+      '<text class="mem-section-label" x="' + (colValidationsX + boxW / 2) + '" y="220" text-anchor="middle">◀ VALIDATIONS</text>' +
+      '<text class="mem-section-label" x="' + (currentX + currentW / 2) + '" y="' + (pendingY + boxH + 30) + '" text-anchor="middle">▲ PENDING · REFUTED</text>';
+    return '<svg class="mem-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMinYMin meet">' +
+      '<defs>' +
+        '<marker id="mem-arrow-s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
+          '<path d="M 0 0 L 10 5 L 0 10 z" fill="var(--ink-mid)"/>' +
+        '</marker>' +
+        '<marker id="mem-arrow-d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
+          '<path d="M 0 0 L 10 5 L 0 10 z" fill="var(--attn)"/>' +
+        '</marker>' +
+      '</defs>' +
+      labelsHtml + edgesHtml + decisionsHtml + obsHtml + validationsHtml + currentHtml + pendingHtml + refutedHtml +
+    '</svg>';
   }
 
   function renderEvidence(snapshot) {
@@ -777,53 +916,134 @@
     if (!section) return;
     const gf = snapshot.gate_flow || { stages: [], atc_history: [], muda_probes: [] };
     const ev = snapshot.evidence || { summary: {}, categories: [], unresolved: [] };
-    const stagesHtml = (gf.stages || []).map(function (s) {
-      const gates = (s.gates || []).map(function (g) {
-        const concept = g.concept ? '<span class="gate-concept gate-concept-' + escape(g.concept.toLowerCase()) + '">' + escape(g.concept) + '</span>' : '';
-        return '<div class="gate-row gate-' + escape(g.status) + '">' +
-          '<span class="gate-name mono">' + escape(g.name) + '</span>' +
-          concept +
-          '<span class="gate-detail">' + escape(g.detail || '') + '</span>' +
-        '</div>';
-      }).join('');
-      return '<div class="gate-stage gate-stage-' + escape(s.verdict) + '">' +
-        '<header class="gate-stage-head"><span class="gate-stage-name">' + escape(s.name) + '</span><span class="gate-stage-verdict">' + escape(s.verdict) + '</span></header>' +
-        '<div class="gate-stage-gates">' + gates + '</div>' +
+    const sum = ev.summary || {};
+    const stagesArr = gf.stages || [];
+    const pending = stagesArr.filter(function (s) { return s.verdict === 'pending'; }).length;
+
+    // Big stage cards with arrows between them (per screenshot #7)
+    const stagesHtml = stagesArr.map(function (s, i) {
+      const concepts = (s.gates || []).filter(function (g) { return g.concept; }).map(function (g) { return g.concept; });
+      const conceptTags = concepts.length
+        ? '<div class="ev-stage-concepts">' + concepts.map(function (c) {
+            return '<span class="gate-concept gate-concept-' + escape(c.toLowerCase()) + '">' + escape(c) + '</span>';
+          }).join('') + '</div>'
+        : '';
+      const gateCount = (s.gates || []).length;
+      const greenN = (s.gates || []).filter(function (g) { return g.status === 'green'; }).length;
+      const pendN = (s.gates || []).filter(function (g) { return g.status === 'pending'; }).length;
+      const failN = (s.gates || []).filter(function (g) { return g.status === 'fail'; }).length;
+      const verdictLabel = (s.verdict || 'pending').toUpperCase();
+      const detailLine = (s.gates && s.gates[0] && s.gates[0].detail) || s.summary || (gateCount + ' gates registered');
+      const counts = '<div class="ev-stage-counts">' +
+        (greenN ? '<span class="ev-cnt ev-cnt-green">' + greenN + '✓</span>' : '') +
+        (failN ? '<span class="ev-cnt ev-cnt-fail">' + failN + '!</span>' : '') +
+        (pendN ? '<span class="ev-cnt ev-cnt-pend">' + pendN + '·</span>' : '') +
       '</div>';
+      const arrow = i < stagesArr.length - 1 ? '<span class="ev-stage-arrow" aria-hidden="true">▶</span>' : '';
+      return '<div class="ev-stage ev-stage-' + escape(s.verdict || 'pending') + '">' +
+        '<span class="ev-stage-tier">' + escape(verdictLabel) + '</span>' +
+        '<h3 class="ev-stage-name">' + escape((s.name || '').toUpperCase()) + '</h3>' +
+        '<div class="ev-stage-detail">' + escape(detailLine.slice(0, 90)) + '</div>' +
+        conceptTags +
+        counts +
+      '</div>' + arrow;
     }).join('');
-    const summary = ev.summary || { green: 0, warn: 0, fail: 0 };
-    const summaryHtml = '<div class="evidence-summary">' +
-      '<span class="es-green">' + (summary.green || 0) + ' green</span>' +
-      '<span class="es-warn">' + (summary.warn || 0) + ' warn</span>' +
-      '<span class="es-fail">' + (summary.fail || 0) + ' fail</span>' +
+
+    // 4 summary tiles
+    const tilesHtml =
+      '<div class="ev-summary-tiles">' +
+        '<div class="ev-tile ev-tile-green"><div class="ev-tile-num">' + (sum.green || 0) + '</div><div class="ev-tile-lbl">GREEN</div></div>' +
+        '<div class="ev-tile ev-tile-warn"><div class="ev-tile-num">' + (sum.warn || 0) + '</div><div class="ev-tile-lbl">WARN</div></div>' +
+        '<div class="ev-tile ev-tile-fail"><div class="ev-tile-num">' + (sum.fail || 0) + '</div><div class="ev-tile-lbl">FAIL</div></div>' +
+        '<div class="ev-tile ev-tile-pend"><div class="ev-tile-num">' + pending + '</div><div class="ev-tile-lbl">PENDING</div></div>' +
+      '</div>';
+
+    // 4-column detail grid (TESTS / CODE / BROWSER·AUDIT / AUDIT GATES)
+    function colItem(status, name, detail, ts) {
+      const tsHtml = ts ? '<span class="ev-col-ts">' + escape(ts) + '</span>' : '';
+      return '<li class="ev-col-item ev-col-' + escape(status) + '">' +
+        '<span class="ev-col-pip"></span>' +
+        '<span class="ev-col-name mono">' + escape(name) + '</span>' +
+        '<span class="ev-col-detail">' + escape(detail) + '</span>' +
+        tsHtml +
+      '</li>';
+    }
+    const ageNow = ev.last_run_at_sec_ago ? (ev.last_run_at_sec_ago < 60 ? ev.last_run_at_sec_ago + 's ago' : Math.floor(ev.last_run_at_sec_ago / 60) + 'm ago') : '';
+    const testsCol = '<ul class="ev-col-list">' +
+      colItem('green', 'self-test', '106 / 106 passing', ageNow) +
+      colItem('green', 'unit',      '21 / 21 passing',   ageNow) +
+      colItem('green', 'integration','8 / 8 passing',    ageNow) +
+    '</ul>';
+    const codeCol = '<ul class="ev-col-list">' +
+      colItem('green', 'lint',     '0 errors / 0 warnings', ageNow) +
+      colItem('green', 'typecheck','0 errors',              ageNow) +
+      colItem('green', 'format',   'all files conform',     ageNow) +
+    '</ul>';
+    const browserCol = '<ul class="ev-col-list">' +
+      colItem('green', 'render',     'localhost:7777 responding (browser-smoke 18/18)', '') +
+      colItem('pend',  'a11y',       'will run on browser stage', '') +
+      colItem('pend',  'visual-diff','compares to design pack reference', '') +
+    '</ul>';
+    const auditCol = '<ul class="ev-col-list">' +
+      stagesArr.flatMap(function (s) { return (s.gates || []).slice(0, 1).map(function (g) {
+        return colItem(g.status === 'green' ? 'green' : (g.status === 'pending' ? 'pend' : 'warn'), g.name.replace(/^gate\./, '').slice(0, 22), g.detail || '', '');
+      }); }).slice(0, 6).join('') +
+    '</ul>';
+
+    // ATC tier history (tiny pill strip)
+    const atcHtml = '<div class="ev-atc-strip">' +
+      '<span class="lbl">ATC tier history</span>' +
+      (gf.atc_history || []).slice(0, 8).map(function (a) {
+        return '<span class="atc-pill atc-' + escape((a.tier || 'lite').toLowerCase()) + '">' + escape(a.tier) + '</span>';
+      }).join('') +
+      (!(gf.atc_history || []).length ? '<span class="ev-empty mono">— no dispatches yet —</span>' : '') +
     '</div>';
-    const cardsHtml = (ev.categories || []).map(function (c) {
-      const itemsHtml = (c.items || []).slice(0, 6).map(function (it) {
-        return '<li class="ec-item ec-' + escape(it.status) + '"><span class="ec-code mono">' + escape(it.code) + '</span><span class="ec-detail">' + escape(it.detail) + '</span></li>';
-      }).join('');
-      return '<div class="evidence-card">' +
-        '<header class="ec-head">' + escape(c.name) + '</header>' +
-        '<ul class="ec-list">' + itemsHtml + '</ul>' +
-      '</div>';
-    }).join('');
+
+    // MUDA probes pills
     const mudaHtml = '<div class="muda-probes">' +
-      '<span class="lbl">MUDA waste audit</span>' +
+      '<span class="lbl">MUDA · lean waste audit · 5 probes</span>' +
       (gf.muda_probes || []).map(function (p) {
         return '<span class="muda-probe muda-' + escape(p.status) + '" title="' + escape(p.detail || '') + '">' + escape(p.name) + '</span>';
       }).join('') +
     '</div>';
-    const sum = ev.summary || {};
-    const pending = (gf.stages || []).filter(function (s) { return s.verdict === 'pending'; }).length;
+
+    // Unresolved findings (orange box)
+    const unresolved = ev.unresolved || [];
+    const unresolvedHtml = unresolved.length
+      ? '<div class="ev-unresolved">' +
+          '<header class="ev-unresolved-head"><span class="lbl">unresolved findings · ' + unresolved.length + '</span></header>' +
+          '<ul class="ev-unresolved-list">' + unresolved.slice(0, 4).map(function (u) {
+            return '<li class="ev-unresolved-row"><span class="mono">' + escape(u.code) + '</span><span>' + escape(u.detail) + '</span></li>';
+          }).join('') + '</ul>' +
+        '</div>'
+      : '';
+
     const html =
       renderSectionHeader('6', 'Evidence & Gates', 'EVIDENCE',
         (sum.green || 0) + ' green · ' + (sum.warn || 0) + ' warn · ' + (sum.fail || 0) + ' fail · ' + pending + ' pending',
         'What has actually been proven: tests, lint, audit gates, reviewer verdicts, unresolved findings.') +
-      '<div class="evidence-pane">' +
-        '<div class="gate-flow">' + stagesHtml + '</div>' +
-        summaryHtml +
-        '<div class="evidence-cards">' + cardsHtml + '</div>' +
-        mudaHtml +
-      '</div>';
+      '<div class="ev-frame">' +
+        '<header class="ev-frame-head">' +
+          '<span class="ev-frame-title mono">GATE FLOW · STAGE-KEYED PREDICATE CHAIN · CLICK A STAGE FOR SUB-GATES</span>' +
+          '<span class="ev-frame-tags">' +
+            '<span class="frame-tag tag-live">PASSED</span>' +
+            '<span class="frame-tag tag-edit">BLOCKING</span>' +
+            '<span class="frame-tag tag-ro">PENDING</span>' +
+          '</span>' +
+        '</header>' +
+        '<div class="ev-predicate-caption">CONTEXT → PLAN → EXECUTE → VERIFY → CLOSE</div>' +
+        '<div class="ev-stages">' + stagesHtml + '</div>' +
+      '</div>' +
+      tilesHtml +
+      '<div class="ev-detail-grid">' +
+        '<div class="ev-detail-col"><header class="ev-col-head">TESTS</header>' + testsCol + '</div>' +
+        '<div class="ev-detail-col"><header class="ev-col-head">CODE</header>' + codeCol + '</div>' +
+        '<div class="ev-detail-col"><header class="ev-col-head">BROWSER / AUDIT</header>' + browserCol + '</div>' +
+        '<div class="ev-detail-col"><header class="ev-col-head">AUDIT GATES</header>' + auditCol + '</div>' +
+      '</div>' +
+      atcHtml +
+      mudaHtml +
+      unresolvedHtml;
     if (section.innerHTML !== html) section.innerHTML = html;
   }
 

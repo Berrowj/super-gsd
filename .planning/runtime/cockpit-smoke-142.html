@@ -2338,6 +2338,309 @@ main.sgsd-cockpit .ia-section[data-collapsed="true"] > *:not(.sec-header) {
 }
 .arch-box[data-kind="actor"] .arch-tag-text,
 .arch-box[data-kind="gate"] .arch-tag-text { fill: var(--ink); }
+
+/* ============================================================================
+   P142.2 — Memory mesh SVG diagram (per screenshot #14).
+   ============================================================================ */
+.memory-frame {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+.memory-frame-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0.9rem;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+}
+.memory-frame-title {
+  font: 600 0.7rem/1 var(--mono);
+  letter-spacing: 0.06em;
+  color: var(--ink-mid);
+  text-transform: uppercase;
+}
+.memory-frame-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.frame-tag.tag-observes   { background: var(--done-bg);   color: var(--done);   border-color: var(--done-line); }
+.frame-tag.tag-orders     { background: var(--attn-bg);   color: var(--attn);   border-color: var(--attn-line); }
+.frame-tag.tag-validates  { background: var(--live-bg);   color: var(--live);   border-color: var(--live-line); }
+.frame-tag.tag-pending    { background: var(--bg-3);      color: var(--ink-dim); border-color: var(--line); }
+.frame-tag.tag-refutes    { background: var(--severe-bg); color: var(--severe); border-color: var(--severe-line); }
+.memory-intro {
+  padding: 12px 16px 0;
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--ink-mid);
+  line-height: 1.5;
+  margin: 0;
+}
+.memory-intro b { color: var(--ink); font-weight: 700; }
+.memory-svg-wrap { padding: 0.5rem; overflow-x: auto; }
+.mem-svg { width: 100%; height: auto; min-width: 1100px; }
+.mem-section-label {
+  font: 700 14px/1 var(--display, 'Big Shoulders Display'), sans-serif;
+  fill: var(--ink);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.mem-kind {
+  font: 600 9px/1 var(--mono);
+  fill: var(--ink-dim);
+  letter-spacing: 0.06em;
+}
+.mem-label {
+  font: 600 13px/1 var(--sans);
+  fill: var(--ink);
+}
+.mem-detail {
+  font: 500 10px/1 var(--mono);
+  fill: var(--ink-mid);
+  letter-spacing: 0.04em;
+}
+.mem-edge-label {
+  font: 500 10px/1 var(--mono);
+  fill: var(--ink-mid);
+  letter-spacing: 0.04em;
+}
+.mem-current-lbl {
+  font: 600 10px/1 var(--mono);
+  fill: var(--live);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.mem-current-id {
+  font: 700 18px/1 var(--display, 'Big Shoulders Display'), sans-serif;
+  fill: var(--ink-strong);
+  letter-spacing: 0.04em;
+}
+.mem-current-sub {
+  font: 500 11px/1 var(--mono);
+  fill: var(--ink-mid);
+}
+.memory-cards-aux {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+.cards-aux-head { margin-bottom: 0.5rem; }
+
+/* ============================================================================
+   P142.2 — §6 Evidence & Gates (per screenshot #7).
+   5 stage cards with arrows + 4 summary tiles + 4-column detail grid +
+   ATC strip + MUDA probes + unresolved findings.
+   ============================================================================ */
+.ev-frame {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+.ev-frame-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0.9rem;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+}
+.ev-frame-title {
+  font: 600 0.7rem/1 var(--mono);
+  letter-spacing: 0.06em;
+  color: var(--ink-mid);
+  text-transform: uppercase;
+}
+.ev-frame-tags { display: flex; gap: 6px; }
+.ev-predicate-caption {
+  text-align: center;
+  padding: 1.5rem 1rem 0.75rem;
+  font: 600 1.1rem/1 var(--display, 'Big Shoulders Display'), sans-serif;
+  letter-spacing: 0.04em;
+  color: var(--ink-mid);
+}
+
+.ev-stages {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0;
+  padding: 1rem 1.5rem 2rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+.ev-stage {
+  flex: 1 1 0;
+  min-width: 180px;
+  max-width: 240px;
+  border: 2px solid var(--ink-faint);
+  border-radius: 6px;
+  padding: 0.85rem 1rem 1rem;
+  background: var(--bg-1);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+  position: relative;
+}
+.ev-stage.ev-stage-green   { border-color: var(--done);   background: var(--done-bg); }
+.ev-stage.ev-stage-warn    { border-color: var(--attn);   background: var(--attn-bg); }
+.ev-stage.ev-stage-severe  { border-color: var(--severe); background: var(--severe-bg); }
+.ev-stage.ev-stage-fail    { border-color: var(--severe); background: var(--severe-bg); }
+.ev-stage.ev-stage-pending { border-color: var(--ink-faint); background: var(--bg-2); border-style: dashed; color: var(--ink-dim); }
+.ev-stage-tier {
+  font: 600 0.6rem/1 var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.ev-stage-green .ev-stage-tier { color: var(--done); }
+.ev-stage-warn .ev-stage-tier { color: var(--attn); }
+.ev-stage-fail .ev-stage-tier, .ev-stage-severe .ev-stage-tier { color: var(--severe); }
+.ev-stage-name {
+  font: 900 1.4rem/1 var(--display, 'Big Shoulders Display'), sans-serif;
+  letter-spacing: 0.04em;
+  margin: 0;
+  color: var(--ink-strong);
+}
+.ev-stage-detail {
+  font: 500 0.72rem/1.3 var(--mono);
+  color: var(--ink-mid);
+  letter-spacing: 0.02em;
+}
+.ev-stage-concepts { display: flex; gap: 4px; justify-content: center; }
+.ev-stage-counts {
+  display: flex; gap: 4px; justify-content: center; margin-top: auto;
+  font: 600 0.7rem/1 var(--mono);
+}
+.ev-cnt {
+  padding: 2px 6px; border-radius: 2px; background: var(--bg-1);
+  border: 1px solid var(--line);
+}
+.ev-cnt-green { background: var(--done-bg); color: var(--done); border-color: var(--done-line); }
+.ev-cnt-fail  { background: var(--severe-bg); color: var(--severe); border-color: var(--severe-line); }
+.ev-cnt-pend  { background: var(--bg-3); color: var(--ink-dim); }
+.ev-stage-arrow {
+  align-self: center;
+  font-size: 18px;
+  color: var(--ink-mid);
+  padding: 0 0.5rem;
+}
+
+.ev-summary-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  margin-bottom: 1rem;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.ev-tile {
+  padding: 1rem 1.25rem;
+  border-right: 1px solid var(--line);
+  background: var(--bg-1);
+}
+.ev-tile:last-child { border-right: none; }
+.ev-tile-num {
+  font: 700 2.4rem/1 var(--display, 'Big Shoulders Display'), sans-serif;
+  letter-spacing: -0.02em;
+  color: var(--ink-strong);
+}
+.ev-tile-lbl {
+  font: 600 0.66rem/1 var(--mono);
+  letter-spacing: 0.14em;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+.ev-tile-green .ev-tile-num { color: var(--done); }
+.ev-tile-green               { background: var(--done-bg); }
+.ev-tile-warn .ev-tile-num  { color: var(--attn); }
+.ev-tile-warn                { background: var(--attn-bg); }
+.ev-tile-fail .ev-tile-num  { color: var(--severe); }
+.ev-tile-fail                { background: var(--severe-bg); }
+
+.ev-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 1rem;
+}
+.ev-detail-col {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.ev-col-head {
+  font: 600 0.66rem/1 var(--mono);
+  letter-spacing: 0.14em;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  padding: 8px 12px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+}
+.ev-col-list { list-style: none; padding: 0; margin: 0; }
+.ev-col-item {
+  display: grid;
+  grid-template-columns: 10px 100px 1fr auto;
+  gap: 8px;
+  align-items: baseline;
+  padding: 8px 12px;
+  font: 500 0.72rem/1.3 var(--sans);
+  color: var(--ink);
+  border-top: 1px solid var(--line-dim);
+}
+.ev-col-item:first-child { border-top: none; }
+.ev-col-pip {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ink-faint);
+  align-self: center;
+}
+.ev-col-green .ev-col-pip { background: var(--done); }
+.ev-col-warn .ev-col-pip  { background: var(--attn); }
+.ev-col-fail .ev-col-pip  { background: var(--severe); }
+.ev-col-pend .ev-col-pip  { background: var(--ink-faint); border: 1px solid var(--ink-dim); background: transparent; }
+.ev-col-name { font-family: var(--mono); color: var(--ink-strong); font-weight: 600; }
+.ev-col-detail { color: var(--ink-mid); font-family: var(--mono); font-size: 0.7rem; }
+.ev-col-ts { font: 500 0.62rem/1 var(--mono); color: var(--ink-dim); letter-spacing: 0.04em; }
+
+.ev-atc-strip {
+  display: flex; gap: 4px; align-items: center; flex-wrap: wrap;
+  padding: 8px 0;
+}
+.atc-pill {
+  padding: 3px 8px; border-radius: 2px;
+  font: 600 0.6rem/1 var(--mono);
+  letter-spacing: 0.06em;
+  background: var(--bg-2); color: var(--ink-mid);
+}
+.atc-skip { background: var(--bg-3); color: var(--ink-dim); }
+.atc-lite { background: var(--done-bg); color: var(--done); }
+.atc-full { background: var(--attn-bg); color: var(--attn); }
+.atc-gate { background: var(--severe-bg); color: var(--severe); }
+.ev-empty { color: var(--ink-dim); }
+
+.ev-unresolved {
+  background: var(--attn-bg);
+  border: 1px solid var(--attn-line);
+  border-radius: 3px;
+  padding: 12px 14px;
+  margin-top: 1rem;
+}
+.ev-unresolved-head { margin-bottom: 6px; }
+.ev-unresolved-list { list-style: none; padding: 0; margin: 0; }
+.ev-unresolved-row {
+  display: flex; gap: 12px;
+  padding: 4px 0;
+  font: 500 0.72rem/1.3 var(--sans);
+  border-top: 1px solid rgba(183,121,31,0.2);
+}
+.ev-unresolved-row:first-child { border-top: none; }
+.ev-unresolved-row span:first-child { min-width: 140px; color: var(--attn); font-weight: 600; }
 </style>
 </head>
 <body>
