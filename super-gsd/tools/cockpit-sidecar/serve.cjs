@@ -179,10 +179,16 @@ function startWatchers(workspace, scheduleRecompute) {
   return watchers;
 }
 
-function writePidFile(workspace) {
+function writePidFile(workspace, port) {
+  // P141.5: pidfile per port so parallel test spawns don't race on a single
+  // .planning/runtime/cockpit-server.pid (the recurring P132 SAC flake).
+  // Also skip pidfile entirely when COCKPIT_SMOKE=1 (browser-smoke ephemeral
+  // probes; pidfile is operator-facing convenience, not needed for tests).
+  if (process.env.COCKPIT_SMOKE === '1') return null;
   const runtimeDir = path.resolve(workspace, '.planning/runtime');
-  const pidPath = path.join(runtimeDir, 'cockpit-server.pid');
   fs.mkdirSync(runtimeDir, { recursive: true });
+  const name = port && port !== 7777 ? `cockpit-server-${port}.pid` : 'cockpit-server.pid';
+  const pidPath = path.join(runtimeDir, name);
   fs.writeFileSync(pidPath, `${process.pid}\n`, 'utf8');
   return pidPath;
 }
@@ -376,16 +382,16 @@ async function start(options = {}) {
     });
   });
 
+  const actualPort = server.address().port;
   try {
     await recomputeSnapshot(false);
-    pidPath = writePidFile(workspace);
+    pidPath = writePidFile(workspace, actualPort);
     watchers.push(...startWatchers(workspace, scheduleRecompute));
   } catch (err) {
     await new Promise((resolve) => server.close(resolve));
     throw err;
   }
 
-  const actualPort = server.address().port;
   console.error(`cockpit-server listening port: ${actualPort}`);
 
   async function close() {

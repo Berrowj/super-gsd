@@ -70,12 +70,15 @@ function startTestServer(port = 0) {
 
     let settled = false;
     let stderr = '';
+    // P141.5: bumped from 3000 → 12000 to absorb cold-start under parallel SAC
+    // load. When ~14 SACs spawn serve.cjs in parallel (Promise.all in runTest),
+    // Node child startup queues; 3s timed out 3-5 of them deterministically.
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
       child.kill('SIGTERM');
       reject(new Error('timed out waiting for cockpit-server port; stderr=' + stderr));
-    }, 3000);
+    }, 12000);
 
     function finish(err, value) {
       if (settled) return;
@@ -711,10 +714,14 @@ const tests = [
             req.end();
           });
 
-          fs.utimesSync(path.resolve('.planning/STATE.md'), new Date(), new Date());
-          const deadline = Date.now() + 2000;
-          while (Date.now() < deadline && events.length < 2) {
-            await sleep(50);
+          // P141.5: under parallel-SAC load (~14 tests touching files
+          // simultaneously), the fs.watch debounce window misses single
+          // touches. Touch repeatedly and give a longer deadline.
+          await sleep(150); // let the initial snapshot land first
+          const touchDeadline = Date.now() + 4000;
+          while (Date.now() < touchDeadline && events.length < 2) {
+            fs.utimesSync(path.resolve('.planning/STATE.md'), new Date(), new Date());
+            await sleep(200);
           }
           assert.ok(events.length >= 2, 'expected initial + post-touch events, got ' + events.length);
         } finally {
@@ -745,9 +752,14 @@ const tests = [
     tests.push({
       id: 'SAC-P132-05',
       run: async () => {
-        const { child } = await startTestServer();
-        const pidPath = path.resolve('.planning/runtime/cockpit-server.pid');
-        assert.ok(fs.existsSync(pidPath), 'PID file should exist');
+        const { child, port } = await startTestServer();
+        // P141.5: pidfile name is now per-port (cockpit-server-NNNN.pid) to
+        // avoid parallel-SAC contention. Check either the legacy fixed name
+        // OR the per-port name.
+        const legacyPidPath = path.resolve('.planning/runtime/cockpit-server.pid');
+        const portPidPath = path.resolve(`.planning/runtime/cockpit-server-${port}.pid`);
+        const pidPath = fs.existsSync(portPidPath) ? portPidPath : legacyPidPath;
+        assert.ok(fs.existsSync(pidPath), `PID file should exist (checked ${legacyPidPath} and ${portPidPath})`);
         child.kill('SIGTERM');
         const exit = await waitForExit(child, 2000);
         // Cross-platform shutdown verification:
