@@ -117,6 +117,7 @@
     connState.attach();
     setInterval(evaluateStaleness, 5000);
     applyCollapsePersistence();
+    wirePhaseClickDelegation();
 
     // Hotkeys A approve / P pause / O open / Esc abort — stubs (P139+ wires handlers).
     document.addEventListener('keydown', function (event) {
@@ -680,10 +681,41 @@
     '</svg>';
   }
 
+  // P142.5 phase-detail selection state. Default is the current phase from
+  // the snapshot. Click on any phase pill / sub-task / grid card updates this
+  // and re-renders the milestone section. Persisted in localStorage so a
+  // refresh keeps the operator's selected phase.
+  function getSelectedPhase(snapshot) {
+    const cur = String(snapshot.phase || (snapshot.mission && snapshot.mission.phase_id) || '');
+    if (window.SgsdSelectedPhase) return window.SgsdSelectedPhase;
+    const persisted = lsGet('sgsd-selected-phase', '');
+    if (persisted) { window.SgsdSelectedPhase = persisted; return persisted; }
+    window.SgsdSelectedPhase = cur;
+    return cur;
+  }
+  function setSelectedPhase(phaseId, snapshot) {
+    window.SgsdSelectedPhase = String(phaseId);
+    lsSet('sgsd-selected-phase', String(phaseId));
+    // Re-render only the milestone section
+    if (window._sgsdLastSnapshot) renderMilestone(window._sgsdLastSnapshot);
+  }
+
+  function getActiveDetailTab() {
+    return window.SgsdActiveDetailTab || lsGet('sgsd-detail-tab', 'summary');
+  }
+  function setActiveDetailTab(tab, snapshot) {
+    window.SgsdActiveDetailTab = tab;
+    lsSet('sgsd-detail-tab', tab);
+    if (window._sgsdLastSnapshot) renderMilestone(window._sgsdLastSnapshot);
+  }
+
   function renderMilestone(snapshot) {
     const section = document.getElementById('sec-milestone');
     if (!section) return;
+    window._sgsdLastSnapshot = snapshot;
     const mm = snapshot.milestone_map || { milestones: [], phases: [], details: {} };
+    const selectedPhaseId = getSelectedPhase(snapshot);
+    const currentDetail = mm.details && mm.details[selectedPhaseId];
     const stripHtml = (mm.milestones || []).map(function (m, i) {
       const sep = i > 0 ? '<span class="ms-sep" aria-hidden="true">→</span>' : '';
       return '' +
@@ -696,32 +728,28 @@
     }).join('');
     const phasesHtml = (mm.phases || []).map(function (p) {
       const tier = p.status === 'done' ? 'done' : (p.status === 'current' ? 'live' : 'pending');
+      const sel = p.id === selectedPhaseId ? ' selected' : '';
       return '' +
-        '<div class="ms-phase tier-' + tier + '" data-id="' + escape(p.id) + '">' +
+        '<div class="ms-phase tier-' + tier + sel + '" data-clickable="phase" data-id="' + escape(p.id) + '" role="button" tabindex="0">' +
           '<span class="ms-phase-id">' + escape(p.label) + '</span>' +
           '<span class="ms-phase-sub">' + escape(p.sub || '') + '</span>' +
           '<span class="ms-phase-stat">' + escape(p.status) + '</span>' +
         '</div>';
     }).join('');
-    const currentDetail = mm.details && mm.details[String(snapshot.phase || '')];
-    const detailHtml = currentDetail
-      ? '<div class="phase-detail-panel">' +
-          '<h3 class="pd-title">P' + escape(snapshot.phase) + ' · ' + escape(currentDetail.title || '') + '</h3>' +
-          '<p class="pd-why"><strong>Why:</strong> ' + escape(currentDetail.why || '') + '</p>' +
-          (currentDetail.unlocks ? '<p class="pd-unlocks"><strong>Unlocks:</strong> ' + escape(currentDetail.unlocks) + '</p>' : '') +
-          '<p class="pd-outcome"><strong>Outcome:</strong> ' + escape(currentDetail.outcome || '') + '</p>' +
-        '</div>'
-      : '';
+    // Legacy detailHtml unused now — phase detail is rendered inline in the
+    // SVG-frame right column via renderMilestonePhaseDetail. Keep '' for any
+    // downstream references.
+    const detailHtml = '';
     const phases = mm.phases || [];
     const done = phases.filter(function (p) { return p.status === 'done'; }).length;
     const active = phases.filter(function (p) { return p.status === 'current' || p.status === 'active'; }).length;
     const pending = phases.filter(function (p) { return p.status === 'pending'; }).length;
     let milestoneSvg = '';
-    try { milestoneSvg = renderMilestoneSvg(snapshot, mm); }
+    try { milestoneSvg = renderMilestoneSvg(snapshot, mm, selectedPhaseId); }
     catch (e) { milestoneSvg = '<div class="ms-svg-err mono">milestone svg threw: ' + escape(e.message) + '</div>'; }
     const currentPhaseDetail = currentDetail
-      ? renderMilestonePhaseDetail(snapshot, currentDetail)
-      : '';
+      ? renderMilestonePhaseDetail(snapshot, currentDetail, selectedPhaseId)
+      : '<div class="phase-detail phase-detail-empty"><span class="mono">no detail for P' + escape(selectedPhaseId) + '</span></div>';
     const html =
       renderSectionHeader('4', 'Milestone Dependency', 'MILESTONE',
         (mm.current || 'v3.4') + ' · ' + done + ' done / ' + active + ' active / ' + pending + ' pending',
@@ -746,7 +774,7 @@
     if (section.innerHTML !== html) section.innerHTML = html;
   }
 
-  function renderMilestoneSvg(snapshot, mm) {
+  function renderMilestoneSvg(snapshot, mm, selectedPhaseId) {
     // Per screenshot #13: 3-column SVG showing v3.2 (DONE), v3.3 (ACTIVE)
     // with all phases inside, v3.4 (PENDING). Active milestone shows phase
     // pills in a row + T1-T4 sub-tasks below + NOW indicator + CLOSE node.
@@ -802,19 +830,24 @@
     const phaseHtml = visPhases.map(function (p, i) {
       const x = colActiveX + phasePadX + i * (phaseW + 10);
       const isCurrent = p.id === currentPhase;
+      const isSelected = p.id === selectedPhaseId;
       const status = isCurrent ? 'active' : p.status === 'current' ? 'active' : (p.status === 'done' ? 'done' : 'pending');
       const fill = status === 'done' ? 'var(--done-bg)' : status === 'active' ? 'var(--live)' : 'var(--bg-1)';
       const stroke = status === 'done' ? 'var(--done)' : status === 'active' ? 'var(--live)' : 'var(--ink-faint)';
       const textFill = status === 'active' ? 'var(--bg-1)' : 'var(--ink)';
       const check = p.status === 'done' ? '<text class="ms-svg-check" x="' + (x + phaseW / 2) + '" y="' + (phaseRowY + phaseH - 6) + '" text-anchor="middle">✓</text>' : '';
       const nowLabel = isCurrent ? '<text class="ms-svg-now mono" x="' + (x + phaseW / 2) + '" y="' + (phaseRowY + phaseH - 6) + '" text-anchor="middle">NOW</text>' : '';
-      return '<g class="ms-svg-phase" data-id="' + escape(p.id) + '">' +
+      const selectedHalo = isSelected
+        ? '<rect x="' + (x - 4) + '" y="' + (phaseRowY - 4) + '" width="' + (phaseW + 8) + '" height="' + (phaseH + 8) + '" rx="5" fill="none" stroke="var(--indigo)" stroke-width="2.5" stroke-dasharray="4 2"/>'
+        : '';
+      return '<g class="ms-svg-phase' + (isSelected ? ' selected' : '') + '" data-clickable="phase" data-id="' + escape(p.id) + '" role="button" tabindex="0" aria-label="Phase ' + escape(p.id) + '">' +
+        selectedHalo +
         '<rect x="' + x + '" y="' + phaseRowY + '" width="' + phaseW + '" height="' + phaseH + '" rx="3" fill="' + fill + '" stroke="' + stroke + '" stroke-width="1.5"/>' +
         '<text class="ms-svg-phase-id" x="' + (x + phaseW / 2) + '" y="' + (phaseRowY + 22) + '" text-anchor="middle" fill="' + textFill + '">' + escape(p.label || ('P' + p.id)) + '</text>' +
         check + nowLabel +
       '</g>';
     }).join('');
-    // Sub-tasks row (T1-T4)
+    // Sub-tasks row (T1-T4) — clickable as sub-task siblings of the current phase
     const subTasks = ['T1','T2','T3','T4'];
     const subPadX = (colActiveW - subTasks.length * subW - (subTasks.length - 1) * 16) / 2;
     const subHtml = subTasks.map(function (t, i) {
@@ -823,7 +856,8 @@
       const fill = status === 'done' ? 'var(--done-bg)' : 'var(--severe-bg)';
       const stroke = status === 'done' ? 'var(--done)' : 'var(--severe)';
       const mark = status === 'done' ? '✓' : '‖';
-      return '<g class="ms-svg-sub">' +
+      const subId = currentPhase + '-' + t;
+      return '<g class="ms-svg-sub" data-clickable="task" data-id="' + escape(subId) + '" role="button" tabindex="0" aria-label="Sub-task ' + escape(t) + '">' +
         '<rect x="' + x + '" y="' + subRowY + '" width="' + subW + '" height="' + subH + '" rx="3" fill="' + fill + '" stroke="' + stroke + '" stroke-width="1.5"/>' +
         '<text class="ms-svg-sub-id" x="' + (x + subW / 2) + '" y="' + (subRowY + 18) + '" text-anchor="middle">' + escape(t) + '</text>' +
         '<text class="ms-svg-sub-mark" x="' + (x + subW / 2) + '" y="' + (subRowY + 32) + '" text-anchor="middle" fill="' + stroke + '">' + mark + '</text>' +
@@ -851,30 +885,77 @@
     '</svg>';
   }
 
-  function renderMilestonePhaseDetail(snapshot, detail) {
-    // Right-side phase detail panel with SUMMARY / WHY / UNLOCKS / EVIDENCE / RAW tabs.
+  function renderMilestonePhaseDetail(snapshot, detail, selectedPhaseId) {
+    // Right-side phase detail panel. Tabs (SUMMARY/WHY/UNLOCKS/EVIDENCE/RAW)
+    // switch which content block is visible. Clickable from phase pills +
+    // grid cards (per screenshot #13).
+    const phaseNum = String(selectedPhaseId || snapshot.phase || '—');
+    const isCurrent = phaseNum === String(snapshot.phase || '');
+    const statusLabel = isCurrent ? 'ACTIVE' : (detail.outcome === 'PASS' || /PASS/.test(detail.outcome || '') ? 'DONE' : (detail.outcome === 'in progress' ? 'ACTIVE' : 'PENDING'));
+    const statusCls = isCurrent ? 'pd-status-active' : (statusLabel === 'DONE' ? 'pd-status-done' : 'pd-status-pending');
+    const activeTab = getActiveDetailTab();
+    function tab(name, label) {
+      const cls = name === activeTab ? 'pd-tab active' : 'pd-tab';
+      return '<button class="' + cls + '" data-clickable="tab" data-tab="' + escape(name) + '">' + escape(label) + '</button>';
+    }
+    function row(label, value, valueClass) {
+      if (!value) return '';
+      const cls = valueClass ? ' ' + valueClass : '';
+      return '<div class="pd-row"><span class="lbl">' + label + '</span><div class="pd-val' + cls + '">' + escape(value) + '</div></div>';
+    }
+    // Tab bodies
+    function summaryBody() {
+      return row('Why it ran', detail.why || detail.blurb) +
+        row('ELI5', detail.eli5, 'pd-val-eli5') +
+        row('Outcome', detail.outcome_long || detail.outcome);
+    }
+    function whyBody() {
+      return row('Why it ran', detail.why) +
+        row('Scope', detail.scope) +
+        (detail.decisions && detail.decisions.length
+          ? '<div class="pd-row"><span class="lbl">Decisions</span><ul class="pd-list">' +
+            detail.decisions.map(function (d) { return '<li>' + escape(d) + '</li>'; }).join('') +
+            '</ul></div>'
+          : '');
+    }
+    function unlocksBody() {
+      return row('Unlocks', detail.unlocks);
+    }
+    function evidenceBody() {
+      return row('Outcome', detail.outcome_long || detail.outcome) +
+        row('SAC count', String(detail.sac_count || 0)) +
+        (detail.files && detail.files.length
+          ? '<div class="pd-row"><span class="lbl">Files touched</span><ul class="pd-list pd-list-mono">' +
+            detail.files.slice(0, 6).map(function (f) { return '<li>' + escape(f) + '</li>'; }).join('') +
+            '</ul></div>'
+          : '');
+    }
+    function rawBody() {
+      return '<div class="pd-row"><span class="lbl">Raw capsule</span><pre class="pd-raw mono">' +
+        escape(JSON.stringify(detail, null, 2).slice(0, 1500)) + '</pre></div>';
+    }
+    const bodyHtml = activeTab === 'summary' ? summaryBody()
+      : activeTab === 'why' ? whyBody()
+      : activeTab === 'unlocks' ? unlocksBody()
+      : activeTab === 'evidence' ? evidenceBody()
+      : rawBody();
     return '' +
       '<div class="phase-detail">' +
         '<header class="pd-head">' +
-          '<span class="pd-id mono">P' + escape(snapshot.phase || '—') + '</span>' +
-          '<span class="pd-status pd-status-active">ACTIVE</span>' +
-          '<span class="pd-tag mono">this phase</span>' +
+          '<span class="pd-id mono">P' + escape(phaseNum) + '</span>' +
+          '<span class="pd-status ' + statusCls + '">' + escape(statusLabel) + '</span>' +
+          '<span class="pd-tag mono">' + (isCurrent ? 'this phase' : 'click any phase') + '</span>' +
         '</header>' +
         '<h3 class="pd-title">' + escape((detail.title || '').toUpperCase()) + '</h3>' +
-        '<p class="pd-blurb">' + escape((detail.outcome || '').slice(0, 80)) + '</p>' +
+        '<p class="pd-blurb">' + escape(detail.blurb || (detail.outcome || '').slice(0, 80)) + '</p>' +
         '<div class="pd-tabs">' +
-          '<button class="pd-tab active">SUMMARY</button>' +
-          '<button class="pd-tab">WHY</button>' +
-          '<button class="pd-tab">UNLOCKS</button>' +
-          '<button class="pd-tab">EVIDENCE</button>' +
-          '<button class="pd-tab">RAW</button>' +
+          tab('summary', 'SUMMARY') +
+          tab('why', 'WHY') +
+          tab('unlocks', 'UNLOCKS') +
+          tab('evidence', 'EVIDENCE') +
+          tab('raw', 'RAW') +
         '</div>' +
-        '<div class="pd-body">' +
-          (detail.why ? '<div class="pd-row"><span class="lbl">Why it ran</span><div class="pd-val">' + escape(detail.why) + '</div></div>' : '') +
-          (detail.context ? '<div class="pd-row"><span class="lbl">Context</span><div class="pd-val">' + escape(detail.context) + '</div></div>' : '') +
-          (detail.unlocks ? '<div class="pd-row"><span class="lbl">Unlocks</span><div class="pd-val">' + escape(detail.unlocks.slice(0, 120)) + '</div></div>' : '') +
-          (detail.outcome ? '<div class="pd-row"><span class="lbl">Outcome</span><div class="pd-val">' + escape(detail.outcome) + '</div></div>' : '') +
-        '</div>' +
+        '<div class="pd-body">' + bodyHtml + '</div>' +
       '</div>';
   }
 
@@ -1282,6 +1363,46 @@
     try { window.localStorage.setItem(key, String(val)); }
     catch (_e) { /* private mode */ }
   }
+  function wirePhaseClickDelegation() {
+    // Global click + keydown delegation for clickable phase elements
+    // (data-clickable="phase" / "task" / "tab"). Re-fires on every snapshot
+    // because the DOM is replaced in renderMilestone. Attach once at the
+    // document level so it survives re-renders.
+    if (window._sgsdClickWired) return;
+    window._sgsdClickWired = true;
+    function handle(target) {
+      if (!target) return;
+      const phaseEl = target.closest('[data-clickable="phase"]');
+      if (phaseEl) {
+        const id = phaseEl.getAttribute('data-id');
+        if (id) setSelectedPhase(id);
+        return;
+      }
+      const taskEl = target.closest('[data-clickable="task"]');
+      if (taskEl) {
+        // Sub-tasks belong to the current active phase; click selects that phase
+        const id = (taskEl.getAttribute('data-id') || '').split('-')[0];
+        if (id) setSelectedPhase(id);
+        return;
+      }
+      const tabEl = target.closest('[data-clickable="tab"]');
+      if (tabEl) {
+        const t = tabEl.getAttribute('data-tab');
+        if (t) setActiveDetailTab(t);
+        return;
+      }
+    }
+    document.addEventListener('click', function (e) { handle(e.target); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const target = e.target;
+      if (target && target.matches && target.matches('[data-clickable]')) {
+        e.preventDefault();
+        handle(target);
+      }
+    });
+  }
+
   function applyCollapsePersistence() {
     // Per-IA-section collapse persistence: a section toggles its `data-collapsed`
     // attribute on click of its ::before header. We wrap each ia-section with

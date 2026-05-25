@@ -872,15 +872,83 @@ function attachArchitecture(output) {
   return output;
 }
 
+function extractEli5(text) {
+  // Synthesise a one-sentence ELI5 from a goal/blurb. Strip code fences,
+  // pick the first declarative sentence, cap at 160 chars.
+  if (!text) return '';
+  const cleaned = String(text)
+    .replace(/`[^`]+`/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const firstSentence = cleaned.split(/\.\s+/)[0];
+  return (firstSentence + (firstSentence.endsWith('.') ? '' : '.')).slice(0, 160);
+}
+
 function attachMilestoneMap(output) {
   const milestone = output.milestone;
   const currentPhase = String(output.phase || (output.mission && output.mission.phase_id) || '');
-  const milestones = [
-    { id: 'v3.2', label: 'v3.2', status: 'done',    focus: 'Operator comprehension' },
-    { id: 'v3.3', label: 'v3.3', status: 'done',    focus: 'Live contextual awareness' },
-    { id: 'v3.4', label: 'v3.4', status: 'active',  focus: 'Cockpit IA rewrite (light)' },
-    { id: 'v3.5', label: 'v3.5', status: 'pending', focus: 'Polish + tape sidebar' },
-  ];
+  // P142.6 backfill: walk .planning/milestones/ to derive the full milestone
+  // strip dynamically. Each milestone with SUMMARY.md → done; with INTENT.md
+  // only → active; with neither but a phases/ dir → pending placeholder.
+  // Operator-asked: "when loading a new project you have to backfill all the
+  // data points and previous milestones".
+  let milestones = [];
+  try {
+    const root = '.planning/milestones';
+    if (fs.existsSync(root)) {
+      const dirs = fs.readdirSync(root).filter(function (d) {
+        return /^v\d+(?:\.\d+)?$/.test(d);
+      }).sort(function (a, b) {
+        return parseFloat(a.slice(1)) - parseFloat(b.slice(1));
+      });
+      milestones = dirs.map(function (d) {
+        const ms = { id: d, label: d, status: 'pending', focus: '' };
+        const summaryPath = path.join(root, d, 'SUMMARY.md');
+        const intentPath = path.join(root, d, 'INTENT.md');
+        try {
+          if (fs.existsSync(summaryPath)) {
+            ms.status = d === milestone ? 'active' : 'done';
+            const text = fs.readFileSync(summaryPath, 'utf8');
+            const fm = text.match(/^---\s*([\s\S]*?)\s*---/);
+            if (fm) {
+              const nameMatch = fm[1].match(/^milestone_name:\s*(.+)$/m);
+              if (nameMatch) ms.focus = nameMatch[1].trim();
+              const closedMatch = fm[1].match(/^closed_at:\s*([\d-]+)/m);
+              if (closedMatch) ms.closed_at = closedMatch[1];
+              const phasesTotalMatch = fm[1].match(/^phases_total:\s*(\d+)/m);
+              if (phasesTotalMatch) ms.phases_total = parseInt(phasesTotalMatch[1], 10);
+            }
+            ms.has_data = true;
+          } else if (fs.existsSync(intentPath)) {
+            ms.status = d === milestone ? 'active' : 'pending';
+            const text = fs.readFileSync(intentPath, 'utf8');
+            const fm = text.match(/^---\s*([\s\S]*?)\s*---/);
+            if (fm) {
+              const nameMatch = fm[1].match(/^milestone_name:\s*(.+)$/m);
+              if (nameMatch) ms.focus = nameMatch[1].trim();
+            }
+            ms.has_data = true;
+          }
+        } catch (_e) { /* keep defaults */ }
+        return ms;
+      });
+      // Filter out milestone directories that have no SUMMARY/INTENT — they're
+      // empty placeholders from earlier scaffolding. Keep only those with data
+      // OR the current active milestone.
+      milestones = milestones.filter(function (m) {
+        return m.has_data || m.id === milestone;
+      });
+    }
+  } catch (_e) { /* fall through to hardcoded */ }
+  // Fallback / pad if the disk walk produced nothing
+  if (!milestones.length) {
+    milestones = [
+      { id: 'v3.2', label: 'v3.2', status: 'done',    focus: 'Operator comprehension' },
+      { id: 'v3.3', label: 'v3.3', status: 'done',    focus: 'Live contextual awareness' },
+      { id: 'v3.4', label: 'v3.4', status: 'active',  focus: 'Cockpit IA rewrite (light)' },
+      { id: 'v3.5', label: 'v3.5', status: 'pending', focus: 'Polish + tape sidebar' },
+    ];
+  }
   let phases = [];
   const details = {};
   try {
@@ -895,42 +963,75 @@ function attachMilestoneMap(output) {
         const contextPath = path.join(phaseDirRoot, dir, idNum + '-CONTEXT.md');
         let status = 'pending';
         let title = dir.replace(/^\d+(?:\.\d+)?-/, '').replace(/-/g, ' ');
-        if (fs.existsSync(capsulePath)) {
-          status = 'done';
-          try {
-            const cap = JSON.parse(fs.readFileSync(capsulePath, 'utf8'));
-            if (cap.phase_name) title = cap.phase_name;
-            details[idNum] = {
-              title,
-              eli5: '',
-              why: cap.goal || '',
-              context: '',
-              unlocks: (cap.downstream_contract && (cap.downstream_contract.consumers || []).join(', ')) || '',
-              outcome: cap.status || status,
-              files: cap.files || [],
-              duration: '',
-              owner: cap.created_by || '',
-            };
-          } catch (_e) { /* keep defaults */ }
-        } else if (fs.existsSync(contextPath)) {
-          status = 'active';
+        // Read CONTEXT.md (may exist even when capsule does) to extract
+        // structured per-phase context: Goal / Scope / Implementation
+        // decisions / SAC count. Used by the milestone phase-detail panel.
+        let goalText = '';
+        let scopeText = '';
+        let eli5Text = '';
+        let contextText = '';
+        let sacCount = 0;
+        if (fs.existsSync(contextPath)) {
           try {
             const text = fs.readFileSync(contextPath, 'utf8');
             const titleMatch = text.match(/^phase_name:\s*(.+)$/m);
             if (titleMatch) title = titleMatch[1].trim();
             const goalMatch = text.match(/##\s*Goal\s*\n+([\s\S]*?)(?:\n##|\n$)/);
+            if (goalMatch) goalText = goalMatch[1].trim().split(/\n\n/)[0].slice(0, 320);
+            const scopeMatch = text.match(/##\s*Scope\s*\n+([\s\S]*?)(?:\n##|\n$)/);
+            if (scopeMatch) scopeText = scopeMatch[1].trim().split(/\n\n/)[0].slice(0, 320);
+            const eli5Match = text.match(/##\s*(?:ELI5|eli5)\s*\n+([\s\S]*?)(?:\n##|\n$)/);
+            if (eli5Match) eli5Text = eli5Match[1].trim().slice(0, 240);
+            const ctxMatch = text.match(/##\s*Authoritative inputs\s*\n+([\s\S]*?)(?:\n##|\n$)/);
+            if (ctxMatch) contextText = ctxMatch[1].trim().slice(0, 280);
+            const sacMatches = [...text.matchAll(/^- id:\s*SAC-/gm)];
+            sacCount = sacMatches.length;
+          } catch (_e) { /* keep defaults */ }
+        }
+        if (fs.existsSync(capsulePath)) {
+          status = 'done';
+          try {
+            const cap = JSON.parse(fs.readFileSync(capsulePath, 'utf8'));
+            if (cap.phase_name) title = cap.phase_name;
+            const dc = cap.downstream_contract || {};
+            const unlocksParts = [];
+            if (dc.consumers) unlocksParts.push((dc.consumers || []).join(', '));
+            if (dc.constraints) unlocksParts.push((dc.constraints || []).slice(0, 2).join('; '));
             details[idNum] = {
               title,
-              eli5: '',
-              why: goalMatch ? goalMatch[1].trim().slice(0, 200) : '',
-              context: '',
-              unlocks: '',
-              outcome: 'in progress',
-              files: [],
+              blurb: (cap.goal || goalText || '').split('.').slice(0, 1).join('.').slice(0, 100),
+              eli5: eli5Text || extractEli5(cap.goal || ''),
+              why: goalText || cap.goal || '',
+              scope: scopeText,
+              context: contextText,
+              unlocks: unlocksParts.filter(Boolean).join(' · ').slice(0, 240),
+              outcome: cap.status || status,
+              outcome_long: 'Closed ' + (cap.status || 'PASS') + ' · ' + (cap.self_test_count || '') + ' self-test',
+              files: (cap.files || []).slice(0, 8),
               duration: '',
-              owner: 'orchestrator',
+              owner: cap.created_by || 'orchestrator',
+              sac_count: (cap.sac_ids || []).length,
+              decisions: (cap.decisions || []).slice(0, 4).map(function (d) { return d.decision || ''; }),
             };
           } catch (_e) { /* keep defaults */ }
+        } else if (fs.existsSync(contextPath)) {
+          status = 'active';
+          details[idNum] = {
+            title,
+            blurb: goalText.split('.').slice(0, 1).join('.').slice(0, 100),
+            eli5: eli5Text || extractEli5(goalText),
+            why: goalText,
+            scope: scopeText,
+            context: contextText,
+            unlocks: '',
+            outcome: 'in progress',
+            outcome_long: 'Currently authoring — see CONTEXT.md for scope, no capsule yet.',
+            files: [],
+            duration: '',
+            owner: 'orchestrator',
+            sac_count: sacCount,
+            decisions: [],
+          };
         }
         if (idNum === currentPhase) status = 'current';
         phases.push({ id: idNum, label: 'P' + idNum, status, sub: title.slice(0, 40), current: idNum === currentPhase, note: null });
