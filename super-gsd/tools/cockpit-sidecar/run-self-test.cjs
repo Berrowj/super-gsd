@@ -1310,6 +1310,34 @@ const tests = [
       }
     }});
 
+    tests.push({ id: 'SAC-P142-01', run: () => {
+      const src = fs.readFileSync('super-gsd/tools/cockpit-sidecar/client.js', 'utf8');
+      for (const fn of ['renderBottomDrawer', 'applyCollapsePersistence']) {
+        assert.ok(new RegExp('function\\s+' + fn).test(src), `client.js missing function ${fn}`);
+      }
+      assert.ok(/localStorage/.test(src), 'client.js missing localStorage usage');
+    }});
+
+    tests.push({ id: 'SAC-P142-02', run: async () => {
+      const result = await fetchRenderedDom();
+      assert.ok(/class="drawer-section"/.test(result.html), 'rendered DOM missing .drawer-section');
+      assert.ok(/data-drawer="alarms"/.test(result.html), 'rendered DOM missing alarms drawer');
+      assert.ok(/data-drawer="rationale"/.test(result.html), 'rendered DOM missing rationale drawer');
+    }});
+
+    tests.push({ id: 'SAC-P142-03', run: async () => {
+      const result = await fetchRenderedDom();
+      const cards = (result.html.match(/class="rationale-card"/g) || []).length;
+      assert.ok(cards >= 5, `expected >=5 rationale-card elements, got ${cards}`);
+    }});
+
+    tests.push({ id: 'SAC-P142-04', run: () => {
+      const verdictPath = path.join('.planning', 'runtime', 'cockpit-smoke-142-verdict.json');
+      assert.ok(fs.existsSync(verdictPath), `browser-smoke verdict for P142 missing at ${verdictPath}`);
+      const v = JSON.parse(fs.readFileSync(verdictPath, 'utf8'));
+      assert.strictEqual(v.verdict, 'PASS', `P142 browser-smoke verdict = ${v.verdict}`);
+    }});
+
     tests.push({ id: 'SAC-P138.5-01', run: () => {
       // Browser-smoke gate witness — the most-recent cockpit-touching phase MUST
       // have a verdict=PASS artifact at .planning/runtime/cockpit-smoke-<N>-verdict.json.

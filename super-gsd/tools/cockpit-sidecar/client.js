@@ -110,6 +110,7 @@
 
     connState.attach();
     setInterval(evaluateStaleness, 5000);
+    applyCollapsePersistence();
 
     // Hotkeys A approve / P pause / O open / Esc abort — stubs (P139+ wires handlers).
     document.addEventListener('keydown', function (event) {
@@ -137,6 +138,7 @@
     renderMemory(snap);
     renderEvidence(snap);
     renderEvents(snap);
+    renderBottomDrawer(snap);
 
     // Band 1 + Band 2 are now owned by renderMission / renderTelemetry (P139).
     // Band 3 (sec-architecture) keeps legacy renderBand(3) until P140 lands the
@@ -648,6 +650,101 @@
         mudaHtml +
       '</div>';
     if (section.innerHTML !== html) section.innerHTML = html;
+  }
+
+  function renderBottomDrawer(snapshot) {
+    const drawer = document.querySelector('aside.bottom-drawer');
+    if (!drawer) return;
+    const alarms = Array.isArray(snapshot.alarms) ? snapshot.alarms : [];
+    const rationale = snapshot.rationale || {};
+    const alarmHtml = alarms.length
+      ? '<div class="alarms" role="list">' + alarms.map(function (a) {
+          return '' +
+          '<div class="alarm-row alarm-' + escape(a.tier || 'attn') + '" role="listitem">' +
+            '<div class="alarm-head">' +
+              '<span class="alarm-signal mono">' + escape(a.signal) + '</span>' +
+              '<span class="alarm-tier alarm-tier-' + escape(a.tier || 'attn') + '">' + escape((a.tier || 'attn').toUpperCase()) + '</span>' +
+              '<span class="alarm-label">' + escape(a.severity_label || '') + '</span>' +
+            '</div>' +
+            '<div class="alarm-body">' +
+              '<div class="alarm-row-item"><span class="lbl">threshold</span><span class="val mono">' + escape(a.threshold || '') + '</span></div>' +
+              '<div class="alarm-row-item"><span class="lbl">cause</span><span class="val">' + escape(a.cause || '') + '</span></div>' +
+              '<div class="alarm-row-item"><span class="lbl">consequence</span><span class="val">' + escape(a.consequence || '') + '</span></div>' +
+              '<div class="alarm-row-item"><span class="lbl">action</span><span class="val val-action">' + escape(a.action || '') + '</span></div>' +
+            '</div>' +
+          '</div>';
+        }).join('') + '</div>'
+      : '<div class="alarms-empty mono">no active alarms — clear to run</div>';
+    const rationaleHtml = (function () {
+      const has = rationale && (rationale.why_this_phase || rationale.what_changed || rationale.what_could_go_wrong);
+      if (!has) return '<div class="rationale-empty mono">no rationale yet</div>';
+      function card(label, value) {
+        return '<div class="rationale-card"><span class="lbl">' + label + '</span><div class="rationale-val">' + escape(value || '—') + '</div></div>';
+      }
+      return '<div class="rationale-grid">' +
+        card('Why this phase', rationale.why_this_phase || rationale.context) +
+        card('What changed', rationale.what_changed || rationale.eli5) +
+        card('What could go wrong', rationale.what_could_go_wrong || rationale.what_is) +
+        card('What evidence supports', rationale.what_evidence_supports || rationale.evidence_trail) +
+        card('What happens next', rationale.what_happens_next || rationale.what_could_be) +
+      '</div>';
+    })();
+    const isAlarmsOpen = lsGet('sgsd-drawer-alarms', alarms.length > 0 ? '1' : '0') === '1';
+    const isRationaleOpen = lsGet('sgsd-drawer-rationale', '0') === '1';
+    const html =
+      '<details class="drawer-section" data-drawer="alarms"' + (isAlarmsOpen ? ' open' : '') + '>' +
+        '<summary class="drawer-summary"><span class="drawer-icon">⚠</span> Alarms · ' + alarms.length + '</summary>' +
+        '<div class="drawer-body">' + alarmHtml + '</div>' +
+      '</details>' +
+      '<details class="drawer-section" data-drawer="rationale"' + (isRationaleOpen ? ' open' : '') + '>' +
+        '<summary class="drawer-summary"><span class="drawer-icon">◐</span> Rationale</summary>' +
+        '<div class="drawer-body">' + rationaleHtml + '</div>' +
+      '</details>';
+    if (drawer.innerHTML !== html) drawer.innerHTML = html;
+    // Wire toggle persistence on each render
+    drawer.querySelectorAll('details.drawer-section').forEach(function (d) {
+      d.addEventListener('toggle', function () {
+        lsSet('sgsd-drawer-' + d.getAttribute('data-drawer'), d.open ? '1' : '0');
+      });
+    });
+  }
+
+  function lsGet(key, def) {
+    try { const v = window.localStorage.getItem(key); return v == null ? def : v; }
+    catch (_e) { return def; }
+  }
+  function lsSet(key, val) {
+    try { window.localStorage.setItem(key, String(val)); }
+    catch (_e) { /* private mode */ }
+  }
+  function applyCollapsePersistence() {
+    // Per-IA-section collapse persistence: a section toggles its `data-collapsed`
+    // attribute on click of its ::before header. We wrap each ia-section with
+    // a click handler and respect the localStorage state on load.
+    const sections = document.querySelectorAll('.ia-section[aria-label]');
+    sections.forEach(function (sec) {
+      const id = sec.id || sec.getAttribute('aria-label').toLowerCase();
+      const key = 'sgsd-sec-' + id;
+      // Read persisted state. Default: mission + telemetry open; others collapsed.
+      const defaultOpen = (id === 'sec-mission' || id === 'sec-telemetry');
+      const isOpen = lsGet(key, defaultOpen ? '1' : '0') === '1';
+      sec.setAttribute('data-collapsed', isOpen ? 'false' : 'true');
+      // Architecture starts hidden; collapse persistence handles it from here
+      if (id === 'sec-architecture') sec.style.display = '';
+      // Make ::before header clickable
+      sec.addEventListener('click', function (event) {
+        // Only fire on the ::before area (top ~40px). For practicality, toggle
+        // when clicking outside any interactive child.
+        const target = event.target;
+        if (target.closest('a, button, input, select, textarea, details')) return;
+        // Use clientY relative to section
+        const rect = sec.getBoundingClientRect();
+        if (event.clientY - rect.top > 50) return; // only top band
+        const cur = sec.getAttribute('data-collapsed') === 'true';
+        sec.setAttribute('data-collapsed', cur ? 'false' : 'true');
+        lsSet(key, cur ? '1' : '0');
+      });
+    });
   }
 
   function renderEvents(snapshot) {

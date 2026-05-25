@@ -1195,7 +1195,41 @@ function attachTelemetry(output) {
 }
 
 function attachAlarms(output) {
-  output.alarms = [];
+  // P142: derive from snapshot.warnings + fog_score signals. Each alarm has
+  // signal/tier/severity/since_sec/detail/threshold/cause/consequence/action/evidence.
+  const alarms = [];
+  const warnings = Array.isArray(output.warnings) ? output.warnings : [];
+  const fog = (output.fog_score && output.fog_score.score) || 0;
+  const fogTier = (output.fog_score && output.fog_score.tier) || 'low';
+  if (fog >= 80) {
+    alarms.push({
+      signal: 'fog_score',
+      tier: fogTier === 'high' ? 'severe' : 'attn',
+      severity_label: 'fog score elevated',
+      since_sec: 0,
+      detail: 'fog=' + fog + ' (' + fogTier + ')',
+      threshold: 'severe >= 80',
+      cause: 'context heavy with stale signals OR many disputed claims',
+      consequence: 'operator may misjudge phase state without reading must-read sections',
+      action: 'read summary, decisions, risks, architecture, file_impact',
+      evidence: ['fog-score breakdown'],
+    });
+  }
+  if (warnings.length >= 50) {
+    alarms.push({
+      signal: 'executor_log_parse_errors',
+      tier: 'attn',
+      severity_label: 'token-log JSON parse failures',
+      since_sec: 0,
+      detail: warnings.length + ' parse errors in token-log.jsonl',
+      threshold: 'attn >= 50',
+      cause: 'unescaped quotes / backslashes in token-log entries',
+      consequence: 'telemetry history under-counts; sparkline noisy',
+      action: 'audit token-log writers for proper JSON escaping',
+      evidence: warnings.slice(0, 3),
+    });
+  }
+  output.alarms = alarms;
   return output;
 }
 
