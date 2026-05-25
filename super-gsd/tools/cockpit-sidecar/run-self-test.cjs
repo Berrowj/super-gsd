@@ -140,6 +140,90 @@ function httpGet(port, pathname) {
   });
 }
 
+// P139 helper: spawn serve.cjs on ephemeral port, fetch /, return rendered HTML.
+async function fetchLiveHtml() {
+  const { child, port } = await startTestServer();
+  try {
+    const { res, body } = await httpGet(port, '/');
+    if (res.statusCode !== 200) throw new Error('fetchLiveHtml: HTTP ' + res.statusCode);
+    return { html: body, port };
+  } finally {
+    await stopTestServer(child);
+  }
+}
+
+// P139 helper: REAL DOM RENDER via JSDOM. Boots serve.cjs, fetches the shell +
+// snapshot + client.js, runs client.js INSIDE JSDOM with mocked fetch + mocked
+// EventSource (delivers exactly one snapshot then closes), then returns the
+// post-render serialized HTML for assertion. This is the perceptual gate that
+// proves "client.js renderers actually fill the section bodies when given a
+// real snapshot" — closes the source-grep loophole from the 2026-05-25 incident.
+async function fetchRenderedDom() {
+  const { requireDependency } = require('../chronicle/lib/require-dep.cjs');
+  const { JSDOM } = requireDependency('jsdom');
+  const { child, port } = await startTestServer();
+  try {
+    const { res: rRes, body: html } = await httpGet(port, '/');
+    if (rRes.statusCode !== 200) throw new Error('fetchRenderedDom: HTTP ' + rRes.statusCode + ' on /');
+    const { body: snapshotJson } = await httpGet(port, '/snapshot');
+    const { body: clientJs } = await httpGet(port, '/client.js');
+    const snapshot = JSON.parse(snapshotJson);
+
+    const dom = new JSDOM(html, {
+      runScripts: 'outside-only',
+      pretendToBeVisual: true,
+      url: 'http://127.0.0.1:' + port + '/',
+    });
+    const win = dom.window;
+    // Mock fetch: serve /snapshot, otherwise 404.
+    win.fetch = function (url) {
+      const u = String(url);
+      if (u.includes('/snapshot')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(snapshot),
+          text: () => Promise.resolve(snapshotJson),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+    };
+    // Mock EventSource: deliver one snapshot via onmessage, then close.
+    win.EventSource = function (urlPath) {
+      const self = this;
+      this.url = String(urlPath);
+      this.readyState = 0;
+      this.onopen = null;
+      this.onmessage = null;
+      this.onerror = null;
+      this.close = function () { self.readyState = 2; };
+      // Fire onopen + one onmessage on next tick
+      setTimeout(function () {
+        self.readyState = 1;
+        if (typeof self.onopen === 'function') self.onopen({});
+        if (typeof self.onmessage === 'function') {
+          self.onmessage({ data: snapshotJson });
+        }
+      }, 0);
+    };
+
+    // Execute client.js inside the JSDOM window. With runScripts:'outside-only',
+    // <script> tags don't auto-run; window.eval is the supported path.
+    win.eval(clientJs);
+
+    // DOMContentLoaded must fire so client.js's listener runs.
+    win.document.dispatchEvent(new win.Event('DOMContentLoaded'));
+
+    // Allow microtasks + setTimeout(0) to drain (mock EventSource delivery, fetch resolution).
+    await new Promise(function (r) { setTimeout(r, 400); });
+
+    const rendered = dom.serialize();
+    return { html: rendered, dom, snapshot };
+  } finally {
+    await stopTestServer(child);
+  }
+}
+
 function waitForFirstSseChunk(port, timeoutMs = 500) {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -1017,6 +1101,109 @@ const tests = [
       assert.ok(match, 'serve.cjs heartbeat setInterval not found');
       const ms = parseInt(match[1], 10);
       assert.ok(ms === 15000, `expected 15000ms ping, got ${ms}`);
+    }});
+
+    tests.push({ id: 'SAC-P139-01', run: () => {
+      const src = fs.readFileSync('super-gsd/tools/cockpit-sidecar/client.js', 'utf8');
+      // P139.6 design-pack-conformed renderer set. ExplanationBand was retired
+      // (its content moved into MissionCard.mc-body 'Why running' row per the
+      // design pack reference).
+      for (const fn of ['renderMission', 'renderTelemetry', 'renderMissionCard', 'renderPhaseRunway', 'renderAgentLanes', 'renderTelemCell', 'renderSparkSvg']) {
+        assert.ok(new RegExp('function\\s+' + fn).test(src), `client.js missing function ${fn}`);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P139-02', run: () => {
+      const src = fs.readFileSync('super-gsd/tools/cockpit-sidecar/client.js', 'utf8');
+      assert.ok(/renderMission\(snap\)/.test(src), 'renderAll must call renderMission(snap)');
+      assert.ok(/renderTelemetry\(snap\)/.test(src), 'renderAll must call renderTelemetry(snap)');
+    }});
+
+    tests.push({ id: 'SAC-P139-03', run: () => {
+      const css = fs.readFileSync('super-gsd/tools/shared/sgsd-design-system.css', 'utf8');
+      // Design-pack canonical class names (conformed to in P139.6 design-pack CSS merge)
+      for (const sel of ['.mission-card', '.runway', '.agent-lane', '.telem', '.telem-cell']) {
+        assert.ok(css.includes(sel), `css missing rule for ${sel}`);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P139-04', run: () => {
+      const src = fs.readFileSync('super-gsd/tools/cockpit-sidecar/cockpit-sidecar.cjs', 'utf8');
+      assert.ok(/STATE\.md/.test(src), 'attachMission must reference STATE.md or phase CONTEXT.md');
+      // 5-channel attachTelemetry shape
+      for (const ch of ['fog', 'dispatches', 'tokens', 'context', 'elapsed']) {
+        assert.ok(src.includes(ch + ':'), 'attachTelemetry missing channel: ' + ch);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P139-05', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, {
+        statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }),
+        state: { milestone: 'v3.2', phase: '127' },
+      });
+      assert.ok(out.mission && out.mission.phase_id, 'mission.phase_id missing');
+      for (const ch of ['fog', 'dispatches', 'tokens', 'context', 'elapsed']) {
+        assert.ok(out.telemetry[ch], `telemetry.${ch} missing`);
+        assert.ok('value' in out.telemetry[ch], `telemetry.${ch}.value missing`);
+        assert.ok('target' in out.telemetry[ch], `telemetry.${ch}.target missing`);
+        assert.ok(Array.isArray(out.telemetry[ch].history), `telemetry.${ch}.history not array`);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P139-06', run: async () => {
+      // REAL DOM render via JSDOM. Proves client.js renderers fill the section
+      // bodies with the design-pack component classes when given a real snapshot.
+      // Design-pack canonical names: .mission-card, .runway, .agents/.agent-lane, .telem.
+      const result = await fetchRenderedDom();
+      for (const cls of ['mission-card', 'runway', 'agent-lane', 'telem']) {
+        const re = new RegExp('class="[^"]*' + cls + '[^"]*"');
+        assert.ok(re.test(result.html), `rendered DOM missing class containing "${cls}"`);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P139-07', run: async () => {
+      const result = await fetchRenderedDom();
+      // Design-pack canonical class for the inline svg is .telem-spark
+      const matches = result.html.match(/<svg[^>]*class="telem-spark"/g) || [];
+      assert.strictEqual(matches.length, 5, `expected 5 telem-spark svgs in rendered DOM, got ${matches.length}`);
+    }});
+
+    tests.push({ id: 'SAC-P139-08', run: async () => {
+      const result = await fetchRenderedDom();
+      // R13: at most 1 northstar/recommended-action loud-line in the rendered DOM.
+      // (P139 retired the separate <p class="northstar"> band-1 element; MissionCard
+      // is the one loud anchor. Zero is acceptable when the MissionCard chooses to
+      // emphasise objective+phase rather than a northstar phrase.)
+      const ns = (result.html.match(/class="[^"]*(northstar|recommended-action)[^"]*"/g) || []).length;
+      assert.ok(ns <= 1, `R13 violation: ${ns} northstar/recommended-action elements (must be <=1)`);
+      // R14: at least 5 .stop cells (design-pack PhaseRunway emits 5 stops)
+      const stops = (result.html.match(/class="[^"]*\bstop\b[^"]*"/g) || []).length;
+      assert.ok(stops >= 5, `R14 violation: expected >=5 stops in rendered DOM, got ${stops}`);
+      // R18: 3 data-band markers preserved on section roots
+      for (const b of ['1', '2', '3']) {
+        assert.ok(result.html.includes(`data-band="${b}"`), `R18 violation: missing data-band="${b}"`);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P139-09', run: () => {
+      // Browser-smoke verdict for phase 139 must exist and be PASS
+      const verdictPath = path.join('.planning', 'runtime', 'cockpit-smoke-139-verdict.json');
+      assert.ok(fs.existsSync(verdictPath), `browser-smoke verdict for P139 missing at ${verdictPath} — run browser-smoke.cjs --phase 139`);
+      const v = JSON.parse(fs.readFileSync(verdictPath, 'utf8'));
+      assert.strictEqual(v.verdict, 'PASS', `P139 browser-smoke verdict = ${v.verdict}`);
+      for (const [name, c] of Object.entries(v.checks || {})) {
+        assert.ok(c.ok, `P139 browser-smoke check ${name} FAIL: ${c.detail}`);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P139-10', run: () => {
+      // Witness — all prior SACs still present in the file
+      const src = fs.readFileSync('super-gsd/tools/cockpit-sidecar/run-self-test.cjs', 'utf8');
+      for (const sac of ['SAC-P125-01','SAC-P127-01','SAC-P128-01','SAC-P132-06','SAC-P134-04','SAC-P136-06','SAC-P137-08','SAC-P138-08','SAC-P138.5-01']) {
+        assert.ok(src.includes(`id: '${sac}'`), `pre-P139 SAC removed: ${sac}`);
+      }
     }});
 
     tests.push({ id: 'SAC-P138.5-01', run: () => {

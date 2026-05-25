@@ -130,19 +130,284 @@
     renderCommandStrip(snap);
     renderScanBar(snap);
     renderSecNav(snap);
+    renderMission(snap);
+    renderTelemetry(snap);
 
-    [1, 2, 3].forEach(function (band) {
-      const newHtml = renderBand(band, snap);
-      const element = document.querySelector('[data-band="' + band + '"]');
-      if (!element) return;
-      if (band === 3) {
-        element.style.display = snap.rationale ? '' : 'none';
+    // Band 1 + Band 2 are now owned by renderMission / renderTelemetry (P139).
+    // Band 3 (sec-architecture) keeps legacy renderBand(3) until P140 lands the
+    // architecture diagram.
+    const band3Html = renderBand(3, snap);
+    const band3Element = document.querySelector('[data-band="3"]');
+    if (band3Element) {
+      band3Element.style.display = snap.rationale ? '' : 'none';
+      if (band3Html !== lastHtml[3]) {
+        band3Element.innerHTML = band3Html;
+        lastHtml[3] = band3Html;
       }
-      if (newHtml !== lastHtml[band]) {
-        element.innerHTML = newHtml;
-        lastHtml[band] = newHtml;
-      }
+    }
+  }
+
+  // ==========================================================================
+  // P139 — §1 Mission + §2 Telemetry component bodies.
+  // ==========================================================================
+
+  // ==========================================================================
+  // P139.6 — Renderers conforming to design-pack class names + DOM structure
+  // (.runway / .telem / .agents / .mission-card / .scanbar / .command).
+  // Reference: .planning/milestones/v3.4/design-pack/mc-components.jsx +
+  // mc-arch.jsx + Cockpit.html <style>.
+  // ==========================================================================
+
+  function renderMission(snapshot) {
+    const section = document.getElementById('sec-mission');
+    if (!section) return;
+    const html =
+      renderMissionCard(snapshot) +
+      renderPhaseRunway(snapshot) +
+      renderAgentLanes(snapshot);
+    if (section.innerHTML !== html) section.innerHTML = html;
+  }
+
+  function renderMissionCard(snapshot) {
+    const mission = snapshot.mission || {};
+    const phaseId = escape(mission.phase_id || snapshot.phase || '—');
+    const phaseTitle = escape(mission.phase_title || ('Phase ' + (snapshot.phase || '—')));
+    const objective = escape(mission.objective || 'no objective');
+    const whyRunning = escape(mission.why_running || '—');
+    const unlocks = escape(mission.unlocks || '—');
+    const riskTier = escape(mission.risk_tier || 'low');
+    const riskReasonsArr = Array.isArray(mission.risk_reasons) ? mission.risk_reasons : [];
+    const riskChips = riskReasonsArr.map(function (r) {
+      return '<span class="mc-risk-chip">' + escape(r) + '</span>';
+    }).join('');
+    const successArr = Array.isArray(mission.success_criteria) ? mission.success_criteria : [];
+    const decisionBlock = mission.operator_decision_required
+      ? '<div class="mc-decision"><span class="lbl"><span class="pip"></span>Decision required</span><span class="mc-decision-prompt">' + escape(mission.decision_prompt || '') + '</span></div>'
+      : '';
+    const criteriaHtml = successArr.map(function (sc) {
+      return '<li data-status="' + escape(sc.status || 'pending') + '"><span class="sc-code">' + escape(sc.code || '') + '</span><span class="sc-pip" aria-hidden="true"></span><span class="sc-text">' + escape(sc.text || '') + '</span></li>';
+    }).join('');
+    return '' +
+      '<div class="mission-card">' +
+        '<div class="mc-head">' +
+          '<div class="mc-id-block">' +
+            '<span class="lbl">Phase</span>' +
+            '<span class="mc-id">' + phaseId + '</span>' +
+          '</div>' +
+          '<div class="mc-title-block">' +
+            '<h2 class="mc-title">' + phaseTitle + '</h2>' +
+            '<p class="mc-objective">' + objective + '</p>' +
+          '</div>' +
+          decisionBlock +
+        '</div>' +
+        '<div class="mc-body">' +
+          '<div class="mc-row"><span class="lbl">Why running</span><span class="mc-text">' + whyRunning + '</span></div>' +
+          '<div class="mc-row"><span class="lbl">Unlocks</span><span class="mc-text">' + unlocks + '</span></div>' +
+          '<div class="mc-row"><span class="lbl">Risk</span><span class="mc-text"><span class="mc-risk-tag tier-' + riskTier + '">' + riskTier.toUpperCase() + '</span><span class="mc-risk-reasons">' + riskChips + '</span></span></div>' +
+        '</div>' +
+        '<div class="mc-criteria">' +
+          '<span class="lbl">Success criteria · ' + successArr.length + '</span>' +
+          '<ul>' + criteriaHtml + '</ul>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function renderPhaseRunway(snapshot) {
+    const pipeline = snapshot.pipeline || snapshot.stage_pipeline || {};
+    const stages = Array.isArray(pipeline.stages) ? pipeline.stages.slice() : [];
+    while (stages.length < 5) stages.push({ name: '—', status: 'pending', owner: '', sla_min: 0 });
+    const activeIdx = pipeline.active_index || 0;
+    const n = stages.length;
+    const segPct = n > 1 ? 100 / (n - 1) : 0;
+    const donePct = activeIdx * segPct;
+    const activeStage = stages[activeIdx] || {};
+    const slaActive = activeStage.sla_min || activeStage.sla_minutes || 0;
+    const elapsed = activeStage.elapsed_sec || 0;
+    const activeProgress = slaActive > 0 ? Math.min(1, elapsed / (slaActive * 60)) : 0;
+    const activePct = activeProgress * segPct;
+
+    const stopsHtml = stages.map(function (s, i) {
+      const status = s.status || 'pending';
+      const slaMin = s.sla_min || s.sla_minutes || 0;
+      const meta = status === 'done' ? '✓ done'
+                 : status === 'active' ? fmtClock(s.elapsed_sec || 0) + ' elapsed'
+                 : status === 'blocked' ? 'blocked'
+                 : slaMin + 'm sla';
+      return '' +
+        '<div class="stop" data-status="' + escape(status) + '" tabindex="0">' +
+          '<span class="stop-meta">' + escape(meta) + '</span>' +
+          '<span class="stop-pip" aria-hidden="true"></span>' +
+          '<span class="stop-label">' + escape(s.name || '') + '</span>' +
+          '<span class="stop-sub">' + escape(s.owner || '—') + '</span>' +
+        '</div>';
+    }).join('');
+
+    const whyRunning = escape(pipeline.why_running || '—');
+    const unlocks = escape(pipeline.unlocks || '—');
+    const blockerHtml = pipeline.blocker
+      ? '<span class="val"><code>' + escape(pipeline.blocker) + '</code></span>'
+      : '<span class="val ok">nothing — clear to run</span>';
+
+    return '' +
+      '<div class="runway">' +
+        '<div class="runway-rail">' +
+          '<div class="runway-track" role="progressbar" aria-valuenow="' + (activeIdx + activeProgress).toFixed(2) + '" aria-valuemin="0" aria-valuemax="' + (n - 1) + '">' +
+            '<span class="runway-track-done" style="width:' + donePct.toFixed(2) + '%"></span>' +
+            '<span class="runway-track-active" style="left:' + donePct.toFixed(2) + '%;width:' + activePct.toFixed(2) + '%"></span>' +
+          '</div>' +
+          '<div class="runway-stops">' + stopsHtml + '</div>' +
+        '</div>' +
+        '<div class="runway-foot">' +
+          '<div class="field"><span class="lbl">Why running</span><span class="val">' + whyRunning + '</span></div>' +
+          '<div class="field"><span class="lbl">Unlocks</span><span class="val muted">' + unlocks + '</span></div>' +
+          '<div class="field blocker"><span class="lbl">Blocked-by</span>' + blockerHtml + '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function renderAgentLanes(snapshot) {
+    const agents = snapshot.agents || {};
+    const claude = agents.claude || {};
+    const codex = agents.codex || {};
+    const handoff = agents.last_handoff || {};
+    const handoffAge = handoff.t_off ? fmtAge(Math.abs(handoff.t_off)) : '—';
+    return '' +
+      '<div class="agents">' +
+        agentLane(claude, '') +
+        '<div class="handoff" aria-label="last handoff">' +
+          '<span class="handoff-arrow" aria-hidden="true">→</span>' +
+          '<span class="handoff-meta">' +
+            '<span class="lbl">handoff · ' + escape(handoffAge) + ' ago</span>' +
+            '<span class="handoff-kind">' + escape(handoff.kind || '') + '</span>' +
+            '<span class="handoff-payload mono">' + escape(handoff.payload || '') + '</span>' +
+          '</span>' +
+        '</div>' +
+        agentLane(codex, 'right') +
+      '</div>';
+  }
+
+  function agentLane(agent, align) {
+    const isCodex = !!agent.effort;
+    const status = escape(agent.status || 'idle');
+    const handle = escape(agent.handle || (isCodex ? 'codex' : 'claude'));
+    const role = escape(agent.role || '—');
+    const model = escape(agent.model || '—');
+    const task = escape(agent.task || '—');
+    const metaParts = ['<span>model <b>' + model + '</b></span>'];
+    if (isCodex) metaParts.push('<span>effort <b>' + escape(agent.effort) + '</b></span>');
+    if (agent.tool_state) metaParts.push('<span>state <b>' + escape(agent.tool_state) + '</b></span>');
+    if (typeof agent.in_bytes === 'number') metaParts.push('<span>in <b>' + escape(agent.in_bytes) + 'B</b></span>');
+    if (typeof agent.jsonl_age_sec === 'number') metaParts.push('<span>jsonl <b>' + escape(fmtAge(agent.jsonl_age_sec)) + '</b></span>');
+    const actionsArr = Array.isArray(agent.recent_actions) ? agent.recent_actions.slice(0, 3) : [];
+    const recentHtml = actionsArr.length
+      ? '<div class="agent-recent"><span class="lbl">recent</span><ul>' +
+          actionsArr.map(function (a) {
+            return '<li>' +
+              '<span class="ra-kind">' + escape(a.kind || '') + '</span>' +
+              '<span class="ra-detail mono">' + escape(a.detail || '') + '</span>' +
+              '<span class="ra-age">' + escape(fmtAge(a.age_sec || 0)) + ' ago</span>' +
+            '</li>';
+          }).join('') +
+        '</ul></div>'
+      : '';
+    const cls = 'agent-lane' + (align === 'right' ? ' right' : '');
+    return '' +
+      '<div class="' + cls + '" data-status="' + status + '">' +
+        '<div class="agent-head">' +
+          '<span class="agent-pip" aria-hidden="true"></span>' +
+          '<span class="agent-handle">' + handle + '</span>' +
+          '<span class="agent-role">' + role + '</span>' +
+          '<span class="spacer"></span>' +
+          '<span class="agent-status">' + status + '</span>' +
+        '</div>' +
+        '<div class="agent-meta mono">' + metaParts.join('') + '</div>' +
+        '<div class="agent-task">' + task + '</div>' +
+        recentHtml +
+      '</div>';
+  }
+
+  function renderTelemetry(snapshot) {
+    const section = document.getElementById('sec-telemetry');
+    if (!section) return;
+    const tel = snapshot.telemetry || {};
+    const ids = ['fog', 'dispatches', 'tokens', 'context', 'elapsed'];
+    const html = '<div class="telem">' +
+      ids.map(function (id) { return renderTelemCell(id, tel[id] || {}); }).join('') +
+      '</div>';
+    if (section.innerHTML !== html) section.innerHTML = html;
+  }
+
+  function renderTelemCell(id, ch) {
+    const value = Number(ch.value) || 0;
+    const target = Number(ch.target) || 0;
+    const max = Number(ch.max) || 100;
+    const label = escape(ch.label || id);
+    const unit = ch.unit || '';
+    const history = Array.isArray(ch.history) ? ch.history : [];
+    const prev = history.length >= 2 ? history[history.length - 2] : value;
+    const delta = value - prev;
+    const deltaDir = Math.abs(delta) < (max * 0.002) ? 'flat' : delta > 0 ? 'up' : 'down';
+    const tier = (function () {
+      if (ch.severe_max != null && value > ch.severe_max) return 'severe';
+      if (ch.attn_max != null && value > ch.attn_max) return 'attn';
+      return 'ok';
+    })();
+    function fmt(v) {
+      if (unit === '%') return Math.round(v) + '%';
+      if (v >= 1000) return fmtKilo(v);
+      return String(Math.round(v));
+    }
+    const fillPct = Math.min(100, (value / max) * 100);
+    const targetPct = Math.min(100, (target / max) * 100);
+    const normalPct = ch.normal_max != null ? (ch.normal_max / max) * 100 : 30;
+    const attnPct = ch.attn_max != null ? (ch.attn_max / max) * 100 : 60;
+    const severePct = ch.severe_max != null ? (ch.severe_max / max) * 100 : 90;
+    const arrow = deltaDir === 'up' ? '▲' : (deltaDir === 'down' ? '▼' : '·');
+    const deltaText = Math.abs(delta) > 0.01 ? ' ' + fmt(Math.abs(delta)) : ' ·';
+    return '' +
+      '<div class="telem-cell" data-tier="' + escape(tier) + '">' +
+        '<div class="telem-top">' +
+          '<span class="lbl">' + label + '</span>' +
+          '<span class="telem-delta ' + deltaDir + '">' + arrow + deltaText + '</span>' +
+        '</div>' +
+        '<div class="telem-top" style="align-items:flex-end">' +
+          '<span class="telem-num">' + fmt(value) + '</span>' +
+        '</div>' +
+        renderSparkSvg(history, target) +
+        '<div class="telem-range" aria-hidden="true">' +
+          '<span class="telem-range-fill" data-tier="' + escape(tier) + '" style="width:' + fillPct.toFixed(2) + '%"></span>' +
+          '<span class="telem-range-tick" style="left:' + normalPct.toFixed(2) + '%"></span>' +
+          '<span class="telem-range-tick" style="left:' + attnPct.toFixed(2) + '%"></span>' +
+          '<span class="telem-range-tick" style="left:' + severePct.toFixed(2) + '%"></span>' +
+          '<span class="telem-range-target" style="left:' + targetPct.toFixed(2) + '%"></span>' +
+        '</div>' +
+        '<div class="telem-foot">' +
+          '<span>0</span>' +
+          '<span>tgt ' + fmt(target) + '</span>' +
+          '<span>' + fmt(max) + '</span>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function renderSparkSvg(values, target) {
+    if (!Array.isArray(values) || values.length < 2) return '<svg class="telem-spark"></svg>';
+    const min = Math.min.apply(null, values);
+    const max = Math.max.apply(null, values.concat(target != null ? [target] : []));
+    const range = (max - min) || 1;
+    const w = 100, h = 30, pad = 2;
+    const pts = values.map(function (v, i) {
+      const x = pad + (i / (values.length - 1)) * (w - pad * 2);
+      const y = h - pad - ((v - min) / range) * (h - pad * 2);
+      return [x, y];
     });
+    const pathD = pts.map(function (p, i) { return (i ? 'L' : 'M') + p[0].toFixed(2) + ',' + p[1].toFixed(2); }).join(' ');
+    const areaD = pathD + ' L' + pts[pts.length - 1][0].toFixed(2) + ',' + h + ' L' + pts[0][0].toFixed(2) + ',' + h + ' Z';
+    const last = pts[pts.length - 1];
+    return '<svg class="telem-spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' +
+      '<path d="' + areaD + '" fill="currentColor" opacity="0.10"/>' +
+      '<path d="' + pathD + '" fill="none" stroke="currentColor" stroke-width="1.2" vector-effect="non-scaling-stroke"/>' +
+      '<circle cx="' + last[0].toFixed(2) + '" cy="' + last[1].toFixed(2) + '" r="1.6" fill="currentColor"/>' +
+    '</svg>';
   }
 
   function renderChrome(snapshot) {
@@ -158,36 +423,61 @@
     if (!region) return;
     const mission = snapshot.mission || {};
     const owner = (snapshot.agents && snapshot.agents.claude) || {};
-    const objective = escape(mission.objective || 'no objective');
+    const objMs = escape(snapshot.milestone || mission.phase_id || '—');
+    const objPh = escape('P' + (snapshot.phase || mission.phase_id || '—'));
+    const objName = escape(mission.phase_title || mission.objective || 'no objective');
     const risk = escape((snapshot.risk && snapshot.risk.label) || mission.risk_tier || 'low');
-    const nextAction = escape((snapshot.next_action && snapshot.next_action.verb) || 'review');
+    const riskTier = escape((snapshot.risk && snapshot.risk.tier) || mission.risk_tier || 'low');
+    const nextVerb = escape((snapshot.next_action && snapshot.next_action.verb) || 'review');
+    const nextTarget = escape((snapshot.next_action && snapshot.next_action.target) || mission.phase_title || '—');
     const handle = escape(owner.handle || 'claude');
     region.innerHTML = '' +
-      '<span class="cmd-objective"><strong>OBJECTIVE:</strong> ' + objective + '</span>' +
-      '<span class="cmd-next"><strong>NEXT:</strong> ' + nextAction + '</span>' +
-      '<span class="cmd-owner"><strong>OWNER:</strong> ' + handle + '</span>' +
-      '<span class="cmd-risk"><strong>RISK:</strong> ' + risk + '</span>';
+      '<div class="cmd-cell cmd-obj"><span class="lbl"><span class="pip"></span>Objective</span>' +
+        '<span class="val"><span class="ms">' + objMs + '</span><span class="ph"> / ' + objPh + '</span> ' + objName + '</span>' +
+      '</div>' +
+      '<div class="cmd-cell cmd-next"><span class="lbl"><span class="pip"></span>Next action</span>' +
+        '<span class="val"><span class="verb">' + nextVerb + '</span> ' + nextTarget + '</span>' +
+      '</div>' +
+      '<div class="cmd-cell cmd-owner"><span class="lbl"><span class="pip"></span>Owner</span>' +
+        '<span class="val">' + handle + '</span>' +
+      '</div>' +
+      '<div class="cmd-cell cmd-risk" data-tier="' + riskTier + '"><span class="lbl"><span class="pip"></span>Risk</span>' +
+        '<span class="val">' + risk + '</span>' +
+      '</div>';
   }
 
   function renderScanBar(snapshot) {
     const region = document.querySelector('[data-region="scanbar"]');
     if (!region) return;
-    const northStar = snapshot.north_star || {};
-    const alerts = snapshot.alerts || {};
     const mission = snapshot.mission || {};
-    const sources = snapshot._sources || {};
-    const recentEvent = (snapshot.events && snapshot.events[0]) || {};
+    const pipeline = snapshot.pipeline || snapshot.stage_pipeline || {};
+    const activeStage = (Array.isArray(pipeline.stages) && pipeline.stages[pipeline.active_index || 0]) || {};
+    const recentEvent = (Array.isArray(snapshot.events) && snapshot.events[0]) || null;
+    const evidence = snapshot.evidence || { summary: '', categories: [], unresolved: [] };
+    const sumGreen = (evidence.summary && evidence.summary.green) || 0;
+    const sumWarn = (evidence.summary && evidence.summary.warn) || 0;
+    const sumFail = (evidence.summary && evidence.summary.fail) || 0;
+    const evidenceTier = sumFail > 0 ? 'severe' : sumWarn > 0 ? 'attn' : 'ok';
     const cells = [
-      ['NOW', escape(northStar.code || mission.phase_id || 'pending')],
-      ['WHY', escape(mission.why_running || northStar.message || '—')],
-      ['JUST CHANGED', escape(recentEvent.detail || '—') + (recentEvent.t_off ? ' (' + escape(recentEvent.t_off) + ')' : '')],
-      ['RISK', escape((alerts.top && alerts.top.signal) || mission.risk_tier || 'low')],
-      ['DO NEXT', escape((snapshot.next_action && snapshot.next_action.verb) || northStar.code || '—')],
-      ['EVIDENCE', sourcesSummary(sources)],
+      { n: '1', q: 'NOW',          val: escape((mission.phase_id || snapshot.phase || '—') + ' · ' + (activeStage.name || 'idle')), sub: escape(activeStage.owner || '—'), tier: 'live' },
+      { n: '2', q: 'WHY',          val: escape(mission.why_running || '—'), sub: '', tier: '' },
+      { n: '3', q: 'JUST CHANGED', val: escape(recentEvent ? recentEvent.type : 'idle'), sub: escape(recentEvent ? recentEvent.detail : 'no recent events'), tier: recentEvent ? (recentEvent.tier || '') : '' },
+      { n: '4', q: 'RISK',         val: escape((snapshot.risk && snapshot.risk.label) || mission.risk_tier || 'low'), sub: escape((snapshot.risk && snapshot.risk.reason) || ''), tier: escape((snapshot.risk && snapshot.risk.tier) || mission.risk_tier || '') },
+      { n: '5', q: 'DO NEXT',      val: escape((snapshot.next_action && snapshot.next_action.verb) || 'review'), sub: escape((snapshot.next_action && snapshot.next_action.target) || ''), tier: 'attn-action' },
+      { n: '6', q: 'EVIDENCE',     val: sumGreen + ' green · ' + sumWarn + ' warn · ' + sumFail + ' fail', sub: ((evidence.unresolved && evidence.unresolved.length) || 0) + ' unresolved findings', tier: evidenceTier },
     ];
-    region.innerHTML = cells.map(function (cell) {
-      return '<div class="scan-cell"><div class="scan-label">' + cell[0] + '</div><div class="scan-value">' + cell[1] + '</div></div>';
-    }).join('');
+    region.innerHTML =
+      '<div class="scanbar-rail" aria-hidden="true">5-SEC SCAN</div>' +
+      cells.map(function (c) {
+        return '<div class="scan-cell tier-' + escape(c.tier) + '">' +
+          '<div class="scan-head">' +
+            '<span class="scan-n">' + c.n + '</span>' +
+            '<span class="scan-q-lbl">' + c.q + '</span>' +
+          '</div>' +
+          '<div class="scan-val mono">' + c.val + '</div>' +
+          '<div class="scan-sub mono">' + c.sub + '</div>' +
+        '</div>';
+      }).join('');
   }
 
   function renderSecNav(snapshot) {
@@ -207,9 +497,29 @@
       const sourceId = sec.id.replace(/^sec-/, '');
       const entry = sources[sourceId] || {};
       const tier = entry.tier || 'pending';
-      const pill = '<span class="sec-pill sec-pill-' + tier + '">' + tier + '</span>';
-      return '<a class="sec-nav-link" href="#' + sec.id + '" data-target="' + sec.id + '">' + sec.label + ' ' + pill + '</a>';
+      return '<a class="sec-nav-link" href="#' + sec.id + '" data-target="' + sec.id + '">' + sec.label + ' <span class="sec-pill sec-pill-' + tier + '">' + tier + '</span></a>';
     }).join('');
+  }
+
+  function fmtClock(secs) {
+    secs = Math.max(0, Math.floor(secs || 0));
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function fmtAge(secs) {
+    secs = Math.max(0, Math.floor(secs || 0));
+    if (secs < 60) return secs + 's';
+    if (secs < 3600) return Math.floor(secs / 60) + 'm';
+    return Math.floor(secs / 3600) + 'h';
+  }
+
+  function fmtKilo(v) {
+    if (v >= 1e9) return (v / 1e9).toFixed(1) + 'B';
+    if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+    if (v >= 1e3) return (v / 1e3).toFixed(1) + 'k';
+    return String(Math.round(v));
   }
 
   function sourcesSummary(sources) {
@@ -227,43 +537,11 @@
   }
 
   function renderBand(band, snapshot) {
-    if (band === 1) {
-      const northStar = snapshot.north_star || {};
-      const alerts = snapshot.alerts || {};
-      const topAlert = alerts.top;
-      const action = recommendedAction(northStar.code);
-      const alertHtml = topAlert
-        ? '<p class="alert"><span>⚠ ' + escape(topAlert.signal) + '</span>' + (alerts.others_count > 0 ? '<span> (+' + escape(alerts.others_count) + ' more)</span>' : '') + '</p>'
-        : '';
-      return '' +
-        '<p class="northstar"><strong>' + escape(northStar.code) + '</strong>: ' + escape(northStar.message) + '</p>' +
-        '<p class="do-next"><strong>DO NEXT:</strong> ' + escape(action) + '</p>' +
-        alertHtml;
-    }
-
-    if (band === 2) {
-      const pipeline = snapshot.stage_pipeline || {};
-      const stages = Array.isArray(pipeline.stages) ? pipeline.stages.slice(0, 5) : [];
-      const active = stages[pipeline.active_index] || {};
-      const stageHtml = stages.map(function (stage) {
-        const status = stage.status || 'pending';
-        return '<span class="stage stage-' + escape(status) + '">' + escape(stage.name) + ' ' + markerFor(status) + '</span>';
-      }).join('');
-      const trends = snapshot.trends || {};
-      const fog = firstDefined(trends.fog, snapshot.fog, 'n/a');
-      const dispatches = firstDefined(trends.dispatches, snapshot.dispatches, 'n/a');
-      const tokens = firstDefined(trends.tokens, snapshot.tokens, 'n/a');
-      return '' +
-        '<div class="stage-pipeline">' + stageHtml + '</div>' +
-        '<p><strong>WHY-RUNNING:</strong> phase ' + escape(active.owner || active.name || 'unknown') + '; cause ' + escape(pipeline.cause || 'unavailable') + '; ETA ' + escape(pipeline.eta || 'unavailable') + '</p>' +
-        '<p><strong>UNLOCKS:</strong> (derived from roadmap)</p>' +
-        '<p><strong>BLOCKED-BY:</strong> ' + escape(pipeline.blocker || 'nothing') + '</p>' +
-        '<div class="trend-strip">' +
-          '<p><strong>fog:</strong> ' + escape(fog) + ' <span class="trend-bar">|</span></p>' +
-          '<p><strong>dispatches:</strong> ' + escape(dispatches) + ' <span class="trend-bar">|</span></p>' +
-          '<p><strong>tokens:</strong> ' + escape(tokens) + ' <span class="trend-bar">|</span></p>' +
-        '</div>';
-    }
+    // P139: bands 1 + 2 are now owned by renderMission / renderTelemetry.
+    // Bands 1 + 2 return empty so the legacy renderAll loop (if anyone still
+    // calls it externally) writes nothing to those section bodies.
+    if (band === 1) return '';
+    if (band === 2) return '';
 
     if (band === 3) {
       const rationale = snapshot.rationale;

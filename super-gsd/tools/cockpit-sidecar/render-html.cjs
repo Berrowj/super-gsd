@@ -1,9 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 
-const designSystemCss = (() => {
-  try { return fs.readFileSync(path.join(__dirname, '..', 'shared', 'sgsd-design-system.css'), 'utf8'); } catch (_e) { return ''; }
-})();
+// P139.5: re-read design-system CSS on every renderShell() call so live edits
+// show up on the next browser reload without restarting serve.cjs. Operator
+// 2026-05-25 lost ~30 minutes diagnosing a "broken cockpit" that was really
+// just stale CSS cached at module load. Cost: one ~25kB sync read per render.
+const DESIGN_SYSTEM_CSS_PATH = path.join(__dirname, '..', 'shared', 'sgsd-design-system.css');
+function loadDesignSystemCss() {
+  try { return fs.readFileSync(DESIGN_SYSTEM_CSS_PATH, 'utf8'); } catch (_e) { return ''; }
+}
+let designSystemCss = loadDesignSystemCss();
 
 function escapeHtml(value) {
   return String(value === undefined || value === null ? '' : value)
@@ -95,6 +101,9 @@ function renderHtml(output) {
 }
 
 function renderShell(opts) {
+  // P139.5: re-read CSS on every call so live edits to sgsd-design-system.css
+  // show up without restarting serve.cjs.
+  designSystemCss = loadDesignSystemCss();
   return `<!doctype html>
 <html lang="en">
 <head>
