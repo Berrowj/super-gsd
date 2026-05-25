@@ -164,7 +164,12 @@
   function renderMission(snapshot) {
     const section = document.getElementById('sec-mission');
     if (!section) return;
+    const mission = snapshot.mission || {};
+    const successN = (mission.success_criteria || []).length;
     const html =
+      renderSectionHeader('1', 'Current Mission', 'MISSION',
+        'phase ' + (snapshot.phase || '—') + ' · ' + (mission.risk_tier || 'low') + ' risk · ' + successN + ' SAC',
+        'Active phase: why it is running, what it is solving, what is locked, and the decision the operator owes.') +
       renderMissionCard(snapshot) +
       renderPhaseRunway(snapshot) +
       renderAgentLanes(snapshot);
@@ -334,8 +339,12 @@
     if (!section) return;
     const tel = snapshot.telemetry || {};
     const ids = ['fog', 'dispatches', 'tokens', 'context', 'elapsed'];
-    const html = '<div class="telem">' +
-      ids.map(function (id) { return renderTelemCell(id, tel[id] || {}); }).join('') +
+    const html =
+      renderSectionHeader('2', 'Live Telemetry', 'TELEMETRY',
+        '5 channels · live · sparklines from token-log',
+        'Heuristics, bandwidth, dispatch volume, token spend, context size, elapsed — the live instruments.') +
+      '<div class="telem">' +
+        ids.map(function (id) { return renderTelemCell(id, tel[id] || {}); }).join('') +
       '</div>';
     if (section.innerHTML !== html) section.innerHTML = html;
   }
@@ -492,35 +501,183 @@
       }).join('');
   }
 
+  // P142.2: per-design-pack section header chrome — §N chip + huge title +
+  // watermark of section name + right-aligned stat summary + description.
+  // Applied to every IA section so they all share the same editorial frame.
+  function renderSectionHeader(num, title, watermark, statRight, description) {
+    return '' +
+      '<header class="sec-header" data-mega="' + escape(watermark || title) + '">' +
+        '<span class="sec-num">§' + escape(num) + '</span>' +
+        '<h2 class="sec-title">' + escape(title) + '</h2>' +
+        '<span class="sec-rule"></span>' +
+        (statRight ? '<span class="sec-stat mono">' + escape(statRight) + '</span>' : '') +
+      '</header>' +
+      (description ? '<p class="sec-desc">' + escape(description) + '</p>' : '');
+  }
+
   function renderArchitecture(snapshot) {
     const section = document.getElementById('sec-architecture');
     if (!section) return;
     section.style.display = '';
-    const arch = snapshot.architecture || { nodes: [], edges: [] };
-    const nodes = Array.isArray(arch.nodes) ? arch.nodes : [];
-    const edges = Array.isArray(arch.edges) ? arch.edges : [];
-    if (!nodes.length) {
-      const empty = '<div class="arch-empty mono">no architecture data</div>';
-      if (section.innerHTML !== empty) section.innerHTML = empty;
-      return;
-    }
-    const nodesHtml = nodes.map(function (n) {
-      const kind = escape(n.kind || 'artefact');
-      return '' +
-        '<div class="arch-node arch-kind-' + kind + '" data-id="' + escape(n.id) + '">' +
-          '<span class="arch-kind">' + kind + '</span>' +
-          '<span class="arch-label">' + escape(n.label || n.id) + '</span>' +
-        '</div>';
-    }).join('');
-    const edgesHtml = edges.map(function (e) {
-      return '<div class="arch-edge"><span class="arch-edge-from mono">' + escape(e.from) + '</span><span class="arch-edge-arrow">→</span><span class="arch-edge-to mono">' + escape(e.to) + '</span><span class="arch-edge-kind">' + escape(e.kind || 'flow') + '</span></div>';
-    }).join('');
+    // Per design-pack screenshot #12, §3 is "ARCHITECTURE MAP" with tabs
+    // (PHASE DATAFLOW / SGSD ORCHESTRATION) and a 4-column SVG diagram.
+    const phaseId = snapshot.phase || (snapshot.mission && snapshot.mission.phase_id) || '—';
+    const subTabs = '' +
+      '<div class="sec-tabs">' +
+        '<button class="sec-tab active" data-view="dataflow">PHASE DATAFLOW</button>' +
+        '<button class="sec-tab" data-view="orchestration">SGSD ORCHESTRATION</button>' +
+      '</div>';
+    const svg = renderArchitectureSvg(snapshot);
     const html =
-      '<div class="arch-pane">' +
-        '<div class="arch-nodes">' + nodesHtml + '</div>' +
-        '<div class="arch-edges">' + edgesHtml + '</div>' +
+      renderSectionHeader('3', 'Architecture Map', 'ARCHITECTURE',
+        '2 views · phase dataflow · SGSD orchestration',
+        'Two views of how this phase is wired: the technical dataflow and the agent/gate orchestration.') +
+      subTabs +
+      '<div class="arch-frame">' +
+        '<header class="arch-frame-head">' +
+          '<span class="arch-frame-title mono">PHASE ' + escape(phaseId) + ' · DATAFLOW</span>' +
+          '<span class="arch-frame-tags">' +
+            '<span class="frame-tag tag-edit">EDIT</span>' +
+            '<span class="frame-tag tag-new">NEW</span>' +
+            '<span class="frame-tag tag-live">LIVE</span>' +
+            '<span class="frame-tag tag-ro">READ-ONLY</span>' +
+          '</span>' +
+        '</header>' +
+        '<div class="arch-svg-wrap">' + svg + '</div>' +
       '</div>';
     if (section.innerHTML !== html) section.innerHTML = html;
+  }
+
+  function renderArchitectureSvg(snapshot) {
+    // 4-column SGSD architecture diagram with hardcoded layout matching the
+    // design pack reference. Box positions tuned for a 1200x520 viewBox.
+    // Column heads label each band; boxes are colored by kind; edges route
+    // orthogonally with elbow paths.
+    const W = 1200, H = 520;
+    const colX = [40, 340, 660, 980]; // SERVER, WIRE, BROWSER, DOM
+    const colW = 240;
+    const rowGap = 90;
+    const boxH = 70;
+    const rowY = function (i) { return 100 + i * rowGap; };
+    // Mark which boxes are "new" (created this phase) vs existing
+    const newSet = new Set(['sparkline.cjs','attachSparklines','client.js','sgsd-design-system.css']);
+    const editSet = new Set(['renderShell','client.js']);
+    const targetSet = new Set(['client.js']);
+    const liveSet = new Set(['SSE stream']);
+    const phase = snapshot.phase || '—';
+    // Architecture column boxes
+    const cols = [
+      { x: colX[0], head: 'SERVER · SIDECAR', boxes: [
+        { id: 'sidecar',     label: 'sidecar JSON state',  sub: 'ledger snapshot · 1Hz', kind: 'artefact' },
+        { id: 'renderShell', label: 'renderShell()',        sub: 'render-html.cjs · TARGET', kind: 'gate' },
+        { id: 'sparkline',   label: 'sparkline.cjs',        sub: 'new helper', kind: 'actor' },
+        { id: 'attachSp',    label: 'attachSparklines()',   sub: 'serve.cjs · new export', kind: 'actor' },
+      ]},
+      { x: colX[1], head: 'WIRE', boxes: [
+        { id: 'sse',         label: 'SSE stream',           sub: 'pushes deltas on change', kind: 'actor' },
+        { id: 'html',        label: 'rendered HTML',        sub: 'initial payload', kind: 'artefact' },
+      ]},
+      { x: colX[2], head: 'BROWSER · COCKPIT', boxes: [
+        { id: 'client',      label: 'client.js',            sub: 'TARGET · rewrite', kind: 'gate' },
+        { id: 'css',         label: 'sgsd-design-system.css', sub: 'tokens · read-only', kind: 'sink' },
+      ]},
+      { x: colX[3], head: 'DOM · PANELS', boxes: [
+        { id: 'gov',         label: 'governing thought',    sub: 'band 1', kind: 'sink' },
+        { id: 'pipe',        label: 'pipeline + telemetry', sub: 'band 2', kind: 'sink' },
+        { id: 'rat',         label: 'rationale',            sub: 'band 3', kind: 'sink' },
+        { id: 'tape',        label: 'event tape',           sub: 'live',   kind: 'actor' },
+        { id: 'alarms',      label: 'alarms',               sub: 'HMI',    kind: 'sink' },
+      ]},
+    ];
+    // Compute boxes (with absolute coords)
+    const nodes = {};
+    cols.forEach(function (col) {
+      col.boxes.forEach(function (b, i) {
+        const x = col.x;
+        const y = rowY(i);
+        nodes[b.id] = { x, y, w: colW, h: boxH, label: b.label, sub: b.sub, kind: b.kind };
+      });
+    });
+    // Edges (from-id, to-id, label?)
+    const edges = [
+      ['sidecar', 'sse', 'push'],
+      ['renderShell', 'html'],
+      ['sparkline', 'sse'],
+      ['attachSp', 'sse'],
+      ['sse', 'client'],
+      ['html', 'client'],
+      ['client', 'gov'],
+      ['client', 'pipe'],
+      ['client', 'rat'],
+      ['client', 'tape'],
+      ['client', 'alarms'],
+      ['css', 'client'],
+    ];
+    function boxFill(kind) {
+      if (kind === 'actor')    return 'var(--live-bg)';
+      if (kind === 'gate')     return 'var(--attn-bg)';
+      if (kind === 'sink')     return 'var(--done-bg)';
+      if (kind === 'artefact') return 'var(--indigo-bg)';
+      return 'var(--bg-2)';
+    }
+    function boxStroke(kind) {
+      if (kind === 'actor')    return 'var(--live)';
+      if (kind === 'gate')     return 'var(--attn)';
+      if (kind === 'sink')     return 'var(--done)';
+      if (kind === 'artefact') return 'var(--indigo)';
+      return 'var(--ink-faint)';
+    }
+    // Render column headers
+    const headerHtml = cols.map(function (col) {
+      return '<text class="arch-col-head" x="' + (col.x + colW / 2) + '" y="60" text-anchor="middle">' + escape(col.head) + '</text>';
+    }).join('');
+    // Render boxes
+    const boxHtml = Object.keys(nodes).map(function (id) {
+      const n = nodes[id];
+      const sourceMatch = cols.flatMap(function (c) { return c.boxes; }).find(function (b) { return b.id === id; });
+      const tags = [];
+      if (sourceMatch && editSet.has(sourceMatch.label)) tags.push({ label: 'EDIT', cls: 'tag-edit' });
+      if (sourceMatch && newSet.has(sourceMatch.label))  tags.push({ label: 'NEW',  cls: 'tag-new' });
+      if (sourceMatch && liveSet.has(sourceMatch.label)) tags.push({ label: 'LIVE', cls: 'tag-live' });
+      const tagsSvg = tags.map(function (t, i) {
+        return '<g transform="translate(' + (n.x + n.w - 50 - i * 50) + ',' + (n.y + 8) + ')">' +
+          '<rect class="arch-tag-bg ' + t.cls + '" x="0" y="0" width="42" height="16" rx="2"/>' +
+          '<text class="arch-tag-text" x="21" y="12" text-anchor="middle">' + t.label + '</text>' +
+        '</g>';
+      }).join('');
+      return '<g class="arch-box" data-id="' + escape(id) + '" data-kind="' + escape(n.kind) + '">' +
+        '<rect x="' + n.x + '" y="' + n.y + '" width="' + n.w + '" height="' + n.h + '" rx="4" fill="' + boxFill(n.kind) + '" stroke="' + boxStroke(n.kind) + '" stroke-width="1.5"/>' +
+        '<text class="arch-box-label" x="' + (n.x + 16) + '" y="' + (n.y + 28) + '">' + escape(n.label) + '</text>' +
+        '<text class="arch-box-sub mono" x="' + (n.x + 16) + '" y="' + (n.y + 50) + '">' + escape(n.sub) + '</text>' +
+        tagsSvg +
+      '</g>';
+    }).join('');
+    // Render edges as orthogonal-routed paths
+    const edgeHtml = edges.map(function (e) {
+      const a = nodes[e[0]]; const b = nodes[e[1]];
+      if (!a || !b) return '';
+      const sx = a.x + a.w;
+      const sy = a.y + a.h / 2;
+      const tx = b.x;
+      const ty = b.y + b.h / 2;
+      const midX = sx + (tx - sx) / 2;
+      const path = 'M' + sx + ',' + sy + ' L' + midX + ',' + sy + ' L' + midX + ',' + ty + ' L' + tx + ',' + ty;
+      const labelHtml = e[2]
+        ? '<text class="arch-edge-label mono" x="' + midX + '" y="' + (sy - 6) + '" text-anchor="middle">' + escape(e[2]) + '</text>'
+        : '';
+      return '<g class="arch-edge">' +
+        '<path d="' + path + '" fill="none" stroke="var(--live)" stroke-width="1.6" marker-end="url(#arch-arrow)"/>' +
+        labelHtml +
+      '</g>';
+    }).join('');
+    return '<svg class="arch-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMinYMin meet">' +
+      '<defs>' +
+        '<marker id="arch-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
+          '<path d="M 0 0 L 10 5 L 0 10 z" fill="var(--live)"/>' +
+        '</marker>' +
+      '</defs>' +
+      headerHtml + edgeHtml + boxHtml +
+    '</svg>';
   }
 
   function renderMilestone(snapshot) {
@@ -555,7 +712,14 @@
           '<p class="pd-outcome"><strong>Outcome:</strong> ' + escape(currentDetail.outcome || '') + '</p>' +
         '</div>'
       : '';
+    const phases = mm.phases || [];
+    const done = phases.filter(function (p) { return p.status === 'done'; }).length;
+    const active = phases.filter(function (p) { return p.status === 'current' || p.status === 'active'; }).length;
+    const pending = phases.filter(function (p) { return p.status === 'pending'; }).length;
     const html =
+      renderSectionHeader('4', 'Milestone Dependency', 'MILESTONE',
+        (mm.current || 'v3.4') + ' · ' + done + ' done / ' + active + ' active / ' + pending + ' pending',
+        'Where this phase sits in the active milestone, what runs before / after it, and what it unlocks.') +
       '<div class="milestone-strip">' + stripHtml + '</div>' +
       '<div class="milestone-phases">' + phasesHtml + '</div>' +
       detailHtml;
@@ -590,7 +754,17 @@
         '<span class="lin-stage mono">' + escape(st.stage || '') + '</span>' +
       '</div>';
     }).join('');
+    const obs = mg.sources.filter(function (s) { return s.type === 'observation'; }).length;
+    const claims = mg.sources.filter(function (s) { return s.type === 'claim'; }).length;
+    const decs = mg.sources.filter(function (s) { return s.type === 'decision'; }).length;
     const html =
+      renderSectionHeader('5', 'Context Memory', 'MEMORY',
+        obs + ' obs · ' + claims + ' claims · ' + decs + ' decisions',
+        'Typed memory mesh: observations (SGSD-emitted facts), claims (agent assertions, pending/validated/refuted), and decisions (operator/promotion verdicts).') +
+      '<div class="sec-tabs">' +
+        '<button class="sec-tab active" data-view="mesh">MEMORY MESH</button>' +
+        '<button class="sec-tab" data-view="lineage">EVIDENCE LINEAGE</button>' +
+      '</div>' +
       '<div class="memory-pane">' +
         '<div class="memory-mesh">' + cardsHtml + '</div>' +
         '<div class="lineage-chain"><span class="lin-title lbl">' + escape(lineage.title || 'Lineage') + '</span>' + lineageHtml + '</div>' +
@@ -638,7 +812,12 @@
         return '<span class="muda-probe muda-' + escape(p.status) + '" title="' + escape(p.detail || '') + '">' + escape(p.name) + '</span>';
       }).join('') +
     '</div>';
+    const sum = ev.summary || {};
+    const pending = (gf.stages || []).filter(function (s) { return s.verdict === 'pending'; }).length;
     const html =
+      renderSectionHeader('6', 'Evidence & Gates', 'EVIDENCE',
+        (sum.green || 0) + ' green · ' + (sum.warn || 0) + ' warn · ' + (sum.fail || 0) + ' fail · ' + pending + ' pending',
+        'What has actually been proven: tests, lint, audit gates, reviewer verdicts, unresolved findings.') +
       '<div class="evidence-pane">' +
         '<div class="gate-flow">' + stagesHtml + '</div>' +
         summaryHtml +
@@ -765,8 +944,11 @@
     const section = document.getElementById('sec-events');
     if (!section) return;
     const events = Array.isArray(snapshot.events) ? snapshot.events.slice(0, 12) : [];
+    const header = renderSectionHeader('7', 'Event Tape', 'EVENTS',
+      events.length + ' events · git reflog',
+      'Streaming event log — every commit, every gate verdict, every dispatch. Newest first.');
     if (!events.length) {
-      const empty = '<div class="event-tape-empty mono">no events yet</div>';
+      const empty = header + '<div class="event-tape-empty mono">no events yet</div>';
       if (section.innerHTML !== empty) section.innerHTML = empty;
       return;
     }
@@ -779,7 +961,7 @@
           '<span class="ev-detail mono">' + escape(ev.detail || '') + '</span>' +
         '</div>';
     }).join('');
-    const html = '<div class="event-tape">' + rows + '</div>';
+    const html = header + '<div class="event-tape">' + rows + '</div>';
     if (section.innerHTML !== html) section.innerHTML = html;
   }
 

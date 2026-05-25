@@ -2156,6 +2156,188 @@ main.sgsd-cockpit .ia-section[data-collapsed="true"][aria-label]::before {
 main.sgsd-cockpit .ia-section[data-collapsed="false"][aria-label]::before {
   content: attr(aria-label) ' ▾';
 }
+
+/* P142.2: hide the aria-label ::before — we now use renderSectionHeader's
+   explicit chrome (§N chip + huge title + watermark) inside each section. */
+main.sgsd-cockpit .ia-section[aria-label]::before {
+  content: '' !important;
+  display: none;
+}
+main.sgsd-cockpit .ia-section[data-collapsed="true"] > *:not(.sec-header) {
+  display: none;
+}
+
+/* ============================================================================
+   P142.2 — design-pack section header chrome (per screenshots #7, #12, #13, #14).
+   §N chip + huge Big Shoulders Display title + giant faint watermark behind
+   the title + rule line + right-aligned stat summary + description.
+   ============================================================================ */
+.sec-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  margin-bottom: 0.5rem;
+  position: relative;
+}
+.sec-header::before {
+  content: attr(data-mega);
+  position: absolute;
+  top: -2.2rem;
+  right: 0;
+  font: 900 clamp(5rem, 10vw, 9rem)/0.78 var(--display, 'Big Shoulders Display'), sans-serif;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+  color: var(--ink-strong);
+  opacity: 0.045;
+  pointer-events: none;
+  z-index: 0;
+  max-width: 60%;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.sec-header > * { position: relative; z-index: 1; }
+.sec-num {
+  font: 600 0.7rem/1 var(--mono);
+  color: var(--ink-dim);
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--bg-1);
+}
+.sec-title {
+  font: 900 clamp(2.4rem, 4.5vw, 4.2rem)/0.92 var(--display, 'Big Shoulders Display'), sans-serif;
+  letter-spacing: -0.025em;
+  text-transform: uppercase;
+  color: var(--ink-strong);
+  margin: 0;
+}
+.sec-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+  margin: 0 0.4rem;
+  align-self: flex-end;
+  margin-bottom: 1.2rem;
+}
+.sec-stat {
+  font: 500 0.7rem/1 var(--mono);
+  color: var(--ink-mid);
+  margin-left: auto;
+  letter-spacing: 0.04em;
+  align-self: flex-end;
+  padding-bottom: 0.6rem;
+}
+.sec-desc {
+  font: 500 0.84rem/1.55 var(--sans);
+  color: var(--ink-mid);
+  max-width: 62ch;
+  margin: 0 0 1.4rem;
+  letter-spacing: 0.01em;
+}
+
+/* Tabs (PHASE DATAFLOW / SGSD ORCHESTRATION etc.) */
+.sec-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 1rem;
+  padding-bottom: 0;
+}
+.sec-tab {
+  background: transparent;
+  border: none;
+  padding: 0.5rem 0.9rem;
+  font: 600 0.7rem/1 var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.sec-tab:hover { color: var(--ink); }
+.sec-tab.active {
+  color: var(--live);
+  border-bottom-color: var(--live);
+  background: var(--live-bg);
+}
+
+/* ============================================================================
+   P142.2 — Architecture diagram (per screenshot #12).
+   ============================================================================ */
+.arch-frame {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.arch-frame-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0.9rem;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+}
+.arch-frame-title {
+  font: 600 0.7rem/1 var(--mono);
+  letter-spacing: 0.06em;
+  color: var(--ink-mid);
+  text-transform: uppercase;
+}
+.arch-frame-tags { display: flex; gap: 6px; }
+.frame-tag {
+  font: 600 0.62rem/1 var(--mono);
+  letter-spacing: 0.06em;
+  padding: 3px 7px;
+  border-radius: 2px;
+  border: 1px solid;
+}
+.frame-tag.tag-edit { background: var(--attn-bg); color: var(--attn); border-color: var(--attn-line); }
+.frame-tag.tag-new  { background: var(--live-bg); color: var(--live); border-color: var(--live-line); }
+.frame-tag.tag-live { background: var(--done-bg); color: var(--done); border-color: var(--done-line); }
+.frame-tag.tag-ro   { background: var(--bg-3);    color: var(--ink-dim); border-color: var(--line); }
+
+.arch-svg-wrap { padding: 1rem; overflow-x: auto; }
+.arch-svg {
+  width: 100%;
+  height: auto;
+  min-width: 980px;
+  font-family: var(--sans);
+}
+.arch-col-head {
+  font: 600 0.7rem/1 var(--mono);
+  fill: var(--ink-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.arch-box-label {
+  font: 600 14px/1 var(--sans);
+  fill: var(--ink);
+}
+.arch-box-sub {
+  font: 500 11px/1 var(--mono);
+  fill: var(--ink-dim);
+  letter-spacing: 0.04em;
+}
+.arch-edge-label {
+  font: 500 10px/1 var(--mono);
+  fill: var(--ink-mid);
+  letter-spacing: 0.04em;
+}
+.arch-tag-bg { fill: var(--bg-2); stroke: var(--line); }
+.arch-tag-bg.tag-edit { fill: var(--attn-bg); stroke: var(--attn-line); }
+.arch-tag-bg.tag-new  { fill: var(--live-bg); stroke: var(--live-line); }
+.arch-tag-bg.tag-live { fill: var(--done-bg); stroke: var(--done-line); }
+.arch-tag-text {
+  font: 600 9px/1 var(--mono);
+  letter-spacing: 0.06em;
+  fill: var(--ink);
+}
+.arch-box[data-kind="actor"] .arch-tag-text,
+.arch-box[data-kind="gate"] .arch-tag-text { fill: var(--ink); }
 </style>
 </head>
 <body>

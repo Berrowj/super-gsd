@@ -1227,9 +1227,12 @@ const tests = [
     }});
 
     tests.push({ id: 'SAC-P140-02', run: async () => {
+      // P142.2: architecture renderer rebuilt as SVG diagram (class="arch-box"
+      // per design pack #12). Old text-based arch-node list was retired.
       const result = await fetchRenderedDom();
-      const archMatches = (result.html.match(/class="[^"]*arch-node[^"]*"/g) || []).length;
-      assert.ok(archMatches >= 3, `expected >=3 arch-node elements in rendered DOM, got ${archMatches}`);
+      const boxes = (result.html.match(/class="arch-box"/g) || []).length;
+      assert.ok(boxes >= 8, `expected >=8 arch-box SVG groups in rendered DOM, got ${boxes}`);
+      assert.ok(/class="arch-svg"/.test(result.html), 'rendered DOM missing arch-svg');
     }});
 
     tests.push({ id: 'SAC-P140-03', run: async () => {
