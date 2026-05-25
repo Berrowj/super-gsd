@@ -592,6 +592,46 @@ if (require.main === module) {
 // Additive: existing v3.3 keys untouched. SAC-P127/P128/P134 preserved.
 // ============================================================================
 
+function attachProjectChain(output) {
+  // P142.7 — read the operator-stated north star + brief titles. This is the
+  // chain operator pointed out: PROJECT.md core_value → milestone INTENT
+  // → phase CONTEXT → phase capsule downstream_contract → next phase.
+  // Already partially used by rationale.cjs cascade; now surfaced in the
+  // cockpit so every phase shows WHY it exists in the bigger picture.
+  const project = { name: '', core_value: '', shipped_summary: '', current_state: '' };
+  try {
+    if (fs.existsSync('.planning/PROJECT.md')) {
+      const text = fs.readFileSync('.planning/PROJECT.md', 'utf8');
+      const titleMatch = text.match(/^#\s+(.+)$/m);
+      if (titleMatch) project.name = titleMatch[1].trim();
+      const coreMatch = text.match(/##\s*Core Value\s*\n+([\s\S]*?)(?:\n##|\n$)/);
+      if (coreMatch) project.core_value = coreMatch[1].trim().replace(/\s+/g, ' ').slice(0, 320);
+      const stateMatch = text.match(/##\s*Current State\s*\n+([\s\S]*?)(?:\n##|\n$)/);
+      if (stateMatch) project.current_state = stateMatch[1].trim().replace(/\s+/g, ' ').slice(0, 320);
+    }
+  } catch (_e) { /* leave empty */ }
+  output.project = project;
+  // Brief titles — operator-authored "what I want to figure out" docs.
+  const briefs = [];
+  try {
+    const briefsDir = '.planning/briefs';
+    if (fs.existsSync(briefsDir)) {
+      const files = fs.readdirSync(briefsDir).filter(function (f) { return /\.md$/.test(f); }).sort().reverse();
+      for (const f of files.slice(0, 8)) {
+        const text = fs.readFileSync(path.join(briefsDir, f), 'utf8');
+        const titleMatch = text.match(/^#\s+(.+)$/m);
+        briefs.push({
+          file: f,
+          date: (f.match(/^\d{4}-\d{2}-\d{2}/) || [''])[0],
+          title: titleMatch ? titleMatch[1].trim().slice(0, 80) : f.replace(/\.md$/, '').replace(/^\d{4}-\d{2}-\d{2}-/, ''),
+        });
+      }
+    }
+  } catch (_e) { /* empty */ }
+  output.briefs = briefs;
+  return output;
+}
+
 function attachMission(output, opts) {
   const milestone = (opts && opts.milestone) || output.milestone;
   // P139: derive phase from output.phase OR by scanning STATE.md status text
@@ -872,16 +912,163 @@ function attachArchitecture(output) {
   return output;
 }
 
+// P142.7 Munroe-ten-hundred jargon replacement table.
+// Translates SGSD-internal terms into common-word phrases. Used by
+// extractEli5 to apply the Thing-Explainer principle: every word should
+// be one a non-technical reader would already know.
+const JARGON_REPLACEMENTS = [
+  // SGSD terms
+  [/\b(super-?gsd|sgsd)\b/gi,                'this system'],
+  [/\bcockpit-sidecar(?:\.cjs)?\b/gi,        'the data writer'],
+  [/\brender-?[Ss]hell\b/g,                  'the page frame'],
+  [/\bclient\.js\b/g,                        'the page script'],
+  [/\bsgsd-design-system\.css\b/g,           'the design rules'],
+  [/\bSSE\b/g,                               'a live stream'],
+  [/\bEventSource\b/g,                       'live-stream reader'],
+  [/\bJSDOM\b/g,                             'a fake web page'],
+  [/\bDOM\b/g,                               'the page parts'],
+  [/\bSAC(?:s)?\b/g,                         'test'],
+  [/\bsemantic_?acceptance_?criteria\b/gi,   'tests we agreed on'],
+  [/\bCONTEXT\.md\b/gi,                      'the phase notes'],
+  [/\bPLAN-LOCKED\.md\b/gi,                  'the plan'],
+  [/\bVERIFICATION\.md\b/gi,                 'the check report'],
+  [/\bPHASE-?CAPSULE\.json\b/gi,             'the closing card'],
+  [/\bINTENT\.md\b/gi,                       'the milestone note'],
+  [/\bSUMMARY\.md\b/gi,                      'the milestone summary'],
+  [/\bsnapshot(?: data)?\b/gi,               'a data picture'],
+  [/\battach(?:All|Mission|Telemetry|Pipeline|Agents|Architecture|MilestoneMap|MemoryGraph|Lineage|GateFlow|Evidence|Alarms|Events|Learnings|Rationale|Sources)\b/g, 'data writer'],
+  [/\brender[A-Z]\w+\b/g,                    'page drawer'],
+  [/\bCMB\b/g,                               'memory chain'],
+  [/\bATC\b/g,                               'quality check'],
+  [/\bMUDA\b/g,                              'waste audit'],
+  [/\bR\d+\b/g,                              'rule'],
+  [/\bCSS\b/g,                               'page styling'],
+  [/\bSVG\b/g,                               'diagram'],
+  [/\bJSON\b/g,                              'data'],
+  [/\byaml\b/gi,                             'config'],
+  [/\bMCP\b/g,                               'tool server'],
+  [/\b(orchestrator|orchestration)\b/gi,     'the boss'],
+  [/\bdispatch(?:es|ed|ing)?\b/gi,           function (m) { return m.endsWith('ing') ? 'sending' : m.endsWith('ed') ? 'sent' : m.endsWith('es') ? 'sends' : 'send'; }],
+  [/\bexecutor\b/gi,                         'worker'],
+  [/\bcontract\b/gi,                         'promise'],
+  [/\binvariant\b/gi,                        'must-hold rule'],
+  [/\bidempotent\b/gi,                       'safe to run twice'],
+  [/\b(verbatim|conformance)\b/gi,           'matches exactly'],
+  [/\bconformance\b/gi,                      'matching'],
+  [/\bgate\b/gi,                             'check'],
+  [/\bartefact\b/gi,                         'file'],
+  [/\bfrontmatter\b/gi,                      'header block'],
+  [/\bcascade\b/gi,                          'chain'],
+];
+
+function applyJargonReplacements(text) {
+  let out = String(text || '');
+  for (const [pattern, replacement] of JARGON_REPLACEMENTS) {
+    out = out.replace(pattern, replacement);
+  }
+  return out;
+}
+
 function extractEli5(text) {
-  // Synthesise a one-sentence ELI5 from a goal/blurb. Strip code fences,
-  // pick the first declarative sentence, cap at 160 chars.
+  // Synthesise a one-sentence ELI5 from a goal/blurb. Apply Munroe
+  // ten-hundred via JARGON_REPLACEMENTS, strip code fences, pick the
+  // first declarative sentence, cap at 200 chars.
   if (!text) return '';
-  const cleaned = String(text)
+  const cleaned = applyJargonReplacements(String(text))
     .replace(/`[^`]+`/g, '')
+    .replace(/\([^)]*\)/g, '')
+    .replace(/[\[\]\*_]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
   const firstSentence = cleaned.split(/\.\s+/)[0];
-  return (firstSentence + (firstSentence.endsWith('.') ? '' : '.')).slice(0, 160);
+  const out = (firstSentence + (firstSentence.endsWith('.') ? '' : '.')).slice(0, 200);
+  return out;
+}
+
+function extractSullivanBlurb(title, goalText) {
+  // Sullivan ≤10-word phase blurb. Strip parens + technical fragments
+  // from the phase title; cap at 10 words.
+  const cleanTitle = String(title || '')
+    .replace(/\(.*?\)/g, '')
+    .replace(/[—–:]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const words = cleanTitle.split(/\s+/).filter(Boolean);
+  if (words.length <= 10) return cleanTitle;
+  return words.slice(0, 10).join(' ') + '…';
+}
+
+function extractWhyItMatters(text) {
+  // Heath SUCCES — pull the concrete stake. Look for "Operator" /
+  // "primary concern" / "the most important thing" hints in the goal +
+  // scope blocks. Fallback to the first sentence of the goal.
+  if (!text) return '';
+  const stakeMatch = String(text).match(/(?:operator|the most important|primary (?:concern|goal)|must not|critical|blocker|the cockpit |the operator )[^.]*[.]/i);
+  const candidate = stakeMatch ? stakeMatch[0] : String(text).split(/\.\s+/)[0];
+  return applyJargonReplacements(candidate).replace(/\s+/g, ' ').trim().slice(0, 240);
+}
+
+function extractTasksFromPlan(planPath) {
+  // Parse PLAN-LOCKED.md yaml frontmatter tasks block. Return per-task
+  // {id, agent, plain_what}. plain_what is a Munroe-filtered single-line
+  // ELI5 derived from the task's output_contract or input_contract.
+  // Only entries under `tasks:` are picked up — stops at the
+  // `semantic_acceptance_criteria:` boundary to avoid SAC contamination.
+  if (!planPath || !fs.existsSync(planPath)) return [];
+  try {
+    const text = fs.readFileSync(planPath, 'utf8');
+    const fm = text.match(/^---\s*([\s\S]*?)\s*---/);
+    if (!fm) return [];
+    // Slice only the tasks: block — stop at next top-level key
+    const block = fm[1];
+    const tasksStart = block.match(/^tasks:\s*$/m);
+    if (!tasksStart) return [];
+    const fromTasks = block.slice(block.indexOf(tasksStart[0]) + tasksStart[0].length);
+    // End at next top-level key (no leading space)
+    const endMatch = fromTasks.match(/\n([a-z_][a-z0-9_]*):\s*$/m);
+    const tasksBlock = endMatch ? fromTasks.slice(0, endMatch.index) : fromTasks;
+    const tasks = [];
+    const lines = tasksBlock.split(/\r?\n/);
+    let cur = null;
+    let collecting = null;
+    let collectBuf = [];
+    for (const line of lines) {
+      if (/^\s{2}-\s*id:\s*/.test(line)) {
+        if (cur) { if (collecting && collectBuf.length) cur[collecting] = collectBuf.join(' ').trim(); tasks.push(cur); }
+        cur = { id: line.replace(/^\s{2}-\s*id:\s*/, '').trim() };
+        collecting = null;
+        collectBuf = [];
+        continue;
+      }
+      if (!cur) continue;
+      const agentMatch = line.match(/^\s{4}agent:\s*(.+)$/);
+      if (agentMatch) { if (collecting && collectBuf.length) { cur[collecting] = collectBuf.join(' ').trim(); collecting = null; collectBuf = []; } cur.agent = agentMatch[1].trim(); continue; }
+      const modelMatch = line.match(/^\s{4}model:\s*(.+)$/);
+      if (modelMatch) { if (collecting && collectBuf.length) { cur[collecting] = collectBuf.join(' ').trim(); collecting = null; collectBuf = []; } cur.model = modelMatch[1].trim(); continue; }
+      const outMatch = line.match(/^\s{4}output_contract:\s*[\|>]?-?\s*$/);
+      if (outMatch) { if (collecting && collectBuf.length) cur[collecting] = collectBuf.join(' ').trim(); collecting = 'output_contract'; collectBuf = []; continue; }
+      const outInlineMatch = line.match(/^\s{4}output_contract:\s*['"]?(.+?)['"]?\s*$/);
+      if (outInlineMatch && !outMatch) { cur.output_contract = outInlineMatch[1].trim(); collecting = null; collectBuf = []; continue; }
+      const inMatch = line.match(/^\s{4}input_contract:\s*[\|>]?-?\s*$/);
+      if (inMatch) { if (collecting && collectBuf.length) cur[collecting] = collectBuf.join(' ').trim(); collecting = 'input_contract'; collectBuf = []; continue; }
+      const inInlineMatch = line.match(/^\s{4}input_contract:\s*['"]?(.+?)['"]?\s*$/);
+      if (inInlineMatch && !inMatch) { cur.input_contract = inInlineMatch[1].trim(); collecting = null; collectBuf = []; continue; }
+      const stopMatch = line.match(/^\s{4}(hypothesis|falsifier|stop_rule|files_touched|expected_ATC_tier|skip_gates|depends_on|known_deadends|verification_cmd|lessons_path):/);
+      if (stopMatch) { if (collecting && collectBuf.length) cur[collecting] = collectBuf.join(' ').trim(); collecting = null; collectBuf = []; continue; }
+      if (collecting && /^\s{6,}/.test(line)) collectBuf.push(line.trim());
+    }
+    if (cur) { if (collecting && collectBuf.length) cur[collecting] = collectBuf.join(' ').trim(); tasks.push(cur); }
+    return tasks.map(function (t) {
+      const src = t.output_contract || t.input_contract || '';
+      const what = extractEli5(src.slice(0, 320));
+      return {
+        id: t.id,
+        agent: t.agent || '',
+        model: t.model || '',
+        plain_what: what || extractEli5((src + '').slice(0, 160)) || 'works on ' + (t.agent || 'this task').replace(/^sgsd-/, ''),
+      };
+    });
+  } catch (_e) { return []; }
 }
 
 function attachMilestoneMap(output) {
@@ -951,6 +1138,21 @@ function attachMilestoneMap(output) {
   }
   let phases = [];
   const details = {};
+  // Read active milestone INTENT.md once — operator-stated "what this
+  // milestone delivers" — to attach to every phase under it.
+  let milestoneIntent = { goal: '', invariants: '' };
+  try {
+    if (milestone) {
+      const intentP = path.join('.planning', 'milestones', milestone, 'INTENT.md');
+      if (fs.existsSync(intentP)) {
+        const text = fs.readFileSync(intentP, 'utf8');
+        const goalMatch = text.match(/##\s*Goal\s*\n+([\s\S]*?)(?:\n##|\n$)/);
+        if (goalMatch) milestoneIntent.goal = goalMatch[1].trim().replace(/\s+/g, ' ').slice(0, 320);
+        const invMatch = text.match(/##\s*(?:Binding\s+)?[Ii]nvariants?\s*\n+([\s\S]*?)(?:\n##|\n$)/);
+        if (invMatch) milestoneIntent.invariants = invMatch[1].trim().split(/\n/)[0].replace(/^[-\d.\s]+/, '').slice(0, 240);
+      }
+    }
+  } catch (_e) { /* empty */ }
   try {
     if (milestone) {
       const phaseDirRoot = path.join('.planning', 'milestones', milestone, 'phases');
@@ -988,6 +1190,14 @@ function attachMilestoneMap(output) {
             sacCount = sacMatches.length;
           } catch (_e) { /* keep defaults */ }
         }
+        // Locate PLAN-LOCKED.md (if any) for per-T-task ELI5
+        let planPath = null;
+        try {
+          const phaseFiles = fs.readdirSync(path.join(phaseDirRoot, dir));
+          const planFile = phaseFiles.find(function (f) { return /PLAN-LOCKED\.md$/.test(f); });
+          if (planFile) planPath = path.join(phaseDirRoot, dir, planFile);
+        } catch (_e) { /* none */ }
+        const planTasks = extractTasksFromPlan(planPath);
         if (fs.existsSync(capsulePath)) {
           status = 'done';
           try {
@@ -999,8 +1209,9 @@ function attachMilestoneMap(output) {
             if (dc.constraints) unlocksParts.push((dc.constraints || []).slice(0, 2).join('; '));
             details[idNum] = {
               title,
-              blurb: (cap.goal || goalText || '').split('.').slice(0, 1).join('.').slice(0, 100),
-              eli5: eli5Text || extractEli5(cap.goal || ''),
+              blurb: extractSullivanBlurb(title, cap.goal || goalText),
+              eli5: extractEli5(cap.goal || goalText || ''),
+              why_it_matters: extractWhyItMatters(cap.goal || goalText || ''),
               why: goalText || cap.goal || '',
               scope: scopeText,
               context: contextText,
@@ -1008,29 +1219,38 @@ function attachMilestoneMap(output) {
               outcome: cap.status || status,
               outcome_long: 'Closed ' + (cap.status || 'PASS') + ' · ' + (cap.self_test_count || '') + ' self-test',
               files: (cap.files || []).slice(0, 8),
+              tasks: planTasks,
               duration: '',
               owner: cap.created_by || 'orchestrator',
               sac_count: (cap.sac_ids || []).length,
               decisions: (cap.decisions || []).slice(0, 4).map(function (d) { return d.decision || ''; }),
+              milestone_intent: milestoneIntent.goal,
+              milestone_invariant: milestoneIntent.invariants,
+              capsule_consumers: (cap.downstream_contract && cap.downstream_contract.consumers) || [],
             };
           } catch (_e) { /* keep defaults */ }
         } else if (fs.existsSync(contextPath)) {
           status = 'active';
           details[idNum] = {
             title,
-            blurb: goalText.split('.').slice(0, 1).join('.').slice(0, 100),
-            eli5: eli5Text || extractEli5(goalText),
+            blurb: extractSullivanBlurb(title, goalText),
+            eli5: extractEli5(goalText),
+            why_it_matters: extractWhyItMatters(goalText),
             why: goalText,
             scope: scopeText,
             context: contextText,
             unlocks: '',
             outcome: 'in progress',
-            outcome_long: 'Currently authoring — see CONTEXT.md for scope, no capsule yet.',
+            outcome_long: 'Currently authoring — see the phase notes for scope, no closing card yet.',
             files: [],
+            tasks: planTasks,
             duration: '',
             owner: 'orchestrator',
             sac_count: sacCount,
             decisions: [],
+            milestone_intent: milestoneIntent.goal,
+            milestone_invariant: milestoneIntent.invariants,
+            capsule_consumers: [],
           };
         }
         if (idNum === currentPhase) status = 'current';
@@ -1038,12 +1258,31 @@ function attachMilestoneMap(output) {
       }
     }
   } catch (_e) { /* leave empty */ }
+  // P142.7 chain — derive predecessor + successor per phase from numeric
+  // ordering + capsule downstream_contract.consumers hints. Each phase
+  // detail gets a `chain` block surfaceable in the phase detail panel.
+  const phaseIds = phases.map(function (p) { return p.id; });
+  for (let i = 0; i < phaseIds.length; i++) {
+    const id = phaseIds[i];
+    if (!details[id]) continue;
+    const prevId = i > 0 ? phaseIds[i - 1] : null;
+    const nextId = i < phaseIds.length - 1 ? phaseIds[i + 1] : null;
+    details[id].chain = {
+      predecessor: prevId && details[prevId]
+        ? { id: prevId, title: details[prevId].title, blurb: details[prevId].blurb, why: details[prevId].why }
+        : null,
+      successor: nextId && details[nextId]
+        ? { id: nextId, title: details[nextId].title, blurb: details[nextId].blurb, why: details[nextId].why }
+        : null,
+    };
+  }
   output.milestone_map = {
     milestones,
     current: milestone || '',
     phases,
     unlocks: (output.mission && output.mission.unlocks) || null,
     details,
+    intent: milestoneIntent,
   };
   return output;
 }
@@ -1387,6 +1626,7 @@ function attachSources(output, opts) {
 }
 
 function attachAll(output, opts) {
+  attachProjectChain(output);
   attachMission(output, opts || {});
   attachPipeline(output);
   attachAgents(output);

@@ -898,16 +898,75 @@
       const cls = name === activeTab ? 'pd-tab active' : 'pd-tab';
       return '<button class="' + cls + '" data-clickable="tab" data-tab="' + escape(name) + '">' + escape(label) + '</button>';
     }
+    // Context chain (P142.7) — pulled from the cascade-read attachers so the
+    // phase explanation shows the bigger why (operator's chain-of-events ask).
+    const project = snapshot.project || {};
+    const milestoneIntent = detail.milestone_intent || '';
+    const chain = detail.chain || { predecessor: null, successor: null };
     function row(label, value, valueClass) {
       if (!value) return '';
       const cls = valueClass ? ' ' + valueClass : '';
       return '<div class="pd-row"><span class="lbl">' + label + '</span><div class="pd-val' + cls + '">' + escape(value) + '</div></div>';
     }
-    // Tab bodies
+    // Tab bodies — applying Munroe (ten-hundred plain English),
+    // Sullivan (≤10-word blurb), Heath SUCCES (concrete stake), Minto
+    // (answer-first), and per-T-task pyramid breakdown.
     function summaryBody() {
-      return row('Why it ran', detail.why || detail.blurb) +
+      const tasksList = (detail.tasks && detail.tasks.length)
+        ? '<div class="pd-row"><span class="lbl">What each task does</span><ul class="pd-task-list">' +
+            detail.tasks.map(function (t) {
+              return '<li class="pd-task">' +
+                '<span class="pd-task-id mono">' + escape(t.id || '') + '</span>' +
+                '<span class="pd-task-what">' + escape(t.plain_what || '—') + '</span>' +
+                (t.agent ? '<span class="pd-task-agent mono">' + escape((t.agent || '').replace(/^sgsd-/, '')) + '</span>' : '') +
+              '</li>';
+            }).join('') +
+          '</ul></div>'
+        : '';
+      // Minto answer-first: lead with blurb + ELI5, then context chain, then tasks.
+      const projectLine = project.core_value
+        ? '<div class="pd-row"><span class="lbl">Bigger picture</span><div class="pd-val pd-val-chain">' +
+            '<span class="pd-chain-link"><span class="pd-chain-tag">PROJECT</span> ' + escape(project.core_value.split('.').slice(0, 1).join('.').slice(0, 160)) + '</span>' +
+            (milestoneIntent ? '<span class="pd-chain-arrow">↓</span><span class="pd-chain-link"><span class="pd-chain-tag">MILESTONE ' + escape(snapshot.milestone || '') + '</span> ' + escape(milestoneIntent.split('.').slice(0, 1).join('.').slice(0, 160)) + '</span>' : '') +
+            '<span class="pd-chain-arrow">↓</span><span class="pd-chain-link pd-chain-current"><span class="pd-chain-tag">PHASE P' + escape(snapshot.phase || '') + '</span> ' + escape(detail.blurb || detail.eli5 || '').slice(0, 160) + '</span>' +
+          '</div></div>'
+        : '';
+      return row('In one line', detail.blurb, 'pd-val-blurb') +
         row('ELI5', detail.eli5, 'pd-val-eli5') +
+        row('Why this matters', detail.why_it_matters || detail.why) +
+        projectLine +
+        tasksList +
         row('Outcome', detail.outcome_long || detail.outcome);
+    }
+    function chainBody() {
+      // Full lineage — predecessor → this → successor with each link's blurb.
+      const prev = chain.predecessor;
+      const next = chain.successor;
+      const head = '<p class="pd-chain-intro">Each phase exists because of the one before. This is what links this phase to the rest.</p>';
+      function chainCard(role, link) {
+        if (!link) return '<div class="pd-chain-empty mono">— no ' + role + ' phase —</div>';
+        return '<div class="pd-chain-card pd-chain-card-' + role + '">' +
+          '<header class="pd-chain-card-head"><span class="pd-chain-tag">P' + escape(link.id) + '</span><span class="pd-chain-card-role">' + role.toUpperCase() + '</span></header>' +
+          '<div class="pd-chain-card-title">' + escape((link.title || '').slice(0, 80)) + '</div>' +
+          '<div class="pd-chain-card-blurb">' + escape((link.blurb || link.why || '').slice(0, 160)) + '</div>' +
+        '</div>';
+      }
+      return head +
+        '<div class="pd-chain-grid">' +
+          chainCard('predecessor', prev) +
+          '<div class="pd-chain-card pd-chain-card-current">' +
+            '<header class="pd-chain-card-head"><span class="pd-chain-tag pd-chain-tag-active">P' + escape(snapshot.phase || '') + '</span><span class="pd-chain-card-role">THIS PHASE</span></header>' +
+            '<div class="pd-chain-card-title">' + escape((detail.title || '').slice(0, 80)) + '</div>' +
+            '<div class="pd-chain-card-blurb">' + escape((detail.blurb || detail.eli5 || '').slice(0, 160)) + '</div>' +
+          '</div>' +
+          chainCard('successor', next) +
+        '</div>' +
+        (milestoneIntent
+          ? '<div class="pd-chain-anchor"><span class="lbl">Milestone ' + escape(snapshot.milestone || '') + '</span><div class="pd-chain-anchor-val">' + escape(milestoneIntent) + '</div></div>'
+          : '') +
+        (project.core_value
+          ? '<div class="pd-chain-anchor pd-chain-anchor-project"><span class="lbl">Project — ' + escape(project.name || '') + '</span><div class="pd-chain-anchor-val">' + escape(project.core_value) + '</div></div>'
+          : '');
     }
     function whyBody() {
       return row('Why it ran', detail.why) +
@@ -936,6 +995,7 @@
     }
     const bodyHtml = activeTab === 'summary' ? summaryBody()
       : activeTab === 'why' ? whyBody()
+      : activeTab === 'chain' ? chainBody()
       : activeTab === 'unlocks' ? unlocksBody()
       : activeTab === 'evidence' ? evidenceBody()
       : rawBody();
@@ -951,6 +1011,7 @@
         '<div class="pd-tabs">' +
           tab('summary', 'SUMMARY') +
           tab('why', 'WHY') +
+          tab('chain', 'CHAIN') +
           tab('unlocks', 'UNLOCKS') +
           tab('evidence', 'EVIDENCE') +
           tab('raw', 'RAW') +
