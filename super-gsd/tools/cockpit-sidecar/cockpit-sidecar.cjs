@@ -3,7 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { computeStagePipeline } = require('./stage-pipeline.cjs');
+const { computeStagePipeline, STAGES } = require('./stage-pipeline.cjs');
 const { renderAnsi } = require('./sparkline.cjs');
 const { computeRationale } = require('./rationale.cjs');
 
@@ -724,7 +724,19 @@ function attachPipeline(output) {
   // P139: alias stage_pipeline into v3.4 pipeline shape AND compute elapsed_sec
   // for each stage from the mtime of the corresponding artifact file under the
   // active phase directory.
-  const sp = output.stage_pipeline || {};
+  // P143 robustness: if stage_pipeline absent (test fixture or fresh project),
+  // synthesise from the canonical STAGES constant so downstream renderers
+  // never see an empty stages array.
+  let sp = output.stage_pipeline || {};
+  if (!Array.isArray(sp.stages) || sp.stages.length === 0) {
+    sp = {
+      active_index: 0,
+      blocker: null,
+      stages: STAGES.map(function (s) {
+        return { name: s.name, owner: s.owner, sla_minutes: s.sla_minutes, status: 'pending' };
+      }),
+    };
+  }
   const milestone = output.milestone;
   const phase = output.phase || (output.mission && output.mission.phase_id);
   let phaseDirPath = null;
@@ -1626,22 +1638,45 @@ function attachSources(output, opts) {
 }
 
 function attachAll(output, opts) {
-  attachProjectChain(output);
-  attachMission(output, opts || {});
-  attachPipeline(output);
-  attachAgents(output);
-  attachArchitecture(output);
-  attachMilestoneMap(output);
-  attachMemoryGraph(output);
-  attachLineage(output);
-  attachGateFlow(output);
-  attachEvidence(output);
-  attachTelemetry(output);
-  attachAlarms(output);
-  attachEvents(output);
+  // P143 stream-health wrapper: every attach is measured for latency +
+  // wrapped in circuit-breaker logic so a single bad source can't kill the
+  // whole snapshot composition. Operator-visible health summary attached
+  // at the end as output.stream_health.
+  const sh = require('./stream-health.cjs');
+  function wrap(id, fn) { return sh.timedAttach(id, fn).ok !== false ? sh.timedAttach(id, fn) : null; }
+  // Use simpler inline measure (avoids double-call): for each attacher,
+  // try → record. attachAll preserves existing flow but logs to HEALTH_STATE.
+  function safe(id, fn) {
+    if (!sh.shouldAttemptProbe(id)) {
+      output.warnings = output.warnings || [];
+      output.warnings.push('stream_health: ' + id + ' circuit open — skipping attach');
+      return;
+    }
+    const start = Date.now();
+    try { fn(); sh.recordOk(id, Date.now() - start); }
+    catch (e) {
+      sh.recordFail(id, e && e.message);
+      output.warnings = output.warnings || [];
+      output.warnings.push('stream_health: ' + id + ' threw: ' + (e && e.message ? e.message.slice(0, 80) : 'unknown'));
+    }
+  }
+  safe('project',        function () { attachProjectChain(output); });
+  safe('mission',        function () { attachMission(output, opts || {}); });
+  safe('pipeline',       function () { attachPipeline(output); });
+  safe('agents',         function () { attachAgents(output); });
+  safe('architecture',   function () { attachArchitecture(output); });
+  safe('milestone_map',  function () { attachMilestoneMap(output); });
+  safe('memory_graph',   function () { attachMemoryGraph(output); });
+  safe('lineage',        function () { attachLineage(output); });
+  safe('gate_flow',      function () { attachGateFlow(output); });
+  safe('evidence',       function () { attachEvidence(output); });
+  safe('telemetry',      function () { attachTelemetry(output); });
+  safe('alarms',         function () { attachAlarms(output); });
+  safe('events',         function () { attachEvents(output); });
+  safe('rationale',      function () { if (!output.rationale) attachRationale(output, opts || {}); });
   attachLearnings(output);
-  if (!output.rationale) attachRationale(output, opts || {});
-  attachSources(output, opts || {});
+  safe('_sources',       function () { attachSources(output, opts || {}); });
+  sh.attachStreamHealth(output);
   return output;
 }
 

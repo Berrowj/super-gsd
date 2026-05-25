@@ -1349,6 +1349,224 @@ const tests = [
       assert.strictEqual(v.verdict, 'PASS', `P142 browser-smoke verdict = ${v.verdict}`);
     }});
 
+    // P143 — Per-stream end-to-end data tests. Operator: 'i then also want
+    // you to do test to test check point of every single data stream'.
+    // Each snapshot key gets a shape assertion + data-quality check.
+    tests.push({ id: 'SAC-P143-stream-project', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, { statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }), state: { milestone: 'v3.2', phase: '127' } });
+      assert.ok(out.project, 'project key missing');
+      assert.ok(typeof out.project.name === 'string', 'project.name not string');
+      assert.ok(typeof out.project.core_value === 'string', 'project.core_value not string');
+    }});
+
+    tests.push({ id: 'SAC-P143-stream-briefs', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, { statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }), state: { milestone: 'v3.2', phase: '127' } });
+      assert.ok(Array.isArray(out.briefs), 'briefs not array');
+      if (out.briefs.length) {
+        assert.ok(typeof out.briefs[0].title === 'string', 'briefs[0].title not string');
+        assert.ok(typeof out.briefs[0].date === 'string', 'briefs[0].date not string');
+      }
+    }});
+
+    tests.push({ id: 'SAC-P143-stream-mission', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, { statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }), state: { milestone: 'v3.2', phase: '127' } });
+      const m = out.mission;
+      assert.ok(m, 'mission missing');
+      for (const key of ['phase_id','phase_title','objective','why_running','risk_tier','success_criteria']) {
+        assert.ok(key in m, 'mission.' + key + ' missing');
+      }
+      assert.ok(Array.isArray(m.success_criteria), 'success_criteria not array');
+    }});
+
+    tests.push({ id: 'SAC-P143-stream-pipeline', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, { statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }), state: { milestone: 'v3.2', phase: '127' } });
+      const p = out.pipeline;
+      assert.ok(p, 'pipeline missing');
+      assert.ok(Array.isArray(p.stages), 'pipeline.stages not array');
+      assert.strictEqual(p.stages.length, 5, 'pipeline.stages.length must be 5');
+      for (const s of p.stages) {
+        for (const k of ['name','owner','sla_min','status']) assert.ok(k in s, 'stage missing ' + k);
+      }
+    }});
+
+    tests.push({ id: 'SAC-P143-stream-agents', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, { statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }), state: { milestone: 'v3.2', phase: '127' } });
+      const a = out.agents;
+      assert.ok(a && a.claude && a.codex && a.last_handoff, 'agents shape incomplete');
+      for (const role of ['claude','codex']) {
+        for (const k of ['handle','model','role','status','task','recent_actions']) {
+          assert.ok(k in a[role], 'agents.' + role + '.' + k + ' missing');
+        }
+      }
+      // Real data check: handles must not be empty
+      assert.ok(a.claude.handle.length > 0, 'claude.handle empty (stub bleed)');
+      assert.ok(a.codex.handle.length > 0, 'codex.handle empty (stub bleed)');
+    }});
+
+    tests.push({ id: 'SAC-P143-stream-architecture', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, { statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }), state: { milestone: 'v3.2', phase: '127' } });
+      assert.ok(out.architecture, 'architecture missing');
+      assert.ok(Array.isArray(out.architecture.nodes), 'nodes not array');
+      assert.ok(Array.isArray(out.architecture.edges), 'edges not array');
+      assert.ok(out.architecture.nodes.length >= 3, 'expected >=3 nodes');
+    }});
+
+    tests.push({ id: 'SAC-P143-stream-milestone_map', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, { statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }), state: { milestone: 'v3.2', phase: '127' } });
+      const m = out.milestone_map;
+      assert.ok(m, 'milestone_map missing');
+      for (const k of ['milestones','current','phases','details','intent']) {
+        assert.ok(k in m, 'milestone_map.' + k + ' missing');
+      }
+      assert.ok(Array.isArray(m.milestones) && m.milestones.length >= 1, 'milestones empty');
+    }});
+
+    tests.push({ id: 'SAC-P143-stream-memory_graph', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, { statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }), state: { milestone: 'v3.2', phase: '127' } });
+      assert.ok(out.memory_graph && Array.isArray(out.memory_graph.sources), 'memory_graph.sources missing');
+      assert.ok(out.memory_graph.sources.length >= 1, 'memory_graph empty');
+    }});
+
+    tests.push({ id: 'SAC-P143-stream-lineage', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, { statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }), state: { milestone: 'v3.2', phase: '127' } });
+      assert.ok(out.lineage && Array.isArray(out.lineage.steps), 'lineage.steps missing');
+      assert.strictEqual(out.lineage.steps.length, 5, 'CMB lineage must be 5 steps');
+    }});
+
+    tests.push({ id: 'SAC-P143-stream-gate_flow', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, { statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }), state: { milestone: 'v3.2', phase: '127' } });
+      const gf = out.gate_flow;
+      assert.ok(gf && Array.isArray(gf.stages), 'gate_flow.stages missing');
+      assert.strictEqual(gf.stages.length, 5, 'gate_flow must be 5 stages');
+      assert.ok(Array.isArray(gf.muda_probes), 'muda_probes missing');
+      assert.strictEqual(gf.muda_probes.length, 5, 'muda_probes must be 5');
+    }});
+
+    tests.push({ id: 'SAC-P143-stream-evidence', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, { statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }), state: { milestone: 'v3.2', phase: '127' } });
+      const e = out.evidence;
+      assert.ok(e && e.summary, 'evidence.summary missing');
+      for (const k of ['green','warn','fail']) assert.ok(k in e.summary, 'summary.' + k + ' missing');
+      assert.ok(Array.isArray(e.categories), 'evidence.categories missing');
+      assert.ok(Array.isArray(e.unresolved), 'evidence.unresolved missing');
+    }});
+
+    tests.push({ id: 'SAC-P143-stream-telemetry', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, { statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }), state: { milestone: 'v3.2', phase: '127' } });
+      const t = out.telemetry;
+      for (const ch of ['fog','dispatches','tokens','context','elapsed']) {
+        assert.ok(t[ch], 'telemetry.' + ch + ' missing');
+        for (const k of ['value','target','max','history','label']) {
+          assert.ok(k in t[ch], 'telemetry.' + ch + '.' + k + ' missing');
+        }
+        assert.ok(Array.isArray(t[ch].history), ch + '.history not array');
+      }
+    }});
+
+    tests.push({ id: 'SAC-P143-stream-events', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, { statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }), state: { milestone: 'v3.2', phase: '127' } });
+      assert.ok(Array.isArray(out.events), 'events not array');
+      if (out.events.length) {
+        for (const k of ['t_off','type','tier','detail']) assert.ok(k in out.events[0], 'event[0].' + k + ' missing');
+      }
+    }});
+
+    tests.push({ id: 'SAC-P143-stream-alarms', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, { statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }), state: { milestone: 'v3.2', phase: '127' } });
+      assert.ok(Array.isArray(out.alarms), 'alarms not array');
+    }});
+
+    tests.push({ id: 'SAC-P143-stream-rationale', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, { statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }), state: { milestone: 'v3.2', phase: '127' } });
+      assert.ok(out.rationale, 'rationale missing');
+      for (const k of ['why_this_phase','context','eli5','evidence_trail']) {
+        assert.ok(k in out.rationale, 'rationale.' + k + ' missing');
+      }
+    }});
+
+    tests.push({ id: 'SAC-P143-stream-sources', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, { statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }), state: { milestone: 'v3.2', phase: '127' } });
+      assert.ok(out._sources, '_sources missing');
+      for (const id of ['mission','telemetry','architecture','milestone','memory','evidence','events']) {
+        assert.ok(out._sources[id], '_sources.' + id + ' missing');
+        for (const k of ['tier','age_ms','last_seen','excused']) assert.ok(k in out._sources[id], '_sources.' + id + '.' + k + ' missing');
+      }
+    }});
+
+    tests.push({ id: 'SAC-P143-responsive-audit', run: () => {
+      const findingsPath = path.join('.planning', 'runtime', 'responsive-audit-findings.json');
+      if (!fs.existsSync(findingsPath)) return; // skip if audit not run
+      const data = JSON.parse(fs.readFileSync(findingsPath, 'utf8'));
+      assert.ok(Array.isArray(data.findings), 'findings not array');
+      assert.strictEqual(data.findings.length, 0, 'responsive audit findings: ' + data.findings.join(' | '));
+    }});
+
+    tests.push({ id: 'SAC-P143-stream-health', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, { statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }), state: { milestone: 'v3.2', phase: '127' } });
+      assert.ok(out.stream_health, 'stream_health key missing');
+      assert.ok(Array.isArray(out.stream_health.streams), 'stream_health.streams not array');
+      assert.ok(out.stream_health.streams.length >= 14, 'expected >=14 streams, got ' + out.stream_health.streams.length);
+      // Every stream has the required shape
+      for (const s of out.stream_health.streams) {
+        for (const k of ['id','label','breaker','consecutive_failures','latency_p95_ms']) {
+          assert.ok(k in s, 'stream missing ' + k);
+        }
+        assert.ok(['closed','open','half-open'].includes(s.breaker), 'invalid breaker state: ' + s.breaker);
+      }
+      // Thresholds present
+      assert.ok(out.stream_health.thresholds, 'thresholds missing');
+      assert.strictEqual(out.stream_health.thresholds.circuit_open_after_consecutive_failures, 3);
+    }});
+
+    tests.push({ id: 'SAC-P143-dead-mans-banner', run: () => {
+      // Source-grep — dead-man's switch implementation must exist in client.js
+      const src = fs.readFileSync('super-gsd/tools/cockpit-sidecar/client.js', 'utf8');
+      assert.ok(/dead-mans-banner/.test(src), 'client.js missing dead-mans-banner');
+      assert.ok(/evaluateDeadMansSwitch/.test(src), 'client.js missing evaluateDeadMansSwitch fn');
+      assert.ok(/SILENCE_THRESHOLD_MS/.test(src), 'client.js missing SILENCE_THRESHOLD_MS');
+    }});
+
+    tests.push({ id: 'SAC-P143-rendered-stream-health', run: async () => {
+      const result = await fetchRenderedDom();
+      assert.ok(/class="stream-health"/.test(result.html), 'rendered DOM missing .stream-health');
+      const rows = (result.html.match(/class="sh-row /g) || []).length;
+      assert.ok(rows >= 14, 'expected >=14 sh-rows, got ' + rows);
+    }});
+
     tests.push({ id: 'SAC-P138.5-01', run: () => {
       // Browser-smoke gate witness — the most-recent cockpit-touching phase MUST
       // have a verdict=PASS artifact at .planning/runtime/cockpit-smoke-<N>-verdict.json.

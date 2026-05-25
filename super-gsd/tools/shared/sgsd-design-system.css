@@ -2854,3 +2854,260 @@ main.sgsd-cockpit .ia-section[data-collapsed="true"] > *:not(.sec-header) {
 .pd-tab { cursor: pointer; transition: color 120ms ease, border-color 120ms ease; }
 .pd-tab:hover { color: var(--ink); }
 .pd-tab[data-clickable]:focus { outline: 2px solid var(--live); outline-offset: 2px; border-radius: 2px; }
+
+/* ============================================================================
+   P142.8 — Responsive breakpoints + text overflow guards.
+   HiveMind HM-P-09 pre-seed defaults: every grid pre-declares its narrow
+   fallback so the layout never depends on first-paint inference.
+   Storytelling-with-data: declutter via column collapse, not text crushing.
+   Clean Architecture: layout decoupled from data — pure CSS, no JS.
+   ============================================================================ */
+
+/* Text overflow guards — applied to every text-bearing card class so a long
+   phase title / commit message / detail line never breaks the grid. */
+main.sgsd-cockpit .mc-title,
+main.sgsd-cockpit .mc-objective,
+main.sgsd-cockpit .mc-text,
+main.sgsd-cockpit .stop-label,
+main.sgsd-cockpit .stop-sub,
+main.sgsd-cockpit .stop-meta,
+main.sgsd-cockpit .agent-task,
+main.sgsd-cockpit .scan-val,
+main.sgsd-cockpit .scan-sub,
+main.sgsd-cockpit .ev-stage-detail,
+main.sgsd-cockpit .ev-col-detail,
+main.sgsd-cockpit .ev-col-name,
+main.sgsd-cockpit .telem-num,
+main.sgsd-cockpit .telem-foot span,
+main.sgsd-cockpit .mem-label,
+main.sgsd-cockpit .mem-detail,
+main.sgsd-cockpit .ms-phase-sub,
+main.sgsd-cockpit .ms-cell .ms-focus,
+main.sgsd-cockpit .pd-task-what,
+main.sgsd-cockpit .pd-val,
+main.sgsd-cockpit .ev-unresolved-row span,
+main.sgsd-cockpit .ra-detail,
+main.sgsd-cockpit .ev-detail,
+main.sgsd-cockpit .event-tape .ev-detail {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  min-width: 0;
+}
+main.sgsd-cockpit .scan-cell,
+main.sgsd-cockpit .cmd-cell,
+main.sgsd-cockpit .stage-cell,
+main.sgsd-cockpit .ev-stage,
+main.sgsd-cockpit .telem-cell,
+main.sgsd-cockpit .evidence-card,
+main.sgsd-cockpit .memory-card,
+main.sgsd-cockpit .ms-cell,
+main.sgsd-cockpit .ms-phase,
+main.sgsd-cockpit .mc-id-block,
+main.sgsd-cockpit .mc-title-block {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Long single-line monospace text in detail cells — show ellipsis instead
+   of horizontal overflow. */
+main.sgsd-cockpit .ev-col-name,
+main.sgsd-cockpit .ev-col-detail,
+main.sgsd-cockpit .ev-col-ts,
+main.sgsd-cockpit .ra-detail,
+main.sgsd-cockpit .pd-task-what {
+  white-space: normal;
+  text-overflow: ellipsis;
+}
+main.sgsd-cockpit .pd-task-agent,
+main.sgsd-cockpit .pd-task-id,
+main.sgsd-cockpit .chrome-host,
+main.sgsd-cockpit .chrome-path,
+main.sgsd-cockpit .chrome-build,
+main.sgsd-cockpit .chrome-phase {
+  white-space: nowrap;
+}
+
+/* Laptop (≤1100px) — most multi-col grids stay readable but the architecture/
+   memory/milestone SVGs scroll horizontally rather than crush. */
+@media (max-width: 1100px) {
+  main.sgsd-cockpit .arch-svg,
+  main.sgsd-cockpit .mem-svg,
+  main.sgsd-cockpit .ms-svg {
+    min-width: 0;
+  }
+  main.sgsd-cockpit .arch-svg-wrap,
+  main.sgsd-cockpit .memory-svg-wrap,
+  main.sgsd-cockpit .milestone-svg-wrap {
+    overflow-x: auto;
+  }
+  main.sgsd-cockpit .milestone-body {
+    grid-template-columns: 1fr;
+  }
+  main.sgsd-cockpit .phase-detail {
+    border-left: none;
+    border-top: 1px solid var(--line);
+  }
+}
+
+/* Tablet (≤900px) — collapse 4-col detail grid + 5-col telem to 2-col,
+   stack scanbar vertically, narrow scrollbar on horizontal SVG wrappers. */
+@media (max-width: 900px) {
+  main.sgsd-cockpit .telem,
+  main.sgsd-cockpit .ev-summary-tiles,
+  main.sgsd-cockpit .ev-detail-grid,
+  main.sgsd-cockpit .gate-flow,
+  main.sgsd-cockpit .milestone-phases {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  main.sgsd-cockpit .scanbar {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  main.sgsd-cockpit .agents {
+    grid-template-columns: 1fr !important;
+  }
+  main.sgsd-cockpit .agents .handoff {
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  main.sgsd-cockpit .command {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  main.sgsd-cockpit .ev-stages {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  main.sgsd-cockpit .ev-stage-arrow {
+    display: none;
+  }
+  main.sgsd-cockpit .arch-pane {
+    grid-template-columns: 1fr;
+  }
+  main.sgsd-cockpit .ia-section {
+    padding: 1rem 0.75rem;
+  }
+  main.sgsd-cockpit .sec-title {
+    font-size: clamp(1.8rem, 6vw, 2.6rem);
+  }
+}
+
+/* Narrow / phone (≤600px) — everything stacks to 1-col, chrome wraps. */
+@media (max-width: 600px) {
+  main.sgsd-cockpit .telem,
+  main.sgsd-cockpit .ev-summary-tiles,
+  main.sgsd-cockpit .ev-detail-grid,
+  main.sgsd-cockpit .gate-flow,
+  main.sgsd-cockpit .milestone-phases,
+  main.sgsd-cockpit .command,
+  main.sgsd-cockpit .scanbar,
+  main.sgsd-cockpit .memory-mesh,
+  main.sgsd-cockpit .evidence-cards,
+  main.sgsd-cockpit .phase-runway,
+  main.sgsd-cockpit .runway-stops {
+    grid-template-columns: 1fr !important;
+  }
+  main.sgsd-cockpit .runway-stops {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  main.sgsd-cockpit .chrome {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  main.sgsd-cockpit .sec-header {
+    flex-wrap: wrap;
+  }
+  main.sgsd-cockpit .sec-stat {
+    margin-left: 0;
+    width: 100%;
+  }
+  main.sgsd-cockpit .sec-header::before {
+    display: none; /* watermark off on small screens */
+  }
+  main.sgsd-cockpit .sec-title {
+    font-size: clamp(1.5rem, 8vw, 2rem);
+  }
+  main.sgsd-cockpit .pd-chain-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* SVG containers always allow horizontal scroll on their viewports, but
+   the inner SVG keeps its viewBox-driven aspect ratio. */
+main.sgsd-cockpit svg.arch-svg,
+main.sgsd-cockpit svg.mem-svg,
+main.sgsd-cockpit svg.ms-svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ============================================================================
+   P143 — Stream health panel (per-source latency + breaker + last-ok).
+   HiveMind HM-P-04 + HM-P-05 visual surface so silent failures become loud.
+   ============================================================================ */
+main.sgsd-cockpit .stream-health {
+  margin-top: 1rem;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+}
+main.sgsd-cockpit .sh-head {
+  padding: 8px 12px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+}
+main.sgsd-cockpit .sh-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 110px 110px 80px 90px;
+  gap: 8px;
+  padding: 5px 12px;
+  border-top: 1px solid var(--line-dim);
+  font: 500 0.72rem/1.3 var(--mono);
+  align-items: baseline;
+}
+main.sgsd-cockpit .sh-row:first-of-type { border-top: none; }
+main.sgsd-cockpit .sh-id { color: var(--ink-strong); font-weight: 600; }
+main.sgsd-cockpit .sh-label { color: var(--ink-mid); font-family: var(--sans); }
+main.sgsd-cockpit .sh-latency { color: var(--ink-mid); text-align: right; }
+main.sgsd-cockpit .sh-last-ok { color: var(--ink-dim); text-align: right; }
+main.sgsd-cockpit .sh-breaker { text-transform: uppercase; letter-spacing: 0.06em; text-align: center; padding: 2px 6px; border-radius: 2px; }
+main.sgsd-cockpit .sh-breaker-closed    { background: var(--done-bg);   color: var(--done); }
+main.sgsd-cockpit .sh-breaker-half-open { background: var(--attn-bg);   color: var(--attn); }
+main.sgsd-cockpit .sh-breaker-open      { background: var(--severe-bg); color: var(--severe); font-weight: 700; }
+main.sgsd-cockpit .sh-ok    { color: var(--done); }
+main.sgsd-cockpit .sh-fails { color: var(--severe); font-weight: 600; text-align: right; }
+main.sgsd-cockpit .sh-over-budget .sh-latency {
+  background: var(--attn-bg);
+  color: var(--attn);
+  padding: 0 6px;
+  border-radius: 2px;
+}
+@media (max-width: 900px) {
+  main.sgsd-cockpit .sh-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    font-size: 0.66rem;
+  }
+}
+
+/* P143 SSE dead-man's switch visual — when client.js detects no event
+   for 30s, fire a big banner so the operator can't miss it. */
+main.sgsd-cockpit .dead-mans-banner {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  padding: 0.6rem 1rem;
+  background: var(--severe);
+  color: var(--bg-1);
+  font: 700 0.86rem/1 var(--display, 'Big Shoulders Display'), sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display: none;
+  text-align: center;
+  animation: dead-pulse 1.4s ease-in-out infinite;
+}
+main.sgsd-cockpit .dead-mans-banner.active { display: block; }
+@keyframes dead-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.65; }
+}

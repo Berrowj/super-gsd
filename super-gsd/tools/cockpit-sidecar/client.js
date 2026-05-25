@@ -82,6 +82,29 @@
     },
   };
 
+  // P143 dead-man's switch — operator: "we need to plumb in health checks for
+  // all data or api streams so that we know if anything goes down it wont be
+  // silent". If no SSE message arrives in 30s, fire a visible banner.
+  function evaluateDeadMansSwitch() {
+    const SILENCE_THRESHOLD_MS = 30000;
+    let banner = document.querySelector('.dead-mans-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.className = 'dead-mans-banner';
+      banner.textContent = '⚠ NO SSE DATA — CONNECTION IS DEAD ⚠';
+      const main = document.querySelector('main.sgsd-cockpit');
+      if (main) main.insertBefore(banner, main.firstChild);
+      else document.body.appendChild(banner);
+    }
+    const silenceMs = lastSnapshotAt > 0 ? Date.now() - lastSnapshotAt : 0;
+    if (lastSnapshotAt > 0 && silenceMs > SILENCE_THRESHOLD_MS) {
+      banner.classList.add('active');
+      banner.textContent = '⚠ NO SSE DATA · ' + Math.floor(silenceMs / 1000) + 's SILENCE · CONNECTION LIKELY DEAD ⚠';
+    } else {
+      banner.classList.remove('active');
+    }
+  }
+
   function evaluateStaleness() {
     // STALE flips when last snapshot is older than 2x the strictest stale_after
     // (taken as RECONNECT_THRESHOLD_MS as a coarse default).
@@ -116,6 +139,7 @@
 
     connState.attach();
     setInterval(evaluateStaleness, 5000);
+    setInterval(evaluateDeadMansSwitch, 5000);
     applyCollapsePersistence();
     wirePhaseClickDelegation();
 
@@ -1300,6 +1324,29 @@
         return '<span class="muda-probe muda-' + escape(p.status) + '" title="' + escape(p.detail || '') + '">' + escape(p.name) + '</span>';
       }).join('') +
     '</div>';
+    // P143 STREAM HEALTH panel (operator-asked: 'health checks for all
+    // data or api streams so that we know if anything goes down it wont
+    // be silent'). Per-source latency + circuit-breaker state + last-ok.
+    const streamHealth = snapshot.stream_health || { streams: [] };
+    const streamRows = (streamHealth.streams || []).map(function (s) {
+      const breakerCls = 'sh-breaker-' + s.breaker;
+      const overCls = s.over_budget ? ' sh-over-budget' : '';
+      const failBadge = s.consecutive_failures > 0
+        ? '<span class="sh-fails">' + s.consecutive_failures + ' fail</span>'
+        : '<span class="sh-ok">ok</span>';
+      return '<div class="sh-row ' + breakerCls + overCls + '">' +
+        '<span class="sh-id mono">' + escape(s.id) + '</span>' +
+        '<span class="sh-label">' + escape(s.label) + '</span>' +
+        '<span class="sh-latency mono">' + s.latency_p95_ms + 'ms p95</span>' +
+        '<span class="sh-last-ok mono">' + (s.last_ok_at_sec_ago != null ? s.last_ok_at_sec_ago + 's ago' : 'never') + '</span>' +
+        '<span class="sh-breaker mono">' + s.breaker + '</span>' +
+        failBadge +
+      '</div>';
+    }).join('');
+    const streamHealthHtml = '<div class="stream-health">' +
+      '<header class="sh-head"><span class="lbl">Stream health · per-source latency + circuit-breaker · ' + (streamHealth.streams || []).length + ' streams</span></header>' +
+      streamRows +
+    '</div>';
 
     // Unresolved findings (orange box)
     const unresolved = ev.unresolved || [];
@@ -1337,6 +1384,7 @@
       '</div>' +
       atcHtml +
       mudaHtml +
+      streamHealthHtml +
       unresolvedHtml;
     if (section.innerHTML !== html) section.innerHTML = html;
   }
