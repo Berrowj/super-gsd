@@ -153,6 +153,7 @@ ${designSystemCss}
   <section id="sec-memory"       data-source="memory"                       class="ia-section"              aria-label="Memory"></section>
   <section id="sec-evidence"     data-source="evidence"                     class="ia-section"              aria-label="Evidence"></section>
   <section id="sec-events"       data-source="events"                       class="ia-section"              aria-label="Events"></section>
+  <section id="sec-handovers"    data-source="handovers"                    class="ia-section"              aria-label="Handovers"></section>
 
   <aside class="bottom-drawer" data-region="bottom" data-source="bottom"></aside>
 

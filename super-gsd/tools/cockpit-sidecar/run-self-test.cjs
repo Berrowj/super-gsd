@@ -1567,6 +1567,29 @@ const tests = [
       assert.ok(rows >= 14, 'expected >=14 sh-rows, got ' + rows);
     }});
 
+    tests.push({ id: 'SAC-P143-stream-handovers', run: () => {
+      const sidecar2 = require('./cockpit-sidecar.cjs');
+      const out = p127Out();
+      sidecar2.attachAll(out, { statFn: () => ({ mtimeMs: Date.now() - 1000, isDirectory: () => false }), state: { milestone: 'v3.2', phase: '127' } });
+      assert.ok(Array.isArray(out.handovers), 'handovers not array');
+      assert.ok(out.handovers.length >= 5, 'expected >=5 handover docs, got ' + out.handovers.length);
+      for (const h of out.handovers) {
+        for (const k of ['rel_path','title','category','size_kb']) {
+          assert.ok(k in h, 'handover.' + k + ' missing');
+        }
+        assert.ok(['brief','analysis','milestone'].includes(h.category), 'invalid handover category: ' + h.category);
+        assert.ok(h.rel_path.endsWith('.html'), 'handover rel_path not .html');
+      }
+    }});
+
+    tests.push({ id: 'SAC-P143-rendered-handovers-section', run: async () => {
+      const result = await fetchRenderedDom();
+      assert.ok(/id="sec-handovers"/.test(result.html), 'rendered DOM missing #sec-handovers section');
+      assert.ok(/class="handover-card"/.test(result.html), 'no .handover-card cards rendered');
+      const cards = (result.html.match(/class="handover-card"/g) || []).length;
+      assert.ok(cards >= 5, 'expected >=5 handover cards, got ' + cards);
+    }});
+
     tests.push({ id: 'SAC-P138.5-01', run: () => {
       // Browser-smoke gate witness — the most-recent cockpit-touching phase MUST
       // have a verdict=PASS artifact at .planning/runtime/cockpit-smoke-<N>-verdict.json.

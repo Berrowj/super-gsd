@@ -20,6 +20,7 @@ const STREAM_DEFS = [
   // id, friendly_name, attacher_label
   { id: 'project',         label: 'PROJECT.md cascade',        attacher: 'attachProjectChain' },
   { id: 'briefs',          label: 'briefs/*.md',               attacher: 'attachProjectChain' },
+  { id: 'handovers',       label: 'handover HTML registry',    attacher: 'attachHandovers' },
   { id: 'mission',         label: 'mission card',              attacher: 'attachMission' },
   { id: 'stage_pipeline',  label: 'stage pipeline',            attacher: 'attachStagePipeline' },
   { id: 'rationale',       label: 'rationale cascade',         attacher: 'attachRationale' },

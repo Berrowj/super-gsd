@@ -169,6 +169,7 @@
     renderMemory(snap);
     renderEvidence(snap);
     renderEvents(snap);
+    renderHandovers(snap);
     renderBottomDrawer(snap);
     // P140 retired renderBand(3) — renderArchitecture owns #sec-architecture
     // now. The old band-3 rationale rendering moved into the bottom drawer
@@ -1389,6 +1390,56 @@
     if (section.innerHTML !== html) section.innerHTML = html;
   }
 
+  function renderHandovers(snapshot) {
+    const section = document.getElementById('sec-handovers');
+    if (!section) return;
+    const handovers = Array.isArray(snapshot.handovers) ? snapshot.handovers : [];
+    const header = renderSectionHeader('8', 'Handovers', 'HANDOVERS',
+      handovers.length + ' docs · briefs · analyses · design pack · mockups',
+      'Every operator-authored HTML doc — briefs, analyses, design pack, phase mockups. Click any to open in a new tab.');
+    if (!handovers.length) {
+      const empty = header + '<div class="handovers-empty mono">no handover docs found</div>';
+      if (section.innerHTML !== empty) section.innerHTML = empty;
+      return;
+    }
+    // Group by category
+    const byCat = {};
+    for (const h of handovers) {
+      if (!byCat[h.category]) byCat[h.category] = [];
+      byCat[h.category].push(h);
+    }
+    const catOrder = ['brief', 'analysis', 'milestone'];
+    const catLabels = { brief: 'Briefs · operator intent', analysis: 'Analyses · explainers', milestone: 'Milestone artefacts · design pack + mockups' };
+    function ageLabel(secAgo) {
+      if (secAgo == null) return '—';
+      if (secAgo < 60) return secAgo + 's ago';
+      if (secAgo < 3600) return Math.floor(secAgo / 60) + 'm ago';
+      if (secAgo < 86400) return Math.floor(secAgo / 3600) + 'h ago';
+      return Math.floor(secAgo / 86400) + 'd ago';
+    }
+    const groupsHtml = catOrder.filter(function (c) { return byCat[c]; }).map(function (cat) {
+      const cards = byCat[cat].map(function (h) {
+        const url = '/handover/' + h.rel_path;
+        const dateLabel = h.date ? escape(h.date) : ageLabel(h.mtime_sec_ago);
+        return '<a class="handover-card" href="' + escape(url) + '" target="_blank" rel="noopener">' +
+          '<header class="ho-head">' +
+            '<span class="ho-date mono">' + dateLabel + '</span>' +
+            '<span class="ho-size mono">' + h.size_kb + 'kb</span>' +
+          '</header>' +
+          '<div class="ho-title">' + escape(h.title) + '</div>' +
+          (h.h1 && h.h1 !== h.title ? '<div class="ho-h1">' + escape(h.h1) + '</div>' : '') +
+          '<div class="ho-path mono">' + escape(h.rel_path) + '</div>' +
+        '</a>';
+      }).join('');
+      return '<div class="handover-group">' +
+        '<h3 class="handover-group-title">' + escape(catLabels[cat] || cat) + ' · ' + byCat[cat].length + '</h3>' +
+        '<div class="handover-grid">' + cards + '</div>' +
+      '</div>';
+    }).join('');
+    const html = header + groupsHtml;
+    if (section.innerHTML !== html) section.innerHTML = html;
+  }
+
   function renderBottomDrawer(snapshot) {
     const drawer = document.querySelector('aside.bottom-drawer');
     if (!drawer) return;
@@ -1578,6 +1629,7 @@
       { id: 'sec-memory', label: 'Memory' },
       { id: 'sec-evidence', label: 'Evidence' },
       { id: 'sec-events', label: 'Events' },
+      { id: 'sec-handovers', label: 'Handovers' },
     ];
     const sources = snapshot._sources || {};
     region.innerHTML = sections.map(function (sec) {

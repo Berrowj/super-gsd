@@ -93,7 +93,7 @@ async function main() {
     // sec-nav
     check('sec-nav present', doc.querySelector('.sec-nav') != null || doc.querySelector('[data-region="sec-nav"]') != null);
     const navLinks = doc.querySelectorAll('.sec-nav-link');
-    check('sec-nav has 7 links', navLinks.length === 7, 'got ' + navLinks.length);
+    check('sec-nav has >=7 links', navLinks.length >= 7, 'got ' + navLinks.length + ' (P143 added §8 Handovers)');
 
     // sec-mission body
     const secMission = doc.getElementById('sec-mission');

@@ -592,6 +592,56 @@ if (require.main === module) {
 // Additive: existing v3.3 keys untouched. SAC-P127/P128/P134 preserved.
 // ============================================================================
 
+function attachHandovers(output) {
+  // P143 — surface every handover/brief/analysis/mockup HTML doc on disk.
+  // Operator (2026-05-25): 'need another page to link all the handover HTMLs
+  // we've done so we can quickly and easily click through em'.
+  // Each entry: { rel_path, title, h1, date, category, size_kb, mtime_sec_ago }.
+  const entries = [];
+  const roots = [
+    { dir: '.planning/briefs', category: 'brief' },
+    { dir: '.planning/analyses', category: 'analysis' },
+    { dir: '.planning/milestones', category: 'milestone', recursive: true },
+  ];
+  function scanDir(dir, category, recursive) {
+    try {
+      if (!fs.existsSync(dir)) return;
+      const items = fs.readdirSync(dir, { withFileTypes: true });
+      for (const item of items) {
+        const full = path.join(dir, item.name);
+        if (item.isDirectory()) {
+          if (recursive) scanDir(full, category, true);
+          continue;
+        }
+        if (!/\.html$/i.test(item.name)) continue;
+        // Skip generated runtime HTML
+        if (full.includes('runtime')) continue;
+        try {
+          const st = fs.statSync(full);
+          const text = fs.readFileSync(full, 'utf8').slice(0, 4000);
+          const titleMatch = text.match(/<title>([^<]+)<\/title>/i);
+          const h1Match = text.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+          const dateMatch = item.name.match(/(\d{4}-\d{2}-\d{2})/);
+          entries.push({
+            rel_path: full.replace(/\\/g, '/'),
+            title: (titleMatch ? titleMatch[1] : item.name.replace(/\.html$/i, '')).trim().slice(0, 100),
+            h1: h1Match ? h1Match[1].trim().slice(0, 120) : '',
+            date: dateMatch ? dateMatch[1] : '',
+            category,
+            size_kb: Math.round(st.size / 1024),
+            mtime_sec_ago: Math.floor((Date.now() - st.mtimeMs) / 1000),
+          });
+        } catch (_e) { /* skip unreadable */ }
+      }
+    } catch (_e) { /* dir missing */ }
+  }
+  roots.forEach(function (r) { scanDir(r.dir, r.category, r.recursive); });
+  // Sort newest first (by mtime)
+  entries.sort(function (a, b) { return a.mtime_sec_ago - b.mtime_sec_ago; });
+  output.handovers = entries.slice(0, 30);
+  return output;
+}
+
 function attachProjectChain(output) {
   // P142.7 — read the operator-stated north star + brief titles. This is the
   // chain operator pointed out: PROJECT.md core_value → milestone INTENT
@@ -1661,6 +1711,7 @@ function attachAll(output, opts) {
     }
   }
   safe('project',        function () { attachProjectChain(output); });
+  safe('handovers',      function () { attachHandovers(output); });
   safe('mission',        function () { attachMission(output, opts || {}); });
   safe('pipeline',       function () { attachPipeline(output); });
   safe('agents',         function () { attachAgents(output); });

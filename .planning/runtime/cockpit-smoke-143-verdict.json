@@ -1,7 +1,7 @@
 {
   "phase": "143",
-  "port": 64960,
-  "timestamp": "2026-05-25T23:01:55.017Z",
+  "port": 55367,
+  "timestamp": "2026-05-25T23:12:16.095Z",
   "checks": {
     "server_healthy": {
       "ok": true,
@@ -64,7 +64,7 @@
     },
     "snapshot_json": {
       "ok": true,
-      "detail": "keys: 30"
+      "detail": "keys: 31"
     },
     "sse_keepalive_count": {
       "ok": true,
@@ -72,14 +72,17 @@
     },
     "sse_first_keepalive_in_16s": {
       "ok": true,
-      "detail": "first keep-alive at +15014ms"
+      "detail": "first keep-alive at +15008ms"
     }
   },
   "verdict": "PASS",
   "sse_sample_lines": [
     "event: snapshot",
-    "data: {\"milestone\":\"v3.4\",\"phase\":\"142\",\"generated_at\":\"2026-05-25T23:01:55.823Z\",\"latest_chronicle\":null,\"binding_gate_status\":null,\"fog_score\":{\"score\":100,\"tier\":\"high\",\"must_read_sections\":[\"summa",
-    "t_run_sec\":43669},{\"code\":\"root_html_data_conn\",\"status\":\"green\",\"detail\":\"expected data-conn=\\\"state\\\" placeholder\",\"last_run_sec\":43669},{\"code\":\"root_html_seven_sections\",\"status\":\"green\",\"detail\":",
+    "data: {\"milestone\":\"v3.4\",\"phase\":\"142\",\"generated_at\":\"2026-05-25T23:12:16.580Z\",\"latest_chronicle\":null,\"binding_gate_status\":null,\"fog_score\":{\"score\":100,\"tier\":\"high\",\"must_read_sections\":[\"summa",
+    "[{\"name\":\"self-test\",\"mode\":\"mechanical\",\"sampling\":\"always\",\"status\":\"pending\",\"concept\":null,\"detail\":\"VERIFICATION.md present\",\"repair\":\"run verifier\",\"blocking\":true},{\"name\":\"browser-smoke\",\"mode",
+    "event: snapshot",
+    "data: {\"milestone\":\"v3.4\",\"phase\":\"142\",\"generated_at\":\"2026-05-25T23:12:23.903Z\",\"latest_chronicle\":null,\"binding_gate_status\":null,\"fog_score\":{\"score\":100,\"tier\":\"high\",\"must_read_sections\":[\"summa",
+    "[{\"name\":\"self-test\",\"mode\":\"mechanical\",\"sampling\":\"always\",\"status\":\"pending\",\"concept\":null,\"detail\":\"VERIFICATION.md present\",\"repair\":\"run verifier\",\"blocking\":true},{\"name\":\"browser-smoke\",\"mode",
     ": keep-alive"
   ],
   "html_artifact": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\runtime\\cockpit-smoke-143.html"

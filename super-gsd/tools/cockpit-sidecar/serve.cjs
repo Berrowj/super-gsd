@@ -356,6 +356,44 @@ async function start(options = {}) {
       return;
     }
 
+    // P143 — Handover passthrough route. Operator (2026-05-25):
+    // "need another page to link all the handover HTMLs we've done so we
+    // can quickly and easily click through em". Serves any .html under
+    // .planning/{briefs,analyses,milestones}/ via /handover/<rel_path>.
+    // Path-traversal guarded: ../ and absolute paths rejected; only files
+    // under the configured planning root + with .html extension.
+    if (pathname.startsWith('/handover/')) {
+      const relRaw = decodeURIComponent(pathname.slice('/handover/'.length));
+      // Reject path traversal
+      if (relRaw.includes('..') || relRaw.startsWith('/') || relRaw.startsWith('\\')) {
+        writeResponse(res, 403, 'text/plain; charset=utf-8', 'forbidden\n');
+        return;
+      }
+      if (!relRaw.endsWith('.html')) {
+        writeResponse(res, 400, 'text/plain; charset=utf-8', 'only .html allowed\n');
+        return;
+      }
+      // Must be under .planning/{briefs,analyses,milestones}/
+      const allowedPrefixes = ['.planning/briefs/', '.planning/analyses/', '.planning/milestones/'];
+      if (!allowedPrefixes.some(function (p) { return relRaw.startsWith(p); })) {
+        writeResponse(res, 403, 'text/plain; charset=utf-8', 'path not in allowed prefix\n');
+        return;
+      }
+      const filePath = path.resolve(workspace, relRaw);
+      // Final guard: resolved path must still be inside workspace
+      if (!filePath.startsWith(path.resolve(workspace) + path.sep)) {
+        writeResponse(res, 403, 'text/plain; charset=utf-8', 'forbidden\n');
+        return;
+      }
+      try {
+        const body = fs.readFileSync(filePath, 'utf8');
+        writeResponse(res, 200, 'text/html; charset=utf-8', body);
+      } catch (_e) {
+        writeResponse(res, 404, 'text/plain; charset=utf-8', 'handover not found\n');
+      }
+      return;
+    }
+
     writeResponse(res, 404, 'text/plain; charset=utf-8', 'not found\n');
   }
 
