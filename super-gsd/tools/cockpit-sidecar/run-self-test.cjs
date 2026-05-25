@@ -218,7 +218,8 @@ async function fetchRenderedDom() {
     win.document.dispatchEvent(new win.Event('DOMContentLoaded'));
 
     // Allow microtasks + setTimeout(0) to drain (mock EventSource delivery, fetch resolution).
-    await new Promise(function (r) { setTimeout(r, 400); });
+    // Bumped 400→700 to absorb parallel-SAC load (renders compete for tick time).
+    await new Promise(function (r) { setTimeout(r, 700); });
 
     const rendered = dom.serialize();
     return { html: rendered, dom, snapshot };
