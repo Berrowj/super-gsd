@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.4",
+  "phase": "139",
+  "phase_name": "§1 Mission + §2 Telemetry — Component Bodies",
+  "status": "PASS",
+  "goal": "Fill §1 Mission + §2 Telemetry with design-pack-conformant component bodies. MissionCard + PhaseRunway + AgentLanes in #sec-mission; TelemetryRail (5 sparkline channels) in #sec-telemetry. Browser-smoke + JSDOM-render visual gate runs before close.",
+  "outputs": [
+    { "kind": "context",      "path": ".planning/milestones/v3.4/phases/139-cockpit-mission-telemetry-bodies/139-CONTEXT.md" },
+    { "kind": "plan",         "path": ".planning/milestones/v3.4/phases/139-cockpit-mission-telemetry-bodies/139-01-mission-telemetry-bodies-PLAN-LOCKED.md" },
+    { "kind": "verification", "path": ".planning/milestones/v3.4/phases/139-cockpit-mission-telemetry-bodies/139-VERIFICATION.md" },
+    { "kind": "browser_smoke_html",    "path": ".planning/runtime/cockpit-smoke-139.html" },
+    { "kind": "browser_smoke_verdict", "path": ".planning/runtime/cockpit-smoke-139-verdict.json" },
+    { "kind": "rendered_dom_artifact", "path": ".planning/runtime/cockpit-rendered.html" },
+    { "kind": "visual_validator",      "path": ".planning/runtime/visual-validate.cjs" }
+  ],
+  "files": [
+    "super-gsd/tools/cockpit-sidecar/client.js",
+    "super-gsd/tools/cockpit-sidecar/cockpit-sidecar.cjs",
+    "super-gsd/tools/cockpit-sidecar/render-html.cjs",
+    "super-gsd/tools/shared/sgsd-design-system.css",
+    "super-gsd/tools/cockpit-sidecar/run-self-test.cjs"
+  ],
+  "sac_ids": ["SAC-P139-01","SAC-P139-02","SAC-P139-03","SAC-P139-04","SAC-P139-05","SAC-P139-06","SAC-P139-07","SAC-P139-08","SAC-P139-09","SAC-P139-10"],
+  "self_test_command": "node super-gsd/tools/cockpit-sidecar/run-self-test.cjs",
+  "self_test_result": "pass",
+  "self_test_count": "90/90",
+  "decisions": [
+    { "id": "P139-design-pack-canonical-class-names", "decided_at": "2026-05-25", "decision": "Conform all renderers + CSS to the design-pack's canonical class names (.mission-card / .runway / .agents / .agent-lane / .telem / .telem-cell / .telem-spark / .scan-cell). My earlier invented names (.phase-runway / .telemetry-rail / .agent-lanes / .sparkline-channel) did not match the design-pack <style> block selectors so the components stacked unstyled. Operator caught this on 2026-05-25." },
+    { "id": "P139-css-replacement-strategy", "decided_at": "2026-05-25", "decision": "Replace sgsd-design-system.css with the full 73kB canonical CSS extracted verbatim from .planning/milestones/v3.4/design-pack/Cockpit.html <style>. SAC-required token aliases (--page, --surface) injected at top of :root. This is the single source of truth going forward; design-pack JSX is the visual reference, design-pack CSS is the styling reference." },
+    { "id": "P139-css-hot-reload", "decided_at": "2026-05-25", "decision": "render-html.cjs re-reads sgsd-design-system.css on every renderShell() call. Operator-edit visibility without server restart. Single ~25kB sync read per snapshot render is cheap and removes the stale-CSS surprise from P138.5." },
+    { "id": "P139-skip-stage-outer-grid", "decided_at": "2026-05-25", "decision": "Skip the design-pack outer <div class='stage'> grid container (which would impose a 2-column main+tape layout). Use simpler vertical-stacking <main class='sgsd-cockpit'> instead. Individual components retain their own grid layouts. Tape sidebar deferred to P142+." },
+    { "id": "P139-explanation-band-retired", "decided_at": "2026-05-25", "decision": "Drop ExplanationBand as a separate component. The 'Why running' content lives inside MissionCard.mc-body in the canonical design pack; emitting both produced duplicate text. SAC-P139-01 renderer list updated to drop renderExplanationBand and add renderTelemCell + renderSparkSvg." },
+    { "id": "P139-phase-derivation", "decided_at": "2026-05-25", "decision": "STATE.md frontmatter rarely has a `phase:` key in practice. run() now derives phase via: (1) options.phase, (2) frontmatter `phase:`/`active_phase:`/`current_phase:`, (3) status text regex `P<NN> PENDING/ACTIVE`, (4) max P number in status text, (5) newest phases/ subdir name. Resolves real phase_dir by scanning for `{phase}-` prefix." },
+    { "id": "P139-stage-forward-fill", "decided_at": "2026-05-25", "decision": "attachPipeline forward-fills stage status: a later-stage artifact implies all earlier stages done. Active = first non-done after rightmost done. Avoids the 'plan done but research and vtp-enrich still pending' visual gap when Claude writes plan directly without research/vtp-enrich artifacts." },
+    { "id": "P139-codex-orchestrator-direct-fallback", "decided_at": "2026-05-25", "decision": "Codex dispatch attempted via codex-executor.sh (task bxv7kj0jh) returned FILES_CHANGED=none with the same CreateProcessAsUserW failed: 216 Windows shell-exec block documented in P137/P138. Orchestrator-direct (Claude Opus 4.7) authored the bulk work. Codex routing decision-tree for v3.4 should treat Windows shell-exec as the default-failure mode until resolved." }
+  ],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 5,
+    "deferred_items": [
+      "Outer .stage grid container with tape sidebar (P142+)",
+      "ExplanationBand as a separate component (intentionally not in v3.4 — merged into MissionCard)",
+      "Live agent state (currently hardcoded handles; live token-log driven activity would need a new metrics collector — P141+)",
+      "5-second test mechanical verification (assertion that operator can scan the cockpit and answer NOW/WHY/JUST-CHANGED/RISK/DO-NEXT/EVIDENCE in <5s — P142)",
+      "Codex Windows shell-exec block resolution (chronic across v3.3+v3.4; needs a remote/Linux Codex path or local-write workaround — open issue)"
+    ],
+    "carried_forward_total": null
+  },
+  "downstream_contract": {
+    "consumers": ["v3.4/P140 (§3 Architecture + §4 Milestone SVG diagrams)", "v3.4/P141 (§5 Memory + §6 Evidence)", "v3.4/P142 (§7 Event tape full build + 5-sec test conformance)"],
+    "constraints": [
+      "Class names are LOCKED to design-pack canonical: .mission-card, .runway, .agents/.agent-lane, .telem/.telem-cell/.telem-spark, .scan-cell, .cmd-cell.cmd-{obj,next,owner,risk,time,controls}.",
+      "Snapshot 14-key shape is consumed via renderMission/renderTelemetry/renderEvents. P141+ may extend with new top-level keys (architecture/milestone_map/memory_graph/lineage/gate_flow) but cannot rename existing ones.",
+      "browser-smoke.cjs is the binding visual gate. Any P140+ phase touching cockpit-sidecar/ MUST run --phase <N> and get verdict=PASS before close. SAC-P138.5-01 enforces.",
+      "visual-validate.cjs (.planning/runtime/) is the daily-driver validator; 38 assertions cover chrome / command / scanbar / sec-nav / mission card / runway / agents / telem / data sanity. Re-use + extend for P140-P142."
+    ],
+    "extension_points": ["P140 may add Architecture/Milestone diagram renderers using design-pack DiagramNode + DiagramEdge primitives (mc-arch.jsx) — orthogonal-routed SVG", "P141 may add Memory + Evidence renderers using design-pack patterns", "P142 must add 5-sec-test mechanical assertion (probably a Lighthouse-like score)"]
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    { "sha": "9127516", "subject": "fix(P139.6): conform cockpit to design pack — class names + DOM + CSS", "ts": "2026-05-25" },
+    { "sha": "2b097ac", "subject": "fix(P139.7): data wiring + Event tape + Time/Controls cells — cockpit fully populated", "ts": "2026-05-25" },
+    { "sha": "(this commit)", "subject": "docs(P139): close — 90/90 self-test + 38/38 visual + browser-smoke PASS", "ts": "2026-05-25" }
+  ],
+  "source_hashes": {
+    "context":      { "path": ".planning/milestones/v3.4/phases/139-cockpit-mission-telemetry-bodies/139-CONTEXT.md", "sha256": "39d011c094adc8022e5c61210c01e55a2e256f52f7355cd13ce0651ad67194d5" },
+    "research":     null,
+    "plan":         { "path": ".planning/milestones/v3.4/phases/139-cockpit-mission-telemetry-bodies/139-01-mission-telemetry-bodies-PLAN-LOCKED.md", "sha256": "c39ac0f7898e88b5b1cee0163ca017fb8e823be3724bb245b18a698305311ea1" },
+    "verification": { "path": ".planning/milestones/v3.4/phases/139-cockpit-mission-telemetry-bodies/139-VERIFICATION.md", "sha256": "50843563ae3257b942caf031c1cf14b64f5dfa3a6d30359f653fec2666474c86" },
+    "atc_review":   null
+  },
+  "gates": {
+    "verifier": { "verdict": "PASS", "ref": ".planning/milestones/v3.4/phases/139-cockpit-mission-telemetry-bodies/139-VERIFICATION.md" },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "browser_smoke": {
+      "verdict": "PASS",
+      "ref": ".planning/runtime/cockpit-smoke-139-verdict.json",
+      "html_artifact": ".planning/runtime/cockpit-smoke-139.html",
+      "checks_total": 18,
+      "checks_passed": 18,
+      "sse_first_keepalive_ms": 15014
+    },
+    "visual_validate": {
+      "verdict": "PASS",
+      "checks_total": 38,
+      "checks_passed": 38,
+      "rendered_dom_artifact": ".planning/runtime/cockpit-rendered.html"
+    },
+    "codex_runs": [
+      { "task": "P139-T1..T4 (data wiring)", "executor": "codex-executor.sh", "task_id": "bxv7kj0jh", "result": "FILES_CHANGED=none; BLOCKERS=Windows shell-exec failed (CreateProcessAsUserW 216); fell back to orchestrator-direct" },
+      { "task": "P139-T1..T7", "executor": "orchestrator-direct (Claude Opus 4.7)", "result": "All renderers + attachers + CSS + SAC tests + close artefacts authored. 90/90 self-test stable, 38/38 visual-validate, 18/18 browser-smoke." }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-05-25T00:00:00.000Z",
+  "created_by": "orchestrator (Claude Opus 4.7, 1M context) — overnight loop per operator request"
+}
