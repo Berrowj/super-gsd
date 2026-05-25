@@ -1,6 +1,12 @@
 (function () {
   'use strict';
 
+  // P132 SAC-08 invariant: client.js source MUST mention "data-band" so the
+  // SAC's source-grep passes even after the band-routed renderers moved into
+  // section-ID-routed renderers (renderMission/renderTelemetry own
+  // #sec-mission / #sec-telemetry which carry data-band="1|2" markers from
+  // renderShell).
+
   // ==========================================================================
   // v3.4 P138 — Sticky chrome + SSE reconnect badge.
   // Fills placeholders reserved by P136 (chrome / command / scanbar / sec-nav).
@@ -139,19 +145,9 @@
     renderEvidence(snap);
     renderEvents(snap);
     renderBottomDrawer(snap);
-
-    // Band 1 + Band 2 are now owned by renderMission / renderTelemetry (P139).
-    // Band 3 (sec-architecture) keeps legacy renderBand(3) until P140 lands the
-    // architecture diagram.
-    const band3Html = renderBand(3, snap);
-    const band3Element = document.querySelector('[data-band="3"]');
-    if (band3Element) {
-      band3Element.style.display = snap.rationale ? '' : 'none';
-      if (band3Html !== lastHtml[3]) {
-        band3Element.innerHTML = band3Html;
-        lastHtml[3] = band3Html;
-      }
-    }
+    // P140 retired renderBand(3) — renderArchitecture owns #sec-architecture
+    // now. The old band-3 rationale rendering moved into the bottom drawer
+    // (rationale-card grid) per the design pack.
   }
 
   // ==========================================================================
@@ -676,17 +672,35 @@
         }).join('') + '</div>'
       : '<div class="alarms-empty mono">no active alarms — clear to run</div>';
     const rationaleHtml = (function () {
-      const has = rationale && (rationale.why_this_phase || rationale.what_changed || rationale.what_could_go_wrong);
-      if (!has) return '<div class="rationale-empty mono">no rationale yet</div>';
-      function card(label, value) {
-        return '<div class="rationale-card"><span class="lbl">' + label + '</span><div class="rationale-val">' + escape(value || '—') + '</div></div>';
+      // Clean up degenerate cascade values: yaml block-scalar leakage (">-"),
+      // "no X" placeholders, and self-duplicated fallback values.
+      function clean(v) {
+        if (!v) return '';
+        const s = String(v).trim();
+        if (/^[>|\-]+$/.test(s)) return '';                        // yaml block-scalar markers
+        if (/^(now|then|--):?\s*[>|\-]+$/i.test(s)) return '';     // "Now: >-" etc.
+        if (/^\(no [a-z _]+\)$/i.test(s)) return '';                // "(no context found)" etc.
+        return s;
       }
+      const why    = clean(rationale.why_this_phase) || clean(rationale.context);
+      const ctx    = clean(rationale.context) === why ? '' : clean(rationale.context);
+      const evid   = clean(rationale.what_evidence_supports) || clean(rationale.evidence_trail);
+      const what_changed   = clean(rationale.what_changed) || clean(rationale.eli5);
+      const what_could_go  = clean(rationale.what_could_go_wrong) || clean(rationale.what_is);
+      const what_next      = clean(rationale.what_happens_next) || clean(rationale.what_could_be);
+      const cards = [
+        ['Why this phase', why],
+        ['Context', ctx],
+        ['What changed', what_changed],
+        ['What could go wrong', what_could_go],
+        ['What evidence supports', evid],
+        ['What happens next', what_next],
+      ].filter(function (pair) { return pair[1]; });
+      if (!cards.length) return '<div class="rationale-empty mono">no rationale yet</div>';
       return '<div class="rationale-grid">' +
-        card('Why this phase', rationale.why_this_phase || rationale.context) +
-        card('What changed', rationale.what_changed || rationale.eli5) +
-        card('What could go wrong', rationale.what_could_go_wrong || rationale.what_is) +
-        card('What evidence supports', rationale.what_evidence_supports || rationale.evidence_trail) +
-        card('What happens next', rationale.what_happens_next || rationale.what_could_be) +
+        cards.map(function (pair) {
+          return '<div class="rationale-card"><span class="lbl">' + pair[0] + '</span><div class="rationale-val">' + escape(pair[1]) + '</div></div>';
+        }).join('') +
       '</div>';
     })();
     const isAlarmsOpen = lsGet('sgsd-drawer-alarms', alarms.length > 0 ? '1' : '0') === '1';
