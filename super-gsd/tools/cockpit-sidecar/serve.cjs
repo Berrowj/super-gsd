@@ -7,6 +7,9 @@ const sidecar = require('./cockpit-sidecar.cjs');
 const { renderShell } = require('./render-html.cjs');
 
 const DEFAULT_PORT = 7777;
+// Legacy fixed watch list — kept as fallback for environments where fs.watch
+// recursive isn't supported (Linux pre-Node-20). On Windows + macOS the
+// recursive .planning/ watch in startWatchers below supersedes this.
 const WATCH_PATHS = [
   '.planning/STATE.md',
   '.planning/chronicles/INDEX.jsonl',
@@ -14,6 +17,22 @@ const WATCH_PATHS = [
   '.planning/metrics/codex-executor-log.jsonl',
   '.planning/metrics/token-attribution.jsonl',
 ];
+
+// P143.2 — paths the cockpit writes back to disk during its own composition.
+// Watching these would cause an infinite recompute loop. Filtered out in the
+// recursive watcher's trigger handler.
+const WATCH_IGNORE_PATTERNS = [
+  /[\\/]runtime[\\/]cockpit-server.*\.pid$/,
+  /[\\/]runtime[\\/]cockpit-rendered\.html$/,
+  /[\\/]runtime[\\/]cockpit-smoke-[^/\\]+\.html$/,
+  /[\\/]runtime[\\/]stream-health\.jsonl$/,
+  /[\\/]runtime[\\/]cockpit-server\.log$/,
+  /[\\/]runtime[\\/]\.sgsd-/,
+  /\.tmp$/,
+  /[\\/]node_modules[\\/]/,
+];
+
+const WATCH_DEBOUNCE_MS = 200;
 
 function parseArgs(argv) {
   const options = {
@@ -157,34 +176,95 @@ function formatSseSnapshot(snapshot) {
 }
 
 function startWatchers(workspace, scheduleRecompute) {
+  // P143.2 — recursive watch on .planning/ so a new phase dir, an edited
+  // CONTEXT.md, a new PHASE-CAPSULE.json, a new brief, a new memory entry,
+  // or a new cockpit-smoke verdict ALL trigger a live recompute + SSE
+  // broadcast. Operator: 'the page goes stale unless you personally
+  // refresh it' (2026-05-26). Single recursive watcher + debounce coalesces
+  // bursts of writes into one snapshot recompute every WATCH_DEBOUNCE_MS.
+  // Write-back files (cockpit-rendered.html, pidfiles, stream-health.jsonl)
+  // are filtered to prevent feedback loops.
+  //
+  // P143.3: COCKPIT_SMOKE set (any value, set by run-self-test + browser-smoke)
+  // → use legacy fixed-path watchers only, skip recursive walk. Recursive
+  // fs.watch on .planning/ adds 1-3s of cold-start per child on Windows;
+  // under 14-way parallel SAC load this pushed cold-start past 20s. Tests
+  // that exercise the watcher (e.g. SAC-P132-03) touch STATE.md which IS in
+  // the legacy fixed path list, so watcher→SSE wiring is still validated.
+  // Operator's localhost:7777 (no env var) gets the full recursive watch.
+  const useLegacyWatchers = process.env.COCKPIT_SMOKE != null;
   const watchers = [];
+  let recomputeTimer = null;
+  function trigger(filename) {
+    const norm = (filename || '').replace(/\\/g, '/');
+    if (norm && WATCH_IGNORE_PATTERNS.some(function (re) { return re.test(filename || ''); })) return;
+    if (recomputeTimer) clearTimeout(recomputeTimer);
+    recomputeTimer = setTimeout(function () { recomputeTimer = null; scheduleRecompute(); }, WATCH_DEBOUNCE_MS);
+  }
 
-  for (const relativePath of WATCH_PATHS) {
-    const target = path.resolve(workspace, relativePath);
-    if (!fs.existsSync(target)) {
-      console.error(`cockpit-server watch missing: ${target}`);
-      continue;
-    }
-
+  // Recursive watch on .planning/ (supported on Windows + macOS natively).
+  const planningDir = path.resolve(workspace, '.planning');
+  let recursiveOk = false;
+  if (!useLegacyWatchers && fs.existsSync(planningDir)) {
     try {
-      const watcher = fs.watch(target, () => {
-        scheduleRecompute();
+      const w = fs.watch(planningDir, { recursive: true }, function (_event, filename) {
+        trigger(filename);
       });
-      watchers.push(watcher);
+      watchers.push(w);
+      recursiveOk = true;
     } catch (err) {
-      console.error(`cockpit-server watch failed: ${target}: ${err.message}`);
+      console.error('cockpit-server: recursive watch failed (' + err.message + ') — falling back to fixed-path list');
     }
   }
 
+  // Fallback to the legacy fixed-path watch list when recursive isn't
+  // supported (e.g. Linux without recent libuv) or .planning/ doesn't exist.
+  if (!recursiveOk) {
+    for (const relativePath of WATCH_PATHS) {
+      const target = path.resolve(workspace, relativePath);
+      if (!fs.existsSync(target)) {
+        console.error('cockpit-server watch missing: ' + target);
+        continue;
+      }
+      try {
+        const watcher = fs.watch(target, function () { trigger(target); });
+        watchers.push(watcher);
+      } catch (err) {
+        console.error('cockpit-server watch failed: ' + target + ': ' + err.message);
+      }
+    }
+  }
+
+  // Watch .git/logs/HEAD so new commits trigger §7 Event tape +
+  // agents.recent_actions refresh. Also watch the working-copy index file
+  // so staged changes show without waiting for commit.
+  const gitHead = path.resolve(workspace, '.git/logs/HEAD');
+  if (fs.existsSync(gitHead)) {
+    try { watchers.push(fs.watch(gitHead, function () { trigger(gitHead); })); }
+    catch (err) { console.error('cockpit-server: .git/logs/HEAD watch failed: ' + err.message); }
+  }
+
+  // Watch the memory MEMORY.md so a new sgsd-curate entry appears live.
+  const memoryDir = path.resolve(process.env.USERPROFILE || process.env.HOME || '',
+    '.claude/projects/C--Users-jack-berrow-GSDedits/memory');
+  if (fs.existsSync(memoryDir)) {
+    try {
+      watchers.push(fs.watch(memoryDir, { recursive: true }, function (_e, filename) {
+        trigger(filename);
+      }));
+    } catch (err) { /* non-fatal */ }
+  }
+
+  console.error('cockpit-server: watchers active (' + watchers.length + ') ' + (recursiveOk ? 'recursive' : 'legacy'));
   return watchers;
 }
 
 function writePidFile(workspace, port) {
   // P141.5: pidfile per port so parallel test spawns don't race on a single
   // .planning/runtime/cockpit-server.pid (the recurring P132 SAC flake).
-  // Also skip pidfile entirely when COCKPIT_SMOKE=1 (browser-smoke ephemeral
-  // probes; pidfile is operator-facing convenience, not needed for tests).
-  if (process.env.COCKPIT_SMOKE === '1') return null;
+  // P143.3: only the browser-smoke harness (which never reads the pidfile)
+  // skips it; run-self-test SAC-P132-05 asserts the pidfile exists.
+  if (process.env.COCKPIT_SMOKE === 'smoke-only') return null;
   const runtimeDir = path.resolve(workspace, '.planning/runtime');
   fs.mkdirSync(runtimeDir, { recursive: true });
   const name = port && port !== 7777 ? `cockpit-server-${port}.pid` : 'cockpit-server.pid';
@@ -243,21 +323,43 @@ async function start(options = {}) {
     }
   }
 
+  // P143.4: two races to handle:
+  // 1. pendingBroadcast — caller requested broadcast while a recompute was
+  //    in-flight. The earlier code dropped the flag.
+  // 2. needsRerun — caller asked for a recompute while one was in-flight.
+  //    The in-flight result is based on PRE-touch state; we need to run
+  //    another compute after it completes to pick up the new state.
+  // Without (2), a touch landing mid-recompute is silently dropped.
+  let pendingBroadcast = false;
+  let needsRerun = false;
   async function recomputeSnapshot(shouldBroadcast) {
+    if (shouldBroadcast) pendingBroadcast = true;
     if (recomputePromise) {
+      needsRerun = true;
       return recomputePromise;
     }
 
     recomputePromise = runSidecar(workspace)
       .then((snapshot) => {
         lastSnapshot = snapshot;
-        if (shouldBroadcast) {
+        if (pendingBroadcast) {
+          pendingBroadcast = false;
           broadcastSnapshot(snapshot);
         }
         return snapshot;
       })
       .finally(() => {
         recomputePromise = null;
+        if (needsRerun && !closing) {
+          needsRerun = false;
+          // Schedule a fresh compute on next tick so the in-flight finally
+          // callback unwinds cleanly. shouldBroadcast carries forward via
+          // pendingBroadcast (still true if any caller set it during the
+          // window between in-flight and now).
+          setImmediate(() => recomputeSnapshot(true).catch((err) => {
+            console.error(`cockpit-server rerun failed: ${err.message}`);
+          }));
+        }
       });
 
     return recomputePromise;

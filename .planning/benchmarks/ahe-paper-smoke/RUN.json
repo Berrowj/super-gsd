@@ -1,0 +1,612 @@
+{
+  "run_id": "2026-04-29T23-13-51-830Z",
+  "started_at": "2026-04-29T23:13:51.835Z",
+  "ended_at": "2026-04-29T23:13:56.147Z",
+  "profile": "smoke",
+  "iterations": 1,
+  "duration_ms": 4312,
+  "summary": {
+    "total": 49,
+    "passed": 49,
+    "failed": 0,
+    "blocked": 0,
+    "failure_injection_cases": 7,
+    "failure_injection_passed": 7,
+    "hardness_score": "100.0%",
+    "failure_detection_score": "100.0%"
+  },
+  "gate_coverage": [
+    {
+      "gate": "per-dispatch-ATC",
+      "positive": 1,
+      "negative": 1,
+      "mismatches": 0
+    },
+    {
+      "gate": "sgsd-recall-queries",
+      "positive": 1,
+      "negative": 1,
+      "mismatches": 0
+    },
+    {
+      "gate": "MUDA-waste-audit",
+      "positive": 1,
+      "negative": 1,
+      "mismatches": 0
+    },
+    {
+      "gate": "qualitative-waste-audit",
+      "positive": 1,
+      "negative": 1,
+      "mismatches": 0
+    },
+    {
+      "gate": "sgsd-curate-learnings",
+      "positive": 1,
+      "negative": 1,
+      "mismatches": 0
+    },
+    {
+      "gate": "vtp-enrichment",
+      "positive": 1,
+      "negative": 1,
+      "mismatches": 0
+    },
+    {
+      "gate": "verifier-row-arithmetic",
+      "positive": 1,
+      "negative": 1,
+      "mismatches": 0
+    },
+    {
+      "gate": "verifier-detail-vs-summary",
+      "positive": 1,
+      "negative": 1,
+      "mismatches": 0
+    },
+    {
+      "gate": "phase-level-ATC",
+      "positive": 1,
+      "negative": 0,
+      "mismatches": 0
+    },
+    {
+      "gate": "classifier-haiku",
+      "positive": 1,
+      "negative": 0,
+      "mismatches": 0
+    },
+    {
+      "gate": "context-selector-haiku",
+      "positive": 1,
+      "negative": 0,
+      "mismatches": 0
+    },
+    {
+      "gate": "intent-injection",
+      "positive": 1,
+      "negative": 0,
+      "mismatches": 0
+    },
+    {
+      "gate": "token-log",
+      "positive": 1,
+      "negative": 0,
+      "mismatches": 0
+    }
+  ],
+  "prune_signals": [
+    {
+      "gate": "classifier-haiku",
+      "signal": "always-on-soft-warn",
+      "action": "measure runtime/catches across live runs; candidate for sampling if catch rate stays zero"
+    },
+    {
+      "gate": "context-selector-haiku",
+      "signal": "always-on-soft-warn",
+      "action": "measure runtime/catches across live runs; candidate for sampling if catch rate stays zero"
+    },
+    {
+      "gate": "intent-injection",
+      "signal": "always-on-soft-warn",
+      "action": "measure runtime/catches across live runs; candidate for sampling if catch rate stays zero"
+    },
+    {
+      "gate": "token-log",
+      "signal": "always-on-soft-warn",
+      "action": "measure runtime/catches across live runs; candidate for sampling if catch rate stays zero"
+    }
+  ],
+  "cases": [
+    {
+      "suite": "registry",
+      "name": "gates.yaml exists",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "found super-gsd/registry/gates.yaml"
+    },
+    {
+      "suite": "registry",
+      "name": "gate names are unique",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "13 unique gates"
+    },
+    {
+      "suite": "registry",
+      "name": "gate row is well formed: per-dispatch-ATC",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "hard-halt/active"
+    },
+    {
+      "suite": "registry",
+      "name": "gate row is well formed: phase-level-ATC",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "amortized/active"
+    },
+    {
+      "suite": "registry",
+      "name": "gate row is well formed: classifier-haiku",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 1,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "soft-warn/active"
+    },
+    {
+      "suite": "registry",
+      "name": "gate row is well formed: context-selector-haiku",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "soft-warn/active"
+    },
+    {
+      "suite": "registry",
+      "name": "gate row is well formed: sgsd-recall-queries",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "soft-warn/active"
+    },
+    {
+      "suite": "registry",
+      "name": "gate row is well formed: intent-injection",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "soft-warn/active"
+    },
+    {
+      "suite": "registry",
+      "name": "gate row is well formed: MUDA-waste-audit",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "soft-warn/active"
+    },
+    {
+      "suite": "registry",
+      "name": "gate row is well formed: qualitative-waste-audit",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "soft-warn/active"
+    },
+    {
+      "suite": "registry",
+      "name": "gate row is well formed: sgsd-curate-learnings",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "soft-warn/active"
+    },
+    {
+      "suite": "registry",
+      "name": "gate row is well formed: token-log",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "soft-warn/active"
+    },
+    {
+      "suite": "registry",
+      "name": "gate row is well formed: vtp-enrichment",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "soft-warn/active"
+    },
+    {
+      "suite": "registry",
+      "name": "gate row is well formed: verifier-row-arithmetic",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "soft-warn/active"
+    },
+    {
+      "suite": "registry",
+      "name": "gate row is well formed: verifier-detail-vs-summary",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "soft-warn/active"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "per-dispatch-ATC: fires for full ATC code change",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 1,
+      "failure_injection": false,
+      "gate": "per-dispatch-ATC",
+      "detail": "expected=true actual=true"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "per-dispatch-ATC: does not fire when no code changed",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": "per-dispatch-ATC",
+      "detail": "expected=false actual=false"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "sgsd-recall-queries: fires for non-trivial complexity",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": "sgsd-recall-queries",
+      "detail": "expected=true actual=true"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "sgsd-recall-queries: does not fire for trivial complexity",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": "sgsd-recall-queries",
+      "detail": "expected=false actual=false"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "MUDA-waste-audit: fires on broad feature diff",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 1,
+      "failure_injection": false,
+      "gate": "MUDA-waste-audit",
+      "detail": "expected=true actual=true"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "MUDA-waste-audit: does not fire for docs phase",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": "MUDA-waste-audit",
+      "detail": "expected=false actual=false"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "qualitative-waste-audit: fires after mechanical MUDA pass on large feature diff",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": "qualitative-waste-audit",
+      "detail": "expected=true actual=true"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "qualitative-waste-audit: does not fire when mechanical MUDA failed",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": "qualitative-waste-audit",
+      "detail": "expected=false actual=false"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "sgsd-curate-learnings: fires when new script was created",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": "sgsd-curate-learnings",
+      "detail": "expected=true actual=true"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "sgsd-curate-learnings: does not fire without learning signal",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": "sgsd-curate-learnings",
+      "detail": "expected=false actual=false"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "vtp-enrichment: fires at research boundary when VTP enabled",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": "vtp-enrichment",
+      "detail": "expected=true actual=true"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "vtp-enrichment: does not fire when VTP disabled",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": "vtp-enrichment",
+      "detail": "expected=false actual=false"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "verifier-row-arithmetic: fires when phase has verify.mjs",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": "verifier-row-arithmetic",
+      "detail": "expected=true actual=true"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "verifier-row-arithmetic: does not fire without verify.mjs",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": "verifier-row-arithmetic",
+      "detail": "expected=false actual=false"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "verifier-detail-vs-summary: fires when phase has verify.mjs",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": "verifier-detail-vs-summary",
+      "detail": "expected=true actual=true"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "verifier-detail-vs-summary: does not fire without verify.mjs",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": "verifier-detail-vs-summary",
+      "detail": "expected=false actual=false"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "phase-level-ATC: empty-trigger gate fires by default",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": "phase-level-ATC",
+      "detail": "expected=true actual=true"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "classifier-haiku: empty-trigger gate fires by default",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": "classifier-haiku",
+      "detail": "expected=true actual=true"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "context-selector-haiku: empty-trigger gate fires by default",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": "context-selector-haiku",
+      "detail": "expected=true actual=true"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "intent-injection: empty-trigger gate fires by default",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": "intent-injection",
+      "detail": "expected=true actual=true"
+    },
+    {
+      "suite": "gate-predicate",
+      "name": "token-log: empty-trigger gate fires by default",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": false,
+      "gate": "token-log",
+      "detail": "expected=true actual=true"
+    },
+    {
+      "suite": "failure-injection",
+      "name": "predicate rejects unknown context field",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": true,
+      "gate": null,
+      "detail": "unknown field rejected"
+    },
+    {
+      "suite": "failure-injection",
+      "name": "predicate rejects unknown operator",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 1,
+      "failure_injection": true,
+      "gate": null,
+      "detail": "unknown operator rejected"
+    },
+    {
+      "suite": "failure-injection",
+      "name": "predicate rejects malformed any clause",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 0,
+      "failure_injection": true,
+      "gate": null,
+      "detail": "malformed any rejected"
+    },
+    {
+      "suite": "edge-guard",
+      "name": "records pass row when evidence exists",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 18,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "status=ok"
+    },
+    {
+      "suite": "edge-guard",
+      "name": "logs soft missing evidence",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 6,
+      "failure_injection": true,
+      "gate": null,
+      "detail": "status=logged"
+    },
+    {
+      "suite": "edge-guard",
+      "name": "halts hard missing evidence",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 5,
+      "failure_injection": true,
+      "gate": null,
+      "detail": "status=halt"
+    },
+    {
+      "suite": "edge-guard",
+      "name": "token-log step remains exempt",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 1,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "status=ok"
+    },
+    {
+      "suite": "edge-guard",
+      "name": "JSONL rows include required keys",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 2,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "3 rows checked"
+    },
+    {
+      "suite": "plan-schema",
+      "name": "accepts valid v2 frontmatter",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 1521,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "exit=0"
+    },
+    {
+      "suite": "plan-schema",
+      "name": "rejects missing required task fields",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 1701,
+      "failure_injection": true,
+      "gate": null,
+      "detail": "exit=1"
+    },
+    {
+      "suite": "plan-schema",
+      "name": "writes validation telemetry for pass and fail",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 2,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "2 rows checked"
+    },
+    {
+      "suite": "provider-contract",
+      "name": "accepts checked-in reviewer fixtures",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 470,
+      "failure_injection": false,
+      "gate": null,
+      "detail": "exit=0 both_parsed=true"
+    },
+    {
+      "suite": "provider-contract",
+      "name": "rejects malformed reviewer report",
+      "iteration": 1,
+      "status": "pass",
+      "elapsed_ms": 373,
+      "failure_injection": true,
+      "gate": null,
+      "detail": "exit=1 missing=ONE_LINER"
+    }
+  ]
+}

@@ -58,6 +58,7 @@ if [[ -z "$PROJECT" || ! -d "$PROJECT/super-gsd/scripts" ]]; then
 fi
 
 SCRIPTS="$PROJECT/super-gsd/scripts"
+COCKPIT_SERVER_START="$SCRIPTS/start-cockpit-server.sh"
 
 # ── Banner ──
 echo ""
@@ -219,17 +220,39 @@ fi
 echo "LAUNCH"
 echo "------"
 echo ""
+if [[ -f "$COCKPIT_SERVER_START" ]]; then
+    echo "LOCALHOST COCKPIT"
+    echo "-----------------"
+    COCKPIT_OUT="$(bash "$COCKPIT_SERVER_START" --workspace "$PROJECT" 2>&1)"
+    COCKPIT_RC=$?
+    printf '%s\n' "$COCKPIT_OUT" | sed 's/^/  /'
+    if [[ "$COCKPIT_RC" -eq 0 ]]; then
+        if [[ -f "$PROJECT/.planning/runtime/cockpit-server.url" ]]; then
+            COCKPIT_URL="$(head -n 1 "$PROJECT/.planning/runtime/cockpit-server.url" 2>/dev/null || true)"
+            step OK "localhost cockpit healthy (${COCKPIT_URL:-url file empty})"
+        else
+            step OK "localhost cockpit healthy"
+        fi
+    else
+        step WARN "localhost cockpit failed to start (exit $COCKPIT_RC)"
+    fi
+    echo ""
+else
+    step WARN "localhost cockpit startup script missing: $COCKPIT_SERVER_START"
+    echo ""
+fi
+
 echo "Bash on Linux/macOS cannot portably open new terminal windows."
 echo "Run each dashboard in its own terminal:"
 echo ""
 echo "  # Terminal 1 — SGSD1 Mission Control"
-echo "  powershell.exe -File $SCRIPTS/sgsd-mission-control.ps1 -ProjectDir '$PROJECT'"
+echo "  pwsh -NoLogo -NoProfile -File $SCRIPTS/sgsd-mission-control.ps1 -ProjectDir '$PROJECT'"
 echo ""
 echo "  # Terminal 2 — SGSD2 Narrative"
-echo "  powershell.exe -File $SCRIPTS/sgsd-narrative.ps1       -ProjectDir '$PROJECT'"
+echo "  pwsh -NoLogo -NoProfile -File $SCRIPTS/sgsd-narrative.ps1       -ProjectDir '$PROJECT'"
 echo ""
 echo "  # Terminal 3 - SGSD3 Codex + VTP/MCP"
-echo "  powershell.exe -File $SCRIPTS/sgsd-codex-monitor.ps1   -ProjectDir '$PROJECT'"
+echo "  pwsh -NoLogo -NoProfile -File $SCRIPTS/sgsd-codex-monitor.ps1   -ProjectDir '$PROJECT'"
 echo ""
 echo "On Windows with Windows Terminal installed, prefer the PowerShell version:"
 echo "  powershell -File super-gsd/scripts/sgsd-boot.ps1"

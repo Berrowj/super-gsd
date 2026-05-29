@@ -1,0 +1,1386 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SGSD + Warp Operator Guide</title>
+  <style>
+    :root {
+      --paper: #f7f3ea;
+      --paper-2: #fffaf0;
+      --ink: #191815;
+      --muted: #6a655a;
+      --line: #d7cdbb;
+      --line-dark: #29251f;
+      --green: #0c6b57;
+      --green-soft: #e3f2ea;
+      --blue: #1f5f99;
+      --blue-soft: #e5eef8;
+      --amber: #9a6200;
+      --amber-soft: #fff1cf;
+      --red: #a13b2b;
+      --red-soft: #f9e2db;
+      --plum: #5f4a7d;
+      --plum-soft: #eee8f5;
+      --shadow: 0 18px 45px rgba(28, 24, 18, 0.13);
+      --mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --body: Georgia, "Times New Roman", serif;
+      --sans: "Aptos", "Segoe UI", Tahoma, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background:
+        linear-gradient(90deg, rgba(25, 24, 21, 0.035) 1px, transparent 1px) 0 0 / 44px 44px,
+        linear-gradient(rgba(25, 24, 21, 0.025) 1px, transparent 1px) 0 0 / 44px 44px,
+        var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.55;
+    }
+
+    a {
+      color: var(--blue);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 286px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      border-right: 1px solid var(--line-dark);
+      background: #171511;
+      color: #f6eddc;
+      padding: 22px 18px;
+    }
+
+    .brand {
+      border: 1px solid rgba(246, 237, 220, 0.22);
+      padding: 14px;
+      margin-bottom: 20px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .brand b {
+      display: block;
+      font-family: var(--mono);
+      font-size: 13px;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      color: #d7f1dc;
+    }
+
+    .brand span {
+      display: block;
+      margin-top: 8px;
+      color: #cfc4b0;
+      font-size: 13px;
+    }
+
+    nav a {
+      display: block;
+      padding: 8px 9px;
+      margin: 2px 0;
+      color: #f6eddc;
+      text-decoration: none;
+      border-left: 3px solid transparent;
+      font-size: 13px;
+    }
+
+    nav a:hover {
+      border-left-color: #74d49c;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    main {
+      min-width: 0;
+    }
+
+    .hero {
+      min-height: 96vh;
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+      gap: 34px;
+      align-items: center;
+      padding: 54px clamp(22px, 5vw, 72px) 34px;
+      border-bottom: 1px solid var(--line-dark);
+      background:
+        radial-gradient(circle at 13% 18%, rgba(12, 107, 87, 0.16), transparent 31%),
+        radial-gradient(circle at 89% 7%, rgba(31, 95, 153, 0.13), transparent 27%),
+        linear-gradient(145deg, rgba(255, 250, 240, 0.78), rgba(247, 243, 234, 0.95));
+    }
+
+    h1, h2, h3 {
+      line-height: 1.08;
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      font-family: var(--body);
+      font-size: clamp(45px, 7vw, 92px);
+      font-weight: 700;
+      max-width: 900px;
+    }
+
+    h2 {
+      font-family: var(--body);
+      font-size: clamp(34px, 4vw, 54px);
+      margin-bottom: 16px;
+    }
+
+    h3 {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      margin: 20px 0 0;
+      max-width: 730px;
+      color: #363028;
+      font-size: 20px;
+    }
+
+    .stamp-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 26px;
+    }
+
+    .stamp {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 5px 9px;
+      border: 1px solid var(--line-dark);
+      background: var(--paper-2);
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--ink);
+    }
+
+    .terminal-card {
+      border: 1px solid var(--line-dark);
+      background: #10100e;
+      color: #e9dfcb;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .terminal-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 13px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+      font-family: var(--mono);
+      font-size: 12px;
+      color: #bcb29f;
+    }
+
+    .terminal-body {
+      padding: 18px;
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+
+    .prompt-line {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 12px;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .prompt-line:last-child {
+      border-bottom: 0;
+    }
+
+    .key {
+      color: #8fe0b2;
+    }
+
+    .value {
+      color: #fff7df;
+    }
+
+    .section {
+      padding: 64px clamp(22px, 5vw, 72px);
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 250, 240, 0.58);
+    }
+
+    .section:nth-of-type(even) {
+      background: rgba(244, 236, 222, 0.62);
+    }
+
+    .lead {
+      max-width: 900px;
+      font-size: 18px;
+      color: #38322b;
+      margin: 0 0 28px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .panel {
+      border: 1px solid var(--line-dark);
+      background: var(--paper-2);
+      padding: 18px;
+      box-shadow: 0 8px 0 rgba(25, 24, 21, 0.08);
+    }
+
+    .span-3 { grid-column: span 3; }
+    .span-4 { grid-column: span 4; }
+    .span-5 { grid-column: span 5; }
+    .span-6 { grid-column: span 6; }
+    .span-7 { grid-column: span 7; }
+    .span-8 { grid-column: span 8; }
+    .span-12 { grid-column: span 12; }
+
+    .tag {
+      display: inline-block;
+      padding: 3px 7px;
+      border: 1px solid var(--line-dark);
+      background: #fff;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--ink);
+      margin-bottom: 10px;
+    }
+
+    .tag.green { background: var(--green-soft); color: var(--green); }
+    .tag.blue { background: var(--blue-soft); color: var(--blue); }
+    .tag.amber { background: var(--amber-soft); color: var(--amber); }
+    .tag.red { background: var(--red-soft); color: var(--red); }
+    .tag.plum { background: var(--plum-soft); color: var(--plum); }
+
+    .stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .layer {
+      border: 1px solid var(--line-dark);
+      background: #fffdf6;
+      padding: 13px 14px;
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .layer strong {
+      font-family: var(--mono);
+      font-size: 12px;
+      text-transform: uppercase;
+      color: var(--green);
+    }
+
+    .layer p {
+      margin: 0;
+    }
+
+    .callout {
+      border: 1px solid var(--line-dark);
+      padding: 18px;
+      background: var(--amber-soft);
+    }
+
+    .callout.good {
+      background: var(--green-soft);
+    }
+
+    .callout.warn {
+      background: var(--red-soft);
+    }
+
+    .codebox {
+      position: relative;
+      border: 1px solid var(--line-dark);
+      background: #11100d;
+      color: #f4ecd9;
+      padding: 14px;
+      font-family: var(--mono);
+      font-size: 13px;
+      overflow: auto;
+      margin: 12px 0;
+    }
+
+    .copy {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      background: rgba(255, 255, 255, 0.08);
+      color: #f4ecd9;
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 4px 7px;
+      cursor: pointer;
+    }
+
+    .copy:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--paper-2);
+      border: 1px solid var(--line-dark);
+      font-size: 14px;
+    }
+
+    th, td {
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      padding: 10px 11px;
+      text-align: left;
+    }
+
+    th {
+      background: #1a1712;
+      color: #f7eddc;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    td:first-child {
+      font-family: var(--mono);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .workflow-filter {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 16px;
+    }
+
+    .filter-btn {
+      border: 1px solid var(--line-dark);
+      background: var(--paper-2);
+      color: var(--ink);
+      padding: 7px 9px;
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    .filter-btn[aria-pressed="true"] {
+      background: #1a1712;
+      color: #f7eddc;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .workflow-card {
+      border: 1px solid var(--line-dark);
+      background: var(--paper-2);
+      padding: 15px;
+      min-height: 154px;
+    }
+
+    .workflow-card h3 {
+      font-family: var(--mono);
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .workflow-card p {
+      margin: 8px 0 0;
+      color: #3d362d;
+      font-size: 14px;
+    }
+
+    .meta {
+      margin-top: 10px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+
+    .decision {
+      display: grid;
+      gap: 12px;
+    }
+
+    .decision-row {
+      display: grid;
+      grid-template-columns: 210px 1fr 1fr;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .decision-cell {
+      border: 1px solid var(--line-dark);
+      background: #fffdf6;
+      padding: 13px;
+    }
+
+    .decision-cell:first-child {
+      font-family: var(--mono);
+      font-size: 13px;
+      background: #201d17;
+      color: #f5ead7;
+    }
+
+    details {
+      border: 1px solid var(--line-dark);
+      background: var(--paper-2);
+      margin: 10px 0;
+    }
+
+    summary {
+      cursor: pointer;
+      padding: 12px 14px;
+      font-family: var(--mono);
+      font-size: 13px;
+      background: rgba(25, 24, 21, 0.05);
+    }
+
+    details > div {
+      padding: 0 14px 14px;
+    }
+
+    .footer {
+      padding: 34px clamp(22px, 5vw, 72px);
+      background: #171511;
+      color: #f6eddc;
+    }
+
+    .footer p {
+      max-width: 900px;
+      margin: 0;
+      color: #d4c7b4;
+    }
+
+    @media (max-width: 1100px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        position: relative;
+        height: auto;
+      }
+
+      nav {
+        columns: 2;
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+        min-height: auto;
+      }
+    }
+
+    @media (max-width: 760px) {
+      nav {
+        columns: 1;
+      }
+
+      .span-3, .span-4, .span-5, .span-6, .span-7, .span-8 {
+        grid-column: span 12;
+      }
+
+      .layer, .decision-row {
+        grid-template-columns: 1fr;
+      }
+
+      td:first-child {
+        white-space: normal;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <div class="brand">
+        <b>SGSD + Warp</b>
+        <span>Operator guide for using the SGSD harness in this repo and in fresh project repos.</span>
+      </div>
+      <nav aria-label="Guide sections">
+        <a href="#overview">What this is</a>
+        <a href="#mental-model">Mental model</a>
+        <a href="#where">Where to run things</a>
+        <a href="#daily">Daily routine</a>
+        <a href="#new-repo">Fresh repo setup</a>
+        <a href="#workflows">Workflow catalogue</a>
+        <a href="#launch-configs">Launch configurations</a>
+        <a href="#mcp">MCP and credits</a>
+        <a href="#claude-codex">Claude, Codex, Warp Agent</a>
+        <a href="#troubleshooting">Troubleshooting</a>
+        <a href="#operator-rules">Rules</a>
+      </nav>
+    </aside>
+
+    <main>
+      <section class="hero" id="overview">
+        <div>
+          <h1>SGSD in Warp: the field guide</h1>
+          <p class="subtitle">
+            SGSD is the harness that builds software by milestones, phases, plans,
+            Codex execution, audits, gates, and evidence. Warp is now the operator
+            control room around that harness.
+          </p>
+          <div class="stamp-row" aria-label="Guide facts">
+            <span class="stamp">Generated: 2026-05-01</span>
+            <span class="stamp">Workflows: 24</span>
+            <span class="stamp">MCP tools: 15 read-only</span>
+            <span class="stamp">Launch configs: 8</span>
+            <span class="stamp">Warp credits: only for Warp Agent/Oz</span>
+          </div>
+        </div>
+
+        <div class="terminal-card" aria-label="SGSD quick model">
+          <div class="terminal-head">
+            <span>C:\Users\<operator>\GSDedits</span>
+            <span>operator view</span>
+          </div>
+          <div class="terminal-body">
+            <div class="prompt-line">
+              <span class="key">Harness</span>
+              <span class="value">SGSD owns milestones, phases, gates, evidence.</span>
+            </div>
+            <div class="prompt-line">
+              <span class="key">Warp</span>
+              <span class="value">Runs commands, opens workspaces, exposes workflows.</span>
+            </div>
+            <div class="prompt-line">
+              <span class="key">Claude</span>
+              <span class="value">Orchestrates SGSD and makes judgment calls.</span>
+            </div>
+            <div class="prompt-line">
+              <span class="key">Codex</span>
+              <span class="value">Executes bounded code/review tasks.</span>
+            </div>
+            <div class="prompt-line">
+              <span class="key">MCP</span>
+              <span class="value">Gives Warp Agent structured SGSD truth.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="mental-model">
+        <h2>The mental model</h2>
+        <p class="lead">
+          Think of SGSD as the operating system for building a serious software
+          project. Warp is not the source of truth. Warp is the cockpit, command
+          launcher, multi-pane workspace, and optional AI assistant around SGSD.
+        </p>
+
+        <div class="grid">
+          <div class="panel span-7">
+            <span class="tag green">Architecture</span>
+            <div class="stack">
+              <div class="layer">
+                <strong>Product repo</strong>
+                <p>The application you are building: source files, tests, package files, docs, deploy config.</p>
+              </div>
+              <div class="layer">
+                <strong>.planning</strong>
+                <p>SGSD truth: STATE.md, milestones, phases, plans, verification, ATC reviews, metrics ledgers.</p>
+              </div>
+              <div class="layer">
+                <strong>super-gsd</strong>
+                <p>The harness tools: gates, cockpit, MCP server, token tools, Codex routing, validators.</p>
+              </div>
+              <div class="layer">
+                <strong>.warp</strong>
+                <p>Operator shortcuts: workflows that run known-good SGSD commands from Warp Command Palette.</p>
+              </div>
+              <div class="layer">
+                <strong>Warp Agent</strong>
+                <p>Optional AI assistant. Useful when it calls SGSD MCP tools. Costs Warp credits when used.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel span-5">
+            <span class="tag blue">Why this matters</span>
+            <h3>The hard part is not typing commands</h3>
+            <p>
+              The hard part is keeping long autonomous software work honest:
+              what phase is active, what passed, what failed, what Codex did,
+              where tokens went, what evidence exists, and how to resume.
+            </p>
+            <p>
+              Warp gives those questions a command surface. SGSD gives them
+              a truth surface. Together they reduce guessing, stale scrollback,
+              hidden failures, and operator memory load.
+            </p>
+            <div class="callout good">
+              <strong>Key rule:</strong> Workflows and launch configs are just
+              local terminal commands. They do not spend Warp credits.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="where">
+        <h2>Where to run each thing</h2>
+        <p class="lead">
+          This is the practical part. Some commands should run in the current
+          Warp tab. Some are better in a fresh tab. Launch configurations open
+          a new window on Windows. The reason is session clarity.
+        </p>
+
+        <div class="decision">
+          <div class="decision-row">
+            <div class="decision-cell">Starting SGSD</div>
+            <div class="decision-cell">
+              <strong>Where:</strong> current Warp tab in the project root.
+              <div class="codebox" data-copy>sg</div>
+            </div>
+            <div class="decision-cell">
+              <strong>Why:</strong> Claude should stay in the tab where you typed
+              the start command. SGSD opens cockpit separately so the main AI
+              session remains visible and easy to resume.
+            </div>
+          </div>
+
+          <div class="decision-row">
+            <div class="decision-cell">Starting autonomous mode</div>
+            <div class="decision-cell">
+              <strong>Where:</strong> same main Claude tab, or workflow if you
+              intentionally want a run to start.
+              <div class="codebox" data-copy>sg -Go</div>
+            </div>
+            <div class="decision-cell">
+              <strong>Why:</strong> this begins real autonomous work. Do not run it
+              casually in a throwaway tab unless you mean to start SGSD.
+            </div>
+          </div>
+
+          <div class="decision-row">
+            <div class="decision-cell">Status, doctor, gates, tokens</div>
+            <div class="decision-cell">
+              <strong>Where:</strong> fresh Warp tab, side tab, or current tab.
+              Use Command Palette: <code>Ctrl+Shift+P</code>, then <code>SGSD:</code>.
+            </div>
+            <div class="decision-cell">
+              <strong>Why:</strong> these are read-only checks. A fresh tab keeps
+              your Claude prompt clean while you inspect state.
+            </div>
+          </div>
+
+          <div class="decision-row">
+            <div class="decision-cell">Launch configurations</div>
+            <div class="decision-cell">
+              <strong>Where:</strong> Warp Command Palette, search
+              <code>Launch Configuration: SGSD</code>.
+            </div>
+            <div class="decision-cell">
+              <strong>Why:</strong> on Windows these open a new Warp window. Treat
+              them as saved workspaces, not as panes injected into your current
+              window.
+            </div>
+          </div>
+
+          <div class="decision-row">
+            <div class="decision-cell">Warp Agent + MCP</div>
+            <div class="decision-cell">
+              <strong>Where:</strong> Warp Agent panel. Ask it to call a specific
+              SGSD MCP tool, such as <code>sgsd_current_state</code>.
+            </div>
+            <div class="decision-cell">
+              <strong>Why:</strong> useful for explanation. This is the part that
+              spends Warp credits, because Warp Agent is doing AI reasoning.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="daily">
+        <h2>Daily operating routine</h2>
+        <p class="lead">
+          Most days you only need a small loop: start, inspect, let SGSD run,
+          review evidence, recover if needed. The deeper tools are there for
+          diagnosis and project handoff.
+        </p>
+
+        <div class="grid">
+          <div class="panel span-4">
+            <span class="tag green">Morning start</span>
+            <h3>Bring the harness online</h3>
+            <div class="codebox" data-copy>cd C:\Users\<operator>\GSDedits
+sg</div>
+            <p>
+              Use this in the main project tab. The cockpit opens separately.
+              Claude stays in the tab where you typed <code>sg</code>.
+            </p>
+          </div>
+
+          <div class="panel span-4">
+            <span class="tag blue">Quick health check</span>
+            <h3>Ask what is happening</h3>
+            <div class="codebox" data-copy>Ctrl+Shift+P
+SGSD: Status
+SGSD: Watchdog Status
+SGSD: Codex Status</div>
+            <p>
+              These are local commands. They cost no Warp credits and are safe
+              to run while SGSD is working.
+            </p>
+          </div>
+
+          <div class="panel span-4">
+            <span class="tag amber">If something feels wrong</span>
+            <h3>Diagnose before touching state</h3>
+            <div class="codebox" data-copy>SGSD: Warp Doctor
+SGSD: Recovery Packet
+SGSD: Gate Status</div>
+            <p>
+              Do not hand-edit <code>STATE.md</code> first. SGSD is designed to
+              reveal what drifted and what repair command is safe.
+            </p>
+          </div>
+        </div>
+
+        <table aria-label="Daily routine table">
+          <thead>
+            <tr>
+              <th>Moment</th>
+              <th>Use this</th>
+              <th>Why it helps</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Starting work</td>
+              <td><code>sg</code> or <code>SGSD: Start</code></td>
+              <td>Starts SGSD without hiding Claude from Warp.</td>
+            </tr>
+            <tr>
+              <td>Checking state</td>
+              <td><code>SGSD: Status</code> or MCP <code>sgsd_current_state</code></td>
+              <td>Shows milestone and phase. MCP can also detect stale source conflicts.</td>
+            </tr>
+            <tr>
+              <td>Watching a run</td>
+              <td><code>SGSD: Cockpit Only</code>, <code>SGSD: Live Pulse Tail</code></td>
+              <td>Lets you monitor without typing into the Claude session.</td>
+            </tr>
+            <tr>
+              <td>Checking Codex</td>
+              <td><code>SGSD: Codex Status</code>, <code>SGSD: Route Decisions Recent</code></td>
+              <td>Shows whether Codex was used and why Claude or Codex was chosen.</td>
+            </tr>
+            <tr>
+              <td>Reviewing phase output</td>
+              <td><code>SGSD: Open Review Artifacts</code></td>
+              <td>Brings the ATC, verification, WASTE, and recent commits together.</td>
+            </tr>
+            <tr>
+              <td>Leaving the machine</td>
+              <td><code>SGSD: Remote Monitor Packet</code></td>
+              <td>Gives a short share-safe status before you use Warp Session Sharing.</td>
+            </tr>
+            <tr>
+              <td>Returning after a pause</td>
+              <td><code>SGSD: Recovery Packet</code>, then <code>/sgsd-orchestrate go</code></td>
+              <td>Resumes from checkpoint or current canonical state.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section" id="new-repo">
+        <h2>Using this in a fresh project repo</h2>
+        <p class="lead">
+          In the next project, the point is not to copy this exact repo's state.
+          The point is to install or scaffold SGSD into the new repo so every
+          milestone gets the same audited build loop.
+        </p>
+
+        <div class="grid">
+          <div class="panel span-6">
+            <span class="tag green">Fresh repo sequence</span>
+            <ol>
+              <li>Open the new repo root in Warp.</li>
+              <li>Ensure SGSD scaffold exists: <code>.planning/</code>, <code>super-gsd/</code>, <code>.warp/workflows/</code>, <code>AGENTS.md</code>, <code>WARP.md</code>.</li>
+              <li>Run <code>sgsd-setup</code> if private memory or knowledge roots need configuration.</li>
+              <li>Run <code>SGSD: Warp Doctor</code> to verify the local setup.</li>
+              <li>Run <code>SGSD: MCP Self-Test</code> if Warp Agent will be used for structured status.</li>
+              <li>Define the first milestone and phase plan through SGSD, not by ad hoc edits.</li>
+              <li>Start with <code>sg</code> or <code>SGSD: Start</code>.</li>
+            </ol>
+          </div>
+
+          <div class="panel span-6">
+            <span class="tag amber">What carries across</span>
+            <p>
+              The workflow names, launch configs, MCP tool names, and operating
+              rules should feel the same in every repo. The data changes:
+              milestones, phases, gates, commits, artifacts, and token spend
+              all become specific to that project.
+            </p>
+            <div class="callout">
+              <strong>Why this helps:</strong> you do not relearn the operating
+              model for every software project. Each repo has a consistent
+              control plane, but the evidence stays local to that repo.
+            </div>
+          </div>
+
+          <div class="panel span-12">
+            <span class="tag blue">New repo health checklist</span>
+            <table>
+              <thead>
+                <tr>
+                  <th>Check</th>
+                  <th>Healthy result</th>
+                  <th>If broken</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>SGSD: Warp Doctor</code></td>
+                  <td>Profiles, workflows, AGENTS/WARP/CLAUDE, MCP config, launch configs detected.</td>
+                  <td>Fix the probe it names. The doctor is read-only and gives evidence.</td>
+                </tr>
+                <tr>
+                  <td><code>SGSD: MCP Self-Test</code></td>
+                  <td>47/47 assertions pass for read-only MCP.</td>
+                  <td>Do not ask Warp Agent for SGSD truth until this passes.</td>
+                </tr>
+                <tr>
+                  <td><code>SGSD: Status</code></td>
+                  <td>Shows the active milestone and phase for the new repo.</td>
+                  <td>If stale, use SGSD recovery/re-sync. Do not hand-edit first.</td>
+                </tr>
+                <tr>
+                  <td><code>SGSD: Cockpit Only</code></td>
+                  <td>Opens dashboards without starting new execution.</td>
+                  <td>Use this to test the dashboard safely before an autonomous run.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="workflows">
+        <h2>Workflow catalogue</h2>
+        <p class="lead">
+          Workflows are named shortcuts for terminal commands. Press
+          <code>Ctrl+Shift+P</code>, type <code>SGSD:</code>, then run the one
+          you need. These are local terminal actions and do not spend Warp credits.
+        </p>
+
+        <div class="workflow-filter" aria-label="Workflow filters">
+          <button class="filter-btn" data-filter="all" aria-pressed="true">All</button>
+          <button class="filter-btn" data-filter="safe">Safe read-only</button>
+          <button class="filter-btn" data-filter="run">Run/control</button>
+          <button class="filter-btn" data-filter="review">Review/debug</button>
+          <button class="filter-btn" data-filter="git">Git/project</button>
+        </div>
+
+        <div class="cards" id="workflowCards">
+          <article class="workflow-card" data-kind="review safe">
+            <h3>SGSD: All Self-Tests</h3>
+            <p>Runs the big regression/self-test sweep across SGSD surfaces.</p>
+            <div class="meta">Use before trusting a changed harness.</div>
+          </article>
+          <article class="workflow-card" data-kind="run">
+            <h3>SGSD: Auto Mode</h3>
+            <p>Boots cockpit and sends go to Claude for autonomous SGSD work.</p>
+            <div class="meta">Use intentionally. It starts real work.</div>
+          </article>
+          <article class="workflow-card" data-kind="safe">
+            <h3>SGSD: Cockpit Only</h3>
+            <p>Opens dashboards without starting Claude.</p>
+            <div class="meta">Good for watching or testing visibility.</div>
+          </article>
+          <article class="workflow-card" data-kind="safe review">
+            <h3>SGSD: Codex Status</h3>
+            <p>Shows latest Codex dispatch state, freshness, and verdict.</p>
+            <div class="meta">Use when you want to know what Codex did.</div>
+          </article>
+          <article class="workflow-card" data-kind="safe">
+            <h3>SGSD: Current Phase Artifacts</h3>
+            <p>Lists active phase files such as CONTEXT, PLAN, VERIFICATION, ATC.</p>
+            <div class="meta">Use before reviewing a phase.</div>
+          </article>
+          <article class="workflow-card" data-kind="safe review">
+            <h3>SGSD: Gate Status</h3>
+            <p>Prints recent gate verdicts from review and gate logs.</p>
+            <div class="meta">Use when something warned or failed.</div>
+          </article>
+          <article class="workflow-card" data-kind="safe review">
+            <h3>SGSD: Harness Evolution Status</h3>
+            <p>Shows v2.9 harness evolution run, attribution, and rollback status.</p>
+            <div class="meta">Use for AHE work or harness changes.</div>
+          </article>
+          <article class="workflow-card" data-kind="safe review">
+            <h3>SGSD: Live Pulse Tail</h3>
+            <p>Tails recent ORCHESTRATOR-LIVE events.</p>
+            <div class="meta">Use while a run is active.</div>
+          </article>
+          <article class="workflow-card" data-kind="safe">
+            <h3>SGSD: MCP Self-Test</h3>
+            <p>Runs the 47-assertion read-only MCP test.</p>
+            <div class="meta">Use before relying on Warp Agent + MCP.</div>
+          </article>
+          <article class="workflow-card" data-kind="safe">
+            <h3>SGSD: Memory Status</h3>
+            <p>Shows memory index and recent memory governance entries.</p>
+            <div class="meta">Use when context or memory seems wrong.</div>
+          </article>
+          <article class="workflow-card" data-kind="review safe">
+            <h3>SGSD: Open Review Artifacts</h3>
+            <p>Lists ATC, verification, WASTE, context, plan files, and recent commits.</p>
+            <div class="meta">Use with Warp Code Review.</div>
+          </article>
+          <article class="workflow-card" data-kind="run">
+            <h3>SGSD: Pause</h3>
+            <p>Prints checkpoint/pause guidance.</p>
+            <div class="meta">Real pause happens inside Claude through SGSD.</div>
+          </article>
+          <article class="workflow-card" data-kind="git">
+            <h3>SGSD: PR Branch</h3>
+            <p>Prepares a cleaner PR branch by filtering planning commits.</p>
+            <div class="meta">Git-state changing. Use when shipping.</div>
+          </article>
+          <article class="workflow-card" data-kind="run">
+            <h3>SGSD: Full Preflight</h3>
+            <p>Runs full preflight before opening cockpit and greeting Claude.</p>
+            <div class="meta">Use before long autonomous sessions.</div>
+          </article>
+          <article class="workflow-card" data-kind="safe">
+            <h3>SGSD: Recovery Packet</h3>
+            <p>Prints current state, checkpoint, resume instruction, and artifacts.</p>
+            <div class="meta">First stop when returning after a pause.</div>
+          </article>
+          <article class="workflow-card" data-kind="safe">
+            <h3>SGSD: Remote Monitor Packet</h3>
+            <p>Prints a concise share-safe status before remote monitoring.</p>
+            <div class="meta">Use before Warp Session Sharing.</div>
+          </article>
+          <article class="workflow-card" data-kind="run">
+            <h3>SGSD: Resume</h3>
+            <p>Reads checkpoint and tells you the next resume command.</p>
+            <div class="meta">Use after Recovery Packet.</div>
+          </article>
+          <article class="workflow-card" data-kind="safe review">
+            <h3>SGSD: Route Decisions Recent</h3>
+            <p>Shows why Claude or Codex was chosen for recent execution.</p>
+            <div class="meta">Useful for understanding provider routing.</div>
+          </article>
+          <article class="workflow-card" data-kind="run">
+            <h3>SGSD: Start</h3>
+            <p>Boots cockpit separately and greets Claude in the current tab.</p>
+            <div class="meta">Daily entry point.</div>
+          </article>
+          <article class="workflow-card" data-kind="safe">
+            <h3>SGSD: Project Stats</h3>
+            <p>Shows milestone count, active phase, commit volume, and repo size.</p>
+            <div class="meta">Good overview command.</div>
+          </article>
+          <article class="workflow-card" data-kind="safe">
+            <h3>SGSD: Status</h3>
+            <p>Reads the top of STATE.md for milestone and phase.</p>
+            <div class="meta">Fast but can reflect stale STATE.md.</div>
+          </article>
+          <article class="workflow-card" data-kind="safe">
+            <h3>SGSD: Token Summary</h3>
+            <p>Refreshes token attribution and prints current spend.</p>
+            <div class="meta">Use to see where context cost is going.</div>
+          </article>
+          <article class="workflow-card" data-kind="safe review">
+            <h3>SGSD: Warp Doctor</h3>
+            <p>Runs setup probes for Warp, SGSD, workflows, launch configs, MCP.</p>
+            <div class="meta">First diagnostic command.</div>
+          </article>
+          <article class="workflow-card" data-kind="safe">
+            <h3>SGSD: Watchdog Status</h3>
+            <p>Shows last pulse, stall detection, and attention reasons.</p>
+            <div class="meta">Use to decide whether the run is alive.</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="launch-configs">
+        <h2>Launch configurations</h2>
+        <p class="lead">
+          Launch configurations are saved multi-pane Warp workspaces. They are
+          good when you want a whole operating layout, not just one command.
+          On Windows they open a new Warp window.
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Launch config</th>
+              <th>Use it when</th>
+              <th>Benefit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>SGSD Operator Workspace</td>
+              <td>You are starting a serious work session.</td>
+              <td>Main, cockpit, token/watch, and shell panes ready at once.</td>
+            </tr>
+            <tr>
+              <td>SGSD Cockpit Only</td>
+              <td>You want dashboards without starting a new Claude run.</td>
+              <td>Safe monitoring layout.</td>
+            </tr>
+            <tr>
+              <td>SGSD Debug Session</td>
+              <td>Something is stale, stuck, or confusing.</td>
+              <td>Doctor, state, live tail, and shell together.</td>
+            </tr>
+            <tr>
+              <td>SGSD Codex Watch</td>
+              <td>You want to inspect Codex/copilot execution.</td>
+              <td>Codex status and route decisions in one view.</td>
+            </tr>
+            <tr>
+              <td>SGSD Token Audit</td>
+              <td>Token spend feels too high.</td>
+              <td>Attribution and waste status side by side.</td>
+            </tr>
+            <tr>
+              <td>SGSD Review</td>
+              <td>A phase has shipped changes.</td>
+              <td>Git history and review artifacts prepared.</td>
+            </tr>
+            <tr>
+              <td>SGSD Remote Monitor</td>
+              <td>You are about to leave the machine.</td>
+              <td>Share-safe status and monitor surfaces ready.</td>
+            </tr>
+            <tr>
+              <td>SGSD Post-Mortem</td>
+              <td>A run ended, failed, or needs retrospective.</td>
+              <td>Evidence review without disturbing main session.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout">
+          <strong>How to open:</strong> press <code>Ctrl+Shift+P</code>, type
+          <code>Launch Configuration: SGSD</code>, pick the layout. Expect a new
+          Warp window on Windows.
+        </div>
+      </section>
+
+      <section class="section" id="mcp">
+        <h2>MCP and Warp credits</h2>
+        <p class="lead">
+          MCP is the structured data pipe. It lets an assistant ask SGSD for
+          current state, gates, tokens, Codex status, recovery packet, and
+          artifacts instead of guessing from scrollback.
+        </p>
+
+        <div class="grid">
+          <div class="panel span-6">
+            <span class="tag green">Free local use</span>
+            <p>These do not spend Warp credits:</p>
+            <div class="codebox" data-copy>SGSD: MCP Self-Test</div>
+            <div class="codebox" data-copy>cd C:\Users\<operator>\GSDedits
+node super-gsd/tools/warp-mcp/run-self-test.cjs</div>
+            <div class="codebox" data-copy>{"jsonrpc":"2.0","method":"tools/list","id":1} | node super-gsd/tools/warp-mcp/server.cjs</div>
+            <p>
+              The server is local Node.js over stdio. It only costs machine
+              time unless you ask Warp Agent to reason over the response.
+            </p>
+          </div>
+
+          <div class="panel span-6">
+            <span class="tag red">Credit-spending use</span>
+            <p>These use Warp credits because Warp Agent is thinking:</p>
+            <div class="codebox" data-copy>Use the SGSD MCP tool sgsd_current_state and tell me the current milestone, phase, stale sources, and recommended repair. Do not inspect scrollback.</div>
+            <p>
+              The MCP call itself is local. The credit spend is the AI
+              interpretation, summarization, and reasoning inside Warp Agent.
+            </p>
+          </div>
+
+          <div class="panel span-12">
+            <span class="tag blue">Read-only MCP tools</span>
+            <table>
+              <thead>
+                <tr>
+                  <th>Tool</th>
+                  <th>What it answers</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>sgsd_current_state</td><td>Milestone, phase, stale sources, recommended repair.</td></tr>
+                <tr><td>sgsd_current_phase</td><td>Detailed active/effective phase view.</td></tr>
+                <tr><td>sgsd_milestone_status</td><td>Progress across a milestone.</td></tr>
+                <tr><td>sgsd_watchdog_status</td><td>Pulse, stall, and attention state.</td></tr>
+                <tr><td>sgsd_gate_status</td><td>Latest ATC/verifier/gate verdicts.</td></tr>
+                <tr><td>sgsd_agent_roster</td><td>Which agents ran and what they did.</td></tr>
+                <tr><td>sgsd_codex_status</td><td>Codex dispatch and freshness state.</td></tr>
+                <tr><td>sgsd_token_spend</td><td>Token attribution by role, phase, or provider.</td></tr>
+                <tr><td>sgsd_context_bench_status</td><td>Context benchmark status.</td></tr>
+                <tr><td>sgsd_latest_commits</td><td>Recent git history.</td></tr>
+                <tr><td>sgsd_recovery_packet</td><td>Safe resume packet.</td></tr>
+                <tr><td>sgsd_cockpit_snapshot</td><td>One structured cockpit snapshot.</td></tr>
+                <tr><td>sgsd_artifact_links</td><td>Phase artifacts: ATC, verification, WASTE, plans.</td></tr>
+                <tr><td>sgsd_warp_doctor</td><td>Warp Doctor result through MCP.</td></tr>
+                <tr><td>sgsd_harness_evolution_status</td><td>v2.9 harness evolution state.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="claude-codex">
+        <h2>Claude, Codex, Warp Agent</h2>
+        <p class="lead">
+          These are not interchangeable. They are different seats in the SGSD
+          operating model.
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Actor</th>
+              <th>Best use</th>
+              <th>Do not use it for</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Claude Code</td>
+              <td>Run SGSD, coordinate phases, make judgment calls, repair state through the orchestrator.</td>
+              <td>Quick one-off status questions when MCP can answer more cleanly.</td>
+            </tr>
+            <tr>
+              <td>Codex</td>
+              <td>Bounded code edits, reviews, test fixes, implementation tasks with clear files and tests.</td>
+              <td>Owning SGSD state or bypassing SGSD gates.</td>
+            </tr>
+            <tr>
+              <td>Warp Agent + MCP</td>
+              <td>Operator explanations: what phase, what failed, why stale, where tokens went.</td>
+              <td>Autonomously changing SGSD state or overriding gate results.</td>
+            </tr>
+            <tr>
+              <td>Workflows</td>
+              <td>Running known local commands without remembering syntax.</td>
+              <td>Reasoning or summarizing. They are buttons, not brains.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout good">
+          <strong>Rule of thumb:</strong> Claude runs SGSD. Codex edits code.
+          Warp Agent explains SGSD through MCP. Workflows run local commands.
+        </div>
+      </section>
+
+      <section class="section" id="troubleshooting">
+        <h2>Troubleshooting guide</h2>
+        <p class="lead">
+          When something looks wrong, start with the diagnostic surfaces. The
+          goal is to identify whether the problem is Warp setup, SGSD state,
+          Codex routing, gates, or stale context.
+        </p>
+
+        <details open>
+          <summary>Warp Doctor shows state_md_freshness missing</summary>
+          <div>
+            <p>
+              This means SGSD state files are stale relative to newer activity.
+              It is not a Warp install problem.
+            </p>
+            <div class="codebox" data-copy>SGSD: Recovery Packet
+SGSD: Start
+/sgsd-orchestrate go</div>
+            <p>
+              Ask Claude to re-sync canonical SGSD state from the latest milestone
+              artifacts. Do not hand-edit first.
+            </p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Codebase Context is manual-check-required</summary>
+          <div>
+            <p>
+              Warp does not expose Codebase Context state to the terminal. Check
+              it in Warp UI: Settings, AI, Codebase Context. Confirm the repo is
+              indexed and <code>.warpindexingignore</code> is respected.
+            </p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Workflows do not appear</summary>
+          <div>
+            <p>
+              Press <code>Ctrl+Shift+P</code>, not plain <code>Ctrl+P</code>.
+              Search <code>SGSD:</code>. If still missing, run:
+            </p>
+            <div class="codebox" data-copy>node super-gsd/tools/warp-workflow-lint/lint.cjs --project C:\Users\<operator>\GSDedits</div>
+          </div>
+        </details>
+
+        <details>
+          <summary>MCP tools are not available in Warp Agent</summary>
+          <div>
+            <p>First test locally:</p>
+            <div class="codebox" data-copy>node super-gsd/tools/warp-mcp/run-self-test.cjs</div>
+            <p>
+              Then check <code>~/.warp/mcp_servers.json</code>. Warp may need a
+              restart after config changes.
+            </p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Launch configurations do not show</summary>
+          <div>
+            <p>
+              On Windows, Warp reads launch configs from its Windows data path.
+              Also check <code>~/.warp/launch_configurations</code> because this
+              repo keeps operator copies there. Re-run Warp Doctor and verify
+              it counts YAML files.
+            </p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Codex looks stale</summary>
+          <div>
+            <p>Use:</p>
+            <div class="codebox" data-copy>SGSD: Codex Status
+SGSD: Route Decisions Recent</div>
+            <p>
+              The first tells you whether Codex is active or stale. The second
+              tells you why SGSD chose Claude or Codex.
+            </p>
+          </div>
+        </details>
+      </section>
+
+      <section class="section" id="operator-rules">
+        <h2>Operator rules</h2>
+        <p class="lead">
+          These keep SGSD useful rather than turning it into a pile of shortcuts.
+        </p>
+
+        <div class="grid">
+          <div class="panel span-6">
+            <span class="tag green">Do</span>
+            <ul>
+              <li>Use <code>SGSD: Warp Doctor</code> before guessing.</li>
+              <li>Use workflows for local checks instead of asking Warp Agent every time.</li>
+              <li>Use MCP when you need structured truth.</li>
+              <li>Use launch configs when you want a repeatable workspace.</li>
+              <li>Let Claude/SGSD repair SGSD state through the orchestrator.</li>
+              <li>Use Codex for bounded code execution and review.</li>
+            </ul>
+          </div>
+
+          <div class="panel span-6">
+            <span class="tag red">Do not</span>
+            <ul>
+              <li>Do not bypass gates because a workflow feels inconvenient.</li>
+              <li>Do not hand-edit <code>STATE.md</code> as your first repair move.</li>
+              <li>Do not trust scrollback over <code>.planning/</code> evidence.</li>
+              <li>Do not ask Warp Agent to mutate SGSD state casually.</li>
+              <li>Do not treat launch configs as active-window pane injection on Windows.</li>
+              <li>Do not spend Warp credits for simple local status checks.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="callout good">
+          <strong>The benefit:</strong> every new project gets the same operating
+          discipline: start, inspect, execute, audit, recover, review, and ship
+          by evidence instead of memory.
+        </div>
+      </section>
+
+      <footer class="footer">
+        <p>
+          Source inventory: current GSDedits SGSD Warp workflows, launch
+          configuration templates, MCP tools, and operator rules as of
+          2026-05-01. This guide is static and can be opened directly in a browser.
+        </p>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    const buttons = document.querySelectorAll(".filter-btn");
+    const cards = document.querySelectorAll(".workflow-card");
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const filter = button.getAttribute("data-filter");
+        buttons.forEach((b) => b.setAttribute("aria-pressed", "false"));
+        button.setAttribute("aria-pressed", "true");
+        cards.forEach((card) => {
+          const kind = card.getAttribute("data-kind") || "";
+          const show = filter === "all" || kind.split(" ").includes(filter);
+          card.style.display = show ? "" : "none";
+        });
+      });
+    });
+
+    document.querySelectorAll("[data-copy]").forEach((box) => {
+      const button = document.createElement("button");
+      button.className = "copy";
+      button.type = "button";
+      button.textContent = "Copy";
+      button.addEventListener("click", async () => {
+        const clone = box.cloneNode(true);
+        const copyButton = clone.querySelector(".copy");
+        if (copyButton) copyButton.remove();
+        const text = clone.textContent.trim();
+        try {
+          await navigator.clipboard.writeText(text);
+          button.textContent = "Copied";
+          setTimeout(() => { button.textContent = "Copy"; }, 1200);
+        } catch (_) {
+          button.textContent = "Select";
+          setTimeout(() => { button.textContent = "Copy"; }, 1200);
+        }
+      });
+      box.appendChild(button);
+    });
+  </script>
+</body>
+</html>

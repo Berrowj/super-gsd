@@ -23,14 +23,28 @@ From the project root:
 
 ```bash
 bash super-gsd/install.sh --doctor
-bash super-gsd/install.sh --init-project
+bash super-gsd/install.sh --init-project                  # cockpit deps NOT downloaded
+bash super-gsd/install.sh --init-project --setup-cockpit-deps  # + Chromium for ATC visual gate
+bash super-gsd/install.sh --update                         # refresh existing install after `git pull`
 ```
+
+`--init-project` runs `npm install` (Playwright is now a required dep for the
+ATC visual gate). `--setup-cockpit-deps` additionally downloads the ~112MB
+Chromium binary via `npx playwright install chromium`. Without it the cockpit
+itself still works but the ATC visual gate cannot run. To skip both, pass
+`--skip-cockpit-deps`.
+
+`--update` is the in-place refresh path after a `git pull`. It re-runs
+`npm install`, re-syncs the agent registry, and ensures the memory taxonomy
+exists — but it never overwrites your `CLAUDE.md`, `.planning/config.json`,
+or any state under `.planning/`. If those files have drifted from the bundled
+defaults the script tells you, but leaves the merge to you.
 
 On Windows PowerShell, avoid the WSL `bash.exe` shim:
 
 ```powershell
 & "$env:LOCALAPPDATA\Programs\Git\bin\bash.exe" super-gsd/install.sh --doctor
-& "$env:LOCALAPPDATA\Programs\Git\bin\bash.exe" super-gsd/install.sh --init-project
+& "$env:LOCALAPPDATA\Programs\Git\bin\bash.exe" super-gsd/install.sh --init-project --setup-cockpit-deps
 ```
 
 Global Claude assets are opt-in:
@@ -53,8 +67,30 @@ sgsd -NoOpen
 node super-gsd/scripts/sgsd-new-project-wizard.cjs --self-test
 node super-gsd/tools/provider-health/check.cjs --provider codex
 node super-gsd/tools/autopilot-watchdog/check.cjs --self-test
+npm test                                                     # chronicle + cockpit self-tests (128 SACs)
+node super-gsd/tools/cockpit-sidecar/playwright-audit.cjs --spawn-server --port 0   # real-browser audit (38 checks)
 ```
 
 `sg` boots the cockpit and starts Claude in the current terminal. The cockpit
 and narrator are operator surfaces; Codex execution status is shown through the
 Codex monitor/watch panes.
+
+## Visual gates (ATC Step 6)
+
+Two gates run at phase close for any UI-touching phase. Both write verdict JSON
+under `.planning/runtime/` and print paste-ready blocks for `PHASE-CAPSULE.json`:
+
+```bash
+# Existing — JSDOM render + DOM + SSE timing (~25s, 18 checks)
+node super-gsd/tools/cockpit-sidecar/browser-smoke.cjs --phase <N>
+
+# Real Chromium — catches CSS layout, real EventSource semantics, console errors,
+# multi-client SSE, ARIA, 4 viewport widths (~50s, 38 checks).
+node super-gsd/tools/cockpit-sidecar/atc-playwright-gate.cjs --phase <N>
+# Defaults to cockpit. Point at any localhost target:
+node super-gsd/tools/cockpit-sidecar/atc-playwright-gate.cjs --phase <N> --target http://127.0.0.1:8080
+```
+
+The Playwright gate auto-skips when the phase's git diff touched no UI files
+(verdict: `SKIPPED-NO-UI-FILES`). Mandatory for any UI phase — see
+`.planning/memory/workflow/feedback/feedback_playwright_atc_gate.md`.

@@ -1,6 +1,6 @@
 {
   "name": "sgsd",
-  "version": "3.2.0",
+  "version": "3.4.0",
   "description": "Super GSD - autonomous software-delivery engine",
   "private": true,
   "engines": {
@@ -9,7 +9,13 @@
   "scripts": {
     "test": "node super-gsd/tools/chronicle/run-self-test.cjs && node super-gsd/tools/cockpit-sidecar/run-self-test.cjs",
     "test:chronicle": "node super-gsd/tools/chronicle/run-self-test.cjs",
-    "test:cockpit": "node super-gsd/tools/cockpit-sidecar/run-self-test.cjs"
+    "test:cockpit": "node super-gsd/tools/cockpit-sidecar/run-self-test.cjs",
+    "cockpit:setup": "npx --yes playwright install chromium",
+    "cockpit:setup-linux": "npx --yes playwright install --with-deps chromium",
+    "cockpit:serve": "node super-gsd/tools/cockpit-sidecar/serve.cjs --port 7777",
+    "cockpit:smoke": "node super-gsd/tools/cockpit-sidecar/browser-smoke.cjs",
+    "cockpit:audit": "node super-gsd/tools/cockpit-sidecar/playwright-audit.cjs --spawn-server --port 0",
+    "gate:playwright": "node super-gsd/tools/cockpit-sidecar/atc-playwright-gate.cjs"
   },
   "dependencies": {
     "ajv": "^8.18.0",
@@ -17,7 +23,8 @@
     "ajv-formats": "^3.0.1",
     "better-sqlite3": "^12.9.0",
     "gray-matter": "^4.0.3",
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "playwright": "^1.56.0"
   },
   "optionalDependencies": {
     "redis": "^5.12.1"

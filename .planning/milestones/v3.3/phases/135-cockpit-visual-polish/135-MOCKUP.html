@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SGSD Cockpit — P135 Mockup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* Design tokens — inlined from sgsd-design-system.css */
+    :root {
+      --bg:#07111f; --bg2:#0c1a2f;
+      --panel:rgba(255,255,255,0.065); --panel2:rgba(255,255,255,0.10);
+      --ink:#f3f7ff; --ink-strong:#ffffff; --ink-muted:#aebbd0; --ink-soft:#7f8ca0;
+      --line:rgba(255,255,255,0.16); --line-strong:rgba(255,255,255,0.26);
+      --cyan:#67e8f9; --blue:#60a5fa; --violet:#c084fc; --green:#86efac;
+      --amber:#facc15; --red:#fb7185; --orange:#fdba74;
+      --gold:#b98a2f; --gold-strong:#91661d; --gold-soft:#f2dfb8;
+      --green-soft:rgba(134,239,172,0.16); --blue-soft:rgba(96,165,250,0.14);
+      --red-soft:rgba(251,113,133,0.16); --violet-soft:rgba(192,132,252,0.14);
+      --amber-soft:rgba(250,204,21,0.14);
+      --radius-sm:4px; --radius:8px; --radius-lg:12px;
+      --space-1:0.25rem; --space-2:0.5rem; --space-3:0.75rem; --space-4:1rem;
+      --space-5:1.25rem; --space-6:1.5rem; --space-8:2rem;
+      --sans:'Fira Sans', ui-sans-serif, system-ui, sans-serif;
+      --mono:'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
+      --shadow:0 1px 2px rgba(0,0,0,0.18), 0 10px 30px rgba(0,0,0,0.22);
+      --bullet-good:#C8E6C9; --bullet-ok:#FFF9C4; --bullet-bad:#FFCDD2;
+      color-scheme: dark;
+    }
+    *{box-sizing:border-box}
+    html{background:var(--bg);color:var(--ink);font:400 16px/1.55 var(--sans);text-rendering:optimizeLegibility}
+    body{margin:0;min-height:100vh;
+      background:
+        radial-gradient(circle at 10% 0%, rgba(103,232,249,0.14), transparent 36%),
+        radial-gradient(circle at 84% 6%, rgba(192,132,252,0.12), transparent 32%),
+        linear-gradient(145deg, var(--bg), var(--bg2) 48%, #08101c);
+    }
+
+    /* Bento layout */
+    .cockpit-bento{
+      width:min(100% - 2rem, 1100px);
+      margin-inline:auto;
+      padding-block:var(--space-6);
+      display:grid;
+      gap:var(--space-4);
+    }
+    .band{
+      border:1px solid var(--line);
+      border-radius:var(--radius-lg);
+      background:var(--panel);
+      box-shadow:var(--shadow);
+      padding:var(--space-5);
+    }
+    .band-header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:var(--space-3)}
+    .band-eyebrow{font:800 0.7rem/1 var(--sans);letter-spacing:0.12em;text-transform:uppercase;color:var(--gold-soft)}
+    .band-tick{font:500 0.75rem/1 var(--mono);color:var(--ink-soft)}
+
+    /* Band 1 */
+    .band-1{
+      border-left:6px solid var(--gold);
+      background:linear-gradient(135deg, rgba(185,138,47,0.12), var(--panel));
+    }
+    .northstar{
+      display:flex;align-items:center;gap:var(--space-3);
+      margin:0 0 var(--space-3);
+    }
+    .northstar-glyph{font-size:1.8rem;color:var(--cyan);text-shadow:0 0 12px rgba(103,232,249,0.5)}
+    .northstar-message{
+      font:800 clamp(1.4rem, 2.6vw, 2rem)/1.15 var(--sans);
+      color:var(--ink-strong);
+      letter-spacing:-0.005em;
+      text-shadow:0 0 14px rgba(103,232,249,0.18);
+    }
+    .do-next{display:flex;align-items:center;gap:var(--space-2);margin:0 0 var(--space-3);font-weight:600;color:var(--ink)}
+    .do-next-arrow{color:var(--gold-soft);font-weight:800;font-size:1.1rem}
+    .do-next-label{
+      display:inline-block;font:800 0.7rem/1 var(--sans);letter-spacing:0.08em;text-transform:uppercase;
+      background:var(--panel2);padding:0.25rem 0.5rem;border-radius:999px;color:var(--gold-soft);
+    }
+    .do-next-text{font:600 1rem/1.4 var(--sans)}
+
+    .alert{
+      display:inline-flex;align-items:center;gap:var(--space-2);
+      padding:0.5rem 0.9rem;
+      border:1px solid var(--line);
+      border-left-width:4px;
+      border-radius:var(--radius);
+      background:var(--panel);
+      font:600 0.92rem/1 var(--sans);
+    }
+    .palette-tier-accent{border-left-color:var(--cyan);background:rgba(103,232,249,0.10)}
+    .palette-tier-success{border-left-color:var(--green);background:var(--green-soft);color:var(--green)}
+    .palette-tier-attention{border-left-color:var(--amber);background:var(--amber-soft);color:var(--amber)}
+    .palette-tier-severe{border-left-color:var(--violet);background:var(--violet-soft);color:var(--violet)}
+    .palette-tier-danger{border-left-color:var(--red);background:var(--red-soft);color:var(--red)}
+    .palette-tier-done{border-left-color:var(--green-strong, var(--green));background:var(--green-soft);opacity:0.7}
+    .alert-icon{font-size:1.05rem}
+    .alert-signal{font-weight:700}
+    .alert-detail{color:var(--ink-muted);font-weight:500}
+    .alert-more.chip{margin-left:var(--space-2)}
+
+    /* Chips */
+    .chip{
+      display:inline-flex;align-items:center;gap:0.25rem;
+      padding:0.15rem 0.5rem;border:1px solid var(--line);border-radius:999px;
+      background:var(--panel2);color:var(--ink-muted);
+      font:700 0.7rem/1 var(--sans);white-space:nowrap;
+    }
+    .chip.palette-tier-attention{border-color:var(--amber);color:var(--amber);background:var(--amber-soft)}
+    .chip.palette-tier-success{border-color:var(--green);color:var(--green);background:var(--green-soft)}
+
+    /* Band 2 */
+    .pipeline{
+      list-style:none;padding:0;margin:0 0 var(--space-4);
+      display:flex;
+      border:1px solid var(--line);border-radius:var(--radius);
+      overflow:hidden;
+    }
+    .stage{
+      flex:1;padding:var(--space-3) var(--space-2);
+      text-align:center;
+      border-right:1px solid var(--line);
+      background:transparent;
+      font:600 0.82rem/1.3 var(--sans);
+    }
+    .stage:last-child{border-right:none}
+    .stage-name{font:800 0.78rem/1 var(--sans);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:var(--space-1)}
+    .stage-marker{font-size:0.9rem;margin-left:0.2rem}
+    .stage-owner{font:500 0.7rem/1.2 var(--mono);color:var(--ink-soft);margin-bottom:var(--space-1)}
+    .stage-sla{font:500 0.68rem/1 var(--mono);color:var(--ink-soft)}
+    .stage-done{background:var(--green-soft);color:var(--green)}
+    .stage-done .stage-owner,.stage-done .stage-sla{color:rgba(134,239,172,0.65)}
+    .stage-active{background:var(--amber-soft);color:var(--amber);box-shadow:inset 0 -3px 0 var(--amber)}
+    .stage-active .stage-owner,.stage-active .stage-sla{color:rgba(250,204,21,0.7)}
+    .stage-pending{color:var(--ink-soft)}
+    .stage-blocked{background:var(--red-soft);color:var(--red)}
+
+    .band-2-cols{display:grid;grid-template-columns:1.2fr 1fr;gap:var(--space-5)}
+    @media (max-width: 760px){.band-2-cols{grid-template-columns:1fr}}
+
+    .context-rows{margin:0}
+    .context-rows .row{
+      display:grid;grid-template-columns:10rem 1fr;gap:var(--space-3);
+      padding:var(--space-2) 0;
+      border-bottom:1px dashed var(--line);
+      font-size:0.92rem;
+    }
+    .context-rows .row:last-child{border-bottom:none}
+    .context-rows dt{font:800 0.72rem/1 var(--sans);letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-muted);align-self:center}
+    .context-rows dd{margin:0;color:var(--ink);align-self:center}
+    .context-rows dd.status-ok{color:var(--green);font-weight:700}
+    .context-rows dd.status-blocker{color:var(--red);font-weight:700}
+
+    .trend-strip{display:grid;gap:var(--space-2);padding:var(--space-3);background:var(--panel2);border-radius:var(--radius);border:1px solid var(--line)}
+    .bullet-row{display:grid;grid-template-columns:5.5rem 4rem 1fr 5.5rem;gap:var(--space-3);align-items:center;font-size:0.9rem}
+    .bullet-label{font:800 0.72rem/1 var(--sans);letter-spacing:0.05em;text-transform:uppercase;color:var(--ink-muted)}
+    .bullet-value{font:700 0.95rem/1 var(--mono);color:var(--ink-strong);text-align:right;font-variant-numeric:tabular-nums}
+    .bullet-bar{width:100%;height:14px;display:block}
+    .bullet-tier{justify-self:end}
+
+    /* Band 3 */
+    .band-3 .band-toggle{
+      background:transparent;border:1px solid var(--line);color:var(--ink-muted);
+      font:700 0.7rem/1 var(--sans);text-transform:uppercase;letter-spacing:0.06em;
+      padding:0.35rem 0.7rem;border-radius:var(--radius);cursor:pointer;
+      transition:all 200ms ease;
+    }
+    .band-3 .band-toggle:hover{color:var(--ink);border-color:var(--line-strong)}
+    .band-3 .band-toggle:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+
+    .rationale-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)}
+    @media (max-width: 800px){.rationale-grid{grid-template-columns:1fr}}
+    .rationale-card{
+      border:1px solid var(--line);border-radius:var(--radius);background:var(--panel2);
+      padding:var(--space-4);
+    }
+    .rationale-card h3{
+      font:800 0.72rem/1 var(--sans);letter-spacing:0.06em;text-transform:uppercase;
+      color:var(--gold-soft);margin:0 0 var(--space-2);
+    }
+    .rationale-card p{margin:0;font-size:0.92rem;line-height:1.55;color:var(--ink)}
+    .rationale-card p strong{color:var(--cyan);font-weight:700}
+    .rationale-evidence{grid-column:1 / -1}
+    .rationale-evidence p{font-family:var(--mono);font-size:0.82rem;color:var(--ink-muted);word-break:break-word}
+    .rationale-evidence code{color:var(--blue);background:rgba(96,165,250,0.10);padding:0.1rem 0.35rem;border-radius:var(--radius-sm)}
+
+    .tabular{font-variant-numeric:tabular-nums;font-family:var(--mono)}
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce){
+      *{animation-duration:0!important;animation-iteration-count:1!important;transition-duration:0!important}
+    }
+
+    /* Mockup badge */
+    .mockup-badge{
+      position:fixed;top:var(--space-3);right:var(--space-3);
+      padding:var(--space-2) var(--space-3);
+      border:1px solid var(--gold);background:rgba(185,138,47,0.15);
+      border-radius:var(--radius);color:var(--gold-soft);
+      font:800 0.72rem/1 var(--sans);text-transform:uppercase;letter-spacing:0.08em;
+      z-index:100;
+    }
+  </style>
+</head>
+<body>
+<div class="mockup-badge">P135 mockup · static · gold reference</div>
+
+<main class="cockpit-bento" role="main" aria-label="SGSD live cockpit (mockup)">
+
+  <!-- BAND 1 -->
+  <section data-band="1" class="band band-1" aria-label="Governing thought">
+    <header class="band-header">
+      <span class="band-eyebrow">Band 1 · Governing Thought</span>
+      <time class="band-tick" datetime="2026-05-24T18:30:12Z">live · 18:30:12</time>
+    </header>
+
+    <p class="northstar" data-rank="5" data-code="ON_TRACK">
+      <span class="northstar-glyph" aria-hidden="true">★</span>
+      <strong class="northstar-message">ON TRACK — v3.3 / P135 cockpit-visual-polish · plan ⏳</strong>
+    </p>
+
+    <p class="do-next">
+      <span class="do-next-arrow" aria-hidden="true">▸</span>
+      <span class="do-next-label">DO NEXT</span>
+      <span class="do-next-text">approve the design spec, then dispatch P135 implementation</span>
+    </p>
+
+    <aside class="alert palette-tier-attention" role="status" data-others="1">
+      <span class="alert-icon" aria-hidden="true">⚠</span>
+      <span class="alert-signal">dispatch_count</span>
+      <span class="alert-detail">7 dispatches in P132</span>
+      <span class="alert-more chip">+1 more</span>
+    </aside>
+  </section>
+
+  <!-- BAND 2 -->
+  <section data-band="2" class="band band-2" aria-label="Supporting state">
+    <header class="band-header">
+      <span class="band-eyebrow">Band 2 · Supporting</span>
+      <time class="band-tick" datetime="2026-05-24T18:30:12Z">stage in 4m 12s</time>
+    </header>
+
+    <ol class="pipeline" role="list" aria-label="Phase stages">
+      <li class="stage stage-done" data-stage="research" data-status="done">
+        <div class="stage-name">research <span class="stage-marker" aria-label="done">✓</span></div>
+        <div class="stage-owner">codex/xhigh</div>
+        <div class="stage-sla">30m · done</div>
+      </li>
+      <li class="stage stage-done" data-stage="vtp-enrich" data-status="done">
+        <div class="stage-name">vtp <span class="stage-marker" aria-label="done">✓</span></div>
+        <div class="stage-owner">vtp-enrich</div>
+        <div class="stage-sla">5m · done</div>
+      </li>
+      <li class="stage stage-active" data-stage="plan" data-status="active">
+        <div class="stage-name">plan <span class="stage-marker" aria-label="in progress">⏳</span></div>
+        <div class="stage-owner">codex/xhigh</div>
+        <div class="stage-sla">20m · 4m</div>
+      </li>
+      <li class="stage stage-pending" data-stage="execute" data-status="pending">
+        <div class="stage-name">execute</div>
+        <div class="stage-owner">codex/xhigh</div>
+        <div class="stage-sla">90m</div>
+      </li>
+      <li class="stage stage-pending" data-stage="verify" data-status="pending">
+        <div class="stage-name">verify</div>
+        <div class="stage-owner">codex/xhigh</div>
+        <div class="stage-sla">15m</div>
+      </li>
+    </ol>
+
+    <div class="band-2-cols">
+      <dl class="context-rows">
+        <div class="row"><dt>WHY RUNNING</dt><dd>codex planning P135 client.js rewrite · ETA ~3m</dd></div>
+        <div class="row"><dt>UNLOCKS</dt><dd>v3.3 milestone close after P134-T3/T4 resume</dd></div>
+        <div class="row"><dt>BLOCKED-BY</dt><dd class="status-ok">nothing</dd></div>
+      </dl>
+
+      <div class="trend-strip" role="group" aria-label="Live metrics">
+        <div class="bullet-row" data-metric="fog">
+          <span class="bullet-label">fog</span>
+          <span class="bullet-value tabular">38</span>
+          <svg class="bullet-bar" viewBox="0 0 100 14" preserveAspectRatio="none" aria-hidden="true">
+            <rect width="40" height="14" fill="var(--bullet-good)"/>
+            <rect x="40" width="30" height="14" fill="var(--bullet-ok)"/>
+            <rect x="70" width="30" height="14" fill="var(--bullet-bad)"/>
+            <rect width="38" height="14" fill="var(--cyan)" opacity="0.85"/>
+            <rect x="50" width="0.8" height="14" fill="#000"/>
+          </svg>
+          <span class="bullet-tier chip palette-tier-success">low</span>
+        </div>
+        <div class="bullet-row" data-metric="dispatches">
+          <span class="bullet-label">dispatches</span>
+          <span class="bullet-value tabular">7</span>
+          <svg class="bullet-bar" viewBox="0 0 100 14" preserveAspectRatio="none" aria-hidden="true">
+            <rect width="50" height="14" fill="var(--bullet-good)"/>
+            <rect x="50" width="30" height="14" fill="var(--bullet-ok)"/>
+            <rect x="80" width="20" height="14" fill="var(--bullet-bad)"/>
+            <rect width="30" height="14" fill="var(--blue)" opacity="0.85"/>
+            <rect x="60" width="0.8" height="14" fill="#000"/>
+          </svg>
+          <span class="bullet-tier chip">steady</span>
+        </div>
+        <div class="bullet-row" data-metric="tokens">
+          <span class="bullet-label">tokens</span>
+          <span class="bullet-value tabular">2.4M</span>
+          <svg class="bullet-bar" viewBox="0 0 100 14" preserveAspectRatio="none" aria-hidden="true">
+            <rect width="30" height="14" fill="var(--bullet-good)"/>
+            <rect x="30" width="40" height="14" fill="var(--bullet-ok)"/>
+            <rect x="70" width="30" height="14" fill="var(--bullet-bad)"/>
+            <rect width="62" height="14" fill="var(--violet)" opacity="0.85"/>
+            <rect x="70" width="0.8" height="14" fill="#000"/>
+          </svg>
+          <span class="bullet-tier chip palette-tier-attention">climbing</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BAND 3 -->
+  <section data-band="3" class="band band-3" aria-label="Rationale (drill-in)">
+    <header class="band-header">
+      <span class="band-eyebrow">Band 3 · Rationale</span>
+      <button class="band-toggle" aria-expanded="true" aria-controls="band-3-content" type="button">collapse</button>
+    </header>
+
+    <div id="band-3-content" class="rationale-grid">
+      <article class="rationale-card" data-field="why_this_phase">
+        <h3>WHY THIS PHASE</h3>
+        <p>P135 ships visual polish to bring the live cockpit up to the brief HTML quality. After P132 shipped the localhost server with minimal text rendering, operator feedback identified the gap. <code>client.js</code> rewrite + <code>renderShell</code> styling + bullet-chart trend strip + status-coloured stage cells.</p>
+      </article>
+      <article class="rationale-card" data-field="context">
+        <h3>CONTEXT</h3>
+        <p>v3.3 has 6 phases closed (P128–P133). P134-T1 + T2 done; T3 + T4 paused for P135 to land first. Self-test 53/53 prior to this phase. Final v3.3 phase order will be P135 → resume P134-T3/T4 → milestone close.</p>
+      </article>
+      <article class="rationale-card" data-field="eli5">
+        <h3>ELI5</h3>
+        <p><strong>What is now:</strong> the live page shows almost nothing. <strong>What could be:</strong> it shows everything at a glance — stage progress, what's blocked, why it matters. <strong>S.T.A.R.:</strong> a bento layout with one loud line, a 5-cell pipeline strip, three little bullet bars for fog/dispatches/tokens, and a rich rationale layer. <strong>Call to action:</strong> open localhost:7777 after P135 closes.</p>
+      </article>
+      <article class="rationale-card" data-field="what_is">
+        <h3>WHAT IS</h3>
+        <p>Minimal client.js. Plain text bands. No sparklines. Placeholder rationale ("no context found"). 5% of the brief HTML quality.</p>
+      </article>
+      <article class="rationale-card" data-field="what_could_be">
+        <h3>WHAT COULD BE</h3>
+        <p>Bento grid with bullet charts, status-coloured pipeline cells, real rationale paragraphs, and SSE-pushed updates within 200ms of any ledger change. 80%+ of the brief HTML quality.</p>
+      </article>
+      <article class="rationale-card rationale-evidence" data-field="evidence_trail">
+        <h3>EVIDENCE TRAIL</h3>
+        <p>
+          <code>.planning/briefs/2026-05-24-cockpit-v3.3-assessment.html</code> (gold reference) ·
+          <code>super-gsd/tools/cockpit-sidecar/client.js</code> (target) ·
+          <code>super-gsd/tools/cockpit-sidecar/render-html.cjs::renderShell</code> ·
+          <code>super-gsd/tools/cockpit-sidecar/serve.cjs::attachSparklines</code> (new) ·
+          <code>super-gsd/tools/shared/sgsd-design-system.css</code> (tokens) ·
+          commits pending P135-T1..T7
+        </p>
+      </article>
+    </div>
+  </section>
+
+</main>
+</body>
+</html>

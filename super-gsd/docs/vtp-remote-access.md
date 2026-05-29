@@ -6,12 +6,12 @@ Linux.
 
 The current deployment is intentionally personal:
 
-- Windows user: `C:\Users\user`
-- VTP repo: `C:\Users\user\Voice-Text-Plan`
-- Linux user/host: `jackberrow@devcp`
-- Remote bridge: `/home/jackberrow/.local/bin/vtp-mcp-bridge`
+- Windows user: `%USERPROFILE%` (e.g. `C:\Users\<your-user>`)
+- VTP repo: `%USERPROFILE%\Voice-Text-Plan`
+- Linux user/host: `<linux-user>@<build-host>`
+- Remote bridge: `~/.local/bin/vtp-mcp-bridge` on the build host
 
-Future operators can copy the pattern and change paths/hostnames.
+The example tokens above are placeholders — substitute your own user/host names.
 
 ## Architecture
 
@@ -35,6 +35,7 @@ Task Scheduler
     -> pipes bearer over ssh stdin
                                                 ~/.vtp-bearer
                                                 mode 0600
+                                                self-healed while ssh is alive
                                                 removed by trap on ssh exit
 
                                                 vtp-mcp-bridge
@@ -128,7 +129,7 @@ Claude Code already has a separate MCP registry. Add/use the VTP bridge on
 devcp:
 
 ```bash
-claude mcp add vtp -- /home/jackberrow/.local/bin/vtp-mcp-bridge
+claude mcp add vtp -- /home/<linux-user>/.local/bin/vtp-mcp-bridge
 claude mcp list
 ```
 
@@ -145,8 +146,8 @@ Codex CLI has its own MCP registry. Claude's MCP config does not carry over.
 On devcp:
 
 ```bash
-export PATH=/home/jackberrow/.local/bin:/home/jackberrow/.nvm/versions/node/v24.15.0/bin:$PATH
-codex mcp add vtp -- /home/jackberrow/.local/bin/vtp-mcp-bridge
+export PATH=/home/<linux-user>/.local/bin:/home/<linux-user>/.nvm/versions/node/v24.15.0/bin:$PATH
+codex mcp add vtp -- /home/<linux-user>/.local/bin/vtp-mcp-bridge
 codex mcp list
 ```
 
@@ -154,7 +155,7 @@ Expected:
 
 ```text
 Name  Command                                     Status
-vtp   /home/jackberrow/.local/bin/vtp-mcp-bridge  enabled
+vtp   /home/<linux-user>/.local/bin/vtp-mcp-bridge  enabled
 ```
 
 ## Restart
@@ -175,6 +176,8 @@ is built to respawn.
 - Each ssh reconnect generates a fresh 64-character bearer.
 - The Windows MCP server keeps the last three tokens warm for short reconnects.
 - The devcp bearer is written to `~/.vtp-bearer` with `0600` permissions.
+- While the ssh session is alive, a remote watchdog checks the bearer every 15
+  seconds and rewrites it if it has gone missing or stale.
 - When the ssh tunnel exits, the remote shell trap removes `~/.vtp-bearer`.
 
 If a Claude or Codex session was already open before rotation, restart that
@@ -184,8 +187,8 @@ client session if tool calls start failing authentication.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `codex: command not found` over ssh | Non-interactive PATH lacks Node/Codex | Export `/home/jackberrow/.local/bin` and the active nvm Node bin before running Codex |
-| `401 Unauthorized` from devcp | Bearer missing/stale | Restart `VTP-MCP-Tunnel`; verify `~/.vtp-bearer` exists and matches a warm token |
+| `codex: command not found` over ssh | Non-interactive PATH lacks Node/Codex | Export `/home/<linux-user>/.local/bin` and the active nvm Node bin before running Codex |
+| `401 Unauthorized` from devcp while port 4101 listens | Bearer missing/stale | Wait up to 15s for self-heal; if still broken, restart `VTP-MCP-Tunnel`; verify `~/.vtp-bearer` exists and matches a warm token |
 | `curl: connection refused` from devcp | Reverse tunnel is down | Restart `VTP-MCP-Tunnel`; inspect `vtp-tunnel.err.log` |
 | Windows has no listener on 4101 | MCP task is not running | Run `schtasks /Run /TN VTP-MCP`; inspect `vtp-mcp.err.log` |
 | `~/.vtp-bearer` remains after tunnel stop | Remote trap did not run | Remove it manually, then restart the tunnel |

@@ -59,3 +59,13 @@ super-gsd/source/
 
 # Operator-local MCP server config — machine-specific paths, not portable
 .mcp.json
+
+# Cockpit runtime artifacts — regenerable per session (verdict JSONs, rendered
+# HTML, Playwright screenshots, smoke outputs, server pidfiles). Always rebuilt
+# by running the cockpit / browser-smoke / playwright-audit. Pushing them
+# inflates the repo with locally-tied state.
+.planning/runtime/
+
+# VTP tunnel config carries operator-specific SSH paths. The .example file
+# is the portable template; the live .json stays out of the repo.
+super-gsd/config/vtp-tunnel.json

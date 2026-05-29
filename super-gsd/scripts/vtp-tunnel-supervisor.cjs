@@ -8,8 +8,9 @@
  *      the new token (plus any still-fresh prior tokens, capped at 3).
  *   3. Spawn `ssh -R 4101:127.0.0.1:4101 ...` to the Linux build host and
  *      pipe the token over ssh stdin.
- *   4. The remote shell writes ~/.vtp-bearer with mode 0600 and removes it
- *      via an EXIT trap when the ssh session ends.
+ *   4. The remote shell writes ~/.vtp-bearer with mode 0600, keeps it
+ *      self-healed while the ssh session is alive, and removes it via an
+ *      EXIT trap when the ssh session ends.
  *   5. When ssh exits (network drop, host reboot, etc.), the token used by
  *      that session is invalidated immediately on disk. Loop with a small
  *      backoff and a fresh token.
@@ -43,6 +44,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour, server-side ceiling. Each session token is also invalidated on ssh exit.
+const TOKEN_REFRESH_MS = 50 * 60 * 1000; // rotate before the server-side TTL expires
 const MAX_KEPT_TOKENS = 3; // overlap window for concurrent or quickly-rotating sessions
 const MIN_BACKOFF_MS = 2_000;
 const MAX_BACKOFF_MS = 60_000;
@@ -126,8 +128,10 @@ function buildSshArgs(cfg) {
   //      would require AcceptEnv VTP_MCP_BEARER in sshd_config - and would
   //      also leak the token via ps if we put it on the command line).
   //   3. Writes the token atomically to ~/.vtp-bearer (0600).
-  //   4. Installs an EXIT trap that removes ~/.vtp-bearer when the session ends.
-  //   5. Blocks on `tail -f /dev/null` to keep the session alive indefinitely.
+  //   4. Starts a lightweight remote watchdog that rewrites ~/.vtp-bearer if
+  //      it goes missing or stale while the reverse tunnel is still alive.
+  //   5. Installs an EXIT trap that removes ~/.vtp-bearer when the session ends.
+  //   6. Blocks on `tail -f /dev/null` to keep the session alive indefinitely.
   // When the supervisor kills the ssh process, the remote shell exits and
   // the trap fires - the bearer file is removed before the next session
   // rotates a fresh token.
@@ -137,14 +141,15 @@ function buildSshArgs(cfg) {
   // the trap-bearing shell alive as the parent.
   const remoteScript =
     'umask 077; ' +
+    'bearer_file=$HOME/.vtp-bearer; ' +
     'IFS= read -r __vtp_bearer; ' +
-    'tmp=$(mktemp $HOME/.vtp-bearer.XXXXXX); ' +
-    'printf "%s" "$__vtp_bearer" > "$tmp"; ' +
-    'unset __vtp_bearer; ' +
-    'mv "$tmp" $HOME/.vtp-bearer; ' +
-    'trap "rm -f $HOME/.vtp-bearer; kill -- -$$ 2>/dev/null; exit 0" EXIT INT TERM HUP; ' +
-    'tail -f /dev/null & ' +
-    'wait $!';
+    'write_bearer() { tmp=$(mktemp "$HOME/.vtp-bearer.XXXXXX") || exit 1; printf "%s" "$__vtp_bearer" > "$tmp"; mv "$tmp" "$bearer_file"; }; ' +
+    'write_bearer; ' +
+    'bearer_watchdog() { while sleep 15; do if [ "$(cat "$bearer_file" 2>/dev/null)" != "$__vtp_bearer" ]; then write_bearer; fi; done; }; ' +
+    'bearer_watchdog & bearer_watchdog_pid=$!; ' +
+    'trap \'if [ "$(cat "$bearer_file" 2>/dev/null)" = "$__vtp_bearer" ]; then rm -f "$bearer_file"; fi; kill "$bearer_watchdog_pid" "$tail_pid" 2>/dev/null; unset __vtp_bearer; exit 0\' EXIT INT TERM HUP; ' +
+    'tail -f /dev/null & tail_pid=$!; ' +
+    'wait "$tail_pid"';
   const args = [
     '-T',
     '-o', 'ServerAliveInterval=60',
@@ -192,9 +197,22 @@ async function runOnce(cfg, backoffMs) {
     }
 
     let exited = false;
+    const refreshTimer = setTimeout(() => {
+      if (exited) return;
+      console.error(`[tunnel] refreshing ssh session before token expiry (session=${sessionLabel})`);
+      try { child.kill('SIGTERM'); } catch {}
+      setTimeout(() => {
+        if (!exited) {
+          try { child.kill('SIGKILL'); } catch {}
+        }
+      }, 3000).unref?.();
+    }, TOKEN_REFRESH_MS);
+    refreshTimer.unref?.();
+
     const finish = (code, signal) => {
       if (exited) return;
       exited = true;
+      clearTimeout(refreshTimer);
       invalidateToken(cfg.token_file, token);
       console.error(`[tunnel] ssh exited code=${code} signal=${signal ?? 'none'} session=${sessionLabel} - token invalidated`);
       resolve();

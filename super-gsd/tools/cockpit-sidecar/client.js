@@ -41,6 +41,12 @@
       };
       span.textContent = labels[next] || String(next).toUpperCase();
       span.setAttribute('data-conn-tier', next);
+      // P143.4: a11y — announce connection-tier flips to screen readers.
+      // Set on first flip; idempotent on subsequent calls.
+      if (!span.hasAttribute('role')) {
+        span.setAttribute('role', 'status');
+        span.setAttribute('aria-live', 'polite');
+      }
     },
     attach: function () {
       try {
@@ -51,14 +57,24 @@
           connState.retries = 0;
           connState.setTier('live');
         };
-        es.onmessage = function (event) {
+        // P143.4: the server emits named events ("event: snapshot\n"), so
+        // es.onmessage (default-event handler) NEVER fires. That was the
+        // real source of operator's "page goes stale" — not the fs.watch.
+        // Register both: 'snapshot' for the named event, onmessage as a
+        // defensive fallback if any other path sends an unnamed frame.
+        function handleSnapshotFrame(event) {
           lastSnapshotAt = Date.now();
           try {
             const snap = JSON.parse(event.data);
             lastSnapshot = snap;
+            // Diagnostic mirrors — Playwright auditor reads these.
+            window.__sgsdLastSnapshot = snap;
+            window.__sgsdSnapshotCount = (window.__sgsdSnapshotCount || 0) + 1;
             renderAll(snap);
           } catch (_e) { /* ignore malformed payload */ }
-        };
+        }
+        es.addEventListener('snapshot', handleSnapshotFrame);
+        es.onmessage = handleSnapshotFrame;
         es.onerror = function () {
           connState.setTier('reconnecting');
           connState.scheduleReconnect();
@@ -92,6 +108,10 @@
       banner = document.createElement('div');
       banner.className = 'dead-mans-banner';
       banner.textContent = '⚠ NO SSE DATA — CONNECTION IS DEAD ⚠';
+      // P143.4: a11y — operator-facing critical state change. role=alert tells
+      // screen readers to interrupt; aria-live=assertive forces announcement.
+      banner.setAttribute('role', 'alert');
+      banner.setAttribute('aria-live', 'assertive');
       const main = document.querySelector('main.sgsd-cockpit');
       if (main) main.insertBefore(banner, main.firstChild);
       else document.body.appendChild(banner);
@@ -345,6 +365,11 @@
         '</ul></div>'
       : '';
     const cls = 'agent-lane' + (align === 'right' ? ' right' : '');
+    // P143.5 live ELI5 block — mirrors the WHAT/WHY/FILE/RISK/NEXT structure
+    // of the terminal cockpit (sgsd-codex-monitor.ps1). Operator wants
+    // "what Codex/Claude are doing RIGHT NOW with ELI5 context" on the web.
+    const live = agent.live || null;
+    const liveHtml = live ? renderAgentLive(live, isCodex) : '';
     return '' +
       '<div class="' + cls + '" data-status="' + status + '">' +
         '<div class="agent-head">' +
@@ -356,8 +381,39 @@
         '</div>' +
         '<div class="agent-meta mono">' + metaParts.join('') + '</div>' +
         '<div class="agent-task">' + task + '</div>' +
+        liveHtml +
         recentHtml +
       '</div>';
+  }
+
+  function renderAgentLive(live, isCodex) {
+    function rows(label, items, rowCls) {
+      if (!items || items.length === 0) return '';
+      return items.map(function (it) {
+        return '<div class="al-row ' + rowCls + '">' +
+          '<span class="al-lbl mono">' + label + '</span>' +
+          '<span class="al-text">' + escape(String(it)) + '</span>' +
+        '</div>';
+      }).join('');
+    }
+    const ageLabel = live.age_sec >= 0 ? fmtAge(live.age_sec) + ' old' : 'unknown age';
+    const ageTier = live.stale ? 'stale' : (live.age_sec > 600 ? 'aging' : 'live');
+    const synthBadge = live.synthesised
+      ? '<span class="al-synth-badge" title="synthesised from phase context — no live narrator running">synthesised</span>'
+      : '';
+    return '<div class="agent-live" data-age-tier="' + ageTier + '">' +
+      '<div class="al-head">' +
+        '<span class="lbl">' + (isCodex ? 'Codex ELI5' : 'Claude ELI5') + '</span>' +
+        '<span class="al-age mono" title="' + escape(live.fresh_at_iso || '') + '">' + escape(ageLabel) + '</span>' +
+        synthBadge +
+      '</div>' +
+      rows('ELI5', live.eli5, 'al-eli5') +
+      rows('WHAT', live.what, 'al-what') +
+      rows('WHY',  live.why,  'al-why') +
+      rows('FILE', live.files, 'al-file') +
+      rows('RISK', live.risks, 'al-risk') +
+      rows('NEXT', live.next,  'al-next') +
+    '</div>';
   }
 
   function renderTelemetry(snapshot) {
@@ -550,16 +606,17 @@
     const phaseId = snapshot.phase || (snapshot.mission && snapshot.mission.phase_id) || '—';
     const subTabs = '' +
       '<div class="sec-tabs">' +
-        '<button class="sec-tab active" data-view="dataflow">PHASE DATAFLOW</button>' +
-        '<button class="sec-tab" data-view="orchestration">SGSD ORCHESTRATION</button>' +
+        '<button class="sec-tab active" data-arch-tab="dataflow">PHASE DATAFLOW</button>' +
+        '<button class="sec-tab" data-arch-tab="orchestration">SGSD ORCHESTRATION</button>' +
       '</div>';
-    const svg = renderArchitectureSvg(snapshot);
+    const dataflowSvg = renderArchitectureSvg(snapshot);
+    const orchestrationSvg = renderArchitectureOrchestrationSvg(snapshot);
     const html =
       renderSectionHeader('3', 'Architecture Map', 'ARCHITECTURE',
         '2 views · phase dataflow · SGSD orchestration',
         'Two views of how this phase is wired: the technical dataflow and the agent/gate orchestration.') +
       subTabs +
-      '<div class="arch-frame">' +
+      '<div class="arch-frame" data-arch-view="dataflow">' +
         '<header class="arch-frame-head">' +
           '<span class="arch-frame-title mono">PHASE ' + escape(phaseId) + ' · DATAFLOW</span>' +
           '<span class="arch-frame-tags">' +
@@ -569,7 +626,17 @@
             '<span class="frame-tag tag-ro">READ-ONLY</span>' +
           '</span>' +
         '</header>' +
-        '<div class="arch-svg-wrap">' + svg + '</div>' +
+        '<div class="arch-svg-wrap">' + dataflowSvg + '</div>' +
+      '</div>' +
+      '<div class="arch-frame" data-arch-view="orchestration" hidden>' +
+        '<header class="arch-frame-head">' +
+          '<span class="arch-frame-title mono">PHASE ' + escape(phaseId) + ' · SGSD ORCHESTRATION</span>' +
+          '<span class="arch-frame-tags">' +
+            '<span class="frame-tag tag-live">LIVE</span>' +
+            '<span class="frame-tag tag-ro">READ-ONLY</span>' +
+          '</span>' +
+        '</header>' +
+        '<div class="arch-svg-wrap">' + orchestrationSvg + '</div>' +
       '</div>';
     if (section.innerHTML !== html) section.innerHTML = html;
   }
@@ -703,6 +770,154 @@
         '</marker>' +
       '</defs>' +
       headerHtml + edgeHtml + boxHtml +
+    '</svg>';
+  }
+
+  // P143.6 — SGSD Orchestration view. Operator (2026-05-26 screenshot):
+  // "SGSD-Orchestrator doesnt show anything there's no map for it". The tab
+  // button existed but no view was rendered. This SVG shows the agent +
+  // pipeline + gate orchestration grounded in live snapshot data.
+  //
+  // Layout:
+  //   Row 1: Claude (orchestrator) ←→ last-handoff ←→ Codex (executor)
+  //   Row 2: 5 pipeline stages (research / vtp-enrich / plan / execute / verify)
+  //   Row 3: 4 gates row (ATC · MUDA · browser-smoke · playwright_audit)
+  function renderArchitectureOrchestrationSvg(snapshot) {
+    const W = 1200, H = 520;
+    const agents = snapshot.agents || {};
+    const claude = agents.claude || {};
+    const codex = agents.codex || {};
+    const handoff = agents.last_handoff || {};
+    const pipeline = snapshot.pipeline || snapshot.stage_pipeline || {};
+    const stages = Array.isArray(pipeline.stages) && pipeline.stages.length
+      ? pipeline.stages
+      : ['research','vtp-enrich','plan','execute','verify'].map(function (id) {
+          return { id: id, status: 'pending' };
+        });
+    const phaseId = snapshot.phase || (snapshot.mission && snapshot.mission.phase_id) || '—';
+
+    // --- Row 1: agents ---
+    const agentH = 86;
+    const agentW = 280;
+    const claudeX = 60;
+    const codexX = W - agentW - 60;
+    const agentY = 70;
+    function agentBoxSvg(x, agent, role) {
+      const isOnline = agent.status === 'active' || agent.status === 'busy';
+      const fill = isOnline ? 'var(--live-bg)' : 'var(--bg-2)';
+      const stroke = isOnline ? 'var(--live)' : 'var(--ink-faint)';
+      const dotFill = isOnline ? 'var(--live)' : 'var(--ink-dim)';
+      const task = (agent.task || 'idle').slice(0, 36);
+      return '<g class="arch-orc-agent">' +
+        '<rect x="' + x + '" y="' + agentY + '" width="' + agentW + '" height="' + agentH + '" rx="6" fill="' + fill + '" stroke="' + stroke + '" stroke-width="1.5"/>' +
+        '<circle cx="' + (x + 16) + '" cy="' + (agentY + 18) + '" r="5" fill="' + dotFill + '"/>' +
+        '<text class="arch-orc-agent-name" x="' + (x + 30) + '" y="' + (agentY + 22) + '">' + escape(agent.handle || role) + '</text>' +
+        '<text class="arch-orc-agent-role mono" x="' + (x + 16) + '" y="' + (agentY + 44) + '">' + escape(role) + ' · ' + escape(agent.model || '—') + '</text>' +
+        '<text class="arch-orc-agent-task" x="' + (x + 16) + '" y="' + (agentY + 70) + '">' + escape(task) + '</text>' +
+      '</g>';
+    }
+    const claudeBox = agentBoxSvg(claudeX, claude, 'orchestrator');
+    const codexBox = agentBoxSvg(codexX, codex, 'executor');
+
+    // Handoff arrow between agents (horizontal)
+    const handoffY = agentY + agentH / 2;
+    const handoffMid = (claudeX + agentW + codexX) / 2;
+    const handoffLabel = handoff.kind
+      ? '<text class="arch-orc-handoff-label mono" x="' + handoffMid + '" y="' + (handoffY - 8) + '" text-anchor="middle">' + escape(handoff.kind) + '</text>'
+      : '';
+    const handoffPayload = handoff.payload
+      ? '<text class="arch-orc-handoff-payload mono" x="' + handoffMid + '" y="' + (handoffY + 16) + '" text-anchor="middle">' + escape(handoff.payload.slice(0, 60)) + '</text>'
+      : '';
+    const handoffArrow =
+      '<path d="M ' + (claudeX + agentW) + ' ' + handoffY + ' L ' + codexX + ' ' + handoffY + '" fill="none" stroke="var(--live)" stroke-width="1.8" stroke-dasharray="4 3" marker-end="url(#arch-orc-arrow)"/>' +
+      handoffLabel + handoffPayload;
+
+    // --- Row 2: 5 pipeline stages ---
+    const stageY = 230;
+    const stageH = 86;
+    const stagePad = 30;
+    const stageW = (W - stagePad * 2 - (stages.length - 1) * 24) / stages.length;
+    function stageColors(status) {
+      if (status === 'done')    return { fill: 'var(--done-bg)', stroke: 'var(--done)',  badge: 'DONE' };
+      if (status === 'active' || status === 'in_flight' || status === 'current')
+                                return { fill: 'var(--live-bg)', stroke: 'var(--live)',  badge: 'LIVE' };
+      if (status === 'blocked' || status === 'fail')
+                                return { fill: 'var(--severe-bg)', stroke: 'var(--severe)', badge: 'FAIL' };
+      return                           { fill: 'var(--bg-2)',    stroke: 'var(--ink-faint)', badge: 'PENDING' };
+    }
+    const stageBoxesSvg = stages.map(function (s, i) {
+      const x = stagePad + i * (stageW + 24);
+      const c = stageColors(s.status);
+      const stageLabel = (s.id || s.name || ('stage ' + (i + 1))).toString().toUpperCase();
+      return '<g class="arch-orc-stage" data-stage="' + escape(s.id || '') + '">' +
+        '<rect x="' + x + '" y="' + stageY + '" width="' + stageW + '" height="' + stageH + '" rx="4" fill="' + c.fill + '" stroke="' + c.stroke + '" stroke-width="1.5"/>' +
+        '<text class="arch-orc-stage-id mono" x="' + (x + 12) + '" y="' + (stageY + 24) + '">' + escape(stageLabel) + '</text>' +
+        '<text class="arch-orc-stage-badge mono" x="' + (x + stageW - 12) + '" y="' + (stageY + 24) + '" text-anchor="end" fill="' + c.stroke + '">' + c.badge + '</text>' +
+        '<text class="arch-orc-stage-owner" x="' + (x + 12) + '" y="' + (stageY + 50) + '">' + escape((s.owner || s.assignee || (i === 3 ? 'codex' : 'claude')).slice(0, 24)) + '</text>' +
+        '<text class="arch-orc-stage-sla mono" x="' + (x + 12) + '" y="' + (stageY + 72) + '">' + escape((s.sla || s.eta || '—').toString().slice(0, 24)) + '</text>' +
+      '</g>';
+    }).join('');
+    // Connector arrows between stages
+    const stageArrowsSvg = stages.slice(0, -1).map(function (_, i) {
+      const fromX = stagePad + i * (stageW + 24) + stageW;
+      const toX = stagePad + (i + 1) * (stageW + 24);
+      const y = stageY + stageH / 2;
+      return '<path d="M ' + fromX + ' ' + y + ' L ' + toX + ' ' + y + '" fill="none" stroke="var(--ink-mid)" stroke-width="1.4" marker-end="url(#arch-orc-arrow)"/>';
+    }).join('');
+
+    // Agent → first stage and last stage → agent (vertical legs)
+    const firstStageX = stagePad + stageW / 2;
+    const lastStageX = stagePad + (stages.length - 1) * (stageW + 24) + stageW / 2;
+    const agentLegs =
+      '<path d="M ' + (claudeX + agentW / 2) + ' ' + (agentY + agentH) + ' L ' + (claudeX + agentW / 2) + ' ' + (stageY - 10) + ' L ' + firstStageX + ' ' + (stageY - 10) + ' L ' + firstStageX + ' ' + stageY + '" fill="none" stroke="var(--ink-faint)" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#arch-orc-arrow)"/>' +
+      '<path d="M ' + lastStageX + ' ' + (stageY + stageH) + ' L ' + lastStageX + ' ' + (stageY + stageH + 14) + ' L ' + (codexX + agentW / 2) + ' ' + (stageY + stageH + 14) + ' L ' + (codexX + agentW / 2) + ' ' + (agentY + agentH) + '" fill="none" stroke="var(--ink-faint)" stroke-width="1.2" stroke-dasharray="3 3"/>';
+
+    // --- Row 3: gates ---
+    const gates = [
+      { id: 'atc',           label: 'ATC Step 6',        sub: 'validate' },
+      { id: 'muda',          label: 'MUDA',              sub: 'waste audit' },
+      { id: 'browser_smoke', label: 'browser-smoke',     sub: 'JSDOM · 18' },
+      { id: 'playwright',    label: 'playwright_audit',  sub: 'real Chrome · 38' },
+    ];
+    const gateY = 390;
+    const gateH = 70;
+    const gatePad = 80;
+    const gateW = (W - gatePad * 2 - (gates.length - 1) * 28) / gates.length;
+    const phaseGates = (snapshot.gates) || (snapshot.phase_capsule && snapshot.phase_capsule.gates) || {};
+    function gateState(id) {
+      const g = phaseGates[id];
+      if (g && g.verdict === 'PASS')                  return { fill: 'var(--done-bg)',   stroke: 'var(--done)',   badge: 'PASS' };
+      if (g && /SKIPPED/.test(g.verdict || ''))       return { fill: 'var(--bg-2)',      stroke: 'var(--ink-faint)', badge: 'SKIP' };
+      if (g && g.verdict === 'FAIL')                  return { fill: 'var(--severe-bg)', stroke: 'var(--severe)', badge: 'FAIL' };
+      return                                                  { fill: 'var(--bg-2)',      stroke: 'var(--ink-faint)', badge: '—' };
+    }
+    const gateBoxesSvg = gates.map(function (g, i) {
+      const x = gatePad + i * (gateW + 28);
+      const c = gateState(g.id);
+      return '<g class="arch-orc-gate" data-gate="' + escape(g.id) + '">' +
+        '<rect x="' + x + '" y="' + gateY + '" width="' + gateW + '" height="' + gateH + '" rx="4" fill="' + c.fill + '" stroke="' + c.stroke + '" stroke-width="1.5"/>' +
+        '<text class="arch-orc-gate-label" x="' + (x + 14) + '" y="' + (gateY + 26) + '">' + escape(g.label) + '</text>' +
+        '<text class="arch-orc-gate-sub mono" x="' + (x + 14) + '" y="' + (gateY + 48) + '">' + escape(g.sub) + '</text>' +
+        '<text class="arch-orc-gate-badge mono" x="' + (x + gateW - 14) + '" y="' + (gateY + 26) + '" text-anchor="end" fill="' + c.stroke + '">' + c.badge + '</text>' +
+      '</g>';
+    }).join('');
+
+    return '<svg class="arch-svg arch-svg-orc" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMinYMin meet">' +
+      '<defs>' +
+        '<marker id="arch-orc-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
+          '<path d="M 0 0 L 10 5 L 0 10 z" fill="var(--live)"/>' +
+        '</marker>' +
+      '</defs>' +
+      // Column headers (subtle)
+      '<text class="arch-col-head" x="200" y="50" text-anchor="middle">ORCHESTRATOR</text>' +
+      '<text class="arch-col-head" x="' + (W / 2) + '" y="220" text-anchor="middle">PIPELINE · 5 STAGES · PHASE ' + escape(phaseId) + '</text>' +
+      '<text class="arch-col-head" x="' + (W / 2) + '" y="380" text-anchor="middle">GATES · ATC · MUDA · UI</text>' +
+      '<text class="arch-col-head" x="' + (W - 200) + '" y="50" text-anchor="middle">EXECUTOR</text>' +
+      agentLegs +
+      handoffArrow +
+      claudeBox + codexBox +
+      stageArrowsSvg + stageBoxesSvg +
+      gateBoxesSvg +
     '</svg>';
   }
 
@@ -1549,6 +1764,24 @@
       if (tabEl) {
         const t = tabEl.getAttribute('data-tab');
         if (t) setActiveDetailTab(t);
+        return;
+      }
+      // P143.6 — Architecture sub-tab (Phase Dataflow / SGSD Orchestration).
+      // Tabs are .sec-tab buttons with data-arch-tab; views are .arch-frame
+      // siblings with data-arch-view. Click flips active class + hidden flag.
+      const archTabEl = target.closest('[data-arch-tab]');
+      if (archTabEl) {
+        const view = archTabEl.getAttribute('data-arch-tab');
+        const section = archTabEl.closest('#sec-architecture');
+        if (section && view) {
+          section.querySelectorAll('[data-arch-tab]').forEach(function (b) {
+            b.classList.toggle('active', b.getAttribute('data-arch-tab') === view);
+          });
+          section.querySelectorAll('[data-arch-view]').forEach(function (f) {
+            if (f.getAttribute('data-arch-view') === view) f.removeAttribute('hidden');
+            else f.setAttribute('hidden', '');
+          });
+        }
         return;
       }
     }

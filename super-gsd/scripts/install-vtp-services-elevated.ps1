@@ -4,7 +4,7 @@
 
 $ErrorActionPreference = 'Stop'
 
-$projectRoot = 'C:\Users\user\Voice-Text-Plan'
+$projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $installer   = Join-Path $projectRoot 'super-gsd\scripts\install-vtp-remote-services.ps1'
 $nssmPath    = 'C:\Users\user\AppData\Local\Microsoft\WinGet\Packages\NSSM.NSSM_Microsoft.Winget.Source_8wekyb3d8bbwe\nssm-2.24-101-g897c7ad\win64\nssm.exe'
 $nodeExe     = 'C:\Program Files\nodejs\node.exe'

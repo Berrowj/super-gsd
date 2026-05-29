@@ -278,6 +278,58 @@ button{font-family:inherit;color:inherit}
 .agent-last{color:var(--ink-mid)}
 .agent-since{color:var(--ink-dim)}
 
+/* P143.5 agent live ELI5 block — mirrors terminal-cockpit colour grammar. */
+.agent-live{
+  display:flex;flex-direction:column;gap:0.18rem;
+  padding:0.45rem 0.5rem;margin-top:0.4rem;
+  border:1px solid var(--line-dim);border-radius:3px;
+  background:var(--bg-1);
+}
+.agent-live[data-age-tier="stale"]{
+  border-color:var(--severe);background:var(--severe-bg);
+}
+.agent-live[data-age-tier="aging"]{
+  border-color:var(--attn);background:var(--attn-bg);
+}
+.agent-live .al-head{
+  display:flex;align-items:baseline;gap:0.5rem;
+  padding-bottom:0.3rem;margin-bottom:0.2rem;
+  border-bottom:1px dashed var(--line-dim);
+}
+.agent-live .al-head .lbl{
+  font:700 0.65rem/1 var(--sans);letter-spacing:0.05em;
+  text-transform:uppercase;color:var(--live);
+}
+.agent-live .al-age{font-size:0.6rem;color:var(--ink-dim)}
+.al-synth-badge{
+  font:600 0.55rem/1 var(--mono);letter-spacing:0.04em;text-transform:uppercase;
+  color:var(--ink-dim);background:var(--bg-2);
+  padding:0.12rem 0.32rem;border-radius:2px;
+}
+.al-row{
+  display:grid;grid-template-columns:3.1rem 1fr;gap:0.5rem;
+  align-items:baseline;
+  font:500 0.72rem/1.4 var(--mono);
+  padding:0.05rem 0;
+}
+.al-lbl{
+  font:700 0.6rem/1 var(--mono);letter-spacing:0.05em;
+  text-align:left;padding-top:0.12rem;
+}
+.al-text{color:var(--ink);overflow-wrap:break-word;word-break:break-word;min-width:0}
+/* Match the terminal monitor's colour grammar from the screenshot:
+   WHAT=teal/live, WHY=ink, FILE=ink-mid (filenames mono), RISK=severe, NEXT=attn */
+.al-row.al-eli5 .al-lbl{color:var(--live)}
+.al-row.al-eli5 .al-text{color:var(--live)}
+.al-row.al-what .al-lbl{color:var(--live)}
+.al-row.al-why  .al-lbl{color:var(--ink-mid)}
+.al-row.al-file .al-lbl{color:var(--ink-mid)}
+.al-row.al-file .al-text{color:var(--ink);font-family:var(--mono)}
+.al-row.al-risk .al-lbl{color:var(--severe)}
+.al-row.al-risk .al-text{color:var(--severe)}
+.al-row.al-next .al-lbl{color:var(--attn)}
+.al-row.al-next .al-text{color:var(--ink)}
+
 /* Handoff column */
 .handoff{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -2322,6 +2374,21 @@ main.sgsd-cockpit .ia-section[data-collapsed="true"] > *:not(.sec-header) {
 .arch-tag-bg.tag-edit { fill: var(--attn-bg); stroke: var(--attn-line); }
 .arch-tag-bg.tag-new  { fill: var(--live-bg); stroke: var(--live-line); }
 .arch-tag-bg.tag-live { fill: var(--done-bg); stroke: var(--done-line); }
+
+/* P143.6 — SGSD Orchestration sub-view (§3 second tab). */
+.arch-orc-agent-name { font: 700 16px/1 var(--sans); fill: var(--ink); }
+.arch-orc-agent-role { font: 500 11px/1 var(--mono); fill: var(--ink-dim); letter-spacing: 0.04em; }
+.arch-orc-agent-task { font: 500 13px/1 var(--sans); fill: var(--ink-mid); }
+.arch-orc-handoff-label   { font: 600 11px/1 var(--mono); fill: var(--live); letter-spacing: 0.08em; text-transform: uppercase; }
+.arch-orc-handoff-payload { font: 500 11px/1 var(--mono); fill: var(--ink-dim); }
+.arch-orc-stage-id    { font: 700 12px/1 var(--mono); fill: var(--ink); letter-spacing: 0.06em; }
+.arch-orc-stage-badge { font: 700 11px/1 var(--mono); letter-spacing: 0.06em; }
+.arch-orc-stage-owner { font: 500 12px/1 var(--sans); fill: var(--ink-mid); }
+.arch-orc-stage-sla   { font: 500 11px/1 var(--mono); fill: var(--ink-dim); }
+.arch-orc-gate-label  { font: 600 13px/1 var(--sans); fill: var(--ink); }
+.arch-orc-gate-sub    { font: 500 11px/1 var(--mono); fill: var(--ink-dim); }
+.arch-orc-gate-badge  { font: 700 11px/1 var(--mono); letter-spacing: 0.06em; }
+[hidden] { display: none !important; }
 .arch-tag-text {
   font: 600 9px/1 var(--mono);
   letter-spacing: 0.06em;
@@ -2901,11 +2968,19 @@ main.sgsd-cockpit .telem-cell,
 main.sgsd-cockpit .evidence-card,
 main.sgsd-cockpit .memory-card,
 main.sgsd-cockpit .ms-cell,
-main.sgsd-cockpit .ms-phase,
+main.sgsd-cockpit .ms-phase {
+  min-width: 0;
+  overflow: hidden;
+}
+
 main.sgsd-cockpit .mc-id-block,
 main.sgsd-cockpit .mc-title-block {
   min-width: 0;
-  overflow: hidden;
+  /* P143.4: was 'overflow: hidden' which clipped ~11px off the bottom of the
+     huge .mc-id phase number (line-height 0.88 leaves no descender room).
+     Constrain horizontally only — vertical clipping was never intentional. */
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 /* Long single-line monospace text in detail cells — show ellipsis instead

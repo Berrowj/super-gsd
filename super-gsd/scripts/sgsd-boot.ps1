@@ -1066,14 +1066,42 @@ $sgsd1 = Join-Path $ScriptsDir "sgsd-mission-control.ps1"
 $sgsd2 = Join-Path $ScriptsDir "sgsd-codex-monitor.ps1"
 $sgsd3 = Join-Path $ScriptsDir "sgsd-narrative.ps1"
 $dashboardHost = Join-Path $ScriptsDir "sgsd-dashboard-host.ps1"
+$cockpitServerStart = Join-Path $ScriptsDir "start-cockpit-server.ps1"
 $watchdog = Join-Path $ScriptsDir "sgsd-autopilot-watchdog.ps1"
 $codexWatch = Join-Path $ScriptsDir "sgsd-watch-codex.ps1"
 $codexWatchOpen = Join-Path $ScriptsDir "sgsd-open-codex-watch.ps1"
 
-foreach ($script in @($sgsd1, $sgsd2, $sgsd3, $dashboardHost, $watchdog, $codexWatch, $codexWatchOpen)) {
+foreach ($script in @($sgsd1, $sgsd2, $sgsd3, $dashboardHost, $cockpitServerStart, $watchdog, $codexWatch, $codexWatchOpen)) {
     if (-not (Test-Path $script)) {
         Write-Host "  MISSING: $script" -ForegroundColor Red
         exit 5
+    }
+}
+
+function Start-LocalhostCockpit {
+    if (-not (Test-Path -LiteralPath $cockpitServerStart)) {
+        Write-Step "localhost cockpit startup script missing" "WARN" Yellow
+        return
+    }
+
+    try {
+        $serverOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $cockpitServerStart -Workspace $ProjectDir 2>&1
+        $serverRc = $LASTEXITCODE
+        foreach ($line in $serverOut) {
+            Write-Host ("  {0}" -f $line) -ForegroundColor DarkGray
+        }
+        if ($serverRc -eq 0) {
+            $portFile = Join-Path $ProjectDir ".planning/runtime/cockpit-server.port"
+            $urlFile = Join-Path $ProjectDir ".planning/runtime/cockpit-server.url"
+            $url = if (Test-Path $urlFile) { (Get-Content -Path $urlFile -TotalCount 1 -ErrorAction SilentlyContinue) } else { "" }
+            $port = if (Test-Path $portFile) { (Get-Content -Path $portFile -TotalCount 1 -ErrorAction SilentlyContinue) } else { "" }
+            $label = if ($url) { "localhost cockpit healthy ($url)" } elseif ($port) { "localhost cockpit healthy (port $port)" } else { "localhost cockpit healthy" }
+            Write-Step $label "OK" Green
+        } else {
+            Write-Step "localhost cockpit failed to start [exit $serverRc]" "WARN" Yellow
+        }
+    } catch {
+        Write-Step "localhost cockpit startup threw: $($_.Exception.Message)" "WARN" Yellow
     }
 }
 
@@ -1139,6 +1167,8 @@ function Start-AutopilotWatchdog {
 }
 
 $wt = Get-Command wt.exe -ErrorAction SilentlyContinue
+
+Start-LocalhostCockpit
 
 if ($wt) {
     $closedProcesses = Stop-SgsdDashboardProcesses

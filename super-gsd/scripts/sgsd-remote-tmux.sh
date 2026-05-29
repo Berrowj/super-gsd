@@ -3,8 +3,8 @@
 # Super GSD remote tmux launcher
 # ============================================================================
 # Starts SGSD for a project inside a named tmux session. This is intended for
-# SSH hosts where the project has .planning/ but does not vendor super-gsd/.
-# Dashboard scripts are loaded from the global install:
+# SSH hosts. When the project worktree vendors super-gsd/, scripts are loaded
+# from that worktree; otherwise the launcher falls back to the global install:
 #   ~/.claude/super-gsd/scripts
 #
 # Example:
@@ -18,7 +18,7 @@ set -u
 
 PROJECT_DIR="${SGSD_PROJECT_DIR:-/opt/clarity/project-clarity-erp}"
 SESSION="${SGSD_TMUX_SESSION:-clarity-sgsd}"
-SCRIPTS_DIR="${SGSD_SCRIPTS_DIR:-$HOME/.claude/super-gsd/scripts}"
+SCRIPTS_DIR="${SGSD_SCRIPTS_DIR:-}"
 CLAUDE_MODE="greet"
 ATTACH=true
 RESET=false
@@ -34,7 +34,7 @@ Usage:
 Options:
   --project PATH       SGSD project root. Default: /opt/clarity/project-clarity-erp
   --session NAME       tmux session name. Default: clarity-sgsd
-  --scripts-dir PATH   SGSD global scripts path. Default: ~/.claude/super-gsd/scripts
+  --scripts-dir PATH   SGSD scripts path. Default: project super-gsd/scripts, then ~/.claude/super-gsd/scripts
   --greet              Start Claude with the SGSD greeting prompt. Default.
   --go                 Start Claude and immediately send "go" for auto mode.
   --shell              Do not start Claude; leave operator pane at a shell.
@@ -126,7 +126,19 @@ export PATH
 
 PROJECT_DIR="$(cd "$PROJECT_DIR" 2>/dev/null && pwd -P)" || die "project not found: $PROJECT_DIR"
 [[ -d "$PROJECT_DIR/.planning" ]] || die "missing .planning/ under $PROJECT_DIR"
-[[ -d "$SCRIPTS_DIR" ]] || die "missing SGSD global scripts dir: $SCRIPTS_DIR"
+if [[ -z "$SCRIPTS_DIR" ]]; then
+  if [[ -d "$PROJECT_DIR/super-gsd/scripts" ]]; then
+    SCRIPTS_DIR="$PROJECT_DIR/super-gsd/scripts"
+  else
+    SCRIPTS_DIR="$HOME/.claude/super-gsd/scripts"
+  fi
+fi
+[[ -d "$SCRIPTS_DIR" ]] || die "missing SGSD scripts dir: $SCRIPTS_DIR"
+
+COCKPIT_SERVER_START="$PROJECT_DIR/super-gsd/scripts/start-cockpit-server.sh"
+if [[ ! -f "$COCKPIT_SERVER_START" ]]; then
+  COCKPIT_SERVER_START="$SCRIPTS_DIR/start-cockpit-server.sh"
+fi
 
 if [[ "$SESSION" =~ [^A-Za-z0-9_.:-] ]]; then
   die "session name contains unsupported characters: $SESSION"
@@ -154,9 +166,36 @@ doctor() {
   check_cmd claude || true
   check_cmd codex || true
   check_cmd pwsh || true
+  [[ -f "$COCKPIT_SERVER_START" ]] && echo "  [OK]   localhost cockpit start script: $COCKPIT_SERVER_START" || echo "  [MISS] localhost cockpit start script"
+  if [[ -f "$PROJECT_DIR/.planning/runtime/cockpit-server.url" ]]; then
+    echo "  [OK]   cockpit url: $(head -n 1 "$PROJECT_DIR/.planning/runtime/cockpit-server.url" 2>/dev/null)"
+  fi
   [[ -f "$SCRIPTS_DIR/sgsd-mission-control.ps1" ]] && echo "  [OK]   mission control script" || echo "  [MISS] mission control script"
   [[ -f "$SCRIPTS_DIR/sgsd-codex-monitor.ps1" ]] && echo "  [OK]   codex monitor script" || echo "  [MISS] codex monitor script"
   [[ -f "$SCRIPTS_DIR/sgsd-narrative.ps1" ]] && echo "  [OK]   narrative script" || echo "  [MISS] narrative script"
+}
+
+start_localhost_cockpit() {
+  if [[ ! -f "$COCKPIT_SERVER_START" ]]; then
+    warn "localhost cockpit start script missing: $COCKPIT_SERVER_START"
+    return 0
+  fi
+
+  echo "SGSD localhost cockpit"
+  local out rc url
+  out="$(bash "$COCKPIT_SERVER_START" --workspace "$PROJECT_DIR" 2>&1)"
+  rc=$?
+  printf '%s\n' "$out" | sed 's/^/  /'
+  if [[ "$rc" -ne 0 ]]; then
+    warn "localhost cockpit failed to start (exit $rc)"
+    return 0
+  fi
+  if [[ -f "$PROJECT_DIR/.planning/runtime/cockpit-server.url" ]]; then
+    url="$(head -n 1 "$PROJECT_DIR/.planning/runtime/cockpit-server.url" 2>/dev/null || true)"
+    echo "SGSD localhost cockpit healthy: ${url:-http://localhost:7777/}"
+  else
+    echo "SGSD localhost cockpit healthy"
+  fi
 }
 
 if [[ "$DOCTOR" = true ]]; then
@@ -176,6 +215,8 @@ touch "$PROJECT_DIR/.planning/ORCHESTRATOR-LIVE.jsonl" 2>/dev/null || true
 if [[ "$RESET" = true ]] && tmux has-session -t "$SESSION" 2>/dev/null; then
   tmux kill-session -t "$SESSION"
 fi
+
+start_localhost_cockpit
 
 if tmux has-session -t "$SESSION" 2>/dev/null; then
   echo "SGSD tmux session already running: $SESSION"

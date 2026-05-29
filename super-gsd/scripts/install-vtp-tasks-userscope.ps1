@@ -9,7 +9,7 @@
 $ErrorActionPreference = 'Stop'
 
 $user = "$env:USERDOMAIN\$env:USERNAME"
-$proj = 'C:\Users\user\Voice-Text-Plan'
+$proj = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $mcpLauncher    = Join-Path $proj 'super-gsd\scripts\launch-vtp-mcp.vbs'
 $tunnelLauncher = Join-Path $proj 'super-gsd\scripts\launch-vtp-tunnel.vbs'
 

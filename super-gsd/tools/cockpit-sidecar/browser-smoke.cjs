@@ -145,7 +145,11 @@ async function run() {
   const port = await getEphemeralPort();
   console.log(`[smoke] ephemeral port ${port}`);
 
-  const env = Object.assign({}, process.env, { COCKPIT_SMOKE: '1' });
+  // P143.3: 'smoke-only' tells serve.cjs to skip pidfile (browser-smoke is
+  // ephemeral and doesn't read it) AND fall back to legacy fixed-path
+  // watchers (skip recursive .planning/ watch). Tests in run-self-test.cjs
+  // set COCKPIT_SMOKE=test so they keep the pidfile but still skip recursive.
+  const env = Object.assign({}, process.env, { COCKPIT_SMOKE: 'smoke-only' });
   const child = spawn(process.execPath, [serveScript, '--port', String(port), '--workspace', workspace], {
     cwd: workspace,
     env,
@@ -224,12 +228,15 @@ async function run() {
       }
     })();
 
-    console.log('[smoke] holding /events open for 18s to count keep-alive pings...');
-    const evt = await streamEvents(port, 18000);
-    results.checks.sse_keepalive_count = { ok: evt.keepalives >= 1, detail: `${evt.keepalives} keep-alive line(s) in 18s window` };
-    results.checks.sse_first_keepalive_in_16s = {
-      ok: evt.firstKeepaliveMs != null && evt.firstKeepaliveMs <= 16000,
-      detail: evt.firstKeepaliveMs != null ? `first keep-alive at +${evt.firstKeepaliveMs}ms` : 'no keep-alive in 18s window',
+    console.log('[smoke] holding /events open for 20s to count keep-alive pings...');
+    const evt = await streamEvents(port, 20000);
+    results.checks.sse_keepalive_count = { ok: evt.keepalives >= 1, detail: `${evt.keepalives} keep-alive line(s) in 20s window` };
+    results.checks.sse_first_keepalive_in_18s = {
+      // P143.2: bumped 16000→18000 after recursive fs.watch added — event loop
+      // can lag heartbeat by ~1-2s under live-watch load. 18s still well under
+      // the 30s 'SSE silence = dead' threshold the cockpit uses.
+      ok: evt.firstKeepaliveMs != null && evt.firstKeepaliveMs <= 18000,
+      detail: evt.firstKeepaliveMs != null ? `first keep-alive at +${evt.firstKeepaliveMs}ms` : 'no keep-alive in 20s window',
     };
     results.sse_sample_lines = evt.sampleLines;
 

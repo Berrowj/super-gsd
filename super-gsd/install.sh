@@ -49,6 +49,12 @@ INIT_LOCAL=false
 INSTALL_GLOBAL=false
 ENABLE_AUTOAPPROVE=false
 SAW_ACTION=false
+# P143.5 cockpit dep handling — opt-in for the ~112MB Chromium download.
+SKIP_COCKPIT_DEPS=false
+SETUP_COCKPIT_DEPS=false
+# P143.6 in-place update of an existing install (no skeleton rewrite, no
+# config overwrite — just refresh npm deps + agent registry + memory taxonomy).
+UPDATE_MODE=false
 
 AGENT_COUNT=0
 SKILL_COUNT=0
@@ -74,6 +80,12 @@ Local project setup:
       Create/update only project-local SGSD files in the current directory:
       .planning/, .planning/config.json, metrics skeleton, and CLAUDE.md when
       absent. --init-project is kept as a backward-compatible safe alias.
+  --update
+      Refresh an existing SGSD install in place. Re-runs npm install + agent
+      registry sync + memory taxonomy ensure, but does NOT recreate the
+      .planning/ skeleton, overwrite CLAUDE.md, or replace config.json. Safe
+      to run after a `git pull` to pick up new dependencies and registry
+      entries. Pair with --install-global to also refresh ~/.claude assets.
 
 Global Claude install:
   --install-global
@@ -89,6 +101,15 @@ Optional:
   --skip-brv
       Accepted for older docs/scripts as a no-op. Current SGSD memory is
       project-local .planning/memory, not BRV/ByteRover.
+  --skip-cockpit-deps
+      Skip 'npm install' for cockpit tooling during --init-project. Use when
+      you'll manage dependencies separately. The ATC playwright gate will not
+      work until 'npm install' is run.
+  --setup-cockpit-deps
+      Pair with --init-project to also download the Chromium binary
+      (~112MB) via 'npx playwright install chromium'. Required for the
+      ATC visual gate. Without this flag, the operator runs it manually:
+      'npm run cockpit:setup'.
   --dry-run
       Print actions without writing.
   --help
@@ -97,6 +118,9 @@ Optional:
 Examples:
   bash super-gsd/install.sh --doctor
   bash super-gsd/install.sh --init-project
+  bash super-gsd/install.sh --init-project --setup-cockpit-deps
+  bash super-gsd/install.sh --update
+  bash super-gsd/install.sh --update --install-global
   bash super-gsd/install.sh --install-global --dry-run
   bash super-gsd/install.sh --enable-autoapprove
 EOF
@@ -491,7 +515,141 @@ init_local_project() {
   fi
 
   ensure_memory_tree
+
+  # P143.5: cockpit dependencies. Skipped if no package.json at PROJECT_DIR
+  # (operators using SGSD as an embedded subdir of a different project don't
+  # have a root package.json and shouldn't be forced into one). Skipped if
+  # --skip-cockpit-deps was passed. The chromium binary is ~112MB; running it
+  # requires explicit operator consent on bandwidth-constrained machines, so
+  # we print the command and only run it when --setup-cockpit-deps is given.
+  if [ "$SKIP_COCKPIT_DEPS" = true ]; then
+    log "Skipping cockpit dep install (--skip-cockpit-deps)."
+  elif [ -f "$PROJECT_DIR/package.json" ] && command -v npm >/dev/null 2>&1; then
+    if [ "$DRY_RUN" = true ]; then
+      log "DRY RUN: would run 'npm install' in $PROJECT_DIR"
+      log "DRY RUN: would run 'npm run cockpit:setup' (downloads ~112MB Chromium)"
+    else
+      log "Installing cockpit npm deps (includes Playwright for ATC visual gate)..."
+      ( cd "$PROJECT_DIR" && npm install --no-audit --no-fund 2>&1 | sed 's/^/  /' ) \
+        || log "  WARNING: npm install failed (run manually: npm install)"
+      if [ "$SETUP_COCKPIT_DEPS" = true ]; then
+        # P143.6 — on Linux, Chromium needs apt-installed system libs to
+        # actually launch (libnss3, libatk-bridge2.0-0, etc.). The Linux
+        # variant uses `--with-deps`; it requires sudo. On Windows/macOS
+        # the binary download alone is sufficient.
+        if [ "$(uname -s 2>/dev/null)" = "Linux" ]; then
+          log "Detected Linux. Chromium needs system libs (libnss3 etc.)."
+          if [ "$EUID" = "0" ] || [ "$(id -u)" = "0" ]; then
+            log "Running 'npm run cockpit:setup-linux' (apt-installs deps + downloads Chromium)..."
+            ( cd "$PROJECT_DIR" && npm run --silent cockpit:setup-linux 2>&1 | sed 's/^/  /' ) \
+              || log "  WARNING: chromium install failed"
+          else
+            log "  Not running as root. Run manually with sudo:"
+            log "    sudo npm run cockpit:setup-linux"
+            log "  Or skip system libs (Chromium will fail to launch without them):"
+            log "    npm run cockpit:setup"
+          fi
+        else
+          log "Downloading Chromium binary for Playwright (one-time, ~112MB)..."
+          ( cd "$PROJECT_DIR" && npm run --silent cockpit:setup 2>&1 | sed 's/^/  /' ) \
+            || log "  WARNING: chromium install failed (run manually: npm run cockpit:setup)"
+        fi
+      else
+        log "  Chromium binary NOT downloaded. Run manually when ready:"
+        log "    cd $PROJECT_DIR && npm run cockpit:setup"
+        log "  (~112MB; required for the ATC playwright gate to work)"
+      fi
+    fi
+  fi
+
   log "Project-local initialization complete."
+}
+
+update_existing() {
+  # P143.6 surgical update of an existing SGSD install. Never touches
+  # operator state (.planning/, CLAUDE.md, config.json) — only refreshes
+  # the things that legitimately need a pull after a git update: npm deps,
+  # agent registry, memory taxonomy.
+  echo ""
+  log "Updating existing SGSD install in $PROJECT_DIR..."
+
+  if [ ! -f "$PROJECT_DIR/.planning/config.json" ] && [ ! -d "$PROJECT_DIR/.planning" ]; then
+    log "  WARN: no .planning/ directory found at $PROJECT_DIR"
+    log "  This looks like a first install, not an update."
+    log "  Run: bash super-gsd/install.sh --init-project"
+    return 0
+  fi
+
+  # 1. npm install — picks up new dependencies in package.json
+  if [ -f "$PROJECT_DIR/package.json" ] && command -v npm >/dev/null 2>&1; then
+    if [ "$DRY_RUN" = true ]; then
+      log "DRY RUN: would run 'npm install' in $PROJECT_DIR"
+    else
+      log "Refreshing npm dependencies..."
+      ( cd "$PROJECT_DIR" && npm install --no-audit --no-fund 2>&1 | sed 's/^/  /' ) \
+        || log "  WARNING: npm install failed (re-run manually)"
+    fi
+  else
+    log "  Skipping npm install (no package.json or npm not in PATH)"
+  fi
+
+  # 2. Agent registry sync — picks up newly-added agents/commands/skills
+  if [ -x "$SCRIPT_DIR/scripts/sgsd-registry-sync.sh" ]; then
+    if [ "$DRY_RUN" = true ]; then
+      log "DRY RUN: would sync agent registry under .planning/resource-registry"
+    else
+      log "Syncing agent / skill / command registry..."
+      bash "$SCRIPT_DIR/scripts/sgsd-registry-sync.sh" --root "$PROJECT_DIR" 2>/dev/null \
+        | sed 's/^/  /' \
+        || log "  WARNING: registry sync failed (non-blocking)"
+    fi
+  fi
+
+  # 3. Memory taxonomy — ensure new memory dirs exist if the schema grew.
+  # ensure_memory_tree is idempotent; existing entries are left untouched.
+  ensure_memory_tree
+
+  # 4. Diff check for CLAUDE.md — DO NOT overwrite. Just tell the operator
+  # if the bundled overlay has diverged from their CLAUDE.md so they can
+  # merge manually.
+  if [ -f "$PROJECT_DIR/CLAUDE.md" ] && [ -f "$SCRIPT_DIR/CLAUDE-OVERLAY.md" ]; then
+    if ! diff -q "$PROJECT_DIR/CLAUDE.md" "$SCRIPT_DIR/CLAUDE-OVERLAY.md" >/dev/null 2>&1; then
+      log "  NOTE: CLAUDE.md differs from super-gsd/CLAUDE-OVERLAY.md"
+      log "  This is expected if you customized CLAUDE.md. Compare manually:"
+      log "    diff CLAUDE.md super-gsd/CLAUDE-OVERLAY.md"
+    fi
+  fi
+
+  # 5. Diff check for config.json. Same policy — never overwrite.
+  if [ -f "$PROJECT_DIR/.planning/config.json" ] && [ -f "$SCRIPT_DIR/config/planning-config-overlay.json" ]; then
+    if ! diff -q "$PROJECT_DIR/.planning/config.json" "$SCRIPT_DIR/config/planning-config-overlay.json" >/dev/null 2>&1; then
+      log "  NOTE: .planning/config.json differs from the bundled overlay."
+      log "  Compare manually if you want to pick up new defaults:"
+      log "    diff .planning/config.json super-gsd/config/planning-config-overlay.json"
+    fi
+  fi
+
+  # 6. Cockpit deps (Chromium) — opt-in same as --init-project.
+  if [ "$SETUP_COCKPIT_DEPS" = true ] && [ -f "$PROJECT_DIR/package.json" ]; then
+    if [ "$DRY_RUN" = true ]; then
+      log "DRY RUN: would run cockpit:setup (Linux uses --with-deps under sudo)"
+    elif [ "$(uname -s 2>/dev/null)" = "Linux" ]; then
+      if [ "$EUID" = "0" ] || [ "$(id -u)" = "0" ]; then
+        log "Detected Linux + root. Running 'npm run cockpit:setup-linux'..."
+        ( cd "$PROJECT_DIR" && npm run --silent cockpit:setup-linux 2>&1 | sed 's/^/  /' ) \
+          || log "  WARNING: chromium install failed"
+      else
+        log "Detected Linux. Run as root for system libs:"
+        log "  sudo npm run cockpit:setup-linux"
+      fi
+    else
+      log "Downloading Chromium binary for Playwright..."
+      ( cd "$PROJECT_DIR" && npm run --silent cockpit:setup 2>&1 | sed 's/^/  /' ) \
+        || log "  WARNING: chromium install failed"
+    fi
+  fi
+
+  log "Update complete. Operator state (.planning/, CLAUDE.md, config.json) untouched."
 }
 
 enable_autoapprove() {
@@ -520,6 +678,10 @@ for arg in "$@"; do
       INIT_LOCAL=true
       SAW_ACTION=true
       ;;
+    --update)
+      UPDATE_MODE=true
+      SAW_ACTION=true
+      ;;
     --install-global)
       INSTALL_GLOBAL=true
       SAW_ACTION=true
@@ -530,6 +692,13 @@ for arg in "$@"; do
       ;;
     --skip-brv)
       log "--skip-brv accepted as a no-op; current SGSD uses .planning/memory."
+      ;;
+    --skip-cockpit-deps)
+      SKIP_COCKPIT_DEPS=true
+      ;;
+    --setup-cockpit-deps)
+      # Opt-in for the ~112MB Chromium download as part of --init-project.
+      SETUP_COCKPIT_DEPS=true
       ;;
     --with-brv)
       echo "ERROR: --with-brv is no longer supported. Current SGSD uses .planning/memory; run sgsd-memory-migrate for legacy BRV projects."
@@ -569,6 +738,10 @@ if [ "$INIT_LOCAL" = true ]; then
   init_local_project
 fi
 
+if [ "$UPDATE_MODE" = true ]; then
+  update_existing
+fi
+
 if [ "$ENABLE_AUTOAPPROVE" = true ]; then
   enable_autoapprove
 fi
@@ -582,12 +755,14 @@ echo "Actions:"
 [ "$RUN_DOCTOR" = true ] && echo "  doctor: read-only checks"
 [ "$INSTALL_GLOBAL" = true ] && echo "  install-global: ~/.claude assets updated"
 [ "$INIT_LOCAL" = true ] && echo "  init-local: project-local SGSD files updated"
+[ "$UPDATE_MODE" = true ] && echo "  update: refreshed npm + registry; operator state untouched"
 [ "$ENABLE_AUTOAPPROVE" = true ] && echo "  enable-autoapprove: global Claude permissions changed"
 echo "  memory: .planning/memory"
 echo ""
 echo "Next safe commands:"
 echo "  bash super-gsd/install.sh --doctor"
 echo "  bash super-gsd/install.sh --init-project"
+echo "  bash super-gsd/install.sh --update"
 echo "  bash super-gsd/install.sh --install-global --dry-run"
 echo ""
 if [ "$SAW_ACTION" = false ]; then

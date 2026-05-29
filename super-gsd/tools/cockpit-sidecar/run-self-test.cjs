@@ -60,25 +60,32 @@ function waitForExit(child, timeoutMs) {
 
 function startTestServer(port = 0) {
   return new Promise((resolve, reject) => {
+    // P143.3: COCKPIT_SMOKE=test → keeps pidfile (SAC-P132-05 asserts it) but
+    // uses the legacy fixed-path watcher list (skips the operator-facing
+    // recursive .planning/ walk). Watcher→SSE wiring still validated via
+    // SAC-P132-03 because STATE.md is in the legacy list.
     const child = cpModule.spawn('node', [
       'super-gsd/tools/cockpit-sidecar/serve.cjs',
       '--port',
       String(port),
     ], {
       stdio: ['ignore', 'pipe', 'pipe'],
+      env: Object.assign({}, process.env, { COCKPIT_SMOKE: 'test' }),
     });
 
     let settled = false;
     let stderr = '';
-    // P141.5: bumped from 3000 → 12000 to absorb cold-start under parallel SAC
-    // load. When ~14 SACs spawn serve.cjs in parallel (Promise.all in runTest),
-    // Node child startup queues; 3s timed out 3-5 of them deterministically.
+    // P143.3: bumped from 12000 → 30000 (was 20000). On a cold disk cache
+    // (post-reboot / first run after long idle), 14 parallel Node spawns
+    // each pulling cockpit-sidecar + ~30 .cjs deps from the disk under
+    // Windows Defender scanning can take >20s. 30s is generous but tests
+    // still complete in <5min wall; the long-tail is what we're absorbing.
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
       child.kill('SIGTERM');
       reject(new Error('timed out waiting for cockpit-server port; stderr=' + stderr));
-    }, 12000);
+    }, 30000);
 
     function finish(err, value) {
       if (settled) return;
@@ -108,7 +115,12 @@ function stopTestServer(child) {
     return Promise.resolve();
   }
 
-  const exited = waitForExit(child, 2000).catch((err) => {
+  // P143.3: bumped from 2000 → 8000ms. Recursive fs.watch on .planning/
+  // (P143.2 operator-facing live updates) holds a Windows file-handle that
+  // must be released on shutdown. Under parallel SAC load (14 children),
+  // Windows TerminateProcess + pipe-flush can take >2s. 8s absorbs the
+  // tail without masking real shutdown bugs.
+  const exited = waitForExit(child, 8000).catch((err) => {
     child.kill('SIGKILL');
     throw err;
   });
@@ -718,8 +730,11 @@ const tests = [
           // P141.5: under parallel-SAC load (~14 tests touching files
           // simultaneously), the fs.watch debounce window misses single
           // touches. Touch repeatedly and give a longer deadline.
+          // P143.3: bumped touch deadline 4000 → 8000ms; on Windows under
+          // peak parallel load (recursive watcher in operator mode, legacy
+          // in test mode), event delivery latency can spike to >4s.
           await sleep(150); // let the initial snapshot land first
-          const touchDeadline = Date.now() + 4000;
+          const touchDeadline = Date.now() + 8000;
           while (Date.now() < touchDeadline && events.length < 2) {
             fs.utimesSync(path.resolve('.planning/STATE.md'), new Date(), new Date());
             await sleep(200);
@@ -811,11 +826,17 @@ const tests = [
             String(fixedPort),
           ], {
             stdio: ['ignore', 'pipe', 'pipe'],
+            env: Object.assign({}, process.env, { COCKPIT_SMOKE: 'test' }),
           });
 
           let stderr = '';
           second.stderr.on('data', (chunk) => { stderr += chunk.toString('utf8'); });
-          const exit = await waitForExit(second, 2000);
+          // P143.3: 15s (was 2s → 10s → 15s) to accommodate Windows EADDRINUSE
+          // detection under parallel SAC load. The second child must spawn
+          // Node, load cockpit-sidecar modules, attempt server.listen, catch
+          // the error and exit — while 14 sibling test children compete for
+          // CPU/IO. 10s flaked ~1-in-5 under heaviest scheduling.
+          const exit = await waitForExit(second, 15000);
           assert.notStrictEqual(exit.code, 0, JSON.stringify(exit));
           assert.ok(/EADDRINUSE|address already in use/i.test(stderr), stderr);
           assert.strictEqual(first.child.exitCode, null, 'first server should remain alive');

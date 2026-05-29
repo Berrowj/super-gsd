@@ -923,6 +923,170 @@ function attachAgents(output) {
   return output;
 }
 
+// P143.5: live agent ELI5 narration. The terminal cockpit
+// (super-gsd/scripts/sgsd-codex-monitor.ps1) renders a WHAT/WHY/FILE/RISK/NEXT
+// block for each agent in real time. Operator (2026-05-26): "I want this on
+// the localhost cockpit too so I can see what Codex and Claude are doing at
+// this current moment." The data sources are written by the .ps1 monitor:
+//   - .planning/metrics/codex-eli5-relay.result.json (latest Codex chunk
+//     summary; structured by `summary` string with ELI5/PHASE WHY/FILES/
+//     RISKS/NEXT section headers)
+//   - .planning/metrics/claude-eli5.md (Haiku-generated narrative for the
+//     orchestrator side; written when monitor is live)
+function parseEli5Summary(rawText) {
+  // Parse the structured-summary format produced by the Codex narrator and
+  // the Haiku claude-eli5 worker. Sections are demarcated by uppercase
+  // headers ending with ':' on their own line; bullets are dash-prefixed.
+  if (!rawText || typeof rawText !== 'string') return null;
+  const HEADERS = {
+    'STATUS:': 'status',
+    'ELI5:': 'eli5',
+    'WHAT:': 'what',
+    'WHY:': 'why',
+    'PHASE WHY:': 'why',
+    'FILES:': 'files',
+    'FILE:': 'files',
+    'RISKS:': 'risks',
+    'RISK:': 'risks',
+    'NEXT:': 'next',
+    'CALL TO ACTION:': 'next',
+    'VISUAL:': 'visual',
+  };
+  const out = { status: '', eli5: [], what: [], why: [], files: [], risks: [], next: [], visual: '' };
+  let current = null;
+  const lines = rawText.split(/\r?\n/);
+  for (const rawLine of lines) {
+    const line = rawLine.replace(/\s+$/, '');
+    if (!line.trim()) continue;
+    const upper = line.trim().toUpperCase();
+    // Header line — switch section
+    let matched = false;
+    for (const k of Object.keys(HEADERS)) {
+      if (upper === k || upper.startsWith(k)) {
+        current = HEADERS[k];
+        const tail = line.trim().slice(k.length).trim();
+        if (tail) {
+          if (current === 'status' || current === 'visual') {
+            out[current] = (out[current] ? out[current] + '\n' : '') + tail;
+          } else {
+            out[current].push(tail);
+          }
+        }
+        matched = true;
+        break;
+      }
+    }
+    if (matched) continue;
+    if (!current) continue;
+    // ASCII visual section (preserve as-is)
+    if (current === 'visual') {
+      out.visual += (out.visual ? '\n' : '') + line;
+      continue;
+    }
+    // Bullets: lines starting with '-', '*', or '+'
+    const bullet = line.match(/^\s*[-*+]\s+(.+)$/);
+    if (bullet) {
+      if (Array.isArray(out[current])) out[current].push(bullet[1].trim());
+      else out[current] = (out[current] ? out[current] + ' ' : '') + bullet[1].trim();
+      continue;
+    }
+    // Continuation of previous bullet — append to last entry
+    if (Array.isArray(out[current]) && out[current].length > 0) {
+      out[current][out[current].length - 1] += ' ' + line.trim();
+    } else if (current === 'status') {
+      out.status = (out.status ? out.status + ' ' : '') + line.trim();
+    }
+  }
+  // Cap arrays to avoid runaway block height
+  for (const k of ['eli5', 'what', 'why', 'files', 'risks', 'next']) {
+    out[k] = out[k].slice(0, 6).map((s) => s.slice(0, 280));
+  }
+  return out;
+}
+
+function attachAgentLiveEli5(output) {
+  const ensureAgents = () => { if (!output.agents) output.agents = {}; };
+  ensureAgents();
+  if (!output.agents.codex) output.agents.codex = {};
+  if (!output.agents.claude) output.agents.claude = {};
+
+  // PowerShell -Encoding utf8 writes a BOM on Windows; JSON.parse rejects
+  // the leading ﻿, so strip it before parsing.
+  function readJsonStrippingBom(p) {
+    let t = fs.readFileSync(p, 'utf8');
+    if (t.charCodeAt(0) === 0xFEFF) t = t.slice(1);
+    return JSON.parse(t);
+  }
+
+  // --- Codex side ---
+  try {
+    const codexPath = path.resolve('.planning/metrics/codex-eli5-relay.result.json');
+    if (fs.existsSync(codexPath)) {
+      const stat = fs.statSync(codexPath);
+      const ageSec = Math.max(0, Math.floor((Date.now() - stat.mtimeMs) / 1000));
+      const raw = readJsonStrippingBom(codexPath);
+      const parsed = parseEli5Summary(raw && raw.summary);
+      if (parsed) {
+        output.agents.codex.live = {
+          source: '.planning/metrics/codex-eli5-relay.result.json',
+          fresh_at_iso: raw.ts || new Date(stat.mtimeMs).toISOString(),
+          age_sec: ageSec,
+          stale: ageSec > 1800,  // >30min = stale
+          eli5: parsed.eli5,
+          what: parsed.what.length ? parsed.what : parsed.eli5.slice(0, 2),
+          why: parsed.why,
+          files: parsed.files,
+          risks: parsed.risks,
+          next: parsed.next,
+        };
+      }
+    }
+  } catch (_e) { /* leave codex.live unset */ }
+
+  // --- Claude side ---
+  try {
+    const claudePath = path.resolve('.planning/metrics/claude-eli5.md');
+    if (fs.existsSync(claudePath)) {
+      const stat = fs.statSync(claudePath);
+      const ageSec = Math.max(0, Math.floor((Date.now() - stat.mtimeMs) / 1000));
+      const raw = fs.readFileSync(claudePath, 'utf8');
+      const parsed = parseEli5Summary(raw);
+      if (parsed) {
+        output.agents.claude.live = {
+          source: '.planning/metrics/claude-eli5.md',
+          fresh_at_iso: new Date(stat.mtimeMs).toISOString(),
+          age_sec: ageSec,
+          stale: ageSec > 1800,
+          eli5: parsed.eli5,
+          what: parsed.what.length ? parsed.what : parsed.eli5.slice(0, 2),
+          why: parsed.why,
+          files: parsed.files,
+          risks: parsed.risks,
+          next: parsed.next,
+        };
+      }
+    }
+  } catch (_e) { /* leave claude.live unset */ }
+
+  // Fallback: synthesise a minimal live block from phase context if either
+  // agent has no relay file (operator gets SOMETHING instead of blank).
+  if (!output.agents.claude.live && output.mission) {
+    output.agents.claude.live = {
+      source: 'synthesised from phase mission',
+      fresh_at_iso: new Date().toISOString(),
+      age_sec: 0,
+      stale: false,
+      synthesised: true,
+      eli5: [output.mission.eli5 || ''].filter(Boolean),
+      what: [(output.agents.claude.task || 'orchestrating phase work').slice(0, 240)],
+      why: [(output.mission.why || output.mission.objective || '').slice(0, 240)].filter(Boolean),
+      files: [],
+      risks: [],
+      next: [(output.mission.next_action || '').slice(0, 240)].filter(Boolean),
+    };
+  }
+}
+
 function attachArchitecture(output) {
   // P140: derive a node+edge graph from the active phase's CONTEXT.md
   // "Authoritative inputs" section + a default SGSD-flow chain.
@@ -1715,6 +1879,7 @@ function attachAll(output, opts) {
   safe('mission',        function () { attachMission(output, opts || {}); });
   safe('pipeline',       function () { attachPipeline(output); });
   safe('agents',         function () { attachAgents(output); });
+  safe('agents_live',    function () { attachAgentLiveEli5(output); });
   safe('architecture',   function () { attachArchitecture(output); });
   safe('milestone_map',  function () { attachMilestoneMap(output); });
   safe('memory_graph',   function () { attachMemoryGraph(output); });
