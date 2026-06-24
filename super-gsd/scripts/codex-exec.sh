@@ -198,11 +198,20 @@ fi
 CODEX_COMMAND="codex"
 CODEX_LAUNCHER="direct"
 CODEX_PROJECT="$PROJECT"
-if [[ -r /proc/version ]] && grep -qi microsoft /proc/version 2>/dev/null && command -v cmd.exe >/dev/null 2>&1; then
-    CODEX_COMMAND="cmd.exe"
-    CODEX_LAUNCHER="cmd"
-    if command -v wslpath >/dev/null 2>&1; then
-        CODEX_PROJECT="$(wslpath -w "$PROJECT" 2>/dev/null || echo "$PROJECT")"
+# Under WSL, prefer a native-Linux codex over the Windows interop shim. The
+# Linux build sandboxes via landlock, avoiding the CreateProcessAsUserW/error-216
+# file-read block that the cmd.exe->Windows-codex path hits. A /mnt/* resolution
+# IS the Windows shim; only then fall back to cmd.exe.
+if [[ -r /proc/version ]] && grep -qi microsoft /proc/version 2>/dev/null; then
+    CODEX_ON_PATH="$(command -v codex 2>/dev/null || true)"
+    if [[ -n "$CODEX_ON_PATH" && "$CODEX_ON_PATH" != /mnt/* ]]; then
+        : # native-Linux codex present — keep direct launcher (POSIX --cd, no 216)
+    elif command -v cmd.exe >/dev/null 2>&1; then
+        CODEX_COMMAND="cmd.exe"
+        CODEX_LAUNCHER="cmd"
+        if command -v wslpath >/dev/null 2>&1; then
+            CODEX_PROJECT="$(wslpath -w "$PROJECT" 2>/dev/null || echo "$PROJECT")"
+        fi
     fi
 fi
 

@@ -126,11 +126,22 @@ fi
 CODEX_CD="$WORKSPACE"
 CODEX_LAUNCHER="direct"
 CODEX_BIN="codex"
-if [[ -r /proc/version ]] && grep -qi microsoft /proc/version 2>/dev/null && command -v cmd.exe >/dev/null 2>&1; then
-    CODEX_LAUNCHER="cmd"
-    CODEX_BIN="cmd.exe"
-    if command -v wslpath >/dev/null 2>&1; then
-        CODEX_CD="$(wslpath -w "$WORKSPACE" 2>/dev/null || echo "$WORKSPACE")"
+# Under WSL, prefer a native-Linux codex over the Windows interop shim. The
+# Linux build sandboxes via landlock, avoiding the CreateProcessAsUserW/error-216
+# file-read block that the cmd.exe->Windows-codex path hits (and that forces the
+# read-pack patch fallback). A /mnt/* resolution IS the Windows shim; only then
+# fall back to cmd.exe. See SPIKE-OMNIGENT-vector1: Linux codex reads the repo
+# clean, Windows codex 216s.
+if [[ -r /proc/version ]] && grep -qi microsoft /proc/version 2>/dev/null; then
+    CODEX_ON_PATH="$(command -v codex 2>/dev/null || true)"
+    if [[ -n "$CODEX_ON_PATH" && "$CODEX_ON_PATH" != /mnt/* ]]; then
+        : # native-Linux codex present — keep direct launcher (POSIX --cd, no 216)
+    elif command -v cmd.exe >/dev/null 2>&1; then
+        CODEX_LAUNCHER="cmd"
+        CODEX_BIN="cmd.exe"
+        if command -v wslpath >/dev/null 2>&1; then
+            CODEX_CD="$(wslpath -w "$WORKSPACE" 2>/dev/null || echo "$WORKSPACE")"
+        fi
     fi
 fi
 
