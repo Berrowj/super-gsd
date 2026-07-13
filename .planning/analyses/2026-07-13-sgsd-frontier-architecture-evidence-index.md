@@ -33,7 +33,7 @@ When sources conflict, the higher authority governs the claim it is competent to
 | SRC-001 | Governance | `AGENTS.md` | Contract | Git 2026-05-22 `9ad566f` | Tier 4 | DOCUMENTED: tool-neutral topology, truth locations, gate reuse, optional VTP, and source-mutation rules; milestone wording is contradicted below. | Yes — content |
 | SRC-002 | Governance | `WARP.md` | Contract | Git 2026-04-29 `4bbeb78` | Tier 4 | DOCUMENTED: Warp command surface, `sg` topology, workflow entry points, and Warp-specific authority. | Yes — content |
 | SRC-003 | Governance | `CLAUDE.md` | Contract | Git 2026-05-13 `1ec54ca` | Tier 4 | DOCUMENTED: Claude-only control-plane duties, triage triggers, auto-loop dispatch ownership, model lock, checkpoint protocol, and exit conditions. | Yes — content |
-| SRC-004 | State & Intent | `.planning/STATE.md` | Planning truth | Git 2026-05-30 `4bea7a9`; frontmatter says v3.4/P999 active | Tier 1 | OBSERVED: current runtime position is v3.4 with P999 pending; internal activity narrative has stale fields noted below. | Yes — content |
+| SRC-004 | State & Intent | `.planning/STATE.md` | Planning truth | Git 2026-05-30 `4bea7a9`; milestone v3.4 active, P999 pending | Tier 1 | OBSERVED: current runtime position is milestone v3.4 with P999 pending; internal activity narrative has stale fields noted below. | Yes — content |
 | SRC-005 | State & Intent | `.planning/milestones/v3.4/INTENT.md` | Planning truth | Created 2026-05-24; Git `6fea42f`; `closed_at: null` | Tier 1 | OBSERVED: v3.4 mission, binding cockpit invariants, entry/exit criteria, and current milestone scope. | Yes — content |
 | SRC-006 | State & Intent | `.planning/milestones/v3.4/ROADMAP.md` | Absence finding | Absent in 2026-07-13 census | Tier 1 expected | OBSERVED: the canonical per-milestone roadmap named by `AGENTS.md` does not exist for the active milestone. | Yes — absence |
 | SRC-007 | Governance | `.planning/ROADMAP.md` | Historical planning | Git 2026-05-22 `9ad566f`; catalog ends at v3.2 | Tier 5 | OBSERVED: top-level roadmap is a shipped-history catalog and still says v3.3 scoping is open, so it cannot establish v3.4 position. | Yes — content |
@@ -73,7 +73,7 @@ When sources conflict, the higher authority governs the claim it is competent to
 | SRC-041 | Registries & Contracts | `super-gsd/registry/agents.yaml` | Registry | Git 2026-05-13 `1ec54ca`; registry 2.0.0 | Tier 2 | CONFIGURED: executor categories, Codex defaults, pick heuristics, contracts, emits, and lifecycle states. | Yes — content |
 | SRC-042 | Registries & Contracts | `super-gsd/registry/board-members.yaml` | Registry | Git 2026-05-13 `1ec54ca`; registry 2.2.0 | Tier 2 | CONFIGURED: Opus board roster has architect/contrarian active and several legacy members disabled. | Yes — content |
 | SRC-043 | Registries & Contracts | `super-gsd/registry/gates.yaml` | Registry | Git 2026-05-13 `1ec54ca`; registry 2.2.1 | Tier 2 | CONFIGURED: canonical gate enforcement modes, triggers, evidence, and escalation policy. | Yes — content |
-| SRC-044 | Registries & Contracts | `super-gsd/registry/decisions.yaml` | Registry | Git 2026-05-22 `503155c` | Tier 2 | CONFIGURED: architecture-decision vocabulary and locked governance choices consumed by SGSD. | Yes — content |
+| SRC-044 | Registries & Contracts | `super-gsd/registry/decisions.yaml` | Registry | Git 2026-05-22 `503155c`; registry 2.0.0 scaffold | Tier 4 — documented scaffold | OBSERVED: `decision_steps` is empty, `_example_entry` is non-executable schema documentation, and no executable or skill consumer was found in the census. | Yes — content |
 | SRC-045 | Registries & Contracts | `super-gsd/registry/handover-contract-v2.yaml` | Registry | Git 2026-05-13 `1ec54ca` | Tier 2 | CONFIGURED: bounded dispatch input/output fields, token/time budgets, evidence, and declared emits. | Yes — content |
 | SRC-046 | Registries & Contracts | `super-gsd/registry/command-envelope-v1.yaml` | Registry | Git 2026-04-27 `1e8fe9a`; registry 1.0.1 | Tier 2 | CONFIGURED: shared command-event envelope, emitter migration state, reason codes, and evidence links. | Yes — content |
 | SRC-047 | Registries & Contracts | `super-gsd/registry/codex-profiles.yaml` | Registry | Git 2026-05-20 `2736806` | Tier 2 | CONFIGURED: GPT-5.5 profiles bind reasoning, sandbox, worktree, plan-lock, hook, review, and change-limit policy. | Yes — content |
@@ -98,7 +98,7 @@ When sources conflict, the higher authority governs the claim it is competent to
 | SRC-066 | Assurance & Memory | `super-gsd/tools/memory-governance/lifecycle.cjs` | Implementation | Git 2026-04-28 `deac02a` | Tier 2 | OBSERVED: deterministic admission, promotion, demotion, revocation, revalidation, and complaint processing govern durable memory. | Yes — content |
 | SRC-067 | Assurance & Memory | `super-gsd/tools/mesh-memory/lineage.cjs` | Implementation | Git 2026-05-20 `614ee9e` | Tier 2 | OBSERVED: typed cognitive-memory records can be traversed through parent lineage with bounded depth. | Yes — content |
 | SRC-068 | Assurance & Memory | `super-gsd/tools/mesh-memory/evidence-validator.cjs` | Implementation | Git 2026-05-20 `614ee9e` | Tier 2 | OBSERVED: evidence validation assigns closed critical statuses and writes lineaged CMB evidence. | Yes — content |
-| SRC-069 | Observability & Recovery | `super-gsd/tools/cockpit-state/adapter.cjs` | Implementation | Git 2026-04-30 `7b47b6d` | Tier 2 | OBSERVED: read-only adapter composes a ten-section snapshot from live events, ledgers, and `STATE.md`, with explicit degraded sections. | Yes — content |
+| SRC-069 | Observability & Recovery | `super-gsd/tools/cockpit-state/adapter.cjs` | Implementation | Git 2026-04-30 `7b47b6d` | Tier 2 | OBSERVED: read-only adapter defines and self-tests a 12-section snapshot from live events, ledgers, and `STATE.md`, with explicit degraded sections. | Yes — content |
 | SRC-070 | Observability & Recovery | `super-gsd/tools/cockpit-sidecar/cockpit-sidecar.cjs` | Implementation | Git 2026-05-30 `4bea7a9` | Tier 2 | OBSERVED: sidecar composes pipeline, rationale, fog, north-star, alerts, chronicle, Codex, and token sources for cockpit rendering. | Yes — content |
 | SRC-071 | Observability & Recovery | `super-gsd/tools/warp-mcp/server.cjs` | Implementation | Git 2026-05-22 `503155c`; 15 frozen tools | Tier 2 | OBSERVED: read-only JSON-RPC MCP exposes state, phase, milestone, watchdog, gates, Codex, cockpit, recovery, and related status tools with degraded envelopes. | Yes — content |
 | SRC-072 | Observability & Recovery | `super-gsd/tools/warp-mcp-actions/server.cjs` | Implementation | Git 2026-04-29 `95217e5`; 3 tools | Tier 2 | OBSERVED: separate write-capable MCP uses approval tiers, default deny, denied-forever actions, and audit logging. | Yes — content |
@@ -122,16 +122,18 @@ When sources conflict, the higher authority governs the claim it is competent to
 | SRC-090 | Architecture Tests | `super-gsd/scripts/lib/board-registry.test.cjs` | Test | Git 2026-05-13 `1ec54ca` | Tier 3 | OBSERVED: board resolution tests exclude disabled/default and escalation members according to registry state. | Yes — content |
 | SRC-091 | Architecture Tests | `super-gsd/scripts/lib/codex-sdd-contract.test.cjs` | Test | Git 2026-05-13 `1ec54ca` | Tier 3 | OBSERVED: cross-file contract test asserts Codex ownership, fresh implementer/spec review, and no parallel file writers. | Yes — content |
 | SRC-092 | Architecture Tests | `super-gsd/scripts/lib/gate-value-log.test.cjs` | Test | Git 2026-04-27 `e760a30` | Tier 3 | OBSERVED: production writer is exercised for pass/warn/block/skip without touching the canonical ledger. | Yes — content |
+| SRC-093 | Memory & Evidence | `.planning/mesh/memory/cmbs.jsonl` | Absence finding | Absent in 2026-07-13 census | Tier 1 expected | OBSERVED: the canonical CMB ledger named by `super-gsd/docs/ARCHITECTURE.md` and `.planning/MILESTONES.md` is absent, so live typed-memory lineage and evidence cannot be sampled. | Yes — absence |
 
 ## Contradictions
 
 | ID | Claim A | Source A | Claim B | Source B | Authority decision | Audit consequence |
 | --- | --- | --- | --- | --- | --- | --- |
-| CON-001 | “Current/latest milestone” is v3.2 shipped and v3.3 scoping is open. | `AGENTS.md` | Runtime position is v3.4 active with P999 pending. | `.planning/STATE.md` | Tier-1 `STATE.md` governs runtime position; retain the root-contract statement as stale governance evidence. | Every operator/agent entry path must be checked for stale milestone priming; amendment roadmap should include contract-state drift prevention. |
+| CON-001 | “Current/latest milestone” is v3.2 shipped and v3.3 scoping is open. | `AGENTS.md` | Current milestone is v3.4 and P999 is pending. | `.planning/STATE.md` | Tier-1 `STATE.md` governs runtime position; retain the root-contract statement as stale governance evidence. | Every operator/agent entry path must be checked for stale milestone priming; amendment roadmap should include contract-state drift prevention. |
 | CON-002 | The top-level roadmap ends its current list at v3.2 and says v3.3 scoping is open. | `.planning/ROADMAP.md` | Runtime position and active intent identify v3.4. | `.planning/STATE.md`; `.planning/milestones/v3.4/INTENT.md` | Current state and milestone intent outrank the historical catalog. | Do not derive v3.4 next-unit sequencing from the top-level roadmap; label any reconstruction from phase artifacts as inferred. |
 | CON-003 | Active milestones have a canonical `.planning/milestones/{milestone}/ROADMAP.md`. | `AGENTS.md` | `.planning/milestones/v3.4/ROADMAP.md` is absent. | 2026-07-13 path census | The checked absence is authoritative for coverage; no substitute path is silently promoted. | Phase order, completion, and dependency claims for v3.4 have a primary-source gap that the audit must surface. |
 | CON-004 | Token, Codex, route, gate, MUDA, edge-guard, and cockpit evidence is stored in `.planning/metrics/*.jsonl`. | `AGENTS.md`; registry emitter paths | `.planning/metrics/` is absent in this clean worktree. | 2026-07-13 path census | Configured emit paths prove design, not executions; no runtime-use claim is admitted without ledger rows. | Capability utilisation, cost, firing frequency, and recent-use findings must be marked CONFIGURED/DOCUMENTED or explicitly unavailable. |
-| CON-005 | Current position fields say v3.4/P999 active. | `.planning/STATE.md` `milestone`, `milestone_status`, `status` | `last_activity` still narrates v3.0 activation and `last_updated` is 2026-05-20. | `.planning/STATE.md` `last_activity`, `last_updated` | Position fields plus v3.4 intent govern current location; activity/freshness fields are stale evidence inside the canonical file. | Cockpit, recovery, and status consumers must be audited for which state fields they trust and how they expose internal staleness. |
+| CON-005 | Current position fields identify milestone v3.4 and status P999 pending. | `.planning/STATE.md` `milestone`, `milestone_status`, `status` | `last_activity` still narrates v3.0 activation and `last_updated` is 2026-05-20. | `.planning/STATE.md` `last_activity`, `last_updated` | Position fields plus v3.4 intent govern current location; activity/freshness fields are stale evidence inside the canonical file. | Cockpit, recovery, and status consumers must be audited for which state fields they trust and how they expose internal staleness. |
+| CON-006 | Mesh Memory Lite's canonical durable ledger is `.planning/mesh/memory/cmbs.jsonl`. | `super-gsd/docs/ARCHITECTURE.md`; `.planning/MILESTONES.md` | The CMB ledger path is absent in this worktree. | 2026-07-13 path census | The checked Tier-1 absence governs evidence availability; documentation and implementations establish the expected path, not live CMB rows. | Typed-memory use, lineage quality, echo detection, and evidence-validation activity cannot be labelled OBSERVED from this checkout. |
 
 ## Explicit Exclusions
 
@@ -153,14 +155,14 @@ When sources conflict, the higher authority governs the claim it is competent to
 | --- | ---: |
 | Governance | 5 |
 | State & Intent | 4 |
-| Memory & Evidence | 3 |
+| Memory & Evidence | 4 |
 | Skills & Routing | 28 |
 | Registries & Contracts | 11 |
 | Execution Fabric | 10 |
 | Assurance & Memory | 7 |
 | Observability & Recovery | 11 |
 | Architecture Tests | 13 |
-| **Total** | **92** |
+| **Total** | **93** |
 
 ### By source kind
 
@@ -168,7 +170,7 @@ When sources conflict, the higher authority governs the claim it is competent to
 | --- | ---: |
 | Contract | 3 |
 | Planning truth | 2 |
-| Absence finding | 3 |
+| Absence finding | 4 |
 | Historical planning | 2 |
 | Memory index | 1 |
 | Resource ledger | 1 |
@@ -178,28 +180,28 @@ When sources conflict, the higher authority governs the claim it is competent to
 | Configuration | 1 |
 | Workflow | 4 |
 | Test | 13 |
-| **Total** | **92** |
+| **Total** | **93** |
 
 ### By authority and check status
 
 | Measure | Rows |
 | --- | ---: |
-| Tier 1 current/expected `.planning/` truth | 7 |
-| Tier 2 executable source, active registry, skill, configuration, or workflow | 67 |
+| Tier 1 current/expected `.planning/` truth | 8 |
+| Tier 2 executable source, active registry, skill, configuration, or workflow | 66 |
 | Tier 3 tests | 13 |
-| Tier 4 current contracts/operator docs | 3 |
+| Tier 4 current contracts/operator docs and documented scaffold | 4 |
 | Tier 5 historical planning | 2 |
 | Existing sources checked for defining content | 89 |
-| Expected sources checked and confirmed absent | 3 |
-| **Total census rows** | **92** |
+| Expected sources checked and confirmed absent | 4 |
+| **Total census rows** | **93** |
 
 ### Findings count
 
 | Finding class | Count | IDs |
 | --- | ---: | --- |
-| Confirmed absences | 3 | SRC-006, SRC-009, SRC-012 |
-| Registered contradictions | 5 | CON-001 through CON-005 |
+| Confirmed absences | 4 | SRC-006, SRC-009, SRC-012, SRC-093 |
+| Registered contradictions | 6 | CON-001 through CON-006 |
 | Material skill entries indexed | 28 | SRC-013 through SRC-040 |
 | Material architecture test surfaces indexed | 13 | SRC-080 through SRC-092 |
 
-The census establishes architecture coverage, not runtime utilisation. Because the live metrics directory is absent, later audit lanes must not convert configuration, prose, or test coverage into claims of recent execution.
+The census establishes architecture coverage, not runtime utilisation. Because the live metrics directory and canonical CMB ledger are absent, later audit lanes must not convert configuration, prose, or test coverage into claims of recent execution or typed-memory activity.
