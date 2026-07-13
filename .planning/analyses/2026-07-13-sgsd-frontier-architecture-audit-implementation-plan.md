@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Produce a source-backed HTML architecture audit that maps SGSD as operated today, tests whether its orchestration and skills are fully utilised, compares it with a clean-sheet frontier-model design, and ranks evidence-backed amendments.
+**Goal:** Produce a source-backed HTML architecture audit that maps SGSD as operated today, tests whether its orchestration and skills are fully utilised, compares it with a clean-sheet frontier-model design, ranks evidence-backed amendments, and turns the approved findings into a non-active draft milestone candidate.
 
 **Architecture:** Three read-only audit lanes independently examine skills/routing, Codex execution/assurance, and state/operations. A fourth lane develops the clean-sheet counterfactual from objectives rather than SGSD component names. The primary agent reconciles all findings into an evidence index, synthesis, and self-contained HTML report with explicit observed/configured/documented/inferred/recommended labels.
 
@@ -21,6 +21,7 @@ All created files are documentation-only artifacts under `.planning/analyses/`, 
 - Create: `.planning/analyses/2026-07-13-sgsd-audit-state-operations.md` — truth, memory, learning, cockpit, MCP, Warp, SSH/tmux, watchdog, and recovery audit.
 - Create: `.planning/analyses/2026-07-13-sgsd-clean-sheet-architecture.md` — objective-first counterfactual architecture produced without preserving SGSD names or boundaries.
 - Create: `.planning/analyses/2026-07-13-sgsd-frontier-architecture-synthesis.md` — reconciled capability matrix, scores, verdicts, ranked recommendations, risks, and proof tests.
+- Create: `.planning/analyses/2026-07-13-sgsd-frontier-amendment-draft-roadmap.md` — operator-reviewable candidate milestone derived from the ranked findings; never activates or mutates current state.
 - Create: `.planning/analyses/2026-07-13-sgsd-frontier-architecture-audit.html` — final self-contained visual report.
 
 No existing SGSD source, registry, runtime state, gate, workflow, or configuration file is modified.
@@ -267,7 +268,18 @@ Determine whether:
 - Gate outputs cause repairs, debt, or closure mechanically.
 - Token/latency cost can be attributed to useful decisions.
 
-- [ ] **Step 6: Validate coverage**
+- [ ] **Step 6: Diagnose the baseline WSL chronicle-launch failure before proposing a repair**
+
+Reproduce `SAC-P116-10`, `SAC-P116-11`, and `STRUCT-P116-22`, then trace the full argument path from the Node test/launcher through WSL invocation to `chronicle-validate.sh`. Record:
+
+- The first point at which the Windows path loses valid drive/path semantics.
+- Whether the defect is conversion, quoting, shell selection, or an environment assumption.
+- A bounded source-level repair proposal that reuses the repository's existing Windows-to-WSL routing conventions.
+- The exact regression tests that would prove Windows, WSL, spaces-in-path, and native-Linux behavior.
+
+Do not implement the repair in this audit. Separate the observed root cause from the recommended fix and include both in the lane report.
+
+- [ ] **Step 7: Validate coverage**
 
 Run:
 
@@ -280,7 +292,7 @@ foreach ($term in @('Role/profile','requires_worktree','per-dispatch ATC','phase
 'PASS execution-assurance audit coverage'
 ```
 
-- [ ] **Step 7: Commit the lane report only**
+- [ ] **Step 8: Commit the lane report only**
 
 ```powershell
 git add -- '.planning/analyses/2026-07-13-sgsd-audit-execution-assurance.md'
@@ -333,7 +345,17 @@ Determine whether:
 - MCP/cockpit surfaces match the current state schema.
 - Remote operation preserves the same control and evidence semantics as local operation.
 
-- [ ] **Step 5: Validate coverage**
+- [ ] **Step 5: Diagnose the baseline cockpit rationale-card failure before proposing a repair**
+
+Reproduce `SAC-P142-03`, then trace the rationale payload from its producer through the adapter/snapshot into rendered `rationale-card` elements. Determine whether the single-card output is caused by missing data, aggregation/collapse, schema drift, a renderer defect, or stale acceptance criteria. Record:
+
+- The earliest layer at which the expected second rationale disappears.
+- The current executable contract and the test's asserted contract.
+- A bounded repair proposal and the exact regression proof, including the valid empty-state branch.
+
+Do not implement the repair in this audit. Label root cause evidence separately from the recommendation.
+
+- [ ] **Step 6: Validate coverage**
 
 Run:
 
@@ -346,7 +368,7 @@ foreach ($term in @('checkpoint','stale','Warp','SSH','tmux','VTP','memory','coc
 'PASS state-operations audit coverage'
 ```
 
-- [ ] **Step 6: Commit the lane report only**
+- [ ] **Step 7: Commit the lane report only**
 
 ```powershell
 git add -- '.planning/analyses/2026-07-13-sgsd-audit-state-operations.md'
@@ -425,6 +447,7 @@ git commit -m 'docs: design clean-sheet frontier orchestration'
 **Files:**
 - Read: evidence index, three lane reports, clean-sheet counterfactual
 - Create: `.planning/analyses/2026-07-13-sgsd-frontier-architecture-synthesis.md`
+- Create: `.planning/analyses/2026-07-13-sgsd-frontier-amendment-draft-roadmap.md`
 
 - [ ] **Step 1: Build the reconciled capability table**
 
@@ -460,7 +483,31 @@ Separate immediate operating changes, bounded architecture amendments, and miles
 
 The verdict must answer whether SGSD's complexity earns its keep, where frontier-model leverage is being lost, and which one change should be tested first. It must not claim measured benefit where only expected benefit exists.
 
-- [ ] **Step 6: Validate synthesis completeness**
+- [ ] **Step 6: Convert the ranked findings into a draft milestone candidate**
+
+Read `.planning/STATE.md` and the active milestone roadmap if it exists. If the state-named roadmap is absent, record that absence and use `.planning/ROADMAP.md` plus the most recent historical milestone roadmap only for format and numbering conventions.
+
+Create `.planning/analyses/2026-07-13-sgsd-frontier-amendment-draft-roadmap.md` with YAML frontmatter declaring it a `draft`, `operator_review_required: true`, and `state_mutation: forbidden`. The body must include:
+
+- A milestone goal tied directly to the synthesis headline verdict.
+- Candidate phases ordered by dependency and risk, with 1–3 phases per logical amendment chunk.
+- For every phase: problem evidence, intended outcome, bounded scope, dependencies, acceptance proof, rollback/reversibility, and linked synthesis recommendation ranks.
+- Explicit repair phases for the WSL chronicle-launch defect and cockpit rationale-card defect, grounded in the lane root-cause findings.
+- A proposed activation decision, while making clear that neither `.planning/STATE.md` nor any active roadmap was changed.
+
+Run:
+
+```powershell
+$f = '.planning/analyses/2026-07-13-sgsd-frontier-amendment-draft-roadmap.md'
+$text = Get-Content -Raw $f
+foreach ($term in @('status: draft','operator_review_required: true','state_mutation: forbidden','Acceptance proof','WSL','rationale-card')) {
+  if ($text -notmatch [regex]::Escape($term)) { throw "Missing draft-roadmap term: $term" }
+}
+if (git diff --name-only | Select-String -Pattern '(^|/)(STATE\.md|ROADMAP\.md)$') { throw 'Audit must not mutate active state or roadmap' }
+'PASS draft milestone candidate is review-only'
+```
+
+- [ ] **Step 7: Validate synthesis completeness**
 
 Run:
 
@@ -475,18 +522,18 @@ if ($recommendations -lt 5) { throw 'Fewer than five ranked recommendations' }
 'PASS synthesis verdict and recommendation coverage'
 ```
 
-- [ ] **Step 7: Commit the synthesis only**
+- [ ] **Step 8: Commit the synthesis and draft milestone candidate**
 
 ```powershell
-git add -- '.planning/analyses/2026-07-13-sgsd-frontier-architecture-synthesis.md'
+git add -- '.planning/analyses/2026-07-13-sgsd-frontier-architecture-synthesis.md' '.planning/analyses/2026-07-13-sgsd-frontier-amendment-draft-roadmap.md'
 git diff --cached --check
-git commit -m 'docs: synthesise SGSD frontier audit'
+git commit -m 'docs: synthesise audit and draft SGSD milestone'
 ```
 
 ### Task 7: Build the Self-Contained HTML Architecture Audit
 
 **Files:**
-- Read: all audit Markdown artifacts
+- Read: all audit Markdown artifacts, including the draft milestone candidate
 - Create: `.planning/analyses/2026-07-13-sgsd-frontier-architecture-audit.html`
 
 - [ ] **Step 1: Confirm the report is absent before creation**
@@ -742,7 +789,7 @@ Expected: the validation server exits; no SGSD runtime process is affected.
 
 ## Plan Self-Review Results
 
-- **Spec coverage:** All 18 design sections map to Tasks 1–8. The current architecture, skill utilisation, six audit domains, representative traces, clean-sheet protocol, verdict taxonomy, ranking, HTML structure, uncertainty handling, and validation each have an explicit task.
+- **Spec coverage:** All 18 design sections map to Tasks 1–8. The current architecture, skill utilisation, six audit domains, representative traces, clean-sheet protocol, verdict taxonomy, ranking, draft milestone generation, baseline-defect diagnosis, HTML structure, uncertainty handling, and validation each have an explicit task.
 - **Scope:** The work is one read-only architecture-audit deliverable. Supporting lane reports are evidence units, not independent product subsystems.
 - **Type/name consistency:** Claim labels, verdict vocabulary, scoring dimensions, filenames, report IDs, and source attributes are consistent across tasks.
-- **Repository safety:** All mutations are documentation-only under `.planning/analyses/`. Existing source and runtime state remain untouched.
+- **Repository safety:** All mutations are documentation-only under `.planning/analyses/`. Existing source, active roadmaps, and runtime state remain untouched until separate operator approval.
