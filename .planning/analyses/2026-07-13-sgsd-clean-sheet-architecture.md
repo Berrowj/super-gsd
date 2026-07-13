@@ -118,10 +118,14 @@ Every message that can affect a run uses a common envelope. Payload schemas are 
 schema_name: string
 schema_version: semver
 envelope_id: uuid
-aggregate_type: RUN | UNIT
+aggregate_type: RUN | UNIT | JOURNAL_GENERATION | SAFETY_DOMAIN
 aggregate_id: uuid
-run_id: uuid
+run_id: uuid|null
 unit_id: uuid|null
+journal_id: uuid|null
+journal_generation: integer|null
+journal_generation_id: uuid|null
+safety_domain_id: uuid
 correlation_id: uuid
 causation_id: uuid|null
 producer:
@@ -146,7 +150,10 @@ signature:
 
 Rules:
 
-- For a run envelope, `aggregate_type=RUN`, `aggregate_id=run_id`, and `unit_id=null`. For a unit envelope, `aggregate_type=UNIT`, `aggregate_id=unit_id`, and `run_id` is its immutable parent run.
+- `RUN` uses `aggregate_id=run_id`, `unit_id=null`, and a non-null journal/generation/domain. `UNIT` uses `aggregate_id=unit_id`, an immutable parent `run_id`, and the parent's journal/generation/domain.
+- `JOURNAL_GENERATION` uses `aggregate_id=journal_generation_id`, null run/unit IDs, and non-null journal/generation/domain. `SAFETY_DOMAIN` uses `aggregate_id=safety_domain_id`, null run/unit/generation IDs, and carries affected journal generations in its payload. Only `RUN` and `UNIT` accept lifecycle transitions.
+- Journal topology is pinned as `PER_RUN` or `GLOBAL`. A per-run generation contains exactly one run and its units; its integrity fence affects that run. A global generation contains a closed indexed run set; a journal-integrity fence affects every run/unit referencing that generation. A safety-domain record may span generations but has negative authority only, and lists every affected generation and run set/hash.
+- `TransitionRequest` and `TransitionEvent` require `RUN` or `UNIT`. `JournalContinuationEvent` requires `JOURNAL_GENERATION`; its header revision is generation-local revision `0`. `SafetyFenceRecord` requires `SAFETY_DOMAIN`; its header revision is the monotonic safety-domain record revision. A consumer rejects any payload/header type disagreement.
 - `authoritative_revision` is the journal revision the producer used. A transition proposal built from an older revision is rejected or explicitly rebased; it is never silently accepted.
 - `replay_key` identifies the intended logical effect. Repeating the same key and payload is idempotent; repeating the key with a different payload is a conflict.
 - For `TransitionRequest`, payload `from_revision` and `idempotency_key` must equal header `authoritative_revision` and `replay_key`; any disagreement invalidates the envelope.
@@ -162,7 +169,7 @@ Rules:
 | Schema | Required payload fields | Producer | Consumer and effect |
 |---|---|---|---|
 | `IntentEnvelope` | `objective`, `constraints[]`, `non_goals[]`, `risk_tolerance`, `success_signals[]`, `requested_scope`, `time_horizon`, `operator_questions[]`, `source_refs[]` | Intent Gateway | Contract Compiler interprets; no lifecycle authority by itself |
-| `OutcomeContract` | `contract_id`, `intent_ref`, `claims[]`, `invariants[]`, `work_units[]`, `allowed_effect_classes[]`, `forbidden_effects[]`, `risk_class`, `budget`, `approval_points[]`, `rollback_expectations[]`, `open_assumptions[]` | Contract Compiler | Kernel validates and asks for approval or contracts the run |
+| `OutcomeContract` | `contract_id`, `intent_ref`, `claims[]`, `invariants[]`, `work_units[]{min_items=1}`, `allowed_effect_classes[]`, `forbidden_effects[]`, `risk_class`, `budget`, `approval_points[]`, `rollback_expectations[]`, `open_assumptions[]` | Contract Compiler | Kernel rejects a zero-unit contract; every accepted run has at least one executable or verification-only unit |
 | `ContractClaim` | `claim_id`, `statement`, `verification_method`, `evidence_requirements[]`, `acceptance_rule`, `criticality`, `repair_policy`, `owner` | Contract Compiler | Verifier evaluates; kernel calculates aggregate acceptance |
 | `WorkUnit` | `unit_id`, `purpose`, `depends_on[]`, `claims_served[]`, `input_refs[]`, `expected_outputs[]`, `effect_scope`, `completion_boundary`, `budget_slice`, `rollback_ref` | Contract Compiler | Context Projector and kernel schedule bounded work |
 | `DecisionFactorSet` | `factor_set_id`, `decision_kind`, `subject_refs[]`, `factor_schema_version`, `factors[]{factor_id,value,unit,uncertainty_interval,provenance_kind,producer_ref,evidence_refs[],observed_at,fresh_until}`, `judgment_provenance|null` | Contract Compiler, Evidence Recorder, or Deliberation Cell | Kernel validates a closed factor schema; never grants authority by itself |
@@ -179,13 +186,13 @@ Rules:
 | `FailureEnvelope` | `failure_id`, `class`, `severity`, `scope`, `detected_at_revision`, `supporting_refs[]`, `effect_uncertainty`, `retry_eligibility`, `next_safe_actions[]`, `owner`, `blocker_conditions[]`, `resume_target{aggregate_type,aggregate_id,status}` | Detecting component | Kernel may consume it only through a guarded blocking transition |
 | `RepairOrder` | `repair_id`, `failed_claims[]`, `failure_class`, `allowed_changes[]`, `forbidden_changes[]`, `required_context_delta[]`, `required_new_evidence[]`, `attempt_ceiling`, `budget_slice`, `approval_requirement`, `stop_conditions[]` | Repair Composer; kernel validates | Context Projector creates a new bounded unit attempt |
 | `LearningCandidate` | `candidate_id`, `observation_refs[]`, `hypothesis`, `target_decision`, `proposed_change`, `expected_benefit`, `known_risks[]`, `confounders[]`, `evaluation_plan`, `data_class` | Learning Admission Controller | Evaluation queue only; it has no policy-write authority |
-| `PolicyChangeProposal` | `proposal_id`, `candidate_ref`, `policy_key`, `current_version`, `proposed_version`, `evaluation_results[]`, `safety_argument`, `approval_requirement`, `canary_plan`, `rollback_rule` | Learning Admission Controller | Human or deterministic admission policy may approve a canary |
-| `ApprovalEnvelope` | `approval_id`, `approval_version`, `subject{aggregate_type,aggregate_id,hash,revision,decision_type}`, `decision`, `scope`, `constraints[]`, `issuer`, `issued_at`, `expires_at`, `revocation_ref|null`, `single_use`, `max_consumptions` plus common replay/signature fields | Authorized human or admitted approval service | Kernel validates and consumes it atomically with the permitted transition/effect |
+| `PolicyChangeProposal` | `proposal_id`, `candidate_ref`, `policy_key`, `current_version`, `proposed_version`, `evaluation_results[]`, `safety_argument`, `approval_requirement`, `canary_plan`, `rollback_rule` | Learning Admission Controller | Policy may waive approval for an already authorized low-risk path; when approval is required, only a human `HUMAN_MANDATE` may issue it |
+| `ApprovalEnvelope` | `approval_id`, `approval_version`, `supersedes_approval_ref|null`, `subject{aggregate_type,aggregate_id,hash,revision,decision_type}`, `decision`, `scope`, `constraints[]`, `issuer`, `single_use`, `max_consumptions` plus common time/replay/signature fields | Authenticated human principal with `HUMAN_MANDATE` | Kernel validates and consumes it atomically; issue/expiry/revocation times are derived as defined in §14 |
 | `TransitionRequest` | `aggregate_ref{aggregate_type,aggregate_id,run_id}`, `from_revision`, `from_status`, `to_status`, `reason_code`, `supporting_refs[]`, `requested_by`, `idempotency_key` | Any authorized component | Kernel validates all guards; a request never changes status directly |
 | `TransitionEvent` | `journal_id`, `journal_generation`, `revision`, `aggregate_ref`, `prior_status`, `new_status`, `reason_code`, `supporting_refs[]`, `decision_input_refs[]`, `policy_version`, `budget_delta`, `lease_delta`, `previous_event_hash`, `event_hash_profile`, `event_hash` | Transition Kernel | Journal stores; all projections consume |
-| `JournalContinuationEvent` | `old_journal_id`, `old_generation`, `last_good_revision`, `last_good_hash`, `old_profile`, `new_journal_id`, `new_generation`, `recovery_source_hash`, `quarantined_tail_hashes[]`, `fence_ref`, `recovery_approval_ref`, `new_crypto_policy_version`, `aggregate_hash` | Recovery kernel under approval | New generation's genesis record links authority to the verified prior prefix |
+| `JournalContinuationEvent` | `old{journal_id,generation,generation_id,last_good_revision,last_good_hash,canonicalization_profile,event_hash_profile,signature_profile,crypto_policy_version}`, `new{journal_id,generation,generation_id,canonicalization_profile,event_hash_profile,signature_profile,crypto_policy_version}`, `generation_local_revision=0`, `previous_event_hash=zero64`, `event_hash_profile`, `event_hash`, `recovery_source_hash`, `quarantined_tail_hashes[]`, `fence_ref`, `recovery_approval_ref`, `aggregate_hash` | Recovery kernel under human approval | `JOURNAL_GENERATION` genesis record links new authority to the verified prior prefix |
 | `RecoverySnapshot` | `snapshot_revision`, `aggregate_hash`, `active_entities[]`, `open_leases[]`, `budget_balances[]`, `pending_approvals[]`, `policy_versions[]`, `journal_prefix_hash` | Durable Journal replay service | Recovery accelerates replay but is never trusted beyond its verified prefix |
-| `SafetyFenceRecord` | `fence_id`, `journal_id`, `journal_generation`, `state`, `detected_at`, `last_good_revision`, `last_good_hash`, `reason_code`, `affected_scope`, `grant_epoch`, `revoked_grant_refs[]`, `adapter_ack_refs[]`, `recovery_journal_ref|null`, `predecessor_fence_ref|null` | Safety Fence Service | Effect adapters deny under `ACTIVE`; recovery may issue an immutable `CLEARED` successor but no positive authority |
+| `SafetyFenceRecord` | `fence_id`, `state`, `topology`, `affected_journal_generations[]`, `affected_run_ids[]|affected_run_set_hash`, `detected_at`, `last_good_refs[]`, `reason_code`, `grant_epoch`, `revoked_grant_refs[]`, `adapter_ack_refs[]`, `recovery_generation_refs[]`, `predecessor_fence_ref|null` | Safety Fence Service under `SAFETY_DOMAIN` identity | Effect adapters deny under `ACTIVE`; a `CLEARED` successor cannot grant positive authority |
 
 The schemas intentionally separate an executor's receipt, a recorder's evidence, and a verifier's verdict. They can refer to one another, but none can impersonate another's authority.
 
@@ -196,7 +203,7 @@ The table below is the normative boundary map. “Model-owned” means judgment 
 | Component | Responsibility | Input schema | Output schema | Authority and mechanism | Failure state | Required evidence | Downstream consumer |
 |---|---|---|---|---|---|---|---|
 | **Intent Gateway** | Authenticate the operator, capture intent faithfully, preserve source material, and identify missing mandatory fields without solving the problem | Human/API request, identity proof | `IntentEnvelope` | Deterministic validation plus human-owned meaning; cannot infer approval | `CLARIFICATION_REQUIRED` for missing or contradictory mandate; `BLOCKED` for failed authentication | Source hashes, identity result, normalization warnings | Contract Compiler; Operations Projector |
-| **Contract Compiler** | Convert intent into claims, invariants, work units, risks, approvals, budgets, rollback expectations, and proposed decision factors | `IntentEnvelope`, policy slice, optional `DecisionRecord` | `OutcomeContract`, `DecisionFactorSet`, `DeliberationRequest`, clarification questions | Model-owned synthesis; deterministic schema/policy validation; no transition authority | `CLARIFICATION_REQUIRED` when meaning is unavailable; `DELIBERATING` when ambiguity threshold is exceeded; `BLOCKED` for invalid schema after bounded regeneration | Signed input/prompt refs, assumptions, factor provenance, policy version, validation results | Operator, Deliberation Cell, Transition Kernel |
+| **Contract Compiler** | Convert intent into claims, at least one work unit, risks, approvals, budgets, rollback expectations, and proposed decision factors | `IntentEnvelope`, policy slice, optional `DecisionRecord` | `OutcomeContract`, `DecisionFactorSet`, `DeliberationRequest`, clarification questions | Model-owned synthesis; deterministic schema/policy validation; no transition authority | Zero-unit or otherwise invalid contracts cannot reach `CONTRACTED`; bounded regeneration then clarification/blocking policy applies | Signed input/prompt refs, assumptions, unit-to-claim coverage, factor provenance, policy version, validation results | Operator, Deliberation Cell, Transition Kernel |
 | **Deliberation Cell** | Produce independent perspectives, factor proposals, and synthesis for consequential ambiguous decisions | `DeliberationRequest`, factor/evidence refs, budget grant | Signed `DecisionProposal[]`, `DecisionFactorSet`, synthesis proposal | Model-owned; perspectives have isolated contexts where practical; cannot select | Remains `DELIBERATING` while useful work is possible; `APPROVAL_REQUIRED` for unresolved high-stakes disagreement; `BLOCKED` at cost/deadline ceiling | Per-perspective provenance, premises, evidence refs, dissent, usage and time | Contract Compiler, operator, Transition Kernel |
 | **Transition Kernel** | Select eligible work deterministically; validate aggregate guards, revisions, factors, approvals, budgets, leases, transitions, and invariants | `TransitionRequest`, ready-unit projection, `DecisionFactorSet`, `ApprovalEnvelope`, referenced envelopes, pinned policy, journal revision | `AssignmentEnvelope`, `TransitionEvent`, approval-consumption ref, or typed rejection | Sole deterministic lifecycle writer and scheduling function; no creative authority | Status remains unchanged; an active safety fence disables commits and positive authority | Eligibility/guard/factor trace, policy version, approval result, conflict revision, commit hash | Every component through journal projections |
 | **Durable Journal** | Persist ordered, hash-linked events and sealed envelopes; replay aggregates and create verified snapshots | `TransitionEvent`, immutable blobs, snapshot revision request | Commit receipt, event stream, verified prefix, `RecoverySnapshot` | Deterministic storage and replay; single logical append authority; cannot interpret meaning | No receipt means no transition; integrity failure freezes authority at the last verified prefix and requests an external safety fence | Commit/replica receipts, chain/profile and snapshot hashes, integrity scans | Kernel, Safety Fence Service, recovery process, Operations Projector, auditors |
@@ -228,10 +235,10 @@ Runs and units use one transition protocol and vocabulary but are distinct aggre
 | Owns | Operator mandate, contract/policy versions, total budget, run approvals, control action, aggregate verdict | Work purpose, dependencies, context/grant/lease, attempt budget, receipts, evidence, unit verdict |
 | Legal status subset | `RECEIVED`, `CLARIFICATION_REQUIRED`, `DELIBERATING`, `CONTRACTED`, `APPROVAL_REQUIRED`, `READY`, `EXECUTING`, `VERIFYING`, `SATISFIED`, `REPAIRABLE`, `BLOCKED`, `PAUSED`, `ROLLING_BACK`, `ROLLED_BACK`, `CANCELLED` | `CONTRACTED`, `APPROVAL_REQUIRED`, `READY`, `LEASED`, `EXECUTING`, `EVIDENCE_PENDING`, `VERIFYING`, `SATISFIED`, `REPAIRABLE`, `BLOCKED`, `PAUSED`, `ROLLING_BACK`, `ROLLED_BACK`, `CANCELLED` |
 | Authoritative lifecycle | `RUN.status` is committed only by run-targeted events and never inferred merely from one child | `UNIT.status` is committed only by unit-targeted events |
-| Derived projection | `run_progress` is recomputed from the complete child set as `NO_UNITS`, `WAITING`, `ACTIVE`, `COLLECTING_EVIDENCE`, `VERIFYING`, `HAS_REPAIR`, `HAS_BLOCKER`, or `ALL_REQUIRED_UNITS_SATISFIED`; it is not transition authority | Dependency readiness and contribution to parent progress are projections; neither changes status |
+| Derived projection | `run_progress` is recomputed from the non-empty child set as `WAITING`, `ACTIVE`, `COLLECTING_EVIDENCE`, `VERIFYING`, `HAS_REPAIR`, `HAS_BLOCKER`, or `ALL_REQUIRED_UNITS_SATISFIED`; it is not transition authority | Dependency readiness and contribution to parent progress are projections; neither changes status |
 | Completion | `SATISFIED` requires every required child claim plus any run-level claim to pass the run aggregate verdict | `SATISFIED` requires the unit verdict; it does not satisfy the run by itself |
 
-A unit cannot change parent, depend on a unit in another run, consume another run's budget, or use another run's mandate. Unit creation is a run-targeted kernel commit that records the immutable child IDs and contract version; a new child requires a versioned contract amendment.
+A unit cannot change parent, depend on a unit in another run, consume another run's budget, or use another run's mandate. Contract validation requires `work_units.length >= 1` and total claim-to-unit coverage. A claim needing no mutation is assigned to a verification-only unit with empty effect scope, explicit evidence duties, and a bounded read-only grant. Unit creation is a run-targeted kernel commit that records the immutable child IDs and contract version; a new child requires a versioned contract amendment.
 
 Run propagation is deterministic rather than implicit:
 
@@ -291,7 +298,7 @@ Operator cancellation at a safe boundary ----------------> CANCELLED
 | `RUN` | `RECEIVED` | `CLARIFICATION_REQUIRED` | Mandatory intent field absent, contradictory, or unauthenticated meaning needs operator input | Validation result and questions | Remain `RECEIVED`; emit rejection if reason is invalid |
 | `RUN` | `CLARIFICATION_REQUIRED` | `RECEIVED` | Authenticated answer resolves every recorded question or contradiction | Clarification ref and revised `IntentEnvelope` | Stay `CLARIFICATION_REQUIRED` |
 | `RUN` | `RECEIVED` | `DELIBERATING` | Valid factor set causes ambiguity policy to fire and reasoning budget exists | `DecisionFactorSet`, `DeliberationRequest`, policy version | Request approval or blocking through its own row |
-| `RUN` | `RECEIVED` or `DELIBERATING` | `CONTRACTED` | Contract valid; assumptions allowed; decisions resolved; contract hash approved where required | `OutcomeContract`, decision refs, approval refs | Return violations; no status change |
+| `RUN` | `RECEIVED` or `DELIBERATING` | `CONTRACTED` | Contract valid with at least one unit and complete claim-to-unit coverage; assumptions allowed; decisions resolved; contract hash approved where required | `OutcomeContract`, coverage result, decision refs, approval refs | Return violations; no status change |
 | `RUN or UNIT` | Any eligible nonterminal | `APPROVAL_REQUIRED` | A declared approval is due before the next effect or decision | Subject-bound approval request and recorded resume target | Remain current |
 | `RUN or UNIT` | `APPROVAL_REQUIRED` | Recorded resume target status | `ApprovalEnvelope` is valid/unconsumed for this aggregate and every ordinary target guard passes | Approval, consumption key, target support | Stay `APPROVAL_REQUIRED` |
 | `RUN or UNIT` | `CONTRACTED` | `READY` | Approval obligations satisfied; dependencies accepted; budget reserved; rollback expectation valid | Contract, approvals, dependency verdicts, reservation receipt | Remain `CONTRACTED` |
@@ -418,7 +425,7 @@ observations
 | Data-quality review | Candidate and source set | Minimum sample rules, deduplication, contamination checks, confounders declared | `OBSERVATION` only |
 | Evaluation | Frozen candidate and evaluation plan | Predeclared measures, baseline, holdout or historical replay, cost and safety measures | Evaluation evidence; no live authority |
 | Proposal | Passing evaluation and safety argument | Benefit threshold, no protected invariant regression, rollback rule present | `MODEL_PROPOSAL` |
-| Approval | Proposal, risk class, evaluation evidence | Correct approver and signature; low-risk automatic rules must themselves be approved policy | Authorization for a limited canary only |
+| Approval | Proposal, risk class, evaluation evidence | Authenticated human with `HUMAN_MANDATE`, correct role/scope, and signature | Authorization for a limited canary only |
 | Canary | Versioned policy on a bounded population | Exposure ceiling, monitoring evidence, abort threshold, time window | Temporary, scope-limited policy authority |
 | Promotion | Canary verdict | Outcome quality and safety thresholds pass; no unresolved critical regression | New immutable policy version |
 | Reversion | Abort threshold or later regression | Deterministic threshold or authorized human request | Prior version reactivated; evidence retained |
@@ -476,14 +483,14 @@ A `RecoverySnapshot` accelerates authority replay. The recovery process verifies
 
 ### 11.3 Integrity fencing
 
-Journal integrity failure cannot commit `BLOCKED` because the suspect journal cannot create trustworthy authority. The last verified prefix remains the complete lifecycle truth; later status is `UNKNOWN`, not inferred. A separately keyed Safety Fence Service writes an immutable `SafetyFenceRecord` to an independent replicated safety store and exposes `authority_health=NORMAL|FENCED|RECOVERING`. This health is a negative interlock, not a lifecycle status and never grants positive authority.
+Journal integrity failure cannot commit `BLOCKED` because the suspect journal cannot create trustworthy authority. The last verified prefix remains the complete lifecycle truth; later status is `UNKNOWN`, not inferred. A separately keyed Safety Fence Service writes an immutable `SAFETY_DOMAIN` envelope to an independent replicated safety store and exposes `authority_health=NORMAL|FENCED|RECOVERING`. Under `PER_RUN`, its affected set is one run journal; under `GLOBAL`, it includes every run indexed in the affected generation. This health is a negative interlock, not a lifecycle status and never grants positive authority.
 
 Under `FENCED`, effect adapters reject all old/new grants for the affected journal generation and acknowledge the fence's `grant_epoch`. The kernel stops commits and lease issuance. The Operations Projector shows the last-good revision/hash/profile, suspected tail, fence time/reason, adapter acknowledgement coverage, and recovery owner; it must not display a post-prefix status as authoritative.
 
 Authority resumes only through this sequence:
 
 1. Select and fully verify a replica, backup prefix, or genesis using its declared canonical/hash profiles. Quarantine the suspect tail and retain its hashes as evidence.
-2. Create a new journal generation whose first `JournalContinuationEvent` records old/new journal identities, last-good revision/hash/profile, recovery-source hash, quarantined-tail hashes, fence ref, recovery approval, and new crypto-policy version. Its generation-local previous hash is the genesis zero value; its payload preserves the cross-generation link.
+2. Create a `JOURNAL_GENERATION` envelope for the new generation. Its common header names the new journal/generation ID, safety domain, canonicalization/signature/crypto profiles, and revision `0`. Its `JournalContinuationEvent` payload records all old/new canonicalization, event-hash, signature, and crypto profiles; old/new journal and generation IDs; last-good revision/hash; recovery source and quarantined tail hashes; fence/approval refs; aggregate hash; `generation_local_revision=0`; `previous_event_hash=zero64`; and the event-hash profile/value calculated by the new profile. This is both the genesis rule and the cross-generation link.
 3. Replay aggregate/status, approval consumption, budgets, and grants from the verified prefix; reconcile external effects; rotate the grant epoch; and independently compare the rebuilt aggregate hash with the continuation record.
 4. Write an immutable `SafetyFenceRecord(state=CLEARED)` successor referencing the active fence and verified continuation. Adapters acknowledge the new epoch before the kernel issues fresh grants. No valid continuation or acknowledgement means the fence remains active and authority does not resume.
 
@@ -552,10 +559,12 @@ Remote views show both elapsed time and the next deadline, not a generic running
 
 An approval is a signed envelope over a precise revision, not a conversational inference:
 
+Only an authenticated human principal with `HUMAN_MANDATE` can produce `ApprovalEnvelope`. Deterministic policy may state that a transition requires no approval, but no model, kernel, policy rule, or service can synthesize approval authority.
+
 ```yaml
 ApprovalEnvelope:
-  # common header also supplies schema/version, aggregate identity,
-  # created/expires times, replay_key, crypto policy, hash, key, and signature
+  # common header supplies schema/version, aggregate identity,
+  # created_at, expires_at, replay_key, crypto policy, hash, key, and signature
   approval_id: uuid
   approval_version: integer
   supersedes_approval_ref: uuid|null
@@ -581,22 +590,19 @@ ApprovalEnvelope:
     principal_id: string
     role: string
     identity_version: string
+    authority_class: HUMAN_MANDATE
     authority_source_ref: uuid
-  issued_at: rfc3339
-  expires_at: rfc3339|null
-  revoked_at: rfc3339|null
-  revocation_ref: uuid|null
   single_use: boolean
   max_consumptions: integer
 ```
 
 Validation and consumption are deterministic:
 
-1. `issued_at` and `expires_at` equal the common header values. The canonical signature profile/key must be allowed by the pinned crypto policy, and the identity/role/authority source must be valid for the subject and decision at issue and consumption time.
+1. The canonical signed representation contains no duplicate time fields: semantic `issued_at := header.created_at` and `expires_at := header.expires_at`. The signature profile/key must be allowed, and the human identity/role/mandate must be valid for the subject and decision at issue and consumption time.
 2. Subject aggregate, hash, revision, and decision type must equal the proposed transition/effect. Scope selectors and typed constraints must cover it without wildcard expansion. A run approval reaches a unit only through an explicit unit selector or closed selector resolved at the approved revision.
 3. `replay_key` is stable for `(approval_id, approval_version, decision)`; an identical repeat returns the original record and different content conflicts. An approval cannot be rebound or broadened; amendment creates a higher version and new replay key.
 4. The kernel records `(approval_id, version, transition_request.replay_key, consumption_ordinal)` in the same journal commit as the permitted action. Repeating that request returns the prior consumption. `single_use` requires `max_consumptions=1`; all other envelopes stop at their declared count.
-5. Revocation never edits an issued record. It is a higher-version `decision=REVOKE` envelope over the prior approval, with `revoked_at`, `revocation_ref`, and equal-or-greater issuer authority. The kernel rejects expired, revoked, superseded, already-consumed, stale-subject, or denied authority.
+5. Revocation never edits an issued record. It is a higher-version `decision=REVOKE` envelope whose `supersedes_approval_ref` and `subject.ref` identify the prior approval. The effective view derives `revocation_ref := revoke.header.envelope_id` and `revoked_at := revoke.header.created_at`; neither derived field appears in the signed payload. The human issuer needs equal-or-greater mandate authority. The kernel rejects expired, revoked, superseded, consumed, stale-subject, or denied authority.
 
 Default approval points include:
 
@@ -664,6 +670,22 @@ An implementation is conformant only if it continuously enforces these invariant
 19. **Replayable judgment:** every subjective factor is a signed proposal with provenance, and every deterministic decision records its closed factor/policy inputs.
 20. **Approval consumption:** approval subject, revision, scope, validity, replay key, and remaining consumption are checked and committed atomically with the authorized action.
 21. **Cryptographic determinacy:** canonicalization, hash, signature, key, and journal-generation profiles are explicit and policy-pinned for replay.
+22. **Non-empty execution graph:** every accepted contract has at least one unit and complete claim-to-unit coverage.
+23. **Human approval:** every approval/revocation producer is an authenticated `HUMAN_MANDATE`; absence of a requirement is not synthetic approval.
+24. **Typed control scope:** lifecycle, journal-generation, and safety-domain envelopes cannot impersonate one another, and topology determines the exact fence impact set.
+
+## 18. Targeted conformance proofs
+
+| Proof | Input | Required result |
+|---|---|---|
+| Zero-unit rejection | Valid-looking contract with `work_units=[]` | Schema/contract guard rejects it before `CONTRACTED`; no run verdict or transition is emitted |
+| Verification-only outcome | Contract with one read-only verification unit and full claim coverage | Unit follows the ordinary lease/evidence/verdict path; run progresses `READY→EXECUTING→VERIFYING→SATISFIED` only after both verdicts |
+| Aggregate propagation | Run with two nonterminal units, then pause/cancel/rollback requests at stale and current child revisions | Stale child-set hash rejects; current set fences grants, commits legal unit transitions, then commits the run transition; derived progress never substitutes for run status |
+| Human approval | Identical approval payloads signed by a model/service key and by an authorized human key; duplicate, over-consumption, and revocation cases | Non-human producer rejects; human record is idempotent; consumption commits once; derived revocation time/ref prevents later use |
+| Control scope/topology | `RUN`, `UNIT`, `JOURNAL_GENERATION`, and `SAFETY_DOMAIN` headers with exchanged payload types under per-run and global journals | Type disagreement rejects; per-run fence affects one run; global fence affects the complete indexed run set |
+| Continuation cryptography | Verified old prefix plus a revision-0 continuation using declared old/new profiles; alter each profile, prior hash, revision, or event hash in turn | Untouched continuation verifies and replays; every altered case rejects before grants resume |
+| Factor replay | Signed factor set, pinned schema/formula, then unknown/stale/provenance-invalid variants | Original produces the same normalized vector/result on replay; every invalid variant rejects or follows its declared conservative default |
+| Authority activation | Shadow system with each of these absent in turn: safety store, run/unit projector, factor schemas, approval-consumption ledger, parity/replay/failure evidence | Authority activation rejects until every prerequisite and proof is present and a human authorizes activation |
 
 ## Comparison Appendix
 
@@ -685,9 +707,11 @@ This appendix was added only after the prescribed pre-comparison scan returned `
 
 **RECOMMENDED:** the mapping does not justify a wholesale rewrite:
 
-1. **RECOMMENDED:** standardize envelopes and add the journal/kernel in shadow while current entry points remain authoritative.
-2. **RECOMMENDED:** adapt current context, executor, assurance, cockpit, and remote boundaries; activate routes, leases, approvals, budgets, and verdict consumption only after parity, replay, interruption, and comprehension tests.
-3. **RECOMMENDED:** connect learning to policy last, through evaluation and canary admission; observations remain non-authoritative.
+1. **RECOMMENDED:** standardize envelopes and provision the independent safety-fence store, typed run/unit projector, pinned factor schemas, and append-only approval-consumption ledger before any new positive authority.
+2. **RECOMMENDED:** add journal/kernel writes in shadow while current entry points remain authoritative; dual-read every aggregate projection and compare route, factor, approval, budget, lease, verdict, and recovery results without creating effects.
+3. **RECOMMENDED:** require replay, interruption, topology-fence, zero-unit rejection, continuation-crypto, approval replay/revocation, and operator-comprehension proofs with recorded parity thresholds and rollback procedure.
+4. **RECOMMENDED:** activate routes first under explicit human approval, then leases/effects, then budgets/verdict consumption; each step retains the prior path as rollback until its canary evidence is accepted.
+5. **RECOMMENDED:** connect learning to policy last, through evaluation and canary admission; observations remain non-authoritative.
 
 ### C. Unresolved comparison uncertainty
 
