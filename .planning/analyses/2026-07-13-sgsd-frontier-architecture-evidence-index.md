@@ -26,6 +26,12 @@ When sources conflict, the higher authority governs the claim it is competent to
 | INFERRED | Multiple sources support a reasoned conclusion that is not directly recorded. |
 | RECOMMENDED | Proposed future behavior; never represented as present behavior. |
 
+## Census Selection Rule
+
+The census includes every current truth, configuration, operator entrypoint, active wiring surface, implementation boundary, and material test needed to adjudicate the approved audit domains: intent/mode selection, control-plane cognition and skills, Codex execution, assurance/evidence, state/memory/learning, and operation/recovery. A row proves only the claim admitted by its label: configuration and source wiring are not treated as runtime-use evidence.
+
+Redundant copies, generated/session artifacts, synthetic fixture payloads, and historical candidates without a current consumer are deliberately excluded or sampled only for contradiction/provenance. The exclusions below name those boundaries so row count is not mistaken for an unrestricted repository inventory.
+
 ## Source Census
 
 | ID | Domain | Path | Source kind | Freshness signal | Authority | Intended claim | Checked |
@@ -33,8 +39,8 @@ When sources conflict, the higher authority governs the claim it is competent to
 | SRC-001 | Governance | `AGENTS.md` | Contract | Git 2026-05-22 `9ad566f` | Tier 4 | DOCUMENTED: tool-neutral topology, truth locations, gate reuse, optional VTP, and source-mutation rules; milestone wording is contradicted below. | Yes — content |
 | SRC-002 | Governance | `WARP.md` | Contract | Git 2026-04-29 `4bbeb78` | Tier 4 | DOCUMENTED: Warp command surface, `sg` topology, workflow entry points, and Warp-specific authority. | Yes — content |
 | SRC-003 | Governance | `CLAUDE.md` | Contract | Git 2026-05-13 `1ec54ca` | Tier 4 | DOCUMENTED: Claude-only control-plane duties, triage triggers, auto-loop dispatch ownership, model lock, checkpoint protocol, and exit conditions. | Yes — content |
-| SRC-004 | State & Intent | `.planning/STATE.md` | Planning truth | Git 2026-05-30 `4bea7a9`; milestone v3.4 active, P999 pending | Tier 1 | OBSERVED: current runtime position is milestone v3.4 with P999 pending; internal activity narrative has stale fields noted below. | Yes — content |
-| SRC-005 | State & Intent | `.planning/milestones/v3.4/INTENT.md` | Planning truth | Created 2026-05-24; Git `6fea42f`; `closed_at: null` | Tier 1 | OBSERVED: v3.4 mission, binding cockpit invariants, entry/exit criteria, and current milestone scope. | Yes — content |
+| SRC-004 | State & Intent | `.planning/STATE.md` | Planning truth | Git 2026-05-30 `4bea7a9`; milestone-status says v3.4 active, status points to P999 pending | Tier 1 | OBSERVED: `STATE.md` contains a v3.4 milestone pointer and a P999-pending status pointer; P999 admission/sequencing legitimacy is unresolved by current milestone artifacts, and internal activity narrative has stale fields noted below. | Yes — content |
+| SRC-005 | State & Intent | `.planning/milestones/v3.4/INTENT.md` | Planning truth | Git 2026-05-24 `6fea42f`; `closed_at: null` | Tier 1 | OBSERVED: v3.4 mission, binding cockpit invariants, entry/exit criteria, and current milestone scope. | Yes — content |
 | SRC-006 | State & Intent | `.planning/milestones/v3.4/ROADMAP.md` | Absence finding | Absent in 2026-07-13 census | Tier 1 expected | OBSERVED: the canonical per-milestone roadmap named by `AGENTS.md` does not exist for the active milestone. | Yes — absence |
 | SRC-007 | Governance | `.planning/ROADMAP.md` | Historical planning | Git 2026-05-22 `9ad566f`; catalog ends at v3.2 | Tier 5 | OBSERVED: top-level roadmap is a shipped-history catalog and still says v3.3 scoping is open, so it cannot establish v3.4 position. | Yes — content |
 | SRC-008 | Governance | `.planning/MILESTONES.md` | Historical planning | Git 2026-05-22 `9ad566f` | Tier 5 | OBSERVED: milestone history and prior architectural provenance through v3.2. | Yes — content |
@@ -93,7 +99,7 @@ When sources conflict, the higher authority governs the claim it is competent to
 | SRC-061 | Execution Fabric | `super-gsd/tools/codex-pro/stoplight.cjs` | Implementation | Git 2026-05-20 `2736806` | Tier 2 | OBSERVED: GREEN/AMBER/RED classification maps dispatches to bounded, lab/goal, or board/operator escalation routes. | Yes — content |
 | SRC-062 | Assurance & Memory | `super-gsd/scripts/lib/gates-registry.cjs` | Implementation | Git 2026-04-27 `6f1f567` | Tier 2 | OBSERVED: canonical gate loader caches registry rows and evaluates fire predicates/enforcement mode. | Yes — content |
 | SRC-063 | Assurance & Memory | `super-gsd/scripts/lib/edge-guard.cjs` | Implementation | Git 2026-04-22 `0216e65` | Tier 2 | OBSERVED: step-transition guard detects missing declared emits and logs or halts according to registry policy. | Yes — content |
-| SRC-064 | Assurance & Memory | `super-gsd/tools/phase-verifier/phase-verifier.mjs` | Implementation | Git 2026-04-11 `32c4b8a` | Tier 2 | OBSERVED: browser verifier requires committed screenshot/HAR/console/API evidence and returns PROVEN/UNPROVEN/BLOCKED. | Yes — content |
+| SRC-064 | Assurance & Memory | `super-gsd/tools/phase-verifier/phase-verifier.mjs` | Implementation | Git 2026-04-11 `32c4b8a` | Tier 2 | OBSERVED: browser verifier checks repository-local screenshot/HAR/console/API evidence existence and shape, then returns PROVEN/UNPROVEN/BLOCKED; it does not mechanically verify Git tracking. | Yes — content |
 | SRC-065 | Assurance & Memory | `super-gsd/scripts/lib/gate-value-log.cjs` | Implementation | Git 2026-04-27 `e760a30` | Tier 2 | OBSERVED: append-only gate-value writer normalizes phase ATC, dispatch ATC, and MUDA outcomes into envelope rows. | Yes — content |
 | SRC-066 | Assurance & Memory | `super-gsd/tools/memory-governance/lifecycle.cjs` | Implementation | Git 2026-04-28 `deac02a` | Tier 2 | OBSERVED: deterministic admission, promotion, demotion, revocation, revalidation, and complaint processing govern durable memory. | Yes — content |
 | SRC-067 | Assurance & Memory | `super-gsd/tools/mesh-memory/lineage.cjs` | Implementation | Git 2026-05-20 `614ee9e` | Tier 2 | OBSERVED: typed cognitive-memory records can be traversed through parent lineage with bounded depth. | Yes — content |
@@ -123,17 +129,35 @@ When sources conflict, the higher authority governs the claim it is competent to
 | SRC-091 | Architecture Tests | `super-gsd/scripts/lib/codex-sdd-contract.test.cjs` | Test | Git 2026-05-13 `1ec54ca` | Tier 3 | OBSERVED: cross-file contract test asserts Codex ownership, fresh implementer/spec review, and no parallel file writers. | Yes — content |
 | SRC-092 | Architecture Tests | `super-gsd/scripts/lib/gate-value-log.test.cjs` | Test | Git 2026-04-27 `e760a30` | Tier 3 | OBSERVED: production writer is exercised for pass/warn/block/skip without touching the canonical ledger. | Yes — content |
 | SRC-093 | Memory & Evidence | `.planning/mesh/memory/cmbs.jsonl` | Absence finding | Absent in 2026-07-13 census | Tier 1 expected | OBSERVED: the canonical CMB ledger named by `super-gsd/docs/ARCHITECTURE.md` and `.planning/MILESTONES.md` is absent, so live typed-memory lineage and evidence cannot be sampled. | Yes — absence |
+| SRC-094 | Registries & Contracts | `.planning/config.json` | Configuration | Git 2026-05-22 `503155c`; schema v1 | Tier 1 | CONFIGURED: active project configuration selects Opus orchestration and Codex research/planning/execution/review, enables browser and VTP/knowledge gates, disables review fallback, enables handoff, and sets `parallelization.enabled: true` with plan-level concurrency up to 3 and skipped checkpoints; compare with serial orchestrator contracts before claiming effective behavior. | Yes — content |
+| SRC-095 | Execution Fabric | `.codex/hooks.json` | Configuration | Git 2026-05-20 `e6a297e` | Tier 2 | CONFIGURED: Codex lifecycle events are wired to five repository hook implementations; this proves declared wiring, not invocation. | Yes — content |
+| SRC-096 | Execution Fabric | `super-gsd/tools/codex-hooks/block-secret-leak.cjs` | Implementation | Git 2026-05-20 `e6a297e` | Tier 2 | OBSERVED: UserPromptSubmit hook pattern-checks prompts for credential/private-key leakage, blocks invalid or matched input, and emits a decision row. | Yes — content |
+| SRC-097 | Execution Fabric | `super-gsd/tools/codex-hooks/block-forbidden-write.cjs` | Implementation | Git 2026-05-20 `e6a297e` | Tier 2 | OBSERVED: PreToolUse hook rejects ambiguous write targets and baseline forbidden repository paths while allowing non-write tools. | Yes — content |
+| SRC-098 | Execution Fabric | `super-gsd/tools/codex-hooks/enforce-allowed-files.cjs` | Implementation | Git 2026-05-20 `e6a297e` | Tier 2 | OBSERVED: PreToolUse hook resolves the active PLAN-LOCKED artifact and blocks write targets outside its `allowed_files` boundary. | Yes — content |
+| SRC-099 | Execution Fabric | `super-gsd/tools/codex-hooks/log-tool-event.cjs` | Implementation | Git 2026-05-20 `e6a297e` | Tier 2 | OBSERVED: PostToolUse hook redacts sensitive argument keys and appends a normalized tool-event observability row. | Yes — content |
+| SRC-100 | Execution Fabric | `super-gsd/tools/codex-hooks/validate-stop-contract.cjs` | Implementation | Git 2026-05-20 `e6a297e` | Tier 2 | OBSERVED: Stop hook blocks completion when the report is absent, checkpoint is not updated, or acceptance commands are not reported. | Yes — content |
+| SRC-101 | Observability & Recovery | `super-gsd/scripts/Install-SgsdShortcut.ps1` | Implementation | Git 2026-05-13 `1ec54ca` | Tier 2 | OBSERVED: shortcut installer writes the real PowerShell `sg` entrypoint: cockpit boots through `sgsd`, then Claude runs in the current terminal with greet/go and `--dangerously-skip-permissions`; source existence does not prove the profile is installed. | Yes — content |
+| SRC-102 | Assurance & Memory | `super-gsd/tools/context-authority/context-composer.cjs` | Implementation | Git 2026-05-21 `4fdb738` | Tier 2 | OBSERVED: composer reads six milestone context capsules and delegates each projection to the context-anchor writer. | Yes — content |
+| SRC-103 | Assurance & Memory | `super-gsd/tools/context-authority/context-anchor-writer.cjs` | Implementation | Git 2026-05-21 `4fdb738` | Tier 2 | OBSERVED: writer hashes context sources, emits typed context-anchor records to the CMB ledger, and exposes staleness checking. | Yes — content |
+| SRC-104 | Assurance & Memory | `super-gsd/tools/context-registry/build.cjs` | Implementation | Git 2026-04-27 `d71e5c2` | Tier 2 | OBSERVED: legal-context builder reads 13 canonical sources and atomically writes normalized, sorted, hashed legal keys. | Yes — content |
+| SRC-105 | Assurance & Memory | `super-gsd/tools/context-registry/check.cjs` | Implementation | Git 2026-04-27 `962e286` | Tier 2 | OBSERVED: read-only validator checks packet/capsule references against legal keys and reports invalid, superseded, malformed, or missing-registry references. | Yes — content |
+| SRC-106 | Assurance & Memory | `super-gsd/tools/harness-evolution/run.cjs` | Implementation | Git 2026-04-30 `be6932c` | Tier 2 | OBSERVED: harness runner composes catalog, evidence distillation, prediction manifest, and attribution modules across dry-run/proposal/apply/attribute modes with protected-surface checks. | Yes — content |
+| SRC-107 | Assurance & Memory | `super-gsd/tools/harness-components/catalog.cjs` | Implementation | Git 2026-04-30 `bbd3aa6` | Tier 2 | OBSERVED: component catalog reads the harness registry, validates a closed class vocabulary, and identifies protected oracle/verifier/model-config surfaces. | Yes — content |
+| SRC-108 | Assurance & Memory | `super-gsd/tools/harness-evidence/distill.cjs` | Implementation | Git 2026-04-30 `227531d` | Tier 2 | OBSERVED: deterministic distiller reads seven evidence-log classes plus optional benchmark artifacts and writes a layered per-run evidence corpus. | Yes — content |
+| SRC-109 | Assurance & Memory | `super-gsd/tools/harness-manifest/manifest.cjs` | Implementation | Git 2026-04-30 `ff99913` | Tier 2 | OBSERVED: manifest module validates and appends falsifiable component-change predictions, regression risks, expected deltas, and rollback method. | Yes — content |
+| SRC-110 | Assurance & Memory | `super-gsd/tools/harness-attribution/attribute.cjs` | Implementation | Git 2026-04-30 `082b863` | Tier 2 | OBSERVED: attribution module compares predicted fixes/regressions with next-run evidence and returns keep/revert/quarantine/pivot/inconclusive/environmental-skip verdicts. | Yes — content |
 
 ## Contradictions
 
 | ID | Claim A | Source A | Claim B | Source B | Authority decision | Audit consequence |
 | --- | --- | --- | --- | --- | --- | --- |
-| CON-001 | “Current/latest milestone” is v3.2 shipped and v3.3 scoping is open. | `AGENTS.md` | Current milestone is v3.4 and P999 is pending. | `.planning/STATE.md` | Tier-1 `STATE.md` governs runtime position; retain the root-contract statement as stale governance evidence. | Every operator/agent entry path must be checked for stale milestone priming; amendment roadmap should include contract-state drift prevention. |
+| CON-001 | “Current/latest milestone” is v3.2 shipped and v3.3 scoping is open. | `AGENTS.md` | `STATE.md` carries v3.4 milestone and P999-pending pointers. | `.planning/STATE.md` | Tier-1 `STATE.md` governs the recorded pointers; retain the root-contract statement as stale governance evidence without assuming P999 was legitimately admitted. | Every operator/agent entry path must be checked for stale milestone priming; amendment roadmap should include contract-state drift prevention. |
 | CON-002 | The top-level roadmap ends its current list at v3.2 and says v3.3 scoping is open. | `.planning/ROADMAP.md` | Runtime position and active intent identify v3.4. | `.planning/STATE.md`; `.planning/milestones/v3.4/INTENT.md` | Current state and milestone intent outrank the historical catalog. | Do not derive v3.4 next-unit sequencing from the top-level roadmap; label any reconstruction from phase artifacts as inferred. |
 | CON-003 | Active milestones have a canonical `.planning/milestones/{milestone}/ROADMAP.md`. | `AGENTS.md` | `.planning/milestones/v3.4/ROADMAP.md` is absent. | 2026-07-13 path census | The checked absence is authoritative for coverage; no substitute path is silently promoted. | Phase order, completion, and dependency claims for v3.4 have a primary-source gap that the audit must surface. |
 | CON-004 | Token, Codex, route, gate, MUDA, edge-guard, and cockpit evidence is stored in `.planning/metrics/*.jsonl`. | `AGENTS.md`; registry emitter paths | `.planning/metrics/` is absent in this clean worktree. | 2026-07-13 path census | Configured emit paths prove design, not executions; no runtime-use claim is admitted without ledger rows. | Capability utilisation, cost, firing frequency, and recent-use findings must be marked CONFIGURED/DOCUMENTED or explicitly unavailable. |
 | CON-005 | Current position fields identify milestone v3.4 and status P999 pending. | `.planning/STATE.md` `milestone`, `milestone_status`, `status` | `last_activity` still narrates v3.0 activation and `last_updated` is 2026-05-20. | `.planning/STATE.md` `last_activity`, `last_updated` | Position fields plus v3.4 intent govern current location; activity/freshness fields are stale evidence inside the canonical file. | Cockpit, recovery, and status consumers must be audited for which state fields they trust and how they expose internal staleness. |
 | CON-006 | Mesh Memory Lite's canonical durable ledger is `.planning/mesh/memory/cmbs.jsonl`. | `super-gsd/docs/ARCHITECTURE.md`; `.planning/MILESTONES.md` | The CMB ledger path is absent in this worktree. | 2026-07-13 path census | The checked Tier-1 absence governs evidence availability; documentation and implementations establish the expected path, not live CMB rows. | Typed-memory use, lineage quality, echo detection, and evidence-validation activity cannot be labelled OBSERVED from this checkout. |
+| CON-007 | `milestone_status` says the v3.4 loop is about to scaffold P142 and P143; v3.4 intent admits only P136–P143. | `.planning/STATE.md` `milestone_status`; `.planning/milestones/v3.4/INTENT.md` `phase_list` | `status` points to P999 PENDING, while the canonical v3.4 roadmap is absent. | `.planning/STATE.md` `status`; 2026-07-13 path census | `STATE.status` proves the P999 pointer exists, but same-tier admission and sequencing authority is unresolved; do not label P999 an uncomplicated current/active phase. | Audit next-unit selection, cockpit projection, and recovery consumers for invalid or synthetic phase-pointer handling and require typed admission validation. |
 
 ## Explicit Exclusions
 
@@ -157,12 +181,12 @@ When sources conflict, the higher authority governs the claim it is competent to
 | State & Intent | 4 |
 | Memory & Evidence | 4 |
 | Skills & Routing | 28 |
-| Registries & Contracts | 11 |
-| Execution Fabric | 10 |
-| Assurance & Memory | 7 |
-| Observability & Recovery | 11 |
+| Registries & Contracts | 12 |
+| Execution Fabric | 16 |
+| Assurance & Memory | 16 |
+| Observability & Recovery | 12 |
 | Architecture Tests | 13 |
-| **Total** | **93** |
+| **Total** | **110** |
 
 ### By source kind
 
@@ -176,32 +200,33 @@ When sources conflict, the higher authority governs the claim it is competent to
 | Resource ledger | 1 |
 | Skill | 28 |
 | Registry | 11 |
-| Implementation | 23 |
-| Configuration | 1 |
+| Implementation | 38 |
+| Configuration | 3 |
 | Workflow | 4 |
 | Test | 13 |
-| **Total** | **93** |
+| **Total** | **110** |
 
 ### By authority and check status
 
 | Measure | Rows |
 | --- | ---: |
-| Tier 1 current/expected `.planning/` truth | 8 |
-| Tier 2 executable source, active registry, skill, configuration, or workflow | 66 |
+| Tier 1 current/expected `.planning/` truth | 9 |
+| Tier 2 executable source, active registry, skill, configuration, or workflow | 82 |
 | Tier 3 tests | 13 |
 | Tier 4 current contracts/operator docs and documented scaffold | 4 |
 | Tier 5 historical planning | 2 |
-| Existing sources checked for defining content | 89 |
+| Existing sources checked for defining content | 106 |
 | Expected sources checked and confirmed absent | 4 |
-| **Total census rows** | **93** |
+| **Total census rows** | **110** |
 
 ### Findings count
 
 | Finding class | Count | IDs |
 | --- | ---: | --- |
 | Confirmed absences | 4 | SRC-006, SRC-009, SRC-012, SRC-093 |
-| Registered contradictions | 6 | CON-001 through CON-006 |
+| Registered contradictions | 7 | CON-001 through CON-007 |
 | Material skill entries indexed | 28 | SRC-013 through SRC-040 |
 | Material architecture test surfaces indexed | 13 | SRC-080 through SRC-092 |
+| Active wiring, context, entrypoint, and harness boundary rows added | 17 | SRC-094 through SRC-110 |
 
 The census establishes architecture coverage, not runtime utilisation. Because the live metrics directory and canonical CMB ledger are absent, later audit lanes must not convert configuration, prose, or test coverage into claims of recent execution or typed-memory activity.
