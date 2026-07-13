@@ -1,8 +1,10 @@
 # SGSD Skills, Intent Routing, and Control-Plane Boundary Audit
 
-**Audit date:** 2026-07-13  
-**Lane:** Skills and routing  
-**Status:** Read-only audit; preliminary verdicts for later synthesis  
+**Audit date:** 2026-07-13
+
+**Lane:** Skills and routing
+
+**Status:** Read-only audit; preliminary verdicts for later synthesis
 **Evidence base:** `.planning/analyses/2026-07-13-sgsd-frontier-architecture-evidence-index.md`, especially SRC-013 through SRC-040
 
 ## Findings headline
