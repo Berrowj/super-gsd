@@ -67,6 +67,16 @@ PLAN_TAG=""
 STEP_TAG=""
 RETRY_ON_TIMEOUT_ESCALATE=false
 SELF_TEST_EXIT_PRIORITY=false
+# Report contract selector. Default preserves the Phase 14 byte-equivalent
+# code-reviewer-v1 awk path. `rd-memo-v1` (R&D Board Treaty §4.5) switches to a
+# raw-YAML passthrough validated by scripts/lib/rd-memo-schema.cjs — the board
+# memo shape has nothing in common with the 5-field reviewer contract.
+CONTRACT="code-reviewer-v1"
+# Per-seat model override. The R&D Board seats four DIFFERENT model IDs across
+# two providers (treaty §4.5 rules 1-2), so the config-pinned single model is
+# not sufficient. Empty = keep the config/default value.
+MODEL_OVERRIDE=""
+REASONING_OVERRIDE=""
 # Phase 55-01: provider-circuit milestone tag. Optional. When unset OR set to
 # the literal string "none", the circuit-breaker pre-check is a no-op (legacy
 # Phase 14-54 byte-equivalent path). When set, codex-exec consults
@@ -103,6 +113,9 @@ while [[ $# -gt 0 ]]; do
         --step)         STEP_TAG="$2"; shift 2 ;;
         --timeout-tier) TIMEOUT_TIER="$2"; shift 2 ;;
         --milestone)    MILESTONE_TAG="$2"; shift 2 ;;
+        --contract)     CONTRACT="$2"; shift 2 ;;
+        --model)        MODEL_OVERRIDE="$2"; shift 2 ;;
+        --reasoning)    REASONING_OVERRIDE="$2"; shift 2 ;;
         --self-test)    SELF_TEST=true;    shift ;;
         --skip-network) SKIP_NETWORK=true; shift ;;
         --retry-on-timeout-escalate)    RETRY_ON_TIMEOUT_ESCALATE=true;  shift ;;
@@ -194,6 +207,18 @@ if [[ -n "$ROOT" && -f "$ROOT/.planning/config.json" ]] && command -v node >/dev
         esac
     done <<< "$cfg_runtime"
 fi
+
+# Explicit per-invocation overrides beat the config pin. Applied last so an
+# R&D Board seat gets its own treaty-assigned model without mutating config.
+[[ -n "$MODEL_OVERRIDE"     ]] && CODEX_MODEL="$MODEL_OVERRIDE"
+[[ -n "$REASONING_OVERRIDE" ]] && CODEX_REASONING_EFFORT="$REASONING_OVERRIDE"
+
+# Validate the contract selector early — an unknown value must fail loudly
+# rather than silently falling through to the reviewer parser.
+case "$CONTRACT" in
+    code-reviewer-v1|rd-memo-v1) ;;
+    *) echo "codex-exec: unknown --contract '$CONTRACT' (expected code-reviewer-v1 | rd-memo-v1)" >&2; exit 1 ;;
+esac
 
 CODEX_COMMAND="codex"
 CODEX_LAUNCHER="direct"
@@ -816,6 +841,46 @@ fi
 #   FINDINGS_DETAIL: ...   (optional, repeatable, preserved)
 # Use the last FINDINGS-started contract block (codex may echo the prompt or
 # retry in stdout). Preserve line text so citations and severity tags survive.
+#
+# rd-memo-v1 (R&D Board) takes a different route entirely: the payload is a
+# YAML memo, so we slice from the last top-level `verdict:` to EOF, strip any
+# markdown fences codex wrapped it in, and hand the result to
+# rd-memo-schema.cjs for field/blind-ballot/superlative validation.
+if [[ "$CONTRACT" == "rd-memo-v1" ]]; then
+    parsed="$(awk '
+        /^verdict:[[:space:]]/ { start = NR }
+        { lines[NR] = $0 }
+        END {
+            if (start == 0) { print "CONTRACT_VIOLATION" > "/dev/stderr"; exit 6 }
+            for (i = start; i <= NR; i++) {
+                if (lines[i] ~ /^[[:space:]]*```/) continue
+                print lines[i]
+            }
+        }
+    ' "$STDOUT_TMP" 2>/dev/null)"
+    awk_rc=$?
+
+    if [[ $awk_rc -eq 0 && -n "$parsed" ]] && command -v node >/dev/null 2>&1; then
+        schema_lib="$(dirname "$0")/lib/rd-memo-schema.cjs"
+        if [[ -f "$schema_lib" ]]; then
+            validation_errors="$(printf '%s\n' "$parsed" | node -e '
+                const fs = require("fs");
+                const schema = require(process.argv[1]);
+                const body = fs.readFileSync(0, "utf8");
+                const r = schema.validate(body, { enforceBlindBallot: true });
+                if (!r.valid) process.stdout.write(r.errors.join("; "));
+            ' "$schema_lib" 2>/dev/null || true)"
+            if [[ -n "$validation_errors" ]]; then
+                write_live_state "contract-violation" 6 "false" 0
+                append_jsonl 6 "false" 0
+                append_narrative_event "codex_fallback" "rd_memo_schema_fail step=$STEP_TAG" "lastfail"
+                echo "codex-exec: rd-memo-v1 schema violation — $validation_errors" >&2
+                provider_circuit_record_result "$MILESTONE_TAG" "false"
+                exit 6
+            fi
+        fi
+    fi
+else
 parsed="$(awk '
     /^FINDINGS:/ {
         in_block = 1
@@ -853,12 +918,17 @@ parsed="$(awk '
     }
 ' "$STDOUT_TMP" 2>/dev/null)"
 awk_rc=$?
+fi
 
 if [[ $awk_rc -ne 0 || -z "$parsed" ]]; then
     write_live_state "contract-violation" 6 "false" 0
     append_jsonl 6 "false" 0
     append_narrative_event "codex_fallback" "parse_failure step=$STEP_TAG" "lastfail"
-    echo "codex-exec: report contract violation — one or more of FINDINGS/CRITICAL/WARNINGS/PASS_RATE/ONE_LINER missing from codex stdout" >&2
+    if [[ "$CONTRACT" == "rd-memo-v1" ]]; then
+        echo "codex-exec: report contract violation — no top-level 'verdict:' line found in codex stdout (rd-memo-v1)" >&2
+    else
+        echo "codex-exec: report contract violation — one or more of FINDINGS/CRITICAL/WARNINGS/PASS_RATE/ONE_LINER missing from codex stdout" >&2
+    fi
     # Phase 55-01: contract-violation is a provider failure; record it.
     provider_circuit_record_result "$MILESTONE_TAG" "false"
     exit 6

@@ -1,0 +1,175 @@
+# ============================================================================
+# Clarity R&D Board Members Registry
+# ============================================================================
+# Sibling to board-members.yaml (SGSD decision board). Implements the R&D
+# Board Treaty v0.3 — super-gsd/docs/RD-BOARD-TREATY.md
+#
+# Key structural difference from the SGSD board: seats are split across two
+# providers and two dispatch routes. Anthropic seats go through Agent();
+# OpenAI seats shell out to codex-exec.sh with the rd-memo-v1 contract.
+# Treaty §4.5 rule 3 forbids silent substitution — an unavailable model
+# returns MODEL_UNAVAILABLE rather than falling back.
+# ============================================================================
+
+schema_version: 1
+registry_version: 0.3.0
+last_updated: 2026-07-22
+board_version: v1-treaty-0.3
+treaty_ref: super-gsd/docs/RD-BOARD-TREATY.md
+
+# Treaty §4.5 rules 12-15: structural diversity controls outrank model identity.
+structural_controls:
+  blind_ballot: true              # §13.5.1 — private verdicts, de-identified findings
+  ledger_blindness: true          # §4.5 r15 — seats never told they are scored
+  randomise_speaking_order: true  # §13.3 — authority order suppresses diversity
+  max_cross_exam_rounds: 2        # §13.3.5
+  reindependence_between_rounds: true
+  divergence_floor: null          # §4.5 r13 — OPEN, calibrate from acceptance run
+  divergence_floor_action: void_round
+
+# Treaty §13.2.1 — topology is phase-dependent, not global.
+topology:
+  divergent_phases: [R-0, R0, R1, R2]
+  divergent_mode: parallel_independent
+  convergent_phases: [R5]
+  convergent_mode: sequential_refinement
+
+board_members:
+  - name: rd-board-cartographer
+    role: Systems Cartographer
+    seat: slot_architect
+    provider: anthropic
+    model_default: opus
+    model_id: claude-opus-4-8
+    reasoning_effort: xhigh
+    dispatch: agent
+    treaty_ref: "§4.1"
+    perspective:
+      - current-state mapping
+      - incumbent identification
+      - dependency and consumer tracing
+      - slot precision
+    evaluation_focus:
+      - "Where is this handled today, exactly?"
+      - "What is the incumbent and what depends on it?"
+      - "Is there a real slot, or is this NO_SLOT?"
+    hard_rules:
+      - "NO_SLOT is a valid and often successful finding"
+      - "Slot map is distributed as data before debate, never as an opening argument"
+    runs_gate_r_minus_0: true     # §10 Gate R-0 — sole triage seat
+    state: active
+    version: 0.3
+
+  - name: rd-board-experimentalist
+    role: Experimentalist
+    seat: evidence_architect
+    provider: openai
+    model_default: external
+    model_id: gpt-5.6-sol
+    reasoning_effort: xhigh
+    dispatch: codex-exec
+    codex_contract: rd-memo-v1
+    codex_profile: codex.readonly.audit
+    treaty_ref: "§4.2"
+    perspective:
+      - falsifiable experiment design
+      - baseline and protected metrics
+      - verification vs validation
+      - critical-category regression
+    evaluation_focus:
+      - "What is the smallest test that could kill this?"
+      - "Does the incumbent baseline even reproduce known-good?"
+      - "Can success be distinguished from enthusiasm?"
+    hard_rules:
+      - "No credible falsifying test = candidate cannot advance"
+      - "Adjudicate on raw logs and receipts only, never summaries (§10)"
+      - "Baseline validity is an R5 hard fail (§10 R5)"
+    state: active
+    version: 0.3
+
+  - name: rd-board-contrarian
+    role: Contrarian
+    seat: deletion_advocate
+    provider: openai
+    model_default: external
+    model_id: gpt-5.5
+    reasoning_effort: xhigh
+    dispatch: codex-exec
+    codex_contract: rd-memo-v1
+    codex_profile: codex.readonly.audit
+    treaty_ref: "§4.3"
+    perspective:
+      - requirement challenge
+      - deletion over solution
+      - duplicate-capability detection
+      - hidden integration and support cost
+    evaluation_focus:
+      - "Is the requirement itself wrong?"
+      - "Can the problem be removed rather than solved?"
+      - "Does an existing Clarity engine already do 80% of this?"
+    hard_rules:
+      - "No taste-based veto — a concrete unresolved hard risk blocks; dislike does not"
+      - "Objections must be answerable or convertible into a test"
+    state: active
+    version: 0.3
+
+  - name: rd-board-moonshot
+    role: Moonshot
+    seat: leverage_architect
+    provider: anthropic
+    model_default: fable
+    model_id: claude-fable-5
+    reasoning_effort: native
+    dispatch: agent
+    treaty_ref: "§4.4"
+    perspective:
+      - non-obvious high-leverage reading
+      - category elimination over task optimisation
+      - shared primitive discovery
+    evaluation_focus:
+      - "Is the proposed use too literal?"
+      - "Could this eliminate a category of work rather than optimise one task?"
+      - "Is there a better architecture than inserting another feature?"
+    hard_rules:
+      - "Imagination earns an experiment, never production authority"
+      - "Upside cannot override missing evidence, fit or safety (§13.5)"
+    state: active
+    version: 0.3
+
+# §4.5 rule 2 — two-provider minimum. Validated at dispatch time.
+provider_balance:
+  anthropic: [rd-board-cartographer, rd-board-moonshot]
+  openai: [rd-board-experimentalist, rd-board-contrarian]
+  max_seats_per_provider: 2
+
+# §10 Gate R-0 — the full board is a scarce resource, not a reflex.
+convening_policy:
+  triage_gate: R-0
+  triage_seat: rd-board-cartographer
+  disposes_without_board:
+    - NO_SLOT
+    - duplicate_capability
+    - radar_hold_trigger_unfired
+  escalates_to_full_board: everything_else
+  operator_can_reverse_disposal: true
+
+# §10.0 — candidates that add nothing skip the gates that control additions.
+fast_path:
+  condition:
+    complexity_delta_additions: 0
+    placement_mode_in: [DELETE, OBSERVE, COMPOSE]
+  gates: [R0, R2, R5]
+  demotion_on_acquiring_addition: full_path
+
+# §5 — witnesses contribute evidence, do not vote.
+summoned_witnesses:
+  - name: operator_user_advocate
+    trigger: staff_facing_workflow_change
+  - name: security_data_ip_steward
+    trigger: [personal_data, credentials, external_model_api, customer_documents, novel_ip]
+    auto_summon: true
+  - name: commercial_complexity_accountant
+    trigger: [new_vendor, infrastructure, service, model, store, licence, support_burden]
+    always_at_gate: null          # OPEN — treaty §21 decision 3
+  - name: domain_specialist
+    trigger: domain_specific_assumptions
