@@ -24,7 +24,17 @@ structural_controls:
   randomise_speaking_order: true  # §13.3 — authority order suppresses diversity
   max_cross_exam_rounds: 2        # §13.3.5
   reindependence_between_rounds: true
-  divergence_floor: null          # §4.5 r13 — OPEN, calibrate from acceptance run
+  # §4.5 r13. PROVISIONAL, n=1. The only observed round (RD-2026-001) scored
+  # 0.866 with a verdict spread of 3 — a healthy, genuinely divergent board.
+  # 0.40 sits far below that, so it should catch four-paraphrase convergence
+  # without false-voiding a real disagreement. It is NOT calibrated: one
+  # datapoint cannot establish a distribution, and a floor is a one-sided
+  # guess until we have seen a round that SHOULD be voided.
+  # Revisit at the n=5 tripwire, or the first time a round is voided.
+  divergence_floor: 0.40
+  divergence_floor_status: provisional-n1
+  divergence_floor_observations: [0.866]
+  divergence_floor_review_at: 5
   divergence_floor_action: void_round
 
 # Treaty §13.2.1 — topology is phase-dependent, not global.

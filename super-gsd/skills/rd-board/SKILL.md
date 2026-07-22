@@ -132,15 +132,22 @@ the shared observation pack.
 `MODEL_UNAVAILABLE`. Record it, and do NOT present the run as the treaty lineup. Provider failure
 is recorded separately from candidate merit (rule 12) — a timeout is not evidence against the idea.
 
+**Every dispatch prompt must state the seat's `provider`, `model_id` and `reasoning_effort`
+verbatim**, because the memo has to echo them back into its `provenance` block (§4.5 r5). Do not
+ask a model to guess its own identity — supply it.
+
 Validate every memo, Anthropic and OpenAI alike:
 ```javascript
-const result = rdSchema.validate(raw, { requirePlacementMode: seat === 'cartographer' });
+const result = rdSchema.validate(raw, {
+  requirePlacementMode: seat === 'cartographer',
+  requireProvenance: true,           // §4.5 r5 — reproducible identity
+});
 if (!result.valid) {
   // retry ONCE with the errors quoted back, then hard-fail the seat
 }
 ```
-The validator enforces the §10 superlative bar and the §13.5.1 blind ballot mechanically.
-Do not hand-wave a violation through.
+The validator enforces the §10 superlative bar, the §13.5.1 blind ballot, and the provenance
+block mechanically. Do not hand-wave a violation through.
 </step_4_independent_memos>
 
 <step_5_diversity_floor>
@@ -234,8 +241,17 @@ Render the dossier projection (§14) from the event log. Update `.planning/rd/ra
 the **12-entry attention cap** on operator-actionable states (`Assess`, `Spike`, `Shadow`,
 `Challenger`, `Pilot`); demote the lowest-priority entries to `Observe` beyond it.
 
-Append the post-hoc model performance ledger (§4.5) — including **predicted-vs-actual gate
-outcome** per seat. Seats never see this.
+Append the post-hoc model performance ledger (§4.5). Seats never see this.
+
+```javascript
+const scored = rdSchema.scorePredictions(memosWithSeatNames, finalVerdict);
+```
+
+`scorePredictions` separates **informative** forecasts from **tautological** ones — a seat that
+predicted its own verdict forecast nothing, and is excluded from `forecast_accuracy` rather than
+counted as correct. If `informative_count` is 0, report the ledger as *uninformative for this
+round* and say so plainly; do not present `forecast_accuracy: null` as a score. A run where every
+seat echoed itself is a prompt failure, not a model result.
 </step_9_report>
 
 <step_10_state>

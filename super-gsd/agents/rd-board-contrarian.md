@@ -62,8 +62,14 @@ reversing_evidence:
   - what would prove your objection wrong
 case_against_self: the strongest argument that this proposal is in fact correct and you are obstructing
 prediction:
-  gate_outcome: your falsifiable prediction of where this candidate ends up
-  basis: why you predict that
+  gate_outcome: MUST be exactly one verdict enum token. Predict what THE BOARD AS A WHOLE will conclude — this is NOT a restatement of your own verdict. The two often differ: you may hold a position you expect to lose, and forecasting that honestly is worth more than echoing yourself. If you genuinely expect the board to land where you did, that is allowed — but say why in basis.
+  basis: why you predict that outcome, and why you expect it to match or diverge from your own position
+provenance:
+  provider: use the exact value given in your dispatch prompt
+  model_id: use the exact value given in your dispatch prompt
+  reasoning_effort: use the exact value given in your dispatch prompt
+  template_version: rd-memo-v1.1
+  completed_at: ISO 8601 UTC timestamp for when you finished this memo
 rationale: the objection in two sentences
 strongest_objection: ""
 failure_mechanism: ""

@@ -32,6 +32,17 @@ const REQUIRED_FIELDS = Object.freeze([
   'rationale',
 ]);
 
+// Treaty §4.5 rule 5 — reproducible identity. Required from v0.3.1 after the
+// RD-2026-001 live run shipped four memos with no provenance at all, leaving
+// nothing in the artefacts to prove which models actually sat.
+const PROVENANCE_FIELDS = Object.freeze([
+  'provider',
+  'model_id',
+  'reasoning_effort',
+  'template_version',
+  'completed_at',
+]);
+
 const LIST_FIELDS = Object.freeze([
   'observations_cited',
   'inferences',
@@ -99,6 +110,7 @@ function validate(yamlBody, opts = {}) {
   const {
     requirePlacementMode = false,
     enforceBlindBallot = true,
+    requireProvenance = false,
   } = opts;
 
   let parsed;
@@ -158,6 +170,30 @@ function validate(yamlBody, opts = {}) {
         errors.push(`prediction.gate_outcome: invalid value '${p.gate_outcome}'`);
       }
       if (!isNonEmptyString(p.basis)) errors.push('prediction.basis: missing or empty');
+    }
+  }
+
+  // §4.5 r5 — reproducible identity. Opt-in during migration so pre-v0.3.1
+  // memos still parse for divergence scoring; the skill passes true for new runs.
+  if (requireProvenance) {
+    if (!Object.prototype.hasOwnProperty.call(parsed, 'provenance')) {
+      errors.push('provenance: missing (§4.5 r5 — memo must record which model produced it)');
+    } else {
+      const p = parsed.provenance;
+      if (!p || typeof p !== 'object' || Array.isArray(p)) {
+        errors.push('provenance: must be a map');
+      } else {
+        for (const field of PROVENANCE_FIELDS) {
+          // js-yaml auto-parses unquoted ISO timestamps into Date, so a
+          // correctly-formed completed_at arrives as an object, not a string.
+          // Accept either and normalise to ISO.
+          if (field === 'completed_at' && p[field] instanceof Date && !Number.isNaN(p[field].getTime())) {
+            p[field] = p[field].toISOString();
+            continue;
+          }
+          if (!isNonEmptyString(p[field])) errors.push(`provenance.${field}: missing or empty`);
+        }
+      }
     }
   }
 
@@ -286,11 +322,58 @@ function checkDiversityFloor(memos, floor) {
   };
 }
 
+/**
+ * Score predictions against the actual board outcome (§4.5 r16).
+ *
+ * The RD-2026-001 live run exposed the defect this exists to catch: all four
+ * seats set prediction.gate_outcome equal to their OWN verdict, which forecasts
+ * nothing and scores nothing.
+ *
+ * A prediction matching one's own verdict is not invalid — a seat may genuinely
+ * expect the board to agree. But it carries no information about forecasting
+ * skill, so it is flagged `tautological` and excluded from the skill metric.
+ * Reject-on-match would punish honest agreement; flagging preserves it while
+ * keeping the ledger meaningful.
+ *
+ * @param {Array<{seat?: string, verdict: string, prediction: {gate_outcome: string}}>} memos
+ * @param {string} actualOutcome the board's final verdict
+ */
+function scorePredictions(memos, actualOutcome) {
+  const rows = (memos || []).map((m, i) => {
+    const predicted = m && m.prediction && m.prediction.gate_outcome;
+    const tautological = predicted === m.verdict;
+    return {
+      seat: (m && m.seat) || `seat_${i}`,
+      own_verdict: m && m.verdict,
+      predicted,
+      actual: actualOutcome,
+      correct: predicted === actualOutcome,
+      tautological,
+      // Only a prediction that departs from the seat's own position tells us
+      // anything about its ability to read the room.
+      informative: !tautological,
+    };
+  });
+  const informative = rows.filter((r) => r.informative);
+  return {
+    rows,
+    total: rows.length,
+    tautological_count: rows.filter((r) => r.tautological).length,
+    informative_count: informative.length,
+    // null, not 0 — "we learned nothing" is not "it scored zero".
+    forecast_accuracy: informative.length
+      ? informative.filter((r) => r.correct).length / informative.length
+      : null,
+  };
+}
+
 module.exports = {
   validate,
   divergence,
   checkDiversityFloor,
+  scorePredictions,
   REQUIRED_FIELDS,
+  PROVENANCE_FIELDS,
   VERDICT_VALUES,
   PLACEMENT_MODES,
 };

@@ -1,8 +1,8 @@
 # Clarity Research & Development Board Treaty
 
-**Status:** v0.3 — corpus-hardened, operator-approved changelist applied
+**Status:** v0.3.1 — corpus-hardened, plus corrections from the first live run (§22)
 **Date:** 22 July 2026
-**Supersedes:** v0.2 (22 July 2026, operator review draft)
+**Supersedes:** v0.3 (same day) · v0.2 (operator review draft)
 **Relationship:** A sibling constitution to the SGSD Board Treaty
 **Implements:** `/rd-board` skill — `super-gsd/skills/rd-board/SKILL.md`
 **Purpose:** Convert external research, VTP material, papers, demonstrations and new technical ideas into evidence-bounded Clarity opportunities—without allowing novelty to bloat the system.
@@ -905,8 +905,62 @@ They contain different problem types, engines, data, users and risk profiles, so
 
 ### New in v0.3 — open decisions
 
-| # | Decision | Note |
+| # | Decision | Status |
 |---|---|---|
-| 6 | Calibrate the §4.5 r13 divergence floor | Needs a value. Recommend deriving empirically from the three-domain acceptance run rather than guessing now. |
-| 7 | Confirm the §16 attention cap of 12 | Borrowed from the SCADA alarm-flood precedent; not derived for R&D specifically. |
-| 8 | Approve §4.5 r14 heterogeneity | Permits one deliberately cheaper/less-aligned seat as a diversity source. Interacts with the confirmed 2×2 lineup. |
+| 6 | Calibrate the §4.5 r13 divergence floor | **PROVISIONAL (n=1).** Set to `0.40` after RD-2026-001 scored 0.866 with verdict spread 3. Far below the only healthy round observed, so it should catch four-paraphrase convergence without false-voiding real disagreement. **Not calibrated** — one datapoint cannot establish a distribution, and no round has yet been observed that *should* be voided. Review at n=5 or on first void. |
+| 7 | Confirm the §16 attention cap of 12 | **OPEN.** Borrowed from the SCADA alarm-flood precedent; not derived for R&D. Untested — the radar currently holds 2 entries. |
+| 8 | Approve §4.5 r14 heterogeneity | **OPEN.** Permits one deliberately cheaper/less-aligned seat as a diversity source. Interacts with the confirmed 2×2 lineup. |
+
+---
+
+## 22. v0.3.1 — corrections from the first live run
+
+RD-2026-001 (22 July 2026) was the treaty's first live session. It surfaced two defects in the
+harness — not in the candidate, and not in the seats — plus one design lesson. All are fixed here.
+
+### 22.1 Provenance was required but never collected (§4.5 r5)
+
+Rule 5 requires every memo to record provider, exact model ID, reasoning mode, prompt-template
+version and completion timestamp. **Not one of the four memos carried any of it.** Nothing in the
+session's artefacts proved which models actually sat, which makes the run unreproducible in
+exactly the sense rule 5 exists to prevent, and would have made any later bake-off (rule 9)
+uninterpretable.
+
+**Fixed:** `provenance` is now a required, mechanically-validated block. The orchestrator supplies
+provider/model/effort in the dispatch prompt and the seat echoes it back — a model is never asked
+to guess its own identity. `rd-memo-schema.cjs` enforces it via `requireProvenance`.
+
+### 22.2 Predictions were tautological (§4.5 r16)
+
+Rule 16 requires a predeclared, falsifiable prediction so the ledger scores forecasting skill
+rather than post-hoc plausibility. **All four seats set `prediction.gate_outcome` equal to their
+own verdict**, which forecasts nothing. The prompt asked for "your prediction of where this
+candidate ends up", which invites exactly that.
+
+**Fixed:** seats are now asked to forecast **the board's overall conclusion**, explicitly noting
+that this often differs from their own position and that expecting to lose an argument is a
+legitimate forecast. Matching one's own verdict is still permitted — a seat may genuinely expect
+agreement — but it is flagged `tautological` and **excluded from `forecast_accuracy`** rather than
+scored as correct. Rejecting on match would punish honest agreement; flagging keeps the ledger
+meaningful without doing so. See `scorePredictions()`.
+
+**A round where every seat echoes itself is a prompt failure, not a model result**, and must be
+reported as uninformative rather than as a null score.
+
+### 22.3 Design lesson: the pack's declared gaps are where the value was
+
+The Cartographer listed `QdrantItemService` and the enrichment `agreement_status` signals as
+things it had *not* opened. Another seat opened them and found the continuous ranking signal that
+reframed the entire candidate — and a third dead review loop nobody had counted.
+
+**Consequence:** §7.2's "record what was not inspected and why" is not bookkeeping. The
+`not_inspected` list is a work queue for the other seats, and the observation pack must carry it
+verbatim into every seat's prompt. This is now explicit in the skill's Step 4.
+
+### 22.4 What held up
+
+Blind ballot, ledger blindness, the superlative bar and the schema validator all functioned
+mechanically on first use. The strongest result of the session — two seats on different providers,
+holding opposite verdicts, independently proposing the same remedy — is only interpretable
+*because* neither could see the other. That is the clearest evidence available that §13.5.1 earns
+its cost.

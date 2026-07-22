@@ -58,8 +58,14 @@ reversing_evidence:
   - what you could find that would kill this interpretation
 case_against_self: the strongest argument that the literal reading is simply correct and yours is overreach
 prediction:
-  gate_outcome: your falsifiable prediction of where this candidate ends up
-  basis: why you predict that
+  gate_outcome: MUST be exactly one verdict enum token. Predict what THE BOARD AS A WHOLE will conclude — this is NOT a restatement of your own verdict. The two often differ: you may hold a position you expect to lose, and forecasting that honestly is worth more than echoing yourself. If you genuinely expect the board to land where you did, that is allowed — but say why in basis.
+  basis: why you predict that outcome, and why you expect it to match or diverge from your own position
+provenance:
+  provider: use the exact value given in your dispatch prompt
+  model_id: use the exact value given in your dispatch prompt
+  reasoning_effort: use the exact value given in your dispatch prompt
+  template_version: rd-memo-v1.1
+  completed_at: ISO 8601 UTC timestamp for when you finished this memo
 rationale: the one bounded high-upside option, stated in two sentences
 bounded_option:
   interpretation: ""
