@@ -57,6 +57,7 @@ export PATH
 PROMPT_FILE=""
 REPORT_OUT=""
 TIMEOUT_SECONDS=""
+EXPLICIT_TIMEOUT=false
 TIMEOUT_TIER=""
 DRY_RUN=false
 SELF_TEST=false
@@ -105,7 +106,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --prompt-file) PROMPT_FILE="$2"; shift 2 ;;
         --report-out)  REPORT_OUT="$2";  shift 2 ;;
-        --timeout)     TIMEOUT_SECONDS="$2"; shift 2 ;;
+        --timeout)     TIMEOUT_SECONDS="$2"; EXPLICIT_TIMEOUT=true; shift 2 ;;
         --dry-run)     DRY_RUN=true; shift ;;
         --project)     PROJECT="$2"; shift 2 ;;
         --phase)       PHASE_TAG="$2"; shift 2 ;;
@@ -260,7 +261,7 @@ if [[ -z "$TIMEOUT_SECONDS" ]]; then
 fi
 
 # ── D-03 timeout-tier resolver ───────────────────────────────────────────────
-# Precedence: --timeout-tier custom:N > --timeout-tier named > step-name map > codex_timeout_seconds fallback
+# Precedence: --timeout-tier custom:N == --timeout N > --timeout-tier named > step-name map > codex_timeout_seconds fallback
 # Tier values are config-backed (review_providers.codex_timeout_tiers.{default,review,analysis})
 # with hardcoded fallbacks that match the D-03 spec if config keys are absent.
 TIER_DEFAULT=60
@@ -502,6 +503,9 @@ fi
 TIMEOUT="$TIMEOUT_SECONDS"
 
 if [[ -n "$TIMEOUT_TIER" ]]; then
+    if [[ "$EXPLICIT_TIMEOUT" == true ]]; then
+        echo "codex-exec: --timeout ${TIMEOUT_SECONDS}s overridden by --timeout-tier '$TIMEOUT_TIER'" >&2
+    fi
     tier_val="$(resolve_timeout_tier "$TIMEOUT_TIER")"
     if [[ -n "$tier_val" ]]; then
         TIMEOUT="$tier_val"
@@ -509,13 +513,15 @@ if [[ -n "$TIMEOUT_TIER" ]]; then
         echo "codex-exec: unknown --timeout-tier '$TIMEOUT_TIER'; valid: default|review|analysis|custom:N" >&2
         exit 1
     fi
+elif [[ "$EXPLICIT_TIMEOUT" == true ]]; then
+    TIMEOUT="$TIMEOUT_SECONDS"
 elif [[ -n "$STEP_TAG" ]]; then
     step_val="$(resolve_step_timeout "$STEP_TAG")"
     if [[ -n "$step_val" ]]; then
         TIMEOUT="$step_val"
     else
-        echo "step '$STEP_TAG' has no tier mapping, using default" >&2
-        TIMEOUT="${TIMEOUT_SECONDS:-60}"
+        TIMEOUT="$TIER_DEFAULT"
+        echo "step '$STEP_TAG' has no tier mapping, using default (${TIMEOUT}s)" >&2
     fi
 fi
 

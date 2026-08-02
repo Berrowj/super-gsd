@@ -1,17 +1,52 @@
 {
   "hooks": {
     "UserPromptSubmit": [
-      "super-gsd/tools/codex-hooks/block-secret-leak.cjs"
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node super-gsd/tools/codex-hooks/block-secret-leak.cjs"
+          }
+        ]
+      }
     ],
     "PreToolUse": [
-      "super-gsd/tools/codex-hooks/block-forbidden-write.cjs",
-      "super-gsd/tools/codex-hooks/enforce-allowed-files.cjs"
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node super-gsd/tools/codex-hooks/block-forbidden-write.cjs"
+          },
+          {
+            "type": "command",
+            "command": "node super-gsd/tools/codex-hooks/enforce-allowed-files.cjs"
+          }
+        ]
+      }
     ],
     "PostToolUse": [
-      "super-gsd/tools/codex-hooks/log-tool-event.cjs"
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node super-gsd/tools/codex-hooks/log-tool-event.cjs"
+          }
+        ]
+      }
     ],
     "Stop": [
-      "super-gsd/tools/codex-hooks/validate-stop-contract.cjs"
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node super-gsd/tools/codex-hooks/validate-stop-contract.cjs"
+          }
+        ]
+      }
     ]
   }
 }
