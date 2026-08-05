@@ -24,7 +24,7 @@
 #
 # Usage:
 #   codex-exec.sh --prompt-file <p> --report-out <p> [--timeout N] [--dry-run]
-#                 [--project <p>] [--phase N] [--plan NN-PP] [--step LABEL]
+#                 [--project <p>] [--phase N] [--plan NN-PP] [--step LABEL] [--profile NAME]
 #
 # Exit codes (D-01a):
 #   0 — success, report parsed + written + JSONL row appended
@@ -53,6 +53,9 @@ if [[ -d "$HOME/.nvm/versions/node" ]]; then
 fi
 export PATH
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+source "$SCRIPT_DIR/lib/codex-profile-shell.sh"
+
 # ── Defaults ────────────────────────────────────────────────────────────────
 PROMPT_FILE=""
 REPORT_OUT=""
@@ -78,6 +81,7 @@ CONTRACT="code-reviewer-v1"
 # not sufficient. Empty = keep the config/default value.
 MODEL_OVERRIDE=""
 REASONING_OVERRIDE=""
+PROFILE_OVERRIDE=""
 # Phase 55-01: provider-circuit milestone tag. Optional. When unset OR set to
 # the literal string "none", the circuit-breaker pre-check is a no-op (legacy
 # Phase 14-54 byte-equivalent path). When set, codex-exec consults
@@ -117,6 +121,7 @@ while [[ $# -gt 0 ]]; do
         --contract)     CONTRACT="$2"; shift 2 ;;
         --model)        MODEL_OVERRIDE="$2"; shift 2 ;;
         --reasoning)    REASONING_OVERRIDE="$2"; shift 2 ;;
+        --profile)      PROFILE_OVERRIDE="$2"; shift 2 ;;
         --self-test)    SELF_TEST=true;    shift ;;
         --skip-network) SKIP_NETWORK=true; shift ;;
         --retry-on-timeout-escalate)    RETRY_ON_TIMEOUT_ESCALATE=true;  shift ;;
@@ -137,7 +142,7 @@ fi
 # ── Required flags ──────────────────────────────────────────────────────────
 if [[ "$SELF_TEST" == false ]] && [[ -z "$PROMPT_FILE" || -z "$REPORT_OUT" ]]; then
     echo "codex-exec: --prompt-file and --report-out are required" >&2
-    echo "Usage: codex-exec.sh --prompt-file <p> --report-out <p> [--timeout N] [--dry-run] [--project <p>] [--phase N] [--plan NN-PP] [--step LABEL]" >&2
+    echo "Usage: codex-exec.sh --prompt-file <p> --report-out <p> [--timeout N] [--dry-run] [--project <p>] [--phase N] [--plan NN-PP] [--step LABEL] [--profile NAME]" >&2
     exit 1
 fi
 
@@ -179,41 +184,19 @@ if [[ "$PROJECT" =~ ^[A-Za-z]:\\ ]]; then
     fi
 fi
 
-# ── Codex runtime config ────────────────────────────────────────────────────
-# SGSD Codex calls are pinned here so every ATC/qualitative/adversarial shell
-# dispatch uses the intended model and thinking level even if user defaults
-# drift. Config path: .planning/config.json → review_providers.{codex_model,
-# codex_reasoning_effort}. Defaults match the operator baseline.
-CODEX_MODEL="gpt-5.5"
-CODEX_REASONING_EFFORT="xhigh"
+PROFILE_REQUESTED="${PROFILE_OVERRIDE:-${SGSD_CODEX_PROFILE:-review}}"
+sgsd_codex_load_cli_profile "$PROFILE_REQUESTED" "review" "$PROJECT"
+CODEX_MODEL="$SGSD_CODEX_PROFILE_MODEL"
+CODEX_REASONING_EFFORT="$SGSD_CODEX_PROFILE_REASONING_EFFORT"
+CODEX_PROFILE_SANDBOX="$SGSD_CODEX_PROFILE_SANDBOX"
+CODEX_PROFILE_EPHEMERAL="$SGSD_CODEX_PROFILE_EPHEMERAL"
+CODEX_PROFILE_APPROVAL="$SGSD_CODEX_PROFILE_APPROVAL"
+CODEX_PROFILE_FULL_AUTO="$SGSD_CODEX_PROFILE_FULL_AUTO"
 
-if [[ -n "$ROOT" && -f "$ROOT/.planning/config.json" ]] && command -v node >/dev/null 2>&1; then
-    cfg_runtime="$(node -e '
-        try {
-            const fs = require("fs");
-            const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-            const r = j && j.review_providers;
-            if (r && typeof r.codex_model === "string" && r.codex_model.trim()) {
-                process.stdout.write("CODEX_MODEL=" + r.codex_model.trim() + "\n");
-            }
-            if (r && typeof r.codex_reasoning_effort === "string" && r.codex_reasoning_effort.trim()) {
-                process.stdout.write("CODEX_REASONING_EFFORT=" + r.codex_reasoning_effort.trim() + "\n");
-            }
-        } catch (e) { /* silent: keep pinned defaults */ }
-    ' "$ROOT/.planning/config.json" 2>/dev/null || true)"
-    while IFS='=' read -r key val; do
-        case "$key" in
-            CODEX_MODEL) [[ -n "$val" ]] && CODEX_MODEL="$val" ;;
-            CODEX_REASONING_EFFORT) [[ -n "$val" ]] && CODEX_REASONING_EFFORT="$val" ;;
-        esac
-    done <<< "$cfg_runtime"
-fi
-
-# Explicit per-invocation overrides beat the config pin. Applied last so an
-# R&D Board seat gets its own treaty-assigned model without mutating config.
+# Explicit per-invocation overrides beat profile defaults. Applied last so an
+# R&D Board seat gets its own treaty-assigned model without mutating registry.
 [[ -n "$MODEL_OVERRIDE"     ]] && CODEX_MODEL="$MODEL_OVERRIDE"
 [[ -n "$REASONING_OVERRIDE" ]] && CODEX_REASONING_EFFORT="$REASONING_OVERRIDE"
-
 # Validate the contract selector early — an unknown value must fail loudly
 # rather than silently falling through to the reviewer parser.
 case "$CONTRACT" in
@@ -241,6 +224,20 @@ if [[ -r /proc/version ]] && grep -qi microsoft /proc/version 2>/dev/null; then
     fi
 fi
 
+case "${SGSD_CODEX_FORCE_LAUNCHER:-}" in
+    direct)
+        CODEX_COMMAND="codex"
+        CODEX_LAUNCHER="direct"
+        CODEX_PROJECT="$PROJECT"
+        ;;
+    cmd)
+        CODEX_COMMAND="cmd.exe"
+        CODEX_LAUNCHER="cmd"
+        CODEX_PROJECT="$PROJECT"
+        ;;
+    "") ;;
+    *) echo "codex-exec: invalid SGSD_CODEX_FORCE_LAUNCHER='${SGSD_CODEX_FORCE_LAUNCHER}'" >&2; exit 1 ;;
+esac
 # ── Config-driven timeout (D-01b) ───────────────────────────────────────────
 # Default 30s fallback. Config path: .planning/config.json → review_providers.codex_timeout_seconds
 if [[ -z "$TIMEOUT_SECONDS" ]]; then
@@ -452,6 +449,122 @@ if [[ "$SELF_TEST" == true ]]; then
         rm -f "$ST_PROMPT_TMP" "$ST_REPORT_TMP" "$ST_STDERR_TMP"
     fi
 
+    ST_PROFILE=false
+    ST_FINALIZE=false
+    if [[ "$SKIP_NETWORK" == true && "$EXIT_CODE" -eq 0 ]]; then
+        ST_TMP_ROOT="$(mktemp -d)"
+        ST_PROJECT="$ST_TMP_ROOT/project"
+        ST_PROMPT="$ST_TMP_ROOT/prompt.txt"
+        ST_REPORT="$ST_TMP_ROOT/report.txt"
+        mkdir -p "$ST_PROJECT/.planning/metrics"
+        printf 'codex-exec self-test prompt\n' > "$ST_PROMPT"
+
+        ST_REVIEW_DIRECT="$(SGSD_CODEX_FORCE_LAUNCHER=direct "$0" --dry-run --prompt-file "$ST_PROMPT" --report-out "$ST_REPORT" --project "$ST_PROJECT" --timeout 30 | awk -F'resolved: ' '/resolved:/ { print $2; exit }')"
+        ST_REVIEW_CMD="$(SGSD_CODEX_FORCE_LAUNCHER=cmd "$0" --dry-run --prompt-file "$ST_PROMPT" --report-out "$ST_REPORT" --project "$ST_PROJECT" --timeout 30 | awk -F'resolved: ' '/resolved:/ { print $2; exit }')"
+        ST_TRIAGE_DIRECT="$(SGSD_CODEX_FORCE_LAUNCHER=direct "$0" --dry-run --profile triage --prompt-file "$ST_PROMPT" --report-out "$ST_REPORT" --project "$ST_PROJECT" --timeout 30 | awk -F'resolved: ' '/resolved:/ { print $2; exit }')"
+        ST_TIMEOUT_DRY="$(SGSD_CODEX_FORCE_LAUNCHER=direct "$0" --dry-run --profile triage --prompt-file "$ST_PROMPT" --report-out "$ST_REPORT" --project "$ST_PROJECT" --timeout 77 | awk -F'resolved: ' '/resolved:/ { print $2; exit }')"
+        if [[ "$ST_REVIEW_DIRECT" == *'"direct" "codex" "gpt-5.5" "xhigh"' && "$ST_REVIEW_DIRECT" == *'--sandbox read-only --ephemeral --skip-git-repo-check'* && "$ST_REVIEW_CMD" == *'"cmd" "cmd.exe" "gpt-5.5" "xhigh"' && "$ST_TRIAGE_DIRECT" == *'--sandbox read-only --skip-git-repo-check'* && "$ST_TRIAGE_DIRECT" != *'--ephemeral'* && "$ST_TIMEOUT_DRY" == timeout\ 77s* ]]; then
+            ST_PROFILE=true
+        else
+            EXIT_CODE=14
+        fi
+
+        ST_BIN="$ST_TMP_ROOT/bin"
+        mkdir -p "$ST_BIN"
+        cat > "$ST_BIN/codex" <<'EOS'
+#!/usr/bin/env bash
+if [[ "$1" == "--version" ]]; then echo "codex-cli-fake 0.0.0"; exit 0; fi
+if [[ "$1" == "login" && "$2" == "status" ]]; then echo "Logged in"; exit 0; fi
+if [[ "$1" == "exec" ]]; then
+    case "${SGSD_FAKE_CODEX_MODE:-success}" in
+        success)
+            printf 'FINDINGS: 0\nCRITICAL: 0\nWARNINGS: 0\nPASS_RATE: 1/1\nONE_LINER: fake success\n'
+            exit 0
+            ;;
+        contract)
+            printf 'missing contract fields\n'
+            exit 0
+            ;;
+        generic)
+            printf 'generic stdout\n'
+            printf 'generic stderr\n' >&2
+            exit 2
+            ;;
+        auth)
+            printf 'auth stdout\n'
+            printf 'unauthorized\n' >&2
+            exit 2
+            ;;
+        timeout)
+            printf 'before timeout\n'
+            sleep 2
+            exit 0
+            ;;
+    esac
+fi
+exit 0
+EOS
+        chmod +x "$ST_BIN/codex"
+
+        sgsd_codex_exec_self_test_case() {
+            local mode="$1" expected="$2" timeout_value="$3"
+            local case_dir case_project case_prompt case_report before_rows after_rows rc report_bytes
+            case_dir="$ST_TMP_ROOT/case-$mode"
+            case_project="$case_dir/project"
+            case_prompt="$case_dir/prompt.txt"
+            case_report="$case_dir/report.txt"
+            mkdir -p "$case_project/.planning/metrics"
+            printf 'prompt for %s\n' "$mode" > "$case_prompt"
+            before_rows=0
+            [[ -f "$case_project/.planning/metrics/codex-log.jsonl" ]] && before_rows="$(wc -l < "$case_project/.planning/metrics/codex-log.jsonl" | tr -d ' ')"
+            set +e
+            PATH="$ST_BIN:$PATH" SGSD_CODEX_FORCE_LAUNCHER=direct SGSD_FAKE_CODEX_MODE="$mode" "$0" --prompt-file "$case_prompt" --report-out "$case_report" --project "$case_project" --timeout "$timeout_value" --phase 145 --plan 145-01 --step "self-test-$mode" >/dev/null 2> "$case_dir/stderr.txt"
+            rc=$?
+            set -e
+            after_rows=0
+            [[ -f "$case_project/.planning/metrics/codex-log.jsonl" ]] && after_rows="$(wc -l < "$case_project/.planning/metrics/codex-log.jsonl" | tr -d ' ')"
+            if [[ "$rc" -ne "$expected" || ! -s "$case_report" || $((after_rows - before_rows)) -ne 1 ]]; then
+                return 1
+            fi
+            report_bytes="$(wc -c < "$case_report" | tr -d ' ')"
+            [[ "$report_bytes" -gt 0 ]]
+        }
+
+        sgsd_codex_exec_self_test_write_failure_case() {
+            local case_dir case_project case_prompt case_report report_dir rc
+            case_dir="$ST_TMP_ROOT/case-write-failure"
+            case_project="$case_dir/project"
+            case_prompt="$case_dir/prompt.txt"
+            report_dir="$case_dir/read-only-report-dir"
+            case_report="$report_dir/report.txt"
+            mkdir -p "$case_project/.planning/metrics" "$report_dir"
+            printf 'prompt for write failure\n' > "$case_prompt"
+            chmod a-w "$report_dir" 2>/dev/null || true
+            if [[ -w "$report_dir" ]]; then
+                echo "Probe 6 write-failure: SKIPPED (filesystem does not enforce chmod a-w)" >&2
+                chmod u+w "$report_dir" 2>/dev/null || true
+                return 0
+            fi
+            set +e
+            PATH="$ST_BIN:$PATH" SGSD_CODEX_FORCE_LAUNCHER=direct SGSD_FAKE_CODEX_MODE="contract" "$0" --prompt-file "$case_prompt" --report-out "$case_report" --project "$case_project" --timeout 5 --phase 145 --plan 145-01 --step "self-test-write-failure" >/dev/null 2> "$case_dir/stderr.txt"
+            rc=$?
+            chmod u+w "$report_dir" 2>/dev/null || true
+            set -e
+            [[ "$rc" -eq 6 ]] && grep -q 'report contract violation' "$case_dir/stderr.txt"
+        }
+
+        if sgsd_codex_exec_self_test_case success 0 5 && \
+           sgsd_codex_exec_self_test_case contract 6 5 && \
+           sgsd_codex_exec_self_test_case generic 1 5 && \
+           sgsd_codex_exec_self_test_case auth 4 5 && \
+           sgsd_codex_exec_self_test_case timeout 5 1 && \
+           sgsd_codex_exec_self_test_write_failure_case; then
+            ST_FINALIZE=true
+        else
+            EXIT_CODE=15
+        fi
+        rm -rf "$ST_TMP_ROOT"
+    fi
     # Structured stdout
     echo "=== codex-exec --self-test ==="
     printf "Model:            %s\n" "$CODEX_MODEL"
@@ -462,6 +575,8 @@ if [[ "$SELF_TEST" == true ]]; then
     printf "Probe 4 contract: %s%s\n" \
         "$([ "$ST_CONTRACT" = true ] && echo PASS || echo FAIL)" \
         "$([ "$SKIP_NETWORK" = true ] && echo ' (skipped)' || echo '')"
+    printf "Probe 5 profiles: %s\n" "$([ "$ST_PROFILE" = true ] && echo PASS || echo FAIL)"
+    printf "Probe 6 finalize: %s\n" "$([ "$ST_FINALIZE" = true ] && echo PASS || echo FAIL)"
     echo "Exit: $EXIT_CODE"
 
     # Append JSONL row to codex-log.jsonl (D-05) with probe metadata for triage.
@@ -544,8 +659,11 @@ if [[ -z "$CODEX_BIN" && "$DRY_RUN" == false ]]; then
 fi
 
 # ── Resolved command line (also used for dry-run display) ───────────────────
-RESOLVED_CMD="timeout ${TIMEOUT}s bash -c 'if [[ \"\$2\" == \"cmd\" ]]; then cat \"\$0\" | cmd.exe /c codex exec --model \"\$4\" -c \"model_reasoning_effort=\\\"\$5\\\"\" --sandbox read-only --ephemeral --skip-git-repo-check --cd \"\$1\" -; else cat \"\$0\" | \"\$3\" exec --model \"\$4\" -c \"model_reasoning_effort=\\\"\$5\\\"\" --sandbox read-only --ephemeral --skip-git-repo-check --cd \"\$1\" -; fi' \"$PROMPT_FILE\" \"$CODEX_PROJECT\" \"$CODEX_LAUNCHER\" \"$CODEX_COMMAND\" \"$CODEX_MODEL\" \"$CODEX_REASONING_EFFORT\""
-
+CODEX_REVIEW_PROFILE_FLAGS="--sandbox ${CODEX_PROFILE_SANDBOX}"
+if [[ "$CODEX_PROFILE_EPHEMERAL" == "true" ]]; then
+    CODEX_REVIEW_PROFILE_FLAGS="$CODEX_REVIEW_PROFILE_FLAGS --ephemeral"
+fi
+RESOLVED_CMD="timeout ${TIMEOUT}s bash -c 'if [[ \"\$2\" == \"cmd\" ]]; then cat \"\$0\" | cmd.exe /c codex exec --model \"\$4\" -c \"model_reasoning_effort=\\\"\$5\\\"\" ${CODEX_REVIEW_PROFILE_FLAGS} --skip-git-repo-check --cd \"\$1\" -; else cat \"\$0\" | \"\$3\" exec --model \"\$4\" -c \"model_reasoning_effort=\\\"\$5\\\"\" ${CODEX_REVIEW_PROFILE_FLAGS} --skip-git-repo-check --cd \"\$1\" -; fi' \"$PROMPT_FILE\" \"$CODEX_PROJECT\" \"$CODEX_LAUNCHER\" \"$CODEX_COMMAND\" \"$CODEX_MODEL\" \"$CODEX_REASONING_EFFORT\""
 # ── Dry-run short-circuit ───────────────────────────────────────────────────
 if [[ "$DRY_RUN" == true ]]; then
     echo "codex-exec DRY RUN"
@@ -659,14 +777,13 @@ mkdir -p "$(dirname "$WATCH_OUT")"
 } >> "$WATCH_OUT"
 
 set +e
-timeout "${TIMEOUT}s" bash -c 'if [[ "$2" == "cmd" ]]; then cat "$0" | cmd.exe /c codex exec --model "$4" -c "model_reasoning_effort=\"$5\"" --sandbox read-only --ephemeral --skip-git-repo-check --cd "$1" -; else cat "$0" | "$3" exec --model "$4" -c "model_reasoning_effort=\"$5\"" --sandbox read-only --ephemeral --skip-git-repo-check --cd "$1" -; fi' \
-    "$PROMPT_FILE" "$CODEX_PROJECT" "$CODEX_LAUNCHER" "$CODEX_COMMAND" "$CODEX_MODEL" "$CODEX_REASONING_EFFORT" \
+timeout "${TIMEOUT}s" bash -c 'if [[ "$2" == "cmd" ]]; then if [[ "$7" == "true" ]]; then cat "$0" | cmd.exe /c codex exec --model "$4" -c "model_reasoning_effort=\"$5\"" --sandbox "$6" --ephemeral --skip-git-repo-check --cd "$1" -; else cat "$0" | cmd.exe /c codex exec --model "$4" -c "model_reasoning_effort=\"$5\"" --sandbox "$6" --skip-git-repo-check --cd "$1" -; fi; else if [[ "$7" == "true" ]]; then cat "$0" | "$3" exec --model "$4" -c "model_reasoning_effort=\"$5\"" --sandbox "$6" --ephemeral --skip-git-repo-check --cd "$1" -; else cat "$0" | "$3" exec --model "$4" -c "model_reasoning_effort=\"$5\"" --sandbox "$6" --skip-git-repo-check --cd "$1" -; fi; fi' \
+    "$PROMPT_FILE" "$CODEX_PROJECT" "$CODEX_LAUNCHER" "$CODEX_COMMAND" "$CODEX_MODEL" "$CODEX_REASONING_EFFORT" "$CODEX_PROFILE_SANDBOX" "$CODEX_PROFILE_EPHEMERAL" \
     2> >(tee -a "$WATCH_OUT" > "$STDERR_TMP") \
     | tee -a "$WATCH_OUT" \
     > "$STDOUT_TMP"
 RC=${PIPESTATUS[0]}
-set -e
-
+set +e
 END_MS="$(date +%s%3N 2>/dev/null || echo 0)"
 if [[ "$START_MS" -gt 0 && "$END_MS" -ge "$START_MS" ]]; then
     DURATION_MS=$((END_MS - START_MS))
@@ -701,16 +818,43 @@ append_jsonl() {
     if [[ -z "$PHASE_TAG" ]]; then phase_field="null"; else phase_field="$PHASE_TAG"; fi
     if [[ -z "$PLAN_TAG" ]];  then plan_field="null";  else plan_field="\"$PLAN_TAG\""; fi
     if [[ -z "$STEP_TAG" ]];  then step_field="null";  else step_field="\"$STEP_TAG\""; fi
-    mkdir -p "$(dirname "$METRICS_LOG")"
+    mkdir -p "$(dirname "$METRICS_LOG")" 2>/dev/null || true
     printf '{"ts":"%s","phase":%s,"plan":%s,"step":%s,"model":"%s","reasoning_effort":"%s","exit":%d,"duration_ms":%d,"prompt_bytes":%d,"report_bytes":%d,"timeout_hit":%s,"fallback_triggered":false,"stderr_preview":"%s"}\n' \
         "$TS" "$phase_field" "$plan_field" "$step_field" \
         "$codex_model_json" "$codex_reasoning_effort_json" \
         "$wrapper_exit" "$DURATION_MS" "$PROMPT_BYTES" "$report_bytes" \
         "$timeout_hit" "$stderr_preview_json" \
-        >> "$METRICS_LOG"
+        >> "$METRICS_LOG" 2>/dev/null || true
 }
 
 # ── MC-03: narrative.md event writer ────────────────────────────────────────
+write_report_payload() {
+    local body="$1"
+    mkdir -p "$(dirname "$REPORT_OUT")" 2>/dev/null || true
+    if printf '%s\n' "$body" > "$REPORT_OUT.tmp" 2>/dev/null && mv "$REPORT_OUT.tmp" "$REPORT_OUT" 2>/dev/null; then
+        wc -c < "$REPORT_OUT" 2>/dev/null | tr -d ' ' || printf '0'
+    else
+        rm -f "$REPORT_OUT.tmp" 2>/dev/null || true
+        printf '0'
+    fi
+}
+
+write_raw_report_payload() {
+    local summary="$1"
+    mkdir -p "$(dirname "$REPORT_OUT")" 2>/dev/null || true
+    if {
+        printf '%s\n' "$summary"
+        printf '\n--- codex stdout ---\n'
+        cat "$STDOUT_TMP" 2>/dev/null || true
+        printf '\n--- codex stderr ---\n'
+        cat "$STDERR_TMP" 2>/dev/null || true
+    } > "$REPORT_OUT.tmp" 2>/dev/null && mv "$REPORT_OUT.tmp" "$REPORT_OUT" 2>/dev/null; then
+        wc -c < "$REPORT_OUT" 2>/dev/null | tr -d ' ' || printf '0'
+    else
+        rm -f "$REPORT_OUT.tmp" 2>/dev/null || true
+        printf '0'
+    fi
+}
 NARRATIVE_FILE="$PROJECT/.planning/metrics/narrative.md"
 
 append_narrative_event() {
@@ -720,19 +864,19 @@ append_narrative_event() {
 
     # Initialize narrative.md if missing
     if [[ ! -f "$NARRATIVE_FILE" ]]; then
-        mkdir -p "$(dirname "$NARRATIVE_FILE")"
-        printf '# Narrative\n\nlatest: \nlastfail: \n\n## Events\n' > "$NARRATIVE_FILE"
+        mkdir -p "$(dirname "$NARRATIVE_FILE")" 2>/dev/null || true
+        printf '# Narrative\n\nlatest: \nlastfail: \n\n## Events\n' > "$NARRATIVE_FILE" 2>/dev/null || true
     fi
 
     # Append event entry to ## Events section
     local entry="- [$TS] $event_type: $detail"
-    printf '%s\n' "$entry" >> "$NARRATIVE_FILE"
+    printf '%s\n' "$entry" >> "$NARRATIVE_FILE" 2>/dev/null || true
 
     # Update latest or lastfail field (sed in-place)
     if [[ "$update_field" == "latest" ]]; then
-        sed -i "s|^latest:.*|latest: $detail|" "$NARRATIVE_FILE"
+        sed -i "s|^latest:.*|latest: $detail|" "$NARRATIVE_FILE" 2>/dev/null || true
     elif [[ "$update_field" == "lastfail" ]]; then
-        sed -i "s|^lastfail:.*|lastfail: $detail|" "$NARRATIVE_FILE"
+        sed -i "s|^lastfail:.*|lastfail: $detail|" "$NARRATIVE_FILE" 2>/dev/null || true
     fi
 }
 
@@ -747,8 +891,8 @@ write_live_state() {
     phase_json="$(json_escape "$PHASE_TAG")"
     plan_json="$(json_escape "$PLAN_TAG")"
     step_json="$(json_escape "$STEP_TAG")"
-    mkdir -p "$(dirname "$LIVE_FILE")"
-    {
+    mkdir -p "$(dirname "$LIVE_FILE")" 2>/dev/null || true
+    if {
         printf '{\n'
         printf '  "provider": "codex-cli-reviewer",\n'
         printf '  "invocation": "shell",\n'
@@ -774,8 +918,11 @@ write_live_state() {
         printf '  "fallback_triggered": false,\n'
         printf '  "stderr_preview": "%s"\n' "$stderr_json"
         printf '}\n'
-    } > "$LIVE_FILE.tmp"
-    mv "$LIVE_FILE.tmp" "$LIVE_FILE"
+    } > "$LIVE_FILE.tmp" 2>/dev/null; then
+        mv "$LIVE_FILE.tmp" "$LIVE_FILE" 2>/dev/null || true
+    else
+        rm -f "$LIVE_FILE.tmp" 2>/dev/null || true
+    fi
 }
 
 write_live_state "running" -1 "false" 0
@@ -790,8 +937,9 @@ if [[ $RC -eq 124 ]]; then
         CODEX_TIMEOUT_TIER_OVERRIDE=analysis exec "$0" "$@" --no-retry-on-timeout-escalate
         # exec replaces process; reached only if exec itself fails
     fi
-    write_live_state "timeout" 5 "true" 0
-    append_jsonl 5 "true" 0
+    REPORT_BYTES="$(write_raw_report_payload "codex-exec: timeout after ${TIMEOUT}s")"
+    write_live_state "timeout" 5 "true" "$REPORT_BYTES"
+    append_jsonl 5 "true" "$REPORT_BYTES"
     append_narrative_event "codex_timeout" "timeout after ${TIMEOUT}s step=$STEP_TAG" "lastfail"
     # INSTR-03 (v1.5 Phase 25): timeout observability emit — feeds dashboard
     # tile "timeout rate by tier" so operator sees chronic under-budgeting.
@@ -818,8 +966,9 @@ fi
 if [[ $RC -ne 0 ]]; then
     # Check for auth-denial patterns in stderr first
     if grep -qiE '(auth|401|unauthori[sz]ed)' "$STDERR_TMP" 2>/dev/null; then
-        write_live_state "auth-denied" 4 "false" 0
-        append_jsonl 4 "false" 0
+        REPORT_BYTES="$(write_raw_report_payload "codex-exec: auth-denied")"
+        write_live_state "auth-denied" 4 "false" "$REPORT_BYTES"
+        append_jsonl 4 "false" "$REPORT_BYTES"
         append_narrative_event "codex_fallback" "auth-denied step=$STEP_TAG" "lastfail"
         echo "codex-exec: auth-denied (codex stderr matched auth/401/unauthorized)" >&2
         head -c 200 "$STDERR_TMP" >&2 ; echo >&2
@@ -827,8 +976,9 @@ if [[ $RC -ne 0 ]]; then
         provider_circuit_record_result "$MILESTONE_TAG" "false"
         exit 4
     fi
-    write_live_state "error" 1 "false" 0
-    append_jsonl 1 "false" 0
+    REPORT_BYTES="$(write_raw_report_payload "codex-exec: codex exit=$RC (generic failure)")"
+    write_live_state "error" 1 "false" "$REPORT_BYTES"
+    append_jsonl 1 "false" "$REPORT_BYTES"
     append_narrative_event "codex_fallback" "error exit=$RC step=$STEP_TAG" "lastfail"
     echo "codex-exec: codex exit=$RC (generic failure)" >&2
     head -c 200 "$STDERR_TMP" >&2 ; echo >&2
@@ -852,6 +1002,7 @@ fi
 # YAML memo, so we slice from the last top-level `verdict:` to EOF, strip any
 # markdown fences codex wrapped it in, and hand the result to
 # rd-memo-schema.cjs for field/blind-ballot/superlative validation.
+set +e
 if [[ "$CONTRACT" == "rd-memo-v1" ]]; then
     parsed="$(awk '
         /^verdict:[[:space:]]/ { start = NR }
@@ -877,8 +1028,9 @@ if [[ "$CONTRACT" == "rd-memo-v1" ]]; then
                 if (!r.valid) process.stdout.write(r.errors.join("; "));
             ' "$schema_lib" 2>/dev/null || true)"
             if [[ -n "$validation_errors" ]]; then
-                write_live_state "contract-violation" 6 "false" 0
-                append_jsonl 6 "false" 0
+                REPORT_BYTES="$(write_raw_report_payload "codex-exec: report contract violation")"
+                write_live_state "contract-violation" 6 "false" "$REPORT_BYTES"
+                append_jsonl 6 "false" "$REPORT_BYTES"
                 append_narrative_event "codex_fallback" "rd_memo_schema_fail step=$STEP_TAG" "lastfail"
                 echo "codex-exec: rd-memo-v1 schema violation — $validation_errors" >&2
                 provider_circuit_record_result "$MILESTONE_TAG" "false"
@@ -926,9 +1078,11 @@ parsed="$(awk '
 awk_rc=$?
 fi
 
+set +e
 if [[ $awk_rc -ne 0 || -z "$parsed" ]]; then
-    write_live_state "contract-violation" 6 "false" 0
-    append_jsonl 6 "false" 0
+    REPORT_BYTES="$(write_raw_report_payload "codex-exec: report contract violation")"
+    write_live_state "contract-violation" 6 "false" "$REPORT_BYTES"
+    append_jsonl 6 "false" "$REPORT_BYTES"
     append_narrative_event "codex_fallback" "parse_failure step=$STEP_TAG" "lastfail"
     if [[ "$CONTRACT" == "rd-memo-v1" ]]; then
         echo "codex-exec: report contract violation — no top-level 'verdict:' line found in codex stdout (rd-memo-v1)" >&2
@@ -940,12 +1094,7 @@ if [[ $awk_rc -ne 0 || -z "$parsed" ]]; then
     exit 6
 fi
 
-# ── Atomic write (pattern: sgsd-muda-audit.sh:225-229) ──────────────────────
-mkdir -p "$(dirname "$REPORT_OUT")"
-printf '%s\n' "$parsed" > "$REPORT_OUT.tmp"
-mv "$REPORT_OUT.tmp" "$REPORT_OUT"
-
-REPORT_BYTES=$(wc -c < "$REPORT_OUT" | tr -d ' ')
+REPORT_BYTES="$(write_report_payload "$parsed")"
 
 # ── JSONL append on success ─────────────────────────────────────────────────
 write_live_state "ok" 0 "false" "$REPORT_BYTES"
