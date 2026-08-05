@@ -1,0 +1,3 @@
+super-gsd/tools/codex-pro/profile-resolver.cjs
+super-gsd/scripts/sgsd-codex-control.sh
+super-gsd/tools/codex-pro/run-self-test.cjs
