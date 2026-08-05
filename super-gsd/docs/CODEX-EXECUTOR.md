@@ -18,7 +18,7 @@ not a structured review verdict.
 
 | | `codex-exec.sh` (reviewer) | `codex-executor.sh` (executor) |
 |---|---|---|
-| Sandbox | `read-only` | `workspace-write` (via `--full-auto`) |
+| Sandbox | `read-only` from `cli_profiles.review` | `workspace-write` via byte-preserved `cli_profiles.executor` `--full-auto` |
 | Output contract | 5 fields, parsed | Free-form stdout, written verbatim |
 | Default timeout | 30s (review tier) | 1200s (20 min, executor tier) |
 | Log file | `codex-log.jsonl` | `codex-executor-log.jsonl` |

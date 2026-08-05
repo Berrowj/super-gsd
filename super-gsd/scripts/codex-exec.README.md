@@ -8,16 +8,42 @@ writes the report atomically, and appends one provenance row to
 
 ## Codex runtime
 
-The wrapper pins the runtime for every SGSD Codex shell dispatch:
+The wrapper resolves the runtime posture for every SGSD Codex shell dispatch
+through the P145 CLI profile path:
 
-- `review_providers.codex_model`, default `gpt-5.5`
-- `review_providers.codex_reasoning_effort`, default `xhigh`
+1. The requested profile is selected from `--profile`, then
+   `SGSD_CODEX_PROFILE`, then the wrapper default `review`.
+2. `super-gsd/scripts/lib/codex-profile-shell.sh` calls
+   `node super-gsd/tools/codex-pro/profile-resolver.cjs --resolve-cli ...`.
+3. The resolver reads `super-gsd/registry/codex-profiles.yaml` top-level
+   `cli_profiles` and returns sanitized `KEY=VALUE` rows for the wrapper.
+4. Config-backed `review_providers.codex_model` and
+   `review_providers.codex_reasoning_effort` overrides may replace the
+   profile model and reasoning effort.
+5. Explicit `--model` and `--reasoning` CLI overrides apply last.
 
-Those values are passed explicitly to `codex exec` as `--model` and
-`-c model_reasoning_effort=...`, so ATC, adversarial challenger, and
-qualitative MUDA calls do not depend on implicit user-config inheritance.
-The resolved model and reasoning effort are also written to
-`.planning/metrics/codex-log.jsonl` and `.planning/metrics/codex-live.json`.
+`review_providers.codex_model` and
+`review_providers.codex_reasoning_effort` are override inputs, not the baseline
+source for runtime posture. The baseline model, reasoning effort, sandbox,
+ephemeral setting, and approval mode come from the resolved CLI profile;
+`.planning/config.json` also backs timeout settings such as
+`review_providers.codex_timeout_seconds` and
+`review_providers.codex_timeout_tiers`.
+
+The default `review` profile resolves to model `gpt-5.5`, reasoning `xhigh`,
+sandbox `read-only`, ephemeral mode, and approval `never`. The
+`codex.review.native` profile name is accepted as an alias for `review`; the
+`triage` profile is read-only and non-ephemeral. The resolved model and
+reasoning effort are written to `.planning/metrics/codex-log.jsonl` and
+`.planning/metrics/codex-live.json`.
+
+If the resolver, Node runtime, registry load, YAML parse, registry validation,
+or requested profile lookup fails, dispatch fails open to built-in defaults and
+appends a `codex-profile-resolution-log.jsonl` row under
+`.planning/metrics/`. Shell-level resolver failures are logged with
+`source:"shell-builtin"` and `reason:"resolver_unavailable"`; resolver-handled
+fallbacks include `registry_missing`, `registry_corrupt`, `invalid_registry`,
+and `unknown_profile`.
 When launched from WSL Bash on Windows, the wrapper invokes `cmd.exe /c codex`
 with a Windows `--cd` path so the npm Codex CLI uses the installed Windows Node
 runtime instead of the Unix shim.
@@ -27,7 +53,8 @@ runtime instead of the Unix shim.
 ```
 codex-exec.sh --prompt-file <path> --report-out <path>
               [--timeout N] [--dry-run] [--project <path>]
-              [--phase N] [--plan NN-PP] [--step LABEL]
+              [--phase N] [--plan NN-PP] [--step LABEL] [--profile NAME]
+              [--model NAME] [--reasoning EFFORT]
 ```
 
 | Flag            | Req?     | Purpose                                                                 |
@@ -40,6 +67,9 @@ codex-exec.sh --prompt-file <path> --report-out <path>
 | `--phase`       | optional | JSONL tag only (null when absent)                                       |
 | `--plan`        | optional | JSONL tag only (e.g. `14-01`; null when absent)                         |
 | `--step`        | optional | JSONL tag only (e.g. `6.5` / `9.5` / `9.6`; null when absent)           |
+| `--profile`     | optional | CLI profile (`review`, `triage`, or `codex.review.native` alias)        |
+| `--model`       | optional | Model override applied after `cli_profiles` and config-backed `review_providers.codex_model` resolution |
+| `--reasoning`   | optional | Reasoning-effort override applied after `cli_profiles` and config-backed `review_providers.codex_reasoning_effort` resolution |
 
 ## Exit codes
 
@@ -98,3 +128,12 @@ codex-exec.sh \
   --report-out .planning/phases/14-codex-cli-provider-substrate/CODEX-REPORT.md \
   --timeout 60 --phase 14 --plan 14-01 --step 6.5
 ```
+
+## Operator control
+
+Use `bash super-gsd/scripts/sgsd-codex-control.sh show` to inspect CLI
+profiles and `set <profile> <field> <value>` to edit them. The guarded
+`sandbox=danger-full-access` and trust/approval fields require an interactive
+terminal plus exact confirmation:
+`CONFIRM SGSD CODEX PROFILE <profile> <field> <value>`. Deferred hardcoded
+callers remain out of scope for P145.

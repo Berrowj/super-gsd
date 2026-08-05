@@ -118,3 +118,25 @@ profiles:
     native_review_required: true
     allowed_write_roots: []
     max_changed_files: 25
+
+cli_profiles:
+  executor:
+    model: gpt-5.5
+    reasoning: xhigh
+    sandbox: workspace-write
+    ephemeral: false
+    approval: full-auto
+
+  review:
+    model: gpt-5.5
+    reasoning: xhigh
+    sandbox: read-only
+    ephemeral: true
+    approval: never
+
+  triage:
+    model: gpt-5.5
+    reasoning: xhigh
+    sandbox: read-only
+    ephemeral: false
+    approval: never

@@ -11,8 +11,15 @@ same full schema shape as the existing mesh-memory review tools.
 
 ## Profiles
 
-The static registry lives at `super-gsd/registry/codex-profiles.yaml` and defines
-10 profiles:
+The static registry lives at `super-gsd/registry/codex-profiles.yaml` and has
+two top-level maps:
+
+- `profiles`: the original Codex Pro Mode profile registry. This map still
+  defines exactly 10 profiles for DLB-09.1 dispatch classification.
+- `cli_profiles`: the P145 CLI dispatch registry consumed by
+  `codex-profile-shell.sh` and `profile-resolver.cjs` for wrapper defaults.
+
+The 10 Codex Pro Mode profiles under `profiles` are:
 
 - `codex.readonly.audit`: safest read-only fallback for audits and unknown work.
 - `codex.plan`: read-only planning lane for single planning-file updates.
@@ -25,16 +32,43 @@ The static registry lives at `super-gsd/registry/codex-profiles.yaml` and define
 - `codex.app_lab`: app lab lane with worktree, hooks, and native review.
 - `codex.cloud_lab`: cloud lab lane with worktree, hooks, and native review.
 
+## CLI dispatch profiles
+
+The CLI dispatch profiles under `cli_profiles` are:
+
+- `executor`: default for `codex-executor.sh`; model `gpt-5.5`, reasoning
+  `xhigh`, workspace-write, non-ephemeral, approval `full-auto`, emitted as the
+  byte-preserved `--full-auto` executor fragment.
+- `review`: default for `codex-exec.sh`; model `gpt-5.5`, reasoning `xhigh`,
+  read-only, ephemeral, approval `never`.
+- `triage`: optional `codex-exec.sh --profile triage` lane; model `gpt-5.5`,
+  reasoning `xhigh`, read-only, non-ephemeral, approval `never`.
+
+`codex.review.native` aliases to the `review` CLI profile so existing native
+review callers can keep their profile string. Wrapper resolution precedence is
+`--profile` over `SGSD_CODEX_PROFILE` over each wrapper's default profile, then
+`profile-resolver.cjs --resolve-cli` reads `cli_profiles` and
+`codex-profile-shell.sh` applies the sanitized result to the wrapper. Config
+`review_providers.*` model/reasoning overrides may layer on top of the resolved
+profile, and explicit `--model` / `--reasoning` flags apply last. If the
+resolver cannot load or validate the registry, or the requested CLI profile is
+unknown, wrappers fail open to built-in defaults and append a fallback row to
+`.planning/metrics/codex-profile-resolution-log.jsonl`.
+
 ## profile-resolver
 
 ```bash
 node super-gsd/tools/codex-pro/profile-resolver.cjs --help
 node super-gsd/tools/codex-pro/profile-resolver.cjs --list
+node super-gsd/tools/codex-pro/profile-resolver.cjs --show-cli
+node super-gsd/tools/codex-pro/profile-resolver.cjs --resolve-cli review
 node super-gsd/tools/codex-pro/profile-resolver.cjs --resolve '{"phase_type":"execute","risk":"low","allowed_files":["src/x.ts"]}'
 ```
 
 The resolver applies the DLB-09.1 ordered rule table and prints a JSON profile
-envelope containing the selected profile name and registry settings.
+envelope containing the selected Codex Pro profile name and registry settings.
+For CLI profiles, `--resolve-cli` prints sanitized `KEY=VALUE` rows for Bash
+wrappers, while `--show-cli` prints the current `cli_profiles` registry.
 
 ## stoplight
 
@@ -66,12 +100,12 @@ Real invocations use the existing Codex executor wrapper with the
 node super-gsd/tools/codex-pro/run-self-test.cjs
 ```
 
-The self-test performs 15 assertions across CLI help, profile resolution,
+The self-test performs 20 assertions across CLI help, profile resolution,
 registry shape, stoplight verdicts and metrics, and native-review CMB emission.
 On success it prints:
 
 ```text
-[codex-pro self-test] 15/15 passed
+[codex-pro self-test] 20/20 passed
 ```
 
 Cross-reference: DLB-08 mesh substrate and the SGSD-PRO master proposal

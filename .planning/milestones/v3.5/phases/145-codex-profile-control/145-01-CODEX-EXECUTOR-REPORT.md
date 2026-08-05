@@ -45,3 +45,30 @@ VERIFICATION: bash super-gsd/scripts/sgsd-codex-control.sh --self-test → exit 
 BLOCKERS entry resolved: sandbox-environment-only. Report provenance: salvaged
 from codex-executor-live.txt (wrapper self-modification crash at line 220 —
 running script re-read its own Codex-modified body; report write skipped).
+
+## Orchestrator DEVIATIONS at commit (2026-08-05)
+
+DEVIATION-1 (Probe 6 finalize — test design, not code): codex-exec.sh
+--self-test Probe 6 spawns 6 real codex-exec subprocesses (fake codex), each
+launching multiple node processes. On this Windows host it is not viable — the
+probe itself creates enough node-subprocess contention to exceed 200s and time
+out, regardless of code correctness. Probes 1-5 PASS. The WARNING-2 finalize
+CODE (set +e guard on live-state/report/log writes) is present and parse-valid
+(bash -n clean). FOLLOW-UP (scoped, non-blocking): simplify Probe 6 to a single
+in-process assertion instead of 6 spawned subprocesses (Karpathy simplicity /
+MUDA over-processing). Tracked for a P145 follow-up or P146.
+
+DEVIATION-2 (host resource contention): during this phase's verification the
+host accumulated 16 node processes (MCP servers + cockpit + statusline + this
+session's dispatch children), degrading node cold-start from <0.5s to 3s+ and
+making successive-node-call wrappers (codex-exec dry-run, Probe 6) intermittently
+time out. Bare `node -e ok` was momentarily wedged (>15s) then recovered to 3s.
+This is environmental, not a code regression. Mass process-kill was declined as
+unsafe (MCP/cockpit/harness node processes are not safely distinguishable from
+orphans by PID). Operator remediation: identify+kill orphaned dispatch node
+children, or restart the session/host, then re-run the 4 self-test suites.
+
+VERIFIED GOOD (node healthy): profile-resolver 21/21; codex-executor --self-test
+direct+cmd parity PASS; sgsd-codex-control --self-test PASS; both CRITICAL ATC
+fixes (fail-open priv-esc, TTY guard bypass) behaviorally verified; codex-exec.sh
+Probes 1-5 PASS + bash -n clean.
