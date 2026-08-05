@@ -1,0 +1,1 @@
+{"ts":"2026-08-05T23:46:45Z","plan":"145-01-ttyfix","tier":"per-dispatch","verdict":"warn","critical":0,"warning":1,"one_liner":"Guard minimal, closes env/ttyOk bypass; regression self-test needs non-TTY forcing + env restore (deferred)","provider":"openai-codex","model":"gpt-5.5","reasoning_effort":"xhigh"}

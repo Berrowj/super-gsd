@@ -105,7 +105,7 @@ run_set() {
     local profile="$1" field="$2" value="$3"
     require_confirmation_if_guarded "$profile" "$field" "$value" || return $?
     if [[ -n "$SGSD_CODEX_CONTROL_CONFIRM_PHRASE" ]]; then
-        SGSD_CODEX_CONTROL_TTY_OK=1 node "$RESOLVER" --set-cli "$profile" "$field" "$value" --confirm "$SGSD_CODEX_CONTROL_CONFIRM_PHRASE" --registry "$REGISTRY_PATH"
+        node "$RESOLVER" --set-cli "$profile" "$field" "$value" --confirm "$SGSD_CODEX_CONTROL_CONFIRM_PHRASE" --registry "$REGISTRY_PATH"
     else
         node "$RESOLVER" --set-cli "$profile" "$field" "$value" --registry "$REGISTRY_PATH"
     fi

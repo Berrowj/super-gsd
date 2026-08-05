@@ -503,10 +503,9 @@ function assertCliMutationGuard(profileName, field, rawValue, coercedValue, regi
   if (!isDangerousCliMutation(field, coercedValue)) return;
   const phrase = confirmationPhrase(profileName, field, rawValue);
   const confirm = String(options.confirm || '');
-  const ttyOverride = options.ttyOk === true || process.env.SGSD_CODEX_CONTROL_TTY_OK === '1';
   const hasTty = Boolean(process.stdin.isTTY && process.stdout.isTTY);
   const reason = confirm !== phrase ? 'confirmation_required' : 'non_tty_guarded_mutation';
-  if (confirm === phrase && (ttyOverride || hasTty)) return;
+  if (confirm === phrase && hasTty) return;
 
   appendProfileResolutionLog({
     action: 'set-cli',
@@ -706,23 +705,44 @@ function selfTestCliGuard() {
   const fixture = makeTempRegistry();
   const before = fingerprintFile(fixture.registryPath);
   const previousLogPath = process.env.SGSD_CODEX_PROFILE_LOG;
-  const previousTtyOk = process.env.SGSD_CODEX_CONTROL_TTY_OK;
   let refusalMessage = '';
+  let envBypassMessage = '';
   process.env.SGSD_CODEX_PROFILE_LOG = fixture.logPath;
-  delete process.env.SGSD_CODEX_CONTROL_TTY_OK;
   try {
-    main(['--set-cli', 'triage', 'sandbox', 'danger-full-access', '--registry', fixture.registryPath]);
-  } catch (error) {
-    refusalMessage = error.message;
+    try {
+      main(['--set-cli', 'triage', 'sandbox', 'danger-full-access', '--registry', fixture.registryPath]);
+    } catch (error) {
+      refusalMessage = error.message;
+    }
+    const after = fingerprintFile(fixture.registryPath);
+    expect(refusalMessage.includes('CONFIRM SGSD CODEX PROFILE triage sandbox danger-full-access'), 'non-TTY resolver --set-cli danger-full-access must refuse with exact confirmation phrase');
+    expect(after === before, 'refused resolver danger mutation must not alter registry');
+
+    const envBypassBefore = fingerprintFile(fixture.registryPath);
+    process.env.SGSD_CODEX_CONTROL_TTY_OK = '1';
+    try {
+      main([
+        '--set-cli',
+        'triage',
+        'sandbox',
+        'danger-full-access',
+        '--confirm',
+        confirmationPhrase('triage', 'sandbox', 'danger-full-access'),
+        '--registry',
+        fixture.registryPath,
+      ]);
+    } catch (error) {
+      envBypassMessage = error.message;
+    } finally {
+      delete process.env.SGSD_CODEX_CONTROL_TTY_OK;
+    }
+    const envBypassAfter = fingerprintFile(fixture.registryPath);
+    expect(envBypassMessage.includes('CONFIRM SGSD CODEX PROFILE triage sandbox danger-full-access'), 'SGSD_CODEX_CONTROL_TTY_OK must not bypass non-TTY dangerous mutation guard');
+    expect(envBypassAfter === envBypassBefore, 'env-var bypass attempt must not alter registry');
   } finally {
     if (previousLogPath === undefined) delete process.env.SGSD_CODEX_PROFILE_LOG;
     else process.env.SGSD_CODEX_PROFILE_LOG = previousLogPath;
-    if (previousTtyOk === undefined) delete process.env.SGSD_CODEX_CONTROL_TTY_OK;
-    else process.env.SGSD_CODEX_CONTROL_TTY_OK = previousTtyOk;
   }
-  const after = fingerprintFile(fixture.registryPath);
-  expect(refusalMessage.includes('CONFIRM SGSD CODEX PROFILE triage sandbox danger-full-access'), 'non-TTY resolver --set-cli danger-full-access must refuse with exact confirmation phrase');
-  expect(after === before, 'refused resolver danger mutation must not alter registry');
 
   const safeResult = setCliProfileField('triage', 'ephemeral', 'true', { registryPath: fixture.registryPath, logPath: fixture.logPath });
   const updated = loadFullRegistry(fixture.registryPath);
