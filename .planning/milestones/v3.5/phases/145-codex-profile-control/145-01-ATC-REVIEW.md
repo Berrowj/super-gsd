@@ -1,0 +1,9 @@
+FINDINGS: 4
+CRITICAL: 2
+WARNINGS: 2
+PASS_RATE: 10/14 acceptance checks proven
+ONE_LINER: Unsafe to accept as-is; the wrapper split helps prompt piping, but fail-open and guard-bypass paths are not safe enough.
+FINDINGS_DETAIL: [CRITICAL] [fail-open] Registry missing/corrupt falls back to the wrapper default, not the requested built-in profile; `codex-executor.sh --profile review` can resolve to executor/full-auto workspace-write instead of read-only. super-gsd/tools/codex-pro/profile-resolver.cjs:336 super-gsd/tools/codex-pro/profile-resolver.cjs:373 super-gsd/scripts/codex-executor.sh:159
+FINDINGS_DETAIL: [CRITICAL] [tty-guard] The resolver exposes direct `--set-cli` without the TTY/exact-confirmation guard, so non-interactive callers can set `sandbox=danger-full-access` or `approval=full-auto` by bypassing `sgsd-codex-control.sh`. super-gsd/tools/codex-pro/profile-resolver.cjs:61 super-gsd/tools/codex-pro/profile-resolver.cjs:459 super-gsd/tools/codex-pro/profile-resolver.cjs:486 super-gsd/tools/codex-pro/profile-resolver.cjs:697
+FINDINGS_DETAIL: [WARNING] [self-modification] `codex-executor.sh` still runs Codex with write access to the same workspace and then continues post-invocation logic from the mutable wrapper file, so editing the wrapper mid-run can still crash before report/log finalization. super-gsd/scripts/codex-executor.sh:270 super-gsd/scripts/codex-executor.sh:277 super-gsd/scripts/codex-executor.sh:301
+FINDINGS_DETAIL: [WARNING] [set-e] `codex-exec.sh` restores `set -e` before finalize/report/log writes; failures in those writes can abort before explicit timeout/auth/contract exit remapping, and the new self-test only proves writable-temp cases. super-gsd/scripts/codex-exec.sh:762 super-gsd/scripts/codex-exec.sh:907 super-gsd/scripts/codex-exec.sh:1050 super-gsd/scripts/codex-exec.sh:1072
