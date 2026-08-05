@@ -1,0 +1,16 @@
+.planning/milestones/v3.5/phases/145-codex-profile-control/145-01-PLAN-LOCKED.md
+super-gsd/registry/codex-profiles.yaml
+super-gsd/tools/codex-pro/profile-resolver.cjs
+super-gsd/tools/codex-pro/run-self-test.cjs
+super-gsd/tools/codex-pro/README.md
+super-gsd/scripts/lib/codex-profile-shell.sh
+super-gsd/scripts/codex-executor.sh
+super-gsd/scripts/codex-exec.sh
+super-gsd/scripts/codex-exec.README.md
+super-gsd/scripts/sgsd-codex-control.sh
+super-gsd/docs/CODEX-EXECUTOR.md
+super-gsd/skills/sgsd-codex-control/SKILL.md
+.planning/metrics/codex-profile-resolution-log.jsonl
+.planning/metrics/codex-log.jsonl
+.planning/metrics/codex-live.json
+.planning/metrics/narrative.md
