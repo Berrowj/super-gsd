@@ -16,6 +16,8 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 
 - [waste overproduction p55 findings](architecture/anti-patterns/waste-overproduction-p55-findings.md) - P55 findings-=FINDINGS: WARN — overproduction waste
 
+- [codex exec set e silent report loss](architecture/anti-patterns/codex-exec-set-e-silent-report-loss.md) - codex-exec set-e grep kills run post-success; salvage from live output
+
 ## architecture/decisions
 
 - [PI Death & Migration Decision](architecture/decisions/pi-death-migration.md)
