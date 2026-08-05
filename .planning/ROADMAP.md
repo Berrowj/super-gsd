@@ -18,6 +18,8 @@
 - ✅ **v3.0 SGSD-PRO — Codex-native + Mesh Memory Lite + Context Authority** — Phases 106-112 (shipped 2026-05-21; ALL-PHASES-CLOSED PASS; 4/4 MVP fixtures green) — [summary](milestones/v3.0/SUMMARY.md)
 - ✅ **v3.1 SGSD Chronicle Layer** — Phases 113-119 (shipped 2026-05-21; ALL-PHASES-CLOSED; 96/96 self-test) — [summary](milestones/v3.1/SUMMARY.md)
 - ✅ **v3.2 Operator Comprehension System** — Phases 120-127 (shipped 2026-05-22; ALL-PHASES-CLOSED PASS; chronicle 111/111, cockpit 18/18) — [summary](milestones/v3.2/SUMMARY.md)
+- ⏸️ **v3.3/v3.4 Operator Cockpit IA Rewrite** — Phases 128-143 (v3.4 PARKED 2026-08-05 at P142/P143 pending — cockpit fully rendering, self-test 102/102; reopen after v3.5 or on operator call; see STATE.md)
+- 🚧 **v3.5 Always-On Orchestration** — Phases 144-150 (ACTIVE 2026-08-05) — [intent](milestones/v3.5/INTENT.md) · [design spec](analyses/2026-08-05-always-on-orchestration-DESIGN.md) · [board memo](decisions/2026-08-02-always-on-gate-substrate.md) — governance as runtime mechanism in all session modes; codex profile control; cross-model VTP-backed triage; skill-routing table; propagation to devcp
 
 **ROADMAP COMPLETE 2026-04-29** — all 30 phases (26-62) closed across 6 milestones (v1.6 SHIPPED-WITH-DEBT-10; v1.7-v2.1 SHIPPED clean). HEAD: `17ff9d6`. Status-consistency: all 6 milestones OK.
 
