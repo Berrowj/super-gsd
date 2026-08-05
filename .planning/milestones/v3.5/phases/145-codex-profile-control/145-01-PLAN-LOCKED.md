@@ -14,6 +14,7 @@ lock_status: locked
 locked_at: "2026-08-05T19:31:16+01:00"
 locked_by: "codex-phase-planner"
 risk_rating: high
+rollback_plan: "Revert this plan's allowed file changes, restore pre-P145 Codex wrapper literals, remove /sgsd-codex-control, and rerun the plan acceptance commands."
 allowed_files:
   - ".planning/milestones/v3.5/phases/145-codex-profile-control/145-01-PLAN-LOCKED.md"
   - "super-gsd/registry/codex-profiles.yaml"
