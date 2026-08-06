@@ -7,8 +7,8 @@ where subprocess spawn/write is EPERM-restricted (false FAILs 15/21; host-side
 runs are 21/21 green). Raw stream not retained (1.3MB); key evidence excerpted
 below. Verdict normalized by orchestrator from the verifier's own live probe.
 
-status: gaps_found
-goal_achieved: partial
+status: passed (post-fix re-verification 2026-08-06; see "GAP-1 resolution")
+goal_achieved: yes
 
 ## Evidence
 
@@ -38,8 +38,28 @@ incompletely fixed — the guard moved into the resolver but kept an
 attacker-controllable escape hatch, violating the phase invariant
 "danger-full-access cannot be set non-interactively".
 
-gaps: GAP-1 (above)
+## GAP-1 resolution (commit 92a6096)
+
+Codex executor fix (gpt-5.5/xhigh): guard now passes only on
+`confirm === phrase && process.stdin.isTTY && process.stdout.isTTY` — env-var
+trust and dead `options.ttyOk` removed; control script drops the env prefix
+(legit path inherits the operator's real TTY); `selfTestCliGuard` gains a
+regression assertion (env var set + correct phrase + no TTY → refuse,
+registry unchanged). Evidence, host-run 2026-08-06:
+- Verifier-specified bypass probe → exit 1, refusal message, registry
+  byte-identical (was: guard bypassed).
+- run-self-test.cjs 21/21 · sgsd-codex-control PASS · codex-executor parity
+  PASS · codex-exec Probes 1–6 PASS.
+- Spec review (Codex): SPEC_VERDICT pass, no missing reqs, no extra scope.
+- Per-dispatch ATC (Codex): 0 CRITICAL, 1 WARNING (test-robustness, deferred).
+
+gaps: none (GAP-1 fixed + regression-guarded)
 DEVIATIONS: dispatch_1 codex_timeout (budget spent on in-sandbox self-test
-reruns); in-sandbox EPERM false-FAILs recorded as environment, not defect.
-ONE_LINER: Core delivery verified structurally + 4/4 host self-tests, but
-TTY guard env-var bypass (GAP-1 CRITICAL) blocks close until fixed.
+reruns); in-sandbox EPERM false-FAILs recorded as environment, not defect;
+spec-review wrapper exit 6 = contract-vocab mismatch (SPEC_VERDICT vs 5-line
+ATC contract), report itself valid; DEFERRED-A: tighten selfTestCliGuard to
+force non-TTY child + env restore in finally (ATC WARNING, joins DEVIATION-1
+finalize-probe simplification follow-up).
+ONE_LINER: P145 goal verified — profile registry + control skill live, both
+CRIT invariants now hold behaviorally incl. GAP-1 env-var bypass closed with
+regression guard; 2 deferred test-robustness follow-ups.
