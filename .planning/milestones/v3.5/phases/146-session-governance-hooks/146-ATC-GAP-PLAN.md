@@ -11,3 +11,12 @@
   `codex-exec` reporting `OK — written (0B)` on a failed write). Fix in T146-07:
   emit a non-stack stderr breadcrumb (and an evidence row once a root is known)
   from the outer guard. Must NOT print a stack trace and must NOT exit nonzero.
+
+- **DEFERRED-E (from T146-06 review WARN):** `readGateEvidenceRows` in
+  `super-gsd/scripts/lib/gate-evidence-log.cjs` accepts a `limit` but read-time
+  tailing is unproven — it may still read and parse the entire ledger before
+  slicing. The cockpit adapter now clamps returned rows defensively, but the
+  full-I/O cost per refresh remains. `gate-evidence-log.cjs` is owned by T146-01
+  and is outside T146-06's file contract, so the real fix (tail-read, or a
+  bounded reverse scan) belongs in T146-07. Ledger grows unboundedly; this is a
+  per-refresh cost on the operator's dashboard.

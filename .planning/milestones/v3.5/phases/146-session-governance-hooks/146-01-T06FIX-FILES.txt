@@ -1,0 +1,1 @@
+super-gsd/tools/cockpit-state/adapter.cjs

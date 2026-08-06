@@ -1,0 +1,4 @@
+super-gsd/tools/cockpit-state/adapter.cjs
+super-gsd/tools/warp-mcp/server.cjs
+super-gsd/scripts/lib/gate-evidence-log.cjs
+super-gsd/hooks/sgsd-quality-gate.js

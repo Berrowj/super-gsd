@@ -79,6 +79,14 @@ try {
   _stateResolverMod = require(path.join(__dirname, '..', 'state-resolver', 'resolve.cjs'));
 } catch (_e) { _stateResolverMod = null; }
 
+var _gateEvidenceMod = null;
+try {
+  _gateEvidenceMod = require(path.join(__dirname, '..', '..', 'scripts', 'lib',
+    'gate-evidence-log.cjs'));
+} catch (_e2) { _gateEvidenceMod = null; }
+
+var GATE_EVIDENCE_SIGNAL_LIMIT = 100;
+
 function _resolveEffectiveForCockpit(planningDir) {
   try {
     if (!_stateResolverMod || typeof _stateResolverMod.resolveEffectiveState !== 'function') {
@@ -903,6 +911,184 @@ function _buildCodex(ctx) {
   }
 }
 
+function _governanceSignal(state, missingPlan, breadcrumb, historicCount) {
+  var current = Array.isArray(missingPlan) ? missingPlan : [];
+  return {
+    state: state || 'unavailable',
+    missing_plan: current,
+    missing_plan_count: current.length,
+    historic_count: Number.isInteger(historicCount) ? historicCount : current.length,
+    source: 'gate-evidence.jsonl',
+    limit: GATE_EVIDENCE_SIGNAL_LIMIT,
+    breadcrumb: breadcrumb || null
+  };
+}
+
+function _emptyGovernanceSignal() {
+  return _governanceSignal('empty', [], null, 0);
+}
+
+function _unavailableGovernanceSignal(breadcrumb) {
+  return _governanceSignal('unavailable', [], breadcrumb || 'gate_evidence_unavailable', 0);
+}
+
+function _compactMissingPlanEvidenceRow(row) {
+  try {
+    if (!row || typeof row !== 'object') return null;
+    if (row.signal !== 'missing_plan') return null;
+    return {
+      signal: 'missing_plan',
+      phase: (row.phase !== undefined && row.phase !== null) ? String(row.phase) : null,
+      milestone: (row.milestone !== undefined) ? row.milestone : null,
+      file_path: (typeof row.file_path === 'string') ? row.file_path : null,
+      tool_name: (typeof row.tool_name === 'string') ? row.tool_name : null,
+      status: (typeof row.status === 'string') ? row.status : null,
+      ts: (typeof row.ts === 'string') ? row.ts : null,
+      run_id: (typeof row.run_id === 'string') ? row.run_id : null,
+      source: 'gate-evidence.jsonl'
+    };
+  } catch (_e) {
+    return null;
+  }
+}
+
+function _loadGovernanceStateModule() {
+  try {
+    return require(path.join(__dirname, '..', '..', 'scripts', 'lib', 'sgsd-state.cjs'));
+  } catch (_e) {
+    return null;
+  }
+}
+
+function _governanceProjectRoot(ctx) {
+  try {
+    if (ctx && typeof ctx.projectDir === 'string' && ctx.projectDir.length > 0) {
+      return path.resolve(ctx.projectDir);
+    }
+    if (ctx && typeof ctx.planningDir === 'string' && ctx.planningDir.length > 0) {
+      return path.dirname(path.resolve(ctx.planningDir));
+    }
+    return null;
+  } catch (_e) {
+    return null;
+  }
+}
+
+function _probeGateEvidenceLedger(ctx) {
+  try {
+    if (!_gateEvidenceMod || typeof _gateEvidenceMod.ledgerPath !== 'function') {
+      return { state: 'unavailable', breadcrumb: 'gate_evidence_reader_unavailable' };
+    }
+    var ledger = _gateEvidenceMod.ledgerPath(ctx.planningDir);
+    if (!ledger) return { state: 'empty', size: 0 };
+
+    var stat = null;
+    try {
+      stat = fs.statSync(ledger);
+    } catch (_statErr) {
+      return { state: 'empty', size: 0 };
+    }
+    if (!stat || typeof stat.isFile !== 'function' || !stat.isFile()) {
+      return { state: 'unavailable', breadcrumb: 'gate_evidence_not_regular_file' };
+    }
+    if (stat.size === 0) return { state: 'empty', size: 0 };
+
+    var fd = null;
+    try {
+      fd = fs.openSync(ledger, 'r');
+      var probe = Buffer.alloc(Math.min(16, stat.size));
+      fs.readSync(fd, probe, 0, probe.length, 0);
+    } catch (_readErr) {
+      return { state: 'unavailable', breadcrumb: 'gate_evidence_read_probe_failed' };
+    } finally {
+      try { if (fd !== null) fs.closeSync(fd); } catch (_closeErr) { /* ignore */ }
+    }
+    return { state: 'ok', size: stat.size };
+  } catch (_e) {
+    return { state: 'unavailable', breadcrumb: 'gate_evidence_probe_failed' };
+  }
+}
+
+function _activeGovernanceState(ctx) {
+  try {
+    var mod = _loadGovernanceStateModule();
+    if (!mod || typeof mod.readState !== 'function') return null;
+    var root = _governanceProjectRoot(ctx);
+    if (!root) return null;
+    var state = mod.readState(root);
+    if (!state || state.phase === undefined || state.phase === null) return null;
+    return {
+      root: root,
+      phase: String(state.phase),
+      milestone: (state.milestone !== undefined) ? state.milestone : null,
+      module: mod
+    };
+  } catch (_e) {
+    return null;
+  }
+}
+
+function _hasActivePhasePlanLocked(active) {
+  try {
+    if (!active || !active.module
+        || typeof active.module.findPlanLockedFiles !== 'function') {
+      return false;
+    }
+    var plans = active.module.findPlanLockedFiles(active.root, active.phase);
+    return Array.isArray(plans) && plans.length > 0;
+  } catch (_e) {
+    return false;
+  }
+}
+
+function _currentMissingPlanRows(rows, active) {
+  var historic = [];
+  var current = [];
+  var seen = Object.create(null);
+  var hasPlan = _hasActivePhasePlanLocked(active);
+  for (var i = 0; i < rows.length; i++) {
+    var compact = _compactMissingPlanEvidenceRow(rows[i]);
+    if (!compact) continue;
+    historic.push(compact);
+    if (!active || compact.phase !== active.phase) continue;
+    if (hasPlan) continue;
+    var key = compact.phase + '\u0000' + (compact.file_path || '');
+    if (seen[key]) continue;
+    seen[key] = true;
+    current.push(compact);
+  }
+  return { current: current, historic_count: historic.length };
+}
+
+function _buildGovernanceSignal(ctx) {
+  try {
+    if (!_gateEvidenceMod || typeof _gateEvidenceMod.readGateEvidenceRows !== 'function') {
+      return _unavailableGovernanceSignal('gate_evidence_reader_unavailable');
+    }
+    var probe = _probeGateEvidenceLedger(ctx);
+    if (probe.state === 'empty') return _emptyGovernanceSignal();
+    if (probe.state === 'unavailable') {
+      return _unavailableGovernanceSignal(probe.breadcrumb);
+    }
+    var rows = _gateEvidenceMod.readGateEvidenceRows(ctx.planningDir, {
+      limit: GATE_EVIDENCE_SIGNAL_LIMIT
+    });
+    if (!Array.isArray(rows)) {
+      return _unavailableGovernanceSignal('gate_evidence_reader_non_array');
+    }
+    rows = rows.slice(-GATE_EVIDENCE_SIGNAL_LIMIT);
+    if (probe.size > 0 && rows.length === 0) {
+      return _unavailableGovernanceSignal('gate_evidence_nonzero_no_rows');
+    }
+    var active = _activeGovernanceState(ctx);
+    if (!active) return _unavailableGovernanceSignal('active_phase_unavailable');
+    var scoped = _currentMissingPlanRows(rows, active);
+    return _governanceSignal('ok', scoped.current, null, scoped.historic_count);
+  } catch (_e2) {
+    return _unavailableGovernanceSignal('gate_evidence_reader_failed');
+  }
+}
+
 // Section: gates (Q8+Q9)
 function _buildGates(ctx) {
   try {
@@ -984,7 +1170,8 @@ function _buildGates(ctx) {
       gates: tail,
       latest_per_gate: latestPerGate,
       live_event_count: gateEvents.length,
-      legacy_row_count: legacy.length
+      legacy_row_count: legacy.length,
+      governance: _buildGovernanceSignal(ctx)
     };
   } catch (e) {
     return { _degraded: true, error_code: 'internal_error_degraded',
@@ -1447,6 +1634,7 @@ var _internals = {
   _buildAgents: _buildAgents,
   _buildCodex: _buildCodex,
   _buildGates: _buildGates,
+  _buildGovernanceSignal: _buildGovernanceSignal,
   _buildTokens: _buildTokens,
   _buildArtifacts: _buildArtifacts,
   _buildStaleness: _buildStaleness,
