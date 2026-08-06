@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.5",
+  "phase": "145",
+  "phase_name": "Codex Profile Control",
+  "status": "UNKNOWN",
+  "goal": "",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v3.5/phases/145-codex-profile-control/145-ATC-GAP-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v3.5/phases/145-codex-profile-control/145-ATC-REVIEW.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v3.5/phases/145-codex-profile-control/145-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v3.5/phases/145-codex-profile-control/145-VERIFICATION.md"
+    }
+  ],
+  "files": [],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 0
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [],
+  "source_hashes": {
+    "context": null,
+    "research": {
+      "path": ".planning/milestones/v3.5/phases/145-codex-profile-control/145-RESEARCH.md",
+      "sha256": "d18116a3e2cacc6d0f5ee53a06a8ad275f9a73c76c1d5152f4b1ff0c22c35232"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v3.5/phases/145-codex-profile-control/145-ATC-GAP-PLAN.md",
+        "sha256": "361684f5ea0570acb7e21a0fd56c25a0cc62d0432617c9a3aa9663fed5ea2d26"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v3.5/phases/145-codex-profile-control/145-VERIFICATION.md",
+      "sha256": "bbdd51fb9488d31cae2fda502a6eb898a808e08a0f9865c35cd1ef0305a96451"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v3.5/phases/145-codex-profile-control/145-ATC-REVIEW.md",
+      "sha256": "6e884d148a7bfca9e39f6a083f25e145323b2519c53b0830b3140721f7256a1e"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "UNKNOWN",
+      "ref": ".planning/milestones/v3.5/phases/145-codex-profile-control/145-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v3.5/phases/145-codex-profile-control/145-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-08-05T18:18:38Z",
+        "exit": 5,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-05T18:28:03Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-05T18:40:46Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-05T19:41:01Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-05T20:04:02Z",
+        "exit": 5,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-05T20:14:54Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-05T20:19:30Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-05T23:05:58Z",
+        "exit": 5,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-05T23:40:41Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-05T23:42:35Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-05T23:48:33Z",
+        "exit": 5,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-05T23:55:12Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T00:11:14Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T00:13:39Z",
+        "exit": 5,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T00:18:13Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T00:20:23Z",
+        "exit": 5,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-08-06T00:23:53.663Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@c1596f707c50"
+}
