@@ -1,0 +1,2 @@
+super-gsd/scripts/lib/gate-evidence-log.cjs
+super-gsd/scripts/lib/sgsd-state.cjs
