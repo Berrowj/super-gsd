@@ -18,6 +18,10 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 
 - [codex exec set e silent report loss](architecture/anti-patterns/codex-exec-set-e-silent-report-loss.md) - codex-exec set-e grep kills run post-success; salvage from live output
 
+- [writer accepts caller destination](architecture/anti-patterns/writer-accepts-caller-destination.md) - Derive write destinations; never trust caller paths (3x CRIT P146)
+
+- [silent success reports health](architecture/anti-patterns/silent-success-reports-health.md) - Exit 0 must mean the work happened (4x CRIT across P145-P146)
+
 ## architecture/decisions
 
 - [PI Death & Migration Decision](architecture/decisions/pi-death-migration.md)
@@ -85,6 +89,10 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 
 
 
+
+- [orchestrator verification discipline](architecture/patterns/orchestrator-verification-discipline.md) - Ask 'is my fixture realistic?' before 'is the code broken?'
+
+- [codex dispatch prompt calibration](architecture/patterns/codex-dispatch-prompt-calibration.md) - Forbid execution, not reading; bound output to blocks that change
 
 ## code/nodejs
 
