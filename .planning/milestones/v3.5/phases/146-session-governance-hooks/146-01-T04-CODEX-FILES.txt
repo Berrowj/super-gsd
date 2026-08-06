@@ -1,0 +1,5 @@
+super-gsd/hooks/sgsd-intent-classifier.cjs
+super-gsd/registry/session-governance-hooks.yaml
+super-gsd/scripts/lib/sgsd-state.cjs
+super-gsd/scripts/lib/gate-evidence-log.cjs
+super-gsd/skills/sgsd-triage/SKILL.md

@@ -1,0 +1,2 @@
+super-gsd/registry/session-governance-hooks.yaml
+super-gsd/hooks/sgsd-intent-classifier.cjs

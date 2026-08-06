@@ -1,0 +1,77 @@
+# ============================================================================
+# SGSD session governance hook routing registry
+# ============================================================================
+# T146-04 owns this file. Later tasks append their hook-specific sections here.
+# Shape: trigger / predicate / enforcement.
+# ============================================================================
+
+routes:
+  - id: planning-triage
+    trigger:
+      phrases:
+        - "multiple valid approaches"
+      regexes:
+        - "^\\s*how\\s+should\\s+we\\s+architect(?![._/])\\b\\s+(?:the\\s+|a\\s+|an\\s+|our\\s+)?(?:retry|cache|migration|schema|evidence|gate|classifier|system|layer|roadmap|milestone|phase|architecture|design)\\b"
+        - "^\\s*how\\s+would\\s+you\\s+approach\\s+(?:the\\s+|a\\s+|an\\s+|our\\s+)?(?:migration|milestone|phase|plan|implementation|architecture|schema|system|layer|roadmap)\\b"
+        - "^\\s*(?:lets|let's)\\s+scope\\s+(?:the\\s+)?(?:next\\s+)?(?:milestone|phase|plan|implementation|project|work)\\b"
+        - "^\\s*(?:lets|let's)\\s+plan\\s+(?:the\\s+)?(?:next\\s+)?(?:phase|milestone|implementation|migration|project|work)\\b"
+        - "\\bcan\\s+you\\s+(?:make|draft|create)\\s+(?:a\\s+)?roadmap\\s+for\\s+[^\\s]+"
+        - "^\\s*what\\s+are\\s+our\\s+options\\s+for\\s+(?:the\\s+|a\\s+|an\\s+|our\\s+)?(?:cache|migration|retry|schema|architecture|system|layer|phase|milestone|design)\\b"
+        - "\\bhelp\\s+me\\s+decide\\s+between\\s+(?:the\\s+|these\\s+|those\\s+)?(?:two\\s+)?(?:designs?|approaches?|options?|architectures?|schemas?|strategies)\\b"
+        - "^\\s*i(?:'m| am)\\s+thinking\\s+about\\s+(?:re)?designing(?![._/])\\b\\s+(?:the\\s+|a\\s+|an\\s+|our\\s+)?(?:gate|classifier|schema|architecture|system|layer|workflow|ledger|phase|milestone)\\b"
+        - "^\\s*what\\s+if\\s+we\\s+(?:replaced|replace|rewrote|rewrite|split|merged|merge)\\s+(?:the\\s+|a\\s+|an\\s+|our\\s+)?(?:classifier|architecture|system|schema|layer|workflow|gate|ledger|phase|milestone)\\b"
+        - "^\\s*should\\s+we\\s+split\\s+this\\s+into\\s+(?:two|three|[0-9]+)\\s+phases?\\b"
+        - "\\bcan\\s+you\\s+plan\\s+(?:the\\s+)?(?:next\\s+)?phase\\b(?:[^\\r\\n]{0,120}\\bimplementation\\s+plan\\b)?"
+        - "^\\s*design(?![._/])\\b\\s+(?:the\\s+|a\\s+|an\\s+|our\\s+)?(?:schema|architecture|api|interface|workflow|migration|retry|cache|gate|evidence|ledger|classifier|system|layer)\\b"
+        - "^\\s*evaluate(?![._/])\\b\\s+(?:the\\s+)?(?:tradeoffs?|trade-offs?)\\s+between\\s+\\w+\\s+and\\s+\\w+\\b"
+        - "^\\s*should\\s+we\\s+(?:choose|adopt|standardize|centralize|decentralize)\\b[^\\r\\n]{0,120}\\b(?:architecture|design|system|schema|approach|strategy|layer)\\b"
+        - "\\b(?:plan|planning)\\b[^\\r\\n]{0,120}\\b(?:phase|implementation\\s+plan|approach|approaches|next)\\b"
+        - "\\b(?:phase|implementation\\s+plan|approach|approaches|next)\\b[^\\r\\n]{0,120}\\b(?:plan|planning)\\b"
+    predicate:
+      exclude_phrases:
+        - "build this now"
+        - "ship it"
+        - "fix the bug"
+        - "run /sgsd-orchestrate"
+        - "implement this"
+        - "make the change"
+    enforcement:
+      kind: directive
+      directive: "/sgsd-triage"
+
+  - id: neglected-token-audit
+    trigger:
+      regexes:
+        - "\\btoken(?:s)?\\b[^\\r\\n]{0,160}\\b(?:spend|spent|burn|budget|cost|waste)\\b"
+        - "\\b(?:spend|spent|burn|budget|cost|waste)\\b[^\\r\\n]{0,160}\\btoken(?:s)?\\b"
+    enforcement:
+      kind: suggestion
+      directive: "/sgsd-token-audit"
+
+  - id: neglected-muda-audit
+    trigger:
+      phrases:
+        - "waste"
+        - "muda"
+        - "retrospective"
+        - "retro"
+        - "what went wrong"
+        - "conformance drift"
+    enforcement:
+      kind: suggestion
+      directive: "/sgsd-muda-audit"
+
+  - id: neglected-deliberate
+    trigger:
+      phrases:
+        - "strategic tradeoff"
+        - "strategic trade-off"
+        - "architecture decision"
+        - "cross-cutting"
+        - "sets precedent"
+      regexes:
+        - "\\bshould\\s+we\\b[^\\r\\n]{0,160}\\b(?:choose|adopt|standardize|centralize|decentralize)\\b"
+        - "\\b(?:choose|adopt|standardize|centralize|decentralize)\\b[^\\r\\n]{0,160}\\btradeoffs?\\b"
+    enforcement:
+      kind: suggestion
+      directive: "/sgsd-deliberate"
