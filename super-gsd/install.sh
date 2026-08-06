@@ -78,14 +78,16 @@ Local project setup:
   --init-local
   --init-project
       Create/update only project-local SGSD files in the current directory:
-      .planning/, .planning/config.json, metrics skeleton, and CLAUDE.md when
-      absent. --init-project is kept as a backward-compatible safe alias.
+      .planning/, .planning/config.json, metrics skeleton, CLAUDE.md when
+      absent, and repo-local .claude/settings.json hooks. --init-project
+      is kept as a backward-compatible safe alias.
   --update
       Refresh an existing SGSD install in place. Re-runs npm install + agent
-      registry sync + memory taxonomy ensure, but does NOT recreate the
-      .planning/ skeleton, overwrite CLAUDE.md, or replace config.json. Safe
-      to run after a `git pull` to pick up new dependencies and registry
-      entries. Pair with --install-global to also refresh ~/.claude assets.
+      registry sync + memory taxonomy ensure + repo-local hook merge, but does
+      NOT recreate the .planning/ skeleton, overwrite CLAUDE.md, or replace
+      config.json. Safe to run after a `git pull` to pick up new dependencies
+      and registry entries. Pair with --install-global to also refresh ~/.claude
+      assets.
 
 Global Claude install:
   --install-global
@@ -436,6 +438,25 @@ install_global_assets() {
   log "Global install complete. Permission settings were not changed."
 }
 
+register_repo_local_hooks() {
+  echo ""
+  log "Registering repo-local Claude hooks..."
+  SETTINGS_FILE="$PROJECT_DIR/.claude/settings.json"
+  OVERLAY_FILE="$SCRIPT_DIR/config/repo-settings-overlay.json"
+  MERGE_SCRIPT="$SCRIPT_DIR/scripts/merge-settings.js"
+  if [ ! -f "$OVERLAY_FILE" ]; then
+    log "  WARNING: $OVERLAY_FILE missing - skipping repo-local hook merge"
+  elif [ ! -f "$MERGE_SCRIPT" ]; then
+    log "  WARNING: $MERGE_SCRIPT missing - skipping repo-local hook merge"
+  elif ! command -v node >/dev/null 2>&1; then
+    log "  WARNING: Node.js missing - skipping repo-local hook merge"
+  elif [ "$DRY_RUN" = true ]; then
+    log "  DRY RUN: would merge $OVERLAY_FILE into $SETTINGS_FILE for $PROJECT_DIR"
+  else
+    node "$MERGE_SCRIPT" --repo-local-hooks "$OVERLAY_FILE" "$SETTINGS_FILE" "$PROJECT_DIR" 2>&1 | sed 's/^/  /'
+  fi
+}
+
 ensure_memory_tree() {
   echo ""
   log "Ensuring project-local .planning/memory store..."
@@ -515,6 +536,7 @@ init_local_project() {
   fi
 
   ensure_memory_tree
+  register_repo_local_hooks
 
   # P143.5: cockpit dependencies. Skipped if no package.json at PROJECT_DIR
   # (operators using SGSD as an embedded subdir of a different project don't
@@ -569,7 +591,7 @@ update_existing() {
   # P143.6 surgical update of an existing SGSD install. Never touches
   # operator state (.planning/, CLAUDE.md, config.json) — only refreshes
   # the things that legitimately need a pull after a git update: npm deps,
-  # agent registry, memory taxonomy.
+  # agent registry, memory taxonomy, and repo-local hook settings.
   echo ""
   log "Updating existing SGSD install in $PROJECT_DIR..."
 
@@ -608,6 +630,7 @@ update_existing() {
   # 3. Memory taxonomy — ensure new memory dirs exist if the schema grew.
   # ensure_memory_tree is idempotent; existing entries are left untouched.
   ensure_memory_tree
+  register_repo_local_hooks
 
   # 4. Diff check for CLAUDE.md — DO NOT overwrite. Just tell the operator
   # if the bundled overlay has diverged from their CLAUDE.md so they can
@@ -754,8 +777,8 @@ echo ""
 echo "Actions:"
 [ "$RUN_DOCTOR" = true ] && echo "  doctor: read-only checks"
 [ "$INSTALL_GLOBAL" = true ] && echo "  install-global: ~/.claude assets updated"
-[ "$INIT_LOCAL" = true ] && echo "  init-local: project-local SGSD files updated"
-[ "$UPDATE_MODE" = true ] && echo "  update: refreshed npm + registry; operator state untouched"
+[ "$INIT_LOCAL" = true ] && echo "  init-local: project-local SGSD files and hooks updated"
+[ "$UPDATE_MODE" = true ] && echo "  update: refreshed npm + registry + repo-local hooks"
 [ "$ENABLE_AUTOAPPROVE" = true ] && echo "  enable-autoapprove: global Claude permissions changed"
 echo "  memory: .planning/memory"
 echo ""

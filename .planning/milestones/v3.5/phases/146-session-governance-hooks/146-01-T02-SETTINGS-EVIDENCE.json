@@ -1,0 +1,47 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "C:\\Users\\jack.berrow\\AppData\\Roaming\\warp\\Warp\\data\\worktrees\\GSDedits\\cholla-racer\\super-gsd\\hooks\\sgsd-session-start.js"
+            ],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "C:\\Users\\jack.berrow\\AppData\\Roaming\\warp\\Warp\\data\\worktrees\\GSDedits\\cholla-racer\\super-gsd\\hooks\\sgsd-intent-classifier.cjs"
+            ],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "C:\\Users\\jack.berrow\\AppData\\Roaming\\warp\\Warp\\data\\worktrees\\GSDedits\\cholla-racer\\super-gsd\\hooks\\sgsd-quality-gate.js"
+            ],
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

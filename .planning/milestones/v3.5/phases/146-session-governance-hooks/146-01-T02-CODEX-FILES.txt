@@ -1,0 +1,5 @@
+.claude/settings.json
+super-gsd/install.sh
+super-gsd/scripts/merge-settings.js
+super-gsd/config/settings-overlay.json
+super-gsd/config/repo-settings-overlay.json
