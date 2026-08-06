@@ -75,3 +75,16 @@ routes:
     enforcement:
       kind: suggestion
       directive: "/sgsd-deliberate"
+
+  - id: quality-gate-missing-plan
+    trigger:
+      hook_event_name: PostToolUse
+      tool_names:
+        - Edit
+        - Write
+        - NotebookEdit
+    predicate:
+      active_phase_plan_locked: missing
+    enforcement:
+      kind: report_only
+      signal: missing_plan
