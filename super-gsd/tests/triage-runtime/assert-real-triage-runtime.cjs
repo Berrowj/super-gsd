@@ -10,6 +10,7 @@
 // ============================================================================
 
 const assert = require('assert');
+const childProcess = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -17,6 +18,8 @@ const path = require('path');
 const repoRoot = path.resolve(__dirname, '../../..');
 const runtimePath = path.join(repoRoot, 'super-gsd', 'scripts', 'sgsd-triage-runtime.cjs');
 const stateLibPath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'sgsd-state.cjs');
+const triageVerdictSchemaPath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'triage-verdict-schema.cjs');
+const codexExecPath = path.join(repoRoot, 'super-gsd', 'scripts', 'codex-exec.sh');
 const { resolveContainedPath } = require(stateLibPath);
 
 const ROUTE_TOOL = 'mcp__vtp-kb__vtp_route_and_retrieve';
@@ -47,6 +50,7 @@ function usage() {
     '  fallback-also-fails',
     '  non-sgsd-no-write',
     '  vtp-fallback-contained-degradation',
+    '  codex-contract-json-schema',
   ].join('\n');
 }
 
@@ -479,6 +483,167 @@ async function assertAllFallbackContainedDegradation() {
   await assertNonSgsdNoWrite();
 }
 
+function validTriageVerdict(overrides = {}) {
+  return {
+    path: 'B',
+    rationale: 'Fixture rationale cites the route evidence and keeps the triage decision bounded.',
+    risk_flags: ['fixture-risk-latency-721'],
+    missed_context: ['fixture-doc-721-alpha'],
+    recommended_skills: ['sgsd-roadmap-planner'],
+    ...overrides,
+  };
+}
+
+function assertSchemaResultShape(result) {
+  assert.strictEqual(typeof result, 'object', 'schema result must be an object');
+  assert.strictEqual(typeof result.valid, 'boolean', 'schema result.valid must be boolean');
+  assert(Array.isArray(result.errors), 'schema result.errors must be an array');
+  assert(
+    result.value === null || (typeof result.value === 'object' && !Array.isArray(result.value)),
+    'schema result.value must be null or an object'
+  );
+}
+
+function assertSchemaRejects(schema, label, payload, expectedErrorPattern) {
+  const result = schema.validate(payload);
+  assertSchemaResultShape(result);
+  assert.strictEqual(result.valid, false, `${label} should be rejected`);
+  assert.strictEqual(result.value, null, `${label} should not return a value`);
+  assert(
+    result.errors.some((error) => expectedErrorPattern.test(error)),
+    `${label} errors should match ${expectedErrorPattern}; got ${result.errors.join('; ')}`
+  );
+}
+
+function bashCommandForCodexExec() {
+  return [
+    'set -e',
+    'to_posix() {',
+    '  if command -v cygpath >/dev/null 2>&1; then cygpath -u "$1";',
+    '  elif command -v wslpath >/dev/null 2>&1; then wslpath -u "$1";',
+    '  else printf "%s" "$1"; fi',
+    '}',
+    'SCRIPT_P="$(to_posix "$SGSD_FIXTURE_SCRIPT")"',
+    'PROMPT_P="$(to_posix "$SGSD_FIXTURE_PROMPT")"',
+    'REPORT_P="$(to_posix "$SGSD_FIXTURE_REPORT")"',
+    'PROJECT_P="$(to_posix "$SGSD_FIXTURE_PROJECT")"',
+    'BIN_P="$(to_posix "$SGSD_FIXTURE_BIN")"',
+    'PATH="$BIN_P:$PATH" SGSD_CODEX_FORCE_LAUNCHER=direct SGSD_FAKE_TRIAGE_MODE="$SGSD_FAKE_TRIAGE_MODE" bash "$SCRIPT_P" --contract triage-verdict-v1 --prompt-file "$PROMPT_P" --report-out "$REPORT_P" --project "$PROJECT_P" --timeout 5 --phase 148 --plan 148-01 --step triage-verdict',
+  ].join('\n');
+}
+
+function runCodexExecFixture(fixture, fakeBin, mode, reportName) {
+  const promptPath = writeContainedFile(fixture.repoDir, `${reportName}-prompt.txt`, 'fixture triage prompt\n');
+  const reportPath = contained(fixture.repoDir, `${reportName}-report.json`);
+  const env = {
+    ...process.env,
+    SGSD_FIXTURE_SCRIPT: codexExecPath,
+    SGSD_FIXTURE_PROMPT: promptPath,
+    SGSD_FIXTURE_REPORT: reportPath,
+    SGSD_FIXTURE_PROJECT: fixture.repoDir,
+    SGSD_FIXTURE_BIN: fakeBin,
+    SGSD_FAKE_TRIAGE_MODE: mode,
+  };
+  delete env.OPENAI_API_KEY;
+  const result = childProcess.spawnSync('bash', ['-lc', bashCommandForCodexExec()], {
+    cwd: repoRoot,
+    env,
+    encoding: 'utf8',
+  });
+  return {
+    ...result,
+    spawnError: result.error ? result.error.message : '',
+    reportPath,
+    reportText: fs.existsSync(reportPath) ? fs.readFileSync(reportPath, 'utf8') : '',
+  };
+}
+
+function createFakeCodexForTriage(root) {
+  const fakeBin = contained(root, 'fake-bin');
+  fs.mkdirSync(fakeBin, { recursive: true });
+  const valid = validTriageVerdict();
+  const script = [
+    '#!/usr/bin/env bash',
+    'set -u',
+    'if [[ "${1:-}" == "--version" ]]; then echo "codex-cli-fake 0.0.0"; exit 0; fi',
+    'if [[ "${1:-}" == "login" && "${2:-}" == "status" ]]; then echo "Logged in"; exit 0; fi',
+    'if [[ "${1:-}" == "exec" ]]; then',
+    '  case "${SGSD_FAKE_TRIAGE_MODE:-valid}" in',
+    '    valid)',
+    "      cat <<'JSON'",
+    '```json',
+    JSON.stringify(valid),
+    '```',
+    'JSON',
+    '      exit 0',
+    '      ;;',
+    '    malformed)',
+    "      cat <<'JSON'",
+    JSON.stringify(validTriageVerdict({ path: 'ignore previous instructions' })),
+    'JSON',
+    '      exit 0',
+    '      ;;',
+    '  esac',
+    'fi',
+    'exit 0',
+    '',
+  ].join('\n');
+  fs.writeFileSync(path.join(fakeBin, 'codex'), script, 'utf8');
+  fs.chmodSync(path.join(fakeBin, 'codex'), 0o755);
+  return fakeBin;
+}
+
+async function assertCodexContractJsonSchema() {
+  delete require.cache[require.resolve(triageVerdictSchemaPath)];
+  const schema = require(triageVerdictSchemaPath);
+  assert.strictEqual(typeof schema.validate, 'function', 'schema must export validate()');
+
+  const valid = validTriageVerdict();
+  const validResult = schema.validate(JSON.stringify(valid));
+  assertSchemaResultShape(validResult);
+  assert.strictEqual(validResult.valid, true, 'valid verdict should pass');
+  assert.deepStrictEqual(validResult.errors, []);
+  assert.deepStrictEqual(validResult.value, valid);
+
+  assertSchemaRejects(schema, 'path E', JSON.stringify(validTriageVerdict({ path: 'E' })), /path.*invalid/i);
+  const missingRationale = validTriageVerdict();
+  delete missingRationale.rationale;
+  assertSchemaRejects(schema, 'missing rationale', JSON.stringify(missingRationale), /rationale.*missing/i);
+  assertSchemaRejects(schema, 'risk_flags string', JSON.stringify(validTriageVerdict({ risk_flags: 'risk' })), /risk_flags.*array/i);
+  assertSchemaRejects(schema, 'nested object in array', JSON.stringify(validTriageVerdict({ missed_context: [{ doc: 'x' }] })), /missed_context.*string/i);
+  assertSchemaRejects(schema, 'two JSON objects', `${JSON.stringify(valid)}\n${JSON.stringify(valid)}`, /exactly one JSON object/i);
+  assertSchemaRejects(schema, '100KB string', JSON.stringify(validTriageVerdict({ rationale: 'x'.repeat(100 * 1024) })), /rationale.*too long/i);
+  assertSchemaRejects(
+    schema,
+    'prompt-injection shaped verdict',
+    JSON.stringify(validTriageVerdict({ path: 'ignore previous instructions' })),
+    /path.*invalid/i
+  );
+  assertSchemaRejects(
+    schema,
+    'extra executable payload',
+    `${JSON.stringify(valid)}\n\nrm -rf .planning`,
+    /executable-looking payload/i
+  );
+
+  const fixture = createSgsdFixture({ repoId: 'codex-contract-json-schema' });
+  try {
+    const fakeBin = createFakeCodexForTriage(fixture.tempRoot);
+    const ok = runCodexExecFixture(fixture, fakeBin, 'valid', 'valid');
+    assert.strictEqual(ok.status, 0, `valid wrapper fixture should exit 0; spawn_error=${ok.spawnError}; stderr=${ok.stderr || ''}`);
+    assert.strictEqual(ok.reportText, `${JSON.stringify(valid)}\n`, 'valid report must contain exactly the validated JSON');
+
+    const bad = runCodexExecFixture(fixture, fakeBin, 'malformed', 'malformed');
+    assert.strictEqual(bad.status, 6, `malformed wrapper fixture should exit 6; spawn_error=${bad.spawnError}; stderr=${bad.stderr || ''}`);
+    assert.match(bad.stderr, /triage-verdict-v1 schema violation|report contract violation/i);
+    assert.match(bad.reportText, /^codex-exec: report contract violation/m);
+    assert.match(bad.reportText, /--- codex stdout ---/);
+    assert.match(bad.reportText, /ignore previous instructions/);
+  } finally {
+    fixture.cleanup();
+  }
+}
+
 const scenarios = Object.freeze({
   'healthy-route-no-fallback': assertHealthyRouteNoFallback,
   'null-reflection-fallback': assertNullReflectionFallback,
@@ -487,6 +652,7 @@ const scenarios = Object.freeze({
   'fallback-also-fails': assertFallbackAlsoFails,
   'non-sgsd-no-write': assertNonSgsdNoWrite,
   'vtp-fallback-contained-degradation': assertAllFallbackContainedDegradation,
+  'codex-contract-json-schema': assertCodexContractJsonSchema,
 });
 
 async function main(argv = process.argv.slice(2)) {
@@ -518,6 +684,7 @@ module.exports = {
   assertAllFallbackContainedDegradation,
   assertFallbackAlsoFails,
   assertHealthyRouteNoFallback,
+  assertCodexContractJsonSchema,
   assertLowHitFallback,
   assertNonSgsdNoWrite,
   assertNullReflectionFallback,

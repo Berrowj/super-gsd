@@ -201,8 +201,8 @@ CODEX_PROFILE_FULL_AUTO="$SGSD_CODEX_PROFILE_FULL_AUTO"
 # Validate the contract selector early — an unknown value must fail loudly
 # rather than silently falling through to the reviewer parser.
 case "$CONTRACT" in
-    code-reviewer-v1|rd-memo-v1) ;;
-    *) echo "codex-exec: unknown --contract '$CONTRACT' (expected code-reviewer-v1 | rd-memo-v1)" >&2; exit 1 ;;
+    code-reviewer-v1|rd-memo-v1|triage-verdict-v1) ;;
+    *) echo "codex-exec: unknown --contract '$CONTRACT' (expected code-reviewer-v1 | rd-memo-v1 | triage-verdict-v1)" >&2; exit 1 ;;
 esac
 
 CODEX_COMMAND="codex"
@@ -1057,7 +1057,40 @@ fi
 # markdown fences codex wrapped it in, and hand the result to
 # rd-memo-schema.cjs for field/blind-ballot/superlative validation.
 set +e
-if [[ "$CONTRACT" == "rd-memo-v1" ]]; then
+if [[ "$CONTRACT" == "triage-verdict-v1" ]]; then
+    schema_lib="$SCRIPT_DIR/lib/triage-verdict-schema.cjs"
+    schema_errors_tmp="${STDOUT_TMP}.triage-schema-errors"
+    parsed=""
+    awk_rc=6
+    if [[ -f "$schema_lib" ]] && command -v node >/dev/null 2>&1; then
+        parsed="$(node "$schema_lib" < "$STDOUT_TMP" 2> "$schema_errors_tmp")"
+        schema_rc=$?
+        validation_errors="$(head -c 500 "$schema_errors_tmp" 2>/dev/null | tr -d '\r' | tr '\n' ' ')"
+        rm -f "$schema_errors_tmp" 2>/dev/null || true
+        if [[ $schema_rc -eq 0 && -n "$parsed" ]]; then
+            awk_rc=0
+        else
+            [[ -z "$validation_errors" ]] && validation_errors="schema validator exited $schema_rc"
+            REPORT_BYTES="$(write_raw_report_payload "codex-exec: report contract violation")"
+            handle_report_write_failure || true
+            write_live_state "contract-violation" 6 "false" "$REPORT_BYTES"
+            append_jsonl 6 "false" "$REPORT_BYTES"
+            append_narrative_event "codex_fallback" "triage_verdict_schema_fail step=$STEP_TAG" "lastfail"
+            echo "codex-exec: triage-verdict-v1 schema violation - $validation_errors" >&2
+            provider_circuit_record_result "$MILESTONE_TAG" "false"
+            exit 6
+        fi
+    else
+        REPORT_BYTES="$(write_raw_report_payload "codex-exec: report contract violation")"
+        handle_report_write_failure || true
+        write_live_state "contract-violation" 6 "false" "$REPORT_BYTES"
+        append_jsonl 6 "false" "$REPORT_BYTES"
+        append_narrative_event "codex_fallback" "triage_verdict_schema_unavailable step=$STEP_TAG" "lastfail"
+        echo "codex-exec: triage-verdict-v1 schema unavailable - node or schema lib missing" >&2
+        provider_circuit_record_result "$MILESTONE_TAG" "false"
+        exit 6
+    fi
+elif [[ "$CONTRACT" == "rd-memo-v1" ]]; then
     parsed="$(awk '
         /^verdict:[[:space:]]/ { start = NR }
         { lines[NR] = $0 }
