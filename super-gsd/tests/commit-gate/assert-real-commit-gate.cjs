@@ -18,6 +18,7 @@ const crypto = require('crypto');
 
 const repoRoot = path.resolve(__dirname, '../../..');
 const conventionModulePath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'sgsd-artifact-conventions.cjs');
+const shadowModulePath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'commit-gate-shadow-log.cjs');
 const stateLibPath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'sgsd-state.cjs');
 const { resolveContainedPath, readState } = require(stateLibPath);
 
@@ -35,6 +36,7 @@ function usage() {
     '  source-predicate',
     '  convention-unknown',
     '  per-path-granularity',
+    '  shadow-ledger-contained-writer',
     '',
     'Exports fixture helpers for later commit-gate tasks.'
   ].join('\n');
@@ -58,6 +60,11 @@ function parseArgs(argv) {
 
 function loadConventions() {
   return require(conventionModulePath);
+}
+
+function loadShadowLog() {
+  delete require.cache[require.resolve(shadowModulePath)];
+  return require(shadowModulePath);
 }
 
 function run(command, args, options = {}) {
@@ -178,6 +185,41 @@ function createTempGitRepo(options = {}) {
   }
 }
 
+function createBareSgsdFixture(options = {}) {
+  const tempRoot = tempFixtureRoot();
+  try {
+    const repoDir = contained(tempRoot, safeChildName(options.repoId || 'shadow-repo'));
+    fs.mkdirSync(repoDir, { recursive: true });
+    if (options.withPlanning !== false) {
+      fs.mkdirSync(contained(repoDir, '.planning'), { recursive: true });
+    }
+    if (options.withState !== false) {
+      writeContainedFile(
+        repoDir,
+        path.join('.planning', 'STATE.md'),
+        [
+          '---',
+          `milestone: ${JSON.stringify(options.milestone || 'v3.5')}`,
+          `current_phase: ${JSON.stringify(String(options.phase || '147'))}`,
+          '---',
+          '',
+          '# Fixture State',
+          ''
+        ].join('\n')
+      );
+    }
+    return {
+      tempRoot,
+      repoDir,
+      cleanup() {
+        cleanupFixture(tempRoot);
+      }
+    };
+  } catch (error) {
+    cleanupFixture(tempRoot);
+    throw error;
+  }
+}
 function cleanupFixture(tempRoot) {
   try {
     if (!tempRoot) return { cleaned: false, reason_code: 'fixture_path_empty' };
@@ -253,6 +295,79 @@ function readJsonl(root, subpath) {
     .map((line) => JSON.parse(line));
 }
 
+function captureStderr(fn) {
+  const originalWrite = process.stderr.write;
+  let captured = '';
+  process.stderr.write = function patchedWrite(chunk, encoding, callback) {
+    captured += Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
+    if (typeof callback === 'function') callback();
+    return true;
+  };
+  try {
+    const value = fn();
+    return { value, stderr: captured };
+  } finally {
+    process.stderr.write = originalWrite;
+  }
+}
+
+function samplePathEvidence(pathValue = 'super-gsd/scripts/lib/shadow-fixture.cjs') {
+  return [{
+    path: pathValue,
+    source_touching: true,
+    evidence_status: 'missing',
+    matched_artifacts: [],
+    reason_code: 'phase_evidence_missing'
+  }];
+}
+
+function sampleShadowRow(overrides = {}) {
+  const stagedPaths = overrides.staged_paths || ['super-gsd/scripts/lib/shadow-fixture.cjs'];
+  const pathEvidence = overrides.path_evidence || samplePathEvidence(stagedPaths[0]);
+  return Object.assign({
+    signal: 'commit_gate_shadow',
+    status: 'warn',
+    repo_id: 'fixture-repo',
+    commit_candidate: 'HEAD',
+    diff_content: 'fixture diff\n',
+    artifact_predicate_version: 't147-01',
+    artifact_convention_status: 'gsdedits_artifacts_discovered',
+    staged_paths: stagedPaths,
+    path_evidence: pathEvidence,
+    would_warn: true,
+    would_block: false,
+    false_block_basis: ['phase_evidence_missing'],
+    waived_paths: [],
+    reason_codes: ['phase_evidence_missing'],
+    milestone: 'v3.5',
+    phase: '147'
+  }, overrides);
+}
+
+function assertEnvelopeV1(row) {
+  for (const key of [
+    'envelope_version', 'ts', 'command', 'status', 'reason_codes',
+    'artifacts', 'evidence', 'next_action', 'risk', 'duration_ms',
+    'run_id', 'phase', 'milestone'
+  ]) {
+    assert(Object.prototype.hasOwnProperty.call(row, key), `missing envelope-v1 field ${key}`);
+  }
+  assert.strictEqual(row.envelope_version, 1);
+  assert.match(row.run_id, /^[0-9]{4}-[0-9]{2}-[0-9]{2}T/);
+}
+
+function assertShadowRowHasPerPathEvidence(row) {
+  assert(Array.isArray(row.staged_paths), 'staged_paths must be present');
+  assert(Array.isArray(row.path_evidence), 'path_evidence must be present');
+  assert(row.path_evidence.length > 0, 'path_evidence must not be empty');
+  for (const record of row.path_evidence) {
+    assert(Object.prototype.hasOwnProperty.call(record, 'path'), 'path evidence missing path');
+    assert(Object.prototype.hasOwnProperty.call(record, 'source_touching'), 'path evidence missing source_touching');
+    assert(Object.prototype.hasOwnProperty.call(record, 'evidence_status'), 'path evidence missing evidence_status');
+    assert(Object.prototype.hasOwnProperty.call(record, 'matched_artifacts'), 'path evidence missing matched_artifacts');
+    assert(Object.prototype.hasOwnProperty.call(record, 'reason_code'), 'path evidence missing reason_code');
+  }
+}
 function writeGsdeditsEvidence(fixture, sourcePaths) {
   const phaseDir = path.join(
     '.planning',
@@ -497,13 +612,221 @@ function assertAllArtifactConventionCases() {
   assertPerPathGranularity();
 }
 
+function assertContainedShadowWrite() {
+  const { appendShadowRow, readShadowRows, shadowLedgerPath } = loadShadowLog();
+  const fixture = createBareSgsdFixture({ repoId: 'shadow-contained' });
+  try {
+    const diff = 'fixture diff\n';
+    const expectedHash = crypto.createHash('sha256').update(diff).digest('hex');
+    const row = appendShadowRow(fixture.repoDir, sampleShadowRow({ diff_content: diff }));
+    assert(row, 'contained append should return the written row');
+    assertEnvelopeV1(row);
+    assert.strictEqual(row.signal, 'commit_gate_shadow');
+    assert.strictEqual(row.diff_sha256, expectedHash);
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(row, 'diff_content'), false);
+    assertShadowRowHasPerPathEvidence(row);
+
+    const ledger = shadowLedgerPath(fixture.repoDir);
+    assert(ledger, 'shadowLedgerPath should resolve for SGSD fixture root');
+    assert(realPathStartsWith(realpathOrNull(fixture.repoDir), realpathOrNull(ledger)), 'ledger must stay inside fixture root');
+
+    const lines = fs.readFileSync(ledger, 'utf8').trim().split(/\r?\n/);
+    assert.strictEqual(lines.length, 1, 'contained append should write one JSONL row');
+    const parsed = JSON.parse(lines[0]);
+    assertEnvelopeV1(parsed);
+    assertShadowRowHasPerPathEvidence(parsed);
+    assert.deepStrictEqual(parsed.staged_paths, ['super-gsd/scripts/lib/shadow-fixture.cjs']);
+
+    const read = readShadowRows(fixture.repoDir, { limit: 10 });
+    assert.strictEqual(read.rows.length, 1, 'readShadowRows should return appended row');
+    assert.strictEqual(read.skipped_line_count, 0);
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+function assertShadowEscapeAttemptsRefused() {
+  const { appendShadowRow } = loadShadowLog();
+  const absoluteDestination = path.join(os.tmpdir(), `sgsd-shadow-escape-${process.pid}-${Date.now()}.jsonl`);
+  const absolute = captureStderr(() => appendShadowRow(absoluteDestination, sampleShadowRow()));
+  assert.strictEqual(absolute.value, null, 'absolute temp path must not be treated as a ledger destination');
+  assert.match(absolute.stderr, /shadow_ledger_root_not_found/);
+  assert.strictEqual(/\n\s+at\s/.test(absolute.stderr), false, 'breadcrumb must not include a stack trace');
+  assert.strictEqual(fs.existsSync(absoluteDestination), false, 'absolute destination file must not be created');
+
+  const bare = createBareSgsdFixture({ repoId: 'bare-planning-no-state', withState: false });
+  try {
+    const bareResult = captureStderr(() => appendShadowRow(bare.repoDir, sampleShadowRow()));
+    assert.strictEqual(bareResult.value, null, 'bare .planning without STATE.md must be refused');
+    assert.match(bareResult.stderr, /shadow_ledger_root_not_found/);
+    assert.strictEqual(fs.existsSync(path.join(bare.repoDir, '.planning', 'metrics', 'commit-gate-shadow.jsonl')), false);
+  } finally {
+    bare.cleanup();
+  }
+
+  const linkRoot = tempFixtureRoot();
+  const outsideRoot = tempFixtureRoot();
+  let planningLink = null;
+  try {
+    const repoDir = contained(linkRoot, 'junction-repo');
+    const outsidePlanning = contained(outsideRoot, 'outside-planning');
+    fs.mkdirSync(repoDir, { recursive: true });
+    fs.mkdirSync(outsidePlanning, { recursive: true });
+    fs.writeFileSync(path.join(outsidePlanning, 'STATE.md'), '---\nmilestone: v3.5\ncurrent_phase: "147"\n---\n', 'utf8');
+    planningLink = path.join(repoDir, '.planning');
+    try {
+      fs.symlinkSync(outsidePlanning, planningLink, process.platform === 'win32' ? 'junction' : 'dir');
+    } catch (error) {
+      console.log(`[SKIP] shadow-ledger-junction: ${error.code || error.message}`);
+      return;
+    }
+    const linked = captureStderr(() => appendShadowRow(repoDir, sampleShadowRow()));
+    assert.strictEqual(linked.value, null, '.planning junction to outside dir must be refused');
+    assert.match(linked.stderr, /shadow_ledger_root_not_found|shadow_ledger_containment_refused/);
+    assert.strictEqual(fs.existsSync(path.join(outsidePlanning, 'metrics', 'commit-gate-shadow.jsonl')), false);
+  } finally {
+    if (planningLink && fs.existsSync(planningLink)) {
+      try { fs.rmSync(planningLink, { recursive: true, force: true }); } catch {}
+    }
+    cleanupFixture(linkRoot);
+    cleanupFixture(outsideRoot);
+  }
+}
+
+function assertMetricsFileDegradedRow() {
+  const { appendShadowRow } = loadShadowLog();
+  const fixture = createBareSgsdFixture({ repoId: 'metrics-file-degraded' });
+  try {
+    writeContainedFile(fixture.repoDir, path.join('.planning', 'metrics'), 'metrics is a file\n');
+    const result = captureStderr(() => appendShadowRow(fixture.repoDir, sampleShadowRow()));
+    assert(result.value, 'append failure under known root should return a degraded row');
+    assertEnvelopeV1(result.value);
+    assertShadowRowHasPerPathEvidence(result.value);
+    assert(result.value.reason_codes.includes('shadow_ledger_append_failed'));
+    assert.match(result.stderr, /shadow_ledger_append_failed/);
+    assert.strictEqual(/\n\s+at\s/.test(result.stderr), false, 'breadcrumb must not include a stack trace');
+    assert.strictEqual(fs.existsSync(path.join(fixture.repoDir, '.planning', 'metrics', 'commit-gate-shadow.jsonl')), false);
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+function assertMalformedInputGetsDegradedRow() {
+  const { appendShadowRow, readShadowRows } = loadShadowLog();
+  const fixture = createBareSgsdFixture({ repoId: 'malformed-row-degraded' });
+  try {
+    const result = captureStderr(() => appendShadowRow(fixture.repoDir, null));
+    assert(result.value, 'malformed input under known root should return a degraded row');
+    assert(result.value.reason_codes.includes('shadow_row_malformed'));
+    assertShadowRowHasPerPathEvidence(result.value);
+    assert.match(result.stderr, /shadow_row_malformed/);
+    const read = readShadowRows(fixture.repoDir, { limit: 10 });
+    assert.strictEqual(read.rows.length, 1, 'malformed input should be persisted as degraded row when root is known');
+    assert(read.rows[0].reason_codes.includes('shadow_row_malformed'));
+    assertShadowRowHasPerPathEvidence(read.rows[0]);
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+function manualShadowLedgerRow(index) {
+  const stagedPath = `src/file-${index}.cjs`;
+  return {
+    envelope_version: 1,
+    ts: '2026-08-07T00:00:00.000Z',
+    command: 'appendCommitGateShadowRow',
+    status: 'ok',
+    reason_codes: [],
+    artifacts: [],
+    evidence: [],
+    next_action: null,
+    risk: null,
+    duration_ms: null,
+    run_id: `2026-08-07T00:00:00.000Z-${(index % 65536).toString(16).padStart(4, '0')}`,
+    phase: '147',
+    milestone: 'v3.5',
+    signal: 'commit_gate_shadow',
+    repo_id: 'fixture-repo',
+    commit_candidate: `commit-${index}`,
+    diff_sha256: crypto.createHash('sha256').update(String(index)).digest('hex'),
+    artifact_predicate_version: 't147-01',
+    artifact_convention_status: 'gsdedits_artifacts_discovered',
+    staged_paths: [stagedPath],
+    path_evidence: samplePathEvidence(stagedPath),
+    would_warn: false,
+    would_block: false,
+    false_block_basis: [],
+    waived_paths: []
+  };
+}
+
+function assertBoundedTailRead() {
+  const { readShadowRows, shadowLedgerPath } = loadShadowLog();
+  const fixture = createBareSgsdFixture({ repoId: 'bounded-tail-read' });
+  try {
+    const ledger = shadowLedgerPath(fixture.repoDir);
+    fs.mkdirSync(path.dirname(ledger), { recursive: true });
+    const lines = [];
+    for (let index = 0; index < 2900; index += 1) lines.push(JSON.stringify(manualShadowLedgerRow(index)));
+    for (let index = 2900; index < 2940; index += 1) lines.push(JSON.stringify(manualShadowLedgerRow(index)));
+    lines.push('{not-json');
+    for (let index = 2940; index < 2970; index += 1) lines.push(JSON.stringify(manualShadowLedgerRow(index)));
+    lines.push('also not json');
+    for (let index = 2970; index < 3000; index += 1) lines.push(JSON.stringify(manualShadowLedgerRow(index)));
+    fs.writeFileSync(ledger, `${lines.join('\n')}\n`, 'utf8');
+
+    const started = process.hrtime.bigint();
+    const read = readShadowRows(fixture.repoDir, { limit: 100 });
+    const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
+    assert.strictEqual(read.rows.length, 100, 'reader should return 100 valid tail rows');
+    assert.strictEqual(read.skipped_line_count, 2, 'reader should count corrupt tail lines');
+    assert.strictEqual(read.rows[0].commit_candidate, 'commit-2900');
+    assert.strictEqual(read.rows[99].commit_candidate, 'commit-2999');
+    assert(elapsedMs < 1000, `tail read should be fast, got ${elapsedMs}ms`);
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+function assertBinaryDiffHashOnly() {
+  const { appendShadowRow, shadowLedgerPath } = loadShadowLog();
+  const fixture = createBareSgsdFixture({ repoId: 'binary-diff-hash' });
+  try {
+    const diff = Buffer.from([0, 255, 16, 128, 65, 66, 67]);
+    const expectedHash = crypto.createHash('sha256').update(diff).digest('hex');
+    const row = appendShadowRow(fixture.repoDir, sampleShadowRow({ diff_content: diff }));
+    assert(row, 'binary diff append should return a row');
+    assert.strictEqual(row.diff_sha256, expectedHash);
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(row, 'diff_content'), false);
+
+    const line = fs.readFileSync(shadowLedgerPath(fixture.repoDir), 'utf8');
+    assert.strictEqual(line.includes('\uFFFD'), false, 'written JSON must not contain replacement characters');
+    assert.strictEqual(line.includes('"data"'), false, 'Buffer payload data must not be embedded');
+    const parsed = JSON.parse(line);
+    assert.strictEqual(parsed.diff_sha256, expectedHash);
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(parsed, 'diff_content'), false);
+    assertShadowRowHasPerPathEvidence(parsed);
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+function assertShadowLedgerContainedWriter() {
+  assertContainedShadowWrite();
+  assertShadowEscapeAttemptsRefused();
+  assertMalformedInputGetsDegradedRow();
+  assertMetricsFileDegradedRow();
+  assertBoundedTailRead();
+  assertBinaryDiffHashOnly();
+}
 const scenarios = Object.freeze({
   'artifact-conventions-source-predicate': assertAllArtifactConventionCases,
   'gsdedits-backed': assertGsdeditsBacked,
   'false-plan-audit-missing': assertFalsePlanAuditMissing,
   'source-predicate': assertSourcePredicate,
   'convention-unknown': assertConventionUnknown,
-  'per-path-granularity': assertPerPathGranularity
+  'per-path-granularity': assertPerPathGranularity,
+  'shadow-ledger-contained-writer': assertShadowLedgerContainedWriter
 });
 
 function main(argv = process.argv.slice(2)) {
