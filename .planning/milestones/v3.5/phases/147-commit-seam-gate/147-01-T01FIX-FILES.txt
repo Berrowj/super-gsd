@@ -1,0 +1,2 @@
+super-gsd/scripts/lib/sgsd-artifact-conventions.cjs
+super-gsd/tests/commit-gate/assert-real-commit-gate.cjs
