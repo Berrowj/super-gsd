@@ -1,0 +1,3 @@
+super-gsd/scripts/install-commit-gate.cjs
+super-gsd/hooks/sgsd-commit-gate.cjs
+super-gsd/tests/commit-gate/assert-real-commit-gate.cjs

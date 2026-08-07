@@ -169,13 +169,12 @@ function shQuote(value) {
 }
 
 function trampolineContent(repoRoot, hookScriptPath) {
-  const repo = shQuote(toShellPath(repoRoot));
   const script = shQuote(toShellPath(hookScriptPath));
   return [
     '#!/bin/sh',
     `# ${MARKER}: managed by super-gsd/scripts/install-commit-gate.cjs`,
     '# POSIX trampoline for Git for Windows and POSIX Git clients.',
-    `SGSD_REPO_ROOT=${repo}`,
+    '# The target repo is resolved from the committing worktree at hook runtime.',
     `SGSD_HOOK_SCRIPT=${script}`,
     '',
     'sgsd_bootstrap_stderr() {',
@@ -185,16 +184,17 @@ function trampolineContent(repoRoot, hookScriptPath) {
     'sgsd_append_bootstrap_row() {',
     '  reason_code="$1"',
     '  detail="$2"',
-    '  if [ -z "${NODE_BIN:-}" ]; then',
+    '  if [ -z "${NODE_BIN:-}" ] || [ -z "${SGSD_TARGET_REPO_ROOT:-}" ]; then',
     '    return 0',
     '  fi',
-    '  "$NODE_BIN" - "$SGSD_REPO_ROOT" "$reason_code" "$detail" <<\'NODE\'',
+    '  "$NODE_BIN" - "$SGSD_TARGET_REPO_ROOT" "$SGSD_HOOK_SCRIPT" "$reason_code" "$detail" <<\'NODE\'',
     'const path = require(\'path\');',
     'const { spawnSync } = require(\'child_process\');',
-    'const [root, reasonCode, detail] = process.argv.slice(2);',
+    'const [root, hookScript, reasonCode, detail] = process.argv.slice(2);',
     'function oneLine(value) { return String(value || \'\').replace(/[\\r\\n]+/g, \' \').slice(0, 300); }',
     'try {',
-    '  const { appendShadowRow } = require(path.join(root, \'super-gsd\', \'scripts\', \'lib\', \'commit-gate-shadow-log.cjs\'));',
+    '  const hookDir = path.dirname(path.resolve(hookScript));',
+    '  const { appendShadowRow } = require(path.resolve(hookDir, \'..\', \'scripts\', \'lib\', \'commit-gate-shadow-log.cjs\'));',
     '  let stagedPaths = [];',
     '  try {',
     '    const staged = spawnSync(\'git\', [\'diff\', \'--cached\', \'--name-only\', \'--\'], { cwd: root, encoding: \'utf8\', windowsHide: true });',
@@ -249,6 +249,13 @@ function trampolineContent(repoRoot, hookScriptPath) {
     '  exit 0',
     '}',
     '',
+    'SGSD_TARGET_REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"',
+    'if [ -z "$SGSD_TARGET_REPO_ROOT" ]; then',
+    '  sgsd_bootstrap_stderr "[SGSD] commit gate bootstrap degraded bootstrap_target_root_unavailable: git rev-parse --show-toplevel failed from hook cwd; allowing commit"',
+    '  exit 0',
+    'fi',
+    'export SGSD_COMMIT_GATE_TARGET_ROOT="$SGSD_TARGET_REPO_ROOT"',
+    '',
     'NODE_BIN="$(command -v node 2>/dev/null || true)"',
     'if [ -z "$NODE_BIN" ]; then',
     '  sgsd_bootstrap_stderr "[SGSD] commit gate bootstrap degraded bootstrap_node_missing: node not found on PATH; allowing commit"',
@@ -257,10 +264,6 @@ function trampolineContent(repoRoot, hookScriptPath) {
     '',
     'if [ ! -f "$SGSD_HOOK_SCRIPT" ]; then',
     '  sgsd_fail_open "bootstrap_hook_script_missing" "$SGSD_HOOK_SCRIPT"',
-    'fi',
-    '',
-    'if ! cd "$SGSD_REPO_ROOT"; then',
-    '  sgsd_fail_open "bootstrap_repo_cd_failed" "$SGSD_REPO_ROOT"',
     'fi',
     '',
     '"$NODE_BIN" "$SGSD_HOOK_SCRIPT"',
@@ -275,7 +278,6 @@ function trampolineContent(repoRoot, hookScriptPath) {
     ''
   ].join('\n');
 }
-
 function isMarked(content) {
   return String(content || '').includes(MARKER);
 }

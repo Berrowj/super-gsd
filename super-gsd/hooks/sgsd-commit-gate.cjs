@@ -13,7 +13,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { spawnSync } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 
 const { findSgsdRoot, readState, resolveContainedPath } = require('../scripts/lib/sgsd-state.cjs');
 const { discoverConvention, evaluatePaths } = require('../scripts/lib/sgsd-artifact-conventions.cjs');
@@ -33,6 +33,10 @@ const MODE_BLOCK = 'block';
 const ARTIFACT_PREDICATE_VERSION = 't147-01';
 const SENTINEL_FILE = '.sgsd-gate-off';
 const SIGNAL = 'commit_gate_shadow';
+const DIFF_HASH_MAX_BYTES = 32 * 1024 * 1024;
+const DIFF_HASH_TRUNCATED_BASIS = 'truncated_32mb';
+const DIFF_HASH_TRUNCATED_REASON = 'diff_hash_truncated_32mb';
+const INTERNAL_HASH_DIFF_ARG = '--sgsd-internal-hash-staged-diff';
 const MODE_FILE_DIGEST_CONTEXT = 'sgsd.commit-gate.block-mode.v1';
 
 function oneLine(value) {
@@ -156,13 +160,137 @@ function stagedNameStatus(root) {
   }
 }
 
-function stagedDiffSha256(root) {
-  const result = git(['diff', '--cached', '--binary', '--'], {
-    cwd: root,
-    reason_code: 'git_diff_failed'
+function streamStagedDiffSha256(root, maxBytes = DIFF_HASH_MAX_BYTES) {
+  const byteLimit = Number.isInteger(maxBytes) && maxBytes > 0 ? maxBytes : DIFF_HASH_MAX_BYTES;
+  return new Promise((resolve) => {
+    const hash = crypto.createHash('sha256');
+    let bytesHashed = 0;
+    let stderrText = '';
+    let truncated = false;
+    let settled = false;
+
+    function finish(value) {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    }
+
+    let child;
+    try {
+      child = spawn('git', ['diff', '--cached', '--binary', '--'], {
+        cwd: root,
+        env: process.env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true
+      });
+    } catch (error) {
+      finish({ ok: false, reason_code: 'git_spawn_failed', detail: error && (error.code || error.message) || 'spawn_failed' });
+      return;
+    }
+
+    child.on('error', (error) => {
+      finish({ ok: false, reason_code: 'git_spawn_failed', detail: error && (error.code || error.message) || 'spawn_failed' });
+    });
+
+    child.stderr.on('data', (chunk) => {
+      if (stderrText.length < 4096) stderrText += asBuffer(chunk).toString('utf8').slice(0, 4096 - stderrText.length);
+    });
+
+    child.stdout.on('data', (chunk) => {
+      if (truncated) return;
+      const buffer = asBuffer(chunk);
+      const remaining = byteLimit - bytesHashed;
+      if (buffer.length <= remaining) {
+        hash.update(buffer);
+        bytesHashed += buffer.length;
+        return;
+      }
+
+      if (remaining > 0) {
+        hash.update(buffer.subarray(0, remaining));
+        bytesHashed += remaining;
+      }
+      truncated = true;
+      try { child.stdout.destroy(); } catch {}
+      try { child.kill(); } catch {}
+    });
+
+    child.on('close', (status, signal) => {
+      if (settled) return;
+      const digest = hash.digest('hex');
+      if (truncated) {
+        finish({
+          ok: true,
+          diff_sha256: digest,
+          diff_hash_basis: DIFF_HASH_TRUNCATED_BASIS,
+          diff_hash_byte_limit: byteLimit,
+          diff_hash_bytes_hashed: bytesHashed,
+          reason_codes: [DIFF_HASH_TRUNCATED_REASON]
+        });
+        return;
+      }
+      if (status !== 0) {
+        finish({ ok: false, reason_code: 'git_diff_failed', detail: stderrText || `exit_${status}${signal ? `_${signal}` : ''}` });
+        return;
+      }
+      finish({
+        ok: true,
+        diff_sha256: digest,
+        diff_hash_basis: 'full',
+        diff_hash_bytes_hashed: bytesHashed,
+        reason_codes: []
+      });
+    });
   });
-  if (!result.ok) return result;
-  return { ok: true, diff_sha256: crypto.createHash('sha256').update(asBuffer(result.stdout)).digest('hex') };
+}
+
+async function hashStagedDiffInternal(argv) {
+  const root = path.resolve(String(argv[0] || process.cwd()));
+  const maxBytes = Number.parseInt(argv[1], 10);
+  const result = await streamStagedDiffSha256(root, Number.isInteger(maxBytes) && maxBytes > 0 ? maxBytes : DIFF_HASH_MAX_BYTES);
+  try {
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+  } catch {
+    return 1;
+  }
+  return result.ok ? 0 : 1;
+}
+
+function stagedDiffSha256(root) {
+  let result;
+  try {
+    result = spawnSync(process.execPath, [__filename, INTERNAL_HASH_DIFF_ARG, root, String(DIFF_HASH_MAX_BYTES)], {
+      cwd: root,
+      encoding: 'utf8',
+      env: process.env,
+      maxBuffer: 1024 * 1024,
+      windowsHide: true
+    });
+  } catch (error) {
+    return { ok: false, reason_code: 'git_spawn_failed', detail: error && (error.code || error.message) || 'spawn_failed' };
+  }
+
+  if (result.error) {
+    return { ok: false, reason_code: 'git_spawn_failed', detail: result.error.code || result.error.message || 'spawn_failed' };
+  }
+
+  let parsed = null;
+  try {
+    parsed = JSON.parse(String(result.stdout || '').trim());
+  } catch (error) {
+    const detail = result.stderr || result.stdout || (error && error.message) || 'hash_worker_unparseable';
+    return { ok: false, reason_code: 'git_diff_failed', detail };
+  }
+
+  if (result.status !== 0 || !parsed || parsed.ok !== true) {
+    return {
+      ok: false,
+      reason_code: parsed && parsed.reason_code || 'git_diff_failed',
+      detail: parsed && parsed.detail || result.stderr || `exit_${result.status}`
+    };
+  }
+
+  return parsed;
 }
 
 function commitCandidate(root) {
@@ -372,15 +500,31 @@ function printSentinelSummary(paths) {
   for (const filePath of paths) stderr(`[SGSD] sentinel waived staged path: ${filePath}`);
 }
 
-function buildNormalRow(root, state, convention, entries, pathEvidence, diffSha256, status, mode, extraReasons = []) {
-  const reasons = listReasonCodes(pathEvidence, extraReasons);
+function diffReasonCodes(diffInfo) {
+  const out = [];
+  if (diffInfo && Array.isArray(diffInfo.reason_codes)) out.push(...diffInfo.reason_codes);
+  if (diffInfo && diffInfo.diff_hash_basis === DIFF_HASH_TRUNCATED_BASIS) out.push(DIFF_HASH_TRUNCATED_REASON);
+  return Array.from(new Set(out.filter((item) => typeof item === 'string' && item.trim())));
+}
+
+function diffNextAction(diffInfo) {
+  if (!diffInfo || diffInfo.diff_hash_basis !== DIFF_HASH_TRUNCATED_BASIS) return undefined;
+  return JSON.stringify({
+    diff_hash_basis: diffInfo.diff_hash_basis,
+    diff_hash_byte_limit: diffInfo.diff_hash_byte_limit,
+    diff_hash_bytes_hashed: diffInfo.diff_hash_bytes_hashed
+  });
+}
+
+function buildNormalRow(root, state, convention, entries, pathEvidence, diffInfo, status, mode, extraReasons = []) {
+  const reasons = listReasonCodes(pathEvidence, [...extraReasons, ...diffReasonCodes(diffInfo)]);
   const unbacked = pathEvidence.filter(sourceMissingEvidence);
   return {
     signal: SIGNAL,
     status,
     repo_id: repoId(root),
     commit_candidate: commitCandidate(root),
-    diff_sha256: diffSha256,
+    diff_sha256: diffInfo && diffInfo.diff_sha256,
     artifact_predicate_version: ARTIFACT_PREDICATE_VERSION,
     artifact_convention_status: convention.reason_code || convention.convention || 'unknown',
     staged_paths: evaluatedPaths(entries),
@@ -390,19 +534,20 @@ function buildNormalRow(root, state, convention, entries, pathEvidence, diffSha2
     false_block_basis: unbacked.map((record) => record.reason_code).filter(Boolean),
     waived_paths: [],
     reason_codes: reasons,
+    next_action: diffNextAction(diffInfo),
     milestone: state && state.milestone || null,
     phase: state && state.phase || null
   };
 }
 
-function buildSentinelRow(root, state, convention, entries, pathEvidence, diffSha256, extraReasons = []) {
+function buildSentinelRow(root, state, convention, entries, pathEvidence, diffInfo, extraReasons = []) {
   const paths = evaluatedPaths(entries);
   return {
     signal: SIGNAL,
     status: 'skipped',
     repo_id: repoId(root),
     commit_candidate: commitCandidate(root),
-    diff_sha256: diffSha256,
+    diff_sha256: diffInfo && diffInfo.diff_sha256,
     artifact_predicate_version: ARTIFACT_PREDICATE_VERSION,
     artifact_convention_status: convention.reason_code || convention.convention || 'unknown',
     staged_paths: paths,
@@ -411,7 +556,8 @@ function buildSentinelRow(root, state, convention, entries, pathEvidence, diffSh
     would_block: false,
     false_block_basis: [],
     waived_paths: paths,
-    reason_codes: listReasonCodes(pathEvidence, ['sentinel_waived_block', ...extraReasons]),
+    reason_codes: listReasonCodes(pathEvidence, ['sentinel_waived_block', ...extraReasons, ...diffReasonCodes(diffInfo)]),
+    next_action: diffNextAction(diffInfo),
     milestone: state && state.milestone || null,
     phase: state && state.phase || null
   };
@@ -477,7 +623,7 @@ function evaluateCommitAttempt(root) {
   }
 
   if (sentinelPresent(root)) {
-    const row = buildSentinelRow(root, state, convention || {}, nameStatus.entries, pathEvidence, diff.diff_sha256, conventionReasons);
+    const row = buildSentinelRow(root, state, convention || {}, nameStatus.entries, pathEvidence, diff, conventionReasons);
     appendRow(root, row);
     printSentinelSummary(row.waived_paths);
     return exitCodeForDecision(decisionForMode(MODE_WARN, false));
@@ -486,7 +632,7 @@ function evaluateCommitAttempt(root) {
   const unbacked = pathEvidence.filter(sourceMissingEvidence);
   const shouldBlock = mode === MODE_BLOCK && !conventionUnknown && unbacked.length > 0;
   const status = shouldBlock ? 'blocked' : (conventionUnknown || unbacked.length > 0 ? 'warn' : 'ok');
-  const row = buildNormalRow(root, state, convention || {}, nameStatus.entries, pathEvidence, diff.diff_sha256, status, mode, conventionReasons);
+  const row = buildNormalRow(root, state, convention || {}, nameStatus.entries, pathEvidence, diff, status, mode, conventionReasons);
   const written = appendRow(root, row);
 
   if (shouldBlock && !shadowDecisionRowPersisted(written)) {
@@ -656,6 +802,8 @@ function deactivateBlock(root) {
 }
 
 function main(argv = process.argv.slice(2)) {
+  if (argv[0] === INTERNAL_HASH_DIFF_ARG) return hashStagedDiffInternal(argv.slice(1));
+
   let args;
   try {
     args = parseCliArgs(argv);
@@ -672,7 +820,7 @@ function main(argv = process.argv.slice(2)) {
 
   let root = null;
   try {
-    root = findSgsdRoot(process.cwd());
+    root = findSgsdRoot(process.env.SGSD_COMMIT_GATE_TARGET_ROOT || process.cwd());
     if (args.action === 'shadow-report') return runShadowReport(root, args);
 
     if (!root) {
@@ -691,7 +839,17 @@ function main(argv = process.argv.slice(2)) {
 }
 
 if (require.main === module) {
-  process.exitCode = main();
+  const status = main();
+  if (status && typeof status.then === 'function') {
+    status
+      .then((code) => { process.exitCode = code; })
+      .catch((error) => {
+        breadcrumb('internal_error', error && error.message);
+        process.exitCode = EXIT_OK;
+      });
+  } else {
+    process.exitCode = status;
+  }
 }
 
 module.exports = {

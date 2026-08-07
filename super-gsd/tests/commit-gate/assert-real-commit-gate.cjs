@@ -53,6 +53,8 @@ function usage() {
     '  installer-refuses-unmarked',
     '  installer-trampoline-real-commit',
     '  installer-linked-worktree-warning',
+    '  installer-linked-worktree-target-root',
+    '  large-diff-truncated-hash',
     '',
     'Exports fixture helpers for later commit-gate tasks.'
   ].join('\n');
@@ -1684,6 +1686,90 @@ function assertInstallerLinkedWorktreeWarning() {
     fixture.cleanup();
   }
 }
+
+function assertInstallerLinkedWorktreeTargetRoot() {
+  const fixture = createTempGitRepo({ repoId: 'GSDedits-linked-target-main', phase: '147', milestone: 'v3.5' });
+  try {
+    copyCommitGateRuntime(fixture);
+    git(fixture.repoDir, ['add', '.planning/STATE.md', 'super-gsd']);
+    git(fixture.repoDir, ['commit', '-m', 'base runtime fixture']);
+
+    const linkedDir = contained(fixture.tempRoot, 'linked-target-worktree');
+    git(fixture.repoDir, ['worktree', 'add', '-b', 'sgsd-linked-target-fixture', linkedDir]);
+
+    const install = runInstaller(fixture.repoDir, ['--install']);
+    assert.strictEqual(install.status, 0, `main worktree install should exit 0: ${install.stderr}`);
+    assert.match(install.stderr, /linked_worktree_shared_hook_path/);
+
+    const sourcePath = 'super-gsd/scripts/lib/sibling-unbacked.cjs';
+    writeContainedFile(linkedDir, sourcePath, 'module.exports = "sibling";\n');
+    stagePaths(linkedDir, [sourcePath]);
+    const committed = commitWithMessage(linkedDir, 'sibling unbacked fixture');
+    assert.strictEqual(committed.status, 0, `sibling warn-mode commit must succeed: ${committed.stderr}`);
+    assert.match(committed.stderr, /commit gate warning/i);
+    assert.match(committed.stderr, new RegExp(escapeRegExp(sourcePath)));
+
+    const siblingRows = readJsonl(linkedDir, path.join('.planning', 'metrics', 'commit-gate-shadow.jsonl'));
+    assert.strictEqual(siblingRows.length, 1, 'sibling worktree must receive exactly one shadow row');
+    assert.strictEqual(siblingRows[0].repo_id, path.basename(linkedDir));
+    assert.strictEqual(siblingRows[0].status, 'warn');
+    assert.deepStrictEqual(siblingRows[0].staged_paths, [sourcePath]);
+    assert(siblingRows[0].reason_codes.includes('plan_evidence_missing'), 'sibling row must record missing plan evidence');
+    assert.strictEqual(
+      fs.existsSync(path.join(fixture.repoDir, '.planning', 'metrics', 'commit-gate-shadow.jsonl')),
+      false,
+      'installing worktree must not receive the sibling commit shadow row'
+    );
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+function assertLargeDiffTruncatedHash() {
+  const fixture = createTempGitRepo({ repoId: 'GSDedits-large-diff', phase: '147', milestone: 'v3.5' });
+  try {
+    copyCommitGateRuntime(fixture);
+    const install = runInstaller(fixture.repoDir, ['--install']);
+    assert.strictEqual(install.status, 0, `install should exit 0: ${install.stderr}`);
+
+    const sourcePath = 'super-gsd/scripts/lib/large-diff.bin';
+    const target = contained(fixture.repoDir, sourcePath);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    const fd = fs.openSync(target, 'w');
+    try {
+      const chunk = Buffer.alloc(1024 * 1024);
+      for (let index = 0; index < 33; index += 1) {
+        crypto.randomFillSync(chunk);
+        fs.writeSync(fd, chunk);
+      }
+    } finally {
+      fs.closeSync(fd);
+    }
+    stagePaths(fixture.repoDir, [sourcePath]);
+
+    const started = process.hrtime.bigint();
+    const committed = commitWithMessage(fixture.repoDir, 'large diff fixture');
+    const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
+    assert.strictEqual(committed.status, 0, `large diff commit must succeed: ${committed.stderr}`);
+    assert(elapsedMs < 30000, `large diff hook should remain bounded, got ${elapsedMs}ms`);
+
+    const rows = readJsonl(fixture.repoDir, path.join('.planning', 'metrics', 'commit-gate-shadow.jsonl'));
+    assert.strictEqual(rows.length, 1, 'large diff commit should append one shadow row');
+    const row = rows[0];
+    assertEnvelopeV1(row);
+    assert.strictEqual(row.status, 'warn');
+    assert.match(row.diff_sha256, /^[a-f0-9]{64}$/i);
+    assert(row.reason_codes.includes('diff_hash_truncated_32mb'), 'large diff row must record truncated hash basis');
+    const nextAction = JSON.parse(row.next_action);
+    assert.strictEqual(nextAction.diff_hash_basis, 'truncated_32mb');
+    assert.strictEqual(nextAction.diff_hash_byte_limit, 32 * 1024 * 1024);
+    assert.strictEqual(nextAction.diff_hash_bytes_hashed, 32 * 1024 * 1024);
+    assert.deepStrictEqual(row.staged_paths, [sourcePath]);
+    assert.match(committed.stderr, /commit gate warning/i);
+  } finally {
+    fixture.cleanup();
+  }
+}
 const scenarios = Object.freeze({
   'artifact-conventions-source-predicate': assertAllArtifactConventionCases,
   'gsdedits-backed': assertGsdeditsBacked,
@@ -1703,7 +1789,9 @@ const scenarios = Object.freeze({
   'installer-lifecycle': assertInstallerLifecycle,
   'installer-refuses-unmarked': assertInstallerRefusesUnmarked,
   'installer-trampoline-real-commit': assertInstallerTrampolineRealCommit,
-  'installer-linked-worktree-warning': assertInstallerLinkedWorktreeWarning
+  'installer-linked-worktree-warning': assertInstallerLinkedWorktreeWarning,
+  'installer-linked-worktree-target-root': assertInstallerLinkedWorktreeTargetRoot,
+  'large-diff-truncated-hash': assertLargeDiffTruncatedHash
 });
 
 function main(argv = process.argv.slice(2)) {
