@@ -205,14 +205,15 @@ case "$CONTRACT" in
     *) echo "codex-exec: unknown --contract '$CONTRACT' (expected code-reviewer-v1 | rd-memo-v1 | triage-verdict-v1)" >&2; exit 1 ;;
 esac
 
-CODEX_COMMAND="codex"
+# Test-isolation override; production never sets SGSD_CODEX_COMMAND.
+CODEX_COMMAND="${SGSD_CODEX_COMMAND:-codex}"
 CODEX_LAUNCHER="direct"
 CODEX_PROJECT="$PROJECT"
 # Under WSL, prefer a native-Linux codex over the Windows interop shim. The
 # Linux build sandboxes via landlock, avoiding the CreateProcessAsUserW/error-216
 # file-read block that the cmd.exe->Windows-codex path hits. A /mnt/* resolution
 # IS the Windows shim; only then fall back to cmd.exe.
-if [[ -r /proc/version ]] && grep -qi microsoft /proc/version 2>/dev/null; then
+if [[ -z "${SGSD_CODEX_COMMAND:-}" && -r /proc/version ]] && grep -qi microsoft /proc/version 2>/dev/null; then
     CODEX_ON_PATH="$(command -v codex 2>/dev/null || true)"
     if [[ -n "$CODEX_ON_PATH" && "$CODEX_ON_PATH" != /mnt/* ]]; then
         : # native-Linux codex present — keep direct launcher (POSIX --cd, no 216)
@@ -227,13 +228,18 @@ fi
 
 case "${SGSD_CODEX_FORCE_LAUNCHER:-}" in
     direct)
-        CODEX_COMMAND="codex"
+        CODEX_COMMAND="${SGSD_CODEX_COMMAND:-codex}"
         CODEX_LAUNCHER="direct"
         CODEX_PROJECT="$PROJECT"
         ;;
     cmd)
-        CODEX_COMMAND="cmd.exe"
-        CODEX_LAUNCHER="cmd"
+        if [[ -n "${SGSD_CODEX_COMMAND:-}" ]]; then
+            CODEX_COMMAND="$SGSD_CODEX_COMMAND"
+            CODEX_LAUNCHER="direct"
+        else
+            CODEX_COMMAND="cmd.exe"
+            CODEX_LAUNCHER="cmd"
+        fi
         CODEX_PROJECT="$PROJECT"
         ;;
     "") ;;
