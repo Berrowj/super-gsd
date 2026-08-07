@@ -1,0 +1,5 @@
+super-gsd/scripts/lib/commit-gate-shadow-report.cjs
+super-gsd/hooks/sgsd-commit-gate.cjs
+.planning/config/commit-gate-mode.json
+super-gsd/tests/commit-gate/assert-real-commit-gate.cjs
+super-gsd/scripts/lib/commit-gate-shadow-log.cjs

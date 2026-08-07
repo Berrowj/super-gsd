@@ -1,0 +1,5 @@
+super-gsd/hooks/sgsd-commit-gate.cjs
+super-gsd/tests/commit-gate/assert-real-commit-gate.cjs
+super-gsd/scripts/lib/commit-gate-shadow-log.cjs
+super-gsd/scripts/lib/sgsd-artifact-conventions.cjs
+super-gsd/scripts/lib/sgsd-state.cjs

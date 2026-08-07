@@ -19,7 +19,9 @@ const crypto = require('crypto');
 const repoRoot = path.resolve(__dirname, '../../..');
 const conventionModulePath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'sgsd-artifact-conventions.cjs');
 const shadowModulePath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'commit-gate-shadow-log.cjs');
+const reportModulePath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'commit-gate-shadow-report.cjs');
 const stateLibPath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'sgsd-state.cjs');
+const hookModulePath = path.join(repoRoot, 'super-gsd', 'hooks', 'sgsd-commit-gate.cjs');
 const { resolveContainedPath, readState } = require(stateLibPath);
 
 const createdFixtureRoots = new Set();
@@ -37,6 +39,14 @@ function usage() {
     '  convention-unknown',
     '  per-path-granularity',
     '  shadow-ledger-contained-writer',
+    '  hook-warn-unbacked',
+    '  hook-docs-only',
+    '  hook-sentinel-skip',
+    '  hook-fail-open-degraded',
+    '  hook-non-sgsd-no-write',
+    '  hook-warn-sentinel-failopen',
+    '  shadow-report-activation',
+    '  ac-shadow-report-activation',
     '',
     'Exports fixture helpers for later commit-gate tasks.'
   ].join('\n');
@@ -67,10 +77,23 @@ function loadShadowLog() {
   return require(shadowModulePath);
 }
 
+function loadShadowReport() {
+  delete require.cache[require.resolve(reportModulePath)];
+  return require(reportModulePath);
+}
+
 function run(command, args, options = {}) {
   return spawnSync(command, args, {
     cwd: options.cwd || repoRoot,
     encoding: 'utf8',
+    env: Object.assign({}, process.env, options.env || {}),
+    input: options.input || undefined
+  });
+}
+
+function runBuffer(command, args, options = {}) {
+  return spawnSync(command, args, {
+    cwd: options.cwd || repoRoot,
     env: Object.assign({}, process.env, options.env || {}),
     input: options.input || undefined
   });
@@ -83,6 +106,17 @@ function git(repoDir, args) {
     throw new Error(`git ${args.join(' ')} failed with ${result.status}: ${detail}`);
   }
   return result;
+}
+
+function gitBuffer(repoDir, args) {
+  const result = runBuffer('git', args, { cwd: repoDir });
+  if (result.status !== 0) {
+    const stdout = Buffer.isBuffer(result.stdout) ? result.stdout.toString('utf8') : String(result.stdout || '');
+    const stderr = Buffer.isBuffer(result.stderr) ? result.stderr.toString('utf8') : String(result.stderr || '');
+    const detail = result.error ? result.error.message : `${stdout}\n${stderr}`;
+    throw new Error(`git ${args.join(' ')} failed with ${result.status}: ${detail}`);
+  }
+  return Buffer.isBuffer(result.stdout) ? result.stdout : Buffer.from(String(result.stdout || ''), 'utf8');
 }
 
 function realpathOrNull(target) {
@@ -175,6 +209,30 @@ function createTempGitRepo(options = {}) {
       repoRoot: repoDir,
       milestone,
       phase,
+      cleanup() {
+        cleanupFixture(tempRoot);
+      }
+    };
+  } catch (error) {
+    cleanupFixture(tempRoot);
+    throw error;
+  }
+}
+
+function createPlainGitRepo(options = {}) {
+  const tempRoot = tempFixtureRoot();
+  try {
+    const repoDir = contained(tempRoot, safeChildName(options.repoId || 'plain-repo'));
+    fs.mkdirSync(repoDir, { recursive: true });
+
+    git(repoDir, ['init']);
+    git(repoDir, ['config', 'core.autocrlf', 'false']);
+    git(repoDir, ['config', 'user.email', 'sgsd-fixture@example.invalid']);
+    git(repoDir, ['config', 'user.name', 'SGSD Fixture']);
+
+    return {
+      tempRoot,
+      repoDir,
       cleanup() {
         cleanupFixture(tempRoot);
       }
@@ -283,8 +341,44 @@ function runNodeScript(scriptPath, args = [], options = {}) {
 }
 
 function runActualHook(repoDir, args = [], options = {}) {
-  const hookPath = path.join(repoRoot, 'super-gsd', 'hooks', 'sgsd-commit-gate.cjs');
-  return runNodeScript(hookPath, args, Object.assign({}, options, { cwd: repoDir }));
+  return runNodeScript(hookModulePath, args, Object.assign({}, options, { cwd: repoDir }));
+}
+
+function runActualHookInProcess(repoDir, args = []) {
+  const originalCwd = process.cwd();
+  const originalStdoutWrite = process.stdout.write;
+  const originalStderrWrite = process.stderr.write;
+  let stdout = '';
+  let stderr = '';
+  let error = null;
+  let status = null;
+  process.stdout.write = function patchedStdout(chunk, encoding, callback) {
+    stdout += Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
+    if (typeof callback === 'function') callback();
+    return true;
+  };
+  process.stderr.write = function patchedStderr(chunk, encoding, callback) {
+    stderr += Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
+    if (typeof callback === 'function') callback();
+    return true;
+  };
+  try {
+    process.chdir(repoDir);
+    delete require.cache[require.resolve(hookModulePath)];
+    status = require(hookModulePath).main(args);
+  } catch (caught) {
+    error = caught;
+  } finally {
+    process.chdir(originalCwd);
+    process.stdout.write = originalStdoutWrite;
+    process.stderr.write = originalStderrWrite;
+  }
+  return { status, stdout, stderr, error };
+}
+
+function binaryDiffSha256(repoDir) {
+  const diff = gitBuffer(repoDir, ['diff', '--cached', '--binary', '--']);
+  return crypto.createHash('sha256').update(diff).digest('hex');
 }
 
 function readJsonl(root, subpath) {
@@ -544,6 +638,36 @@ function assertGsdeditsBacked() {
   }
 }
 
+function writeDiscoveredEvidence(fixture, sourcePaths) {
+  const phaseDir = path.join(
+    '.planning',
+    'milestones',
+    fixture.milestone,
+    'phases',
+    `${fixture.phase}-devcp-fixture`
+  );
+  const allowed = Array.isArray(sourcePaths) ? sourcePaths : [sourcePaths];
+  writeContainedFile(
+    fixture.repoDir,
+    path.join(phaseDir, `${fixture.phase}-devcp-PLAN.md`),
+    [
+      '---',
+      'schema_version: 2',
+      `phase: ${JSON.stringify(fixture.phase)}`,
+      'allowed_files:',
+      ...allowed.map((item) => `  - ${JSON.stringify(String(item).replace(/\\/g, '/'))}`),
+      '---',
+      '',
+      '# Fixture devcp plan',
+      ''
+    ].join('\n')
+  );
+  writeContainedFile(
+    fixture.repoDir,
+    path.join(phaseDir, `${fixture.phase}-devcp-VERIFICATION.md`),
+    '# Fixture devcp verification\n'
+  );
+}
 function assertFalsePlanAuditMissing() {
   const fixture = createTempGitRepo({ repoId: 'GSDedits-shaped-negative', phase: '147', milestone: 'v3.5' });
   try {
@@ -819,6 +943,342 @@ function assertShadowLedgerContainedWriter() {
   assertBoundedTailRead();
   assertBinaryDiffHashOnly();
 }
+function assertNoStack(stderr) {
+  assert.strictEqual(/\n\s+at\s/.test(String(stderr || '')), false, 'stderr breadcrumb must not include a stack trace');
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function assertHookWarnUnbacked() {
+  const fixture = createTempGitRepo({ repoId: 'GSDedits-hook-warn', phase: '147', milestone: 'v3.5' });
+  try {
+    const sourcePath = 'super-gsd/scripts/lib/unbacked.cjs';
+    writeContainedFile(fixture.repoDir, sourcePath, 'module.exports = 147;\n');
+    stagePaths(fixture.repoDir, [sourcePath]);
+    const expectedHash = binaryDiffSha256(fixture.repoDir);
+
+    const result = runActualHook(fixture.repoDir);
+    assert.strictEqual(result.status, 0, `warn mode must exit 0, got ${result.status}: ${result.stderr}`);
+    assert.match(result.stderr, /\[SGSD\] commit gate warning/i);
+    assert.match(result.stderr, /one governance layer/i);
+    assert.match(result.stderr, new RegExp(escapeRegExp(sourcePath)));
+    assertNoStack(result.stderr);
+
+    const rows = readJsonl(fixture.repoDir, path.join('.planning', 'metrics', 'commit-gate-shadow.jsonl'));
+    assert.strictEqual(rows.length, 1, 'source warn should append exactly one shadow row');
+    const row = rows[0];
+    assertEnvelopeV1(row);
+    assert.strictEqual(row.signal, 'commit_gate_shadow');
+    assert.strictEqual(row.status, 'warn');
+    assert.strictEqual(row.diff_sha256, expectedHash, 'row diff_sha256 must match independently computed staged binary diff hash');
+    assert.deepStrictEqual(row.staged_paths, [sourcePath]);
+    assert.strictEqual(row.would_warn, true);
+    assert.strictEqual(row.would_block, false);
+    assert(row.reason_codes.includes('plan_evidence_missing'), 'missing plan evidence reason should be recorded');
+    assertShadowRowHasPerPathEvidence(row);
+    assert.strictEqual(row.path_evidence.length, 1);
+    assert.strictEqual(row.path_evidence[0].path, sourcePath);
+    assert.strictEqual(row.path_evidence[0].source_touching, true);
+    assert.strictEqual(row.path_evidence[0].evidence_status, 'missing');
+    assert.strictEqual(row.path_evidence[0].reason_code, 'plan_evidence_missing');
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+function assertHookDocsOnlyNotSourceRow() {
+  const fixture = createTempGitRepo({ repoId: 'GSDedits-hook-docs', phase: '147', milestone: 'v3.5' });
+  try {
+    const docsPath = 'docs/commit-gate-note.md';
+    writeContainedFile(fixture.repoDir, docsPath, '# docs only\n');
+    stagePaths(fixture.repoDir, [docsPath]);
+    const expectedHash = binaryDiffSha256(fixture.repoDir);
+
+    const result = runActualHook(fixture.repoDir);
+    assert.strictEqual(result.status, 0, `docs-only hook must exit 0, got ${result.status}: ${result.stderr}`);
+    assert.doesNotMatch(result.stderr, /\[SGSD\] commit gate warning/i, 'docs-only path must not emit a warn banner');
+
+    const rows = readJsonl(fixture.repoDir, path.join('.planning', 'metrics', 'commit-gate-shadow.jsonl'));
+    assert.strictEqual(rows.length, 1, 'docs-only commit attempts are recorded as one not-source row');
+    const row = rows[0];
+    assertEnvelopeV1(row);
+    assert.strictEqual(row.status, 'ok');
+    assert.strictEqual(row.diff_sha256, expectedHash);
+    assert.deepStrictEqual(row.staged_paths, [docsPath]);
+    assert.strictEqual(row.would_warn, false);
+    assert.strictEqual(row.would_block, false);
+    assert(!row.reason_codes.some((code) => /evidence_missing/.test(code)), 'docs-only row must not carry missing-evidence reasons');
+    assertShadowRowHasPerPathEvidence(row);
+    assert.strictEqual(row.path_evidence[0].path, docsPath);
+    assert.strictEqual(row.path_evidence[0].source_touching, false);
+    assert.strictEqual(row.path_evidence[0].evidence_status, 'not_source');
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+function assertHookSentinelSkip() {
+  const fixture = createTempGitRepo({ repoId: 'GSDedits-hook-sentinel', phase: '147', milestone: 'v3.5' });
+  try {
+    const sourcePath = 'super-gsd/scripts/lib/waived.cjs';
+    writeContainedFile(fixture.repoDir, '.sgsd-gate-off', 'waive this commit attempt\n');
+    writeContainedFile(fixture.repoDir, sourcePath, 'module.exports = "waived";\n');
+    stagePaths(fixture.repoDir, [sourcePath]);
+    const expectedHash = binaryDiffSha256(fixture.repoDir);
+
+    const result = runActualHook(fixture.repoDir);
+    assert.strictEqual(result.status, 0, `sentinel hook must exit 0, got ${result.status}: ${result.stderr}`);
+    assert.match(result.stderr, /sentinel/i);
+    assert.match(result.stderr, new RegExp(escapeRegExp(sourcePath)));
+    assertNoStack(result.stderr);
+
+    const rows = readJsonl(fixture.repoDir, path.join('.planning', 'metrics', 'commit-gate-shadow.jsonl'));
+    assert.strictEqual(rows.length, 1, 'sentinel commit attempt should append exactly one skip row');
+    const row = rows[0];
+    assertEnvelopeV1(row);
+    assert.strictEqual(row.status, 'skipped');
+    assert.strictEqual(row.diff_sha256, expectedHash);
+    assert.deepStrictEqual(row.staged_paths, [sourcePath]);
+    assert.deepStrictEqual(row.waived_paths, [sourcePath]);
+    assert(row.reason_codes.includes('sentinel_waived_block'), 'sentinel reason code should be recorded');
+    assert.strictEqual(row.would_block, false);
+    assertShadowRowHasPerPathEvidence(row);
+    assert.strictEqual(row.path_evidence[0].path, sourcePath);
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+function assertHookFailOpenDegraded() {
+  const fixture = createBareSgsdFixture({ repoId: 'sgsd-no-git-worktree', phase: '147', milestone: 'v3.5' });
+  try {
+    const result = runActualHook(fixture.repoDir);
+    assert.strictEqual(result.status, 0, `internal/git error must fail open, got ${result.status}: ${result.stderr}`);
+    assert.match(result.stderr, /degraded/i);
+    assert.match(result.stderr, /git_name_status_failed|git_diff_failed|git_spawn_failed/i);
+    assertNoStack(result.stderr);
+
+    const rows = readJsonl(fixture.repoDir, path.join('.planning', 'metrics', 'commit-gate-shadow.jsonl'));
+    assert.strictEqual(rows.length, 1, 'SGSD-root git failure should append one degraded row');
+    const row = rows[0];
+    assertEnvelopeV1(row);
+    assert.strictEqual(row.status, 'warn');
+    assert(row.reason_codes.includes('git_name_status_failed') || row.reason_codes.includes('git_diff_failed') || row.reason_codes.includes('git_spawn_failed'));
+    assertShadowRowHasPerPathEvidence(row);
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+function assertHookNonSgsdNoWrite() {
+  const fixture = createPlainGitRepo({ repoId: 'plain-hook-repo' });
+  try {
+    const sourcePath = 'src/index.cjs';
+    writeContainedFile(fixture.repoDir, sourcePath, 'module.exports = 1;\n');
+    stagePaths(fixture.repoDir, [sourcePath]);
+
+    const result = runActualHook(fixture.repoDir);
+    assert.strictEqual(result.status, 0, `non-SGSD repo must exit 0, got ${result.status}: ${result.stderr}`);
+    assert.match(result.stderr, /non-SGSD/i);
+    assertNoStack(result.stderr);
+    assert.strictEqual(
+      fs.existsSync(path.join(fixture.repoDir, '.planning', 'metrics', 'commit-gate-shadow.jsonl')),
+      false,
+      'non-SGSD repo must not receive an arbitrary metrics file'
+    );
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+function assertHookWarnSentinelFailOpen() {
+  assertHookWarnUnbacked();
+  assertHookDocsOnlyNotSourceRow();
+  assertHookSentinelSkip();
+  assertHookFailOpenDegraded();
+  assertHookNonSgsdNoWrite();
+}
+function modeFilePath(fixture) {
+  return contained(fixture.repoDir, path.join('.planning', 'config', 'commit-gate-mode.json'));
+}
+
+function appendSyntheticShadowRows(fixture, count, falseBlockCount, options = {}) {
+  const { appendShadowRow } = loadShadowLog();
+  const repoBase = path.basename(fixture.repoDir);
+  const conventionStatus = options.conventionStatus || (/^devcp$/i.test(repoBase)
+    ? 'repo_local_convention_discovered'
+    : 'gsdedits_artifacts_discovered');
+  const sourcePrefix = /^devcp$/i.test(repoBase) ? 'src' : 'super-gsd/scripts/lib';
+  const artifactPath = /^devcp$/i.test(repoBase)
+    ? `.planning/milestones/${fixture.milestone}/phases/${fixture.phase}-devcp-fixture/${fixture.phase}-devcp-PLAN.md`
+    : `.planning/milestones/${fixture.milestone}/phases/${fixture.phase}-fixture/${fixture.phase}-01-PLAN-LOCKED.md`;
+
+  for (let index = 0; index < count; index += 1) {
+    const stagedPath = `${sourcePrefix}/shadow-report-${index}.cjs`;
+    const falseBlock = index < falseBlockCount;
+    const evidence = [{
+      path: stagedPath,
+      source_touching: true,
+      evidence_status: falseBlock ? 'backed' : 'missing',
+      matched_artifacts: falseBlock ? [artifactPath] : [],
+      reason_code: falseBlock ? 'path_evidence_backed' : 'phase_evidence_missing'
+    }];
+    const row = appendShadowRow(fixture.repoDir, sampleShadowRow({
+      status: falseBlock ? 'blocked' : 'warn',
+      repo_id: repoBase,
+      commit_candidate: `synthetic-${repoBase}-${index}`,
+      diff_content: `diff-${repoBase}-${index}\n`,
+      artifact_convention_status: conventionStatus,
+      staged_paths: [stagedPath],
+      path_evidence: evidence,
+      would_warn: !falseBlock,
+      would_block: falseBlock,
+      false_block_basis: falseBlock ? [`${stagedPath}:path_evidence_backed`] : [],
+      reason_codes: [evidence[0].reason_code]
+    }));
+    assert(row, 'synthetic report row must be written by appendShadowRow');
+  }
+}
+
+function createReportPair(options = {}) {
+  const gsd = createBareSgsdFixture({ repoId: 'GSDedits', phase: '147', milestone: 'v3.5' });
+  const devcp = createBareSgsdFixture({ repoId: 'devcp', phase: '147', milestone: 'v3.5' });
+  Object.assign(gsd, { phase: '147', milestone: 'v3.5' });
+  Object.assign(devcp, { phase: '147', milestone: 'v3.5' });
+  try {
+    if (options.unknownDevcp !== true) writeDiscoveredEvidence(devcp, ['src/**']);
+    writeGsdeditsEvidence(gsd, ['super-gsd/scripts/lib/**']);
+    appendSyntheticShadowRows(gsd, options.gsdRows ?? 102, options.gsdFalseBlocks ?? 0);
+    appendSyntheticShadowRows(devcp, options.devcpRows ?? 102, options.devcpFalseBlocks ?? 0, {
+      conventionStatus: options.unknownDevcp === true ? 'convention_unknown' : 'repo_local_convention_discovered'
+    });
+    return { gsd, devcp, cleanup() { gsd.cleanup(); devcp.cleanup(); } };
+  } catch (error) {
+    gsd.cleanup();
+    devcp.cleanup();
+    throw error;
+  }
+}
+
+function repoSummary(report, repoKey) {
+  return report.repos.find((repo) => repo.repo_key === repoKey);
+}
+
+function assertShadowReportMath() {
+  const { buildShadowReport } = loadShadowReport();
+
+  const passPair = createReportPair({ gsdRows: 102, devcpRows: 102, gsdFalseBlocks: 5, devcpFalseBlocks: 5 });
+  try {
+    const report = buildShadowReport([passPair.gsd.repoDir, passPair.devcp.repoDir]);
+    assert.strictEqual(report.falsifier.passed, true, JSON.stringify(report.falsifier));
+    assert.strictEqual(report.total.real_payload_count, 204);
+    assert.strictEqual(report.total.false_block_count, 10);
+    assert.strictEqual(report.total.skipped_line_count, 0);
+    assert(repoSummary(report, 'GSDedits').false_block_rate < 0.05, 'GSDedits 5/102 should pass under 5%');
+    assert(repoSummary(report, 'devcp').false_block_rate < 0.05, 'devcp 5/102 should pass under 5%');
+  } finally {
+    passPair.cleanup();
+  }
+
+  const lowPair = createReportPair({ gsdRows: 100, devcpRows: 99 });
+  try {
+    const report = buildShadowReport([lowPair.gsd.repoDir, lowPair.devcp.repoDir]);
+    assert.strictEqual(report.falsifier.passed, false);
+    assert(report.falsifier.reason_codes.includes('insufficient_real_payloads'));
+  } finally {
+    lowPair.cleanup();
+  }
+
+  const highFalsePair = createReportPair({ gsdRows: 98, devcpRows: 102, gsdFalseBlocks: 5 });
+  try {
+    const report = buildShadowReport([highFalsePair.gsd.repoDir, highFalsePair.devcp.repoDir]);
+    assert.strictEqual(report.falsifier.passed, false);
+    assert(report.falsifier.reason_codes.includes('false_block_rate_high'));
+    assert(repoSummary(report, 'GSDedits').false_block_rate > 0.05, 'GSDedits 5/98 should fail above 5%');
+  } finally {
+    highFalsePair.cleanup();
+  }
+
+  const corruptPair = createReportPair({ gsdRows: 102, devcpRows: 102 });
+  try {
+    const { shadowLedgerPath } = loadShadowLog();
+    fs.appendFileSync(shadowLedgerPath(corruptPair.devcp.repoDir), '{not-json\n', 'utf8');
+    const report = buildShadowReport([corruptPair.gsd.repoDir, corruptPair.devcp.repoDir]);
+    assert.strictEqual(report.falsifier.passed, false);
+    assert(report.falsifier.reason_codes.includes('shadow_ledger_corrupt'));
+    assert.strictEqual(repoSummary(report, 'devcp').skipped_line_count, 1);
+  } finally {
+    corruptPair.cleanup();
+  }
+
+  const missing = createBareSgsdFixture({ repoId: 'GSDedits', phase: '147', milestone: 'v3.5' });
+  Object.assign(missing, { phase: '147', milestone: 'v3.5' });
+  try {
+    writeGsdeditsEvidence(missing, ['super-gsd/scripts/lib/**']);
+    const report = buildShadowReport([missing.repoDir]);
+    assert.strictEqual(report.falsifier.passed, false);
+    assert(report.falsifier.reason_codes.includes('shadow_ledger_missing'));
+    assert(report.falsifier.reason_codes.includes('required_repo_missing_devcp'));
+  } finally {
+    missing.cleanup();
+  }
+
+  const unknownPair = createReportPair({ gsdRows: 102, devcpRows: 102, unknownDevcp: true });
+  try {
+    const report = buildShadowReport([unknownPair.gsd.repoDir, unknownPair.devcp.repoDir]);
+    assert.strictEqual(report.falsifier.passed, false);
+    assert(report.falsifier.reason_codes.includes('convention_unknown'));
+  } finally {
+    unknownPair.cleanup();
+  }
+}
+
+function assertShadowReportActivation() {
+  assertShadowReportMath();
+
+  const reportOnly = createReportPair({ gsdRows: 102, devcpRows: 102, gsdFalseBlocks: 5, devcpFalseBlocks: 5 });
+  try {
+    const result = runActualHookInProcess(reportOnly.gsd.repoDir, ['--shadow-report', '--repo-root', reportOnly.devcp.repoDir]);
+    assert.strictEqual(result.status, 0, `shadow report should exit 0: ${result.stderr}`);
+    const report = JSON.parse(result.stdout);
+    assert.strictEqual(report.falsifier.passed, true);
+    assert.strictEqual(fs.existsSync(modeFilePath(reportOnly.gsd)), false, 'reporting alone must not create mode file');
+  } finally {
+    reportOnly.cleanup();
+  }
+
+  const failing = createReportPair({ gsdRows: 100, devcpRows: 99 });
+  try {
+    const result = runActualHookInProcess(failing.gsd.repoDir, ['--activate-block', '--repo-root', failing.devcp.repoDir]);
+    assert.notStrictEqual(result.status, 0, 'failing verdict must refuse activation');
+    assert.match(result.stderr, /activation refused/i);
+    assert.strictEqual(fs.existsSync(modeFilePath(failing.gsd)), false, 'failing activation must not create mode file');
+  } finally {
+    failing.cleanup();
+  }
+
+  const passing = createReportPair({ gsdRows: 102, devcpRows: 102, gsdFalseBlocks: 5, devcpFalseBlocks: 5 });
+  try {
+    const result = runActualHookInProcess(passing.gsd.repoDir, ['--activate-block', '--repo-root', passing.devcp.repoDir]);
+    assert.strictEqual(result.status, 0, `passing verdict should activate: ${result.stderr}`);
+    const mode = JSON.parse(fs.readFileSync(modeFilePath(passing.gsd), 'utf8'));
+    assert.strictEqual(mode.mode, 'block');
+    assert.strictEqual(mode.report_summary.falsifier_passed, true);
+    assert.strictEqual(mode.report_summary.total_real_payload_count, 204);
+    assert(typeof mode.activated_at === 'string' && mode.activated_at.length > 0, 'activation timestamp must be embedded');
+    assert(typeof mode.activated_by === 'string' && mode.activated_by.length > 0, 'activation actor must be embedded');
+
+    const deactivated = runActualHookInProcess(passing.gsd.repoDir, ['--deactivate-block']);
+    assert.strictEqual(deactivated.status, 0, `deactivation should exit 0: ${deactivated.stderr}`);
+    assert.strictEqual(fs.existsSync(modeFilePath(passing.gsd)), false, 'deactivation must remove block mode file');
+    const rows = readJsonl(passing.gsd.repoDir, path.join('.planning', 'metrics', 'commit-gate-shadow.jsonl'));
+    assert(rows.some((row) => Array.isArray(row.reason_codes) && row.reason_codes.includes('mode_deactivated')), 'deactivation must be logged');
+  } finally {
+    passing.cleanup();
+  }
+}
 const scenarios = Object.freeze({
   'artifact-conventions-source-predicate': assertAllArtifactConventionCases,
   'gsdedits-backed': assertGsdeditsBacked,
@@ -826,7 +1286,15 @@ const scenarios = Object.freeze({
   'source-predicate': assertSourcePredicate,
   'convention-unknown': assertConventionUnknown,
   'per-path-granularity': assertPerPathGranularity,
-  'shadow-ledger-contained-writer': assertShadowLedgerContainedWriter
+  'shadow-ledger-contained-writer': assertShadowLedgerContainedWriter,
+  'hook-warn-unbacked': assertHookWarnUnbacked,
+  'hook-docs-only': assertHookDocsOnlyNotSourceRow,
+  'hook-sentinel-skip': assertHookSentinelSkip,
+  'hook-fail-open-degraded': assertHookFailOpenDegraded,
+  'hook-non-sgsd-no-write': assertHookNonSgsdNoWrite,
+  'hook-warn-sentinel-failopen': assertHookWarnSentinelFailOpen,
+  'shadow-report-activation': assertShadowReportActivation,
+  'ac-shadow-report-activation': assertShadowReportActivation
 });
 
 function main(argv = process.argv.slice(2)) {
