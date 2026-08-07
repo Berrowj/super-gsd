@@ -22,6 +22,8 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 
 - [silent success reports health](architecture/anti-patterns/silent-success-reports-health.md) - Exit 0 must mean the work happened (4x CRIT across P145-P146)
 
+- [phase boundary is not an exit](architecture/anti-patterns/phase-boundary-is-not-an-exit.md) - Phase/task close is an intermediate state, never a loop exit
+
 ## architecture/decisions
 
 - [PI Death & Migration Decision](architecture/decisions/pi-death-migration.md)
