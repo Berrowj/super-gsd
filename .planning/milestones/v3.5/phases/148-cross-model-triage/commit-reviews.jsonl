@@ -1,0 +1,1 @@
+{"ts":"2026-08-07T15:44:05Z","plan":"148-01-T01","tier":"per-dispatch","verdict":"pass","critical":0,"warning":0,"one_liner":"VTP fallback runtime: exact predicate both directions, distinct rows per degradation kind, contained writes; 7/7","provider":"openai-codex","model":"gpt-5.5","reasoning_effort":"xhigh"}

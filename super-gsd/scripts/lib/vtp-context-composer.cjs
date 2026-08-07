@@ -22,6 +22,7 @@
 const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
+const { findSgsdRoot, resolveContainedPath } = require('./sgsd-state.cjs');
 
 /**
  * WARNING — module-level cache is a PROCESS SINGLETON.
@@ -38,7 +39,7 @@ const TIERS = Object.freeze({
   standalone:  { fields: ['repo', 'current_task', 'explicit_constraints'] },
 });
 
-const ROUTING_LOG_PATH     = '.planning/metrics/vtp-routing-log.jsonl';
+const ROUTING_LOG_PATH     = path.join('.planning', 'metrics', 'vtp-routing-log.jsonl');
 const CONFIG_PATH          = '.planning/config.json';
 const FAST_PATH_TIMEOUT_MS = 3000;
 const BUDGET_EXCEEDED      = -1;
@@ -229,7 +230,7 @@ function extractRowFields(response) {
  * @param {string} [params.status]
  * @returns {Object} the row that was written
  */
-function writeRoutingLogRow({ projectDir, skillOrAgent, tier, rawQuery, response, elapsed_ms, failureReason, status }) {
+function writeRoutingLogRow({ projectDir, logRoot, skillOrAgent, tier, rawQuery, response, elapsed_ms, failureReason, status }) {
   const fields = extractRowFields(response);
   const row = {
     ts:                 new Date().toISOString(),
@@ -247,7 +248,10 @@ function writeRoutingLogRow({ projectDir, skillOrAgent, tier, rawQuery, response
   };
   if (failureReason) row.failure_reason = failureReason;
 
-  const logPath = path.resolve(projectDir, ROUTING_LOG_PATH);
+  const root = findSgsdRoot(logRoot || projectDir);
+  if (!root) return null;
+  const logPath = resolveContainedPath(root, ROUTING_LOG_PATH);
+  if (!logPath) return null;
   fs.mkdirSync(path.dirname(logPath), { recursive: true });
   fs.appendFileSync(logPath, JSON.stringify(row) + '\n');
   return row;
@@ -281,11 +285,13 @@ async function callVtp(tool, args) {
   const projectDir   = a.projectDir   || process.cwd();
   const skillOrAgent = a.skillOrAgent || 'unknown';
   const tier         = a.tier         || 'standalone';
+  const logRoot      = a.logRoot      || projectDir;
 
   // Pre-guard: VTP schema requires raw_query.min(3) (intent-routing.ts:299).
   if (!rawQuery || typeof rawQuery !== 'string' || rawQuery.length < 3) {
     writeRoutingLogRow({
       projectDir,
+      logRoot,
       skillOrAgent,
       tier,
       rawQuery,
@@ -303,6 +309,7 @@ async function callVtp(tool, args) {
     const elapsed_ms = Date.now() - t0;
     writeRoutingLogRow({
       projectDir,
+      logRoot,
       skillOrAgent,
       tier,
       rawQuery,
@@ -317,7 +324,7 @@ async function callVtp(tool, args) {
   try {
     const response   = await a.mcpInvoke(tool, a.payload);
     const elapsed_ms = Date.now() - t0;
-    writeRoutingLogRow({ projectDir, skillOrAgent, tier, rawQuery, response, elapsed_ms });
+    writeRoutingLogRow({ projectDir, logRoot, skillOrAgent, tier, rawQuery, response, elapsed_ms });
     return { ok: true, response, elapsed_ms };
   } catch (err) {
     const elapsed_ms = Date.now() - t0;
@@ -329,7 +336,7 @@ async function callVtp(tool, args) {
       : /^mcp_/.test(msg)
         ? 'mcp_error'
         : 'vtp_error';
-    writeRoutingLogRow({ projectDir, skillOrAgent, tier, rawQuery, response: null, elapsed_ms, failureReason: msg, status });
+    writeRoutingLogRow({ projectDir, logRoot, skillOrAgent, tier, rawQuery, response: null, elapsed_ms, failureReason: msg, status });
     return { ok: false, reason: msg, elapsed_ms };
   }
 }
@@ -372,6 +379,8 @@ function runSelfTest() {
   ];
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-composer-'));
+  fs.mkdirSync(path.join(tmpDir, '.planning'), { recursive: true });
+  fs.writeFileSync(path.join(tmpDir, '.planning', 'STATE.md'), '---\nmilestone: "self-test"\ncurrent_phase: "16"\n---\n', 'utf8');
   let passed = true;
   let failReason = '';
 

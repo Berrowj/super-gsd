@@ -1,0 +1,5 @@
+super-gsd/scripts/sgsd-triage-runtime.cjs
+super-gsd/scripts/lib/vtp-context-composer.cjs
+super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs
+super-gsd/scripts/lib/sgsd-state.cjs
+super-gsd/scripts/lib/gate-evidence-log.cjs
