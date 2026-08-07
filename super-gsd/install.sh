@@ -55,6 +55,8 @@ SETUP_COCKPIT_DEPS=false
 # P143.6 in-place update of an existing install (no skeleton rewrite, no
 # config overwrite — just refresh npm deps + agent registry + memory taxonomy).
 UPDATE_MODE=false
+INSTALL_COMMIT_GATE=false
+UNINSTALL_COMMIT_GATE=false
 
 AGENT_COUNT=0
 SKILL_COUNT=0
@@ -73,6 +75,15 @@ Read-only:
   --doctor
       Check Node, Claude, Codex, SGSD git freshness, local config, and visible
       Claude global state. Does not modify files or settings.
+
+Commit gate:
+  --install-commit-gate
+      Install or refresh the SGSD-marked Git pre-commit trampoline at the
+      path resolved by 'git rev-parse --git-path hooks/pre-commit'. Refuses
+      unmarked existing hooks and never sets core.hooksPath.
+  --uninstall-commit-gate
+      Remove only an SGSD-marked pre-commit trampoline. Refuses unmarked hooks
+      and never invokes the gate during rollback.
 
 Local project setup:
   --init-local
@@ -457,6 +468,34 @@ register_repo_local_hooks() {
   fi
 }
 
+run_commit_gate_installer() {
+  mode="$1"
+  INSTALLER_SCRIPT="$SCRIPT_DIR/scripts/install-commit-gate.cjs"
+  echo ""
+  log "Commit gate ${mode} requested."
+  if [ ! -f "$INSTALLER_SCRIPT" ]; then
+    echo "[SGSD] commit-gate installer installer_script_missing: $INSTALLER_SCRIPT" >&2
+    exit 1
+  fi
+  if ! command -v node >/dev/null 2>&1; then
+    echo "[SGSD] commit-gate installer installer_node_missing: Node.js is required to ${mode} the commit gate" >&2
+    exit 1
+  fi
+  if [ "$mode" = "install" ]; then
+    action="--install"
+  elif [ "$mode" = "uninstall" ]; then
+    action="--uninstall"
+  else
+    echo "[SGSD] commit-gate installer usage_unknown_action: $mode" >&2
+    exit 1
+  fi
+  if [ "$DRY_RUN" = true ]; then
+    node "$INSTALLER_SCRIPT" "$action" --dry-run
+  else
+    node "$INSTALLER_SCRIPT" "$action"
+  fi
+}
+
 ensure_memory_tree() {
   echo ""
   log "Ensuring project-local .planning/memory store..."
@@ -709,6 +748,14 @@ for arg in "$@"; do
       INSTALL_GLOBAL=true
       SAW_ACTION=true
       ;;
+    --install-commit-gate)
+      INSTALL_COMMIT_GATE=true
+      SAW_ACTION=true
+      ;;
+    --uninstall-commit-gate)
+      UNINSTALL_COMMIT_GATE=true
+      SAW_ACTION=true
+      ;;
     --enable-autoapprove)
       ENABLE_AUTOAPPROVE=true
       SAW_ACTION=true
@@ -743,6 +790,11 @@ for arg in "$@"; do
   esac
 done
 
+if [ "$INSTALL_COMMIT_GATE" = true ] && [ "$UNINSTALL_COMMIT_GATE" = true ]; then
+  echo "[SGSD] commit-gate installer usage_conflict: choose install or uninstall, not both" >&2
+  exit 1
+fi
+
 if [ "$SAW_ACTION" = false ]; then
   RUN_DOCTOR=true
 fi
@@ -765,6 +817,14 @@ if [ "$UPDATE_MODE" = true ]; then
   update_existing
 fi
 
+if [ "$INSTALL_COMMIT_GATE" = true ]; then
+  run_commit_gate_installer install
+fi
+
+if [ "$UNINSTALL_COMMIT_GATE" = true ]; then
+  run_commit_gate_installer uninstall
+fi
+
 if [ "$ENABLE_AUTOAPPROVE" = true ]; then
   enable_autoapprove
 fi
@@ -779,6 +839,8 @@ echo "Actions:"
 [ "$INSTALL_GLOBAL" = true ] && echo "  install-global: ~/.claude assets updated"
 [ "$INIT_LOCAL" = true ] && echo "  init-local: project-local SGSD files and hooks updated"
 [ "$UPDATE_MODE" = true ] && echo "  update: refreshed npm + registry + repo-local hooks"
+[ "$INSTALL_COMMIT_GATE" = true ] && echo "  install-commit-gate: Git pre-commit trampoline installed/refreshed"
+[ "$UNINSTALL_COMMIT_GATE" = true ] && echo "  uninstall-commit-gate: SGSD-marked Git pre-commit trampoline removed/no-op"
 [ "$ENABLE_AUTOAPPROVE" = true ] && echo "  enable-autoapprove: global Claude permissions changed"
 echo "  memory: .planning/memory"
 echo ""
@@ -786,6 +848,8 @@ echo "Next safe commands:"
 echo "  bash super-gsd/install.sh --doctor"
 echo "  bash super-gsd/install.sh --init-project"
 echo "  bash super-gsd/install.sh --update"
+echo "  bash super-gsd/install.sh --install-commit-gate --dry-run"
+echo "  bash super-gsd/install.sh --uninstall-commit-gate --dry-run"
 echo "  bash super-gsd/install.sh --install-global --dry-run"
 echo ""
 if [ "$SAW_ACTION" = false ]; then

@@ -22,6 +22,8 @@ const shadowModulePath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'com
 const reportModulePath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'commit-gate-shadow-report.cjs');
 const stateLibPath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'sgsd-state.cjs');
 const hookModulePath = path.join(repoRoot, 'super-gsd', 'hooks', 'sgsd-commit-gate.cjs');
+const installerScriptPath = path.join(repoRoot, 'super-gsd', 'scripts', 'install-commit-gate.cjs');
+const installerMarker = 'SGSD-COMMIT-GATE-HOOK';
 const { resolveContainedPath, readState } = require(stateLibPath);
 
 const createdFixtureRoots = new Set();
@@ -47,6 +49,10 @@ function usage() {
     '  hook-warn-sentinel-failopen',
     '  shadow-report-activation',
     '  ac-shadow-report-activation',
+    '  installer-lifecycle',
+    '  installer-refuses-unmarked',
+    '  installer-trampoline-real-commit',
+    '  installer-linked-worktree-warning',
     '',
     'Exports fixture helpers for later commit-gate tasks.'
   ].join('\n');
@@ -342,6 +348,39 @@ function runNodeScript(scriptPath, args = [], options = {}) {
 
 function runActualHook(repoDir, args = [], options = {}) {
   return runNodeScript(hookModulePath, args, Object.assign({}, options, { cwd: repoDir }));
+}
+
+function copyFixtureFile(root, sourcePath, relativeTarget) {
+  const target = contained(root, relativeTarget);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.copyFileSync(sourcePath, target);
+  return target;
+}
+
+function copyCommitGateRuntime(fixture) {
+  const root = fixture.repoDir;
+  copyFixtureFile(root, hookModulePath, path.join('super-gsd', 'hooks', 'sgsd-commit-gate.cjs'));
+  for (const libName of [
+    'sgsd-state.cjs',
+    'sgsd-artifact-conventions.cjs',
+    'commit-gate-shadow-log.cjs',
+    'commit-gate-shadow-report.cjs'
+  ]) {
+    copyFixtureFile(
+      root,
+      path.join(repoRoot, 'super-gsd', 'scripts', 'lib', libName),
+      path.join('super-gsd', 'scripts', 'lib', libName)
+    );
+  }
+}
+
+function gitResolvedHookPath(repoDir) {
+  const result = git(repoDir, ['rev-parse', '--git-path', 'hooks/pre-commit']);
+  return path.resolve(repoDir, result.stdout.trim());
+}
+
+function runInstaller(repoDir, args = [], options = {}) {
+  return runNodeScript(installerScriptPath, args, Object.assign({}, options, { cwd: repoDir }));
 }
 
 function runActualHookInProcess(repoDir, args = []) {
@@ -1279,6 +1318,202 @@ function assertShadowReportActivation() {
     passing.cleanup();
   }
 }
+function assertHookShape(hookPath) {
+  const content = fs.readFileSync(hookPath, 'utf8');
+  assert.strictEqual(content.split(/\r?\n/, 1)[0], '#!/bin/sh', 'installed hook must be POSIX sh');
+  assert(content.includes(installerMarker), 'installed hook must carry SGSD marker');
+  return content;
+}
+
+function assertInstallerHonorsCoreHooksPath() {
+  const fixture = createTempGitRepo({ repoId: 'GSDedits-core-hooks-path', phase: '147', milestone: 'v3.5' });
+  try {
+    copyCommitGateRuntime(fixture);
+    fs.mkdirSync(contained(fixture.repoDir, '.githooks'), { recursive: true });
+    git(fixture.repoDir, ['config', 'core.hooksPath', '.githooks']);
+
+    const result = runInstaller(fixture.repoDir, ['--install']);
+    assert.strictEqual(result.status, 0, `core.hooksPath install should exit 0: ${result.stderr}`);
+    const hookPath = gitResolvedHookPath(fixture.repoDir);
+    assert.strictEqual(path.relative(contained(fixture.repoDir, '.githooks'), hookPath), 'pre-commit');
+    assertHookShape(hookPath);
+    assert.match(result.stdout, /installed hook/i);
+    assert.match(result.stdout, new RegExp(escapeRegExp(hookPath)));
+    assert.strictEqual(git(fixture.repoDir, ['config', '--get', 'core.hooksPath']).stdout.trim(), '.githooks');
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+function assertInstallerLifecycle() {
+  const fixture = createTempGitRepo({ repoId: 'GSDedits-installer-lifecycle', phase: '147', milestone: 'v3.5' });
+  try {
+    copyCommitGateRuntime(fixture);
+    const first = runInstaller(fixture.repoDir, ['--install']);
+    assert.strictEqual(first.status, 0, `install should exit 0: ${first.stderr}`);
+    const hookPath = gitResolvedHookPath(fixture.repoDir);
+    assert.strictEqual(fs.existsSync(hookPath), true, 'hook must exist at git-resolved path');
+    const firstContent = assertHookShape(hookPath);
+    assert.match(first.stdout, /installed hook/i);
+    assert.match(first.stdout, new RegExp(escapeRegExp(hookPath)));
+
+    const second = runInstaller(fixture.repoDir, ['--install']);
+    assert.strictEqual(second.status, 0, `reinstall should exit 0: ${second.stderr}`);
+    assert.match(second.stderr, /hook_already_current/);
+    assert.strictEqual(fs.readFileSync(hookPath, 'utf8'), firstContent, 'reinstall must be byte-identical');
+
+    const dryUninstall = runInstaller(fixture.repoDir, ['--uninstall', '--dry-run']);
+    assert.strictEqual(dryUninstall.status, 0, `dry-run uninstall should exit 0: ${dryUninstall.stderr}`);
+    assert.match(dryUninstall.stdout, /DRY RUN/i);
+    assert.strictEqual(fs.existsSync(hookPath), true, 'dry-run uninstall must leave hook in place');
+
+    const removed = runInstaller(fixture.repoDir, ['--uninstall']);
+    assert.strictEqual(removed.status, 0, `uninstall should exit 0: ${removed.stderr}`);
+    assert.match(removed.stdout, /removed hook/i);
+    assert.strictEqual(fs.existsSync(hookPath), false, 'uninstall must remove SGSD-marked hook');
+
+    const removedAgain = runInstaller(fixture.repoDir, ['--uninstall']);
+    assert.strictEqual(removedAgain.status, 0, `second uninstall should exit 0: ${removedAgain.stderr}`);
+    assert.match(removedAgain.stderr, /hook_absent/);
+    assert.match(removedAgain.stderr, new RegExp(escapeRegExp(hookPath)));
+  } finally {
+    fixture.cleanup();
+  }
+
+  assertInstallerHonorsCoreHooksPath();
+}
+
+function assertInstallerRefusesUnmarked() {
+  const fixture = createTempGitRepo({ repoId: 'GSDedits-installer-unmarked', phase: '147', milestone: 'v3.5' });
+  try {
+    copyCommitGateRuntime(fixture);
+    const hookPath = gitResolvedHookPath(fixture.repoDir);
+    const original = '#!/bin/sh\necho preexisting hook\n';
+    fs.writeFileSync(hookPath, original, 'utf8');
+
+    const install = runInstaller(fixture.repoDir, ['--install']);
+    assert.notStrictEqual(install.status, 0, 'install must refuse an unmarked existing hook');
+    assert.match(install.stderr, /existing_hook_unmarked/);
+    assert.strictEqual(fs.readFileSync(hookPath, 'utf8'), original, 'unmarked hook must be untouched by install');
+
+    const uninstall = runInstaller(fixture.repoDir, ['--uninstall']);
+    assert.notStrictEqual(uninstall.status, 0, 'uninstall must refuse an unmarked existing hook');
+    assert.match(uninstall.stderr, /existing_hook_unmarked/);
+    assert.strictEqual(fs.readFileSync(hookPath, 'utf8'), original, 'unmarked hook must be untouched by uninstall');
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+function commitWithMessage(repoDir, message, options = {}) {
+  return run('git', ['commit', '-m', message], { cwd: repoDir, env: options.env || {} });
+}
+
+function pathEnvWithPrefix(dir) {
+  const env = {};
+  const pathName = Object.keys(process.env).find((key) => key.toLowerCase() === 'path') || 'PATH';
+  env[pathName] = `${dir}${path.delimiter}${process.env[pathName] || ''}`;
+  env.PATH = env[pathName];
+  return env;
+}
+
+function makeExecutable(filePath) {
+  try {
+    fs.chmodSync(filePath, 0o755);
+  } catch {
+    // Windows mode bits are advisory for Git Bash; the shebang is what matters.
+  }
+}
+
+function assertInstallerTrampolineRealCommit() {
+  const warnFixture = createTempGitRepo({ repoId: 'GSDedits-trampoline-warn', phase: '147', milestone: 'v3.5' });
+  try {
+    copyCommitGateRuntime(warnFixture);
+    const install = runInstaller(warnFixture.repoDir, ['--install']);
+    assert.strictEqual(install.status, 0, `install should exit 0: ${install.stderr}`);
+
+    const sourcePath = 'super-gsd/scripts/lib/unbacked-real-commit.cjs';
+    writeContainedFile(warnFixture.repoDir, sourcePath, 'module.exports = "warn";\n');
+    stagePaths(warnFixture.repoDir, [sourcePath]);
+    const committed = commitWithMessage(warnFixture.repoDir, 'warn mode fixture');
+    assert.strictEqual(committed.status, 0, `warn-mode git commit must succeed: ${committed.stderr}`);
+    assert.match(committed.stderr, /commit gate warning/i);
+    const rows = readJsonl(warnFixture.repoDir, path.join('.planning', 'metrics', 'commit-gate-shadow.jsonl'));
+    assert(rows.some((row) => row.status === 'warn' && row.staged_paths.includes(sourcePath)), 'warn commit must append shadow row');
+
+    const missingScriptPath = contained(warnFixture.repoDir, path.join('super-gsd', 'hooks', 'sgsd-commit-gate.cjs'));
+    fs.unlinkSync(missingScriptPath);
+    const missingSource = 'super-gsd/scripts/lib/bootstrap-missing-script.cjs';
+    writeContainedFile(warnFixture.repoDir, missingSource, 'module.exports = "missing-script";\n');
+    stagePaths(warnFixture.repoDir, [missingSource]);
+    const missingScriptCommit = commitWithMessage(warnFixture.repoDir, 'missing script fixture');
+    assert.strictEqual(missingScriptCommit.status, 0, `missing hook script must fail open: ${missingScriptCommit.stderr}`);
+    assert.match(missingScriptCommit.stderr, /bootstrap_hook_script_missing/);
+    const withBootstrapRows = readJsonl(warnFixture.repoDir, path.join('.planning', 'metrics', 'commit-gate-shadow.jsonl'));
+    assert(withBootstrapRows.some((row) => Array.isArray(row.reason_codes) && row.reason_codes.includes('bootstrap_hook_script_missing')), 'script-missing bootstrap failure should append degraded row when node is available');
+  } finally {
+    warnFixture.cleanup();
+  }
+
+  const nodeFixture = createTempGitRepo({ repoId: 'GSDedits-trampoline-node-stub', phase: '147', milestone: 'v3.5' });
+  try {
+    copyCommitGateRuntime(nodeFixture);
+    const install = runInstaller(nodeFixture.repoDir, ['--install']);
+    assert.strictEqual(install.status, 0, `install should exit 0: ${install.stderr}`);
+    const stubDir = contained(nodeFixture.tempRoot, 'stub-bin');
+    fs.mkdirSync(stubDir, { recursive: true });
+    const stubNode = path.join(stubDir, process.platform === 'win32' ? 'node' : 'node');
+    fs.writeFileSync(stubNode, '#!/bin/sh\necho stub node invoked >&2\nexit 127\n', 'utf8');
+    makeExecutable(stubNode);
+
+    const sourcePath = 'super-gsd/scripts/lib/node-stub-real-commit.cjs';
+    writeContainedFile(nodeFixture.repoDir, sourcePath, 'module.exports = "node-stub";\n');
+    stagePaths(nodeFixture.repoDir, [sourcePath]);
+    const committed = commitWithMessage(nodeFixture.repoDir, 'node stub fixture', { env: pathEnvWithPrefix(stubDir) });
+    assert.strictEqual(committed.status, 0, `node bootstrap failure must fail open: ${committed.stderr}`);
+    assert.match(committed.stderr, /bootstrap_hook_exit_nonzero|bootstrap_node_missing/);
+  } finally {
+    nodeFixture.cleanup();
+  }
+
+  const blockFixture = createTempGitRepo({ repoId: 'GSDedits-trampoline-block', phase: '147', milestone: 'v3.5' });
+  try {
+    copyCommitGateRuntime(blockFixture);
+    const install = runInstaller(blockFixture.repoDir, ['--install']);
+    assert.strictEqual(install.status, 0, `install should exit 0: ${install.stderr}`);
+    writeContainedFile(blockFixture.repoDir, path.join('.planning', 'config', 'commit-gate-mode.json'), `${JSON.stringify({ mode: 'block' }, null, 2)}\n`);
+    const sourcePath = 'super-gsd/scripts/lib/blocked-real-commit.cjs';
+    writeContainedFile(blockFixture.repoDir, sourcePath, 'module.exports = "block";\n');
+    stagePaths(blockFixture.repoDir, [sourcePath]);
+    const blocked = commitWithMessage(blockFixture.repoDir, 'block mode fixture');
+    assert.notStrictEqual(blocked.status, 0, 'block-mode git commit must fail through exit-10 mapping');
+    assert.match(blocked.stderr, /commit gate blocked/i);
+    const staged = git(blockFixture.repoDir, ['diff', '--cached', '--name-only', '--']).stdout.trim().split(/\r?\n/).filter(Boolean);
+    assert(staged.includes(sourcePath), 'blocked commit must leave source path staged');
+  } finally {
+    blockFixture.cleanup();
+  }
+}
+
+function assertInstallerLinkedWorktreeWarning() {
+  const fixture = createTempGitRepo({ repoId: 'GSDedits-linked-base', phase: '147', milestone: 'v3.5' });
+  try {
+    git(fixture.repoDir, ['add', '.planning/STATE.md']);
+    git(fixture.repoDir, ['commit', '-m', 'base fixture']);
+    const linkedDir = contained(fixture.tempRoot, 'linked-worktree');
+    git(fixture.repoDir, ['worktree', 'add', '-b', 'sgsd-linked-fixture', linkedDir]);
+    const linkedFixture = Object.assign({}, fixture, { repoDir: linkedDir });
+    copyCommitGateRuntime(linkedFixture);
+
+    const result = runInstaller(linkedDir, ['--install']);
+    assert.strictEqual(result.status, 0, `linked worktree install should exit 0: ${result.stderr}`);
+    assert.match(result.stderr, /linked_worktree_shared_hook_path/);
+    assert.match(result.stderr, /shared/i);
+    assert.strictEqual(fs.existsSync(gitResolvedHookPath(linkedDir)), true, 'linked worktree hook must be installed at git-resolved path');
+  } finally {
+    fixture.cleanup();
+  }
+}
 const scenarios = Object.freeze({
   'artifact-conventions-source-predicate': assertAllArtifactConventionCases,
   'gsdedits-backed': assertGsdeditsBacked,
@@ -1294,7 +1529,11 @@ const scenarios = Object.freeze({
   'hook-non-sgsd-no-write': assertHookNonSgsdNoWrite,
   'hook-warn-sentinel-failopen': assertHookWarnSentinelFailOpen,
   'shadow-report-activation': assertShadowReportActivation,
-  'ac-shadow-report-activation': assertShadowReportActivation
+  'ac-shadow-report-activation': assertShadowReportActivation,
+  'installer-lifecycle': assertInstallerLifecycle,
+  'installer-refuses-unmarked': assertInstallerRefusesUnmarked,
+  'installer-trampoline-real-commit': assertInstallerTrampolineRealCommit,
+  'installer-linked-worktree-warning': assertInstallerLinkedWorktreeWarning
 });
 
 function main(argv = process.argv.slice(2)) {
