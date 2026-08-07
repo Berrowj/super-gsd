@@ -43,13 +43,14 @@ Before brainstorming, hand the raw operator query to the runtime. Never pass the
 1. Write the raw query verbatim to a repo-contained temp file: `.planning/tmp/sgsd-triage-query-{YYYYMMDDTHHMMSSZ}-{pid}.txt`.
 2. Invoke the runtime with the relative file path:
    `node super-gsd/scripts/sgsd-triage-runtime.cjs --query-file .planning/tmp/sgsd-triage-query-{stamp}-{pid}.txt --cwd . [--active-file <relpath>]`
-3. The runtime reads STATE, applies `workflow.triage_vtp_enrichment`, performs VTP enrichment/fallback, writes contained evidence/log rows, and degrades automatically. If disabled, unavailable, or low-yield, continue to Step 1 with the raw query and carry any degradation note.
+3. Read the one JSON object printed to stdout. It contains `mode`, `vtpMode`, `singleModel`, `codex`, `reconciliation`, `degradationNotes`, and `evidencePath`; do not infer from in-process objects.
+4. The runtime reads STATE, applies `workflow.triage_vtp_enrichment`, and writes contained evidence/log rows. When `.planning/config.json` sets `workflow.triage_vtp_enrichment: false`, it skips VTP calls, emits `vtp_enrichment_disabled`, and continues evidence-less. Route failure emits `vtp_route_failed` and continues evidence-less; fallback is only for low-yield route predicates.
 
 **Trigger exclusion (D-06):** Step 0 still relies on the existing `<trigger>` block's "Do NOT invoke when..." list (trivial questions, execution requests, mid-build fixes) to handle Path D style queries. No per-call flag - see D-06 rationale. System-wide disable via `workflow.triage_vtp_enrichment: false`.
 
 ## Step 0.5: Codex second-opinion gate
 
-Codex second opinion is eligible only when the trigger source is exactly `planning-triage` from the P146 planning route. Pass the actual trigger source honestly; do not relabel manual, trivial, execution, or mid-build prompts. The runtime owns gating, dispatch, timeout, contract validation, and single-model degradation; this skill only renders the returned note. Do not surface a Codex opinion until Step 3 has supplied Claude's classification and rationale.
+Codex second opinion is eligible only when the trigger source is exactly `planning-triage` from the P146 planning route. Pass the actual trigger source honestly; do not relabel manual, trivial, execution, or mid-build prompts. Before dispatch, the runtime prints one stderr line with `timeout_budget=300s` and `codex_live_output=.planning/metrics/codex-live-output.txt`; watch that path during the wait. The runtime owns gating, dispatch, timeout, contract validation, and single-model degradation; this skill renders only the stdout JSON result. Do not surface a Codex opinion until Step 3 has supplied Claude's classification and rationale.
 
 ## Step 1: Brainstorm (superpowers:brainstorming)
 
@@ -81,7 +82,7 @@ Then invoke reconciliation with the same query file:
 
 `node super-gsd/scripts/sgsd-triage-runtime.cjs --query-file .planning/tmp/sgsd-triage-query-{stamp}-{pid}.txt --cwd . --trigger-source <actual-trigger-source> --claude-verdict-file .planning/tmp/sgsd-triage-claude-verdict-{stamp}-{pid}.json`
 
-If the runtime reports `single_model`, keep Claude's route and render the degradation reason in Step 4. If it returns reconciliation, render that object; do not reinterpret Codex fields.
+Parse the one stdout JSON object from that CLI invocation. If `singleModel` is true, keep Claude's route and render `codex.reasonCode` plus any `degradationNotes` in Step 4. If `reconciliation` is present, render that object exactly; do not reinterpret Codex fields.
 
 ### Path A — Architectural decision (deliberate-worthy)
 
@@ -150,7 +151,7 @@ The cost of triage/deliberation/phase-spawn for a trivial question is the same a
 
 ## Step 4: Report + offer
 
-After classification and runtime reconciliation, emit the matching concise shape:
+After classification and runtime reconciliation, emit the matching concise shape from the parsed stdout JSON object. Include `degradationNotes` when present and cite `evidencePath` when the operator needs the artifact:
 
 Agreement:
 
@@ -178,7 +179,7 @@ TRIAGE: {operator's one-line framing}
 Brainstorm produced: {1 sentence}
 Plan has N steps, M decision points, K risks.
 Classification: {A/B/C/D} - {Claude rationale}
-Codex second opinion: single_model ({reasonCode})
+Codex second opinion: single_model ({codex.reasonCode}); degradation={degradationNotes}
 Route: {specific next skill or inline answer}
 Ready to {fire the next skill | write the brief | continue inline}? (y/N)
 ```

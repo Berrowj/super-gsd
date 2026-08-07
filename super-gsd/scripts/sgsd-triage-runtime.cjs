@@ -12,7 +12,8 @@ const childProcess = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const { compose, project, callVtp } = require('./lib/vtp-context-composer.cjs');
+const vtpContextComposer = require('./lib/vtp-context-composer.cjs');
+const { compose, project, callVtp } = vtpContextComposer;
 const {
   findSgsdRoot,
   resolveContainedPath,
@@ -38,6 +39,8 @@ const CODEX_CONTRACT = 'triage-verdict-v1';
 const CODEX_PROFILE = 'triage';
 const CODEX_TIMEOUT_TIER = 'custom:300';
 const CODEX_STEP = 'triage-verdict';
+const CODEX_LIVE_OUTPUT_REL = path.join('.planning', 'metrics', 'codex-live-output.txt');
+const CODEX_SKIPPED_NON_PLANNING_REASON = 'codex_skipped_non_planning';
 const PLANNING_TRIGGER_SOURCE = 'planning-triage';
 const VALID_CLAUDE_PATHS = triageVerdictSchema.VALID_PATHS || Object.freeze(['A', 'B', 'C', 'D']);
 function usage() {
@@ -366,6 +369,12 @@ function buildContext(root, state, rawQuery, options) {
   return { ctx, triageSlice: project(ctx, 'triage') };
 }
 
+function readTriageVtpEnrichmentEnabled(root) {
+  const reader = vtpContextComposer && vtpContextComposer._internal && vtpContextComposer._internal.readConfigToggle;
+  if (typeof reader !== 'function') return true;
+  return reader(root) !== false;
+}
+
 function routingLogPath(root) {
   return resolveContainedPath(root, ROUTING_LOG_REL);
 }
@@ -563,6 +572,14 @@ function dispatchCodex(root, state, promptInfo, options = {}) {
   return { call, result };
 }
 
+function codexLiveOutputRel() {
+  return CODEX_LIVE_OUTPUT_REL.replace(/\\/g, '/');
+}
+
+function noteCodexDispatch() {
+  process.stderr.write(`[SGSD] triage_dispatching_codex timeout_budget=300s codex_live_output=${codexLiveOutputRel()}\n`);
+}
+
 function codexReasonFromResult(result) {
   if (!result) return 'codex_nonzero';
   const diagnostic = `${result.stdout || ''}\n${result.stderr || ''}\n${result.error && result.error.message ? result.error.message : ''}`;
@@ -602,7 +619,7 @@ function logCodexSkipped(root, state, params) {
   return logGateEvidence(root, {
     signal: TRIAGE_CODEX_SKIPPED_SIGNAL,
     status: 'skipped',
-    reason_codes: ['trigger_source_not_planning_triage'],
+    reason_codes: [CODEX_SKIPPED_NON_PLANNING_REASON],
     artifacts: [],
     evidence: [],
     next_action: JSON.stringify({ continue_single_model: true, trigger_source: p.triggerSource || null }),
@@ -712,6 +729,114 @@ function logReconciliation(root, state, rawQuery, reconciliation) {
     raw_query: rawQuery || '',
     reconciliation,
   });
+}
+
+const CLI_STRING_LIMIT = 2000;
+const CLI_ARRAY_LIMIT = 20;
+const CLI_DEPTH_LIMIT = 4;
+
+function boundedString(value, max = CLI_STRING_LIMIT) {
+  if (value === null || value === undefined) return null;
+  const textValue = String(value);
+  if (textValue.length <= max) return textValue;
+  return `${textValue.slice(0, max)}...[truncated:${textValue.length - max}]`;
+}
+
+function boundedArray(value, maxItems = CLI_ARRAY_LIMIT) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, maxItems).map((item) => boundedValue(item, 1));
+}
+
+function boundedValue(value, depth = 0) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string') return boundedString(value);
+  if (typeof value === 'number' || typeof value === 'boolean') return value;
+  if (Array.isArray(value)) return depth >= CLI_DEPTH_LIMIT ? [] : value.slice(0, CLI_ARRAY_LIMIT).map((item) => boundedValue(item, depth + 1));
+  if (typeof value !== 'object') return boundedString(value);
+  if (depth >= CLI_DEPTH_LIMIT) return '[object-truncated]';
+  const out = {};
+  for (const [key, item] of Object.entries(value)) {
+    out[key] = boundedValue(item, depth + 1);
+  }
+  return out;
+}
+
+function summarizeVerdict(verdict) {
+  if (!verdict || typeof verdict !== 'object') return null;
+  return {
+    path: boundedString(verdict.path, 10),
+    rationale: boundedString(verdict.rationale),
+    risk_flags: boundedArray(verdict.risk_flags),
+    missed_context: boundedArray(verdict.missed_context),
+    recommended_skills: boundedArray(verdict.recommended_skills),
+  };
+}
+
+function summarizeCodex(codex) {
+  if (!codex || typeof codex !== 'object') return null;
+  if (codex.verdict) {
+    return {
+      status: boundedString(codex.status, 50),
+      ...summarizeVerdict(codex.verdict),
+      promptRel: boundedString(codex.promptRel),
+      reportRel: boundedString(codex.reportRel),
+    };
+  }
+  return {
+    status: boundedString(codex.status, 50),
+    reasonCode: boundedString(codex.reasonCode, 100),
+    reason: boundedString(codex.reason, 500),
+  };
+}
+
+function summarizeClaude(claude) {
+  if (!claude || typeof claude !== 'object') return null;
+  return {
+    path: boundedString(claude.path, 10),
+    rationale: boundedString(claude.rationale),
+  };
+}
+
+function summarizeDegradationRow(row) {
+  const r = row && typeof row === 'object' ? row : {};
+  const artifact = Array.isArray(r.artifacts) ? r.artifacts.find((item) => item && item.path) : null;
+  return {
+    signal: boundedString(r.signal || TRIAGE_DEGRADED_SIGNAL, 100),
+    status: boundedString(r.status, 50),
+    reason_codes: Array.isArray(r.reason_codes) ? r.reason_codes.map((code) => boundedString(code, 100)) : [],
+    evidence_path: artifact ? boundedString(String(artifact.path).replace(/\\/g, '/')) : null,
+    route_ok: r.route_ok === true,
+    fallback_predicate: boundedString(r.fallback_predicate, 100),
+    evidence_hit_count: Number.isInteger(r.evidence_hit_count) ? r.evidence_hit_count : null,
+    route_failure_reason: boundedString(r.route_failure_reason, 500),
+    fallback_failure_reason: boundedString(r.fallback_failure_reason, 500),
+    next_action: boundedString(r.next_action, 1000),
+  };
+}
+
+function evidencePathForCli(result) {
+  if (result && result.evidenceRel) return String(result.evidenceRel).replace(/\\/g, '/');
+  if (result && result.root && result.evidencePath) return relForRow(result.root, result.evidencePath);
+  return null;
+}
+
+function serializeCliResult(result) {
+  const r = result && typeof result === 'object' ? result : {};
+  return {
+    exitCode: Number.isInteger(r.exitCode) ? r.exitCode : 1,
+    mode: boundedString(r.triage_mode || (r.singleModel ? 'single_model' : r.refused ? 'refused' : r.skipped ? 'skipped' : null), 50),
+    vtpMode: boundedString(r.mode, 50),
+    singleModel: r.singleModel === true,
+    skipped: r.skipped === true,
+    refused: r.refused === true,
+    reasonCode: boundedString(r.reasonCode || r.reason, 100),
+    errors: boundedArray(r.errors || []),
+    codex: summarizeCodex(r.codex),
+    claude: summarizeClaude(r.claude),
+    reconciliation: r.reconciliation ? boundedValue(r.reconciliation) : null,
+    degradationNotes: Array.isArray(r.degradationRows) ? r.degradationRows.map(summarizeDegradationRow) : [],
+    evidencePath: evidencePathForCli(r),
+  };
 }
 
 function singleModelResult(base, params) {
@@ -828,16 +953,8 @@ async function runTriageRuntime(options = {}) {
 
   const evidenceRel = evidenceRelPath(root, state);
   const { triageSlice } = buildContext(root, state, rawQuery, options);
-  const routePayload = { raw_query: rawQuery, context: triageSlice };
-  const routeResult = await safeCallVtp(
-    ROUTE_TOOL,
-    root,
-    rawQuery,
-    routePayload,
-    options,
-    'vtp_route_exception'
-  );
-
+  let routePayload = null;
+  let routeResult = { ok: false, reason: 'vtp_enrichment_disabled', elapsed_ms: null };
   let selectedResponse = null;
   let fallbackPayload = null;
   let fallbackResult = null;
@@ -847,7 +964,33 @@ async function runTriageRuntime(options = {}) {
   let mode = 'route';
   const degradationRows = [];
 
-  if (routeResult.ok) {
+  if (!readTriageVtpEnrichmentEnabled(root)) {
+    mode = 'evidence_less';
+    degradationRows.push(logDegradation(root, state, {
+      reasonCode: 'vtp_enrichment_disabled',
+      rawQuery,
+      routeOk: false,
+      fallbackPredicate: null,
+      evidenceRel,
+      skillOrAgent: options.skillOrAgent,
+      silent: options.silent,
+      nextActionPayload: {
+        continue_evidence_less: true,
+        vtp_enrichment_disabled: true,
+      },
+    }));
+  } else {
+    routePayload = { raw_query: rawQuery, context: triageSlice };
+    routeResult = await safeCallVtp(
+      ROUTE_TOOL,
+      root,
+      rawQuery,
+      routePayload,
+      options,
+      'vtp_route_exception'
+    );
+
+    if (routeResult.ok) {
     const predicate = fallbackPredicate(routeResult.response);
     if (predicate) {
       fallbackAttempted = true;
@@ -870,23 +1013,23 @@ async function runTriageRuntime(options = {}) {
     } else {
       selectedResponse = routeResult.response;
     }
-  } else {
-    fallbackAttempted = true;
-    fallbackReason = 'route_failed';
-    degradationRows.push(logDegradation(root, state, {
-      reasonCode: 'vtp_route_failed',
-      rawQuery,
-      routeOk: false,
-      fallbackPredicate: null,
-      evidenceRel,
-      routeFailureReason: routeResult.reason || 'vtp_route_failed',
-      skillOrAgent: options.skillOrAgent,
-      silent: options.silent,
-      nextActionPayload: {
-        direct_search_attempted: true,
-        route_failure_reason: routeResult.reason || 'vtp_route_failed',
-      },
-    }));
+    } else {
+      mode = 'evidence_less';
+      degradationRows.push(logDegradation(root, state, {
+        reasonCode: 'vtp_route_failed',
+        rawQuery,
+        routeOk: false,
+        fallbackPredicate: null,
+        evidenceRel,
+        routeFailureReason: routeResult.reason || 'vtp_route_failed',
+        skillOrAgent: options.skillOrAgent,
+        silent: options.silent,
+        nextActionPayload: {
+          continue_evidence_less: true,
+          route_failure_reason: routeResult.reason || 'vtp_route_failed',
+        },
+      }));
+    }
   }
 
   if (fallbackAttempted) {
@@ -955,7 +1098,7 @@ async function runTriageRuntime(options = {}) {
 
   if (triggerSource !== PLANNING_TRIGGER_SOURCE) {
     logCodexSkipped(root, state, { rawQuery, triggerSource });
-    return singleModelResult(base, { status: 'skipped', reasonCode: 'trigger_source_not_planning_triage', claude: claudeValidation.value });
+    return singleModelResult(base, { status: 'skipped', reasonCode: CODEX_SKIPPED_NON_PLANNING_REASON, claude: claudeValidation.value });
   }
 
   const promptInfo = writeCodexPrompt(root, state, {
@@ -977,6 +1120,7 @@ async function runTriageRuntime(options = {}) {
     return singleModelResult(base, { reasonCode: 'codex_prompt_write_failed', claude: claudeValidation.value });
   }
 
+  noteCodexDispatch();
   const dispatch = dispatchCodex(root, state, promptInfo, options);
   dispatch.optionsPostHook = options.postCodexReportHook;
   const consumed = consumeCodexReport(root, state, rawQuery, promptInfo, dispatch, claudeValidation.value, triggerSource);
@@ -1004,6 +1148,7 @@ async function main(argv = process.argv.slice(2)) {
     return 0;
   }
   const result = await runTriageRuntime(args);
+  console.log(JSON.stringify(serializeCliResult(result)));
   return result.exitCode;
 }
 
@@ -1024,6 +1169,7 @@ module.exports = {
   fallbackPredicate,
   parseArgs,
   runTriageRuntime,
+  serializeCliResult,
   TRIAGE_CODEX_DEGRADED_SIGNAL,
   TRIAGE_CODEX_SKIPPED_SIGNAL,
   TRIAGE_RECONCILIATION_SIGNAL,

@@ -35,6 +35,7 @@ const VTP_EVIDENCE_REL = path.join(
   'VTP-EVIDENCE.md'
 );
 const FIXTURE_CODEX_MARKER = 'SGSD_FIXTURE_CODEX_MARKER_T14803_NO_REAL_CODEX';
+const CODEX_SKIPPED_NON_PLANNING_REASON = 'codex_skipped_non_planning';
 
 const createdFixtureRoots = new Set();
 
@@ -50,11 +51,14 @@ function usage() {
     '  route-error-fallback',
     '  fallback-also-fails',
     '  non-sgsd-no-write',
+    '  vtp-enrichment-disabled',
+    '  vtp-enrichment-enabled',
     '  vtp-fallback-contained-degradation',
     '  codex-contract-json-schema',
     '  planning-codex-verdict-row',
     '  planning-codex-agreement',
     '  codex-disagreement-reconciliation',
+    '  cli-disagreement-reconciliation-json',
     '  codex-missing-single-model',
     '  codex-nonzero-single-model',
     '  codex-malformed-consumer-revalidation',
@@ -191,6 +195,13 @@ function createSgsdFixture(options = {}) {
           `${phase}-01-PLAN-LOCKED.md`
         ),
         '# Fixture PLAN-LOCKED\n'
+      );
+    }
+    if (typeof options.triageVtpEnrichment === 'boolean') {
+      writeContainedFile(
+        repoDir,
+        path.join('.planning', 'config.json'),
+        `${JSON.stringify({ workflow: { triage_vtp_enrichment: options.triageVtpEnrichment } }, null, 2)}\n`
       );
     }
     return {
@@ -453,23 +464,27 @@ async function assertRouteErrorFallback() {
   try {
     const transport = makeTransport([
       { tool: ROUTE_TOOL, throw: 'mcp_route_failed: fixture route unavailable' },
-      { tool: SEARCH_TOOL, response: searchResponse({ hits: 2, docPrefix: 'fixture-fallback-doc-route-error' }) },
     ]);
     const { value: result, stderr } = await runRuntimeInProcess(fixture, transport, { scenario: 'route-error-fallback' });
-    assert.strictEqual(result.exitCode, 0, 'route error fallback should exit 0');
-    assert.deepStrictEqual(transport.calls.map((call) => call.tool), [ROUTE_TOOL, SEARCH_TOOL]);
+    assert.strictEqual(result.exitCode, 0, 'route error should continue evidence-less with exit 0');
+    assert.deepStrictEqual(transport.calls.map((call) => call.tool), [ROUTE_TOOL]);
+    assert.strictEqual(transport.calls.some((call) => call.tool === SEARCH_TOOL), false, 'route failure must not invoke fallback search');
+    assert.strictEqual(result.fallbackAttempted, false, 'route failure is not a fallback predicate');
+    assert.strictEqual(result.mode, 'evidence_less', 'route failure should continue without VTP evidence');
     assert.doesNotMatch(stderr, /\n\s+at\s+/, 'route error breadcrumb must not include a stack');
 
     const routeRows = gateRowsWithReason(fixture, 'vtp_route_failed');
     assert.strictEqual(routeRows.length, 1, 'route failure must append a distinct degradation row');
     assert.strictEqual(routeRows[0].fallback_predicate, null);
+    assert.match(routeRows[0].next_action, /continue_evidence_less/);
+    assert.doesNotMatch(routeRows[0].next_action, /direct_search_attempted":true/);
     assert.strictEqual(gateRowsWithReason(fixture, 'vtp_fallback_reflection_null').length, 0);
     assert.strictEqual(gateRowsWithReason(fixture, 'vtp_fallback_low_hits').length, 0);
 
     assertContainedDegradationWrites(fixture);
     const evidence = readContainedFile(fixture.repoDir, VTP_EVIDENCE_REL);
-    assert.match(evidence, /fixture-fallback-doc-route-error-1/);
-    assert.match(evidence, /Mode: fallback/);
+    assert.match(evidence, /Mode: evidence_less/);
+    assert.match(evidence, /No VTP documents available/);
   } finally {
     fixture.cleanup();
   }
@@ -479,7 +494,7 @@ async function assertFallbackAlsoFails() {
   const fixture = createSgsdFixture({ repoId: 'fallback-fails' });
   try {
     const transport = makeTransport([
-      { tool: ROUTE_TOOL, throw: 'mcp_route_failed: fixture route unavailable' },
+      { tool: ROUTE_TOOL, response: routeResponse({ reflection: null, hits: 2, docPrefix: 'fixture-route-doc-fallback-fails' }) },
       { tool: SEARCH_TOOL, throw: 'mcp_fallback_failed: fixture fallback unavailable' },
     ]);
     const { value: result, stderr } = await runRuntimeInProcess(fixture, transport, { scenario: 'fallback-also-fails' });
@@ -487,10 +502,10 @@ async function assertFallbackAlsoFails() {
     assert.deepStrictEqual(transport.calls.map((call) => call.tool), [ROUTE_TOOL, SEARCH_TOOL]);
     assert.doesNotMatch(stderr, /\n\s+at\s+/, 'fallback failure breadcrumb must not include a stack');
 
-    assert.strictEqual(gateRowsWithReason(fixture, 'vtp_route_failed').length, 1);
+    assert.strictEqual(gateRowsWithReason(fixture, 'vtp_fallback_reflection_null').length, 1);
     assert.strictEqual(gateRowsWithReason(fixture, 'vtp_fallback_failed').length, 1);
     const routingRows = readJsonl(fixture.repoDir, ROUTING_LOG_REL);
-    assert.strictEqual(routingRows.length, 2, 'failed route and failed fallback should both write routing-log rows');
+    assert.strictEqual(routingRows.length, 2, 'route and failed fallback should both write routing-log rows');
 
     assertContainedDegradationWrites(fixture);
     const evidence = readContainedFile(fixture.repoDir, VTP_EVIDENCE_REL);
@@ -513,6 +528,55 @@ async function assertNonSgsdNoWrite() {
     assert.strictEqual(transport.calls.length, 0, 'non-SGSD cwd must not call VTP');
     assert.strictEqual(stderr, '', 'non-SGSD cwd must be silent');
     assert.strictEqual(fs.existsSync(path.join(fixture.repoDir, '.planning')), false, 'non-SGSD cwd must write nothing');
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+async function assertVtpEnrichmentDisabled() {
+  const fixture = createSgsdFixture({ repoId: 'vtp-disabled', triageVtpEnrichment: false });
+  try {
+    const transport = makeTransport([
+      { tool: ROUTE_TOOL, throw: 'mcp_should_not_call_when_disabled' },
+    ]);
+    const { value: result, stderr } = await runRuntimeInProcess(fixture, transport, { scenario: 'vtp-enrichment-disabled' });
+    assert.strictEqual(result.exitCode, 0, 'disabled VTP enrichment should still exit 0');
+    assert.strictEqual(result.mode, 'evidence_less');
+    assert.strictEqual(result.routeOk, false);
+    assert.strictEqual(result.fallbackAttempted, false);
+    assert.strictEqual(transport.calls.length, 0, 'disabled VTP enrichment must not invoke route or fallback');
+    assert.match(stderr, /triage_vtp_degraded:vtp_enrichment_disabled/);
+
+    const rows = gateRowsWithReason(fixture, 'vtp_enrichment_disabled');
+    assert.strictEqual(rows.length, 1, 'disabled VTP enrichment must append one degradation row');
+    assert.match(rows[0].next_action, /continue_evidence_less/);
+    assertContainedExistingFile(fixture.repoDir, GATE_LOG_REL);
+    assertContainedExistingFile(fixture.repoDir, VTP_EVIDENCE_REL);
+    const routingRows = readJsonl(fixture.repoDir, ROUTING_LOG_REL);
+    assert.strictEqual(routingRows.length, 0, 'disabled VTP enrichment must not write VTP call rows');
+    const evidence = readContainedFile(fixture.repoDir, VTP_EVIDENCE_REL);
+    assert.match(evidence, /Mode: evidence_less/);
+    assert.match(evidence, /No VTP documents available/);
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+async function assertVtpEnrichmentEnabled() {
+  const fixture = createSgsdFixture({ repoId: 'vtp-enabled', triageVtpEnrichment: true });
+  try {
+    const transport = makeTransport([
+      { tool: ROUTE_TOOL, response: routeResponse({ reflection: { verdict: 'sufficient' }, hits: 2, docPrefix: 'fixture-route-doc-enabled' }) },
+    ]);
+    const { value: result } = await runRuntimeInProcess(fixture, transport, { scenario: 'vtp-enrichment-enabled' });
+    assert.strictEqual(result.exitCode, 0, 'enabled VTP enrichment should exit 0');
+    assert.strictEqual(result.mode, 'route');
+    assert.deepStrictEqual(transport.calls.map((call) => call.tool), [ROUTE_TOOL]);
+    assert.strictEqual(gateRowsWithReason(fixture, 'vtp_enrichment_disabled').length, 0);
+    assertContainedVtpWrites(fixture);
+    const evidence = readContainedFile(fixture.repoDir, VTP_EVIDENCE_REL);
+    assert.match(evidence, /fixture-route-doc-enabled-1/);
+    assert.match(evidence, /Mode: route/);
   } finally {
     fixture.cleanup();
   }
@@ -851,7 +915,7 @@ async function assertPlanningCodexVerdictRow() {
     assert.deepStrictEqual(verdictRows[0].recommended_skills, ['sgsd-roadmap-planner']);
     assert.match(verdictRows[0].rationale, new RegExp(FIXTURE_CODEX_MARKER), 'planning verdict row must carry fixture Codex marker');
     assert.strictEqual(gateRowsBySignal(fixture, 'triage_codex_degraded').length, 0);
-    assert.strictEqual(gateRowsBySignalReason(fixture, 'triage_codex_skipped_gate', 'trigger_source_not_planning_triage').length, 0);
+    assert.strictEqual(gateRowsBySignalReason(fixture, 'triage_codex_skipped_gate', CODEX_SKIPPED_NON_PLANNING_REASON).length, 0);
   } finally {
     fixture.cleanup();
   }
@@ -868,9 +932,9 @@ async function assertPlanningCodexVerdictRow() {
 
     assert.strictEqual(result.exitCode, 0);
     assert.strictEqual(result.singleModel, true);
-    assert.strictEqual(result.codex.reasonCode, 'trigger_source_not_planning_triage');
+    assert.strictEqual(result.codex.reasonCode, CODEX_SKIPPED_NON_PLANNING_REASON);
     assert.strictEqual(routingRowsByEvent(control, 'triage_codex_verdict').length, 0, 'execution control must not write a Codex verdict row');
-    const skipped = gateRowsBySignalReason(control, 'triage_codex_skipped_gate', 'trigger_source_not_planning_triage');
+    const skipped = gateRowsBySignalReason(control, 'triage_codex_skipped_gate', CODEX_SKIPPED_NON_PLANNING_REASON);
     assert.strictEqual(skipped.length, 1, 'execution control must write one skipped-gate row');
     assert.strictEqual(skipped[0].raw_query, rawQuery);
     assert.strictEqual(skipped[0].trigger_source, 'execution');
@@ -966,6 +1030,58 @@ async function assertCodexDisagreementReconciliation() {
     assert.strictEqual(row.codex_path, 'C');
     assert.match(row.next_action, /Fixture Claude rationale/);
     assert.match(row.next_action, /thin-vtp-context/);
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+async function assertCliDisagreementReconciliationJson() {
+  const fixture = createSgsdFixture({ repoId: 'cli-disagreement' });
+  try {
+    const rawQuery = 'fixture CLI disagreement route 148 must surface reconciliation JSON';
+    const queryRel = path.join('.planning', 'tmp', 'fixture-cli-query.txt');
+    const verdictRel = path.join('.planning', 'tmp', 'fixture-cli-claude-verdict.json');
+    const claude = claudeVerdict();
+    writeContainedFile(fixture.repoDir, queryRel, rawQuery);
+    writeContainedFile(fixture.repoDir, verdictRel, `${JSON.stringify(claude)}\n`);
+    const fakeBin = createFakeCodexForTriage(fixture.tempRoot);
+    const env = codexRuntimeEnv(fixture.tempRoot, 'disagree', path.join(fakeBin, 'codex'));
+    const cli = childProcess.spawnSync(process.execPath, [
+      runtimePath,
+      '--query-file', queryRel,
+      '--cwd', fixture.repoDir,
+      '--trigger-source', 'planning-triage',
+      '--claude-verdict-file', verdictRel,
+    ], {
+      cwd: repoRoot,
+      env,
+      encoding: 'utf8',
+      windowsHide: true,
+    });
+
+    assert.strictEqual(cli.status, 0, `CLI should exit 0; stderr=${cli.stderr || cli.error || ""}`);
+    const stdout = String(cli.stdout || '').trim();
+    assert(stdout, 'CLI must emit one structured JSON result object to stdout');
+    assert.doesNotMatch(stdout, /routePayload|fallbackPayload|selectedResponse|raw_query/, 'CLI JSON must not dump raw VTP payloads or raw query fields');
+    const parsed = JSON.parse(stdout);
+
+    assert.strictEqual(parsed.mode, 'dual_model');
+    assert.strictEqual(parsed.vtpMode, 'evidence_less');
+    assert.strictEqual(parsed.singleModel, false);
+    assert.strictEqual(parsed.evidencePath, VTP_EVIDENCE_REL.replace(/\\/g, '/'));
+    assert.strictEqual(parsed.codex.status, 'ok');
+    assert.strictEqual(parsed.codex.path, 'C');
+    assert.match(parsed.codex.rationale, /Fixture Codex disagrees/);
+    assert.strictEqual(parsed.reconciliation.agree, false);
+    assert.strictEqual(parsed.reconciliation.claude.rationale, claude.rationale);
+    assert.match(parsed.reconciliation.codex.rationale, /Fixture Codex disagrees/);
+    assert.match(parsed.reconciliation.recommendation.why, /Fixture Claude rationale/);
+    assert.match(parsed.reconciliation.recommendation.why, /Fixture Codex disagrees/);
+    assert(Array.isArray(parsed.degradationNotes), 'CLI JSON must carry degradation notes');
+    assert.strictEqual(parsed.degradationNotes.some((row) => row.reason_codes.includes('vtp_route_failed')), true);
+    assert.match(String(cli.stderr || ''), /triage_dispatching_codex/);
+    assert.match(String(cli.stderr || ''), /timeout_budget=300s/);
+    assert.match(String(cli.stderr || ''), /codex-live-output\.txt/);
   } finally {
     fixture.cleanup();
   }
@@ -1095,7 +1211,7 @@ async function assertCodexNonPlanningSkippedGate() {
     assert.strictEqual(result.exitCode, 0);
     assert.strictEqual(result.singleModel, true);
     assert.strictEqual(observedCalls.length, 0, 'non-planning trigger must not dispatch Codex');
-    const rows = gateRowsBySignalReason(fixture, 'triage_codex_skipped_gate', 'trigger_source_not_planning_triage');
+    const rows = gateRowsBySignalReason(fixture, 'triage_codex_skipped_gate', CODEX_SKIPPED_NON_PLANNING_REASON);
     assert.strictEqual(rows.length, 1, 'non-planning trigger must append one skipped-gate row');
   } finally {
     fixture.cleanup();
@@ -1274,11 +1390,14 @@ const scenarios = Object.freeze({
   'route-error-fallback': assertRouteErrorFallback,
   'fallback-also-fails': assertFallbackAlsoFails,
   'non-sgsd-no-write': assertNonSgsdNoWrite,
+  'vtp-enrichment-disabled': assertVtpEnrichmentDisabled,
+  'vtp-enrichment-enabled': assertVtpEnrichmentEnabled,
   'vtp-fallback-contained-degradation': assertAllFallbackContainedDegradation,
   'codex-contract-json-schema': assertCodexContractJsonSchema,
   'planning-codex-verdict-row': assertPlanningCodexVerdictRow,
   'planning-codex-agreement': assertPlanningCodexAgreement,
   'codex-disagreement-reconciliation': assertCodexDisagreementReconciliation,
+  'cli-disagreement-reconciliation-json': assertCliDisagreementReconciliationJson,
   'codex-missing-single-model': assertCodexMissingSingleModel,
   'codex-nonzero-single-model': assertCodexNonzeroSingleModel,
   'codex-malformed-consumer-revalidation': assertCodexMalformedConsumerRevalidation,
@@ -1336,6 +1455,7 @@ module.exports = {
   assertPlanningCodexVerdictRow,
   assertPlanningCodexAgreement,
   assertCodexDisagreementReconciliation,
+  assertCliDisagreementReconciliationJson,
   assertCodexMissingSingleModel,
   assertCodexNonzeroSingleModel,
   assertCodexMalformedConsumerRevalidation,
@@ -1347,6 +1467,8 @@ module.exports = {
   assertAllScenarioMatrix,
   assertLowHitFallback,
   assertNonSgsdNoWrite,
+  assertVtpEnrichmentDisabled,
+  assertVtpEnrichmentEnabled,
   assertNullReflectionFallback,
   assertRouteErrorFallback,
 };
