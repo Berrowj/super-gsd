@@ -33,6 +33,70 @@ function _isFile(p) {
   }
 }
 
+function _realpath(p) {
+  try {
+    return fs.realpathSync.native(path.resolve(String(p)));
+  } catch {
+    try {
+      return fs.realpathSync(path.resolve(String(p)));
+    } catch {
+      return null;
+    }
+  }
+}
+
+function _comparePath(p) {
+  const resolved = path.resolve(String(p));
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+function _isInsideOrEqual(rootReal, candidateReal) {
+  try {
+    const rel = path.relative(_comparePath(rootReal), _comparePath(candidateReal));
+    return rel === '' || (rel && !rel.startsWith('..') && !path.isAbsolute(rel));
+  } catch {
+    return false;
+  }
+}
+
+function _nearestExistingAncestor(absTarget) {
+  try {
+    let cur = path.resolve(String(absTarget));
+    while (true) {
+      if (fs.existsSync(cur)) return cur;
+      const parent = path.dirname(cur);
+      if (parent === cur) return null;
+      cur = parent;
+    }
+  } catch {
+    return null;
+  }
+}
+
+function resolveContainedPath(root, relativeSubpath) {
+  try {
+    if (!root || typeof relativeSubpath !== 'string' || !relativeSubpath.trim()) return null;
+    if (path.isAbsolute(relativeSubpath)) return null;
+
+    const rootAbs = path.resolve(String(root));
+    const rootReal = _realpath(rootAbs);
+    if (!rootReal) return null;
+
+    const targetAbs = path.resolve(rootAbs, relativeSubpath);
+    const existingAncestor = _nearestExistingAncestor(targetAbs);
+    if (!existingAncestor) return null;
+
+    const ancestorReal = _realpath(existingAncestor);
+    if (!ancestorReal || !_isInsideOrEqual(rootReal, ancestorReal)) return null;
+
+    const tail = path.relative(existingAncestor, targetAbs);
+    const resolvedTarget = path.resolve(ancestorReal, tail);
+    return _isInsideOrEqual(rootReal, resolvedTarget) ? resolvedTarget : null;
+  } catch {
+    return null;
+  }
+}
+
 function findSgsdRoot(startDir) {
   try {
     if (!startDir) return null;
@@ -40,7 +104,9 @@ function findSgsdRoot(startDir) {
     if (!_isDirectory(cur)) cur = path.dirname(cur);
 
     while (true) {
-      if (_isDirectory(path.join(cur, '.planning')) && _isFile(path.join(cur, '.planning', 'STATE.md'))) return cur;
+      const planningDir = resolveContainedPath(cur, '.planning');
+      const statePath = resolveContainedPath(cur, path.join('.planning', 'STATE.md'));
+      if (planningDir && statePath && _isDirectory(planningDir) && _isFile(statePath)) return cur;
       const parent = path.dirname(cur);
       if (parent === cur) return null;
       cur = parent;
@@ -96,8 +162,8 @@ function _stateResult(milestone, phase, phaseSource, fm) {
 function readState(root) {
   try {
     if (!root) return null;
-    const statePath = path.join(path.resolve(String(root)), '.planning', 'STATE.md');
-    if (!fs.existsSync(statePath)) return null;
+    const statePath = resolveContainedPath(path.resolve(String(root)), path.join('.planning', 'STATE.md'));
+    if (!statePath || !fs.existsSync(statePath)) return null;
     const fm = _parseFrontmatter(fs.readFileSync(statePath, 'utf8'));
     const milestone = _stripScalar(fm.milestone) || null;
 
@@ -163,7 +229,19 @@ function _collectFromPhasesRoot(phasesRoot, regexes, out) {
   }
 }
 
-function findPlanLockedFiles(root, phase) {
+function _collectContainedPhasesRoot(repoRoot, relativeSubpath, regexes, out) {
+  const phasesRoot = resolveContainedPath(repoRoot, relativeSubpath);
+  if (!phasesRoot) return;
+  _collectFromPhasesRoot(phasesRoot, regexes, out);
+}
+
+function _safeMilestoneName(milestone) {
+  const value = _stripScalar(milestone);
+  if (!value || value.includes('/') || value.includes('\\')) return null;
+  return value;
+}
+
+function findPlanLockedFiles(root, phase, milestone) {
   try {
     if (!root) return [];
     const regexes = _planRegexes(phase);
@@ -171,19 +249,31 @@ function findPlanLockedFiles(root, phase) {
 
     const repoRoot = path.resolve(String(root));
     const out = [];
-    _collectFromPhasesRoot(path.join(repoRoot, '.planning', 'phases'), regexes, out);
+    _collectContainedPhasesRoot(repoRoot, path.join('.planning', 'phases'), regexes, out);
 
-    const milestonesRoot = path.join(repoRoot, '.planning', 'milestones');
+    const scopedMilestone = _safeMilestoneName(milestone);
+    if (scopedMilestone) {
+      _collectContainedPhasesRoot(
+        repoRoot,
+        path.join('.planning', 'milestones', scopedMilestone, 'phases'),
+        regexes,
+        out
+      );
+      return Array.from(new Set(out)).sort();
+    }
+
+    const milestonesRoot = resolveContainedPath(repoRoot, path.join('.planning', 'milestones'));
     let milestones;
     try {
-      milestones = fs.readdirSync(milestonesRoot, { withFileTypes: true });
+      milestones = milestonesRoot ? fs.readdirSync(milestonesRoot, { withFileTypes: true }) : [];
     } catch {
       milestones = [];
     }
-    for (const milestone of milestones) {
-      if (!milestone.isDirectory()) continue;
-      _collectFromPhasesRoot(
-        path.join(milestonesRoot, milestone.name, 'phases'),
+    for (const item of milestones) {
+      if (!item.isDirectory()) continue;
+      _collectContainedPhasesRoot(
+        repoRoot,
+        path.join('.planning', 'milestones', item.name, 'phases'),
         regexes,
         out
       );
@@ -197,6 +287,7 @@ function findPlanLockedFiles(root, phase) {
 
 module.exports = {
   findSgsdRoot,
+  resolveContainedPath,
   readState,
   findPlanLockedFiles,
   PHASE_SOURCE,

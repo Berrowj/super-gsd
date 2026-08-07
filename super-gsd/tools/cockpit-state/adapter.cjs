@@ -911,8 +911,10 @@ function _buildCodex(ctx) {
   }
 }
 
-function _governanceSignal(state, missingPlan, breadcrumb, historicCount) {
+function _governanceSignal(state, missingPlan, breadcrumb, historicCount, skippedLineCount) {
   var current = Array.isArray(missingPlan) ? missingPlan : [];
+  var skipped = Number.isInteger(skippedLineCount) && skippedLineCount > 0
+    ? skippedLineCount : 0;
   return {
     state: state || 'unavailable',
     missing_plan: current,
@@ -920,7 +922,8 @@ function _governanceSignal(state, missingPlan, breadcrumb, historicCount) {
     historic_count: Number.isInteger(historicCount) ? historicCount : current.length,
     source: 'gate-evidence.jsonl',
     limit: GATE_EVIDENCE_SIGNAL_LIMIT,
-    breadcrumb: breadcrumb || null
+    breadcrumb: breadcrumb || null,
+    skipped_line_count: skipped
   };
 }
 
@@ -1034,7 +1037,7 @@ function _hasActivePhasePlanLocked(active) {
         || typeof active.module.findPlanLockedFiles !== 'function') {
       return false;
     }
-    var plans = active.module.findPlanLockedFiles(active.root, active.phase);
+    var plans = active.module.findPlanLockedFiles(active.root, active.phase, active.milestone);
     return Array.isArray(plans) && plans.length > 0;
   } catch (_e) {
     return false;
@@ -1060,6 +1063,17 @@ function _currentMissingPlanRows(rows, active) {
   return { current: current, historic_count: historic.length };
 }
 
+function _gateEvidenceSkippedLineCount(rows) {
+  try {
+    if (!rows || typeof rows !== 'object') return 0;
+    if (Number.isInteger(rows.skippedLineCount)) return rows.skippedLineCount;
+    if (Number.isInteger(rows.skipped_line_count)) return rows.skipped_line_count;
+    return 0;
+  } catch (_e) {
+    return 0;
+  }
+}
+
 function _buildGovernanceSignal(ctx) {
   try {
     if (!_gateEvidenceMod || typeof _gateEvidenceMod.readGateEvidenceRows !== 'function') {
@@ -1076,14 +1090,22 @@ function _buildGovernanceSignal(ctx) {
     if (!Array.isArray(rows)) {
       return _unavailableGovernanceSignal('gate_evidence_reader_non_array');
     }
+    var skipped = _gateEvidenceSkippedLineCount(rows);
     rows = rows.slice(-GATE_EVIDENCE_SIGNAL_LIMIT);
     if (probe.size > 0 && rows.length === 0) {
+      if (skipped > 0) {
+        return _governanceSignal('unavailable', [], 'gate_evidence_malformed_lines', 0, skipped);
+      }
       return _unavailableGovernanceSignal('gate_evidence_nonzero_no_rows');
     }
     var active = _activeGovernanceState(ctx);
     if (!active) return _unavailableGovernanceSignal('active_phase_unavailable');
     var scoped = _currentMissingPlanRows(rows, active);
-    return _governanceSignal('ok', scoped.current, null, scoped.historic_count);
+    if (skipped > 0) {
+      return _governanceSignal('unavailable', scoped.current,
+        'gate_evidence_malformed_lines', scoped.historic_count, skipped);
+    }
+    return _governanceSignal('ok', scoped.current, null, scoped.historic_count, skipped);
   } catch (_e2) {
     return _unavailableGovernanceSignal('gate_evidence_reader_failed');
   }

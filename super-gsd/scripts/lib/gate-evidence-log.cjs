@@ -11,6 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { findSgsdRoot, resolveContainedPath } = require('./sgsd-state.cjs');
 
 const STATUSES = Object.freeze([
   'ok', 'warn', 'fail', 'skipped', 'timeout', 'blocked',
@@ -33,46 +34,37 @@ const ENVELOPE_KEYS = new Set([
   'phase', 'milestone',
 ]);
 
-function _isDirectory(p) {
+function _isFile(p) {
   try {
-    return fs.statSync(p).isDirectory();
+    return fs.statSync(p).isFile();
   } catch {
     return false;
   }
 }
 
-function _hasStateFile(planningDir) {
-  try {
-    return fs.statSync(path.join(planningDir, 'STATE.md')).isFile();
-  } catch {
-    return false;
-  }
+function _hasSafeStateFile(repoRoot) {
+  const statePath = resolveContainedPath(repoRoot, path.join('.planning', 'STATE.md'));
+  return Boolean(statePath && _isFile(statePath));
 }
 
-// Accepted inputs are an SGSD repo root containing .planning/STATE.md, or the
-// .planning dir itself containing STATE.md. Anything else is a falsey no-op.
-function _planningDir(input) {
-  if (!input) return null;
-  let cur = path.resolve(String(input));
-  if (path.basename(cur) === '.planning' && _isDirectory(cur) && _hasStateFile(cur)) return cur;
-  if (!_isDirectory(cur)) cur = path.dirname(cur);
-
-  const direct = path.join(cur, '.planning');
-  if (_isDirectory(direct) && _hasStateFile(direct)) return direct;
-
-  while (true) {
-    const parent = path.dirname(cur);
-    if (parent === cur) return null;
-    cur = parent;
-    const nested = path.join(cur, '.planning');
-    if (_isDirectory(nested) && _hasStateFile(nested)) return nested;
+function _repoRoot(input) {
+  try {
+    if (!input) return null;
+    const cur = path.resolve(String(input));
+    if (path.basename(cur) === '.planning') {
+      const root = path.dirname(cur);
+      return _hasSafeStateFile(root) ? root : null;
+    }
+    return findSgsdRoot(cur);
+  } catch {
+    return null;
   }
 }
 
 function ledgerPath(planningDir) {
   try {
-    const dir = _planningDir(planningDir);
-    return dir ? path.join(dir, LEDGER_REL) : null;
+    const root = _repoRoot(planningDir);
+    return root ? resolveContainedPath(root, path.join('.planning', LEDGER_REL)) : null;
   } catch {
     return null;
   }
@@ -221,22 +213,48 @@ function _readTailLines(p, limit) {
     .slice(-limit);
 }
 
+function _attachReadMetadata(rows, skippedLineCount, totalLineCount) {
+  const out = Array.isArray(rows) ? rows : [];
+  const skipped = Number.isInteger(skippedLineCount) && skippedLineCount > 0 ? skippedLineCount : 0;
+  const total = Number.isInteger(totalLineCount) && totalLineCount > 0 ? totalLineCount : 0;
+  try {
+    Object.defineProperty(out, 'skippedLineCount', { value: skipped, enumerable: false, configurable: true });
+    Object.defineProperty(out, 'skipped_line_count', { value: skipped, enumerable: false, configurable: true });
+    Object.defineProperty(out, 'totalLineCount', { value: total, enumerable: false, configurable: true });
+    Object.defineProperty(out, 'total_line_count', { value: total, enumerable: false, configurable: true });
+  } catch {
+    out.skippedLineCount = skipped;
+    out.skipped_line_count = skipped;
+    out.totalLineCount = total;
+    out.total_line_count = total;
+  }
+  return out;
+}
+
 function readGateEvidenceRows(planningDir, opts) {
   try {
     const p = ledgerPath(planningDir);
-    if (!p || !fs.existsSync(p)) return [];
+    if (!p || !fs.existsSync(p)) return _attachReadMetadata([], 0, 0);
     const o = opts || {};
-    let rows = _readTailLines(p, _readLimit(o))
-      .map((l) => { try { return JSON.parse(l); } catch { return null; } })
-      .filter(Boolean);
+    const lines = _readTailLines(p, _readLimit(o));
+    let skipped = 0;
+    const parsed = [];
+    for (const line of lines) {
+      try {
+        parsed.push(JSON.parse(line));
+      } catch {
+        skipped += 1;
+      }
+    }
+    let rows = parsed;
     if (o.signal) rows = rows.filter((r) => r.signal === o.signal);
     if (o.phase) rows = rows.filter((r) => r.phase === o.phase);
     if (o.milestone) rows = rows.filter((r) => r.milestone === o.milestone);
     if (o.status) rows = rows.filter((r) => r.status === o.status);
-    return rows;
+    return _attachReadMetadata(rows, skipped, lines.length);
   } catch (e) {
     console.warn('[SGSD] gate-evidence-log readGateEvidenceRows failed:', e.message);
-    return [];
+    return _attachReadMetadata([], 0, 0);
   }
 }
 

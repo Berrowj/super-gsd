@@ -175,7 +175,7 @@ function observePostToolUse(payload, root) {
   const state = readState(resolvedRoot);
   if (!state || !state.phase) return;
 
-  const plans = findPlanLockedFiles(resolvedRoot, state.phase);
+  const plans = findPlanLockedFiles(resolvedRoot, state.phase, state.milestone);
   if (plans.length > 0) return;
 
   appendMissingPlan(resolvedRoot, payload, state, name);

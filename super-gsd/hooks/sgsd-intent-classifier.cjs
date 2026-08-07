@@ -21,6 +21,8 @@ const REGISTRY_SOURCE_PATH = path.resolve(__dirname, '..', 'registry', 'session-
 const BENCH_SIGNAL = 'intent_classifier_bench';
 const DEGRADED_SIGNAL = 'intent_classifier_degraded';
 const ROUTING_DECISION_SIGNAL = 'intent_routing_decision';
+const CLASSIFIER_ENFORCEMENT_KINDS = Object.freeze(['directive', 'suggestion']);
+const REPORT_ONLY_SIGNALS = Object.freeze(['missing_plan']);
 
 function safeWarn(reason) {
   try {
@@ -129,7 +131,7 @@ function parseRegistryYaml(text) {
   let listKey = null;
 
   function finishRoute() {
-    if (route && route.id) routes.push(route);
+    if (route) routes.push(route);
   }
 
   for (const rawLine of String(text || '').split(/\r?\n/)) {
@@ -181,6 +183,87 @@ function parseRegistryYaml(text) {
   return { routes };
 }
 
+function nonEmptyStrings(value) {
+  return list(value).map((item) => item.trim()).filter(Boolean);
+}
+
+function validRegexStrings(value) {
+  const out = [];
+  for (const pattern of nonEmptyStrings(value)) {
+    try {
+      new RegExp(pattern, 'i');
+      out.push(pattern);
+    } catch {
+      // Invalid regexes do not count as usable triggers at parse time.
+    }
+  }
+  return out;
+}
+
+function validateRouteShape(route) {
+  const reasons = [];
+  const id = route && typeof route.id === 'string' ? route.id.trim() : '';
+  if (!id) reasons.push('id_missing');
+
+  const trigger = route && route.trigger && typeof route.trigger === 'object' ? route.trigger : {};
+  const enforcement = route && route.enforcement && typeof route.enforcement === 'object' ? route.enforcement : {};
+  const kind = typeof enforcement.kind === 'string' ? enforcement.kind.trim() : '';
+
+  if (CLASSIFIER_ENFORCEMENT_KINDS.includes(kind)) {
+    const triggerCount = nonEmptyStrings(trigger.phrases).length + validRegexStrings(trigger.regexes).length;
+    const directive = typeof enforcement.directive === 'string' ? enforcement.directive.trim() : '';
+    if (triggerCount === 0) reasons.push('trigger_missing');
+    if (!directive || !directive.startsWith('/sgsd-')) reasons.push('directive_invalid');
+    return {
+      route,
+      id: id || null,
+      usable: reasons.length === 0,
+      classifierUsable: reasons.length === 0,
+      reason_codes: reasons,
+    };
+  }
+
+  if (kind === 'report_only') {
+    const hookEvent = typeof trigger.hook_event_name === 'string' ? trigger.hook_event_name.trim() : '';
+    const toolNames = nonEmptyStrings(trigger.tool_names);
+    const signal = typeof enforcement.signal === 'string' ? enforcement.signal.trim() : '';
+    if (!hookEvent && toolNames.length === 0) reasons.push('report_trigger_missing');
+    if (!REPORT_ONLY_SIGNALS.includes(signal)) reasons.push('report_signal_invalid');
+    return {
+      route,
+      id: id || null,
+      usable: reasons.length === 0,
+      classifierUsable: false,
+      reason_codes: reasons,
+    };
+  }
+
+  reasons.push('enforcement_kind_unknown');
+  return { route, id: id || null, usable: false, classifierUsable: false, reason_codes: reasons };
+}
+
+function validateRegistryRoutes(routes) {
+  const input = Array.isArray(routes) ? routes : [];
+  const usableRoutes = [];
+  const classifierRoutes = [];
+  const invalidRoutes = [];
+  for (const route of input) {
+    const result = validateRouteShape(route);
+    if (result.usable) {
+      usableRoutes.push(route);
+      if (result.classifierUsable) classifierRoutes.push(route);
+    } else {
+      invalidRoutes.push({ id: result.id, reason_codes: result.reason_codes.slice() });
+    }
+  }
+  return {
+    total_routes: input.length,
+    usable_routes: usableRoutes,
+    classifier_usable_routes: classifierRoutes,
+    invalid_routes: invalidRoutes,
+  };
+}
+
 function readRegistry(root, payload) {
   try {
     const file = registryPath();
@@ -192,8 +275,30 @@ function readRegistry(root, payload) {
       appendFailureRow(root, bytes > 0 ? 'registry_unparsed' : 'registry_empty', payload, {
         registry_bytes: bytes,
       });
+      return registry;
     }
-    return registry;
+
+    const validation = validateRegistryRoutes(routes);
+    if (validation.invalid_routes.length > 0 || validation.classifier_usable_routes.length === 0) {
+      appendFailureRow(root, 'registry_routes_invalid', payload, {
+        registry_total_routes: validation.total_routes,
+        registry_usable_routes: validation.classifier_usable_routes.length,
+        registry_valid_routes: validation.usable_routes.length,
+        registry_invalid_routes: validation.invalid_routes.length,
+        registry_invalid_route_ids: validation.invalid_routes.map((route) => route.id).filter(Boolean),
+      });
+    }
+
+    return {
+      ...registry,
+      routes: validation.classifier_usable_routes,
+      route_validation: {
+        total_routes: validation.total_routes,
+        usable_routes: validation.classifier_usable_routes.length,
+        valid_routes: validation.usable_routes.length,
+        invalid_routes: validation.invalid_routes.length,
+      },
+    };
   } catch {
     appendFailureRow(root, 'registry_unavailable', payload);
     return { routes: [] };
