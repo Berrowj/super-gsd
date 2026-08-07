@@ -35,8 +35,6 @@
   "token_efficiency": {
     "state_read": "frontmatter_only",
     "context_injection": "sgsd_recall",
-    "context_warning_percent": 70,
-    "checkpoint_threshold_percent": 100000,
     "max_report_words": 300,
     "max_prompt_tokens": 1500,
     "log_usage": true

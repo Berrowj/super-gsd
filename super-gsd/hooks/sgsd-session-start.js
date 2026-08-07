@@ -184,6 +184,61 @@ function safeLogSessionStartFailure(ctx, state, reasonCode) {
   }
 }
 
+function sessionStartErrorMessage(err) {
+  try {
+    const raw = err && err.message ? err.message : String(err || 'unknown');
+    return raw.split(/\r?\n/)[0].slice(0, 240);
+  } catch {
+    return 'unknown';
+  }
+}
+
+function emitSessionStartBreadcrumb(reasonCode, err) {
+  try {
+    console.error(`[SGSD] session-start ${reasonCode}: ${sessionStartErrorMessage(err)}`);
+  } catch {
+    // Breadcrumb emission must never become the startup failure.
+  }
+}
+
+function fallbackContextFromPayload(payload) {
+  try {
+    if (!payload || typeof payload.cwd !== 'string' || !payload.cwd.trim()) return null;
+    const root = findSgsdRoot(payload.cwd);
+    if (!root) return null;
+    const planningDir = path.join(root, '.planning');
+    const rootReal = safeRealpath(root);
+    const planningReal = safeRealpath(planningDir);
+    const stateReal = safeRealpath(path.join(planningDir, 'STATE.md'));
+    if (!rootReal || !planningReal || !stateReal) return null;
+    if (!isInside(rootReal, planningReal) || !isInside(planningReal, stateReal)) return null;
+    return { root, planningDir, planningReal };
+  } catch {
+    return null;
+  }
+}
+
+function emitFallbackGovernanceContext(ctx, state) {
+  try {
+    emitGovernanceContext(ctx, state || null);
+  } catch {
+    // The outer guard already emitted the breadcrumb; fail open.
+  }
+}
+
+function handlePreContextFailure(payload, ctx, state, reasonCode, err) {
+  emitSessionStartBreadcrumb(reasonCode, err);
+  const knownCtx = ctx || fallbackContextFromPayload(payload);
+  if (!knownCtx) {
+    if (payload && payload.hook_event_name === 'SessionStart') {
+      try { console.log(buildGovernanceContract(state || null)); } catch { /* fail open */ }
+    }
+    return;
+  }
+  safeLogSessionStartFailure(knownCtx, state || null, reasonCode);
+  emitFallbackGovernanceContext(knownCtx, state || null);
+}
+
 function shouldLogStatePhaseMissing(state) {
   return !state || !state.phase;
 }
@@ -235,12 +290,27 @@ function pairHandoffTarget(ctx) {
 }
 
 function main() {
+  let payload = null;
+  let ctx = null;
+  let state = null;
   try {
-    const payload = readPayload();
-    const ctx = resolveContext(payload);
+    payload = readPayload();
+    try {
+      ctx = resolveContext(payload);
+    } catch (err) {
+      handlePreContextFailure(payload, null, null, 'session_start_context_resolution_failed', err);
+      return;
+    }
     if (!ctx) return;
 
-    const state = readState(ctx.root);
+    try {
+      state = readState(ctx.root);
+    } catch (err) {
+      emitSessionStartBreadcrumb('session_start_state_read_failed', err);
+      safeLogSessionStartFailure(ctx, null, 'session_start_state_read_failed');
+      state = null;
+    }
+
     try {
       emitGovernanceContext(ctx, state);
     } catch {
@@ -252,9 +322,8 @@ function main() {
     } catch {
       safeLogSessionStartFailure(ctx, state, 'session_start_handoff_pairing_failed');
     }
-  } catch {
-    // Fail open: SessionStart hooks must never emit stack traces or block startup.
+  } catch (err) {
+    handlePreContextFailure(payload, ctx, state, 'session_start_outer_guard_failed', err);
   }
 }
-
 main();

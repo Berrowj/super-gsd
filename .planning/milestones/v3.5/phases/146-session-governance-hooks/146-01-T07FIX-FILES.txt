@@ -1,0 +1,2 @@
+super-gsd/scripts/sgsd-stop-handoff.sh
+super-gsd/tools/autopilot-watchdog/check.cjs

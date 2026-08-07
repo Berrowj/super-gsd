@@ -449,12 +449,9 @@ fi
 # CRITICAL fix (Phase 20 ATC): chain_depth is NOT written to checkpoint by the
 # orchestrator. Reading it from checkpoint always returned 0, so MAX_CHAIN_DEPTH
 # never triggered. Correct source is handoff-log.jsonl spawn lineage: find the
-# most recent row with reason=='spawned' and use its chain_depth + 1 as the
-# proposed depth for this handoff. Refused/dry_run rows are IGNORED — they
-# don't advance the chain. This also gives us a natural reset: when the last
-# spawned row is older than cooldown (i.e. operator took over), the depth is
-# still read as N+1, but the cooldown guard will refuse — the handoff never
-# fires on operator-resumed sessions.
+# most recent row that actually spawned a session and use its chain_depth + 1 as
+# the proposed depth for this handoff. Refused rows reset the chain.
+_HANDOFF_DID_SPAWN_JS='function didSpawn(r) { return !!r && (r.reason === "spawned" || r.recovery === "spawned_without_checkpoint"); }'
 PREV_CHAIN_DEPTH=0
 # Defensive guard (Codex 3rd re-review): if checkpoint signals emergency_halt
 # AND the log FILE is missing but the log DIR exists, the log was likely
@@ -482,11 +479,16 @@ if [[ -f "$LOG_PATH" ]]; then
 try {
   var lines = require('fs').readFileSync(process.argv[1],'utf8').split('\n').filter(Boolean);
   var malformed = false;
-  var spawned = [];
+  ${_HANDOFF_DID_SPAWN_JS}
+  var rows = [];
+  var spawnedRows = [];
   for (var i = 0; i < lines.length; i++) {
     try {
       var r = JSON.parse(lines[i]);
-      if (r && r.reason === 'spawned') spawned.push(r);
+      if (r && typeof r === 'object') {
+        rows.push(r);
+        if (didSpawn(r)) spawnedRows.push(r);
+      }
     } catch (e) {
       malformed = true;
       break;
@@ -495,8 +497,11 @@ try {
   if (malformed) {
     process.stdout.write('MALFORMED');
   } else {
-    var last = spawned.length ? spawned[spawned.length-1] : null;
-    var d = last && typeof last.chain_depth === 'number' ? last.chain_depth : 0;
+    var latest = rows.length ? rows[rows.length-1] : null;
+    var last = spawnedRows.length ? spawnedRows[spawnedRows.length-1] : null;
+    var d = latest && latest.reason === 'refused'
+      ? 0
+      : (last && typeof last.chain_depth === 'number' ? last.chain_depth : 0);
     process.stdout.write(String(d));
   }
 } catch (e) { process.stdout.write('READ_FAILED'); }
@@ -565,16 +570,17 @@ fi
 # Double-background ensures parent shell exits immediately, avoiding the 60s
 # Stop hook timeout. Spawn output is discarded (>/dev/null 2>&1).
 
-# Compute cumulative_runtime_s (sum of prior spawned rows in current chain)
+# Compute cumulative_runtime_s (sum of prior session-spawning rows in current chain)
 CUMULATIVE_S=0
 if [[ -f "$LOG_PATH" ]]; then
     CUMULATIVE_S=$(node -e "
 try {
+  ${_HANDOFF_DID_SPAWN_JS}
   var rows = require('fs').readFileSync(process.argv[1],'utf8')
     .split('\n').filter(Boolean)
     .map(function(l){ try { return JSON.parse(l); } catch(e) { return null; } })
     .filter(Boolean);
-  var total = rows.reduce(function(s,r){ return s + (r.reason==='spawned' ? (r.cumulative_runtime_s||0) : 0); }, 0);
+  var total = rows.reduce(function(s,r){ return s + (didSpawn(r) ? (r.cumulative_runtime_s||0) : 0); }, 0);
   process.stdout.write(String(total));
 } catch(e) { process.stdout.write('0'); }
 " "$LOG_PATH" 2>/dev/null || echo "0")

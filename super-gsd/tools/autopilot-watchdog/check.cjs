@@ -16,6 +16,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const cp = require('child_process');
+const { findSgsdRoot, readState } = require('../../scripts/lib/sgsd-state.cjs');
 
 const VERSION = 'autopilot-watchdog-v1';
 const DEFAULT_WARN_MIN = 20;
@@ -29,7 +30,8 @@ function parseArgs(argv) {
     write: false,
     checkpoint: false,
     json: false,
-    selfTest: false
+    selfTest: false,
+    selfTestPhaseResolution: false
   };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
@@ -41,8 +43,9 @@ function parseArgs(argv) {
     else if (a === '--checkpoint') out.checkpoint = true;
     else if (a === '--json') out.json = true;
     else if (a === '--self-test') out.selfTest = true;
+    else if (a === '--self-test-phase-resolution') out.selfTestPhaseResolution = true;
     else if (a === '--help' || a === '-h') {
-      console.log(`Usage: node ${path.relative(process.cwd(), __filename)} [--project-dir PATH] [--warn-min N] [--stale-min N] [--write] [--checkpoint] [--json]`);
+      console.log(`Usage: node ${path.relative(process.cwd(), __filename)} [--project-dir PATH] [--warn-min N] [--stale-min N] [--write] [--checkpoint] [--json] [--self-test] [--self-test-phase-resolution]`);
       process.exit(0);
     } else {
       throw new Error(`unknown argument: ${a}`);
@@ -110,31 +113,24 @@ function getState(root) {
   const statePath = path.join(root, '.planning', 'STATE.md');
   const text = readText(statePath);
   const fm = parseFrontmatter(text);
-  let currentPhase = fm.current_phase || fm.active_phase || '';
-  if (!currentPhase) {
-    const mm = text.match(/^\s*current_phase:\s*([0-9]+)\s*$/m);
-    if (mm) currentPhase = mm[1];
+  let resolved = null;
+  try {
+    resolved = readState(root);
+  } catch {
+    resolved = null;
   }
-  if (!currentPhase) {
-    const status = fm.status || '';
-    const mm = status.match(/\bPhase\s+([0-9]+)\b/i);
-    if (mm) currentPhase = mm[1];
-  }
-  if (!currentPhase) {
-    const rows = [...text.matchAll(/^\s+phase_([0-9]+):\s*"([^"]+)"/gm)];
-    for (const row of rows) {
-      if (!/complete|shipped|pass/i.test(row[2])) {
-        currentPhase = row[1];
-        break;
-      }
-    }
-  }
+  const helperPhase = resolved && resolved.phase ? String(resolved.phase) : '';
+  const frontmatterPhase = fm.current_phase || fm.phase || '';
+  const currentPhase = helperPhase || (frontmatterPhase ? String(frontmatterPhase).replace(/^P/i, '') : '');
   return {
     path: statePath,
     mtimeMs: statMs(statePath),
-    milestone: fm.milestone || '',
+    milestone: resolved && resolved.milestone ? resolved.milestone : (fm.milestone || ''),
     milestoneName: fm.milestone_name || '',
-    currentPhase: currentPhase ? String(currentPhase).replace(/^P/i, '') : '',
+    currentPhase,
+    phaseSource: helperPhase
+      ? (resolved && resolved.phaseSource ? resolved.phaseSource : 'sgsd-state')
+      : (currentPhase ? 'frontmatter_current_phase' : 'unavailable'),
     status: fm.status || '',
     raw: text
   };
@@ -267,6 +263,74 @@ function maxCandidate(candidates) {
   return candidates
     .filter(c => c && Number.isFinite(c.ms))
     .sort((a, b) => b.ms - a.ms)[0] || null;
+}
+
+function comparePathKey(p) {
+  const resolved = path.resolve(p);
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+function isSubpath(root, candidate) {
+  const rel = path.relative(comparePathKey(root), comparePathKey(candidate));
+  return rel === '' || (!!rel && !rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+function nearestExistingAncestor(candidate) {
+  let cur = path.resolve(String(candidate || ''));
+  for (;;) {
+    try {
+      fs.lstatSync(cur);
+      return cur;
+    } catch (err) {
+      if (err && err.code !== 'ENOENT' && err.code !== 'ENOTDIR') throw err;
+      const parent = path.dirname(cur);
+      if (parent === cur) throw new Error(`no existing ancestor for path: ${candidate}`);
+      cur = parent;
+    }
+  }
+}
+
+function resolveViaNearestExistingAncestor(candidate) {
+  const resolved = path.resolve(String(candidate || ''));
+  const existing = nearestExistingAncestor(resolved);
+  const realExisting = fs.realpathSync(existing);
+  return path.resolve(realExisting, path.relative(existing, resolved));
+}
+
+function watchdogWriteTargets(root, result, checkpoint) {
+  const targets = [path.join(root, '.planning', 'metrics', 'autopilot-watchdog.json')];
+  if (result.status === 'stalled') {
+    targets.push(path.join(root, '.planning', 'AUTOPILOT-RECOVERY.md'));
+    targets.push(path.join(root, '.planning', 'metrics', 'stall-log.jsonl'));
+    if (checkpoint) targets.push(path.join(root, '.planning', 'ORCHESTRATOR-CHECKPOINT.md'));
+  }
+  return targets;
+}
+
+function resolveWritableSgsdRoot(projectDir, result, checkpoint) {
+  try {
+    const root = path.resolve(projectDir);
+    if (result && result.reason === 'no .planning directory') {
+      return { ok: false, reason: result.reason };
+    }
+    const sgsdRoot = findSgsdRoot(root);
+    if (!sgsdRoot || comparePathKey(sgsdRoot) !== comparePathKey(root)) {
+      return { ok: false, reason: 'no SGSD root at --project-dir' };
+    }
+    if (!exists(path.join(root, '.planning')) || !exists(path.join(root, '.planning', 'STATE.md'))) {
+      return { ok: false, reason: 'no .planning directory' };
+    }
+    const realRoot = fs.realpathSync(root);
+    for (const target of watchdogWriteTargets(root, result, checkpoint)) {
+      const realTarget = resolveViaNearestExistingAncestor(target);
+      if (!isSubpath(realRoot, realTarget)) {
+        return { ok: false, reason: `write target escapes SGSD root: ${target}` };
+      }
+    }
+    return { ok: true, root };
+  } catch (err) {
+    return { ok: false, reason: `write target validation failed: ${err.message}` };
+  }
 }
 
 function buildRecoveryMarkdown(result) {
@@ -452,6 +516,46 @@ function check(projectDir, opts = {}) {
   };
 }
 
+function selfTestPhaseResolution() {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-watchdog-phase-'));
+  try {
+    const phaseDir = path.join(tmp, '.planning', 'milestones', 'vX', 'phases', '146-frontmatter-wins');
+    ensureDir(phaseDir);
+    writeText(path.join(tmp, '.planning', 'STATE.md'), `---
+milestone: vX
+milestone_name: Phase Resolution Test
+current_phase: 146
+status: Phase 999 active prose must be ignored
+---
+progress:
+  phase_888: "PENDING - prose row must be ignored"
+`);
+    writeText(path.join(phaseDir, '146-CONTEXT.md'), '# frontmatter fixture\n');
+    let r = check(tmp, { warnMin: 1, staleMin: 2 });
+    if (r.phase !== '146') throw new Error(`expected current_phase 146, got ${r.phase}`);
+    if (r.active_phase_dir !== '.planning/milestones/vX/phases/146-frontmatter-wins') {
+      throw new Error(`expected frontmatter active phase dir, got ${r.active_phase_dir}`);
+    }
+
+    writeText(path.join(tmp, '.planning', 'STATE.md'), `---
+milestone: vX
+milestone_name: Phase Resolution Test
+status: Phase 777 active prose must be ignored
+---
+progress:
+  phase_888: "PENDING - prose row must be ignored"
+`);
+    r = check(tmp, { warnMin: 1, staleMin: 2 });
+    if (r.phase === '777' || r.phase === '888') {
+      throw new Error(`prose-derived phase leaked through: ${r.phase}`);
+    }
+    if (r.phase !== '') throw new Error(`expected no phase without frontmatter, got ${r.phase}`);
+    console.log('autopilot-watchdog phase-resolution self-test: PASS');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 function selfTest() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-watchdog-'));
   try {
@@ -537,8 +641,13 @@ function selfTest() {
 function main() {
   const args = parseArgs(process.argv);
   if (args.selfTest) return selfTest();
+  if (args.selfTestPhaseResolution) return selfTestPhaseResolution();
   const result = check(args.projectDir, args);
-  if (args.write) writeOutputs(path.resolve(args.projectDir), result, args.checkpoint);
+  if (args.write) {
+    const writeRoot = resolveWritableSgsdRoot(args.projectDir, result, args.checkpoint);
+    if (writeRoot.ok) writeOutputs(writeRoot.root, result, args.checkpoint);
+    else console.error(`autopilot-watchdog: write skipped: ${writeRoot.reason}`);
+  }
   if (args.json) console.log(JSON.stringify(result, null, 2));
   else {
     const age = result.durable_progress_age_min === null ? '?' : result.durable_progress_age_min;

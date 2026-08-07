@@ -31,9 +31,7 @@
     "plan_format": "compressed_xml",
     "state_read": "frontmatter_only",
     "context_injection": "sgsd_recall",
-    "agent_rules_header_tokens": 80,
-    "context_warning_percent": 70,
-    "checkpoint_threshold_percent": 100000
+    "agent_rules_header_tokens": 80
   },
   "cost_ratios": {
     "opus": 1.0,
