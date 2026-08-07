@@ -1,0 +1,2 @@
+super-gsd/hooks/sgsd-intent-classifier.cjs
+super-gsd/hooks/sgsd-quality-gate.js

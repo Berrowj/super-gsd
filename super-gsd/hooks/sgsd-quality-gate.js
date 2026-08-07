@@ -16,16 +16,48 @@ const {
   readState,
 } = require('../scripts/lib/sgsd-state.cjs');
 const { logGateEvidence } = require('../scripts/lib/gate-evidence-log.cjs');
+const {
+  REGISTRY_SOURCE_PATH,
+  parseRegistryYaml,
+} = require('./sgsd-intent-classifier.cjs');
 
 const CONFIRMED_MUTATION_TOOLS = Object.freeze(['Edit', 'Write', 'NotebookEdit']);
-const MUTATION_TOOL_SET = new Set(CONFIRMED_MUTATION_TOOLS);
 const MISSING_PLAN_SIGNAL = 'missing_plan';
+const DEGRADED_SIGNAL = 'quality_gate_degraded';
+const QUALITY_ROUTE_ID = 'quality-gate-missing-plan';
 
 function safeWarn(reason) {
   try {
     process.stderr.write(`[SGSD] sgsd-quality-gate ${String(reason || 'degraded')}\n`);
   } catch {
     // Error reporting must not become the error path.
+  }
+}
+
+function appendFailureRow(root, reason, payload, extra) {
+  safeWarn(reason);
+  try {
+    if (!root) return false;
+    const state = readState(root) || {};
+    return Boolean(logGateEvidence(root, {
+      signal: DEGRADED_SIGNAL,
+      status: 'fail',
+      reason_codes: [String(reason || 'degraded')],
+      artifacts: [{ kind: 'registry', path: REGISTRY_SOURCE_PATH }],
+      evidence: [],
+      next_action: 'Inspect the SGSD quality gate hook degraded path.',
+      risk: 'medium',
+      duration_ms: payloadDuration(payload),
+      phase: state.phase || null,
+      milestone: state.milestone || null,
+      hook_event_name: payload && payload.hook_event_name || null,
+      session_id: payload && payload.session_id || null,
+      tool_name: toolName(payload) || null,
+      file_path: editedFilePath(payload),
+      ...(extra && typeof extra === 'object' ? extra : {}),
+    }));
+  } catch {
+    return false;
   }
 }
 
@@ -82,6 +114,24 @@ function payloadDuration(payload) {
   return rounded >= 0 ? rounded : null;
 }
 
+function list(value) {
+  return Array.isArray(value) ? value.filter((v) => typeof v === 'string' && v) : [];
+}
+
+function registryMutationToolSet(root, payload) {
+  try {
+    const registry = parseRegistryYaml(fs.readFileSync(REGISTRY_SOURCE_PATH, 'utf8'));
+    const routes = registry && Array.isArray(registry.routes) ? registry.routes : [];
+    const route = routes.find((item) => item && item.id === QUALITY_ROUTE_ID);
+    const names = list(route && route.trigger && route.trigger.tool_names);
+    if (names.length === 0) throw new Error('quality gate registry route has no tool_names');
+    return new Set(names);
+  } catch {
+    appendFailureRow(root, 'registry_unavailable', payload);
+    return new Set(CONFIRMED_MUTATION_TOOLS);
+  }
+}
+
 function appendMissingPlan(root, payload, state, name) {
   try {
     const row = logGateEvidence(root, {
@@ -101,35 +151,45 @@ function appendMissingPlan(root, payload, state, name) {
       hook_event_name: payload.hook_event_name || null,
       session_id: payload.session_id || null,
     });
-    if (!row) safeWarn('evidence_append_failed');
+    if (!row) {
+      appendFailureRow(root, 'evidence_append_failed', payload, {
+        failed_signal: MISSING_PLAN_SIGNAL,
+      });
+    }
   } catch {
-    safeWarn('missing_plan_emit_failed');
+    appendFailureRow(root, 'evidence_append_failed', payload, {
+      failed_signal: MISSING_PLAN_SIGNAL,
+    });
   }
 }
 
-function observePostToolUse(payload) {
+function observePostToolUse(payload, root) {
   if (!payload || payload.hook_event_name !== 'PostToolUse') return;
 
+  const resolvedRoot = root === undefined ? rootFromPayload(payload) : root;
+  if (!resolvedRoot) return;
+
   const name = toolName(payload);
-  if (!MUTATION_TOOL_SET.has(name)) return;
+  if (!registryMutationToolSet(resolvedRoot, payload).has(name)) return;
 
-  const root = rootFromPayload(payload);
-  if (!root) return;
-
-  const state = readState(root);
+  const state = readState(resolvedRoot);
   if (!state || !state.phase) return;
 
-  const plans = findPlanLockedFiles(root, state.phase);
+  const plans = findPlanLockedFiles(resolvedRoot, state.phase);
   if (plans.length > 0) return;
 
-  appendMissingPlan(root, payload, state, name);
+  appendMissingPlan(resolvedRoot, payload, state, name);
 }
 
 function main() {
+  let payload = {};
+  let root = null;
   try {
-    observePostToolUse(parsePayload(readStdin()));
+    payload = parsePayload(readStdin());
+    root = rootFromPayload(payload);
+    observePostToolUse(payload, root);
   } catch {
-    safeWarn('unexpected_degraded');
+    appendFailureRow(root, 'quality_gate_unexpected_error', payload);
   }
 }
 
@@ -137,8 +197,8 @@ if (require.main === module) main();
 
 module.exports = {
   CONFIRMED_MUTATION_TOOLS,
+  DEGRADED_SIGNAL,
   MISSING_PLAN_SIGNAL,
   parsePayload,
   observePostToolUse,
 };
-
