@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.5",
+  "phase": "146",
+  "phase_name": "Session Governance Hooks",
+  "status": "UNKNOWN",
+  "goal": "",
+  "outputs": [
+    {
+      "kind": "plan",
+      "path": ".planning/milestones/v3.5/phases/146-session-governance-hooks/146-ATC-GAP-PLAN.md"
+    },
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v3.5/phases/146-session-governance-hooks/146-ATC-REVIEW.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v3.5/phases/146-session-governance-hooks/146-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v3.5/phases/146-session-governance-hooks/146-VERIFICATION.md"
+    }
+  ],
+  "files": [],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 0
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [],
+  "source_hashes": {
+    "context": null,
+    "research": {
+      "path": ".planning/milestones/v3.5/phases/146-session-governance-hooks/146-RESEARCH.md",
+      "sha256": "ed211df5f96e6cd9ce845f9e42c47e74a9bd6d2415ce06772dd86ee1a6777f54"
+    },
+    "plan": [
+      {
+        "path": ".planning/milestones/v3.5/phases/146-session-governance-hooks/146-ATC-GAP-PLAN.md",
+        "sha256": "257c6a2c84cce84aac0bef071b754ad70f4f81afb6990dca77175d57331fa370"
+      }
+    ],
+    "verification": {
+      "path": ".planning/milestones/v3.5/phases/146-session-governance-hooks/146-VERIFICATION.md",
+      "sha256": "64716b5f3a35de3b10020ae070a26c297ff7ec9c4c8c27a7958c674b05e4aca2"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v3.5/phases/146-session-governance-hooks/146-ATC-REVIEW.md",
+      "sha256": "32e6d1e7e08f3d974ce10cba56e2c74a5e10cba2c3fe0916908678917429d4b3"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "UNKNOWN",
+      "ref": ".planning/milestones/v3.5/phases/146-session-governance-hooks/146-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v3.5/phases/146-session-governance-hooks/146-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-08-06T00:25:45Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T00:36:37Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T00:51:26Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T00:55:11Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T01:00:00Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T01:10:30Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T01:24:39Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T01:28:05Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T01:43:47Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T01:45:17Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T01:53:12Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T10:07:15Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T10:36:57Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T11:54:49Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T12:15:11Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T12:46:11Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T15:10:11Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T15:29:46Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-06T23:51:17Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-07T00:10:55Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-07T00:57:23Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-07T01:28:56Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-07T01:34:21Z",
+        "exit": 5,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-08-07T01:37:44.594Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@8f2996955985"
+}
