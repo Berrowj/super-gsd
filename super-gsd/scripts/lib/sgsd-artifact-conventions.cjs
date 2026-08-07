@@ -370,6 +370,7 @@ function _baseConvention(root, suppliedState) {
     return {
       convention: 'unknown',
       reason_code: 'planning_missing',
+      convention_basis: 'none',
       evidence: [],
       plans: [],
       assurance: [],
@@ -383,6 +384,7 @@ function _baseConvention(root, suppliedState) {
     return {
       convention: 'unknown',
       reason_code: 'state_phase_unknown',
+      convention_basis: 'none',
       evidence: [_rel(repoRoot, resolveContainedPath(repoRoot, path.join('.planning', 'STATE.md')) || planning)],
       plans: [],
       assurance: [],
@@ -392,12 +394,11 @@ function _baseConvention(root, suppliedState) {
   }
 
   const gsdedits = _loadGsdeditsArtifacts(repoRoot, state);
-  if (_stateLooksLikeGsdedits(repoRoot, state) || gsdedits.plans.length > 0 || gsdedits.assurance.length > 0) {
+  if (gsdedits.plans.length > 0 || gsdedits.assurance.length > 0) {
     return {
       convention: 'gsdedits',
-      reason_code: gsdedits.plans.length > 0 || gsdedits.assurance.length > 0
-        ? 'gsdedits_artifacts_discovered'
-        : 'gsdedits_state_detected',
+      reason_code: 'gsdedits_artifacts_discovered',
+      convention_basis: 'artifact_evidence',
       evidence: [...gsdedits.plans, ...gsdedits.assurance].map((item) => item.path),
       plans: gsdedits.plans,
       assurance: gsdedits.assurance,
@@ -411,6 +412,20 @@ function _baseConvention(root, suppliedState) {
     return {
       convention: 'discovered',
       reason_code: 'repo_local_convention_discovered',
+      convention_basis: 'artifact_evidence',
+      evidence: [...discovered.plans, ...discovered.assurance].map((item) => item.path),
+      plans: discovered.plans,
+      assurance: discovered.assurance,
+      state,
+      repoRoot
+    };
+  }
+
+  if (_stateLooksLikeGsdedits(repoRoot, state)) {
+    return {
+      convention: 'gsdedits',
+      reason_code: 'gsdedits_state_detected',
+      convention_basis: 'heuristic',
       evidence: [...discovered.plans, ...discovered.assurance].map((item) => item.path),
       plans: discovered.plans,
       assurance: discovered.assurance,
@@ -422,6 +437,7 @@ function _baseConvention(root, suppliedState) {
   return {
     convention: 'unknown',
     reason_code: 'convention_unknown',
+    convention_basis: 'none',
     evidence: [],
     plans: discovered.plans,
     assurance: discovered.assurance,
@@ -436,10 +452,11 @@ function discoverConvention(root) {
     return {
       convention: result.convention,
       reason_code: result.reason_code,
+      convention_basis: result.convention_basis || 'none',
       evidence: Array.isArray(result.evidence) ? result.evidence.slice() : []
     };
   } catch {
-    return { convention: 'unknown', reason_code: 'convention_error', evidence: [] };
+    return { convention: 'unknown', reason_code: 'convention_error', convention_basis: 'none', evidence: [] };
   }
 }
 

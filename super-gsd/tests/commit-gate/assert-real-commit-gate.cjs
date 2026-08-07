@@ -493,7 +493,12 @@ function assertShadowRowHasPerPathEvidence(row) {
   assert(Array.isArray(row.staged_paths), 'staged_paths must be present');
   assert(Array.isArray(row.path_evidence), 'path_evidence must be present');
   assert(row.path_evidence.length > 0, 'path_evidence must not be empty');
+  for (const item of row.staged_paths) {
+    assert.strictEqual(typeof item, 'string', 'staged_paths entries are path strings');
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(Object(item), 'path'), false, 'staged path objects belong in path_evidence, not staged_paths');
+  }
   for (const record of row.path_evidence) {
+    assert(record && typeof record === 'object' && !Array.isArray(record), 'path_evidence carries per-path records');
     assert(Object.prototype.hasOwnProperty.call(record, 'path'), 'path evidence missing path');
     assert(Object.prototype.hasOwnProperty.call(record, 'source_touching'), 'path evidence missing source_touching');
     assert(Object.prototype.hasOwnProperty.call(record, 'evidence_status'), 'path evidence missing evidence_status');
@@ -749,6 +754,40 @@ function assertConventionUnknown() {
   }
 }
 
+function assertDevcpSuperGsdPrefersArtifactEvidence() {
+  const fixture = createTempGitRepo({ repoId: 'devcp', phase: '147', milestone: 'v3.5' });
+  try {
+    const { discoverConvention, evaluatePaths } = loadConventions();
+    writeContainedFile(fixture.repoDir, path.join('super-gsd', 'hooks', 'fixture.cjs'), 'module.exports = true;\n');
+    writeDiscoveredEvidence(fixture, ['src/**']);
+
+    const discovered = discoverConvention(fixture.repoDir);
+    assert.strictEqual(discovered.convention, 'discovered');
+    assert.strictEqual(discovered.reason_code, 'repo_local_convention_discovered');
+    assert.strictEqual(discovered.convention_basis, 'artifact_evidence');
+    assert(discovered.evidence.some((item) => /147-devcp-PLAN\.md$/.test(item)), 'devcp plan evidence should be visible');
+
+    const records = evaluatePaths(fixture.repoDir, [{ status: 'M', path: 'src/index.cjs' }], readState(fixture.repoDir));
+    assert.strictEqual(records.length, 1);
+    assert.strictEqual(records[0].evidence_status, 'backed');
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+function assertHeuristicConventionIsLabeled() {
+  const fixture = createTempGitRepo({ repoId: 'GSDedits-heuristic', phase: '147', milestone: 'v3.5' });
+  try {
+    const { discoverConvention } = loadConventions();
+    writeContainedFile(fixture.repoDir, path.join('super-gsd', 'hooks', 'fixture.cjs'), 'module.exports = true;\n');
+    const discovered = discoverConvention(fixture.repoDir);
+    assert.strictEqual(discovered.convention, 'gsdedits');
+    assert.strictEqual(discovered.reason_code, 'gsdedits_state_detected');
+    assert.strictEqual(discovered.convention_basis, 'heuristic');
+  } finally {
+    fixture.cleanup();
+  }
+}
 function assertPerPathGranularity() {
   const fixture = createTempGitRepo({ repoId: 'GSDedits-per-path', phase: '147', milestone: 'v3.5' });
   try {
@@ -772,6 +811,8 @@ function assertAllArtifactConventionCases() {
   assertGsdeditsBacked();
   assertFalsePlanAuditMissing();
   assertConventionUnknown();
+  assertDevcpSuperGsdPrefersArtifactEvidence();
+  assertHeuristicConventionIsLabeled();
   assertPerPathGranularity();
 }
 
@@ -1181,8 +1222,36 @@ function appendSyntheticShadowRows(fixture, count, falseBlockCount, options = {}
   }
 }
 
+function appendSyntheticNonSourceRows(fixture, count, options = {}) {
+  const { appendShadowRow } = loadShadowLog();
+  const repoBase = path.basename(fixture.repoDir);
+  for (let index = 0; index < count; index += 1) {
+    const stagedPath = options.pathPrefix ? `${options.pathPrefix}/non-source-${index}.md` : `docs/non-source-${index}.md`;
+    const evidence = [{
+      path: stagedPath,
+      source_touching: false,
+      evidence_status: 'not_source',
+      matched_artifacts: [],
+      reason_code: 'not_source'
+    }];
+    const row = appendShadowRow(fixture.repoDir, sampleShadowRow({
+      status: 'ok',
+      repo_id: repoBase,
+      commit_candidate: `synthetic-non-source-${repoBase}-${index}`,
+      diff_content: `diff-non-source-${repoBase}-${index}\n`,
+      artifact_convention_status: options.conventionStatus || 'repo_local_convention_discovered',
+      staged_paths: [stagedPath],
+      path_evidence: evidence,
+      would_warn: false,
+      would_block: false,
+      false_block_basis: [],
+      reason_codes: ['not_source']
+    }));
+    assert(row, 'synthetic non-source report row must be written by appendShadowRow');
+  }
+}
 function createReportPair(options = {}) {
-  const gsd = createBareSgsdFixture({ repoId: 'GSDedits', phase: '147', milestone: 'v3.5' });
+  const gsd = createTempGitRepo({ repoId: 'GSDedits', phase: '147', milestone: 'v3.5' });
   const devcp = createBareSgsdFixture({ repoId: 'devcp', phase: '147', milestone: 'v3.5' });
   Object.assign(gsd, { phase: '147', milestone: 'v3.5' });
   Object.assign(devcp, { phase: '147', milestone: 'v3.5' });
@@ -1201,6 +1270,22 @@ function createReportPair(options = {}) {
   }
 }
 
+function activateBlockModeForFixture(fixture, options = {}) {
+  const devcp = createBareSgsdFixture({ repoId: 'devcp', phase: fixture.phase || '147', milestone: fixture.milestone || 'v3.5' });
+  Object.assign(devcp, { phase: fixture.phase || '147', milestone: fixture.milestone || 'v3.5' });
+  try {
+    if (options.writeGsdeditsEvidence !== false) writeGsdeditsEvidence(fixture, options.gsdAllowed || ['super-gsd/scripts/lib/**']);
+    writeDiscoveredEvidence(devcp, options.devcpAllowed || ['src/**']);
+    appendSyntheticShadowRows(fixture, options.gsdRows ?? 102, options.gsdFalseBlocks ?? 5);
+    appendSyntheticShadowRows(devcp, options.devcpRows ?? 102, options.devcpFalseBlocks ?? 5);
+    const result = runActualHookInProcess(fixture.repoDir, ['--activate-block', '--repo-root', devcp.repoDir]);
+    assert.strictEqual(result.status, 0, `activation fixture should enter block mode: ${result.stderr}`);
+    assert.strictEqual(fs.existsSync(modeFilePath(fixture)), true, 'activation fixture must write mode file');
+    return result;
+  } finally {
+    devcp.cleanup();
+  }
+}
 function repoSummary(report, repoKey) {
   return report.repos.find((repo) => repo.repo_key === repoKey);
 }
@@ -1230,6 +1315,35 @@ function assertShadowReportMath() {
     lowPair.cleanup();
   }
 
+  const belowRepoFloorPair = createReportPair({ gsdRows: 160, devcpRows: 40 });
+  try {
+    const report = buildShadowReport([belowRepoFloorPair.gsd.repoDir, belowRepoFloorPair.devcp.repoDir]);
+    assert.strictEqual(report.falsifier.passed, false);
+    assert(report.falsifier.reason_codes.includes('insufficient_repo_payloads_devcp'));
+    assert.strictEqual(report.falsifier.min_required_repo_real_payloads, 50);
+    assert.strictEqual(report.total.real_payload_count, 200, 'global floor alone must not activate block mode');
+  } finally {
+    belowRepoFloorPair.cleanup();
+  }
+
+  const zeroSourceGsd = createBareSgsdFixture({ repoId: 'GSDedits', phase: '147', milestone: 'v3.5' });
+  const zeroSourceDevcp = createBareSgsdFixture({ repoId: 'devcp', phase: '147', milestone: 'v3.5' });
+  Object.assign(zeroSourceGsd, { phase: '147', milestone: 'v3.5' });
+  Object.assign(zeroSourceDevcp, { phase: '147', milestone: 'v3.5' });
+  try {
+    writeGsdeditsEvidence(zeroSourceGsd, ['super-gsd/scripts/lib/**']);
+    writeDiscoveredEvidence(zeroSourceDevcp, ['src/**']);
+    appendSyntheticShadowRows(zeroSourceGsd, 240, 0);
+    appendSyntheticNonSourceRows(zeroSourceDevcp, 50);
+    const report = buildShadowReport([zeroSourceGsd.repoDir, zeroSourceDevcp.repoDir]);
+    assert.strictEqual(report.falsifier.passed, false);
+    assert(report.falsifier.reason_codes.includes('no_source_evidence_devcp'));
+    assert.strictEqual(repoSummary(report, 'GSDedits').real_payload_count, 240);
+    assert.strictEqual(repoSummary(report, 'devcp').source_touching_count, 0);
+  } finally {
+    zeroSourceGsd.cleanup();
+    zeroSourceDevcp.cleanup();
+  }
   const highFalsePair = createReportPair({ gsdRows: 98, devcpRows: 102, gsdFalseBlocks: 5 });
   try {
     const report = buildShadowReport([highFalsePair.gsd.repoDir, highFalsePair.devcp.repoDir]);
@@ -1298,6 +1412,21 @@ function assertShadowReportActivation() {
     failing.cleanup();
   }
 
+  const bareMode = createTempGitRepo({ repoId: 'GSDedits-bare-mode', phase: '147', milestone: 'v3.5' });
+  try {
+    writeContainedFile(bareMode.repoDir, path.join('.planning', 'config', 'commit-gate-mode.json'), `${JSON.stringify({ mode: 'block' }, null, 2)}\n`);
+    const sourcePath = 'custom-gsd-extract/bare-mode-should-warn.cjs';
+    writeContainedFile(bareMode.repoDir, sourcePath, 'module.exports = "bare";\n');
+    stagePaths(bareMode.repoDir, [sourcePath]);
+    const result = runActualHookInProcess(bareMode.repoDir);
+    assert.strictEqual(result.status, 0, `bare block mode file must warn/fail-open: ${result.stderr}`);
+    assert.match(result.stderr, /mode_file_invalid/);
+    assert.doesNotMatch(result.stderr, /commit gate blocked/i);
+    const rows = readJsonl(bareMode.repoDir, path.join('.planning', 'metrics', 'commit-gate-shadow.jsonl'));
+    assert(rows.some((row) => row.artifact_convention_status === 'degraded' && row.reason_codes.includes('mode_file_invalid')), 'bare mode file must append a degraded invalid-mode row');
+  } finally {
+    bareMode.cleanup();
+  }
   const passing = createReportPair({ gsdRows: 102, devcpRows: 102, gsdFalseBlocks: 5, devcpFalseBlocks: 5 });
   try {
     const result = runActualHookInProcess(passing.gsd.repoDir, ['--activate-block', '--repo-root', passing.devcp.repoDir]);
@@ -1308,6 +1437,25 @@ function assertShadowReportActivation() {
     assert.strictEqual(mode.report_summary.total_real_payload_count, 204);
     assert(typeof mode.activated_at === 'string' && mode.activated_at.length > 0, 'activation timestamp must be embedded');
     assert(typeof mode.activated_by === 'string' && mode.activated_by.length > 0, 'activation actor must be embedded');
+    assert.match(mode.integrity_digest, /^[a-f0-9]{64}$/i, 'activation mode file must carry an integrity digest');
+
+    const activatedBlockPath = 'custom-gsd-extract/activated-block.cjs';
+    writeContainedFile(passing.gsd.repoDir, activatedBlockPath, 'module.exports = "activated";\n');
+    stagePaths(passing.gsd.repoDir, [activatedBlockPath]);
+    const activatedBlock = runActualHookInProcess(passing.gsd.repoDir);
+    assert.strictEqual(activatedBlock.status, 10, `genuine activation-written mode file must be honored: ${activatedBlock.stderr}`);
+    assert.match(activatedBlock.stderr, /commit gate blocked/i);
+
+    const originalModeText = fs.readFileSync(modeFilePath(passing.gsd), 'utf8');
+    const tamperedModeText = originalModeText.replace(/("total_real_payload_count":\s*)204/, (match, prefix) => `${prefix}205`);
+    assert.notStrictEqual(tamperedModeText, originalModeText, 'test must tamper one activation summary digit');
+    fs.writeFileSync(modeFilePath(passing.gsd), tamperedModeText, 'utf8');
+    const tampered = runActualHookInProcess(passing.gsd.repoDir);
+    assert.strictEqual(tampered.status, 0, `tampered mode file must degrade to warn: ${tampered.stderr}`);
+    assert.match(tampered.stderr, /mode_file_invalid/);
+    assert.doesNotMatch(tampered.stderr, /commit gate blocked/i);
+    const tamperedRows = readJsonl(passing.gsd.repoDir, path.join('.planning', 'metrics', 'commit-gate-shadow.jsonl'));
+    assert(tamperedRows.some((row) => row.reason_codes.includes('mode_file_invalid')), 'tampered mode file must append invalid-mode evidence');
 
     const deactivated = runActualHookInProcess(passing.gsd.repoDir, ['--deactivate-block']);
     assert.strictEqual(deactivated.status, 0, `deactivation should exit 0: ${deactivated.stderr}`);
@@ -1481,8 +1629,10 @@ function assertInstallerTrampolineRealCommit() {
     copyCommitGateRuntime(blockFixture);
     const install = runInstaller(blockFixture.repoDir, ['--install']);
     assert.strictEqual(install.status, 0, `install should exit 0: ${install.stderr}`);
-    writeContainedFile(blockFixture.repoDir, path.join('.planning', 'config', 'commit-gate-mode.json'), `${JSON.stringify({ mode: 'block' }, null, 2)}\n`);
-    const sourcePath = 'super-gsd/scripts/lib/blocked-real-commit.cjs';
+    activateBlockModeForFixture(blockFixture);
+    const mode = JSON.parse(fs.readFileSync(modeFilePath(blockFixture), 'utf8'));
+    assert.match(mode.integrity_digest, /^[a-f0-9]{64}$/i, 'real commit block fixture must use earned activation file');
+    const sourcePath = 'custom-gsd-extract/blocked-real-commit.cjs';
     writeContainedFile(blockFixture.repoDir, sourcePath, 'module.exports = "block";\n');
     stagePaths(blockFixture.repoDir, [sourcePath]);
     const blocked = commitWithMessage(blockFixture.repoDir, 'block mode fixture');
@@ -1492,6 +1642,26 @@ function assertInstallerTrampolineRealCommit() {
     assert(staged.includes(sourcePath), 'blocked commit must leave source path staged');
   } finally {
     blockFixture.cleanup();
+  }
+
+  const writeFailFixture = createTempGitRepo({ repoId: 'GSDedits-trampoline-write-fail-block', phase: '147', milestone: 'v3.5' });
+  try {
+    copyCommitGateRuntime(writeFailFixture);
+    const install = runInstaller(writeFailFixture.repoDir, ['--install']);
+    assert.strictEqual(install.status, 0, `install should exit 0: ${install.stderr}`);
+    activateBlockModeForFixture(writeFailFixture);
+    fs.rmSync(contained(writeFailFixture.repoDir, path.join('.planning', 'metrics')), { recursive: true, force: true });
+    writeContainedFile(writeFailFixture.repoDir, path.join('.planning', 'metrics'), 'metrics is a file\n');
+    const sourcePath = 'custom-gsd-extract/write-failed-block.cjs';
+    writeContainedFile(writeFailFixture.repoDir, sourcePath, 'module.exports = "write-failed-block";\n');
+    stagePaths(writeFailFixture.repoDir, [sourcePath]);
+    const committed = commitWithMessage(writeFailFixture.repoDir, 'write failed block fixture');
+    assert.strictEqual(committed.status, 0, `would-block write failure must fail open: ${committed.stderr}`);
+    assert.match(committed.stderr, /would have blocked/i);
+    assert.match(committed.stderr, /shadow_ledger_append_failed|decision_shadow_row_not_persisted/);
+    assert.match(committed.stderr, /degrad/i);
+  } finally {
+    writeFailFixture.cleanup();
   }
 }
 

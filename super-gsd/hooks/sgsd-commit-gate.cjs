@@ -33,6 +33,7 @@ const MODE_BLOCK = 'block';
 const ARTIFACT_PREDICATE_VERSION = 't147-01';
 const SENTINEL_FILE = '.sgsd-gate-off';
 const SIGNAL = 'commit_gate_shadow';
+const MODE_FILE_DIGEST_CONTEXT = 'sgsd.commit-gate.block-mode.v1';
 
 function oneLine(value) {
   return String(value || '').replace(/[\r\n]+/g, ' ').slice(0, 300);
@@ -231,6 +232,16 @@ function appendRow(root, row) {
   if (!written) breadcrumb('shadow_row_append_refused', row && Array.isArray(row.reason_codes) ? row.reason_codes.join(',') : 'unknown');
   return written;
 }
+function shadowWriteFailureReason(written) {
+  if (!written) return 'shadow_row_append_refused';
+  const reasons = Array.isArray(written.reason_codes) ? written.reason_codes : [];
+  if (reasons.includes('shadow_ledger_append_failed')) return 'shadow_ledger_append_failed';
+  return null;
+}
+
+function shadowDecisionRowPersisted(written) {
+  return Boolean(written) && shadowWriteFailureReason(written) === null;
+}
 
 function appendDegradedRow(root, reasonCode, detail, extra = {}) {
   breadcrumb(reasonCode, detail);
@@ -265,22 +276,81 @@ function modeFilePath(root) {
     return null;
   }
 }
+function modeFileActivationRecord(payload) {
+  return {
+    mode: payload && payload.mode,
+    activated_at: payload && payload.activated_at,
+    activated_by: payload && payload.activated_by,
+    report_summary: payload && payload.report_summary
+  };
+}
+
+function modeFileDigest(record) {
+  // No secret is available inside a local git hook. This digest is tamper-evident,
+  // not tamper-proof: it rejects bare block files and casual edits at the read seam.
+  return crypto
+    .createHash('sha256')
+    .update(`${MODE_FILE_DIGEST_CONTEXT}\n${JSON.stringify(record)}`, 'utf8')
+    .digest('hex');
+}
+
+function buildBlockModePayload(report) {
+  const record = {
+    mode: MODE_BLOCK,
+    activated_at: new Date().toISOString(),
+    activated_by: actorName(),
+    report_summary: reportSummary(report)
+  };
+  return Object.assign({}, record, {
+    integrity_digest: modeFileDigest(record)
+  });
+}
+
+function validateBlockModePayload(parsed) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { ok: false, reason_code: 'mode_file_shape_invalid' };
+  const record = modeFileActivationRecord(parsed);
+  if (record.mode !== MODE_BLOCK) return { ok: false, reason_code: 'mode_file_mode_invalid' };
+  if (typeof record.activated_at !== 'string' || !record.activated_at.trim()) return { ok: false, reason_code: 'mode_file_activation_missing' };
+  if (typeof record.activated_by !== 'string' || !record.activated_by.trim()) return { ok: false, reason_code: 'mode_file_actor_missing' };
+  if (!record.report_summary || typeof record.report_summary !== 'object' || Array.isArray(record.report_summary)) return { ok: false, reason_code: 'mode_file_report_missing' };
+  if (record.report_summary.falsifier_passed !== true || record.report_summary.verdict !== 'pass') return { ok: false, reason_code: 'mode_file_report_not_passed' };
+  if (!Number.isFinite(record.report_summary.total_real_payload_count)) return { ok: false, reason_code: 'mode_file_payload_count_invalid' };
+  if (!Number.isFinite(record.report_summary.total_false_block_rate)) return { ok: false, reason_code: 'mode_file_false_block_rate_invalid' };
+  if (!Array.isArray(record.report_summary.repos)) return { ok: false, reason_code: 'mode_file_repo_summary_invalid' };
+  if (typeof parsed.integrity_digest !== 'string' || !/^[a-f0-9]{64}$/i.test(parsed.integrity_digest)) return { ok: false, reason_code: 'mode_file_digest_missing' };
+  const expected = modeFileDigest(record);
+  if (parsed.integrity_digest.toLowerCase() !== expected) return { ok: false, reason_code: 'mode_file_digest_mismatch' };
+  return { ok: true, record };
+}
 
 function readCommitGateMode(root) {
   const filePath = modeFilePath(root);
-  if (!filePath) return { mode: MODE_WARN, reason_codes: ['mode_file_containment_refused'] };
+  if (!filePath) return { mode: MODE_WARN, reason_codes: ['mode_file_containment_refused'], invalid: true, detail: 'mode_file_containment_refused' };
   if (!fs.existsSync(filePath)) return { mode: MODE_WARN, reason_codes: [] };
 
+  let raw;
   try {
-    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    if (parsed && parsed.mode === MODE_BLOCK) return { mode: MODE_BLOCK, reason_codes: [] };
-    if (parsed && parsed.mode === MODE_WARN) return { mode: MODE_WARN, reason_codes: [] };
-    breadcrumb('mode_file_invalid', filePath);
-    return { mode: MODE_WARN, reason_codes: ['mode_file_invalid'] };
+    raw = fs.readFileSync(filePath, 'utf8');
   } catch (error) {
-    breadcrumb('mode_file_unreadable', error && (error.code || error.message));
-    return { mode: MODE_WARN, reason_codes: ['mode_file_unreadable'] };
+    const detail = error && (error.code || error.message) || 'read_failed';
+    breadcrumb('mode_file_unreadable', detail);
+    return { mode: MODE_WARN, reason_codes: ['mode_file_unreadable'], invalid: true, detail };
   }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    const detail = error && error.message || 'json_parse_failed';
+    breadcrumb('mode_file_invalid', detail);
+    return { mode: MODE_WARN, reason_codes: ['mode_file_invalid'], invalid: true, detail };
+  }
+
+  const validation = validateBlockModePayload(parsed);
+  if (validation.ok) return { mode: MODE_BLOCK, reason_codes: [], activation_record: validation.record };
+
+  breadcrumb('mode_file_invalid', validation.reason_code || filePath);
+  return { mode: MODE_WARN, reason_codes: ['mode_file_invalid'], invalid: true, detail: validation.reason_code || 'mode_file_invalid' };
 }
 
 function printWarnSummary(unbackedRecords) {
@@ -387,6 +457,18 @@ function evaluateCommitAttempt(root) {
   const modeInfo = readCommitGateMode(root);
   const mode = modeInfo.mode;
   const conventionReasons = Array.isArray(modeInfo.reason_codes) ? modeInfo.reason_codes.slice() : [];
+  if (modeInfo.invalid) {
+    const reasonCode = conventionReasons.includes('mode_file_invalid')
+      ? 'mode_file_invalid'
+      : (conventionReasons[0] || 'mode_file_invalid');
+    appendDegradedRow(root, reasonCode, modeInfo.detail, {
+      entries: nameStatus.entries,
+      path_evidence: pathEvidence,
+      diff_sha256: diff.diff_sha256,
+      commit_candidate: commitCandidate(root),
+      artifact_convention_status: 'degraded'
+    });
+  }
   const conventionUnknown = !convention || convention.convention === 'unknown';
   if (conventionUnknown) {
     const reasonCode = convention && convention.reason_code || 'convention_unknown';
@@ -405,7 +487,21 @@ function evaluateCommitAttempt(root) {
   const shouldBlock = mode === MODE_BLOCK && !conventionUnknown && unbacked.length > 0;
   const status = shouldBlock ? 'blocked' : (conventionUnknown || unbacked.length > 0 ? 'warn' : 'ok');
   const row = buildNormalRow(root, state, convention || {}, nameStatus.entries, pathEvidence, diff.diff_sha256, status, mode, conventionReasons);
-  appendRow(root, row);
+  const written = appendRow(root, row);
+
+  if (shouldBlock && !shadowDecisionRowPersisted(written)) {
+    const writeFailure = shadowWriteFailureReason(written) || 'decision_shadow_row_not_persisted';
+    stderr(`[SGSD] commit gate would have blocked, but the decision shadow row did not persist (${writeFailure}); degrading to warn mode.`);
+    appendDegradedRow(root, 'decision_shadow_row_not_persisted', writeFailure, {
+      entries: nameStatus.entries,
+      path_evidence: pathEvidence,
+      diff_sha256: diff.diff_sha256,
+      commit_candidate: row.commit_candidate,
+      artifact_convention_status: 'degraded'
+    });
+    printWarnSummary(unbacked);
+    return EXIT_OK;
+  }
 
   if (unbacked.length > 0) {
     if (shouldBlock) printBlockSummary(unbacked);
@@ -497,12 +593,7 @@ function appendModeControlRow(root, reasonCode, extra = {}) {
 function writeBlockModeFile(root, report) {
   const filePath = modeFilePath(root);
   if (!filePath) return { ok: false, reason_code: 'mode_file_containment_refused' };
-  const payload = {
-    mode: MODE_BLOCK,
-    activated_at: new Date().toISOString(),
-    activated_by: actorName(),
-    report_summary: reportSummary(report)
-  };
+  const payload = buildBlockModePayload(report);
   try {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');

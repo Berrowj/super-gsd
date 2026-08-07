@@ -18,6 +18,7 @@ const REPORT_VERSION = 't147-04';
 const SIGNAL = 'commit_gate_shadow';
 const REQUIRED_REPOS = Object.freeze(['GSDedits', 'devcp']);
 const MIN_REAL_PAYLOADS = 200;
+const MIN_REAL_PAYLOADS_PER_REQUIRED_REPO = 50;
 const MAX_FALSE_BLOCK_RATE = 0.05;
 const DEFAULT_REPORT_LIMIT = 5000;
 const MODE_FILE_REL = path.join('.planning', 'config', 'commit-gate-mode.json');
@@ -48,7 +49,11 @@ const INTERNAL_REASON_CODES = Object.freeze(new Set([
   'artifact_evaluation_failed',
   'shadow_ledger_append_failed',
   'shadow_ledger_read_failed',
-  'shadow_ledger_unexpected_error'
+  'shadow_ledger_unexpected_error',
+  'mode_file_invalid',
+  'mode_file_unreadable',
+  'mode_file_containment_refused',
+  'decision_shadow_row_not_persisted'
 ]));
 
 function _asArray(value) {
@@ -302,6 +307,7 @@ function analyzeShadowRepo(root, options = {}) {
     ledger_path: ledgerState.ledger_path,
     artifact_convention_status: runtimeConvention && runtimeConvention.convention || 'unknown',
     artifact_convention_reason_code: runtimeConvention && runtimeConvention.reason_code || 'convention_unknown',
+    artifact_convention_basis: runtimeConvention && runtimeConvention.convention_basis || 'none',
     reason_codes: Array.from(reasonSet).sort()
   });
 }
@@ -322,7 +328,18 @@ function _falsifier(repos, total) {
   const byKey = new Map(repos.map((repo) => [repo.repo_key, repo]));
 
   for (const required of REQUIRED_REPOS) {
-    if (!byKey.has(required)) _addReason(reasons, `required_repo_missing_${required.toLowerCase()}`);
+    const requiredKey = required.toLowerCase();
+    const repo = byKey.get(required);
+    if (!repo) {
+      _addReason(reasons, `required_repo_missing_${requiredKey}`);
+      continue;
+    }
+    if (repo.real_payload_count < MIN_REAL_PAYLOADS_PER_REQUIRED_REPO) {
+      _addReason(reasons, `insufficient_repo_payloads_${requiredKey}`);
+    }
+    if (repo.source_touching_count <= 0) {
+      _addReason(reasons, `no_source_evidence_${requiredKey}`);
+    }
   }
 
   if (total.real_payload_count < MIN_REAL_PAYLOADS) _addReason(reasons, 'insufficient_real_payloads');
@@ -349,6 +366,7 @@ function _falsifier(repos, total) {
     reason_codes: Array.from(reasons).sort(),
     required_repos: REQUIRED_REPOS.slice(),
     min_real_payloads: MIN_REAL_PAYLOADS,
+    min_required_repo_real_payloads: MIN_REAL_PAYLOADS_PER_REQUIRED_REPO,
     max_false_block_rate_exclusive: MAX_FALSE_BLOCK_RATE
   };
 }
@@ -373,7 +391,9 @@ function reportSummary(report) {
     report_version: report && report.report_version || REPORT_VERSION,
     generated_at: report && report.generated_at || new Date().toISOString(),
     falsifier_passed: Boolean(report && report.falsifier && report.falsifier.passed),
+    verdict: report && report.falsifier && report.falsifier.passed ? 'pass' : 'fail',
     reason_codes: _asArray(report && report.falsifier && report.falsifier.reason_codes),
+    total_source_touching_count: report && report.total && report.total.source_touching_count || 0,
     total_real_payload_count: report && report.total && report.total.real_payload_count || 0,
     total_false_block_count: report && report.total && report.total.false_block_count || 0,
     total_false_block_rate: report && report.total && report.total.false_block_rate || 0,
@@ -386,6 +406,7 @@ function reportSummary(report) {
       false_block_rate: repo.false_block_rate,
       artifact_convention_status: repo.artifact_convention_status,
       artifact_convention_reason_code: repo.artifact_convention_reason_code,
+      artifact_convention_basis: repo.artifact_convention_basis || 'none',
       reason_codes: _asArray(repo.reason_codes)
     }))
   };
@@ -398,6 +419,7 @@ module.exports = {
   REPORT_VERSION,
   REQUIRED_REPOS,
   MIN_REAL_PAYLOADS,
+  MIN_REAL_PAYLOADS_PER_REQUIRED_REPO,
   MAX_FALSE_BLOCK_RATE,
   MODE_FILE_REL
 };
