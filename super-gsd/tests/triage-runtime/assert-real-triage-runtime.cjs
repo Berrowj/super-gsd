@@ -1012,7 +1012,7 @@ async function assertCodexNonzeroSingleModel() {
     assert.strictEqual(result.singleModel, true);
     assert.strictEqual(result.codex.reasonCode, 'codex_nonzero');
     const degradedRow = assertOneCodexDegradedRow(fixture, 'codex_nonzero');
-    assert.strictEqual(degradedRow.codex_exit, 41);
+    assert.strictEqual(degradedRow.codex_exit, 1, 'wrapper generic failure exit must be recorded for failing Codex');
     assert.strictEqual(degradedRow.raw_query, rawQuery);
     assert.match(degradedRow.stderr_preview || '', /fixture codex nonzero/);
     assert.strictEqual(routingRowsByEvent(fixture, 'triage_codex_verdict').length, 0);
@@ -1247,11 +1247,14 @@ async function assertCodexContractJsonSchema() {
 }
 
 async function assertAllScenarioMatrix() {
-  const names = Object.keys(scenarios).filter((name) => name !== 'all');
-  for (const name of names) {
-    await scenarios[name]();
+  const entries = [
+    ...Object.entries(scenarios).filter(([name]) => name !== 'all'),
+    ...Object.entries(scenarioAliases),
+  ];
+  for (const [, scenario] of entries) {
+    await scenario();
   }
-  return { count: names.length };
+  return { count: entries.length };
 }
 
 async function assertAcNullReflectionFallback() {
