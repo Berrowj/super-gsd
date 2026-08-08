@@ -27,6 +27,8 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 
+const CODEX_HOOK_INSTALLER = path.resolve(__dirname, '..', 'codex-hooks', 'install-hooks.cjs');
+
 const SCHEMA_VERSION = 1;
 const CODEX_MODEL = 'gpt-5.5';
 const CODEX_EFFORT = 'xhigh';
@@ -636,6 +638,26 @@ function auditProfiles() {
   return rows;
 }
 
+function auditCodexHooks(ctx) {
+  try {
+    const { inspectProject } = require(CODEX_HOOK_INSTALLER);
+    return inspectProject({ projectDir: ctx.projectDir });
+  } catch (error) {
+    return {
+      ok: false,
+      status: 'audit-error',
+      target: path.join(ctx.projectDir, '.codex', 'hooks.json'),
+      target_exists: exists(path.join(ctx.projectDir, '.codex', 'hooks.json')),
+      managed_registrations: 0,
+      missing: [],
+      stale: [],
+      duplicates: [],
+      error: error.message,
+      error_path: CODEX_HOOK_INSTALLER,
+    };
+  }
+}
+
 function mkContext(projectDir) {
   const root = sgsdRoot();
   return {
@@ -675,6 +697,7 @@ function runAudit(opts) {
   const superGsdTree = auditSuperGsdTree(ctx);
   const telemetry = auditTelemetry(ctx);
   const profiles = auditProfiles();
+  const codexHooks = auditCodexHooks(ctx);
   const orchestratorProtocol = auditOrchestratorProtocol(ctx);
   const projectClaudeMd = auditProjectClaudeMd(ctx);
 
@@ -701,6 +724,7 @@ function runAudit(opts) {
   if (missingProfileWatch.length) issues.push('powershell_profile_missing_sgsd_watch_codex');
   if (!orchestratorProtocol.ok) issues.push('orchestrator_protocol_markers_missing_or_stale');
   if (!projectClaudeMd.ok) issues.push('project_claude_md_missing_or_stale');
+  if (!codexHooks.ok) issues.push('project_codex_hooks_missing_or_stale');
 
   return {
     ok: issues.length === 0,
@@ -721,6 +745,11 @@ function runAudit(opts) {
       stale_super_gsd_tree: Boolean(superGsdTree.stale_copy),
       profile_missing_watch_codex: missingProfileWatch.length,
       project_claude_md_missing: projectClaudeMd.missing.length,
+      codex_hook_issues: (codexHooks.missing || []).length
+        + (codexHooks.stale || []).length
+        + (codexHooks.duplicates || []).length
+        + (codexHooks.status === 'malformed' || codexHooks.status === 'audit-error'
+          || codexHooks.status === 'template-error' ? 1 : 0),
     },
     global_agents: globalAgents,
     global_skills: globalSkills,
@@ -733,6 +762,7 @@ function runAudit(opts) {
     profiles,
     orchestrator_protocol: orchestratorProtocol,
     project_claude_md: projectClaudeMd,
+    codex_hooks: codexHooks,
     repaired: {
       global_agents: repairedGlobalAgents,
       global_skills: repairedGlobalSkills,
@@ -762,6 +792,7 @@ function selfTest() {
     add('run_audit_shape', snap && snap.schema_version === 1 && Array.isArray(snap.issues), 'issues=' + (snap.issues || []).length);
     add('legacy_agent_audit_shape', snap && Array.isArray(snap.global_legacy_agents) && snap.global_legacy_agents.length === 3, 'count=' + ((snap && snap.global_legacy_agents) || []).length);
     add('project_claude_md_audit_shape', snap && snap.project_claude_md && Array.isArray(snap.project_claude_md.missing), 'missing=' + ((snap && snap.project_claude_md && snap.project_claude_md.missing) || []).length);
+    add('codex_hooks_audit_shape', snap && snap.codex_hooks && typeof snap.codex_hooks.ok === 'boolean' && Array.isArray(snap.codex_hooks.missing), 'status=' + ((snap && snap.codex_hooks && snap.codex_hooks.status) || 'none'));
     add('repair_actions_array', snap && snap.repaired && Array.isArray(snap.repaired.actions), '');
     const src = readText(__filename) || '';
     let firstNonAscii = -1;
@@ -800,6 +831,7 @@ function printHuman(snap) {
   process.stdout.write('stale_super_gsd_tree=' + snap.summary.stale_super_gsd_tree + '\n');
   process.stdout.write('profile_missing_watch_codex=' + snap.summary.profile_missing_watch_codex + '\n');
   process.stdout.write('project_claude_md_missing=' + snap.summary.project_claude_md_missing + '\n');
+  process.stdout.write('codex_hook_issues=' + snap.summary.codex_hook_issues + '\n');
   if (snap.local_agent_shadows.length) {
     process.stdout.write('local_agent_shadow_names=' + snap.local_agent_shadows.map((r) => r.name).join(',') + '\n');
   }
@@ -811,6 +843,9 @@ function printHuman(snap) {
   }
   if (snap.project_claude_md && snap.project_claude_md.missing && snap.project_claude_md.missing.length) {
     process.stdout.write('project_claude_md_missing_markers=' + snap.project_claude_md.missing.join(',') + '\n');
+  }
+  if (snap.codex_hooks && !snap.codex_hooks.ok) {
+    process.stdout.write('codex_hooks_status=' + snap.codex_hooks.status + '\n');
   }
   if (snap.repaired.actions.length) {
     process.stdout.write('actions=' + snap.repaired.actions.length + '\n');
@@ -853,6 +888,7 @@ module.exports = {
     ensureConfigDefaults,
     auditSuperGsdTree,
     auditTelemetry,
+    auditCodexHooks,
     profilePaths,
   },
 };

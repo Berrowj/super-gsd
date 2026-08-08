@@ -272,6 +272,25 @@ function Install-SgsdComponent {
             Write-Host "    ✗ mklink failed: $out" -ForegroundColor Red
             return $false
         }
+        'codex-hooks' {
+            $installer = Join-Path $SgsdHome 'tools\codex-hooks\install-hooks.cjs'
+            if (-not (Test-Path -LiteralPath $installer)) {
+                Write-Host "    ✗ Codex hook installer missing: $installer" -ForegroundColor Red
+                return $false
+            }
+            $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
+            if (-not $nodeCommand) {
+                Write-Host "    ✗ Node.js is required for the Codex hook safe merge" -ForegroundColor Red
+                return $false
+            }
+            & $nodeCommand.Source $installer --project $ProjectDir
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "    ✗ Codex hook merge failed; existing configuration was preserved" -ForegroundColor Red
+                return $false
+            }
+            Write-Host "    ✓ safely merged SGSD registrations into .codex/hooks.json" -ForegroundColor Green
+            return $true
+        }
         default {
             Write-Host "    ⓘ component '$ComponentId' not yet auto-installable — see fix hint" -ForegroundColor DarkYellow
             return $false
@@ -295,7 +314,7 @@ if ($Check) { exit 0 }
 # Install-list = MISSING (always) + WARN (handled by installers that can fix
 # the warn condition: missing optional files, partially-populated dirs, etc.).
 # Components in the WARN bucket whose installer is a no-op silently skip.
-$todo = @($report | Where-Object { $_.Status -eq 'MISSING' -or $_.Status -eq 'WARN' })
+$todo = @($report | Where-Object { $_.Status -in @('MISSING', 'WARN', 'STALE') })
 if ($todo.Count -eq 0) {
     Write-Host "Nothing to install — repo is fully onboarded." -ForegroundColor Green
     Write-Host ""
@@ -304,8 +323,8 @@ if ($todo.Count -eq 0) {
 
 if (-not $All) {
     $missCount = @($todo | Where-Object { $_.Status -eq 'MISSING' }).Count
-    $warnCount = @($todo | Where-Object { $_.Status -eq 'WARN' }).Count
-    Write-Host "$($todo.Count) component(s) can be installed ($missCount missing, $warnCount warn)." -ForegroundColor White
+    $warnCount = @($todo | Where-Object { $_.Status -in @('WARN', 'STALE') }).Count
+    Write-Host "$($todo.Count) component(s) can be installed ($missCount missing, $warnCount warn/stale)." -ForegroundColor White
     Write-Host "Install all? [Y]es / [n]o (review each) / [q]uit: " -NoNewline -ForegroundColor Yellow
     $resp = Read-Host
     if ($resp -match '^q') { Write-Host "Aborted." -ForegroundColor DarkGray; exit 0 }
@@ -344,7 +363,7 @@ Write-Host ""
 # Final readiness re-check
 $report2 = Test-SgsdReadiness -ProjectDir $ProjectDir
 $missingAfter = @($report2 | Where-Object { $_.Status -eq 'MISSING' }).Count
-$warnAfter    = @($report2 | Where-Object { $_.Status -eq 'WARN' }).Count
+$warnAfter    = @($report2 | Where-Object { $_.Status -in @('WARN', 'STALE') }).Count
 if ($missingAfter -eq 0) {
     Write-Host "✓ All MISSING components are now installed. Repo is ready for /sgsd-orchestrate." -ForegroundColor Green
 } else {

@@ -90,11 +90,13 @@ Local project setup:
   --init-project
       Create/update only project-local SGSD files in the current directory:
       .planning/, .planning/config.json, metrics skeleton, CLAUDE.md when
-      absent, and repo-local .claude/settings.json hooks. --init-project
+      absent, repo-local .claude/settings.json hooks, and safely merged
+      project .codex/hooks.json registrations. --init-project
       is kept as a backward-compatible safe alias.
   --update
       Refresh an existing SGSD install in place. Re-runs npm install + agent
-      registry sync + memory taxonomy ensure + repo-local hook merge, but does
+      registry sync + memory taxonomy ensure + repo-local Claude/Codex hook
+      merges, but does
       NOT recreate the .planning/ skeleton, overwrite CLAUDE.md, or replace
       config.json. Safe to run after a `git pull` to pick up new dependencies
       and registry entries. Pair with --install-global to also refresh ~/.claude
@@ -468,6 +470,25 @@ register_repo_local_hooks() {
   fi
 }
 
+register_codex_hooks() {
+  echo ""
+  log "Registering project-local Codex hooks..."
+  CODEX_HOOK_INSTALLER="$SCRIPT_DIR/tools/codex-hooks/install-hooks.cjs"
+  if [ ! -f "$CODEX_HOOK_INSTALLER" ]; then
+    echo "ERROR: Codex hook installer missing: $CODEX_HOOK_INSTALLER" >&2
+    exit 1
+  fi
+  if ! command -v node >/dev/null 2>&1; then
+    echo "ERROR: Node.js is required to install project Codex hooks" >&2
+    exit 1
+  fi
+  if [ "$DRY_RUN" = true ]; then
+    log "DRY RUN: would safely merge SGSD registrations into $PROJECT_DIR/.codex/hooks.json"
+  else
+    node "$CODEX_HOOK_INSTALLER" --project "$PROJECT_DIR"
+  fi
+}
+
 run_commit_gate_installer() {
   mode="$1"
   INSTALLER_SCRIPT="$SCRIPT_DIR/scripts/install-commit-gate.cjs"
@@ -576,6 +597,7 @@ init_local_project() {
 
   ensure_memory_tree
   register_repo_local_hooks
+  register_codex_hooks
 
   # P143.5: cockpit dependencies. Skipped if no package.json at PROJECT_DIR
   # (operators using SGSD as an embedded subdir of a different project don't
@@ -670,6 +692,7 @@ update_existing() {
   # ensure_memory_tree is idempotent; existing entries are left untouched.
   ensure_memory_tree
   register_repo_local_hooks
+  register_codex_hooks
 
   # 4. Diff check for CLAUDE.md — DO NOT overwrite. Just tell the operator
   # if the bundled overlay has diverged from their CLAUDE.md so they can
@@ -837,8 +860,8 @@ echo ""
 echo "Actions:"
 [ "$RUN_DOCTOR" = true ] && echo "  doctor: read-only checks"
 [ "$INSTALL_GLOBAL" = true ] && echo "  install-global: ~/.claude assets updated"
-[ "$INIT_LOCAL" = true ] && echo "  init-local: project-local SGSD files and hooks updated"
-[ "$UPDATE_MODE" = true ] && echo "  update: refreshed npm + registry + repo-local hooks"
+[ "$INIT_LOCAL" = true ] && echo "  init-local: project-local SGSD files and Claude/Codex hooks updated"
+[ "$UPDATE_MODE" = true ] && echo "  update: refreshed npm + registry + repo-local Claude/Codex hooks"
 [ "$INSTALL_COMMIT_GATE" = true ] && echo "  install-commit-gate: Git pre-commit trampoline installed/refreshed"
 [ "$UNINSTALL_COMMIT_GATE" = true ] && echo "  uninstall-commit-gate: SGSD-marked Git pre-commit trampoline removed/no-op"
 [ "$ENABLE_AUTOAPPROVE" = true ] && echo "  enable-autoapprove: global Claude permissions changed"

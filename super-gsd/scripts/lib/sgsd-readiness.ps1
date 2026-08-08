@@ -198,6 +198,40 @@ function Test-SgsdReadiness {
         $(if ($autoMemLinked) { 'OK' } elseif (Test-Path -LiteralPath $autoMem) { 'WARN' } else { 'MISSING' }) $autoMem `
         'Junction auto-memory dir to .planning/memory/ for git tracking'
 
+    # 16. Project-local Codex hook registrations
+    $codexHooks = Join-Path $ProjectDir '.codex\hooks.json'
+    $codexHookStatus = 'MISSING'
+    $codexHookFix = 'Run the SGSD Codex hook safe-merge installer'
+    if (Test-Path -LiteralPath $codexHooks) {
+        $codexHookStatus = 'WARN'
+        if ($sgsdHome) {
+            $codexHookInstaller = Join-Path $sgsdHome 'tools\codex-hooks\install-hooks.cjs'
+            $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
+            if ((Test-Path -LiteralPath $codexHookInstaller) -and $nodeCommand) {
+                try {
+                    $hookJson = & $nodeCommand.Source $codexHookInstaller `
+                        --project $ProjectDir --check --json 2>$null
+                    $hookReport = ($hookJson -join "`n") | ConvertFrom-Json -ErrorAction Stop
+                    if ($hookReport.ok) {
+                        $codexHookStatus = 'OK'
+                        $codexHookFix = ''
+                    } elseif ($hookReport.status -eq 'stale') {
+                        $codexHookStatus = 'STALE'
+                        $codexHookFix = "Merge $($hookReport.missing.Count) missing, $($hookReport.stale.Count) stale, and $($hookReport.duplicates.Count) duplicate managed registrations"
+                    } else {
+                        $codexHookStatus = 'WARN'
+                        $codexHookFix = "Repair Codex hook configuration: $($hookReport.status)"
+                    }
+                } catch {
+                    $codexHookStatus = 'WARN'
+                    $codexHookFix = 'Codex hook configuration could not be audited; run install-hooks.cjs manually'
+                }
+            }
+        }
+    }
+    Add-Check 'codex-hooks' 'Project .codex/hooks.json has current SGSD registrations' `
+        $codexHookStatus $codexHooks $codexHookFix
+
     return $checks
 }
 
@@ -227,12 +261,14 @@ function Format-SgsdReadinessReport {
         $glyph = switch ($c.Status) {
             'OK'      { '✓' }
             'MISSING' { '✗' }
+            'STALE'   { '↻' }
             'WARN'    { '⚠' }
             default   { '·' }
         }
         $color = switch ($c.Status) {
             'OK'      { 'Green' }
             'MISSING' { 'Red' }
+            'STALE'   { 'Yellow' }
             'WARN'    { 'Yellow' }
             default   { 'DarkGray' }
         }

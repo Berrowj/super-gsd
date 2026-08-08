@@ -1,0 +1,9 @@
+.codex/hooks.json
+super-gsd/config/codex-hooks.json
+super-gsd/install.sh
+super-gsd/scripts/lib/sgsd-readiness.ps1
+super-gsd/scripts/sgsd-onboard.ps1
+super-gsd/tests/propagation/codex-hooks-install.test.cjs
+super-gsd/tools/codex-hooks/install-hooks.cjs
+super-gsd/tools/codex-hooks/self-test.cjs
+super-gsd/tools/feature-propagation/audit.cjs
