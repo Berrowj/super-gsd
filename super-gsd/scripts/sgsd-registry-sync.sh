@@ -16,17 +16,25 @@
 #   - External Codex contracts remain active.
 #
 # Usage:
-#   sgsd-registry-sync.sh [--root PATH] [--dry-run]
+#   sgsd-registry-sync.sh [--root PATH] [--agents-dir PATH] [--dry-run]
 # ============================================================================
 
 set -u
 
 ROOT=""
+AGENTS_DIR="${SGSD_AGENTS_DIR:-}"
 DRY_RUN=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --root)     ROOT="$2"; shift 2 ;;
+        --root)
+            [[ $# -ge 2 ]] || { echo "sgsd-registry-sync: --root requires a path" >&2; exit 2; }
+            ROOT="$2"; shift 2
+            ;;
+        --agents-dir)
+            [[ $# -ge 2 ]] || { echo "sgsd-registry-sync: --agents-dir requires a path" >&2; exit 2; }
+            AGENTS_DIR="$2"; shift 2
+            ;;
         --dry-run)  DRY_RUN=true; shift ;;
         --help|-h)  head -30 "$0" | tail -25; exit 0 ;;
         *) echo "sgsd-registry-sync: unknown argument: $1" >&2; exit 2 ;;
@@ -36,7 +44,7 @@ done
 if [[ -z "$ROOT" ]]; then
     d="$(pwd -P)"
     while [[ "$d" != "/" && "$d" != "" ]]; do
-        if [[ -d "$d/super-gsd/agents" ]]; then
+        if [[ -d "$d/.planning" && ( -n "$AGENTS_DIR" || -d "$d/super-gsd/agents" ) ]]; then
             ROOT="$d"
             break
         fi
@@ -44,10 +52,23 @@ if [[ -z "$ROOT" ]]; then
     done
 fi
 
-if [[ -z "$ROOT" || ! -d "$ROOT/super-gsd/agents" ]]; then
-    echo "sgsd-registry-sync: no super-gsd/agents/ found above $(pwd). Pass --root or run from a project root." >&2
+if [[ -z "$ROOT" || ! -d "$ROOT" ]]; then
+    echo "sgsd-registry-sync: no project root found above $(pwd). Pass --root PATH." >&2
     exit 3
 fi
+ROOT="$(cd "$ROOT" 2>/dev/null && pwd -P)" || {
+    echo "sgsd-registry-sync: cannot resolve project root: $ROOT" >&2
+    exit 3
+}
+[[ -n "$AGENTS_DIR" ]] || AGENTS_DIR="$ROOT/super-gsd/agents"
+if [[ ! -d "$AGENTS_DIR" ]]; then
+    echo "sgsd-registry-sync: agents directory not found: $AGENTS_DIR" >&2
+    exit 3
+fi
+AGENTS_DIR="$(cd "$AGENTS_DIR" 2>/dev/null && pwd -P)" || {
+    echo "sgsd-registry-sync: cannot resolve agents directory: $AGENTS_DIR" >&2
+    exit 3
+}
 
 NODE_BIN="${NODE_BIN:-}"
 if [[ -z "$NODE_BIN" ]]; then
@@ -62,18 +83,20 @@ if [[ -z "$NODE_BIN" ]]; then
 fi
 
 NODE_ROOT="$ROOT"
+NODE_AGENTS_DIR="$AGENTS_DIR"
 if [[ "$NODE_BIN" == *node.exe && "$NODE_ROOT" == /mnt/* ]] && command -v wslpath >/dev/null 2>&1; then
     NODE_ROOT="$(wslpath -w "$NODE_ROOT")"
+    NODE_AGENTS_DIR="$(wslpath -w "$NODE_AGENTS_DIR")"
 fi
 
-"$NODE_BIN" - "$NODE_ROOT" "$DRY_RUN" <<'NODE'
+"$NODE_BIN" - "$NODE_ROOT" "$NODE_AGENTS_DIR" "$DRY_RUN" <<'NODE'
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
 const root = path.resolve(process.argv[2]);
-const dryRun = process.argv[3] === 'true';
-const agentsDir = path.join(root, 'super-gsd', 'agents');
+const agentsDir = path.resolve(process.argv[3]);
+const dryRun = process.argv[4] === 'true';
 const registryDir = path.join(root, '.planning', 'resource-registry');
 const manifest = path.join(registryDir, 'agents.jsonl');
 const tmp = manifest + '.tmp';

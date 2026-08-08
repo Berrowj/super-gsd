@@ -1,0 +1,6 @@
+super-gsd/install.sh
+super-gsd/scripts/sgsd
+super-gsd/scripts/sgsd-boot.sh
+super-gsd/scripts/sgsd-registry-sync.sh
+super-gsd/scripts/sgsd-remote-tmux.sh
+super-gsd/tests/propagation/runtime-provenance.test.cjs

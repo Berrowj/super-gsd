@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Extensionless Linux launcher installed at ~/.local/bin/sgsd.
+
+set -u
+
+die() {
+  echo "sgsd: $*" >&2
+  exit 1
+}
+
+SELF_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd -P)" \
+  || die "cannot resolve launcher directory"
+SCRIPTS_DIR="${SGSD_SCRIPTS_DIR:-}"
+AGENTS_DIR="${SGSD_AGENTS_DIR:-}"
+SOURCE_DIR="${SGSD_SOURCE_DIR:-}"
+ARGS=("$@")
+
+# Select the boot script from the authoritative CLI override as well as
+# forwarding that override to boot for every child path it resolves.
+for ((i = 0; i < ${#ARGS[@]}; i++)); do
+  case "${ARGS[$i]}" in
+    --scripts-dir)
+      ((i + 1 < ${#ARGS[@]})) || die "--scripts-dir requires a path"
+      SCRIPTS_DIR="${ARGS[$((i + 1))]}"
+      i=$((i + 1))
+      ;;
+    --agents-dir)
+      ((i + 1 < ${#ARGS[@]})) || die "--agents-dir requires a path"
+      AGENTS_DIR="${ARGS[$((i + 1))]}"
+      i=$((i + 1))
+      ;;
+    --source-dir)
+      ((i + 1 < ${#ARGS[@]})) || die "--source-dir requires a path"
+      SOURCE_DIR="${ARGS[$((i + 1))]}"
+      i=$((i + 1))
+      ;;
+  esac
+done
+
+if [[ -z "$SCRIPTS_DIR" ]]; then
+  if [[ -f "$SELF_DIR/sgsd-boot.sh" ]]; then
+    SCRIPTS_DIR="$SELF_DIR"
+  else
+    SCRIPTS_DIR="$HOME/.claude/super-gsd/scripts"
+  fi
+fi
+[[ -n "$AGENTS_DIR" ]] || AGENTS_DIR="$HOME/.claude/agents"
+[[ -n "$SOURCE_DIR" ]] || SOURCE_DIR="$HOME/.claude/super-gsd/source"
+
+[[ -d "$SCRIPTS_DIR" ]] || die "missing SGSD scripts dir: $SCRIPTS_DIR"
+[[ -d "$AGENTS_DIR" ]] || die "missing SGSD agents dir: $AGENTS_DIR"
+[[ -d "$SOURCE_DIR" ]] || die "missing SGSD source dir: $SOURCE_DIR"
+SCRIPTS_DIR="$(cd "$SCRIPTS_DIR" 2>/dev/null && pwd -P)" \
+  || die "cannot resolve scripts dir: $SCRIPTS_DIR"
+AGENTS_DIR="$(cd "$AGENTS_DIR" 2>/dev/null && pwd -P)" \
+  || die "cannot resolve agents dir: $AGENTS_DIR"
+SOURCE_DIR="$(cd "$SOURCE_DIR" 2>/dev/null && pwd -P)" \
+  || die "cannot resolve source dir: $SOURCE_DIR"
+BOOT="$SCRIPTS_DIR/sgsd-boot.sh"
+[[ -f "$BOOT" ]] || die "missing SGSD boot script: $BOOT"
+
+exec bash "$BOOT" \
+  --scripts-dir "$SCRIPTS_DIR" \
+  --agents-dir "$AGENTS_DIR" \
+  --source-dir "$SOURCE_DIR" \
+  "$@"

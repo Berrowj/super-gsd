@@ -19,6 +19,8 @@ set -u
 PROJECT_DIR="${SGSD_PROJECT_DIR:-/opt/clarity/project-clarity-erp}"
 SESSION="${SGSD_TMUX_SESSION:-clarity-sgsd}"
 SCRIPTS_DIR="${SGSD_SCRIPTS_DIR:-}"
+AGENTS_DIR="${SGSD_AGENTS_DIR:-}"
+SOURCE_DIR="${SGSD_SOURCE_DIR:-}"
 CLAUDE_MODE="greet"
 ATTACH=true
 RESET=false
@@ -34,7 +36,9 @@ Usage:
 Options:
   --project PATH       SGSD project root. Default: /opt/clarity/project-clarity-erp
   --session NAME       tmux session name. Default: clarity-sgsd
-  --scripts-dir PATH   SGSD scripts path. Default: project super-gsd/scripts, then ~/.claude/super-gsd/scripts
+  --scripts-dir PATH   Authoritative SGSD scripts path.
+  --agents-dir PATH    Authoritative SGSD agents path.
+  --source-dir PATH    Authoritative canonical source checkout.
   --greet              Start Claude with the SGSD greeting prompt. Default.
   --go                 Start Claude and immediately send "go" for auto mode.
   --shell              Do not start Claude; leave operator pane at a shell.
@@ -76,6 +80,16 @@ while [[ $# -gt 0 ]]; do
     --scripts-dir)
       [[ $# -ge 2 ]] || die "--scripts-dir requires a path"
       SCRIPTS_DIR="$2"
+      shift 2
+      ;;
+    --agents-dir)
+      [[ $# -ge 2 ]] || die "--agents-dir requires a path"
+      AGENTS_DIR="$2"
+      shift 2
+      ;;
+    --source-dir)
+      [[ $# -ge 2 ]] || die "--source-dir requires a path"
+      SOURCE_DIR="$2"
       shift 2
       ;;
     --greet)
@@ -133,12 +147,48 @@ if [[ -z "$SCRIPTS_DIR" ]]; then
     SCRIPTS_DIR="$HOME/.claude/super-gsd/scripts"
   fi
 fi
-[[ -d "$SCRIPTS_DIR" ]] || die "missing SGSD scripts dir: $SCRIPTS_DIR"
-
-COCKPIT_SERVER_START="$PROJECT_DIR/super-gsd/scripts/start-cockpit-server.sh"
-if [[ ! -f "$COCKPIT_SERVER_START" ]]; then
-  COCKPIT_SERVER_START="$SCRIPTS_DIR/start-cockpit-server.sh"
+if [[ -z "$AGENTS_DIR" ]]; then
+  if [[ -d "$PROJECT_DIR/super-gsd/agents" ]]; then
+    AGENTS_DIR="$PROJECT_DIR/super-gsd/agents"
+  else
+    AGENTS_DIR="$HOME/.claude/agents"
+  fi
 fi
+if [[ -z "$SOURCE_DIR" ]]; then
+  if [[ -d "$PROJECT_DIR/super-gsd" ]]; then
+    SOURCE_DIR="$PROJECT_DIR"
+  else
+    SOURCE_DIR="$HOME/.claude/super-gsd/source"
+  fi
+fi
+[[ -d "$SCRIPTS_DIR" ]] || die "missing SGSD scripts dir: $SCRIPTS_DIR"
+[[ -d "$AGENTS_DIR" ]] || die "missing SGSD agents dir: $AGENTS_DIR"
+[[ -d "$SOURCE_DIR" ]] || die "missing SGSD source dir: $SOURCE_DIR"
+SCRIPTS_DIR="$(cd "$SCRIPTS_DIR" 2>/dev/null && pwd -P)" || die "cannot resolve scripts dir: $SCRIPTS_DIR"
+AGENTS_DIR="$(cd "$AGENTS_DIR" 2>/dev/null && pwd -P)" || die "cannot resolve agents dir: $AGENTS_DIR"
+SOURCE_DIR="$(cd "$SOURCE_DIR" 2>/dev/null && pwd -P)" || die "cannot resolve source dir: $SOURCE_DIR"
+
+FRAMEWORK_HEAD="$(git -C "$SOURCE_DIR" rev-parse --verify 'HEAD^{commit}' 2>/dev/null)" \
+  || die "cannot resolve canonical source HEAD: $SOURCE_DIR"
+[[ "$FRAMEWORK_HEAD" =~ ^[0-9a-fA-F]{40}$ ]] \
+  || die "canonical source HEAD is not a full commit SHA: $FRAMEWORK_HEAD"
+PROJECT_PIN="not-pinned"
+if [[ -e "$PROJECT_DIR/.super-gsd-version" ]]; then
+  [[ -f "$PROJECT_DIR/.super-gsd-version" ]] \
+    || die "project pin is not a file: $PROJECT_DIR/.super-gsd-version"
+  PROJECT_PIN="$(tr -d '[:space:]' < "$PROJECT_DIR/.super-gsd-version")"
+  [[ "$PROJECT_PIN" =~ ^[0-9a-fA-F]{40}$ ]] \
+    || die "project pin is not a full commit SHA: $PROJECT_PIN"
+  [[ "$PROJECT_PIN" == "$FRAMEWORK_HEAD" ]] \
+    || die "framework provenance mismatch: source HEAD $FRAMEWORK_HEAD != project pin $PROJECT_PIN"
+fi
+
+export SGSD_PROJECT_DIR="$PROJECT_DIR"
+export SGSD_SCRIPTS_DIR="$SCRIPTS_DIR"
+export SGSD_AGENTS_DIR="$AGENTS_DIR"
+export SGSD_SOURCE_DIR="$SOURCE_DIR"
+
+COCKPIT_SERVER_START="$SCRIPTS_DIR/start-cockpit-server.sh"
 
 if [[ "$SESSION" =~ [^A-Za-z0-9_.:-] ]]; then
   die "session name contains unsupported characters: $SESSION"
@@ -158,6 +208,10 @@ doctor() {
   echo "SGSD remote tmux doctor"
   echo "  project:    $PROJECT_DIR"
   echo "  scripts:    $SCRIPTS_DIR"
+  echo "  agents:     $AGENTS_DIR"
+  echo "  source:     $SOURCE_DIR"
+  echo "  Framework HEAD: $FRAMEWORK_HEAD"
+  echo "  Project Pin: $PROJECT_PIN"
   echo "  session:    $SESSION"
   echo "  mode:       $CLAUDE_MODE"
   check_cmd tmux || true

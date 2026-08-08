@@ -11,7 +11,9 @@
 # terminal windows in a cross-platform way.
 #
 # Usage:
-#   bash super-gsd/scripts/sgsd-boot.sh [--project PATH] [--skip-preflight]
+#   bash super-gsd/scripts/sgsd-boot.sh [-NoOpen|--no-open] [--project PATH]
+#     [--scripts-dir PATH] [--agents-dir PATH] [--source-dir PATH]
+#     [--skip-preflight]
 # ============================================================================
 
 set -u
@@ -30,11 +32,36 @@ fi
 export PATH
 
 PROJECT=""
+SCRIPTS="${SGSD_SCRIPTS_DIR:-}"
+AGENTS_DIR="${SGSD_AGENTS_DIR:-}"
+SOURCE_DIR="${SGSD_SOURCE_DIR:-}"
 SKIP_PREFLIGHT=false
+NO_OPEN=false
+
+die() {
+    echo "sgsd-boot: $*" >&2
+    exit 1
+}
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --project)        PROJECT="$2"; shift 2 ;;
+        --project)
+            [[ $# -ge 2 ]] || die "--project requires a path"
+            PROJECT="$2"; shift 2
+            ;;
+        --scripts-dir)
+            [[ $# -ge 2 ]] || die "--scripts-dir requires a path"
+            SCRIPTS="$2"; shift 2
+            ;;
+        --agents-dir)
+            [[ $# -ge 2 ]] || die "--agents-dir requires a path"
+            AGENTS_DIR="$2"; shift 2
+            ;;
+        --source-dir)
+            [[ $# -ge 2 ]] || die "--source-dir requires a path"
+            SOURCE_DIR="$2"; shift 2
+            ;;
+        -NoOpen|--no-open) NO_OPEN=true; shift ;;
         --skip-preflight) SKIP_PREFLIGHT=true; shift ;;
         --help|-h)        head -20 "$0" | tail -15; exit 0 ;;
         *) echo "sgsd-boot: unknown argument: $1" >&2; exit 2 ;;
@@ -45,19 +72,41 @@ done
 if [[ -z "$PROJECT" ]]; then
     d="$(pwd -P)"
     while [[ "$d" != "/" && "$d" != "" ]]; do
-        if [[ -d "$d/.planning" && -d "$d/super-gsd/scripts" ]]; then
+        if [[ -d "$d/.planning" ]]; then
             PROJECT="$d"
             break
         fi
         d="$(dirname "$d")"
     done
 fi
-if [[ -z "$PROJECT" || ! -d "$PROJECT/super-gsd/scripts" ]]; then
-    echo "sgsd-boot: no super-gsd project root found. Pass --project PATH." >&2
-    exit 1
+[[ -n "$PROJECT" && -d "$PROJECT" ]] || die "no SGSD project root found. Pass --project PATH."
+PROJECT="$(cd "$PROJECT" 2>/dev/null && pwd -P)" || die "cannot resolve project: $PROJECT"
+[[ -d "$PROJECT/.planning" ]] || die "missing .planning/ under $PROJECT"
+
+[[ -n "$SCRIPTS" ]] || SCRIPTS="$PROJECT/super-gsd/scripts"
+[[ -n "$AGENTS_DIR" ]] || AGENTS_DIR="$PROJECT/super-gsd/agents"
+[[ -n "$SOURCE_DIR" ]] || SOURCE_DIR="$PROJECT"
+
+[[ -d "$SCRIPTS" ]] || die "missing SGSD scripts dir: $SCRIPTS"
+[[ -d "$AGENTS_DIR" ]] || die "missing SGSD agents dir: $AGENTS_DIR"
+[[ -d "$SOURCE_DIR" ]] || die "missing SGSD source dir: $SOURCE_DIR"
+SCRIPTS="$(cd "$SCRIPTS" 2>/dev/null && pwd -P)" || die "cannot resolve scripts dir: $SCRIPTS"
+AGENTS_DIR="$(cd "$AGENTS_DIR" 2>/dev/null && pwd -P)" || die "cannot resolve agents dir: $AGENTS_DIR"
+SOURCE_DIR="$(cd "$SOURCE_DIR" 2>/dev/null && pwd -P)" || die "cannot resolve source dir: $SOURCE_DIR"
+FORCE_REGISTRY_SYNC=false
+[[ "$AGENTS_DIR" == "$PROJECT/super-gsd/agents" ]] || FORCE_REGISTRY_SYNC=true
+
+FRAMEWORK_HEAD="$(git -C "$SOURCE_DIR" rev-parse --verify 'HEAD^{commit}' 2>/dev/null)" \
+    || die "cannot resolve canonical source HEAD: $SOURCE_DIR"
+[[ "$FRAMEWORK_HEAD" =~ ^[0-9a-fA-F]{40}$ ]] \
+    || die "canonical source HEAD is not a full commit SHA: $FRAMEWORK_HEAD"
+
+PROJECT_PIN="not-pinned"
+if [[ -e "$PROJECT/.super-gsd-version" ]]; then
+    [[ -f "$PROJECT/.super-gsd-version" ]] || die "project pin is not a file: $PROJECT/.super-gsd-version"
+    PROJECT_PIN="$(tr -d '[:space:]' < "$PROJECT/.super-gsd-version")"
 fi
 
-SCRIPTS="$PROJECT/super-gsd/scripts"
 COCKPIT_SERVER_START="$SCRIPTS/start-cockpit-server.sh"
 
 # ── Banner ──
@@ -66,7 +115,24 @@ echo "================================================"
 echo "          SUPER GSD · Boot Command              "
 echo "================================================"
 echo "  Project: $PROJECT"
+echo "  Framework Source: $SOURCE_DIR"
+echo "  Framework Scripts: $SCRIPTS"
+echo "  Framework Agents: $AGENTS_DIR"
+echo "  Framework HEAD: $FRAMEWORK_HEAD"
+echo "  Project Pin: $PROJECT_PIN"
 echo ""
+
+if [[ "$PROJECT_PIN" != "not-pinned" ]]; then
+    [[ "$PROJECT_PIN" =~ ^[0-9a-fA-F]{40}$ ]] \
+        || die "project pin is not a full commit SHA: $PROJECT_PIN"
+    [[ "$PROJECT_PIN" == "$FRAMEWORK_HEAD" ]] \
+        || die "framework provenance mismatch: source HEAD $FRAMEWORK_HEAD != project pin $PROJECT_PIN"
+fi
+
+export SGSD_PROJECT_DIR="$PROJECT"
+export SGSD_SCRIPTS_DIR="$SCRIPTS"
+export SGSD_AGENTS_DIR="$AGENTS_DIR"
+export SGSD_SOURCE_DIR="$SOURCE_DIR"
 
 step() {
     local status="$1" label="$2"
@@ -134,14 +200,15 @@ if [[ "$SKIP_PREFLIGHT" != true ]]; then
     # Registry sync
     if [[ -x "$SCRIPTS/sgsd-registry-sync.sh" ]]; then
         MANIFEST="$PROJECT/.planning/resource-registry/agents.jsonl"
-        AGENTS_DIR="$PROJECT/super-gsd/agents"
         AGENT_COUNT=$(find "$AGENTS_DIR" -maxdepth 1 -type f -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
         MANIFEST_COUNT=$(grep -c '^{' "$MANIFEST" 2>/dev/null || echo 0)
         NEWER_AGENT=$(find "$AGENTS_DIR" -maxdepth 1 -type f -name '*.md' -newer "$MANIFEST" -print -quit 2>/dev/null || true)
-        if [[ -f "$MANIFEST" && "$MANIFEST_COUNT" -eq "$AGENT_COUNT" && -z "$NEWER_AGENT" ]]; then
+        if [[ "$FORCE_REGISTRY_SYNC" != true && -f "$MANIFEST" \
+              && "$MANIFEST_COUNT" -eq "$AGENT_COUNT" && -z "$NEWER_AGENT" ]]; then
             step OK "Agents registry fresh ($AGENT_COUNT agents)"
         else
-            SYNC_OUT="$(bash "$SCRIPTS/sgsd-registry-sync.sh" --root "$PROJECT" 2>&1)"
+            SYNC_OUT="$(bash "$SCRIPTS/sgsd-registry-sync.sh" \
+                --root "$PROJECT" --agents-dir "$AGENTS_DIR" 2>&1)"
             if [[ $? -eq 0 ]]; then
                 COUNT=$(echo "$SYNC_OUT" | grep -oE '[0-9]+ agent records' | grep -oE '^[0-9]+')
                 step OK "Agents registry synced (${COUNT:-?} agents)"
@@ -181,7 +248,7 @@ if [[ "$SKIP_PREFLIGHT" != true ]]; then
         exit 8
     fi
 
-    FEATURE_AUDIT="$PROJECT/super-gsd/tools/feature-propagation/audit.cjs"
+    FEATURE_AUDIT="$SOURCE_DIR/super-gsd/tools/feature-propagation/audit.cjs"
     if [[ -f "$FEATURE_AUDIT" ]]; then
         AUDIT_JSON="$(node "$FEATURE_AUDIT" --project-dir "$PROJECT" --repair-safe --json 2>/dev/null || true)"
         AUDIT_OK="$(printf '%s' "$AUDIT_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{let j=JSON.parse(s);process.stdout.write(j.ok?"ok":"drift")}catch(e){process.stdout.write("parse_fail")}})' 2>/dev/null || echo parse_fail)"
@@ -217,6 +284,12 @@ if [[ "$SKIP_PREFLIGHT" != true ]]; then
 fi
 
 # ── Launch instructions ──
+if [[ "$NO_OPEN" == true ]]; then
+    echo "Preflight and provenance complete (--no-open)."
+    echo ""
+    exit 0
+fi
+
 echo "LAUNCH"
 echo "------"
 echo ""
