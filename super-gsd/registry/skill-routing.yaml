@@ -1,0 +1,402 @@
+routes:
+  - skill: sgsd-muda-audit
+    signatures:
+      phrases:
+        - muda
+        - waste
+        - retrospective
+        - retro
+        - what went wrong
+        - conformance drift
+      regexes:
+        - '\b(?:muda|waste|wasted|wasting)\b'
+        - '\b(?:retrospective|retro)\b.{0,160}\b(?:waste|drift|missed|wrong)\b'
+    moment: prompt-time
+    modes:
+      - manual
+      - semi
+      - auto
+    availability: canonical
+    notes: Suggest MUDA review when the operator asks about waste, drift, or retrospective learning.
+
+  - skill: sgsd-muda-audit
+    signatures:
+      event_names:
+        - phase-close
+    moment: phase-close
+    modes:
+      - semi
+      - auto
+    availability: canonical
+    gate_ref: MUDA-waste-audit
+    cooldown:
+      policy: gate-controlled
+      scope: phase
+    notes: Scheduled eligibility belongs to the existing MUDA-waste-audit gate; this table does not copy its thresholds.
+
+  - skill: sgsd-token-audit
+    signatures:
+      phrases:
+        - token spend
+        - token budget
+        - token burn
+        - context cost
+        - token waste
+      regexes:
+        - '\btokens?\b.{0,160}\b(?:spend|spent|burn|budget|cost|waste)\b'
+        - '\b(?:spend|spent|burn|budget|cost|waste)\b.{0,160}\btokens?\b'
+    moment: prompt-time
+    modes:
+      - manual
+      - semi
+      - auto
+    availability: canonical
+    notes: Suggest token triage when the prompt discusses token burn, budget, or cost.
+
+  - skill: sgsd-token-audit
+    signatures:
+      event_names:
+        - milestone-close
+    moment: milestone-close
+    modes:
+      - semi
+      - auto
+    availability: canonical
+    cooldown:
+      policy: sgsd-complete-milestone-owned
+      scope: milestone
+    notes: Milestone token behavior remains owned by sgsd-complete-milestone.
+
+  - skill: sgsd-distill
+    signatures:
+      event_names:
+        - milestone-close
+      phrases:
+        - distill milestone
+        - trajectory distill
+        - summarize learnings
+    moment: milestone-close
+    modes:
+      - semi
+      - auto
+    availability: canonical
+    cooldown:
+      policy: once-per-milestone
+      scope: milestone
+    notes: Distill milestone learnings once per milestone boundary.
+
+  - skill: sgsd-sepl
+    signatures:
+      phrases:
+        - major proposal
+        - architecture tradeoff
+        - architecture trade-off
+        - strategic tradeoff
+        - strategic trade-off
+        - sets precedent
+      regexes:
+        - '\b(?:architecture|system|governance)\b.{0,120}\b(?:tradeoffs?|trade-offs?|decision|proposal)\b'
+        - '\bshould\s+we\b.{0,160}\b(?:choose|adopt|standardize|centralize|decentralize|replace)\b'
+    moment: prompt-time
+    modes:
+      - manual
+      - semi
+      - auto
+    availability: canonical
+    notes: Suggest SEPL deliberation for major proposals and architecture tradeoffs.
+
+  - skill: sgsd-sepl
+    signatures:
+      phrases:
+        - sgsd-sepl
+        - sepl
+        - deliberate
+        - deliberate decision
+    moment: on-demand
+    modes:
+      - manual
+      - semi
+      - auto
+    availability: canonical
+    notes: Preserve explicit operator access to SEPL deliberation.
+
+  - skill: sgsd-overwatcher
+    signatures:
+      event_names:
+        - phase-close
+    moment: phase-close
+    modes:
+      - auto
+    availability: canonical
+    cooldown:
+      policy: once-per-phase
+      scope: phase
+    notes: Auto-mode phase-close watcher fires at most once for a phase.
+
+  - skill: sgsd-readiness
+    aliases:
+      - sgsd-health
+      - gsd-health
+    signatures:
+      phrases:
+        - readiness
+        - release readiness
+        - health check
+        - sgsd-health
+        - gsd-health
+      regexes:
+        - '\b(?:ready|readiness|health)\b.{0,120}\b(?:ship|release|close|phase|milestone)\b'
+    moment: prompt-time
+    modes:
+      - manual
+      - semi
+      - auto
+    availability: canonical
+    notes: Health legacy names are aliases to readiness, not separate skills.
+
+  - skill: sgsd-readiness
+    aliases:
+      - sgsd-health
+      - gsd-health
+    signatures:
+      phrases:
+        - readiness
+        - release readiness
+        - health check
+        - sgsd-readiness
+        - sgsd-health
+        - gsd-health
+    moment: on-demand
+    modes:
+      - manual
+      - semi
+      - auto
+    availability: canonical
+    notes: On-demand health/readiness requests route to sgsd-readiness.
+
+  - skill: sgsd-readiness
+    signatures:
+      event_names:
+        - phase-close
+        - auto-mode-readiness
+    moment: phase-close
+    modes:
+      - auto
+    availability: canonical
+    cooldown:
+      policy: route-policy
+      scope: phase
+    notes: Auto-mode readiness is a route reference; readiness scoring remains in existing readiness policy.
+
+  - skill: sgsd-audit
+    signatures:
+      event_names:
+        - phase-close
+    moment: phase-close
+    modes:
+      - semi
+      - auto
+    availability: canonical
+    gate_ref: phase-level-ATC
+    cooldown:
+      policy: gate-controlled
+      scope: phase
+    notes: Phase-close governance remains SGSD audit/ATC.
+
+  - skill: sgsd-audit
+    signatures:
+      event_names:
+        - milestone-close
+    moment: milestone-close
+    modes:
+      - semi
+      - auto
+    availability: canonical
+    cooldown:
+      policy: sgsd-complete-milestone-owned
+      scope: milestone
+    notes: Milestone-close audit can remain blocking where existing audit policy says so.
+
+  - skill: sgsd-memory-hygiene
+    aliases:
+      - sgsd-recall
+    signatures:
+      phrases:
+        - sgsd-memory
+        - sgsd-memory-hygiene
+        - sgsd-recall
+        - recall memory
+        - memory recall
+      regexes:
+        - '\b(?:recall|remember|memory)\b.{0,120}\b(?:context|decision|precedent|learning)\b'
+    moment: prompt-time
+    modes:
+      - manual
+      - semi
+      - auto
+    availability: canonical
+    gate_ref: sgsd-recall-queries
+    notes: Recall discipline references the existing recall-query gate instead of duplicating its predicate.
+
+  - skill: sgsd-memory-hygiene
+    aliases:
+      - sgsd-curate
+    signatures:
+      event_names:
+        - phase-close
+      phrases:
+        - sgsd-curate
+        - curate memory
+        - curate learnings
+        - memory hygiene
+    moment: phase-close
+    modes:
+      - semi
+      - auto
+    availability: canonical
+    gate_ref: sgsd-curate-learnings
+    cooldown:
+      policy: gate-controlled
+      scope: phase
+    notes: Curate discipline references the existing learning-curation gate instead of duplicating its predicate.
+
+  - skill: sgsd-vtp-advise
+    signatures:
+      phrases:
+        - vtp advise
+        - vtp context
+        - vtp enrichment
+        - private kb
+        - knowledge bank
+      regexes:
+        - '\bvtp\b.{0,120}\b(?:advise|context|enrich|knowledge|kb)\b'
+        - '\b(?:private\s+kb|knowledge\s+bank)\b'
+    moment: prompt-time
+    modes:
+      - manual
+      - semi
+      - auto
+    availability: canonical
+    notes: VTP graceful-fail behavior remains inside the skill.
+
+  - skill: sgsd-vtp-advise
+    signatures:
+      phrases:
+        - sgsd-vtp-advise
+        - vtp advise
+        - advise from vtp
+        - check vtp
+    moment: on-demand
+    modes:
+      - manual
+      - semi
+      - auto
+    availability: canonical
+    notes: Explicit VTP requests route to the VTP adviser, which degrades gracefully when absent.
+
+  - skill: gsd-cleanup
+    signatures:
+      phrases:
+        - gsd-cleanup
+        - cleanup gsd
+        - clean up gsd
+        - cleanup workspace
+    moment: on-demand
+    modes:
+      - manual
+    availability: omitted
+    skip_reason: legacy_unregistered
+    notes: Not auto-scheduled; no first-class registered cleanup command was found.
+
+  - skill: gsd-code-review
+    signatures:
+      phrases:
+        - gsd-code-review
+        - code review
+        - review my code
+        - review this change
+      regexes:
+        - '\bcode\s+review\b'
+        - '\breview\b.{0,120}\b(?:diff|change|commit|code)\b'
+    moment: prompt-time
+    modes:
+      - manual
+      - semi
+    availability: external-if-installed
+    notes: Prompt-time external review can be suggested; phase-close governance remains sgsd-audit.
+
+  - skill: gsd-code-review
+    signatures:
+      phrases:
+        - gsd-code-review
+        - run code review
+        - external code review
+    moment: on-demand
+    modes:
+      - manual
+      - semi
+    availability: external-if-installed
+    notes: On-demand external review remains opt-in and is not a phase-close scheduler.
+
+  - skill: gsd-code-review-fix
+    signatures:
+      phrases:
+        - gsd-code-review-fix
+        - fix review findings
+        - apply code review fixes
+        - address review comments
+      regexes:
+        - '\bfix\b.{0,120}\b(?:review|findings|comments)\b'
+    moment: prompt-time
+    modes:
+      - manual
+    availability: manual-only
+    notes: Never scheduled automatically because this route mutates code.
+
+  - skill: gsd-code-review-fix
+    signatures:
+      phrases:
+        - gsd-code-review-fix
+        - fix review findings
+        - apply code review fixes
+    moment: on-demand
+    modes:
+      - manual
+    availability: manual-only
+    notes: Manual-only on-demand route for mutation-bearing review fixes.
+
+  - skill: sgsd-audit
+    aliases:
+      - gsd-verify-work
+    signatures:
+      phrases:
+        - gsd-verify-work
+        - verify work
+        - verify this work
+        - run verification
+        - atc flow
+      regexes:
+        - '\bverify\b.{0,120}\b(?:work|change|phase|implementation)\b'
+    moment: prompt-time
+    modes:
+      - manual
+      - semi
+      - auto
+    availability: alias
+    gate_ref: phase-level-ATC
+    notes: Legacy verify-work requests route to existing SGSD verification and ATC flow.
+
+  - skill: sgsd-audit
+    aliases:
+      - gsd-secure-phase
+    signatures:
+      phrases:
+        - gsd-secure-phase
+        - secure phase
+        - security phase
+        - phase security review
+    moment: on-demand
+    modes:
+      - manual
+    availability: alias
+    notes: Legacy secure-phase requests route to existing SGSD security review and registered edge-guard governance.
