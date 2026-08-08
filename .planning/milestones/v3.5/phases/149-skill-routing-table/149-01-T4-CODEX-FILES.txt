@@ -1,0 +1,2 @@
+super-gsd/scripts/lib/orchestrator-hooks.cjs
+super-gsd/scripts/lib/skill-routing-registry.cjs

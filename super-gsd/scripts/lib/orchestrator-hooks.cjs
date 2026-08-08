@@ -8,7 +8,7 @@
 //   and Phase 45 (context-packet) tooling as orchestrator hook commands.
 //   Phase 86 deferred this wire-in -- Phase 87 ships it.
 //
-// 2 PUBLIC APIs + selfTest
+// 3 PUBLIC APIs + selfTest
 //   tokenWasteCheck({projectDir, milestone, planningDir?})
 //     -> {ok: bool, verdict: 'ok'|'warn'|'degraded'|'false_positive'|'error',
 //         report_path?, totals?, error?}
@@ -25,7 +25,12 @@
 //     On success the packet log mtime updates -- the Phase 86
 //     context_packet_builder_freshness probe will then return PASS.
 //
-//   selfTest() -> {ok, results: [...]} -- 9+ assertions (A1..A9).
+//   skillRoutingConsult({projectDir, planningDir?, moment, mode, phase, ...})
+//     -> {ok, route_count, fired_count, skipped_count, decisions}
+//     Consults loader-provided scheduled routes and appends one canonical
+//     gate-evidence envelope for every fired-or-skipped decision.
+//
+//   selfTest() -> {ok, results: [...]} -- 10+ assertions (A1..A10).
 //
 // LOCKS
 //   Lock 13 -- never throws upward. Subprocess fail / require fail / parse
@@ -39,6 +44,7 @@
 // CLI
 //   --token-waste-check --milestone <ms> [--planning-dir <p>] [--project-dir <p>]
 //   --context-packet-build --role <r> --phase <p> [--plan <id>] [--milestone <ms>] [--project-dir <p>]
+//   skill-routing|--skill-routing-consult --moment phase-close --mode auto --phase <p> [--dry-run]
 //   --self-test
 //   --help
 //
@@ -56,6 +62,16 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const child_process = require('child_process');
+const { logGateEvidence, readGateEvidenceRows } = require('./gate-evidence-log.cjs');
+const { readGateValueRows } = require('./gate-value-log.cjs');
+const { readState } = require('./sgsd-state.cjs');
+const {
+  loadSkillRoutingRegistry,
+  getScheduledRoutes,
+  VALID_MOMENTS,
+  VALID_MODES,
+  SKILL_ROUTING_EVENT
+} = require('./skill-routing-registry.cjs');
 
 // ----------------------------------------------------------------------------
 // FROZEN CONSTANTS
@@ -75,6 +91,7 @@ const LIVE_WRITER_PATH = path.resolve(
 // VERDICTS that should fire token_threshold_crossed events (anything other
 // than 'ok' / 'false_positive' / null). Frozen mirror of Phase 42 lock 13.
 const TROUBLE_VERDICTS = Object.freeze(['warn', 'degraded']);
+const SKILL_ROUTING_SIGNAL = 'skill_routing_scheduled_consult';
 
 // ----------------------------------------------------------------------------
 // INTERNAL HELPERS (Lock 13: never throw; degrade to falsey sentinel)
@@ -105,24 +122,126 @@ function _resolvePlanningDir(opts, projectDir) {
 function _emitLiveEvent(projectDir, type, data, scope) {
   // Lock 13: emit failures are fire-and-forget. Use spawnSync so the
   // event lands even if the live writer module is partially broken at
-  // require-time. Per Phase 74 contract: writer.cjs has --emit CLI.
+  // require-time. Per Phase 74 contract: writer.cjs has --emit CLI. If
+  // subprocess creation is unavailable, fall back to its public API.
   try {
-    const eventArg = JSON.stringify({
+    const event = {
       type: type,
       data: data || {},
       milestone: (scope && scope.milestone) || null,
       phase: (scope && scope.phase) || null,
-      plan: (scope && scope.plan) || null
-    });
+      plan: (scope && scope.plan) || null,
+      projectDir: projectDir
+    };
+    const eventArg = JSON.stringify(event);
     const r = child_process.spawnSync(
       process.execPath,
       [LIVE_WRITER_PATH, '--emit', eventArg],
       { cwd: projectDir, encoding: 'utf8', timeout: 8000, windowsHide: true }
     );
-    return { ok: r.status === 0 };
+    if (r.status === 0) return { ok: true };
+    try {
+      const liveWriter = require(LIVE_WRITER_PATH);
+      if (liveWriter && typeof liveWriter.appendEvent === 'function') {
+        return liveWriter.appendEvent(event);
+      }
+    } catch (_fallbackError) {
+      // Lock 13: both emit paths are best-effort.
+    }
+    return { ok: false };
   } catch (_e) {
     return { ok: false };
   }
+}
+
+function _optionalNonNegativeNumber(value, label) {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error('invalid_input_schema:' + label + '_must_be_non_negative_number');
+  }
+  return parsed;
+}
+
+function _latestGateValue(rows, route, phase, milestone) {
+  const matching = rows.filter(function (row) {
+    return row && row.gate === route.gate_ref
+      && String(row.phase || '') === phase
+      && (!milestone || !row.milestone || row.milestone === milestone);
+  });
+  return matching.length > 0 ? matching[matching.length - 1] : null;
+}
+
+function _priorRouteFire(rows, route, phase) {
+  return rows.some(function (row) {
+    return row && row.event === SKILL_ROUTING_EVENT
+      && row.route_id === route.id
+      && String(row.phase || '') === phase
+      && row.decision === 'fired';
+  });
+}
+
+function _scheduledRouteDecision(route, context) {
+  if (route.gate_ref) {
+    const gateRow = _latestGateValue(
+      context.gateValueRows, route, context.phase, context.milestone);
+    if (!gateRow) {
+      return {
+        decision: 'skipped',
+        reason_code: 'gate_ref_not_observed',
+        reason: 'gate_ref_not_observed:' + route.gate_ref
+      };
+    }
+    if (gateRow.outcome === 'skip') {
+      return {
+        decision: 'skipped',
+        reason_code: 'gate_ref_skipped',
+        reason: 'gate_ref_skipped:' + route.gate_ref
+      };
+    }
+    return {
+      decision: 'fired',
+      reason_code: 'gate_ref_observed',
+      reason: 'gate_ref_observed:' + route.gate_ref + ':' + String(gateRow.outcome || 'unknown')
+    };
+  }
+
+  const cooldown = route.cooldown || {};
+  const policy = cooldown.policy || 'scheduled-moment';
+  if (cooldown.scope === 'phase'
+      && _priorRouteFire(context.evidenceRows, route, context.phase)) {
+    return {
+      decision: 'skipped',
+      reason_code: 'phase_cooldown_already_fired',
+      reason: 'phase_cooldown_already_fired:' + policy
+    };
+  }
+  return {
+    decision: 'fired',
+    reason_code: 'scheduled_route_due',
+    reason: 'scheduled_route_due:' + policy
+  };
+}
+
+function _appendSkillRoutingDegradation(planningDir, scope, error) {
+  const message = error && error.message ? error.message : String(error || 'unknown');
+  return logGateEvidence(planningDir, {
+    signal: SKILL_ROUTING_SIGNAL,
+    status: 'warn',
+    reason_codes: ['skill_routing_consult_degraded'],
+    artifacts: [],
+    evidence: [],
+    next_action: 'Inspect orchestrator skill-routing consult inputs and gate-evidence path.',
+    risk: 'medium',
+    duration_ms: null,
+    phase: scope.phase || null,
+    milestone: scope.milestone || null,
+    event: SKILL_ROUTING_EVENT,
+    decision: 'degraded',
+    reason: 'skill_routing_consult_degraded:' + message.slice(0, 300),
+    moment: scope.moment || null,
+    mode: scope.mode || null
+  });
 }
 
 // ----------------------------------------------------------------------------
@@ -311,7 +430,141 @@ function contextPacketBuild(opts) {
 }
 
 // ----------------------------------------------------------------------------
-// SELF-TEST (9 assertions)
+// PUBLIC API: skillRoutingConsult
+// ----------------------------------------------------------------------------
+function skillRoutingConsult(opts) {
+  const projectDir = _resolveProjectDir(opts);
+  const planningDir = _resolvePlanningDir(opts, projectDir);
+  const scope = { phase: null, milestone: null, moment: null, mode: null };
+  try {
+    if (!opts || typeof opts !== 'object') {
+      throw new Error('invalid_input_schema:opts_not_object');
+    }
+
+    const state = readState(projectDir) || {};
+    scope.phase = opts.phase === undefined || opts.phase === null
+      ? String(state.phase || '')
+      : String(opts.phase);
+    scope.milestone = opts.milestone || state.milestone || null;
+    scope.moment = opts.moment || 'phase-close';
+    scope.mode = opts.mode || 'auto';
+
+    if (!scope.phase) throw new Error('invalid_input_schema:phase_required');
+    if (VALID_MOMENTS.indexOf(scope.moment) === -1) {
+      throw new Error('invalid_input_schema:moment_invalid:' + scope.moment);
+    }
+    if (VALID_MODES.indexOf(scope.mode) === -1) {
+      throw new Error('invalid_input_schema:mode_invalid:' + scope.mode);
+    }
+
+    const filesChanged = _optionalNonNegativeNumber(opts.filesChanged, 'files_changed');
+    const diffLines = _optionalNonNegativeNumber(opts.diffLines, 'diff_lines');
+    const dryRun = opts.dryRun === true || opts.dryRun === 'true';
+    const registry = loadSkillRoutingRegistry({
+      registryPath: opts.registryPath || opts.registry,
+      runtime: true,
+      planningDir: planningDir,
+      root: projectDir,
+      moment: scope.moment,
+      mode: scope.mode,
+      runtimeContext: { moment: scope.moment, mode: scope.mode }
+    });
+    const routes = getScheduledRoutes(scope.moment, scope.mode, { registry: registry });
+    const evidenceRows = readGateEvidenceRows(planningDir, { limit: 5000 });
+    const gateValueRows = readGateValueRows(planningDir,
+      scope.milestone ? { milestone: scope.milestone } : {});
+    const context = {
+      phase: scope.phase,
+      milestone: scope.milestone,
+      evidenceRows: evidenceRows,
+      gateValueRows: gateValueRows
+    };
+    const decisions = [];
+    let appendFailures = 0;
+
+    for (let i = 0; i < routes.length; i++) {
+      const route = routes[i];
+      const decision = _scheduledRouteDecision(route, context);
+      const row = logGateEvidence(planningDir, {
+        signal: SKILL_ROUTING_SIGNAL,
+        status: decision.decision === 'fired' ? 'ok' : 'skipped',
+        reason_codes: [decision.reason_code],
+        artifacts: [],
+        evidence: [{ kind: 'skill-routing-route', ref: route.id }],
+        next_action: decision.decision === 'fired'
+          ? 'Continue the scheduled phase-close route for ' + route.skill + '.'
+          : 'Continue phase close; the named gate or route policy owns reconsideration.',
+        risk: 'low',
+        duration_ms: 0,
+        phase: scope.phase,
+        milestone: scope.milestone,
+        event: SKILL_ROUTING_EVENT,
+        route_id: route.id,
+        skill: route.skill,
+        moment: scope.moment,
+        mode: scope.mode,
+        decision: decision.decision,
+        reason: decision.reason,
+        gate_ref: route.gate_ref || null,
+        cooldown_policy: route.cooldown && route.cooldown.policy || null,
+        source: route.source || registry.source || null,
+        files_changed: filesChanged,
+        diff_lines: diffLines,
+        phase_type: opts.phaseType || null,
+        dry_run: dryRun
+      });
+      if (!row) appendFailures++;
+      decisions.push({
+        route_id: route.id,
+        skill: route.skill,
+        decision: decision.decision,
+        reason: decision.reason,
+        evidence_appended: !!row
+      });
+    }
+
+    if (appendFailures > 0) {
+      _appendSkillRoutingDegradation(planningDir, scope,
+        new Error('gate_evidence_append_failed:' + appendFailures));
+    }
+    return {
+      ok: appendFailures === 0,
+      event: SKILL_ROUTING_EVENT,
+      source: registry.source,
+      degraded: !!registry.degraded || appendFailures > 0,
+      moment: scope.moment,
+      mode: scope.mode,
+      phase: scope.phase,
+      milestone: scope.milestone,
+      dry_run: dryRun,
+      route_count: routes.length,
+      fired_count: decisions.filter(function (item) { return item.decision === 'fired'; }).length,
+      skipped_count: decisions.filter(function (item) { return item.decision === 'skipped'; }).length,
+      evidence_appended: decisions.length - appendFailures,
+      decisions: decisions
+    };
+  } catch (error) {
+    _appendSkillRoutingDegradation(planningDir, scope, error);
+    return {
+      ok: false,
+      degraded: true,
+      event: SKILL_ROUTING_EVENT,
+      moment: scope.moment,
+      mode: scope.mode,
+      phase: scope.phase,
+      milestone: scope.milestone,
+      route_count: 0,
+      fired_count: 0,
+      skipped_count: 0,
+      evidence_appended: 0,
+      decisions: [],
+      error: error && error.message ? error.message : String(error || 'unknown')
+    };
+  }
+}
+
+// ----------------------------------------------------------------------------
+// SELF-TEST (10+ assertions)
 // ----------------------------------------------------------------------------
 function selfTest() {
   const results = [];
@@ -470,6 +723,7 @@ function selfTest() {
   try {
     const exportShapeOk = (typeof tokenWasteCheck === 'function')
       && (typeof contextPacketBuild === 'function')
+      && (typeof skillRoutingConsult === 'function')
       && (typeof selfTest === 'function')
       && (typeof COMMAND_NAME === 'string')
       && Object.isFrozen(TROUBLE_VERDICTS);
@@ -491,6 +745,65 @@ function selfTest() {
     assert('A9_tool_paths_absolute', false, 'threw=' + (e && e.message));
   }
 
+  // A10: phase-close consult enumerates every scheduled route and appends
+  // exactly one fired-or-skipped gate-evidence envelope for each route.
+  let tmpA10 = null;
+  try {
+    tmpA10 = fs.mkdtempSync(path.join(os.tmpdir(), 'orch-hook-a10-'));
+    const planningA10 = path.join(tmpA10, '.planning');
+    fs.mkdirSync(path.join(planningA10, 'metrics'), { recursive: true });
+    fs.writeFileSync(path.join(planningA10, 'STATE.md'),
+      '---\nmilestone: v3.5\ncurrent_phase: 149\n---\n', 'utf8');
+    const hasApi = typeof skillRoutingConsult === 'function';
+    const positionalCli = _parseArgv([
+      'node', __filename, 'skill-routing', '--moment', 'phase-close',
+      '--mode', 'auto', '--phase', '149', '--dry-run'
+    ]);
+    const flagCli = _parseArgv([
+      'node', __filename, '--skill-routing-consult', '--moment', 'phase-close',
+      '--mode', 'auto', '--phase', '149', '--dry-run'
+    ]);
+    const cliWired = positionalCli.mode === 'skill-routing-consult'
+      && positionalCli.routeMode === 'auto' && positionalCli.dryRun === true
+      && flagCli.mode === 'skill-routing-consult'
+      && flagCli.routeMode === 'auto' && flagCli.dryRun === true;
+    const out = hasApi ? skillRoutingConsult({
+      projectDir: tmpA10,
+      planningDir: planningA10,
+      moment: 'phase-close',
+      mode: 'auto',
+      phase: '149',
+      milestone: 'v3.5',
+      filesChanged: 4,
+      diffLines: 100,
+      phaseType: 'feature',
+      dryRun: true
+    }) : null;
+    const evidencePath = path.join(planningA10, 'metrics', 'gate-evidence.jsonl');
+    const rows = fs.existsSync(evidencePath)
+      ? fs.readFileSync(evidencePath, 'utf8').trim().split(/\r?\n/)
+        .filter(Boolean).map(function (line) { return JSON.parse(line); })
+        .filter(function (row) { return row.event === 'skill-routing'; })
+      : [];
+    const completeRows = rows.length > 0 && rows.every(function (row) {
+      return row.skill && row.moment === 'phase-close' && row.mode === 'auto'
+        && row.phase === '149' && (row.decision === 'fired' || row.decision === 'skipped')
+        && typeof row.reason === 'string' && row.reason.length > 0;
+    });
+    const decisions = new Set(rows.map(function (row) { return row.decision; }));
+    assert('A10_skill_routing_phase_close_logs_each_decision',
+      hasApi && cliWired && out && out.ok === true && out.route_count >= 5
+        && rows.length === out.route_count && completeRows
+        && decisions.has('fired') && decisions.has('skipped'),
+      'api=' + hasApi + ' cli=' + cliWired + ' routes=' + (out && out.route_count)
+        + ' rows=' + rows.length + ' decisions=' + Array.from(decisions).join(','));
+  } catch (e) {
+    assert('A10_skill_routing_phase_close_logs_each_decision', false,
+      'threw=' + (e && e.message));
+  } finally {
+    if (tmpA10) { try { fs.rmSync(tmpA10, { recursive: true, force: true }); } catch (_e) {} }
+  }
+
   return {
     ok: results.every(function (r) { return r.ok; }),
     results: results
@@ -504,13 +817,18 @@ function selfTest() {
 function _parseArgv(argv) {
   const known = new Set([
     '--token-waste-check', '--context-packet-build',
+    'skill-routing', '--skill-routing-consult', '--skill-routing',
     '--self-test', '--help',
     '--milestone', '--phase', '--role', '--plan',
-    '--planning-dir', '--project-dir', '--json'
+    '--planning-dir', '--project-dir', '--json',
+    '--moment', '--mode', '--files-changed', '--diff-lines',
+    '--phase-type', '--dry-run', '--registry'
   ]);
   const out = {
     mode: null, milestone: null, phase: null, role: null, plan: null,
-    planningDir: null, projectDir: null, json: false, help: false
+    planningDir: null, projectDir: null, json: false, help: false,
+    moment: null, routeMode: null, filesChanged: null, diffLines: null,
+    phaseType: null, dryRun: false, registry: null
   };
   let i = 2;
   while (i < argv.length) {
@@ -518,15 +836,24 @@ function _parseArgv(argv) {
     if (!known.has(a)) return { error: 'bad_invocation', flag: a };
     if (a === '--token-waste-check')   { out.mode = 'token-waste-check'; i++; continue; }
     if (a === '--context-packet-build'){ out.mode = 'context-packet-build'; i++; continue; }
+    if (a === 'skill-routing' || a === '--skill-routing-consult'
+        || a === '--skill-routing')    { out.mode = 'skill-routing-consult'; i++; continue; }
     if (a === '--self-test')           { out.mode = 'self-test'; i++; continue; }
     if (a === '--help')                { out.help = true; i++; continue; }
     if (a === '--json')                { out.json = true; i++; continue; }
+    if (a === '--dry-run')             { out.dryRun = true; i++; continue; }
     if (a === '--milestone')   { out.milestone = argv[i + 1]; i += 2; continue; }
     if (a === '--phase')       { out.phase = argv[i + 1]; i += 2; continue; }
     if (a === '--role')        { out.role = argv[i + 1]; i += 2; continue; }
     if (a === '--plan')        { out.plan = argv[i + 1]; i += 2; continue; }
     if (a === '--planning-dir'){ out.planningDir = argv[i + 1]; i += 2; continue; }
     if (a === '--project-dir') { out.projectDir = argv[i + 1]; i += 2; continue; }
+    if (a === '--moment')      { out.moment = argv[i + 1]; i += 2; continue; }
+    if (a === '--mode')        { out.routeMode = argv[i + 1]; i += 2; continue; }
+    if (a === '--files-changed'){ out.filesChanged = argv[i + 1]; i += 2; continue; }
+    if (a === '--diff-lines')  { out.diffLines = argv[i + 1]; i += 2; continue; }
+    if (a === '--phase-type')  { out.phaseType = argv[i + 1]; i += 2; continue; }
+    if (a === '--registry')    { out.registry = argv[i + 1]; i += 2; continue; }
     i++;
   }
   return out;
@@ -536,6 +863,8 @@ function _usage() {
   process.stdout.write('Usage:\n');
   process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --token-waste-check --milestone <ms> [--planning-dir <p>] [--project-dir <p>]\n');
   process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --context-packet-build --role <r> --phase <p> [--plan <id>] [--milestone <ms>] [--project-dir <p>]\n');
+  process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs skill-routing --moment phase-close --mode auto --phase <p> [--files-changed <n>] [--diff-lines <n>] [--dry-run]\n');
+  process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --skill-routing-consult --moment phase-close --mode auto --phase <p> [--dry-run]\n');
   process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --self-test\n');
   process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --help\n');
   process.stdout.write('Phase 87-01: live wire-in for Phase 42 (token-waste) + Phase 45 (context-packet).\n');
@@ -600,6 +929,24 @@ if (require.main === module) {
     process.exit(0);
   }
 
+  if (parsed.mode === 'skill-routing-consult') {
+    const result = skillRoutingConsult({
+      projectDir: parsed.projectDir,
+      planningDir: parsed.planningDir,
+      milestone: parsed.milestone,
+      phase: parsed.phase,
+      moment: parsed.moment,
+      mode: parsed.routeMode,
+      filesChanged: parsed.filesChanged,
+      diffLines: parsed.diffLines,
+      phaseType: parsed.phaseType,
+      dryRun: parsed.dryRun,
+      registry: parsed.registry
+    });
+    process.stdout.write(JSON.stringify(result) + '\n');
+    process.exit(0);
+  }
+
   // No mode -> usage + exit 0.
   _usage();
   process.exit(0);
@@ -611,6 +958,7 @@ if (require.main === module) {
 module.exports = {
   tokenWasteCheck: tokenWasteCheck,
   contextPacketBuild: contextPacketBuild,
+  skillRoutingConsult: skillRoutingConsult,
   selfTest: selfTest,
   COMMAND_NAME: COMMAND_NAME,
   TROUBLE_VERDICTS: TROUBLE_VERDICTS,
