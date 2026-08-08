@@ -1,13 +1,13 @@
 ---
 name: sgsd-update
-description: "Pull latest super-gsd from origin/master and re-run the installer. Thin wrapper from DLB-06 Wave A. Use to propagate new skills, agents, hooks, scripts across machines without the git-pull-then-install manual cycle."
+description: "Guardedly fast-forward canonical super-gsd to origin/master and refresh project plus global assets. Use to propagate skills, agents, hooks, scripts, and registrations across machines without accepting dirty or local-only source history."
 allowed-tools:
   - Read
   - Bash
 ---
 
 <objective>
-Run `sgsd-update.sh` (or `.ps1` on native Windows PowerShell) to pull the canonical super-gsd source from GitHub and re-run the installer. This propagates every skill, agent, hook, and script update to the operator's local install.
+Run `sgsd-update.sh` (or `.ps1` on native Windows PowerShell) to fast-forward the canonical super-gsd source to a captured `origin/master` SHA and run `install.sh --update --install-global`. This refreshes both the current project integration and the operator's global SGSD assets while preserving `.planning/config.json`.
 
 Optional second mode: `--check` reports upstream drift without modifying anything. Useful when the session-start hook has already prompted but operator wants to inspect before accepting.
 </objective>
@@ -28,9 +28,12 @@ bash ~/.claude/super-gsd/scripts/sgsd-update.sh
 
 Steps executed:
 1. Locate canonical source at `~/.claude/super-gsd/source/`. Clone from `git@github.com:Berrowj/super-gsd.git` if missing (falls back to HTTPS).
-2. `git pull origin master`.
-3. Re-run `super-gsd/install.sh` (adds `--init-project` flag if cwd has `.planning/`).
-4. Write upstream SHA to current project's `.super-gsd-version` (if `.planning/` present).
+2. Refuse tracked or untracked dirt, fetch only `refs/heads/master` into `refs/remotes/origin/master`, capture `FETCH_HEAD`, and require both fetched refs to name the same commit.
+3. Refuse a locally-ahead or diverged HEAD. Recheck cleanliness immediately before `git merge --ff-only <captured-sha>`.
+4. Assert HEAD equals the captured SHA, recheck cleanliness, and run `super-gsd/install.sh --update --install-global`.
+5. Assert HEAD again. Only after installer success, atomically write the captured SHA to `.super-gsd-version` when the current project has `.planning/`.
+
+Success prints stable `source_sha=<captured-sha>` and `project_pin=<captured-sha>` evidence lines. Outside an SGSD project, `project_pin=not-written` is reported.
 
 ## Mode B — check-only
 
@@ -38,17 +41,17 @@ Steps executed:
 bash ~/.claude/super-gsd/scripts/sgsd-update.sh --check
 ```
 
-Compares local source HEAD vs upstream via `git ls-remote` (no fetch). Exit codes:
+Compares local `refs/heads/master` with remote `refs/heads/master` via `git ls-remote` (no fetch and no worktree/ref mutation). Exit codes:
 - `0` — up to date OR offline (fail-open for session-start hook use)
 - `10` — drift detected; output line shows local + upstream SHAs + commits behind
 
-## Mode C — pull-only (no install)
+## Mode C — fast-forward only (no install)
 
 ```bash
 bash ~/.claude/super-gsd/scripts/sgsd-update.sh --no-install
 ```
 
-Useful when you want to inspect what's coming before letting the installer run.
+Runs the same guards, fetch, captured-SHA ancestry check, fast-forward, and final HEAD assertion, but skips the installer and project pin write. It reports `project_pin=unchanged`.
 </modes>
 
 <when_to_use>
@@ -67,6 +70,20 @@ Useful when you want to inspect what's coming before letting the installer run.
 - **Installer is called from canonical source**, not current repo. Avoids self-modification-while-running class of issues.
 - **.super-gsd-version is opt-in**: file is only written if project has `.planning/`. Per DLB-06 Q3, SHA pinning is deferred — `.super-gsd-version` records what was installed for auditability but doesn't gate future updates. Revisit pinning at next DLB after more deployment data.
 </constraints>
+
+<exit_and_restart_boundaries>
+
+The updater exits non-zero on dirty, locally-ahead, or diverged source history; fetch failure; fetched-SHA or final-HEAD mismatch; installer failure; or project-pin write failure. These failures never write `.super-gsd-version`, and installer failure preserves an existing project pin.
+
+A successful install updates files on disk; it does not hot-reload already-running processes or a client session:
+
+- Reload the PowerShell profile (`. $PROFILE`) or start a new shell before relying on updated profile functions.
+- Exit and start a new client session before relying on newly installed skills, agents, or hooks.
+- Restart MCP and cockpit processes so their command lines resolve through the refreshed global installation.
+- On a remote SGSD host, reset the relevant tmux session so its panes start new MCP and cockpit processes.
+
+Use the phase propagation runbook for process-identity evidence and exact restart commands; `sgsd-update` itself deliberately performs no process or session restart.
+</exit_and_restart_boundaries>
 
 <related>
 
