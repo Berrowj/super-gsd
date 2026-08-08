@@ -1,6 +1,6 @@
 profiles:
   codex.readonly.audit:
-    model: gpt-5.6
+    model: gpt-5.6-sol
     reasoning: xhigh
     sandbox: read-only
     approval: never
@@ -11,7 +11,7 @@ profiles:
     allowed_write_roots: []
     max_changed_files: 0
   codex.plan:
-    model: gpt-5.6
+    model: gpt-5.6-sol
     reasoning: xhigh
     sandbox: read-only
     approval: never
@@ -23,7 +23,7 @@ profiles:
       - .planning/
     max_changed_files: 1
   codex.goal:
-    model: gpt-5.6
+    model: gpt-5.6-sol
     reasoning: xhigh
     sandbox: workspace-write
     approval: never
@@ -34,7 +34,7 @@ profiles:
     allowed_write_roots: []
     max_changed_files: 12
   codex.execute.bounded:
-    model: gpt-5.6
+    model: gpt-5.6-sol
     reasoning: xhigh
     sandbox: workspace-write
     approval: auto
@@ -45,7 +45,7 @@ profiles:
     allowed_write_roots: []
     max_changed_files: 6
   codex.execute.patch:
-    model: gpt-5.6
+    model: gpt-5.6-sol
     reasoning: xhigh
     sandbox: read-only
     approval: never
@@ -56,7 +56,7 @@ profiles:
     allowed_write_roots: []
     max_changed_files: 20
   codex.review.native:
-    model: gpt-5.6
+    model: gpt-5.6-sol
     reasoning: xhigh
     sandbox: read-only
     approval: never
@@ -67,7 +67,7 @@ profiles:
     allowed_write_roots: []
     max_changed_files: 0
   codex.review.swarm:
-    model: gpt-5.6
+    model: gpt-5.6-sol
     reasoning: high
     sandbox: read-only
     approval: never
@@ -78,7 +78,7 @@ profiles:
     allowed_write_roots: []
     max_changed_files: 0
   codex.cockpit.brief:
-    model: gpt-5.6
+    model: gpt-5.6-sol
     reasoning: high
     sandbox: read-only
     approval: never
@@ -89,7 +89,7 @@ profiles:
     allowed_write_roots: []
     max_changed_files: 0
   codex.app_lab:
-    model: gpt-5.6
+    model: gpt-5.6-sol
     reasoning: xhigh
     sandbox: workspace-write
     approval: auto
@@ -100,7 +100,7 @@ profiles:
     allowed_write_roots: []
     max_changed_files: 25
   codex.cloud_lab:
-    model: gpt-5.6
+    model: gpt-5.6-sol
     reasoning: xhigh
     sandbox: workspace-write
     approval: auto
@@ -112,19 +112,19 @@ profiles:
     max_changed_files: 25
 cli_profiles:
   executor:
-    model: gpt-5.6
+    model: gpt-5.6-sol
     reasoning: xhigh
     sandbox: workspace-write
     ephemeral: false
     approval: full-auto
   review:
-    model: gpt-5.6
+    model: gpt-5.6-sol
     reasoning: xhigh
     sandbox: read-only
     ephemeral: true
     approval: never
   triage:
-    model: gpt-5.6
+    model: gpt-5.6-sol
     reasoning: xhigh
     sandbox: read-only
     ephemeral: false
