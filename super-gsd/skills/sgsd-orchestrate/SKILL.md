@@ -1477,125 +1477,23 @@ REPEAT:
      Runs ONCE per phase, not per commit — keeps token cost bounded.
      } // end if (phaseAtcFired)
 
-  6.55. MUDA WASTE AUDIT (gate execution mechanics only) — per DLB-02
-     ROUTING POLICY (Phase 149): `super-gsd/registry/skill-routing.yaml` is
-     the source of truth for the MUDA route's moment, modes, and cooldown.
-     Runtime phase-close routing is resolved by:
-       `node super-gsd/scripts/lib/orchestrator-hooks.cjs --skill-routing-consult --phase N`
-     Gate eligibility remains owned by `super-gsd/registry/gates.yaml`:
-       (files_changed >= 4 OR diff_lines >= 100) AND phase_type NOT IN (refactor, docs, config)
+  6.55. MUDA WASTE AUDIT ROUTE ELIGIBILITY (no execution) - per DLB-02
+     `super-gsd/registry/gates.yaml` remains the owner of
+     `MUDA-waste-audit` eligibility. `super-gsd/registry/skill-routing.yaml`
+     remains the owner of the phase-close route's moment, modes, cooldown,
+     dispatch, and exit policy. Record or consume the current-phase gate
+     decision under `gate_ref: MUDA-waste-audit`; do not copy its thresholds
+     into this skill.
 
-     // Gate check (Phase 10 D-07): MUDA-waste-audit with compound OR trigger
-     // Phase 36 wire-in (locked 36=B per 36-RESEARCH.md sec 2): single-call
-     // gates.shouldFire(...) hoisted to a `mudaFired` const so both arms read
-     // the same evaluation; SKIP arm logs outcome:'skip', FIRE arm logs the
-     // shell-exit-derived outcome (0=pass, 1=warn, 2+=block).
-     // Phase 38 wire-in (SAMPLE-03 site 2 of 3).
-     const mudaSampled = samplingDecider.shouldSample({
-       gate: 'MUDA-waste-audit',
-       work_risk: classifier_result.work_risk,
-       gates,
-       gatesYamlPath: GATES_YAML_PATH,
-       overrides: cliOverrides,
-     });
-     const mudaFired = gates.shouldFire('MUDA-waste-audit', ctx, GATES_YAML_PATH)
-       && mudaSampled;
+     Do NOT invoke the MUDA script in Step 6.55. The phase-close routing consult
+     in Step 6.6.i is the SINGLE execution point. It consumes the named
+     `gate_ref`, renders the registered dispatch, runs it once when fired, and
+     appends the scheduling and execution evidence rows.
 
-     if (!mudaFired) {
-       try {
-         // Phase 38 LOCKED Q13: differentiate trigger-skip from sampled-skip.
-         const triggerFired = gates.shouldFire('MUDA-waste-audit', ctx, GATES_YAML_PATH);
-         const reasonCodes = (triggerFired && !mudaSampled)
-           ? ['gate_skip_with_reason', 'gate_sampled_skip']
-           : ['gate_skip_with_reason'];
-         require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'gate-value-log.cjs'))
-           .logGateValue(path.join(process.cwd(), '.planning'), {
-             gate:        'MUDA-waste-audit',
-             outcome:     'skip',
-             phase:       currentPhase,
-             milestone:   currentMilestone,
-             reason_codes: reasonCodes,
-             retroactive: gates.getGate('MUDA-waste-audit', GATES_YAML_PATH),
-           });
-       } catch (e) {
-         console.warn('[SGSD] gate-value-log MUDA-waste-audit skip-arm failed (continuing):', e && e.message);
-       }
-     }
-
-     if (mudaFired) {
-
-     If the gate doesn't fire (small phase, or refactor/docs/config), SKIP
-     this step silently. DLB-02's Architect-held position: pay audit cost
-     only when change magnitude justifies it.
-
-     If the gate fires:
-
-       a. Shell out to the probe + audit scripts (no sub-agent; cheap):
-
-          bash super-gsd/scripts/sgsd-muda-audit.sh {PHASE} --project {PROJECT_DIR}
-
-          This writes:
-            * {PHASE_DIR}/WASTE.md — human-readable per-probe verdict table
-            * .planning/memory/architecture/anti-patterns/waste-{class}-p{N}-{slug}.md for
-              each WARN/FAIL finding (via sgsd-curate, MEMORY.md updates
-              atomically)
-            * .planning/metrics/muda-log.jsonl — one line per audit run
-
-       b. Parse the script's exit code:
-            0 — all probes PASS, continue to Step 6.6 (browser verify)
-            1 — WARN findings curated, continue (log MUDA_WARN in DEVIATIONS)
-            2 — FAIL findings curated, continue but log MUDA_FAIL in DEVIATIONS.
-                PHASE IS NOT BLOCKED by MUDA — per DLB-02 the audit is a
-                detect-and-record mechanism, not a gate. Fail signal goes to
-                sgsd-muda-recurrence at milestone close.
-
-          // The shell-exit code captured above is the FIRE-arm signal source.
-          // Bind to a named const for the wire-in below (parity with the
-          // ROUTE-03 wire-in's `dispatchResult` reference at line ~1227).
-          const mudaExitCode = (typeof shellResult !== 'undefined' && shellResult)
-            ? shellResult.exit
-            : (typeof exitCode === 'number' ? exitCode : null);
-
-          // Phase 36 wire-in (locked 36=B per 36-RESEARCH.md sec 2):
-          // gate-value-log FIRE arm. Map shell exit -> closed OUTCOMES enum:
-          //   exit 0 -> all probes PASS  -> outcome 'pass'
-          //   exit 1 -> WARN findings    -> outcome 'warn'
-          //   exit 2 -> FAIL findings    -> outcome 'block'
-          //   other  -> outcome 'block' (script crash is value-negative)
-          try {
-            const gateValueLog = require(path.join(process.cwd(), 'super-gsd', 'scripts', 'lib', 'gate-value-log.cjs'));
-            let mudaOutcome;
-            if      (mudaExitCode === 0) mudaOutcome = 'pass';
-            else if (mudaExitCode === 1) mudaOutcome = 'warn';
-            else                          mudaOutcome = 'block';
-            const wastePath = path.join(currentPhaseDir || '', 'WASTE.md');
-            const evidence = (currentPhaseDir && fs.existsSync(wastePath))
-              ? [{ kind: 'review_report', ref: wastePath }]
-              : [];
-            gateValueLog.logGateValue(path.join(process.cwd(), '.planning'), {
-              gate:        'MUDA-waste-audit',
-              outcome:     mudaOutcome,
-              phase:       currentPhase,
-              milestone:   currentMilestone,
-              evidence,
-              retroactive: gates.getGate('MUDA-waste-audit', GATES_YAML_PATH),
-            });
-          } catch (e) {
-            console.warn('[SGSD] gate-value-log MUDA-waste-audit fire-arm failed (continuing):', e && e.message);
-          }
-
-       c. NEVER block on MUDA failures. The point is data accumulation
-          across milestones so sgsd-muda-recurrence can trigger the
-          kill-condition (retire skill if 2 consecutive milestones show
-          zero recurrence). Blocking on a single probe fail would create
-          false-positive friction and erode trust.
-
-       d. TaskUpdate the MUDA audit task (wrap the shell-out in a
-          TaskCreate/TaskUpdate pair like any other unit).
-
-     Token budget per MUDA audit: ~100 tokens total (orchestrator overhead;
-     the actual probes run in shell at <1s and don't consume context).
-     } // end if (mudaFired)
+     MUDA exits 1 and 2 are verdict findings, not process failures. The later
+     consult records them as `executed_with_findings` and continues phase close.
+     Only `execution_failed` requires repair before the phase can be marked
+     complete.
 
   6.6. FRONTEND BROWSER VERIFICATION GATE (runs ONCE per phase, after ATC passes)
      Triggers when Step 6.5 completes AND the phase's diff touched any frontend
@@ -1759,8 +1657,8 @@ REPEAT:
 
             HARD RULES for this gate -- no exceptions:
 
-            R1. writeCapsule outcome NEVER blocks step 6.6.i (mark complete /
-                advance). Lock 13 binds.
+            R1. writeCapsule outcome NEVER blocks the Step 6.6.i consult.
+                Lock 13 binds.
             R2. Capsule write failure surfaces in the next milestone-close's
                 token-waste / phase-folder-audit narrative (Phase 49 reads
                 context-complaints.jsonl); operator-discoverable but
@@ -1818,8 +1716,8 @@ REPEAT:
 
             HARD RULES for this gate -- no exceptions:
 
-            G1. processComplaints outcome NEVER blocks step 6.6.i (mark complete /
-                advance). Lock 13 binds.
+            G1. processComplaints outcome NEVER blocks the Step 6.6.i consult.
+                Lock 13 binds.
             G2. Repair actions are SCHEDULED via .planning/metrics/repair-queue.jsonl
                 envelope-v1 rows; the orchestrator picks up the queue on the
                 NEXT phase loop iteration (or via explicit
@@ -1833,11 +1731,9 @@ REPEAT:
                 in the rendered markdown so future operators understand WHY
                 this step is between 6.6.i.X and 6.6.i.
 
-       i. Mark phase complete, advance to next phase.
+       i. PHASE-CLOSE SKILL ROUTING CONSULT (Phase 149; single execution point)
 
-       j. PHASE-CLOSE SKILL ROUTING CONSULT (Phase 149; before Step 6.7)
-
-            After phase completion and before Step 6.7, run:
+            Before marking the phase complete or entering Step 6.7, run:
 
             ```bash
             node super-gsd/scripts/lib/orchestrator-hooks.cjs --skill-routing-consult \
@@ -1847,24 +1743,37 @@ REPEAT:
             Capture and inspect the stdout JSON before continuing. The helper
             consults `super-gsd/registry/skill-routing.yaml`, the routing source
             of truth. For EVERY `decision: fired` row, the loop MUST execute the
-            row's non-empty `dispatch.command` + `dispatch.args` before Step 6.7.
-            `--execute` performs those deterministic process dispatches
-            mechanically and returns only after each attempt completes.
+            full normalized dispatch exactly once. `--execute` performs those
+            deterministic process dispatches mechanically and returns only after
+            each attempt completes. The MUDA route retains
+            `gate_ref: MUDA-waste-audit`; Step 6.55 never executes it directly.
 
             The helper appends the scheduling row (`fired|skipped`) and, for
             each fired row, a separate execution-outcome evidence row with
-            `parent_decision: fired`, `decision: executed|execution_failed`,
-            the concrete dispatch, and integer `exit_code`. Confirm every fired
-            JSON decision has both `dispatch` and `execution`, and that
-            `execution_evidence_appended` equals `fired_count`. Missing outcome
-            evidence or `execution_failed` is loud: surface its stderr/exit code
-            and complete the returned repair action before entering Step 6.7.
-            Never treat the initial `fired` row as proof that the skill ran, and
-            do not infer or schedule neglected skills from prose in this file.
+            `parent_decision: fired`, the concrete dispatch, integer `exit_code`,
+            and explicit `exit_code_meaning`. Exit policy classification is:
+
+            - `success_exits` -> `decision: executed`; continue.
+            - `verdict_exits` -> `decision: executed_with_findings`; log the
+              findings and continue. MUDA exits 1/2 and readiness exit 1 use
+              this path.
+            - Any other exit -> `decision: execution_failed`; surface stderr and
+              the exit code, then complete the repair action before phase close.
+
+            Confirm every fired JSON decision has both `dispatch` and `execution`,
+            and that `execution_evidence_appended` equals `fired_count`. Missing
+            outcome evidence is loud and must be surfaced, but phase-close
+            blocking/repair-required classification is reserved for explicit
+            `execution_failed`. Never treat the initial `fired` row as proof that
+            the skill ran, and do not infer or schedule neglected skills from
+            prose in this file.
+
+       j. Mark phase complete, advance to next phase. `executed_with_findings`
+          does not block completion; only `execution_failed` requires repair.
 
   6.7. MILESTONE COMPLETE AUTO-TRIGGER (GOV-13 / D-18a)
 
-       After Step 6.6.i marks a phase complete:
+       After Step 6.6.j marks a phase complete:
 
          a. Read `.planning/ROADMAP.md` in full. Milestone close is rare.
          b. Extract the active milestone from `.planning/STATE.md`.

@@ -268,7 +268,9 @@ function _renderDispatch(dispatch, context) {
     command: command,
     args: args,
     cwd: context.projectDir,
-    timeout_ms: dispatch.timeout_ms || 120000
+    timeout_ms: dispatch.timeout_ms || 120000,
+    success_exits: dispatch.success_exits.slice(),
+    verdict_exits: dispatch.verdict_exits.slice()
   };
 }
 
@@ -277,6 +279,19 @@ function _outputExcerpt(value) {
   return text.length > MAX_DISPATCH_OUTPUT_BYTES
     ? text.slice(0, MAX_DISPATCH_OUTPUT_BYTES)
     : text;
+}
+
+function _classifyDispatchExit(dispatch, exitCode) {
+  if (dispatch.success_exits.includes(exitCode)) {
+    return { decision: 'executed', exit_code_meaning: 'success' };
+  }
+  if (dispatch.verdict_exits.includes(exitCode)) {
+    return {
+      decision: 'executed_with_findings',
+      exit_code_meaning: 'verdict_findings'
+    };
+  }
+  return { decision: 'execution_failed', exit_code_meaning: 'unrecognized_exit' };
 }
 
 function _executeDispatch(dispatch, context, executor) {
@@ -295,9 +310,11 @@ function _executeDispatch(dispatch, context, executor) {
     if (result && Number.isInteger(result.status)) exitCode = result.status;
     else if (result && result.error && result.error.code === 'ETIMEDOUT') exitCode = 124;
     else exitCode = 126;
+    const classification = _classifyDispatchExit(dispatch, exitCode);
     return {
-      decision: exitCode === 0 ? 'executed' : 'execution_failed',
+      decision: classification.decision,
       exit_code: exitCode,
+      exit_code_meaning: classification.exit_code_meaning,
       duration_ms: Math.max(0, Date.now() - started),
       stdout: _outputExcerpt(result && result.stdout),
       stderr: _outputExcerpt(result && (result.stderr || (result.error && result.error.message)))
@@ -306,6 +323,7 @@ function _executeDispatch(dispatch, context, executor) {
     return {
       decision: 'execution_failed',
       exit_code: 126,
+      exit_code_meaning: 'unrecognized_exit',
       duration_ms: Math.max(0, Date.now() - started),
       stdout: '',
       stderr: _outputExcerpt(error && error.message ? error.message : error)
@@ -315,18 +333,21 @@ function _executeDispatch(dispatch, context, executor) {
 
 function _appendSkillRoutingExecution(planningDir, scope, route, dispatch, outcome) {
   const executed = outcome.decision === 'executed';
+  const findings = outcome.decision === 'executed_with_findings';
   return logGateEvidence(planningDir, {
     signal: SKILL_ROUTING_SIGNAL,
-    status: executed ? 'ok' : 'fail',
+    status: executed ? 'ok' : (findings ? 'warn' : 'fail'),
     reason_codes: [executed
       ? 'skill_routing_dispatch_executed'
-      : 'skill_routing_dispatch_execution_failed'],
+      : (findings
+        ? 'skill_routing_dispatch_executed_with_findings'
+        : 'skill_routing_dispatch_execution_failed')],
     artifacts: [],
     evidence: [{ kind: 'skill-routing-route', ref: route.id }],
-    next_action: executed
-      ? 'Continue phase close after the scheduled route completed.'
+    next_action: executed || findings
+      ? 'Continue phase close after recording the scheduled route outcome.'
       : 'Inspect dispatch stderr and repair the scheduled route before Step 6.7.',
-    risk: executed ? 'low' : 'high',
+    risk: executed ? 'low' : (findings ? 'medium' : 'high'),
     duration_ms: outcome.duration_ms,
     phase: scope.phase,
     milestone: scope.milestone,
@@ -337,9 +358,11 @@ function _appendSkillRoutingExecution(planningDir, scope, route, dispatch, outco
     mode: scope.mode,
     parent_decision: 'fired',
     decision: outcome.decision,
-    reason: outcome.decision + ':exit_code=' + outcome.exit_code,
+    reason: outcome.decision + ':exit_code=' + outcome.exit_code
+      + ':meaning=' + outcome.exit_code_meaning,
     dispatch: dispatch,
     exit_code: outcome.exit_code,
+    exit_code_meaning: outcome.exit_code_meaning,
     stdout_excerpt: outcome.stdout,
     stderr_excerpt: outcome.stderr
   });
@@ -681,6 +704,7 @@ function skillRoutingConsult(opts) {
         result.execution = {
           decision: outcome.decision,
           exit_code: outcome.exit_code,
+          exit_code_meaning: outcome.exit_code_meaning,
           duration_ms: outcome.duration_ms,
           stdout_excerpt: outcome.stdout,
           stderr_excerpt: outcome.stderr,
@@ -712,6 +736,9 @@ function skillRoutingConsult(opts) {
       executed_count: decisions.filter(function (item) {
         return item.execution && item.execution.decision === 'executed';
       }).length,
+      executed_with_findings_count: decisions.filter(function (item) {
+        return item.execution && item.execution.decision === 'executed_with_findings';
+      }).length,
       execution_failed_count: executionFailures,
       execution_evidence_appended: executionEvidenceAppended,
       decisions: decisions
@@ -732,6 +759,7 @@ function skillRoutingConsult(opts) {
       skipped_count: 0,
       evidence_appended: 0,
       executed_count: 0,
+      executed_with_findings_count: 0,
       execution_failed_count: 0,
       execution_evidence_appended: 0,
       decisions: [],
@@ -964,8 +992,10 @@ function selfTest() {
       phaseType: 'feature',
       dryRun: true,
       execute: true,
-      dispatchExecutor: function () {
-        return { status: 0, stdout: 'a10-executed', stderr: '' };
+      dispatchExecutor: function (dispatch) {
+        const target = dispatch && dispatch.args && dispatch.args[0] || '';
+        const status = target.endsWith('sgsd-muda-audit.sh') ? 1 : 0;
+        return { status: status, stdout: 'a10-executed', stderr: '' };
       }
     }) : null;
     const evidencePath = path.join(planningA10, 'metrics', 'gate-evidence.jsonl');
@@ -978,7 +1008,9 @@ function selfTest() {
       return row.decision === 'fired' || row.decision === 'skipped';
     });
     const executionRows = rows.filter(function (row) {
-      return row.decision === 'executed' || row.decision === 'execution_failed';
+      return row.decision === 'executed'
+        || row.decision === 'executed_with_findings'
+        || row.decision === 'execution_failed';
     });
     const completeRows = decisionRows.length > 0 && decisionRows.every(function (row) {
       return row.skill && row.moment === 'phase-close' && row.mode === 'auto'
@@ -989,17 +1021,40 @@ function selfTest() {
       ? out.decisions.filter(function (item) { return item.decision === 'fired'; })
       : [];
     const actionable = fired.length > 0 && fired.every(function (item) {
-      return item.dispatch && typeof item.dispatch.command === 'string'
-        && item.dispatch.command.trim().length > 0;
+      if (!item.dispatch || !Array.isArray(item.dispatch.args) || !item.dispatch.args[0]) return false;
+      const target = fs.realpathSync(item.dispatch.args[0]);
+      const relative = path.relative(fs.realpathSync(path.resolve(SGSD_ROOT, '..')), target);
+      return typeof item.dispatch.command === 'string'
+        && item.dispatch.command.trim().length > 0
+        && relative && !relative.startsWith('..') && !path.isAbsolute(relative)
+        && fs.statSync(target).isFile();
     });
     const outcomeShape = executionRows.length === fired.length
       && executionRows.every(function (row) {
         return row.parent_decision === 'fired'
-          && (row.decision === 'executed' || row.decision === 'execution_failed')
+          && (row.decision === 'executed'
+            || row.decision === 'executed_with_findings'
+            || row.decision === 'execution_failed')
           && Number.isInteger(row.exit_code)
+          && typeof row.exit_code_meaning === 'string' && row.exit_code_meaning.length > 0
           && row.dispatch && typeof row.dispatch.command === 'string'
           && row.dispatch.command.trim().length > 0;
       });
+    const findingOutcome = out && out.decisions && out.decisions.find(function (item) {
+      return item.skill === 'sgsd-muda-audit'
+        && item.execution && item.execution.decision === 'executed_with_findings'
+        && item.execution.exit_code === 1
+        && item.execution.exit_code_meaning === 'verdict_findings';
+    });
+    const unknownOutcome = fired.length > 0
+      ? _executeDispatch(fired[0].dispatch, {}, function () {
+        return { status: 77, stdout: '', stderr: 'unknown-exit' };
+      })
+      : null;
+    const unknownFails = unknownOutcome
+      && unknownOutcome.decision === 'execution_failed'
+      && unknownOutcome.exit_code === 77
+      && unknownOutcome.exit_code_meaning === 'unrecognized_exit';
     const mixed = hasApi ? skillRoutingConsult({
       projectDir: tmpA10,
       planningDir: planningA10,
@@ -1030,11 +1085,13 @@ function selfTest() {
     assert('A10_skill_routing_phase_close_logs_each_decision',
       hasApi && cliWired && out && out.ok === true && out.route_count >= 5
         && decisionRows.length === out.route_count && completeRows
-        && decisions.has('fired') && decisions.has('skipped'),
+        && decisions.has('fired') && decisions.has('skipped')
+        && out.execution_failed_count === 0
+        && out.executed_with_findings_count === 1,
       'api=' + hasApi + ' cli=' + cliWired + ' routes=' + (out && out.route_count)
         + ' rows=' + decisionRows.length + ' decisions=' + Array.from(decisions).join(','));
     assert('A10_fired_routes_are_actionable_and_log_execution_outcomes',
-      actionable && outcomeShape,
+      actionable && outcomeShape && !!findingOutcome && unknownFails,
       'fired=' + fired.length + ' actionable=' + actionable + ' outcomes=' + executionRows.length);
     assert('A10_repeat_consult_respects_phase_cooldown', repeatCooledDown,
       'repeat=' + (repeated && repeated.decisions

@@ -17,6 +17,7 @@ const { findSgsdRoot, readState } = require('./sgsd-state.cjs');
 
 const DEFAULT_REGISTRY_PATH = path.resolve(__dirname, '..', '..', 'registry', 'skill-routing.yaml');
 const DEFAULT_REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
+const DEFAULT_SGSD_ROOT = path.join(DEFAULT_REPO_ROOT, 'super-gsd');
 const YAML_LIB_PATH = path.resolve(__dirname, '..', '..', 'tools', 'plan-schema', 'node_modules', 'js-yaml');
 
 const VALID_MOMENTS = Object.freeze(['prompt-time', 'phase-close', 'milestone-close', 'weekly', 'on-demand']);
@@ -33,6 +34,7 @@ const DEGRADED_SIGNAL = 'skill_routing_registry_degraded';
 const SKILL_ROUTING_EVENT = 'skill-routing';
 const FALLBACK_SOURCE = 'compiled_fallback';
 const MAX_REGEX_PATTERN_LENGTH = 200;
+const ALLOWED_DISPATCH_LAUNCHERS = Object.freeze(['node', 'bash']);
 const P146_DIRECTIVE_ALIASES = Object.freeze({
   'gsd-code-review': 'sgsd-code-review',
   'gsd-code-review-fix': 'sgsd-code-review-fix',
@@ -44,8 +46,14 @@ function fb(skill, moment, modes, signatures, extra) {
   return Object.assign({ skill, signatures, moment, modes }, extra || {});
 }
 
-function processDispatch(command, args, timeoutMs) {
-  return { command, args, timeout_ms: timeoutMs || 120000 };
+function processDispatch(command, args, verdictExits, timeoutMs) {
+  return {
+    command,
+    args,
+    timeout_ms: timeoutMs || 120000,
+    success_exits: [0],
+    verdict_exits: verdictExits || [],
+  };
 }
 
 const COMPILED_FALLBACK_ROWS = Object.freeze([
@@ -62,7 +70,7 @@ const COMPILED_FALLBACK_ROWS = Object.freeze([
     dispatch: processDispatch('bash', [
       '{sgsd_root}/scripts/sgsd-muda-audit.sh', '{phase}', '--project',
       '{project_dir}', '{dry_run_flag}',
-    ]),
+    ], [1, 2]),
   }),
   fb('sgsd-token-audit', 'prompt-time', ['manual', 'semi', 'auto'], {
     phrases: ['token spend', 'token budget', 'token burn', 'context cost', 'token waste'],
@@ -120,7 +128,7 @@ const COMPILED_FALLBACK_ROWS = Object.freeze([
     dispatch: processDispatch('node', [
       '{sgsd_root}/tools/release-readiness/score.cjs', '--milestone',
       '{milestone}', '--planning-dir', '{planning_dir}',
-    ]),
+    ], [1]),
   }),
   fb('sgsd-audit', 'phase-close', ['semi', 'auto'], {
     event_names: ['phase-close'],
@@ -327,6 +335,67 @@ function _normalizeCooldown(value, label, issues) {
   return Object.keys(out).length > 0 ? out : null;
 }
 
+function _normalizeExitCodes(value, label, issues, requireNonEmpty) {
+  if (!Array.isArray(value)) {
+    issues.push(label + ' must be an array of integer exit codes');
+    return [];
+  }
+  const out = [];
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value[i];
+    if (!Number.isInteger(code) || code < 0 || code > 255) {
+      issues.push(label + '[' + i + '] must be an integer from 0 to 255');
+    } else if (out.includes(code)) {
+      issues.push(label + ' must not contain duplicate exit codes: ' + code);
+    } else {
+      out.push(code);
+    }
+  }
+  if (requireNonEmpty && out.length === 0) {
+    issues.push(label + ' must include at least one exit code');
+  }
+  return out;
+}
+
+function _validateDispatchTarget(command, args, label, issues) {
+  if (!command || !ALLOWED_DISPATCH_LAUNCHERS.includes(command)) {
+    issues.push(label + '.dispatch.command must name an allowed process launcher: '
+      + ALLOWED_DISPATCH_LAUNCHERS.join(', '));
+  }
+  if (!Array.isArray(args) || args.length === 0) {
+    issues.push(label + '.dispatch target must be the first argument');
+    return;
+  }
+
+  const rawTarget = args[0];
+  const renderedTarget = rawTarget.split('{sgsd_root}').join(DEFAULT_SGSD_ROOT);
+  if (/{[a-z_]+}/i.test(renderedTarget)) {
+    issues.push(label + '.dispatch target contains an unresolved token: ' + rawTarget);
+    return;
+  }
+  const targetPath = path.isAbsolute(renderedTarget)
+    ? path.resolve(renderedTarget)
+    : path.resolve(DEFAULT_REPO_ROOT, renderedTarget);
+  const repoRoot = fs.realpathSync(DEFAULT_REPO_ROOT);
+  let realTarget;
+  try {
+    realTarget = fs.realpathSync(targetPath);
+  } catch {
+    issues.push(label + '.dispatch target must resolve to an existing file inside the repository: '
+      + rawTarget);
+    return;
+  }
+  const relative = path.relative(repoRoot, realTarget);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    issues.push(label + '.dispatch target must resolve inside the repository: ' + rawTarget);
+    return;
+  }
+  if (!fs.statSync(realTarget).isFile()) {
+    issues.push(label + '.dispatch target must resolve to an existing file inside the repository: '
+      + rawTarget);
+  }
+}
+
 function _normalizeDispatch(value, label, issues) {
   if (value === undefined || value === null) return null;
   if (typeof value !== 'object' || Array.isArray(value)) {
@@ -336,11 +405,27 @@ function _normalizeDispatch(value, label, issues) {
   const command = _optionalString(value.command, label + '.dispatch.command', issues);
   const args = _stringList(value.args, label + '.dispatch.args', issues);
   const timeoutMs = value.timeout_ms === undefined ? 120000 : Number(value.timeout_ms);
+  const successExits = _normalizeExitCodes(
+    value.success_exits, label + '.dispatch.success_exits', issues, true);
+  const verdictExits = _normalizeExitCodes(
+    value.verdict_exits, label + '.dispatch.verdict_exits', issues, false);
   if (!Number.isInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 300000) {
     issues.push(label + '.dispatch.timeout_ms must be an integer from 1 to 300000');
   }
+  const overlapping = successExits.filter((code) => verdictExits.includes(code));
+  if (overlapping.length > 0) {
+    issues.push(label + '.dispatch.success_exits and verdict_exits must not overlap: '
+      + overlapping.join(', '));
+  }
+  _validateDispatchTarget(command, args, label, issues);
   return command && Number.isInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 300000
-    ? { command, args, timeout_ms: timeoutMs }
+    ? {
+      command,
+      args,
+      timeout_ms: timeoutMs,
+      success_exits: successExits,
+      verdict_exits: verdictExits,
+    }
     : null;
 }
 
@@ -599,6 +684,17 @@ function _sameFingerprint(a, b) {
   return a.exists === b.exists && a.mtime === b.mtime && a.size === b.size;
 }
 
+function _routingParityProjection(routes) {
+  return routes.map((route) => ({
+    skill: route.skill,
+    moment: route.moment,
+    modes: route.modes,
+    cooldown: route.cooldown,
+    gate_ref: route.gate_ref,
+    dispatch: route.dispatch,
+  }));
+}
+
 function selfTest(opts) {
   const o = opts || {};
   const registryPath = _registryPathFromOpts(o);
@@ -658,15 +754,19 @@ function selfTest(opts) {
   assert('8. schema validation does not modify gate-evidence ledger', _sameFingerprint(before, _fingerprint(gateEvidencePath)));
   assert('9. compiled fallback matches yaml routing control fields deeply', (() => {
     const fallback = compiledFallbackRegistry();
-    const project = (routes) => routes.map((route) => ({
-      skill: route.skill,
-      moment: route.moment,
-      modes: route.modes,
-      cooldown: route.cooldown,
-      gate_ref: route.gate_ref,
-    }));
-    return JSON.stringify(project(fallback.routes)) === JSON.stringify(project(registry.routes));
-  })(), 'yaml/fallback mismatch in skill, moment, modes, cooldown, or gate_ref');
+    return JSON.stringify(_routingParityProjection(fallback.routes))
+      === JSON.stringify(_routingParityProjection(registry.routes));
+  })(), 'yaml/fallback mismatch in skill, moment, modes, cooldown, gate_ref, or dispatch');
+  assert('9a. dispatch-only fallback drift is detected by deep parity projection', (() => {
+    if (typeof _routingParityProjection !== 'function') return false;
+    const fallback = compiledFallbackRegistry();
+    const drifted = _clone(fallback.routes);
+    const scheduled = drifted.find((route) => route.dispatch);
+    if (!scheduled) return false;
+    scheduled.dispatch.command = 'echo';
+    return JSON.stringify(_routingParityProjection(drifted))
+      !== JSON.stringify(_routingParityProjection(fallback.routes));
+  })(), 'dispatch command drift was invisible to deep parity');
   assert('10. prompt adapter emits only P146-compatible /sgsd-* directives', (() => {
     const routes = toPromptGovernanceRoutes(registry, { mode: 'manual' });
     const directiveBySkill = Object.fromEntries(routes.map((route) => [route.skill, route.enforcement.directive]));
@@ -688,6 +788,50 @@ function selfTest(opts) {
     malformedIssues.some((issue) => issue.includes('regex exceeds maximum pattern length')));
   assert('12. malformed fixture rejects unsafe repeated regex groups',
     malformedIssues.some((issue) => issue.includes('regex contains unsafe repeated group')));
+
+  const dispatchIssues = (mutate) => {
+    const rows = _clone(COMPILED_FALLBACK_ROWS);
+    const scheduled = rows.find((route) => route.dispatch);
+    mutate(scheduled.dispatch);
+    try {
+      _normalizeDocument({ routes: rows }, 'self-test', 'self-test:dispatch');
+      return [];
+    } catch (error) {
+      return error && Array.isArray(error.issues) ? error.issues : [];
+    }
+  };
+  assert('13. scheduled dispatches carry explicit normalized exit policies and real repo targets', (() => {
+    const repoRoot = fs.realpathSync(DEFAULT_REPO_ROOT);
+    return registry.routes.filter((route) => route.dispatch).every((route) => {
+      const target = route.dispatch.args[0].replace('{sgsd_root}', path.join(DEFAULT_REPO_ROOT, 'super-gsd'));
+      const realTarget = fs.realpathSync(path.resolve(target));
+      const relative = path.relative(repoRoot, realTarget);
+      return Array.isArray(route.dispatch.success_exits)
+        && route.dispatch.success_exits.every(Number.isInteger)
+        && Array.isArray(route.dispatch.verdict_exits)
+        && route.dispatch.verdict_exits.every(Number.isInteger)
+        && relative && !relative.startsWith('..') && !path.isAbsolute(relative)
+        && fs.statSync(realTarget).isFile();
+    });
+  })(), 'scheduled dispatch policy or real target validation missing');
+  assert('14. scheduled dispatch rejects no-op launcher and invalid targets', (() => {
+    const echoIssues = dispatchIssues((dispatch) => { dispatch.command = 'echo'; });
+    const missingIssues = dispatchIssues((dispatch) => {
+      dispatch.args[0] = '{sgsd_root}/scripts/does-not-exist.sh';
+    });
+    const outsideIssues = dispatchIssues((dispatch) => { dispatch.args[0] = process.execPath; });
+    return echoIssues.some((issue) => issue.includes('allowed process launcher'))
+      && missingIssues.some((issue) => issue.includes('target must resolve to an existing file'))
+      && outsideIssues.some((issue) => issue.includes('target must resolve inside the repository'));
+  })(), 'echo, missing target, or out-of-repo target was accepted');
+  assert('15. scheduled dispatch rejects non-integer and overlapping exit policies', (() => {
+    const issues = dispatchIssues((dispatch) => {
+      dispatch.success_exits = [0, 1.5];
+      dispatch.verdict_exits = [0, 1];
+    });
+    return issues.some((issue) => issue.includes('success_exits'))
+      && issues.some((issue) => issue.includes('must not overlap'));
+  })(), 'invalid or overlapping exit policy was accepted');
 
   console.log('skill-routing-registry self-test: ' + pass + ' pass, ' + fail + ' fail');
   if (fail > 0) {

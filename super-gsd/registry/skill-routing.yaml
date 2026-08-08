@@ -41,6 +41,11 @@ routes:
         - '{project_dir}'
         - '{dry_run_flag}'
       timeout_ms: 120000
+      success_exits:
+        - 0
+      verdict_exits:
+        - 1
+        - 2
     notes: Scheduled eligibility belongs to the existing MUDA-waste-audit gate; this table does not copy its thresholds.
 
   - skill: sgsd-token-audit
@@ -83,6 +88,9 @@ routes:
         - '{milestone}'
         - --json
       timeout_ms: 120000
+      success_exits:
+        - 0
+      verdict_exits: []
     notes: Milestone token behavior remains owned by sgsd-complete-milestone.
 
   - skill: sgsd-distill
@@ -111,6 +119,9 @@ routes:
         - --root
         - '{project_dir}'
       timeout_ms: 120000
+      success_exits:
+        - 0
+      verdict_exits: []
     notes: Distill milestone learnings once per milestone boundary.
 
   - skill: sgsd-sepl
@@ -164,6 +175,9 @@ routes:
       args:
         - '{sgsd_root}/overwatcher/overwatcher-launcher.js'
       timeout_ms: 120000
+      success_exits:
+        - 0
+      verdict_exits: []
     notes: Auto-mode phase-close watcher fires at most once for a phase.
 
   - skill: sgsd-readiness
@@ -228,6 +242,10 @@ routes:
         - --planning-dir
         - '{planning_dir}'
       timeout_ms: 120000
+      success_exits:
+        - 0
+      verdict_exits:
+        - 1
     notes: Auto-mode readiness is a route reference; readiness scoring remains in existing readiness policy.
 
   - skill: sgsd-audit
@@ -253,6 +271,9 @@ routes:
         - --planning-dir
         - '{planning_dir}'
       timeout_ms: 120000
+      success_exits:
+        - 0
+      verdict_exits: []
     notes: Phase-close governance remains SGSD audit/ATC.
 
   - skill: sgsd-audit
@@ -277,6 +298,9 @@ routes:
         - --planning-dir
         - '{planning_dir}'
       timeout_ms: 120000
+      success_exits:
+        - 0
+      verdict_exits: []
     notes: Milestone-close audit can remain blocking where existing audit policy says so.
 
   - skill: sgsd-memory-hygiene
@@ -328,6 +352,9 @@ routes:
         - --max-repairs
         - '5'
       timeout_ms: 120000
+      success_exits:
+        - 0
+      verdict_exits: []
     notes: Curate discipline references the existing learning-curation gate instead of duplicating its predicate.
 
   - skill: sgsd-vtp-advise
