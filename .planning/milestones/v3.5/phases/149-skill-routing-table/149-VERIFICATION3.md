@@ -1,0 +1,9 @@
+FINDINGS: 4
+CRITICAL: 0
+WARNINGS: 1
+PASS_RATE: 11/12
+ONE_LINER: Verdict exits, dispatch-aware parity, and no-op validation are closed, but MUDA’s sole execution point is unreachable without a gate-value row whose producer was removed.
+FINDINGS_DETAIL: [INFO] [closed] super-gsd/registry/skill-routing.yaml:35-48 and :236-249 define MUDA/readiness verdict exits; super-gsd/scripts/lib/orchestrator-hooks.cjs:284-320 classifies them as `executed_with_findings`, and :334-365 plus :703-743 preserve non-blocking evidence and aggregation. Fresh end-to-end probes classified MUDA exit 2 and readiness exit 1 as findings with `ok:true`; an unexpected exit 3 remained `execution_failed`.
+FINDINGS_DETAIL: [INFO] [closed] super-gsd/scripts/lib/skill-routing-registry.cjs:687-695 includes the complete dispatch object in parity projection, while :755-769 explicitly falsifies dispatch-only drift. Fresh adversarial projection testing detected dispatch drift, and the registry self-test passed 16/16.
+FINDINGS_DETAIL: [INFO] [closed] super-gsd/scripts/lib/skill-routing-registry.cjs:360-420 restricts launchers and requires an existing in-repository target; :817-826 tests echo, missing-target, and out-of-repository rejection. super-gsd/skills/sgsd-orchestrate/SKILL.md:1488-1491 and :1734-1750 now identify the consult as the sole MUDA execution site.
+FINDINGS_DETAIL: [WARNING] [logic] super-gsd/scripts/lib/orchestrator-hooks.cjs:200-208 skips a gated route when no gate-value row exists, while its A10 test injects a synthetic MUDA row at :963-967. super-gsd/skills/sgsd-orchestrate/SKILL.md:1480-1491 removed the former `shouldFire`/`logGateValue` arms and only says to “record or consume” a decision, leaving no mechanical producer. The real phase-149 consult at .planning/metrics/gate-evidence.jsonl:41 consequently records `gate_ref_not_observed:MUDA-waste-audit`, `dispatch:null`; a fresh no-gate end-to-end probe likewise dispatched MUDA zero times.

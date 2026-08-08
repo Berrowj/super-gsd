@@ -64,7 +64,8 @@ const os = require('os');
 const path = require('path');
 const child_process = require('child_process');
 const { logGateEvidence, readGateEvidenceRows } = require('./gate-evidence-log.cjs');
-const { readGateValueRows } = require('./gate-value-log.cjs');
+const { logGateValue, readGateValueRows } = require('./gate-value-log.cjs');
+const { getGate, shouldFire } = require('./gates-registry.cjs');
 const { readState } = require('./sgsd-state.cjs');
 const {
   loadSkillRoutingRegistry,
@@ -90,6 +91,7 @@ const LIVE_WRITER_PATH = path.resolve(
   __dirname, 'orchestrator-live-writer.cjs');
 
 const SGSD_ROOT = path.resolve(__dirname, '..', '..');
+const GATES_YAML_PATH = path.resolve(SGSD_ROOT, 'registry', 'gates.yaml');
 const MAX_DISPATCH_OUTPUT_BYTES = 2000;
 
 // VERDICTS that should fire token_threshold_crossed events (anything other
@@ -186,6 +188,25 @@ function _priorRouteFire(rows, route, phase) {
 }
 
 function _scheduledRouteDecision(route, context) {
+  if (route.gate_ref) {
+    const gateRow = _latestGateValue(
+      context.gateValueRows, route, context.phase, context.milestone);
+    if (gateRow) {
+      return {
+        decision: 'skipped',
+        reason_code: 'gate_already_fired_this_phase',
+        reason: 'gate_already_fired_this_phase'
+      };
+    }
+    if (!shouldFire(route.gate_ref, context.gateTriggerContext, GATES_YAML_PATH)) {
+      return {
+        decision: 'skipped',
+        reason_code: 'gate_trigger_not_met',
+        reason: 'gate_trigger_not_met'
+      };
+    }
+  }
+
   const cooldown = route.cooldown || {};
   const policy = cooldown.policy || 'scheduled-moment';
   if (cooldown.scope === 'phase'
@@ -198,26 +219,10 @@ function _scheduledRouteDecision(route, context) {
   }
 
   if (route.gate_ref) {
-    const gateRow = _latestGateValue(
-      context.gateValueRows, route, context.phase, context.milestone);
-    if (!gateRow) {
-      return {
-        decision: 'skipped',
-        reason_code: 'gate_ref_not_observed',
-        reason: 'gate_ref_not_observed:' + route.gate_ref
-      };
-    }
-    if (gateRow.outcome === 'skip') {
-      return {
-        decision: 'skipped',
-        reason_code: 'gate_ref_skipped',
-        reason: 'gate_ref_skipped:' + route.gate_ref
-      };
-    }
     return {
       decision: 'fired',
-      reason_code: 'gate_ref_observed',
-      reason: 'gate_ref_observed:' + route.gate_ref + ':' + String(gateRow.outcome || 'unknown')
+      reason_code: 'gate_trigger_met',
+      reason: 'gate_trigger_met'
     };
   }
 
@@ -365,6 +370,23 @@ function _appendSkillRoutingExecution(planningDir, scope, route, dispatch, outco
     exit_code_meaning: outcome.exit_code_meaning,
     stdout_excerpt: outcome.stdout,
     stderr_excerpt: outcome.stderr
+  });
+}
+
+function _appendGateValueOutcome(planningDir, scope, route, outcome) {
+  if (!route.gate_ref) return null;
+  let gateOutcome = 'block';
+  if (outcome.exit_code === 0) gateOutcome = 'pass';
+  else if (outcome.exit_code === 1) gateOutcome = 'warn';
+  return logGateValue(planningDir, {
+    gate: route.gate_ref,
+    outcome: gateOutcome,
+    phase: scope.phase,
+    milestone: scope.milestone,
+    reason_codes: ['skill_routing_dispatch_' + outcome.decision],
+    evidence: [{ kind: 'skill-routing-route', ref: route.id }],
+    duration_ms: outcome.duration_ms,
+    retroactive: getGate(route.gate_ref, GATES_YAML_PATH)
   });
 }
 
@@ -623,7 +645,15 @@ function skillRoutingConsult(opts) {
       phase: scope.phase,
       milestone: scope.milestone,
       evidenceRows: evidenceRows,
-      gateValueRows: gateValueRows
+      gateValueRows: gateValueRows,
+      gateTriggerContext: {
+        files_changed_count: filesChanged === null ? 0 : filesChanged,
+        diff_lines: diffLines === null ? 0 : diffLines,
+        phase_type: opts.phaseType || null,
+        new_pattern_detected: false,
+        script_created: false,
+        error_discovered: false
+      }
     };
     const decisions = [];
     let appendFailures = 0;
@@ -696,6 +726,9 @@ function skillRoutingConsult(opts) {
           mode: scope.mode,
           dryRun: dryRun
         }, opts.dispatchExecutor);
+        const gateValueRow = _appendGateValueOutcome(
+          planningDir, scope, route, outcome);
+        if (route.gate_ref && !gateValueRow) appendFailures++;
         const executionRow = _appendSkillRoutingExecution(
           planningDir, scope, route, dispatch, outcome);
         if (executionRow) executionEvidenceAppended++;
@@ -708,7 +741,8 @@ function skillRoutingConsult(opts) {
           duration_ms: outcome.duration_ms,
           stdout_excerpt: outcome.stdout,
           stderr_excerpt: outcome.stderr,
-          evidence_appended: !!executionRow
+          evidence_appended: !!executionRow,
+          gate_value_appended: route.gate_ref ? !!gateValueRow : null
         };
       }
       decisions.push(result);
@@ -1040,12 +1074,14 @@ function selfTest() {
           && row.dispatch && typeof row.dispatch.command === 'string'
           && row.dispatch.command.trim().length > 0;
       });
-    const findingOutcome = out && out.decisions && out.decisions.find(function (item) {
-      return item.skill === 'sgsd-muda-audit'
-        && item.execution && item.execution.decision === 'executed_with_findings'
-        && item.execution.exit_code === 1
-        && item.execution.exit_code_meaning === 'verdict_findings';
-    });
+    const existingGateRowsAreDuplicates = out && out.decisions
+      && out.decisions.filter(function (item) { return !!item && !!item.route_id; })
+        .filter(function (item) {
+          return item.skill === 'sgsd-muda-audit' || item.skill === 'sgsd-audit'
+            || item.skill === 'sgsd-memory-hygiene';
+        }).every(function (item) {
+          return item.decision === 'skipped' && item.reason === 'gate_already_fired_this_phase';
+        });
     const unknownOutcome = fired.length > 0
       ? _executeDispatch(fired[0].dispatch, {}, function () {
         return { status: 77, stdout: '', stderr: 'unknown-exit' };
@@ -1064,6 +1100,43 @@ function selfTest() {
       milestone: 'v3.5',
       dryRun: true
     }) : null;
+    const triggerTrue = hasApi ? skillRoutingConsult({
+      projectDir: tmpA10,
+      planningDir: planningA10,
+      moment: 'phase-close',
+      mode: 'auto',
+      phase: '152',
+      milestone: 'v3.5',
+      filesChanged: 4,
+      diffLines: 100,
+      phaseType: 'feature',
+      dryRun: true,
+      execute: true,
+      dispatchExecutor: function (dispatch) {
+        const target = dispatch && dispatch.args && dispatch.args[0] || '';
+        return { status: target.endsWith('sgsd-muda-audit.sh') ? 1 : 0, stdout: '', stderr: '' };
+      }
+    }) : null;
+    const triggerTrueMuda = triggerTrue && triggerTrue.decisions
+      && triggerTrue.decisions.find(function (item) { return item.skill === 'sgsd-muda-audit'; });
+    const triggerTrueGateRow = readGateValueRows(planningA10, { milestone: 'v3.5' })
+      .find(function (row) { return row.gate === 'MUDA-waste-audit' && row.phase === '152'; });
+    const triggerFalse = hasApi ? skillRoutingConsult({
+      projectDir: tmpA10,
+      planningDir: planningA10,
+      moment: 'phase-close',
+      mode: 'auto',
+      phase: '153',
+      milestone: 'v3.5',
+      filesChanged: 1,
+      diffLines: 5,
+      phaseType: 'feature',
+      dryRun: true,
+      execute: true,
+      dispatchExecutor: function () { throw new Error('trigger-false route executed'); }
+    }) : null;
+    const triggerFalseMuda = triggerFalse && triggerFalse.decisions
+      && triggerFalse.decisions.find(function (item) { return item.skill === 'sgsd-muda-audit'; });
     const repeated = hasApi ? skillRoutingConsult({
       projectDir: tmpA10,
       planningDir: planningA10,
@@ -1076,7 +1149,8 @@ function selfTest() {
     const repeatCooledDown = repeated && repeated.decisions.length === out.route_count
       && repeated.decisions.every(function (item) {
         return item.decision === 'skipped'
-          && item.reason.indexOf('phase_cooldown_already_fired:') === 0;
+          && (item.reason === 'gate_already_fired_this_phase'
+            || item.reason.indexOf('phase_cooldown_already_fired:') === 0);
       });
     const decisions = new Set(decisionRows.map(function (row) { return row.decision; })
       .concat(mixed && mixed.decisions
@@ -1087,12 +1161,28 @@ function selfTest() {
         && decisionRows.length === out.route_count && completeRows
         && decisions.has('fired') && decisions.has('skipped')
         && out.execution_failed_count === 0
-        && out.executed_with_findings_count === 1,
+        && out.executed_with_findings_count === 0,
       'api=' + hasApi + ' cli=' + cliWired + ' routes=' + (out && out.route_count)
         + ' rows=' + decisionRows.length + ' decisions=' + Array.from(decisions).join(','));
     assert('A10_fired_routes_are_actionable_and_log_execution_outcomes',
-      actionable && outcomeShape && !!findingOutcome && unknownFails,
+      actionable && outcomeShape && unknownFails,
       'fired=' + fired.length + ' actionable=' + actionable + ' outcomes=' + executionRows.length);
+    assert('A10_existing_gate_rows_short_circuit_as_duplicates',
+      !!existingGateRowsAreDuplicates,
+      'duplicates=' + existingGateRowsAreDuplicates);
+    assert('A10_no_gate_row_trigger_true_dispatches_and_logs_outcome',
+      triggerTrueMuda && triggerTrueMuda.decision === 'fired'
+        && triggerTrueMuda.execution
+        && triggerTrueMuda.execution.decision === 'executed_with_findings'
+        && triggerTrueGateRow && triggerTrueGateRow.outcome === 'warn',
+      'decision=' + (triggerTrueMuda && triggerTrueMuda.decision)
+        + ' outcome=' + (triggerTrueGateRow && triggerTrueGateRow.outcome));
+    assert('A10_no_gate_row_trigger_false_skips_without_dispatch',
+      triggerFalseMuda && triggerFalseMuda.decision === 'skipped'
+        && triggerFalseMuda.reason === 'gate_trigger_not_met'
+        && triggerFalseMuda.dispatch === null && !triggerFalseMuda.execution,
+      'decision=' + (triggerFalseMuda && triggerFalseMuda.decision)
+        + ' reason=' + (triggerFalseMuda && triggerFalseMuda.reason));
     assert('A10_repeat_consult_respects_phase_cooldown', repeatCooledDown,
       'repeat=' + (repeated && repeated.decisions
         ? repeated.decisions.map(function (item) { return item.skill + ':' + item.decision; }).join(',')

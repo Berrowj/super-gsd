@@ -1481,14 +1481,15 @@ REPEAT:
      `super-gsd/registry/gates.yaml` remains the owner of
      `MUDA-waste-audit` eligibility. `super-gsd/registry/skill-routing.yaml`
      remains the owner of the phase-close route's moment, modes, cooldown,
-     dispatch, and exit policy. Record or consume the current-phase gate
-     decision under `gate_ref: MUDA-waste-audit`; do not copy its thresholds
-     into this skill.
+     dispatch, and exit policy. The phase-close routing consult evaluates the
+     named gate trigger itself from `--files-changed`, `--diff-lines`, and
+     `--phase-type`; no separate gate-value producer is required. Do not copy
+     the gate thresholds into this skill.
 
      Do NOT invoke the MUDA script in Step 6.55. The phase-close routing consult
      in Step 6.6.i is the SINGLE execution point. It consumes the named
      `gate_ref`, renders the registered dispatch, runs it once when fired, and
-     appends the scheduling and execution evidence rows.
+     appends the gate-value outcome plus scheduling and execution evidence rows.
 
      MUDA exits 1 and 2 are verdict findings, not process failures. The later
      consult records them as `executed_with_findings` and continues phase close.
