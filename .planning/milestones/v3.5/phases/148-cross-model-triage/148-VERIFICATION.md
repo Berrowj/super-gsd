@@ -46,3 +46,24 @@ goal_achieved: yes
 gaps: none open
 ONE_LINER: Two-model triage goal-complete: CLI seam emits what the skill
 renders, plan invariants restored, toggles honest, latency surfaced.
+
+## Phase-ATC gate cycle (post-verification, resume session 2026-08-08)
+
+Phase-ATC initially returned FAIL-GATE (1 CRIT: VTP path harness-only — MCP
+tools unreachable from spawned CLI; 1 WARN: stage-blind codex-gate rows).
+Three Codex fix dispatches closed it:
+
+- atcfix  — staged CLI protocol (vtp-plan/vtp-consume/vtp-finalize) + 5 scenarios
+- atcfix2 — production wiring in sgsd-triage SKILL.md; reason-field alignment;
+            idempotent consume/finalize (+1 scenario). Spec review PASS 6/6.
+- atcfix3 — Step 3 reuses staged evidence (no safeCallVtp re-entry / clobber);
+            VTP response text sanitized before Markdown/prompt embedding
+            (+2 scenarios incl. fence-injection)
+
+Phase-ATC re-review round 2: PASS 10/10, 0 findings (148-ATC-REREVIEW2.md).
+Final suite: [PASS] all (36 scenarios), host-side Git Bash.
+MUDA: WASTE.md 0/0 PASS (01:31Z run); resume-session re-run degraded (exit 5,
+logged muda_degraded; DLB-02 non-blocking).
+
+FINAL status: passed
+FINAL verdict: PASS

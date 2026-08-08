@@ -1,7 +1,7 @@
 ---
 gsd_state_version: 1.0
 milestone: v3.5
-current_phase: "147"
+current_phase: "148"
 milestone_name: Always-On Orchestration — governance as runtime mechanism in all session modes
 milestone_status: "v3.4 ACTIVE 2026-05-25 — Operator Cockpit IA Rewrite. Overnight loop closed P136 / P137 / P138 / P138.5 / P139 / P140 / P141 / P141.5. Cockpit fully rendering at localhost:7777 with all 7 IA sections populated: Mission (MissionCard + PhaseRunway + AgentLanes), Telemetry (5 sparkline channels), Architecture (node/edge list), Milestone (strip + phases grid + detail panel), Memory (typed mesh from MEMORY.md + 5-step CMB lineage), Evidence (5-stage gate flow + summary + cards + MUDA probes), Events (10-row git-reflog tape). Self-test 102/102 STABLE (5 consecutive runs). browser-smoke 18/18 PASS. visual-validate 38/38 PASS. CSS canonical-extracted from design-pack Cockpit.html (73kB). 15s SSE keep-alive proven by browser-smoke at +15014ms. About to scaffold P142 (alarm drawer + rationale drawer + localStorage + 5-sec test conformance) and P143 (close)."
 status: "v3.5 ACTIVE 2026-08-06 — P145 codex-profile-control CLOSED PASS-WITH-DEFERRED-4 @ c1596f7 (profile registry + /sgsd-codex-control + 4 CRIT security fixes total: 2 per-dispatch-ATC pre-commit, GAP-1 verifier env-var TTY bypass, phase-ATC silent report-write; self-tests 21/21 + Probes 1-7 + parity + control all PASS; deferred: A selfTestCliGuard non-TTY forcing, B 3-way CLI-default drift guard, C inert trust/hook fields→P148/P150, DEVIATION-1 finalize probe simplification). Next: P148 cross-model triage. v3.4 PARKED at P142/P143 (cockpit alarm+rationale drawers, close) — reopen after v3.5 or on operator call. v3.4 P999 pink-elephant visual smoke also parked."
@@ -16,10 +16,11 @@ progress:
     total_phases: 7
     completed_phases: 3
     completed_plans: 3
-    percent: 43
+    percent: 57
     phase_145: "PASS-WITH-DEFERRED-4 ✓ 2026-08-06 @ c1596f7 (Codex Profile Control; verifier GAP-1 + phase-ATC CRIT-1 both fixed+regression-guarded; MUDA mechanical PASS 0/0; deferred A/B/C + DEVIATION-1)"
     phase_146: "PASS-WITH-DEFERRED-3 ✓ 2026-08-07 @ a36e1ea (Session Governance Hooks; 7 tasks; 11 CRIT found+closed across per-dispatch/verify/phase-ATC incl. 5x writer-accepts-destination and 7x silent-success; phase-ATC re-review 4/4 CLOSED — containment now ONE contract via resolveContainedPath; MUDA 0/0; hooks LIVE in repo; deferred F/G + DEVIATION-W)"
     phase_147: "PASS ✓ 2026-08-07 (Commit-Seam Gate; 5 tasks + 3 fix rounds; 21/21 real-git scenarios; earned-block falsifier proven both directions incl. convention_unknown + per-repo floors; tamper-evident activation; cross-worktree misattribution CRIT closed at re-review 0/0; MUDA 0/0; DEFERRED-F absorbed at commit seam; hooks live on devcp via source-checkout pattern, warn rows accumulating)"
+    phase_148: "PASS ✓ 2026-08-08 @ 768c6a0 (Cross-Model Triage; staged MCP transport end-to-end after 3-dispatch ATC-fix chain — runtime decides, Claude transports; 36/36 scenarios; spec 6/6; phase-ATC re-review 10/10; MUDA 0/0 prior + degraded re-run logged; seam anti-pattern curated after 4th instance)"
   v3_0:
     total_phases: 7
     completed_phases: 7

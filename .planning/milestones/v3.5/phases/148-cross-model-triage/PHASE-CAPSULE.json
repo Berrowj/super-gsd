@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.5",
+  "phase": "148",
+  "phase_name": "Cross Model Triage",
+  "status": "UNKNOWN",
+  "goal": "",
+  "outputs": [
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v3.5/phases/148-cross-model-triage/148-ATC-REVIEW.md"
+    },
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v3.5/phases/148-cross-model-triage/148-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v3.5/phases/148-cross-model-triage/148-VERIFICATION.md"
+    }
+  ],
+  "files": [],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 0
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [],
+  "source_hashes": {
+    "context": null,
+    "research": {
+      "path": ".planning/milestones/v3.5/phases/148-cross-model-triage/148-RESEARCH.md",
+      "sha256": "956380b939d41f7a13de2cd9f3f3ef1b5e46295b367d31d7c9e6e3656b5469be"
+    },
+    "plan": [],
+    "verification": {
+      "path": ".planning/milestones/v3.5/phases/148-cross-model-triage/148-VERIFICATION.md",
+      "sha256": "93566ffccd30562aca7aa92cd3f7f035b06f5e37bf3235ee0f576e68c4180cf7"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v3.5/phases/148-cross-model-triage/148-ATC-REVIEW.md",
+      "sha256": "ad87f7fed98a7b53403877ed688076d3ae321962228daccbb3a692a682d26060"
+    }
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "UNKNOWN",
+      "ref": ".planning/milestones/v3.5/phases/148-cross-model-triage/148-VERIFICATION.md"
+    },
+    "atc_review": {
+      "path": ".planning/milestones/v3.5/phases/148-cross-model-triage/148-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-08-07T15:02:11Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-07T15:12:12Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-07T15:21:59Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-07T22:59:15Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-07T23:40:24Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-08T00:30:56Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-08T00:55:00Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-08T00:58:54Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-08T01:22:34Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-08T01:29:10Z",
+        "exit": 5,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-08T01:31:52Z",
+        "exit": 5,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-08-08T01:35:41.675Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@7f3c2c5f16d5"
+}
