@@ -1,7 +1,9 @@
 # ============================================================================
 # SGSD session governance hook routing registry
 # ============================================================================
-# T146-04 owns this file. Later tasks append their hook-specific sections here.
+# Compatibility registry for P146 enforcement and quality-hook metadata.
+# Prompt-time skill suggestions are maintained only in skill-routing.yaml and
+# adapted by scripts/lib/skill-routing-registry.cjs::toPromptGovernanceRoutes.
 # Shape: trigger / predicate / enforcement.
 # ============================================================================
 
@@ -38,43 +40,6 @@ routes:
     enforcement:
       kind: directive
       directive: "/sgsd-triage"
-
-  - id: neglected-token-audit
-    trigger:
-      regexes:
-        - "\\btoken(?:s)?\\b[^\\r\\n]{0,160}\\b(?:spend|spent|burn|budget|cost|waste)\\b"
-        - "\\b(?:spend|spent|burn|budget|cost|waste)\\b[^\\r\\n]{0,160}\\btoken(?:s)?\\b"
-    enforcement:
-      kind: suggestion
-      directive: "/sgsd-token-audit"
-
-  - id: neglected-muda-audit
-    trigger:
-      phrases:
-        - "waste"
-        - "muda"
-        - "retrospective"
-        - "retro"
-        - "what went wrong"
-        - "conformance drift"
-    enforcement:
-      kind: suggestion
-      directive: "/sgsd-muda-audit"
-
-  - id: neglected-deliberate
-    trigger:
-      phrases:
-        - "strategic tradeoff"
-        - "strategic trade-off"
-        - "architecture decision"
-        - "cross-cutting"
-        - "sets precedent"
-      regexes:
-        - "\\bshould\\s+we\\b[^\\r\\n]{0,160}\\b(?:choose|adopt|standardize|centralize|decentralize)\\b"
-        - "\\b(?:choose|adopt|standardize|centralize|decentralize)\\b[^\\r\\n]{0,160}\\btradeoffs?\\b"
-    enforcement:
-      kind: suggestion
-      directive: "/sgsd-deliberate"
 
   - id: quality-gate-missing-plan
     trigger:

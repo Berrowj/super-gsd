@@ -17,7 +17,7 @@ const {
 } = require('../scripts/lib/sgsd-state.cjs');
 const { logGateEvidence } = require('../scripts/lib/gate-evidence-log.cjs');
 const {
-  REGISTRY_SOURCE_PATH,
+  SESSION_GOVERNANCE_REGISTRY_PATH: REGISTRY_SOURCE_PATH,
   parseRegistryYaml,
 } = require('./sgsd-intent-classifier.cjs');
 

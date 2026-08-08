@@ -16,8 +16,25 @@ const {
   ledgerPath,
   logGateEvidence,
 } = require('../scripts/lib/gate-evidence-log.cjs');
+const {
+  compiledFallbackRegistry,
+  DEFAULT_REGISTRY_PATH,
+  loadSkillRoutingRegistry,
+  toPromptGovernanceRoutes,
+  VALID_MODES,
+} = require('../scripts/lib/skill-routing-registry.cjs');
 
-const REGISTRY_SOURCE_PATH = path.resolve(__dirname, '..', 'registry', 'session-governance-hooks.yaml');
+const SESSION_GOVERNANCE_REGISTRY_PATH = path.resolve(__dirname, '..', 'registry', 'session-governance-hooks.yaml');
+const REGISTRY_SOURCE_PATH = SESSION_GOVERNANCE_REGISTRY_PATH;
+const SKILL_ROUTING_REGISTRY_PATH = DEFAULT_REGISTRY_PATH;
+const MALFORMED_SKILL_ROUTING_FIXTURE = path.resolve(
+  __dirname,
+  '..',
+  'tools',
+  'self-test',
+  'fixtures',
+  'skill-routing-malformed.yaml',
+);
 const BENCH_SIGNAL = 'intent_classifier_bench';
 const DEGRADED_SIGNAL = 'intent_classifier_degraded';
 const ROUTING_DECISION_SIGNAL = 'intent_routing_decision';
@@ -92,7 +109,7 @@ function rootFromPayload(payload) {
 }
 
 function registryPath() {
-  return REGISTRY_SOURCE_PATH;
+  return SKILL_ROUTING_REGISTRY_PATH;
 }
 
 function unquote(value) {
@@ -264,9 +281,9 @@ function validateRegistryRoutes(routes) {
   };
 }
 
-function readRegistry(root, payload) {
+function readCompatibilityRegistry(root, payload) {
   try {
-    const file = registryPath();
+    const file = SESSION_GOVERNANCE_REGISTRY_PATH;
     const text = fs.readFileSync(file, 'utf8');
     const registry = parseRegistryYaml(text);
     const routes = registry && Array.isArray(registry.routes) ? registry.routes : [];
@@ -288,13 +305,16 @@ function readRegistry(root, payload) {
         registry_invalid_route_ids: validation.invalid_routes.map((route) => route.id).filter(Boolean),
       });
     }
+    const enforcementRoutes = validation.classifier_usable_routes
+      .filter((route) => route.enforcement && route.enforcement.kind === 'directive');
 
     return {
       ...registry,
-      routes: validation.classifier_usable_routes,
+      routes: enforcementRoutes
+        .map((route) => ({ ...route, registry_path: file })),
       route_validation: {
         total_routes: validation.total_routes,
-        usable_routes: validation.classifier_usable_routes.length,
+        usable_routes: enforcementRoutes.length,
         valid_routes: validation.usable_routes.length,
         invalid_routes: validation.invalid_routes.length,
       },
@@ -303,6 +323,68 @@ function readRegistry(root, payload) {
     appendFailureRow(root, 'registry_unavailable', payload);
     return { routes: [] };
   }
+}
+
+function classifierMode(payload, options) {
+  const requested = options && options.mode !== undefined
+    ? options.mode
+    : payload && payload.mode;
+  return VALID_MODES.includes(requested) ? requested : 'manual';
+}
+
+function adaptPromptRoutes(root, payload, options) {
+  const opts = options || {};
+  const mode = classifierMode(payload, opts);
+  const requestedPath = opts.registryPath || SKILL_ROUTING_REGISTRY_PATH;
+  try {
+    const registry = loadSkillRoutingRegistry({
+      registryPath: requestedPath,
+      runtime: true,
+      root,
+      moment: 'prompt-time',
+      mode,
+      logDegradation: opts.logDegradation,
+      noCache: opts.noCache,
+      runtimeContext: { moment: 'prompt-time', mode },
+    });
+    const sourcePath = registry.registry_path || requestedPath;
+    return {
+      routes: toPromptGovernanceRoutes(registry, { mode })
+        .map((route) => ({ ...route, registry_path: sourcePath })),
+      source: registry.source,
+      degraded: Boolean(registry.degraded),
+      degradation_reason: registry.degradation_reason || null,
+      registry_path: sourcePath,
+    };
+  } catch (error) {
+    appendFailureRow(root, 'skill_routing_adapter_failed', payload, {
+      registry_path: path.resolve(String(requestedPath)),
+      error_message: error && error.message ? error.message : String(error),
+    });
+    const registry = compiledFallbackRegistry();
+    return {
+      routes: toPromptGovernanceRoutes(registry, { mode })
+        .map((route) => ({ ...route, registry_path: registry.registry_path })),
+      source: registry.source,
+      degraded: true,
+      degradation_reason: 'skill_routing_adapter_failed',
+      registry_path: registry.registry_path,
+    };
+  }
+}
+
+function readRegistry(root, payload, options) {
+  const compatibility = readCompatibilityRegistry(root, payload);
+  const promptRoutes = adaptPromptRoutes(root, payload, options);
+  const compatibilityRoutes = Array.isArray(compatibility.routes) ? compatibility.routes : [];
+  return {
+    routes: compatibilityRoutes.concat(promptRoutes.routes),
+    compatibility_route_validation: compatibility.route_validation || null,
+    prompt_registry_source: promptRoutes.source,
+    prompt_registry_degraded: promptRoutes.degraded,
+    prompt_registry_degradation_reason: promptRoutes.degradation_reason,
+    prompt_registry_path: promptRoutes.registry_path,
+  };
 }
 
 function promptText(payload) {
@@ -332,13 +414,16 @@ function regexHit(prompt, regexes, root, payload) {
 
 function matchesRoute(route, prompt, root, payload) {
   if (!route || !prompt.trim()) return false;
+  // Normalize the common noun/verb variant before applying table-owned signatures.
+  const normalizedPrompt = prompt.replace(/\badvice\b/g, 'advise');
   const trigger = route.trigger || {};
   const predicate = route.predicate || {};
 
-  if (phraseHit(prompt, predicate.exclude_phrases)) return false;
-  if (regexHit(prompt, predicate.exclude_regexes, root, payload)) return false;
+  if (phraseHit(normalizedPrompt, predicate.exclude_phrases)) return false;
+  if (regexHit(normalizedPrompt, predicate.exclude_regexes, root, payload)) return false;
 
-  return phraseHit(prompt, trigger.phrases) || regexHit(prompt, trigger.regexes, root, payload);
+  return phraseHit(normalizedPrompt, trigger.phrases)
+    || regexHit(normalizedPrompt, trigger.regexes, root, payload);
 }
 
 function matchingRoutes(registry, prompt, root, payload) {
@@ -369,11 +454,15 @@ function appendRoutingDecision(root, payload, routes, mandatory, suggestions, du
   if (!Array.isArray(routes) || routes.length === 0) return;
   try {
     const state = readState(root) || {};
+    const registryPaths = Array.from(new Set(
+      routes.map((route) => route && route.registry_path).filter(Boolean),
+    ));
     const row = logGateEvidence(root, {
       signal: ROUTING_DECISION_SIGNAL,
       status: 'ok',
       reason_codes: [],
-      artifacts: [{ kind: 'registry', path: registryPath() }],
+      artifacts: (registryPaths.length > 0 ? registryPaths : [registryPath()])
+        .map((registryPathValue) => ({ kind: 'registry', path: registryPathValue })),
       evidence: [],
       next_action: null,
       risk: 'low',
@@ -398,27 +487,31 @@ function appendRoutingDecision(root, payload, routes, mandatory, suggestions, du
   }
 }
 
-function emitClassification(root, payload) {
+function emitClassification(root, payload, options) {
+  const opts = options || {};
   const started = performance.now();
   const prompt = promptText(payload);
-  if (!prompt.trim()) return;
+  if (!prompt.trim()) return { routes: [], mandatory: [], suggestions: [] };
 
-  const registry = readRegistry(root, payload);
+  const registry = readRegistry(root, payload, opts);
   const routes = matchingRoutes(registry, prompt, root, payload);
   const mandatory = routeDirectives(routes, 'directive');
   if (mandatory.length > 0) {
     safeStdout(root, payload, mandatory.map((directive) => `SGSD directive: ${directive}`).join('\n'));
   }
 
+  const suggestions = routeDirectives(routes, 'suggestion');
   try {
-    const suggestions = routeDirectives(routes, 'suggestion');
     if (suggestions.length > 0) {
       safeStdout(root, payload, suggestions.map((directive) => `SGSD skill suggestion: ${directive}`).join('\n'));
     }
-    appendRoutingDecision(root, payload, routes, mandatory, suggestions, performance.now() - started);
+    if (opts.recordEvidence !== false) {
+      appendRoutingDecision(root, payload, routes, mandatory, suggestions, performance.now() - started);
+    }
   } catch {
     appendFailureRow(root, 'optional_suggestions_failed', payload);
   }
+  return { routes, mandatory, suggestions };
 }
 
 function parseArgs(argv) {
@@ -470,13 +563,13 @@ function recordTargetIsCanonical(root, recordArg) {
 }
 
 function runBench(args) {
-  const payload = { cwd: process.cwd(), prompt: String(args.prompt || '') };
+  const payload = { cwd: process.cwd(), prompt: String(args.prompt || ''), mode: args.mode || 'manual' };
   const root = rootFromPayload(payload);
   if (!root) return;
   if (!recordTargetIsCanonical(root, args.record)) return;
 
   const iterations = Math.max(1, Number.parseInt(String(args.iterations || '200'), 10) || 200);
-  const registry = readRegistry(root, payload);
+  const registry = readRegistry(root, payload, { mode: payload.mode, registryPath: args.registry });
   const samples = [];
   for (let i = 0; i < iterations; i += 1) {
     const started = performance.now();
@@ -506,14 +599,108 @@ function runBench(args) {
   }
 }
 
+function selfTest() {
+  let pass = 0;
+  let fail = 0;
+  const failures = [];
+  const assert = (name, condition, detail) => {
+    if (condition) pass += 1;
+    else {
+      fail += 1;
+      failures.push({ name, detail: detail || '' });
+    }
+  };
+
+  const compatibilityRegistry = parseRegistryYaml(fs.readFileSync(REGISTRY_SOURCE_PATH, 'utf8'));
+  const compatibilityRoutes = compatibilityRegistry.routes || [];
+  assert('1. planning directive remains in compatibility registry',
+    routeDirectives(compatibilityRoutes, 'directive').includes('/sgsd-triage'));
+  assert('2. quality route remains in compatibility registry',
+    compatibilityRoutes.some((route) => route.id === 'quality-gate-missing-plan'
+      && route.enforcement && route.enforcement.kind === 'report_only'));
+  assert('3. compatibility registry no longer maintains suggestion routes',
+    routeDirectives(compatibilityRoutes, 'suggestion').length === 0);
+
+  const payload = { cwd: process.cwd(), hook_event_name: 'UserPromptSubmit' };
+  const registry = readRegistry(null, payload, {
+    mode: 'manual',
+    registryPath: SKILL_ROUTING_REGISTRY_PATH,
+    logDegradation: false,
+  });
+  const suggestionFor = (prompt) => routeDirectives(
+    matchingRoutes(registry, prompt.toLowerCase(), null, payload),
+    'suggestion',
+  );
+  assert('4. token-audit suggestion is table sourced',
+    suggestionFor('please run a token waste audit before this closes').includes('/sgsd-token-audit')
+      && registry.routes.some((route) => route.skill === 'sgsd-token-audit' && route.source === 'yaml'));
+  assert('5. MUDA suggestion is table sourced',
+    suggestionFor('this looks like MUDA and needs a waste audit').includes('/sgsd-muda-audit')
+      && registry.routes.some((route) => route.skill === 'sgsd-muda-audit' && route.source === 'yaml'));
+  assert('6. VTP suggestion is table sourced',
+    suggestionFor('use VTP advice for this architecture proposal').includes('/sgsd-vtp-advise')
+      && registry.routes.some((route) => route.skill === 'sgsd-vtp-advise' && route.source === 'yaml'));
+
+  const fallbackRegistry = readRegistry(null, payload, {
+    mode: 'manual',
+    registryPath: MALFORMED_SKILL_ROUTING_FIXTURE,
+    logDegradation: false,
+  });
+  const fallbackSuggestions = routeDirectives(
+    matchingRoutes(fallbackRegistry, 'please run a token waste audit before this closes', null, payload),
+    'suggestion',
+  );
+  assert('7. malformed table uses compiled fallback routes',
+    fallbackRegistry.routes.some((route) => route.source === 'compiled_fallback'));
+  assert('8. malformed-table fallback preserves token-audit suggestion',
+    fallbackSuggestions.includes('/sgsd-token-audit'));
+
+  console.log(`intent-classifier self-test: ${pass} pass, ${fail} fail`);
+  for (const item of failures) {
+    console.error(`  FAIL: ${item.name}${item.detail ? ` -- ${item.detail}` : ''}`);
+  }
+  return fail === 0 ? 0 : 1;
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args['self-test']) {
+    try {
+      process.exit(selfTest());
+    } catch (error) {
+      console.error(`intent-classifier self-test: unexpected error -- ${error && error.message ? error.message : String(error)}`);
+      process.exit(1);
+    }
+  }
   if (args.bench) {
     try {
       runBench(args);
     } catch {
       const root = rootFromPayload({ cwd: process.cwd() });
       appendFailureRow(root, 'classifier_unexpected_error', null);
+    }
+    return;
+  }
+
+  if (args.prompt !== undefined) {
+    let payload = {};
+    let root = null;
+    try {
+      payload = {
+        cwd: process.cwd(),
+        hook_event_name: 'ManualPromptProbe',
+        mode: classifierMode(null, { mode: args.mode }),
+        prompt: String(args.prompt || ''),
+      };
+      root = rootFromPayload(payload);
+      if (!root) return;
+      emitClassification(root, payload, {
+        mode: payload.mode,
+        registryPath: args.registry,
+        recordEvidence: false,
+      });
+    } catch {
+      appendFailureRow(root, 'classifier_unexpected_error', payload);
     }
     return;
   }
@@ -537,8 +724,13 @@ module.exports = {
   DEGRADED_SIGNAL,
   ROUTING_DECISION_SIGNAL,
   REGISTRY_SOURCE_PATH,
+  SESSION_GOVERNANCE_REGISTRY_PATH,
+  SKILL_ROUTING_REGISTRY_PATH,
   parseRegistryYaml,
   routeDirectives,
   directiveLines,
   matchingRoutes,
+  readRegistry,
+  emitClassification,
+  selfTest,
 };
