@@ -1,0 +1,3 @@
+super-gsd/scripts/sgsd-triage-runtime.cjs
+super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs
+super-gsd/skills/sgsd-triage/SKILL.md
