@@ -38,13 +38,18 @@ Eliminates the *"ad-hoc planning, then realise I should have briefed the board /
 
 ## Step 0: Runtime VTP enrichment
 
-Before brainstorming, hand the raw operator query to the runtime. Never pass the query inline through shell quoting.
+Before brainstorming, hand the raw operator query to the runtime through the staged file protocol. Never pass the query inline through shell quoting. The runtime decides; Claude transports.
 
 1. Write the raw query verbatim to a repo-contained temp file: `.planning/tmp/sgsd-triage-query-{YYYYMMDDTHHMMSSZ}-{pid}.txt`.
-2. Invoke the runtime with the relative file path:
-   `node super-gsd/scripts/sgsd-triage-runtime.cjs --query-file .planning/tmp/sgsd-triage-query-{stamp}-{pid}.txt --cwd . [--active-file <relpath>]`
-3. Read the one JSON object printed to stdout. It contains `mode`, `vtpMode`, `singleModel`, `codex`, `reconciliation`, `degradationNotes`, and `evidencePath`; do not infer from in-process objects.
-4. The runtime reads STATE, applies `workflow.triage_vtp_enrichment`, and writes contained evidence/log rows. When `.planning/config.json` sets `workflow.triage_vtp_enrichment: false`, it skips VTP calls, emits `vtp_enrichment_disabled`, and continues evidence-less. Route failure emits `vtp_route_failed` and continues evidence-less; fallback is only for low-yield route predicates.
+2. Invoke the plan stage with the relative file path:
+   `node super-gsd/scripts/sgsd-triage-runtime.cjs --stage vtp-plan --query-file .planning/tmp/sgsd-triage-query-{stamp}-{pid}.txt --cwd . [--active-file <relpath>]`
+3. Read the one JSON object printed to stdout. If it is `{action:"skip", reason}`, call no MCP tool and continue evidence-less with that reason.
+4. If it is `{action:"invoke_mcp", tool, args, response_file}`, execute the emitted MCP call VERBATIM: call exactly `tool` with exactly `args`, save the raw JSON response to `response_file`, then re-invoke:
+   `node super-gsd/scripts/sgsd-triage-runtime.cjs --stage vtp-consume --query-file .planning/tmp/sgsd-triage-query-{stamp}-{pid}.txt --cwd . --response-file <response_file>`
+5. Read the `vtp-consume` stdout. If it is complete, keep that runtime result. If it emits one fallback `{action:"invoke_mcp", tool, args, response_file}`, execute the emitted MCP call VERBATIM, save the raw JSON response, then re-invoke exactly once:
+   `node super-gsd/scripts/sgsd-triage-runtime.cjs --stage vtp-finalize --query-file .planning/tmp/sgsd-triage-query-{stamp}-{pid}.txt --cwd . --response-file <response_file>`
+6. Read the final `vtp-consume` or `vtp-finalize` JSON. It contains `vtpMode`, `degradationNotes`, and `evidencePath`; do not infer from in-process objects. Keep the final staged `response_file` used to obtain this JSON (route response for `vtp-consume`, fallback response for `vtp-finalize`) for Step 3. No interpretation: execute emitted MCP calls verbatim, save the response, re-invoke.
+7. The runtime reads STATE, applies `workflow.triage_vtp_enrichment`, validates untrusted response files, and writes contained evidence/log rows. System-wide disable via `workflow.triage_vtp_enrichment: false` returns `action:"skip"` with `reason:"vtp_enrichment_disabled"`; fallback is only for runtime-selected low-yield route predicates and allows one more loop.
 
 **Trigger exclusion (D-06):** Step 0 still relies on the existing `<trigger>` block's "Do NOT invoke when..." list (trivial questions, execution requests, mid-build fixes) to handle Path D style queries. No per-call flag - see D-06 rationale. System-wide disable via `workflow.triage_vtp_enrichment: false`.
 
@@ -78,9 +83,11 @@ Write Claude's verdict to `.planning/tmp/sgsd-triage-claude-verdict-{stamp}-{pid
 {"path":"B","rationale":"bounded implementation path because ..."}
 ```
 
-Then invoke reconciliation with the same query file:
+Then invoke reconciliation with the same query file and the final staged VTP response file from Step 0 when one exists:
 
-`node super-gsd/scripts/sgsd-triage-runtime.cjs --query-file .planning/tmp/sgsd-triage-query-{stamp}-{pid}.txt --cwd . --trigger-source <actual-trigger-source> --claude-verdict-file .planning/tmp/sgsd-triage-claude-verdict-{stamp}-{pid}.json`
+`node super-gsd/scripts/sgsd-triage-runtime.cjs --query-file .planning/tmp/sgsd-triage-query-{stamp}-{pid}.txt --cwd . --trigger-source <actual-trigger-source> --claude-verdict-file .planning/tmp/sgsd-triage-claude-verdict-{stamp}-{pid}.json --response-file <final_step0_response_file>`
+
+If Step 0 returned `action:"skip"` or otherwise produced no staged response file, omit `--response-file`; do not invent one.
 
 Parse the one stdout JSON object from that CLI invocation. If `singleModel` is true, keep Claude's route and render `codex.reasonCode` plus any `degradationNotes` in Step 4. If `reconciliation` is present, render that object exactly; do not reinterpret Codex fields.
 
