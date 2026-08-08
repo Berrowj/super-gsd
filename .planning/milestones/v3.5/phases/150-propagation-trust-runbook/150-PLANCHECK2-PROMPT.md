@@ -1,3 +1,25 @@
+# P150 PLAN-CHECK ROUND 2 — verify NOGO findings fixed
+
+Codex plan-checker, round 2. Round 1 (below) returned NOGO with C1-C4 + W1-W4. A revised plan follows. Verify each finding is actually fixed in the revision (escaping, false-green ACs, rollback coverage, ordering, manifest comparison, origin guard, VTP citation). If all fixed and no NEW critical defect, return GO. Do not manufacture findings.
+
+Report contract — ALL exact lines: FINDINGS/CRITICAL/WARNINGS/PASS_RATE/ONE_LINER/PLAN_VERDICT: GO|NOGO, then FINDINGS_DETAIL.
+
+## Round 1 review
+FINDINGS: 8
+CRITICAL: 4
+WARNINGS: 4
+PASS_RATE: 1/4 ACs covered
+ONE_LINER: Task typing and 883-commit PII quarantine are sound, but AC-150a/c/d have broken or false-green verification and devcp lacks a complete non-destructive rollback boundary.
+FINDINGS_DETAIL: [CRITICAL C1] AC-150a and AC-150d use Bash-style escaping inside PowerShell strings. At `150-01-PLAN-LOCKED.md:30`, `\"` splits the SSH command and expands local `$HOME`; at line 103, `\$(...)` executes locally and `\$p` loses the remote PID variable. Use single-quoted here-strings or a remote script with explicit arguments.
+FINDINGS_DETAIL: [CRITICAL C2] AC-150d can false-green: the alternation at line 95 succeeds when any one of six evidence markers exists; the local PID path at line 98 is relative rather than anchored to `C:\Users\jack.berrow\GSDedits`; `tmux has-session` and lines 821-825 prove existence but not a newly created session/PID; and T150-06 never verifies post-restart MCP provenance. Require every marker independently and compare before/after process and tmux identities.
+FINDINGS_DETAIL: [CRITICAL C3] AC-150c searches the complete historical ledger without establishing a pre-dispatch offset, count, timestamp, or correlation ID (`lines 55-65`, `529-544`, `753-769`). The local command also omits a `$LASTEXITCODE` check. A failed or skipped current dispatch can therefore pass using an old matching event. Require a newly appended event from the current probe on both machines.
+FINDINGS_DETAIL: [CRITICAL C4] T150-07 calls `install.sh --install-global` but archives only `~/.claude/super-gsd/scripts` and omits commands, hooks, templates, workflows, and config from `files_touched` and rollback coverage (`lines 257-266`, `634-664`). The current installer overwrites those targets and invokes targeted `rm -rf` cleanup (`super-gsd/install.sh:173-201,323-440`). The claimed non-destructive shadow deployment therefore is not guaranteed. Back up every mutated global target or add and test a genuinely non-deleting update mode.
+FINDINGS_DETAIL: [WARNING W1] T150-05’s stop rule says installer failure means “do not push” (`line 222`), but the push occurs at line 475 and installation begins at line 489. Move the local install/audit before publication or explicitly define post-publication failure handling without pretending the push can be prevented.
+FINDINGS_DETAIL: [WARNING W2] The devcp preservation proof checks only four named fork-only files. The before/after manifests and `diff -qr` outputs are written but never compared (`lines 637-655`, `710-725`), so deletion of another member of the 43-file drift set would go undetected. Assert that every pre-install extra path remains after installation.
+FINDINGS_DETAIL: [WARNING W3] T150-07 fast-forwards the devcp canonical source without first validating its `origin` URL (`lines 658-661`). Add the same expected-remote guard used by T150-05 before any fetch or merge.
+FINDINGS_DETAIL: [WARNING W4] The Source Audit attributes the posture to VTP but does not provide an auditable citation (`line 862`). Cite `.planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-VTP-ENRICHMENT.md:13-18` and its `doc:daadab474432` source identifier.
+
+## Revised plan
 ---
 schema_version: 2
 plan_id: "150-01"
@@ -79,28 +101,10 @@ semantic_acceptance_criteria:
 
   - id: "AC-150b"
     input: "Real local and devcp installations after updater and installer execution."
-    expected_outcome: "The local canonical-source HEAD equals published origin/master, and both machines complete the literal sgsd -NoOpen preflight and the installed Codex-hook self-test with zero exit status."
+    expected_outcome: "Both machines complete the literal sgsd -NoOpen preflight and the installed Codex-hook self-test with zero exit status."
     verification_cmd: |
       $ErrorActionPreference = 'Stop'
       $p150LocalRepo = 'C:\Users\jack.berrow\GSDedits'
-
-      $p150LocalHead = (git -C $p150LocalRepo rev-parse HEAD).Trim()
-      if ($LASTEXITCODE -ne 0 -or $p150LocalHead -notmatch '^[0-9a-f]{40}$') {
-        throw 'Could not resolve local canonical-source HEAD'
-      }
-      $p150OriginRow = @(
-        git -C $p150LocalRepo ls-remote origin refs/heads/master
-      )
-      if ($LASTEXITCODE -ne 0 -or $p150OriginRow.Count -ne 1) {
-        throw 'Could not resolve published origin/master for local verification'
-      }
-      $p150OriginSha = (($p150OriginRow[0] -split '\s+')[0]).Trim()
-      if ($p150OriginSha -notmatch '^[0-9a-f]{40}$') {
-        throw "Invalid published origin/master SHA: $p150OriginSha"
-      }
-      if ($p150LocalHead -ne $p150OriginSha) {
-        throw "Local canonical HEAD $p150LocalHead differs from published SHA $p150OriginSha"
-      }
 
       Push-Location -LiteralPath $p150LocalRepo
       try {
@@ -459,7 +463,7 @@ semantic_acceptance_criteria:
       printf '%s\n' "$cockpit_cmd" | grep -F -- "$expected_cockpit_root"
       printf '%s\n' "$cockpit_cmd" | grep -qi -- 'cockpit'
 
-      current_tmux="$(tmux display-message -p -t clarity-sgsd '#{session_id}:#{session_created}:#{pid}')"
+      current_tmux="$(tmux display-message -p -t clarity-sgsd '#{session_id}:#{session_created}:#{session_pid}')"
       test "$current_tmux" = "$tmux_identity"
       '@
 
@@ -599,21 +603,19 @@ tasks:
       - "~/.local/bin/sgsd"
       - "PowerShell:$PROFILE"
       - "C:/Users/jack.berrow/GSDedits/.codex/hooks.json"
-      - "git:C:/Users/jack.berrow/GSDedits:refs/heads/master"
       - "git:refs/remotes/origin/master"
       - ".planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-VERIFICATION.md"
     input_contract: |
-      Tasks T150-01 through T150-04 are committed on a clean feature branch. The operator is present for the identity gate, guarded fast-forward of the clean local canonical master worktree, local installer/profile mutation, local audit, and fast-forward publication to origin/master.
+      Tasks T150-01 through T150-04 are committed on a clean feature branch. The operator is present for the identity gate, local installer/profile mutation, local audit, and fast-forward publication to origin/master.
     output_contract: |
-      Every outgoing commit has the generic operator author and committer identity. Before local installation and verification, the expected-origin local canonical master worktree fast-forwards with --ff-only to the verified feature SHA under explicit operator coordination. Before publication, the local global installation is refreshed, PowerShell functions are reinstalled, the local target receives merged Codex hooks, and the local audit and smoke pass from that SHA. Only then does origin/master fast-forward to the verified feature SHA.
-    hypothesis: "Making a guarded local canonical-source fast-forward, installation, and audit a pre-publication gate prevents publishing a substrate that already fails its first real installation."
-    falsifier: "An outgoing identity differs from the generic identity, the local canonical worktree is dirty or has an unexpected origin, its master does not fast-forward to the feature SHA before installation, local installation or audit fails yet publication occurs, publication is non-fast-forward, or origin/master differs from the verified feature SHA."
-    stop_rule: "Any dirty-worktree, unexpected remote, missing operator coordination, identity, fast-forward, SHA, test, installer, hook-merge, audit, or smoke failure before push prevents publication. If the local canonical worktree is dirty, display its status and abort with instructions to coordinate and clean it manually; do not stash, discard, or overwrite its changes. Once push succeeds it is not undone by force or history rewrite: any later verification failure freezes further propagation, records the published SHA and failure, and is repaired only by a new forward commit."
+      Every outgoing commit has the generic operator author and committer identity. Before publication, the local global installation is refreshed, PowerShell functions are reinstalled, the local target receives merged Codex hooks, and the local audit and smoke pass. Only then does origin/master fast-forward to the verified feature SHA.
+    hypothesis: "Making local installation and audit a pre-publication gate prevents publishing a substrate that already fails its first real installation."
+    falsifier: "An outgoing identity differs from the generic identity, local installation or audit fails yet publication occurs, publication is non-fast-forward, or origin/master differs from the verified feature SHA."
+    stop_rule: "Any dirty-worktree, remote, identity, test, installer, hook-merge, audit, or smoke failure before push prevents publication. Once push succeeds it is not undone by force or history rewrite: any later verification failure freezes further propagation, records the published SHA and failure, and is repaired only by a new forward commit."
     verification:
       commands:
         - "git fetch origin master && git rev-parse HEAD && git rev-parse origin/master"
         - "git log origin/master..HEAD --format=\"%H %an <%ae> %cn <%ce>\""
-        - "git -C C:/Users/jack.berrow/GSDedits rev-parse --abbrev-ref HEAD && git -C C:/Users/jack.berrow/GSDedits rev-parse HEAD"
         - "node super-gsd/tools/feature-propagation/audit.cjs --project-dir C:/Users/jack.berrow/GSDedits --json"
         - "powershell.exe -NoProfile -Command \"Get-Command sg,sgsd,sgsd-refresh -ErrorAction Stop | Select-Object Name,CommandType\""
 
@@ -940,7 +942,6 @@ Set-Location -LiteralPath $p150Repo
 $p150FeatureBranch = (git branch --show-current).Trim()
 $p150FeatureSha = (git rev-parse HEAD).Trim()
 $p150RemoteUrl = (git remote get-url origin).Trim()
-$p150LocalRepo = 'C:\Users\jack.berrow\GSDedits'
 
 if (-not $p150FeatureBranch -or $p150FeatureBranch -eq 'master') {
   throw 'Run this ceremony from the completed P150 feature branch'
@@ -989,128 +990,39 @@ node --test `
   super-gsd/tests/propagation/restart-evidence-contract.test.cjs
 if ($LASTEXITCODE -ne 0) { throw 'P150 verification tests failed' }
 
-$p150LocalBranch = (
-  git -C $p150LocalRepo branch --show-current
-).Trim()
-if ($LASTEXITCODE -ne 0 -or $p150LocalBranch -ne 'master') {
-  throw "Local canonical worktree must have master checked out: $p150LocalRepo"
-}
-
-$p150LocalRemoteUrl = (
-  git -C $p150LocalRepo remote get-url origin
-).Trim()
-if ($LASTEXITCODE -ne 0 -or
-    $p150LocalRemoteUrl -notmatch '(^|[:/])Berrowj/super-gsd(?:\.git)?$') {
-  throw "Unexpected local canonical origin: $p150LocalRemoteUrl"
-}
-
-$p150LocalStatus = @(
-  git -C $p150LocalRepo status --porcelain=v1
-)
-if ($LASTEXITCODE -ne 0) {
-  throw 'Could not inspect the local canonical worktree'
-}
-if ($p150LocalStatus.Count -ne 0) {
-  $p150LocalStatus | Write-Host
-  throw 'Local canonical worktree is dirty. Coordinate with the operator and commit, stash, or relocate those changes manually, then rerun T150-05. No cleanup was attempted.'
-}
-
-git -C $p150LocalRepo fetch origin master
-if ($LASTEXITCODE -ne 0) {
-  throw 'Local canonical origin/master fetch failed'
-}
-
-$p150FetchedOriginSha = (
-  git -C $p150LocalRepo rev-parse origin/master
-).Trim()
-if ($LASTEXITCODE -ne 0 -or
-    $p150FetchedOriginSha -notmatch '^[0-9a-f]{40}$') {
-  throw 'Could not resolve local canonical origin/master'
-}
-
-$p150FeatureOriginSha = (git rev-parse origin/master).Trim()
-if ($p150FetchedOriginSha -ne $p150FeatureOriginSha) {
-  throw "Feature and local canonical origin/master refs differ: $p150FeatureOriginSha vs $p150FetchedOriginSha"
-}
-
-$p150LocalBeforeSha = (
-  git -C $p150LocalRepo rev-parse HEAD
-).Trim()
-git -C $p150LocalRepo merge-base --is-ancestor `
-  $p150LocalBeforeSha `
-  $p150FeatureSha
-if ($LASTEXITCODE -ne 0) {
-  throw "Local canonical master $p150LocalBeforeSha cannot fast-forward to $p150FeatureSha"
-}
-
-Write-Host "Local canonical worktree: $p150LocalRepo"
-Write-Host "Expected origin: $p150LocalRemoteUrl"
-Write-Host "Current master: $p150LocalBeforeSha"
-Write-Host "Verified feature: $p150FeatureSha"
-$p150Coordination = Read-Host 'Coordinate users of the local master worktree, then type FAST-FORWARD to advance it before installation'
-if ($p150Coordination -cne 'FAST-FORWARD') {
-  throw 'Operator did not authorize the local canonical fast-forward'
-}
-
-$p150LocalStatus = @(
-  git -C $p150LocalRepo status --porcelain=v1
-)
-if ($LASTEXITCODE -ne 0) {
-  throw 'Could not recheck the local canonical worktree before merge'
-}
-if ($p150LocalStatus.Count -ne 0) {
-  $p150LocalStatus | Write-Host
-  throw 'Local canonical worktree became dirty. Coordinate with the operator and commit, stash, or relocate those changes manually, then rerun T150-05. No cleanup was attempted.'
-}
-
-git -C $p150LocalRepo merge --ff-only $p150FeatureSha
-if ($LASTEXITCODE -ne 0) {
-  throw 'Local canonical master fast-forward failed; origin/master has not been pushed'
-}
-
-$p150LocalAfterSha = (
-  git -C $p150LocalRepo rev-parse HEAD
-).Trim()
-if ($LASTEXITCODE -ne 0 -or $p150LocalAfterSha -ne $p150FeatureSha) {
-  throw "Local canonical HEAD $p150LocalAfterSha differs from verified feature SHA $p150FeatureSha"
-}
-if (@(git -C $p150LocalRepo status --porcelain=v1).Count -ne 0) {
-  throw 'Local canonical worktree is dirty after fast-forward; origin/master has not been pushed'
-}
-
 # This is deliberately before publication.
-Push-Location -LiteralPath $p150LocalRepo
+bash ./super-gsd/install.sh --update --install-global
+if ($LASTEXITCODE -ne 0) {
+  throw 'Local SGSD installer failed; origin/master has not been pushed'
+}
+
+powershell.exe `
+  -NoProfile `
+  -ExecutionPolicy Bypass `
+  -File .\super-gsd\scripts\Install-SgsdShortcut.ps1 `
+  -Force
+if ($LASTEXITCODE -ne 0) {
+  throw 'PowerShell shortcut installation failed; origin/master has not been pushed'
+}
+
+. $PROFILE
+Get-Command sg, sgsd, sgsd-refresh -ErrorAction Stop | Out-Null
+
+node .\super-gsd\tools\codex-hooks\install-hooks.cjs `
+  --project 'C:\Users\jack.berrow\GSDedits'
+if ($LASTEXITCODE -ne 0) {
+  throw 'Local target hook merge failed; origin/master has not been pushed'
+}
+
+node .\super-gsd\tools\feature-propagation\audit.cjs `
+  --project-dir 'C:\Users\jack.berrow\GSDedits' `
+  --json
+if ($LASTEXITCODE -ne 0) {
+  throw 'Local propagation audit failed; origin/master has not been pushed'
+}
+
+Push-Location -LiteralPath 'C:\Users\jack.berrow\GSDedits'
 try {
-  bash ./super-gsd/install.sh --update --install-global
-  if ($LASTEXITCODE -ne 0) {
-    throw 'Local SGSD installer failed; origin/master has not been pushed'
-  }
-
-  powershell.exe `
-    -NoProfile `
-    -ExecutionPolicy Bypass `
-    -File .\super-gsd\scripts\Install-SgsdShortcut.ps1 `
-    -Force
-  if ($LASTEXITCODE -ne 0) {
-    throw 'PowerShell shortcut installation failed; origin/master has not been pushed'
-  }
-
-  . $PROFILE
-  Get-Command sg, sgsd, sgsd-refresh -ErrorAction Stop | Out-Null
-
-  node .\super-gsd\tools\codex-hooks\install-hooks.cjs `
-    --project $p150LocalRepo
-  if ($LASTEXITCODE -ne 0) {
-    throw 'Local target hook merge failed; origin/master has not been pushed'
-  }
-
-  node .\super-gsd\tools\feature-propagation\audit.cjs `
-    --project-dir $p150LocalRepo `
-    --json
-  if ($LASTEXITCODE -ne 0) {
-    throw 'Local propagation audit failed; origin/master has not been pushed'
-  }
-
   sgsd -NoOpen
   if ($LASTEXITCODE -ne 0) {
     throw 'Local no-open smoke failed; origin/master has not been pushed'
@@ -1162,14 +1074,6 @@ try {
   if ($p150PublishedSha -ne $p150FeatureSha) {
     throw "Published SHA $p150PublishedSha differs from verified SHA $p150FeatureSha"
   }
-
-  $p150PublishedLocalSha = (
-    git -C $p150LocalRepo rev-parse HEAD
-  ).Trim()
-  if ($LASTEXITCODE -ne 0 -or
-      $p150PublishedLocalSha -ne $p150PublishedSha) {
-    throw "Local canonical SHA $p150PublishedLocalSha differs from published SHA $p150PublishedSha"
-  }
 } catch {
   if ($p150PushCompleted) {
     Write-Host "origin/master may already contain $p150FeatureSha."
@@ -1182,7 +1086,6 @@ try {
 Record in `150-VERIFICATION.md`:
 
 - feature and published SHA;
-- local canonical before/after SHA, validated origin URL, and operator coordination result;
 - outgoing identity-gate row count;
 - test, installer, profile, hook-merge, audit, and smoke exit codes;
 - publication timestamp;
@@ -1647,7 +1550,7 @@ if ($LASTEXITCODE -ne 0) {
 The helper must:
 
 1. Require an existing `clarity-sgsd` session and record:
-   `session_id`, `session_created`, and `session_pid`, collecting `session_pid` with tmux `#{pid}`.
+   `session_id`, `session_created`, and `session_pid`.
 2. Require at least one SGSD MCP process whose command line contains both the canonical source root and `mcp`.
 3. Record each MCP PID, start ticks, parent PID, and command line.
 4. Display the selected MCP command lines and require `KILL`.
