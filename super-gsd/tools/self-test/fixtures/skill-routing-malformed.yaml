@@ -1,0 +1,35 @@
+﻿routes:
+  - skill: ""
+    signatures:
+      phrases:
+        - token waste
+    moment: prompt-time
+    modes:
+      - manual
+    availability: canonical
+  - skill: sgsd-token-audit
+    signatures:
+      regexes:
+        - aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    moment: prompt-time
+    modes:
+      - manual
+    availability: canonical
+  - skill: sgsd-token-audit
+    signatures:
+      regexes:
+        - (a+)+
+        - (a*)*
+        - (a|a)*
+    moment: prompt-time
+    modes:
+      - manual
+    availability: canonical
+  - skill: sgsd-token-audit
+    signatures:
+      regexes:
+        - "[unterminated"
+    moment: prompt-time
+    modes:
+      - manual
+    availability: canonical

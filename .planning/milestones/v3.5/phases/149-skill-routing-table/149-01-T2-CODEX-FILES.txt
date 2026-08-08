@@ -1,0 +1,3 @@
+super-gsd/scripts/lib/skill-routing-registry.cjs
+super-gsd/tools/self-test/fixtures/skill-routing-malformed.yaml
+super-gsd/registry/skill-routing.yaml
