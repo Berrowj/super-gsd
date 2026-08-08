@@ -28,7 +28,8 @@
 //   skillRoutingConsult({projectDir, planningDir?, moment, mode, phase, ...})
 //     -> {ok, route_count, fired_count, skipped_count, decisions}
 //     Consults loader-provided scheduled routes and appends one canonical
-//     gate-evidence envelope for every fired-or-skipped decision.
+//     gate-evidence envelope for every fired-or-skipped decision. With
+//     execute:true, fired process dispatches run and append outcome evidence.
 //
 //   selfTest() -> {ok, results: [...]} -- 10+ assertions (A1..A10).
 //
@@ -44,7 +45,7 @@
 // CLI
 //   --token-waste-check --milestone <ms> [--planning-dir <p>] [--project-dir <p>]
 //   --context-packet-build --role <r> --phase <p> [--plan <id>] [--milestone <ms>] [--project-dir <p>]
-//   skill-routing|--skill-routing-consult --moment phase-close --mode auto --phase <p> [--dry-run]
+//   skill-routing|--skill-routing-consult --moment phase-close --mode auto --phase <p> [--dry-run] [--execute]
 //   --self-test
 //   --help
 //
@@ -87,6 +88,9 @@ const CONTEXT_PACKET_BUILD_PATH = path.resolve(
 
 const LIVE_WRITER_PATH = path.resolve(
   __dirname, 'orchestrator-live-writer.cjs');
+
+const SGSD_ROOT = path.resolve(__dirname, '..', '..');
+const MAX_DISPATCH_OUTPUT_BYTES = 2000;
 
 // VERDICTS that should fire token_threshold_crossed events (anything other
 // than 'ok' / 'false_positive' / null). Frozen mirror of Phase 42 lock 13.
@@ -182,6 +186,17 @@ function _priorRouteFire(rows, route, phase) {
 }
 
 function _scheduledRouteDecision(route, context) {
+  const cooldown = route.cooldown || {};
+  const policy = cooldown.policy || 'scheduled-moment';
+  if (cooldown.scope === 'phase'
+      && _priorRouteFire(context.evidenceRows, route, context.phase)) {
+    return {
+      decision: 'skipped',
+      reason_code: 'phase_cooldown_already_fired',
+      reason: 'phase_cooldown_already_fired:' + policy
+    };
+  }
+
   if (route.gate_ref) {
     const gateRow = _latestGateValue(
       context.gateValueRows, route, context.phase, context.milestone);
@@ -206,21 +221,128 @@ function _scheduledRouteDecision(route, context) {
     };
   }
 
-  const cooldown = route.cooldown || {};
-  const policy = cooldown.policy || 'scheduled-moment';
-  if (cooldown.scope === 'phase'
-      && _priorRouteFire(context.evidenceRows, route, context.phase)) {
-    return {
-      decision: 'skipped',
-      reason_code: 'phase_cooldown_already_fired',
-      reason: 'phase_cooldown_already_fired:' + policy
-    };
-  }
   return {
     decision: 'fired',
     reason_code: 'scheduled_route_due',
     reason: 'scheduled_route_due:' + policy
   };
+}
+
+function _replaceDispatchTokens(value, replacements) {
+  let out = String(value);
+  for (const key of Object.keys(replacements)) {
+    out = out.split('{' + key + '}').join(replacements[key]);
+  }
+  return out;
+}
+
+function _renderDispatch(dispatch, context) {
+  if (!dispatch || typeof dispatch.command !== 'string' || !dispatch.command.trim()) {
+    throw new Error('skill_routing_dispatch_missing');
+  }
+  const replacements = {
+    sgsd_root: SGSD_ROOT,
+    project_dir: context.projectDir,
+    planning_dir: context.planningDir,
+    phase: context.phase || '',
+    milestone: context.milestone || '',
+    moment: context.moment || '',
+    mode: context.mode || ''
+  };
+  let command = _replaceDispatchTokens(dispatch.command.trim(), replacements);
+  if (command === 'node') command = process.execPath;
+  const args = [];
+  const rawArgs = Array.isArray(dispatch.args) ? dispatch.args : [];
+  for (let i = 0; i < rawArgs.length; i++) {
+    if (rawArgs[i] === '{dry_run_flag}') {
+      if (context.dryRun) args.push('--dry-run');
+      continue;
+    }
+    args.push(_replaceDispatchTokens(rawArgs[i], replacements));
+  }
+  if (/\{[a-z_]+\}/i.test(command)
+      || args.some(function (arg) { return /\{[a-z_]+\}/i.test(arg); })) {
+    throw new Error('skill_routing_dispatch_token_unresolved');
+  }
+  return {
+    command: command,
+    args: args,
+    cwd: context.projectDir,
+    timeout_ms: dispatch.timeout_ms || 120000
+  };
+}
+
+function _outputExcerpt(value) {
+  const text = value === undefined || value === null ? '' : String(value);
+  return text.length > MAX_DISPATCH_OUTPUT_BYTES
+    ? text.slice(0, MAX_DISPATCH_OUTPUT_BYTES)
+    : text;
+}
+
+function _executeDispatch(dispatch, context, executor) {
+  const started = Date.now();
+  try {
+    const result = typeof executor === 'function'
+      ? executor(dispatch, context)
+      : child_process.spawnSync(dispatch.command, dispatch.args, {
+        cwd: dispatch.cwd,
+        encoding: 'utf8',
+        timeout: dispatch.timeout_ms,
+        windowsHide: true,
+        shell: false
+      });
+    let exitCode;
+    if (result && Number.isInteger(result.status)) exitCode = result.status;
+    else if (result && result.error && result.error.code === 'ETIMEDOUT') exitCode = 124;
+    else exitCode = 126;
+    return {
+      decision: exitCode === 0 ? 'executed' : 'execution_failed',
+      exit_code: exitCode,
+      duration_ms: Math.max(0, Date.now() - started),
+      stdout: _outputExcerpt(result && result.stdout),
+      stderr: _outputExcerpt(result && (result.stderr || (result.error && result.error.message)))
+    };
+  } catch (error) {
+    return {
+      decision: 'execution_failed',
+      exit_code: 126,
+      duration_ms: Math.max(0, Date.now() - started),
+      stdout: '',
+      stderr: _outputExcerpt(error && error.message ? error.message : error)
+    };
+  }
+}
+
+function _appendSkillRoutingExecution(planningDir, scope, route, dispatch, outcome) {
+  const executed = outcome.decision === 'executed';
+  return logGateEvidence(planningDir, {
+    signal: SKILL_ROUTING_SIGNAL,
+    status: executed ? 'ok' : 'fail',
+    reason_codes: [executed
+      ? 'skill_routing_dispatch_executed'
+      : 'skill_routing_dispatch_execution_failed'],
+    artifacts: [],
+    evidence: [{ kind: 'skill-routing-route', ref: route.id }],
+    next_action: executed
+      ? 'Continue phase close after the scheduled route completed.'
+      : 'Inspect dispatch stderr and repair the scheduled route before Step 6.7.',
+    risk: executed ? 'low' : 'high',
+    duration_ms: outcome.duration_ms,
+    phase: scope.phase,
+    milestone: scope.milestone,
+    event: SKILL_ROUTING_EVENT,
+    route_id: route.id,
+    skill: route.skill,
+    moment: scope.moment,
+    mode: scope.mode,
+    parent_decision: 'fired',
+    decision: outcome.decision,
+    reason: outcome.decision + ':exit_code=' + outcome.exit_code,
+    dispatch: dispatch,
+    exit_code: outcome.exit_code,
+    stdout_excerpt: outcome.stdout,
+    stderr_excerpt: outcome.stderr
+  });
 }
 
 function _appendSkillRoutingDegradation(planningDir, scope, error) {
@@ -460,6 +582,7 @@ function skillRoutingConsult(opts) {
     const filesChanged = _optionalNonNegativeNumber(opts.filesChanged, 'files_changed');
     const diffLines = _optionalNonNegativeNumber(opts.diffLines, 'diff_lines');
     const dryRun = opts.dryRun === true || opts.dryRun === 'true';
+    const execute = opts.execute === true || opts.execute === 'true';
     const registry = loadSkillRoutingRegistry({
       registryPath: opts.registryPath || opts.registry,
       runtime: true,
@@ -481,10 +604,24 @@ function skillRoutingConsult(opts) {
     };
     const decisions = [];
     let appendFailures = 0;
+    let decisionAppendFailures = 0;
+    let executionFailures = 0;
+    let executionEvidenceAppended = 0;
 
     for (let i = 0; i < routes.length; i++) {
       const route = routes[i];
       const decision = _scheduledRouteDecision(route, context);
+      const dispatch = decision.decision === 'fired'
+        ? _renderDispatch(route.dispatch, {
+          projectDir: projectDir,
+          planningDir: planningDir,
+          phase: scope.phase,
+          milestone: scope.milestone,
+          moment: scope.moment,
+          mode: scope.mode,
+          dryRun: dryRun
+        })
+        : null;
       const row = logGateEvidence(planningDir, {
         signal: SKILL_ROUTING_SIGNAL,
         status: decision.decision === 'fired' ? 'ok' : 'skipped',
@@ -492,7 +629,7 @@ function skillRoutingConsult(opts) {
         artifacts: [],
         evidence: [{ kind: 'skill-routing-route', ref: route.id }],
         next_action: decision.decision === 'fired'
-          ? 'Continue the scheduled phase-close route for ' + route.skill + '.'
+          ? 'Execute the scheduled dispatch for ' + route.skill + ' before Step 6.7.'
           : 'Continue phase close; the named gate or route policy owns reconsideration.',
         risk: 'low',
         duration_ms: 0,
@@ -511,16 +648,46 @@ function skillRoutingConsult(opts) {
         files_changed: filesChanged,
         diff_lines: diffLines,
         phase_type: opts.phaseType || null,
-        dry_run: dryRun
+        dry_run: dryRun,
+        dispatch: dispatch
       });
-      if (!row) appendFailures++;
-      decisions.push({
+      if (!row) {
+        appendFailures++;
+        decisionAppendFailures++;
+      }
+      const result = {
         route_id: route.id,
         skill: route.skill,
         decision: decision.decision,
         reason: decision.reason,
+        dispatch: dispatch,
         evidence_appended: !!row
-      });
+      };
+      if (decision.decision === 'fired' && execute) {
+        const outcome = _executeDispatch(dispatch, {
+          projectDir: projectDir,
+          planningDir: planningDir,
+          phase: scope.phase,
+          milestone: scope.milestone,
+          moment: scope.moment,
+          mode: scope.mode,
+          dryRun: dryRun
+        }, opts.dispatchExecutor);
+        const executionRow = _appendSkillRoutingExecution(
+          planningDir, scope, route, dispatch, outcome);
+        if (executionRow) executionEvidenceAppended++;
+        else appendFailures++;
+        if (outcome.decision === 'execution_failed') executionFailures++;
+        result.execution = {
+          decision: outcome.decision,
+          exit_code: outcome.exit_code,
+          duration_ms: outcome.duration_ms,
+          stdout_excerpt: outcome.stdout,
+          stderr_excerpt: outcome.stderr,
+          evidence_appended: !!executionRow
+        };
+      }
+      decisions.push(result);
     }
 
     if (appendFailures > 0) {
@@ -528,7 +695,7 @@ function skillRoutingConsult(opts) {
         new Error('gate_evidence_append_failed:' + appendFailures));
     }
     return {
-      ok: appendFailures === 0,
+      ok: appendFailures === 0 && executionFailures === 0,
       event: SKILL_ROUTING_EVENT,
       source: registry.source,
       degraded: !!registry.degraded || appendFailures > 0,
@@ -537,10 +704,16 @@ function skillRoutingConsult(opts) {
       phase: scope.phase,
       milestone: scope.milestone,
       dry_run: dryRun,
+      execute: execute,
       route_count: routes.length,
       fired_count: decisions.filter(function (item) { return item.decision === 'fired'; }).length,
       skipped_count: decisions.filter(function (item) { return item.decision === 'skipped'; }).length,
-      evidence_appended: decisions.length - appendFailures,
+      evidence_appended: decisions.length - decisionAppendFailures,
+      executed_count: decisions.filter(function (item) {
+        return item.execution && item.execution.decision === 'executed';
+      }).length,
+      execution_failed_count: executionFailures,
+      execution_evidence_appended: executionEvidenceAppended,
       decisions: decisions
     };
   } catch (error) {
@@ -553,10 +726,14 @@ function skillRoutingConsult(opts) {
       mode: scope.mode,
       phase: scope.phase,
       milestone: scope.milestone,
+      execute: opts && (opts.execute === true || opts.execute === 'true'),
       route_count: 0,
       fired_count: 0,
       skipped_count: 0,
       evidence_appended: 0,
+      executed_count: 0,
+      execution_failed_count: 0,
+      execution_evidence_appended: 0,
       decisions: [],
       error: error && error.message ? error.message : String(error || 'unknown')
     };
@@ -745,8 +922,9 @@ function selfTest() {
     assert('A9_tool_paths_absolute', false, 'threw=' + (e && e.message));
   }
 
-  // A10: phase-close consult enumerates every scheduled route and appends
-  // exactly one fired-or-skipped gate-evidence envelope for each route.
+  // A10: phase-close consult enumerates every scheduled route, exposes an
+  // actionable dispatch for fired routes, records execution outcomes, and
+  // respects once-per-phase cooldown on a repeated consult.
   let tmpA10 = null;
   try {
     tmpA10 = fs.mkdtempSync(path.join(os.tmpdir(), 'orch-hook-a10-'));
@@ -754,19 +932,26 @@ function selfTest() {
     fs.mkdirSync(path.join(planningA10, 'metrics'), { recursive: true });
     fs.writeFileSync(path.join(planningA10, 'STATE.md'),
       '---\nmilestone: v3.5\ncurrent_phase: 149\n---\n', 'utf8');
+    fs.writeFileSync(path.join(planningA10, 'metrics', 'gate-value-log.jsonl'), [
+      { gate: 'MUDA-waste-audit', outcome: 'pass', phase: '149', milestone: 'v3.5' },
+      { gate: 'phase-level-ATC', outcome: 'pass', phase: '149', milestone: 'v3.5' },
+      { gate: 'sgsd-curate-learnings', outcome: 'pass', phase: '149', milestone: 'v3.5' }
+    ].map(function (row) { return JSON.stringify(row); }).join('\n') + '\n', 'utf8');
     const hasApi = typeof skillRoutingConsult === 'function';
     const positionalCli = _parseArgv([
       'node', __filename, 'skill-routing', '--moment', 'phase-close',
-      '--mode', 'auto', '--phase', '149', '--dry-run'
+      '--mode', 'auto', '--phase', '149', '--dry-run', '--execute'
     ]);
     const flagCli = _parseArgv([
       'node', __filename, '--skill-routing-consult', '--moment', 'phase-close',
-      '--mode', 'auto', '--phase', '149', '--dry-run'
+      '--mode', 'auto', '--phase', '149', '--dry-run', '--execute'
     ]);
     const cliWired = positionalCli.mode === 'skill-routing-consult'
       && positionalCli.routeMode === 'auto' && positionalCli.dryRun === true
+      && positionalCli.execute === true
       && flagCli.mode === 'skill-routing-consult'
-      && flagCli.routeMode === 'auto' && flagCli.dryRun === true;
+      && flagCli.routeMode === 'auto' && flagCli.dryRun === true
+      && flagCli.execute === true;
     const out = hasApi ? skillRoutingConsult({
       projectDir: tmpA10,
       planningDir: planningA10,
@@ -777,7 +962,11 @@ function selfTest() {
       filesChanged: 4,
       diffLines: 100,
       phaseType: 'feature',
-      dryRun: true
+      dryRun: true,
+      execute: true,
+      dispatchExecutor: function () {
+        return { status: 0, stdout: 'a10-executed', stderr: '' };
+      }
     }) : null;
     const evidencePath = path.join(planningA10, 'metrics', 'gate-evidence.jsonl');
     const rows = fs.existsSync(evidencePath)
@@ -785,18 +974,72 @@ function selfTest() {
         .filter(Boolean).map(function (line) { return JSON.parse(line); })
         .filter(function (row) { return row.event === 'skill-routing'; })
       : [];
-    const completeRows = rows.length > 0 && rows.every(function (row) {
+    const decisionRows = rows.filter(function (row) {
+      return row.decision === 'fired' || row.decision === 'skipped';
+    });
+    const executionRows = rows.filter(function (row) {
+      return row.decision === 'executed' || row.decision === 'execution_failed';
+    });
+    const completeRows = decisionRows.length > 0 && decisionRows.every(function (row) {
       return row.skill && row.moment === 'phase-close' && row.mode === 'auto'
         && row.phase === '149' && (row.decision === 'fired' || row.decision === 'skipped')
         && typeof row.reason === 'string' && row.reason.length > 0;
     });
-    const decisions = new Set(rows.map(function (row) { return row.decision; }));
+    const fired = out && out.decisions
+      ? out.decisions.filter(function (item) { return item.decision === 'fired'; })
+      : [];
+    const actionable = fired.length > 0 && fired.every(function (item) {
+      return item.dispatch && typeof item.dispatch.command === 'string'
+        && item.dispatch.command.trim().length > 0;
+    });
+    const outcomeShape = executionRows.length === fired.length
+      && executionRows.every(function (row) {
+        return row.parent_decision === 'fired'
+          && (row.decision === 'executed' || row.decision === 'execution_failed')
+          && Number.isInteger(row.exit_code)
+          && row.dispatch && typeof row.dispatch.command === 'string'
+          && row.dispatch.command.trim().length > 0;
+      });
+    const mixed = hasApi ? skillRoutingConsult({
+      projectDir: tmpA10,
+      planningDir: planningA10,
+      moment: 'phase-close',
+      mode: 'auto',
+      phase: '150',
+      milestone: 'v3.5',
+      dryRun: true
+    }) : null;
+    const repeated = hasApi ? skillRoutingConsult({
+      projectDir: tmpA10,
+      planningDir: planningA10,
+      moment: 'phase-close',
+      mode: 'auto',
+      phase: '149',
+      milestone: 'v3.5',
+      dryRun: true
+    }) : null;
+    const repeatCooledDown = repeated && repeated.decisions.length === out.route_count
+      && repeated.decisions.every(function (item) {
+        return item.decision === 'skipped'
+          && item.reason.indexOf('phase_cooldown_already_fired:') === 0;
+      });
+    const decisions = new Set(decisionRows.map(function (row) { return row.decision; })
+      .concat(mixed && mixed.decisions
+        ? mixed.decisions.map(function (item) { return item.decision; })
+        : []));
     assert('A10_skill_routing_phase_close_logs_each_decision',
       hasApi && cliWired && out && out.ok === true && out.route_count >= 5
-        && rows.length === out.route_count && completeRows
+        && decisionRows.length === out.route_count && completeRows
         && decisions.has('fired') && decisions.has('skipped'),
       'api=' + hasApi + ' cli=' + cliWired + ' routes=' + (out && out.route_count)
-        + ' rows=' + rows.length + ' decisions=' + Array.from(decisions).join(','));
+        + ' rows=' + decisionRows.length + ' decisions=' + Array.from(decisions).join(','));
+    assert('A10_fired_routes_are_actionable_and_log_execution_outcomes',
+      actionable && outcomeShape,
+      'fired=' + fired.length + ' actionable=' + actionable + ' outcomes=' + executionRows.length);
+    assert('A10_repeat_consult_respects_phase_cooldown', repeatCooledDown,
+      'repeat=' + (repeated && repeated.decisions
+        ? repeated.decisions.map(function (item) { return item.skill + ':' + item.decision; }).join(',')
+        : 'missing'));
   } catch (e) {
     assert('A10_skill_routing_phase_close_logs_each_decision', false,
       'threw=' + (e && e.message));
@@ -822,13 +1065,13 @@ function _parseArgv(argv) {
     '--milestone', '--phase', '--role', '--plan',
     '--planning-dir', '--project-dir', '--json',
     '--moment', '--mode', '--files-changed', '--diff-lines',
-    '--phase-type', '--dry-run', '--registry'
+    '--phase-type', '--dry-run', '--execute', '--registry'
   ]);
   const out = {
     mode: null, milestone: null, phase: null, role: null, plan: null,
     planningDir: null, projectDir: null, json: false, help: false,
     moment: null, routeMode: null, filesChanged: null, diffLines: null,
-    phaseType: null, dryRun: false, registry: null
+    phaseType: null, dryRun: false, execute: false, registry: null
   };
   let i = 2;
   while (i < argv.length) {
@@ -842,6 +1085,7 @@ function _parseArgv(argv) {
     if (a === '--help')                { out.help = true; i++; continue; }
     if (a === '--json')                { out.json = true; i++; continue; }
     if (a === '--dry-run')             { out.dryRun = true; i++; continue; }
+    if (a === '--execute')             { out.execute = true; i++; continue; }
     if (a === '--milestone')   { out.milestone = argv[i + 1]; i += 2; continue; }
     if (a === '--phase')       { out.phase = argv[i + 1]; i += 2; continue; }
     if (a === '--role')        { out.role = argv[i + 1]; i += 2; continue; }
@@ -863,8 +1107,8 @@ function _usage() {
   process.stdout.write('Usage:\n');
   process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --token-waste-check --milestone <ms> [--planning-dir <p>] [--project-dir <p>]\n');
   process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --context-packet-build --role <r> --phase <p> [--plan <id>] [--milestone <ms>] [--project-dir <p>]\n');
-  process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs skill-routing --moment phase-close --mode auto --phase <p> [--files-changed <n>] [--diff-lines <n>] [--dry-run]\n');
-  process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --skill-routing-consult --moment phase-close --mode auto --phase <p> [--dry-run]\n');
+  process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs skill-routing --moment phase-close --mode auto --phase <p> [--files-changed <n>] [--diff-lines <n>] [--dry-run] [--execute]\n');
+  process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --skill-routing-consult --moment phase-close --mode auto --phase <p> [--dry-run] [--execute]\n');
   process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --self-test\n');
   process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --help\n');
   process.stdout.write('Phase 87-01: live wire-in for Phase 42 (token-waste) + Phase 45 (context-packet).\n');
@@ -941,6 +1185,7 @@ if (require.main === module) {
       diffLines: parsed.diffLines,
       phaseType: parsed.phaseType,
       dryRun: parsed.dryRun,
+      execute: parsed.execute,
       registry: parsed.registry
     });
     process.stdout.write(JSON.stringify(result) + '\n');

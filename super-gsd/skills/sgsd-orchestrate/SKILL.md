@@ -1840,13 +1840,27 @@ REPEAT:
             After phase completion and before Step 6.7, run:
 
             ```bash
-            node super-gsd/scripts/lib/orchestrator-hooks.cjs --skill-routing-consult --phase N
+            node super-gsd/scripts/lib/orchestrator-hooks.cjs --skill-routing-consult \
+              --moment phase-close --mode auto --phase N --execute
             ```
 
-            The helper consults `super-gsd/registry/skill-routing.yaml`, the
-            routing source of truth, and records a fired or skipped decision
-            with its reason for every applicable phase-close route. Do not
-            infer or schedule neglected skills from prose in this document.
+            Capture and inspect the stdout JSON before continuing. The helper
+            consults `super-gsd/registry/skill-routing.yaml`, the routing source
+            of truth. For EVERY `decision: fired` row, the loop MUST execute the
+            row's non-empty `dispatch.command` + `dispatch.args` before Step 6.7.
+            `--execute` performs those deterministic process dispatches
+            mechanically and returns only after each attempt completes.
+
+            The helper appends the scheduling row (`fired|skipped`) and, for
+            each fired row, a separate execution-outcome evidence row with
+            `parent_decision: fired`, `decision: executed|execution_failed`,
+            the concrete dispatch, and integer `exit_code`. Confirm every fired
+            JSON decision has both `dispatch` and `execution`, and that
+            `execution_evidence_appended` equals `fired_count`. Missing outcome
+            evidence or `execution_failed` is loud: surface its stderr/exit code
+            and complete the returned repair action before entering Step 6.7.
+            Never treat the initial `fired` row as proof that the skill ran, and
+            do not infer or schedule neglected skills from prose in this file.
 
   6.7. MILESTONE COMPLETE AUTO-TRIGGER (GOV-13 / D-18a)
 

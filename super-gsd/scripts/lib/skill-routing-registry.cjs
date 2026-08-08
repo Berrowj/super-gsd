@@ -44,6 +44,10 @@ function fb(skill, moment, modes, signatures, extra) {
   return Object.assign({ skill, signatures, moment, modes }, extra || {});
 }
 
+function processDispatch(command, args, timeoutMs) {
+  return { command, args, timeout_ms: timeoutMs || 120000 };
+}
+
 const COMPILED_FALLBACK_ROWS = Object.freeze([
   fb('sgsd-muda-audit', 'prompt-time', ['manual', 'semi', 'auto'], {
     phrases: ['muda', 'waste', 'retrospective', 'retro', 'what went wrong', 'conformance drift'],
@@ -51,18 +55,40 @@ const COMPILED_FALLBACK_ROWS = Object.freeze([
   }, { availability: 'canonical' }),
   fb('sgsd-muda-audit', 'phase-close', ['semi', 'auto'], {
     event_names: ['phase-close'],
-  }, { availability: 'canonical', gate_ref: 'MUDA-waste-audit', cooldown: { policy: 'gate-controlled', scope: 'phase' } }),
+  }, {
+    availability: 'canonical',
+    gate_ref: 'MUDA-waste-audit',
+    cooldown: { policy: 'gate-controlled', scope: 'phase' },
+    dispatch: processDispatch('bash', [
+      '{sgsd_root}/scripts/sgsd-muda-audit.sh', '{phase}', '--project',
+      '{project_dir}', '{dry_run_flag}',
+    ]),
+  }),
   fb('sgsd-token-audit', 'prompt-time', ['manual', 'semi', 'auto'], {
     phrases: ['token spend', 'token budget', 'token burn', 'context cost', 'token waste'],
     regexes: ['\\btokens?\\b.{0,160}\\b(?:spend|spent|burn|budget|cost|waste)\\b', '\\b(?:spend|spent|burn|budget|cost|waste)\\b.{0,160}\\btokens?\\b'],
   }, { availability: 'canonical' }),
   fb('sgsd-token-audit', 'milestone-close', ['semi', 'auto'], {
     event_names: ['milestone-close'],
-  }, { availability: 'canonical', cooldown: { policy: 'sgsd-complete-milestone-owned', scope: 'milestone' } }),
+  }, {
+    availability: 'canonical',
+    cooldown: { policy: 'sgsd-complete-milestone-owned', scope: 'milestone' },
+    dispatch: processDispatch('node', [
+      '{sgsd_root}/tools/token-waste/check.cjs', '--check', '--milestone',
+      '{milestone}', '--json',
+    ]),
+  }),
   fb('sgsd-distill', 'milestone-close', ['semi', 'auto'], {
     event_names: ['milestone-close'],
     phrases: ['distill milestone', 'trajectory distill', 'summarize learnings'],
-  }, { availability: 'canonical', cooldown: { policy: 'once-per-milestone', scope: 'milestone' } }),
+  }, {
+    availability: 'canonical',
+    cooldown: { policy: 'once-per-milestone', scope: 'milestone' },
+    dispatch: processDispatch('bash', [
+      '{sgsd_root}/scripts/sgsd-distill-milestone.sh', '{milestone}',
+      '--exclude-phase-type', 'self-audit', '--root', '{project_dir}',
+    ]),
+  }),
   fb('sgsd-sepl', 'prompt-time', ['manual', 'semi', 'auto'], {
     phrases: ['major proposal', 'architecture tradeoff', 'architecture trade-off', 'strategic tradeoff', 'strategic trade-off', 'sets precedent'],
     regexes: ['\\b(?:architecture|system|governance)\\b.{0,120}\\b(?:tradeoffs?|trade-offs?|decision|proposal)\\b', '\\bshould\\s+we\\b.{0,160}\\b(?:choose|adopt|standardize|centralize|decentralize|replace)\\b'],
@@ -72,7 +98,13 @@ const COMPILED_FALLBACK_ROWS = Object.freeze([
   }, { availability: 'canonical' }),
   fb('sgsd-overwatcher', 'phase-close', ['auto'], {
     event_names: ['phase-close'],
-  }, { availability: 'canonical', cooldown: { policy: 'once-per-phase', scope: 'phase' } }),
+  }, {
+    availability: 'canonical',
+    cooldown: { policy: 'once-per-phase', scope: 'phase' },
+    dispatch: processDispatch('node', [
+      '{sgsd_root}/overwatcher/overwatcher-launcher.js',
+    ]),
+  }),
   fb('sgsd-readiness', 'prompt-time', ['manual', 'semi', 'auto'], {
     phrases: ['readiness', 'release readiness', 'health check', 'sgsd-health', 'gsd-health'],
     regexes: ['\\b(?:ready|readiness|health)\\b.{0,120}\\b(?:ship|release|close|phase|milestone)\\b'],
@@ -82,13 +114,35 @@ const COMPILED_FALLBACK_ROWS = Object.freeze([
   }, { aliases: ['sgsd-health', 'gsd-health'], availability: 'canonical' }),
   fb('sgsd-readiness', 'phase-close', ['auto'], {
     event_names: ['phase-close', 'auto-mode-readiness'],
-  }, { availability: 'canonical', cooldown: { policy: 'route-policy', scope: 'phase' } }),
+  }, {
+    availability: 'canonical',
+    cooldown: { policy: 'route-policy', scope: 'phase' },
+    dispatch: processDispatch('node', [
+      '{sgsd_root}/tools/release-readiness/score.cjs', '--milestone',
+      '{milestone}', '--planning-dir', '{planning_dir}',
+    ]),
+  }),
   fb('sgsd-audit', 'phase-close', ['semi', 'auto'], {
     event_names: ['phase-close'],
-  }, { availability: 'canonical', gate_ref: 'phase-level-ATC' }),
+  }, {
+    availability: 'canonical',
+    gate_ref: 'phase-level-ATC',
+    cooldown: { policy: 'gate-controlled', scope: 'phase' },
+    dispatch: processDispatch('node', [
+      '{sgsd_root}/tools/phase-folder-audit/audit.cjs', '--json', '--milestone',
+      '{milestone}', '--planning-dir', '{planning_dir}',
+    ]),
+  }),
   fb('sgsd-audit', 'milestone-close', ['semi', 'auto'], {
     event_names: ['milestone-close'],
-  }, { availability: 'canonical', cooldown: { policy: 'sgsd-complete-milestone-owned', scope: 'milestone' } }),
+  }, {
+    availability: 'canonical',
+    cooldown: { policy: 'sgsd-complete-milestone-owned', scope: 'milestone' },
+    dispatch: processDispatch('node', [
+      '{sgsd_root}/tools/phase-folder-audit/audit.cjs', '--json', '--milestone',
+      '{milestone}', '--planning-dir', '{planning_dir}',
+    ]),
+  }),
   fb('sgsd-memory-hygiene', 'prompt-time', ['manual', 'semi', 'auto'], {
     phrases: ['sgsd-memory', 'sgsd-memory-hygiene', 'sgsd-recall', 'recall memory', 'memory recall'],
     regexes: ['\\b(?:recall|remember|memory)\\b.{0,120}\\b(?:context|decision|precedent|learning)\\b'],
@@ -96,7 +150,16 @@ const COMPILED_FALLBACK_ROWS = Object.freeze([
   fb('sgsd-memory-hygiene', 'phase-close', ['semi', 'auto'], {
     event_names: ['phase-close'],
     phrases: ['sgsd-curate', 'curate memory', 'curate learnings', 'memory hygiene'],
-  }, { aliases: ['sgsd-curate'], availability: 'canonical', gate_ref: 'sgsd-curate-learnings', cooldown: { policy: 'gate-controlled', scope: 'phase' } }),
+  }, {
+    aliases: ['sgsd-curate'],
+    availability: 'canonical',
+    gate_ref: 'sgsd-curate-learnings',
+    cooldown: { policy: 'gate-controlled', scope: 'phase' },
+    dispatch: processDispatch('node', [
+      '{sgsd_root}/tools/memory-governance/lifecycle.cjs',
+      '--process-complaints', '--max-repairs', '5',
+    ]),
+  }),
   fb('sgsd-vtp-advise', 'prompt-time', ['manual', 'semi', 'auto'], {
     phrases: ['vtp advise', 'vtp context', 'vtp enrichment', 'private kb', 'knowledge bank'],
     regexes: ['\\bvtp\\b.{0,120}\\b(?:advise|context|enrich|knowledge|kb)\\b', '\\b(?:private\\s+kb|knowledge\\s+bank)\\b'],
@@ -264,6 +327,23 @@ function _normalizeCooldown(value, label, issues) {
   return Object.keys(out).length > 0 ? out : null;
 }
 
+function _normalizeDispatch(value, label, issues) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    issues.push(label + '.dispatch must be an object when present');
+    return null;
+  }
+  const command = _optionalString(value.command, label + '.dispatch.command', issues);
+  const args = _stringList(value.args, label + '.dispatch.args', issues);
+  const timeoutMs = value.timeout_ms === undefined ? 120000 : Number(value.timeout_ms);
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 300000) {
+    issues.push(label + '.dispatch.timeout_ms must be an integer from 1 to 300000');
+  }
+  return command && Number.isInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 300000
+    ? { command, args, timeout_ms: timeoutMs }
+    : null;
+}
+
 function _normalizeRoute(row, index, sourceTag) {
   const issues = [];
   const label = 'routes[' + index + ']';
@@ -287,10 +367,15 @@ function _normalizeRoute(row, index, sourceTag) {
   const skipReason = _optionalString(row.skip_reason, label + '.skip_reason', issues);
   const notes = _optionalString(row.notes, label + '.notes', issues);
   const cooldown = _normalizeCooldown(row.cooldown, label, issues);
+  const dispatch = _normalizeDispatch(row.dispatch, label, issues);
   const explicitId = _optionalString(row.id, label + '.id', issues);
 
   if (availability === 'omitted' && !skipReason) {
     issues.push(label + '.skip_reason required when availability is omitted');
+  }
+  if (availability !== 'omitted' && moment !== 'prompt-time'
+      && moment !== 'on-demand' && !dispatch) {
+    issues.push(label + '.dispatch required for scheduled routes');
   }
 
   if (issues.length > 0) return { route: null, issues };
@@ -306,6 +391,7 @@ function _normalizeRoute(row, index, sourceTag) {
       availability,
       gate_ref: gateRef,
       cooldown,
+      dispatch,
       skip_reason: skipReason,
       notes,
       source: sourceTag,
@@ -570,10 +656,17 @@ function selfTest(opts) {
     return routes.some((route) => route.skill === 'sgsd-audit') && routes.some((route) => route.skill === 'sgsd-overwatcher');
   })());
   assert('8. schema validation does not modify gate-evidence ledger', _sameFingerprint(before, _fingerprint(gateEvidencePath)));
-  assert('9. compiled fallback row count matches yaml registry row count', (() => {
+  assert('9. compiled fallback matches yaml routing control fields deeply', (() => {
     const fallback = compiledFallbackRegistry();
-    return fallback.routes.length === registry.routes.length;
-  })(), 'yaml=' + registry.routes.length + ', fallback=' + compiledFallbackRegistry().routes.length);
+    const project = (routes) => routes.map((route) => ({
+      skill: route.skill,
+      moment: route.moment,
+      modes: route.modes,
+      cooldown: route.cooldown,
+      gate_ref: route.gate_ref,
+    }));
+    return JSON.stringify(project(fallback.routes)) === JSON.stringify(project(registry.routes));
+  })(), 'yaml/fallback mismatch in skill, moment, modes, cooldown, or gate_ref');
   assert('10. prompt adapter emits only P146-compatible /sgsd-* directives', (() => {
     const routes = toPromptGovernanceRoutes(registry, { mode: 'manual' });
     const directiveBySkill = Object.fromEntries(routes.map((route) => [route.skill, route.enforcement.directive]));
