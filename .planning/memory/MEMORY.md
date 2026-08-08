@@ -24,6 +24,8 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 
 - [phase boundary is not an exit](architecture/anti-patterns/phase-boundary-is-not-an-exit.md) - Phase/task close is an intermediate state, never a loop exit
 
+- [harness production seam four layers](architecture/anti-patterns/harness-production-seam-four-layers.md) - Harness-vs-production seam bit 4x in P148; verify every production hop
+
 ## architecture/decisions
 
 - [PI Death & Migration Decision](architecture/decisions/pi-death-migration.md)
