@@ -667,7 +667,12 @@ REPEAT:
      If classifier.atc_tier == "gate" AND auto mode:
        → Log "GATE_AUTO_REPLAN", run FULL checks, and require a fix/replan path
 
-  4. SELECT CONTEXT (derive SGSD memory queries)
+  4. SELECT CONTEXT (execution mechanics only)
+     ROUTING POLICY (Phase 149): `super-gsd/registry/skill-routing.yaml` is
+     the source of truth for memory-hygiene/recall trigger, moment, mode, and
+     cooldown decisions. Runtime scheduled routes are resolved by:
+       `node super-gsd/scripts/lib/orchestrator-hooks.cjs --skill-routing-consult --phase N`
+     This block retains only context-selection and gate execution mechanics.
      // Gate check (legacy name: context-selector-haiku) fires unless disabled.
      // Fresh-clone SGSD derives context locally; it does not spawn Haiku.
      if (gates.shouldFire('context-selector-haiku', ctx, GATES_YAML_PATH)) {
@@ -1472,9 +1477,12 @@ REPEAT:
      Runs ONCE per phase, not per commit — keeps token cost bounded.
      } // end if (phaseAtcFired)
 
-  6.55. MUDA WASTE AUDIT (runs ONCE per phase, after ATC passes) — per DLB-02
-     Triggers when Step 6.5 completes AND the conditional gate fires.
-     The gate's trigger declares the equivalent policy — see super-gsd/registry/gates.yaml:
+  6.55. MUDA WASTE AUDIT (gate execution mechanics only) — per DLB-02
+     ROUTING POLICY (Phase 149): `super-gsd/registry/skill-routing.yaml` is
+     the source of truth for the MUDA route's moment, modes, and cooldown.
+     Runtime phase-close routing is resolved by:
+       `node super-gsd/scripts/lib/orchestrator-hooks.cjs --skill-routing-consult --phase N`
+     Gate eligibility remains owned by `super-gsd/registry/gates.yaml`:
        (files_changed >= 4 OR diff_lines >= 100) AND phase_type NOT IN (refactor, docs, config)
 
      // Gate check (Phase 10 D-07): MUDA-waste-audit with compound OR trigger
@@ -1764,9 +1772,15 @@ REPEAT:
                 rendered markdown so future operators understand WHY this
                 step is between 6.6.h and 6.6.i (not 6.7 milestone-close).
 
-       i.Y. MEMORY GOVERNANCE COMPLAINT PROCESSING (Phase 49 -- GOV-01; LOCK 13)
+       i.Y. MEMORY GOVERNANCE COMPLAINT PROCESSING (Phase 49 -- GOV-01; LOCK 13;
+            execution mechanics only)
 
-            Run Phase 49 processComplaints at phase close. Reads
+            ROUTING POLICY (Phase 149): `super-gsd/registry/skill-routing.yaml`
+            is the source of truth for memory-hygiene scheduling. Resolve the
+            runtime phase-close decision with:
+              `node super-gsd/scripts/lib/orchestrator-hooks.cjs --skill-routing-consult --phase N`
+            When that runtime decision fires the applicable route, invoke Phase
+            49 processComplaints. It reads
             .planning/metrics/context-complaints.jsonl filtered by ts > cursor;
             classifies each row by reason_codes[]; dispatches deterministic
             repair (capsule rebuild scheduling, packet rebuild scheduling,
@@ -1820,6 +1834,19 @@ REPEAT:
                 this step is between 6.6.i.X and 6.6.i.
 
        i. Mark phase complete, advance to next phase.
+
+       j. PHASE-CLOSE SKILL ROUTING CONSULT (Phase 149; before Step 6.7)
+
+            After phase completion and before Step 6.7, run:
+
+            ```bash
+            node super-gsd/scripts/lib/orchestrator-hooks.cjs --skill-routing-consult --phase N
+            ```
+
+            The helper consults `super-gsd/registry/skill-routing.yaml`, the
+            routing source of truth, and records a fired or skipped decision
+            with its reason for every applicable phase-close route. Do not
+            infer or schedule neglected skills from prose in this document.
 
   6.7. MILESTONE COMPLETE AUTO-TRIGGER (GOV-13 / D-18a)
 
@@ -2545,7 +2572,12 @@ REPEAT:
        "Fired at least once" is a milestone-close concern: audit via
        `grep -r "Adversarial Challenge" .planning/phases/*/`.
 
-  10. CURATE LEARNINGS
+  10. CURATE LEARNINGS (gate execution mechanics only)
+      ROUTING POLICY (Phase 149): `super-gsd/registry/skill-routing.yaml` is
+      the source of truth for memory-hygiene/curation scheduling. Runtime
+      phase-close routing is resolved by:
+        `node super-gsd/scripts/lib/orchestrator-hooks.cjs --skill-routing-consult --phase N`
+      The block below retains only the existing gate and curation mechanics.
       // Gate check (Phase 10 D-08): sgsd-curate-learnings fires when new pattern, script, or error
       if (gates.shouldFire('sgsd-curate-learnings', ctx, GATES_YAML_PATH)) {
       If DEVIATIONS contains new patterns → sgsd-curate to patterns/
@@ -2562,9 +2594,12 @@ REPEAT:
       - Log token usage to .planning/metrics/token-log.jsonl
       } // end gates.shouldFire('token-log')
 
-  11.5. TOKEN-WASTE CHECK (Phase 42 wire-in via Phase 87-01 hook)
-      // After committing each plan but before advancing to the next plan,
-      // run the token-waste check via the orchestrator-hooks bash entry.
+  11.5. TOKEN-WASTE CHECK (Phase 42 execution mechanics via Phase 87-01 hook)
+      // ROUTING POLICY (Phase 149): super-gsd/registry/skill-routing.yaml is
+      // the source of truth for token-work routing. Resolve scheduled runtime
+      // decisions with:
+      //   node super-gsd/scripts/lib/orchestrator-hooks.cjs --skill-routing-consult --phase N
+      // When that decision selects token-waste work, use the existing hook below.
       // Lock 13: hook never throws; verdict drives event emission.
 
       ```bash
