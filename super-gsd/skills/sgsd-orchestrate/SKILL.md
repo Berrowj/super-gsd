@@ -1492,9 +1492,9 @@ REPEAT:
      appends the gate-value outcome plus scheduling and execution evidence rows.
 
      MUDA exits 1 and 2 are verdict findings, not process failures. The later
-     consult records them as `executed_with_findings` and continues phase close.
-     Only `execution_failed` requires repair before the phase can be marked
-     complete.
+     consult records them as `executed_with_findings`, appends gate outcome
+     `warn` (never `block`), and continues phase close. Only `execution_failed`
+     requires repair before the phase can be marked complete.
 
   6.6. FRONTEND BROWSER VERIFICATION GATE (runs ONCE per phase, after ATC passes)
      Triggers when Step 6.5 completes AND the phase's diff touched any frontend
@@ -1738,8 +1738,21 @@ REPEAT:
 
             ```bash
             node super-gsd/scripts/lib/orchestrator-hooks.cjs --skill-routing-consult \
-              --moment phase-close --mode auto --phase N --execute
+              --moment phase-close --mode auto --phase N \
+              --files-changed FILES_CHANGED_COUNT --diff-lines DIFF_LINES \
+              --phase-type PHASE_TYPE --work-risk WORK_RISK --execute
             ```
+
+            Pass the loop's concrete file count, diff-line count, phase type,
+            and classifier/scored `work_risk` whenever they are available. If
+            any of the first three inputs are unavailable, omit that flag: the
+            helper derives file/diff evidence from git using the phase directory's
+            first commit (falling back to `HEAD~1`) and derives phase type from
+            `PHASE-INDEX.jsonl` or plan frontmatter. If `--work-risk` is omitted,
+            it is scored from the resolved context. Forward operator sampling
+            overrides unchanged with `--force-gates` or `--skip-gates` plus the
+            required `--override-reason`. Confirm the returned `gate_context`
+            before continuing.
 
             Capture and inspect the stdout JSON before continuing. The helper
             consults `super-gsd/registry/skill-routing.yaml`, the routing source
@@ -1756,8 +1769,9 @@ REPEAT:
 
             - `success_exits` -> `decision: executed`; continue.
             - `verdict_exits` -> `decision: executed_with_findings`; log the
-              findings and continue. MUDA exits 1/2 and readiness exit 1 use
-              this path.
+              findings, append gate outcome `warn` when the dispatch is the
+              registered gate producer, and continue. MUDA exits 1/2 and
+              readiness exit 1 use this path; verdict exits never map to `block`.
             - Any other exit -> `decision: execution_failed`; surface stderr and
               the exit code, then complete the repair action before phase close.
 

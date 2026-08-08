@@ -257,9 +257,8 @@ routes:
       - semi
       - auto
     availability: canonical
-    gate_ref: phase-level-ATC
     cooldown:
-      policy: gate-controlled
+      policy: once-per-phase
       scope: phase
     dispatch:
       command: node
@@ -274,7 +273,7 @@ routes:
       success_exits:
         - 0
       verdict_exits: []
-    notes: Phase-close governance remains SGSD audit/ATC.
+    notes: Phase-folder audit is its own phase-close signal and does not produce phase-level-ATC evidence.
 
   - skill: sgsd-audit
     signatures:
@@ -344,18 +343,7 @@ routes:
     cooldown:
       policy: gate-controlled
       scope: phase
-    dispatch:
-      command: node
-      args:
-        - '{sgsd_root}/tools/memory-governance/lifecycle.cjs'
-        - --process-complaints
-        - --max-repairs
-        - '5'
-      timeout_ms: 120000
-      success_exits:
-        - 0
-      verdict_exits: []
-    notes: Curate discipline references the existing learning-curation gate instead of duplicating its predicate.
+    notes: Curate discipline is gate-owned policy inventory; the generic consult enumerates it but does not impersonate the registered producer.
 
   - skill: sgsd-vtp-advise
     signatures:

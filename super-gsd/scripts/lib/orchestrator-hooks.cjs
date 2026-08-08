@@ -65,14 +65,17 @@ const path = require('path');
 const child_process = require('child_process');
 const { logGateEvidence, readGateEvidenceRows } = require('./gate-evidence-log.cjs');
 const { logGateValue, readGateValueRows } = require('./gate-value-log.cjs');
-const { getGate, shouldFire } = require('./gates-registry.cjs');
+const gatesRegistry = require('./gates-registry.cjs');
+const { getGate, shouldFire } = gatesRegistry;
+const samplingDecider = require('./sampling-decider.cjs');
 const { readState } = require('./sgsd-state.cjs');
 const {
   loadSkillRoutingRegistry,
   getScheduledRoutes,
   VALID_MOMENTS,
   VALID_MODES,
-  SKILL_ROUTING_EVENT
+  SKILL_ROUTING_EVENT,
+  gateProducerValidation
 } = require('./skill-routing-registry.cjs');
 
 // ----------------------------------------------------------------------------
@@ -92,7 +95,9 @@ const LIVE_WRITER_PATH = path.resolve(
 
 const SGSD_ROOT = path.resolve(__dirname, '..', '..');
 const GATES_YAML_PATH = path.resolve(SGSD_ROOT, 'registry', 'gates.yaml');
+const YAML_LIB_PATH = path.resolve(SGSD_ROOT, 'tools', 'plan-schema', 'node_modules', 'js-yaml');
 const MAX_DISPATCH_OUTPUT_BYTES = 2000;
+const DEFAULT_GIT_FALLBACK_COMMITS = 1;
 
 // VERDICTS that should fire token_threshold_crossed events (anything other
 // than 'ok' / 'false_positive' / null). Frozen mirror of Phase 42 lock 13.
@@ -169,6 +174,255 @@ function _optionalNonNegativeNumber(value, label) {
   return parsed;
 }
 
+function _runGit(projectDir, args, runner) {
+  const result = typeof runner === 'function'
+    ? runner(args.slice(), { cwd: projectDir })
+    : child_process.spawnSync('git', args, {
+      cwd: projectDir,
+      encoding: 'utf8',
+      timeout: 15000,
+      windowsHide: true,
+      shell: false
+    });
+  if (!result || result.status !== 0) {
+    const detail = result && (result.stderr || (result.error && result.error.message));
+    throw new Error('git_evidence_unavailable:' + String(detail || 'git_exit_nonzero').trim());
+  }
+  return String(result.stdout || '');
+}
+
+function _phaseDirectory(planningDir, milestone, phase) {
+  const milestoneRoot = path.join(planningDir, 'milestones');
+  if (!fs.existsSync(milestoneRoot)) return null;
+  const milestoneNames = milestone && fs.existsSync(path.join(milestoneRoot, milestone))
+    ? [milestone]
+    : fs.readdirSync(milestoneRoot).sort();
+  for (const name of milestoneNames) {
+    const phasesDir = path.join(milestoneRoot, name, 'phases');
+    if (!fs.existsSync(phasesDir)) continue;
+    const match = fs.readdirSync(phasesDir, { withFileTypes: true })
+      .filter(function (entry) { return entry.isDirectory(); })
+      .map(function (entry) { return entry.name; })
+      .find(function (entryName) {
+        return entryName === phase || entryName.indexOf(phase + '-') === 0;
+      });
+    if (match) return path.join(phasesDir, match);
+  }
+  return null;
+}
+
+function _normalizePhaseType(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return null;
+  if (raw.indexOf('docs') !== -1 || raw.indexOf('documentation') !== -1) return 'docs';
+  if (raw.indexOf('config') !== -1) return 'config';
+  if (raw.indexOf('refactor') !== -1) return 'refactor';
+  if (raw.indexOf('bug') !== -1 || raw.indexOf('fix') !== -1) return 'bugfix';
+  if (raw.indexOf('feature') !== -1 || raw.indexOf('code') !== -1
+      || raw.indexOf('execute') !== -1 || raw.indexOf('integration') !== -1
+      || raw.indexOf('registry') !== -1 || raw.indexOf('gate') !== -1
+      || raw.indexOf('runtime') !== -1 || raw.indexOf('schema') !== -1) {
+    return 'feature';
+  }
+  return raw.split(/[ +/]/)[0];
+}
+
+function _phaseTypeFromIndex(planningDir, milestone, phase) {
+  const indexPath = path.join(planningDir, 'milestones', String(milestone || ''),
+    'PHASE-INDEX.jsonl');
+  if (!fs.existsSync(indexPath)) return null;
+  const lines = fs.readFileSync(indexPath, 'utf8').split(/\r?\n/).filter(Boolean);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    try {
+      const row = JSON.parse(lines[i]);
+      if (String(row.phase || '') !== phase) continue;
+      const value = _normalizePhaseType(row.phase_type || row.type);
+      if (value) return { value: value, source: 'phase_index' };
+    } catch (_e) {
+      // A malformed index row is ignored; plan frontmatter remains available.
+    }
+  }
+  return null;
+}
+
+function _phaseTypeFromPlan(phaseDir) {
+  if (!phaseDir || !fs.existsSync(phaseDir)) return null;
+  const planNames = fs.readdirSync(phaseDir)
+    .filter(function (name) {
+      return /-PLAN(?:-LOCKED)?\.md$/i.test(name);
+    })
+    .sort(function (a, b) {
+      const aLocked = /-PLAN-LOCKED\.md$/i.test(a) ? 0 : 1;
+      const bLocked = /-PLAN-LOCKED\.md$/i.test(b) ? 0 : 1;
+      return aLocked - bLocked || a.localeCompare(b);
+    });
+  const yaml = require(YAML_LIB_PATH);
+  for (const name of planNames) {
+    const text = fs.readFileSync(path.join(phaseDir, name), 'utf8');
+    const match = text.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
+    if (!match) continue;
+    try {
+      const frontmatter = yaml.load(match[1]) || {};
+      const direct = _normalizePhaseType(frontmatter.phase_type || frontmatter.type);
+      if (direct) return { value: direct, source: 'plan_frontmatter' };
+      const taskTypes = Array.isArray(frontmatter.tasks)
+        ? frontmatter.tasks.map(function (task) { return task && task.type; }).filter(Boolean)
+        : [];
+      if (taskTypes.length > 0) {
+        const fromTasks = _normalizePhaseType(taskTypes.join('+'));
+        if (fromTasks) return { value: fromTasks, source: 'plan_frontmatter_tasks' };
+      }
+      const allowed = Array.isArray(frontmatter.allowed_files)
+        ? frontmatter.allowed_files.map(String)
+        : [];
+      if (allowed.some(function (file) { return /\.(?:[cm]?js|ts|tsx|py|sh|ps1|go|rs)$/i.test(file); })) {
+        return { value: 'feature', source: 'plan_frontmatter_allowed_files' };
+      }
+      if (allowed.length > 0 && allowed.every(function (file) { return /\.md$/i.test(file); })) {
+        return { value: 'docs', source: 'plan_frontmatter_allowed_files' };
+      }
+    } catch (_e) {
+      // Try the next canonical plan.
+    }
+  }
+  return null;
+}
+
+function _derivePhaseType(planningDir, milestone, phase, phaseDir) {
+  return _phaseTypeFromIndex(planningDir, milestone, phase)
+    || _phaseTypeFromPlan(phaseDir)
+    || { value: 'feature', source: 'plan_frontmatter_source_files_default' };
+}
+
+function _parseNumstat(text) {
+  const files = new Set();
+  let diffLines = 0;
+  const lines = String(text || '').split(/\r?\n/).filter(Boolean);
+  for (const line of lines) {
+    const parts = line.split('\t');
+    if (parts.length < 3) continue;
+    const added = Number(parts[0]);
+    const removed = Number(parts[1]);
+    files.add(parts.slice(2).join('\t'));
+    if (Number.isFinite(added)) diffLines += added;
+    if (Number.isFinite(removed)) diffLines += removed;
+  }
+  return { files_changed_count: files.size, diff_lines: diffLines };
+}
+
+function _deriveGitMetrics(projectDir, phaseDir, fallbackCommits, gitRunner) {
+  let base = null;
+  let source = null;
+  if (phaseDir) {
+    const relativePhase = path.relative(projectDir, phaseDir).replace(/\\/g, '/');
+    try {
+      const log = _runGit(projectDir,
+        ['log', '--reverse', '--format=%H', '--', relativePhase], gitRunner);
+      base = log.split(/\r?\n/).map(function (line) { return line.trim(); }).find(Boolean) || null;
+      if (base) source = 'git_phase_first_commit';
+    } catch (_e) {
+      base = null;
+    }
+  }
+  if (!base) {
+    const count = Number.isInteger(fallbackCommits) && fallbackCommits > 0
+      ? fallbackCommits
+      : DEFAULT_GIT_FALLBACK_COMMITS;
+    base = 'HEAD~' + count;
+    source = 'git_head_fallback';
+  }
+  let numstat;
+  try {
+    numstat = _runGit(projectDir, ['diff', '--numstat', base, '--'], gitRunner);
+  } catch (error) {
+    if (source === 'git_head_fallback') throw error;
+    base = 'HEAD~' + DEFAULT_GIT_FALLBACK_COMMITS;
+    source = 'git_head_fallback';
+    numstat = _runGit(projectDir, ['diff', '--numstat', base, '--'], gitRunner);
+  }
+  return Object.assign(_parseNumstat(numstat), {
+    input_source: source,
+    git_base: base
+  });
+}
+
+function _resolveGateContext(opts, projectDir, planningDir, scope, routes) {
+  const filesChanged = _optionalNonNegativeNumber(opts.filesChanged, 'files_changed');
+  const diffLines = _optionalNonNegativeNumber(opts.diffLines, 'diff_lines');
+  const explicitPhaseType = _normalizePhaseType(opts.phaseType);
+  const requiresGateContext = routes.some(function (route) { return !!route.gate_ref; });
+
+  if (!requiresGateContext) {
+    return {
+      files_changed_count: filesChanged,
+      diff_lines: diffLines,
+      phase_type: explicitPhaseType,
+      input_source: 'not_required',
+      git_base: null,
+      phase_type_source: explicitPhaseType ? 'explicit' : null,
+      work_risk: opts.workRisk || null
+    };
+  }
+
+  const phaseDir = _phaseDirectory(planningDir, scope.milestone, scope.phase);
+  const gitEvidence = filesChanged === null || diffLines === null
+    ? _deriveGitMetrics(projectDir, phaseDir, opts.gitFallbackCommits, opts.gitRunner)
+    : null;
+  const phaseTypeEvidence = explicitPhaseType
+    ? { value: explicitPhaseType, source: 'explicit' }
+    : _derivePhaseType(planningDir, scope.milestone, scope.phase, phaseDir);
+  const resolved = {
+    files_changed_count: filesChanged === null
+      ? gitEvidence.files_changed_count
+      : filesChanged,
+    diff_lines: diffLines === null ? gitEvidence.diff_lines : diffLines,
+    phase_type: phaseTypeEvidence.value,
+    input_source: gitEvidence ? gitEvidence.input_source : phaseTypeEvidence.source,
+    git_base: gitEvidence ? gitEvidence.git_base : null,
+    phase_type_source: phaseTypeEvidence.source
+  };
+  const explicitWorkRisk = opts.workRisk === undefined || opts.workRisk === null
+    ? null
+    : String(opts.workRisk).trim().toLowerCase();
+  if (explicitWorkRisk && !samplingDecider.WORK_RISKS.includes(explicitWorkRisk)) {
+    throw new Error('invalid_input_schema:work_risk_invalid:' + explicitWorkRisk);
+  }
+  resolved.work_risk = explicitWorkRisk || samplingDecider.scoreWorkRisk({
+    diff_lines: resolved.diff_lines,
+    files_touched_count: resolved.files_changed_count,
+    phase_type: resolved.phase_type,
+    phase_includes_security_review: opts.phaseIncludesSecurityReview === true,
+    gate_fitness_history: opts.gateFitnessHistory
+  });
+  return resolved;
+}
+
+function _normalizeGateOverrides(value) {
+  const input = value || {};
+  const toSet = function (items) {
+    if (items instanceof Set) return new Set(items);
+    if (Array.isArray(items)) return new Set(items.map(String).filter(Boolean));
+    if (typeof items === 'string' && items.trim()) {
+      return new Set(items.split(',').map(function (item) { return item.trim(); }).filter(Boolean));
+    }
+    return new Set();
+  };
+  const force = toSet(input.force);
+  const skip = toSet(input.skip);
+  const reason = typeof input.reason === 'string' && input.reason.trim()
+    ? input.reason.trim()
+    : null;
+  if ((force.size > 0 || skip.size > 0) && !reason) {
+    throw new Error('invalid_input_schema:gate_override_reason_required');
+  }
+  for (const gate of force) {
+    if (skip.has(gate)) throw new Error('invalid_input_schema:gate_override_conflict:' + gate);
+    getGate(gate, GATES_YAML_PATH);
+  }
+  for (const gate of skip) getGate(gate, GATES_YAML_PATH);
+  return { force: force, skip: skip, reason: reason };
+}
+
 function _latestGateValue(rows, route, phase, milestone) {
   const matching = rows.filter(function (row) {
     return row && row.gate === route.gate_ref
@@ -188,6 +442,13 @@ function _priorRouteFire(rows, route, phase) {
 }
 
 function _scheduledRouteDecision(route, context) {
+  if (context.moment === 'milestone-close') {
+    return {
+      decision: 'skipped',
+      reason_code: 'scheduled_not_executable_here',
+      reason: 'scheduled_not_executable_here'
+    };
+  }
   if (route.gate_ref) {
     const gateRow = _latestGateValue(
       context.gateValueRows, route, context.phase, context.milestone);
@@ -205,6 +466,27 @@ function _scheduledRouteDecision(route, context) {
         reason: 'gate_trigger_not_met'
       };
     }
+    if (!samplingDecider.shouldSample({
+      gate: route.gate_ref,
+      work_risk: context.workRisk,
+      gates: gatesRegistry,
+      gatesYamlPath: GATES_YAML_PATH,
+      overrides: context.gateOverrides
+    })) {
+      return {
+        decision: 'skipped',
+        reason_code: 'gate_sampling_not_selected',
+        reason: 'gate_sampling_not_selected'
+      };
+    }
+  }
+
+  if (!route.dispatch) {
+    return {
+      decision: 'skipped',
+      reason_code: 'scheduled_not_executable_here',
+      reason: 'scheduled_not_executable_here'
+    };
   }
 
   const cooldown = route.cooldown || {};
@@ -375,9 +657,11 @@ function _appendSkillRoutingExecution(planningDir, scope, route, dispatch, outco
 
 function _appendGateValueOutcome(planningDir, scope, route, outcome) {
   if (!route.gate_ref) return null;
+  const producer = gateProducerValidation(route);
+  if (!producer.ok || !producer.gate_outcome_eligible) return null;
   let gateOutcome = 'block';
-  if (outcome.exit_code === 0) gateOutcome = 'pass';
-  else if (outcome.exit_code === 1) gateOutcome = 'warn';
+  if (outcome.decision === 'executed') gateOutcome = 'pass';
+  else if (outcome.decision === 'executed_with_findings') gateOutcome = 'warn';
   return logGateValue(planningDir, {
     gate: route.gate_ref,
     outcome: gateOutcome,
@@ -624,8 +908,6 @@ function skillRoutingConsult(opts) {
       throw new Error('invalid_input_schema:mode_invalid:' + scope.mode);
     }
 
-    const filesChanged = _optionalNonNegativeNumber(opts.filesChanged, 'files_changed');
-    const diffLines = _optionalNonNegativeNumber(opts.diffLines, 'diff_lines');
     const dryRun = opts.dryRun === true || opts.dryRun === 'true';
     const execute = opts.execute === true || opts.execute === 'true';
     const registry = loadSkillRoutingRegistry({
@@ -641,15 +923,26 @@ function skillRoutingConsult(opts) {
     const evidenceRows = readGateEvidenceRows(planningDir, { limit: 5000 });
     const gateValueRows = readGateValueRows(planningDir,
       scope.milestone ? { milestone: scope.milestone } : {});
+    const gateContext = _resolveGateContext(
+      opts, projectDir, planningDir, scope, routes);
+    const gateOverrides = _normalizeGateOverrides(opts.gateOverrides || {
+      force: opts.forceGates,
+      skip: opts.skipGates,
+      reason: opts.overrideReason
+    });
     const context = {
       phase: scope.phase,
       milestone: scope.milestone,
+      moment: scope.moment,
+      mode: scope.mode,
       evidenceRows: evidenceRows,
       gateValueRows: gateValueRows,
+      workRisk: gateContext.work_risk,
+      gateOverrides: gateOverrides,
       gateTriggerContext: {
-        files_changed_count: filesChanged === null ? 0 : filesChanged,
-        diff_lines: diffLines === null ? 0 : diffLines,
-        phase_type: opts.phaseType || null,
+        files_changed_count: gateContext.files_changed_count,
+        diff_lines: gateContext.diff_lines,
+        phase_type: gateContext.phase_type,
         new_pattern_detected: false,
         script_created: false,
         error_discovered: false
@@ -698,9 +991,11 @@ function skillRoutingConsult(opts) {
         gate_ref: route.gate_ref || null,
         cooldown_policy: route.cooldown && route.cooldown.policy || null,
         source: route.source || registry.source || null,
-        files_changed: filesChanged,
-        diff_lines: diffLines,
-        phase_type: opts.phaseType || null,
+        files_changed: gateContext.files_changed_count,
+        diff_lines: gateContext.diff_lines,
+        phase_type: gateContext.phase_type,
+        input_source: gateContext.input_source,
+        work_risk: gateContext.work_risk,
         dry_run: dryRun,
         dispatch: dispatch
       });
@@ -711,6 +1006,7 @@ function skillRoutingConsult(opts) {
       const result = {
         route_id: route.id,
         skill: route.skill,
+        gate_ref: route.gate_ref || null,
         decision: decision.decision,
         reason: decision.reason,
         dispatch: dispatch,
@@ -775,6 +1071,7 @@ function skillRoutingConsult(opts) {
       }).length,
       execution_failed_count: executionFailures,
       execution_evidence_appended: executionEvidenceAppended,
+      gate_context: gateContext,
       decisions: decisions
     };
   } catch (error) {
@@ -994,6 +1291,11 @@ function selfTest() {
     fs.mkdirSync(path.join(planningA10, 'metrics'), { recursive: true });
     fs.writeFileSync(path.join(planningA10, 'STATE.md'),
       '---\nmilestone: v3.5\ncurrent_phase: 149\n---\n', 'utf8');
+    const phaseDirA10 = path.join(planningA10, 'milestones', 'v3.5', 'phases',
+      '154-derived-context');
+    fs.mkdirSync(phaseDirA10, { recursive: true });
+    fs.writeFileSync(path.join(phaseDirA10, '154-01-PLAN.md'),
+      '---\nphase: 154\ntype: feature\n---\n# Fixture plan\n', 'utf8');
     fs.writeFileSync(path.join(planningA10, 'metrics', 'gate-value-log.jsonl'), [
       { gate: 'MUDA-waste-audit', outcome: 'pass', phase: '149', milestone: 'v3.5' },
       { gate: 'phase-level-ATC', outcome: 'pass', phase: '149', milestone: 'v3.5' },
@@ -1002,7 +1304,9 @@ function selfTest() {
     const hasApi = typeof skillRoutingConsult === 'function';
     const positionalCli = _parseArgv([
       'node', __filename, 'skill-routing', '--moment', 'phase-close',
-      '--mode', 'auto', '--phase', '149', '--dry-run', '--execute'
+      '--mode', 'auto', '--phase', '149', '--work-risk', 'high',
+      '--force-gates', 'MUDA-waste-audit', '--override-reason', 'a10',
+      '--dry-run', '--execute'
     ]);
     const flagCli = _parseArgv([
       'node', __filename, '--skill-routing-consult', '--moment', 'phase-close',
@@ -1011,6 +1315,9 @@ function selfTest() {
     const cliWired = positionalCli.mode === 'skill-routing-consult'
       && positionalCli.routeMode === 'auto' && positionalCli.dryRun === true
       && positionalCli.execute === true
+      && positionalCli.workRisk === 'high'
+      && positionalCli.forceGates === 'MUDA-waste-audit'
+      && positionalCli.overrideReason === 'a10'
       && flagCli.mode === 'skill-routing-consult'
       && flagCli.routeMode === 'auto' && flagCli.dryRun === true
       && flagCli.execute === true;
@@ -1075,11 +1382,8 @@ function selfTest() {
           && row.dispatch.command.trim().length > 0;
       });
     const existingGateRowsAreDuplicates = out && out.decisions
-      && out.decisions.filter(function (item) { return !!item && !!item.route_id; })
-        .filter(function (item) {
-          return item.skill === 'sgsd-muda-audit' || item.skill === 'sgsd-audit'
-            || item.skill === 'sgsd-memory-hygiene';
-        }).every(function (item) {
+      && out.decisions.filter(function (item) { return !!item && !!item.gate_ref; })
+        .every(function (item) {
           return item.decision === 'skipped' && item.reason === 'gate_already_fired_this_phase';
         });
     const unknownOutcome = fired.length > 0
@@ -1098,6 +1402,9 @@ function selfTest() {
       mode: 'auto',
       phase: '150',
       milestone: 'v3.5',
+      filesChanged: 4,
+      diffLines: 100,
+      phaseType: 'feature',
       dryRun: true
     }) : null;
     const triggerTrue = hasApi ? skillRoutingConsult({
@@ -1114,7 +1421,7 @@ function selfTest() {
       execute: true,
       dispatchExecutor: function (dispatch) {
         const target = dispatch && dispatch.args && dispatch.args[0] || '';
-        return { status: target.endsWith('sgsd-muda-audit.sh') ? 1 : 0, stdout: '', stderr: '' };
+        return { status: target.endsWith('sgsd-muda-audit.sh') ? 2 : 0, stdout: '', stderr: '' };
       }
     }) : null;
     const triggerTrueMuda = triggerTrue && triggerTrue.decisions
@@ -1137,6 +1444,90 @@ function selfTest() {
     }) : null;
     const triggerFalseMuda = triggerFalse && triggerFalse.decisions
       && triggerFalse.decisions.find(function (item) { return item.skill === 'sgsd-muda-audit'; });
+    const derived = hasApi ? skillRoutingConsult({
+      projectDir: tmpA10,
+      planningDir: planningA10,
+      moment: 'phase-close',
+      mode: 'auto',
+      phase: '154',
+      milestone: 'v3.5',
+      dryRun: true,
+      gitRunner: function (args) {
+        if (args[0] === 'log') return { status: 0, stdout: 'fixture-first-commit\n', stderr: '' };
+        if (args[0] === 'diff') {
+          return { status: 0, stdout: '25\t0\tsrc/a.cjs\n25\t0\tsrc/b.cjs\n25\t0\tsrc/c.cjs\n25\t0\tsrc/d.cjs\n', stderr: '' };
+        }
+        return { status: 0, stdout: 'true\n', stderr: '' };
+      }
+    }) : null;
+    const derivedMuda = derived && derived.decisions
+      && derived.decisions.find(function (item) { return item.skill === 'sgsd-muda-audit'; });
+    const sampledLow = hasApi ? skillRoutingConsult({
+      projectDir: tmpA10,
+      planningDir: planningA10,
+      moment: 'phase-close',
+      mode: 'auto',
+      phase: '156',
+      milestone: 'v3.5',
+      filesChanged: 4,
+      diffLines: 0,
+      phaseType: 'registry',
+      workRisk: 'low',
+      dryRun: true
+    }) : null;
+    const sampledLowMuda = sampledLow && sampledLow.decisions
+      && sampledLow.decisions.find(function (item) { return item.skill === 'sgsd-muda-audit'; });
+    const forcedLow = hasApi ? skillRoutingConsult({
+      projectDir: tmpA10,
+      planningDir: planningA10,
+      moment: 'phase-close',
+      mode: 'auto',
+      phase: '157',
+      milestone: 'v3.5',
+      filesChanged: 4,
+      diffLines: 0,
+      phaseType: 'registry',
+      workRisk: 'low',
+      gateOverrides: { force: new Set(['MUDA-waste-audit']), skip: new Set(), reason: 'a10-force' },
+      dryRun: true
+    }) : null;
+    const forcedLowMuda = forcedLow && forcedLow.decisions
+      && forcedLow.decisions.find(function (item) { return item.skill === 'sgsd-muda-audit'; });
+    const onDemand = hasApi ? skillRoutingConsult({
+      projectDir: tmpA10,
+      planningDir: planningA10,
+      moment: 'on-demand',
+      mode: 'manual',
+      phase: '158',
+      milestone: 'v3.5',
+      dryRun: true,
+      execute: true
+    }) : null;
+    const milestoneInventory = hasApi ? skillRoutingConsult({
+      projectDir: tmpA10,
+      planningDir: planningA10,
+      moment: 'milestone-close',
+      mode: 'auto',
+      phase: '159',
+      milestone: 'v3.5',
+      dryRun: true,
+      execute: true
+    }) : null;
+    const forgedGateRow = _appendGateValueOutcome(planningA10,
+      { phase: '160', milestone: 'v3.5' },
+      {
+        id: 'forged-atc',
+        gate_ref: 'phase-level-ATC',
+        dispatch: {
+          command: 'node',
+          args: ['{sgsd_root}/tools/phase-folder-audit/audit.cjs'],
+          success_exits: [0],
+          verdict_exits: []
+        }
+      },
+      { decision: 'executed', exit_code: 0, duration_ms: 1 });
+    const forgedRows = readGateValueRows(planningA10, { milestone: 'v3.5' })
+      .filter(function (row) { return row.gate === 'phase-level-ATC' && row.phase === '160'; });
     const repeated = hasApi ? skillRoutingConsult({
       projectDir: tmpA10,
       planningDir: planningA10,
@@ -1144,6 +1535,9 @@ function selfTest() {
       mode: 'auto',
       phase: '149',
       milestone: 'v3.5',
+      filesChanged: 4,
+      diffLines: 100,
+      phaseType: 'feature',
       dryRun: true
     }) : null;
     const repeatCooledDown = repeated && repeated.decisions.length === out.route_count
@@ -1183,6 +1577,39 @@ function selfTest() {
         && triggerFalseMuda.dispatch === null && !triggerFalseMuda.execution,
       'decision=' + (triggerFalseMuda && triggerFalseMuda.decision)
         + ' reason=' + (triggerFalseMuda && triggerFalseMuda.reason));
+    assert('A10_no_input_repo_fixture_derives_nonzero_gate_context',
+      derived && derived.ok === true && derived.gate_context
+        && derived.gate_context.files_changed_count === 4
+        && derived.gate_context.diff_lines === 100
+        && derived.gate_context.phase_type === 'feature'
+        && derived.gate_context.input_source === 'git_phase_first_commit'
+        && derivedMuda && derivedMuda.decision === 'fired',
+      'context=' + JSON.stringify(derived && derived.gate_context));
+    assert('A10_sampling_tier_and_force_override_are_honored',
+      sampledLowMuda && sampledLowMuda.decision === 'skipped'
+        && sampledLowMuda.reason === 'gate_sampling_not_selected'
+        && forcedLowMuda && forcedLowMuda.decision === 'fired',
+      'sampled=' + (sampledLowMuda && sampledLowMuda.reason)
+        + ' forced=' + (forcedLowMuda && forcedLowMuda.decision));
+    assert('A10_dispatchless_and_milestone_inventory_enumerate_without_execution',
+      onDemand && onDemand.ok === true && onDemand.route_count > 0
+        && onDemand.decisions.every(function (item) {
+          return item.decision === 'skipped'
+            && item.reason === 'scheduled_not_executable_here'
+            && item.dispatch === null && !item.execution;
+        })
+        && milestoneInventory && milestoneInventory.ok === true
+        && milestoneInventory.route_count === 3
+        && milestoneInventory.decisions.every(function (item) {
+          return item.decision === 'skipped'
+            && item.reason === 'scheduled_not_executable_here'
+            && item.dispatch === null && !item.execution;
+        }),
+      'on_demand=' + JSON.stringify(onDemand && onDemand.decisions)
+        + ' milestone=' + JSON.stringify(milestoneInventory && milestoneInventory.decisions));
+    assert('A10_gate_outcome_rejects_unregistered_producer',
+      !forgedGateRow && forgedRows.length === 0,
+      'row=' + JSON.stringify(forgedGateRow) + ' forged_count=' + forgedRows.length);
     assert('A10_repeat_consult_respects_phase_cooldown', repeatCooledDown,
       'repeat=' + (repeated && repeated.decisions
         ? repeated.decisions.map(function (item) { return item.skill + ':' + item.decision; }).join(',')
@@ -1212,13 +1639,15 @@ function _parseArgv(argv) {
     '--milestone', '--phase', '--role', '--plan',
     '--planning-dir', '--project-dir', '--json',
     '--moment', '--mode', '--files-changed', '--diff-lines',
-    '--phase-type', '--dry-run', '--execute', '--registry'
+    '--phase-type', '--work-risk', '--force-gates', '--skip-gates',
+    '--override-reason', '--dry-run', '--execute', '--registry'
   ]);
   const out = {
     mode: null, milestone: null, phase: null, role: null, plan: null,
     planningDir: null, projectDir: null, json: false, help: false,
     moment: null, routeMode: null, filesChanged: null, diffLines: null,
-    phaseType: null, dryRun: false, execute: false, registry: null
+    phaseType: null, workRisk: null, forceGates: null, skipGates: null,
+    overrideReason: null, dryRun: false, execute: false, registry: null
   };
   let i = 2;
   while (i < argv.length) {
@@ -1244,6 +1673,10 @@ function _parseArgv(argv) {
     if (a === '--files-changed'){ out.filesChanged = argv[i + 1]; i += 2; continue; }
     if (a === '--diff-lines')  { out.diffLines = argv[i + 1]; i += 2; continue; }
     if (a === '--phase-type')  { out.phaseType = argv[i + 1]; i += 2; continue; }
+    if (a === '--work-risk')   { out.workRisk = argv[i + 1]; i += 2; continue; }
+    if (a === '--force-gates') { out.forceGates = argv[i + 1]; i += 2; continue; }
+    if (a === '--skip-gates')  { out.skipGates = argv[i + 1]; i += 2; continue; }
+    if (a === '--override-reason') { out.overrideReason = argv[i + 1]; i += 2; continue; }
     if (a === '--registry')    { out.registry = argv[i + 1]; i += 2; continue; }
     i++;
   }
@@ -1254,7 +1687,7 @@ function _usage() {
   process.stdout.write('Usage:\n');
   process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --token-waste-check --milestone <ms> [--planning-dir <p>] [--project-dir <p>]\n');
   process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --context-packet-build --role <r> --phase <p> [--plan <id>] [--milestone <ms>] [--project-dir <p>]\n');
-  process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs skill-routing --moment phase-close --mode auto --phase <p> [--files-changed <n>] [--diff-lines <n>] [--dry-run] [--execute]\n');
+  process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs skill-routing --moment phase-close --mode auto --phase <p> [--files-changed <n>] [--diff-lines <n>] [--phase-type <t>] [--work-risk <r>] [--force-gates <g> --override-reason <why>] [--dry-run] [--execute]\n');
   process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --skill-routing-consult --moment phase-close --mode auto --phase <p> [--dry-run] [--execute]\n');
   process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --self-test\n');
   process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --help\n');
@@ -1331,6 +1764,10 @@ if (require.main === module) {
       filesChanged: parsed.filesChanged,
       diffLines: parsed.diffLines,
       phaseType: parsed.phaseType,
+      workRisk: parsed.workRisk,
+      forceGates: parsed.forceGates,
+      skipGates: parsed.skipGates,
+      overrideReason: parsed.overrideReason,
       dryRun: parsed.dryRun,
       execute: parsed.execute,
       registry: parsed.registry

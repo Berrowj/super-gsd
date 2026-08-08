@@ -9,6 +9,7 @@
 // ============================================================================
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { performance } = require('perf_hooks');
 
@@ -19,6 +20,7 @@ const DEFAULT_REGISTRY_PATH = path.resolve(__dirname, '..', '..', 'registry', 's
 const DEFAULT_REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 const DEFAULT_SGSD_ROOT = path.join(DEFAULT_REPO_ROOT, 'super-gsd');
 const YAML_LIB_PATH = path.resolve(__dirname, '..', '..', 'tools', 'plan-schema', 'node_modules', 'js-yaml');
+const GATES_YAML_PATH = path.join(DEFAULT_SGSD_ROOT, 'registry', 'gates.yaml');
 
 const VALID_MOMENTS = Object.freeze(['prompt-time', 'phase-close', 'milestone-close', 'weekly', 'on-demand']);
 const VALID_MODES = Object.freeze(['manual', 'semi', 'auto']);
@@ -41,6 +43,7 @@ const P146_DIRECTIVE_ALIASES = Object.freeze({
 });
 
 let _cache = new Map();
+let _gateProducerCache = null;
 
 function fb(skill, moment, modes, signatures, extra) {
   return Object.assign({ skill, signatures, moment, modes }, extra || {});
@@ -134,8 +137,7 @@ const COMPILED_FALLBACK_ROWS = Object.freeze([
     event_names: ['phase-close'],
   }, {
     availability: 'canonical',
-    gate_ref: 'phase-level-ATC',
-    cooldown: { policy: 'gate-controlled', scope: 'phase' },
+    cooldown: { policy: 'once-per-phase', scope: 'phase' },
     dispatch: processDispatch('node', [
       '{sgsd_root}/tools/phase-folder-audit/audit.cjs', '--json', '--milestone',
       '{milestone}', '--planning-dir', '{planning_dir}',
@@ -163,10 +165,6 @@ const COMPILED_FALLBACK_ROWS = Object.freeze([
     availability: 'canonical',
     gate_ref: 'sgsd-curate-learnings',
     cooldown: { policy: 'gate-controlled', scope: 'phase' },
-    dispatch: processDispatch('node', [
-      '{sgsd_root}/tools/memory-governance/lifecycle.cjs',
-      '--process-complaints', '--max-repairs', '5',
-    ]),
   }),
   fb('sgsd-vtp-advise', 'prompt-time', ['manual', 'semi', 'auto'], {
     phrases: ['vtp advise', 'vtp context', 'vtp enrichment', 'private kb', 'knowledge bank'],
@@ -396,6 +394,75 @@ function _validateDispatchTarget(command, args, label, issues) {
   }
 }
 
+function _registeredGateProducers() {
+  if (_gateProducerCache) return _gateProducerCache;
+  const parsed = _yaml().load(fs.readFileSync(GATES_YAML_PATH, 'utf8'));
+  const rows = parsed && Array.isArray(parsed.gates) ? parsed.gates : [];
+  const producers = new Map();
+  for (const gate of rows) {
+    if (!gate || typeof gate.name !== 'string') continue;
+    if (typeof gate.script !== 'string' || !gate.script.trim()) {
+      producers.set(gate.name, null);
+      continue;
+    }
+    const producerPath = path.resolve(DEFAULT_REPO_ROOT, gate.script);
+    producers.set(gate.name, fs.existsSync(producerPath)
+      ? fs.realpathSync(producerPath)
+      : producerPath);
+  }
+  _gateProducerCache = producers;
+  return producers;
+}
+
+function _dispatchProducerPath(dispatch) {
+  if (!dispatch || !Array.isArray(dispatch.args) || !dispatch.args[0]) return null;
+  const rendered = dispatch.args[0].split('{sgsd_root}').join(DEFAULT_SGSD_ROOT);
+  if (/{[a-z_]+}/i.test(rendered)) return null;
+  const candidate = path.isAbsolute(rendered)
+    ? path.resolve(rendered)
+    : path.resolve(DEFAULT_REPO_ROOT, rendered);
+  try {
+    return fs.realpathSync(candidate);
+  } catch {
+    return candidate;
+  }
+}
+
+function gateProducerValidation(route) {
+  if (!route || !route.gate_ref || !route.dispatch) {
+    return { ok: true, gate_outcome_eligible: false, reason: 'no_gate_dispatch_claim' };
+  }
+  const producers = _registeredGateProducers();
+  if (!producers.has(route.gate_ref)) {
+    return {
+      ok: false,
+      gate_outcome_eligible: false,
+      reason: 'gate_ref_not_registered:' + route.gate_ref,
+    };
+  }
+  const expected = producers.get(route.gate_ref);
+  const actual = _dispatchProducerPath(route.dispatch);
+  if (!expected) {
+    return {
+      ok: false,
+      gate_outcome_eligible: false,
+      reason: 'gate_has_no_registered_process_producer:' + route.gate_ref,
+    };
+  }
+  const matches = process.platform === 'win32'
+    ? String(expected).toLowerCase() === String(actual).toLowerCase()
+    : expected === actual;
+  return {
+    ok: matches,
+    gate_outcome_eligible: matches,
+    reason: matches
+      ? 'registered_gate_producer'
+      : 'dispatch_not_registered_gate_producer:' + route.gate_ref,
+    expected_producer: expected,
+    actual_producer: actual,
+  };
+}
+
 function _normalizeDispatch(value, label, issues) {
   if (value === undefined || value === null) return null;
   if (typeof value !== 'object' || Array.isArray(value)) {
@@ -459,8 +526,13 @@ function _normalizeRoute(row, index, sourceTag) {
     issues.push(label + '.skip_reason required when availability is omitted');
   }
   if (availability !== 'omitted' && moment !== 'prompt-time'
-      && moment !== 'on-demand' && !dispatch) {
+      && moment !== 'on-demand' && !dispatch && !gateRef) {
     issues.push(label + '.dispatch required for scheduled routes');
+  }
+  const producer = gateProducerValidation({ gate_ref: gateRef, dispatch });
+  if (!producer.ok) {
+    issues.push(label + '.dispatch must be the gate_ref registered producer: '
+      + producer.reason);
   }
 
   if (issues.length > 0) return { route: null, issues };
@@ -626,8 +698,51 @@ function _routeAvailable(route) {
   return route && route.availability !== 'omitted';
 }
 
-function _directiveFor(route) {
-  return '/' + (P146_DIRECTIVE_ALIASES[route.skill] || route.skill);
+function _directiveTarget(route) {
+  return P146_DIRECTIVE_ALIASES[route.skill] || route.skill;
+}
+
+function _entryPointCandidates(root, target) {
+  const repoRoot = findSgsdRoot(root || process.cwd()) || DEFAULT_REPO_ROOT;
+  const homeRoot = os.homedir();
+  return [
+    path.join(repoRoot, 'super-gsd', 'skills', target, 'SKILL.md'),
+    path.join(repoRoot, '.agents', 'skills', target, 'SKILL.md'),
+    path.join(repoRoot, '.codex', 'skills', target, 'SKILL.md'),
+    path.join(repoRoot, '.claude', 'commands', target + '.md'),
+    path.join(homeRoot, '.agents', 'skills', target, 'SKILL.md'),
+    path.join(homeRoot, '.codex', 'skills', target, 'SKILL.md'),
+    path.join(homeRoot, '.claude', 'commands', target + '.md'),
+  ];
+}
+
+function _promptAvailability(route, opts) {
+  const availability = route && route.availability || 'canonical';
+  if (availability === 'omitted') {
+    return {
+      available: false,
+      reason: route.skip_reason || 'route_omitted',
+      target: _directiveTarget(route),
+    };
+  }
+  const target = _directiveTarget(route);
+  const exists = _entryPointCandidates(opts && opts.root, target)
+    .some((candidate) => fs.existsSync(candidate));
+  if (exists) return { available: true, reason: 'entrypoint_exists', target };
+  if (availability === 'external-if-installed') {
+    return { available: false, reason: 'external_entrypoint_not_installed', target };
+  }
+  if (availability === 'manual-only') {
+    return { available: false, reason: 'manual_only_entrypoint_absent', target };
+  }
+  if (availability === 'alias') {
+    return { available: false, reason: 'alias_entrypoint_absent', target };
+  }
+  return { available: false, reason: 'canonical_entrypoint_absent', target };
+}
+
+function _directiveFor(route, target) {
+  return '/' + (target || _directiveTarget(route));
 }
 
 function toPromptGovernanceRoutes(input, opts) {
@@ -635,10 +750,18 @@ function toPromptGovernanceRoutes(input, opts) {
   const registry = _registryFromInput(input, o);
   const mode = o.mode || null;
   const rows = Array.isArray(registry.routes) ? registry.routes : [];
-  return rows
-    .filter((route) => route.moment === 'prompt-time' && _modeMatches(route, mode) && _routeAvailable(route))
-    .filter((route) => route.signatures.phrases.length + route.signatures.regexes.length > 0)
-    .map((route) => ({
+  const out = [];
+  for (const route of rows) {
+    if (route.moment !== 'prompt-time' || !_modeMatches(route, mode)) continue;
+    if (route.signatures.phrases.length + route.signatures.regexes.length === 0) continue;
+    const availability = _promptAvailability(route, o);
+    if (!availability.available) {
+      if (typeof o.onUnavailable === 'function') {
+        o.onUnavailable(route, availability.reason, availability.target);
+      }
+      continue;
+    }
+    out.push({
       id: route.id,
       trigger: {
         phrases: route.signatures.phrases.slice(),
@@ -647,14 +770,16 @@ function toPromptGovernanceRoutes(input, opts) {
       predicate: {},
       enforcement: {
         kind: 'suggestion',
-        directive: _directiveFor(route),
+        directive: _directiveFor(route, availability.target),
       },
       skill: route.skill,
       aliases: route.aliases.slice(),
       availability: route.availability,
       gate_ref: route.gate_ref,
       source: route.source,
-    }));
+    });
+  }
+  return out;
 }
 
 function getScheduledRoutes(moment, mode, opts) {
@@ -767,13 +892,31 @@ function selfTest(opts) {
     return JSON.stringify(_routingParityProjection(drifted))
       !== JSON.stringify(_routingParityProjection(fallback.routes));
   })(), 'dispatch command drift was invisible to deep parity');
-  assert('10. prompt adapter emits only P146-compatible /sgsd-* directives', (() => {
-    const routes = toPromptGovernanceRoutes(registry, { mode: 'manual' });
+  assert('10. prompt adapter emits only existing P146-compatible /sgsd-* directives', (() => {
+    const routes = toPromptGovernanceRoutes(registry, { mode: 'manual', root });
     const directiveBySkill = Object.fromEntries(routes.map((route) => [route.skill, route.enforcement.directive]));
     return routes.every((route) => route.enforcement.directive.startsWith('/sgsd-'))
-      && directiveBySkill['gsd-code-review'] === '/sgsd-code-review'
-      && directiveBySkill['gsd-code-review-fix'] === '/sgsd-code-review-fix';
+      && directiveBySkill['gsd-code-review'] === undefined
+      && directiveBySkill['gsd-code-review-fix'] === undefined;
   })());
+  assert('10a. unavailable canonical, external, and manual-only suggestions are skipped with reasons', (() => {
+    const unavailable = [];
+    const routes = toPromptGovernanceRoutes(registry, {
+      mode: 'manual',
+      root,
+      onUnavailable: (route, reason) => unavailable.push({ skill: route.skill, reason }),
+    });
+    const directives = new Set(routes.map((route) => route.enforcement.directive));
+    return !directives.has('/sgsd-memory-hygiene')
+      && !directives.has('/sgsd-code-review')
+      && !directives.has('/sgsd-code-review-fix')
+      && unavailable.some((item) => item.skill === 'sgsd-memory-hygiene'
+        && item.reason === 'canonical_entrypoint_absent')
+      && unavailable.some((item) => item.skill === 'gsd-code-review'
+        && item.reason === 'external_entrypoint_not_installed')
+      && unavailable.some((item) => item.skill === 'gsd-code-review-fix'
+        && item.reason === 'manual_only_entrypoint_absent');
+  })(), 'availability metadata did not suppress a nonexistent prompt entry point');
 
   let malformedFixtureError = null;
   try {
@@ -832,6 +975,13 @@ function selfTest(opts) {
     return issues.some((issue) => issue.includes('success_exits'))
       && issues.some((issue) => issue.includes('must not overlap'));
   })(), 'invalid or overlapping exit policy was accepted');
+  assert('16. gate_ref dispatch must be the gate registered producer', (() => {
+    const issues = dispatchIssues((dispatch) => {
+      dispatch.command = 'node';
+      dispatch.args[0] = '{sgsd_root}/tools/phase-folder-audit/audit.cjs';
+    });
+    return issues.some((issue) => issue.includes('registered producer'));
+  })(), 'forged MUDA gate producer was accepted');
 
   console.log('skill-routing-registry self-test: ' + pass + ' pass, ' + fail + ' fail');
   if (fail > 0) {
@@ -880,7 +1030,17 @@ function runtimeProbe(args) {
     mode,
     runtimeContext: { moment, mode },
   });
-  const promptRoutes = toPromptGovernanceRoutes(registry, { mode });
+  const suggestionSkips = [];
+  const promptRoutes = toPromptGovernanceRoutes(registry, {
+    mode,
+    onUnavailable: (route, reason, target) => suggestionSkips.push({
+      route_id: route.id,
+      skill: route.skill,
+      availability: route.availability,
+      target,
+      reason,
+    }),
+  });
   const matchingRows = moment === 'prompt-time'
     ? registry.routes.filter((route) => route.moment === 'prompt-time' && _modeMatches(route, mode) && _routeAvailable(route))
     : getScheduledRoutes(moment, mode, { registry });
@@ -897,6 +1057,7 @@ function runtimeProbe(args) {
     prompt_route_count: promptRoutes.length,
     skills: matchingRows.map((route) => route.skill),
     directives: promptRoutes.map((route) => route.enforcement.directive),
+    suggestion_skips: suggestionSkips,
   };
   console.log(JSON.stringify(result, null, 2));
   return 0;
@@ -927,6 +1088,7 @@ module.exports = {
   resetCache,
   selfTest,
   runtimeProbe,
+  gateProducerValidation,
   DEFAULT_REGISTRY_PATH,
   VALID_MOMENTS,
   VALID_MODES,
