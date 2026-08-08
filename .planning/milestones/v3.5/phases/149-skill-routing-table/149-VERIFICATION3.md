@@ -7,3 +7,17 @@ FINDINGS_DETAIL: [INFO] [closed] super-gsd/registry/skill-routing.yaml:35-48 and
 FINDINGS_DETAIL: [INFO] [closed] super-gsd/scripts/lib/skill-routing-registry.cjs:687-695 includes the complete dispatch object in parity projection, while :755-769 explicitly falsifies dispatch-only drift. Fresh adversarial projection testing detected dispatch drift, and the registry self-test passed 16/16.
 FINDINGS_DETAIL: [INFO] [closed] super-gsd/scripts/lib/skill-routing-registry.cjs:360-420 restricts launchers and requires an existing in-repository target; :817-826 tests echo, missing-target, and out-of-repository rejection. super-gsd/skills/sgsd-orchestrate/SKILL.md:1488-1491 and :1734-1750 now identify the consult as the sole MUDA execution site.
 FINDINGS_DETAIL: [WARNING] [logic] super-gsd/scripts/lib/orchestrator-hooks.cjs:200-208 skips a gated route when no gate-value row exists, while its A10 test injects a synthetic MUDA row at :963-967. super-gsd/skills/sgsd-orchestrate/SKILL.md:1480-1491 removed the former `shouldFire`/`logGateValue` arms and only says to “record or consume” a decision, leaving no mechanical producer. The real phase-149 consult at .planning/metrics/gate-evidence.jsonl:41 consequently records `gate_ref_not_observed:MUDA-waste-audit`, `dispatch:null`; a fresh no-gate end-to-end probe likewise dispatched MUDA zero times.
+
+## Phase-ATC gate cycle and final status (orchestrator, 2026-08-08)
+
+Verifier rounds 1-3 (gaps_found -> gaps_found -> 0 CRIT/1 WARN) plus phase-ATC
+FAIL-GATE (2 CRIT + 6 WARN) drove five fix dispatches (gapfix..gapfix4b).
+Phase-ATC re-review: PASS 8/8, 0 findings; WARN-7/WARN-8 deviations judged
+acceptable (149-ATC-REREVIEW.md). Real phase-close consult run: 5 routes, all
+cooldown-correct skips (test consults consumed once-per-phase budgets — the
+mechanism working as designed). MUDA: mechanical 0/0 PASS; qualitative step
+codex-timeout logged degraded (DLB-02 non-blocking). Hooks self-test 18/19
+(sole fail = pre-existing Phase-87 A1, documented).
+
+FINAL status: passed
+FINAL verdict: PASS
