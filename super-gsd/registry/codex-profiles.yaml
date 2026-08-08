@@ -1,6 +1,6 @@
 profiles:
   codex.readonly.audit:
-    model: gpt-5.5
+    model: gpt-5.6
     reasoning: xhigh
     sandbox: read-only
     approval: never
@@ -10,9 +10,8 @@ profiles:
     native_review_required: false
     allowed_write_roots: []
     max_changed_files: 0
-
   codex.plan:
-    model: gpt-5.5
+    model: gpt-5.6
     reasoning: xhigh
     sandbox: read-only
     approval: never
@@ -20,11 +19,11 @@ profiles:
     requires_locked_plan: false
     hooks_required: false
     native_review_required: false
-    allowed_write_roots: [.planning/]
+    allowed_write_roots:
+      - .planning/
     max_changed_files: 1
-
   codex.goal:
-    model: gpt-5.5
+    model: gpt-5.6
     reasoning: xhigh
     sandbox: workspace-write
     approval: never
@@ -34,9 +33,8 @@ profiles:
     native_review_required: true
     allowed_write_roots: []
     max_changed_files: 12
-
   codex.execute.bounded:
-    model: gpt-5.5
+    model: gpt-5.6
     reasoning: xhigh
     sandbox: workspace-write
     approval: auto
@@ -46,9 +44,8 @@ profiles:
     native_review_required: true
     allowed_write_roots: []
     max_changed_files: 6
-
   codex.execute.patch:
-    model: gpt-5.5
+    model: gpt-5.6
     reasoning: xhigh
     sandbox: read-only
     approval: never
@@ -58,9 +55,8 @@ profiles:
     native_review_required: false
     allowed_write_roots: []
     max_changed_files: 20
-
   codex.review.native:
-    model: gpt-5.5
+    model: gpt-5.6
     reasoning: xhigh
     sandbox: read-only
     approval: never
@@ -70,9 +66,8 @@ profiles:
     native_review_required: false
     allowed_write_roots: []
     max_changed_files: 0
-
   codex.review.swarm:
-    model: gpt-5.5
+    model: gpt-5.6
     reasoning: high
     sandbox: read-only
     approval: never
@@ -82,9 +77,8 @@ profiles:
     native_review_required: false
     allowed_write_roots: []
     max_changed_files: 0
-
   codex.cockpit.brief:
-    model: gpt-5.5
+    model: gpt-5.6
     reasoning: high
     sandbox: read-only
     approval: never
@@ -94,9 +88,8 @@ profiles:
     native_review_required: false
     allowed_write_roots: []
     max_changed_files: 0
-
   codex.app_lab:
-    model: gpt-5.5
+    model: gpt-5.6
     reasoning: xhigh
     sandbox: workspace-write
     approval: auto
@@ -106,9 +99,8 @@ profiles:
     native_review_required: true
     allowed_write_roots: []
     max_changed_files: 25
-
   codex.cloud_lab:
-    model: gpt-5.5
+    model: gpt-5.6
     reasoning: xhigh
     sandbox: workspace-write
     approval: auto
@@ -118,24 +110,21 @@ profiles:
     native_review_required: true
     allowed_write_roots: []
     max_changed_files: 25
-
 cli_profiles:
   executor:
-    model: gpt-5.5
+    model: gpt-5.6
     reasoning: xhigh
     sandbox: workspace-write
     ephemeral: false
     approval: full-auto
-
   review:
-    model: gpt-5.5
+    model: gpt-5.6
     reasoning: xhigh
     sandbox: read-only
     ephemeral: true
     approval: never
-
   triage:
-    model: gpt-5.5
+    model: gpt-5.6
     reasoning: xhigh
     sandbox: read-only
     ephemeral: false
