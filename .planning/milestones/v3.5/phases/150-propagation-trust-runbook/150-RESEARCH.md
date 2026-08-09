@@ -162,4 +162,3 @@ Source: `.planning/analyses/2026-08-05-always-on-orchestration-DESIGN.md:159-163
 
 7. **OPERATOR-PRESENT — devcp reconciliation/update/trust/reboot.**
    `files_touched`: devcp canonical/global install and ignored evidence only. Run safety checks, fresh backup/inventory, guarded `/sgsd-update`, HEAD proof, trust probe, tmux/MCP/cockpit restart, then capture outputs in `150-VERIFICATION.md`.
-

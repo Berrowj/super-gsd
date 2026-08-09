@@ -1643,4 +1643,3 @@ Record in `150-VERIFICATION.md`:
 | RESEARCH | Supplied verbatim in the planning request; cited files selectively audited | Canonical installer behavior, updater defects, hook installation gap, trust mechanism, cache/restart boundaries, runtime-provenance conflict, and safe devcp bootstrap. |
 | VTP | `.planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-VTP-ENRICHMENT.md:13-18`; source `doc:daadab474432` | Shadow-deployment posture in T150-04 and T150-07: preserve the complete installed layer, verify the candidate before switching live processes, and never destructively reconcile the 43-file drift. |
 | design-spec | `.planning/analyses/2026-08-05-always-on-orchestration-DESIGN.md:159-163` as quoted by RESEARCH | AC-150(a-d) is preserved in the semantic acceptance criteria and task mapping. |
-

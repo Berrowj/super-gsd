@@ -9,4 +9,3 @@
 (no rows evaluated; agent-token-spend.jsonl absent or empty)
 
 > Per design lock 13: degraded continues; halt reserved for SGSD-HANDOVER hard stops.
-
