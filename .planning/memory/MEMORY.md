@@ -31,6 +31,8 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 - [PI Death & Migration Decision](architecture/decisions/pi-death-migration.md)
 - [Rejected Ideas — What NOT To Build](architecture/decisions/rejected-ideas.md)
 
+- [codex model gpt 5 6 sol](architecture/decisions/codex-model-gpt-5-6-sol.md) - Codex model is gpt-5.6-sol; bare gpt-5.6 400s on ChatGPT accounts
+
 ## architecture/expertise
 
 - [Cross-Domain Research Validation](architecture/expertise/cross-domain-validation.md)
@@ -97,6 +99,8 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 - [orchestrator verification discipline](architecture/patterns/orchestrator-verification-discipline.md) - Ask 'is my fixture realistic?' before 'is the code broken?'
 
 - [codex dispatch prompt calibration](architecture/patterns/codex-dispatch-prompt-calibration.md) - Forbid execution, not reading; bound output to blocks that change
+
+- [codex dispatch progress contract](architecture/patterns/codex-dispatch-progress-contract.md) - Executor prompts carry progress contract; Monitors watch live-output silence
 
 ## code/nodejs
 
