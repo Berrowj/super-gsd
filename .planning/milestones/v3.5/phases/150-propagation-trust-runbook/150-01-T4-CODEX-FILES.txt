@@ -1,0 +1,9 @@
+ .planning/milestones/v3.5/phases/150-propagation-trust-runbook/PROPAGATION.md .planning/milestones/v3.5/phases/150-propagation-trust-runbook/DEVCP-RECONCILIATION.md
+.planning/milestones/v3.5/phases/150-propagation-trust-runbook/DEVCP-RECONCILIATION.md
+.planning/milestones/v3.5/phases/150-propagation-trust-runbook/PROPAGATION.md
+super-gsd/scripts/sgsd-devcp-restart-evidence.sh
+super-gsd/scripts/sgsd-global-snapshot.sh
+super-gsd/scripts/sgsd-local-restart-evidence.ps1
+super-gsd/tests/propagation/global-snapshot-contract.test.cjs
+super-gsd/tests/propagation/restart-evidence-contract.test.cjs
+super-gsd/tests/propagation/runbook-contract.test.cjs

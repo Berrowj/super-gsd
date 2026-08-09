@@ -42,6 +42,7 @@ AGENTS_DIR="$CLAUDE_DIR/agents"
 COMMANDS_DIR="$CLAUDE_DIR/commands"
 TEMPLATES_DIR="$GSD_DIR/templates/super-gsd"
 GLOBAL_SCRIPTS_DIR="$CLAUDE_DIR/super-gsd/scripts"
+LOCAL_BIN_DIR="$HOME/.local/bin"
 
 DRY_RUN=false
 RUN_DOCTOR=false
@@ -428,6 +429,14 @@ install_global_assets() {
     esac
     SCRIPT_COUNT=$((SCRIPT_COUNT + 1))
   done
+  if [ -f "$SCRIPT_DIR/scripts/sgsd" ]; then
+    copy_file "$SCRIPT_DIR/scripts/sgsd" "$GLOBAL_SCRIPTS_DIR/sgsd"
+    copy_file "$SCRIPT_DIR/scripts/sgsd" "$LOCAL_BIN_DIR/sgsd"
+    if [ "$DRY_RUN" = false ]; then
+      chmod +x "$GLOBAL_SCRIPTS_DIR/sgsd" "$LOCAL_BIN_DIR/sgsd"
+    fi
+    SCRIPT_COUNT=$((SCRIPT_COUNT + 1))
+  fi
   if [ -d "$SCRIPT_DIR/scripts/lib" ]; then
     for f in "$SCRIPT_DIR/scripts/lib/"*; do
       [ -f "$f" ] || continue
@@ -448,7 +457,7 @@ install_global_assets() {
   log "  $SCRIPT_COUNT scripts + lib + watchdogs installed to $GLOBAL_SCRIPTS_DIR"
 
   echo ""
-  log "Global install complete. Permission settings were not changed."
+  log "Global install complete. Launcher installed at $LOCAL_BIN_DIR/sgsd."
 }
 
 register_repo_local_hooks() {
