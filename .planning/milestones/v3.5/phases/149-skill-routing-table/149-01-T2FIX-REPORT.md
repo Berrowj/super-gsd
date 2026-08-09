@@ -1,7 +1,7 @@
 FILES_CHANGED
 
-- [skill-routing-registry.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/lib/skill-routing-registry.cjs) — fallback parity, P146 aliases, regex policy, self-tests.
-- [skill-routing-malformed.yaml](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tools/self-test/fixtures/skill-routing-malformed.yaml) — overlength and unsafe-regex fixtures.
+- [skill-routing-registry.cjs]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/lib/skill-routing-registry.cjs) — fallback parity, P146 aliases, regex policy, self-tests.
+- [skill-routing-malformed.yaml]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tools/self-test/fixtures/skill-routing-malformed.yaml) — overlength and unsafe-regex fixtures.
 
 VERIFICATION
 

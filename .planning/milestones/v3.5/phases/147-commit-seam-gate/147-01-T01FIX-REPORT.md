@@ -1,6 +1,6 @@
 **FILES_CHANGED**
-- [sgsd-artifact-conventions.cjs](</c/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/lib/sgsd-artifact-conventions.cjs>): source predicate, invalid-path records, uniform case-insensitive allowed-file matching.
-- [assert-real-commit-gate.cjs](</c/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/commit-gate/assert-real-commit-gate.cjs>): fixture Set/realpath cleanup guard and regressions.
+- [sgsd-artifact-conventions.cjs](<$HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/lib/sgsd-artifact-conventions.cjs>): source predicate, invalid-path records, uniform case-insensitive allowed-file matching.
+- [assert-real-commit-gate.cjs](<$HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/commit-gate/assert-real-commit-gate.cjs>): fixture Set/realpath cleanup guard and regressions.
 
 **VERIFICATION**
 - `node --check` artifact conventions: exit `0`

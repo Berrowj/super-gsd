@@ -3,7 +3,7 @@
 Codex planner. Round-2 check fixed 7/8 findings; TWO remain. Emit the COMPLETE plan with ONLY these two corrections — every other byte unchanged:
 
 1. C2: replace the invalid tmux format '#{session_pid}' with '#{pid}' in AC-150d evidence collection AND the live comparison (plan line ~447 and anywhere else it appears).
-2. C5: T150-05 — add a guarded, operator-coordinated fast-forward of the local master worktree (C:\Users\jack.berrow\GSDedits) to $p150FeatureSha BEFORE local installation/verification (clean-tree check, expected-origin check, --ff-only, abort-with-instructions if dirty), OR run the new tools from the feature source and explicitly fast-forward + SHA-verify the local canonical source before T150-06. Pick one, implement fully, keep AC-150b verification coherent with the choice.
+2. C5: T150-05 — add a guarded, operator-coordinated fast-forward of the local master worktree ($env:USERPROFILE\GSDedits) to $p150FeatureSha BEFORE local installation/verification (clean-tree check, expected-origin check, --ff-only, abort-with-instructions if dirty), OR run the new tools from the feature source and explicitly fast-forward + SHA-verify the local canonical source before T150-06. Pick one, implement fully, keep AC-150b verification coherent with the choice.
 
 ## Round-2 check (verbatim)
 FINDINGS: 2
@@ -19,7 +19,7 @@ FINDINGS_DETAIL: [FIXED W1] Local installation, hook merge, audit, smoke, and se
 FINDINGS_DETAIL: [FIXED W2] The full pre-install path set is compared against the post-install manifest, and every pre-install extra regular file is checksum-verified.
 FINDINGS_DETAIL: [FIXED W3] The devcp canonical-source origin guard precedes the preparation script’s fetch and merge.
 FINDINGS_DETAIL: [FIXED W4] The Source Audit cites `150-VTP-ENRICHMENT.md:13-18` and `doc:daadab474432`.
-FINDINGS_DETAIL: [CRITICAL C5] T150-05 switches into `C:\Users\jack.berrow\GSDedits` and runs the newly introduced `self-test.cjs` there before publication, while publication occurs through a detached worktree and no step advances that local master worktree to `$p150FeatureSha`. The new file therefore need not exist there, making the pre-publication gate and AC-150b local verification fail; local MCP provenance may also remain on the old source. Add a guarded, operator-coordinated fast-forward of that worktree before local installation/verification, or run the new tools from the feature source and explicitly fast-forward and SHA-verify the local canonical source before T150-06.
+FINDINGS_DETAIL: [CRITICAL C5] T150-05 switches into `$env:USERPROFILE\GSDedits` and runs the newly introduced `self-test.cjs` there before publication, while publication occurs through a detached worktree and no step advances that local master worktree to `$p150FeatureSha`. The new file therefore need not exist there, making the pre-publication gate and AC-150b local verification fail; local MCP provenance may also remain on the old source. Add a guarded, operator-coordinated fast-forward of that worktree before local installation/verification, or run the new tools from the feature source and explicitly fast-forward and SHA-verify the local canonical source before T150-06.
 
 ## Current plan (edit this)
 ---
@@ -106,7 +106,7 @@ semantic_acceptance_criteria:
     expected_outcome: "Both machines complete the literal sgsd -NoOpen preflight and the installed Codex-hook self-test with zero exit status."
     verification_cmd: |
       $ErrorActionPreference = 'Stop'
-      $p150LocalRepo = 'C:\Users\jack.berrow\GSDedits'
+      $p150LocalRepo = '$env:USERPROFILE\GSDedits'
 
       Push-Location -LiteralPath $p150LocalRepo
       try {
@@ -137,11 +137,11 @@ semantic_acceptance_criteria:
       }
 
   - id: "AC-150c-local"
-    input: "A uniquely identified real Codex workspace-write dispatch in C:\\Users\\jack.berrow\\GSDedits attempting exactly one apply_patch write to secrets/p150-trust-probe.env, with the ledger byte offset captured before dispatch."
+    input: "A uniquely identified real Codex workspace-write dispatch in $env:USERPROFILE\\GSDedits attempting exactly one apply_patch write to secrets/p150-trust-probe.env, with the ledger byte offset captured before dispatch."
     expected_outcome: "The dispatch exits successfully after reporting the trusted hook denial, the forbidden file remains absent, and a matching block event with a timestamp no earlier than the probe start occurs only in bytes newly appended after the captured ledger offset."
     verification_cmd: |
       $ErrorActionPreference = 'Stop'
-      $p150LocalRepo = 'C:\Users\jack.berrow\GSDedits'
+      $p150LocalRepo = '$env:USERPROFILE\GSDedits'
       $p150ForbiddenFile = Join-Path $p150LocalRepo 'secrets\p150-trust-probe.env'
       $p150EventFile = Join-Path $p150LocalRepo '.planning\metrics\codex-tool-events.jsonl'
       $p150ProbeId = [guid]::NewGuid().ToString('N')
@@ -308,7 +308,7 @@ semantic_acceptance_criteria:
     expected_outcome: "Every required evidence marker independently records exit=0; local and devcp MCP, cockpit, and tmux identities differ before and after; all recorded after-processes are live; and MCP/cockpit command lines resolve through the intended canonical runtime."
     verification_cmd: |
       $ErrorActionPreference = 'Stop'
-      $p150LocalRepo = 'C:\Users\jack.berrow\GSDedits'
+      $p150LocalRepo = '$env:USERPROFILE\GSDedits'
       $p150PhaseDir = Join-Path $p150LocalRepo '.planning\milestones\v3.5\phases\150-propagation-trust-runbook'
       $p150Verification = Join-Path $p150PhaseDir '150-VERIFICATION.md'
       $p150LocalEvidencePath = Join-Path $p150PhaseDir '150-LOCAL-RESTART-EVIDENCE.json'
@@ -604,7 +604,7 @@ tasks:
       - "~/.claude/super-gsd/scripts/"
       - "~/.local/bin/sgsd"
       - "PowerShell:$PROFILE"
-      - "C:/Users/jack.berrow/GSDedits/.codex/hooks.json"
+      - "$HOME/GSDedits/.codex/hooks.json"
       - "git:refs/remotes/origin/master"
       - ".planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-VERIFICATION.md"
     input_contract: |
@@ -618,7 +618,7 @@ tasks:
       commands:
         - "git fetch origin master && git rev-parse HEAD && git rev-parse origin/master"
         - "git log origin/master..HEAD --format=\"%H %an <%ae> %cn <%ce>\""
-        - "node super-gsd/tools/feature-propagation/audit.cjs --project-dir C:/Users/jack.berrow/GSDedits --json"
+        - "node super-gsd/tools/feature-propagation/audit.cjs --project-dir $HOME/GSDedits --json"
         - "powershell.exe -NoProfile -Command \"Get-Command sg,sgsd,sgsd-refresh -ErrorAction Stop | Select-Object Name,CommandType\""
 
   - id: "T150-06"
@@ -627,24 +627,24 @@ tasks:
     model: codex
     files_touched:
       - "~/.codex/state_5.sqlite"
-      - "C:/Users/jack.berrow/GSDedits/.planning/metrics/codex-tool-events.jsonl"
-      - "C:/Users/jack.berrow/GSDedits/.planning/runtime/cockpit-server.pid"
+      - "$HOME/GSDedits/.planning/metrics/codex-tool-events.jsonl"
+      - "$HOME/GSDedits/.planning/runtime/cockpit-server.pid"
       - ".planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-LOCAL-RESTART-EVIDENCE.json"
       - ".planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-VERIFICATION.md"
     input_contract: |
       Local hooks are installed and the operator can interact with Codex's trust prompt. No trust-bypass flag is permitted. The operator can exit and reopen the owning Warp/Claude session, and the SGSD MCP process command lines can be inspected before termination.
     output_contract: |
-      Local trust is granted interactively. A real forbidden-write dispatch is blocked and matched only within newly appended ledger bytes. sgsd -NoOpen passes. Profile functions reload. Verified MCP children and cockpit are replaced by new identities, the after-MCP command lines use C:\Users\jack.berrow\GSDedits\super-gsd, and Claude is relaunched through sg.
+      Local trust is granted interactively. A real forbidden-write dispatch is blocked and matched only within newly appended ledger bytes. sgsd -NoOpen passes. Profile functions reload. Verified MCP children and cockpit are replaced by new identities, the after-MCP command lines use $env:USERPROFILE\GSDedits\super-gsd, and Claude is relaunched through sg.
     hypothesis: "Interactive approval, a byte-offset-bounded hook event, and explicit before/after process evidence prove both enforcement and removal of stale runtime state."
     falsifier: "The forbidden file is created, Codex exits unchecked, a historical ledger row satisfies the probe, an unverified PID is killed, an old process identity survives, or post-restart MCP provenance points outside the canonical local source."
     stop_rule: "Do not claim trust from state-database presence alone. Do not delete a pre-existing probe file. Do not kill an MCP or cockpit PID unless its command line is displayed and matches the intended SGSD process. Do not emit exit=0 markers until after identities and provenance are compared."
     verification:
       commands:
         - "sgsd -NoOpen"
-        - "node C:/Users/jack.berrow/GSDedits/super-gsd/tools/codex-hooks/self-test.cjs --project C:/Users/jack.berrow/GSDedits --json"
-        - "Test-Path C:/Users/jack.berrow/GSDedits/secrets/p150-trust-probe.env | Where-Object { $_ } | ForEach-Object { throw 'Forbidden file exists' }"
+        - "node $HOME/GSDedits/super-gsd/tools/codex-hooks/self-test.cjs --project $HOME/GSDedits --json"
+        - "Test-Path $HOME/GSDedits/secrets/p150-trust-probe.env | Where-Object { $_ } | ForEach-Object { throw 'Forbidden file exists' }"
         - "Get-Command sg,sgsd,sgsd-refresh -ErrorAction Stop"
-        - "Get-Content -Raw C:/Users/jack.berrow/GSDedits/.planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-LOCAL-RESTART-EVIDENCE.json | ConvertFrom-Json"
+        - "Get-Content -Raw $HOME/GSDedits/.planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-LOCAL-RESTART-EVIDENCE.json | ConvertFrom-Json"
 
   - id: "T150-07"
     type: operator-present
@@ -1011,19 +1011,19 @@ if ($LASTEXITCODE -ne 0) {
 Get-Command sg, sgsd, sgsd-refresh -ErrorAction Stop | Out-Null
 
 node .\super-gsd\tools\codex-hooks\install-hooks.cjs `
-  --project 'C:\Users\jack.berrow\GSDedits'
+  --project '$env:USERPROFILE\GSDedits'
 if ($LASTEXITCODE -ne 0) {
   throw 'Local target hook merge failed; origin/master has not been pushed'
 }
 
 node .\super-gsd\tools\feature-propagation\audit.cjs `
-  --project-dir 'C:\Users\jack.berrow\GSDedits' `
+  --project-dir '$env:USERPROFILE\GSDedits' `
   --json
 if ($LASTEXITCODE -ne 0) {
   throw 'Local propagation audit failed; origin/master has not been pushed'
 }
 
-Push-Location -LiteralPath 'C:\Users\jack.berrow\GSDedits'
+Push-Location -LiteralPath '$env:USERPROFILE\GSDedits'
 try {
   sgsd -NoOpen
   if ($LASTEXITCODE -ne 0) {
@@ -1098,7 +1098,7 @@ Record in `150-VERIFICATION.md`:
 Start Codex interactively:
 
 ```powershell
-codex -C C:\Users\jack.berrow\GSDedits
+codex -C $env:USERPROFILE\GSDedits
 ```
 
 Approve the displayed project hooks. Do not pass a trust-bypass flag. Exit the interactive client.
@@ -1109,7 +1109,7 @@ Then run the no-open smoke and self-test:
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$p150LocalRepo = 'C:\Users\jack.berrow\GSDedits'
+$p150LocalRepo = '$env:USERPROFILE\GSDedits'
 Set-Location -LiteralPath $p150LocalRepo
 
 sgsd -NoOpen
@@ -1126,7 +1126,7 @@ Prepare restart evidence:
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$p150LocalRepo = 'C:\Users\jack.berrow\GSDedits'
+$p150LocalRepo = '$env:USERPROFILE\GSDedits'
 $p150EvidencePath = Join-Path $p150LocalRepo '.planning\milestones\v3.5\phases\150-propagation-trust-runbook\150-LOCAL-RESTART-EVIDENCE.json'
 
 & (Join-Path $p150LocalRepo 'super-gsd\scripts\sgsd-local-restart-evidence.ps1') `
@@ -1148,7 +1148,7 @@ The helper must:
 4. Display those values and require the operator to type `KILL`.
 5. Terminate only the displayed MCP identities.
 6. Read the absolute cockpit PID path:
-   `C:\Users\jack.berrow\GSDedits\.planning\runtime\cockpit-server.pid`.
+   `$env:USERPROFILE\GSDedits\.planning\runtime\cockpit-server.pid`.
 7. Require that PID plus `CreationDate` to resolve to a cockpit command.
 8. Terminate it, run `sgsd-refresh -SkipPreflight`, and require a different live cockpit identity.
 9. Write the profile result, MCP before-set, and cockpit before/after identities to the evidence JSON.
@@ -1163,7 +1163,7 @@ After the new owning session starts, use a separate PowerShell tab to finalize:
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$p150LocalRepo = 'C:\Users\jack.berrow\GSDedits'
+$p150LocalRepo = '$env:USERPROFILE\GSDedits'
 $p150PhaseDir = Join-Path $p150LocalRepo '.planning\milestones\v3.5\phases\150-propagation-trust-runbook'
 $p150EvidencePath = Join-Path $p150PhaseDir '150-LOCAL-RESTART-EVIDENCE.json'
 $p150VerificationPath = Join-Path $p150PhaseDir '150-VERIFICATION.md'
@@ -1205,7 +1205,7 @@ From local PowerShell:
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$p150LocalRepo = 'C:\Users\jack.berrow\GSDedits'
+$p150LocalRepo = '$env:USERPROFILE\GSDedits'
 $p150Token = [guid]::NewGuid().ToString('N')
 $p150LocalSnapshot = Join-Path $p150LocalRepo 'super-gsd\scripts\sgsd-global-snapshot.sh'
 $p150RemoteSnapshot = "/tmp/p150-global-snapshot-$p150Token.sh"
@@ -1571,7 +1571,7 @@ Copy and validate the evidence locally:
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$p150LocalRepo = 'C:\Users\jack.berrow\GSDedits'
+$p150LocalRepo = '$env:USERPROFILE\GSDedits'
 $p150PhaseDir = Join-Path $p150LocalRepo '.planning\milestones\v3.5\phases\150-propagation-trust-runbook'
 $p150DevcpEvidence = Join-Path $p150PhaseDir '150-DEVCP-RESTART-EVIDENCE.json'
 $p150Verification = Join-Path $p150PhaseDir '150-VERIFICATION.md'

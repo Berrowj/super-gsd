@@ -95,7 +95,7 @@ index 0000000..e120f8b
 +
 +## Invariants and stop conditions
 +
-+- The canonical local source is `C:\Users\jack.berrow\GSDedits`; the devcp
++- The canonical local source is `$env:USERPROFILE\GSDedits`; the devcp
 +  canonical source is `~/.claude/super-gsd/source`.
 +- `/opt/clarity/project-clarity-erp/super-gsd` is a vendored application tree,
 +  never an implicit framework-propagation source.
@@ -154,7 +154,7 @@ index 0000000..e120f8b
 +
 +```powershell
 +$ErrorActionPreference = 'Stop'
-+$p150Project = 'C:\Users\jack.berrow\GSDedits'
++$p150Project = '$env:USERPROFILE\GSDedits'
 +Set-Location -LiteralPath $p150Project
 +$p150Status = @(git status --porcelain)
 +if ($LASTEXITCODE -ne 0 -or $p150Status.Count -ne 0) { throw 'Canonical source is not clean' }
@@ -169,10 +169,10 @@ index 0000000..e120f8b
 +```
 +
 +```powershell
-+node super-gsd/tools/codex-hooks/install-hooks.cjs --project C:\Users\jack.berrow\GSDedits --json
-+node super-gsd/tools/codex-hooks/self-test.cjs --project C:\Users\jack.berrow\GSDedits --json
-+& .\super-gsd\scripts\sgsd-update.ps1 -Check -Source C:\Users\jack.berrow\GSDedits
-+& .\super-gsd\scripts\sgsd-update.ps1 -Source C:\Users\jack.berrow\GSDedits
++node super-gsd/tools/codex-hooks/install-hooks.cjs --project $env:USERPROFILE\GSDedits --json
++node super-gsd/tools/codex-hooks/self-test.cjs --project $env:USERPROFILE\GSDedits --json
++& .\super-gsd\scripts\sgsd-update.ps1 -Check -Source $env:USERPROFILE\GSDedits
++& .\super-gsd\scripts\sgsd-update.ps1 -Source $env:USERPROFILE\GSDedits
 +```
 +
 +The Bash equivalents are `sgsd-update.sh --check --source` and
@@ -187,7 +187,7 @@ index 0000000..e120f8b
 +but still need this exact command:
 +
 +```powershell
-+node super-gsd/tools/codex-hooks/install-hooks.cjs --project C:\Users\jack.berrow\GSDedits --json
++node super-gsd/tools/codex-hooks/install-hooks.cjs --project $env:USERPROFILE\GSDedits --json
 +```
 +
 +## Trust ceremony and append-only proof — T150-06
@@ -200,8 +200,8 @@ index 0000000..e120f8b
 +whose path matches the probe, and whose timestamp follows the UTC start.
 +
 +```powershell
-+node super-gsd/tools/codex-hooks/install-hooks.cjs --project C:\Users\jack.berrow\GSDedits --json
-+node super-gsd/tools/codex-hooks/self-test.cjs --project C:\Users\jack.berrow\GSDedits --json
++node super-gsd/tools/codex-hooks/install-hooks.cjs --project $env:USERPROFILE\GSDedits --json
++node super-gsd/tools/codex-hooks/self-test.cjs --project $env:USERPROFILE\GSDedits --json
 +node super-gsd/tools/codex-hooks/block-forbidden-write.cjs
 +```
 +
@@ -214,8 +214,8 @@ index 0000000..e120f8b
 +and starts a new cockpit. Finalize runs after the owning session restarts:
 +
 +```powershell
-+& C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-local-restart-evidence.ps1 -Mode Prepare -Project C:\Users\jack.berrow\GSDedits -ExpectedMcpRoot C:\Users\jack.berrow\GSDedits -EvidencePath .planning\milestones\v3.5\phases\150-propagation-trust-runbook\150-LOCAL-RESTART-EVIDENCE.json
-+& C:\Users\jack.berrow\GSDedits\super-gsd\scripts\sgsd-local-restart-evidence.ps1 -Mode Finalize -Project C:\Users\jack.berrow\GSDedits -ExpectedMcpRoot C:\Users\jack.berrow\GSDedits -EvidencePath .planning\milestones\v3.5\phases\150-propagation-trust-runbook\150-LOCAL-RESTART-EVIDENCE.json
++& $env:USERPROFILE\GSDedits\super-gsd\scripts\sgsd-local-restart-evidence.ps1 -Mode Prepare -Project $env:USERPROFILE\GSDedits -ExpectedMcpRoot $env:USERPROFILE\GSDedits -EvidencePath .planning\milestones\v3.5\phases\150-propagation-trust-runbook\150-LOCAL-RESTART-EVIDENCE.json
++& $env:USERPROFILE\GSDedits\super-gsd\scripts\sgsd-local-restart-evidence.ps1 -Mode Finalize -Project $env:USERPROFILE\GSDedits -ExpectedMcpRoot $env:USERPROFILE\GSDedits -EvidencePath .planning\milestones\v3.5\phases\150-propagation-trust-runbook\150-LOCAL-RESTART-EVIDENCE.json
 +```
 +
 +Acceptance requires no PID/CreationDate identity intersection, a changed

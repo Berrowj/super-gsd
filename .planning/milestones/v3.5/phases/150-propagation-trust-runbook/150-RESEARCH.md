@@ -40,7 +40,7 @@ provider: openai-codex (gpt-5.6-sol/xhigh)
    - Installed `codex-cli 0.146.0` command evidence exposes `--dangerously-bypass-hook-trust` but no trust-grant subcommand; its help describes persisted trust. Thus the exact legitimate commands are:
 
      ```powershell
-     codex -C C:\Users\jack.berrow\GSDedits
+     codex -C $env:USERPROFILE\GSDedits
      ```
 
      ```bash

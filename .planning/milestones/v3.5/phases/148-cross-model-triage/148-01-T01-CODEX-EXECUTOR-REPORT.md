@@ -2,9 +2,9 @@
 
 Implemented T148-01 only:
 
-- Created [sgsd-triage-runtime.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/sgsd-triage-runtime.cjs)
-- Updated [vtp-context-composer.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/lib/vtp-context-composer.cjs) routing-log writes to resolve SGSD root and write via `resolveContainedPath`
-- Created [assert-real-triage-runtime.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs)
+- Created [sgsd-triage-runtime.cjs]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/sgsd-triage-runtime.cjs)
+- Updated [vtp-context-composer.cjs]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/lib/vtp-context-composer.cjs) routing-log writes to resolve SGSD root and write via `resolveContainedPath`
+- Created [assert-real-triage-runtime.cjs]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs)
 
 Verification exit codes:
 

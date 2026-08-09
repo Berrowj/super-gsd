@@ -1,11 +1,11 @@
 FILES_CHANGED
 
-- [.gitattributes](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/.gitattributes:1)
-- [PROPAGATION.md](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/.planning/milestones/v3.5/phases/150-propagation-trust-runbook/PROPAGATION.md:99)
-- [sgsd-global-snapshot.sh](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/sgsd-global-snapshot.sh:497)
-- [runbook-contract.test.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/propagation/runbook-contract.test.cjs:191)
-- [global-snapshot-contract.test.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/propagation/global-snapshot-contract.test.cjs:362)
-- [dispatch-progress.txt](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/.planning/metrics/dispatch-progress.txt:12)
+- [.gitattributes]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/.gitattributes:1)
+- [PROPAGATION.md]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/.planning/milestones/v3.5/phases/150-propagation-trust-runbook/PROPAGATION.md:99)
+- [sgsd-global-snapshot.sh]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/sgsd-global-snapshot.sh:497)
+- [runbook-contract.test.cjs]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/propagation/runbook-contract.test.cjs:191)
+- [global-snapshot-contract.test.cjs]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/propagation/global-snapshot-contract.test.cjs:362)
+- [dispatch-progress.txt]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/.planning/metrics/dispatch-progress.txt:12)
 
 VERIFICATION
 

@@ -1,7 +1,7 @@
 FILES_CHANGED
 
-- [orchestrator-hooks.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/lib/orchestrator-hooks.cjs:188)
-- [SKILL.md](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/skills/sgsd-orchestrate/SKILL.md:1481)
+- [orchestrator-hooks.cjs]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/lib/orchestrator-hooks.cjs:188)
+- [SKILL.md]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/skills/sgsd-orchestrate/SKILL.md:1481)
 
 VERIFICATION
 

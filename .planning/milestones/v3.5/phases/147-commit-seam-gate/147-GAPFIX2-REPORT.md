@@ -1,4 +1,4 @@
-Changed [assert-real-commit-gate.cjs](/c:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/commit-gate/assert-real-commit-gate.cjs:1254) line 1254 only: `GSDedits` now uses `createTempGitRepo`; `devcp` remains bare on line 1255. No hook/libs touched; 204 assertion preserved.
+Changed [assert-real-commit-gate.cjs](/$HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/commit-gate/assert-real-commit-gate.cjs:1254) line 1254 only: `GSDedits` now uses `createTempGitRepo`; `devcp` remains bare on line 1255. No hook/libs touched; 204 assertion preserved.
 
 Verification:
 - `node --check super-gsd/tests/commit-gate/assert-real-commit-gate.cjs` exit `0`

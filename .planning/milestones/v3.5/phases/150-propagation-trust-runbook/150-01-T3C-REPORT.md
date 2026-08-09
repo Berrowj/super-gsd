@@ -1,4 +1,4 @@
-**FILES_CHANGED:** [runtime-provenance.test.cjs](/C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/propagation/runtime-provenance.test.cjs:87) — added the curate index fixture structure and MSYS-safe provenance assertions.
+**FILES_CHANGED:** [runtime-provenance.test.cjs](/$HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/propagation/runtime-provenance.test.cjs:87) — added the curate index fixture structure and MSYS-safe provenance assertions.
 
 **VERIFICATION:** `node --check` passed. Windows/MSYS regex simulation passed. Independent spec and quality reviews approved. The exact test command was attempted but failed before executing tests with `spawn EPERM` from the managed sandbox’s Node worker restriction.
 

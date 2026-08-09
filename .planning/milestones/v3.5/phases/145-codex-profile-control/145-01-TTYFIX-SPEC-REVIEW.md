@@ -14,7 +14,7 @@ ONE_LINER: Diff conforms to P145 GAP-1 TTYFIX spec with no missing requirements 
 --- codex stderr ---
 OpenAI Codex v0.146.0
 --------
-workdir: C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
+workdir: $env:USERPROFILE\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
 model: gpt-5.5
 provider: openai
 approval: never
@@ -152,7 +152,7 @@ ONE_LINER: <summary>
 codex
 I’m using the required startup skill for this turn, then I’ll keep the review scoped to the spec-compliance contract you gave.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw C:\\Users\\jack.berrow\\.codex\\skills\\using-superpowers\\SKILL.md" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw $env:USERPROFILE\\.codex\\skills\\using-superpowers\\SKILL.md" in $env:USERPROFILE\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
  succeeded in 576ms:
 ---
 name: using-superpowers
@@ -272,20 +272,20 @@ The skill itself tells you which.
 
 Instructions say WHAT, not HOW. "Add X" or "Fix Y" doesn't mean skip workflows.
 
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -294,7 +294,7 @@ At line:1 char:1
 codex
 I’m skipping the generic review skill because its scope is security/performance/quality review, and your contract explicitly narrows this to spec conformance only. I’ll verify the TTY_OK reference claim from the diff/worktree and then answer in the requested exact fields.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command 'rg -n "SGSD_CODEX_CONTROL_TTY_OK|ttyOk|assertCliMutationGuard|selfTestCliGuard" super-gsd/scripts/sgsd-codex-control.sh super-gsd/tools/codex-pro/profile-resolver.cjs' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command 'rg -n "SGSD_CODEX_CONTROL_TTY_OK|ttyOk|assertCliMutationGuard|selfTestCliGuard" super-gsd/scripts/sgsd-codex-control.sh super-gsd/tools/codex-pro/profile-resolver.cjs' in $env:USERPROFILE\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
  succeeded in 497ms:
 super-gsd/tools/codex-pro/profile-resolver.cjs:502:function assertCliMutationGuard(profileName, field, rawValue, coercedValue, registryPath, options = {}) {
 super-gsd/tools/codex-pro/profile-resolver.cjs:539:  assertCliMutationGuard(normalizedProfile, field, value, coerced, registryPath, options);
@@ -303,20 +303,20 @@ super-gsd/tools/codex-pro/profile-resolver.cjs:722:    process.env.SGSD_CODEX_CO
 super-gsd/tools/codex-pro/profile-resolver.cjs:737:      delete process.env.SGSD_CODEX_CONTROL_TTY_OK;
 super-gsd/tools/codex-pro/profile-resolver.cjs:740:    expect(envBypassMessage.includes('CONFIRM SGSD CODEX PROFILE triage sandbox danger-full-access'), 'SGSD_CODEX_CONTROL_TTY_OK must not bypass non-TTY dangerous mutation guard');
 super-gsd/tools/codex-pro/profile-resolver.cjs:859:    return selfTestCliGuard();
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1

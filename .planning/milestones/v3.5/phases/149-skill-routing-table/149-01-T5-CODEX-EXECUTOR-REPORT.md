@@ -1,4 +1,4 @@
-FILES_CHANGED: [super-gsd/skills/sgsd-orchestrate/SKILL.md](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/skills/sgsd-orchestrate/SKILL.md)
+FILES_CHANGED: [super-gsd/skills/sgsd-orchestrate/SKILL.md]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/skills/sgsd-orchestrate/SKILL.md)
 
 VERIFICATION: PASS
 

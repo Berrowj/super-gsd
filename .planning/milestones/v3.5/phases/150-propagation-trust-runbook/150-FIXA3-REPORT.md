@@ -4,7 +4,7 @@ FILES_CHANGED
 
 - Updated both updater shells, snapshot helper, and both contract suites.
 - Deleted both required `.orig` files.
-- Completed all five progress markers and the [fixA report](/C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/.planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-FIXA-REPORT.md).
+- Completed all five progress markers and the [fixA report](/$HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/.planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-FIXA-REPORT.md).
 
 VERIFICATION
 

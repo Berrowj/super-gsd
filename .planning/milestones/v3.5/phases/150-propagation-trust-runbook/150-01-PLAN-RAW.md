@@ -37,7 +37,7 @@ semantic_acceptance_criteria:
     input: "Real local and devcp installations after updater and installer execution."
     expected_outcome: "Both machines complete the literal sgsd -NoOpen preflight and the installed Codex-hook self-test with zero exit status."
     verification_cmd: |
-      Push-Location 'C:\Users\jack.berrow\GSDedits'
+      Push-Location '$env:USERPROFILE\GSDedits'
       try {
         sgsd -NoOpen
         if ($LASTEXITCODE -ne 0) { throw "Local no-open smoke failed" }
@@ -50,10 +50,10 @@ semantic_acceptance_criteria:
       if ($LASTEXITCODE -ne 0) { throw "devcp post-update smoke failed" }
 
   - id: "AC-150c-local"
-    input: "A real Codex workspace-write dispatch in C:\\Users\\jack.berrow\\GSDedits attempting exactly one apply_patch write to secrets/p150-trust-probe.env."
+    input: "A real Codex workspace-write dispatch in $env:USERPROFILE\\GSDedits attempting exactly one apply_patch write to secrets/p150-trust-probe.env."
     expected_outcome: "The trusted block-forbidden-write hook denies the write, the file remains absent, and the real JSONL ledger records forbidden_path for the exact path."
     verification_cmd: |
-      $p150LocalRepo = 'C:\Users\jack.berrow\GSDedits'
+      $p150LocalRepo = '$env:USERPROFILE\GSDedits'
       $p150ForbiddenFile = Join-Path $p150LocalRepo 'secrets\p150-trust-probe.env'
       codex exec -C $p150LocalRepo --sandbox workspace-write --ask-for-approval never --json "Attempt exactly one apply_patch write to secrets/p150-trust-probe.env containing SHOULD_NOT_EXIST. Do not use a shell command; report the hook denial."
       if (Test-Path -LiteralPath $p150ForbiddenFile) { throw "Forbidden local file was created" }
@@ -214,7 +214,7 @@ tasks:
       - "~/.claude/hooks/"
       - "~/.claude/super-gsd/scripts/"
       - "PowerShell:$PROFILE"
-      - "C:/Users/jack.berrow/GSDedits/.codex/hooks.json"
+      - "$HOME/GSDedits/.codex/hooks.json"
       - ".planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-VERIFICATION.md"
     input_contract: |
       Tasks T150-01 through T150-04 are committed on a clean feature branch. The operator is present for the identity gate, fast-forward publication to origin/master, and local installer/profile mutation.
@@ -227,7 +227,7 @@ tasks:
       commands:
         - "git fetch origin master && git rev-parse HEAD && git rev-parse origin/master"
         - "git log origin/master..HEAD --format=\"%H %an <%ae> %cn <%ce>\""
-        - "node super-gsd/tools/feature-propagation/audit.cjs --project-dir C:/Users/jack.berrow/GSDedits --json"
+        - "node super-gsd/tools/feature-propagation/audit.cjs --project-dir $HOME/GSDedits --json"
         - "powershell.exe -NoProfile -Command \"Get-Command sg,sgsd,sgsd-refresh -ErrorAction Stop | Select-Object Name,CommandType\""
 
   - id: "T150-06"
@@ -236,8 +236,8 @@ tasks:
     model: codex
     files_touched:
       - "~/.codex/state_5.sqlite"
-      - "C:/Users/jack.berrow/GSDedits/.planning/metrics/codex-tool-events.jsonl"
-      - "C:/Users/jack.berrow/GSDedits/.planning/runtime/cockpit-server.pid"
+      - "$HOME/GSDedits/.planning/metrics/codex-tool-events.jsonl"
+      - "$HOME/GSDedits/.planning/runtime/cockpit-server.pid"
       - ".planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-VERIFICATION.md"
     input_contract: |
       Local hooks are installed and the operator can interact with Codex's trust prompt. No trust-bypass flag is permitted. The operator can exit and reopen the owning Warp/Claude session.
@@ -249,8 +249,8 @@ tasks:
     verification:
       commands:
         - "sgsd -NoOpen"
-        - "node C:/Users/jack.berrow/GSDedits/super-gsd/tools/codex-hooks/self-test.cjs --project C:/Users/jack.berrow/GSDedits --json"
-        - "Test-Path C:/Users/jack.berrow/GSDedits/secrets/p150-trust-probe.env | Where-Object { $_ } | ForEach-Object { throw 'Forbidden file exists' }"
+        - "node $HOME/GSDedits/super-gsd/tools/codex-hooks/self-test.cjs --project $HOME/GSDedits --json"
+        - "Test-Path $HOME/GSDedits/secrets/p150-trust-probe.env | Where-Object { $_ } | ForEach-Object { throw 'Forbidden file exists' }"
         - "Get-Command sg,sgsd,sgsd-refresh -ErrorAction Stop"
 
   - id: "T150-07"
@@ -498,10 +498,10 @@ if ($LASTEXITCODE -ne 0) { throw 'PowerShell shortcut installation failed' }
 . $PROFILE
 Get-Command sg, sgsd, sgsd-refresh -ErrorAction Stop | Out-Null
 
-node .\super-gsd\tools\codex-hooks\install-hooks.cjs --project 'C:\Users\jack.berrow\GSDedits'
+node .\super-gsd\tools\codex-hooks\install-hooks.cjs --project '$env:USERPROFILE\GSDedits'
 if ($LASTEXITCODE -ne 0) { throw 'Local target hook merge failed' }
 
-node .\super-gsd\tools\feature-propagation\audit.cjs --project-dir 'C:\Users\jack.berrow\GSDedits' --json
+node .\super-gsd\tools\feature-propagation\audit.cjs --project-dir '$env:USERPROFILE\GSDedits' --json
 if ($LASTEXITCODE -ne 0) { throw 'Local propagation audit failed' }
 ```
 
@@ -512,14 +512,14 @@ The orchestrator records the publication SHA, identity-gate count, installer exi
 First start Codex interactively:
 
 ```powershell
-codex -C C:\Users\jack.berrow\GSDedits
+codex -C $env:USERPROFILE\GSDedits
 ```
 
 Approve the displayed project hooks in Codex's interactive prompt. Do not pass a trust-bypass flag. Exit the interactive client after approval, then run:
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$p150LocalRepo = 'C:\Users\jack.berrow\GSDedits'
+$p150LocalRepo = '$env:USERPROFILE\GSDedits'
 Set-Location -LiteralPath $p150LocalRepo
 
 sgsd -NoOpen
@@ -868,7 +868,7 @@ The orchestrator records the origin/source/project SHAs, backup path, manifest p
 --- codex stderr ---
 OpenAI Codex v0.146.0
 --------
-workdir: C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
+workdir: $env:USERPROFILE\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
 model: gpt-5.6-sol
 provider: openai
 approval: never
@@ -1007,7 +1007,7 @@ provider: openai-codex (gpt-5.6-sol/xhigh)
    - Installed `codex-cli 0.146.0` command evidence exposes `--dangerously-bypass-hook-trust` but no trust-grant subcommand; its help describes persisted trust. Thus the exact legitimate commands are:
 
      ```powershell
-     codex -C C:\Users\jack.berrow\GSDedits
+     codex -C $env:USERPROFILE\GSDedits
      ```
 
      ```bash
@@ -1161,7 +1161,7 @@ background only. Planner: cite shadow-deployment posture in the devcp task.
 codex
 I’m applying the required planning guidance; the final response will contain only the plan file content.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw 'C:\\Users\\jack.berrow\\.codex\\skills\\using-superpowers\\SKILL.md'; Get-Content -Raw 'C:\\Users\\jack.berrow\\.codex\\skills\\writing-plans\\SKILL.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw '$env:USERPROFILE\\.codex\\skills\\using-superpowers\\SKILL.md'; Get-Content -Raw '$env:USERPROFILE\\.codex\\skills\\writing-plans\\SKILL.md'" in $env:USERPROFILE\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
  succeeded in 543ms:
 ---
 name: using-superpowers
@@ -1434,27 +1434,27 @@ After saving the plan, offer execution choice:
 - **REQUIRED SUB-SKILL:** Use superpowers:executing-plans
 - Batch execution with checkpoints for review
 
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
  
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$files = @('"'super-gsd/scripts/sgsd-update.sh','super-gsd/scripts/sgsd-update.ps1','super-gsd/scripts/sgsd-boot.sh','super-gsd/scripts/sgsd-remote-tmux.sh','super-gsd/scripts/sgsd-registry-sync.sh','.codex/hooks.json','super-gsd/skills/sgsd-update/SKILL.md'); foreach ("'$f in $files) { "===== $f ====="; Get-Content -Raw $f }' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$files = @('"'super-gsd/scripts/sgsd-update.sh','super-gsd/scripts/sgsd-update.ps1','super-gsd/scripts/sgsd-boot.sh','super-gsd/scripts/sgsd-remote-tmux.sh','super-gsd/scripts/sgsd-registry-sync.sh','.codex/hooks.json','super-gsd/skills/sgsd-update/SKILL.md'); foreach ("'$f in $files) { "===== $f ====="; Get-Content -Raw $f }' in $env:USERPROFILE\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
  succeeded in 534ms:
 ===== super-gsd/scripts/sgsd-update.sh =====
 #!/usr/bin/env bash
@@ -2538,27 +2538,27 @@ Useful when you want to inspect what's coming before letting the installer run.
 - `super-gsd/hooks/gsd-session-start.js` ƒ?" Step-2 drift check integration (pending)
 </related>
 
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
  
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'super-gsd/install.sh'; "'$lines=Get-Content $p; $lines[322..448]; $lines[628..691]' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'super-gsd/install.sh'; "'$lines=Get-Content $p; $lines[322..448]; $lines[628..691]' in $env:USERPROFILE\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
  succeeded in 1378ms:
 install_global_assets() {
   ensure_gsd_base
@@ -2751,20 +2751,20 @@ update_existing() {
       log "    diff .planning/config.json super-gsd/config/planning-config-overlay.json"
     fi
   fi
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -2807,7 +2807,7 @@ semantic_acceptance_criteria:
     input: "Real local and devcp installations after updater and installer execution."
     expected_outcome: "Both machines complete the literal sgsd -NoOpen preflight and the installed Codex-hook self-test with zero exit status."
     verification_cmd: |
-      Push-Location 'C:\Users\jack.berrow\GSDedits'
+      Push-Location '$env:USERPROFILE\GSDedits'
       try {
         sgsd -NoOpen
         if ($LASTEXITCODE -ne 0) { throw "Local no-open smoke failed" }
@@ -2820,10 +2820,10 @@ semantic_acceptance_criteria:
       if ($LASTEXITCODE -ne 0) { throw "devcp post-update smoke failed" }
 
   - id: "AC-150c-local"
-    input: "A real Codex workspace-write dispatch in C:\\Users\\jack.berrow\\GSDedits attempting exactly one apply_patch write to secrets/p150-trust-probe.env."
+    input: "A real Codex workspace-write dispatch in $env:USERPROFILE\\GSDedits attempting exactly one apply_patch write to secrets/p150-trust-probe.env."
     expected_outcome: "The trusted block-forbidden-write hook denies the write, the file remains absent, and the real JSONL ledger records forbidden_path for the exact path."
     verification_cmd: |
-      $p150LocalRepo = 'C:\Users\jack.berrow\GSDedits'
+      $p150LocalRepo = '$env:USERPROFILE\GSDedits'
       $p150ForbiddenFile = Join-Path $p150LocalRepo 'secrets\p150-trust-probe.env'
       codex exec -C $p150LocalRepo --sandbox workspace-write --ask-for-approval never --json "Attempt exactly one apply_patch write to secrets/p150-trust-probe.env containing SHOULD_NOT_EXIST. Do not use a shell command; report the hook denial."
       if (Test-Path -LiteralPath $p150ForbiddenFile) { throw "Forbidden local file was created" }
@@ -2984,7 +2984,7 @@ tasks:
       - "~/.claude/hooks/"
       - "~/.claude/super-gsd/scripts/"
       - "PowerShell:$PROFILE"
-      - "C:/Users/jack.berrow/GSDedits/.codex/hooks.json"
+      - "$HOME/GSDedits/.codex/hooks.json"
       - ".planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-VERIFICATION.md"
     input_contract: |
       Tasks T150-01 through T150-04 are committed on a clean feature branch. The operator is present for the identity gate, fast-forward publication to origin/master, and local installer/profile mutation.
@@ -2997,7 +2997,7 @@ tasks:
       commands:
         - "git fetch origin master && git rev-parse HEAD && git rev-parse origin/master"
         - "git log origin/master..HEAD --format=\"%H %an <%ae> %cn <%ce>\""
-        - "node super-gsd/tools/feature-propagation/audit.cjs --project-dir C:/Users/jack.berrow/GSDedits --json"
+        - "node super-gsd/tools/feature-propagation/audit.cjs --project-dir $HOME/GSDedits --json"
         - "powershell.exe -NoProfile -Command \"Get-Command sg,sgsd,sgsd-refresh -ErrorAction Stop | Select-Object Name,CommandType\""
 
   - id: "T150-06"
@@ -3006,8 +3006,8 @@ tasks:
     model: codex
     files_touched:
       - "~/.codex/state_5.sqlite"
-      - "C:/Users/jack.berrow/GSDedits/.planning/metrics/codex-tool-events.jsonl"
-      - "C:/Users/jack.berrow/GSDedits/.planning/runtime/cockpit-server.pid"
+      - "$HOME/GSDedits/.planning/metrics/codex-tool-events.jsonl"
+      - "$HOME/GSDedits/.planning/runtime/cockpit-server.pid"
       - ".planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-VERIFICATION.md"
     input_contract: |
       Local hooks are installed and the operator can interact with Codex's trust prompt. No trust-bypass flag is permitted. The operator can exit and reopen the owning Warp/Claude session.
@@ -3019,8 +3019,8 @@ tasks:
     verification:
       commands:
         - "sgsd -NoOpen"
-        - "node C:/Users/jack.berrow/GSDedits/super-gsd/tools/codex-hooks/self-test.cjs --project C:/Users/jack.berrow/GSDedits --json"
-        - "Test-Path C:/Users/jack.berrow/GSDedits/secrets/p150-trust-probe.env | Where-Object { $_ } | ForEach-Object { throw 'Forbidden file exists' }"
+        - "node $HOME/GSDedits/super-gsd/tools/codex-hooks/self-test.cjs --project $HOME/GSDedits --json"
+        - "Test-Path $HOME/GSDedits/secrets/p150-trust-probe.env | Where-Object { $_ } | ForEach-Object { throw 'Forbidden file exists' }"
         - "Get-Command sg,sgsd,sgsd-refresh -ErrorAction Stop"
 
   - id: "T150-07"
@@ -3268,10 +3268,10 @@ if ($LASTEXITCODE -ne 0) { throw 'PowerShell shortcut installation failed' }
 . $PROFILE
 Get-Command sg, sgsd, sgsd-refresh -ErrorAction Stop | Out-Null
 
-node .\super-gsd\tools\codex-hooks\install-hooks.cjs --project 'C:\Users\jack.berrow\GSDedits'
+node .\super-gsd\tools\codex-hooks\install-hooks.cjs --project '$env:USERPROFILE\GSDedits'
 if ($LASTEXITCODE -ne 0) { throw 'Local target hook merge failed' }
 
-node .\super-gsd\tools\feature-propagation\audit.cjs --project-dir 'C:\Users\jack.berrow\GSDedits' --json
+node .\super-gsd\tools\feature-propagation\audit.cjs --project-dir '$env:USERPROFILE\GSDedits' --json
 if ($LASTEXITCODE -ne 0) { throw 'Local propagation audit failed' }
 ```
 
@@ -3282,14 +3282,14 @@ The orchestrator records the publication SHA, identity-gate count, installer exi
 First start Codex interactively:
 
 ```powershell
-codex -C C:\Users\jack.berrow\GSDedits
+codex -C $env:USERPROFILE\GSDedits
 ```
 
 Approve the displayed project hooks in Codex's interactive prompt. Do not pass a trust-bypass flag. Exit the interactive client after approval, then run:
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$p150LocalRepo = 'C:\Users\jack.berrow\GSDedits'
+$p150LocalRepo = '$env:USERPROFILE\GSDedits'
 Set-Location -LiteralPath $p150LocalRepo
 
 sgsd -NoOpen

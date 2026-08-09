@@ -1,4 +1,4 @@
-FILES_CHANGED: [sgsd-update-contract.test.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/propagation/sgsd-update-contract.test.cjs:36) only. Added init/config-first helpers, replaced fixture clones, and removed `.gitattributes`.
+FILES_CHANGED: [sgsd-update-contract.test.cjs]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/propagation/sgsd-update-contract.test.cjs:36) only. Added init/config-first helpers, replaced fixture clones, and removed `.gitattributes`.
 
 VERIFICATION:
 

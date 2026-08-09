@@ -1,8 +1,8 @@
 DONE_WITH_CONCERNS
 
 FILES_CHANGED
-- [commit-gate-shadow-log.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/lib/commit-gate-shadow-log.cjs): created never-throw writer/reader.
-- [assert-real-commit-gate.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/commit-gate/assert-real-commit-gate.cjs): added `shadow-ledger-contained-writer` scenario.
+- [commit-gate-shadow-log.cjs]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/lib/commit-gate-shadow-log.cjs): created never-throw writer/reader.
+- [assert-real-commit-gate.cjs]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/commit-gate/assert-real-commit-gate.cjs): added `shadow-ledger-contained-writer` scenario.
 
 VERIFICATION
 - `node --check super-gsd\scripts\lib\commit-gate-shadow-log.cjs` exit `0`

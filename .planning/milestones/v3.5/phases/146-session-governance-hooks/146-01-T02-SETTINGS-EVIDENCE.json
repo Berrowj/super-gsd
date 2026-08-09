@@ -7,7 +7,7 @@
             "type": "command",
             "command": "node",
             "args": [
-              "C:\\Users\\jack.berrow\\AppData\\Roaming\\warp\\Warp\\data\\worktrees\\GSDedits\\cholla-racer\\super-gsd\\hooks\\sgsd-session-start.js"
+              "$env:USERPROFILE\\AppData\\Roaming\\warp\\Warp\\data\\worktrees\\GSDedits\\cholla-racer\\super-gsd\\hooks\\sgsd-session-start.js"
             ],
             "timeout": 5
           }
@@ -21,7 +21,7 @@
             "type": "command",
             "command": "node",
             "args": [
-              "C:\\Users\\jack.berrow\\AppData\\Roaming\\warp\\Warp\\data\\worktrees\\GSDedits\\cholla-racer\\super-gsd\\hooks\\sgsd-intent-classifier.cjs"
+              "$env:USERPROFILE\\AppData\\Roaming\\warp\\Warp\\data\\worktrees\\GSDedits\\cholla-racer\\super-gsd\\hooks\\sgsd-intent-classifier.cjs"
             ],
             "timeout": 5
           }
@@ -36,7 +36,7 @@
             "type": "command",
             "command": "node",
             "args": [
-              "C:\\Users\\jack.berrow\\AppData\\Roaming\\warp\\Warp\\data\\worktrees\\GSDedits\\cholla-racer\\super-gsd\\hooks\\sgsd-quality-gate.js"
+              "$env:USERPROFILE\\AppData\\Roaming\\warp\\Warp\\data\\worktrees\\GSDedits\\cholla-racer\\super-gsd\\hooks\\sgsd-quality-gate.js"
             ],
             "timeout": 10
           }

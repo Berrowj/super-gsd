@@ -76,7 +76,7 @@ below-floor routing was wrong: it is the highest-leverage item on the list.
   (~100-200ms each on Windows) at the highest-frequency seam, on top of 8
   already-declared hooks, 4 of them matcher `*`.
 - **Absolute-path coupling.** A global hook pinned to
-  `C:/Users/jack.berrow/GSDedits/super-gsd/hooks/...` means renaming this repo
+  `$HOME/GSDedits/super-gsd/hooks/...` means renaming this repo
   silently breaks or hard-blocks every other project, invisibly from devcp.
 - **Credential risk.** Task 6 load-and-rewrites `~/.claude/settings.json`, whose
   `env` block holds live keys, to install an unproven hook.

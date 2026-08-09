@@ -1,8 +1,8 @@
 **FILES_CHANGED**
 
-- [global-snapshot-contract.test.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/propagation/global-snapshot-contract.test.cjs:146) — handles symlink `EPERM` conditionally while retaining capable-host coverage.
-- [sgsd-global-snapshot.sh](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/sgsd-global-snapshot.sh:70) — rejects all unexpanded tilde home paths before normalization.
-- [sgsd-devcp-restart-evidence.sh](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/sgsd-devcp-restart-evidence.sh:72) — captures `/proc/<pid>/cmdline` via `printf -v` and `tr`.
+- [global-snapshot-contract.test.cjs]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/propagation/global-snapshot-contract.test.cjs:146) — handles symlink `EPERM` conditionally while retaining capable-host coverage.
+- [sgsd-global-snapshot.sh]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/sgsd-global-snapshot.sh:70) — rejects all unexpanded tilde home paths before normalization.
+- [sgsd-devcp-restart-evidence.sh]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/sgsd-devcp-restart-evidence.sh:72) — captures `/proc/<pid>/cmdline` via `printf -v` and `tr`.
 
 **VERIFICATION**
 

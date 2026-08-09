@@ -1,6 +1,6 @@
 ## FILES_CHANGED
 
-- [orchestrator-hooks.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/lib/orchestrator-hooks.cjs:435)
+- [orchestrator-hooks.cjs]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/lib/orchestrator-hooks.cjs:435)
 - `.planning/metrics/gate-evidence.jsonl` — 10 append-only verification rows.
 - `skill-routing-registry.cjs` unchanged; existing APIs were sufficient.
 - No `SKILL.md` edits.

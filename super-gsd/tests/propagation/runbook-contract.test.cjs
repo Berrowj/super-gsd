@@ -384,10 +384,26 @@ test("phase docs contain no forbidden bypass, fork push, or destructive reset", 
   assert.doesNotMatch(texts, /reset\s+--hard/i);
 });
 
-test("published runbook contains no identifiable Windows account path", () => {
-  const text = requiredFile(propagationPath);
-  assert.doesNotMatch(text, /C:\\Users\\jack\.berrow/i);
-  assert.match(text, /\$env:USERPROFILE/);
+test("tracked phase artifacts contain no identifiable operator account", () => {
+  const phaseRelative = path.relative(root, phaseDir).split(path.sep).join("/");
+  const listed = run("git", ["ls-files", "-z", "--", phaseRelative + "/**"], { cwd: root });
+  let trackedFiles;
+  if (listed.error?.code === "EPERM") {
+    const suppliedFiles = process.env.SGSD_TRACKED_PHASE_FILES;
+    assert.ok(suppliedFiles, "managed runners must supply a git ls-files phase inventory");
+    trackedFiles = suppliedFiles.split(/\r?\n/).filter(Boolean);
+  } else {
+    assert.equal(listed.status, 0, listed.stderr);
+    trackedFiles = listed.stdout.split("\0").filter(Boolean);
+  }
+
+  const identifiableAccount = ["jack", "berrow"].join(".");
+  const leakedFiles = trackedFiles
+    .filter((file) => fs.readFileSync(path.join(root, file), "utf8")
+      .toLowerCase()
+      .includes(identifiableAccount));
+
+  assert.deepEqual(leakedFiles, []);
 });
 
 test("repository pins canonical line endings for propagation file types", () => {

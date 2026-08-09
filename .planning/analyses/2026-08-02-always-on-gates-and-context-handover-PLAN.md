@@ -16,15 +16,15 @@ Hook entry points:
 - Global settings touched: `~/.claude/settings.json`, `hooks` key only. Do not read, echo, rewrite, or preserve by printing the `env` block. The patch executor must load JSON, update only `hooks`, and write the same object back without logging secret-bearing fields.
 - Register a global `PreToolUse` hook for source mutation attempts:
   - matcher: `Edit|MultiEdit|Write`
-  - command: `node C:/Users/jack.berrow/GSDedits/super-gsd/hooks/sgsd-quality-gate.js pretool`
+  - command: `node $HOME/GSDedits/super-gsd/hooks/sgsd-quality-gate.js pretool`
   - timeout: `15`
 - Register a global `PostToolUse` hook for source mutation results:
   - matcher: `Edit|MultiEdit|Write`
-  - command: `node C:/Users/jack.berrow/GSDedits/super-gsd/hooks/sgsd-quality-gate.js posttool`
+  - command: `node $HOME/GSDedits/super-gsd/hooks/sgsd-quality-gate.js posttool`
   - timeout: `30`
 - Register a global `PreToolUse` hook for commit attempts:
   - matcher: `Bash`
-  - command: `node C:/Users/jack.berrow/GSDedits/super-gsd/hooks/sgsd-quality-gate.js prebash`
+  - command: `node $HOME/GSDedits/super-gsd/hooks/sgsd-quality-gate.js prebash`
   - timeout: `15`
   - The script only inspects the attempted bash command enough to detect `git commit`; all other bash commands no-op.
 
@@ -130,11 +130,11 @@ Hooking:
 
 - Add a real `PreCompact` hook if Claude supports it in this runtime:
   - event: `PreCompact`
-  - command: `node C:/Users/jack.berrow/GSDedits/super-gsd/hooks/sgsd-handover-pack.js precompact`
+  - command: `node $HOME/GSDedits/super-gsd/hooks/sgsd-handover-pack.js precompact`
   - timeout: `30`
 - Add a `PostToolUse` hook for context pressure:
   - matcher: `.*`
-  - command: `node C:/Users/jack.berrow/GSDedits/super-gsd/hooks/sgsd-handover-pack.js pressure`
+  - command: `node $HOME/GSDedits/super-gsd/hooks/sgsd-handover-pack.js pressure`
   - timeout: `10`
 - The pressure hook must no-op unless the payload exposes `data.context_window.remaining_percentage`. It must not use wall-clock or tool-call count as a substitute for context.
 - If `PreCompact` is not supported by the installed Claude hook system, keep the `PreCompact` registry entry out of active hooks and document that pressure-mode handover is the active path.
@@ -308,7 +308,7 @@ Task 9: Wire resume and drift detection.
   - `~/.claude/hooks/sgsd-session-start.js`
   - `~/.claude/settings.json` hooks key only
 - Acceptance criterion: SessionStart briefing reads newest phase-local handover, reports drift when STATE milestone/phase or git HEAD differs, and no-ops outside SGSD repos.
-- Verification command: `node C:/Users/jack.berrow/.claude/hooks/sgsd-session-start.js < super-gsd/test/fixtures/hooks/session-start-with-handover.json`
+- Verification command: `node $HOME/.claude/hooks/sgsd-session-start.js < super-gsd/test/fixtures/hooks/session-start-with-handover.json`
 
 Task 10: Fix handoff chain depth latch.
 

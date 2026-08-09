@@ -1,4 +1,4 @@
-FILES_CHANGED: [super-gsd/registry/skill-routing.yaml](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/registry/skill-routing.yaml)
+FILES_CHANGED: [super-gsd/registry/skill-routing.yaml]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/registry/skill-routing.yaml)
 
 VERIFICATION: field-check re-run exit 0: `skill-routing rows=24`; targeted alias check exit 0: `secure-phase alias ok`
 

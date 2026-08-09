@@ -27,7 +27,7 @@ DEVIATIONS
 
 BLOCKERS
 - Environment-only verification blocker: dynamic child runtimes cannot start under the managed Windows sandbox. An unrestricted rerun of both requested suite commands is still required for exact full-green counts.
-- Disposable verification runtime remains at `C:\Users\jack.berrow\AppData\Local\Temp\sgsd-msys-fixa3` (copied `bash.exe` and `msys-2.0.dll`); managed policy rejected its cleanup.
+- Disposable verification runtime remains at `$env:USERPROFILE\AppData\Local\Temp\sgsd-msys-fixa3` (copied `bash.exe` and `msys-2.0.dll`); managed policy rejected its cleanup.
 
 SCRIPTS_CREATED
 - None.

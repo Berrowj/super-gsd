@@ -1,11 +1,11 @@
 FILES_CHANGED
 
-- [PROPAGATION.md](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/.planning/milestones/v3.5/phases/150-propagation-trust-runbook/PROPAGATION.md)
-- [sgsd-devcp-restart-evidence.sh](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/sgsd-devcp-restart-evidence.sh)
-- [start-cockpit-server.sh](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/start-cockpit-server.sh)
-- [runbook-contract.test.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/propagation/runbook-contract.test.cjs)
-- [restart-evidence-contract.test.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/propagation/restart-evidence-contract.test.cjs)
-- [dispatch-progress.txt](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/.planning/metrics/dispatch-progress.txt)
+- [PROPAGATION.md]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/.planning/milestones/v3.5/phases/150-propagation-trust-runbook/PROPAGATION.md)
+- [sgsd-devcp-restart-evidence.sh]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/sgsd-devcp-restart-evidence.sh)
+- [start-cockpit-server.sh]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/scripts/start-cockpit-server.sh)
+- [runbook-contract.test.cjs]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/propagation/runbook-contract.test.cjs)
+- [restart-evidence-contract.test.cjs]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/propagation/restart-evidence-contract.test.cjs)
+- [dispatch-progress.txt]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/.planning/metrics/dispatch-progress.txt)
 
 VERIFICATION
 

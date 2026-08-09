@@ -1,4 +1,4 @@
-Implemented in [assert-real-triage-runtime.cjs](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs).
+Implemented in [assert-real-triage-runtime.cjs]($HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer/super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs).
 
 Added the missing matrix coverage:
 - `planning-codex-verdict-row`
