@@ -1,0 +1,20 @@
+# P150-fixC — Round-3 CRITs (publication-origin, rollback ordering, drift status) + eol enforcement
+
+Fresh SDD implementer (Codex gpt-5.6-sol/xhigh). Fix EXACTLY these findings. Surgical constraint. 40-min window.
+
+FINDINGS_DETAIL: [CRITICAL] [ROUND2-2 security/publication-origin] The executable publication ceremony is present at `PROPAGATION.md:92-332`, but its allowlist at `PROPAGATION.md:99-106,156-161` accepts any host whose path ends in `Berrowj/super-gsd`, and the push at `PROPAGATION.md:296` never validates a distinct push URL. For example, `https://evil.example/Berrowj/super-gsd.git` matches. `runbook-contract.test.cjs:149-180` locks in the weak regex, so canonical `origin/master` can remain unpublished.
+FINDINGS_DETAIL: [CRITICAL] [ROUND2-4 security/rollback] Symlinked storage paths are resolved at `sgsd-global-snapshot.sh:266-279,493-504`, but archive validation at `sgsd-global-snapshot.sh:360-430` compares only a mutable adjacent checksum and member names—not manifest type, link target, mode, or content hashes. Live targets are quarantined and the archive extracted at `sgsd-global-snapshot.sh:505-511`; content is compared only afterward at `sgsd-global-snapshot.sh:512-514`. A same-path tampered file or symlink with a refreshed sidecar therefore reaches live state before rejection, breaking rollback safety.
+FINDINGS_DETAIL: [CRITICAL] [ROUND2-7 linux-install/restart-coherence] Project CWD, canonical cockpit resolution, and AC-150d fields are repaired at `PROPAGATION.md:521-534`, `start-cockpit-server.sh:116-125,266-269`, and `sgsd-devcp-restart-evidence.sh:345-360`. However, the remote updater enables `set -e` and runs `--check` before update at `PROPAGATION.md:519-534`; expected upstream drift returns status 10 at `sgsd-update.sh:137-144`, aborting before installation. The fixture at `runbook-contract.test.cjs:286-304` always returns zero and misses this path.
+FINDINGS_DETAIL: [WARNING] [ROUND2-8 anti-slop/salvage] The tracked `.orig` files are removed, but branch-wide line-ending churn remains across `super-gsd/install.sh:1-889`, `super-gsd/scripts/lib/sgsd-readiness.ps1:1-279`, `super-gsd/scripts/sgsd-onboard.ps1:1-375`, and `super-gsd/tools/feature-propagation/audit.cjs:1-894`; the raw diff is 2,291 additions/2,168 deletions versus only 132 additions/9 deletions when end-of-line whitespace is ignored.
+
+## Requirements
+1. Publication origin: ceremony allowlist in PROPAGATION.md must EXACT-match full canonical URLs (https://github.com/Berrowj/super-gsd[.git] and git@github.com:Berrowj/super-gsd[.git]) — no ends-with matching; validate push URL separately (git remote get-url --push) with the same exact list; fix the runbook-contract test that locked in the weak regex, adding an evil-host negative case.
+2. Rollback ordering: sgsd-global-snapshot.sh restore must verify BEFORE any live mutation — extract to a staging dir, verify every member against the manifest (type, link target, mode, content hash), and only then swap into live targets; a same-path tampered file or symlink with refreshed sidecar must be rejected with live state untouched. Extend the tampered-archive test to assert live targets unchanged after rejection.
+3. Drift status: remote updater sequence in PROPAGATION.md must handle sgsd-update --check status 10 (expected upstream drift) as continue-to-update, not abort under set -e (explicit rc capture); fixture in runbook-contract.test.cjs must return 10 on check to exercise the path.
+4. EOL enforcement: add a .gitattributes at repo root with '*.sh text eol=lf', '*.cjs text eol=lf', '*.ps1 text eol=crlf' (match each type's canonical form; verify ps1 files parse) so the CRLF smudge class is closed; keep the existing LF-normalized working files as-is.
+
+## PROGRESS CONTRACT: stage lines fixC|<utc>|started/edits-done/verifying/reporting/done to .planning/metrics/dispatch-progress.txt; short on time -> report early, mark done.
+
+## Verify: full propagation battery green; report counts per suite.
+
+## Report contract: FILES_CHANGED / VERIFICATION / DEVIATIONS / BLOCKERS / SCRIPTS_CREATED / ONE_LINER / STATUS

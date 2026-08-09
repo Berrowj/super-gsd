@@ -297,7 +297,11 @@ function sha256(file) {
 }
 function walk(full, relative) {
   const stat = fs.lstatSync(full);
-  const type = stat.isSymbolicLink() ? 'symlink' : stat.isDirectory() ? 'directory' : 'file';
+  const type = stat.isSymbolicLink() ? 'symlink'
+    : stat.isDirectory() ? 'directory'
+      : stat.isFile() ? 'file'
+        : null;
+  if (type === null) throw new Error(`unsupported filesystem type in snapshot: ${relative}`);
   rows.push({
     path: relative.split(path.sep).join('/'), type, mode: stat.mode & 0o7777,
     link: type === 'symlink' ? fs.readlinkSync(full) : null,
@@ -491,11 +495,28 @@ NODE
   printf 'verified=%s\nmanifest_after=%s\n' "$snapshot" "$snapshot/manifest-after.jsonl"
 }
 restore_snapshot() {
-  local home="$1" snapshot="$2" failed="$3" target live quarantine
+  local home="$1" snapshot="$2" failed="$3" target live quarantine staging staged_manifest staged_live
   [[ -d "$snapshot" ]] || die "--snapshot-dir does not exist: $snapshot"
   snapshot="$(resolved_dir "$snapshot")"
   [[ -r "$snapshot/manifest-before.jsonl" ]] || die "manifest-before.jsonl is missing or unreadable"
   validate_archive "$snapshot"
+
+  staging="$(mktemp -d "$snapshot/.restore-stage.XXXXXX")" ||
+    die "could not allocate restore staging directory"
+  staged_manifest="$staging/manifest-staged.jsonl"
+  if ! tar -xf "$snapshot/archive.tar" -C "$staging"; then
+    rm -rf -- "$staging"
+    die "archive extraction into restore staging failed"
+  fi
+  if ! write_manifest "$staging" "$staged_manifest"; then
+    rm -rf -- "$staging"
+    die "could not manifest the staged archive"
+  fi
+  if ! cmp -s "$snapshot/manifest-before.jsonl" "$staged_manifest"; then
+    rm -rf -- "$staging"
+    die "staged archive does not match the exact pre-install manifest; live targets were not changed"
+  fi
+
   if [[ -e "$failed" ]]; then
     [[ -d "$failed" ]] || die "--failed-candidate-dir exists and is not a directory"
     [[ -z "$(find "$failed" -mindepth 1 -print -quit)" ]] || die "--failed-candidate-dir is not empty"
@@ -508,7 +529,15 @@ restore_snapshot() {
       quarantine="$failed/targets/$target"; mkdir -p -- "$(dirname "$quarantine")"; mv -- "$live" "$quarantine"
     fi
   done
-  tar -xf "$snapshot/archive.tar" -C "$home"
+  for target in "${TARGETS[@]}"; do
+    staged_live="$staging/$target"
+    live="$home/$target"
+    if [[ -e "$staged_live" || -L "$staged_live" ]]; then
+      mkdir -p -- "$(dirname "$live")"
+      mv -- "$staged_live" "$live"
+    fi
+  done
+  rm -rf -- "$staging"
   write_manifest "$home" "$snapshot/manifest-restored.jsonl"
   cmp -s "$snapshot/manifest-before.jsonl" "$snapshot/manifest-restored.jsonl" ||
     die "restore did not reproduce the exact pre-install manifest; failed candidate and original archive were retained"

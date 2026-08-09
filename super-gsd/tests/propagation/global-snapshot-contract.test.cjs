@@ -109,6 +109,14 @@ test("snapshot helper has bounded validation and non-destructive restore guards"
   assert.match(source, /pre-install.*subset|subset.*pre-install/is);
   assert.match(source, /extra.*byte|byte.*extra/is);
   assert.doesNotMatch(source, /rm\s+-rf\s+['"]?\$(?:HOME|home)/);
+  const stagedExtract = source.indexOf('tar -xf "$snapshot/archive.tar" -C "$staging"');
+  const stagedCompare = source.indexOf('cmp -s "$snapshot/manifest-before.jsonl" "$staged_manifest"');
+  const firstLiveMove = source.indexOf('mv -- "$live" "$quarantine"');
+  assert.ok(stagedExtract !== -1 && stagedCompare !== -1 && firstLiveMove !== -1
+    && stagedExtract < stagedCompare && stagedCompare < firstLiveMove,
+    "restore must extract and verify a staging tree before its first live-target move");
+  assert.match(source, /manifest-staged\.jsonl/,
+    "restore must compare a full staged type, link, mode, and content manifest");
 });
 
 test("snapshot round trip preserves exact pre-install manifest and quarantines candidate", { timeout: 120_000 }, (t) => {
@@ -349,4 +357,88 @@ test("restore rejects an archive with out-of-bound membership before extraction"
     "fixture must reach membership validation after its digest is refreshed");
   assert.equal(fs.existsSync(path.join(home, ".ssh", "authorized_keys")), false,
     "archive validation must precede extraction into home");
+});
+
+test("restore rejects same-path tampered content before changing live targets", { timeout: 30_000 }, (t) => {
+  const bash = bashAvailability();
+  if (!bash) return t.skip("bash is unavailable or blocked by the managed runner");
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "sgsd-snapshot-same-path-tamper-"));
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  const home = path.join(temp, "home");
+  const snapshot = path.join(temp, "snapshot");
+  const failed = path.join(temp, "failed");
+  const payload = path.join(temp, "payload");
+  fs.mkdirSync(path.join(home, ".claude", "get-shit-done"), { recursive: true });
+  write(path.join(home, ".claude", "agents", "original.md"), "snapshot original\n");
+  const env = { ...process.env, HOME: home, USERPROFILE: home };
+  const created = run(bash, [helper, "create", "--home", home, "--output-dir", snapshot], { env });
+  assert.equal(created.status, 0, `create failed\nstdout=${created.stdout}\nstderr=${created.stderr}`);
+
+  write(path.join(home, ".claude", "agents", "original.md"), "live candidate\n");
+  write(path.join(home, ".claude", "agents", "candidate-only.md"), "keep live\n");
+  const liveBeforeRestore = manifest(home);
+  fs.mkdirSync(payload, { recursive: true });
+  const archive = path.join(snapshot, "archive.tar");
+  const unpacked = run(bash, ["-c", 'tar --force-local -xf "$1" -C "$2"', "sgsd-unpack", archive, payload], { env });
+  assert.equal(unpacked.status, 0, `could not unpack archive fixture\nstdout=${unpacked.stdout}\nstderr=${unpacked.stderr}`);
+  write(path.join(payload, ".claude", "agents", "original.md"), "tampered snapshot\n");
+  const repacked = run(bash, ["-c", 'tar --force-local -cf "$1" -C "$2" -- .claude/agents',
+    "sgsd-repack", archive, payload], { env });
+  assert.equal(repacked.status, 0, `could not repack archive fixture\nstdout=${repacked.stdout}\nstderr=${repacked.stderr}`);
+  write(path.join(snapshot, "archive.sha256"), `${sha(archive)}  archive.tar\n`);
+
+  const result = run(bash, [helper, "restore", "--home", home, "--snapshot-dir", snapshot,
+    "--failed-candidate-dir", failed], { env });
+
+  assert.notEqual(result.status, 0, "same-path tampered content must fail closed");
+  assert.match(`${result.stdout}\n${result.stderr}`, /exact pre-install manifest/i);
+  assert.deepEqual(manifest(home), liveBeforeRestore,
+    "archive rejection must leave every live target unchanged");
+  assert.equal(fs.existsSync(failed), false,
+    "archive rejection must precede failed-candidate creation");
+});
+
+test("restore rejects a same-path tampered symlink before changing live targets", { timeout: 30_000 }, (t) => {
+  const bash = bashAvailability();
+  if (!bash) return t.skip("bash is unavailable or blocked by the managed runner");
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "sgsd-snapshot-link-tamper-"));
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  const home = path.join(temp, "home");
+  const snapshot = path.join(temp, "snapshot");
+  const failed = path.join(temp, "failed");
+  const payload = path.join(temp, "payload");
+  const agents = path.join(home, ".claude", "agents");
+  fs.mkdirSync(path.join(home, ".claude", "get-shit-done"), { recursive: true });
+  write(path.join(agents, "original.md"), "snapshot original\n");
+  try {
+    fs.symlinkSync("original.md", path.join(agents, "current.md"));
+  } catch (error) {
+    if (error.code === "EPERM") return t.skip("host does not permit the symlink fixture");
+    throw error;
+  }
+  const env = { ...process.env, HOME: home, USERPROFILE: home };
+  assert.equal(run(bash, [helper, "create", "--home", home, "--output-dir", snapshot], { env }).status, 0);
+
+  fs.unlinkSync(path.join(agents, "current.md"));
+  write(path.join(agents, "live.md"), "live candidate\n");
+  fs.symlinkSync("live.md", path.join(agents, "current.md"));
+  const liveBeforeRestore = manifest(home);
+  fs.mkdirSync(payload, { recursive: true });
+  const archive = path.join(snapshot, "archive.tar");
+  assert.equal(run(bash, ["-c", 'tar --force-local -xf "$1" -C "$2"', "sgsd-unpack", archive, payload], { env }).status, 0);
+  const archivedLink = path.join(payload, ".claude", "agents", "current.md");
+  fs.unlinkSync(archivedLink);
+  fs.symlinkSync("tampered.md", archivedLink);
+  assert.equal(run(bash, ["-c", 'tar --force-local -cf "$1" -C "$2" -- .claude/agents',
+    "sgsd-repack", archive, payload], { env }).status, 0);
+  write(path.join(snapshot, "archive.sha256"), `${sha(archive)}  archive.tar\n`);
+
+  const result = run(bash, [helper, "restore", "--home", home, "--snapshot-dir", snapshot,
+    "--failed-candidate-dir", failed], { env });
+
+  assert.notEqual(result.status, 0, "same-path tampered symlink must fail closed");
+  assert.deepEqual(manifest(home), liveBeforeRestore,
+    "symlink rejection must leave every live target unchanged");
+  assert.equal(fs.existsSync(failed), false,
+    "symlink rejection must precede failed-candidate creation");
 });

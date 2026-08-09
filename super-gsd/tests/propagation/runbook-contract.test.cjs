@@ -12,6 +12,7 @@ const root = path.resolve(__dirname, "../../..");
 const phaseDir = path.join(root, ".planning", "milestones", "v3.5", "phases", "150-propagation-trust-runbook");
 const propagationPath = path.join(phaseDir, "PROPAGATION.md");
 const reconciliationPath = path.join(phaseDir, "DEVCP-RECONCILIATION.md");
+const attributesPath = path.join(root, ".gitattributes");
 
 function requiredFile(filePath) {
   assert.equal(fs.existsSync(filePath), true, `required artifact is missing: ${path.relative(root, filePath)}`);
@@ -155,9 +156,12 @@ test("T150-05 executes the locked publication ceremony in guarded order", () => 
     "$p150Repo = (git rev-parse --show-toplevel).Trim()",
     "$p150FeatureBranch = (git branch --show-current).Trim()",
     "$p150FeatureSha = (git rev-parse HEAD).Trim()",
+    "$p150AllowedOrigins = @(",
     "$p150RemoteUrl = (git remote get-url origin).Trim()",
+    "$p150RemotePushUrl = (git remote get-url --push origin).Trim()",
     "if (-not $p150FeatureBranch -or $p150FeatureBranch -eq 'master')",
-    "$p150RemoteUrl -notmatch '(^|[:/])Berrowj/super-gsd(?:\\.git)?$'",
+    "$p150AllowedOrigins -cnotcontains $p150RemoteUrl",
+    "$p150AllowedOrigins -cnotcontains $p150RemotePushUrl",
     "git status --porcelain=v1",
     "git fetch origin master",
     "git merge-base --is-ancestor origin/master $p150FeatureSha",
@@ -176,10 +180,40 @@ test("T150-05 executes the locked publication ceremony in guarded order", () => 
     "super-gsd/tools/feature-propagation/audit.cjs",
     "git worktree add --detach $p150PublishStage origin/master",
     "git -C $p150PublishStage merge --ff-only $p150FeatureSha",
+    "git -C $p150PublishStage remote get-url --push origin",
+    "$p150AllowedOrigins -cnotcontains $p150PublishPushUrl",
     "git -C $p150PublishStage push origin HEAD:master",
     "git fetch origin master",
     "$p150PublishedSha = (git rev-parse origin/master).Trim()",
   ], "T150-05");
+});
+
+test("T150-05 accepts only exact canonical fetch and push origins", () => {
+  const text = requiredFile(propagationPath);
+  const flow = section(text, "## Local propagation", "## Worktrees");
+  const ceremony = fencedBlocks(flow, "powershell")[0];
+  const allowlistMatch = ceremony.match(/\$p150AllowedOrigins\s*=\s*@\(\r?\n([\s\S]*?)\r?\n\)/);
+  assert.ok(allowlistMatch, "T150-05 must declare one explicit canonical-origin allowlist");
+  const allowedOrigins = [...allowlistMatch[1].matchAll(/^\s*'([^']+)'\s*$/gm)]
+    .map((match) => match[1]);
+  assert.deepEqual(allowedOrigins, [
+    "https://github.com/Berrowj/super-gsd",
+    "https://github.com/Berrowj/super-gsd.git",
+    "git@github.com:Berrowj/super-gsd",
+    "git@github.com:Berrowj/super-gsd.git",
+  ]);
+  assert.equal(allowedOrigins.includes("https://evil.example/Berrowj/super-gsd.git"), false,
+    "an evil host with the canonical path suffix must be rejected");
+  requireAll(ceremony, [
+    "git remote get-url origin",
+    "git remote get-url --push origin",
+    "git -C $p150PublishStage remote get-url --push origin",
+    "$p150AllowedOrigins -cnotcontains $p150RemoteUrl",
+    "$p150AllowedOrigins -cnotcontains $p150RemotePushUrl",
+    "$p150AllowedOrigins -cnotcontains $p150PublishPushUrl",
+  ], "T150-05 origin validation");
+  assert.doesNotMatch(ceremony, /\(\^\|\[:\/\]\)Berrowj\/super-gsd/,
+    "canonical-origin validation must not use an ends-with regex");
 });
 
 test("T150-06 contains the real offset-bounded Codex trust ceremony", () => {
@@ -286,6 +320,7 @@ test("documented devcp updater runs from the project fixture", (t) => {
     write(update, [
       "#!/usr/bin/env bash",
       "set -euo pipefail",
+      `trap '[[ " $* " == *" --check "* ]] && exit 10' EXIT`,
       "printf '%s|%s\\n' \"$PWD\" \"$*\" >> \"$SGSD_TEST_UPDATE_LOG\"",
       "",
     ].join("\n"), 0o755);
@@ -353,4 +388,13 @@ test("published runbook contains no identifiable Windows account path", () => {
   const text = requiredFile(propagationPath);
   assert.doesNotMatch(text, /C:\\Users\\jack\.berrow/i);
   assert.match(text, /\$env:USERPROFILE/);
+});
+
+test("repository pins canonical line endings for propagation file types", () => {
+  const lines = requiredFile(attributesPath).trim().split(/\r?\n/);
+  assert.deepEqual(lines, [
+    "*.sh text eol=lf",
+    "*.cjs text eol=lf",
+    "*.ps1 text eol=crlf",
+  ]);
 });

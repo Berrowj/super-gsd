@@ -96,14 +96,26 @@ $p150Repo = (git rev-parse --show-toplevel).Trim()
 Set-Location -LiteralPath $p150Repo
 $p150FeatureBranch = (git branch --show-current).Trim()
 $p150FeatureSha = (git rev-parse HEAD).Trim()
+$p150AllowedOrigins = @(
+  'https://github.com/Berrowj/super-gsd'
+  'https://github.com/Berrowj/super-gsd.git'
+  'git@github.com:Berrowj/super-gsd'
+  'git@github.com:Berrowj/super-gsd.git'
+)
 $p150RemoteUrl = (git remote get-url origin).Trim()
+if ($LASTEXITCODE -ne 0) { throw 'Could not resolve origin fetch URL' }
+$p150RemotePushUrl = (git remote get-url --push origin).Trim()
+if ($LASTEXITCODE -ne 0) { throw 'Could not resolve origin push URL' }
 $p150LocalRepo = Join-Path $env:USERPROFILE 'GSDedits'
 
 if (-not $p150FeatureBranch -or $p150FeatureBranch -eq 'master') {
   throw 'Run this ceremony from the completed P150 feature branch'
 }
-if ($p150RemoteUrl -notmatch '(^|[:/])Berrowj/super-gsd(?:\.git)?$') {
+if ($p150AllowedOrigins -cnotcontains $p150RemoteUrl) {
   throw "Unexpected origin: $p150RemoteUrl"
+}
+if ($p150AllowedOrigins -cnotcontains $p150RemotePushUrl) {
+  throw "Unexpected origin push URL: $p150RemotePushUrl"
 }
 if (@(git status --porcelain=v1).Count -ne 0) {
   throw 'P150 feature worktree is dirty'
@@ -157,7 +169,7 @@ $p150LocalRemoteUrl = (
   git -C $p150LocalRepo remote get-url origin
 ).Trim()
 if ($LASTEXITCODE -ne 0 -or
-    $p150LocalRemoteUrl -notmatch '(^|[:/])Berrowj/super-gsd(?:\.git)?$') {
+    $p150AllowedOrigins -cnotcontains $p150LocalRemoteUrl) {
   throw "Unexpected local canonical origin: $p150LocalRemoteUrl"
 }
 
@@ -291,6 +303,14 @@ try {
   git -C $p150PublishStage merge --ff-only $p150FeatureSha
   if ($LASTEXITCODE -ne 0) {
     throw 'Detached fast-forward merge failed'
+  }
+
+  $p150PublishPushUrl = (
+    git -C $p150PublishStage remote get-url --push origin
+  ).Trim()
+  if ($LASTEXITCODE -ne 0 -or
+      $p150AllowedOrigins -cnotcontains $p150PublishPushUrl) {
+    throw "Unexpected publication push URL: $p150PublishPushUrl"
   }
 
   git -C $p150PublishStage push origin HEAD:master
@@ -530,7 +550,15 @@ update="$source_dir/super-gsd/scripts/sgsd-update.sh"
   exit 1
 }
 cd -- "$project"
-bash "$update" --check --source "$source_dir"
+update_check_rc=0
+bash "$update" --check --source "$source_dir" || update_check_rc=$?
+case "$update_check_rc" in
+  0|10) ;;
+  *)
+    printf 'SGSD update check failed with status %s\n' "$update_check_rc" >&2
+    exit "$update_check_rc"
+    ;;
+esac
 bash "$update" --source "$source_dir"
 '@
 
