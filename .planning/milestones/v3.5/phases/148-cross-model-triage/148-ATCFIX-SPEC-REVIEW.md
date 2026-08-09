@@ -116,7 +116,7 @@ index 18ff969..87b9fb8 100644
 --- a/super-gsd/scripts/sgsd-triage-runtime.cjs
 +++ b/super-gsd/scripts/sgsd-triage-runtime.cjs
 @@ -25,6 +25,12 @@ const triageVerdictSchema = require('./lib/triage-verdict-schema.cjs');
- 
+
  const ROUTE_TOOL = 'mcp__vtp-kb__vtp_route_and_retrieve';
  const SEARCH_TOOL = 'mcp__vtp-kb__vtp_search_substrate';
 +const ROUTE_STAGE_TOOL = 'vtp_route_and_retrieve';
@@ -171,7 +171,7 @@ index 18ff969..87b9fb8 100644
 @@ -369,6 +388,403 @@ function buildContext(root, state, rawQuery, options) {
    return { ctx, triageSlice: project(ctx, 'triage') };
  }
- 
+
 +function vtpStageResponseRel(state, kind) {
 +  const phase = normalizePhase(state && state.phase) || 'unknown';
 +  const safeKind = safeSegment(kind) || 'response';
@@ -575,7 +575,7 @@ index 18ff969..87b9fb8 100644
 @@ -939,6 +1355,12 @@ async function runTriageRuntime(options = {}) {
    if (!rawQuery && options.queryFile) rawQuery = readQueryFile(root, options.queryFile);
    rawQuery = String(rawQuery || '').trim();
- 
+
 +  if (options.stage) {
 +    const evidenceRel = evidenceRelPath(root, state);
 +    const { triageSlice } = buildContext(root, state, rawQuery, options);
@@ -593,7 +593,7 @@ index 18ff969..87b9fb8 100644
 +  console.log(JSON.stringify(result && result.stageProtocol ? serializeStageResult(result) : serializeCliResult(result)));
    return result.exitCode;
  }
- 
+
 @@ -1170,6 +1592,7 @@ module.exports = {
    parseArgs,
    runTriageRuntime,
@@ -621,7 +621,7 @@ index f07af52..9c37903 100644
 @@ -246,6 +251,58 @@ function readJsonl(root, subpath) {
      .map((line) => JSON.parse(line));
  }
- 
+
 +function runRuntimeCli(args, options = {}) {
 +  return childProcess.spawnSync(process.execPath, [runtimePath, ...args], {
 +    cwd: repoRoot,
@@ -817,7 +817,7 @@ index f07af52..9c37903 100644
 +  'staged-vtp-oversized-response': assertStagedVtpOversizedResponse,
 +  'vtp-stage-no-codex-gate': assertVtpStageNoCodexGate,
 +  all: assertAllScenarioMatrix,});
- 
+
  const scenarioAliases = Object.freeze({
    'ac-planning-codex-row': assertPlanningCodexVerdictRow,
 @@ -1464,11 +1646,16 @@ module.exports = {
@@ -1061,24 +1061,24 @@ This gate is MANDATORY. Never skip it. Never auto-implement fixes.
 
 </decision_gate>
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 3669ms:
 ---
@@ -1199,24 +1199,24 @@ The skill itself tells you which.
 
 Instructions say WHAT, not HOW. "Add X" or "Fix Y" doesn't mean skip workflows.
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 codex
 Using `review` for a read-only spec compliance check. I’m treating the supplied diff as the source of truth and checking it against each acceptance criterion, not the reported green run.
@@ -1343,24 +1343,24 @@ super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs:1589:  'staged-vtp
 super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs:1590:  'staged-vtp-oversized-response': assertStagedVtpOversizedResponse,
 super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs:1591:  'vtp-stage-no-codex-gate': assertVtpStageNoCodexGate,
 super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs:1592:  all: assertAllScenarioMatrix,});
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 910ms:
 diff --git a/super-gsd/scripts/sgsd-triage-runtime.cjs b/super-gsd/scripts/sgsd-triage-runtime.cjs
@@ -1368,7 +1368,7 @@ index 18ff969..87b9fb8 100644
 --- a/super-gsd/scripts/sgsd-triage-runtime.cjs
 +++ b/super-gsd/scripts/sgsd-triage-runtime.cjs
 @@ -25,6 +25,12 @@ const triageVerdictSchema = require('./lib/triage-verdict-schema.cjs');
- 
+
  const ROUTE_TOOL = 'mcp__vtp-kb__vtp_route_and_retrieve';
  const SEARCH_TOOL = 'mcp__vtp-kb__vtp_search_substrate';
 +const ROUTE_STAGE_TOOL = 'vtp_route_and_retrieve';
@@ -1423,7 +1423,7 @@ index 18ff969..87b9fb8 100644
 @@ -369,6 +388,403 @@ function buildContext(root, state, rawQuery, options) {
    return { ctx, triageSlice: project(ctx, 'triage') };
  }
- 
+
 +function vtpStageResponseRel(state, kind) {
 +  const phase = normalizePhase(state && state.phase) || 'unknown';
 +  const safeKind = safeSegment(kind) || 'response';
@@ -1827,7 +1827,7 @@ index 18ff969..87b9fb8 100644
 @@ -939,6 +1355,12 @@ async function runTriageRuntime(options = {}) {
    if (!rawQuery && options.queryFile) rawQuery = readQueryFile(root, options.queryFile);
    rawQuery = String(rawQuery || '').trim();
- 
+
 +  if (options.stage) {
 +    const evidenceRel = evidenceRelPath(root, state);
 +    const { triageSlice } = buildContext(root, state, rawQuery, options);
@@ -1845,7 +1845,7 @@ index 18ff969..87b9fb8 100644
 +  console.log(JSON.stringify(result && result.stageProtocol ? serializeStageResult(result) : serializeCliResult(result)));
    return result.exitCode;
  }
- 
+
 @@ -1170,6 +1592,7 @@ module.exports = {
    parseArgs,
    runTriageRuntime,
@@ -1873,7 +1873,7 @@ index f07af52..9c37903 100644
 @@ -246,6 +251,58 @@ function readJsonl(root, subpath) {
      .map((line) => JSON.parse(line));
  }
- 
+
 +function runRuntimeCli(args, options = {}) {
 +  return childProcess.spawnSync(process.execPath, [runtimePath, ...args], {
 +    cwd: repoRoot,
@@ -2069,7 +2069,7 @@ index f07af52..9c37903 100644
 +  'staged-vtp-oversized-response': assertStagedVtpOversizedResponse,
 +  'vtp-stage-no-codex-gate': assertVtpStageNoCodexGate,
 +  all: assertAllScenarioMatrix,});
- 
+
  const scenarioAliases = Object.freeze({
    'ac-planning-codex-row': assertPlanningCodexVerdictRow,
 @@ -1464,11 +1646,16 @@ module.exports = {
@@ -2091,24 +2091,24 @@ index f07af52..9c37903 100644
    assertRouteErrorFallback,
  };
 +
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 warning: in the working copy of 'super-gsd/scripts/sgsd-triage-runtime.cjs', LF will be replaced by CRLF the next time Git touches it
 warning: in the working copy of 'super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs', LF will be replaced by CRLF the next time Git touches it
 
@@ -2351,24 +2351,24 @@ NEVER auto-fire the next skill. Never auto-fire on disagreement. The FLOOR invar
 - `superpowers:writing-plans` ƒ?" Step 2 invoked
 </related>
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 codex
 The local diff matches the supplied diff: no `SKILL.md` change is present. I also found the staged tests were registered individually, but the `all` scenario matrix itself was not expanded in the shown change.
@@ -2405,68 +2405,68 @@ exec
 1562:}
 1563:
 1564:const scenarios = Object.freeze({
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 2071ms:
 43:1. Write the raw query verbatim to a repo-contained temp file: `.planning/tmp/sgsd-triage-query-{YYYYMMDDTHHMMSSZ}-{pid}.txt`.
 57:Invoke `superpowers:brainstorming` with the operator's query verbatim. Its job per its own description: *"explore user intent, requirements and design before implementation."*
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 2207ms:
 runtime_check=0
 test_check=0
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 codex
 SPEC_VERDICT: fix_required

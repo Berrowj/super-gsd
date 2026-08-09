@@ -209,10 +209,10 @@ provider: openai-codex (gpt-5.6-sol/xhigh)
 
 ## AC-150 verbatim
 
-> **AC-150:** (a) `git log` on devcp shows the pushed HEAD; (b) both machines pass  
-> a post-update smoke (`sgsd -NoOpen` preflight + hook self-test); (c) Codex hook  
-> trust verified granted on both (probe: dispatch touches a forbidden path →  
-> `block-forbidden-write.cjs` fires); (d) PROPAGATION.md reboot commands verified  
+> **AC-150:** (a) `git log` on devcp shows the pushed HEAD; (b) both machines pass
+> a post-update smoke (`sgsd -NoOpen` preflight + hook self-test); (c) Codex hook
+> trust verified granted on both (probe: dispatch touches a forbidden path →
+> `block-forbidden-write.cjs` fires); (d) PROPAGATION.md reboot commands verified
 > by running them.
 
 Source: `.planning/analyses/2026-08-05-always-on-orchestration-DESIGN.md:159-163`.
@@ -229,25 +229,25 @@ Source: `.planning/analyses/2026-08-05-always-on-orchestration-DESIGN.md:159-163
 
 ## Recommended plan shape
 
-1. **Repair updater contract.**  
+1. **Repair updater contract.**
    `files_touched`: `super-gsd/scripts/sgsd-update.sh`, `sgsd-update.ps1`, `super-gsd/skills/sgsd-update/SKILL.md`, propagation tests. Add clean-source, fetched-SHA and `--ff-only` guards; call `--update --install-global`; preserve project config.
 
-2. **Make Codex hooks installable.**  
+2. **Make Codex hooks installable.**
    `files_touched`: `.codex/hooks.json`, new canonical hook template, `super-gsd/install.sh`, `sgsd-onboard.ps1`, `scripts/lib/sgsd-readiness.ps1`, installer audit/tests. Safely merge rather than overwrite user hooks.
 
-3. **Close Linux/runtime-provenance gaps.**  
+3. **Close Linux/runtime-provenance gaps.**
    `files_touched`: `super-gsd/scripts/sgsd-boot.sh`, `sgsd-remote-tmux.sh`, related tests. Add a true no-open smoke and make explicit canonical-source overrides authoritative; print/verify framework HEAD.
 
-4. **Document reconciliation decision and runbook.**  
+4. **Document reconciliation decision and runbook.**
    `files_touched`: phase `PROPAGATION.md`, a devcp reconciliation decision/manifest. Record “quarantine/defer 883 history,” non-deleting 43-file reconciliation, rollback, live/restart matrix, and exact commands.
 
-5. **OPERATOR-PRESENT — merge, PII gate, push, local propagation.**  
+5. **OPERATOR-PRESENT — merge, PII gate, push, local propagation.**
    `files_touched`: source history plus runtime `$PROFILE`, `~/.claude`, project settings. Verify every outgoing commit uses the generic operator identity before `git push origin master`.
 
-6. **OPERATOR-PRESENT — local trust and AC-150b/c/d.**  
+6. **OPERATOR-PRESENT — local trust and AC-150b/c/d.**
    `files_touched`: `~/.codex/state_5.sqlite` and ignored metrics. Approve interactively, run `sgsd -NoOpen`, hook self-test, forbidden-write probe, MCP/profile/cockpit restart commands.
 
-7. **OPERATOR-PRESENT — devcp reconciliation/update/trust/reboot.**  
+7. **OPERATOR-PRESENT — devcp reconciliation/update/trust/reboot.**
    `files_touched`: devcp canonical/global install and ignored evidence only. Run safety checks, fresh backup/inventory, guarded `/sgsd-update`, HEAD proof, trust probe, tmux/MCP/cockpit restart, then capture outputs in `150-VERIFICATION.md`.
 
 

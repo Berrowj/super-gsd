@@ -210,24 +210,24 @@ The skill itself tells you which.
 
 Instructions say WHAT, not HOW. "Add X" or "Fix Y" doesn't mean skip workflows.
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 codex
 Using `review` narrowly for the requested spec-compliance review; I’ll keep the output to the contract and avoid ATC-style quality findings.
@@ -449,24 +449,24 @@ This gate is MANDATORY. Never skip it. Never auto-implement fixes.
 
 </decision_gate>
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 codex
 I’m reading only the three named library files and the stated STATE diff context, then checking the implementation against the locked task contract.
@@ -666,24 +666,24 @@ module.exports = {
   findPlanLockedForPhase: findPlanLockedFiles,
   PHASE_SOURCE,
 };
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 528ms:
 // ============================================================================
@@ -881,24 +881,24 @@ module.exports = {
   COMMAND_NAME,
   ENVELOPE_VERSION,
 };
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 546ms:
 // ============================================================================
@@ -1501,24 +1501,24 @@ module.exports = {
   ENVELOPE_VERSION,
 };
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 codex
 I’ve found the main contract points in the raw files. I’m doing the final pass now against the six interrogatories, without broadening into code-quality review.
@@ -1665,24 +1665,24 @@ Run the command. Read the output. THEN claim the result.
 
 This is non-negotiable.
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 codex
 SPEC_VERDICT: pass

@@ -389,22 +389,22 @@ wrapper_exit: 6 (contract-vocab mismatch; body valid — stderr stream stripped)
 
 ## Recommended plan shape
 
-1. Add registry + loader.  
+1. Add registry + loader.
    `files_touched`: `super-gsd/registry/skill-routing.yaml`, `super-gsd/scripts/lib/skill-routing-registry.cjs`.
 
-2. Add schema self-test and compiled fallback.  
+2. Add schema self-test and compiled fallback.
    `files_touched`: `super-gsd/scripts/lib/skill-routing-registry.cjs`, optional fixture/self-test file.
 
-3. Adapt P146 classifier to consume prompt-time rows from the new loader.  
+3. Adapt P146 classifier to consume prompt-time rows from the new loader.
    `files_touched`: `super-gsd/hooks/sgsd-intent-classifier.cjs`, `super-gsd/hooks/sgsd-quality-gate.js`, `super-gsd/registry/session-governance-hooks.yaml`.
 
-4. Add orchestrate phase-close consult and gate-evidence logging.  
+4. Add orchestrate phase-close consult and gate-evidence logging.
    `files_touched`: `super-gsd/scripts/lib/orchestrator-hooks.cjs`, `super-gsd/skills/sgsd-orchestrate/SKILL.md`.
 
-5. Replace hardcoded routing prose with references to the runtime table/helper.  
+5. Replace hardcoded routing prose with references to the runtime table/helper.
    `files_touched`: `super-gsd/skills/sgsd-orchestrate/SKILL.md`.
 
-6. Verify AC-149.  
+6. Verify AC-149.
    `files_touched`: self-test/CLI only; cover valid schema, malformed fallback + log, manual prompt suggestion, and auto phase-close fired/skipped log.
 
 
@@ -544,24 +544,24 @@ The skill itself tells you which.
 
 Instructions say WHAT, not HOW. "Add X" or "Fix Y" doesn't mean skip workflows.
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 976ms:
 ---
@@ -717,24 +717,24 @@ After saving the plan, offer execution choice:
 - **REQUIRED SUB-SKILL:** Use superpowers:executing-plans
 - Batch execution with checkpoints for review
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 codex
 ---

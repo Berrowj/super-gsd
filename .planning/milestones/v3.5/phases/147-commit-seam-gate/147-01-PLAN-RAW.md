@@ -625,24 +625,24 @@ After saving the plan, offer execution choice:
 - **REQUIRED SUB-SKILL:** Use superpowers:executing-plans
 - Batch execution with checkpoints for review
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 931ms:
 ---
@@ -763,24 +763,24 @@ The skill itself tells you which.
 
 Instructions say WHAT, not HOW. "Add X" or "Fix Y" doesn't mean skip workflows.
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 exec
 "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -LiteralPath '.planning/milestones/v3.5/phases/147-commit-seam-gate/CONTEXT.md' -Raw" in $env:USERPROFILE\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
@@ -836,24 +836,24 @@ failure mode "commit refused, files intact" ƒ?" never "cannot touch source".
 
 AC-147 (a)(b)(c)(d) from the design spec.
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 1003ms:
 ---
@@ -1190,24 +1190,24 @@ tasks:
       Shell syntax passes, watchdog phase self-test proves frontmatter resolution, and runtime config grep finds no dead knobs or dead hook registration.
     expected_ATC_tier: GATE
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 1039ms:
 ---
@@ -1278,24 +1278,24 @@ be its own governance defect.
 4. Describe the gate as one layer among several. RESEARCH Q9 shows `--no-verify`
    bypasses it; the phase must not claim coverage it does not have.
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 1058ms:
 ---
@@ -1307,8 +1307,8 @@ wrapper_exit: 6 (contract-vocab mismatch ƒ?" codex-exec enforces the 5-line ATC
 ---
 
 **1. AC-147 Verbatim**
-> **AC-147:** (a) warn rows accumulate on real commits in both repos; (b)  
-> `--shadow-report` computes the falsifier verdict mechanically; (c) block mode  
+> **AC-147:** (a) warn rows accumulate on real commits in both repos; (b)
+> `--shadow-report` computes the falsifier verdict mechanically; (c) block mode
 > cannot activate before the falsifier passes; (d) sentinel bypass is logged.
 
 Source: `.planning/analyses/2026-08-05-always-on-orchestration-DESIGN.md:101-103`.
@@ -1361,24 +1361,24 @@ Repoint `STATE.md` to P147 before dogfooding; choose existing-hook policy; defin
 No files modified and no tests run.
 
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 1060ms:
 {
@@ -1569,24 +1569,24 @@ At line:1 char:1
   }
 }
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 exec
 "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'.planning/milestones/v3.5/phases/146-session-governance-hooks/146-01-PLAN-LOCKED.md'; (Get-Content -LiteralPath "'$p | Measure-Object -Line).Lines' in $env:USERPROFILE\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
@@ -1688,45 +1688,45 @@ exec
     stop_rule: >
       Shell syntax passes, watchdog phase self-test proves frontmatter resolution, and runtime config grep finds no dead knobs or dead hook registration.
     expected_ATC_tier: GATE
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 3352ms:
 327
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 3357ms:
     depends_on: []
@@ -1849,24 +1849,24 @@ At line:1 char:1
       The classifier calls an LLM, blocks prompts, judges plan quality itself, misses a planning-shaped prompt, cannot switch registry source with one line for P149, or records p95_ms >= 1000.
     stop_rule: >
       Planning prompt emits /sgsd-triage, trivial execution prompt does not emit /sgsd-triage, neglected-skill prompts route to the named skill suggestion, non-SGSD cwd exits quiet 0, and the 200-iteration bench records p95_ms below 1000.
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 exec
 "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "rg --files super-gsd | rg '("'^|/)docs/|README|install|sgsd-state|gate-evidence-log|commit'"'" in $env:USERPROFILE\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
@@ -2169,24 +2169,24 @@ module.exports = {
   findPlanLockedFiles,
   PHASE_SOURCE,
 };
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 1528ms:
 super-gsd\install.sh
@@ -2250,24 +2250,24 @@ super-gsd\tools\chaos-restart\fixtures\mid-execute\README.md
 super-gsd\tools\chaos-restart\fixtures\mid-plan\README.md
 super-gsd\tools\chaos-restart\fixtures\mid-close\README.md
 super-gsd\tests\cockpit-acceptance\README.md
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 1019ms:
 // ============================================================================
@@ -2538,24 +2538,24 @@ module.exports = {
   COMMAND_NAME,
   ENVELOPE_VERSION,
 };
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 exec
 "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command 'git rev-parse --show-toplevel' in $env:USERPROFILE\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
@@ -2567,87 +2567,87 @@ exec
 "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command 'git rev-parse --git-path hooks/pre-commit' in $env:USERPROFILE\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
  succeeded in 2111ms:
 git@github.com:Berrowj/super-gsd.git
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 2128ms:
 $HOME/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/cholla-racer
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 2078ms:
 $HOME/GSDedits/.git/hooks/pre-commit
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 2104ms:
 $HOME/GSDedits/.git
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 exec
 "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -LiteralPath 'super-gsd/README.md' -TotalCount 120" in $env:USERPROFILE\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
@@ -2752,24 +2752,24 @@ node super-gsd/tools/cockpit-sidecar/atc-playwright-gate.cjs --phase <N> --targe
 The Playwright gate auto-skips when the phase's git diff touched no UI files
 (verdict: `SKIPPED-NO-UI-FILES`). Mandatory for any UI phase ƒ?" see
 `.planning/memory/workflow/feedback/feedback_playwright_atc_gate.md`.
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 1134ms:
 super-gsd/registry\agents.yaml
@@ -3092,24 +3092,24 @@ super-gsd/registry\board-members.yaml
 .planning\milestones\v2.9\phases\98-harness-component-substrate\98-07-safe-installer-modes-PLAN.md
 .planning\milestones\v1.8\phases\40-phase-folder-audit\PHASE-CAPSULE.json
 .planning\milestones\v1.8\phases\40-phase-folder-audit\commit-reviews.jsonl
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 5697ms:
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-LOCKED.md:model: codex
@@ -4169,18 +4169,18 @@ super-gsd\tools\cockpit-sidecar\cockpit-sidecar.cjs:        { name: 'MUDA-waste-
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:model: gpt-5.5
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:Always-On Orchestration — governance as runtime mechanism in all session modes.
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:- `gate-evidence.jsonl` as a new stream vs extending `gate-value-log.jsonl`.
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:# P146 Context ƒ?" Session Governance Hooks (all modes)
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:   mode (same table; mode changes who confirms, not what runs), active
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:   `.planning/metrics/gate-evidence.jsonl`. Cockpit tile surfaces gaps.
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:> **AC-146:** (a) an `sg`-launched manual session shows the governance contract in its first response with zero operator action; (b) a planning-shaped prompt in a manual session produces a visible `/sgsd-triage` directive; (c) a source edit with no PLAN for the active phase produces a gate-evidence row and a cockpit signal within one refresh; (d) all hooks exit 0 in a non-SGSD repo.
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:Q1. Local Claude Code is `2.1.222`. Schema is `"hooks": { Event: [{ matcher?, hooks: [{ type:"command", command, args?, timeout? }] }] }`; repo-local scope is `.claude/settings.json` (`code.claude.com/docs/en/hooks` lines 390-401). Inputs arrive as JSON on stdin with common `session_id`, `transcript_path`, `cwd`, `hook_event_name` (`lines 769-781`). `SessionStart` adds `source`/optional `model` (`lines 1055-1073`); stdout or `hookSpecificOutput.additionalContext` becomes first-turn context (`lines 1080-1097`). `UserPromptSubmit` adds `prompt` (`lines 1245-1256`), stdout/JSON context is injected (`lines 1261-1266`), and `decision:"block"` blocks (`lines 1269-1273`). `PostToolUse` gets `tool_name`, `tool_input`, `tool_response`, `duration_ms` (`lines 1773-1797`). Report-only is achievable: exit 0, omit `decision`, omit `continue:false`; exit 2 blocks UserPromptSubmit but cannot undo PostToolUse (`lines 813-831`, `839-858`).
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:Q6. `.planning/metrics/gate-evidence.jsonl` does not exist. Existing consumers read `gate-value-log.jsonl` and `review-ledger.jsonl`, not gate-evidence (`super-gsd/tools/cockpit-state/adapter.cjs:935-954`, `super-gsd/tools/warp-mcp/server.cjs:1485-1533`). Row shape should reuse envelope-v1: required fields plus extensions, following `gate-value-log.cjs` schema and never-throw writer (`super-gsd/scripts/lib/gate-value-log.cjs:19-41`, `257-277`). Add cockpit consumer wiring or AC-146c will log but not signal.
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:Create `super-gsd/scripts/lib/gate-evidence-log.cjs` envelope writer for `gate-evidence.jsonl`.  
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:`node -e "require('./super-gsd/scripts/lib/gate-evidence-log.cjs')"`  
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:Create `super-gsd/scripts/lib/gate-evidence-log.cjs` envelope writer for `gate-evidence.jsonl`.
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:`node -e "require('./super-gsd/scripts/lib/gate-evidence-log.cjs')"`
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:STATE frontmatter needs a canonical `current_phase` key. Decide whether `gate-evidence.jsonl` is new canonical stream or `gate-value-log` extension. Decide install-time absolute paths vs `${CLAUDE_PROJECT_DIR}`. Verify actual mutation tool names in this harness before including `MultiEdit`.
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:  model may or may not honor) and becomes harness-resident (hooks the runtime
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-RAW.md:  still need model/policy-level validation. Read against P146: the
@@ -4632,33 +4632,33 @@ super-gsd\docs\vtp-enrichment-smoke.md:**Pass criterion:** Visual inspection —
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:2. Evidence stream: create `.planning/metrics/gate-evidence.jsonl` as a new envelope-v1 stream. Do not extend `gate-value-log.jsonl`; that stream keeps existing gate-value semantics.
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:SessionStart should prefer hook JSON `hookSpecificOutput.additionalContext` when supported and fall back to stdout context. It must include ATC tiers, gate expectations per mode, active milestone, active phase, and the report-only nature of PostToolUse governance.
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cockpit adapter and MCP reader must consume `gate-evidence.jsonl`; AC-146c is incomplete if only the hook writer exists.
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md://   - now           Q1 -- what is the model doing right now
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command-envelope-v1.yaml
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md://     - Speak raw JSON-RPC 2.0 over stdio (no @modelcontextprotocol/sdk).
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:super-gsd\scripts\lib\classifier-cache.cjs: * Sidecar body: { classified_at: ISO, verdict: { complexity, model, atc_tier, deliberate, reason }, plan_schema_version }
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:.planning\metrics\plan-errors.jsonl:{"ts":"2026-08-05T18:39:52.568Z","event":"validation_run","plan_file":"145-01-PLAN-LOCKED.md","phase":145,"plan":1,"schema_version":2,"mode":"load","valid":true,"error_count":0,"errors":[]}
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:.planning\metrics\plan-errors.jsonl:{"ts":"2026-08-06T00:50:38.276Z","event":"validation_run","plan_file":"146-01-PLAN-LOCKED.md","phase":146,"plan":1,"schema_version":2,"mode":"load","valid":true,"error_count":0,"errors":[]}
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:.planning\metrics\plan-errors.jsonl:{"ts":"2026-08-06T00:58:54.301Z","event":"validation_run","plan_file":"146-rev1-candidate.md","phase":0,"plan":0,"schema_version":2,"mode":"load","valid":false,"error_count":2,"errors":[{"instancePath":"","schemaPath":"#/required","keyword":"required","message":"must have required property 'tasks'"},{"instancePath":"","schemaPath":"#/errorMessage","keyword":"errorMessage","message":"plan must declare 'semantic_acceptance_criteria' array with >=1 entry (SCHEMA-09)"}]}
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:super-gsd\scripts\lib\route-ledger.cjs:// has the 13 required envelope-v1 fields with the correct types and that
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:super-gsd\scripts\lib\vtp-enrichment-gate.cjs: * @returns {{sub_agent_type:string, model:string, seed:string, tools:string[], cascade_rule:string, artifact_filename:string, phaseDir:string, phase:string}}
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:// Append-only. Every row is a valid command-envelope-v1 row PLUS
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:// super-gsd/registry/command-envelope-v1.yaml:260 (collides_with: []).
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md://     reason_codes:     string[]   (envelope-v1 vocab; empty array allowed),
@@ -4670,26 +4670,26 @@ super-gsd\docs\vtp-enrichment-smoke.md:**Pass criterion:** Visual inspection —
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:// envelope-v1 status enum (command-envelope-v1.json status.enum). Frozen.
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:// run_id pattern matches envelope-v1.json: ISO ts + 4 hex chars.
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:// Validate envelope-v1 run_id pattern. Used only by self-test; production
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:      The quality gate exits 0, appends a missing-plan row to that fixture's gate-evidence.jsonl with phase 999 and the edited file path, and the cockpit reader consumes that same row as a visible governance signal.
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:      powershell -NoProfile -Command '$tmp=Join-Path ([IO.Path]::GetTempPath()) ("sgsd-ac146c-" + [guid]::NewGuid()); try { New-Item -ItemType Directory -Path (Join-Path $tmp ".planning\metrics"),(Join-Path $tmp ".planning\milestones\v3.5\phases\999-fixture"),(Join-Path $tmp "src") -Force | Out-Null; @("---","milestone: v3.5","current_phase: `"999`"","---","# Fixture") | Set-Content -LiteralPath (Join-Path $tmp ".planning\STATE.md") -Encoding UTF8; $edit=Join-Path $tmp "src\edited.js"; "module.exports = 1;" | Set-Content -LiteralPath $edit -Encoding UTF8; $record=Join-Path $tmp ".planning\metrics\gate-evidence.jsonl"; $payload=@{hook_event_name="PostToolUse";cwd=$tmp;tool_name="Edit";tool_input=@{file_path=$edit};session_id="ac146c"} | ConvertTo-Json -Depth 8 -Compress; $out=$payload | node super-gsd/hooks/sgsd-quality-gate.js; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; if (($out -join "").Trim().Length -gt 0) { exit 1 }; if (!(Test-Path -LiteralPath $record)) { exit 1 }; $rows=Get-Content -LiteralPath $record | ForEach-Object { $_ | ConvertFrom-Json }; $row=$rows | Where-Object { $_.signal -eq "missing_plan" -and $_.phase -eq "999" -and $_.file_path -eq $edit -and $_.tool_name -eq "Edit" } | Select-Object -Last 1; if (-not $row) { exit 1 }; $snapJson=node super-gsd/tools/cockpit-state/adapter.cjs --json --project $tmp; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; $snapText=($snapJson -join "`n"); if ($snapText -notmatch "missing_plan" -or $snapText -notmatch "999" -or $snapText -notmatch [regex]::Escape($edit)) { exit 1 } } finally { if ($tmp -like (Join-Path ([IO.Path]::GetTempPath()) "sgsd-ac146c-*")) { Remove-Item -LiteralPath $tmp -Recurse -Force } }'
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-PLAN-REV2-RAW.md:      powershell -NoProfile -Command '$tmp=Join-Path ([IO.Path]::GetTempPath()) ("sgsd-nonrepo-" + [guid]::NewGuid()); $record=".planning\metrics\gate-evidence.jsonl"; $before=0; if (Test-Path -LiteralPath $record) { $before=(Get-Content -LiteralPath $record).Count }; try { New-Item -ItemType Directory -Path $tmp | Out-Null; foreach ($pair in @(@("sgsd-session-start.js","SessionStart"),@("sgsd-intent-classifier.cjs","UserPromptSubmit"),@("sgsd-quality-gate.js","PostToolUse"))) { $payload=@{hook_event_name=$pair[1];cwd=$tmp;prompt="hello";tool_name="Edit";tool_input=@{file_path="x.txt"};session_id="ac146d"} | ConvertTo-Json -Depth 5 -Compress; $out=$payload | node (Join-Path "super-gsd/hooks" $pair[0]); if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; if (($out -join "").Trim().Length -gt 0) { exit 1 } }; $after=0; if (Test-Path -LiteralPath $record) { $after=(Get-Content -LiteralPath $record).Count }; if ($after -ne $before) { exit 1 } } finally { if ($tmp -like (Join-Path ([IO.Path]::GetTempPath()) "sgsd-nonrepo-*")) { Remove-Item -LiteralPath $tmp -Recurse -Force } }'
@@ -4740,8 +4740,8 @@ super-gsd\docs\vtp-qdrant-setup.md:| Upsert reports "collection exists with wron
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-ATC-REVIEW.md:FINDINGS_DETAIL: [WARN] [delete/simplify] `gate-evidence-log.cjs` duplicates the command-envelope JSONL machinery from `gate-value-log.cjs` (`STATUSES`, `RUN_ID_REGEX`, run id generation, normalize/assert/append/read shape). Verdict: do not wrap `logGateValue()` directly because the ledger semantics differ; extract a shared envelope JSONL writer/reader and have both ledgers supply command name, ledger path, and extension validation.
 super-gsd\docs\vtp-remote-access.md:                                                mode 0600
 super-gsd\docs\vtp-remote-access.md:- File mode is `0600`.
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-CODEX-EXECUTOR-REPORT.md:`super-gsd/scripts/lib/gate-evidence-log.cjs` (created)  
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-CODEX-EXECUTOR-REPORT.md:`node --check super-gsd/scripts/lib/gate-evidence-log.cjs` → exit 0 ✓  
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-CODEX-EXECUTOR-REPORT.md:`super-gsd/scripts/lib/gate-evidence-log.cjs` (created)
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-CODEX-EXECUTOR-REPORT.md:`node --check super-gsd/scripts/lib/gate-evidence-log.cjs` → exit 0 ✓
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-CODEX-EXECUTOR-REPORT.md:`super-gsd/scripts/lib/gate-evidence-log.cjs` | envelope-v1 gate evidence JSONL writer | exports `logGateEvidence`, `readGateEvidenceRows`, `ledgerPath`
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-CODEX-EXECUTOR-REPORT.md:ONE_LINER: Added the shared frontmatter-only SGSD state resolver, PLAN-LOCKED file resolver, and never-throw envelope-v1 gate evidence writer; STATE now declares `current_phase: "146"`.
 super-gsd\tools\chronicle\validate-chronicle.cjs:    return { ok: ledger.ids.has(citationId), mode: 'cmb-ledger' };
@@ -4760,14 +4760,14 @@ super-gsd\tools\chronicle\validate-chronicle.cjs:        `citation ${citation.id
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:  gate-evidence-log.cjs: never-throw envelope-v1 append writer mirroring
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:- super-gsd/scripts/lib/gate-evidence-log.cjs (new, 194 lines)
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:logGateEvidence to temp planningDir → envelope-v1 row, parses as JSON.
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:- **MEDIUM** - Should fix soon. Code quality or moderate risk issue.
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw 'super-gsd/scripts/lib/gate-evidence-log.cjs'" in $env:USERPROFILE\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:// Source of truth: .planning/metrics/gate-evidence.jsonl (machine-readable)
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:// Append-only. Every row is a valid command-envelope-v1 row plus signal-specific
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:const LEDGER_REL = path.join('metrics', 'gate-evidence.jsonl');
@@ -4788,8 +4788,8 @@ super-gsd\tools\chronicle\validate-chronicle.cjs:        `citation ${citation.id
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:  if (!p) throw new Error('gate-evidence-log: planningDir required');
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:    console.warn('[SGSD] gate-evidence-log logGateEvidence failed:', e.message);
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:    console.warn('[SGSD] gate-evidence-log readGateEvidenceRows failed:', e.message);
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:// Append-only. Every row is a valid command-envelope-v1 row PLUS three
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:// extension fields: `gate`, `outcome`, `retroactive`. envelope-v1 contract is
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md://     reason_codes:     string[] (envelope-v1 vocab; defaults from OUTCOME_REASON_CODES),
@@ -4814,10 +4814,10 @@ super-gsd\tools\chronicle\validate-chronicle.cjs:        `citation ${citation.id
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:    assert('2. STATUSES is array of 6 envelope-v1 states',
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:      retroactive: { step: '6.5', category: 'code-quality', enforcement_mode: 'hard-halt', version: '2.1' },
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:      r1.retroactive.enforcement_mode === 'hard-halt' &&
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:command because it was defined in a different language mode. To invoke this command without importing its contents, 
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:command because it was defined in a different language mode. To invoke this command without importing its contents,
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPEC-REVIEW.md:VERIFICATION_MAPPING: raw `sgsd-state.cjs` shows no prose-status phase parsing; `readState` returns `current_phase`, `legacy_phase`, or `absent` only; `status_prose` is declared but unreachable; PLAN-LOCKED helper checks both `.planning/phases/` and `.planning/milestones/*/phases/`; raw `gate-evidence-log.cjs` uses Node built-ins only, wraps public APIs, validates envelope-v1, appends JSONL, and mirrors gate-value-log append/read conventions; supplied STATE diff adds only `current_phase: "146"`.
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPECREVIEW-PROMPT.md:  super-gsd/scripts/lib/gate-evidence-log.cjs,
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01-SPECREVIEW-PROMPT.md:  .planning/metrics/gate-evidence.jsonl
@@ -4846,8 +4846,8 @@ super-gsd\tools\chronicle\validate-chronicle.cjs:        `citation ${citation.id
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01FIX2-PROMPT.md:   envelope-v1.
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01FIX2-PROMPT.md:4. This real repo → row still appends to .planning/metrics/gate-evidence.jsonl
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01FIX2-REPORT.md:FILES_CHANGED: `super-gsd/scripts/lib/gate-evidence-log.cjs` (modified)
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01FIX2-REPORT.md:`node --check super-gsd/scripts/lib/gate-evidence-log.cjs` → exit 0 ✓  
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01FIX2-REPORT.md:`node -e <STATE.md present append + envelope-v1 parse probe>` → exit 0 ✓  
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01FIX2-REPORT.md:`node --check super-gsd/scripts/lib/gate-evidence-log.cjs` → exit 0 ✓
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T01FIX2-REPORT.md:`node -e <STATE.md present append + envelope-v1 parse probe>` → exit 0 ✓
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T02-CODEX-EXECUTOR-PROMPT.md:Always-On Orchestration — governance as runtime mechanism in all session modes.
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T02-CODEX-EXECUTOR-REPORT.md:`super-gsd/scripts/merge-settings.js` (modified, +234/-… : --repo-local-hooks mode + --self-test-repo-local-hooks)
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T02FIX-PROMPT.md:Always-On Orchestration — governance as runtime mechanism in all session modes.
@@ -4870,7 +4870,7 @@ super-gsd\tools\chronicle\validate-chronicle.cjs:        `citation ${citation.id
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T04-CODEX-EXECUTOR-PROMPT.md:## `--bench` mode (the plan verifies this exactly)
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T04-CODEX-EXECUTOR-PROMPT.md:Bench mode writes to the `--record` path via the T146-01 writer — it must still
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T04-CODEX-EXECUTOR-REPORT.md:FILES_CHANGED: `super-gsd/hooks/sgsd-intent-classifier.cjs` (created); `super-gsd/registry/session-governance-hooks.yaml` (created); `.planning/metrics/gate-evidence.jsonl` (created, append-only)
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T04-CODEX-EXECUTOR-REPORT.md:`--bench --iterations 200 ... --record .planning/metrics/gate-evidence.jsonl` → exit 0 ✓ (`p95_ms=0.041`)  
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T04-CODEX-EXECUTOR-REPORT.md:`--bench --iterations 200 ... --record .planning/metrics/gate-evidence.jsonl` → exit 0 ✓ (`p95_ms=0.041`)
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T04-CODEX-EXECUTOR-REPORT.md:SCRIPTS_CREATED: `super-gsd/hooks/sgsd-intent-classifier.cjs` | local lexical UserPromptSubmit classifier plus bench mode | stdin hook JSON or `--bench --iterations N --prompt TEXT --record .planning/metrics/gate-evidence.jsonl`
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T04FIX-PROMPT.md:Always-On Orchestration — governance as runtime mechanism in all session modes.
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-01-T04FIX2-PROMPT.md:Always-On Orchestration — governance as runtime mechanism in all session modes.
@@ -4989,8 +4989,8 @@ super-gsd\tools\chronicle\validate-chronicle.cjs:        `citation ${citation.id
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-RESEARCH.md:> **AC-146:** (a) an `sg`-launched manual session shows the governance contract in its first response with zero operator action; (b) a planning-shaped prompt in a manual session produces a visible `/sgsd-triage` directive; (c) a source edit with no PLAN for the active phase produces a gate-evidence row and a cockpit signal within one refresh; (d) all hooks exit 0 in a non-SGSD repo.
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-RESEARCH.md:Q1. Local Claude Code is `2.1.222`. Schema is `"hooks": { Event: [{ matcher?, hooks: [{ type:"command", command, args?, timeout? }] }] }`; repo-local scope is `.claude/settings.json` (`code.claude.com/docs/en/hooks` lines 390-401). Inputs arrive as JSON on stdin with common `session_id`, `transcript_path`, `cwd`, `hook_event_name` (`lines 769-781`). `SessionStart` adds `source`/optional `model` (`lines 1055-1073`); stdout or `hookSpecificOutput.additionalContext` becomes first-turn context (`lines 1080-1097`). `UserPromptSubmit` adds `prompt` (`lines 1245-1256`), stdout/JSON context is injected (`lines 1261-1266`), and `decision:"block"` blocks (`lines 1269-1273`). `PostToolUse` gets `tool_name`, `tool_input`, `tool_response`, `duration_ms` (`lines 1773-1797`). Report-only is achievable: exit 0, omit `decision`, omit `continue:false`; exit 2 blocks UserPromptSubmit but cannot undo PostToolUse (`lines 813-831`, `839-858`).
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-RESEARCH.md:Q6. `.planning/metrics/gate-evidence.jsonl` does not exist. Existing consumers read `gate-value-log.jsonl` and `review-ledger.jsonl`, not gate-evidence (`super-gsd/tools/cockpit-state/adapter.cjs:935-954`, `super-gsd/tools/warp-mcp/server.cjs:1485-1533`). Row shape should reuse envelope-v1: required fields plus extensions, following `gate-value-log.cjs` schema and never-throw writer (`super-gsd/scripts/lib/gate-value-log.cjs:19-41`, `257-277`). Add cockpit consumer wiring or AC-146c will log but not signal.
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-RESEARCH.md:Create `super-gsd/scripts/lib/gate-evidence-log.cjs` envelope writer for `gate-evidence.jsonl`.  
-.planning/milestones/v3.5/phases/146-session-governance-hooks\146-RESEARCH.md:`node -e "require('./super-gsd/scripts/lib/gate-evidence-log.cjs')"`  
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-RESEARCH.md:Create `super-gsd/scripts/lib/gate-evidence-log.cjs` envelope writer for `gate-evidence.jsonl`.
+.planning/milestones/v3.5/phases/146-session-governance-hooks\146-RESEARCH.md:`node -e "require('./super-gsd/scripts/lib/gate-evidence-log.cjs')"`
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-RESEARCH.md:STATE frontmatter needs a canonical `current_phase` key. Decide whether `gate-evidence.jsonl` is new canonical stream or `gate-value-log` extension. Decide install-time absolute paths vs `${CLAUDE_PROJECT_DIR}`. Verify actual mutation tool names in this harness before including `MultiEdit`.
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-VERIFICATION.md:- AC-146c → `sgsd-quality-gate.js:20-22,110-126`, `gate-evidence-log.cjs:119-185`, `adapter.cjs:914-1088,1169-1175`, `server.cjs:2032-2085` → source-backed producer→ledger→adapter→MCP path.
 .planning/milestones/v3.5/phases/146-session-governance-hooks\146-VERIFICATION.md:- Installer still exposes global settings write paths outside repo-local mode.
@@ -5002,24 +5002,24 @@ super-gsd\tools\chronicle\validate-chronicle.cjs:        `citation ${citation.id
 .planning/milestones/v3.5/phases/146-session-governance-hooks\CONTEXT.md:# P146 Context — Session Governance Hooks (all modes)
 .planning/milestones/v3.5/phases/146-session-governance-hooks\CONTEXT.md:   mode (same table; mode changes who confirms, not what runs), active
 .planning/milestones/v3.5/phases/146-session-governance-hooks\CONTEXT.md:   `.planning/metrics/gate-evidence.jsonl`. Cockpit tile surfaces gaps.
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 exec
 "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -LiteralPath '.planning/milestones/v3.5/phases/146-session-governance-hooks/146-01-PLAN-LOCKED.md' -Tail 8" in $env:USERPROFILE\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
@@ -5032,24 +5032,24 @@ exec
     stop_rule: >
       Shell syntax passes, watchdog phase self-test proves frontmatter resolution, and runtime config grep finds no dead knobs or dead hook registration.
     expected_ATC_tier: GATE
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 codex
 ```markdown

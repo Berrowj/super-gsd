@@ -55,7 +55,7 @@ index f6613b9..9305168 100755
  # See super-gsd/scripts/codex-exec.README.md for the full reference.
  # ============================================================================
 @@ -451,6 +452,7 @@ if [[ "$SELF_TEST" == true ]]; then
- 
+
      ST_PROFILE=false
      ST_FINALIZE=false
 +    ST_REPORT_WRITE=false
@@ -65,7 +65,7 @@ index f6613b9..9305168 100755
 @@ -553,6 +555,22 @@ EOS
              [[ "$rc" -eq 6 ]] && grep -q 'report contract violation' "$case_dir/stderr.txt"
          }
- 
+
 +        sgsd_codex_exec_self_test_report_write_failure_case() {
 +            local case_dir case_project case_prompt report_parent case_report rc
 +            case_dir="$ST_TMP_ROOT/case-report-write-failure"
@@ -103,7 +103,7 @@ index f6613b9..9305168 100755
      printf "Probe 6 finalize: %s\n" "$([ "$ST_FINALIZE" = true ] && echo PASS || echo FAIL)"
 +    printf "Probe 7 report write: %s\n" "$([ "$ST_REPORT_WRITE" = true ] && echo PASS || echo FAIL)"
      echo "Exit: $EXIT_CODE"
- 
+
      # Append JSONL row to codex-log.jsonl (D-05) with probe metadata for triage.
 @@ -855,6 +879,33 @@ write_raw_report_payload() {
          printf '0'
@@ -137,7 +137,7 @@ index f6613b9..9305168 100755
 +    return 1
 +}
  NARRATIVE_FILE="$PROJECT/.planning/metrics/narrative.md"
- 
+
  append_narrative_event() {
 @@ -938,6 +989,7 @@ if [[ $RC -eq 124 ]]; then
          # exec replaces process; reached only if exec itself fails
@@ -181,7 +181,7 @@ index f6613b9..9305168 100755
      append_narrative_event "codex_fallback" "parse_failure step=$STEP_TAG" "lastfail"
 @@ -1095,6 +1151,13 @@ if [[ $awk_rc -ne 0 || -z "$parsed" ]]; then
  fi
- 
+
  REPORT_BYTES="$(write_report_payload "$parsed")"
 +if ! handle_report_write_failure; then
 +    write_live_state "report-write-failure" "$REPORT_WRITE_FAILURE_EXIT" "false" "$REPORT_BYTES"
@@ -190,7 +190,7 @@ index f6613b9..9305168 100755
 +    # Host-side persistence failure; provider returned valid output, so do not update provider circuit.
 +    exit "$REPORT_WRITE_FAILURE_EXIT"
 +fi
- 
+
  # ── JSONL append on success ─────────────────────────────────────────────────
  write_live_state "ok" 0 "false" "$REPORT_BYTES"
 
@@ -331,24 +331,24 @@ The skill itself tells you which.
 
 Instructions say WHAT, not HOW. "Add X" or "Fix Y" doesn't mean skip workflows.
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 codex
 Using `using-superpowers` for the mandatory skill check, and `review` only insofar as it helps structure a spec-conformance review; I’ll keep the judgment limited to the dispatch spec you provided.
@@ -570,24 +570,24 @@ This gate is MANDATORY. Never skip it. Never auto-implement fixes.
 
 </decision_gate>
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 codex
 I’m checking the surrounding shell flow now because the key conformance points depend on where `REPORT_BYTES` feeds stdout, live state, JSONL, narrative, and provider-circuit updates.
@@ -788,24 +788,24 @@ EOS
         codex_version_json="$(json_escape "$CODEX_VERSION")"
         auth_method_json="$(json_escape "${ST_AUTH_METHOD:-unknown}")"
         stderr_json="$(json_escape "${ST_CONTRACT_STDERR:-}")"
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 1398ms:
     echo "============================================================"
@@ -1158,24 +1158,24 @@ echo "codex-exec: OK ƒ?" $REPORT_OUT written (${REPORT_BYTES}B), codex took ${D
 # Phase 55-01: success closes the circuit (resets consecutive_failures to 0).
 provider_circuit_record_result "$MILESTONE_TAG" "true"
 exit 0
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 1524ms:
 
@@ -1202,34 +1202,34 @@ At line:1 char:1
   super-gsd\scripts\codex-exec.sh:94:
   super-gsd\scripts\codex-exec.sh:241:esac
   super-gsd\scripts\codex-exec.sh:242:# ДД Config-driven timeout (D-01b) ДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДД
-> super-gsd\scripts\codex-exec.sh:243:# Default 30s fallback. Config path: .planning/config.json  
+> super-gsd\scripts\codex-exec.sh:243:# Default 30s fallback. Config path: .planning/config.json 
 review_providers.codex_timeout_seconds
   super-gsd\scripts\codex-exec.sh:244:if [[ -z "$TIMEOUT_SECONDS" ]]; then
   super-gsd\scripts\codex-exec.sh:245:    TIMEOUT_SECONDS=30
   super-gsd\scripts\codex-exec.sh:249:                const fs = require("fs");
   super-gsd\scripts\codex-exec.sh:250:                const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-> super-gsd\scripts\codex-exec.sh:251:                const v = j && j.review_providers && 
+> super-gsd\scripts\codex-exec.sh:251:                const v = j && j.review_providers &&
 j.review_providers.codex_timeout_seconds;
-  super-gsd\scripts\codex-exec.sh:252:                if (Number.isFinite(v) && v > 0) 
+  super-gsd\scripts\codex-exec.sh:252:                if (Number.isFinite(v) && v > 0)
 process.stdout.write(String(Math.floor(v)));
   super-gsd\scripts\codex-exec.sh:253:            } catch (e) { /* silent: fall back to 30 */ }
   super-gsd\scripts\codex-exec.sh:261:# ДД D-03 timeout-tier resolver ДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДД
-  super-gsd\scripts\codex-exec.sh:262:# Precedence: --timeout-tier custom:N == --timeout N > --timeout-tier named > 
+  super-gsd\scripts\codex-exec.sh:262:# Precedence: --timeout-tier custom:N == --timeout N > --timeout-tier named >
 step-name map > codex_timeout_seconds fallback
-> super-gsd\scripts\codex-exec.sh:263:# Tier values are config-backed 
+> super-gsd\scripts\codex-exec.sh:263:# Tier values are config-backed
 (review_providers.codex_timeout_tiers.{default,review,analysis})
   super-gsd\scripts\codex-exec.sh:264:# with hardcoded fallbacks that match the D-03 spec if config keys are absent.
   super-gsd\scripts\codex-exec.sh:265:TIER_DEFAULT=60
   super-gsd\scripts\codex-exec.sh:271:            const fs = require("fs");
   super-gsd\scripts\codex-exec.sh:272:            const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-> super-gsd\scripts\codex-exec.sh:273:            const t = j && j.review_providers && 
+> super-gsd\scripts\codex-exec.sh:273:            const t = j && j.review_providers &&
 j.review_providers.codex_timeout_tiers;
   super-gsd\scripts\codex-exec.sh:274:            if (t) {
-  super-gsd\scripts\codex-exec.sh:275:                if (Number.isFinite(t.default)  && t.default  > 0) 
+  super-gsd\scripts\codex-exec.sh:275:                if (Number.isFinite(t.default)  && t.default  > 0)
 process.stdout.write("TIER_DEFAULT="  + Math.floor(t.default)  + "\n");
   super-gsd\scripts\codex-exec.sh:511:        sgsd_codex_exec_self_test_case() {
   super-gsd\scripts\codex-exec.sh:512:            local mode="$1" expected="$2" timeout_value="$3"
-> super-gsd\scripts\codex-exec.sh:513:            local case_dir case_project case_prompt case_report before_rows 
+> super-gsd\scripts\codex-exec.sh:513:            local case_dir case_project case_prompt case_report before_rows
 after_rows rc report_bytes
   super-gsd\scripts\codex-exec.sh:514:            case_dir="$ST_TMP_ROOT/case-$mode"
   super-gsd\scripts\codex-exec.sh:515:            case_project="$case_dir/project"
@@ -1241,16 +1241,16 @@ after_rows rc report_bytes
   super-gsd\scripts\codex-exec.sh:534:
   super-gsd\scripts\codex-exec.sh:570:            rc=$?
   super-gsd\scripts\codex-exec.sh:571:            set -e
-> super-gsd\scripts\codex-exec.sh:572:            [[ "$rc" -eq 9 ]] && ! grep -q '^codex-exec: OK' 
+> super-gsd\scripts\codex-exec.sh:572:            [[ "$rc" -eq 9 ]] && ! grep -q '^codex-exec: OK'
 "$case_dir/stdout.txt" && grep -q 'report write failure' "$case_dir/stderr.txt"
   super-gsd\scripts\codex-exec.sh:573:        }
   super-gsd\scripts\codex-exec.sh:574:        if sgsd_codex_exec_self_test_case success 0 5 && \
   super-gsd\scripts\codex-exec.sh:689:fi
-  super-gsd\scripts\codex-exec.sh:690:RESOLVED_CMD="timeout ${TIMEOUT}s bash -c 'if [[ \"\$2\" == \"cmd\" ]]; then cat 
-\"\$0\" | cmd.exe /c codex exec --model \"\$4\" -c \"model_reasoning_effort=\\\"\$5\\\"\" 
-${CODEX_REVIEW_PROFILE_FLAGS} --skip-git-repo-check --cd \"\$1\" -; else cat \"\$0\" | \"\$3\" exec --model \"\$4\" -c 
-\"model_reasoning_effort=\\\"\$5\\\"\" ${CODEX_REVIEW_PROFILE_FLAGS} --skip-git-repo-check --cd \"\$1\" -; fi' 
-\"$PROMPT_FILE\" \"$CODEX_PROJECT\" \"$CODEX_LAUNCHER\" \"$CODEX_COMMAND\" \"$CODEX_MODEL\" 
+  super-gsd\scripts\codex-exec.sh:690:RESOLVED_CMD="timeout ${TIMEOUT}s bash -c 'if [[ \"\$2\" == \"cmd\" ]]; then cat
+\"\$0\" | cmd.exe /c codex exec --model \"\$4\" -c \"model_reasoning_effort=\\\"\$5\\\"\"
+${CODEX_REVIEW_PROFILE_FLAGS} --skip-git-repo-check --cd \"\$1\" -; else cat \"\$0\" | \"\$3\" exec --model \"\$4\" -c
+\"model_reasoning_effort=\\\"\$5\\\"\" ${CODEX_REVIEW_PROFILE_FLAGS} --skip-git-repo-check --cd \"\$1\" -; fi'
+\"$PROMPT_FILE\" \"$CODEX_PROJECT\" \"$CODEX_LAUNCHER\" \"$CODEX_COMMAND\" \"$CODEX_MODEL\"
 \"$CODEX_REASONING_EFFORT\""
 > super-gsd\scripts\codex-exec.sh:691:# ДД Dry-run short-circuit ДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДД
   super-gsd\scripts\codex-exec.sh:692:if [[ "$DRY_RUN" == true ]]; then
@@ -1269,9 +1269,9 @@ ${CODEX_REVIEW_PROFILE_FLAGS} --skip-git-repo-check --cd \"\$1\" -; else cat \"\
   super-gsd\scripts\codex-exec.sh:716:    local milestone="$1"
   super-gsd\scripts\codex-exec.sh:717:    if [[ -z "$milestone" || "$milestone" == "none" ]]; then
   super-gsd\scripts\codex-exec.sh:725:    local script_dir
-  super-gsd\scripts\codex-exec.sh:726:    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null || echo 
+  super-gsd\scripts\codex-exec.sh:726:    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null || echo
 "")"
-> super-gsd\scripts\codex-exec.sh:727:    if [[ -z "$script_dir" || ! -f "$script_dir/lib/provider-circuit.cjs" ]]; 
+> super-gsd\scripts\codex-exec.sh:727:    if [[ -z "$script_dir" || ! -f "$script_dir/lib/provider-circuit.cjs" ]];
 then
   super-gsd\scripts\codex-exec.sh:728:        echo "false"
   super-gsd\scripts\codex-exec.sh:729:        return 0
@@ -1284,7 +1284,7 @@ then
 > super-gsd\scripts\codex-exec.sh:736:                milestone: process.env.SGSD_CIRCUIT_PROBE_MILESTONE,
 > super-gsd\scripts\codex-exec.sh:737:                provider: "codex",
   super-gsd\scripts\codex-exec.sh:738:            });
-  super-gsd\scripts\codex-exec.sh:739:            process.stdout.write(r && r.fallback_active === true ? "true" : 
+  super-gsd\scripts\codex-exec.sh:739:            process.stdout.write(r && r.fallback_active === true ? "true" :
 "false");
   super-gsd\scripts\codex-exec.sh:741:            process.stdout.write("false");
   super-gsd\scripts\codex-exec.sh:742:        }
@@ -1296,9 +1296,9 @@ then
   super-gsd\scripts\codex-exec.sh:748:    # $1 = milestone, $2 = "true" for ok, "false" for failure
   super-gsd\scripts\codex-exec.sh:749:    local milestone="$1"
   super-gsd\scripts\codex-exec.sh:757:    local script_dir
-  super-gsd\scripts\codex-exec.sh:758:    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null || echo 
+  super-gsd\scripts\codex-exec.sh:758:    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null || echo
 "")"
-> super-gsd\scripts\codex-exec.sh:759:    if [[ -z "$script_dir" || ! -f "$script_dir/lib/provider-circuit.cjs" ]]; 
+> super-gsd\scripts\codex-exec.sh:759:    if [[ -z "$script_dir" || ! -f "$script_dir/lib/provider-circuit.cjs" ]];
 then
   super-gsd\scripts\codex-exec.sh:760:        return 0
   super-gsd\scripts\codex-exec.sh:761:    fi
@@ -1319,9 +1319,9 @@ then
   super-gsd\scripts\codex-exec.sh:776:if [[ -n "$MILESTONE_TAG" && "$MILESTONE_TAG" != "none" ]]; then
 > super-gsd\scripts\codex-exec.sh:777:    PCIRCUIT_PRECHECK="$(provider_circuit_should_fallback "$MILESTONE_TAG")"
 > super-gsd\scripts\codex-exec.sh:778:    if [[ "$PCIRCUIT_PRECHECK" == "true" ]]; then
-> super-gsd\scripts\codex-exec.sh:779:        echo "codex-exec: provider_fallback_active milestone=$MILESTONE_TAG 
+> super-gsd\scripts\codex-exec.sh:779:        echo "codex-exec: provider_fallback_active milestone=$MILESTONE_TAG
 provider=codex" >&2
-> super-gsd\scripts\codex-exec.sh:780:        echo "codex-exec: circuit breaker open -- caller should route to Claude 
+> super-gsd\scripts\codex-exec.sh:780:        echo "codex-exec: circuit breaker open -- caller should route to Claude
 reviewer" >&2
   super-gsd\scripts\codex-exec.sh:781:        exit 7
   super-gsd\scripts\codex-exec.sh:782:    fi
@@ -1330,9 +1330,9 @@ reviewer" >&2
 > super-gsd\scripts\codex-exec.sh:839:append_jsonl() {
 > super-gsd\scripts\codex-exec.sh:840:    local wrapper_exit="$1" timeout_hit="$2" report_bytes="$3"
   super-gsd\scripts\codex-exec.sh:841:    local phase_field plan_field step_field
-  super-gsd\scripts\codex-exec.sh:842:    if [[ -z "$PHASE_TAG" ]]; then phase_field="null"; else 
+  super-gsd\scripts\codex-exec.sh:842:    if [[ -z "$PHASE_TAG" ]]; then phase_field="null"; else
 phase_field="$PHASE_TAG"; fi
-  super-gsd\scripts\codex-exec.sh:844:    if [[ -z "$STEP_TAG" ]];  then step_field="null";  else 
+  super-gsd\scripts\codex-exec.sh:844:    if [[ -z "$STEP_TAG" ]];  then step_field="null";  else
 step_field="\"$STEP_TAG\""; fi
   super-gsd\scripts\codex-exec.sh:845:    mkdir -p "$(dirname "$METRICS_LOG")" 2>/dev/null || true
 > super-gsd\scripts\codex-exec.sh:846:    printf '{"ts":"%s","phase":%s,"plan":%s,"step":%s,"model":"%s","reasoning_eff
@@ -1373,14 +1373,14 @@ tderr_preview":"%s"}\n' \
   super-gsd\scripts\codex-exec.sh:909:NARRATIVE_FILE="$PROJECT/.planning/metrics/narrative.md"
   super-gsd\scripts\codex-exec.sh:910:
 > super-gsd\scripts\codex-exec.sh:911:append_narrative_event() {
-  super-gsd\scripts\codex-exec.sh:912:    local event_type="$1"   # codex_started | codex_completed | codex_timeout | 
+  super-gsd\scripts\codex-exec.sh:912:    local event_type="$1"   # codex_started | codex_completed | codex_timeout |
 codex_fallback
   super-gsd\scripts\codex-exec.sh:913:    local detail="$2"       # short description string (no newlines)
   super-gsd\scripts\codex-exec.sh:932:}
   super-gsd\scripts\codex-exec.sh:933:
 > super-gsd\scripts\codex-exec.sh:934:write_live_state() {
 > super-gsd\scripts\codex-exec.sh:935:    local live_state="$1" wrapper_exit="$2" timeout_hit="$3" report_bytes="$4"
-  super-gsd\scripts\codex-exec.sh:936:    local prompt_json report_json project_json command_json stderr_json 
+  super-gsd\scripts\codex-exec.sh:936:    local prompt_json report_json project_json command_json stderr_json
 phase_json plan_json step_json
   super-gsd\scripts\codex-exec.sh:937:    prompt_json="$(json_escape "$PROMPT_FILE")"
   super-gsd\scripts\codex-exec.sh:946:    if {
@@ -1396,18 +1396,18 @@ phase_json plan_json step_json
   super-gsd\scripts\codex-exec.sh:977:}
   super-gsd\scripts\codex-exec.sh:978:
 > super-gsd\scripts\codex-exec.sh:979:write_live_state "running" -1 "false" 0
-> super-gsd\scripts\codex-exec.sh:980:append_narrative_event "codex_started" "step=$STEP_TAG plan=$PLAN_TAG 
+> super-gsd\scripts\codex-exec.sh:980:append_narrative_event "codex_started" "step=$STEP_TAG plan=$PLAN_TAG
 phase=$PHASE_TAG" ""
   super-gsd\scripts\codex-exec.sh:981:
   super-gsd\scripts\codex-exec.sh:982:# ДД Exit remap (D-01a) ДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДД
   super-gsd\scripts\codex-exec.sh:989:        # exec replaces process; reached only if exec itself fails
   super-gsd\scripts\codex-exec.sh:990:    fi
-> super-gsd\scripts\codex-exec.sh:991:    REPORT_BYTES="$(write_raw_report_payload "codex-exec: timeout after 
+> super-gsd\scripts\codex-exec.sh:991:    REPORT_BYTES="$(write_raw_report_payload "codex-exec: timeout after
 ${TIMEOUT}s")"
   super-gsd\scripts\codex-exec.sh:992:    handle_report_write_failure || true
 > super-gsd\scripts\codex-exec.sh:993:    write_live_state "timeout" 5 "true" "$REPORT_BYTES"
 > super-gsd\scripts\codex-exec.sh:994:    append_jsonl 5 "true" "$REPORT_BYTES"
-> super-gsd\scripts\codex-exec.sh:995:    append_narrative_event "codex_timeout" "timeout after ${TIMEOUT}s 
+> super-gsd\scripts\codex-exec.sh:995:    append_narrative_event "codex_timeout" "timeout after ${TIMEOUT}s
 step=$STEP_TAG" "lastfail"
   super-gsd\scripts\codex-exec.sh:996:    # INSTR-03 (v1.5 Phase 25): timeout observability emit - feeds dashboard
   super-gsd\scripts\codex-exec.sh:997:    # tile "timeout rate by tier" so operator sees chronic under-budgeting.
@@ -1423,21 +1423,21 @@ step=$STEP_TAG" "lastfail"
   super-gsd\scripts\codex-exec.sh:1022:        handle_report_write_failure || true
 > super-gsd\scripts\codex-exec.sh:1023:        write_live_state "auth-denied" 4 "false" "$REPORT_BYTES"
 > super-gsd\scripts\codex-exec.sh:1024:        append_jsonl 4 "false" "$REPORT_BYTES"
-> super-gsd\scripts\codex-exec.sh:1025:        append_narrative_event "codex_fallback" "auth-denied step=$STEP_TAG" 
+> super-gsd\scripts\codex-exec.sh:1025:        append_narrative_event "codex_fallback" "auth-denied step=$STEP_TAG"
 "lastfail"
-  super-gsd\scripts\codex-exec.sh:1026:        echo "codex-exec: auth-denied (codex stderr matched 
+  super-gsd\scripts\codex-exec.sh:1026:        echo "codex-exec: auth-denied (codex stderr matched
 auth/401/unauthorized)" >&2
   super-gsd\scripts\codex-exec.sh:1027:        head -c 200 "$STDERR_TMP" >&2 ; echo >&2
 > super-gsd\scripts\codex-exec.sh:1028:        # Phase 55-01: auth-denied is a provider failure; record it.
 > super-gsd\scripts\codex-exec.sh:1029:        provider_circuit_record_result "$MILESTONE_TAG" "false"
   super-gsd\scripts\codex-exec.sh:1030:        exit 4
   super-gsd\scripts\codex-exec.sh:1031:    fi
-> super-gsd\scripts\codex-exec.sh:1032:    REPORT_BYTES="$(write_raw_report_payload "codex-exec: codex exit=$RC 
+> super-gsd\scripts\codex-exec.sh:1032:    REPORT_BYTES="$(write_raw_report_payload "codex-exec: codex exit=$RC
 (generic failure)")"
   super-gsd\scripts\codex-exec.sh:1033:    handle_report_write_failure || true
 > super-gsd\scripts\codex-exec.sh:1034:    write_live_state "error" 1 "false" "$REPORT_BYTES"
 > super-gsd\scripts\codex-exec.sh:1035:    append_jsonl 1 "false" "$REPORT_BYTES"
-> super-gsd\scripts\codex-exec.sh:1036:    append_narrative_event "codex_fallback" "error exit=$RC step=$STEP_TAG" 
+> super-gsd\scripts\codex-exec.sh:1036:    append_narrative_event "codex_fallback" "error exit=$RC step=$STEP_TAG"
 "lastfail"
   super-gsd\scripts\codex-exec.sh:1037:    echo "codex-exec: codex exit=$RC (generic failure)" >&2
   super-gsd\scripts\codex-exec.sh:1038:    head -c 200 "$STDERR_TMP" >&2 ; echo >&2
@@ -1447,31 +1447,31 @@ auth/401/unauthorized)" >&2
   super-gsd\scripts\codex-exec.sh:1042:fi
   super-gsd\scripts\codex-exec.sh:1083:            ' "$schema_lib" 2>/dev/null || true)"
   super-gsd\scripts\codex-exec.sh:1084:            if [[ -n "$validation_errors" ]]; then
-> super-gsd\scripts\codex-exec.sh:1085:                REPORT_BYTES="$(write_raw_report_payload "codex-exec: report 
+> super-gsd\scripts\codex-exec.sh:1085:                REPORT_BYTES="$(write_raw_report_payload "codex-exec: report
 contract violation")"
   super-gsd\scripts\codex-exec.sh:1086:                handle_report_write_failure || true
 > super-gsd\scripts\codex-exec.sh:1087:                write_live_state "contract-violation" 6 "false" "$REPORT_BYTES"
 > super-gsd\scripts\codex-exec.sh:1088:                append_jsonl 6 "false" "$REPORT_BYTES"
-> super-gsd\scripts\codex-exec.sh:1089:                append_narrative_event "codex_fallback" "rd_memo_schema_fail 
+> super-gsd\scripts\codex-exec.sh:1089:                append_narrative_event "codex_fallback" "rd_memo_schema_fail
 step=$STEP_TAG" "lastfail"
-  super-gsd\scripts\codex-exec.sh:1090:                echo "codex-exec: rd-memo-v1 schema violation - 
+  super-gsd\scripts\codex-exec.sh:1090:                echo "codex-exec: rd-memo-v1 schema violation -
 $validation_errors" >&2
 > super-gsd\scripts\codex-exec.sh:1091:                provider_circuit_record_result "$MILESTONE_TAG" "false"
   super-gsd\scripts\codex-exec.sh:1092:                exit 6
   super-gsd\scripts\codex-exec.sh:1093:            fi
   super-gsd\scripts\codex-exec.sh:1136:set +e
   super-gsd\scripts\codex-exec.sh:1137:if [[ $awk_rc -ne 0 || -z "$parsed" ]]; then
-> super-gsd\scripts\codex-exec.sh:1138:    REPORT_BYTES="$(write_raw_report_payload "codex-exec: report contract 
+> super-gsd\scripts\codex-exec.sh:1138:    REPORT_BYTES="$(write_raw_report_payload "codex-exec: report contract
 violation")"
   super-gsd\scripts\codex-exec.sh:1139:    handle_report_write_failure || true
 > super-gsd\scripts\codex-exec.sh:1140:    write_live_state "contract-violation" 6 "false" "$REPORT_BYTES"
 > super-gsd\scripts\codex-exec.sh:1141:    append_jsonl 6 "false" "$REPORT_BYTES"
-> super-gsd\scripts\codex-exec.sh:1142:    append_narrative_event "codex_fallback" "parse_failure step=$STEP_TAG" 
+> super-gsd\scripts\codex-exec.sh:1142:    append_narrative_event "codex_fallback" "parse_failure step=$STEP_TAG"
 "lastfail"
   super-gsd\scripts\codex-exec.sh:1143:    if [[ "$CONTRACT" == "rd-memo-v1" ]]; then
-  super-gsd\scripts\codex-exec.sh:1144:        echo "codex-exec: report contract violation - no top-level 'verdict:' 
+  super-gsd\scripts\codex-exec.sh:1144:        echo "codex-exec: report contract violation - no top-level 'verdict:'
 line found in codex stdout (rd-memo-v1)" >&2
-  super-gsd\scripts\codex-exec.sh:1146:        echo "codex-exec: report contract violation - one or more of 
+  super-gsd\scripts\codex-exec.sh:1146:        echo "codex-exec: report contract violation - one or more of
 FINDINGS/CRITICAL/WARNINGS/PASS_RATE/ONE_LINER missing from codex stdout" >&2
   super-gsd\scripts\codex-exec.sh:1147:    fi
 > super-gsd\scripts\codex-exec.sh:1148:    # Phase 55-01: contract-violation is a provider failure; record it.
@@ -1481,12 +1481,12 @@ FINDINGS/CRITICAL/WARNINGS/PASS_RATE/ONE_LINER missing from codex stdout" >&2
   super-gsd\scripts\codex-exec.sh:1152:
 > super-gsd\scripts\codex-exec.sh:1153:REPORT_BYTES="$(write_report_payload "$parsed")"
   super-gsd\scripts\codex-exec.sh:1154:if ! handle_report_write_failure; then
-> super-gsd\scripts\codex-exec.sh:1155:    write_live_state "report-write-failure" "$REPORT_WRITE_FAILURE_EXIT" 
+> super-gsd\scripts\codex-exec.sh:1155:    write_live_state "report-write-failure" "$REPORT_WRITE_FAILURE_EXIT"
 "false" "$REPORT_BYTES"
 > super-gsd\scripts\codex-exec.sh:1156:    append_jsonl "$REPORT_WRITE_FAILURE_EXIT" "false" "$REPORT_BYTES"
-> super-gsd\scripts\codex-exec.sh:1157:    append_narrative_event "codex_fallback" "report_write_failure 
+> super-gsd\scripts\codex-exec.sh:1157:    append_narrative_event "codex_fallback" "report_write_failure
 step=$STEP_TAG" "lastfail"
-> super-gsd\scripts\codex-exec.sh:1158:    # Host-side persistence failure; provider returned valid output, so do not 
+> super-gsd\scripts\codex-exec.sh:1158:    # Host-side persistence failure; provider returned valid output, so do not
 update provider circuit.
   super-gsd\scripts\codex-exec.sh:1159:    exit "$REPORT_WRITE_FAILURE_EXIT"
   super-gsd\scripts\codex-exec.sh:1160:fi
@@ -1494,34 +1494,34 @@ update provider circuit.
   super-gsd\scripts\codex-exec.sh:1162:# ДД JSONL append on success ДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДДД
 > super-gsd\scripts\codex-exec.sh:1163:write_live_state "ok" 0 "false" "$REPORT_BYTES"
 > super-gsd\scripts\codex-exec.sh:1164:append_jsonl 0 "false" "$REPORT_BYTES"
-> super-gsd\scripts\codex-exec.sh:1165:append_narrative_event "codex_completed" "ok step=$STEP_TAG 
+> super-gsd\scripts\codex-exec.sh:1165:append_narrative_event "codex_completed" "ok step=$STEP_TAG
 dur=${DURATION_MS}ms bytes=$REPORT_BYTES" "latest"
   super-gsd\scripts\codex-exec.sh:1166:
-> super-gsd\scripts\codex-exec.sh:1167:echo "codex-exec: OK - $REPORT_OUT written (${REPORT_BYTES}B), codex took 
+> super-gsd\scripts\codex-exec.sh:1167:echo "codex-exec: OK - $REPORT_OUT written (${REPORT_BYTES}B), codex took
 ${DURATION_MS}ms"
 > super-gsd\scripts\codex-exec.sh:1168:# Phase 55-01: success closes the circuit (resets consecutive_failures to 0).
 > super-gsd\scripts\codex-exec.sh:1169:provider_circuit_record_result "$MILESTONE_TAG" "true"
   super-gsd\scripts\codex-exec.sh:1170:exit 0
 
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 codex
 The success-path handling lines up with the spec surface: exit `9`, failure live/JSONL/narrative, stderr substring, and no provider-circuit call before exiting. I’m checking the negative case now: whether preserving existing failure-path exit codes created any spec gap.
@@ -1534,44 +1534,44 @@ exec
 super-gsd\scripts\codex-exec.sh:30:#   0 - success, report parsed + written + JSONL row appended
 super-gsd\scripts\codex-exec.sh:31:#   1 - generic codex failure (non-zero RC, non-auth, non-timeout)
 super-gsd\scripts\codex-exec.sh:32:#   3 - `codex` binary not on $PATH
-super-gsd\scripts\codex-exec.sh:33:#   4 - auth-denied: $OPENAI_API_KEY set OR codex stderr matched 
+super-gsd\scripts\codex-exec.sh:33:#   4 - auth-denied: $OPENAI_API_KEY set OR codex stderr matched
 /auth|401|unauthori[sz]ed/i
 super-gsd\scripts\codex-exec.sh:34:#   5 - timeout (GNU timeout returned 124)
 super-gsd\scripts\codex-exec.sh:35:#   6 - report contract violation (one or more of the 5 required fields missing)
 super-gsd\scripts\codex-exec.sh:36:#   9 - report write failure (host-side persistence failure after valid output)
 super-gsd\scripts\codex-exec.sh:883:REPORT_WRITE_FAILURE_EXIT=9
-super-gsd\scripts\codex-exec.sh:1155:    write_live_state "report-write-failure" "$REPORT_WRITE_FAILURE_EXIT" "false" 
+super-gsd\scripts\codex-exec.sh:1155:    write_live_state "report-write-failure" "$REPORT_WRITE_FAILURE_EXIT" "false"
 "$REPORT_BYTES"
 super-gsd\scripts\codex-exec.sh:1156:    append_jsonl "$REPORT_WRITE_FAILURE_EXIT" "false" "$REPORT_BYTES"
 super-gsd\scripts\codex-exec.sh:1159:    exit "$REPORT_WRITE_FAILURE_EXIT"
 
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 954ms:
 
-  super-gsd\scripts\codex-exec.README.md:3:Bash wrapper around `codex exec` used by the Phase 14 review-provider 
+  super-gsd\scripts\codex-exec.README.md:3:Bash wrapper around `codex exec` used by the Phase 14 review-provider
 substrate.
-> super-gsd\scripts\codex-exec.README.md:4:Ships prompt via **stdin pipe**, wraps with GNU `timeout`, parses the 
+> super-gsd\scripts\codex-exec.README.md:4:Ships prompt via **stdin pipe**, wraps with GNU `timeout`, parses the
 required
-  super-gsd\scripts\codex-exec.README.md:5:`code-reviewer-v1` summary fields, preserves additive `FINDINGS_DETAIL:` 
+  super-gsd\scripts\codex-exec.README.md:5:`code-reviewer-v1` summary fields, preserves additive `FINDINGS_DETAIL:`
 rows,
   super-gsd\scripts\codex-exec.README.md:28:ephemeral setting, and approval mode come from the resolved CLI profile;
 > super-gsd\scripts\codex-exec.README.md:29:`.planning/config.json` also backs timeout settings such as
@@ -1581,68 +1581,68 @@ rows,
   super-gsd\scripts\codex-exec.README.md:54:codex-exec.sh --prompt-file <path> --report-out <path>
 > super-gsd\scripts\codex-exec.README.md:55:              [--timeout N] [--dry-run] [--project <path>]
   super-gsd\scripts\codex-exec.README.md:56:              [--phase N] [--plan NN-PP] [--step LABEL] [--profile NAME]
-  super-gsd\scripts\codex-exec.README.md:63:| `--report-out`  | required | Destination for parsed report; required 
+  super-gsd\scripts\codex-exec.README.md:63:| `--report-out`  | required | Destination for parsed report; required
 summary fields plus any `FINDINGS_DETAIL:` rows; written atomically via `tmp+mv` |
-> super-gsd\scripts\codex-exec.README.md:64:| `--timeout`     | optional | Seconds (default from 
+> super-gsd\scripts\codex-exec.README.md:64:| `--timeout`     | optional | Seconds (default from
 `.planning/config.json`  `review_providers.codex_timeout_seconds`, fallback 30) |
-  super-gsd\scripts\codex-exec.README.md:65:| `--dry-run`     | optional | Print resolved command + auth status + 
+  super-gsd\scripts\codex-exec.README.md:65:| `--dry-run`     | optional | Print resolved command + auth status +
 config; return 0 without calling `codex` |
-  super-gsd\scripts\codex-exec.README.md:68:| `--plan`        | optional | JSONL tag only (e.g. `14-01`; null when 
+  super-gsd\scripts\codex-exec.README.md:68:| `--plan`        | optional | JSONL tag only (e.g. `14-01`; null when
 absent)                         |
-> super-gsd\scripts\codex-exec.README.md:69:| `--step`        | optional | JSONL tag only (e.g. `6.5` / `9.5` / `9.6`; 
+> super-gsd\scripts\codex-exec.README.md:69:| `--step`        | optional | JSONL tag only (e.g. `6.5` / `9.5` / `9.6`;
 null when absent)           |
-  super-gsd\scripts\codex-exec.README.md:70:| `--profile`     | optional | CLI profile (`review`, `triage`, or 
+  super-gsd\scripts\codex-exec.README.md:70:| `--profile`     | optional | CLI profile (`review`, `triage`, or
 `codex.review.native` alias)        |
   super-gsd\scripts\codex-exec.README.md:73:
 > super-gsd\scripts\codex-exec.README.md:74:## Exit codes
   super-gsd\scripts\codex-exec.README.md:75:
-  super-gsd\scripts\codex-exec.README.md:78:| 0    | Success - report parsed, written, JSONL row appended              
+  super-gsd\scripts\codex-exec.README.md:78:| 0    | Success - report parsed, written, JSONL row appended
      |
-> super-gsd\scripts\codex-exec.README.md:79:| 1    | Generic codex failure (non-zero RC, not auth, not timeout) + 
+> super-gsd\scripts\codex-exec.README.md:79:| 1    | Generic codex failure (non-zero RC, not auth, not timeout) +
 usage err |
-  super-gsd\scripts\codex-exec.README.md:80:| 3    | `codex` binary not on `$PATH`                                     
+  super-gsd\scripts\codex-exec.README.md:80:| 3    | `codex` binary not on `$PATH`
      |
-  super-gsd\scripts\codex-exec.README.md:81:| 4    | Auth denied - `OPENAI_API_KEY` set in env (refuse-to-run), OR 
+  super-gsd\scripts\codex-exec.README.md:81:| 4    | Auth denied - `OPENAI_API_KEY` set in env (refuse-to-run), OR
 codex stderr matched `/auth\|401\|unauthori[sz]ed/i` |
-> super-gsd\scripts\codex-exec.README.md:82:| 5    | Timeout - GNU `timeout` returned 124                              
+> super-gsd\scripts\codex-exec.README.md:82:| 5    | Timeout - GNU `timeout` returned 124
      |
-> super-gsd\scripts\codex-exec.README.md:83:| 6    | Report contract violation - one or more of 
+> super-gsd\scripts\codex-exec.README.md:83:| 6    | Report contract violation - one or more of
 `FINDINGS:`/`CRITICAL:`/`WARNINGS:`/`PASS_RATE:`/`ONE_LINER:` missing from codex stdout |
   super-gsd\scripts\codex-exec.README.md:84:
-  super-gsd\scripts\codex-exec.README.md:86:from the final contract block verbatim because file:line citations and 
+  super-gsd\scripts\codex-exec.README.md:86:from the final contract block verbatim because file:line citations and
 concrete
-> super-gsd\scripts\codex-exec.README.md:87:repair notes live there. Extra detail rows must not affect exit code 6 as 
+> super-gsd\scripts\codex-exec.README.md:87:repair notes live there. Extra detail rows must not affect exit code 6 as
 long
   super-gsd\scripts\codex-exec.README.md:88:as the five required summary fields are present.
-  super-gsd\scripts\codex-exec.README.md:92:codex-exec is **OAuth-only**. If `$OPENAI_API_KEY` is set in the 
+  super-gsd\scripts\codex-exec.README.md:92:codex-exec is **OAuth-only**. If `$OPENAI_API_KEY` is set in the
 environment,
-> super-gsd\scripts\codex-exec.README.md:93:the wrapper exits **4** and prints a refusal message on stderr - it does 
+> super-gsd\scripts\codex-exec.README.md:93:the wrapper exits **4** and prints a refusal message on stderr - it does
 NOT
   super-gsd\scripts\codex-exec.README.md:94:unset-then-run. Rationale: silently degrading the operator's expectation
-  super-gsd\scripts\codex-exec.README.md:128:  --report-out 
+  super-gsd\scripts\codex-exec.README.md:128:  --report-out
 .planning/phases/14-codex-cli-provider-substrate/CODEX-REPORT.md \
 > super-gsd\scripts\codex-exec.README.md:129:  --timeout 60 --phase 14 --plan 14-01 --step 6.5
   super-gsd\scripts\codex-exec.README.md:130:```
 
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 codex
 SPEC_VERDICT: pass

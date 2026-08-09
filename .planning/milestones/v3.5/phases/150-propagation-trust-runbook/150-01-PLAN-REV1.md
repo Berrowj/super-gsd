@@ -2805,24 +2805,24 @@ After saving the plan, offer execution choice:
 - **REQUIRED SUB-SKILL:** Use superpowers:executing-plans
 - Batch execution with checkpoints for review
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 codex
 The skill rules also require `brainstorming` before shaping a revised design. Here it is bounded by the reviewer’s findings, so I’m using it to validate the safety model and acceptance evidence without reopening the approved scope.
@@ -3180,9 +3180,9 @@ exec
    3: #
    4: # Default behavior is read-only. Global Claude changes and global auto-approve
    5: # are separate explicit opt-ins.
-   6: 
+   6:
    7: set -e
-   8: 
+   8:
    9: if [ -d "$HOME/.local/bin" ]; then
   10:   PATH="$HOME/.local/bin:$PATH"
   11: fi
@@ -3193,7 +3193,7 @@ exec
   16:   fi
   17: fi
   18: export PATH
-  19: 
+  19:
   20: normalize_windows_home() {
   21:   case "$(uname -s 2>/dev/null || echo unknown)" in
   22:     MINGW*|MSYS*|CYGWIN*)
@@ -3207,9 +3207,9 @@ exec
   30:       ;;
   31:   esac
   32: }
-  33: 
+  33:
   34: normalize_windows_home
-  35: 
+  35:
   36: SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
   37: PROJECT_DIR="$(pwd)"
   38: CLAUDE_DIR="$HOME/.claude"
@@ -3219,7 +3219,7 @@ exec
   42: COMMANDS_DIR="$CLAUDE_DIR/commands"
   43: TEMPLATES_DIR="$GSD_DIR/templates/super-gsd"
   44: GLOBAL_SCRIPTS_DIR="$CLAUDE_DIR/super-gsd/scripts"
-  45: 
+  45:
   46: DRY_RUN=false
   47: RUN_DOCTOR=false
   48: INIT_LOCAL=false
@@ -3234,25 +3234,25 @@ exec
   57: UPDATE_MODE=false
   58: INSTALL_COMMIT_GATE=false
   59: UNINSTALL_COMMIT_GATE=false
-  60: 
+  60:
   61: AGENT_COUNT=0
   62: SKILL_COUNT=0
   63: HOOK_COUNT=0
   64: SCRIPT_COUNT=0
-  65: 
+  65:
   66: usage() {
   67:   cat <<'EOF'
   68: Super GSD installer
-  69: 
+  69:
   70: Safe defaults:
   71:   bash super-gsd/install.sh
   72:       Read-only doctor + usage. No writes.
-  73: 
+  73:
   74: Read-only:
   75:   --doctor
   76:       Check Node, Claude, Codex, SGSD git freshness, local config, and visible
   77:       Claude global state. Does not modify files or settings.
-  78: 
+  78:
   79: Commit gate:
   80:   --install-commit-gate
   81:       Install or refresh the SGSD-marked Git pre-commit trampoline at the
@@ -3261,7 +3261,7 @@ exec
   84:   --uninstall-commit-gate
   85:       Remove only an SGSD-marked pre-commit trampoline. Refuses unmarked hooks
   86:       and never invokes the gate during rollback.
-  87: 
+  87:
   88: Local project setup:
   89:   --init-local
   90:   --init-project
@@ -3276,17 +3276,17 @@ exec
   99:       config.json. Safe to run after a `git pull` to pick up new dependencies
  100:       and registry entries. Pair with --install-global to also refresh ~/.claude
  101:       assets.
- 102: 
+ 102:
  103: Global Claude install:
  104:   --install-global
  105:       Copy SGSD agents, commands, hooks, templates, workflows, config, and
  106:       scripts into ~/.claude. Does not enable auto-approve.
- 107: 
+ 107:
  108: Dangerous permission change:
  109:   --enable-autoapprove
  110:       Explicitly run claude config set --global autoApprove for autonomous mode.
  111:       This affects every Claude Code session for the current OS user.
- 112: 
+ 112:
  113: Optional:
  114:   --skip-brv
  115:       Accepted for older docs/scripts as a no-op. Current SGSD memory is
@@ -3304,7 +3304,7 @@ exec
  127:       Print actions without writing.
  128:   --help
  129:       Show this help.
- 130: 
+ 130:
  131: Examples:
  132:   bash super-gsd/install.sh --doctor
  133:   bash super-gsd/install.sh --init-project
@@ -3315,9 +3315,9 @@ exec
  138:   bash super-gsd/install.sh --enable-autoapprove
  139: EOF
  140: }
- 141: 
+ 141:
  142: log() { echo "  [super-gsd] $1"; }
- 143: 
+ 143:
  144: run() {
  145:   if [ "$DRY_RUN" = true ]; then
  146:     log "DRY RUN: $*"
@@ -3325,7 +3325,7 @@ exec
  148:     "$@"
  149:   fi
  150: }
- 151: 
+ 151:
  152: copy_file() {
  153:   if [ "$DRY_RUN" = true ]; then
  154:     log "DRY RUN: $1 -> $2"
@@ -3346,7 +3346,7 @@ exec
  169:     fi
  170:   fi
  171: }
- 172: 
+ 172:
  173: remove_path_if_exists() {
  174:   target="$1"
  175:   if [ "$DRY_RUN" = true ]; then
@@ -3358,14 +3358,14 @@ exec
  181:     log "  removed legacy asset: $target"
  182:   fi
  183: }
- 184: 
+ 184:
  185: is_legacy_brv_asset() {
  186:   case "$(basename "$1")" in
  187:     *brv*|*BRV*) return 0 ;;
  188:     *) return 1 ;;
  189:   esac
  190: }
- 191: 
+ 191:
  192: remove_legacy_global_assets() {
  193:   remove_path_if_exists "$COMMANDS_DIR/sgsd-brv-setup"
  194:   remove_path_if_exists "$HOOKS_DIR/brv-query-local.js"
@@ -3377,7 +3377,7 @@ exec
  200:   remove_path_if_exists "$TEMPLATES_DIR/overwatcher/brv-query-local.js"
  201:   remove_path_if_exists "$TEMPLATES_DIR/overwatcher/brv-curate-local.js"
  202: }
- 203: 
+ 203:
  204: frontmatter_field() {
  205:   awk -v f="$2" '
  206:     /^---[[:space:]]*$/ { if (in_fm) exit; in_fm = 1; next }
@@ -3389,13 +3389,13 @@ exec
  212:     }
  213:   ' "$1"
  214: }
- 215: 
+ 215:
  216: require_node_22() {
  217:   if ! command -v node >/dev/null 2>&1; then
  218:     echo "ERROR: Node.js not found. Install Node.js >= 22 first."
  219:     exit 1
  220:   fi
- 300: 
+ 300:
  301: ensure_gsd_base() {
  302:   if [ "$DRY_RUN" = true ]; then
  303:     if command -v node >/dev/null 2>&1; then
@@ -3417,10 +3417,10 @@ exec
  319:   fi
  320:   log "GSD 1.0: $GSD_DIR"
  321: }
- 322: 
+ 322:
  323: install_global_assets() {
  324:   ensure_gsd_base
- 325: 
+ 325:
  326:   echo ""
  327:   log "Installing global Claude agents..."
  328:   AGENT_COUNT=0
@@ -3442,7 +3442,7 @@ exec
  344:     log "  legacy gsd-executor disabled -> Codex executor only"
  345:   fi
  346:   log "  $AGENT_COUNT agents installed"
- 347: 
+ 347:
  348:   echo ""
  349:   log "Installing global Claude commands..."
  350:   SKILL_COUNT=0
@@ -3454,7 +3454,7 @@ exec
  356:     SKILL_COUNT=$((SKILL_COUNT + 1))
  357:   done
  358:   log "  $SKILL_COUNT commands installed"
- 359: 
+ 359:
  360:   echo ""
  361:   log "Installing global hooks..."
  362:   [ "$DRY_RUN" = true ] || mkdir -p "$HOOKS_DIR"
@@ -3466,7 +3466,7 @@ exec
  368:     HOOK_COUNT=$((HOOK_COUNT + 1))
  369:   done
  370:   log "  $HOOK_COUNT hooks installed"
- 371: 
+ 371:
  372:   echo ""
  373:   log "Registering hooks in ~/.claude/settings.json..."
  374:   SETTINGS_FILE="$CLAUDE_DIR/settings.json"
@@ -3481,7 +3481,7 @@ exec
  383:   else
  384:     node "$MERGE_SCRIPT" "$OVERLAY_FILE" "$SETTINGS_FILE" 2>&1 | sed 's/^/  /'
  385:   fi
- 386: 
+ 386:
  387:   echo ""
  388:   log "Installing templates + overwatcher..."
  389:   [ "$DRY_RUN" = true ] || mkdir -p "$TEMPLATES_DIR/overwatcher"
@@ -3499,7 +3499,7 @@ exec
  401:   done
  402:   remove_legacy_global_assets
  403:   log "  Templates + overwatcher installed"
- 404: 
+ 404:
  405:   echo ""
  406:   log "Installing workflows and config..."
  407:   [ "$DRY_RUN" = true ] || mkdir -p "$GSD_DIR/workflows" "$GSD_DIR/config"
@@ -3510,7 +3510,7 @@ exec
  412:   done
  413:   copy_file "$SCRIPT_DIR/config/model-routing.json" "$GSD_DIR/config/model-routing.json"
  414:   log "  Workflows + model routing config installed"
- 415: 
+ 415:
  416:   echo ""
  417:   log "Installing SGSD scripts globally..."
  418:   [ "$DRY_RUN" = true ] || mkdir -p "$GLOBAL_SCRIPTS_DIR/lib" "$GLOBAL_SCRIPTS_DIR/watchdogs"
@@ -3542,11 +3542,11 @@ exec
  444:     done
  445:   fi
  446:   log "  $SCRIPT_COUNT scripts + lib + watchdogs installed to $GLOBAL_SCRIPTS_DIR"
- 447: 
+ 447:
  448:   echo ""
  449:   log "Global install complete. Permission settings were not changed."
  450: }
- 451: 
+ 451:
  452: register_repo_local_hooks() {
  453:   echo ""
  454:   log "Registering repo-local Claude hooks..."
@@ -3565,7 +3565,7 @@ exec
  467:     node "$MERGE_SCRIPT" --repo-local-hooks "$OVERLAY_FILE" "$SETTINGS_FILE" "$PROJECT_DIR" 2>&1 | sed 's/^/  /'
  468:   fi
  469: }
- 470: 
+ 470:
 --- VTP ---
    1: ---
    2: phase: "150"
@@ -3576,9 +3576,9 @@ exec
    7: hits: 1
    8: empty_hit: false
    9: ---
-  10: 
+  10:
   11: # P150 VTP Enrichment
-  12: 
+  12:
   13: One applicable hit: shadow deployment (doc:daadab474432, Designing Machine
   14: Learning Systems) ƒ?" deploy the candidate in parallel, keep serving the
   15: existing system until the candidate is verified. Maps directly to the devcp
@@ -3737,10 +3737,10 @@ er-gsd\tools\codex-hooks\hook-lib.cjs' because it does not exist.
 At line:2 char:75
 + ... write.cjs'; Get-Content -Raw 'super-gsd/tools/codex-hooks/hook-lib.cj ...
 +                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : ObjectNotFound: (C:\Users\jack.b...ks\hook-lib.cjs:String) [Get-Content], ItemNotFoundEx 
+    + CategoryInfo          : ObjectNotFound: (C:\Users\jack.b...ks\hook-lib.cjs:String) [Get-Content], ItemNotFoundEx
    ception
     + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.GetContentCommand
- 
+
 
  exited 1 in 467ms:
 #!/usr/bin/env node
@@ -3859,10 +3859,10 @@ er-gsd\tools\codex-hooks\hook-lib.cjs' because it does not exist.
 At line:2 char:75
 + ... write.cjs'; Get-Content -Raw 'super-gsd/tools/codex-hooks/hook-lib.cj ...
 +                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : ObjectNotFound: (C:\Users\jack.b...ks\hook-lib.cjs:String) [Get-Content], ItemNotFoundEx 
+    + CategoryInfo          : ObjectNotFound: (C:\Users\jack.b...ks\hook-lib.cjs:String) [Get-Content], ItemNotFoundEx
    ception
     + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.GetContentCommand
- 
+
 
 exec
 "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'rg -n "MCP|mcp" .planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-RESEARCH.md .planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-CONTEXT.md .planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-01-PLAN-LOCKED.md | Select-Object -First 240' in $env:USERPROFILE\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer
@@ -4366,10 +4366,10 @@ provider: openai-codex (gpt-5.6-sol/xhigh)
 
 ## AC-150 verbatim
 
-> **AC-150:** (a) `git log` on devcp shows the pushed HEAD; (b) both machines pass  
-> a post-update smoke (`sgsd -NoOpen` preflight + hook self-test); (c) Codex hook  
-> trust verified granted on both (probe: dispatch touches a forbidden path ƒÅ'  
-> `block-forbidden-write.cjs` fires); (d) PROPAGATION.md reboot commands verified  
+> **AC-150:** (a) `git log` on devcp shows the pushed HEAD; (b) both machines pass
+> a post-update smoke (`sgsd -NoOpen` preflight + hook self-test); (c) Codex hook
+> trust verified granted on both (probe: dispatch touches a forbidden path ƒÅ'
+> `block-forbidden-write.cjs` fires); (d) PROPAGATION.md reboot commands verified
 > by running them.
 
 Source: `.planning/analyses/2026-08-05-always-on-orchestration-DESIGN.md:159-163`.
@@ -4386,37 +4386,37 @@ Source: `.planning/analyses/2026-08-05-always-on-orchestration-DESIGN.md:159-163
 
 ## Recommended plan shape
 
-1. **Repair updater contract.**  
+1. **Repair updater contract.**
    `files_touched`: `super-gsd/scripts/sgsd-update.sh`, `sgsd-update.ps1`, `super-gsd/skills/sgsd-update/SKILL.md`, propagation tests. Add clean-source, fetched-SHA and `--ff-only` guards; call `--update --install-global`; preserve project config.
 
-2. **Make Codex hooks installable.**  
+2. **Make Codex hooks installable.**
    `files_touched`: `.codex/hooks.json`, new canonical hook template, `super-gsd/install.sh`, `sgsd-onboard.ps1`, `scripts/lib/sgsd-readiness.ps1`, installer audit/tests. Safely merge rather than overwrite user hooks.
 
-3. **Close Linux/runtime-provenance gaps.**  
+3. **Close Linux/runtime-provenance gaps.**
    `files_touched`: `super-gsd/scripts/sgsd-boot.sh`, `sgsd-remote-tmux.sh`, related tests. Add a true no-open smoke and make explicit canonical-source overrides authoritative; print/verify framework HEAD.
 
-4. **Document reconciliation decision and runbook.**  
+4. **Document reconciliation decision and runbook.**
    `files_touched`: phase `PROPAGATION.md`, a devcp reconciliation decision/manifest. Record ƒ?oquarantine/defer 883 history,ƒ?? non-deleting 43-file reconciliation, rollback, live/restart matrix, and exact commands.
 
-5. **OPERATOR-PRESENT ƒ?" merge, PII gate, push, local propagation.**  
+5. **OPERATOR-PRESENT ƒ?" merge, PII gate, push, local propagation.**
    `files_touched`: source history plus runtime `$PROFILE`, `~/.claude`, project settings. Verify every outgoing commit uses the generic operator identity before `git push origin master`.
 
-6. **OPERATOR-PRESENT ƒ?" local trust and AC-150b/c/d.**  
+6. **OPERATOR-PRESENT ƒ?" local trust and AC-150b/c/d.**
    `files_touched`: `~/.codex/state_5.sqlite` and ignored metrics. Approve interactively, run `sgsd -NoOpen`, hook self-test, forbidden-write probe, MCP/profile/cockpit restart commands.
 
-7. **OPERATOR-PRESENT ƒ?" devcp reconciliation/update/trust/reboot.**  
+7. **OPERATOR-PRESENT ƒ?" devcp reconciliation/update/trust/reboot.**
    `files_touched`: devcp canonical/global install and ignored evidence only. Run safety checks, fresh backup/inventory, guarded `/sgsd-update`, HEAD proof, trust probe, tmux/MCP/cockpit restart, then capture outputs in `150-VERIFICATION.md`.
 
-Get-Content : Cannot find path 
-'$env:USERPROFILE\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer\.mcp.json' because it does not 
+Get-Content : Cannot find path
+'$env:USERPROFILE\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\cholla-racer\.mcp.json' because it does not
 exist.
 At line:2 char:1
 + Get-Content -Raw '.mcp.json'; if (Test-Path '.claude/settings.json')  ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : ObjectNotFound: (C:\Users\jack.b...racer\.mcp.json:String) [Get-Content], ItemNotFoundEx 
+    + CategoryInfo          : ObjectNotFound: (C:\Users\jack.b...racer\.mcp.json:String) [Get-Content], ItemNotFoundEx
    ception
     + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.GetContentCommand
- 
+
 
 codex
 The revision is now internally consistent: local install/audit gates publication; both trust probes are bounded by a pre-dispatch ledger byte offset and checked exit status; restart evidence is machine-readable with before/after identities and canonical MCP paths; and devcp uses a tested full-target snapshot/restore plus a complete pre-install path-survival assertion. I’m doing the final schema and shell-safety pass now.

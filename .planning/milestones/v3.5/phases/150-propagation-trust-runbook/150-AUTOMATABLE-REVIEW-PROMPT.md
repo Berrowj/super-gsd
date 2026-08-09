@@ -471,7 +471,7 @@ index f84cdf5..5c875db 100644
 @@ -85,370 +86,380 @@ Commit gate:
        Remove only an SGSD-marked pre-commit trampoline. Refuses unmarked hooks
        and never invokes the gate during rollback.
- 
+
 -Local project setup:
 -  --init-local
 -  --init-project
@@ -1207,7 +1207,7 @@ index f84cdf5..5c875db 100644
 @@ -468,6 +479,25 @@ register_repo_local_hooks() {
    fi
  }
- 
+
 +register_codex_hooks() {
 +  echo ""
 +  log "Registering project-local Codex hooks..."
@@ -1233,7 +1233,7 @@ index f84cdf5..5c875db 100644
 @@ -496,253 +526,255 @@ run_commit_gate_installer() {
    fi
  }
- 
+
 -ensure_memory_tree() {
 -  echo ""
 -  log "Ensuring project-local .planning/memory store..."
@@ -1807,7 +1807,7 @@ index f84cdf5..5c875db 100644
    echo "[SGSD] commit-gate installer usage_conflict: choose install or uninstall, not both" >&2
    exit 1
 @@ -797,22 +829,22 @@ fi
- 
+
  if [ "$SAW_ACTION" = false ]; then
    RUN_DOCTOR=true
 -fi
@@ -1848,7 +1848,7 @@ index f84cdf5..5c875db 100644
 @@ -825,33 +857,33 @@ if [ "$UNINSTALL_COMMIT_GATE" = true ]; then
    run_commit_gate_installer uninstall
  fi
- 
+
 -if [ "$ENABLE_AUTOAPPROVE" = true ]; then
 -  enable_autoapprove
 -fi
@@ -2181,7 +2181,7 @@ index bd40663..c86f136 100644
 +    Add-Check 'auto-memory' "Auto-memory at ~/.claude/projects/$encoded/memory linked to .planning/memory/" `
 +        $(if ($autoMemLinked) { 'OK' } elseif (Test-Path -LiteralPath $autoMem) { 'WARN' } else { 'MISSING' }) $autoMem `
 +        'Junction auto-memory dir to .planning/memory/ for git tracking'
- 
+
 -    # 3. STATE.md frontmatter
 -    $statePath = Join-Path $planning 'STATE.md'
 -    if (Test-Path -LiteralPath $statePath) {
@@ -2338,7 +2338,7 @@ index bd40663..c86f136 100644
 -        'Junction auto-memory dir to .planning/memory/ for git tracking'
 +    Add-Check 'codex-hooks' 'Project .codex/hooks.json has current SGSD registrations' `
 +        $codexHookStatus $codexHooks $codexHookFix
- 
+
      return $checks
 -}
 -
@@ -2503,11 +2503,11 @@ index e282a38..2f3e628 100644
 +#     [--scripts-dir PATH] [--agents-dir PATH] [--source-dir PATH]
 +#     [--skip-preflight]
  # ============================================================================
- 
+
  set -u
 @@ -30,11 +32,36 @@ fi
  export PATH
- 
+
  PROJECT=""
 +SCRIPTS="${SGSD_SCRIPTS_DIR:-}"
 +AGENTS_DIR="${SGSD_AGENTS_DIR:-}"
@@ -2519,7 +2519,7 @@ index e282a38..2f3e628 100644
 +    echo "sgsd-boot: $*" >&2
 +    exit 1
 +}
- 
+
  while [[ $# -gt 0 ]]; do
      case "$1" in
 -        --project)        PROJECT="$2"; shift 2 ;;
@@ -2585,10 +2585,10 @@ index e282a38..2f3e628 100644
 +    [[ -f "$PROJECT/.super-gsd-version" ]] || die "project pin is not a file: $PROJECT/.super-gsd-version"
 +    PROJECT_PIN="$(tr -d '[:space:]' < "$PROJECT/.super-gsd-version")"
  fi
- 
+
 -SCRIPTS="$PROJECT/super-gsd/scripts"
  COCKPIT_SERVER_START="$SCRIPTS/start-cockpit-server.sh"
- 
+
  # ── Banner ──
 @@ -66,8 +115,25 @@ echo "================================================"
  echo "          SUPER GSD · Boot Command              "
@@ -2600,7 +2600,7 @@ index e282a38..2f3e628 100644
 +echo "  Framework HEAD: $FRAMEWORK_HEAD"
 +echo "  Project Pin: $PROJECT_PIN"
  echo ""
- 
+
 +if [[ "$PROJECT_PIN" != "not-pinned" ]]; then
 +    [[ "$PROJECT_PIN" =~ ^[0-9a-fA-F]{40}$ ]] \
 +        || die "project pin is not a full commit SHA: $PROJECT_PIN"
@@ -2638,7 +2638,7 @@ index e282a38..2f3e628 100644
 @@ -181,7 +248,7 @@ if [[ "$SKIP_PREFLIGHT" != true ]]; then
          exit 8
      fi
- 
+
 -    FEATURE_AUDIT="$PROJECT/super-gsd/tools/feature-propagation/audit.cjs"
 +    FEATURE_AUDIT="$SOURCE_DIR/super-gsd/tools/feature-propagation/audit.cjs"
      if [[ -f "$FEATURE_AUDIT" ]]; then
@@ -2646,7 +2646,7 @@ index e282a38..2f3e628 100644
          AUDIT_OK="$(printf '%s' "$AUDIT_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{let j=JSON.parse(s);process.stdout.write(j.ok?"ok":"drift")}catch(e){process.stdout.write("parse_fail")}})' 2>/dev/null || echo parse_fail)"
 @@ -217,6 +284,12 @@ if [[ "$SKIP_PREFLIGHT" != true ]]; then
  fi
- 
+
  # ── Launch instructions ──
 +if [[ "$NO_OPEN" == true ]]; then
 +    echo "Preflight and provenance complete (--no-open)."

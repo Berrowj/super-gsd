@@ -598,24 +598,24 @@ The skill itself tells you which.
 
 Instructions say WHAT, not HOW. "Add X" or "Fix Y" doesn't mean skip workflows.
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
  succeeded in 1144ms:
 ---
@@ -771,24 +771,24 @@ After saving the plan, offer execution choice:
 - **REQUIRED SUB-SKILL:** Use superpowers:executing-plans
 - Batch execution with checkpoints for review
 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
-command because it was defined in a different language mode. To invoke this command without importing its contents, 
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this
+command because it was defined in a different language mode. To invoke this command without importing its contents,
 omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
- 
-$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
-Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
+
+$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 :
+Cannot dot-source this command because it was defined in a different language mode. To invoke this command without
 importing its contents, omit the '.' operator.
 At line:1 char:1
 + . '$env:USERPROFILE\OneDrive - John Cullen Lighting\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
- 
+
 
 codex
 I’m reading the required phase inputs in the order specified, then I’ll produce only the locked plan content since this workspace is read-only.
@@ -889,31 +889,31 @@ Q8. `gsd-atc-slice-gate.js` is not present in `super-gsd/hooks` and grep only fi
 Q9. Risks: hook stacking on every prompt/tool; non-SGSD repo must root-walk and exit 0; Windows quoting argues for `command:"node", args:[...]`; hook `cwd` may differ, so root walk from `payload.cwd || process.cwd()`; STATE currently lacks `current_phase` frontmatter, so parser may return null unless STATE writer is fixed (`.planning/STATE.md:1-13`).
 
 **3. Files**
-Create `super-gsd/scripts/lib/sgsd-state.cjs` shared root/STATE/PLAN-LOCKED resolver.  
-Create `super-gsd/scripts/lib/gate-evidence-log.cjs` envelope writer for `gate-evidence.jsonl`.  
-Modify `super-gsd/hooks/sgsd-session-start.js` for governance contract injection.  
-Create `super-gsd/hooks/sgsd-intent-classifier.cjs`.  
-Create `super-gsd/hooks/sgsd-quality-gate.js`.  
-Modify installer/settings overlay for repo-local `.claude/settings.json`.  
+Create `super-gsd/scripts/lib/sgsd-state.cjs` shared root/STATE/PLAN-LOCKED resolver.
+Create `super-gsd/scripts/lib/gate-evidence-log.cjs` envelope writer for `gate-evidence.jsonl`.
+Modify `super-gsd/hooks/sgsd-session-start.js` for governance contract injection.
+Create `super-gsd/hooks/sgsd-intent-classifier.cjs`.
+Create `super-gsd/hooks/sgsd-quality-gate.js`.
+Modify installer/settings overlay for repo-local `.claude/settings.json`.
 Modify `sgsd-stop-handoff.sh`, `autopilot-watchdog/check.cjs`, config dead knobs.
 
 **4. Reuse**
 Reuse `gate-value-log.cjs` envelope pattern; extract `readActivePhase` from `sgsd-activity-logger.js`; reuse root walk patterns from `sgsd-heartbeat.js`; use `merge-settings.js` idempotency logic, but target project settings.
 
 **5. Tasks**
-1. Shared state + ledger helpers.  
-2. Repo-local installer hook wiring.  
-3. SessionStart contract injection.  
-4. UserPromptSubmit classifier + latency bench.  
-5. PostToolUse quality gate + cockpit consumer.  
+1. Shared state + ledger helpers.
+2. Repo-local installer hook wiring.
+3. SessionStart contract injection.
+4. UserPromptSubmit classifier + latency bench.
+5. PostToolUse quality gate + cockpit consumer.
 6. Cheap fixes cleanup.
 
 **6. Verification**
-`node --check super-gsd/scripts/lib/sgsd-state.cjs super-gsd/hooks/sgsd-intent-classifier.cjs super-gsd/hooks/sgsd-quality-gate.js`  
-`powershell -NoProfile -Command "1..200 | % { '{\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"How should we plan this?\"}' | node super-gsd/hooks/sgsd-intent-classifier.cjs > $null }"`  
-`node -e "require('./super-gsd/scripts/lib/gate-evidence-log.cjs')"`  
-`powershell -NoProfile -Command "Select-String -Path .claude/settings.json -Pattern 'UserPromptSubmit','SessionStart','PostToolUse'"`  
-`bash -n super-gsd/scripts/sgsd-stop-handoff.sh`  
+`node --check super-gsd/scripts/lib/sgsd-state.cjs super-gsd/hooks/sgsd-intent-classifier.cjs super-gsd/hooks/sgsd-quality-gate.js`
+`powershell -NoProfile -Command "1..200 | % { '{\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"How should we plan this?\"}' | node super-gsd/hooks/sgsd-intent-classifier.cjs > $null }"`
+`node -e "require('./super-gsd/scripts/lib/gate-evidence-log.cjs')"`
+`powershell -NoProfile -Command "Select-String -Path .claude/settings.json -Pattern 'UserPromptSubmit','SessionStart','PostToolUse'"`
+`bash -n super-gsd/scripts/sgsd-stop-handoff.sh`
 `rg "checkpoint_threshold_percent|context_warning_percent|context_warnings" .planning super-gsd`
 
 **7. Open Decisions**
