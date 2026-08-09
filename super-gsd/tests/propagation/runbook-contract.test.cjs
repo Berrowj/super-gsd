@@ -158,9 +158,11 @@ test("T150-05 executes the locked publication ceremony in guarded order", () => 
     "$p150FeatureSha = (git rev-parse HEAD).Trim()",
     "$p150AllowedOrigins = @(",
     "$p150RemoteUrl = (git remote get-url origin).Trim()",
-    "$p150RemotePushUrl = (git remote get-url --push origin).Trim()",
+    "$p150RemotePushUrls = @(",
+    "git remote get-url --push --all origin",
     "if (-not $p150FeatureBranch -or $p150FeatureBranch -eq 'master')",
     "$p150AllowedOrigins -cnotcontains $p150RemoteUrl",
+    "foreach ($p150RemotePushUrl in $p150RemotePushUrls)",
     "$p150AllowedOrigins -cnotcontains $p150RemotePushUrl",
     "git status --porcelain=v1",
     "git fetch origin master",
@@ -180,7 +182,9 @@ test("T150-05 executes the locked publication ceremony in guarded order", () => 
     "super-gsd/tools/feature-propagation/audit.cjs",
     "git worktree add --detach $p150PublishStage origin/master",
     "git -C $p150PublishStage merge --ff-only $p150FeatureSha",
-    "git -C $p150PublishStage remote get-url --push origin",
+    "$p150PublishPushUrls = @(",
+    "git -C $p150PublishStage remote get-url --push --all origin",
+    "foreach ($p150PublishPushUrl in $p150PublishPushUrls)",
     "$p150AllowedOrigins -cnotcontains $p150PublishPushUrl",
     "git -C $p150PublishStage push origin HEAD:master",
     "git fetch origin master",
@@ -206,14 +210,74 @@ test("T150-05 accepts only exact canonical fetch and push origins", () => {
     "an evil host with the canonical path suffix must be rejected");
   requireAll(ceremony, [
     "git remote get-url origin",
-    "git remote get-url --push origin",
-    "git -C $p150PublishStage remote get-url --push origin",
+    "git remote get-url --push --all origin",
+    "git -C $p150PublishStage remote get-url --push --all origin",
+    "foreach ($p150RemotePushUrl in $p150RemotePushUrls)",
+    "foreach ($p150PublishPushUrl in $p150PublishPushUrls)",
     "$p150AllowedOrigins -cnotcontains $p150RemoteUrl",
     "$p150AllowedOrigins -cnotcontains $p150RemotePushUrl",
     "$p150AllowedOrigins -cnotcontains $p150PublishPushUrl",
   ], "T150-05 origin validation");
+  assert.doesNotMatch(ceremony, /remote get-url --push origin/,
+    "push-URL queries must enumerate every configured push URL");
   assert.doesNotMatch(ceremony, /\(\^\|\[:\/\]\)Berrowj\/super-gsd/,
     "canonical-origin validation must not use an ends-with regex");
+});
+
+test("T150-05 rejects a malicious second origin push URL", (t) => {
+  const powershell = findPowerShell();
+  if (!powershell) return t.skip("PowerShell is unavailable or blocked by the managed runner");
+
+  const text = requiredFile(propagationPath);
+  const flow = section(text, "## Local propagation", "## Worktrees");
+  const ceremony = fencedBlocks(flow, "powershell")[0];
+  const allowlistMatch = ceremony.match(/\$p150AllowedOrigins\s*=\s*@\(\r?\n[\s\S]*?\r?\n\)/);
+  const pushQueryMatch = ceremony.match(
+    /\$p150RemotePushUrls = @\(\r?\n  git remote get-url --push --all origin\r?\n\)\r?\nif \([^\r\n]*\$p150RemotePushUrls\.Count[^\r\n]*\) \{ throw [^\r\n]+ \}/,
+  );
+  const pushGuardMatch = ceremony.match(
+    /foreach \(\$p150RemotePushUrl in \$p150RemotePushUrls\) \{\r?\n  if \(\$p150AllowedOrigins -cnotcontains \$p150RemotePushUrl\) \{\r?\n    throw "Unexpected origin push URL: \$p150RemotePushUrl"\r?\n  \}\r?\n\}/,
+  );
+  assert.ok(allowlistMatch && pushQueryMatch && pushGuardMatch,
+    "could not extract documented all-push-URL validation commands");
+  const validationCommands = [allowlistMatch[0], pushQueryMatch[0], pushGuardMatch[0]].join("\n");
+
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "sgsd-runbook-origin-"));
+  const gitEnv = { GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: path.join(fixture, "global.gitconfig") };
+  const canonicalOrigin = "https://github.com/Berrowj/super-gsd.git";
+  const maliciousOrigin = "https://evil.example/Berrowj/super-gsd.git";
+  try {
+    const setupCommands = [
+      ["init"],
+      ["remote", "add", "origin", canonicalOrigin],
+      ["remote", "set-url", "--add", "--push", "origin", canonicalOrigin],
+      ["remote", "set-url", "--add", "--push", "origin", maliciousOrigin],
+    ];
+    for (const args of setupCommands) {
+      const result = run("git", args, { cwd: fixture, env: gitEnv });
+      if (result.error?.code === "EPERM") return t.skip("managed runner blocks Git fixtures");
+      assert.equal(result.status, 0, `${args.join(" ")}\n${result.stdout}\n${result.stderr}`);
+    }
+
+    const pushUrls = run("git", ["remote", "get-url", "--push", "--all", "origin"], { cwd: fixture, env: gitEnv });
+    assert.equal(pushUrls.status, 0, pushUrls.stderr);
+    assert.deepEqual(pushUrls.stdout.trim().split(/\r?\n/), [canonicalOrigin, maliciousOrigin]);
+
+    const scriptPath = path.join(fixture, "validate-push-urls.ps1");
+    fs.writeFileSync(scriptPath,
+      `try {\n${validationCommands}\nexit 0\n} catch {\n  Write-Error $_\n  exit 1\n}\n`, "utf8");
+    const result = run(powershell, ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath], {
+      cwd: fixture,
+      env: gitEnv,
+    });
+    if (result.error?.code === "EPERM") return t.skip("managed runner blocks PowerShell fixtures");
+    assert.notEqual(result.status, 0, "documented commands accepted a malicious second push URL");
+    const flattened = `${result.stdout}\n${result.stderr}`.replace(/\s+/g, " ");
+    assert.match(flattened,
+      /Unexpected origin push URL: https:\/\/evil\.example\/Berrowj\/super-gsd\.git/);
+  } finally {
+    fs.rmSync(fixture, { recursive: true, force: true });
+  }
 });
 
 test("T150-06 contains the real offset-bounded Codex trust ceremony", () => {

@@ -104,8 +104,10 @@ $p150AllowedOrigins = @(
 )
 $p150RemoteUrl = (git remote get-url origin).Trim()
 if ($LASTEXITCODE -ne 0) { throw 'Could not resolve origin fetch URL' }
-$p150RemotePushUrl = (git remote get-url --push origin).Trim()
-if ($LASTEXITCODE -ne 0) { throw 'Could not resolve origin push URL' }
+$p150RemotePushUrls = @(
+  git remote get-url --push --all origin
+)
+if ($LASTEXITCODE -ne 0 -or $p150RemotePushUrls.Count -eq 0) { throw 'Could not resolve origin push URLs' }
 $p150LocalRepo = Join-Path $env:USERPROFILE 'GSDedits'
 
 if (-not $p150FeatureBranch -or $p150FeatureBranch -eq 'master') {
@@ -114,8 +116,10 @@ if (-not $p150FeatureBranch -or $p150FeatureBranch -eq 'master') {
 if ($p150AllowedOrigins -cnotcontains $p150RemoteUrl) {
   throw "Unexpected origin: $p150RemoteUrl"
 }
-if ($p150AllowedOrigins -cnotcontains $p150RemotePushUrl) {
-  throw "Unexpected origin push URL: $p150RemotePushUrl"
+foreach ($p150RemotePushUrl in $p150RemotePushUrls) {
+  if ($p150AllowedOrigins -cnotcontains $p150RemotePushUrl) {
+    throw "Unexpected origin push URL: $p150RemotePushUrl"
+  }
 }
 if (@(git status --porcelain=v1).Count -ne 0) {
   throw 'P150 feature worktree is dirty'
@@ -305,12 +309,16 @@ try {
     throw 'Detached fast-forward merge failed'
   }
 
-  $p150PublishPushUrl = (
-    git -C $p150PublishStage remote get-url --push origin
-  ).Trim()
-  if ($LASTEXITCODE -ne 0 -or
-      $p150AllowedOrigins -cnotcontains $p150PublishPushUrl) {
-    throw "Unexpected publication push URL: $p150PublishPushUrl"
+  $p150PublishPushUrls = @(
+    git -C $p150PublishStage remote get-url --push --all origin
+  )
+  if ($LASTEXITCODE -ne 0 -or $p150PublishPushUrls.Count -eq 0) {
+    throw 'Could not resolve publication push URLs'
+  }
+  foreach ($p150PublishPushUrl in $p150PublishPushUrls) {
+    if ($p150AllowedOrigins -cnotcontains $p150PublishPushUrl) {
+      throw "Unexpected publication push URL: $p150PublishPushUrl"
+    }
   }
 
   git -C $p150PublishStage push origin HEAD:master
