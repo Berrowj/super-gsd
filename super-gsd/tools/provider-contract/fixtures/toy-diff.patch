@@ -39,7 +39,7 @@ index 0000000..e8a5f2c
 +}
 +
 +// Trailing whitespace on the next line (nit):
-+export function arrayAverage(arr) {   
++export function arrayAverage(arr) {
 +  if (arr.length === 0) return 0;
 +  return arraySum(arr) / arr.length;
 +}
