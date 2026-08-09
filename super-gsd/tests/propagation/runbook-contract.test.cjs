@@ -476,5 +476,13 @@ test("repository pins canonical line endings for propagation file types", () => 
     "*.sh text eol=lf",
     "*.cjs text eol=lf",
     "*.ps1 text eol=crlf",
+    "*.md text eol=lf",
+    "*.txt text eol=lf",
+    "*.json text eol=lf",
+    "*.yaml text eol=lf",
+    "*.yml text eol=lf",
+    "*.html text eol=lf",
+    "*.js text eol=lf",
+    "*.mjs text eol=lf",
   ]);
 });

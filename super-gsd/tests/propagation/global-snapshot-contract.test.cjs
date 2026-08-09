@@ -30,11 +30,18 @@ function text(filePath) {
 }
 
 function bashAvailability() {
-  for (const name of process.platform === "win32" ? ["bash.exe", "bash"] : ["bash"]) {
-    const result = spawnSync(name, ["-lc", "printf SGSD_BASH_READY"], { encoding: "utf8" });
-    if (result.status === 0 && result.stdout === "SGSD_BASH_READY") return name;
+  if (process.platform !== "win32") {
+    const probe = spawnSync("sh", ["-c", "command -v bash"], { encoding: "utf8" });
+    return probe.status === 0 ? probe.stdout.trim() : null;
   }
-  return null;
+  const found = spawnSync("where.exe", ["bash.exe"], { encoding: "utf8" });
+  if (found.status !== 0) return null;
+  const candidate = found.stdout.split(/\r?\n/).map((c) => c.trim()).find((c) =>
+    c && !/[\\/](?:System32|WindowsApps)[\\/]/i.test(c),
+  ) || null;
+  if (!candidate) return null;
+  const probe = spawnSync(candidate, ["-lc", "printf SGSD_BASH_READY"], { encoding: "utf8" });
+  return probe.status === 0 && probe.stdout === "SGSD_BASH_READY" ? candidate : null;
 }
 
 function sha(filePath) {
