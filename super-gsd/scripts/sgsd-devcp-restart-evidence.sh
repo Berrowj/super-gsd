@@ -115,7 +115,7 @@ write_cockpit_identity() {
   load_proc_identity "$pid" || return 1
   [[ "$PROC_CMDLINE" == *cockpit-sidecar/serve.cjs* && "$PROC_CMDLINE" == *"$project"* ]] || return 1
   if [[ "$require_canonical" == true ]]; then
-    [[ "$PROC_CMDLINE" == *"$scripts_dir"* ]] || return 1
+    [[ "$PROC_CMDLINE" == *"$source_dir/super-gsd/tools/cockpit-sidecar/serve.cjs"* ]] || return 1
   fi
   : > "$destination"
   append_identity "$destination"
@@ -268,6 +268,7 @@ NODE
 identity_live "$cockpit_pid" "$cockpit_ticks" cockpit || after_identities_live=false
 [[ "$after_identities_live" == true ]] || die 'after_identities_live check failed'
 canonical_mcp_provenance=true
+canonical_cockpit_provenance=true
 
 set +e
 doctor_output="$("$remote_tmux" --project "$project" --session "$session" \
@@ -300,6 +301,7 @@ const fs = require('node:fs');
 const readLines = (file) => fs.readFileSync(file, 'utf8').split(/\r?\n/).filter(Boolean).map(JSON.parse);
 const readOne = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 const base = {
+  exit: 0,
   exit_status: 'passed',
   exact_command: process.env.SGSD_EXACT_COMMAND,
   captured_utc: process.env.SGSD_CAPTURED_UTC,
@@ -320,6 +322,7 @@ const mcp = {
 const cockpit = {
   ...base,
   cockpit_identity_changed: process.env.SGSD_COCKPIT_CHANGED === 'true',
+  canonical_cockpit_provenance: true,
   after_identities_live: true,
   before: readOne(process.env.SGSD_BEFORE_COCKPIT),
   after: readOne(process.env.SGSD_AFTER_COCKPIT),
@@ -330,13 +333,13 @@ const tmux = {
   tmux_server_pid_changed: process.env.SGSD_TMUX_SERVER_CHANGED === 'true',
   before: {
     session_id: process.env.SGSD_BEFORE_SESSION_ID,
-    creation_epoch: Number(process.env.SGSD_BEFORE_CREATION),
-    server_pid: Number(process.env.SGSD_BEFORE_SERVER_PID),
+    session_created: Number(process.env.SGSD_BEFORE_CREATION),
+    session_pid: Number(process.env.SGSD_BEFORE_SERVER_PID),
   },
   after: {
     session_id: process.env.SGSD_AFTER_SESSION_ID,
-    creation_epoch: Number(process.env.SGSD_AFTER_CREATION),
-    server_pid: Number(process.env.SGSD_AFTER_SERVER_PID),
+    session_created: Number(process.env.SGSD_AFTER_CREATION),
+    session_pid: Number(process.env.SGSD_AFTER_SERVER_PID),
   },
 };
 const evidence = {
@@ -350,7 +353,9 @@ const evidence = {
   machine: process.env.SGSD_MACHINE,
   live_at_write: true,
   redacted_output: process.env.SGSD_OUTPUT,
-  components: { mcp_restart: mcp, cockpit_restart: cockpit, tmux_restart: tmux },
+  devcp_mcp: mcp,
+  devcp_cockpit: cockpit,
+  devcp_tmux: tmux,
 };
 fs.writeFileSync(process.env.SGSD_EVIDENCE_TEMP, JSON.stringify(evidence, null, 2) + '\n', { mode: 0o600 });
 NODE

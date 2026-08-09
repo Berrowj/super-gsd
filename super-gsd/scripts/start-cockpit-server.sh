@@ -15,6 +15,7 @@ set -u
 
 PORT="${SGSD_COCKPIT_PORT:-7777}"
 WORKSPACE=""
+SOURCE_DIR="${SGSD_SOURCE_DIR:-}"
 MAX_PORT_ATTEMPTS="${SGSD_COCKPIT_MAX_PORT_ATTEMPTS:-25}"
 
 usage() {
@@ -112,11 +113,16 @@ resolve_workspace() {
 }
 
 WORKSPACE="$(resolve_workspace)" || die "cannot resolve workspace; pass --workspace PATH"
+if [[ -z "$SOURCE_DIR" ]]; then
+  SOURCE_DIR="$WORKSPACE"
+fi
+SOURCE_DIR="$(cd "$SOURCE_DIR" 2>/dev/null && pwd -P)" ||
+  die "cannot resolve canonical source directory: $SOURCE_DIR"
 RUNTIME_DIR="$WORKSPACE/.planning/runtime"
-SERVE_SCRIPT="$WORKSPACE/super-gsd/tools/cockpit-sidecar/serve.cjs"
+SERVE_SCRIPT="$SOURCE_DIR/super-gsd/tools/cockpit-sidecar/serve.cjs"
 
 [[ -d "$WORKSPACE/.planning" ]] || die "missing .planning/ under $WORKSPACE"
-[[ -f "$SERVE_SCRIPT" ]] || die "serve.cjs not found at $SERVE_SCRIPT"
+[[ -f "$SERVE_SCRIPT" ]] || die "canonical serve.cjs not found at $SERVE_SCRIPT"
 mkdir -p "$RUNTIME_DIR" || die "cannot create runtime dir: $RUNTIME_DIR"
 
 is_port_free() {
@@ -188,6 +194,25 @@ existing_pid_for_port() {
   [[ -n "$pid" ]] && printf '%s\n' "$pid"
 }
 
+canonical_cockpit_pid() {
+  local pid="$1" candidate="$2" arg previous=""
+  local script_matches=false port_matches=false workspace_matches=false
+  [[ -r "/proc/$pid/cmdline" ]] || return 1
+  while IFS= read -r -d '' arg; do
+    if [[ "$arg" == "$SERVE_SCRIPT" ]]; then
+      script_matches=true
+    fi
+    if [[ "$previous" == --port && "$arg" == "$candidate" ]]; then
+      port_matches=true
+    fi
+    if [[ "$previous" == --workspace && "$arg" == "$WORKSPACE" ]]; then
+      workspace_matches=true
+    fi
+    previous="$arg"
+  done < "/proc/$pid/cmdline"
+  [[ "$script_matches" == true && "$port_matches" == true && "$workspace_matches" == true ]]
+}
+
 write_runtime_files() {
   local pid_value="$1"
   local actual_port="$2"
@@ -216,8 +241,8 @@ select_free_port() {
 }
 
 existing_snapshot="$(health_snapshot "$PORT" 2>/dev/null || true)"
-if [[ -n "$existing_snapshot" ]]; then
-  existing_pid="$(existing_pid_for_port "$PORT" || true)"
+existing_pid="$(existing_pid_for_port "$PORT" || true)"
+if [[ -n "$existing_snapshot" && -n "$existing_pid" ]] && canonical_cockpit_pid "$existing_pid" "$PORT"; then
   write_runtime_files "$existing_pid" "$PORT"
   echo "Cockpit server already healthy at http://localhost:$PORT/"
   echo "  Loopback health: http://127.0.0.1:$PORT/snapshot"
@@ -227,6 +252,9 @@ if [[ -n "$existing_snapshot" ]]; then
     echo "  Stop with: kill $existing_pid"
   fi
   exit 0
+fi
+if [[ -n "$existing_snapshot" ]]; then
+  warn "healthy listener on port $PORT is not the canonical cockpit; selecting another port"
 fi
 
 ACTUAL_PORT="$(select_free_port "$PORT" "$MAX_PORT_ATTEMPTS")" || \

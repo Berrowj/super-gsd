@@ -2,7 +2,9 @@
 "use strict";
 
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
+const { spawnSync } = require("node:child_process");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
@@ -30,6 +32,70 @@ function fencedBlocks(markdown, language) {
   const pattern = new RegExp("```" + language + "\\s*\\n([\\s\\S]*?)\\n```", "gi");
   for (const match of markdown.matchAll(pattern)) blocks.push(match[1]);
   return blocks;
+}
+
+function section(markdown, heading, nextHeading) {
+  const start = markdown.indexOf(heading);
+  assert.notEqual(start, -1, `missing section: ${heading}`);
+  const end = markdown.indexOf(nextHeading, start + heading.length);
+  assert.notEqual(end, -1, `missing section boundary: ${nextHeading}`);
+  return markdown.slice(start, end);
+}
+
+function assertOrdered(text, needles, label) {
+  let cursor = -1;
+  for (const needle of needles) {
+    const next = text.indexOf(needle, cursor + 1);
+    assert.ok(next > cursor, `${label} must execute ${needle} after the prior step`);
+    cursor = next;
+  }
+}
+
+function run(command, args, options = {}) {
+  return spawnSync(command, args, {
+    cwd: options.cwd,
+    env: { ...process.env, ...options.env },
+    input: options.input,
+    encoding: "utf8",
+    timeout: 30_000,
+    windowsHide: true,
+  });
+}
+
+function findBash() {
+  if (process.platform !== "win32") {
+    const result = run("sh", ["-c", "command -v bash"]);
+    return result.status === 0 ? result.stdout.trim() : null;
+  }
+  const result = run("where.exe", ["bash.exe"]);
+  if (result.status !== 0) return null;
+  return result.stdout.split(/\r?\n/).map((entry) => entry.trim()).find((entry) =>
+    entry && !/[\\/](?:System32|WindowsApps)[\\/]/i.test(entry),
+  ) || null;
+}
+
+function findPowerShell() {
+  for (const command of process.platform === "win32"
+    ? ["pwsh.exe", "powershell.exe"]
+    : ["pwsh"]) {
+    const result = run(command, ["-NoProfile", "-Command", "exit 0"]);
+    if (result.status === 0) return command;
+  }
+  return null;
+}
+
+function write(filePath, contents, mode) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, contents, "utf8");
+  if (mode !== undefined) fs.chmodSync(filePath, mode);
+}
+
+function shellPath(filePath) {
+  return filePath.replaceAll("\\", "/");
+}
+
+function powershellLiteral(value) {
+  return `'${value.replaceAll("'", "''")}'`;
 }
 
 test("PROPAGATION documents the complete reload and reboot matrix", () => {
@@ -80,6 +146,167 @@ test("PROPAGATION commands use real flags, guarded paths, and safe SSH forms", (
   assert.match(text, /do not execute|operator-present/i);
 });
 
+test("T150-05 executes the locked publication ceremony in guarded order", () => {
+  const text = requiredFile(propagationPath);
+  const flow = section(text, "## Local propagation", "## Worktrees");
+  const blocks = fencedBlocks(flow, "powershell");
+  assert.equal(blocks.length, 1, "T150-05 must be one fail-closed PowerShell ceremony");
+  assertOrdered(blocks[0], [
+    "$p150Repo = (git rev-parse --show-toplevel).Trim()",
+    "$p150FeatureBranch = (git branch --show-current).Trim()",
+    "$p150FeatureSha = (git rev-parse HEAD).Trim()",
+    "$p150RemoteUrl = (git remote get-url origin).Trim()",
+    "if (-not $p150FeatureBranch -or $p150FeatureBranch -eq 'master')",
+    "$p150RemoteUrl -notmatch '(^|[:/])Berrowj/super-gsd(?:\\.git)?$'",
+    "git status --porcelain=v1",
+    "git fetch origin master",
+    "git merge-base --is-ancestor origin/master $p150FeatureSha",
+    "git log --format='%H|%an|%ae|%cn|%ce' \"origin/master..$p150FeatureSha\"",
+    "$p150AllowedIdentity",
+    "git diff --check origin/master...$p150FeatureSha",
+    "super-gsd/tests/propagation/restart-evidence-contract.test.cjs",
+    "git -C $p150LocalRepo branch --show-current",
+    "git -C $p150LocalRepo remote get-url origin",
+    "git -C $p150LocalRepo status --porcelain=v1",
+    "git -C $p150LocalRepo fetch origin master",
+    "git -C $p150LocalRepo merge-base --is-ancestor",
+    "Read-Host 'Coordinate users of the local master worktree, then type FAST-FORWARD",
+    "git -C $p150LocalRepo merge --ff-only $p150FeatureSha",
+    "bash ./super-gsd/install.sh --update --install-global",
+    "super-gsd/tools/feature-propagation/audit.cjs",
+    "git worktree add --detach $p150PublishStage origin/master",
+    "git -C $p150PublishStage merge --ff-only $p150FeatureSha",
+    "git -C $p150PublishStage push origin HEAD:master",
+    "git fetch origin master",
+    "$p150PublishedSha = (git rev-parse origin/master).Trim()",
+  ], "T150-05");
+});
+
+test("T150-06 contains the real offset-bounded Codex trust ceremony", () => {
+  const text = requiredFile(propagationPath);
+  const flow = section(text, "## Trust ceremony", "## Local restart evidence");
+  const ceremony = fencedBlocks(flow, "powershell").find((block) =>
+    block.includes("$p150LedgerOffset"),
+  );
+  assert.ok(ceremony, "T150-06 must contain an executable ledger-offset ceremony");
+  assertOrdered(ceremony, [
+    "$p150LedgerOffset = if (Test-Path -LiteralPath $p150EventFile)",
+    "$p150ProbeStarted = [DateTimeOffset]::UtcNow",
+    "$p150Prompt = @\"",
+    "codex --ask-for-approval never exec",
+    "if ($LASTEXITCODE -ne 0)",
+    "if (Test-Path -LiteralPath $p150ForbiddenFile)",
+    "$p150Stream.Seek($p150LedgerOffset",
+    "$p150AppendedText = $p150Reader.ReadToEnd()",
+    "$p150AppendedText -split '\\r?\\n'",
+    "$_.hook -eq 'block-forbidden-write'",
+    "$_.decision -eq 'block'",
+    "$_.reason -eq 'forbidden_path'",
+    "$_.path -eq 'secrets/p150-trust-probe.env'",
+    "[DateTimeOffset]$_.ts -ge $p150ProbeStarted",
+  ], "T150-06 trust ceremony");
+  assert.doesNotMatch(ceremony, /node\s+[^\n]*block-forbidden-write\.cjs\s*(?:\r?\n|$)/,
+    "the hook must be exercised by Codex, not invoked directly without a payload");
+  assert.doesNotMatch(ceremony, /codex\s+exec[\s\S]*--ask-for-approval/,
+    "--ask-for-approval is a top-level Codex option and must precede exec");
+});
+
+test("documented local trust ceremony executes against an append-only fixture", (t) => {
+  const powershell = findPowerShell();
+  if (!powershell) return t.skip("PowerShell is unavailable or blocked by the managed runner");
+
+  const text = requiredFile(propagationPath);
+  const flow = section(text, "## Trust ceremony", "## Local restart evidence");
+  const ceremony = fencedBlocks(flow, "powershell").find((block) =>
+    block.includes("$p150LedgerOffset"),
+  );
+  assert.ok(ceremony, "missing executable trust ceremony");
+
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "sgsd-runbook-trust-"));
+  try {
+    const userProfile = path.join(fixture, "operator-home");
+    const project = path.join(userProfile, "GSDedits");
+    const ledger = path.join(project, ".planning", "metrics", "codex-tool-events.jsonl");
+    write(ledger, JSON.stringify({
+      ts: "2000-01-01T00:00:00.000Z",
+      hook: "block-forbidden-write",
+      decision: "block",
+      reason: "forbidden_path",
+      path: "secrets/p150-trust-probe.env",
+    }) + "\n");
+
+    const harness = [
+      `$env:USERPROFILE = ${powershellLiteral(userProfile)}`,
+      "function codex {",
+      "  $row = [ordered]@{",
+      "    ts = [DateTimeOffset]::UtcNow.ToString('o')",
+      "    hook = 'block-forbidden-write'",
+      "    decision = 'block'",
+      "    reason = 'forbidden_path'",
+      "    path = 'secrets/p150-trust-probe.env'",
+      "  }",
+      "  $row | ConvertTo-Json -Compress | Add-Content -LiteralPath $p150EventFile -Encoding UTF8",
+      "  $global:LASTEXITCODE = 0",
+      "}",
+      ceremony,
+      "Write-Output 'CEREMONY_OK'",
+    ].join("\n");
+    const result = run(powershell, ["-NoProfile", "-Command", "-"], { input: harness });
+    if (result.error?.code === "EPERM") return t.skip("managed runner blocks PowerShell fixtures");
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stdout, /CEREMONY_OK/);
+    assert.equal(fs.existsSync(path.join(project, "secrets", "p150-trust-probe.env")), false);
+    assert.equal(fs.readFileSync(ledger, "utf8").trim().split(/\r?\n/).length, 2,
+      "fixture must prove one newly appended event rather than reuse history");
+  } finally {
+    fs.rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test("documented devcp updater runs from the project fixture", (t) => {
+  const bash = findBash();
+  if (!bash) return t.skip("bash is unavailable or blocked by the managed runner");
+
+  const text = requiredFile(propagationPath);
+  const flow = section(text, "## devcp propagation", "## Evidence capture");
+  const block = fencedBlocks(flow, "powershell").find((entry) =>
+    entry.includes("$p150RemoteUpdate = @'"),
+  );
+  assert.ok(block, "T150-07 must define a named remote updater script");
+  const scriptMatch = block.match(/\$p150RemoteUpdate\s*=\s*@'\r?\n([\s\S]*?)\r?\n'@/);
+  assert.ok(scriptMatch, "could not extract the documented remote updater body");
+
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "sgsd-runbook-update-"));
+  try {
+    const project = path.join(fixture, "project");
+    const source = path.join(fixture, "source");
+    const update = path.join(source, "super-gsd", "scripts", "sgsd-update.sh");
+    const log = path.join(fixture, "update.log");
+    fs.mkdirSync(project, { recursive: true });
+    write(update, [
+      "#!/usr/bin/env bash",
+      "set -euo pipefail",
+      "printf '%s|%s\\n' \"$PWD\" \"$*\" >> \"$SGSD_TEST_UPDATE_LOG\"",
+      "",
+    ].join("\n"), 0o755);
+    const result = run(bash, ["-s", "--", shellPath(project), shellPath(source)], {
+      input: scriptMatch[1],
+      env: { SGSD_TEST_UPDATE_LOG: shellPath(log) },
+    });
+    if (result.error?.code === "EPERM") return t.skip("managed runner blocks bash fixtures");
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    const rows = fs.readFileSync(log, "utf8").trim().split(/\r?\n/);
+    assert.equal(rows.length, 2, "documented flow must run check and guarded update");
+    const projectTail = `${path.basename(path.dirname(project))}/project`;
+    assert.equal(rows.every((row) => row.split("|")[0].replaceAll("\\", "/").endsWith(projectTail)), true,
+      `updater ran outside the project cwd: ${rows.join(" ; ")}`);
+    assert.match(rows[0], /--check --source/);
+    assert.doesNotMatch(rows[1], /--check/);
+  } finally {
+    fs.rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
 test("PROPAGATION specifies trust evidence, worktree behavior, capture, and exact rollback", () => {
   const text = requiredFile(propagationPath);
   requireAll(text, [
@@ -120,4 +347,10 @@ test("phase docs contain no forbidden bypass, fork push, or destructive reset", 
   assert.doesNotMatch(texts, /dangerously-bypass-hook-trust/i);
   assert.doesNotMatch(texts, /git\s+push[^\n]*GSDedits/i);
   assert.doesNotMatch(texts, /reset\s+--hard/i);
+});
+
+test("published runbook contains no identifiable Windows account path", () => {
+  const text = requiredFile(propagationPath);
+  assert.doesNotMatch(text, /C:\\Users\\jack\.berrow/i);
+  assert.match(text, /\$env:USERPROFILE/);
 });
