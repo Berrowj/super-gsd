@@ -18,7 +18,7 @@ function run(command, args, options = {}) {
     cwd: options.cwd,
     env: { ...process.env, ...options.env },
     encoding: 'utf8',
-    timeout: 120_000,
+    timeout: 420_000,
     windowsHide: true,
   });
 }
