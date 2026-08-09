@@ -175,7 +175,7 @@ Per operator: "use everything we've learnt from the explanation books"
 ## Verification commands
 
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
+cd $env:USERPROFILE\GSDedits
 
 # Full self-test (expect 126/126)
 node super-gsd\tools\cockpit-sidecar\run-self-test.cjs

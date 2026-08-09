@@ -12,7 +12,7 @@ http://localhost:7777/        ← live cockpit (PID 38116)
 
 If the server isn't running when you boot, restart with:
 ```powershell
-cd C:\Users\jack.berrow\GSDedits
+cd $env:USERPROFILE\GSDedits
 .\super-gsd\scripts\start-cockpit-server.ps1
 ```
 
@@ -103,7 +103,7 @@ issue logged in v3.4 backlog.
 
 ```powershell
 # Full self-test (should pass 106/106)
-cd C:\Users\jack.berrow\GSDedits
+cd $env:USERPROFILE\GSDedits
 node super-gsd\tools\cockpit-sidecar\run-self-test.cjs
 
 # Browser-smoke gate (must PASS before any cockpit phase close)

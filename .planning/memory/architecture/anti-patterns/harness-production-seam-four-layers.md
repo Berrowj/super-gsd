@@ -23,3 +23,12 @@ chain — skill prose step N → runtime CLI stage → helper lib → MCP seam �
 verify EVERY hop consumes the previous hop's artifact. A green harness suite
 plus an unchanged production caller is the signature of this bug, and a
 reviewer must be explicitly asked "does the NEXT step re-enter the old path?"
+
+**Instance 5 (P149, same day):** consult hook probes passed with explicit
+--files-changed/--diff-lines flags, but the SKILL.md production command
+supplied none of them — inputs defaulted to zero and the gated route could
+never fire live. Refinement of the rule: it is not enough to verify the next
+hop consumes the artifact; verify the production caller SUPPLIES every input
+the mechanism needs, or make the mechanism derive its inputs from evidence
+(git, index) when the caller omits them. Derive-don't-default is the fix
+shape.

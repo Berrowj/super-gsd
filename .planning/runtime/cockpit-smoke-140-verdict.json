@@ -83,5 +83,5 @@
     "event: snapshot",
     "data: {\"milestone\":\"v3.4\",\"phase\":\"140\",\"generated_at\":\"2026-05-25T01:03:44.222Z\",\"latest_chronicle\":null,\"binding_gate_status\":null,\"fog_score\":{\"score\":100,\"tier\":\"high\",\"must_read_sections\":[\"summa"
   ],
-  "html_artifact": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\runtime\\cockpit-smoke-140.html"
+  "html_artifact": "$env:USERPROFILE\\GSDedits\\.planning\\runtime\\cockpit-smoke-140.html"
 }

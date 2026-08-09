@@ -81,5 +81,5 @@
     "data: {\"milestone\":\"v3.4\",\"phase\":\"142\",\"generated_at\":\"2026-05-25T10:53:48.129Z\",\"latest_chronicle\":null,\"binding_gate_status\":null,\"fog_score\":{\"score\":100,\"tier\":\"high\",\"must_read_sections\":[\"summa",
     ": keep-alive"
   ],
-  "html_artifact": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\runtime\\cockpit-smoke-142.html"
+  "html_artifact": "$env:USERPROFILE\\GSDedits\\.planning\\runtime\\cockpit-smoke-142.html"
 }

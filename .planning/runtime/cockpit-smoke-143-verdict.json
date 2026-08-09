@@ -85,5 +85,5 @@
     "[{\"name\":\"self-test\",\"mode\":\"mechanical\",\"sampling\":\"always\",\"status\":\"pending\",\"concept\":null,\"detail\":\"VERIFICATION.md present\",\"repair\":\"run verifier\",\"blocking\":true},{\"name\":\"browser-smoke\",\"mode",
     ": keep-alive"
   ],
-  "html_artifact": "C:\\Users\\jack.berrow\\GSDedits\\.planning\\runtime\\cockpit-smoke-143.html"
+  "html_artifact": "$env:USERPROFILE\\GSDedits\\.planning\\runtime\\cockpit-smoke-143.html"
 }
