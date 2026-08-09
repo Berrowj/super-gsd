@@ -33,6 +33,14 @@ function git(cwd, ...args) {
   return runOk('git', cwd ? ['-C', cwd, ...args] : args);
 }
 
+function findGit() {
+  const result = process.platform === 'win32'
+    ? run('where.exe', ['git.exe'])
+    : run('sh', ['-c', 'command -v git']);
+  assert.equal(result.status, 0, output(result));
+  return result.stdout.split(/\r?\n/).find(Boolean).trim();
+}
+
 function initFixtureRepo(repoPath, { bare = false } = {}) {
   fs.mkdirSync(repoPath, { recursive: true });
   git(null, 'init', ...(bare ? ['--bare'] : []), repoPath);
@@ -94,6 +102,56 @@ function write(filePath, contents) {
   fs.writeFileSync(filePath, contents, 'utf8');
 }
 
+function createGitShim(root) {
+  const shimDirectory = path.join(root, 'git-shim');
+  const shimPath = path.join(shimDirectory, 'git');
+  write(
+    shimPath,
+    [
+      '#!/usr/bin/env node',
+      `const fs = require('node:fs');`,
+      `const { spawnSync } = require('node:child_process');`,
+      `const args = process.argv.slice(2).map((arg) =>`,
+      `  process.platform === 'win32' && arg.endsWith('{commit}') && !arg.endsWith('^{commit}')`,
+      `    ? arg.slice(0, -8) + '^{commit}'`,
+      `    : arg,`,
+      `);`,
+      `const isOriginResolve = args.length === 6`,
+      `  && args[0] === '-C'`,
+      `  && args[2] === 'remote'`,
+      `  && args[3] === 'get-url'`,
+      `  && args[4] === '--all'`,
+      `  && args[5] === 'origin';`,
+      `const isNetworkOperation = args.length >= 4`,
+      `  && args[0] === '-C'`,
+      `  && (args[2] === 'ls-remote' || args[2] === 'fetch')`,
+      `  && args[3] === 'origin';`,
+      `if (isNetworkOperation) {`,
+      `  fs.appendFileSync(process.env.SGSD_TEST_GIT_NETWORK_LOG, args[2] + ' origin\\n');`,
+      `}`,
+      `const result = spawnSync(process.env.SGSD_TEST_REAL_GIT, args, { encoding: 'utf8' });`,
+      `if (isOriginResolve`,
+      `    && result.status === 0`,
+      `    && result.stdout.trim() === process.env.SGSD_TEST_LOCAL_ORIGIN) {`,
+      `  process.stdout.write('https://github.com/Berrowj/super-gsd.git\\n');`,
+      `} else {`,
+      `  process.stdout.write(result.stdout || '');`,
+      `  process.stderr.write(result.stderr || '');`,
+      `}`,
+      `process.exit(result.status === null ? 1 : result.status);`,
+      '',
+    ].join('\n'),
+  );
+  if (process.platform === 'win32') {
+    write(
+      path.join(shimDirectory, 'git.cmd'),
+      `@echo off\r\n"${process.execPath}" "%~dp0git" %*\r\n`,
+    );
+  }
+  fs.chmodSync(shimPath, 0o755);
+  return { shimDirectory, realGit: findGit() };
+}
+
 function createFixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-update-contract-'));
   const origin = path.join(root, 'origin.git');
@@ -101,6 +159,8 @@ function createFixture() {
   const source = path.join(root, 'source');
   const project = path.join(root, 'project');
   const installLog = path.join(root, 'install.log');
+  const gitNetworkLog = path.join(root, 'git-network.log');
+  const { shimDirectory: gitShimDirectory, realGit } = createGitShim(root);
 
   initFixtureRepo(origin, { bare: true });
   git(null, '--git-dir', origin, 'symbolic-ref', 'HEAD', 'refs/heads/master');
@@ -130,7 +190,17 @@ function createFixture() {
   fs.mkdirSync(path.join(project, '.planning'), { recursive: true });
   write(path.join(project, '.planning', 'config.json'), '{preserve:true}\n');
 
-  return { root, origin, author, source, project, installLog };
+  return {
+    root,
+    origin,
+    author,
+    source,
+    project,
+    installLog,
+    gitNetworkLog,
+    gitShimDirectory,
+    realGit,
+  };
 }
 
 function destroyFixture(fixture) {
@@ -157,7 +227,11 @@ function localCommit(fixture, label) {
 
 function invoke(runtime, fixture, mode = 'update', extraEnv = {}) {
   const commonEnv = {
+    PATH: `${fixture.gitShimDirectory}${path.delimiter}${process.env.PATH || ''}`,
     SGSD_TEST_INSTALL_LOG: shellPath(fixture.installLog),
+    SGSD_TEST_GIT_NETWORK_LOG: shellPath(fixture.gitNetworkLog),
+    SGSD_TEST_LOCAL_ORIGIN: fixture.origin,
+    SGSD_TEST_REAL_GIT: shellPath(fixture.realGit),
     ...extraEnv,
   };
 
@@ -207,6 +281,40 @@ function installCalls(fixture) {
 }
 
 for (const runtime of runtimes) {
+  for (const mode of ['check', 'update']) {
+    test(`${runtime.name}: ${mode} rejects a repointed origin before remote access or mutation`, () => {
+      const fixture = createFixture();
+      try {
+        const repointedOrigin = path.join(fixture.root, 'repointed.git');
+        initFixtureRepo(repointedOrigin, { bare: true });
+        git(null, '--git-dir', repointedOrigin, 'symbolic-ref', 'HEAD', 'refs/heads/master');
+        git(fixture.author, 'push', repointedOrigin, 'master');
+        const repointedSha = commit(fixture, 'repointed update');
+        git(fixture.author, 'push', repointedOrigin, 'HEAD:refs/heads/master');
+        git(fixture.source, 'remote', 'set-url', 'origin', repointedOrigin);
+        const beforeHead = git(fixture.source, 'rev-parse', 'HEAD');
+        const beforeTracking = git(fixture.source, 'rev-parse', 'refs/remotes/origin/master');
+
+        const result = invoke(runtime, fixture, mode);
+
+        assert.notEqual(result.status, 0, output(result));
+        assert.match(output(result), /(?:untrusted|non-canonical).*origin|origin.*(?:untrusted|non-canonical)/i);
+        assert.equal(git(fixture.source, 'rev-parse', 'HEAD'), beforeHead);
+        assert.equal(git(fixture.source, 'rev-parse', 'refs/remotes/origin/master'), beforeTracking);
+        assert.notEqual(
+          run('git', ['-C', fixture.source, 'cat-file', '-e', `${repointedSha}^{commit}`]).status,
+          0,
+          'repointed commit must not be fetched',
+        );
+        assert.deepEqual(installCalls(fixture), []);
+        assert.equal(fs.existsSync(path.join(fixture.project, '.super-gsd-version')), false);
+        assert.equal(fs.existsSync(fixture.gitNetworkLog), false, 'origin must be rejected before ls-remote/fetch');
+      } finally {
+        destroyFixture(fixture);
+      }
+    });
+  }
+
   test(`${runtime.name}: clean behind source fast-forwards to captured SHA and installs globally`, () => {
     const fixture = createFixture();
     try {
@@ -407,5 +515,19 @@ test('static updater and skill contract forbids pull and documents restart bound
 
   for (const term of ['dirty', 'ahead', 'diverged', 'profile', 'client session', 'MCP', 'cockpit', 'tmux', 'exit']) {
     assert.match(skillSource, new RegExp(term, 'i'), `skill must document ${term}`);
+  }
+});
+
+test('updaters validate the resolved origin before any remote check or fetch', () => {
+  for (const wrapper of [BASH_WRAPPER, POWERSHELL_WRAPPER]) {
+    const source = fs.readFileSync(wrapper, 'utf8');
+    const resolutionIndex = source.search(/remote\s+get-url\s+--all\s+origin/i);
+    const checkIndex = source.search(/ls-remote\s+origin/i);
+    const fetchIndex = source.search(/fetch\s+origin/i);
+
+    assert.notEqual(resolutionIndex, -1, `${path.basename(wrapper)} must resolve every origin fetch URL`);
+    assert.match(source, /untrusted|non-canonical/i, `${path.basename(wrapper)} must explain origin rejection`);
+    assert.ok(resolutionIndex < checkIndex, `${path.basename(wrapper)} must validate origin before ls-remote`);
+    assert.ok(resolutionIndex < fetchIndex, `${path.basename(wrapper)} must validate origin before fetch`);
   }
 });

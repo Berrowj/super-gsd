@@ -102,6 +102,10 @@ test("snapshot helper has bounded validation and non-destructive restore guards"
   ]) assert.match(source, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(source, /readlink|realpath/);
   assert.match(source, /archive.*(?:exist|readable)|(?:exist|readable).*archive/is);
+  assert.match(source, /unknown.*mutation|mutation.*unknown/is);
+  assert.match(source, /get-shit-done.*(?:pre-existing|bootstrap)|(?:pre-existing|bootstrap).*get-shit-done/is);
+  assert.match(source, /archive\.sha256/);
+  assert.match(source, /archive.*membership|membership.*archive/is);
   assert.match(source, /pre-install.*subset|subset.*pre-install/is);
   assert.match(source, /extra.*byte|byte.*extra/is);
   assert.doesNotMatch(source, /rm\s+-rf\s+['"]?\$(?:HOME|home)/);
@@ -231,4 +235,118 @@ test("unsafe homes and an installer contract mismatch fail closed", { timeout: 3
   const mismatch = run(bash, [path.join(fixtureRoot, "scripts", "sgsd-global-snapshot.sh"), "create", "--home", home, "--output-dir", path.join(temp, "mismatch")], { env });
   assert.notEqual(mismatch.status, 0, "helper must fail when install.sh mutation targets differ");
   assert.match(`${mismatch.stdout}\n${mismatch.stderr}`, /contract mismatch/i);
+});
+
+test("unknown installer mutation targets fail the snapshot contract", { timeout: 30_000 }, (t) => {
+  const bash = bashAvailability();
+  if (!bash) return t.skip("bash is unavailable or blocked by the managed runner");
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "sgsd-snapshot-unknown-target-"));
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  const fixtureRoot = path.join(temp, "fixture", "super-gsd");
+  const fixtureHelper = path.join(fixtureRoot, "scripts", "sgsd-global-snapshot.sh");
+  const fixtureInstaller = path.join(fixtureRoot, "install.sh");
+  const home = path.join(temp, "home");
+  fs.mkdirSync(path.join(home, ".claude", "get-shit-done"), { recursive: true });
+  write(fixtureHelper, text(helper), 0o755);
+  const originalInstaller = text(installer);
+  const env = { ...process.env, HOME: home, USERPROFILE: home };
+  const mutationLines = [
+    'copy_file "$SCRIPT_DIR/AGENTS.md" "/tmp/unknown-global-target"',
+    'chmod +x "$GLOBAL_SCRIPTS_DIR/sgsd" /tmp/unknown-global-target',
+    'if touch /tmp/unknown-global-target; then :; fi',
+    'if [ -e <(touch /tmp/unknown-global-target) ]; then\n    echo ""\n  fi',
+    'if [ -e "$GSD_DIR" ] > /tmp/unknown-global-target; then\n    echo ""\n  fi',
+  ];
+  for (const [index, mutationLine] of mutationLines.entries()) {
+    const outputDir = path.join(temp, `snapshot-${index}`);
+    const changedInstaller = originalInstaller.replace(
+      '  log "Global install complete. Launcher installed at $LOCAL_BIN_DIR/sgsd."',
+      [`  ${mutationLine}`, '  log "Global install complete. Launcher installed at $LOCAL_BIN_DIR/sgsd."'].join("\n"),
+    );
+    assert.notEqual(changedInstaller, originalInstaller, "fixture must add an unknown mutation target");
+    write(fixtureInstaller, changedInstaller, 0o755);
+
+    const result = run(bash, [fixtureHelper, "create", "--home", home, "--output-dir", outputDir], { env });
+
+    assert.notEqual(result.status, 0, `unknown mutation must fail closed: ${mutationLine}`);
+    assert.match(`${result.stdout}\n${result.stderr}`, /contract mismatch.*unknown.*mutation|unknown.*mutation.*contract mismatch/is);
+    assert.equal(fs.existsSync(outputDir), false, "contract rejection must precede snapshot creation");
+  }
+});
+
+test("create fails closed before bootstrap when get-shit-done is absent", { timeout: 30_000 }, (t) => {
+  const bash = bashAvailability();
+  if (!bash) return t.skip("bash is unavailable or blocked by the managed runner");
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "sgsd-snapshot-bootstrap-guard-"));
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  const home = path.join(temp, "home");
+  const outputDir = path.join(temp, "snapshot");
+  fs.mkdirSync(home, { recursive: true });
+  const env = { ...process.env, HOME: home, USERPROFILE: home };
+
+  const result = run(bash, [helper, "create", "--home", home, "--output-dir", outputDir], { env });
+
+  assert.notEqual(result.status, 0, "create must not permit the external get-shit-done bootstrap boundary");
+  assert.match(`${result.stdout}\n${result.stderr}`, /get-shit-done.*(?:pre-existing|bootstrap)|(?:pre-existing|bootstrap).*get-shit-done/is);
+  assert.equal(fs.existsSync(outputDir), false, "bootstrap guard must precede snapshot creation");
+});
+
+test("restore rejects a symlinked failed-candidate directory before live-target mutation", { timeout: 30_000 }, (t) => {
+  const bash = bashAvailability();
+  if (!bash) return t.skip("bash is unavailable or blocked by the managed runner");
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "sgsd-snapshot-symlink-guard-"));
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  const home = path.join(temp, "home");
+  const snapshot = path.join(temp, "snapshot");
+  const liveScripts = path.join(home, ".claude", "super-gsd", "scripts");
+  const failedLink = path.join(temp, "failed-link");
+  fs.mkdirSync(path.join(home, ".claude", "get-shit-done"), { recursive: true });
+  fs.mkdirSync(liveScripts, { recursive: true });
+  const env = { ...process.env, HOME: home, USERPROFILE: home };
+  const created = run(bash, [helper, "create", "--home", home, "--output-dir", snapshot], { env });
+  assert.equal(created.status, 0, `create failed\nstdout=${created.stdout}\nstderr=${created.stderr}`);
+  try {
+    fs.symlinkSync(liveScripts, failedLink, process.platform === "win32" ? "junction" : "dir");
+  } catch (error) {
+    if (error.code === "EPERM") return t.skip("host does not permit the symlink fixture");
+    throw error;
+  }
+
+  const result = run(bash, [helper, "restore", "--home", home, "--snapshot-dir", snapshot,
+    "--failed-candidate-dir", failedLink], { env });
+
+  assert.notEqual(result.status, 0, "resolved failed-candidate path inside a live target must fail closed");
+  assert.deepEqual(fs.readdirSync(liveScripts), [], "rejection must happen before creating quarantine paths in the live target");
+});
+
+test("restore rejects an archive with out-of-bound membership before extraction", { timeout: 30_000 }, (t) => {
+  const bash = bashAvailability();
+  if (!bash) return t.skip("bash is unavailable or blocked by the managed runner");
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "sgsd-snapshot-tampered-archive-"));
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  const home = path.join(temp, "home");
+  const snapshot = path.join(temp, "snapshot");
+  const failed = path.join(temp, "failed");
+  const payload = path.join(temp, "payload");
+  fs.mkdirSync(path.join(home, ".claude", "get-shit-done"), { recursive: true });
+  write(path.join(home, ".claude", "agents", "original.md"), "original\n");
+  const env = { ...process.env, HOME: home, USERPROFILE: home };
+  const created = run(bash, [helper, "create", "--home", home, "--output-dir", snapshot], { env });
+  assert.equal(created.status, 0, `create failed\nstdout=${created.stdout}\nstderr=${created.stderr}`);
+  write(path.join(payload, "payload.txt"), "must not escape snapshot targets\n");
+  const archive = path.join(snapshot, "archive.tar");
+  const tampered = run(bash, ["-c",
+    'tar --force-local -rf "$1" -C "$2" --transform="s#^payload.txt\\$#.ssh/authorized_keys#" -- payload.txt',
+    "sgsd-tamper", archive, payload], { env });
+  assert.equal(tampered.status, 0, `could not build tampered archive fixture\nstdout=${tampered.stdout}\nstderr=${tampered.stderr}`);
+  write(path.join(snapshot, "archive.sha256"), `${sha(archive)}  archive.tar\n`);
+
+  const result = run(bash, [helper, "restore", "--home", home, "--snapshot-dir", snapshot,
+    "--failed-candidate-dir", failed], { env });
+
+  assert.notEqual(result.status, 0, "tampered archive must fail closed");
+  assert.match(`${result.stdout}\n${result.stderr}`, /archive membership|outside the snapshot target prefixes/i,
+    "fixture must reach membership validation after its digest is refreshed");
+  assert.equal(fs.existsSync(path.join(home, ".ssh", "authorized_keys")), false,
+    "archive validation must precede extraction into home");
 });

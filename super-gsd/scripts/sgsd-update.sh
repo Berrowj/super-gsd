@@ -40,6 +40,32 @@ REPO_URL_HTTPS="https://github.com/Berrowj/super-gsd.git"
 
 log() { printf '  [sgsd-update] %s\n' "$1"; }
 
+require_trusted_origin() {
+    local origin_urls origin_url origin_count=0
+    if ! origin_urls=$(git -C "$SOURCE_DIR" remote get-url --all origin 2>&1); then
+        log "Could not resolve canonical source origin; refusing remote access."
+        exit 6
+    fi
+    while IFS= read -r origin_url; do
+        [[ -n "$origin_url" ]] || continue
+        origin_count=$((origin_count + 1))
+        case "$origin_url" in
+            git@github.com:Berrowj/super-gsd|git@github.com:Berrowj/super-gsd.git|\
+            https://github.com/Berrowj/super-gsd|https://github.com/Berrowj/super-gsd.git|\
+            ssh://git@github.com/Berrowj/super-gsd|ssh://git@github.com/Berrowj/super-gsd.git)
+                ;;
+            *)
+                log "Untrusted origin URL; expected canonical github.com/Berrowj/super-gsd: $origin_url"
+                exit 6
+                ;;
+        esac
+    done <<< "$origin_urls"
+    if [[ $origin_count -eq 0 ]]; then
+        log "Could not resolve canonical source origin; refusing remote access."
+        exit 6
+    fi
+}
+
 read_source_head() {
     git -C "$SOURCE_DIR" rev-parse --verify 'HEAD^{commit}' 2>/dev/null
 }
@@ -87,6 +113,8 @@ if [[ ! -d "$SOURCE_DIR/.git" ]]; then
         }
     fi
 fi
+
+require_trusted_origin
 
 # --check mode: compare local master to remote master without fetching objects
 if [[ "$ACTION" == "check" ]]; then

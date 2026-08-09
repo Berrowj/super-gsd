@@ -22,6 +22,21 @@ $repoHttps = "https://github.com/Berrowj/super-gsd.git"
 
 function Log($msg) { Write-Host "  [sgsd-update] $msg" }
 
+function Assert-TrustedOrigin {
+    $originRows = @(& git -C $Source remote get-url --all origin 2>&1)
+    if ($LASTEXITCODE -ne 0 -or $originRows.Count -eq 0) {
+        Log "Could not resolve canonical source origin; refusing remote access."
+        exit 6
+    }
+    foreach ($originRow in $originRows) {
+        $originUrl = "$originRow".Trim()
+        if ($originUrl -cnotmatch '^(?:git@github\.com:|https://github\.com/|ssh://git@github\.com/)Berrowj/super-gsd(?:\.git)?$') {
+            Log "Untrusted origin URL; expected canonical github.com/Berrowj/super-gsd: $originUrl"
+            exit 6
+        }
+    }
+}
+
 function Assert-CleanSource($Stage) {
     $statusRows = @(& git -C $Source status --porcelain=v1 --untracked-files=normal 2>&1)
     if ($LASTEXITCODE -ne 0) {
@@ -107,6 +122,8 @@ if (-not (Test-Path (Join-Path $Source ".git"))) {
         }
     }
 }
+
+Assert-TrustedOrigin
 
 # Check mode
 if ($Check) {

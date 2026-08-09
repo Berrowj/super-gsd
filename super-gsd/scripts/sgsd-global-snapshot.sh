@@ -59,6 +59,26 @@ resolved_dir() {
   else (cd "$candidate" && pwd -P)
   fi
 }
+resolved_path_allow_missing() {
+  local candidate="$1" cursor leaf suffix=""
+  if command -v realpath >/dev/null 2>&1 && realpath -m -- "$candidate" 2>/dev/null; then return
+  elif command -v readlink >/dev/null 2>&1 && readlink -m -- "$candidate" 2>/dev/null; then return
+  fi
+  cursor="$candidate"
+  while [[ ! -e "$cursor" && ! -L "$cursor" ]]; do
+    leaf="$(basename -- "$cursor")"
+    [[ "$leaf" != "." && "$leaf" != ".." ]] || return 1
+    suffix="/$leaf$suffix"
+    cursor="$(dirname -- "$cursor")"
+  done
+  [[ -d "$cursor" ]] || return 1
+  cursor="$(resolved_dir "$cursor")" || return 1
+  if [[ "$cursor" == "/" ]]; then
+    printf '/%s\n' "${suffix#/}"
+  else
+    printf '%s%s\n' "${cursor%/}" "$suffix"
+  fi
+}
 require_absolute_safe_dir_value() {
   local label="$1" value="$2"
   [[ -n "$value" ]] || die "$label must not be empty"
@@ -97,16 +117,165 @@ validate_contract() {
     grep -Fq -- "$marker" "$INSTALLER" ||
       die "install.sh contract mismatch: missing global target marker $marker"
   done
+  local node_installer
+  node_installer="$(node_path_arg "$INSTALLER")"
+  SGSD_INSTALLER="$node_installer" \
+  SGSD_SNAPSHOT_TARGETS="$(printf '%s\n' "${TARGETS[@]}")" node <<'NODE' || die "install.sh contract mismatch: unknown global mutation target"
+const fs = require('node:fs');
+const crypto = require('node:crypto');
+const source = fs.readFileSync(process.env.SGSD_INSTALLER, 'utf8');
+const installerContractDigest = crypto.createHash('sha256')
+  .update(source.replace(/\r\n/g, '\n')).digest('hex');
+if (installerContractDigest !== '7f9fe48d71e8eb209b02603582f5d647f30bc9c2303d784605d5eab1554dbc49') {
+  console.error(`unknown installer contract digest: ${installerContractDigest}`);
+  process.exit(1);
+}
+const lines = source.split(/\r?\n/);
+const targets = process.env.SGSD_SNAPSHOT_TARGETS.split('\n').filter(Boolean);
+const roots = Object.freeze({
+  HOME: '',
+  CLAUDE_DIR: '.claude',
+  GSD_DIR: '.claude/get-shit-done',
+  HOOKS_DIR: '.claude/hooks',
+  AGENTS_DIR: '.claude/agents',
+  COMMANDS_DIR: '.claude/commands',
+  TEMPLATES_DIR: '.claude/get-shit-done/templates/super-gsd',
+  GLOBAL_SCRIPTS_DIR: '.claude/super-gsd/scripts',
+  LOCAL_BIN_DIR: '.local/bin',
+  SETTINGS_FILE: '.claude/settings.json',
+});
+function functionBody(name) {
+  const start = lines.findIndex((line) => line.trim() === `${name}() {`);
+  if (start < 0) throw new Error(`installer mutation function is missing: ${name}`);
+  const end = lines.findIndex((line, index) => index > start && line === '}');
+  if (end < 0) throw new Error(`installer mutation function is unterminated: ${name}`);
+  return lines.slice(start + 1, end);
+}
+function allowed(pathValue, statement) {
+  return targets.some((target) => pathValue === target || pathValue.startsWith(`${target}/`)
+    || (statement.includes('mkdir -p') && target.startsWith(`${pathValue}/`)));
+}
+const rootNames = Object.keys(roots).join('|');
+const reference = new RegExp(`\\$(?:\\{(${rootNames})\\}|(${rootNames}))((?:/[A-Za-z0-9_.$}{-]+)*)`, 'g');
+const destinationReference = new RegExp(
+  `^\\$(?:\\{(${rootNames})\\}|(${rootNames}))((?:/[A-Za-z0-9_.$}{-]+)*)$`,
+);
+function hasUnsafeExecutionSyntax(value) {
+  return value.includes('$(') || value.includes('`') || value.includes('<(') || value.includes('>(');
+}
+function quotedArgumentsOnly(value, marker, allowedResidues = ['']) {
+  const tail = value.slice(value.indexOf(marker) + marker.length);
+  const argumentsFound = [];
+  const residue = tail.replace(/"([^"]+)"/g, (_whole, argument) => {
+    argumentsFound.push(argument);
+    return '';
+  }).trim();
+  const unsafeExpansion = argumentsFound.some(hasUnsafeExecutionSyntax);
+  return allowedResidues.includes(residue) && !unsafeExpansion ? argumentsFound : [];
+}
+function mutationDestinations(value) {
+  if (value.startsWith('copy_file ')) return quotedArgumentsOnly(value, 'copy_file ').slice(-1);
+  if (value.startsWith('remove_path_if_exists ')) return quotedArgumentsOnly(value, 'remove_path_if_exists ');
+  if (value.includes('mkdir -p ')) return quotedArgumentsOnly(value, 'mkdir -p ');
+  if (value.includes('chmod +x ')) return quotedArgumentsOnly(value, 'chmod +x ', ['', ';;']);
+  if (value.startsWith('node "$MERGE_SCRIPT" ')) {
+    return value === 'node "$MERGE_SCRIPT" "$OVERLAY_FILE" "$SETTINGS_FILE" 2>&1 | sed \'s/^/  /\''
+      ? ['$SETTINGS_FILE'] : [];
+  }
+  return null;
+}
+function expandDestination(expression) {
+  const match = destinationReference.exec(expression);
+  if (!match) return null;
+  const root = match[1] || match[2];
+  return `${roots[root]}${match[3]}`.replace(/^\//, '');
+}
+const mutationLines = [
+  ...functionBody('ensure_gsd_base'),
+  ...functionBody('remove_legacy_global_assets'),
+  ...functionBody('install_global_assets'),
+];
+function safeLogStatement(value) {
+  if (!/^log "[^"\r\n]*"$/.test(value)) return false;
+  if (value === 'log "DRY RUN: Node.js available ($(node -v))"') return true;
+  if (hasUnsafeExecutionSyntax(value)) return false;
+  return true;
+}
+function safeControlStatement(value) {
+  if (value === 'if command -v node >/dev/null 2>&1; then') return true;
+  if (hasUnsafeExecutionSyntax(value) || /[<>]/.test(value)) return false;
+  return /^(?:if|elif) \[ [^;&|<>\r\n]* \]; then$/.test(value)
+    || /^for [a-z_]+ in [^;&|<>\r\n]+; do$/.test(value)
+    || /^case "\$[a-z_]+" in$/.test(value)
+    || /^(?:sonnet\|haiku|\*\.sh)\)$/.test(value)
+    || /^\[ [^;&|<>\r\n]+ \] (?:\|\||&&) continue$/.test(value)
+    || /^(?:else|fi|done|esac|continue|;;)$/.test(value);
+}
+function recognizedStatement(value) {
+  return !value || value.startsWith('#') || safeLogStatement(value) || value === 'echo ""'
+    || safeControlStatement(value)
+    || value === 'ensure_gsd_base' || value === 'remove_legacy_global_assets'
+    || value === 'require_node_22' || value === 'run npx get-shit-done-cc@latest'
+    || value.startsWith('copy_file ') || value.startsWith('remove_path_if_exists ')
+    || /^(?:is_legacy_brv_asset "\$(?:template|ow)" && continue)$/.test(value)
+    || value.startsWith('node "$MERGE_SCRIPT" ')
+    || value.startsWith('chmod +x ')
+    || /^(?:AGENT_COUNT|SKILL_COUNT|HOOK_COUNT|SCRIPT_COUNT)=0$/.test(value)
+    || /^(?:AGENT_COUNT|SKILL_COUNT|HOOK_COUNT|SCRIPT_COUNT)=\$\(\([A-Z_]+ \+ 1\)\)$/.test(value)
+    || /^name="\$\(basename "\$[a-z_]+"\)"$/.test(value)
+    || /^agent_model="\$\(frontmatter_field "\$agent" model\)"$/.test(value)
+    || value === 'SETTINGS_FILE="$CLAUDE_DIR/settings.json"'
+    || value === 'OVERLAY_FILE="$SCRIPT_DIR/config/settings-overlay.json"'
+    || value === 'MERGE_SCRIPT="$SCRIPT_DIR/scripts/merge-settings.js"';
+}
+for (const line of mutationLines) {
+  const trimmed = line.trim();
+  const destinations = mutationDestinations(trimmed);
+  if (destinations !== null) {
+    if (destinations.length === 0) {
+      console.error(`unknown mutation destination syntax: ${trimmed}`);
+      process.exit(1);
+    }
+    for (const destination of destinations) {
+      const expanded = expandDestination(destination);
+      if (expanded === null || !allowed(expanded, line)) {
+        console.error(`unknown mutation destination: ${destination}`);
+        process.exit(1);
+      }
+    }
+  }
+  const knownReadOnlyRoot = trimmed === 'if [ ! -d "$GSD_DIR" ]; then';
+  if (!trimmed.startsWith('log ') && !knownReadOnlyRoot) {
+    reference.lastIndex = 0;
+    for (let match; (match = reference.exec(line));) {
+      const root = match[1] || match[2];
+      const expanded = `${roots[root]}${match[3]}`.replace(/^\//, '');
+      if (!allowed(expanded, line)) {
+        console.error(`unknown mutation destination via ${match[0]}: ${expanded}`);
+        process.exit(1);
+      }
+    }
+  }
+  if (destinations === null && !recognizedStatement(trimmed)) {
+    console.error(`unknown mutation statement: ${trimmed}`);
+    process.exit(1);
+  }
+}
+NODE
 }
 validate_storage_path() {
-  local label="$1" raw="$2" home="$3" normalized target live
+  local label="$1" raw="$2" home="$3" normalized resolved target live
   normalized="$(normalize_path_arg "$raw")"
   require_absolute_safe_dir_value "$label" "$normalized"
+  resolved="$(resolved_path_allow_missing "$normalized")" || die "cannot resolve $label: $normalized"
+  require_absolute_safe_dir_value "$label" "$resolved"
   for target in "${TARGETS[@]}"; do
-    live="$home/$target"
-    case "$normalized/" in "$live/"*) die "$label must remain outside live install target $target" ;; esac
+    live="$(resolved_path_allow_missing "$home/$target")" ||
+      die "cannot resolve live install target $target"
+    case "$resolved/" in "$live/"*) die "$label must remain outside live install target $target" ;; esac
+    case "$live/" in "$resolved/"*) die "$label must not contain live install target $target" ;; esac
   done
-  printf '%s\n' "$normalized"
+  printf '%s\n' "$resolved"
 }
 
 write_manifest() {
@@ -176,6 +345,91 @@ fs.writeFileSync(process.env.SGSD_SNAPSHOT_EXTRAS,
 NODE
 }
 
+write_archive_digest() {
+  local archive="$1" digest="$2" node_archive node_digest
+  node_archive="$(node_path_arg "$archive")"
+  node_digest="$(node_path_arg "$digest")"
+  SGSD_ARCHIVE="$node_archive" SGSD_ARCHIVE_DIGEST="$node_digest" node <<'NODE'
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const archive = process.env.SGSD_ARCHIVE;
+const digest = crypto.createHash('sha256').update(fs.readFileSync(archive)).digest('hex');
+fs.writeFileSync(process.env.SGSD_ARCHIVE_DIGEST, `${digest}  archive.tar\n`);
+NODE
+}
+validate_archive() {
+  local snapshot="$1" archive manifest digest listing
+  archive="$snapshot/archive.tar"
+  manifest="$snapshot/manifest-before.jsonl"
+  digest="$snapshot/archive.sha256"
+  [[ -r "$manifest" ]] || die "manifest-before.jsonl is missing or unreadable"
+  [[ -r "$archive" ]] || die "archive does not exist or is unreadable"
+  [[ -r "$digest" ]] || die "archive.sha256 is missing or unreadable"
+  listing="$(mktemp)" || die "could not allocate archive membership listing"
+  if ! tar -tf "$archive" >"$listing"; then
+    rm -f -- "$listing"
+    die "archive exists but is not readable by tar"
+  fi
+  local node_archive node_manifest node_digest node_listing
+  node_archive="$(node_path_arg "$archive")"
+  node_manifest="$(node_path_arg "$manifest")"
+  node_digest="$(node_path_arg "$digest")"
+  node_listing="$(node_path_arg "$listing")"
+  if ! SGSD_ARCHIVE="$node_archive" SGSD_ARCHIVE_MANIFEST="$node_manifest" \
+    SGSD_ARCHIVE_DIGEST="$node_digest" SGSD_ARCHIVE_LISTING="$node_listing" \
+    SGSD_SNAPSHOT_TARGETS="$(printf '%s\n' "${TARGETS[@]}")" node <<'NODE'
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const targets = process.env.SGSD_SNAPSHOT_TARGETS.split('\n').filter(Boolean);
+const digestText = fs.readFileSync(process.env.SGSD_ARCHIVE_DIGEST, 'utf8').trim();
+const digestMatch = /^([0-9a-f]{64})(?:\s+archive\.tar)?$/.exec(digestText);
+if (!digestMatch) throw new Error('archive.sha256 has an invalid format');
+const actualDigest = crypto.createHash('sha256')
+  .update(fs.readFileSync(process.env.SGSD_ARCHIVE)).digest('hex');
+if (actualDigest !== digestMatch[1]) throw new Error('archive SHA-256 mismatch');
+const manifest = fs.readFileSync(process.env.SGSD_ARCHIVE_MANIFEST, 'utf8')
+  .split(/\r?\n/).filter(Boolean).map(JSON.parse);
+function checkedPath(raw, kind) {
+  const value = raw.endsWith('/') ? raw.slice(0, -1) : raw;
+  if (!value || value.startsWith('/') || /^[A-Za-z]:[\\/]/.test(value) || value.includes('\\')) {
+    throw new Error(`${kind} has an absolute or non-portable path: ${JSON.stringify(raw)}`);
+  }
+  const segments = value.split('/');
+  if (segments.some((segment) => !segment || segment === '.' || segment === '..')) {
+    throw new Error(`${kind} has an unsafe path segment: ${JSON.stringify(raw)}`);
+  }
+  if (!targets.some((target) => value === target || value.startsWith(`${target}/`))) {
+    throw new Error(`${kind} is outside the snapshot target prefixes: ${value}`);
+  }
+  return value;
+}
+const expected = new Set();
+for (const row of manifest) {
+  const value = checkedPath(row.path, 'manifest');
+  if (row.type !== 'absent') {
+    if (expected.has(value)) throw new Error(`manifest has duplicate path: ${value}`);
+    expected.add(value);
+  }
+}
+const archived = new Set();
+const members = fs.readFileSync(process.env.SGSD_ARCHIVE_LISTING, 'utf8')
+  .split(/\r?\n/).filter(Boolean);
+for (const member of members) {
+  const value = checkedPath(member, 'archive membership');
+  if (archived.has(value)) throw new Error(`archive has duplicate member: ${value}`);
+  if (!expected.has(value)) throw new Error(`archive member is absent from manifest: ${value}`);
+  archived.add(value);
+}
+const missing = [...expected].filter((value) => !archived.has(value));
+if (missing.length) throw new Error(`manifest paths are absent from archive: ${missing.join(', ')}`);
+NODE
+  then
+    rm -f -- "$listing"
+    die "archive digest or membership verification failed"
+  fi
+  rm -f -- "$listing"
+}
+
 create_snapshot() {
   local home="$1" output="$2" target live
   [[ ! -e "$output" ]] || die "--output-dir already exists: $output"
@@ -191,7 +445,8 @@ create_snapshot() {
   else tar -cf "$output/archive.tar" -C "$home" -- "${present[@]}"
   fi
   [[ -r "$output/archive.tar" ]] || die "archive does not exist or is unreadable"
-  tar -tf "$output/archive.tar" >/dev/null || die "archive exists but is not readable by tar"
+  write_archive_digest "$output/archive.tar" "$output/archive.sha256"
+  validate_archive "$output"
   printf 'snapshot=%s\nmanifest=%s\narchive=%s\n' \
     "$output" "$output/manifest-before.jsonl" "$output/archive.tar"
 }
@@ -201,8 +456,7 @@ verify_snapshot() {
   snapshot="$(resolved_dir "$snapshot")"
   [[ -r "$snapshot/manifest-before.jsonl" ]] || die "manifest-before.jsonl is missing or unreadable"
   [[ -r "$snapshot/scripts-extra-before.jsonl" ]] || die "scripts-extra-before.jsonl is missing or unreadable"
-  [[ -r "$snapshot/archive.tar" ]] || die "archive does not exist or is unreadable"
-  tar -tf "$snapshot/archive.tar" >/dev/null || die "archive exists but is not readable by tar"
+  validate_archive "$snapshot"
   write_manifest "$home" "$snapshot/manifest-after.jsonl"
   local node_before node_after node_extras
   node_before="$(node_path_arg "$snapshot/manifest-before.jsonl")"
@@ -241,8 +495,7 @@ restore_snapshot() {
   [[ -d "$snapshot" ]] || die "--snapshot-dir does not exist: $snapshot"
   snapshot="$(resolved_dir "$snapshot")"
   [[ -r "$snapshot/manifest-before.jsonl" ]] || die "manifest-before.jsonl is missing or unreadable"
-  [[ -r "$snapshot/archive.tar" ]] || die "archive does not exist or is unreadable"
-  tar -tf "$snapshot/archive.tar" >/dev/null || die "archive exists but is not readable by tar"
+  validate_archive "$snapshot"
   if [[ -e "$failed" ]]; then
     [[ -d "$failed" ]] || die "--failed-candidate-dir exists and is not a directory"
     [[ -z "$(find "$failed" -mindepth 1 -print -quit)" ]] || die "--failed-candidate-dir is not empty"
@@ -281,6 +534,8 @@ home="$(validate_home "$home_arg")"
 case "$action" in
   create)
     [[ -n "$output_arg" && -z "$snapshot_arg" && -z "$failed_arg" ]] || die "create requires only --home and --output-dir"
+    [[ -d "$home/.claude/get-shit-done" ]] ||
+      die "create requires a pre-existing ~/.claude/get-shit-done; external bootstrap mutations are outside the snapshot boundary"
     output_arg="$(validate_storage_path "--output-dir" "$output_arg" "$home")"
     create_snapshot "$home" "$output_arg"
     ;;
