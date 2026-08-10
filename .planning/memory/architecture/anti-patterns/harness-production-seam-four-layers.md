@@ -32,3 +32,12 @@ hop consumes the artifact; verify the production caller SUPPLIES every input
 the mechanism needs, or make the mechanism derive its inputs from evidence
 (git, index) when the caller omits them. Derive-don't-default is the fix
 shape.
+
+**Instance 6 (P150 T150-06 trust probe):** the forbidden-write guard fired
+correctly, but the ceremony's probe read the PROJECT ledger
+(~/GSDedits/.planning/metrics/) while the GLOBALLY-installed hook resolves its
+metricsPath via path.resolve(__dirname,'../../..') = the global install root.
+Block event landed in the global ledger; probe saw "no appended bytes" despite
+correct behaviour. Sixth instance of the same class: an install-vs-project path
+resolution assumption in the verification, not the mechanism. Verify where the
+production component ACTUALLY writes before asserting on a fixed path.
