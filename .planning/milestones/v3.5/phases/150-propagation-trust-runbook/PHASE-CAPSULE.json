@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.5",
+  "phase": "150",
+  "phase_name": "Propagation Trust Runbook",
+  "status": "UNKNOWN",
+  "goal": "",
+  "outputs": [
+    {
+      "kind": "research",
+      "path": ".planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-RESEARCH.md"
+    },
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-VERIFICATION.md"
+    }
+  ],
+  "files": [],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 0
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [],
+  "source_hashes": {
+    "context": null,
+    "research": {
+      "path": ".planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-RESEARCH.md",
+      "sha256": "18969e28f19d1d3ffc54c3159c2a3ca992776f63ca868eaba83f865d790fb68d"
+    },
+    "plan": [],
+    "verification": {
+      "path": ".planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-VERIFICATION.md",
+      "sha256": "03570b7feed469c2d58f23a3311dcc5d0ece3b4a39948e60205643fbc2e83166"
+    },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "passed-with-deferred-1",
+      "ref": ".planning/milestones/v3.5/phases/150-propagation-trust-runbook/150-VERIFICATION.md"
+    },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-08-08T17:22:18Z",
+        "exit": 5,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-08T17:33:03Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-08T17:47:06Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-08T18:00:34Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-08T18:10:02Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-08T18:25:56Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-08T18:33:54Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-08T21:26:58Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-08T22:51:43Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-09T00:43:03Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-09T00:48:11Z",
+        "exit": 6,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-09T00:57:06Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-09T01:12:10Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-09T04:30:28Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-09T10:47:23Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-09T10:56:59Z",
+        "exit": 5,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-09T11:07:15Z",
+        "exit": 6,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-08-10T16:40:48.968Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@0b64cf734fc3"
+}
