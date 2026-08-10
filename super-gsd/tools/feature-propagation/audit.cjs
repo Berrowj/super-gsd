@@ -30,7 +30,7 @@ const crypto = require('crypto');
 const CODEX_HOOK_INSTALLER = path.resolve(__dirname, '..', 'codex-hooks', 'install-hooks.cjs');
 
 const SCHEMA_VERSION = 1;
-const CODEX_MODEL = 'gpt-5.5';
+const CODEX_MODEL = 'gpt-5.6-sol';
 const CODEX_EFFORT = 'xhigh';
 const DISABLED_EXECUTOR_MARKER = 'Claude executor disabled';
 const REQUIRED_CLAUDE_MD_MARKERS = Object.freeze([
@@ -780,7 +780,7 @@ function selfTest() {
   }
   try {
     add('schema_version_locked', SCHEMA_VERSION === 1, String(SCHEMA_VERSION));
-    add('codex_defaults_locked', CODEX_MODEL === 'gpt-5.5' && CODEX_EFFORT === 'xhigh', CODEX_MODEL + '/' + CODEX_EFFORT);
+    add('codex_defaults_locked', CODEX_MODEL === 'gpt-5.6-sol' && CODEX_EFFORT === 'xhigh', CODEX_MODEL + '/' + CODEX_EFFORT);
     add('planner_defaults_locked', CORE_CONFIG_DEFAULTS.workflow.planner_model === 'codex' && CORE_CONFIG_DEFAULTS.workflow.planner_reasoning_effort === 'xhigh', CORE_CONFIG_DEFAULTS.workflow.planner_model + '/' + CORE_CONFIG_DEFAULTS.workflow.planner_reasoning_effort);
     add('auto_mode_defaults_locked', CORE_CONFIG_DEFAULTS.workflow.auto_continue_until_roadmap_complete === true && CORE_CONFIG_DEFAULTS.workflow.planning_pipeline_enforced === true, String(CORE_CONFIG_DEFAULTS.workflow.auto_continue_until_roadmap_complete));
     add('claude_md_marker_set_declared', REQUIRED_CLAUDE_MD_MARKERS.length >= 10 && REQUIRED_CLAUDE_MD_MARKERS.some((r) => r.code === 'codex_research_missing'), String(REQUIRED_CLAUDE_MD_MARKERS.length));
