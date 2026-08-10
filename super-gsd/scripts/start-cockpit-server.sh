@@ -270,7 +270,7 @@ printf '%s\n' "$SERVER_PID" > "$RUNTIME_DIR/cockpit-server.pid"
 echo "PID $SERVER_PID -> $RUNTIME_DIR/cockpit-server.pid"
 
 snapshot=""
-for _attempt in $(seq 1 60); do
+for _attempt in $(seq 1 "${SGSD_COCKPIT_HEALTH_ATTEMPTS:-240}"); do
   sleep 0.25
   if ! kill -0 "$SERVER_PID" >/dev/null 2>&1; then
     break
@@ -295,7 +295,7 @@ if kill -0 "$SERVER_PID" >/dev/null 2>&1; then
   kill "$SERVER_PID" >/dev/null 2>&1 || true
 fi
 rm -f "$RUNTIME_DIR/cockpit-server.pid"
-echo "ERROR: Cockpit server did not become healthy within 15 seconds" >&2
+echo "ERROR: Cockpit server did not become healthy within the health window" >&2
 if [[ -f "$STDERR_PATH" ]]; then
   echo "Recent stderr:" >&2
   tail -n 20 "$STDERR_PATH" >&2 || true
