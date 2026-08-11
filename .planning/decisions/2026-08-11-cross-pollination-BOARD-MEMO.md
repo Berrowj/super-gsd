@@ -118,3 +118,21 @@ FINAL: build the Stage-1 measurement baseline (zero VTP dependency) under a
 proper milestone+PLAN; everything that calls VTP waits on the probe; route-
 following waits on gold-set approval. Do NOT build the two skills as the
 handover framed them yet.
+
+---
+
+# Operator gate timing (2026-08-11)
+
+Operator decision: the session/MCP restart-and-probe is DEFERRED until VTP has
+finished its own milestone. Rationale: vtp-triage-v2 must be stable on the VTP
+side before the probe is meaningful; restarting mid-VTP-milestone would test a
+moving target.
+
+Consequences:
+- Stage 2 (triage shadow-mode) and Stage 3 (route-following) are BLOCKED on the
+  post-VTP-milestone restart + probe. No VTP-calling code until then.
+- Stage 1 (baseline measurement, zero VTP dependency) remains buildable now if
+  the operator elects — it needs no tools and no restart.
+- Resume trigger: when VTP signals its milestone complete, restart the session,
+  probe vtp_triage (zero-write contract) + vtp_triage_feedback (write contract,
+  reason-required on modify/reject), then plan Stage 2.
