@@ -775,6 +775,20 @@ REPEAT:
          If config.vtp_enrichment absent or enabled=false: skip silently,
          pass directly to Step 6.c (D-07 backward-compat; no artifact
          required on pre-Phase-21 projects).
+
+         DEMAND BASELINE (v3.6 Phase 0, ADVISORY — measurement only, makes NO
+         VTP call): for each eligible KB-directed query at this gate, the loop
+         SHOULD record one row via `recordEligibleQuery()` from
+         `super-gsd/scripts/lib/demand-baseline-ledger.cjs` — capturing whether
+         the existing enrichment path was adequate (closed-vocab reason), plus
+         latency/tokens/vtp_call_count and the running denominator. This is
+         FIRE-AND-FORGET and OFF the critical path: a ledger write failure must
+         never block dispatch or phase close. It is the instrument for the
+         4-week/20-query demand test that gates the VTP-bridge Stages 2-3 (see
+         super-gsd/docs/VTP-BRIDGE-PHASE0.md). It does not call vtp_triage and
+         does not change routing — Stage 2 (triage shadow-mode) is blocked on a
+         post-VTP-milestone session restart + tool probe; Stage 3 (route-
+         following) on gold-set human approval.
      c. Phase needs PLAN.md → enforce planner preflight, then dispatch Codex planner (GPT-5.5 / xhigh)
         PLANNER MODEL LOCK:
         - Planning is a Codex-owned surface in fresh-clone/default SGSD.
