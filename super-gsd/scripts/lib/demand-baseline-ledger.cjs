@@ -19,12 +19,14 @@ const REASONS = Object.freeze([
 const ALLOWED_FIELDS = new Set([
   'schema_version',
   'decision_id',
+  'query',
   'adequate',
   'reason',
   'note',
   'latency_ms',
   'est_tokens',
   'vtp_call_count',
+  'denominator',
   'artefact_kind',
 ]);
 
@@ -116,6 +118,9 @@ function validateRow(row) {
   }
   if (!Number.isInteger(row.schema_version)) errors.push('schema_version must be an integer');
   if (!isNonEmptyString(row.decision_id)) errors.push('decision_id must be a non-empty string');
+  if (Object.hasOwn(row, 'query') && !isNonEmptyString(row.query)) {
+    errors.push('query must be a non-empty string when provided');
+  }
   if (typeof row.adequate !== 'boolean') errors.push('adequate must be a boolean');
   if (!REASONS.includes(row.reason)) errors.push(`reason must be one of: ${REASONS.join(', ')}`);
   if (row.reason === 'other_inadequate' && (
@@ -129,6 +134,11 @@ function validateRow(row) {
   if (!isNonNegativeNumber(row.latency_ms)) errors.push('latency_ms must be a non-negative number');
   if (!isNonNegativeNumber(row.est_tokens)) errors.push('est_tokens must be a non-negative number');
   if (!isNonNegativeNumber(row.vtp_call_count)) errors.push('vtp_call_count must be a non-negative number');
+  if (Object.hasOwn(row, 'denominator') && (
+    !Number.isInteger(row.denominator) || row.denominator < 1
+  )) {
+    errors.push('denominator must be a positive integer when provided');
+  }
   if (row.artefact_kind !== undefined && row.artefact_kind !== null && !isNonEmptyString(row.artefact_kind)) {
     errors.push('artefact_kind must be null or a non-empty string when provided');
   }
@@ -199,6 +209,109 @@ function appendRow(planningDir, row) {
   return result;
 }
 
+function eligibleQueryRow(input, denominator) {
+  const row = {
+    schema_version: 1,
+    decision_id: input.decision_id,
+    query: input.query,
+    adequate: input.adequate,
+    reason: input.reason,
+    latency_ms: input.latency_ms,
+    est_tokens: input.est_tokens,
+    vtp_call_count: input.vtp_call_count,
+    denominator,
+    artefact_kind: null,
+  };
+  if (Object.hasOwn(input, 'note')) row.note = input.note;
+  return row;
+}
+
+function readDenominatorState(denominatorPath) {
+  if (!fs.existsSync(denominatorPath)) {
+    return { schema_version: 1, denominator: 0, decision_ids: [] };
+  }
+
+  const state = JSON.parse(fs.readFileSync(denominatorPath, 'utf8'));
+  const idsAreValid = Array.isArray(state?.decision_ids)
+    && state.decision_ids.every(isNonEmptyString)
+    && new Set(state.decision_ids).size === state.decision_ids.length;
+  if (
+    state?.schema_version !== 1
+    || !Number.isInteger(state.denominator)
+    || state.denominator < 0
+    || !idsAreValid
+    || state.denominator !== state.decision_ids.length
+  ) {
+    throw new Error('denominator state is invalid');
+  }
+  return state;
+}
+
+function recordEligibleQuery(planningDir, input) {
+  let lock;
+  let lockPath;
+  let result;
+  try {
+    if (!isNonEmptyString(planningDir)) throw new Error('planningDir must be a non-empty string');
+    if (!input || typeof input !== 'object' || Array.isArray(input)) {
+      throw new Error('eligible query must be an object');
+    }
+
+    const preliminaryRow = eligibleQueryRow(input, 1);
+    const preliminaryValidation = validateRow(preliminaryRow);
+    if (!preliminaryValidation.valid) throw new Error(preliminaryValidation.errors.join('; '));
+
+    const ledgerDir = path.join(planningDir, 'metrics', 'triage-advisory');
+    const denominatorPath = path.join(ledgerDir, 'denominator.json');
+    fs.mkdirSync(ledgerDir, { recursive: true });
+    lockPath = `${denominatorPath}.lock`;
+    lock = acquireLock(lockPath);
+
+    const state = readDenominatorState(denominatorPath);
+    if (state.decision_ids.includes(preliminaryRow.decision_id)) {
+      result = { ok: true, deduped: true, denominator: state.denominator };
+    } else {
+      const denominator = state.denominator + 1;
+      const row = eligibleQueryRow(input, denominator);
+      const validation = validateRow(row);
+      if (!validation.valid) throw new Error(validation.errors.join('; '));
+
+      const appendResult = appendRow(planningDir, row);
+      if (!appendResult.ok) {
+        result = appendResult;
+      } else {
+        const nextState = {
+          schema_version: 1,
+          denominator,
+          decision_ids: [...state.decision_ids, row.decision_id],
+        };
+        fs.writeFileSync(denominatorPath, `${JSON.stringify(nextState)}\n`, 'utf8');
+        result = { ...appendResult, denominator };
+      }
+    }
+  } catch (error) {
+    result = failureResult(error);
+  } finally {
+    if (lock !== undefined) {
+      try {
+        fs.closeSync(lock.handle);
+      } catch (error) {
+        if (result?.ok) result = failureResult(error);
+      }
+      try {
+        const owner = readLockOwner(lockPath);
+        if (owner?.token !== lock.token) {
+          throw new Error('lock ownership changed before release');
+        }
+        fs.unlinkSync(lockPath);
+      } catch (error) {
+        if (result?.ok) result = failureResult(error);
+      }
+    }
+  }
+  return result;
+}
+
 function selfTest() {
   let passed = 0;
   let failed = 0;
@@ -221,6 +334,16 @@ function selfTest() {
     est_tokens: 2,
     vtp_call_count: 0,
     artefact_kind: null,
+    ...overrides,
+  });
+  const validEligibleQuery = (overrides = {}) => ({
+    decision_id: 'self-test-eligible',
+    query: 'What existing evidence answers this query?',
+    adequate: true,
+    reason: 'existing_path_adequate',
+    latency_ms: 1,
+    est_tokens: 2,
+    vtp_call_count: 0,
     ...overrides,
   });
   const without = (row, key) => {
@@ -287,6 +410,62 @@ function selfTest() {
       });
       assert.strictEqual(result.ok, false);
     });
+
+    const instrumentDir = path.join(tmp, 'instrument');
+    const instrumentLedgerPath = path.join(
+      instrumentDir,
+      'metrics',
+      'triage-advisory',
+      'demand-baseline.jsonl'
+    );
+    const denominatorPath = path.join(
+      instrumentDir,
+      'metrics',
+      'triage-advisory',
+      'denominator.json'
+    );
+    check('eligible query recording increments once and dedupes replay', () => {
+      assert.deepStrictEqual(
+        recordEligibleQuery(instrumentDir, validEligibleQuery()),
+        { ok: true, deduped: false, denominator: 1 }
+      );
+      assert.deepStrictEqual(
+        recordEligibleQuery(instrumentDir, validEligibleQuery({ latency_ms: 9 })),
+        { ok: true, deduped: true, denominator: 1 }
+      );
+      assert.deepStrictEqual(
+        recordEligibleQuery(instrumentDir, validEligibleQuery({
+          decision_id: 'self-test-eligible-2',
+          query: 'What existing evidence answers the second query?',
+        })),
+        { ok: true, deduped: false, denominator: 2 }
+      );
+      const rows = fs.readFileSync(instrumentLedgerPath, 'utf8')
+        .trim().split(/\r?\n/).map(JSON.parse);
+      const state = JSON.parse(fs.readFileSync(denominatorPath, 'utf8'));
+      assert.deepStrictEqual(rows.map((row) => row.denominator), [1, 2]);
+      assert.strictEqual(state.denominator, 2);
+    });
+    check('invalid eligible query is rejected before denominator mutation', () => {
+      const before = fs.readFileSync(denominatorPath, 'utf8');
+      const result = recordEligibleQuery(instrumentDir, validEligibleQuery({
+        decision_id: 'invalid-eligible',
+        reason: 'unknown',
+      }));
+      assert.strictEqual(result.ok, false);
+      assert.strictEqual(fs.readFileSync(denominatorPath, 'utf8'), before);
+    });
+    check('eligible query write failure returned', () => {
+      const blockedPlanningDir = path.join(tmp, 'instrument-not-a-directory');
+      fs.writeFileSync(blockedPlanningDir, 'blocking file', 'utf8');
+      let result;
+      assert.doesNotThrow(() => {
+        result = recordEligibleQuery(blockedPlanningDir, validEligibleQuery({
+          decision_id: 'instrument-write-failure',
+        }));
+      });
+      assert.strictEqual(result.ok, false);
+    });
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
@@ -300,4 +479,4 @@ if (require.main === module && process.argv.includes('--self-test')) {
   process.exitCode = selfTest();
 }
 
-module.exports = { appendRow, validateRow };
+module.exports = { appendRow, recordEligibleQuery, validateRow };
