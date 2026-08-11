@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.6-vtp-bridge",
+  "phase": "151",
+  "phase_name": "Demand Baseline",
+  "status": "PASS",
+  "goal": "",
+  "outputs": [
+    {
+      "kind": "verification",
+      "path": ".planning/milestones/v3.6-vtp-bridge/phases/151-demand-baseline/151-VERIFICATION.md"
+    }
+  ],
+  "files": [],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 0
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [],
+  "source_hashes": {
+    "context": null,
+    "research": null,
+    "plan": [],
+    "verification": {
+      "path": ".planning/milestones/v3.6-vtp-bridge/phases/151-demand-baseline/151-VERIFICATION.md",
+      "sha256": "c6f7644fc19f1f4bbd9a9223b50898a8418fed071d8d91e521ffc9bfe9add780"
+    },
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": {
+      "verdict": "passed",
+      "ref": ".planning/milestones/v3.6-vtp-bridge/phases/151-demand-baseline/151-VERIFICATION.md"
+    },
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-08-11T01:35:40.210Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@dff8bfefb293"
+}
