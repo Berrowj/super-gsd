@@ -23,3 +23,35 @@ The guarded update fail-closes on a dirty source anyway (see local patch below);
 5. Capture evidence to ~/.claude/super-gsd/reconciliation/p150-devcp-restart-evidence.json; append AC-150d result.
 
 Substrate now fully supports this: devcp update = /sgsd-update once its session is free. This is a clean documented follow-up, not open risk.
+
+---
+
+# T150-07 UPDATE EXECUTED — 2026-08-12 (deferral lifted)
+
+Operator authorized the devcp update. Preflight confirmed all active
+codex/claude work had cwd in Clarity project worktrees (dhl-customs, rag-edits,
+project-clarity-erp), NOT in ~/.claude/super-gsd/source — so the framework
+source was quiescent and safe to fast-forward.
+
+Executed:
+- Origin URL guard passed (git@github.com:Berrowj/super-gsd.git).
+- serve.cjs devcp-bridge patch PRESERVED via `git stash` (recoverable):
+  stash@{0} "devcp serve.cjs bridge patch — preserved by T150-07 update 2026-08-12".
+- Guarded --ff-only: ~/.claude/super-gsd/source 7fb47eb -> 01af43e.
+- Pin written: .super-gsd-version = 01af43e.
+- install.sh --update --install-global: global assets updated (60 agents,
+  23 commands), registry synced, codex hooks registered (managed=5). One benign
+  guard fired (refused a nested .claude/settings.json under the source tree).
+- Verified: demand-baseline-ledger.cjs present; all 13 codex profiles gpt-5.6-sol.
+- Fork ~/GSDedits (883 PII commits) untouched.
+
+Status: devcp SOURCE + INSTALLED LAYER now current (v3.6). New SG sessions boot
+the current substrate.
+
+Remaining operator follow-ups (non-blocking for new sessions):
+1. Live sessions (sgsd-dce attached, main, rag-edits) + MCP children hold old
+   7fb47eb code in memory — restart to pick up v3.6.
+2. Interactive trust probe (codex -C approve + forbidden-write block) —
+   operator-only, no bypass; formalizes AC-150c on devcp.
+3. serve.cjs stash reconciliation — incoming version is newer (includes v3.5
+   cockpit health-window fix); evaluate before stash pop.
