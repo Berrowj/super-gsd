@@ -89,8 +89,32 @@ function writeTokenFile(file, data) {
   const dir = path.dirname(file);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const tmp = file + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
-  fs.renameSync(tmp, file);
+  const json = JSON.stringify(data, null, 2);
+  fs.writeFileSync(tmp, json);
+
+  // Windows: renameSync throws EPERM/EBUSY/EACCES while a reader (tunnel
+  // client fetching the bearer, AV scan) holds the target open. Retry with
+  // short backoff, then fall back to a direct overwrite. A token write must
+  // NEVER kill the supervisor loop — the previous token file stays valid.
+  const RETRYABLE = new Set(['EPERM', 'EBUSY', 'EACCES']);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      fs.renameSync(tmp, file);
+      return;
+    } catch (err) {
+      if (!RETRYABLE.has(err && err.code)) break;
+      const until = Date.now() + 50 * (attempt + 1);
+      while (Date.now() < until) { /* brief blocking backoff */ }
+    }
+  }
+  try {
+    fs.writeFileSync(file, json);
+    console.error('[tunnel] token rename kept failing (EPERM-class); wrote token file directly (non-atomic fallback)');
+  } catch (err) {
+    console.error(`[tunnel] token file write failed: ${err && err.message ? err.message : err}`);
+  } finally {
+    try { fs.unlinkSync(tmp); } catch { /* best effort */ }
+  }
 }
 
 function rotateToken(tokenFile, sessionLabel) {
