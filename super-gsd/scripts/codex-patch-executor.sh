@@ -261,7 +261,15 @@ if [[ $RC -eq 124 ]]; then
     exit 5
 fi
 if [[ $RC -ne 0 ]]; then
-    if grep -qiE '(auth|401|unauthori[sz]ed)' "$STDERR_TMP" 2>/dev/null; then
+    # Quota / rate-limit is NOT an auth failure — check it first, distinct exit.
+    # (Quota exhaustion needs wait-and-retry, not credential recovery.)
+    if grep -qiE '(usage limit|quota|rate.?limit|429|too many requests)' "$STDERR_TMP" 2>/dev/null; then
+        echo "codex-patch-executor: quota-exhausted (rate/usage limit — retry later, NOT an auth failure)" >&2
+        exit 6
+    fi
+    # Real auth signals only. Bare 'auth' is deliberately excluded — it
+    # false-matches author/authority/authored in ordinary Codex output.
+    if grep -qiE '(401|unauthori[sz]ed|invalid[[:space:]_-]*(api[[:space:]_-]*key|token|credential)|authentication[[:space:]]+failed|not[[:space:]]+authenticated|OPENAI_API_KEY)' "$STDERR_TMP" 2>/dev/null; then
         echo "codex-patch-executor: auth-denied" >&2
         exit 4
     fi
