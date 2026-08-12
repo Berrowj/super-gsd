@@ -83,6 +83,9 @@ const BOUNDARIES = Object.freeze([
   'dispatch_route',
   'vtp_bridge',
   'execution_route',
+  // Cross-pollination Phase 0 (2026-08-12): advisory triage decisions recorded by
+  // sgsd-triage-first — same extension pattern as Phase 38 'gate_override'.
+  'vtp_triage_advisory',
 ]);
 
 // envelope-v1 status enum (command-envelope-v1.json status.enum). Frozen.
