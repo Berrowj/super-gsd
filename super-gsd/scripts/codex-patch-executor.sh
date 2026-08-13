@@ -7,6 +7,21 @@
 # SGSD supplies a bounded read-pack, Codex returns a unified diff, and this
 # wrapper validates/applies that patch locally.
 # ============================================================================
+# Usage:
+#   codex-patch-executor.sh --prompt-file <p> --report-out <p> --files <manifest>
+#                           [--workspace <dir>] [--timeout N] [--no-apply]
+#                           [--phase N] [--plan NN-PP] [--dry-run]
+#
+# Flags:
+#   --files <manifest>  REQUIRED. A FILE listing one repo-relative path per line
+#                       (NOT a single path). It is ALSO the WRITE ALLOWLIST:
+#                       Codex may only create/modify paths listed in it. To have
+#                       Codex author a NEW file, add its target path here (and
+#                       pre-create an empty placeholder if the path must exist).
+#   --report-out <p>    Where Codex stdout is copied. Give each CONCURRENT run a
+#                       UNIQUE path — two runs sharing it race on the report temp.
+#   --no-apply          Generate + validate the patch but do NOT apply it.
+# ============================================================================
 
 set -euo pipefail
 
@@ -324,6 +339,13 @@ if [[ "$APPLY_PATCH" == true ]]; then
     fi
     if ! git -C "$GIT_WORKSPACE" apply --recount "$GIT_PATCH_TMP"; then
         echo "codex-patch-executor: git apply --recount failed" >&2
+        exit 6
+    fi
+    # Success must mean work landed: a non-empty patch that applied cleanly should
+    # leave the working tree dirty. If it is pristine, the apply was a no-op —
+    # do not report success. (Belt-and-suspenders over git apply's own semantics.)
+    if [[ -z "$(git -C "$GIT_WORKSPACE" status --porcelain 2>/dev/null)" ]]; then
+        echo "codex-patch-executor: ERR - patch applied but working tree shows no changes (no-op); refusing to signal success" >&2
         exit 6
     fi
     {
