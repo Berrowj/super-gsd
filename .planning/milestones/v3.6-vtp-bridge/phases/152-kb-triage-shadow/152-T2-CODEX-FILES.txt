@@ -1,0 +1,3 @@
+super-gsd/hooks/sgsd-intent-classifier.cjs
+super-gsd/registry/session-governance-hooks.yaml
+super-gsd/tests/kb-triage-shadow/assert-shadow.cjs

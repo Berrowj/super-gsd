@@ -53,3 +53,30 @@ routes:
     enforcement:
       kind: report_only
       signal: missing_plan
+
+  - id: kb-lookup-triage
+    trigger:
+      strong_kb_phrases:
+        - "last meeting with"
+        - "knowledge base"
+      strong_kb_regexes:
+        - "what did .+ (say|think|mean|decide)"
+        - "(the|my|our|last|latest|recent) meeting (with|about|on)"
+        - "look at .*(meeting|call|corpus|transcript|knowledge base|kb)\\b"
+        - "import .*(meeting|transcript|recording|brief)"
+        - "\\b(jcl|clarity)\\b .*(meeting|note|record|corpus)"
+      phrases:
+        - "meeting"
+        - "corpus"
+      regexes:
+        - "\\bmeetings?\\b"
+    predicate:
+      exclude_start_verbs:
+        - "build"
+        - "fix"
+        - "run"
+        - "test"
+        - "file"
+    enforcement:
+      kind: shadow
+      signal: kb_triage_shadow

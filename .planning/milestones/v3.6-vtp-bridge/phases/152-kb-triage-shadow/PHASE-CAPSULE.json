@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.6-vtp-bridge",
+  "phase": "152",
+  "phase_name": "Kb Triage Shadow",
+  "status": "IN_PROGRESS",
+  "goal": "",
+  "outputs": [],
+  "files": [],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 0
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [],
+  "source_hashes": {
+    "context": null,
+    "research": null,
+    "plan": [],
+    "verification": null,
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": null,
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-08-12T17:48:47Z",
+        "exit": 6,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-08-12T18:07:10.552Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@5e32325128a8"
+}

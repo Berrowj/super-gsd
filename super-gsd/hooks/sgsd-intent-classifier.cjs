@@ -39,7 +39,11 @@ const BENCH_SIGNAL = 'intent_classifier_bench';
 const DEGRADED_SIGNAL = 'intent_classifier_degraded';
 const ROUTING_DECISION_SIGNAL = 'intent_routing_decision';
 const CLASSIFIER_ENFORCEMENT_KINDS = Object.freeze(['directive', 'suggestion']);
+const KB_TRIAGE_SHADOW_SIGNAL = 'kb_triage_shadow';
+const KB_TRIAGE_MATCHER_VERSION = 'kb-shadow-v1';
 const REPORT_ONLY_SIGNALS = Object.freeze(['missing_plan']);
+
+let _govRegistryCache = null; // { key, parsed, bytes }
 
 function safeWarn(reason) {
   try {
@@ -200,6 +204,28 @@ function parseRegistryYaml(text) {
   return { routes };
 }
 
+function readGovernanceRegistryCached() {
+  const registryPathValue = REGISTRY_SOURCE_PATH;
+  let key;
+  try {
+    key = registryPathValue + ':' + fs.statSync(registryPathValue).mtimeMs;
+  } catch {
+    key = registryPathValue + ':nostat';
+  }
+  if (_govRegistryCache && _govRegistryCache.key === key) {
+    return _govRegistryCache.parsed;
+  }
+
+  const text = fs.readFileSync(registryPathValue, 'utf8');
+  const parsed = parseRegistryYaml(text);
+  _govRegistryCache = {
+    key,
+    parsed,
+    bytes: Buffer.byteLength(String(text || ''), 'utf8'),
+  };
+  return parsed;
+}
+
 function nonEmptyStrings(value) {
   return list(value).map((item) => item.trim()).filter(Boolean);
 }
@@ -255,6 +281,25 @@ function validateRouteShape(route) {
     };
   }
 
+  if (kind === 'shadow') {
+    const triggerCount = nonEmptyStrings(trigger.phrases).length
+      + validRegexStrings(trigger.regexes).length
+      + nonEmptyStrings(trigger.strong_kb_phrases).length
+      + validRegexStrings(trigger.strong_kb_regexes).length;
+    const signal = typeof enforcement.signal === 'string' ? enforcement.signal.trim() : '';
+    const directive = typeof enforcement.directive === 'string' ? enforcement.directive.trim() : '';
+    if (triggerCount === 0) reasons.push('shadow_trigger_missing');
+    if (signal !== KB_TRIAGE_SHADOW_SIGNAL) reasons.push('shadow_signal_invalid');
+    if (directive) reasons.push('shadow_directive_forbidden');
+    return {
+      route,
+      id: id || null,
+      usable: reasons.length === 0,
+      classifierUsable: false,
+      reason_codes: reasons,
+    };
+  }
+
   reasons.push('enforcement_kind_unknown');
   return { route, id: id || null, usable: false, classifierUsable: false, reason_codes: reasons };
 }
@@ -284,11 +329,10 @@ function validateRegistryRoutes(routes) {
 function readCompatibilityRegistry(root, payload) {
   try {
     const file = SESSION_GOVERNANCE_REGISTRY_PATH;
-    const text = fs.readFileSync(file, 'utf8');
-    const registry = parseRegistryYaml(text);
+    const registry = readGovernanceRegistryCached();
     const routes = registry && Array.isArray(registry.routes) ? registry.routes : [];
     if (routes.length === 0) {
-      const bytes = Buffer.byteLength(String(text || ''), 'utf8');
+      const bytes = _govRegistryCache ? _govRegistryCache.bytes : 0;
       appendFailureRow(root, bytes > 0 ? 'registry_unparsed' : 'registry_empty', payload, {
         registry_bytes: bytes,
       });
@@ -426,6 +470,65 @@ function matchesRoute(route, prompt, root, payload) {
     || regexHit(normalizedPrompt, trigger.regexes, root, payload);
 }
 
+function startAnchoredVerbHit(prompt, verbs) {
+  const vs = nonEmptyStrings(verbs);
+  if (vs.length === 0) return false;
+  const re = new RegExp('^\\s*(?:' + vs.map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\b', 'i');
+  return re.test(prompt);
+}
+
+function matchesShadowRoute(route, prompt, root, payload) {
+  if (!route || !prompt.trim()) return false;
+  const trigger = route.trigger || {};
+  const predicate = route.predicate || {};
+  const strong = phraseHit(prompt, trigger.strong_kb_phrases)
+    || regexHit(prompt, trigger.strong_kb_regexes, root, payload);
+  if (strong) return true;
+  const weak = phraseHit(prompt, trigger.phrases)
+    || regexHit(prompt, trigger.regexes, root, payload);
+  if (!weak) return false;
+  if (startAnchoredVerbHit(prompt, predicate.exclude_start_verbs)) return false;
+  return true;
+}
+
+function kbTriageShadowLedgerPath(root) {
+  return path.resolve(root, '.planning', 'metrics', 'kb-triage-shadow.jsonl');
+}
+
+function evaluateShadowRoutes(root, payload, prompt) {
+  try {
+    const started = performance.now();
+    const registry = readGovernanceRegistryCached();
+    const all = Array.isArray(registry.routes) ? registry.routes : [];
+    const shadowRoutes = all.filter((route) => {
+      const validation = validateRouteShape(route);
+      return validation.usable
+        && route.enforcement
+        && route.enforcement.kind === 'shadow';
+    });
+    const matched = shadowRoutes.filter((route) => matchesShadowRoute(route, prompt, root, payload));
+    if (matched.length === 0) return;
+    const crypto = require('crypto');
+    const ledgerPathValue = kbTriageShadowLedgerPath(root);
+    const line = JSON.stringify({
+      ts: new Date().toISOString(),
+      decision_id: crypto.randomUUID(),
+      matcher_version: KB_TRIAGE_MATCHER_VERSION,
+      matched_signature_ids: matched.map((route) => route.id).filter(Boolean),
+      soft_path_action: 'would_route_vtp_query_triage',
+      latency_ms: null,
+      operator_label: null,
+    }) + '\n';
+    const latency_ms = Number((performance.now() - started).toFixed(3));
+    fs.appendFileSync(
+      ledgerPathValue,
+      line.replace('"latency_ms":null', '"latency_ms":' + latency_ms),
+    );
+  } catch {
+    // Fire-and-forget: shadow evaluation must never throw or affect injection.
+  }
+}
+
 function matchingRoutes(registry, prompt, root, payload) {
   const routes = registry && Array.isArray(registry.routes) ? registry.routes : [];
   return routes.filter((route) => matchesRoute(route, prompt, root, payload));
@@ -495,6 +598,7 @@ function emitClassification(root, payload, options) {
 
   const registry = readRegistry(root, payload, opts);
   const routes = matchingRoutes(registry, prompt, root, payload);
+  evaluateShadowRoutes(root, payload, prompt);
   const mandatory = routeDirectives(routes, 'directive');
   if (mandatory.length > 0) {
     safeStdout(root, payload, mandatory.map((directive) => `SGSD directive: ${directive}`).join('\n'));
@@ -655,6 +759,17 @@ function selfTest() {
   assert('8. malformed-table fallback preserves token-audit suggestion',
     fallbackSuggestions.includes('/sgsd-token-audit'));
 
+  const shadowRoute = compatibilityRoutes.find((route) => route.id === 'kb-lookup-triage');
+  const shadowValidation = validateRouteShape(shadowRoute);
+  assert('9. KB triage route is usable shadow-only metadata',
+    shadowRoute
+      && shadowRoute.enforcement
+      && shadowRoute.enforcement.kind === 'shadow'
+      && shadowValidation.usable
+      && shadowValidation.classifierUsable === false);
+  assert('10. pure fix imperative does not match KB triage shadow route',
+    !matchesShadowRoute(shadowRoute, 'fix the failing test', null, payload));
+
   console.log(`intent-classifier self-test: ${pass} pass, ${fail} fail`);
   for (const item of failures) {
     console.error(`  FAIL: ${item.name}${item.detail ? ` -- ${item.detail}` : ''}`);
@@ -726,10 +841,14 @@ module.exports = {
   REGISTRY_SOURCE_PATH,
   SESSION_GOVERNANCE_REGISTRY_PATH,
   SKILL_ROUTING_REGISTRY_PATH,
+  KB_TRIAGE_MATCHER_VERSION,
   parseRegistryYaml,
   routeDirectives,
   directiveLines,
   matchingRoutes,
+  matchesShadowRoute,
+  evaluateShadowRoutes,
+  kbTriageShadowLedgerPath,
   readRegistry,
   emitClassification,
   selfTest,
