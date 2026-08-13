@@ -38,6 +38,7 @@ done
 
 if [[ -z "$PROMPT_FILE" || -z "$REPORT_OUT" || -z "$FILES_LIST" ]]; then
     echo "codex-patch-executor: --prompt-file, --report-out, and --files are required" >&2
+    echo "  --files = a MANIFEST FILE (one repo-relative path per line) that is ALSO the write allowlist" >&2
     exit 1
 fi
 if [[ ! -e "$PROMPT_FILE" ]]; then
@@ -45,7 +46,10 @@ if [[ ! -e "$PROMPT_FILE" ]]; then
     exit 1
 fi
 if [[ ! -e "$FILES_LIST" ]]; then
-    echo "codex-patch-executor: files list not found: $FILES_LIST" >&2
+    echo "codex-patch-executor: --files expects a MANIFEST FILE (one repo-relative path per line), not a path — not found: $FILES_LIST" >&2
+    echo "  it is ALSO the write allowlist: Codex may only create/modify paths listed in it." >&2
+    echo "  to author a NEW file, add its target path to the manifest (pre-create an empty placeholder if the path must exist)." >&2
+    echo "  example: printf '%s\\n' src/a.ts src/b.ts > files.txt   then   --files files.txt" >&2
     exit 1
 fi
 if [[ -n "${OPENAI_API_KEY:-}" ]]; then
@@ -69,7 +73,7 @@ while [[ "$d" != "/" && "$d" != "" ]]; do
     d="$(dirname "$d")"
 done
 
-CODEX_MODEL="gpt-5.5"
+CODEX_MODEL="gpt-5.6-sol"
 CODEX_REASONING_EFFORT="xhigh"
 CODEX_CD="$WORKSPACE"
 CODEX_LAUNCHER="direct"
@@ -92,12 +96,12 @@ PROMPT_TMP="$(mktemp "$TMP_BASE/sgsd-codex-patch-prompt.XXXXXX")"
 STDOUT_TMP="$(mktemp "$TMP_BASE/sgsd-codex-patch-stdout.XXXXXX")"
 STDERR_TMP="$(mktemp "$TMP_BASE/sgsd-codex-patch-stderr.XXXXXX")"
 PATCH_TMP="$(mktemp "$TMP_BASE/sgsd-codex-patch.XXXXXX")"
-trap 'rm -f "$READPACK_TMP" "$PROMPT_TMP" "$STDOUT_TMP" "$STDERR_TMP" "$PATCH_TMP" "${REPORT_OUT}.tmp" 2>/dev/null || true' EXIT
+trap 'rm -f "$READPACK_TMP" "$PROMPT_TMP" "$STDOUT_TMP" "$STDERR_TMP" "$PATCH_TMP" "${REPORT_OUT}.$$.tmp" 2>/dev/null || true' EXIT
 
 MAX_BYTES="${SGSD_CODEX_PATCH_READPACK_MAX_BYTES:-240000}"
 TOTAL_BYTES=0
 ALLOWED_TMP="$(mktemp "$TMP_BASE/sgsd-codex-allowed.XXXXXX")"
-trap 'rm -f "$READPACK_TMP" "$PROMPT_TMP" "$STDOUT_TMP" "$STDERR_TMP" "$PATCH_TMP" "$ALLOWED_TMP" "${REPORT_OUT}.tmp" 2>/dev/null || true' EXIT
+trap 'rm -f "$READPACK_TMP" "$PROMPT_TMP" "$STDOUT_TMP" "$STDERR_TMP" "$PATCH_TMP" "$ALLOWED_TMP" "${REPORT_OUT}.$$.tmp" 2>/dev/null || true' EXIT
 
 is_safe_relpath() {
     local p="$1"
@@ -240,8 +244,8 @@ DURATION_MS=$([[ "$START_MS" -gt 0 && "$END_MS" -ge "$START_MS" ]] && echo $((EN
 tail -4 "$LIVE_OUT" >> "$WATCH_OUT"
 
 mkdir -p "$(dirname "$REPORT_OUT")"
-cp "$STDOUT_TMP" "$REPORT_OUT.tmp"
-mv "$REPORT_OUT.tmp" "$REPORT_OUT"
+cp "$STDOUT_TMP" "${REPORT_OUT}.$$.tmp"
+mv "${REPORT_OUT}.$$.tmp" "$REPORT_OUT"
 
 LOG="$PROJECT/.planning/metrics/codex-executor-log.jsonl"
 mkdir -p "$(dirname "$LOG")"
@@ -331,5 +335,18 @@ else
     echo "SGSD_PATCH_APPLY: skipped --no-apply" >> "$REPORT_OUT"
 fi
 
-echo "codex-patch-executor: OK - Codex patch applied via read-pack mode"
+# Success must mean work happened. Never signal OK on an empty report — guards
+# the concurrent-run race (two runs sharing --report-out clobbering each other's
+# temp/target) and any path where codex produced no usable stdout.
+if [[ ! -s "$REPORT_OUT" ]]; then
+    echo "codex-patch-executor: ERR - report is empty; refusing to signal success (give each concurrent run a unique --report-out)" >&2
+    exit 6
+fi
+
+PATCH_FILES="$(awk '/^diff --git /{n++} END{print n+0}' "$PATCH_TMP")"
+if [[ "$APPLY_PATCH" == true ]]; then
+    echo "codex-patch-executor: OK - patch applied via read-pack mode (${PATCH_FILES} file(s))"
+else
+    echo "codex-patch-executor: OK - patch generated, NOT applied (--no-apply; ${PATCH_FILES} file(s))"
+fi
 exit 0
