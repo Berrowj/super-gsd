@@ -4,10 +4,10 @@ phase: "153"
 slug: "hook-transport-completion"
 milestone: "v3.6-vtp-bridge"
 status: "PLANNED"
-revision: 4
-supersedes: "rev 3 (NOGO round 3), rev 2 (NOGO round 2), rev 1 (NOGO round 1) — all 2026-08-18"
+revision: 5
+supersedes: "rev 4 (superseded by measured live evidence), rev 3/2/1 (NOGO rounds 3/2/1) — all 2026-08-18"
 depends_on: ["149", "151", "152"]
-intent: "Register the UserPromptSubmit hook that P149/P151/P152 governance already depends on, using a dedicated UserPromptSubmit-only overlay installed repo-locally, and prove it fires under genuine Claude Code dispatch by correlating a caller-chosen session id and a fresh crypto.randomUUID nonce against stream-json hook-lifecycle evidence that names the exact classifier command. Then make the existing secret-leak guard actually block. Rev 4 closes the round-3 blockers: evidence must name THIS hook, not merely that an event fired; the merge repo-root must be absolute; nonce replay is rejected via byte-offset snapshots."
+intent: "Register the UserPromptSubmit hook that P149/P151/P152 governance already depends on, using a dedicated UserPromptSubmit-only overlay installed repo-locally, and prove it fires under genuine Claude Code dispatch. Then make the existing secret-leak guard actually block. Rev 5 folds in MEASURED evidence from the T1a live run: stream-json hook events do NOT carry the hook command, so rev 4's requirement to name it was unsatisfiable. Attribution is now structural — exactly one registered UserPromptSubmit hook plus --setting-sources project — with session_id correlation and byte-offset snapshots. T1a (overlay, repo-local merge, hooks.yaml, assert-registration) landed at ca3c857 and is verified live."
 execution_mode: "serial-codex"
 expected_ATC_tier: "FULL"
 skip_gates: []
@@ -18,19 +18,19 @@ semantic_acceptance_criteria:
     expected_outcome: "Exactly ONE new event is registered - UserPromptSubmit - because the dedicated overlay declares only that event. No SessionStart or PostToolUse entry is introduced by this merge. Every command in the hooks section resolves to a file that exists on disk. The assertion reads only the hooks section by key and never touches the env block."
     verification_cmd: "node super-gsd/tests/hook-transport/assert-registration.cjs"
   - input: "A headless Claude session launched by the verifier with a caller-chosen fresh session id and a crypto.randomUUID nonce in a planning-shaped prompt: claude -p '<nonce> how should we architect the retry layer' --setting-sources project --session-id <fresh-uuid> --output-format stream-json --verbose --include-hook-events. Ledger byte offsets are snapshotted BEFORE launch."
-    expected_outcome: "The stream-json hook-lifecycle events identify the EXACT hook command that ran and it resolves to sgsd-intent-classifier.cjs - not merely that some UserPromptSubmit event dispatched - AND exactly one new post-snapshot ledger row names the matched route and carries the caller-chosen session id and the nonce. Proving an event dispatched is NOT sufficient; the evidence must name this hook."
+    expected_outcome: "A hook_response event for hook_name UserPromptSubmit reports exit_code 0 and outcome success, under the two isolation preconditions below, AND exactly one new post-snapshot ledger row names the matched route and carries the same session_id the hook events report. Isolation preconditions, both asserted in the same run: (i) assert-registration.cjs proves exactly ONE UserPromptSubmit hook is registered, and (ii) the probe runs with --setting-sources project so global hooks are not loaded. Under (i)+(ii) a UserPromptSubmit hook_response can only be this classifier."
     verification_cmd: "node super-gsd/tests/hook-transport/assert-live-dispatch.cjs --probe planning"
-  - input: "The same mechanism with an execution-shaped prompt: '<nonce> fix the failing test in parser.cjs'."
-    expected_outcome: "Hook-event evidence names sgsd-intent-classifier.cjs AND exactly one new post-snapshot row EXPLICITLY records no match, carrying the caller-chosen session id and nonce. An absent row fails, because absence is indistinguishable from the hook never running."
+  - input: "The same mechanism with an execution-shaped prompt: 'fix the failing test in parser.cjs'."
+    expected_outcome: "A hook_response for UserPromptSubmit reports success under the same isolation preconditions AND exactly one new post-snapshot row EXPLICITLY records no match, carrying that session_id. An absent row fails, because absence is indistinguishable from the hook never running."
     verification_cmd: "node super-gsd/tests/hook-transport/assert-live-dispatch.cjs --probe no-match"
-  - input: "Two adversarial controls. (a) The classifier spawned directly on stdin with a forged payload carrying a genuine concurrent run's session id and nonce, with no dispatch of THIS hook. (b) A genuine Claude run that dispatches a DIFFERENT UserPromptSubmit hook, combined with a separately forged classifier row bearing the same session id and nonce."
-    expected_outcome: "BOTH controls FAIL the assertion. Control (b) is the decisive one: it proves the probe requires hook-event evidence naming sgsd-intent-classifier.cjs specifically, and cannot be satisfied by combining another hook's genuine dispatch with a forged row. If either control passes, the falsifier is not falsifying and the task is incomplete."
+  - input: "Two adversarial controls. (a) The classifier spawned directly on stdin with a forged payload carrying a real session id, with no Claude dispatch at all. (b) A probe run in which the isolation precondition is deliberately violated - more than one UserPromptSubmit hook registered, or --setting-sources project omitted so global hooks load."
+    expected_outcome: "BOTH controls FAIL the assertion. Control (a) fails because no hook_started/hook_response pair exists for that session. Control (b) fails because the assertion refuses to attribute a hook_response to this classifier when more than one UserPromptSubmit hook could have produced it. If either control passes, the falsifier is not falsifying and the task is incomplete."
     verification_cmd: "node super-gsd/tests/hook-transport/assert-live-dispatch.cjs --control forged-and-confused-must-fail"
   - input: "A nonce replay attempt: an assertion run reusing a nonce that already appears in the ledger before the byte-offset snapshot."
     expected_outcome: "The assertion FAILS on pre-existing-nonce detection. Nonces are generated per invocation via crypto.randomUUID and only post-snapshot rows are inspected, so a stale-nonce replay cannot produce a pass."
     verification_cmd: "node super-gsd/tests/hook-transport/assert-live-dispatch.cjs --control stale-nonce-must-fail"
   - input: "The same mechanism with a prompt targeting a P149 skill-routing registry route specifically, not the P146 compatibility planning-triage route."
-    expected_outcome: "Hook-event evidence names the classifier AND a new post-snapshot row's matched route originates from the P149 skill-routing registry, proving that registry is exercised live rather than only the compatibility route."
+    expected_outcome: "A hook_response for UserPromptSubmit reports success under the same isolation preconditions AND a new post-snapshot row's matched route originates from the P149 skill-routing registry, proving that registry is exercised live rather than only the P146 compatibility route."
     verification_cmd: "node super-gsd/tests/hook-transport/assert-live-dispatch.cjs --probe p149-skill-routing"
   - input: "The same mechanism with a KB-directed prompt matching the P152 kb-lookup-triage shadow route."
     expected_outcome: "A text-free shadow row is appended under genuine dispatch and NOTHING is injected into the prompt. The row contains no prompt text, excerpt or entity string. P152 remains enforcement kind shadow."
@@ -50,7 +50,10 @@ semantic_acceptance_criteria:
 known_deadends:
   - "Merging super-gsd/config/repo-settings-overlay.json for this phase. Verified 2026-08-18: it declares THREE events (SessionStart, UserPromptSubmit, PostToolUse) and merge-settings.js merges every event in the overlay, so using it contradicts a UserPromptSubmit-only stop_rule and, if targeted globally, installs unrelated hooks with repo-relative args into every project. Rev 3 uses a dedicated single-event overlay instead."
   - "Proving dispatch via payload provenance fields (hook_event_name, session_id, transcript_path). Refuted at plan review round 2: a direct stdin spawn can supply all three, including a copied real transcript path. Provenance fields are forgeable and prove nothing on their own."
-  - "Proving dispatch by showing only that SOME UserPromptSubmit event fired. Refuted at plan review round 3: a genuine Claude run dispatching a different UserPromptSubmit hook, combined with a separately forged classifier row carrying the same session id and nonce, would pass. The evidence must name the exact command resolving to sgsd-intent-classifier.cjs."
+  - "Proving dispatch by showing only that SOME UserPromptSubmit event fired, with no isolation precondition. Refuted at plan review round 3: another UserPromptSubmit hook's genuine dispatch paired with a forged ledger row would pass. Closed structurally in rev 5 by requiring exactly one registered UserPromptSubmit hook plus --setting-sources project."
+  - "Requiring stream-json hook events to name the exact classifier command. MEASURED 2026-08-18 (153-T1a-LIVE-EVIDENCE.md): hook_started/hook_progress/hook_response carry hook_name, hook_id, session_id, exit_code, outcome and the hook's stdout — but NOT the command. Rev 4 specified evidence the platform does not emit. Use the isolation precondition instead."
+  - "Having the classifier echo a nonce marker on stdout for probe correlation. A UserPromptSubmit hook's stdout is INJECTED into the model's prompt context (measured: 'SGSD directive: /sgsd-triage' appeared as hook output), so a correlation token would pollute every production prompt. Correlate on session_id instead."
+  - "Assuming the installed hook entry must use the command-string form (\"node \\\"<abs path>\\\"\") because the global hooks do. REFUTED by live run: Claude Code honours {\"command\":\"node\",\"args\":[\"<abs path>\"]}, which merge-settings.js:281 produces by design in repo-local mode."
   - "Relying on --debug hooks output as the evidence source. Debug logs are documented textual diagnostics with no stable schema and do not carry the nonce or session id, and the filter binds only as --debug=hooks (space form enables unfiltered debugging). Use --output-format stream-json --verbose --include-hook-events with an explicit --session-id instead."
   - "Passing a relative repo-root to merge-settings.js --repo-local-hooks. Verified at merge-settings.js:234: resolveRepoLocalTarget() throws on any non-absolute root, so the command exits before merging. This defect was present in rev 3 of this plan."
   - "Asserting the negative direction by checking that no telemetry row exists. Absence is indistinguishable from the hook never running. This made P150's trust probe report a false negative (seam instance #6)."
@@ -58,16 +61,13 @@ known_deadends:
   - "Adding a generic fifth enforcement kind `block` to the classifier registry. Dropped as YAGNI: one current consumer, a standalone guard. Revisit when a second real consumer exists."
   - "Porting disler/claude-code-hooks-mastery Python/uv hooks. hooks.yaml sets timeout_sec 2 and uv cold-start on Windows exceeds it on every tool call. That repo has NO LICENSE (all-rights-reserved); only the Claude Code event taxonomy and exit-code semantics are used, which are facts about the platform rather than his code."
 tasks:
-  - id: "P153-T1"
-    type: "hook-registration"
+  - id: "P153-T1b"
+    type: "live-dispatch-probe"
     agent: codex
     model: codex
     depends_on: []
     files_touched:
-      - "super-gsd/config/claude-ups-overlay.json"
-      - "super-gsd/registry/hooks.yaml"
       - "super-gsd/hooks/sgsd-intent-classifier.cjs"
-      - "super-gsd/tests/hook-transport/assert-registration.cjs"
       - "super-gsd/tests/hook-transport/assert-live-dispatch.cjs"
     input_contract: >
       sgsd-intent-classifier.cjs self-declares as a UserPromptSubmit hook but no
@@ -128,7 +128,7 @@ tasks:
     type: "blocking-guard"
     agent: codex
     model: codex
-    depends_on: ["P153-T1"]
+    depends_on: ["P153-T1b"]
     files_touched:
       - "super-gsd/tools/codex-hooks/block-secret-leak.cjs"
       - "super-gsd/config/claude-ups-overlay.json"
