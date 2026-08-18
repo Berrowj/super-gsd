@@ -94,13 +94,48 @@ function postSnapshotRoutingDecisions(item) {
 }
 
 function parseStream(stdout) {
-  return String(stdout || '').split(/\r?\n/).filter(Boolean).map((line) => {
+  return String(stdout || '').split(/\r?\n/).filter(Boolean).map(parseStreamLine);
+}
+
+function parseStreamLine(line) {
+  try {
+    return JSON.parse(line);
+  } catch {
+    throw new Error(`Claude stream contained non-JSON output: ${line.slice(0, 240)}`);
+  }
+}
+
+function createStreamParser(onEvent) {
+  let pending = '';
+
+  function emit(line) {
+    if (!line) return false;
     try {
-      return JSON.parse(line);
+      return onEvent(parseStreamLine(line)) === true;
     } catch {
-      throw new Error(`Claude stream contained non-JSON output: ${line.slice(0, 240)}`);
+      // Session output is non-authoritative; missing structural evidence is diagnosed below.
+      return false;
     }
-  });
+  }
+
+  return {
+    push(chunk) {
+      pending += String(chunk);
+      const lines = pending.split(/\r?\n/);
+      pending = lines.pop();
+      for (const line of lines) {
+        if (emit(line)) {
+          pending = '';
+          return;
+        }
+      }
+    },
+    finish() {
+      const finalLine = pending;
+      pending = '';
+      emit(finalLine);
+    },
+  };
 }
 
 function normalizedCommand(value) {
@@ -175,7 +210,35 @@ function claudeExecutable() {
   return executable;
 }
 
-function runClaude(cwd, args) {
+function hookEvidence(events, sessionId) {
+  const lifecycleEvents = events.filter((event) => event
+    && event.type === 'system'
+    && event.hook_name === 'UserPromptSubmit'
+    && event.session_id === sessionId);
+  const started = lifecycleEvents.filter((event) => event.subtype === 'hook_started');
+  const startedHookIds = new Set(started.map((event) => event.hook_id).filter(Boolean));
+  const responses = lifecycleEvents.filter((event) => event.subtype === 'hook_response');
+  const pairedResponses = responses.filter((event) => event.hook_id
+    && startedHookIds.has(event.hook_id));
+  const successfulResponse = pairedResponses.find((event) => event.exit_code === 0
+    && event.outcome === 'success');
+  return { lifecycleEvents, started, responses, pairedResponses, successfulResponse };
+}
+
+function correlatedRoutingRows(item, sessionId) {
+  return postSnapshotRoutingDecisions(item).filter((row) => row && row.session_id === sessionId);
+}
+
+function hasRequiredEvidence(events, item, sessionId) {
+  if (!hookEvidence(events, sessionId).successfulResponse) return false;
+  try {
+    return correlatedRoutingRows(item, sessionId).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+function runClaude(cwd, args, snapshot, sessionId) {
   return new Promise((resolve) => {
     const child = spawn(claudeExecutable(), args, {
       cwd,
@@ -185,24 +248,38 @@ function runClaude(cwd, args) {
     let stdout = '';
     let stderr = '';
     let spawnError = null;
-    child.stdout.on('data', (chunk) => { stdout += String(chunk); });
-    child.stderr.on('data', (chunk) => { stderr += String(chunk); });
-    child.on('error', (error) => { spawnError = error; });
-    const timer = setTimeout(() => child.kill(), 180000);
-    child.on('close', (status, signal) => {
-      clearTimeout(timer);
-      resolve({ status, signal, stdout, stderr, spawnError, args });
+    let childStarted = false;
+    let evidenceComplete = false;
+    let closed = false;
+    const events = [];
+    const maybeStop = () => {
+      if (evidenceComplete || !hasRequiredEvidence(events, snapshot.gate, sessionId)) return false;
+      evidenceComplete = true;
+      if (!closed) child.kill();
+      return true;
+    };
+    const parser = createStreamParser((event) => {
+      events.push(event);
+      return maybeStop();
     });
-  });
-}
-
-function observedRun(run) {
-  return JSON.stringify({
-    status: run.status,
-    signal: run.signal,
-    spawn_error: run.spawnError ? run.spawnError.message : null,
-    stdout: run.stdout,
-    stderr: run.stderr,
+    child.stdout.on('data', (chunk) => {
+      stdout += String(chunk);
+      if (!evidenceComplete) parser.push(chunk);
+    });
+    child.stderr.on('data', (chunk) => { stderr += String(chunk); });
+    child.once('spawn', () => { childStarted = true; });
+    child.on('error', (error) => {
+      if (!childStarted) spawnError = error;
+    });
+    const timer = setTimeout(() => child.kill(), 180000);
+    const evidencePoll = setInterval(maybeStop, 25);
+    child.on('close', (status, signal) => {
+      closed = true;
+      clearTimeout(timer);
+      clearInterval(evidencePoll);
+      if (!evidenceComplete) parser.finish();
+      resolve({ status, signal, stdout, stderr, spawnError, events, args });
+    });
   });
 }
 
@@ -211,28 +288,34 @@ function assertCausalEvidence(run, routingRows, sessionId, registration, provide
     'registration isolation must be established before attribution');
   assertProjectSettingSource(run.args);
   assert.ifError(run.spawnError);
-  assert.strictEqual(run.status, 0, `headless Claude failed: ${observedRun(run)}`);
-  const events = providedEvents || parseStream(run.stdout);
-  assert.ok(events.some((event) => event.session_id === sessionId),
-    'Claude stream did not carry the caller-chosen session id');
-  const lifecycleEvents = events.filter((event) => event
-    && event.type === 'system'
-    && event.hook_name === 'UserPromptSubmit'
-    && event.session_id === sessionId);
-  const responses = lifecycleEvents.filter((event) => event.subtype === 'hook_response');
-  const successfulResponses = responses.filter((event) => event.exit_code === 0
-    && event.outcome === 'success');
-  assert.ok(successfulResponses.length > 0,
-    'expected at least one successful UserPromptSubmit hook_response for the session');
-  const response = successfulResponses.find((candidate) => candidate.hook_id
-    && lifecycleEvents.some((event) => event.subtype === 'hook_started'
-      && event.hook_id === candidate.hook_id));
-  assert.ok(response,
-    'a successful UserPromptSubmit hook_response must pair with hook_started under the same hook_id');
+  const events = providedEvents || run.events || parseStream(run.stdout);
+  const evidence = hookEvidence(events, sessionId);
+  assert.ok(evidence.started.length > 0,
+    'no hook_started for UserPromptSubmit with the caller-chosen session id');
+  assert.ok(evidence.responses.length > 0,
+    'no hook_response for UserPromptSubmit with the caller-chosen session id');
+  assert.ok(evidence.pairedResponses.length > 0,
+    'no hook_response paired to UserPromptSubmit hook_started by hook_id');
+  if (!evidence.successfulResponse) {
+    const nonZeroResponse = evidence.pairedResponses.find((event) => event.exit_code != null
+      && event.exit_code !== 0);
+    if (nonZeroResponse) {
+      assert.fail(`non-zero hook exit_code: ${nonZeroResponse.exit_code}`);
+    }
+    const outcomes = evidence.pairedResponses.map((event) => String(event.outcome)).join(', ');
+    assert.fail(`no hook_response with exit_code 0 and outcome success; observed outcomes: ${outcomes}`);
+  }
   const correlated = routingRows.filter((row) => row && row.session_id === sessionId);
+  assert.ok(correlated.length > 0,
+    'no correlated post-snapshot classifier row with the caller-chosen session id');
   assert.strictEqual(correlated.length, 1,
     'expected exactly one post-snapshot classifier row with the session id');
-  return { events, lifecycleEvents, response, row: correlated[0] };
+  return {
+    events,
+    lifecycleEvents: evidence.lifecycleEvents,
+    response: evidence.successfulResponse,
+    row: correlated[0],
+  };
 }
 
 function assertDecision(definition, result, shadowRows, fullPrompt, run) {
@@ -296,7 +379,7 @@ async function runProbe(name, providedNonce) {
   const fullPrompt = `${nonce} ${definition.prompt}`;
   const args = claudeArgs(fullPrompt, sessionId, 'project');
   assertProjectSettingSource(args);
-  const run = await runClaude(ROOT, args);
+  const run = await runClaude(ROOT, args, snapshot, sessionId);
   const routingRows = postSnapshotRoutingDecisions(snapshot.gate);
   const shadowRows = postSnapshotRows(snapshot.shadow);
   const result = assertCausalEvidence(run, routingRows, sessionId, registration);
@@ -357,7 +440,7 @@ function runForgedAndConfusedControl() {
   expectRejected(
     'forged direct spawn',
     () => assertCausalEvidence(noClaudeRun, routingRows, sessionId, registration, []),
-    /caller-chosen session id|hook_response/,
+    /hook_started|hook_response/,
   );
 
   const confusedHooks = JSON.parse(JSON.stringify(registration.hooks));
