@@ -73,3 +73,26 @@ narrative writer. Not repaired in this phase.
 T2c was stopped twice with no report and no file changes. The orchestrator verified a
 clean tree both times and held after the second rather than retrying a third time. Work
 resumed on operator instruction. No partial state entered the tree.
+
+## D5 GATE_AUTO_HALT, spec compliance round 2, 2 CRITICAL
+
+Probe evidence is not bound to the classifier command for the no-match case. See
+153-ATC-GAP-PLAN.md. Phase is NOT marked complete. Severity is test-integrity rather
+than production-dead; the reasoning is in the gap plan.
+
+Expiring entry: revisit before v3.6 milestone close. If the gap is still OPEN at that
+point it must be raised to the operator as a milestone-level decision rather than carried
+silently.
+
+## D6 Round-2 report was truncated by satisfying the wrapper contract
+
+Fixing D1 by emitting the five contract lines produced a 160-byte report containing only
+those lines. The substantive spec block was not emitted, and the 7.7MB accumulated
+codex-live-output.txt did not yield recoverable round-2 reasoning. The verdict was acted
+on from the contract lines alone, which was sufficient here because ONE_LINER named the
+defect precisely, but it is a poor evidence trail.
+
+Both halves of D1 are now demonstrated: omitting the contract lines logs a false failure
+with good content, and including them logged a true success with truncated content. The
+repair needs to satisfy the validator AND preserve the analysis, not trade one for the
+other.
