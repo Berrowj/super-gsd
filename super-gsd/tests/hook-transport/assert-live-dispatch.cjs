@@ -17,6 +17,11 @@ const {
 
 const GATE_LEDGER_PATH = path.resolve(ROOT, '.planning', 'metrics', 'gate-evidence.jsonl');
 const SHADOW_LEDGER_PATH = classifier.kbTriageShadowLedgerPath(ROOT);
+const INTENT_CLASSIFIER_HOOK_ID = 'user-prompt-intent-classifier';
+const ALLOWED_USER_PROMPT_SUBMIT_HOOK_IDS = Object.freeze([
+  INTENT_CLASSIFIER_HOOK_ID,
+  'user-prompt-secret-leak-guard',
+]);
 const PROBES = Object.freeze({
   planning: {
     prompt: 'there are multiple valid approaches; how should we architect the retry layer; reply with OK only and do not use tools',
@@ -107,20 +112,22 @@ function normalizedCommand(value) {
     .toLowerCase();
 }
 
-function assertOneRegisteredUserPromptSubmit(hooks) {
+function assertKnownManagedUserPromptSubmitEntries(hooks) {
   const entries = hooks && Array.isArray(hooks.UserPromptSubmit)
     ? hooks.UserPromptSubmit
     : [];
-  const commands = entries.flatMap((entry) => Array.isArray(entry && entry.hooks) ? entry.hooks : []);
-  assert.strictEqual(entries.length, 1,
-    'isolation requires exactly one UserPromptSubmit registration');
-  assert.strictEqual(commands.length, 1,
-    'isolation requires exactly one UserPromptSubmit hook command');
+  for (const entry of entries) {
+    assert.ok(entry && ALLOWED_USER_PROMPT_SUBMIT_HOOK_IDS.includes(entry.sgsd_hook_id),
+      'isolation requires every UserPromptSubmit registration to use a known managed sgsd_hook_id');
+  }
+  const classifierEntries = entries.filter((entry) => entry.sgsd_hook_id === INTENT_CLASSIFIER_HOOK_ID);
+  assert.strictEqual(classifierEntries.length, 1,
+    'isolation requires exactly one UserPromptSubmit intent classifier registration');
 }
 
 function assertRegistrationIsolation() {
   const registration = validateRegistration({ silent: true });
-  assertOneRegisteredUserPromptSubmit(registration.hooks);
+  assertKnownManagedUserPromptSubmitEntries(registration.hooks);
   return registration;
 }
 
@@ -213,14 +220,15 @@ function assertCausalEvidence(run, routingRows, sessionId, registration, provide
     && event.hook_name === 'UserPromptSubmit'
     && event.session_id === sessionId);
   const responses = lifecycleEvents.filter((event) => event.subtype === 'hook_response');
-  assert.strictEqual(responses.length, 1,
-    'expected exactly one UserPromptSubmit hook_response for the session');
-  const response = responses[0];
-  assert.strictEqual(response.exit_code, 0, 'UserPromptSubmit hook_response exit_code must be 0');
-  assert.strictEqual(response.outcome, 'success', 'UserPromptSubmit hook_response outcome must be success');
-  assert.ok(lifecycleEvents.some((event) => event.subtype === 'hook_started'
-    && event.hook_id === response.hook_id),
-  'UserPromptSubmit hook_response must pair with hook_started under the same hook_id');
+  const successfulResponses = responses.filter((event) => event.exit_code === 0
+    && event.outcome === 'success');
+  assert.ok(successfulResponses.length > 0,
+    'expected at least one successful UserPromptSubmit hook_response for the session');
+  const response = successfulResponses.find((candidate) => candidate.hook_id
+    && lifecycleEvents.some((event) => event.subtype === 'hook_started'
+      && event.hook_id === candidate.hook_id));
+  assert.ok(response,
+    'a successful UserPromptSubmit hook_response must pair with hook_started under the same hook_id');
   const correlated = routingRows.filter((row) => row && row.session_id === sessionId);
   assert.strictEqual(correlated.length, 1,
     'expected exactly one post-snapshot classifier row with the session id');
@@ -353,11 +361,15 @@ function runForgedAndConfusedControl() {
   );
 
   const confusedHooks = JSON.parse(JSON.stringify(registration.hooks));
-  confusedHooks.UserPromptSubmit.push(JSON.parse(JSON.stringify(confusedHooks.UserPromptSubmit[0])));
+  confusedHooks.UserPromptSubmit.push({
+    sgsd_managed: true,
+    sgsd_hook_id: 'unknown-user-prompt-submit-control',
+    hooks: [],
+  });
   expectRejected(
-    'duplicate UserPromptSubmit registration',
-    () => assertOneRegisteredUserPromptSubmit(confusedHooks),
-    /exactly one UserPromptSubmit registration/,
+    'unknown UserPromptSubmit registration',
+    () => assertKnownManagedUserPromptSubmitEntries(confusedHooks),
+    /known managed sgsd_hook_id/,
   );
   expectRejected(
     'omitted project setting source',
