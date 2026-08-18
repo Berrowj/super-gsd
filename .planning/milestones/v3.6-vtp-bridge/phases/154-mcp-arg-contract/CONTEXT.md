@@ -49,6 +49,11 @@ the shape of the emitted args changes.
 - The conformance test MUST fail against the pre-fix runtime. A test that passes
   both before and after does not exercise the defect.
 - Cover both the `vtp-plan` stage and the `vtp-consume` fallback stage.
+- **Schema conformance is necessary but not sufficient.** The phase must also
+  demonstrate a successful POST-FIX real MCP call for each affected tool — the
+  emitted args accepted by the live tool, not merely validated against a schema.
+  Added per Codex plan review round 2 (blocker #5): a locally-valid shape can
+  still be rejected by the live server.
 
 ## Boundary
 - No change to route selection, predicates, or degradation policy.
