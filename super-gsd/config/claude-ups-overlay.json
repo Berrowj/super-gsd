@@ -1,0 +1,19 @@
+{
+  "_comment": "Merge into <repo>/.claude/settings.json via super-gsd/scripts/merge-settings.js --repo-local-hooks. Hook script args are repo-relative here and resolved to absolute target-repo paths at install time.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "sgsd_managed": true,
+        "sgsd_hook_id": "user-prompt-intent-classifier",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["super-gsd/hooks/sgsd-intent-classifier.cjs"],
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

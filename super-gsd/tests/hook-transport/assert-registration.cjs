@@ -59,6 +59,10 @@ function validateRegistration(options) {
   const hooks = readHooksByKey(SETTINGS_PATH);
   assert.ok(hooks && typeof hooks === 'object' && !Array.isArray(hooks),
     'repo-local settings hooks section must be an object');
+  for (const unrelatedEvent of ['SessionStart', 'PostToolUse']) {
+    assert.ok(!Object.prototype.hasOwnProperty.call(hooks, unrelatedEvent),
+      `dedicated overlay must not introduce hooks.${unrelatedEvent}`);
+  }
 
   const installedEntries = Array.isArray(hooks.UserPromptSubmit)
     ? hooks.UserPromptSubmit.filter((entry) => entry
