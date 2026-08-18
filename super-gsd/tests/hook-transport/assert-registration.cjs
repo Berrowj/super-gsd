@@ -10,7 +10,11 @@ const ROOT = path.resolve(__dirname, '..', '..', '..');
 const OVERLAY_PATH = path.join(ROOT, 'super-gsd', 'config', 'claude-ups-overlay.json');
 const SETTINGS_PATH = path.join(ROOT, '.claude', 'settings.json');
 const CLASSIFIER_PATH = path.join(ROOT, 'super-gsd', 'hooks', 'sgsd-intent-classifier.cjs');
-const MANAGED_HOOK_ID = 'user-prompt-intent-classifier';
+const INTENT_CLASSIFIER_HOOK_ID = 'user-prompt-intent-classifier';
+const ALLOWED_USER_PROMPT_SUBMIT_HOOK_IDS = Object.freeze([
+  INTENT_CLASSIFIER_HOOK_ID,
+  'user-prompt-secret-leak-guard',
+]);
 
 function readHooksByKey(filePath) {
   const document = JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -30,6 +34,13 @@ function commandScriptPath(hook) {
   return path.resolve(hook.args[0]);
 }
 
+function assertKnownManagedEntries(entries, source) {
+  for (const entry of entries) {
+    assert.ok(entry && ALLOWED_USER_PROMPT_SUBMIT_HOOK_IDS.includes(entry.sgsd_hook_id),
+      `${source} UserPromptSubmit entry must use a known managed sgsd_hook_id`);
+  }
+}
+
 function validateRegistration(options) {
   const opts = options || {};
   assert.ok(fs.existsSync(OVERLAY_PATH), 'dedicated UserPromptSubmit overlay is missing');
@@ -42,12 +53,17 @@ function validateRegistration(options) {
 
   const overlayEntries = overlayHooks.UserPromptSubmit;
   assert.ok(Array.isArray(overlayEntries), 'overlay UserPromptSubmit value must be an array');
-  assert.strictEqual(overlayEntries.length, 1, 'overlay must contain exactly one UserPromptSubmit entry');
-  assert.strictEqual(overlayEntries[0].sgsd_managed, true, 'overlay hook must be SGSD-managed');
-  assert.strictEqual(overlayEntries[0].sgsd_hook_id, MANAGED_HOOK_ID, 'overlay managed id is wrong');
-  const overlayCommands = overlayEntries[0].hooks;
-  assert.ok(Array.isArray(overlayCommands) && overlayCommands.length === 1,
-    'overlay must map UserPromptSubmit to exactly one command');
+  assertKnownManagedEntries(overlayEntries, 'overlay');
+  for (const entry of overlayEntries) {
+    assert.strictEqual(entry.sgsd_managed, true, 'overlay hook must be SGSD-managed');
+    assert.ok(Array.isArray(entry.hooks) && entry.hooks.length === 1,
+      'each overlay UserPromptSubmit entry must map to exactly one command');
+  }
+  const overlayClassifierEntries = overlayEntries
+    .filter((entry) => entry.sgsd_hook_id === INTENT_CLASSIFIER_HOOK_ID);
+  assert.strictEqual(overlayClassifierEntries.length, 1,
+    'overlay must contain exactly one UserPromptSubmit classifier entry');
+  const overlayCommands = overlayClassifierEntries[0].hooks;
   assert.strictEqual(overlayCommands[0].command, 'node', 'overlay command must be node');
   assert.deepStrictEqual(
     overlayCommands[0].args,
@@ -64,13 +80,14 @@ function validateRegistration(options) {
       `dedicated overlay must not introduce hooks.${unrelatedEvent}`);
   }
 
-  const installedEntries = Array.isArray(hooks.UserPromptSubmit)
-    ? hooks.UserPromptSubmit.filter((entry) => entry
-      && entry.sgsd_managed === true
-      && entry.sgsd_hook_id === MANAGED_HOOK_ID)
+  const installedUserPromptSubmitEntries = Array.isArray(hooks.UserPromptSubmit)
+    ? hooks.UserPromptSubmit
     : [];
+  assertKnownManagedEntries(installedUserPromptSubmitEntries, 'installed');
+  const installedEntries = installedUserPromptSubmitEntries
+    .filter((entry) => entry.sgsd_hook_id === INTENT_CLASSIFIER_HOOK_ID);
   assert.strictEqual(installedEntries.length, 1,
-    'exactly one managed UserPromptSubmit classifier entry must be installed');
+    'exactly one UserPromptSubmit classifier entry must be installed');
 
   let commandCount = 0;
   for (const [event, entries] of Object.entries(hooks)) {
@@ -91,8 +108,9 @@ function validateRegistration(options) {
     'installed UserPromptSubmit command must resolve exactly to sgsd-intent-classifier.cjs');
 
   const hash = crypto.createHash('sha256').update(JSON.stringify(hooks)).digest('hex');
+  const eventCount = Object.keys(overlayHooks).length;
   if (!opts.silent) {
-    console.log(`hook registration PASS events_added=1 commands=${commandCount} hooks_sha256=${hash}`);
+    console.log(`hook registration PASS events_added=${eventCount} commands=${commandCount} hooks_sha256=${hash}`);
   }
   return { hash, hooks, classifierPath: installedScript };
 }
