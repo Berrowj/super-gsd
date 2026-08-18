@@ -26,6 +26,8 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 
 - [harness production seam four layers](architecture/anti-patterns/harness-production-seam-four-layers.md) - Harness-vs-production seam bit 4x in P148; verify every production hop
 
+- [waste waiting p153 narrative age sec](architecture/anti-patterns/waste-waiting-p153-narrative-age-sec.md) - P153 narrative-age-sec=10685 FAIL — waiting waste
+
 ## architecture/decisions
 
 - [PI Death & Migration Decision](architecture/decisions/pi-death-migration.md)
