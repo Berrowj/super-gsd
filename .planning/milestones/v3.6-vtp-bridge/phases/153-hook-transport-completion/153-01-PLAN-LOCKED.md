@@ -4,83 +4,47 @@ phase: "153"
 slug: "hook-transport-completion"
 milestone: "v3.6-vtp-bridge"
 status: "PLANNED"
+revision: 2
+supersedes: "153-01-PLAN-LOCKED.md rev 1 (NOGO at plan review, 2026-08-18)"
 depends_on: ["149", "151", "152"]
-intent: "Bind SGSD governance policy to the Claude Code event surface it was written for. The classifier driving P149/P151/P152 is registered to no hook event and never executes live (seam instance #7). Fix the runtime-to-MCP arg contract (instance #8), register UserPromptSubmit with a two-directional live falsifier, and add the one enforcement kind the stack lacks: a block."
+intent: "Register the UserPromptSubmit hook that P149/P151/P152 governance already depends on, repo-locally, and prove it fires under genuine Claude Code dispatch rather than under a harness spawn. Then make the existing secret-leak guard actually block. Rev 2 after Codex plan review returned NOGO: target ambiguity fixed to repo-local, ACs re-anchored on dispatch provenance, T0 split out to P154, generic block kind dropped."
 execution_mode: "serial-codex"
 expected_ATC_tier: "FULL"
 skip_gates: []
 lessons_path: null
 prior_errors_lookup: true
 semantic_acceptance_criteria:
-  - input: "The vtp-plan stage of sgsd-triage-runtime.cjs run against a real staged query file, emitting args for vtp_route_and_retrieve."
-    expected_outcome: "The emitted args object validates against the real vtp_route_and_retrieve JSON schema: context.recent_turns is an array of objects each carrying a text string, not an array of bare strings."
-    verification_cmd: "node super-gsd/tests/hook-transport/assert-mcp-arg-contract.cjs --tool vtp_route_and_retrieve"
-  - input: "The vtp-consume fallback stage emitting args for vtp_search_substrate."
-    expected_outcome: "The emitted args contain only keys the vtp_search_substrate schema accepts (query plus optional typed filters); raw_query, context and fallback_reason are absent from the emitted MCP args."
-    verification_cmd: "node super-gsd/tests/hook-transport/assert-mcp-arg-contract.cjs --tool vtp_search_substrate"
-  - input: "The live Claude Code settings file after merge-settings.js has installed the repo overlay."
-    expected_outcome: "A UserPromptSubmit event is registered and its command resolves to sgsd-intent-classifier.cjs; the assertion reads the real settings file and never inspects the env block."
+  - input: "The repo-local .claude/settings.json after merge-settings.js --repo-local-hooks has installed the overlay."
+    expected_outcome: "A UserPromptSubmit event is registered whose command resolves to sgsd-intent-classifier.cjs, and EVERY command in the hooks section resolves to a file that exists on disk (no broken repo-relative args). The assertion reads only the hooks section by key and never touches the env block."
     verification_cmd: "node super-gsd/tests/hook-transport/assert-registration.cjs"
-  - input: "A planning-shaped prompt (how should we architect the retry layer) delivered to the registered UserPromptSubmit hook with a real session id."
-    expected_outcome: "A route-decision row is appended naming the matched route (planning-triage) and carrying that session id."
-    verification_cmd: "node super-gsd/tests/hook-transport/assert-live-route-decision.cjs --direction positive"
-  - input: "An execution-shaped prompt (fix the failing test in parser.cjs) delivered to the same registered hook with a real session id."
-    expected_outcome: "A row is appended that explicitly records no match for that session id. An absent row fails the assertion, because absence is indistinguishable from the hook never running."
-    verification_cmd: "node super-gsd/tests/hook-transport/assert-live-route-decision.cjs --direction negative"
-  - input: "A prompt containing a credential pattern such as an API_KEY assignment, delivered to the Claude Code UserPromptSubmit surface."
-    expected_outcome: "The process exits with code 2 and writes an operator-facing reason to stderr naming the matched trigger. The assertion reads the real exit code of a spawned process, not a mocked return value."
-    verification_cmd: "node super-gsd/tests/hook-transport/assert-block-kind.cjs --case secret"
-  - input: "A benign prompt with no credential pattern delivered to the same surface."
-    expected_outcome: "The process exits 0 and writes no block reason; the prompt is not suppressed."
-    verification_cmd: "node super-gsd/tests/hook-transport/assert-block-kind.cjs --case benign"
-  - input: "A session-governance registry route declaring kind block with an empty or missing reason."
-    expected_outcome: "Registry validation rejects the route so a block can never fire mute; the classifier refuses to load it rather than blocking silently."
-    verification_cmd: "node super-gsd/tests/hook-transport/assert-block-kind.cjs --case mute-rejected"
+  - input: "A planning-shaped prompt (how should we architect the retry layer) submitted in a genuine Claude Code session with the hook registered."
+    expected_outcome: "A route-decision row is appended that names the matched route AND carries dispatch provenance from the hook payload: hook_event_name equal to UserPromptSubmit, a session_id, and a transcript_path that exists on disk under the Claude projects directory. A row lacking a resolvable transcript_path fails, because a harness spawn cannot supply one."
+    verification_cmd: "node super-gsd/tests/hook-transport/assert-live-route-decision.cjs --direction positive --require-dispatch-provenance"
+  - input: "An execution-shaped prompt (fix the failing test in parser.cjs) submitted in the same genuine session."
+    expected_outcome: "A row is appended that explicitly records no match, carrying the same dispatch provenance. An absent row fails the assertion, because absence is indistinguishable from the hook never running."
+    verification_cmd: "node super-gsd/tests/hook-transport/assert-live-route-decision.cjs --direction negative --require-dispatch-provenance"
+  - input: "The same two prompts replayed by spawning sgsd-intent-classifier.cjs directly, with the hook deliberately unregistered."
+    expected_outcome: "The provenance assertion FAILS. This control run proves the falsifier discriminates genuine Claude dispatch from a harness spawn; if it passes, the falsifier is not falsifying and the task is incomplete."
+    verification_cmd: "node super-gsd/tests/hook-transport/assert-live-route-decision.cjs --control unregistered-must-fail"
+  - input: "A prompt containing a credential pattern such as an API_KEY assignment, submitted through the registered Claude Code UserPromptSubmit surface."
+    expected_outcome: "The hook process exits with code 2 and writes an operator-facing reason to stderr naming the matched trigger. The reason contains no secret material - not the captured value, not a substring of it. The assertion reads the real exit code of a spawned process, not a mocked return value."
+    verification_cmd: "node super-gsd/tests/hook-transport/assert-block-guard.cjs --case secret"
+  - input: "A benign prompt with no credential pattern submitted to the same surface."
+    expected_outcome: "The hook process exits 0, writes no block reason, and the prompt is not suppressed."
+    verification_cmd: "node super-gsd/tests/hook-transport/assert-block-guard.cjs --case benign"
+  - input: "The block-secret-leak implementation as invoked from both the Codex hook surface and the Claude Code hook surface."
+    expected_outcome: "Both surfaces execute the SAME implementation module - one file, two callers - and both produce identical block decisions for the identical payload. A duplicated second copy of the detection logic fails the assertion."
+    verification_cmd: "node super-gsd/tests/hook-transport/assert-block-guard.cjs --case dual-surface-shared"
   - input: "The existing P152 kb-lookup-triage shadow route after this phase changes."
-    expected_outcome: "It remains enforcement kind shadow, injects nothing, and its text-free ledger contract is unchanged; the 28-day metric is not pre-empted."
+    expected_outcome: "It remains enforcement kind shadow, injects nothing, and its text-free ledger contract is unchanged; the 28-day promote-or-kill metric is not pre-empted."
     verification_cmd: "node super-gsd/tests/kb-triage-shadow/assert-shadow.cjs"
 known_deadends:
-  - "Porting disler/claude-code-hooks-mastery Python/uv hooks. hooks.yaml sets timeout_sec 2 and uv cold-start on Windows exceeds that on every tool call. That repo also has NO LICENSE file (all-rights-reserved); only the Claude Code event taxonomy and exit-code semantics are used, which are facts about the platform rather than his code."
-  - "Asserting the negative direction by checking that no telemetry row exists. Absence is indistinguishable from the hook never running. This is the exact defect that made P150 trust probe report a false negative (seam instance #6)."
-  - "Binding all eight unbound hook events for coverage. Five have no policy consumer today; deferred to a follow-up phase gated on a real consumer existing."
+  - "Merging repo-settings-overlay.json into the GLOBAL settings file. Verified 2026-08-18: that overlay declares THREE events (SessionStart, UserPromptSubmit, PostToolUse) with bare relative node commands, so a global merge installs two unrelated hooks with repo-relative args into every project. This is the install-vs-project seam (instance #6 class). Use merge-settings.js --repo-local-hooks."
+  - "Asserting the negative direction by checking that no telemetry row exists. Absence is indistinguishable from the hook never running. This made P150 trust probe report a false negative (seam instance #6)."
+  - "Proving the hook works by spawning the classifier directly after checking registration. That proves nothing about whether Claude Code dispatched it, and was the NOGO finding against rev 1 of this plan (seam instance #9). The falsifier must assert on payload provenance a direct spawn cannot supply."
+  - "Adding a generic fifth enforcement kind `block` to the classifier registry. Dropped at plan review as YAGNI: there is exactly one current consumer and it is a standalone guard, so the abstraction only anticipates a metric-locked P152 promotion. Revisit when a second real consumer exists."
+  - "Porting disler/claude-code-hooks-mastery Python/uv hooks. hooks.yaml sets timeout_sec 2 and uv cold-start on Windows exceeds it on every tool call. That repo has NO LICENSE (all-rights-reserved); only the Claude Code event taxonomy and exit-code semantics are used, which are facts about the platform rather than his code."
 tasks:
-  - id: "P153-T0"
-    type: "seam-fix"
-    agent: codex
-    model: codex
-    depends_on: []
-    files_touched:
-      - "super-gsd/scripts/sgsd-triage-runtime.cjs"
-      - "super-gsd/tests/hook-transport/assert-mcp-arg-contract.cjs"
-    input_contract: >
-      sgsd-triage-runtime.cjs emits MCP call args that the real MCP tools reject. Reproduced
-      this session: for vtp_route_and_retrieve it emits context.recent_turns as an array of
-      bare strings, but the tool schema requires an array of objects each with a text string,
-      producing a hard MCP -32602 InputValidationError. For vtp_search_substrate it emits
-      raw_query, context and fallback_reason, but that tool accepts only query plus optional
-      typed filters. Introduce a per-tool arg-shaper at the emission seam so every emitted
-      call is schema-valid for its target tool, and add a conformance test that validates
-      emitted args against each tool real schema. Do not change routing logic, predicates,
-      or which tool is chosen. Only the shape of the emitted args changes.
-    output_contract: >
-      sgsd-triage-runtime.cjs emits schema-valid args for both tools.
-      super-gsd/tests/hook-transport/assert-mcp-arg-contract.cjs validates the emitted args
-      of the vtp-plan stage and the vtp-consume fallback stage against the respective tool
-      schemas and exits non-zero on any mismatch. The test fails against the pre-fix runtime
-      and passes after.
-    hypothesis: "The staged protocol fails only at the arg-shaping seam; normalising emitted args per target tool makes the documented execute-verbatim contract actually executable without touching route selection."
-    falsifier: >
-      The conformance test passes against the unfixed runtime, proving it does not actually
-      exercise the defect; or route selection and predicate behaviour change; or a real
-      vtp-plan run still produces args rejected by the MCP tool.
-    stop_rule: >
-      Stop when both emitted arg shapes validate against the real tool schemas and the
-      conformance test demonstrably fails on the pre-fix code path. Do not extend to other
-      tools not currently emitted.
-    verification:
-      commands:
-        - "node super-gsd/tests/hook-transport/assert-mcp-arg-contract.cjs --tool vtp_route_and_retrieve"
-        - "node super-gsd/tests/hook-transport/assert-mcp-arg-contract.cjs --tool vtp_search_substrate"
   - id: "P153-T1"
     type: "hook-registration"
     agent: codex
@@ -88,156 +52,156 @@ tasks:
     depends_on: []
     files_touched:
       - "super-gsd/config/repo-settings-overlay.json"
-      - "super-gsd/scripts/merge-settings.js"
       - "super-gsd/registry/hooks.yaml"
       - "super-gsd/hooks/sgsd-intent-classifier.cjs"
       - "super-gsd/tests/hook-transport/assert-registration.cjs"
       - "super-gsd/tests/hook-transport/assert-live-route-decision.cjs"
     input_contract: >
       sgsd-intent-classifier.cjs self-declares as a UserPromptSubmit hook but no
-      UserPromptSubmit event is registered in the live settings file, so it never executes.
-      repo-settings-overlay.json already declares the wiring and merge-settings.js exists to
-      install it. Register the hook through the existing merge path, add the corresponding
-      UserPromptSubmit row to hooks.yaml, and build a two-directional live falsifier. If the
-      classifier does not already append an explicit no-match row, adding that row is part of
-      this task. CRITICAL: never read, print or echo the contents of the settings env block.
-      Assertions must inspect only the hooks section by key.
+      UserPromptSubmit event is registered, so P149 skill-routing, P151 demand baseline and
+      P152 shadow never execute live. Register it REPO-LOCALLY using the existing
+      merge-settings.js --repo-local-hooks mode, which resolves script paths against the repo
+      root. Do NOT merge into the global settings file: the overlay declares three events with
+      bare relative node commands and a global merge would install unrelated hooks with
+      repo-relative args into every project. Add the corresponding UserPromptSubmit row to
+      hooks.yaml. Ensure the classifier captures dispatch provenance from the hook payload
+      (hook_event_name, session_id, transcript_path, cwd) into its route-decision row, and
+      ensure it appends an EXPLICIT no-match row when no route matches - if it does not do so
+      today, adding that row is part of this task. CRITICAL: never read, print or echo the
+      settings env block; inspect only the hooks section by key.
     output_contract: >
-      UserPromptSubmit mapped to sgsd-intent-classifier.cjs is registered and reflected in
-      hooks.yaml. assert-registration.cjs confirms registration by reading the real settings
-      file hooks section only. assert-live-route-decision.cjs proves both directions against
-      a real session id: a planning-shaped prompt appends a row naming the matched route, and
-      an execution-shaped prompt appends a row explicitly recording no match. Absence of a row
-      is treated as failure in the negative direction.
-    hypothesis: "The mechanism is complete and only unregistered; installing the declared overlay through the existing merge path makes P149/P151/P152 routing execute live, and an explicit no-match row makes the negative direction observable rather than inferred."
+      UserPromptSubmit mapped to sgsd-intent-classifier.cjs is registered repo-locally and
+      reflected in hooks.yaml. assert-registration.cjs confirms registration and that every
+      hook command resolves to an existing file. assert-live-route-decision.cjs proves three
+      things: a planning-shaped prompt appends a row naming the matched route with valid
+      dispatch provenance; an execution-shaped prompt appends an explicit no-match row with
+      the same provenance; and a deliberate-unregistration direct-spawn control run FAILS the
+      provenance assertion.
+    hypothesis: "The mechanism is complete and merely unregistered; installing it repo-locally through the existing merge path makes P149/P151/P152 execute live, and asserting on payload provenance that only genuine Claude dispatch supplies makes the proof unfakeable by a harness spawn."
     falsifier: >
-      The negative-direction assertion passes when the hook is deliberately unregistered,
-      proving it asserts on absence rather than on written negative evidence; or registration
-      succeeds but no route-decision row appears for a planning-shaped prompt; or any
-      assertion reads the settings env block.
+      The control run passes when the hook is unregistered and the classifier is spawned
+      directly, proving the assertion does not discriminate genuine dispatch; or registration
+      succeeds but no route-decision row appears for a planning-shaped prompt; or a hook
+      command in the merged settings points at a path that does not exist; or any assertion
+      reads the settings env block; or the global settings file is modified.
     stop_rule: >
-      Stop when registration is confirmed against the real settings file and both directions
-      of the falsifier pass, including a deliberate-unregistration control run that must fail.
-      Do not bind any other hook event.
+      Stop when repo-local registration is confirmed, both directions write rows carrying
+      valid dispatch provenance, and the unregistered control run fails as required. Do not
+      bind any other hook event and do not touch the global settings file.
     verification:
       commands:
         - "node super-gsd/tests/hook-transport/assert-registration.cjs"
-        - "node super-gsd/tests/hook-transport/assert-live-route-decision.cjs --direction positive"
-        - "node super-gsd/tests/hook-transport/assert-live-route-decision.cjs --direction negative"
+        - "node super-gsd/tests/hook-transport/assert-live-route-decision.cjs --direction positive --require-dispatch-provenance"
+        - "node super-gsd/tests/hook-transport/assert-live-route-decision.cjs --direction negative --require-dispatch-provenance"
+        - "node super-gsd/tests/hook-transport/assert-live-route-decision.cjs --control unregistered-must-fail"
         - "node super-gsd/hooks/sgsd-intent-classifier.cjs --self-test"
   - id: "P153-T2"
-    type: "enforcement-kind"
+    type: "blocking-guard"
     agent: codex
     model: codex
     depends_on: ["P153-T1"]
     files_touched:
-      - "super-gsd/hooks/sgsd-intent-classifier.cjs"
-      - "super-gsd/registry/session-governance-hooks.yaml"
       - "super-gsd/tools/codex-hooks/block-secret-leak.cjs"
-      - "super-gsd/tests/hook-transport/assert-block-kind.cjs"
+      - "super-gsd/config/repo-settings-overlay.json"
+      - "super-gsd/tests/hook-transport/assert-block-guard.cjs"
     input_contract: >
-      The classifier supports four enforcement kinds (directive, suggestion, report_only,
-      shadow) and none can block; it has no exit-2 path. Add a fifth kind block whose contract
-      is: a matched blocking route produces an operator-facing reason on stderr naming the
-      trigger, then exit code 2. Registry validation must reject kind block carrying an empty
-      or missing reason so a block can never fire mute. The first consumer is
-      block-secret-leak.cjs, which already reads UserPromptSubmit JSON from stdin and blocks
-      credential-bearing prompts but is wired only to the Codex hook surface. Promote it to
-      dual-surface with one implementation and two callers: the existing Codex .codex/hooks.json
-      caller plus the Claude Code surface. Extend, do not duplicate. HARD CONSTRAINT: the P152
-      kb-lookup-triage route stays kind shadow. Do not flip it; its 28-day promote-or-kill
-      metric has not unlocked. Never print a matched secret value into stderr, logs or
-      telemetry; the reason names the trigger, never the captured credential.
+      block-secret-leak.cjs already reads UserPromptSubmit JSON from stdin and detects
+      credential-bearing prompts, but it is wired only to the Codex hook surface and does not
+      block. Make it block by exiting 2 with an operator-facing stderr reason naming the
+      matched trigger, and register that SAME implementation on the Claude Code
+      UserPromptSubmit surface via the repo-local overlay. One implementation, two callers -
+      extend, do not duplicate the detection logic. Exit 2 is the documented Claude Code
+      contract for blocking a UserPromptSubmit hook. Do NOT add a generic fifth enforcement
+      kind to the classifier registry: that was dropped at plan review as YAGNI with only one
+      current consumer. HARD CONSTRAINT: the P152 kb-lookup-triage route stays kind shadow;
+      do not flip it, its 28-day metric has not unlocked. The stderr reason names the trigger
+      and MUST NOT contain the matched credential value or any substring of it.
     output_contract: >
-      A fifth enforcement kind block exists end to end. A credential-bearing prompt on the
-      Claude Code surface exits 2 with a stderr reason naming the trigger and no secret
-      material; a benign prompt exits 0 unblocked; a registry route declaring block with an
-      empty reason is rejected at load. block-secret-leak.cjs serves both surfaces from a
-      single implementation. P152 remains shadow and its assert-shadow.cjs still passes.
-    hypothesis: "Warning-only enforcement does not change agent behaviour, per the AHE paper where correct middleware warnings were appended to tool output and ignored on the next model turn while hard-block at the shell layer produced the run largest score jump. A real exit-2 blocking kind with a named reason is therefore the missing primitive, and the existing secret-leak guard is a genuine consumer rather than speculative scaffolding."
+      A credential-bearing prompt on the Claude Code surface exits 2 with a stderr reason
+      naming the trigger and containing no secret material; a benign prompt exits 0; both the
+      Codex and Claude Code surfaces invoke a single shared implementation and return
+      identical decisions for identical payloads. P152 remains shadow and assert-shadow.cjs
+      still passes.
+    hypothesis: "Warning-only enforcement does not change agent behaviour - the AHE paper records correct middleware warnings appended to tool output being ignored on the very next model turn, while hard-block at the shell layer produced the run's largest score jump - so making the existing guard exit 2 on the Claude surface is the smallest change that converts an inert detector into an actual control."
     falsifier: >
       A credential-bearing prompt is not blocked, or is blocked without a stderr reason naming
-      the trigger, or the reason leaks the matched secret; a benign prompt is blocked; a block
-      route with an empty reason loads successfully; block-secret-leak.cjs is duplicated rather
-      than shared across surfaces; or the P152 shadow route changes behaviour.
+      the trigger, or the reason leaks the matched secret or a substring of it; a benign prompt
+      is blocked; the two surfaces run separate copies of the detection logic; a generic block
+      kind is added to the classifier registry; or the P152 shadow route changes behaviour.
     stop_rule: >
-      Stop when the block kind fires correctly in both directions on real spawned processes,
-      mute blocks are rejected at load, and assert-shadow.cjs still passes. Do not flip P152 to
-      blocking and do not add further blocking routes.
+      Stop when the guard blocks and passes correctly on real spawned processes from the Claude
+      surface, both surfaces share one implementation, and assert-shadow.cjs still passes. Do
+      not flip P152 and do not add further blocking routes.
     verification:
       commands:
-        - "node super-gsd/tests/hook-transport/assert-block-kind.cjs --case secret"
-        - "node super-gsd/tests/hook-transport/assert-block-kind.cjs --case benign"
-        - "node super-gsd/tests/hook-transport/assert-block-kind.cjs --case mute-rejected"
+        - "node super-gsd/tests/hook-transport/assert-block-guard.cjs --case secret"
+        - "node super-gsd/tests/hook-transport/assert-block-guard.cjs --case benign"
+        - "node super-gsd/tests/hook-transport/assert-block-guard.cjs --case dual-surface-shared"
         - "node super-gsd/tests/kb-triage-shadow/assert-shadow.cjs"
-        - "node super-gsd/hooks/sgsd-intent-classifier.cjs --self-test"
 ---
 
-# P153 — Hook Transport Completion
+# P153 — Hook Transport Completion (rev 2)
 
 ## Goal
 
-Three phases of governance mechanism (P149 skill-routing, P151 demand baseline, P152
-KB-triage shadow) are driven by `sgsd-intent-classifier.cjs`, which self-declares as a
-UserPromptSubmit hook. No UserPromptSubmit event is registered in the live settings file,
-so none of it executes in a live session. This phase makes the transport real, proves it
-with written negative evidence, and adds the one enforcement kind the stack lacks.
+`sgsd-intent-classifier.cjs` self-declares as a UserPromptSubmit hook. No UserPromptSubmit
+event is registered, so the governance built across P149 (skill-routing), P151 (demand
+baseline) and P152 (KB-triage shadow) never executes in a live session. This phase
+registers the hook repo-locally, proves it fires under genuine Claude Code dispatch, and
+makes the existing secret-leak guard actually block.
 
-Scope was operator-locked on 2026-08-18 to T0 + T1 + T2. Binding the remaining unbound
-events is explicitly deferred.
+## Revision history
 
-## Context
+Rev 1 (commit `6aff797`) was returned **NOGO** by Codex plan review on 2026-08-18. Three
+findings were accepted and one refined:
 
-Full verified evidence is in `CONTEXT.md` (commit 2c76b5d). What was measured this session
-rather than assumed:
+- **CRIT, accepted.** Rev 1 said "merge the overlay" without naming the target. The overlay
+  declares three events with bare relative `node` commands, so a global merge would install
+  SessionStart and PostToolUse hooks with repo-relative args into every project. Rev 2 pins
+  the target to `merge-settings.js --repo-local-hooks`.
+- **All ACs fakeable, accepted.** Rev 1's "live falsifier" checked registration and then
+  spawned the classifier directly — which proves nothing about whether Claude Code dispatched
+  it. That is the harness-green/production-dead pattern, instance #9, inside the plan meant
+  to fix instances #7 and #8. Rev 2 anchors the ACs on payload provenance and adds an
+  unregistered-control run that must fail.
+- **MUDA overproduction, accepted.** T0 (MCP arg contract) is a separate defect, not hook
+  transport. Split to P154.
+- **Refined.** The review demanded "actual Claude-dispatched probes" without a mechanism. A
+  test cannot drive a real session, but it can require `transcript_path` to resolve on disk —
+  something a harness spawn cannot fabricate. That makes the requirement implementable.
 
-- The live settings file registers exactly four events; UserPromptSubmit is not among them.
-- `repo-settings-overlay.json` already declares the wiring; it was never merged here.
-- The triage runtime emits MCP args that the tools hard-reject (`-32602`), so the staged
-  "runtime decides, Claude transports" protocol cannot be executed verbatim as its own
-  skill specifies. This was discovered by running that protocol during this phase's triage.
-- Enforcement kinds today number four, none blocking; the classifier has no exit-2 path.
-- `block-secret-leak.cjs` already implements credential blocking, but only on the Codex surface.
-
-These are seam instances #7 and #8 of `harness-production-seam-four-layers`.
+The generic fifth `block` enforcement kind was dropped: one current consumer, and it is a
+standalone guard. Revisit when a second real consumer exists.
 
 ## Tasks
 
-**T0** normalises emitted MCP args per target tool and adds a conformance test that fails
-on the pre-fix code path. Route selection is untouched.
+**T1** registers the hook repo-locally, captures dispatch provenance, and adds the explicit
+no-match row. Its control run must fail, or the falsifier is not falsifying.
 
-**T1** registers the hook through the existing merge path and builds the two-directional
-falsifier. The negative direction requires a written no-match row; if the classifier does
-not emit one today, adding it is part of T1. A deliberate-unregistration control run must
-fail, or the falsifier is not falsifying.
-
-**T2** adds the `block` kind (stderr reason naming the trigger, then exit 2), rejects mute
-blocks at registry load, and promotes the existing secret-leak guard to dual-surface from a
-single implementation. P152 stays shadow.
+**T2** makes the existing guard exit 2 on the Claude surface from a single shared
+implementation. No new abstraction.
 
 ## Orchestrator-owned (not a Codex task)
 
 `STATE.md` frontmatter `current_phase` is stale at "150" while v3.6 has P151/P152 closed.
 This mis-targeted a runtime-derived evidence path during this phase's own triage. State
-files are orchestrator-owned per the commit-discipline rules, so this is corrected by the
-orchestrator at phase close rather than dispatched to Codex.
+files are orchestrator-owned per commit discipline, so the orchestrator corrects it at
+phase close.
 
 ## Verification
 
-Each task carries its own commands. Phase-level verification is the nine
-`semantic_acceptance_criteria` above, every one of which runs against real data: a real
-staged query, the real settings file, real spawned processes and their real exit codes.
-No structural greps stand in for behaviour.
+Eight `semantic_acceptance_criteria`, all against real data: the real repo-local settings
+file, real spawned processes and their real exit codes, and route-decision rows carrying
+provenance that resolves on disk. No structural greps stand in for behaviour.
 
 ## Success Criteria
 
-- Emitted MCP args validate against both real tool schemas; the conformance test fails on
-  pre-fix code.
-- UserPromptSubmit is registered; a planning-shaped prompt writes a row naming the matched
-  route and an execution-shaped prompt writes an explicit no-match row.
-- The deliberate-unregistration control run fails the negative assertion.
-- A credential-bearing prompt exits 2 with a trigger-naming reason containing no secret
-  material; a benign prompt exits 0.
-- A `block` route with an empty reason is rejected at load.
-- P152 remains shadow and `assert-shadow.cjs` still passes.
-- No source copied from the reference repo; no Python added.
+- UserPromptSubmit registered repo-locally; every merged hook command resolves to an existing file.
+- Planning-shaped prompt writes a row naming the matched route with valid dispatch provenance.
+- Execution-shaped prompt writes an explicit no-match row with the same provenance.
+- The unregistered direct-spawn control run FAILS the provenance assertion.
+- Credential-bearing prompt exits 2 with a trigger-naming reason carrying no secret material.
+- Benign prompt exits 0.
+- Both hook surfaces share one implementation of the guard.
+- P152 remains shadow; `assert-shadow.cjs` passes.
+- The global settings file is unmodified.
