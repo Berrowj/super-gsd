@@ -6,7 +6,7 @@ opened: 2026-08-11
 governing_decision: .planning/decisions/2026-08-11-cross-pollination-BOARD-MEMO.md
 source_handover: .planning/briefs/2026-08-11-cross-pollination-handover.md
 provider_lock: "Claude orchestrates; Codex gpt-5.6-sol/xhigh authors source."
-phases: ["151"]
+phases: ["151", "152", "153", "154"]
 ---
 
 # v3.6-vtp-bridge — Intent
