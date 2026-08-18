@@ -4,33 +4,36 @@ phase: "153"
 slug: "hook-transport-completion"
 milestone: "v3.6-vtp-bridge"
 status: "PLANNED"
-revision: 3
-supersedes: "rev 2 (NOGO at plan review round 2, 2026-08-18) and rev 1 (NOGO round 1)"
+revision: 4
+supersedes: "rev 3 (NOGO round 3), rev 2 (NOGO round 2), rev 1 (NOGO round 1) — all 2026-08-18"
 depends_on: ["149", "151", "152"]
-intent: "Register the UserPromptSubmit hook that P149/P151/P152 governance already depends on, using a dedicated UserPromptSubmit-only overlay installed repo-locally, and prove it fires under genuine Claude Code dispatch by correlating a fresh nonce against Claude's own debug hook-dispatch record. Then make the existing secret-leak guard actually block. Rev 3 closes all five round-2 blockers."
+intent: "Register the UserPromptSubmit hook that P149/P151/P152 governance already depends on, using a dedicated UserPromptSubmit-only overlay installed repo-locally, and prove it fires under genuine Claude Code dispatch by correlating a caller-chosen session id and a fresh crypto.randomUUID nonce against stream-json hook-lifecycle evidence that names the exact classifier command. Then make the existing secret-leak guard actually block. Rev 4 closes the round-3 blockers: evidence must name THIS hook, not merely that an event fired; the merge repo-root must be absolute; nonce replay is rejected via byte-offset snapshots."
 execution_mode: "serial-codex"
 expected_ATC_tier: "FULL"
 skip_gates: []
 lessons_path: null
 prior_errors_lookup: true
 semantic_acceptance_criteria:
-  - input: "The repo-local .claude/settings.json after running: node super-gsd/scripts/merge-settings.js --repo-local-hooks super-gsd/config/claude-ups-overlay.json .claude/settings.json ."
+  - input: "The repo-local .claude/settings.json after running, from the repo root with an ABSOLUTE repo-root argument: node super-gsd/scripts/merge-settings.js --repo-local-hooks super-gsd/config/claude-ups-overlay.json .claude/settings.json \"$(pwd)\" — a relative root throws at merge-settings.js:234 before merging."
     expected_outcome: "Exactly ONE new event is registered - UserPromptSubmit - because the dedicated overlay declares only that event. No SessionStart or PostToolUse entry is introduced by this merge. Every command in the hooks section resolves to a file that exists on disk. The assertion reads only the hooks section by key and never touches the env block."
     verification_cmd: "node super-gsd/tests/hook-transport/assert-registration.cjs"
-  - input: "A headless Claude session launched by the verifier with a fresh random nonce embedded in a planning-shaped prompt: claude -p '<nonce> how should we architect the retry layer' --debug hooks --debug-file <tmp>"
-    expected_outcome: "Claude's own debug file records a UserPromptSubmit hook dispatch, AND a new route-decision row appears naming the matched route, AND the row's session_id matches the session Claude reports in the debug record, AND the nonce ties the two together. Correlation of Claude-generated dispatch evidence with the new ledger row is what proves genuine dispatch."
+  - input: "A headless Claude session launched by the verifier with a caller-chosen fresh session id and a crypto.randomUUID nonce in a planning-shaped prompt: claude -p '<nonce> how should we architect the retry layer' --setting-sources project --session-id <fresh-uuid> --output-format stream-json --verbose --include-hook-events. Ledger byte offsets are snapshotted BEFORE launch."
+    expected_outcome: "The stream-json hook-lifecycle events identify the EXACT hook command that ran and it resolves to sgsd-intent-classifier.cjs - not merely that some UserPromptSubmit event dispatched - AND exactly one new post-snapshot ledger row names the matched route and carries the caller-chosen session id and the nonce. Proving an event dispatched is NOT sufficient; the evidence must name this hook."
     verification_cmd: "node super-gsd/tests/hook-transport/assert-live-dispatch.cjs --probe planning"
-  - input: "A headless Claude session with a fresh nonce in an execution-shaped prompt: claude -p '<nonce> fix the failing test in parser.cjs' --debug hooks --debug-file <tmp>"
-    expected_outcome: "Claude's debug file records the dispatch AND a row is appended that EXPLICITLY records no match, correlated by nonce and session_id. An absent row fails, because absence is indistinguishable from the hook never running."
+  - input: "The same mechanism with an execution-shaped prompt: '<nonce> fix the failing test in parser.cjs'."
+    expected_outcome: "Hook-event evidence names sgsd-intent-classifier.cjs AND exactly one new post-snapshot row EXPLICITLY records no match, carrying the caller-chosen session id and nonce. An absent row fails, because absence is indistinguishable from the hook never running."
     verification_cmd: "node super-gsd/tests/hook-transport/assert-live-dispatch.cjs --probe no-match"
-  - input: "The classifier spawned directly on stdin with a forged payload supplying hook_event_name UserPromptSubmit, a stale session_id, and a copied real transcript_path, with no Claude session involved."
-    expected_outcome: "The assertion FAILS, because no Claude-generated debug hook-dispatch record exists for that nonce and session. This control proves the probe discriminates genuine dispatch from a forged direct spawn; if it passes, the falsifier is not falsifying and the task is incomplete."
-    verification_cmd: "node super-gsd/tests/hook-transport/assert-live-dispatch.cjs --control forged-spawn-must-fail"
-  - input: "A headless Claude session with a fresh nonce in a prompt that targets a P149 skill-routing registry route specifically, not the P146 compatibility planning-triage route."
-    expected_outcome: "A route-decision row is appended whose matched route originates from the P149 skill-routing registry, correlated by nonce and session_id, proving the P149 concatenated registry is exercised live and not merely the compatibility route."
+  - input: "Two adversarial controls. (a) The classifier spawned directly on stdin with a forged payload carrying a genuine concurrent run's session id and nonce, with no dispatch of THIS hook. (b) A genuine Claude run that dispatches a DIFFERENT UserPromptSubmit hook, combined with a separately forged classifier row bearing the same session id and nonce."
+    expected_outcome: "BOTH controls FAIL the assertion. Control (b) is the decisive one: it proves the probe requires hook-event evidence naming sgsd-intent-classifier.cjs specifically, and cannot be satisfied by combining another hook's genuine dispatch with a forged row. If either control passes, the falsifier is not falsifying and the task is incomplete."
+    verification_cmd: "node super-gsd/tests/hook-transport/assert-live-dispatch.cjs --control forged-and-confused-must-fail"
+  - input: "A nonce replay attempt: an assertion run reusing a nonce that already appears in the ledger before the byte-offset snapshot."
+    expected_outcome: "The assertion FAILS on pre-existing-nonce detection. Nonces are generated per invocation via crypto.randomUUID and only post-snapshot rows are inspected, so a stale-nonce replay cannot produce a pass."
+    verification_cmd: "node super-gsd/tests/hook-transport/assert-live-dispatch.cjs --control stale-nonce-must-fail"
+  - input: "The same mechanism with a prompt targeting a P149 skill-routing registry route specifically, not the P146 compatibility planning-triage route."
+    expected_outcome: "Hook-event evidence names the classifier AND a new post-snapshot row's matched route originates from the P149 skill-routing registry, proving that registry is exercised live rather than only the compatibility route."
     verification_cmd: "node super-gsd/tests/hook-transport/assert-live-dispatch.cjs --probe p149-skill-routing"
-  - input: "A headless Claude session with a fresh nonce in a KB-directed prompt that matches the P152 kb-lookup-triage shadow route."
-    expected_outcome: "A text-free shadow row is appended to the P152 ledger under genuine dispatch, and NOTHING is injected into the prompt. The row contains no prompt text, excerpt or entity string. P152 remains enforcement kind shadow."
+  - input: "The same mechanism with a KB-directed prompt matching the P152 kb-lookup-triage shadow route."
+    expected_outcome: "A text-free shadow row is appended under genuine dispatch and NOTHING is injected into the prompt. The row contains no prompt text, excerpt or entity string. P152 remains enforcement kind shadow."
     verification_cmd: "node super-gsd/tests/hook-transport/assert-live-dispatch.cjs --probe p152-shadow"
   - input: "A prompt containing a credential pattern such as an API_KEY assignment, delivered to the registered Claude Code UserPromptSubmit surface."
     expected_outcome: "The hook process exits with code 2 and writes an operator-facing reason to stderr naming the matched trigger. The reason contains no secret material - not the captured value, not a substring of it. The assertion reads the real exit code of a spawned process, not a mocked return value."
@@ -47,6 +50,9 @@ semantic_acceptance_criteria:
 known_deadends:
   - "Merging super-gsd/config/repo-settings-overlay.json for this phase. Verified 2026-08-18: it declares THREE events (SessionStart, UserPromptSubmit, PostToolUse) and merge-settings.js merges every event in the overlay, so using it contradicts a UserPromptSubmit-only stop_rule and, if targeted globally, installs unrelated hooks with repo-relative args into every project. Rev 3 uses a dedicated single-event overlay instead."
   - "Proving dispatch via payload provenance fields (hook_event_name, session_id, transcript_path). Refuted at plan review round 2: a direct stdin spawn can supply all three, including a copied real transcript path. Provenance fields are forgeable and prove nothing on their own."
+  - "Proving dispatch by showing only that SOME UserPromptSubmit event fired. Refuted at plan review round 3: a genuine Claude run dispatching a different UserPromptSubmit hook, combined with a separately forged classifier row carrying the same session id and nonce, would pass. The evidence must name the exact command resolving to sgsd-intent-classifier.cjs."
+  - "Relying on --debug hooks output as the evidence source. Debug logs are documented textual diagnostics with no stable schema and do not carry the nonce or session id, and the filter binds only as --debug=hooks (space form enables unfiltered debugging). Use --output-format stream-json --verbose --include-hook-events with an explicit --session-id instead."
+  - "Passing a relative repo-root to merge-settings.js --repo-local-hooks. Verified at merge-settings.js:234: resolveRepoLocalTarget() throws on any non-absolute root, so the command exits before merging. This defect was present in rev 3 of this plan."
   - "Asserting the negative direction by checking that no telemetry row exists. Absence is indistinguishable from the hook never running. This made P150's trust probe report a false negative (seam instance #6)."
   - "Treating the P146 compatibility planning-triage route as coverage for P149. They are separate registries; a planning-shaped prompt matching planning-triage does not exercise the P149 skill-routing table."
   - "Adding a generic fifth enforcement kind `block` to the classifier registry. Dropped as YAGNI: one current consumer, a standalone guard. Revisit when a second real consumer exists."
@@ -70,16 +76,27 @@ tasks:
       super-gsd/config/claude-ups-overlay.json declaring ONLY the UserPromptSubmit event
       mapped to sgsd-intent-classifier.cjs. Do NOT reuse repo-settings-overlay.json - it
       declares three events and merge-settings.js merges all of them, which contradicts the
-      single-event stop_rule. Install with exactly this command, run from the repo root:
-      node super-gsd/scripts/merge-settings.js --repo-local-hooks super-gsd/config/claude-ups-overlay.json .claude/settings.json .
+      single-event stop_rule. Install with this command, run from the repo root - note the
+      repo-root argument MUST be ABSOLUTE, because resolveRepoLocalTarget() at
+      merge-settings.js:234 throws on any non-absolute root and would exit before merging:
+      node super-gsd/scripts/merge-settings.js --repo-local-hooks super-gsd/config/claude-ups-overlay.json .claude/settings.json "$(pwd)"
+      After merging, VALIDATE the merged hooks section parses and every command resolves, and
+      record a hash of it, BEFORE running any probe - print mode can silently ignore invalid
+      settings, so probing a half-written config would produce a confounded result.
       Add the corresponding UserPromptSubmit row to hooks.yaml. Ensure the classifier appends
       an EXPLICIT no-match row when no route matches - if it does not today, adding it is part
-      of this task - and that every row carries session_id so probes can correlate. Build
-      assert-live-dispatch.cjs, which launches a real headless Claude session
-      (claude -p '<nonce> ...' --debug hooks --debug-file <tmp>) and passes ONLY when Claude's
-      own debug record shows a UserPromptSubmit dispatch AND a new ledger row correlates to it
-      by nonce and session_id. CRITICAL: never read, print or echo the settings env block;
-      inspect only the hooks section by key. Do not modify the global settings file.
+      of this task - and that every row carries the session id and the prompt nonce so probes
+      can correlate. Build assert-live-dispatch.cjs, which for each probe: snapshots ledger
+      byte offsets, generates a nonce via crypto.randomUUID, rejects any nonce already present,
+      then launches a real headless Claude session with a caller-chosen fresh session id -
+      claude -p '<nonce> ...' --setting-sources project --session-id <uuid> --output-format
+      stream-json --verbose --include-hook-events - and passes ONLY when the hook-lifecycle
+      events name the EXACT command resolving to sgsd-intent-classifier.cjs AND exactly one new
+      post-snapshot ledger row carries that session id and nonce. Evidence that merely shows
+      "a UserPromptSubmit event dispatched" is INSUFFICIENT: another hook's genuine dispatch
+      combined with a forged row must not pass. CRITICAL: never read, print or echo the
+      settings env block; inspect only the hooks section by key. Do not modify the global
+      settings file.
     output_contract: >
       A dedicated single-event overlay exists and is installed repo-locally, adding exactly one
       event. hooks.yaml reflects it. assert-registration.cjs confirms registration and that every
@@ -105,7 +122,7 @@ tasks:
         - "node super-gsd/tests/hook-transport/assert-live-dispatch.cjs --probe no-match"
         - "node super-gsd/tests/hook-transport/assert-live-dispatch.cjs --probe p149-skill-routing"
         - "node super-gsd/tests/hook-transport/assert-live-dispatch.cjs --probe p152-shadow"
-        - "node super-gsd/tests/hook-transport/assert-live-dispatch.cjs --control forged-spawn-must-fail"
+        - "node super-gsd/tests/hook-transport/assert-live-dispatch.cjs --control forged-and-confused-must-fail"
         - "node super-gsd/hooks/sgsd-intent-classifier.cjs --self-test"
   - id: "P153-T2"
     type: "blocking-guard"
