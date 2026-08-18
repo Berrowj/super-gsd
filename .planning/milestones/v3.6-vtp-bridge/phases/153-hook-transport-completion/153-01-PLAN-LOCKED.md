@@ -205,10 +205,31 @@ full, making the stop_rule unreachable on a clean target.
 5. **P154 acceptance tightened** to require successful post-fix real MCP calls, not just a
    pre-fix-failing test.
 
+**Rev 3 → NOGO (round 3).** Three blockers, each verified against source before acceptance:
+
+1. **Combination attack.** Rev 3 proved only that *a* UserPromptSubmit event dispatched. A
+   genuine run dispatching a *different* UserPromptSubmit hook, combined with a separately
+   forged classifier row carrying the same session id and nonce, would have passed. Rev 4
+   requires hook-lifecycle evidence naming the exact command resolving to
+   `sgsd-intent-classifier.cjs`, and adds control (b) to prove it.
+2. **The mandated merge command was broken.** Verified at `merge-settings.js:234`:
+   `resolveRepoLocalTarget()` throws on any non-absolute root, so rev 3's command would have
+   exited before merging. Rev 4 passes `"$(pwd)"`.
+3. **Nonce replay unguarded.** Rev 4 generates the nonce per invocation via
+   `crypto.randomUUID`, snapshots ledger byte offsets before launch, rejects a pre-existing
+   nonce, and inspects only post-snapshot rows.
+
+Rev 4 also drops `--debug hooks` as the evidence source — debug output has no stable schema,
+does not carry the nonce or session id, and the filter binds only as `--debug=hooks`.
+
+**Rev 4 proceeds to execution.** The remaining risk has shifted from plan design to
+implementation detail, which the executor → spec-compliance → verifier → phase-ATC chain is
+built to catch. Further plan-review rounds have diminishing returns.
+
 ## Tasks
 
 **T1** creates the single-event overlay, installs it repo-locally, adds the explicit no-match
-row, and builds the causal dispatch probe with its forged-spawn control.
+row, and builds the causal dispatch probe with both adversarial controls.
 
 **T2** makes the existing guard exit 2 on the Claude surface from one shared implementation.
 
