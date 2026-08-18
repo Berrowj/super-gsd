@@ -73,3 +73,51 @@ stopped them consuming model quota they never needed.
 STATE.md frontmatter current_phase is stale at "150" while v3.6 has P151 and P152
 closed. Live routing rows are therefore stamped phase 150 milestone v3.5. State files
 are orchestrator-owned per commit discipline. Correcting it is the next action.
+
+---
+
+## T2e re-verification after spec review returned fix_required
+
+Spec-compliance review found the T2d relaxation reopened the harness-green hole:
+
+    RELAXATION_SAFE: no - a successful guard hook pair plus a forged
+    session-correlated routing row passes without classifier lifecycle
+
+The orchestrator's earlier Test B did NOT catch this. It removed the classifier ENTRY,
+which assert-registration catches on uniqueness. It never exercised the classifier being
+registered but not dispatching. The earlier claim that the falsifier discriminated was
+therefore narrower than stated.
+
+Fix: the lifecycle check now requires a complete successful hook_started/hook_response
+pair for EVERY registered managed hook, not at least one. Matched probes additionally
+require a hook_response whose stdout carries the classifier directive.
+
+### All modes green after the fix
+
+    --probe planning             exit 0
+    --probe no-match             exit 0
+    --probe p149-skill-routing   exit 0
+    --probe p152-shadow          exit 0
+    --control guard-only-lifecycle-must-fail  exit 0
+    --control forged-and-confused-must-fail   exit 0
+    --control stale-nonce-must-fail           exit 0
+
+### Live rejection paths verified by breaking the config three ways
+
+    no UserPromptSubmit entry at all      probe exit 1 (isolation precondition)
+    classifier target missing on disk     probe exit 1 (resolve-on-disk check)
+    classifier slot swapped to other file probe exit 1 (classifier identity check)
+
+Each restored to hooks_sha256 bbabc5b1, byte-identical, no residue.
+
+Disclosure on test coverage. None of those three attempts reached the lifecycle check
+itself; each was rejected by an earlier layer. The lifecycle requirement is covered by
+the new control, whose implementation was read and confirmed to construct exactly one
+guard-only lifecycle pair plus a forged matching routing row and assert rejection on
+/registered managed UserPromptSubmit hook/. It is not covered by a live injected
+classifier runtime failure.
+
+Also disclosed: two of the three breakage attempts initially mangled the injected path
+through unescaped backslash escapes in the orchestrator's own node one-liner, the same
+bug class as D2. Corrected with path.resolve and forward slashes before the result above
+was taken.

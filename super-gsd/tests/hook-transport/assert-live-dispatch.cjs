@@ -26,6 +26,7 @@ const PROBES = Object.freeze({
   planning: {
     prompt: 'there are multiple valid approaches; how should we architect the retry layer; reply with OK only and do not use tools',
     route: 'planning-triage',
+    expectedClassifierStdout: 'SGSD directive: /sgsd-triage',
   },
   'no-match': {
     prompt: 'fix the failing test in parser.cjs; reply with OK only and do not use tools',
@@ -35,6 +36,7 @@ const PROBES = Object.freeze({
     prompt: 'please run a token waste audit before this closes; reply with OK only and do not use tools',
     routePrefix: 'sgsd-token-audit:prompt-time:',
     registrySuffix: '/super-gsd/registry/skill-routing.yaml',
+    expectedClassifierStdout: 'SGSD skill suggestion: /sgsd-token-audit',
   },
   'p152-shadow': {
     prompt: 'what did Ada say about the last meeting; reply with OK only and do not use tools',
@@ -158,6 +160,7 @@ function assertKnownManagedUserPromptSubmitEntries(hooks) {
   const classifierEntries = entries.filter((entry) => entry.sgsd_hook_id === INTENT_CLASSIFIER_HOOK_ID);
   assert.strictEqual(classifierEntries.length, 1,
     'isolation requires exactly one UserPromptSubmit intent classifier registration');
+  return entries.length;
 }
 
 function assertRegistrationIsolation() {
@@ -218,19 +221,37 @@ function hookEvidence(events, sessionId) {
   const started = lifecycleEvents.filter((event) => event.subtype === 'hook_started');
   const startedHookIds = new Set(started.map((event) => event.hook_id).filter(Boolean));
   const responses = lifecycleEvents.filter((event) => event.subtype === 'hook_response');
+  const responseHookIds = new Set(responses.map((event) => event.hook_id).filter(Boolean));
   const pairedResponses = responses.filter((event) => event.hook_id
     && startedHookIds.has(event.hook_id));
-  const successfulResponse = pairedResponses.find((event) => event.exit_code === 0
+  const successfulResponses = pairedResponses.filter((event) => event.exit_code === 0
     && event.outcome === 'success');
-  return { lifecycleEvents, started, responses, pairedResponses, successfulResponse };
+  return {
+    lifecycleEvents,
+    started,
+    startedHookIds,
+    responses,
+    responseHookIds,
+    pairedResponses,
+    successfulResponses,
+  };
 }
 
 function correlatedRoutingRows(item, sessionId) {
   return postSnapshotRoutingDecisions(item).filter((row) => row && row.session_id === sessionId);
 }
 
-function hasRequiredEvidence(events, item, sessionId) {
-  if (!hookEvidence(events, sessionId).successfulResponse) return false;
+function hasCompleteHookLifecycle(evidence, expectedHookCount) {
+  return evidence.started.length === expectedHookCount
+    && evidence.startedHookIds.size === expectedHookCount
+    && evidence.responses.length === expectedHookCount
+    && evidence.responseHookIds.size === expectedHookCount
+    && evidence.pairedResponses.length === expectedHookCount
+    && evidence.successfulResponses.length === expectedHookCount;
+}
+
+function hasRequiredEvidence(events, item, sessionId, expectedHookCount) {
+  if (!hasCompleteHookLifecycle(hookEvidence(events, sessionId), expectedHookCount)) return false;
   try {
     return correlatedRoutingRows(item, sessionId).length > 0;
   } catch {
@@ -238,7 +259,7 @@ function hasRequiredEvidence(events, item, sessionId) {
   }
 }
 
-function runClaude(cwd, args, snapshot, sessionId) {
+function runClaude(cwd, args, snapshot, sessionId, expectedHookCount) {
   return new Promise((resolve) => {
     const child = spawn(claudeExecutable(), args, {
       cwd,
@@ -253,7 +274,8 @@ function runClaude(cwd, args, snapshot, sessionId) {
     let closed = false;
     const events = [];
     const maybeStop = () => {
-      if (evidenceComplete || !hasRequiredEvidence(events, snapshot.gate, sessionId)) return false;
+      if (evidenceComplete
+        || !hasRequiredEvidence(events, snapshot.gate, sessionId, expectedHookCount)) return false;
       evidenceComplete = true;
       if (!closed) child.kill();
       return true;
@@ -290,21 +312,26 @@ function assertCausalEvidence(run, routingRows, sessionId, registration, provide
   assert.ifError(run.spawnError);
   const events = providedEvents || run.events || parseStream(run.stdout);
   const evidence = hookEvidence(events, sessionId);
-  assert.ok(evidence.started.length > 0,
-    'no hook_started for UserPromptSubmit with the caller-chosen session id');
-  assert.ok(evidence.responses.length > 0,
-    'no hook_response for UserPromptSubmit with the caller-chosen session id');
-  assert.ok(evidence.pairedResponses.length > 0,
-    'no hook_response paired to UserPromptSubmit hook_started by hook_id');
-  if (!evidence.successfulResponse) {
-    const nonZeroResponse = evidence.pairedResponses.find((event) => event.exit_code != null
-      && event.exit_code !== 0);
-    if (nonZeroResponse) {
-      assert.fail(`non-zero hook exit_code: ${nonZeroResponse.exit_code}`);
-    }
-    const outcomes = evidence.pairedResponses.map((event) => String(event.outcome)).join(', ');
-    assert.fail(`no hook_response with exit_code 0 and outcome success; observed outcomes: ${outcomes}`);
+  const expectedHookCount = assertKnownManagedUserPromptSubmitEntries(registration.hooks);
+  assert.strictEqual(evidence.responses.length, expectedHookCount,
+    `expected exactly ${expectedHookCount} hook_response events for ${expectedHookCount} registered managed UserPromptSubmit hooks`);
+  assert.strictEqual(evidence.started.length, expectedHookCount,
+    `expected exactly ${expectedHookCount} hook_started events for ${expectedHookCount} registered managed UserPromptSubmit hooks`);
+  assert.strictEqual(evidence.startedHookIds.size, expectedHookCount,
+    'every registered managed UserPromptSubmit hook must have a distinct hook_started hook_id');
+  assert.strictEqual(evidence.responseHookIds.size, expectedHookCount,
+    'every registered managed UserPromptSubmit hook must have a distinct hook_response hook_id');
+  assert.strictEqual(evidence.pairedResponses.length, expectedHookCount,
+    'every registered managed UserPromptSubmit hook_response must pair to hook_started by hook_id');
+  const nonZeroResponse = evidence.pairedResponses.find((event) => event.exit_code !== 0);
+  if (nonZeroResponse) {
+    assert.fail(`non-zero hook exit_code: ${nonZeroResponse.exit_code}`);
   }
+  const failedOutcome = evidence.pairedResponses.find((event) => event.outcome !== 'success');
+  assert.ok(!failedOutcome,
+    `hook_response outcome was not success: ${failedOutcome && failedOutcome.outcome}`);
+  assert.strictEqual(evidence.successfulResponses.length, expectedHookCount,
+    'every registered managed UserPromptSubmit hook_response must have exit_code 0 and outcome success');
   const correlated = routingRows.filter((row) => row && row.session_id === sessionId);
   assert.ok(correlated.length > 0,
     'no correlated post-snapshot classifier row with the caller-chosen session id');
@@ -313,13 +340,18 @@ function assertCausalEvidence(run, routingRows, sessionId, registration, provide
   return {
     events,
     lifecycleEvents: evidence.lifecycleEvents,
-    response: evidence.successfulResponse,
+    responses: evidence.responses,
     row: correlated[0],
   };
 }
 
 function assertDecision(definition, result, shadowRows, fullPrompt, run) {
   const row = result.row;
+  if (definition.expectedClassifierStdout) {
+    assert.ok(result.responses.some((event) => typeof event.stdout === 'string'
+      && event.stdout.includes(definition.expectedClassifierStdout)),
+    `matched probe requires classifier hook_response stdout containing: ${definition.expectedClassifierStdout}`);
+  }
   if (definition.noMatch) {
     assert.strictEqual(row.decision, 'no_match', 'probe requires an explicit no-match decision');
     assert.deepStrictEqual(row.route_ids, [], 'no-match row must carry an empty route_ids array');
@@ -379,7 +411,8 @@ async function runProbe(name, providedNonce) {
   const fullPrompt = `${nonce} ${definition.prompt}`;
   const args = claudeArgs(fullPrompt, sessionId, 'project');
   assertProjectSettingSource(args);
-  const run = await runClaude(ROOT, args, snapshot, sessionId);
+  const expectedHookCount = assertKnownManagedUserPromptSubmitEntries(registration.hooks);
+  const run = await runClaude(ROOT, args, snapshot, sessionId, expectedHookCount);
   const routingRows = postSnapshotRoutingDecisions(snapshot.gate);
   const shadowRows = postSnapshotRows(snapshot.shadow);
   const result = assertCausalEvidence(run, routingRows, sessionId, registration);
@@ -462,6 +495,63 @@ function runForgedAndConfusedControl() {
   console.log('PROGRESS P153-T1b control=forged-and-confused-must-fail PASS');
 }
 
+function runGuardOnlyLifecycleControl() {
+  const registration = assertRegistrationIsolation();
+  const nonce = crypto.randomUUID();
+  const sessionId = crypto.randomUUID();
+  const hookId = crypto.randomUUID();
+  const fullPrompt = `${nonce} ${PROBES.planning.prompt}`;
+  const guardOnlyRun = {
+    status: 1,
+    signal: null,
+    stdout: '',
+    stderr: '',
+    spawnError: null,
+    args: claudeArgs(fullPrompt, sessionId, 'project'),
+  };
+  const guardOnlyEvents = [
+    {
+      type: 'system',
+      subtype: 'hook_started',
+      hook_name: 'UserPromptSubmit',
+      hook_id: hookId,
+      session_id: sessionId,
+    },
+    {
+      type: 'system',
+      subtype: 'hook_response',
+      hook_name: 'UserPromptSubmit',
+      hook_id: hookId,
+      session_id: sessionId,
+      exit_code: 0,
+      outcome: 'success',
+      stdout: '',
+    },
+  ];
+  const forgedRoutingRows = [{
+    signal: 'intent_routing_decision',
+    session_id: sessionId,
+    decision: 'matched',
+    route_ids: ['planning-triage'],
+  }];
+
+  expectRejected(
+    'guard-only lifecycle plus forged classifier row',
+    () => {
+      const result = assertCausalEvidence(
+        guardOnlyRun,
+        forgedRoutingRows,
+        sessionId,
+        registration,
+        guardOnlyEvents,
+      );
+      assertDecision(PROBES.planning, result, [], fullPrompt, guardOnlyRun);
+    },
+    /registered managed UserPromptSubmit hook/,
+  );
+  console.log('PROGRESS P153-T2e control=guard-only-lifecycle-must-fail PASS');
+}
+
 function runStaleNonceControl() {
   assertRegistrationIsolation();
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-live-dispatch-stale-nonce-'));
@@ -501,6 +591,10 @@ async function main() {
   }
   if (name === 'stale-nonce-must-fail') {
     runStaleNonceControl();
+    return;
+  }
+  if (name === 'guard-only-lifecycle-must-fail') {
+    runGuardOnlyLifecycleControl();
     return;
   }
   throw new Error(`unknown control: ${name || ''}`);
