@@ -13,6 +13,18 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "sgsd_managed": true,
+        "sgsd_hook_id": "user-prompt-secret-leak-guard",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["super-gsd/tools/codex-hooks/block-secret-leak.cjs"],
+            "timeout": 5
+          }
+        ]
       }
     ]
   }

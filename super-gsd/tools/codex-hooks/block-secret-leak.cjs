@@ -8,11 +8,11 @@ const HOOK_NAME = "block-secret-leak";
 const repoRoot = path.resolve(__dirname, "../../..");
 const metricsPath = path.resolve(repoRoot, ".planning/metrics/codex-tool-events.jsonl");
 const secretPatterns = [
-  /API_KEY\s*=\s*[A-Za-z0-9_-]{8,}/,
-  /sk_[A-Za-z0-9_]{20,}/,
-  /BEGIN PRIVATE KEY/,
-  /password\s*=\s*[^\s]+/i,
-  /production\s+credential/i
+  { trigger: "API_KEY assignment", pattern: /API_KEY\s*=\s*[A-Za-z0-9_-]{8,}/ },
+  { trigger: "sk_ token", pattern: /sk_[A-Za-z0-9_]{20,}/ },
+  { trigger: "private-key header", pattern: /BEGIN PRIVATE KEY/ },
+  { trigger: "password assignment", pattern: /password\s*=\s*[^\s]+/i },
+  { trigger: "production credential phrase", pattern: /production\s+credential/i }
 ];
 
 function usage() {
@@ -42,9 +42,14 @@ function evaluate(payload) {
   if (prompt === null) {
     return { allow: false, reason: "prompt_missing" };
   }
-  const matched = secretPatterns.find((pattern) => pattern.test(prompt));
+  const matched = secretPatterns.find((candidate) => candidate.pattern.test(prompt));
   if (matched) {
-    return { allow: false, reason: "secret_pattern_detected", pattern: String(matched) };
+    return {
+      allow: false,
+      reason: "secret_pattern_detected",
+      pattern: String(matched.pattern),
+      trigger: matched.trigger
+    };
   }
   return { allow: true, reason: "no_secret_pattern" };
 }
@@ -69,10 +74,11 @@ function main() {
   }
 
   const decision = evaluate(payload);
-  appendDecision(Object.assign({}, decision, { decision: decision.allow ? "allow" : "block" }));
+  const { trigger, ...ledgerDecision } = decision;
+  appendDecision(Object.assign({}, ledgerDecision, { decision: decision.allow ? "allow" : "block" }));
   if (!decision.allow) {
-    console.error(`[${HOOK_NAME}] blocked: ${decision.reason}`);
-    return 1;
+    console.error(`[${HOOK_NAME}] blocked: ${trigger || decision.reason}`);
+    return trigger ? 2 : 1;
   }
   return 0;
 }
