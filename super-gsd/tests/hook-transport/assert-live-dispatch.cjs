@@ -9,14 +9,13 @@ const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 
 const classifier = require('../../hooks/sgsd-intent-classifier.cjs');
-const { ledgerPath } = require('../../scripts/lib/gate-evidence-log.cjs');
 const {
   CLASSIFIER_PATH,
   ROOT,
   validateRegistration,
 } = require('./assert-registration.cjs');
 
-const GATE_LEDGER_PATH = ledgerPath(ROOT);
+const GATE_LEDGER_PATH = path.resolve(ROOT, '.planning', 'metrics', 'gate-evidence.jsonl');
 const SHADOW_LEDGER_PATH = classifier.kbTriageShadowLedgerPath(ROOT);
 const PROBES = Object.freeze({
   planning: {
@@ -82,6 +81,11 @@ function postSnapshotRows(item) {
   if (!text) return [];
   assert.ok(text.endsWith('\n'), `post-snapshot ledger fragment is incomplete: ${item.path}`);
   return text.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
+}
+
+function postSnapshotRoutingDecisions(item) {
+  return postSnapshotRows(item).filter((row) => row
+    && row.signal === 'intent_routing_decision');
 }
 
 function parseStream(stdout) {
@@ -195,7 +199,7 @@ function observedRun(run) {
   });
 }
 
-function assertCausalEvidence(run, gateRows, sessionId, registration, providedEvents) {
+function assertCausalEvidence(run, routingRows, sessionId, registration, providedEvents) {
   assert.ok(registration && registration.classifierPath,
     'registration isolation must be established before attribution');
   assertProjectSettingSource(run.args);
@@ -217,9 +221,7 @@ function assertCausalEvidence(run, gateRows, sessionId, registration, providedEv
   assert.ok(lifecycleEvents.some((event) => event.subtype === 'hook_started'
     && event.hook_id === response.hook_id),
   'UserPromptSubmit hook_response must pair with hook_started under the same hook_id');
-  const correlated = gateRows.filter((row) => row
-    && row.signal === classifier.ROUTING_DECISION_SIGNAL
-    && row.session_id === sessionId);
+  const correlated = routingRows.filter((row) => row && row.session_id === sessionId);
   assert.strictEqual(correlated.length, 1,
     'expected exactly one post-snapshot classifier row with the session id');
   return { events, lifecycleEvents, response, row: correlated[0] };
@@ -228,10 +230,12 @@ function assertCausalEvidence(run, gateRows, sessionId, registration, providedEv
 function assertDecision(definition, result, shadowRows, fullPrompt, run) {
   const row = result.row;
   if (definition.noMatch) {
-    assert.strictEqual(row.route_decision, 'no_match', 'probe requires an explicit no-match decision');
+    assert.strictEqual(row.decision, 'no_match', 'probe requires an explicit no-match decision');
     assert.deepStrictEqual(row.route_ids, [], 'no-match row must carry an empty route_ids array');
   } else {
-    assert.strictEqual(row.route_decision, 'matched', 'matched probe requires an explicit matched decision');
+    assert.strictEqual(row.decision, 'matched', 'matched probe requires an explicit matched decision');
+    assert.ok(Array.isArray(row.route_ids) && row.route_ids.length > 0,
+      'matched probe requires a non-empty route_ids array');
   }
   if (definition.route) {
     assert.ok(row.route_ids.includes(definition.route), `route was not matched: ${definition.route}`);
@@ -239,6 +243,8 @@ function assertDecision(definition, result, shadowRows, fullPrompt, run) {
   if (definition.routePrefix) {
     assert.ok(row.route_ids.some((id) => id.startsWith(definition.routePrefix)),
       `P149 route prefix was not matched: ${definition.routePrefix}`);
+    assert.ok(!row.route_ids.includes('planning-triage'),
+      'P149 probe must not be attributed to the P146 planning-triage compatibility route');
     const artifactPaths = (row.artifacts || []).map((item) => normalizedCommand(item.path));
     assert.ok(artifactPaths.some((item) => item.endsWith(definition.registrySuffix)),
       'P149 row did not originate from the skill-routing registry');
@@ -283,9 +289,9 @@ async function runProbe(name, providedNonce) {
   const args = claudeArgs(fullPrompt, sessionId, 'project');
   assertProjectSettingSource(args);
   const run = await runClaude(ROOT, args);
-  const gateRows = postSnapshotRows(snapshot.gate);
+  const routingRows = postSnapshotRoutingDecisions(snapshot.gate);
   const shadowRows = postSnapshotRows(snapshot.shadow);
-  const result = assertCausalEvidence(run, gateRows, sessionId, registration);
+  const result = assertCausalEvidence(run, routingRows, sessionId, registration);
   assertDecision(definition, result, shadowRows, fullPrompt, run);
   console.log(`PROGRESS P153-T1b probe=${name} PASS session_id=${sessionId}`);
 }
@@ -328,10 +334,8 @@ function runForgedAndConfusedControl() {
   assertNonceFresh(snapshot, nonce);
   const sessionId = crypto.randomUUID();
   const directRun = spawnForgedClassifier(sessionId, nonce, PROBES.planning.prompt);
-  const gateRows = postSnapshotRows(snapshot.gate);
-  assert.strictEqual(gateRows.filter((row) => row
-    && row.signal === classifier.ROUTING_DECISION_SIGNAL
-    && row.session_id === sessionId).length, 1,
+  const routingRows = postSnapshotRoutingDecisions(snapshot.gate);
+  assert.strictEqual(routingRows.filter((row) => row && row.session_id === sessionId).length, 1,
   'forged direct spawn must create the tempting correlated ledger row');
 
   const noClaudeRun = {
@@ -344,7 +348,7 @@ function runForgedAndConfusedControl() {
   };
   expectRejected(
     'forged direct spawn',
-    () => assertCausalEvidence(noClaudeRun, gateRows, sessionId, registration, []),
+    () => assertCausalEvidence(noClaudeRun, routingRows, sessionId, registration, []),
     /caller-chosen session id|hook_response/,
   );
 

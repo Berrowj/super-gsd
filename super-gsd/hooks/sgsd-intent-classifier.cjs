@@ -554,7 +554,7 @@ function directiveLines(routes, kind) {
 }
 
 function appendRoutingDecision(root, payload, routes, mandatory, suggestions, duration) {
-  if (!Array.isArray(routes) || routes.length === 0) return;
+  if (!Array.isArray(routes)) return;
   try {
     const state = readState(root) || {};
     const registryPaths = Array.from(new Set(
@@ -563,6 +563,7 @@ function appendRoutingDecision(root, payload, routes, mandatory, suggestions, du
     const row = logGateEvidence(root, {
       signal: ROUTING_DECISION_SIGNAL,
       status: 'ok',
+      decision: routes.length > 0 ? 'matched' : 'no_match',
       reason_codes: [],
       artifacts: (registryPaths.length > 0 ? registryPaths : [registryPath()])
         .map((registryPathValue) => ({ kind: 'registry', path: registryPathValue })),
