@@ -1,0 +1,325 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.6-vtp-bridge",
+  "phase": "155",
+  "phase_name": "Propagation Readiness",
+  "status": "IN_PROGRESS",
+  "goal": "",
+  "outputs": [
+    {
+      "kind": "atc_review",
+      "path": ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-ATC-REVIEW.md"
+    }
+  ],
+  "files": [
+    ".planning/decisions/2026-08-19-canonical-work-identity-ADDENDUM.md",
+    ".planning/milestones/v3.6-vtp-bridge/INTENT.md",
+    ".planning/milestones/v3.6-vtp-bridge/ROADMAP.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-01-PLAN-LOCKED.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-01-PLAN-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-01-PLAN-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-01-PLAN-REV2-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-01-PLAN-REV2-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-ATC-REVIEW.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-GAP-FIX-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-GAP-FIX-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-GAPFIX-CODEX-FILES.txt",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-PHASE-ATC-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-PHASE-STAT.txt",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-PLANREVIEW-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-PLANREVIEW-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-PLANREVIEW2-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-PLANREVIEW2-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T1-ATC-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T1-ATC-REVIEW.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T1-CODEX-FILES.txt",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T1-DIFF.txt",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T1-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T1-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T1-SPECREVIEW-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T1-SPECREVIEW.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T2T3-ATC-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T2T3-ATC-REVIEW.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T2T3-CODEX-FILES.txt",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T2T3-DIFF.txt",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T2T3-FIX-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T2T3-FIX-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T2T3-FIX2-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T2T3-FIX2-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T2T3-FIX3-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T2T3-FIX3-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T2T3-FIX4-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T2T3-FIX4-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T2T3-FIX5-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T2T3-FIX5-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T2T3-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T2T3-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T2T3-SPECREVIEW-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T2T3-SPECREVIEW.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4-ATC-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4-ATC-REVIEW.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4-CODEX-FILES.txt",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4-DIFF.txt",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4-FIX-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4-FIX-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4-SPECREVIEW-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4-SPECREVIEW.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4b-ATC-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4b-ATC-REVIEW.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4b-ATC2-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4b-ATC2-REVIEW.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4b-CODEX-FILES.txt",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4b-DIFF.txt",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4b-FIX-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4b-FIX-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4b-FIX2-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4b-FIX2-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4b-FIX3-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4b-FIX3-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4b-FIX4-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4b-FIX4-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4b-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4b-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4b-SPECREVIEW-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-T4b-SPECREVIEW.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-VTP-ENRICHMENT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/CONTEXT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/WASTE.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/CONTEXT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/157-vtp-readiness/CONTEXT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/158-notification-routing/CONTEXT.md",
+    "super-gsd/CLAUDE-OVERLAY.md",
+    "super-gsd/config/claude-ups-overlay.json",
+    "super-gsd/config/repo-settings-overlay.json",
+    "super-gsd/config/settings-overlay.json",
+    "super-gsd/hooks/gsd-session-state.sh",
+    "super-gsd/install.sh",
+    "super-gsd/scripts/lib/decision-state.cjs",
+    "super-gsd/scripts/lib/phase-name.cjs",
+    "super-gsd/scripts/sgsd-agent-dashboard.sh",
+    "super-gsd/scripts/sgsd-conformance-check.sh",
+    "super-gsd/scripts/sgsd-distill-milestone.sh",
+    "super-gsd/skills/sgsd-orchestrate/SKILL.md",
+    "super-gsd/tests/hook-transport/assert-block-guard.cjs",
+    "super-gsd/tests/hook-transport/assert-registration.cjs",
+    "super-gsd/tests/propagation-readiness/assert-decision-state-consumers.cjs",
+    "super-gsd/tests/propagation-readiness/assert-dual-root-resolvers.cjs",
+    "super-gsd/tests/propagation-readiness/assert-install-layout.cjs",
+    "super-gsd/tests/propagation-readiness/assert-p153-regression.cjs",
+    "super-gsd/tests/propagation-readiness/assert-state-resolver.cjs",
+    "super-gsd/tools/installer-audit/clean-room.sh",
+    "super-gsd/tools/phase-folder-audit/audit.cjs",
+    "super-gsd/tools/phase-folder-audit/audit.test.cjs",
+    "super-gsd/tools/phase-verifier/phase-verifier.mjs",
+    "super-gsd/tools/state-resolver/resolve.cjs"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": 0,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 0
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "df9490c64a1f3a575a20adb9d150bce2ef0ed0f9",
+      "subject": "docs(155): seed propagation-readiness phase \u2014 the gate in front of the push",
+      "ts": "2026-08-19T16:48:37+01:00"
+    },
+    {
+      "sha": "4125c93ff70bad2bcc37b400033f58f4353da07d",
+      "subject": "docs(155): fold devcp defect report D1-D7 into scope; memo falsifier met",
+      "ts": "2026-08-19T17:01:22+01:00"
+    },
+    {
+      "sha": "a497b582e637d409436f88d7c2940c63f7e2d5c6",
+      "subject": "docs(155): planner prompt + reused VTP enrichment artifact",
+      "ts": "2026-08-19T17:40:54+01:00"
+    },
+    {
+      "sha": "80a27cbf51334dbce72cc89eb9376c319a064e08",
+      "subject": "docs(155-01): PLAN-LOCKED \u2014 Codex-authored, salvaged from timeout, schema VALID",
+      "ts": "2026-08-19T18:07:42+01:00"
+    },
+    {
+      "sha": "e2886575b32e2d4545cd2d4a0ee4943066d90b90",
+      "subject": "docs(155): plan-review gate prompt with dual contract",
+      "ts": "2026-08-19T18:16:15+01:00"
+    },
+    {
+      "sha": "866763e949b2b0846da4d654a61a31c6f976ae13",
+      "subject": "docs(155): plan review NOGO persisted; provenance note corrected",
+      "ts": "2026-08-19T18:29:05+01:00"
+    },
+    {
+      "sha": "40ddbcfcb74b05983b95c40811049cbf670223a4",
+      "subject": "docs(155): operator-approved split \u2014 seed P156/P157/P158, rev2 planner prompt",
+      "ts": "2026-08-19T18:34:14+01:00"
+    },
+    {
+      "sha": "2486e4a4cceba9bccd576b8ecf344f1d6674c3e0",
+      "subject": "docs(155-01): PLAN rev2 \u2014 propagation core only, atomic T2/T3, shared parser, all tiers covered",
+      "ts": "2026-08-19T18:46:46+01:00"
+    },
+    {
+      "sha": "b1bba42178fdf93328d7b55788c512c8fb2a419f",
+      "subject": "docs(155): round-2 re-review prompt, narrow scope",
+      "ts": "2026-08-19T18:46:48+01:00"
+    },
+    {
+      "sha": "f4187728c6bb2cd1370cac94e181340111220116",
+      "subject": "docs(155): round-2 review GO \u2014 5/5 changes addressed, execution unlocked",
+      "ts": "2026-08-19T18:48:39+01:00"
+    },
+    {
+      "sha": "1c83b84065dbd21b76189727d879bb671d36dbf9",
+      "subject": "docs(155): T1 executor prompt + patch-fallback allowlist",
+      "ts": "2026-08-19T18:49:22+01:00"
+    },
+    {
+      "sha": "adeb751f684d50938b3e8da6027ecb0f1915f10a",
+      "subject": "feat(155-T1): unify hook overlay \u2014 guard joins the real merge path, duplicate retired",
+      "ts": "2026-08-19T19:08:59+01:00"
+    },
+    {
+      "sha": "78bd052106bd886fd05e5ec127a570d084a7c6c3",
+      "subject": "docs(155): T2-T3 executor prompt + allowlist, T4b boundary drawn",
+      "ts": "2026-08-19T19:09:50+01:00"
+    },
+    {
+      "sha": "ff595ccbb3e9bb69009646d7731f95054b3cfbef",
+      "subject": "feat(155-T2T3): atomic layout transition \u2014 one parser, dual-root consumers, installer fixed",
+      "ts": "2026-08-19T21:21:52+01:00"
+    },
+    {
+      "sha": "85b9f8e36831fd0c0090eaff93814f0c48c60aaa",
+      "subject": "docs(155): T4b executor prompt \u2014 GATE tier, resolver tier semantics",
+      "ts": "2026-08-19T21:22:38+01:00"
+    },
+    {
+      "sha": "d508069224c3d57ca79df63a7b631417cb5f6177",
+      "subject": "feat(155-T4b): ROADMAP-ordered opaque phase model \u2014 the devcp resolver fix",
+      "ts": "2026-08-19T22:46:08+01:00"
+    },
+    {
+      "sha": "3cbf1c7f311f3874f6b7cca38a9c5018d442f6fb",
+      "subject": "docs(155): T4 executor prompt \u2014 decision-path wiring, the board top priority",
+      "ts": "2026-08-19T22:46:53+01:00"
+    },
+    {
+      "sha": "2990970997ba432e4b0cf1b41f81371da006b9e1",
+      "subject": "feat(155-T4): decision path consumes derived truth \u2014 orchestrator + SessionStart wired",
+      "ts": "2026-08-20T00:00:08+01:00"
+    },
+    {
+      "sha": "7be92df2c6a43e90612e423af41f4aca9064a027",
+      "subject": "fix(155): close the 12th activation seam + retire deprecated read surfaces",
+      "ts": "2026-08-20T00:36:43+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": null,
+    "research": null,
+    "plan": [],
+    "verification": null,
+    "atc_review": {
+      "path": ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-ATC-REVIEW.md",
+      "sha256": "abeb3817543a90cd0658e1853eb90e02a2d3da80f4e34d667a4a8a540672629d"
+    }
+  },
+  "gates": {
+    "verifier": null,
+    "atc_review": {
+      "path": ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-ATC-REVIEW.md",
+      "verdict": "unknown",
+      "crit_count": 0,
+      "warn_count": 0
+    },
+    "phase_level_atc_runs": [
+      {
+        "run_id": "2026-08-19T23:00:31.828Z-d91e",
+        "outcome": "blocked"
+      }
+    ],
+    "codex_runs": [
+      {
+        "run_id": "2026-08-19T17:19:21Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-19T17:46:49Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-19T17:59:53Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-19T18:05:47Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-19T18:51:56Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-19T19:19:07Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-19T20:58:44Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-19T21:15:59Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-19T21:33:21Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-19T22:32:32Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-19T22:40:59Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-19T23:01:23Z",
+        "exit": 5,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-19T23:06:05Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-08-19T23:36:49.231Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@7be92df2c6a4"
+}
