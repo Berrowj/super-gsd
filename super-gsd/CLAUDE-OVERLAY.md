@@ -92,7 +92,7 @@ State lives in `.planning/`. Memory lives in project-local `.planning/memory/`.
 ### On Every New Session — DO THIS FIRST
 
 1. **Check for checkpoint:** `Read .planning/ORCHESTRATOR-CHECKPOINT.md` — if found, resume from `next_unit`. Don't ask, just go.
-2. **Read state:** `Read .planning/STATE.md` (frontmatter only, offset 0, limit 30) — active milestone, phase, progress.
+2. **Resolve effective state:** Run `node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"` — use its milestone, opaque phase, status, confidence, source, and any conflict warning.
 3. **Cascade read (DLB-03):** Before planning any phase, read `.planning/PROJECT.md` core-value + `.planning/milestones/{active_milestone}/INTENT.md` + last completed phase `SUMMARY.md`. For the first phase of a milestone, INTENT.md alone. This is mandatory — skipped cascade = phase drift.
 4. **Check memory:** `sgsd-recall "session start current state"` — pull relevant context.
 5. If user says "go" / "auto" / "continue" / "run" → enter auto mode immediately. No confirmation.
@@ -103,7 +103,7 @@ State lives in `.planning/`. Memory lives in project-local `.planning/memory/`.
 |-----------|--------|
 | "go" / "auto" / "run" / "continue" | **Enter AUTO MODE** — start the loop, no questions |
 | "next" | Execute ONE unit, then stop and report |
-| "status" / "where are we?" | Read STATE.md frontmatter, report position |
+| "status" / "where are we?" | Run `node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"`; report the resolved position and any conflict |
 | "stop" / "pause" | Write checkpoint, stop looping |
 | "deliberate" | Run /sgsd-deliberate for strategic decision |
 | "audit tokens" | Run /sgsd-token-audit --quick |
@@ -143,8 +143,8 @@ Claude Code gives you another turn as long as every response includes a tool cal
 
 ```
 repeat {
-  // 1. READ STATE (~200 tokens)
-  Read .planning/STATE.md frontmatter
+  // 1. RESOLVE EFFECTIVE STATE (~200 tokens)
+  node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"
 
   // 2. CLASSIFY (~50 tokens)
   Derive classifier result from plan frontmatter/cache or run Codex/local check
@@ -181,7 +181,7 @@ repeat {
   git commit -m "feat({phase}-{plan}): {ONE_LINER}"
 
   // 11. LOOP
-  Read STATE.md → tool call → loop continues
+  node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD" → tool call → loop continues
 }
 ```
 
@@ -189,7 +189,7 @@ repeat {
 
 **ALWAYS chain the next action as a tool call.**
 - WRONG: "Phase 27 complete!" (text-only → loop dies)
-- RIGHT: "Phase 27 complete" + `[Read .planning/STATE.md]` (loop continues)
+- RIGHT: "Phase 27 complete" + `[node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"]` (loop continues)
 
 ### Exit Conditions (ONLY these 3)
 
@@ -305,7 +305,7 @@ direct Codex, Codex read-pack patch mode, and board+Codex recovery have failed:
 
 ### Token Efficiency Rules
 
-- Read STATE.md **frontmatter only** (offset 0, limit 30) — not full file
+- Run `node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"` once per state check — do not read raw STATE.md as authority
 - Query SGSD memory instead of loading full .md files
 - Sub-agent reports: 300 words max
 - Plans: compressed XML (~800 tokens, not ~2,000)

@@ -9,6 +9,7 @@ const { spawnSync } = require('child_process');
 
 const repoRoot = path.resolve(__dirname, '..', '..', '..');
 const adapter = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'decision-state.cjs');
+const dashboard = path.join(repoRoot, 'super-gsd', 'scripts', 'sgsd-agent-dashboard.sh');
 const installer = path.join(repoRoot, 'super-gsd', 'install.sh');
 const bash = findBash();
 const requestedConsumer = readArg('--consumer') || 'all';
@@ -131,6 +132,35 @@ function assertCanonicalRendering(label, output) {
     !output.includes('roadmap_run:') && !output.includes('STALE_STATE_HEAD_SENTINEL'));
 }
 
+function runLiveRepoConsumer() {
+  let output = '';
+  let renderError = null;
+  try {
+    const decisionState = require(adapter);
+    output = decisionState.renderDecisionState({ projectDir: repoRoot, render: 'session' });
+  } catch (error) {
+    renderError = error;
+  }
+  const confidenceMatch = output.match(/^confidence:\s*([0-9.]+)\s*$/m);
+  const conflictMatch = output.match(
+    /conflict\[\d+\]:\r?\n\s+phase_folders: milestone=(\S+) phase=(\S+)\r?\n\s+state_md: milestone=(\S+) phase=(\S+)/,
+  );
+  assert('live repo decision-state renders successfully', renderError === null,
+    renderError && renderError.message);
+  assert('live repo resolves the v3.6 milestone through folder evidence',
+    output.includes('milestone: v3.6-vtp-bridge')
+      && output.includes('source: phase_folders')
+      && confidenceMatch !== null
+      && Number(confidenceMatch[1]) > 0.4,
+    output.slice(0, 240));
+  assert('live repo stale STATE conflict names both values',
+    conflictMatch !== null
+      && conflictMatch[1] === 'v3.6-vtp-bridge'
+      && conflictMatch[3] === 'v3.6-vtp-bridge'
+      && conflictMatch[2] !== conflictMatch[4],
+    output.slice(-320));
+}
+
 function runOrchestratorConsumer() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-decision-adapter-'));
   try {
@@ -146,6 +176,16 @@ function runOrchestratorConsumer() {
     assert('session and orchestrator renderings are byte-identical',
       sessionRun.status === 0 && orchestratorRun.status === 0
         && sessionRun.stdout === orchestratorRun.stdout);
+    const dashboardRun = spawnSync(bash,
+      [bashPath(dashboard), bashPath(root), '0', '--once'], {
+        encoding: 'utf8',
+        env: { ...process.env, TERM: 'xterm' },
+      });
+    assert('dashboard decision-state consumer exits 0', dashboardRun.status === 0,
+      `exit=${dashboardRun.status} error=${dashboardRun.error && dashboardRun.error.code || 'none'}`);
+    assert('dashboard renders the canonical decision-state output',
+      dashboardRun.status === 0 && orchestratorRun.status === 0
+        && dashboardRun.stdout.includes(orchestratorRun.stdout.trim()));
     let moduleRendering = null;
     try {
       const decisionState = require(adapter);
@@ -175,9 +215,25 @@ function runInstalledSessionHookConsumer() {
     const home = path.join(tmp, 'home');
     const project = path.join(tmp, 'project');
     const liveHook = path.join(home, '.claude', 'hooks', 'gsd-session-state.sh');
+    const globalSettings = path.join(home, '.claude', 'settings.json');
     fs.mkdirSync(path.join(home, '.claude', 'get-shit-done'), { recursive: true });
     fs.mkdirSync(project, { recursive: true });
     writeFile(liveHook, '#!/bin/bash\necho DISTINGUISHABLE_STALE_HOOK\n');
+    writeFile(globalSettings, JSON.stringify({
+      hooks: {
+        SessionStart: [
+          {
+            hooks: [
+              {
+                type: 'command',
+                command: 'node ~/.claude/hooks/gsd-session-start.js',
+                timeout: 5,
+              },
+            ],
+          },
+        ],
+      },
+    }, null, 2) + '\n');
     const fixture = createDecisionFixture(project);
     const stateBefore = fs.readFileSync(fixture.statePath);
 
@@ -201,6 +257,32 @@ function runInstalledSessionHookConsumer() {
     assert('real installer deploys the live hook path',
       installRun.status === 0 && fs.existsSync(liveHook));
 
+    let mergedSettings = null;
+    let settingsError = null;
+    try {
+      mergedSettings = JSON.parse(fs.readFileSync(globalSettings, 'utf8'));
+    } catch (error) {
+      settingsError = error;
+    }
+    assert('real installer writes parseable merged global settings', mergedSettings !== null,
+      settingsError && settingsError.message);
+    const sessionStartEntries = (((mergedSettings || {}).hooks || {}).SessionStart || []);
+    const sessionStateHooks = sessionStartEntries
+      .flatMap((entry) => Array.isArray(entry.hooks) ? entry.hooks : [])
+      .filter((hook) => typeof hook.command === 'string'
+        && /(?:^|[\\/])gsd-session-state\.sh["']?(?:\s|$)/.test(hook.command));
+    assert('merged global settings register the session-state hook exactly once',
+      sessionStateHooks.length === 1,
+      `matches=${sessionStateHooks.length}`);
+    const legacySessionStartHooks = sessionStartEntries
+      .flatMap((entry) => Array.isArray(entry.hooks) ? entry.hooks : [])
+      .filter((hook) => typeof hook.command === 'string'
+        && /(?:^|[\\/])gsd-session-start\.js["']?(?:\s|$)/.test(hook.command));
+    assert('merged global settings preserve one legacy session-start registration',
+      legacySessionStartHooks.length === 1,
+      `matches=${legacySessionStartHooks.length}`);
+    const registeredCommand = sessionStateHooks[0] && sessionStateHooks[0].command;
+
     const expectedRun = runAdapter(project, 'orchestrator');
     assert('installer fixture adapter exits 0', expectedRun.status === 0,
       `exit=${expectedRun.status} error=${expectedRun.error && expectedRun.error.code || 'none'}`);
@@ -212,17 +294,19 @@ function runInstalledSessionHookConsumer() {
       hook_event_name: 'SessionStart',
       source: 'startup',
     }) + '\n';
-    const hookRun = spawnSync(bash, [bashPath(liveHook)], {
-      cwd: project,
-      encoding: 'utf8',
-      input: payload,
-      env: {
-        ...process.env,
-        HOME: home,
-        USERPROFILE: home,
-      },
-    });
-    assert('installed SessionStart hook executes successfully', hookRun.status === 0,
+    const hookRun = registeredCommand
+      ? spawnSync(bash, ['-c', registeredCommand], {
+        cwd: project,
+        encoding: 'utf8',
+        input: payload,
+        env: {
+          ...process.env,
+          HOME: home,
+          USERPROFILE: home,
+        },
+      })
+      : { status: null, signal: null, error: new Error('session-state hook is not registered'), stdout: '' };
+    assert('registered SessionStart hook executes successfully', hookRun.status === 0,
       `exit=${hookRun.status} signal=${hookRun.signal || 'none'} `
         + `error=${hookRun.error && hookRun.error.code || 'none'}`);
     assert('installed hook output is the adapter rendering',
@@ -246,6 +330,7 @@ function runInstalledSessionHookConsumer() {
 
 if (requestedConsumer === 'all' || requestedConsumer === 'orchestrator') {
   runOrchestratorConsumer();
+  runLiveRepoConsumer();
 }
 if (requestedConsumer === 'all' || requestedConsumer === 'installed-session-hook') {
   runInstalledSessionHookConsumer();
