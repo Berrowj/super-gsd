@@ -347,10 +347,10 @@ tasks:
 # P155 — Propagation Readiness
 
 Frontmatter above is Codex-authored (dispatch bunn0sa5b, gpt-5.6-sol/xhigh). The
-dispatch hit its 1500s timeout after completing all 8 task entries and 20 semantic
+dispatch hit its 1500s timeout after completing all 8 task entries and 12 semantic
 acceptance criteria but before writing the closing delimiter and this body. The
-orchestrator appended the terminator and this note; no frontmatter content was
-altered. See CONTEXT.md for the full evidence base and boundaries, and the governing
+orchestrator appended the terminator and this note, and quoted the depends_on
+integers to strings to satisfy the schema. Those are the only orchestrator edits. See CONTEXT.md for the full evidence base and boundaries, and the governing
 memo plus addendum for what is deliberately out of scope (registry, alias map,
 renumbering, legacy-tree archiving, D7).
 
