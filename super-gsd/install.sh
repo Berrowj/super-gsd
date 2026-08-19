@@ -569,8 +569,7 @@ init_local_project() {
   if [ "$DRY_RUN" = true ]; then
     log "DRY RUN: would create .planning skeleton under $PROJECT_DIR"
   else
-    mkdir -p "$PROJECT_DIR/.planning/phases" \
-             "$PROJECT_DIR/.planning/metrics" \
+    mkdir -p "$PROJECT_DIR/.planning/metrics" \
              "$PROJECT_DIR/.planning/briefs" \
              "$PROJECT_DIR/.planning/decisions" \
              "$PROJECT_DIR/.planning/deliberations" \

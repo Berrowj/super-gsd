@@ -177,7 +177,7 @@ fi
 
 # 2. Synthesize a fresh .planning/ skeleton (simulates --init-project).
 step "scaffold empty .planning/ skeleton" \
-  "mkdir -p '$TMPDIR_ROOT/.planning/phases' '$TMPDIR_ROOT/.planning/metrics' '$TMPDIR_ROOT/.planning/briefs' '$TMPDIR_ROOT/.planning/decisions' '$TMPDIR_ROOT/.planning/deliberations'" \
+  "mkdir -p '$TMPDIR_ROOT/.planning/metrics' '$TMPDIR_ROOT/.planning/briefs' '$TMPDIR_ROOT/.planning/decisions' '$TMPDIR_ROOT/.planning/deliberations'" \
   "auto"
 
 # 3. Probe the local environment via the audit (READ-ONLY).
@@ -214,6 +214,14 @@ step "copy CLAUDE-OVERLAY.md to project CLAUDE.md (tmpdir-only)" \
 step "post-install audit (mandatory floor met expected)" \
   "node '$REPO_ROOT/super-gsd/tools/installer-audit/audit.cjs' --run --project-root '$TMPDIR_ROOT'" \
   "auto"
+
+# Emit install-layout evidence while the isolated tree still exists. Consumers
+# must not infer this state from the filesystem after the cleanup trap runs.
+if [ -d "$TMPDIR_ROOT/.planning/phases" ]; then
+  echo "clean-room: legacy_phase_root=present"
+else
+  echo "clean-room: legacy_phase_root=absent"
+fi
 
 # ---------------------------------------------------------------------------
 # Footer

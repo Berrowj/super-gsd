@@ -19,7 +19,7 @@
 //        f. Captures console errors → evidence/{slug}.console.log
 //        g. Fetches the backing API endpoint directly → evidence/{slug}.api.json
 //        h. Asserts api status == 200 AND rows >= min_rows OR data_empty_reason set.
-//   3. Writes .planning/phases/{NN}-*/{NN}-BROWSER-REVIEW.md with per-route table.
+//   3. Writes {resolved-phase-dir}/{token}-BROWSER-REVIEW.md with per-route table.
 //   4. Exit 0 = PROVEN, 1 = UNPROVEN, 2 = BLOCKED (tool precondition / backend down).
 //
 // HARD rules:
@@ -28,10 +28,13 @@
 //   - No empty response body is reported as a pass without data-empty-reason.
 //   - No route is PROVEN unless every evidence file exists and passes shape checks.
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from 'node:fs';
 import { resolve, join, basename, dirname } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import phaseName from '../../scripts/lib/phase-name.cjs';
+
+const { findPhase, isDiscoveryError, parsePhaseName, phaseTokensEqual } = phaseName;
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -52,7 +55,7 @@ function parseArgs(argv) {
     }
   }
   if (!out.phase) {
-    fail('Missing --phase. Usage: phase-verifier --project-dir PATH --phase NN', 2);
+    fail('Missing --phase. Usage: phase-verifier --project-dir PATH --phase TOKEN', 2);
   }
   return out;
 }
@@ -62,11 +65,11 @@ function printUsage() {
 phase-verifier — Super GSD phase browser verifier
 
 Usage:
-  phase-verifier --project-dir PATH --phase NN [--session ID]
+  phase-verifier --project-dir PATH --phase TOKEN [--session ID]
 
 Options:
   --project-dir PATH   Project root (contains .planning/). Default: cwd.
-  --phase NN           Phase number (required), e.g. 89 or 107.
+  --phase TOKEN        Phase token (required), e.g. 89, 97.5, or v30-07.
   --session ID         gsd-browser CDP session id. Default: sgsd-verify.
 
 Exit codes:
@@ -114,15 +117,34 @@ function parseRoadmap(projectDir, phaseArg) {
     return { phaseTitle: `Phase ${phaseArg}`, criteria: [], urls: [], endpoints: [] };
   }
   const content = readFileSync(path, 'utf8');
-  // Split on "### Phase N:" or "### Phase N." headings.
-  const phaseRegex = new RegExp(`^### Phase ${phaseArg}[:.] (.+?)$([\\s\\S]*?)(?=^### Phase |\\n## |\\Z)`, 'm');
-  const match = content.match(phaseRegex);
-  if (!match) {
+  const phaseQuery = parsePhaseName(String(phaseArg));
+  const roadmapLines = content.split(/\r?\n/);
+  let headingTitle = null;
+  let bodyLines = [];
+  for (let index = 0; index < roadmapLines.length; index++) {
+    const line = roadmapLines[index];
+    if (!line.startsWith('### Phase ')) continue;
+    const remainder = line.slice('### Phase '.length);
+    const colon = remainder.indexOf(': ');
+    const dot = remainder.indexOf('. ');
+    const separator = colon < 0 ? dot : dot < 0 ? colon : Math.min(colon, dot);
+    if (separator < 0) continue;
+    const candidate = parsePhaseName(remainder.slice(0, separator));
+    if (!candidate || !phaseQuery || !phaseTokensEqual(candidate, phaseQuery)) continue;
+    headingTitle = remainder.slice(separator + 2);
+    for (let bodyIndex = index + 1; bodyIndex < roadmapLines.length; bodyIndex++) {
+      const bodyLine = roadmapLines[bodyIndex];
+      if (bodyLine.startsWith('### Phase ') || bodyLine.startsWith('## ')) break;
+      bodyLines.push(bodyLine);
+    }
+    break;
+  }
+  if (headingTitle === null) {
     warn(`Phase ${phaseArg} not found in ROADMAP.md — trace will be incomplete`);
     return { phaseTitle: `Phase ${phaseArg}`, criteria: [], urls: [], endpoints: [] };
   }
-  const phaseTitle = `Phase ${phaseArg}: ${match[1].trim().replace(/\s*✅.*$/, '').replace(/\s*🔄.*$/, '')}`;
-  const body = match[2];
+  const phaseTitle = `Phase ${phaseArg}: ${headingTitle.trim().replace(/\s*✅.*$/, '').replace(/\s*🔄.*$/, '')}`;
+  const body = bodyLines.join('\n');
 
   // Extract success criteria — block starts at "**Success Criteria:**" and ends
   // at the next blank-line paragraph or "**Known" / "**Plans" / "### ".
@@ -154,22 +176,13 @@ function parseRoadmap(projectDir, phaseArg) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Phase dir resolution — find .planning/phases/{NN}-*
+// Phase dir resolution through the shared dual-root boundary.
 // ──────────────────────────────────────────────────────────────────────────────
 
 function resolvePhaseDir(projectDir, phaseArg) {
-  const phasesRoot = join(projectDir, '.planning', 'phases');
-  if (!existsSync(phasesRoot)) {
-    const fallback = join(phasesRoot, `${phaseArg}-unnamed`);
-    mkdirSync(fallback, { recursive: true });
-    return fallback;
-  }
-  const entries = readdirSync(phasesRoot);
-  const match = entries.find((e) => e === `${phaseArg}` || e.startsWith(`${phaseArg}-`));
-  if (match) return join(phasesRoot, match);
-  const fallback = join(phasesRoot, `${phaseArg}-unnamed`);
-  mkdirSync(fallback, { recursive: true });
-  return fallback;
+  const phase = findPhase(projectDir, String(phaseArg));
+  if (isDiscoveryError(phase)) throw new Error(phase.reason);
+  return phase ? phase.dir : null;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -536,6 +549,7 @@ function appendDeferralLedger(projectDir, phase, reason) {
   const bv = loadConfig(args.projectDir);
   const roadmap = parseRoadmap(args.projectDir, args.phase);
   const phaseDir = resolvePhaseDir(args.projectDir, args.phase);
+  if (!phaseDir) fail(`Phase directory not found for ${args.phase}`, 2);
   log(`Phase dir: ${phaseDir}`);
   log(`Roadmap criteria: ${roadmap.criteria.length}  URLs: ${roadmap.urls.length}  endpoints: ${roadmap.endpoints.length}`);
 

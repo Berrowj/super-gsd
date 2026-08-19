@@ -7,7 +7,7 @@
 #  Refreshes every 3 seconds. Read-only.
 #
 #  Usage:
-#    bash gsd-agent-dashboard.sh [project-dir]
+#    bash gsd-agent-dashboard.sh [project-dir] [refresh-sec] [--once]
 #
 #  Shows:
 #    - Milestone + phase progress bar
@@ -18,8 +18,14 @@
 #    - Most recent commits
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+set -o pipefail
+
 PROJECT_DIR="${1:-.}"
 REFRESH_SEC="${2:-10}"
+ONCE=false
+if [ "${3:-}" = "--once" ]; then ONCE=true; fi
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PHASE_NAME_CLI="$SCRIPT_DIR/lib/phase-name.cjs"
 
 if [ ! -d "$PROJECT_DIR/.planning" ]; then
   echo "ERROR: No .planning/ directory in $PROJECT_DIR"
@@ -53,7 +59,7 @@ while true; do
 
   if [ -f "$STATE_FILE" ]; then
     MILESTONE=$(grep -m1 '^milestone:' "$STATE_FILE" 2>/dev/null | awk '{print $2}')
-    CURRENT_PHASE=$(grep -m1 '^current_phase:' "$STATE_FILE" 2>/dev/null | awk '{print $2}')
+    CURRENT_PHASE=$(grep -m1 '^current_phase:' "$STATE_FILE" 2>/dev/null | awk '{print $2}' | tr -d "\"'")
     STATUS=$(grep -m1 '^status:' "$STATE_FILE" 2>/dev/null | awk '{print $2}')
   fi
 
@@ -205,7 +211,19 @@ while true; do
 
   # ── Current Phase Work ──
   if [ -n "$CURRENT_PHASE" ]; then
-    PHASE_DIR=$(find "$PROJECT_DIR/.planning/phases" -maxdepth 1 -type d -name "${CURRENT_PHASE}-*" 2>/dev/null | head -1)
+    if ! PHASE_JSON=$(node "$PHASE_NAME_CLI" --list --project "$PROJECT_DIR" --match "$CURRENT_PHASE"); then
+      echo "ERROR: phase discovery failed for '$CURRENT_PHASE'" >&2
+      exit 5
+    fi
+    if ! PHASE_DIR=$(printf '%s' "$PHASE_JSON" | node -e '
+      const fs = require("fs");
+      const path = require("path");
+      const rows = JSON.parse(fs.readFileSync(0, "utf8"));
+      if (rows[0]) process.stdout.write(rows[0].dir.split(path.sep).join("/"));
+    '); then
+      echo "ERROR: phase discovery response invalid for '$CURRENT_PHASE'" >&2
+      exit 5
+    fi
     if [ -n "$PHASE_DIR" ]; then
       echo -e "${BOLD}CURRENT PHASE FILES${RESET} ${DIM}($(basename "$PHASE_DIR"))${RESET}"
       echo -e "${DIM}----------------------------------------------------------------${RESET}"
@@ -222,6 +240,9 @@ while true; do
         fi
       done
       echo ""
+    else
+      echo "ERROR: no phase directory matches '$CURRENT_PHASE'" >&2
+      exit 4
     fi
   fi
 
@@ -237,5 +258,6 @@ while true; do
   echo -e "${DIM}================================================================${RESET}"
   echo -e "${DIM}Project: $PROJECT_DIR${RESET}"
 
-  sleep $REFRESH_SEC
+  if [ "$ONCE" = true ]; then break; fi
+  sleep "$REFRESH_SEC"
 done

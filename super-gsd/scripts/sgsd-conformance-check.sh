@@ -27,7 +27,10 @@
 # ============================================================================
 
 set -u
+set -o pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PHASE_NAME_CLI="$SCRIPT_DIR/lib/phase-name.cjs"
 PHASE_ARG=""
 PROJECT=""
 DRY_RUN=false
@@ -51,40 +54,41 @@ fi
 if [[ -z "$PROJECT" ]]; then
     d="$(pwd -P)"
     while [[ "$d" != "/" && "$d" != "" ]]; do
-        if [[ -d "$d/.planning/phases" ]]; then
+        if [[ -d "$d/.planning" ]]; then
             PROJECT="$d"
             break
         fi
         d="$(dirname "$d")"
     done
 fi
-if [[ -z "$PROJECT" || ! -d "$PROJECT/.planning/phases" ]]; then
-    echo "sgsd-conformance-check: no .planning/phases/ found — pass --project" >&2
+if [[ -z "$PROJECT" || ! -d "$PROJECT/.planning" ]]; then
+    echo "sgsd-conformance-check: no .planning/ found — pass --project" >&2
     exit 3
 fi
 
-# Resolve phase directory (accepts "8", "08", "8.1", or a slug)
-PHASES_DIR="$PROJECT/.planning/phases"
-PHASE_DIR=""
-if [[ -d "$PHASES_DIR/$PHASE_ARG" ]]; then
-    PHASE_DIR="$PHASES_DIR/$PHASE_ARG"
-else
-    # Pad single digit numerics
-    if [[ "$PHASE_ARG" =~ ^[0-9]+$ ]]; then
-        padded=$(printf "%02d" "$PHASE_ARG")
-        match=$(find "$PHASES_DIR" -maxdepth 1 -type d -name "${padded}-*" | head -1)
-    else
-        match=$(find "$PHASES_DIR" -maxdepth 1 -type d -name "${PHASE_ARG}-*" | head -1)
-    fi
-    [[ -n "$match" ]] && PHASE_DIR="$match"
+# Resolve through the shared dual-root phase-name boundary.
+if ! PHASE_JSON=$(node "$PHASE_NAME_CLI" --list --project "$PROJECT" --match "$PHASE_ARG"); then
+    echo "sgsd-conformance-check: phase discovery failed" >&2
+    exit 5
 fi
+if ! PHASE_RECORD=$(printf '%s' "$PHASE_JSON" | node -e '
+  const fs = require("fs");
+  const path = require("path");
+  const rows = JSON.parse(fs.readFileSync(0, "utf8"));
+  if (!rows[0]) process.exit(0);
+  const row = rows[0];
+  const dir = row.dir.split(path.sep).join("/");
+  const name = row.slug ? row.token + "-" + row.slug : row.token;
+  process.stdout.write([dir, name, row.token].join("\t"));
+'); then
+    echo "sgsd-conformance-check: phase discovery response invalid" >&2
+    exit 5
+fi
+IFS=$'\t' read -r PHASE_DIR PHASE_NAME PHASE_NUM <<< "$PHASE_RECORD"
 if [[ -z "$PHASE_DIR" ]]; then
     echo "sgsd-conformance-check: no phase directory matches '$PHASE_ARG'" >&2
     exit 4
 fi
-
-PHASE_NAME=$(basename "$PHASE_DIR")
-PHASE_NUM=$(echo "$PHASE_NAME" | grep -oE '^[0-9]+(\.[0-9]+)?')
 
 # Collect all PLAN.md files (one per plan within a phase)
 plan_files=$(find "$PHASE_DIR" -maxdepth 1 -type f -name "*-PLAN.md" 2>/dev/null)
