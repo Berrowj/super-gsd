@@ -137,14 +137,15 @@ function _stripInlineComment(s) {
   return t.replace(/\s+#.*$/, '').replace(/\s+$/, '');
 }
 
-function _countLeadingSpaces(s) {
+function _countIndent(s) {
   var n = 0;
-  while (n < s.length && s.charAt(n) === ' ') n++;
+  while (n < s.length && (s.charAt(n) === ' ' || s.charAt(n) === '\t')) n++;
   return n;
 }
 
-// Mirror of the warp-mcp / cockpit-state frontmatter parser. Returns null
-// on any failure. Never throws.
+// Minimal frontmatter reader for resolver fields. Only indentation-zero
+// keys and direct children of a real roadmap_run mapping are admitted.
+// Returns null on any failure. Never throws.
 function _parseFrontmatter(filePath) {
   try {
     if (typeof filePath !== 'string' || filePath.length === 0) return null;
@@ -161,33 +162,79 @@ function _parseFrontmatter(filePath) {
     }
     if (endIdx === -1) return null;
     var out = {};
-    var stack = [{ obj: out, indent: -1 }];
+    var roadmapRun = null;
+    var roadmapRunIndent = -1;
+    var roadmapRunChildIndent = -1;
     for (var li = 1; li < endIdx; li++) {
       var raw = lines[li];
       if (typeof raw !== 'string') continue;
       var trimmed = raw.replace(/^\s+|\s+$/g, '');
       if (trimmed.length === 0) continue;
       if (trimmed.charAt(0) === '#') continue;
-      var indent = _countLeadingSpaces(raw);
-      while (stack.length > 1 && indent <= stack[stack.length - 1].indent) {
-        stack.pop();
-      }
-      var parent = stack[stack.length - 1].obj;
+      var indent = _countIndent(raw);
       var colonIdx = trimmed.indexOf(':');
       if (colonIdx === -1) continue;
       var key = trimmed.slice(0, colonIdx).replace(/^\s+|\s+$/g, '');
       var val = trimmed.slice(colonIdx + 1).replace(/^\s+|\s+$/g, '');
       if (key.charAt(0) === '-') continue;
       if (key.length === 0) continue;
-      if (val.length === 0) {
-        var child = {};
-        parent[key] = child;
-        stack.push({ obj: child, indent: indent });
-      } else {
-        parent[key] = _stripQuotes(_stripInlineComment(val));
+
+      if (indent === 0) {
+        roadmapRun = null;
+        roadmapRunIndent = -1;
+        roadmapRunChildIndent = -1;
+        if (val.length === 0) {
+          out[key] = {};
+          if (key === 'roadmap_run') {
+            roadmapRun = out[key];
+            roadmapRunIndent = indent;
+          }
+        } else {
+          out[key] = _stripQuotes(_stripInlineComment(val));
+        }
+        continue;
       }
+
+      if (!roadmapRun || indent <= roadmapRunIndent) continue;
+      if (roadmapRunChildIndent === -1) roadmapRunChildIndent = indent;
+      if (indent !== roadmapRunChildIndent || val.length === 0) continue;
+      roadmapRun[key] = _stripQuotes(_stripInlineComment(val));
     }
     return out;
+  } catch (_e) {
+    return null;
+  }
+}
+
+function _stateProjectionFromFrontmatter(fm) {
+  try {
+    if (!fm || typeof fm !== 'object') return null;
+    var rr = (fm.roadmap_run && typeof fm.roadmap_run === 'object')
+      ? fm.roadmap_run : {};
+    var rrPhase = _uniquePhaseCandidate([
+      (typeof rr.current_phase !== 'undefined') ? rr.current_phase : null,
+    ]);
+    // Treat roadmap_run current-state fields as one bundle. An invalid or
+    // absent phase cannot donate a stale milestone, name, or status.
+    var useRoadmapRun = rrPhase !== null;
+    var smMilestone = (useRoadmapRun
+      && typeof rr.current_milestone === 'string'
+      && rr.current_milestone.length > 0)
+      ? rr.current_milestone
+      : ((typeof fm.milestone === 'string') ? fm.milestone : null);
+    var smPhaseCandidate = useRoadmapRun
+      ? rrPhase
+      : _uniquePhaseCandidate([fm.current_phase]);
+    return {
+      milestone: smMilestone,
+      phase: smPhaseCandidate ? smPhaseCandidate.token : null,
+      phase_name: (useRoadmapRun && typeof rr.current_phase_name === 'string')
+        ? rr.current_phase_name
+        : (typeof fm.current_phase_name === 'string' ? fm.current_phase_name : null),
+      phase_status: (useRoadmapRun && typeof rr.current_phase_status === 'string')
+        ? rr.current_phase_status
+        : (typeof fm.current_phase_status === 'string' ? fm.current_phase_status : null),
+    };
   } catch (_e) {
     return null;
   }
@@ -670,31 +717,7 @@ function resolveEffectiveState(opts) {
     try {
       var statePath = path.join(planningDir, 'STATE.md');
       var fm = _parseFrontmatter(statePath);
-      if (fm) {
-        var rr = (fm.roadmap_run && typeof fm.roadmap_run === 'object')
-          ? fm.roadmap_run : {};
-        var smMilestone = (typeof rr.current_milestone === 'string'
-          && rr.current_milestone.length > 0)
-          ? rr.current_milestone
-          : ((typeof fm.milestone === 'string') ? fm.milestone : null);
-        var smPhaseCandidate = _uniquePhaseCandidate([
-          (typeof rr.current_phase !== 'undefined')
-            ? rr.current_phase : fm.current_phase,
-        ]);
-        var smPhase = smPhaseCandidate ? smPhaseCandidate.token : null;
-        var smPhaseName = (typeof rr.current_phase_name === 'string')
-          ? rr.current_phase_name
-          : (typeof fm.current_phase_name === 'string' ? fm.current_phase_name : null);
-        var smPhaseStatus = (typeof rr.current_phase_status === 'string')
-          ? rr.current_phase_status
-          : (typeof fm.current_phase_status === 'string' ? fm.current_phase_status : null);
-        stateMd = {
-          milestone: smMilestone,
-          phase: smPhase,
-          phase_name: smPhaseName,
-          phase_status: smPhaseStatus,
-        };
-      }
+      if (fm) stateMd = _stateProjectionFromFrontmatter(fm);
     } catch (_se) { stateMd = null; }
 
     // -- Priority 1: ORCHESTRATOR-CHECKPOINT.md (mtime <2h) --

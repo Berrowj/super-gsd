@@ -10,12 +10,12 @@ const repoRoot = path.resolve(__dirname, '..', '..', '..');
 const resolver = require(path.join(repoRoot, 'super-gsd', 'tools', 'state-resolver', 'resolve.cjs'));
 
 const requestedCase = readArg('--case') || 'all';
-const supportedCases = ['all', 'devcp-mixed-flat', 'evidence-tier-matrix'];
+const supportedCases = ['all', 'devcp-mixed-flat', 'evidence-tier-matrix', 'sediment'];
 const failures = [];
 let passed = 0;
 
 if (!supportedCases.includes(requestedCase)) {
-  console.error('Usage: assert-state-resolver.cjs --case all|devcp-mixed-flat|evidence-tier-matrix');
+  console.error('Usage: assert-state-resolver.cjs --case all|devcp-mixed-flat|evidence-tier-matrix|sediment');
   process.exit(2);
 }
 
@@ -360,6 +360,95 @@ function runDevcpMixedFlat() {
   });
 }
 
+function runSediment() {
+  withFixture('sediment', ({ root, planning }) => {
+    const legacyLines = [];
+    for (let value = 1; value <= 30; value += 1) {
+      legacyLines.push(
+        `  legacy_${String(value).padStart(2, '0')}:`,
+        '    milestone: v2.2',
+        '    current_milestone: v2.2',
+        `    current_phase: ${value}`,
+      );
+    }
+    const giantProse = `historical sediment ${'x'.repeat(16384)}`;
+    const stateLines = [
+      '---',
+      'gsd_state_version: 1.0',
+      'milestone: v3.6-vtp-bridge',
+      `current_phase: ${JSON.stringify('153')}`,
+      'current_phase_name: Hook Transport Completion',
+      'current_phase_status: in-progress',
+      `legacy_activity: ${JSON.stringify(giantProse)}`,
+      'progress:',
+      ...legacyLines,
+      'roadmap_run:',
+      '  mode: operator-led',
+      '  scope: legacy closed milestone',
+      '  current_milestone: v2.2',
+      '  current_phase: complete',
+      '  current_phase_name: Legacy Closed Projection',
+      '  current_phase_status: ALL-PHASES-CLOSED',
+      '---',
+      '',
+      '---',
+      'milestone: v9.9',
+      'current_phase: v99-99',
+      '---',
+      '',
+    ];
+    writeFile(path.join(planning, 'STATE.md'), stateLines.join('\n'));
+
+    const current = roadmapPhase('153', 'hook-transport-completion');
+    const active = roadmapPhase('155', 'propagation-readiness');
+    writeFile(path.join(planning, 'ROADMAP.md'), [
+      '# Active v3.6 roadmap',
+      '',
+      '| Phase | Name | Status |',
+      '|---:|---|---|',
+      '| 153 | Hook Transport Completion | Complete |',
+      '| 155 | Propagation Readiness | Active |',
+      '',
+    ].join('\n'));
+    writePhase(planning, 'milestone', 'v3.6-vtp-bridge', current, {
+      contextForm: 'id', verification: 'PASS',
+    });
+    writePhase(planning, 'milestone', 'v3.6-vtp-bridge', active, {
+      contextForm: 'id',
+    });
+
+    const ghost = roadmapPhase('67', 'warp-doctor-probe-design');
+    writeRoadmap(planning, 'v2.2', [ghost]);
+    writePhase(planning, 'milestone', 'v2.2', ghost, { contextForm: 'id' });
+
+    assert('SEDIMENT fixture carries more than 100 legacy lines',
+      legacyLines.length > 100, `count=${legacyLines.length}`);
+    assert('SEDIMENT fixture carries a giant single-line prose value',
+      giantProse.length > 16000, `length=${giantProse.length}`);
+
+    const result = resolve(root);
+    assert('SEDIMENT reader returns top-level state values',
+      result._state_md
+        && result._state_md.milestone === 'v3.6-vtp-bridge'
+        && result._state_md.phase === '153'
+        && result._state_md.phase_name === 'Hook Transport Completion'
+        && result._state_md.phase_status === 'in-progress',
+      result._state_md ? JSON.stringify(result._state_md) : 'no projection');
+    assertResolution('SEDIMENT v-scheme truth', result, {
+      source: 'phase_folders',
+      milestone: 'v3.6-vtp-bridge',
+      phase: '155',
+    });
+    const stateConflict = result.conflicts && result.conflicts.find(
+      (conflict) => conflict.source_b === 'state_md');
+    assert('SEDIMENT conflict names true state values when present',
+      stateConflict
+        && stateConflict.milestone_b === 'v3.6-vtp-bridge'
+        && stateConflict.phase_b === '153',
+      stateConflict ? JSON.stringify(stateConflict) : 'no state conflict');
+  });
+}
+
 function writeTierBase(planning) {
   const phases = [
     roadmapPhase('40', 'legacy-fallback'),
@@ -522,6 +611,7 @@ if (requestedCase === 'all' || requestedCase === 'devcp-mixed-flat') runDevcpMix
 if (requestedCase === 'all' || requestedCase === 'evidence-tier-matrix') {
   runEvidenceTierMatrix();
 }
+if (requestedCase === 'all' || requestedCase === 'sediment') runSediment();
 
 if (failures.length > 0) {
   for (const failure of failures) console.error(`FAIL ${failure}`);

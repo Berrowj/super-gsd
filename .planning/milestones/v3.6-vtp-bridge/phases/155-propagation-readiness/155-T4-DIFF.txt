@@ -1,0 +1,340 @@
+diff --git a/super-gsd/install.sh b/super-gsd/install.sh
+index 10b5d6b..1c489fd 100644
+--- a/super-gsd/install.sh
++++ b/super-gsd/install.sh
+@@ -364,10 +364,13 @@ install_global_assets() {
+   log "Installing global hooks..."
+   [ "$DRY_RUN" = true ] || mkdir -p "$HOOKS_DIR"
+   HOOK_COUNT=0
+-  for hook in "$SCRIPT_DIR/hooks/"*.js; do
++  for hook in "$SCRIPT_DIR/hooks/"*.js "$SCRIPT_DIR/hooks/gsd-session-state.sh"; do
+     [ -f "$hook" ] || continue
+     name="$(basename "$hook")"
+     copy_file "$hook" "$HOOKS_DIR/$name"
++    case "$name" in
++      *.sh) [ "$DRY_RUN" = false ] && chmod +x "$HOOKS_DIR/$name" ;;
++    esac
+     HOOK_COUNT=$((HOOK_COUNT + 1))
+   done
+   log "  $HOOK_COUNT hooks installed"
+@@ -444,6 +447,9 @@ install_global_assets() {
+       copy_file "$f" "$GLOBAL_SCRIPTS_DIR/lib/$name"
+     done
+   fi
++  if [ -f "$SCRIPT_DIR/tools/state-resolver/resolve.cjs" ]; then
++    copy_file "$SCRIPT_DIR/tools/state-resolver/resolve.cjs" "$CLAUDE_DIR/super-gsd/tools/state-resolver/resolve.cjs"
++  fi
+   if [ -d "$SCRIPT_DIR/scripts/watchdogs" ]; then
+     for f in "$SCRIPT_DIR/scripts/watchdogs/"*; do
+       [ -f "$f" ] || continue
+diff --git a/super-gsd/skills/sgsd-orchestrate/SKILL.md b/super-gsd/skills/sgsd-orchestrate/SKILL.md
+index 4bb097b..bb44d56 100644
+--- a/super-gsd/skills/sgsd-orchestrate/SKILL.md
++++ b/super-gsd/skills/sgsd-orchestrate/SKILL.md
+@@ -183,7 +183,7 @@ you already have. Frontmatter and sgsd-recall results are your context.
+ <cold_start>
+ On first entry (no checkpoint):
+ 
+-1. Read `.planning/STATE.md` — extract frontmatter ONLY (offset 0, limit 30)
++1. Run `node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"` and use its milestone, opaque phase token, phase name/status, confidence, and source. Treat any PROJECTION STALE / EVIDENCE CONFLICT warning as visible dispatch input; never silently prefer raw STATE.md frontmatter.
+ 2. Read `.planning/ROADMAP.md` — find current milestone + next incomplete phase
+ 3. Read `.planning/config.json` — get model routing config
+ 
+@@ -515,7 +515,7 @@ PER-DISPATCH ATC IS MANDATORY:
+ 
+ ```
+ REPEAT:
+-  1. READ STATE
++  1. RESOLVE DECISION STATE
+      - PULSE FIRST (SGSD-v2 Phase D / brief R-Q1 silent-stall observability):
+        BEFORE any other action, append a single row to
+        `.planning/metrics/orchestrator-pulse.jsonl`:
+@@ -525,7 +525,7 @@ REPEAT:
+        in Phase 147 overnight run. Cost: <10 tokens per iteration. Downstream
+        consumers: SGSD1 mission-control tile "last pulse Ns ago"; sgsd-boot
+        preflight freshness check; R-Q4 edge-guard (once decided).
+-      - Parse STATE.md frontmatter (milestone, phase, plan, status)
++      - Run `node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"` and use its milestone, opaque phase token, phase name/status, confidence, and source. Treat any PROJECTION STALE / EVIDENCE CONFLICT warning as visible dispatch input; never silently prefer raw STATE.md frontmatter.
+       - If all phases in the active milestone are [x], DO NOT EXIT yet:
+         run Step 6.7 milestone-close/advance logic. Exit only if milestone
+         close succeeds and no next milestone/phase exists in the active
+diff --git a/super-gsd/tests/propagation-readiness/assert-state-resolver.cjs b/super-gsd/tests/propagation-readiness/assert-state-resolver.cjs
+index 894a1a1..27188cb 100644
+--- a/super-gsd/tests/propagation-readiness/assert-state-resolver.cjs
++++ b/super-gsd/tests/propagation-readiness/assert-state-resolver.cjs
+@@ -10,12 +10,12 @@ const repoRoot = path.resolve(__dirname, '..', '..', '..');
+ const resolver = require(path.join(repoRoot, 'super-gsd', 'tools', 'state-resolver', 'resolve.cjs'));
+ 
+ const requestedCase = readArg('--case') || 'all';
+-const supportedCases = ['all', 'devcp-mixed-flat', 'evidence-tier-matrix'];
++const supportedCases = ['all', 'devcp-mixed-flat', 'evidence-tier-matrix', 'sediment'];
+ const failures = [];
+ let passed = 0;
+ 
+ if (!supportedCases.includes(requestedCase)) {
+-  console.error('Usage: assert-state-resolver.cjs --case all|devcp-mixed-flat|evidence-tier-matrix');
++  console.error('Usage: assert-state-resolver.cjs --case all|devcp-mixed-flat|evidence-tier-matrix|sediment');
+   process.exit(2);
+ }
+ 
+@@ -360,6 +360,95 @@ function runDevcpMixedFlat() {
+   });
+ }
+ 
++function runSediment() {
++  withFixture('sediment', ({ root, planning }) => {
++    const legacyLines = [];
++    for (let value = 1; value <= 30; value += 1) {
++      legacyLines.push(
++        `  legacy_${String(value).padStart(2, '0')}:`,
++        '    milestone: v2.2',
++        '    current_milestone: v2.2',
++        `    current_phase: ${value}`,
++      );
++    }
++    const giantProse = `historical sediment ${'x'.repeat(16384)}`;
++    const stateLines = [
++      '---',
++      'gsd_state_version: 1.0',
++      'milestone: v3.6-vtp-bridge',
++      `current_phase: ${JSON.stringify('153')}`,
++      'current_phase_name: Hook Transport Completion',
++      'current_phase_status: in-progress',
++      `legacy_activity: ${JSON.stringify(giantProse)}`,
++      'progress:',
++      ...legacyLines,
++      'roadmap_run:',
++      '  mode: operator-led',
++      '  scope: legacy closed milestone',
++      '  current_milestone: v2.2',
++      '  current_phase: complete',
++      '  current_phase_name: Legacy Closed Projection',
++      '  current_phase_status: ALL-PHASES-CLOSED',
++      '---',
++      '',
++      '---',
++      'milestone: v9.9',
++      'current_phase: v99-99',
++      '---',
++      '',
++    ];
++    writeFile(path.join(planning, 'STATE.md'), stateLines.join('\n'));
++
++    const current = roadmapPhase('153', 'hook-transport-completion');
++    const active = roadmapPhase('155', 'propagation-readiness');
++    writeFile(path.join(planning, 'ROADMAP.md'), [
++      '# Active v3.6 roadmap',
++      '',
++      '| Phase | Name | Status |',
++      '|---:|---|---|',
++      '| 153 | Hook Transport Completion | Complete |',
++      '| 155 | Propagation Readiness | Active |',
++      '',
++    ].join('\n'));
++    writePhase(planning, 'milestone', 'v3.6-vtp-bridge', current, {
++      contextForm: 'id', verification: 'PASS',
++    });
++    writePhase(planning, 'milestone', 'v3.6-vtp-bridge', active, {
++      contextForm: 'id',
++    });
++
++    const ghost = roadmapPhase('67', 'warp-doctor-probe-design');
++    writeRoadmap(planning, 'v2.2', [ghost]);
++    writePhase(planning, 'milestone', 'v2.2', ghost, { contextForm: 'id' });
++
++    assert('SEDIMENT fixture carries more than 100 legacy lines',
++      legacyLines.length > 100, `count=${legacyLines.length}`);
++    assert('SEDIMENT fixture carries a giant single-line prose value',
++      giantProse.length > 16000, `length=${giantProse.length}`);
++
++    const result = resolve(root);
++    assert('SEDIMENT reader returns top-level state values',
++      result._state_md
++        && result._state_md.milestone === 'v3.6-vtp-bridge'
++        && result._state_md.phase === '153'
++        && result._state_md.phase_name === 'Hook Transport Completion'
++        && result._state_md.phase_status === 'in-progress',
++      result._state_md ? JSON.stringify(result._state_md) : 'no projection');
++    assertResolution('SEDIMENT v-scheme truth', result, {
++      source: 'phase_folders',
++      milestone: 'v3.6-vtp-bridge',
++      phase: '155',
++    });
++    const stateConflict = result.conflicts && result.conflicts.find(
++      (conflict) => conflict.source_b === 'state_md');
++    assert('SEDIMENT conflict names true state values when present',
++      stateConflict
++        && stateConflict.milestone_b === 'v3.6-vtp-bridge'
++        && stateConflict.phase_b === '153',
++      stateConflict ? JSON.stringify(stateConflict) : 'no state conflict');
++  });
++}
++
+ function writeTierBase(planning) {
+   const phases = [
+     roadmapPhase('40', 'legacy-fallback'),
+@@ -522,6 +611,7 @@ if (requestedCase === 'all' || requestedCase === 'devcp-mixed-flat') runDevcpMix
+ if (requestedCase === 'all' || requestedCase === 'evidence-tier-matrix') {
+   runEvidenceTierMatrix();
+ }
++if (requestedCase === 'all' || requestedCase === 'sediment') runSediment();
+ 
+ if (failures.length > 0) {
+   for (const failure of failures) console.error(`FAIL ${failure}`);
+diff --git a/super-gsd/tools/state-resolver/resolve.cjs b/super-gsd/tools/state-resolver/resolve.cjs
+index 82757a7..b0606db 100644
+--- a/super-gsd/tools/state-resolver/resolve.cjs
++++ b/super-gsd/tools/state-resolver/resolve.cjs
+@@ -137,14 +137,15 @@ function _stripInlineComment(s) {
+   return t.replace(/\s+#.*$/, '').replace(/\s+$/, '');
+ }
+ 
+-function _countLeadingSpaces(s) {
++function _countIndent(s) {
+   var n = 0;
+-  while (n < s.length && s.charAt(n) === ' ') n++;
++  while (n < s.length && (s.charAt(n) === ' ' || s.charAt(n) === '\t')) n++;
+   return n;
+ }
+ 
+-// Mirror of the warp-mcp / cockpit-state frontmatter parser. Returns null
+-// on any failure. Never throws.
++// Minimal frontmatter reader for resolver fields. Only indentation-zero
++// keys and direct children of a real roadmap_run mapping are admitted.
++// Returns null on any failure. Never throws.
+ function _parseFrontmatter(filePath) {
+   try {
+     if (typeof filePath !== 'string' || filePath.length === 0) return null;
+@@ -161,31 +162,43 @@ function _parseFrontmatter(filePath) {
+     }
+     if (endIdx === -1) return null;
+     var out = {};
+-    var stack = [{ obj: out, indent: -1 }];
++    var roadmapRun = null;
++    var roadmapRunIndent = -1;
++    var roadmapRunChildIndent = -1;
+     for (var li = 1; li < endIdx; li++) {
+       var raw = lines[li];
+       if (typeof raw !== 'string') continue;
+       var trimmed = raw.replace(/^\s+|\s+$/g, '');
+       if (trimmed.length === 0) continue;
+       if (trimmed.charAt(0) === '#') continue;
+-      var indent = _countLeadingSpaces(raw);
+-      while (stack.length > 1 && indent <= stack[stack.length - 1].indent) {
+-        stack.pop();
+-      }
+-      var parent = stack[stack.length - 1].obj;
++      var indent = _countIndent(raw);
+       var colonIdx = trimmed.indexOf(':');
+       if (colonIdx === -1) continue;
+       var key = trimmed.slice(0, colonIdx).replace(/^\s+|\s+$/g, '');
+       var val = trimmed.slice(colonIdx + 1).replace(/^\s+|\s+$/g, '');
+       if (key.charAt(0) === '-') continue;
+       if (key.length === 0) continue;
+-      if (val.length === 0) {
+-        var child = {};
+-        parent[key] = child;
+-        stack.push({ obj: child, indent: indent });
+-      } else {
+-        parent[key] = _stripQuotes(_stripInlineComment(val));
++
++      if (indent === 0) {
++        roadmapRun = null;
++        roadmapRunIndent = -1;
++        roadmapRunChildIndent = -1;
++        if (val.length === 0) {
++          out[key] = {};
++          if (key === 'roadmap_run') {
++            roadmapRun = out[key];
++            roadmapRunIndent = indent;
++          }
++        } else {
++          out[key] = _stripQuotes(_stripInlineComment(val));
++        }
++        continue;
+       }
++
++      if (!roadmapRun || indent <= roadmapRunIndent) continue;
++      if (roadmapRunChildIndent === -1) roadmapRunChildIndent = indent;
++      if (indent !== roadmapRunChildIndent || val.length === 0) continue;
++      roadmapRun[key] = _stripQuotes(_stripInlineComment(val));
+     }
+     return out;
+   } catch (_e) {
+@@ -193,6 +206,40 @@ function _parseFrontmatter(filePath) {
+   }
+ }
+ 
++function _stateProjectionFromFrontmatter(fm) {
++  try {
++    if (!fm || typeof fm !== 'object') return null;
++    var rr = (fm.roadmap_run && typeof fm.roadmap_run === 'object')
++      ? fm.roadmap_run : {};
++    var rrPhase = _uniquePhaseCandidate([
++      (typeof rr.current_phase !== 'undefined') ? rr.current_phase : null,
++    ]);
++    // Treat roadmap_run current-state fields as one bundle. An invalid or
++    // absent phase cannot donate a stale milestone, name, or status.
++    var useRoadmapRun = rrPhase !== null;
++    var smMilestone = (useRoadmapRun
++      && typeof rr.current_milestone === 'string'
++      && rr.current_milestone.length > 0)
++      ? rr.current_milestone
++      : ((typeof fm.milestone === 'string') ? fm.milestone : null);
++    var smPhaseCandidate = useRoadmapRun
++      ? rrPhase
++      : _uniquePhaseCandidate([fm.current_phase]);
++    return {
++      milestone: smMilestone,
++      phase: smPhaseCandidate ? smPhaseCandidate.token : null,
++      phase_name: (useRoadmapRun && typeof rr.current_phase_name === 'string')
++        ? rr.current_phase_name
++        : (typeof fm.current_phase_name === 'string' ? fm.current_phase_name : null),
++      phase_status: (useRoadmapRun && typeof rr.current_phase_status === 'string')
++        ? rr.current_phase_status
++        : (typeof fm.current_phase_status === 'string' ? fm.current_phase_status : null),
++    };
++  } catch (_e) {
++    return null;
++  }
++}
++
+ // Read the LAST non-empty JSONL row from a file. Returns the parsed object
+ // (or null) plus the file's mtime in ms.
+ function _lastJsonlRow(filePath) {
+@@ -670,31 +717,7 @@ function resolveEffectiveState(opts) {
+     try {
+       var statePath = path.join(planningDir, 'STATE.md');
+       var fm = _parseFrontmatter(statePath);
+-      if (fm) {
+-        var rr = (fm.roadmap_run && typeof fm.roadmap_run === 'object')
+-          ? fm.roadmap_run : {};
+-        var smMilestone = (typeof rr.current_milestone === 'string'
+-          && rr.current_milestone.length > 0)
+-          ? rr.current_milestone
+-          : ((typeof fm.milestone === 'string') ? fm.milestone : null);
+-        var smPhaseCandidate = _uniquePhaseCandidate([
+-          (typeof rr.current_phase !== 'undefined')
+-            ? rr.current_phase : fm.current_phase,
+-        ]);
+-        var smPhase = smPhaseCandidate ? smPhaseCandidate.token : null;
+-        var smPhaseName = (typeof rr.current_phase_name === 'string')
+-          ? rr.current_phase_name
+-          : (typeof fm.current_phase_name === 'string' ? fm.current_phase_name : null);
+-        var smPhaseStatus = (typeof rr.current_phase_status === 'string')
+-          ? rr.current_phase_status
+-          : (typeof fm.current_phase_status === 'string' ? fm.current_phase_status : null);
+-        stateMd = {
+-          milestone: smMilestone,
+-          phase: smPhase,
+-          phase_name: smPhaseName,
+-          phase_status: smPhaseStatus,
+-        };
+-      }
++      if (fm) stateMd = _stateProjectionFromFrontmatter(fm);
+     } catch (_se) { stateMd = null; }
+ 
+     // -- Priority 1: ORCHESTRATOR-CHECKPOINT.md (mtime <2h) --
+?? super-gsd/hooks/gsd-session-state.sh
+?? super-gsd/scripts/lib/decision-state.cjs
+?? super-gsd/tests/propagation-readiness/assert-decision-state-consumers.cjs
