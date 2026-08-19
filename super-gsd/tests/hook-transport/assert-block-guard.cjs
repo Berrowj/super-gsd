@@ -10,7 +10,7 @@ const { spawnSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const GUARD_PATH = path.join(ROOT, 'super-gsd', 'tools', 'codex-hooks', 'block-secret-leak.cjs');
 const CODEX_HOOKS_PATH = path.join(ROOT, '.codex', 'hooks.json');
-const CLAUDE_OVERLAY_PATH = path.join(ROOT, 'super-gsd', 'config', 'claude-ups-overlay.json');
+const REPO_OVERLAY_PATH = path.join(ROOT, 'super-gsd', 'config', 'repo-settings-overlay.json');
 const LEDGER_PATH = path.join(ROOT, '.planning', 'metrics', 'codex-tool-events.jsonl');
 
 function snapshotLedger() {
@@ -143,7 +143,7 @@ function codexGuardPaths() {
 }
 
 function claudeGuardPaths() {
-  const document = readJson(CLAUDE_OVERLAY_PATH);
+  const document = readJson(REPO_OVERLAY_PATH);
   return (document.hooks?.UserPromptSubmit || [])
     .flatMap((entry) => Array.isArray(entry?.hooks) ? entry.hooks : [])
     .filter((hook) => hook?.command === 'node' && Array.isArray(hook.args) && hook.args.length > 0)
