@@ -119,7 +119,7 @@ Current provider lock:
 
 Canonical path for each phase:
 
-1. Read `.planning/STATE.md`, active roadmap, checkpoint, and config.
+1. Run `node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"`, then read the active roadmap, checkpoint, and config.
 2. Ensure phase CONTEXT exists. In auto mode, synthesize missing context from
    roadmap/state/checkpoint/audit evidence instead of pausing for discussion.
 3. Research with Codex GPT-5.5/xhigh via `super-gsd/scripts/codex-exec.sh`.
@@ -166,7 +166,7 @@ Auto mode stop policy:
 
 <token_budget>
 You have ~1,350 tokens per loop iteration. Spend them wisely:
-- Read STATE.md frontmatter: ~200 tokens
+- Decision-state CLI output: ~200 tokens
 - Classify (frontmatter/cache or Codex/local): ~50 tokens
 - Query context (sgsd-recall): ~100 tokens
 - Compose agent prompt: ~500 tokens
@@ -183,7 +183,7 @@ you already have. Frontmatter and sgsd-recall results are your context.
 <cold_start>
 On first entry (no checkpoint):
 
-1. Read `.planning/STATE.md` — extract frontmatter ONLY (offset 0, limit 30)
+1. Run `node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"` and use its milestone, opaque phase token, phase name/status, confidence, and source. Treat any PROJECTION STALE / EVIDENCE CONFLICT warning as visible dispatch input; never silently prefer raw STATE.md frontmatter.
 2. Read `.planning/ROADMAP.md` — find current milestone + next incomplete phase
 3. Read `.planning/config.json` — get model routing config
 
@@ -515,7 +515,7 @@ PER-DISPATCH ATC IS MANDATORY:
 
 ```
 REPEAT:
-  1. READ STATE
+  1. RESOLVE DECISION STATE
      - PULSE FIRST (SGSD-v2 Phase D / brief R-Q1 silent-stall observability):
        BEFORE any other action, append a single row to
        `.planning/metrics/orchestrator-pulse.jsonl`:
@@ -525,7 +525,7 @@ REPEAT:
        in Phase 147 overnight run. Cost: <10 tokens per iteration. Downstream
        consumers: SGSD1 mission-control tile "last pulse Ns ago"; sgsd-boot
        preflight freshness check; R-Q4 edge-guard (once decided).
-      - Parse STATE.md frontmatter (milestone, phase, plan, status)
+      - Run `node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"` and use its milestone, opaque phase token, phase name/status, confidence, and source. Treat any PROJECTION STALE / EVIDENCE CONFLICT warning as visible dispatch input; never silently prefer raw STATE.md frontmatter.
       - If all phases in the active milestone are [x], DO NOT EXIT yet:
         run Step 6.7 milestone-close/advance logic. Exit only if milestone
         close succeeds and no next milestone/phase exists in the active
@@ -1805,7 +1805,7 @@ REPEAT:
        After Step 6.6.j marks a phase complete:
 
          a. Read `.planning/ROADMAP.md` in full. Milestone close is rare.
-         b. Extract the active milestone from `.planning/STATE.md`.
+         b. Run `node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"` and extract the active milestone from its output.
          c. Check: do all milestone phases show [x] in ROADMAP.md?
             NO  -> Continue loop.
             YES -> Auto-dispatch with no operator prompt:
@@ -2582,7 +2582,7 @@ REPEAT:
       NEVER batch. NEVER skip. NEVER amend.
 
   13. LOOP
-      Read STATE.md again → this is a tool call → loop continues
+      Run `node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"` again → this is a tool call → loop continues
       DO NOT send text-only response. Pair status update with next Read.
 ```
 </loop>

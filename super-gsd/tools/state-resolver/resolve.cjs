@@ -19,8 +19,8 @@
 //   1. ORCHESTRATOR-CHECKPOINT.md   (mtime <2h)            confidence 0.95
 //   2. orchestrator-pulse.jsonl     (latest row <30min)    confidence 0.90
 //   3. activity-log.jsonl           (Task/dispatch <60min) confidence 0.80
-//   4. phase folders                (newest NN)            confidence 0.65-0.70
-//   5. git log                      (feat(pNN) commits)    confidence 0.60
+//   4. phase folders                (ROADMAP order)         confidence 0.65-0.70
+//   5. git log                      (feat(p<token>))        confidence 0.60
 //   6. STATE.md frontmatter         (legacy projection)    confidence 0.40
 //   7. none of above                                       ok=false
 //
@@ -59,6 +59,7 @@
 var fs = require('fs');
 var path = require('path');
 var child_process = require('child_process');
+var phase_name = require('../../scripts/lib/phase-name.cjs');
 
 var SCHEMA_VERSION = 1;
 
@@ -128,14 +129,23 @@ function _stripQuotes(s) {
   return t;
 }
 
-function _countLeadingSpaces(s) {
+function _stripInlineComment(s) {
+  if (typeof s !== 'string') return s;
+  var t = s.replace(/^\s+|\s+$/g, '');
+  var first = t.charCodeAt(0);
+  if (first === 34 || first === 39) return t;
+  return t.replace(/\s+#.*$/, '').replace(/\s+$/, '');
+}
+
+function _countIndent(s) {
   var n = 0;
-  while (n < s.length && s.charAt(n) === ' ') n++;
+  while (n < s.length && (s.charAt(n) === ' ' || s.charAt(n) === '\t')) n++;
   return n;
 }
 
-// Mirror of the warp-mcp / cockpit-state frontmatter parser. Returns null
-// on any failure. Never throws.
+// Minimal frontmatter reader for resolver fields. Only indentation-zero
+// keys and direct children of a real roadmap_run mapping are admitted.
+// Returns null on any failure. Never throws.
 function _parseFrontmatter(filePath) {
   try {
     if (typeof filePath !== 'string' || filePath.length === 0) return null;
@@ -152,33 +162,79 @@ function _parseFrontmatter(filePath) {
     }
     if (endIdx === -1) return null;
     var out = {};
-    var stack = [{ obj: out, indent: -1 }];
+    var roadmapRun = null;
+    var roadmapRunIndent = -1;
+    var roadmapRunChildIndent = -1;
     for (var li = 1; li < endIdx; li++) {
       var raw = lines[li];
       if (typeof raw !== 'string') continue;
       var trimmed = raw.replace(/^\s+|\s+$/g, '');
       if (trimmed.length === 0) continue;
       if (trimmed.charAt(0) === '#') continue;
-      var indent = _countLeadingSpaces(raw);
-      while (stack.length > 1 && indent <= stack[stack.length - 1].indent) {
-        stack.pop();
-      }
-      var parent = stack[stack.length - 1].obj;
+      var indent = _countIndent(raw);
       var colonIdx = trimmed.indexOf(':');
       if (colonIdx === -1) continue;
       var key = trimmed.slice(0, colonIdx).replace(/^\s+|\s+$/g, '');
       var val = trimmed.slice(colonIdx + 1).replace(/^\s+|\s+$/g, '');
       if (key.charAt(0) === '-') continue;
       if (key.length === 0) continue;
-      if (val.length === 0) {
-        var child = {};
-        parent[key] = child;
-        stack.push({ obj: child, indent: indent });
-      } else {
-        parent[key] = _stripQuotes(val);
+
+      if (indent === 0) {
+        roadmapRun = null;
+        roadmapRunIndent = -1;
+        roadmapRunChildIndent = -1;
+        if (val.length === 0) {
+          out[key] = {};
+          if (key === 'roadmap_run') {
+            roadmapRun = out[key];
+            roadmapRunIndent = indent;
+          }
+        } else {
+          out[key] = _stripQuotes(_stripInlineComment(val));
+        }
+        continue;
       }
+
+      if (!roadmapRun || indent <= roadmapRunIndent) continue;
+      if (roadmapRunChildIndent === -1) roadmapRunChildIndent = indent;
+      if (indent !== roadmapRunChildIndent || val.length === 0) continue;
+      roadmapRun[key] = _stripQuotes(_stripInlineComment(val));
     }
     return out;
+  } catch (_e) {
+    return null;
+  }
+}
+
+function _stateProjectionFromFrontmatter(fm) {
+  try {
+    if (!fm || typeof fm !== 'object') return null;
+    var rr = (fm.roadmap_run && typeof fm.roadmap_run === 'object')
+      ? fm.roadmap_run : {};
+    var rrPhase = _uniquePhaseCandidate([
+      (typeof rr.current_phase !== 'undefined') ? rr.current_phase : null,
+    ]);
+    // Treat roadmap_run current-state fields as one bundle. An invalid or
+    // absent phase cannot donate a stale milestone, name, or status.
+    var useRoadmapRun = rrPhase !== null;
+    var smMilestone = (useRoadmapRun
+      && typeof rr.current_milestone === 'string'
+      && rr.current_milestone.length > 0)
+      ? rr.current_milestone
+      : ((typeof fm.milestone === 'string') ? fm.milestone : null);
+    var smPhaseCandidate = useRoadmapRun
+      ? rrPhase
+      : _uniquePhaseCandidate([fm.current_phase]);
+    return {
+      milestone: smMilestone,
+      phase: smPhaseCandidate ? smPhaseCandidate.token : null,
+      phase_name: (useRoadmapRun && typeof rr.current_phase_name === 'string')
+        ? rr.current_phase_name
+        : (typeof fm.current_phase_name === 'string' ? fm.current_phase_name : null),
+      phase_status: (useRoadmapRun && typeof rr.current_phase_status === 'string')
+        ? rr.current_phase_status
+        : (typeof fm.current_phase_status === 'string' ? fm.current_phase_status : null),
+    };
   } catch (_e) {
     return null;
   }
@@ -244,27 +300,171 @@ function _tailJsonl(filePath, n) {
   } catch (_e) { return rows; }
 }
 
-function _phaseFolderName(phasesDir, phaseNum) {
+function _findPhaseFolder(planningDir, milestone, phaseToken) {
   try {
-    if (!fs.existsSync(phasesDir)) return null;
-    var entries = fs.readdirSync(phasesDir);
-    var pad2 = (String(phaseNum).length === 1) ? ('0' + phaseNum) : String(phaseNum);
-    for (var i = 0; i < entries.length; i++) {
-      var en = entries[i];
-      if (typeof en !== 'string') continue;
-      if (en.indexOf(pad2 + '-') === 0 || en.indexOf(String(phaseNum) + '-') === 0) {
-        return en;
-      }
+    return phase_name.findPhase(path.dirname(planningDir), String(phaseToken), {
+      planningDir: planningDir,
+      milestone: milestone,
+    });
+  } catch (_e) { return null; }
+}
+
+function _parsePhaseToken(value) {
+  try {
+    return phase_name.parsePhaseToken(value);
+  } catch (_e) { return null; }
+}
+
+function _samePhaseToken(left, right) {
+  try {
+    var leftParsed = (left && typeof left === 'object' && left.scheme)
+      ? left : _parsePhaseToken(left);
+    var rightParsed = (right && typeof right === 'object' && right.scheme)
+      ? right : _parsePhaseToken(right);
+    return Boolean(leftParsed && rightParsed
+      && phase_name.phaseTokensEqual(leftParsed, rightParsed));
+  } catch (_e) { return false; }
+}
+
+function _uniquePhaseCandidate(values) {
+  try {
+    var parsed = [];
+    for (var i = 0; i < values.length; i++) {
+      var value = values[i];
+      if (value === null || typeof value === 'undefined' || value === '') continue;
+      var candidate = _parsePhaseToken(value);
+      if (!candidate) return null;
+      if (!parsed.some(function (entry) {
+        return _samePhaseToken(entry, candidate);
+      })) parsed.push(candidate);
+    }
+    return parsed.length === 1 ? parsed[0] : null;
+  } catch (_e) { return null; }
+}
+
+function _readRoadmapOrder(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return [];
+    var content = fs.readFileSync(filePath, 'utf8');
+    return phase_name.parseRoadmapPhases(content);
+  } catch (_e) { return []; }
+}
+
+function _roadmapForMilestone(planningDir, milestone, allowRoot, expectedPhase) {
+  try {
+    if (typeof milestone === 'string' && milestone.length > 0) {
+      var milestoneOrder = _readRoadmapOrder(
+        path.join(planningDir, 'milestones', milestone, 'ROADMAP.md'));
+      if (milestoneOrder.length > 0) return milestoneOrder;
+    }
+    if (!allowRoot) return [];
+    var rootOrder = _readRoadmapOrder(path.join(planningDir, 'ROADMAP.md'));
+    if (rootOrder.length === 0) return [];
+    if (expectedPhase && !rootOrder.some(function (entry) {
+      return _samePhaseToken(entry, expectedPhase);
+    })) return [];
+    return rootOrder;
+  } catch (_e) { return []; }
+}
+
+function _milestoneVersion(name) {
+  try {
+    var match = /^v(\d+)\.(\d+)/.exec(String(name || ''));
+    if (!match) return null;
+    return {
+      major: parseInt(match[1], 10),
+      minor: parseInt(match[2], 10),
+    };
+  } catch (_e) { return null; }
+}
+
+function _compareMilestonesDescending(left, right) {
+  var leftVersion = _milestoneVersion(left);
+  var rightVersion = _milestoneVersion(right);
+  if (leftVersion && rightVersion) {
+    if (leftVersion.major !== rightVersion.major) {
+      return rightVersion.major - leftVersion.major;
+    }
+    if (leftVersion.minor !== rightVersion.minor) {
+      return rightVersion.minor - leftVersion.minor;
+    }
+  } else if (leftVersion) {
+    return -1;
+  } else if (rightVersion) {
+    return 1;
+  }
+  return left < right ? 1 : left > right ? -1 : 0;
+}
+
+function _milestoneCandidates(planningDir, preferredMilestone) {
+  var names = [];
+  try {
+    var milestonesDir = path.join(planningDir, 'milestones');
+    if (fs.existsSync(milestonesDir)) names = fs.readdirSync(milestonesDir);
+  } catch (_e) { names = []; }
+  names = names.filter(function (name) {
+    return typeof name === 'string' && name.length > 0;
+  });
+  names.sort(_compareMilestonesDescending);
+  if (typeof preferredMilestone === 'string' && preferredMilestone.length > 0) {
+    names = names.filter(function (name) { return name !== preferredMilestone; });
+    names.unshift(preferredMilestone);
+  }
+  return names;
+}
+
+function _locatePhase(planningDir, phaseToken, preferredMilestone) {
+  try {
+    var parsed = _parsePhaseToken(phaseToken);
+    if (!parsed) return null;
+    var candidates = _milestoneCandidates(planningDir, preferredMilestone);
+    for (var i = 0; i < candidates.length; i++) {
+      var milestone = candidates[i];
+      var folder = _findPhaseFolder(planningDir, milestone, parsed.token);
+      if (!folder) continue;
+      var explicitPreferred = milestone === preferredMilestone;
+      var roadmap = _roadmapForMilestone(
+        planningDir, milestone, explicitPreferred, parsed);
+      if (roadmap.length > 0 && !roadmap.some(function (entry) {
+        return _samePhaseToken(entry, parsed);
+      })) continue;
+      return {
+        milestone: milestone,
+        folder: folder,
+        phase_name: _phaseNameFromFolder(folder),
+      };
     }
     return null;
   } catch (_e) { return null; }
 }
 
-function _phaseNameFromFolder(folderName) {
+function _hasPhaseContext(phase) {
   try {
-    var m = String(folderName).match(/^\d+-(.+)$/);
-    if (!m) return null;
-    var slug = m[1];
+    if (!phase || typeof phase.dir !== 'string') return false;
+    var names = fs.readdirSync(phase.dir);
+    if (names.indexOf('CONTEXT.md') !== -1) return true;
+    for (var i = 0; i < names.length; i++) {
+      var name = names[i];
+      if (!/-CONTEXT\.md$/i.test(name)) continue;
+      var prefix = name.slice(0, -'-CONTEXT.md'.length);
+      var parsed = _parsePhaseToken(prefix);
+      if (parsed && _samePhaseToken(parsed, phase)) return true;
+    }
+    return false;
+  } catch (_e) { return false; }
+}
+
+function _isClosedStatus(status) {
+  if (typeof status !== 'string') return false;
+  return status.toUpperCase().indexOf('PASS') === 0;
+}
+
+function _phaseNameFromFolder(folder) {
+  try {
+    var parsed = (folder && typeof folder === 'object')
+      ? folder : phase_name.parsePhaseName(String(folder));
+    if (!parsed || !parsed.slug) return null;
+    var slug = parsed.slug;
     var words = slug.split('-');
     var titled = [];
     for (var i = 0; i < words.length; i++) {
@@ -276,11 +476,20 @@ function _phaseNameFromFolder(folderName) {
   } catch (_e) { return null; }
 }
 
-function _phaseStatusFromFolder(phaseDir, phaseNum) {
+function _phaseStatusFromFolder(phase) {
   try {
+    if (!phase || typeof phase.dir !== 'string') return null;
+    var phaseDir = phase.dir;
     if (!fs.existsSync(phaseDir)) return null;
-    var pad2 = (String(phaseNum).length === 1) ? ('0' + phaseNum) : String(phaseNum);
-    var verPath = path.join(phaseDir, pad2 + '-VERIFICATION.md');
+    var names = [phase.token + '-VERIFICATION.md'];
+    if (phase.scheme === 'integer' && phase.token.length === 1) {
+      names.unshift('0' + phase.token + '-VERIFICATION.md');
+    }
+    var verPath = null;
+    for (var i = 0; i < names.length; i++) {
+      var candidate = path.join(phaseDir, names[i]);
+      if (fs.existsSync(candidate)) { verPath = candidate; break; }
+    }
     if (!fs.existsSync(verPath)) return null;
     var fm = _parseFrontmatter(verPath);
     if (!fm) return null;
@@ -290,109 +499,161 @@ function _phaseStatusFromFolder(phaseDir, phaseNum) {
   } catch (_e) { return null; }
 }
 
-// Walk planning/milestones to find the highest-numbered milestone + the
-// highest-numbered phase folder under it. Returns
+function _phaseValue(phase) {
+  return phase && typeof phase.token === 'string' ? phase.token : null;
+}
+
+// Walk ROADMAP-ordered phases for the active milestone. Returns
 // { milestone, phase, phase_name, phase_status, phase_dir } or null.
-function _scanPhaseFolders(planningDir) {
+function _scanPhaseFolders(planningDir, preferredMilestone, preferredPhase) {
   try {
-    var milestonesDir = path.join(planningDir, 'milestones');
-    if (!fs.existsSync(milestonesDir)) return null;
-    var milestoneEntries = fs.readdirSync(milestonesDir);
-    var milestoneVersions = [];
-    for (var i = 0; i < milestoneEntries.length; i++) {
-      var me = milestoneEntries[i];
-      if (typeof me !== 'string') continue;
-      // Match v{major}.{minor}, treat (major*1000+minor) as sort key.
-      var mm = me.match(/^v(\d+)\.(\d+)$/);
-      if (!mm) continue;
-      var major = parseInt(mm[1], 10);
-      var minor = parseInt(mm[2], 10);
-      if (isNaN(major) || isNaN(minor)) continue;
-      milestoneVersions.push({
-        name: me,
-        sortKey: major * 1000 + minor,
+    var candidates = _milestoneCandidates(planningDir, preferredMilestone);
+    if (candidates.length === 0 && preferredMilestone) candidates.push(preferredMilestone);
+    var preferredRoadmap = _roadmapForMilestone(
+      planningDir, preferredMilestone, true, preferredPhase);
+
+    var orderedCandidates = [];
+    if (preferredRoadmap.length > 0
+        && !fs.existsSync(path.join(
+          planningDir, 'milestones', preferredMilestone, 'ROADMAP.md'))) {
+      orderedCandidates = [preferredMilestone];
+    } else {
+      orderedCandidates = candidates.filter(function (milestone) {
+        return fs.existsSync(path.join(
+          planningDir, 'milestones', milestone, 'ROADMAP.md'));
       });
+      orderedCandidates.sort(_compareMilestonesDescending);
+      if (preferredMilestone && preferredRoadmap.length === 0) {
+        if (orderedCandidates.length === 0
+            || (orderedCandidates[0] !== preferredMilestone
+              && _compareMilestonesDescending(
+                orderedCandidates[0], preferredMilestone) >= 0)) return null;
+      }
     }
-    if (milestoneVersions.length === 0) return null;
-    milestoneVersions.sort(function (a, b) { return b.sortKey - a.sortKey; });
-    // Highest milestone first; walk down until we find one with phases.
-    for (var mi = 0; mi < milestoneVersions.length; mi++) {
-      var milestone = milestoneVersions[mi].name;
-      var phasesDir = path.join(milestonesDir, milestone, 'phases');
-      if (!fs.existsSync(phasesDir)) continue;
-      var phaseEntries = [];
-      try { phaseEntries = fs.readdirSync(phasesDir); } catch (_re) { continue; }
-      var phases = [];
-      for (var pi = 0; pi < phaseEntries.length; pi++) {
-        var pe = phaseEntries[pi];
-        if (typeof pe !== 'string') continue;
-        var pm = pe.match(/^(\d+)-/);
-        if (!pm) continue;
-        var num = parseInt(pm[1], 10);
-        if (isNaN(num)) continue;
-        phases.push({ name: pe, num: num });
-      }
-      if (phases.length === 0) continue;
-      phases.sort(function (a, b) { return b.num - a.num; });
-      var highest = phases[0];
-      var highestDir = path.join(phasesDir, highest.name);
-      var highestStatus = _phaseStatusFromFolder(highestDir, highest.num);
-      // If highest is closed (PASS or PASS-WITH-DEFERRED-N), check for a
-      // next-numbered phase candidate with CONTEXT.md but no
-      // VERIFICATION.md -- that is the new active phase.
-      var isClosed = false;
-      if (typeof highestStatus === 'string') {
-        var s = highestStatus.toUpperCase();
-        if (s.indexOf('PASS') === 0) isClosed = true;
-      }
-      if (isClosed) {
-        var nextNum = highest.num + 1;
-        var nextFolder = _phaseFolderName(phasesDir, nextNum);
-        if (nextFolder) {
-          var nextDir = path.join(phasesDir, nextFolder);
-          var nextStatus = _phaseStatusFromFolder(nextDir, nextNum);
-          // Confirm CONTEXT.md exists (phase has scope). VERIFICATION
-          // absent or in-progress means active.
-          var pad2 = (String(nextNum).length === 1) ? ('0' + nextNum) : String(nextNum);
-          var ctxPath = path.join(nextDir, pad2 + '-CONTEXT.md');
-          if (fs.existsSync(ctxPath)) {
-            return {
-              milestone: milestone,
-              phase: String(nextNum),
-              phase_name: _phaseNameFromFolder(nextFolder),
-              phase_status: (typeof nextStatus === 'string') ? nextStatus : 'in-progress',
-              phase_dir: nextDir,
-              from_next_after_close: true,
-            };
-          }
-        }
-        // No next phase scoped -- highest is the last one, and it's closed.
+
+    for (var mi = 0; mi < orderedCandidates.length; mi++) {
+      var milestone = orderedCandidates[mi];
+      var roadmap = milestone === preferredMilestone
+        ? preferredRoadmap
+        : _roadmapForMilestone(planningDir, milestone, false, null);
+      var phases = phase_name.discoverPhases(path.dirname(planningDir), {
+        planningDir: planningDir,
+        milestone: milestone,
+      });
+      if (phase_name.isDiscoveryError(phases) || phases.length === 0) continue;
+      var ordered = roadmap.length > 0
+        ? phase_name.orderPhasesByRoadmap(phases, roadmap) : [];
+      var roadmapComplete = ordered.length === phases.length && ordered.length > 0;
+      if (!roadmapComplete) {
+        var discoveredOrder = phases.slice().sort(phase_name.comparePhases);
+        var newest = discoveredOrder[discoveredOrder.length - 1];
+        var newestStatus = _phaseStatusFromFolder(newest);
         return {
           milestone: milestone,
-          phase: String(highest.num),
-          phase_name: _phaseNameFromFolder(highest.name),
-          phase_status: highestStatus,
-          phase_dir: highestDir,
+          phase: _phaseValue(newest),
+          phase_name: _phaseNameFromFolder(newest),
+          phase_status: (typeof newestStatus === 'string') ? newestStatus : 'in-progress',
+          phase_dir: newest.dir,
           from_next_after_close: false,
         };
       }
+
+      var active = null;
+      var activeStatus = null;
+      var fromNextAfterClose = false;
+      var statuses = [];
+      var lastClosedIndex = -1;
+      for (var pi = 0; pi < ordered.length; pi++) {
+        statuses.push(_phaseStatusFromFolder(ordered[pi]));
+        if (_isClosedStatus(statuses[pi])) lastClosedIndex = pi;
+      }
+      if (lastClosedIndex >= 0) {
+        active = ordered[lastClosedIndex];
+        activeStatus = statuses[lastClosedIndex];
+        var closedRoadmapIndex = -1;
+        for (var ri = 0; ri < roadmap.length; ri++) {
+          if (_samePhaseToken(roadmap[ri], active)) {
+            closedRoadmapIndex = ri;
+            break;
+          }
+        }
+        if (closedRoadmapIndex >= 0 && closedRoadmapIndex + 1 < roadmap.length) {
+          var immediate = phases.filter(function (phase) {
+            return _samePhaseToken(phase, roadmap[closedRoadmapIndex + 1]);
+          });
+          if (immediate.length === 1) {
+            var immediateStatus = _phaseStatusFromFolder(immediate[0]);
+            if (!_isClosedStatus(immediateStatus) && _hasPhaseContext(immediate[0])) {
+              active = immediate[0];
+              activeStatus = immediateStatus;
+              fromNextAfterClose = true;
+            }
+          }
+        }
+      } else {
+        for (var ai = 0; ai < ordered.length; ai++) {
+          if (!_isClosedStatus(statuses[ai]) && _hasPhaseContext(ordered[ai])) {
+            active = ordered[ai];
+            activeStatus = statuses[ai];
+          }
+        }
+      }
+      if (!active) continue;
       return {
         milestone: milestone,
-        phase: String(highest.num),
-        phase_name: _phaseNameFromFolder(highest.name),
-        phase_status: (typeof highestStatus === 'string') ? highestStatus : 'in-progress',
-        phase_dir: highestDir,
-        from_next_after_close: false,
+        phase: _phaseValue(active),
+        phase_name: _phaseNameFromFolder(active),
+        phase_status: (typeof activeStatus === 'string') ? activeStatus : 'in-progress',
+        phase_dir: active.dir,
+        from_next_after_close: fromNextAfterClose,
       };
     }
     return null;
   } catch (_e) { return null; }
 }
 
-// Run `git log --oneline -50` against projectDir; scan messages for
-// feat(pNN-..) or feat(pNN.. patterns; return the highest NN and
-// matching milestone (looked up via phase folders).
-function _scanGitLog(projectDir, planningDir) {
+function _activityCandidate(probe) {
+  try {
+    if (typeof probe !== 'string' || probe.length === 0) return null;
+    var candidates = [];
+    var ambiguous = false;
+    function add(parsed, milestone) {
+      if (!parsed) return;
+      var existing = candidates.find(function (candidate) {
+        return _samePhaseToken(candidate.phase, parsed);
+      });
+      if (existing) {
+        if (existing.milestone && milestone
+            && existing.milestone !== milestone) ambiguous = true;
+        if (!existing.milestone && milestone) existing.milestone = milestone;
+        return;
+      }
+      candidates.push({ phase: parsed, milestone: milestone || null });
+    }
+
+    var pathPattern = /\.planning[\\\/]((?:milestones[\\\/]([^\\\/\s]+)[\\\/])?)phases[\\\/]([^\\\/\s]+)/ig;
+    var pathMatch = null;
+    while ((pathMatch = pathPattern.exec(probe)) !== null) {
+      add(phase_name.parsePhaseName(pathMatch[3]), pathMatch[2] || null);
+    }
+
+    var markerPattern = /\bP([A-Za-z0-9._-]+)/g;
+    var markerMatch = null;
+    while ((markerMatch = markerPattern.exec(probe)) !== null) {
+      var marker = _parsePhaseToken(markerMatch[1]);
+      if (marker) {
+        add(marker, null);
+      } else if (phase_name.parsePhaseName(markerMatch[1])) {
+        return null;
+      }
+    }
+    return !ambiguous && candidates.length === 1 ? candidates[0] : null;
+  } catch (_e) { return null; }
+}
+
+// Run `git log --oneline -50` against projectDir; use the newest exact
+// feat(p<opaque-token>) marker and look up its milestone via phase folders.
+function _scanGitLog(projectDir, planningDir, preferredMilestone) {
   try {
     if (typeof projectDir !== 'string' || projectDir.length === 0) return null;
     var out = '';
@@ -403,40 +664,33 @@ function _scanGitLog(projectDir, planningDir) {
     } catch (_ge) { return null; }
     if (typeof out !== 'string' || out.length === 0) return null;
     var lines = out.split(/\r?\n/);
-    var highestNum = -1;
     for (var i = 0; i < lines.length; i++) {
       var ln = lines[i];
       if (typeof ln !== 'string') continue;
-      var m = ln.match(/feat\(p(\d+)/i);
-      if (m) {
-        var n = parseInt(m[1], 10);
-        if (!isNaN(n) && n > highestNum) highestNum = n;
+      var markerPattern = /feat\(p([^)]+)\)/ig;
+      var parsedCandidates = [];
+      var marker = null;
+      while ((marker = markerPattern.exec(ln)) !== null) {
+        var parsedPhase = _parsePhaseToken(marker[1]);
+        if (parsedPhase) {
+          if (!parsedCandidates.some(function (candidate) {
+            return _samePhaseToken(candidate, parsedPhase);
+          })) parsedCandidates.push(parsedPhase);
+        } else if (phase_name.parsePhaseName(marker[1])) {
+          return null;
+        }
       }
+      if (parsedCandidates.length > 1) return null;
+      if (parsedCandidates.length === 0) continue;
+      var selected = parsedCandidates[0];
+      var located = _locatePhase(planningDir, selected.token, preferredMilestone);
+      return {
+        milestone: located ? located.milestone : null,
+        phase: selected.token,
+        phase_name: located ? located.phase_name : null,
+      };
     }
-    if (highestNum === -1) return null;
-    // Look up milestone by checking phase folders.
-    var milestonesDir = path.join(planningDir, 'milestones');
-    if (!fs.existsSync(milestonesDir)) return null;
-    var milestoneEntries = fs.readdirSync(milestonesDir);
-    for (var j = 0; j < milestoneEntries.length; j++) {
-      var me = milestoneEntries[j];
-      if (typeof me !== 'string') continue;
-      var phasesDir = path.join(milestonesDir, me, 'phases');
-      var folder = _phaseFolderName(phasesDir, highestNum);
-      if (folder) {
-        return {
-          milestone: me,
-          phase: String(highestNum),
-          phase_name: _phaseNameFromFolder(folder),
-        };
-      }
-    }
-    // Found commit but no folder -- return phase number alone.
-    return {
-      milestone: null,
-      phase: String(highestNum),
-      phase_name: null,
-    };
+    return null;
   } catch (_e) { return null; }
 }
 
@@ -463,27 +717,7 @@ function resolveEffectiveState(opts) {
     try {
       var statePath = path.join(planningDir, 'STATE.md');
       var fm = _parseFrontmatter(statePath);
-      if (fm) {
-        var rr = (fm.roadmap_run && typeof fm.roadmap_run === 'object')
-          ? fm.roadmap_run : {};
-        var smMilestone = (typeof rr.current_milestone === 'string'
-          && rr.current_milestone.length > 0)
-          ? rr.current_milestone
-          : ((typeof fm.milestone === 'string') ? fm.milestone : null);
-        var smPhase = (typeof rr.current_phase === 'string'
-          && rr.current_phase.length > 0)
-          ? rr.current_phase : null;
-        var smPhaseName = (typeof rr.current_phase_name === 'string')
-          ? rr.current_phase_name : null;
-        var smPhaseStatus = (typeof rr.current_phase_status === 'string')
-          ? rr.current_phase_status : null;
-        stateMd = {
-          milestone: smMilestone,
-          phase: smPhase,
-          phase_name: smPhaseName,
-          phase_status: smPhaseStatus,
-        };
-      }
+      if (fm) stateMd = _stateProjectionFromFrontmatter(fm);
     } catch (_se) { stateMd = null; }
 
     // -- Priority 1: ORCHESTRATOR-CHECKPOINT.md (mtime <2h) --
@@ -498,13 +732,14 @@ function resolveEffectiveState(opts) {
           if (ckpFm) {
             var ckpMilestone = (typeof ckpFm.milestone === 'string')
               ? ckpFm.milestone : null;
-            var ckpPhase = (typeof ckpFm.current_phase === 'string')
-              ? ckpFm.current_phase
-              : (typeof ckpFm.phase === 'string') ? ckpFm.phase : null;
+            var ckpPhase = _uniquePhaseCandidate([
+              ckpFm.current_phase,
+              ckpFm.phase,
+            ]);
             if (ckpPhase) {
               resolved = {
                 milestone: ckpMilestone,
-                phase: String(ckpPhase),
+                phase: ckpPhase.token,
                 phase_name: (typeof ckpFm.current_phase_name === 'string')
                   ? ckpFm.current_phase_name : null,
                 phase_status: (typeof ckpFm.current_phase_status === 'string')
@@ -532,46 +767,16 @@ function resolveEffectiveState(opts) {
           var pulseAgeMs = (rowTs !== null) ? (nowMs - rowTs)
             : (lastPulse.mtimeMs !== null ? (nowMs - lastPulse.mtimeMs) : null);
           if (pulseAgeMs !== null && pulseAgeMs < 30 * 60 * 1000) {
-            // Phase number can be int or string in pulse rows.
-            var pulsePhase = lastPulse.row.phase;
-            if (typeof pulsePhase === 'number') pulsePhase = String(pulsePhase);
-            if (typeof pulsePhase === 'string' && pulsePhase.length > 0) {
-              // Milestone is not in pulse rows -- look up via phase folders.
-              var resolvedMilestone = null;
-              var resolvedPhaseName = null;
-              try {
-                var milestonesDir = path.join(planningDir, 'milestones');
-                if (fs.existsSync(milestonesDir)) {
-                  var msEntries = fs.readdirSync(milestonesDir);
-                  // Search highest version first.
-                  var versionsForPulse = [];
-                  for (var pi = 0; pi < msEntries.length; pi++) {
-                    var msE = msEntries[pi];
-                    if (typeof msE !== 'string') continue;
-                    var msMm = msE.match(/^v(\d+)\.(\d+)$/);
-                    if (!msMm) continue;
-                    versionsForPulse.push({
-                      name: msE,
-                      sortKey: parseInt(msMm[1], 10) * 1000 + parseInt(msMm[2], 10),
-                    });
-                  }
-                  versionsForPulse.sort(function (a, b) { return b.sortKey - a.sortKey; });
-                  for (var vp = 0; vp < versionsForPulse.length; vp++) {
-                    var vName = versionsForPulse[vp].name;
-                    var phasesDirForPulse = path.join(milestonesDir, vName, 'phases');
-                    var folderForPulse = _phaseFolderName(phasesDirForPulse, pulsePhase);
-                    if (folderForPulse) {
-                      resolvedMilestone = vName;
-                      resolvedPhaseName = _phaseNameFromFolder(folderForPulse);
-                      break;
-                    }
-                  }
-                }
-              } catch (_lme) { /* leave nulls */ }
+            var pulsePhase = _uniquePhaseCandidate([lastPulse.row.phase]);
+            if (pulsePhase) {
+              var pulseMilestone = typeof lastPulse.row.milestone === 'string'
+                ? lastPulse.row.milestone : null;
+              var pulseLocated = _locatePhase(
+                planningDir, pulsePhase.token, pulseMilestone || (stateMd && stateMd.milestone));
               resolved = {
-                milestone: resolvedMilestone,
-                phase: pulsePhase,
-                phase_name: resolvedPhaseName,
+                milestone: pulseMilestone || (pulseLocated ? pulseLocated.milestone : null),
+                phase: pulsePhase.token,
+                phase_name: pulseLocated ? pulseLocated.phase_name : null,
                 phase_status: 'in-progress',
                 source: 'pulse',
                 confidence: 0.90,
@@ -599,30 +804,15 @@ function resolveEffectiveState(opts) {
           var probe = '';
           if (typeof arow.target === 'string') probe += arow.target + ' ';
           if (typeof arow.command_preview === 'string') probe += arow.command_preview + ' ';
-          var pathMatch = probe.match(/\.planning[\\\/]milestones[\\\/](v\d+(?:\.\d+)?)[\\\/]phases[\\\/](\d+)-/i);
-          if (pathMatch) {
-            foundMilestone = pathMatch[1];
-            foundPhase = pathMatch[2];
-            break;
-          }
-          var phaseMatch = probe.match(/\bP(\d{2,3})\b/);
-          if (phaseMatch) {
-            foundPhase = phaseMatch[1];
-            // Try to look up milestone via phase folders.
-            try {
-              var msDir = path.join(planningDir, 'milestones');
-              if (fs.existsSync(msDir)) {
-                var msNames = fs.readdirSync(msDir);
-                for (var msi = 0; msi < msNames.length; msi++) {
-                  var msNm = msNames[msi];
-                  if (typeof msNm !== 'string') continue;
-                  if (!/^v\d+\.\d+$/.test(msNm)) continue;
-                  var pdir = path.join(msDir, msNm, 'phases');
-                  var fld = _phaseFolderName(pdir, parseInt(foundPhase, 10));
-                  if (fld) { foundMilestone = msNm; break; }
-                }
-              }
-            } catch (_le) { /* leave milestone null */ }
+          var activity = _activityCandidate(probe);
+          if (activity) {
+            foundPhase = activity.phase.token;
+            foundMilestone = activity.milestone;
+            var activityLocated = _locatePhase(
+              planningDir, foundPhase, foundMilestone || (stateMd && stateMd.milestone));
+            if (!foundMilestone && activityLocated) {
+              foundMilestone = activityLocated.milestone;
+            }
             break;
           }
         }
@@ -630,9 +820,8 @@ function resolveEffectiveState(opts) {
           // Look up phase name via folder if milestone present.
           var actPhaseName = null;
           if (foundMilestone) {
-            var actPhasesDir = path.join(planningDir, 'milestones', foundMilestone, 'phases');
-            var actFolder = _phaseFolderName(actPhasesDir, parseInt(foundPhase, 10));
-            if (actFolder) actPhaseName = _phaseNameFromFolder(actFolder);
+            var actLocated = _locatePhase(planningDir, foundPhase, foundMilestone);
+            if (actLocated) actPhaseName = actLocated.phase_name;
           }
           resolved = {
             milestone: foundMilestone,
@@ -646,10 +835,13 @@ function resolveEffectiveState(opts) {
       } catch (_ae) { /* drop to next priority */ }
     }
 
-    // -- Priority 4: phase folders (newest NN) --
+    // -- Priority 4: phase folders (active ROADMAP order) --
     if (!resolved) {
       try {
-        var pf = _scanPhaseFolders(planningDir);
+        var pf = _scanPhaseFolders(
+          planningDir,
+          stateMd && stateMd.milestone,
+          stateMd && stateMd.phase);
         if (pf) {
           resolved = {
             milestone: pf.milestone,
@@ -663,10 +855,10 @@ function resolveEffectiveState(opts) {
       } catch (_pfe) { /* drop to next priority */ }
     }
 
-    // -- Priority 5: git log feat(pNN..) --
+    // -- Priority 5: git log feat(p<opaque-token>) --
     if (!resolved) {
       try {
-        var g = _scanGitLog(projectDir, planningDir);
+        var g = _scanGitLog(projectDir, planningDir, stateMd && stateMd.milestone);
         if (g && g.phase) {
           resolved = {
             milestone: g.milestone,
@@ -812,6 +1004,7 @@ function _writeSyntheticTree(rootDir, opts) {
       'utf8');
   }
   if (opts.phases) {
+    var roadmapRows = {};
     for (var mi = 0; mi < opts.phases.length; mi++) {
       var p = opts.phases[mi];
       var msDir = path.join(pl, 'milestones', p.milestone, 'phases');
@@ -828,6 +1021,18 @@ function _writeSyntheticTree(rootDir, opts) {
         fs.writeFileSync(path.join(phaseDir, pad2 + '-VERIFICATION.md'),
           '---\nphase: ' + p.num + '\nstatus: ' + p.verification + '\n---\n', 'utf8');
       }
+      if (!roadmapRows[p.milestone]) roadmapRows[p.milestone] = [];
+      roadmapRows[p.milestone].push('| ' + p.num + ' | '
+        + (p.slug || 'synthetic') + ' | Planned |');
+    }
+    var roadmapMilestones = Object.keys(roadmapRows);
+    for (var rmi = 0; rmi < roadmapMilestones.length; rmi++) {
+      var roadmapMilestone = roadmapMilestones[rmi];
+      fs.writeFileSync(
+        path.join(pl, 'milestones', roadmapMilestone, 'ROADMAP.md'),
+        '| Phase | Name | Status |\n|---:|---|---|\n'
+          + roadmapRows[roadmapMilestone].join('\n') + '\n',
+        'utf8');
     }
   }
   return pl;
@@ -1059,11 +1264,15 @@ function selfTest() {
     var livePlanning = path.join(liveProject, '.planning');
     if (fs.existsSync(livePlanning)) {
       var rLive = resolveEffectiveState({ projectDir: liveProject });
-      // Acceptance: resolver must not be source state_md_legacy on this
-      // checkout (something fresher should win).
-      var liveOk = rLive.ok === true
-        && rLive.source !== 'state_md_legacy';
-      assert('A12_live_repo_not_state_md_legacy', liveOk,
+      // The checkout may intentionally have no active ROADMAP while a
+      // milestone is being scoped. That must degrade to a valid tier,
+      // never invent folder order.
+      var liveOk = (rLive.ok === true
+          && RESOLVER_SOURCES.indexOf(rLive.source) !== -1)
+        || (rLive.ok === false
+          && rLive.source === null
+          && rLive.error_code === 'no_evidence_found');
+      assert('A12_live_repo_graceful_without_active_roadmap', liveOk,
         'ok=' + rLive.ok + ' src=' + rLive.source
         + ' ms=' + rLive.milestone + ' ph=' + rLive.phase);
     } else {
@@ -1151,7 +1360,7 @@ function _runCli(argv) {
   // mode === 'json'
   var env = resolveEffectiveState({ projectDir: projectDir || process.cwd() });
   process.stdout.write(JSON.stringify(env, null, 2) + '\n');
-  return env.ok ? 0 : 2;
+  return env.ok || env.error_code === 'no_evidence_found' ? 0 : 2;
 }
 
 if (require.main === module) {

@@ -92,7 +92,7 @@ State lives in `.planning/`. Memory lives in project-local `.planning/memory/`.
 ### On Every New Session — DO THIS FIRST
 
 1. **Check for checkpoint:** `Read .planning/ORCHESTRATOR-CHECKPOINT.md` — if found, resume from `next_unit`. Don't ask, just go.
-2. **Read state:** `Read .planning/STATE.md` (frontmatter only, offset 0, limit 30) — active milestone, phase, progress.
+2. **Resolve effective state:** Run `node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"` — use its milestone, opaque phase, status, confidence, source, and any conflict warning.
 3. **Cascade read (DLB-03):** Before planning any phase, read `.planning/PROJECT.md` core-value + `.planning/milestones/{active_milestone}/INTENT.md` + last completed phase `SUMMARY.md`. For the first phase of a milestone, INTENT.md alone. This is mandatory — skipped cascade = phase drift.
 4. **Check memory:** `sgsd-recall "session start current state"` — pull relevant context.
 5. If user says "go" / "auto" / "continue" / "run" → enter auto mode immediately. No confirmation.
@@ -103,7 +103,7 @@ State lives in `.planning/`. Memory lives in project-local `.planning/memory/`.
 |-----------|--------|
 | "go" / "auto" / "run" / "continue" | **Enter AUTO MODE** — start the loop, no questions |
 | "next" | Execute ONE unit, then stop and report |
-| "status" / "where are we?" | Read STATE.md frontmatter, report position |
+| "status" / "where are we?" | Run `node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"`; report the resolved position and any conflict |
 | "stop" / "pause" | Write checkpoint, stop looping |
 | "deliberate" | Run /sgsd-deliberate for strategic decision |
 | "audit tokens" | Run /sgsd-token-audit --quick |
@@ -143,8 +143,8 @@ Claude Code gives you another turn as long as every response includes a tool cal
 
 ```
 repeat {
-  // 1. READ STATE (~200 tokens)
-  Read .planning/STATE.md frontmatter
+  // 1. RESOLVE EFFECTIVE STATE (~200 tokens)
+  node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"
 
   // 2. CLASSIFY (~50 tokens)
   Derive classifier result from plan frontmatter/cache or run Codex/local check
@@ -181,7 +181,7 @@ repeat {
   git commit -m "feat({phase}-{plan}): {ONE_LINER}"
 
   // 11. LOOP
-  Read STATE.md → tool call → loop continues
+  node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD" → tool call → loop continues
 }
 ```
 
@@ -189,7 +189,7 @@ repeat {
 
 **ALWAYS chain the next action as a tool call.**
 - WRONG: "Phase 27 complete!" (text-only → loop dies)
-- RIGHT: "Phase 27 complete" + `[Read .planning/STATE.md]` (loop continues)
+- RIGHT: "Phase 27 complete" + `[node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"]` (loop continues)
 
 ### Exit Conditions (ONLY these 3)
 
@@ -305,7 +305,7 @@ direct Codex, Codex read-pack patch mode, and board+Codex recovery have failed:
 
 ### Token Efficiency Rules
 
-- Read STATE.md **frontmatter only** (offset 0, limit 30) — not full file
+- Run `node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"` once per state check — do not read raw STATE.md as authority
 - Query SGSD memory instead of loading full .md files
 - Sub-agent reports: 300 words max
 - Plans: compressed XML (~800 tokens, not ~2,000)
@@ -337,3 +337,66 @@ contract.
 
 Revisit BM25 ranking infrastructure only at the 40-file tripwire (see
 DLB-01). Until then, grep + INDEX.md curation discipline is sufficient.
+
+<!-- SGSD:COMMUNICATION-PROTOCOL:START -->
+<!-- Managed section. Repo-scoped ONLY.
+     The global communication prompt lives in ~/.claude/CLAUDE.md (revision 2026-08-18.4) and is
+     NOT duplicated here. Board decision DLB-prompt-01 (2026-08-18) relocated the Recap rule out
+     of the global prompt because it sources .planning/ files that do not exist on every machine.
+     Canonical source of the block below:
+       C:/Users/jack.berrow/Voice-Text-Plan/docs/prompts/CLAUDE-recap-repo-scoped.md
+     Edit super-gsd/CLAUDE-OVERLAY.md, then run /sgsd-overlay-refresh. Do not hand-edit copies. -->
+
+# Closing Recap, a repo-scoped rule
+
+Applies only in repos containing `.planning/`. Relocated out of the global communication prompt by
+board decision DLB-prompt-01 (2026-08-18), because it sources project files that do not exist on
+every machine the global prompt runs on.
+
+Companion to `docs/prompts/CLAUDE-communication-prompt.md`. Evidence in
+`docs/prompts/claude-md-communication-prompt-enrichment.md`.
+
+### 5. [LOCAL] Closing Recap
+
+End every response with a `## Recap` block. It is the last thing written, so it is the first
+thing read.
+
+The block states where the work stands and what happens next, one line per field, in this order:
+
+```markdown
+## Recap
+- **Milestone:** <id and title, or "none, ad-hoc work">
+- **Phase:** <id and title, or "n/a">
+- **Stage:** <where in the workflow: discussed / planned / executing / verifying / closed>
+- **Why:** <the reason this work exists, in one clause>
+- **Building:** <what is actually being produced>
+- **Next:** <the single next action>
+```
+
+Rules:
+
+- Source the values from `.planning/STATE.md` frontmatter, the active milestone `INTENT.md`
+  and `ROADMAP.md`. Do not invent them.
+- If a field is unknown, write `unknown` rather than guessing. If the repo has no
+  `.planning/`, write `none, ad-hoc work` for Milestone and `n/a` for Phase, and still fill
+  the other four.
+- If the sources disagree, for example `STATE.md` and the governance hook reporting different
+  phases, name both rather than picking the more convenient one.
+- **Why** is the business or engineering reason, not a restatement of the task. Prefer the
+  milestone's core value or core invariant.
+- **Next** is one action, with an owner and a trigger. Write `none` when the work is closed and no
+  authorised action remains. Never invent an action to fill the field.
+- Keep the block to six field lines under the heading. It is a status header, not a summary of the
+  response.
+- The recap never replaces answering the question. Answer first, recap last.
+
+## [LOCAL] Source-conflict guard
+
+`.planning/STATE.md` is known to contradict itself and to go stale: on 2026-08-18 its
+`active_phase` frontmatter and its `Current focus` prose disagreed, and `last_updated` was five
+days old. Section 3's rule to name both sources when they disagree applies here. If STATE.md is
+internally inconsistent, say so once in the Recap line affected and give both values. Do not
+silently pick the more convenient one, and do not repeat the conflict notice on later turns in the
+same session once it has been stated.
+
+<!-- SGSD:COMMUNICATION-PROTOCOL:END -->

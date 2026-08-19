@@ -1,0 +1,5 @@
+super-gsd/scripts/lib/decision-state.cjs
+super-gsd/skills/sgsd-orchestrate/SKILL.md
+super-gsd/hooks/gsd-session-state.sh
+super-gsd/install.sh
+super-gsd/tests/propagation-readiness/assert-decision-state-consumers.cjs

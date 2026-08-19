@@ -433,3 +433,66 @@ contract.
 
 Revisit BM25 ranking infrastructure only at the 40-file tripwire. Until then,
 grep + INDEX.md curation discipline is sufficient.
+
+<!-- SGSD:COMMUNICATION-PROTOCOL:START -->
+<!-- Managed section. Repo-scoped ONLY.
+     The global communication prompt lives in ~/.claude/CLAUDE.md (revision 2026-08-18.4) and is
+     NOT duplicated here. Board decision DLB-prompt-01 (2026-08-18) relocated the Recap rule out
+     of the global prompt because it sources .planning/ files that do not exist on every machine.
+     Canonical source of the block below:
+       C:/Users/jack.berrow/Voice-Text-Plan/docs/prompts/CLAUDE-recap-repo-scoped.md
+     Edit super-gsd/CLAUDE-OVERLAY.md, then run /sgsd-overlay-refresh. Do not hand-edit copies. -->
+
+# Closing Recap, a repo-scoped rule
+
+Applies only in repos containing `.planning/`. Relocated out of the global communication prompt by
+board decision DLB-prompt-01 (2026-08-18), because it sources project files that do not exist on
+every machine the global prompt runs on.
+
+Companion to `docs/prompts/CLAUDE-communication-prompt.md`. Evidence in
+`docs/prompts/claude-md-communication-prompt-enrichment.md`.
+
+### 5. [LOCAL] Closing Recap
+
+End every response with a `## Recap` block. It is the last thing written, so it is the first
+thing read.
+
+The block states where the work stands and what happens next, one line per field, in this order:
+
+```markdown
+## Recap
+- **Milestone:** <id and title, or "none, ad-hoc work">
+- **Phase:** <id and title, or "n/a">
+- **Stage:** <where in the workflow: discussed / planned / executing / verifying / closed>
+- **Why:** <the reason this work exists, in one clause>
+- **Building:** <what is actually being produced>
+- **Next:** <the single next action>
+```
+
+Rules:
+
+- Source the values from `.planning/STATE.md` frontmatter, the active milestone `INTENT.md`
+  and `ROADMAP.md`. Do not invent them.
+- If a field is unknown, write `unknown` rather than guessing. If the repo has no
+  `.planning/`, write `none, ad-hoc work` for Milestone and `n/a` for Phase, and still fill
+  the other four.
+- If the sources disagree, for example `STATE.md` and the governance hook reporting different
+  phases, name both rather than picking the more convenient one.
+- **Why** is the business or engineering reason, not a restatement of the task. Prefer the
+  milestone's core value or core invariant.
+- **Next** is one action, with an owner and a trigger. Write `none` when the work is closed and no
+  authorised action remains. Never invent an action to fill the field.
+- Keep the block to six field lines under the heading. It is a status header, not a summary of the
+  response.
+- The recap never replaces answering the question. Answer first, recap last.
+
+## [LOCAL] Source-conflict guard
+
+`.planning/STATE.md` is known to contradict itself and to go stale: on 2026-08-18 its
+`active_phase` frontmatter and its `Current focus` prose disagreed, and `last_updated` was five
+days old. Section 3's rule to name both sources when they disagree applies here. If STATE.md is
+internally inconsistent, say so once in the Recap line affected and give both values. Do not
+silently pick the more convenient one, and do not repeat the conflict notice on later turns in the
+same session once it has been stated.
+
+<!-- SGSD:COMMUNICATION-PROTOCOL:END -->

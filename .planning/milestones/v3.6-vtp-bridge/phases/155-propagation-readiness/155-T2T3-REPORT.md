@@ -1,0 +1,7 @@
+FILES_CHANGED: super-gsd/scripts/lib/phase-name.cjs (created); super-gsd/tests/propagation-readiness/assert-install-layout.cjs (created); super-gsd/tests/propagation-readiness/assert-dual-root-resolvers.cjs (created); super-gsd/install.sh (modified); super-gsd/scripts/sgsd-conformance-check.sh (modified); super-gsd/scripts/sgsd-agent-dashboard.sh (modified); super-gsd/scripts/sgsd-distill-milestone.sh (modified); super-gsd/tools/phase-verifier/phase-verifier.mjs (modified); super-gsd/tools/phase-folder-audit/audit.cjs (modified); super-gsd/tools/phase-folder-audit/audit.test.cjs (modified); super-gsd/tools/state-resolver/resolve.cjs (modified)
+VERIFICATION: `node super-gsd/tests/propagation-readiness/assert-install-layout.cjs --case all` exit 1 fail
+VERIFICATION: `node super-gsd/tools/phase-folder-audit/audit.cjs --self-test` exit 0 pass
+VERIFICATION: `node super-gsd/tests/propagation-readiness/assert-dual-root-resolvers.cjs --tool all --case full-matrix` exit 1 fail
+DEVIATIONS: [verification] Two required harnesses could not execute child processes; no checks were skipped or masked
+BLOCKERS: Managed Windows sandbox denies nested Node/Bash process creation with EPERM and null child status; full matrix reported 171 pass, 77 process-blocked failures
+ONE_LINER: Centralized phase-name parsing and dual-root discovery, routed all named consumers through it, and removed fresh legacy-root installation without altering existing trees.

@@ -1,0 +1,9 @@
+ super-gsd/CLAUDE-OVERLAY.md                        |  63 +++
+ super-gsd/config/claude-ups-overlay.json           |  31 ++
+ super-gsd/hooks/sgsd-intent-classifier.cjs         |   3 +-
+ super-gsd/registry/hooks.yaml                      |  16 +-
+ .../tests/hook-transport/assert-block-guard.cjs    | 209 +++++++++
+ .../tests/hook-transport/assert-live-dispatch.cjs  | 514 +++++++++++++++++++++
+ .../tests/hook-transport/assert-registration.cjs   | 132 ++++++
+ super-gsd/tools/codex-hooks/block-secret-leak.cjs  |  26 +-
+ 8 files changed, 982 insertions(+), 12 deletions(-)

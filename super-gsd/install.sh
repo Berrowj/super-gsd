@@ -364,10 +364,13 @@ install_global_assets() {
   log "Installing global hooks..."
   [ "$DRY_RUN" = true ] || mkdir -p "$HOOKS_DIR"
   HOOK_COUNT=0
-  for hook in "$SCRIPT_DIR/hooks/"*.js; do
+  for hook in "$SCRIPT_DIR/hooks/"*.js "$SCRIPT_DIR/hooks/gsd-session-state.sh"; do
     [ -f "$hook" ] || continue
     name="$(basename "$hook")"
     copy_file "$hook" "$HOOKS_DIR/$name"
+    case "$name" in
+      *.sh) [ "$DRY_RUN" = false ] && chmod +x "$HOOKS_DIR/$name" ;;
+    esac
     HOOK_COUNT=$((HOOK_COUNT + 1))
   done
   log "  $HOOK_COUNT hooks installed"
@@ -443,6 +446,9 @@ install_global_assets() {
       name="$(basename "$f")"
       copy_file "$f" "$GLOBAL_SCRIPTS_DIR/lib/$name"
     done
+  fi
+  if [ -f "$SCRIPT_DIR/tools/state-resolver/resolve.cjs" ]; then
+    copy_file "$SCRIPT_DIR/tools/state-resolver/resolve.cjs" "$CLAUDE_DIR/super-gsd/tools/state-resolver/resolve.cjs"
   fi
   if [ -d "$SCRIPT_DIR/scripts/watchdogs" ]; then
     for f in "$SCRIPT_DIR/scripts/watchdogs/"*; do
@@ -569,8 +575,7 @@ init_local_project() {
   if [ "$DRY_RUN" = true ]; then
     log "DRY RUN: would create .planning skeleton under $PROJECT_DIR"
   else
-    mkdir -p "$PROJECT_DIR/.planning/phases" \
-             "$PROJECT_DIR/.planning/metrics" \
+    mkdir -p "$PROJECT_DIR/.planning/metrics" \
              "$PROJECT_DIR/.planning/briefs" \
              "$PROJECT_DIR/.planning/decisions" \
              "$PROJECT_DIR/.planning/deliberations" \

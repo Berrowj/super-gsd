@@ -12,7 +12,7 @@
 
 schema_version: 2
 registry_version: 2.0.0
-last_updated: 2026-04-21
+last_updated: 2026-08-18
 
 hooks:
   # ─────────────────── Observability ───────────────────
@@ -59,6 +59,20 @@ hooks:
     owner_dlb: DLB-04
     lifecycle_events:
       - {event: deduplicated, ts: 2026-04-21, note: "removed duplicate registration, Phase D"}
+
+  - name: sgsd-intent-classifier
+    event: UserPromptSubmit
+    matcher: "*"
+    script: super-gsd/hooks/sgsd-intent-classifier.cjs
+    timeout_sec: 5
+    reads: [prompt, session_id, super-gsd/registry/session-governance-hooks.yaml, super-gsd/registry/skill-routing.yaml]
+    writes: [stdout directives, .planning/metrics/gate-evidence.jsonl, .planning/metrics/kb-triage-shadow.jsonl]
+    depends_on: []
+    failure_mode: silent
+    state: active
+    owner_dlb: DLB-04
+    lifecycle_events:
+      - {event: registered, ts: 2026-08-18, note: "repo-local UserPromptSubmit registration, Phase 153"}
 
   - name: sgsd-statusline
     event: SessionStart | Stop

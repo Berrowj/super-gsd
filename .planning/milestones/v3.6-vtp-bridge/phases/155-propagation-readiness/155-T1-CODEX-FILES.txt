@@ -1,0 +1,6 @@
+super-gsd/config/repo-settings-overlay.json
+super-gsd/config/claude-ups-overlay.json
+super-gsd/tests/hook-transport/assert-registration.cjs
+super-gsd/tests/hook-transport/assert-block-guard.cjs
+super-gsd/tests/kb-triage-shadow/assert-shadow.cjs
+super-gsd/tests/propagation-readiness/assert-p153-regression.cjs

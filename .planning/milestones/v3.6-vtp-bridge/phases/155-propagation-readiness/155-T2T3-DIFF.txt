@@ -1,0 +1,877 @@
+diff --git a/super-gsd/install.sh b/super-gsd/install.sh
+index 19460c2..10b5d6b 100644
+--- a/super-gsd/install.sh
++++ b/super-gsd/install.sh
+@@ -569,8 +569,7 @@ init_local_project() {
+   if [ "$DRY_RUN" = true ]; then
+     log "DRY RUN: would create .planning skeleton under $PROJECT_DIR"
+   else
+-    mkdir -p "$PROJECT_DIR/.planning/phases" \
+-             "$PROJECT_DIR/.planning/metrics" \
++    mkdir -p "$PROJECT_DIR/.planning/metrics" \
+              "$PROJECT_DIR/.planning/briefs" \
+              "$PROJECT_DIR/.planning/decisions" \
+              "$PROJECT_DIR/.planning/deliberations" \
+diff --git a/super-gsd/scripts/sgsd-agent-dashboard.sh b/super-gsd/scripts/sgsd-agent-dashboard.sh
+index c2aef20..938907c 100644
+--- a/super-gsd/scripts/sgsd-agent-dashboard.sh
++++ b/super-gsd/scripts/sgsd-agent-dashboard.sh
+@@ -7,7 +7,7 @@
+ #  Refreshes every 3 seconds. Read-only.
+ #
+ #  Usage:
+-#    bash gsd-agent-dashboard.sh [project-dir]
++#    bash gsd-agent-dashboard.sh [project-dir] [refresh-sec] [--once]
+ #
+ #  Shows:
+ #    - Milestone + phase progress bar
+@@ -20,6 +20,10 @@
+ 
+ PROJECT_DIR="${1:-.}"
+ REFRESH_SEC="${2:-10}"
++ONCE=false
++if [ "${3:-}" = "--once" ]; then ONCE=true; fi
++SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
++PHASE_NAME_CLI="$SCRIPT_DIR/lib/phase-name.cjs"
+ 
+ if [ ! -d "$PROJECT_DIR/.planning" ]; then
+   echo "ERROR: No .planning/ directory in $PROJECT_DIR"
+@@ -53,7 +57,7 @@ while true; do
+ 
+   if [ -f "$STATE_FILE" ]; then
+     MILESTONE=$(grep -m1 '^milestone:' "$STATE_FILE" 2>/dev/null | awk '{print $2}')
+-    CURRENT_PHASE=$(grep -m1 '^current_phase:' "$STATE_FILE" 2>/dev/null | awk '{print $2}')
++    CURRENT_PHASE=$(grep -m1 '^current_phase:' "$STATE_FILE" 2>/dev/null | awk '{print $2}' | tr -d "\"'")
+     STATUS=$(grep -m1 '^status:' "$STATE_FILE" 2>/dev/null | awk '{print $2}')
+   fi
+ 
+@@ -205,7 +209,13 @@ while true; do
+ 
+   # ── Current Phase Work ──
+   if [ -n "$CURRENT_PHASE" ]; then
+-    PHASE_DIR=$(find "$PROJECT_DIR/.planning/phases" -maxdepth 1 -type d -name "${CURRENT_PHASE}-*" 2>/dev/null | head -1)
++    PHASE_JSON=$(node "$PHASE_NAME_CLI" --list --project "$PROJECT_DIR" --match "$CURRENT_PHASE")
++    PHASE_DIR=$(printf '%s' "$PHASE_JSON" | node -e '
++      const fs = require("fs");
++      const path = require("path");
++      const rows = JSON.parse(fs.readFileSync(0, "utf8"));
++      if (rows[0]) process.stdout.write(rows[0].dir.split(path.sep).join("/"));
++    ')
+     if [ -n "$PHASE_DIR" ]; then
+       echo -e "${BOLD}CURRENT PHASE FILES${RESET} ${DIM}($(basename "$PHASE_DIR"))${RESET}"
+       echo -e "${DIM}----------------------------------------------------------------${RESET}"
+@@ -237,5 +247,6 @@ while true; do
+   echo -e "${DIM}================================================================${RESET}"
+   echo -e "${DIM}Project: $PROJECT_DIR${RESET}"
+ 
+-  sleep $REFRESH_SEC
++  if [ "$ONCE" = true ]; then break; fi
++  sleep "$REFRESH_SEC"
+ done
+diff --git a/super-gsd/scripts/sgsd-conformance-check.sh b/super-gsd/scripts/sgsd-conformance-check.sh
+index 5af6067..ef57001 100644
+--- a/super-gsd/scripts/sgsd-conformance-check.sh
++++ b/super-gsd/scripts/sgsd-conformance-check.sh
+@@ -28,6 +28,8 @@
+ 
+ set -u
+ 
++SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
++PHASE_NAME_CLI="$SCRIPT_DIR/lib/phase-name.cjs"
+ PHASE_ARG=""
+ PROJECT=""
+ DRY_RUN=false
+@@ -51,41 +53,36 @@ fi
+ if [[ -z "$PROJECT" ]]; then
+     d="$(pwd -P)"
+     while [[ "$d" != "/" && "$d" != "" ]]; do
+-        if [[ -d "$d/.planning/phases" ]]; then
++        if [[ -d "$d/.planning" ]]; then
+             PROJECT="$d"
+             break
+         fi
+         d="$(dirname "$d")"
+     done
+ fi
+-if [[ -z "$PROJECT" || ! -d "$PROJECT/.planning/phases" ]]; then
+-    echo "sgsd-conformance-check: no .planning/phases/ found — pass --project" >&2
++if [[ -z "$PROJECT" || ! -d "$PROJECT/.planning" ]]; then
++    echo "sgsd-conformance-check: no .planning/ found — pass --project" >&2
+     exit 3
+ fi
+ 
+-# Resolve phase directory (accepts "8", "08", "8.1", or a slug)
+-PHASES_DIR="$PROJECT/.planning/phases"
+-PHASE_DIR=""
+-if [[ -d "$PHASES_DIR/$PHASE_ARG" ]]; then
+-    PHASE_DIR="$PHASES_DIR/$PHASE_ARG"
+-else
+-    # Pad single digit numerics
+-    if [[ "$PHASE_ARG" =~ ^[0-9]+$ ]]; then
+-        padded=$(printf "%02d" "$PHASE_ARG")
+-        match=$(find "$PHASES_DIR" -maxdepth 1 -type d -name "${padded}-*" | head -1)
+-    else
+-        match=$(find "$PHASES_DIR" -maxdepth 1 -type d -name "${PHASE_ARG}-*" | head -1)
+-    fi
+-    [[ -n "$match" ]] && PHASE_DIR="$match"
+-fi
++# Resolve through the shared dual-root phase-name boundary.
++PHASE_JSON=$(node "$PHASE_NAME_CLI" --list --project "$PROJECT" --match "$PHASE_ARG")
++PHASE_RECORD=$(printf '%s' "$PHASE_JSON" | node -e '
++  const fs = require("fs");
++  const path = require("path");
++  const rows = JSON.parse(fs.readFileSync(0, "utf8"));
++  if (!rows[0]) process.exit(0);
++  const row = rows[0];
++  const dir = row.dir.split(path.sep).join("/");
++  const name = row.slug ? row.token + "-" + row.slug : row.token;
++  process.stdout.write([dir, name, row.token].join("\t"));
++')
++IFS=$'\t' read -r PHASE_DIR PHASE_NAME PHASE_NUM <<< "$PHASE_RECORD"
+ if [[ -z "$PHASE_DIR" ]]; then
+     echo "sgsd-conformance-check: no phase directory matches '$PHASE_ARG'" >&2
+     exit 4
+ fi
+ 
+-PHASE_NAME=$(basename "$PHASE_DIR")
+-PHASE_NUM=$(echo "$PHASE_NAME" | grep -oE '^[0-9]+(\.[0-9]+)?')
+-
+ # Collect all PLAN.md files (one per plan within a phase)
+ plan_files=$(find "$PHASE_DIR" -maxdepth 1 -type f -name "*-PLAN.md" 2>/dev/null)
+ summary_files=$(find "$PHASE_DIR" -maxdepth 1 -type f -name "*-SUMMARY.md" 2>/dev/null)
+diff --git a/super-gsd/scripts/sgsd-distill-milestone.sh b/super-gsd/scripts/sgsd-distill-milestone.sh
+index 9a3cc77..a0cb133 100644
+--- a/super-gsd/scripts/sgsd-distill-milestone.sh
++++ b/super-gsd/scripts/sgsd-distill-milestone.sh
+@@ -53,6 +53,8 @@
+ 
+ set -u
+ 
++SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
++PHASE_NAME_CLI="$SCRIPT_DIR/lib/phase-name.cjs"
+ MILESTONE=""
+ MODE="prepare"
+ EXCLUDE_TYPE=""
+@@ -98,7 +100,6 @@ if [[ -z "$ROOT" || ! -d "$ROOT/.planning" ]]; then
+     exit 3
+ fi
+ 
+-PHASES_DIR="$ROOT/.planning/phases"
+ TREE="$ROOT/.planning/memory/trajectory"
+ HYP_DIR="$TREE/hypothesis"
+ CAND_DIR="$TREE/candidate"
+@@ -109,15 +110,24 @@ mkdir -p "$HYP_DIR" "$CAND_DIR" "$MS_DIR" "$(dirname "$NOVELTY_LOG")"
+ 
+ # ── Helper: list eligible phase dirs (optionally filtered by type) ──
+ list_phases() {
+-    for pd in "$PHASES_DIR"/*/; do
+-        [[ -d "$pd" ]] || continue
+-        local name="$(basename "$pd")"
++    local phase_json
++    phase_json=$(node "$PHASE_NAME_CLI" --list --project "$ROOT" --milestone "$MILESTONE")
++    printf '%s' "$phase_json" | node -e '
++        const fs = require("fs");
++        const path = require("path");
++        const rows = JSON.parse(fs.readFileSync(0, "utf8"));
++        for (const row of rows) {
++            process.stdout.write(row.token + "\t" + row.dir.split(path.sep).join("/") + "\n");
++        }
++    ' | while IFS=$'\t' read -r token pd; do
++        local name
++        name="$(basename "$pd")"
+         # Exclusion: match dir-name suffix against EXCLUDE_TYPE
+         # Conservative matcher — "self-audit" excludes "08-sgsd-self-audit" etc.
+         if [[ -n "$EXCLUDE_TYPE" && "$name" == *"$EXCLUDE_TYPE"* ]]; then
+             continue
+         fi
+-        printf '%s\n' "$pd"
++        printf '%s\t%s\n' "$token" "$pd"
+     done
+ }
+ 
+@@ -129,12 +139,11 @@ if [[ "$MODE" == "prepare" ]]; then
+     # VERIFICATION.md + WASTE.md content headed with the phase name so the
+     # model can cite it. Keep it bounded — trim each doc to 400 lines.
+     BUILD_CORPUS() {
+-        while IFS= read -r pd; do
++        while IFS=$'\t' read -r num pd; do
+             [[ -z "$pd" ]] && continue
+             local name="$(basename "$pd")"
+-            local num="${name%%-*}"
+             printf '\n===== PHASE %s (%s) =====\n' "$num" "$name"
+-            for f in "$pd"*SUMMARY.md "$pd"*VERIFICATION.md "$pd"WASTE.md; do
++            for f in "$pd/"*SUMMARY.md "$pd/"*VERIFICATION.md "$pd/"WASTE.md; do
+                 [[ -f "$f" ]] || continue
+                 printf '\n--- %s ---\n' "$(basename "$f")"
+                 head -400 "$f"
+@@ -186,7 +195,7 @@ PROMPT_HEADER
+         printf 'generated_at: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+         printf 'exclude_phase_type: %s\n' "${EXCLUDE_TYPE:-none}"
+         printf 'phases_included:\n'
+-        list_phases | while IFS= read -r pd; do
++        list_phases | while IFS=$'\t' read -r _token pd; do
+             [[ -z "$pd" ]] && continue
+             printf '  - %s\n' "$(basename "$pd")"
+         done
+diff --git a/super-gsd/tools/phase-folder-audit/audit.cjs b/super-gsd/tools/phase-folder-audit/audit.cjs
+index 8d79942..39349dc 100644
+--- a/super-gsd/tools/phase-folder-audit/audit.cjs
++++ b/super-gsd/tools/phase-folder-audit/audit.cjs
+@@ -44,6 +44,8 @@
+ const fs = require('fs');
+ const path = require('path');
+ const os = require('os');
++const { parsePhaseName, discoverPhases } =
++  require(path.join(__dirname, '..', '..', 'scripts', 'lib', 'phase-name.cjs'));
+ 
+ // ----------------------------------------------------------------------------
+ // FROZEN CONSTANTS (RESEARCH sec 1.4 verbatim)
+@@ -73,12 +75,10 @@ const RECOMMENDED_FILES = Object.freeze([
+ // PRIVATE HELPERS
+ // ----------------------------------------------------------------------------
+ 
+-// Extract 2-digit phase number from leading `^(\d{2})-` regex; null on no match.
+-// Pure function; no I/O. RESEARCH Q1 lock.
++// Extract the opaque phase token through the shared phase-name boundary.
+ function _phaseNumberFromFolderName(name) {
+-  if (typeof name !== 'string' || !name) return null;
+-  const m = name.match(/^(\d{2})-/);
+-  return m ? m[1] : null;
++  const parsed = parsePhaseName(name);
++  return parsed ? parsed.token : null;
+ }
+ 
+ // Escape regex metacharacters in a literal string (used by glob expansion).
+@@ -155,61 +155,27 @@ function _checkFile(folderEntries, matcher, phaseNum) {
+ //     (filtered to opts.milestone if set; else all milestones).
+ //   - ALSO walk <planningDir>/phases/<NN-name>/ if opts.includeUnarchived
+ //     (default true) and the dir exists (un-archived working dir).
+-//   - Filter to basenames matching `^\d{2}-`.
+-//   - Return sorted by full path codepoint order (deterministic).
++//   - Parse, canonicalise, de-duplicate, and order through phase-name.cjs.
+ //   - Try/catch on every fs call; on error return [] (never throws).
+ function _listPhaseFolders(planningDir, opts) {
+   try {
+     const o = opts || {};
+     const includeUnarchived = o.includeUnarchived !== false;
+     const milestoneFilter = o.milestone || null;
+-    const out = [];
+-    const phaseRe = /^\d{2}-/;
+-
+-    // Helper: enumerate phase subdirs under a given parent dir.
+-    function _enumerate(parentDir) {
++    let milestones = milestoneFilter ? [milestoneFilter] : [];
++    if (!milestoneFilter) {
++      const milestonesRoot = path.join(planningDir, 'milestones');
+       try {
+-        if (!fs.existsSync(parentDir)) return;
+-        const entries = fs.readdirSync(parentDir);
+-        for (const name of entries) {
+-          if (!phaseRe.test(name)) continue;
+-          const full = path.join(parentDir, name);
+-          try {
+-            const st = fs.statSync(full);
+-            if (st.isDirectory()) out.push(full);
+-          } catch (_e) {
+-            // skip unstattable entries
+-          }
+-        }
+-      } catch (_e) {
+-        // skip unreadable parent
++        if (fs.existsSync(milestonesRoot)) milestones = fs.readdirSync(milestonesRoot).sort();
++      } catch (_error) {
++        milestones = [];
+       }
+     }
+-
+-    // Walk milestones tree.
+-    const milestonesRoot = path.join(planningDir, 'milestones');
+-    if (fs.existsSync(milestonesRoot)) {
+-      try {
+-        const milestoneDirs = fs.readdirSync(milestonesRoot);
+-        for (const mname of milestoneDirs) {
+-          if (milestoneFilter && mname !== milestoneFilter) continue;
+-          const phasesParent = path.join(milestonesRoot, mname, 'phases');
+-          _enumerate(phasesParent);
+-        }
+-      } catch (_e) {
+-        // skip unreadable milestones root
+-      }
+-    }
+-
+-    // Walk un-archived working dir if enabled.
+-    if (includeUnarchived) {
+-      const unarchivedParent = path.join(planningDir, 'phases');
+-      _enumerate(unarchivedParent);
+-    }
+-
+-    // Sort by full path codepoint order (deterministic).
+-    out.sort();
+-    return out;
++    return discoverPhases(path.dirname(planningDir), {
++      planningDir,
++      milestones,
++      includeFlat: includeUnarchived,
++    }).map((entry) => entry.dir);
+   } catch (e) {
+     console.warn('[SGSD] audit _listPhaseFolders failed:', e.message);
+     return [];
+@@ -311,8 +277,7 @@ function auditFolder(phaseDir) {
+     // Closed-enum bucket logic (RESEARCH sec 2.1).
+     let verdict;
+     if (phaseNum === null) {
+-      // Folder name does not start with `^\d{2}-`; force non-compliant
+-      // (RESEARCH Q1 lock). Missing arrays already use `{NN}-...` literal.
++      // Folder name is not a supported shared phase-name shape.
+       verdict = 'non-compliant';
+     } else if (required_missing.length > 0) {
+       verdict = 'non-compliant';
+@@ -352,16 +317,9 @@ function auditAllPhases(planningDir, opts) {
+   try {
+     if (typeof planningDir !== 'string' || !planningDir) return [];
+     const o = opts || {};
+-    // Phase 40 ATC CRIT 1 fix (Codex): milestone filter must scope tightly.
+-    // Pre-fix: when opts.milestone was set, includeUnarchived still defaulted
+-    // to true, so legacy .planning/phases/* leaked into v1.8-scoped audits
+-    // (8 legacy + 5 v1.8 = 13 returned instead of 5). When the caller asks
+-    // for a specific milestone, default includeUnarchived to FALSE so the
+-    // scope is exactly that milestone's phase tree. Caller can still
+-    // explicitly opt-in via { milestone: 'v1.8', includeUnarchived: true }.
+-    const milestoneSet = !!o.milestone;
+-    const includeUnarchived = (o.includeUnarchived === true)
+-      || (o.includeUnarchived !== false && !milestoneSet);
++    // Dual-root compatibility defaults the optional flat root on. Callers
++    // retaining a strict milestone-only scope can explicitly disable it.
++    const includeUnarchived = o.includeUnarchived !== false;
+     const absPlanning = path.resolve(planningDir);
+     const folders = _listPhaseFolders(absPlanning, {
+       milestone: o.milestone || null,
+diff --git a/super-gsd/tools/phase-folder-audit/audit.test.cjs b/super-gsd/tools/phase-folder-audit/audit.test.cjs
+index 718d961..e70a7bd 100644
+--- a/super-gsd/tools/phase-folder-audit/audit.test.cjs
++++ b/super-gsd/tools/phase-folder-audit/audit.test.cjs
+@@ -11,6 +11,8 @@ const os   = require('os');
+ 
+ const { auditFolder, auditAllPhases, renderTable, VERDICTS } =
+   require(path.join(__dirname, 'audit.cjs'));
++const { parsePhaseName, comparePhases, discoverPhases } =
++  require(path.join(__dirname, '..', '..', 'scripts', 'lib', 'phase-name.cjs'));
+ 
+ let pass = 0, fail = 0;
+ const failures = [];
+@@ -89,6 +91,56 @@ try {
+   assert('H. renderTable([]) returns the no-folders-found literal',
+     renderTable([]).indexOf('(no phase folders found for this milestone)') >= 0);
+ 
++  const parsed = [
++    parsePhaseName('40-phase'),
++    parsePhaseName('40.5-phase'),
++    parsePhaseName('v30-07-phase'),
++    parsePhaseName('v30-06.8'),
++  ];
++  assert('I. shared parser accepts integer, decimal, and versioned phase names',
++    parsed[0] && parsed[0].token === '40' && parsed[0].scheme === 'integer'
++      && parsed[1] && parsed[1].token === '40.5' && parsed[1].scheme === 'decimal'
++      && parsed[2] && parsed[2].token === 'v30-07' && parsed[2].scheme === 'v'
++      && parsed[3] && parsed[3].token === 'v30-06.8' && parsed[3].slug === null);
++  const bare = [parsePhaseName('40'), parsePhaseName('40.5'), parsePhaseName('v30-07')];
++  assert('I2. shared parser accepts every scheme without a slug suffix',
++    bare.every((entry) => entry && entry.slug === null));
++  assert('J. shared parser rejects non-phase names',
++    parsePhaseName('README') === null && parsePhaseName('v30-x') === null);
++
++  const sortedTokens = parsed.slice(0, 3).reverse().sort(comparePhases).map((entry) => entry.token);
++  assert('K. shared comparator is deterministic across schemes',
++    sortedTokens.join(',') === '40,40.5,v30-07', sortedTokens.join(','));
++  const integerOrder = [parsePhaseName('10-ten'), parsePhaseName('9-nine')]
++    .sort(comparePhases).map((entry) => entry.token);
++  assert('K2. shared comparator preserves integer lexical-width ordering without arithmetic',
++    integerOrder.join(',') === '9,10', integerOrder.join(','));
++
++  const dualPlanning = path.join(tmp, 'dual-parser');
++  const milestonePhase = path.join(dualPlanning, 'milestones', 'v9.9', 'phases', 'v30-07-shared');
++  fs.mkdirSync(milestonePhase, { recursive: true });
++  const flatRoot = path.join(dualPlanning, 'phases');
++  fs.symlinkSync(path.dirname(milestonePhase), flatRoot,
++    process.platform === 'win32' ? 'junction' : 'dir');
++  const discovered = discoverPhases(path.dirname(dualPlanning), {
++    planningDir: dualPlanning,
++    milestone: 'v9.9',
++  });
++  assert('L. shared discovery realpath-deduplicates milestone and flat roots',
++    discovered.length === 1 && discovered[0].token === 'v30-07',
++    `count=${discovered.length}`);
++
++  const decimalDir = buildFixture('v1.9', '54.5-decimal', [
++    '54.5-CONTEXT.md', '54.5-RESEARCH.md', '54.5-01-decimal-PLAN.md', '54.5-VERIFICATION.md',
++  ]);
++  const versionedDir = buildFixture('v1.9', 'v30-07-versioned', [
++    'v30-07-CONTEXT.md', 'v30-07-RESEARCH.md', 'v30-07-01-versioned-PLAN.md', 'v30-07-VERIFICATION.md',
++  ]);
++  assert('M. auditFolder uses shared parser for decimal names',
++    auditFolder(decimalDir).phase_num === '54.5');
++  assert('N. auditFolder uses shared parser for versioned names',
++    auditFolder(versionedDir).phase_num === 'v30-07');
++
+ } finally {
+   fs.rmSync(tmp, { recursive: true, force: true });
+ }
+diff --git a/super-gsd/tools/phase-verifier/phase-verifier.mjs b/super-gsd/tools/phase-verifier/phase-verifier.mjs
+index 9c052db..9ac999e 100644
+--- a/super-gsd/tools/phase-verifier/phase-verifier.mjs
++++ b/super-gsd/tools/phase-verifier/phase-verifier.mjs
+@@ -19,7 +19,7 @@
+ //        f. Captures console errors → evidence/{slug}.console.log
+ //        g. Fetches the backing API endpoint directly → evidence/{slug}.api.json
+ //        h. Asserts api status == 200 AND rows >= min_rows OR data_empty_reason set.
+-//   3. Writes .planning/phases/{NN}-*/{NN}-BROWSER-REVIEW.md with per-route table.
++//   3. Writes {resolved-phase-dir}/{token}-BROWSER-REVIEW.md with per-route table.
+ //   4. Exit 0 = PROVEN, 1 = UNPROVEN, 2 = BLOCKED (tool precondition / backend down).
+ //
+ // HARD rules:
+@@ -28,10 +28,13 @@
+ //   - No empty response body is reported as a pass without data-empty-reason.
+ //   - No route is PROVEN unless every evidence file exists and passes shape checks.
+ 
+-import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync, readdirSync } from 'node:fs';
++import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from 'node:fs';
+ import { resolve, join, basename, dirname } from 'node:path';
+ import { execSync, spawnSync } from 'node:child_process';
+ import { fileURLToPath } from 'node:url';
++import phaseName from '../../scripts/lib/phase-name.cjs';
++
++const { findPhase, parsePhaseName, phaseTokensEqual } = phaseName;
+ 
+ const __filename = fileURLToPath(import.meta.url);
+ 
+@@ -52,7 +55,7 @@ function parseArgs(argv) {
+     }
+   }
+   if (!out.phase) {
+-    fail('Missing --phase. Usage: phase-verifier --project-dir PATH --phase NN', 2);
++    fail('Missing --phase. Usage: phase-verifier --project-dir PATH --phase TOKEN', 2);
+   }
+   return out;
+ }
+@@ -62,11 +65,11 @@ function printUsage() {
+ phase-verifier — Super GSD phase browser verifier
+ 
+ Usage:
+-  phase-verifier --project-dir PATH --phase NN [--session ID]
++  phase-verifier --project-dir PATH --phase TOKEN [--session ID]
+ 
+ Options:
+   --project-dir PATH   Project root (contains .planning/). Default: cwd.
+-  --phase NN           Phase number (required), e.g. 89 or 107.
++  --phase TOKEN        Phase token (required), e.g. 89, 97.5, or v30-07.
+   --session ID         gsd-browser CDP session id. Default: sgsd-verify.
+ 
+ Exit codes:
+@@ -114,15 +117,34 @@ function parseRoadmap(projectDir, phaseArg) {
+     return { phaseTitle: `Phase ${phaseArg}`, criteria: [], urls: [], endpoints: [] };
+   }
+   const content = readFileSync(path, 'utf8');
+-  // Split on "### Phase N:" or "### Phase N." headings.
+-  const phaseRegex = new RegExp(`^### Phase ${phaseArg}[:.] (.+?)$([\\s\\S]*?)(?=^### Phase |\\n## |\\Z)`, 'm');
+-  const match = content.match(phaseRegex);
+-  if (!match) {
++  const phaseQuery = parsePhaseName(String(phaseArg));
++  const roadmapLines = content.split(/\r?\n/);
++  let headingTitle = null;
++  let bodyLines = [];
++  for (let index = 0; index < roadmapLines.length; index++) {
++    const line = roadmapLines[index];
++    if (!line.startsWith('### Phase ')) continue;
++    const remainder = line.slice('### Phase '.length);
++    const colon = remainder.indexOf(': ');
++    const dot = remainder.indexOf('. ');
++    const separator = colon < 0 ? dot : dot < 0 ? colon : Math.min(colon, dot);
++    if (separator < 0) continue;
++    const candidate = parsePhaseName(remainder.slice(0, separator));
++    if (!candidate || !phaseQuery || !phaseTokensEqual(candidate, phaseQuery)) continue;
++    headingTitle = remainder.slice(separator + 2);
++    for (let bodyIndex = index + 1; bodyIndex < roadmapLines.length; bodyIndex++) {
++      const bodyLine = roadmapLines[bodyIndex];
++      if (bodyLine.startsWith('### Phase ') || bodyLine.startsWith('## ')) break;
++      bodyLines.push(bodyLine);
++    }
++    break;
++  }
++  if (headingTitle === null) {
+     warn(`Phase ${phaseArg} not found in ROADMAP.md — trace will be incomplete`);
+     return { phaseTitle: `Phase ${phaseArg}`, criteria: [], urls: [], endpoints: [] };
+   }
+-  const phaseTitle = `Phase ${phaseArg}: ${match[1].trim().replace(/\s*✅.*$/, '').replace(/\s*🔄.*$/, '')}`;
+-  const body = match[2];
++  const phaseTitle = `Phase ${phaseArg}: ${headingTitle.trim().replace(/\s*✅.*$/, '').replace(/\s*🔄.*$/, '')}`;
++  const body = bodyLines.join('\n');
+ 
+   // Extract success criteria — block starts at "**Success Criteria:**" and ends
+   // at the next blank-line paragraph or "**Known" / "**Plans" / "### ".
+@@ -154,22 +176,12 @@ function parseRoadmap(projectDir, phaseArg) {
+ }
+ 
+ // ──────────────────────────────────────────────────────────────────────────────
+-// Phase dir resolution — find .planning/phases/{NN}-*
++// Phase dir resolution through the shared dual-root boundary.
+ // ──────────────────────────────────────────────────────────────────────────────
+ 
+ function resolvePhaseDir(projectDir, phaseArg) {
+-  const phasesRoot = join(projectDir, '.planning', 'phases');
+-  if (!existsSync(phasesRoot)) {
+-    const fallback = join(phasesRoot, `${phaseArg}-unnamed`);
+-    mkdirSync(fallback, { recursive: true });
+-    return fallback;
+-  }
+-  const entries = readdirSync(phasesRoot);
+-  const match = entries.find((e) => e === `${phaseArg}` || e.startsWith(`${phaseArg}-`));
+-  if (match) return join(phasesRoot, match);
+-  const fallback = join(phasesRoot, `${phaseArg}-unnamed`);
+-  mkdirSync(fallback, { recursive: true });
+-  return fallback;
++  const phase = findPhase(projectDir, String(phaseArg));
++  return phase ? phase.dir : null;
+ }
+ 
+ // ──────────────────────────────────────────────────────────────────────────────
+@@ -536,6 +548,7 @@ function appendDeferralLedger(projectDir, phase, reason) {
+   const bv = loadConfig(args.projectDir);
+   const roadmap = parseRoadmap(args.projectDir, args.phase);
+   const phaseDir = resolvePhaseDir(args.projectDir, args.phase);
++  if (!phaseDir) fail(`Phase directory not found for ${args.phase}`, 2);
+   log(`Phase dir: ${phaseDir}`);
+   log(`Roadmap criteria: ${roadmap.criteria.length}  URLs: ${roadmap.urls.length}  endpoints: ${roadmap.endpoints.length}`);
+ 
+diff --git a/super-gsd/tools/state-resolver/resolve.cjs b/super-gsd/tools/state-resolver/resolve.cjs
+index 1ee17ec..c86d08f 100644
+--- a/super-gsd/tools/state-resolver/resolve.cjs
++++ b/super-gsd/tools/state-resolver/resolve.cjs
+@@ -59,6 +59,7 @@
+ var fs = require('fs');
+ var path = require('path');
+ var child_process = require('child_process');
++var phase_name = require('../../scripts/lib/phase-name.cjs');
+ 
+ var SCHEMA_VERSION = 1;
+ 
+@@ -244,27 +245,21 @@ function _tailJsonl(filePath, n) {
+   } catch (_e) { return rows; }
+ }
+ 
+-function _phaseFolderName(phasesDir, phaseNum) {
++function _findPhaseFolder(planningDir, milestone, phaseToken) {
+   try {
+-    if (!fs.existsSync(phasesDir)) return null;
+-    var entries = fs.readdirSync(phasesDir);
+-    var pad2 = (String(phaseNum).length === 1) ? ('0' + phaseNum) : String(phaseNum);
+-    for (var i = 0; i < entries.length; i++) {
+-      var en = entries[i];
+-      if (typeof en !== 'string') continue;
+-      if (en.indexOf(pad2 + '-') === 0 || en.indexOf(String(phaseNum) + '-') === 0) {
+-        return en;
+-      }
+-    }
+-    return null;
++    return phase_name.findPhase(path.dirname(planningDir), String(phaseToken), {
++      planningDir: planningDir,
++      milestone: milestone,
++    });
+   } catch (_e) { return null; }
+ }
+ 
+-function _phaseNameFromFolder(folderName) {
++function _phaseNameFromFolder(folder) {
+   try {
+-    var m = String(folderName).match(/^\d+-(.+)$/);
+-    if (!m) return null;
+-    var slug = m[1];
++    var parsed = (folder && typeof folder === 'object')
++      ? folder : phase_name.parsePhaseName(String(folder));
++    if (!parsed || !parsed.slug) return null;
++    var slug = parsed.slug;
+     var words = slug.split('-');
+     var titled = [];
+     for (var i = 0; i < words.length; i++) {
+@@ -276,11 +271,20 @@ function _phaseNameFromFolder(folderName) {
+   } catch (_e) { return null; }
+ }
+ 
+-function _phaseStatusFromFolder(phaseDir, phaseNum) {
++function _phaseStatusFromFolder(phase) {
+   try {
++    if (!phase || typeof phase.dir !== 'string') return null;
++    var phaseDir = phase.dir;
+     if (!fs.existsSync(phaseDir)) return null;
+-    var pad2 = (String(phaseNum).length === 1) ? ('0' + phaseNum) : String(phaseNum);
+-    var verPath = path.join(phaseDir, pad2 + '-VERIFICATION.md');
++    var names = [phase.token + '-VERIFICATION.md'];
++    if (phase.scheme === 'integer' && phase.token.length === 1) {
++      names.unshift('0' + phase.token + '-VERIFICATION.md');
++    }
++    var verPath = null;
++    for (var i = 0; i < names.length; i++) {
++      var candidate = path.join(phaseDir, names[i]);
++      if (fs.existsSync(candidate)) { verPath = candidate; break; }
++    }
+     if (!fs.existsSync(verPath)) return null;
+     var fm = _parseFrontmatter(verPath);
+     if (!fm) return null;
+@@ -290,14 +294,23 @@ function _phaseStatusFromFolder(phaseDir, phaseNum) {
+   } catch (_e) { return null; }
+ }
+ 
++function _phaseValue(phase) {
++  if (!phase) return null;
++  if (phase.scheme !== 'integer') return phase.token;
++  var parsed = parseInt(phase.token, 10);
++  return isNaN(parsed) ? phase.token : String(parsed);
++}
++
+ // Walk planning/milestones to find the highest-numbered milestone + the
+ // highest-numbered phase folder under it. Returns
+ // { milestone, phase, phase_name, phase_status, phase_dir } or null.
+-function _scanPhaseFolders(planningDir) {
++function _scanPhaseFolders(planningDir, preferredMilestone) {
+   try {
+     var milestonesDir = path.join(planningDir, 'milestones');
+-    if (!fs.existsSync(milestonesDir)) return null;
+-    var milestoneEntries = fs.readdirSync(milestonesDir);
++    var milestoneEntries = [];
++    if (fs.existsSync(milestonesDir)) {
++      try { milestoneEntries = fs.readdirSync(milestonesDir); } catch (_mre) { milestoneEntries = []; }
++    }
+     var milestoneVersions = [];
+     for (var i = 0; i < milestoneEntries.length; i++) {
+       var me = milestoneEntries[i];
+@@ -313,30 +326,28 @@ function _scanPhaseFolders(planningDir) {
+         sortKey: major * 1000 + minor,
+       });
+     }
++    if (milestoneVersions.length === 0 && typeof preferredMilestone === 'string') {
++      var preferredMatch = preferredMilestone.match(/^v(\d+)\.(\d+)$/);
++      if (preferredMatch) {
++        milestoneVersions.push({
++          name: preferredMilestone,
++          sortKey: parseInt(preferredMatch[1], 10) * 1000 + parseInt(preferredMatch[2], 10),
++        });
++      }
++    }
+     if (milestoneVersions.length === 0) return null;
+     milestoneVersions.sort(function (a, b) { return b.sortKey - a.sortKey; });
+     // Highest milestone first; walk down until we find one with phases.
+     for (var mi = 0; mi < milestoneVersions.length; mi++) {
+       var milestone = milestoneVersions[mi].name;
+-      var phasesDir = path.join(milestonesDir, milestone, 'phases');
+-      if (!fs.existsSync(phasesDir)) continue;
+-      var phaseEntries = [];
+-      try { phaseEntries = fs.readdirSync(phasesDir); } catch (_re) { continue; }
+-      var phases = [];
+-      for (var pi = 0; pi < phaseEntries.length; pi++) {
+-        var pe = phaseEntries[pi];
+-        if (typeof pe !== 'string') continue;
+-        var pm = pe.match(/^(\d+)-/);
+-        if (!pm) continue;
+-        var num = parseInt(pm[1], 10);
+-        if (isNaN(num)) continue;
+-        phases.push({ name: pe, num: num });
+-      }
++      var phases = phase_name.discoverPhases(path.dirname(planningDir), {
++        planningDir: planningDir,
++        milestone: milestone,
++      });
+       if (phases.length === 0) continue;
+-      phases.sort(function (a, b) { return b.num - a.num; });
+-      var highest = phases[0];
+-      var highestDir = path.join(phasesDir, highest.name);
+-      var highestStatus = _phaseStatusFromFolder(highestDir, highest.num);
++      phases.sort(phase_name.comparePhases);
++      var highest = phases[phases.length - 1];
++      var highestStatus = _phaseStatusFromFolder(highest);
+       // If highest is closed (PASS or PASS-WITH-DEFERRED-N), check for a
+       // next-numbered phase candidate with CONTEXT.md but no
+       // VERIFICATION.md -- that is the new active phase.
+@@ -345,23 +356,31 @@ function _scanPhaseFolders(planningDir) {
+         var s = highestStatus.toUpperCase();
+         if (s.indexOf('PASS') === 0) isClosed = true;
+       }
+-      if (isClosed) {
+-        var nextNum = highest.num + 1;
+-        var nextFolder = _phaseFolderName(phasesDir, nextNum);
++      if (isClosed && highest.scheme === 'integer') {
++        var nextNum = parseInt(highest.token, 10) + 1;
++        var nextFolder = _findPhaseFolder(planningDir, milestone, String(nextNum));
+         if (nextFolder) {
+-          var nextDir = path.join(phasesDir, nextFolder);
+-          var nextStatus = _phaseStatusFromFolder(nextDir, nextNum);
++          var nextStatus = _phaseStatusFromFolder(nextFolder);
+           // Confirm CONTEXT.md exists (phase has scope). VERIFICATION
+           // absent or in-progress means active.
+-          var pad2 = (String(nextNum).length === 1) ? ('0' + nextNum) : String(nextNum);
+-          var ctxPath = path.join(nextDir, pad2 + '-CONTEXT.md');
+-          if (fs.existsSync(ctxPath)) {
++          var contextNames = [nextFolder.token + '-CONTEXT.md'];
++          if (nextFolder.scheme === 'integer' && nextFolder.token.length === 1) {
++            contextNames.unshift('0' + nextFolder.token + '-CONTEXT.md');
++          }
++          var hasContext = false;
++          for (var ci = 0; ci < contextNames.length; ci++) {
++            if (fs.existsSync(path.join(nextFolder.dir, contextNames[ci]))) {
++              hasContext = true;
++              break;
++            }
++          }
++          if (hasContext) {
+             return {
+               milestone: milestone,
+-              phase: String(nextNum),
++              phase: _phaseValue(nextFolder),
+               phase_name: _phaseNameFromFolder(nextFolder),
+               phase_status: (typeof nextStatus === 'string') ? nextStatus : 'in-progress',
+-              phase_dir: nextDir,
++              phase_dir: nextFolder.dir,
+               from_next_after_close: true,
+             };
+           }
+@@ -369,19 +388,19 @@ function _scanPhaseFolders(planningDir) {
+         // No next phase scoped -- highest is the last one, and it's closed.
+         return {
+           milestone: milestone,
+-          phase: String(highest.num),
+-          phase_name: _phaseNameFromFolder(highest.name),
++          phase: _phaseValue(highest),
++          phase_name: _phaseNameFromFolder(highest),
+           phase_status: highestStatus,
+-          phase_dir: highestDir,
++          phase_dir: highest.dir,
+           from_next_after_close: false,
+         };
+       }
+       return {
+         milestone: milestone,
+-        phase: String(highest.num),
+-        phase_name: _phaseNameFromFolder(highest.name),
++        phase: _phaseValue(highest),
++        phase_name: _phaseNameFromFolder(highest),
+         phase_status: (typeof highestStatus === 'string') ? highestStatus : 'in-progress',
+-        phase_dir: highestDir,
++        phase_dir: highest.dir,
+         from_next_after_close: false,
+       };
+     }
+@@ -403,17 +422,21 @@ function _scanGitLog(projectDir, planningDir) {
+     } catch (_ge) { return null; }
+     if (typeof out !== 'string' || out.length === 0) return null;
+     var lines = out.split(/\r?\n/);
+-    var highestNum = -1;
++    var highestPhase = null;
+     for (var i = 0; i < lines.length; i++) {
+       var ln = lines[i];
+       if (typeof ln !== 'string') continue;
+-      var m = ln.match(/feat\(p(\d+)/i);
++      var m = ln.match(/feat\(p([^)]+)/i);
+       if (m) {
+-        var n = parseInt(m[1], 10);
+-        if (!isNaN(n) && n > highestNum) highestNum = n;
++        var parsedPhase = phase_name.parsePhaseName(m[1]);
++        if (parsedPhase
++            && (!highestPhase || phase_name.comparePhases(highestPhase, parsedPhase) < 0)) {
++          highestPhase = parsedPhase;
++        }
+       }
+     }
+-    if (highestNum === -1) return null;
++    if (!highestPhase) return null;
++    var highestPhaseValue = _phaseValue(highestPhase);
+     // Look up milestone by checking phase folders.
+     var milestonesDir = path.join(planningDir, 'milestones');
+     if (!fs.existsSync(milestonesDir)) return null;
+@@ -421,12 +444,11 @@ function _scanGitLog(projectDir, planningDir) {
+     for (var j = 0; j < milestoneEntries.length; j++) {
+       var me = milestoneEntries[j];
+       if (typeof me !== 'string') continue;
+-      var phasesDir = path.join(milestonesDir, me, 'phases');
+-      var folder = _phaseFolderName(phasesDir, highestNum);
++      var folder = _findPhaseFolder(planningDir, me, highestPhaseValue);
+       if (folder) {
+         return {
+           milestone: me,
+-          phase: String(highestNum),
++          phase: highestPhaseValue,
+           phase_name: _phaseNameFromFolder(folder),
+         };
+       }
+@@ -434,7 +456,7 @@ function _scanGitLog(projectDir, planningDir) {
+     // Found commit but no folder -- return phase number alone.
+     return {
+       milestone: null,
+-      phase: String(highestNum),
++      phase: highestPhaseValue,
+       phase_name: null,
+     };
+   } catch (_e) { return null; }
+@@ -558,8 +580,7 @@ function resolveEffectiveState(opts) {
+                   versionsForPulse.sort(function (a, b) { return b.sortKey - a.sortKey; });
+                   for (var vp = 0; vp < versionsForPulse.length; vp++) {
+                     var vName = versionsForPulse[vp].name;
+-                    var phasesDirForPulse = path.join(milestonesDir, vName, 'phases');
+-                    var folderForPulse = _phaseFolderName(phasesDirForPulse, pulsePhase);
++                    var folderForPulse = _findPhaseFolder(planningDir, vName, pulsePhase);
+                     if (folderForPulse) {
+                       resolvedMilestone = vName;
+                       resolvedPhaseName = _phaseNameFromFolder(folderForPulse);
+@@ -599,15 +620,20 @@ function resolveEffectiveState(opts) {
+           var probe = '';
+           if (typeof arow.target === 'string') probe += arow.target + ' ';
+           if (typeof arow.command_preview === 'string') probe += arow.command_preview + ' ';
+-          var pathMatch = probe.match(/\.planning[\\\/]milestones[\\\/](v\d+(?:\.\d+)?)[\\\/]phases[\\\/](\d+)-/i);
++          var pathMatch = probe.match(/\.planning[\\\/]milestones[\\\/](v\d+(?:\.\d+)?)[\\\/]phases[\\\/]([^\\\/\s]+)/i);
+           if (pathMatch) {
+-            foundMilestone = pathMatch[1];
+-            foundPhase = pathMatch[2];
+-            break;
++            var parsedPathPhase = phase_name.parsePhaseName(pathMatch[2]);
++            if (parsedPathPhase) {
++              foundMilestone = pathMatch[1];
++              foundPhase = parsedPathPhase.token;
++              break;
++            }
+           }
+-          var phaseMatch = probe.match(/\bP(\d{2,3})\b/);
++          var phaseMatch = probe.match(/\bP([A-Za-z0-9._-]+)\b/);
+           if (phaseMatch) {
+-            foundPhase = phaseMatch[1];
++            var parsedMarkerPhase = phase_name.parsePhaseName(phaseMatch[1]);
++            if (!parsedMarkerPhase) continue;
++            foundPhase = parsedMarkerPhase.token;
+             // Try to look up milestone via phase folders.
+             try {
+               var msDir = path.join(planningDir, 'milestones');
+@@ -617,8 +643,7 @@ function resolveEffectiveState(opts) {
+                   var msNm = msNames[msi];
+                   if (typeof msNm !== 'string') continue;
+                   if (!/^v\d+\.\d+$/.test(msNm)) continue;
+-                  var pdir = path.join(msDir, msNm, 'phases');
+-                  var fld = _phaseFolderName(pdir, parseInt(foundPhase, 10));
++                  var fld = _findPhaseFolder(planningDir, msNm, foundPhase);
+                   if (fld) { foundMilestone = msNm; break; }
+                 }
+               }
+@@ -630,8 +655,7 @@ function resolveEffectiveState(opts) {
+           // Look up phase name via folder if milestone present.
+           var actPhaseName = null;
+           if (foundMilestone) {
+-            var actPhasesDir = path.join(planningDir, 'milestones', foundMilestone, 'phases');
+-            var actFolder = _phaseFolderName(actPhasesDir, parseInt(foundPhase, 10));
++            var actFolder = _findPhaseFolder(planningDir, foundMilestone, foundPhase);
+             if (actFolder) actPhaseName = _phaseNameFromFolder(actFolder);
+           }
+           resolved = {
+@@ -649,7 +673,7 @@ function resolveEffectiveState(opts) {
+     // -- Priority 4: phase folders (newest NN) --
+     if (!resolved) {
+       try {
+-        var pf = _scanPhaseFolders(planningDir);
++        var pf = _scanPhaseFolders(planningDir, stateMd && stateMd.milestone);
+         if (pf) {
+           resolved = {
+             milestone: pf.milestone,

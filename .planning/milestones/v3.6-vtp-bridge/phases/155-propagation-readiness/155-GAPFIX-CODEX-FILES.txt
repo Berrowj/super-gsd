@@ -1,0 +1,4 @@
+super-gsd/config/settings-overlay.json
+super-gsd/tests/propagation-readiness/assert-decision-state-consumers.cjs
+super-gsd/CLAUDE-OVERLAY.md
+super-gsd/scripts/sgsd-agent-dashboard.sh

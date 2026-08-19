@@ -52,7 +52,10 @@
 # ============================================================================
 
 set -u
+set -o pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PHASE_NAME_CLI="$SCRIPT_DIR/lib/phase-name.cjs"
 MILESTONE=""
 MODE="prepare"
 EXCLUDE_TYPE=""
@@ -98,7 +101,6 @@ if [[ -z "$ROOT" || ! -d "$ROOT/.planning" ]]; then
     exit 3
 fi
 
-PHASES_DIR="$ROOT/.planning/phases"
 TREE="$ROOT/.planning/memory/trajectory"
 HYP_DIR="$TREE/hypothesis"
 CAND_DIR="$TREE/candidate"
@@ -109,38 +111,79 @@ mkdir -p "$HYP_DIR" "$CAND_DIR" "$MS_DIR" "$(dirname "$NOVELTY_LOG")"
 
 # ── Helper: list eligible phase dirs (optionally filtered by type) ──
 list_phases() {
-    for pd in "$PHASES_DIR"/*/; do
-        [[ -d "$pd" ]] || continue
-        local name="$(basename "$pd")"
+    local phase_json
+    local phase_rows
+    if ! phase_json=$(node "$PHASE_NAME_CLI" --list --project "$ROOT" --milestone "$MILESTONE"); then
+        echo "sgsd-distill-milestone: phase discovery failed for '$MILESTONE'" >&2
+        return 5
+    fi
+    if ! phase_rows=$(printf '%s' "$phase_json" | node -e '
+        const fs = require("fs");
+        const path = require("path");
+        const rows = JSON.parse(fs.readFileSync(0, "utf8"));
+        for (const row of rows) {
+            process.stdout.write(row.token + "\t" + row.dir.split(path.sep).join("/") + "\n");
+        }
+    '); then
+        echo "sgsd-distill-milestone: phase discovery response invalid" >&2
+        return 5
+    fi
+    while IFS=$'\t' read -r token pd; do
+        [[ -z "$pd" ]] && continue
+        local name
+        name="$(basename "$pd")"
         # Exclusion: match dir-name suffix against EXCLUDE_TYPE
         # Conservative matcher — "self-audit" excludes "08-sgsd-self-audit" etc.
         if [[ -n "$EXCLUDE_TYPE" && "$name" == *"$EXCLUDE_TYPE"* ]]; then
             continue
         fi
-        printf '%s\n' "$pd"
-    done
+        printf '%s\t%s\n' "$token" "$pd"
+    done <<< "$phase_rows"
 }
 
 # ── MODE 1: PREPARE ──
 if [[ "$MODE" == "prepare" ]]; then
     REQUEST="$MS_DIR/DISTILL-REQUEST.md"
+    if ! PHASE_ROWS=$(list_phases); then
+        exit 5
+    fi
+    if [[ -z "$PHASE_ROWS" ]]; then
+        echo "sgsd-distill-milestone: no phase data found for '$MILESTONE'" >&2
+        exit 4
+    fi
+
+    HAS_CORPUS_DATA="false"
+    while IFS=$'\t' read -r _token pd; do
+        [[ -z "$pd" ]] && continue
+        for f in "$pd/"*SUMMARY.md "$pd/"*VERIFICATION.md "$pd/"WASTE.md; do
+            if [[ -f "$f" ]]; then
+                HAS_CORPUS_DATA="true"
+                break 2
+            fi
+        done
+    done <<< "$PHASE_ROWS"
+    if [[ "$HAS_CORPUS_DATA" != "true" ]]; then
+        echo "sgsd-distill-milestone: no corpus data found for '$MILESTONE'" >&2
+        exit 4
+    fi
 
     # Build the corpus: for each eligible phase, concatenate SUMMARY.md +
     # VERIFICATION.md + WASTE.md content headed with the phase name so the
     # model can cite it. Keep it bounded — trim each doc to 400 lines.
     BUILD_CORPUS() {
-        while IFS= read -r pd; do
+        while IFS=$'\t' read -r num pd; do
             [[ -z "$pd" ]] && continue
             local name="$(basename "$pd")"
-            local num="${name%%-*}"
             printf '\n===== PHASE %s (%s) =====\n' "$num" "$name"
-            for f in "$pd"*SUMMARY.md "$pd"*VERIFICATION.md "$pd"WASTE.md; do
+            for f in "$pd/"*SUMMARY.md "$pd/"*VERIFICATION.md "$pd/"WASTE.md; do
                 [[ -f "$f" ]] || continue
                 printf '\n--- %s ---\n' "$(basename "$f")"
                 head -400 "$f"
             done
-        done < <(list_phases)
+        done
     }
+
+    CORPUS=$(BUILD_CORPUS <<< "$PHASE_ROWS")
 
     # Emit the extractor prompt to stdout (orchestrator pipes this to Codex/local runner).
     # Also write a record to DISTILL-REQUEST.md for auditability.
@@ -176,7 +219,7 @@ CORPUS:
 PROMPT_HEADER
 )
     printf '%s\n' "$PROMPT"
-    BUILD_CORPUS
+    printf '%s\n' "$CORPUS"
 
     # Persist the request for audit
     {
@@ -186,10 +229,10 @@ PROMPT_HEADER
         printf 'generated_at: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
         printf 'exclude_phase_type: %s\n' "${EXCLUDE_TYPE:-none}"
         printf 'phases_included:\n'
-        list_phases | while IFS= read -r pd; do
+        while IFS=$'\t' read -r _token pd; do
             [[ -z "$pd" ]] && continue
             printf '  - %s\n' "$(basename "$pd")"
-        done
+        done <<< "$PHASE_ROWS"
         printf '%s\n\n' "---"
         printf '# Distillation request for milestone %s\n\n' "$MILESTONE"
         printf 'Prompt (emitted to stdout) + embedded corpus.\n'

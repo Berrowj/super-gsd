@@ -44,6 +44,8 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { parsePhaseName, discoverPhases } =
+  require(path.join(__dirname, '..', '..', 'scripts', 'lib', 'phase-name.cjs'));
 
 // ----------------------------------------------------------------------------
 // FROZEN CONSTANTS (RESEARCH sec 1.4 verbatim)
@@ -73,12 +75,10 @@ const RECOMMENDED_FILES = Object.freeze([
 // PRIVATE HELPERS
 // ----------------------------------------------------------------------------
 
-// Extract 2-digit phase number from leading `^(\d{2})-` regex; null on no match.
-// Pure function; no I/O. RESEARCH Q1 lock.
+// Extract the opaque phase token through the shared phase-name boundary.
 function _phaseNumberFromFolderName(name) {
-  if (typeof name !== 'string' || !name) return null;
-  const m = name.match(/^(\d{2})-/);
-  return m ? m[1] : null;
+  const parsed = parsePhaseName(name);
+  return parsed ? parsed.token : null;
 }
 
 // Escape regex metacharacters in a literal string (used by glob expansion).
@@ -155,61 +155,27 @@ function _checkFile(folderEntries, matcher, phaseNum) {
 //     (filtered to opts.milestone if set; else all milestones).
 //   - ALSO walk <planningDir>/phases/<NN-name>/ if opts.includeUnarchived
 //     (default true) and the dir exists (un-archived working dir).
-//   - Filter to basenames matching `^\d{2}-`.
-//   - Return sorted by full path codepoint order (deterministic).
+//   - Parse, canonicalise, de-duplicate, and order through phase-name.cjs.
 //   - Try/catch on every fs call; on error return [] (never throws).
 function _listPhaseFolders(planningDir, opts) {
   try {
     const o = opts || {};
     const includeUnarchived = o.includeUnarchived !== false;
     const milestoneFilter = o.milestone || null;
-    const out = [];
-    const phaseRe = /^\d{2}-/;
-
-    // Helper: enumerate phase subdirs under a given parent dir.
-    function _enumerate(parentDir) {
+    let milestones = milestoneFilter ? [milestoneFilter] : [];
+    if (!milestoneFilter) {
+      const milestonesRoot = path.join(planningDir, 'milestones');
       try {
-        if (!fs.existsSync(parentDir)) return;
-        const entries = fs.readdirSync(parentDir);
-        for (const name of entries) {
-          if (!phaseRe.test(name)) continue;
-          const full = path.join(parentDir, name);
-          try {
-            const st = fs.statSync(full);
-            if (st.isDirectory()) out.push(full);
-          } catch (_e) {
-            // skip unstattable entries
-          }
-        }
-      } catch (_e) {
-        // skip unreadable parent
+        if (fs.existsSync(milestonesRoot)) milestones = fs.readdirSync(milestonesRoot).sort();
+      } catch (_error) {
+        milestones = [];
       }
     }
-
-    // Walk milestones tree.
-    const milestonesRoot = path.join(planningDir, 'milestones');
-    if (fs.existsSync(milestonesRoot)) {
-      try {
-        const milestoneDirs = fs.readdirSync(milestonesRoot);
-        for (const mname of milestoneDirs) {
-          if (milestoneFilter && mname !== milestoneFilter) continue;
-          const phasesParent = path.join(milestonesRoot, mname, 'phases');
-          _enumerate(phasesParent);
-        }
-      } catch (_e) {
-        // skip unreadable milestones root
-      }
-    }
-
-    // Walk un-archived working dir if enabled.
-    if (includeUnarchived) {
-      const unarchivedParent = path.join(planningDir, 'phases');
-      _enumerate(unarchivedParent);
-    }
-
-    // Sort by full path codepoint order (deterministic).
-    out.sort();
-    return out;
+    return discoverPhases(path.dirname(planningDir), {
+      planningDir,
+      milestones,
+      includeFlat: includeUnarchived,
+    }).map((entry) => entry.dir);
   } catch (e) {
     console.warn('[SGSD] audit _listPhaseFolders failed:', e.message);
     return [];
@@ -311,8 +277,7 @@ function auditFolder(phaseDir) {
     // Closed-enum bucket logic (RESEARCH sec 2.1).
     let verdict;
     if (phaseNum === null) {
-      // Folder name does not start with `^\d{2}-`; force non-compliant
-      // (RESEARCH Q1 lock). Missing arrays already use `{NN}-...` literal.
+      // Folder name is not a supported shared phase-name shape.
       verdict = 'non-compliant';
     } else if (required_missing.length > 0) {
       verdict = 'non-compliant';
@@ -352,16 +317,9 @@ function auditAllPhases(planningDir, opts) {
   try {
     if (typeof planningDir !== 'string' || !planningDir) return [];
     const o = opts || {};
-    // Phase 40 ATC CRIT 1 fix (Codex): milestone filter must scope tightly.
-    // Pre-fix: when opts.milestone was set, includeUnarchived still defaulted
-    // to true, so legacy .planning/phases/* leaked into v1.8-scoped audits
-    // (8 legacy + 5 v1.8 = 13 returned instead of 5). When the caller asks
-    // for a specific milestone, default includeUnarchived to FALSE so the
-    // scope is exactly that milestone's phase tree. Caller can still
-    // explicitly opt-in via { milestone: 'v1.8', includeUnarchived: true }.
-    const milestoneSet = !!o.milestone;
-    const includeUnarchived = (o.includeUnarchived === true)
-      || (o.includeUnarchived !== false && !milestoneSet);
+    // Dual-root compatibility defaults the optional flat root on. Callers
+    // retaining a strict milestone-only scope can explicitly disable it.
+    const includeUnarchived = o.includeUnarchived !== false;
     const absPlanning = path.resolve(planningDir);
     const folders = _listPhaseFolders(absPlanning, {
       milestone: o.milestone || null,
