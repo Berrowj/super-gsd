@@ -1,6 +1,6 @@
 ---
 phase: "153"
-status: OPEN
+status: CLOSED-OPTION-3
 opened: 2026-08-18
 trigger: GATE_AUTO_HALT
 source: spec-compliance round 2 (153-SPEC-REVIEW-2.md)

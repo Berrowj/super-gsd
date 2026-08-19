@@ -1,4 +1,19 @@
 #!/usr/bin/env node
+/*
+ * DOCUMENTED LIMITATION — NO-MATCH CLASSIFIER ATTRIBUTION
+ *
+ * The no-match probe cannot bind its evidence to the classifier specifically. Claude Code
+ * stream-json hook events carry hook_id, hook_name, session_id, exit_code, outcome, and stdout,
+ * but not the hook command (measured 2026-08-18; see the plan's known_deadends).
+ *
+ * What holds instead is the registration allowlist, classifier uniqueness, resolve-on-disk,
+ * full-lifecycle count, and matched-probe stdout binding. The residual risk is TEST-INTEGRITY
+ * only: faking a no-match pass requires the classifier to be registered, resolving, and
+ * dispatching; in production, that means it ran.
+ *
+ * Option 1 (transcript_path binding) remains contingent: the hook stdin payload field is
+ * UNVERIFIED. Do not build on it without first capturing a real payload.
+ */
 'use strict';
 
 const assert = require('assert');
@@ -353,6 +368,7 @@ function assertDecision(definition, result, shadowRows, fullPrompt, run) {
     `matched probe requires classifier hook_response stdout containing: ${definition.expectedClassifierStdout}`);
   }
   if (definition.noMatch) {
+    // See the file-head limitation: no-match is lifecycle-bound, not classifier-specific.
     assert.strictEqual(row.decision, 'no_match', 'probe requires an explicit no-match decision');
     assert.deepStrictEqual(row.route_ids, [], 'no-match row must carry an empty route_ids array');
   } else {
