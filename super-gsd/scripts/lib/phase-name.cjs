@@ -18,6 +18,16 @@ function parsePhaseName(name, dir) {
   };
 }
 
+function parsePhaseToken(value) {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value < 0) return null;
+    value = String(value);
+  }
+  if (typeof value !== 'string' || value.length === 0) return null;
+  const parsed = parsePhaseName(value);
+  return parsed && parsed.slug === null ? parsed : null;
+}
+
 function compareText(left, right) {
   if (left === right) return 0;
   return left < right ? -1 : 1;
@@ -204,6 +214,74 @@ function phaseTokensEqual(left, right) {
   return left.token === right.token;
 }
 
+function phaseFromRoadmapCell(value) {
+  if (typeof value !== 'string') return null;
+  let text = value.trim().replace(/[*`]/g, '');
+  if (text.length === 0) return null;
+  const phasePrefix = /^phase\s+/i.exec(text);
+  if (phasePrefix) text = text.slice(phasePrefix[0].length).trim();
+  const candidates = [text];
+  const firstWord = text.split(/\s+/)[0].replace(/[:.]$/, '');
+  if (firstWord !== text) candidates.push(firstWord);
+  if (/^p/i.test(firstWord)) candidates.push(firstWord.slice(1));
+  for (const candidate of candidates) {
+    const parsed = parsePhaseToken(candidate);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
+function parseRoadmapPhases(source) {
+  if (typeof source !== 'string' || source.length === 0) return [];
+  const tablePhases = [];
+  let phaseTable = false;
+
+  function add(target, parsed, name) {
+    if (!parsed) return;
+    if (target.some((entry) => phaseTokensEqual(entry, parsed))) return;
+    target.push({
+      token: parsed.token,
+      scheme: parsed.scheme,
+      slug: null,
+      dir: null,
+      name: typeof name === 'string' && name.trim().length > 0
+        ? name.trim().replace(/[*`]/g, '') : null,
+    });
+  }
+
+  for (const line of source.split(/\r?\n/)) {
+    if (!/^\s*\|/.test(line)) {
+      phaseTable = false;
+      continue;
+    }
+    const cells = line.trim().replace(/^\||\|$/g, '').split('|')
+      .map((cell) => cell.trim());
+    if (cells.length === 0) continue;
+    if (/^phase$/i.test(cells[0].replace(/[*`]/g, ''))) {
+      phaseTable = true;
+      continue;
+    }
+    if (!phaseTable || /^:?-+:?$/.test(cells[0])) continue;
+    add(tablePhases, phaseFromRoadmapCell(cells[0]), cells[1] || null);
+  }
+  return tablePhases;
+}
+
+function orderPhasesByRoadmap(phases, roadmapPhases) {
+  if (!Array.isArray(phases) || !Array.isArray(roadmapPhases)) return [];
+  for (const phase of phases) {
+    const matches = roadmapPhases.filter(
+      (roadmapPhase) => phaseTokensEqual(phase, roadmapPhase));
+    if (matches.length !== 1) return [];
+  }
+  const ordered = [];
+  for (const roadmapPhase of roadmapPhases) {
+    const matches = phases.filter((phase) => phaseTokensEqual(phase, roadmapPhase));
+    if (matches.length === 1) ordered.push(matches[0]);
+  }
+  return ordered;
+}
+
 function phaseBasename(entry) {
   return entry.slug ? entry.token + '-' + entry.slug : entry.token;
 }
@@ -223,11 +301,42 @@ function findPhase(projectDir, query, options) {
   return phases.find((entry) => entry.slug === queryName) || null;
 }
 
+function selfTest() {
+  const results = [];
+  function check(name, ok) {
+    results.push({ name, ok: Boolean(ok) });
+  }
+  check('exact opaque token accepted',
+    parsePhaseToken('v30-07') && parsePhaseToken('v30-07').token === 'v30-07');
+  check('folder-shaped token rejected', parsePhaseToken('v30-07-lookalike') === null);
+  const roadmap = parseRoadmapPhases([
+    '## Phase v30-07 - detail appears before table',
+    '| Phase | Name |',
+    '|---:|---|',
+    '| 999 | Legacy |',
+    '| v30-07 | Opaque |',
+    '## Phase 999 - duplicate detail',
+  ].join('\n'));
+  check('roadmap table order preserved',
+    roadmap.length === 2 && roadmap[0].token === '999' && roadmap[1].token === 'v30-07');
+  const ordered = orderPhasesByRoadmap(
+    [parsePhaseName('v30-07-active'), parsePhaseName('999-legacy')], roadmap);
+  check('discovery follows roadmap order',
+    ordered.length === 2 && ordered[ordered.length - 1].token === 'v30-07');
+  return {
+    ok: results.every((result) => result.ok),
+    pass: results.filter((result) => result.ok).length,
+    total: results.length,
+    results,
+  };
+}
+
 function usage() {
   process.stderr.write(
     'Usage: node phase-name.cjs --parse <name> [--dir <path>]\n'
     + '   or: node phase-name.cjs --list [--project <path>] [--planning-dir <path>]'
     + ' [--milestone <id>] [--match <name-or-token>]\n'
+    + '   or: node phase-name.cjs --self-test\n'
   );
 }
 
@@ -246,6 +355,8 @@ function runCli(argv) {
       parseName = args[++index];
     } else if (arg === '--list') {
       mode = 'list';
+    } else if (arg === '--self-test') {
+      mode = 'self-test';
     } else if (arg === '--project') {
       projectDir = args[++index];
     } else if (arg === '--planning-dir') {
@@ -280,6 +391,14 @@ function runCli(argv) {
     process.stdout.write(JSON.stringify(result) + '\n');
     return 0;
   }
+  if (mode === 'self-test') {
+    const result = selfTest();
+    for (const row of result.results) {
+      process.stdout.write(`${row.ok ? 'PASS' : 'FAIL'} ${row.name}\n`);
+    }
+    process.stdout.write(`phase_name_self_test: ${result.pass}/${result.total}\n`);
+    return result.ok ? 0 : 1;
+  }
   usage();
   return 2;
 }
@@ -289,9 +408,13 @@ if (require.main === module) process.exit(runCli(process.argv));
 module.exports = {
   SCHEME_ORDER,
   parsePhaseName,
+  parsePhaseToken,
+  parseRoadmapPhases,
+  orderPhasesByRoadmap,
   comparePhases,
   discoverPhases,
   findPhase,
   isDiscoveryError,
   phaseTokensEqual,
+  selfTest,
 };
