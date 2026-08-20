@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.6-vtp-bridge",
+  "phase": "154",
+  "phase_name": "Mcp Arg Contract",
+  "status": "IN_PROGRESS",
+  "goal": "",
+  "outputs": [],
+  "files": [
+    ".planning/milestones/v3.6-vtp-bridge/phases/153-hook-transport-completion/153-01-PLAN-LOCKED.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/153-hook-transport-completion/153-PLANREVIEW-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/153-hook-transport-completion/153-PLANREVIEW2-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-01-PLAN-LOCKED.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-01-PLAN-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-01-PLAN-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-CLOSE-REVIEW-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-CLOSE-REVIEW.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-PLANREVIEW-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-PLANREVIEW-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-REAL-MCP-EVIDENCE.json",
+    ".planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-T1-CODEX-FILES.txt",
+    ".planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-T1-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-T1-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-T1B-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/CONTEXT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/WASTE.md",
+    "super-gsd/schemas/vtp-mcp-input-schemas.v1.json",
+    "super-gsd/scripts/sgsd-triage-runtime.cjs",
+    "super-gsd/tests/triage-runtime/assert-mcp-arg-contract.cjs",
+    "super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 0
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "3878f223f5d7c00f423b40ed9fe03e2ffbd367b5",
+      "subject": "docs(153-01): PLAN rev2 after NOGO \u2014 repo-local target, provenance ACs, T0 split to P154",
+      "ts": "2026-08-18T14:47:48+01:00"
+    },
+    {
+      "sha": "363eaae02aff00741ca78a7cbe962c066eacbf4e",
+      "subject": "docs(153-01): PLAN rev3 \u2014 causal dispatch probe, single-event overlay, P149/P152 probes",
+      "ts": "2026-08-18T14:56:32+01:00"
+    },
+    {
+      "sha": "c65492b4eefc4aa452cc6f88a194762eb0b1f41e",
+      "subject": "docs(154): planner prompt \u2014 arg-shaper + orchestrator-performed live MCP evidence",
+      "ts": "2026-08-20T02:23:27+01:00"
+    },
+    {
+      "sha": "0026f34c9713f405d28fb6c16feaec140fdd23ad",
+      "subject": "docs(154-01): PLAN-LOCKED \u2014 arg-shaper + orchestrator-performed live MCP evidence, schema VALID",
+      "ts": "2026-08-20T02:37:30+01:00"
+    },
+    {
+      "sha": "9d416ed08e323aada3bdb20ad89925c5b55cb484",
+      "subject": "docs(154): plan review GO 5/5",
+      "ts": "2026-08-20T02:40:29+01:00"
+    },
+    {
+      "sha": "ec8b73e2105d0cefdf51d6c463092d382284e21c",
+      "subject": "docs(154): T1 executor prompt \u2014 red-run contractual",
+      "ts": "2026-08-20T02:41:14+01:00"
+    },
+    {
+      "sha": "5ed70027cb0e400a8f459b02f0337c0e344c3607",
+      "subject": "docs(154-01): AMENDMENT-1 \u2014 legacy regression asserts the defect; add it to T1 allowlist",
+      "ts": "2026-08-20T02:49:00+01:00"
+    },
+    {
+      "sha": "f8a4b72ed222a58e71c9fbf876b98d007fefa095",
+      "subject": "feat(154-T1): MCP emission contract \u2014 declared schemas, per-tool shaper, red-then-green",
+      "ts": "2026-08-20T03:19:36+01:00"
+    },
+    {
+      "sha": "35a11240f9bf50470793570ed1b9472f26e29ca1",
+      "subject": "feat(154-T2): real MCP acceptance evidence \u2014 both post-fix packets accepted live",
+      "ts": "2026-08-20T03:19:38+01:00"
+    },
+    {
+      "sha": "81e7210811a583ce2e333d8e65c9dfbe6950f01f",
+      "subject": "fix(154-02): re-capture real MCP evidence post-commit \u2014 full raw results, verifier PASS",
+      "ts": "2026-08-20T03:38:51+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": null,
+    "research": null,
+    "plan": [],
+    "verification": null,
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": null,
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-08-20T01:37:32Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-20T02:20:55Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-08-20T02:40:00.961Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@81e7210811a5"
+}
