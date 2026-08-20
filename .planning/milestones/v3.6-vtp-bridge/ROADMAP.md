@@ -16,7 +16,7 @@ denied stale worktrees a corrective conflict signal (P155 phase-ATC warning).
 | 156 | state-close-contract | [x] PASS-WITH-DEFERRED-4 @db74df5 | 155 |
 | 157 | vtp-readiness | [x] PASS-WITH-DEFERRED-4 @7b882b4 | 155 |
 | 158 | notification-routing | [x] PASS-WITH-DEFERRED-1 @8aa16c8 | 155 |
-| 159 | skill-routing-expansion | [ ] seeded (operator, 2026-08-20) | 155, 158 |
+| 159 | skill-routing-expansion | [x] PASS-WITH-DEFERRED-3 @26edb1f | 155, 158 |
 
 ## Success criteria
 
