@@ -10,6 +10,47 @@ const { spawnSync } = require('node:child_process');
 
 const SUPER_GSD_ROOT = path.resolve(__dirname, '..', '..');
 const PREFLIGHT_PATH = path.join(SUPER_GSD_ROOT, 'scripts', 'lib', 'hook-registration-preflight.cjs');
+const BUNDLED_OVERLAY_PATH = path.join(SUPER_GSD_ROOT, 'CLAUDE-OVERLAY.md');
+const STALE_OVERLAY_MARKERS = Object.freeze([
+  Object.freeze({
+    id: 'query_byterover',
+    pattern: /\bQuery ByteRover\b/i,
+    mutation: 'Query ByteRover before dispatching.',
+  }),
+  Object.freeze({
+    id: 'byterover_results',
+    pattern: /\bByteRover\b/i,
+    mutation: 'Inject ByteRover results into the agent prompt.',
+  }),
+  Object.freeze({
+    id: 'brv_queries',
+    pattern: /(?:\bbrv[-_]queries\b|\bBRV\b(?!\/context-tree))/i,
+    mutation: 'Return brv_queries with the selected files.',
+  }),
+  Object.freeze({
+    id: 'brv_context_tree_route',
+    pattern: /\.brv\/context-tree\/?/i,
+    mutation: 'Route live memory through .brv/context-tree/.',
+  }),
+  Object.freeze({
+    id: 'haiku_agent_dispatch',
+    pattern: /\bHaiku\b/i,
+    mutation: 'Run a Haiku classifier agent.',
+    outsideProviderLock: true,
+  }),
+  Object.freeze({
+    id: 'legacy_sonnet_role_row',
+    pattern: /^\s*\|\s*[^|\r\n]+\s*\|\s*Sonnet(?:\s+unless specified)?\s*\|/im,
+    mutation: '| Verifier/checker/board | Sonnet unless specified | Bounded review |',
+    outsideProviderLock: true,
+  }),
+  Object.freeze({
+    id: 'sonnet_agent_dispatch',
+    pattern: /\bSonnet\b/i,
+    mutation: 'Dispatch readiness through a Sonnet agent.',
+    outsideProviderLock: true,
+  }),
+]);
 const CLARITY_NINE_HOOKS = Object.freeze([
   'gsd-checkpoint-writer.js',
   'gsd-context-monitor.js',
@@ -167,6 +208,96 @@ function countManagedHook(settings, event, hookId) {
   return ((settings.hooks && settings.hooks[event]) || [])
     .filter((entry) => entry.sgsd_managed === true && entry.sgsd_hook_id === hookId)
     .length;
+}
+
+function providerLockRange(overlay) {
+  const heading = /^## CURRENT PROVIDER LOCK\s*$/m;
+  const match = heading.exec(overlay);
+  assert.ok(match, 'bundled overlay lost CURRENT PROVIDER LOCK');
+  const start = match.index;
+  const afterHeading = start + match[0].length;
+  const nextHeading = /^##\s+/m.exec(overlay.slice(afterHeading));
+  const end = nextHeading ? afterHeading + nextHeading.index : overlay.length;
+  return { start, end, text: overlay.slice(start, end) };
+}
+
+function markdownSection(overlay, heading) {
+  const match = heading.exec(overlay);
+  assert.ok(match, 'bundled overlay lost load-bearing section');
+  const afterHeading = match.index + match[0].length;
+  const nextHeading = /^#{1,3}\s+/m.exec(overlay.slice(afterHeading));
+  const end = nextHeading ? afterHeading + nextHeading.index : overlay.length;
+  return overlay.slice(match.index, end);
+}
+
+function assertBundledOverlayCurrent(overlay) {
+  const providerLock = providerLockRange(overlay);
+  const outsideProviderLock = overlay.slice(0, providerLock.start) + overlay.slice(providerLock.end);
+
+  for (const marker of STALE_OVERLAY_MARKERS) {
+    const scanned = marker.outsideProviderLock ? outsideProviderLock : overlay;
+    if (marker.pattern.test(scanned)) {
+      throw new Error('bundled_overlay_stale ' + marker.id);
+    }
+  }
+
+  assert.match(providerLock.text, /\bCodex gpt-5\.6-sol\b/i, 'provider lock lost Codex gpt-5.6-sol');
+  assert.match(
+    providerLock.text,
+    /Sonnet is not a fresh-clone default provider and is not a Codex fallback/i,
+    'provider lock lost its explicit Sonnet prohibition',
+  );
+  const memorySection = markdownSection(overlay, /^### Memory Retrieval\b.*$/m);
+  assert.match(memorySection, /\.planning\/memory\//, 'bundled overlay lost the DLB-01 memory root');
+  assert.match(memorySection, /\bMEMORY\.md\b/, 'bundled overlay lost the memory catalogue');
+  assert.match(memorySection, /sgsd-recall/, 'bundled overlay lost the recall wrapper');
+  assert.match(memorySection, /sgsd-curate/, 'bundled overlay lost the curate wrapper');
+
+  const modelSection = markdownSection(overlay, /^### Model Routing\s*$/m);
+  assert.match(modelSection, /\| Classifier \| Codex\/local \|/, 'model routing lost local classification');
+  assert.match(modelSection, /\| Context selector \| Codex\/local \|/, 'model routing lost local context selection');
+  assert.match(modelSection, /\| Code execution \| Codex gpt-5\.6-sol\/xhigh \|/, 'model routing lost delivery provider');
+
+  const commitSection = markdownSection(overlay, /^### Commit Discipline\s*$/m);
+  assert.match(
+    commitSection,
+    /Commit after EVERY unit\. Never batch\. Never skip\. Never amend\./,
+    'bundled overlay lost commit discipline',
+  );
+}
+
+function runBundledOverlayStatic() {
+  const overlay = fs.readFileSync(BUNDLED_OVERLAY_PATH, 'utf8');
+  assertBundledOverlayCurrent(overlay);
+
+  for (const marker of STALE_OVERLAY_MARKERS) {
+    const mutated = overlay.trimEnd() + '\n' + marker.mutation + '\n';
+    let rejection;
+    try {
+      assertBundledOverlayCurrent(mutated);
+    } catch (error) {
+      rejection = error;
+    }
+    assert.ok(rejection, 'stale overlay mutation passed: ' + marker.id);
+    assert.equal(rejection.message, 'bundled_overlay_stale ' + marker.id);
+    assert.equal(rejection.message.includes(marker.mutation), false, 'stale line leaked for ' + marker.id);
+  }
+}
+
+function runBundledOverlayCurrent() {
+  const overlay = readBytes(BUNDLED_OVERLAY_PATH);
+  assertBundledOverlayCurrent(overlay.toString('utf8'));
+  const fixture = createFixture('bundled-overlay');
+  try {
+    const installedPath = path.join(fixture.projectRoot, 'CLAUDE.md');
+    assert.equal(fs.existsSync(installedPath), false, 'fresh fixture already has CLAUDE.md');
+    const result = runInstaller(fixture, ['--init-project', '--skip-cockpit-deps']);
+    if (result.error) throw result.error;
+    assert.equal(result.status, 0, 'fresh overlay install failed:\n' + result.stderr + '\n' + result.stdout);
+    assert.deepEqual(readBytes(installedPath), overlay, 'fresh CLAUDE.md differs from bundled overlay');
+  } finally {
+    removeFixture(fixture);
+  }
 }
 
 function runPreflightStatic() {
@@ -379,6 +510,8 @@ function runCanonicalSixteenHook() {
 
 const CASES = Object.freeze({
   'preflight-static': runPreflightStatic,
+  'bundled-overlay-static': runBundledOverlayStatic,
+  'bundled-overlay-current': runBundledOverlayCurrent,
   'vendored-nine-hook': runVendoredNineHook,
   'node-check-both-sites': runNodeCheckBothSites,
   'canonical-sixteen-hook': runCanonicalSixteenHook,

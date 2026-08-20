@@ -6,7 +6,7 @@
 ## CURRENT PROVIDER LOCK
 
 - Orchestration is Claude/Opus 4.7 with xhigh thinking.
-- Codex GPT-5.5/xhigh owns phase research, planning, plan-check, verification,
+- Codex gpt-5.6-sol/xhigh owns phase research, planning, plan-check, verification,
   source-changing execution, per-dispatch ATC, phase-level ATC, MUDA, and other
   Codex-owned gates.
 - Sonnet is not a fresh-clone default provider and is not a Codex fallback. If a
@@ -156,11 +156,11 @@ repeat {
   node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"
 
   // 2. CLASSIFY (~50 tokens)
-  Derive classifier result from plan frontmatter/cache or run Codex/local check
+  Derive classifier result locally from plan frontmatter/cache
   → { complexity, model: "codex|opus", atc_tier, deliberate }
 
   // 3. SELECT CONTEXT (~100 tokens)
-  Derive context selection from plan evidence + sgsd-recall terms
+  Derive context selection locally from plan evidence + sgsd-recall terms
   → { sgsd_recall_queries, file_reads, scripts_to_check }
 
   // 4. QUERY SGSD MEMORY (~200-600 tokens)
@@ -214,19 +214,19 @@ runtime compaction + external state are the context-management mechanism. ONLY t
 
 | # | Condition | Action | Agent | Model |
 |---|-----------|--------|-------|-------|
-| 0 | Auto mode entering milestone AND no `MILESTONE-READINESS.md` (or stale) | Run readiness audit through Codex/local checks | codex-readiness | gpt-5.5/xhigh |
+| 0 | Auto mode entering milestone AND no `MILESTONE-READINESS.md` (or stale) | Run readiness audit through Codex/local checks | codex-readiness | gpt-5.6-sol/xhigh |
 | 0.5 | READINESS status = BLOCKED or PARTIAL AND user said "go" | Auto-continue on DEGRADED-PATH if one exists; pause only when no runnable path remains | — | — |
 | 1 | Phase not discussed | Suggest /gsd-discuss-phase | — | — |
-| 2 | Phase needs RESEARCH.md | Dispatch Codex research | codex-research | gpt-5.5/xhigh |
-| 3 | Phase needs PLAN.md | Dispatch Codex planning | codex-plan | gpt-5.5/xhigh |
-| 4 | Plans need checking | Dispatch Codex plan-check | codex-plan-check | gpt-5.5/xhigh |
-| 4.5 | About to make FIRST executor dispatch of a phase | Run phase-readiness re-probe | codex-readiness | gpt-5.5/xhigh |
+| 2 | Phase needs RESEARCH.md | Dispatch Codex research | codex-research | gpt-5.6-sol/xhigh |
+| 3 | Phase needs PLAN.md | Dispatch Codex planning | codex-plan | gpt-5.6-sol/xhigh |
+| 4 | Plans need checking | Dispatch Codex plan-check | codex-plan-check | gpt-5.6-sol/xhigh |
+| 4.5 | About to make FIRST executor dispatch of a phase | Run phase-readiness re-probe | codex-readiness | gpt-5.6-sol/xhigh |
 | 4.6 | Phase-readiness returned DRIFT | Continue on deterministic degraded/local path; checkpoint only if no runnable executor path remains | — | — |
-| 5 | Pending tasks exist | Dispatch Codex executor with `{planId}-CODEX-FILES.txt` fallback allowlist | codex-executor.sh | gpt-5.5/xhigh |
-| 5.1 | Codex executor hits Windows file-read block | Run Codex read-pack patch executor; Codex authors unified diff, SGSD applies it | codex-patch-executor.sh | gpt-5.5/xhigh |
-| 6 | All plans executed | Dispatch Codex verifier | codex-verify | gpt-5.5/xhigh |
+| 5 | Pending tasks exist | Dispatch Codex executor with `{planId}-CODEX-FILES.txt` fallback allowlist | codex-executor.sh | gpt-5.6-sol/xhigh |
+| 5.1 | Codex executor hits Windows file-read block | Run Codex read-pack patch executor; Codex authors unified diff, SGSD applies it | codex-patch-executor.sh | gpt-5.6-sol/xhigh |
+| 6 | All plans executed | Dispatch Codex verifier | codex-verify | gpt-5.6-sol/xhigh |
 | 7 | Verification passed | Mark complete, advance | orchestrator | — |
-| 8 | Verification failed | Dispatch Codex planner --gaps | codex-plan | gpt-5.5/xhigh |
+| 8 | Verification failed | Dispatch Codex planner --gaps | codex-plan | gpt-5.6-sol/xhigh |
 | 9 | All phases complete | Exit loop | — | — |
 
 ### Readiness Gates — unattended-run contract
@@ -252,10 +252,10 @@ Readiness is **stale** if any phase directory under
 | Role | Model | Why |
 |------|-------|-----|
 | Orchestrator (you) | Opus | Judgment, dispatch, synthesis |
-| Classifier | Codex/local | Derive from plan frontmatter/cache; no Haiku spawn |
+| Classifier | Codex/local | Derive locally from plan frontmatter/cache |
 | Context selector | Codex/local | Pick relevant sgsd-recall queries from plan evidence |
-| Code execution | Codex GPT-5.5/xhigh | Claude orchestrates; Codex edits; patch mode handles Windows read-blocks |
-| Verifier/checker/gates | Codex GPT-5.5/xhigh | Verification, readiness, ATC, MUDA, and plan-check |
+| Code execution | Codex gpt-5.6-sol/xhigh | Claude orchestrates; Codex edits; patch mode handles Windows read-blocks |
+| Verifier/checker/gates | Codex gpt-5.6-sol/xhigh | Verification, readiness, ATC, MUDA, and plan-check |
 
 ### Sub-Agent Prompt Composition
 
@@ -318,26 +318,24 @@ direct Codex, Codex read-pack patch mode, and board+Codex recovery have failed:
 - Query SGSD memory instead of loading full .md files
 - Sub-agent reports: 300 words max
 - Plans: compressed XML (~800 tokens, not ~2,000)
-- Codex/local classifier from frontmatter/cache; do not spawn Haiku
+- Derive classifier output locally from plan frontmatter/cache
 - Log all token usage to `.planning/metrics/token-log.jsonl`
 - Script reuse: query before creating new utilities
 
-### Memory Retrieval (DLB-01 - replaces ByteRover)
+### Memory Retrieval (DLB-01)
 
 Per DLB-01 (`.planning/decisions/DLB-01-memory-topology.md`), the SGSD-global
 memory tier is a project-local filesystem store at `.planning/memory/` with a
 `MEMORY.md` catalogue. The shell wrappers below are the stable callable
-interface; legacy BRV/ByteRover command wrappers are not part of the live
-contract.
+interface.
 
-- `sgsd-recall "{terms}"` — grep INDEX.md by query terms, emit top-N file
+- `sgsd-recall "{terms}"` — grep MEMORY.md by query terms, emit top-N file
   contents with `<!-- sgsd-recall: type/slug -->` framing (~200 tokens per
   result). Supports `--type`, `--limit`, `--paths-only`. Lives at
   `super-gsd/scripts/sgsd-recall.sh`; auto-walks up from CWD to find
-  `.planning/memory/`, with read-only legacy fallback for unmigrated BRV
-  projects.
+  `.planning/memory/`.
 - `sgsd-curate --type T --slug S --summary "<=80 chars" [--tags "a,b"] < body.md`
-  — atomic write of a new entry + INDEX.md update. Types:
+  — atomic write of a new entry + MEMORY.md update. Types:
   `pattern | anti-pattern | decision | expertise | script`.
 - Query BEFORE dispatching (inject results into agent prompt).
 - Curate AFTER processing (capture learnings from agent report).
@@ -345,7 +343,7 @@ contract.
   new ones.
 
 Revisit BM25 ranking infrastructure only at the 40-file tripwire (see
-DLB-01). Until then, grep + INDEX.md curation discipline is sufficient.
+DLB-01). Until then, grep + MEMORY.md curation discipline is sufficient.
 
 <!-- SGSD:COMMUNICATION-PROTOCOL:START -->
 <!-- Managed section. Repo-scoped ONLY.
