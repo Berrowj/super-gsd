@@ -69,13 +69,36 @@ def preflight(
         ("fetch", current.trusted_remote, current.trusted_branch),
         check=False,
     )
+    if fetch.returncode != 0:
+        stderr_lines = [line.strip() for line in fetch.stderr.splitlines() if line.strip()]
+        fetch_stderr = " | ".join(stderr_lines[:2]) or "(no stderr output)"
+        message = (
+            "indeterminate: provenance could not be determined because the fetch from trusted "
+            f"remote {current.trusted_remote} branch {current.trusted_branch} failed; "
+            f"git stderr: {fetch_stderr}. This is not evidence that {full_sha} is missing "
+            "from the remote"
+        )
+        raise ControlPlaneError(
+            message,
+            exit_code=6,
+            detail={
+                "ok": False,
+                "stage": "trusted_remote_unreachable",
+                "expected_sha": full_sha,
+                "remote": current.trusted_remote,
+                "branch": current.trusted_branch,
+                "stderr": fetch_stderr,
+                "message": message,
+            },
+        )
+
     trusted_ref = f"{current.trusted_remote}/{current.trusted_branch}"
     ancestor = gitutil.run_git(
         current.canonical_repo,
         ("merge-base", "--is-ancestor", full_sha, trusted_ref),
         check=False,
     )
-    if fetch.returncode != 0 or ancestor.returncode != 0:
+    if ancestor.returncode != 0:
         message = (
             f"refused: {full_sha} exists only locally or is not reachable from {trusted_ref}; "
             "a fresh clone would not receive it"

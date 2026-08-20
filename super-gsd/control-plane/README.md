@@ -63,6 +63,7 @@ The default preflight services are `clarity-python-api`,
 | `3` | Ownership conflict, or commit is not on the trusted remote branch |
 | `4` | Active jobs would be destroyed by the requested deploy |
 | `5` | `doctor` completed with warnings and no errors |
+| `6` | indeterminate: could not reach the trusted remote to verify provenance |
 
 Commands supporting `--json` emit exactly one JSON object to standard output,
 including on expected failures.
