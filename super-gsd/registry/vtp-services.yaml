@@ -1,0 +1,45 @@
+# ============================================================================
+# SGSD VTP Services Topology Registry
+# ============================================================================
+# Durable service identities, environment identifiers, local paths, and pins.
+# Runtime contents and connection details are deliberately excluded.
+#
+# Source: v3.6 P157 CONTEXT.md and 157-01-PLAN-LOCKED.md (revision 2).
+# ============================================================================
+
+schema_version: 1
+
+servers:
+  canonical: vtp-kb
+  adjacent:
+    - jcl-internal
+    - jcl-products
+    - qmd
+
+environment_names:
+  - QDRANT_URL
+  - VTP_EMBED_PYTHON
+  - VTP_EVIDENCE_STORE_URL
+  - CLARITY_MONGO_URI
+  - CLARITY_MONGO_DB
+  - CLARITY_ES_URL
+
+paths:
+  vtp_root: ~/Voice-Text-Plan/
+  source_dir: src/
+  cli_entry: dist/cli.js
+  canonical_kb_dir: ~/.vtp/
+  mirror_only_kb_dir: ~/Voice-Text-Plan/kb-data/
+  pending_ledger: ~/.vtp/pending-ledger.jsonl
+  ingest_lock: ~/.vtp/ingest.lock
+  ingest_manifest: config/ingest-manifest.yaml
+
+pins:
+  qdrant_js: 1.18.0
+  embedder: bge-base-en-v1.5
+  sentence-transformers/torch: NEVER-upgrade
+
+single_writer:
+  scope: ingest
+  max_writers: 1
+  lock_path: ~/.vtp/ingest.lock

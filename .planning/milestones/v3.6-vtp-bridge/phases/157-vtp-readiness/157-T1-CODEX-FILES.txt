@@ -1,0 +1,5 @@
+super-gsd/registry/vtp-services.yaml
+super-gsd/tools/vtp-readiness/registry.cjs
+super-gsd/tests/vtp-readiness/assert-vtp-readiness.cjs
+super-gsd/registry/gates.yaml
+super-gsd/registry/skill-routing.yaml
