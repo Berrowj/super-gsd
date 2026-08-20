@@ -77,6 +77,7 @@ tasks:
     model: codex
     depends_on: []
     files_touched:
+      - super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs
       - super-gsd/schemas/vtp-mcp-input-schemas.v1.json
       - super-gsd/scripts/sgsd-triage-runtime.cjs
       - super-gsd/tests/triage-runtime/assert-mcp-arg-contract.cjs
@@ -192,6 +193,13 @@ tasks:
       --evidence-file .planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-REAL-MCP-EVIDENCE.json
     expected_ATC_tier: GATE
 ---
+
+AMENDMENT-1 (orchestrator, 2026-08-20 overnight, recorded per contract rule 3):
+assert-real-triage-runtime.cjs added to T1 files_touched. Its lines 1436-1438 assert
+the DEFECTIVE emission shape (args.raw_query / args.fallback_reason on the substrate
+fallback), so the fix necessarily updates those assertions to the corrected {query}
+shape. Executor correctly refused to exceed its allowlist and blocked. No other scope
+change.
 
 # P154 - Triage Runtime MCP Arg Contract
 
