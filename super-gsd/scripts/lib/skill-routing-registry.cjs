@@ -31,6 +31,7 @@ const VALID_AVAILABILITY = Object.freeze([
   'external-if-installed',
   'omitted',
 ]);
+const VALID_MCP_PROMPT_SURFACES = Object.freeze(['/vtp-implementation-pack']);
 
 const DEGRADED_SIGNAL = 'skill_routing_registry_degraded';
 const SKILL_ROUTING_EVENT = 'skill-routing';
@@ -218,6 +219,15 @@ const COMPILED_FALLBACK_ROWS = Object.freeze([
   }, {
     id: 'vtp-implementation-pack-meeting-import',
     availability: 'external-if-installed',
+  }),
+  fb('vtp-implementation-pack', 'prompt-time', ['manual', 'semi', 'auto'], {
+    regexes: [
+      '^\\s*(?:please\\s+)?export\\b(?=[^\\r\\n]{0,180}\\b(?:meeting|transcript|recording)\\b)(?=[^\\r\\n]{0,180}\\b(?:implementation\\s+pack|actions?|action\\s+items?)\\b)',
+    ],
+  }, {
+    id: 'vtp-implementation-pack-meeting-export',
+    availability: 'external-if-installed',
+    mcp_surface: '/vtp-implementation-pack',
   }),
   fb('jcl-procurement-report', 'prompt-time', ['manual', 'semi', 'auto'], {
     regexes: [
@@ -558,6 +568,10 @@ function _normalizeRoute(row, index, sourceTag) {
   const cooldown = _normalizeCooldown(row.cooldown, label, issues);
   const dispatch = _normalizeDispatch(row.dispatch, label, issues);
   const explicitId = _optionalString(row.id, label + '.id', issues);
+  const mcpSurface = _optionalString(row.mcp_surface, label + '.mcp_surface', issues);
+  if (mcpSurface && !VALID_MCP_PROMPT_SURFACES.includes(mcpSurface)) {
+    issues.push(label + '.mcp_surface invalid: ' + mcpSurface);
+  }
 
   if (availability === 'omitted' && !skipReason) {
     issues.push(label + '.skip_reason required when availability is omitted');
@@ -588,6 +602,7 @@ function _normalizeRoute(row, index, sourceTag) {
       dispatch,
       skip_reason: skipReason,
       notes,
+      mcp_surface: mcpSurface,
       source: sourceTag,
       index,
     },
@@ -861,6 +876,7 @@ function toPromptGovernanceRoutes(input, opts) {
       skill: route.skill,
       aliases: route.aliases.slice(),
       availability: route.availability,
+      mcp_surface: route.mcp_surface,
       gate_ref: route.gate_ref,
       source: route.source,
     });
@@ -904,6 +920,7 @@ function _routingParityProjection(routes) {
     moment: route.moment,
     modes: route.modes,
     availability: route.availability,
+    mcp_surface: route.mcp_surface,
     cooldown: route.cooldown,
     gate_ref: route.gate_ref,
     dispatch: route.dispatch,

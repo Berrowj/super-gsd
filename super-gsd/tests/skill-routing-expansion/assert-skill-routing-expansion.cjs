@@ -32,6 +32,48 @@ const FAMILY_SUGGESTION_SKILLS = Object.freeze([
   'diagram-design',
 ]);
 const FAMILY_SHADOW_IDS = Object.freeze(['erp-resolve-shadow', 'clarity-engines-shadow']);
+const T4_CONFIG_SENTINELS = Object.freeze([
+  'sentinel-p159-non-runnable-command',
+  'sentinel-p159-config-arg',
+  'sentinel-p159-config-value',
+]);
+const T4_ROUTE_MATRIX = Object.freeze([
+  Object.freeze({
+    routeId: 'vtp-search-substrate-shadow',
+    surface: 'vtp_search_substrate',
+    action: 'would_route_vtp_search_substrate',
+    prompt: 'Search this paper content for the cited evidence',
+    tier: 'shadow',
+  }),
+  Object.freeze({
+    routeId: 'vtp-wiki-search-shadow',
+    surface: 'wiki_search',
+    action: 'would_route_wiki_search',
+    prompt: 'Search the wiki for this project analysis',
+    tier: 'shadow',
+  }),
+  Object.freeze({
+    routeId: 'vtp-route-and-retrieve-shadow',
+    surface: 'vtp_route_and_retrieve',
+    action: 'would_route_vtp_route_and_retrieve',
+    prompt: 'Route and retrieve this end-to-end knowledge intent',
+    tier: 'shadow',
+  }),
+  Object.freeze({
+    routeId: 'vtp-implementation-pack-meeting-export',
+    surface: '/vtp-implementation-pack',
+    action: '/vtp-implementation-pack',
+    prompt: 'Export this meeting transcript to an implementation pack',
+    tier: 'suggestion',
+  }),
+  Object.freeze({
+    routeId: 'vtp-triage-advisory-shadow',
+    surface: 'vtp_triage',
+    action: 'would_route_vtp_triage_advisory',
+    prompt: 'Assess the triage verdict for this retrieval decision',
+    tier: 'shadow',
+  }),
+]);
 
 function argument(name) {
   const index = process.argv.indexOf(name);
@@ -77,10 +119,16 @@ function withFixture(callback) {
   }
 }
 
-function runClassifier(value, payload, args, classifierPath) {
+function runClassifier(value, payload, args, classifierPath, options) {
+  const env = { ...process.env, HOME: value.home, USERPROFILE: value.home };
+  const guard = options && options.denyLiveness
+    ? path.join(value.base, 'deny-hook-liveness.cjs') : null;
+  if (guard) writeFile(guard, 'const M=require(`module`),o=M._load,b=new Set([`net`,`http`,`https`,`dns`,`child_process`]);M._load=function(r,...a){const n=String(r).replace(/^node:/,``);if(b.has(n))throw Error(`forbidden:`+n);return o.call(this,r,...a)};global.fetch=()=>{throw Error(`forbidden:fetch`)};');
+  if (guard) env.NODE_OPTIONS = [env.NODE_OPTIONS, '--require=' + guard]
+    .filter(Boolean).join(' ');
   const child = spawnSync(process.execPath, [classifierPath || CLASSIFIER, ...(args || [])], {
     cwd: value.project,
-    env: { ...process.env, HOME: value.home, USERPROFILE: value.home },
+    env,
     input: payload === null ? undefined : JSON.stringify({ ...payload, cwd: value.project }),
     encoding: 'utf8',
     timeout: 10000,
@@ -91,6 +139,12 @@ function runClassifier(value, payload, args, classifierPath) {
   }
   const evidenceFile = path.join(value.project, '.planning', 'metrics', 'gate-evidence.jsonl');
   const shadowFile = path.join(value.project, '.planning', 'metrics', 'kb-triage-shadow.jsonl');
+  const demandFile = path.join(
+    value.project, '.planning', 'metrics', 'triage-advisory', 'demand-baseline.jsonl',
+  );
+  const denominatorFile = path.join(
+    value.project, '.planning', 'metrics', 'triage-advisory', 'denominator.json',
+  );
   return {
     status: child.status,
     stdout: child.stdout || '',
@@ -98,6 +152,10 @@ function runClassifier(value, payload, args, classifierPath) {
     evidenceText: fs.existsSync(evidenceFile) ? fs.readFileSync(evidenceFile, 'utf8') : '',
     shadow: readJsonl(shadowFile),
     shadowText: fs.existsSync(shadowFile) ? fs.readFileSync(shadowFile, 'utf8') : '',
+    demand: readJsonl(demandFile),
+    demandText: fs.existsSync(demandFile) ? fs.readFileSync(demandFile, 'utf8') : '',
+    denominator: fs.existsSync(denominatorFile)
+      ? JSON.parse(fs.readFileSync(denominatorFile, 'utf8')) : null,
   };
 }
 
@@ -356,11 +414,13 @@ function copyClassifierInstance(value, includeFamilyRows) {
     path.join('scripts', 'lib', 'gate-evidence-log.cjs'),
     path.join('scripts', 'lib', 'sgsd-state.cjs'),
     path.join('scripts', 'lib', 'skill-routing-registry.cjs'),
+    path.join('scripts', 'lib', 'demand-baseline-ledger.cjs'),
     path.join('scripts', 'sgsd-distill-milestone.sh'),
     path.join('scripts', 'sgsd-muda-audit.sh'),
     path.join('overwatcher', 'overwatcher-launcher.js'),
     path.join('tools', 'token-waste', 'check.cjs'),
     path.join('tools', 'vtp-readiness', 'run.cjs'),
+    path.join('tools', 'vtp-readiness', 'registry.cjs'),
     path.join('tools', 'release-readiness', 'score.cjs'),
     path.join('tools', 'phase-folder-audit', 'audit.cjs'),
   ];
@@ -382,7 +442,9 @@ function copyClassifierInstance(value, includeFamilyRows) {
   const registryDir = path.join(value.project, 'super-gsd', 'registry');
   fs.mkdirSync(registryDir, { recursive: true });
   if (includeFamilyRows) {
-    for (const name of ['gates.yaml', 'skill-routing.yaml', 'session-governance-hooks.yaml']) {
+    for (const name of [
+      'gates.yaml', 'skill-routing.yaml', 'session-governance-hooks.yaml', 'vtp-services.yaml',
+    ]) {
       fs.copyFileSync(
         path.join(ROOT, 'super-gsd', 'registry', name),
         path.join(registryDir, name),
@@ -415,6 +477,10 @@ function copyClassifierInstance(value, includeFamilyRows) {
       '      directive: /sgsd-triage',
       '',
     ].join('\n'));
+    fs.copyFileSync(
+      path.join(ROOT, 'super-gsd', 'registry', 'vtp-services.yaml'),
+      path.join(registryDir, 'vtp-services.yaml'),
+    );
   }
   for (const skill of FAMILY_SKILLS) {
     writeFile(
@@ -450,6 +516,67 @@ function familyShadowRows(result) {
     Array.isArray(row.matched_signature_ids)
       && row.matched_signature_ids.some((id) => FAMILY_SHADOW_IDS.includes(id))
   ));
+}
+
+function t4ShadowRows(result) {
+  const ids = new Set(T4_ROUTE_MATRIX.filter((row) => row.tier === 'shadow')
+    .map((row) => row.routeId));
+  return result.shadow.filter((row) => (
+    Array.isArray(row.matched_signature_ids)
+      && row.matched_signature_ids.some((id) => ids.has(id))
+  ));
+}
+
+function t4DecisionRows(result, routeId) {
+  return result.evidence.filter((row) => (
+    row.signal === 'intent_routing_decision'
+      && Array.isArray(row.route_ids) && row.route_ids.includes(routeId)
+  ));
+}
+
+function writeMcpFixture(value, kind) {
+  if (kind === 'missing') return;
+  if (kind === 'malformed') {
+    writeFile(path.join(value.project, '.mcp.json'), '{');
+    return;
+  }
+  const { loadRegistry } = require(path.join(
+    ROOT, 'super-gsd', 'tools', 'vtp-readiness', 'registry.cjs',
+  ));
+  const canonical = loadRegistry().servers.canonical;
+  const serverName = kind === 'registered' ? canonical : 'sentinel-p159-other-server';
+  writeFile(path.join(value.project, '.mcp.json'), JSON.stringify({
+    mcpServers: {
+      [serverName]: {
+        command: T4_CONFIG_SENTINELS[0],
+        args: [T4_CONFIG_SENTINELS[1]],
+        env: { SENTINEL_P159_CONFIG: T4_CONFIG_SENTINELS[2] },
+      },
+    },
+  }));
+}
+
+function vtpFixtureRun(route, configKind, includeRows, payloadOverride) {
+  return withFixture((value) => {
+    const classifierPath = copyClassifierInstance(value, includeRows);
+    writeMcpFixture(value, configKind);
+    const payload = payloadOverride || humanPayload(route.prompt);
+    return runClassifier(value, payload, [], classifierPath, { denyLiveness: true });
+  });
+}
+
+function t4ForbiddenEvidence(result) {
+  const forbiddenKeys = new Set([
+    'prompt', 'text', 'query', 'note', 'entity', 'entities', 'path', 'error',
+    'command_value', 'args', 'url', 'host', 'task_id', 'tool_use_id', 'session_id',
+  ]);
+  return hasForbiddenKey(result.evidence, forbiddenKeys)
+    || hasForbiddenKey(result.shadow, forbiddenKeys)
+    || hasForbiddenKey(result.demand, forbiddenKeys)
+    || T4_CONFIG_SENTINELS.some((sentinel) => (
+      result.evidenceText.includes(sentinel)
+        || result.shadowText.includes(sentinel) || result.demandText.includes(sentinel)
+    ));
 }
 
 function erpVtpSkillFamilyCase() {
@@ -590,6 +717,167 @@ function erpVtpSkillFamilyCase() {
   return fail === 0 ? 0 : 1;
 }
 
+function vtpToolFamilyRegisteredCase() {
+  let pass = 0;
+  let fail = 0;
+  const failures = [];
+  const check = (name, condition, detail) => {
+    if (condition) pass += 1;
+    else {
+      fail += 1;
+      failures.push(name + (detail ? ' -- ' + detail : ''));
+    }
+  };
+
+  for (const route of T4_ROUTE_MATRIX) {
+    const result = vtpFixtureRun(route, 'registered', true);
+    const shadows = t4ShadowRows(result);
+    const decisions = t4DecisionRows(result, route.routeId);
+    const lineage = route.tier === 'shadow' ? shadows[0] : decisions[0];
+    check(route.routeId + ' registered broken command exits zero under no-liveness guard',
+      result.status === 0, 'status=' + result.status);
+    check(route.routeId + ' maps to the recorded tier and surface',
+      route.tier === 'shadow'
+        ? result.stdout === '' && shadows.length === 1
+          && shadows[0].surface_id === route.surface
+          && shadows[0].soft_path_action === route.action
+        : JSON.stringify(emittedSuggestions(result))
+            === JSON.stringify(['/vtp-implementation-pack'])
+          && decisions.length === 1 && decisions[0].surface_id === route.surface,
+      JSON.stringify({ stdout: result.stdout, shadows, decisions }));
+    check(route.routeId + ' records one text-free demand row with shared lineage',
+      Boolean(lineage) && result.demand.length === 1
+        && result.demand[0].decision_id === lineage.decision_id
+        && result.demand[0].artefact_kind === route.surface
+        && result.demand[0].adequate === false
+        && result.demand[0].reason === 'no_enrichment_attempted'
+        && result.demand[0].vtp_call_count === 0
+        && !Object.hasOwn(result.demand[0], 'query')
+        && !Object.hasOwn(result.demand[0], 'note'),
+      JSON.stringify({ lineage, demand: result.demand }));
+    check(route.routeId + ' evidence never discloses prompt or config sentinels',
+      !t4ForbiddenEvidence(result),
+      result.evidenceText + result.shadowText + result.demandText);
+    const red = vtpFixtureRun(route, 'registered', false);
+    check(route.routeId + ' internal rows-absent red has no T4 fire or demand',
+      t4ShadowRows(red).length === 0
+        && t4DecisionRows(red, route.routeId).length === 0
+        && red.demand.length === 0
+        && !emittedSuggestions(red).includes('/vtp-implementation-pack'),
+      JSON.stringify(red));
+  }
+
+  withFixture((value) => {
+    const classifierPath = copyClassifierInstance(value, true);
+    writeMcpFixture(value, 'registered');
+    const route = T4_ROUTE_MATRIX[0];
+    const first = runClassifier(
+      value, humanPayload(route.prompt), [], classifierPath, { denyLiveness: true },
+    );
+    const replay = runClassifier(
+      value, humanPayload(route.prompt), [], classifierPath, { denyLiveness: true },
+    );
+    check('replay keeps one demand row and one denominator unit',
+      first.demand.length === 1 && replay.demand.length === 1
+        && replay.denominator && replay.denominator.denominator === 1,
+      JSON.stringify({ first: first.demand, replay: replay.demand }));
+  });
+
+  console.log('skill-routing-expansion vtp-tool-family-registered: '
+    + pass + ' pass, ' + fail + ' fail');
+  for (const failure of failures) console.error('  FAIL: ' + failure);
+  return fail === 0 ? 0 : 1;
+}
+
+function vtpToolFamilyUnavailableOriginGateCase() {
+  let pass = 0;
+  let fail = 0;
+  const failures = [];
+  const check = (name, condition, detail) => {
+    if (condition) pass += 1;
+    else {
+      fail += 1;
+      failures.push(name + (detail ? ' -- ' + detail : ''));
+    }
+  };
+
+  for (const route of T4_ROUTE_MATRIX) {
+    const result = vtpFixtureRun(route, 'missing', true);
+    const unavailable = result.evidence.filter((row) => (
+      row.decision === 'mcp_server_unregistered'
+    ));
+    check(route.routeId + ' unavailable is silent with one fixed row only',
+      result.status === 0 && result.stdout === ''
+        && result.shadow.length === 0 && result.demand.length === 0
+        && result.evidence.length === 1 && unavailable.length === 1
+        && unavailable[0].route_id === route.routeId
+        && unavailable[0].surface_id === route.surface
+        && unavailable[0].reason_codes[0] === 'mcp_server_unregistered',
+      JSON.stringify(result));
+    check(route.routeId + ' unavailable evidence leaks no prompt/config text',
+      !t4ForbiddenEvidence(result), result.evidenceText);
+    const red = vtpFixtureRun(route, 'missing', false);
+    check(route.routeId + ' unavailable rows-absent red has no T4 row',
+      !red.evidence.some((row) => row.decision === 'mcp_server_unregistered')
+        && red.demand.length === 0 && t4ShadowRows(red).length === 0,
+      JSON.stringify(red));
+  }
+
+  for (const configKind of ['malformed', 'canonical-name-absent']) {
+    const route = T4_ROUTE_MATRIX[0];
+    const result = vtpFixtureRun(route, configKind, true);
+    check(configKind + ' config is the same silent unregistered decision',
+      result.stdout === '' && result.shadow.length === 0 && result.demand.length === 0
+        && result.evidence.length === 1
+        && result.evidence[0].decision === 'mcp_server_unregistered'
+        && result.evidence[0].route_id === route.routeId
+        && !t4ForbiddenEvidence(result),
+      JSON.stringify(result));
+  }
+
+  const envelope = [
+    '<task-notification>',
+    '  <summary>' + T4_ROUTE_MATRIX.map((route) => route.prompt).join(' | ')
+      + ' | Create a SAP quote artifact | reconcile the SAP vendor record</summary>',
+    '</task-notification>',
+  ].join('\n');
+  const quotedRoute = T4_ROUTE_MATRIX[0];
+  const quoted = vtpFixtureRun(
+    quotedRoute,
+    'registered',
+    true,
+    humanPayload(quotedRoute.prompt + '\nQuoted payload:\n' + envelope),
+  );
+  const quotedDecisions = quoted.evidence.filter((row) => (
+    row.signal === 'intent_routing_decision'
+  ));
+  check('human-quoted task notification remains routable',
+    t4ShadowRows(quoted).length === 1 && quoted.demand.length === 1
+      && quotedDecisions.length === 1 && quotedDecisions[0].decision === 'matched'
+      && !quoted.evidence.some((row) => row.decision === 'automated_turn_skip'),
+    JSON.stringify(quoted));
+  const automated = vtpFixtureRun(T4_ROUTE_MATRIX[0], 'registered', true, {
+    hook_event_name: 'UserPromptSubmit',
+    origin: { kind: 'task-notification' },
+    promptSource: 'system',
+    mode: 'manual',
+    prompt: envelope,
+  });
+  const skipRows = automated.evidence.filter((row) => row.decision === 'automated_turn_skip');
+  check('automated T2/T4 envelope stops before route, MCP, shadow, or demand work',
+    automated.status === 0 && automated.stdout === ''
+      && automated.evidence.length === 1 && skipRows.length === 1
+      && skipRows[0].route_evaluation_count === 0
+      && skipRows[0].shadow_evaluation_count === 0
+      && automated.shadow.length === 0 && automated.demand.length === 0,
+    JSON.stringify(automated));
+
+  console.log('skill-routing-expansion vtp-tool-family-unavailable-origin-gate: '
+    + pass + ' pass, ' + fail + ' fail');
+  for (const failure of failures) console.error('  FAIL: ' + failure);
+  return fail === 0 ? 0 : 1;
+}
+
 function descriptionLintCase() {
   let pass = 0;
   let fail = 0;
@@ -722,16 +1010,25 @@ function main() {
     'availability-guard',
     'erp-vtp-skill-family',
     'description-lint',
+    'vtp-tool-family-registered',
+    'vtp-tool-family-unavailable-origin-gate',
   ].includes(requestedCase)) {
     console.error(
       'Usage: node assert-skill-routing-expansion.cjs '
-        + '--case <availability-guard|erp-vtp-skill-family|description-lint>',
+        + '--case <availability-guard|erp-vtp-skill-family|description-lint|'
+        + 'vtp-tool-family-registered|vtp-tool-family-unavailable-origin-gate>',
     );
     process.exit(2);
   }
   try {
     if (requestedCase === 'availability-guard') process.exit(availabilityGuardCase());
     if (requestedCase === 'erp-vtp-skill-family') process.exit(erpVtpSkillFamilyCase());
+    if (requestedCase === 'vtp-tool-family-registered') {
+      process.exit(vtpToolFamilyRegisteredCase());
+    }
+    if (requestedCase === 'vtp-tool-family-unavailable-origin-gate') {
+      process.exit(vtpToolFamilyUnavailableOriginGateCase());
+    }
     process.exit(descriptionLintCase());
   } catch (error) {
     console.error(

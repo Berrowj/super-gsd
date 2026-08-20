@@ -95,6 +95,7 @@ routes:
         - run
         - test
         - file
+        - export
     enforcement:
       kind: shadow
       signal: kb_triage_shadow
@@ -120,3 +121,53 @@ routes:
       signal: kb_triage_shadow
       target_skill: clarity-engines
       soft_path_action: would_route_clarity_engines
+
+  - id: vtp-route-and-retrieve-shadow
+    availability: mcp-server-registered
+    trigger:
+      strong_regexes:
+        - '\b(?:route\s+and\s+retrieve|end[- ]to[- ]end)\b(?=[^\r\n]{0,180}\b(?:intent|retrieval|knowledge|evidence|context)\b)'
+    enforcement:
+      kind: shadow
+      signal: kb_triage_shadow
+      surface_id: vtp_route_and_retrieve
+      soft_path_action: would_route_vtp_route_and_retrieve
+
+  - id: vtp-triage-advisory-shadow
+    availability: mcp-server-registered
+    trigger:
+      strong_regexes:
+        - '\b(?:assess|return|produce|request|review)\b(?=[^\r\n]{0,180}\btriage\b)(?=[^\r\n]{0,180}\b(?:verdict|advisory|decision)\b)'
+    enforcement:
+      kind: shadow
+      signal: kb_triage_shadow
+      surface_id: vtp_triage
+      soft_path_action: would_route_vtp_triage_advisory
+
+  - id: vtp-search-substrate-shadow
+    availability: mcp-server-registered
+    trigger:
+      strong_regexes:
+        - '\b(?:search|find|retrieve|query|look\s+up)\b(?=[^\r\n]{0,180}\b(?:books?|papers?|transcripts?)\b)(?=[^\r\n]{0,180}\b(?:content|passage|chapter|excerpt|text|evidence)\b)'
+    predicate:
+      exclude_regexes:
+        - '\b(?:end[- ]to[- ]end|route\s+and\s+retrieve|triage\s+verdict|meeting\s+export|export)\b'
+    enforcement:
+      kind: shadow
+      signal: kb_triage_shadow
+      surface_id: vtp_search_substrate
+      soft_path_action: would_route_vtp_search_substrate
+
+  - id: vtp-wiki-search-shadow
+    availability: mcp-server-registered
+    trigger:
+      strong_regexes:
+        - '\b(?:search|find|retrieve|query|look\s+up)\b(?=[^\r\n]{0,180}\b(?:people|person|projects?|ideas?|analys(?:is|es))\b)(?=[^\r\n]{0,180}\b(?:wiki|profile|page|context|evidence)\b)'
+    predicate:
+      exclude_regexes:
+        - '\b(?:end[- ]to[- ]end|route\s+and\s+retrieve|triage\s+verdict|meeting\s+export|export)\b'
+    enforcement:
+      kind: shadow
+      signal: kb_triage_shadow
+      surface_id: wiki_search
+      soft_path_action: would_route_wiki_search

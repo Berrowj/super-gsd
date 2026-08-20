@@ -16,6 +16,14 @@ const REASONS = Object.freeze([
   'other_inadequate',
 ]);
 
+const ROUTED_SURFACES = Object.freeze([
+  'vtp_search_substrate',
+  'wiki_search',
+  'vtp_route_and_retrieve',
+  '/vtp-implementation-pack',
+  'vtp_triage',
+]);
+
 const ALLOWED_FIELDS = new Set([
   'schema_version',
   'decision_id',
@@ -213,15 +221,15 @@ function eligibleQueryRow(input, denominator) {
   const row = {
     schema_version: 1,
     decision_id: input.decision_id,
-    query: input.query,
     adequate: input.adequate,
     reason: input.reason,
     latency_ms: input.latency_ms,
     est_tokens: input.est_tokens,
     vtp_call_count: input.vtp_call_count,
     denominator,
-    artefact_kind: null,
+    artefact_kind: input.artefact_kind ?? null,
   };
+  if (Object.hasOwn(input, 'query')) row.query = input.query;
   if (Object.hasOwn(input, 'note')) row.note = input.note;
   return row;
 }
@@ -247,7 +255,7 @@ function readDenominatorState(denominatorPath) {
   return state;
 }
 
-function recordEligibleQuery(planningDir, input) {
+function recordDemand(planningDir, input, allowQueryless) {
   let lock;
   let lockPath;
   let result;
@@ -255,6 +263,9 @@ function recordEligibleQuery(planningDir, input) {
     if (!isNonEmptyString(planningDir)) throw new Error('planningDir must be a non-empty string');
     if (!input || typeof input !== 'object' || Array.isArray(input)) {
       throw new Error('eligible query must be an object');
+    }
+    if (!allowQueryless && !Object.hasOwn(input, 'query')) {
+      throw new Error('eligible query must include query');
     }
 
     const preliminaryRow = eligibleQueryRow(input, 1);
@@ -312,6 +323,32 @@ function recordEligibleQuery(planningDir, input) {
   return result;
 }
 
+function recordEligibleQuery(planningDir, input) {
+  return recordDemand(planningDir, input, false);
+}
+
+function recordRoutedDemand(planningDir, input) {
+  try {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) {
+      throw new Error('routed demand must be an object');
+    }
+    if (!ROUTED_SURFACES.includes(input.surface)) {
+      throw new Error('routed demand surface is invalid');
+    }
+    return recordDemand(planningDir, {
+      decision_id: input.decision_id,
+      adequate: false,
+      reason: 'no_enrichment_attempted',
+      latency_ms: input.latency_ms,
+      est_tokens: 0,
+      vtp_call_count: 0,
+      artefact_kind: input.surface,
+    }, true);
+  } catch (error) {
+    return failureResult(error);
+  }
+}
+
 function selfTest() {
   let passed = 0;
   let failed = 0;
@@ -344,6 +381,12 @@ function selfTest() {
     latency_ms: 1,
     est_tokens: 2,
     vtp_call_count: 0,
+    ...overrides,
+  });
+  const validRoutedDemand = (overrides = {}) => ({
+    decision_id: 'self-test-routed',
+    surface: 'vtp_search_substrate',
+    latency_ms: 1,
     ...overrides,
   });
   const without = (row, key) => {
@@ -455,6 +498,31 @@ function selfTest() {
       assert.strictEqual(result.ok, false);
       assert.strictEqual(fs.readFileSync(denominatorPath, 'utf8'), before);
     });
+    check('routed demand is text-free and replay-safe', () => {
+      assert.deepStrictEqual(recordRoutedDemand(instrumentDir, validRoutedDemand()), {
+        ok: true, deduped: false, denominator: 3,
+      });
+      assert.deepStrictEqual(recordRoutedDemand(
+        instrumentDir, validRoutedDemand({ latency_ms: 9 }),
+      ), { ok: true, deduped: true, denominator: 3 });
+      const rows = fs.readFileSync(instrumentLedgerPath, 'utf8')
+        .trim().split(/\r?\n/).map(JSON.parse);
+      const row = rows.at(-1);
+      assert.strictEqual(row.artefact_kind, 'vtp_search_substrate');
+      assert.strictEqual(row.reason, 'no_enrichment_attempted');
+      assert.strictEqual(row.vtp_call_count, 0);
+      assert.strictEqual(Object.hasOwn(row, 'query'), false);
+      assert.strictEqual(Object.hasOwn(row, 'note'), false);
+    });
+    check('unknown routed surface is rejected without denominator mutation', () => {
+      const before = fs.readFileSync(denominatorPath, 'utf8');
+      const result = recordRoutedDemand(instrumentDir, validRoutedDemand({
+        decision_id: 'invalid-routed',
+        surface: 'unknown_surface',
+      }));
+      assert.strictEqual(result.ok, false);
+      assert.strictEqual(fs.readFileSync(denominatorPath, 'utf8'), before);
+    });
     check('eligible query write failure returned', () => {
       const blockedPlanningDir = path.join(tmp, 'instrument-not-a-directory');
       fs.writeFileSync(blockedPlanningDir, 'blocking file', 'utf8');
@@ -479,4 +547,10 @@ if (require.main === module && process.argv.includes('--self-test')) {
   process.exitCode = selfTest();
 }
 
-module.exports = { appendRow, recordEligibleQuery, validateRow };
+module.exports = {
+  appendRow,
+  recordEligibleQuery,
+  recordRoutedDemand,
+  validateRow,
+  ROUTED_SURFACES,
+};

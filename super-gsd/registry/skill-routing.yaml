@@ -526,6 +526,20 @@ routes:
     availability: external-if-installed
     notes: Suggest implementation-pack only for explicit meeting or recording conversion into a pack or actions.
 
+  - id: vtp-implementation-pack-meeting-export
+    skill: vtp-implementation-pack
+    signatures:
+      regexes:
+        - '^\s*(?:please\s+)?export\b(?=[^\r\n]{0,180}\b(?:meeting|transcript|recording)\b)(?=[^\r\n]{0,180}\b(?:implementation\s+pack|actions?|action\s+items?)\b)'
+    moment: prompt-time
+    modes:
+      - manual
+      - semi
+      - auto
+    availability: external-if-installed
+    mcp_surface: /vtp-implementation-pack
+    notes: Suggest implementation-pack for explicit meeting export only; registration is checked after lexical matching.
+
   - id: jcl-procurement-report-prompt
     skill: jcl-procurement-report
     signatures:

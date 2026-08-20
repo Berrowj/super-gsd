@@ -9,6 +9,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { createHash, randomUUID } = require('crypto');
 const { performance } = require('perf_hooks');
 
 const { findSgsdRoot, readState } = require('../scripts/lib/sgsd-state.cjs');
@@ -41,6 +42,7 @@ const BENCH_SIGNAL = 'intent_classifier_bench';
 const DEGRADED_SIGNAL = 'intent_classifier_degraded';
 const ROUTING_DECISION_SIGNAL = 'intent_routing_decision';
 const SKILL_UNAVAILABLE_REASON_CODE = 'skill_entrypoint_not_found';
+const MCP_SERVER_UNREGISTERED_REASON_CODE = 'mcp_server_unregistered';
 const AUTOMATED_TURN_REASON_CODE = 'automated_task_notification_origin';
 const AUTOMATED_ENVELOPE_MARKERS = Object.freeze([
   Object.freeze(['<task-notification>', '</task-notification>']),
@@ -49,6 +51,10 @@ const AUTOMATED_ENVELOPE_MARKERS = Object.freeze([
 const CLASSIFIER_ENFORCEMENT_KINDS = Object.freeze(['directive', 'suggestion']);
 const KB_TRIAGE_SHADOW_SIGNAL = 'kb_triage_shadow';
 const KB_TRIAGE_MATCHER_VERSION = 'kb-shadow-v1';
+const T4_MCP_AVAILABILITY = 'mcp-server-registered';
+const T4_SURFACES = Object.freeze([
+  'vtp_search_substrate', 'wiki_search', 'vtp_route_and_retrieve', 'vtp_triage',
+]);
 const REPORT_ONLY_SIGNALS = Object.freeze(['missing_plan']);
 
 let _govRegistryCache = null; // { key, parsed, bytes }
@@ -319,16 +325,26 @@ function validateRouteShape(route) {
     const softPathAction = typeof enforcement.soft_path_action === 'string'
       ? enforcement.soft_path_action.trim()
       : '';
+    const surfaceId = typeof enforcement.surface_id === 'string'
+      ? enforcement.surface_id.trim()
+      : '';
     if (triggerCount === 0) reasons.push('shadow_trigger_missing');
     if (signal !== KB_TRIAGE_SHADOW_SIGNAL) reasons.push('shadow_signal_invalid');
     if (directive) reasons.push('shadow_directive_forbidden');
     if (genericStrongCount > 0) {
-      if (!isSafeSkillTarget('/' + targetSkill)) reasons.push('shadow_target_skill_invalid');
       if (!/^would_route_[a-z0-9_]+$/.test(softPathAction)) {
         reasons.push('shadow_soft_path_action_invalid');
       }
-      if (route.availability !== 'external-if-installed') {
-        reasons.push('shadow_availability_invalid');
+      if (surfaceId) {
+        if (!T4_SURFACES.includes(surfaceId)) reasons.push('shadow_surface_invalid');
+        if (route.availability !== T4_MCP_AVAILABILITY) {
+          reasons.push('shadow_mcp_availability_invalid');
+        }
+      } else {
+        if (!isSafeSkillTarget('/' + targetSkill)) reasons.push('shadow_target_skill_invalid');
+        if (route.availability !== 'external-if-installed') {
+          reasons.push('shadow_availability_invalid');
+        }
       }
     }
     return {
@@ -477,6 +493,39 @@ function promptText(payload) {
   return String(raw).toLowerCase();
 }
 
+function routeSurfaceId(route) {
+  const enforcement = route && route.enforcement || {};
+  const raw = route && route.mcp_surface || enforcement.surface_id;
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : null;
+}
+
+function vtpMcpServerRegistered(root) {
+  try {
+    const { loadRegistry: loadVtpRegistry } = require('../tools/vtp-readiness/registry.cjs');
+    const canonical = loadVtpRegistry().servers.canonical;
+    const source = fs.readFileSync(path.join(root, '.mcp.json'), 'utf8');
+    const parsed = JSON.parse(source);
+    const servers = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed.mcpServers : null;
+    return Boolean(servers && typeof servers === 'object' && !Array.isArray(servers)
+      && Object.hasOwn(servers, canonical));
+  } catch {
+    return false;
+  }
+}
+
+function recordT4RoutedDemand(root, input) {
+  const { recordRoutedDemand } = require('../scripts/lib/demand-baseline-ledger.cjs');
+  return recordRoutedDemand(path.join(root, '.planning'), input);
+}
+
+function t4DecisionId(route, payload, prompt) {
+  const session = payload && typeof payload.session_id === 'string' ? payload.session_id : '';
+  return 'p159-' + createHash('sha256')
+    .update([route && route.id || '', session, prompt].join('\0'))
+    .digest('hex');
+}
+
 function list(value) {
   return Array.isArray(value) ? value.filter((v) => typeof v === 'string' && v) : [];
 }
@@ -521,6 +570,8 @@ function matchesShadowRoute(route, prompt, root, payload) {
   if (!route || !prompt.trim()) return false;
   const trigger = route.trigger || {};
   const predicate = route.predicate || {};
+  if (phraseHit(prompt, predicate.exclude_phrases)) return false;
+  if (regexHit(prompt, predicate.exclude_regexes, root, payload)) return false;
   const strong = phraseHit(prompt, trigger.strong_phrases)
     || regexHit(prompt, trigger.strong_regexes, root, payload)
     || phraseHit(prompt, trigger.strong_kb_phrases)
@@ -548,47 +599,94 @@ function evaluateShadowRoutes(root, payload, prompt) {
         && route.enforcement
         && route.enforcement.kind === 'shadow';
     });
-    const matched = shadowRoutes
-      .filter((route) => matchesShadowRoute(route, prompt, root, payload))
-      .filter((route) => {
-        const enforcement = route.enforcement || {};
-        const targetSkill = typeof enforcement.target_skill === 'string'
-          ? enforcement.target_skill.trim()
-          : '';
-        if (!targetSkill) return true;
-        return resolveSkillTarget('/' + targetSkill, { root }).available;
+    const lexicalMatches = shadowRoutes
+      .filter((route) => matchesShadowRoute(route, prompt, root, payload));
+    const t4LexicalMatches = lexicalMatches.filter((route) => routeSurfaceId(route));
+    const selectedT4Route = t4LexicalMatches.length > 0 ? t4LexicalMatches[0] : null;
+    const selectedMatches = lexicalMatches.filter((route) => (
+      !routeSurfaceId(route) || route === selectedT4Route
+    ));
+    const matched = [];
+    const t4EvaluationCount = selectedT4Route ? 1 : 0;
+    if (selectedT4Route && !vtpMcpServerRegistered(root)) {
+      appendRoutingDecision(root, payload, [selectedT4Route], [], [], performance.now() - started, {
+        decision: 'mcp_server_unregistered',
+        route_id: selectedT4Route.id,
+        surface_id: routeSurfaceId(selectedT4Route),
       });
-    if (matched.length === 0) return;
-    const crypto = require('crypto');
+      return { t4_evaluation_count: t4EvaluationCount };
+    }
+    for (const route of selectedMatches) {
+      const enforcement = route.enforcement || {};
+      const surfaceId = routeSurfaceId(route);
+      const targetSkill = typeof enforcement.target_skill === 'string'
+        ? enforcement.target_skill.trim() : '';
+      if (targetSkill && !resolveSkillTarget('/' + targetSkill, { root }).available) continue;
+      matched.push(route);
+    }
+    if (matched.length === 0) return { t4_evaluation_count: t4EvaluationCount };
     const ledgerPathValue = kbTriageShadowLedgerPath(root);
     for (const route of matched) {
       const enforcement = route.enforcement || {};
+      const surfaceId = routeSurfaceId(route);
+      const decisionId = surfaceId ? t4DecisionId(route, payload, prompt) : randomUUID();
       const softPathAction = typeof enforcement.soft_path_action === 'string'
         ? enforcement.soft_path_action
         : 'would_route_vtp_query_triage';
       const line = JSON.stringify({
         ts: new Date().toISOString(),
-        decision_id: crypto.randomUUID(),
+        decision_id: decisionId,
         matcher_version: KB_TRIAGE_MATCHER_VERSION,
         matched_signature_ids: [route.id].filter(Boolean),
         soft_path_action: softPathAction,
         latency_ms: null,
         operator_label: null,
+        ...(surfaceId ? { surface_id: surfaceId } : {}),
       }) + '\n';
       const latency_ms = Number((performance.now() - started).toFixed(3));
       fs.appendFileSync(
         ledgerPathValue,
         line.replace('"latency_ms":null', '"latency_ms":' + latency_ms),
       );
+      if (surfaceId) {
+        appendRoutingDecision(root, payload, [route], [], [], latency_ms, {
+          t4_fired: true,
+          decision_id: decisionId,
+          surface_id: surfaceId,
+        });
+        recordT4RoutedDemand(root, {
+          decision_id: decisionId,
+          surface: surfaceId,
+          latency_ms,
+        });
+      }
     }
+    return { t4_evaluation_count: t4EvaluationCount };
   } catch {
     // Fire-and-forget: shadow evaluation must never throw or affect injection.
+    return { t4_evaluation_count: 0 };
   }
 }
 
 function matchingRoutes(registry, prompt, root, payload) {
   const routes = registry && Array.isArray(registry.routes) ? registry.routes : [];
   return routes.filter((route) => matchesRoute(route, prompt, root, payload));
+}
+
+function partitionMatchedRoutesByMcpRegistration(root, routes) {
+  const available = [];
+  const unavailable = [];
+  let registered = null;
+  for (const route of Array.isArray(routes) ? routes : []) {
+    if (!route || !route.mcp_surface) {
+      available.push(route);
+      continue;
+    }
+    if (registered === null) registered = vtpMcpServerRegistered(root);
+    if (registered) available.push(route);
+    else unavailable.push({ route, surface_id: route.mcp_surface });
+  }
+  return { available, unavailable };
 }
 
 function partitionMatchedRoutesByAvailability(root, routes) {
@@ -635,6 +733,9 @@ function appendRoutingDecision(root, payload, routes, mandatory, suggestions, du
       && details.decision === 'automated_turn_skip';
     const skillUnavailable = details
       && details.decision === 'skill_unavailable';
+    const mcpUnregistered = details
+      && details.decision === 'mcp_server_unregistered';
+    const t4Fired = details && details.t4_fired === true;
     const state = readState(root) || {};
     const registryPaths = Array.from(new Set(
       routes.map((route) => route && route.registry_path).filter(Boolean),
@@ -642,13 +743,14 @@ function appendRoutingDecision(root, payload, routes, mandatory, suggestions, du
     const row = logGateEvidence(root, {
       signal: ROUTING_DECISION_SIGNAL,
       status: 'ok',
-      decision: automatedTurnSkip || skillUnavailable
+      decision: automatedTurnSkip || skillUnavailable || mcpUnregistered
         ? details.decision
         : (routes.length > 0 ? 'matched' : 'no_match'),
       reason_codes: automatedTurnSkip
         ? [AUTOMATED_TURN_REASON_CODE]
-        : (skillUnavailable ? [SKILL_UNAVAILABLE_REASON_CODE] : []),
-      artifacts: automatedTurnSkip || skillUnavailable
+        : (skillUnavailable ? [SKILL_UNAVAILABLE_REASON_CODE]
+          : (mcpUnregistered ? [MCP_SERVER_UNREGISTERED_REASON_CODE] : [])),
+      artifacts: automatedTurnSkip || skillUnavailable || mcpUnregistered || t4Fired
         ? []
         : (registryPaths.length > 0 ? registryPaths : [registryPath()])
           .map((registryPathValue) => ({ kind: 'registry', path: registryPathValue })),
@@ -661,7 +763,7 @@ function appendRoutingDecision(root, payload, routes, mandatory, suggestions, du
       route_ids: routes.map((route) => route.id).filter(Boolean),
       directives: Array.isArray(mandatory) ? mandatory.slice() : [],
       suggestions: Array.isArray(suggestions) ? suggestions.slice() : [],
-      ...(!skillUnavailable ? {
+      ...(!skillUnavailable && !mcpUnregistered && !t4Fired ? {
         hook_event_name: payload && payload.hook_event_name || null,
         session_id: payload && payload.session_id || null,
       } : {}),
@@ -676,6 +778,17 @@ function appendRoutingDecision(root, payload, routes, mandatory, suggestions, du
         target_skill: details.target_skill,
         route_evaluation_count: 1,
         availability_check_count: 1,
+      } : {}),
+      ...(mcpUnregistered ? {
+        route_id: details.route_id,
+        surface_id: details.surface_id,
+        mcp_server_id: 'canonical',
+        route_evaluation_count: 1,
+        mcp_registration_check_count: 1,
+      } : {}),
+      ...(t4Fired ? {
+        decision_id: details.decision_id,
+        surface_id: details.surface_id,
       } : {}),
     });
     if (!row) {
@@ -708,9 +821,17 @@ function emitClassification(root, payload, options) {
 
   const registry = readRegistry(root, payload, opts);
   const matchedRoutes = matchingRoutes(registry, prompt, root, payload);
-  const partitioned = partitionMatchedRoutesByAvailability(root, matchedRoutes);
+  const mcpPartitioned = partitionMatchedRoutesByMcpRegistration(root, matchedRoutes);
+  const partitioned = partitionMatchedRoutesByAvailability(root, mcpPartitioned.available);
   const routes = partitioned.available;
   if (opts.recordEvidence !== false) {
+    for (const item of mcpPartitioned.unavailable) {
+      appendRoutingDecision(root, payload, [item.route], [], [], performance.now() - started, {
+        decision: 'mcp_server_unregistered',
+        route_id: item.route && item.route.id || null,
+        surface_id: item.surface_id,
+      });
+    }
     for (const item of partitioned.unavailable) {
       appendRoutingDecision(root, payload, [item.route], [], [], performance.now() - started, {
         decision: 'skill_unavailable',
@@ -719,20 +840,43 @@ function emitClassification(root, payload, options) {
       });
     }
   }
-  evaluateShadowRoutes(root, payload, prompt);
+  const shadowResult = mcpPartitioned.unavailable.length > 0
+    ? { t4_evaluation_count: 0 }
+    : evaluateShadowRoutes(root, payload, prompt);
   const mandatory = routeDirectives(routes, 'directive');
   if (mandatory.length > 0) {
     safeStdout(root, payload, mandatory.map((directive) => `SGSD directive: ${directive}`).join('\n'));
   }
 
   const suggestions = routeDirectives(routes, 'suggestion');
+  const t4PromptRoute = routes.find((route) => Boolean(route && route.mcp_surface));
+  const t4PromptDecisionId = t4PromptRoute
+    ? t4DecisionId(t4PromptRoute, payload, prompt) : null;
   try {
     if (suggestions.length > 0) {
       safeStdout(root, payload, suggestions.map((directive) => `SGSD skill suggestion: ${directive}`).join('\n'));
     }
     if (opts.recordEvidence !== false
-        && (routes.length > 0 || partitioned.unavailable.length === 0)) {
-      appendRoutingDecision(root, payload, routes, mandatory, suggestions, performance.now() - started);
+        && (routes.length > 0 || (
+          partitioned.unavailable.length === 0
+          && mcpPartitioned.unavailable.length === 0
+          && (!shadowResult || shadowResult.t4_evaluation_count === 0)
+        ))) {
+      appendRoutingDecision(
+        root, payload, routes, mandatory, suggestions, performance.now() - started,
+        t4PromptRoute ? {
+          t4_fired: true,
+          decision_id: t4PromptDecisionId,
+          surface_id: t4PromptRoute.mcp_surface,
+        } : null,
+      );
+    }
+    if (t4PromptRoute) {
+      recordT4RoutedDemand(root, {
+        decision_id: t4PromptDecisionId,
+        surface: t4PromptRoute.mcp_surface,
+        latency_ms: Number((performance.now() - started).toFixed(3)),
+      });
     }
   } catch {
     appendFailureRow(root, 'optional_suggestions_failed', payload);
@@ -1109,6 +1253,9 @@ module.exports = {
   directiveLines,
   matchingRoutes,
   matchesShadowRoute,
+  routeSurfaceId,
+  vtpMcpServerRegistered,
+  partitionMatchedRoutesByMcpRegistration,
   evaluateShadowRoutes,
   kbTriageShadowLedgerPath,
   readRegistry,
