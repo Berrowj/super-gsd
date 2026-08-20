@@ -36,6 +36,7 @@ const DEGRADED_SIGNAL = 'skill_routing_registry_degraded';
 const SKILL_ROUTING_EVENT = 'skill-routing';
 const FALLBACK_SOURCE = 'compiled_fallback';
 const MAX_REGEX_PATTERN_LENGTH = 200;
+const SAFE_SLASH_TARGET_RE = /^\/[a-z0-9](?:[a-z0-9-]{0,126}[a-z0-9])?$/;
 const ALLOWED_DISPATCH_LAUNCHERS = Object.freeze(['node', 'bash']);
 const P146_DIRECTIVE_ALIASES = Object.freeze({
   'gsd-code-review': 'sgsd-code-review',
@@ -709,18 +710,59 @@ function _directiveTarget(route) {
   return P146_DIRECTIVE_ALIASES[route.skill] || route.skill;
 }
 
-function _entryPointCandidates(root, target) {
-  const repoRoot = findSgsdRoot(root || process.cwd()) || DEFAULT_REPO_ROOT;
-  const homeRoot = os.homedir();
-  return [
-    path.join(repoRoot, 'super-gsd', 'skills', target, 'SKILL.md'),
-    path.join(repoRoot, '.agents', 'skills', target, 'SKILL.md'),
-    path.join(repoRoot, '.codex', 'skills', target, 'SKILL.md'),
-    path.join(repoRoot, '.claude', 'commands', target + '.md'),
+function _safeSlashTargetName(value) {
+  const directive = typeof value === 'string' ? value : '';
+  return SAFE_SLASH_TARGET_RE.test(directive) ? directive.slice(1) : null;
+}
+
+function isSafeSkillTarget(value) {
+  return Boolean(_safeSlashTargetName(value));
+}
+
+function _entryPointIsFile(candidate) {
+  try {
+    return fs.statSync(candidate).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function _projectRootForResolution(root) {
+  if (!root) return findSgsdRoot(process.cwd()) || DEFAULT_REPO_ROOT;
+  const requested = path.resolve(String(root));
+  return findSgsdRoot(requested) || requested;
+}
+
+function _entryPointCandidates(target, opts) {
+  const o = opts || {};
+  const projectRoot = _projectRootForResolution(o.root);
+  const homeRoot = path.resolve(String(o.homeRoot || os.homedir()));
+  return Array.from(new Set([
+    path.join(DEFAULT_REPO_ROOT, 'super-gsd', 'skills', target, 'SKILL.md'),
+    path.join(projectRoot, 'super-gsd', 'skills', target, 'SKILL.md'),
+    path.join(projectRoot, '.claude', 'skills', target, 'SKILL.md'),
+    path.join(projectRoot, '.claude', 'commands', target + '.md'),
+    path.join(projectRoot, '.claude', 'commands', target, 'SKILL.md'),
+    path.join(projectRoot, '.agents', 'skills', target, 'SKILL.md'),
+    path.join(projectRoot, '.codex', 'skills', target, 'SKILL.md'),
+    path.join(homeRoot, '.claude', 'skills', target, 'SKILL.md'),
+    path.join(homeRoot, '.claude', 'commands', target + '.md'),
+    path.join(homeRoot, '.claude', 'commands', target, 'SKILL.md'),
     path.join(homeRoot, '.agents', 'skills', target, 'SKILL.md'),
     path.join(homeRoot, '.codex', 'skills', target, 'SKILL.md'),
-    path.join(homeRoot, '.claude', 'commands', target + '.md'),
-  ];
+  ]));
+}
+
+function resolveSkillTarget(slashTarget, opts) {
+  const o = opts || {};
+  const target = _safeSlashTargetName(slashTarget);
+  if (!target) return { available: false, reason: 'unsafe_skill_target', target: null };
+  const exists = _entryPointCandidates(target, o).some(_entryPointIsFile);
+  return {
+    available: exists,
+    reason: exists ? 'skill_entrypoint_exists' : 'skill_entrypoint_not_found',
+    target,
+  };
 }
 
 function _promptAvailability(route, opts) {
@@ -733,9 +775,9 @@ function _promptAvailability(route, opts) {
     };
   }
   const target = _directiveTarget(route);
-  const exists = _entryPointCandidates(opts && opts.root, target)
-    .some((candidate) => fs.existsSync(candidate));
-  if (exists) return { available: true, reason: 'entrypoint_exists', target };
+  const resolved = resolveSkillTarget(_directiveFor(route, target), opts);
+  if (!resolved.target) return resolved;
+  if (resolved.available) return { available: true, reason: 'entrypoint_exists', target };
   if (availability === 'external-if-installed') {
     return { available: false, reason: 'external_entrypoint_not_installed', target };
   }
@@ -761,7 +803,15 @@ function toPromptGovernanceRoutes(input, opts) {
   for (const route of rows) {
     if (route.moment !== 'prompt-time' || !_modeMatches(route, mode)) continue;
     if (route.signatures.phrases.length + route.signatures.regexes.length === 0) continue;
-    const availability = _promptAvailability(route, o);
+    const availability = o.deferAvailability === true
+      ? (() => {
+        if (route.availability === 'omitted') return _promptAvailability(route, o);
+        const target = _safeSlashTargetName(_directiveFor(route));
+        return target
+          ? { available: true, reason: 'availability_deferred', target }
+          : { available: false, reason: 'unsafe_skill_target', target: null };
+      })()
+      : _promptAvailability(route, o);
     if (!availability.available) {
       if (typeof o.onUnavailable === 'function') {
         o.onUnavailable(route, availability.reason, availability.target);
@@ -1090,6 +1140,8 @@ if (require.main === module) {
 module.exports = {
   loadSkillRoutingRegistry,
   toPromptGovernanceRoutes,
+  isSafeSkillTarget,
+  resolveSkillTarget,
   getScheduledRoutes,
   compiledFallbackRegistry,
   resetCache,

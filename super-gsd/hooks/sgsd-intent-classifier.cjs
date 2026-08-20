@@ -19,7 +19,9 @@ const {
 const {
   compiledFallbackRegistry,
   DEFAULT_REGISTRY_PATH,
+  isSafeSkillTarget,
   loadSkillRoutingRegistry,
+  resolveSkillTarget,
   toPromptGovernanceRoutes,
   VALID_MODES,
 } = require('../scripts/lib/skill-routing-registry.cjs');
@@ -38,6 +40,7 @@ const MALFORMED_SKILL_ROUTING_FIXTURE = path.resolve(
 const BENCH_SIGNAL = 'intent_classifier_bench';
 const DEGRADED_SIGNAL = 'intent_classifier_degraded';
 const ROUTING_DECISION_SIGNAL = 'intent_routing_decision';
+const SKILL_UNAVAILABLE_REASON_CODE = 'skill_entrypoint_not_found';
 const AUTOMATED_TURN_REASON_CODE = 'automated_task_notification_origin';
 const AUTOMATED_ENVELOPE_MARKERS = Object.freeze([
   Object.freeze(['<task-notification>', '</task-notification>']),
@@ -273,7 +276,9 @@ function validateRouteShape(route) {
     const triggerCount = nonEmptyStrings(trigger.phrases).length + validRegexStrings(trigger.regexes).length;
     const directive = typeof enforcement.directive === 'string' ? enforcement.directive.trim() : '';
     if (triggerCount === 0) reasons.push('trigger_missing');
-    if (!directive || !directive.startsWith('/sgsd-')) reasons.push('directive_invalid');
+    if (!isSafeSkillTarget(directive)) {
+      reasons.push('directive_invalid');
+    }
     return {
       route,
       id: id || null,
@@ -410,7 +415,7 @@ function adaptPromptRoutes(root, payload, options) {
     });
     const sourcePath = registry.registry_path || requestedPath;
     return {
-      routes: toPromptGovernanceRoutes(registry, { mode })
+      routes: toPromptGovernanceRoutes(registry, { mode, root, deferAvailability: true })
         .map((route) => ({ ...route, registry_path: sourcePath })),
       source: registry.source,
       degraded: Boolean(registry.degraded),
@@ -424,7 +429,7 @@ function adaptPromptRoutes(root, payload, options) {
     });
     const registry = compiledFallbackRegistry();
     return {
-      routes: toPromptGovernanceRoutes(registry, { mode })
+      routes: toPromptGovernanceRoutes(registry, { mode, root, deferAvailability: true })
         .map((route) => ({ ...route, registry_path: registry.registry_path })),
       source: registry.source,
       degraded: true,
@@ -551,13 +556,31 @@ function matchingRoutes(registry, prompt, root, payload) {
   return routes.filter((route) => matchesRoute(route, prompt, root, payload));
 }
 
+function partitionMatchedRoutesByAvailability(root, routes) {
+  const available = [];
+  const unavailable = [];
+  const seenUnavailableTargets = new Set();
+  for (const route of Array.isArray(routes) ? routes : []) {
+    const enforcement = route && route.enforcement || {};
+    const resolution = resolveSkillTarget(enforcement.directive, { root });
+    if (resolution.available) {
+      available.push(route);
+      continue;
+    }
+    if (!resolution.target || seenUnavailableTargets.has(resolution.target)) continue;
+    seenUnavailableTargets.add(resolution.target);
+    unavailable.push({ route, target: resolution.target });
+  }
+  return { available, unavailable };
+}
+
 function routeDirectives(routes, kind) {
   const seen = new Set();
   const out = [];
   for (const route of routes) {
     const enforcement = route.enforcement || {};
     if (enforcement.kind !== kind || typeof enforcement.directive !== 'string') continue;
-    if (!enforcement.directive.startsWith('/sgsd-')) continue;
+    if (!isSafeSkillTarget(enforcement.directive)) continue;
     if (seen.has(enforcement.directive)) continue;
     seen.add(enforcement.directive);
     out.push(enforcement.directive);
@@ -575,6 +598,8 @@ function appendRoutingDecision(root, payload, routes, mandatory, suggestions, du
   try {
     const automatedTurnSkip = details
       && details.decision === 'automated_turn_skip';
+    const skillUnavailable = details
+      && details.decision === 'skill_unavailable';
     const state = readState(root) || {};
     const registryPaths = Array.from(new Set(
       routes.map((route) => route && route.registry_path).filter(Boolean),
@@ -582,11 +607,13 @@ function appendRoutingDecision(root, payload, routes, mandatory, suggestions, du
     const row = logGateEvidence(root, {
       signal: ROUTING_DECISION_SIGNAL,
       status: 'ok',
-      decision: automatedTurnSkip
-        ? 'automated_turn_skip'
+      decision: automatedTurnSkip || skillUnavailable
+        ? details.decision
         : (routes.length > 0 ? 'matched' : 'no_match'),
-      reason_codes: automatedTurnSkip ? [AUTOMATED_TURN_REASON_CODE] : [],
-      artifacts: automatedTurnSkip
+      reason_codes: automatedTurnSkip
+        ? [AUTOMATED_TURN_REASON_CODE]
+        : (skillUnavailable ? [SKILL_UNAVAILABLE_REASON_CODE] : []),
+      artifacts: automatedTurnSkip || skillUnavailable
         ? []
         : (registryPaths.length > 0 ? registryPaths : [registryPath()])
           .map((registryPathValue) => ({ kind: 'registry', path: registryPathValue })),
@@ -599,13 +626,21 @@ function appendRoutingDecision(root, payload, routes, mandatory, suggestions, du
       route_ids: routes.map((route) => route.id).filter(Boolean),
       directives: Array.isArray(mandatory) ? mandatory.slice() : [],
       suggestions: Array.isArray(suggestions) ? suggestions.slice() : [],
-      hook_event_name: payload && payload.hook_event_name || null,
-      session_id: payload && payload.session_id || null,
+      ...(!skillUnavailable ? {
+        hook_event_name: payload && payload.hook_event_name || null,
+        session_id: payload && payload.session_id || null,
+      } : {}),
       ...(automatedTurnSkip ? {
         origin_kind: 'task-notification',
         prompt_source: 'system',
         route_evaluation_count: 0,
         shadow_evaluation_count: 0,
+      } : {}),
+      ...(skillUnavailable ? {
+        route_id: details.route_id,
+        target_skill: details.target_skill,
+        route_evaluation_count: 1,
+        availability_check_count: 1,
       } : {}),
     });
     if (!row) {
@@ -637,7 +672,18 @@ function emitClassification(root, payload, options) {
   if (!prompt.trim()) return { routes: [], mandatory: [], suggestions: [] };
 
   const registry = readRegistry(root, payload, opts);
-  const routes = matchingRoutes(registry, prompt, root, payload);
+  const matchedRoutes = matchingRoutes(registry, prompt, root, payload);
+  const partitioned = partitionMatchedRoutesByAvailability(root, matchedRoutes);
+  const routes = partitioned.available;
+  if (opts.recordEvidence !== false) {
+    for (const item of partitioned.unavailable) {
+      appendRoutingDecision(root, payload, [item.route], [], [], performance.now() - started, {
+        decision: 'skill_unavailable',
+        route_id: item.route && item.route.id || null,
+        target_skill: item.target,
+      });
+    }
+  }
   evaluateShadowRoutes(root, payload, prompt);
   const mandatory = routeDirectives(routes, 'directive');
   if (mandatory.length > 0) {
@@ -649,7 +695,8 @@ function emitClassification(root, payload, options) {
     if (suggestions.length > 0) {
       safeStdout(root, payload, suggestions.map((directive) => `SGSD skill suggestion: ${directive}`).join('\n'));
     }
-    if (opts.recordEvidence !== false) {
+    if (opts.recordEvidence !== false
+        && (routes.length > 0 || partitioned.unavailable.length === 0)) {
       appendRoutingDecision(root, payload, routes, mandatory, suggestions, performance.now() - started);
     }
   } catch {
