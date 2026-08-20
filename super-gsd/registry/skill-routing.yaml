@@ -498,3 +498,69 @@ routes:
       - manual
     availability: alias
     notes: Legacy secure-phase requests route to existing SGSD security review and registered edge-guard governance.
+
+  - id: create-quote-prompt
+    skill: create-quote
+    signatures:
+      regexes:
+        - '^\s*(?:please\s+)?(?:create|draft|prepare|build|make|generate)\b(?=[^\r\n]{0,180}\b(?:sap|jcl)\b)(?=[^\r\n]{0,180}\bquotes?\b)'
+        - '^\s*(?:please\s+)?(?:create|draft|prepare|build|make|generate)\b(?=[^\r\n]{0,180}\bquotes?\b)(?=[^\r\n]{0,180}\b(?:artifact|document|proposal)\b)'
+    moment: prompt-time
+    modes:
+      - manual
+      - semi
+      - auto
+    availability: external-if-installed
+    notes: Suggest explicit SAP/JCL quote creation or quote-artifact work only.
+
+  - id: vtp-implementation-pack-meeting-import
+    skill: vtp-implementation-pack
+    signatures:
+      regexes:
+        - '^\s*(?:please\s+)?(?:import|convert|turn|transform)\b(?=[^\r\n]{0,180}\b(?:meeting|transcript|recording)\b)(?=[^\r\n]{0,180}\b(?:implementation\s+pack|actions?|action\s+items?)\b)'
+    moment: prompt-time
+    modes:
+      - manual
+      - semi
+      - auto
+    availability: external-if-installed
+    notes: Suggest implementation-pack only for explicit meeting or recording conversion into a pack or actions.
+
+  - id: jcl-procurement-report-prompt
+    skill: jcl-procurement-report
+    signatures:
+      regexes:
+        - '^\s*(?:please\s+)?(?:create|draft|prepare|generate|show|check|summari[sz]e)\b(?=[^\r\n]{0,120}\bjcl\b)(?=[^\r\n]{0,120}\bprocurement\b)(?=[^\r\n]{0,120}\b(?:status|report|orders?)\b)'
+    moment: prompt-time
+    modes:
+      - manual
+      - semi
+      - auto
+    availability: external-if-installed
+    notes: Suggest the JCL procurement report only when JCL, procurement, and report/status/order intent are explicit.
+
+  - id: vtp-html-explainer-prompt
+    skill: vtp-html-explainer
+    signatures:
+      regexes:
+        - '^\s*(?![^\r\n]{0,120}\b(?:diagram|flowchart)\b)(?:please\s+)?(?:create|build|make|generate)\b[^\r\n]{0,120}\b(?:html\s+explainer|interactive\s+walkthrough)\b'
+    moment: prompt-time
+    modes:
+      - manual
+      - semi
+      - auto
+    availability: external-if-installed
+    notes: Suggest an HTML explainer for explicit explainer or walkthrough requests, never a diagram request.
+
+  - id: diagram-design-prompt
+    skill: diagram-design
+    signatures:
+      regexes:
+        - '^\s*(?![^\r\n]{0,120}\b(?:html\s+explainer|interactive\s+walkthrough)\b)(?:please\s+)?(?:create|draw|design|make|generate)\b[^\r\n]{0,120}\b(?:standalone\s+diagram|flowchart|sequence\s+diagram)\b'
+    moment: prompt-time
+    modes:
+      - manual
+      - semi
+      - auto
+    availability: external-if-installed
+    notes: Suggest diagram design for explicit standalone diagram, flowchart, or sequence-diagram requests, never an HTML explainer.

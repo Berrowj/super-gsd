@@ -304,15 +304,33 @@ function validateRouteShape(route) {
   }
 
   if (kind === 'shadow') {
+    const genericStrongCount = nonEmptyStrings(trigger.strong_phrases).length
+      + validRegexStrings(trigger.strong_regexes).length;
     const triggerCount = nonEmptyStrings(trigger.phrases).length
       + validRegexStrings(trigger.regexes).length
       + nonEmptyStrings(trigger.strong_kb_phrases).length
-      + validRegexStrings(trigger.strong_kb_regexes).length;
+      + validRegexStrings(trigger.strong_kb_regexes).length
+      + genericStrongCount;
     const signal = typeof enforcement.signal === 'string' ? enforcement.signal.trim() : '';
     const directive = typeof enforcement.directive === 'string' ? enforcement.directive.trim() : '';
+    const targetSkill = typeof enforcement.target_skill === 'string'
+      ? enforcement.target_skill.trim()
+      : '';
+    const softPathAction = typeof enforcement.soft_path_action === 'string'
+      ? enforcement.soft_path_action.trim()
+      : '';
     if (triggerCount === 0) reasons.push('shadow_trigger_missing');
     if (signal !== KB_TRIAGE_SHADOW_SIGNAL) reasons.push('shadow_signal_invalid');
     if (directive) reasons.push('shadow_directive_forbidden');
+    if (genericStrongCount > 0) {
+      if (!isSafeSkillTarget('/' + targetSkill)) reasons.push('shadow_target_skill_invalid');
+      if (!/^would_route_[a-z0-9_]+$/.test(softPathAction)) {
+        reasons.push('shadow_soft_path_action_invalid');
+      }
+      if (route.availability !== 'external-if-installed') {
+        reasons.push('shadow_availability_invalid');
+      }
+    }
     return {
       route,
       id: id || null,
@@ -503,7 +521,9 @@ function matchesShadowRoute(route, prompt, root, payload) {
   if (!route || !prompt.trim()) return false;
   const trigger = route.trigger || {};
   const predicate = route.predicate || {};
-  const strong = phraseHit(prompt, trigger.strong_kb_phrases)
+  const strong = phraseHit(prompt, trigger.strong_phrases)
+    || regexHit(prompt, trigger.strong_regexes, root, payload)
+    || phraseHit(prompt, trigger.strong_kb_phrases)
     || regexHit(prompt, trigger.strong_kb_regexes, root, payload);
   if (strong) return true;
   const weak = phraseHit(prompt, trigger.phrases)
@@ -528,24 +548,39 @@ function evaluateShadowRoutes(root, payload, prompt) {
         && route.enforcement
         && route.enforcement.kind === 'shadow';
     });
-    const matched = shadowRoutes.filter((route) => matchesShadowRoute(route, prompt, root, payload));
+    const matched = shadowRoutes
+      .filter((route) => matchesShadowRoute(route, prompt, root, payload))
+      .filter((route) => {
+        const enforcement = route.enforcement || {};
+        const targetSkill = typeof enforcement.target_skill === 'string'
+          ? enforcement.target_skill.trim()
+          : '';
+        if (!targetSkill) return true;
+        return resolveSkillTarget('/' + targetSkill, { root }).available;
+      });
     if (matched.length === 0) return;
     const crypto = require('crypto');
     const ledgerPathValue = kbTriageShadowLedgerPath(root);
-    const line = JSON.stringify({
-      ts: new Date().toISOString(),
-      decision_id: crypto.randomUUID(),
-      matcher_version: KB_TRIAGE_MATCHER_VERSION,
-      matched_signature_ids: matched.map((route) => route.id).filter(Boolean),
-      soft_path_action: 'would_route_vtp_query_triage',
-      latency_ms: null,
-      operator_label: null,
-    }) + '\n';
-    const latency_ms = Number((performance.now() - started).toFixed(3));
-    fs.appendFileSync(
-      ledgerPathValue,
-      line.replace('"latency_ms":null', '"latency_ms":' + latency_ms),
-    );
+    for (const route of matched) {
+      const enforcement = route.enforcement || {};
+      const softPathAction = typeof enforcement.soft_path_action === 'string'
+        ? enforcement.soft_path_action
+        : 'would_route_vtp_query_triage';
+      const line = JSON.stringify({
+        ts: new Date().toISOString(),
+        decision_id: crypto.randomUUID(),
+        matcher_version: KB_TRIAGE_MATCHER_VERSION,
+        matched_signature_ids: [route.id].filter(Boolean),
+        soft_path_action: softPathAction,
+        latency_ms: null,
+        operator_label: null,
+      }) + '\n';
+      const latency_ms = Number((performance.now() - started).toFixed(3));
+      fs.appendFileSync(
+        ledgerPathValue,
+        line.replace('"latency_ms":null', '"latency_ms":' + latency_ms),
+      );
+    }
   } catch {
     // Fire-and-forget: shadow evaluation must never throw or affect injection.
   }

@@ -12,6 +12,23 @@ const REGISTRY = path.join(ROOT, 'super-gsd', 'scripts', 'lib', 'skill-routing-r
 const TARGET = 'sgsd-code-review';
 const PROMPT = 'review my code sentinel-p159-availability';
 const UNAVAILABLE_REASON = 'skill_entrypoint_not_found';
+const FAMILY_SKILLS = Object.freeze([
+  'create-quote',
+  'erp-resolve',
+  'clarity-engines',
+  'vtp-implementation-pack',
+  'jcl-procurement-report',
+  'vtp-html-explainer',
+  'diagram-design',
+]);
+const FAMILY_SUGGESTION_SKILLS = Object.freeze([
+  'create-quote',
+  'vtp-implementation-pack',
+  'jcl-procurement-report',
+  'vtp-html-explainer',
+  'diagram-design',
+]);
+const FAMILY_SHADOW_IDS = Object.freeze(['erp-resolve-shadow', 'clarity-engines-shadow']);
 
 function argument(name) {
   const index = process.argv.indexOf(name);
@@ -70,11 +87,14 @@ function runClassifier(value, payload, args, classifierPath) {
     throw new Error(`classifier child process failed${code}: ${child.error.message}`);
   }
   const evidenceFile = path.join(value.project, '.planning', 'metrics', 'gate-evidence.jsonl');
+  const shadowFile = path.join(value.project, '.planning', 'metrics', 'kb-triage-shadow.jsonl');
   return {
     status: child.status,
     stdout: child.stdout || '',
     evidence: readJsonl(evidenceFile),
     evidenceText: fs.existsSync(evidenceFile) ? fs.readFileSync(evidenceFile, 'utf8') : '',
+    shadow: readJsonl(shadowFile),
+    shadowText: fs.existsSync(shadowFile) ? fs.readFileSync(shadowFile, 'utf8') : '',
   };
 }
 
@@ -327,15 +347,263 @@ function availabilityGuardCase() {
   return fail === 0 ? 0 : 1;
 }
 
+function copyClassifierInstance(value, includeFamilyRows) {
+  const copiedFiles = [
+    path.join('hooks', 'sgsd-intent-classifier.cjs'),
+    path.join('scripts', 'lib', 'gate-evidence-log.cjs'),
+    path.join('scripts', 'lib', 'sgsd-state.cjs'),
+    path.join('scripts', 'lib', 'skill-routing-registry.cjs'),
+    path.join('scripts', 'sgsd-distill-milestone.sh'),
+    path.join('scripts', 'sgsd-muda-audit.sh'),
+    path.join('overwatcher', 'overwatcher-launcher.js'),
+    path.join('tools', 'token-waste', 'check.cjs'),
+    path.join('tools', 'vtp-readiness', 'run.cjs'),
+    path.join('tools', 'release-readiness', 'score.cjs'),
+    path.join('tools', 'phase-folder-audit', 'audit.cjs'),
+  ];
+  for (const relative of copiedFiles) {
+    const destination = path.join(value.project, 'super-gsd', relative);
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.copyFileSync(path.join(ROOT, 'super-gsd', relative), destination);
+  }
+  const yamlDestination = path.join(
+    value.project, 'super-gsd', 'tools', 'plan-schema', 'node_modules', 'js-yaml',
+  );
+  fs.mkdirSync(path.dirname(yamlDestination), { recursive: true });
+  fs.cpSync(
+    path.join(ROOT, 'super-gsd', 'tools', 'plan-schema', 'node_modules', 'js-yaml'),
+    yamlDestination,
+    { recursive: true },
+  );
+
+  const registryDir = path.join(value.project, 'super-gsd', 'registry');
+  fs.mkdirSync(registryDir, { recursive: true });
+  if (includeFamilyRows) {
+    for (const name of ['gates.yaml', 'skill-routing.yaml', 'session-governance-hooks.yaml']) {
+      fs.copyFileSync(
+        path.join(ROOT, 'super-gsd', 'registry', name),
+        path.join(registryDir, name),
+      );
+    }
+  } else {
+    writeFile(path.join(registryDir, 'skill-routing.yaml'), [
+      'routes:',
+      '  - skill: sgsd-token-audit',
+      '    signatures:',
+      '      phrases:',
+      '        - token spend',
+      '    moment: prompt-time',
+      '    modes:',
+      '      - manual',
+      '    availability: canonical',
+      '',
+    ].join('\n'));
+    writeFile(path.join(registryDir, 'session-governance-hooks.yaml'), [
+      'routes:',
+      '  - id: planning-triage',
+      '    trigger:',
+      '      phrases:',
+      '        - multiple valid approaches',
+      '    predicate:',
+      '      exclude_phrases:',
+      '        - build this now',
+      '    enforcement:',
+      '      kind: directive',
+      '      directive: /sgsd-triage',
+      '',
+    ].join('\n'));
+  }
+  for (const skill of FAMILY_SKILLS) {
+    writeFile(
+      path.join(value.project, '.claude', 'skills', skill, 'SKILL.md'),
+      '---\nname: ' + skill + '\n---\n',
+    );
+  }
+  fs.mkdirSync(path.join(value.project, '.planning', 'metrics'), { recursive: true });
+  return path.join(value.project, 'super-gsd', 'hooks', 'sgsd-intent-classifier.cjs');
+}
+
+function familyFixtureRun(prompt, includeFamilyRows, omittedSkill) {
+  return withFixture((value) => {
+    const classifierPath = copyClassifierInstance(value, includeFamilyRows);
+    if (omittedSkill) {
+      fs.rmSync(
+        path.join(value.project, '.claude', 'skills', omittedSkill),
+        { recursive: true, force: true },
+      );
+    }
+    return runClassifier(value, humanPayload(prompt), [], classifierPath);
+  });
+}
+
+function emittedSuggestions(result) {
+  return String(result.stdout || '').split(/\r?\n/).filter(Boolean).map((line) => (
+    line.replace(/^SGSD skill suggestion:\s*/, '')
+  ));
+}
+
+function familyShadowRows(result) {
+  return result.shadow.filter((row) => (
+    Array.isArray(row.matched_signature_ids)
+      && row.matched_signature_ids.some((id) => FAMILY_SHADOW_IDS.includes(id))
+  ));
+}
+
+function erpVtpSkillFamilyCase() {
+  let pass = 0;
+  let fail = 0;
+  const failures = [];
+  const check = (name, condition, detail) => {
+    if (condition) pass += 1;
+    else {
+      fail += 1;
+      failures.push(name + (detail ? ' -- ' + detail : ''));
+    }
+  };
+
+  const suggestionMatrix = [
+    ['create-quote', 'Create a SAP quote artifact for this customer'],
+    ['vtp-implementation-pack', 'Convert this meeting transcript into an implementation pack with actions'],
+    ['jcl-procurement-report', 'Prepare a JCL procurement status report'],
+    ['vtp-html-explainer', 'Create an HTML explainer for this architecture'],
+    ['diagram-design', 'Draw a standalone sequence diagram for this flow'],
+  ];
+  for (const [skill, prompt] of suggestionMatrix) {
+    const result = familyFixtureRun(prompt, true);
+    const suggestions = emittedSuggestions(result);
+    check(skill + ' positive exits zero', result.status === 0, 'status=' + result.status);
+    check(
+      skill + ' is the only emitted suggestion',
+      JSON.stringify(suggestions) === JSON.stringify(['/' + skill]),
+      JSON.stringify(suggestions),
+    );
+  }
+
+  const shadowMatrix = [
+    ['erp-resolve-shadow', 'would_route_erp_resolve', 'Fix - reconcile the SAP vendor record'],
+    ['clarity-engines-shadow', 'would_route_clarity_engines', 'Build - compare the Clarity retrieval engine indexes'],
+  ];
+  for (const [routeId, action, prompt] of shadowMatrix) {
+    const result = familyFixtureRun(prompt, true);
+    const rows = familyShadowRows(result);
+    check(routeId + ' positive exits zero', result.status === 0, 'status=' + result.status);
+    check(routeId + ' remains shadow-only', result.stdout === '', JSON.stringify(result.stdout));
+    check(
+      routeId + ' writes one fixed-action row',
+      rows.length === 1
+        && JSON.stringify(rows[0].matched_signature_ids) === JSON.stringify([routeId])
+        && rows[0].soft_path_action === action,
+      JSON.stringify(rows),
+    );
+    check(
+      routeId + ' shadow evidence is text-free',
+      !result.shadowText.toLowerCase().includes(prompt.toLowerCase())
+        && !hasForbiddenKey(rows[0], new Set(['prompt', 'text', 'query', 'entity', 'path', 'error'])),
+      result.shadowText,
+    );
+  }
+
+  const negativePrompts = [
+    'quote record engine meeting report diagram',
+    'build a quote',
+    'fix the ERP customer record',
+    'build the Clarity retrieval index',
+    'convert a meeting',
+    'JCL report',
+    'make a diagram',
+    'Create an HTML explainer with a standalone sequence diagram',
+  ];
+  for (const prompt of negativePrompts) {
+    const result = familyFixtureRun(prompt, true);
+    const suggestions = emittedSuggestions(result)
+      .filter((item) => FAMILY_SUGGESTION_SKILLS.some((skill) => item === '/' + skill));
+    check(
+      'negative/boundary fixture produces no T2 fire: ' + prompt,
+      suggestions.length === 0 && familyShadowRows(result).length === 0,
+      JSON.stringify({ suggestions, shadow: familyShadowRows(result) }),
+    );
+  }
+
+  for (const [skill, prompt] of suggestionMatrix) {
+    const red = familyFixtureRun(prompt, false);
+    check(
+      'internal red registry without rows produces zero ' + skill + ' fires',
+      emittedSuggestions(red).length === 0 && familyShadowRows(red).length === 0,
+      JSON.stringify({ stdout: red.stdout, shadow: red.shadow }),
+    );
+  }
+  for (const [routeId, , prompt] of shadowMatrix) {
+    const red = familyFixtureRun(prompt, false);
+    check(
+      'internal red registry without rows produces zero ' + routeId + ' fires',
+      emittedSuggestions(red).length === 0 && familyShadowRows(red).length === 0,
+      JSON.stringify({ stdout: red.stdout, shadow: red.shadow }),
+    );
+  }
+
+  const unavailable = familyFixtureRun(suggestionMatrix[0][1], true, 'create-quote');
+  check(
+    'matched unavailable family target emits no suggestion',
+    !emittedSuggestions(unavailable).includes('/create-quote'),
+    JSON.stringify(unavailable.stdout),
+  );
+  check(
+    'matched unavailable family target records T1 evidence',
+    unavailable.evidence.some((row) => row.decision === 'skill_unavailable'
+      && row.target_skill === 'create-quote'),
+    JSON.stringify(unavailable.evidence),
+  );
+  const unavailableShadow = familyFixtureRun(shadowMatrix[0][2], true, 'erp-resolve');
+  check(
+    'matched unavailable shadow target produces zero shadow fires',
+    familyShadowRows(unavailableShadow).length === 0 && unavailableShadow.stdout === '',
+    JSON.stringify({ stdout: unavailableShadow.stdout, shadow: unavailableShadow.shadow }),
+  );
+
+  const routingRegistry = require(REGISTRY);
+  const yamlRegistry = routingRegistry.loadSkillRoutingRegistry({ noCache: true });
+  const fallbackRegistry = routingRegistry.compiledFallbackRegistry();
+  const project = (route) => ({
+    id: route.id,
+    skill: route.skill,
+    signatures: route.signatures,
+    moment: route.moment,
+    modes: route.modes,
+    availability: route.availability,
+  });
+  const isFamilySuggestion = (route) => (
+    route.moment === 'prompt-time' && FAMILY_SUGGESTION_SKILLS.includes(route.skill)
+  );
+  check(
+    'YAML and compiled fallback family rows are deeply equivalent',
+    JSON.stringify(yamlRegistry.routes.filter(isFamilySuggestion).map(project))
+      === JSON.stringify(fallbackRegistry.routes.filter(isFamilySuggestion).map(project)),
+  );
+
+  console.log(
+    'skill-routing-expansion erp-vtp-skill-family: ' + pass + ' pass, ' + fail + ' fail',
+  );
+  for (const failure of failures) console.error('  FAIL: ' + failure);
+  return fail === 0 ? 0 : 1;
+}
+
 function main() {
-  if (argument('--case') !== 'availability-guard') {
-    console.error('Usage: node assert-skill-routing-expansion.cjs --case availability-guard');
+  const requestedCase = argument('--case');
+  if (!['availability-guard', 'erp-vtp-skill-family'].includes(requestedCase)) {
+    console.error(
+      'Usage: node assert-skill-routing-expansion.cjs '
+        + '--case <availability-guard|erp-vtp-skill-family>',
+    );
     process.exit(2);
   }
   try {
-    process.exit(availabilityGuardCase());
+    process.exit(requestedCase === 'availability-guard'
+      ? availabilityGuardCase()
+      : erpVtpSkillFamilyCase());
   } catch (error) {
-    console.error(`skill-routing-expansion availability-guard: unexpected error -- ${error.message}`);
+    console.error(
+      'skill-routing-expansion ' + requestedCase + ': unexpected error -- ' + error.message,
+    );
     process.exit(1);
   }
 }

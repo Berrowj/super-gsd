@@ -80,3 +80,43 @@ routes:
     enforcement:
       kind: shadow
       signal: kb_triage_shadow
+
+  - id: erp-resolve-shadow
+    availability: external-if-installed
+    trigger:
+      strong_regexes:
+        - '\b(?:resolve|reconcile)\b(?=[^\r\n]{0,120}\b(?:erp|sap)\b)(?=[^\r\n]{0,120}\b(?:customer|vendor|material|order|record)\b)'
+      regexes:
+        - '^\s*(?:build|fix|run|test|file)\b(?=[^\r\n]{0,120}\b(?:erp|sap)\b)(?=[^\r\n]{0,120}\b(?:customer|vendor|material|order|record)\b)'
+    predicate:
+      exclude_start_verbs:
+        - build
+        - fix
+        - run
+        - test
+        - file
+    enforcement:
+      kind: shadow
+      signal: kb_triage_shadow
+      target_skill: erp-resolve
+      soft_path_action: would_route_erp_resolve
+
+  - id: clarity-engines-shadow
+    availability: external-if-installed
+    trigger:
+      strong_regexes:
+        - '\b(?:query|search|compare)\b(?=[^\r\n]{0,120}\b(?:clarity|rag)\b)(?=[^\r\n]{0,120}\b(?:engine|index|retrieval)\b)'
+      regexes:
+        - '^\s*(?:build|fix|run|test|file)\b(?=[^\r\n]{0,120}\b(?:clarity|rag)\b)(?=[^\r\n]{0,120}\b(?:engine|index|retrieval)\b)'
+    predicate:
+      exclude_start_verbs:
+        - build
+        - fix
+        - run
+        - test
+        - file
+    enforcement:
+      kind: shadow
+      signal: kb_triage_shadow
+      target_skill: clarity-engines
+      soft_path_action: would_route_clarity_engines

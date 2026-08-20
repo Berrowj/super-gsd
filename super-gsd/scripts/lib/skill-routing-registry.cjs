@@ -205,6 +205,35 @@ const COMPILED_FALLBACK_ROWS = Object.freeze([
   fb('sgsd-audit', 'on-demand', ['manual'], {
     phrases: ['gsd-secure-phase', 'secure phase', 'security phase', 'phase security review'],
   }, { aliases: ['gsd-secure-phase'], availability: 'alias' }),
+  fb('create-quote', 'prompt-time', ['manual', 'semi', 'auto'], {
+    regexes: [
+      '^\\s*(?:please\\s+)?(?:create|draft|prepare|build|make|generate)\\b(?=[^\\r\\n]{0,180}\\b(?:sap|jcl)\\b)(?=[^\\r\\n]{0,180}\\bquotes?\\b)',
+      '^\\s*(?:please\\s+)?(?:create|draft|prepare|build|make|generate)\\b(?=[^\\r\\n]{0,180}\\bquotes?\\b)(?=[^\\r\\n]{0,180}\\b(?:artifact|document|proposal)\\b)',
+    ],
+  }, { id: 'create-quote-prompt', availability: 'external-if-installed' }),
+  fb('vtp-implementation-pack', 'prompt-time', ['manual', 'semi', 'auto'], {
+    regexes: [
+      '^\\s*(?:please\\s+)?(?:import|convert|turn|transform)\\b(?=[^\\r\\n]{0,180}\\b(?:meeting|transcript|recording)\\b)(?=[^\\r\\n]{0,180}\\b(?:implementation\\s+pack|actions?|action\\s+items?)\\b)',
+    ],
+  }, {
+    id: 'vtp-implementation-pack-meeting-import',
+    availability: 'external-if-installed',
+  }),
+  fb('jcl-procurement-report', 'prompt-time', ['manual', 'semi', 'auto'], {
+    regexes: [
+      '^\\s*(?:please\\s+)?(?:create|draft|prepare|generate|show|check|summari[sz]e)\\b(?=[^\\r\\n]{0,120}\\bjcl\\b)(?=[^\\r\\n]{0,120}\\bprocurement\\b)(?=[^\\r\\n]{0,120}\\b(?:status|report|orders?)\\b)',
+    ],
+  }, { id: 'jcl-procurement-report-prompt', availability: 'external-if-installed' }),
+  fb('vtp-html-explainer', 'prompt-time', ['manual', 'semi', 'auto'], {
+    regexes: [
+      '^\\s*(?![^\\r\\n]{0,120}\\b(?:diagram|flowchart)\\b)(?:please\\s+)?(?:create|build|make|generate)\\b[^\\r\\n]{0,120}\\b(?:html\\s+explainer|interactive\\s+walkthrough)\\b',
+    ],
+  }, { id: 'vtp-html-explainer-prompt', availability: 'external-if-installed' }),
+  fb('diagram-design', 'prompt-time', ['manual', 'semi', 'auto'], {
+    regexes: [
+      '^\\s*(?![^\\r\\n]{0,120}\\b(?:html\\s+explainer|interactive\\s+walkthrough)\\b)(?:please\\s+)?(?:create|draw|design|make|generate)\\b[^\\r\\n]{0,120}\\b(?:standalone\\s+diagram|flowchart|sequence\\s+diagram)\\b',
+    ],
+  }, { id: 'diagram-design-prompt', availability: 'external-if-installed' }),
 ]);
 
 function _clone(value) {
@@ -868,12 +897,17 @@ function _sameFingerprint(a, b) {
 
 function _routingParityProjection(routes) {
   return routes.map((route) => ({
+    id: route.id,
     skill: route.skill,
+    aliases: route.aliases,
+    signatures: route.signatures,
     moment: route.moment,
     modes: route.modes,
+    availability: route.availability,
     cooldown: route.cooldown,
     gate_ref: route.gate_ref,
     dispatch: route.dispatch,
+    skip_reason: route.skip_reason,
   }));
 }
 
@@ -938,7 +972,7 @@ function selfTest(opts) {
     const fallback = compiledFallbackRegistry();
     return JSON.stringify(_routingParityProjection(fallback.routes))
       === JSON.stringify(_routingParityProjection(registry.routes));
-  })(), 'yaml/fallback mismatch in skill, moment, modes, cooldown, gate_ref, or dispatch');
+  })(), 'yaml/fallback mismatch in id, signatures, availability, or routing controls');
   assert('9a. dispatch-only fallback drift is detected by deep parity projection', (() => {
     if (typeof _routingParityProjection !== 'function') return false;
     const fallback = compiledFallbackRegistry();
@@ -949,10 +983,10 @@ function selfTest(opts) {
     return JSON.stringify(_routingParityProjection(drifted))
       !== JSON.stringify(_routingParityProjection(fallback.routes));
   })(), 'dispatch command drift was invisible to deep parity');
-  assert('10. prompt adapter emits only existing P146-compatible /sgsd-* directives', (() => {
+  assert('10. prompt adapter emits only installed safe P146-compatible directives', (() => {
     const routes = toPromptGovernanceRoutes(registry, { mode: 'manual', root });
     const directiveBySkill = Object.fromEntries(routes.map((route) => [route.skill, route.enforcement.directive]));
-    return routes.every((route) => route.enforcement.directive.startsWith('/sgsd-'))
+    return routes.every((route) => isSafeSkillTarget(route.enforcement.directive))
       && directiveBySkill['gsd-code-review'] === undefined
       && directiveBySkill['gsd-code-review-fix'] === undefined;
   })());
