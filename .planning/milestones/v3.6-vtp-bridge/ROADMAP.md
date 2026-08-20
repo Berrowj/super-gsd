@@ -16,6 +16,7 @@ denied stale worktrees a corrective conflict signal (P155 phase-ATC warning).
 | 156 | state-close-contract | [ ] seeded (carved from 155) | 155 |
 | 157 | vtp-readiness | [ ] seeded (carved from 155) | 155 |
 | 158 | notification-routing | [ ] seeded (carved from 155) | 155 |
+| 159 | skill-routing-expansion | [ ] seeded (operator, 2026-08-20) | 155, 158 |
 
 ## Success criteria
 
