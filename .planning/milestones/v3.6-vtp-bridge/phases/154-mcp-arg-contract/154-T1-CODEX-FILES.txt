@@ -1,0 +1,4 @@
+super-gsd/schemas/vtp-mcp-input-schemas.v1.json
+super-gsd/scripts/sgsd-triage-runtime.cjs
+super-gsd/tests/triage-runtime/assert-mcp-arg-contract.cjs
+super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs

@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.6-vtp-bridge",
+  "phase": "158",
+  "phase_name": "Notification Routing",
+  "status": "IN_PROGRESS",
+  "goal": "",
+  "outputs": [],
+  "files": [
+    ".planning/milestones/v3.6-vtp-bridge/INTENT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-01-PLAN-REV2-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/CONTEXT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/157-vtp-readiness/CONTEXT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/158-notification-routing/158-01-PLAN-LOCKED.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/158-notification-routing/158-01-PLAN-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/158-notification-routing/158-01-PLAN-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/158-notification-routing/158-PLANREVIEW-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/158-notification-routing/158-PLANREVIEW-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/158-notification-routing/158-T1-CODEX-FILES.txt",
+    ".planning/milestones/v3.6-vtp-bridge/phases/158-notification-routing/158-T1-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/158-notification-routing/158-T1-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/158-notification-routing/158-T1B-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/158-notification-routing/158-T1B-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/158-notification-routing/CONTEXT.md",
+    "super-gsd/hooks/sgsd-intent-classifier.cjs"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 0
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "40ddbcfcb74b05983b95c40811049cbf670223a4",
+      "subject": "docs(155): operator-approved split \u2014 seed P156/P157/P158, rev2 planner prompt",
+      "ts": "2026-08-19T18:34:14+01:00"
+    },
+    {
+      "sha": "ee2274f471dcddf17e3a3ff37fd780142461a639",
+      "subject": "docs(158): open phase \u2014 full CONTEXT from T6 carve-out, origin gating not blacklists",
+      "ts": "2026-08-20T12:21:59+01:00"
+    },
+    {
+      "sha": "28b8c29f79c2da692ef55b0f9398368949203db1",
+      "subject": "docs(158-01): PLAN-LOCKED \u2014 one-task origin gating with three-direction falsifier, schema VALID",
+      "ts": "2026-08-20T12:37:35+01:00"
+    },
+    {
+      "sha": "257d7a2a2d631eda36035ff7863e6dc7d54c57ff",
+      "subject": "docs(158): plan review GO 5/5",
+      "ts": "2026-08-20T12:39:33+01:00"
+    },
+    {
+      "sha": "8aa16c8dd17b1610620d150acd33ec0ea80bf479",
+      "subject": "feat(158-T1): automated-turn origin gate \u2014 honest-red split, self-test 25/25",
+      "ts": "2026-08-20T13:04:25+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": null,
+    "research": null,
+    "plan": [],
+    "verification": null,
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": null,
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-08-20T11:37:37Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-20T12:04:27Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-08-20T12:09:16.114Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@8aa16c8dd17b"
+}

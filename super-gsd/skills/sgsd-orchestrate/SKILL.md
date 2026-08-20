@@ -536,6 +536,12 @@ REPEAT:
       Before classifier/context/dispatch work in auto mode, enforce the unattended-run
       readiness manifest for the active milestone.
 
+      Before reading or classifying that manifest, run exactly:
+        `node super-gsd/tools/vtp-readiness/run.cjs --trigger auto --project-dir "{project_dir}"`
+      Consume its three results as VTP `PROBE LOG` rows; do not copy the probes.
+      Exit 0 is ready. Exit 1 is a finding and follows the existing
+      DEGRADED-PATH policy below. Exit 2 is an execution failure.
+
       Manifest path:
         `.planning/milestones/{milestone}/MILESTONE-READINESS.md`
 
@@ -1746,6 +1752,33 @@ REPEAT:
                 in the rendered markdown so future operators understand WHY
                 this step is between 6.6.i.X and 6.6.i.
 
+       i.0. ORCHESTRATOR-OWNED PHASE SUMMARY (P156 close contract)
+
+            After verification, Phase ATC, frontend verification when applicable,
+            and passing audit evidence are complete, the orchestrator authors
+            `{phase-dir}/SUMMARY.md`. SUMMARY is a pre-close evidence artifact,
+            never a retrospective artifact created after STATE advances.
+
+            Its delimited YAML frontmatter has these seven required fields;
+            additional fields are forward-compatible:
+
+            ```yaml
+            ---
+            phase: "{{OPAQUE_PHASE_TOKEN}}"
+            slug: {{PHASE_FOLDER_SLUG}}
+            milestone: {{MILESTONE}}
+            status: {{STATUS_BEGINNING_PASS_OR_ENDING_COMPLETE_COMPLETED_CLOSED}}
+            closed: {{YYYY-MM-DD}}
+            commits: [{{SEVEN_TO_FORTY_HEX_COMMIT}}, ...]
+            gates: {verifier: "PASS", phase_atc: "PASS", audit: "PASS"}
+            ---
+            ```
+
+            `commits` and `gates` must both be non-empty. Each gate verdict is a
+            non-empty scalar. The phase, slug, and milestone must exactly identify
+            the located phase folder. Do not enter the consult until AUDIT.md and
+            this SUMMARY.md both exist.
+
        i. PHASE-CLOSE SKILL ROUTING CONSULT (Phase 149; single execution point)
 
             Before marking the phase complete or entering Step 6.7, run:
@@ -1789,6 +1822,12 @@ REPEAT:
             - Any other exit -> `decision: execution_failed`; surface stderr and
               the exit code, then complete the repair action before phase close.
 
+            With `--moment phase-close --execute`, the production consult first
+            validates AUDIT.md and SUMMARY.md through the P156 close contract.
+            A returned `close_contract.ok: false` exits non-zero and schedules
+            zero dispatches. Repair the named evidence reason before retrying;
+            never proceed to state.write or a close commit after refusal.
+
             Confirm every fired JSON decision has both `dispatch` and `execution`,
             and that `execution_evidence_appended` equals `fired_count`. Missing
             outcome evidence is loud and must be surfaced, but phase-close
@@ -1797,12 +1836,33 @@ REPEAT:
             the skill ran, and do not infer or schedule neglected skills from
             prose in this file.
 
-       j. Mark phase complete, advance to next phase. `executed_with_findings`
-          does not block completion; only `execution_failed` requires repair.
+       j. PHASE-CLOSE STATE PROJECTION (state.write owner)
+
+          After the phase-close consult succeeds and before marking the phase
+          complete or entering Step 6.7, invoke the exact event-envelope CLI:
+
+          ```bash
+          node super-gsd/tools/state-write/write.cjs --event-json '{"event":"phase-close","projectDir":".","milestone":"{{MILESTONE}}","evidence_phase":"{{PHASE}}","current_phase":"{{NEXT_PHASE_OR_COMPLETE}}","last_updated":"{{LAST_UPDATED}}","progress":{"total_phases":{{TOTAL_PHASES}},"completed_phases":{{COMPLETED_PHASES}},"completed_plans":{{COMPLETED_PLANS}},"status_row":{"phase":"{{PHASE}}","value":"{{PHASE_STATUS_ROW}}"}}}'
+          ```
+
+          Substitute JSON-escaped strings and concrete integer counts. Exit 1
+          refuses phase close; exit 2 requires input/I/O repair. On exit 0, the
+          STATE projection is advanced, but Step 6.7 remains blocked until the
+          close commit in Step 6.6.k succeeds. `executed_with_findings` does not
+          block completion; only `execution_failed` requires repair.
+
+       k. PHASE-CLOSE COMMIT (SUMMARY + STATE atomic handover)
+
+          Create the phase-close commit only after Step 6.6.j exits 0. The commit
+          must include the orchestrator-authored phase `SUMMARY.md` and the
+          `STATE.md` projection produced by state.write, together with any normal
+          phase-close evidence intended for that commit. Confirm both files are
+          in the commit. Only then mark the close sequence complete and enter
+          Step 6.7. A failed or incomplete commit blocks Step 6.7.
 
   6.7. MILESTONE COMPLETE AUTO-TRIGGER (GOV-13 / D-18a)
 
-       After Step 6.6.j marks a phase complete:
+       After Step 6.6.k commits SUMMARY.md plus STATE.md:
 
          a. Read `.planning/ROADMAP.md` in full. Milestone close is rare.
          b. Run `node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"` and extract the active milestone from its output.
@@ -2538,10 +2598,20 @@ REPEAT:
       } // end gates.shouldFire('sgsd-curate-learnings')
 
   11. UPDATE STATE
+      state.write is the sole owner of the plan-close STATE projection. Invoke
+      this exact event-envelope CLI with JSON-escaped strings and concrete
+      integer counts:
+
+      ```bash
+      node super-gsd/tools/state-write/write.cjs --event-json '{"event":"plan-close","projectDir":".","milestone":"{{MILESTONE}}","evidence_phase":"{{PHASE}}","current_phase":"{{PHASE}}","last_updated":"{{LAST_UPDATED}}","progress":{"total_phases":{{TOTAL_PHASES}},"completed_phases":{{COMPLETED_PHASES}},"completed_plans":{{COMPLETED_PLANS}},"status_row":{"phase":"{{PHASE}}","value":"{{PHASE_STATUS_ROW}}"}}}'
+      ```
+
+      Exit 1 refuses plan close; exit 2 requires input/I/O repair. Exit 0 with
+      `changed=false` is an idempotent success.
+
       // Gate check (Phase 10 D-09): token-log gate fires unless disabled (soft-warn, no trigger)
       // NOTE: Step 11 is exempt from edge-guard emit-check (D-11c) — it IS the logging step.
       if (gates.shouldFire('token-log', ctx, GATES_YAML_PATH)) {
-      - Update STATE.md (advance plan counter, update progress)
       - Mark ROADMAP.md phase progress
       - Log token usage to .planning/metrics/token-log.jsonl
       } // end gates.shouldFire('token-log')

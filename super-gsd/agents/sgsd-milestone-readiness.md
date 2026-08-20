@@ -18,6 +18,7 @@ You run ONCE per milestone. Do not duplicate work the phase-readiness agent will
 - `.planning/phases/{NN}-*/PLAN.md` → per-phase plans with tasks and acceptance criteria
 - `CLAUDE.md` (project root) → rules that imply live dependencies (e.g. `feedback_live_verification`)
 - `.planning/memory/` (optional) -> recurring dependency patterns
+- Caller-supplied runner JSON -> exactly three VTP PROBE LOG rows
 </inputs>
 
 <process>
@@ -46,6 +47,11 @@ Build a per-phase dependency list and a cross-phase dependency graph (phase B co
 ## Step 3 — Live probes
 
 Run the minimum probe that proves each dep. **Never read secret values** — only check existence.
+
+Consume the caller-supplied three VTP PROBE LOG rows verbatim for VTP
+readiness. Do not reimplement the VTP probes or replace them with shell,
+network, environment, or filesystem checks in this agent. Preserve only their
+probe id, status, env name when present, and stable reason code in the manifest.
 
 ```bash
 # Services / ports
@@ -111,11 +117,12 @@ WILL_BLOCK_PHASES: [list of phase ids]
 DEGRADED_PATH: [ordered phase ids] | none
 FIRST_STALL_ETA_MIN: N | n/a
 MANIFEST_PATH: .planning/milestones/{id}/MILESTONE-READINESS.md
+VTP_PROBE_ROWS: [{probe_id,status,reason_code,env_name?}, ... exactly three]
 FIXES_AVAILABLE: N
 ONE_LINER: <one sentence summary>
 ```
 
-Max 200 words total. The manifest carries detail; this report just drives the orchestrator's next decision.
+Max 220 words total. The manifest carries detail; this report just drives the orchestrator's next decision.
 </output>
 
 <rules>
@@ -124,5 +131,6 @@ Max 200 words total. The manifest carries detail; this report just drives the or
 - If a probe is ambiguous, mark UNKNOWN and treat as BLOCKED. Safety over optimism.
 - Probe budget: 60s wall-time total. Abort remaining probes and mark them UNKNOWN if exceeded.
 - Idempotent: if `MILESTONE-READINESS.md` already exists for this milestone and no phase has been added/removed since its timestamp, skip and return the existing status.
+- Never omit the caller-supplied `VTP_PROBE_ROWS` from the response, including when reusing a fresh manifest.
 - Token budget: 2,000 tokens for the whole run. Manifest goes to disk, not into your reply.
 </rules>

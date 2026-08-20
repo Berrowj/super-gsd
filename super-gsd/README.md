@@ -94,11 +94,3 @@ node super-gsd/tools/cockpit-sidecar/atc-playwright-gate.cjs --phase <N> --targe
 The Playwright gate auto-skips when the phase's git diff touched no UI files
 (verdict: `SKIPPED-NO-UI-FILES`). Mandatory for any UI phase — see
 `.planning/memory/workflow/feedback/feedback_playwright_atc_gate.md`.
-
-## Clarity Control Plane
-
-The Phase 1 local safety plane for worktree ownership, Git anchor reporting,
-long-running job protection, and commit-pinned deploy preflight lives in
-[`control-plane/`](control-plane/README.md). Start with
-`control-plane/clarity-cp doctor`; it reports only and does not deploy or repair
-the host.

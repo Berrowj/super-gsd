@@ -9,6 +9,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { createHash, randomUUID } = require('crypto');
 const { performance } = require('perf_hooks');
 
 const { findSgsdRoot, readState } = require('../scripts/lib/sgsd-state.cjs');
@@ -19,7 +20,9 @@ const {
 const {
   compiledFallbackRegistry,
   DEFAULT_REGISTRY_PATH,
+  isSafeSkillTarget,
   loadSkillRoutingRegistry,
+  resolveSkillTarget,
   toPromptGovernanceRoutes,
   VALID_MODES,
 } = require('../scripts/lib/skill-routing-registry.cjs');
@@ -38,9 +41,20 @@ const MALFORMED_SKILL_ROUTING_FIXTURE = path.resolve(
 const BENCH_SIGNAL = 'intent_classifier_bench';
 const DEGRADED_SIGNAL = 'intent_classifier_degraded';
 const ROUTING_DECISION_SIGNAL = 'intent_routing_decision';
+const SKILL_UNAVAILABLE_REASON_CODE = 'skill_entrypoint_not_found';
+const MCP_SERVER_UNREGISTERED_REASON_CODE = 'mcp_server_unregistered';
+const AUTOMATED_TURN_REASON_CODE = 'automated_task_notification_origin';
+const AUTOMATED_ENVELOPE_MARKERS = Object.freeze([
+  Object.freeze(['<task-notification>', '</task-notification>']),
+  Object.freeze(['<system-reminder>', '</system-reminder>']),
+]);
 const CLASSIFIER_ENFORCEMENT_KINDS = Object.freeze(['directive', 'suggestion']);
 const KB_TRIAGE_SHADOW_SIGNAL = 'kb_triage_shadow';
 const KB_TRIAGE_MATCHER_VERSION = 'kb-shadow-v1';
+const T4_MCP_AVAILABILITY = 'mcp-server-registered';
+const T4_SURFACES = Object.freeze([
+  'vtp_search_substrate', 'wiki_search', 'vtp_route_and_retrieve', 'vtp_triage',
+]);
 const REPORT_ONLY_SIGNALS = Object.freeze(['missing_plan']);
 
 let _govRegistryCache = null; // { key, parsed, bytes }
@@ -103,6 +117,18 @@ function parsePayload(raw) {
   } catch {
     return {};
   }
+}
+
+function isAutomatedTurnPayload(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
+  if (payload.hook_event_name !== 'UserPromptSubmit') return false;
+  if (!payload.origin || payload.origin.kind !== 'task-notification') return false;
+  if (payload.promptSource !== 'system' || typeof payload.prompt !== 'string') return false;
+
+  const envelope = payload.prompt.trim();
+  return AUTOMATED_ENVELOPE_MARKERS.some(([opening, closing]) => (
+    envelope.startsWith(opening) && envelope.endsWith(closing)
+  ));
 }
 
 function rootFromPayload(payload) {
@@ -256,7 +282,9 @@ function validateRouteShape(route) {
     const triggerCount = nonEmptyStrings(trigger.phrases).length + validRegexStrings(trigger.regexes).length;
     const directive = typeof enforcement.directive === 'string' ? enforcement.directive.trim() : '';
     if (triggerCount === 0) reasons.push('trigger_missing');
-    if (!directive || !directive.startsWith('/sgsd-')) reasons.push('directive_invalid');
+    if (!isSafeSkillTarget(directive)) {
+      reasons.push('directive_invalid');
+    }
     return {
       route,
       id: id || null,
@@ -282,15 +310,43 @@ function validateRouteShape(route) {
   }
 
   if (kind === 'shadow') {
+    const genericStrongCount = nonEmptyStrings(trigger.strong_phrases).length
+      + validRegexStrings(trigger.strong_regexes).length;
     const triggerCount = nonEmptyStrings(trigger.phrases).length
       + validRegexStrings(trigger.regexes).length
       + nonEmptyStrings(trigger.strong_kb_phrases).length
-      + validRegexStrings(trigger.strong_kb_regexes).length;
+      + validRegexStrings(trigger.strong_kb_regexes).length
+      + genericStrongCount;
     const signal = typeof enforcement.signal === 'string' ? enforcement.signal.trim() : '';
     const directive = typeof enforcement.directive === 'string' ? enforcement.directive.trim() : '';
+    const targetSkill = typeof enforcement.target_skill === 'string'
+      ? enforcement.target_skill.trim()
+      : '';
+    const softPathAction = typeof enforcement.soft_path_action === 'string'
+      ? enforcement.soft_path_action.trim()
+      : '';
+    const surfaceId = typeof enforcement.surface_id === 'string'
+      ? enforcement.surface_id.trim()
+      : '';
     if (triggerCount === 0) reasons.push('shadow_trigger_missing');
     if (signal !== KB_TRIAGE_SHADOW_SIGNAL) reasons.push('shadow_signal_invalid');
     if (directive) reasons.push('shadow_directive_forbidden');
+    if (genericStrongCount > 0) {
+      if (!/^would_route_[a-z0-9_]+$/.test(softPathAction)) {
+        reasons.push('shadow_soft_path_action_invalid');
+      }
+      if (surfaceId) {
+        if (!T4_SURFACES.includes(surfaceId)) reasons.push('shadow_surface_invalid');
+        if (route.availability !== T4_MCP_AVAILABILITY) {
+          reasons.push('shadow_mcp_availability_invalid');
+        }
+      } else {
+        if (!isSafeSkillTarget('/' + targetSkill)) reasons.push('shadow_target_skill_invalid');
+        if (route.availability !== 'external-if-installed') {
+          reasons.push('shadow_availability_invalid');
+        }
+      }
+    }
     return {
       route,
       id: id || null,
@@ -393,7 +449,7 @@ function adaptPromptRoutes(root, payload, options) {
     });
     const sourcePath = registry.registry_path || requestedPath;
     return {
-      routes: toPromptGovernanceRoutes(registry, { mode })
+      routes: toPromptGovernanceRoutes(registry, { mode, root, deferAvailability: true })
         .map((route) => ({ ...route, registry_path: sourcePath })),
       source: registry.source,
       degraded: Boolean(registry.degraded),
@@ -407,7 +463,7 @@ function adaptPromptRoutes(root, payload, options) {
     });
     const registry = compiledFallbackRegistry();
     return {
-      routes: toPromptGovernanceRoutes(registry, { mode })
+      routes: toPromptGovernanceRoutes(registry, { mode, root, deferAvailability: true })
         .map((route) => ({ ...route, registry_path: registry.registry_path })),
       source: registry.source,
       degraded: true,
@@ -435,6 +491,39 @@ function promptText(payload) {
   const raw = payload ? payload.prompt : '';
   if (raw === null || raw === undefined) return '';
   return String(raw).toLowerCase();
+}
+
+function routeSurfaceId(route) {
+  const enforcement = route && route.enforcement || {};
+  const raw = route && route.mcp_surface || enforcement.surface_id;
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : null;
+}
+
+function vtpMcpServerRegistered(root) {
+  try {
+    const { loadRegistry: loadVtpRegistry } = require('../tools/vtp-readiness/registry.cjs');
+    const canonical = loadVtpRegistry().servers.canonical;
+    const source = fs.readFileSync(path.join(root, '.mcp.json'), 'utf8');
+    const parsed = JSON.parse(source);
+    const servers = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed.mcpServers : null;
+    return Boolean(servers && typeof servers === 'object' && !Array.isArray(servers)
+      && Object.hasOwn(servers, canonical));
+  } catch {
+    return false;
+  }
+}
+
+function recordT4RoutedDemand(root, input) {
+  const { recordRoutedDemand } = require('../scripts/lib/demand-baseline-ledger.cjs');
+  return recordRoutedDemand(path.join(root, '.planning'), input);
+}
+
+function t4DecisionId(route, payload, prompt) {
+  const session = payload && typeof payload.session_id === 'string' ? payload.session_id : '';
+  return 'p159-' + createHash('sha256')
+    .update([route && route.id || '', session, prompt].join('\0'))
+    .digest('hex');
 }
 
 function list(value) {
@@ -481,7 +570,11 @@ function matchesShadowRoute(route, prompt, root, payload) {
   if (!route || !prompt.trim()) return false;
   const trigger = route.trigger || {};
   const predicate = route.predicate || {};
-  const strong = phraseHit(prompt, trigger.strong_kb_phrases)
+  if (phraseHit(prompt, predicate.exclude_phrases)) return false;
+  if (regexHit(prompt, predicate.exclude_regexes, root, payload)) return false;
+  const strong = phraseHit(prompt, trigger.strong_phrases)
+    || regexHit(prompt, trigger.strong_regexes, root, payload)
+    || phraseHit(prompt, trigger.strong_kb_phrases)
     || regexHit(prompt, trigger.strong_kb_regexes, root, payload);
   if (strong) return true;
   const weak = phraseHit(prompt, trigger.phrases)
@@ -506,26 +599,72 @@ function evaluateShadowRoutes(root, payload, prompt) {
         && route.enforcement
         && route.enforcement.kind === 'shadow';
     });
-    const matched = shadowRoutes.filter((route) => matchesShadowRoute(route, prompt, root, payload));
-    if (matched.length === 0) return;
-    const crypto = require('crypto');
+    const lexicalMatches = shadowRoutes
+      .filter((route) => matchesShadowRoute(route, prompt, root, payload));
+    const t4LexicalMatches = lexicalMatches.filter((route) => routeSurfaceId(route));
+    const selectedT4Route = t4LexicalMatches.length > 0 ? t4LexicalMatches[0] : null;
+    const selectedMatches = lexicalMatches.filter((route) => (
+      !routeSurfaceId(route) || route === selectedT4Route
+    ));
+    const matched = [];
+    const t4EvaluationCount = selectedT4Route ? 1 : 0;
+    if (selectedT4Route && !vtpMcpServerRegistered(root)) {
+      appendRoutingDecision(root, payload, [selectedT4Route], [], [], performance.now() - started, {
+        decision: 'mcp_server_unregistered',
+        route_id: selectedT4Route.id,
+        surface_id: routeSurfaceId(selectedT4Route),
+      });
+      return { t4_evaluation_count: t4EvaluationCount };
+    }
+    for (const route of selectedMatches) {
+      const enforcement = route.enforcement || {};
+      const surfaceId = routeSurfaceId(route);
+      const targetSkill = typeof enforcement.target_skill === 'string'
+        ? enforcement.target_skill.trim() : '';
+      if (targetSkill && !resolveSkillTarget('/' + targetSkill, { root }).available) continue;
+      matched.push(route);
+    }
+    if (matched.length === 0) return { t4_evaluation_count: t4EvaluationCount };
     const ledgerPathValue = kbTriageShadowLedgerPath(root);
-    const line = JSON.stringify({
-      ts: new Date().toISOString(),
-      decision_id: crypto.randomUUID(),
-      matcher_version: KB_TRIAGE_MATCHER_VERSION,
-      matched_signature_ids: matched.map((route) => route.id).filter(Boolean),
-      soft_path_action: 'would_route_vtp_query_triage',
-      latency_ms: null,
-      operator_label: null,
-    }) + '\n';
-    const latency_ms = Number((performance.now() - started).toFixed(3));
-    fs.appendFileSync(
-      ledgerPathValue,
-      line.replace('"latency_ms":null', '"latency_ms":' + latency_ms),
-    );
+    for (const route of matched) {
+      const enforcement = route.enforcement || {};
+      const surfaceId = routeSurfaceId(route);
+      const decisionId = surfaceId ? t4DecisionId(route, payload, prompt) : randomUUID();
+      const softPathAction = typeof enforcement.soft_path_action === 'string'
+        ? enforcement.soft_path_action
+        : 'would_route_vtp_query_triage';
+      const line = JSON.stringify({
+        ts: new Date().toISOString(),
+        decision_id: decisionId,
+        matcher_version: KB_TRIAGE_MATCHER_VERSION,
+        matched_signature_ids: [route.id].filter(Boolean),
+        soft_path_action: softPathAction,
+        latency_ms: null,
+        operator_label: null,
+        ...(surfaceId ? { surface_id: surfaceId } : {}),
+      }) + '\n';
+      const latency_ms = Number((performance.now() - started).toFixed(3));
+      fs.appendFileSync(
+        ledgerPathValue,
+        line.replace('"latency_ms":null', '"latency_ms":' + latency_ms),
+      );
+      if (surfaceId) {
+        appendRoutingDecision(root, payload, [route], [], [], latency_ms, {
+          t4_fired: true,
+          decision_id: decisionId,
+          surface_id: surfaceId,
+        });
+        recordT4RoutedDemand(root, {
+          decision_id: decisionId,
+          surface: surfaceId,
+          latency_ms,
+        });
+      }
+    }
+    return { t4_evaluation_count: t4EvaluationCount };
   } catch {
     // Fire-and-forget: shadow evaluation must never throw or affect injection.
+    return { t4_evaluation_count: 0 };
   }
 }
 
@@ -534,13 +673,47 @@ function matchingRoutes(registry, prompt, root, payload) {
   return routes.filter((route) => matchesRoute(route, prompt, root, payload));
 }
 
+function partitionMatchedRoutesByMcpRegistration(root, routes) {
+  const available = [];
+  const unavailable = [];
+  let registered = null;
+  for (const route of Array.isArray(routes) ? routes : []) {
+    if (!route || !route.mcp_surface) {
+      available.push(route);
+      continue;
+    }
+    if (registered === null) registered = vtpMcpServerRegistered(root);
+    if (registered) available.push(route);
+    else unavailable.push({ route, surface_id: route.mcp_surface });
+  }
+  return { available, unavailable };
+}
+
+function partitionMatchedRoutesByAvailability(root, routes) {
+  const available = [];
+  const unavailable = [];
+  const seenUnavailableTargets = new Set();
+  for (const route of Array.isArray(routes) ? routes : []) {
+    const enforcement = route && route.enforcement || {};
+    const resolution = resolveSkillTarget(enforcement.directive, { root });
+    if (resolution.available) {
+      available.push(route);
+      continue;
+    }
+    if (!resolution.target || seenUnavailableTargets.has(resolution.target)) continue;
+    seenUnavailableTargets.add(resolution.target);
+    unavailable.push({ route, target: resolution.target });
+  }
+  return { available, unavailable };
+}
+
 function routeDirectives(routes, kind) {
   const seen = new Set();
   const out = [];
   for (const route of routes) {
     const enforcement = route.enforcement || {};
     if (enforcement.kind !== kind || typeof enforcement.directive !== 'string') continue;
-    if (!enforcement.directive.startsWith('/sgsd-')) continue;
+    if (!isSafeSkillTarget(enforcement.directive)) continue;
     if (seen.has(enforcement.directive)) continue;
     seen.add(enforcement.directive);
     out.push(enforcement.directive);
@@ -553,9 +726,16 @@ function directiveLines(routes, kind) {
   return routeDirectives(routes, kind).map((directive) => `${prefix}: ${directive}`);
 }
 
-function appendRoutingDecision(root, payload, routes, mandatory, suggestions, duration) {
+function appendRoutingDecision(root, payload, routes, mandatory, suggestions, duration, details) {
   if (!Array.isArray(routes)) return;
   try {
+    const automatedTurnSkip = details
+      && details.decision === 'automated_turn_skip';
+    const skillUnavailable = details
+      && details.decision === 'skill_unavailable';
+    const mcpUnregistered = details
+      && details.decision === 'mcp_server_unregistered';
+    const t4Fired = details && details.t4_fired === true;
     const state = readState(root) || {};
     const registryPaths = Array.from(new Set(
       routes.map((route) => route && route.registry_path).filter(Boolean),
@@ -563,10 +743,17 @@ function appendRoutingDecision(root, payload, routes, mandatory, suggestions, du
     const row = logGateEvidence(root, {
       signal: ROUTING_DECISION_SIGNAL,
       status: 'ok',
-      decision: routes.length > 0 ? 'matched' : 'no_match',
-      reason_codes: [],
-      artifacts: (registryPaths.length > 0 ? registryPaths : [registryPath()])
-        .map((registryPathValue) => ({ kind: 'registry', path: registryPathValue })),
+      decision: automatedTurnSkip || skillUnavailable || mcpUnregistered
+        ? details.decision
+        : (routes.length > 0 ? 'matched' : 'no_match'),
+      reason_codes: automatedTurnSkip
+        ? [AUTOMATED_TURN_REASON_CODE]
+        : (skillUnavailable ? [SKILL_UNAVAILABLE_REASON_CODE]
+          : (mcpUnregistered ? [MCP_SERVER_UNREGISTERED_REASON_CODE] : [])),
+      artifacts: automatedTurnSkip || skillUnavailable || mcpUnregistered || t4Fired
+        ? []
+        : (registryPaths.length > 0 ? registryPaths : [registryPath()])
+          .map((registryPathValue) => ({ kind: 'registry', path: registryPathValue })),
       evidence: [],
       next_action: null,
       risk: 'low',
@@ -576,8 +763,33 @@ function appendRoutingDecision(root, payload, routes, mandatory, suggestions, du
       route_ids: routes.map((route) => route.id).filter(Boolean),
       directives: Array.isArray(mandatory) ? mandatory.slice() : [],
       suggestions: Array.isArray(suggestions) ? suggestions.slice() : [],
-      hook_event_name: payload && payload.hook_event_name || null,
-      session_id: payload && payload.session_id || null,
+      ...(!skillUnavailable && !mcpUnregistered && !t4Fired ? {
+        hook_event_name: payload && payload.hook_event_name || null,
+        session_id: payload && payload.session_id || null,
+      } : {}),
+      ...(automatedTurnSkip ? {
+        origin_kind: 'task-notification',
+        prompt_source: 'system',
+        route_evaluation_count: 0,
+        shadow_evaluation_count: 0,
+      } : {}),
+      ...(skillUnavailable ? {
+        route_id: details.route_id,
+        target_skill: details.target_skill,
+        route_evaluation_count: 1,
+        availability_check_count: 1,
+      } : {}),
+      ...(mcpUnregistered ? {
+        route_id: details.route_id,
+        surface_id: details.surface_id,
+        mcp_server_id: 'canonical',
+        route_evaluation_count: 1,
+        mcp_registration_check_count: 1,
+      } : {}),
+      ...(t4Fired ? {
+        decision_id: details.decision_id,
+        surface_id: details.surface_id,
+      } : {}),
     });
     if (!row) {
       appendFailureRow(root, 'evidence_append_failed', payload, {
@@ -594,24 +806,77 @@ function appendRoutingDecision(root, payload, routes, mandatory, suggestions, du
 function emitClassification(root, payload, options) {
   const opts = options || {};
   const started = performance.now();
+  if (isAutomatedTurnPayload(payload)) {
+    const empty = [];
+    if (opts.recordEvidence !== false) {
+      appendRoutingDecision(root, payload, empty, empty, empty, performance.now() - started, {
+        decision: 'automated_turn_skip',
+      });
+    }
+    return { routes: empty, mandatory: empty, suggestions: empty };
+  }
+
   const prompt = promptText(payload);
   if (!prompt.trim()) return { routes: [], mandatory: [], suggestions: [] };
 
   const registry = readRegistry(root, payload, opts);
-  const routes = matchingRoutes(registry, prompt, root, payload);
-  evaluateShadowRoutes(root, payload, prompt);
+  const matchedRoutes = matchingRoutes(registry, prompt, root, payload);
+  const mcpPartitioned = partitionMatchedRoutesByMcpRegistration(root, matchedRoutes);
+  const partitioned = partitionMatchedRoutesByAvailability(root, mcpPartitioned.available);
+  const routes = partitioned.available;
+  if (opts.recordEvidence !== false) {
+    for (const item of mcpPartitioned.unavailable) {
+      appendRoutingDecision(root, payload, [item.route], [], [], performance.now() - started, {
+        decision: 'mcp_server_unregistered',
+        route_id: item.route && item.route.id || null,
+        surface_id: item.surface_id,
+      });
+    }
+    for (const item of partitioned.unavailable) {
+      appendRoutingDecision(root, payload, [item.route], [], [], performance.now() - started, {
+        decision: 'skill_unavailable',
+        route_id: item.route && item.route.id || null,
+        target_skill: item.target,
+      });
+    }
+  }
+  const shadowResult = mcpPartitioned.unavailable.length > 0
+    ? { t4_evaluation_count: 0 }
+    : evaluateShadowRoutes(root, payload, prompt);
   const mandatory = routeDirectives(routes, 'directive');
   if (mandatory.length > 0) {
     safeStdout(root, payload, mandatory.map((directive) => `SGSD directive: ${directive}`).join('\n'));
   }
 
   const suggestions = routeDirectives(routes, 'suggestion');
+  const t4PromptRoute = routes.find((route) => Boolean(route && route.mcp_surface));
+  const t4PromptDecisionId = t4PromptRoute
+    ? t4DecisionId(t4PromptRoute, payload, prompt) : null;
   try {
     if (suggestions.length > 0) {
       safeStdout(root, payload, suggestions.map((directive) => `SGSD skill suggestion: ${directive}`).join('\n'));
     }
-    if (opts.recordEvidence !== false) {
-      appendRoutingDecision(root, payload, routes, mandatory, suggestions, performance.now() - started);
+    if (opts.recordEvidence !== false
+        && (routes.length > 0 || (
+          partitioned.unavailable.length === 0
+          && mcpPartitioned.unavailable.length === 0
+          && (!shadowResult || shadowResult.t4_evaluation_count === 0)
+        ))) {
+      appendRoutingDecision(
+        root, payload, routes, mandatory, suggestions, performance.now() - started,
+        t4PromptRoute ? {
+          t4_fired: true,
+          decision_id: t4PromptDecisionId,
+          surface_id: t4PromptRoute.mcp_surface,
+        } : null,
+      );
+    }
+    if (t4PromptRoute) {
+      recordT4RoutedDemand(root, {
+        decision_id: t4PromptDecisionId,
+        surface: t4PromptRoute.mcp_surface,
+        latency_ms: Number((performance.now() - started).toFixed(3)),
+      });
     }
   } catch {
     appendFailureRow(root, 'optional_suggestions_failed', payload);
@@ -705,6 +970,8 @@ function runBench(args) {
 }
 
 function selfTest() {
+  const os = require('os');
+  const { spawnSync } = require('child_process');
   let pass = 0;
   let fail = 0;
   const failures = [];
@@ -770,6 +1037,144 @@ function selfTest() {
       && shadowValidation.classifierUsable === false);
   assert('10. pure fix imperative does not match KB triage shadow route',
     !matchesShadowRoute(shadowRoute, 'fix the failing test', null, payload));
+
+  const notificationSentinels = Object.freeze([
+    'opaque-tn-a7f31',
+    'opaque-tu-c9d42',
+    'opaque-of-e2b53',
+    'opaque-st-f4a64',
+    'opaque-su-b6c75',
+    'opaque-re-d8e86',
+  ]);
+  const notificationEnvelope = [
+    '<task-notification>',
+    `  <task-id>${notificationSentinels[0]}</task-id>`,
+    `  <tool-use-id>${notificationSentinels[1]}</tool-use-id>`,
+    `  <output-file>${notificationSentinels[2]}</output-file>`,
+    `  <status>${notificationSentinels[3]}</status>`,
+    `  <summary>${notificationSentinels[4]} multiple valid approaches token waste knowledge base</summary>`,
+    `  <result>${notificationSentinels[5]}</result>`,
+    '</task-notification>',
+  ].join('\n');
+
+  function readJsonl(file) {
+    if (!fs.existsSync(file)) return [];
+    return fs.readFileSync(file, 'utf8')
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+  }
+
+  function runStdinFixture(fixturePayload) {
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-intent-origin-'));
+    try {
+      const planningDir = path.join(fixtureRoot, '.planning');
+      fs.mkdirSync(planningDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(planningDir, 'STATE.md'),
+        '---\nmilestone: fixture\ncurrent_phase: 158\n---\n',
+        'utf8',
+      );
+      const child = spawnSync(process.execPath, [__filename], {
+        cwd: fixtureRoot,
+        input: JSON.stringify({ ...fixturePayload, cwd: fixtureRoot }),
+        encoding: 'utf8',
+        timeout: 10000,
+      });
+      if (child.error) throw child.error;
+      const evidenceFile = path.join(planningDir, 'metrics', 'gate-evidence.jsonl');
+      const shadowFile = path.join(planningDir, 'metrics', 'kb-triage-shadow.jsonl');
+      return {
+        status: child.status,
+        error: child.error || null,
+        stdout: child.stdout || '',
+        stderr: child.stderr || '',
+        evidence: readJsonl(evidenceFile),
+        evidenceText: fs.existsSync(evidenceFile) ? fs.readFileSync(evidenceFile, 'utf8') : '',
+        shadow: readJsonl(shadowFile),
+      };
+    } finally {
+      fs.rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+  }
+
+  const humanResult = runStdinFixture({
+    hook_event_name: 'UserPromptSubmit',
+    origin: { kind: 'human' },
+    promptSource: 'typed',
+    prompt: 'Let\'s plan the next phase',
+  });
+  const humanRows = humanResult.evidence.filter((row) => row.signal === ROUTING_DECISION_SIGNAL);
+  assert('11. human/typed production-stdin fixture exits zero',
+    humanResult.status === 0 && !humanResult.error,
+    'status=' + humanResult.status);
+  assert('12. human/typed planning input emits the established directive',
+    humanResult.stdout.includes('SGSD directive: /sgsd-triage'));
+  assert('13. human/typed planning input writes matched planning-triage evidence',
+    humanRows.length === 1
+      && humanRows[0].decision === 'matched'
+      && humanRows[0].route_ids.includes('planning-triage'));
+  assert('14. human/typed planning input is never recorded as an automated skip',
+    humanRows.every((row) => row.decision !== 'automated_turn_skip'));
+
+  const automatedResult = runStdinFixture({
+    hook_event_name: 'UserPromptSubmit',
+    origin: { kind: 'task-notification' },
+    promptSource: 'system',
+    prompt: notificationEnvelope,
+  });
+  const automatedRows = automatedResult.evidence
+    .filter((row) => row.signal === ROUTING_DECISION_SIGNAL);
+  const skipRows = automatedRows.filter((row) => row.decision === 'automated_turn_skip');
+  const forbiddenEvidenceKeys = [
+    'prompt', 'text', 'excerpt', 'inner', 'task_id', 'task-id', 'tool_use_id',
+    'tool-use-id', 'output_path', 'output-file', 'summary', 'result', 'entities', 'query',
+  ];
+  assert('15. automated production-stdin fixture exits zero',
+    automatedResult.status === 0 && !automatedResult.error,
+    'status=' + automatedResult.status);
+  assert('16. automated turn emits no stdout', automatedResult.stdout === '');
+  assert('17. automated turn writes exactly one automated_turn_skip row',
+    automatedRows.length === 1 && skipRows.length === 1);
+  assert('18. automated skip has no degraded, matched, or no_match companion row',
+    automatedResult.evidence.length === 1
+      && !automatedResult.evidence.some((row) => row.signal === DEGRADED_SIGNAL)
+      && automatedRows.every((row) => row.decision === 'automated_turn_skip'));
+  assert('19. automated skip row is structurally attributed with zero evaluations',
+    skipRows.length === 1
+      && skipRows[0].origin_kind === 'task-notification'
+      && skipRows[0].prompt_source === 'system'
+      && skipRows[0].route_evaluation_count === 0
+      && skipRows[0].shadow_evaluation_count === 0
+      && skipRows[0].route_ids.length === 0
+      && skipRows[0].directives.length === 0
+      && skipRows[0].suggestions.length === 0);
+  assert('20. automated turn writes no KB-shadow row', automatedResult.shadow.length === 0);
+  assert('21. automated evidence contains no inner sentinel or forbidden text-bearing key',
+    notificationSentinels.every((sentinel) => !automatedResult.evidenceText.includes(sentinel))
+      && forbiddenEvidenceKeys.every((key) => !new RegExp(
+        String.fromCharCode(34) + key + String.fromCharCode(34) + '\\s*:',
+        'i',
+      ).test(automatedResult.evidenceText)));
+
+  const quotedResult = runStdinFixture({
+    hook_event_name: 'UserPromptSubmit',
+    origin: { kind: 'human' },
+    promptSource: 'typed',
+    prompt: 'Let\'s plan the next phase while quoting this payload:\n' + notificationEnvelope,
+  });
+  const quotedRows = quotedResult.evidence.filter((row) => row.signal === ROUTING_DECISION_SIGNAL);
+  assert('22. human quote production-stdin fixture exits zero',
+    quotedResult.status === 0 && !quotedResult.error,
+    'status=' + quotedResult.status);
+  assert('23. human/typed quote still emits the planning directive',
+    quotedResult.stdout.includes('SGSD directive: /sgsd-triage'));
+  assert('24. human/typed quote writes matched planning-triage evidence',
+    quotedRows.length === 1
+      && quotedRows[0].decision === 'matched'
+      && quotedRows[0].route_ids.includes('planning-triage'));
+  assert('25. human/typed quote is never recorded as an automated skip',
+    quotedRows.every((row) => row.decision !== 'automated_turn_skip'));
 
   console.log(`intent-classifier self-test: ${pass} pass, ${fail} fail`);
   for (const item of failures) {
@@ -848,6 +1253,9 @@ module.exports = {
   directiveLines,
   matchingRoutes,
   matchesShadowRoute,
+  routeSurfaceId,
+  vtpMcpServerRegistered,
+  partitionMatchedRoutesByMcpRegistration,
   evaluateShadowRoutes,
   kbTriageShadowLedgerPath,
   readRegistry,

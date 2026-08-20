@@ -1,0 +1,5 @@
+super-gsd/hooks/sgsd-vtp-pending.js
+super-gsd/config/settings-overlay.json
+super-gsd/tests/vtp-readiness/assert-vtp-readiness.cjs
+super-gsd/install.sh
+super-gsd/scripts/merge-settings.js

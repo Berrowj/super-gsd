@@ -23,6 +23,15 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ~/.claude/hooks/sgsd-vtp-pending.js",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PreToolUse": [

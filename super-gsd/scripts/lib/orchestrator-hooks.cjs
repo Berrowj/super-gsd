@@ -8,7 +8,7 @@
 //   and Phase 45 (context-packet) tooling as orchestrator hook commands.
 //   Phase 86 deferred this wire-in -- Phase 87 ships it.
 //
-// 3 PUBLIC APIs + selfTest
+// 4 PUBLIC APIs + selfTest
 //   tokenWasteCheck({projectDir, milestone, planningDir?})
 //     -> {ok: bool, verdict: 'ok'|'warn'|'degraded'|'false_positive'|'error',
 //         report_path?, totals?, error?}
@@ -31,6 +31,11 @@
 //     gate-evidence envelope for every fired-or-skipped decision. With
 //     execute:true, fired process dispatches run and append outcome evidence.
 //
+//   manualReadinessSequence({projectDir, planningDir?, milestone, phase, force?})
+//     -> {ok, sequence, manifest_fresh, action, vtp_probe_rows}
+//     Runs the canonical manual VTP consult before checking whether an existing
+//     milestone-readiness manifest can be returned.
+//
 //   selfTest() -> {ok, results: [...]} -- 10+ assertions (A1..A10).
 //
 // LOCKS
@@ -46,6 +51,7 @@
 //   --token-waste-check --milestone <ms> [--planning-dir <p>] [--project-dir <p>]
 //   --context-packet-build --role <r> --phase <p> [--plan <id>] [--milestone <ms>] [--project-dir <p>]
 //   skill-routing|--skill-routing-consult --moment phase-close --mode auto --phase <p> [--dry-run] [--execute]
+//   --manual-readiness-sequence --milestone <ms> --phase <p> [--force]
 //   --self-test
 //   --help
 //
@@ -77,6 +83,7 @@ const {
   SKILL_ROUTING_EVENT,
   gateProducerValidation
 } = require('./skill-routing-registry.cjs');
+const { checkPhaseClose } = require('../../tools/phase-close/check.cjs');
 
 // ----------------------------------------------------------------------------
 // FROZEN CONSTANTS
@@ -561,6 +568,47 @@ function _renderDispatch(dispatch, context) {
   };
 }
 
+function _redactRenderedProjectDir(value, projectDir, replacement) {
+  const source = String(value);
+  const target = String(projectDir || '');
+  if (!target) return source;
+  const caseInsensitive = process.platform === 'win32';
+  const needle = caseInsensitive ? target.toLowerCase() : target;
+  let remaining = source;
+  let comparable = caseInsensitive ? remaining.toLowerCase() : remaining;
+  let output = '';
+  let index = comparable.indexOf(needle);
+  while (index >= 0) {
+    output += remaining.slice(0, index) + (replacement || '{project_dir}');
+    remaining = remaining.slice(index + target.length);
+    comparable = caseInsensitive ? remaining.toLowerCase() : remaining;
+    index = comparable.indexOf(needle);
+  }
+  return output + remaining;
+}
+
+function _publicDispatch(dispatch, context) {
+  if (!dispatch) return null;
+  const redactPath = function (value) {
+    let redacted = _redactRenderedProjectDir(value, context.projectDir);
+    if (context.moment === 'on-demand' && context.mode === 'manual') {
+      redacted = _redactRenderedProjectDir(redacted, SGSD_ROOT, '{sgsd_root}');
+    }
+    return redacted;
+  };
+  return {
+    command: dispatch.command === process.execPath
+      ? 'node'
+      : redactPath(dispatch.command),
+    args: dispatch.args.map(function (arg) {
+      return redactPath(arg);
+    }),
+    timeout_ms: dispatch.timeout_ms,
+    success_exits: dispatch.success_exits.slice(),
+    verdict_exits: dispatch.verdict_exits.slice()
+  };
+}
+
 function _outputExcerpt(value) {
   const text = value === undefined || value === null ? '' : String(value);
   return text.length > MAX_DISPATCH_OUTPUT_BYTES
@@ -598,22 +646,29 @@ function _executeDispatch(dispatch, context, executor) {
     else if (result && result.error && result.error.code === 'ETIMEDOUT') exitCode = 124;
     else exitCode = 126;
     const classification = _classifyDispatchExit(dispatch, exitCode);
+    const spawnFailed = !!(result && result.error);
+    const redactChildError = context
+      && context.moment === 'on-demand' && context.mode === 'manual';
     return {
       decision: classification.decision,
       exit_code: exitCode,
       exit_code_meaning: classification.exit_code_meaning,
       duration_ms: Math.max(0, Date.now() - started),
-      stdout: _outputExcerpt(result && result.stdout),
-      stderr: _outputExcerpt(result && (result.stderr || (result.error && result.error.message)))
+      stdout: spawnFailed ? '' : _outputExcerpt(result && result.stdout),
+      stderr: spawnFailed
+        ? 'dispatch_spawn_failed'
+        : (redactChildError && result && result.stderr
+          ? 'dispatch_child_stderr_redacted'
+          : _outputExcerpt(result && result.stderr))
     };
-  } catch (error) {
+  } catch (_error) {
     return {
       decision: 'execution_failed',
       exit_code: 126,
       exit_code_meaning: 'unrecognized_exit',
       duration_ms: Math.max(0, Date.now() - started),
       stdout: '',
-      stderr: _outputExcerpt(error && error.message ? error.message : error)
+      stderr: 'dispatch_spawn_failed'
     };
   }
 }
@@ -887,6 +942,7 @@ function skillRoutingConsult(opts) {
   const projectDir = _resolveProjectDir(opts);
   const planningDir = _resolvePlanningDir(opts, projectDir);
   const scope = { phase: null, milestone: null, moment: null, mode: null };
+  let closeContract = null;
   try {
     if (!opts || typeof opts !== 'object') {
       throw new Error('invalid_input_schema:opts_not_object');
@@ -910,6 +966,38 @@ function skillRoutingConsult(opts) {
 
     const dryRun = opts.dryRun === true || opts.dryRun === 'true';
     const execute = opts.execute === true || opts.execute === 'true';
+    if (scope.moment === 'phase-close' && execute) {
+      closeContract = checkPhaseClose({
+        projectDir: projectDir,
+        planningDir: planningDir,
+        phase: scope.phase,
+        milestone: scope.milestone
+      });
+      if (!closeContract.ok) {
+        return {
+          ok: false,
+          degraded: false,
+          event: SKILL_ROUTING_EVENT,
+          source: null,
+          moment: scope.moment,
+          mode: scope.mode,
+          phase: scope.phase,
+          milestone: scope.milestone,
+          dry_run: dryRun,
+          execute: execute,
+          close_contract: closeContract,
+          route_count: 0,
+          fired_count: 0,
+          skipped_count: 0,
+          evidence_appended: 0,
+          executed_count: 0,
+          executed_with_findings_count: 0,
+          execution_failed_count: 0,
+          execution_evidence_appended: 0,
+          decisions: []
+        };
+      }
+    }
     const registry = loadSkillRoutingRegistry({
       registryPath: opts.registryPath || opts.registry,
       runtime: true,
@@ -968,6 +1056,11 @@ function skillRoutingConsult(opts) {
           dryRun: dryRun
         })
         : null;
+      const publicDispatch = _publicDispatch(dispatch, {
+        projectDir: projectDir,
+        moment: scope.moment,
+        mode: scope.mode
+      });
       const row = logGateEvidence(planningDir, {
         signal: SKILL_ROUTING_SIGNAL,
         status: decision.decision === 'fired' ? 'ok' : 'skipped',
@@ -997,7 +1090,7 @@ function skillRoutingConsult(opts) {
         input_source: gateContext.input_source,
         work_risk: gateContext.work_risk,
         dry_run: dryRun,
-        dispatch: dispatch
+        dispatch: publicDispatch
       });
       if (!row) {
         appendFailures++;
@@ -1009,7 +1102,7 @@ function skillRoutingConsult(opts) {
         gate_ref: route.gate_ref || null,
         decision: decision.decision,
         reason: decision.reason,
-        dispatch: dispatch,
+        dispatch: publicDispatch,
         evidence_appended: !!row
       };
       if (decision.decision === 'fired' && execute) {
@@ -1026,7 +1119,7 @@ function skillRoutingConsult(opts) {
           planningDir, scope, route, outcome);
         if (route.gate_ref && !gateValueRow) appendFailures++;
         const executionRow = _appendSkillRoutingExecution(
-          planningDir, scope, route, dispatch, outcome);
+          planningDir, scope, route, publicDispatch, outcome);
         if (executionRow) executionEvidenceAppended++;
         else appendFailures++;
         if (outcome.decision === 'execution_failed') executionFailures++;
@@ -1048,7 +1141,7 @@ function skillRoutingConsult(opts) {
       _appendSkillRoutingDegradation(planningDir, scope,
         new Error('gate_evidence_append_failed:' + appendFailures));
     }
-    return {
+    const consultResult = {
       ok: appendFailures === 0 && executionFailures === 0,
       event: SKILL_ROUTING_EVENT,
       source: registry.source,
@@ -1074,9 +1167,11 @@ function skillRoutingConsult(opts) {
       gate_context: gateContext,
       decisions: decisions
     };
+    if (closeContract) consultResult.close_contract = closeContract;
+    return consultResult;
   } catch (error) {
     _appendSkillRoutingDegradation(planningDir, scope, error);
-    return {
+    const errorResult = {
       ok: false,
       degraded: true,
       event: SKILL_ROUTING_EVENT,
@@ -1095,6 +1190,139 @@ function skillRoutingConsult(opts) {
       execution_evidence_appended: 0,
       decisions: [],
       error: error && error.message ? error.message : String(error || 'unknown')
+    };
+    if (closeContract) errorResult.close_contract = closeContract;
+    return errorResult;
+  }
+}
+
+function _manualReadinessProbeRows(consult) {
+  const expectedIds = ['dist_freshness', 'qdrant_tcp', 'evidence_store'];
+  const readiness = consult && Array.isArray(consult.decisions)
+    ? consult.decisions.find(function (row) { return row.skill === 'sgsd-readiness'; })
+    : null;
+  if (!readiness || readiness.decision !== 'fired' || !readiness.execution) {
+    return { ok: false, reason_code: 'vtp_readiness_route_not_executed', rows: [] };
+  }
+  if (readiness.execution.decision === 'execution_failed') {
+    return { ok: false, reason_code: 'vtp_readiness_dispatch_failed', rows: [] };
+  }
+  let payload = null;
+  try {
+    payload = JSON.parse(readiness.execution.stdout_excerpt || '');
+  } catch (_error) {
+    return { ok: false, reason_code: 'vtp_readiness_output_invalid', rows: [] };
+  }
+  if (!payload || !Array.isArray(payload.results) || payload.results.length !== 3) {
+    return { ok: false, reason_code: 'vtp_readiness_rows_invalid', rows: [] };
+  }
+  const rows = [];
+  for (let i = 0; i < expectedIds.length; i++) {
+    const row = payload.results[i];
+    if (!row || row.probe_id !== expectedIds[i]
+        || ['pass', 'warn', 'error'].indexOf(row.status) === -1
+        || typeof row.reason_code !== 'string'
+        || !/^[a-z0-9_]+$/.test(row.reason_code)) {
+      return { ok: false, reason_code: 'vtp_readiness_rows_invalid', rows: [] };
+    }
+    const publicRow = {
+      probe_id: row.probe_id,
+      status: row.status,
+      reason_code: row.reason_code
+    };
+    if (typeof row.env_name === 'string') publicRow.env_name = row.env_name;
+    rows.push(publicRow);
+  }
+  return { ok: true, reason_code: null, rows: rows };
+}
+
+function _manualReadinessManifest(planningDir, milestone) {
+  const milestoneDir = path.join(planningDir, 'milestones', milestone);
+  const manifestPath = path.join(milestoneDir, 'MILESTONE-READINESS.md');
+  const phasesDir = path.join(milestoneDir, 'phases');
+  if (!fs.existsSync(manifestPath)) {
+    return { fresh: false, path: manifestPath };
+  }
+  try {
+    const manifestMtime = fs.statSync(manifestPath).mtimeMs;
+    if (!fs.existsSync(phasesDir)) return { fresh: true, path: manifestPath };
+    const phaseDirs = fs.readdirSync(phasesDir, { withFileTypes: true })
+      .filter(function (entry) { return entry.isDirectory(); })
+      .map(function (entry) { return path.join(phasesDir, entry.name); });
+    const fresh = phaseDirs.every(function (phaseDir) {
+      return manifestMtime >= fs.statSync(phaseDir).mtimeMs;
+    });
+    return { fresh: fresh, path: manifestPath };
+  } catch (_error) {
+    return { fresh: false, path: manifestPath };
+  }
+}
+
+// ----------------------------------------------------------------------------
+// PUBLIC API: manualReadinessSequence
+// ----------------------------------------------------------------------------
+function manualReadinessSequence(opts) {
+  const projectDir = _resolveProjectDir(opts);
+  const planningDir = _resolvePlanningDir(opts, projectDir);
+  const sequence = [];
+  try {
+    if (!opts || typeof opts !== 'object') {
+      throw new Error('invalid_input_schema:opts_not_object');
+    }
+    const state = readState(projectDir) || {};
+    const phase = opts.phase === undefined || opts.phase === null
+      ? String(state.phase || '') : String(opts.phase);
+    const milestone = String(opts.milestone || state.milestone || '');
+    if (!phase) throw new Error('invalid_input_schema:phase_required');
+    if (!milestone || !/^[A-Za-z0-9._-]+$/.test(milestone)) {
+      throw new Error('invalid_input_schema:milestone_required');
+    }
+
+    const consult = skillRoutingConsult({
+      projectDir: projectDir,
+      planningDir: planningDir,
+      milestone: milestone,
+      phase: phase,
+      moment: 'on-demand',
+      mode: 'manual',
+      execute: true,
+      registry: opts.registry,
+      dispatchExecutor: opts.dispatchExecutor
+    });
+    sequence.push('vtp_consult');
+    const probes = _manualReadinessProbeRows(consult);
+    if (!probes.ok) {
+      return {
+        ok: false,
+        sequence: sequence,
+        action: 'stop',
+        reason_code: probes.reason_code,
+        manifest_fresh: false,
+        vtp_probe_rows: []
+      };
+    }
+
+    const manifest = _manualReadinessManifest(planningDir, milestone);
+    sequence.push('freshness_check');
+    const returnFresh = manifest.fresh && !(opts.force === true || opts.force === 'true');
+    sequence.push(returnFresh ? 'fresh_manifest_return' : 'readiness_agent_dispatch');
+    return {
+      ok: true,
+      sequence: sequence,
+      action: returnFresh ? 'return_fresh_manifest' : 'dispatch_readiness_agent',
+      reason_code: returnFresh ? 'manifest_fresh' : 'manifest_refresh_required',
+      manifest_fresh: manifest.fresh,
+      manifest_path: '.planning/milestones/' + milestone + '/MILESTONE-READINESS.md',
+      vtp_probe_rows: probes.rows
+    };
+  } catch (_error) {
+    return {
+      ok: false,
+      sequence: sequence,
+      action: 'stop',
+      reason_code: 'manual_readiness_sequence_failed',
+      manifest_fresh: false,
+      vtp_probe_rows: []
     };
   }
 }
@@ -1260,6 +1488,7 @@ function selfTest() {
     const exportShapeOk = (typeof tokenWasteCheck === 'function')
       && (typeof contextPacketBuild === 'function')
       && (typeof skillRoutingConsult === 'function')
+      && (typeof manualReadinessSequence === 'function')
       && (typeof selfTest === 'function')
       && (typeof COMMAND_NAME === 'string')
       && Object.isFrozen(TROUBLE_VERDICTS);
@@ -1296,6 +1525,19 @@ function selfTest() {
     fs.mkdirSync(phaseDirA10, { recursive: true });
     fs.writeFileSync(path.join(phaseDirA10, '154-01-PLAN.md'),
       '---\nphase: 154\ntype: feature\n---\n# Fixture plan\n', 'utf8');
+    ['149', '152', '153'].forEach(function (phase) {
+      const closeDir = path.join(planningA10, 'milestones', 'v3.5', 'phases',
+        phase + '-close-contract');
+      fs.mkdirSync(closeDir, { recursive: true });
+      fs.writeFileSync(path.join(closeDir, 'AUDIT.md'),
+        '---\nstatus: PASS\n---\n# Fixture audit\n', 'utf8');
+      fs.writeFileSync(path.join(closeDir, 'SUMMARY.md'), [
+        '---', 'phase: "' + phase + '"', 'slug: close-contract',
+        'milestone: v3.5', 'status: PASS', 'closed: 2026-08-20',
+        'commits: [abcdef0]', 'gates: {self_test: PASS}', '---',
+        '# Fixture summary', ''
+      ].join('\n'), 'utf8');
+    });
     fs.writeFileSync(path.join(planningA10, 'metrics', 'gate-value-log.jsonl'), [
       { gate: 'MUDA-waste-audit', outcome: 'pass', phase: '149', milestone: 'v3.5' },
       { gate: 'phase-level-ATC', outcome: 'pass', phase: '149', milestone: 'v3.5' },
@@ -1503,6 +1745,15 @@ function selfTest() {
       dryRun: true,
       execute: true
     }) : null;
+    const onDemandReadiness = onDemand && onDemand.decisions
+      && onDemand.decisions.find(function (item) {
+        return item.skill === 'sgsd-readiness';
+      });
+    const onDemandInventory = onDemand && onDemand.decisions
+      ? onDemand.decisions.filter(function (item) {
+        return item.skill !== 'sgsd-readiness';
+      })
+      : [];
     const milestoneInventory = hasApi ? skillRoutingConsult({
       projectDir: tmpA10,
       planningDir: planningA10,
@@ -1591,9 +1842,13 @@ function selfTest() {
         && forcedLowMuda && forcedLowMuda.decision === 'fired',
       'sampled=' + (sampledLowMuda && sampledLowMuda.reason)
         + ' forced=' + (forcedLowMuda && forcedLowMuda.decision));
-    assert('A10_dispatchless_and_milestone_inventory_enumerate_without_execution',
-      onDemand && onDemand.ok === true && onDemand.route_count > 0
-        && onDemand.decisions.every(function (item) {
+    assert('A10_on_demand_readiness_executes_while_dispatchless_inventory_skips',
+      onDemand && onDemand.route_count > 0
+        && onDemandReadiness && onDemandReadiness.decision === 'fired'
+        && onDemandReadiness.dispatch
+        && !Object.prototype.hasOwnProperty.call(onDemandReadiness.dispatch, 'cwd')
+        && onDemandReadiness.execution
+        && onDemandInventory.every(function (item) {
           return item.decision === 'skipped'
             && item.reason === 'scheduled_not_executable_here'
             && item.dispatch === null && !item.execution;
@@ -1635,6 +1890,7 @@ function _parseArgv(argv) {
   const known = new Set([
     '--token-waste-check', '--context-packet-build',
     'skill-routing', '--skill-routing-consult', '--skill-routing',
+    '--manual-readiness-sequence', '--force',
     '--self-test', '--help',
     '--milestone', '--phase', '--role', '--plan',
     '--planning-dir', '--project-dir', '--json',
@@ -1647,7 +1903,8 @@ function _parseArgv(argv) {
     planningDir: null, projectDir: null, json: false, help: false,
     moment: null, routeMode: null, filesChanged: null, diffLines: null,
     phaseType: null, workRisk: null, forceGates: null, skipGates: null,
-    overrideReason: null, dryRun: false, execute: false, registry: null
+    overrideReason: null, dryRun: false, execute: false, registry: null,
+    force: false
   };
   let i = 2;
   while (i < argv.length) {
@@ -1657,11 +1914,15 @@ function _parseArgv(argv) {
     if (a === '--context-packet-build'){ out.mode = 'context-packet-build'; i++; continue; }
     if (a === 'skill-routing' || a === '--skill-routing-consult'
         || a === '--skill-routing')    { out.mode = 'skill-routing-consult'; i++; continue; }
+    if (a === '--manual-readiness-sequence') {
+      out.mode = 'manual-readiness-sequence'; i++; continue;
+    }
     if (a === '--self-test')           { out.mode = 'self-test'; i++; continue; }
     if (a === '--help')                { out.help = true; i++; continue; }
     if (a === '--json')                { out.json = true; i++; continue; }
     if (a === '--dry-run')             { out.dryRun = true; i++; continue; }
     if (a === '--execute')             { out.execute = true; i++; continue; }
+    if (a === '--force')               { out.force = true; i++; continue; }
     if (a === '--milestone')   { out.milestone = argv[i + 1]; i += 2; continue; }
     if (a === '--phase')       { out.phase = argv[i + 1]; i += 2; continue; }
     if (a === '--role')        { out.role = argv[i + 1]; i += 2; continue; }
@@ -1689,6 +1950,7 @@ function _usage() {
   process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --context-packet-build --role <r> --phase <p> [--plan <id>] [--milestone <ms>] [--project-dir <p>]\n');
   process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs skill-routing --moment phase-close --mode auto --phase <p> [--files-changed <n>] [--diff-lines <n>] [--phase-type <t>] [--work-risk <r>] [--force-gates <g> --override-reason <why>] [--dry-run] [--execute]\n');
   process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --skill-routing-consult --moment phase-close --mode auto --phase <p> [--dry-run] [--execute]\n');
+  process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --manual-readiness-sequence --milestone <ms> --phase <p> [--force]\n');
   process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --self-test\n');
   process.stdout.write('  node super-gsd/scripts/lib/orchestrator-hooks.cjs --help\n');
   process.stdout.write('Phase 87-01: live wire-in for Phase 42 (token-waste) + Phase 45 (context-packet).\n');
@@ -1753,6 +2015,19 @@ if (require.main === module) {
     process.exit(0);
   }
 
+  if (parsed.mode === 'manual-readiness-sequence') {
+    const result = manualReadinessSequence({
+      projectDir: parsed.projectDir,
+      planningDir: parsed.planningDir,
+      milestone: parsed.milestone,
+      phase: parsed.phase,
+      force: parsed.force,
+      registry: parsed.registry
+    });
+    process.stdout.write(JSON.stringify(result) + '\n');
+    process.exit(result.ok ? 0 : 2);
+  }
+
   if (parsed.mode === 'skill-routing-consult') {
     const result = skillRoutingConsult({
       projectDir: parsed.projectDir,
@@ -1773,7 +2048,11 @@ if (require.main === module) {
       registry: parsed.registry
     });
     process.stdout.write(JSON.stringify(result) + '\n');
-    process.exit(0);
+    const closeExit = result && result.close_contract
+      && result.close_contract.ok === false
+      ? result.close_contract.exit_code
+      : 0;
+    process.exit(closeExit);
   }
 
   // No mode -> usage + exit 0.
@@ -1788,6 +2067,7 @@ module.exports = {
   tokenWasteCheck: tokenWasteCheck,
   contextPacketBuild: contextPacketBuild,
   skillRoutingConsult: skillRoutingConsult,
+  manualReadinessSequence: manualReadinessSequence,
   selfTest: selfTest,
   COMMAND_NAME: COMMAND_NAME,
   TROUBLE_VERDICTS: TROUBLE_VERDICTS,

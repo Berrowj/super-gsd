@@ -29,26 +29,46 @@ Dispatch the `sgsd-milestone-readiness` agent against the currently active miles
 head -30 .planning/STATE.md
 ```
 
+Also extract `current_phase`; the production consult requires both phase and
+milestone scope.
+
 Extract `active_milestone`. If none, stop with: _"No active milestone in STATE.md — run /gsd-new-milestone first."_
 
-## Step 2 — Check manifest freshness
+## Step 2 — Run the ordered manual preflight
 
-If `.planning/milestones/{id}/MILESTONE-READINESS.md` exists AND its mtime is newer than every phase dir under the milestone, report the existing status and skip the probe run unless the user passed `--force`.
+```bash
+node super-gsd/scripts/lib/orchestrator-hooks.cjs --manual-readiness-sequence --phase "{phase}" --milestone "{id}" --project-dir "{project_dir}" --json
+```
 
-## Step 3 — Dispatch the agent
+Append `--force` when the user supplied it. This production sequence first runs
+the canonical `on-demand` / `manual` / `execute=true` routing consult, retains
+its three results as `vtp_probe_rows`, and only then checks manifest freshness.
+Require `sequence[0] == "vtp_consult"` and exactly the three expected rows.
+`action:"stop"` stops this skill with its stable `reason_code`. Never import
+`run.cjs`, copy its probes, or expose dispatch paths/raw stderr.
+
+## Step 3 — Apply the manifest answer and pass the rows
+
+If `action` is `return_fresh_manifest`, report the existing manifest status and
+the supplied `vtp_probe_rows`, then skip the readiness agent. The probes have
+already run; freshness short-circuits only manifest regeneration.
+
+If `action` is `dispatch_readiness_agent`, dispatch the manifest consumer and
+pass the rows explicitly as JSON:
 
 ```
 Agent(
   subagent_type: "sgsd-milestone-readiness",
   mode: "bypassPermissions",
   description: "Milestone pre-flight readiness audit",
-  prompt: "Audit milestone {id}. Produce MILESTONE-READINESS.md at .planning/milestones/{id}/. Return the structured status block."
+  prompt: "Audit milestone {id}. VTP_PROBE_ROWS: {vtp_probe_rows_json}. Consume exactly these supplied three VTP PROBE LOG rows without re-running or copying those probes. Produce MILESTONE-READINESS.md at .planning/milestones/{id}/. Return the structured status block including VTP_PROBE_ROWS."
 )
 ```
 
 ## Step 4 — Render summary to the user
 
-Parse the agent's returned block and render:
+Parse the fresh-manifest status or the agent's returned block and render. Carry
+the same three `vtp_probe_rows` with either answer:
 
 ```
 READINESS — {milestone_id}          {GO|PARTIAL|BLOCKED}
@@ -72,13 +92,13 @@ Append to `.planning/metrics/readiness-log.jsonl` with `{ts, milestone, trigger:
 </process>
 
 <flags>
-- `--force` — re-run probes even if the manifest is fresh.
+- `--force` — bypass a fresh-manifest return and regenerate the manifest; the VTP probes run either way.
 - `--quiet` — skip the user-facing summary (orchestrator calls this internally).
 </flags>
 
 <rules>
 - NEVER start services yourself — only report fixes.
 - NEVER read secret values — existence probes only.
-- Idempotent by default. Fresh manifests are not re-probed unless `--force`.
+- Idempotent manifest generation by default. Fresh manifests still run the three VTP probes before their existing status is returned.
 - If the agent reports `MANIFEST_MISSING` mid-loop, the orchestrator should re-invoke this skill with `--force`.
 </rules>

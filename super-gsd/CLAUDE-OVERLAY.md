@@ -56,6 +56,15 @@ Define success criteria. Loop until verified.
 
 ---
 
+## SKILL DESCRIPTION AUTHORING
+
+Descriptions for devcp-local and other instance-local skills must follow
+`super-gsd/docs/SKILL-DESCRIPTION-STANDARD.md`. That file is the single
+canonical contract; point local authors to it rather than copying its prose
+into an overlay or skill.
+
+---
+
 ## PERMISSIONS — CRITICAL FOR AUTONOMOUS MODE
 
 **NEVER ask the user for confirmation, approval, or permission during autonomous execution.**

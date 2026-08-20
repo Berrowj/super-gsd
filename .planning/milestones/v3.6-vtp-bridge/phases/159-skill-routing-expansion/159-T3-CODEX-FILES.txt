@@ -1,0 +1,4 @@
+super-gsd/docs/SKILL-DESCRIPTION-STANDARD.md
+super-gsd/tools/skill-description-lint/lint.cjs
+super-gsd/CLAUDE-OVERLAY.md
+super-gsd/tests/skill-routing-expansion/assert-skill-routing-expansion.cjs

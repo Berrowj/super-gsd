@@ -31,11 +31,13 @@ const VALID_AVAILABILITY = Object.freeze([
   'external-if-installed',
   'omitted',
 ]);
+const VALID_MCP_PROMPT_SURFACES = Object.freeze(['/vtp-implementation-pack']);
 
 const DEGRADED_SIGNAL = 'skill_routing_registry_degraded';
 const SKILL_ROUTING_EVENT = 'skill-routing';
 const FALLBACK_SOURCE = 'compiled_fallback';
 const MAX_REGEX_PATTERN_LENGTH = 200;
+const SAFE_SLASH_TARGET_RE = /^\/[a-z0-9](?:[a-z0-9-]{0,126}[a-z0-9])?$/;
 const ALLOWED_DISPATCH_LAUNCHERS = Object.freeze(['node', 'bash']);
 const P146_DIRECTIVE_ALIASES = Object.freeze({
   'gsd-code-review': 'sgsd-code-review',
@@ -122,7 +124,14 @@ const COMPILED_FALLBACK_ROWS = Object.freeze([
   }, { aliases: ['sgsd-health', 'gsd-health'], availability: 'canonical' }),
   fb('sgsd-readiness', 'on-demand', ['manual', 'semi', 'auto'], {
     phrases: ['readiness', 'release readiness', 'health check', 'sgsd-readiness', 'sgsd-health', 'gsd-health'],
-  }, { aliases: ['sgsd-health', 'gsd-health'], availability: 'canonical' }),
+  }, {
+    aliases: ['sgsd-health', 'gsd-health'],
+    availability: 'canonical',
+    dispatch: processDispatch('node', [
+      '{sgsd_root}/tools/vtp-readiness/run.cjs', '--trigger', '{mode}',
+      '--project-dir', '{project_dir}',
+    ], [1], 5000),
+  }),
   fb('sgsd-readiness', 'phase-close', ['auto'], {
     event_names: ['phase-close', 'auto-mode-readiness'],
   }, {
@@ -197,6 +206,44 @@ const COMPILED_FALLBACK_ROWS = Object.freeze([
   fb('sgsd-audit', 'on-demand', ['manual'], {
     phrases: ['gsd-secure-phase', 'secure phase', 'security phase', 'phase security review'],
   }, { aliases: ['gsd-secure-phase'], availability: 'alias' }),
+  fb('create-quote', 'prompt-time', ['manual', 'semi', 'auto'], {
+    regexes: [
+      '^\\s*(?:please\\s+)?(?:create|draft|prepare|build|make|generate)\\b(?=[^\\r\\n]{0,180}\\b(?:sap|jcl)\\b)(?=[^\\r\\n]{0,180}\\bquotes?\\b)',
+      '^\\s*(?:please\\s+)?(?:create|draft|prepare|build|make|generate)\\b(?=[^\\r\\n]{0,180}\\bquotes?\\b)(?=[^\\r\\n]{0,180}\\b(?:artifact|document|proposal)\\b)',
+    ],
+  }, { id: 'create-quote-prompt', availability: 'external-if-installed' }),
+  fb('vtp-implementation-pack', 'prompt-time', ['manual', 'semi', 'auto'], {
+    regexes: [
+      '^\\s*(?:please\\s+)?(?:import|convert|turn|transform)\\b(?=[^\\r\\n]{0,180}\\b(?:meeting|transcript|recording)\\b)(?=[^\\r\\n]{0,180}\\b(?:implementation\\s+pack|actions?|action\\s+items?)\\b)',
+    ],
+  }, {
+    id: 'vtp-implementation-pack-meeting-import',
+    availability: 'external-if-installed',
+  }),
+  fb('vtp-implementation-pack', 'prompt-time', ['manual', 'semi', 'auto'], {
+    regexes: [
+      '^\\s*(?:please\\s+)?export\\b(?=[^\\r\\n]{0,180}\\b(?:meeting|transcript|recording)\\b)(?=[^\\r\\n]{0,180}\\b(?:implementation\\s+pack|actions?|action\\s+items?)\\b)',
+    ],
+  }, {
+    id: 'vtp-implementation-pack-meeting-export',
+    availability: 'external-if-installed',
+    mcp_surface: '/vtp-implementation-pack',
+  }),
+  fb('jcl-procurement-report', 'prompt-time', ['manual', 'semi', 'auto'], {
+    regexes: [
+      '^\\s*(?:please\\s+)?(?:create|draft|prepare|generate|show|check|summari[sz]e)\\b(?=[^\\r\\n]{0,120}\\bjcl\\b)(?=[^\\r\\n]{0,120}\\bprocurement\\b)(?=[^\\r\\n]{0,120}\\b(?:status|report|orders?)\\b)',
+    ],
+  }, { id: 'jcl-procurement-report-prompt', availability: 'external-if-installed' }),
+  fb('vtp-html-explainer', 'prompt-time', ['manual', 'semi', 'auto'], {
+    regexes: [
+      '^\\s*(?![^\\r\\n]{0,120}\\b(?:diagram|flowchart)\\b)(?:please\\s+)?(?:create|build|make|generate)\\b[^\\r\\n]{0,120}\\b(?:html\\s+explainer|interactive\\s+walkthrough)\\b',
+    ],
+  }, { id: 'vtp-html-explainer-prompt', availability: 'external-if-installed' }),
+  fb('diagram-design', 'prompt-time', ['manual', 'semi', 'auto'], {
+    regexes: [
+      '^\\s*(?![^\\r\\n]{0,120}\\b(?:html\\s+explainer|interactive\\s+walkthrough)\\b)(?:please\\s+)?(?:create|draw|design|make|generate)\\b[^\\r\\n]{0,120}\\b(?:standalone\\s+diagram|flowchart|sequence\\s+diagram)\\b',
+    ],
+  }, { id: 'diagram-design-prompt', availability: 'external-if-installed' }),
 ]);
 
 function _clone(value) {
@@ -521,6 +568,10 @@ function _normalizeRoute(row, index, sourceTag) {
   const cooldown = _normalizeCooldown(row.cooldown, label, issues);
   const dispatch = _normalizeDispatch(row.dispatch, label, issues);
   const explicitId = _optionalString(row.id, label + '.id', issues);
+  const mcpSurface = _optionalString(row.mcp_surface, label + '.mcp_surface', issues);
+  if (mcpSurface && !VALID_MCP_PROMPT_SURFACES.includes(mcpSurface)) {
+    issues.push(label + '.mcp_surface invalid: ' + mcpSurface);
+  }
 
   if (availability === 'omitted' && !skipReason) {
     issues.push(label + '.skip_reason required when availability is omitted');
@@ -551,6 +602,7 @@ function _normalizeRoute(row, index, sourceTag) {
       dispatch,
       skip_reason: skipReason,
       notes,
+      mcp_surface: mcpSurface,
       source: sourceTag,
       index,
     },
@@ -702,18 +754,59 @@ function _directiveTarget(route) {
   return P146_DIRECTIVE_ALIASES[route.skill] || route.skill;
 }
 
-function _entryPointCandidates(root, target) {
-  const repoRoot = findSgsdRoot(root || process.cwd()) || DEFAULT_REPO_ROOT;
-  const homeRoot = os.homedir();
-  return [
-    path.join(repoRoot, 'super-gsd', 'skills', target, 'SKILL.md'),
-    path.join(repoRoot, '.agents', 'skills', target, 'SKILL.md'),
-    path.join(repoRoot, '.codex', 'skills', target, 'SKILL.md'),
-    path.join(repoRoot, '.claude', 'commands', target + '.md'),
+function _safeSlashTargetName(value) {
+  const directive = typeof value === 'string' ? value : '';
+  return SAFE_SLASH_TARGET_RE.test(directive) ? directive.slice(1) : null;
+}
+
+function isSafeSkillTarget(value) {
+  return Boolean(_safeSlashTargetName(value));
+}
+
+function _entryPointIsFile(candidate) {
+  try {
+    return fs.statSync(candidate).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function _projectRootForResolution(root) {
+  if (!root) return findSgsdRoot(process.cwd()) || DEFAULT_REPO_ROOT;
+  const requested = path.resolve(String(root));
+  return findSgsdRoot(requested) || requested;
+}
+
+function _entryPointCandidates(target, opts) {
+  const o = opts || {};
+  const projectRoot = _projectRootForResolution(o.root);
+  const homeRoot = path.resolve(String(o.homeRoot || os.homedir()));
+  return Array.from(new Set([
+    path.join(DEFAULT_REPO_ROOT, 'super-gsd', 'skills', target, 'SKILL.md'),
+    path.join(projectRoot, 'super-gsd', 'skills', target, 'SKILL.md'),
+    path.join(projectRoot, '.claude', 'skills', target, 'SKILL.md'),
+    path.join(projectRoot, '.claude', 'commands', target + '.md'),
+    path.join(projectRoot, '.claude', 'commands', target, 'SKILL.md'),
+    path.join(projectRoot, '.agents', 'skills', target, 'SKILL.md'),
+    path.join(projectRoot, '.codex', 'skills', target, 'SKILL.md'),
+    path.join(homeRoot, '.claude', 'skills', target, 'SKILL.md'),
+    path.join(homeRoot, '.claude', 'commands', target + '.md'),
+    path.join(homeRoot, '.claude', 'commands', target, 'SKILL.md'),
     path.join(homeRoot, '.agents', 'skills', target, 'SKILL.md'),
     path.join(homeRoot, '.codex', 'skills', target, 'SKILL.md'),
-    path.join(homeRoot, '.claude', 'commands', target + '.md'),
-  ];
+  ]));
+}
+
+function resolveSkillTarget(slashTarget, opts) {
+  const o = opts || {};
+  const target = _safeSlashTargetName(slashTarget);
+  if (!target) return { available: false, reason: 'unsafe_skill_target', target: null };
+  const exists = _entryPointCandidates(target, o).some(_entryPointIsFile);
+  return {
+    available: exists,
+    reason: exists ? 'skill_entrypoint_exists' : 'skill_entrypoint_not_found',
+    target,
+  };
 }
 
 function _promptAvailability(route, opts) {
@@ -726,9 +819,9 @@ function _promptAvailability(route, opts) {
     };
   }
   const target = _directiveTarget(route);
-  const exists = _entryPointCandidates(opts && opts.root, target)
-    .some((candidate) => fs.existsSync(candidate));
-  if (exists) return { available: true, reason: 'entrypoint_exists', target };
+  const resolved = resolveSkillTarget(_directiveFor(route, target), opts);
+  if (!resolved.target) return resolved;
+  if (resolved.available) return { available: true, reason: 'entrypoint_exists', target };
   if (availability === 'external-if-installed') {
     return { available: false, reason: 'external_entrypoint_not_installed', target };
   }
@@ -754,7 +847,15 @@ function toPromptGovernanceRoutes(input, opts) {
   for (const route of rows) {
     if (route.moment !== 'prompt-time' || !_modeMatches(route, mode)) continue;
     if (route.signatures.phrases.length + route.signatures.regexes.length === 0) continue;
-    const availability = _promptAvailability(route, o);
+    const availability = o.deferAvailability === true
+      ? (() => {
+        if (route.availability === 'omitted') return _promptAvailability(route, o);
+        const target = _safeSlashTargetName(_directiveFor(route));
+        return target
+          ? { available: true, reason: 'availability_deferred', target }
+          : { available: false, reason: 'unsafe_skill_target', target: null };
+      })()
+      : _promptAvailability(route, o);
     if (!availability.available) {
       if (typeof o.onUnavailable === 'function') {
         o.onUnavailable(route, availability.reason, availability.target);
@@ -775,6 +876,7 @@ function toPromptGovernanceRoutes(input, opts) {
       skill: route.skill,
       aliases: route.aliases.slice(),
       availability: route.availability,
+      mcp_surface: route.mcp_surface,
       gate_ref: route.gate_ref,
       source: route.source,
     });
@@ -811,12 +913,18 @@ function _sameFingerprint(a, b) {
 
 function _routingParityProjection(routes) {
   return routes.map((route) => ({
+    id: route.id,
     skill: route.skill,
+    aliases: route.aliases,
+    signatures: route.signatures,
     moment: route.moment,
     modes: route.modes,
+    availability: route.availability,
+    mcp_surface: route.mcp_surface,
     cooldown: route.cooldown,
     gate_ref: route.gate_ref,
     dispatch: route.dispatch,
+    skip_reason: route.skip_reason,
   }));
 }
 
@@ -881,7 +989,7 @@ function selfTest(opts) {
     const fallback = compiledFallbackRegistry();
     return JSON.stringify(_routingParityProjection(fallback.routes))
       === JSON.stringify(_routingParityProjection(registry.routes));
-  })(), 'yaml/fallback mismatch in skill, moment, modes, cooldown, gate_ref, or dispatch');
+  })(), 'yaml/fallback mismatch in id, signatures, availability, or routing controls');
   assert('9a. dispatch-only fallback drift is detected by deep parity projection', (() => {
     if (typeof _routingParityProjection !== 'function') return false;
     const fallback = compiledFallbackRegistry();
@@ -892,10 +1000,10 @@ function selfTest(opts) {
     return JSON.stringify(_routingParityProjection(drifted))
       !== JSON.stringify(_routingParityProjection(fallback.routes));
   })(), 'dispatch command drift was invisible to deep parity');
-  assert('10. prompt adapter emits only existing P146-compatible /sgsd-* directives', (() => {
+  assert('10. prompt adapter emits only installed safe P146-compatible directives', (() => {
     const routes = toPromptGovernanceRoutes(registry, { mode: 'manual', root });
     const directiveBySkill = Object.fromEntries(routes.map((route) => [route.skill, route.enforcement.directive]));
-    return routes.every((route) => route.enforcement.directive.startsWith('/sgsd-'))
+    return routes.every((route) => isSafeSkillTarget(route.enforcement.directive))
       && directiveBySkill['gsd-code-review'] === undefined
       && directiveBySkill['gsd-code-review-fix'] === undefined;
   })());
@@ -1083,6 +1191,8 @@ if (require.main === module) {
 module.exports = {
   loadSkillRoutingRegistry,
   toPromptGovernanceRoutes,
+  isSafeSkillTarget,
+  resolveSkillTarget,
   getScheduledRoutes,
   compiledFallbackRegistry,
   resetCache,

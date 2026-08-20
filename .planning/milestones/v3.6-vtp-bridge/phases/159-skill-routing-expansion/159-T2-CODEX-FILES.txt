@@ -1,0 +1,5 @@
+super-gsd/registry/skill-routing.yaml
+super-gsd/registry/session-governance-hooks.yaml
+super-gsd/scripts/lib/skill-routing-registry.cjs
+super-gsd/hooks/sgsd-intent-classifier.cjs
+super-gsd/tests/skill-routing-expansion/assert-skill-routing-expansion.cjs
