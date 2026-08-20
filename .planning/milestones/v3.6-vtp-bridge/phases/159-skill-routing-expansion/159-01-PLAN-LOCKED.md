@@ -4,7 +4,7 @@ phase: 159
 slug: skill-routing-expansion
 milestone: v3.6-vtp-bridge
 status: PLANNED
-revision: 1
+revision: 2
 governing_decision: .planning/milestones/v3.6-vtp-bridge/phases/159-skill-routing-expansion/CONTEXT.md
 depends_on: ['155', '158']
 intent: >
@@ -279,6 +279,7 @@ tasks:
     verification_cmd: >
       node super-gsd/tools/skill-description-lint/lint.cjs --skills-dir super-gsd/skills &&
       node super-gsd/tests/skill-routing-expansion/assert-skill-routing-expansion.cjs --case description-lint &&
+      node super-gsd/scripts/lib/skill-routing-registry.cjs --self-test &&
       node super-gsd/hooks/sgsd-intent-classifier.cjs --self-test &&
       node super-gsd/tests/kb-triage-shadow/assert-shadow.cjs
     expected_ATC_tier: GATE
@@ -346,7 +347,8 @@ tasks:
       KB-shadow regressions exit 0; the diff matches the six listed files; and
       T4 is one independently revertable commit after T1.
     verification_cmd: >
-      node super-gsd/tests/skill-routing-expansion/assert-skill-routing-expansion.cjs --case vtp-tool-family &&
+      node super-gsd/tests/skill-routing-expansion/assert-skill-routing-expansion.cjs --case vtp-tool-family-registered &&
+      node super-gsd/tests/skill-routing-expansion/assert-skill-routing-expansion.cjs --case vtp-tool-family-unavailable-origin-gate &&
       node super-gsd/scripts/lib/demand-baseline-ledger.cjs --self-test &&
       node super-gsd/tests/demand-baseline/assert-ledger.cjs &&
       node super-gsd/scripts/lib/skill-routing-registry.cjs --self-test &&
@@ -362,3 +364,11 @@ scope. T1 is the shared availability seam; T2 and T4 consume it. T3 is an
 independent documentation/lint unit. All routing remains anchored lexical,
 shadow or suggestion only, text-free in evidence, and downstream of P158's
 automated-turn origin gate.
+
+## AMENDMENT-1 (2026-08-20, orchestrator-recorded, plan-review round 1)
+
+Review verdict GO-WITH-CHANGES (159-PLANREVIEW-REPORT.md, 0 CRITICAL). Change 1
+applied as revision 2: skill-routing-registry.cjs --self-test added to T3's
+verification; T4's undefined aggregate --case vtp-tool-family replaced with the
+two recorded cases (vtp-tool-family-registered and
+vtp-tool-family-unavailable-origin-gate).
