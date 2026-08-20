@@ -1,0 +1,1 @@
+super-gsd/hooks/sgsd-intent-classifier.cjs

@@ -38,6 +38,11 @@ const MALFORMED_SKILL_ROUTING_FIXTURE = path.resolve(
 const BENCH_SIGNAL = 'intent_classifier_bench';
 const DEGRADED_SIGNAL = 'intent_classifier_degraded';
 const ROUTING_DECISION_SIGNAL = 'intent_routing_decision';
+const AUTOMATED_TURN_REASON_CODE = 'automated_task_notification_origin';
+const AUTOMATED_ENVELOPE_MARKERS = Object.freeze([
+  Object.freeze(['<task-notification>', '</task-notification>']),
+  Object.freeze(['<system-reminder>', '</system-reminder>']),
+]);
 const CLASSIFIER_ENFORCEMENT_KINDS = Object.freeze(['directive', 'suggestion']);
 const KB_TRIAGE_SHADOW_SIGNAL = 'kb_triage_shadow';
 const KB_TRIAGE_MATCHER_VERSION = 'kb-shadow-v1';
@@ -103,6 +108,18 @@ function parsePayload(raw) {
   } catch {
     return {};
   }
+}
+
+function isAutomatedTurnPayload(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
+  if (payload.hook_event_name !== 'UserPromptSubmit') return false;
+  if (!payload.origin || payload.origin.kind !== 'task-notification') return false;
+  if (payload.promptSource !== 'system' || typeof payload.prompt !== 'string') return false;
+
+  const envelope = payload.prompt.trim();
+  return AUTOMATED_ENVELOPE_MARKERS.some(([opening, closing]) => (
+    envelope.startsWith(opening) && envelope.endsWith(closing)
+  ));
 }
 
 function rootFromPayload(payload) {
@@ -553,9 +570,11 @@ function directiveLines(routes, kind) {
   return routeDirectives(routes, kind).map((directive) => `${prefix}: ${directive}`);
 }
 
-function appendRoutingDecision(root, payload, routes, mandatory, suggestions, duration) {
+function appendRoutingDecision(root, payload, routes, mandatory, suggestions, duration, details) {
   if (!Array.isArray(routes)) return;
   try {
+    const automatedTurnSkip = details
+      && details.decision === 'automated_turn_skip';
     const state = readState(root) || {};
     const registryPaths = Array.from(new Set(
       routes.map((route) => route && route.registry_path).filter(Boolean),
@@ -563,10 +582,14 @@ function appendRoutingDecision(root, payload, routes, mandatory, suggestions, du
     const row = logGateEvidence(root, {
       signal: ROUTING_DECISION_SIGNAL,
       status: 'ok',
-      decision: routes.length > 0 ? 'matched' : 'no_match',
-      reason_codes: [],
-      artifacts: (registryPaths.length > 0 ? registryPaths : [registryPath()])
-        .map((registryPathValue) => ({ kind: 'registry', path: registryPathValue })),
+      decision: automatedTurnSkip
+        ? 'automated_turn_skip'
+        : (routes.length > 0 ? 'matched' : 'no_match'),
+      reason_codes: automatedTurnSkip ? [AUTOMATED_TURN_REASON_CODE] : [],
+      artifacts: automatedTurnSkip
+        ? []
+        : (registryPaths.length > 0 ? registryPaths : [registryPath()])
+          .map((registryPathValue) => ({ kind: 'registry', path: registryPathValue })),
       evidence: [],
       next_action: null,
       risk: 'low',
@@ -578,6 +601,12 @@ function appendRoutingDecision(root, payload, routes, mandatory, suggestions, du
       suggestions: Array.isArray(suggestions) ? suggestions.slice() : [],
       hook_event_name: payload && payload.hook_event_name || null,
       session_id: payload && payload.session_id || null,
+      ...(automatedTurnSkip ? {
+        origin_kind: 'task-notification',
+        prompt_source: 'system',
+        route_evaluation_count: 0,
+        shadow_evaluation_count: 0,
+      } : {}),
     });
     if (!row) {
       appendFailureRow(root, 'evidence_append_failed', payload, {
@@ -594,6 +623,16 @@ function appendRoutingDecision(root, payload, routes, mandatory, suggestions, du
 function emitClassification(root, payload, options) {
   const opts = options || {};
   const started = performance.now();
+  if (isAutomatedTurnPayload(payload)) {
+    const empty = [];
+    if (opts.recordEvidence !== false) {
+      appendRoutingDecision(root, payload, empty, empty, empty, performance.now() - started, {
+        decision: 'automated_turn_skip',
+      });
+    }
+    return { routes: empty, mandatory: empty, suggestions: empty };
+  }
+
   const prompt = promptText(payload);
   if (!prompt.trim()) return { routes: [], mandatory: [], suggestions: [] };
 
@@ -705,6 +744,8 @@ function runBench(args) {
 }
 
 function selfTest() {
+  const os = require('os');
+  const { spawnSync } = require('child_process');
   let pass = 0;
   let fail = 0;
   const failures = [];
@@ -770,6 +811,144 @@ function selfTest() {
       && shadowValidation.classifierUsable === false);
   assert('10. pure fix imperative does not match KB triage shadow route',
     !matchesShadowRoute(shadowRoute, 'fix the failing test', null, payload));
+
+  const notificationSentinels = Object.freeze([
+    'opaque-tn-a7f31',
+    'opaque-tu-c9d42',
+    'opaque-of-e2b53',
+    'opaque-st-f4a64',
+    'opaque-su-b6c75',
+    'opaque-re-d8e86',
+  ]);
+  const notificationEnvelope = [
+    '<task-notification>',
+    `  <task-id>${notificationSentinels[0]}</task-id>`,
+    `  <tool-use-id>${notificationSentinels[1]}</tool-use-id>`,
+    `  <output-file>${notificationSentinels[2]}</output-file>`,
+    `  <status>${notificationSentinels[3]}</status>`,
+    `  <summary>${notificationSentinels[4]} multiple valid approaches token waste knowledge base</summary>`,
+    `  <result>${notificationSentinels[5]}</result>`,
+    '</task-notification>',
+  ].join('\n');
+
+  function readJsonl(file) {
+    if (!fs.existsSync(file)) return [];
+    return fs.readFileSync(file, 'utf8')
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+  }
+
+  function runStdinFixture(fixturePayload) {
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-intent-origin-'));
+    try {
+      const planningDir = path.join(fixtureRoot, '.planning');
+      fs.mkdirSync(planningDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(planningDir, 'STATE.md'),
+        '---\nmilestone: fixture\ncurrent_phase: 158\n---\n',
+        'utf8',
+      );
+      const child = spawnSync(process.execPath, [__filename], {
+        cwd: fixtureRoot,
+        input: JSON.stringify({ ...fixturePayload, cwd: fixtureRoot }),
+        encoding: 'utf8',
+        timeout: 10000,
+      });
+      if (child.error) throw child.error;
+      const evidenceFile = path.join(planningDir, 'metrics', 'gate-evidence.jsonl');
+      const shadowFile = path.join(planningDir, 'metrics', 'kb-triage-shadow.jsonl');
+      return {
+        status: child.status,
+        error: child.error || null,
+        stdout: child.stdout || '',
+        stderr: child.stderr || '',
+        evidence: readJsonl(evidenceFile),
+        evidenceText: fs.existsSync(evidenceFile) ? fs.readFileSync(evidenceFile, 'utf8') : '',
+        shadow: readJsonl(shadowFile),
+      };
+    } finally {
+      fs.rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+  }
+
+  const humanResult = runStdinFixture({
+    hook_event_name: 'UserPromptSubmit',
+    origin: { kind: 'human' },
+    promptSource: 'typed',
+    prompt: 'Let\'s plan the next phase',
+  });
+  const humanRows = humanResult.evidence.filter((row) => row.signal === ROUTING_DECISION_SIGNAL);
+  assert('11. human/typed production-stdin fixture exits zero',
+    humanResult.status === 0 && !humanResult.error,
+    'status=' + humanResult.status);
+  assert('12. human/typed planning input emits the established directive',
+    humanResult.stdout.includes('SGSD directive: /sgsd-triage'));
+  assert('13. human/typed planning input writes matched planning-triage evidence',
+    humanRows.length === 1
+      && humanRows[0].decision === 'matched'
+      && humanRows[0].route_ids.includes('planning-triage'));
+  assert('14. human/typed planning input is never recorded as an automated skip',
+    humanRows.every((row) => row.decision !== 'automated_turn_skip'));
+
+  const automatedResult = runStdinFixture({
+    hook_event_name: 'UserPromptSubmit',
+    origin: { kind: 'task-notification' },
+    promptSource: 'system',
+    prompt: notificationEnvelope,
+  });
+  const automatedRows = automatedResult.evidence
+    .filter((row) => row.signal === ROUTING_DECISION_SIGNAL);
+  const skipRows = automatedRows.filter((row) => row.decision === 'automated_turn_skip');
+  const forbiddenEvidenceKeys = [
+    'prompt', 'text', 'excerpt', 'inner', 'task_id', 'task-id', 'tool_use_id',
+    'tool-use-id', 'output_path', 'output-file', 'summary', 'result', 'entities', 'query',
+  ];
+  assert('15. automated production-stdin fixture exits zero',
+    automatedResult.status === 0 && !automatedResult.error,
+    'status=' + automatedResult.status);
+  assert('16. automated turn emits no stdout', automatedResult.stdout === '');
+  assert('17. automated turn writes exactly one automated_turn_skip row',
+    automatedRows.length === 1 && skipRows.length === 1);
+  assert('18. automated skip has no degraded, matched, or no_match companion row',
+    automatedResult.evidence.length === 1
+      && !automatedResult.evidence.some((row) => row.signal === DEGRADED_SIGNAL)
+      && automatedRows.every((row) => row.decision === 'automated_turn_skip'));
+  assert('19. automated skip row is structurally attributed with zero evaluations',
+    skipRows.length === 1
+      && skipRows[0].origin_kind === 'task-notification'
+      && skipRows[0].prompt_source === 'system'
+      && skipRows[0].route_evaluation_count === 0
+      && skipRows[0].shadow_evaluation_count === 0
+      && skipRows[0].route_ids.length === 0
+      && skipRows[0].directives.length === 0
+      && skipRows[0].suggestions.length === 0);
+  assert('20. automated turn writes no KB-shadow row', automatedResult.shadow.length === 0);
+  assert('21. automated evidence contains no inner sentinel or forbidden text-bearing key',
+    notificationSentinels.every((sentinel) => !automatedResult.evidenceText.includes(sentinel))
+      && forbiddenEvidenceKeys.every((key) => !new RegExp(
+        String.fromCharCode(34) + key + String.fromCharCode(34) + '\\s*:',
+        'i',
+      ).test(automatedResult.evidenceText)));
+
+  const quotedResult = runStdinFixture({
+    hook_event_name: 'UserPromptSubmit',
+    origin: { kind: 'human' },
+    promptSource: 'typed',
+    prompt: 'Let\'s plan the next phase while quoting this payload:\n' + notificationEnvelope,
+  });
+  const quotedRows = quotedResult.evidence.filter((row) => row.signal === ROUTING_DECISION_SIGNAL);
+  assert('22. human quote production-stdin fixture exits zero',
+    quotedResult.status === 0 && !quotedResult.error,
+    'status=' + quotedResult.status);
+  assert('23. human/typed quote still emits the planning directive',
+    quotedResult.stdout.includes('SGSD directive: /sgsd-triage'));
+  assert('24. human/typed quote writes matched planning-triage evidence',
+    quotedRows.length === 1
+      && quotedRows[0].decision === 'matched'
+      && quotedRows[0].route_ids.includes('planning-triage'));
+  assert('25. human/typed quote is never recorded as an automated skip',
+    quotedRows.every((row) => row.decision !== 'automated_turn_skip'));
 
   console.log(`intent-classifier self-test: ${pass} pass, ${fail} fail`);
   for (const item of failures) {
