@@ -1797,8 +1797,19 @@ REPEAT:
             the skill ran, and do not infer or schedule neglected skills from
             prose in this file.
 
-       j. Mark phase complete, advance to next phase. `executed_with_findings`
-          does not block completion; only `execution_failed` requires repair.
+       j. PHASE-CLOSE STATE PROJECTION (state.write owner)
+
+          After the phase-close consult succeeds and before marking the phase
+          complete or entering Step 6.7, invoke the exact event-envelope CLI:
+
+          ```bash
+          node super-gsd/tools/state-write/write.cjs --event-json '{"event":"phase-close","projectDir":".","milestone":"{{MILESTONE}}","evidence_phase":"{{PHASE}}","current_phase":"{{NEXT_PHASE_OR_COMPLETE}}","last_updated":"{{LAST_UPDATED}}","progress":{"total_phases":{{TOTAL_PHASES}},"completed_phases":{{COMPLETED_PHASES}},"completed_plans":{{COMPLETED_PLANS}},"status_row":{"phase":"{{PHASE}}","value":"{{PHASE_STATUS_ROW}}"}}}'
+          ```
+
+          Substitute JSON-escaped strings and concrete integer counts. Exit 1
+          refuses phase close; exit 2 requires input/I/O repair. On exit 0,
+          mark the phase complete and advance. `executed_with_findings` does not
+          block completion; only `execution_failed` requires repair.
 
   6.7. MILESTONE COMPLETE AUTO-TRIGGER (GOV-13 / D-18a)
 
@@ -2538,10 +2549,20 @@ REPEAT:
       } // end gates.shouldFire('sgsd-curate-learnings')
 
   11. UPDATE STATE
+      state.write is the sole owner of the plan-close STATE projection. Invoke
+      this exact event-envelope CLI with JSON-escaped strings and concrete
+      integer counts:
+
+      ```bash
+      node super-gsd/tools/state-write/write.cjs --event-json '{"event":"plan-close","projectDir":".","milestone":"{{MILESTONE}}","evidence_phase":"{{PHASE}}","current_phase":"{{PHASE}}","last_updated":"{{LAST_UPDATED}}","progress":{"total_phases":{{TOTAL_PHASES}},"completed_phases":{{COMPLETED_PHASES}},"completed_plans":{{COMPLETED_PLANS}},"status_row":{"phase":"{{PHASE}}","value":"{{PHASE_STATUS_ROW}}"}}}'
+      ```
+
+      Exit 1 refuses plan close; exit 2 requires input/I/O repair. Exit 0 with
+      `changed=false` is an idempotent success.
+
       // Gate check (Phase 10 D-09): token-log gate fires unless disabled (soft-warn, no trigger)
       // NOTE: Step 11 is exempt from edge-guard emit-check (D-11c) — it IS the logging step.
       if (gates.shouldFire('token-log', ctx, GATES_YAML_PATH)) {
-      - Update STATE.md (advance plan counter, update progress)
       - Mark ROADMAP.md phase progress
       - Log token usage to .planning/metrics/token-log.jsonl
       } // end gates.shouldFire('token-log')

@@ -364,7 +364,7 @@ install_global_assets() {
   log "Installing global hooks..."
   [ "$DRY_RUN" = true ] || mkdir -p "$HOOKS_DIR"
   HOOK_COUNT=0
-  for hook in "$SCRIPT_DIR/hooks/"*.js "$SCRIPT_DIR/hooks/gsd-session-state.sh"; do
+  for hook in "$SCRIPT_DIR/hooks/"*.js "$SCRIPT_DIR/hooks/gsd-session-state.sh" "$SCRIPT_DIR/hooks/gsd-phase-boundary.sh"; do
     [ -f "$hook" ] || continue
     name="$(basename "$hook")"
     copy_file "$hook" "$HOOKS_DIR/$name"
