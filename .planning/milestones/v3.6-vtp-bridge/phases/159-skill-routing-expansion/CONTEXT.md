@@ -2,7 +2,8 @@
 phase: "159"
 slug: skill-routing-expansion
 milestone: v3.6-vtp-bridge
-status: PENDING
+status: ACTIVE
+opened: 2026-08-20
 depends_on: ["155", "158"]
 scope_locked_by: operator
 scope_locked_at: 2026-08-20
