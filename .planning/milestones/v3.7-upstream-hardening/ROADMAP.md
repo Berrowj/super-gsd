@@ -7,7 +7,7 @@ devcp, 2026-08-20). Not yet active; awaits operator go.
 
 | Phase | Slug | Status | Depends on |
 |-------|------|--------|------------|
-| 160 | installer-registration-guard | [ ] seeded | — |
+| 160 | installer-registration-guard | [x] PASS-WITH-DEFERRED-2 @6f5a06a | — |
 
 ## Success criteria
 

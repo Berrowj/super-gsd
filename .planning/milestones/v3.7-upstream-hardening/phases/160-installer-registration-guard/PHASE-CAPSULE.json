@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.7-upstream-hardening",
+  "phase": "160",
+  "phase_name": "Installer Registration Guard",
+  "status": "IN_PROGRESS",
+  "goal": "",
+  "outputs": [],
+  "files": [
+    ".planning/STATE.md",
+    ".planning/milestones/v3.7-upstream-hardening/ROADMAP.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-01-PLAN-LOCKED.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-01-PLAN-PROMPT.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-01-PLAN-REPORT.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-CLOSE-FIX-PROMPT.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-CLOSE-FIX-REPORT.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-CLOSE-REVIEW-PROMPT.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-CLOSE-REVIEW.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-PLANREVIEW-PROMPT.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-PLANREVIEW-REPORT.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-T1-CODEX-FILES.txt",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-T1-PROMPT.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-T1-REPORT.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-T2-PROMPT.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-T2-REPORT.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-T3-PROMPT.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-T3-REPORT.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-T3B-PROMPT.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-T3B-REPORT.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-T3C-PROMPT.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/160-T3C-REPORT.md",
+    ".planning/milestones/v3.7-upstream-hardening/phases/160-installer-registration-guard/CONTEXT.md",
+    "super-gsd/CLAUDE-OVERLAY.md",
+    "super-gsd/install.sh",
+    "super-gsd/scripts/lib/hook-registration-preflight.cjs",
+    "super-gsd/scripts/merge-settings.js",
+    "super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 0
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "0c18382aecb7518edda815d90ae2ddb475d79573",
+      "subject": "docs(160): seed v3.7 upstream-hardening \u2014 installer registration guard (3 instance-reported defects)",
+      "ts": "2026-08-20T16:53:51+01:00"
+    },
+    {
+      "sha": "9da1cb1d0defeb4439060a4416013c2c6894f56f",
+      "subject": "docs(160): activate v3.7-upstream-hardening \u2014 STATE milestone-open (manual: state.write covers closes only)",
+      "ts": "2026-08-20T16:58:51+01:00"
+    },
+    {
+      "sha": "c4405f540d536bb1a6ac3bd465ba8d2b6db5672c",
+      "subject": "docs(160-01): PLAN-LOCKED \u2014 3 tasks (registration guard, overlay refresh+tripwire, hook smoke), schema VALID",
+      "ts": "2026-08-20T17:21:47+01:00"
+    },
+    {
+      "sha": "ed55340191cf16eae7608d6e9ab4a4408cb58bed",
+      "subject": "docs(160): plan review GO 5/5",
+      "ts": "2026-08-20T17:26:53+01:00"
+    },
+    {
+      "sha": "e0b3d7562e20e59d0b7bcc5653ada124f43e07d9",
+      "subject": "feat(160-T1): atomic hook-registration preflight \u2014 vendored-nine-hook refuses zero-write, all 4 cases green",
+      "ts": "2026-08-20T17:57:52+01:00"
+    },
+    {
+      "sha": "1cf9a5a595872ead6a3e1e841c9c7da084d7164d",
+      "subject": "feat(160-T2): bundled overlay refreshed to current contracts + stale-marker tripwire \u2014 5/5 cases",
+      "ts": "2026-08-20T18:17:37+01:00"
+    },
+    {
+      "sha": "91468be4facc56e71cfddbb4bcbf942b19cee499",
+      "subject": "feat(160-T3): install-time deployed-hook dependency smoke \u2014 8/8 cases stable",
+      "ts": "2026-08-20T20:01:40+01:00"
+    },
+    {
+      "sha": "6f5a06ae263f6b3fa75eaa07f491d1204ba6108e",
+      "subject": "fix(160): merge refusals fail install.sh under real launch \u2014 pipefail seam closed, 8/8",
+      "ts": "2026-08-20T20:25:43+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": null,
+    "research": null,
+    "plan": [],
+    "verification": null,
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": null,
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-08-20T16:21:53Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-20T19:01:44Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-08-20T19:26:20.356Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@6f5a06ae263f"
+}

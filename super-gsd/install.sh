@@ -44,6 +44,23 @@ TEMPLATES_DIR="$GSD_DIR/templates/super-gsd"
 GLOBAL_SCRIPTS_DIR="$CLAUDE_DIR/super-gsd/scripts"
 LOCAL_BIN_DIR="$HOME/.local/bin"
 
+# event|hook-id|interpreter|installed filename|registered timeout seconds
+# The first eleven rows mirror config/settings-overlay.json. The final row is
+# the tracked auxiliary PostToolUse hook and is deployed but not registered by
+# that overlay.
+GLOBAL_HOOK_DEPLOYMENT_MANIFEST='statusLine|status-line|node|sgsd-statusline.js|
+SessionStart|session-start-context|node|gsd-session-start.js|5
+SessionStart|session-state|bash|gsd-session-state.sh|5
+SessionStart|vtp-pending|node|sgsd-vtp-pending.js|5
+PreToolUse|activity-logger|node|sgsd-activity-logger.js|2
+PostToolUse|heartbeat|node|sgsd-heartbeat.js|2
+PostToolUse|token-logger|node|gsd-token-logger.js|3
+PostToolUse|stuck-detector|node|gsd-stuck-detector.js|3
+PostToolUse|checkpoint-writer|node|gsd-checkpoint-writer.js|3
+PostToolUse|context-monitor|node|gsd-context-monitor.js|3
+Stop|stop-handoff|node|sgsd-stop-handoff.js|60
+PostToolUse|phase-boundary-auxiliary|bash|gsd-phase-boundary.sh|5'
+
 DRY_RUN=false
 RUN_DOCTOR=false
 INIT_LOCAL=false
@@ -364,31 +381,20 @@ install_global_assets() {
   log "Installing global hooks..."
   [ "$DRY_RUN" = true ] || mkdir -p "$HOOKS_DIR"
   HOOK_COUNT=0
-  for hook in "$SCRIPT_DIR/hooks/"*.js "$SCRIPT_DIR/hooks/gsd-session-state.sh" "$SCRIPT_DIR/hooks/gsd-phase-boundary.sh"; do
-    [ -f "$hook" ] || continue
-    name="$(basename "$hook")"
+  while IFS='|' read -r _event _hook_id _interpreter name _timeout; do
+    hook="$SCRIPT_DIR/hooks/$name"
+    if [ ! -f "$hook" ]; then
+      # The shared preflight below aggregates missing sources and reports the
+      # normalized installed descriptor path before any settings write.
+      continue
+    fi
     copy_file "$hook" "$HOOKS_DIR/$name"
     case "$name" in
       *.sh) [ "$DRY_RUN" = false ] && chmod +x "$HOOKS_DIR/$name" ;;
     esac
     HOOK_COUNT=$((HOOK_COUNT + 1))
-  done
+  done <<< "$GLOBAL_HOOK_DEPLOYMENT_MANIFEST"
   log "  $HOOK_COUNT hooks installed"
-
-  echo ""
-  log "Registering hooks in ~/.claude/settings.json..."
-  SETTINGS_FILE="$CLAUDE_DIR/settings.json"
-  OVERLAY_FILE="$SCRIPT_DIR/config/settings-overlay.json"
-  MERGE_SCRIPT="$SCRIPT_DIR/scripts/merge-settings.js"
-  if [ ! -f "$OVERLAY_FILE" ]; then
-    log "  WARNING: $OVERLAY_FILE missing - skipping merge"
-  elif [ ! -f "$MERGE_SCRIPT" ]; then
-    log "  WARNING: $MERGE_SCRIPT missing - skipping merge"
-  elif [ "$DRY_RUN" = true ]; then
-    log "  DRY RUN: would merge $OVERLAY_FILE into $SETTINGS_FILE"
-  else
-    node "$MERGE_SCRIPT" "$OVERLAY_FILE" "$SETTINGS_FILE" 2>&1 | sed 's/^/  /'
-  fi
 
   echo ""
   log "Installing templates + overwatcher..."
@@ -463,6 +469,34 @@ install_global_assets() {
   log "  $SCRIPT_COUNT scripts + lib + watchdogs installed to $GLOBAL_SCRIPTS_DIR"
 
   echo ""
+  log "Smoke-testing and registering hooks in ~/.claude/settings.json..."
+  SETTINGS_FILE="$CLAUDE_DIR/settings.json"
+  OVERLAY_FILE="$SCRIPT_DIR/config/settings-overlay.json"
+  MERGE_SCRIPT="$SCRIPT_DIR/scripts/merge-settings.js"
+  PREFLIGHT_SCRIPT="$SCRIPT_DIR/scripts/lib/hook-registration-preflight.cjs"
+  if [ ! -f "$OVERLAY_FILE" ]; then
+    log "  WARNING: $OVERLAY_FILE missing - skipping merge"
+  elif [ ! -f "$MERGE_SCRIPT" ]; then
+    log "  WARNING: $MERGE_SCRIPT missing - skipping merge"
+  elif [ ! -f "$PREFLIGHT_SCRIPT" ]; then
+    echo "ERROR: hook smoke helper missing: $PREFLIGHT_SCRIPT" >&2
+    exit 1
+  elif [ "$DRY_RUN" = true ]; then
+    log "  DRY RUN: would smoke every global deployment-manifest hook"
+    log "  DRY RUN: would merge $OVERLAY_FILE into $SETTINGS_FILE"
+  else
+    printf '%s\n' "$GLOBAL_HOOK_DEPLOYMENT_MANIFEST" \
+      | node "$PREFLIGHT_SCRIPT" --smoke-manifest "$HOOKS_DIR" "$SCRIPT_DIR/hooks"
+    if MERGE_OUTPUT="$(node "$MERGE_SCRIPT" "$OVERLAY_FILE" "$SETTINGS_FILE" 2>&1)"; then
+      [ -z "$MERGE_OUTPUT" ] || printf '%s\n' "$MERGE_OUTPUT" | sed 's/^/  /'
+    else
+      MERGE_STATUS=$?
+      [ -z "$MERGE_OUTPUT" ] || printf '%s\n' "$MERGE_OUTPUT" | sed 's/^/  /' >&2
+      exit "$MERGE_STATUS"
+    fi
+  fi
+
+  echo ""
   log "Global install complete. Launcher installed at $LOCAL_BIN_DIR/sgsd."
 }
 
@@ -472,16 +506,28 @@ register_repo_local_hooks() {
   SETTINGS_FILE="$PROJECT_DIR/.claude/settings.json"
   OVERLAY_FILE="$SCRIPT_DIR/config/repo-settings-overlay.json"
   MERGE_SCRIPT="$SCRIPT_DIR/scripts/merge-settings.js"
+  PREFLIGHT_SCRIPT="$SCRIPT_DIR/scripts/lib/hook-registration-preflight.cjs"
   if [ ! -f "$OVERLAY_FILE" ]; then
     log "  WARNING: $OVERLAY_FILE missing - skipping repo-local hook merge"
   elif [ ! -f "$MERGE_SCRIPT" ]; then
     log "  WARNING: $MERGE_SCRIPT missing - skipping repo-local hook merge"
+  elif [ ! -f "$PREFLIGHT_SCRIPT" ]; then
+    echo "ERROR: hook smoke helper missing: $PREFLIGHT_SCRIPT" >&2
+    exit 1
   elif ! command -v node >/dev/null 2>&1; then
     log "  WARNING: Node.js missing - skipping repo-local hook merge"
   elif [ "$DRY_RUN" = true ]; then
+    log "  DRY RUN: would smoke all repo-local overlay hooks for $PROJECT_DIR"
     log "  DRY RUN: would merge $OVERLAY_FILE into $SETTINGS_FILE for $PROJECT_DIR"
   else
-    node "$MERGE_SCRIPT" --repo-local-hooks "$OVERLAY_FILE" "$SETTINGS_FILE" "$PROJECT_DIR" 2>&1 | sed 's/^/  /'
+    node "$PREFLIGHT_SCRIPT" --smoke-repo-overlay "$OVERLAY_FILE" "$PROJECT_DIR"
+    if MERGE_OUTPUT="$(node "$MERGE_SCRIPT" --repo-local-hooks "$OVERLAY_FILE" "$SETTINGS_FILE" "$PROJECT_DIR" 2>&1)"; then
+      [ -z "$MERGE_OUTPUT" ] || printf '%s\n' "$MERGE_OUTPUT" | sed 's/^/  /'
+    else
+      MERGE_STATUS=$?
+      [ -z "$MERGE_OUTPUT" ] || printf '%s\n' "$MERGE_OUTPUT" | sed 's/^/  /' >&2
+      exit "$MERGE_STATUS"
+    fi
   fi
 }
 
