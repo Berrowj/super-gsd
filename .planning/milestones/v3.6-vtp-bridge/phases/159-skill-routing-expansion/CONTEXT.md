@@ -67,3 +67,22 @@ devcp-local skills get the standard via overlay docs.
 - P152's promote-or-kill metric shape is the template for any shadow row family.
 - Devcp's control plane (ae3522a5) has a job registry; unrelated to this phase but do
   not collide with its files.
+
+### T4 — VTP MCP tool-family triage (operator addition, 2026-08-20, pre-sleep)
+
+The ~60 mcp__vtp-kb__* tools need hook-level triage: KB-shaped prompts route to the
+RIGHT VTP surface. Constraints:
+
+- Hooks NEVER call MCP. A UserPromptSubmit hook suggests; the model invokes. Routing
+  is lexical mapping from intent family to surface, exactly the kb-lookup-triage
+  pattern generalised.
+- The layer-routing rule is already recorded and must be encoded, not rediscovered:
+  book/paper/transcript content -> vtp_search_substrate; people/projects/ideas/
+  analyses -> wiki_search family; end-to-end intent retrieval -> vtp_route_and_retrieve;
+  meeting export -> /vtp-implementation-pack; triage verdicts -> vtp_triage advisory.
+- Availability guard for MCP-backed routes checks the server is REGISTERED (cheap
+  config read), never liveness (no network in hooks). Unregistered => silent + row.
+- Every fired route also records a demand row per the sgsd-triage-first contract, so
+  VTP tool demand keeps accruing to the Phase-0 ledger.
+- Start shadow-tier for tool-level routes; suggestion-tier only for the skill-level
+  ones (/vtp-implementation-pack, /sgsd-vtp-advise) that already exist as suggestions.
