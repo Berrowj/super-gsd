@@ -188,6 +188,67 @@ def test_deploy_preflight_refuses_local_only_sha_with_exit_3(isolated_clarity_co
     assert not (isolated_clarity_config["state"] / "state.db").exists()
 
 
+def test_deploy_preflight_fetch_failure_is_indeterminate_with_exit_6(
+    isolated_clarity_config, capsys
+):
+    repo = isolated_clarity_config["canonical"]
+    sha = make_repo(repo)
+    missing_remote = repo.parent / "missing-github.git"
+    run_git(repo, "remote", "add", "github", str(missing_remote))
+
+    exit_code, output, _ = call_cli(
+        capsys, "deploy", "preflight", "--expected-sha", sha
+    )
+
+    assert exit_code == 6
+    assert "exists only locally" not in output
+    assert "provenance could not be determined" in output
+    assert "remote github branch main" in output
+    assert "not evidence" in output
+    assert str(missing_remote) in output
+    assert not (isolated_clarity_config["state"] / "state.db").exists()
+
+
+def test_deploy_preflight_json_reports_unreachable_remote_stage(
+    isolated_clarity_config, capsys
+):
+    repo = isolated_clarity_config["canonical"]
+    sha = make_repo(repo)
+    missing_remote = repo.parent / "missing-github.git"
+    run_git(repo, "remote", "add", "github", str(missing_remote))
+
+    exit_code, output, error = call_cli(
+        capsys, "deploy", "preflight", "--expected-sha", sha, "--json"
+    )
+    result = json.loads(output)
+
+    assert exit_code == 6
+    assert error == ""
+    assert result["stage"] == "trusted_remote_unreachable"
+    assert result["remote"] == "github"
+    assert result["branch"] == "main"
+    assert str(missing_remote) in result["stderr"]
+
+
+def test_deploy_preflight_json_reports_reachable_remote_ancestry_stage(
+    isolated_clarity_config, capsys
+):
+    make_trusted_canonical(isolated_clarity_config)
+    local_sha = add_commit(
+        isolated_clarity_config["canonical"], "local.txt", "not pushed\n"
+    )
+
+    exit_code, output, error = call_cli(
+        capsys, "deploy", "preflight", "--expected-sha", local_sha, "--json"
+    )
+    result = json.loads(output)
+
+    assert exit_code == 3
+    assert error == ""
+    assert result["stage"] == "trusted_remote"
+    assert "exists only locally" in result["message"]
+
+
 def test_deploy_preflight_accepts_trusted_sha_and_records_intent(isolated_clarity_config, capsys):
     trusted_sha = make_trusted_canonical(isolated_clarity_config)
 
