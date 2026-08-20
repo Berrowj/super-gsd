@@ -18,6 +18,7 @@ You run ONCE per milestone. Do not duplicate work the phase-readiness agent will
 - `.planning/phases/{NN}-*/PLAN.md` → per-phase plans with tasks and acceptance criteria
 - `CLAUDE.md` (project root) → rules that imply live dependencies (e.g. `feedback_live_verification`)
 - `.planning/memory/` (optional) -> recurring dependency patterns
+- Caller-supplied runner JSON -> exactly three VTP PROBE LOG rows
 </inputs>
 
 <process>
@@ -46,6 +47,11 @@ Build a per-phase dependency list and a cross-phase dependency graph (phase B co
 ## Step 3 — Live probes
 
 Run the minimum probe that proves each dep. **Never read secret values** — only check existence.
+
+Consume the caller-supplied three VTP PROBE LOG rows verbatim for VTP
+readiness. Do not reimplement the VTP probes or replace them with shell,
+network, environment, or filesystem checks in this agent. Preserve only their
+probe id, status, env name when present, and stable reason code in the manifest.
 
 ```bash
 # Services / ports

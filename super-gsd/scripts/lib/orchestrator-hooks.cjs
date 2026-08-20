@@ -562,6 +562,47 @@ function _renderDispatch(dispatch, context) {
   };
 }
 
+function _redactRenderedProjectDir(value, projectDir, replacement) {
+  const source = String(value);
+  const target = String(projectDir || '');
+  if (!target) return source;
+  const caseInsensitive = process.platform === 'win32';
+  const needle = caseInsensitive ? target.toLowerCase() : target;
+  let remaining = source;
+  let comparable = caseInsensitive ? remaining.toLowerCase() : remaining;
+  let output = '';
+  let index = comparable.indexOf(needle);
+  while (index >= 0) {
+    output += remaining.slice(0, index) + (replacement || '{project_dir}');
+    remaining = remaining.slice(index + target.length);
+    comparable = caseInsensitive ? remaining.toLowerCase() : remaining;
+    index = comparable.indexOf(needle);
+  }
+  return output + remaining;
+}
+
+function _publicDispatch(dispatch, context) {
+  if (!dispatch) return null;
+  const redactPath = function (value) {
+    let redacted = _redactRenderedProjectDir(value, context.projectDir);
+    if (context.moment === 'on-demand' && context.mode === 'manual') {
+      redacted = _redactRenderedProjectDir(redacted, SGSD_ROOT, '{sgsd_root}');
+    }
+    return redacted;
+  };
+  return {
+    command: dispatch.command === process.execPath
+      ? 'node'
+      : redactPath(dispatch.command),
+    args: dispatch.args.map(function (arg) {
+      return redactPath(arg);
+    }),
+    timeout_ms: dispatch.timeout_ms,
+    success_exits: dispatch.success_exits.slice(),
+    verdict_exits: dispatch.verdict_exits.slice()
+  };
+}
+
 function _outputExcerpt(value) {
   const text = value === undefined || value === null ? '' : String(value);
   return text.length > MAX_DISPATCH_OUTPUT_BYTES
@@ -599,22 +640,29 @@ function _executeDispatch(dispatch, context, executor) {
     else if (result && result.error && result.error.code === 'ETIMEDOUT') exitCode = 124;
     else exitCode = 126;
     const classification = _classifyDispatchExit(dispatch, exitCode);
+    const spawnFailed = !!(result && result.error);
+    const redactChildError = context
+      && context.moment === 'on-demand' && context.mode === 'manual';
     return {
       decision: classification.decision,
       exit_code: exitCode,
       exit_code_meaning: classification.exit_code_meaning,
       duration_ms: Math.max(0, Date.now() - started),
-      stdout: _outputExcerpt(result && result.stdout),
-      stderr: _outputExcerpt(result && (result.stderr || (result.error && result.error.message)))
+      stdout: spawnFailed ? '' : _outputExcerpt(result && result.stdout),
+      stderr: spawnFailed
+        ? 'dispatch_spawn_failed'
+        : (redactChildError && result && result.stderr
+          ? 'dispatch_child_stderr_redacted'
+          : _outputExcerpt(result && result.stderr))
     };
-  } catch (error) {
+  } catch (_error) {
     return {
       decision: 'execution_failed',
       exit_code: 126,
       exit_code_meaning: 'unrecognized_exit',
       duration_ms: Math.max(0, Date.now() - started),
       stdout: '',
-      stderr: _outputExcerpt(error && error.message ? error.message : error)
+      stderr: 'dispatch_spawn_failed'
     };
   }
 }
@@ -1002,6 +1050,11 @@ function skillRoutingConsult(opts) {
           dryRun: dryRun
         })
         : null;
+      const publicDispatch = _publicDispatch(dispatch, {
+        projectDir: projectDir,
+        moment: scope.moment,
+        mode: scope.mode
+      });
       const row = logGateEvidence(planningDir, {
         signal: SKILL_ROUTING_SIGNAL,
         status: decision.decision === 'fired' ? 'ok' : 'skipped',
@@ -1031,7 +1084,7 @@ function skillRoutingConsult(opts) {
         input_source: gateContext.input_source,
         work_risk: gateContext.work_risk,
         dry_run: dryRun,
-        dispatch: dispatch
+        dispatch: publicDispatch
       });
       if (!row) {
         appendFailures++;
@@ -1043,7 +1096,7 @@ function skillRoutingConsult(opts) {
         gate_ref: route.gate_ref || null,
         decision: decision.decision,
         reason: decision.reason,
-        dispatch: dispatch,
+        dispatch: publicDispatch,
         evidence_appended: !!row
       };
       if (decision.decision === 'fired' && execute) {
@@ -1060,7 +1113,7 @@ function skillRoutingConsult(opts) {
           planningDir, scope, route, outcome);
         if (route.gate_ref && !gateValueRow) appendFailures++;
         const executionRow = _appendSkillRoutingExecution(
-          planningDir, scope, route, dispatch, outcome);
+          planningDir, scope, route, publicDispatch, outcome);
         if (executionRow) executionEvidenceAppended++;
         else appendFailures++;
         if (outcome.decision === 'execution_failed') executionFailures++;
@@ -1554,6 +1607,15 @@ function selfTest() {
       dryRun: true,
       execute: true
     }) : null;
+    const onDemandReadiness = onDemand && onDemand.decisions
+      && onDemand.decisions.find(function (item) {
+        return item.skill === 'sgsd-readiness';
+      });
+    const onDemandInventory = onDemand && onDemand.decisions
+      ? onDemand.decisions.filter(function (item) {
+        return item.skill !== 'sgsd-readiness';
+      })
+      : [];
     const milestoneInventory = hasApi ? skillRoutingConsult({
       projectDir: tmpA10,
       planningDir: planningA10,
@@ -1642,9 +1704,13 @@ function selfTest() {
         && forcedLowMuda && forcedLowMuda.decision === 'fired',
       'sampled=' + (sampledLowMuda && sampledLowMuda.reason)
         + ' forced=' + (forcedLowMuda && forcedLowMuda.decision));
-    assert('A10_dispatchless_and_milestone_inventory_enumerate_without_execution',
-      onDemand && onDemand.ok === true && onDemand.route_count > 0
-        && onDemand.decisions.every(function (item) {
+    assert('A10_on_demand_readiness_executes_while_dispatchless_inventory_skips',
+      onDemand && onDemand.route_count > 0
+        && onDemandReadiness && onDemandReadiness.decision === 'fired'
+        && onDemandReadiness.dispatch
+        && !Object.prototype.hasOwnProperty.call(onDemandReadiness.dispatch, 'cwd')
+        && onDemandReadiness.execution
+        && onDemandInventory.every(function (item) {
           return item.decision === 'skipped'
             && item.reason === 'scheduled_not_executable_here'
             && item.dispatch === null && !item.execution;

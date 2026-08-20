@@ -219,7 +219,20 @@ routes:
       - semi
       - auto
     availability: canonical
-    notes: On-demand health/readiness requests route to sgsd-readiness.
+    dispatch:
+      command: node
+      args:
+        - '{sgsd_root}/tools/vtp-readiness/run.cjs'
+        - --trigger
+        - '{mode}'
+        - --project-dir
+        - '{project_dir}'
+      timeout_ms: 5000
+      success_exits:
+        - 0
+      verdict_exits:
+        - 1
+    notes: On-demand health/readiness requests execute the shared VTP readiness runner; exit 1 is a degraded-path finding.
 
   - skill: sgsd-readiness
     signatures:

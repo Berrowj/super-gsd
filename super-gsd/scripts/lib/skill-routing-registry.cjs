@@ -122,7 +122,14 @@ const COMPILED_FALLBACK_ROWS = Object.freeze([
   }, { aliases: ['sgsd-health', 'gsd-health'], availability: 'canonical' }),
   fb('sgsd-readiness', 'on-demand', ['manual', 'semi', 'auto'], {
     phrases: ['readiness', 'release readiness', 'health check', 'sgsd-readiness', 'sgsd-health', 'gsd-health'],
-  }, { aliases: ['sgsd-health', 'gsd-health'], availability: 'canonical' }),
+  }, {
+    aliases: ['sgsd-health', 'gsd-health'],
+    availability: 'canonical',
+    dispatch: processDispatch('node', [
+      '{sgsd_root}/tools/vtp-readiness/run.cjs', '--trigger', '{mode}',
+      '--project-dir', '{project_dir}',
+    ], [1], 5000),
+  }),
   fb('sgsd-readiness', 'phase-close', ['auto'], {
     event_names: ['phase-close', 'auto-mode-readiness'],
   }, {

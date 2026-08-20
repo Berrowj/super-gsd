@@ -29,6 +29,9 @@ Dispatch the `sgsd-milestone-readiness` agent against the currently active miles
 head -30 .planning/STATE.md
 ```
 
+Also extract `current_phase`; the production consult requires both phase and
+milestone scope.
+
 Extract `active_milestone`. If none, stop with: _"No active milestone in STATE.md — run /gsd-new-milestone first."_
 
 ## Step 2 — Check manifest freshness
@@ -37,12 +40,24 @@ If `.planning/milestones/{id}/MILESTONE-READINESS.md` exists AND its mtime is ne
 
 ## Step 3 — Dispatch the agent
 
+```bash
+node super-gsd/scripts/lib/orchestrator-hooks.cjs --skill-routing-consult --moment on-demand --mode manual --phase "{phase}" --milestone "{id}" --project-dir "{project_dir}" --execute --json
+```
+
+Select the `sgsd-readiness` decision from the JSON. It must be `fired` with an
+execution outcome. Parse its stdout JSON and retain its three results as VTP
+`PROBE LOG` rows. `executed_with_findings` is a degraded result, not a dispatch
+failure. `execution_failed` stops this skill with the stable execution reason.
+Never import `run.cjs`, copy its probes, or expose dispatch paths/raw stderr.
+
+Then dispatch the manifest consumer with those rows:
+
 ```
 Agent(
   subagent_type: "sgsd-milestone-readiness",
   mode: "bypassPermissions",
   description: "Milestone pre-flight readiness audit",
-  prompt: "Audit milestone {id}. Produce MILESTONE-READINESS.md at .planning/milestones/{id}/. Return the structured status block."
+  prompt: "Audit milestone {id}. Consume the supplied three VTP PROBE LOG rows without re-running or copying those probes. Produce MILESTONE-READINESS.md at .planning/milestones/{id}/. Return the structured status block."
 )
 ```
 

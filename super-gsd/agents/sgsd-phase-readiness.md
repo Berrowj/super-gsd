@@ -25,7 +25,16 @@ Read `MILESTONE-READINESS.md`. Find the section for the current phase. Extract i
 
 ## Step 2 — Re-probe
 
-Run the same probes the milestone agent ran for this phase, and only for this phase. No static extraction. No cross-phase work.
+For VTP drift, execute the shared runner once:
+
+```bash
+node super-gsd/tools/vtp-readiness/run.cjs --trigger semi --project-dir "{project_dir}"
+```
+
+Consume its three VTP PROBE LOG rows. Do not reimplement or copy the VTP
+probes. Exit 1 is DRIFT under the existing deterministic/degraded-path policy;
+exit 2 is an execution failure. Re-run only the same non-VTP probes the
+milestone agent ran for this phase. No static extraction. No cross-phase work.
 
 Probe budget: 10s wall-time. If exceeded, mark UNKNOWN and return BLOCKED.
 

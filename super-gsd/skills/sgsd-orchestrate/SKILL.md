@@ -536,6 +536,12 @@ REPEAT:
       Before classifier/context/dispatch work in auto mode, enforce the unattended-run
       readiness manifest for the active milestone.
 
+      Before reading or classifying that manifest, run exactly:
+        `node super-gsd/tools/vtp-readiness/run.cjs --trigger auto --project-dir "{project_dir}"`
+      Consume its three results as VTP `PROBE LOG` rows; do not copy the probes.
+      Exit 0 is ready. Exit 1 is a finding and follows the existing
+      DEGRADED-PATH policy below. Exit 2 is an execution failure.
+
       Manifest path:
         `.planning/milestones/{milestone}/MILESTONE-READINESS.md`
 
