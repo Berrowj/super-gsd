@@ -4,7 +4,7 @@ phase: 156
 slug: state-close-contract
 milestone: v3.6-vtp-bridge
 status: PLANNED
-revision: 1
+revision: 2
 governing_decision: .planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-PLANREVIEW-REPORT.md
 depends_on: ["155"]
 intent: >
@@ -28,13 +28,15 @@ semantic_acceptance_criteria:
       byte-identical changed=false success.
     verification_cmd: 'node super-gsd/tests/state-close-contract/assert-state-write.cjs --case atomic-idempotent'
   - input: >
-      A devcp-shaped fixture whose resolver selects v30-08 while a stale close
-      event requests v30-07, plus same-phase and immediate-ROADMAP-successor
-      controls.
+      A devcp-shaped fixture whose STATE.md projection already records v30-08
+      while the stronger resolver evidence and the incoming close event are at
+      v30-07, plus same-phase and immediate-ROADMAP-successor controls.
     expected_outcome: >
-      The stale event exits non-zero with projection_ahead and leaves STATE
-      byte-identical; the controls pass without arithmetic, lexical, filename,
-      or num-plus-one phase ordering.
+      The backwards event exits non-zero with projection_ahead, keyed on the
+      resolver's projection_stale/stale_sources signals with ROADMAP order used
+      only to classify write direction, and leaves STATE byte-identical; the
+      controls pass without arithmetic, lexical, filename, or num-plus-one
+      phase ordering.
     verification_cmd: 'node super-gsd/tests/state-close-contract/assert-state-write.cjs --case refuse-backwards'
   - input: >
       The real install.sh entry point under isolated HOME/USERPROFILE and the
@@ -142,7 +144,11 @@ tasks:
       - super-gsd/scripts/lib/orchestrator-hooks.cjs
       - super-gsd/skills/sgsd-orchestrate/SKILL.md
     input_contract: >
-      Implement review change 6 verbatim: "Define who creates phase SUMMARY.md, its passing shape and pre-close ordering, then test the actual close route, not just write atomicity." Add read-only checkPhaseClose API/CLI.
+      Implement review change 6 verbatim: "Define who creates phase SUMMARY.md, its passing shape and pre-close ordering, then test the actual close route, not just write atomicity." Work red-first
+      on the actual route: before implementing the gate, record a genuinely
+      failing run of the production skillRoutingConsult/CLI route against the
+      devcp AUDIT-without-SUMMARY fixture (today it wrongly proceeds) and
+      preserve that red evidence in the report. Add read-only checkPhaseClose API/CLI.
       Locate the phase through phase-name.cjs and require existing AUDIT.md plus
       SUMMARY.md with delimited YAML frontmatter: phase equals the requested
       opaque token; slug equals folder slug; milestone equals the request;
@@ -175,7 +181,8 @@ tasks:
       handover dead-end without duplicating audit or registry machinery.
     falsifier: >
       AUDIT without valid SUMMARY reaches a dispatch, state.write, close commit,
-      or Step 6.7; malformed identity passes; P154/P155 fail; direct checker
+      or Step 6.7; the pre-fix actual-route red run is missing or starts green;
+      malformed identity passes; P154/P155 fail; direct checker
       tests replace actual-route evidence; CLI refusal exits 0; registry/read
       side changes; or T2 cannot be reverted independently after T1.
     stop_rule: >
@@ -194,3 +201,17 @@ Two serial, independently revertable commits close the contract. T1 adds the
 write side and truthful advisory. T2 makes SUMMARY an orchestrator-owned
 pre-close artifact and proves both refusal and passage through the executable
 close route. Resolver/parser semantics and all registries stay unchanged.
+
+## AMENDMENT-1 (2026-08-20, orchestrator-recorded, plan-review round 1)
+
+Review verdict GO-WITH-CHANGES (156-PLANREVIEW-REPORT.md, 0 CRITICAL). Both
+required changes applied above as revision 2:
+
+1. SAC-2 direction corrected: the refusal case is the STATE projection ahead
+   (v30-08) of stronger resolver evidence and the incoming event (v30-07);
+   state.write must consume the resolver's projection_stale/stale_sources
+   signals, use ROADMAP order only to classify write direction, and prove
+   byte-identical refusal.
+2. T2 is red-first on the actual route: a genuinely failing pre-fix run of the
+   production skillRoutingConsult/CLI route for AUDIT-without-SUMMARY is
+   contractual evidence before the gate is implemented.
