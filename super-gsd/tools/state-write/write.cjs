@@ -379,6 +379,49 @@ function readRoadmap(input) {
   return { ok: true, roadmap, roadmapPath };
 }
 
+function contextIsPending(source) {
+  const records = splitLineRecords(source);
+  const bounds = frontmatterBounds(records);
+  const status = findDirect(records, bounds.start, bounds.end, 0, 'status');
+  return Boolean(status && scalarValue(status.info.value).toUpperCase() === 'PENDING');
+}
+
+function seedInflatedResolverAhead(resolved, input) {
+  if (resolved.source !== 'phase_folders' || resolved.phase_status !== 'in-progress'
+      || resolved.projection_stale !== true) return null;
+  if (!Array.isArray(resolved.stale_sources) || resolved.stale_sources.length !== 1
+      || resolved.stale_sources[0] !== 'state_md') return null;
+  if (!Array.isArray(resolved.conflicts) || resolved.conflicts.length === 0
+      || !resolved.conflicts.every((conflict) => {
+        const sources = [conflict && conflict.source_a, conflict && conflict.source_b].sort();
+        return sources[0] === 'phase_folders' && sources[1] === 'state_md';
+      })) return null;
+
+  let phase;
+  let entries;
+  try {
+    phase = phaseName.findPhase(input.projectDir, resolved.phase, {
+      milestone: input.milestone,
+      includeFlat: false,
+    });
+    if (!phase || phaseName.isDiscoveryError(phase)) return null;
+    entries = fs.readdirSync(phase.dir, { withFileTypes: true });
+  } catch (_error) {
+    return null;
+  }
+  if (entries.length !== 1 || !entries[0].isFile()
+      || !/(?:^|-)CONTEXT\.md$/i.test(entries[0].name)) return null;
+  try {
+    if (!contextIsPending(fs.readFileSync(path.join(phase.dir, entries[0].name), 'utf8'))) return null;
+  } catch (_error) {
+    return null;
+  }
+  return {
+    phase: resolved.phase,
+    reason: 'phase_folder_context_pending_without_execution_evidence',
+  };
+}
+
 function atomicReplace(statePath, content) {
   const tempPath = path.join(path.dirname(statePath),
     `.${path.basename(statePath)}.tmp-${process.pid}-${Date.now()}-${crypto.randomBytes(6).toString('hex')}`);
@@ -432,9 +475,14 @@ function writeState(options) {
     if (failedIdentity) {
       return refusal(failedIdentity.reason, 'resolver/event identity is absent or ambiguous in ROADMAP');
     }
+    let resolverAheadDiscounted = null;
     if (resolvedAt.index > evidenceAt.index) {
-      return refusal('evidence_ahead', 'stronger resolver evidence is ahead of the incoming event',
-        { resolved_phase: resolved.phase, evidence_phase: input.evidence.token });
+      resolverAheadDiscounted = input.event === 'phase-close'
+        ? seedInflatedResolverAhead(resolved, input) : null;
+      if (!resolverAheadDiscounted) {
+        return refusal('evidence_ahead', 'stronger resolver evidence is ahead of the incoming event',
+          { resolved_phase: resolved.phase, evidence_phase: input.evidence.token });
+      }
     }
     if (resolvedAt.index < evidenceAt.index) {
       return refusal('evidence_phase_mismatch', 'incoming evidence_phase is ahead of resolved evidence',
@@ -490,6 +538,16 @@ function writeState(options) {
         requested_phase: input.requestedComplete ? 'complete' : input.requested.token,
       });
     }
+    if (resolverAheadDiscounted
+        && projectedAt.index !== evidenceAt.index
+        && projectedAt.index !== requestedAt.index) {
+      return refusal('evidence_ahead',
+        'folder-tier resolver evidence cannot be discounted for an unaligned STATE projection', {
+          resolved_phase: resolved.phase,
+          evidence_phase: input.evidence.token,
+          projected_phase: projection.phaseValue,
+        });
+    }
 
     let updated;
     try { updated = patchProjection(source, input); }
@@ -506,6 +564,7 @@ function writeState(options) {
         evidence_phase: input.evidence.token,
         current_phase: currentPhase,
         percent: input.progress.percent,
+        ...(resolverAheadDiscounted ? { resolver_ahead_discounted: resolverAheadDiscounted } : {}),
       });
     }
     const replaced = atomicReplace(statePath, updated);
@@ -517,6 +576,7 @@ function writeState(options) {
       evidence_phase: input.evidence.token,
       current_phase: currentPhase,
       percent: input.progress.percent,
+      ...(resolverAheadDiscounted ? { resolver_ahead_discounted: resolverAheadDiscounted } : {}),
     });
   } catch (error) {
     return inputFailure('internal_error', error && error.message ? error.message : 'unknown error');

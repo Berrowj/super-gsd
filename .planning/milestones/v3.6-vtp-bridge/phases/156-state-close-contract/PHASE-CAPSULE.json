@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.6-vtp-bridge",
+  "phase": "156",
+  "phase_name": "State Close Contract",
+  "status": "IN_PROGRESS",
+  "goal": "",
+  "outputs": [],
+  "files": [
+    ".planning/milestones/v3.6-vtp-bridge/INTENT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-01-PLAN-REV2-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-01-PLAN-LOCKED.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-01-PLAN-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-01-PLAN-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-PLANREVIEW-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-PLANREVIEW-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-T1-ATC-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-T1-ATC-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-T1-CODEX-FILES.txt",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-T1-FIX-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-T1-FIX-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-T1-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-T1-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-T1-SPECREVIEW-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-T1-SPECREVIEW-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-T2-ATC-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-T2-ATC-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-T2-CODEX-FILES.txt",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-T2-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-T2-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-T2-SPECREVIEW-PROMPT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/156-T2-SPECREVIEW-REPORT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/156-state-close-contract/CONTEXT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/157-vtp-readiness/CONTEXT.md",
+    ".planning/milestones/v3.6-vtp-bridge/phases/158-notification-routing/CONTEXT.md",
+    "super-gsd/hooks/gsd-phase-boundary.sh",
+    "super-gsd/install.sh",
+    "super-gsd/scripts/lib/orchestrator-hooks.cjs",
+    "super-gsd/skills/sgsd-orchestrate/SKILL.md",
+    "super-gsd/tests/state-close-contract/assert-phase-close-route.cjs",
+    "super-gsd/tests/state-close-contract/assert-state-write.cjs",
+    "super-gsd/tools/phase-close/check.cjs",
+    "super-gsd/tools/state-write/write.cjs"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 0
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "40ddbcfcb74b05983b95c40811049cbf670223a4",
+      "subject": "docs(155): operator-approved split \u2014 seed P156/P157/P158, rev2 planner prompt",
+      "ts": "2026-08-19T18:34:14+01:00"
+    },
+    {
+      "sha": "27bf0103958b195576cbb93b0ee0dc4d5bf326f0",
+      "subject": "docs(156): open phase \u2014 full CONTEXT from T4c carve-out + review change 6",
+      "ts": "2026-08-20T03:43:56+01:00"
+    },
+    {
+      "sha": "82849f82c0c1e1f5ec62ae4a9f26ac55d05ee092",
+      "subject": "docs(156-01): PLAN-LOCKED \u2014 state.write() primitive + actual-route SUMMARY close gate, schema VALID",
+      "ts": "2026-08-20T04:10:48+01:00"
+    },
+    {
+      "sha": "33ccfb3bfde16b1dc7fc5b998ff33513d93502c4",
+      "subject": "docs(156-01): plan review GO-WITH-CHANGES \u2014 AMENDMENT-1 applied, schema re-VALID",
+      "ts": "2026-08-20T04:16:32+01:00"
+    },
+    {
+      "sha": "92f21b3f389ad0b97ce913700b216d47d6875bf0",
+      "subject": "feat(156-T1): state.write() atomic STATE projection writer \u2014 red-then-green, 38/38",
+      "ts": "2026-08-20T05:20:28+01:00"
+    },
+    {
+      "sha": "db74df5a01f20a6287ed647426c492eb4b17df76",
+      "subject": "feat(156-T2): SUMMARY close-gate on the actual route \u2014 red-first, 36/36, spec pass 5/5",
+      "ts": "2026-08-20T05:59:03+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": null,
+    "research": null,
+    "plan": [],
+    "verification": null,
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": null,
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-08-20T03:10:35Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-20T03:55:04Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-20T04:13:18Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-20T04:46:08Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-20T04:53:21Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-20T04:59:35Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-08-20T05:29:38.619Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@db74df5a01f2"
+}

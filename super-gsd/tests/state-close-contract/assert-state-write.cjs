@@ -16,7 +16,14 @@ const hookPath = path.join(root, 'super-gsd', 'hooks', 'gsd-phase-boundary.sh');
 const installPath = path.join(root, 'super-gsd', 'install.sh');
 const decisionPath = path.join(root, 'super-gsd', 'scripts', 'lib', 'decision-state.cjs');
 const requested = arg('--case') || 'all';
-const cases = ['atomic-idempotent', 'refuse-backwards', 'refuse-ambiguity', 'orchestrator-hook-wire'];
+const cases = [
+  'atomic-idempotent',
+  'refuse-backwards',
+  'seeded-future-dirs',
+  'evidence-backed-ahead',
+  'refuse-ambiguity',
+  'orchestrator-hook-wire',
+];
 
 if (requested !== 'all' && !cases.includes(requested)) {
   console.error(`Usage: ${path.basename(__filename)} --case all|${cases.join('|')}`);
@@ -62,6 +69,16 @@ function roadmap() {
     '| v30-08 | Opaque successor | Planned |', '',
   ].join('\n');
 }
+function seededRoadmap() {
+  return [
+    '# devcp seeded ROADMAP', '', '| Phase | Name | Status |', '|---:|---|---|',
+    '| v30-06.8 | Decimal seam | Complete |',
+    '| v30-07 | Closing opaque | [ ] seeded |',
+    '| v30-08 | First seed | [ ] seeded |',
+    '| v30-09 | Second seed | [ ] seeded |',
+    '| v30-10 | Third seed | [ ] seeded |', '',
+  ].join('\n');
+}
 function ambiguousRoadmap() {
   return roadmap().replace(
     '| v30-08 | Opaque successor | Planned |',
@@ -99,6 +116,41 @@ function fixture(label, projected = 'v30-07', resolved = 'v30-07') {
     if (index === active) put(path.join(phaseDir, 'CONTEXT.md'), `# ${token}\n`);
   });
   put(statePath, state(projected));
+  return { dir, planning, statePath, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
+}
+function phaseSummary(token, slug) {
+  return [
+    '---', `phase: ${token}`, `slug: ${slug}`, 'milestone: v3.0',
+    'status: PASS', 'closed: 2026-08-20', 'commits: [abcdef0]',
+    'gates:', '  contract: PASS', '---', '', '# Summary', '',
+  ].join('\n');
+}
+function seededFutureFixture(label, evidenceBackedAhead = false) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `state-write-${label}-`));
+  const planning = path.join(dir, '.planning');
+  const statePath = path.join(planning, 'STATE.md');
+  const phases = [
+    ['v30-06.8', 'decimal-seam'],
+    ['v30-07', 'closing-opaque'],
+    ['v30-08', 'first-seed'],
+    ['v30-09', 'second-seed'],
+    ['v30-10', 'third-seed'],
+  ];
+  put(path.join(planning, 'milestones', 'v3.0', 'ROADMAP.md'), seededRoadmap());
+  phases.forEach(([token, slug], index) => {
+    const phaseDir = path.join(planning, 'milestones', 'v3.0', 'phases', `${token}-${slug}`);
+    if (index === 1) {
+      put(path.join(phaseDir, 'CONTEXT.md'), `---\nphase: ${token}\nstatus: ACTIVE\n---\n`);
+      put(path.join(phaseDir, 'SUMMARY.md'), phaseSummary(token, slug));
+    }
+    if (index > 1) {
+      put(path.join(phaseDir, 'CONTEXT.md'), `---\nphase: ${token}\nstatus: PENDING\n---\n`);
+    }
+    if (evidenceBackedAhead && index === phases.length - 1) {
+      put(path.join(phaseDir, 'SUMMARY.md'), phaseSummary(token, slug));
+    }
+  });
+  put(statePath, state('v30-07').replace('  # legacy comment', ''));
   return { dir, planning, statePath, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
 }
 function event(kind, projectDir, patch = {}) {
@@ -215,6 +267,41 @@ function refuseBackwards() {
   check('writer has no copied/private phase parser', !source.includes('function parsePhase') && !source.includes('parseInt('));
 }
 
+function seededFutureDirs() {
+  const f = seededFutureFixture('seeded-future');
+  try {
+    const resolved = resolveEffectiveState({ projectDir: f.dir });
+    check('seed fixture resolves from highest future folder', resolved.ok
+      && resolved.source === 'phase_folders' && resolved.phase === 'v30-10', JSON.stringify(resolved));
+    const result = writeState(event('phase-close', f.dir, {
+      progress: { total_phases: 5, completed_phases: 2 },
+    }));
+    const discount = result.resolver_ahead_discounted || {};
+    equal('context-only future folders are discounted and STATE advances', [
+      result.ok, result.changed, result.exit_code, result.reason, result.current_phase,
+      discount.phase, discount.reason,
+      /^current_phase:.*v30-08/m.test(fs.readFileSync(f.statePath, 'utf8')),
+    ], [
+      true, true, 0, 'state_updated', 'v30-08',
+      'v30-10', 'phase_folder_context_pending_without_execution_evidence', true,
+    ]);
+  } finally { f.cleanup(); }
+}
+
+function evidenceBackedAhead() {
+  const f = seededFutureFixture('evidence-backed-ahead', true);
+  try {
+    const before = hash(f.statePath);
+    const result = writeState(event('phase-close', f.dir, {
+      progress: { total_phases: 5, completed_phases: 2 },
+    }));
+    equal('SUMMARY-backed ahead phase refuses',
+      [result.ok, result.changed, result.exit_code, result.reason],
+      [false, false, 1, 'evidence_ahead']);
+    check('SUMMARY-backed refusal preserves bytes', hash(f.statePath) === before);
+  } finally { f.cleanup(); }
+}
+
 function refuseAmbiguity() {
   const f = fixture('ambiguity');
   try {
@@ -316,6 +403,8 @@ function orchestratorHookWire() {
 const runners = {
   'atomic-idempotent': atomicIdempotent,
   'refuse-backwards': refuseBackwards,
+  'seeded-future-dirs': seededFutureDirs,
+  'evidence-backed-ahead': evidenceBackedAhead,
   'refuse-ambiguity': refuseAmbiguity,
   'orchestrator-hook-wire': orchestratorHookWire,
 };
