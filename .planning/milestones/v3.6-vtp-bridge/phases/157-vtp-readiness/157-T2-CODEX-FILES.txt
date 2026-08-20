@@ -1,0 +1,10 @@
+super-gsd/tools/vtp-readiness/run.cjs
+super-gsd/tests/vtp-readiness/assert-vtp-readiness.cjs
+super-gsd/registry/skill-routing.yaml
+super-gsd/scripts/lib/skill-routing-registry.cjs
+super-gsd/skills/sgsd-readiness/SKILL.md
+super-gsd/agents/sgsd-milestone-readiness.md
+super-gsd/agents/sgsd-phase-readiness.md
+super-gsd/skills/sgsd-orchestrate/SKILL.md
+super-gsd/tools/vtp-readiness/registry.cjs
+super-gsd/registry/vtp-services.yaml
