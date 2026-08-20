@@ -1,93 +1,816 @@
 {
- "schema_version": 1,
- "runtime_commit": "5ed70027cb0e400a8f459b02f0337c0e344c3607",
- "captured_at": "2026-08-20T02:19:01.748Z",
- "fixed_query": "How should SGSD route knowledge-base retrieval intents across the vtp toolset?",
- "note": "Calls performed live by the orchestrator with args passed VERBATIM from production-runtime emissions generated in the verifier-mirrored isolated fixture (repo dir named repo, STATE phase 154). No manual arg repair. Live acceptance confirmed: call 1 response echoes context_scope.repo=repo and current_goal=phase:154,plan:01 proving the exact args were transmitted. raw_result records the live responses with deep bodies elided (_elided markers); full responses observed in-session.",
- "calls": [
-  {
-   "stage": "vtp-plan",
-   "fallback_predicate": null,
-   "tool": "vtp_route_and_retrieve",
-   "mcp_tool": "mcp__vtp-kb__vtp_route_and_retrieve",
-   "args": {
-    "raw_query": "How should SGSD route knowledge-base retrieval intents across the vtp toolset?",
-    "context": {
-     "repo": "repo",
-     "current_task": "phase:154,plan:01",
-     "explicit_constraints": [],
-     "recent_turns": [
-      {
-       "text": "How should SGSD route knowledge-base retrieval intents across the vtp toolset?"
+  "schema_version": 1,
+  "runtime_commit": "35a11240f9bf50470793570ed1b9472f26e29ca1",
+  "captured_at": "2026-08-20T02:38:14.059Z",
+  "fixed_query": "How should SGSD route knowledge-base retrieval intents across the vtp toolset?",
+  "capture_note": "Post-commit re-capture (fix round for close-review CRITICAL): args re-emitted by the committed shaper via the mirrored createFixture() environment (tmp repo dir named repo, STATE phase 154), both MCP calls performed by the orchestrator with those args verbatim, raw responses stored substantively complete. Single disclosed elision: documents[0].headings in call 1 (full-book chapter index, several hundred entries) replaced with null + _elided marker; everything else verbatim.",
+  "calls": [
+    {
+      "stage": "vtp-plan",
+      "fallback_predicate": null,
+      "tool": "vtp_route_and_retrieve",
+      "mcp_tool": "mcp__vtp-kb__vtp_route_and_retrieve",
+      "args": {
+        "raw_query": "How should SGSD route knowledge-base retrieval intents across the vtp toolset?",
+        "context": {
+          "repo": "repo",
+          "current_task": "phase:154,plan:01",
+          "explicit_constraints": [],
+          "recent_turns": [
+            {
+              "text": "How should SGSD route knowledge-base retrieval intents across the vtp toolset?"
+            }
+          ]
+        }
+      },
+      "error": null,
+      "isError": false,
+      "raw_result": {
+        "context_summary": {
+          "current_goal": "phase:154,plan:01",
+          "active_artifact": null,
+          "mode": "planning",
+          "recent_topics": [
+            "across",
+            "intents",
+            "knowledge-base",
+            "retrieval",
+            "route"
+          ],
+          "blockers": [],
+          "recent_errors": [],
+          "context_scope": {
+            "repo": "repo",
+            "language": null,
+            "artifact": null,
+            "active_file": null
+          },
+          "constraints": [
+            "fit the active repository context"
+          ],
+          "provenance_signals": [
+            "repo_state",
+            "recent_turns",
+            "current_task"
+          ]
+        },
+        "project_intent_state": {
+          "project_id": "voice-text-plan",
+          "current_phase": "28",
+          "active_milestone": "Phases 28-32 -- LLM Wiki baseline, MCP-native knowledge substrate, and intent-aware routing",
+          "primary_objectives": [
+            "Phase 28 -- LLM Wiki Foundation (planned, ready to execute). Phases 31-32 now define the MCP/database and intent-routing follow-on architecture."
+          ],
+          "architectural_biases": [
+            "structured_outputs",
+            "evidence_first",
+            "hybrid_retrieval",
+            "mcp_native",
+            "deterministic_artifacts"
+          ],
+          "retrieval_priority_profile": {
+            "repo_specific": 0.86,
+            "architecture_notes": 0.8,
+            "generic_advice": 0.22,
+            "intent_routed": 0.9
+          },
+          "recent_decisions": [
+            "[v4-roadmap]: Role-adjusted score stored as `running_role_score` -- never overwrites `running_sqs` (Pitfall 1 prevention)",
+            "[v4-roadmap]: New role data in separate `role-weight-profiles.json` KB file, linked by `role_id` (Pitfall 3 prevention)",
+            "[v4-roadmap]: All 7 new signals batched into single extraction pass (Pitfall 10 prevention)",
+            "[v4-roadmap]: Coaching insights require 3+ meeting trend before surfacing (Pitfall 6 prevention)",
+            "[v4-roadmap]: Human-in-the-loop role tier confirmation during JD onboarding (Pitfall 2 prevention)",
+            "[20-01]: General profile weights identical to SQS_WEIGHTS (scoring parity when no role assigned)",
+            "[20-01]: All new schema fields use .default() for zero-migration backward compatibility",
+            "[20-02]: Keyword classifier flattens all categories, sorts longest-first (cross-category conflict prevention)"
+          ],
+          "open_questions": [
+            "which retrieval surface should be prioritized for ambiguous tasks?"
+          ],
+          "provenance": {
+            "state_path": ".planning/STATE.md",
+            "roadmap_path": ".planning/ROADMAP.md"
+          }
+        },
+        "routing_weights": {
+          "schema_version": 1,
+          "context": {
+            "session": 1,
+            "repo": 1,
+            "phase": 1,
+            "long_term": 1,
+            "generic": 1
+          },
+          "retrieval": {
+            "semantic": 1.1,
+            "lexical": 1,
+            "architecture": 1,
+            "entity": 1
+          },
+          "enrichment": {
+            "expansion": 1.1,
+            "contextual_reframing": 1,
+            "reflection": 1
+          },
+          "answer": {
+            "code_examples": 1,
+            "architecture_proposal": 1,
+            "evidence_bundle": 1
+          }
+        },
+        "query_frame": {
+          "query_frame_id": "qf_fb749fe0bf",
+          "session_id": "session_unknown",
+          "raw_query": "How should SGSD route knowledge-base retrieval intents across the vtp toolset?",
+          "interpreted_goal": "turn the query into an execution-oriented planning answer aligned with the current roadmap",
+          "intent_type": "project_planning",
+          "context_scope": {
+            "repo": "repo",
+            "language": null,
+            "artifact": null,
+            "active_file": null
+          },
+          "constraints": [
+            "fit the active repository context",
+            "structured outputs",
+            "evidence first",
+            "hybrid retrieval",
+            "mcp native",
+            "deterministic artifacts"
+          ],
+          "candidate_interpretations": [
+            {
+              "label": "repo_specific_execution",
+              "weight": 0.35,
+              "rationale": "Active repo/file context suggests the query is about the current codebase, not generic advice."
+            },
+            {
+              "label": "mcp_architecture_reasoning",
+              "weight": 0.26,
+              "rationale": "Current task context strongly points at MCP/query architecture work."
+            },
+            {
+              "label": "phase_aligned_project_work",
+              "weight": 0.2,
+              "rationale": "The active planning phase and milestone indicate the query may be shorthand for current roadmap execution."
+            },
+            {
+              "label": "general_best_practices",
+              "weight": 0.19,
+              "rationale": "The surface query can often be read as generic guidance without extra context."
+            }
+          ],
+          "expanded_queries": [
+            "How should SGSD route knowledge-base retrieval intents across the vtp toolset?",
+            "phase:154,plan:01",
+            "how to structure intent-aware retrieval services for MCP",
+            "repo conventions and examples for the active artifact",
+            "How should SGSD route knowledge-base retrieval intents across the vtp toolset? aligned with Phases 28-32 -- LLM Wiki baseline, MCP-native knowledge substrate, and intent-aware routing"
+          ],
+          "answer_shape": "practical_checklist",
+          "confidence": 0.53,
+          "provenance": {
+            "derived_from_turns": [
+              "recent_turn_1"
+            ],
+            "signals_used": [
+              "repo_state",
+              "recent_turns",
+              "current_task"
+            ]
+          }
+        },
+        "decision_matrix": {
+          "matrix_id": "wdm_e31312f32c",
+          "query_frame_id": "qf_fb749fe0bf",
+          "intent_scores": {
+            "implement": 0.24,
+            "debug": 0.12,
+            "explore": 0.28,
+            "compare": 0.1,
+            "refactor": 0.14,
+            "decide": 0.72,
+            "explain": 0.22
+          },
+          "context_dependency_scores": {
+            "session_context": 0.57,
+            "repo_state": 0.88,
+            "recent_turns": 0.22,
+            "project_phase": 0.74,
+            "long_term_memory": 0.32,
+            "novelty_score": 0.26,
+            "context_break_score": 0.16
+          },
+          "retrieval_strategy_scores": {
+            "chunk_retrieval": 0.76,
+            "entity_lookup": 0.58,
+            "code_symbol_lookup": 0.18,
+            "architecture_notes": 0.86,
+            "graph_traversal": 0.58,
+            "lexical_search": 0.62,
+            "semantic_search": 0.92
+          },
+          "enrichment_scores": {
+            "no_enrichment": 0.16,
+            "light_rewrite": 0.42,
+            "multi_query_expansion": 0.92,
+            "contextual_reframing": 0.73,
+            "reflection_loop": 0.13
+          },
+          "answer_strategy_scores": {
+            "direct_answer": 0.28,
+            "checklist": 0.84,
+            "architecture_proposal": 0.24,
+            "code_examples": 0.26,
+            "comparison_matrix": 0.12,
+            "evidence_bundle": 0.34
+          },
+          "routing_decisions": [
+            "inject_repo_context",
+            "expand_query_multi_hypothesis",
+            "prioritize_architecture_notes",
+            "deprioritize_generic_advice"
+          ]
+        },
+        "expanded_queries": [
+          "How should SGSD route knowledge-base retrieval intents across the vtp toolset?",
+          "How should SGSD route knowledge-base retrieval intents across the vtp toolset? aligned with Phases 28-32 -- LLM Wiki baseline, MCP-native knowledge substrate, and intent-aware routing",
+          "how to structure intent-aware retrieval services for MCP",
+          "phase:154,plan:01"
+        ],
+        "retrieval_plan": {
+          "retrieval_plan_id": "rp_e31312f32c",
+          "query_frame_id": "qf_fb749fe0bf",
+          "matrix_id": "wdm_e31312f32c",
+          "selected_query": "How should SGSD route knowledge-base retrieval intents across the vtp toolset?",
+          "alternate_queries": [
+            "How should SGSD route knowledge-base retrieval intents across the vtp toolset? aligned with Phases 28-32 -- LLM Wiki baseline, MCP-native knowledge substrate, and intent-aware routing",
+            "how to structure intent-aware retrieval services for MCP",
+            "phase:154,plan:01"
+          ],
+          "retrieval_mode": "architecture_hybrid",
+          "filters": {
+            "sourceTypes": [],
+            "entityTypes": [],
+            "projectIds": [],
+            "speakerIds": [],
+            "topics": [
+              "intent",
+              "routing"
+            ],
+            "meetingIds": []
+          },
+          "answer_shape": "practical_checklist",
+          "reflection_recommended": false,
+          "evidence_strategy": "concise_bundle",
+          "rationale": [
+            "Repo state is highly relevant, so retrieval should stay grounded in current codebase context.",
+            "The query is ambiguous/context-heavy enough to justify bounded multi-query expansion.",
+            "Architecture/code-symbol signals are strong, so prioritize architecture-oriented hybrid retrieval."
+          ]
+        },
+        "evidence": {
+          "hits": [
+            {
+              "chunk_id": "chunk:27c1204d753e",
+              "rel_path": "wiki/research/rl-for-agents-workshop-deep-dive-on-training-agents-with-rl-and-open-source.md",
+              "section_title": "9. Scaffolds matter",
+              "source_type": "research_paper",
+              "score": 0.46083788706739526,
+              "text": "The speaker treats scaffolds as an important source of capability, not just an implementation detail. Test-time compute, recursive decomposition, self-aggregation, and stronger orchestration can all raise performance before any new base-model training happens.\n\nThis is directly relevant to VTP because:\n\n- the knowledge base is part of the scaffold\n- MCP tools are part of the scaffold\n- output structure and decomposition strategy are part of the scaffold\n- retrieval and evaluation policy are part of the scaffold"
+            },
+            {
+              "chunk_id": "chunk:8ce5ffdfb026",
+              "rel_path": "wiki/books/hands-on-large-language-models.md",
+              "section_title": "Dense Retrieval",
+              "source_type": "wiki_page",
+              "score": 0.3494623655913978,
+              "text": "- Are a query and its best result semantically similar? Not always. This is why language models need to be trained on question-answer pairs to become better at retrieval. This process is explained in more detail in <a href=\"ch10.html#creating_text_embedding_models\" data-type=\"xref\">Chapter 10</a>.\n\n<a href=\"#convert_some_external_knowledge_base_to\" data-type=\"xref\">Figure 8-6</a> shows how we chunk a document before proceeding to embed each chunk. Those embedding vectors are then stored in the vector database<span id=\"id1218\" contenteditable=\"false\" primary=\"vector databases\" secondary=\"dense retrieval\" data-type=\"indexterm\"></span> and are ready for retrieval.\n\n<figure>\n<div id=\"convert_some_external_knowledge_base_to\" class=\"figure\">\n![](hands-on-large-language-models/assets/holl_0806.png)\n<h6 id=\"figure-8-6.-convert-some-external-knowledge-base-to-a-vector-database.-we-can-then-query-this-vector-database-for-information-about-the-knowledge-base.\"><span class=\"label\">Figure 8-6. </span>Convert some external knowledge base to a vector database. We can then query this vector database for information about the knowledge base.</h6>\n</div>\n</figure>\n\n<div class=\"section\" data-type=\"sect3\" pdf-bookmark=\"Dense retrieval example\">\n\n<div id=\"dense_retrieval_example\" class=\"sect3\">"
+            },
+            {
+              "chunk_id": "chunk:c5dd956422c8",
+              "rel_path": "wiki/research/rl-for-agents-workshop-deep-dive-on-training-agents-with-rl-and-open-source.md",
+              "section_title": "1. VTP is not just a transcript tool",
+              "source_type": "research_paper",
+              "score": 0.3492063492063492,
+              "text": "If VTP keeps growing toward agent support, it is better understood as an environment plus memory layer for knowledge work:\n\n- document digestion\n- retrieval\n- structured memory\n- traceable outputs\n- cross-document context\n- evaluation support"
+            },
+            {
+              "chunk_id": "chunk:35a98b3097e9",
+              "rel_path": "wiki/people/indie-dev-dan-dan-mac.md",
+              "section_title": "Indie Dev Dan (Dan Mac)",
+              "source_type": "person_page",
+              "score": 0.01639344262295082,
+              "text": "Indie Dev Dan (Dan Mac) appears in 1 meeting with 12 claims, 3 commitments, and 0 ideas proposed."
+            },
+            {
+              "chunk_id": "chunk:33c0e08ca3b4",
+              "rel_path": "wiki/people/indie-dev-dan-dan-mac.md",
+              "section_title": "Commitments",
+              "source_type": "person_page",
+              "score": 0.016129032258064516,
+              "text": "3 owned commitments."
+            }
+          ],
+          "entities": [
+            {
+              "id": "RLA-P-01",
+              "entity_type": "principle",
+              "title": "Measure capability in task horizon, not single-turn accuracy",
+              "text": "Progress in any multi-step system is most honestly tracked by the duration and coherence of work it can complete unaided, not by accuracy on isolated atomic problems. Pick-one-question benchmarks systematically under-represent the failure modes that actually matter when work chains across hours or days.",
+              "status": "active",
+              "confidence": null,
+              "source_doc_ids": [
+                "doc:0c80cf52739e"
+              ],
+              "source_refs": [
+                "wiki/research/rl-for-agents-workshop-deep-dive-on-training-agents-with-rl-and-open-source.md"
+              ],
+              "speaker_ids": [],
+              "project_ids": [],
+              "meeting_ids": [],
+              "topics": [
+                "agent-training",
+                "evaluation",
+                "long-horizon-tasks",
+                "open-source-agents",
+                "reinforcement-learning",
+                "scaffolding"
+              ],
+              "created_at": "2026-04-24T12:00:00.000Z",
+              "updated_at": "2026-04-24T12:00:00.000Z"
+            },
+            {
+              "id": "RLA-P-02",
+              "entity_type": "principle",
+              "title": "Treat specialisation as a first-class competitive strategy",
+              "text": "A narrow, deeply-scaffolded system with domain-specific tools and evaluators can outperform a larger generic system on that domain. Betting on 'one universal model' underweights the leverage of environment, tool, and eval design that only makes sense inside a specific workflow.",
+              "status": "active",
+              "confidence": null,
+              "source_doc_ids": [
+                "doc:0c80cf52739e"
+              ],
+              "source_refs": [
+                "wiki/research/rl-for-agents-workshop-deep-dive-on-training-agents-with-rl-and-open-source.md"
+              ],
+              "speaker_ids": [],
+              "project_ids": [],
+              "meeting_ids": [],
+              "topics": [
+                "agent-training",
+                "evaluation",
+                "long-horizon-tasks",
+                "open-source-agents",
+                "reinforcement-learning",
+                "scaffolding"
+              ],
+              "created_at": "2026-04-24T12:00:00.000Z",
+              "updated_at": "2026-04-24T12:00:00.000Z"
+            },
+            {
+              "id": "RLA-P-03",
+              "entity_type": "principle",
+              "title": "Long-horizon RL is a categorically different problem from single-turn RL",
+              "text": "Once episodes contain many state-changing actions, tool calls, and delayed rewards, the naive RLVR loop (prompt â†’ answer â†’ verifier) no longer applies. Data collection, latency, environment stability, observability, and verifier design move from implementation detail to dominant constraints.",
+              "status": "active",
+              "confidence": null,
+              "source_doc_ids": [
+                "doc:0c80cf52739e"
+              ],
+              "source_refs": [
+                "wiki/research/rl-for-agents-workshop-deep-dive-on-training-agents-with-rl-and-open-source.md"
+              ],
+              "speaker_ids": [],
+              "project_ids": [],
+              "meeting_ids": [],
+              "topics": [
+                "agent-training",
+                "evaluation",
+                "long-horizon-tasks",
+                "open-source-agents",
+                "reinforcement-learning",
+                "scaffolding"
+              ],
+              "created_at": "2026-04-24T12:00:00.000Z",
+              "updated_at": "2026-04-24T12:00:00.000Z"
+            },
+            {
+              "id": "RLA-P-04",
+              "entity_type": "principle",
+              "title": "Credit assignment is the central bottleneck in long trajectories",
+              "text": "When success or failure follows many interacting steps, attributing which action mattered is the hard problem. Dense step-level labels do not scale, so trajectory logs, inspectable observations, and evals that separate outcome quality from process quality are prerequisites for learnable feedback.",
+              "status": "active",
+              "confidence": null,
+              "source_doc_ids": [
+                "doc:0c80cf52739e"
+              ],
+              "source_refs": [
+                "wiki/research/rl-for-agents-workshop-deep-dive-on-training-agents-with-rl-and-open-source.md"
+              ],
+              "speaker_ids": [],
+              "project_ids": [],
+              "meeting_ids": [],
+              "topics": [
+                "agent-training",
+                "evaluation",
+                "long-horizon-tasks",
+                "open-source-agents",
+                "reinforcement-learning",
+                "scaffolding"
+              ],
+              "created_at": "2026-04-24T12:00:00.000Z",
+              "updated_at": "2026-04-24T12:00:00.000Z"
+            },
+            {
+              "id": "RLA-P-05",
+              "entity_type": "principle",
+              "title": "Environments are training infrastructure, not context",
+              "text": "A realistic, stable, hard-to-game environment with genuine state and dynamics is a capital asset. If the environment is slow, brittle, or trivially exploitable, no amount of algorithmic work recovers the lost signal â€” environment quality caps what any training loop can achieve.",
+              "status": "active",
+              "confidence": null,
+              "source_doc_ids": [
+                "doc:0c80cf52739e"
+              ],
+              "source_refs": [
+                "wiki/research/rl-for-agents-workshop-deep-dive-on-training-agents-with-rl-and-open-source.md"
+              ],
+              "speaker_ids": [],
+              "project_ids": [],
+              "meeting_ids": [],
+              "topics": [
+                "agent-training",
+                "evaluation",
+                "long-horizon-tasks",
+                "open-source-agents",
+                "reinforcement-learning",
+                "scaffolding"
+              ],
+              "created_at": "2026-04-24T12:00:00.000Z",
+              "updated_at": "2026-04-24T12:00:00.000Z"
+            },
+            {
+              "id": "RLA-P-06",
+              "entity_type": "principle",
+              "title": "Choose frameworks per use-case; a universal stack is not coming",
+              "text": "The tooling landscape is fragmented for structural reasons â€” local vs distributed scale, model size, hardware mix, and objective all pull in different directions. Waiting for one canonical framework is a stall; picking the one that fits the specific objective beats chasing generality.",
+              "status": "active",
+              "confidence": null,
+              "source_doc_ids": [
+                "doc:0c80cf52739e"
+              ],
+              "source_refs": [
+                "wiki/research/rl-for-agents-workshop-deep-dive-on-training-agents-with-rl-and-open-source.md"
+              ],
+              "speaker_ids": [],
+              "project_ids": [],
+              "meeting_ids": [],
+              "topics": [
+                "agent-training",
+                "evaluation",
+                "long-horizon-tasks",
+                "open-source-agents",
+                "reinforcement-learning",
+                "scaffolding"
+              ],
+              "created_at": "2026-04-24T12:00:00.000Z",
+              "updated_at": "2026-04-24T12:00:00.000Z"
+            },
+            {
+              "id": "RLA-P-07",
+              "entity_type": "principle",
+              "title": "Treat benchmarks as perishable and adversarial, not scoreboards",
+              "text": "Public benchmarks saturate, get overfit to, and stop discriminating. The durable value of a benchmark is in surfacing what a system still cannot do, so they must be continuously rebuilt to be harder, more realistic, and harder to reward-hack.",
+              "status": "active",
+              "confidence": null,
+              "source_doc_ids": [
+                "doc:0c80cf52739e"
+              ],
+              "source_refs": [
+                "wiki/research/rl-for-agents-workshop-deep-dive-on-training-agents-with-rl-and-open-source.md"
+              ],
+              "speaker_ids": [],
+              "project_ids": [],
+              "meeting_ids": [],
+              "topics": [
+                "agent-training",
+                "evaluation",
+                "long-horizon-tasks",
+                "open-source-agents",
+                "reinforcement-learning",
+                "scaffolding"
+              ],
+              "created_at": "2026-04-24T12:00:00.000Z",
+              "updated_at": "2026-04-24T12:00:00.000Z"
+            },
+            {
+              "id": "RLA-P-08",
+              "entity_type": "principle",
+              "title": "Scaffolding can deliver capability gains before any new training",
+              "text": "Test-time compute, decomposition, self-aggregation, retrieval, and orchestration all raise effective performance of a fixed model. Treating scaffold as a side concern and training as the lever leaves most of the available capability on the table.",
+              "status": "active",
+              "confidence": null,
+              "source_doc_ids": [
+                "doc:0c80cf52739e"
+              ],
+              "source_refs": [
+                "wiki/research/rl-for-agents-workshop-deep-dive-on-training-agents-with-rl-and-open-source.md"
+              ],
+              "speaker_ids": [],
+              "project_ids": [],
+              "meeting_ids": [],
+              "topics": [
+                "agent-training",
+                "evaluation",
+                "long-horizon-tasks",
+                "open-source-agents",
+                "reinforcement-learning",
+                "scaffolding"
+              ],
+              "created_at": "2026-04-24T12:00:00.000Z",
+              "updated_at": "2026-04-24T12:00:00.000Z"
+            },
+            {
+              "id": "RLA-P-09",
+              "entity_type": "principle",
+              "title": "Ratchet evaluation targets toward work nobody has done before",
+              "text": "A useful progression for eval design: exam-style â†’ multi-day human work â†’ multi-year team work â†’ verifiable novel work. Pushing targets rightward is what keeps evals discriminative and forces the infrastructure needed to train against the next capability tier.",
+              "status": "active",
+              "confidence": null,
+              "source_doc_ids": [
+                "doc:0c80cf52739e"
+              ],
+              "source_refs": [
+                "wiki/research/rl-for-agents-workshop-deep-dive-on-training-agents-with-rl-and-open-source.md"
+              ],
+              "speaker_ids": [],
+              "project_ids": [],
+              "meeting_ids": [],
+              "topics": [
+                "agent-training",
+                "evaluation",
+                "long-horizon-tasks",
+                "open-source-agents",
+                "reinforcement-learning",
+                "scaffolding"
+              ],
+              "created_at": "2026-04-24T12:00:00.000Z",
+              "updated_at": "2026-04-24T12:00:00.000Z"
+            },
+            {
+              "id": "RLA-P-10",
+              "entity_type": "principle",
+              "title": "Internal, real-task evals are the durable strategic asset",
+              "text": "Generic public benchmarks are a commodity and don't transfer to the task a team actually cares about. Internal evals grounded in real work, designed adversarially against reward hacking, are what let a team detect real progress and direct training effort.",
+              "status": "active",
+              "confidence": null,
+              "source_doc_ids": [
+                "doc:0c80cf52739e"
+              ],
+              "source_refs": [
+                "wiki/research/rl-for-agents-workshop-deep-dive-on-training-agents-with-rl-and-open-source.md"
+              ],
+              "speaker_ids": [],
+              "project_ids": [],
+              "meeting_ids": [],
+              "topics": [
+                "agent-training",
+                "evaluation",
+                "long-horizon-tasks",
+                "open-source-agents",
+                "reinforcement-learning",
+                "scaffolding"
+              ],
+              "created_at": "2026-04-24T12:00:00.000Z",
+              "updated_at": "2026-04-24T12:00:00.000Z"
+            }
+          ],
+          "documents": [
+            {
+              "doc_id": "doc:33798f75eb6d",
+              "uri": "vtp://resource/wiki/books/hands-on-large-language-models.md",
+              "rel_path": "wiki/books/hands-on-large-language-models.md",
+              "slug": "hands-on-large-language-models",
+              "title": "Hands-On Large Language Models",
+              "mime_type": "text/markdown",
+              "source_type": "wiki_page",
+              "created_at": "2026-05-31T16:51:26+00:00",
+              "updated_at": "2026-05-31T16:51:26+00:00",
+              "status": "active",
+              "topics": [
+                "wiki-page"
+              ],
+              "project_ids": [],
+              "speaker_ids": [],
+              "meeting_ids": [],
+              "headings": null,
+              "_elided": "headings: full-book chapter/section index (several hundred entries, the single pathological array in this response) elided at capture per disclosed-elision policy; retrievable verbatim via mcp__vtp-kb__vtp_get_document doc:33798f75eb6d",
+              "word_count": 120786
+            },
+            {
+              "doc_id": "doc:019b445fc1ff",
+              "uri": "vtp://resource/wiki/people/indie-dev-dan-dan-mac.md",
+              "rel_path": "wiki/people/indie-dev-dan-dan-mac.md",
+              "slug": "indie-dev-dan-dan-mac",
+              "title": "Indie Dev Dan (Dan Mac)",
+              "mime_type": "text/markdown",
+              "source_type": "person_page",
+              "created_at": "2026-05-29T23:05:09.258Z",
+              "updated_at": "2026-05-29T23:05:09.258Z",
+              "status": "active",
+              "topics": [
+                "person-page"
+              ],
+              "project_ids": [],
+              "speaker_ids": [
+                "indie-dev-dan-dan-mac"
+              ],
+              "meeting_ids": [],
+              "headings": [
+                "Indie Dev Dan (Dan Mac)",
+                "Meetings",
+                "Claims",
+                "Commitments",
+                "Ideas Proposed"
+              ],
+              "word_count": 44
+            },
+            {
+              "doc_id": "doc:0c80cf52739e",
+              "uri": "vtp://resource/wiki/research/rl-for-agents-workshop-deep-dive-on-training-agents-with-rl-and-open-source.md",
+              "rel_path": "wiki/research/rl-for-agents-workshop-deep-dive-on-training-agents-with-rl-and-open-source.md",
+              "slug": "rl-for-agents-workshop-deep-dive-on-training-agents-with-rl-and-open-source",
+              "title": "RL for Agents Workshop - Deep Dive on Training Agents with RL and Open Source",
+              "mime_type": "text/markdown",
+              "source_type": "research_paper",
+              "created_at": "2026-04-23T00:00:00Z",
+              "updated_at": "2026-04-23T00:00:00Z",
+              "status": "active",
+              "topics": [
+                "agent-training",
+                "evaluation",
+                "long-horizon-tasks",
+                "open-source-agents",
+                "reinforcement-learning",
+                "research-paper",
+                "scaffolding"
+              ],
+              "project_ids": [],
+              "speaker_ids": [],
+              "meeting_ids": [],
+              "headings": [
+                "RL for Agents Workshop - Deep Dive on Training Agents with RL and Open Source",
+                "Why this matters",
+                "Executive Digest",
+                "Core Ideas",
+                "1. Train agents, not just models",
+                "2. Task horizon is the real capability signal",
+                "3. Specialization is likely to beat genericity in important domains",
+                "4. Agent RL is not just RLVR with a larger prompt",
+                "5. Credit assignment is a central bottleneck",
+                "6. Environments are first-class training infrastructure",
+                "7. Training frameworks are diverse and trade-off heavy",
+                "8. Evals are harder than most people think",
+                "9. Scaffolds matter",
+                "10. Benchmark progression: from school exams to never-done-before tasks",
+                "Implications for VTP",
+                "1. VTP is not just a transcript tool",
+                "2. More documents improve training and runtime, not just search",
+                "3. We should preserve source type explicitly",
+                "4. Internal evals should likely become a first-class artifact",
+                "Curated Notes",
+                "Agents are the new default interface",
+                "Open source can compete through specialization",
+                "Long rollouts change everything",
+                "Benchmark design is strategic work",
+                "Extracted Topic Fragments",
+                "Suggested Follow-Ups"
+              ],
+              "word_count": 1614
+            }
+          ]
+        },
+        "reflection": null
       }
-     ]
+    },
+    {
+      "stage": "vtp-consume",
+      "fallback_predicate": "reflection_null",
+      "tool": "vtp_search_substrate",
+      "mcp_tool": "mcp__vtp-kb__vtp_search_substrate",
+      "args": {
+        "query": "How should SGSD route knowledge-base retrieval intents across the vtp toolset?"
+      },
+      "error": null,
+      "isError": false,
+      "raw_result": {
+        "total": 8,
+        "hits": [
+          {
+            "chunk_id": "chunk:27c1204d753e",
+            "doc_id": "doc:0c80cf52739e",
+            "rel_path": "wiki/research/rl-for-agents-workshop-deep-dive-on-training-agents-with-rl-and-open-source.md",
+            "section_title": "9. Scaffolds matter",
+            "source_type": "research_paper",
+            "entity_types": [
+              "principle"
+            ],
+            "score": 0.46083788706739526,
+            "lexicalScore": 20.406705343940683,
+            "rerankScore": 0.46083788706739526,
+            "text": "The speaker treats scaffolds as an important source of capability, not just an implementation detail. Test-time compute, recursive decomposition, self-aggregation, and stronger orchestration can all raise performance before any new base-model training happens.\n\nThis is directly relevant to VTP because:\n\n- the knowledge base is part of the scaffold\n- MCP tools are part of the scaffold\n- output structure and decomposition strategy are part of the scaffold\n- retrieval and evaluation policy are part of the scaffold"
+          },
+          {
+            "chunk_id": "chunk:8ce5ffdfb026",
+            "doc_id": "doc:33798f75eb6d",
+            "rel_path": "wiki/books/hands-on-large-language-models.md",
+            "section_title": "Dense Retrieval",
+            "source_type": "wiki_page",
+            "entity_types": [],
+            "score": 0.3494623655913978,
+            "lexicalScore": 19.57147789602175,
+            "rerankScore": 0.3494623655913978,
+            "text": "- Are a query and its best result semantically similar? Not always. This is why language models need to be trained on question-answer pairs to become better at retrieval. This process is explained in more detail in <a href=\"ch10.html#creating_text_embedding_models\" data-type=\"xref\">Chapter 10</a>.\n\n<a href=\"#convert_some_external_knowledge_base_to\" data-type=\"xref\">Figure 8-6</a> shows how we chunk a document before proceeding to embed each chunk. Those embedding vectors are then stored in the vector database<span id=\"id1218\" contenteditable=\"false\" primary=\"vector databases\" secondary=\"dense retrieval\" data-type=\"indexterm\"></span> and are ready for retrieval.\n\n<figure>\n<div id=\"convert_some_external_knowledge_base_to\" class=\"figure\">\n![](hands-on-large-language-models/assets/holl_0806.png)\n<h6 id=\"figure-8-6.-convert-some-external-knowledge-base-to-a-vector-database.-we-can-then-query-this-vector-database-for-information-about-the-knowledge-base.\"><span class=\"label\">Figure 8-6. </span>Convert some external knowledge base to a vector database. We can then query this vector database for information about the knowledge base.</h6>\n</div>\n</figure>\n\n<div class=\"section\" data-type=\"sect3\" pdf-bookmark=\"Dense retrieval example\">\n\n<div id=\"dense_retrieval_example\" class=\"sect3\">"
+          },
+          {
+            "chunk_id": "chunk:c5dd956422c8",
+            "doc_id": "doc:0c80cf52739e",
+            "rel_path": "wiki/research/rl-for-agents-workshop-deep-dive-on-training-agents-with-rl-and-open-source.md",
+            "section_title": "1. VTP is not just a transcript tool",
+            "source_type": "research_paper",
+            "entity_types": [
+              "principle"
+            ],
+            "score": 0.3492063492063492,
+            "lexicalScore": 18.01274576274246,
+            "rerankScore": 0.3492063492063492,
+            "text": "If VTP keeps growing toward agent support, it is better understood as an environment plus memory layer for knowledge work:\n\n- document digestion\n- retrieval\n- structured memory\n- traceable outputs\n- cross-document context\n- evaluation support"
+          },
+          {
+            "chunk_id": "chunk:98cec7e631ff",
+            "doc_id": "doc:293b5f6fac4f",
+            "rel_path": "wiki/meetings/data-architecture.md",
+            "section_title": "1. RAG-powered procurement assistant — KEEP (DK 12)",
+            "source_type": "wiki_page",
+            "entity_types": [],
+            "score": 0.3489583333333333,
+            "lexicalScore": 17.46802589342732,
+            "rerankScore": 0.3489583333333333,
+            "text": "- **Imperative:** Provide a natural-language query interface over JCL's complete supplier-documentation corpus, returning answers grounded exclusively in indexed source material with full citation provenance, achieving 90%+ factual accuracy with zero hallucinated specs/prices/lead times.\n- **Triage verdict:** Route exact-match queries to structured search; discovery queries to semantic search. Hybrid retrieval, not single pipeline.\n- **Top stakeholder concern:** Procurement officers will not trust AI answers without provenance — every response must include source document, page number, and ingestion date.\n- **KB integration:** Linked to OS-2 (2026-03-20 AI Consultancy Startup Planning) which discussed the same VTP/RAG architecture for business consulting.\n- **Top cross-domain finding:** Bloomberg GPT showed domain-specific training + RAG retrieval reduced hallucination from 23% to under 3% on structured financial-document queries."
+          },
+          {
+            "chunk_id": "chunk:35a98b3097e9",
+            "doc_id": "doc:019b445fc1ff",
+            "rel_path": "wiki/people/indie-dev-dan-dan-mac.md",
+            "section_title": "Indie Dev Dan (Dan Mac)",
+            "source_type": "person_page",
+            "entity_types": [],
+            "score": 0.01639344262295082,
+            "denseScore": 0.5691809397272193,
+            "rerankScore": 0.01639344262295082,
+            "text": "Indie Dev Dan (Dan Mac) appears in 1 meeting with 12 claims, 3 commitments, and 0 ideas proposed."
+          },
+          {
+            "chunk_id": "chunk:33c0e08ca3b4",
+            "doc_id": "doc:019b445fc1ff",
+            "rel_path": "wiki/people/indie-dev-dan-dan-mac.md",
+            "section_title": "Commitments",
+            "source_type": "person_page",
+            "entity_types": [
+              "commitment"
+            ],
+            "score": 0.016129032258064516,
+            "denseScore": 0.557048499058233,
+            "rerankScore": 0.016129032258064516,
+            "text": "3 owned commitments."
+          },
+          {
+            "chunk_id": "chunk:fc832392ac07",
+            "doc_id": "doc:019b445fc1ff",
+            "rel_path": "wiki/people/indie-dev-dan-dan-mac.md",
+            "section_title": "Claims",
+            "source_type": "person_page",
+            "entity_types": [
+              "claim"
+            ],
+            "score": 0.015873015873015872,
+            "denseScore": 0.557048499058233,
+            "rerankScore": 0.015873015873015872,
+            "text": "12 attributed claims."
+          },
+          {
+            "chunk_id": "chunk:2b4c0df1c82c",
+            "doc_id": "doc:019b445fc1ff",
+            "rel_path": "wiki/people/indie-dev-dan-dan-mac.md",
+            "section_title": "Ideas Proposed",
+            "source_type": "person_page",
+            "entity_types": [],
+            "score": 0.015625,
+            "denseScore": 0.5462309935991351,
+            "rerankScore": 0.015625,
+            "text": "0 ideas proposed."
+          }
+        ]
+      }
     }
-   },
-   "error": null,
-   "isError": false,
-   "raw_result": {
-    "context_summary": {
-     "current_goal": "phase:154,plan:01",
-     "mode": "planning",
-     "context_scope": {
-      "repo": "repo"
-     }
-    },
-    "query_frame": {
-     "query_frame_id": "qf_fb749fe0bf",
-     "intent_type": "project_planning",
-     "answer_shape": "practical_checklist",
-     "confidence": 0.53
-    },
-    "decision_matrix": {
-     "matrix_id": "wdm_e31312f32c"
-    },
-    "retrieval_plan": {
-     "retrieval_plan_id": "rp_e31312f32c",
-     "retrieval_mode": "architecture_hybrid"
-    },
-    "evidence": {
-     "hits_count": 5,
-     "first_hit": {
-      "chunk_id": "chunk:27c1204d753e",
-      "rel_path": "wiki/research/rl-for-agents-workshop-deep-dive-on-training-agents-with-rl-and-open-source.md",
-      "section_title": "9. Scaffolds matter",
-      "score": 0.46083788706739526
-     },
-     "entities_count": 10,
-     "documents_count": 3
-    },
-    "reflection": null,
-    "_elided": "deep hit/entity/document bodies elided; observed live in-session"
-   }
-  },
-  {
-   "stage": "vtp-consume",
-   "fallback_predicate": "reflection_null",
-   "tool": "vtp_search_substrate",
-   "mcp_tool": "mcp__vtp-kb__vtp_search_substrate",
-   "args": {
-    "query": "How should SGSD route knowledge-base retrieval intents across the vtp toolset?"
-   },
-   "error": null,
-   "isError": false,
-   "raw_result": {
-    "total": 8,
-    "hits_count": 8,
-    "first_hit": {
-     "chunk_id": "chunk:27c1204d753e",
-     "doc_id": "doc:0c80cf52739e",
-     "section_title": "9. Scaffolds matter",
-     "score": 0.46083788706739526,
-     "lexicalScore": 20.406705343940683
-    },
-    "last_hit": {
-     "chunk_id": "chunk:2b4c0df1c82c",
-     "rel_path": "wiki/people/indie-dev-dan-dan-mac.md",
-     "score": 0.015625
-    },
-    "_elided": "hit bodies elided; observed live in-session"
-   }
-  }
- ]
+  ]
 }
