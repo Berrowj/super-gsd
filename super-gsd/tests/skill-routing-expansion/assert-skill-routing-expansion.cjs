@@ -9,6 +9,9 @@ const { spawnSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const CLASSIFIER = path.join(ROOT, 'super-gsd', 'hooks', 'sgsd-intent-classifier.cjs');
 const REGISTRY = path.join(ROOT, 'super-gsd', 'scripts', 'lib', 'skill-routing-registry.cjs');
+const DESCRIPTION_LINT = path.join(
+  ROOT, 'super-gsd', 'tools', 'skill-description-lint', 'lint.cjs',
+);
 const TARGET = 'sgsd-code-review';
 const PROMPT = 'review my code sentinel-p159-availability';
 const UNAVAILABLE_REASON = 'skill_entrypoint_not_found';
@@ -587,19 +590,149 @@ function erpVtpSkillFamilyCase() {
   return fail === 0 ? 0 : 1;
 }
 
+function descriptionLintCase() {
+  let pass = 0;
+  let fail = 0;
+  const failures = [];
+  const check = (name, condition, detail) => {
+    if (condition) pass += 1;
+    else {
+      fail += 1;
+      failures.push(name + (detail ? ' -- ' + detail : ''));
+    }
+  };
+  const capture = () => {
+    const chunks = [];
+    return {
+      stream: { write: (chunk) => chunks.push(String(chunk)) },
+      text: () => chunks.join(''),
+    };
+  };
+
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-p159-description-lint-'));
+  const mixed = path.join(base, 'mixed');
+  const clean = path.join(base, 'clean');
+  try {
+    writeFile(path.join(mixed, 'compliant', 'SKILL.md'), [
+      '---',
+      'name: compliant',
+      'description: >-',
+      '  Use when preparing a governed SAP quote from customer or schedule inputs.',
+      '  Prefer the ERP resolver for record reconciliation; do not use this skill for',
+      '  general product lookup. Build a dry-run first and require explicit operator',
+      '  approval before any live write.',
+      '---',
+      '',
+    ].join('\n'));
+    writeFile(path.join(mixed, 'missing', 'SKILL.md'), [
+      '---',
+      'name: missing',
+      '---',
+      '',
+    ].join('\n'));
+    writeFile(path.join(mixed, 'one-noun', 'SKILL.md'), [
+      '---',
+      'name: one-noun',
+      'description: Quotes.',
+      '---',
+      '',
+    ].join('\n'));
+    writeFile(path.join(mixed, 'duplicate', 'SKILL.md'), [
+      '---',
+      'name: duplicate',
+      'description: first secret-description-sentinel',
+      'description: second secret-description-sentinel',
+      '---',
+      '',
+    ].join('\n'));
+    writeFile(
+      path.join(clean, 'compliant', 'SKILL.md'),
+      fs.readFileSync(path.join(mixed, 'compliant', 'SKILL.md'), 'utf8'),
+    );
+
+    const lint = require(DESCRIPTION_LINT);
+    const mixedOut = capture();
+    const mixedErr = capture();
+    const findingsExit = lint.run(
+      ['--skills-dir', mixed, '--json'],
+      { stdout: mixedOut.stream, stderr: mixedErr.stream },
+    );
+    const report = JSON.parse(mixedOut.text());
+    check('fixture findings exit 1', findingsExit === 1, `exit=${findingsExit}`);
+    check('fixture findings write no stderr', mixedErr.text() === '', mixedErr.text());
+    check(
+      'violations have stable relative paths and reason codes',
+      JSON.stringify(report.findings) === JSON.stringify([
+        { file: 'duplicate/SKILL.md', reason_code: 'frontmatter_malformed' },
+        { file: 'missing/SKILL.md', reason_code: 'description_missing' },
+        { file: 'one-noun/SKILL.md', reason_code: 'description_one_noun' },
+      ]),
+      JSON.stringify(report.findings),
+    );
+    check(
+      'compliant fixture is not flagged',
+      !report.findings.some((finding) => finding.file === 'compliant/SKILL.md'),
+      JSON.stringify(report.findings),
+    );
+    check(
+      'malformed frontmatter output does not echo description content',
+      !mixedOut.text().includes('secret-description-sentinel'),
+      mixedOut.text(),
+    );
+
+    const cleanOut = capture();
+    const cleanErr = capture();
+    const cleanExit = lint.run(
+      ['--skills-dir', clean, '--json'],
+      { stdout: cleanOut.stream, stderr: cleanErr.stream },
+    );
+    check('compliant-only fixture exits 0', cleanExit === 0, `exit=${cleanExit}`);
+    check(
+      'compliant-only fixture has no findings',
+      JSON.parse(cleanOut.text()).findings.length === 0 && cleanErr.text() === '',
+      cleanOut.text() + cleanErr.text(),
+    );
+
+    const errorOut = capture();
+    const errorErr = capture();
+    const errorExit = lint.run(
+      ['--skills-dir', path.join(base, 'absent')],
+      { stdout: errorOut.stream, stderr: errorErr.stream },
+    );
+    check('invalid skills directory exits 2', errorExit === 2, `exit=${errorExit}`);
+    check(
+      'invalid input reports only a stable reason code',
+      errorOut.text() === '' && errorErr.text() === 'skill-description-lint: skills_dir_missing\n',
+      errorOut.text() + errorErr.text(),
+    );
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+
+  console.log(
+    'skill-routing-expansion description-lint: ' + pass + ' pass, ' + fail + ' fail',
+  );
+  for (const failure of failures) console.error('  FAIL: ' + failure);
+  return fail === 0 ? 0 : 1;
+}
+
 function main() {
   const requestedCase = argument('--case');
-  if (!['availability-guard', 'erp-vtp-skill-family'].includes(requestedCase)) {
+  if (![
+    'availability-guard',
+    'erp-vtp-skill-family',
+    'description-lint',
+  ].includes(requestedCase)) {
     console.error(
       'Usage: node assert-skill-routing-expansion.cjs '
-        + '--case <availability-guard|erp-vtp-skill-family>',
+        + '--case <availability-guard|erp-vtp-skill-family|description-lint>',
     );
     process.exit(2);
   }
   try {
-    process.exit(requestedCase === 'availability-guard'
-      ? availabilityGuardCase()
-      : erpVtpSkillFamilyCase());
+    if (requestedCase === 'availability-guard') process.exit(availabilityGuardCase());
+    if (requestedCase === 'erp-vtp-skill-family') process.exit(erpVtpSkillFamilyCase());
+    process.exit(descriptionLintCase());
   } catch (error) {
     console.error(
       'skill-routing-expansion ' + requestedCase + ': unexpected error -- ' + error.message,
