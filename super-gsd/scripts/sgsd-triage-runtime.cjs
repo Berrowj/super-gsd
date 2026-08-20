@@ -313,7 +313,7 @@ function callArgs(root, rawQuery, payload, options) {
 
 async function safeCallVtp(tool, root, rawQuery, payload, options, exceptionReason) {
   try {
-    return await callVtp(tool, callArgs(root, rawQuery, payload, options));
+    return await callVtp(tool, callArgs(root, rawQuery, shapeMcpArgs(tool, payload), options));
   } catch (error) {
     return {
       ok: false,
@@ -431,6 +431,42 @@ function shortStageTool(tool) {
   return String(tool || '');
 }
 
+function shapeMcpArgs(tool, candidate) {
+  const input = candidate && typeof candidate === 'object' && !Array.isArray(candidate) ? candidate : {};
+  if (tool === ROUTE_TOOL) {
+    const sourceContext = input.context && typeof input.context === 'object' && !Array.isArray(input.context)
+      ? input.context
+      : {};
+    const context = {};
+    for (const key of ['session_id', 'repo', 'current_task', 'active_file']) {
+      if (typeof sourceContext[key] === 'string') context[key] = sourceContext[key];
+    }
+    for (const key of ['recent_commands', 'recent_errors', 'blockers', 'explicit_constraints']) {
+      if (Array.isArray(sourceContext[key])) {
+        context[key] = sourceContext[key].filter((item) => typeof item === 'string');
+      }
+    }
+    if (Array.isArray(sourceContext.recent_turns)) {
+      context.recent_turns = sourceContext.recent_turns.flatMap((turn) => {
+        if (typeof turn === 'string') return turn.length > 0 ? [{ text: turn }] : [];
+        if (!turn || typeof turn !== 'object' || Array.isArray(turn) || typeof turn.text !== 'string' || !turn.text) return [];
+        const shaped = { text: turn.text };
+        if (['user', 'assistant', 'system'].includes(turn.role)) shaped.role = turn.role;
+        return [shaped];
+      });
+    }
+    return { raw_query: input.raw_query, context };
+  }
+  if (tool === SEARCH_TOOL) {
+    const shaped = { query: input.query };
+    for (const key of ['limit', 'source_types', 'entity_types', 'project_ids', 'speaker_ids', 'topics', 'meeting_ids']) {
+      if (Object.prototype.hasOwnProperty.call(input, key) && input[key] !== undefined) shaped[key] = input[key];
+    }
+    return shaped;
+  }
+  throw new Error(`vtp_mcp_arg_tool_unknown:${tool}`);
+}
+
 function stageInvokeResult(tool, args, responseRel, extras = {}) {
   return {
     stageProtocol: true,
@@ -438,7 +474,7 @@ function stageInvokeResult(tool, args, responseRel, extras = {}) {
     action: 'invoke_mcp',
     tool: shortStageTool(tool),
     mcp_tool: tool,
-    args,
+    args: shapeMcpArgs(tool, args),
     response_file: responseRel.replace(/\\/g, '/'),
     ...extras,
   };
@@ -597,16 +633,16 @@ function loadStagedVtpForRun(root, state, rawQuery, triageSlice, evidenceRel, op
   const loaded = readStageResponseFile(root, options.responseFile);
   if (!loaded.ok) return null;
   const meta = readStageMeta(root, loaded.rel) || {};
-  const routePayload = meta.routePayload || { raw_query: rawQuery, context: triageSlice };
+  const routePayload = shapeMcpArgs(ROUTE_TOOL, meta.routePayload || { raw_query: rawQuery, context: triageSlice });
   const evidencePath = existingStagedEvidencePath(root, evidenceRel);
   if (meta.routeResponse) {
     const fallbackPredicateValue = meta.fallbackPredicate || null;
-    const fallbackPayload = meta.fallbackPayload || {
+    const fallbackPayload = shapeMcpArgs(SEARCH_TOOL, meta.fallbackPayload || {
       raw_query: rawQuery,
       query: rawQuery,
       context: triageSlice,
       fallback_reason: fallbackPredicateValue,
-    };
+    });
     const reasonCode = stagedFallbackReasonCode(fallbackPredicateValue);
     const degradationRow = reasonCode ? findStagedDegradationRow(root, {
       reasonCode,
@@ -685,7 +721,7 @@ function completeStageDegraded(root, state, rawQuery, params = {}) {
 async function runVtpStage(root, state, rawQuery, triageSlice, evidenceRel, options = {}) {
   try {
     const stage = String(options.stage || '').trim();
-    const routePayload = { raw_query: rawQuery, context: triageSlice };
+    const routePayload = shapeMcpArgs(ROUTE_TOOL, { raw_query: rawQuery, context: triageSlice });
 
     if (stage === VTP_STAGE_PLAN) {
       if (!readTriageVtpEnrichmentEnabled(root)) {
@@ -758,12 +794,12 @@ async function runVtpStage(root, state, rawQuery, triageSlice, evidenceRel, opti
             fallback_predicate: predicate.predicate,
           },
         }));
-        const fallbackPayload = {
+        const fallbackPayload = shapeMcpArgs(SEARCH_TOOL, {
           raw_query: rawQuery,
           query: rawQuery,
           context: triageSlice,
           fallback_reason: predicate.predicate,
-        };
+        });
         const responseRel = vtpStageResponseRel(state, `fallback-${predicate.predicate}`);
         if (!ensureStageWriteTarget(root, responseRel)) {
           return completeStageDegraded(root, state, rawQuery, {
@@ -818,12 +854,12 @@ async function runVtpStage(root, state, rawQuery, triageSlice, evidenceRel, opti
 
     if (stage === VTP_STAGE_FINALIZE) {
       const meta = readStageMeta(root, options.responseFile) || {};
-      const fallbackPayload = meta.fallbackPayload || {
+      const fallbackPayload = shapeMcpArgs(SEARCH_TOOL, meta.fallbackPayload || {
         raw_query: rawQuery,
         query: rawQuery,
         context: triageSlice,
         fallback_reason: meta.fallbackPredicate || null,
-      };
+      });
       const loaded = readStageResponseFile(root, options.responseFile);
       if (!loaded.ok) {
         return completeStageDegraded(root, state, rawQuery, {
@@ -1557,7 +1593,7 @@ async function runTriageRuntime(options = {}) {
       },
     }));
   } else {
-    routePayload = { raw_query: rawQuery, context: triageSlice };
+    routePayload = shapeMcpArgs(ROUTE_TOOL, { raw_query: rawQuery, context: triageSlice });
     routeResult = await safeCallVtp(
       ROUTE_TOOL,
       root,
@@ -1610,12 +1646,12 @@ async function runTriageRuntime(options = {}) {
   }
 
   if (fallbackAttempted && !stagedVtp) {
-    fallbackPayload = {
+    fallbackPayload = shapeMcpArgs(SEARCH_TOOL, {
       raw_query: rawQuery,
       query: rawQuery,
       context: triageSlice,
       fallback_reason: fallbackReason,
-    };
+    });
     fallbackResult = await safeCallVtp(
       SEARCH_TOOL,
       root,

@@ -14,6 +14,7 @@ const childProcess = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { Worker } = require('worker_threads');
 
 const repoRoot = path.resolve(__dirname, '../../..');
 const runtimePath = path.join(repoRoot, 'super-gsd', 'scripts', 'sgsd-triage-runtime.cjs');
@@ -255,13 +256,66 @@ function readJsonl(root, subpath) {
 }
 
 function runRuntimeCli(args, options = {}) {
-  return childProcess.spawnSync(process.execPath, [runtimePath, ...args], {
+  const spawned = childProcess.spawnSync(process.execPath, [runtimePath, ...args], {
     cwd: repoRoot,
     env: options.env || process.env,
     encoding: 'utf8',
     windowsHide: true,
     maxBuffer: 1024 * 1024,
   });
+  if (!spawned.error || spawned.error.code !== 'EPERM') return spawned;
+
+  const resultPath = path.join(os.tmpdir(), `sgsd-triage-cli-worker-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.json`);
+  const shared = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT);
+  const signal = new Int32Array(shared);
+  const bridgeSource = [
+    "'use strict';",
+    "const fs = require('fs');",
+    "const { Worker, workerData } = require('worker_threads');",
+    'let finished = false;',
+    'function finish(result) {',
+    '  if (finished) return;',
+    '  finished = true;',
+    "  fs.writeFileSync(workerData.resultPath, JSON.stringify(result), 'utf8');",
+    '  const signal = new Int32Array(workerData.shared);',
+    '  Atomics.store(signal, 0, 1);',
+    '  Atomics.notify(signal, 0);',
+    '}',
+    'const child = new Worker(workerData.runtimePath, {',
+    '  argv: workerData.args,',
+    '  env: workerData.env,',
+    '  stdout: true,',
+    '  stderr: true,',
+    '});',
+    "let stdout = '';",
+    "let stderr = '';",
+    "child.stdout.setEncoding('utf8');",
+    "child.stderr.setEncoding('utf8');",
+    "child.stdout.on('data', (chunk) => { stdout += chunk; });",
+    "child.stderr.on('data', (chunk) => { stderr += chunk; });",
+    "child.on('error', (error) => finish({ status: null, stdout, stderr, error: error.message }));",
+    "child.on('exit', (status) => finish({ status, stdout, stderr, error: null }));",
+  ].join('\n');
+  const bridge = new Worker(bridgeSource, {
+    eval: true,
+    workerData: {
+      runtimePath,
+      args,
+      env: options.env || process.env,
+      resultPath,
+      shared,
+    },
+  });
+  const waitResult = Atomics.wait(signal, 0, 0, 30000);
+  if (waitResult === 'timed-out') {
+    bridge.terminate();
+    return { status: null, stdout: '', stderr: 'worker CLI bridge timed out', error: 'ETIMEDOUT' };
+  }
+  try {
+    return JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+  } finally {
+    fs.rmSync(resultPath, { force: true });
+  }
 }
 
 function parseRuntimeCliJson(cli, label) {
@@ -1433,9 +1487,7 @@ async function assertStagedVtpNullReflectionFallback() {
     const fallbackInstruction = invokeVtpConsumeStage(fixture, queryRel, plan.response_file, 'vtp-consume null-reflection');
     assert.strictEqual(fallbackInstruction.action, 'invoke_mcp');
     assert.strictEqual(fallbackInstruction.tool, 'vtp_search_substrate');
-    assert.strictEqual(fallbackInstruction.args.raw_query, rawQuery);
-    assert.strictEqual(fallbackInstruction.args.query, rawQuery);
-    assert.strictEqual(fallbackInstruction.args.fallback_reason, 'reflection_null');
+    assert.deepStrictEqual(fallbackInstruction.args, { query: rawQuery });
     contained(fixture.repoDir, fallbackInstruction.response_file);
 
     const rows = gateRowsWithReason(fixture, 'vtp_fallback_reflection_null');

@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://super-gsd.local/schemas/vtp-mcp-input-schemas.v1.json",
+  "version_id": "vtp-mcp-input-schemas.v1",
+  "provenance": "mirrors live vtp-kb descriptors reproduced 2026-08-18",
+  "tools": {
+    "mcp__vtp-kb__vtp_route_and_retrieve": {
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["raw_query", "context"],
+        "properties": {
+          "raw_query": { "type": "string", "minLength": 3 },
+          "context": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "session_id": { "type": "string" },
+              "repo": { "type": "string" },
+              "current_task": { "type": "string" },
+              "active_file": { "type": "string" },
+              "recent_commands": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "recent_errors": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "blockers": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "explicit_constraints": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "recent_turns": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["text"],
+                  "properties": {
+                    "id": { "type": "string" },
+                    "role": {
+                      "type": "string",
+                      "enum": ["user", "assistant", "system"]
+                    },
+                    "text": { "type": "string", "minLength": 1 }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "mcp__vtp-kb__vtp_search_substrate": {
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["query"],
+        "properties": {
+          "query": { "type": "string", "minLength": 3 },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 25 },
+          "source_types": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "entity_types": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "project_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "speaker_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "topics": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "meeting_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}
