@@ -1,0 +1,6 @@
+super-gsd/scripts/lib/hook-registration-preflight.cjs
+super-gsd/scripts/merge-settings.js
+super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs
+super-gsd/install.sh
+super-gsd/config/settings-overlay.json
+super-gsd/config/repo-settings-overlay.json

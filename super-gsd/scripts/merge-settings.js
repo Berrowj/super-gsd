@@ -32,6 +32,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { preflightHookRegistrations } = require('./lib/hook-registration-preflight.cjs');
 
 const SELF_TEST_REPO_LOCAL = '--self-test-repo-local-hooks';
 const REPO_LOCAL_MODE = '--repo-local-hooks';
@@ -111,8 +112,8 @@ function realizeCommand(command) {
     const raw = String(command || '');
     const home = homeSlash();
     return raw.replace(
-        /node\s+["']?(~|\$HOME|%USERPROFILE%)[\\/]\.claude[\\/]hooks[\\/]([^"'\s]+)["']?/gi,
-        (_, _homeToken, hookPath) => `node "${home}/.claude/hooks/${String(hookPath).replace(/\\/g, '/')}"`
+        /(node|bash)\s+["']?(~|\$HOME|%USERPROFILE%)[\\/]\.claude[\\/]hooks[\\/]([^"'\s]+)["']?/gi,
+        (_, interpreter, _homeToken, hookPath) => `${interpreter.toLowerCase()} "${home}/.claude/hooks/${String(hookPath).replace(/\\/g, '/')}"`
     );
 }
 
@@ -435,6 +436,16 @@ function runSelfTestRepoLocalHooks() {
         const overlayWithEnv = readJsonOrEmpty(overlayPath);
         overlayWithEnv.env = { [sentinelKey]: sentinelValue };
         fs.writeFileSync(envOverlayPath, JSON.stringify(overlayWithEnv, null, 2) + '\n', 'utf8');
+        const preflightStubPaths = [
+            path.join(targetRepo, 'super-gsd', 'hooks', 'sgsd-session-start.js'),
+            path.join(targetRepo, 'super-gsd', 'hooks', 'sgsd-intent-classifier.cjs'),
+            path.join(targetRepo, 'super-gsd', 'tools', 'codex-hooks', 'block-secret-leak.cjs'),
+            path.join(targetRepo, 'super-gsd', 'hooks', 'sgsd-quality-gate.js')
+        ];
+        for (const stubPath of preflightStubPaths) {
+            fs.mkdirSync(path.dirname(stubPath), { recursive: true });
+            fs.writeFileSync(stubPath, "'use strict';\n", 'utf8');
+        }
         fs.writeFileSync(targetSettings, JSON.stringify({
             unrelatedProjectKey: { survives: true },
             hooks: {
@@ -578,6 +589,7 @@ function mergeSettingsFiles(overlayPath, targetPath, repoRoot) {
     const overlay = repoRoot
         ? realizeRepoLocalHookArgs(readJsonOrEmpty(overlayPath), repoRoot)
         : realizeCommands(readJsonOrEmpty(overlayPath));
+    preflightHookRegistrations(overlay);
     const target = repoRoot
         ? readJsonOrEmpty(targetPath)
         : realizeCommands(readJsonOrEmpty(targetPath));
