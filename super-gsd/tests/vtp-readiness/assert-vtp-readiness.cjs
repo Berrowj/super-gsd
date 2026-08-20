@@ -341,21 +341,29 @@ function checkStaticEntrypoints() {
   check('Rule 0 runner target exists', fs.existsSync(runnerPath));
 
   const readinessSkill = fs.readFileSync(readinessSkillPath, 'utf8');
+  const orchestratorHooks = fs.readFileSync(orchestratorHooksPath, 'utf8');
+  check('manual readiness invokes the production ordered sequence',
+    readinessSkill.includes('orchestrator-hooks.cjs --manual-readiness-sequence'));
   check('manual readiness uses production on-demand routing consult',
-    readinessSkill.includes('orchestrator-hooks.cjs --skill-routing-consult')
-      && readinessSkill.includes('--moment on-demand')
-      && readinessSkill.includes('--mode manual')
-      && readinessSkill.includes('--execute'));
+    orchestratorHooks.includes("moment: 'on-demand'")
+      && orchestratorHooks.includes("mode: 'manual'")
+      && orchestratorHooks.includes('execute: true')
+      && orchestratorHooks.indexOf('const consult = skillRoutingConsult({')
+        < orchestratorHooks.indexOf(
+          'const manifest = _manualReadinessManifest(planningDir, milestone)'));
   check('manual readiness feeds routed PROBE LOG rows to the manifest consumer',
-    readinessSkill.indexOf('orchestrator-hooks.cjs --skill-routing-consult')
-        < readinessSkill.indexOf('Agent(')
-      && /Consume the supplied three VTP PROBE LOG rows/i.test(readinessSkill));
+    readinessSkill.indexOf('orchestrator-hooks.cjs --manual-readiness-sequence')
+        < readinessSkill.indexOf('return_fresh_manifest')
+      && readinessSkill.indexOf('return_fresh_manifest') < readinessSkill.indexOf('Agent(')
+      && readinessSkill.includes('VTP_PROBE_ROWS: {vtp_probe_rows_json}')
+      && /Consume exactly these supplied three VTP PROBE LOG rows/i.test(readinessSkill));
 
   const milestoneAgent = fs.readFileSync(milestoneAgentPath, 'utf8');
   const phaseAgent = fs.readFileSync(phaseAgentPath, 'utf8');
   check('milestone readiness consumes three VTP PROBE LOG rows',
     /three VTP PROBE LOG rows/i.test(milestoneAgent)
-      && /do not (?:copy|reimplement|re-implement) (?:the )?VTP probes/i.test(milestoneAgent));
+      && /do not (?:copy|reimplement|re-implement) (?:the )?VTP probes/i.test(milestoneAgent)
+      && milestoneAgent.includes('VTP_PROBE_ROWS: [{probe_id,status,reason_code,env_name?}'));
   check('phase readiness reuses the VTP runner for drift',
     phaseAgent.includes('tools/vtp-readiness/run.cjs --trigger semi')
       && /three VTP PROBE LOG rows/i.test(phaseAgent));
@@ -406,6 +414,31 @@ function manualArgs(fixture) {
     '--execute',
     '--json',
   ];
+}
+
+function manualSequenceArgs(fixture) {
+  return [
+    '--manual-readiness-sequence',
+    '--phase', '157',
+    '--milestone', 'fixture-vtp-readiness',
+    '--project-dir', fixture.projectDir,
+    '--planning-dir', fixture.planningDir,
+    '--json',
+  ];
+}
+
+function writeFreshManifest(fixture) {
+  const milestoneDir = path.join(
+    fixture.planningDir, 'milestones', 'fixture-vtp-readiness');
+  const phaseDir = path.join(milestoneDir, 'phases', '157-fixture');
+  const manifestPath = path.join(milestoneDir, 'MILESTONE-READINESS.md');
+  fs.mkdirSync(phaseDir, { recursive: true });
+  fs.writeFileSync(path.join(phaseDir, 'PLAN.md'), 'fixture plan\n', 'utf8');
+  const nowSeconds = Date.now() / 1000;
+  fs.utimesSync(phaseDir, nowSeconds - 20, nowSeconds - 20);
+  fs.writeFileSync(manifestPath, 'READINESS_STATUS: GO\n', 'utf8');
+  fs.utimesSync(manifestPath, nowSeconds, nowSeconds);
+  return manifestPath;
 }
 
 function readLedgerRows(planningDir) {
@@ -481,6 +514,13 @@ async function runManualFixture(fixture, environment) {
   });
 }
 
+async function runManualSequenceFixture(fixture, environment) {
+  return runNode(orchestratorHooksPath, manualSequenceArgs(fixture), {
+    cwd: repoRoot,
+    env: environment,
+  });
+}
+
 async function manualRedProbe() {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vtp-readiness-red-manual-'));
   try {
@@ -540,6 +580,35 @@ async function readinessGreen() {
       qdrantSentinel, '127.0.0.1', String(listener.port),
       manualEvidence, 'SENTINEL_QDRANT_GREEN',
     ]);
+  } finally {
+    await listener.close();
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function readinessFreshManifestSequence() {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vtp-readiness-fresh-sequence-'));
+  const listener = await openListener();
+  try {
+    const fixture = createFixture(tempDir, 'manual-fresh-sequence', {
+      fresh: true, evidence: 'file',
+    });
+    writeFreshManifest(fixture);
+    const qdrantSentinel =
+      `tcp://127.0.0.1:${listener.port}/SENTINEL_QDRANT_FRESH_SEQUENCE`;
+    const evidenceUrl = pathToFileURL(fixture.evidenceTarget).href;
+    const result = await runManualSequenceFixture(fixture,
+      fixtureEnvironment(fixture, qdrantSentinel, evidenceUrl));
+    const payload = parseJsonOutput('fresh-manifest manual sequence output parses', result);
+    equal('fresh-manifest manual sequence exits 0', result.status, 0);
+    equal('actual manual sequence consults before freshness short-circuit',
+      payload && payload.sequence,
+      ['vtp_consult', 'freshness_check', 'fresh_manifest_return']);
+    equal('fresh-manifest manual sequence returns the three probe rows',
+      payload && payload.vtp_probe_rows && payload.vtp_probe_rows.map((row) => row.probe_id),
+      ['dist_freshness', 'qdrant_tcp', 'evidence_store']);
+    check('fresh-manifest manual sequence executes the real TCP probe',
+      listener.connections() === 1, `connections=${listener.connections()}`);
   } finally {
     await listener.close();
     fs.rmSync(tempDir, { recursive: true, force: true });
@@ -683,6 +752,7 @@ async function readinessEntrypoints() {
   }
   checkStaticEntrypoints();
   await readinessGreen();
+  await readinessFreshManifestSequence();
   await readinessDegraded();
   await readinessAncestorSymlinkContainment();
   await readinessSpawnErrorRedaction();
