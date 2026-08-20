@@ -2,7 +2,8 @@
 phase: "160"
 slug: installer-registration-guard
 milestone: v3.7-upstream-hardening
-status: PENDING
+status: ACTIVE
+opened: 2026-08-20
 depends_on: []
 ---
 
