@@ -1,0 +1,93 @@
+{
+ "schema_version": 1,
+ "runtime_commit": "5ed70027cb0e400a8f459b02f0337c0e344c3607",
+ "captured_at": "2026-08-20T02:19:01.748Z",
+ "fixed_query": "How should SGSD route knowledge-base retrieval intents across the vtp toolset?",
+ "note": "Calls performed live by the orchestrator with args passed VERBATIM from production-runtime emissions generated in the verifier-mirrored isolated fixture (repo dir named repo, STATE phase 154). No manual arg repair. Live acceptance confirmed: call 1 response echoes context_scope.repo=repo and current_goal=phase:154,plan:01 proving the exact args were transmitted. raw_result records the live responses with deep bodies elided (_elided markers); full responses observed in-session.",
+ "calls": [
+  {
+   "stage": "vtp-plan",
+   "fallback_predicate": null,
+   "tool": "vtp_route_and_retrieve",
+   "mcp_tool": "mcp__vtp-kb__vtp_route_and_retrieve",
+   "args": {
+    "raw_query": "How should SGSD route knowledge-base retrieval intents across the vtp toolset?",
+    "context": {
+     "repo": "repo",
+     "current_task": "phase:154,plan:01",
+     "explicit_constraints": [],
+     "recent_turns": [
+      {
+       "text": "How should SGSD route knowledge-base retrieval intents across the vtp toolset?"
+      }
+     ]
+    }
+   },
+   "error": null,
+   "isError": false,
+   "raw_result": {
+    "context_summary": {
+     "current_goal": "phase:154,plan:01",
+     "mode": "planning",
+     "context_scope": {
+      "repo": "repo"
+     }
+    },
+    "query_frame": {
+     "query_frame_id": "qf_fb749fe0bf",
+     "intent_type": "project_planning",
+     "answer_shape": "practical_checklist",
+     "confidence": 0.53
+    },
+    "decision_matrix": {
+     "matrix_id": "wdm_e31312f32c"
+    },
+    "retrieval_plan": {
+     "retrieval_plan_id": "rp_e31312f32c",
+     "retrieval_mode": "architecture_hybrid"
+    },
+    "evidence": {
+     "hits_count": 5,
+     "first_hit": {
+      "chunk_id": "chunk:27c1204d753e",
+      "rel_path": "wiki/research/rl-for-agents-workshop-deep-dive-on-training-agents-with-rl-and-open-source.md",
+      "section_title": "9. Scaffolds matter",
+      "score": 0.46083788706739526
+     },
+     "entities_count": 10,
+     "documents_count": 3
+    },
+    "reflection": null,
+    "_elided": "deep hit/entity/document bodies elided; observed live in-session"
+   }
+  },
+  {
+   "stage": "vtp-consume",
+   "fallback_predicate": "reflection_null",
+   "tool": "vtp_search_substrate",
+   "mcp_tool": "mcp__vtp-kb__vtp_search_substrate",
+   "args": {
+    "query": "How should SGSD route knowledge-base retrieval intents across the vtp toolset?"
+   },
+   "error": null,
+   "isError": false,
+   "raw_result": {
+    "total": 8,
+    "hits_count": 8,
+    "first_hit": {
+     "chunk_id": "chunk:27c1204d753e",
+     "doc_id": "doc:0c80cf52739e",
+     "section_title": "9. Scaffolds matter",
+     "score": 0.46083788706739526,
+     "lexicalScore": 20.406705343940683
+    },
+    "last_hit": {
+     "chunk_id": "chunk:2b4c0df1c82c",
+     "rel_path": "wiki/people/indie-dev-dan-dan-mac.md",
+     "score": 0.015625
+    },
+    "_elided": "hit bodies elided; observed live in-session"
+   }
+  }
+ ]
+}
