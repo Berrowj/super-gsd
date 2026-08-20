@@ -3,6 +3,7 @@
 
 const assert = require('assert');
 const childProcess = require('child_process');
+const crypto = require('crypto');
 const fs = require('fs');
 const net = require('net');
 const os = require('os');
@@ -23,6 +24,9 @@ const milestoneAgentPath = path.join(
   repoRoot, 'super-gsd', 'agents', 'sgsd-milestone-readiness.md');
 const phaseAgentPath = path.join(
   repoRoot, 'super-gsd', 'agents', 'sgsd-phase-readiness.md');
+const installerPath = path.join(repoRoot, 'super-gsd', 'install.sh');
+const pendingHookSourcePath = path.join(
+  repoRoot, 'super-gsd', 'hooks', 'sgsd-vtp-pending.js');
 const requested = argument('--case') || 'all';
 const requestedEntrypoint = argument('--entrypoint');
 const supportedCases = [
@@ -30,6 +34,7 @@ const supportedCases = [
   'readiness-entrypoints',
   'readiness-entrypoints-green',
   'readiness-entrypoints-degraded',
+  'session-start-depth',
 ];
 
 let passed = 0;
@@ -145,6 +150,64 @@ function scrubbedEnvironment(fakeHome, overrides = {}) {
   environment.HOME = fakeHome;
   environment.USERPROFILE = fakeHome;
   return Object.assign(environment, overrides);
+}
+
+function findBash() {
+  if (process.platform !== 'win32') return 'bash';
+  const candidates = [
+    process.env.GIT_BASH,
+    process.env.LOCALAPPDATA
+      && path.join(process.env.LOCALAPPDATA, 'Programs', 'Git', 'usr', 'bin', 'bash.exe'),
+    'C:\\Program Files\\Git\\usr\\bin\\bash.exe',
+    'C:\\Program Files\\Git\\bin\\bash.exe',
+  ].filter(Boolean);
+  return candidates.find((candidate) => fs.existsSync(candidate)) || 'bash';
+}
+
+function bashPath(value) {
+  return process.platform === 'win32' ? value.split(path.sep).join('/') : value;
+}
+
+function fileHash(filePath) {
+  return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+}
+
+function parseSettings(settingsPath) {
+  try {
+    return JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+  } catch (_error) {
+    return null;
+  }
+}
+
+function sessionStartHooks(settings) {
+  const entries = (((settings || {}).hooks || {}).SessionStart || []);
+  return entries.flatMap((entry) => Array.isArray(entry.hooks) ? entry.hooks : []);
+}
+
+function runInstaller(projectDir, environment) {
+  return childProcess.spawnSync(findBash(), [
+    bashPath(installerPath),
+    '--init-project',
+    '--install-global',
+    '--skip-cockpit-deps',
+  ], {
+    cwd: projectDir,
+    encoding: 'utf8',
+    env: environment,
+  });
+}
+
+function runMergedHook(command, projectDir, environment, input) {
+  if (!command) {
+    return { status: null, stdout: '', stderr: '', error: { code: 'HOOK_NOT_REGISTERED' } };
+  }
+  return childProcess.spawnSync(findBash(), ['-c', command], {
+    cwd: projectDir,
+    encoding: 'utf8',
+    env: environment,
+    input,
+  });
 }
 
 function runNode(scriptPath, args, options) {
@@ -780,6 +843,187 @@ function registryContract() {
   }
 }
 
+function sessionStartDepth() {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vtp-session-start-depth-'));
+  try {
+    const fakeHome = path.join(tempDir, 'home');
+    const projectDir = path.join(tempDir, 'project');
+    const liveHookPath = path.join(fakeHome, '.claude', 'hooks', 'sgsd-vtp-pending.js');
+    const settingsPath = path.join(fakeHome, '.claude', 'settings.json');
+    const ledgerPath = path.join(fakeHome, '.vtp', 'pending-ledger.jsonl');
+    const staleHookBytes = Buffer.from(
+      '#!/usr/bin/env node\nprocess.stdout.write(DISTINGUISHABLE_STALE_VTP_HOOK\\n);\n',
+      'utf8');
+    const unrelatedEntry = {
+      matcher: 'fixture-unrelated',
+      hooks: [{
+        type: 'command',
+        command: 'node operator-unrelated-session-hook.js',
+        timeout: 13,
+      }],
+    };
+    const opaqueRows = [
+      'OPAQUE_PENDING_ALPHA_NOT_JSON',
+      'OPAQUE_PENDING_BRAVO_{BROKEN',
+      'OPAQUE_PENDING_CHARLIE_[UNPARSED',
+    ];
+    const ledgerBytes = Buffer.from([
+      opaqueRows[0], '', '   ', opaqueRows[1], '\t', opaqueRows[2], '',
+    ].join('\n'), 'utf8');
+
+    fs.mkdirSync(path.join(fakeHome, '.claude', 'get-shit-done'), { recursive: true });
+    fs.mkdirSync(path.dirname(liveHookPath), { recursive: true });
+    fs.mkdirSync(path.dirname(ledgerPath), { recursive: true });
+    fs.mkdirSync(projectDir, { recursive: true });
+    fs.writeFileSync(liveHookPath, staleHookBytes);
+    fs.writeFileSync(settingsPath, JSON.stringify({
+      hooks: { SessionStart: [unrelatedEntry] },
+    }, null, 2) + '\n', 'utf8');
+    fs.writeFileSync(ledgerPath, ledgerBytes);
+
+    const staleHookHash = fileHash(liveHookPath);
+    const ledgerHashBefore = fileHash(ledgerPath);
+    const environment = scrubbedEnvironment(fakeHome, {
+      PATH: process.env.PATH || '',
+    });
+    const serviceEnvironmentNames = [
+      'QDRANT_URL',
+      'VTP_EMBED_PYTHON',
+      'VTP_EVIDENCE_STORE_URL',
+      'CLARITY_MONGO_URI',
+      'CLARITY_MONGO_DB',
+      'CLARITY_ES_URL',
+    ];
+    check('installer and hook fixture use a scrubbed environment',
+      serviceEnvironmentNames.every((name) => !Object.prototype.hasOwnProperty.call(
+        environment, name)));
+
+    const firstInstall = runInstaller(projectDir, environment);
+    check('real installer first activation exits 0', firstInstall.status === 0,
+      `exit=${firstInstall.status} error=${firstInstall.error && firstInstall.error.code || 'none'}`);
+    const firstSettings = parseSettings(settingsPath);
+    check('real installer writes parseable merged global settings', firstSettings !== null);
+
+    const firstSessionHooks = sessionStartHooks(firstSettings);
+    const firstPendingHooks = firstSessionHooks.filter((hook) =>
+      typeof hook.command === 'string'
+        && hook.command.includes('sgsd-vtp-pending.js'));
+    check('merged global settings register the VTP pending hook exactly once',
+      firstPendingHooks.length === 1, `matches=${firstPendingHooks.length}`);
+    check('merged global settings preserve the unrelated SessionStart hook',
+      firstSessionHooks.filter((hook) =>
+        hook.command === 'node operator-unrelated-session-hook.js'
+          && hook.type === 'command'
+          && hook.timeout === 13).length === 1);
+
+    const sourceExists = fs.existsSync(pendingHookSourcePath);
+    check('production VTP pending hook source exists', sourceExists);
+    const hookSource = sourceExists ? fs.readFileSync(pendingHookSourcePath, 'utf8') : '';
+    const requireCalls = hookSource.match(/require\([^)]+\)/g) || [];
+    check('production hook imports only count-safe local modules',
+      requireCalls.length === 3
+        && ['fs', 'os', 'path'].every((name) =>
+          requireCalls.includes(`require('${name}')`)));
+    check('production hook has no probe, process-launch, MCP, shell, or service-env path',
+      !/\bfetch\s*\(|\bMCP\b|\bshell\b|service[-_ ]?env/i.test(hookSource));
+    check('production hook streams the ledger without reading or parsing it whole',
+      /createReadStream\(ledgerPath\)/.test(hookSource)
+        && !/readFileSync\(ledgerPath/.test(hookSource)
+        && !/JSON\.parse\([^)]*ledger/i.test(hookSource));
+    check('production hook never names VTP service environment variables',
+      serviceEnvironmentNames.every((name) => !hookSource.includes(name)));
+
+    const sourceHash = sourceExists ? fileHash(pendingHookSourcePath) : null;
+    check('real installer replaces the distinguishable stale live hook',
+      sourceHash !== null
+        && fileHash(liveHookPath) === sourceHash
+        && fileHash(liveHookPath) !== staleHookHash);
+    const payload = JSON.stringify({
+      session_id: 'fixture-session',
+      transcript_path: path.join(projectDir, 'fixture-transcript.jsonl'),
+      cwd: projectDir,
+      permission_mode: 'default',
+      hook_event_name: 'SessionStart',
+      source: 'startup',
+    }) + '\n';
+    const registeredCommand = firstPendingHooks[0] && firstPendingHooks[0].command;
+    const depthRun = runMergedHook(registeredCommand, projectDir, environment, payload);
+    check('merged SessionStart command exits 0', depthRun.status === 0,
+      `exit=${depthRun.status} error=${depthRun.error && depthRun.error.code || 'none'}`);
+    check('merged SessionStart command emits the exact pending depth line',
+      depthRun.stdout === 'VTP pending-ledger depth: 3\n');
+    check('merged SessionStart command emits empty stderr', depthRun.stderr === '');
+    const depthSurface = String(depthRun.stdout || '') + String(depthRun.stderr || '');
+    check('merged SessionStart command never discloses opaque ledger rows',
+      opaqueRows.every((row) => !depthSurface.includes(row)));
+    check('merged SessionStart command preserves ledger bytes',
+      fileHash(ledgerPath) === ledgerHashBefore);
+
+    const firstSettingsHash = fileHash(settingsPath);
+    const secondInstall = runInstaller(projectDir, environment);
+    check('real installer idempotent activation exits 0', secondInstall.status === 0,
+      `exit=${secondInstall.status} error=${secondInstall.error && secondInstall.error.code || 'none'}`);
+    const secondSettings = parseSettings(settingsPath);
+    check('idempotent install leaves parseable merged global settings', secondSettings !== null);
+    const secondSessionHooks = sessionStartHooks(secondSettings);
+    const secondPendingHooks = secondSessionHooks.filter((hook) =>
+      typeof hook.command === 'string'
+        && hook.command.includes('sgsd-vtp-pending.js'));
+    check('idempotent install leaves one VTP pending registration',
+      secondPendingHooks.length === 1, `matches=${secondPendingHooks.length}`);
+    check('idempotent install preserves the unrelated SessionStart hook',
+      secondSessionHooks.filter((hook) =>
+        hook.command === 'node operator-unrelated-session-hook.js'
+          && hook.type === 'command'
+          && hook.timeout === 13).length === 1);
+    check('idempotent install preserves merged settings bytes',
+      fileHash(settingsPath) === firstSettingsHash);
+    check('idempotent install preserves installed hook bytes',
+      sourceHash !== null && fileHash(liveHookPath) === sourceHash);
+
+    const secondCommand = secondPendingHooks[0] && secondPendingHooks[0].command;
+    const missingHome = path.join(tempDir, 'missing-ledger-home');
+    fs.mkdirSync(path.join(missingHome, '.vtp'), { recursive: true });
+    const missingRun = runMergedHook(secondCommand, projectDir,
+      scrubbedEnvironment(missingHome, { PATH: process.env.PATH || '' }), payload);
+    check('missing ledger exits 0 silently',
+      missingRun.status === 0 && missingRun.stdout === '' && missingRun.stderr === '');
+
+    const malformedRun = runMergedHook(secondCommand, projectDir, environment,
+      '{hook_event_name:\n');
+    check('malformed SessionStart input exits 0 silently',
+      malformedRun.status === 0 && malformedRun.stdout === '' && malformedRun.stderr === '');
+    const nonSessionRun = runMergedHook(secondCommand, projectDir, environment,
+      JSON.stringify({ hook_event_name: 'PostToolUse', cwd: projectDir }) + '\n');
+    check('non-SessionStart input exits 0 silently',
+      nonSessionRun.status === 0
+        && nonSessionRun.stdout === ''
+        && nonSessionRun.stderr === '');
+
+    const nonVtpHome = path.join(tempDir, 'non-vtp-home');
+    fs.mkdirSync(nonVtpHome, { recursive: true });
+    const nonVtpRun = runMergedHook(secondCommand, projectDir,
+      scrubbedEnvironment(nonVtpHome, { PATH: process.env.PATH || '' }), payload);
+    check('non-VTP home exits 0 silently',
+      nonVtpRun.status === 0 && nonVtpRun.stdout === '' && nonVtpRun.stderr === '');
+
+    const unreadableHome = path.join(tempDir, 'unreadable-ledger-home');
+    fs.mkdirSync(path.join(unreadableHome, '.vtp', 'pending-ledger.jsonl'), {
+      recursive: true,
+    });
+    const unreadableRun = runMergedHook(secondCommand, projectDir,
+      scrubbedEnvironment(unreadableHome, { PATH: process.env.PATH || '' }), payload);
+    check('unreadable ledger exits 0 silently',
+      unreadableRun.status === 0
+        && unreadableRun.stdout === ''
+        && unreadableRun.stderr === '');
+    check('all SessionStart cases preserve original ledger bytes',
+      fileHash(ledgerPath) === ledgerHashBefore);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 async function main() {
   if (requested !== 'all' && !supportedCases.includes(requested)) {
     process.stderr.write(`Usage: ${path.basename(__filename)} --case all|${supportedCases.join('|')}\n`);
@@ -791,6 +1035,7 @@ async function main() {
   }
 
   if (requested === 'all' || requested === 'registry-contract') registryContract();
+  if (requested === 'all' || requested === 'session-start-depth') sessionStartDepth();
   if (requested === 'all' || requested === 'readiness-entrypoints') {
     await readinessEntrypoints();
   } else if (requested === 'readiness-entrypoints-green') {
