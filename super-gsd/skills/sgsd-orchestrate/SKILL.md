@@ -1746,6 +1746,33 @@ REPEAT:
                 in the rendered markdown so future operators understand WHY
                 this step is between 6.6.i.X and 6.6.i.
 
+       i.0. ORCHESTRATOR-OWNED PHASE SUMMARY (P156 close contract)
+
+            After verification, Phase ATC, frontend verification when applicable,
+            and passing audit evidence are complete, the orchestrator authors
+            `{phase-dir}/SUMMARY.md`. SUMMARY is a pre-close evidence artifact,
+            never a retrospective artifact created after STATE advances.
+
+            Its delimited YAML frontmatter has these seven required fields;
+            additional fields are forward-compatible:
+
+            ```yaml
+            ---
+            phase: "{{OPAQUE_PHASE_TOKEN}}"
+            slug: {{PHASE_FOLDER_SLUG}}
+            milestone: {{MILESTONE}}
+            status: {{STATUS_BEGINNING_PASS_OR_ENDING_COMPLETE_COMPLETED_CLOSED}}
+            closed: {{YYYY-MM-DD}}
+            commits: [{{SEVEN_TO_FORTY_HEX_COMMIT}}, ...]
+            gates: {verifier: "PASS", phase_atc: "PASS", audit: "PASS"}
+            ---
+            ```
+
+            `commits` and `gates` must both be non-empty. Each gate verdict is a
+            non-empty scalar. The phase, slug, and milestone must exactly identify
+            the located phase folder. Do not enter the consult until AUDIT.md and
+            this SUMMARY.md both exist.
+
        i. PHASE-CLOSE SKILL ROUTING CONSULT (Phase 149; single execution point)
 
             Before marking the phase complete or entering Step 6.7, run:
@@ -1789,6 +1816,12 @@ REPEAT:
             - Any other exit -> `decision: execution_failed`; surface stderr and
               the exit code, then complete the repair action before phase close.
 
+            With `--moment phase-close --execute`, the production consult first
+            validates AUDIT.md and SUMMARY.md through the P156 close contract.
+            A returned `close_contract.ok: false` exits non-zero and schedules
+            zero dispatches. Repair the named evidence reason before retrying;
+            never proceed to state.write or a close commit after refusal.
+
             Confirm every fired JSON decision has both `dispatch` and `execution`,
             and that `execution_evidence_appended` equals `fired_count`. Missing
             outcome evidence is loud and must be surfaced, but phase-close
@@ -1807,13 +1840,23 @@ REPEAT:
           ```
 
           Substitute JSON-escaped strings and concrete integer counts. Exit 1
-          refuses phase close; exit 2 requires input/I/O repair. On exit 0,
-          mark the phase complete and advance. `executed_with_findings` does not
+          refuses phase close; exit 2 requires input/I/O repair. On exit 0, the
+          STATE projection is advanced, but Step 6.7 remains blocked until the
+          close commit in Step 6.6.k succeeds. `executed_with_findings` does not
           block completion; only `execution_failed` requires repair.
+
+       k. PHASE-CLOSE COMMIT (SUMMARY + STATE atomic handover)
+
+          Create the phase-close commit only after Step 6.6.j exits 0. The commit
+          must include the orchestrator-authored phase `SUMMARY.md` and the
+          `STATE.md` projection produced by state.write, together with any normal
+          phase-close evidence intended for that commit. Confirm both files are
+          in the commit. Only then mark the close sequence complete and enter
+          Step 6.7. A failed or incomplete commit blocks Step 6.7.
 
   6.7. MILESTONE COMPLETE AUTO-TRIGGER (GOV-13 / D-18a)
 
-       After Step 6.6.j marks a phase complete:
+       After Step 6.6.k commits SUMMARY.md plus STATE.md:
 
          a. Read `.planning/ROADMAP.md` in full. Milestone close is rare.
          b. Run `node super-gsd/scripts/lib/decision-state.cjs --render orchestrator --project "$PWD"` and extract the active milestone from its output.

@@ -77,6 +77,7 @@ const {
   SKILL_ROUTING_EVENT,
   gateProducerValidation
 } = require('./skill-routing-registry.cjs');
+const { checkPhaseClose } = require('../../tools/phase-close/check.cjs');
 
 // ----------------------------------------------------------------------------
 // FROZEN CONSTANTS
@@ -887,6 +888,7 @@ function skillRoutingConsult(opts) {
   const projectDir = _resolveProjectDir(opts);
   const planningDir = _resolvePlanningDir(opts, projectDir);
   const scope = { phase: null, milestone: null, moment: null, mode: null };
+  let closeContract = null;
   try {
     if (!opts || typeof opts !== 'object') {
       throw new Error('invalid_input_schema:opts_not_object');
@@ -910,6 +912,38 @@ function skillRoutingConsult(opts) {
 
     const dryRun = opts.dryRun === true || opts.dryRun === 'true';
     const execute = opts.execute === true || opts.execute === 'true';
+    if (scope.moment === 'phase-close' && execute) {
+      closeContract = checkPhaseClose({
+        projectDir: projectDir,
+        planningDir: planningDir,
+        phase: scope.phase,
+        milestone: scope.milestone
+      });
+      if (!closeContract.ok) {
+        return {
+          ok: false,
+          degraded: false,
+          event: SKILL_ROUTING_EVENT,
+          source: null,
+          moment: scope.moment,
+          mode: scope.mode,
+          phase: scope.phase,
+          milestone: scope.milestone,
+          dry_run: dryRun,
+          execute: execute,
+          close_contract: closeContract,
+          route_count: 0,
+          fired_count: 0,
+          skipped_count: 0,
+          evidence_appended: 0,
+          executed_count: 0,
+          executed_with_findings_count: 0,
+          execution_failed_count: 0,
+          execution_evidence_appended: 0,
+          decisions: []
+        };
+      }
+    }
     const registry = loadSkillRoutingRegistry({
       registryPath: opts.registryPath || opts.registry,
       runtime: true,
@@ -1048,7 +1082,7 @@ function skillRoutingConsult(opts) {
       _appendSkillRoutingDegradation(planningDir, scope,
         new Error('gate_evidence_append_failed:' + appendFailures));
     }
-    return {
+    const consultResult = {
       ok: appendFailures === 0 && executionFailures === 0,
       event: SKILL_ROUTING_EVENT,
       source: registry.source,
@@ -1074,9 +1108,11 @@ function skillRoutingConsult(opts) {
       gate_context: gateContext,
       decisions: decisions
     };
+    if (closeContract) consultResult.close_contract = closeContract;
+    return consultResult;
   } catch (error) {
     _appendSkillRoutingDegradation(planningDir, scope, error);
-    return {
+    const errorResult = {
       ok: false,
       degraded: true,
       event: SKILL_ROUTING_EVENT,
@@ -1096,6 +1132,8 @@ function skillRoutingConsult(opts) {
       decisions: [],
       error: error && error.message ? error.message : String(error || 'unknown')
     };
+    if (closeContract) errorResult.close_contract = closeContract;
+    return errorResult;
   }
 }
 
@@ -1296,6 +1334,19 @@ function selfTest() {
     fs.mkdirSync(phaseDirA10, { recursive: true });
     fs.writeFileSync(path.join(phaseDirA10, '154-01-PLAN.md'),
       '---\nphase: 154\ntype: feature\n---\n# Fixture plan\n', 'utf8');
+    ['149', '152', '153'].forEach(function (phase) {
+      const closeDir = path.join(planningA10, 'milestones', 'v3.5', 'phases',
+        phase + '-close-contract');
+      fs.mkdirSync(closeDir, { recursive: true });
+      fs.writeFileSync(path.join(closeDir, 'AUDIT.md'),
+        '---\nstatus: PASS\n---\n# Fixture audit\n', 'utf8');
+      fs.writeFileSync(path.join(closeDir, 'SUMMARY.md'), [
+        '---', 'phase: "' + phase + '"', 'slug: close-contract',
+        'milestone: v3.5', 'status: PASS', 'closed: 2026-08-20',
+        'commits: [abcdef0]', 'gates: {self_test: PASS}', '---',
+        '# Fixture summary', ''
+      ].join('\n'), 'utf8');
+    });
     fs.writeFileSync(path.join(planningA10, 'metrics', 'gate-value-log.jsonl'), [
       { gate: 'MUDA-waste-audit', outcome: 'pass', phase: '149', milestone: 'v3.5' },
       { gate: 'phase-level-ATC', outcome: 'pass', phase: '149', milestone: 'v3.5' },
@@ -1773,7 +1824,11 @@ if (require.main === module) {
       registry: parsed.registry
     });
     process.stdout.write(JSON.stringify(result) + '\n');
-    process.exit(0);
+    const closeExit = result && result.close_contract
+      && result.close_contract.ok === false
+      ? result.close_contract.exit_code
+      : 0;
+    process.exit(closeExit);
   }
 
   // No mode -> usage + exit 0.
