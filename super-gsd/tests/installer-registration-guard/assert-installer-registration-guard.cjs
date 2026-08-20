@@ -205,7 +205,7 @@ function runInstaller(fixture, args) {
   const bash = process.env.SGSD_TEST_BASH || 'bash';
   return spawnSync(
     bash,
-    ['-o', 'pipefail', path.join(fixture.vendoredRoot, 'install.sh'), ...args],
+    [path.join(fixture.vendoredRoot, 'install.sh'), ...args],
     {
       cwd: fixture.projectRoot,
       env: {
