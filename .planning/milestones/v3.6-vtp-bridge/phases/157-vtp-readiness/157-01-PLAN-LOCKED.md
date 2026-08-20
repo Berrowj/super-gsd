@@ -4,7 +4,7 @@ phase: 157
 slug: vtp-readiness
 milestone: v3.6-vtp-bridge
 status: PLANNED
-revision: 1
+revision: 2
 governing_decision: .planning/milestones/v3.6-vtp-bridge/phases/155-propagation-readiness/155-PLANREVIEW-REPORT.md
 depends_on: ['155']
 intent: >
@@ -136,6 +136,11 @@ tasks:
       exit 2 is execution failure. Phase readiness reuses runner for drift.
       Tests use fake paths/envs, a disposable listener, scrubbed child envs, and
       fixed diagnostics that never interpolate child output or fake values.
+      AMENDMENT-1 (review change 1): redact dispatch.cwd, any rendered
+      {project_dir}, and raw spawn/child error text from manual-consult output
+      AND appended evidence/ledger rows; the leak-scan must cover both the CLI
+      JSON and every ledger row the manual path appends, without changing
+      routing semantics.
     output_contract: >
       One runner owns three probes; Rule 0 executes it automatically, manual
       readiness uses canonical routing and real dispatch, and readiness agents
@@ -146,7 +151,9 @@ tasks:
     falsifier: >
       Either red starts green; entrypoint omits a probe; manual proof stubs
       dispatch/imports run.cjs; auto bypasses Rule 0; outputs differ; fake value,
-      path, address, or raw error leaks; stale says rebuild or blocks; hook probes;
+      path, address, or raw error leaks; dispatch.cwd, rendered {project_dir},
+      or raw spawn error text appears in manual-consult CLI JSON or appended
+      ledger rows; stale says rebuild or blocks; hook probes;
       gates.yaml changes; routing/orchestrator regressions fail; or T2 is not
       independently revertable after T1.
     stop_rule: >
@@ -210,3 +217,10 @@ Three serial commits close the carve-out without padding. T1 owns the stable
 topology contract. T2 consumes it across two production readiness entrypoints.
 T3 reuses the proven installer/settings seam and stays independent of liveness
 probes. No VTP source, MCP tool, hook network path, or gates registry changes.
+
+## AMENDMENT-1 (2026-08-20, orchestrator-recorded, plan-review round 1)
+
+Review verdict GO-WITH-CHANGES (157-PLANREVIEW-REPORT.md, 0 CRITICAL). Required
+change 1 applied as revision 2: T2 redacts dispatch.cwd, rendered {project_dir},
+and raw spawn errors from manual-consult output and evidence; the leak-scan covers
+CLI JSON and appended ledgers; routing semantics unchanged.
