@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CLARITY_CP_DIR=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+export PYTHONPATH="$CLARITY_CP_DIR${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m clarity_cp "$@"
