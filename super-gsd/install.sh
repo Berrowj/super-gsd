@@ -712,7 +712,8 @@ register_repo_local_hooks() {
     log "  DRY RUN: would smoke all repo-local overlay hooks for $PROJECT_DIR"
     log "  DRY RUN: would merge $OVERLAY_FILE into $SETTINGS_FILE for $PROJECT_DIR"
   else
-    node "$PREFLIGHT_SCRIPT" --smoke-repo-overlay "$OVERLAY_FILE" "$PROJECT_DIR"
+    node "$PREFLIGHT_SCRIPT" --smoke-repo-overlay "$OVERLAY_FILE" "$PROJECT_DIR" \
+      "${PROJECT_HOOK_SMOKE_EXCLUSIONS:-[]}"
     if [[ -n "$CODEX_HOOK_MISSING_TARGETS" ]]; then
       while IFS= read -r missing_target; do
         [[ -n "$missing_target" ]] || continue
@@ -728,6 +729,29 @@ register_repo_local_hooks() {
       exit "$MERGE_STATUS"
     fi
   fi
+}
+
+preflight_existing_repo_local_hooks() {
+  EXISTING_SETTINGS_FILE="$PROJECT_DIR/.claude/settings.json"
+  GLOBAL_SETTINGS_FILE="$CLAUDE_DIR/settings.json"
+  EXISTING_PREFLIGHT_SCRIPT="$SCRIPT_DIR/scripts/lib/hook-registration-preflight.cjs"
+  PROJECT_HOOK_SMOKE_EXCLUSIONS='[]'
+  if [[ ! -f "$EXISTING_SETTINGS_FILE" ]]; then
+    return 0
+  fi
+  if [[ ! -f "$EXISTING_PREFLIGHT_SCRIPT" ]]; then
+    echo "ERROR: hook preflight helper missing: $EXISTING_PREFLIGHT_SCRIPT" >&2
+    return 1
+  fi
+  if ! command -v node >/dev/null 2>&1; then
+    echo "ERROR: Node.js is required to preflight existing repo-local hooks" >&2
+    return 1
+  fi
+  log "Preflighting existing managed repo-local hooks before distribution..."
+  PROJECT_HOOK_SMOKE_EXCLUSIONS="$(
+    node "$EXISTING_PREFLIGHT_SCRIPT" \
+      --preflight-project-settings "$EXISTING_SETTINGS_FILE" "$GLOBAL_SETTINGS_FILE"
+  )" || return $?
 }
 
 register_codex_hooks() {
@@ -922,6 +946,8 @@ update_existing() {
     log "  Run: bash super-gsd/install.sh --init-project"
     return 0
   fi
+
+  preflight_existing_repo_local_hooks || return $?
 
   # 1. npm install — picks up new dependencies in package.json
   if [ -f "$PROJECT_DIR/package.json" ] && command -v npm >/dev/null 2>&1; then

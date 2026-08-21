@@ -11,6 +11,7 @@ const { EventEmitter } = require('node:events');
 
 const SUPER_GSD_ROOT = path.resolve(__dirname, '..', '..');
 const INSTALL_PATH = path.join(SUPER_GSD_ROOT, 'install.sh');
+const UPDATE_PATH = path.join(SUPER_GSD_ROOT, 'scripts', 'sgsd-update.sh');
 const PREFLIGHT_PATH = path.join(SUPER_GSD_ROOT, 'scripts', 'lib', 'hook-registration-preflight.cjs');
 const BUNDLED_OVERLAY_PATH = path.join(SUPER_GSD_ROOT, 'CLAUDE-OVERLAY.md');
 const GLOBAL_OVERLAY_PATH = path.join(SUPER_GSD_ROOT, 'config', 'settings-overlay.json');
@@ -18,6 +19,7 @@ const REPO_OVERLAY_PATH = path.join(SUPER_GSD_ROOT, 'config', 'repo-settings-ove
 const CODEX_HOOK_CONFIG_PATH = path.join(SUPER_GSD_ROOT, 'config', 'codex-hooks.json');
 const HOOK_MANIFEST_PATH = path.join(SUPER_GSD_ROOT, 'config', 'hook-manifest.json');
 const COMMIT_GATE_INSTALLER_PATH = path.join(SUPER_GSD_ROOT, 'scripts', 'install-commit-gate.cjs');
+const UPDATE_SKILL_PATH = path.join(SUPER_GSD_ROOT, 'skills', 'sgsd-update', 'SKILL.md');
 const STALE_OVERLAY_MARKERS = Object.freeze([
   Object.freeze({
     id: 'query_byterover',
@@ -72,6 +74,8 @@ const CLARITY_NINE_HOOKS = Object.freeze([
 const CANONICAL_HOOK_COUNT = 16;
 const DEFAULT_INSTALLER_SPAWN_TIMEOUT_MS = 150_000;
 const BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS = 3 * 90_000;
+const REAL_UPDATE_SPAWN_TIMEOUT_MS = 3 * 90_000;
+const FIXTURE_GIT_SPAWN_TIMEOUT_MS = 30_000;
 const SHIPPED_HOOK_NAMES = Object.freeze([
   'gsd-checkpoint-writer.js',
   'gsd-context-monitor.js',
@@ -102,6 +106,11 @@ const REPO_REGISTRATIONS = Object.freeze([
   ['UserPromptSubmit', 'user-prompt-intent-classifier', 'super-gsd/hooks/sgsd-intent-classifier.cjs'],
   ['UserPromptSubmit', 'user-prompt-secret-leak-guard', 'super-gsd/tools/codex-hooks/block-secret-leak.cjs'],
   ['PostToolUse', 'post-tool-use-quality-gate', 'super-gsd/hooks/sgsd-quality-gate.js'],
+]);
+const CLARITY_HISTORICAL_IDS = Object.freeze([
+  'session-start-governance',
+  'user-prompt-intent-classifier',
+  'post-tool-use-quality-gate',
 ]);
 const GLOBAL_SCRIPT_NAMES = Object.freeze([
   'sgsd-statusline.js',
@@ -154,8 +163,24 @@ function sentinelSettings(label) {
         matcher: 'permission_prompt',
         hooks: [{ type: 'prompt', prompt: `sentinel:${label}` }],
       }],
+      SessionStart: [{
+        matcher: `operator-pathological:${label}`,
+        hooks: [{
+          type: 'command',
+          command: `operator garbage command:${label}`,
+          args: { deliberately: 'not-an-array' },
+        }],
+      }],
     },
   };
+}
+
+function operatorRowsBytes(settings) {
+  const hooks = (settings && settings.hooks) || {};
+  return Buffer.from(JSON.stringify({
+    Notification: Array.isArray(hooks.Notification) ? hooks.Notification : [],
+    SessionStart: Array.isArray(hooks.SessionStart) ? hooks.SessionStart.slice(0, 1) : [],
+  }));
 }
 
 function copyFixtureSupport(projectRoot) {
@@ -746,6 +771,65 @@ function runInstaller(fixture, args, timeoutMs = DEFAULT_INSTALLER_SPAWN_TIMEOUT
   );
 }
 
+function runFixtureProcess(command, args, options = {}) {
+  return spawnSync(command, args, {
+    cwd: options.cwd,
+    env: options.env || process.env,
+    encoding: 'utf8',
+    shell: false,
+    timeout: options.timeoutMs || FIXTURE_GIT_SPAWN_TIMEOUT_MS,
+    windowsHide: true,
+  });
+}
+
+function assertFixtureProcessOk(result, label) {
+  if (result.error) throw result.error;
+  assert.equal(result.status, 0, `${label} failed:\n${result.stderr || ''}\n${result.stdout || ''}`);
+  return String(result.stdout || '').trim();
+}
+
+function runFixtureGit(args, cwd, label) {
+  return assertFixtureProcessOk(
+    runFixtureProcess(process.env.SGSD_TEST_GIT || 'git', args, { cwd }),
+    label,
+  );
+}
+
+function removeBrokenGlobalCoverage(sourceRoot, missingGlobalNames) {
+  const overlayPath = path.join(sourceRoot, 'super-gsd', 'config', 'settings-overlay.json');
+  const overlay = JSON.parse(fs.readFileSync(overlayPath, 'utf8'));
+  for (const event of Object.keys(overlay.hooks || {})) {
+    overlay.hooks[event] = overlay.hooks[event].filter((entry) => !(entry.hooks || []).some((hook) => {
+      const launch = [hook.command, ...(hook.args || [])].join(' ');
+      return missingGlobalNames.some((name) => launch.includes(name));
+    }));
+  }
+  writeJson(overlayPath, overlay);
+
+  const installerPath = path.join(sourceRoot, 'super-gsd', 'install.sh');
+  let installer = fs.readFileSync(installerPath, 'utf8');
+  const currentPreflightCall = '  preflight_existing_repo_local_hooks || return $?\n';
+  assert.ok(installer.includes(currentPreflightCall), 'production installer lost existing-project preflight');
+  installer = installer.replace(currentPreflightCall, '');
+  const manifestMatch = installer.match(/GLOBAL_HOOK_DEPLOYMENT_MANIFEST='([\s\S]*?)'\r?\n/);
+  assert.ok(manifestMatch, 'broken control lost the global deployment manifest');
+  const rows = manifestMatch[1].split(/\r?\n/).filter((row) => {
+    const fileName = row.split('|')[3];
+    return !missingGlobalNames.includes(fileName);
+  });
+  const replacement = `GLOBAL_HOOK_DEPLOYMENT_MANIFEST='${rows.join('\n')}'\n`;
+  fs.writeFileSync(installerPath, installer.replace(manifestMatch[0], replacement), 'utf8');
+}
+
+function assertNoUpdaterTemp(projectRoot, settingsPath) {
+  assert.equal(fs.existsSync(`${settingsPath}.tmp`), false, 'settings temp artifact remains');
+  assert.equal(
+    fs.readdirSync(projectRoot).some((name) => name.startsWith('.super-gsd-version.tmp.')),
+    false,
+    'project pin temp artifact remains',
+  );
+}
+
 function seedTarget(filePath, label) {
   writeJson(filePath, sentinelSettings(label));
   const bytes = readBytes(filePath);
@@ -863,8 +947,12 @@ function runBundledOverlayCurrent() {
 
 function runPreflightStatic() {
   const {
+    enumerateGlobalManifestCoverage,
     enumerateHookRegistrations,
+    enumerateProjectManagedHookRegistrations,
+    filterWarnedHookDescriptors,
     preflightHookRegistrations,
+    preflightProjectManagedRegistrations,
   } = require(PREFLIGHT_PATH);
   const root = path.resolve(os.tmpdir(), 'sgsd preflight static');
   const paths = {
@@ -889,10 +977,10 @@ function runPreflightStatic() {
     },
   };
   const descriptors = enumerateHookRegistrations(overlay);
-  assert.equal(descriptors.length, 4);
-  assert.deepEqual(descriptors.map((item) => item.event), ['statusLine', 'SessionStart', 'SessionStart', 'PostToolUse']);
-  assert.equal(descriptors[1].hookId, 'session-governance');
-  assert.equal(descriptors[3].hookId, 'PostToolUse[0].hooks[0]');
+  assert.equal(descriptors.length, 3);
+  assert.deepEqual(descriptors.map((item) => item.event), ['SessionStart', 'SessionStart', 'PostToolUse']);
+  assert.equal(descriptors[0].hookId, 'session-governance');
+  assert.equal(descriptors[2].hookId, 'PostToolUse[0].hooks[0]');
 
   const checked = [];
   const passed = preflightHookRegistrations(overlay, {
@@ -900,9 +988,8 @@ function runPreflightStatic() {
     nodeCheck: (scriptPath) => { checked.push(`node:${scriptPath}`); return { status: 0 }; },
     shellCheck: (scriptPath) => { checked.push(`bash:${scriptPath}`); return { status: 0 }; },
   });
-  assert.equal(passed.length, 4);
+  assert.equal(passed.length, 3);
   assert.deepEqual(checked, [
-    `node:${paths.status}`,
     `node:${paths.session}`,
     `bash:${paths.state}`,
     `node:${paths.quality}`,
@@ -956,9 +1043,10 @@ function runPreflightStatic() {
     new RegExp(`hook_registration_shell_check_failed.*${paths.state.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
   );
 
-  assert.throws(
-    () => enumerateHookRegistrations({ statusLine: { type: 'command', command: `python ${paths.status}` } }),
-    /hook_registration_launch_invalid.*statusLine/,
+  assert.deepEqual(
+    enumerateHookRegistrations({ statusLine: { type: 'command', command: `python ${paths.status}` } }),
+    [],
+    'native statusLine entered event-hook launch validation',
   );
   assert.throws(
     () => enumerateHookRegistrations({
@@ -966,6 +1054,46 @@ function runPreflightStatic() {
     }),
     /hook_registration_launch_invalid.*SessionStart\[0\]\.hooks\[0\]/,
   );
+
+  const projectSettings = sentinelSettings('preflight-operator-project');
+  projectSettings.hooks.PostToolUse = [{
+    sgsd_managed: true,
+    sgsd_hook_id: 'managed-quality',
+    hooks: [{ type: 'command', command: 'node', args: [paths.quality] }],
+  }];
+  const globalQuality = path.join(root, 'global', 'quality.js');
+  const globalSettings = sentinelSettings('preflight-operator-global');
+  globalSettings.hooks.PostToolUse = [{
+    hooks: [{ type: 'command', command: `node ${quote}${globalQuality}${quote}` }],
+  }];
+  const projectOperatorBefore = operatorRowsBytes(projectSettings);
+  const globalOperatorBefore = operatorRowsBytes(globalSettings);
+  const managedDescriptors = enumerateProjectManagedHookRegistrations(projectSettings);
+  assert.equal(managedDescriptors.length, 1, 'operator project rows entered managed enumeration');
+  const coverageDescriptors = enumerateGlobalManifestCoverage(globalSettings, managedDescriptors);
+  assert.equal(coverageDescriptors.length, 1, 'matching global manifest coverage was not isolated');
+
+  const coverageChecks = [];
+  const covered = preflightProjectManagedRegistrations(projectSettings, globalSettings, {
+    isFile: (scriptPath) => scriptPath === globalQuality,
+    nodeCheck: (scriptPath) => {
+      coverageChecks.push(scriptPath);
+      return { status: 0 };
+    },
+  });
+  assert.deepEqual(coverageChecks, [globalQuality], 'operator or foreign global row entered coverage validation');
+  assert.equal(covered.warnings.length, 1);
+  assert.equal(covered.warnings[0].code, 'project_hook_registration_missing_global_covered');
+  assert.equal(Object.prototype.hasOwnProperty.call(covered, 'globalIssues'), false, 'operator diagnostics leaked from coverage lookup');
+  assert.deepEqual(
+    filterWarnedHookDescriptors(managedDescriptors, covered.warnedDescriptors),
+    [],
+    'operator project row entered the repo smoke set',
+  );
+  assert.deepEqual(operatorRowsBytes(projectSettings), projectOperatorBefore, 'project operator rows changed during preflight');
+  assert.deepEqual(operatorRowsBytes(globalSettings), globalOperatorBefore, 'global operator rows changed during coverage lookup');
+  assert.equal(JSON.stringify(covered).includes('operator-pathological'), false, 'operator row was mentioned by preflight');
+  assert.equal(JSON.stringify(covered).includes('operator garbage command'), false, 'pathological operator row was mentioned by preflight');
 }
 
 function realizeGlobalOverlayForStatic(value, hooksRoot) {
@@ -1153,9 +1281,11 @@ async function runSmokeStatic() {
   const overlay = realizeGlobalOverlayForStatic(JSON.parse(fs.readFileSync(GLOBAL_OVERLAY_PATH, 'utf8')), hooksRoot);
   const registeredDescriptors = enumerateHookRegistrations(overlay);
   assert.deepEqual(
-    globalDescriptors.slice(0, -1).map((item) => [item.event, item.interpreter, path.basename(item.scriptPath), item.timeout]),
+    globalDescriptors.slice(0, -1)
+      .filter((item) => item.event !== 'statusLine')
+      .map((item) => [item.event, item.interpreter, path.basename(item.scriptPath), item.timeout]),
     registeredDescriptors.map((item) => [item.event, item.interpreter, path.basename(item.scriptPath), item.timeout]),
-    'global deployment manifest drifted from settings-overlay.json',
+    'global event-hook deployment manifest drifted from settings-overlay.json',
   );
   assert.deepEqual(
     globalDescriptors.map((item) => path.basename(item.scriptPath)),
@@ -1308,25 +1438,40 @@ function runNodeCheckBothSites() {
 }
 
 function assertGlobalSettings(fixture) {
-  const { enumerateHookRegistrations, preflightHookRegistrations } = require(PREFLIGHT_PATH);
+  const {
+    enumerateGlobalManifestCoverage,
+    enumerateHookRegistrations,
+    preflightHookDescriptors,
+  } = require(PREFLIGHT_PATH);
   const globalSettings = JSON.parse(readBytes(fixture.globalSettings).toString('utf8'));
   assert.equal(globalSettings.unrelatedProjectKey.survives, true);
 
-  const globalDescriptors = preflightHookRegistrations(globalSettings);
-  assert.equal(globalDescriptors.length, GLOBAL_SCRIPT_NAMES.length);
-  for (const name of GLOBAL_SCRIPT_NAMES) {
+  const manifestDescriptors = enumerateHookRegistrations(realizeGlobalOverlayForStatic(
+    JSON.parse(fs.readFileSync(GLOBAL_OVERLAY_PATH, 'utf8')),
+    path.join(fixture.homeRoot, '.claude', 'hooks'),
+  ));
+  const globalDescriptors = enumerateGlobalManifestCoverage(globalSettings, manifestDescriptors);
+  preflightHookDescriptors(globalDescriptors);
+  const globalEventScriptNames = GLOBAL_SCRIPT_NAMES.filter((name) => name !== 'sgsd-statusline.js');
+  assert.equal(globalDescriptors.length, globalEventScriptNames.length);
+  assert.equal(globalSettings.statusLine && globalSettings.statusLine.type, 'command');
+  assert.equal(globalDescriptors.some((item) => item.event === 'statusLine'), false);
+  for (const name of globalEventScriptNames) {
     assert.equal(globalDescriptors.filter((item) => path.basename(item.scriptPath) === name).length, 1, `${name} is missing or duplicated globally`);
   }
 }
 
 function assertRepoSettings(fixture) {
-  const { enumerateHookRegistrations, preflightHookRegistrations } = require(PREFLIGHT_PATH);
+  const {
+    enumerateProjectManagedHookRegistrations,
+    preflightHookDescriptors,
+  } = require(PREFLIGHT_PATH);
   const repoSettings = JSON.parse(readBytes(fixture.repoSettings).toString('utf8'));
   assert.equal(repoSettings.unrelatedProjectKey.survives, true);
 
-  const repoDescriptors = enumerateHookRegistrations(repoSettings);
+  const repoDescriptors = enumerateProjectManagedHookRegistrations(repoSettings);
   assert.equal(repoDescriptors.length, REPO_REGISTRATIONS.length);
-  preflightHookRegistrations(repoSettings);
+  preflightHookDescriptors(repoDescriptors);
   for (const [event, hookId, relative] of REPO_REGISTRATIONS) {
     assert.equal(countManagedHook(repoSettings, event, hookId), 1, `${hookId} is missing or duplicated repo-locally`);
     assert.ok(repoDescriptors.some((item) => item.event === event
@@ -1506,6 +1651,391 @@ function runDeployedHookSmoke() {
   }
 }
 
+function commitClarityUpdateSource(seedRoot, missingRows) {
+  const seedSuperGsd = copyFixtureSupport(seedRoot);
+  assert.deepEqual(
+    fs.readFileSync(path.join(seedSuperGsd, 'scripts', 'sgsd-update.sh')),
+    fs.readFileSync(UPDATE_PATH),
+    'fixture updater is not the real production script',
+  );
+  removeBrokenGlobalCoverage(seedRoot, [
+    'sgsd-session-start.js',
+    'sgsd-intent-classifier.cjs',
+    'sgsd-quality-gate.js',
+  ]);
+  for (const [, , relative] of missingRows) fs.rmSync(path.join(seedRoot, relative));
+  fs.chmodSync(path.join(seedSuperGsd, 'install.sh'), 0o755);
+  fs.chmodSync(path.join(seedSuperGsd, 'scripts', 'sgsd-update.sh'), 0o755);
+
+  runFixtureGit(['init', '--initial-branch=master'], seedRoot, 'initialize upstream seed');
+  runFixtureGit(['config', 'user.name', 'SGSD fixture'], seedRoot, 'configure fixture author');
+  runFixtureGit(['config', 'user.email', 'sgsd-fixture@example.invalid'], seedRoot, 'configure fixture email');
+  runFixtureGit(['config', 'commit.gpgsign', 'false'], seedRoot, 'disable fixture signing');
+  runFixtureGit(['config', 'core.autocrlf', 'false'], seedRoot, 'disable fixture autocrlf');
+  runFixtureGit(['add', '.'], seedRoot, 'stage broken source');
+  runFixtureGit(['commit', '-m', 'broken hook distribution control'], seedRoot, 'commit broken source');
+  const oldSha = runFixtureGit(['rev-parse', 'HEAD'], seedRoot, 'resolve broken source SHA');
+
+  for (const relative of [
+    'install.sh',
+    path.join('config', 'settings-overlay.json'),
+    path.join('hooks', 'sgsd-session-start.js'),
+    path.join('hooks', 'sgsd-intent-classifier.cjs'),
+    path.join('hooks', 'sgsd-quality-gate.js'),
+    path.join('tools', 'codex-hooks', 'block-secret-leak.cjs'),
+  ]) {
+    const target = path.join(seedSuperGsd, relative);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.copyFileSync(path.join(SUPER_GSD_ROOT, relative), target);
+  }
+  fs.chmodSync(path.join(seedSuperGsd, 'install.sh'), 0o755);
+  runFixtureGit(['add', '.'], seedRoot, 'stage repaired source');
+  runFixtureGit(['commit', '-m', 'post-T2 production source'], seedRoot, 'commit repaired source');
+  const fixedSha = runFixtureGit(['rev-parse', 'HEAD'], seedRoot, 'resolve repaired source SHA');
+  assert.match(oldSha, /^[0-9a-f]{40}$/);
+  assert.match(fixedSha, /^[0-9a-f]{40}$/);
+  assert.notEqual(fixedSha, oldSha, 'two-commit upstream collapsed to one SHA');
+  return { fixedSha, oldSha };
+}
+
+function writeClarityGitSshRouter(sshRouterPath) {
+  fs.writeFileSync(sshRouterPath, [
+    '#!/usr/bin/env bash',
+    'set -eu',
+    'remote_command=${*: -1}',
+    'printf \'%s\\n\' $remote_command >> $SGSD_TEST_SSH_LOG',
+    'case $remote_command in',
+    '  *Berrowj/super-gsd.git*) ;;',
+    '  *) printf \'unexpected fixture SSH command\\n\' >&2; exit 97 ;;',
+    'esac',
+    'exec git-upload-pack $SGSD_TEST_BARE_REPO',
+    '',
+  ].join('\n'), 'utf8');
+  fs.chmodSync(sshRouterPath, 0o755);
+}
+
+function createClarityUpdateGitFixture(fixtureRoot, missingRows) {
+  const seedRoot = path.join(fixtureRoot, 'upstream seed');
+  const bareRoot = path.join(fixtureRoot, 'upstream.git');
+  const sourceRoot = path.join(fixtureRoot, 'canonical source');
+  const sshRouterPath = path.join(fixtureRoot, 'fixture-git-ssh.sh');
+  const sshLogPath = path.join(fixtureRoot, 'fixture-git-ssh.log');
+  const canonicalOrigin = 'git@github.com:Berrowj/super-gsd.git';
+  fs.mkdirSync(seedRoot, { recursive: true });
+  const { fixedSha, oldSha } = commitClarityUpdateSource(seedRoot, missingRows);
+  runFixtureGit(['clone', '--bare', seedRoot, bareRoot], fixtureRoot, 'create bare upstream');
+  runFixtureGit(['--git-dir', bareRoot, 'update-ref', 'refs/heads/master', oldSha], fixtureRoot, 'pin bare upstream to broken SHA');
+  runFixtureGit(['clone', bareRoot, sourceRoot], fixtureRoot, 'clone canonical source at broken SHA');
+  runFixtureGit(['remote', 'set-url', 'origin', canonicalOrigin], sourceRoot, 'set canonical stored origin');
+  assert.equal(
+    runFixtureGit(['remote', 'get-url', 'origin'], sourceRoot, 'read canonical stored origin'),
+    canonicalOrigin,
+  );
+  assert.equal(runFixtureGit(['rev-parse', 'HEAD'], sourceRoot, 'read initial source HEAD'), oldSha);
+  writeClarityGitSshRouter(sshRouterPath);
+  return { bareRoot, fixedSha, oldSha, sourceRoot, sshLogPath, sshRouterPath };
+}
+
+function seedClarityUpdateProject(fixtureRoot, oldSha) {
+  const projectRoot = path.join(fixtureRoot, 'clarity project');
+  const homeRoot = path.join(fixtureRoot, 'isolated home');
+  const repoSettingsPath = path.join(projectRoot, '.claude', 'settings.json');
+  const globalSettingsPath = path.join(homeRoot, '.claude', 'settings.json');
+  const projectPinPath = path.join(projectRoot, '.super-gsd-version');
+  const systemdSentinel = path.join(projectRoot, 'super-gsd', 'hooks', 'systemd', 'operator-owned');
+  fs.mkdirSync(path.join(homeRoot, '.claude'), { recursive: true });
+  fs.mkdirSync(path.dirname(systemdSentinel), { recursive: true });
+  fs.writeFileSync(systemdSentinel, 'operator-owned-systemd-sentinel\n', 'utf8');
+  fs.mkdirSync(path.join(projectRoot, '.planning'), { recursive: true });
+  fs.writeFileSync(projectPinPath, oldSha + '\n', 'utf8');
+
+  const { realizeRepoLocalHookOverlay } = require(PREFLIGHT_PATH);
+  const realizedOverlay = realizeRepoLocalHookOverlay(
+    JSON.parse(fs.readFileSync(REPO_OVERLAY_PATH, 'utf8')),
+    projectRoot,
+  );
+  const historicalIds = new Set(CLARITY_HISTORICAL_IDS);
+  const originalManagedRows = [];
+  const globalSettings = sentinelSettings('sgsd-update-clarity-recovery-global');
+  writeJson(globalSettingsPath, globalSettings);
+  const claritySettings = sentinelSettings('sgsd-update-clarity-recovery');
+  for (const [event, entries] of Object.entries(realizedOverlay.hooks)) {
+    for (const entry of entries) {
+      if (!historicalIds.has(entry.sgsd_hook_id)) continue;
+      const original = deepClone(entry);
+      originalManagedRows.push([event, original]);
+      if (!claritySettings.hooks[event]) claritySettings.hooks[event] = [];
+      claritySettings.hooks[event].push(deepClone(original));
+    }
+  }
+  assert.equal(originalManagedRows.length, 3, 'fixture did not seed exactly three historical managed rows');
+  writeJson(repoSettingsPath, claritySettings);
+  assert.deepEqual(
+    relativeFiles(path.join(projectRoot, 'super-gsd', 'hooks')),
+    [path.join('systemd', 'operator-owned')],
+  );
+  return {
+    globalSettingsPath,
+    homeRoot,
+    globalOperatorRowsBefore: operatorRowsBytes(globalSettings),
+    originalManagedRows,
+    projectOperatorRowsBefore: operatorRowsBytes(claritySettings),
+    projectPinPath,
+    projectRoot,
+    repoSettingsPath,
+    settingsBeforeBroken: readBytes(repoSettingsPath),
+    systemdSentinel,
+  };
+}
+
+function assertBrokenClarityUpdate(result, project, sourceRoot, oldSha) {
+  if (result.error) throw result.error;
+  const output = (result.stderr || '') + '\n' + (result.stdout || '');
+  assert.equal(result.status, 5, 'broken updater control did not exit 5:\n' + output);
+  assert.equal(output.includes('hook_registration_launch_invalid'), false, 'operator row entered broken-run validation:\n' + output);
+  assert.equal(output.includes('operator-pathological'), false, 'operator sentinel was mentioned by broken run:\n' + output);
+  assert.equal(output.includes('operator garbage command'), false, 'pathological operator command was mentioned by broken run:\n' + output);
+  for (const [, hookId, relative] of REPO_REGISTRATIONS) {
+    assert.ok(output.includes('hook_registration_missing'), 'broken control omitted missing code for ' + hookId);
+    assert.ok(
+      output.includes(path.resolve(project.projectRoot, relative)),
+      'broken control omitted path for ' + hookId,
+    );
+  }
+  assert.deepEqual(
+    readBytes(project.repoSettingsPath),
+    project.settingsBeforeBroken,
+    'broken updater changed project settings bytes',
+  );
+  assert.equal(
+    fs.readFileSync(project.projectPinPath, 'utf8'),
+    oldSha + '\n',
+    'broken updater advanced the project pin',
+  );
+  assert.equal(runFixtureGit(['rev-parse', 'HEAD'], sourceRoot, 'read broken-run source HEAD'), oldSha);
+  assert.deepEqual(
+    operatorRowsBytes(JSON.parse(fs.readFileSync(project.globalSettingsPath, 'utf8'))),
+    project.globalOperatorRowsBefore,
+    'broken updater changed global operator rows',
+  );
+  assertNoUpdaterTemp(project.projectRoot, project.repoSettingsPath);
+}
+
+function assertUncoveredProjectRowsRefuse(project) {
+  const {
+    HookRegistrationPreflightError,
+    preflightProjectManagedRegistrations,
+  } = require(PREFLIGHT_PATH);
+  let outcome;
+  let didThrow = false;
+  try {
+    outcome = preflightProjectManagedRegistrations(
+      JSON.parse(fs.readFileSync(project.repoSettingsPath, 'utf8')),
+      fs.existsSync(project.globalSettingsPath)
+        ? JSON.parse(fs.readFileSync(project.globalSettingsPath, 'utf8'))
+        : {},
+    );
+  } catch (error) {
+    didThrow = true;
+    outcome = error;
+  }
+  const issueCodes = didThrow && Array.isArray(outcome && outcome.issues)
+    ? outcome.issues.map((issue) => issue && issue.code)
+    : [];
+  const warningCodes = !didThrow && Array.isArray(outcome && outcome.warnings)
+    ? outcome.warnings.map((warning) => warning && warning.code)
+    : [];
+  const outcomeDetail = didThrow
+    ? 'threw=' + (outcome && outcome.constructor ? outcome.constructor.name : typeof outcome)
+      + ' issue_codes=' + JSON.stringify(issueCodes)
+      + ' issues_length=' + issueCodes.length
+    : 'returned warning_codes=' + JSON.stringify(warningCodes);
+  assert.ok(
+    didThrow
+      && outcome instanceof HookRegistrationPreflightError
+      && issueCodes.length === 3
+      && issueCodes.every((code) => code === 'hook_registration_missing'),
+    'dead managed project rows without live global coverage did not refuse: ' + outcomeDetail,
+  );
+  const unmanagedSettings = sentinelSettings('sgsd-update-unmanaged-only');
+  unmanagedSettings.hooks.PostToolUse = [{
+    hooks: [{
+      type: 'command',
+      command: 'node',
+      args: [path.join(project.projectRoot, 'unmanaged-dead.js')],
+    }],
+  }];
+  const unmanagedOutcome = preflightProjectManagedRegistrations(unmanagedSettings, sentinelSettings('global-unmanaged-only'));
+  assert.deepEqual(unmanagedOutcome.warnings, [], 'unmanaged project entry entered the managed downgrade path');
+  assert.deepEqual(unmanagedOutcome.descriptors, [], 'unmanaged project entry was enumerated');
+  assert.equal(Object.prototype.hasOwnProperty.call(unmanagedOutcome, 'globalIssues'), false, 'operator diagnostics leaked from coverage lookup');
+}
+
+function assertRepairedClarityUpdate(result, project, sourceRoot, fixedSha) {
+  if (result.error) throw result.error;
+  const output = (result.stderr || '') + '\n' + (result.stdout || '');
+  assert.equal(result.status, 0, 'repaired updater failed:\n' + output);
+  assert.equal(output.includes('hook_registration_launch_invalid'), false, 'operator row entered repaired-run validation:\n' + output);
+  assert.equal(output.includes('operator-pathological'), false, 'operator sentinel was mentioned by repaired run:\n' + output);
+  assert.equal(output.includes('operator garbage command'), false, 'pathological operator command was mentioned by repaired run:\n' + output);
+  assert.ok(output.includes('source_sha=' + fixedSha), 'repaired updater omitted fetched source SHA');
+  assert.ok(output.includes('project_pin=' + fixedSha), 'repaired updater omitted advanced project pin');
+  assert.equal(
+    fs.readFileSync(project.projectPinPath, 'utf8'),
+    fixedSha + '\n',
+    'project pin did not advance to fetched SHA',
+  );
+  assert.equal(runFixtureGit(['rev-parse', 'FETCH_HEAD'], sourceRoot, 'read fetched SHA'), fixedSha);
+  assert.equal(runFixtureGit(['rev-parse', 'HEAD'], sourceRoot, 'read repaired source HEAD'), fixedSha);
+
+  const warningLines = output.split(/\r?\n/)
+    .filter((line) => line.includes('WARN project_hook_registration_missing_global_covered'));
+  assert.equal(warningLines.length, 3, 'expected three covered project warnings:\n' + output);
+  const historicalIds = new Set(CLARITY_HISTORICAL_IDS);
+  for (const [event, hookId, relative] of REPO_REGISTRATIONS.filter(([, id]) => historicalIds.has(id))) {
+    const expectedPath = path.resolve(project.projectRoot, relative);
+    assert.ok(
+      warningLines.some((line) => line.includes(expectedPath) && line.includes('[' + event + '/' + hookId + ']')),
+      'covered warning did not name ' + expectedPath,
+    );
+  }
+  assert.equal(
+    warningLines.some((line) => line.includes('user-prompt-secret-leak-guard')),
+    false,
+    'new secret-leak registration was incorrectly reported as a stale project row',
+  );
+
+  const {
+    enumerateGlobalManifestCoverage,
+    enumerateHookRegistrations,
+    enumerateProjectManagedHookRegistrations,
+    preflightHookDescriptors,
+  } = require(PREFLIGHT_PATH);
+  const globalSettings = JSON.parse(fs.readFileSync(project.globalSettingsPath, 'utf8'));
+  const manifestDescriptors = enumerateHookRegistrations(realizeGlobalOverlayForStatic(
+    JSON.parse(fs.readFileSync(GLOBAL_OVERLAY_PATH, 'utf8')),
+    path.join(project.homeRoot, '.claude', 'hooks'),
+  ));
+  const globalDescriptors = enumerateGlobalManifestCoverage(globalSettings, manifestDescriptors);
+  preflightHookDescriptors(globalDescriptors);
+  const globalEventScriptNames = GLOBAL_SCRIPT_NAMES.filter((name) => name !== 'sgsd-statusline.js');
+  assert.equal(globalDescriptors.length, globalEventScriptNames.length, 'global event-hook coverage is incomplete after update');
+  assert.equal(globalSettings.statusLine && globalSettings.statusLine.type, 'command');
+  assert.equal(globalDescriptors.some((descriptor) => descriptor.event === 'statusLine'), false);
+  assert.equal(
+    new Set(globalDescriptors.map((descriptor) => [
+      descriptor.event,
+      path.basename(descriptor.scriptPath),
+    ].join('|'))).size,
+    globalDescriptors.length,
+    'global registrations are duplicated',
+  );
+
+  const repairedSettings = JSON.parse(fs.readFileSync(project.repoSettingsPath, 'utf8'));
+  assert.equal(repairedSettings.unrelatedProjectKey.survives, true, 'unrelated settings sentinel was removed');
+  assert.deepEqual(operatorRowsBytes(globalSettings), project.globalOperatorRowsBefore, 'global operator rows changed during recovery');
+  assert.deepEqual(operatorRowsBytes(repairedSettings), project.projectOperatorRowsBefore, 'project operator rows changed during recovery');
+  for (const [event, original] of project.originalManagedRows) {
+    const survivors = repairedSettings.hooks[event].filter(
+      (entry) => entry.sgsd_managed === true && entry.sgsd_hook_id === original.sgsd_hook_id,
+    );
+    assert.equal(survivors.length, 1, original.sgsd_hook_id + ' is missing or duplicated');
+    assert.deepEqual(survivors[0], original, original.sgsd_hook_id + ' was changed instead of preserved');
+  }
+  for (const [event, hookId] of REPO_REGISTRATIONS) {
+    assert.equal(countManagedHook(repairedSettings, event, hookId), 1, hookId + ' is not uniquely registered');
+  }
+  assert.equal(enumerateProjectManagedHookRegistrations(repairedSettings).length, REPO_REGISTRATIONS.length);
+  assert.deepEqual(readBytes(project.systemdSentinel), Buffer.from('operator-owned-systemd-sentinel\n'));
+  assertNoUpdaterTemp(project.projectRoot, project.repoSettingsPath);
+}
+
+function assertClarityRecoveryRunbook() {
+  const skill = fs.readFileSync(UPDATE_SKILL_PATH, 'utf8');
+  const orderedFragments = [
+    'Back up `.claude/settings.json`',
+    'prove `source_sha` and `project_pin`',
+    'live global file plus registration coverage',
+    'Remove only reviewed obsolete `sgsd_managed` rows',
+    'Validate the edited settings as JSON',
+    'Start a fresh client',
+    'Verify hook evidence',
+  ];
+  let previous = -1;
+  for (const fragment of orderedFragments) {
+    const index = skill.indexOf(fragment);
+    assert.ok(index > previous, 'sgsd-update cleanup order missing or out of order: ' + fragment);
+    previous = index;
+  }
+  assert.match(
+    skill,
+    /sgsd-update never (?:performs|automates) deletion/i,
+    'sgsd-update skill does not state its no-deletion boundary',
+  );
+  assert.match(
+    skill,
+    /remove the dead per-project entries only once global registration is confirmed live, otherwise the project is left with no coverage at all/i,
+    '2026-08-13 report ordering is not preserved verbatim',
+  );
+}
+
+function runSgsdUpdateClarityRecovery() {
+  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-update-clarity-recovery-'));
+  try {
+    const gitFixture = createClarityUpdateGitFixture(fixtureRoot, REPO_REGISTRATIONS);
+    const project = seedClarityUpdateProject(fixtureRoot, gitFixture.oldSha);
+    const updaterEnv = {
+      ...process.env,
+      HOME: project.homeRoot,
+      USERPROFILE: project.homeRoot,
+      GIT_SSH_COMMAND: gitFixture.sshRouterPath.replace(/\\/g, '/'),
+      GIT_SSH_VARIANT: 'ssh',
+      GIT_TERMINAL_PROMPT: '0',
+      SGSD_TEST_BARE_REPO: gitFixture.bareRoot,
+      SGSD_TEST_SSH_LOG: gitFixture.sshLogPath,
+    };
+    const runUpdater = () => runFixtureProcess(
+      process.env.SGSD_TEST_BASH || 'bash',
+      [
+        path.join(gitFixture.sourceRoot, 'super-gsd', 'scripts', 'sgsd-update.sh'),
+        '--source',
+        gitFixture.sourceRoot,
+      ],
+      {
+        cwd: project.projectRoot,
+        env: updaterEnv,
+        timeoutMs: REAL_UPDATE_SPAWN_TIMEOUT_MS,
+      },
+    );
+
+    assertBrokenClarityUpdate(
+      runUpdater(),
+      project,
+      gitFixture.sourceRoot,
+      gitFixture.oldSha,
+    );
+    assertUncoveredProjectRowsRefuse(project);
+    runFixtureGit(
+      ['--git-dir', gitFixture.bareRoot, 'update-ref', 'refs/heads/master', gitFixture.fixedSha],
+      fixtureRoot,
+      'advance bare upstream to repaired SHA',
+    );
+    assertRepairedClarityUpdate(
+      runUpdater(),
+      project,
+      gitFixture.sourceRoot,
+      gitFixture.fixedSha,
+    );
+    assert.ok(
+      fs.readFileSync(gitFixture.sshLogPath, 'utf8').trim().length > 0,
+      'fixture SSH transport was not exercised',
+    );
+    assertClarityRecoveryRunbook();
+  } finally {
+    removeFixture({ root: fixtureRoot });
+  }
+}
+
 const CASES = Object.freeze({
   'preflight-static': runPreflightStatic,
   'smoke-static': runSmokeStatic,
@@ -1517,6 +2047,7 @@ const CASES = Object.freeze({
   'deployed-hook-smoke': runDeployedHookSmoke,
   'hook-distribution-all-types': runHookDistributionAllTypes,
   'hook-manifest-completeness': runHookManifestCompleteness,
+  'sgsd-update-clarity-recovery': runSgsdUpdateClarityRecovery,
 });
 
 async function main(argv) {

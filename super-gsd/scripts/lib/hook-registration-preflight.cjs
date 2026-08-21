@@ -12,6 +12,7 @@ const SMOKE_TIMEOUT_MS = SMOKE_TIMEOUT_FLOOR_MS;
 const SMOKE_CONCURRENCY = 4;
 const SMOKE_MANIFEST_MODE = '--smoke-manifest';
 const SMOKE_REPO_OVERLAY_MODE = '--smoke-repo-overlay';
+const PREFLIGHT_PROJECT_SETTINGS_MODE = '--preflight-project-settings';
 const SUPPORTED_INTERPRETERS = new Set(['node', 'bash']);
 
 class HookRegistrationPreflightError extends Error {
@@ -46,13 +47,27 @@ function launchInvalid(event, hookId, scriptPath, detail) {
   }]);
 }
 
+function normalizeScriptPath(rawValue, allowUnquotedWhitespace) {
+  const raw = typeof rawValue === 'string' ? rawValue.trim() : '';
+  const quoted = raw.match(/^(?:"([^"]+)"|'([^']+)')$/);
+  if (quoted) return quoted[1] || quoted[2];
+  if (!raw || (!allowUnquotedWhitespace && /\s/.test(raw))) return null;
+  return raw;
+}
+
+function parseScriptPath(rawValue, event, hookId, allowUnquotedWhitespace) {
+  const scriptPath = normalizeScriptPath(rawValue, allowUnquotedWhitespace);
+  if (!scriptPath) launchInvalid(event, hookId, null, 'expected exactly one script path');
+  return scriptPath;
+}
+
 function parseCombinedCommand(command, event, hookId) {
   const raw = typeof command === 'string' ? command.trim() : '';
-  const match = raw.match(/^(node|bash)\s+(?:"([^"]+)"|'([^']+)'|(\S+))$/i);
+  const match = raw.match(/^(node|bash)\s+(.+)$/i);
   if (!match) launchInvalid(event, hookId, null, 'expected node|bash followed by exactly one script path');
   return {
     interpreter: match[1].toLowerCase(),
-    scriptPath: match[2] || match[3] || match[4],
+    scriptPath: parseScriptPath(match[2], event, hookId, false),
   };
 }
 
@@ -71,7 +86,7 @@ function descriptorFor(hook, event, hookId) {
       launchInvalid(event, hookId, null, 'split launch requires a script path in args[0]');
     }
     interpreter = normalizedCommand;
-    scriptPath = hook.args[0].trim();
+    scriptPath = parseScriptPath(hook.args[0], event, hookId, true);
   } else {
     if (Object.prototype.hasOwnProperty.call(hook, 'args')
       && (!Array.isArray(hook.args) || hook.args.length > 0)) {
@@ -93,14 +108,10 @@ function descriptorFor(hook, event, hookId) {
 }
 
 function enumerateHookRegistrations(overlay) {
+  const descriptors = [];
   if (!overlay || typeof overlay !== 'object' || Array.isArray(overlay)) {
     launchInvalid('overlay', 'root', null, 'overlay must be an object');
   }
-  const descriptors = [];
-  if (overlay.statusLine && overlay.statusLine.type === 'command') {
-    descriptors.push(descriptorFor(overlay.statusLine, 'statusLine', 'status-line'));
-  }
-
   if (overlay.hooks === undefined) return descriptors;
   if (!overlay.hooks || typeof overlay.hooks !== 'object' || Array.isArray(overlay.hooks)) {
     launchInvalid('hooks', 'root', null, 'hooks must be an event object');
@@ -110,11 +121,21 @@ function enumerateHookRegistrations(overlay) {
     if (!Array.isArray(entries)) launchInvalid(event, 'event', null, 'hook event must be an array');
     entries.forEach((entry, entryIndex) => {
       if (!entry || typeof entry !== 'object' || Array.isArray(entry) || !Array.isArray(entry.hooks)) {
-        launchInvalid(event, `${event}[${entryIndex}]`, null, 'hook entry must contain a hooks array');
+        launchInvalid(
+          event,
+          `${event}[${entryIndex}]`,
+          null,
+          'hook entry must contain a hooks array',
+        );
       }
       entry.hooks.forEach((hook, hookIndex) => {
         if (!hook || typeof hook !== 'object' || Array.isArray(hook)) {
-          launchInvalid(event, `${event}[${entryIndex}].hooks[${hookIndex}]`, null, 'hook must be an object');
+          launchInvalid(
+            event,
+            `${event}[${entryIndex}].hooks[${hookIndex}]`,
+            null,
+            'hook must be an object',
+          );
         }
         if (hook.type !== 'command') return;
         const hookId = typeof entry.sgsd_hook_id === 'string' && entry.sgsd_hook_id.trim()
@@ -306,6 +327,164 @@ function preflightHookRegistrations(overlay, adapters = {}) {
   return preflightHookDescriptors(enumerateHookRegistrations(overlay), adapters);
 }
 
+function enumerateProjectManagedHookRegistrations(settings) {
+  const managed = { hooks: {} };
+  for (const [event, entries] of Object.entries((settings && settings.hooks) || {})) {
+    if (!Array.isArray(entries)) continue;
+    const selected = entries.filter((entry) => entry && entry.sgsd_managed === true);
+    if (selected.length > 0) managed.hooks[event] = selected;
+  }
+  return enumerateHookRegistrations(managed);
+}
+
+function hookMatchesDescriptorIdentity(hook, event, manifestDescriptor) {
+  if (event !== manifestDescriptor.event
+    || !hook
+    || typeof hook !== 'object'
+    || Array.isArray(hook)
+    || hook.type !== 'command') {
+    return false;
+  }
+  const command = typeof hook.command === 'string' ? hook.command.trim() : '';
+  if (!command) return false;
+
+  let interpreter;
+  let scriptPath;
+  const normalizedCommand = command.toLowerCase();
+  if (SUPPORTED_INTERPRETERS.has(normalizedCommand)) {
+    if (!Array.isArray(hook.args) || typeof hook.args[0] !== 'string') return false;
+    interpreter = normalizedCommand;
+    scriptPath = normalizeScriptPath(hook.args[0], true);
+  } else {
+    const match = command.match(/^(node|bash)\s+(.+)$/i);
+    if (!match) return false;
+    interpreter = match[1].toLowerCase();
+    scriptPath = normalizeScriptPath(match[2], false);
+  }
+  if (!scriptPath || !path.isAbsolute(scriptPath)) return false;
+  return interpreter === manifestDescriptor.interpreter
+    && path.basename(scriptPath).toLowerCase()
+      === path.basename(manifestDescriptor.scriptPath).toLowerCase();
+}
+
+function enumerateGlobalManifestCoverage(settings, manifestDescriptors) {
+  if (!Array.isArray(manifestDescriptors)) {
+    launchInvalid('coverage-manifest', 'root', null, 'manifest descriptors must be an array');
+  }
+  const hooks = settings
+    && typeof settings === 'object'
+    && !Array.isArray(settings)
+    && settings.hooks
+    && typeof settings.hooks === 'object'
+    && !Array.isArray(settings.hooks)
+    ? settings.hooks
+    : {};
+  const descriptors = [];
+  const seenRows = new Set();
+
+  for (const manifestDescriptor of manifestDescriptors) {
+    const entries = hooks[manifestDescriptor.event];
+    if (!Array.isArray(entries)) continue;
+    entries.forEach((entry, entryIndex) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry) || !Array.isArray(entry.hooks)) return;
+      entry.hooks.forEach((hook, hookIndex) => {
+        if (!hookMatchesDescriptorIdentity(hook, manifestDescriptor.event, manifestDescriptor)) return;
+        const rowIdentity = `${manifestDescriptor.event}/${entryIndex}/${hookIndex}`;
+        if (seenRows.has(rowIdentity)) return;
+        const hookId = typeof entry.sgsd_hook_id === 'string' && entry.sgsd_hook_id.trim()
+          ? entry.sgsd_hook_id.trim()
+          : `${manifestDescriptor.event}[${entryIndex}].hooks[${hookIndex}]`;
+        try {
+          const descriptor = descriptorFor(hook, manifestDescriptor.event, hookId);
+          if (!sameHookRegistration(manifestDescriptor, descriptor)) return;
+          seenRows.add(rowIdentity);
+          descriptors.push(descriptor);
+        } catch (error) {
+          if (!(error instanceof HookRegistrationPreflightError)) throw error;
+          // Unparseable global rows are non-coverage and remain operator-silent.
+        }
+      });
+    });
+  }
+  return descriptors;
+}
+
+function sameHookRegistration(projectDescriptor, globalDescriptor) {
+  return projectDescriptor.event === globalDescriptor.event
+    && projectDescriptor.interpreter === globalDescriptor.interpreter
+    && path.basename(projectDescriptor.scriptPath).toLowerCase()
+      === path.basename(globalDescriptor.scriptPath).toLowerCase();
+}
+
+function hookDescriptorIdentity(descriptor) {
+  const scriptPath = path.resolve(descriptor.scriptPath);
+  return JSON.stringify([
+    descriptor.event,
+    descriptor.hookId,
+    descriptor.interpreter,
+    process.platform === 'win32' ? scriptPath.toLowerCase() : scriptPath,
+  ]);
+}
+
+function filterWarnedHookDescriptors(descriptors, warnedDescriptors) {
+  const warnedIdentities = new Set(warnedDescriptors.map(hookDescriptorIdentity));
+  return descriptors.filter(
+    (descriptor) => !warnedIdentities.has(hookDescriptorIdentity(descriptor)),
+  );
+}
+
+function findLiveGlobalCoverage(projectDescriptor, globalDescriptors, adapters) {
+  for (const globalDescriptor of globalDescriptors) {
+    if (!sameHookRegistration(projectDescriptor, globalDescriptor)) continue;
+    try {
+      preflightHookDescriptors([globalDescriptor], adapters);
+      return globalDescriptor;
+    } catch (_error) {
+      // A matching registration without a live deployed script is not coverage.
+    }
+  }
+  return null;
+}
+
+function preflightProjectManagedRegistrations(projectSettings, globalSettings, adapters = {}) {
+  const projectDescriptors = enumerateProjectManagedHookRegistrations(projectSettings);
+  const globalDescriptors = enumerateGlobalManifestCoverage(
+    globalSettings || {},
+    projectDescriptors,
+  );
+  const refusals = [];
+  const warnings = [];
+  const warnedDescriptors = [];
+
+  for (const descriptor of projectDescriptors) {
+    try {
+      preflightHookDescriptors([descriptor], adapters);
+    } catch (error) {
+      if (!(error instanceof HookRegistrationPreflightError)) throw error;
+      for (const issue of error.issues) {
+        const coverage = issue.code === 'hook_registration_missing'
+          ? findLiveGlobalCoverage(descriptor, globalDescriptors, adapters)
+          : null;
+        if (coverage) {
+          warnedDescriptors.push(descriptor);
+          warnings.push({
+            ...issue,
+            code: 'project_hook_registration_missing_global_covered',
+            globalScriptPath: coverage.scriptPath,
+          });
+        } else {
+          refusals.push(issue);
+        }
+      }
+    }
+  }
+
+  if (refusals.length > 0) {
+    throw new HookRegistrationPreflightError(refusals);
+  }
+  return { descriptors: projectDescriptors, warnings, warnedDescriptors };
+}
+
 function descriptorSmokeTimeout(descriptor) {
   const registeredBudget = Number.isFinite(descriptor.timeout) && descriptor.timeout > 0
     ? descriptor.timeout * 1000
@@ -422,17 +601,40 @@ async function smokeHookRegistrations(descriptors, adapters = {}) {
 
 async function smokeCli(argv) {
   const mode = argv[0];
+  if (mode === PREFLIGHT_PROJECT_SETTINGS_MODE && argv.length === 3) {
+    const projectSettings = fs.existsSync(argv[1])
+      ? JSON.parse(fs.readFileSync(argv[1], 'utf8'))
+      : {};
+    const globalSettings = fs.existsSync(argv[2])
+      ? JSON.parse(fs.readFileSync(argv[2], 'utf8'))
+      : {};
+    const result = preflightProjectManagedRegistrations(projectSettings, globalSettings);
+    for (const warning of result.warnings) {
+      const location = warning.event + '/' + warning.hookId;
+      process.stderr.write(
+        'WARN ' + warning.code + ' ' + warning.scriptPath
+        + ' [' + location + '] (global=' + warning.globalScriptPath + ')\n',
+      );
+    }
+    process.stdout.write(JSON.stringify(result.warnedDescriptors));
+    return 0;
+  }
+
   let descriptors;
   if (mode === SMOKE_MANIFEST_MODE && argv.length === 3) {
     descriptors = parseHookSmokeManifest(fs.readFileSync(0, 'utf8'), argv[1]);
     preflightHookDeploymentSources(descriptors, argv[2]);
-  } else if (mode === SMOKE_REPO_OVERLAY_MODE && argv.length === 3) {
+  } else if (mode === SMOKE_REPO_OVERLAY_MODE && (argv.length === 3 || argv.length === 4)) {
     const overlay = JSON.parse(fs.readFileSync(argv[1], 'utf8'));
     descriptors = enumerateHookRegistrations(realizeRepoLocalHookOverlay(overlay, argv[2]));
+    if (argv.length === 4) {
+      descriptors = filterWarnedHookDescriptors(descriptors, JSON.parse(argv[3]));
+    }
   } else {
     process.stderr.write(
       'Usage: hook-registration-preflight.cjs --smoke-manifest <installed-hooks-root> <source-hooks-root>\n'
-      + '       hook-registration-preflight.cjs --smoke-repo-overlay <overlay.json> <repo-root>\n',
+      + '       hook-registration-preflight.cjs --smoke-repo-overlay <overlay.json> <repo-root> [warned-descriptors-json]\n'
+      + '       hook-registration-preflight.cjs --preflight-project-settings <project-settings.json> <global-settings.json>\n',
     );
     return 64;
   }
@@ -456,11 +658,15 @@ module.exports = {
   SMOKE_TIMEOUT_MS,
   HookRegistrationPreflightError,
   HookSmokeError,
+  enumerateGlobalManifestCoverage,
   enumerateHookRegistrations,
+  enumerateProjectManagedHookRegistrations,
+  filterWarnedHookDescriptors,
   parseHookSmokeManifest,
   preflightHookDeploymentSources,
   preflightHookDescriptors,
   preflightHookRegistrations,
+  preflightProjectManagedRegistrations,
   realizeRepoLocalHookOverlay,
   smokeHookRegistrations,
 };
