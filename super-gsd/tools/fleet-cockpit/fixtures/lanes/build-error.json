@@ -1,0 +1,23 @@
+{
+  "ok": false,
+  "schema_version": 1,
+  "ts": "2026-08-20T18:19:31.052Z",
+  "error_code": "internal_error_degraded",
+  "error": "captured adapter build failure",
+  "data": {
+    "now": {"_degraded": true, "error_code": "internal_error_degraded"},
+    "objective": {"_degraded": true, "error_code": "internal_error_degraded"},
+    "unlock": {"_degraded": true, "error_code": "internal_error_degraded"},
+    "blockers": {"_degraded": true, "error_code": "internal_error_degraded"},
+    "agents": {"_degraded": true, "error_code": "internal_error_degraded"},
+    "codex": {"_degraded": true, "error_code": "internal_error_degraded"},
+    "gates": {"_degraded": true, "error_code": "internal_error_degraded"},
+    "tokens": {"_degraded": true, "error_code": "internal_error_degraded"},
+    "artifacts": {"_degraded": true, "error_code": "internal_error_degraded"},
+    "staleness": {"_degraded": true, "error_code": "internal_error_degraded"},
+    "harness_evolution": {"_degraded": true, "error_code": "internal_error_degraded"},
+    "resume_command": {"_degraded": true, "error_code": "internal_error_degraded"}
+  },
+  "_section_degraded": ["now", "objective", "unlock", "blockers", "agents", "codex", "gates", "tokens", "artifacts", "staleness", "harness_evolution", "resume_command"],
+  "_redactions_applied": []
+}

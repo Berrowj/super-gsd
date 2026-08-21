@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "ts": "2026-08-20T18:19:31.052Z",
+  "data": {
+    "now": {"ts": "2026-08-18T12:00:00.000Z", "action": "last recorded activity", "source": "state_md"},
+    "objective": {"milestone": "v3.7", "phase": "160", "phase_name": "closed-lane", "source": "state_md", "state_md_milestone": "v3.7", "state_md_phase": "160", "projection_stale": false, "effective_confidence": 1},
+    "unlock": {"unlocks": null, "source": "absent"},
+    "blockers": {"count": 0, "items": []},
+    "agents": {"roster": [], "by_phase": {}},
+    "codex": {"live_state": "stale", "live_json_age_seconds": 194400, "stale_threshold_seconds": 120},
+    "gates": {"gates": ["ATC"], "latest_per_gate": {"ATC": {"verdict": "passed", "ts": "2026-08-18T11:59:00.000Z"}}, "live_event_count": 1},
+    "tokens": {"source": "token_spend", "total_tokens": 900},
+    "artifacts": {"source": "phases_dir", "items": []},
+    "staleness": {"state_md": {"stale": true, "reason": "activity_age_exceeded"}, "context_packet_builder": {"live": false}},
+    "harness_evolution": {"status": "unknown"},
+    "resume_command": {"command": "sg", "reason": "inspect stale lane", "source": "default"}
+  },
+  "_section_degraded": [],
+  "_redactions_applied": []
+}
