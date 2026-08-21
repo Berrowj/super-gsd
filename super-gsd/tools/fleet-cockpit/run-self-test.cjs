@@ -295,13 +295,14 @@ function listenServer(server, host, port) {
   });
 }
 
-function requestServer(address, requestPath, method) {
+function requestServer(address, requestPath, method, headers) {
   return new Promise(function (resolve, reject) {
     var req = http.request({
       hostname: address.address,
       port: address.port,
       method: method || 'GET',
-      path: requestPath
+      path: requestPath,
+      headers: headers || {}
     }, function (res) {
       var chunks = [];
       res.on('data', function (chunk) { chunks.push(chunk); });
@@ -378,6 +379,139 @@ async function withHttpServer(check, fixture, callback) {
     await callback(address, server);
   } finally {
     await closeServer(server);
+  }
+}
+
+var PAGE_FIXTURE_NAMES = Object.freeze([
+  'attention', 'running', 'stale', 'idle', 'noise-tokens-absent',
+  'noise-gates-empty', 'projection-conflict', 'build-error'
+]);
+
+function pageFile(name) {
+  return path.join(__dirname, 'public', name);
+}
+
+function extractMarkedHelper(source, name) {
+  var begin = '/* SGSD_FLEET_HELPER_BEGIN ' + name + ' */';
+  var end = '/* SGSD_FLEET_HELPER_END ' + name + ' */';
+  var beginIndex = source.indexOf(begin);
+  var endIndex = source.indexOf(end);
+  if (beginIndex === -1 || endIndex === -1 || endIndex <= beginIndex) {
+    throw new Error('missing production helper markers: ' + name);
+  }
+  return source.slice(beginIndex + begin.length, endIndex).trim();
+}
+
+function extractNamedFunction(source, name) {
+  var start = source.indexOf('function ' + name + '(');
+  if (start === -1) throw new Error('missing production function: ' + name);
+  var open = source.indexOf('{', start);
+  var depth = 0;
+  for (var i = open; i < source.length; i++) {
+    if (source[i] === '{') depth++;
+    else if (source[i] === '}') {
+      depth--;
+      if (depth === 0) return source.slice(start, i + 1);
+    }
+  }
+  throw new Error('unbalanced production function: ' + name);
+}
+
+function compileFunction(source, name, dependencies) {
+  var deps = dependencies || {};
+  var names = Object.keys(deps);
+  var values = names.map(function (key) { return deps[key]; });
+  var factory = Function.apply(null, names.concat([source + '\nreturn ' + name + ';']));
+  return factory.apply(null, values);
+}
+
+function compilePageHelpers(appSource) {
+  var compareLaneRows = compileFunction(
+    extractMarkedHelper(appSource, 'compareLaneRows'), 'compareLaneRows');
+  var formatValue = compileFunction(
+    extractMarkedHelper(appSource, 'formatValue'), 'formatValue');
+  var escapeHtml = compileFunction(
+    extractNamedFunction(appSource, 'escapeHtml'), 'escapeHtml');
+  var safeStatus = compileFunction(
+    extractNamedFunction(appSource, 'safeStatus'), 'safeStatus');
+  var formatAge = compileFunction(
+    extractMarkedHelper(appSource, 'formatAge'), 'formatAge', {
+      formatValue: formatValue
+    });
+  var renderLaneRail = compileFunction(
+    extractMarkedHelper(appSource, 'renderLaneRail'), 'renderLaneRail', {
+      compareLaneRows: compareLaneRows,
+      safeStatus: safeStatus,
+      formatAge: formatAge,
+      escapeHtml: escapeHtml
+    });
+  var renderObjectiveConflict = compileFunction(
+    extractMarkedHelper(appSource, 'renderObjectiveConflict'),
+    'renderObjectiveConflict', {
+      formatValue: formatValue,
+      escapeHtml: escapeHtml
+    });
+  return {
+    compareLaneRows: compareLaneRows,
+    formatValue: formatValue,
+    formatAge: formatAge,
+    escapeHtml: escapeHtml,
+    renderLaneRail: renderLaneRail,
+    renderObjectiveConflict: renderObjectiveConflict
+  };
+}
+
+async function createPageFixture() {
+  if (!status || typeof status.deriveLaneStatus !== 'function') {
+    throw new Error('status module unavailable');
+  }
+  var moduleValue = serverModule;
+  if (!moduleValue || typeof moduleValue.createFleetServer !== 'function') {
+    throw new Error('server module unavailable');
+  }
+  var root = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd fleet page '));
+  var snapshots = Object.create(null);
+  var lanes = PAGE_FIXTURE_NAMES.map(function (name) {
+    var lanePath = path.join(root, name);
+    fs.mkdirSync(path.join(lanePath, '.planning'), { recursive: true });
+    snapshots[name] = readFixture(name);
+    return { path: lanePath, branch: 'fixture-' + name };
+  });
+  var clockMs = Date.parse('2026-08-20T18:19:31.052Z');
+  var cache = fleet.createFleetCache({
+    buildSnapshot: function (input) {
+      return copy(snapshots[path.basename(input.projectDir)]);
+    },
+    deriveLaneStatus: status.deriveLaneStatus,
+    now: function () { return clockMs; },
+    intervalMs: 20000,
+    concurrency: 4
+  });
+  var server = null;
+  try {
+    var accepted = cache.acceptDiscovery(makePorcelain(lanes));
+    if (!accepted || accepted.ok !== true) throw new Error('fixture discovery failed');
+    await cache.refreshNow();
+    await new Promise(function (resolve) { setTimeout(resolve, 0); });
+    server = moduleValue.createFleetServer({ cache: cache, root: root });
+    var address = await listenServer(server, '127.0.0.1', 0);
+    return {
+      address: address,
+      cache: cache,
+      root: root,
+      names: PAGE_FIXTURE_NAMES.slice(),
+      snapshots: snapshots,
+      cleanup: async function () {
+        await closeServer(server);
+        cache.stop();
+        fs.rmSync(root, { recursive: true, force: true });
+      }
+    };
+  } catch (error) {
+    if (server) await closeServer(server);
+    cache.stop();
+    fs.rmSync(root, { recursive: true, force: true });
+    throw error;
   }
 }
 
@@ -1269,6 +1403,424 @@ async function caseStatusPrecedence(check) {
     failed.degraded.length === 12);
 }
 
+async function casePageDataContract(check) {
+  var fixture = await createPageFixture();
+  try {
+    var fleetResponse = await requestServer(fixture.address, '/api/fleet');
+    var body = fleetResponse.body;
+    check.assert('page_fleet_endpoint_returns_fixture_envelope',
+      fleetResponse.statusCode === 200 && body && body.ok === true
+      && body.schema_version === 1 && body.root === fixture.root
+      && body.cache_age_seconds === 0 && body.lanes.length === fixture.names.length);
+    ['ts', 'counts', 'lanes'].forEach(function (key) {
+      check.assert('page_fleet_has_' + key,
+        Object.prototype.hasOwnProperty.call(body, key));
+    });
+
+    var rowFields = [
+      'name', 'path', 'branch', 'status', 'headline', 'phase', 'phase_name',
+      'last_activity_ts', 'age_minutes', 'conflict', 'degraded'
+    ];
+    body.lanes.forEach(function (row) {
+      rowFields.forEach(function (key) {
+        check.assert('page_rollup_' + row.name + '_has_' + key,
+          Object.prototype.hasOwnProperty.call(row, key));
+      });
+      check.assert('page_rollup_' + row.name + '_degraded_is_array',
+        Array.isArray(row.degraded));
+    });
+
+    var details = Object.create(null);
+    for (var i = 0; i < fixture.names.length; i++) {
+      var name = fixture.names[i];
+      var response = await requestServer(
+        fixture.address, '/api/lane/' + encodeURIComponent(name));
+      var detail = response.body;
+      details[name] = detail;
+      check.assert('page_detail_' + name + '_is_displayable',
+        response.statusCode === 200 && detail && detail.name === name
+        && Object.prototype.hasOwnProperty.call(detail, 'ok'));
+      [
+        'status', 'reasons', 'cache_age_seconds', 'agents', 'tokens', 'gates',
+        'artifacts', 'objective_conflict', 'snapshot'
+      ].forEach(function (key) {
+        check.assert('page_detail_' + name + '_has_' + key,
+          Object.prototype.hasOwnProperty.call(detail, key));
+      });
+      check.assert('page_detail_' + name + '_cache_age_accepts_zero',
+        detail.cache_age_seconds === 0);
+      check.assert('page_detail_' + name + '_snapshot_is_unchanged',
+        JSON.stringify(detail.snapshot) === JSON.stringify(fixture.snapshots[name]));
+      check.assert('page_detail_' + name + '_keeps_twelve_sections',
+        JSON.stringify(Object.keys(detail.snapshot.data).sort())
+          === JSON.stringify(SECTION_KEYS.slice().sort()));
+    }
+
+    var tokenDetail = details['noise-tokens-absent'];
+    check.assert('page_tokens_no_data_sits_beside_raw_zero',
+      tokenDetail.tokens.state === 'no_data'
+      && tokenDetail.tokens.value === null
+      && tokenDetail.tokens.reason === 'tokens_source_absent'
+      && tokenDetail.snapshot.data.tokens.source === 'absent'
+      && tokenDetail.snapshot.data.tokens.total_tokens === 0);
+    var gateDetail = details['noise-gates-empty'];
+    check.assert('page_gates_no_data_sits_beside_raw_empty_evidence',
+      gateDetail.gates.state === 'no_data'
+      && gateDetail.gates.reason === 'no_gate_data'
+      && gateDetail.gates.live_event_count === 0
+      && gateDetail.snapshot.data.gates.gates.length === 0
+      && Object.keys(gateDetail.snapshot.data.gates.latest_per_gate).length === 0);
+    var conflict = details['projection-conflict'].objective_conflict;
+    check.assert('page_projection_conflict_has_both_pairs_source_and_confidence',
+      conflict.milestone === 'v2.0' && conflict.phase === '156'
+      && conflict.source === 'phase_folders'
+      && conflict.state_md_milestone === 'v3.0'
+      && conflict.state_md_phase === null
+      && conflict.effective_confidence === 0.7);
+    var attention = body.lanes.filter(function (row) {
+      return row.name === 'attention';
+    })[0];
+    check.assert('page_failed_gate_is_attention_with_readable_rollup_headline',
+      attention && attention.status === 'attention'
+      && attention.headline === 'gate failed');
+  } finally {
+    await fixture.cleanup();
+  }
+}
+
+async function casePageHttpDelivery(check) {
+  var fixture = await createPageFixture();
+  try {
+    var expectations = [
+      ['/', 'index.html', 'text/html; charset=utf-8'],
+      ['/index.html', 'index.html', 'text/html; charset=utf-8'],
+      ['/app.js', 'app.js', 'application/javascript; charset=utf-8']
+    ];
+    for (var i = 0; i < expectations.length; i++) {
+      var item = expectations[i];
+      var response = await requestServer(fixture.address, item[0]);
+      check.assert('page_static_' + item[0].replace(/[^a-z]/gi, '_') + '_status_200',
+        response.statusCode === 200);
+      check.assert('page_static_' + item[1].replace('.', '_') + '_exact_disk_bytes',
+        response.text === fs.readFileSync(pageFile(item[1]), 'utf8'));
+      check.assert('page_static_' + item[1].replace('.', '_') + '_content_type',
+        response.headers['content-type'] === item[2]);
+      check.assert('page_static_' + item[1].replace('.', '_') + '_safe_headers',
+        response.headers['x-content-type-options'] === 'nosniff'
+        && response.headers['cache-control'] === 'no-store'
+        && response.headers['x-sgsd-cache-age-seconds'] === '0');
+    }
+
+    var fileOrigin = await requestServer(
+      fixture.address, '/api/fleet', 'GET', { Origin: 'null' });
+    check.assert('page_file_origin_gets_exact_null_cors',
+      fileOrigin.statusCode === 200
+      && fileOrigin.headers['access-control-allow-origin'] === 'null'
+      && fileOrigin.headers.vary === 'Origin');
+    var untrusted = await requestServer(
+      fixture.address, '/api/fleet', 'GET', { Origin: 'https://untrusted.invalid' });
+    check.assert('page_untrusted_origin_is_not_reflected_or_wildcarded',
+      untrusted.statusCode === 200
+      && untrusted.headers['access-control-allow-origin'] === undefined);
+  } finally {
+    await fixture.cleanup();
+  }
+
+  await caseHttpContract(check);
+  await caseReadOnlyMethods(check);
+  await caseErrorShape(check);
+  await caseStructuralLoadSafety(check);
+}
+
+async function casePageSortComparator(check) {
+  var appSource = fs.readFileSync(pageFile('app.js'), 'utf8');
+  var comparatorSource = extractMarkedHelper(appSource, 'compareLaneRows');
+  var compareLaneRows = compileFunction(
+    comparatorSource, 'compareLaneRows');
+  var rows = [
+    { name: 'idle-null', status: 'idle', last_activity_ts: null },
+    { name: 'stale-lane', status: 'stale', last_activity_ts: '2026-08-20T10:00:00Z' },
+    { name: 'running-old', status: 'running', last_activity_ts: '2026-08-20T09:00:00Z' },
+    { name: 'attention-lane', status: 'attention', last_activity_ts: '2026-08-20T12:00:00Z' },
+    { name: 'idle-malformed', status: 'idle', last_activity_ts: 'not-a-time' },
+    { name: 'running-B', status: 'running', last_activity_ts: '2026-08-20T11:00:00Z' },
+    { name: 'error-lane', status: 'error', last_activity_ts: null },
+    { name: 'idle-valid', status: 'idle', last_activity_ts: '2026-08-20T08:00:00Z' },
+    { name: 'running-A', status: 'running', last_activity_ts: '2026-08-20T11:00:00Z' }
+  ];
+  var sorted = rows.slice().sort(compareLaneRows);
+  check.assert('page_comparator_is_exact_marker_delimited_production_source',
+    comparatorSource.indexOf('function compareLaneRows') !== -1
+    && comparatorSource.indexOf('attention: 0') !== -1);
+  check.assert('page_comparator_attention_error_running_stale_idle_order',
+    JSON.stringify(sorted.map(function (row) { return row.name; }))
+      === JSON.stringify([
+        'attention-lane', 'error-lane', 'running-A', 'running-B',
+        'running-old', 'stale-lane', 'idle-valid', 'idle-malformed', 'idle-null'
+      ]));
+  check.assert('page_comparator_newest_first_and_ascii_ties',
+    sorted[2].name === 'running-A' && sorted[3].name === 'running-B'
+    && sorted[4].name === 'running-old');
+  check.assert('page_comparator_null_and_malformed_activity_sort_last',
+    sorted[7].name === 'idle-malformed' && sorted[8].name === 'idle-null');
+  check.assert('page_comparator_error_is_attention_equivalent',
+    sorted[1].status === 'error' && sorted[2].status === 'running');
+}
+
+async function casePageRenderStructure(check) {
+  var appSource = fs.readFileSync(pageFile('app.js'), 'utf8');
+  var html = fs.readFileSync(pageFile('index.html'), 'utf8');
+  var helpers = compilePageHelpers(appSource);
+  var fixture = await createPageFixture();
+  var fleetBody;
+  var details = Object.create(null);
+  try {
+    fleetBody = (await requestServer(fixture.address, '/api/fleet')).body;
+    for (var i = 0; i < fixture.names.length; i++) {
+      var fixtureName = fixture.names[i];
+      details[fixtureName] = (await requestServer(
+        fixture.address, '/api/lane/' + encodeURIComponent(fixtureName))).body;
+    }
+    var comparatorCalls = 0;
+    function observedComparator(left, right) {
+      comparatorCalls++;
+      return helpers.compareLaneRows(left, right);
+    }
+    var railSource = extractMarkedHelper(appSource, 'renderLaneRail');
+    var productionRail = compileFunction(railSource, 'renderLaneRail', {
+      compareLaneRows: observedComparator,
+      safeStatus: compileFunction(
+        extractNamedFunction(appSource, 'safeStatus'), 'safeStatus'),
+      formatAge: helpers.formatAge,
+      escapeHtml: helpers.escapeHtml
+    });
+    var rendered = productionRail({ lanes: fleetBody.lanes.slice().reverse() }, 'running');
+    var renderedNames = [];
+    var namePattern = /data-lane-name=\x22([^\x22]+)\x22/g;
+    var nameMatch;
+    while ((nameMatch = namePattern.exec(rendered)) !== null) {
+      renderedNames.push(nameMatch[1]);
+    }
+    var expectedRows = fleetBody.lanes.slice().sort(helpers.compareLaneRows);
+    check.assert('page_rail_directly_invokes_comparator',
+      /\.sort\(compareLaneRows\)/.test(railSource) && comparatorCalls > 0,
+      'calls=' + comparatorCalls);
+    check.assert('page_rail_emits_every_fixture_lane',
+      renderedNames.length === fixture.names.length);
+    check.assert('page_rail_output_is_attention_first',
+      JSON.stringify(renderedNames)
+        === JSON.stringify(expectedRows.map(function (row) { return row.name; }))
+      && expectedRows[0].status === 'attention'
+      && expectedRows[1].status === 'error'
+      && expectedRows[2].status === 'running'
+      && expectedRows[3].status === 'stale');
+    expectedRows.forEach(function (row) {
+      var marker = 'data-lane-name=\x22' + helpers.escapeHtml(row.name) + '\x22';
+      var start = rendered.indexOf(marker);
+      var end = rendered.indexOf('</button>', start);
+      var segment = start === -1 || end === -1 ? '' : rendered.slice(start, end);
+      check.assert('page_rail_' + row.name + '_has_status_headline_age',
+        segment.indexOf('class=\x22lane-status\x22>'
+          + helpers.escapeHtml(row.status) + '</span>') !== -1
+        && segment.indexOf('>' + helpers.escapeHtml(row.headline) + '<') !== -1
+        && segment.indexOf('>' + helpers.escapeHtml(
+          helpers.formatAge(row.age_minutes).text) + '<') !== -1);
+    });
+  } finally {
+    await fixture.cleanup();
+  }
+  var noData = helpers.formatValue(details['noise-tokens-absent'].tokens);
+  var zero = helpers.formatValue(
+    details['noise-tokens-absent'].snapshot.data.tokens.total_tokens);
+  check.assert('page_formatter_no_data_is_exact',
+    noData.text === 'No data' && noData.className === 'value-no-data');
+  check.assert('page_formatter_zero_is_exact_and_distinct',
+    zero.text === '0' && zero.className === 'value-zero'
+    && zero.className !== noData.className);
+  check.assert('page_no_data_zero_classes_have_distinct_treatments',
+    /\.value-no-data\s*\{[^}]*dashed[^}]*\}/.test(html)
+    && /\.value-zero\s*\{[^}]*font-style:\s*normal[^}]*\}/.test(html));
+  var conflictOutput = helpers.renderObjectiveConflict(details['projection-conflict']);
+  [
+    'Effective milestone: v2.0', 'Effective phase: 156',
+    'Source: phase_folders', 'STATE milestone: v3.0',
+    'STATE phase: No data', 'Confidence: 0.7'
+  ].forEach(function (textValue) {
+    check.assert('page_conflict_' + textValue.replace(/[^a-z0-9]/gi, '_'),
+      conflictOutput.indexOf(textValue) !== -1);
+  });
+  check.assert('page_objective_calls_conflict_renderer',
+    /projection_stale\s*===\s*true[\s\S]{0,180}renderObjectiveConflict\(detail\)/.test(
+      appSource));
+  check.assert('page_numeric_paths_use_formatValue_without_or_fallback',
+    appSource.indexOf('formatValue(blockers.count)') !== -1
+    && appSource.indexOf('formatValue(gates.live_event_count)') !== -1
+    && appSource.indexOf('formatValue(tokens.value)') !== -1
+    && appSource.indexOf('formatValue(lastFleet.lanes.length)') !== -1
+    && !/(blockers\.count|live_event_count|tokens\.value|cache_age_seconds)\s*\|\|/.test(
+      appSource));
+  check.assert('page_failed_status_and_verdict_are_red_with_text',
+    /\.status-attention[^{]*\{[^}]*var\(--red\)/.test(html)
+    && /\.state-failed[^{]*\{[^}]*var\(--red\)/.test(html)
+    && appSource.indexOf('lane-headline') !== -1
+    && appSource.indexOf('<strong>') !== -1);
+  SECTION_KEYS.forEach(function (key) {
+    check.assert('page_structure_has_section_' + key,
+      html.indexOf('data-section=\x22' + key + '\x22') !== -1);
+  });
+  check.assert('page_raw_snapshot_targets_pre',
+    /<pre\s+id=\x22raw-snapshot\x22/.test(html)
+    && appSource.indexOf('JSON.stringify(snapshot, null, 2)') !== -1);
+  var resumeHtml = /<details data-section=\x22resume_command\x22[\s\S]*?<\/details>/.exec(
+    html);
+  var resumeSource = extractNamedFunction(appSource, 'renderResumeCommand');
+  check.assert('page_resume_command_is_inert_code_only',
+    resumeHtml && !/<(?:button|a|form)\b/i.test(resumeHtml[0])
+    && resumeSource.indexOf('<code class=\x22resume-code\x22 tabindex=\x220\x22>') !== -1
+    && !/\b(?:eval|Function|exec|spawn)\s*\(|clipboard|WebSocket|process\./.test(
+      resumeSource));
+}
+
+async function casePageBehaviourStructure(check) {
+  var appSource = fs.readFileSync(pageFile('app.js'), 'utf8');
+  var html = fs.readFileSync(pageFile('index.html'), 'utf8');
+  check.assert('page_behaviour_structural_not_browser_execution', true,
+    'STRUCTURAL: no supported browser or DOM implementation is used');
+  check.assert('page_behaviour_polls_only_fleet_every_5000ms',
+    /window\.setInterval\(refreshFleet,\s*5000\)/.test(appSource)
+    && (appSource.match(/requestJson\('\/api\/fleet'\)/g) || []).length === 1);
+  check.assert('page_behaviour_has_single_encoded_detail_path',
+    (appSource.match(/'\/api\/lane\/'/g) || []).length === 1
+    && /'\/api\/lane\/'\s*\+\s*encodeURIComponent\(name\)/.test(appSource));
+  check.assert('page_behaviour_file_and_http_base_is_exact',
+    /window\.location\.protocol\s*===\s*'file:'/.test(appSource)
+    && appSource.indexOf('? \'http://127.0.0.1:7777\' : \'\'') !== -1);
+  check.assert('page_behaviour_deep_link_parse_write_hashchange',
+    appSource.indexOf('/^#\\/lane\\/(.+)$/') !== -1
+    && appSource.indexOf('\'#/lane/\' + encodeURIComponent(name)') !== -1
+    && appSource.indexOf('window.addEventListener(\'hashchange\'') !== -1);
+  check.assert('page_behaviour_cache_age_is_permanent_and_zero_safe',
+    html.indexOf('id=\x22cache-age-value\x22') !== -1
+    && extractNamedFunction(appSource, 'updateCacheAge').indexOf(
+      'formatValue(value)') !== -1
+    && !/function updateCacheAge[\s\S]{0,300}\|\|/.test(appSource));
+  check.assert('page_behaviour_guards_poll_and_stale_detail',
+    appSource.indexOf('if (fleetRequestInFlight) return;') !== -1
+    && appSource.indexOf('var requestGeneration = ++detailRequestGeneration;') !== -1
+    && appSource.indexOf('requestGeneration !== detailRequestGeneration') !== -1);
+
+  var fleetFailure = extractNamedFunction(appSource, 'refreshFleet');
+  fleetFailure = fleetFailure.slice(fleetFailure.indexOf('.catch'));
+  var laneFailure = extractNamedFunction(appSource, 'loadLane');
+  laneFailure = laneFailure.slice(laneFailure.indexOf('.catch'));
+  var forbiddenReset = /(lastFleet|lastDetail)\s*=\s*null|renderNoDetail\s*\(|laneList\.(?:innerHTML|textContent)|rawSnapshot\.(?:innerHTML|textContent)|cacheAge\.(?:innerHTML|textContent)/;
+  check.assert('page_fleet_failure_banner_keeps_last_good',
+    fleetFailure.indexOf('setFailure(\'fleet\'') !== -1
+    && !forbiddenReset.test(fleetFailure));
+  check.assert('page_lane_failure_banner_keeps_last_good',
+    laneFailure.indexOf('setFailure(\'lane\'') !== -1
+    && !forbiddenReset.test(laneFailure));
+  check.assert('page_success_clears_banner_and_keeps_last_good_state',
+    appSource.indexOf('clearFailure(\'fleet\')') !== -1
+    && appSource.indexOf('clearFailure(\'lane\')') !== -1
+    && appSource.indexOf('var lastFleet = null;') !== -1
+    && appSource.indexOf('var lastDetail = null;') !== -1);
+}
+
+async function casePageSourceConstraints(check) {
+  var indexFile = pageFile('index.html');
+  var appFile = pageFile('app.js');
+  var serverFile = path.join(__dirname, 'server.cjs');
+  var html = fs.readFileSync(indexFile, 'utf8');
+  var appSource = fs.readFileSync(appFile, 'utf8');
+  var serverSource = fs.readFileSync(serverFile, 'utf8');
+  check.assert('page_sources_are_ascii',
+    [indexFile, appFile, serverFile].every(isAsciiFile));
+  var syntaxOk = true;
+  try {
+    Function(appSource);
+  } catch (_syntaxError) {
+    syntaxOk = false;
+  }
+  check.assert('page_app_compiles_in_process', syntaxOk);
+  check.assert('page_html_has_one_document_shell',
+    (html.match(/<!doctype html>/gi) || []).length === 1
+    && (html.match(/<html\b/gi) || []).length === 1
+    && (html.match(/<head\b/gi) || []).length === 1
+    && (html.match(/<body\b/gi) || []).length === 1
+    && (html.match(/<\/html>/gi) || []).length === 1
+    && (html.match(/<\/head>/gi) || []).length === 1
+    && (html.match(/<\/body>/gi) || []).length === 1);
+  ['header', 'main', 'nav', 'section', 'aside', 'pre'].forEach(function (tag) {
+    var opens = (html.match(new RegExp('<' + tag + '\\b', 'gi')) || []).length;
+    var closes = (html.match(new RegExp('<\\/' + tag + '>', 'gi')) || []).length;
+    check.assert('page_html_balances_' + tag, opens > 0 && opens === closes);
+  });
+  check.assert('page_html_uses_only_relative_defer_script',
+    /<script\s+src=\x22\.\/app\.js\x22\s+defer><\/script>/.test(html)
+    && !/type\s*=\s*['\x22]module['\x22]/i.test(html));
+
+  var palette = [
+    ['paper', '#f6f7f8'], ['ink', '#202629'], ['muted', '#647076'],
+    ['line', '#d8dee1'], ['panel', '#ffffff'], ['teal', '#147a74'],
+    ['blue', '#315f90'], ['amber', '#b27622'], ['green', '#4f7f45'],
+    ['red', '#aa4a43'], ['violet', '#6a5b8f']
+  ];
+  palette.forEach(function (entry) {
+    check.assert('page_palette_has_' + entry[0],
+      html.indexOf('--' + entry[0] + ': ' + entry[1]) !== -1);
+  });
+  check.assert('page_has_required_system_stack_heads',
+    html.indexOf('Segoe UI') !== -1 && html.indexOf('Cascadia Mono') !== -1);
+
+  var pageSource = html + '\n' + appSource;
+  var urls = pageSource.match(/https?:\/\/[^\s'\x22<)]+/g) || [];
+  check.assert('page_has_only_exact_loopback_service_url',
+    JSON.stringify(urls) === JSON.stringify(['http://127.0.0.1:7777']));
+  check.assert('page_has_no_remote_or_dependency_surfaces',
+    !/<(?:link|img|iframe)\b|@import|\brequire\s*\(|\bimport\s+|sourceMappingURL|serviceWorker|WebSocket|telemetry/i.test(
+      pageSource)
+    && !/\b(?:react|vue|svelte|angular|jquery|bootstrap|package)\b/i.test(pageSource));
+  check.assert('page_server_uses_fixed_three_path_allowlist',
+    serverSource.indexOf('STATIC_ROUTES') !== -1
+    && serverSource.indexOf('\'/\'') !== -1
+    && serverSource.indexOf('\'/index.html\'') !== -1
+    && serverSource.indexOf('\'/app.js\'') !== -1
+    && serverSource.indexOf('STATIC_ROUTES[pathname]') !== -1
+    && !/path\.join\([^)]*(?:pathname|req\.url)/.test(serverSource));
+}
+
+async function casePageManualChecksDocumented(check) {
+  var docsFile = path.join(__dirname, '..', '..', 'docs', 'FLEET-COCKPIT.md');
+  var docs = fs.readFileSync(docsFile, 'utf8');
+  var manualIndex = docs.indexOf('## MANUAL CHECKS');
+  var manual = manualIndex === -1 ? '' : docs.slice(manualIndex);
+  check.assert('page_manual_phone_section_is_explicit',
+    manualIndex !== -1 && manual.indexOf('Manual phone over LAN check') !== -1);
+  [
+    '--host 0.0.0.0', 'trusted-network/firewall',
+    'http://<LAN-IP>:7777/', 'device, browser, time, and result',
+    'lane rail is first', 'all rows select', 'status dot is not the sole cue',
+    '44px targets', 'centre and raw content follow',
+    'no page-wide horizontal overflow', 'cache age remains visible',
+    'last render under a banner', 'refreshing recovers',
+    'hash deep link restores a lane', 'browser network log'
+  ].forEach(function (requiredText) {
+    check.assert('page_manual_has_' + requiredText.replace(/[^a-z0-9]/gi, '_'),
+      manual.indexOf(requiredText) !== -1);
+  });
+  check.assert('page_manual_result_is_unchecked_and_operator_owned',
+    (manual.match(/^- \[ \]/gm) || []).length >= 10
+    && !/^- \[[xX]\]/m.test(manual)
+    && manual.indexOf('Result: PENDING - operator-owned') !== -1);
+  check.assert('page_manual_disclaims_automated_phone_pass',
+    manual.indexOf('self-test verifies this documentation only') !== -1
+    && manual.indexOf('Only an operator observation may record PASS') !== -1
+    && manual.indexOf('Result: PASS') === -1);
+  check.skip('manual_phone_over_lan_pending_operator_observation',
+    'MANUAL PENDING: documentation checked; no phone usability result asserted');
+}
+
 var CASES = {
   'default-bind': caseDefaultBind,
   'frame-coalescing': caseFrameCoalescing,
@@ -1290,7 +1842,14 @@ var CASES = {
   'noise-tokens-absent': caseNoiseTokensAbsent,
   'noise-gates-empty': caseNoiseGatesEmpty,
   'noise-artifacts-source': caseNoiseArtifactsSource,
-  'projection-conflict': caseProjectionConflict
+  'projection-conflict': caseProjectionConflict,
+  'page-http-delivery': casePageHttpDelivery,
+  'page-data-contract': casePageDataContract,
+  'page-sort-comparator': casePageSortComparator,
+  'page-render-structure': casePageRenderStructure,
+  'page-behaviour-structure': casePageBehaviourStructure,
+  'page-source-constraints': casePageSourceConstraints,
+  'page-manual-checks-documented': casePageManualChecksDocumented
 };
 
 function assertFixtureShapes(check) {

@@ -18,6 +18,21 @@ var DEFAULT_INTERVAL_SECONDS = 20;
 var MAX_INTERVAL_SECONDS = 86400;
 var FRAME_BEGIN = 'SGSD_FLEET_FRAME_BEGIN';
 var FRAME_END = 'SGSD_FLEET_FRAME_END';
+var PUBLIC_DIR = path.join(__dirname, 'public');
+var STATIC_ROUTES = Object.freeze({
+  '/': Object.freeze({
+    file: path.join(PUBLIC_DIR, 'index.html'),
+    contentType: 'text/html; charset=utf-8'
+  }),
+  '/index.html': Object.freeze({
+    file: path.join(PUBLIC_DIR, 'index.html'),
+    contentType: 'text/html; charset=utf-8'
+  }),
+  '/app.js': Object.freeze({
+    file: path.join(PUBLIC_DIR, 'app.js'),
+    contentType: 'application/javascript; charset=utf-8'
+  })
+});
 
 function parsePositiveNumber(value, name, maximum, integer) {
   var parsed = Number(value);
@@ -79,6 +94,15 @@ function cacheAgeHeader(cache) {
   }
 }
 
+function setReadOnlyHeaders(req, res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'no-store');
+  if (req.headers.origin === 'null') {
+    res.setHeader('Access-Control-Allow-Origin', 'null');
+    res.setHeader('Vary', 'Origin');
+  }
+}
+
 function sendJson(res, statusCode, value, cache, extraHeaders) {
   var body = JSON.stringify(value);
   res.statusCode = statusCode;
@@ -88,6 +112,15 @@ function sendJson(res, statusCode, value, cache, extraHeaders) {
   Object.keys(extraHeaders || {}).forEach(function (name) {
     res.setHeader(name, extraHeaders[name]);
   });
+  res.end(body);
+}
+
+function sendStatic(res, route, cache) {
+  var body = fs.readFileSync(route.file);
+  res.statusCode = 200;
+  res.setHeader('Content-Type', route.contentType);
+  res.setHeader('Content-Length', body.length);
+  res.setHeader('X-SGSD-Cache-Age-Seconds', cacheAgeHeader(cache));
   res.end(body);
 }
 
@@ -149,6 +182,7 @@ function createFleetServer(options) {
   }
 
   return http.createServer(function (req, res) {
+    setReadOnlyHeaders(req, res);
     if (req.method !== 'GET') {
       sendJson(res, 405, {
         ok: false,
@@ -161,6 +195,11 @@ function createFleetServer(options) {
     try {
       var requestUrl = new URL(req.url, 'http://localhost');
       var pathname = requestUrl.pathname;
+      var staticRoute = STATIC_ROUTES[pathname];
+      if (staticRoute) {
+        sendStatic(res, staticRoute, cache);
+        return;
+      }
       if (pathname === '/api/fleet') {
         var fleet = cache.getFleet();
         sendJson(res, 200, {
