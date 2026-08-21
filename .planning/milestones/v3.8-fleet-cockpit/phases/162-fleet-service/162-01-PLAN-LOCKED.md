@@ -4,7 +4,7 @@ phase: 162
 slug: fleet-service
 milestone: v3.8-fleet-cockpit
 status: PLANNED
-revision: 1
+revision: 2
 governing_decision: .planning/milestones/v3.8-fleet-cockpit/phases/162-fleet-service/CONTEXT.md
 depends_on: ['161-01']
 intent: >
@@ -22,7 +22,7 @@ semantic_acceptance_criteria:
       A real child process running the production CLI against the temporary
       fixture-Git checkout, with no host or port override and port 7777 proven
       free before launch.
-    expected_outcome: '`node tools/fleet-cockpit/server.cjs --root <worktrees dir>` starts and binds 127.0.0.1:7777'
+    expected_outcome: '`node super-gsd/tools/fleet-cockpit/server.cjs --root <worktrees dir>` starts and binds 127.0.0.1:7777'
     verification_cmd: 'node super-gsd/tools/fleet-cockpit/run-self-test.cjs --case default-bind'
   - input: >
       A temporary real Git repository with a main checkout and registered
@@ -383,3 +383,9 @@ create the real fixture repository and exercise child servers. The local load
 proof is structural: concurrency is bounded, cycles never overlap, and requests
 cannot build. The <1.0 devcp measurement remains a run-home acceptance
 observation.
+
+## AMENDMENT-1 (2026-08-21, orchestrator-recorded, plan-review round 1)
+
+GO-WITH-CHANGES: HANDOVER.md references qualified to the in-repo copy at
+.planning/milestones/v3.8-fleet-cockpit/HANDOVER.md; bind command corrected to
+node super-gsd/tools/fleet-cockpit/server.cjs.
