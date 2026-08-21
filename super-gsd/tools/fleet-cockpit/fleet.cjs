@@ -1,6 +1,6 @@
 // Phase 162 P162-T1: request-agnostic, read-only fleet discovery cache.
-// Git discovery is performed by the launcher. This module accepts the exact
-// `git -C <root> worktree list --porcelain` frame and never spawns a process.
+// Git discovery is performed by an injected frame source. This module accepts
+// the exact `git -C <root> worktree list --porcelain` frame and never spawns.
 // ASCII-only.
 
 'use strict';
@@ -188,6 +188,8 @@ function rollupRow(lane, derived) {
 
 function createFleetCache(options) {
   var opts = options || {};
+  var discoveryFrameSource = typeof opts.discoveryFrameSource === 'function'
+    ? opts.discoveryFrameSource : null;
   var buildSnapshot = typeof opts.buildSnapshot === 'function'
     ? opts.buildSnapshot : cockpitStateAdapter.buildSnapshot;
   var deriveLaneStatus = typeof opts.deriveLaneStatus === 'function'
@@ -286,6 +288,19 @@ function createFleetCache(options) {
     return queue;
   }
 
+  function refreshDiscovery() {
+    if (!discoveryFrameSource) return;
+    try {
+      acceptDiscovery(discoveryFrameSource());
+    } catch (error) {
+      lastDiscoveryError = {
+        error_code: 'worktree_discovery_failed',
+        error: error && error.message
+          ? error.message : 'worktree discovery failed'
+      };
+    }
+  }
+
   async function buildLane(lane, cycleNowMs) {
     try {
       var captured = await Promise.resolve().then(function () {
@@ -335,6 +350,7 @@ function createFleetCache(options) {
 
   async function refreshCycle() {
     var startedMs = readNow();
+    refreshDiscovery();
     var queue = eligibleQueue();
     var results = await runWorkers(queue, startedMs);
     var finishedMs = readNow();
