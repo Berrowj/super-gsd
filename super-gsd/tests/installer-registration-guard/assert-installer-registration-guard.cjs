@@ -7,13 +7,19 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { EventEmitter } = require('node:events');
 
 const SUPER_GSD_ROOT = path.resolve(__dirname, '..', '..');
 const INSTALL_PATH = path.join(SUPER_GSD_ROOT, 'install.sh');
+const UPDATE_PATH = path.join(SUPER_GSD_ROOT, 'scripts', 'sgsd-update.sh');
 const PREFLIGHT_PATH = path.join(SUPER_GSD_ROOT, 'scripts', 'lib', 'hook-registration-preflight.cjs');
 const BUNDLED_OVERLAY_PATH = path.join(SUPER_GSD_ROOT, 'CLAUDE-OVERLAY.md');
 const GLOBAL_OVERLAY_PATH = path.join(SUPER_GSD_ROOT, 'config', 'settings-overlay.json');
 const REPO_OVERLAY_PATH = path.join(SUPER_GSD_ROOT, 'config', 'repo-settings-overlay.json');
+const CODEX_HOOK_CONFIG_PATH = path.join(SUPER_GSD_ROOT, 'config', 'codex-hooks.json');
+const HOOK_MANIFEST_PATH = path.join(SUPER_GSD_ROOT, 'config', 'hook-manifest.json');
+const COMMIT_GATE_INSTALLER_PATH = path.join(SUPER_GSD_ROOT, 'scripts', 'install-commit-gate.cjs');
+const UPDATE_SKILL_PATH = path.join(SUPER_GSD_ROOT, 'skills', 'sgsd-update', 'SKILL.md');
 const STALE_OVERLAY_MARKERS = Object.freeze([
   Object.freeze({
     id: 'query_byterover',
@@ -66,24 +72,74 @@ const CLARITY_NINE_HOOKS = Object.freeze([
   'sgsd-statusline.js',
 ]);
 const CANONICAL_HOOK_COUNT = 16;
+const DEFAULT_INSTALLER_SPAWN_TIMEOUT_MS = 150_000;
+const BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS = 3 * 90_000;
+const REAL_UPDATE_SPAWN_TIMEOUT_MS = 3 * 90_000;
+const FIXTURE_GIT_SPAWN_TIMEOUT_MS = 30_000;
+const SHIPPED_HOOK_NAMES = Object.freeze([
+  'gsd-checkpoint-writer.js',
+  'gsd-context-monitor.js',
+  'gsd-phase-boundary.sh',
+  'gsd-session-start.js',
+  'gsd-session-state.sh',
+  'gsd-stuck-detector.js',
+  'gsd-token-logger.js',
+  'sgsd-activity-logger.js',
+  'sgsd-commit-gate.cjs',
+  'sgsd-heartbeat.js',
+  'sgsd-intent-classifier.cjs',
+  'sgsd-quality-gate.js',
+  'sgsd-session-start.js',
+  'sgsd-statusline.js',
+  'sgsd-stop-handoff.js',
+  'sgsd-vtp-pending.js',
+]);
+const EXPECTED_CODEX_ENTRY_NAMES = Object.freeze([
+  'block-forbidden-write.cjs',
+  'block-secret-leak.cjs',
+  'enforce-allowed-files.cjs',
+  'log-tool-event.cjs',
+  'validate-stop-contract.cjs',
+]);
 const REPO_REGISTRATIONS = Object.freeze([
   ['SessionStart', 'session-start-governance', 'super-gsd/hooks/sgsd-session-start.js'],
   ['UserPromptSubmit', 'user-prompt-intent-classifier', 'super-gsd/hooks/sgsd-intent-classifier.cjs'],
   ['UserPromptSubmit', 'user-prompt-secret-leak-guard', 'super-gsd/tools/codex-hooks/block-secret-leak.cjs'],
   ['PostToolUse', 'post-tool-use-quality-gate', 'super-gsd/hooks/sgsd-quality-gate.js'],
 ]);
+const CLARITY_HISTORICAL_IDS = Object.freeze([
+  'session-start-governance',
+  'user-prompt-intent-classifier',
+  'post-tool-use-quality-gate',
+]);
 const GLOBAL_SCRIPT_NAMES = Object.freeze([
   'sgsd-statusline.js',
   'gsd-session-start.js',
   'gsd-session-state.sh',
   'sgsd-vtp-pending.js',
+  'sgsd-session-start.js',
   'sgsd-activity-logger.js',
+  'sgsd-intent-classifier.cjs',
   'sgsd-heartbeat.js',
   'gsd-token-logger.js',
   'gsd-stuck-detector.js',
   'gsd-checkpoint-writer.js',
   'gsd-context-monitor.js',
+  'sgsd-quality-gate.js',
   'sgsd-stop-handoff.js',
+]);
+const HOOK_MANIFEST_SURFACES = Object.freeze([
+  'claude-global hooks',
+  'claude-global statusLine',
+  'claude-project',
+  'codex-project',
+  'git-pre-commit',
+  'auxiliary-only',
+]);
+const HOOK_DISTRIBUTION_TARGETS = Object.freeze([
+  'claude-global',
+  'claude-project',
+  'codex-project',
 ]);
 
 function sha256(bytes) {
@@ -107,8 +163,24 @@ function sentinelSettings(label) {
         matcher: 'permission_prompt',
         hooks: [{ type: 'prompt', prompt: `sentinel:${label}` }],
       }],
+      SessionStart: [{
+        matcher: `operator-pathological:${label}`,
+        hooks: [{
+          type: 'command',
+          command: `operator garbage command:${label}`,
+          args: { deliberately: 'not-an-array' },
+        }],
+      }],
     },
   };
+}
+
+function operatorRowsBytes(settings) {
+  const hooks = (settings && settings.hooks) || {};
+  return Buffer.from(JSON.stringify({
+    Notification: Array.isArray(hooks.Notification) ? hooks.Notification : [],
+    SessionStart: Array.isArray(hooks.SessionStart) ? hooks.SessionStart.slice(0, 1) : [],
+  }));
 }
 
 function copyFixtureSupport(projectRoot) {
@@ -192,6 +264,484 @@ function hookFiles(hooksRoot) {
     .sort();
 }
 
+function relativeFiles(root) {
+  const files = [];
+  function visit(current, prefix) {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const relative = prefix ? path.join(prefix, entry.name) : entry.name;
+      const absolute = path.join(current, entry.name);
+      if (entry.isDirectory()) visit(absolute, relative);
+      else if (entry.isFile()) files.push(relative);
+    }
+  }
+  visit(root, '');
+  return files.sort();
+}
+
+function configuredCodexEntryNames() {
+  const config = JSON.parse(fs.readFileSync(CODEX_HOOK_CONFIG_PATH, 'utf8'));
+  const names = new Set();
+  function visit(value) {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+    if (!value || typeof value !== 'object') return;
+    if (typeof value.command === 'string') {
+      const match = value.command.match(/^node\s+super-gsd\/tools\/codex-hooks\/([^/\s]+)$/);
+      assert.ok(match, 'unexpected Codex hook command shape: ' + value.command);
+      names.add(match[1]);
+    }
+    Object.values(value).forEach(visit);
+  }
+  visit(config);
+  return [...names].sort();
+}
+
+function deepClone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function manifestFailure(code, sourcePath, surface) {
+  throw new Error(`${code} ${sourcePath} [${surface}]`);
+}
+
+function commandSourcePath(command, args = []) {
+  const launch = [command, ...args].join(' ').replace(/\\/g, '/');
+  let match = launch.match(/^(?:node|bash)\s+~\/\.claude\/hooks\/([^\s]+)$/);
+  if (match) return `hooks/${match[1]}`;
+  match = launch.match(/^(?:node|bash)\s+super-gsd\/(hooks\/[^\s]+|tools\/codex-hooks\/[^\s]+)$/);
+  return match ? match[1] : null;
+}
+
+function configuredRegistrationRecords(globalOverlay, repoOverlay, codexConfig, installer, commitGateInstaller) {
+  const records = [];
+  function addHooks(config, authority, surface) {
+    for (const [event, groups] of Object.entries(config.hooks || {})) {
+      for (const group of groups || []) {
+        for (const hook of group.hooks || []) {
+          if (hook.type !== 'command') {
+            records.push({ source_path: null, authority, surface, event });
+            continue;
+          }
+          records.push({
+            source_path: commandSourcePath(hook.command, hook.args),
+            authority,
+            surface,
+            event,
+            matcher: group.matcher ?? null,
+            timeout_seconds: hook.timeout ?? null,
+            command: [hook.command, ...(hook.args || [])].join(' '),
+            hook_id: group.sgsd_hook_id ?? null,
+          });
+        }
+      }
+    }
+  }
+
+  if (globalOverlay.statusLine && globalOverlay.statusLine.type === 'command') {
+    records.push({
+      source_path: commandSourcePath(globalOverlay.statusLine.command),
+      authority: 'config/settings-overlay.json',
+      surface: 'claude-global statusLine',
+      event: 'statusLine',
+      matcher: null,
+      timeout_seconds: globalOverlay.statusLine.timeout ?? null,
+      command: globalOverlay.statusLine.command,
+      hook_id: null,
+    });
+  }
+  addHooks(globalOverlay, 'config/settings-overlay.json', 'claude-global hooks');
+  addHooks(repoOverlay, 'config/repo-settings-overlay.json', 'claude-project');
+  addHooks(codexConfig, 'config/codex-hooks.json', 'codex-project');
+  const quote = String.fromCharCode(34);
+  const lifecyclePresent = installer.includes('run_commit_gate_installer()')
+    && installer.includes('INSTALLER_SCRIPT=' + quote + '$SCRIPT_DIR/scripts/install-commit-gate.cjs' + quote)
+    && installer.includes('run_commit_gate_installer install');
+  const targetPresent = /path\.resolve\(repoRoot, 'super-gsd', 'hooks', 'sgsd-commit-gate\.cjs'\)/
+    .test(commitGateInstaller);
+  if (lifecyclePresent && targetPresent) {
+    records.push({
+      source_path: 'hooks/sgsd-commit-gate.cjs',
+      authority: 'install.sh --install-commit-gate',
+      surface: 'git-pre-commit',
+      event: 'pre-commit',
+      matcher: null,
+      timeout_seconds: null,
+      command: 'node super-gsd/hooks/sgsd-commit-gate.cjs',
+      hook_id: null,
+    });
+  }
+  return records;
+}
+
+function registrationKey(record) {
+  return JSON.stringify([
+    record.source_path,
+    record.authority,
+    record.surface,
+    record.event,
+    record.matcher ?? null,
+    record.timeout_seconds ?? null,
+    record.command,
+    record.hook_id ?? null,
+  ]);
+}
+
+function validateManifestInventory(snapshot) {
+  const entries = snapshot.manifest && Array.isArray(snapshot.manifest.entries)
+    ? snapshot.manifest.entries
+    : [];
+  const inventory = [...snapshot.hookInventory, ...snapshot.codexInventory].sort();
+  const entryPaths = entries.map((entry) => entry.source_path);
+  const entryPathSet = new Set(entryPaths);
+  const inventorySet = new Set(inventory);
+  for (const sourcePath of inventory) {
+    if (!entryPathSet.has(sourcePath)) manifestFailure('hook_manifest_entry_missing', sourcePath, 'inventory');
+  }
+  for (const sourcePath of entryPaths) {
+    if (!inventorySet.has(sourcePath)) manifestFailure('hook_manifest_entry_unexpected', sourcePath, 'inventory');
+  }
+  if (entryPathSet.size !== entryPaths.length) {
+    const duplicate = entryPaths.find((sourcePath, index) => entryPaths.indexOf(sourcePath) !== index);
+    manifestFailure('hook_manifest_entry_unexpected', duplicate, 'manifest');
+  }
+  assert.equal(snapshot.hookInventory.length, 16, 'hook manifest inventory must contain exactly sixteen Claude entries');
+  assert.equal(snapshot.codexInventory.length, 5, 'hook manifest inventory must contain exactly five Codex entries');
+  return { entries, inventorySet, shippedSet: new Set(snapshot.shippedInventory) };
+}
+
+function validateDistribution(entry) {
+  const expectedInterpreter = entry.source_path.endsWith('.sh') ? 'bash' : 'node';
+  if (entry.interpreter !== expectedInterpreter) {
+    manifestFailure('hook_manifest_interpreter_invalid', entry.source_path, 'manifest');
+  }
+  const expectedTargets = entry.source_path.startsWith('hooks/')
+    ? ['claude-global', 'claude-project']
+    : ['codex-project'];
+  const targets = Array.isArray(entry.distribution_targets) ? [...entry.distribution_targets].sort() : [];
+  if (targets.some((target) => !HOOK_DISTRIBUTION_TARGETS.includes(target))
+    || JSON.stringify(targets) !== JSON.stringify(expectedTargets)) {
+    manifestFailure('hook_manifest_distribution_invalid', entry.source_path, 'distribution');
+  }
+}
+
+function manifestExpectations(entries) {
+  const registrations = [];
+  const smoke = [];
+  const authorities = {
+    'claude-global hooks': 'config/settings-overlay.json',
+    'claude-global statusLine': 'config/settings-overlay.json',
+    'claude-project': 'config/repo-settings-overlay.json',
+    'codex-project': 'config/codex-hooks.json',
+    'git-pre-commit': 'install.sh --install-commit-gate',
+  };
+  for (const entry of entries) {
+    validateDistribution(entry);
+    if (!Array.isArray(entry.dispositions) || entry.dispositions.length === 0) {
+      manifestFailure('hook_manifest_reason_missing', entry.source_path, 'disposition');
+    }
+    for (const disposition of entry.dispositions || []) {
+      if (!HOOK_MANIFEST_SURFACES.includes(disposition.surface)) {
+        manifestFailure('hook_manifest_surface_invalid', entry.source_path, disposition.surface || 'missing');
+      }
+      if (disposition.kind === 'intentionally_unregistered') {
+        if (typeof disposition.reason !== 'string' || disposition.reason.trim() === '') {
+          manifestFailure('hook_manifest_reason_missing', entry.source_path, disposition.surface);
+        }
+        if (disposition.surface === 'auxiliary-only') {
+          smoke.push({
+            source_path: entry.source_path,
+            event: disposition.smoke_event,
+            interpreter: entry.interpreter,
+            timeout_seconds: disposition.smoke_timeout_seconds ?? null,
+            surface: disposition.surface,
+          });
+        }
+        continue;
+      }
+      if (disposition.kind !== 'registered') {
+        manifestFailure('hook_manifest_reason_missing', entry.source_path, disposition.surface);
+      }
+      const expectedAuthority = authorities[disposition.surface];
+      if (!expectedAuthority || disposition.authority !== expectedAuthority) {
+        manifestFailure('hook_manifest_registration_missing', entry.source_path, disposition.surface);
+      }
+      registrations.push({
+        source_path: entry.source_path,
+        authority: disposition.authority,
+        surface: disposition.surface,
+        event: disposition.event,
+        matcher: disposition.matcher ?? null,
+        timeout_seconds: disposition.timeout_seconds ?? null,
+        command: disposition.command,
+        hook_id: disposition.hook_id ?? null,
+      });
+      if (disposition.surface.startsWith('claude-global')) {
+        smoke.push({
+          source_path: entry.source_path,
+          event: disposition.event,
+          interpreter: entry.interpreter,
+          timeout_seconds: disposition.timeout_seconds ?? null,
+          surface: disposition.surface,
+        });
+      }
+    }
+  }
+  return { registrations, smoke };
+}
+
+function validateConfiguredRegistrations(snapshot, inventorySet, shippedSet, expected) {
+  const actual = configuredRegistrationRecords(
+    snapshot.globalOverlay,
+    snapshot.repoOverlay,
+    snapshot.codexConfig,
+    snapshot.installer,
+    snapshot.commitGateInstaller,
+  );
+  const actualEventKeys = new Set();
+  for (const record of actual) {
+    if (!record.source_path || !inventorySet.has(record.source_path) || !shippedSet.has(record.source_path)) {
+      manifestFailure('hook_manifest_registration_unexpected', record.source_path || 'unsupported-command', record.surface);
+    }
+    const eventKey = JSON.stringify([record.source_path, record.surface, record.event]);
+    if (actualEventKeys.has(eventKey)) {
+      manifestFailure('hook_manifest_registration_unexpected', record.source_path, record.surface);
+    }
+    actualEventKeys.add(eventKey);
+  }
+  const actualCounts = new Map();
+  for (const record of actual) {
+    const key = registrationKey(record);
+    actualCounts.set(key, (actualCounts.get(key) || 0) + 1);
+  }
+  for (const record of expected) {
+    const key = registrationKey(record);
+    const count = actualCounts.get(key) || 0;
+    if (count === 0) manifestFailure('hook_manifest_registration_missing', record.source_path, record.surface);
+    actualCounts.set(key, count - 1);
+  }
+  const unexpected = actual.find((record) => (actualCounts.get(registrationKey(record)) || 0) > 0);
+  if (unexpected) manifestFailure('hook_manifest_registration_unexpected', unexpected.source_path, unexpected.surface);
+}
+
+function validateManifestSmoke(smokeManifest, expected) {
+  const actual = smokeManifest.split(/\r?\n/).filter(Boolean).map((row) => {
+    const [event, , interpreter, fileName, timeout] = row.split('|');
+    return {
+      source_path: `hooks/${fileName}`,
+      event,
+      interpreter,
+      timeout_seconds: timeout === '' ? null : Number(timeout),
+    };
+  });
+  const keyOf = (record) => JSON.stringify([
+    record.source_path,
+    record.event,
+    record.interpreter,
+    record.timeout_seconds ?? null,
+  ]);
+  assert.equal(new Set(actual.map(keyOf)).size, actual.length, 'hook manifest smoke contains a duplicate entry');
+  const actualKeys = new Set(actual.map(keyOf));
+  for (const record of expected) {
+    const key = keyOf(record);
+    if (!actualKeys.has(key)) manifestFailure('hook_manifest_registration_missing', record.source_path, record.surface);
+    actualKeys.delete(key);
+  }
+  if (actualKeys.size > 0) {
+    const extra = actual.find((record) => actualKeys.has(keyOf(record)));
+    manifestFailure('hook_manifest_registration_unexpected', extra.source_path, 'auxiliary-only');
+  }
+}
+
+function validateHookManifest(snapshot) {
+  const { entries, inventorySet, shippedSet } = validateManifestInventory(snapshot);
+  const expected = manifestExpectations(entries);
+  validateConfiguredRegistrations(snapshot, inventorySet, shippedSet, expected.registrations);
+  validateManifestSmoke(snapshot.smokeManifest, expected.smoke);
+  return { entries: entries.length, registrations: expected.registrations.length, smoke: expected.smoke.length };
+}
+
+function hookManifestSnapshot() {
+  const hookInventory = hookFiles(path.join(SUPER_GSD_ROOT, 'hooks')).map((name) => `hooks/${name}`);
+  const codexInventory = configuredCodexEntryNames().map((name) => `tools/codex-hooks/${name}`);
+  return {
+    manifest: JSON.parse(fs.readFileSync(HOOK_MANIFEST_PATH, 'utf8')),
+    hookInventory,
+    codexInventory,
+    shippedInventory: [
+      ...hookInventory,
+      ...codexInventory.filter((sourcePath) => {
+        const absolute = path.join(SUPER_GSD_ROOT, sourcePath);
+        return fs.existsSync(absolute) && fs.statSync(absolute).isFile();
+      }),
+    ],
+    globalOverlay: JSON.parse(fs.readFileSync(GLOBAL_OVERLAY_PATH, 'utf8')),
+    repoOverlay: JSON.parse(fs.readFileSync(REPO_OVERLAY_PATH, 'utf8')),
+    codexConfig: JSON.parse(fs.readFileSync(CODEX_HOOK_CONFIG_PATH, 'utf8')),
+    installer: fs.readFileSync(INSTALL_PATH, 'utf8'),
+    commitGateInstaller: fs.readFileSync(COMMIT_GATE_INSTALLER_PATH, 'utf8'),
+    smokeManifest: readGlobalDeploymentManifest(),
+  };
+}
+
+function assertManifestMutationRefused(base, mutate, code, sourcePath, surface) {
+  const fixture = deepClone(base);
+  mutate(fixture);
+  assert.throws(
+    () => validateHookManifest(fixture),
+    (error) => error.message === `${code} ${sourcePath} [${surface}]`,
+    `${code} mutation passed silently for ${sourcePath} [${surface}]`,
+  );
+}
+
+function runHookManifestCompleteness() {
+  const snapshot = hookManifestSnapshot();
+  assert.deepEqual(validateHookManifest(snapshot), { entries: 21, registrations: 24, smoke: 15 });
+
+  assertManifestMutationRefused(snapshot, (fixture) => {
+    fixture.globalOverlay.hooks.SessionStart = fixture.globalOverlay.hooks.SessionStart
+      .filter((group) => group.hooks[0].command !== 'node ~/.claude/hooks/sgsd-session-start.js');
+  }, 'hook_manifest_registration_missing', 'hooks/sgsd-session-start.js', 'claude-global hooks');
+  assertManifestMutationRefused(snapshot, (fixture) => {
+    const entry = fixture.manifest.entries.find((candidate) => candidate.source_path === 'hooks/sgsd-statusline.js');
+    entry.dispositions.find((item) => item.kind === 'intentionally_unregistered').reason = '   ';
+  }, 'hook_manifest_reason_missing', 'hooks/sgsd-statusline.js', 'claude-global hooks');
+  assertManifestMutationRefused(snapshot, (fixture) => {
+    fixture.globalOverlay.hooks.PostToolUse.push({
+      matcher: '*',
+      hooks: [{ type: 'command', command: 'node ~/.claude/hooks/sgsd-commit-gate.cjs', timeout: 5 }],
+    });
+  }, 'hook_manifest_registration_unexpected', 'hooks/sgsd-commit-gate.cjs', 'claude-global hooks');
+  assertManifestMutationRefused(snapshot, (fixture) => {
+    fixture.hookInventory.push('hooks/unmanifested-source.js');
+  }, 'hook_manifest_entry_missing', 'hooks/unmanifested-source.js', 'inventory');
+  assertManifestMutationRefused(snapshot, (fixture) => {
+    const quality = fixture.globalOverlay.hooks.PostToolUse.find(
+      (group) => group.hooks[0].command === 'node ~/.claude/hooks/sgsd-quality-gate.js',
+    );
+    fixture.globalOverlay.hooks.PostToolUse.push(deepClone(quality));
+  }, 'hook_manifest_registration_unexpected', 'hooks/sgsd-quality-gate.js', 'claude-global hooks');
+  assertManifestMutationRefused(snapshot, (fixture) => {
+    fixture.globalOverlay.hooks.PostToolUse.push({
+      matcher: '*',
+      hooks: [{ type: 'command', command: 'node ~/.claude/hooks/not-shipped.js', timeout: 5 }],
+    });
+  }, 'hook_manifest_registration_unexpected', 'hooks/not-shipped.js', 'claude-global hooks');
+  assertManifestMutationRefused(snapshot, (fixture) => {
+    fixture.shippedInventory = fixture.shippedInventory
+      .filter((sourcePath) => sourcePath !== 'tools/codex-hooks/block-forbidden-write.cjs');
+  }, 'hook_manifest_registration_unexpected', 'tools/codex-hooks/block-forbidden-write.cjs', 'codex-project');
+}
+
+function createDistributionFixture(label) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), `sgsd-registration-${label}-`));
+  const sourceCheckout = path.join(root, 'source checkout');
+  const projectRoot = path.join(root, 'target project');
+  const homeRoot = path.join(root, 'fixture home');
+  fs.mkdirSync(projectRoot, { recursive: true });
+  fs.mkdirSync(path.join(homeRoot, '.claude', 'get-shit-done'), { recursive: true });
+  const vendoredRoot = copyFixtureSupport(sourceCheckout);
+
+  const projectSgsdRoot = path.join(projectRoot, 'super-gsd');
+  for (const relative of [
+    path.join('scripts', 'lib'),
+    'registry',
+    path.join('tools', 'vtp-readiness'),
+  ]) {
+    const target = path.join(projectSgsdRoot, relative);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.cpSync(path.join(vendoredRoot, relative), target, { recursive: true });
+  }
+
+  const systemdRoot = path.join(projectSgsdRoot, 'hooks', 'systemd');
+  const systemdSentinel = path.join(systemdRoot, 'operator-owned.service');
+  fs.mkdirSync(systemdRoot, { recursive: true });
+  fs.writeFileSync(systemdSentinel, 'operator-owned-systemd-sentinel\n', 'utf8');
+  assert.deepEqual(
+    fs.readdirSync(path.dirname(systemdRoot)).sort(),
+    ['systemd'],
+    'distribution target did not start with only systemd/',
+  );
+
+  return {
+    root,
+    sourceCheckout,
+    projectRoot,
+    homeRoot,
+    vendoredRoot,
+    systemdSentinel,
+    repoSettings: path.join(projectRoot, '.claude', 'settings.json'),
+    globalSettings: path.join(homeRoot, '.claude', 'settings.json'),
+  };
+}
+
+function assertNamedFilesMatch(sourceRoot, targetRoot, names, label) {
+  const failures = [];
+  for (const name of names) {
+    const source = path.join(sourceRoot, name);
+    const target = path.join(targetRoot, name);
+    if (!fs.existsSync(target) || !fs.statSync(target).isFile()) failures.push(`missing:${name}`);
+    else if (!readBytes(target).equals(readBytes(source))) failures.push(`bytes:${name}`);
+  }
+  if (failures.length > 0) throw new Error(`hook_distribution_incomplete ${label} ${failures.join(',')}`);
+  assert.deepEqual(hookFiles(targetRoot), [...names].sort(), `${label} contains an unexpected regular file`);
+}
+
+function assertTreeMatches(sourceRoot, targetRoot, label) {
+  const sourceFiles = relativeFiles(sourceRoot);
+  assert.deepEqual(relativeFiles(targetRoot), sourceFiles, `${label} file inventory drifted`);
+  for (const relative of sourceFiles) {
+    assert.deepEqual(
+      readBytes(path.join(targetRoot, relative)),
+      readBytes(path.join(sourceRoot, relative)),
+      `${label} bytes drifted for ${relative}`,
+    );
+  }
+}
+
+function assertLegacyHookGlobIsRejected(sourceHooksRoot, fixtureRoot) {
+  for (const site of ['global', 'repo-local']) {
+    const targetRoot = path.join(fixtureRoot, `legacy-${site}-hooks`);
+    fs.mkdirSync(targetRoot, { recursive: true });
+    for (const name of hookFiles(sourceHooksRoot).filter((entry) => /\.(?:js|sh)$/.test(entry))) {
+      fs.copyFileSync(path.join(sourceHooksRoot, name), path.join(targetRoot, name));
+    }
+    assert.throws(
+      () => assertNamedFilesMatch(sourceHooksRoot, targetRoot, SHIPPED_HOOK_NAMES, site),
+      (error) => error.message.includes('hook_distribution_incomplete')
+        && error.message.includes('missing:sgsd-commit-gate.cjs')
+        && error.message.includes('missing:sgsd-intent-classifier.cjs'),
+      `${site} old .js/.sh glob was not rejected`,
+    );
+  }
+}
+
+function assertUndistributedProjectRefusesFour(projectRoot) {
+  const {
+    preflightHookRegistrations,
+    realizeRepoLocalHookOverlay,
+  } = require(PREFLIGHT_PATH);
+  const overlay = realizeRepoLocalHookOverlay(
+    JSON.parse(fs.readFileSync(REPO_OVERLAY_PATH, 'utf8')),
+    projectRoot,
+  );
+  let refusal;
+  try {
+    preflightHookRegistrations(overlay);
+  } catch (error) {
+    refusal = error;
+  }
+  assert.ok(refusal, 'undistributed project unexpectedly passed registration preflight');
+  assert.match(refusal.message, /hook_registration_missing/);
+  for (const [, , relative] of REPO_REGISTRATIONS) {
+    assert.ok(
+      refusal.message.includes(path.resolve(projectRoot, relative)),
+      `pre-fix refusal omitted ${relative}`,
+    );
+  }
+}
+
 function retainClarityNine(vendoredRoot) {
   const hooksRoot = path.join(vendoredRoot, 'hooks');
   for (const name of hookFiles(hooksRoot)) {
@@ -201,7 +751,7 @@ function retainClarityNine(vendoredRoot) {
   assert.deepEqual(hookFiles(hooksRoot), [...CLARITY_NINE_HOOKS].sort(), 'fixture is not the exact Clarity nine-hook shape');
 }
 
-function runInstaller(fixture, args) {
+function runInstaller(fixture, args, timeoutMs = DEFAULT_INSTALLER_SPAWN_TIMEOUT_MS) {
   const bash = process.env.SGSD_TEST_BASH || 'bash';
   return spawnSync(
     bash,
@@ -215,9 +765,68 @@ function runInstaller(fixture, args) {
       },
       encoding: 'utf8',
       shell: false,
-      timeout: 120_000,
+      timeout: timeoutMs,
       windowsHide: true,
     },
+  );
+}
+
+function runFixtureProcess(command, args, options = {}) {
+  return spawnSync(command, args, {
+    cwd: options.cwd,
+    env: options.env || process.env,
+    encoding: 'utf8',
+    shell: false,
+    timeout: options.timeoutMs || FIXTURE_GIT_SPAWN_TIMEOUT_MS,
+    windowsHide: true,
+  });
+}
+
+function assertFixtureProcessOk(result, label) {
+  if (result.error) throw result.error;
+  assert.equal(result.status, 0, `${label} failed:\n${result.stderr || ''}\n${result.stdout || ''}`);
+  return String(result.stdout || '').trim();
+}
+
+function runFixtureGit(args, cwd, label) {
+  return assertFixtureProcessOk(
+    runFixtureProcess(process.env.SGSD_TEST_GIT || 'git', args, { cwd }),
+    label,
+  );
+}
+
+function removeBrokenGlobalCoverage(sourceRoot, missingGlobalNames) {
+  const overlayPath = path.join(sourceRoot, 'super-gsd', 'config', 'settings-overlay.json');
+  const overlay = JSON.parse(fs.readFileSync(overlayPath, 'utf8'));
+  for (const event of Object.keys(overlay.hooks || {})) {
+    overlay.hooks[event] = overlay.hooks[event].filter((entry) => !(entry.hooks || []).some((hook) => {
+      const launch = [hook.command, ...(hook.args || [])].join(' ');
+      return missingGlobalNames.some((name) => launch.includes(name));
+    }));
+  }
+  writeJson(overlayPath, overlay);
+
+  const installerPath = path.join(sourceRoot, 'super-gsd', 'install.sh');
+  let installer = fs.readFileSync(installerPath, 'utf8');
+  const currentPreflightCall = '  preflight_existing_repo_local_hooks || return $?\n';
+  assert.ok(installer.includes(currentPreflightCall), 'production installer lost existing-project preflight');
+  installer = installer.replace(currentPreflightCall, '');
+  const manifestMatch = installer.match(/GLOBAL_HOOK_DEPLOYMENT_MANIFEST='([\s\S]*?)'\r?\n/);
+  assert.ok(manifestMatch, 'broken control lost the global deployment manifest');
+  const rows = manifestMatch[1].split(/\r?\n/).filter((row) => {
+    const fileName = row.split('|')[3];
+    return !missingGlobalNames.includes(fileName);
+  });
+  const replacement = `GLOBAL_HOOK_DEPLOYMENT_MANIFEST='${rows.join('\n')}'\n`;
+  fs.writeFileSync(installerPath, installer.replace(manifestMatch[0], replacement), 'utf8');
+}
+
+function assertNoUpdaterTemp(projectRoot, settingsPath) {
+  assert.equal(fs.existsSync(`${settingsPath}.tmp`), false, 'settings temp artifact remains');
+  assert.equal(
+    fs.readdirSync(projectRoot).some((name) => name.startsWith('.super-gsd-version.tmp.')),
+    false,
+    'project pin temp artifact remains',
   );
 }
 
@@ -338,8 +947,12 @@ function runBundledOverlayCurrent() {
 
 function runPreflightStatic() {
   const {
+    enumerateGlobalManifestCoverage,
     enumerateHookRegistrations,
+    enumerateProjectManagedHookRegistrations,
+    filterWarnedHookDescriptors,
     preflightHookRegistrations,
+    preflightProjectManagedRegistrations,
   } = require(PREFLIGHT_PATH);
   const root = path.resolve(os.tmpdir(), 'sgsd preflight static');
   const paths = {
@@ -364,10 +977,10 @@ function runPreflightStatic() {
     },
   };
   const descriptors = enumerateHookRegistrations(overlay);
-  assert.equal(descriptors.length, 4);
-  assert.deepEqual(descriptors.map((item) => item.event), ['statusLine', 'SessionStart', 'SessionStart', 'PostToolUse']);
-  assert.equal(descriptors[1].hookId, 'session-governance');
-  assert.equal(descriptors[3].hookId, 'PostToolUse[0].hooks[0]');
+  assert.equal(descriptors.length, 3);
+  assert.deepEqual(descriptors.map((item) => item.event), ['SessionStart', 'SessionStart', 'PostToolUse']);
+  assert.equal(descriptors[0].hookId, 'session-governance');
+  assert.equal(descriptors[2].hookId, 'PostToolUse[0].hooks[0]');
 
   const checked = [];
   const passed = preflightHookRegistrations(overlay, {
@@ -375,9 +988,8 @@ function runPreflightStatic() {
     nodeCheck: (scriptPath) => { checked.push(`node:${scriptPath}`); return { status: 0 }; },
     shellCheck: (scriptPath) => { checked.push(`bash:${scriptPath}`); return { status: 0 }; },
   });
-  assert.equal(passed.length, 4);
+  assert.equal(passed.length, 3);
   assert.deepEqual(checked, [
-    `node:${paths.status}`,
     `node:${paths.session}`,
     `bash:${paths.state}`,
     `node:${paths.quality}`,
@@ -431,9 +1043,10 @@ function runPreflightStatic() {
     new RegExp(`hook_registration_shell_check_failed.*${paths.state.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
   );
 
-  assert.throws(
-    () => enumerateHookRegistrations({ statusLine: { type: 'command', command: `python ${paths.status}` } }),
-    /hook_registration_launch_invalid.*statusLine/,
+  assert.deepEqual(
+    enumerateHookRegistrations({ statusLine: { type: 'command', command: `python ${paths.status}` } }),
+    [],
+    'native statusLine entered event-hook launch validation',
   );
   assert.throws(
     () => enumerateHookRegistrations({
@@ -441,6 +1054,64 @@ function runPreflightStatic() {
     }),
     /hook_registration_launch_invalid.*SessionStart\[0\]\.hooks\[0\]/,
   );
+
+  const projectSettings = sentinelSettings('preflight-operator-project');
+  projectSettings.hooks.PostToolUse = [{
+    sgsd_managed: true,
+    sgsd_hook_id: 'managed-quality',
+    hooks: [{ type: 'command', command: 'node', args: [paths.quality] }],
+  }];
+  const globalQuality = path.join(root, 'global', 'quality.js');
+  const globalSettings = sentinelSettings('preflight-operator-global');
+  globalSettings.hooks.PostToolUse = [{
+    hooks: [{ type: 'command', command: `node ${quote}${globalQuality}${quote}` }],
+  }];
+  const projectOperatorBefore = operatorRowsBytes(projectSettings);
+  const globalOperatorBefore = operatorRowsBytes(globalSettings);
+  const managedDescriptors = enumerateProjectManagedHookRegistrations(projectSettings);
+  assert.equal(managedDescriptors.length, 1, 'operator project rows entered managed enumeration');
+  const coverageDescriptors = enumerateGlobalManifestCoverage(globalSettings, managedDescriptors);
+  assert.equal(coverageDescriptors.length, 1, 'matching global manifest coverage was not isolated');
+
+  const coverageChecks = [];
+  const covered = preflightProjectManagedRegistrations(projectSettings, globalSettings, {
+    isFile: (scriptPath) => scriptPath === globalQuality,
+    nodeCheck: (scriptPath) => {
+      coverageChecks.push(scriptPath);
+      return { status: 0 };
+    },
+  });
+  assert.deepEqual(coverageChecks, [globalQuality], 'operator or foreign global row entered coverage validation');
+  assert.equal(covered.warnings.length, 1);
+  assert.equal(covered.warnings[0].code, 'project_hook_registration_missing_global_covered');
+  assert.equal(Object.prototype.hasOwnProperty.call(covered, 'globalIssues'), false, 'operator diagnostics leaked from coverage lookup');
+  assert.deepEqual(
+    filterWarnedHookDescriptors(managedDescriptors, covered.warnedDescriptors, {
+      isFile: () => false,
+    }),
+    [],
+    'operator project row entered the repo smoke set',
+  );
+  const postDistributionChecks = [];
+  assert.deepEqual(
+    filterWarnedHookDescriptors(managedDescriptors, covered.warnedDescriptors, {
+      isFile: (scriptPath) => {
+        postDistributionChecks.push(scriptPath);
+        return true;
+      },
+    }),
+    managedDescriptors,
+    'distributed warned descriptor did not re-enter the repo smoke set',
+  );
+  assert.deepEqual(
+    postDistributionChecks,
+    [paths.quality],
+    'warned descriptor existence was not re-evaluated after distribution',
+  );
+  assert.deepEqual(operatorRowsBytes(projectSettings), projectOperatorBefore, 'project operator rows changed during preflight');
+  assert.deepEqual(operatorRowsBytes(globalSettings), globalOperatorBefore, 'global operator rows changed during coverage lookup');
+  assert.equal(JSON.stringify(covered).includes('operator-pathological'), false, 'operator row was mentioned by preflight');
+  assert.equal(JSON.stringify(covered).includes('operator garbage command'), false, 'pathological operator row was mentioned by preflight');
 }
 
 function realizeGlobalOverlayForStatic(value, hooksRoot) {
@@ -462,14 +1133,30 @@ function realizeGlobalOverlayForStatic(value, hooksRoot) {
 
 function assertInstallerSmokeOrder(installer) {
   const quote = String.fromCharCode(34);
+  const globalHookBatch = 'copy_files_to_root ' + quote + '$HOOKS_DIR' + quote
+    + ' ' + quote + '${hook_sources[@]}' + quote;
+  const projectHookBatch = 'copy_files_to_root ' + quote + '$PROJECT_HOOKS_DIR' + quote
+    + ' ' + quote + '${project_hook_sources[@]}' + quote;
+  const globalHooks = installer.indexOf('Installing global hooks...');
+  const globalDistribution = installer.indexOf(globalHookBatch, globalHooks);
   const stateResolverCopy = installer.indexOf('tools/state-resolver/resolve.cjs');
   const scriptsReady = installer.indexOf('scripts + lib + watchdogs installed');
   const globalSmoke = installer.indexOf('--smoke-manifest');
   const globalMergeLaunch = 'node ' + quote + '$MERGE_SCRIPT' + quote
     + ' ' + quote + '$OVERLAY_FILE' + quote + ' ' + quote + '$SETTINGS_FILE' + quote;
   const globalMerge = installer.indexOf(globalMergeLaunch, globalSmoke);
+  assert.ok(globalHooks >= 0 && globalHooks < globalDistribution, 'global regular-file hook distribution is missing');
+  assert.ok(globalDistribution < globalSmoke, 'global hook distribution runs after smoke');
   assert.ok(stateResolverCopy >= 0 && stateResolverCopy < scriptsReady, 'state resolver is not deployed before scripts-ready boundary');
   assert.ok(scriptsReady < globalSmoke, 'global smoke runs before script dependencies are deployed');
+  for (const dependencyCopy of [
+    'copy_tree_files ' + quote + '$SCRIPT_DIR/scripts/lib' + quote + ' ' + quote + '$CLAUDE_DIR/scripts/lib' + quote,
+    'copy_tree_files ' + quote + '$SCRIPT_DIR/registry' + quote + ' ' + quote + '$CLAUDE_DIR/registry' + quote,
+    'copy_tree_files ' + quote + '$SCRIPT_DIR/tools/vtp-readiness' + quote + ' ' + quote + '$CLAUDE_DIR/tools/vtp-readiness' + quote,
+  ]) {
+    const dependencyIndex = installer.indexOf(dependencyCopy);
+    assert.ok(dependencyIndex >= 0 && dependencyIndex < globalSmoke, `${dependencyCopy} runs after global smoke`);
+  }
   assert.ok(globalSmoke < globalMerge, 'global settings merge runs before hook smoke');
   assert.match(
     installer,
@@ -479,9 +1166,51 @@ function assertInstallerSmokeOrder(installer) {
 
   const repoFunction = installer.indexOf('register_repo_local_hooks()');
   const repoSmoke = installer.indexOf('--smoke-repo-overlay', repoFunction);
+  const codexMissingRefusal = installer.indexOf('hook_registration_missing $missing_target', repoSmoke);
   const repoMerge = installer.indexOf('--repo-local-hooks', repoSmoke);
   assert.ok(repoFunction >= 0 && repoFunction < repoSmoke, 'repo-local hook smoke is not wired into registration');
+  assert.ok(
+    repoSmoke < codexMissingRefusal && codexMissingRefusal < repoMerge,
+    'Codex distribution refusal does not name missing targets before repo settings merge',
+  );
   assert.ok(repoSmoke < repoMerge, 'repo-local settings merge runs before hook smoke');
+
+  const distributionFunction = installer.indexOf('distribute_project_hooks()');
+  const repoDistribution = installer.indexOf(projectHookBatch, distributionFunction);
+  const codexDistribution = installer.indexOf('$PROJECT_DIR/super-gsd/tools/codex-hooks/$name', distributionFunction);
+  assert.ok(distributionFunction >= 0 && distributionFunction < repoDistribution, 'repo regular-file hook distribution is missing');
+  assert.ok(repoDistribution < codexDistribution, 'Codex entries are copied before the repo hook inventory');
+  for (const functionName of ['init_local_project()', 'update_existing()']) {
+    const functionStart = installer.indexOf(functionName);
+    const distributionCall = installer.indexOf('  distribute_project_hooks', functionStart);
+    const repoCall = installer.indexOf('  register_repo_local_hooks', functionStart);
+    const codexCall = installer.indexOf('  register_codex_hooks', functionStart);
+    assert.ok(
+      functionStart >= 0 && functionStart < distributionCall
+        && distributionCall < repoCall && repoCall < codexCall,
+      `${functionName} does not distribute Claude and Codex entries before registration`,
+    );
+  }
+  assert.doesNotMatch(
+    installer,
+    /\$SCRIPT_DIR\/hooks\/\x22?\*\.(?:js|cjs|sh)/,
+    'hook distribution reverted to an extension-filtered glob',
+  );
+  assert.match(installer, /copy_files_to_root\(\)/, 'installer lost its batched regular-file copier');
+  assert.match(installer, /copy_entries_to_root\(\)/, 'installer lost its batched recursive-entry copier');
+  assert.doesNotMatch(installer, /copy_file \x22\$source_file\x22/, 'runtime trees reverted to per-file copies');
+  assert.doesNotMatch(installer, /\$\(basename\s/, 'installer reverted to forked basename calls');
+  assert.doesNotMatch(installer, /\$\(frontmatter_field\s/, 'agent filtering reverted to a per-file subshell');
+  assert.match(
+    installer,
+    /chmod \+x \x22\$\{global_executable_targets\[@\]\}\x22/,
+    'global executable bits are not applied in one batch',
+  );
+  assert.match(
+    installer,
+    /chmod \+x \x22\$\{project_executable_targets\[@\]\}\x22/,
+    'project executable bits are not applied in one batch',
+  );
 }
 
 function readGlobalDeploymentManifest() {
@@ -502,7 +1231,22 @@ function smokeAdapters(overrides = {}) {
   };
 }
 
-function assertSmokeFailures(descriptor, smokeCwd, smokeHome, smokeHookRegistrations) {
+function fakeSmokeChild(onInput, result, onComplete = () => {}) {
+  const child = new EventEmitter();
+  child.stdin = {
+    end(input) {
+      onInput(input);
+      setImmediate(() => {
+        onComplete();
+        if (result.error) child.emit('error', result.error);
+        else child.emit('close', result.status, result.signal || null);
+      });
+    },
+  };
+  return child;
+}
+
+async function assertSmokeFailures(descriptor, smokeCwd, smokeHome, smokeHookRegistrations) {
   for (const failedResult of [
     { error: Object.assign(new Error('do-not-leak-spawn'), { code: 'EPERM' }), status: null },
     { signal: 'SIGTERM', status: null, stderr: 'do-not-leak-signal' },
@@ -512,10 +1256,10 @@ function assertSmokeFailures(descriptor, smokeCwd, smokeHome, smokeHookRegistrat
     let smokeError;
     let mergeCalls = 0;
     try {
-      smokeHookRegistrations([descriptor], smokeAdapters({
+      await smokeHookRegistrations([descriptor], smokeAdapters({
         cwd: smokeCwd,
         home: smokeHome,
-        spawnSync: () => failedResult,
+        spawn: () => fakeSmokeChild(() => {}, failedResult),
       }));
       mergeCalls += 1;
     } catch (error) {
@@ -531,8 +1275,9 @@ function assertSmokeFailures(descriptor, smokeCwd, smokeHome, smokeHookRegistrat
   }
 }
 
-function runSmokeStatic() {
+async function runSmokeStatic() {
   const {
+    SMOKE_CONCURRENCY,
     SMOKE_TIMEOUT_FLOOR_MS,
     SMOKE_TIMEOUT_MS,
     enumerateHookRegistrations,
@@ -550,13 +1295,15 @@ function runSmokeStatic() {
   fs.mkdirSync(smokeHome, { recursive: true });
 
   const globalDescriptors = parseHookSmokeManifest(readGlobalDeploymentManifest(), hooksRoot);
-  assert.equal(globalDescriptors.length, GLOBAL_SCRIPT_NAMES.length + 1, 'global manifest must contain 11 registered hooks plus one auxiliary');
+  assert.equal(globalDescriptors.length, GLOBAL_SCRIPT_NAMES.length + 1, 'global manifest must contain 14 registered hooks plus one auxiliary');
   const overlay = realizeGlobalOverlayForStatic(JSON.parse(fs.readFileSync(GLOBAL_OVERLAY_PATH, 'utf8')), hooksRoot);
   const registeredDescriptors = enumerateHookRegistrations(overlay);
   assert.deepEqual(
-    globalDescriptors.slice(0, -1).map((item) => [item.event, item.interpreter, path.basename(item.scriptPath), item.timeout]),
+    globalDescriptors.slice(0, -1)
+      .filter((item) => item.event !== 'statusLine')
+      .map((item) => [item.event, item.interpreter, path.basename(item.scriptPath), item.timeout]),
     registeredDescriptors.map((item) => [item.event, item.interpreter, path.basename(item.scriptPath), item.timeout]),
-    'global deployment manifest drifted from settings-overlay.json',
+    'global event-hook deployment manifest drifted from settings-overlay.json',
   );
   assert.deepEqual(
     globalDescriptors.map((item) => path.basename(item.scriptPath)),
@@ -569,13 +1316,11 @@ function runSmokeStatic() {
     scriptPath: path.resolve(hooksRoot, 'gsd-phase-boundary.sh'),
     timeout: 5,
   });
-  for (const repoOnly of ['sgsd-session-start.js', 'sgsd-quality-gate.js']) {
-    assert.equal(
-      globalDescriptors.some((item) => path.basename(item.scriptPath) === repoOnly),
-      false,
-      repoOnly + ' was flattened globally',
-    );
-  }
+  assert.equal(
+    globalDescriptors.some((item) => path.basename(item.scriptPath) === 'sgsd-commit-gate.cjs'),
+    false,
+    'Git pre-commit gate was misregistered as a global Claude event hook',
+  );
 
   let sourceError;
   try {
@@ -605,21 +1350,33 @@ function runSmokeStatic() {
 
   const descriptors = [...globalDescriptors, ...repoDescriptors];
   const calls = [];
-  const passed = smokeHookRegistrations(descriptors, smokeAdapters({
+  let active = 0;
+  let maxActive = 0;
+  const passed = await smokeHookRegistrations(descriptors, smokeAdapters({
     cwd: smokeCwd,
     home: smokeHome,
     nodePath: 'fixture-node',
     bashPath: 'fixture-bash',
-    spawnSync: (command, args, options) => {
-      calls.push({ command, args, options });
-      return { status: 0 };
+    spawn: (command, args, options) => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      const call = { command, args, options, input: null };
+      calls.push(call);
+      return fakeSmokeChild((input) => {
+        call.input = input;
+      }, { status: 0 }, () => {
+        active -= 1;
+      });
     },
   }));
   assert.deepEqual(passed, descriptors);
+  assert.equal(SMOKE_CONCURRENCY, 4, 'smoke concurrency drifted from the bounded four-worker contract');
+  assert.equal(maxActive, SMOKE_CONCURRENCY, 'hook smoke did not exercise four-way bounded concurrency');
   assert.equal(calls.length, descriptors.length, 'a deployed descriptor was skipped or spawned twice');
-  calls.forEach((call, index) => {
-    const descriptor = descriptors[index];
-    const payload = JSON.parse(call.options.input);
+  descriptors.forEach((descriptor) => {
+    const call = calls.find((candidate) => candidate.args[0] === descriptor.scriptPath);
+    assert.ok(call, `hook smoke omitted ${descriptor.scriptPath}`);
+    const payload = JSON.parse(call.input);
     assert.equal(call.command, descriptor.interpreter === 'node' ? 'fixture-node' : 'fixture-bash');
     assert.deepEqual(call.args, [descriptor.scriptPath]);
     assert.equal(call.options.shell, false);
@@ -630,7 +1387,7 @@ function runSmokeStatic() {
     const registeredBudget = descriptor.timeout === null ? SMOKE_TIMEOUT_MS : descriptor.timeout * 1000;
     assert.equal(call.options.timeout, Math.max(SMOKE_TIMEOUT_FLOOR_MS, registeredBudget));
     assert.ok(call.options.timeout >= registeredBudget, 'smoke ignored the registered timeout budget');
-    assert.equal(call.options.input.endsWith('\n'), true, 'child stdin was not closed with a complete payload');
+    assert.equal(call.input.endsWith('\n'), true, 'child stdin was not closed with a complete payload');
     assert.deepEqual(Object.keys(payload).sort(), [
       'cwd', 'hook_event_name', 'prompt', 'session_id',
       'tool_input', 'tool_name', 'tool_response',
@@ -644,7 +1401,7 @@ function runSmokeStatic() {
     assert.deepEqual(payload.tool_response, { ok: true });
   });
 
-  assertSmokeFailures(repoDescriptors[0], smokeCwd, smokeHome, smokeHookRegistrations);
+  await assertSmokeFailures(repoDescriptors[0], smokeCwd, smokeHome, smokeHookRegistrations);
 }
 
 function runVendoredNineHook() {
@@ -681,7 +1438,7 @@ function runFailureDirection(label, site, failure) {
     const args = global
       ? ['--install-global']
       : ['--init-project', '--skip-cockpit-deps'];
-    const result = runInstaller(fixture, args);
+    const result = runInstaller(fixture, args, BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS);
     const code = failure === 'missing'
       ? 'hook_registration_missing'
       : 'hook_registration_node_check_failed';
@@ -699,25 +1456,40 @@ function runNodeCheckBothSites() {
 }
 
 function assertGlobalSettings(fixture) {
-  const { enumerateHookRegistrations, preflightHookRegistrations } = require(PREFLIGHT_PATH);
+  const {
+    enumerateGlobalManifestCoverage,
+    enumerateHookRegistrations,
+    preflightHookDescriptors,
+  } = require(PREFLIGHT_PATH);
   const globalSettings = JSON.parse(readBytes(fixture.globalSettings).toString('utf8'));
   assert.equal(globalSettings.unrelatedProjectKey.survives, true);
 
-  const globalDescriptors = preflightHookRegistrations(globalSettings);
-  assert.equal(globalDescriptors.length, GLOBAL_SCRIPT_NAMES.length);
-  for (const name of GLOBAL_SCRIPT_NAMES) {
+  const manifestDescriptors = enumerateHookRegistrations(realizeGlobalOverlayForStatic(
+    JSON.parse(fs.readFileSync(GLOBAL_OVERLAY_PATH, 'utf8')),
+    path.join(fixture.homeRoot, '.claude', 'hooks'),
+  ));
+  const globalDescriptors = enumerateGlobalManifestCoverage(globalSettings, manifestDescriptors);
+  preflightHookDescriptors(globalDescriptors);
+  const globalEventScriptNames = GLOBAL_SCRIPT_NAMES.filter((name) => name !== 'sgsd-statusline.js');
+  assert.equal(globalDescriptors.length, globalEventScriptNames.length);
+  assert.equal(globalSettings.statusLine && globalSettings.statusLine.type, 'command');
+  assert.equal(globalDescriptors.some((item) => item.event === 'statusLine'), false);
+  for (const name of globalEventScriptNames) {
     assert.equal(globalDescriptors.filter((item) => path.basename(item.scriptPath) === name).length, 1, `${name} is missing or duplicated globally`);
   }
 }
 
 function assertRepoSettings(fixture) {
-  const { enumerateHookRegistrations, preflightHookRegistrations } = require(PREFLIGHT_PATH);
+  const {
+    enumerateProjectManagedHookRegistrations,
+    preflightHookDescriptors,
+  } = require(PREFLIGHT_PATH);
   const repoSettings = JSON.parse(readBytes(fixture.repoSettings).toString('utf8'));
   assert.equal(repoSettings.unrelatedProjectKey.survives, true);
 
-  const repoDescriptors = enumerateHookRegistrations(repoSettings);
+  const repoDescriptors = enumerateProjectManagedHookRegistrations(repoSettings);
   assert.equal(repoDescriptors.length, REPO_REGISTRATIONS.length);
-  preflightHookRegistrations(repoSettings);
+  preflightHookDescriptors(repoDescriptors);
   for (const [event, hookId, relative] of REPO_REGISTRATIONS) {
     assert.equal(countManagedHook(repoSettings, event, hookId), 1, `${hookId} is missing or duplicated repo-locally`);
     assert.ok(repoDescriptors.some((item) => item.event === event
@@ -731,6 +1503,80 @@ function assertCanonicalSettings(fixture) {
   assertRepoSettings(fixture);
 }
 
+function runHookDistributionAllTypes() {
+  assert.deepEqual(
+    hookFiles(path.join(SUPER_GSD_ROOT, 'hooks')),
+    [...SHIPPED_HOOK_NAMES],
+    'source hook inventory drifted from the locked sixteen basenames',
+  );
+  const codexEntryNames = configuredCodexEntryNames();
+  assert.deepEqual(
+    codexEntryNames,
+    [...EXPECTED_CODEX_ENTRY_NAMES],
+    'config/codex-hooks.json no longer resolves to the locked five entries',
+  );
+
+  const fixture = createDistributionFixture('all-hook-types');
+  try {
+    for (const target of [fixture.projectRoot, fixture.homeRoot]) {
+      const relativeSource = path.relative(target, fixture.vendoredRoot);
+      assert.ok(
+        relativeSource === '..' || relativeSource.startsWith(`..${path.sep}`),
+        'source checkout is nested under a deployment target',
+      );
+    }
+    const sourceHooksRoot = path.join(fixture.vendoredRoot, 'hooks');
+    assertUndistributedProjectRefusesFour(fixture.projectRoot);
+    assertLegacyHookGlobIsRejected(sourceHooksRoot, fixture.root);
+    seedTarget(fixture.globalSettings, 'distribution-global');
+    seedTarget(fixture.repoSettings, 'distribution-repo');
+    boundGlobalSmokeFixture(fixture, ['sgsd-heartbeat.js']);
+
+    const args = ['--install-global', '--init-project', '--skip-cockpit-deps'];
+    const first = runInstaller(fixture, args, BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS);
+    if (first.error) throw first.error;
+    assert.equal(first.status, 0, `all-types install failed:\n${first.stderr}\n${first.stdout}`);
+
+    assertNamedFilesMatch(
+      sourceHooksRoot,
+      path.join(fixture.homeRoot, '.claude', 'hooks'),
+      SHIPPED_HOOK_NAMES,
+      'global',
+    );
+    assertNamedFilesMatch(
+      sourceHooksRoot,
+      path.join(fixture.projectRoot, 'super-gsd', 'hooks'),
+      SHIPPED_HOOK_NAMES,
+      'repo-local',
+    );
+    assertNamedFilesMatch(
+      path.join(fixture.vendoredRoot, 'tools', 'codex-hooks'),
+      path.join(fixture.projectRoot, 'super-gsd', 'tools', 'codex-hooks'),
+      codexEntryNames,
+      'Codex project entries',
+    );
+    for (const [sourceRelative, targetRelative] of [
+      [path.join('scripts', 'lib'), path.join('scripts', 'lib')],
+      ['registry', 'registry'],
+      [path.join('tools', 'vtp-readiness'), path.join('tools', 'vtp-readiness')],
+    ]) {
+      assertTreeMatches(
+        path.join(fixture.vendoredRoot, sourceRelative),
+        path.join(fixture.homeRoot, '.claude', targetRelative),
+        `global hook runtime ${sourceRelative}`,
+      );
+    }
+    assert.deepEqual(
+      readBytes(fixture.systemdSentinel),
+      Buffer.from('operator-owned-systemd-sentinel\n'),
+      'repo distribution removed or changed systemd/',
+    );
+    assertCanonicalSettings(fixture);
+  } finally {
+    removeFixture(fixture);
+  }
+}
+
 function runCanonicalSixteenHook() {
   assert.equal(hookFiles(path.join(SUPER_GSD_ROOT, 'hooks')).length, CANONICAL_HOOK_COUNT, 'canonical source is no longer a sixteen-hook layout');
   const fixture = createFixture('canonical-sixteen');
@@ -740,14 +1586,14 @@ function runCanonicalSixteenHook() {
     seedTarget(fixture.globalSettings, 'canonical-global');
     seedTarget(fixture.repoSettings, 'canonical-repo');
     const args = ['--install-global', '--init-project', '--skip-cockpit-deps'];
-    const first = runInstaller(fixture, args);
+    const first = runInstaller(fixture, args, BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS);
     if (first.error) throw first.error;
     assert.equal(first.status, 0, `canonical install failed:\n${first.stderr}\n${first.stdout}`);
     assertCanonicalSettings(fixture);
     const firstGlobal = readBytes(fixture.globalSettings);
     const firstRepo = readBytes(fixture.repoSettings);
 
-    const second = runInstaller(fixture, args);
+    const second = runInstaller(fixture, args, BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS);
     if (second.error) throw second.error;
     assert.equal(second.status, 0, `canonical reinstall failed:\n${second.stderr}\n${second.stdout}`);
     assert.deepEqual(readBytes(fixture.globalSettings), firstGlobal, 'global reinstall was not byte-idempotent');
@@ -760,12 +1606,13 @@ function runCanonicalSixteenHook() {
 
 function runDeployedHookSmoke() {
   assert.equal(hookFiles(path.join(SUPER_GSD_ROOT, 'hooks')).length, CANONICAL_HOOK_COUNT, 'canonical source is no longer a sixteen-hook layout');
-  const fixture = createFixture('deployed-hook-smoke');
+  const fixture = createDistributionFixture('deployed-hook-smoke');
   try {
     seedTarget(fixture.globalSettings, 'smoke-global');
     seedTarget(fixture.repoSettings, 'smoke-repo');
-    const args = ['--init-project', '--skip-cockpit-deps'];
-    const healthy = runInstaller(fixture, args);
+    boundGlobalSmokeFixture(fixture, ['sgsd-intent-classifier.cjs']);
+    const healthyArgs = ['--install-global', '--init-project', '--skip-cockpit-deps'];
+    const healthy = runInstaller(fixture, healthyArgs, BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS);
     if (healthy.error) throw healthy.error;
     assert.equal(
       healthy.status,
@@ -778,12 +1625,18 @@ function runDeployedHookSmoke() {
     beforeGlobal.hash = sha256(beforeGlobal.bytes);
     const beforeRepo = { bytes: readBytes(fixture.repoSettings) };
     beforeRepo.hash = sha256(beforeRepo.bytes);
-    const dependencyPath = path.join(fixture.vendoredRoot, 'scripts', 'lib', 'sgsd-state.cjs');
-    const entryPath = path.join(fixture.vendoredRoot, 'hooks', 'sgsd-session-start.js');
-    fs.rmSync(dependencyPath);
-    assert.equal(fs.existsSync(entryPath), true, 'dependency break removed the entry hook');
+    const dependencyRelative = path.join('scripts', 'lib', 'skill-routing-registry.cjs');
+    const sourceDependencyPath = path.join(fixture.vendoredRoot, dependencyRelative);
+    const targetDependencyPath = path.join(fixture.projectRoot, 'super-gsd', dependencyRelative);
+    const sourceEntryPath = path.join(fixture.vendoredRoot, 'hooks', 'sgsd-intent-classifier.cjs');
+    const targetEntryPath = path.join(fixture.projectRoot, 'super-gsd', 'hooks', 'sgsd-intent-classifier.cjs');
+    fs.rmSync(sourceDependencyPath);
+    fs.rmSync(targetDependencyPath);
+    fs.rmSync(targetEntryPath);
+    assert.equal(fs.existsSync(sourceEntryPath), true, 'dependency break removed the source entry hook');
+    assert.equal(fs.existsSync(targetEntryPath), false, 'recovery entry still existed before distribution');
 
-    const syntax = spawnSync(process.execPath, ['--check', entryPath], {
+    const syntax = spawnSync(process.execPath, ['--check', sourceEntryPath], {
       encoding: 'utf8',
       shell: false,
       timeout: 5_000,
@@ -794,7 +1647,7 @@ function runDeployedHookSmoke() {
 
     const loadRoot = path.join(fixture.root, 'non-sgsd-load-root');
     fs.mkdirSync(loadRoot, { recursive: true });
-    const load = spawnSync(process.execPath, [entryPath], {
+    const load = spawnSync(process.execPath, [sourceEntryPath], {
       cwd: loadRoot,
       env: { ...process.env, HOME: fixture.homeRoot, USERPROFILE: fixture.homeRoot },
       input: JSON.stringify({ hook_event_name: 'SessionStart', cwd: loadRoot }) + '\n',
@@ -807,11 +1660,11 @@ function runDeployedHookSmoke() {
     assert.notEqual(load.status, 0, 'missing sibling dependency still loaded');
     assert.match(load.stderr, /MODULE_NOT_FOUND/, 'broken fixture did not prove the real load error');
 
-    const refused = runInstaller(fixture, args);
+    const refused = runInstaller(fixture, ['--update', '--skip-cockpit-deps']);
     assertRefused(refused, fixture.repoSettings, beforeRepo, [
       'hook_smoke_failed',
-      'session-start-governance',
-      entryPath,
+      'user-prompt-intent-classifier',
+      targetEntryPath,
     ]);
     const output = (refused.stderr || '') + '\n' + (refused.stdout || '');
     assert.equal(output.includes('MODULE_NOT_FOUND'), false, 'raw installed-hook output leaked from refusal');
@@ -820,6 +1673,401 @@ function runDeployedHookSmoke() {
     assert.equal(fs.existsSync(fixture.globalSettings + '.tmp'), false, 'global settings temp artifact remains');
   } finally {
     removeFixture(fixture);
+  }
+}
+
+function commitClarityUpdateSource(seedRoot, missingRows) {
+  const seedSuperGsd = copyFixtureSupport(seedRoot);
+  assert.deepEqual(
+    fs.readFileSync(path.join(seedSuperGsd, 'scripts', 'sgsd-update.sh')),
+    fs.readFileSync(UPDATE_PATH),
+    'fixture updater is not the real production script',
+  );
+  removeBrokenGlobalCoverage(seedRoot, [
+    'sgsd-session-start.js',
+    'sgsd-intent-classifier.cjs',
+    'sgsd-quality-gate.js',
+  ]);
+  for (const [, , relative] of missingRows) fs.rmSync(path.join(seedRoot, relative));
+  fs.chmodSync(path.join(seedSuperGsd, 'install.sh'), 0o755);
+  fs.chmodSync(path.join(seedSuperGsd, 'scripts', 'sgsd-update.sh'), 0o755);
+
+  runFixtureGit(['init', '--initial-branch=master'], seedRoot, 'initialize upstream seed');
+  runFixtureGit(['config', 'user.name', 'SGSD fixture'], seedRoot, 'configure fixture author');
+  runFixtureGit(['config', 'user.email', 'sgsd-fixture@example.invalid'], seedRoot, 'configure fixture email');
+  runFixtureGit(['config', 'commit.gpgsign', 'false'], seedRoot, 'disable fixture signing');
+  runFixtureGit(['config', 'core.autocrlf', 'false'], seedRoot, 'disable fixture autocrlf');
+  runFixtureGit(['add', '.'], seedRoot, 'stage broken source');
+  runFixtureGit(['commit', '-m', 'broken hook distribution control'], seedRoot, 'commit broken source');
+  const oldSha = runFixtureGit(['rev-parse', 'HEAD'], seedRoot, 'resolve broken source SHA');
+
+  for (const relative of [
+    'install.sh',
+    path.join('config', 'settings-overlay.json'),
+    path.join('hooks', 'sgsd-session-start.js'),
+    path.join('hooks', 'sgsd-intent-classifier.cjs'),
+    path.join('hooks', 'sgsd-quality-gate.js'),
+    path.join('tools', 'codex-hooks', 'block-secret-leak.cjs'),
+  ]) {
+    const target = path.join(seedSuperGsd, relative);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.copyFileSync(path.join(SUPER_GSD_ROOT, relative), target);
+  }
+  fs.chmodSync(path.join(seedSuperGsd, 'install.sh'), 0o755);
+  runFixtureGit(['add', '.'], seedRoot, 'stage repaired source');
+  runFixtureGit(['commit', '-m', 'post-T2 production source'], seedRoot, 'commit repaired source');
+  const fixedSha = runFixtureGit(['rev-parse', 'HEAD'], seedRoot, 'resolve repaired source SHA');
+  assert.match(oldSha, /^[0-9a-f]{40}$/);
+  assert.match(fixedSha, /^[0-9a-f]{40}$/);
+  assert.notEqual(fixedSha, oldSha, 'two-commit upstream collapsed to one SHA');
+  return { fixedSha, oldSha };
+}
+
+function writeClarityGitSshRouter(sshRouterPath) {
+  fs.writeFileSync(sshRouterPath, [
+    '#!/usr/bin/env bash',
+    'set -eu',
+    'remote_command=${*: -1}',
+    'printf \'%s\\n\' $remote_command >> $SGSD_TEST_SSH_LOG',
+    'case $remote_command in',
+    '  *Berrowj/super-gsd.git*) ;;',
+    '  *) printf \'unexpected fixture SSH command\\n\' >&2; exit 97 ;;',
+    'esac',
+    'exec git-upload-pack $SGSD_TEST_BARE_REPO',
+    '',
+  ].join('\n'), 'utf8');
+  fs.chmodSync(sshRouterPath, 0o755);
+}
+
+function createClarityUpdateGitFixture(fixtureRoot, missingRows) {
+  const seedRoot = path.join(fixtureRoot, 'upstream seed');
+  const bareRoot = path.join(fixtureRoot, 'upstream.git');
+  const sourceRoot = path.join(fixtureRoot, 'canonical source');
+  const sshRouterPath = path.join(fixtureRoot, 'fixture-git-ssh.sh');
+  const sshLogPath = path.join(fixtureRoot, 'fixture-git-ssh.log');
+  const canonicalOrigin = 'git@github.com:Berrowj/super-gsd.git';
+  fs.mkdirSync(seedRoot, { recursive: true });
+  const { fixedSha, oldSha } = commitClarityUpdateSource(seedRoot, missingRows);
+  runFixtureGit(['clone', '--bare', seedRoot, bareRoot], fixtureRoot, 'create bare upstream');
+  runFixtureGit(['--git-dir', bareRoot, 'update-ref', 'refs/heads/master', oldSha], fixtureRoot, 'pin bare upstream to broken SHA');
+  runFixtureGit(['clone', bareRoot, sourceRoot], fixtureRoot, 'clone canonical source at broken SHA');
+  runFixtureGit(['remote', 'set-url', 'origin', canonicalOrigin], sourceRoot, 'set canonical stored origin');
+  assert.equal(
+    runFixtureGit(['remote', 'get-url', 'origin'], sourceRoot, 'read canonical stored origin'),
+    canonicalOrigin,
+  );
+  assert.equal(runFixtureGit(['rev-parse', 'HEAD'], sourceRoot, 'read initial source HEAD'), oldSha);
+  writeClarityGitSshRouter(sshRouterPath);
+  return { bareRoot, fixedSha, oldSha, sourceRoot, sshLogPath, sshRouterPath };
+}
+
+function seedClarityUpdateProject(fixtureRoot, oldSha) {
+  const projectRoot = path.join(fixtureRoot, 'clarity project');
+  const homeRoot = path.join(fixtureRoot, 'isolated home');
+  const repoSettingsPath = path.join(projectRoot, '.claude', 'settings.json');
+  const globalSettingsPath = path.join(homeRoot, '.claude', 'settings.json');
+  const projectPinPath = path.join(projectRoot, '.super-gsd-version');
+  const systemdSentinel = path.join(projectRoot, 'super-gsd', 'hooks', 'systemd', 'operator-owned');
+  fs.mkdirSync(path.join(homeRoot, '.claude'), { recursive: true });
+  fs.mkdirSync(path.dirname(systemdSentinel), { recursive: true });
+  fs.writeFileSync(systemdSentinel, 'operator-owned-systemd-sentinel\n', 'utf8');
+  fs.mkdirSync(path.join(projectRoot, '.planning'), { recursive: true });
+  fs.writeFileSync(projectPinPath, oldSha + '\n', 'utf8');
+
+  for (const relative of [
+    path.join('scripts', 'lib'),
+    'registry',
+    path.join('tools', 'vtp-readiness'),
+  ]) {
+    const target = path.join(projectRoot, 'super-gsd', relative);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.cpSync(path.join(SUPER_GSD_ROOT, relative), target, { recursive: true });
+  }
+
+  const { realizeRepoLocalHookOverlay } = require(PREFLIGHT_PATH);
+  const realizedOverlay = realizeRepoLocalHookOverlay(
+    JSON.parse(fs.readFileSync(REPO_OVERLAY_PATH, 'utf8')),
+    projectRoot,
+  );
+  const historicalIds = new Set(CLARITY_HISTORICAL_IDS);
+  const originalManagedRows = [];
+  const globalSettings = sentinelSettings('sgsd-update-clarity-recovery-global');
+  writeJson(globalSettingsPath, globalSettings);
+  const claritySettings = sentinelSettings('sgsd-update-clarity-recovery');
+  for (const [event, entries] of Object.entries(realizedOverlay.hooks)) {
+    for (const entry of entries) {
+      if (!historicalIds.has(entry.sgsd_hook_id)) continue;
+      const original = deepClone(entry);
+      originalManagedRows.push([event, original]);
+      if (!claritySettings.hooks[event]) claritySettings.hooks[event] = [];
+      claritySettings.hooks[event].push(deepClone(original));
+    }
+  }
+  assert.equal(originalManagedRows.length, 3, 'fixture did not seed exactly three historical managed rows');
+  writeJson(repoSettingsPath, claritySettings);
+  assert.deepEqual(
+    relativeFiles(path.join(projectRoot, 'super-gsd', 'hooks')),
+    [path.join('systemd', 'operator-owned')],
+  );
+  return {
+    globalSettingsPath,
+    homeRoot,
+    globalOperatorRowsBefore: operatorRowsBytes(globalSettings),
+    originalManagedRows,
+    projectOperatorRowsBefore: operatorRowsBytes(claritySettings),
+    projectPinPath,
+    projectRoot,
+    repoSettingsPath,
+    settingsBeforeBroken: readBytes(repoSettingsPath),
+    systemdSentinel,
+  };
+}
+
+function assertBrokenClarityUpdate(result, project, sourceRoot, oldSha) {
+  if (result.error) throw result.error;
+  const output = (result.stderr || '') + '\n' + (result.stdout || '');
+  assert.equal(result.status, 5, 'broken updater control did not exit 5:\n' + output);
+  assert.equal(output.includes('hook_registration_launch_invalid'), false, 'operator row entered broken-run validation:\n' + output);
+  assert.equal(output.includes('operator-pathological'), false, 'operator sentinel was mentioned by broken run:\n' + output);
+  assert.equal(output.includes('operator garbage command'), false, 'pathological operator command was mentioned by broken run:\n' + output);
+  for (const [, hookId, relative] of REPO_REGISTRATIONS) {
+    assert.ok(output.includes('hook_registration_missing'), 'broken control omitted missing code for ' + hookId);
+    assert.ok(
+      output.includes(path.resolve(project.projectRoot, relative)),
+      'broken control omitted path for ' + hookId,
+    );
+  }
+  assert.deepEqual(
+    readBytes(project.repoSettingsPath),
+    project.settingsBeforeBroken,
+    'broken updater changed project settings bytes',
+  );
+  assert.equal(
+    fs.readFileSync(project.projectPinPath, 'utf8'),
+    oldSha + '\n',
+    'broken updater advanced the project pin',
+  );
+  assert.equal(runFixtureGit(['rev-parse', 'HEAD'], sourceRoot, 'read broken-run source HEAD'), oldSha);
+  assert.deepEqual(
+    operatorRowsBytes(JSON.parse(fs.readFileSync(project.globalSettingsPath, 'utf8'))),
+    project.globalOperatorRowsBefore,
+    'broken updater changed global operator rows',
+  );
+  assertNoUpdaterTemp(project.projectRoot, project.repoSettingsPath);
+}
+
+function assertUncoveredProjectRowsRefuse(project) {
+  const {
+    HookRegistrationPreflightError,
+    preflightProjectManagedRegistrations,
+  } = require(PREFLIGHT_PATH);
+  let outcome;
+  let didThrow = false;
+  try {
+    outcome = preflightProjectManagedRegistrations(
+      JSON.parse(fs.readFileSync(project.repoSettingsPath, 'utf8')),
+      fs.existsSync(project.globalSettingsPath)
+        ? JSON.parse(fs.readFileSync(project.globalSettingsPath, 'utf8'))
+        : {},
+    );
+  } catch (error) {
+    didThrow = true;
+    outcome = error;
+  }
+  const issueCodes = didThrow && Array.isArray(outcome && outcome.issues)
+    ? outcome.issues.map((issue) => issue && issue.code)
+    : [];
+  const warningCodes = !didThrow && Array.isArray(outcome && outcome.warnings)
+    ? outcome.warnings.map((warning) => warning && warning.code)
+    : [];
+  const outcomeDetail = didThrow
+    ? 'threw=' + (outcome && outcome.constructor ? outcome.constructor.name : typeof outcome)
+      + ' issue_codes=' + JSON.stringify(issueCodes)
+      + ' issues_length=' + issueCodes.length
+    : 'returned warning_codes=' + JSON.stringify(warningCodes);
+  assert.ok(
+    didThrow
+      && outcome instanceof HookRegistrationPreflightError
+      && issueCodes.length === 3
+      && issueCodes.every((code) => code === 'hook_registration_missing'),
+    'dead managed project rows without live global coverage did not refuse: ' + outcomeDetail,
+  );
+  const unmanagedSettings = sentinelSettings('sgsd-update-unmanaged-only');
+  unmanagedSettings.hooks.PostToolUse = [{
+    hooks: [{
+      type: 'command',
+      command: 'node',
+      args: [path.join(project.projectRoot, 'unmanaged-dead.js')],
+    }],
+  }];
+  const unmanagedOutcome = preflightProjectManagedRegistrations(unmanagedSettings, sentinelSettings('global-unmanaged-only'));
+  assert.deepEqual(unmanagedOutcome.warnings, [], 'unmanaged project entry entered the managed downgrade path');
+  assert.deepEqual(unmanagedOutcome.descriptors, [], 'unmanaged project entry was enumerated');
+  assert.equal(Object.prototype.hasOwnProperty.call(unmanagedOutcome, 'globalIssues'), false, 'operator diagnostics leaked from coverage lookup');
+}
+
+function assertRepairedClarityUpdate(result, project, sourceRoot, fixedSha) {
+  if (result.error) throw result.error;
+  const output = (result.stderr || '') + '\n' + (result.stdout || '');
+  assert.equal(result.status, 0, 'repaired updater failed:\n' + output);
+  assert.equal(output.includes('hook_registration_launch_invalid'), false, 'operator row entered repaired-run validation:\n' + output);
+  assert.equal(output.includes('operator-pathological'), false, 'operator sentinel was mentioned by repaired run:\n' + output);
+  assert.equal(output.includes('operator garbage command'), false, 'pathological operator command was mentioned by repaired run:\n' + output);
+  assert.ok(output.includes('source_sha=' + fixedSha), 'repaired updater omitted fetched source SHA');
+  assert.ok(output.includes('project_pin=' + fixedSha), 'repaired updater omitted advanced project pin');
+  assert.equal(
+    fs.readFileSync(project.projectPinPath, 'utf8'),
+    fixedSha + '\n',
+    'project pin did not advance to fetched SHA',
+  );
+  assert.equal(runFixtureGit(['rev-parse', 'FETCH_HEAD'], sourceRoot, 'read fetched SHA'), fixedSha);
+  assert.equal(runFixtureGit(['rev-parse', 'HEAD'], sourceRoot, 'read repaired source HEAD'), fixedSha);
+
+  const warningLines = output.split(/\r?\n/)
+    .filter((line) => line.includes('WARN project_hook_registration_missing_global_covered'));
+  assert.equal(warningLines.length, 3, 'expected three covered project warnings:\n' + output);
+  const historicalIds = new Set(CLARITY_HISTORICAL_IDS);
+  for (const [event, hookId, relative] of REPO_REGISTRATIONS.filter(([, id]) => historicalIds.has(id))) {
+    const expectedPath = path.resolve(project.projectRoot, relative);
+    assert.ok(
+      warningLines.some((line) => line.includes(expectedPath) && line.includes('[' + event + '/' + hookId + ']')),
+      'covered warning did not name ' + expectedPath,
+    );
+  }
+  assert.equal(
+    warningLines.some((line) => line.includes('user-prompt-secret-leak-guard')),
+    false,
+    'new secret-leak registration was incorrectly reported as a stale project row',
+  );
+
+  const {
+    enumerateGlobalManifestCoverage,
+    enumerateHookRegistrations,
+    enumerateProjectManagedHookRegistrations,
+    preflightHookDescriptors,
+  } = require(PREFLIGHT_PATH);
+  const globalSettings = JSON.parse(fs.readFileSync(project.globalSettingsPath, 'utf8'));
+  const manifestDescriptors = enumerateHookRegistrations(realizeGlobalOverlayForStatic(
+    JSON.parse(fs.readFileSync(GLOBAL_OVERLAY_PATH, 'utf8')),
+    path.join(project.homeRoot, '.claude', 'hooks'),
+  ));
+  const globalDescriptors = enumerateGlobalManifestCoverage(globalSettings, manifestDescriptors);
+  preflightHookDescriptors(globalDescriptors);
+  const globalEventScriptNames = GLOBAL_SCRIPT_NAMES.filter((name) => name !== 'sgsd-statusline.js');
+  assert.equal(globalDescriptors.length, globalEventScriptNames.length, 'global event-hook coverage is incomplete after update');
+  assert.equal(globalSettings.statusLine && globalSettings.statusLine.type, 'command');
+  assert.equal(globalDescriptors.some((descriptor) => descriptor.event === 'statusLine'), false);
+  assert.equal(
+    new Set(globalDescriptors.map((descriptor) => [
+      descriptor.event,
+      path.basename(descriptor.scriptPath),
+    ].join('|'))).size,
+    globalDescriptors.length,
+    'global registrations are duplicated',
+  );
+
+  const repairedSettings = JSON.parse(fs.readFileSync(project.repoSettingsPath, 'utf8'));
+  assert.equal(repairedSettings.unrelatedProjectKey.survives, true, 'unrelated settings sentinel was removed');
+  assert.deepEqual(operatorRowsBytes(globalSettings), project.globalOperatorRowsBefore, 'global operator rows changed during recovery');
+  assert.deepEqual(operatorRowsBytes(repairedSettings), project.projectOperatorRowsBefore, 'project operator rows changed during recovery');
+  for (const [event, original] of project.originalManagedRows) {
+    const survivors = repairedSettings.hooks[event].filter(
+      (entry) => entry.sgsd_managed === true && entry.sgsd_hook_id === original.sgsd_hook_id,
+    );
+    assert.equal(survivors.length, 1, original.sgsd_hook_id + ' is missing or duplicated');
+    assert.deepEqual(survivors[0], original, original.sgsd_hook_id + ' was changed instead of preserved');
+  }
+  for (const [event, hookId] of REPO_REGISTRATIONS) {
+    assert.equal(countManagedHook(repairedSettings, event, hookId), 1, hookId + ' is not uniquely registered');
+  }
+  assert.equal(enumerateProjectManagedHookRegistrations(repairedSettings).length, REPO_REGISTRATIONS.length);
+  assert.deepEqual(readBytes(project.systemdSentinel), Buffer.from('operator-owned-systemd-sentinel\n'));
+  assertNoUpdaterTemp(project.projectRoot, project.repoSettingsPath);
+}
+
+function assertClarityRecoveryRunbook() {
+  const skill = fs.readFileSync(UPDATE_SKILL_PATH, 'utf8');
+  const orderedFragments = [
+    'Back up `.claude/settings.json`',
+    'prove `source_sha` and `project_pin`',
+    'live global file plus registration coverage',
+    'Remove only reviewed obsolete `sgsd_managed` rows',
+    'Validate the edited settings as JSON',
+    'Start a fresh client',
+    'Verify hook evidence',
+  ];
+  let previous = -1;
+  for (const fragment of orderedFragments) {
+    const index = skill.indexOf(fragment);
+    assert.ok(index > previous, 'sgsd-update cleanup order missing or out of order: ' + fragment);
+    previous = index;
+  }
+  assert.match(
+    skill,
+    /sgsd-update never (?:performs|automates) deletion/i,
+    'sgsd-update skill does not state its no-deletion boundary',
+  );
+  assert.match(
+    skill,
+    /remove the dead per-project entries only once global registration is confirmed live, otherwise the project is left with no coverage at all/i,
+    '2026-08-13 report ordering is not preserved verbatim',
+  );
+}
+
+function runSgsdUpdateClarityRecovery() {
+  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-update-clarity-recovery-'));
+  try {
+    const gitFixture = createClarityUpdateGitFixture(fixtureRoot, REPO_REGISTRATIONS);
+    const project = seedClarityUpdateProject(fixtureRoot, gitFixture.oldSha);
+    const updaterEnv = {
+      ...process.env,
+      HOME: project.homeRoot,
+      USERPROFILE: project.homeRoot,
+      GIT_SSH_COMMAND: gitFixture.sshRouterPath.replace(/\\/g, '/'),
+      GIT_SSH_VARIANT: 'ssh',
+      GIT_TERMINAL_PROMPT: '0',
+      SGSD_TEST_BARE_REPO: gitFixture.bareRoot,
+      SGSD_TEST_SSH_LOG: gitFixture.sshLogPath,
+    };
+    const runUpdater = () => runFixtureProcess(
+      process.env.SGSD_TEST_BASH || 'bash',
+      [
+        path.join(gitFixture.sourceRoot, 'super-gsd', 'scripts', 'sgsd-update.sh'),
+        '--source',
+        gitFixture.sourceRoot,
+      ],
+      {
+        cwd: project.projectRoot,
+        env: updaterEnv,
+        timeoutMs: REAL_UPDATE_SPAWN_TIMEOUT_MS,
+      },
+    );
+
+    assertBrokenClarityUpdate(
+      runUpdater(),
+      project,
+      gitFixture.sourceRoot,
+      gitFixture.oldSha,
+    );
+    assertUncoveredProjectRowsRefuse(project);
+    runFixtureGit(
+      ['--git-dir', gitFixture.bareRoot, 'update-ref', 'refs/heads/master', gitFixture.fixedSha],
+      fixtureRoot,
+      'advance bare upstream to repaired SHA',
+    );
+    assertRepairedClarityUpdate(
+      runUpdater(),
+      project,
+      gitFixture.sourceRoot,
+      gitFixture.fixedSha,
+    );
+    assert.ok(
+      fs.readFileSync(gitFixture.sshLogPath, 'utf8').trim().length > 0,
+      'fixture SSH transport was not exercised',
+    );
+    assertClarityRecoveryRunbook();
+  } finally {
+    removeFixture({ root: fixtureRoot });
   }
 }
 
@@ -832,23 +2080,27 @@ const CASES = Object.freeze({
   'node-check-both-sites': runNodeCheckBothSites,
   'canonical-sixteen-hook': runCanonicalSixteenHook,
   'deployed-hook-smoke': runDeployedHookSmoke,
+  'hook-distribution-all-types': runHookDistributionAllTypes,
+  'hook-manifest-completeness': runHookManifestCompleteness,
+  'sgsd-update-clarity-shape': runSgsdUpdateClarityRecovery,
+  'sgsd-update-clarity-recovery': runSgsdUpdateClarityRecovery,
 });
 
-function main(argv) {
+async function main(argv) {
   const caseIndex = argv.indexOf('--case');
   const caseName = caseIndex >= 0 ? argv[caseIndex + 1] : null;
   if (!caseName || !CASES[caseName]) {
     process.stderr.write(`Usage: ${path.basename(__filename)} --case ${Object.keys(CASES).join('|')}\n`);
     return 64;
   }
-  CASES[caseName]();
+  await CASES[caseName]();
   process.stdout.write(`[installer-registration-guard] ${caseName} PASS\n`);
   return 0;
 }
 
-try {
-  process.exitCode = main(process.argv.slice(2));
-} catch (error) {
+main(process.argv.slice(2)).then((exitCode) => {
+  process.exitCode = exitCode;
+}, (error) => {
   process.stderr.write(`[installer-registration-guard] FAIL: ${error.stack || error.message}\n`);
   process.exitCode = 1;
-}
+});

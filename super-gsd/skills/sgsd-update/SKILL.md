@@ -71,6 +71,25 @@ Runs the same guards, fetch, captured-SHA ancestry check, fast-forward, and fina
 - **.super-gsd-version is opt-in**: file is only written if project has `.planning/`. Per DLB-06 Q3, SHA pinning is deferred — `.super-gsd-version` records what was installed for auditability but doesn't gate future updates. Revisit pinning at next DLB after more deployment data.
 </constraints>
 
+<operator_only_dead_entry_removal>
+
+## Operator-only dead-entry removal order
+
+The 2026-08-13 report is explicit: remove the dead per-project entries only once global registration is confirmed live, otherwise the project is left with no coverage at all.
+
+sgsd-update never performs deletion. During an update, a missing project-local `sgsd_managed` path emits the named `WARN project_hook_registration_missing_global_covered` line only when a live global registration covers the same event and script. Without that live global coverage, the preflight still refuses.
+
+After a successful update, the operator may remove obsolete rows in this order:
+
+1. Back up `.claude/settings.json`.
+2. From the successful updater output, prove `source_sha` and `project_pin` are the same fetched SHA. For every row under review, prove live global file plus registration coverage for the same hook.
+3. Remove only reviewed obsolete `sgsd_managed` rows. Do not remove unrelated or operator-owned entries.
+4. Validate the edited settings as JSON.
+5. Start a fresh client so it loads the edited registrations.
+6. Verify hook evidence for the replacement global registrations.
+
+</operator_only_dead_entry_removal>
+
 <exit_and_restart_boundaries>
 
 The updater exits non-zero on dirty, locally-ahead, or diverged source history; fetch failure; fetched-SHA or final-HEAD mismatch; installer failure; or project-pin write failure. These failures never write `.super-gsd-version`, and installer failure preserves an existing project pin.

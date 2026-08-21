@@ -1,0 +1,5 @@
+{"schema_version":1,"ts":"2026-08-20T18:00:00.000Z","type":"gate_failed","data":{"gate":"ATC","verdict":"fail"}}
+{"schema_version":1,"ts":"2026-08-20T18:00:01.000Z","type":"operator_attention_required","data":{"reason":"repair gate"}}
+{"schema_version":1,"ts":"2026-08-20T18:00:02.000Z","type":"checkpoint_written","data":{"next_unit":"P162-fix"}}
+{"schema_version":1,"ts":"2026-08-20T18:05:00.000Z","type":"run_started","data":{"mode":"auto"}}
+{"schema_version":1,"ts":"2026-08-20T18:05:01.000Z","type":"gate_passed","data":{"gate":"RELEASE","verdict":"pass"}}

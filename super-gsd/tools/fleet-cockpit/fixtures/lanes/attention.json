@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "schema_version": 1,
+  "ts": "2026-08-20T18:19:31.052Z",
+  "data": {
+    "now": {"ts": "2026-08-20T18:19:31.052Z", "action": "waiting on failed gate", "source": "live_events.gate_failed"},
+    "objective": {"milestone": "v3.8-fleet-cockpit", "phase": "162", "phase_name": "fleet-service", "source": "state_md", "state_md_milestone": "v3.8-fleet-cockpit", "state_md_phase": "162", "projection_stale": false, "effective_confidence": 1},
+    "unlock": {"unlocks": "fleet page", "source": "context"},
+    "blockers": {"count": 1, "items": [{"code": "gate_failed", "detail": "ATC failed"}]},
+    "agents": {"roster": [], "by_phase": {}},
+    "codex": {"live_state": "idle", "live_json_age_seconds": null, "stale_threshold_seconds": 120},
+    "gates": {"gates": ["ATC"], "latest_per_gate": {"ATC": {"verdict": "failed", "ts": "2026-08-20T18:18:00.000Z"}}, "live_event_count": 1},
+    "tokens": {"source": "token_spend", "total_tokens": 1200},
+    "artifacts": {"source": "phases_dir", "items": []},
+    "staleness": {"state_md": {"stale": false}, "context_packet_builder": {"live": true}},
+    "harness_evolution": {"status": "current"},
+    "resume_command": {"command": "sg -Go", "reason": "gate repair", "source": "default"}
+  },
+  "_section_degraded": [],
+  "_redactions_applied": []
+}
