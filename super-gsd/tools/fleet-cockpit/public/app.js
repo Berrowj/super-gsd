@@ -135,6 +135,127 @@
   }
   /* SGSD_FLEET_HELPER_END renderObjectiveConflict */
 
+  /* SGSD_FLEET_HELPER_BEGIN renderNow */
+  function renderNow(section) {
+    if (!section || typeof section !== 'object' || section.state === 'no_data') {
+      var absent = formatValue(null);
+      return '<span class="' + absent.className + '">' + absent.text + '</span>';
+    }
+
+    function textValue(value) {
+      return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+    }
+
+    function compact(value) {
+      if (value === null || value === undefined) return null;
+      if (typeof value === 'string') {
+        var text = value.replace(/\s+/g, ' ').trim();
+        if ((text[0] === '{' || text[0] === '[') && text.length > 1) {
+          try {
+            return compact(JSON.parse(text));
+          } catch (_error) {
+            return 'unreadable action payload';
+          }
+        }
+        return text.length > 160 ? text.slice(0, 157) + '...' : text;
+      }
+      if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+      if (Array.isArray(value)) return value.length + ' items';
+      if (typeof value === 'object') {
+        return Object.keys(value).slice(0, 3).map(function (key) {
+          var item = value[key];
+          var summary = item && typeof item === 'object'
+            ? (Array.isArray(item) ? item.length + ' items' : Object.keys(item).length + ' fields')
+            : compact(item);
+          return key + ': ' + (summary === null ? 'No data' : summary);
+        }).join(', ');
+      }
+      return String(value);
+    }
+
+    var rawAction = section.action;
+    var parsedAction = null;
+    if (typeof rawAction === 'string') {
+      var trimmed = rawAction.trim();
+      if (trimmed[0] === '{' || trimmed[0] === '[') {
+        try { parsedAction = JSON.parse(trimmed); } catch (_error) { parsedAction = null; }
+      }
+    } else if (rawAction && typeof rawAction === 'object') {
+      parsedAction = rawAction;
+    }
+
+    var tool = textValue(section.tool_name) || textValue(section.tool);
+    if (parsedAction && !Array.isArray(parsedAction)) {
+      tool = textValue(parsedAction.tool_name) || textValue(parsedAction.tool) || tool;
+    }
+    var actionMatch = typeof rawAction === 'string'
+      ? /^([A-Za-z][A-Za-z0-9_.-]{1,32}):\s+(.+)$/.exec(rawAction.trim()) : null;
+    if (tool === null && actionMatch) tool = actionMatch[1];
+    if (tool === null) {
+      var sourceName = textValue(section.source);
+      tool = sourceName === null ? 'Activity' : sourceName.split('.').pop();
+    }
+
+    var payload = section.arg_summary;
+    if (payload === null || payload === undefined) payload = section.args;
+    if (payload === null || payload === undefined) payload = section.arguments;
+    if (parsedAction && !Array.isArray(parsedAction)) {
+      if (parsedAction.args !== null && parsedAction.args !== undefined) {
+        payload = parsedAction.args;
+      } else if (parsedAction.arguments !== null && parsedAction.arguments !== undefined) {
+        payload = parsedAction.arguments;
+      }
+    }
+    if (payload === null || payload === undefined) {
+      payload = actionMatch ? actionMatch[2] : rawAction;
+    }
+    if (payload === null || payload === undefined) payload = section.target;
+    if (payload === null || payload === undefined) payload = section.task_id;
+    var summary = compact(payload) || 'No arguments';
+
+    var meta = [textValue(section.source), textValue(section.ts)].filter(Boolean);
+    return '<p class="now-action"><span class="now-tool">' + escapeHtml(tool)
+      + '</span><span class="now-separator">/</span><span class="now-summary">'
+      + escapeHtml(summary) + '</span></p>'
+      + (meta.length > 0 ? '<p class="now-meta">' + escapeHtml(meta.join(' / '))
+        + '</p>' : '');
+  }
+  /* SGSD_FLEET_HELPER_END renderNow */
+
+  /* SGSD_FLEET_HELPER_BEGIN renderObjective */
+  function renderObjective(section) {
+    var objective = section && typeof section === 'object' ? section : {};
+
+    function row(label, value, className) {
+      var formatted = formatValue(value);
+      return '<dt>' + escapeHtml(label) + '</dt><dd class="'
+        + (className ? className + ' ' : '') + formatted.className + '">'
+        + escapeHtml(formatted.text) + '</dd>';
+    }
+
+    var phase = formatValue(objective.phase);
+    var phaseName = typeof objective.phase_name === 'string'
+      && objective.phase_name.trim() !== '' ? objective.phase_name.trim() : null;
+    var phaseText = phase.className === 'value-no-data' && phaseName === null
+      ? null : phase.text;
+    if (phaseName !== null) phaseText += ' - ' + phaseName;
+    var status = objective.status === null || objective.status === undefined
+      ? objective.phase_status : objective.status;
+    var output = '<dl class="data-list objective-list">'
+      + row('Milestone', objective.milestone)
+      + row('Phase', phaseText, 'objective-phase')
+      + row('Status', status)
+      + row('Confidence', objective.effective_confidence)
+      + '</dl>';
+    if (typeof objective.milestone_status === 'string'
+        && objective.milestone_status.trim() !== '') {
+      output += '<details class="milestone-context"><summary>Milestone status context</summary>'
+        + '<p>' + escapeHtml(objective.milestone_status.trim()) + '</p></details>';
+    }
+    return output;
+  }
+  /* SGSD_FLEET_HELPER_END renderObjective */
+
   function scalarMarkup(value) {
     var formatted = formatValue(value);
     return '<span class="' + formatted.className + '">'
@@ -221,7 +342,7 @@
     var commandMarkup = command.className === 'value-no-data'
       ? '<span class="value-no-data">No data</span>'
       : '<code class="resume-code" tabindex="0">' + escapeHtml(command.text) + '</code>';
-    return '<p class="resume-note">Selectable text only. The cockpit never executes commands.</p>'
+    return '<p class="resume-note">Select the one-liner, then press Ctrl+C. The cockpit never executes commands.</p>'
       + commandMarkup;
   }
 
@@ -232,6 +353,8 @@
     escapeHtml: escapeHtml,
     renderLaneRail: renderLaneRail,
     renderObjectiveConflict: renderObjectiveConflict,
+    renderNow: renderNow,
+    renderObjective: renderObjective,
     renderStructuredValue: renderStructuredValue,
     renderBlockers: renderBlockers,
     renderGates: renderGates,
@@ -247,12 +370,19 @@
 
   var API_BASE = window.location.protocol === 'file:'
     ? 'http://127.0.0.1:7777' : '';
+  var CODEX_LIVE_TEXT_LIMIT = 64 * 1024;
+  var TAB_RETURN_RESYNC_DEBOUNCE_MS = 250;
   var lastFleet = null;
   var lastDetail = null;
   var selectedName = null;
   var fleetRequestInFlight = false;
   var detailRequestGeneration = 0;
-  var failures = { fleet: null, lane: null };
+  var codexLiveSource = null;
+  var codexLivePendingName = null;
+  var codexLiveLoadFired = document.readyState === 'complete';
+  var codexLivePinned = true;
+  var lastTabReturnResyncAt = 0;
+  var failures = { fleet: null, lane: null, codex: null };
 
   var elements = {
     banner: document.getElementById('failure-banner'),
@@ -275,6 +405,8 @@
     artifacts: document.getElementById('section-artifacts'),
     harnessEvolution: document.getElementById('section-harness-evolution'),
     resumeCommand: document.getElementById('section-resume-command'),
+    codexLive: document.getElementById('codex-live'),
+    codexLiveAge: document.getElementById('codex-live-age'),
     rawSnapshot: document.getElementById('raw-snapshot')
   };
 
@@ -300,6 +432,7 @@
     var messages = [];
     if (failures.fleet !== null) messages.push(failures.fleet);
     if (failures.lane !== null) messages.push(failures.lane);
+    if (failures.codex !== null) messages.push(failures.codex);
     if (messages.length === 0) {
       elements.banner.hidden = true;
       elements.banner.textContent = '';
@@ -354,6 +487,15 @@
       && own(value, 'snapshot') && own(value, 'cache_age_seconds');
   }
 
+  function isValidCodexLiveEnvelope(value) {
+    if (!value || value.ok !== true || typeof value.present !== 'boolean'
+        || typeof value.reset !== 'boolean') return false;
+    if (value.present === false) return true;
+    return typeof value.text === 'string'
+      && typeof value.source_file === 'string'
+      && typeof value.mtime === 'string';
+  }
+
   function sortedLanes(fleet) {
     return fleet && Array.isArray(fleet.lanes)
       ? fleet.lanes.slice().sort(compareLaneRows) : [];
@@ -398,6 +540,54 @@
       ? age.text : age.text + ' sec';
   }
 
+  function renderCodexLive(value) {
+    var wasPinned = codexLivePinned;
+    if (!value || value.present !== true) {
+      elements.codexLiveAge.className = 'live-age value-no-data';
+      elements.codexLive.className = 'live-output value-no-data';
+      elements.codexLive.textContent = 'no live codex output';
+      return;
+    }
+    elements.codexLive.className = 'live-output';
+    if (value.reset) {
+      elements.codexLive.textContent = value.text;
+    } else {
+      elements.codexLive.textContent += value.text;
+    }
+    if (elements.codexLive.textContent.length > CODEX_LIVE_TEXT_LIMIT) {
+      elements.codexLive.textContent = elements.codexLive.textContent.slice(-CODEX_LIVE_TEXT_LIMIT);
+    }
+    if (wasPinned) {
+      elements.codexLive.scrollTop = elements.codexLive.scrollHeight;
+    }
+  }
+
+  function isCodexLivePinned() {
+    return elements.codexLive.scrollHeight - elements.codexLive.scrollTop
+      - elements.codexLive.clientHeight <= 8;
+  }
+
+  function setCodexLiveConnection(text, live) {
+    elements.codexLiveAge.className = live
+      ? 'live-age' : 'live-age value-no-data';
+    elements.codexLiveAge.textContent = text;
+  }
+
+  function closeCodexLiveStream() {
+    codexLivePendingName = null;
+    if (codexLiveSource === null) return;
+    codexLiveSource.close();
+    codexLiveSource = null;
+  }
+
+  function beginCodexLiveSelection() {
+    closeCodexLiveStream();
+    clearFailure('codex');
+    codexLivePinned = true;
+    renderCodexLive(null);
+    setCodexLiveConnection('connecting...', false);
+  }
+
   function setSection(element, value) {
     element.innerHTML = renderStructuredValue(value);
   }
@@ -409,8 +599,8 @@
     elements.detailStatus.textContent = 'No data';
     elements.laneError.hidden = true;
     elements.laneError.textContent = '';
-    setSection(elements.now, null);
-    setSection(elements.objective, null);
+    elements.now.innerHTML = renderNow(null);
+    elements.objective.innerHTML = renderObjective(null);
     setSection(elements.blockers, null);
     setSection(elements.gates, null);
     setSection(elements.tokens, null);
@@ -453,8 +643,8 @@
       elements.laneError.hidden = true;
     }
 
-    setSection(elements.now, data.now);
-    elements.objective.innerHTML = renderStructuredValue(data.objective);
+    elements.now.innerHTML = renderNow(data.now);
+    elements.objective.innerHTML = renderObjective(data.objective);
     if (data.objective && data.objective.projection_stale === true) {
       elements.objective.innerHTML += renderObjectiveConflict(detail);
     }
@@ -495,12 +685,63 @@
     });
   }
 
+  function flushPendingCodexLiveStream() {
+    var name = codexLivePendingName;
+    codexLivePendingName = null;
+    if (name === null || selectedName !== name) return;
+    openCodexLiveStream(name);
+  }
+
+  function openCodexLiveStream(name) {
+    if (!codexLiveLoadFired) {
+      codexLivePendingName = name;
+      return;
+    }
+    codexLivePendingName = null;
+    var pathname = '/api/lane/' + encodeURIComponent(name)
+      + '/codex-live/stream';
+    var source = new window.EventSource(API_BASE + pathname);
+    codexLiveSource = source;
+
+    source.onopen = function () {
+      if (codexLiveSource !== source || selectedName !== name) return;
+      clearFailure('codex');
+      setCodexLiveConnection('\u25cf live', true);
+    };
+    source.onmessage = function (event) {
+      if (codexLiveSource !== source || selectedName !== name) return;
+      var value;
+      try {
+        value = JSON.parse(event.data);
+      } catch (_error) {
+        setFailure('codex', 'Codex live stream returned malformed data for ' + name);
+        return;
+      }
+      if (!isValidCodexLiveEnvelope(value)) {
+        setFailure('codex', 'Codex live stream returned an invalid event for ' + name);
+        return;
+      }
+      clearFailure('codex');
+      renderCodexLive(value);
+      setCodexLiveConnection(value.present
+        ? '\u25cf live / ' + value.source_file
+        : '\u25cf live / waiting for output', true);
+    };
+    source.onerror = function () {
+      if (codexLiveSource !== source || selectedName !== name) return;
+      setCodexLiveConnection('reconnecting...', false);
+      setFailure('codex', 'Codex live stream reconnecting for ' + name);
+    };
+  }
+
   function selectLane(name, updateHash) {
     if (!fleetHasLane(name) || selectedName === name) return;
     selectedName = name;
+    beginCodexLiveSelection();
     renderFleet();
     if (updateHash) writeLaneHash(name);
     loadLane(name);
+    openCodexLiveStream(name);
   }
 
   function acceptFleet(fleet) {
@@ -523,6 +764,7 @@
       selectedName = null;
       lastDetail = null;
       detailRequestGeneration++;
+      beginCodexLiveSelection();
       renderFleet();
       renderNoDetail();
       return;
@@ -532,7 +774,11 @@
     selectedName = nextName;
     renderFleet();
     writeLaneHash(nextName);
-    if (selectionChanged) loadLane(nextName);
+    if (selectionChanged) {
+      beginCodexLiveSelection();
+      loadLane(nextName);
+      openCodexLiveStream(nextName);
+    }
   }
 
   function refreshFleet() {
@@ -553,12 +799,39 @@
     });
   }
 
+  function resyncAfterTabReturn() {
+    var now = Date.now();
+    if (now - lastTabReturnResyncAt < TAB_RETURN_RESYNC_DEBOUNCE_MS) return;
+    lastTabReturnResyncAt = now;
+    refreshFleet();
+    if (selectedName === null) return;
+    loadLane(selectedName);
+    closeCodexLiveStream();
+    openCodexLiveStream(selectedName);
+  }
+
   elements.laneList.addEventListener('click', function (event) {
     var target = event.target && event.target.closest
       ? event.target.closest('.lane-row[data-lane-name]') : null;
     if (!target) return;
     selectLane(target.getAttribute('data-lane-name'), true);
   });
+
+  elements.codexLive.addEventListener('scroll', function () {
+    codexLivePinned = isCodexLivePinned();
+  });
+
+  if (!codexLiveLoadFired) {
+    window.addEventListener('load', function () {
+      codexLiveLoadFired = true;
+      window.setTimeout(flushPendingCodexLiveStream, 0);
+    });
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) resyncAfterTabReturn();
+  });
+  window.addEventListener('focus', resyncAfterTabReturn);
 
   window.addEventListener('hashchange', function () {
     if (!lastFleet) return;

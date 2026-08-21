@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Phase 162 P162-T3: read-only HTTP transport for the fleet cache.
-// Discovery and snapshot builds happen outside request handling.
+// Discovery and snapshot builds happen outside request handling. The live
+// Codex route performs one bounded, read-only file tail for its selected lane.
 // ASCII-only.
 
 'use strict';
@@ -19,6 +20,12 @@ var DEFAULT_INTERVAL_SECONDS = 20;
 var MAX_INTERVAL_SECONDS = 86400;
 var GIT_DISCOVERY_TIMEOUT_MS = 5000;
 var GIT_DISCOVERY_MAX_BUFFER = 4 * 1024 * 1024;
+var CODEX_LIVE_MAX_BYTES = 16 * 1024;
+var CODEX_LIVE_HEARTBEAT_MS = 15 * 1000;
+var CODEX_LIVE_WATCH_INTERVAL_MS = 250;
+var CODEX_LIVE_NAMES = Object.freeze([
+  'codex-executor-live.txt', 'codex-live-output.txt'
+]);
 var FRAME_BEGIN = 'SGSD_FLEET_FRAME_BEGIN';
 var FRAME_END = 'SGSD_FLEET_FRAME_END';
 var PUBLIC_DIR = path.join(__dirname, 'public');
@@ -197,6 +204,287 @@ function fleetRow(row) {
   return result;
 }
 
+function openCodexLiveFile(lanePath) {
+  var metricsDir = path.join(path.resolve(lanePath), '.planning', 'metrics');
+  for (var i = 0; i < CODEX_LIVE_NAMES.length; i++) {
+    var file = path.join(metricsDir, CODEX_LIVE_NAMES[i]);
+    var descriptor = null;
+    try {
+      descriptor = fs.openSync(file, 'r');
+      var stat = fs.fstatSync(descriptor);
+      if (!stat.isFile()) continue;
+      var opened = {
+        descriptor: descriptor,
+        file: file,
+        source_file: CODEX_LIVE_NAMES[i],
+        stat: stat
+      };
+      descriptor = null;
+      return opened;
+    } catch (error) {
+      if (!error || error.code !== 'ENOENT') throw error;
+    } finally {
+      if (descriptor !== null) fs.closeSync(descriptor);
+    }
+  }
+  return null;
+}
+
+function readDescriptorBytes(descriptor, offset, byteCount) {
+  var buffer = Buffer.alloc(byteCount);
+  var totalRead = 0;
+  while (totalRead < byteCount) {
+    var read = fs.readSync(
+      descriptor, buffer, totalRead, byteCount - totalRead, offset + totalRead);
+    if (read === 0) break;
+    totalRead += read;
+  }
+  return buffer.subarray(0, totalRead);
+}
+
+function closeCodexLiveFile(opened) {
+  if (!opened || opened.descriptor === null) return;
+  var descriptor = opened.descriptor;
+  opened.descriptor = null;
+  fs.closeSync(descriptor);
+}
+
+function codexLiveValue(opened, text, truncated) {
+  return {
+    ok: true,
+    present: true,
+    source_file: opened.source_file,
+    text: text,
+    mtime: opened.stat.mtime.toISOString(),
+    age_seconds: Math.max(
+      0, Math.floor((Date.now() - opened.stat.mtimeMs) / 1000)),
+    truncated: truncated === true
+  };
+}
+
+function readCodexLive(lanePath) {
+  var opened = openCodexLiveFile(lanePath);
+  if (opened === null) return { ok: true, present: false };
+  try {
+    var byteCount = Math.min(opened.stat.size, CODEX_LIVE_MAX_BYTES);
+    var offset = Math.max(0, opened.stat.size - byteCount);
+    var buffer = readDescriptorBytes(opened.descriptor, offset, byteCount);
+    return codexLiveValue(
+      opened, buffer.toString('utf8'), opened.stat.size > CODEX_LIVE_MAX_BYTES);
+  } finally {
+    closeCodexLiveFile(opened);
+  }
+}
+
+function codexLiveFiles(lanePath) {
+  var metricsDir = path.join(path.resolve(lanePath), '.planning', 'metrics');
+  return CODEX_LIVE_NAMES.map(function (name) {
+    return path.join(metricsDir, name);
+  });
+}
+
+function statExists(stat) {
+  return !!stat && stat.nlink > 0 && stat.isFile();
+}
+
+function watchCodexLiveFile(file, onChange) {
+  var watcher = null;
+  var polling = false;
+  var closed = false;
+
+  function stopWatcher() {
+    if (watcher === null) return;
+    var current = watcher;
+    watcher = null;
+    current.close();
+  }
+
+  function stopPolling() {
+    if (!polling) return;
+    polling = false;
+    fs.unwatchFile(file, onPoll);
+  }
+
+  function startPolling() {
+    if (closed || polling) return;
+    polling = true;
+    fs.watchFile(file, {
+      persistent: false,
+      interval: CODEX_LIVE_WATCH_INTERVAL_MS
+    }, onPoll);
+  }
+
+  function fallBackToPolling() {
+    stopWatcher();
+    startPolling();
+  }
+
+  function onPoll(current, previous) {
+    if (closed) return;
+    var currentExists = statExists(current);
+    var previousExists = statExists(previous);
+    var reset = currentExists !== previousExists
+      || current.ino !== previous.ino
+      || current.size < previous.size;
+    onChange(reset);
+    if (currentExists) {
+      stopPolling();
+      startWatcher();
+    }
+  }
+
+  function startWatcher() {
+    if (closed || watcher !== null) return;
+    try {
+      var candidate = fs.watch(file, { persistent: false }, function (eventType) {
+        var reset = eventType === 'rename';
+        onChange(reset);
+        if (reset) fallBackToPolling();
+      });
+      watcher = candidate;
+      candidate.on('error', function () {
+        if (watcher !== candidate) return;
+        onChange(true);
+        fallBackToPolling();
+      });
+    } catch (_error) {
+      startPolling();
+    }
+  }
+
+  startWatcher();
+  return function closeWatcher() {
+    if (closed) return;
+    closed = true;
+    stopWatcher();
+    stopPolling();
+  };
+}
+
+function sendSseValue(res, value) {
+  if (res.destroyed || res.writableEnded) return false;
+  res.write('data: ' + JSON.stringify(value) + '\n\n');
+  return true;
+}
+
+function codexFileIdentity(opened) {
+  return String(opened.stat.dev) + ':' + String(opened.stat.ino)
+    + ':' + String(opened.stat.birthtimeMs);
+}
+
+function streamCodexLive(req, res, lanePath, cache) {
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-SGSD-Cache-Age-Seconds', cacheAgeHeader(cache));
+  res.flushHeaders();
+  res.write('retry: 2000\n\n');
+
+  var state = {
+    present: false,
+    source_file: null,
+    identity: null,
+    offset: 0
+  };
+  var cleanupWatchers = [];
+  var initialized = false;
+  var closed = false;
+  var heartbeat = null;
+
+  function cleanup() {
+    if (closed) return;
+    closed = true;
+    clearInterval(heartbeat);
+    cleanupWatchers.forEach(function (closeWatcher) { closeWatcher(); });
+    cleanupWatchers = [];
+  }
+
+  res.once('close', cleanup);
+  res.once('error', cleanup);
+
+  function sendAbsent() {
+    sendSseValue(res, {
+      ok: true,
+      present: false,
+      reset: true
+    });
+  }
+
+  function synchronize(resetHint, initial) {
+    if (closed) return;
+    var opened = null;
+    try {
+      opened = openCodexLiveFile(lanePath);
+      if (opened === null) {
+        if (initial || state.present) sendAbsent();
+        state.present = false;
+        state.source_file = null;
+        state.identity = null;
+        state.offset = 0;
+        return;
+      }
+
+      var identity = codexFileIdentity(opened);
+      var reset = initial || resetHint || !state.present
+        || state.source_file !== opened.source_file
+        || state.identity !== identity
+        || opened.stat.size < state.offset;
+      if (reset) {
+        var tailBytes = Math.min(opened.stat.size, CODEX_LIVE_MAX_BYTES);
+        var tailOffset = Math.max(0, opened.stat.size - tailBytes);
+        var tail = readDescriptorBytes(
+          opened.descriptor, tailOffset, tailBytes).toString('utf8');
+        var resetValue = codexLiveValue(
+          opened, tail, opened.stat.size > CODEX_LIVE_MAX_BYTES);
+        resetValue.reset = true;
+        sendSseValue(res, resetValue);
+        state.offset = opened.stat.size;
+      } else {
+        while (state.offset < opened.stat.size) {
+          var nextBytes = Math.min(
+            CODEX_LIVE_MAX_BYTES, opened.stat.size - state.offset);
+          var appended = readDescriptorBytes(
+            opened.descriptor, state.offset, nextBytes);
+          if (appended.length === 0) break;
+          var appendValue = codexLiveValue(
+            opened, appended.toString('utf8'), false);
+          appendValue.reset = false;
+          sendSseValue(res, appendValue);
+          state.offset += appended.length;
+        }
+      }
+      state.present = true;
+      state.source_file = opened.source_file;
+      state.identity = identity;
+    } catch (_error) {
+      sendSseValue(res, {
+        ok: false,
+        present: false,
+        reset: true,
+        error_code: 'codex_live_unavailable'
+      });
+    } finally {
+      closeCodexLiveFile(opened);
+    }
+  }
+
+  codexLiveFiles(lanePath).forEach(function (file) {
+    cleanupWatchers.push(watchCodexLiveFile(file, function (reset) {
+      if (initialized) synchronize(reset, false);
+    }));
+  });
+  synchronize(false, true);
+  initialized = true;
+
+  heartbeat = setInterval(function () {
+    if (!closed && !res.destroyed && !res.writableEnded) {
+      res.write(': heartbeat\n\n');
+    }
+  }, CODEX_LIVE_HEARTBEAT_MS);
+  if (typeof heartbeat.unref === 'function') heartbeat.unref();
+}
+
 function createFleetServer(options) {
   var opts = options || {};
   var cache = opts.cache;
@@ -263,7 +551,8 @@ function createFleetServer(options) {
         return;
       }
 
-      var laneMatch = /^\/api\/lane\/([^/]+?)(\/raw)?$/.exec(pathname);
+      var laneMatch = /^\/api\/lane\/([^/]+?)(\/raw|\/codex-live|\/codex-live\/stream)?$/.exec(
+        pathname);
       if (laneMatch) {
         var name = safeLaneName(laneMatch[1]);
         if (!name) {
@@ -273,6 +562,14 @@ function createFleetServer(options) {
         var detail = cache.getLane(name);
         if (!detail) {
           laneNotFound(res, cache);
+          return;
+        }
+        if (laneMatch[2] === '/codex-live/stream') {
+          streamCodexLive(req, res, detail.path, cache);
+          return;
+        }
+        if (laneMatch[2] === '/codex-live') {
+          sendJson(res, 200, readCodexLive(detail.path), cache);
           return;
         }
         if (laneMatch[2] === '/raw') {
@@ -380,6 +677,24 @@ function attachFramedInput(input, cache) {
   });
 }
 
+function createYieldingSnapshotBuilder(buildSnapshot) {
+  if (typeof buildSnapshot !== 'function') {
+    throw new TypeError('buildSnapshot must be a function');
+  }
+  var previous = Promise.resolve();
+  return function yieldingSnapshotBuilder(input) {
+    var result = previous.then(function () {
+      return new Promise(function (resolve) {
+        setImmediate(function () { setTimeout(resolve, 0); });
+      });
+    }).then(function () {
+      return buildSnapshot(input);
+    });
+    previous = result.then(function () {}, function () {});
+    return result;
+  };
+}
+
 function main(argv) {
   var options = parseArgs(argv);
   if (!fs.statSync(options.root).isDirectory()) {
@@ -390,9 +705,9 @@ function main(argv) {
     discoveryFrameSource: framed ? null : function () {
       return readGitWorktreeFrame(options.root);
     },
-    buildSnapshot: function (lane) {
+    buildSnapshot: createYieldingSnapshotBuilder(function (lane) {
       return cockpitStateAdapter.buildSnapshot({ projectDir: lane.projectDir });
-    },
+    }),
     deriveLaneStatus: statusModule.deriveLaneStatus,
     intervalMs: options.intervalSeconds * 1000,
     concurrency: 4
@@ -429,5 +744,6 @@ module.exports = {
   parseArgs: parseArgs,
   createFleetServer: createFleetServer,
   attachFramedInput: attachFramedInput,
+  createYieldingSnapshotBuilder: createYieldingSnapshotBuilder,
   main: main
 };
