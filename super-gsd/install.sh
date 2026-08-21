@@ -45,9 +45,9 @@ GLOBAL_SCRIPTS_DIR="$CLAUDE_DIR/super-gsd/scripts"
 LOCAL_BIN_DIR="$HOME/.local/bin"
 
 # event|hook-id|interpreter|installed filename|registered timeout seconds
-# The first eleven rows mirror config/settings-overlay.json. The final row is
-# the tracked auxiliary PostToolUse hook and is deployed but not registered by
-# that overlay.
+# Smoke contract only: distribution independently copies every regular file in
+# hooks/. The first eleven rows mirror config/settings-overlay.json. The final
+# row is the tracked auxiliary PostToolUse hook and is not registered there.
 GLOBAL_HOOK_DEPLOYMENT_MANIFEST='statusLine|status-line|node|sgsd-statusline.js|
 SessionStart|session-start-context|node|gsd-session-start.js|5
 SessionStart|session-state|bash|gsd-session-state.sh|5
@@ -170,23 +170,97 @@ run() {
 }
 
 copy_file() {
-  if [ "$DRY_RUN" = true ]; then
+  local source_path="$1"
+  local target_path="$2"
+  local target_parent
+  if [[ "$DRY_RUN" == true ]]; then
     log "DRY RUN: $1 -> $2"
   else
-    if [ -e "$2" ] && command -v readlink >/dev/null 2>&1; then
-      src_real="$(readlink -f "$1" 2>/dev/null || true)"
-      dst_real="$(readlink -f "$2" 2>/dev/null || true)"
-      if [ -n "$src_real" ] && [ "$src_real" = "$dst_real" ]; then
-        log "  same file, skipping copy: $2"
-        return 0
-      fi
+    if [[ -e "$target_path" && "$source_path" -ef "$target_path" ]]; then
+      log "  same file, skipping copy: $target_path"
+      return 0
     fi
-    mkdir -p "$(dirname "$2")"
-    if [ -d "$1" ]; then
-      cp -R "$1" "$2"
+    target_parent="${target_path%/*}"
+    [[ "$target_parent" == "$target_path" ]] && target_parent="."
+    mkdir -p "$target_parent"
+    if [[ -d "$source_path" ]]; then
+      cp -R "$source_path" "$target_path"
     else
-      cp "$1" "$2"
+      cp "$source_path" "$target_path"
     fi
+  fi
+}
+
+copy_files_to_root() {
+  local target_root="$1"
+  shift
+  local source_path target_path
+  local -a copy_sources=()
+
+  for source_path in "$@"; do
+    [[ -f "$source_path" ]] || continue
+    target_path="$target_root/${source_path##*/}"
+    if [[ -e "$target_path" && "$source_path" -ef "$target_path" ]]; then
+      log "  same file, skipping copy: $target_path"
+      continue
+    fi
+    if [[ "$DRY_RUN" == true ]]; then
+      log "DRY RUN: $source_path -> $target_path"
+    else
+      copy_sources+=("$source_path")
+    fi
+  done
+
+  if [[ "$DRY_RUN" == false ]]; then
+    mkdir -p "$target_root"
+    if ((${#copy_sources[@]} > 0)); then
+      cp "${copy_sources[@]}" "$target_root/"
+    fi
+  fi
+}
+
+copy_entries_to_root() {
+  local target_root="$1"
+  shift
+  local source_path target_path
+  local -a copy_sources=()
+
+  for source_path in "$@"; do
+    [[ -e "$source_path" ]] || continue
+    target_path="$target_root/${source_path##*/}"
+    if [[ -e "$target_path" && "$source_path" -ef "$target_path" ]]; then
+      log "  same file, skipping copy: $target_path"
+      continue
+    fi
+    if [[ "$DRY_RUN" == true ]]; then
+      log "DRY RUN: $source_path -> $target_path"
+    else
+      copy_sources+=("$source_path")
+    fi
+  done
+
+  if [[ "$DRY_RUN" == false ]]; then
+    mkdir -p "$target_root"
+    if ((${#copy_sources[@]} > 0)); then
+      cp -R "${copy_sources[@]}" "$target_root/"
+    fi
+  fi
+}
+
+copy_tree_files() {
+  local source_root="$1"
+  local target_root="$2"
+  if [[ ! -d "$source_root" ]]; then
+    echo "ERROR: required runtime directory missing: $source_root" >&2
+    exit 1
+  fi
+  if [[ "$DRY_RUN" == true ]]; then
+    log "DRY RUN: $source_root/. -> $target_root"
+  elif [[ -e "$target_root" && "$source_root" -ef "$target_root" ]]; then
+    log "  same directory, skipping copy: $target_root"
+  else
+    mkdir -p "$target_root"
+    cp -R "$source_root/." "$target_root/"
   fi
 }
 
@@ -203,7 +277,7 @@ remove_path_if_exists() {
 }
 
 is_legacy_brv_asset() {
-  case "$(basename "$1")" in
+  case "${1##*/}" in
     *brv*|*BRV*) return 0 ;;
     *) return 1 ;;
   esac
@@ -222,15 +296,27 @@ remove_legacy_global_assets() {
 }
 
 frontmatter_field() {
-  awk -v f="$2" '
-    /^---[[:space:]]*$/ { if (in_fm) exit; in_fm = 1; next }
-    in_fm && $0 ~ "^"f":" {
-      sub("^"f":[[:space:]]*", "")
-      gsub(/^"|"$|^'\''|'\''$/, "")
-      print
-      exit
-    }
-  ' "$1"
+  local field="$2"
+  local line value
+  local in_frontmatter=false
+  FRONTMATTER_VALUE=""
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^---[[:space:]]*$ ]]; then
+      [[ "$in_frontmatter" == true ]] && return 0
+      in_frontmatter=true
+      continue
+    fi
+    if [[ "$in_frontmatter" == true && "$line" == "$field:"* ]]; then
+      value="${line#"$field:"}"
+      while [[ "$value" == [[:space:]]* ]]; do value="${value#?}"; done
+      [[ "$value" == \"* ]] && value="${value#\"}"
+      [[ "$value" == *\" ]] && value="${value%\"}"
+      [[ "$value" == \'* ]] && value="${value#\'}"
+      [[ "$value" == *\' ]] && value="${value%\'}"
+      FRONTMATTER_VALUE="$value"
+      return 0
+    fi
+  done < "$1"
 }
 
 require_node_22() {
@@ -342,24 +428,28 @@ ensure_gsd_base() {
 
 install_global_assets() {
   ensure_gsd_base
+  local -a global_executable_targets=()
 
   echo ""
   log "Installing global Claude agents..."
   AGENT_COUNT=0
+  local -a agent_sources=()
   for agent in "$SCRIPT_DIR/agents/"*.md; do
-    [ -f "$agent" ] || continue
-    name="$(basename "$agent")"
-    agent_model="$(frontmatter_field "$agent" model)"
+    [[ -f "$agent" ]] || continue
+    name="${agent##*/}"
+    frontmatter_field "$agent" model
+    agent_model="$FRONTMATTER_VALUE"
     case "$agent_model" in
       sonnet|haiku)
         log "  skipping legacy Claude agent $name ($agent_model not a fresh-clone route)"
         continue
         ;;
     esac
-    copy_file "$agent" "$AGENTS_DIR/$name"
+    agent_sources+=("$agent")
     AGENT_COUNT=$((AGENT_COUNT + 1))
   done
-  if [ -f "$SCRIPT_DIR/agents/sgsd-executor.md" ]; then
+  copy_files_to_root "$AGENTS_DIR" "${agent_sources[@]}"
+  if [[ -f "$SCRIPT_DIR/agents/sgsd-executor.md" ]]; then
     copy_file "$SCRIPT_DIR/agents/sgsd-executor.md" "$AGENTS_DIR/gsd-executor.md"
     log "  legacy gsd-executor disabled -> Codex executor only"
   fi
@@ -368,105 +458,120 @@ install_global_assets() {
   echo ""
   log "Installing global Claude commands..."
   SKILL_COUNT=0
+  local -a skill_sources=()
   for skill_dir in "$SCRIPT_DIR/skills/"*/; do
-    [ -f "$skill_dir/SKILL.md" ] || continue
-    name="$(basename "$skill_dir")"
-    [ "$name" = "sgsd-brv-setup" ] && continue
-    copy_file "$skill_dir/SKILL.md" "$COMMANDS_DIR/$name/SKILL.md"
+    [[ -f "$skill_dir/SKILL.md" ]] || continue
+    skill_dir="${skill_dir%/}"
+    name="${skill_dir##*/}"
+    [[ "$name" == "sgsd-brv-setup" ]] && continue
+    skill_sources+=("$skill_dir")
     SKILL_COUNT=$((SKILL_COUNT + 1))
   done
+  copy_entries_to_root "$COMMANDS_DIR" "${skill_sources[@]}"
   log "  $SKILL_COUNT commands installed"
 
   echo ""
   log "Installing global hooks..."
-  [ "$DRY_RUN" = true ] || mkdir -p "$HOOKS_DIR"
   HOOK_COUNT=0
-  while IFS='|' read -r _event _hook_id _interpreter name _timeout; do
-    hook="$SCRIPT_DIR/hooks/$name"
-    if [ ! -f "$hook" ]; then
-      # The shared preflight below aggregates missing sources and reports the
-      # normalized installed descriptor path before any settings write.
-      continue
-    fi
-    copy_file "$hook" "$HOOKS_DIR/$name"
+  local -a hook_sources=()
+  for hook in "$SCRIPT_DIR/hooks/"*; do
+    [[ -f "$hook" ]] || continue
+    name="${hook##*/}"
+    hook_sources+=("$hook")
     case "$name" in
-      *.sh) [ "$DRY_RUN" = false ] && chmod +x "$HOOKS_DIR/$name" ;;
+      *.sh) global_executable_targets+=("$HOOKS_DIR/$name") ;;
     esac
     HOOK_COUNT=$((HOOK_COUNT + 1))
-  done <<< "$GLOBAL_HOOK_DEPLOYMENT_MANIFEST"
+  done
+  copy_files_to_root "$HOOKS_DIR" "${hook_sources[@]}"
   log "  $HOOK_COUNT hooks installed"
 
   echo ""
   log "Installing templates + overwatcher..."
-  [ "$DRY_RUN" = true ] || mkdir -p "$TEMPLATES_DIR/overwatcher"
+  local -a template_sources=()
   for template in "$SCRIPT_DIR/templates/"*; do
-    [ -e "$template" ] || continue
+    [[ -e "$template" ]] || continue
     is_legacy_brv_asset "$template" && continue
-    name="$(basename "$template")"
-    copy_file "$template" "$TEMPLATES_DIR/$name"
+    template_sources+=("$template")
   done
+  copy_entries_to_root "$TEMPLATES_DIR" "${template_sources[@]}"
+  local -a overwatcher_sources=()
   for ow in "$SCRIPT_DIR/overwatcher/"*.js "$SCRIPT_DIR/overwatcher/"*.md; do
-    [ -f "$ow" ] || continue
+    [[ -f "$ow" ]] || continue
     is_legacy_brv_asset "$ow" && continue
-    name="$(basename "$ow")"
-    copy_file "$ow" "$TEMPLATES_DIR/overwatcher/$name"
+    overwatcher_sources+=("$ow")
   done
+  copy_files_to_root "$TEMPLATES_DIR/overwatcher" "${overwatcher_sources[@]}"
   remove_legacy_global_assets
   log "  Templates + overwatcher installed"
 
   echo ""
   log "Installing workflows and config..."
-  [ "$DRY_RUN" = true ] || mkdir -p "$GSD_DIR/workflows" "$GSD_DIR/config"
+  local -a workflow_sources=()
   for workflow in "$SCRIPT_DIR/workflows/"*; do
-    [ -e "$workflow" ] || continue
-    name="$(basename "$workflow")"
-    copy_file "$workflow" "$GSD_DIR/workflows/$name"
+    [[ -e "$workflow" ]] || continue
+    workflow_sources+=("$workflow")
   done
+  copy_entries_to_root "$GSD_DIR/workflows" "${workflow_sources[@]}"
   copy_file "$SCRIPT_DIR/config/model-routing.json" "$GSD_DIR/config/model-routing.json"
   log "  Workflows + model routing config installed"
 
   echo ""
   log "Installing SGSD scripts globally..."
-  [ "$DRY_RUN" = true ] || mkdir -p "$GLOBAL_SCRIPTS_DIR/lib" "$GLOBAL_SCRIPTS_DIR/watchdogs"
   SCRIPT_COUNT=0
+  local -a script_sources=()
   for f in "$SCRIPT_DIR/scripts/"*.sh "$SCRIPT_DIR/scripts/"*.ps1; do
-    [ -f "$f" ] || continue
-    name="$(basename "$f")"
-    copy_file "$f" "$GLOBAL_SCRIPTS_DIR/$name"
+    [[ -f "$f" ]] || continue
+    name="${f##*/}"
+    script_sources+=("$f")
     case "$name" in
-      *.sh) [ "$DRY_RUN" = false ] && chmod +x "$GLOBAL_SCRIPTS_DIR/$name" ;;
+      *.sh) global_executable_targets+=("$GLOBAL_SCRIPTS_DIR/$name") ;;
     esac
     SCRIPT_COUNT=$((SCRIPT_COUNT + 1))
   done
-  if [ -f "$SCRIPT_DIR/scripts/sgsd" ]; then
-    copy_file "$SCRIPT_DIR/scripts/sgsd" "$GLOBAL_SCRIPTS_DIR/sgsd"
-    copy_file "$SCRIPT_DIR/scripts/sgsd" "$LOCAL_BIN_DIR/sgsd"
-    if [ "$DRY_RUN" = false ]; then
-      chmod +x "$GLOBAL_SCRIPTS_DIR/sgsd" "$LOCAL_BIN_DIR/sgsd"
-    fi
+  if [[ -f "$SCRIPT_DIR/scripts/sgsd" ]]; then
+    script_sources+=("$SCRIPT_DIR/scripts/sgsd")
+    global_executable_targets+=("$GLOBAL_SCRIPTS_DIR/sgsd" "$LOCAL_BIN_DIR/sgsd")
     SCRIPT_COUNT=$((SCRIPT_COUNT + 1))
   fi
-  if [ -d "$SCRIPT_DIR/scripts/lib" ]; then
+  copy_files_to_root "$GLOBAL_SCRIPTS_DIR" "${script_sources[@]}"
+  if [[ -f "$SCRIPT_DIR/scripts/sgsd" ]]; then
+    copy_file "$SCRIPT_DIR/scripts/sgsd" "$LOCAL_BIN_DIR/sgsd"
+  fi
+  local -a script_lib_sources=()
+  if [[ -d "$SCRIPT_DIR/scripts/lib" ]]; then
     for f in "$SCRIPT_DIR/scripts/lib/"*; do
-      [ -f "$f" ] || continue
-      name="$(basename "$f")"
-      copy_file "$f" "$GLOBAL_SCRIPTS_DIR/lib/$name"
+      [[ -f "$f" ]] || continue
+      script_lib_sources+=("$f")
     done
   fi
-  if [ -f "$SCRIPT_DIR/tools/state-resolver/resolve.cjs" ]; then
+  copy_files_to_root "$GLOBAL_SCRIPTS_DIR/lib" "${script_lib_sources[@]}"
+  if [[ -f "$SCRIPT_DIR/tools/state-resolver/resolve.cjs" ]]; then
     copy_file "$SCRIPT_DIR/tools/state-resolver/resolve.cjs" "$CLAUDE_DIR/super-gsd/tools/state-resolver/resolve.cjs"
   fi
-  if [ -d "$SCRIPT_DIR/scripts/watchdogs" ]; then
+  local -a watchdog_sources=()
+  if [[ -d "$SCRIPT_DIR/scripts/watchdogs" ]]; then
     for f in "$SCRIPT_DIR/scripts/watchdogs/"*; do
-      [ -f "$f" ] || continue
-      name="$(basename "$f")"
-      copy_file "$f" "$GLOBAL_SCRIPTS_DIR/watchdogs/$name"
+      [[ -f "$f" ]] || continue
+      name="${f##*/}"
+      watchdog_sources+=("$f")
       case "$name" in
-        *.sh) [ "$DRY_RUN" = false ] && chmod +x "$GLOBAL_SCRIPTS_DIR/watchdogs/$name" ;;
+        *.sh) global_executable_targets+=("$GLOBAL_SCRIPTS_DIR/watchdogs/$name") ;;
       esac
     done
   fi
+  copy_files_to_root "$GLOBAL_SCRIPTS_DIR/watchdogs" "${watchdog_sources[@]}"
+  if [[ "$DRY_RUN" == false && ${#global_executable_targets[@]} -gt 0 ]]; then
+    chmod +x "${global_executable_targets[@]}"
+  fi
   log "  $SCRIPT_COUNT scripts + lib + watchdogs installed to $GLOBAL_SCRIPTS_DIR"
+
+  echo ""
+  log "Installing sibling runtime for flat global hooks..."
+  copy_tree_files "$SCRIPT_DIR/scripts/lib" "$CLAUDE_DIR/scripts/lib"
+  copy_tree_files "$SCRIPT_DIR/registry" "$CLAUDE_DIR/registry"
+  copy_tree_files "$SCRIPT_DIR/tools/vtp-readiness" "$CLAUDE_DIR/tools/vtp-readiness"
+  log "  Hook scripts/lib, registry, and VTP readiness runtime installed"
 
   echo ""
   log "Smoke-testing and registering hooks in ~/.claude/settings.json..."
@@ -500,6 +605,90 @@ install_global_assets() {
   log "Global install complete. Launcher installed at $LOCAL_BIN_DIR/sgsd."
 }
 
+configured_codex_hook_entry_names() {
+  node - "$1" <<'NODE'
+const fs = require('fs');
+const config = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+const names = new Set();
+
+function visit(value) {
+  if (Array.isArray(value)) {
+    value.forEach(visit);
+    return;
+  }
+  if (!value || typeof value !== 'object') return;
+  if (typeof value.command === 'string') {
+    const match = value.command.match(/^node\s+super-gsd\/tools\/codex-hooks\/([^/\s]+)$/);
+    if (!match) throw new Error('unsupported Codex hook command: ' + value.command);
+    names.add(match[1]);
+  }
+  Object.values(value).forEach(visit);
+}
+
+visit(config);
+process.stdout.write([...names].sort().join('\n'));
+NODE
+}
+
+distribute_project_hooks() {
+  echo ""
+  log "Distributing project-local Claude and Codex hook entries..."
+  PROJECT_HOOKS_DIR="$PROJECT_DIR/super-gsd/hooks"
+  PROJECT_HOOK_COUNT=0
+  local name hook source_entry target_entry
+  local -a project_hook_sources=()
+  local -a project_executable_targets=()
+  for hook in "$SCRIPT_DIR/hooks/"*; do
+    [[ -f "$hook" ]] || continue
+    name="${hook##*/}"
+    project_hook_sources+=("$hook")
+    case "$name" in
+      *.sh) project_executable_targets+=("$PROJECT_HOOKS_DIR/$name") ;;
+    esac
+    PROJECT_HOOK_COUNT=$((PROJECT_HOOK_COUNT + 1))
+  done
+  copy_files_to_root "$PROJECT_HOOKS_DIR" "${project_hook_sources[@]}"
+  if [[ "$DRY_RUN" == false && ${#project_executable_targets[@]} -gt 0 ]]; then
+    chmod +x "${project_executable_targets[@]}"
+  fi
+
+  CODEX_HOOK_CONFIG="$SCRIPT_DIR/config/codex-hooks.json"
+  if [[ ! -f "$CODEX_HOOK_CONFIG" ]]; then
+    echo "ERROR: Codex hook config missing: $CODEX_HOOK_CONFIG" >&2
+    exit 1
+  fi
+  if ! command -v node >/dev/null 2>&1; then
+    echo "ERROR: Node.js is required to resolve project Codex hook entries" >&2
+    exit 1
+  fi
+  CODEX_ENTRY_NAMES="$(configured_codex_hook_entry_names "$CODEX_HOOK_CONFIG")"
+  if [[ -z "$CODEX_ENTRY_NAMES" ]]; then
+    echo "ERROR: Codex hook config contains no executable entries: $CODEX_HOOK_CONFIG" >&2
+    exit 1
+  fi
+  CODEX_HOOK_COUNT=0
+  CODEX_HOOK_MISSING_TARGETS=""
+  local -a codex_entry_sources=()
+  while IFS= read -r name; do
+    [[ -n "$name" ]] || continue
+    source_entry="$SCRIPT_DIR/tools/codex-hooks/$name"
+    target_entry="$PROJECT_DIR/super-gsd/tools/codex-hooks/$name"
+    if [[ ! -f "$source_entry" ]]; then
+      if [[ -n "$CODEX_HOOK_MISSING_TARGETS" ]]; then
+        CODEX_HOOK_MISSING_TARGETS="$CODEX_HOOK_MISSING_TARGETS
+$target_entry"
+      else
+        CODEX_HOOK_MISSING_TARGETS="$target_entry"
+      fi
+      continue
+    fi
+    codex_entry_sources+=("$source_entry")
+    CODEX_HOOK_COUNT=$((CODEX_HOOK_COUNT + 1))
+  done <<< "$CODEX_ENTRY_NAMES"
+  copy_files_to_root "$PROJECT_DIR/super-gsd/tools/codex-hooks" "${codex_entry_sources[@]}"
+  log "  $PROJECT_HOOK_COUNT Claude hooks and $CODEX_HOOK_COUNT Codex entries distributed"
+}
+
 register_repo_local_hooks() {
   echo ""
   log "Registering repo-local Claude hooks..."
@@ -521,6 +710,13 @@ register_repo_local_hooks() {
     log "  DRY RUN: would merge $OVERLAY_FILE into $SETTINGS_FILE for $PROJECT_DIR"
   else
     node "$PREFLIGHT_SCRIPT" --smoke-repo-overlay "$OVERLAY_FILE" "$PROJECT_DIR"
+    if [[ -n "$CODEX_HOOK_MISSING_TARGETS" ]]; then
+      while IFS= read -r missing_target; do
+        [[ -n "$missing_target" ]] || continue
+        printf '%s\n' "hook_registration_missing $missing_target [Codex/project-entry]" >&2
+      done <<< "$CODEX_HOOK_MISSING_TARGETS"
+      exit 1
+    fi
     if MERGE_OUTPUT="$(node "$MERGE_SCRIPT" --repo-local-hooks "$OVERLAY_FILE" "$SETTINGS_FILE" "$PROJECT_DIR" 2>&1)"; then
       [ -z "$MERGE_OUTPUT" ] || printf '%s\n' "$MERGE_OUTPUT" | sed 's/^/  /'
     else
@@ -656,6 +852,7 @@ init_local_project() {
   fi
 
   ensure_memory_tree
+  distribute_project_hooks
   register_repo_local_hooks
   register_codex_hooks
 
@@ -751,6 +948,7 @@ update_existing() {
   # 3. Memory taxonomy — ensure new memory dirs exist if the schema grew.
   # ensure_memory_tree is idempotent; existing entries are left untouched.
   ensure_memory_tree
+  distribute_project_hooks
   register_repo_local_hooks
   register_codex_hooks
 

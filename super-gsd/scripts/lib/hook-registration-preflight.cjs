@@ -4,11 +4,12 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 
 const CHECK_TIMEOUT_MS = 5_000;
 const SMOKE_TIMEOUT_FLOOR_MS = 15_000;
 const SMOKE_TIMEOUT_MS = SMOKE_TIMEOUT_FLOOR_MS;
+const SMOKE_CONCURRENCY = 4;
 const SMOKE_MANIFEST_MODE = '--smoke-manifest';
 const SMOKE_REPO_OVERLAY_MODE = '--smoke-repo-overlay';
 const SUPPORTED_INTERPRETERS = new Set(['node', 'bash']);
@@ -324,9 +325,75 @@ function smokePayload(event, cwd) {
   };
 }
 
-function smokeHookRegistrations(descriptors, adapters = {}) {
+function spawnSmokeHook(descriptor, options) {
+  const {
+    bashPath,
+    cwd,
+    home,
+    nodePath,
+    spawnProcess,
+  } = options;
+  const input = JSON.stringify(smokePayload(descriptor.event, cwd)) + '\n';
+  return new Promise((resolve) => {
+    let child;
+    let settled = false;
+    const finish = (passed) => {
+      if (settled) return;
+      settled = true;
+      resolve(passed);
+    };
+    try {
+      child = spawnProcess(
+        descriptor.interpreter === 'node' ? nodePath : bashPath,
+        [descriptor.scriptPath],
+        {
+          cwd,
+          env: { ...process.env, HOME: home, USERPROFILE: home },
+          shell: false,
+          stdio: ['pipe', 'ignore', 'ignore'],
+          timeout: descriptorSmokeTimeout(descriptor),
+          windowsHide: true,
+        },
+      );
+      child.once('error', () => finish(false));
+      child.once('close', (status, signal) => finish(checkPassed({ status, signal })));
+      if (child.stdin && typeof child.stdin.once === 'function') {
+        child.stdin.once('error', () => {
+          // The child close status remains authoritative, as with spawnSync.
+        });
+      }
+      child.stdin.end(input);
+    } catch (_error) {
+      if (child && typeof child.kill === 'function') {
+        try {
+          child.kill();
+        } catch (_killError) {
+          // Preserve the launch failure as the smoke result.
+        }
+      }
+      finish(false);
+    }
+  });
+}
+
+async function mapWithConcurrency(items, concurrency, task) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await task(items[index]);
+    }
+  }
+  const workerCount = Math.min(concurrency, items.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return results;
+}
+
+async function smokeHookRegistrations(descriptors, adapters = {}) {
   const checked = preflightHookDescriptors(descriptors, adapters);
-  const spawn = adapters.spawnSync || spawnSync;
+  const spawnProcess = adapters.spawn || spawn;
   const nodePath = adapters.nodePath || process.execPath;
   const bashPath = adapters.bashPath || process.env.SGSD_BASH_PATH || 'bash';
   const home = path.resolve(adapters.home || os.homedir());
@@ -336,28 +403,11 @@ function smokeHookRegistrations(descriptors, adapters = {}) {
     : fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-hook-smoke-'));
 
   try {
-    for (const descriptor of checked) {
-      const input = JSON.stringify(smokePayload(descriptor.event, cwd)) + '\n';
-      let result;
-      try {
-        result = spawn(
-          descriptor.interpreter === 'node' ? nodePath : bashPath,
-          [descriptor.scriptPath],
-          {
-            cwd,
-            env: { ...process.env, HOME: home, USERPROFILE: home },
-            input,
-            shell: false,
-            stdio: ['pipe', 'ignore', 'ignore'],
-            timeout: descriptorSmokeTimeout(descriptor),
-            windowsHide: true,
-          },
-        );
-      } catch (_error) {
-        result = null;
-      }
-      if (!checkPassed(result)) throw new HookSmokeError(descriptor);
-    }
+    const results = await mapWithConcurrency(checked, SMOKE_CONCURRENCY, (descriptor) => (
+      spawnSmokeHook(descriptor, { bashPath, cwd, home, nodePath, spawnProcess })
+    ));
+    const failedIndex = results.findIndex((passed) => !passed);
+    if (failedIndex >= 0) throw new HookSmokeError(checked[failedIndex]);
   } finally {
     if (ownsCwd) {
       try {
@@ -370,7 +420,7 @@ function smokeHookRegistrations(descriptors, adapters = {}) {
   return checked;
 }
 
-function smokeCli(argv) {
+async function smokeCli(argv) {
   const mode = argv[0];
   let descriptors;
   if (mode === SMOKE_MANIFEST_MODE && argv.length === 3) {
@@ -386,21 +436,22 @@ function smokeCli(argv) {
     );
     return 64;
   }
-  smokeHookRegistrations(descriptors);
+  await smokeHookRegistrations(descriptors);
   return 0;
 }
 
 if (require.main === module) {
-  try {
-    process.exitCode = smokeCli(process.argv.slice(2));
-  } catch (error) {
+  smokeCli(process.argv.slice(2)).then((exitCode) => {
+    process.exitCode = exitCode;
+  }, (error) => {
     process.stderr.write('ERROR: ' + error.message + '\n');
     process.exitCode = 4;
-  }
+  });
 }
 
 module.exports = {
   CHECK_TIMEOUT_MS,
+  SMOKE_CONCURRENCY,
   SMOKE_TIMEOUT_FLOOR_MS,
   SMOKE_TIMEOUT_MS,
   HookRegistrationPreflightError,
