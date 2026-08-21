@@ -295,14 +295,15 @@ function listenServer(server, host, port) {
   });
 }
 
-function requestServer(address, requestPath, method, headers) {
+function requestServer(address, requestPath, method, headers, agent) {
   return new Promise(function (resolve, reject) {
     var req = http.request({
       hostname: address.address,
       port: address.port,
       method: method || 'GET',
       path: requestPath,
-      headers: headers || {}
+      headers: headers || {},
+      agent: agent
     }, function (res) {
       var chunks = [];
       res.on('data', function (chunk) { chunks.push(chunk); });
@@ -325,6 +326,207 @@ function requestServer(address, requestPath, method, headers) {
     req.on('error', reject);
     req.end();
   });
+}
+
+function waitForCondition(predicate, timeoutMs) {
+  var deadline = Date.now() + timeoutMs;
+  return new Promise(function (resolve, reject) {
+    function check() {
+      if (predicate()) {
+        resolve();
+        return;
+      }
+      if (Date.now() >= deadline) {
+        reject(new Error('timed out waiting for condition'));
+        return;
+      }
+      setTimeout(check, 20);
+    }
+    check();
+  });
+}
+
+function openSseStream(address, requestPath, agent) {
+  return new Promise(function (resolve, reject) {
+    var request = http.get({
+      hostname: address.address,
+      port: address.port,
+      method: 'GET',
+      path: requestPath,
+      headers: { Accept: 'text/event-stream' },
+      agent: agent
+    });
+    var settled = false;
+    request.once('error', function (error) {
+      if (!settled) reject(error);
+    });
+    request.once('response', function (response) {
+      settled = true;
+      response.setEncoding('utf8');
+      var buffered = '';
+      var queued = [];
+      var waiters = [];
+      var ended = false;
+
+      function deliver(value) {
+        if (waiters.length > 0) {
+          waiters.shift().resolve(value);
+        } else {
+          queued.push(value);
+        }
+      }
+
+      function failWaiters(error) {
+        while (waiters.length > 0) waiters.shift().reject(error);
+      }
+
+      function parseFrames() {
+        var boundary;
+        while ((boundary = buffered.indexOf('\n\n')) !== -1) {
+          var frame = buffered.slice(0, boundary);
+          buffered = buffered.slice(boundary + 2);
+          var dataLines = frame.split('\n').filter(function (line) {
+            return line.indexOf('data:') === 0;
+          }).map(function (line) {
+            return line.slice(5).replace(/^ /, '');
+          });
+          if (dataLines.length === 0) continue;
+          try {
+            deliver(JSON.parse(dataLines.join('\n')));
+          } catch (error) {
+            failWaiters(error);
+          }
+        }
+      }
+
+      response.on('data', function (chunk) {
+        buffered += chunk.replace(/\r\n/g, '\n');
+        parseFrames();
+      });
+      response.on('end', function () {
+        ended = true;
+        failWaiters(new Error('SSE stream ended'));
+      });
+      response.on('error', failWaiters);
+
+      resolve({
+        statusCode: response.statusCode,
+        headers: response.headers,
+        nextEvent: function (timeoutMs) {
+          if (queued.length > 0) return Promise.resolve(queued.shift());
+          if (ended) return Promise.reject(new Error('SSE stream ended'));
+          return new Promise(function (eventResolve, eventReject) {
+            var waiter = { resolve: eventResolve, reject: eventReject };
+            var timer = setTimeout(function () {
+              var index = waiters.indexOf(waiter);
+              if (index !== -1) waiters.splice(index, 1);
+              eventReject(new Error('timed out waiting for SSE event'));
+            }, timeoutMs);
+            waiter.resolve = function (value) {
+              clearTimeout(timer);
+              eventResolve(value);
+            };
+            waiter.reject = function (error) {
+              clearTimeout(timer);
+              eventReject(error);
+            };
+            waiters.push(waiter);
+          });
+        },
+        close: function () {
+          response.destroy();
+          request.destroy();
+        }
+      });
+    });
+  });
+}
+
+function spawnDelayedAppend(file, marker, delayMs) {
+  var script = [
+    "'use strict';",
+    "var fs = require('node:fs');",
+    'setTimeout(function () {',
+    "  fs.appendFileSync(process.argv[1], process.argv[2] + Date.now() + '\\n', 'utf8');",
+    '}, Number(process.argv[3]));'
+  ].join('\n');
+  var child = childProcess.spawn(process.execPath, [
+    '-e', script, file, marker, String(delayMs)
+  ], { stdio: 'ignore' });
+  var ready = new Promise(function (resolve, reject) {
+    var settled = false;
+    child.once('spawn', function () {
+      if (settled) return;
+      settled = true;
+      resolve();
+    });
+    child.once('error', function (error) {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    });
+    child.once('exit', function (code) {
+      if (settled) return;
+      settled = true;
+      reject(new Error('delayed append exited before spawn: ' + code));
+    });
+  });
+  var completion = new Promise(function (resolve, reject) {
+    child.once('error', reject);
+    child.once('exit', function (code) {
+      if (code === 0) resolve();
+      else reject(new Error('delayed append exited ' + code));
+    });
+  });
+  return { ready: ready, completion: completion };
+}
+
+function installWatcherAudit() {
+  var originalWatch = fs.watch;
+  var originalWatchFile = fs.watchFile;
+  var originalUnwatchFile = fs.unwatchFile;
+  var watchers = new Set();
+  var pollers = new Map();
+
+  fs.watch = function () {
+    var watcher = originalWatch.apply(fs, arguments);
+    var originalClose = watcher.close.bind(watcher);
+    var open = true;
+    watchers.add(watcher);
+    watcher.close = function () {
+      if (open) {
+        open = false;
+        watchers.delete(watcher);
+      }
+      return originalClose();
+    };
+    return watcher;
+  };
+  fs.watchFile = function (file, options, listener) {
+    var callback = typeof options === 'function' ? options : listener;
+    pollers.set(callback, file);
+    return originalWatchFile.apply(fs, arguments);
+  };
+  fs.unwatchFile = function (file, listener) {
+    if (listener) pollers.delete(listener);
+    return originalUnwatchFile.apply(fs, arguments);
+  };
+
+  return {
+    activeCount: function () { return watchers.size + pollers.size; },
+    forceCleanup: function () {
+      Array.from(watchers).forEach(function (watcher) { watcher.close(); });
+      pollers.forEach(function (file, listener) {
+        originalUnwatchFile.call(fs, file, listener);
+      });
+      pollers.clear();
+    },
+    restore: function () {
+      fs.watch = originalWatch;
+      fs.watchFile = originalWatchFile;
+      fs.unwatchFile = originalUnwatchFile;
+    }
+  };
 }
 
 function makePorcelain(lanes) {
@@ -451,13 +653,25 @@ function compilePageHelpers(appSource) {
       formatValue: formatValue,
       escapeHtml: escapeHtml
     });
+  var renderNow = compileFunction(
+    extractMarkedHelper(appSource, 'renderNow'), 'renderNow', {
+      formatValue: formatValue,
+      escapeHtml: escapeHtml
+    });
+  var renderObjective = compileFunction(
+    extractMarkedHelper(appSource, 'renderObjective'), 'renderObjective', {
+      formatValue: formatValue,
+      escapeHtml: escapeHtml
+    });
   return {
     compareLaneRows: compareLaneRows,
     formatValue: formatValue,
     formatAge: formatAge,
     escapeHtml: escapeHtml,
     renderLaneRail: renderLaneRail,
-    renderObjectiveConflict: renderObjectiveConflict
+    renderObjectiveConflict: renderObjectiveConflict,
+    renderNow: renderNow,
+    renderObjective: renderObjective
   };
 }
 
@@ -672,6 +886,333 @@ async function caseHttpContract(check) {
   } finally {
     fixture.cleanup();
   }
+}
+
+async function caseCodexLiveAbsent(check) {
+  var fixture = await createHttpFixture(readFixture('idle'));
+  try {
+    await withHttpServer(check, fixture, async function (address) {
+      var response = await requestServer(address, '/api/lane/'
+        + encodeURIComponent(fixture.laneName) + '/codex-live');
+      check.assert('codex_live_absent_returns_clean_contract',
+        response.statusCode === 200
+        && response.body.ok === true
+        && response.body.present === false
+        && Object.keys(response.body).sort().join(',') === 'ok,present');
+      check.assert('codex_live_absent_is_read_only_json',
+        response.headers['content-type'] === 'application/json; charset=utf-8'
+        && response.headers['cache-control'] === 'no-store');
+    });
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+async function caseCodexLivePresent(check) {
+  var fixture = await createHttpFixture(readFixture('running'));
+  var metricsDir = path.join(fixture.root, fixture.laneName, '.planning', 'metrics');
+  fs.mkdirSync(metricsDir, { recursive: true });
+  var primary = path.join(metricsDir, 'codex-executor-live.txt');
+  var fallback = path.join(metricsDir, 'codex-live-output.txt');
+  fs.writeFileSync(primary, 'primary live line\n', 'utf8');
+  fs.writeFileSync(fallback, 'fallback must not win\n', 'utf8');
+  try {
+    await withHttpServer(check, fixture, async function (address) {
+      var response = await requestServer(address, '/api/lane/'
+        + encodeURIComponent(fixture.laneName) + '/codex-live');
+      check.assert('codex_live_present_prefers_executor_file',
+        response.statusCode === 200
+        && response.body.ok === true
+        && response.body.present === true
+        && response.body.source_file === 'codex-executor-live.txt'
+        && response.body.text === 'primary live line\n');
+      check.assert('codex_live_present_exposes_mtime_age',
+        typeof response.body.mtime === 'string'
+        && Number.isFinite(Date.parse(response.body.mtime))
+        && typeof response.body.age_seconds === 'number'
+        && response.body.age_seconds >= 0
+        && response.body.truncated === false);
+    });
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+async function caseCodexLiveTailBounded(check) {
+  var fixture = await createHttpFixture(readFixture('running'));
+  var metricsDir = path.join(fixture.root, fixture.laneName, '.planning', 'metrics');
+  fs.mkdirSync(metricsDir, { recursive: true });
+  var fallback = path.join(metricsDir, 'codex-live-output.txt');
+  var prefix = 'discard-this-prefix\n';
+  var tail = 'T'.repeat(16 * 1024);
+  fs.writeFileSync(fallback, prefix + tail, 'utf8');
+  try {
+    await withHttpServer(check, fixture, async function (address) {
+      var response = await requestServer(address, '/api/lane/'
+        + encodeURIComponent(fixture.laneName) + '/codex-live');
+      check.assert('codex_live_falls_back_to_legacy_file',
+        response.statusCode === 200
+        && response.body.present === true
+        && response.body.source_file === 'codex-live-output.txt');
+      check.assert('codex_live_tail_is_last_16kb_exactly',
+        Buffer.byteLength(response.body.text, 'utf8') === 16 * 1024
+        && response.body.text === tail
+        && response.body.text.indexOf(prefix) === -1
+        && response.body.truncated === true);
+    });
+  } finally {
+    fixture.cleanup();
+  }
+}
+
+async function caseSseStream(check) {
+  var fixture = await createHttpFixture(readFixture('running'));
+  var metricsDir = path.join(fixture.root, fixture.laneName, '.planning', 'metrics');
+  fs.mkdirSync(metricsDir, { recursive: true });
+  var primary = path.join(metricsDir, 'codex-executor-live.txt');
+  var fallback = path.join(metricsDir, 'codex-live-output.txt');
+  var initialTail = 'I'.repeat(16 * 1024);
+  fs.writeFileSync(primary, 'discarded prefix\n' + initialTail, 'utf8');
+  var audit = installWatcherAudit();
+  var streams = [];
+  try {
+    await withHttpServer(check, fixture, async function (address) {
+      var streamPath = '/api/lane/' + encodeURIComponent(fixture.laneName)
+        + '/codex-live/stream';
+      try {
+        var first = await openSseStream(address, streamPath);
+        var second = await openSseStream(address, streamPath);
+        streams.push(first, second);
+        check.assert('sse_stream_holds_open_with_required_headers',
+          first.statusCode === 200
+          && /^text\/event-stream(?:;|$)/.test(first.headers['content-type'] || '')
+          && first.headers['cache-control'] === 'no-cache'
+          && first.headers.connection === 'keep-alive');
+        var serverSource = fs.readFileSync(
+          path.join(__dirname, 'server.cjs'), 'utf8');
+        check.assert('sse_stream_has_exact_15s_comment_heartbeat',
+          /CODEX_LIVE_HEARTBEAT_MS\s*=\s*15\s*\*\s*1000/.test(serverSource)
+          && serverSource.indexOf(': heartbeat\\n\\n') !== -1);
+
+        var initial = await Promise.all([
+          first.nextEvent(3000), second.nextEvent(3000)
+        ]);
+        check.assert('sse_stream_connect_sends_current_tail',
+          initial.every(function (event) {
+            return event.ok === true && event.present === true
+              && event.reset === true
+              && event.source_file === 'codex-executor-live.txt'
+              && event.text === initialTail
+              && event.truncated === true;
+          }));
+        var bothSubscriberWatchers = audit.activeCount();
+        check.assert('sse_stream_multiple_subscribers_have_independent_watchers',
+          bothSubscriberWatchers >= 2);
+
+        fs.appendFileSync(primary, 'first delta\n', 'utf8');
+        var deltas = await Promise.all([
+          first.nextEvent(3000), second.nextEvent(3000)
+        ]);
+        check.assert('sse_stream_growth_pushes_only_appended_bytes',
+          deltas.every(function (event) {
+            return event.ok === true && event.present === true
+              && event.reset === false
+              && event.source_file === 'codex-executor-live.txt'
+              && event.text === 'first delta\n';
+          }));
+
+        first.close();
+        streams.shift();
+        await waitForCondition(function () {
+          return audit.activeCount() < bothSubscriberWatchers;
+        }, 3000);
+        check.assert('sse_stream_disconnect_frees_only_its_watchers',
+          audit.activeCount() > 0);
+        fs.appendFileSync(primary, 'second delta\n', 'utf8');
+        var survivingDelta = await second.nextEvent(3000);
+        check.assert('sse_stream_other_subscriber_survives_disconnect',
+          survivingDelta.reset === false
+          && survivingDelta.text === 'second delta\n');
+
+        fs.writeFileSync(primary, 'truncated tail\n', 'utf8');
+        var truncationEvent = await second.nextEvent(3000);
+        check.assert('sse_stream_truncation_resends_tail',
+          truncationEvent.present === true
+          && truncationEvent.reset === true
+          && truncationEvent.text === 'truncated tail\n');
+
+        var rotated = primary + '.rotated';
+        fs.renameSync(primary, rotated);
+        fs.writeFileSync(primary, 'rotated tail\n', 'utf8');
+        var rotationEvent = await second.nextEvent(3000);
+        check.assert('sse_stream_rotation_resends_tail',
+          rotationEvent.present === true
+          && rotationEvent.reset === true
+          && rotationEvent.text === 'rotated tail\n');
+
+        second.close();
+        streams.shift();
+        await waitForCondition(function () {
+          return audit.activeCount() === 0;
+        }, 3000);
+        check.assert('sse_stream_disconnect_frees_all_watchers',
+          audit.activeCount() === 0);
+
+        fs.unlinkSync(primary);
+        var absent = await openSseStream(address, streamPath);
+        streams.push(absent);
+        var absentEvent = await absent.nextEvent(3000);
+        check.assert('sse_stream_absent_file_stays_connected',
+          absentEvent.ok === true && absentEvent.present === false
+          && absentEvent.reset === true);
+        fs.writeFileSync(fallback, 'created output\n', 'utf8');
+        var creationEvent = await absent.nextEvent(4000);
+        check.assert('sse_stream_creation_pushes_new_tail',
+          creationEvent.ok === true && creationEvent.present === true
+          && creationEvent.reset === true
+          && creationEvent.source_file === 'codex-live-output.txt'
+          && creationEvent.text === 'created output\n');
+        absent.close();
+        streams.shift();
+        await waitForCondition(function () {
+          return audit.activeCount() === 0;
+        }, 3000);
+      } finally {
+        streams.forEach(function (stream) { stream.close(); });
+        streams = [];
+      }
+    });
+  } finally {
+    audit.forceCleanup();
+    audit.restore();
+    fixture.cleanup();
+  }
+}
+
+async function caseDeltasAcrossRebuilds(check) {
+  var moduleValue = requireServerModule(check);
+  var root = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd fleet sse rebuild '));
+  var lanes = [];
+  for (var i = 0; i < 7; i++) {
+    var lanePath = path.join(root, 'lane-' + String(i + 1));
+    fs.mkdirSync(path.join(lanePath, '.planning'), { recursive: true });
+    lanes.push({ path: lanePath, branch: 'lane-' + String(i + 1) });
+  }
+  var metricsDir = path.join(lanes[0].path, '.planning', 'metrics');
+  fs.mkdirSync(metricsDir, { recursive: true });
+  var primary = path.join(metricsDir, 'codex-executor-live.txt');
+  var initialTail = 'I'.repeat(16 * 1024);
+  fs.writeFileSync(primary, initialTail, 'utf8');
+
+  var snapshot = readFixture('running');
+  var buildCalls = 0;
+  function slowSynchronousBuild() {
+    buildCalls++;
+    var deadline = Date.now() + 225;
+    while (Date.now() < deadline) {
+      // Model the synchronous production adapter without adding a dependency.
+    }
+    return copy(snapshot);
+  }
+  var hasYieldingBuilder = typeof moduleValue.createYieldingSnapshotBuilder === 'function';
+  var buildSnapshot = hasYieldingBuilder
+    ? moduleValue.createYieldingSnapshotBuilder(slowSynchronousBuild)
+    : slowSynchronousBuild;
+  var cache = fleet.createFleetCache({
+    buildSnapshot: buildSnapshot,
+    deriveLaneStatus: fixtureDerivation,
+    intervalMs: 60 * 1000,
+    concurrency: 4
+  });
+  cache.acceptDiscovery(makePorcelain(lanes));
+  await cache.refreshNow();
+  await new Promise(function (resolve) { setTimeout(resolve, 0); });
+
+  var fixture = {
+    root: root,
+    cache: cache,
+    cleanup: function () {
+      cache.stop();
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  };
+  var agent = new http.Agent({ keepAlive: true, maxSockets: 6 });
+  var stream = null;
+  var maxLagMs = 0;
+  var deltaLatencies = [];
+  var fleetResponses = [];
+  var address = null;
+
+  async function overlapRebuild(marker) {
+    var append = spawnDelayedAppend(primary, marker, 75);
+    await append.ready;
+    var streamEvent = stream.nextEvent(5000).then(function (event) {
+      return { event: event, receivedAt: Date.now() };
+    });
+    var probeIntervalMs = 20;
+    var lastProbeMs = Date.now();
+    var probe = setInterval(function () {
+      var currentMs = Date.now();
+      maxLagMs = Math.max(maxLagMs,
+        Math.max(0, currentMs - lastProbeMs - probeIntervalMs));
+      lastProbeMs = currentMs;
+    }, probeIntervalMs);
+    var polls = [];
+    for (var poll = 0; poll < 8; poll++) {
+      polls.push(requestServer(address, '/api/fleet', 'GET', {}, agent));
+    }
+    var rebuild = cache.refreshNow().finally(function () { clearInterval(probe); });
+    var received = await streamEvent;
+    var completed = await Promise.all([append.completion, rebuild].concat(polls));
+    Array.prototype.push.apply(fleetResponses, completed.slice(2));
+    var appendedAt = Number(received.event.text.slice(marker.length).trim());
+    check.assert('sse_rebuild_' + marker + '_delivers_exact_delta',
+      received.event.reset === false
+      && received.event.text.indexOf(marker) === 0
+      && Number.isFinite(appendedAt));
+    deltaLatencies.push(received.receivedAt - appendedAt);
+  }
+
+  try {
+    await withHttpServer(check, fixture, async function (addressValue) {
+      address = addressValue;
+      var streamPath = '/api/lane/lane-1/codex-live/stream';
+      stream = await openSseStream(address, streamPath, agent);
+      try {
+        var initial = await stream.nextEvent(3000);
+        check.assert('sse_rebuild_client_holds_one_http_get_connection',
+          initial.reset === true && initial.text === initialTail
+          && agent.maxSockets === 6);
+        await overlapRebuild('delta-one:');
+        await overlapRebuild('delta-two:');
+      } finally {
+        stream.close();
+        stream = null;
+        agent.destroy();
+      }
+    });
+  } finally {
+    if (stream !== null) stream.close();
+    agent.destroy();
+    fixture.cleanup();
+  }
+
+  check.assert('sse_rebuild_runs_two_complete_seven_lane_cycles',
+    buildCalls >= 21, 'builds=' + buildCalls);
+  check.assert('sse_rebuild_concurrent_keep_alive_fleet_fetches_complete',
+    fleetResponses.length === 16 && fleetResponses.every(function (response) {
+      return response.statusCode === 200 && response.body && response.body.ok === true;
+    }));
+  check.assert('sse_rebuild_each_delta_arrives_within_1s',
+    deltaLatencies.length === 2 && deltaLatencies.every(function (latency) {
+      return latency >= 0 && latency < 1000;
+    }), 'latencies_ms=' + deltaLatencies.join(','));
+  check.assert('sse_rebuild_event_loop_stall_stays_below_500ms',
+    maxLagMs < 500, 'max_lag_ms=' + maxLagMs);
+  check.assert('sse_rebuild_uses_yielding_production_builder',
+    hasYieldingBuilder
+    && /buildSnapshot:\s*createYieldingSnapshotBuilder\(/.test(
+      moduleValue.main.toString()));
 }
 
 async function caseReadOnlyMethods(check) {
@@ -1745,6 +2286,31 @@ async function casePageRenderStructure(check) {
   check.assert('page_objective_calls_conflict_renderer',
     /projection_stale\s*===\s*true[\s\S]{0,180}renderObjectiveConflict\(detail\)/.test(
       appSource));
+  var nowOutput = helpers.renderNow({
+    action: '{\x22tool_name\x22:\x22apply_patch\x22,\x22args\x22:{\x22file\x22:\x22app.js\x22,\x22hunks\x22:3}}',
+    ts: '2026-08-21T12:00:00Z'
+  });
+  check.assert('page_now_is_readable_tool_and_arg_summary_not_raw_json',
+    nowOutput.indexOf('apply_patch') !== -1
+    && nowOutput.indexOf('file: app.js') !== -1
+    && nowOutput.indexOf('hunks: 3') !== -1
+    && nowOutput.indexOf('{') === -1
+    && nowOutput.indexOf('&quot;') === -1);
+  var objectiveOutput = helpers.renderObjective({
+    milestone: 'v3.8-fleet-cockpit', phase: '163', phase_name: 'fleet-page',
+    status: 'in-progress', effective_confidence: 0.9,
+    milestone_status: 'A deliberately long operator narrative.',
+    projection_stale: false, source: 'STATE.md'
+  });
+  check.assert('page_objective_is_curated_and_collapses_long_status',
+    objectiveOutput.indexOf('v3.8-fleet-cockpit') !== -1
+    && objectiveOutput.indexOf('163 - fleet-page') !== -1
+    && objectiveOutput.indexOf('in-progress') !== -1
+    && objectiveOutput.indexOf('0.9') !== -1
+    && /<details[^>]*class=\x22milestone-context\x22/.test(objectiveOutput)
+    && objectiveOutput.indexOf('A deliberately long operator narrative.') !== -1
+    && objectiveOutput.indexOf('projection_stale') === -1
+    && objectiveOutput.indexOf('source') === -1);
   check.assert('page_numeric_paths_use_formatValue_without_or_fallback',
     appSource.indexOf('formatValue(blockers.count)') !== -1
     && appSource.indexOf('formatValue(gates.live_event_count)') !== -1
@@ -1764,12 +2330,13 @@ async function casePageRenderStructure(check) {
   check.assert('page_raw_snapshot_targets_pre',
     /<pre\s+id=\x22raw-snapshot\x22/.test(html)
     && appSource.indexOf('JSON.stringify(snapshot, null, 2)') !== -1);
-  var resumeHtml = /<details data-section=\x22resume_command\x22[\s\S]*?<\/details>/.exec(
+  var resumeHtml = /<article class=\x22tile resume-tile\x22 data-section=\x22resume_command\x22[\s\S]*?<\/article>/.exec(
     html);
   var resumeSource = extractNamedFunction(appSource, 'renderResumeCommand');
   check.assert('page_resume_command_is_inert_code_only',
     resumeHtml && !/<(?:button|a|form)\b/i.test(resumeHtml[0])
     && resumeSource.indexOf('<code class=\x22resume-code\x22 tabindex=\x220\x22>') !== -1
+    && resumeSource.indexOf('Ctrl+C') !== -1
     && !/\b(?:eval|Function|exec|spawn)\s*\(|clipboard|WebSocket|process\./.test(
       resumeSource));
 }
@@ -1779,12 +2346,14 @@ async function casePageBehaviourStructure(check) {
   var html = fs.readFileSync(pageFile('index.html'), 'utf8');
   check.assert('page_behaviour_structural_not_browser_execution', true,
     'STRUCTURAL: no supported browser or DOM implementation is used');
-  check.assert('page_behaviour_polls_only_fleet_every_5000ms',
+  check.assert('page_behaviour_polls_only_fleet_5000ms',
     /window\.setInterval\(refreshFleet,\s*5000\)/.test(appSource)
+    && !/setInterval\([^)]*(?:Codex|codex)/.test(appSource)
     && (appSource.match(/requestJson\('\/api\/fleet'\)/g) || []).length === 1);
-  check.assert('page_behaviour_has_single_encoded_detail_path',
-    (appSource.match(/'\/api\/lane\/'/g) || []).length === 1
-    && /'\/api\/lane\/'\s*\+\s*encodeURIComponent\(name\)/.test(appSource));
+  check.assert('page_behaviour_has_encoded_detail_and_sse_stream_paths',
+    /'\/api\/lane\/'\s*\+\s*encodeURIComponent\(name\)/.test(appSource)
+    && /encodeURIComponent\(name\)\s*\+\s*'\/codex-live\/stream'/.test(
+      appSource));
   check.assert('page_behaviour_file_and_http_base_is_exact',
     /window\.location\.protocol\s*===\s*'file:'/.test(appSource)
     && appSource.indexOf('? \'http://127.0.0.1:7777\' : \'\'') !== -1);
@@ -1796,11 +2365,54 @@ async function casePageBehaviourStructure(check) {
     html.indexOf('id=\x22cache-age-value\x22') !== -1
     && extractNamedFunction(appSource, 'updateCacheAge').indexOf(
       'formatValue(value)') !== -1
-    && !/function updateCacheAge[\s\S]{0,300}\|\|/.test(appSource));
+    && extractNamedFunction(appSource, 'updateCacheAge').indexOf('||') === -1);
   check.assert('page_behaviour_guards_poll_and_stale_detail',
     appSource.indexOf('if (fleetRequestInFlight) return;') !== -1
     && appSource.indexOf('var requestGeneration = ++detailRequestGeneration;') !== -1
     && appSource.indexOf('requestGeneration !== detailRequestGeneration') !== -1);
+  check.assert('page_behaviour_codex_live_uses_one_eventsource_per_selection',
+    appSource.indexOf('new window.EventSource') !== -1
+    && appSource.indexOf('codexLiveSource.close()') !== -1
+    && appSource.indexOf('source.onopen') !== -1
+    && appSource.indexOf('source.onmessage') !== -1
+    && appSource.indexOf('source.onerror') !== -1
+    && appSource.indexOf('reconnecting') !== -1);
+  var codexOpenSource = extractNamedFunction(appSource, 'openCodexLiveStream');
+  check.assert('page_behaviour_codex_live_waits_for_window_load',
+    /var codexLiveLoadFired\s*=\s*document\.readyState\s*===\s*'complete'/.test(
+      appSource)
+    && appSource.indexOf('window.addEventListener(\'load\'') !== -1
+    && /window\.setTimeout\(flushPendingCodexLiveStream,\s*0\)/.test(appSource)
+    && /if \(!codexLiveLoadFired\)\s*\{[\s\S]*codexLivePendingName\s*=\s*name;[\s\S]*return;[\s\S]*new window\.EventSource/.test(
+      codexOpenSource));
+  var codexRenderSource = extractNamedFunction(appSource, 'renderCodexLive');
+  var codexAppendIndex = codexRenderSource.indexOf(
+    'elements.codexLive.textContent += value.text');
+  var codexTrimIndex = codexRenderSource.indexOf(
+    'slice(-CODEX_LIVE_TEXT_LIMIT)');
+  check.assert('page_behaviour_codex_live_append_buffer_is_bounded_64kb',
+    /var CODEX_LIVE_TEXT_LIMIT\s*=\s*64\s*\*\s*1024/.test(appSource)
+    && codexAppendIndex !== -1
+    && codexTrimIndex > codexAppendIndex
+    && /textContent\.length\s*>\s*CODEX_LIVE_TEXT_LIMIT/.test(
+      codexRenderSource));
+  check.assert('page_behaviour_codex_live_appends_and_respects_scroll_pin',
+    appSource.indexOf('elements.codexLive.textContent += value.text') !== -1
+    && appSource.indexOf('function isCodexLivePinned(') !== -1
+    && appSource.indexOf('elements.codexLive.addEventListener(\'scroll\'') !== -1
+    && /if \(wasPinned\)[\s\S]{0,160}scrollTop\s*=\s*elements\.codexLive\.scrollHeight/.test(
+      appSource));
+  var tabReturnResyncSource = extractNamedFunction(appSource, 'resyncAfterTabReturn');
+  check.assert('page_behaviour_visible_tab_return_uses_debounced_production_resync',
+    /document\.addEventListener\(\'visibilitychange\'/.test(appSource)
+    && /if \(!document\.hidden\)\s*resyncAfterTabReturn\(\)/.test(appSource)
+    && /window\.addEventListener\(\'focus\',\s*resyncAfterTabReturn\)/.test(appSource)
+    && /lastTabReturnResyncAt/.test(tabReturnResyncSource)
+    && /refreshFleet\(\)/.test(tabReturnResyncSource)
+    && /if \(selectedName\s*===\s*null\)\s*return;[\s\S]*loadLane\(selectedName\)/.test(
+      tabReturnResyncSource)
+    && /closeCodexLiveStream\(\)[\s\S]*openCodexLiveStream\(selectedName\)/.test(
+      tabReturnResyncSource));
 
   var fleetFailure = extractNamedFunction(appSource, 'refreshFleet');
   fleetFailure = fleetFailure.slice(fleetFailure.indexOf('.catch'));
@@ -1865,6 +2477,20 @@ async function casePageSourceConstraints(check) {
   });
   check.assert('page_has_required_system_stack_heads',
     html.indexOf('Segoe UI') !== -1 && html.indexOf('Cascadia Mono') !== -1);
+  check.assert('page_segoe_is_explicit_for_names_headlines_and_titles',
+    /\.lane-name,\s*\.lane-headline,\s*h1,\s*h2,\s*h3\s*\{[^}]*font-family:\s*var\(--ui-font\)/.test(html));
+  check.assert('page_teal_primary_is_used_not_only_declared',
+    /\.topbar\s*\{[^}]*border-top:\s*4px solid var\(--teal\)/.test(html)
+    && /\.lane-row\[aria-current=\x22true\x22\]\s*\{[^}]*var\(--teal\)/.test(html)
+    && /\.tile h3\s*\{[^}]*color:\s*var\(--teal\)/.test(html)
+    && /a\s*\{[^}]*color:\s*var\(--teal\)/.test(html));
+  check.assert('page_left_rail_is_full_height_square_product_surface',
+    /\.lane-rail\s*\{[^}]*min-height:\s*calc\(100vh - 96px\)[^}]*border-radius:\s*0/.test(html));
+  check.assert('page_right_rail_stacks_codex_live_over_collapsed_raw',
+    html.indexOf('id=\x22codex-live\x22') !== -1
+    && html.indexOf('id=\x22codex-live-age\x22') !== -1
+    && /<details class=\x22raw-pane\x22(?![^>]*\sopen)[^>]*>/.test(html)
+    && /<pre\s+id=\x22raw-snapshot\x22/.test(html));
 
   var pageSource = html + '\n' + appSource;
   var urls = pageSource.match(/https?:\/\/[^\s'\x22<)]+/g) || [];
@@ -1918,6 +2544,11 @@ var CASES = {
   'default-bind': caseDefaultBind,
   'frame-coalescing': caseFrameCoalescing,
   'http-contract': caseHttpContract,
+  'codex-live-absent': caseCodexLiveAbsent,
+  'codex-live-present': caseCodexLivePresent,
+  'codex-live-tail-bounded': caseCodexLiveTailBounded,
+  'sse-stream': caseSseStream,
+  'deltas-across-rebuilds': caseDeltasAcrossRebuilds,
   'read-only-methods': caseReadOnlyMethods,
   'verbatim-snapshot': caseVerbatimSnapshot,
   'healthz-shape': caseHealthzShape,
