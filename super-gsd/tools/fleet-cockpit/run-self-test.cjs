@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Phase 162 P162-T1 selectable fixture self-tests.
+// Phase 162 P162-T1 and P162-T2 selectable fixture self-tests.
 // Test-only Git processes create isolated repositories; production fleet code
 // accepts the exact porcelain frame and never spawns or discovers on request.
 // ASCII-only.
@@ -11,6 +11,12 @@ var path = require('node:path');
 var os = require('node:os');
 var childProcess = require('node:child_process');
 var fleet = require('./fleet.cjs');
+var status = null;
+try {
+  status = require('./status.cjs');
+} catch (_statusLoadError) {
+  status = null;
+}
 
 if (!fleet || typeof fleet.parseWorktreePorcelain !== 'function'
     || typeof fleet.createFleetCache !== 'function') {
@@ -30,6 +36,26 @@ function readFixture(name) {
 
 function copy(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function deepFreeze(value) {
+  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
+  Object.keys(value).forEach(function (key) { deepFreeze(value[key]); });
+  return Object.freeze(value);
+}
+
+function deriveFixture(check, name, mutate) {
+  check.assert('status_module_available',
+    !!status && typeof status.deriveLaneStatus === 'function');
+  var snapshot = readFixture(name);
+  if (mutate) mutate(snapshot);
+  var before = JSON.stringify(snapshot);
+  deepFreeze(snapshot);
+  var derived = status.deriveLaneStatus(snapshot, {
+    nowMs: Date.parse('2026-08-20T18:19:31.052Z')
+  });
+  check.assert(name + '_input_unchanged', JSON.stringify(snapshot) === before);
+  return derived;
 }
 
 function makeCheck() {
@@ -344,15 +370,169 @@ async function caseRollupFirstPublish(check) {
   }
 }
 
+async function caseNoiseAgentTools(check) {
+  var derived = deriveFixture(check, 'noise-agent-tools');
+  var names = derived.agents.roster.map(function (row) { return row.agent; });
+  check.assert('noise_agent_tools_filtered',
+    JSON.stringify(names) === JSON.stringify(['gsd-executor', 'custom-worker']),
+    'agents=' + names.join(','));
+  check.assert('noise_agent_tools_by_phase_filtered',
+    derived.agents.by_phase.unknown.length === 2);
+  check.assert('noise_agent_tools_do_not_create_running',
+    derived.status === 'idle' && derived.reasons[0] === 'idle_no_signal');
+}
+
+async function caseNoiseTokensAbsent(check) {
+  var derived = deriveFixture(check, 'noise-tokens-absent');
+  check.assert('tokens_absent_is_no_data', derived.tokens.state === 'no_data');
+  check.assert('tokens_absent_value_is_null', derived.tokens.value === null);
+  check.assert('tokens_absent_reason_is_machine_code',
+    derived.tokens.reason === 'tokens_source_absent');
+}
+
+async function caseNoiseGatesEmpty(check) {
+  var derived = deriveFixture(check, 'noise-gates-empty');
+  check.assert('empty_gates_are_no_data', derived.gates.state === 'no_data');
+  check.assert('empty_gates_reason_is_no_gate_data',
+    derived.gates.reason === 'no_gate_data');
+  check.assert('empty_gates_never_claim_passed',
+    derived.gates.state !== 'passed' && derived.gates.reason !== 'all_passed');
+}
+
+async function caseNoiseArtifactsSource(check) {
+  var derived = deriveFixture(check, 'noise-artifacts-source');
+  check.assert('missing_phases_dir_is_no_data',
+    derived.artifacts.state === 'no_data');
+  check.assert('missing_phases_dir_reason_preserved',
+    derived.artifacts.reason === 'phases_dir_missing');
+  check.assert('missing_phases_dir_not_empty_success',
+    derived.artifacts.state !== 'data');
+}
+
+async function caseProjectionConflict(check) {
+  var derived = deriveFixture(check, 'projection-conflict');
+  var conflict = derived.objective_conflict;
+  check.assert('projection_stale_sets_conflict', derived.conflict === true);
+  check.assert('projection_conflict_reason_surfaced',
+    derived.reasons.indexOf('state_projection_conflict') !== -1);
+  check.assert('projection_conflict_exposes_both_milestones',
+    conflict.milestone === 'v2.0' && conflict.state_md_milestone === 'v3.0');
+  check.assert('projection_conflict_exposes_both_phases',
+    conflict.phase === '156' && conflict.state_md_phase === null);
+  check.assert('projection_conflict_exposes_source_and_confidence',
+    conflict.source === 'phase_folders'
+      && conflict.effective_confidence === 0.7);
+}
+
+async function caseStatusPrecedence(check) {
+  var matrix = [
+    {
+      name: 'attention_over_running_and_stale',
+      fixture: 'checkpoint-attention',
+      mutate: function (snapshot) {
+        snapshot.data.gates.latest_per_gate = { ATC: { verdict: 'fail' } };
+        snapshot.data.blockers = { count: 1, items: [
+          { source: 'live_events.operator_attention_required' }
+        ] };
+        snapshot.data.agents = copy(readFixture('agent-in-flight').data.agents);
+        snapshot.data.codex = {
+          live_state: 'ok', live_json_age_seconds: 1, stale_threshold_seconds: 120
+        };
+        snapshot.data.staleness.state_md.stale = true;
+        snapshot.data.now.ts = '2026-08-18T12:00:00.000Z';
+      },
+      status: 'attention',
+      reasons: ['gate_failed', 'operator_attention_required',
+        'blockers_present', 'checkpoint_waiting_for_run']
+    },
+    {
+      name: 'running_over_stale',
+      fixture: 'agent-in-flight',
+      mutate: function (snapshot) {
+        snapshot.data.codex = {
+          live_state: 'running', live_json_age_seconds: 1,
+          stale_threshold_seconds: 120
+        };
+        snapshot.data.staleness.state_md.stale = true;
+        snapshot.data.now.ts = '2026-08-18T12:00:00.000Z';
+      },
+      status: 'running',
+      reasons: ['codex_live', 'agent_in_flight']
+    },
+    {
+      name: 'handover_ok_codex_value',
+      fixture: 'running',
+      mutate: function (snapshot) {
+        snapshot.data.agents = { roster: [], by_phase: {}, count: 0 };
+      },
+      status: 'running',
+      reasons: ['codex_live']
+    },
+    {
+      name: 'failed_verdict_value',
+      fixture: 'attention',
+      status: 'attention',
+      reasons: ['gate_failed', 'blockers_present']
+    },
+    {
+      name: 'stale_without_higher_signal',
+      fixture: 'stale',
+      status: 'stale',
+      reasons: ['state_md_stale', 'last_activity_stale', 'codex_stale']
+    },
+    {
+      name: 'idle_fallback',
+      fixture: 'idle',
+      status: 'idle',
+      reasons: ['idle_no_signal']
+    }
+  ];
+  matrix.forEach(function (row) {
+    var derived = deriveFixture(check, row.fixture, row.mutate);
+    check.assert(row.name + '_status', derived.status === row.status,
+      'status=' + derived.status);
+    check.assert(row.name + '_winning_reasons_only',
+      JSON.stringify(derived.reasons) === JSON.stringify(row.reasons),
+      'reasons=' + derived.reasons.join(','));
+    check.assert(row.name + '_machine_codes_only',
+      derived.reasons.every(function (reason) {
+        return /^[a-z0-9_]+$/.test(reason);
+      }));
+  });
+  var malformed = deriveFixture(check, 'idle', function (snapshot) {
+    snapshot.data.now.ts = 'not-a-timestamp';
+  });
+  check.assert('malformed_timestamp_does_not_create_stale',
+    malformed.status === 'idle' && malformed.last_activity_ts === null
+      && malformed.age_minutes === null);
+  var failed = deriveFixture(check, 'build-error');
+  check.assert('failed_snapshot_has_stable_error_status',
+    failed.status === 'error'
+      && JSON.stringify(failed.reasons) === JSON.stringify(['snapshot_unavailable']));
+  check.assert('failed_snapshot_preserves_degraded_sections',
+    failed.degraded.length === 12);
+}
+
 var CASES = {
   'fixture-git-discovery': caseFixtureGitDiscovery,
   'fleet-cache-scheduler': caseFleetCacheScheduler,
   'lane-failure-isolation': caseLaneFailureIsolation,
-  'rollup-first-publish': caseRollupFirstPublish
+  'rollup-first-publish': caseRollupFirstPublish,
+  'status-precedence': caseStatusPrecedence,
+  'noise-agent-tools': caseNoiseAgentTools,
+  'noise-tokens-absent': caseNoiseTokensAbsent,
+  'noise-gates-empty': caseNoiseGatesEmpty,
+  'noise-artifacts-source': caseNoiseArtifactsSource,
+  'projection-conflict': caseProjectionConflict
 };
 
 function assertFixtureShapes(check) {
-  ['attention', 'running', 'stale', 'idle', 'build-error'].forEach(function (name) {
+  [
+    'attention', 'running', 'stale', 'idle', 'build-error',
+    'noise-agent-tools', 'noise-tokens-absent', 'noise-gates-empty',
+    'noise-artifacts-source', 'projection-conflict',
+    'checkpoint-attention', 'agent-in-flight'
+  ].forEach(function (name) {
     var snapshot = readFixture(name);
     var actualKeys = Object.keys(snapshot.data || {}).sort();
     var expectedKeys = SECTION_KEYS.slice().sort();
