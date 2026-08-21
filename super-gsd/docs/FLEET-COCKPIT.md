@@ -40,10 +40,10 @@ Status precedence is attention > running > stale > idle.
 
 - Red, attention: a gate failed, operator attention is newer than the last
   run, blockers exist, or a checkpoint is waiting for a later run.
-- Purple, running: a fresh Codex live signal or unmatched dispatched agent is
+- Teal, running: a fresh Codex live signal or unmatched dispatched agent is
   in flight.
 - Amber, stale: STATE.md, last activity, or Codex live evidence is stale.
-- Slate, idle: no higher-priority signal is present.
+- Green, idle: no higher-priority signal is present.
 
 Missing evidence is not success. Absent tokens, empty live gates, and a missing
 phases directory remain explicit no_data values. If the effective objective

@@ -10,7 +10,7 @@ stop-and-evaluate.
 |-------|------|--------|------------|
 | 161 | hook-distribution-completion | [x] PASS-WITH-DEFERRED-3 @44e7861 | — |
 | 162 | fleet-service | [x] PASS-WITH-DEFERRED-2 @8410974 | 161 |
-| 163 | fleet-page | [ ] seeded | 162 |
+| 163 | fleet-page | [x] PASS-WITH-DEFERRED-3 (HARD STOP after) | 162 |
 | 164 | omnigent-session-plane | [ ] gated (operator go required) | 163 |
 | 165 | fleet-event-emission | [ ] gated (operator go required) | 163 |
 
