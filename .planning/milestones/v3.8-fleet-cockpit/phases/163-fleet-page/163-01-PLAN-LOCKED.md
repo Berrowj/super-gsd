@@ -4,7 +4,7 @@ phase: 163
 slug: fleet-page
 milestone: v3.8-fleet-cockpit
 status: PLANNED
-revision: 1
+revision: 2
 governing_decision: .planning/milestones/v3.8-fleet-cockpit/phases/163-fleet-page/CONTEXT.md
 depends_on: ['162-01']
 intent: >
@@ -25,9 +25,12 @@ semantic_acceptance_criteria:
   - input: >
       The committed attention, running, stale, and idle lane snapshots are
       built through the production cache and fetched from a real ephemeral
-      createFleetServer instance by the page contract test.
+      createFleetServer instance, then the exact marker-delimited production
+      rail renderer is invoked with that fixture fleet response. The test
+      proves the renderer calls compareLaneRows and inspects every emitted lane
+      for its fixture status, headline, and age.
     expected_outcome: 'Left rail lists all lanes, sorted by the precedence in section 7'
-    verification_cmd: 'node super-gsd/tools/fleet-cockpit/run-self-test.cjs --case page-data-contract && node super-gsd/tools/fleet-cockpit/run-self-test.cjs --case page-sort-comparator'
+    verification_cmd: 'node super-gsd/tools/fleet-cockpit/run-self-test.cjs --case page-data-contract && node super-gsd/tools/fleet-cockpit/run-self-test.cjs --case page-sort-comparator && node super-gsd/tools/fleet-cockpit/run-self-test.cjs --case page-render-structure'
   - input: >
       The committed attention fixture, whose latest ATC gate verdict is failed
       and whose derived roll-up headline is gate failed, is returned by the
@@ -37,13 +40,17 @@ semantic_acceptance_criteria:
   - input: >
       The committed noise-tokens-absent and noise-gates-empty fixtures beside
       numeric zero values are fetched through production detail responses and
-      inspected against the page's single value-formatting contract.
+      passed through the exact marker-delimited production value formatter.
+      Its returned text and CSS class are asserted for the fixture-derived
+      no-data value and for numeric zero.
     expected_outcome: 'No data and zero are visually distinct everywhere they can occur'
     verification_cmd: 'node super-gsd/tools/fleet-cockpit/run-self-test.cjs --case page-data-contract && node super-gsd/tools/fleet-cockpit/run-self-test.cjs --case page-render-structure'
   - input: >
       The committed projection-conflict fixture is returned from
       /api/lane/projection-conflict with objective_conflict derived beside the
-      unchanged twelve-section snapshot.
+      unchanged twelve-section snapshot, then that exact fixture object is
+      passed to the marker-delimited production conflict renderer and its
+      visible output is asserted field by field.
     expected_outcome: 'A lane with projection_stale shows both milestone values and the confidence'
     verification_cmd: 'node super-gsd/tools/fleet-cockpit/run-self-test.cjs --case page-data-contract && node super-gsd/tools/fleet-cockpit/run-self-test.cjs --case page-render-structure'
   - input: >
@@ -123,13 +130,19 @@ tasks:
       not hide the cache-age indicator.
 
       In app.js use an ASCII strict-mode IIFE, browser APIs only, and no module
-      loader. Give pure, marker-delimited compareLaneRows and value-formatting
-      helpers stable names so T2 can extract the exact production functions.
+      loader. Give pure, marker-delimited compareLaneRows, renderLaneRail,
+      formatValue, and renderObjectiveConflict helpers stable names so T2 can
+      extract and execute the exact production functions. The production DOM
+      path must call these same helpers; do not keep a test-only renderer or
+      formatter. Keep their render output independent of DOM globals so the
+      test runner can execute it before the browser call site mounts it.
       compareLaneRows applies attention, running, stale, idle precedence, treats
       service status error as attention-equivalent so broken lanes cannot sink
       out of sight, then orders parseable last_activity_ts newest first, null or
       malformed activity last, and lane name by deterministic ASCII comparison
-      as the final tie-breaker. Do not use locale-dependent sorting.
+      as the final tie-breaker. renderLaneRail must directly invoke
+      compareLaneRows and emit one row for every input lane with visible status,
+      headline, and age. Do not use locale-dependent sorting.
 
       Render six primary centre tiles from snapshot.data: now, objective,
       blockers, gates, tokens, and staleness. Render the remaining six adapter
@@ -142,13 +155,17 @@ tasks:
       numeric zero treatment. Test nullishness explicitly; never use truthiness
       to select between no data and zero. Gates with derived state no_data must
       not say passed, and tokens.source absent with raw total_tokens 0 must use
-      derived tokens.state/value and render No data.
+      derived tokens.state/value and render No data. formatValue must return
+      both the visible text and its CSS class so the production caller and T2
+      can prove that No data and 0 use distinct classes.
 
       When snapshot.data.objective.projection_stale is true, render a labelled
       conflict block in the objective tile. It shows the effective
       milestone/phase and source beside state_md_milestone/state_md_phase and
       effective_confidence from detail.objective_conflict, with nulls shown as
-      No data. Never select or relabel one side as authoritative. Render
+      No data. renderObjectiveConflict must receive that production detail
+      object and emit this labelled visible output through formatValue. Never
+      select or relabel one side as authoritative. Render
       blockers and failed gate verdicts with readable text and red state, not
       colour alone. Render resume_command.command only as an inert code line
       with user-select all, tabindex 0, and an explanation that the cockpit
@@ -272,17 +289,29 @@ tasks:
       ties, and attention-equivalent visibility for error. Do not copy a second
       comparator into the test.
 
-      page-render-structure reads index.html and app.js and locks the shared
-      formatter's explicit null/undefined, derived no_data, and numeric zero
-      branches to different literals and CSS classes. Assert every numeric or
-      count rendering path uses that formatter rather than || fallback; the
-      no-data fixtures are referenced; zero and No data are distinct strings;
-      failed status and failed verdict use red styling plus visible text; the
-      objective projection_stale branch names effective milestone/phase,
-      state_md_milestone/state_md_phase, source, and effective_confidence; all
-      twelve section keys occur; raw output targets a pre; and resume_command
-      targets inert code with no enclosing button/link/form or execution and
-      auto-clipboard primitive.
+      page-render-structure extracts and compiles the exact marker-delimited
+      production renderLaneRail, formatValue, and renderObjectiveConflict
+      helpers from app.js; it must execute them, not substitutes copied into
+      the test. Feed renderLaneRail a deliberately shuffled copy of the real
+      /api/fleet fixture response, prove its production body directly invokes
+      compareLaneRows, and assert the rendered order plus every fixture lane's
+      name, status, headline, and age. An empty rail or a renderer that bypasses
+      the comparator must fail even when page-sort-comparator passes.
+
+      Execute formatValue with the noise-tokens-absent derived no-data value
+      and with fixture numeric 0. Assert exact visible strings No data and 0,
+      assert their returned CSS classes differ, and assert both classes have
+      their contracted treatments in index.html. Execute
+      renderObjectiveConflict with the real projection-conflict detail and
+      assert the actual labelled fixture strings Effective milestone: v2.0,
+      Effective phase: 156, Source: phase_folders, STATE milestone: v3.0,
+      STATE phase: No data, and Confidence: 0.7 all occur in its output. Assert
+      the production objective call site invokes this renderer when
+      projection_stale is true. Also assert every numeric or count rendering
+      path uses formatValue rather than || fallback; failed status and failed
+      verdict use red styling plus visible text; all twelve section keys occur;
+      raw output targets a pre; and resume_command targets inert code with no
+      enclosing button/link/form or execution and auto-clipboard primitive.
 
       page-behaviour-structure locks the literal 5000ms /api/fleet poll, a
       single encoded /api/lane/ selection path, file versus HTTP API-base
@@ -374,6 +403,13 @@ tasks:
 ---
 
 # P163 - Fleet Page
+
+## Revision 2 review provenance
+
+Revised in place after `163-PLANREVIEW-REPORT.md` NOGO round 1 (2 CRITICAL,
+3/5 passed). Revision 2 closes only the two stub-satisfiable SAC paths by
+executing the production rail, formatter, and conflict renderers against the
+committed fixtures; all other reviewed SACs and boundaries are preserved.
 
 Two serial, independently revertable commits deliver handover step 2. T1 adds
 the semantic page, browser-state renderer, and the three fixed static GETs that
