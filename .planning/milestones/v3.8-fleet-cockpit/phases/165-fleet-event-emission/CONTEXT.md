@@ -2,7 +2,7 @@
 phase: "165"
 slug: fleet-event-emission
 milestone: v3.8-fleet-cockpit
-status: GATED
+status: PENDING
 depends_on: ["163"]
 gate: operator go required
 ---

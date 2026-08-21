@@ -2,7 +2,7 @@
 phase: "164"
 slug: omnigent-session-plane
 milestone: v3.8-fleet-cockpit
-status: GATED
+status: PENDING
 depends_on: ["163"]
 gate: operator go required; prerequisite proof that a bwrap-sandboxed agent actually writes a file (observed exiting clean writing nothing on devcp)
 ---
