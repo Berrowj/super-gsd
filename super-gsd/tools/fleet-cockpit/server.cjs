@@ -8,6 +8,7 @@
 var http = require('node:http');
 var fs = require('node:fs');
 var path = require('node:path');
+var childProcess = require('node:child_process');
 var fleetModule = require('./fleet.cjs');
 var statusModule = require('./status.cjs');
 var cockpitStateAdapter = require('../cockpit-state/adapter.cjs');
@@ -16,6 +17,8 @@ var DEFAULT_HOST = '127.0.0.1';
 var DEFAULT_PORT = 7777;
 var DEFAULT_INTERVAL_SECONDS = 20;
 var MAX_INTERVAL_SECONDS = 86400;
+var GIT_DISCOVERY_TIMEOUT_MS = 5000;
+var GIT_DISCOVERY_MAX_BUFFER = 4 * 1024 * 1024;
 var FRAME_BEGIN = 'SGSD_FLEET_FRAME_BEGIN';
 var FRAME_END = 'SGSD_FLEET_FRAME_END';
 var PUBLIC_DIR = path.join(__dirname, 'public');
@@ -82,6 +85,30 @@ function parseArgs(argv) {
 
   if (!result.host.trim()) throw new Error('host must not be empty');
   return result;
+}
+
+function gitDiscoveryError(error) {
+  var stderr = error && error.stderr;
+  if (Buffer.isBuffer(stderr)) stderr = stderr.toString('utf8');
+  var detail = typeof stderr === 'string' ? stderr.trim() : '';
+  if (!detail && error && error.message) detail = error.message;
+  return new Error(detail || 'git worktree discovery failed');
+}
+
+function readGitWorktreeFrame(root) {
+  try {
+    return childProcess.execFileSync('git', [
+      '-C', root, 'worktree', 'list', '--porcelain'
+    ], {
+      encoding: 'utf8',
+      timeout: GIT_DISCOVERY_TIMEOUT_MS,
+      maxBuffer: GIT_DISCOVERY_MAX_BUFFER,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+  } catch (error) {
+    throw gitDiscoveryError(error);
+  }
 }
 
 function cacheAgeHeader(cache) {
@@ -358,7 +385,11 @@ function main(argv) {
   if (!fs.statSync(options.root).isDirectory()) {
     throw new Error('root must be a directory');
   }
+  var framed = process.env.SGSD_FLEET_FRAMED_STDIN === '1';
   var cache = fleetModule.createFleetCache({
+    discoveryFrameSource: framed ? null : function () {
+      return readGitWorktreeFrame(options.root);
+    },
     buildSnapshot: function (lane) {
       return cockpitStateAdapter.buildSnapshot({ projectDir: lane.projectDir });
     },
@@ -366,7 +397,6 @@ function main(argv) {
     intervalMs: options.intervalSeconds * 1000,
     concurrency: 4
   });
-  var framed = process.env.SGSD_FLEET_FRAMED_STDIN === '1';
   if (framed) attachFramedInput(process.stdin, cache);
   else cache.start();
 

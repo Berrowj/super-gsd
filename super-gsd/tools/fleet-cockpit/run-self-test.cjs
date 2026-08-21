@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Phase 162 P162-T1 through P162-T3 selectable fixture self-tests.
-// Test-only Git processes create isolated repositories; production fleet code
-// accepts the exact porcelain frame and never spawns or discovers on request.
+// Test-only Git processes create isolated repositories. The production server
+// has one read-only Git adapter; fleet discovery never runs on an HTTP request.
 // ASCII-only.
 
 'use strict';
@@ -946,12 +946,22 @@ async function caseSourceConstraints(check) {
     while ((match = requirePattern.exec(source)) !== null) {
       check.assert('runtime_require_allowed_' + path.basename(file) + '_'
         + match[1].replace(/[^a-z0-9]/gi, '_'),
-      match[1].indexOf('.') === 0 || allowed[match[1]] === true,
+      match[1].indexOf('.') === 0 || allowed[match[1]] === true
+        || (file === serverFile && match[1] === 'node:child_process'),
       'require=' + match[1]);
     }
   });
 
   var serverSource = fs.readFileSync(serverFile, 'utf8');
+  var processCalls = serverSource.match(
+    /\bchildProcess\.(?:exec|execFile|spawn|fork)(?:Sync)?\s*\(/g) || [];
+  check.assert('production_git_adapter_is_bounded_read_only_exec_file',
+    processCalls.length === 1
+    && processCalls[0] === 'childProcess.execFileSync('
+    && /execFileSync\('git'/.test(serverSource)
+    && /'-C', root, 'worktree', 'list', '--porcelain'/.test(serverSource)
+    && /timeout:\s*GIT_DISCOVERY_TIMEOUT_MS/.test(serverSource)
+    && /stdio:\s*\['ignore', 'pipe', 'pipe'\]/.test(serverSource));
   var runtimeSource = serverSource + '\n'
     + fs.readFileSync(fleetFile, 'utf8') + '\n'
     + fs.readFileSync(statusFile, 'utf8');
@@ -1066,6 +1076,89 @@ async function caseFixtureGitDiscovery(check) {
   } finally {
     fixture.cleanup();
   }
+}
+
+async function caseProductionDiscovery(check) {
+  var moduleValue = requireServerModule(check);
+  var fixture = createGitFixture(2);
+  var probe = http.createServer();
+  var runtime = null;
+  var priorSigint = process.listeners('SIGINT');
+  var priorSigterm = process.listeners('SIGTERM');
+  try {
+    var probeAddress = await listenServer(probe, '127.0.0.1', 0);
+    var port = probeAddress.port;
+    await closeServer(probe);
+
+    runtime = moduleValue.main([
+      '--root', fixture.checkout,
+      '--host', '127.0.0.1',
+      '--port', String(port),
+      '--interval', '60'
+    ]);
+    var address = runtime.server.listening
+      ? runtime.server.address()
+      : await new Promise(function (resolve, reject) {
+        runtime.server.once('error', reject);
+        runtime.server.once('listening', function () {
+          runtime.server.removeListener('error', reject);
+          resolve(runtime.server.address());
+        });
+      });
+    await runtime.cache.refreshNow();
+
+    var expected = fleet.parseWorktreePorcelain(fixture.porcelain).lanes;
+    var health = await requestServer(address, '/healthz');
+    var rollup = await requestServer(address, '/api/fleet');
+    var actualNames = rollup.body && Array.isArray(rollup.body.lanes)
+      ? rollup.body.lanes.map(function (lane) { return lane.name; }).sort() : [];
+    var expectedNames = expected.map(function (lane) { return lane.name; }).sort();
+    check.assert('production_discovery_health_matches_real_git',
+      health.statusCode === 200
+      && health.body.discovered_lanes === expected.length,
+      'discovered=' + (health.body && health.body.discovered_lanes)
+        + ' expected=' + expected.length);
+    check.assert('production_discovery_lanes_reach_fleet_api',
+      rollup.statusCode === 200
+      && JSON.stringify(actualNames) === JSON.stringify(expectedNames),
+      'actual=' + actualNames.join(',') + ' expected=' + expectedNames.join(','));
+  } finally {
+    if (probe.listening) await closeServer(probe);
+    if (runtime) {
+      runtime.cache.stop();
+      await closeServer(runtime.server);
+    }
+    process.listeners('SIGINT').forEach(function (listener) {
+      if (priorSigint.indexOf(listener) === -1) process.removeListener('SIGINT', listener);
+    });
+    process.listeners('SIGTERM').forEach(function (listener) {
+      if (priorSigterm.indexOf(listener) === -1) process.removeListener('SIGTERM', listener);
+    });
+    fixture.cleanup();
+  }
+}
+
+async function caseDiscoveryFrameSourceFailure(check) {
+  var calls = 0;
+  var cache = fleet.createFleetCache({
+    discoveryFrameSource: function () {
+      calls++;
+      throw new Error('fatal: fixture git discovery failed');
+    }
+  });
+  await cache.refreshNow();
+  var firstHealth = cache.getHealth();
+  check.assert('discovery_frame_source_called_on_first_cycle', calls === 1);
+  check.assert('discovery_frame_source_failure_does_not_reject_refresh',
+    firstHealth.discovered_lanes === 0);
+  check.assert('discovery_frame_source_failure_reaches_health',
+    firstHealth.last_discovery_error
+      && firstHealth.last_discovery_error.error_code === 'worktree_discovery_failed'
+      && firstHealth.last_discovery_error.error.indexOf(
+        'fatal: fixture git discovery failed') !== -1);
+
+  await cache.refreshNow();
+  check.assert('discovery_frame_source_called_each_cache_cycle', calls === 2);
 }
 
 async function caseFleetCacheScheduler(check) {
@@ -1833,6 +1926,8 @@ var CASES = {
   'source-constraints': caseSourceConstraints,
   'wrapper-contract': caseWrapperContract,
   'fixture-git-discovery': caseFixtureGitDiscovery,
+  'production-discovery': caseProductionDiscovery,
+  'discovery-frame-source-failure': caseDiscoveryFrameSourceFailure,
   'fleet-cache-scheduler': caseFleetCacheScheduler,
   'lane-failure-isolation': caseLaneFailureIsolation,
   'rollup-first-publish': caseRollupFirstPublish,
