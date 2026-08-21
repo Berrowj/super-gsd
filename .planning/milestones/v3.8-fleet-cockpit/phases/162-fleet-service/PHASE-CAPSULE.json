@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "milestone": "v3.8-fleet-cockpit",
+  "phase": "162",
+  "phase_name": "Fleet Service",
+  "status": "IN_PROGRESS",
+  "goal": "",
+  "outputs": [],
+  "files": [
+    ".planning/milestones/v3.8-fleet-cockpit/INTENT.md",
+    ".planning/milestones/v3.8-fleet-cockpit/ROADMAP.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/161-hook-distribution-completion/CONTEXT.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/162-fleet-service/162-01-PLAN-LOCKED.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/162-fleet-service/162-01-PLAN-PROMPT.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/162-fleet-service/162-01-PLAN-REPORT.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/162-fleet-service/162-CLOSE-FIX-PROMPT.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/162-fleet-service/162-CLOSE-FIX-REPORT.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/162-fleet-service/162-CLOSE-REVIEW-PROMPT.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/162-fleet-service/162-CLOSE-REVIEW.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/162-fleet-service/162-PLANREVIEW-PROMPT.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/162-fleet-service/162-PLANREVIEW-REPORT.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/162-fleet-service/162-T1-PROMPT.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/162-fleet-service/162-T1-REPORT.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/162-fleet-service/162-T2-PROMPT.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/162-fleet-service/162-T2-REPORT.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/162-fleet-service/162-T3-PROMPT.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/162-fleet-service/162-T3-REPORT.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/162-fleet-service/CONTEXT.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/163-fleet-page/CONTEXT.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/164-omnigent-session-plane/CONTEXT.md",
+    ".planning/milestones/v3.8-fleet-cockpit/phases/165-fleet-event-emission/CONTEXT.md",
+    "super-gsd/docs/FLEET-COCKPIT.md",
+    "super-gsd/scripts/sgsd-fleet.sh",
+    "super-gsd/tools/fleet-cockpit/fixtures/events/later-run-cleared.jsonl",
+    "super-gsd/tools/fleet-cockpit/fixtures/events/later-run-live.jsonl",
+    "super-gsd/tools/fleet-cockpit/fixtures/lanes/agent-in-flight.json",
+    "super-gsd/tools/fleet-cockpit/fixtures/lanes/attention.json",
+    "super-gsd/tools/fleet-cockpit/fixtures/lanes/build-error.json",
+    "super-gsd/tools/fleet-cockpit/fixtures/lanes/checkpoint-attention.json",
+    "super-gsd/tools/fleet-cockpit/fixtures/lanes/idle.json",
+    "super-gsd/tools/fleet-cockpit/fixtures/lanes/noise-agent-tools.json",
+    "super-gsd/tools/fleet-cockpit/fixtures/lanes/noise-artifacts-source.json",
+    "super-gsd/tools/fleet-cockpit/fixtures/lanes/noise-gates-empty.json",
+    "super-gsd/tools/fleet-cockpit/fixtures/lanes/noise-tokens-absent.json",
+    "super-gsd/tools/fleet-cockpit/fixtures/lanes/projection-conflict.json",
+    "super-gsd/tools/fleet-cockpit/fixtures/lanes/running.json",
+    "super-gsd/tools/fleet-cockpit/fixtures/lanes/stale.json",
+    "super-gsd/tools/fleet-cockpit/fleet.cjs",
+    "super-gsd/tools/fleet-cockpit/run-self-test.cjs",
+    "super-gsd/tools/fleet-cockpit/server.cjs",
+    "super-gsd/tools/fleet-cockpit/status.cjs"
+  ],
+  "decisions": [],
+  "debt": {
+    "critical_added": 0,
+    "warnings_added": null,
+    "edge_guard_miss_added": 0,
+    "deferred_added": 0,
+    "carried_forward_total": 0
+  },
+  "downstream_contract": {
+    "consumers": [],
+    "constraints": [],
+    "extension_points": []
+  },
+  "bypass_refs": [],
+  "source_commits": [
+    {
+      "sha": "e87a52c3e3ef8fe7ca50eb8265e7df74942fcb03",
+      "subject": "docs(v3.8): milestone planned from devcp fleet-cockpit handover \u2014 P161-P163 + gated P164/P165",
+      "ts": "2026-08-20T23:20:36+01:00"
+    },
+    {
+      "sha": "fa49ae04202934a9c250d37c0f3c4b07430d597f",
+      "subject": "docs(162): activate phase + planner prompt",
+      "ts": "2026-08-21T07:17:23+01:00"
+    },
+    {
+      "sha": "4e6ae857c8ff775fc93d9125454263d3d7a89352",
+      "subject": "docs(162-01): PLAN-LOCKED \u2014 3 tasks (fleet discovery+cache, status derivation, server+routes), schema VALID",
+      "ts": "2026-08-21T07:43:08+01:00"
+    },
+    {
+      "sha": "bd393495dcdd0e3ac81e3446356492b9bfeb5795",
+      "subject": "docs(162-01): plan review GO-WITH-CHANGES \u2014 AMENDMENT-1 traceability, re-VALID",
+      "ts": "2026-08-21T07:48:39+01:00"
+    },
+    {
+      "sha": "bc58e6fce983e96c860dc4921fe4e3814a097f19",
+      "subject": "feat(162-T1): fleet discovery + timer cache + roll-up \u2014 4/4 cases",
+      "ts": "2026-08-21T08:13:34+01:00"
+    },
+    {
+      "sha": "af9d8369ea53c5022ed0709050f0361c85e9428b",
+      "subject": "feat(162-T2): contractual status derivation \u2014 10/10 cases",
+      "ts": "2026-08-21T08:37:17+01:00"
+    },
+    {
+      "sha": "7998b2543f99f8d6ee50de1d41c56c76f946b790",
+      "subject": "feat(162-T3): read-only fleet HTTP service + operator entry \u2014 suite 215/215",
+      "ts": "2026-08-21T09:18:47+01:00"
+    },
+    {
+      "sha": "8410974d8485ea836b106a59231acb6a4b385732",
+      "subject": "fix(162): later-run clearing, frame coalescing, real-default-bind proof, artifacts.phases \u2014 229/229",
+      "ts": "2026-08-21T09:50:59+01:00"
+    }
+  ],
+  "source_hashes": {
+    "context": null,
+    "research": null,
+    "plan": [],
+    "verification": null,
+    "atc_review": null
+  },
+  "gates": {
+    "verifier": null,
+    "atc_review": null,
+    "phase_level_atc_runs": [],
+    "codex_runs": [
+      {
+        "run_id": "2026-08-21T06:43:10Z",
+        "exit": 0,
+        "fallback_triggered": false
+      },
+      {
+        "run_id": "2026-08-21T08:19:07Z",
+        "exit": 0,
+        "fallback_triggered": false
+      }
+    ],
+    "review_verdict": null
+  },
+  "token_cost": null,
+  "created_at": "2026-08-21T08:52:01.785Z",
+  "created_by": "super-gsd/tools/phase-capsule/write.cjs@8410974d8485"
+}
