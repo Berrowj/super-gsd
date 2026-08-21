@@ -152,13 +152,13 @@ function deriveGates(section) {
 function deriveArtifacts(section) {
   var artifacts = objectOrEmpty(section);
   var source = valueOrNull(artifacts, 'source');
-  var items = Array.isArray(artifacts.items) ? cloneValue(artifacts.items) : [];
+  var phases = Array.isArray(artifacts.phases) ? cloneValue(artifacts.phases) : [];
   if (source === 'phases_dir_missing') {
     return {
       state: 'no_data',
       reason: 'phases_dir_missing',
       source: source,
-      items: items
+      phases: phases
     };
   }
   if (Object.keys(artifacts).length === 0) {
@@ -166,10 +166,10 @@ function deriveArtifacts(section) {
       state: 'no_data',
       reason: 'artifact_data_unavailable',
       source: source,
-      items: items
+      phases: phases
     };
   }
-  return { state: 'data', reason: null, source: source, items: items };
+  return { state: 'data', reason: null, source: source, phases: phases };
 }
 
 function deriveObjectiveConflict(section) {
@@ -185,21 +185,83 @@ function deriveObjectiveConflict(section) {
   };
 }
 
-function hasFailedGate(section) {
+function laterTimestamp(current, value) {
+  var parsed = parseTimestamp(value);
+  if (parsed === null) return current;
+  return current === null || parsed > current ? parsed : current;
+}
+
+function latestClearingTimestamp(gateSection, events) {
+  var latest = null;
+  (Array.isArray(events) ? events : []).forEach(function (event) {
+    if (!event || (event.type !== 'run_started' && event.type !== 'gate_passed')) {
+      return;
+    }
+    latest = laterTimestamp(latest, event.ts);
+  });
+  var gates = objectOrEmpty(gateSection);
+  var rows = Array.isArray(gates.gates) ? gates.gates : [];
+  Object.keys(objectOrEmpty(gates.latest_per_gate)).forEach(function (name) {
+    rows = rows.concat([gates.latest_per_gate[name]]);
+  });
+  rows.forEach(function (row) {
+    var verdict = objectOrEmpty(row).verdict;
+    if (typeof verdict !== 'string') return;
+    var normalized = verdict.toLowerCase();
+    if (normalized === 'pass' || normalized === 'passed') {
+      latest = laterTimestamp(latest, row.ts);
+    }
+  });
+  return latest;
+}
+
+function signalIsLive(signalTimestamp, clearingTimestamp) {
+  if (clearingTimestamp === null) return true;
+  var signal = parseTimestamp(signalTimestamp);
+  return signal === null || signal > clearingTimestamp;
+}
+
+function hasFailedGate(section, clearingTimestamp) {
   var latest = objectOrEmpty(objectOrEmpty(section).latest_per_gate);
   return Object.keys(latest).some(function (name) {
-    var verdict = objectOrEmpty(latest[name]).verdict;
+    var row = objectOrEmpty(latest[name]);
+    var verdict = row.verdict;
     if (typeof verdict !== 'string') return false;
     var normalized = verdict.toLowerCase();
-    return normalized === 'fail' || normalized === 'failed';
+    return (normalized === 'fail' || normalized === 'failed')
+      && signalIsLive(row.ts, clearingTimestamp);
   });
 }
 
-function hasOperatorAttention(section) {
+function hasOperatorAttention(section, clearingTimestamp) {
   var blockers = objectOrEmpty(section);
   var items = Array.isArray(blockers.items) ? blockers.items : [];
   return items.some(function (item) {
-    return item && item.source === 'live_events.operator_attention_required';
+    return item && item.source === 'live_events.operator_attention_required'
+      && signalIsLive(item.ts, clearingTimestamp);
+  });
+}
+
+function hasLiveBlocker(section, operatorAttentionLive) {
+  var blockers = objectOrEmpty(section);
+  var items = Array.isArray(blockers.items) ? blockers.items : [];
+  var nonAttentionCount = items.filter(function (item) {
+    return !item || item.source !== 'live_events.operator_attention_required';
+  }).length;
+  if (nonAttentionCount > 0 || operatorAttentionLive) return true;
+  return finiteNumber(blockers.count) && blockers.count > items.length;
+}
+
+function hasWaitingCheckpoint(resume, events, clearingTimestamp) {
+  if (objectOrEmpty(resume).source !== 'live_events.checkpoint_written') {
+    return false;
+  }
+  var checkpoints = (Array.isArray(events) ? events : []).filter(function (event) {
+    return event && event.type === 'checkpoint_written';
+  });
+  if (checkpoints.length === 0) return true;
+  return checkpoints.some(function (event) {
+    return signalIsLive(event.ts, clearingTimestamp);
   });
 }
 
@@ -251,6 +313,8 @@ function deriveLaneStatus(snapshot, options) {
   var agents = filterAgents(data.agents);
   var conflictDetail = deriveObjectiveConflict(objective);
   var opts = objectOrEmpty(options);
+  var events = Array.isArray(opts.events) ? opts.events : [];
+  var clearingTimestamp = latestClearingTimestamp(data.gates, events);
   var nowMs = finiteNumber(opts.nowMs) ? opts.nowMs : Date.now();
   var staleAfterMs = finiteNumber(opts.staleAfterMs) && opts.staleAfterMs >= 0
     ? opts.staleAfterMs : DEFAULT_STALE_AFTER_MS;
@@ -261,14 +325,17 @@ function deriveLaneStatus(snapshot, options) {
   var runningReasons = [];
   var staleReasons = [];
 
-  if (hasFailedGate(data.gates)) attentionReasons.push('gate_failed');
-  if (hasOperatorAttention(blockers)) {
+  var operatorAttentionLive = hasOperatorAttention(blockers, clearingTimestamp);
+  if (hasFailedGate(data.gates, clearingTimestamp)) {
+    attentionReasons.push('gate_failed');
+  }
+  if (operatorAttentionLive) {
     attentionReasons.push('operator_attention_required');
   }
-  if (finiteNumber(blockers.count) && blockers.count > 0) {
+  if (hasLiveBlocker(blockers, operatorAttentionLive)) {
     attentionReasons.push('blockers_present');
   }
-  if (resume.source === 'live_events.checkpoint_written') {
+  if (hasWaitingCheckpoint(resume, events, clearingTimestamp)) {
     attentionReasons.push('checkpoint_waiting_for_run');
   }
 

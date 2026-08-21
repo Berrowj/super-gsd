@@ -42,6 +42,12 @@ function readFixture(name) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
+function readEventFixture(name) {
+  var file = path.join(__dirname, 'fixtures', 'events', name + '.jsonl');
+  return fs.readFileSync(file, 'utf8').trim().split(/\r?\n/).filter(Boolean).map(
+    function (line) { return JSON.parse(line); });
+}
+
 function copy(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -52,17 +58,24 @@ function deepFreeze(value) {
   return Object.freeze(value);
 }
 
-function deriveFixture(check, name, mutate) {
+function deriveFixture(check, name, mutate, deriveOptions) {
   check.assert('status_module_available',
     !!status && typeof status.deriveLaneStatus === 'function');
   var snapshot = readFixture(name);
   if (mutate) mutate(snapshot);
   var before = JSON.stringify(snapshot);
   deepFreeze(snapshot);
-  var derived = status.deriveLaneStatus(snapshot, {
+  var options = Object.assign({
     nowMs: Date.parse('2026-08-20T18:19:31.052Z')
-  });
+  }, deriveOptions || {});
+  var optionsBefore = JSON.stringify(options);
+  deepFreeze(options);
+  var derived = status.deriveLaneStatus(snapshot, options);
   check.assert(name + '_input_unchanged', JSON.stringify(snapshot) === before);
+  if (deriveOptions) {
+    check.assert(name + '_derive_options_unchanged',
+      JSON.stringify(options) === optionsBefore);
+  }
   return derived;
 }
 
@@ -70,6 +83,9 @@ function makeCheck() {
   var results = [];
   return {
     results: results,
+    skip: function (label, detail) {
+      results.push({ label: label, ok: true, skipped: true, detail: detail || '' });
+    },
     assert: function (label, condition, detail) {
       results.push({ label: label, ok: !!condition, detail: detail || '' });
       if (!condition) throw new Error(label + (detail ? ': ' + detail : ''));
@@ -216,6 +232,43 @@ function requireServerModule(check) {
   return serverModule;
 }
 
+function adapterSelfTestInProcess() {
+  var originalSpawnSync = childProcess.spawnSync;
+  var writerPath = path.resolve(__dirname, '..', '..', 'scripts', 'lib',
+    'orchestrator-live-writer.cjs');
+  var writer = require(writerPath);
+  childProcess.spawnSync = function (command, args, options) {
+    var callArgs = Array.isArray(args) ? args : [];
+    if (command === process.execPath && path.resolve(callArgs[0] || '') === writerPath
+        && callArgs[1] === '--emit') {
+      var event;
+      try {
+        event = JSON.parse(callArgs[2]);
+      } catch (error) {
+        return { status: 1, stdout: '', stderr: error.message, error: error };
+      }
+      event.projectDir = options && options.cwd;
+      var result = writer.appendEvent(event);
+      return {
+        status: result.ok ? 0 : 1,
+        stdout: JSON.stringify(result) + '\n',
+        stderr: result.ok ? '' : result.error
+      };
+    }
+    return {
+      status: null,
+      stdout: '',
+      stderr: 'unexpected spawn blocked by fleet self-test',
+      error: new Error('unexpected spawn blocked by fleet self-test')
+    };
+  };
+  try {
+    return cockpitStateAdapter.selfTest();
+  } finally {
+    childProcess.spawnSync = originalSpawnSync;
+  }
+}
+
 function closeServer(server) {
   return new Promise(function (resolve, reject) {
     if (!server.listening) return resolve();
@@ -226,7 +279,7 @@ function closeServer(server) {
   });
 }
 
-function listenServer(server, host) {
+function listenServer(server, host, port) {
   return new Promise(function (resolve, reject) {
     function onError(error) {
       server.removeListener('listening', onListening);
@@ -238,7 +291,7 @@ function listenServer(server, host) {
     }
     server.once('error', onError);
     server.once('listening', onListening);
-    server.listen(0, host);
+    server.listen(port === undefined ? 0 : port, host);
   });
 }
 
@@ -337,20 +390,104 @@ async function caseDefaultBind(check) {
   check.assert('default_interval_is_20_seconds', defaults.intervalSeconds === 20);
   check.assert('lan_bind_requires_explicit_flag', lan.host === '0.0.0.0');
 
-  var emptyCache = {
-    getFleet: function () { return { ok: true, lanes: [], counts: {} }; },
-    getLane: function () { return null; },
-    getRawLane: function () { return null; },
-    getHealth: function () { return { ok: true, cache_age_seconds: null }; }
-  };
-  var server = moduleValue.createFleetServer({ cache: emptyCache, root: '.' });
+  var probe = http.createServer();
   try {
-    var address = await listenServer(server, defaults.host);
-    check.assert('actual_default_listener_is_loopback',
-      address.address === '127.0.0.1', 'address=' + address.address);
-  } finally {
-    await closeServer(server);
+    await listenServer(probe, defaults.host, defaults.port);
+  } catch (error) {
+    if (error && error.code === 'EADDRINUSE') {
+      check.skip('real_default_bind_127_0_0_1_7777_port_busy',
+        'SKIP: 127.0.0.1:7777 is occupied; actual main([]) bind not attempted');
+      return;
+    }
+    throw error;
   }
+  await closeServer(probe);
+
+  var root = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd fleet default bind '));
+  var priorCwd = process.cwd();
+  var priorSigint = process.listeners('SIGINT');
+  var priorSigterm = process.listeners('SIGTERM');
+  var runtime = null;
+  try {
+    process.chdir(root);
+    runtime = moduleValue.main([]);
+    process.chdir(priorCwd);
+    var address = runtime.server.listening
+      ? runtime.server.address()
+      : await new Promise(function (resolve, reject) {
+        runtime.server.once('error', reject);
+        runtime.server.once('listening', function () {
+          runtime.server.removeListener('error', reject);
+          resolve(runtime.server.address());
+        });
+      });
+    check.assert('actual_cli_default_listener_is_127_0_0_1_7777',
+      address.address === defaults.host && address.port === defaults.port,
+      'address=' + address.address + ':' + address.port);
+    check.assert('actual_cli_default_path_used_parse_and_listen_defaults',
+      runtime.options.host === defaults.host && runtime.options.port === defaults.port
+      && runtime.options.intervalSeconds === defaults.intervalSeconds);
+  } finally {
+    if (process.cwd() !== priorCwd) process.chdir(priorCwd);
+    if (runtime) {
+      runtime.cache.stop();
+      await closeServer(runtime.server);
+    }
+    process.listeners('SIGINT').forEach(function (listener) {
+      if (priorSigint.indexOf(listener) === -1) process.removeListener('SIGINT', listener);
+    });
+    process.listeners('SIGTERM').forEach(function (listener) {
+      if (priorSigterm.indexOf(listener) === -1) process.removeListener('SIGTERM', listener);
+    });
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+function framedPorcelain(label) {
+  return 'SGSD_FLEET_FRAME_BEGIN\nworktree C:\\fixture\\' + label
+    + '\nHEAD 0000000000000000000000000000000000000000\n'
+    + 'branch refs/heads/' + label + '\nSGSD_FLEET_FRAME_END\n';
+}
+
+async function caseFrameCoalescing(check) {
+  var moduleValue = requireServerModule(check);
+  check.assert('framed_input_hook_available',
+    typeof moduleValue.attachFramedInput === 'function');
+  var input = new (require('node:stream').PassThrough)();
+  var accepted = [];
+  var releases = [];
+  var refreshes = 0;
+  var cache = {
+    acceptDiscovery: function (porcelain) {
+      accepted.push(porcelain);
+      return { ok: true };
+    },
+    refreshNow: function () {
+      refreshes++;
+      return new Promise(function (resolve) { releases.push(resolve); });
+    }
+  };
+  moduleValue.attachFramedInput(input, cache);
+  input.write(framedPorcelain('first'));
+  await pump();
+  input.write(framedPorcelain('second'));
+  input.write(framedPorcelain('third'));
+  await pump();
+  check.assert('overlapping_frames_do_not_queue_rebuild_per_tick',
+    refreshes === 1, 'refreshes=' + refreshes);
+  releases.shift()();
+  await pump();
+  await pump();
+  check.assert('overlapping_frames_collapse_to_one_pending_rebuild',
+    refreshes === 2, 'refreshes=' + refreshes);
+  check.assert('pending_rebuild_uses_latest_complete_frame',
+    accepted.length === 2
+      && accepted[0].indexOf('first') !== -1
+      && accepted[1].indexOf('third') !== -1
+      && accepted.every(function (frame) { return frame.indexOf('second') === -1; }));
+  releases.shift()();
+  await pump();
+  input.end();
 }
 
 async function caseHttpContract(check) {
@@ -698,7 +835,7 @@ async function caseSourceConstraints(check) {
     && /if \(framed\).*attachFramedInput/.test(serverSource)
     && /else cache\.start\(\)/.test(serverSource));
 
-  var adapterResult = cockpitStateAdapter.selfTest();
+  var adapterResult = adapterSelfTestInProcess();
   check.assert('untouched_adapter_reports_exact_19_of_19',
     adapterResult.ok === true
     && adapterResult.results.length === 19
@@ -959,6 +1096,73 @@ async function caseNoiseArtifactsSource(check) {
     derived.artifacts.reason === 'phases_dir_missing');
   check.assert('missing_phases_dir_not_empty_success',
     derived.artifacts.state !== 'data');
+  check.assert('adapter_artifact_phases_field_is_preserved',
+    Array.isArray(derived.artifacts.phases)
+      && derived.artifacts.phases.length === 0
+      && !Object.prototype.hasOwnProperty.call(derived.artifacts, 'items'));
+}
+
+async function caseLaterRunSemantics(check) {
+  function signalSnapshot(snapshot, live) {
+    var prefix = live ? '18:10' : '18:00';
+    snapshot.data.blockers = { count: 1, items: [{
+      source: 'live_events.operator_attention_required',
+      ts: '2026-08-20T' + prefix + ':01.000Z'
+    }] };
+    snapshot.data.gates = {
+      gates: [{ gate: 'ATC', verdict: 'fail',
+        ts: '2026-08-20T' + prefix + ':00.000Z' }],
+      latest_per_gate: { ATC: { verdict: 'fail',
+        ts: '2026-08-20T' + prefix + ':00.000Z' } },
+      live_event_count: 5
+    };
+    snapshot.data.resume_command = {
+      command: '/sgsd-orchestrate go',
+      source: 'live_events.checkpoint_written'
+    };
+  }
+
+  var live = deriveFixture(check, 'attention', function (snapshot) {
+    signalSnapshot(snapshot, true);
+  }, { events: readEventFixture('later-run-live') });
+  check.assert('signals_after_clear_events_still_fire',
+    live.status === 'attention'
+      && JSON.stringify(live.reasons) === JSON.stringify([
+        'gate_failed', 'operator_attention_required',
+        'blockers_present', 'checkpoint_waiting_for_run'
+      ]), 'status=' + live.status + ' reasons=' + live.reasons.join(','));
+
+  var cleared = deriveFixture(check, 'attention', function (snapshot) {
+    signalSnapshot(snapshot, false);
+  }, { events: readEventFixture('later-run-cleared') });
+  check.assert('subsequent_run_started_and_gate_passed_clear_stale_signals',
+    cleared.status === 'idle'
+      && JSON.stringify(cleared.reasons) === JSON.stringify(['idle_no_signal']),
+    'status=' + cleared.status + ' reasons=' + cleared.reasons.join(','));
+
+  var fleetFixture = createSyntheticDiscovery(1);
+  try {
+    fs.writeFileSync(path.join(fleetFixture.lanes[0].path, '.planning',
+      'ORCHESTRATOR-LIVE.jsonl'), fs.readFileSync(path.join(__dirname,
+      'fixtures', 'events', 'later-run-cleared.jsonl'), 'utf8'), 'utf8');
+    var cache = fleet.createFleetCache({
+      buildSnapshot: function () {
+        var snapshot = readFixture('attention');
+        signalSnapshot(snapshot, false);
+        return snapshot;
+      },
+      deriveLaneStatus: status.deriveLaneStatus,
+      now: function () { return Date.parse('2026-08-20T18:19:31.052Z'); }
+    });
+    cache.acceptDiscovery(fleetFixture.porcelain);
+    await cache.refreshNow();
+    check.assert('fleet_passes_lane_live_events_into_status_derivation',
+      cache.getFleet().lanes[0].status === 'idle',
+      'status=' + cache.getFleet().lanes[0].status);
+    cache.stop();
+  } finally {
+    fleetFixture.cleanup();
+  }
 }
 
 async function caseProjectionConflict(check) {
@@ -1067,6 +1271,7 @@ async function caseStatusPrecedence(check) {
 
 var CASES = {
   'default-bind': caseDefaultBind,
+  'frame-coalescing': caseFrameCoalescing,
   'http-contract': caseHttpContract,
   'read-only-methods': caseReadOnlyMethods,
   'verbatim-snapshot': caseVerbatimSnapshot,
@@ -1080,6 +1285,7 @@ var CASES = {
   'lane-failure-isolation': caseLaneFailureIsolation,
   'rollup-first-publish': caseRollupFirstPublish,
   'status-precedence': caseStatusPrecedence,
+  'later-run-semantics': caseLaterRunSemantics,
   'noise-agent-tools': caseNoiseAgentTools,
   'noise-tokens-absent': caseNoiseTokensAbsent,
   'noise-gates-empty': caseNoiseGatesEmpty,
@@ -1180,12 +1386,16 @@ async function main(argv) {
   }
   var result = caseName === 'all' ? await runAll() : await runCase(caseName);
   var pass = 0;
+  var skipped = 0;
   result.results.forEach(function (row) {
-    if (row.ok) pass++;
-    process.stdout.write((row.ok ? 'PASS ' : 'FAIL ') + row.label
+    if (row.skipped) skipped++;
+    else if (row.ok) pass++;
+    process.stdout.write((row.skipped ? 'SKIP ' : row.ok ? 'PASS ' : 'FAIL ') + row.label
       + (row.detail ? '  (' + row.detail + ')' : '') + '\n');
   });
-  process.stdout.write('\nSelf-test: ' + pass + '/' + result.results.length + ' passed\n');
+  process.stdout.write('\nSelf-test: ' + pass + '/'
+    + (result.results.length - skipped) + ' passed'
+    + (skipped > 0 ? ', ' + skipped + ' skipped' : '') + '\n');
   return result.ok ? 0 : 1;
 }
 

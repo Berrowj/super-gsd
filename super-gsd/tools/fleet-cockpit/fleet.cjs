@@ -148,6 +148,25 @@ function errorRow(lane, error) {
   };
 }
 
+function readLaneEvents(projectDir) {
+  var file = path.join(projectDir, '.planning', 'ORCHESTRATOR-LIVE.jsonl');
+  var text;
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch (_error) {
+    return [];
+  }
+  return text.split(/\r?\n/).filter(Boolean).reduce(function (events, line) {
+    try {
+      var event = JSON.parse(line);
+      if (event && typeof event === 'object') events.push(event);
+    } catch (_error) {
+      // Match the adapter's degraded reader: malformed rows do not poison a lane.
+    }
+    return events;
+  }, []);
+}
+
 function rollupRow(lane, derived) {
   var value = derived || {};
   return {
@@ -273,8 +292,10 @@ function createFleetCache(options) {
         return buildSnapshot({ projectDir: lane.path });
       });
       var stagedSnapshot = cloneValue(captured);
+      var events = readLaneEvents(lane.path);
       var derived = await Promise.resolve(deriveLaneStatus(cloneValue(captured), {
-        nowMs: cycleNowMs
+        nowMs: cycleNowMs,
+        events: events
       }));
       var normalizedDerived = derived && typeof derived === 'object' ? derived : {};
       return {

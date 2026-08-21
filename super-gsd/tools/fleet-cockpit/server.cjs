@@ -249,7 +249,39 @@ function attachFramedInput(input, cache) {
   var buffered = '';
   var inFrame = false;
   var frameLines = [];
-  var refreshChain = Promise.resolve();
+  var refreshInFlight = false;
+  var pendingPorcelain = null;
+
+  function finishRefresh() {
+    refreshInFlight = false;
+    if (pendingPorcelain === null) return;
+    var next = pendingPorcelain;
+    pendingPorcelain = null;
+    runFrame(next);
+  }
+
+  function runFrame(porcelain) {
+    refreshInFlight = true;
+    var accepted;
+    try {
+      accepted = cache.acceptDiscovery(porcelain);
+    } catch (_error) {
+      finishRefresh();
+      return;
+    }
+    if (!accepted || accepted.ok !== true) {
+      finishRefresh();
+      return;
+    }
+    var refresh;
+    try {
+      refresh = cache.refreshNow();
+    } catch (_error) {
+      finishRefresh();
+      return;
+    }
+    Promise.resolve(refresh).then(finishRefresh, finishRefresh);
+  }
 
   function acceptLine(line) {
     if (line === FRAME_BEGIN) {
@@ -261,11 +293,8 @@ function attachFramedInput(input, cache) {
       var porcelain = frameLines.join('\n') + '\n';
       inFrame = false;
       frameLines = [];
-      refreshChain = refreshChain.then(function () {
-        var accepted = cache.acceptDiscovery(porcelain);
-        if (!accepted || accepted.ok !== true) return null;
-        return cache.refreshNow();
-      }).catch(function () { return null; });
+      if (refreshInFlight) pendingPorcelain = porcelain;
+      else runFrame(porcelain);
       return;
     }
     if (inFrame) frameLines.push(line);
@@ -330,5 +359,6 @@ if (require.main === module) {
 module.exports = {
   parseArgs: parseArgs,
   createFleetServer: createFleetServer,
+  attachFramedInput: attachFramedInput,
   main: main
 };
