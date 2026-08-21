@@ -46,18 +46,21 @@ LOCAL_BIN_DIR="$HOME/.local/bin"
 
 # event|hook-id|interpreter|installed filename|registered timeout seconds
 # Smoke contract only: distribution independently copies every regular file in
-# hooks/. The first eleven rows mirror config/settings-overlay.json. The final
+# hooks/. The first fourteen rows mirror config/settings-overlay.json. The final
 # row is the tracked auxiliary PostToolUse hook and is not registered there.
 GLOBAL_HOOK_DEPLOYMENT_MANIFEST='statusLine|status-line|node|sgsd-statusline.js|
 SessionStart|session-start-context|node|gsd-session-start.js|5
 SessionStart|session-state|bash|gsd-session-state.sh|5
 SessionStart|vtp-pending|node|sgsd-vtp-pending.js|5
+SessionStart|session-start-governance|node|sgsd-session-start.js|5
 PreToolUse|activity-logger|node|sgsd-activity-logger.js|2
+UserPromptSubmit|intent-classifier|node|sgsd-intent-classifier.cjs|5
 PostToolUse|heartbeat|node|sgsd-heartbeat.js|2
 PostToolUse|token-logger|node|gsd-token-logger.js|3
 PostToolUse|stuck-detector|node|gsd-stuck-detector.js|3
 PostToolUse|checkpoint-writer|node|gsd-checkpoint-writer.js|3
 PostToolUse|context-monitor|node|gsd-context-monitor.js|3
+PostToolUse|quality-gate|node|sgsd-quality-gate.js|10
 Stop|stop-handoff|node|sgsd-stop-handoff.js|60
 PostToolUse|phase-boundary-auxiliary|bash|gsd-phase-boundary.sh|5'
 

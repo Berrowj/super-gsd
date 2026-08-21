@@ -16,6 +16,8 @@ const BUNDLED_OVERLAY_PATH = path.join(SUPER_GSD_ROOT, 'CLAUDE-OVERLAY.md');
 const GLOBAL_OVERLAY_PATH = path.join(SUPER_GSD_ROOT, 'config', 'settings-overlay.json');
 const REPO_OVERLAY_PATH = path.join(SUPER_GSD_ROOT, 'config', 'repo-settings-overlay.json');
 const CODEX_HOOK_CONFIG_PATH = path.join(SUPER_GSD_ROOT, 'config', 'codex-hooks.json');
+const HOOK_MANIFEST_PATH = path.join(SUPER_GSD_ROOT, 'config', 'hook-manifest.json');
+const COMMIT_GATE_INSTALLER_PATH = path.join(SUPER_GSD_ROOT, 'scripts', 'install-commit-gate.cjs');
 const STALE_OVERLAY_MARKERS = Object.freeze([
   Object.freeze({
     id: 'query_byterover',
@@ -106,13 +108,29 @@ const GLOBAL_SCRIPT_NAMES = Object.freeze([
   'gsd-session-start.js',
   'gsd-session-state.sh',
   'sgsd-vtp-pending.js',
+  'sgsd-session-start.js',
   'sgsd-activity-logger.js',
+  'sgsd-intent-classifier.cjs',
   'sgsd-heartbeat.js',
   'gsd-token-logger.js',
   'gsd-stuck-detector.js',
   'gsd-checkpoint-writer.js',
   'gsd-context-monitor.js',
+  'sgsd-quality-gate.js',
   'sgsd-stop-handoff.js',
+]);
+const HOOK_MANIFEST_SURFACES = Object.freeze([
+  'claude-global hooks',
+  'claude-global statusLine',
+  'claude-project',
+  'codex-project',
+  'git-pre-commit',
+  'auxiliary-only',
+]);
+const HOOK_DISTRIBUTION_TARGETS = Object.freeze([
+  'claude-global',
+  'claude-project',
+  'codex-project',
 ]);
 
 function sha256(bytes) {
@@ -253,6 +271,342 @@ function configuredCodexEntryNames() {
   }
   visit(config);
   return [...names].sort();
+}
+
+function deepClone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function manifestFailure(code, sourcePath, surface) {
+  throw new Error(`${code} ${sourcePath} [${surface}]`);
+}
+
+function commandSourcePath(command, args = []) {
+  const launch = [command, ...args].join(' ').replace(/\\/g, '/');
+  let match = launch.match(/^(?:node|bash)\s+~\/\.claude\/hooks\/([^\s]+)$/);
+  if (match) return `hooks/${match[1]}`;
+  match = launch.match(/^(?:node|bash)\s+super-gsd\/(hooks\/[^\s]+|tools\/codex-hooks\/[^\s]+)$/);
+  return match ? match[1] : null;
+}
+
+function configuredRegistrationRecords(globalOverlay, repoOverlay, codexConfig, installer, commitGateInstaller) {
+  const records = [];
+  function addHooks(config, authority, surface) {
+    for (const [event, groups] of Object.entries(config.hooks || {})) {
+      for (const group of groups || []) {
+        for (const hook of group.hooks || []) {
+          if (hook.type !== 'command') {
+            records.push({ source_path: null, authority, surface, event });
+            continue;
+          }
+          records.push({
+            source_path: commandSourcePath(hook.command, hook.args),
+            authority,
+            surface,
+            event,
+            matcher: group.matcher ?? null,
+            timeout_seconds: hook.timeout ?? null,
+            command: [hook.command, ...(hook.args || [])].join(' '),
+            hook_id: group.sgsd_hook_id ?? null,
+          });
+        }
+      }
+    }
+  }
+
+  if (globalOverlay.statusLine && globalOverlay.statusLine.type === 'command') {
+    records.push({
+      source_path: commandSourcePath(globalOverlay.statusLine.command),
+      authority: 'config/settings-overlay.json',
+      surface: 'claude-global statusLine',
+      event: 'statusLine',
+      matcher: null,
+      timeout_seconds: globalOverlay.statusLine.timeout ?? null,
+      command: globalOverlay.statusLine.command,
+      hook_id: null,
+    });
+  }
+  addHooks(globalOverlay, 'config/settings-overlay.json', 'claude-global hooks');
+  addHooks(repoOverlay, 'config/repo-settings-overlay.json', 'claude-project');
+  addHooks(codexConfig, 'config/codex-hooks.json', 'codex-project');
+  const quote = String.fromCharCode(34);
+  const lifecyclePresent = installer.includes('run_commit_gate_installer()')
+    && installer.includes('INSTALLER_SCRIPT=' + quote + '$SCRIPT_DIR/scripts/install-commit-gate.cjs' + quote)
+    && installer.includes('run_commit_gate_installer install');
+  const targetPresent = /path\.resolve\(repoRoot, 'super-gsd', 'hooks', 'sgsd-commit-gate\.cjs'\)/
+    .test(commitGateInstaller);
+  if (lifecyclePresent && targetPresent) {
+    records.push({
+      source_path: 'hooks/sgsd-commit-gate.cjs',
+      authority: 'install.sh --install-commit-gate',
+      surface: 'git-pre-commit',
+      event: 'pre-commit',
+      matcher: null,
+      timeout_seconds: null,
+      command: 'node super-gsd/hooks/sgsd-commit-gate.cjs',
+      hook_id: null,
+    });
+  }
+  return records;
+}
+
+function registrationKey(record) {
+  return JSON.stringify([
+    record.source_path,
+    record.authority,
+    record.surface,
+    record.event,
+    record.matcher ?? null,
+    record.timeout_seconds ?? null,
+    record.command,
+    record.hook_id ?? null,
+  ]);
+}
+
+function validateManifestInventory(snapshot) {
+  const entries = snapshot.manifest && Array.isArray(snapshot.manifest.entries)
+    ? snapshot.manifest.entries
+    : [];
+  const inventory = [...snapshot.hookInventory, ...snapshot.codexInventory].sort();
+  const entryPaths = entries.map((entry) => entry.source_path);
+  const entryPathSet = new Set(entryPaths);
+  const inventorySet = new Set(inventory);
+  for (const sourcePath of inventory) {
+    if (!entryPathSet.has(sourcePath)) manifestFailure('hook_manifest_entry_missing', sourcePath, 'inventory');
+  }
+  for (const sourcePath of entryPaths) {
+    if (!inventorySet.has(sourcePath)) manifestFailure('hook_manifest_entry_unexpected', sourcePath, 'inventory');
+  }
+  if (entryPathSet.size !== entryPaths.length) {
+    const duplicate = entryPaths.find((sourcePath, index) => entryPaths.indexOf(sourcePath) !== index);
+    manifestFailure('hook_manifest_entry_unexpected', duplicate, 'manifest');
+  }
+  assert.equal(snapshot.hookInventory.length, 16, 'hook manifest inventory must contain exactly sixteen Claude entries');
+  assert.equal(snapshot.codexInventory.length, 5, 'hook manifest inventory must contain exactly five Codex entries');
+  return { entries, inventorySet, shippedSet: new Set(snapshot.shippedInventory) };
+}
+
+function validateDistribution(entry) {
+  const expectedInterpreter = entry.source_path.endsWith('.sh') ? 'bash' : 'node';
+  if (entry.interpreter !== expectedInterpreter) {
+    manifestFailure('hook_manifest_interpreter_invalid', entry.source_path, 'manifest');
+  }
+  const expectedTargets = entry.source_path.startsWith('hooks/')
+    ? ['claude-global', 'claude-project']
+    : ['codex-project'];
+  const targets = Array.isArray(entry.distribution_targets) ? [...entry.distribution_targets].sort() : [];
+  if (targets.some((target) => !HOOK_DISTRIBUTION_TARGETS.includes(target))
+    || JSON.stringify(targets) !== JSON.stringify(expectedTargets)) {
+    manifestFailure('hook_manifest_distribution_invalid', entry.source_path, 'distribution');
+  }
+}
+
+function manifestExpectations(entries) {
+  const registrations = [];
+  const smoke = [];
+  const authorities = {
+    'claude-global hooks': 'config/settings-overlay.json',
+    'claude-global statusLine': 'config/settings-overlay.json',
+    'claude-project': 'config/repo-settings-overlay.json',
+    'codex-project': 'config/codex-hooks.json',
+    'git-pre-commit': 'install.sh --install-commit-gate',
+  };
+  for (const entry of entries) {
+    validateDistribution(entry);
+    if (!Array.isArray(entry.dispositions) || entry.dispositions.length === 0) {
+      manifestFailure('hook_manifest_reason_missing', entry.source_path, 'disposition');
+    }
+    for (const disposition of entry.dispositions || []) {
+      if (!HOOK_MANIFEST_SURFACES.includes(disposition.surface)) {
+        manifestFailure('hook_manifest_surface_invalid', entry.source_path, disposition.surface || 'missing');
+      }
+      if (disposition.kind === 'intentionally_unregistered') {
+        if (typeof disposition.reason !== 'string' || disposition.reason.trim() === '') {
+          manifestFailure('hook_manifest_reason_missing', entry.source_path, disposition.surface);
+        }
+        if (disposition.surface === 'auxiliary-only') {
+          smoke.push({
+            source_path: entry.source_path,
+            event: disposition.smoke_event,
+            interpreter: entry.interpreter,
+            timeout_seconds: disposition.smoke_timeout_seconds ?? null,
+            surface: disposition.surface,
+          });
+        }
+        continue;
+      }
+      if (disposition.kind !== 'registered') {
+        manifestFailure('hook_manifest_reason_missing', entry.source_path, disposition.surface);
+      }
+      const expectedAuthority = authorities[disposition.surface];
+      if (!expectedAuthority || disposition.authority !== expectedAuthority) {
+        manifestFailure('hook_manifest_registration_missing', entry.source_path, disposition.surface);
+      }
+      registrations.push({
+        source_path: entry.source_path,
+        authority: disposition.authority,
+        surface: disposition.surface,
+        event: disposition.event,
+        matcher: disposition.matcher ?? null,
+        timeout_seconds: disposition.timeout_seconds ?? null,
+        command: disposition.command,
+        hook_id: disposition.hook_id ?? null,
+      });
+      if (disposition.surface.startsWith('claude-global')) {
+        smoke.push({
+          source_path: entry.source_path,
+          event: disposition.event,
+          interpreter: entry.interpreter,
+          timeout_seconds: disposition.timeout_seconds ?? null,
+          surface: disposition.surface,
+        });
+      }
+    }
+  }
+  return { registrations, smoke };
+}
+
+function validateConfiguredRegistrations(snapshot, inventorySet, shippedSet, expected) {
+  const actual = configuredRegistrationRecords(
+    snapshot.globalOverlay,
+    snapshot.repoOverlay,
+    snapshot.codexConfig,
+    snapshot.installer,
+    snapshot.commitGateInstaller,
+  );
+  const actualEventKeys = new Set();
+  for (const record of actual) {
+    if (!record.source_path || !inventorySet.has(record.source_path) || !shippedSet.has(record.source_path)) {
+      manifestFailure('hook_manifest_registration_unexpected', record.source_path || 'unsupported-command', record.surface);
+    }
+    const eventKey = JSON.stringify([record.source_path, record.surface, record.event]);
+    if (actualEventKeys.has(eventKey)) {
+      manifestFailure('hook_manifest_registration_unexpected', record.source_path, record.surface);
+    }
+    actualEventKeys.add(eventKey);
+  }
+  const actualCounts = new Map();
+  for (const record of actual) {
+    const key = registrationKey(record);
+    actualCounts.set(key, (actualCounts.get(key) || 0) + 1);
+  }
+  for (const record of expected) {
+    const key = registrationKey(record);
+    const count = actualCounts.get(key) || 0;
+    if (count === 0) manifestFailure('hook_manifest_registration_missing', record.source_path, record.surface);
+    actualCounts.set(key, count - 1);
+  }
+  const unexpected = actual.find((record) => (actualCounts.get(registrationKey(record)) || 0) > 0);
+  if (unexpected) manifestFailure('hook_manifest_registration_unexpected', unexpected.source_path, unexpected.surface);
+}
+
+function validateManifestSmoke(smokeManifest, expected) {
+  const actual = smokeManifest.split(/\r?\n/).filter(Boolean).map((row) => {
+    const [event, , interpreter, fileName, timeout] = row.split('|');
+    return {
+      source_path: `hooks/${fileName}`,
+      event,
+      interpreter,
+      timeout_seconds: timeout === '' ? null : Number(timeout),
+    };
+  });
+  const keyOf = (record) => JSON.stringify([
+    record.source_path,
+    record.event,
+    record.interpreter,
+    record.timeout_seconds ?? null,
+  ]);
+  assert.equal(new Set(actual.map(keyOf)).size, actual.length, 'hook manifest smoke contains a duplicate entry');
+  const actualKeys = new Set(actual.map(keyOf));
+  for (const record of expected) {
+    const key = keyOf(record);
+    if (!actualKeys.has(key)) manifestFailure('hook_manifest_registration_missing', record.source_path, record.surface);
+    actualKeys.delete(key);
+  }
+  if (actualKeys.size > 0) {
+    const extra = actual.find((record) => actualKeys.has(keyOf(record)));
+    manifestFailure('hook_manifest_registration_unexpected', extra.source_path, 'auxiliary-only');
+  }
+}
+
+function validateHookManifest(snapshot) {
+  const { entries, inventorySet, shippedSet } = validateManifestInventory(snapshot);
+  const expected = manifestExpectations(entries);
+  validateConfiguredRegistrations(snapshot, inventorySet, shippedSet, expected.registrations);
+  validateManifestSmoke(snapshot.smokeManifest, expected.smoke);
+  return { entries: entries.length, registrations: expected.registrations.length, smoke: expected.smoke.length };
+}
+
+function hookManifestSnapshot() {
+  const hookInventory = hookFiles(path.join(SUPER_GSD_ROOT, 'hooks')).map((name) => `hooks/${name}`);
+  const codexInventory = configuredCodexEntryNames().map((name) => `tools/codex-hooks/${name}`);
+  return {
+    manifest: JSON.parse(fs.readFileSync(HOOK_MANIFEST_PATH, 'utf8')),
+    hookInventory,
+    codexInventory,
+    shippedInventory: [
+      ...hookInventory,
+      ...codexInventory.filter((sourcePath) => {
+        const absolute = path.join(SUPER_GSD_ROOT, sourcePath);
+        return fs.existsSync(absolute) && fs.statSync(absolute).isFile();
+      }),
+    ],
+    globalOverlay: JSON.parse(fs.readFileSync(GLOBAL_OVERLAY_PATH, 'utf8')),
+    repoOverlay: JSON.parse(fs.readFileSync(REPO_OVERLAY_PATH, 'utf8')),
+    codexConfig: JSON.parse(fs.readFileSync(CODEX_HOOK_CONFIG_PATH, 'utf8')),
+    installer: fs.readFileSync(INSTALL_PATH, 'utf8'),
+    commitGateInstaller: fs.readFileSync(COMMIT_GATE_INSTALLER_PATH, 'utf8'),
+    smokeManifest: readGlobalDeploymentManifest(),
+  };
+}
+
+function assertManifestMutationRefused(base, mutate, code, sourcePath, surface) {
+  const fixture = deepClone(base);
+  mutate(fixture);
+  assert.throws(
+    () => validateHookManifest(fixture),
+    (error) => error.message === `${code} ${sourcePath} [${surface}]`,
+    `${code} mutation passed silently for ${sourcePath} [${surface}]`,
+  );
+}
+
+function runHookManifestCompleteness() {
+  const snapshot = hookManifestSnapshot();
+  assert.deepEqual(validateHookManifest(snapshot), { entries: 21, registrations: 24, smoke: 15 });
+
+  assertManifestMutationRefused(snapshot, (fixture) => {
+    fixture.globalOverlay.hooks.SessionStart = fixture.globalOverlay.hooks.SessionStart
+      .filter((group) => group.hooks[0].command !== 'node ~/.claude/hooks/sgsd-session-start.js');
+  }, 'hook_manifest_registration_missing', 'hooks/sgsd-session-start.js', 'claude-global hooks');
+  assertManifestMutationRefused(snapshot, (fixture) => {
+    const entry = fixture.manifest.entries.find((candidate) => candidate.source_path === 'hooks/sgsd-statusline.js');
+    entry.dispositions.find((item) => item.kind === 'intentionally_unregistered').reason = '   ';
+  }, 'hook_manifest_reason_missing', 'hooks/sgsd-statusline.js', 'claude-global hooks');
+  assertManifestMutationRefused(snapshot, (fixture) => {
+    fixture.globalOverlay.hooks.PostToolUse.push({
+      matcher: '*',
+      hooks: [{ type: 'command', command: 'node ~/.claude/hooks/sgsd-commit-gate.cjs', timeout: 5 }],
+    });
+  }, 'hook_manifest_registration_unexpected', 'hooks/sgsd-commit-gate.cjs', 'claude-global hooks');
+  assertManifestMutationRefused(snapshot, (fixture) => {
+    fixture.hookInventory.push('hooks/unmanifested-source.js');
+  }, 'hook_manifest_entry_missing', 'hooks/unmanifested-source.js', 'inventory');
+  assertManifestMutationRefused(snapshot, (fixture) => {
+    const quality = fixture.globalOverlay.hooks.PostToolUse.find(
+      (group) => group.hooks[0].command === 'node ~/.claude/hooks/sgsd-quality-gate.js',
+    );
+    fixture.globalOverlay.hooks.PostToolUse.push(deepClone(quality));
+  }, 'hook_manifest_registration_unexpected', 'hooks/sgsd-quality-gate.js', 'claude-global hooks');
+  assertManifestMutationRefused(snapshot, (fixture) => {
+    fixture.globalOverlay.hooks.PostToolUse.push({
+      matcher: '*',
+      hooks: [{ type: 'command', command: 'node ~/.claude/hooks/not-shipped.js', timeout: 5 }],
+    });
+  }, 'hook_manifest_registration_unexpected', 'hooks/not-shipped.js', 'claude-global hooks');
+  assertManifestMutationRefused(snapshot, (fixture) => {
+    fixture.shippedInventory = fixture.shippedInventory
+      .filter((sourcePath) => sourcePath !== 'tools/codex-hooks/block-forbidden-write.cjs');
+  }, 'hook_manifest_registration_unexpected', 'tools/codex-hooks/block-forbidden-write.cjs', 'codex-project');
 }
 
 function createDistributionFixture(label) {
@@ -795,7 +1149,7 @@ async function runSmokeStatic() {
   fs.mkdirSync(smokeHome, { recursive: true });
 
   const globalDescriptors = parseHookSmokeManifest(readGlobalDeploymentManifest(), hooksRoot);
-  assert.equal(globalDescriptors.length, GLOBAL_SCRIPT_NAMES.length + 1, 'global manifest must contain 11 registered hooks plus one auxiliary');
+  assert.equal(globalDescriptors.length, GLOBAL_SCRIPT_NAMES.length + 1, 'global manifest must contain 14 registered hooks plus one auxiliary');
   const overlay = realizeGlobalOverlayForStatic(JSON.parse(fs.readFileSync(GLOBAL_OVERLAY_PATH, 'utf8')), hooksRoot);
   const registeredDescriptors = enumerateHookRegistrations(overlay);
   assert.deepEqual(
@@ -814,13 +1168,11 @@ async function runSmokeStatic() {
     scriptPath: path.resolve(hooksRoot, 'gsd-phase-boundary.sh'),
     timeout: 5,
   });
-  for (const repoOnly of ['sgsd-session-start.js', 'sgsd-quality-gate.js']) {
-    assert.equal(
-      globalDescriptors.some((item) => path.basename(item.scriptPath) === repoOnly),
-      false,
-      repoOnly + ' was flattened globally',
-    );
-  }
+  assert.equal(
+    globalDescriptors.some((item) => path.basename(item.scriptPath) === 'sgsd-commit-gate.cjs'),
+    false,
+    'Git pre-commit gate was misregistered as a global Claude event hook',
+  );
 
   let sourceError;
   try {
@@ -1164,6 +1516,7 @@ const CASES = Object.freeze({
   'canonical-sixteen-hook': runCanonicalSixteenHook,
   'deployed-hook-smoke': runDeployedHookSmoke,
   'hook-distribution-all-types': runHookDistributionAllTypes,
+  'hook-manifest-completeness': runHookManifestCompleteness,
 });
 
 async function main(argv) {

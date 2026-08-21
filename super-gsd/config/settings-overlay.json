@@ -32,6 +32,15 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ~/.claude/hooks/sgsd-session-start.js",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -42,6 +51,18 @@
             "type": "command",
             "command": "node ~/.claude/hooks/sgsd-activity-logger.js",
             "timeout": 2
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ~/.claude/hooks/sgsd-intent-classifier.cjs",
+            "timeout": 5
           }
         ]
       }
@@ -94,6 +115,16 @@
             "type": "command",
             "command": "node ~/.claude/hooks/gsd-context-monitor.js",
             "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ~/.claude/hooks/sgsd-quality-gate.js",
+            "timeout": 10
           }
         ]
       }
