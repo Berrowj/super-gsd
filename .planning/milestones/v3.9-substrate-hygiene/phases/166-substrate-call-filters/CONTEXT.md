@@ -2,7 +2,8 @@
 phase: "166"
 slug: substrate-call-filters
 milestone: v3.9-substrate-hygiene
-status: PENDING
+status: ACTIVE
+opened: 2026-08-21
 depends_on: []
 source: Clarity instance VTP report 2026-08-21 (F1 megachunk landmine, F2 unfiltered callers)
 ---
