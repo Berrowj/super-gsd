@@ -1086,9 +1086,27 @@ function runPreflightStatic() {
   assert.equal(covered.warnings[0].code, 'project_hook_registration_missing_global_covered');
   assert.equal(Object.prototype.hasOwnProperty.call(covered, 'globalIssues'), false, 'operator diagnostics leaked from coverage lookup');
   assert.deepEqual(
-    filterWarnedHookDescriptors(managedDescriptors, covered.warnedDescriptors),
+    filterWarnedHookDescriptors(managedDescriptors, covered.warnedDescriptors, {
+      isFile: () => false,
+    }),
     [],
     'operator project row entered the repo smoke set',
+  );
+  const postDistributionChecks = [];
+  assert.deepEqual(
+    filterWarnedHookDescriptors(managedDescriptors, covered.warnedDescriptors, {
+      isFile: (scriptPath) => {
+        postDistributionChecks.push(scriptPath);
+        return true;
+      },
+    }),
+    managedDescriptors,
+    'distributed warned descriptor did not re-enter the repo smoke set',
+  );
+  assert.deepEqual(
+    postDistributionChecks,
+    [paths.quality],
+    'warned descriptor existence was not re-evaluated after distribution',
   );
   assert.deepEqual(operatorRowsBytes(projectSettings), projectOperatorBefore, 'project operator rows changed during preflight');
   assert.deepEqual(operatorRowsBytes(globalSettings), globalOperatorBefore, 'global operator rows changed during coverage lookup');
@@ -1588,12 +1606,13 @@ function runCanonicalSixteenHook() {
 
 function runDeployedHookSmoke() {
   assert.equal(hookFiles(path.join(SUPER_GSD_ROOT, 'hooks')).length, CANONICAL_HOOK_COUNT, 'canonical source is no longer a sixteen-hook layout');
-  const fixture = createFixture('deployed-hook-smoke');
+  const fixture = createDistributionFixture('deployed-hook-smoke');
   try {
     seedTarget(fixture.globalSettings, 'smoke-global');
     seedTarget(fixture.repoSettings, 'smoke-repo');
-    const args = ['--init-project', '--skip-cockpit-deps'];
-    const healthy = runInstaller(fixture, args);
+    boundGlobalSmokeFixture(fixture, ['sgsd-intent-classifier.cjs']);
+    const healthyArgs = ['--install-global', '--init-project', '--skip-cockpit-deps'];
+    const healthy = runInstaller(fixture, healthyArgs, BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS);
     if (healthy.error) throw healthy.error;
     assert.equal(
       healthy.status,
@@ -1606,12 +1625,18 @@ function runDeployedHookSmoke() {
     beforeGlobal.hash = sha256(beforeGlobal.bytes);
     const beforeRepo = { bytes: readBytes(fixture.repoSettings) };
     beforeRepo.hash = sha256(beforeRepo.bytes);
-    const dependencyPath = path.join(fixture.vendoredRoot, 'scripts', 'lib', 'sgsd-state.cjs');
-    const entryPath = path.join(fixture.vendoredRoot, 'hooks', 'sgsd-session-start.js');
-    fs.rmSync(dependencyPath);
-    assert.equal(fs.existsSync(entryPath), true, 'dependency break removed the entry hook');
+    const dependencyRelative = path.join('scripts', 'lib', 'skill-routing-registry.cjs');
+    const sourceDependencyPath = path.join(fixture.vendoredRoot, dependencyRelative);
+    const targetDependencyPath = path.join(fixture.projectRoot, 'super-gsd', dependencyRelative);
+    const sourceEntryPath = path.join(fixture.vendoredRoot, 'hooks', 'sgsd-intent-classifier.cjs');
+    const targetEntryPath = path.join(fixture.projectRoot, 'super-gsd', 'hooks', 'sgsd-intent-classifier.cjs');
+    fs.rmSync(sourceDependencyPath);
+    fs.rmSync(targetDependencyPath);
+    fs.rmSync(targetEntryPath);
+    assert.equal(fs.existsSync(sourceEntryPath), true, 'dependency break removed the source entry hook');
+    assert.equal(fs.existsSync(targetEntryPath), false, 'recovery entry still existed before distribution');
 
-    const syntax = spawnSync(process.execPath, ['--check', entryPath], {
+    const syntax = spawnSync(process.execPath, ['--check', sourceEntryPath], {
       encoding: 'utf8',
       shell: false,
       timeout: 5_000,
@@ -1622,7 +1647,7 @@ function runDeployedHookSmoke() {
 
     const loadRoot = path.join(fixture.root, 'non-sgsd-load-root');
     fs.mkdirSync(loadRoot, { recursive: true });
-    const load = spawnSync(process.execPath, [entryPath], {
+    const load = spawnSync(process.execPath, [sourceEntryPath], {
       cwd: loadRoot,
       env: { ...process.env, HOME: fixture.homeRoot, USERPROFILE: fixture.homeRoot },
       input: JSON.stringify({ hook_event_name: 'SessionStart', cwd: loadRoot }) + '\n',
@@ -1635,11 +1660,11 @@ function runDeployedHookSmoke() {
     assert.notEqual(load.status, 0, 'missing sibling dependency still loaded');
     assert.match(load.stderr, /MODULE_NOT_FOUND/, 'broken fixture did not prove the real load error');
 
-    const refused = runInstaller(fixture, args);
+    const refused = runInstaller(fixture, ['--update', '--skip-cockpit-deps']);
     assertRefused(refused, fixture.repoSettings, beforeRepo, [
       'hook_smoke_failed',
-      'session-start-governance',
-      entryPath,
+      'user-prompt-intent-classifier',
+      targetEntryPath,
     ]);
     const output = (refused.stderr || '') + '\n' + (refused.stdout || '');
     assert.equal(output.includes('MODULE_NOT_FOUND'), false, 'raw installed-hook output leaked from refusal');
@@ -1748,6 +1773,16 @@ function seedClarityUpdateProject(fixtureRoot, oldSha) {
   fs.writeFileSync(systemdSentinel, 'operator-owned-systemd-sentinel\n', 'utf8');
   fs.mkdirSync(path.join(projectRoot, '.planning'), { recursive: true });
   fs.writeFileSync(projectPinPath, oldSha + '\n', 'utf8');
+
+  for (const relative of [
+    path.join('scripts', 'lib'),
+    'registry',
+    path.join('tools', 'vtp-readiness'),
+  ]) {
+    const target = path.join(projectRoot, 'super-gsd', relative);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.cpSync(path.join(SUPER_GSD_ROOT, relative), target, { recursive: true });
+  }
 
   const { realizeRepoLocalHookOverlay } = require(PREFLIGHT_PATH);
   const realizedOverlay = realizeRepoLocalHookOverlay(
@@ -2047,6 +2082,7 @@ const CASES = Object.freeze({
   'deployed-hook-smoke': runDeployedHookSmoke,
   'hook-distribution-all-types': runHookDistributionAllTypes,
   'hook-manifest-completeness': runHookManifestCompleteness,
+  'sgsd-update-clarity-shape': runSgsdUpdateClarityRecovery,
   'sgsd-update-clarity-recovery': runSgsdUpdateClarityRecovery,
 });
 

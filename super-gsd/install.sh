@@ -713,7 +713,7 @@ register_repo_local_hooks() {
     log "  DRY RUN: would merge $OVERLAY_FILE into $SETTINGS_FILE for $PROJECT_DIR"
   else
     node "$PREFLIGHT_SCRIPT" --smoke-repo-overlay "$OVERLAY_FILE" "$PROJECT_DIR" \
-      "${PROJECT_HOOK_SMOKE_EXCLUSIONS:-[]}"
+      "${PROJECT_HOOK_PRE_DISTRIBUTION_WARNINGS:-[]}"
     if [[ -n "$CODEX_HOOK_MISSING_TARGETS" ]]; then
       while IFS= read -r missing_target; do
         [[ -n "$missing_target" ]] || continue
@@ -735,7 +735,7 @@ preflight_existing_repo_local_hooks() {
   EXISTING_SETTINGS_FILE="$PROJECT_DIR/.claude/settings.json"
   GLOBAL_SETTINGS_FILE="$CLAUDE_DIR/settings.json"
   EXISTING_PREFLIGHT_SCRIPT="$SCRIPT_DIR/scripts/lib/hook-registration-preflight.cjs"
-  PROJECT_HOOK_SMOKE_EXCLUSIONS='[]'
+  PROJECT_HOOK_PRE_DISTRIBUTION_WARNINGS='[]'
   if [[ ! -f "$EXISTING_SETTINGS_FILE" ]]; then
     return 0
   fi
@@ -748,7 +748,7 @@ preflight_existing_repo_local_hooks() {
     return 1
   fi
   log "Preflighting existing managed repo-local hooks before distribution..."
-  PROJECT_HOOK_SMOKE_EXCLUSIONS="$(
+  PROJECT_HOOK_PRE_DISTRIBUTION_WARNINGS="$(
     node "$EXISTING_PREFLIGHT_SCRIPT" \
       --preflight-project-settings "$EXISTING_SETTINGS_FILE" "$GLOBAL_SETTINGS_FILE"
   )" || return $?

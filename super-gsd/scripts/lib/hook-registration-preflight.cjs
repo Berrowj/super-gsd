@@ -426,11 +426,17 @@ function hookDescriptorIdentity(descriptor) {
   ]);
 }
 
-function filterWarnedHookDescriptors(descriptors, warnedDescriptors) {
+function filterWarnedHookDescriptors(descriptors, warnedDescriptors, adapters = {}) {
   const warnedIdentities = new Set(warnedDescriptors.map(hookDescriptorIdentity));
-  return descriptors.filter(
-    (descriptor) => !warnedIdentities.has(hookDescriptorIdentity(descriptor)),
-  );
+  const isFile = adapters.isFile || defaultIsFile;
+  return descriptors.filter((descriptor) => {
+    if (!warnedIdentities.has(hookDescriptorIdentity(descriptor))) return true;
+    try {
+      return isFile(descriptor.scriptPath, descriptor) === true;
+    } catch (_error) {
+      return false;
+    }
+  });
 }
 
 function findLiveGlobalCoverage(projectDescriptor, globalDescriptors, adapters) {
