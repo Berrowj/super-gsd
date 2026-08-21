@@ -2,7 +2,8 @@
 phase: "162"
 slug: fleet-service
 milestone: v3.8-fleet-cockpit
-status: PENDING
+status: ACTIVE
+opened: 2026-08-21
 depends_on: ["161"]
 source: handover sections 4-7, 9 step 1
 ---
