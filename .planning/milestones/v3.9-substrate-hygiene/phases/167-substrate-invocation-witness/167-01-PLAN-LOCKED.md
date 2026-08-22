@@ -4,17 +4,21 @@ phase: 167
 slug: substrate-invocation-witness
 milestone: v3.9-substrate-hygiene
 status: PLANNED
-revision: 2
+revision: 3
 governing_decision: .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/CONTEXT.md
 research_path: .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/RESEARCH.md
 depends_on: []
 intent: >
-  Witness each raw prompt-owned vtp_search_substrate invocation at the Claude
-  Code tool boundary, deny a non-v2 payload before transport, cap a valid MCP
-  result before model delivery, correlate the real invocation with P166 prompt
-  acceptance without an agent-reported identifier, and make the guarded MCP
-  capability broker withdraw the raw tool before transport whenever the hook
-  registrations or source are absent.
+  Close the drift, forgetfulness, shortcut, and supported broker-deletion cases
+  for raw prompt-owned vtp_search_substrate by witnessing the Claude Code tool
+  boundary, denying a non-v2 payload before transport, capping a valid MCP
+  result before model delivery, correlating the real invocation with P166
+  prompt acceptance without an agent-reported identifier, and withdrawing the
+  brokered raw tool whenever hook registrations or source are absent. This
+  raises an unfiltered call from zero-effort prompt drift to deliberate
+  circumvention, but it does not defeat an actor with arbitrary same-user Bash
+  and Write execution, who can read the private upstream manifest, register or
+  invoke the upstream directly, or replace the broker and its controls.
 execution_mode: serial-codex-with-orchestrator-live-gate
 expected_ATC_tier: GATE
 skip_gates: []
@@ -123,6 +127,34 @@ semantic_acceptance_criteria:
       --project-dir . --evidence-file
       .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-REAL-MCP-HOOK-EVIDENCE.json
   - input: >
+      The repaired disposable profile, private upstream manifest, real Claude
+      Code runtime, and local fixture from SAC 1, exercised as a same-user
+      bypass characterisation. A Bash-capable actor reads the private manifest,
+      adds an alternate Claude-visible MCP server name that points directly to
+      the fixture, and invokes vtp_search_substrate through a fresh real Claude
+      process. The actor then starts the same upstream directly and sends a
+      second tools/call over Bash/stdio. Distinct fixture payload markers and
+      before/after witness-store snapshots identify both attempts.
+    expected_outcome: >
+      Both bypass attempts intentionally succeed and are recorded, rather than
+      being blocked, failed, or skipped. The alternate registration is
+      discoverable and forwards one tools/call, the direct Bash/stdio client
+      forwards one tools/call, and the fixture server's append-only log contains
+      both distinguished rows. Neither attempt creates a matching authenticated
+      or mirrored witness row. The capture records redacted commands, source and
+      configuration digests, success status, fixture-log digest, invocation
+      counts, and witness absence in a same_user_bypass object. This is a
+      mandatory positive characterisation proving that a same-user actor with
+      Bash can reach the upstream without a witness row; it does not claim to
+      close that path.
+    verification_cmd: >
+      node super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs --capture
+      --project-dir . --evidence-file
+      .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-REAL-MCP-HOOK-EVIDENCE.json &&
+      node super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs --verify
+      --project-dir . --evidence-file
+      .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-REAL-MCP-HOOK-EVIDENCE.json
+  - input: >
       The P166 eight-site caller inventory, a 16001-character top-level and
       evidence.hits response, the P152 shadow proof, frozen P154 real MCP
       evidence, and byte snapshots of vtp-mcp-input-schemas.v1.json and
@@ -185,7 +217,7 @@ tasks:
       registrations plus hook source, a stale forced substrate tools/call, a
       non-substrate tools/call, upstream exit, malformed upstream JSON, and
       list_changed after readiness loss. These tests establish deterministic
-      behavior but do not satisfy either live-runtime SAC.
+      behavior but do not satisfy any live-runtime SAC.
 
       Add only a public export for the existing substratePayloadDigest and a
       helper backed by the already compiled P166 v2 validator to
@@ -249,12 +281,16 @@ tasks:
     output_contract: >
       One project-loadable Claude hook denies an invalid actual substrate
       invocation before transport and rewrites a valid result through the
-      existing cap before model delivery. The guarded MCP broker independently
-      removes the raw substrate capability when hook readiness is absent and
-      refuses stale calls before upstream transport. A keyed external spool
-      records unique Pre and rewritten states without exposing correlation
-      capabilities or payload/response content, and a redacted metrics mirror
-      makes decisions auditable.
+      existing cap before model delivery. Within the supported SGSD brokered
+      grant, the guarded MCP broker removes the raw substrate capability when
+      hook readiness is absent and refuses stale calls before upstream
+      transport. A keyed external spool records unique Pre and rewritten states
+      without exposing correlation capabilities or payload/response content,
+      and a redacted metrics mirror makes decisions auditable. These controls
+      close drift, shortcut, and deletion paths through that grant; they do not
+      prevent a same-user Bash/Write actor from reading the upstream manifest,
+      invoking it directly, restoring another registration, or replacing the
+      broker.
     hypothesis: >
       Binding v2 validation and the existing cap to actual Claude tool events,
       while a separate MCP capability broker withdraws the grant when those
@@ -345,7 +381,10 @@ tasks:
       exact composer-prepared record and one fresh hook-authored rewritten
       witness for the current runtime session and actual payload digest. A
       successful witness is consumed once and no hook-only identifier crosses
-      the agent contract.
+      the agent contract. This closes accidental acceptance, self-report,
+      editing, copying, and replay within the intact local_hmac implementation;
+      it does not authenticate against a same-user actor able to read the key or
+      replace the hook, store, or acceptance code.
     hypothesis: >
       Runtime session plus the hook-computed payload digest is sufficient to
       bind prompt evidence to a real invocation when unique tool-use rows remain
@@ -426,7 +465,10 @@ tasks:
       installed variants call raw substrate only after witness readiness and use
       its result only after the exact P166 record and one rewritten runtime
       witness are accepted. Missing enforcement removes the capability and
-      produces a named optional-VTP degradation rather than silent success.
+      produces a named optional-VTP degradation rather than silent success. This
+      closes forgetfulness, shortcut, and prompt drift in the generated SGSD
+      surfaces, but it does not stop a same-user Bash/Write actor from creating
+      a different prompt, registration, or direct upstream invocation.
     hypothesis: >
       Raw-free source templates plus a broker-owned conditional installed grant
       make absence mechanical, while preflight and post-call acceptance remain
@@ -555,7 +597,10 @@ tasks:
       installed prompt grants as one audited capability. Audit-only is read-only
       and exits 2 on absence; repair-safe installs enforcement before exposing
       raw substrate, withdraws derived grants when unavailable, and is
-      byte-idempotent.
+      byte-idempotent. This genuinely closes deletion of the supported brokered
+      grant and makes an unfiltered call require deliberate circumvention. It
+      does not make the same-user-owned configuration, manifest, broker, or
+      signing key an authority boundary against arbitrary Bash/Write execution.
     hypothesis: >
       Making the broker the only owner of the actual MCP grant, with hook
       readiness as its discovery and before-forward condition, turns hook
@@ -611,13 +656,14 @@ tasks:
       - .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-REAL-MCP-HOOK-EVIDENCE.json
     input_contract: >
       Build a deterministic stdio MCP fixture named vtp-kb that declares only
-      vtp_search_substrate, validates its received payload, appends a redacted
-      row for every received tools/call to a caller-supplied append-only log,
-      and returns one ordinary hit plus one hit with 16001 JavaScript characters
-      and unique raw-response and discarded-tail markers. Initialize and
-      tools/list traffic must be distinguishable from tools/call and cannot be
-      counted as a substrate invocation. The fixture must never contact VTP,
-      read a private corpus, or write outside its supplied temporary directory.
+      vtp_search_substrate, validates the expected payload for each scenario,
+      appends a redacted row for every received tools/call to a caller-supplied
+      append-only log, and returns one ordinary hit plus one hit with 16001
+      JavaScript characters and unique raw-response and discarded-tail markers.
+      Initialize and tools/list traffic must be distinguishable from tools/call
+      and cannot be counted as a substrate invocation. The fixture must never
+      contact VTP, read a private corpus, or write outside its supplied temporary
+      directory.
 
       capture-live-runtime.cjs has separate --capture and --verify modes.
       --capture creates a disposable SGSD project/profile, installs the P167
@@ -646,6 +692,20 @@ tasks:
       transcript has no substrate tool result, and neither unique fixture raw
       marker appears anywhere in model-visible transcript content.
 
+      In a third fresh disposable project/profile, run the same real install
+      and then act with the same user's Bash and Write authority. Read the
+      private upstream manifest, add an alternate Claude-visible MCP server
+      named vtp-kb-bypass that points directly to the fixture, and launch a
+      fresh real Claude process that sends one deliberately non-v2 substrate
+      tools/call through that alternate registration. Then start the same
+      upstream command directly and send a second deliberately non-v2
+      tools/call over Bash/stdio. Unique scenario markers must distinguish the
+      two calls. This positive characterisation is PASS only when both calls
+      return fixture success, the append-only log contains exactly one row for
+      each bypass, and before/after snapshots show no matching authoritative or
+      mirrored witness row. A denied, failed, inferred, or skipped attempt does
+      not satisfy the characterisation.
+
       Write 167-REAL-MCP-HOOK-EVIDENCE.json atomically with schema/version,
       capture time, Claude Code version, bypass-permissions mode, exact hook IDs
       and source/registration hashes, broker source/config/upstream-manifest
@@ -656,10 +716,14 @@ tasks:
       result, and a separate absent_guard object. That object records deletion
       of both hook IDs and source, broker tools/list names/digest, stale-call
       rejection, fixture-owned zero invocation count/log digest, transcript
-      event-type summary, and absence of both raw markers. Record commands with
+      event-type summary, and absence of both raw markers. A separate
+      same_user_bypass object records alternate-registration discovery and call
+      success, direct Bash/stdio call success, the two fixture invocation counts
+      and log digest, witness-store before/after digests and matching-row count,
+      redacted commands, and source/configuration digests. Record commands with
       secrets and temp paths redacted and frozen-file before/after hashes. Do
       not persist the witness key, private upstream object, raw identifiers,
-      discarded text, or unrelated transcript content. Clean both disposable
+      discarded text, or unrelated transcript content. Clean all disposable
       projects/profiles after the evidence file is safely written.
 
       --verify is spawn-free and reads the captured evidence plus current
@@ -673,26 +737,33 @@ tasks:
       tool, forwards either the model attempt or stale direct call, has any
       fixture tools/call row, contains either raw marker or a substrate result
       in transcript content, or relies only on audit/acceptance refusal. It
-      cannot regenerate or bless evidence.
+      must also require a same_user_bypass object proving that both the alternate
+      registration and direct Bash/stdio call succeeded, each produced its
+      distinguished fixture row, and neither produced a matching witness row.
+      It cannot regenerate or bless evidence.
 
       The Codex executor may write and run the fixture's in-process checks and
       --verify parser, but it must not run --capture or invoke Claude. The
-      orchestrator owns the unsandboxed --capture command in SAC 1 because
+      orchestrator owns the unsandboxed --capture command for the live SACs because
       nested process creation returns spawnSync EPERM in the Codex sandbox. The
       executor reports ORCHESTRATOR_REQUIRED and leaves T5 incomplete until the
       orchestrator produces the real evidence and --verify exits 0.
     output_contract: >
-      A committed, machine-readable real-runtime artifact proves both sides of
-      the boundary: installed hooks deny an invalid canonical invocation and
-      rewrite one real oversized result before model delivery, while deletion
-      of both registrations and hook source makes the independent broker remove
-      and refuse the raw capability with zero fixture invocations and no raw
-      transcript delivery. The proof is reproducible locally and does not
-      depend on a live VTP host.
+      A committed, machine-readable real-runtime artifact proves the bounded
+      boundary: installed hooks deny an invalid canonical invocation and
+      rewrite one real oversized result through the existing cap before
+      model delivery; deletion of both registrations and hook source makes the
+      broker remove and refuse the raw capability with zero fixture invocations
+      and no raw transcript delivery; and alternate registration plus direct
+      Bash/stdio invocation both reach the upstream without a witness row. The
+      proof is reproducible locally, does not depend on a live VTP host, and
+      makes explicit that P167 raises the cost of bypass but does not seal the
+      substrate path from arbitrary same-user code execution.
     hypothesis: >
       Fresh Claude processes plus a real brokered stdio fixture and independent
       Claude transcript, fixture log, broker discovery, and signed hook evidence
-      can prove both active denial/rewrite and absent-guard non-invocation.
+      can prove active denial/rewrite, absent-guard non-invocation, and the exact
+      admitted same-user bypass boundary without conflating those claims.
     falsifier: >
       Evidence comes from direct hook invocation or an injected transport; the
       invalid call enters the server; bypass-permissions avoids denial; raw tail
@@ -701,6 +772,9 @@ tasks:
       tool remains advertised, the fixture receives any absent-path tools/call,
       or a raw marker/result reaches that transcript; absence is inferred only
       from audit or acceptance; capture touches live VTP or real user settings;
+      either required same-user bypass is denied, fails, is skipped, is inferred,
+      does not create its fixture row, or creates a matching witness row; the
+      artifact describes either successful bypass as prevented or sealed;
       sensitive identifiers/key/text/upstream config are persisted; hashes
       drift; Codex claims the spawn-bound run passed; or T5 is not one
       independently revertible commit.
@@ -709,9 +783,11 @@ tasks:
       --verify exits 0 against the committed artifact, the evidence records one
       denied and one rewritten real MCP attempt plus the deleted-both-and-source
       scenario with zero fixture invocations and no raw transcript, all with the
-      required independent observations. All earlier task and regression
-      commands must pass under their declared owner, and the T5 diff is limited
-      to the three listed files.
+      required independent observations, and the same_user_bypass object records
+      successful alternate-registration and direct Bash/stdio upstream calls
+      with no matching witness row. All earlier task and regression commands
+      must pass under their declared owner, and the T5 diff is limited to the
+      three listed files.
     verification_cmd: >
       node --check super-gsd/tests/substrate-invocation-witness/fixture-vtp-mcp-server.cjs &&
       node --check super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs &&
@@ -729,26 +805,33 @@ tasks:
       - Do not point the live proof at the operator's VTP server or use wiki/LINT-REPORT.md as the oversized fixture.
       - Do not let the executor translate spawnSync EPERM into PASS, SKIP-PASS, or inferred success. The orchestrator must run and capture the live command.
       - Do not accept audit exit 2, prompt refusal, a broker warning, or the model's statement that a tool was unavailable as the absence proof. Only the fixture-owned zero tools/call log plus transcript raw-marker/result absence satisfies it.
+      - Do not treat the successful same-user bypass as a phase failure or expected-failure test. It is a mandatory passing characterisation of the admitted local_hmac limit and must remain visible in committed evidence.
 ---
 
 # P167 - Substrate Invocation Witness
 
-Revision 2 provenance: revised in place on 2026-08-22 from the round-1 NOGO
-review. It preserves the six accepted checks and closes the single critical
-absence gap by adding a broker-owned MCP capability grant plus a live
-delete-both-registrations-and-source non-invocation proof.
+Revision 3 provenance: revised in place on 2026-08-22 after the round-2 NOGO
+and the operator's bounded-scope ruling. Round 2 accepted six of seven checks,
+including the broker deletion proof, and found one remaining critical limit:
+the broker, configuration, private upstream manifest, and grant-bearing agents
+remain under the same user's Bash and Write authority. This revision preserves
+the accepted controls, records that limit as an intended boundary, and adds a
+passing live characterisation that demonstrates it.
 
-Five serial, independently revertible tasks close P166 DEFERRED-1 at the
-runtime seam without weakening its gateway or response limits. T1 adds the real
-PreToolUse denial, PostToolUse rewrite, authenticated witness state, and guarded
-MCP broker. T2 requires one rewritten witness at P166 prompt acceptance. T3
-makes the two canonical sources raw-substrate-free while retaining their
-conditional installed contract. T4 makes the broker the only vtp-kb grant and
-derives or withdraws all four installed prompt grants. T5 captures mandatory
-active-path and absent-guard production proofs through real Claude Code MCP
-runtime boundaries. The critical repair adds one production broker file inside
-T1, extends the existing propagation and capture work, and creates neither a
-sixth task nor a duplicate installer.
+Five serial, independently revertible tasks close the drift, forgetfulness,
+shortcut, and supported broker-deletion cases without weakening the P166
+gateway or response limits. T1 adds the real PreToolUse denial, PostToolUse
+rewrite through the existing cap, authenticated witness state, and guarded MCP
+broker. T2 requires one rewritten
+witness at P166 prompt acceptance. T3 makes the two canonical sources
+raw-substrate-free while retaining their conditional installed contract. T4
+makes the broker the only supported vtp-kb grant and derives or withdraws all
+four installed prompt grants. T5 captures mandatory active-path and
+absent-guard production proofs, then positively demonstrates alternate
+registration and direct Bash/stdio bypass. The phase raises an unfiltered call
+from zero-effort drift to deliberate circumvention; it does not seal the
+substrate path against arbitrary same-user code execution. The build remains
+five tasks and creates neither a sixth task nor a duplicate installer.
 
 ## Runtime and evidence flow
 
@@ -774,6 +857,10 @@ sixth task nor a duplicate installer.
    readiness and acceptance then report `VTP_STATUS: unavailable_or_bypassed`
    with `substrate_witness_unavailable` as explicit degradation and supporting
    evidence. They are not substitutes for broker enforcement.
+8. T5 then deliberately steps outside that supported path by restoring an
+   alternate direct registration and invoking the upstream over Bash/stdio.
+   Both calls reach the fixture without a witness row, pinning the same-user
+   limit as evidence rather than leaving it as an assumption.
 
 ## Ownership map
 
@@ -801,10 +888,21 @@ sixth task nor a duplicate installer.
 - `super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs` owns
   the orchestrator-run real MCP capture and spawn-free evidence verifier.
 
-## Authority choice
+## Operator ruling and authority choice
 
-Two mechanisms were evaluated. The protected option is real on this Windows
-runtime: an administrator can place managed hooks and their source under
+Round 2 identified three ways to close the hostile same-user case:
+machine-managed policy, a proxy under a different security principal, or
+removal of raw upstream access. On 2026-08-22 the operator ruled those closures
+out of P167 because they require authority the current non-admin operator does
+not hold or cost more than this phase is worth. An agent with Bash and Write on
+this machine can already exercise the user's authority. The observed failure
+that caused the milestone is agents forgetting to filter, taking shortcuts, or
+drifting, not agents deliberately smuggling searches around a broker. P167 is
+therefore an operational guardrail with a measured same-user limit, not a
+hostile-code security boundary.
+
+The machine-managed option is real on this Windows runtime: an administrator
+can place managed hooks and their source under
 `HKLM\SOFTWARE\Policies\ClaudeCode` or `C:\Program Files\ClaudeCode`,
 combine them with managed MCP policy, and set `allowManagedHooksOnly` so a
 standard user cannot remove or disable the guard. It is not the selected phase
@@ -812,29 +910,36 @@ baseline because no machine-managed source is deployed here, the current
 operator token is non-admin, HKCU is a user-writable fallback rather than an
 authority boundary, and the hook-only lock would suppress the existing
 project/user SGSD hooks unless that entire fleet migrated. SGSD must not
-silently write or simulate administrator policy.
+silently write or simulate administrator policy. A different-principal proxy
+would require separately operated credentials and lifecycle, while removal of
+raw upstream access would remove the capability the phase is meant to retain.
 
 The selected mechanism is the independent guarded MCP capability broker. It is
 deployable through the existing installer, becomes the only definition named
 vtp-kb, removes vtp_search_substrate from successful discovery when either hook
 registration or source is absent, and rechecks before forwarding a stale call.
-This directly controls the tool grant before upstream transport. It preserves
-the active deny/rewrite design when ready and gives a deterministic optional-VTP
-degradation when not ready.
+For the supported SGSD path, this directly controls the tool grant before
+upstream transport. It preserves the active deny/rewrite design when ready,
+gives a deterministic optional-VTP degradation when not ready, and raises
+unfiltered use from accidental drift to deliberate circumvention. It does not
+prevent the same user from reading the private manifest, restoring another
+server definition, invoking upstream through Bash/stdio, or replacing the
+broker.
 
-## Fail-closed boundary and trust statement
+## Bounded enforcement and trust statement
 
-When the hook is active, PreToolUse blocks invalid transport and PostToolUse
-blocks raw output delivery by replacing it with the existing capped result. If
-either registration or the hook source is absent, the independent broker omits
-the substrate tool from successful discovery and refuses any stale tools/call
-before upstream transport. Canonical source agents carry no raw grant. Only T4
-may derive grant-bearing installed copies after hook and broker audits are
-current, and the broker remains the owner of actual availability. Separately,
-`acceptPromptSubstrateCallRecord` refuses a result without a fresh rewritten
-witness, the four prompts degrade explicitly, and feature-propagation audit
-returns exit 2. Those later refusals are supporting controls, not the
-non-invocation boundary.
+For calls through the supported brokered grant, active PreToolUse blocks invalid
+transport and active PostToolUse blocks raw output delivery by replacing it
+with the existing capped result. If either registration or the hook source is
+absent, the independent broker omits the substrate tool from successful
+discovery and refuses any stale tools/call before upstream transport. This is
+the genuinely closed deletion case. Canonical source agents carry no raw grant.
+Only T4 may derive grant-bearing installed copies after hook and broker audits
+are current, and the broker remains the owner of availability on that supported
+path. Separately, `acceptPromptSubstrateCallRecord` refuses a result without a
+fresh rewritten witness, the four prompts degrade explicitly, and
+feature-propagation audit returns exit 2. Those later refusals are supporting
+controls, not the non-invocation boundary.
 
 The authoritative rows live outside the working tree, are HMAC-authenticated
 with a separately provisioned random key, are keyed by a hook-only tool-use
