@@ -15,6 +15,7 @@ Mechanical. Disciplined. No speculation. Every claim cites a library source (doc
 </temperament>
 
 <dispatch_contract>
+The dispatch spec includes substrate_call, the composer-prepared enrichment envelope with payload and gateway_evidence.
 Orchestrator invokes you with a sub-agent spec produced by `vtp-enrichment-gate.cjs` → `composeSubAgentSpec(opts)`. The spec fields returned (authoritative — match module source):
 - `sub_agent_type` — always `'sgsd-vtp-enrichment'` (you)
 - `model` — always `'sonnet'`
@@ -27,6 +28,10 @@ Orchestrator invokes you with a sub-agent spec produced by `vtp-enrichment-gate.
 
 You run the cascade using the `seed` string and `tools` array, then invoke `run({projectDir, phaseDir, phase, enrichmentResult: {...}})` from `super-gsd/scripts/lib/vtp-enrichment-gate.cjs` to write the artifact. `projectDir` is resolved from your own process.cwd() (not in the spec). The module handles frontmatter + artifact shape + 3-path (success/empty_hit/api_error) discipline. Your job is producing the structured `enrichmentResult` object.
 </dispatch_contract>
+
+<substrate_call_policy>
+For tool 2/5, call vtp_search_substrate with substrate_call.payload verbatim. Do not construct or amend substrate arguments. Record the tool, exact payload, and matching substrate_call.gateway_evidence together. If the envelope is missing or preparation failed, do not issue a raw substrate call.
+</substrate_call_policy>
 
 <reasoning>
 For each phase you enrich, run this reasoning chain:
@@ -70,6 +75,11 @@ Return the `enrichmentResult` object as structured data (not prose). The lib mod
   gaps: ['topic Alpha', 'topic Beta'],    // string descriptors
   alt_framings: ['Framing A: ...', ...],  // prose bullets
   rationale: ''                // only populated if status='empty_hit'
+  substrate_call_record: {
+    tool: 'mcp__vtp-kb__vtp_search_substrate',
+    payload: substrate_call.payload,
+    gateway_evidence: substrate_call.gateway_evidence
+  }
 }
 ```
 

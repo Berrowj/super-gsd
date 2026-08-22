@@ -22,7 +22,47 @@
 const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
+const crypto = require('crypto');
 const { findSgsdRoot, resolveContainedPath } = require('./sgsd-state.cjs');
+const Ajv = require(path.join(__dirname, '..', '..', 'tools', 'plan-schema', 'node_modules', 'ajv'));
+
+const SUBSTRATE_TOOL = 'mcp__vtp-kb__vtp_search_substrate';
+const SUBSTRATE_TOOL_SHORT = 'vtp_search_substrate';
+const SUBSTRATE_SCHEMA_VERSION = 'vtp-mcp-input-schemas.v2';
+const SUBSTRATE_SCHEMA_PATH = path.join(__dirname, '..', '..', 'schemas', 'vtp-mcp-input-schemas.v2.json');
+const SECONDARY_SUBSTRATE_FILTERS = Object.freeze([
+  'entity_types',
+  'project_ids',
+  'speaker_ids',
+  'topics',
+  'meeting_ids',
+]);
+
+function policyEntry(sourceTypes, limit) {
+  return Object.freeze({ source_types: Object.freeze(sourceTypes), limit });
+}
+
+const SUBSTRATE_CALL_POLICY = Object.freeze({
+  triage: policyEntry(['research_paper', 'wiki_page'], 3),
+  phase_research: policyEntry(['research_paper', 'wiki_page'], 5),
+  planning: policyEntry(['research_paper', 'wiki_page'], 5),
+  enrichment: policyEntry(['research_paper', 'wiki_page'], 5),
+  board_research: policyEntry(['research_paper', 'wiki_page'], 5),
+  architecture_challenge: policyEntry(['research_paper', 'wiki_page'], 3),
+  book_lookup: policyEntry(['wiki_page'], 5),
+});
+
+const substrateSchemaAuthority = JSON.parse(fs.readFileSync(SUBSTRATE_SCHEMA_PATH, 'utf8'));
+if (substrateSchemaAuthority.version_id !== SUBSTRATE_SCHEMA_VERSION) {
+  throw new Error('vtp_substrate_schema_version_mismatch');
+}
+const substrateSchemaDeclaration = substrateSchemaAuthority.tools
+  && substrateSchemaAuthority.tools[SUBSTRATE_TOOL];
+if (!substrateSchemaDeclaration || !substrateSchemaDeclaration.inputSchema) {
+  throw new Error('vtp_substrate_schema_missing');
+}
+const validateSubstratePayload = new Ajv({ allErrors: true, strict: true })
+  .compile(substrateSchemaDeclaration.inputSchema);
 
 /**
  * WARNING — module-level cache is a PROCESS SINGLETON.
@@ -257,6 +297,82 @@ function writeRoutingLogRow({ projectDir, logRoot, skillOrAgent, tier, rawQuery,
   return row;
 }
 
+function isSubstrateTool(tool) {
+  return tool === SUBSTRATE_TOOL || tool === SUBSTRATE_TOOL_SHORT;
+}
+
+function substratePayloadDigest(payload) {
+  return crypto.createHash('sha256')
+    .update(Buffer.from(JSON.stringify(payload), 'utf8'))
+    .digest('hex');
+}
+
+function buildSubstrateArgs(intentFamily, input) {
+  const policy = SUBSTRATE_CALL_POLICY[intentFamily];
+  if (!policy) throw new Error('vtp_substrate_intent_unknown:' + String(intentFamily || ''));
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('vtp_substrate_input_invalid');
+  }
+
+  const allowed = new Set(['query', ...SECONDARY_SUBSTRATE_FILTERS]);
+  for (const key of Object.keys(input)) {
+    if (key === 'source_types' || key === 'limit') {
+      throw new Error('vtp_substrate_policy_owned_field:' + key);
+    }
+    if (!allowed.has(key)) throw new Error('vtp_substrate_input_unsupported:' + key);
+  }
+  if (typeof input.query !== 'string' || input.query.length < 3) {
+    throw new Error('vtp_substrate_query_invalid');
+  }
+
+  const payload = {
+    query: input.query,
+    source_types: policy.source_types.slice(),
+    limit: policy.limit,
+  };
+  for (const key of SECONDARY_SUBSTRATE_FILTERS) {
+    if (!Object.prototype.hasOwnProperty.call(input, key)) continue;
+    payload[key] = Array.isArray(input[key]) ? input[key].slice() : input[key];
+  }
+  return payload;
+}
+
+function prepareSubstrateCall(intentFamily, input) {
+  const payload = buildSubstrateArgs(intentFamily, input);
+  if (!validateSubstratePayload(payload)) {
+    throw new Error('vtp_substrate_payload_invalid');
+  }
+  return {
+    tool: SUBSTRATE_TOOL,
+    payload,
+    gateway_evidence: {
+      schema_version: SUBSTRATE_SCHEMA_VERSION,
+      intent_family: intentFamily,
+      payload_sha256: substratePayloadDigest(payload),
+    },
+  };
+}
+
+function validatePreparedSubstrateCall(candidate) {
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false;
+  if (!isSubstrateTool(candidate.tool)) return false;
+  if (!candidate.payload || typeof candidate.payload !== 'object' || Array.isArray(candidate.payload)) return false;
+  const evidence = candidate.gateway_evidence;
+  if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence)) return false;
+  if (evidence.schema_version !== SUBSTRATE_SCHEMA_VERSION) return false;
+  const policy = SUBSTRATE_CALL_POLICY[evidence.intent_family];
+  if (!policy) return false;
+  if (evidence.payload_sha256 !== substratePayloadDigest(candidate.payload)) return false;
+  if (!validateSubstratePayload(candidate.payload)) return false;
+  if (candidate.payload.limit !== policy.limit) return false;
+  if (!Array.isArray(candidate.payload.source_types)) return false;
+  if (candidate.payload.source_types.length !== policy.source_types.length) return false;
+  for (let index = 0; index < policy.source_types.length; index += 1) {
+    if (candidate.payload.source_types[index] !== policy.source_types[index]) return false;
+  }
+  return true;
+}
+
 /**
  * Date.now()-bracketed VTP MCP wrapper. Single measurement point for elapsed_ms
  * (per E-03 — VTP tools do not return this natively). Writes a routing-log row
@@ -278,7 +394,7 @@ function writeRoutingLogRow({ projectDir, logRoot, skillOrAgent, tier, rawQuery,
  * @param {string}   args.rawQuery
  * @returns {Promise<{ok:boolean, response?:Object, elapsed_ms:number, reason?:string}>}
  */
-async function callVtp(tool, args) {
+function callVtp(tool, args) {
   const t0 = Date.now();
   const a = args || {};
   const rawQuery     = a.rawQuery     || '';
@@ -303,6 +419,29 @@ async function callVtp(tool, args) {
     return { ok: false, reason: 'query_too_short', elapsed_ms: 0 };
   }
 
+  let transportPayload = a.payload;
+  let gatewayEvidence = null;
+  if (isSubstrateTool(tool)) {
+    const payloadBypass = Object.prototype.hasOwnProperty.call(a, 'payload');
+    if (payloadBypass || !validatePreparedSubstrateCall(a.substrateCall)) {
+      const elapsed_ms = Date.now() - t0;
+      writeRoutingLogRow({
+        projectDir,
+        logRoot,
+        skillOrAgent,
+        tier,
+        rawQuery,
+        response: null,
+        elapsed_ms,
+        failureReason: 'substrate_payload_invalid',
+        status: 'validation_error',
+      });
+      return { ok: false, reason: 'substrate_payload_invalid', elapsed_ms };
+    }
+    transportPayload = a.substrateCall.payload;
+    gatewayEvidence = a.substrateCall.gateway_evidence;
+  }
+
   if (typeof a.mcpInvoke !== 'function') {
     // No injected invoker — return a structured failure rather than throwing.
     // Lets test fixtures and dry-runs exercise the code path cleanly.
@@ -321,12 +460,15 @@ async function callVtp(tool, args) {
     return { ok: false, reason: 'no_mcp_invoke', elapsed_ms };
   }
 
-  try {
-    const response   = await a.mcpInvoke(tool, a.payload);
+  function onSuccess(response) {
     const elapsed_ms = Date.now() - t0;
     writeRoutingLogRow({ projectDir, logRoot, skillOrAgent, tier, rawQuery, response, elapsed_ms });
-    return { ok: true, response, elapsed_ms };
-  } catch (err) {
+    const result = { ok: true, response, elapsed_ms };
+    if (gatewayEvidence) result.gateway_evidence = gatewayEvidence;
+    return result;
+  }
+
+  function onFailure(err) {
     const elapsed_ms = Date.now() - t0;
     const msg = (err && err.message) ? err.message : String(err);
     // Narrow-catch: swallow VTP/MCP/timeout shape errors; rethrow unknown.
@@ -339,6 +481,16 @@ async function callVtp(tool, args) {
     writeRoutingLogRow({ projectDir, logRoot, skillOrAgent, tier, rawQuery, response: null, elapsed_ms, failureReason: msg, status });
     return { ok: false, reason: msg, elapsed_ms };
   }
+
+  try {
+    const response = a.mcpInvoke(tool, transportPayload);
+    if (response && typeof response.then === 'function') {
+      return response.then(onSuccess, onFailure);
+    }
+    return onSuccess(response);
+  } catch (err) {
+    return onFailure(err);
+  }
 }
 
 /**
@@ -348,7 +500,17 @@ function resetCache() {
   _cache = null;
 }
 
-module.exports = { compose, project, isFastPathEligible, callVtp, TIERS, resetCache };
+module.exports = {
+  compose,
+  project,
+  isFastPathEligible,
+  callVtp,
+  TIERS,
+  resetCache,
+  SUBSTRATE_CALL_POLICY,
+  buildSubstrateArgs,
+  prepareSubstrateCall,
+};
 
 // Non-exported helpers kept on the function table for self-test access only
 // (not part of the public contract).
@@ -357,6 +519,9 @@ module.exports._internal = {
   sanitizeRecentCommands,
   writeRoutingLogRow,
   extractRowFields,
+  isSubstrateTool,
+  validatePreparedSubstrateCall,
+  substratePayloadDigest,
   FAST_PATH_TIMEOUT_MS,
   BUDGET_EXCEEDED,
 };
@@ -367,8 +532,37 @@ module.exports._internal = {
 // .planning/metrics/ is untouched. Exits 0 on PASS, 1 on FAIL with reason.
 // ---------------------------------------------------------------------------
 
-if (require.main === module && process.argv.includes('--self-test')) {
-  runSelfTest();
+function cliArgValue(argv, name) {
+  const index = argv.indexOf(name);
+  return index === -1 ? null : (argv[index + 1] || null);
+}
+
+function runPrepareSubstrateCli(argv) {
+  try {
+    const intentFamily = cliArgValue(argv, '--intent');
+    const inputFile = cliArgValue(argv, '--input-file');
+    if (!intentFamily || !inputFile) throw new Error('vtp_substrate_cli_args_invalid');
+    const root = findSgsdRoot(process.cwd()) || fs.realpathSync(process.cwd());
+    const target = resolveContainedPath(root, inputFile);
+    if (!target || !fs.existsSync(target) || !fs.statSync(target).isFile()) {
+      throw new Error('vtp_substrate_input_file_uncontained');
+    }
+    const input = JSON.parse(fs.readFileSync(target, 'utf8').replace(/^\uFEFF/, ''));
+    const envelope = prepareSubstrateCall(intentFamily, input);
+    process.stdout.write(JSON.stringify(envelope) + '\n');
+    return 0;
+  } catch (error) {
+    const reason = error && error.message ? error.message : String(error);
+    process.stderr.write('vtp_prepare_substrate_call_failed:' + reason + '\n');
+    return 1;
+  }
+}
+
+if (require.main === module) {
+  if (process.argv.includes('--self-test')) runSelfTest();
+  else if (process.argv.includes('--prepare-substrate-call')) {
+    process.exitCode = runPrepareSubstrateCli(process.argv.slice(2));
+  }
 }
 
 function runSelfTest() {

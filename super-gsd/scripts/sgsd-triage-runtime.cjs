@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 
 const vtpContextComposer = require('./lib/vtp-context-composer.cjs');
-const { compose, project, callVtp } = vtpContextComposer;
+const { compose, project, callVtp, prepareSubstrateCall } = vtpContextComposer;
 const {
   findSgsdRoot,
   resolveContainedPath,
@@ -306,14 +306,16 @@ function callArgs(root, rawQuery, payload, options) {
     skillOrAgent: options.skillOrAgent || DEFAULT_SKILL_OR_AGENT,
     tier: 'triage',
     rawQuery,
-    payload,
     mcpInvoke: options.mcpInvoke,
   };
 }
 
 async function safeCallVtp(tool, root, rawQuery, payload, options, exceptionReason) {
   try {
-    return await callVtp(tool, callArgs(root, rawQuery, shapeMcpArgs(tool, payload), options));
+    const transportArgs = tool === SEARCH_TOOL
+      ? { substrateCall: payload }
+      : { payload: shapeMcpArgs(tool, payload) };
+    return await callVtp(tool, { ...callArgs(root, rawQuery, payload, options), ...transportArgs });
   } catch (error) {
     return {
       ok: false,
@@ -458,24 +460,31 @@ function shapeMcpArgs(tool, candidate) {
     return { raw_query: input.raw_query, context };
   }
   if (tool === SEARCH_TOOL) {
-    const shaped = { query: input.query };
-    for (const key of ['limit', 'source_types', 'entity_types', 'project_ids', 'speaker_ids', 'topics', 'meeting_ids']) {
-      if (Object.prototype.hasOwnProperty.call(input, key) && input[key] !== undefined) shaped[key] = input[key];
-    }
-    return shaped;
+    return { query: input.query };
   }
   throw new Error(`vtp_mcp_arg_tool_unknown:${tool}`);
 }
 
 function stageInvokeResult(tool, args, responseRel, extras = {}) {
+  let emittedArgs = shapeMcpArgs(tool, args);
+  let gatewayEvidence = null;
+  if (tool === SEARCH_TOOL) {
+    const validator = vtpContextComposer._internal.validatePreparedSubstrateCall;
+    if (typeof validator !== 'function' || !validator(args)) {
+      throw new Error('vtp_substrate_payload_invalid');
+    }
+    emittedArgs = args.payload;
+    gatewayEvidence = args.gateway_evidence;
+  }
   return {
     stageProtocol: true,
     exitCode: 0,
     action: 'invoke_mcp',
     tool: shortStageTool(tool),
     mcp_tool: tool,
-    args: shapeMcpArgs(tool, args),
+    args: emittedArgs,
     response_file: responseRel.replace(/\\/g, '/'),
+    ...(gatewayEvidence ? { gateway_evidence: gatewayEvidence } : {}),
     ...extras,
   };
 }
@@ -637,12 +646,11 @@ function loadStagedVtpForRun(root, state, rawQuery, triageSlice, evidenceRel, op
   const evidencePath = existingStagedEvidencePath(root, evidenceRel);
   if (meta.routeResponse) {
     const fallbackPredicateValue = meta.fallbackPredicate || null;
-    const fallbackPayload = shapeMcpArgs(SEARCH_TOOL, meta.fallbackPayload || {
-      raw_query: rawQuery,
-      query: rawQuery,
-      context: triageSlice,
-      fallback_reason: fallbackPredicateValue,
-    });
+    const fallbackSubstrateCall = meta.fallbackSubstrateCall
+      || prepareSubstrateCall('triage', { query: rawQuery });
+    const stagedValidator = vtpContextComposer._internal.validatePreparedSubstrateCall;
+    if (typeof stagedValidator !== 'function' || !stagedValidator(fallbackSubstrateCall)) return null;
+    const fallbackPayload = fallbackSubstrateCall.payload;
     const reasonCode = stagedFallbackReasonCode(fallbackPredicateValue);
     const degradationRow = reasonCode ? findStagedDegradationRow(root, {
       reasonCode,
@@ -794,12 +802,8 @@ async function runVtpStage(root, state, rawQuery, triageSlice, evidenceRel, opti
             fallback_predicate: predicate.predicate,
           },
         }));
-        const fallbackPayload = shapeMcpArgs(SEARCH_TOOL, {
-          raw_query: rawQuery,
-          query: rawQuery,
-          context: triageSlice,
-          fallback_reason: predicate.predicate,
-        });
+        const fallbackSubstrateCall = prepareSubstrateCall('triage', { query: rawQuery });
+        const fallbackPayload = fallbackSubstrateCall.payload;
         const responseRel = vtpStageResponseRel(state, `fallback-${predicate.predicate}`);
         if (!ensureStageWriteTarget(root, responseRel)) {
           return completeStageDegraded(root, state, rawQuery, {
@@ -820,10 +824,11 @@ async function runVtpStage(root, state, rawQuery, triageSlice, evidenceRel, opti
           routePayload,
           routeResponse: loaded.response,
           fallbackPayload,
+          fallbackSubstrateCall,
           fallbackPredicate: predicate.predicate,
           evidenceRel,
         });
-        return stageInvokeResult(SEARCH_TOOL, fallbackPayload, responseRel, {
+        return stageInvokeResult(SEARCH_TOOL, fallbackSubstrateCall, responseRel, {
           stage,
           fallbackAttempted: true,
           fallbackPredicate: predicate.predicate,
@@ -854,12 +859,23 @@ async function runVtpStage(root, state, rawQuery, triageSlice, evidenceRel, opti
 
     if (stage === VTP_STAGE_FINALIZE) {
       const meta = readStageMeta(root, options.responseFile) || {};
-      const fallbackPayload = shapeMcpArgs(SEARCH_TOOL, meta.fallbackPayload || {
-        raw_query: rawQuery,
-        query: rawQuery,
-        context: triageSlice,
-        fallback_reason: meta.fallbackPredicate || null,
-      });
+      const fallbackSubstrateCall = meta.fallbackSubstrateCall
+        || prepareSubstrateCall('triage', { query: rawQuery });
+      const substrateValidator = vtpContextComposer._internal.validatePreparedSubstrateCall;
+      if (typeof substrateValidator !== 'function' || !substrateValidator(fallbackSubstrateCall)) {
+        return completeStageDegraded(root, state, rawQuery, {
+          reasonCode: 'substrate_payload_invalid',
+          evidenceRel,
+          routeOk: Boolean(meta.routeResponse),
+          fallbackAttempted: true,
+          fallbackPredicate: meta.fallbackPredicate || null,
+          routePayload: meta.routePayload || routePayload,
+          fallbackPayload: null,
+          skillOrAgent: options.skillOrAgent,
+          silent: options.silent,
+        });
+      }
+      const fallbackPayload = fallbackSubstrateCall.payload;
       const loaded = readStageResponseFile(root, options.responseFile);
       if (!loaded.ok) {
         return completeStageDegraded(root, state, rawQuery, {
@@ -934,6 +950,7 @@ function serializeStageResult(result) {
       tool: boundedString(r.tool, 100),
       mcp_tool: boundedString(r.mcp_tool, 150),
       args: boundedValue(r.args || {}),
+      ...(r.gateway_evidence ? { gateway_evidence: boundedValue(r.gateway_evidence) } : {}),
       response_file: boundedString(r.response_file, 500),
       fallbackAttempted: r.fallbackAttempted === true,
       fallbackPredicate: boundedString(r.fallbackPredicate, 100),
@@ -1646,17 +1663,13 @@ async function runTriageRuntime(options = {}) {
   }
 
   if (fallbackAttempted && !stagedVtp) {
-    fallbackPayload = shapeMcpArgs(SEARCH_TOOL, {
-      raw_query: rawQuery,
-      query: rawQuery,
-      context: triageSlice,
-      fallback_reason: fallbackReason,
-    });
+    const fallbackSubstrateCall = prepareSubstrateCall('triage', { query: rawQuery });
+    fallbackPayload = fallbackSubstrateCall.payload;
     fallbackResult = await safeCallVtp(
       SEARCH_TOOL,
       root,
       rawQuery,
-      fallbackPayload,
+      fallbackSubstrateCall,
       options,
       'vtp_fallback_exception'
     );

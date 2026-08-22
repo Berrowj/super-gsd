@@ -69,6 +69,7 @@ const crypto = require('crypto');
 // ----------------------------------------------------------------------------
 const route = require('../dispatch-router/route.cjs');
 const ledger = require('../../scripts/lib/route-ledger.cjs');
+const vtpComposer = require('../../scripts/lib/vtp-context-composer.cjs');
 
 // Phase 41 sanity: PROVIDERS must include 'vtp'.
 (function _assertProvidersIncludeVtp() {
@@ -99,9 +100,8 @@ const QUERY_MAX_LEN = 10000;
 const VTP_TOOL_MAP = Object.freeze({
   architecture_challenge: Object.freeze({
     tool: 'vtp_search_substrate',
-    args_template: Object.freeze({
-      source_types: Object.freeze(['research', 'wiki_page']),
-    }),
+    intent_family: 'architecture_challenge',
+    args_template: Object.freeze({}),
     rationale: 'architecture-level cross-domain corpus search across research papers + wiki analyses',
   }),
   prior_memory_lookup: Object.freeze({
@@ -114,11 +114,9 @@ const VTP_TOOL_MAP = Object.freeze({
   }),
   book_lookup: Object.freeze({
     tool: 'vtp_search_substrate',
-    args_template: Object.freeze({
-      source_types: Object.freeze(['wiki_page']),
-      resource_subtype_filter: 'book',
-    }),
-    rationale: 'book-content lookup via substrate search filtered to resource_subtype=book',
+    intent_family: 'book_lookup',
+    args_template: Object.freeze({}),
+    rationale: 'book-content lookup via substrate search with client-side wiki/books path filtering',
   }),
   research_external_validation: Object.freeze({
     tool: 'vtp_route_and_retrieve',
@@ -528,6 +526,25 @@ function _callVtpToolShim(toolName, args, timeoutMs, _force_response) {
   throw e;
 }
 
+function _filterBookLookupResponse(response) {
+  function isBookHit(hit) {
+    if (!hit || typeof hit !== 'object') return false;
+    const relPath = String(hit.rel_path || '')
+      .replace(/\\/g, '/')
+      .replace(/^\/+/, '')
+      .toLowerCase();
+    return relPath.startsWith('wiki/books/');
+  }
+  if (Array.isArray(response)) return response.filter(isBookHit);
+  if (!response || typeof response !== 'object') return response;
+  for (const key of ['results', 'hits', 'items']) {
+    if (Array.isArray(response[key])) {
+      return Object.assign({}, response, { [key]: response[key].filter(isBookHit) });
+    }
+  }
+  return response;
+}
+
 // ----------------------------------------------------------------------------
 // PRIVATE: _selectiveVTPCallInternal -- 5-gate decision flow
 // ----------------------------------------------------------------------------
@@ -605,11 +622,38 @@ function _selectiveVTPCallInternal(input) {
   // Gate 4: dispatch shim with timeout.
   let mcpResponse;
   try {
-    const args = Object.assign({ query: typeof query === 'string' ? query : '' }, toolEntry.args_template);
-    // Materialize nested frozen tier/source_types arrays (avoid leaking frozen refs).
-    if (Array.isArray(args.source_types)) args.source_types = args.source_types.slice();
-    if (Array.isArray(args.tier)) args.tier = args.tier.slice();
-    mcpResponse = _callVtpToolShim(toolName, args, cfg.per_query_timeout_ms, input._force_vtp_tool_response);
+    if (toolName === 'vtp_search_substrate') {
+      const prepared = input._force_substrate_call
+        || vtpComposer.prepareSubstrateCall(toolEntry.intent_family, { query });
+      const callResult = vtpComposer.callVtp(toolName, {
+        rawQuery: query,
+        projectDir: path.dirname(planningDir),
+        logRoot: path.dirname(planningDir),
+        skillOrAgent: 'vtp-bridge-' + ucType,
+        tier: 'research',
+        substrateCall: prepared,
+        mcpInvoke: function (emittedTool, payload) {
+          return _callVtpToolShim(
+            emittedTool,
+            payload,
+            cfg.per_query_timeout_ms,
+            input._force_vtp_tool_response
+          );
+        },
+      });
+      if (callResult && typeof callResult.then === 'function') {
+        throw new Error('VALIDATION_async_substrate_transport_not_supported');
+      }
+      if (!callResult || callResult.ok !== true) {
+        throw new Error('VALIDATION_' + (callResult && callResult.reason || 'substrate_payload_invalid'));
+      }
+      mcpResponse = callResult.response;
+      if (ucType === 'book_lookup') mcpResponse = _filterBookLookupResponse(mcpResponse);
+    } else {
+      const args = Object.assign({ query: typeof query === 'string' ? query : '' }, toolEntry.args_template);
+      if (Array.isArray(args.tier)) args.tier = args.tier.slice();
+      mcpResponse = _callVtpToolShim(toolName, args, cfg.per_query_timeout_ms, input._force_vtp_tool_response);
+    }
   } catch (err) {
     const kind = _classifyError(err);
     const reason = _reasonForFailureKind(kind);
@@ -726,6 +770,7 @@ function _runSelfTest() {
     // Assertion 1 (F1): architecture_challenge -> vtp_search_substrate, 3 results.
     // ------------------------------------------------------------------
     try {
+      let architectureArgs = null;
       const fixture = {
         results: [
           { doc_id: 'paper-001', title: 'Event Sourcing Tradeoffs', citation: 'Vernon 2013 p.42', excerpt: 'Trade-off A', score: 0.9 },
@@ -739,7 +784,10 @@ function _runSelfTest() {
         planningDir: tmpPlanning,
         phase: 48,
         milestone: 'v1.9',
-        _force_vtp_tool_response: fixture,
+        _force_vtp_tool_response: function (toolName, args) {
+          architectureArgs = { toolName: toolName, args: args };
+          return fixture;
+        },
         _force_vtp_health: true,
       });
       if (packet.ok !== true) throw new Error('ok=' + packet.ok);
@@ -749,6 +797,11 @@ function _runSelfTest() {
       if (packet.root_source_hashes.length !== 3) throw new Error('root_source_hashes.length=' + packet.root_source_hashes.length);
       if (packet.reason_codes.indexOf('vtp_call_succeeded') === -1) throw new Error('missing reason_codes vtp_call_succeeded');
       if (packet.compression_level !== 'validated_thought') throw new Error('compression_level=' + packet.compression_level);
+      if (!architectureArgs) throw new Error('architecture shim not invoked');
+      if (architectureArgs.args.limit !== 3) throw new Error('architecture limit=' + architectureArgs.args.limit);
+      if (architectureArgs.args.source_types.join(',') !== 'research_paper,wiki_page') {
+        throw new Error('architecture source_types=' + architectureArgs.args.source_types.join(','));
+      }
       ok('1. F1 architecture_challenge -> vtp_search_substrate (3 results)');
     } catch (e) { failAssert('1. F1 architecture_challenge', e.message); }
 
@@ -760,7 +813,7 @@ function _runSelfTest() {
       fs.mkdirSync(path.join(failPlanning, 'metrics'), { recursive: true });
       const packet = selectiveVTPCall({
         uncertainty_type: 'architecture_challenge',
-        query: 'X',
+        query: 'timeout query',
         planningDir: failPlanning,
         _force_vtp_health: true,
         _force_vtp_tool_response: function () { throw new Error('TIMEOUT_30000ms'); },
@@ -792,13 +845,20 @@ function _runSelfTest() {
       const big = [];
       const filler = new Array(500).fill('lorem').join(' ');
       for (let i = 0; i < 10; i++) {
-        big.push({ doc_id: 'big-' + i, title: 'B' + i, citation: 'cite-' + i, excerpt: filler, score: 1 - i * 0.05 });
+        big.push({
+          doc_id: 'big-' + i,
+          rel_path: 'wiki/books/big-' + i + '.md',
+          title: 'B' + i,
+          citation: 'cite-' + i,
+          excerpt: filler,
+          score: 1 - i * 0.05,
+        });
       }
       const f3Planning = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'vtp-f3-')), '.planning');
       fs.mkdirSync(path.join(f3Planning, 'metrics'), { recursive: true });
       const packet = selectiveVTPCall({
         uncertainty_type: 'book_lookup',
-        query: 'X',
+        query: 'book packet cap query',
         planningDir: f3Planning,
         _force_vtp_health: true,
         routes_yaml: { vtp_bridge: { evidence_packet_max_tokens: 2000 } },
@@ -812,7 +872,7 @@ function _runSelfTest() {
     } catch (e) { failAssert('3. F3 evidence_packet cap', e.message); }
 
     // ------------------------------------------------------------------
-    // Assertion 4 (F4): book_lookup -> vtp_search_substrate + resource_subtype_filter:'book'.
+    // Assertion 4 (F4): book_lookup uses v2 policy and client-side book filtering.
     // ------------------------------------------------------------------
     try {
       let capturedArgs = null;
@@ -825,14 +885,62 @@ function _runSelfTest() {
         _force_vtp_health: true,
         _force_vtp_tool_response: function (toolName, args) {
           capturedArgs = { toolName: toolName, args: args };
-          return { results: [{ doc_id: 'b-1', citation: 'Taleb 2012 p.10', excerpt: 'note' }] };
+          return { results: [
+            {
+              doc_id: 'b-1',
+              rel_path: 'wiki/books/antifragile.md',
+              citation: 'Taleb 2012 p.10',
+              excerpt: 'note',
+            },
+            {
+              doc_id: 'm-1',
+              rel_path: 'wiki/meetings/not-a-book.md',
+              citation: 'meeting note',
+              excerpt: 'reject',
+            },
+          ] };
         },
       });
       if (packet.vtp_tool !== 'vtp_search_substrate') throw new Error('vtp_tool=' + packet.vtp_tool);
       if (!capturedArgs) throw new Error('shim not invoked');
       if (capturedArgs.toolName !== 'vtp_search_substrate') throw new Error('toolName=' + capturedArgs.toolName);
-      if (capturedArgs.args.resource_subtype_filter !== 'book') throw new Error('missing resource_subtype_filter=book');
-      ok('4. F4 book_lookup -> vtp_search_substrate(resource_subtype_filter=book)');
+      if (capturedArgs.args.limit !== 5) throw new Error('book limit=' + capturedArgs.args.limit);
+      if (capturedArgs.args.source_types.join(',') !== 'wiki_page') {
+        throw new Error('book source_types=' + capturedArgs.args.source_types.join(','));
+      }
+      if (Object.prototype.hasOwnProperty.call(capturedArgs.args, 'resource_subtype_filter')) {
+        throw new Error('unsupported resource_subtype_filter emitted');
+      }
+      if (packet.results.length !== 1 || packet.results[0].doc_id !== 'b-1') {
+        throw new Error('client-side book filtering failed');
+      }
+      let invalidShimCalls = 0;
+      const validPrepared = vtpComposer.prepareSubstrateCall('book_lookup', {
+        query: 'invalid prepared book query',
+      });
+      const invalidPayload = Object.assign({}, validPrepared.payload, { limit: 6 });
+      const invalidPrepared = Object.assign({}, validPrepared, {
+        payload: invalidPayload,
+        gateway_evidence: Object.assign({}, validPrepared.gateway_evidence, {
+          payload_sha256: vtpComposer._internal.substratePayloadDigest(invalidPayload),
+        }),
+      });
+      const invalidPacket = selectiveVTPCall({
+        uncertainty_type: 'book_lookup',
+        query: 'invalid prepared book query',
+        planningDir: f4Planning,
+        _force_vtp_health: true,
+        _force_substrate_call: invalidPrepared,
+        _force_vtp_tool_response: function () {
+          invalidShimCalls++;
+          return { results: [] };
+        },
+      });
+      if (invalidShimCalls !== 0) throw new Error('invalid prepared payload reached shim');
+      if (invalidPacket.reason_codes.indexOf('vtp_call_validation_failed') === -1) {
+        throw new Error('invalid prepared payload did not fail validation');
+      }
+      ok('4. F4 book_lookup v2 policy, client filter, and invalid-payload refusal');
     } catch (e) { failAssert('4. F4 book_lookup tool mapping', e.message); }
 
     // ------------------------------------------------------------------
@@ -843,7 +951,7 @@ function _runSelfTest() {
       fs.mkdirSync(path.join(f5Planning, 'metrics'), { recursive: true });
       const packet = selectiveVTPCall({
         uncertainty_type: 'synthesis_judgment',
-        query: 'X',
+        query: 'provider health query',
         planningDir: f5Planning,
         _force_vtp_health: true,
         _force_vtp_tool_response: function () { throw new Error('SHOULD_NOT_BE_CALLED'); },
@@ -864,7 +972,7 @@ function _runSelfTest() {
       fs.mkdirSync(path.join(f6Planning, 'metrics'), { recursive: true });
       const packet = selectiveVTPCall({
         uncertainty_type: 'architecture_challenge',
-        query: 'X',
+        query: 'mixed provenance query',
         planningDir: f6Planning,
         _force_vtp_health: false,
         _force_vtp_tool_response: function () { throw new Error('SHOULD_NOT_BE_CALLED'); },
@@ -909,7 +1017,7 @@ function _runSelfTest() {
       fs.mkdirSync(path.join(f8Planning, 'metrics'), { recursive: true });
       const packet = selectiveVTPCall({
         uncertainty_type: 'architecture_challenge',
-        query: 'X',
+        query: 'mixed provenance query',
         planningDir: f8Planning,
         _force_vtp_health: true,
         _force_vtp_tool_response: fixture,

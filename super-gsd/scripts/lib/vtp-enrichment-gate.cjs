@@ -29,6 +29,7 @@
 const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
+const { prepareSubstrateCall } = require('./vtp-context-composer.cjs');
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -358,6 +359,7 @@ function composeSubAgentSpec(opts) {
     sub_agent_type: 'sgsd-vtp-enrichment',
     model: 'codex',
     seed,
+    substrate_call: prepareSubstrateCall('enrichment', { query: seed }),
     tools: VTP_TOOLS,
     cascade_rule: 'tools 1+2 always; tools 3+4+5 only if hits > 0 from tools 1+2 (D-01); cap 5 queries (D-03)',
     artifact_filename: buildArtifactFilename(phase),

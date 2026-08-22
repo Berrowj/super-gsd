@@ -1487,7 +1487,13 @@ async function assertStagedVtpNullReflectionFallback() {
     const fallbackInstruction = invokeVtpConsumeStage(fixture, queryRel, plan.response_file, 'vtp-consume null-reflection');
     assert.strictEqual(fallbackInstruction.action, 'invoke_mcp');
     assert.strictEqual(fallbackInstruction.tool, 'vtp_search_substrate');
-    assert.deepStrictEqual(fallbackInstruction.args, { query: rawQuery });
+    assert.deepStrictEqual(fallbackInstruction.args, {
+      query: rawQuery,
+      source_types: ['research_paper', 'wiki_page'],
+      limit: 3,
+    });
+    assert.strictEqual(fallbackInstruction.gateway_evidence.schema_version, 'vtp-mcp-input-schemas.v2');
+    assert.strictEqual(fallbackInstruction.gateway_evidence.intent_family, 'triage');
     contained(fixture.repoDir, fallbackInstruction.response_file);
 
     const rows = gateRowsWithReason(fixture, 'vtp_fallback_reflection_null');

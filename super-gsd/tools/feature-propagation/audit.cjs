@@ -59,7 +59,22 @@ const REQUIRED_LEGACY_AGENT_PATCHES = Object.freeze([
   {
     name: 'gsd-planner.md',
     marker: '<sgsd_vtp_enrichment_contract>',
+    p166Marker: '<sgsd_vtp_substrate_policy_p166_planning>',
+    p166Append: [
+      '',
+      '<sgsd_vtp_substrate_policy_p166_planning>',
+      '## SGSD P166 Substrate Call Policy',
+      '',
+      'Use Bash to write a contained JSON query input under .planning/tmp, then run:',
+      'node super-gsd/scripts/lib/vtp-context-composer.cjs --prepare-substrate-call --intent planning --input-file <relative-json-path>',
+      'Pass the returned payload verbatim to mcp__vtp-kb__vtp_search_substrate.',
+      'Record the exact payload and matching gateway_evidence together. If preparation',
+      'fails or evidence is missing, do not issue a raw substrate call.',
+      '</sgsd_vtp_substrate_policy_p166_planning>',
+      '',
+    ].join('\n'),
     tools: Object.freeze([
+      'Bash',
       'mcp__vtp-kb__vtp_route_and_retrieve',
       'mcp__vtp-kb__vtp_search',
       'mcp__vtp-kb__vtp_search_substrate',
@@ -94,7 +109,22 @@ called an mcp__vtp-kb__* tool in this dispatch.
   {
     name: 'gsd-phase-researcher.md',
     marker: '<sgsd_vtp_research_contract>',
+    p166Marker: '<sgsd_vtp_substrate_policy_p166_phase_research>',
+    p166Append: [
+      '',
+      '<sgsd_vtp_substrate_policy_p166_phase_research>',
+      '## SGSD P166 Substrate Call Policy',
+      '',
+      'Use Bash to write a contained JSON query input under .planning/tmp, then run:',
+      'node super-gsd/scripts/lib/vtp-context-composer.cjs --prepare-substrate-call --intent phase_research --input-file <relative-json-path>',
+      'Pass the returned payload verbatim to mcp__vtp-kb__vtp_search_substrate.',
+      'Record the exact payload and matching gateway_evidence together. If preparation',
+      'fails or evidence is missing, do not issue a raw substrate call.',
+      '</sgsd_vtp_substrate_policy_p166_phase_research>',
+      '',
+    ].join('\n'),
     tools: Object.freeze([
+      'Bash',
       'mcp__vtp-kb__vtp_route_and_retrieve',
       'mcp__vtp-kb__vtp_search',
       'mcp__vtp-kb__vtp_search_substrate',
@@ -370,6 +400,11 @@ function installGlobalLegacyAgentPatches(ctx, actions) {
       actions.push({ action: 'append_legacy_agent_patch', to: p, marker: spec.marker });
       changed = true;
     }
+    if (spec.p166Marker && txt.indexOf(spec.p166Marker) === -1) {
+      fs.appendFileSync(p, spec.p166Append, 'utf8');
+      actions.push({ action: 'append_legacy_agent_patch', to: p, marker: spec.p166Marker });
+      changed = true;
+    }
     if (changed) repaired.push(spec.name);
   }
   return repaired;
@@ -464,6 +499,8 @@ function auditGlobalLegacyAgentPatches(ctx) {
       installed: Boolean(txt),
       marker: spec.marker,
       patched: Boolean(txt && txt.indexOf(spec.marker) !== -1),
+      p166_marker: spec.p166Marker || null,
+      p166_patched: spec.p166Marker ? Boolean(txt && txt.indexOf(spec.p166Marker) !== -1) : true,
       missing_tools: missingTools,
     });
   }
@@ -704,7 +741,9 @@ function runAudit(opts) {
   const missingGlobal = globalAgents.filter((r) => !r.installed || r.drifted);
   const staleLegacyExecutor = globalAgents.filter((r) => r.name === 'gsd-executor.md' && (!r.installed || r.drifted || !r.disabled_legacy_executor));
   const missingGlobalSkills = globalSkills.filter((r) => !r.installed || r.drifted);
-  const missingLegacyPatches = globalLegacyAgents.filter((r) => !r.installed || !r.patched || (r.missing_tools || []).length);
+  const missingLegacyPatches = globalLegacyAgents.filter((r) => (
+    !r.installed || !r.patched || !r.p166_patched || (r.missing_tools || []).length
+  ));
   const missingVtpAgents = globalAgents.filter((r) => r.required_vtp_agent && !r.installed);
   const driftedLocal = localShadows.filter((r) => r.drifted);
   const activeLocalShadows = localShadows.filter((r) => r.shadow_type !== 'project_only');
