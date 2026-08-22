@@ -542,6 +542,67 @@ function assertPromptRecordAcceptance(composer, expected) {
       /substrate_call_record/,
       'the real enrichment acceptance path must reject a missing record'
     );
+    const recordlessApiError = {
+      ok: false,
+      error: 'simulated transport failure before a call record was emitted',
+    };
+    assert.strictEqual(
+      Object.prototype.hasOwnProperty.call(recordlessApiError, 'substrate_call_record'),
+      false,
+      'the api-error fixture must exercise a wholly absent record property'
+    );
+    assert.throws(
+      () => gate.run({
+        ...gateInput,
+        substrateCall: preparedCall,
+        enrichmentResult: recordlessApiError,
+      }),
+      /substrate_call_record_missing/,
+      'the real enrichment acceptance path must fail closed on a recordless api error'
+    );
+    assert.throws(
+      () => gate.run({
+        ...gateInput,
+        substrateCall: preparedCall,
+        enrichmentResult: {
+          ok: false,
+          error: 'simulated transport failure with invalid evidence',
+          substrate_call_record: {
+            ...record,
+            gateway_evidence: { ...record.gateway_evidence, payload_sha256: 'e'.repeat(64) },
+          },
+        },
+      }),
+      /digest/,
+      'the real enrichment acceptance path must reject an invalid api-error record'
+    );
+    const acceptedApiError = gate.run({
+      ...gateInput,
+      substrateCall: preparedCall,
+      enrichmentResult: {
+        ok: false,
+        error: 'simulated MCP transport failure',
+        substrate_call_record: record,
+      },
+    });
+    assert.strictEqual(acceptedApiError.status, 'api_error');
+    assert.match(fs.readFileSync(acceptedApiError.artifact_path, 'utf8'), /## API Error/);
+    const acceptedEmptyHit = gate.run({
+      ...gateInput,
+      substrateCall: preparedCall,
+      enrichmentResult: {
+        ok: true,
+        query_count: 2,
+        total_hits: 0,
+        duration_ms: 1,
+        hits: [],
+        substrate_call_record: record,
+      },
+    });
+    assert.strictEqual(acceptedEmptyHit.status, 'empty_hit');
+    const emptyHitArtifact = fs.readFileSync(acceptedEmptyHit.artifact_path, 'utf8');
+    assert.match(emptyHitArtifact, /vtp_status: empty_hit/);
+    assert.doesNotMatch(emptyHitArtifact, /## API Error/);
     assert.throws(
       () => gate.run({ ...gateInput, enrichmentResult: result }),
       /prepared_call/,
@@ -604,6 +665,7 @@ function assertPromptRecordAcceptance(composer, expected) {
     const accepted = gate.run({ ...gateInput, substrateCall: preparedCall, enrichmentResult: result });
     assert.strictEqual(accepted.status, 'success');
     assert(fs.existsSync(accepted.artifact_path));
+    assert.doesNotMatch(fs.readFileSync(accepted.artifact_path, 'utf8'), /## API Error/);
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }

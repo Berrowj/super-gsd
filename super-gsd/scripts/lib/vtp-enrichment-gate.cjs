@@ -415,17 +415,14 @@ function run(opts) {
 
   // If enrichmentResult is provided (post-sub-agent injection): write artifact
   if (enrichmentResult) {
-    const hasRecord = Object.prototype.hasOwnProperty.call(enrichmentResult, 'substrate_call_record');
-    if (enrichmentResult.ok !== false && !enrichmentResult.substrate_call_record) {
+    if (!enrichmentResult.substrate_call_record) {
       throw new Error('vtp_prompt_substrate_contract_invalid:substrate_call_record_missing');
     }
-    if (enrichmentResult.ok !== false || hasRecord) {
-      acceptPromptSubstrateCallRecord(
-        'enrichment',
-        opts.substrateCall,
-        enrichmentResult.substrate_call_record
-      );
-    }
+    acceptPromptSubstrateCallRecord(
+      'enrichment',
+      opts.substrateCall,
+      enrichmentResult.substrate_call_record
+    );
     // Map callVtp status to gate status per output_contract (Pitfall 2 distinction)
     let status = 'success';
     if (enrichmentResult.ok === false) {
