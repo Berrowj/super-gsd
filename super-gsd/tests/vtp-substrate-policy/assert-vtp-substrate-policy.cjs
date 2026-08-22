@@ -594,6 +594,101 @@ function assertCapShapes() {
   assert.deepStrictEqual(normalized.degradation_notes[0], generatedNote);
   assert.strictEqual(sha256Json(injected), injectedHash);
 
+  delete require.cache[require.resolve(bridgePath)];
+  const bridge = require(bridgePath);
+  const bridgeRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-bridge-cap-'));
+  try {
+    const planningDir = path.join(bridgeRoot, '.planning');
+    const exactCeilingInput = {
+      uncertainty_type: 'architecture_challenge',
+      query: 'P166 exact packet ceiling with degradation note',
+      planningDir,
+      routes_yaml: {
+        vtp_bridge: {
+          evidence_packet_max_tokens: 6,
+          per_query_timeout_ms: 120000,
+          retry_on_timeout: false,
+        },
+      },
+      _force_vtp_health: true,
+      _force_vtp_tool_response: {
+        hits: [{
+          doc_id: 'doc:ceiling',
+          citation: 'gamma',
+          title: 'alpha',
+          excerpt: 'beta',
+          text: 'x'.repeat(16001),
+        }],
+      },
+    };
+    const exactCeiling = bridge.selectiveVTPCall(exactCeilingInput);
+    assert.strictEqual(exactCeiling.results.length, 1, 'result plus note must fit at the exact ceiling');
+    assert.strictEqual(exactCeiling.results[0].degradation_notes.length, 1);
+    assert.strictEqual(exactCeiling.body_token_estimate, 6, 'reported estimate must land on the configured cap');
+
+    const belowCeiling = bridge.selectiveVTPCall({
+      ...exactCeilingInput,
+      routes_yaml: {
+        vtp_bridge: {
+          ...exactCeilingInput.routes_yaml.vtp_bridge,
+          evidence_packet_max_tokens: 5,
+        },
+      },
+    });
+    assert.strictEqual(belowCeiling.results.length, 0, 'one token below the exact ceiling must elide the result');
+    assert(belowCeiling.body_token_estimate <= 5, 'reported estimate must not exceed the configured cap');
+    assert.strictEqual(belowCeiling.elided_count, 1);
+    assert(belowCeiling.reason_codes.includes('evidence_packet_size_capped'));
+
+    const bookPacket = bridge.selectiveVTPCall({
+      uncertainty_type: 'book_lookup',
+      query: 'P166 raw hit index through book filtering and elision',
+      planningDir,
+      routes_yaml: exactCeilingInput.routes_yaml,
+      _force_vtp_health: true,
+      _force_vtp_tool_response: {
+        hits: [
+          {
+            doc_id: 'doc:shared',
+            rel_path: 'wiki/meetings/not-a-book.md',
+            citation: 'cite-nonbook',
+            title: 'nonbook',
+            excerpt: 'excerpt-nonbook',
+            score: 0.95,
+            text: 'n'.repeat(16001),
+          },
+          {
+            doc_id: 'doc:shared',
+            rel_path: 'wiki/books/low.md',
+            citation: 'cite-low',
+            title: 'low',
+            excerpt: 'excerpt-low',
+            score: 0.1,
+            text: 'l'.repeat(16001),
+          },
+          {
+            doc_id: 'doc:shared',
+            rel_path: 'wiki/books/high.md',
+            citation: 'cite-high',
+            title: 'high',
+            excerpt: 'excerpt-high',
+            score: 0.9,
+            text: 'h'.repeat(16001),
+          },
+        ],
+      },
+    });
+    assert.strictEqual(bookPacket.results.length, 1, 'packet elision must keep only the highest-ranked book');
+    assert.strictEqual(bookPacket.results[0].title, 'high');
+    assert.deepStrictEqual(
+      bookPacket.results[0].degradation_notes.map((note) => [note.hit_index, note.rel_path]),
+      [[2, 'wiki/books/high.md']],
+      'book filtering and packet elision must preserve the raw hit index without cross-attachment'
+    );
+  } finally {
+    fs.rmSync(bridgeRoot, { recursive: true, force: true });
+  }
+
   const gateRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-cap-shapes-gate-'));
   try {
     writeFixtureFile(

@@ -282,7 +282,10 @@ function _enforcePacketCap(admitted, maxTokens) {
   for (let i = 0; i < ranked.length; i++) {
     const r = ranked[i];
     const text = String(r.title || '') + ' ' + String(r.excerpt || '') + ' ' + String(r.citation || '');
-    const cost = _estimateTokens(text);
+    const notes = Array.isArray(r.degradation_notes) && r.degradation_notes.length > 0
+      ? ' ' + JSON.stringify(r.degradation_notes)
+      : '';
+    const cost = _estimateTokens(text + notes);
     if (cumulative + cost <= cap) {
       kept.push(r);
       cumulative += cost;
@@ -405,7 +408,28 @@ function _buildEvidencePacket(uncertainty_type, query, mcpResponse, opts) {
     if (_assertResultProvenance(r)) {
       // Normalize doc_id field (accept legacy 'id').
       const docId = (typeof r.doc_id === 'string' && r.doc_id.length > 0) ? r.doc_id : r.id;
-      admitted.push(Object.assign({}, r, { doc_id: docId, _substrate_hit_index: rawIndex }));
+      const substrateHitIndex = Number.isInteger(r._substrate_hit_index)
+        ? r._substrate_hit_index
+        : rawIndex;
+      const resultDegradationNotes = degradationNotes
+        .filter((note) => note
+          && Number.isInteger(note.hit_index)
+          && note.hit_index === substrateHitIndex)
+        .map((note) => ({
+          reason_code: note.reason_code,
+          hit_index: note.hit_index,
+          identity: note.identity,
+          doc_id: note.doc_id,
+          rel_path: note.rel_path,
+          chunk_id: note.chunk_id,
+          original_chars: note.original_chars,
+          retained_chars: note.retained_chars,
+        }));
+      admitted.push(Object.assign({}, r, {
+        doc_id: docId,
+        _substrate_hit_index: substrateHitIndex,
+        degradation_notes: resultDegradationNotes,
+      }));
     } else {
       rejectedProvenanceCount++;
     }
@@ -443,24 +467,7 @@ function _buildEvidencePacket(uncertainty_type, query, mcpResponse, opts) {
       score: typeof r.score === 'number' ? r.score : null,
       source_type: typeof r.source_type === 'string' ? r.source_type : null,
     };
-    const resultDegradationNotes = degradationNotes
-      .filter((note) => note && (
-        note.identity === r.doc_id
-        || note.doc_id === r.doc_id
-        || (r.rel_path && note.rel_path === r.rel_path)
-        || (r.chunk_id && note.chunk_id === r.chunk_id)
-        || (Number.isInteger(note.hit_index) && note.hit_index === r._substrate_hit_index)
-      ))
-      .map((note) => ({
-        reason_code: note.reason_code,
-        hit_index: note.hit_index,
-        identity: note.identity,
-        doc_id: note.doc_id,
-        rel_path: note.rel_path,
-        chunk_id: note.chunk_id,
-        original_chars: note.original_chars,
-        retained_chars: note.retained_chars,
-      }));
+    const resultDegradationNotes = r.degradation_notes;
     if (resultDegradationNotes.length > 0) {
       sanitizedResult.degradation_notes = resultDegradationNotes;
     }
@@ -576,6 +583,24 @@ function _filterBookLookupResponse(response) {
   return response;
 }
 
+function _indexSubstrateResponse(response) {
+  function indexHits(hits) {
+    return hits.map((hit, hitIndex) => (
+      hit && typeof hit === 'object'
+        ? Object.assign({}, hit, { _substrate_hit_index: hitIndex })
+        : hit
+    ));
+  }
+  if (Array.isArray(response)) return indexHits(response);
+  if (!response || typeof response !== 'object') return response;
+  for (const key of ['results', 'hits', 'items']) {
+    if (Array.isArray(response[key])) {
+      return Object.assign({}, response, { [key]: indexHits(response[key]) });
+    }
+  }
+  return response;
+}
+
 // ----------------------------------------------------------------------------
 // PRIVATE: _selectiveVTPCallInternal -- 5-gate decision flow
 // ----------------------------------------------------------------------------
@@ -679,7 +704,7 @@ function _selectiveVTPCallInternal(input) {
       if (!callResult || callResult.ok !== true) {
         throw new Error('VALIDATION_' + (callResult && callResult.reason || 'substrate_payload_invalid'));
       }
-      mcpResponse = callResult.response;
+      mcpResponse = _indexSubstrateResponse(callResult.response);
       substrateDegradationNotes = Array.isArray(callResult.degradation_notes)
         ? callResult.degradation_notes
         : [];
