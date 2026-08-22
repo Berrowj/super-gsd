@@ -1,3 +1,30 @@
+---
+phase: "166"
+slug: substrate-call-filters
+milestone: v3.9-substrate-hygiene
+status: PASS-WITH-DEFERRED-1
+closed: 2026-08-22
+commits:
+  - 11cea52
+  - d63a6e6
+  - e216712
+  - ec02369
+  - dc8e40e
+  - 2e40c95
+  - ed86dee
+gates:
+  plan_review: GO (round 2, 0 findings)
+  t1_spec_compliance: PASS 11/11 (round 3)
+  t1_per_dispatch_atc: PASS after fix (32 lines removed)
+  t2_spec_compliance: PASS 12/12 (round 2)
+  t2_per_dispatch_atc: PASS 10/10 (round 2)
+  phase_verifier: FAIL, GOAL_MET NO, deferred to P167
+  phase_atc: PASS after fix (121 lines removed)
+  muda: PASS except narrative staleness
+  self_test_total: 17/17
+  falsification_probes: 4/4 bite
+  deferred_count: 1
+---
 # P166 Substrate Call Filters — PASS-WITH-DEFERRED-1
 
 Closed 2026-08-22 at `ed86dee`. Milestone v3.9-substrate-hygiene.
