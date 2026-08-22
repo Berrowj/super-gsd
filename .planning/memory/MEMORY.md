@@ -28,6 +28,12 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 
 - [waste waiting p153 narrative age sec](architecture/anti-patterns/waste-waiting-p153-narrative-age-sec.md) - P153 narrative-age-sec=10685 FAIL — waiting waste
 
+- [waste waiting p154 narrative age sec](architecture/anti-patterns/waste-waiting-p154-narrative-age-sec.md) - P154 narrative-age-sec=2412 WARN — waiting waste
+
+- [Self-reported evidence is not a witness](architecture/anti-patterns/self-reported-evidence-is-not-a-witness.md) - requiring an agent to report proof does not constrain an agent that does not comply (P166 2026-08-22)
+
+- [A plan-approved limit still fails goal-backward](architecture/anti-patterns/plan-accepted-limits-still-fail-goal-backward.md) - plan review and the verifier ask different questions; both can be right at once (P166 2026-08-22)
+
 ## architecture/decisions
 
 - [PI Death & Migration Decision](architecture/decisions/pi-death-migration.md)
@@ -103,6 +109,8 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 - [codex dispatch prompt calibration](architecture/patterns/codex-dispatch-prompt-calibration.md) - Forbid execution, not reading; bound output to blocks that change
 
 - [codex dispatch progress contract](architecture/patterns/codex-dispatch-progress-contract.md) - Executor prompts carry progress contract; Monitors watch live-output silence
+
+- [orchestrator runs spawn-bound suites](architecture/patterns/orchestrator-runs-spawn-bound-suites.md) - Codex sandbox spawnSync EPERM; name the suites in the prompt so it reports honestly (P166)
 
 ## code/nodejs
 
