@@ -299,7 +299,7 @@ function logDegradation(root, state, params) {
   return row || null;
 }
 
-function callArgs(root, rawQuery, payload, options) {
+function callArgs(root, rawQuery, options) {
   return {
     projectDir: root,
     logRoot: root,
@@ -315,7 +315,7 @@ async function safeCallVtp(tool, root, rawQuery, payload, options, exceptionReas
     const transportArgs = tool === SEARCH_TOOL
       ? { substrateCall: payload }
       : { payload: shapeMcpArgs(tool, payload) };
-    return await callVtp(tool, { ...callArgs(root, rawQuery, payload, options), ...transportArgs });
+    return await callVtp(tool, { ...callArgs(root, rawQuery, options), ...transportArgs });
   } catch (error) {
     return {
       ok: false,
@@ -466,7 +466,7 @@ function shapeMcpArgs(tool, candidate) {
 }
 
 function stageInvokeResult(tool, args, responseRel, extras = {}) {
-  let emittedArgs = shapeMcpArgs(tool, args);
+  let emittedArgs;
   let gatewayEvidence = null;
   if (tool === SEARCH_TOOL) {
     const validator = vtpContextComposer._internal.validatePreparedSubstrateCall;
@@ -475,6 +475,8 @@ function stageInvokeResult(tool, args, responseRel, extras = {}) {
     }
     emittedArgs = args.payload;
     gatewayEvidence = args.gateway_evidence;
+  } else {
+    emittedArgs = shapeMcpArgs(tool, args);
   }
   return {
     stageProtocol: true,
@@ -664,7 +666,6 @@ function loadStagedVtpForRun(root, state, rawQuery, triageSlice, evidenceRel, op
       fallbackPayload,
       fallbackResult: { ok: true, response: loaded.response, elapsed_ms: 0 },
       fallbackAttempted: true,
-      fallbackReason: fallbackPredicateValue,
       fallbackPredicateValue,
       mode: 'fallback',
       evidencePath,
@@ -678,7 +679,6 @@ function loadStagedVtpForRun(root, state, rawQuery, triageSlice, evidenceRel, op
     fallbackPayload: null,
     fallbackResult: null,
     fallbackAttempted: false,
-    fallbackReason: null,
     fallbackPredicateValue: null,
     mode: 'route',
     evidencePath,
@@ -1576,7 +1576,6 @@ async function runTriageRuntime(options = {}) {
   let fallbackPayload = null;
   let fallbackResult = null;
   let fallbackAttempted = false;
-  let fallbackReason = null;
   let fallbackPredicateValue = null;
   let mode = 'route';
   const degradationRows = [];
@@ -1590,7 +1589,6 @@ async function runTriageRuntime(options = {}) {
     fallbackPayload = stagedVtp.fallbackPayload;
     fallbackResult = stagedVtp.fallbackResult;
     fallbackAttempted = stagedVtp.fallbackAttempted;
-    fallbackReason = stagedVtp.fallbackReason;
     fallbackPredicateValue = stagedVtp.fallbackPredicateValue;
     mode = stagedVtp.mode;
     degradationRows.push(...stagedVtp.degradationRows);
@@ -1624,7 +1622,6 @@ async function runTriageRuntime(options = {}) {
     const predicate = fallbackPredicate(routeResult.response);
     if (predicate) {
       fallbackAttempted = true;
-      fallbackReason = predicate.predicate;
       fallbackPredicateValue = predicate.predicate;
       degradationRows.push(logDegradation(root, state, {
         reasonCode: predicate.reasonCode,

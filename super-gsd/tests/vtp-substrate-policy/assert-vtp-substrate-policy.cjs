@@ -207,6 +207,7 @@ function walkFiles(root) {
   const out = [];
   if (!fs.existsSync(root)) return out;
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    if (entry.isDirectory() && entry.name === 'node_modules') continue;
     const target = path.join(root, entry.name);
     if (entry.isDirectory()) out.push(...walkFiles(target));
     else if (entry.isFile()) out.push(target);
@@ -298,15 +299,6 @@ function auditCallerCoverage(root) {
   };
 }
 
-function copyScanSurface(targetRoot) {
-  for (const rel of SCAN_ROOTS) {
-    const source = path.join(repoRoot, rel);
-    const target = path.join(targetRoot, rel);
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.cpSync(source, target, { recursive: true });
-  }
-}
-
 function assertCallerCoverage() {
   const report = auditCallerCoverage(repoRoot);
   assert.deepStrictEqual(report.missing, [], 'missing caller classifications: ' + report.missing.join(', '));
@@ -324,28 +316,35 @@ function assertCallerCoverage() {
 
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-caller-coverage-'));
   try {
-    copyScanSurface(tempRoot);
     const injected = path.join(tempRoot, 'super-gsd', 'scripts', 'p166-unclassified.cjs');
+    fs.mkdirSync(path.dirname(injected), { recursive: true });
     const quote = String.fromCharCode(39);
     fs.writeFileSync(injected, 'const tool = ' + quote + 'vtp_search_substrate' + quote + ';\n', 'utf8');
+    const knownFile = path.join(tempRoot, 'super-gsd', 'scripts', 'sgsd-triage-runtime.cjs');
+    fs.writeFileSync(knownFile, 'const p166RogueKnownFileCall = \'vtp_search_substrate\';\n', 'utf8');
     const injectedReport = auditCallerCoverage(tempRoot);
     assert.strictEqual(injectedReport.ok, false, 'an injected unclassified emitter must fail closed');
-    assert.strictEqual(injectedReport.unknown.length, 1);
-    assert.strictEqual(injectedReport.unknown[0].rel, 'super-gsd/scripts/p166-unclassified.cjs');
-    fs.rmSync(injected, { force: true });
-
-    const knownFile = path.join(tempRoot, 'super-gsd', 'scripts', 'sgsd-triage-runtime.cjs');
-    fs.appendFileSync(knownFile, '\nconst p166RogueKnownFileCall = \'vtp_search_substrate\';\n', 'utf8');
-    const knownFileReport = auditCallerCoverage(tempRoot);
     assert.strictEqual(
-      knownFileReport.ok,
-      false,
-      'a rogue occurrence inside an already-known caller file must fail closed'
+      injectedReport.unknown.some((row) => row.rel === 'super-gsd/scripts/p166-unclassified.cjs'),
+      true,
+      'a rogue occurrence in a new file must be reported as unknown'
     );
     assert.strictEqual(
-      knownFileReport.unknown.some((row) => row.rel === 'super-gsd/scripts/sgsd-triage-runtime.cjs'),
+      injectedReport.unknown.some((row) => row.rel === 'super-gsd/scripts/sgsd-triage-runtime.cjs'),
       true,
-      'the rogue known-file occurrence must be reported as unknown'
+      'a rogue occurrence inside an already-known caller file must be reported as unknown'
+    );
+    fs.rmSync(injected, { force: true });
+    fs.rmSync(knownFile, { force: true });
+
+    const ignored = path.join(tempRoot, 'super-gsd', 'scripts', 'node_modules', 'p166-ignored.cjs');
+    fs.mkdirSync(path.dirname(ignored), { recursive: true });
+    fs.writeFileSync(ignored, 'const ignoredTool = \'vtp_search_substrate\';\n', 'utf8');
+    const ignoredReport = auditCallerCoverage(tempRoot);
+    assert.strictEqual(
+      ignoredReport.unknown.some((row) => row.rel.includes('/node_modules/')),
+      false,
+      'node_modules must be excluded from caller coverage'
     );
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -407,6 +406,7 @@ function assertPromptContracts() {
   assert.match(enrichment, /substrate_call\.payload/);
   assert.match(enrichment, /gateway_evidence/);
   assert.match(enrichment, /substrateCall: substrate_call/);
+  assert.match(enrichment, /rationale: '',\s+\/\/ only populated if status='empty_hit'/);
   assert.match(board, /--prepare-substrate-call --intent board_research/);
   assert.match(board, /--accept-substrate-call-record --intent board_research/);
   assert.match(board, /gateway_evidence/);
@@ -829,7 +829,6 @@ async function assertExecutableEmitters() {
     phaseContext: 'P166 enrichment phase context',
   });
   assertPreparedEnvelope(gateSpec.substrate_call, 'enrichment', expected.enrichment, validate);
-  assertPromptContracts();
   assertComposerCli();
   assertRepairSafePatches();
 

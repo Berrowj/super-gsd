@@ -74,7 +74,7 @@ Return the `enrichmentResult` object as structured data (not prose). The lib mod
   ],
   gaps: ['topic Alpha', 'topic Beta'],    // string descriptors
   alt_framings: ['Framing A: ...', ...],  // prose bullets
-  rationale: ''                // only populated if status='empty_hit'
+  rationale: '',               // only populated if status='empty_hit'
   substrate_call_record: {
     tool: 'mcp__vtp-kb__vtp_search_substrate',
     payload: substrate_call.payload,
