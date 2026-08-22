@@ -29,7 +29,10 @@
 const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
-const { prepareSubstrateCall } = require('./vtp-context-composer.cjs');
+const {
+  prepareSubstrateCall,
+  acceptPromptSubstrateCallRecord,
+} = require('./vtp-context-composer.cjs');
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -383,7 +386,7 @@ function composeSubAgentSpec(opts) {
  * opts.enrichmentResult is injected by the orchestrator AFTER the sub-agent completes,
  * to trigger artifact write. If not provided, returns the sub_agent_spec only.
  *
- * @param {{projectDir:string, phaseDir:string, phase?:string|number, phaseContext?:string, requirements?:string, researchFindings?:string, enrichmentResult?:Object, stubMode?:boolean}} opts
+ * @param {{projectDir:string, phaseDir:string, phase?:string|number, phaseContext?:string, requirements?:string, researchFindings?:string, substrateCall?:Object, enrichmentResult?:Object, stubMode?:boolean}} opts
  * @returns {{status:string, artifact_path:string|null, sub_agent_spec?:Object, disabled?:boolean}}
  */
 function run(opts) {
@@ -412,6 +415,17 @@ function run(opts) {
 
   // If enrichmentResult is provided (post-sub-agent injection): write artifact
   if (enrichmentResult) {
+    const hasRecord = Object.prototype.hasOwnProperty.call(enrichmentResult, 'substrate_call_record');
+    if (enrichmentResult.ok !== false && !enrichmentResult.substrate_call_record) {
+      throw new Error('vtp_prompt_substrate_contract_invalid:substrate_call_record_missing');
+    }
+    if (enrichmentResult.ok !== false || hasRecord) {
+      acceptPromptSubstrateCallRecord(
+        'enrichment',
+        opts.substrateCall,
+        enrichmentResult.substrate_call_record
+      );
+    }
     // Map callVtp status to gate status per output_contract (Pitfall 2 distinction)
     let status = 'success';
     if (enrichmentResult.ok === false) {

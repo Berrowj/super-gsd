@@ -26,11 +26,11 @@ Orchestrator invokes you with a sub-agent spec produced by `vtp-enrichment-gate.
 - `phaseDir` — absolute path to the phase directory (e.g. `.planning/milestones/v1.5/phases/21-vtp-enrichment-gates`)
 - `phase` — phase number string (e.g. `'21'`)
 
-You run the cascade using the `seed` string and `tools` array, then invoke `run({projectDir, phaseDir, phase, enrichmentResult: {...}})` from `super-gsd/scripts/lib/vtp-enrichment-gate.cjs` to write the artifact. `projectDir` is resolved from your own process.cwd() (not in the spec). The module handles frontmatter + artifact shape + 3-path (success/empty_hit/api_error) discipline. Your job is producing the structured `enrichmentResult` object.
+You run the cascade using the `seed` string and `tools` array, then invoke `run({projectDir, phaseDir, phase, substrateCall: substrate_call, enrichmentResult: {...}})` from `super-gsd/scripts/lib/vtp-enrichment-gate.cjs` to write the artifact. `projectDir` is resolved from your own process.cwd() (not in the spec). The module handles frontmatter + artifact shape + 3-path (success/empty_hit/api_error) discipline. Your job is producing the structured `enrichmentResult` object.
 </dispatch_contract>
 
 <substrate_call_policy>
-For tool 2/5, call vtp_search_substrate with substrate_call.payload verbatim. Do not construct or amend substrate arguments. Record the tool, exact payload, and matching substrate_call.gateway_evidence together. If the envelope is missing or preparation failed, do not issue a raw substrate call.
+For tool 2/5, call vtp_search_substrate with substrate_call.payload verbatim. Do not construct or amend substrate arguments. Record the tool, exact payload, and matching substrate_call.gateway_evidence together. The production run() acceptance path validates that record against substrate_call and rejects missing evidence, digest drift, unfiltered payloads, and limit 6. If the envelope is missing or preparation failed, do not issue a raw substrate call.
 </substrate_call_policy>
 
 <reasoning>
@@ -83,7 +83,7 @@ Return the `enrichmentResult` object as structured data (not prose). The lib mod
 }
 ```
 
-Then call `require('super-gsd/scripts/lib/vtp-enrichment-gate').run({projectDir, phaseDir, phase, enrichmentResult})` — returns `{status, artifact_path}`.
+Then call `require('super-gsd/scripts/lib/vtp-enrichment-gate').run({projectDir, phaseDir, phase, substrateCall: substrate_call, enrichmentResult})` - returns `{status, artifact_path}`.
 
 Report back to orchestrator:
 - `status: success` → planner dispatch proceeds (orchestrator Step 6.c)

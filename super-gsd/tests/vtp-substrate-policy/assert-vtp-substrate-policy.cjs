@@ -34,21 +34,162 @@ const SCAN_ROOTS = Object.freeze([
   'super-gsd/scripts',
   'super-gsd/tools',
 ]);
+const CALLER_OCCURRENCE_RULES = Object.freeze([
+  {
+    id: 'board-tools',
+    rel: 'super-gsd/agents/sgsd-board-researcher.md',
+    text: 'tools: Read, Grep, Glob, Bash, mcp__vtp-kb__vtp_search, mcp__vtp-kb__vtp_search_substrate, mcp__vtp-kb__vtp_search_research, mcp__vtp-kb__vtp_get_document, mcp__vtp-kb__vtp_route_and_retrieve',
+    site: 'board-researcher',
+  },
+  {
+    id: 'board-transport',
+    rel: 'super-gsd/agents/sgsd-board-researcher.md',
+    text: '- Call vtp_search_substrate only with the returned payload verbatim. Record that payload with the returned gateway_evidence. If preparation fails, do not issue a raw substrate call.',
+    site: 'board-researcher',
+  },
+  {
+    id: 'board-record',
+    rel: 'super-gsd/agents/sgsd-board-researcher.md',
+    text: 'tool: ' + String.fromCharCode(34) + 'mcp__vtp-kb__vtp_search_substrate' + String.fromCharCode(34),
+    site: 'board-researcher',
+  },
+  {
+    id: 'enrichment-record',
+    rel: 'super-gsd/agents/sgsd-vtp-enrichment.md',
+    text: 'tool: \'mcp__vtp-kb__vtp_search_substrate\',',
+    site: 'enrichment-agent',
+  },
+  {
+    id: 'enrichment-tools',
+    rel: 'super-gsd/agents/sgsd-vtp-enrichment.md',
+    text: 'tools: Read, Grep, Glob, Bash, Write, mcp__vtp-kb__vtp_search, mcp__vtp-kb__vtp_search_substrate, mcp__vtp-kb__vtp_search_research, mcp__vtp-kb__vtp_route_and_retrieve, mcp__vtp-kb__vtp_advise_service_enrichment, mcp__vtp-kb__vtp_health_structured, mcp__vtp-kb__vtp_get_document',
+    site: 'enrichment-agent',
+  },
+  {
+    id: 'enrichment-policy',
+    rel: 'super-gsd/agents/sgsd-vtp-enrichment.md',
+    text: 'For tool 2/5, call vtp_search_substrate with substrate_call.payload verbatim. Do not construct or amend substrate arguments. Record the tool, exact payload, and matching substrate_call.gateway_evidence together. The production run() acceptance path validates that record against substrate_call and rejects missing evidence, digest drift, unfiltered payloads, and limit 6. If the envelope is missing or preparation failed, do not issue a raw substrate call.',
+    site: 'enrichment-agent',
+  },
+  {
+    id: 'enrichment-cascade',
+    rel: 'super-gsd/agents/sgsd-vtp-enrichment.md',
+    text: '3. Call `vtp_search_substrate` with the same seed (D-01 tool 2/5). Capture hits. Substrate is book/paper content \u2014 the operator\'s investment.',
+    site: 'enrichment-agent',
+  },
+  {
+    id: 'composer-canonical-tool',
+    rel: 'super-gsd/scripts/lib/vtp-context-composer.cjs',
+    text: 'const SUBSTRATE_TOOL = \'mcp__vtp-kb__vtp_search_substrate\';',
+    site: 'composer-callVtp-seam',
+  },
+  {
+    id: 'composer-short-tool',
+    rel: 'super-gsd/scripts/lib/vtp-context-composer.cjs',
+    text: 'const SUBSTRATE_TOOL_SHORT = \'vtp_search_substrate\';',
+    site: 'composer-callVtp-seam',
+  },
+  {
+    id: 'triage-canonical-tool',
+    rel: 'super-gsd/scripts/sgsd-triage-runtime.cjs',
+    text: 'const SEARCH_TOOL = \'mcp__vtp-kb__vtp_search_substrate\';',
+    site: 'triage-fallback',
+  },
+  {
+    id: 'triage-stage-tool',
+    rel: 'super-gsd/scripts/sgsd-triage-runtime.cjs',
+    text: 'const SEARCH_STAGE_TOOL = \'vtp_search_substrate\';',
+    site: 'triage-fallback',
+  },
+  {
+    id: 'installed-planner-transport',
+    rel: 'super-gsd/tools/feature-propagation/audit.cjs',
+    text: '\'Pass the returned payload verbatim to mcp__vtp-kb__vtp_search_substrate.\',',
+    branch: 'installed-planner',
+    site: 'installed-planner',
+  },
+  {
+    id: 'installed-planner-tool',
+    rel: 'super-gsd/tools/feature-propagation/audit.cjs',
+    text: '\'mcp__vtp-kb__vtp_search_substrate\',',
+    branch: 'installed-planner',
+    site: 'installed-planner',
+  },
+  {
+    id: 'installed-researcher-transport',
+    rel: 'super-gsd/tools/feature-propagation/audit.cjs',
+    text: '\'Pass the returned payload verbatim to mcp__vtp-kb__vtp_search_substrate.\',',
+    branch: 'installed-phase-researcher',
+    site: 'installed-phase-researcher',
+  },
+  {
+    id: 'installed-researcher-tool',
+    rel: 'super-gsd/tools/feature-propagation/audit.cjs',
+    text: '\'mcp__vtp-kb__vtp_search_substrate\',',
+    branch: 'installed-phase-researcher',
+    site: 'installed-phase-researcher',
+  },
+  {
+    id: 'installed-researcher-legacy-observation',
+    rel: 'super-gsd/tools/feature-propagation/audit.cjs',
+    text: '- mcp__vtp-kb__vtp_search_substrate',
+    branch: 'installed-phase-researcher',
+    site: 'installed-phase-researcher',
+  },
+  {
+    id: 'architecture-map-branch',
+    rel: 'super-gsd/tools/vtp-bridge/classify.cjs',
+    text: 'tool: \'vtp_search_substrate\',',
+    branch: 'architecture-challenge',
+    site: 'architecture-challenge',
+  },
+  {
+    id: 'book-map-branch',
+    rel: 'super-gsd/tools/vtp-bridge/classify.cjs',
+    text: 'tool: \'vtp_search_substrate\',',
+    branch: 'book-lookup',
+    site: 'book-lookup',
+  },
+]);
+const JSON_QUOTE = String.fromCharCode(34);
+const EVIDENCE_TOOL_ENUM_LINE = '        { '
+  + JSON_QUOTE + 'type' + JSON_QUOTE + ': ' + JSON_QUOTE + 'string' + JSON_QUOTE
+  + ', ' + JSON_QUOTE + 'enum' + JSON_QUOTE + ': ['
+  + JSON_QUOTE + 'vtp_search_substrate' + JSON_QUOTE + ', '
+  + JSON_QUOTE + 'wiki_search' + JSON_QUOTE + ', '
+  + JSON_QUOTE + 'vtp_route_and_retrieve' + JSON_QUOTE + ', '
+  + JSON_QUOTE + 'vtp_get_research' + JSON_QUOTE + '] },';
 const DECLARATION_ALLOWLIST = Object.freeze({
-  'super-gsd/scripts/lib/vtp-enrichment-gate.cjs': [/VTP_TOOLS/, /mcp__vtp-kb__vtp_search_substrate/],
-  'super-gsd/scripts/lib/demand-baseline-ledger.cjs': [/.*/],
-  'super-gsd/scripts/lib/route-ledger.cjs': [/.*/],
+  'super-gsd/scripts/lib/vtp-enrichment-gate.cjs': [
+    /^  'mcp__vtp-kb__vtp_search_substrate',$/,
+  ],
+  'super-gsd/scripts/lib/demand-baseline-ledger.cjs': [
+    /^  'vtp_search_substrate',$/,
+    /^    surface: 'vtp_search_substrate',$/,
+    /^      assert\.strictEqual\(row\.artefact_kind, 'vtp_search_substrate'\);$/,
+  ],
+  'super-gsd/scripts/lib/route-ledger.cjs': [
+    /^        tool: 'vtp_search_substrate',$/,
+    /^      lastRow15\.decision\.tool === 'vtp_search_substrate' &&$/,
+  ],
   'super-gsd/tools/vtp-bridge/classify.cjs': [
     /^    \/\/ Assertion 1 \(F1\): architecture_challenge -> vtp_search_substrate, 3 results\.$/,
     /^      ok\('1\. F1 architecture_challenge -> vtp_search_substrate \(3 results\)'\);$/,
+    /^    if \(toolName === 'vtp_search_substrate'\) \{$/,
+    /^      if \(packet\.vtp_tool !== 'vtp_search_substrate'\) throw new Error\('vtp_tool=' \+ packet\.vtp_tool\);$/,
+    /^      if \(packet\.vtp_tool !== 'vtp_search_substrate'\) throw new Error\('vtp_tool=' \+ packet\.vtp_tool\);$/,
+    /^      if \(capturedArgs\.toolName !== 'vtp_search_substrate'\) throw new Error\('toolName=' \+ capturedArgs\.toolName\);$/,
   ],
-  'super-gsd/tools/vtp-bridge/EVIDENCE-PACKET.schema.json': [/.*/],
+  'super-gsd/tools/vtp-bridge/EVIDENCE-PACKET.schema.json': [
+    EVIDENCE_TOOL_ENUM_LINE,
+  ],
 });
 
 function usage() {
   return [
     'Usage:',
     '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case caller-coverage',
+    '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case prompt-record-acceptance',
     '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case executable-emitters',
   ].join('\n');
 }
@@ -73,62 +214,88 @@ function walkFiles(root) {
   return out;
 }
 
-function nearestBranch(lines, lineIndex, branches) {
-  for (let index = lineIndex; index >= 0; index -= 1) {
-    for (const branch of branches) {
-      if (lines[index].includes(branch[0])) return branch[1];
+function occurrenceBranch(rel, lineIndex, lines) {
+  if (rel === 'super-gsd/tools/feature-propagation/audit.cjs') {
+    const starts = new Map([
+      ['    name: \'gsd-planner.md\',', 'installed-planner'],
+      ['    name: \'gsd-phase-researcher.md\',', 'installed-phase-researcher'],
+    ]);
+    for (let index = lineIndex; index >= 0; index -= 1) {
+      if (index < lineIndex && lines[index] === '  },') return null;
+      if (starts.has(lines[index])) return starts.get(lines[index]);
+    }
+  }
+  if (rel === 'super-gsd/tools/vtp-bridge/classify.cjs') {
+    const starts = new Map([
+      ['  architecture_challenge: Object.freeze({', 'architecture-challenge'],
+      ['  book_lookup: Object.freeze({', 'book-lookup'],
+    ]);
+    for (let index = lineIndex; index >= 0; index -= 1) {
+      if (index < lineIndex && lines[index] === '});') return null;
+      if (starts.has(lines[index])) return starts.get(lines[index]);
     }
   }
   return null;
 }
 
-function classifyOccurrence(rel, lineIndex, lines) {
-  if (rel === 'super-gsd/agents/sgsd-vtp-enrichment.md') return 'enrichment-agent';
-  if (rel === 'super-gsd/agents/sgsd-board-researcher.md') return 'board-researcher';
-  if (rel === 'super-gsd/scripts/sgsd-triage-runtime.cjs') return 'triage-fallback';
-  if (rel === 'super-gsd/scripts/lib/vtp-context-composer.cjs') return 'composer-callVtp-seam';
-  if (rel === 'super-gsd/tools/feature-propagation/audit.cjs') {
-    return nearestBranch(lines, lineIndex, [
-      [/name: 'gsd-planner.md'/.source, 'installed-planner'],
-      [/name: 'gsd-phase-researcher.md'/.source, 'installed-phase-researcher'],
-    ]);
-  }
-  if (rel === 'super-gsd/tools/vtp-bridge/classify.cjs') {
-    const line = lines[lineIndex];
-    if (/Assertion 1|F1 architecture_challenge|Assertion 4|F4 book_lookup/.test(line)) return null;
-    return nearestBranch(lines, lineIndex, [
-      ['architecture_challenge:', 'architecture-challenge'],
-      ['book_lookup:', 'book-lookup'],
-    ]);
+function classifyOccurrence(rel, lineIndex, lines, matchedCallerRules) {
+  const text = lines[lineIndex].trim();
+  for (const rule of CALLER_OCCURRENCE_RULES) {
+    if (rule.rel !== rel || rule.text !== text) continue;
+    if (rule.branch && occurrenceBranch(rel, lineIndex, lines) !== rule.branch) continue;
+    if (matchedCallerRules.has(rule.id)) continue;
+    matchedCallerRules.add(rule.id);
+    return rule.site;
   }
   return null;
 }
 
-function isAllowedDeclaration(rel, line) {
-  const rules = DECLARATION_ALLOWLIST[rel];
-  return Boolean(rules && rules.some((rule) => rule.test(line)));
+function isAllowedDeclaration(rel, line, matchedDeclarations) {
+  const rules = DECLARATION_ALLOWLIST[rel] || [];
+  for (let index = 0; index < rules.length; index += 1) {
+    const key = rel + ':' + index;
+    const matches = typeof rules[index] === 'string'
+      ? rules[index] === line
+      : rules[index].test(line);
+    if (matchedDeclarations.has(key) || !matches) continue;
+    matchedDeclarations.add(key);
+    return true;
+  }
+  return false;
 }
 
 function auditCallerCoverage(root) {
   const sites = new Set();
   const unknown = [];
   const occurrences = [];
+  const matchedCallerRules = new Set();
+  const matchedDeclarations = new Set();
   for (const scanRoot of SCAN_ROOTS) {
     for (const file of walkFiles(path.join(root, scanRoot))) {
       const rel = toPosix(path.relative(root, file));
       const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
       lines.forEach((line, lineIndex) => {
         if (!line.includes('vtp_search_substrate')) return;
-        const site = classifyOccurrence(rel, lineIndex, lines);
+        const site = classifyOccurrence(rel, lineIndex, lines, matchedCallerRules);
         const occurrence = { rel, line: lineIndex + 1, text: line.trim(), site };
         occurrences.push(occurrence);
         if (site) sites.add(site);
-        else if (!isAllowedDeclaration(rel, line)) unknown.push(occurrence);
+        else if (!isAllowedDeclaration(rel, line, matchedDeclarations)) unknown.push(occurrence);
       });
     }
   }
   const missing = EXPECTED_SITES.filter((site) => !sites.has(site));
-  return { ok: unknown.length === 0 && missing.length === 0, sites, unknown, missing, occurrences };
+  const missingOccurrences = CALLER_OCCURRENCE_RULES
+    .filter((rule) => !matchedCallerRules.has(rule.id))
+    .map((rule) => rule.id);
+  return {
+    ok: unknown.length === 0 && missing.length === 0 && missingOccurrences.length === 0,
+    sites,
+    unknown,
+    missing,
+    missingOccurrences,
+    occurrences,
+  };
 }
 
 function copyScanSurface(targetRoot) {
@@ -143,6 +310,11 @@ function copyScanSurface(targetRoot) {
 function assertCallerCoverage() {
   const report = auditCallerCoverage(repoRoot);
   assert.deepStrictEqual(report.missing, [], 'missing caller classifications: ' + report.missing.join(', '));
+  assert.deepStrictEqual(
+    report.missingOccurrences,
+    [],
+    'missing exact caller occurrences: ' + report.missingOccurrences.join(', ')
+  );
   assert.deepStrictEqual(
     report.unknown,
     [],
@@ -160,6 +332,21 @@ function assertCallerCoverage() {
     assert.strictEqual(injectedReport.ok, false, 'an injected unclassified emitter must fail closed');
     assert.strictEqual(injectedReport.unknown.length, 1);
     assert.strictEqual(injectedReport.unknown[0].rel, 'super-gsd/scripts/p166-unclassified.cjs');
+    fs.rmSync(injected, { force: true });
+
+    const knownFile = path.join(tempRoot, 'super-gsd', 'scripts', 'sgsd-triage-runtime.cjs');
+    fs.appendFileSync(knownFile, '\nconst p166RogueKnownFileCall = \'vtp_search_substrate\';\n', 'utf8');
+    const knownFileReport = auditCallerCoverage(tempRoot);
+    assert.strictEqual(
+      knownFileReport.ok,
+      false,
+      'a rogue occurrence inside an already-known caller file must fail closed'
+    );
+    assert.strictEqual(
+      knownFileReport.unknown.some((row) => row.rel === 'super-gsd/scripts/sgsd-triage-runtime.cjs'),
+      true,
+      'the rogue known-file occurrence must be reported as unknown'
+    );
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
@@ -219,16 +406,209 @@ function assertPromptContracts() {
   const audit = fs.readFileSync(auditPath, 'utf8');
   assert.match(enrichment, /substrate_call\.payload/);
   assert.match(enrichment, /gateway_evidence/);
+  assert.match(enrichment, /substrateCall: substrate_call/);
   assert.match(board, /--prepare-substrate-call --intent board_research/);
+  assert.match(board, /--accept-substrate-call-record --intent board_research/);
   assert.match(board, /gateway_evidence/);
   assert.match(audit, /<sgsd_vtp_substrate_policy_p166_phase_research>/);
   assert.match(audit, /--prepare-substrate-call --intent phase_research/);
+  assert.match(audit, /--accept-substrate-call-record --intent phase_research/);
   assert.match(audit, /<sgsd_vtp_substrate_policy_p166_planning>/);
   assert.match(audit, /--prepare-substrate-call --intent planning/);
+  assert.match(audit, /--accept-substrate-call-record --intent planning/);
   for (const source of [enrichment, board, audit]) {
     assert.doesNotMatch(source, /source_types\s*:\s*\[/, 'prompt callers must not own source_types arrays');
     assert.doesNotMatch(source, /\blimit\s*:\s*[1-9]/, 'prompt callers must not own limit literals');
   }
+}
+
+function toSubstrateCallRecord(preparedCall) {
+  return JSON.parse(JSON.stringify(preparedCall));
+}
+
+function forgedPreparedCall(intent, payload) {
+  return {
+    tool: SEARCH_TOOL,
+    payload,
+    gateway_evidence: {
+      schema_version: 'vtp-mcp-input-schemas.v2',
+      intent_family: intent,
+      payload_sha256: sha256Json(payload),
+    },
+  };
+}
+
+function assertPromptRecordAcceptance(composer, expected) {
+  assertPromptContracts();
+  assert.strictEqual(
+    typeof composer.acceptPromptSubstrateCallRecord,
+    'function',
+    'production prompt-record acceptance must be exported'
+  );
+
+  const promptIntents = Object.freeze([
+    ['enrichment-agent', 'enrichment'],
+    ['board-researcher', 'board_research'],
+    ['installed-phase-researcher', 'phase_research'],
+    ['installed-planner', 'planning'],
+  ]);
+  const acceptedRecords = new Map();
+
+  for (const [site, intent] of promptIntents) {
+    const query = 'P166 ' + site + ' prompt acceptance query';
+    const preparedCall = composer.prepareSubstrateCall(intent, { query });
+    const record = toSubstrateCallRecord(preparedCall);
+    const accepted = composer.acceptPromptSubstrateCallRecord(intent, preparedCall, record);
+    assert.strictEqual(accepted.ok, true);
+    assert.strictEqual(accepted.intent_family, intent);
+    assert.strictEqual(accepted.payload_sha256, preparedCall.gateway_evidence.payload_sha256);
+    acceptedRecords.set(site, record);
+
+    assert.throws(
+      () => composer.acceptPromptSubstrateCallRecord(intent, null, record),
+      /prepared_call/,
+      site + ' must reject a direct record without its prepared envelope'
+    );
+    assert.throws(
+      () => composer.acceptPromptSubstrateCallRecord(intent, preparedCall, {
+        tool: record.tool,
+        payload: record.payload,
+      }),
+      /gateway_evidence/,
+      site + ' must reject missing gateway evidence'
+    );
+    assert.throws(
+      () => composer.acceptPromptSubstrateCallRecord(intent, preparedCall, {
+        ...record,
+        gateway_evidence: { ...record.gateway_evidence, payload_sha256: '0'.repeat(64) },
+      }),
+      /digest/,
+      site + ' must reject a mismatched digest'
+    );
+
+    const unfiltered = forgedPreparedCall(intent, { query });
+    assert.throws(
+      () => composer.acceptPromptSubstrateCallRecord(intent, unfiltered, toSubstrateCallRecord(unfiltered)),
+      /prepared_call/,
+      site + ' must reject an unfiltered call even when its digest matches'
+    );
+
+    const limitSix = forgedPreparedCall(intent, {
+      query,
+      source_types: expected[intent].source_types.slice(),
+      limit: 6,
+    });
+    assert.throws(
+      () => composer.acceptPromptSubstrateCallRecord(intent, limitSix, toSubstrateCallRecord(limitSix)),
+      /prepared_call/,
+      site + ' must reject limit 6 even when its digest matches'
+    );
+  }
+
+  const gate = require(gatePath);
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-prompt-acceptance-'));
+  try {
+    const phaseDir = path.join(tempRoot, '.planning', 'milestones', 'fixture', 'phases', '166-fixture');
+    writeFixtureFile(
+      tempRoot,
+      path.join('.planning', 'config.json'),
+      JSON.stringify({ vtp_enrichment: { enabled: true } }) + '\n'
+    );
+    fs.mkdirSync(phaseDir, { recursive: true });
+    const gateInput = {
+      projectDir: tempRoot,
+      phaseDir,
+      phase: '166',
+      phaseContext: 'P166 real prompt acceptance path',
+    };
+    const pending = gate.run(gateInput);
+    const preparedCall = pending.sub_agent_spec.substrate_call;
+    const record = toSubstrateCallRecord(preparedCall);
+    const result = {
+      ok: true,
+      status: 'success',
+      query_count: 2,
+      total_hits: 1,
+      duration_ms: 1,
+      hits: [{ source: 'book', title: 'Fixture', section: '1', relevance: 'high', citation: 'fixture:1' }],
+      gaps: [],
+      alt_framings: [],
+      rationale: '',
+      substrate_call_record: record,
+    };
+
+    assert.throws(
+      () => gate.run({ ...gateInput, enrichmentResult: { ...result, substrate_call_record: undefined } }),
+      /substrate_call_record/,
+      'the real enrichment acceptance path must reject a missing record'
+    );
+    assert.throws(
+      () => gate.run({ ...gateInput, enrichmentResult: result }),
+      /prepared_call/,
+      'the real enrichment acceptance path must reject a direct record without the dispatch envelope'
+    );
+    assert.throws(
+      () => gate.run({
+        ...gateInput,
+        substrateCall: preparedCall,
+        enrichmentResult: {
+          ...result,
+          substrate_call_record: {
+            ...record,
+            gateway_evidence: { ...record.gateway_evidence, payload_sha256: 'f'.repeat(64) },
+          },
+        },
+      }),
+      /digest/,
+      'the real enrichment acceptance path must reject mismatched evidence'
+    );
+    assert.throws(
+      () => gate.run({
+        ...gateInput,
+        substrateCall: preparedCall,
+        enrichmentResult: {
+          ...result,
+          substrate_call_record: { tool: record.tool, payload: record.payload },
+        },
+      }),
+      /gateway_evidence/,
+      'the real enrichment acceptance path must reject missing gateway evidence'
+    );
+
+    const unfiltered = forgedPreparedCall('enrichment', { query: preparedCall.payload.query });
+    assert.throws(
+      () => gate.run({
+        ...gateInput,
+        substrateCall: unfiltered,
+        enrichmentResult: { ...result, substrate_call_record: toSubstrateCallRecord(unfiltered) },
+      }),
+      /prepared_call/,
+      'the real enrichment acceptance path must reject an unfiltered record'
+    );
+
+    const limitSix = forgedPreparedCall('enrichment', {
+      query: preparedCall.payload.query,
+      source_types: expected.enrichment.source_types.slice(),
+      limit: 6,
+    });
+    assert.throws(
+      () => gate.run({
+        ...gateInput,
+        substrateCall: limitSix,
+        enrichmentResult: { ...result, substrate_call_record: toSubstrateCallRecord(limitSix) },
+      }),
+      /prepared_call/,
+      'the real enrichment acceptance path must reject limit 6'
+    );
+
+    const accepted = gate.run({ ...gateInput, substrateCall: preparedCall, enrichmentResult: result });
+    assert.strictEqual(accepted.status, 'success');
+    assert(fs.existsSync(accepted.artifact_path));
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+
+  return acceptedRecords;
 }
 
 function writeFixtureFile(root, rel, content) {
@@ -369,22 +749,9 @@ async function assertExecutableEmitters() {
   });
   assert.deepStrictEqual(secondary.entity_types, ['principle']);
 
-  captures.set(
-    'enrichment-agent',
-    await capturePreparedCall('enrichment', 'enrichment', expected.enrichment, composer, validate)
-  );
-  captures.set(
-    'board-researcher',
-    await capturePreparedCall('board', 'board_research', expected.board_research, composer, validate)
-  );
-  captures.set(
-    'installed-phase-researcher',
-    await capturePreparedCall('phase', 'phase_research', expected.phase_research, composer, validate)
-  );
-  captures.set(
-    'installed-planner',
-    await capturePreparedCall('planning', 'planning', expected.planning, composer, validate)
-  );
+  for (const [site, record] of assertPromptRecordAcceptance(composer, expected)) {
+    captures.set(site, record);
+  }
   captures.set(
     'triage-fallback',
     await capturePreparedCall('triage', 'triage', expected.triage, composer, validate)
@@ -484,6 +851,14 @@ async function assertExecutableEmitters() {
 async function main(argv = process.argv.slice(2)) {
   const caseName = parseArgs(argv);
   if (caseName === 'caller-coverage') assertCallerCoverage();
+  else if (caseName === 'prompt-record-acceptance') {
+    const composer = require(composerPath);
+    const expected = Object.fromEntries(Object.entries(composer.SUBSTRATE_CALL_POLICY).map(([intent, policy]) => [
+      intent,
+      { source_types: policy.source_types.slice(), limit: policy.limit },
+    ]));
+    assertPromptRecordAcceptance(composer, expected);
+  }
   else if (caseName === 'executable-emitters') await assertExecutableEmitters();
   else {
     process.stderr.write(usage() + '\n');

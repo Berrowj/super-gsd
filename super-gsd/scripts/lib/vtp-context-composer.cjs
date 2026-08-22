@@ -373,6 +373,55 @@ function validatePreparedSubstrateCall(candidate) {
   return true;
 }
 
+function rejectPromptSubstrateCallRecord(reason) {
+  throw new Error('vtp_prompt_substrate_contract_invalid:' + reason);
+}
+
+function acceptPromptSubstrateCallRecord(intentFamily, preparedCall, substrateCallRecord) {
+  if (!validatePreparedSubstrateCall(preparedCall)) {
+    rejectPromptSubstrateCallRecord('prepared_call_missing_or_invalid');
+  }
+  if (preparedCall.gateway_evidence.intent_family !== intentFamily) {
+    rejectPromptSubstrateCallRecord('prepared_call_intent_mismatch');
+  }
+  if (!substrateCallRecord || typeof substrateCallRecord !== 'object' || Array.isArray(substrateCallRecord)) {
+    rejectPromptSubstrateCallRecord('substrate_call_record_missing');
+  }
+  if (
+    !substrateCallRecord.gateway_evidence
+    || typeof substrateCallRecord.gateway_evidence !== 'object'
+    || Array.isArray(substrateCallRecord.gateway_evidence)
+  ) {
+    rejectPromptSubstrateCallRecord('gateway_evidence_missing');
+  }
+  if (
+    !substrateCallRecord.payload
+    || typeof substrateCallRecord.payload !== 'object'
+    || Array.isArray(substrateCallRecord.payload)
+    || substrateCallRecord.gateway_evidence.payload_sha256 !== substratePayloadDigest(substrateCallRecord.payload)
+  ) {
+    rejectPromptSubstrateCallRecord('record_digest_mismatch');
+  }
+  if (!validatePreparedSubstrateCall(substrateCallRecord)) {
+    rejectPromptSubstrateCallRecord('substrate_call_record_invalid');
+  }
+  if (substrateCallRecord.gateway_evidence.intent_family !== intentFamily) {
+    rejectPromptSubstrateCallRecord('record_intent_mismatch');
+  }
+  if (
+    substrateCallRecord.tool !== preparedCall.tool
+    || JSON.stringify(substrateCallRecord.payload) !== JSON.stringify(preparedCall.payload)
+    || JSON.stringify(substrateCallRecord.gateway_evidence) !== JSON.stringify(preparedCall.gateway_evidence)
+  ) {
+    rejectPromptSubstrateCallRecord('record_prepared_call_mismatch');
+  }
+  return {
+    ok: true,
+    intent_family: intentFamily,
+    payload_sha256: preparedCall.gateway_evidence.payload_sha256,
+  };
+}
+
 /**
  * Date.now()-bracketed VTP MCP wrapper. Single measurement point for elapsed_ms
  * (per E-03 — VTP tools do not return this natively). Writes a routing-log row
@@ -510,6 +559,7 @@ module.exports = {
   SUBSTRATE_CALL_POLICY,
   buildSubstrateArgs,
   prepareSubstrateCall,
+  acceptPromptSubstrateCallRecord,
 };
 
 // Non-exported helpers kept on the function table for self-test access only
@@ -558,10 +608,40 @@ function runPrepareSubstrateCli(argv) {
   }
 }
 
+function runAcceptSubstrateCallRecordCli(argv) {
+  try {
+    const intentFamily = cliArgValue(argv, '--intent');
+    const preparedCallFile = cliArgValue(argv, '--prepared-call-file');
+    const recordFile = cliArgValue(argv, '--record-file');
+    if (!intentFamily || !preparedCallFile || !recordFile) {
+      throw new Error('vtp_substrate_record_cli_args_invalid');
+    }
+    const root = findSgsdRoot(process.cwd()) || fs.realpathSync(process.cwd());
+    const preparedTarget = resolveContainedPath(root, preparedCallFile);
+    const recordTarget = resolveContainedPath(root, recordFile);
+    for (const target of [preparedTarget, recordTarget]) {
+      if (!target || !fs.existsSync(target) || !fs.statSync(target).isFile()) {
+        throw new Error('vtp_substrate_record_file_uncontained');
+      }
+    }
+    const preparedCall = JSON.parse(fs.readFileSync(preparedTarget, 'utf8').replace(/^\uFEFF/, ''));
+    const substrateCallRecord = JSON.parse(fs.readFileSync(recordTarget, 'utf8').replace(/^\uFEFF/, ''));
+    const accepted = acceptPromptSubstrateCallRecord(intentFamily, preparedCall, substrateCallRecord);
+    process.stdout.write(JSON.stringify(accepted) + '\n');
+    return 0;
+  } catch (error) {
+    const reason = error && error.message ? error.message : String(error);
+    process.stderr.write('vtp_accept_substrate_call_record_failed:' + reason + '\n');
+    return 1;
+  }
+}
+
 if (require.main === module) {
   if (process.argv.includes('--self-test')) runSelfTest();
   else if (process.argv.includes('--prepare-substrate-call')) {
     process.exitCode = runPrepareSubstrateCli(process.argv.slice(2));
+  } else if (process.argv.includes('--accept-substrate-call-record')) {
+    process.exitCode = runAcceptSubstrateCallRecordCli(process.argv.slice(2));
   }
 }
 
