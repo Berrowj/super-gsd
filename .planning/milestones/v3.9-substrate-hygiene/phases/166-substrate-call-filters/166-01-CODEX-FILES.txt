@@ -1,0 +1,11 @@
+super-gsd/scripts/lib/vtp-context-composer.cjs
+super-gsd/scripts/lib/vtp-enrichment-gate.cjs
+super-gsd/scripts/sgsd-triage-runtime.cjs
+super-gsd/schemas/vtp-mcp-input-schemas.v2.json
+super-gsd/agents/sgsd-vtp-enrichment.md
+super-gsd/agents/sgsd-board-researcher.md
+super-gsd/tools/feature-propagation/audit.cjs
+super-gsd/tools/vtp-bridge/classify.cjs
+super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs
+super-gsd/tests/triage-runtime/assert-mcp-arg-contract.cjs
+super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs

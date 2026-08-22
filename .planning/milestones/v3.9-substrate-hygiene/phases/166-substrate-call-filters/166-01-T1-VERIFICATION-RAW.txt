@@ -1,0 +1,36 @@
+P166-T1 verification, run by the orchestrator unsandboxed at commit 11cea52.
+Every line is a real command and its real exit code.
+
+### T1 verification_cmd battery ###
+node .../assert-vtp-substrate-policy.cjs --case caller-coverage                   exit 0
+node .../assert-vtp-substrate-policy.cjs --case executable-emitters               exit 0
+node .../assert-mcp-arg-contract.cjs --case substrate-policy-required             exit 0
+node .../assert-mcp-arg-contract.cjs --case emitted-args                          exit 0
+node .../assert-mcp-arg-contract.cjs --case real-evidence --evidence-file <P154>  exit 0
+node .../assert-real-triage-runtime.cjs --scenario staged-vtp-null-reflection-fallback exit 0
+node .../assert-real-triage-runtime.cjs --scenario vtp-fallback-contained-degradation  exit 0
+node super-gsd/tools/vtp-bridge/classify.cjs --self-test                          exit 0
+
+### regression baseline, also green BEFORE T1 (captured in MILESTONE-READINESS.md) ###
+node .../assert-real-triage-runtime.cjs --scenario staged-vtp-oversized-response  exit 0
+node super-gsd/scripts/lib/vtp-context-composer.cjs --self-test                   exit 0
+node super-gsd/scripts/lib/vtp-enrichment-gate.cjs --self-test                    exit 0
+node super-gsd/tests/kb-triage-shadow/assert-shadow.cjs                           exit 0
+
+### scope audit ###
+changed files under super-gsd: exactly 11, matching the plan's files_touched
+frozen byte-unchanged: vtp-mcp-input-schemas.v1.json, 154-REAL-MCP-EVIDENCE.json
+emoji in changed files: 0
+em dashes in ADDED lines: 0
+diff: 1162 insertions, 85 deletions
+
+### execution history ###
+First executor run was terminated by the host wrapper at 1961s before it wrote a
+report (wrapper exit 127, log line "auth-denied" while codex was mid `node --check`).
+All 11 files were on disk. The orchestrator ran the battery and found
+caller-coverage red on two unclassified occurrences in classify.cjs (a comment at
+line 770 and a self-test label at line 805). Fix round 1 added exact anchored
+allowlist entries for those two declaration strings; no production file changed in
+that round. Codex could not run executable-emitters itself: its sandbox returns
+spawnSync EPERM on the nested composer CLI. It reported that limitation rather
+than claiming a pass. The orchestrator ran it unsandboxed: exit 0.
