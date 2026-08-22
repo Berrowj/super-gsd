@@ -4,7 +4,7 @@ phase: 167
 slug: substrate-invocation-witness
 milestone: v3.9-substrate-hygiene
 status: PLANNED
-revision: 1
+revision: 2
 governing_decision: .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/CONTEXT.md
 research_path: .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/RESEARCH.md
 depends_on: []
@@ -12,8 +12,9 @@ intent: >
   Witness each raw prompt-owned vtp_search_substrate invocation at the Claude
   Code tool boundary, deny a non-v2 payload before transport, cap a valid MCP
   result before model delivery, correlate the real invocation with P166 prompt
-  acceptance without an agent-reported identifier, and propagate and audit the
-  hook so a missing installation fails loudly instead of silently passing.
+  acceptance without an agent-reported identifier, and make the guarded MCP
+  capability broker withdraw the raw tool before transport whenever the hook
+  registrations or source are absent.
 execution_mode: serial-codex-with-orchestrator-live-gate
 expected_ATC_tier: GATE
 skip_gates: []
@@ -71,28 +72,56 @@ semantic_acceptance_criteria:
       node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case prompt-record-acceptance
   - input: >
       A disposable SGSD project and isolated USERPROFILE whose global legacy
-      planner/researcher agents exist but whose project .claude/settings.json,
-      witness key, and P167 prompt markers are absent, followed by
-      feature-propagation audit and repair-safe. After repair, the PostToolUse
-      witness registration is removed and audit and prompt acceptance are run
-      again.
+      planner/researcher agents and direct stdio vtp-kb definition exist but
+      whose project .claude/settings.json, witness key, guarded MCP capability,
+      and P167 prompt markers are absent, followed by feature-propagation audit
+      and repair-safe. After repair, each witness registration is removed in
+      turn and audit, capability discovery, and prompt acceptance are run again.
     expected_outcome: >
       Initial audit exits 2 with
       project_claude_substrate_witness_missing_or_stale. repair-safe provisions
       the local witness authority, idempotently installs exactly one project
-      PreToolUse and one project PostToolUse registration before installing or
-      patching any raw-substrate agent, and reports their exact command, matcher,
-      source digest, and key status. All four prompt surfaces carry the P167
-      preflight and fail-closed acceptance contract. Removing PostToolUse makes
-      audit exit 2 again; the next prompt record cannot be accepted and must be
-      reported as VTP_STATUS unavailable_or_bypassed with reason
-      substrate_witness_unavailable. Unrelated settings and agent content are
-      byte-preserved, and a second repair is byte-idempotent.
+      PreToolUse and one project PostToolUse registration, moves the effective
+      direct vtp-kb definition into a private upstream manifest, and makes the
+      broker the only Claude-visible vtp-kb server before installing or patching
+      any raw-substrate agent. It reports exact commands, matchers, source and
+      upstream-config digests, key status, and capability state without secrets.
+      All four installed prompt surfaces carry the P167 preflight and
+      fail-closed acceptance contract. Removing either registration makes audit
+      exit 2, makes the broker withdraw vtp_search_substrate from tools/list and
+      deny a stale tools/call before upstream transport, and makes the next
+      prompt record fail acceptance with VTP_STATUS unavailable_or_bypassed and
+      reason substrate_witness_unavailable. Unrelated settings and agent content
+      are byte-preserved, and a second repair is byte-idempotent.
     verification_cmd: >
       node super-gsd/tests/substrate-invocation-witness/assert-propagation.cjs &&
       node super-gsd/tools/feature-propagation/audit.cjs --self-test &&
       node super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs --case hook-manifest-completeness &&
       node super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs --case bundled-overlay-current
+  - input: >
+      The repaired disposable profile and real Claude Code runtime from SAC 1,
+      after deleting both P167 project hook registrations and deleting the
+      project hook source. The guarded vtp-kb broker remains configured against
+      the local oversized fixture, and the fresh bypass-permissions session is
+      explicitly asked to invoke mcp__vtp-kb__vtp_search_substrate.
+    expected_outcome: >
+      Before any upstream tools/call, the broker's successful tools/list omits
+      vtp_search_substrate because exact registration and source readiness both
+      fail. Any stale or forced tools/call is rejected by the broker's second
+      readiness check without forwarding. The fixture server's own append-only
+      invocation log contains zero tools/call rows, and the Claude transcript
+      contains neither a substrate tool result nor the fixture's unique raw
+      response and discarded-tail markers. Audit exit 2 and prompt-acceptance
+      refusal are recorded only as supporting observations; they are not the
+      proof. The independent proof is zero fixture invocations plus no raw
+      transcript delivery.
+    verification_cmd: >
+      node super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs --capture
+      --project-dir . --evidence-file
+      .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-REAL-MCP-HOOK-EVIDENCE.json &&
+      node super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs --verify
+      --project-dir . --evidence-file
+      .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-REAL-MCP-HOOK-EVIDENCE.json
   - input: >
       The P166 eight-site caller inventory, a 16001-character top-level and
       evidence.hits response, the P152 shadow proof, frozen P154 real MCP
@@ -118,8 +147,9 @@ known_deadends:
   - Do not ask the agent to report tool_use_id, a witness filename, nonce, sequence number, or any other correlation capability. tool_use_id remains hook-only; acceptance correlates by runtime session plus substratePayloadDigest and consumes the internally keyed row.
   - Do not treat a direct call to an exported hook function, a piped stdin fixture, a mocked MCP transport, or a passing Node unit test as proof that production enforcement fired. Phase completion requires the live Claude Code plus real local MCP capture in SAC 1.
   - Do not reuse P147 modeFileDigest or describe an unkeyed hash as protection. P147 expressly is not tamper-proof and does not attest hook presence. P167 uses a separately provisioned random key, HMAC-authenticated rows, hook-only tool-use correlation, freshness, and atomic one-use consumption.
-  - Do not call the local HMAC store tamper-proof. A process with arbitrary same-user code execution can potentially read the local key, alter user-owned settings, delete evidence, or replace both the hook and acceptance code. Admin-managed Claude policy or an external signer under a different security principal is required to resist that actor.
-  - Do not automatically write an OS or enterprise managed-policy location. SGSD cannot portably or safely propagate administrator-owned policy. Project-local managed registrations plus fail-closed acceptance are the deployable baseline; audit must expose trust_level local_hmac and managed_policy_required_for_hostile_same_user rather than implying stronger authority.
+  - Do not call the local HMAC store or broker tamper-proof. A process with arbitrary same-user code execution can potentially read the local key, restore a direct vtp-kb definition, replace the user-owned broker, alter settings, delete evidence, or replace both hook and acceptance code. Admin-managed Claude policy or an external signer under a different security principal is required to resist that actor.
+  - Windows Claude Code 2.1.240 can enforce hooks from HKLM\SOFTWARE\Policies\ClaudeCode or C:\Program Files\ClaudeCode\managed-settings.json; lower scopes cannot disable those managed hooks, and allowManagedHooksOnly can exclude non-managed hooks. That authority is not deployed on this machine, the current operator is non-admin, HKCU is explicitly user-writable, and enabling allowManagedHooksOnly here would suppress the existing project/user hook fleet unless all of it migrated. Do not claim that the sgsd_managed JSON marker is managed policy or attempt to write an administrator-owned location. P167 therefore chooses the independent guarded MCP capability broker for the supported local_hmac tier.
+  - The broker closes deletion of either/both registrations and the project hook source by removing vtp_search_substrate from tools/list and rechecking before upstream tools/call. It does not close a hostile same-user actor who edits Claude MCP configuration to restore the archived direct server, replaces the broker, or invokes the upstream server through another program. Audit must report trust_level local_hmac, enforcement_scope supported_sgsd_brokered_mcp_grant, and residual same_user_can_restore_direct_mcp_or_replace_broker.
   - Do not rely on SessionStart alone to prove the PreToolUse and PostToolUse hooks are loaded. Exact project registrations, source hashes, key readiness, an actual per-call witness, and the live runtime transcript all remain required.
   - Do not let a missing hook merely add a warning while accepting substrate evidence. The acceptance seam must refuse the record, and all four prompt contracts must discard the result and emit the explicit unavailable_or_bypassed degradation.
   - Do not pass an uncapped PostToolUse result through when capping, witness lookup, parsing, or rewrite output construction fails. An active PostToolUse hook replaces such a result with a bounded substrate_witness_rewrite_failed result.
@@ -131,12 +161,13 @@ known_deadends:
   - Do not run capture-live-runtime.cjs --capture, executable-emitters, staged-vtp-oversized-response, deployed hook smoke cases, or any other spawn-bound suite inside the Codex sandbox. Nested Node and Claude processes return spawnSync EPERM there. These are orchestrator-owned commands, and an executor must report ORCHESTRATOR_REQUIRED rather than claim a pass.
 tasks:
   - id: P167-T1
-    type: pre-post-hook-and-authenticated-witness-store
+    type: pre-post-hook-guarded-mcp-broker-and-authenticated-witness-store
     agent: codex
     model: codex
     depends_on: []
     files_touched:
       - super-gsd/hooks/sgsd-substrate-invocation-witness.cjs
+      - super-gsd/tools/substrate-capability-broker.cjs
       - super-gsd/scripts/lib/substrate-invocation-witness-store.cjs
       - super-gsd/scripts/lib/vtp-context-composer.cjs
       - super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs
@@ -149,8 +180,12 @@ tasks:
       source_types, missing limit, empty source_types, limit 6, malformed stdin,
       missing session/tool-use IDs, missing key, duplicate Pre, missing Pre at
       Post, exact 16000 boundaries, 16001-character hits, and a discarded-tail
-      marker. These tests establish deterministic behavior but do not satisfy
-      the live-runtime SAC.
+      marker. Add a fake upstream stdio server and cover tools/list with current,
+      missing, duplicated, or source-drifted registrations, deletion of both
+      registrations plus hook source, a stale forced substrate tools/call, a
+      non-substrate tools/call, upstream exit, malformed upstream JSON, and
+      list_changed after readiness loss. These tests establish deterministic
+      behavior but do not satisfy either live-runtime SAC.
 
       Add only a public export for the existing substratePayloadDigest and a
       helper backed by the already compiled P166 v2 validator to
@@ -198,16 +233,32 @@ tasks:
       result is malformed, the Pre row is absent/invalid, or capping fails,
       replace the tool output with a small substrate_witness_rewrite_failed
       object and never pass the raw result through.
+
+      Implement substrate-capability-broker.cjs as the only supported
+      Claude-visible vtp-kb stdio server. It reads a private, user-only upstream
+      server manifest provisioned by T4, starts and transparently proxies that
+      stdio server, and never persists or logs arguments or results. For
+      tools/list, forward upstream discovery but omit vtp_search_substrate unless
+      the same exact-registration, source-digest, project, and key-readiness
+      check used by PreToolUse is current. Watch those readiness inputs and emit
+      a successful MCP list_changed notification when the tool must be added or
+      withdrawn. For every substrate tools/call, repeat readiness synchronously
+      before forwarding, so a stale client tool list cannot race deletion. On
+      failure, return only a bounded substrate_witness_unavailable MCP error and
+      do not send the request upstream. Forward non-substrate tools unchanged.
     output_contract: >
       One project-loadable Claude hook denies an invalid actual substrate
       invocation before transport and rewrites a valid result through the
-      existing cap before model delivery. A keyed external spool records unique
-      Pre and rewritten states without exposing correlation capabilities or
-      payload/response content, and a redacted metrics mirror makes decisions
-      auditable.
+      existing cap before model delivery. The guarded MCP broker independently
+      removes the raw substrate capability when hook readiness is absent and
+      refuses stale calls before upstream transport. A keyed external spool
+      records unique Pre and rewritten states without exposing correlation
+      capabilities or payload/response content, and a redacted metrics mirror
+      makes decisions auditable.
     hypothesis: >
-      Binding v2 validation and the existing cap to the actual Claude tool
-      events closes the transport and pre-model seams while a hook-only,
+      Binding v2 validation and the existing cap to actual Claude tool events,
+      while a separate MCP capability broker withdraws the grant when those
+      events cannot fire, closes active and absent-guard paths. A hook-only,
       authenticated state transition gives later acceptance evidence that did
       not originate in the agent's prompt record.
     falsifier: >
@@ -215,29 +266,35 @@ tasks:
       cannot be written; Post passes through an uncapped or malformed result;
       the hook reimplements schema, digest, or cap logic; a persisted row leaks
       raw input/output/session/tool-use/key data; an edited row still verifies;
-      duplicate Pre overwrites a row; a non-substrate tool changes behavior;
-      or T1 cannot be reverted without reverting a later task.
+      duplicate Pre overwrites a row; the broker advertises or forwards
+      substrate when either registration or source is absent; a stale call
+      reaches upstream; a non-substrate tool changes behavior; raw payload or
+      response data is logged; or T1 cannot be reverted without a later task.
     stop_rule: >
       Stop when assert-hook-contract is red before implementation and green
       after it, each denial has a stable reason, exact-boundary and both response
       shapes preserve P166 semantics, HMAC/edit/state-transition checks pass,
-      node --check passes for all three production files, and the T1 diff is
-      limited to the four listed files.
+      broker discovery/withdrawal and before-forward recheck cases pass, node
+      --check passes for all four production files, and the T1 diff is limited
+      to the five listed files.
     verification_cmd: >
       node --check super-gsd/hooks/sgsd-substrate-invocation-witness.cjs &&
+      node --check super-gsd/tools/substrate-capability-broker.cjs &&
       node --check super-gsd/scripts/lib/substrate-invocation-witness-store.cjs &&
       node --check super-gsd/scripts/lib/vtp-context-composer.cjs &&
       node super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs &&
       node super-gsd/scripts/lib/vtp-context-composer.cjs --self-test
     expected_ATC_tier: GATE
     revert_range: >
-      One P167-T1 commit containing only the four listed files. Revert that
+      One P167-T1 commit containing only the five listed files. Revert that
       single commit after reverting P167-T5 through P167-T2; no registration,
       prompt, propagation, or live-evidence file belongs in this range.
     known_deadends:
       - Do not add witness logic to sgsd-activity-logger.js. It receives full input, but its contract is silent best-effort logging and its persisted previews are deliberately truncated.
       - Do not use exit 0 with a warning for a targeted Pre failure. Return the documented permissionDecision deny contract; keep exit 2 only as a tested compatible denial precedent.
       - Do not write the authoritative spool or key under .planning, where a normal agent file edit can trivially fabricate the record used by acceptance.
+      - Do not leave an unbrokered Claude-visible vtp-kb definition at any MCP scope after T4 repair. The private upstream manifest is input to the broker, not a Claude MCP registration.
+      - Do not count a bounded broker rejection as the absence proof. The live absence SAC requires the upstream fixture's own zero-invocation log and transcript marker checks.
   - id: P167-T2
     type: witness-correlated-prompt-acceptance
     agent: codex
@@ -334,7 +391,10 @@ tasks:
       propagate. Classify the four surfaces separately. Assert each keeps its
       P166 intent family and composer-prepared payload, carries no source_types
       or limit literal of its own, does not ask for tool_use_id, and cannot
-      accept a response until readiness and post-call acceptance succeed.
+      accept a response until readiness and post-call acceptance succeed. Assert
+      that both canonical source frontmatter tool lists are raw-substrate-free;
+      T4 alone may derive installed grant-bearing copies after the broker and
+      hooks are current.
 
       Add one shared P167 contract wording to the canonical enrichment and board
       agents. Before raw substrate transport, run the production witness
@@ -353,30 +413,36 @@ tasks:
       capSubstrateResponse. Carry hook-authored degradation_notes through the
       existing normal artifact/output path when acceptance succeeds.
 
-      Keep the raw MCP tool only because these prompt runtimes still cannot
-      inject transport into callVtp. Preserve P166's tool inventory, query
-      preparation, gateway evidence, intent families, artifact behavior, and
-      optional-VTP semantics. T3 describes the installed-agent marker contract
-      in its test but does not modify audit.cjs; T4 owns that separately
-      revertible propagation change.
+      Remove mcp__vtp-kb__vtp_search_substrate from both canonical source
+      frontmatter tool lists. Keep every other P166 tool, query preparation,
+      gateway evidence, intent family, artifact behavior, and optional-VTP
+      semantic unchanged. The body retains the conditional raw-call contract
+      because T4 derives installed copies with the raw tool only after it makes
+      the broker the sole vtp-kb definition and verifies both hooks. T3 models
+      that installed-agent marker contract in its test but does not modify
+      audit.cjs; T4 owns the separately revertible derived grants.
     output_contract: >
-      The canonical enrichment and board prompts call raw substrate only after
-      witness readiness and use its result only after the exact P166 record and
-      one rewritten runtime witness are accepted. Missing enforcement produces
-      a named optional-VTP degradation rather than a silent success.
+      Canonical source prompts are raw-substrate-free. Their broker-granted
+      installed variants call raw substrate only after witness readiness and use
+      its result only after the exact P166 record and one rewritten runtime
+      witness are accepted. Missing enforcement removes the capability and
+      produces a named optional-VTP degradation rather than silent success.
     hypothesis: >
-      Preflight plus fail-closed post-call acceptance gives each raw prompt a
-      deterministic absence path, while keeping the actual denial and rewrite
-      in hooks rather than asking the model to enforce them in prose.
+      Raw-free source templates plus a broker-owned conditional installed grant
+      make absence mechanical, while preflight and post-call acceptance remain
+      explicit degradation and evidence paths and the hooks keep active denial
+      and rewrite out of model prose.
     falsifier: >
-      Either canonical prompt can call before readiness, can use content after
-      acceptance failure, asks for a hook identifier, manually reimplements the
-      cap, retries unfiltered, changes an intent/policy field, turns optional VTP
-      absence into phase failure, or T3 cannot be reverted without T1/T2.
+      Either canonical source still grants raw substrate; an installed contract
+      can call before readiness or use content after acceptance failure; either
+      asks for a hook identifier, manually reimplements the cap, retries
+      unfiltered, changes an intent/policy field, turns optional VTP absence into
+      phase failure, or T3 cannot be reverted without T1/T2.
     stop_rule: >
       Stop when assert-prompt-contracts is red then green for the canonical
       surfaces and declared legacy marker contract, caller-coverage still sees
-      the same eight production branches, no tool list or intent drifts, no
+      the same eight production branches, only the two named raw grants are
+      removed from source tool lists, no intent or other tool drifts, no
       agent-supplied identifier appears, and the T3 diff is limited to the three
       listed files.
     verification_cmd: >
@@ -389,10 +455,10 @@ tasks:
       dedicated prompt-contract test. Revert it after P167-T5 and P167-T4 and
       before T2; T3 does not own installed legacy agent mutations.
     known_deadends:
-      - Do not treat prompt readiness wording as the enforcement mechanism. It is an early degradation path; T1 hooks and T2 acceptance remain authoritative.
-      - Do not remove raw substrate access from only some of the four prompts and then claim full closure. T4 must propagate the same contract to both legacy installed surfaces.
+      - Do not treat prompt readiness wording as the enforcement mechanism. It is an early degradation path; T1's broker grant plus hooks and T2 acceptance are authoritative at their respective boundaries.
+      - Do not grant raw substrate in canonical source files or only revoke it from some of the four installed prompts. T4 must derive or withdraw the grant for both canonical installs and both legacy surfaces as one capability.
   - id: P167-T4
-    type: project-hook-propagation-audit-and-absence-gate
+    type: brokered-tool-grant-propagation-audit-and-absence-gate
     agent: codex
     model: codex
     depends_on: ['P167-T3']
@@ -409,10 +475,13 @@ tasks:
       isolated HOME and USERPROFILE. Seed unrelated settings entries, old P166
       planner/researcher patches, missing hook registrations, stale commands,
       duplicate hook IDs, a mismatched source file, missing and malformed key
-      state, and both current and absent installed agents. Snapshot the real
+      state, direct vtp-kb definitions at local/project/user MCP scopes, an
+      unsupported upstream transport, and both current and absent installed
+      agents. Include secret-shaped upstream env values and snapshot the real
       user profile and source project evidence so any test escape fails. Cover
-      audit-only, repair-safe, second repair, deliberate Post removal, and a
-      simulated merge failure before agent installation.
+      audit-only, repair-safe, second repair, removal of each hook, deletion of
+      both registrations plus hook source without another repair, and a
+      simulated broker/merge failure before agent installation.
 
       Add exactly two sgsd_managed project registrations to
       repo-settings-overlay.json for the same hook script: PreToolUse and
@@ -434,50 +503,82 @@ tasks:
       each managed hook ID, event, canonical matcher, resolved command, timeout,
       current source digest, and key readiness. Report missing, stale,
       duplicate, source_drift, key_missing/key_invalid, trust_level local_hmac,
-      and limitation managed_policy_required_for_hostile_same_user. A failing
-      audit adds project_claude_substrate_witness_missing_or_stale and exits 2.
+      enforcement_scope supported_sgsd_brokered_mcp_grant, and residual
+      same_user_can_restore_direct_mcp_or_replace_broker. Add
+      auditClaudeSubstrateCapability to inspect Claude's local, project, and user
+      MCP scope precedence and require every discovered vtp-kb definition to
+      name substrate-capability-broker.cjs, the broker/source hashes to be
+      current, and the private upstream manifest to be present, user-only where
+      supported, and digest-matched without exposing command args, env values,
+      headers, or URLs. Report direct_grant, broker_missing, broker_drift,
+      upstream_missing, upstream_drift, unsupported_upstream_transport, and
+      grant_with_witness_unready. A failing witness or capability audit adds
+      project_claude_substrate_witness_missing_or_stale and exits 2.
 
-      Reorder repair-safe so it first provisions the key without exposing it,
-      merges the repo registrations, and re-audits them. Only after that audit
-      is current may it copy the two canonical VTP agents or patch legacy
-      gsd-phase-researcher.md and gsd-planner.md with a versioned P167 contract.
-      The installed contract must match T3: readiness before the raw call,
-      acceptance after it, no agent identifier, discard/degrade on failure, and
-      no manual response cap. If registration/key repair fails, stop before
-      installing or extending any raw-substrate agent and return the named
-      issue. Preserve unrelated settings, existing agents, and non-VTP repair
-      behavior. Full repair retains its existing shadow backup semantics.
+      Reorder repair-safe so it first provisions the key without exposing it and
+      merges and re-audits both project registrations. For every effective
+      stdio vtp-kb definition, atomically move the exact original server object
+      into a private scope-keyed upstream manifest outside the project and
+      replace the Claude-visible definition at that scope with the same named
+      vtp-kb broker command. Never leave a direct vtp-kb fallback at a lower
+      scope. The broker manifest is not an MCP configuration, must not be loaded
+      by Claude, and must retain secrets byte-for-byte without printing or
+      mirroring them. If no VTP server exists, or its transport is unsupported,
+      keep all four installed agents raw-substrate-free and follow optional-VTP
+      degradation rather than creating a partial grant.
 
-      Teach install.sh to provision the same key before repo-local hook merge
-      and to fail rather than silently skip these two mandatory registrations
-      when installing SGSD agents with raw substrate access. Reuse the existing
-      hook distribution and merge preflight. Extend the installer registration
-      guard's overlay counts, manifest completeness, source distribution,
-      idempotence, stale/duplicate detection, and unrelated-setting
-      preservation. Do not add a second Claude hook installer.
+      Only after hook and broker audits are current may repair-safe derive the
+      two installed canonical VTP agents from T3's raw-free sources and patch
+      legacy gsd-phase-researcher.md and gsd-planner.md with both the raw tool
+      grant and versioned P167 contract. The installed contract must match T3:
+      readiness before the raw call, acceptance after it, no agent identifier,
+      discard/degrade on failure, and no manual response cap. If readiness later
+      disappears, the broker immediately withdraws the actual tool and blocks
+      stale calls; the next repair-safe also removes the derived raw grant from
+      all four installed files. Preserve unrelated settings, agent content, MCP
+      servers, and non-VTP repair behavior. Full repair retains its existing
+      shadow backup semantics.
+
+      Teach install.sh to provision the same key before repo-local hook merge,
+      install the brokered MCP definition before any grant-bearing agent, and
+      fail rather than silently expose raw substrate when either mandatory hook,
+      broker installation, or private upstream preservation fails. Reuse the
+      existing hook distribution and merge preflight. Extend the installer
+      registration guard's overlay counts, manifest completeness, source
+      distribution, broker-only vtp-kb checks, idempotence, stale/duplicate
+      detection, secret non-disclosure, and unrelated-setting preservation. Do
+      not add a second Claude hook or agent installer.
     output_contract: >
       Fresh install and feature propagation carry the authoritative project
-      Pre/Post registrations, hook source, local signing authority, and all four
-      prompt contracts as one audited capability. Audit-only is read-only and
-      exits 2 on absence; repair-safe installs enforcement before exposing raw
-      substrate agents and is byte-idempotent.
+      Pre/Post registrations, hook source, local signing authority, sole
+      brokered vtp-kb definition, private upstream manifest, and four conditional
+      installed prompt grants as one audited capability. Audit-only is read-only
+      and exits 2 on absence; repair-safe installs enforcement before exposing
+      raw substrate, withdraws derived grants when unavailable, and is
+      byte-idempotent.
     hypothesis: >
-      Making hook readiness an explicit prerequisite of agent propagation turns
-      a fresh-machine absence into a blocking audit result and prevents the
-      authoring-machine-only witness gap without duplicating installer logic.
+      Making the broker the only owner of the actual MCP grant, with hook
+      readiness as its discovery and before-forward condition, turns hook
+      deletion into capability withdrawal before model-visible transport while
+      preserving the existing installer and prompt surfaces.
     falsifier: >
-      A fresh profile audits ok without the hooks/key; repair writes agents
-      before enforcement; one event, wrong matcher, stale source, duplicate, or
-      missing key audits current; a second repair changes bytes; unrelated
-      settings or agents change; global plus project registration can both
-      fire; audit claims tamper-proof; tests touch the real profile; or T4 is
-      not independently revertible.
+      A fresh profile audits ok without hooks/key/broker; repair writes a raw
+      agent before enforcement; a direct vtp-kb fallback remains at any scope;
+      secrets enter logs or evidence; one event, wrong matcher, stale source,
+      duplicate, missing key, broker drift, or upstream drift audits current;
+      deletion leaves the tool discoverable or forwardable; a second repair
+      changes bytes; unrelated settings or agents change; global plus project
+      registration can both fire; audit claims tamper-proof; tests touch the
+      real profile; or T4 is not independently revertible.
     stop_rule: >
-      Stop when the fresh-profile case is red then green, removal of either
-      event bites, repair ordering and byte-idempotence are proven, both legacy
-      agents carry the exact P167 marker and no identifier, installer manifest
-      cases pass, feature-propagation self-test passes, and the post-T3 diff is
-      limited to the seven listed files.
+      Stop when the fresh-profile case is red then green, all direct MCP scope
+      cases become broker-only, removal of either event withdraws the tool,
+      deletion of both events plus hook source cannot forward a stale call,
+      repair ordering, secret non-disclosure, and byte-idempotence are proven,
+      both canonical installs and both legacy agents have the correct
+      grant-or-revoke state, both legacy markers carry no identifier, installer
+      manifest cases pass, feature-propagation self-test passes, and the
+      post-T3 diff is limited to the seven listed files.
     verification_cmd: >
       node --check super-gsd/scripts/merge-settings.js &&
       node --check super-gsd/tools/feature-propagation/audit.cjs &&
@@ -485,17 +586,20 @@ tasks:
       node super-gsd/tools/feature-propagation/audit.cjs --self-test &&
       node super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs --case hook-manifest-completeness &&
       node super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs --case bundled-overlay-current &&
-      node super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs --case hook-distribution-all-types
+      node super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs --case hook-distribution-all-types &&
+      node super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs --case brokered-substrate-capability
     expected_ATC_tier: GATE
     revert_range: >
       One P167-T4 commit containing only the seven listed files. Revert it after
       P167-T5 and before P167-T3; the reverse leaves canonical prompt
-      fail-closed behavior and hook code in the repo but removes propagation as
-      one unit.
+      raw-free source behavior and hook/broker code in the repo but removes
+      derived grants and propagation as one unit.
     known_deadends:
       - Do not make missing Claude hooks non-blocking beside the existing Codex hook report. P167 has its own issue code and nonzero audit result.
       - Do not merge settings by shelling out from audit.cjs. Export and reuse the existing in-process merge so deterministic tests do not depend on nested Node.
-      - Do not silently provision administrator-managed policy. Report the local trust tier and its same-user limit; managed policy remains an operator authority boundary.
+      - Do not silently provision administrator-managed policy. Report that Windows machine-managed hooks are technically available but not deployed or writable by the current non-admin operator; managed policy remains the stronger operator authority boundary.
+      - Do not leave a direct vtp-kb entry as a fallback for convenience. If the broker cannot preserve and proxy the effective stdio definition, remove the raw grant from all four installed prompts and degrade VTP substrate explicitly.
+      - Do not claim the broker resists arbitrary same-user MCP reconfiguration. The bounded claim is deletion-safe for the supported brokered grant, not protection from a user who restores the archived direct config or replaces the broker.
   - id: P167-T5
     type: live-claude-mcp-denial-rewrite-evidence
     agent: codex
@@ -508,43 +612,68 @@ tasks:
     input_contract: >
       Build a deterministic stdio MCP fixture named vtp-kb that declares only
       vtp_search_substrate, validates its received payload, appends a redacted
-      invocation row to a caller-supplied temporary log, and returns one
-      ordinary hit plus one hit with 16001 JavaScript characters and a unique
-      tail marker. It must never contact VTP, read a private corpus, or write
-      outside its supplied temporary directory.
+      row for every received tools/call to a caller-supplied append-only log,
+      and returns one ordinary hit plus one hit with 16001 JavaScript characters
+      and unique raw-response and discarded-tail markers. Initialize and
+      tools/list traffic must be distinguishable from tools/call and cannot be
+      counted as a substrate invocation. The fixture must never contact VTP,
+      read a private corpus, or write outside its supplied temporary directory.
 
       capture-live-runtime.cjs has separate --capture and --verify modes.
       --capture creates a disposable SGSD project/profile, installs the P167
       project hook registrations through the real merge path, provisions an
-      isolated witness key, configures only the local fixture as server vtp-kb,
-      and launches the installed Claude Code in bypass-permissions mode from a
-      fresh process so settings are loaded at session start. The prompt requires
-      exactly two canonical MCP attempts: an invalid payload missing the P166
-      required policy fields, then a valid composer-prepared planning payload.
-      Fail capture unless the transcript contains a real tool-use event for
-      each attempt, the invalid event is denied, the server log contains only
-      the valid payload, and the valid tool result in the transcript is the
-      PostToolUse replacement rather than the server's raw result.
+      isolated witness key, stores the local fixture as the broker's private
+      upstream, configures the broker as the only Claude-visible server named
+      vtp-kb, derives a grant-bearing test agent, and launches installed Claude
+      Code in bypass-permissions mode from a fresh process so settings are
+      loaded at session start. The active-path prompt requires exactly two
+      canonical MCP attempts: an invalid payload missing the P166 required
+      policy fields, then a valid composer-prepared planning payload. Fail
+      capture unless the transcript contains a real tool-use event for each
+      attempt, the invalid event is denied, the fixture log contains only the
+      valid tools/call payload, and the valid tool result in the transcript is
+      the PostToolUse replacement rather than the fixture's raw result.
+
+      In a second fresh disposable project/profile, run the same real install,
+      then delete both P167 hook registrations and the project hook source
+      without running repair again. Start another real bypass-permissions Claude
+      process through the still-configured broker and explicitly request the
+      canonical raw tool. Require successful broker discovery with
+      vtp_search_substrate absent, and also issue a direct stale tools/call to
+      the broker outside the model as race falsification. Fail capture unless
+      the fixture's own log has zero tools/call rows for this scenario, the stale
+      call receives only bounded substrate_witness_unavailable, the Claude
+      transcript has no substrate tool result, and neither unique fixture raw
+      marker appears anywhere in model-visible transcript content.
 
       Write 167-REAL-MCP-HOOK-EVIDENCE.json atomically with schema/version,
       capture time, Claude Code version, bypass-permissions mode, exact hook IDs
-      and source/registration hashes, fixture source hash, prepared and
-      actual-input payload digests, redacted session/tool-use hashes, denial
-      reason, server invocation count and payload, original/retained character
-      counts, degradation reason, discarded-marker absence, witness state
-      sequence, acceptance consumption result, commands with secrets and temp
-      paths redacted, and frozen-file before/after hashes. Do not persist the
-      witness key, raw identifiers, discarded text, or unrelated transcript
-      content. Clean the disposable project/profile after the evidence file is
-      safely written.
+      and source/registration hashes, broker source/config/upstream-manifest
+      hashes, fixture source hash, prepared and actual-input payload digests,
+      redacted session/tool-use hashes, denial reason, active server invocation
+      count and payload, original/retained character counts, degradation reason,
+      discarded-marker absence, witness state sequence, acceptance consumption
+      result, and a separate absent_guard object. That object records deletion
+      of both hook IDs and source, broker tools/list names/digest, stale-call
+      rejection, fixture-owned zero invocation count/log digest, transcript
+      event-type summary, and absence of both raw markers. Record commands with
+      secrets and temp paths redacted and frozen-file before/after hashes. Do
+      not persist the witness key, private upstream object, raw identifiers,
+      discarded text, or unrelated transcript content. Clean both disposable
+      projects/profiles after the evidence file is safely written.
 
       --verify is spawn-free and reads the captured evidence plus current
       sources. It must reject missing fields, wrong runtime/version, simulated
       hook mode, non-bypass permission mode, zero or multiple valid server
       invocations, an invalid server invocation, absent Pre deny/Post rewrite,
       non-16000 retention, present tail marker, absent degradation note,
-      unconsumed witness, source/registration/fixture hash drift, or changed
-      frozen files. It cannot regenerate or bless evidence.
+      unconsumed witness, source/registration/broker/fixture hash drift, or
+      changed frozen files. It must also reject an absent-guard object that does
+      not prove both registrations and source deleted, advertises the substrate
+      tool, forwards either the model attempt or stale direct call, has any
+      fixture tools/call row, contains either raw marker or a substrate result
+      in transcript content, or relies only on audit/acceptance refusal. It
+      cannot regenerate or bless evidence.
 
       The Codex executor may write and run the fixture's in-process checks and
       --verify parser, but it must not run --capture or invoke Claude. The
@@ -553,29 +682,36 @@ tasks:
       executor reports ORCHESTRATOR_REQUIRED and leaves T5 incomplete until the
       orchestrator produces the real evidence and --verify exits 0.
     output_contract: >
-      A committed, machine-readable real-runtime artifact proves the installed
-      Pre hook denied an invalid canonical MCP invocation before server entry
-      and the installed Post hook replaced one real oversized MCP result before
-      model delivery. The proof is reproducible with a local fixture and does
-      not depend on a live VTP host.
+      A committed, machine-readable real-runtime artifact proves both sides of
+      the boundary: installed hooks deny an invalid canonical invocation and
+      rewrite one real oversized result before model delivery, while deletion
+      of both registrations and hook source makes the independent broker remove
+      and refuse the raw capability with zero fixture invocations and no raw
+      transcript delivery. The proof is reproducible locally and does not
+      depend on a live VTP host.
     hypothesis: >
-      A fresh Claude process plus a real stdio MCP server and three independent
-      observation sources, Claude transcript, MCP server log, and signed hook
-      rows, can distinguish production enforcement from a simulated hook test.
+      Fresh Claude processes plus a real brokered stdio fixture and independent
+      Claude transcript, fixture log, broker discovery, and signed hook evidence
+      can prove both active denial/rewrite and absent-guard non-invocation.
     falsifier: >
       Evidence comes from direct hook invocation or an injected transport; the
       invalid call enters the server; bypass-permissions avoids denial; raw tail
       text appears in the model transcript; only a report claims rewrite; the
-      witness is not consumed; capture touches live VTP or real user settings;
-      sensitive identifiers/key/text are persisted; hashes drift; Codex claims
-      the spawn-bound run passed; or T5 is not one independently revertible
-      commit.
+      witness is not consumed; both registrations and source are deleted but the
+      tool remains advertised, the fixture receives any absent-path tools/call,
+      or a raw marker/result reaches that transcript; absence is inferred only
+      from audit or acceptance; capture touches live VTP or real user settings;
+      sensitive identifiers/key/text/upstream config are persisted; hashes
+      drift; Codex claims the spawn-bound run passed; or T5 is not one
+      independently revertible commit.
     stop_rule: >
       Stop only after the orchestrator-owned --capture exits 0, spawn-free
       --verify exits 0 against the committed artifact, the evidence records one
-      denied and one rewritten real MCP attempt with the required independent
-      observations, all earlier task and regression commands pass under their
-      declared owner, and the T5 diff is limited to the three listed files.
+      denied and one rewritten real MCP attempt plus the deleted-both-and-source
+      scenario with zero fixture invocations and no raw transcript, all with the
+      required independent observations. All earlier task and regression
+      commands must pass under their declared owner, and the T5 diff is limited
+      to the three listed files.
     verification_cmd: >
       node --check super-gsd/tests/substrate-invocation-witness/fixture-vtp-mcp-server.cjs &&
       node --check super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs &&
@@ -592,41 +728,60 @@ tasks:
       - Do not substitute the hook unit suite or a mocked mcpInvoke spy for --capture. They prove code behavior, not that Claude loaded and fired the installed hooks.
       - Do not point the live proof at the operator's VTP server or use wiki/LINT-REPORT.md as the oversized fixture.
       - Do not let the executor translate spawnSync EPERM into PASS, SKIP-PASS, or inferred success. The orchestrator must run and capture the live command.
+      - Do not accept audit exit 2, prompt refusal, a broker warning, or the model's statement that a tool was unavailable as the absence proof. Only the fixture-owned zero tools/call log plus transcript raw-marker/result absence satisfies it.
 ---
 
 # P167 - Substrate Invocation Witness
 
+Revision 2 provenance: revised in place on 2026-08-22 from the round-1 NOGO
+review. It preserves the six accepted checks and closes the single critical
+absence gap by adding a broker-owned MCP capability grant plus a live
+delete-both-registrations-and-source non-invocation proof.
+
 Five serial, independently revertible tasks close P166 DEFERRED-1 at the
 runtime seam without weakening its gateway or response limits. T1 adds the real
-PreToolUse denial, PostToolUse rewrite, and authenticated witness state. T2
-requires one rewritten witness at P166 prompt acceptance. T3 makes the two
-canonical prompts degrade before or after transport when enforcement is absent.
-T4 propagates and audits the same contract for the two installed legacy agents.
-T5 captures the mandatory production proof through an actual Claude Code MCP
-tool call.
+PreToolUse denial, PostToolUse rewrite, authenticated witness state, and guarded
+MCP broker. T2 requires one rewritten witness at P166 prompt acceptance. T3
+makes the two canonical sources raw-substrate-free while retaining their
+conditional installed contract. T4 makes the broker the only vtp-kb grant and
+derives or withdraws all four installed prompt grants. T5 captures mandatory
+active-path and absent-guard production proofs through real Claude Code MCP
+runtime boundaries. The critical repair adds one production broker file inside
+T1, extends the existing propagation and capture work, and creates neither a
+sixth task nor a duplicate installer.
 
 ## Runtime and evidence flow
 
-1. P166 `prepareSubstrateCall` builds the policy-owned v2 payload and digest.
-2. Claude Code PreToolUse supplies the full actual `tool_input`. The P167 hook
+1. T4 archives the effective direct stdio vtp-kb definition outside Claude MCP
+   scope and registers the T1 broker as the only server retaining that name.
+2. On tools/list and immediately before each substrate tools/call, the broker
+   checks exact Pre/Post registration, hook source digest, project, and key
+   readiness. It omits or refuses the tool before upstream transport on any
+   failure.
+3. P166 `prepareSubstrateCall` builds the policy-owned v2 payload and digest.
+4. Claude Code PreToolUse supplies the full actual `tool_input`. The P167 hook
    validates it with P166's compiled v2 authority, denies invalid input, and
    creates a signed row keyed internally by `session_id` and `tool_use_id`.
-3. The MCP server sees only a valid call. On success, PostToolUse finds the
+5. The upstream MCP server sees only a valid call. On success, PostToolUse finds the
    exact internal row, calls P166 `capSubstrateResponse`, returns
    `updatedMCPToolOutput`, and advances the signed row to `rewritten`.
-4. The prompt submits its existing P166 prepared/recorded call to
+6. The prompt submits its existing P166 prepared/recorded call to
    `acceptPromptSubstrateCallRecord`. Acceptance uses
    `CLAUDE_CODE_SESSION_ID` plus the hook-computed payload digest, consumes one
    rewritten row, and never receives `tool_use_id` from the agent.
-5. If registration, key, Pre, Post, witness verification, or consumption is
-   absent, prompt acceptance fails and the surface reports
-   `VTP_STATUS: unavailable_or_bypassed` with
-   `substrate_witness_unavailable`. It cannot claim substrate evidence.
+7. If registration, source, key, Pre, Post, witness verification, or consumption
+   is absent, the broker first withdraws or refuses the raw capability. Prompt
+   readiness and acceptance then report `VTP_STATUS: unavailable_or_bypassed`
+   with `substrate_witness_unavailable` as explicit degradation and supporting
+   evidence. They are not substitutes for broker enforcement.
 
 ## Ownership map
 
 - `super-gsd/hooks/sgsd-substrate-invocation-witness.cjs` owns Claude hook
   input/output adaptation and target-tool decisions.
+- `super-gsd/tools/substrate-capability-broker.cjs` owns the Claude-visible
+  vtp-kb stdio boundary, upstream proxying, conditional tools/list, list_changed,
+  and the synchronous before-forward readiness recheck.
 - `super-gsd/scripts/lib/substrate-invocation-witness-store.cjs` owns key
   provisioning, HMAC rows, state transitions, freshness, atomic consumption,
   registration inspection, and redacted audit mirroring.
@@ -637,35 +792,65 @@ tool call.
   `super-gsd/agents/sgsd-board-researcher.md` own the canonical prompt
   degradation contract.
 - `super-gsd/tools/feature-propagation/audit.cjs` owns installation order,
-  installed planner/researcher P167 markers, and the fresh-machine audit result.
+  private upstream-config preservation, broker-only MCP scope audit, derived
+  prompt grants, installed planner/researcher P167 markers, and the fresh-machine
+  audit result.
 - `super-gsd/config/repo-settings-overlay.json`, `hook-manifest.json`, and the
   existing merge/install path own distribution and registration. No second
   installer is created.
 - `super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs` owns
   the orchestrator-run real MCP capture and spawn-free evidence verifier.
 
+## Authority choice
+
+Two mechanisms were evaluated. The protected option is real on this Windows
+runtime: an administrator can place managed hooks and their source under
+`HKLM\SOFTWARE\Policies\ClaudeCode` or `C:\Program Files\ClaudeCode`,
+combine them with managed MCP policy, and set `allowManagedHooksOnly` so a
+standard user cannot remove or disable the guard. It is not the selected phase
+baseline because no machine-managed source is deployed here, the current
+operator token is non-admin, HKCU is a user-writable fallback rather than an
+authority boundary, and the hook-only lock would suppress the existing
+project/user SGSD hooks unless that entire fleet migrated. SGSD must not
+silently write or simulate administrator policy.
+
+The selected mechanism is the independent guarded MCP capability broker. It is
+deployable through the existing installer, becomes the only definition named
+vtp-kb, removes vtp_search_substrate from successful discovery when either hook
+registration or source is absent, and rechecks before forwarding a stale call.
+This directly controls the tool grant before upstream transport. It preserves
+the active deny/rewrite design when ready and gives a deterministic optional-VTP
+degradation when not ready.
+
 ## Fail-closed boundary and trust statement
 
 When the hook is active, PreToolUse blocks invalid transport and PostToolUse
 blocks raw output delivery by replacing it with the existing capped result. If
-either hook is absent, `acceptPromptSubstrateCallRecord` has no fresh rewritten
-witness and refuses the result; the four prompt surfaces must discard it and
-degrade explicitly. Independently, feature-propagation audit returns exit 2 for
-missing, stale, duplicate, source-drifted, or keyless registration, and
-repair-safe refuses to install or extend raw-substrate agents until the hook is
-current.
+either registration or the hook source is absent, the independent broker omits
+the substrate tool from successful discovery and refuses any stale tools/call
+before upstream transport. Canonical source agents carry no raw grant. Only T4
+may derive grant-bearing installed copies after hook and broker audits are
+current, and the broker remains the owner of actual availability. Separately,
+`acceptPromptSubstrateCallRecord` refuses a result without a fresh rewritten
+witness, the four prompts degrade explicitly, and feature-propagation audit
+returns exit 2. Those later refusals are supporting controls, not the
+non-invocation boundary.
 
 The authoritative rows live outside the working tree, are HMAC-authenticated
 with a separately provisioned random key, are keyed by a hook-only tool-use
 capability, expire, and are consumed atomically. This prevents trivial prompt
 self-report, casual row editing, cross-session copying, and replay. It does not
-make a same-user local process a security boundary. A determined actor able to
-read the key, replace both hook and verifier, edit user settings, or delete all
-evidence can defeat local controls. P167 reports that limit rather than
-transferring P147's claim or calling the ledger tamper-proof. Administrator
-managed settings plus an external signer under a different principal would be
-the stronger hostile-agent design, but SGSD cannot safely auto-propagate that
-authority and this plan does not pretend it can.
+make a same-user local process a security boundary. Windows Claude Code can
+protect hooks through HKLM or `C:\Program Files\ClaudeCode` managed settings,
+and `allowManagedHooksOnly` can exclude lower-scope hooks. This machine has no
+such deployed source, the operator is non-admin, HKCU is user-writable, and
+turning that lock on without migrating the existing hook fleet would disable
+required SGSD hooks. The plan therefore chooses the brokered grant for the
+deployable local tier and says exactly what remains: a determined same-user actor
+can restore the archived direct MCP config, replace the broker, read the key,
+replace hook/verifier code, or use another program to invoke upstream. P167
+closes missing registration/source for the supported SGSD brokered grant, not
+arbitrary same-user reconfiguration.
 
 ## Orchestrator-owned verification
 
@@ -687,10 +872,10 @@ spawn-free verifier exits 0.
 
 ## Order and revertability
 
-Each task is one commit. Revert in reverse order: T5 evidence, T4 propagation,
-T3 canonical prompts, T2 acceptance, then T1 hook/store. T1 alone is inert
-until registered. T2 can be reverted without changing P166 payload validation.
-T3 and T4 divide canonical and installed prompt surfaces. T5 contains only the
-fixture, capture code, and real evidence. No task changes a VTP host, the frozen
-v1 schema/evidence, the eight-site inventory, the 16000 character cap, or
-`VTP_RESPONSE_MAX_BYTES`.
+Each task is one commit. Revert in reverse order: T5 evidence, T4 propagation
+and grants, T3 canonical prompts, T2 acceptance, then T1 hook/broker/store. T1
+alone is inert until registered. T2 can be reverted without changing P166
+payload validation. T3 and T4 divide raw-free sources from derived installed
+grants. T5 contains only the fixture, capture code, and real evidence. No task
+changes a VTP host, the frozen v1 schema/evidence, the eight-site inventory, the
+16000 character cap, or `VTP_RESPONSE_MAX_BYTES`.
