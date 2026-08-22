@@ -1,0 +1,3440 @@
+diff --git a/super-gsd/agents/sgsd-board-researcher.md b/super-gsd/agents/sgsd-board-researcher.md
+index 71bba9f..38935f3 100644
+--- a/super-gsd/agents/sgsd-board-researcher.md
++++ b/super-gsd/agents/sgsd-board-researcher.md
+@@ -1,7 +1,7 @@
+ ---
+ name: sgsd-board-researcher
+ description: Researcher board member. Queries VTP library for book/paper/meeting precedent to confirm or refine proposals. Spawned by sgsd-ceo during deliberation.
+-tools: Read, Grep, Glob, mcp__vtp-kb__vtp_search, mcp__vtp-kb__vtp_search_substrate, mcp__vtp-kb__vtp_search_research, mcp__vtp-kb__vtp_get_document, mcp__vtp-kb__vtp_route_and_retrieve
++tools: Read, Grep, Glob, Bash, mcp__vtp-kb__vtp_search, mcp__vtp-kb__vtp_search_substrate, mcp__vtp-kb__vtp_search_research, mcp__vtp-kb__vtp_get_document, mcp__vtp-kb__vtp_route_and_retrieve
+ model: disabled
+ status: legacy-disabled
+ ---
+@@ -15,6 +15,11 @@ Evidence-first. Library-grounded. Cites primary sources. You bring book/paper/me
+ </temperament>
+ 
+ <reasoning>
++- Before substrate transport, write a contained JSON input under .planning/tmp and save the prepared envelope: node super-gsd/scripts/lib/vtp-context-composer.cjs --prepare-substrate-call --intent board_research --input-file <relative-json-path> > .planning/tmp/board-substrate-call.json
++- Call vtp_search_substrate only with the returned payload verbatim. Record that payload with the returned gateway_evidence. If preparation fails, do not issue a raw substrate call.
++- After transport, write the exact substrate_call_record to .planning/tmp/board-substrate-call-record.json and run: node super-gsd/scripts/lib/vtp-context-composer.cjs --accept-substrate-call-record --intent board_research --prepared-call-file .planning/tmp/board-substrate-call.json --record-file .planning/tmp/board-substrate-call-record.json
++- Emit a board position only when that production acceptance command exits zero. A nonzero exit fails this prompt contract.
++- Immediately after raw substrate transport and before synthesis, inspect both top-level hits and evidence.hits. For each hit whose text is a string longer than 16000 JavaScript characters, record original_chars, truncate it in memory to its first 16000 JavaScript characters, and append a degradation note with reason_code vtp_substrate_hit_truncated, zero-based hit_index, identity, doc_id, rel_path, chunk_id, original_chars, and retained_chars set to 16000. Resolve identity from doc_id, then rel_path, then chunk_id, then hit-<one-based-index>. Carry these degradation_notes into the normal board output and visibly name doc_id and rel_path with original and retained character counts; emit an empty array when no hit was truncated. Do not retry with unfiltered arguments, paste or write discarded text, or convert truncation to failure.
+ - "What prior art in the library addresses this?"
+ - "What do domain experts in the books say about this approach?"
+ - "Has this been tried or failed before, and what does the record show?"
+@@ -50,5 +55,13 @@ citations:
+     title: ""
+     section: ""
+     relevance: ""
++degradation_notes: []
++substrate_call_record:
++  tool: "mcp__vtp-kb__vtp_search_substrate"
++  payload: {}
++  gateway_evidence:
++    schema_version: ""
++    intent_family: "board_research"
++    payload_sha256: ""
+ rationale: concise researcher rationale grounded in book/paper/meeting precedent from the VTP library
+ </output>
+diff --git a/super-gsd/agents/sgsd-vtp-enrichment.md b/super-gsd/agents/sgsd-vtp-enrichment.md
+index 5f8f3b2..e3119a4 100644
+--- a/super-gsd/agents/sgsd-vtp-enrichment.md
++++ b/super-gsd/agents/sgsd-vtp-enrichment.md
+@@ -15,6 +15,7 @@ Mechanical. Disciplined. No speculation. Every claim cites a library source (doc
+ </temperament>
+ 
+ <dispatch_contract>
++The dispatch spec includes substrate_call, the composer-prepared enrichment envelope with payload and gateway_evidence.
+ Orchestrator invokes you with a sub-agent spec produced by `vtp-enrichment-gate.cjs` → `composeSubAgentSpec(opts)`. The spec fields returned (authoritative — match module source):
+ - `sub_agent_type` — always `'sgsd-vtp-enrichment'` (you)
+ - `model` — always `'sonnet'`
+@@ -25,9 +26,14 @@ Orchestrator invokes you with a sub-agent spec produced by `vtp-enrichment-gate.
+ - `phaseDir` — absolute path to the phase directory (e.g. `.planning/milestones/v1.5/phases/21-vtp-enrichment-gates`)
+ - `phase` — phase number string (e.g. `'21'`)
+ 
+-You run the cascade using the `seed` string and `tools` array, then invoke `run({projectDir, phaseDir, phase, enrichmentResult: {...}})` from `super-gsd/scripts/lib/vtp-enrichment-gate.cjs` to write the artifact. `projectDir` is resolved from your own process.cwd() (not in the spec). The module handles frontmatter + artifact shape + 3-path (success/empty_hit/api_error) discipline. Your job is producing the structured `enrichmentResult` object.
++You run the cascade using the `seed` string and `tools` array, then invoke `run({projectDir, phaseDir, phase, substrateCall: substrate_call, enrichmentResult: {...}})` from `super-gsd/scripts/lib/vtp-enrichment-gate.cjs` to write the artifact. `projectDir` is resolved from your own process.cwd() (not in the spec). The module handles frontmatter + artifact shape + 3-path (success/empty_hit/api_error) discipline. Your job is producing the structured `enrichmentResult` object.
+ </dispatch_contract>
+ 
++<substrate_call_policy>
++For tool 2/5, call vtp_search_substrate with substrate_call.payload verbatim. Do not construct or amend substrate arguments. Record the tool, exact payload, and matching substrate_call.gateway_evidence together. The production run() acceptance path validates that record against substrate_call and rejects missing evidence, digest drift, unfiltered payloads, and limit 6. If the envelope is missing or preparation failed, do not issue a raw substrate call.
++Immediately after raw substrate transport and before synthesis, inspect both top-level hits and evidence.hits. For each hit whose text is a string longer than 16000 JavaScript characters, record original_chars, truncate it in memory to its first 16000 JavaScript characters, and append a degradation note with reason_code vtp_substrate_hit_truncated, zero-based hit_index, identity, doc_id, rel_path, chunk_id, original_chars, and retained_chars set to 16000. Resolve identity from doc_id, then rel_path, then chunk_id, then hit-<one-based-index>. Carry these degradation_notes into the normal enrichmentResult output; use an empty array when no hit was truncated. Do not retry with unfiltered arguments. Never paste or write discarded text, and do not convert truncation to failure.
++</substrate_call_policy>
++
+ <reasoning>
+ For each phase you enrich, run this reasoning chain:
+ 
+@@ -56,7 +62,7 @@ For each phase you enrich, run this reasoning chain:
+ Return the `enrichmentResult` object as structured data (not prose). The lib module writes the artifact — you produce the data.
+ 
+ ```js
+-{
++const enrichmentResult = {
+   ok: true,                    // false only on VTP API error
+   status: 'success',           // 'success' | 'empty_hit' | 'api_error'
+   phase: '21',
+@@ -64,16 +70,21 @@ Return the `enrichmentResult` object as structured data (not prose). The lib mod
+   total_hits: 12,
+   duration_ms: 8450,
+   hits: [
+-    { source: 'book', title: 'X Y Z', section: 'Ch.3', relevance: 'high', citation: 'doc:abc...' },
+-    ...
++    { source: 'book', title: 'X Y Z', section: 'Ch.3', relevance: 'high', citation: 'doc:abc...' }
+   ],
+   gaps: ['topic Alpha', 'topic Beta'],    // string descriptors
+-  alt_framings: ['Framing A: ...', ...],  // prose bullets
+-  rationale: ''                // only populated if status='empty_hit'
+-}
++  alt_framings: ['Framing A: ...'],       // prose bullets
++  rationale: '',               // only populated if status='empty_hit'
++  degradation_notes: [],       // generated in memory for truncated hits; empty otherwise
++  substrate_call_record: {
++    tool: 'mcp__vtp-kb__vtp_search_substrate',
++    payload: substrate_call.payload,
++    gateway_evidence: substrate_call.gateway_evidence
++  }
++};
+ ```
+ 
+-Then call `require('super-gsd/scripts/lib/vtp-enrichment-gate').run({projectDir, phaseDir, phase, enrichmentResult})` — returns `{status, artifact_path}`.
++Then call `require('super-gsd/scripts/lib/vtp-enrichment-gate').run({projectDir, phaseDir, phase, substrateCall: substrate_call, enrichmentResult})` - returns `{status, artifact_path}`.
+ 
+ Report back to orchestrator:
+ - `status: success` → planner dispatch proceeds (orchestrator Step 6.c)
+diff --git a/super-gsd/schemas/vtp-mcp-input-schemas.v2.json b/super-gsd/schemas/vtp-mcp-input-schemas.v2.json
+new file mode 100644
+index 0000000..200ec63
+--- /dev/null
++++ b/super-gsd/schemas/vtp-mcp-input-schemas.v2.json
+@@ -0,0 +1,100 @@
++{
++  "$schema": "http://json-schema.org/draft-07/schema#",
++  "$id": "https://super-gsd.local/schemas/vtp-mcp-input-schemas.v2.json",
++  "version_id": "vtp-mcp-input-schemas.v2",
++  "provenance": "2026-08-18 live vtp-kb descriptors plus P166 current-emission policy",
++  "tools": {
++    "mcp__vtp-kb__vtp_route_and_retrieve": {
++      "inputSchema": {
++        "type": "object",
++        "additionalProperties": false,
++        "required": ["raw_query", "context"],
++        "properties": {
++          "raw_query": { "type": "string", "minLength": 3 },
++          "context": {
++            "type": "object",
++            "additionalProperties": false,
++            "properties": {
++              "session_id": { "type": "string" },
++              "repo": { "type": "string" },
++              "current_task": { "type": "string" },
++              "active_file": { "type": "string" },
++              "recent_commands": {
++                "type": "array",
++                "items": { "type": "string" }
++              },
++              "recent_errors": {
++                "type": "array",
++                "items": { "type": "string" }
++              },
++              "blockers": {
++                "type": "array",
++                "items": { "type": "string" }
++              },
++              "explicit_constraints": {
++                "type": "array",
++                "items": { "type": "string" }
++              },
++              "recent_turns": {
++                "type": "array",
++                "items": {
++                  "type": "object",
++                  "additionalProperties": false,
++                  "required": ["text"],
++                  "properties": {
++                    "id": { "type": "string" },
++                    "role": {
++                      "type": "string",
++                      "enum": ["user", "assistant", "system"]
++                    },
++                    "text": { "type": "string", "minLength": 1 }
++                  }
++                }
++              }
++            }
++          }
++        }
++      }
++    },
++    "mcp__vtp-kb__vtp_search_substrate": {
++      "inputSchema": {
++        "type": "object",
++        "additionalProperties": false,
++        "required": ["query", "source_types", "limit"],
++        "properties": {
++          "query": { "type": "string", "minLength": 3 },
++          "limit": { "type": "integer", "minimum": 1, "maximum": 5 },
++          "source_types": {
++            "type": "array",
++            "minItems": 1,
++            "uniqueItems": true,
++            "items": {
++              "type": "string",
++              "enum": ["research_paper", "wiki_page"]
++            }
++          },
++          "entity_types": {
++            "type": "array",
++            "items": { "type": "string" }
++          },
++          "project_ids": {
++            "type": "array",
++            "items": { "type": "string" }
++          },
++          "speaker_ids": {
++            "type": "array",
++            "items": { "type": "string" }
++          },
++          "topics": {
++            "type": "array",
++            "items": { "type": "string" }
++          },
++          "meeting_ids": {
++            "type": "array",
++            "items": { "type": "string" }
++          }
++        }
++      }
++    }
++  }
++}
+diff --git a/super-gsd/scripts/lib/vtp-context-composer.cjs b/super-gsd/scripts/lib/vtp-context-composer.cjs
+index 699cf2c..0d37141 100644
+--- a/super-gsd/scripts/lib/vtp-context-composer.cjs
++++ b/super-gsd/scripts/lib/vtp-context-composer.cjs
+@@ -22,7 +22,49 @@
+ const fs   = require('fs');
+ const path = require('path');
+ const os   = require('os');
++const crypto = require('crypto');
+ const { findSgsdRoot, resolveContainedPath } = require('./sgsd-state.cjs');
++const Ajv = require(path.join(__dirname, '..', '..', 'tools', 'plan-schema', 'node_modules', 'ajv'));
++
++const SUBSTRATE_TOOL = 'mcp__vtp-kb__vtp_search_substrate';
++const SUBSTRATE_TOOL_SHORT = 'vtp_search_substrate';
++const SUBSTRATE_SCHEMA_VERSION = 'vtp-mcp-input-schemas.v2';
++const SUBSTRATE_SCHEMA_PATH = path.join(__dirname, '..', '..', 'schemas', 'vtp-mcp-input-schemas.v2.json');
++const SUBSTRATE_HIT_MAX_CHARS = 16000;
++const SUBSTRATE_HIT_TRUNCATED_REASON = 'vtp_substrate_hit_truncated';
++const SECONDARY_SUBSTRATE_FILTERS = Object.freeze([
++  'entity_types',
++  'project_ids',
++  'speaker_ids',
++  'topics',
++  'meeting_ids',
++]);
++
++function policyEntry(sourceTypes, limit) {
++  return Object.freeze({ source_types: Object.freeze(sourceTypes), limit });
++}
++
++const SUBSTRATE_CALL_POLICY = Object.freeze({
++  triage: policyEntry(['research_paper', 'wiki_page'], 3),
++  phase_research: policyEntry(['research_paper', 'wiki_page'], 5),
++  planning: policyEntry(['research_paper', 'wiki_page'], 5),
++  enrichment: policyEntry(['research_paper', 'wiki_page'], 5),
++  board_research: policyEntry(['research_paper', 'wiki_page'], 5),
++  architecture_challenge: policyEntry(['research_paper', 'wiki_page'], 3),
++  book_lookup: policyEntry(['wiki_page'], 5),
++});
++
++const substrateSchemaAuthority = JSON.parse(fs.readFileSync(SUBSTRATE_SCHEMA_PATH, 'utf8'));
++if (substrateSchemaAuthority.version_id !== SUBSTRATE_SCHEMA_VERSION) {
++  throw new Error('vtp_substrate_schema_version_mismatch');
++}
++const substrateSchemaDeclaration = substrateSchemaAuthority.tools
++  && substrateSchemaAuthority.tools[SUBSTRATE_TOOL];
++if (!substrateSchemaDeclaration || !substrateSchemaDeclaration.inputSchema) {
++  throw new Error('vtp_substrate_schema_missing');
++}
++const validateSubstratePayload = new Ajv({ allErrors: true, strict: true })
++  .compile(substrateSchemaDeclaration.inputSchema);
+ 
+ /**
+  * WARNING — module-level cache is a PROCESS SINGLETON.
+@@ -257,6 +299,195 @@ function writeRoutingLogRow({ projectDir, logRoot, skillOrAgent, tier, rawQuery,
+   return row;
+ }
+ 
++function isSubstrateTool(tool) {
++  return tool === SUBSTRATE_TOOL || tool === SUBSTRATE_TOOL_SHORT;
++}
++
++function substrateHitIdentity(hit, hitIndex) {
++  for (const key of ['doc_id', 'rel_path', 'chunk_id']) {
++    if (typeof hit[key] === 'string' && hit[key].length > 0) return hit[key];
++  }
++  return 'hit-' + (hitIndex + 1);
++}
++
++function capSubstrateHitList(hits) {
++  let cappedHits = hits;
++  const degradationNotes = [];
++  for (let hitIndex = 0; hitIndex < hits.length; hitIndex += 1) {
++    const hit = hits[hitIndex];
++    if (!hit || typeof hit !== 'object' || Array.isArray(hit)) continue;
++    if (typeof hit.text !== 'string' || hit.text.length <= SUBSTRATE_HIT_MAX_CHARS) continue;
++    if (cappedHits === hits) cappedHits = hits.slice();
++    cappedHits[hitIndex] = {
++      ...hit,
++      text: hit.text.slice(0, SUBSTRATE_HIT_MAX_CHARS),
++    };
++    degradationNotes.push({
++      reason_code: SUBSTRATE_HIT_TRUNCATED_REASON,
++      hit_index: hitIndex,
++      identity: substrateHitIdentity(hit, hitIndex),
++      doc_id: typeof hit.doc_id === 'string' && hit.doc_id.length > 0 ? hit.doc_id : null,
++      rel_path: typeof hit.rel_path === 'string' && hit.rel_path.length > 0 ? hit.rel_path : null,
++      chunk_id: typeof hit.chunk_id === 'string' && hit.chunk_id.length > 0 ? hit.chunk_id : null,
++      original_chars: hit.text.length,
++      retained_chars: SUBSTRATE_HIT_MAX_CHARS,
++    });
++  }
++  return { hits: cappedHits, degradation_notes: degradationNotes };
++}
++
++function capSubstrateResponse(response) {
++  if (!response || typeof response !== 'object' || Array.isArray(response)) {
++    return { response, degradation_notes: [] };
++  }
++
++  let cappedResponse = response;
++  const degradationNotes = [];
++  if (Array.isArray(response.hits)) {
++    const topLevel = capSubstrateHitList(response.hits);
++    if (topLevel.hits !== response.hits) {
++      cappedResponse = { ...response, hits: topLevel.hits };
++    }
++    degradationNotes.push(...topLevel.degradation_notes);
++  }
++
++  const evidence = response.evidence;
++  if (evidence && typeof evidence === 'object' && !Array.isArray(evidence) && Array.isArray(evidence.hits)) {
++    const nested = capSubstrateHitList(evidence.hits);
++    if (nested.hits !== evidence.hits) {
++      if (cappedResponse === response) cappedResponse = { ...response };
++      cappedResponse.evidence = { ...evidence, hits: nested.hits };
++    }
++    degradationNotes.push(...nested.degradation_notes);
++  }
++
++  return {
++    response: cappedResponse,
++    degradation_notes: degradationNotes,
++  };
++}
++
++function substratePayloadDigest(payload) {
++  return crypto.createHash('sha256')
++    .update(Buffer.from(JSON.stringify(payload), 'utf8'))
++    .digest('hex');
++}
++
++function buildSubstrateArgs(intentFamily, input) {
++  const policy = SUBSTRATE_CALL_POLICY[intentFamily];
++  if (!policy) throw new Error('vtp_substrate_intent_unknown:' + String(intentFamily || ''));
++  if (!input || typeof input !== 'object' || Array.isArray(input)) {
++    throw new Error('vtp_substrate_input_invalid');
++  }
++
++  const allowed = new Set(['query', ...SECONDARY_SUBSTRATE_FILTERS]);
++  for (const key of Object.keys(input)) {
++    if (key === 'source_types' || key === 'limit') {
++      throw new Error('vtp_substrate_policy_owned_field:' + key);
++    }
++    if (!allowed.has(key)) throw new Error('vtp_substrate_input_unsupported:' + key);
++  }
++  if (typeof input.query !== 'string' || input.query.length < 3) {
++    throw new Error('vtp_substrate_query_invalid');
++  }
++
++  const payload = {
++    query: input.query,
++    source_types: policy.source_types.slice(),
++    limit: policy.limit,
++  };
++  for (const key of SECONDARY_SUBSTRATE_FILTERS) {
++    if (!Object.prototype.hasOwnProperty.call(input, key)) continue;
++    payload[key] = Array.isArray(input[key]) ? input[key].slice() : input[key];
++  }
++  return payload;
++}
++
++function prepareSubstrateCall(intentFamily, input) {
++  const payload = buildSubstrateArgs(intentFamily, input);
++  if (!validateSubstratePayload(payload)) {
++    throw new Error('vtp_substrate_payload_invalid');
++  }
++  return {
++    tool: SUBSTRATE_TOOL,
++    payload,
++    gateway_evidence: {
++      schema_version: SUBSTRATE_SCHEMA_VERSION,
++      intent_family: intentFamily,
++      payload_sha256: substratePayloadDigest(payload),
++    },
++  };
++}
++
++function validatePreparedSubstrateCall(candidate) {
++  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false;
++  if (!isSubstrateTool(candidate.tool)) return false;
++  if (!candidate.payload || typeof candidate.payload !== 'object' || Array.isArray(candidate.payload)) return false;
++  const evidence = candidate.gateway_evidence;
++  if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence)) return false;
++  if (evidence.schema_version !== SUBSTRATE_SCHEMA_VERSION) return false;
++  const policy = SUBSTRATE_CALL_POLICY[evidence.intent_family];
++  if (!policy) return false;
++  if (evidence.payload_sha256 !== substratePayloadDigest(candidate.payload)) return false;
++  if (!validateSubstratePayload(candidate.payload)) return false;
++  if (candidate.payload.limit !== policy.limit) return false;
++  if (!Array.isArray(candidate.payload.source_types)) return false;
++  if (candidate.payload.source_types.length !== policy.source_types.length) return false;
++  for (let index = 0; index < policy.source_types.length; index += 1) {
++    if (candidate.payload.source_types[index] !== policy.source_types[index]) return false;
++  }
++  return true;
++}
++
++function rejectPromptSubstrateCallRecord(reason) {
++  throw new Error('vtp_prompt_substrate_contract_invalid:' + reason);
++}
++
++function acceptPromptSubstrateCallRecord(intentFamily, preparedCall, substrateCallRecord) {
++  if (!validatePreparedSubstrateCall(preparedCall)) {
++    rejectPromptSubstrateCallRecord('prepared_call_missing_or_invalid');
++  }
++  if (preparedCall.gateway_evidence.intent_family !== intentFamily) {
++    rejectPromptSubstrateCallRecord('prepared_call_intent_mismatch');
++  }
++  if (!substrateCallRecord || typeof substrateCallRecord !== 'object' || Array.isArray(substrateCallRecord)) {
++    rejectPromptSubstrateCallRecord('substrate_call_record_missing');
++  }
++  if (
++    !substrateCallRecord.gateway_evidence
++    || typeof substrateCallRecord.gateway_evidence !== 'object'
++    || Array.isArray(substrateCallRecord.gateway_evidence)
++  ) {
++    rejectPromptSubstrateCallRecord('gateway_evidence_missing');
++  }
++  if (
++    !substrateCallRecord.payload
++    || typeof substrateCallRecord.payload !== 'object'
++    || Array.isArray(substrateCallRecord.payload)
++    || substrateCallRecord.gateway_evidence.payload_sha256 !== substratePayloadDigest(substrateCallRecord.payload)
++  ) {
++    rejectPromptSubstrateCallRecord('record_digest_mismatch');
++  }
++  if (!validatePreparedSubstrateCall(substrateCallRecord)) {
++    rejectPromptSubstrateCallRecord('substrate_call_record_invalid');
++  }
++  if (substrateCallRecord.gateway_evidence.intent_family !== intentFamily) {
++    rejectPromptSubstrateCallRecord('record_intent_mismatch');
++  }
++  if (
++    substrateCallRecord.tool !== preparedCall.tool
++    || JSON.stringify(substrateCallRecord.payload) !== JSON.stringify(preparedCall.payload)
++    || JSON.stringify(substrateCallRecord.gateway_evidence) !== JSON.stringify(preparedCall.gateway_evidence)
++  ) {
++    rejectPromptSubstrateCallRecord('record_prepared_call_mismatch');
++  }
++  return {
++    ok: true,
++    intent_family: intentFamily,
++    payload_sha256: preparedCall.gateway_evidence.payload_sha256,
++  };
++}
++
+ /**
+  * Date.now()-bracketed VTP MCP wrapper. Single measurement point for elapsed_ms
+  * (per E-03 — VTP tools do not return this natively). Writes a routing-log row
+@@ -278,7 +509,7 @@ function writeRoutingLogRow({ projectDir, logRoot, skillOrAgent, tier, rawQuery,
+  * @param {string}   args.rawQuery
+  * @returns {Promise<{ok:boolean, response?:Object, elapsed_ms:number, reason?:string}>}
+  */
+-async function callVtp(tool, args) {
++function callVtp(tool, args) {
+   const t0 = Date.now();
+   const a = args || {};
+   const rawQuery     = a.rawQuery     || '';
+@@ -303,6 +534,29 @@ async function callVtp(tool, args) {
+     return { ok: false, reason: 'query_too_short', elapsed_ms: 0 };
+   }
+ 
++  let transportPayload = a.payload;
++  let gatewayEvidence = null;
++  if (isSubstrateTool(tool)) {
++    const payloadBypass = Object.prototype.hasOwnProperty.call(a, 'payload');
++    if (payloadBypass || !validatePreparedSubstrateCall(a.substrateCall)) {
++      const elapsed_ms = Date.now() - t0;
++      writeRoutingLogRow({
++        projectDir,
++        logRoot,
++        skillOrAgent,
++        tier,
++        rawQuery,
++        response: null,
++        elapsed_ms,
++        failureReason: 'substrate_payload_invalid',
++        status: 'validation_error',
++      });
++      return { ok: false, reason: 'substrate_payload_invalid', elapsed_ms };
++    }
++    transportPayload = a.substrateCall.payload;
++    gatewayEvidence = a.substrateCall.gateway_evidence;
++  }
++
+   if (typeof a.mcpInvoke !== 'function') {
+     // No injected invoker — return a structured failure rather than throwing.
+     // Lets test fixtures and dry-runs exercise the code path cleanly.
+@@ -321,12 +575,27 @@ async function callVtp(tool, args) {
+     return { ok: false, reason: 'no_mcp_invoke', elapsed_ms };
+   }
+ 
+-  try {
+-    const response   = await a.mcpInvoke(tool, a.payload);
++  function onSuccess(response) {
+     const elapsed_ms = Date.now() - t0;
+-    writeRoutingLogRow({ projectDir, logRoot, skillOrAgent, tier, rawQuery, response, elapsed_ms });
+-    return { ok: true, response, elapsed_ms };
+-  } catch (err) {
++    const capped = isSubstrateTool(tool)
++      ? capSubstrateResponse(response)
++      : { response, degradation_notes: [] };
++    writeRoutingLogRow({
++      projectDir,
++      logRoot,
++      skillOrAgent,
++      tier,
++      rawQuery,
++      response: capped.response,
++      elapsed_ms,
++    });
++    const result = { ok: true, response: capped.response, elapsed_ms };
++    if (gatewayEvidence) result.gateway_evidence = gatewayEvidence;
++    if (capped.degradation_notes.length > 0) result.degradation_notes = capped.degradation_notes;
++    return result;
++  }
++
++  function onFailure(err) {
+     const elapsed_ms = Date.now() - t0;
+     const msg = (err && err.message) ? err.message : String(err);
+     // Narrow-catch: swallow VTP/MCP/timeout shape errors; rethrow unknown.
+@@ -339,6 +608,16 @@ async function callVtp(tool, args) {
+     writeRoutingLogRow({ projectDir, logRoot, skillOrAgent, tier, rawQuery, response: null, elapsed_ms, failureReason: msg, status });
+     return { ok: false, reason: msg, elapsed_ms };
+   }
++
++  try {
++    const response = a.mcpInvoke(tool, transportPayload);
++    if (response && typeof response.then === 'function') {
++      return response.then(onSuccess, onFailure);
++    }
++    return onSuccess(response);
++  } catch (err) {
++    return onFailure(err);
++  }
+ }
+ 
+ /**
+@@ -348,7 +627,20 @@ function resetCache() {
+   _cache = null;
+ }
+ 
+-module.exports = { compose, project, isFastPathEligible, callVtp, TIERS, resetCache };
++module.exports = {
++  compose,
++  project,
++  isFastPathEligible,
++  callVtp,
++  TIERS,
++  resetCache,
++  SUBSTRATE_CALL_POLICY,
++  SUBSTRATE_HIT_MAX_CHARS,
++  buildSubstrateArgs,
++  prepareSubstrateCall,
++  acceptPromptSubstrateCallRecord,
++  capSubstrateResponse,
++};
+ 
+ // Non-exported helpers kept on the function table for self-test access only
+ // (not part of the public contract).
+@@ -357,6 +649,9 @@ module.exports._internal = {
+   sanitizeRecentCommands,
+   writeRoutingLogRow,
+   extractRowFields,
++  isSubstrateTool,
++  validatePreparedSubstrateCall,
++  substratePayloadDigest,
+   FAST_PATH_TIMEOUT_MS,
+   BUDGET_EXCEEDED,
+ };
+@@ -367,8 +662,67 @@ module.exports._internal = {
+ // .planning/metrics/ is untouched. Exits 0 on PASS, 1 on FAIL with reason.
+ // ---------------------------------------------------------------------------
+ 
+-if (require.main === module && process.argv.includes('--self-test')) {
+-  runSelfTest();
++function cliArgValue(argv, name) {
++  const index = argv.indexOf(name);
++  return index === -1 ? null : (argv[index + 1] || null);
++}
++
++function runPrepareSubstrateCli(argv) {
++  try {
++    const intentFamily = cliArgValue(argv, '--intent');
++    const inputFile = cliArgValue(argv, '--input-file');
++    if (!intentFamily || !inputFile) throw new Error('vtp_substrate_cli_args_invalid');
++    const root = findSgsdRoot(process.cwd()) || fs.realpathSync(process.cwd());
++    const target = resolveContainedPath(root, inputFile);
++    if (!target || !fs.existsSync(target) || !fs.statSync(target).isFile()) {
++      throw new Error('vtp_substrate_input_file_uncontained');
++    }
++    const input = JSON.parse(fs.readFileSync(target, 'utf8').replace(/^\uFEFF/, ''));
++    const envelope = prepareSubstrateCall(intentFamily, input);
++    process.stdout.write(JSON.stringify(envelope) + '\n');
++    return 0;
++  } catch (error) {
++    const reason = error && error.message ? error.message : String(error);
++    process.stderr.write('vtp_prepare_substrate_call_failed:' + reason + '\n');
++    return 1;
++  }
++}
++
++function runAcceptSubstrateCallRecordCli(argv) {
++  try {
++    const intentFamily = cliArgValue(argv, '--intent');
++    const preparedCallFile = cliArgValue(argv, '--prepared-call-file');
++    const recordFile = cliArgValue(argv, '--record-file');
++    if (!intentFamily || !preparedCallFile || !recordFile) {
++      throw new Error('vtp_substrate_record_cli_args_invalid');
++    }
++    const root = findSgsdRoot(process.cwd()) || fs.realpathSync(process.cwd());
++    const preparedTarget = resolveContainedPath(root, preparedCallFile);
++    const recordTarget = resolveContainedPath(root, recordFile);
++    for (const target of [preparedTarget, recordTarget]) {
++      if (!target || !fs.existsSync(target) || !fs.statSync(target).isFile()) {
++        throw new Error('vtp_substrate_record_file_uncontained');
++      }
++    }
++    const preparedCall = JSON.parse(fs.readFileSync(preparedTarget, 'utf8').replace(/^\uFEFF/, ''));
++    const substrateCallRecord = JSON.parse(fs.readFileSync(recordTarget, 'utf8').replace(/^\uFEFF/, ''));
++    const accepted = acceptPromptSubstrateCallRecord(intentFamily, preparedCall, substrateCallRecord);
++    process.stdout.write(JSON.stringify(accepted) + '\n');
++    return 0;
++  } catch (error) {
++    const reason = error && error.message ? error.message : String(error);
++    process.stderr.write('vtp_accept_substrate_call_record_failed:' + reason + '\n');
++    return 1;
++  }
++}
++
++if (require.main === module) {
++  if (process.argv.includes('--self-test')) runSelfTest();
++  else if (process.argv.includes('--prepare-substrate-call')) {
++    process.exitCode = runPrepareSubstrateCli(process.argv.slice(2));
++  } else if (process.argv.includes('--accept-substrate-call-record')) {
++    process.exitCode = runAcceptSubstrateCallRecordCli(process.argv.slice(2));
++  }
+ }
+ 
+ function runSelfTest() {
+@@ -594,6 +948,50 @@ function runSelfTest() {
+         if (passed && sanitized[0] !== 'git status') fail(`Test10: first clean entry wrong`);
+         if (passed && sanitized[1] !== 'echo hello') fail(`Test10: second clean entry wrong`);
+       }
++
++      // ---------------------------------------------------------------------
++      // Test 11: per-hit cap handles both shapes without mutation.
++      // ---------------------------------------------------------------------
++      if (passed) {
++        const normalHit = Object.freeze({ doc_id: 'doc:normal', text: 'normal' });
++        const exactHit = Object.freeze({ doc_id: 'doc:exact', text: 'e'.repeat(SUBSTRATE_HIT_MAX_CHARS) });
++        const source = Object.freeze({
++          hits: Object.freeze([
++            Object.freeze({ doc_id: 'doc:top', text: 't'.repeat(SUBSTRATE_HIT_MAX_CHARS + 1) }),
++            normalHit,
++            Object.freeze({ doc_id: 'doc:non-string', text: 17000 }),
++          ]),
++          evidence: Object.freeze({
++            hits: Object.freeze([
++              Object.freeze({
++                doc_id: '',
++                rel_path: 'wiki/NESTED.md',
++                chunk_id: 'chunk:nested',
++                text: 'n'.repeat(SUBSTRATE_HIT_MAX_CHARS + 2),
++              }),
++              exactHit,
++            ]),
++          }),
++        });
++        const before = JSON.stringify(source);
++        const capped = capSubstrateResponse(source);
++        if (JSON.stringify(source) !== before) fail('Test11: cap mutated its input');
++        if (passed && capped.response.hits[0].text.length !== SUBSTRATE_HIT_MAX_CHARS) {
++          fail('Test11: top-level hit was not capped');
++        }
++        if (passed && capped.response.evidence.hits[0].text.length !== SUBSTRATE_HIT_MAX_CHARS) {
++          fail('Test11: evidence hit was not capped');
++        }
++        if (passed && capped.response.hits[1] !== normalHit) fail('Test11: normal hit was cloned');
++        if (passed && capped.response.evidence.hits[1] !== exactHit) fail('Test11: exact-boundary hit was cloned');
++        if (passed && capped.degradation_notes.length !== 2) fail('Test11: expected two degradation notes');
++        if (passed && capped.degradation_notes[0].identity !== 'doc:top') {
++          fail('Test11: top-level note order or identity changed');
++        }
++        if (passed && capped.degradation_notes[1].identity !== 'wiki/NESTED.md') {
++          fail('Test11: nested note order or identity changed');
++        }
++      }
+     } catch (err) {
+       fail(`Unexpected error: ${err.message}`);
+     } finally {
+diff --git a/super-gsd/scripts/lib/vtp-enrichment-gate.cjs b/super-gsd/scripts/lib/vtp-enrichment-gate.cjs
+index 77d8fa8..e0da9b9 100644
+--- a/super-gsd/scripts/lib/vtp-enrichment-gate.cjs
++++ b/super-gsd/scripts/lib/vtp-enrichment-gate.cjs
+@@ -29,6 +29,11 @@
+ const fs   = require('fs');
+ const path = require('path');
+ const os   = require('os');
++const {
++  prepareSubstrateCall,
++  acceptPromptSubstrateCallRecord,
++  capSubstrateResponse,
++} = require('./vtp-context-composer.cjs');
+ 
+ // ---------------------------------------------------------------------------
+ // Constants
+@@ -180,7 +185,7 @@ function buildQuerySeed(opts) {
+  */
+ function writeEnrichmentArtifact({ phaseDir, enrichmentResult, vtpStatus }) {
+   if (!phaseDir) throw new Error('vtp-enrichment-gate: phaseDir required for writeEnrichmentArtifact');
+-  const res = enrichmentResult || {};
++  const res = normalizeEnrichmentResult(enrichmentResult || {});
+   const phase      = res.phase || 'unknown';
+   const hits       = Array.isArray(res.hits) ? res.hits : [];
+   const totalHits  = res.total_hits != null ? res.total_hits : hits.length;
+@@ -263,6 +268,15 @@ function writeEnrichmentArtifact({ phaseDir, enrichmentResult, vtpStatus }) {
+     '',
+   ].join('\n');
+ 
++  const degradationNotes = Array.isArray(res.degradation_notes) ? res.degradation_notes : [];
++  const degradedRetrievalSection = degradationNotes.length > 0
++    ? [
++        '## Degraded Retrieval',
++        ...degradationNotes.map(renderDegradationNote),
++        '',
++      ].join('\n')
++    : '';
++
+   let emptyHitSection = '';
+   if (isEmptyHit) {
+     const seedSummary = res.seed_summary || '(not provided)';
+@@ -283,6 +297,7 @@ function writeEnrichmentArtifact({ phaseDir, enrichmentResult, vtpStatus }) {
+     '',
+     gapsSection,
+     framingsSection,
++    degradedRetrievalSection,
+     emptyHitSection,
+   ].join('');
+ 
+@@ -292,6 +307,63 @@ function writeEnrichmentArtifact({ phaseDir, enrichmentResult, vtpStatus }) {
+   return artifactPath;
+ }
+ 
++function noteIdentity(note) {
++  const n = note && typeof note === 'object' ? note : {};
++  for (const key of ['identity', 'doc_id', 'rel_path', 'chunk_id']) {
++    if (typeof n[key] === 'string' && n[key].length > 0) return n[key];
++  }
++  return Number.isInteger(n.hit_index) ? 'hit-' + (n.hit_index + 1) : 'hit-unknown';
++}
++
++function mergeDegradationNotes(generatedNotes, existingNotes) {
++  const merged = [];
++  const seen = new Set();
++  for (const note of [...generatedNotes, ...existingNotes]) {
++    if (!note || typeof note !== 'object' || Array.isArray(note)) continue;
++    const key = [
++      String(note.reason_code || ''),
++      Number.isInteger(note.hit_index) ? note.hit_index : '',
++      noteIdentity(note),
++    ].join(':');
++    if (seen.has(key)) continue;
++    seen.add(key);
++    merged.push(note);
++  }
++  return merged;
++}
++
++function normalizeEnrichmentResult(enrichmentResult) {
++  const capped = capSubstrateResponse(enrichmentResult);
++  const existingNotes = Array.isArray(enrichmentResult.degradation_notes)
++    ? enrichmentResult.degradation_notes
++    : [];
++  const degradationNotes = mergeDegradationNotes(capped.degradation_notes, existingNotes);
++  if (degradationNotes.length === 0) return capped.response;
++  return {
++    ...capped.response,
++    degradation_notes: degradationNotes,
++  };
++}
++
++function artifactNoteField(value) {
++  if (typeof value !== 'string' || value.length === 0) return null;
++  return value.replace(/[\r\n|]/g, '/');
++}
++
++function renderDegradationNote(note) {
++  const fields = [
++    'identity=' + artifactNoteField(noteIdentity(note)),
++    Number.isInteger(note.hit_index) ? 'hit_index=' + note.hit_index : null,
++    artifactNoteField(note.doc_id) ? 'doc_id=' + artifactNoteField(note.doc_id) : null,
++    artifactNoteField(note.rel_path) ? 'rel_path=' + artifactNoteField(note.rel_path) : null,
++    artifactNoteField(note.chunk_id) ? 'chunk_id=' + artifactNoteField(note.chunk_id) : null,
++    Number.isInteger(note.original_chars) && Number.isInteger(note.retained_chars)
++      ? 'characters ' + note.original_chars + ' -> ' + note.retained_chars
++      : null,
++  ].filter(Boolean);
++  return '- ' + String(note.reason_code || 'vtp_retrieval_degraded') + ': ' + fields.join('; ');
++}
++
+ // ---------------------------------------------------------------------------
+ // Artifact read
+ // ---------------------------------------------------------------------------
+@@ -358,6 +430,7 @@ function composeSubAgentSpec(opts) {
+     sub_agent_type: 'sgsd-vtp-enrichment',
+     model: 'codex',
+     seed,
++    substrate_call: prepareSubstrateCall('enrichment', { query: seed }),
+     tools: VTP_TOOLS,
+     cascade_rule: 'tools 1+2 always; tools 3+4+5 only if hits > 0 from tools 1+2 (D-01); cap 5 queries (D-03)',
+     artifact_filename: buildArtifactFilename(phase),
+@@ -381,7 +454,7 @@ function composeSubAgentSpec(opts) {
+  * opts.enrichmentResult is injected by the orchestrator AFTER the sub-agent completes,
+  * to trigger artifact write. If not provided, returns the sub_agent_spec only.
+  *
+- * @param {{projectDir:string, phaseDir:string, phase?:string|number, phaseContext?:string, requirements?:string, researchFindings?:string, enrichmentResult?:Object, stubMode?:boolean}} opts
++ * @param {{projectDir:string, phaseDir:string, phase?:string|number, phaseContext?:string, requirements?:string, researchFindings?:string, substrateCall?:Object, enrichmentResult?:Object, stubMode?:boolean}} opts
+  * @returns {{status:string, artifact_path:string|null, sub_agent_spec?:Object, disabled?:boolean}}
+  */
+ function run(opts) {
+@@ -410,6 +483,14 @@ function run(opts) {
+ 
+   // If enrichmentResult is provided (post-sub-agent injection): write artifact
+   if (enrichmentResult) {
++    if (!enrichmentResult.substrate_call_record) {
++      throw new Error('vtp_prompt_substrate_contract_invalid:substrate_call_record_missing');
++    }
++    acceptPromptSubstrateCallRecord(
++      'enrichment',
++      opts.substrateCall,
++      enrichmentResult.substrate_call_record
++    );
+     // Map callVtp status to gate status per output_contract (Pitfall 2 distinction)
+     let status = 'success';
+     if (enrichmentResult.ok === false) {
+@@ -556,6 +637,9 @@ module.exports._internal = {
+   readEnrichmentArtifact,
+   composeSubAgentSpec,
+   readVtpEnrichmentConfig,
++  mergeDegradationNotes,
++  normalizeEnrichmentResult,
++  renderDegradationNote,
+   VTP_TOOLS,
+   // CRIT-fix: filename is now phase-prefixed per VTPE-01 REQ. Callers use
+   // buildArtifactFilename(phase) to get the per-phase name. Generic form
+@@ -870,6 +954,41 @@ function runSelfTest() {
+       }
+     }
+ 
++    // -----------------------------------------------------------------
++    // Test 19: defensive cap merges duplicate notes and renders identity.
++    // -----------------------------------------------------------------
++    if (passed) {
++      const input19 = Object.freeze({
++        hits: Object.freeze([Object.freeze({
++          doc_id: 'doc:lint-report',
++          rel_path: 'wiki/LINT-REPORT.md',
++          chunk_id: 'chunk:lint-report',
++          text: 'x'.repeat(16001),
++        })]),
++        degradation_notes: Object.freeze([Object.freeze({
++          reason_code: 'vtp_substrate_hit_truncated',
++          hit_index: 0,
++          identity: 'doc:lint-report',
++          doc_id: 'doc:lint-report',
++          rel_path: 'wiki/LINT-REPORT.md',
++          chunk_id: 'chunk:lint-report',
++          original_chars: 16001,
++          retained_chars: 16000,
++        })]),
++      });
++      const before19 = JSON.stringify(input19);
++      const normalized19 = normalizeEnrichmentResult(input19);
++      if (JSON.stringify(input19) !== before19) fail('Test19: defensive cap mutated input');
++      if (passed && normalized19.hits[0].text.length !== 16000) fail('Test19: hit was not capped');
++      if (passed && normalized19.degradation_notes.length !== 1) fail('Test19: duplicate note was not collapsed');
++      if (passed) {
++        const rendered19 = renderDegradationNote(normalized19.degradation_notes[0]);
++        if (!rendered19.includes('doc_id=doc:lint-report')) fail('Test19: rendered note missing doc_id');
++        if (passed && !rendered19.includes('rel_path=wiki/LINT-REPORT.md')) fail('Test19: rendered note missing rel_path');
++        if (passed && !rendered19.includes('16001 -> 16000')) fail('Test19: rendered note missing counts');
++      }
++    }
++
+   } catch (err) {
+     fail(`Unexpected error: ${err.message}`);
+   } finally {
+diff --git a/super-gsd/scripts/sgsd-triage-runtime.cjs b/super-gsd/scripts/sgsd-triage-runtime.cjs
+index c3cd8ab..7ea6751 100644
+--- a/super-gsd/scripts/sgsd-triage-runtime.cjs
++++ b/super-gsd/scripts/sgsd-triage-runtime.cjs
+@@ -13,7 +13,7 @@ const fs = require('fs');
+ const path = require('path');
+ 
+ const vtpContextComposer = require('./lib/vtp-context-composer.cjs');
+-const { compose, project, callVtp } = vtpContextComposer;
++const { compose, project, callVtp, prepareSubstrateCall } = vtpContextComposer;
+ const {
+   findSgsdRoot,
+   resolveContainedPath,
+@@ -299,21 +299,23 @@ function logDegradation(root, state, params) {
+   return row || null;
+ }
+ 
+-function callArgs(root, rawQuery, payload, options) {
++function callArgs(root, rawQuery, options) {
+   return {
+     projectDir: root,
+     logRoot: root,
+     skillOrAgent: options.skillOrAgent || DEFAULT_SKILL_OR_AGENT,
+     tier: 'triage',
+     rawQuery,
+-    payload,
+     mcpInvoke: options.mcpInvoke,
+   };
+ }
+ 
+ async function safeCallVtp(tool, root, rawQuery, payload, options, exceptionReason) {
+   try {
+-    return await callVtp(tool, callArgs(root, rawQuery, shapeMcpArgs(tool, payload), options));
++    const transportArgs = tool === SEARCH_TOOL
++      ? { substrateCall: payload }
++      : { payload: shapeMcpArgs(tool, payload) };
++    return await callVtp(tool, { ...callArgs(root, rawQuery, options), ...transportArgs });
+   } catch (error) {
+     return {
+       ok: false,
+@@ -359,6 +361,28 @@ function writeVtpEvidence(root, state, params) {
+     }
+   }
+ 
++  const degradationNotes = Array.isArray(p.degradationNotes) ? p.degradationNotes : [];
++  if (degradationNotes.length > 0) {
++    lines.push('', '## Degraded Retrieval');
++    for (const note of degradationNotes) {
++      const identity = sanitizeVtpMarkdownText(
++        note.identity || note.doc_id || note.rel_path || note.chunk_id
++          || (Number.isInteger(note.hit_index) ? 'hit-' + (note.hit_index + 1) : 'hit-unknown')
++      );
++      const fields = [
++        'identity=' + identity,
++        Number.isInteger(note.hit_index) ? 'hit_index=' + note.hit_index : null,
++        note.doc_id ? 'doc_id=' + sanitizeVtpMarkdownText(note.doc_id) : null,
++        note.rel_path ? 'rel_path=' + sanitizeVtpMarkdownText(note.rel_path) : null,
++        note.chunk_id ? 'chunk_id=' + sanitizeVtpMarkdownText(note.chunk_id) : null,
++        Number.isInteger(note.original_chars) && Number.isInteger(note.retained_chars)
++          ? 'characters ' + note.original_chars + ' -> ' + note.retained_chars
++          : null,
++      ].filter(Boolean);
++      lines.push('- ' + sanitizeVtpMarkdownText(note.reason_code) + ': ' + fields.join('; '));
++    }
++  }
++
+   lines.push(
+     '',
+     '## Call Results',
+@@ -458,24 +482,33 @@ function shapeMcpArgs(tool, candidate) {
+     return { raw_query: input.raw_query, context };
+   }
+   if (tool === SEARCH_TOOL) {
+-    const shaped = { query: input.query };
+-    for (const key of ['limit', 'source_types', 'entity_types', 'project_ids', 'speaker_ids', 'topics', 'meeting_ids']) {
+-      if (Object.prototype.hasOwnProperty.call(input, key) && input[key] !== undefined) shaped[key] = input[key];
+-    }
+-    return shaped;
++    return { query: input.query };
+   }
+   throw new Error(`vtp_mcp_arg_tool_unknown:${tool}`);
+ }
+ 
+ function stageInvokeResult(tool, args, responseRel, extras = {}) {
++  let emittedArgs;
++  let gatewayEvidence = null;
++  if (tool === SEARCH_TOOL) {
++    const validator = vtpContextComposer._internal.validatePreparedSubstrateCall;
++    if (typeof validator !== 'function' || !validator(args)) {
++      throw new Error('vtp_substrate_payload_invalid');
++    }
++    emittedArgs = args.payload;
++    gatewayEvidence = args.gateway_evidence;
++  } else {
++    emittedArgs = shapeMcpArgs(tool, args);
++  }
+   return {
+     stageProtocol: true,
+     exitCode: 0,
+     action: 'invoke_mcp',
+     tool: shortStageTool(tool),
+     mcp_tool: tool,
+-    args: shapeMcpArgs(tool, args),
++    args: emittedArgs,
+     response_file: responseRel.replace(/\\/g, '/'),
++    ...(gatewayEvidence ? { gateway_evidence: gatewayEvidence } : {}),
+     ...extras,
+   };
+ }
+@@ -637,12 +670,11 @@ function loadStagedVtpForRun(root, state, rawQuery, triageSlice, evidenceRel, op
+   const evidencePath = existingStagedEvidencePath(root, evidenceRel);
+   if (meta.routeResponse) {
+     const fallbackPredicateValue = meta.fallbackPredicate || null;
+-    const fallbackPayload = shapeMcpArgs(SEARCH_TOOL, meta.fallbackPayload || {
+-      raw_query: rawQuery,
+-      query: rawQuery,
+-      context: triageSlice,
+-      fallback_reason: fallbackPredicateValue,
+-    });
++    const fallbackSubstrateCall = meta.fallbackSubstrateCall
++      || prepareSubstrateCall('triage', { query: rawQuery });
++    const stagedValidator = vtpContextComposer._internal.validatePreparedSubstrateCall;
++    if (typeof stagedValidator !== 'function' || !stagedValidator(fallbackSubstrateCall)) return null;
++    const fallbackPayload = fallbackSubstrateCall.payload;
+     const reasonCode = stagedFallbackReasonCode(fallbackPredicateValue);
+     const degradationRow = reasonCode ? findStagedDegradationRow(root, {
+       reasonCode,
+@@ -656,7 +688,6 @@ function loadStagedVtpForRun(root, state, rawQuery, triageSlice, evidenceRel, op
+       fallbackPayload,
+       fallbackResult: { ok: true, response: loaded.response, elapsed_ms: 0 },
+       fallbackAttempted: true,
+-      fallbackReason: fallbackPredicateValue,
+       fallbackPredicateValue,
+       mode: 'fallback',
+       evidencePath,
+@@ -670,7 +701,6 @@ function loadStagedVtpForRun(root, state, rawQuery, triageSlice, evidenceRel, op
+     fallbackPayload: null,
+     fallbackResult: null,
+     fallbackAttempted: false,
+-    fallbackReason: null,
+     fallbackPredicateValue: null,
+     mode: 'route',
+     evidencePath,
+@@ -794,12 +824,8 @@ async function runVtpStage(root, state, rawQuery, triageSlice, evidenceRel, opti
+             fallback_predicate: predicate.predicate,
+           },
+         }));
+-        const fallbackPayload = shapeMcpArgs(SEARCH_TOOL, {
+-          raw_query: rawQuery,
+-          query: rawQuery,
+-          context: triageSlice,
+-          fallback_reason: predicate.predicate,
+-        });
++        const fallbackSubstrateCall = prepareSubstrateCall('triage', { query: rawQuery });
++        const fallbackPayload = fallbackSubstrateCall.payload;
+         const responseRel = vtpStageResponseRel(state, `fallback-${predicate.predicate}`);
+         if (!ensureStageWriteTarget(root, responseRel)) {
+           return completeStageDegraded(root, state, rawQuery, {
+@@ -820,10 +846,11 @@ async function runVtpStage(root, state, rawQuery, triageSlice, evidenceRel, opti
+           routePayload,
+           routeResponse: loaded.response,
+           fallbackPayload,
++          fallbackSubstrateCall,
+           fallbackPredicate: predicate.predicate,
+           evidenceRel,
+         });
+-        return stageInvokeResult(SEARCH_TOOL, fallbackPayload, responseRel, {
++        return stageInvokeResult(SEARCH_TOOL, fallbackSubstrateCall, responseRel, {
+           stage,
+           fallbackAttempted: true,
+           fallbackPredicate: predicate.predicate,
+@@ -854,12 +881,23 @@ async function runVtpStage(root, state, rawQuery, triageSlice, evidenceRel, opti
+ 
+     if (stage === VTP_STAGE_FINALIZE) {
+       const meta = readStageMeta(root, options.responseFile) || {};
+-      const fallbackPayload = shapeMcpArgs(SEARCH_TOOL, meta.fallbackPayload || {
+-        raw_query: rawQuery,
+-        query: rawQuery,
+-        context: triageSlice,
+-        fallback_reason: meta.fallbackPredicate || null,
+-      });
++      const fallbackSubstrateCall = meta.fallbackSubstrateCall
++        || prepareSubstrateCall('triage', { query: rawQuery });
++      const substrateValidator = vtpContextComposer._internal.validatePreparedSubstrateCall;
++      if (typeof substrateValidator !== 'function' || !substrateValidator(fallbackSubstrateCall)) {
++        return completeStageDegraded(root, state, rawQuery, {
++          reasonCode: 'substrate_payload_invalid',
++          evidenceRel,
++          routeOk: Boolean(meta.routeResponse),
++          fallbackAttempted: true,
++          fallbackPredicate: meta.fallbackPredicate || null,
++          routePayload: meta.routePayload || routePayload,
++          fallbackPayload: null,
++          skillOrAgent: options.skillOrAgent,
++          silent: options.silent,
++        });
++      }
++      const fallbackPayload = fallbackSubstrateCall.payload;
+       const loaded = readStageResponseFile(root, options.responseFile);
+       if (!loaded.ok) {
+         return completeStageDegraded(root, state, rawQuery, {
+@@ -934,6 +972,7 @@ function serializeStageResult(result) {
+       tool: boundedString(r.tool, 100),
+       mcp_tool: boundedString(r.mcp_tool, 150),
+       args: boundedValue(r.args || {}),
++      ...(r.gateway_evidence ? { gateway_evidence: boundedValue(r.gateway_evidence) } : {}),
+       response_file: boundedString(r.response_file, 500),
+       fallbackAttempted: r.fallbackAttempted === true,
+       fallbackPredicate: boundedString(r.fallbackPredicate, 100),
+@@ -1559,10 +1598,10 @@ async function runTriageRuntime(options = {}) {
+   let fallbackPayload = null;
+   let fallbackResult = null;
+   let fallbackAttempted = false;
+-  let fallbackReason = null;
+   let fallbackPredicateValue = null;
+   let mode = 'route';
+   const degradationRows = [];
++  const substrateDegradationNotes = [];
+   const stagedVtp = loadStagedVtpForRun(root, state, rawQuery, triageSlice, evidenceRel, options);
+   let evidencePath = stagedVtp ? stagedVtp.evidencePath : null;
+ 
+@@ -1573,7 +1612,6 @@ async function runTriageRuntime(options = {}) {
+     fallbackPayload = stagedVtp.fallbackPayload;
+     fallbackResult = stagedVtp.fallbackResult;
+     fallbackAttempted = stagedVtp.fallbackAttempted;
+-    fallbackReason = stagedVtp.fallbackReason;
+     fallbackPredicateValue = stagedVtp.fallbackPredicateValue;
+     mode = stagedVtp.mode;
+     degradationRows.push(...stagedVtp.degradationRows);
+@@ -1607,7 +1645,6 @@ async function runTriageRuntime(options = {}) {
+     const predicate = fallbackPredicate(routeResult.response);
+     if (predicate) {
+       fallbackAttempted = true;
+-      fallbackReason = predicate.predicate;
+       fallbackPredicateValue = predicate.predicate;
+       degradationRows.push(logDegradation(root, state, {
+         reasonCode: predicate.reasonCode,
+@@ -1646,23 +1683,42 @@ async function runTriageRuntime(options = {}) {
+   }
+ 
+   if (fallbackAttempted && !stagedVtp) {
+-    fallbackPayload = shapeMcpArgs(SEARCH_TOOL, {
+-      raw_query: rawQuery,
+-      query: rawQuery,
+-      context: triageSlice,
+-      fallback_reason: fallbackReason,
+-    });
++    const fallbackSubstrateCall = prepareSubstrateCall('triage', { query: rawQuery });
++    fallbackPayload = fallbackSubstrateCall.payload;
+     fallbackResult = await safeCallVtp(
+       SEARCH_TOOL,
+       root,
+       rawQuery,
+-      fallbackPayload,
++      fallbackSubstrateCall,
+       options,
+       'vtp_fallback_exception'
+     );
+     if (fallbackResult.ok) {
+       selectedResponse = fallbackResult.response;
+       mode = 'fallback';
++      if (Array.isArray(fallbackResult.degradation_notes)) {
++        substrateDegradationNotes.push(...fallbackResult.degradation_notes);
++        for (const note of fallbackResult.degradation_notes) {
++          degradationRows.push(logDegradation(root, state, {
++            reasonCode: note.reason_code,
++            rawQuery,
++            routeOk: routeResult.ok === true,
++            fallbackPredicate: fallbackPredicateValue,
++            evidenceRel,
++            skillOrAgent: options.skillOrAgent,
++            silent: options.silent,
++            nextActionPayload: {
++              identity: note.identity,
++              hit_index: note.hit_index,
++              doc_id: note.doc_id,
++              rel_path: note.rel_path,
++              chunk_id: note.chunk_id,
++              original_chars: note.original_chars,
++              retained_chars: note.retained_chars,
++            },
++          }));
++        }
++      }
+     } else {
+       selectedResponse = null;
+       mode = 'evidence_less';
+@@ -1694,6 +1750,7 @@ async function runTriageRuntime(options = {}) {
+       routeResult,
+       fallbackResult,
+       fallbackPredicate: fallbackPredicateValue,
++      degradationNotes: substrateDegradationNotes,
+     });
+   }
+ 
+diff --git a/super-gsd/tests/triage-runtime/assert-mcp-arg-contract.cjs b/super-gsd/tests/triage-runtime/assert-mcp-arg-contract.cjs
+index d9775ac..16873f2 100644
+--- a/super-gsd/tests/triage-runtime/assert-mcp-arg-contract.cjs
++++ b/super-gsd/tests/triage-runtime/assert-mcp-arg-contract.cjs
+@@ -2,6 +2,7 @@
+ 'use strict';
+ 
+ const assert = require('assert');
++const crypto = require('crypto');
+ const fs = require('fs');
+ const os = require('os');
+ const path = require('path');
+@@ -9,19 +10,23 @@ const { Worker } = require('worker_threads');
+ 
+ const repoRoot = path.resolve(__dirname, '../../..');
+ const runtimePath = path.join(repoRoot, 'super-gsd', 'scripts', 'sgsd-triage-runtime.cjs');
+-const schemaPath = path.join(repoRoot, 'super-gsd', 'schemas', 'vtp-mcp-input-schemas.v1.json');
++const composerPath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'vtp-context-composer.cjs');
++const v1SchemaPath = path.join(repoRoot, 'super-gsd', 'schemas', 'vtp-mcp-input-schemas.v1.json');
++const v2SchemaPath = path.join(repoRoot, 'super-gsd', 'schemas', 'vtp-mcp-input-schemas.v2.json');
+ const Ajv = require(path.join(repoRoot, 'super-gsd', 'tools', 'plan-schema', 'node_modules', 'ajv'));
+ 
+ const ROUTE_TOOL = 'mcp__vtp-kb__vtp_route_and_retrieve';
+ const SEARCH_TOOL = 'mcp__vtp-kb__vtp_search_substrate';
+ const RAW_QUERY = 'fixture MCP argument contract query';
+-const schemaAuthority = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
++const v1SchemaAuthority = JSON.parse(fs.readFileSync(v1SchemaPath, 'utf8'));
++const v2SchemaAuthority = JSON.parse(fs.readFileSync(v2SchemaPath, 'utf8'));
+ const ajv = new Ajv({ allErrors: true, strict: true });
+ 
+ function usage() {
+   return [
+     'Usage:',
+     '  node super-gsd/tests/triage-runtime/assert-mcp-arg-contract.cjs --case emitted-args',
++    '  node super-gsd/tests/triage-runtime/assert-mcp-arg-contract.cjs --case substrate-policy-required',
+     '  node super-gsd/tests/triage-runtime/assert-mcp-arg-contract.cjs --case real-evidence --evidence-file <path>',
+   ].join('\n');
+ }
+@@ -43,21 +48,26 @@ function parseArgs(argv) {
+   return out;
+ }
+ 
+-function validatorFor(tool) {
+-  assert.strictEqual(schemaAuthority.version_id, 'vtp-mcp-input-schemas.v1');
+-  assert.strictEqual(
+-    schemaAuthority.provenance,
+-    'mirrors live vtp-kb descriptors reproduced 2026-08-18'
+-  );
+-  const declaration = schemaAuthority.tools && schemaAuthority.tools[tool];
++function validatorFor(authority, tool, expectedVersion) {
++  assert.strictEqual(authority.version_id, expectedVersion);
++  if (expectedVersion === 'vtp-mcp-input-schemas.v1') {
++    assert.strictEqual(authority.provenance, 'mirrors live vtp-kb descriptors reproduced 2026-08-18');
++  }
++  const declaration = authority.tools && authority.tools[tool];
+   assert(declaration && declaration.inputSchema, `schema declaration missing for ${tool}`);
+   return ajv.compile(declaration.inputSchema);
+ }
+ 
+-const validators = Object.freeze({
+-  [ROUTE_TOOL]: validatorFor(ROUTE_TOOL),
+-  [SEARCH_TOOL]: validatorFor(SEARCH_TOOL),
++const v1Validators = Object.freeze({
++  [ROUTE_TOOL]: validatorFor(v1SchemaAuthority, ROUTE_TOOL, 'vtp-mcp-input-schemas.v1'),
++  [SEARCH_TOOL]: validatorFor(v1SchemaAuthority, SEARCH_TOOL, 'vtp-mcp-input-schemas.v1'),
++});
++const v2Validators = Object.freeze({
++  [ROUTE_TOOL]: validatorFor(v2SchemaAuthority, ROUTE_TOOL, 'vtp-mcp-input-schemas.v2'),
++  [SEARCH_TOOL]: validatorFor(v2SchemaAuthority, SEARCH_TOOL, 'vtp-mcp-input-schemas.v2'),
+ });
++const schemaAuthority = v2SchemaAuthority;
++const validators = v2Validators;
+ 
+ function writeFile(root, rel, content) {
+   const target = path.resolve(root, rel);
+@@ -200,7 +210,13 @@ async function assertEmittedArgs() {
+     assert(turn.text.length > 0, 'recent turn text must be non-empty');
+     assert(Object.keys(turn).every((key) => key === 'text' || key === 'role'), 'recent turn exposed unsupported keys');
+   }
+-  assert.deepStrictEqual(packets.search.args, { query: RAW_QUERY });
++  assert.deepStrictEqual(packets.search.args, {
++    query: RAW_QUERY,
++    source_types: ['research_paper', 'wiki_page'],
++    limit: 3,
++  });
++  assert.strictEqual(packets.search.gateway_evidence.schema_version, 'vtp-mcp-input-schemas.v2');
++  assert.strictEqual(packets.search.gateway_evidence.intent_family, 'triage');
+ }
+ 
+ function readEvidence(evidenceFile) {
+@@ -209,6 +225,74 @@ function readEvidence(evidenceFile) {
+   return JSON.parse(fs.readFileSync(target, 'utf8'));
+ }
+ 
++function digest(payload) {
++  return crypto.createHash('sha256').update(Buffer.from(JSON.stringify(payload), 'utf8')).digest('hex');
++}
++
++async function assertSubstratePolicyRequired() {
++  delete require.cache[require.resolve(composerPath)];
++  const composer = require(composerPath);
++  assert.strictEqual(typeof composer.prepareSubstrateCall, 'function');
++  const valid = composer.prepareSubstrateCall('triage', { query: RAW_QUERY });
++  const fixture = createFixture();
++  let transportCalls = 0;
++  const mcpInvoke = () => {
++    transportCalls += 1;
++    return { hits: [] };
++  };
++  try {
++    const candidates = [];
++    for (const key of ['source_types', 'limit']) {
++      const payload = { ...valid.payload };
++      delete payload[key];
++      candidates.push({
++        ...valid,
++        payload,
++        gateway_evidence: { ...valid.gateway_evidence, payload_sha256: digest(payload) },
++      });
++    }
++    for (const replacement of [{ source_types: [] }, { limit: 6 }]) {
++      const payload = { ...valid.payload, ...replacement };
++      candidates.push({
++        ...valid,
++        payload,
++        gateway_evidence: { ...valid.gateway_evidence, payload_sha256: digest(payload) },
++      });
++    }
++    candidates.push({
++      ...valid,
++      gateway_evidence: { ...valid.gateway_evidence, payload_sha256: '0'.repeat(64) },
++    });
++
++    for (const substrateCall of candidates) {
++      const result = await composer.callVtp(SEARCH_TOOL, {
++        rawQuery: RAW_QUERY,
++        projectDir: fixture.repoDir,
++        skillOrAgent: 'p166-invalid-candidate',
++        tier: 'triage',
++        substrateCall,
++        mcpInvoke,
++      });
++      assert.strictEqual(result.ok, false);
++      assert.strictEqual(result.reason, 'substrate_payload_invalid');
++    }
++
++    const bypass = await composer.callVtp(SEARCH_TOOL, {
++      rawQuery: RAW_QUERY,
++      projectDir: fixture.repoDir,
++      skillOrAgent: 'p166-payload-bypass',
++      tier: 'triage',
++      payload: valid.payload,
++      mcpInvoke,
++    });
++    assert.strictEqual(bypass.ok, false);
++    assert.strictEqual(bypass.reason, 'substrate_payload_invalid');
++    assert.strictEqual(transportCalls, 0, 'invalid substrate candidates must not reach transport');
++  } finally {
++    cleanupFixture(fixture);
++  }
++}
++
+ function assertSuccessfulRawResult(call) {
+   assert(Object.prototype.hasOwnProperty.call(call, 'error'), `${call.stage} must record error explicitly`);
+   assert.strictEqual(call.error, null, `${call.stage} recorded an MCP error`);
+@@ -231,9 +315,14 @@ async function assertRealEvidence(evidenceFile) {
+   assert.strictEqual(evidence.calls.length, 2, 'evidence must contain exactly two calls');
+ 
+   const packets = await emitPackets(evidence.fixed_query);
++  const historicalSearchPacket = {
++    tool: 'vtp_search_substrate',
++    mcp_tool: SEARCH_TOOL,
++    args: { query: evidence.fixed_query },
++  };
+   const expected = [
+     { stage: 'vtp-plan', fallbackPredicate: null, packet: packets.route },
+-    { stage: 'vtp-consume', fallbackPredicate: 'reflection_null', packet: packets.search },
++    { stage: 'vtp-consume', fallbackPredicate: 'reflection_null', packet: historicalSearchPacket },
+   ];
+   for (let index = 0; index < expected.length; index += 1) {
+     const call = evidence.calls[index];
+@@ -243,7 +332,9 @@ async function assertRealEvidence(evidenceFile) {
+     assert.strictEqual(call.tool, item.packet.tool);
+     assert.strictEqual(call.mcp_tool, item.packet.mcp_tool);
+     assert.deepStrictEqual(call.args, item.packet.args, `${call.stage} args differ from fresh production emission`);
+-    assert.deepStrictEqual(validatePacket(item.packet), []);
++    const validateHistorical = v1Validators[item.packet.mcp_tool];
++    assert(validateHistorical, 'missing frozen v1 validator');
++    assert.strictEqual(validateHistorical(item.packet.args), true, JSON.stringify(validateHistorical.errors || []));
+     assertSuccessfulRawResult(call);
+   }
+ }
+@@ -252,6 +343,8 @@ async function main(argv = process.argv.slice(2)) {
+   const args = parseArgs(argv);
+   if (args.caseName === 'emitted-args') {
+     await assertEmittedArgs();
++  } else if (args.caseName === 'substrate-policy-required') {
++    await assertSubstratePolicyRequired();
+   } else if (args.caseName === 'real-evidence') {
+     await assertRealEvidence(args.evidenceFile);
+   } else {
+diff --git a/super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs b/super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs
+index 68b13cd..c3ba8f6 100644
+--- a/super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs
++++ b/super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs
+@@ -714,12 +714,68 @@ async function assertVtpEnrichmentEnabled() {
+   }
+ }
+ 
++async function assertOversizedFallbackDegradation() {
++  const fixture = createSgsdFixture({ repoId: 'oversized-fallback-degradation' });
++  const discardedMarker = 'P166_TRIAGE_DISCARDED_SUFFIX';
++  try {
++    const fallbackResponse = searchResponse({ hits: 2, docPrefix: 'fixture-capped-fallback' });
++    fallbackResponse.evidence.hits[0] = {
++      doc_id: 'doc:lint-report',
++      chunk_id: 'chunk:lint-report',
++      rel_path: 'wiki/LINT-REPORT.md',
++      text: 'r'.repeat(16000) + discardedMarker,
++    };
++    fallbackResponse.evidence.documents[0] = {
++      doc_id: 'doc:lint-report',
++      title: 'LINT report',
++    };
++    const transport = makeTransport([
++      {
++        tool: ROUTE_TOOL,
++        response: routeResponse({ reflection: null, hits: 2, docPrefix: 'fixture-route-capped' }),
++      },
++      { tool: SEARCH_TOOL, response: fallbackResponse },
++    ]);
++    const { value: result } = await runRuntimeInProcess(fixture, transport, {
++      scenario: 'oversized-fallback-degradation',
++    });
++    assert.strictEqual(result.exitCode, 0, 'truncated fallback must continue with exit 0');
++    assert.strictEqual(result.mode, 'fallback');
++    assert.deepStrictEqual(transport.calls.map((call) => call.tool), [ROUTE_TOOL, SEARCH_TOOL]);
++
++    const rows = gateRowsWithReason(fixture, 'vtp_substrate_hit_truncated');
++    assert.strictEqual(rows.length, 1, 'truncated fallback must append one named degradation row');
++    const nextAction = JSON.parse(rows[0].next_action);
++    assert.deepStrictEqual(nextAction, {
++      identity: 'doc:lint-report',
++      hit_index: 0,
++      doc_id: 'doc:lint-report',
++      rel_path: 'wiki/LINT-REPORT.md',
++      chunk_id: 'chunk:lint-report',
++      original_chars: 16000 + discardedMarker.length,
++      retained_chars: 16000,
++    });
++    assert.doesNotMatch(rows[0].next_action, new RegExp(discardedMarker));
++
++    const evidence = readContainedFile(fixture.repoDir, VTP_EVIDENCE_REL);
++    assert.match(evidence, /## Degraded Retrieval/);
++    assert.match(evidence, /doc_id=doc:lint-report/);
++    assert.match(evidence, /rel_path=wiki\/LINT-REPORT\.md/);
++    assert.match(evidence, new RegExp((16000 + discardedMarker.length) + ' -> 16000'));
++    assert.doesNotMatch(evidence, new RegExp(discardedMarker));
++    assert(Buffer.byteLength(evidence, 'utf8') < 32768, 'triage evidence must stay bounded');
++  } finally {
++    fixture.cleanup();
++  }
++}
++
+ async function assertAllFallbackContainedDegradation() {
+   await assertHealthyRouteNoFallback();
+   await assertNullReflectionFallback();
+   await assertLowHitFallback();
+   await assertRouteErrorFallback();
+   await assertFallbackAlsoFails();
++  await assertOversizedFallbackDegradation();
+   await assertNonSgsdNoWrite();
+ }
+ 
+@@ -1487,7 +1543,13 @@ async function assertStagedVtpNullReflectionFallback() {
+     const fallbackInstruction = invokeVtpConsumeStage(fixture, queryRel, plan.response_file, 'vtp-consume null-reflection');
+     assert.strictEqual(fallbackInstruction.action, 'invoke_mcp');
+     assert.strictEqual(fallbackInstruction.tool, 'vtp_search_substrate');
+-    assert.deepStrictEqual(fallbackInstruction.args, { query: rawQuery });
++    assert.deepStrictEqual(fallbackInstruction.args, {
++      query: rawQuery,
++      source_types: ['research_paper', 'wiki_page'],
++      limit: 3,
++    });
++    assert.strictEqual(fallbackInstruction.gateway_evidence.schema_version, 'vtp-mcp-input-schemas.v2');
++    assert.strictEqual(fallbackInstruction.gateway_evidence.intent_family, 'triage');
+     contained(fixture.repoDir, fallbackInstruction.response_file);
+ 
+     const rows = gateRowsWithReason(fixture, 'vtp_fallback_reflection_null');
+diff --git a/super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs b/super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs
+new file mode 100644
+index 0000000..dd25599
+--- /dev/null
++++ b/super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs
+@@ -0,0 +1,1357 @@
++#!/usr/bin/env node
++'use strict';
++
++const assert = require('assert');
++const crypto = require('crypto');
++const fs = require('fs');
++const os = require('os');
++const path = require('path');
++const childProcess = require('child_process');
++
++const repoRoot = path.resolve(__dirname, '../../..');
++const composerPath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'vtp-context-composer.cjs');
++const gatePath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'vtp-enrichment-gate.cjs');
++const auditPath = path.join(repoRoot, 'super-gsd', 'tools', 'feature-propagation', 'audit.cjs');
++const bridgePath = path.join(repoRoot, 'super-gsd', 'tools', 'vtp-bridge', 'classify.cjs');
++const v2SchemaPath = path.join(repoRoot, 'super-gsd', 'schemas', 'vtp-mcp-input-schemas.v2.json');
++const Ajv = require(path.join(repoRoot, 'super-gsd', 'tools', 'plan-schema', 'node_modules', 'ajv'));
++const yaml = require(path.join(repoRoot, 'super-gsd', 'tools', 'plan-schema', 'node_modules', 'js-yaml'));
++
++const SEARCH_TOOL = 'mcp__vtp-kb__vtp_search_substrate';
++const SHORT_SEARCH_TOOL = 'vtp_search_substrate';
++const EXPECTED_SITES = Object.freeze([
++  'enrichment-agent',
++  'board-researcher',
++  'installed-phase-researcher',
++  'installed-planner',
++  'triage-fallback',
++  'architecture-challenge',
++  'book-lookup',
++  'composer-callVtp-seam',
++]);
++const SCAN_ROOTS = Object.freeze([
++  'super-gsd/agents',
++  'super-gsd/skills',
++  'super-gsd/scripts',
++  'super-gsd/tools',
++]);
++const CALLER_OCCURRENCE_RULES = Object.freeze([
++  {
++    id: 'board-tools',
++    rel: 'super-gsd/agents/sgsd-board-researcher.md',
++    text: 'tools: Read, Grep, Glob, Bash, mcp__vtp-kb__vtp_search, mcp__vtp-kb__vtp_search_substrate, mcp__vtp-kb__vtp_search_research, mcp__vtp-kb__vtp_get_document, mcp__vtp-kb__vtp_route_and_retrieve',
++    site: 'board-researcher',
++  },
++  {
++    id: 'board-transport',
++    rel: 'super-gsd/agents/sgsd-board-researcher.md',
++    text: '- Call vtp_search_substrate only with the returned payload verbatim. Record that payload with the returned gateway_evidence. If preparation fails, do not issue a raw substrate call.',
++    site: 'board-researcher',
++  },
++  {
++    id: 'board-record',
++    rel: 'super-gsd/agents/sgsd-board-researcher.md',
++    text: 'tool: ' + String.fromCharCode(34) + 'mcp__vtp-kb__vtp_search_substrate' + String.fromCharCode(34),
++    site: 'board-researcher',
++  },
++  {
++    id: 'enrichment-record',
++    rel: 'super-gsd/agents/sgsd-vtp-enrichment.md',
++    text: 'tool: \'mcp__vtp-kb__vtp_search_substrate\',',
++    site: 'enrichment-agent',
++  },
++  {
++    id: 'enrichment-tools',
++    rel: 'super-gsd/agents/sgsd-vtp-enrichment.md',
++    text: 'tools: Read, Grep, Glob, Bash, Write, mcp__vtp-kb__vtp_search, mcp__vtp-kb__vtp_search_substrate, mcp__vtp-kb__vtp_search_research, mcp__vtp-kb__vtp_route_and_retrieve, mcp__vtp-kb__vtp_advise_service_enrichment, mcp__vtp-kb__vtp_health_structured, mcp__vtp-kb__vtp_get_document',
++    site: 'enrichment-agent',
++  },
++  {
++    id: 'enrichment-policy',
++    rel: 'super-gsd/agents/sgsd-vtp-enrichment.md',
++    text: 'For tool 2/5, call vtp_search_substrate with substrate_call.payload verbatim. Do not construct or amend substrate arguments. Record the tool, exact payload, and matching substrate_call.gateway_evidence together. The production run() acceptance path validates that record against substrate_call and rejects missing evidence, digest drift, unfiltered payloads, and limit 6. If the envelope is missing or preparation failed, do not issue a raw substrate call.',
++    site: 'enrichment-agent',
++  },
++  {
++    id: 'enrichment-cascade',
++    rel: 'super-gsd/agents/sgsd-vtp-enrichment.md',
++    text: '3. Call `vtp_search_substrate` with the same seed (D-01 tool 2/5). Capture hits. Substrate is book/paper content \u2014 the operator\'s investment.',
++    site: 'enrichment-agent',
++  },
++  {
++    id: 'composer-canonical-tool',
++    rel: 'super-gsd/scripts/lib/vtp-context-composer.cjs',
++    text: 'const SUBSTRATE_TOOL = \'mcp__vtp-kb__vtp_search_substrate\';',
++    site: 'composer-callVtp-seam',
++  },
++  {
++    id: 'composer-short-tool',
++    rel: 'super-gsd/scripts/lib/vtp-context-composer.cjs',
++    text: 'const SUBSTRATE_TOOL_SHORT = \'vtp_search_substrate\';',
++    site: 'composer-callVtp-seam',
++  },
++  {
++    id: 'triage-canonical-tool',
++    rel: 'super-gsd/scripts/sgsd-triage-runtime.cjs',
++    text: 'const SEARCH_TOOL = \'mcp__vtp-kb__vtp_search_substrate\';',
++    site: 'triage-fallback',
++  },
++  {
++    id: 'triage-stage-tool',
++    rel: 'super-gsd/scripts/sgsd-triage-runtime.cjs',
++    text: 'const SEARCH_STAGE_TOOL = \'vtp_search_substrate\';',
++    site: 'triage-fallback',
++  },
++  {
++    id: 'installed-planner-transport',
++    rel: 'super-gsd/tools/feature-propagation/audit.cjs',
++    text: '\'Pass the returned payload verbatim to mcp__vtp-kb__vtp_search_substrate.\',',
++    branch: 'installed-planner',
++    site: 'installed-planner',
++  },
++  {
++    id: 'installed-planner-tool',
++    rel: 'super-gsd/tools/feature-propagation/audit.cjs',
++    text: '\'mcp__vtp-kb__vtp_search_substrate\',',
++    branch: 'installed-planner',
++    site: 'installed-planner',
++  },
++  {
++    id: 'installed-researcher-transport',
++    rel: 'super-gsd/tools/feature-propagation/audit.cjs',
++    text: '\'Pass the returned payload verbatim to mcp__vtp-kb__vtp_search_substrate.\',',
++    branch: 'installed-phase-researcher',
++    site: 'installed-phase-researcher',
++  },
++  {
++    id: 'installed-researcher-tool',
++    rel: 'super-gsd/tools/feature-propagation/audit.cjs',
++    text: '\'mcp__vtp-kb__vtp_search_substrate\',',
++    branch: 'installed-phase-researcher',
++    site: 'installed-phase-researcher',
++  },
++  {
++    id: 'installed-researcher-legacy-observation',
++    rel: 'super-gsd/tools/feature-propagation/audit.cjs',
++    text: '- mcp__vtp-kb__vtp_search_substrate',
++    branch: 'installed-phase-researcher',
++    site: 'installed-phase-researcher',
++  },
++  {
++    id: 'architecture-map-branch',
++    rel: 'super-gsd/tools/vtp-bridge/classify.cjs',
++    text: 'tool: \'vtp_search_substrate\',',
++    branch: 'architecture-challenge',
++    site: 'architecture-challenge',
++  },
++  {
++    id: 'book-map-branch',
++    rel: 'super-gsd/tools/vtp-bridge/classify.cjs',
++    text: 'tool: \'vtp_search_substrate\',',
++    branch: 'book-lookup',
++    site: 'book-lookup',
++  },
++]);
++const JSON_QUOTE = String.fromCharCode(34);
++const EVIDENCE_TOOL_ENUM_LINE = '        { '
++  + JSON_QUOTE + 'type' + JSON_QUOTE + ': ' + JSON_QUOTE + 'string' + JSON_QUOTE
++  + ', ' + JSON_QUOTE + 'enum' + JSON_QUOTE + ': ['
++  + JSON_QUOTE + 'vtp_search_substrate' + JSON_QUOTE + ', '
++  + JSON_QUOTE + 'wiki_search' + JSON_QUOTE + ', '
++  + JSON_QUOTE + 'vtp_route_and_retrieve' + JSON_QUOTE + ', '
++  + JSON_QUOTE + 'vtp_get_research' + JSON_QUOTE + '] },';
++const DECLARATION_ALLOWLIST = Object.freeze({
++  'super-gsd/scripts/lib/vtp-enrichment-gate.cjs': [
++    /^  'mcp__vtp-kb__vtp_search_substrate',$/,
++  ],
++  'super-gsd/scripts/lib/demand-baseline-ledger.cjs': [
++    /^  'vtp_search_substrate',$/,
++    /^    surface: 'vtp_search_substrate',$/,
++    /^      assert\.strictEqual\(row\.artefact_kind, 'vtp_search_substrate'\);$/,
++  ],
++  'super-gsd/scripts/lib/route-ledger.cjs': [
++    /^        tool: 'vtp_search_substrate',$/,
++    /^      lastRow15\.decision\.tool === 'vtp_search_substrate' &&$/,
++  ],
++  'super-gsd/tools/vtp-bridge/classify.cjs': [
++    /^    \/\/ Assertion 1 \(F1\): architecture_challenge -> vtp_search_substrate, 3 results\.$/,
++    /^      ok\('1\. F1 architecture_challenge -> vtp_search_substrate \(3 results\)'\);$/,
++    /^    if \(toolName === 'vtp_search_substrate'\) \{$/,
++    /^      if \(packet\.vtp_tool !== 'vtp_search_substrate'\) throw new Error\('vtp_tool=' \+ packet\.vtp_tool\);$/,
++    /^      if \(packet\.vtp_tool !== 'vtp_search_substrate'\) throw new Error\('vtp_tool=' \+ packet\.vtp_tool\);$/,
++    /^      if \(capturedArgs\.toolName !== 'vtp_search_substrate'\) throw new Error\('toolName=' \+ capturedArgs\.toolName\);$/,
++  ],
++  'super-gsd/tools/vtp-bridge/EVIDENCE-PACKET.schema.json': [
++    EVIDENCE_TOOL_ENUM_LINE,
++  ],
++});
++
++function usage() {
++  return [
++    'Usage:',
++    '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case caller-coverage',
++    '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case prompt-record-acceptance',
++    '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case executable-emitters',
++    '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case megachunk-degraded-artifact',
++    '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case cap-shapes',
++    '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case repair-safe-t2',
++  ].join('\n');
++}
++
++function parseArgs(argv) {
++  if (argv.length === 2 && argv[0] === '--case' && argv[1]) return argv[1];
++  throw new Error('expected exactly --case <name>');
++}
++
++function toPosix(value) {
++  return value.replace(/\\/g, '/');
++}
++
++function walkFiles(root) {
++  const out = [];
++  if (!fs.existsSync(root)) return out;
++  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
++    if (entry.isDirectory() && entry.name === 'node_modules') continue;
++    const target = path.join(root, entry.name);
++    if (entry.isDirectory()) out.push(...walkFiles(target));
++    else if (entry.isFile()) out.push(target);
++  }
++  return out;
++}
++
++function occurrenceBranch(rel, lineIndex, lines) {
++  if (rel === 'super-gsd/tools/feature-propagation/audit.cjs') {
++    const starts = new Map([
++      ['    name: \'gsd-planner.md\',', 'installed-planner'],
++      ['    name: \'gsd-phase-researcher.md\',', 'installed-phase-researcher'],
++    ]);
++    for (let index = lineIndex; index >= 0; index -= 1) {
++      if (index < lineIndex && lines[index] === '  },') return null;
++      if (starts.has(lines[index])) return starts.get(lines[index]);
++    }
++  }
++  if (rel === 'super-gsd/tools/vtp-bridge/classify.cjs') {
++    const starts = new Map([
++      ['  architecture_challenge: Object.freeze({', 'architecture-challenge'],
++      ['  book_lookup: Object.freeze({', 'book-lookup'],
++    ]);
++    for (let index = lineIndex; index >= 0; index -= 1) {
++      if (index < lineIndex && lines[index] === '});') return null;
++      if (starts.has(lines[index])) return starts.get(lines[index]);
++    }
++  }
++  return null;
++}
++
++function classifyOccurrence(rel, lineIndex, lines, matchedCallerRules) {
++  const text = lines[lineIndex].trim();
++  for (const rule of CALLER_OCCURRENCE_RULES) {
++    if (rule.rel !== rel || rule.text !== text) continue;
++    if (rule.branch && occurrenceBranch(rel, lineIndex, lines) !== rule.branch) continue;
++    if (matchedCallerRules.has(rule.id)) continue;
++    matchedCallerRules.add(rule.id);
++    return rule.site;
++  }
++  return null;
++}
++
++function isAllowedDeclaration(rel, line, matchedDeclarations) {
++  const rules = DECLARATION_ALLOWLIST[rel] || [];
++  for (let index = 0; index < rules.length; index += 1) {
++    const key = rel + ':' + index;
++    const matches = typeof rules[index] === 'string'
++      ? rules[index] === line
++      : rules[index].test(line);
++    if (matchedDeclarations.has(key) || !matches) continue;
++    matchedDeclarations.add(key);
++    return true;
++  }
++  return false;
++}
++
++function auditCallerCoverage(root) {
++  const sites = new Set();
++  const unknown = [];
++  const occurrences = [];
++  const matchedCallerRules = new Set();
++  const matchedDeclarations = new Set();
++  for (const scanRoot of SCAN_ROOTS) {
++    for (const file of walkFiles(path.join(root, scanRoot))) {
++      const rel = toPosix(path.relative(root, file));
++      const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
++      lines.forEach((line, lineIndex) => {
++        if (!line.includes('vtp_search_substrate')) return;
++        const site = classifyOccurrence(rel, lineIndex, lines, matchedCallerRules);
++        const occurrence = { rel, line: lineIndex + 1, text: line.trim(), site };
++        occurrences.push(occurrence);
++        if (site) sites.add(site);
++        else if (!isAllowedDeclaration(rel, line, matchedDeclarations)) unknown.push(occurrence);
++      });
++    }
++  }
++  const missing = EXPECTED_SITES.filter((site) => !sites.has(site));
++  const missingOccurrences = CALLER_OCCURRENCE_RULES
++    .filter((rule) => !matchedCallerRules.has(rule.id))
++    .map((rule) => rule.id);
++  return {
++    ok: unknown.length === 0 && missing.length === 0 && missingOccurrences.length === 0,
++    sites,
++    unknown,
++    missing,
++    missingOccurrences,
++    occurrences,
++  };
++}
++
++function assertCallerCoverage() {
++  const report = auditCallerCoverage(repoRoot);
++  assert.deepStrictEqual(report.missing, [], 'missing caller classifications: ' + report.missing.join(', '));
++  assert.deepStrictEqual(
++    report.missingOccurrences,
++    [],
++    'missing exact caller occurrences: ' + report.missingOccurrences.join(', ')
++  );
++  assert.deepStrictEqual(
++    report.unknown,
++    [],
++    'unclassified substrate occurrences: ' + report.unknown.map((row) => row.rel + ':' + row.line).join(', ')
++  );
++  assert.deepStrictEqual([...report.sites].sort(), [...EXPECTED_SITES].sort());
++
++  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-caller-coverage-'));
++  try {
++    const injected = path.join(tempRoot, 'super-gsd', 'scripts', 'p166-unclassified.cjs');
++    fs.mkdirSync(path.dirname(injected), { recursive: true });
++    const quote = String.fromCharCode(39);
++    fs.writeFileSync(injected, 'const tool = ' + quote + 'vtp_search_substrate' + quote + ';\n', 'utf8');
++    const knownFile = path.join(tempRoot, 'super-gsd', 'scripts', 'sgsd-triage-runtime.cjs');
++    fs.writeFileSync(knownFile, 'const p166RogueKnownFileCall = \'vtp_search_substrate\';\n', 'utf8');
++    const injectedReport = auditCallerCoverage(tempRoot);
++    assert.strictEqual(injectedReport.ok, false, 'an injected unclassified emitter must fail closed');
++    assert.strictEqual(
++      injectedReport.unknown.some((row) => row.rel === 'super-gsd/scripts/p166-unclassified.cjs'),
++      true,
++      'a rogue occurrence in a new file must be reported as unknown'
++    );
++    assert.strictEqual(
++      injectedReport.unknown.some((row) => row.rel === 'super-gsd/scripts/sgsd-triage-runtime.cjs'),
++      true,
++      'a rogue occurrence inside an already-known caller file must be reported as unknown'
++    );
++    fs.rmSync(injected, { force: true });
++    fs.rmSync(knownFile, { force: true });
++
++    const ignored = path.join(tempRoot, 'super-gsd', 'scripts', 'node_modules', 'p166-ignored.cjs');
++    fs.mkdirSync(path.dirname(ignored), { recursive: true });
++    fs.writeFileSync(ignored, 'const ignoredTool = \'vtp_search_substrate\';\n', 'utf8');
++    const ignoredReport = auditCallerCoverage(tempRoot);
++    assert.strictEqual(
++      ignoredReport.unknown.some((row) => row.rel.includes('/node_modules/')),
++      false,
++      'node_modules must be excluded from caller coverage'
++    );
++  } finally {
++    fs.rmSync(tempRoot, { recursive: true, force: true });
++  }
++}
++
++function loadV2Validator() {
++  const authority = JSON.parse(fs.readFileSync(v2SchemaPath, 'utf8'));
++  assert.strictEqual(authority.version_id, 'vtp-mcp-input-schemas.v2');
++  const declaration = authority.tools && authority.tools[SEARCH_TOOL];
++  assert(declaration && declaration.inputSchema, 'v2 substrate schema declaration missing');
++  return new Ajv({ allErrors: true, strict: true }).compile(declaration.inputSchema);
++}
++
++function sha256Json(payload) {
++  return crypto.createHash('sha256').update(Buffer.from(JSON.stringify(payload), 'utf8')).digest('hex');
++}
++
++function deepFreeze(value) {
++  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
++  for (const child of Object.values(value)) deepFreeze(child);
++  return Object.freeze(value);
++}
++
++async function assertMegachunkDegradedArtifact() {
++  const retainedPrefix = 'R'.repeat(16000);
++  const discardedMarker = 'P166_DISCARDED_SUFFIX';
++  const oversizedText = retainedPrefix
++    + 'X'.repeat(900001 - retainedPrefix.length - discardedMarker.length)
++    + discardedMarker;
++  const fixture = deepFreeze({
++    hits: [
++      {
++        doc_id: 'doc:lint-report',
++        chunk_id: 'chunk:lint-report',
++        rel_path: 'wiki/LINT-REPORT.md',
++        source: 'wiki',
++        title: 'LINT report',
++        section: 'full report',
++        relevance: 'high',
++        citation: 'doc:lint-report',
++        text: oversizedText,
++      },
++      {
++        doc_id: 'doc:small-control',
++        chunk_id: 'chunk:small-control',
++        rel_path: 'wiki/SMALL.md',
++        source: 'wiki',
++        title: 'Small control',
++        section: 'summary',
++        relevance: 'medium',
++        citation: 'doc:small-control',
++        text: 'small second hit stays intact',
++      },
++    ],
++    total_hits: 2,
++  });
++  const fixtureHash = sha256Json(fixture);
++  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-megachunk-'));
++  try {
++    writeFixtureFile(
++      tempRoot,
++      path.join('.planning', 'STATE.md'),
++      '---\nmilestone: fixture\ncurrent_phase: 166\n---\n'
++    );
++    writeFixtureFile(
++      tempRoot,
++      path.join('.planning', 'config.json'),
++      JSON.stringify({ vtp_enrichment: { enabled: true } }) + '\n'
++    );
++    const phaseDir = path.join(tempRoot, '.planning', 'milestones', 'fixture', 'phases', '166-megachunk');
++    fs.mkdirSync(phaseDir, { recursive: true });
++
++    delete require.cache[require.resolve(composerPath)];
++    delete require.cache[require.resolve(gatePath)];
++    const composer = require(composerPath);
++    const gate = require(gatePath);
++    const gateInput = {
++      projectDir: tempRoot,
++      phaseDir,
++      phase: '166',
++      phaseContext: 'P166 megachunk degraded artifact fixture',
++    };
++    const pending = gate.run(gateInput);
++    const substrateCall = pending.sub_agent_spec.substrate_call;
++    const callResult = await composer.callVtp(SEARCH_TOOL, {
++      rawQuery: substrateCall.payload.query,
++      substrateCall,
++      projectDir: tempRoot,
++      logRoot: tempRoot,
++      skillOrAgent: 'p166-megachunk-fixture',
++      tier: 'research',
++      mcpInvoke: () => fixture,
++    });
++    assert.strictEqual(callResult.ok, true, 'oversized substrate retrieval must remain usable');
++    assert.deepStrictEqual(
++      callResult.gateway_evidence,
++      substrateCall.gateway_evidence,
++      'capped call must retain composer gateway evidence'
++    );
++
++    const written = gate.run({
++      ...gateInput,
++      substrateCall,
++      enrichmentResult: {
++        ok: callResult.ok,
++        status: 'success',
++        query_count: 1,
++        total_hits: callResult.response.total_hits,
++        duration_ms: callResult.elapsed_ms,
++        hits: callResult.response.hits,
++        degradation_notes: callResult.degradation_notes || [],
++        gaps: [],
++        alt_framings: [],
++        rationale: '',
++        substrate_call_record: toSubstrateCallRecord(substrateCall),
++      },
++    });
++    assert.strictEqual(written.status, 'success');
++    assert.strictEqual(sha256Json(fixture), fixtureHash, 'the deep-frozen transport fixture must not change');
++
++    assert(
++      Array.isArray(callResult.degradation_notes) && callResult.degradation_notes.length === 1,
++      'oversized retrieval must produce one named degradation note'
++    );
++    assert.deepStrictEqual(callResult.degradation_notes[0], {
++      reason_code: 'vtp_substrate_hit_truncated',
++      hit_index: 0,
++      identity: 'doc:lint-report',
++      doc_id: 'doc:lint-report',
++      rel_path: 'wiki/LINT-REPORT.md',
++      chunk_id: 'chunk:lint-report',
++      original_chars: 900001,
++      retained_chars: 16000,
++    });
++    assert.strictEqual(callResult.response.hits[0].text, retainedPrefix);
++    assert.strictEqual(callResult.response.hits[1], fixture.hits[1], 'normal second hit must be reference-preserved');
++
++    const artifact = gate._internal.readEnrichmentArtifact({ phaseDir, phase: '166' });
++    assert(artifact, 'successful enrichment artifact must remain readable');
++    assert.strictEqual(artifact.empty_hit, false);
++    assert.strictEqual(artifact.total_hits, 2);
++    assert.match(artifact.raw, /vtp_status: success/);
++    assert.match(artifact.raw, /## Degraded Retrieval/);
++    assert.match(artifact.raw, /doc_id=doc:lint-report/);
++    assert.match(artifact.raw, /rel_path=wiki\/LINT-REPORT\.md/);
++    assert.match(artifact.raw, /900001 -> 16000/);
++    assert.doesNotMatch(artifact.raw, /## API Error/);
++    assert.doesNotMatch(artifact.raw, new RegExp(discardedMarker));
++    assert(Buffer.byteLength(artifact.raw, 'utf8') < 32768, 'degraded artifact must remain bounded');
++    const routingLog = fs.readFileSync(
++      path.join(tempRoot, '.planning', 'metrics', 'vtp-routing-log.jsonl'),
++      'utf8'
++    );
++    assert.doesNotMatch(routingLog, new RegExp(discardedMarker));
++  } finally {
++    fs.rmSync(tempRoot, { recursive: true, force: true });
++  }
++}
++
++function assertCapShapes() {
++  delete require.cache[require.resolve(composerPath)];
++  delete require.cache[require.resolve(gatePath)];
++  const composer = require(composerPath);
++  const gate = require(gatePath);
++  assert.strictEqual(composer.SUBSTRATE_HIT_MAX_CHARS, 16000);
++  assert.strictEqual(typeof composer.capSubstrateResponse, 'function');
++
++  const exactBoundary = deepFreeze({
++    hits: [
++      { doc_id: 'doc:boundary', text: '\u00e9'.repeat(16000), untouched: { stable: true } },
++      { doc_id: 'doc:non-string', text: 16001 },
++    ],
++    metadata: { shape: 'top-level' },
++  });
++  const exactHash = sha256Json(exactBoundary);
++  const exact = composer.capSubstrateResponse(exactBoundary);
++  assert.strictEqual(exact.response, exactBoundary, 'exact boundary and non-string text must retain response identity');
++  assert.deepStrictEqual(exact.degradation_notes, []);
++  assert.strictEqual(sha256Json(exactBoundary), exactHash);
++
++  const topLevel = deepFreeze({
++    hits: [
++      { doc_id: 'doc:first', rel_path: 'wiki/FIRST.md', chunk_id: 'chunk:first', text: 'a'.repeat(16001) },
++      { doc_id: '', rel_path: 'wiki/SECOND.md', chunk_id: 'chunk:second', text: 'b'.repeat(16002) },
++      { doc_id: '', rel_path: '', chunk_id: 'chunk:third', text: 'c'.repeat(16003) },
++      { doc_id: '', rel_path: '', chunk_id: '', text: 'd'.repeat(16004) },
++      { doc_id: 'doc:normal', text: 'normal', fields: { byte: 'preserved' } },
++    ],
++    metadata: { stable: true },
++  });
++  const topHash = sha256Json(topLevel);
++  const cappedTop = composer.capSubstrateResponse(topLevel);
++  assert.notStrictEqual(cappedTop.response, topLevel);
++  assert.notStrictEqual(cappedTop.response.hits, topLevel.hits);
++  assert.strictEqual(cappedTop.response.metadata, topLevel.metadata);
++  assert.strictEqual(cappedTop.response.hits[4], topLevel.hits[4]);
++  assert.deepStrictEqual(
++    cappedTop.response.hits.slice(0, 4).map((hit) => hit.text.length),
++    [16000, 16000, 16000, 16000]
++  );
++  assert.deepStrictEqual(
++    cappedTop.degradation_notes.map((note) => [note.hit_index, note.identity]),
++    [[0, 'doc:first'], [1, 'wiki/SECOND.md'], [2, 'chunk:third'], [3, 'hit-4']]
++  );
++  assert.deepStrictEqual(
++    cappedTop.degradation_notes.map((note) => [note.original_chars, note.retained_chars]),
++    [[16001, 16000], [16002, 16000], [16003, 16000], [16004, 16000]]
++  );
++  assert.strictEqual(sha256Json(topLevel), topHash);
++
++  const nested = deepFreeze({
++    evidence: {
++      hits: [
++        { doc_id: 'doc:nested', rel_path: 'wiki/NESTED.md', chunk_id: 'chunk:nested', text: 'n'.repeat(16001) },
++        { doc_id: 'doc:nested-normal', text: 'nested normal' },
++      ],
++      documents: [{ doc_id: 'doc:nested' }],
++    },
++    retrieval_plan: { mode: 'fixture' },
++  });
++  const nestedHash = sha256Json(nested);
++  const cappedNested = composer.capSubstrateResponse(nested);
++  assert.notStrictEqual(cappedNested.response, nested);
++  assert.notStrictEqual(cappedNested.response.evidence, nested.evidence);
++  assert.notStrictEqual(cappedNested.response.evidence.hits, nested.evidence.hits);
++  assert.strictEqual(cappedNested.response.evidence.hits[1], nested.evidence.hits[1]);
++  assert.strictEqual(cappedNested.response.evidence.documents, nested.evidence.documents);
++  assert.strictEqual(cappedNested.response.retrieval_plan, nested.retrieval_plan);
++  assert.strictEqual(cappedNested.response.evidence.hits[0].text.length, 16000);
++  assert.deepStrictEqual(cappedNested.degradation_notes.map((note) => note.identity), ['doc:nested']);
++  assert.strictEqual(sha256Json(nested), nestedHash);
++
++  const generatedNote = cappedNested.degradation_notes[0];
++  const injected = deepFreeze({
++    hits: nested.evidence.hits,
++    degradation_notes: [{ ...generatedNote }],
++  });
++  const injectedHash = sha256Json(injected);
++  const normalized = gate._internal.normalizeEnrichmentResult(injected);
++  assert.strictEqual(normalized.hits[0].text.length, 16000);
++  assert.strictEqual(normalized.degradation_notes.length, 1, 'defensive gate recap must collapse duplicate notes');
++  assert.deepStrictEqual(normalized.degradation_notes[0], generatedNote);
++  assert.strictEqual(sha256Json(injected), injectedHash);
++
++  delete require.cache[require.resolve(bridgePath)];
++  const bridge = require(bridgePath);
++  const bridgeRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-bridge-cap-'));
++  try {
++    const planningDir = path.join(bridgeRoot, '.planning');
++    const exactCeilingInput = {
++      uncertainty_type: 'architecture_challenge',
++      query: 'P166 exact packet ceiling with degradation note',
++      planningDir,
++      routes_yaml: {
++        vtp_bridge: {
++          evidence_packet_max_tokens: 6,
++          per_query_timeout_ms: 120000,
++          retry_on_timeout: false,
++        },
++      },
++      _force_vtp_health: true,
++      _force_vtp_tool_response: {
++        hits: [{
++          doc_id: 'doc:ceiling',
++          citation: 'gamma',
++          title: 'alpha',
++          excerpt: 'beta',
++          text: 'x'.repeat(16001),
++        }],
++      },
++    };
++    const exactCeiling = bridge.selectiveVTPCall(exactCeilingInput);
++    assert.strictEqual(exactCeiling.results.length, 1, 'result plus note must fit at the exact ceiling');
++    assert.strictEqual(exactCeiling.results[0].degradation_notes.length, 1);
++    assert.strictEqual(exactCeiling.body_token_estimate, 6, 'reported estimate must land on the configured cap');
++
++    const belowCeiling = bridge.selectiveVTPCall({
++      ...exactCeilingInput,
++      routes_yaml: {
++        vtp_bridge: {
++          ...exactCeilingInput.routes_yaml.vtp_bridge,
++          evidence_packet_max_tokens: 5,
++        },
++      },
++    });
++    assert.strictEqual(belowCeiling.results.length, 0, 'one token below the exact ceiling must elide the result');
++    assert(belowCeiling.body_token_estimate <= 5, 'reported estimate must not exceed the configured cap');
++    assert.strictEqual(belowCeiling.elided_count, 1);
++    assert(belowCeiling.reason_codes.includes('evidence_packet_size_capped'));
++
++    const bookPacket = bridge.selectiveVTPCall({
++      uncertainty_type: 'book_lookup',
++      query: 'P166 raw hit index through book filtering and elision',
++      planningDir,
++      routes_yaml: exactCeilingInput.routes_yaml,
++      _force_vtp_health: true,
++      _force_vtp_tool_response: {
++        hits: [
++          {
++            doc_id: 'doc:shared',
++            rel_path: 'wiki/meetings/not-a-book.md',
++            citation: 'cite-nonbook',
++            title: 'nonbook',
++            excerpt: 'excerpt-nonbook',
++            score: 0.95,
++            text: 'n'.repeat(16001),
++          },
++          {
++            doc_id: 'doc:shared',
++            rel_path: 'wiki/books/low.md',
++            citation: 'cite-low',
++            title: 'low',
++            excerpt: 'excerpt-low',
++            score: 0.1,
++            text: 'l'.repeat(16001),
++          },
++          {
++            doc_id: 'doc:shared',
++            rel_path: 'wiki/books/high.md',
++            citation: 'cite-high',
++            title: 'high',
++            excerpt: 'excerpt-high',
++            score: 0.9,
++            text: 'h'.repeat(16001),
++          },
++        ],
++      },
++    });
++    assert.strictEqual(bookPacket.results.length, 1, 'packet elision must keep only the highest-ranked book');
++    assert.strictEqual(bookPacket.results[0].title, 'high');
++    assert.deepStrictEqual(
++      bookPacket.results[0].degradation_notes.map((note) => [note.hit_index, note.rel_path]),
++      [[2, 'wiki/books/high.md']],
++      'book filtering and packet elision must preserve the raw hit index without cross-attachment'
++    );
++  } finally {
++    fs.rmSync(bridgeRoot, { recursive: true, force: true });
++  }
++
++  const gateRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-cap-shapes-gate-'));
++  try {
++    writeFixtureFile(
++      gateRoot,
++      path.join('.planning', 'config.json'),
++      JSON.stringify({ vtp_enrichment: { enabled: true } }) + '\n'
++    );
++    const phaseDir = path.join(gateRoot, '.planning', 'milestones', 'fixture', 'phases', '166-cap-shapes');
++    fs.mkdirSync(phaseDir, { recursive: true });
++    const gateInput = {
++      projectDir: gateRoot,
++      phaseDir,
++      phase: '166',
++      phaseContext: 'P166 defensive enrichment injection',
++    };
++    const pending = gate.run(gateInput);
++    const discardedMarker = 'P166_GATE_DISCARDED_SUFFIX';
++    const rawInjection = deepFreeze({
++      ok: true,
++      total_hits: 1,
++      hits: [{
++        doc_id: 'doc:gate-injected',
++        rel_path: 'wiki/GATE-INJECTED.md',
++        chunk_id: 'chunk:gate-injected',
++        text: 'g'.repeat(16000) + discardedMarker,
++      }],
++      substrate_call_record: toSubstrateCallRecord(pending.sub_agent_spec.substrate_call),
++    });
++    const rawInjectionHash = sha256Json(rawInjection);
++    const written = gate.run({
++      ...gateInput,
++      substrateCall: pending.sub_agent_spec.substrate_call,
++      enrichmentResult: rawInjection,
++    });
++    assert.strictEqual(written.status, 'success');
++    assert.strictEqual(sha256Json(rawInjection), rawInjectionHash);
++    const artifact = gate._internal.readEnrichmentArtifact({ phaseDir, phase: '166' });
++    assert.match(artifact.raw, /## Degraded Retrieval/);
++    assert.match(artifact.raw, /doc_id=doc:gate-injected/);
++    assert.doesNotMatch(artifact.raw, new RegExp(discardedMarker));
++  } finally {
++    fs.rmSync(gateRoot, { recursive: true, force: true });
++  }
++}
++
++function assertPreparedEnvelope(envelope, intent, expectedPolicy, validate) {
++  assert.deepStrictEqual(Object.keys(envelope), ['tool', 'payload', 'gateway_evidence']);
++  assert.strictEqual(envelope.tool, SEARCH_TOOL);
++  assert.strictEqual(envelope.gateway_evidence.schema_version, 'vtp-mcp-input-schemas.v2');
++  assert.strictEqual(envelope.gateway_evidence.intent_family, intent);
++  assert.strictEqual(envelope.gateway_evidence.payload_sha256, sha256Json(envelope.payload));
++  assert.deepStrictEqual(envelope.payload.source_types, expectedPolicy.source_types);
++  assert.strictEqual(envelope.payload.limit, expectedPolicy.limit);
++  assert.strictEqual(validate(envelope.payload), true, JSON.stringify(validate.errors || []));
++}
++
++async function capturePreparedCall(label, intent, expectedPolicy, composer, validate, tool = SEARCH_TOOL) {
++  const query = 'P166 ' + label + ' validated substrate query';
++  const envelope = composer.prepareSubstrateCall(intent, { query });
++  assertPreparedEnvelope(envelope, intent, expectedPolicy, validate);
++  const calls = [];
++  const result = await composer.callVtp(tool, {
++    rawQuery: query,
++    substrateCall: envelope,
++    projectDir: repoRoot,
++    logRoot: path.join(os.tmpdir(), 'p166-' + label + '-missing-root'),
++    skillOrAgent: 'p166-' + label,
++    tier: 'research',
++    mcpInvoke: (calledTool, payload) => {
++      calls.push({ tool: calledTool, payload });
++      return { hits: [] };
++    },
++  });
++  assert.strictEqual(result.ok, true, label + ' call should pass through the gateway');
++  assert.strictEqual(calls.length, 1);
++  assert.strictEqual(calls[0].tool, tool);
++  assert.deepStrictEqual(calls[0].payload, envelope.payload);
++  assert.deepStrictEqual(result.gateway_evidence, envelope.gateway_evidence);
++  return envelope;
++}
++
++function assertPromptContracts() {
++  const enrichment = fs.readFileSync(path.join(repoRoot, 'super-gsd', 'agents', 'sgsd-vtp-enrichment.md'), 'utf8');
++  const board = fs.readFileSync(path.join(repoRoot, 'super-gsd', 'agents', 'sgsd-board-researcher.md'), 'utf8');
++  const audit = fs.readFileSync(auditPath, 'utf8');
++  assert.match(enrichment, /substrate_call\.payload/);
++  assert.match(enrichment, /gateway_evidence/);
++  assert.match(enrichment, /substrateCall: substrate_call/);
++  assert.match(enrichment, /degradation_notes/);
++  assert.match(enrichment, /truncate.*in memory/i);
++  assert.match(enrichment, /16000 JavaScript characters/);
++  assert.match(enrichment, /original_chars/);
++  assert.match(enrichment, /Do not retry.*unfiltered/i);
++  assert.match(enrichment, /truncation.*failure/i);
++  assert.match(enrichment, /rationale: '',\s+\/\/ only populated if status='empty_hit'/);
++  assert.match(board, /--prepare-substrate-call --intent board_research/);
++  assert.match(board, /--accept-substrate-call-record --intent board_research/);
++  assert.match(board, /gateway_evidence/);
++  assert.match(board, /degradation_notes/);
++  assert.match(board, /truncate.*in memory/i);
++  assert.match(board, /16000 JavaScript characters/);
++  assert.match(board, /original_chars/);
++  assert.match(board, /Do not retry.*unfiltered/i);
++  assert.match(board, /truncation.*failure/i);
++  assert.match(audit, /<sgsd_vtp_substrate_policy_p166_phase_research>/);
++  assert.match(audit, /--prepare-substrate-call --intent phase_research/);
++  assert.match(audit, /--accept-substrate-call-record --intent phase_research/);
++  assert.match(audit, /<sgsd_vtp_substrate_policy_p166_planning>/);
++  assert.match(audit, /--prepare-substrate-call --intent planning/);
++  assert.match(audit, /--accept-substrate-call-record --intent planning/);
++  assert.match(audit, /<sgsd_vtp_substrate_policy_p166_t2_planning>/);
++  assert.match(audit, /<sgsd_vtp_substrate_policy_p166_t2_phase_research>/);
++  assert.strictEqual((audit.match(/Carry degradation_notes into the normal output/g) || []).length, 2);
++  assert.strictEqual((audit.match(/truncate it in memory to its first 16000 JavaScript characters/g) || []).length, 2);
++  assert.strictEqual((audit.match(/original_chars/g) || []).length, 2);
++  assert.strictEqual((audit.match(/Do not retry with unfiltered arguments/g) || []).length, 2);
++  assert.strictEqual((audit.match(/do not convert truncation to failure/g) || []).length, 2);
++
++  const enrichmentExample = enrichment.match(/```js\n([\s\S]*?)\n```/);
++  assert(enrichmentExample, 'enrichment output JavaScript block missing');
++  const evaluateEnrichmentExample = new Function(
++    'substrate_call',
++    enrichmentExample[1] + '\nreturn enrichmentResult;'
++  );
++  const parsedEnrichmentExample = evaluateEnrichmentExample({
++    payload: { query: 'fixture' },
++    gateway_evidence: { schema_version: 'fixture' },
++  });
++  assert(Array.isArray(parsedEnrichmentExample.degradation_notes));
++
++  const boardOutput = board.match(/<output>\n[\s\S]*?\n\n([\s\S]*?)\n<\/output>/);
++  assert(boardOutput, 'board YAML output block missing');
++  const parsedBoardOutput = yaml.load(boardOutput[1]);
++  assert(Array.isArray(parsedBoardOutput.degradation_notes));
++  assert.strictEqual(parsedBoardOutput.degradation_notes.length, 0);
++  assert.match(board, /reason_code vtp_substrate_hit_truncated/);
++  for (const source of [enrichment, board, audit]) {
++    assert.doesNotMatch(source, /source_types\s*:\s*\[/, 'prompt callers must not own source_types arrays');
++    assert.doesNotMatch(source, /\blimit\s*:\s*[1-9]/, 'prompt callers must not own limit literals');
++  }
++}
++
++function toSubstrateCallRecord(preparedCall) {
++  return JSON.parse(JSON.stringify(preparedCall));
++}
++
++function forgedPreparedCall(intent, payload) {
++  return {
++    tool: SEARCH_TOOL,
++    payload,
++    gateway_evidence: {
++      schema_version: 'vtp-mcp-input-schemas.v2',
++      intent_family: intent,
++      payload_sha256: sha256Json(payload),
++    },
++  };
++}
++
++function assertPromptRecordAcceptance(composer, expected) {
++  assertPromptContracts();
++  assert.strictEqual(
++    typeof composer.acceptPromptSubstrateCallRecord,
++    'function',
++    'production prompt-record acceptance must be exported'
++  );
++
++  const promptIntents = Object.freeze([
++    ['enrichment-agent', 'enrichment'],
++    ['board-researcher', 'board_research'],
++    ['installed-phase-researcher', 'phase_research'],
++    ['installed-planner', 'planning'],
++  ]);
++  const acceptedRecords = new Map();
++
++  for (const [site, intent] of promptIntents) {
++    const query = 'P166 ' + site + ' prompt acceptance query';
++    const preparedCall = composer.prepareSubstrateCall(intent, { query });
++    const record = toSubstrateCallRecord(preparedCall);
++    const accepted = composer.acceptPromptSubstrateCallRecord(intent, preparedCall, record);
++    assert.strictEqual(accepted.ok, true);
++    assert.strictEqual(accepted.intent_family, intent);
++    assert.strictEqual(accepted.payload_sha256, preparedCall.gateway_evidence.payload_sha256);
++    acceptedRecords.set(site, record);
++
++    assert.throws(
++      () => composer.acceptPromptSubstrateCallRecord(intent, null, record),
++      /prepared_call/,
++      site + ' must reject a direct record without its prepared envelope'
++    );
++    assert.throws(
++      () => composer.acceptPromptSubstrateCallRecord(intent, preparedCall, {
++        tool: record.tool,
++        payload: record.payload,
++      }),
++      /gateway_evidence/,
++      site + ' must reject missing gateway evidence'
++    );
++    assert.throws(
++      () => composer.acceptPromptSubstrateCallRecord(intent, preparedCall, {
++        ...record,
++        gateway_evidence: { ...record.gateway_evidence, payload_sha256: '0'.repeat(64) },
++      }),
++      /digest/,
++      site + ' must reject a mismatched digest'
++    );
++
++    const unfiltered = forgedPreparedCall(intent, { query });
++    assert.throws(
++      () => composer.acceptPromptSubstrateCallRecord(intent, unfiltered, toSubstrateCallRecord(unfiltered)),
++      /prepared_call/,
++      site + ' must reject an unfiltered call even when its digest matches'
++    );
++
++    const limitSix = forgedPreparedCall(intent, {
++      query,
++      source_types: expected[intent].source_types.slice(),
++      limit: 6,
++    });
++    assert.throws(
++      () => composer.acceptPromptSubstrateCallRecord(intent, limitSix, toSubstrateCallRecord(limitSix)),
++      /prepared_call/,
++      site + ' must reject limit 6 even when its digest matches'
++    );
++  }
++
++  const gate = require(gatePath);
++  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-prompt-acceptance-'));
++  try {
++    const phaseDir = path.join(tempRoot, '.planning', 'milestones', 'fixture', 'phases', '166-fixture');
++    writeFixtureFile(
++      tempRoot,
++      path.join('.planning', 'config.json'),
++      JSON.stringify({ vtp_enrichment: { enabled: true } }) + '\n'
++    );
++    fs.mkdirSync(phaseDir, { recursive: true });
++    const gateInput = {
++      projectDir: tempRoot,
++      phaseDir,
++      phase: '166',
++      phaseContext: 'P166 real prompt acceptance path',
++    };
++    const pending = gate.run(gateInput);
++    const preparedCall = pending.sub_agent_spec.substrate_call;
++    const record = toSubstrateCallRecord(preparedCall);
++    const result = {
++      ok: true,
++      status: 'success',
++      query_count: 2,
++      total_hits: 1,
++      duration_ms: 1,
++      hits: [{ source: 'book', title: 'Fixture', section: '1', relevance: 'high', citation: 'fixture:1' }],
++      gaps: [],
++      alt_framings: [],
++      rationale: '',
++      substrate_call_record: record,
++    };
++
++    assert.throws(
++      () => gate.run({ ...gateInput, enrichmentResult: { ...result, substrate_call_record: undefined } }),
++      /substrate_call_record/,
++      'the real enrichment acceptance path must reject a missing record'
++    );
++    const recordlessApiError = {
++      ok: false,
++      error: 'simulated transport failure before a call record was emitted',
++    };
++    assert.strictEqual(
++      Object.prototype.hasOwnProperty.call(recordlessApiError, 'substrate_call_record'),
++      false,
++      'the api-error fixture must exercise a wholly absent record property'
++    );
++    assert.throws(
++      () => gate.run({
++        ...gateInput,
++        substrateCall: preparedCall,
++        enrichmentResult: recordlessApiError,
++      }),
++      /substrate_call_record_missing/,
++      'the real enrichment acceptance path must fail closed on a recordless api error'
++    );
++    assert.throws(
++      () => gate.run({
++        ...gateInput,
++        substrateCall: preparedCall,
++        enrichmentResult: {
++          ok: false,
++          error: 'simulated transport failure with invalid evidence',
++          substrate_call_record: {
++            ...record,
++            gateway_evidence: { ...record.gateway_evidence, payload_sha256: 'e'.repeat(64) },
++          },
++        },
++      }),
++      /digest/,
++      'the real enrichment acceptance path must reject an invalid api-error record'
++    );
++    const acceptedApiError = gate.run({
++      ...gateInput,
++      substrateCall: preparedCall,
++      enrichmentResult: {
++        ok: false,
++        error: 'simulated MCP transport failure',
++        substrate_call_record: record,
++      },
++    });
++    assert.strictEqual(acceptedApiError.status, 'api_error');
++    assert.match(fs.readFileSync(acceptedApiError.artifact_path, 'utf8'), /## API Error/);
++    const acceptedEmptyHit = gate.run({
++      ...gateInput,
++      substrateCall: preparedCall,
++      enrichmentResult: {
++        ok: true,
++        query_count: 2,
++        total_hits: 0,
++        duration_ms: 1,
++        hits: [],
++        substrate_call_record: record,
++      },
++    });
++    assert.strictEqual(acceptedEmptyHit.status, 'empty_hit');
++    const emptyHitArtifact = fs.readFileSync(acceptedEmptyHit.artifact_path, 'utf8');
++    assert.match(emptyHitArtifact, /vtp_status: empty_hit/);
++    assert.doesNotMatch(emptyHitArtifact, /## API Error/);
++    assert.throws(
++      () => gate.run({ ...gateInput, enrichmentResult: result }),
++      /prepared_call/,
++      'the real enrichment acceptance path must reject a direct record without the dispatch envelope'
++    );
++    assert.throws(
++      () => gate.run({
++        ...gateInput,
++        substrateCall: preparedCall,
++        enrichmentResult: {
++          ...result,
++          substrate_call_record: {
++            ...record,
++            gateway_evidence: { ...record.gateway_evidence, payload_sha256: 'f'.repeat(64) },
++          },
++        },
++      }),
++      /digest/,
++      'the real enrichment acceptance path must reject mismatched evidence'
++    );
++    assert.throws(
++      () => gate.run({
++        ...gateInput,
++        substrateCall: preparedCall,
++        enrichmentResult: {
++          ...result,
++          substrate_call_record: { tool: record.tool, payload: record.payload },
++        },
++      }),
++      /gateway_evidence/,
++      'the real enrichment acceptance path must reject missing gateway evidence'
++    );
++
++    const unfiltered = forgedPreparedCall('enrichment', { query: preparedCall.payload.query });
++    assert.throws(
++      () => gate.run({
++        ...gateInput,
++        substrateCall: unfiltered,
++        enrichmentResult: { ...result, substrate_call_record: toSubstrateCallRecord(unfiltered) },
++      }),
++      /prepared_call/,
++      'the real enrichment acceptance path must reject an unfiltered record'
++    );
++
++    const limitSix = forgedPreparedCall('enrichment', {
++      query: preparedCall.payload.query,
++      source_types: expected.enrichment.source_types.slice(),
++      limit: 6,
++    });
++    assert.throws(
++      () => gate.run({
++        ...gateInput,
++        substrateCall: limitSix,
++        enrichmentResult: { ...result, substrate_call_record: toSubstrateCallRecord(limitSix) },
++      }),
++      /prepared_call/,
++      'the real enrichment acceptance path must reject limit 6'
++    );
++
++    const accepted = gate.run({ ...gateInput, substrateCall: preparedCall, enrichmentResult: result });
++    assert.strictEqual(accepted.status, 'success');
++    assert(fs.existsSync(accepted.artifact_path));
++    assert.doesNotMatch(fs.readFileSync(accepted.artifact_path, 'utf8'), /## API Error/);
++  } finally {
++    fs.rmSync(tempRoot, { recursive: true, force: true });
++  }
++
++  return acceptedRecords;
++}
++
++function writeFixtureFile(root, rel, content) {
++  const target = path.resolve(root, rel);
++  const relative = path.relative(root, target);
++  assert(relative && !relative.startsWith('..') && !path.isAbsolute(relative));
++  fs.mkdirSync(path.dirname(target), { recursive: true });
++  fs.writeFileSync(target, content, 'utf8');
++  return target;
++}
++
++function assertComposerCli() {
++  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-composer-cli-'));
++  try {
++    writeFixtureFile(tempRoot, path.join('.planning', 'STATE.md'), '---\nmilestone: fixture\ncurrent_phase: 166\n---\n');
++    const inputRel = path.join('.planning', 'tmp', 'board-input.json');
++    writeFixtureFile(
++      tempRoot,
++      inputRel,
++      JSON.stringify({ query: 'board CLI prepared query', topics: ['policy'] }) + '\n'
++    );
++    const ok = childProcess.spawnSync(process.execPath, [
++      composerPath,
++      '--prepare-substrate-call',
++      '--intent', 'board_research',
++      '--input-file', inputRel,
++    ], { cwd: tempRoot, encoding: 'utf8', windowsHide: true });
++    assert.strictEqual(ok.status, 0, ok.stderr);
++    const envelope = JSON.parse(ok.stdout);
++    assert.strictEqual(envelope.gateway_evidence.intent_family, 'board_research');
++    assert.strictEqual(envelope.payload.payload_sha256, undefined);
++
++    const outside = path.join(os.tmpdir(), 'p166-outside-' + process.pid + '.json');
++    fs.writeFileSync(outside, JSON.stringify({ query: 'outside query' }), 'utf8');
++    try {
++      const refused = childProcess.spawnSync(process.execPath, [
++        composerPath,
++        '--prepare-substrate-call',
++        '--intent', 'board_research',
++        '--input-file', outside,
++      ], { cwd: tempRoot, encoding: 'utf8', windowsHide: true });
++      assert.notStrictEqual(refused.status, 0);
++      assert.strictEqual(refused.stdout.trim(), '', 'refused CLI input must not emit an envelope');
++    } finally {
++      fs.rmSync(outside, { force: true });
++    }
++  } finally {
++    fs.rmSync(tempRoot, { recursive: true, force: true });
++  }
++}
++
++function assertRepairSafePatches() {
++  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-p166-profile-'));
++  const oldUserProfile = process.env.USERPROFILE;
++  const oldHome = process.env.HOME;
++  try {
++    process.env.USERPROFILE = tempRoot;
++    process.env.HOME = tempRoot;
++    const agentsDir = path.join(tempRoot, '.claude', 'agents');
++    fs.mkdirSync(agentsDir, { recursive: true });
++    fs.writeFileSync(
++      path.join(agentsDir, 'gsd-phase-researcher.md'),
++      '---\ntools: Read\n---\n<sgsd_vtp_research_contract>\nlegacy P16 contract\n</sgsd_vtp_research_contract>\n'
++        + '<sgsd_vtp_substrate_policy_p166_phase_research>\nT1 policy\n</sgsd_vtp_substrate_policy_p166_phase_research>\n',
++      'utf8'
++    );
++    fs.writeFileSync(
++      path.join(agentsDir, 'gsd-planner.md'),
++      '---\ntools: Read\n---\n<sgsd_vtp_enrichment_contract>\nlegacy P16 contract\n</sgsd_vtp_enrichment_contract>\n'
++        + '<sgsd_vtp_substrate_policy_p166_planning>\nT1 policy\n</sgsd_vtp_substrate_policy_p166_planning>\n',
++      'utf8'
++    );
++    const projectDir = path.join(tempRoot, 'fixture-project');
++    writeFixtureFile(
++      projectDir,
++      path.join('.planning', 'config.json'),
++      JSON.stringify({ workflow: {}, review_providers: {} }) + '\n'
++    );
++    delete require.cache[require.resolve(auditPath)];
++    const audit = require(auditPath);
++    const report = audit.runAudit({ projectDir, repairSafe: true });
++    const researcher = fs.readFileSync(path.join(agentsDir, 'gsd-phase-researcher.md'), 'utf8');
++    const planner = fs.readFileSync(path.join(agentsDir, 'gsd-planner.md'), 'utf8');
++    assert.match(researcher, /<sgsd_vtp_substrate_policy_p166_phase_research>/);
++    assert.match(planner, /<sgsd_vtp_substrate_policy_p166_planning>/);
++    assert.match(researcher, /<sgsd_vtp_substrate_policy_p166_t2_phase_research>/);
++    assert.match(planner, /<sgsd_vtp_substrate_policy_p166_t2_planning>/);
++    const rows = new Map(report.global_legacy_agents.map((row) => [row.name, row]));
++    assert.strictEqual(rows.get('gsd-phase-researcher.md').p166_patched, true);
++    assert.strictEqual(rows.get('gsd-planner.md').p166_patched, true);
++    assert.strictEqual(rows.get('gsd-phase-researcher.md').p166_t2_patched, true);
++    assert.strictEqual(rows.get('gsd-planner.md').p166_t2_patched, true);
++  } finally {
++    if (oldUserProfile === undefined) delete process.env.USERPROFILE;
++    else process.env.USERPROFILE = oldUserProfile;
++    if (oldHome === undefined) delete process.env.HOME;
++    else process.env.HOME = oldHome;
++    fs.rmSync(tempRoot, { recursive: true, force: true });
++  }
++}
++
++async function assertExecutableEmitters() {
++  delete require.cache[require.resolve(composerPath)];
++  const composer = require(composerPath);
++  assert.strictEqual(typeof composer.buildSubstrateArgs, 'function');
++  assert.strictEqual(typeof composer.prepareSubstrateCall, 'function');
++  assert(Object.isFrozen(composer.SUBSTRATE_CALL_POLICY));
++  for (const entry of Object.values(composer.SUBSTRATE_CALL_POLICY)) {
++    assert(Object.isFrozen(entry));
++    assert(Object.isFrozen(entry.source_types));
++  }
++
++  const expected = Object.freeze({
++    triage: { source_types: ['research_paper', 'wiki_page'], limit: 3 },
++    phase_research: { source_types: ['research_paper', 'wiki_page'], limit: 5 },
++    planning: { source_types: ['research_paper', 'wiki_page'], limit: 5 },
++    enrichment: { source_types: ['research_paper', 'wiki_page'], limit: 5 },
++    board_research: { source_types: ['research_paper', 'wiki_page'], limit: 5 },
++    architecture_challenge: { source_types: ['research_paper', 'wiki_page'], limit: 3 },
++    book_lookup: { source_types: ['wiki_page'], limit: 5 },
++  });
++  assert.deepStrictEqual(Object.keys(composer.SUBSTRATE_CALL_POLICY).sort(), Object.keys(expected).sort());
++  const validate = loadV2Validator();
++  const captures = new Map();
++
++  const first = composer.buildSubstrateArgs('triage', { query: 'fresh array proof' });
++  const second = composer.buildSubstrateArgs('triage', { query: 'fresh array proof' });
++  assert.notStrictEqual(first.source_types, second.source_types);
++  assert.throws(() => composer.buildSubstrateArgs('unknown', { query: 'valid query' }), /intent/);
++  assert.throws(() => composer.buildSubstrateArgs('triage', { query: 'ab' }), /query/);
++  assert.throws(() => composer.buildSubstrateArgs('triage', { query: 'valid query', limit: 2 }), /limit/);
++  assert.throws(
++    () => composer.buildSubstrateArgs('triage', { query: 'valid query', source_types: ['wiki_page'] }),
++    /source_types/
++  );
++  assert.throws(() => composer.buildSubstrateArgs('triage', { query: 'valid query', unsupported: [] }), /unsupported/);
++  const secondary = composer.buildSubstrateArgs('triage', {
++    query: 'secondary filters proof',
++    entity_types: ['principle'],
++    project_ids: ['p166'],
++    speaker_ids: ['speaker'],
++    topics: ['substrate'],
++    meeting_ids: ['meeting'],
++  });
++  assert.deepStrictEqual(secondary.entity_types, ['principle']);
++
++  for (const [site, record] of assertPromptRecordAcceptance(composer, expected)) {
++    captures.set(site, record);
++  }
++  captures.set(
++    'triage-fallback',
++    await capturePreparedCall('triage', 'triage', expected.triage, composer, validate)
++  );
++  captures.set(
++    'composer-callVtp-seam',
++    await capturePreparedCall('composer', 'triage', expected.triage, composer, validate, SHORT_SEARCH_TOOL)
++  );
++
++  const gate = require(gatePath);
++  const gateSpec = gate._internal.composeSubAgentSpec({
++    phase: '166',
++    phaseContext: 'P166 enrichment phase context',
++  });
++  assertPreparedEnvelope(gateSpec.substrate_call, 'enrichment', expected.enrichment, validate);
++  assertComposerCli();
++  assertRepairSafePatches();
++
++  delete require.cache[require.resolve(bridgePath)];
++  const bridge = require(bridgePath);
++  let architectureCapture = null;
++  const architecture = await bridge.selectiveVTPCall({
++    uncertainty_type: 'architecture_challenge',
++    query: 'P166 architecture challenge query',
++    planningDir: path.join(os.tmpdir(), 'p166-bridge-arch-' + process.pid, '.planning'),
++    _force_vtp_health: true,
++    _force_vtp_tool_response(tool, payload) {
++      architectureCapture = { tool, payload };
++      return {
++        results: [
++          { doc_id: 'paper-1', rel_path: 'wiki/research/paper.md', citation: 'paper citation' },
++        ],
++      };
++    },
++  });
++  assert.strictEqual(architecture.ok, true);
++  assert.strictEqual(architectureCapture.tool, SHORT_SEARCH_TOOL);
++  assert.deepStrictEqual(
++    architectureCapture.payload.source_types,
++    expected.architecture_challenge.source_types
++  );
++  assert.strictEqual(architectureCapture.payload.limit, expected.architecture_challenge.limit);
++  assert.strictEqual(validate(architectureCapture.payload), true);
++  captures.set('architecture-challenge', architectureCapture);
++
++  let bookCapture = null;
++  const book = await bridge.selectiveVTPCall({
++    uncertainty_type: 'book_lookup',
++    query: 'P166 book lookup query',
++    planningDir: path.join(os.tmpdir(), 'p166-bridge-book-' + process.pid, '.planning'),
++    _force_vtp_health: true,
++    _force_vtp_tool_response(tool, payload) {
++      bookCapture = { tool, payload };
++      return {
++        results: [
++          { doc_id: 'book-1', rel_path: 'wiki/books/book-one.md', citation: 'book citation' },
++          { doc_id: 'meeting-1', rel_path: 'wiki/meetings/not-a-book.md', citation: 'meeting citation' },
++        ],
++      };
++    },
++  });
++  assert.strictEqual(book.ok, true);
++  assert.strictEqual(book.results.length, 1);
++  assert.strictEqual(book.results[0].doc_id, 'book-1');
++  assert.deepStrictEqual(bookCapture.payload.source_types, expected.book_lookup.source_types);
++  assert.strictEqual(bookCapture.payload.limit, expected.book_lookup.limit);
++  assert.strictEqual(Object.prototype.hasOwnProperty.call(bookCapture.payload, 'resource_subtype_filter'), false);
++  assert.strictEqual(validate(bookCapture.payload), true);
++  captures.set('book-lookup', bookCapture);
++
++  let invalidShimCalls = 0;
++  const validBook = composer.prepareSubstrateCall('book_lookup', { query: 'invalid bridge payload proof' });
++  const forgedPayload = { ...validBook.payload, limit: 6 };
++  const forgedBook = {
++    ...validBook,
++    payload: forgedPayload,
++    gateway_evidence: { ...validBook.gateway_evidence, payload_sha256: sha256Json(forgedPayload) },
++  };
++  const invalidBook = await bridge.selectiveVTPCall({
++    uncertainty_type: 'book_lookup',
++    query: 'invalid bridge payload proof',
++    planningDir: path.join(os.tmpdir(), 'p166-bridge-invalid-' + process.pid, '.planning'),
++    _force_vtp_health: true,
++    _force_substrate_call: forgedBook,
++    _force_vtp_tool_response() {
++      invalidShimCalls += 1;
++      return { results: [] };
++    },
++  });
++  assert.strictEqual(invalidBook.ok, false);
++  assert.strictEqual(invalidShimCalls, 0, 'invalid prepared bridge payload must not enter the dispatch shim');
++  assert(invalidBook.reason_codes.includes('vtp_call_validation_failed'));
++  assert.deepStrictEqual([...captures.keys()].sort(), [...EXPECTED_SITES].sort());
++}
++
++async function main(argv = process.argv.slice(2)) {
++  const caseName = parseArgs(argv);
++  if (caseName === 'caller-coverage') assertCallerCoverage();
++  else if (caseName === 'prompt-record-acceptance') {
++    const composer = require(composerPath);
++    const expected = Object.fromEntries(Object.entries(composer.SUBSTRATE_CALL_POLICY).map(([intent, policy]) => [
++      intent,
++      { source_types: policy.source_types.slice(), limit: policy.limit },
++    ]));
++    assertPromptRecordAcceptance(composer, expected);
++  }
++  else if (caseName === 'executable-emitters') await assertExecutableEmitters();
++  else if (caseName === 'megachunk-degraded-artifact') await assertMegachunkDegradedArtifact();
++  else if (caseName === 'cap-shapes') assertCapShapes();
++  else if (caseName === 'repair-safe-t2') assertRepairSafePatches();
++  else {
++    process.stderr.write(usage() + '\n');
++    return 2;
++  }
++  process.stdout.write('[PASS] ' + caseName + '\n');
++  return 0;
++}
++
++main().then((code) => {
++  process.exitCode = code;
++}).catch((error) => {
++  process.stderr.write('[FAIL] ' + (error.stack || error.message) + '\n');
++  process.exitCode = 1;
++});
++
++module.exports = { auditCallerCoverage };
+diff --git a/super-gsd/tools/feature-propagation/audit.cjs b/super-gsd/tools/feature-propagation/audit.cjs
+index 9cec4f9..3278438 100644
+--- a/super-gsd/tools/feature-propagation/audit.cjs
++++ b/super-gsd/tools/feature-propagation/audit.cjs
+@@ -59,7 +59,36 @@ const REQUIRED_LEGACY_AGENT_PATCHES = Object.freeze([
+   {
+     name: 'gsd-planner.md',
+     marker: '<sgsd_vtp_enrichment_contract>',
++    p166Marker: '<sgsd_vtp_substrate_policy_p166_planning>',
++    p166Append: [
++      '',
++      '<sgsd_vtp_substrate_policy_p166_planning>',
++      '## SGSD P166 Substrate Call Policy',
++      '',
++      'Use Bash to write a contained JSON query input under .planning/tmp, then run:',
++      'node super-gsd/scripts/lib/vtp-context-composer.cjs --prepare-substrate-call --intent planning --input-file <relative-json-path>',
++      'Save the returned envelope to a contained <prepared-call-json-path>.',
++      'Pass the returned payload verbatim to mcp__vtp-kb__vtp_search_substrate.',
++      'Write the exact substrate_call_record to a contained <record-json-path>, then run:',
++      'node super-gsd/scripts/lib/vtp-context-composer.cjs --accept-substrate-call-record --intent planning --prepared-call-file <prepared-call-json-path> --record-file <record-json-path>',
++      'The production acceptance command must exit zero before the prompt can succeed.',
++      'If preparation or acceptance fails, do not accept the substrate-backed output.',
++      '</sgsd_vtp_substrate_policy_p166_planning>',
++      '',
++    ].join('\n'),
++    p166T2Marker: '<sgsd_vtp_substrate_policy_p166_t2_planning>',
++    p166T2Append: [
++      '',
++      '<sgsd_vtp_substrate_policy_p166_t2_planning>',
++      '## SGSD P166 T2 Degraded Retrieval Policy',
++      '',
++      'Immediately after raw substrate transport and before synthesis, inspect top-level hits and evidence.hits. For each string hit.text longer than 16000 JavaScript characters, record its original length, truncate it in memory to its first 16000 JavaScript characters, and append degradation_notes with reason_code vtp_substrate_hit_truncated, zero-based hit_index, identity, doc_id, rel_path, chunk_id, original_chars, and retained_chars set to 16000. Resolve identity from doc_id, rel_path, chunk_id, then hit-<one-based-index>.',
++      'Carry degradation_notes into the normal output and visibly name doc_id and rel_path with original and retained character counts; use an empty array when no hit was truncated. Do not retry with unfiltered arguments; do not convert truncation to failure or paste or write discarded text.',
++      '</sgsd_vtp_substrate_policy_p166_t2_planning>',
++      '',
++    ].join('\n'),
+     tools: Object.freeze([
++      'Bash',
+       'mcp__vtp-kb__vtp_route_and_retrieve',
+       'mcp__vtp-kb__vtp_search',
+       'mcp__vtp-kb__vtp_search_substrate',
+@@ -94,7 +123,36 @@ called an mcp__vtp-kb__* tool in this dispatch.
+   {
+     name: 'gsd-phase-researcher.md',
+     marker: '<sgsd_vtp_research_contract>',
++    p166Marker: '<sgsd_vtp_substrate_policy_p166_phase_research>',
++    p166Append: [
++      '',
++      '<sgsd_vtp_substrate_policy_p166_phase_research>',
++      '## SGSD P166 Substrate Call Policy',
++      '',
++      'Use Bash to write a contained JSON query input under .planning/tmp, then run:',
++      'node super-gsd/scripts/lib/vtp-context-composer.cjs --prepare-substrate-call --intent phase_research --input-file <relative-json-path>',
++      'Save the returned envelope to a contained <prepared-call-json-path>.',
++      'Pass the returned payload verbatim to mcp__vtp-kb__vtp_search_substrate.',
++      'Write the exact substrate_call_record to a contained <record-json-path>, then run:',
++      'node super-gsd/scripts/lib/vtp-context-composer.cjs --accept-substrate-call-record --intent phase_research --prepared-call-file <prepared-call-json-path> --record-file <record-json-path>',
++      'The production acceptance command must exit zero before the prompt can succeed.',
++      'If preparation or acceptance fails, do not accept the substrate-backed output.',
++      '</sgsd_vtp_substrate_policy_p166_phase_research>',
++      '',
++    ].join('\n'),
++    p166T2Marker: '<sgsd_vtp_substrate_policy_p166_t2_phase_research>',
++    p166T2Append: [
++      '',
++      '<sgsd_vtp_substrate_policy_p166_t2_phase_research>',
++      '## SGSD P166 T2 Degraded Retrieval Policy',
++      '',
++      'Immediately after raw substrate transport and before synthesis, inspect top-level hits and evidence.hits. For each string hit.text longer than 16000 JavaScript characters, record its original length, truncate it in memory to its first 16000 JavaScript characters, and append degradation_notes with reason_code vtp_substrate_hit_truncated, zero-based hit_index, identity, doc_id, rel_path, chunk_id, original_chars, and retained_chars set to 16000. Resolve identity from doc_id, rel_path, chunk_id, then hit-<one-based-index>.',
++      'Carry degradation_notes into the normal output and visibly name doc_id and rel_path with original and retained character counts; use an empty array when no hit was truncated. Do not retry with unfiltered arguments; do not convert truncation to failure or paste or write discarded text.',
++      '</sgsd_vtp_substrate_policy_p166_t2_phase_research>',
++      '',
++    ].join('\n'),
+     tools: Object.freeze([
++      'Bash',
+       'mcp__vtp-kb__vtp_route_and_retrieve',
+       'mcp__vtp-kb__vtp_search',
+       'mcp__vtp-kb__vtp_search_substrate',
+@@ -370,6 +428,16 @@ function installGlobalLegacyAgentPatches(ctx, actions) {
+       actions.push({ action: 'append_legacy_agent_patch', to: p, marker: spec.marker });
+       changed = true;
+     }
++    if (spec.p166Marker && txt.indexOf(spec.p166Marker) === -1) {
++      fs.appendFileSync(p, spec.p166Append, 'utf8');
++      actions.push({ action: 'append_legacy_agent_patch', to: p, marker: spec.p166Marker });
++      changed = true;
++    }
++    if (spec.p166T2Marker && txt.indexOf(spec.p166T2Marker) === -1) {
++      fs.appendFileSync(p, spec.p166T2Append, 'utf8');
++      actions.push({ action: 'append_legacy_agent_patch', to: p, marker: spec.p166T2Marker });
++      changed = true;
++    }
+     if (changed) repaired.push(spec.name);
+   }
+   return repaired;
+@@ -464,6 +532,10 @@ function auditGlobalLegacyAgentPatches(ctx) {
+       installed: Boolean(txt),
+       marker: spec.marker,
+       patched: Boolean(txt && txt.indexOf(spec.marker) !== -1),
++      p166_marker: spec.p166Marker || null,
++      p166_patched: spec.p166Marker ? Boolean(txt && txt.indexOf(spec.p166Marker) !== -1) : true,
++      p166_t2_marker: spec.p166T2Marker || null,
++      p166_t2_patched: spec.p166T2Marker ? Boolean(txt && txt.indexOf(spec.p166T2Marker) !== -1) : true,
+       missing_tools: missingTools,
+     });
+   }
+@@ -704,7 +776,9 @@ function runAudit(opts) {
+   const missingGlobal = globalAgents.filter((r) => !r.installed || r.drifted);
+   const staleLegacyExecutor = globalAgents.filter((r) => r.name === 'gsd-executor.md' && (!r.installed || r.drifted || !r.disabled_legacy_executor));
+   const missingGlobalSkills = globalSkills.filter((r) => !r.installed || r.drifted);
+-  const missingLegacyPatches = globalLegacyAgents.filter((r) => !r.installed || !r.patched || (r.missing_tools || []).length);
++  const missingLegacyPatches = globalLegacyAgents.filter((r) => (
++    !r.installed || !r.patched || !r.p166_patched || !r.p166_t2_patched || (r.missing_tools || []).length
++  ));
+   const missingVtpAgents = globalAgents.filter((r) => r.required_vtp_agent && !r.installed);
+   const driftedLocal = localShadows.filter((r) => r.drifted);
+   const activeLocalShadows = localShadows.filter((r) => r.shadow_type !== 'project_only');
+diff --git a/super-gsd/tools/vtp-bridge/classify.cjs b/super-gsd/tools/vtp-bridge/classify.cjs
+index 2dc6e07..dbbef6c 100644
+--- a/super-gsd/tools/vtp-bridge/classify.cjs
++++ b/super-gsd/tools/vtp-bridge/classify.cjs
+@@ -69,6 +69,7 @@ const crypto = require('crypto');
+ // ----------------------------------------------------------------------------
+ const route = require('../dispatch-router/route.cjs');
+ const ledger = require('../../scripts/lib/route-ledger.cjs');
++const vtpComposer = require('../../scripts/lib/vtp-context-composer.cjs');
+ 
+ // Phase 41 sanity: PROVIDERS must include 'vtp'.
+ (function _assertProvidersIncludeVtp() {
+@@ -99,9 +100,8 @@ const QUERY_MAX_LEN = 10000;
+ const VTP_TOOL_MAP = Object.freeze({
+   architecture_challenge: Object.freeze({
+     tool: 'vtp_search_substrate',
+-    args_template: Object.freeze({
+-      source_types: Object.freeze(['research', 'wiki_page']),
+-    }),
++    intent_family: 'architecture_challenge',
++    args_template: Object.freeze({}),
+     rationale: 'architecture-level cross-domain corpus search across research papers + wiki analyses',
+   }),
+   prior_memory_lookup: Object.freeze({
+@@ -114,11 +114,9 @@ const VTP_TOOL_MAP = Object.freeze({
+   }),
+   book_lookup: Object.freeze({
+     tool: 'vtp_search_substrate',
+-    args_template: Object.freeze({
+-      source_types: Object.freeze(['wiki_page']),
+-      resource_subtype_filter: 'book',
+-    }),
+-    rationale: 'book-content lookup via substrate search filtered to resource_subtype=book',
++    intent_family: 'book_lookup',
++    args_template: Object.freeze({}),
++    rationale: 'book-content lookup via substrate search with client-side wiki/books path filtering',
+   }),
+   research_external_validation: Object.freeze({
+     tool: 'vtp_route_and_retrieve',
+@@ -284,7 +282,10 @@ function _enforcePacketCap(admitted, maxTokens) {
+   for (let i = 0; i < ranked.length; i++) {
+     const r = ranked[i];
+     const text = String(r.title || '') + ' ' + String(r.excerpt || '') + ' ' + String(r.citation || '');
+-    const cost = _estimateTokens(text);
++    const notes = Array.isArray(r.degradation_notes) && r.degradation_notes.length > 0
++      ? ' ' + JSON.stringify(r.degradation_notes)
++      : '';
++    const cost = _estimateTokens(text + notes);
+     if (cumulative + cost <= cap) {
+       kept.push(r);
+       cumulative += cost;
+@@ -397,15 +398,38 @@ function _buildEvidencePacket(uncertainty_type, query, mcpResponse, opts) {
+   const toolEntry = VTP_TOOL_MAP[uncertainty_type];
+   const toolName = toolEntry ? toolEntry.tool : null;
+   const reason_codes = [];
++  const degradationNotes = Array.isArray(o.degradation_notes) ? o.degradation_notes : [];
+ 
+   const raw = _extractResults(mcpResponse, toolName);
+   let admitted = [];
+   let rejectedProvenanceCount = 0;
+-  for (const r of raw) {
++  for (let rawIndex = 0; rawIndex < raw.length; rawIndex++) {
++    const r = raw[rawIndex];
+     if (_assertResultProvenance(r)) {
+       // Normalize doc_id field (accept legacy 'id').
+       const docId = (typeof r.doc_id === 'string' && r.doc_id.length > 0) ? r.doc_id : r.id;
+-      admitted.push(Object.assign({}, r, { doc_id: docId }));
++      const substrateHitIndex = Number.isInteger(r._substrate_hit_index)
++        ? r._substrate_hit_index
++        : rawIndex;
++      const resultDegradationNotes = degradationNotes
++        .filter((note) => note
++          && Number.isInteger(note.hit_index)
++          && note.hit_index === substrateHitIndex)
++        .map((note) => ({
++          reason_code: note.reason_code,
++          hit_index: note.hit_index,
++          identity: note.identity,
++          doc_id: note.doc_id,
++          rel_path: note.rel_path,
++          chunk_id: note.chunk_id,
++          original_chars: note.original_chars,
++          retained_chars: note.retained_chars,
++        }));
++      admitted.push(Object.assign({}, r, {
++        doc_id: docId,
++        _substrate_hit_index: substrateHitIndex,
++        degradation_notes: resultDegradationNotes,
++      }));
+     } else {
+       rejectedProvenanceCount++;
+     }
+@@ -418,6 +442,13 @@ function _buildEvidencePacket(uncertainty_type, query, mcpResponse, opts) {
+   // Apply cap.
+   const capResult = _enforcePacketCap(admitted, o.maxTokens);
+   if (capResult.elided > 0) reason_codes.push('evidence_packet_size_capped');
++  if (degradationNotes.some((note) => (
++    note && note.reason_code === 'vtp_substrate_hit_truncated'
++  ))) {
++    if (reason_codes.indexOf('evidence_packet_size_capped') === -1) {
++      reason_codes.push('evidence_packet_size_capped');
++    }
++  }
+   const kept = capResult.kept;
+ 
+   // Build provenance arrays.
+@@ -428,14 +459,19 @@ function _buildEvidencePacket(uncertainty_type, query, mcpResponse, opts) {
+     source_refs.push(String(r.doc_id));
+     root_source_hashes.push(_hashOf(String(r.doc_id) + ':' + String(r.citation || '')));
+     // Strip any MCP-internal fields; keep only the documented surface.
+-    sanitizedResults.push({
++    const sanitizedResult = {
+       doc_id: r.doc_id,
+       citation: r.citation,
+       title: typeof r.title === 'string' ? r.title : '',
+       excerpt: typeof r.excerpt === 'string' ? r.excerpt : '',
+       score: typeof r.score === 'number' ? r.score : null,
+       source_type: typeof r.source_type === 'string' ? r.source_type : null,
+-    });
++    };
++    const resultDegradationNotes = r.degradation_notes;
++    if (resultDegradationNotes.length > 0) {
++      sanitizedResult.degradation_notes = resultDegradationNotes;
++    }
++    sanitizedResults.push(sanitizedResult);
+   }
+ 
+   if (rejectedProvenanceCount > 0 && sanitizedResults.length === 0) {
+@@ -528,6 +564,43 @@ function _callVtpToolShim(toolName, args, timeoutMs, _force_response) {
+   throw e;
+ }
+ 
++function _filterBookLookupResponse(response) {
++  function isBookHit(hit) {
++    if (!hit || typeof hit !== 'object') return false;
++    const relPath = String(hit.rel_path || '')
++      .replace(/\\/g, '/')
++      .replace(/^\/+/, '')
++      .toLowerCase();
++    return relPath.startsWith('wiki/books/');
++  }
++  if (Array.isArray(response)) return response.filter(isBookHit);
++  if (!response || typeof response !== 'object') return response;
++  for (const key of ['results', 'hits', 'items']) {
++    if (Array.isArray(response[key])) {
++      return Object.assign({}, response, { [key]: response[key].filter(isBookHit) });
++    }
++  }
++  return response;
++}
++
++function _indexSubstrateResponse(response) {
++  function indexHits(hits) {
++    return hits.map((hit, hitIndex) => (
++      hit && typeof hit === 'object'
++        ? Object.assign({}, hit, { _substrate_hit_index: hitIndex })
++        : hit
++    ));
++  }
++  if (Array.isArray(response)) return indexHits(response);
++  if (!response || typeof response !== 'object') return response;
++  for (const key of ['results', 'hits', 'items']) {
++    if (Array.isArray(response[key])) {
++      return Object.assign({}, response, { [key]: indexHits(response[key]) });
++    }
++  }
++  return response;
++}
++
+ // ----------------------------------------------------------------------------
+ // PRIVATE: _selectiveVTPCallInternal -- 5-gate decision flow
+ // ----------------------------------------------------------------------------
+@@ -604,12 +677,43 @@ function _selectiveVTPCallInternal(input) {
+ 
+   // Gate 4: dispatch shim with timeout.
+   let mcpResponse;
++  let substrateDegradationNotes = [];
+   try {
+-    const args = Object.assign({ query: typeof query === 'string' ? query : '' }, toolEntry.args_template);
+-    // Materialize nested frozen tier/source_types arrays (avoid leaking frozen refs).
+-    if (Array.isArray(args.source_types)) args.source_types = args.source_types.slice();
+-    if (Array.isArray(args.tier)) args.tier = args.tier.slice();
+-    mcpResponse = _callVtpToolShim(toolName, args, cfg.per_query_timeout_ms, input._force_vtp_tool_response);
++    if (toolName === 'vtp_search_substrate') {
++      const prepared = input._force_substrate_call
++        || vtpComposer.prepareSubstrateCall(toolEntry.intent_family, { query });
++      const callResult = vtpComposer.callVtp(toolName, {
++        rawQuery: query,
++        projectDir: path.dirname(planningDir),
++        logRoot: path.dirname(planningDir),
++        skillOrAgent: 'vtp-bridge-' + ucType,
++        tier: 'research',
++        substrateCall: prepared,
++        mcpInvoke: function (emittedTool, payload) {
++          return _callVtpToolShim(
++            emittedTool,
++            payload,
++            cfg.per_query_timeout_ms,
++            input._force_vtp_tool_response
++          );
++        },
++      });
++      if (callResult && typeof callResult.then === 'function') {
++        throw new Error('VALIDATION_async_substrate_transport_not_supported');
++      }
++      if (!callResult || callResult.ok !== true) {
++        throw new Error('VALIDATION_' + (callResult && callResult.reason || 'substrate_payload_invalid'));
++      }
++      mcpResponse = _indexSubstrateResponse(callResult.response);
++      substrateDegradationNotes = Array.isArray(callResult.degradation_notes)
++        ? callResult.degradation_notes
++        : [];
++      if (ucType === 'book_lookup') mcpResponse = _filterBookLookupResponse(mcpResponse);
++    } else {
++      const args = Object.assign({ query: typeof query === 'string' ? query : '' }, toolEntry.args_template);
++      if (Array.isArray(args.tier)) args.tier = args.tier.slice();
++      mcpResponse = _callVtpToolShim(toolName, args, cfg.per_query_timeout_ms, input._force_vtp_tool_response);
++    }
+   } catch (err) {
+     const kind = _classifyError(err);
+     const reason = _reasonForFailureKind(kind);
+@@ -628,7 +732,10 @@ function _selectiveVTPCallInternal(input) {
+   }
+ 
+   // Gate 5: success path -> build evidence packet -> emit ledger row.
+-  const packet = _buildEvidencePacket(ucType, query, mcpResponse, { maxTokens: cfg.evidence_packet_max_tokens });
++  const packet = _buildEvidencePacket(ucType, query, mcpResponse, {
++    maxTokens: cfg.evidence_packet_max_tokens,
++    degradation_notes: substrateDegradationNotes,
++  });
+   _emitRouteLedgerRow(planningDir, packet, opts);
+   return packet;
+ }
+@@ -726,6 +833,7 @@ function _runSelfTest() {
+     // Assertion 1 (F1): architecture_challenge -> vtp_search_substrate, 3 results.
+     // ------------------------------------------------------------------
+     try {
++      let architectureArgs = null;
+       const fixture = {
+         results: [
+           { doc_id: 'paper-001', title: 'Event Sourcing Tradeoffs', citation: 'Vernon 2013 p.42', excerpt: 'Trade-off A', score: 0.9 },
+@@ -739,7 +847,10 @@ function _runSelfTest() {
+         planningDir: tmpPlanning,
+         phase: 48,
+         milestone: 'v1.9',
+-        _force_vtp_tool_response: fixture,
++        _force_vtp_tool_response: function (toolName, args) {
++          architectureArgs = { toolName: toolName, args: args };
++          return fixture;
++        },
+         _force_vtp_health: true,
+       });
+       if (packet.ok !== true) throw new Error('ok=' + packet.ok);
+@@ -749,6 +860,11 @@ function _runSelfTest() {
+       if (packet.root_source_hashes.length !== 3) throw new Error('root_source_hashes.length=' + packet.root_source_hashes.length);
+       if (packet.reason_codes.indexOf('vtp_call_succeeded') === -1) throw new Error('missing reason_codes vtp_call_succeeded');
+       if (packet.compression_level !== 'validated_thought') throw new Error('compression_level=' + packet.compression_level);
++      if (!architectureArgs) throw new Error('architecture shim not invoked');
++      if (architectureArgs.args.limit !== 3) throw new Error('architecture limit=' + architectureArgs.args.limit);
++      if (architectureArgs.args.source_types.join(',') !== 'research_paper,wiki_page') {
++        throw new Error('architecture source_types=' + architectureArgs.args.source_types.join(','));
++      }
+       ok('1. F1 architecture_challenge -> vtp_search_substrate (3 results)');
+     } catch (e) { failAssert('1. F1 architecture_challenge', e.message); }
+ 
+@@ -760,7 +876,7 @@ function _runSelfTest() {
+       fs.mkdirSync(path.join(failPlanning, 'metrics'), { recursive: true });
+       const packet = selectiveVTPCall({
+         uncertainty_type: 'architecture_challenge',
+-        query: 'X',
++        query: 'timeout query',
+         planningDir: failPlanning,
+         _force_vtp_health: true,
+         _force_vtp_tool_response: function () { throw new Error('TIMEOUT_30000ms'); },
+@@ -792,13 +908,20 @@ function _runSelfTest() {
+       const big = [];
+       const filler = new Array(500).fill('lorem').join(' ');
+       for (let i = 0; i < 10; i++) {
+-        big.push({ doc_id: 'big-' + i, title: 'B' + i, citation: 'cite-' + i, excerpt: filler, score: 1 - i * 0.05 });
++        big.push({
++          doc_id: 'big-' + i,
++          rel_path: 'wiki/books/big-' + i + '.md',
++          title: 'B' + i,
++          citation: 'cite-' + i,
++          excerpt: filler,
++          score: 1 - i * 0.05,
++        });
+       }
+       const f3Planning = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'vtp-f3-')), '.planning');
+       fs.mkdirSync(path.join(f3Planning, 'metrics'), { recursive: true });
+       const packet = selectiveVTPCall({
+         uncertainty_type: 'book_lookup',
+-        query: 'X',
++        query: 'book packet cap query',
+         planningDir: f3Planning,
+         _force_vtp_health: true,
+         routes_yaml: { vtp_bridge: { evidence_packet_max_tokens: 2000 } },
+@@ -812,7 +935,7 @@ function _runSelfTest() {
+     } catch (e) { failAssert('3. F3 evidence_packet cap', e.message); }
+ 
+     // ------------------------------------------------------------------
+-    // Assertion 4 (F4): book_lookup -> vtp_search_substrate + resource_subtype_filter:'book'.
++    // Assertion 4 (F4): book_lookup uses v2 policy and client-side book filtering.
+     // ------------------------------------------------------------------
+     try {
+       let capturedArgs = null;
+@@ -825,14 +948,62 @@ function _runSelfTest() {
+         _force_vtp_health: true,
+         _force_vtp_tool_response: function (toolName, args) {
+           capturedArgs = { toolName: toolName, args: args };
+-          return { results: [{ doc_id: 'b-1', citation: 'Taleb 2012 p.10', excerpt: 'note' }] };
++          return { results: [
++            {
++              doc_id: 'b-1',
++              rel_path: 'wiki/books/antifragile.md',
++              citation: 'Taleb 2012 p.10',
++              excerpt: 'note',
++            },
++            {
++              doc_id: 'm-1',
++              rel_path: 'wiki/meetings/not-a-book.md',
++              citation: 'meeting note',
++              excerpt: 'reject',
++            },
++          ] };
+         },
+       });
+       if (packet.vtp_tool !== 'vtp_search_substrate') throw new Error('vtp_tool=' + packet.vtp_tool);
+       if (!capturedArgs) throw new Error('shim not invoked');
+       if (capturedArgs.toolName !== 'vtp_search_substrate') throw new Error('toolName=' + capturedArgs.toolName);
+-      if (capturedArgs.args.resource_subtype_filter !== 'book') throw new Error('missing resource_subtype_filter=book');
+-      ok('4. F4 book_lookup -> vtp_search_substrate(resource_subtype_filter=book)');
++      if (capturedArgs.args.limit !== 5) throw new Error('book limit=' + capturedArgs.args.limit);
++      if (capturedArgs.args.source_types.join(',') !== 'wiki_page') {
++        throw new Error('book source_types=' + capturedArgs.args.source_types.join(','));
++      }
++      if (Object.prototype.hasOwnProperty.call(capturedArgs.args, 'resource_subtype_filter')) {
++        throw new Error('unsupported resource_subtype_filter emitted');
++      }
++      if (packet.results.length !== 1 || packet.results[0].doc_id !== 'b-1') {
++        throw new Error('client-side book filtering failed');
++      }
++      let invalidShimCalls = 0;
++      const validPrepared = vtpComposer.prepareSubstrateCall('book_lookup', {
++        query: 'invalid prepared book query',
++      });
++      const invalidPayload = Object.assign({}, validPrepared.payload, { limit: 6 });
++      const invalidPrepared = Object.assign({}, validPrepared, {
++        payload: invalidPayload,
++        gateway_evidence: Object.assign({}, validPrepared.gateway_evidence, {
++          payload_sha256: vtpComposer._internal.substratePayloadDigest(invalidPayload),
++        }),
++      });
++      const invalidPacket = selectiveVTPCall({
++        uncertainty_type: 'book_lookup',
++        query: 'invalid prepared book query',
++        planningDir: f4Planning,
++        _force_vtp_health: true,
++        _force_substrate_call: invalidPrepared,
++        _force_vtp_tool_response: function () {
++          invalidShimCalls++;
++          return { results: [] };
++        },
++      });
++      if (invalidShimCalls !== 0) throw new Error('invalid prepared payload reached shim');
++      if (invalidPacket.reason_codes.indexOf('vtp_call_validation_failed') === -1) {
++        throw new Error('invalid prepared payload did not fail validation');
++      }
++      ok('4. F4 book_lookup v2 policy, client filter, and invalid-payload refusal');
+     } catch (e) { failAssert('4. F4 book_lookup tool mapping', e.message); }
+ 
+     // ------------------------------------------------------------------
+@@ -843,7 +1014,7 @@ function _runSelfTest() {
+       fs.mkdirSync(path.join(f5Planning, 'metrics'), { recursive: true });
+       const packet = selectiveVTPCall({
+         uncertainty_type: 'synthesis_judgment',
+-        query: 'X',
++        query: 'provider health query',
+         planningDir: f5Planning,
+         _force_vtp_health: true,
+         _force_vtp_tool_response: function () { throw new Error('SHOULD_NOT_BE_CALLED'); },
+@@ -864,7 +1035,7 @@ function _runSelfTest() {
+       fs.mkdirSync(path.join(f6Planning, 'metrics'), { recursive: true });
+       const packet = selectiveVTPCall({
+         uncertainty_type: 'architecture_challenge',
+-        query: 'X',
++        query: 'mixed provenance query',
+         planningDir: f6Planning,
+         _force_vtp_health: false,
+         _force_vtp_tool_response: function () { throw new Error('SHOULD_NOT_BE_CALLED'); },
+@@ -909,7 +1080,7 @@ function _runSelfTest() {
+       fs.mkdirSync(path.join(f8Planning, 'metrics'), { recursive: true });
+       const packet = selectiveVTPCall({
+         uncertainty_type: 'architecture_challenge',
+-        query: 'X',
++        query: 'mixed provenance query',
+         planningDir: f8Planning,
+         _force_vtp_health: true,
+         _force_vtp_tool_response: fixture,
+@@ -970,6 +1141,77 @@ function _runSelfTest() {
+       }
+       ok('11. defense-in-depth: VTP_WHITELIST imported BY REFERENCE (frozen, length=3)');
+     } catch (e) { failAssert('11. defense-in-depth VTP_WHITELIST identity', e.message); }
++
++    // ------------------------------------------------------------------
++    // Assertion 12 (P166): raw substrate hit cap is visible in the packet.
++    // ------------------------------------------------------------------
++    try {
++      const discardedMarker = 'P166_BRIDGE_DISCARDED_SUFFIX';
++      const p166Planning = path.join(tmpRoot, 'p166', '.planning');
++      fs.mkdirSync(path.join(p166Planning, 'metrics'), { recursive: true });
++      const packet = selectiveVTPCall({
++        uncertainty_type: 'architecture_challenge',
++        query: 'P166 bridge oversized substrate hit',
++        planningDir: p166Planning,
++        _force_vtp_health: true,
++        _force_vtp_tool_response: {
++          hits: [{
++            doc_id: 'doc:lint-report',
++            rel_path: 'wiki/LINT-REPORT.md',
++            chunk_id: 'chunk:lint-report',
++            citation: 'doc:lint-report',
++            excerpt: 'bounded packet excerpt',
++            text: 'r'.repeat(16000) + discardedMarker,
++          }],
++        },
++      });
++      if (packet.ok !== true) throw new Error('packet.ok=' + packet.ok);
++      if (packet.reason_codes.indexOf('evidence_packet_size_capped') === -1) {
++        throw new Error('missing evidence_packet_size_capped');
++      }
++      const degradationNotes = packet.results[0] && packet.results[0].degradation_notes;
++      if (!Array.isArray(degradationNotes)
++          || !degradationNotes[0]
++          || degradationNotes[0].reason_code !== 'vtp_substrate_hit_truncated') {
++        throw new Error('missing vtp_substrate_hit_truncated note');
++      }
++      if (JSON.stringify(packet).indexOf(discardedMarker) !== -1) {
++        throw new Error('packet contains discarded substrate text');
++      }
++      ok('12. P166 oversized substrate hit -> bounded packet + named degradation');
++    } catch (e) { failAssert('12. P166 bridge substrate hit cap', e.message); }
++
++    // ------------------------------------------------------------------
++    // Assertion 13 (P166): legacy id normalization retains the named note.
++    // ------------------------------------------------------------------
++    try {
++      const legacyPlanning = path.join(tmpRoot, 'p166-legacy', '.planning');
++      fs.mkdirSync(path.join(legacyPlanning, 'metrics'), { recursive: true });
++      const packet = selectiveVTPCall({
++        uncertainty_type: 'architecture_challenge',
++        query: 'P166 bridge legacy id oversized hit',
++        planningDir: legacyPlanning,
++        _force_vtp_health: true,
++        _force_vtp_tool_response: {
++          hits: [{
++            id: 'legacy-1',
++            citation: 'legacy citation',
++            excerpt: 'legacy bounded excerpt',
++            text: 'l'.repeat(16001),
++          }],
++        },
++      });
++      const note = packet.results[0]
++        && Array.isArray(packet.results[0].degradation_notes)
++        && packet.results[0].degradation_notes[0];
++      if (!note || note.reason_code !== 'vtp_substrate_hit_truncated') {
++        throw new Error('legacy id result missing named degradation note');
++      }
++      if (note.hit_index !== 0 || note.identity !== 'hit-1') {
++        throw new Error('legacy id note lost raw hit identity');
++      }
++      ok('13. P166 legacy id -> normalized doc_id + raw-index degradation note');
++    } catch (e) { failAssert('13. P166 bridge legacy-id note attachment', e.message); }
+   } finally {
+     try { fs.rmSync(tmpRoot, { recursive: true, force: true }); } catch (_) {}
+   }
