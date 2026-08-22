@@ -1,0 +1,1200 @@
+diff --git a/super-gsd/agents/sgsd-board-researcher.md b/super-gsd/agents/sgsd-board-researcher.md
+index 5827a9b..38935f3 100644
+--- a/super-gsd/agents/sgsd-board-researcher.md
++++ b/super-gsd/agents/sgsd-board-researcher.md
+@@ -19,6 +19,7 @@ Evidence-first. Library-grounded. Cites primary sources. You bring book/paper/me
+ - Call vtp_search_substrate only with the returned payload verbatim. Record that payload with the returned gateway_evidence. If preparation fails, do not issue a raw substrate call.
+ - After transport, write the exact substrate_call_record to .planning/tmp/board-substrate-call-record.json and run: node super-gsd/scripts/lib/vtp-context-composer.cjs --accept-substrate-call-record --intent board_research --prepared-call-file .planning/tmp/board-substrate-call.json --record-file .planning/tmp/board-substrate-call-record.json
+ - Emit a board position only when that production acceptance command exits zero. A nonzero exit fails this prompt contract.
++- Immediately after raw substrate transport and before synthesis, inspect both top-level hits and evidence.hits. For each hit whose text is a string longer than 16000 JavaScript characters, record original_chars, truncate it in memory to its first 16000 JavaScript characters, and append a degradation note with reason_code vtp_substrate_hit_truncated, zero-based hit_index, identity, doc_id, rel_path, chunk_id, original_chars, and retained_chars set to 16000. Resolve identity from doc_id, then rel_path, then chunk_id, then hit-<one-based-index>. Carry these degradation_notes into the normal board output and visibly name doc_id and rel_path with original and retained character counts; emit an empty array when no hit was truncated. Do not retry with unfiltered arguments, paste or write discarded text, or convert truncation to failure.
+ - "What prior art in the library addresses this?"
+ - "What do domain experts in the books say about this approach?"
+ - "Has this been tried or failed before, and what does the record show?"
+@@ -54,6 +55,7 @@ citations:
+     title: ""
+     section: ""
+     relevance: ""
++degradation_notes: []
+ substrate_call_record:
+   tool: "mcp__vtp-kb__vtp_search_substrate"
+   payload: {}
+diff --git a/super-gsd/agents/sgsd-vtp-enrichment.md b/super-gsd/agents/sgsd-vtp-enrichment.md
+index 77c0d60..e3119a4 100644
+--- a/super-gsd/agents/sgsd-vtp-enrichment.md
++++ b/super-gsd/agents/sgsd-vtp-enrichment.md
+@@ -31,6 +31,7 @@ You run the cascade using the `seed` string and `tools` array, then invoke `run(
+ 
+ <substrate_call_policy>
+ For tool 2/5, call vtp_search_substrate with substrate_call.payload verbatim. Do not construct or amend substrate arguments. Record the tool, exact payload, and matching substrate_call.gateway_evidence together. The production run() acceptance path validates that record against substrate_call and rejects missing evidence, digest drift, unfiltered payloads, and limit 6. If the envelope is missing or preparation failed, do not issue a raw substrate call.
++Immediately after raw substrate transport and before synthesis, inspect both top-level hits and evidence.hits. For each hit whose text is a string longer than 16000 JavaScript characters, record original_chars, truncate it in memory to its first 16000 JavaScript characters, and append a degradation note with reason_code vtp_substrate_hit_truncated, zero-based hit_index, identity, doc_id, rel_path, chunk_id, original_chars, and retained_chars set to 16000. Resolve identity from doc_id, then rel_path, then chunk_id, then hit-<one-based-index>. Carry these degradation_notes into the normal enrichmentResult output; use an empty array when no hit was truncated. Do not retry with unfiltered arguments. Never paste or write discarded text, and do not convert truncation to failure.
+ </substrate_call_policy>
+ 
+ <reasoning>
+@@ -61,7 +62,7 @@ For each phase you enrich, run this reasoning chain:
+ Return the `enrichmentResult` object as structured data (not prose). The lib module writes the artifact — you produce the data.
+ 
+ ```js
+-{
++const enrichmentResult = {
+   ok: true,                    // false only on VTP API error
+   status: 'success',           // 'success' | 'empty_hit' | 'api_error'
+   phase: '21',
+@@ -69,18 +70,18 @@ Return the `enrichmentResult` object as structured data (not prose). The lib mod
+   total_hits: 12,
+   duration_ms: 8450,
+   hits: [
+-    { source: 'book', title: 'X Y Z', section: 'Ch.3', relevance: 'high', citation: 'doc:abc...' },
+-    ...
++    { source: 'book', title: 'X Y Z', section: 'Ch.3', relevance: 'high', citation: 'doc:abc...' }
+   ],
+   gaps: ['topic Alpha', 'topic Beta'],    // string descriptors
+-  alt_framings: ['Framing A: ...', ...],  // prose bullets
++  alt_framings: ['Framing A: ...'],       // prose bullets
+   rationale: '',               // only populated if status='empty_hit'
++  degradation_notes: [],       // generated in memory for truncated hits; empty otherwise
+   substrate_call_record: {
+     tool: 'mcp__vtp-kb__vtp_search_substrate',
+     payload: substrate_call.payload,
+     gateway_evidence: substrate_call.gateway_evidence
+   }
+-}
++};
+ ```
+ 
+ Then call `require('super-gsd/scripts/lib/vtp-enrichment-gate').run({projectDir, phaseDir, phase, substrateCall: substrate_call, enrichmentResult})` - returns `{status, artifact_path}`.
+diff --git a/super-gsd/scripts/lib/vtp-context-composer.cjs b/super-gsd/scripts/lib/vtp-context-composer.cjs
+index e66280a..0d37141 100644
+--- a/super-gsd/scripts/lib/vtp-context-composer.cjs
++++ b/super-gsd/scripts/lib/vtp-context-composer.cjs
+@@ -30,6 +30,8 @@ const SUBSTRATE_TOOL = 'mcp__vtp-kb__vtp_search_substrate';
+ const SUBSTRATE_TOOL_SHORT = 'vtp_search_substrate';
+ const SUBSTRATE_SCHEMA_VERSION = 'vtp-mcp-input-schemas.v2';
+ const SUBSTRATE_SCHEMA_PATH = path.join(__dirname, '..', '..', 'schemas', 'vtp-mcp-input-schemas.v2.json');
++const SUBSTRATE_HIT_MAX_CHARS = 16000;
++const SUBSTRATE_HIT_TRUNCATED_REASON = 'vtp_substrate_hit_truncated';
+ const SECONDARY_SUBSTRATE_FILTERS = Object.freeze([
+   'entity_types',
+   'project_ids',
+@@ -301,6 +303,70 @@ function isSubstrateTool(tool) {
+   return tool === SUBSTRATE_TOOL || tool === SUBSTRATE_TOOL_SHORT;
+ }
+ 
++function substrateHitIdentity(hit, hitIndex) {
++  for (const key of ['doc_id', 'rel_path', 'chunk_id']) {
++    if (typeof hit[key] === 'string' && hit[key].length > 0) return hit[key];
++  }
++  return 'hit-' + (hitIndex + 1);
++}
++
++function capSubstrateHitList(hits) {
++  let cappedHits = hits;
++  const degradationNotes = [];
++  for (let hitIndex = 0; hitIndex < hits.length; hitIndex += 1) {
++    const hit = hits[hitIndex];
++    if (!hit || typeof hit !== 'object' || Array.isArray(hit)) continue;
++    if (typeof hit.text !== 'string' || hit.text.length <= SUBSTRATE_HIT_MAX_CHARS) continue;
++    if (cappedHits === hits) cappedHits = hits.slice();
++    cappedHits[hitIndex] = {
++      ...hit,
++      text: hit.text.slice(0, SUBSTRATE_HIT_MAX_CHARS),
++    };
++    degradationNotes.push({
++      reason_code: SUBSTRATE_HIT_TRUNCATED_REASON,
++      hit_index: hitIndex,
++      identity: substrateHitIdentity(hit, hitIndex),
++      doc_id: typeof hit.doc_id === 'string' && hit.doc_id.length > 0 ? hit.doc_id : null,
++      rel_path: typeof hit.rel_path === 'string' && hit.rel_path.length > 0 ? hit.rel_path : null,
++      chunk_id: typeof hit.chunk_id === 'string' && hit.chunk_id.length > 0 ? hit.chunk_id : null,
++      original_chars: hit.text.length,
++      retained_chars: SUBSTRATE_HIT_MAX_CHARS,
++    });
++  }
++  return { hits: cappedHits, degradation_notes: degradationNotes };
++}
++
++function capSubstrateResponse(response) {
++  if (!response || typeof response !== 'object' || Array.isArray(response)) {
++    return { response, degradation_notes: [] };
++  }
++
++  let cappedResponse = response;
++  const degradationNotes = [];
++  if (Array.isArray(response.hits)) {
++    const topLevel = capSubstrateHitList(response.hits);
++    if (topLevel.hits !== response.hits) {
++      cappedResponse = { ...response, hits: topLevel.hits };
++    }
++    degradationNotes.push(...topLevel.degradation_notes);
++  }
++
++  const evidence = response.evidence;
++  if (evidence && typeof evidence === 'object' && !Array.isArray(evidence) && Array.isArray(evidence.hits)) {
++    const nested = capSubstrateHitList(evidence.hits);
++    if (nested.hits !== evidence.hits) {
++      if (cappedResponse === response) cappedResponse = { ...response };
++      cappedResponse.evidence = { ...evidence, hits: nested.hits };
++    }
++    degradationNotes.push(...nested.degradation_notes);
++  }
++
++  return {
++    response: cappedResponse,
++    degradation_notes: degradationNotes,
++  };
++}
++
+ function substratePayloadDigest(payload) {
+   return crypto.createHash('sha256')
+     .update(Buffer.from(JSON.stringify(payload), 'utf8'))
+@@ -511,9 +577,21 @@ function callVtp(tool, args) {
+ 
+   function onSuccess(response) {
+     const elapsed_ms = Date.now() - t0;
+-    writeRoutingLogRow({ projectDir, logRoot, skillOrAgent, tier, rawQuery, response, elapsed_ms });
+-    const result = { ok: true, response, elapsed_ms };
++    const capped = isSubstrateTool(tool)
++      ? capSubstrateResponse(response)
++      : { response, degradation_notes: [] };
++    writeRoutingLogRow({
++      projectDir,
++      logRoot,
++      skillOrAgent,
++      tier,
++      rawQuery,
++      response: capped.response,
++      elapsed_ms,
++    });
++    const result = { ok: true, response: capped.response, elapsed_ms };
+     if (gatewayEvidence) result.gateway_evidence = gatewayEvidence;
++    if (capped.degradation_notes.length > 0) result.degradation_notes = capped.degradation_notes;
+     return result;
+   }
+ 
+@@ -557,9 +635,11 @@ module.exports = {
+   TIERS,
+   resetCache,
+   SUBSTRATE_CALL_POLICY,
++  SUBSTRATE_HIT_MAX_CHARS,
+   buildSubstrateArgs,
+   prepareSubstrateCall,
+   acceptPromptSubstrateCallRecord,
++  capSubstrateResponse,
+ };
+ 
+ // Non-exported helpers kept on the function table for self-test access only
+@@ -868,6 +948,50 @@ function runSelfTest() {
+         if (passed && sanitized[0] !== 'git status') fail(`Test10: first clean entry wrong`);
+         if (passed && sanitized[1] !== 'echo hello') fail(`Test10: second clean entry wrong`);
+       }
++
++      // ---------------------------------------------------------------------
++      // Test 11: per-hit cap handles both shapes without mutation.
++      // ---------------------------------------------------------------------
++      if (passed) {
++        const normalHit = Object.freeze({ doc_id: 'doc:normal', text: 'normal' });
++        const exactHit = Object.freeze({ doc_id: 'doc:exact', text: 'e'.repeat(SUBSTRATE_HIT_MAX_CHARS) });
++        const source = Object.freeze({
++          hits: Object.freeze([
++            Object.freeze({ doc_id: 'doc:top', text: 't'.repeat(SUBSTRATE_HIT_MAX_CHARS + 1) }),
++            normalHit,
++            Object.freeze({ doc_id: 'doc:non-string', text: 17000 }),
++          ]),
++          evidence: Object.freeze({
++            hits: Object.freeze([
++              Object.freeze({
++                doc_id: '',
++                rel_path: 'wiki/NESTED.md',
++                chunk_id: 'chunk:nested',
++                text: 'n'.repeat(SUBSTRATE_HIT_MAX_CHARS + 2),
++              }),
++              exactHit,
++            ]),
++          }),
++        });
++        const before = JSON.stringify(source);
++        const capped = capSubstrateResponse(source);
++        if (JSON.stringify(source) !== before) fail('Test11: cap mutated its input');
++        if (passed && capped.response.hits[0].text.length !== SUBSTRATE_HIT_MAX_CHARS) {
++          fail('Test11: top-level hit was not capped');
++        }
++        if (passed && capped.response.evidence.hits[0].text.length !== SUBSTRATE_HIT_MAX_CHARS) {
++          fail('Test11: evidence hit was not capped');
++        }
++        if (passed && capped.response.hits[1] !== normalHit) fail('Test11: normal hit was cloned');
++        if (passed && capped.response.evidence.hits[1] !== exactHit) fail('Test11: exact-boundary hit was cloned');
++        if (passed && capped.degradation_notes.length !== 2) fail('Test11: expected two degradation notes');
++        if (passed && capped.degradation_notes[0].identity !== 'doc:top') {
++          fail('Test11: top-level note order or identity changed');
++        }
++        if (passed && capped.degradation_notes[1].identity !== 'wiki/NESTED.md') {
++          fail('Test11: nested note order or identity changed');
++        }
++      }
+     } catch (err) {
+       fail(`Unexpected error: ${err.message}`);
+     } finally {
+diff --git a/super-gsd/scripts/lib/vtp-enrichment-gate.cjs b/super-gsd/scripts/lib/vtp-enrichment-gate.cjs
+index 479952f..e0da9b9 100644
+--- a/super-gsd/scripts/lib/vtp-enrichment-gate.cjs
++++ b/super-gsd/scripts/lib/vtp-enrichment-gate.cjs
+@@ -32,6 +32,7 @@ const os   = require('os');
+ const {
+   prepareSubstrateCall,
+   acceptPromptSubstrateCallRecord,
++  capSubstrateResponse,
+ } = require('./vtp-context-composer.cjs');
+ 
+ // ---------------------------------------------------------------------------
+@@ -184,7 +185,7 @@ function buildQuerySeed(opts) {
+  */
+ function writeEnrichmentArtifact({ phaseDir, enrichmentResult, vtpStatus }) {
+   if (!phaseDir) throw new Error('vtp-enrichment-gate: phaseDir required for writeEnrichmentArtifact');
+-  const res = enrichmentResult || {};
++  const res = normalizeEnrichmentResult(enrichmentResult || {});
+   const phase      = res.phase || 'unknown';
+   const hits       = Array.isArray(res.hits) ? res.hits : [];
+   const totalHits  = res.total_hits != null ? res.total_hits : hits.length;
+@@ -267,6 +268,15 @@ function writeEnrichmentArtifact({ phaseDir, enrichmentResult, vtpStatus }) {
+     '',
+   ].join('\n');
+ 
++  const degradationNotes = Array.isArray(res.degradation_notes) ? res.degradation_notes : [];
++  const degradedRetrievalSection = degradationNotes.length > 0
++    ? [
++        '## Degraded Retrieval',
++        ...degradationNotes.map(renderDegradationNote),
++        '',
++      ].join('\n')
++    : '';
++
+   let emptyHitSection = '';
+   if (isEmptyHit) {
+     const seedSummary = res.seed_summary || '(not provided)';
+@@ -287,6 +297,7 @@ function writeEnrichmentArtifact({ phaseDir, enrichmentResult, vtpStatus }) {
+     '',
+     gapsSection,
+     framingsSection,
++    degradedRetrievalSection,
+     emptyHitSection,
+   ].join('');
+ 
+@@ -296,6 +307,63 @@ function writeEnrichmentArtifact({ phaseDir, enrichmentResult, vtpStatus }) {
+   return artifactPath;
+ }
+ 
++function noteIdentity(note) {
++  const n = note && typeof note === 'object' ? note : {};
++  for (const key of ['identity', 'doc_id', 'rel_path', 'chunk_id']) {
++    if (typeof n[key] === 'string' && n[key].length > 0) return n[key];
++  }
++  return Number.isInteger(n.hit_index) ? 'hit-' + (n.hit_index + 1) : 'hit-unknown';
++}
++
++function mergeDegradationNotes(generatedNotes, existingNotes) {
++  const merged = [];
++  const seen = new Set();
++  for (const note of [...generatedNotes, ...existingNotes]) {
++    if (!note || typeof note !== 'object' || Array.isArray(note)) continue;
++    const key = [
++      String(note.reason_code || ''),
++      Number.isInteger(note.hit_index) ? note.hit_index : '',
++      noteIdentity(note),
++    ].join(':');
++    if (seen.has(key)) continue;
++    seen.add(key);
++    merged.push(note);
++  }
++  return merged;
++}
++
++function normalizeEnrichmentResult(enrichmentResult) {
++  const capped = capSubstrateResponse(enrichmentResult);
++  const existingNotes = Array.isArray(enrichmentResult.degradation_notes)
++    ? enrichmentResult.degradation_notes
++    : [];
++  const degradationNotes = mergeDegradationNotes(capped.degradation_notes, existingNotes);
++  if (degradationNotes.length === 0) return capped.response;
++  return {
++    ...capped.response,
++    degradation_notes: degradationNotes,
++  };
++}
++
++function artifactNoteField(value) {
++  if (typeof value !== 'string' || value.length === 0) return null;
++  return value.replace(/[\r\n|]/g, '/');
++}
++
++function renderDegradationNote(note) {
++  const fields = [
++    'identity=' + artifactNoteField(noteIdentity(note)),
++    Number.isInteger(note.hit_index) ? 'hit_index=' + note.hit_index : null,
++    artifactNoteField(note.doc_id) ? 'doc_id=' + artifactNoteField(note.doc_id) : null,
++    artifactNoteField(note.rel_path) ? 'rel_path=' + artifactNoteField(note.rel_path) : null,
++    artifactNoteField(note.chunk_id) ? 'chunk_id=' + artifactNoteField(note.chunk_id) : null,
++    Number.isInteger(note.original_chars) && Number.isInteger(note.retained_chars)
++      ? 'characters ' + note.original_chars + ' -> ' + note.retained_chars
++      : null,
++  ].filter(Boolean);
++  return '- ' + String(note.reason_code || 'vtp_retrieval_degraded') + ': ' + fields.join('; ');
++}
++
+ // ---------------------------------------------------------------------------
+ // Artifact read
+ // ---------------------------------------------------------------------------
+@@ -569,6 +637,9 @@ module.exports._internal = {
+   readEnrichmentArtifact,
+   composeSubAgentSpec,
+   readVtpEnrichmentConfig,
++  mergeDegradationNotes,
++  normalizeEnrichmentResult,
++  renderDegradationNote,
+   VTP_TOOLS,
+   // CRIT-fix: filename is now phase-prefixed per VTPE-01 REQ. Callers use
+   // buildArtifactFilename(phase) to get the per-phase name. Generic form
+@@ -883,6 +954,41 @@ function runSelfTest() {
+       }
+     }
+ 
++    // -----------------------------------------------------------------
++    // Test 19: defensive cap merges duplicate notes and renders identity.
++    // -----------------------------------------------------------------
++    if (passed) {
++      const input19 = Object.freeze({
++        hits: Object.freeze([Object.freeze({
++          doc_id: 'doc:lint-report',
++          rel_path: 'wiki/LINT-REPORT.md',
++          chunk_id: 'chunk:lint-report',
++          text: 'x'.repeat(16001),
++        })]),
++        degradation_notes: Object.freeze([Object.freeze({
++          reason_code: 'vtp_substrate_hit_truncated',
++          hit_index: 0,
++          identity: 'doc:lint-report',
++          doc_id: 'doc:lint-report',
++          rel_path: 'wiki/LINT-REPORT.md',
++          chunk_id: 'chunk:lint-report',
++          original_chars: 16001,
++          retained_chars: 16000,
++        })]),
++      });
++      const before19 = JSON.stringify(input19);
++      const normalized19 = normalizeEnrichmentResult(input19);
++      if (JSON.stringify(input19) !== before19) fail('Test19: defensive cap mutated input');
++      if (passed && normalized19.hits[0].text.length !== 16000) fail('Test19: hit was not capped');
++      if (passed && normalized19.degradation_notes.length !== 1) fail('Test19: duplicate note was not collapsed');
++      if (passed) {
++        const rendered19 = renderDegradationNote(normalized19.degradation_notes[0]);
++        if (!rendered19.includes('doc_id=doc:lint-report')) fail('Test19: rendered note missing doc_id');
++        if (passed && !rendered19.includes('rel_path=wiki/LINT-REPORT.md')) fail('Test19: rendered note missing rel_path');
++        if (passed && !rendered19.includes('16001 -> 16000')) fail('Test19: rendered note missing counts');
++      }
++    }
++
+   } catch (err) {
+     fail(`Unexpected error: ${err.message}`);
+   } finally {
+diff --git a/super-gsd/scripts/sgsd-triage-runtime.cjs b/super-gsd/scripts/sgsd-triage-runtime.cjs
+index 1e10234..7ea6751 100644
+--- a/super-gsd/scripts/sgsd-triage-runtime.cjs
++++ b/super-gsd/scripts/sgsd-triage-runtime.cjs
+@@ -361,6 +361,28 @@ function writeVtpEvidence(root, state, params) {
+     }
+   }
+ 
++  const degradationNotes = Array.isArray(p.degradationNotes) ? p.degradationNotes : [];
++  if (degradationNotes.length > 0) {
++    lines.push('', '## Degraded Retrieval');
++    for (const note of degradationNotes) {
++      const identity = sanitizeVtpMarkdownText(
++        note.identity || note.doc_id || note.rel_path || note.chunk_id
++          || (Number.isInteger(note.hit_index) ? 'hit-' + (note.hit_index + 1) : 'hit-unknown')
++      );
++      const fields = [
++        'identity=' + identity,
++        Number.isInteger(note.hit_index) ? 'hit_index=' + note.hit_index : null,
++        note.doc_id ? 'doc_id=' + sanitizeVtpMarkdownText(note.doc_id) : null,
++        note.rel_path ? 'rel_path=' + sanitizeVtpMarkdownText(note.rel_path) : null,
++        note.chunk_id ? 'chunk_id=' + sanitizeVtpMarkdownText(note.chunk_id) : null,
++        Number.isInteger(note.original_chars) && Number.isInteger(note.retained_chars)
++          ? 'characters ' + note.original_chars + ' -> ' + note.retained_chars
++          : null,
++      ].filter(Boolean);
++      lines.push('- ' + sanitizeVtpMarkdownText(note.reason_code) + ': ' + fields.join('; '));
++    }
++  }
++
+   lines.push(
+     '',
+     '## Call Results',
+@@ -1579,6 +1601,7 @@ async function runTriageRuntime(options = {}) {
+   let fallbackPredicateValue = null;
+   let mode = 'route';
+   const degradationRows = [];
++  const substrateDegradationNotes = [];
+   const stagedVtp = loadStagedVtpForRun(root, state, rawQuery, triageSlice, evidenceRel, options);
+   let evidencePath = stagedVtp ? stagedVtp.evidencePath : null;
+ 
+@@ -1673,6 +1696,29 @@ async function runTriageRuntime(options = {}) {
+     if (fallbackResult.ok) {
+       selectedResponse = fallbackResult.response;
+       mode = 'fallback';
++      if (Array.isArray(fallbackResult.degradation_notes)) {
++        substrateDegradationNotes.push(...fallbackResult.degradation_notes);
++        for (const note of fallbackResult.degradation_notes) {
++          degradationRows.push(logDegradation(root, state, {
++            reasonCode: note.reason_code,
++            rawQuery,
++            routeOk: routeResult.ok === true,
++            fallbackPredicate: fallbackPredicateValue,
++            evidenceRel,
++            skillOrAgent: options.skillOrAgent,
++            silent: options.silent,
++            nextActionPayload: {
++              identity: note.identity,
++              hit_index: note.hit_index,
++              doc_id: note.doc_id,
++              rel_path: note.rel_path,
++              chunk_id: note.chunk_id,
++              original_chars: note.original_chars,
++              retained_chars: note.retained_chars,
++            },
++          }));
++        }
++      }
+     } else {
+       selectedResponse = null;
+       mode = 'evidence_less';
+@@ -1704,6 +1750,7 @@ async function runTriageRuntime(options = {}) {
+       routeResult,
+       fallbackResult,
+       fallbackPredicate: fallbackPredicateValue,
++      degradationNotes: substrateDegradationNotes,
+     });
+   }
+ 
+diff --git a/super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs b/super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs
+index 24d30de..c3ba8f6 100644
+--- a/super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs
++++ b/super-gsd/tests/triage-runtime/assert-real-triage-runtime.cjs
+@@ -714,12 +714,68 @@ async function assertVtpEnrichmentEnabled() {
+   }
+ }
+ 
++async function assertOversizedFallbackDegradation() {
++  const fixture = createSgsdFixture({ repoId: 'oversized-fallback-degradation' });
++  const discardedMarker = 'P166_TRIAGE_DISCARDED_SUFFIX';
++  try {
++    const fallbackResponse = searchResponse({ hits: 2, docPrefix: 'fixture-capped-fallback' });
++    fallbackResponse.evidence.hits[0] = {
++      doc_id: 'doc:lint-report',
++      chunk_id: 'chunk:lint-report',
++      rel_path: 'wiki/LINT-REPORT.md',
++      text: 'r'.repeat(16000) + discardedMarker,
++    };
++    fallbackResponse.evidence.documents[0] = {
++      doc_id: 'doc:lint-report',
++      title: 'LINT report',
++    };
++    const transport = makeTransport([
++      {
++        tool: ROUTE_TOOL,
++        response: routeResponse({ reflection: null, hits: 2, docPrefix: 'fixture-route-capped' }),
++      },
++      { tool: SEARCH_TOOL, response: fallbackResponse },
++    ]);
++    const { value: result } = await runRuntimeInProcess(fixture, transport, {
++      scenario: 'oversized-fallback-degradation',
++    });
++    assert.strictEqual(result.exitCode, 0, 'truncated fallback must continue with exit 0');
++    assert.strictEqual(result.mode, 'fallback');
++    assert.deepStrictEqual(transport.calls.map((call) => call.tool), [ROUTE_TOOL, SEARCH_TOOL]);
++
++    const rows = gateRowsWithReason(fixture, 'vtp_substrate_hit_truncated');
++    assert.strictEqual(rows.length, 1, 'truncated fallback must append one named degradation row');
++    const nextAction = JSON.parse(rows[0].next_action);
++    assert.deepStrictEqual(nextAction, {
++      identity: 'doc:lint-report',
++      hit_index: 0,
++      doc_id: 'doc:lint-report',
++      rel_path: 'wiki/LINT-REPORT.md',
++      chunk_id: 'chunk:lint-report',
++      original_chars: 16000 + discardedMarker.length,
++      retained_chars: 16000,
++    });
++    assert.doesNotMatch(rows[0].next_action, new RegExp(discardedMarker));
++
++    const evidence = readContainedFile(fixture.repoDir, VTP_EVIDENCE_REL);
++    assert.match(evidence, /## Degraded Retrieval/);
++    assert.match(evidence, /doc_id=doc:lint-report/);
++    assert.match(evidence, /rel_path=wiki\/LINT-REPORT\.md/);
++    assert.match(evidence, new RegExp((16000 + discardedMarker.length) + ' -> 16000'));
++    assert.doesNotMatch(evidence, new RegExp(discardedMarker));
++    assert(Buffer.byteLength(evidence, 'utf8') < 32768, 'triage evidence must stay bounded');
++  } finally {
++    fixture.cleanup();
++  }
++}
++
+ async function assertAllFallbackContainedDegradation() {
+   await assertHealthyRouteNoFallback();
+   await assertNullReflectionFallback();
+   await assertLowHitFallback();
+   await assertRouteErrorFallback();
+   await assertFallbackAlsoFails();
++  await assertOversizedFallbackDegradation();
+   await assertNonSgsdNoWrite();
+ }
+ 
+diff --git a/super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs b/super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs
+index f7d2844..39af7c4 100644
+--- a/super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs
++++ b/super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs
+@@ -15,6 +15,7 @@ const auditPath = path.join(repoRoot, 'super-gsd', 'tools', 'feature-propagation
+ const bridgePath = path.join(repoRoot, 'super-gsd', 'tools', 'vtp-bridge', 'classify.cjs');
+ const v2SchemaPath = path.join(repoRoot, 'super-gsd', 'schemas', 'vtp-mcp-input-schemas.v2.json');
+ const Ajv = require(path.join(repoRoot, 'super-gsd', 'tools', 'plan-schema', 'node_modules', 'ajv'));
++const yaml = require(path.join(repoRoot, 'super-gsd', 'tools', 'plan-schema', 'node_modules', 'js-yaml'));
+ 
+ const SEARCH_TOOL = 'mcp__vtp-kb__vtp_search_substrate';
+ const SHORT_SEARCH_TOOL = 'vtp_search_substrate';
+@@ -191,6 +192,9 @@ function usage() {
+     '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case caller-coverage',
+     '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case prompt-record-acceptance',
+     '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case executable-emitters',
++    '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case megachunk-degraded-artifact',
++    '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case cap-shapes',
++    '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case repair-safe-t2',
+   ].join('\n');
+ }
+ 
+@@ -363,6 +367,278 @@ function sha256Json(payload) {
+   return crypto.createHash('sha256').update(Buffer.from(JSON.stringify(payload), 'utf8')).digest('hex');
+ }
+ 
++function deepFreeze(value) {
++  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
++  for (const child of Object.values(value)) deepFreeze(child);
++  return Object.freeze(value);
++}
++
++async function assertMegachunkDegradedArtifact() {
++  const retainedPrefix = 'R'.repeat(16000);
++  const discardedMarker = 'P166_DISCARDED_SUFFIX';
++  const oversizedText = retainedPrefix
++    + 'X'.repeat(900001 - retainedPrefix.length - discardedMarker.length)
++    + discardedMarker;
++  const fixture = deepFreeze({
++    hits: [
++      {
++        doc_id: 'doc:lint-report',
++        chunk_id: 'chunk:lint-report',
++        rel_path: 'wiki/LINT-REPORT.md',
++        source: 'wiki',
++        title: 'LINT report',
++        section: 'full report',
++        relevance: 'high',
++        citation: 'doc:lint-report',
++        text: oversizedText,
++      },
++      {
++        doc_id: 'doc:small-control',
++        chunk_id: 'chunk:small-control',
++        rel_path: 'wiki/SMALL.md',
++        source: 'wiki',
++        title: 'Small control',
++        section: 'summary',
++        relevance: 'medium',
++        citation: 'doc:small-control',
++        text: 'small second hit stays intact',
++      },
++    ],
++    total_hits: 2,
++  });
++  const fixtureHash = sha256Json(fixture);
++  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-megachunk-'));
++  try {
++    writeFixtureFile(
++      tempRoot,
++      path.join('.planning', 'STATE.md'),
++      '---\nmilestone: fixture\ncurrent_phase: 166\n---\n'
++    );
++    writeFixtureFile(
++      tempRoot,
++      path.join('.planning', 'config.json'),
++      JSON.stringify({ vtp_enrichment: { enabled: true } }) + '\n'
++    );
++    const phaseDir = path.join(tempRoot, '.planning', 'milestones', 'fixture', 'phases', '166-megachunk');
++    fs.mkdirSync(phaseDir, { recursive: true });
++
++    delete require.cache[require.resolve(composerPath)];
++    delete require.cache[require.resolve(gatePath)];
++    const composer = require(composerPath);
++    const gate = require(gatePath);
++    const gateInput = {
++      projectDir: tempRoot,
++      phaseDir,
++      phase: '166',
++      phaseContext: 'P166 megachunk degraded artifact fixture',
++    };
++    const pending = gate.run(gateInput);
++    const substrateCall = pending.sub_agent_spec.substrate_call;
++    const callResult = await composer.callVtp(SEARCH_TOOL, {
++      rawQuery: substrateCall.payload.query,
++      substrateCall,
++      projectDir: tempRoot,
++      logRoot: tempRoot,
++      skillOrAgent: 'p166-megachunk-fixture',
++      tier: 'research',
++      mcpInvoke: () => fixture,
++    });
++    assert.strictEqual(callResult.ok, true, 'oversized substrate retrieval must remain usable');
++    assert.deepStrictEqual(
++      callResult.gateway_evidence,
++      substrateCall.gateway_evidence,
++      'capped call must retain composer gateway evidence'
++    );
++
++    const written = gate.run({
++      ...gateInput,
++      substrateCall,
++      enrichmentResult: {
++        ok: callResult.ok,
++        status: 'success',
++        query_count: 1,
++        total_hits: callResult.response.total_hits,
++        duration_ms: callResult.elapsed_ms,
++        hits: callResult.response.hits,
++        degradation_notes: callResult.degradation_notes || [],
++        gaps: [],
++        alt_framings: [],
++        rationale: '',
++        substrate_call_record: toSubstrateCallRecord(substrateCall),
++      },
++    });
++    assert.strictEqual(written.status, 'success');
++    assert.strictEqual(sha256Json(fixture), fixtureHash, 'the deep-frozen transport fixture must not change');
++
++    assert(
++      Array.isArray(callResult.degradation_notes) && callResult.degradation_notes.length === 1,
++      'oversized retrieval must produce one named degradation note'
++    );
++    assert.deepStrictEqual(callResult.degradation_notes[0], {
++      reason_code: 'vtp_substrate_hit_truncated',
++      hit_index: 0,
++      identity: 'doc:lint-report',
++      doc_id: 'doc:lint-report',
++      rel_path: 'wiki/LINT-REPORT.md',
++      chunk_id: 'chunk:lint-report',
++      original_chars: 900001,
++      retained_chars: 16000,
++    });
++    assert.strictEqual(callResult.response.hits[0].text, retainedPrefix);
++    assert.strictEqual(callResult.response.hits[1], fixture.hits[1], 'normal second hit must be reference-preserved');
++
++    const artifact = gate._internal.readEnrichmentArtifact({ phaseDir, phase: '166' });
++    assert(artifact, 'successful enrichment artifact must remain readable');
++    assert.strictEqual(artifact.empty_hit, false);
++    assert.strictEqual(artifact.total_hits, 2);
++    assert.match(artifact.raw, /vtp_status: success/);
++    assert.match(artifact.raw, /## Degraded Retrieval/);
++    assert.match(artifact.raw, /doc_id=doc:lint-report/);
++    assert.match(artifact.raw, /rel_path=wiki\/LINT-REPORT\.md/);
++    assert.match(artifact.raw, /900001 -> 16000/);
++    assert.doesNotMatch(artifact.raw, /## API Error/);
++    assert.doesNotMatch(artifact.raw, new RegExp(discardedMarker));
++    assert(Buffer.byteLength(artifact.raw, 'utf8') < 32768, 'degraded artifact must remain bounded');
++    const routingLog = fs.readFileSync(
++      path.join(tempRoot, '.planning', 'metrics', 'vtp-routing-log.jsonl'),
++      'utf8'
++    );
++    assert.doesNotMatch(routingLog, new RegExp(discardedMarker));
++  } finally {
++    fs.rmSync(tempRoot, { recursive: true, force: true });
++  }
++}
++
++function assertCapShapes() {
++  delete require.cache[require.resolve(composerPath)];
++  delete require.cache[require.resolve(gatePath)];
++  const composer = require(composerPath);
++  const gate = require(gatePath);
++  assert.strictEqual(composer.SUBSTRATE_HIT_MAX_CHARS, 16000);
++  assert.strictEqual(typeof composer.capSubstrateResponse, 'function');
++
++  const exactBoundary = deepFreeze({
++    hits: [
++      { doc_id: 'doc:boundary', text: '\u00e9'.repeat(16000), untouched: { stable: true } },
++      { doc_id: 'doc:non-string', text: 16001 },
++    ],
++    metadata: { shape: 'top-level' },
++  });
++  const exactHash = sha256Json(exactBoundary);
++  const exact = composer.capSubstrateResponse(exactBoundary);
++  assert.strictEqual(exact.response, exactBoundary, 'exact boundary and non-string text must retain response identity');
++  assert.deepStrictEqual(exact.degradation_notes, []);
++  assert.strictEqual(sha256Json(exactBoundary), exactHash);
++
++  const topLevel = deepFreeze({
++    hits: [
++      { doc_id: 'doc:first', rel_path: 'wiki/FIRST.md', chunk_id: 'chunk:first', text: 'a'.repeat(16001) },
++      { doc_id: '', rel_path: 'wiki/SECOND.md', chunk_id: 'chunk:second', text: 'b'.repeat(16002) },
++      { doc_id: '', rel_path: '', chunk_id: 'chunk:third', text: 'c'.repeat(16003) },
++      { doc_id: '', rel_path: '', chunk_id: '', text: 'd'.repeat(16004) },
++      { doc_id: 'doc:normal', text: 'normal', fields: { byte: 'preserved' } },
++    ],
++    metadata: { stable: true },
++  });
++  const topHash = sha256Json(topLevel);
++  const cappedTop = composer.capSubstrateResponse(topLevel);
++  assert.notStrictEqual(cappedTop.response, topLevel);
++  assert.notStrictEqual(cappedTop.response.hits, topLevel.hits);
++  assert.strictEqual(cappedTop.response.metadata, topLevel.metadata);
++  assert.strictEqual(cappedTop.response.hits[4], topLevel.hits[4]);
++  assert.deepStrictEqual(
++    cappedTop.response.hits.slice(0, 4).map((hit) => hit.text.length),
++    [16000, 16000, 16000, 16000]
++  );
++  assert.deepStrictEqual(
++    cappedTop.degradation_notes.map((note) => [note.hit_index, note.identity]),
++    [[0, 'doc:first'], [1, 'wiki/SECOND.md'], [2, 'chunk:third'], [3, 'hit-4']]
++  );
++  assert.deepStrictEqual(
++    cappedTop.degradation_notes.map((note) => [note.original_chars, note.retained_chars]),
++    [[16001, 16000], [16002, 16000], [16003, 16000], [16004, 16000]]
++  );
++  assert.strictEqual(sha256Json(topLevel), topHash);
++
++  const nested = deepFreeze({
++    evidence: {
++      hits: [
++        { doc_id: 'doc:nested', rel_path: 'wiki/NESTED.md', chunk_id: 'chunk:nested', text: 'n'.repeat(16001) },
++        { doc_id: 'doc:nested-normal', text: 'nested normal' },
++      ],
++      documents: [{ doc_id: 'doc:nested' }],
++    },
++    retrieval_plan: { mode: 'fixture' },
++  });
++  const nestedHash = sha256Json(nested);
++  const cappedNested = composer.capSubstrateResponse(nested);
++  assert.notStrictEqual(cappedNested.response, nested);
++  assert.notStrictEqual(cappedNested.response.evidence, nested.evidence);
++  assert.notStrictEqual(cappedNested.response.evidence.hits, nested.evidence.hits);
++  assert.strictEqual(cappedNested.response.evidence.hits[1], nested.evidence.hits[1]);
++  assert.strictEqual(cappedNested.response.evidence.documents, nested.evidence.documents);
++  assert.strictEqual(cappedNested.response.retrieval_plan, nested.retrieval_plan);
++  assert.strictEqual(cappedNested.response.evidence.hits[0].text.length, 16000);
++  assert.deepStrictEqual(cappedNested.degradation_notes.map((note) => note.identity), ['doc:nested']);
++  assert.strictEqual(sha256Json(nested), nestedHash);
++
++  const generatedNote = cappedNested.degradation_notes[0];
++  const injected = deepFreeze({
++    hits: nested.evidence.hits,
++    degradation_notes: [{ ...generatedNote }],
++  });
++  const injectedHash = sha256Json(injected);
++  const normalized = gate._internal.normalizeEnrichmentResult(injected);
++  assert.strictEqual(normalized.hits[0].text.length, 16000);
++  assert.strictEqual(normalized.degradation_notes.length, 1, 'defensive gate recap must collapse duplicate notes');
++  assert.deepStrictEqual(normalized.degradation_notes[0], generatedNote);
++  assert.strictEqual(sha256Json(injected), injectedHash);
++
++  const gateRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-cap-shapes-gate-'));
++  try {
++    writeFixtureFile(
++      gateRoot,
++      path.join('.planning', 'config.json'),
++      JSON.stringify({ vtp_enrichment: { enabled: true } }) + '\n'
++    );
++    const phaseDir = path.join(gateRoot, '.planning', 'milestones', 'fixture', 'phases', '166-cap-shapes');
++    fs.mkdirSync(phaseDir, { recursive: true });
++    const gateInput = {
++      projectDir: gateRoot,
++      phaseDir,
++      phase: '166',
++      phaseContext: 'P166 defensive enrichment injection',
++    };
++    const pending = gate.run(gateInput);
++    const discardedMarker = 'P166_GATE_DISCARDED_SUFFIX';
++    const rawInjection = deepFreeze({
++      ok: true,
++      total_hits: 1,
++      hits: [{
++        doc_id: 'doc:gate-injected',
++        rel_path: 'wiki/GATE-INJECTED.md',
++        chunk_id: 'chunk:gate-injected',
++        text: 'g'.repeat(16000) + discardedMarker,
++      }],
++      substrate_call_record: toSubstrateCallRecord(pending.sub_agent_spec.substrate_call),
++    });
++    const rawInjectionHash = sha256Json(rawInjection);
++    const written = gate.run({
++      ...gateInput,
++      substrateCall: pending.sub_agent_spec.substrate_call,
++      enrichmentResult: rawInjection,
++    });
++    assert.strictEqual(written.status, 'success');
++    assert.strictEqual(sha256Json(rawInjection), rawInjectionHash);
++    const artifact = gate._internal.readEnrichmentArtifact({ phaseDir, phase: '166' });
++    assert.match(artifact.raw, /## Degraded Retrieval/);
++    assert.match(artifact.raw, /doc_id=doc:gate-injected/);
++    assert.doesNotMatch(artifact.raw, new RegExp(discardedMarker));
++  } finally {
++    fs.rmSync(gateRoot, { recursive: true, force: true });
++  }
++}
++
+ function assertPreparedEnvelope(envelope, intent, expectedPolicy, validate) {
+   assert.deepStrictEqual(Object.keys(envelope), ['tool', 'payload', 'gateway_evidence']);
+   assert.strictEqual(envelope.tool, SEARCH_TOOL);
+@@ -406,16 +682,54 @@ function assertPromptContracts() {
+   assert.match(enrichment, /substrate_call\.payload/);
+   assert.match(enrichment, /gateway_evidence/);
+   assert.match(enrichment, /substrateCall: substrate_call/);
++  assert.match(enrichment, /degradation_notes/);
++  assert.match(enrichment, /truncate.*in memory/i);
++  assert.match(enrichment, /16000 JavaScript characters/);
++  assert.match(enrichment, /original_chars/);
++  assert.match(enrichment, /Do not retry.*unfiltered/i);
++  assert.match(enrichment, /truncation.*failure/i);
+   assert.match(enrichment, /rationale: '',\s+\/\/ only populated if status='empty_hit'/);
+   assert.match(board, /--prepare-substrate-call --intent board_research/);
+   assert.match(board, /--accept-substrate-call-record --intent board_research/);
+   assert.match(board, /gateway_evidence/);
++  assert.match(board, /degradation_notes/);
++  assert.match(board, /truncate.*in memory/i);
++  assert.match(board, /16000 JavaScript characters/);
++  assert.match(board, /original_chars/);
++  assert.match(board, /Do not retry.*unfiltered/i);
++  assert.match(board, /truncation.*failure/i);
+   assert.match(audit, /<sgsd_vtp_substrate_policy_p166_phase_research>/);
+   assert.match(audit, /--prepare-substrate-call --intent phase_research/);
+   assert.match(audit, /--accept-substrate-call-record --intent phase_research/);
+   assert.match(audit, /<sgsd_vtp_substrate_policy_p166_planning>/);
+   assert.match(audit, /--prepare-substrate-call --intent planning/);
+   assert.match(audit, /--accept-substrate-call-record --intent planning/);
++  assert.match(audit, /<sgsd_vtp_substrate_policy_p166_t2_planning>/);
++  assert.match(audit, /<sgsd_vtp_substrate_policy_p166_t2_phase_research>/);
++  assert.strictEqual((audit.match(/Carry degradation_notes into the normal output/g) || []).length, 2);
++  assert.strictEqual((audit.match(/truncate it in memory to its first 16000 JavaScript characters/g) || []).length, 2);
++  assert.strictEqual((audit.match(/original_chars/g) || []).length, 2);
++  assert.strictEqual((audit.match(/Do not retry with unfiltered arguments/g) || []).length, 2);
++  assert.strictEqual((audit.match(/do not convert truncation to failure/g) || []).length, 2);
++
++  const enrichmentExample = enrichment.match(/```js\n([\s\S]*?)\n```/);
++  assert(enrichmentExample, 'enrichment output JavaScript block missing');
++  const evaluateEnrichmentExample = new Function(
++    'substrate_call',
++    enrichmentExample[1] + '\nreturn enrichmentResult;'
++  );
++  const parsedEnrichmentExample = evaluateEnrichmentExample({
++    payload: { query: 'fixture' },
++    gateway_evidence: { schema_version: 'fixture' },
++  });
++  assert(Array.isArray(parsedEnrichmentExample.degradation_notes));
++
++  const boardOutput = board.match(/<output>\n[\s\S]*?\n\n([\s\S]*?)\n<\/output>/);
++  assert(boardOutput, 'board YAML output block missing');
++  const parsedBoardOutput = yaml.load(boardOutput[1]);
++  assert(Array.isArray(parsedBoardOutput.degradation_notes));
++  assert.strictEqual(parsedBoardOutput.degradation_notes.length, 0);
++  assert.match(board, /reason_code vtp_substrate_hit_truncated/);
+   for (const source of [enrichment, board, audit]) {
+     assert.doesNotMatch(source, /source_types\s*:\s*\[/, 'prompt callers must not own source_types arrays');
+     assert.doesNotMatch(source, /\blimit\s*:\s*[1-9]/, 'prompt callers must not own limit literals');
+@@ -733,12 +1047,14 @@ function assertRepairSafePatches() {
+     fs.mkdirSync(agentsDir, { recursive: true });
+     fs.writeFileSync(
+       path.join(agentsDir, 'gsd-phase-researcher.md'),
+-      '---\ntools: Read\n---\n<sgsd_vtp_research_contract>\nlegacy P16 contract\n</sgsd_vtp_research_contract>\n',
++      '---\ntools: Read\n---\n<sgsd_vtp_research_contract>\nlegacy P16 contract\n</sgsd_vtp_research_contract>\n'
++        + '<sgsd_vtp_substrate_policy_p166_phase_research>\nT1 policy\n</sgsd_vtp_substrate_policy_p166_phase_research>\n',
+       'utf8'
+     );
+     fs.writeFileSync(
+       path.join(agentsDir, 'gsd-planner.md'),
+-      '---\ntools: Read\n---\n<sgsd_vtp_enrichment_contract>\nlegacy P16 contract\n</sgsd_vtp_enrichment_contract>\n',
++      '---\ntools: Read\n---\n<sgsd_vtp_enrichment_contract>\nlegacy P16 contract\n</sgsd_vtp_enrichment_contract>\n'
++        + '<sgsd_vtp_substrate_policy_p166_planning>\nT1 policy\n</sgsd_vtp_substrate_policy_p166_planning>\n',
+       'utf8'
+     );
+     const projectDir = path.join(tempRoot, 'fixture-project');
+@@ -754,9 +1070,13 @@ function assertRepairSafePatches() {
+     const planner = fs.readFileSync(path.join(agentsDir, 'gsd-planner.md'), 'utf8');
+     assert.match(researcher, /<sgsd_vtp_substrate_policy_p166_phase_research>/);
+     assert.match(planner, /<sgsd_vtp_substrate_policy_p166_planning>/);
++    assert.match(researcher, /<sgsd_vtp_substrate_policy_p166_t2_phase_research>/);
++    assert.match(planner, /<sgsd_vtp_substrate_policy_p166_t2_planning>/);
+     const rows = new Map(report.global_legacy_agents.map((row) => [row.name, row]));
+     assert.strictEqual(rows.get('gsd-phase-researcher.md').p166_patched, true);
+     assert.strictEqual(rows.get('gsd-planner.md').p166_patched, true);
++    assert.strictEqual(rows.get('gsd-phase-researcher.md').p166_t2_patched, true);
++    assert.strictEqual(rows.get('gsd-planner.md').p166_t2_patched, true);
+   } finally {
+     if (oldUserProfile === undefined) delete process.env.USERPROFILE;
+     else process.env.USERPROFILE = oldUserProfile;
+@@ -921,6 +1241,9 @@ async function main(argv = process.argv.slice(2)) {
+     assertPromptRecordAcceptance(composer, expected);
+   }
+   else if (caseName === 'executable-emitters') await assertExecutableEmitters();
++  else if (caseName === 'megachunk-degraded-artifact') await assertMegachunkDegradedArtifact();
++  else if (caseName === 'cap-shapes') assertCapShapes();
++  else if (caseName === 'repair-safe-t2') assertRepairSafePatches();
+   else {
+     process.stderr.write(usage() + '\n');
+     return 2;
+diff --git a/super-gsd/tools/feature-propagation/audit.cjs b/super-gsd/tools/feature-propagation/audit.cjs
+index 299ff8f..3278438 100644
+--- a/super-gsd/tools/feature-propagation/audit.cjs
++++ b/super-gsd/tools/feature-propagation/audit.cjs
+@@ -76,6 +76,17 @@ const REQUIRED_LEGACY_AGENT_PATCHES = Object.freeze([
+       '</sgsd_vtp_substrate_policy_p166_planning>',
+       '',
+     ].join('\n'),
++    p166T2Marker: '<sgsd_vtp_substrate_policy_p166_t2_planning>',
++    p166T2Append: [
++      '',
++      '<sgsd_vtp_substrate_policy_p166_t2_planning>',
++      '## SGSD P166 T2 Degraded Retrieval Policy',
++      '',
++      'Immediately after raw substrate transport and before synthesis, inspect top-level hits and evidence.hits. For each string hit.text longer than 16000 JavaScript characters, record its original length, truncate it in memory to its first 16000 JavaScript characters, and append degradation_notes with reason_code vtp_substrate_hit_truncated, zero-based hit_index, identity, doc_id, rel_path, chunk_id, original_chars, and retained_chars set to 16000. Resolve identity from doc_id, rel_path, chunk_id, then hit-<one-based-index>.',
++      'Carry degradation_notes into the normal output and visibly name doc_id and rel_path with original and retained character counts; use an empty array when no hit was truncated. Do not retry with unfiltered arguments; do not convert truncation to failure or paste or write discarded text.',
++      '</sgsd_vtp_substrate_policy_p166_t2_planning>',
++      '',
++    ].join('\n'),
+     tools: Object.freeze([
+       'Bash',
+       'mcp__vtp-kb__vtp_route_and_retrieve',
+@@ -129,6 +140,17 @@ called an mcp__vtp-kb__* tool in this dispatch.
+       '</sgsd_vtp_substrate_policy_p166_phase_research>',
+       '',
+     ].join('\n'),
++    p166T2Marker: '<sgsd_vtp_substrate_policy_p166_t2_phase_research>',
++    p166T2Append: [
++      '',
++      '<sgsd_vtp_substrate_policy_p166_t2_phase_research>',
++      '## SGSD P166 T2 Degraded Retrieval Policy',
++      '',
++      'Immediately after raw substrate transport and before synthesis, inspect top-level hits and evidence.hits. For each string hit.text longer than 16000 JavaScript characters, record its original length, truncate it in memory to its first 16000 JavaScript characters, and append degradation_notes with reason_code vtp_substrate_hit_truncated, zero-based hit_index, identity, doc_id, rel_path, chunk_id, original_chars, and retained_chars set to 16000. Resolve identity from doc_id, rel_path, chunk_id, then hit-<one-based-index>.',
++      'Carry degradation_notes into the normal output and visibly name doc_id and rel_path with original and retained character counts; use an empty array when no hit was truncated. Do not retry with unfiltered arguments; do not convert truncation to failure or paste or write discarded text.',
++      '</sgsd_vtp_substrate_policy_p166_t2_phase_research>',
++      '',
++    ].join('\n'),
+     tools: Object.freeze([
+       'Bash',
+       'mcp__vtp-kb__vtp_route_and_retrieve',
+@@ -411,6 +433,11 @@ function installGlobalLegacyAgentPatches(ctx, actions) {
+       actions.push({ action: 'append_legacy_agent_patch', to: p, marker: spec.p166Marker });
+       changed = true;
+     }
++    if (spec.p166T2Marker && txt.indexOf(spec.p166T2Marker) === -1) {
++      fs.appendFileSync(p, spec.p166T2Append, 'utf8');
++      actions.push({ action: 'append_legacy_agent_patch', to: p, marker: spec.p166T2Marker });
++      changed = true;
++    }
+     if (changed) repaired.push(spec.name);
+   }
+   return repaired;
+@@ -507,6 +534,8 @@ function auditGlobalLegacyAgentPatches(ctx) {
+       patched: Boolean(txt && txt.indexOf(spec.marker) !== -1),
+       p166_marker: spec.p166Marker || null,
+       p166_patched: spec.p166Marker ? Boolean(txt && txt.indexOf(spec.p166Marker) !== -1) : true,
++      p166_t2_marker: spec.p166T2Marker || null,
++      p166_t2_patched: spec.p166T2Marker ? Boolean(txt && txt.indexOf(spec.p166T2Marker) !== -1) : true,
+       missing_tools: missingTools,
+     });
+   }
+@@ -748,7 +777,7 @@ function runAudit(opts) {
+   const staleLegacyExecutor = globalAgents.filter((r) => r.name === 'gsd-executor.md' && (!r.installed || r.drifted || !r.disabled_legacy_executor));
+   const missingGlobalSkills = globalSkills.filter((r) => !r.installed || r.drifted);
+   const missingLegacyPatches = globalLegacyAgents.filter((r) => (
+-    !r.installed || !r.patched || !r.p166_patched || (r.missing_tools || []).length
++    !r.installed || !r.patched || !r.p166_patched || !r.p166_t2_patched || (r.missing_tools || []).length
+   ));
+   const missingVtpAgents = globalAgents.filter((r) => r.required_vtp_agent && !r.installed);
+   const driftedLocal = localShadows.filter((r) => r.drifted);
+diff --git a/super-gsd/tools/vtp-bridge/classify.cjs b/super-gsd/tools/vtp-bridge/classify.cjs
+index f72102e..287b74c 100644
+--- a/super-gsd/tools/vtp-bridge/classify.cjs
++++ b/super-gsd/tools/vtp-bridge/classify.cjs
+@@ -395,15 +395,17 @@ function _buildEvidencePacket(uncertainty_type, query, mcpResponse, opts) {
+   const toolEntry = VTP_TOOL_MAP[uncertainty_type];
+   const toolName = toolEntry ? toolEntry.tool : null;
+   const reason_codes = [];
++  const degradationNotes = Array.isArray(o.degradation_notes) ? o.degradation_notes : [];
+ 
+   const raw = _extractResults(mcpResponse, toolName);
+   let admitted = [];
+   let rejectedProvenanceCount = 0;
+-  for (const r of raw) {
++  for (let rawIndex = 0; rawIndex < raw.length; rawIndex++) {
++    const r = raw[rawIndex];
+     if (_assertResultProvenance(r)) {
+       // Normalize doc_id field (accept legacy 'id').
+       const docId = (typeof r.doc_id === 'string' && r.doc_id.length > 0) ? r.doc_id : r.id;
+-      admitted.push(Object.assign({}, r, { doc_id: docId }));
++      admitted.push(Object.assign({}, r, { doc_id: docId, _substrate_hit_index: rawIndex }));
+     } else {
+       rejectedProvenanceCount++;
+     }
+@@ -416,6 +418,13 @@ function _buildEvidencePacket(uncertainty_type, query, mcpResponse, opts) {
+   // Apply cap.
+   const capResult = _enforcePacketCap(admitted, o.maxTokens);
+   if (capResult.elided > 0) reason_codes.push('evidence_packet_size_capped');
++  if (degradationNotes.some((note) => (
++    note && note.reason_code === 'vtp_substrate_hit_truncated'
++  ))) {
++    if (reason_codes.indexOf('evidence_packet_size_capped') === -1) {
++      reason_codes.push('evidence_packet_size_capped');
++    }
++  }
+   const kept = capResult.kept;
+ 
+   // Build provenance arrays.
+@@ -426,14 +435,36 @@ function _buildEvidencePacket(uncertainty_type, query, mcpResponse, opts) {
+     source_refs.push(String(r.doc_id));
+     root_source_hashes.push(_hashOf(String(r.doc_id) + ':' + String(r.citation || '')));
+     // Strip any MCP-internal fields; keep only the documented surface.
+-    sanitizedResults.push({
++    const sanitizedResult = {
+       doc_id: r.doc_id,
+       citation: r.citation,
+       title: typeof r.title === 'string' ? r.title : '',
+       excerpt: typeof r.excerpt === 'string' ? r.excerpt : '',
+       score: typeof r.score === 'number' ? r.score : null,
+       source_type: typeof r.source_type === 'string' ? r.source_type : null,
+-    });
++    };
++    const resultDegradationNotes = degradationNotes
++      .filter((note) => note && (
++        note.identity === r.doc_id
++        || note.doc_id === r.doc_id
++        || (r.rel_path && note.rel_path === r.rel_path)
++        || (r.chunk_id && note.chunk_id === r.chunk_id)
++        || (Number.isInteger(note.hit_index) && note.hit_index === r._substrate_hit_index)
++      ))
++      .map((note) => ({
++        reason_code: note.reason_code,
++        hit_index: note.hit_index,
++        identity: note.identity,
++        doc_id: note.doc_id,
++        rel_path: note.rel_path,
++        chunk_id: note.chunk_id,
++        original_chars: note.original_chars,
++        retained_chars: note.retained_chars,
++      }));
++    if (resultDegradationNotes.length > 0) {
++      sanitizedResult.degradation_notes = resultDegradationNotes;
++    }
++    sanitizedResults.push(sanitizedResult);
+   }
+ 
+   if (rejectedProvenanceCount > 0 && sanitizedResults.length === 0) {
+@@ -621,6 +652,7 @@ function _selectiveVTPCallInternal(input) {
+ 
+   // Gate 4: dispatch shim with timeout.
+   let mcpResponse;
++  let substrateDegradationNotes = [];
+   try {
+     if (toolName === 'vtp_search_substrate') {
+       const prepared = input._force_substrate_call
+@@ -648,6 +680,9 @@ function _selectiveVTPCallInternal(input) {
+         throw new Error('VALIDATION_' + (callResult && callResult.reason || 'substrate_payload_invalid'));
+       }
+       mcpResponse = callResult.response;
++      substrateDegradationNotes = Array.isArray(callResult.degradation_notes)
++        ? callResult.degradation_notes
++        : [];
+       if (ucType === 'book_lookup') mcpResponse = _filterBookLookupResponse(mcpResponse);
+     } else {
+       const args = Object.assign({ query: typeof query === 'string' ? query : '' }, toolEntry.args_template);
+@@ -672,7 +707,10 @@ function _selectiveVTPCallInternal(input) {
+   }
+ 
+   // Gate 5: success path -> build evidence packet -> emit ledger row.
+-  const packet = _buildEvidencePacket(ucType, query, mcpResponse, { maxTokens: cfg.evidence_packet_max_tokens });
++  const packet = _buildEvidencePacket(ucType, query, mcpResponse, {
++    maxTokens: cfg.evidence_packet_max_tokens,
++    degradation_notes: substrateDegradationNotes,
++  });
+   _emitRouteLedgerRow(planningDir, packet, opts);
+   return packet;
+ }
+@@ -1078,6 +1116,77 @@ function _runSelfTest() {
+       }
+       ok('11. defense-in-depth: VTP_WHITELIST imported BY REFERENCE (frozen, length=3)');
+     } catch (e) { failAssert('11. defense-in-depth VTP_WHITELIST identity', e.message); }
++
++    // ------------------------------------------------------------------
++    // Assertion 12 (P166): raw substrate hit cap is visible in the packet.
++    // ------------------------------------------------------------------
++    try {
++      const discardedMarker = 'P166_BRIDGE_DISCARDED_SUFFIX';
++      const p166Planning = path.join(tmpRoot, 'p166', '.planning');
++      fs.mkdirSync(path.join(p166Planning, 'metrics'), { recursive: true });
++      const packet = selectiveVTPCall({
++        uncertainty_type: 'architecture_challenge',
++        query: 'P166 bridge oversized substrate hit',
++        planningDir: p166Planning,
++        _force_vtp_health: true,
++        _force_vtp_tool_response: {
++          hits: [{
++            doc_id: 'doc:lint-report',
++            rel_path: 'wiki/LINT-REPORT.md',
++            chunk_id: 'chunk:lint-report',
++            citation: 'doc:lint-report',
++            excerpt: 'bounded packet excerpt',
++            text: 'r'.repeat(16000) + discardedMarker,
++          }],
++        },
++      });
++      if (packet.ok !== true) throw new Error('packet.ok=' + packet.ok);
++      if (packet.reason_codes.indexOf('evidence_packet_size_capped') === -1) {
++        throw new Error('missing evidence_packet_size_capped');
++      }
++      const degradationNotes = packet.results[0] && packet.results[0].degradation_notes;
++      if (!Array.isArray(degradationNotes)
++          || !degradationNotes[0]
++          || degradationNotes[0].reason_code !== 'vtp_substrate_hit_truncated') {
++        throw new Error('missing vtp_substrate_hit_truncated note');
++      }
++      if (JSON.stringify(packet).indexOf(discardedMarker) !== -1) {
++        throw new Error('packet contains discarded substrate text');
++      }
++      ok('12. P166 oversized substrate hit -> bounded packet + named degradation');
++    } catch (e) { failAssert('12. P166 bridge substrate hit cap', e.message); }
++
++    // ------------------------------------------------------------------
++    // Assertion 13 (P166): legacy id normalization retains the named note.
++    // ------------------------------------------------------------------
++    try {
++      const legacyPlanning = path.join(tmpRoot, 'p166-legacy', '.planning');
++      fs.mkdirSync(path.join(legacyPlanning, 'metrics'), { recursive: true });
++      const packet = selectiveVTPCall({
++        uncertainty_type: 'architecture_challenge',
++        query: 'P166 bridge legacy id oversized hit',
++        planningDir: legacyPlanning,
++        _force_vtp_health: true,
++        _force_vtp_tool_response: {
++          hits: [{
++            id: 'legacy-1',
++            citation: 'legacy citation',
++            excerpt: 'legacy bounded excerpt',
++            text: 'l'.repeat(16001),
++          }],
++        },
++      });
++      const note = packet.results[0]
++        && Array.isArray(packet.results[0].degradation_notes)
++        && packet.results[0].degradation_notes[0];
++      if (!note || note.reason_code !== 'vtp_substrate_hit_truncated') {
++        throw new Error('legacy id result missing named degradation note');
++      }
++      if (note.hit_index !== 0 || note.identity !== 'hit-1') {
++        throw new Error('legacy id note lost raw hit identity');
++      }
++      ok('13. P166 legacy id -> normalized doc_id + raw-index degradation note');
++    } catch (e) { failAssert('13. P166 bridge legacy-id note attachment', e.message); }
+   } finally {
+     try { fs.rmSync(tmpRoot, { recursive: true, force: true }); } catch (_) {}
+   }
