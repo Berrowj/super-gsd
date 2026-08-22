@@ -32,6 +32,7 @@ const os   = require('os');
 const {
   prepareSubstrateCall,
   acceptPromptSubstrateCallRecord,
+  capSubstrateResponse,
 } = require('./vtp-context-composer.cjs');
 
 // ---------------------------------------------------------------------------
@@ -184,7 +185,7 @@ function buildQuerySeed(opts) {
  */
 function writeEnrichmentArtifact({ phaseDir, enrichmentResult, vtpStatus }) {
   if (!phaseDir) throw new Error('vtp-enrichment-gate: phaseDir required for writeEnrichmentArtifact');
-  const res = enrichmentResult || {};
+  const res = normalizeEnrichmentResult(enrichmentResult || {});
   const phase      = res.phase || 'unknown';
   const hits       = Array.isArray(res.hits) ? res.hits : [];
   const totalHits  = res.total_hits != null ? res.total_hits : hits.length;
@@ -267,6 +268,15 @@ function writeEnrichmentArtifact({ phaseDir, enrichmentResult, vtpStatus }) {
     '',
   ].join('\n');
 
+  const degradationNotes = Array.isArray(res.degradation_notes) ? res.degradation_notes : [];
+  const degradedRetrievalSection = degradationNotes.length > 0
+    ? [
+        '## Degraded Retrieval',
+        ...degradationNotes.map(renderDegradationNote),
+        '',
+      ].join('\n')
+    : '';
+
   let emptyHitSection = '';
   if (isEmptyHit) {
     const seedSummary = res.seed_summary || '(not provided)';
@@ -287,6 +297,7 @@ function writeEnrichmentArtifact({ phaseDir, enrichmentResult, vtpStatus }) {
     '',
     gapsSection,
     framingsSection,
+    degradedRetrievalSection,
     emptyHitSection,
   ].join('');
 
@@ -294,6 +305,63 @@ function writeEnrichmentArtifact({ phaseDir, enrichmentResult, vtpStatus }) {
   fs.mkdirSync(phaseDir, { recursive: true });
   fs.writeFileSync(artifactPath, body, 'utf8');
   return artifactPath;
+}
+
+function noteIdentity(note) {
+  const n = note && typeof note === 'object' ? note : {};
+  for (const key of ['identity', 'doc_id', 'rel_path', 'chunk_id']) {
+    if (typeof n[key] === 'string' && n[key].length > 0) return n[key];
+  }
+  return Number.isInteger(n.hit_index) ? 'hit-' + (n.hit_index + 1) : 'hit-unknown';
+}
+
+function mergeDegradationNotes(generatedNotes, existingNotes) {
+  const merged = [];
+  const seen = new Set();
+  for (const note of [...generatedNotes, ...existingNotes]) {
+    if (!note || typeof note !== 'object' || Array.isArray(note)) continue;
+    const key = [
+      String(note.reason_code || ''),
+      Number.isInteger(note.hit_index) ? note.hit_index : '',
+      noteIdentity(note),
+    ].join(':');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(note);
+  }
+  return merged;
+}
+
+function normalizeEnrichmentResult(enrichmentResult) {
+  const capped = capSubstrateResponse(enrichmentResult);
+  const existingNotes = Array.isArray(enrichmentResult.degradation_notes)
+    ? enrichmentResult.degradation_notes
+    : [];
+  const degradationNotes = mergeDegradationNotes(capped.degradation_notes, existingNotes);
+  if (degradationNotes.length === 0) return capped.response;
+  return {
+    ...capped.response,
+    degradation_notes: degradationNotes,
+  };
+}
+
+function artifactNoteField(value) {
+  if (typeof value !== 'string' || value.length === 0) return null;
+  return value.replace(/[\r\n|]/g, '/');
+}
+
+function renderDegradationNote(note) {
+  const fields = [
+    'identity=' + artifactNoteField(noteIdentity(note)),
+    Number.isInteger(note.hit_index) ? 'hit_index=' + note.hit_index : null,
+    artifactNoteField(note.doc_id) ? 'doc_id=' + artifactNoteField(note.doc_id) : null,
+    artifactNoteField(note.rel_path) ? 'rel_path=' + artifactNoteField(note.rel_path) : null,
+    artifactNoteField(note.chunk_id) ? 'chunk_id=' + artifactNoteField(note.chunk_id) : null,
+    Number.isInteger(note.original_chars) && Number.isInteger(note.retained_chars)
+      ? 'characters ' + note.original_chars + ' -> ' + note.retained_chars
+      : null,
+  ].filter(Boolean);
+  return '- ' + String(note.reason_code || 'vtp_retrieval_degraded') + ': ' + fields.join('; ');
 }
 
 // ---------------------------------------------------------------------------
@@ -569,6 +637,9 @@ module.exports._internal = {
   readEnrichmentArtifact,
   composeSubAgentSpec,
   readVtpEnrichmentConfig,
+  mergeDegradationNotes,
+  normalizeEnrichmentResult,
+  renderDegradationNote,
   VTP_TOOLS,
   // CRIT-fix: filename is now phase-prefixed per VTPE-01 REQ. Callers use
   // buildArtifactFilename(phase) to get the per-phase name. Generic form
@@ -880,6 +951,41 @@ function runSelfTest() {
         }
       } finally {
         try { fs.rmSync(phaseTmp18, { recursive: true, force: true }); } catch (_) {}
+      }
+    }
+
+    // -----------------------------------------------------------------
+    // Test 19: defensive cap merges duplicate notes and renders identity.
+    // -----------------------------------------------------------------
+    if (passed) {
+      const input19 = Object.freeze({
+        hits: Object.freeze([Object.freeze({
+          doc_id: 'doc:lint-report',
+          rel_path: 'wiki/LINT-REPORT.md',
+          chunk_id: 'chunk:lint-report',
+          text: 'x'.repeat(16001),
+        })]),
+        degradation_notes: Object.freeze([Object.freeze({
+          reason_code: 'vtp_substrate_hit_truncated',
+          hit_index: 0,
+          identity: 'doc:lint-report',
+          doc_id: 'doc:lint-report',
+          rel_path: 'wiki/LINT-REPORT.md',
+          chunk_id: 'chunk:lint-report',
+          original_chars: 16001,
+          retained_chars: 16000,
+        })]),
+      });
+      const before19 = JSON.stringify(input19);
+      const normalized19 = normalizeEnrichmentResult(input19);
+      if (JSON.stringify(input19) !== before19) fail('Test19: defensive cap mutated input');
+      if (passed && normalized19.hits[0].text.length !== 16000) fail('Test19: hit was not capped');
+      if (passed && normalized19.degradation_notes.length !== 1) fail('Test19: duplicate note was not collapsed');
+      if (passed) {
+        const rendered19 = renderDegradationNote(normalized19.degradation_notes[0]);
+        if (!rendered19.includes('doc_id=doc:lint-report')) fail('Test19: rendered note missing doc_id');
+        if (passed && !rendered19.includes('rel_path=wiki/LINT-REPORT.md')) fail('Test19: rendered note missing rel_path');
+        if (passed && !rendered19.includes('16001 -> 16000')) fail('Test19: rendered note missing counts');
       }
     }
 

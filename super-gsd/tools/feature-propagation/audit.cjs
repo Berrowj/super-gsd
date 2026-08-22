@@ -76,6 +76,17 @@ const REQUIRED_LEGACY_AGENT_PATCHES = Object.freeze([
       '</sgsd_vtp_substrate_policy_p166_planning>',
       '',
     ].join('\n'),
+    p166T2Marker: '<sgsd_vtp_substrate_policy_p166_t2_planning>',
+    p166T2Append: [
+      '',
+      '<sgsd_vtp_substrate_policy_p166_t2_planning>',
+      '## SGSD P166 T2 Degraded Retrieval Policy',
+      '',
+      'Immediately after raw substrate transport and before synthesis, inspect top-level hits and evidence.hits. For each string hit.text longer than 16000 JavaScript characters, record its original length, truncate it in memory to its first 16000 JavaScript characters, and append degradation_notes with reason_code vtp_substrate_hit_truncated, zero-based hit_index, identity, doc_id, rel_path, chunk_id, original_chars, and retained_chars set to 16000. Resolve identity from doc_id, rel_path, chunk_id, then hit-<one-based-index>.',
+      'Carry degradation_notes into the normal output and visibly name doc_id and rel_path with original and retained character counts; use an empty array when no hit was truncated. Do not retry with unfiltered arguments; do not convert truncation to failure or paste or write discarded text.',
+      '</sgsd_vtp_substrate_policy_p166_t2_planning>',
+      '',
+    ].join('\n'),
     tools: Object.freeze([
       'Bash',
       'mcp__vtp-kb__vtp_route_and_retrieve',
@@ -127,6 +138,17 @@ called an mcp__vtp-kb__* tool in this dispatch.
       'The production acceptance command must exit zero before the prompt can succeed.',
       'If preparation or acceptance fails, do not accept the substrate-backed output.',
       '</sgsd_vtp_substrate_policy_p166_phase_research>',
+      '',
+    ].join('\n'),
+    p166T2Marker: '<sgsd_vtp_substrate_policy_p166_t2_phase_research>',
+    p166T2Append: [
+      '',
+      '<sgsd_vtp_substrate_policy_p166_t2_phase_research>',
+      '## SGSD P166 T2 Degraded Retrieval Policy',
+      '',
+      'Immediately after raw substrate transport and before synthesis, inspect top-level hits and evidence.hits. For each string hit.text longer than 16000 JavaScript characters, record its original length, truncate it in memory to its first 16000 JavaScript characters, and append degradation_notes with reason_code vtp_substrate_hit_truncated, zero-based hit_index, identity, doc_id, rel_path, chunk_id, original_chars, and retained_chars set to 16000. Resolve identity from doc_id, rel_path, chunk_id, then hit-<one-based-index>.',
+      'Carry degradation_notes into the normal output and visibly name doc_id and rel_path with original and retained character counts; use an empty array when no hit was truncated. Do not retry with unfiltered arguments; do not convert truncation to failure or paste or write discarded text.',
+      '</sgsd_vtp_substrate_policy_p166_t2_phase_research>',
       '',
     ].join('\n'),
     tools: Object.freeze([
@@ -411,6 +433,11 @@ function installGlobalLegacyAgentPatches(ctx, actions) {
       actions.push({ action: 'append_legacy_agent_patch', to: p, marker: spec.p166Marker });
       changed = true;
     }
+    if (spec.p166T2Marker && txt.indexOf(spec.p166T2Marker) === -1) {
+      fs.appendFileSync(p, spec.p166T2Append, 'utf8');
+      actions.push({ action: 'append_legacy_agent_patch', to: p, marker: spec.p166T2Marker });
+      changed = true;
+    }
     if (changed) repaired.push(spec.name);
   }
   return repaired;
@@ -507,6 +534,8 @@ function auditGlobalLegacyAgentPatches(ctx) {
       patched: Boolean(txt && txt.indexOf(spec.marker) !== -1),
       p166_marker: spec.p166Marker || null,
       p166_patched: spec.p166Marker ? Boolean(txt && txt.indexOf(spec.p166Marker) !== -1) : true,
+      p166_t2_marker: spec.p166T2Marker || null,
+      p166_t2_patched: spec.p166T2Marker ? Boolean(txt && txt.indexOf(spec.p166T2Marker) !== -1) : true,
       missing_tools: missingTools,
     });
   }
@@ -748,7 +777,7 @@ function runAudit(opts) {
   const staleLegacyExecutor = globalAgents.filter((r) => r.name === 'gsd-executor.md' && (!r.installed || r.drifted || !r.disabled_legacy_executor));
   const missingGlobalSkills = globalSkills.filter((r) => !r.installed || r.drifted);
   const missingLegacyPatches = globalLegacyAgents.filter((r) => (
-    !r.installed || !r.patched || !r.p166_patched || (r.missing_tools || []).length
+    !r.installed || !r.patched || !r.p166_patched || !r.p166_t2_patched || (r.missing_tools || []).length
   ));
   const missingVtpAgents = globalAgents.filter((r) => r.required_vtp_agent && !r.installed);
   const driftedLocal = localShadows.filter((r) => r.drifted);

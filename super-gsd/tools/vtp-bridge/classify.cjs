@@ -395,15 +395,17 @@ function _buildEvidencePacket(uncertainty_type, query, mcpResponse, opts) {
   const toolEntry = VTP_TOOL_MAP[uncertainty_type];
   const toolName = toolEntry ? toolEntry.tool : null;
   const reason_codes = [];
+  const degradationNotes = Array.isArray(o.degradation_notes) ? o.degradation_notes : [];
 
   const raw = _extractResults(mcpResponse, toolName);
   let admitted = [];
   let rejectedProvenanceCount = 0;
-  for (const r of raw) {
+  for (let rawIndex = 0; rawIndex < raw.length; rawIndex++) {
+    const r = raw[rawIndex];
     if (_assertResultProvenance(r)) {
       // Normalize doc_id field (accept legacy 'id').
       const docId = (typeof r.doc_id === 'string' && r.doc_id.length > 0) ? r.doc_id : r.id;
-      admitted.push(Object.assign({}, r, { doc_id: docId }));
+      admitted.push(Object.assign({}, r, { doc_id: docId, _substrate_hit_index: rawIndex }));
     } else {
       rejectedProvenanceCount++;
     }
@@ -416,6 +418,13 @@ function _buildEvidencePacket(uncertainty_type, query, mcpResponse, opts) {
   // Apply cap.
   const capResult = _enforcePacketCap(admitted, o.maxTokens);
   if (capResult.elided > 0) reason_codes.push('evidence_packet_size_capped');
+  if (degradationNotes.some((note) => (
+    note && note.reason_code === 'vtp_substrate_hit_truncated'
+  ))) {
+    if (reason_codes.indexOf('evidence_packet_size_capped') === -1) {
+      reason_codes.push('evidence_packet_size_capped');
+    }
+  }
   const kept = capResult.kept;
 
   // Build provenance arrays.
@@ -426,14 +435,36 @@ function _buildEvidencePacket(uncertainty_type, query, mcpResponse, opts) {
     source_refs.push(String(r.doc_id));
     root_source_hashes.push(_hashOf(String(r.doc_id) + ':' + String(r.citation || '')));
     // Strip any MCP-internal fields; keep only the documented surface.
-    sanitizedResults.push({
+    const sanitizedResult = {
       doc_id: r.doc_id,
       citation: r.citation,
       title: typeof r.title === 'string' ? r.title : '',
       excerpt: typeof r.excerpt === 'string' ? r.excerpt : '',
       score: typeof r.score === 'number' ? r.score : null,
       source_type: typeof r.source_type === 'string' ? r.source_type : null,
-    });
+    };
+    const resultDegradationNotes = degradationNotes
+      .filter((note) => note && (
+        note.identity === r.doc_id
+        || note.doc_id === r.doc_id
+        || (r.rel_path && note.rel_path === r.rel_path)
+        || (r.chunk_id && note.chunk_id === r.chunk_id)
+        || (Number.isInteger(note.hit_index) && note.hit_index === r._substrate_hit_index)
+      ))
+      .map((note) => ({
+        reason_code: note.reason_code,
+        hit_index: note.hit_index,
+        identity: note.identity,
+        doc_id: note.doc_id,
+        rel_path: note.rel_path,
+        chunk_id: note.chunk_id,
+        original_chars: note.original_chars,
+        retained_chars: note.retained_chars,
+      }));
+    if (resultDegradationNotes.length > 0) {
+      sanitizedResult.degradation_notes = resultDegradationNotes;
+    }
+    sanitizedResults.push(sanitizedResult);
   }
 
   if (rejectedProvenanceCount > 0 && sanitizedResults.length === 0) {
@@ -621,6 +652,7 @@ function _selectiveVTPCallInternal(input) {
 
   // Gate 4: dispatch shim with timeout.
   let mcpResponse;
+  let substrateDegradationNotes = [];
   try {
     if (toolName === 'vtp_search_substrate') {
       const prepared = input._force_substrate_call
@@ -648,6 +680,9 @@ function _selectiveVTPCallInternal(input) {
         throw new Error('VALIDATION_' + (callResult && callResult.reason || 'substrate_payload_invalid'));
       }
       mcpResponse = callResult.response;
+      substrateDegradationNotes = Array.isArray(callResult.degradation_notes)
+        ? callResult.degradation_notes
+        : [];
       if (ucType === 'book_lookup') mcpResponse = _filterBookLookupResponse(mcpResponse);
     } else {
       const args = Object.assign({ query: typeof query === 'string' ? query : '' }, toolEntry.args_template);
@@ -672,7 +707,10 @@ function _selectiveVTPCallInternal(input) {
   }
 
   // Gate 5: success path -> build evidence packet -> emit ledger row.
-  const packet = _buildEvidencePacket(ucType, query, mcpResponse, { maxTokens: cfg.evidence_packet_max_tokens });
+  const packet = _buildEvidencePacket(ucType, query, mcpResponse, {
+    maxTokens: cfg.evidence_packet_max_tokens,
+    degradation_notes: substrateDegradationNotes,
+  });
   _emitRouteLedgerRow(planningDir, packet, opts);
   return packet;
 }
@@ -1078,6 +1116,77 @@ function _runSelfTest() {
       }
       ok('11. defense-in-depth: VTP_WHITELIST imported BY REFERENCE (frozen, length=3)');
     } catch (e) { failAssert('11. defense-in-depth VTP_WHITELIST identity', e.message); }
+
+    // ------------------------------------------------------------------
+    // Assertion 12 (P166): raw substrate hit cap is visible in the packet.
+    // ------------------------------------------------------------------
+    try {
+      const discardedMarker = 'P166_BRIDGE_DISCARDED_SUFFIX';
+      const p166Planning = path.join(tmpRoot, 'p166', '.planning');
+      fs.mkdirSync(path.join(p166Planning, 'metrics'), { recursive: true });
+      const packet = selectiveVTPCall({
+        uncertainty_type: 'architecture_challenge',
+        query: 'P166 bridge oversized substrate hit',
+        planningDir: p166Planning,
+        _force_vtp_health: true,
+        _force_vtp_tool_response: {
+          hits: [{
+            doc_id: 'doc:lint-report',
+            rel_path: 'wiki/LINT-REPORT.md',
+            chunk_id: 'chunk:lint-report',
+            citation: 'doc:lint-report',
+            excerpt: 'bounded packet excerpt',
+            text: 'r'.repeat(16000) + discardedMarker,
+          }],
+        },
+      });
+      if (packet.ok !== true) throw new Error('packet.ok=' + packet.ok);
+      if (packet.reason_codes.indexOf('evidence_packet_size_capped') === -1) {
+        throw new Error('missing evidence_packet_size_capped');
+      }
+      const degradationNotes = packet.results[0] && packet.results[0].degradation_notes;
+      if (!Array.isArray(degradationNotes)
+          || !degradationNotes[0]
+          || degradationNotes[0].reason_code !== 'vtp_substrate_hit_truncated') {
+        throw new Error('missing vtp_substrate_hit_truncated note');
+      }
+      if (JSON.stringify(packet).indexOf(discardedMarker) !== -1) {
+        throw new Error('packet contains discarded substrate text');
+      }
+      ok('12. P166 oversized substrate hit -> bounded packet + named degradation');
+    } catch (e) { failAssert('12. P166 bridge substrate hit cap', e.message); }
+
+    // ------------------------------------------------------------------
+    // Assertion 13 (P166): legacy id normalization retains the named note.
+    // ------------------------------------------------------------------
+    try {
+      const legacyPlanning = path.join(tmpRoot, 'p166-legacy', '.planning');
+      fs.mkdirSync(path.join(legacyPlanning, 'metrics'), { recursive: true });
+      const packet = selectiveVTPCall({
+        uncertainty_type: 'architecture_challenge',
+        query: 'P166 bridge legacy id oversized hit',
+        planningDir: legacyPlanning,
+        _force_vtp_health: true,
+        _force_vtp_tool_response: {
+          hits: [{
+            id: 'legacy-1',
+            citation: 'legacy citation',
+            excerpt: 'legacy bounded excerpt',
+            text: 'l'.repeat(16001),
+          }],
+        },
+      });
+      const note = packet.results[0]
+        && Array.isArray(packet.results[0].degradation_notes)
+        && packet.results[0].degradation_notes[0];
+      if (!note || note.reason_code !== 'vtp_substrate_hit_truncated') {
+        throw new Error('legacy id result missing named degradation note');
+      }
+      if (note.hit_index !== 0 || note.identity !== 'hit-1') {
+        throw new Error('legacy id note lost raw hit identity');
+      }
+      ok('13. P166 legacy id -> normalized doc_id + raw-index degradation note');
+    } catch (e) { failAssert('13. P166 bridge legacy-id note attachment', e.message); }
   } finally {
     try { fs.rmSync(tmpRoot, { recursive: true, force: true }); } catch (_) {}
   }

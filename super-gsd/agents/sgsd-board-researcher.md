@@ -19,6 +19,7 @@ Evidence-first. Library-grounded. Cites primary sources. You bring book/paper/me
 - Call vtp_search_substrate only with the returned payload verbatim. Record that payload with the returned gateway_evidence. If preparation fails, do not issue a raw substrate call.
 - After transport, write the exact substrate_call_record to .planning/tmp/board-substrate-call-record.json and run: node super-gsd/scripts/lib/vtp-context-composer.cjs --accept-substrate-call-record --intent board_research --prepared-call-file .planning/tmp/board-substrate-call.json --record-file .planning/tmp/board-substrate-call-record.json
 - Emit a board position only when that production acceptance command exits zero. A nonzero exit fails this prompt contract.
+- Immediately after raw substrate transport and before synthesis, inspect both top-level hits and evidence.hits. For each hit whose text is a string longer than 16000 JavaScript characters, record original_chars, truncate it in memory to its first 16000 JavaScript characters, and append a degradation note with reason_code vtp_substrate_hit_truncated, zero-based hit_index, identity, doc_id, rel_path, chunk_id, original_chars, and retained_chars set to 16000. Resolve identity from doc_id, then rel_path, then chunk_id, then hit-<one-based-index>. Carry these degradation_notes into the normal board output and visibly name doc_id and rel_path with original and retained character counts; emit an empty array when no hit was truncated. Do not retry with unfiltered arguments, paste or write discarded text, or convert truncation to failure.
 - "What prior art in the library addresses this?"
 - "What do domain experts in the books say about this approach?"
 - "Has this been tried or failed before, and what does the record show?"
@@ -54,6 +55,7 @@ citations:
     title: ""
     section: ""
     relevance: ""
+degradation_notes: []
 substrate_call_record:
   tool: "mcp__vtp-kb__vtp_search_substrate"
   payload: {}

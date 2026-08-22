@@ -15,6 +15,7 @@ const auditPath = path.join(repoRoot, 'super-gsd', 'tools', 'feature-propagation
 const bridgePath = path.join(repoRoot, 'super-gsd', 'tools', 'vtp-bridge', 'classify.cjs');
 const v2SchemaPath = path.join(repoRoot, 'super-gsd', 'schemas', 'vtp-mcp-input-schemas.v2.json');
 const Ajv = require(path.join(repoRoot, 'super-gsd', 'tools', 'plan-schema', 'node_modules', 'ajv'));
+const yaml = require(path.join(repoRoot, 'super-gsd', 'tools', 'plan-schema', 'node_modules', 'js-yaml'));
 
 const SEARCH_TOOL = 'mcp__vtp-kb__vtp_search_substrate';
 const SHORT_SEARCH_TOOL = 'vtp_search_substrate';
@@ -191,6 +192,9 @@ function usage() {
     '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case caller-coverage',
     '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case prompt-record-acceptance',
     '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case executable-emitters',
+    '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case megachunk-degraded-artifact',
+    '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case cap-shapes',
+    '  node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case repair-safe-t2',
   ].join('\n');
 }
 
@@ -363,6 +367,278 @@ function sha256Json(payload) {
   return crypto.createHash('sha256').update(Buffer.from(JSON.stringify(payload), 'utf8')).digest('hex');
 }
 
+function deepFreeze(value) {
+  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
+  for (const child of Object.values(value)) deepFreeze(child);
+  return Object.freeze(value);
+}
+
+async function assertMegachunkDegradedArtifact() {
+  const retainedPrefix = 'R'.repeat(16000);
+  const discardedMarker = 'P166_DISCARDED_SUFFIX';
+  const oversizedText = retainedPrefix
+    + 'X'.repeat(900001 - retainedPrefix.length - discardedMarker.length)
+    + discardedMarker;
+  const fixture = deepFreeze({
+    hits: [
+      {
+        doc_id: 'doc:lint-report',
+        chunk_id: 'chunk:lint-report',
+        rel_path: 'wiki/LINT-REPORT.md',
+        source: 'wiki',
+        title: 'LINT report',
+        section: 'full report',
+        relevance: 'high',
+        citation: 'doc:lint-report',
+        text: oversizedText,
+      },
+      {
+        doc_id: 'doc:small-control',
+        chunk_id: 'chunk:small-control',
+        rel_path: 'wiki/SMALL.md',
+        source: 'wiki',
+        title: 'Small control',
+        section: 'summary',
+        relevance: 'medium',
+        citation: 'doc:small-control',
+        text: 'small second hit stays intact',
+      },
+    ],
+    total_hits: 2,
+  });
+  const fixtureHash = sha256Json(fixture);
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-megachunk-'));
+  try {
+    writeFixtureFile(
+      tempRoot,
+      path.join('.planning', 'STATE.md'),
+      '---\nmilestone: fixture\ncurrent_phase: 166\n---\n'
+    );
+    writeFixtureFile(
+      tempRoot,
+      path.join('.planning', 'config.json'),
+      JSON.stringify({ vtp_enrichment: { enabled: true } }) + '\n'
+    );
+    const phaseDir = path.join(tempRoot, '.planning', 'milestones', 'fixture', 'phases', '166-megachunk');
+    fs.mkdirSync(phaseDir, { recursive: true });
+
+    delete require.cache[require.resolve(composerPath)];
+    delete require.cache[require.resolve(gatePath)];
+    const composer = require(composerPath);
+    const gate = require(gatePath);
+    const gateInput = {
+      projectDir: tempRoot,
+      phaseDir,
+      phase: '166',
+      phaseContext: 'P166 megachunk degraded artifact fixture',
+    };
+    const pending = gate.run(gateInput);
+    const substrateCall = pending.sub_agent_spec.substrate_call;
+    const callResult = await composer.callVtp(SEARCH_TOOL, {
+      rawQuery: substrateCall.payload.query,
+      substrateCall,
+      projectDir: tempRoot,
+      logRoot: tempRoot,
+      skillOrAgent: 'p166-megachunk-fixture',
+      tier: 'research',
+      mcpInvoke: () => fixture,
+    });
+    assert.strictEqual(callResult.ok, true, 'oversized substrate retrieval must remain usable');
+    assert.deepStrictEqual(
+      callResult.gateway_evidence,
+      substrateCall.gateway_evidence,
+      'capped call must retain composer gateway evidence'
+    );
+
+    const written = gate.run({
+      ...gateInput,
+      substrateCall,
+      enrichmentResult: {
+        ok: callResult.ok,
+        status: 'success',
+        query_count: 1,
+        total_hits: callResult.response.total_hits,
+        duration_ms: callResult.elapsed_ms,
+        hits: callResult.response.hits,
+        degradation_notes: callResult.degradation_notes || [],
+        gaps: [],
+        alt_framings: [],
+        rationale: '',
+        substrate_call_record: toSubstrateCallRecord(substrateCall),
+      },
+    });
+    assert.strictEqual(written.status, 'success');
+    assert.strictEqual(sha256Json(fixture), fixtureHash, 'the deep-frozen transport fixture must not change');
+
+    assert(
+      Array.isArray(callResult.degradation_notes) && callResult.degradation_notes.length === 1,
+      'oversized retrieval must produce one named degradation note'
+    );
+    assert.deepStrictEqual(callResult.degradation_notes[0], {
+      reason_code: 'vtp_substrate_hit_truncated',
+      hit_index: 0,
+      identity: 'doc:lint-report',
+      doc_id: 'doc:lint-report',
+      rel_path: 'wiki/LINT-REPORT.md',
+      chunk_id: 'chunk:lint-report',
+      original_chars: 900001,
+      retained_chars: 16000,
+    });
+    assert.strictEqual(callResult.response.hits[0].text, retainedPrefix);
+    assert.strictEqual(callResult.response.hits[1], fixture.hits[1], 'normal second hit must be reference-preserved');
+
+    const artifact = gate._internal.readEnrichmentArtifact({ phaseDir, phase: '166' });
+    assert(artifact, 'successful enrichment artifact must remain readable');
+    assert.strictEqual(artifact.empty_hit, false);
+    assert.strictEqual(artifact.total_hits, 2);
+    assert.match(artifact.raw, /vtp_status: success/);
+    assert.match(artifact.raw, /## Degraded Retrieval/);
+    assert.match(artifact.raw, /doc_id=doc:lint-report/);
+    assert.match(artifact.raw, /rel_path=wiki\/LINT-REPORT\.md/);
+    assert.match(artifact.raw, /900001 -> 16000/);
+    assert.doesNotMatch(artifact.raw, /## API Error/);
+    assert.doesNotMatch(artifact.raw, new RegExp(discardedMarker));
+    assert(Buffer.byteLength(artifact.raw, 'utf8') < 32768, 'degraded artifact must remain bounded');
+    const routingLog = fs.readFileSync(
+      path.join(tempRoot, '.planning', 'metrics', 'vtp-routing-log.jsonl'),
+      'utf8'
+    );
+    assert.doesNotMatch(routingLog, new RegExp(discardedMarker));
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+function assertCapShapes() {
+  delete require.cache[require.resolve(composerPath)];
+  delete require.cache[require.resolve(gatePath)];
+  const composer = require(composerPath);
+  const gate = require(gatePath);
+  assert.strictEqual(composer.SUBSTRATE_HIT_MAX_CHARS, 16000);
+  assert.strictEqual(typeof composer.capSubstrateResponse, 'function');
+
+  const exactBoundary = deepFreeze({
+    hits: [
+      { doc_id: 'doc:boundary', text: '\u00e9'.repeat(16000), untouched: { stable: true } },
+      { doc_id: 'doc:non-string', text: 16001 },
+    ],
+    metadata: { shape: 'top-level' },
+  });
+  const exactHash = sha256Json(exactBoundary);
+  const exact = composer.capSubstrateResponse(exactBoundary);
+  assert.strictEqual(exact.response, exactBoundary, 'exact boundary and non-string text must retain response identity');
+  assert.deepStrictEqual(exact.degradation_notes, []);
+  assert.strictEqual(sha256Json(exactBoundary), exactHash);
+
+  const topLevel = deepFreeze({
+    hits: [
+      { doc_id: 'doc:first', rel_path: 'wiki/FIRST.md', chunk_id: 'chunk:first', text: 'a'.repeat(16001) },
+      { doc_id: '', rel_path: 'wiki/SECOND.md', chunk_id: 'chunk:second', text: 'b'.repeat(16002) },
+      { doc_id: '', rel_path: '', chunk_id: 'chunk:third', text: 'c'.repeat(16003) },
+      { doc_id: '', rel_path: '', chunk_id: '', text: 'd'.repeat(16004) },
+      { doc_id: 'doc:normal', text: 'normal', fields: { byte: 'preserved' } },
+    ],
+    metadata: { stable: true },
+  });
+  const topHash = sha256Json(topLevel);
+  const cappedTop = composer.capSubstrateResponse(topLevel);
+  assert.notStrictEqual(cappedTop.response, topLevel);
+  assert.notStrictEqual(cappedTop.response.hits, topLevel.hits);
+  assert.strictEqual(cappedTop.response.metadata, topLevel.metadata);
+  assert.strictEqual(cappedTop.response.hits[4], topLevel.hits[4]);
+  assert.deepStrictEqual(
+    cappedTop.response.hits.slice(0, 4).map((hit) => hit.text.length),
+    [16000, 16000, 16000, 16000]
+  );
+  assert.deepStrictEqual(
+    cappedTop.degradation_notes.map((note) => [note.hit_index, note.identity]),
+    [[0, 'doc:first'], [1, 'wiki/SECOND.md'], [2, 'chunk:third'], [3, 'hit-4']]
+  );
+  assert.deepStrictEqual(
+    cappedTop.degradation_notes.map((note) => [note.original_chars, note.retained_chars]),
+    [[16001, 16000], [16002, 16000], [16003, 16000], [16004, 16000]]
+  );
+  assert.strictEqual(sha256Json(topLevel), topHash);
+
+  const nested = deepFreeze({
+    evidence: {
+      hits: [
+        { doc_id: 'doc:nested', rel_path: 'wiki/NESTED.md', chunk_id: 'chunk:nested', text: 'n'.repeat(16001) },
+        { doc_id: 'doc:nested-normal', text: 'nested normal' },
+      ],
+      documents: [{ doc_id: 'doc:nested' }],
+    },
+    retrieval_plan: { mode: 'fixture' },
+  });
+  const nestedHash = sha256Json(nested);
+  const cappedNested = composer.capSubstrateResponse(nested);
+  assert.notStrictEqual(cappedNested.response, nested);
+  assert.notStrictEqual(cappedNested.response.evidence, nested.evidence);
+  assert.notStrictEqual(cappedNested.response.evidence.hits, nested.evidence.hits);
+  assert.strictEqual(cappedNested.response.evidence.hits[1], nested.evidence.hits[1]);
+  assert.strictEqual(cappedNested.response.evidence.documents, nested.evidence.documents);
+  assert.strictEqual(cappedNested.response.retrieval_plan, nested.retrieval_plan);
+  assert.strictEqual(cappedNested.response.evidence.hits[0].text.length, 16000);
+  assert.deepStrictEqual(cappedNested.degradation_notes.map((note) => note.identity), ['doc:nested']);
+  assert.strictEqual(sha256Json(nested), nestedHash);
+
+  const generatedNote = cappedNested.degradation_notes[0];
+  const injected = deepFreeze({
+    hits: nested.evidence.hits,
+    degradation_notes: [{ ...generatedNote }],
+  });
+  const injectedHash = sha256Json(injected);
+  const normalized = gate._internal.normalizeEnrichmentResult(injected);
+  assert.strictEqual(normalized.hits[0].text.length, 16000);
+  assert.strictEqual(normalized.degradation_notes.length, 1, 'defensive gate recap must collapse duplicate notes');
+  assert.deepStrictEqual(normalized.degradation_notes[0], generatedNote);
+  assert.strictEqual(sha256Json(injected), injectedHash);
+
+  const gateRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-cap-shapes-gate-'));
+  try {
+    writeFixtureFile(
+      gateRoot,
+      path.join('.planning', 'config.json'),
+      JSON.stringify({ vtp_enrichment: { enabled: true } }) + '\n'
+    );
+    const phaseDir = path.join(gateRoot, '.planning', 'milestones', 'fixture', 'phases', '166-cap-shapes');
+    fs.mkdirSync(phaseDir, { recursive: true });
+    const gateInput = {
+      projectDir: gateRoot,
+      phaseDir,
+      phase: '166',
+      phaseContext: 'P166 defensive enrichment injection',
+    };
+    const pending = gate.run(gateInput);
+    const discardedMarker = 'P166_GATE_DISCARDED_SUFFIX';
+    const rawInjection = deepFreeze({
+      ok: true,
+      total_hits: 1,
+      hits: [{
+        doc_id: 'doc:gate-injected',
+        rel_path: 'wiki/GATE-INJECTED.md',
+        chunk_id: 'chunk:gate-injected',
+        text: 'g'.repeat(16000) + discardedMarker,
+      }],
+      substrate_call_record: toSubstrateCallRecord(pending.sub_agent_spec.substrate_call),
+    });
+    const rawInjectionHash = sha256Json(rawInjection);
+    const written = gate.run({
+      ...gateInput,
+      substrateCall: pending.sub_agent_spec.substrate_call,
+      enrichmentResult: rawInjection,
+    });
+    assert.strictEqual(written.status, 'success');
+    assert.strictEqual(sha256Json(rawInjection), rawInjectionHash);
+    const artifact = gate._internal.readEnrichmentArtifact({ phaseDir, phase: '166' });
+    assert.match(artifact.raw, /## Degraded Retrieval/);
+    assert.match(artifact.raw, /doc_id=doc:gate-injected/);
+    assert.doesNotMatch(artifact.raw, new RegExp(discardedMarker));
+  } finally {
+    fs.rmSync(gateRoot, { recursive: true, force: true });
+  }
+}
+
 function assertPreparedEnvelope(envelope, intent, expectedPolicy, validate) {
   assert.deepStrictEqual(Object.keys(envelope), ['tool', 'payload', 'gateway_evidence']);
   assert.strictEqual(envelope.tool, SEARCH_TOOL);
@@ -406,16 +682,54 @@ function assertPromptContracts() {
   assert.match(enrichment, /substrate_call\.payload/);
   assert.match(enrichment, /gateway_evidence/);
   assert.match(enrichment, /substrateCall: substrate_call/);
+  assert.match(enrichment, /degradation_notes/);
+  assert.match(enrichment, /truncate.*in memory/i);
+  assert.match(enrichment, /16000 JavaScript characters/);
+  assert.match(enrichment, /original_chars/);
+  assert.match(enrichment, /Do not retry.*unfiltered/i);
+  assert.match(enrichment, /truncation.*failure/i);
   assert.match(enrichment, /rationale: '',\s+\/\/ only populated if status='empty_hit'/);
   assert.match(board, /--prepare-substrate-call --intent board_research/);
   assert.match(board, /--accept-substrate-call-record --intent board_research/);
   assert.match(board, /gateway_evidence/);
+  assert.match(board, /degradation_notes/);
+  assert.match(board, /truncate.*in memory/i);
+  assert.match(board, /16000 JavaScript characters/);
+  assert.match(board, /original_chars/);
+  assert.match(board, /Do not retry.*unfiltered/i);
+  assert.match(board, /truncation.*failure/i);
   assert.match(audit, /<sgsd_vtp_substrate_policy_p166_phase_research>/);
   assert.match(audit, /--prepare-substrate-call --intent phase_research/);
   assert.match(audit, /--accept-substrate-call-record --intent phase_research/);
   assert.match(audit, /<sgsd_vtp_substrate_policy_p166_planning>/);
   assert.match(audit, /--prepare-substrate-call --intent planning/);
   assert.match(audit, /--accept-substrate-call-record --intent planning/);
+  assert.match(audit, /<sgsd_vtp_substrate_policy_p166_t2_planning>/);
+  assert.match(audit, /<sgsd_vtp_substrate_policy_p166_t2_phase_research>/);
+  assert.strictEqual((audit.match(/Carry degradation_notes into the normal output/g) || []).length, 2);
+  assert.strictEqual((audit.match(/truncate it in memory to its first 16000 JavaScript characters/g) || []).length, 2);
+  assert.strictEqual((audit.match(/original_chars/g) || []).length, 2);
+  assert.strictEqual((audit.match(/Do not retry with unfiltered arguments/g) || []).length, 2);
+  assert.strictEqual((audit.match(/do not convert truncation to failure/g) || []).length, 2);
+
+  const enrichmentExample = enrichment.match(/```js\n([\s\S]*?)\n```/);
+  assert(enrichmentExample, 'enrichment output JavaScript block missing');
+  const evaluateEnrichmentExample = new Function(
+    'substrate_call',
+    enrichmentExample[1] + '\nreturn enrichmentResult;'
+  );
+  const parsedEnrichmentExample = evaluateEnrichmentExample({
+    payload: { query: 'fixture' },
+    gateway_evidence: { schema_version: 'fixture' },
+  });
+  assert(Array.isArray(parsedEnrichmentExample.degradation_notes));
+
+  const boardOutput = board.match(/<output>\n[\s\S]*?\n\n([\s\S]*?)\n<\/output>/);
+  assert(boardOutput, 'board YAML output block missing');
+  const parsedBoardOutput = yaml.load(boardOutput[1]);
+  assert(Array.isArray(parsedBoardOutput.degradation_notes));
+  assert.strictEqual(parsedBoardOutput.degradation_notes.length, 0);
+  assert.match(board, /reason_code vtp_substrate_hit_truncated/);
   for (const source of [enrichment, board, audit]) {
     assert.doesNotMatch(source, /source_types\s*:\s*\[/, 'prompt callers must not own source_types arrays');
     assert.doesNotMatch(source, /\blimit\s*:\s*[1-9]/, 'prompt callers must not own limit literals');
@@ -733,12 +1047,14 @@ function assertRepairSafePatches() {
     fs.mkdirSync(agentsDir, { recursive: true });
     fs.writeFileSync(
       path.join(agentsDir, 'gsd-phase-researcher.md'),
-      '---\ntools: Read\n---\n<sgsd_vtp_research_contract>\nlegacy P16 contract\n</sgsd_vtp_research_contract>\n',
+      '---\ntools: Read\n---\n<sgsd_vtp_research_contract>\nlegacy P16 contract\n</sgsd_vtp_research_contract>\n'
+        + '<sgsd_vtp_substrate_policy_p166_phase_research>\nT1 policy\n</sgsd_vtp_substrate_policy_p166_phase_research>\n',
       'utf8'
     );
     fs.writeFileSync(
       path.join(agentsDir, 'gsd-planner.md'),
-      '---\ntools: Read\n---\n<sgsd_vtp_enrichment_contract>\nlegacy P16 contract\n</sgsd_vtp_enrichment_contract>\n',
+      '---\ntools: Read\n---\n<sgsd_vtp_enrichment_contract>\nlegacy P16 contract\n</sgsd_vtp_enrichment_contract>\n'
+        + '<sgsd_vtp_substrate_policy_p166_planning>\nT1 policy\n</sgsd_vtp_substrate_policy_p166_planning>\n',
       'utf8'
     );
     const projectDir = path.join(tempRoot, 'fixture-project');
@@ -754,9 +1070,13 @@ function assertRepairSafePatches() {
     const planner = fs.readFileSync(path.join(agentsDir, 'gsd-planner.md'), 'utf8');
     assert.match(researcher, /<sgsd_vtp_substrate_policy_p166_phase_research>/);
     assert.match(planner, /<sgsd_vtp_substrate_policy_p166_planning>/);
+    assert.match(researcher, /<sgsd_vtp_substrate_policy_p166_t2_phase_research>/);
+    assert.match(planner, /<sgsd_vtp_substrate_policy_p166_t2_planning>/);
     const rows = new Map(report.global_legacy_agents.map((row) => [row.name, row]));
     assert.strictEqual(rows.get('gsd-phase-researcher.md').p166_patched, true);
     assert.strictEqual(rows.get('gsd-planner.md').p166_patched, true);
+    assert.strictEqual(rows.get('gsd-phase-researcher.md').p166_t2_patched, true);
+    assert.strictEqual(rows.get('gsd-planner.md').p166_t2_patched, true);
   } finally {
     if (oldUserProfile === undefined) delete process.env.USERPROFILE;
     else process.env.USERPROFILE = oldUserProfile;
@@ -921,6 +1241,9 @@ async function main(argv = process.argv.slice(2)) {
     assertPromptRecordAcceptance(composer, expected);
   }
   else if (caseName === 'executable-emitters') await assertExecutableEmitters();
+  else if (caseName === 'megachunk-degraded-artifact') await assertMegachunkDegradedArtifact();
+  else if (caseName === 'cap-shapes') assertCapShapes();
+  else if (caseName === 'repair-safe-t2') assertRepairSafePatches();
   else {
     process.stderr.write(usage() + '\n');
     return 2;

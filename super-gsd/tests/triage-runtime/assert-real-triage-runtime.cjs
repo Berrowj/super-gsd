@@ -714,12 +714,68 @@ async function assertVtpEnrichmentEnabled() {
   }
 }
 
+async function assertOversizedFallbackDegradation() {
+  const fixture = createSgsdFixture({ repoId: 'oversized-fallback-degradation' });
+  const discardedMarker = 'P166_TRIAGE_DISCARDED_SUFFIX';
+  try {
+    const fallbackResponse = searchResponse({ hits: 2, docPrefix: 'fixture-capped-fallback' });
+    fallbackResponse.evidence.hits[0] = {
+      doc_id: 'doc:lint-report',
+      chunk_id: 'chunk:lint-report',
+      rel_path: 'wiki/LINT-REPORT.md',
+      text: 'r'.repeat(16000) + discardedMarker,
+    };
+    fallbackResponse.evidence.documents[0] = {
+      doc_id: 'doc:lint-report',
+      title: 'LINT report',
+    };
+    const transport = makeTransport([
+      {
+        tool: ROUTE_TOOL,
+        response: routeResponse({ reflection: null, hits: 2, docPrefix: 'fixture-route-capped' }),
+      },
+      { tool: SEARCH_TOOL, response: fallbackResponse },
+    ]);
+    const { value: result } = await runRuntimeInProcess(fixture, transport, {
+      scenario: 'oversized-fallback-degradation',
+    });
+    assert.strictEqual(result.exitCode, 0, 'truncated fallback must continue with exit 0');
+    assert.strictEqual(result.mode, 'fallback');
+    assert.deepStrictEqual(transport.calls.map((call) => call.tool), [ROUTE_TOOL, SEARCH_TOOL]);
+
+    const rows = gateRowsWithReason(fixture, 'vtp_substrate_hit_truncated');
+    assert.strictEqual(rows.length, 1, 'truncated fallback must append one named degradation row');
+    const nextAction = JSON.parse(rows[0].next_action);
+    assert.deepStrictEqual(nextAction, {
+      identity: 'doc:lint-report',
+      hit_index: 0,
+      doc_id: 'doc:lint-report',
+      rel_path: 'wiki/LINT-REPORT.md',
+      chunk_id: 'chunk:lint-report',
+      original_chars: 16000 + discardedMarker.length,
+      retained_chars: 16000,
+    });
+    assert.doesNotMatch(rows[0].next_action, new RegExp(discardedMarker));
+
+    const evidence = readContainedFile(fixture.repoDir, VTP_EVIDENCE_REL);
+    assert.match(evidence, /## Degraded Retrieval/);
+    assert.match(evidence, /doc_id=doc:lint-report/);
+    assert.match(evidence, /rel_path=wiki\/LINT-REPORT\.md/);
+    assert.match(evidence, new RegExp((16000 + discardedMarker.length) + ' -> 16000'));
+    assert.doesNotMatch(evidence, new RegExp(discardedMarker));
+    assert(Buffer.byteLength(evidence, 'utf8') < 32768, 'triage evidence must stay bounded');
+  } finally {
+    fixture.cleanup();
+  }
+}
+
 async function assertAllFallbackContainedDegradation() {
   await assertHealthyRouteNoFallback();
   await assertNullReflectionFallback();
   await assertLowHitFallback();
   await assertRouteErrorFallback();
   await assertFallbackAlsoFails();
+  await assertOversizedFallbackDegradation();
   await assertNonSgsdNoWrite();
 }
 

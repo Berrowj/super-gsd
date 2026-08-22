@@ -30,6 +30,8 @@ const SUBSTRATE_TOOL = 'mcp__vtp-kb__vtp_search_substrate';
 const SUBSTRATE_TOOL_SHORT = 'vtp_search_substrate';
 const SUBSTRATE_SCHEMA_VERSION = 'vtp-mcp-input-schemas.v2';
 const SUBSTRATE_SCHEMA_PATH = path.join(__dirname, '..', '..', 'schemas', 'vtp-mcp-input-schemas.v2.json');
+const SUBSTRATE_HIT_MAX_CHARS = 16000;
+const SUBSTRATE_HIT_TRUNCATED_REASON = 'vtp_substrate_hit_truncated';
 const SECONDARY_SUBSTRATE_FILTERS = Object.freeze([
   'entity_types',
   'project_ids',
@@ -301,6 +303,70 @@ function isSubstrateTool(tool) {
   return tool === SUBSTRATE_TOOL || tool === SUBSTRATE_TOOL_SHORT;
 }
 
+function substrateHitIdentity(hit, hitIndex) {
+  for (const key of ['doc_id', 'rel_path', 'chunk_id']) {
+    if (typeof hit[key] === 'string' && hit[key].length > 0) return hit[key];
+  }
+  return 'hit-' + (hitIndex + 1);
+}
+
+function capSubstrateHitList(hits) {
+  let cappedHits = hits;
+  const degradationNotes = [];
+  for (let hitIndex = 0; hitIndex < hits.length; hitIndex += 1) {
+    const hit = hits[hitIndex];
+    if (!hit || typeof hit !== 'object' || Array.isArray(hit)) continue;
+    if (typeof hit.text !== 'string' || hit.text.length <= SUBSTRATE_HIT_MAX_CHARS) continue;
+    if (cappedHits === hits) cappedHits = hits.slice();
+    cappedHits[hitIndex] = {
+      ...hit,
+      text: hit.text.slice(0, SUBSTRATE_HIT_MAX_CHARS),
+    };
+    degradationNotes.push({
+      reason_code: SUBSTRATE_HIT_TRUNCATED_REASON,
+      hit_index: hitIndex,
+      identity: substrateHitIdentity(hit, hitIndex),
+      doc_id: typeof hit.doc_id === 'string' && hit.doc_id.length > 0 ? hit.doc_id : null,
+      rel_path: typeof hit.rel_path === 'string' && hit.rel_path.length > 0 ? hit.rel_path : null,
+      chunk_id: typeof hit.chunk_id === 'string' && hit.chunk_id.length > 0 ? hit.chunk_id : null,
+      original_chars: hit.text.length,
+      retained_chars: SUBSTRATE_HIT_MAX_CHARS,
+    });
+  }
+  return { hits: cappedHits, degradation_notes: degradationNotes };
+}
+
+function capSubstrateResponse(response) {
+  if (!response || typeof response !== 'object' || Array.isArray(response)) {
+    return { response, degradation_notes: [] };
+  }
+
+  let cappedResponse = response;
+  const degradationNotes = [];
+  if (Array.isArray(response.hits)) {
+    const topLevel = capSubstrateHitList(response.hits);
+    if (topLevel.hits !== response.hits) {
+      cappedResponse = { ...response, hits: topLevel.hits };
+    }
+    degradationNotes.push(...topLevel.degradation_notes);
+  }
+
+  const evidence = response.evidence;
+  if (evidence && typeof evidence === 'object' && !Array.isArray(evidence) && Array.isArray(evidence.hits)) {
+    const nested = capSubstrateHitList(evidence.hits);
+    if (nested.hits !== evidence.hits) {
+      if (cappedResponse === response) cappedResponse = { ...response };
+      cappedResponse.evidence = { ...evidence, hits: nested.hits };
+    }
+    degradationNotes.push(...nested.degradation_notes);
+  }
+
+  return {
+    response: cappedResponse,
+    degradation_notes: degradationNotes,
+  };
+}
+
 function substratePayloadDigest(payload) {
   return crypto.createHash('sha256')
     .update(Buffer.from(JSON.stringify(payload), 'utf8'))
@@ -511,9 +577,21 @@ function callVtp(tool, args) {
 
   function onSuccess(response) {
     const elapsed_ms = Date.now() - t0;
-    writeRoutingLogRow({ projectDir, logRoot, skillOrAgent, tier, rawQuery, response, elapsed_ms });
-    const result = { ok: true, response, elapsed_ms };
+    const capped = isSubstrateTool(tool)
+      ? capSubstrateResponse(response)
+      : { response, degradation_notes: [] };
+    writeRoutingLogRow({
+      projectDir,
+      logRoot,
+      skillOrAgent,
+      tier,
+      rawQuery,
+      response: capped.response,
+      elapsed_ms,
+    });
+    const result = { ok: true, response: capped.response, elapsed_ms };
     if (gatewayEvidence) result.gateway_evidence = gatewayEvidence;
+    if (capped.degradation_notes.length > 0) result.degradation_notes = capped.degradation_notes;
     return result;
   }
 
@@ -557,9 +635,11 @@ module.exports = {
   TIERS,
   resetCache,
   SUBSTRATE_CALL_POLICY,
+  SUBSTRATE_HIT_MAX_CHARS,
   buildSubstrateArgs,
   prepareSubstrateCall,
   acceptPromptSubstrateCallRecord,
+  capSubstrateResponse,
 };
 
 // Non-exported helpers kept on the function table for self-test access only
@@ -867,6 +947,50 @@ function runSelfTest() {
         if (sanitized.length !== 2) fail(`Test10: expected 2 clean entries, got ${sanitized.length}: ${JSON.stringify(sanitized)}`);
         if (passed && sanitized[0] !== 'git status') fail(`Test10: first clean entry wrong`);
         if (passed && sanitized[1] !== 'echo hello') fail(`Test10: second clean entry wrong`);
+      }
+
+      // ---------------------------------------------------------------------
+      // Test 11: per-hit cap handles both shapes without mutation.
+      // ---------------------------------------------------------------------
+      if (passed) {
+        const normalHit = Object.freeze({ doc_id: 'doc:normal', text: 'normal' });
+        const exactHit = Object.freeze({ doc_id: 'doc:exact', text: 'e'.repeat(SUBSTRATE_HIT_MAX_CHARS) });
+        const source = Object.freeze({
+          hits: Object.freeze([
+            Object.freeze({ doc_id: 'doc:top', text: 't'.repeat(SUBSTRATE_HIT_MAX_CHARS + 1) }),
+            normalHit,
+            Object.freeze({ doc_id: 'doc:non-string', text: 17000 }),
+          ]),
+          evidence: Object.freeze({
+            hits: Object.freeze([
+              Object.freeze({
+                doc_id: '',
+                rel_path: 'wiki/NESTED.md',
+                chunk_id: 'chunk:nested',
+                text: 'n'.repeat(SUBSTRATE_HIT_MAX_CHARS + 2),
+              }),
+              exactHit,
+            ]),
+          }),
+        });
+        const before = JSON.stringify(source);
+        const capped = capSubstrateResponse(source);
+        if (JSON.stringify(source) !== before) fail('Test11: cap mutated its input');
+        if (passed && capped.response.hits[0].text.length !== SUBSTRATE_HIT_MAX_CHARS) {
+          fail('Test11: top-level hit was not capped');
+        }
+        if (passed && capped.response.evidence.hits[0].text.length !== SUBSTRATE_HIT_MAX_CHARS) {
+          fail('Test11: evidence hit was not capped');
+        }
+        if (passed && capped.response.hits[1] !== normalHit) fail('Test11: normal hit was cloned');
+        if (passed && capped.response.evidence.hits[1] !== exactHit) fail('Test11: exact-boundary hit was cloned');
+        if (passed && capped.degradation_notes.length !== 2) fail('Test11: expected two degradation notes');
+        if (passed && capped.degradation_notes[0].identity !== 'doc:top') {
+          fail('Test11: top-level note order or identity changed');
+        }
+        if (passed && capped.degradation_notes[1].identity !== 'wiki/NESTED.md') {
+          fail('Test11: nested note order or identity changed');
+        }
       }
     } catch (err) {
       fail(`Unexpected error: ${err.message}`);

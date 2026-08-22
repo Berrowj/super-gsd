@@ -31,6 +31,7 @@ You run the cascade using the `seed` string and `tools` array, then invoke `run(
 
 <substrate_call_policy>
 For tool 2/5, call vtp_search_substrate with substrate_call.payload verbatim. Do not construct or amend substrate arguments. Record the tool, exact payload, and matching substrate_call.gateway_evidence together. The production run() acceptance path validates that record against substrate_call and rejects missing evidence, digest drift, unfiltered payloads, and limit 6. If the envelope is missing or preparation failed, do not issue a raw substrate call.
+Immediately after raw substrate transport and before synthesis, inspect both top-level hits and evidence.hits. For each hit whose text is a string longer than 16000 JavaScript characters, record original_chars, truncate it in memory to its first 16000 JavaScript characters, and append a degradation note with reason_code vtp_substrate_hit_truncated, zero-based hit_index, identity, doc_id, rel_path, chunk_id, original_chars, and retained_chars set to 16000. Resolve identity from doc_id, then rel_path, then chunk_id, then hit-<one-based-index>. Carry these degradation_notes into the normal enrichmentResult output; use an empty array when no hit was truncated. Do not retry with unfiltered arguments. Never paste or write discarded text, and do not convert truncation to failure.
 </substrate_call_policy>
 
 <reasoning>
@@ -61,7 +62,7 @@ For each phase you enrich, run this reasoning chain:
 Return the `enrichmentResult` object as structured data (not prose). The lib module writes the artifact — you produce the data.
 
 ```js
-{
+const enrichmentResult = {
   ok: true,                    // false only on VTP API error
   status: 'success',           // 'success' | 'empty_hit' | 'api_error'
   phase: '21',
@@ -69,18 +70,18 @@ Return the `enrichmentResult` object as structured data (not prose). The lib mod
   total_hits: 12,
   duration_ms: 8450,
   hits: [
-    { source: 'book', title: 'X Y Z', section: 'Ch.3', relevance: 'high', citation: 'doc:abc...' },
-    ...
+    { source: 'book', title: 'X Y Z', section: 'Ch.3', relevance: 'high', citation: 'doc:abc...' }
   ],
   gaps: ['topic Alpha', 'topic Beta'],    // string descriptors
-  alt_framings: ['Framing A: ...', ...],  // prose bullets
+  alt_framings: ['Framing A: ...'],       // prose bullets
   rationale: '',               // only populated if status='empty_hit'
+  degradation_notes: [],       // generated in memory for truncated hits; empty otherwise
   substrate_call_record: {
     tool: 'mcp__vtp-kb__vtp_search_substrate',
     payload: substrate_call.payload,
     gateway_evidence: substrate_call.gateway_evidence
   }
-}
+};
 ```
 
 Then call `require('super-gsd/scripts/lib/vtp-enrichment-gate').run({projectDir, phaseDir, phase, substrateCall: substrate_call, enrichmentResult})` - returns `{status, artifact_path}`.

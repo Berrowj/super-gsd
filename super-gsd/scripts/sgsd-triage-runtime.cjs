@@ -361,6 +361,28 @@ function writeVtpEvidence(root, state, params) {
     }
   }
 
+  const degradationNotes = Array.isArray(p.degradationNotes) ? p.degradationNotes : [];
+  if (degradationNotes.length > 0) {
+    lines.push('', '## Degraded Retrieval');
+    for (const note of degradationNotes) {
+      const identity = sanitizeVtpMarkdownText(
+        note.identity || note.doc_id || note.rel_path || note.chunk_id
+          || (Number.isInteger(note.hit_index) ? 'hit-' + (note.hit_index + 1) : 'hit-unknown')
+      );
+      const fields = [
+        'identity=' + identity,
+        Number.isInteger(note.hit_index) ? 'hit_index=' + note.hit_index : null,
+        note.doc_id ? 'doc_id=' + sanitizeVtpMarkdownText(note.doc_id) : null,
+        note.rel_path ? 'rel_path=' + sanitizeVtpMarkdownText(note.rel_path) : null,
+        note.chunk_id ? 'chunk_id=' + sanitizeVtpMarkdownText(note.chunk_id) : null,
+        Number.isInteger(note.original_chars) && Number.isInteger(note.retained_chars)
+          ? 'characters ' + note.original_chars + ' -> ' + note.retained_chars
+          : null,
+      ].filter(Boolean);
+      lines.push('- ' + sanitizeVtpMarkdownText(note.reason_code) + ': ' + fields.join('; '));
+    }
+  }
+
   lines.push(
     '',
     '## Call Results',
@@ -1579,6 +1601,7 @@ async function runTriageRuntime(options = {}) {
   let fallbackPredicateValue = null;
   let mode = 'route';
   const degradationRows = [];
+  const substrateDegradationNotes = [];
   const stagedVtp = loadStagedVtpForRun(root, state, rawQuery, triageSlice, evidenceRel, options);
   let evidencePath = stagedVtp ? stagedVtp.evidencePath : null;
 
@@ -1673,6 +1696,29 @@ async function runTriageRuntime(options = {}) {
     if (fallbackResult.ok) {
       selectedResponse = fallbackResult.response;
       mode = 'fallback';
+      if (Array.isArray(fallbackResult.degradation_notes)) {
+        substrateDegradationNotes.push(...fallbackResult.degradation_notes);
+        for (const note of fallbackResult.degradation_notes) {
+          degradationRows.push(logDegradation(root, state, {
+            reasonCode: note.reason_code,
+            rawQuery,
+            routeOk: routeResult.ok === true,
+            fallbackPredicate: fallbackPredicateValue,
+            evidenceRel,
+            skillOrAgent: options.skillOrAgent,
+            silent: options.silent,
+            nextActionPayload: {
+              identity: note.identity,
+              hit_index: note.hit_index,
+              doc_id: note.doc_id,
+              rel_path: note.rel_path,
+              chunk_id: note.chunk_id,
+              original_chars: note.original_chars,
+              retained_chars: note.retained_chars,
+            },
+          }));
+        }
+      }
     } else {
       selectedResponse = null;
       mode = 'evidence_less';
@@ -1704,6 +1750,7 @@ async function runTriageRuntime(options = {}) {
       routeResult,
       fallbackResult,
       fallbackPredicate: fallbackPredicateValue,
+      degradationNotes: substrateDegradationNotes,
     });
   }
 
