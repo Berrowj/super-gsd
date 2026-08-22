@@ -1,22 +1,27 @@
 'use strict';
 
 /**
- * vtp-context-composer.cjs — Shared VTP context builder and tier projector.
+ * vtp-context-composer.cjs - Shared VTP context builder and tier projector.
  *
- * Exports: { compose, project, isFastPathEligible, callVtp, TIERS, resetCache }
+ * Public exports: { compose, project, isFastPathEligible, callVtp, TIERS,
+ * resetCache, SUBSTRATE_CALL_POLICY, SUBSTRATE_HIT_MAX_CHARS,
+ * buildSubstrateArgs, prepareSubstrateCall, acceptPromptSubstrateCallRecord,
+ * capSubstrateResponse }
  *
- * compose(sgsd_state)         — build full_context_object once (reads STATE.md, git log, errors)
- * project(ctx, tier)          — zero-cost tier slice: triage|research|plan|pattern|assumptions|standalone
- * isFastPathEligible(ctx)     — true when current_task maps to active phase AND explicit_constraints non-empty
- * callVtp(tool, args)         — Date.now()-bracketed MCP wrapper; returns {ok, response, elapsed_ms, reason?}
- * TIERS                       — Object.freeze({...}) declarative field-map per tier
- * resetCache()                — test-only: clear in-memory cache
+ * compose(sgsd_state)         - build full_context_object once (reads STATE.md, git log, errors)
+ * project(ctx, tier)          - zero-cost tier slice: triage|research|plan|pattern|assumptions|standalone
+ * isFastPathEligible(ctx)     - true when current_task maps to active phase AND explicit_constraints non-empty
+ * callVtp(tool, args)         - Date.now()-bracketed MCP wrapper for injected transports
+ * TIERS                       - Object.freeze({...}) declarative field-map per tier
+ * resetCache()                - test-only: clear in-memory cache
  *
- * Contract (per Phase 16 D-07 + E-03): skills and agents NEVER call mcp__vtp-kb__* directly.
- * All VTP invocations flow through callVtp(...), which is the single measurement point for
- * elapsed_ms and the single log-writer for .planning/metrics/vtp-routing-log.jsonl.
+ * Runtime callers with an injectable transport use callVtp(), the measurement
+ * and routing-log seam. Prompt-only agents cannot inject that transport, so
+ * they prepare a policy-owned envelope before raw MCP transport and submit the
+ * exact call record to acceptPromptSubstrateCallRecord afterward.
  *
- * Zero external runtime deps — fs, path, os only.
+ * Runtime dependencies: Node builtins fs, path, os, and crypto; local
+ * sgsd-state.cjs; and the repository-vendored Ajv package.
  */
 
 const fs   = require('fs');
@@ -493,16 +498,16 @@ function acceptPromptSubstrateCallRecord(intentFamily, preparedCall, substrateCa
  * (per E-03 — VTP tools do not return this natively). Writes a routing-log row
  * on BOTH success AND failure paths (threat T-16-08 mitigation).
  *
- * The actual MCP dispatch is caller-injected via args.mcpInvoke(tool, payload)
- * — this keeps the composer testable and decouples the wrapper from the caller's
- * tool-invocation mechanism. Skills use their own Bash/Agent-tool invocation to
- * actually call mcp__vtp-kb__*; the composer's job is framing + measurement +
- * logging.
+ * The actual MCP dispatch is caller-injected via args.mcpInvoke(tool, payload).
+ * This keeps mediated runtime calls testable and decouples the wrapper from the
+ * caller's tool-invocation mechanism. Prompt-only agents use the separate
+ * prepare, raw transport, and record-acceptance flow described above.
  *
  * @param {string} tool - canonical MCP tool name (e.g. 'mcp__vtp-kb__vtp_route_and_retrieve')
  * @param {Object} args
  * @param {Function} [args.mcpInvoke] - async (tool, payload) => response
- * @param {Object}   [args.payload]
+ * @param {Object}   [args.payload] - generic non-substrate payload
+ * @param {Object}   [args.substrateCall] - prepared substrate envelope
  * @param {string}   args.projectDir
  * @param {string}   args.skillOrAgent
  * @param {string}   args.tier
@@ -642,8 +647,7 @@ module.exports = {
   capSubstrateResponse,
 };
 
-// Non-exported helpers kept on the function table for self-test access only
-// (not part of the public contract).
+// Private helpers exposed under _internal for self-test access only.
 module.exports._internal = {
   readConfigToggle,
   sanitizeRecentCommands,

@@ -12,10 +12,10 @@
 //   lookup, gated by Phase 47 VTP_WHITELIST (imported BY REFERENCE; never copied).
 // Lock 13 (never-throws): every public API wraps internals in try/catch and
 //   returns a {ok:false, reason_codes:['bridge_internal_error']} sentinel.
-// READ-ONLY (canonical streams + Phase 41-47 sources): bridge writes ONLY to
-//   .planning/metrics/vtp-bridge-failures.jsonl (NEW canonical) and via
-//   Phase 32 logRouteDecision -> route-decisions.jsonl. Phase 45 source
-//   (super-gsd/tools/context-packet/build.cjs) is NEVER mutated.
+// WRITE TOPOLOGY: failures append vtp-bridge-failures.jsonl, decisions append
+//   route-decisions.jsonl through Phase 32 logRouteDecision, and mediated
+//   substrate calls append vtp-routing-log.jsonl through callVtp. Phase 45
+//   source super-gsd/tools/context-packet/build.cjs is never mutated.
 //
 // Acceptance bindings:
 //   A1 local-implementation phases do NOT call VTP by default
@@ -42,18 +42,14 @@
 //   COMMAND_NAME                       ('vtpBridgeEvidence')
 //   ENVELOPE_VERSION                   (1)
 //
-// Source citations (mirror-only, no requires):
-//   - route.cjs:175-179  VTP_WHITELIST (imported BY REFERENCE)
-//   - route.cjs:296-316  isProviderHealthy (imported BY REFERENCE)
-//   - route.cjs:319-378  loadRoutes (imported BY REFERENCE for vtp_bridge: section)
-//   - route-ledger.cjs:66-75  BOUNDARIES (Phase 48 extends 8->9 in T2)
-//   - route-ledger.cjs:211-218  logRouteDecision
-//   - build.cjs:220-234  _assertValidatedThoughtProvenance (mirrored as _assertResultProvenance)
-//   - build.cjs:208-215  _estimateTokens (mirrored locally)
-//   - build.cjs:538-575  enforceRoleBudget (mirrored as _enforcePacketCap)
+// Runtime dependencies and mirrored source contracts:
+//   - route.cjs: VTP_WHITELIST and isProviderHealthy by reference
+//   - route-ledger.cjs: logRouteDecision by reference
+//   - vtp-context-composer.cjs: prepareSubstrateCall and callVtp
+//   - build.cjs: provenance, token estimate, and packet-cap logic mirrored locally
 //
 // CLI:
-//   node classify.cjs --self-test  -> run 11 in-module assertions
+//   node classify.cjs --self-test  -> run 13 in-module assertions
 //   node classify.cjs --bridge --uncertainty-type X --query Y [--phase N] [--milestone V]
 // ============================================================================
 
@@ -792,7 +788,7 @@ function selectiveVTPCallForPacket(intent_map, opts) {
 }
 
 // ----------------------------------------------------------------------------
-// SELF-TEST (11 assertions: F1-F10 + assertion 11 defense-in-depth)
+// SELF-TEST (13 assertions: F1-F10, assertion 11 defense-in-depth, P166 12-13)
 // ----------------------------------------------------------------------------
 function _runSelfTest() {
   const start = Date.now();

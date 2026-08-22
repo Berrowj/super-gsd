@@ -1,24 +1,25 @@
 'use strict';
 
 /**
- * vtp-enrichment-gate.cjs — VTP enrichment gate for the research->planning boundary.
+ * vtp-enrichment-gate.cjs - VTP enrichment gate for the research->planning boundary.
  *
- * Exports: { run(opts), vtpCrossRef(text, tier, opts) }
+ * Public exports: { run(opts), vtpCrossRef(text, tier, opts),
+ * vtpCrossReference(text, tier, opts) }
  *
- * run(opts) — builds 800-token seed (CONTEXT domain + REQ-IDs AC + RESEARCH.md per D-02),
- *   composes sub-agent spec for the 5-tool VTP cascade (D-01), writes VTP-ENRICHMENT.md
- *   per D-04 shape, returns {status, artifact_path}.
- *   status values: 'success' | 'empty_hit' | 'api_error'
+ * run(opts) - builds the 800-token seed and prepared enrichment envelope. It
+ *   returns a pending 5-tool sub-agent spec before dispatch, then validates the
+ *   injected substrate call record and writes VTP-ENRICHMENT.md afterward.
+ *   status values: 'disabled' | 'pending' | 'success' | 'empty_hit' | 'api_error'
  *
- * vtpCrossRef(text, tier, opts) — tier-based batching stub per D-05:
+ * vtpCrossRef(text, tier, opts) - tier-based batching stub per D-05:
  *   CRITICAL findings: per-finding deep query spec
  *   WARN findings: batched end-of-audit query spec
  *   PASS findings: no-op, returns {citations:[]}
  *
- * Contract (per VTPE-01 + D-07): this module does NOT directly call mcp__vtp-kb__* tools.
- * MCP tools require agent runtime scope (Assumption A1). Instead, run() returns a
- * sub_agent_spec that the calling orchestrator dispatches; the sub-agent invokes callVtp()
- * from vtp-context-composer.cjs in MCP scope.
+ * Contract (per VTPE-01 + D-07): this module does not directly call MCP tools.
+ * run() returns a prepared substrate envelope in the dispatched sub-agent spec.
+ * The prompt-only agent transports that payload in MCP scope and returns the
+ * exact call record, which run() validates before accepting the result.
  *
  * D-07: config.vtp_enrichment absent or enabled=false -> all gates disabled. run() returns
  *   {status:'disabled', artifact_path:null} immediately when disabled.
@@ -413,7 +414,8 @@ function readEnrichmentArtifact({ phaseDir, phase }) {
 /**
  * Compose the sub-agent dispatch spec for the VTP enrichment gate (VTPE-01).
  * Returns a spec object the orchestrator uses to dispatch sgsd-vtp-enrichment.
- * The sub-agent runs in MCP scope and calls callVtp() via vtp-context-composer.cjs.
+ * The prompt-only sub-agent transports the prepared payload in MCP scope and
+ * returns its exact call record for production acceptance.
  *
  * D-01 cascade:
  *   Tools 1+2 always run (cheap keyword+content sweep).
@@ -446,8 +448,9 @@ function composeSubAgentSpec(opts) {
 /**
  * Main gate entry point.
  *
- * In production: composes sub-agent spec for orchestrator dispatch; actual VTP
- * calls happen in agent runtime scope (MCP available there, not here).
+ * In production: composes a prepared sub-agent spec for orchestrator dispatch;
+ * raw MCP transport happens in agent runtime scope and the returned record is
+ * validated here before artifact synthesis.
  *
  * In --self-test mode: stub mode, no real MCP calls.
  *
@@ -483,6 +486,8 @@ function run(opts) {
 
   // If enrichmentResult is provided (post-sub-agent injection): write artifact
   if (enrichmentResult) {
+    // Preserve reason precedence when both the dispatch envelope and record are
+    // absent: this gate must report substrate_call_record_missing first.
     if (!enrichmentResult.substrate_call_record) {
       throw new Error('vtp_prompt_substrate_contract_invalid:substrate_call_record_missing');
     }
@@ -491,7 +496,7 @@ function run(opts) {
       opts.substrateCall,
       enrichmentResult.substrate_call_record
     );
-    // Map callVtp status to gate status per output_contract (Pitfall 2 distinction)
+    // Map the accepted prompt result to gate status per the output contract.
     let status = 'success';
     if (enrichmentResult.ok === false) {
       status = 'api_error';
@@ -630,7 +635,7 @@ function vtpCrossReference(findingText, tier, opts) {
 
 module.exports = { run, vtpCrossRef, vtpCrossReference };
 
-// Non-exported internals for self-test access
+// Private helpers exposed under _internal for self-test access only.
 module.exports._internal = {
   buildQuerySeed,
   writeEnrichmentArtifact,
@@ -672,7 +677,7 @@ function runSelfTest() {
 
   try {
     // -----------------------------------------------------------------
-    // Test 1: module exports { run, vtpCrossRef } (falsifier check)
+    // Test 1: core public exports run and vtpCrossRef (falsifier check)
     // -----------------------------------------------------------------
     if (typeof module.exports.run !== 'function') fail('Test1: run is not a function');
     if (passed && typeof module.exports.vtpCrossRef !== 'function') fail('Test1: vtpCrossRef is not a function');

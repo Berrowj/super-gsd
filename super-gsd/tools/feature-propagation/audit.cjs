@@ -55,38 +55,54 @@ const REQUIRED_VTP_AGENTS = Object.freeze([
   'sgsd-vtp-enrichment.md',
   'sgsd-board-researcher.md',
 ]);
-const REQUIRED_LEGACY_AGENT_PATCHES = Object.freeze([
-  {
-    name: 'gsd-planner.md',
-    marker: '<sgsd_vtp_enrichment_contract>',
-    p166Marker: '<sgsd_vtp_substrate_policy_p166_planning>',
+
+function buildP166LegacyPromptPatch(opts) {
+  const intent = opts.intent;
+  const markerSuffix = opts.markerSuffix;
+  const substrateTool = opts.substrateTool;
+  const p166Marker = '<sgsd_vtp_substrate_policy_p166_' + markerSuffix + '>';
+  const p166T2Marker = '<sgsd_vtp_substrate_policy_p166_t2_' + markerSuffix + '>';
+  return {
+    p166Marker,
     p166Append: [
       '',
-      '<sgsd_vtp_substrate_policy_p166_planning>',
+      p166Marker,
       '## SGSD P166 Substrate Call Policy',
       '',
       'Use Bash to write a contained JSON query input under .planning/tmp, then run:',
-      'node super-gsd/scripts/lib/vtp-context-composer.cjs --prepare-substrate-call --intent planning --input-file <relative-json-path>',
+      'node super-gsd/scripts/lib/vtp-context-composer.cjs --prepare-substrate-call --intent ' + intent + ' --input-file <relative-json-path>',
       'Save the returned envelope to a contained <prepared-call-json-path>.',
-      'Pass the returned payload verbatim to mcp__vtp-kb__vtp_search_substrate.',
+      'Pass the returned payload verbatim to ' + substrateTool + '.',
       'Write the exact substrate_call_record to a contained <record-json-path>, then run:',
-      'node super-gsd/scripts/lib/vtp-context-composer.cjs --accept-substrate-call-record --intent planning --prepared-call-file <prepared-call-json-path> --record-file <record-json-path>',
+      'node super-gsd/scripts/lib/vtp-context-composer.cjs --accept-substrate-call-record --intent ' + intent + ' --prepared-call-file <prepared-call-json-path> --record-file <record-json-path>',
       'The production acceptance command must exit zero before the prompt can succeed.',
       'If preparation or acceptance fails, do not accept the substrate-backed output.',
-      '</sgsd_vtp_substrate_policy_p166_planning>',
+      '</sgsd_vtp_substrate_policy_p166_' + markerSuffix + '>',
       '',
     ].join('\n'),
-    p166T2Marker: '<sgsd_vtp_substrate_policy_p166_t2_planning>',
+    p166T2Marker,
     p166T2Append: [
       '',
-      '<sgsd_vtp_substrate_policy_p166_t2_planning>',
+      p166T2Marker,
       '## SGSD P166 T2 Degraded Retrieval Policy',
       '',
       'Immediately after raw substrate transport and before synthesis, inspect top-level hits and evidence.hits. For each string hit.text longer than 16000 JavaScript characters, record its original length, truncate it in memory to its first 16000 JavaScript characters, and append degradation_notes with reason_code vtp_substrate_hit_truncated, zero-based hit_index, identity, doc_id, rel_path, chunk_id, original_chars, and retained_chars set to 16000. Resolve identity from doc_id, rel_path, chunk_id, then hit-<one-based-index>.',
       'Carry degradation_notes into the normal output and visibly name doc_id and rel_path with original and retained character counts; use an empty array when no hit was truncated. Do not retry with unfiltered arguments; do not convert truncation to failure or paste or write discarded text.',
-      '</sgsd_vtp_substrate_policy_p166_t2_planning>',
+      '</sgsd_vtp_substrate_policy_p166_t2_' + markerSuffix + '>',
       '',
     ].join('\n'),
+  };
+}
+
+const REQUIRED_LEGACY_AGENT_PATCHES = Object.freeze([
+  {
+    name: 'gsd-planner.md',
+    marker: '<sgsd_vtp_enrichment_contract>',
+    ...buildP166LegacyPromptPatch({
+      intent: 'planning',
+      markerSuffix: 'planning',
+      substrateTool: 'mcp__vtp-kb__vtp_search_substrate',
+    }),
     tools: Object.freeze([
       'Bash',
       'mcp__vtp-kb__vtp_route_and_retrieve',
@@ -123,34 +139,11 @@ called an mcp__vtp-kb__* tool in this dispatch.
   {
     name: 'gsd-phase-researcher.md',
     marker: '<sgsd_vtp_research_contract>',
-    p166Marker: '<sgsd_vtp_substrate_policy_p166_phase_research>',
-    p166Append: [
-      '',
-      '<sgsd_vtp_substrate_policy_p166_phase_research>',
-      '## SGSD P166 Substrate Call Policy',
-      '',
-      'Use Bash to write a contained JSON query input under .planning/tmp, then run:',
-      'node super-gsd/scripts/lib/vtp-context-composer.cjs --prepare-substrate-call --intent phase_research --input-file <relative-json-path>',
-      'Save the returned envelope to a contained <prepared-call-json-path>.',
-      'Pass the returned payload verbatim to mcp__vtp-kb__vtp_search_substrate.',
-      'Write the exact substrate_call_record to a contained <record-json-path>, then run:',
-      'node super-gsd/scripts/lib/vtp-context-composer.cjs --accept-substrate-call-record --intent phase_research --prepared-call-file <prepared-call-json-path> --record-file <record-json-path>',
-      'The production acceptance command must exit zero before the prompt can succeed.',
-      'If preparation or acceptance fails, do not accept the substrate-backed output.',
-      '</sgsd_vtp_substrate_policy_p166_phase_research>',
-      '',
-    ].join('\n'),
-    p166T2Marker: '<sgsd_vtp_substrate_policy_p166_t2_phase_research>',
-    p166T2Append: [
-      '',
-      '<sgsd_vtp_substrate_policy_p166_t2_phase_research>',
-      '## SGSD P166 T2 Degraded Retrieval Policy',
-      '',
-      'Immediately after raw substrate transport and before synthesis, inspect top-level hits and evidence.hits. For each string hit.text longer than 16000 JavaScript characters, record its original length, truncate it in memory to its first 16000 JavaScript characters, and append degradation_notes with reason_code vtp_substrate_hit_truncated, zero-based hit_index, identity, doc_id, rel_path, chunk_id, original_chars, and retained_chars set to 16000. Resolve identity from doc_id, rel_path, chunk_id, then hit-<one-based-index>.',
-      'Carry degradation_notes into the normal output and visibly name doc_id and rel_path with original and retained character counts; use an empty array when no hit was truncated. Do not retry with unfiltered arguments; do not convert truncation to failure or paste or write discarded text.',
-      '</sgsd_vtp_substrate_policy_p166_t2_phase_research>',
-      '',
-    ].join('\n'),
+    ...buildP166LegacyPromptPatch({
+      intent: 'phase_research',
+      markerSuffix: 'phase_research',
+      substrateTool: 'mcp__vtp-kb__vtp_search_substrate',
+    }),
     tools: Object.freeze([
       'Bash',
       'mcp__vtp-kb__vtp_route_and_retrieve',
@@ -956,6 +949,7 @@ module.exports = {
   runAudit,
   selfTest,
   _internals: {
+    buildP166LegacyPromptPatch,
     detectVtpConfigured,
     auditProjectClaudeMd,
     auditProjectAgentShadows,

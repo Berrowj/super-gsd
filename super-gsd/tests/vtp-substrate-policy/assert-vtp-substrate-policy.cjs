@@ -29,6 +29,12 @@ const EXPECTED_SITES = Object.freeze([
   'book-lookup',
   'composer-callVtp-seam',
 ]);
+const PROMPT_SITES = Object.freeze([
+  ['enrichment-agent', 'enrichment'],
+  ['board-researcher', 'board_research'],
+  ['installed-phase-researcher', 'phase_research'],
+  ['installed-planner', 'planning'],
+]);
 const SCAN_ROOTS = Object.freeze([
   'super-gsd/agents',
   'super-gsd/skills',
@@ -105,7 +111,7 @@ const CALLER_OCCURRENCE_RULES = Object.freeze([
   {
     id: 'installed-planner-transport',
     rel: 'super-gsd/tools/feature-propagation/audit.cjs',
-    text: '\'Pass the returned payload verbatim to mcp__vtp-kb__vtp_search_substrate.\',',
+    text: 'substrateTool: \'mcp__vtp-kb__vtp_search_substrate\',',
     branch: 'installed-planner',
     site: 'installed-planner',
   },
@@ -119,7 +125,7 @@ const CALLER_OCCURRENCE_RULES = Object.freeze([
   {
     id: 'installed-researcher-transport',
     rel: 'super-gsd/tools/feature-propagation/audit.cjs',
-    text: '\'Pass the returned payload verbatim to mcp__vtp-kb__vtp_search_substrate.\',',
+    text: 'substrateTool: \'mcp__vtp-kb__vtp_search_substrate\',',
     branch: 'installed-phase-researcher',
     site: 'installed-phase-researcher',
   },
@@ -793,19 +799,20 @@ function assertPromptContracts() {
   assert.match(board, /original_chars/);
   assert.match(board, /Do not retry.*unfiltered/i);
   assert.match(board, /truncation.*failure/i);
-  assert.match(audit, /<sgsd_vtp_substrate_policy_p166_phase_research>/);
-  assert.match(audit, /--prepare-substrate-call --intent phase_research/);
-  assert.match(audit, /--accept-substrate-call-record --intent phase_research/);
-  assert.match(audit, /<sgsd_vtp_substrate_policy_p166_planning>/);
-  assert.match(audit, /--prepare-substrate-call --intent planning/);
-  assert.match(audit, /--accept-substrate-call-record --intent planning/);
-  assert.match(audit, /<sgsd_vtp_substrate_policy_p166_t2_planning>/);
-  assert.match(audit, /<sgsd_vtp_substrate_policy_p166_t2_phase_research>/);
-  assert.strictEqual((audit.match(/Carry degradation_notes into the normal output/g) || []).length, 2);
-  assert.strictEqual((audit.match(/truncate it in memory to its first 16000 JavaScript characters/g) || []).length, 2);
-  assert.strictEqual((audit.match(/original_chars/g) || []).length, 2);
-  assert.strictEqual((audit.match(/Do not retry with unfiltered arguments/g) || []).length, 2);
-  assert.strictEqual((audit.match(/do not convert truncation to failure/g) || []).length, 2);
+  assert.match(audit, /function buildP166LegacyPromptPatch/);
+  assert.match(
+    audit,
+    /intent: 'phase_research',[\s\S]*?markerSuffix: 'phase_research',[\s\S]*?substrateTool: 'mcp__vtp-kb__vtp_search_substrate'/
+  );
+  assert.match(
+    audit,
+    /intent: 'planning',[\s\S]*?markerSuffix: 'planning',[\s\S]*?substrateTool: 'mcp__vtp-kb__vtp_search_substrate'/
+  );
+  assert.strictEqual((audit.match(/Carry degradation_notes into the normal output/g) || []).length, 1);
+  assert.strictEqual((audit.match(/truncate it in memory to its first 16000 JavaScript characters/g) || []).length, 1);
+  assert.strictEqual((audit.match(/original_chars/g) || []).length, 1);
+  assert.strictEqual((audit.match(/Do not retry with unfiltered arguments/g) || []).length, 1);
+  assert.strictEqual((audit.match(/do not convert truncation to failure/g) || []).length, 1);
 
   const enrichmentExample = enrichment.match(/```js\n([\s\S]*?)\n```/);
   assert(enrichmentExample, 'enrichment output JavaScript block missing');
@@ -847,6 +854,20 @@ function forgedPreparedCall(intent, payload) {
   };
 }
 
+function preparePromptCallRecords(composer) {
+  const records = new Map();
+  for (const [site, intent] of PROMPT_SITES) {
+    const query = 'P166 ' + site + ' prompt acceptance query';
+    const preparedCall = composer.prepareSubstrateCall(intent, { query });
+    records.set(site, {
+      intent,
+      preparedCall,
+      record: toSubstrateCallRecord(preparedCall),
+    });
+  }
+  return records;
+}
+
 function assertPromptRecordAcceptance(composer, expected) {
   assertPromptContracts();
   assert.strictEqual(
@@ -855,18 +876,11 @@ function assertPromptRecordAcceptance(composer, expected) {
     'production prompt-record acceptance must be exported'
   );
 
-  const promptIntents = Object.freeze([
-    ['enrichment-agent', 'enrichment'],
-    ['board-researcher', 'board_research'],
-    ['installed-phase-researcher', 'phase_research'],
-    ['installed-planner', 'planning'],
-  ]);
   const acceptedRecords = new Map();
 
-  for (const [site, intent] of promptIntents) {
-    const query = 'P166 ' + site + ' prompt acceptance query';
-    const preparedCall = composer.prepareSubstrateCall(intent, { query });
-    const record = toSubstrateCallRecord(preparedCall);
+  for (const [site, promptCall] of preparePromptCallRecords(composer)) {
+    const { intent, preparedCall, record } = promptCall;
+    const query = preparedCall.payload.query;
     const accepted = composer.acceptPromptSubstrateCallRecord(intent, preparedCall, record);
     assert.strictEqual(accepted.ok, true);
     assert.strictEqual(accepted.intent_family, intent);
@@ -1167,6 +1181,30 @@ function assertRepairSafePatches() {
     assert.match(planner, /<sgsd_vtp_substrate_policy_p166_planning>/);
     assert.match(researcher, /<sgsd_vtp_substrate_policy_p166_t2_phase_research>/);
     assert.match(planner, /<sgsd_vtp_substrate_policy_p166_t2_planning>/);
+    const generatedPatches = [
+      audit._internals.buildP166LegacyPromptPatch({
+        intent: 'phase_research',
+        markerSuffix: 'phase_research',
+        substrateTool: SEARCH_TOOL,
+      }),
+      audit._internals.buildP166LegacyPromptPatch({
+        intent: 'planning',
+        markerSuffix: 'planning',
+        substrateTool: SEARCH_TOOL,
+      }),
+    ];
+    assert.match(generatedPatches[0].p166Append, /--prepare-substrate-call --intent phase_research/);
+    assert.match(generatedPatches[0].p166Append, /--accept-substrate-call-record --intent phase_research/);
+    assert.match(generatedPatches[1].p166Append, /--prepare-substrate-call --intent planning/);
+    assert.match(generatedPatches[1].p166Append, /--accept-substrate-call-record --intent planning/);
+    for (const generatedPatch of generatedPatches) {
+      assert.match(generatedPatch.p166Append, /mcp__vtp-kb__vtp_search_substrate/);
+      assert.match(generatedPatch.p166T2Append, /Carry degradation_notes into the normal output/);
+      assert.match(generatedPatch.p166T2Append, /truncate it in memory to its first 16000 JavaScript characters/);
+      assert.match(generatedPatch.p166T2Append, /original_chars/);
+      assert.match(generatedPatch.p166T2Append, /Do not retry with unfiltered arguments/);
+      assert.match(generatedPatch.p166T2Append, /do not convert truncation to failure/);
+    }
     const rows = new Map(report.global_legacy_agents.map((row) => [row.name, row]));
     assert.strictEqual(rows.get('gsd-phase-researcher.md').p166_patched, true);
     assert.strictEqual(rows.get('gsd-planner.md').p166_patched, true);
@@ -1226,8 +1264,14 @@ async function assertExecutableEmitters() {
   });
   assert.deepStrictEqual(secondary.entity_types, ['principle']);
 
-  for (const [site, record] of assertPromptRecordAcceptance(composer, expected)) {
-    captures.set(site, record);
+  for (const [site, promptCall] of preparePromptCallRecords(composer)) {
+    assertPreparedEnvelope(
+      promptCall.preparedCall,
+      promptCall.intent,
+      expected[promptCall.intent],
+      validate
+    );
+    captures.set(site, promptCall.record);
   }
   captures.set(
     'triage-fallback',
@@ -1245,7 +1289,6 @@ async function assertExecutableEmitters() {
   });
   assertPreparedEnvelope(gateSpec.substrate_call, 'enrichment', expected.enrichment, validate);
   assertComposerCli();
-  assertRepairSafePatches();
 
   delete require.cache[require.resolve(bridgePath)];
   const bridge = require(bridgePath);
