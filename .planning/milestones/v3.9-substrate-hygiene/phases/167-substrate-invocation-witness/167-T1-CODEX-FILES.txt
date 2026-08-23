@@ -1,0 +1,5 @@
+super-gsd/hooks/sgsd-substrate-invocation-witness.cjs
+super-gsd/tools/substrate-capability-broker.cjs
+super-gsd/scripts/lib/substrate-invocation-witness-store.cjs
+super-gsd/scripts/lib/vtp-context-composer.cjs
+super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs
