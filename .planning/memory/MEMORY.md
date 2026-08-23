@@ -7,6 +7,8 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 
 - [TOML literal strings cannot contain single quotes](errors/toml-literal-strings-cannot-contain-single-quotes.md) — use `'''...'''` for regex patterns with `'`; doubling the quote is NOT an escape, it terminates the string (2026-04-30)
 
+- [codex-executor auth-denied is usually false](errors/codex-exec-auth-denied-false-positive.md) - it greps stderr for "auth" and codex echoes the prompt; probe before believing it
+
 ## architecture/anti-patterns
 
 - [Anti-Pattern - Premature Loop Stopping](architecture/anti-patterns/anti-patterns-premature-stopping.md)
@@ -33,6 +35,8 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 - [Self-reported evidence is not a witness](architecture/anti-patterns/self-reported-evidence-is-not-a-witness.md) - requiring an agent to report proof does not constrain an agent that does not comply (P166 2026-08-22)
 
 - [A plan-approved limit still fails goal-backward](architecture/anti-patterns/plan-accepted-limits-still-fail-goal-backward.md) - plan review and the verifier ask different questions; both can be right at once (P166 2026-08-22)
+
+- [A blind agent root cause is a hypothesis](architecture/anti-patterns/blind-agent-root-cause-is-a-hypothesis.md) - measure before dispatching a fix built on a non-executing agent's diagnosis; cost 4 rounds (P167)
 
 ## architecture/decisions
 
