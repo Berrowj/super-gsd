@@ -887,13 +887,28 @@ function assertPromptContracts() {
   const enrichment = fs.readFileSync(path.join(repoRoot, 'super-gsd', 'agents', 'sgsd-vtp-enrichment.md'), 'utf8');
   const board = fs.readFileSync(path.join(repoRoot, 'super-gsd', 'agents', 'sgsd-board-researcher.md'), 'utf8');
   const audit = fs.readFileSync(auditPath, 'utf8');
+  const noPromptCapInstruction = 'Never cap or truncate raw response text in this prompt; T1 PostToolUse alone enforces the pre-model boundary.';
+  function assertNoPromptOwnedCap(source, label) {
+    const contractMatch = source.match(/<sgsd_vtp_substrate_witness_p167>([\s\S]*?)<\/sgsd_vtp_substrate_witness_p167>/);
+    assert(contractMatch, label + ' P167 prompt contract missing');
+    assert.equal(contractMatch[1].includes(noPromptCapInstruction), true, label + ' must explicitly delegate the pre-model cap');
+    const withoutDelegation = contractMatch[1].replace(noPromptCapInstruction, '');
+    assert.doesNotMatch(
+      withoutDelegation,
+      /\b(?:cap|truncate|limit|shorten)\s+(?:it|the|each|raw|response|result|text|content|hit(?:\.text)?)\b|\b(?:must|shall|should)\s+(?:cap|truncate|limit|shorten)\b|\b(?:keep|retain)\s+(?:only\s+)?(?:the\s+)?first\s+\d+\b/i,
+      label + ' prompt must not instruct response capping',
+    );
+    assert.doesNotMatch(
+      contractMatch[1],
+      /\b16000\b|\boriginal_chars\b|\bretained_chars\b/,
+      label + ' prompt must not own PostToolUse cap mechanics',
+    );
+  }
   assert.match(enrichment, /substrate_call\.payload/);
   assert.match(enrichment, /gateway_evidence/);
   assert.match(enrichment, /substrateCall: substrate_call/);
   assert.match(enrichment, /degradation_notes/);
-  assert.match(enrichment, /truncate.*in memory/i);
-  assert.match(enrichment, /16000 JavaScript characters/);
-  assert.match(enrichment, /original_chars/);
+  assertNoPromptOwnedCap(enrichment, 'enrichment');
   assert.match(enrichment, /Do not retry.*unfiltered/i);
   assert.match(enrichment, /truncation.*failure/i);
   assert.match(enrichment, /rationale: '',\s+\/\/ only populated if status='empty_hit'/);
@@ -901,9 +916,7 @@ function assertPromptContracts() {
   assert.match(board, /--accept-substrate-call-record --intent board_research/);
   assert.match(board, /gateway_evidence/);
   assert.match(board, /degradation_notes/);
-  assert.match(board, /truncate.*in memory/i);
-  assert.match(board, /16000 JavaScript characters/);
-  assert.match(board, /original_chars/);
+  assertNoPromptOwnedCap(board, 'board');
   assert.match(board, /Do not retry.*unfiltered/i);
   assert.match(board, /truncation.*failure/i);
   assert.match(audit, /function buildP166LegacyPromptPatch/);

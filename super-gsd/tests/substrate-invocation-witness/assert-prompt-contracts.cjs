@@ -44,7 +44,7 @@ function installedMarkerModel() {
     'Use substrate-derived content only after readiness and post-call acceptance both succeed.',
     'Emit the same VTP_STATUS and reason, then continue only through the existing graceful-degradation path.',
     'When acceptance succeeds, carry hook-authored degradation_notes through the existing normal output path.',
-    'Do not cap raw response text in this prompt. T1 PostToolUse is the only raw-prompt pre-model cap.',
+    'Never cap or truncate raw response text in this prompt; T1 PostToolUse alone enforces the pre-model boundary.',
     'This supported-path prompt contract does not prevent a same-user actor from writing a different prompt, registration, or direct upstream call.',
     '</sgsd_vtp_substrate_witness_p167>',
   ].join('\n');
@@ -99,7 +99,7 @@ function assertFailClosedContract(surface) {
   assert.match(body, /Do not summarise it, quote it, persist it, or\s+retry it/);
   assert.match(body, /post-call acceptance\s+both succeed/);
   assert.match(body, /hook-authored degradation_notes/);
-  assert.match(body, /T1 PostToolUse is the only raw-prompt pre-model cap/);
+  assert.match(body, /Never cap or truncate raw response text in this prompt; T1 PostToolUse alone enforces the pre-model boundary/);
   assert.match(body, /does not prevent a same-user\s+actor from writing a different prompt, registration, or direct upstream call/);
   assert.doesNotMatch(ownedText, /\bsource_types\b/);
   assert.doesNotMatch(ownedText, /\blimit\b/);

@@ -53,7 +53,7 @@ function withIsolatedProfile(run) {
   };
   const realHome = saved.USERPROFILE || saved.HOME || '';
   const protectedPaths = [
-    ...(realHome ? [path.join(realHome, '.claude.json'), path.join(realHome, '.claude', 'settings.json')] : []),
+    ...(realHome ? [path.join(realHome, '.claude', 'settings.json')] : []),
     path.join(REPO_ROOT, '.mcp.json'),
     path.join(REPO_ROOT, '.claude', 'settings.json'),
     path.join(REPO_ROOT, 'super-gsd', 'hooks', 'sgsd-substrate-invocation-witness.cjs'),
@@ -433,16 +433,84 @@ async function main() {
     const current = audit.runAudit({ projectDir: project, repairSafe: true });
     assert.equal(current.claude_substrate_capability.status, 'current');
     assertAgentGrants(home, true);
+    const localMcpPath = path.join(project, '.claude', 'settings.local.json');
     const mcpPath = path.join(project, '.mcp.json');
+    writeJson(localMcpPath, {
+      unrelatedLocal: true,
+      mcpServers: { 'vtp-kb': { command: 'node', args: ['local-scope-write-failure-upstream.cjs'] } },
+    });
     const direct = JSON.parse(read(mcpPath));
     direct.mcpServers['vtp-kb'] = { command: 'node', args: ['scope-write-failure-upstream.cjs'] };
     writeJson(mcpPath, direct);
-    const beforeDocuments = snapshot([mcpPath]);
+    const dirtyDocumentPaths = [localMcpPath, mcpPath];
+    const beforeDocuments = snapshot(dirtyDocumentPaths);
     fs.mkdirSync(mcpPath + '.tmp');
-    const report = audit.runAudit({ projectDir: project, repairSafe: true });
+    const renameSync = fs.renameSync;
+    let committedLocalBytes = null;
+    fs.renameSync = function observeFirstScopeCommit(source, target) {
+      const result = renameSync.apply(fs, arguments);
+      if (path.resolve(target) === path.resolve(localMcpPath)) committedLocalBytes = read(localMcpPath);
+      return result;
+    };
+    let report;
+    try {
+      report = audit.runAudit({ projectDir: project, repairSafe: true });
+    } finally {
+      fs.renameSync = renameSync;
+    }
     assert(report.claude_substrate_capability.reasons.includes('broker_repair_failed'));
-    assert.deepEqual(snapshot([mcpPath]), beforeDocuments, 'scope-write failure did not restore original MCP documents');
+    assert.notEqual(committedLocalBytes, null, 'first dirty MCP document was not committed before the second write failed');
+    assert.notEqual(committedLocalBytes, beforeDocuments[localMcpPath], 'first dirty MCP document never changed on disk');
+    assert.match(
+      JSON.parse(committedLocalBytes).mcpServers['vtp-kb'].args[0],
+      /substrate-capability-broker\.cjs$/,
+      'first dirty MCP document did not commit the broker definition',
+    );
+    assert.deepEqual(
+      snapshot(dirtyDocumentPaths),
+      beforeDocuments,
+      'scope-write failure did not byte-restore every original MCP document',
+    );
     assertAgentGrants(home, false);
+  });
+
+  withIsolatedProfile(({ home, project }) => {
+    seedProject(project);
+    seedLegacyAgents(home);
+    const current = audit.runAudit({ projectDir: project, repairSafe: true });
+    assert.equal(current.claude_substrate_capability.status, 'current');
+    const localMcpPath = path.join(project, '.claude', 'settings.local.json');
+    const mcpPath = path.join(project, '.mcp.json');
+    writeJson(localMcpPath, {
+      unrelatedLocal: true,
+      mcpServers: { 'vtp-kb': { command: 'node', args: ['restore-failure-local-upstream.cjs'] } },
+    });
+    const direct = JSON.parse(read(mcpPath));
+    direct.mcpServers['vtp-kb'] = { command: 'node', args: ['restore-failure-project-upstream.cjs'] };
+    writeJson(mcpPath, direct);
+    const beforeDocuments = snapshot([localMcpPath, mcpPath]);
+    fs.mkdirSync(mcpPath + '.tmp');
+    const writeFileSync = fs.writeFileSync;
+    fs.writeFileSync = function failLocalDocumentRestore(filePath) {
+      if (path.resolve(filePath) === path.resolve(localMcpPath)) {
+        throw new Error('forced MCP restore failure');
+      }
+      return writeFileSync.apply(fs, arguments);
+    };
+    try {
+      assert.throws(
+        () => audit.runAudit({ projectDir: project, repairSafe: true }),
+        /MCP document rollback failed.*forced MCP restore failure/,
+        'MCP restoration failure was swallowed',
+      );
+    } finally {
+      fs.writeFileSync = writeFileSync;
+    }
+    assert.equal(
+      read(mcpPath),
+      beforeDocuments[mcpPath],
+      'rollback stopped before restoring the remaining original MCP document',
+    );
   });
 
   await withIsolatedProfile(async ({ root, home, project: projectA }) => {

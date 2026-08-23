@@ -642,6 +642,7 @@ function repairClaudeSubstrateCapability(ctx, actions) {
     if (!beforeByPath.has(scope.path)) beforeByPath.set(scope.path, exists(scope.path) ? readText(scope.path) : null);
   }
   function restoreOriginalDocuments() {
+    const failures = [];
     for (const [filePath, bytes] of beforeByPath) {
       try {
         if (bytes === null) {
@@ -650,7 +651,14 @@ function repairClaudeSubstrateCapability(ctx, actions) {
           ensureDir(path.dirname(filePath));
           fs.writeFileSync(filePath, bytes, 'utf8');
         }
-      } catch (_) {}
+      } catch (error) {
+        failures.push({ filePath, error });
+      }
+    }
+    if (failures.length) {
+      throw new Error('MCP document rollback failed: ' + failures.map(({ filePath, error }) => (
+        filePath + ': ' + (error && error.message ? error.message : String(error))
+      )).join('; '));
     }
   }
   function saveDocumentsOrFail() {

@@ -52,12 +52,10 @@ retry it. Emit the same VTP_STATUS and reason, then continue only through the
 existing graceful-degradation path.
 
 Use substrate-derived content only after readiness and post-call acceptance
-both succeed. When acceptance succeeds, carry hook-authored degradation_notes
-through the existing normal output path. Do not cap raw response text in this
-prompt. T1 PostToolUse is the only raw-prompt pre-model cap.
-Do not truncate response text in memory. T1 PostToolUse enforces the existing
-16000 JavaScript characters boundary and supplies hook-authored degradation_notes
-with reason_code vtp_substrate_hit_truncated, original_chars, and retained_chars.
+both succeed. When acceptance succeeds, carry hook-authored degradation_notes,
+including any reason_code vtp_substrate_hit_truncated note, through the existing
+normal output path.
+Never cap or truncate raw response text in this prompt; T1 PostToolUse alone enforces the pre-model boundary.
 Do not retry with unfiltered arguments or convert hook-authored truncation to failure.
 
 This is an SGSD supported-path prompt contract. It does not prevent a same-user
