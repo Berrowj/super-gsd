@@ -10,6 +10,7 @@ const childProcess = require('child_process');
 
 const repoRoot = path.resolve(__dirname, '../../..');
 const composerPath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'vtp-context-composer.cjs');
+const witnessStorePath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'substrate-invocation-witness-store.cjs');
 const gatePath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'vtp-enrichment-gate.cjs');
 const auditPath = path.join(repoRoot, 'super-gsd', 'tools', 'feature-propagation', 'audit.cjs');
 const bridgePath = path.join(repoRoot, 'super-gsd', 'tools', 'vtp-bridge', 'classify.cjs');
@@ -373,6 +374,97 @@ function sha256Json(payload) {
   return crypto.createHash('sha256').update(Buffer.from(JSON.stringify(payload), 'utf8')).digest('hex');
 }
 
+function createPromptWitnessFixture(projectRoot) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p167-prompt-witness-'));
+  const project = projectRoot ? path.resolve(projectRoot) : path.join(root, 'project');
+  const profile = path.join(root, 'profile');
+  fs.mkdirSync(path.join(project, '.planning', 'metrics'), { recursive: true });
+  fs.mkdirSync(profile, { recursive: true });
+  const env = {
+    ...process.env,
+    HOME: profile,
+    USERPROFILE: profile,
+    APPDATA: path.join(profile, 'AppData', 'Roaming'),
+    XDG_CONFIG_HOME: path.join(profile, '.config'),
+  };
+  const witnessStore = require(witnessStorePath);
+  witnessStore.provisionWitnessKey(project, env);
+  return {
+    root,
+    project,
+    env,
+    witnessStore,
+    sessionId: 'p167-policy-direct-session',
+    nextToolUse: 0,
+  };
+}
+
+function withPromptWitnessFixture(fn, projectRoot) {
+  const witnessFixture = createPromptWitnessFixture(projectRoot);
+  try {
+    return fn(witnessFixture);
+  } finally {
+    fs.rmSync(witnessFixture.root, { recursive: true, force: true });
+  }
+}
+
+function promptAcceptanceContext(witnessFixture) {
+  return {
+    projectRoot: witnessFixture.project,
+    env: witnessFixture.env,
+    sessionId: witnessFixture.sessionId,
+  };
+}
+
+function seedPromptWitness(witnessFixture, composer, preparedCall) {
+  witnessFixture.nextToolUse += 1;
+  const payloadDigest = composer.substratePayloadDigest(preparedCall.payload);
+  const toolUseId = 'p167-policy-tool-use-' + witnessFixture.nextToolUse;
+  const sourceDigest = crypto.createHash('sha256')
+    .update(fs.readFileSync(path.join(repoRoot, 'super-gsd', 'hooks', 'sgsd-substrate-invocation-witness.cjs')))
+    .digest('hex');
+  witnessFixture.witnessStore.createPreWitness({
+    projectRoot: witnessFixture.project,
+    env: witnessFixture.env,
+    sessionId: witnessFixture.sessionId,
+    toolUseId,
+    payloadDigest,
+    sourceDigest,
+  });
+  witnessFixture.witnessStore.transitionWitnessToRewritten({
+    projectRoot: witnessFixture.project,
+    env: witnessFixture.env,
+    sessionId: witnessFixture.sessionId,
+    toolUseId,
+    payloadDigest,
+    responseDigest: sha256Json({ hits: [] }),
+    degradationCount: 0,
+    originalChars: 0,
+    retainedChars: 0,
+    topLevelHitCount: 0,
+    evidenceHitCount: 0,
+  });
+}
+
+function activatePromptWitnessRuntime(witnessFixture) {
+  const previousCwd = process.cwd();
+  const keys = ['HOME', 'USERPROFILE', 'APPDATA', 'XDG_CONFIG_HOME', 'CLAUDE_CODE_SESSION_ID'];
+  const previous = new Map(keys.map((key) => [
+    key,
+    { present: Object.prototype.hasOwnProperty.call(process.env, key), value: process.env[key] },
+  ]));
+  process.chdir(witnessFixture.project);
+  for (const key of keys.slice(0, 4)) process.env[key] = witnessFixture.env[key];
+  process.env.CLAUDE_CODE_SESSION_ID = witnessFixture.sessionId;
+  return () => {
+    process.chdir(previousCwd);
+    for (const [key, state] of previous) {
+      if (state.present) process.env[key] = state.value;
+      else delete process.env[key];
+    }
+  };
+}
+
 function deepFreeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
   for (const child of Object.values(value)) deepFreeze(child);
@@ -456,23 +548,32 @@ async function assertMegachunkDegradedArtifact() {
       'capped call must retain composer gateway evidence'
     );
 
-    const written = gate.run({
-      ...gateInput,
-      substrateCall,
-      enrichmentResult: {
-        ok: callResult.ok,
-        status: 'success',
-        query_count: 1,
-        total_hits: callResult.response.total_hits,
-        duration_ms: callResult.elapsed_ms,
-        hits: callResult.response.hits,
-        degradation_notes: callResult.degradation_notes || [],
-        gaps: [],
-        alt_framings: [],
-        rationale: '',
-        substrate_call_record: toSubstrateCallRecord(substrateCall),
-      },
-    });
+    const written = withPromptWitnessFixture((witnessFixture) => {
+      witnessFixture.sessionId = 'p167-megachunk-session';
+      seedPromptWitness(witnessFixture, composer, substrateCall);
+      const restoreRuntime = activatePromptWitnessRuntime(witnessFixture);
+      try {
+        return gate.run({
+          ...gateInput,
+          substrateCall,
+          enrichmentResult: {
+            ok: callResult.ok,
+            status: 'success',
+            query_count: 1,
+            total_hits: callResult.response.total_hits,
+            duration_ms: callResult.elapsed_ms,
+            hits: callResult.response.hits,
+            degradation_notes: callResult.degradation_notes || [],
+            gaps: [],
+            alt_framings: [],
+            rationale: '',
+            substrate_call_record: toSubstrateCallRecord(substrateCall),
+          },
+        });
+      } finally {
+        restoreRuntime();
+      }
+    }, tempRoot);
     assert.strictEqual(written.status, 'success');
     assert.strictEqual(sha256Json(fixture), fixtureHash, 'the deep-frozen transport fixture must not change');
 
@@ -724,11 +825,20 @@ function assertCapShapes() {
       substrate_call_record: toSubstrateCallRecord(pending.sub_agent_spec.substrate_call),
     });
     const rawInjectionHash = sha256Json(rawInjection);
-    const written = gate.run({
-      ...gateInput,
-      substrateCall: pending.sub_agent_spec.substrate_call,
-      enrichmentResult: rawInjection,
-    });
+    const written = withPromptWitnessFixture((witnessFixture) => {
+      witnessFixture.sessionId = 'p167-cap-shapes-session';
+      seedPromptWitness(witnessFixture, composer, pending.sub_agent_spec.substrate_call);
+      const restoreRuntime = activatePromptWitnessRuntime(witnessFixture);
+      try {
+        return gate.run({
+          ...gateInput,
+          substrateCall: pending.sub_agent_spec.substrate_call,
+          enrichmentResult: rawInjection,
+        });
+      } finally {
+        restoreRuntime();
+      }
+    }, gateRoot);
     assert.strictEqual(written.status, 'success');
     assert.strictEqual(sha256Json(rawInjection), rawInjectionHash);
     const artifact = gate._internal.readEnrichmentArtifact({ phaseDir, phase: '166' });
@@ -869,6 +979,12 @@ function preparePromptCallRecords(composer) {
 }
 
 function assertPromptRecordAcceptance(composer, expected) {
+  return withPromptWitnessFixture((witnessFixture) => (
+    assertPromptRecordAcceptanceWithWitness(composer, expected, witnessFixture)
+  ));
+}
+
+function assertPromptRecordAcceptanceWithWitness(composer, expected, witnessFixture) {
   assertPromptContracts();
   assert.strictEqual(
     typeof composer.acceptPromptSubstrateCallRecord,
@@ -881,14 +997,16 @@ function assertPromptRecordAcceptance(composer, expected) {
   for (const [site, promptCall] of preparePromptCallRecords(composer)) {
     const { intent, preparedCall, record } = promptCall;
     const query = preparedCall.payload.query;
-    const accepted = composer.acceptPromptSubstrateCallRecord(intent, preparedCall, record);
+    const context = promptAcceptanceContext(witnessFixture);
+    seedPromptWitness(witnessFixture, composer, preparedCall);
+    const accepted = composer.acceptPromptSubstrateCallRecord(intent, preparedCall, record, context);
     assert.strictEqual(accepted.ok, true);
     assert.strictEqual(accepted.intent_family, intent);
     assert.strictEqual(accepted.payload_sha256, preparedCall.gateway_evidence.payload_sha256);
     acceptedRecords.set(site, record);
 
     assert.throws(
-      () => composer.acceptPromptSubstrateCallRecord(intent, null, record),
+      () => composer.acceptPromptSubstrateCallRecord(intent, null, record, context),
       /prepared_call/,
       site + ' must reject a direct record without its prepared envelope'
     );
@@ -896,7 +1014,7 @@ function assertPromptRecordAcceptance(composer, expected) {
       () => composer.acceptPromptSubstrateCallRecord(intent, preparedCall, {
         tool: record.tool,
         payload: record.payload,
-      }),
+      }, context),
       /gateway_evidence/,
       site + ' must reject missing gateway evidence'
     );
@@ -904,14 +1022,19 @@ function assertPromptRecordAcceptance(composer, expected) {
       () => composer.acceptPromptSubstrateCallRecord(intent, preparedCall, {
         ...record,
         gateway_evidence: { ...record.gateway_evidence, payload_sha256: '0'.repeat(64) },
-      }),
+      }, context),
       /digest/,
       site + ' must reject a mismatched digest'
     );
 
     const unfiltered = forgedPreparedCall(intent, { query });
     assert.throws(
-      () => composer.acceptPromptSubstrateCallRecord(intent, unfiltered, toSubstrateCallRecord(unfiltered)),
+      () => composer.acceptPromptSubstrateCallRecord(
+        intent,
+        unfiltered,
+        toSubstrateCallRecord(unfiltered),
+        context,
+      ),
       /prepared_call/,
       site + ' must reject an unfiltered call even when its digest matches'
     );
@@ -922,14 +1045,21 @@ function assertPromptRecordAcceptance(composer, expected) {
       limit: 6,
     });
     assert.throws(
-      () => composer.acceptPromptSubstrateCallRecord(intent, limitSix, toSubstrateCallRecord(limitSix)),
+      () => composer.acceptPromptSubstrateCallRecord(
+        intent,
+        limitSix,
+        toSubstrateCallRecord(limitSix),
+        context,
+      ),
       /prepared_call/,
       site + ' must reject limit 6 even when its digest matches'
     );
   }
 
   const gate = require(gatePath);
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-prompt-acceptance-'));
+  const tempRoot = witnessFixture.project;
+  witnessFixture.sessionId = 'p167-policy-gate-session';
+  const restoreRuntime = activatePromptWitnessRuntime(witnessFixture);
   try {
     const phaseDir = path.join(tempRoot, '.planning', 'milestones', 'fixture', 'phases', '166-fixture');
     writeFixtureFile(
@@ -999,17 +1129,29 @@ function assertPromptRecordAcceptance(composer, expected) {
       /digest/,
       'the real enrichment acceptance path must reject an invalid api-error record'
     );
+    const apiErrorResult = {
+      ok: false,
+      error: 'simulated MCP transport failure',
+      substrate_call_record: record,
+    };
+    assert.throws(
+      () => gate.run({
+        ...gateInput,
+        substrateCall: preparedCall,
+        enrichmentResult: apiErrorResult,
+      }),
+      /substrate_witness_missing/,
+      'the real api-error path must reject a clean record without a witness'
+    );
+    seedPromptWitness(witnessFixture, composer, preparedCall);
     const acceptedApiError = gate.run({
       ...gateInput,
       substrateCall: preparedCall,
-      enrichmentResult: {
-        ok: false,
-        error: 'simulated MCP transport failure',
-        substrate_call_record: record,
-      },
+      enrichmentResult: apiErrorResult,
     });
     assert.strictEqual(acceptedApiError.status, 'api_error');
     assert.match(fs.readFileSync(acceptedApiError.artifact_path, 'utf8'), /## API Error/);
+    seedPromptWitness(witnessFixture, composer, preparedCall);
     const acceptedEmptyHit = gate.run({
       ...gateInput,
       substrateCall: preparedCall,
@@ -1085,12 +1227,13 @@ function assertPromptRecordAcceptance(composer, expected) {
       'the real enrichment acceptance path must reject limit 6'
     );
 
+    seedPromptWitness(witnessFixture, composer, preparedCall);
     const accepted = gate.run({ ...gateInput, substrateCall: preparedCall, enrichmentResult: result });
     assert.strictEqual(accepted.status, 'success');
     assert(fs.existsSync(accepted.artifact_path));
     assert.doesNotMatch(fs.readFileSync(accepted.artifact_path, 'utf8'), /## API Error/);
   } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
+    restoreRuntime();
   }
 
   return acceptedRecords;

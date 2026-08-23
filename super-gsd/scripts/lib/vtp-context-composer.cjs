@@ -29,6 +29,7 @@ const path = require('path');
 const os   = require('os');
 const crypto = require('crypto');
 const { findSgsdRoot, resolveContainedPath } = require('./sgsd-state.cjs');
+const witnessStore = require('./substrate-invocation-witness-store.cjs');
 const Ajv = require(path.join(__dirname, '..', '..', 'tools', 'plan-schema', 'node_modules', 'ajv'));
 
 const SUBSTRATE_TOOL = 'mcp__vtp-kb__vtp_search_substrate';
@@ -43,6 +44,35 @@ const SECONDARY_SUBSTRATE_FILTERS = Object.freeze([
   'speaker_ids',
   'topics',
   'meeting_ids',
+]);
+const PROMPT_RECORD_FORBIDDEN_CORRELATION_FIELDS = new Set([
+  'digest',
+  'hmac_sha256',
+  'nonce',
+  'payload_digest',
+  'project_digest',
+  'response_digest',
+  'sequence',
+  'session_id',
+  'session_sha256',
+  'signature',
+  'source_digest',
+  'tool_use_id',
+  'tool_use_sha256',
+  'witness_file',
+  'witness_filename',
+  'witness_id',
+  'witness_path',
+]);
+const PROMPT_WITNESS_REJECTION_REASONS = new Set([
+  'substrate_witness_missing',
+  'substrate_witness_invalid',
+  'substrate_witness_expired',
+  'substrate_witness_session_mismatch',
+  'substrate_witness_digest_mismatch',
+  'substrate_witness_not_rewritten',
+  'substrate_witness_ambiguous',
+  'substrate_witness_replayed',
 ]);
 
 function policyEntry(sourceTypes, limit) {
@@ -452,7 +482,44 @@ function rejectPromptSubstrateCallRecord(reason) {
   throw new Error('vtp_prompt_substrate_contract_invalid:' + reason);
 }
 
-function acceptPromptSubstrateCallRecord(intentFamily, preparedCall, substrateCallRecord) {
+function normalizedPromptRecordFieldName(field) {
+  return field
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[-\s]+/g, '_')
+    .toLowerCase();
+}
+
+function promptRecordContainsCorrelationField(value, seen = new Set()) {
+  if (!value || typeof value !== 'object') return false;
+  if (seen.has(value)) return false;
+  seen.add(value);
+  if (Array.isArray(value)) {
+    return value.some((item) => promptRecordContainsCorrelationField(item, seen));
+  }
+  for (const [field, child] of Object.entries(value)) {
+    if (PROMPT_RECORD_FORBIDDEN_CORRELATION_FIELDS.has(normalizedPromptRecordFieldName(field))) {
+      return true;
+    }
+    if (promptRecordContainsCorrelationField(child, seen)) return true;
+  }
+  return false;
+}
+
+function promptWitnessRuntimeContext(testContext) {
+  const injected = testContext && typeof testContext === 'object' && !Array.isArray(testContext)
+    ? testContext
+    : null;
+  const env = injected && injected.env ? injected.env : process.env;
+  const projectRoot = injected && typeof injected.projectRoot === 'string'
+    ? path.resolve(injected.projectRoot)
+    : (findSgsdRoot(process.cwd()) || fs.realpathSync(process.cwd()));
+  const sessionId = injected && Object.prototype.hasOwnProperty.call(injected, 'sessionId')
+    ? injected.sessionId
+    : env.CLAUDE_CODE_SESSION_ID;
+  return { projectRoot, env, sessionId };
+}
+
+function acceptPromptSubstrateCallRecord(intentFamily, preparedCall, substrateCallRecord, testContext) {
   if (!validatePreparedSubstrateCall(preparedCall)) {
     rejectPromptSubstrateCallRecord('prepared_call_missing_or_invalid');
   }
@@ -490,10 +557,36 @@ function acceptPromptSubstrateCallRecord(intentFamily, preparedCall, substrateCa
   ) {
     rejectPromptSubstrateCallRecord('record_prepared_call_mismatch');
   }
+  if (promptRecordContainsCorrelationField(substrateCallRecord)) {
+    rejectPromptSubstrateCallRecord('record_correlation_identifier_forbidden');
+  }
+  const payloadDigest = substratePayloadDigest(preparedCall.payload);
+  const runtime = promptWitnessRuntimeContext(testContext);
+  let consumedWitness;
+  try {
+    consumedWitness = witnessStore.consumeRewrittenWitness({
+      projectRoot: runtime.projectRoot,
+      env: runtime.env,
+      sessionId: runtime.sessionId,
+      payloadDigest,
+    });
+  } catch (error) {
+    const reason = error && PROMPT_WITNESS_REJECTION_REASONS.has(error.message)
+      ? error.message
+      : 'substrate_witness_invalid';
+    rejectPromptSubstrateCallRecord(reason);
+  }
+  if (!consumedWitness
+    || consumedWitness.ok !== true
+    || consumedWitness.payload_digest !== payloadDigest
+    || consumedWitness.witness_status !== 'consumed') {
+    rejectPromptSubstrateCallRecord('substrate_witness_invalid');
+  }
   return {
     ok: true,
     intent_family: intentFamily,
-    payload_sha256: preparedCall.gateway_evidence.payload_sha256,
+    payload_sha256: payloadDigest,
+    witness_status: 'consumed',
   };
 }
 
