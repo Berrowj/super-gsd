@@ -6,7 +6,7 @@
  * Public exports: { compose, project, isFastPathEligible, callVtp, TIERS,
  * resetCache, SUBSTRATE_CALL_POLICY, SUBSTRATE_HIT_MAX_CHARS,
  * buildSubstrateArgs, prepareSubstrateCall, acceptPromptSubstrateCallRecord,
- * capSubstrateResponse }
+ * capSubstrateResponse, substratePayloadDigest, validateSubstrateToolInput }
  *
  * compose(sgsd_state)         - build full_context_object once (reads STATE.md, git log, errors)
  * project(ctx, tier)          - zero-cost tier slice: triage|research|plan|pattern|assumptions|standalone
@@ -378,6 +378,10 @@ function substratePayloadDigest(payload) {
     .digest('hex');
 }
 
+function validateSubstrateToolInput(payload) {
+  return Boolean(validateSubstratePayload(payload));
+}
+
 function buildSubstrateArgs(intentFamily, input) {
   const policy = SUBSTRATE_CALL_POLICY[intentFamily];
   if (!policy) throw new Error('vtp_substrate_intent_unknown:' + String(intentFamily || ''));
@@ -645,6 +649,8 @@ module.exports = {
   prepareSubstrateCall,
   acceptPromptSubstrateCallRecord,
   capSubstrateResponse,
+  substratePayloadDigest,
+  validateSubstrateToolInput,
 };
 
 // Private helpers exposed under _internal for self-test access only.
