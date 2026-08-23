@@ -44,9 +44,9 @@ const SCAN_ROOTS = Object.freeze([
 ]);
 const CALLER_OCCURRENCE_RULES = Object.freeze([
   {
-    id: 'board-tools',
+    id: 'board-witness-tool',
     rel: 'super-gsd/agents/sgsd-board-researcher.md',
-    text: 'tools: Read, Grep, Glob, Bash, mcp__vtp-kb__vtp_search, mcp__vtp-kb__vtp_search_substrate, mcp__vtp-kb__vtp_search_research, mcp__vtp-kb__vtp_get_document, mcp__vtp-kb__vtp_route_and_retrieve',
+    text: '`mcp__vtp-kb__vtp_search_substrate`. If readiness is missing, stale,',
     site: 'board-researcher',
   },
   {
@@ -68,15 +68,15 @@ const CALLER_OCCURRENCE_RULES = Object.freeze([
     site: 'enrichment-agent',
   },
   {
-    id: 'enrichment-tools',
+    id: 'enrichment-witness-tool',
     rel: 'super-gsd/agents/sgsd-vtp-enrichment.md',
-    text: 'tools: Read, Grep, Glob, Bash, Write, mcp__vtp-kb__vtp_search, mcp__vtp-kb__vtp_search_substrate, mcp__vtp-kb__vtp_search_research, mcp__vtp-kb__vtp_route_and_retrieve, mcp__vtp-kb__vtp_advise_service_enrichment, mcp__vtp-kb__vtp_health_structured, mcp__vtp-kb__vtp_get_document',
+    text: '`mcp__vtp-kb__vtp_search_substrate`. If readiness is missing, stale,',
     site: 'enrichment-agent',
   },
   {
     id: 'enrichment-policy',
     rel: 'super-gsd/agents/sgsd-vtp-enrichment.md',
-    text: 'For tool 2/5, call vtp_search_substrate with substrate_call.payload verbatim. Do not construct or amend substrate arguments. Record the tool, exact payload, and matching substrate_call.gateway_evidence together. The production run() acceptance path validates that record against substrate_call and rejects missing evidence, digest drift, unfiltered payloads, and limit 6. If the envelope is missing or preparation failed, do not issue a raw substrate call.',
+    text: 'For tool 2/5, call vtp_search_substrate with substrate_call.payload verbatim. Do not construct or amend substrate arguments. Record the tool, exact payload, and matching substrate_call.gateway_evidence together. The production acceptance path validates that record against substrate_call and rejects missing evidence, digest drift, unfiltered payloads, and P166 policy drift. If the envelope is missing or preparation failed, do not issue a raw substrate call.',
     site: 'enrichment-agent',
   },
   {

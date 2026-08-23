@@ -1,7 +1,7 @@
 ---
 name: sgsd-vtp-enrichment
 description: VTP library enrichment gate sub-agent (VTPE-01). Fires at orchestrator Step 6.b.5 between gsd-phase-researcher and gsd-planner. Queries VTP via 5-tool cascade with 3-source phase seed (CONTEXT + REQ-IDs + RESEARCH), writes {NN}-VTP-ENRICHMENT.md artifact per D-04 shape. Never challenges plans — enrich-only (Q2=B).
-tools: Read, Grep, Glob, Bash, Write, mcp__vtp-kb__vtp_search, mcp__vtp-kb__vtp_search_substrate, mcp__vtp-kb__vtp_search_research, mcp__vtp-kb__vtp_route_and_retrieve, mcp__vtp-kb__vtp_advise_service_enrichment, mcp__vtp-kb__vtp_health_structured, mcp__vtp-kb__vtp_get_document
+tools: Read, Grep, Glob, Bash, Write, mcp__vtp-kb__vtp_search, mcp__vtp-kb__vtp_search_research, mcp__vtp-kb__vtp_route_and_retrieve, mcp__vtp-kb__vtp_advise_service_enrichment, mcp__vtp-kb__vtp_health_structured, mcp__vtp-kb__vtp_get_document
 model: sonnet
 status: legacy-disabled
 ---
@@ -29,9 +29,48 @@ Orchestrator invokes you with a sub-agent spec produced by `vtp-enrichment-gate.
 You run the cascade using the `seed` string and `tools` array, then invoke `run({projectDir, phaseDir, phase, substrateCall: substrate_call, enrichmentResult: {...}})` from `super-gsd/scripts/lib/vtp-enrichment-gate.cjs` to write the artifact. `projectDir` is resolved from your own process.cwd() (not in the spec). The module handles frontmatter + artifact shape + 3-path (success/empty_hit/api_error) discipline. Your job is producing the structured `enrichmentResult` object.
 </dispatch_contract>
 
+<sgsd_vtp_substrate_witness_p167>
+Before any raw substrate transport, run:
+`node super-gsd/scripts/lib/substrate-invocation-witness-store.cjs --readiness --project-dir .`
+
+Run readiness from the current project in the current Claude Code session. Only
+an exit zero with `ready: true` permits a call to
+`mcp__vtp-kb__vtp_search_substrate`. If readiness is missing, stale,
+duplicated, keyless, or cannot prove both project hook registrations, do not
+call the raw substrate tool. Emit:
+
+VTP_STATUS: unavailable_or_bypassed
+reason: substrate_witness_unavailable
+
+Continue only through the existing graceful-degradation path.
+
+After raw substrate transport, do not inspect or use the response. First write
+the exact P166 substrate_call_record and run the existing
+`--accept-substrate-call-record` command. If acceptance exits nonzero, discard
+all substrate-derived content. Do not summarise it, quote it, persist it, or
+retry it. Emit the same VTP_STATUS and reason, then continue only through the
+existing graceful-degradation path.
+
+Use substrate-derived content only after readiness and post-call acceptance
+both succeed. When acceptance succeeds, carry hook-authored degradation_notes
+through the existing normal output path. Do not cap raw response text in this
+prompt. T1 PostToolUse is the only raw-prompt pre-model cap.
+Do not truncate response text in memory. T1 PostToolUse enforces the existing
+16000 JavaScript characters boundary and supplies hook-authored degradation_notes
+with reason_code vtp_substrate_hit_truncated, original_chars, and retained_chars.
+Do not retry with unfiltered arguments or convert hook-authored truncation to failure.
+
+This is an SGSD supported-path prompt contract. It does not prevent a same-user
+actor from writing a different prompt, registration, or direct upstream call.
+</sgsd_vtp_substrate_witness_p167>
+
 <substrate_call_policy>
-For tool 2/5, call vtp_search_substrate with substrate_call.payload verbatim. Do not construct or amend substrate arguments. Record the tool, exact payload, and matching substrate_call.gateway_evidence together. The production run() acceptance path validates that record against substrate_call and rejects missing evidence, digest drift, unfiltered payloads, and limit 6. If the envelope is missing or preparation failed, do not issue a raw substrate call.
-Immediately after raw substrate transport and before synthesis, inspect both top-level hits and evidence.hits. For each hit whose text is a string longer than 16000 JavaScript characters, record original_chars, truncate it in memory to its first 16000 JavaScript characters, and append a degradation note with reason_code vtp_substrate_hit_truncated, zero-based hit_index, identity, doc_id, rel_path, chunk_id, original_chars, and retained_chars set to 16000. Resolve identity from doc_id, then rel_path, then chunk_id, then hit-<one-based-index>. Carry these degradation_notes into the normal enrichmentResult output; use an empty array when no hit was truncated. Do not retry with unfiltered arguments. Never paste or write discarded text, and do not convert truncation to failure.
+For tool 2/5, call vtp_search_substrate with substrate_call.payload verbatim. Do not construct or amend substrate arguments. Record the tool, exact payload, and matching substrate_call.gateway_evidence together. The production acceptance path validates that record against substrate_call and rejects missing evidence, digest drift, unfiltered payloads, and P166 policy drift. If the envelope is missing or preparation failed, do not issue a raw substrate call.
+
+Save the received composer-prepared `substrate_call` envelope exactly to `.planning/tmp/enrichment-substrate-call.json`. After transport, write the exact record to `.planning/tmp/enrichment-substrate-call-record.json` and run:
+`node super-gsd/scripts/lib/vtp-context-composer.cjs --accept-substrate-call-record --intent enrichment --prepared-call-file .planning/tmp/enrichment-substrate-call.json --record-file .planning/tmp/enrichment-substrate-call-record.json`
+
+Only an accepted response may enter `enrichmentResult`. Preserve the hook-authored degradation_notes in that object; use an empty array when the accepted response carries none.
 </substrate_call_policy>
 
 <reasoning>
@@ -75,7 +114,7 @@ const enrichmentResult = {
   gaps: ['topic Alpha', 'topic Beta'],    // string descriptors
   alt_framings: ['Framing A: ...'],       // prose bullets
   rationale: '',               // only populated if status='empty_hit'
-  degradation_notes: [],       // generated in memory for truncated hits; empty otherwise
+  degradation_notes: [],       // hook-authored notes from the accepted response; empty otherwise
   substrate_call_record: {
     tool: 'mcp__vtp-kb__vtp_search_substrate',
     payload: substrate_call.payload,
