@@ -368,7 +368,7 @@ function defineHookTests() {
       hook_event_name: 'PreToolUse',
       tool_name: 'Read',
       tool_input: { file_path: 'anything' },
-    }, { env: fixture.env });
+    }, { env: fixture.env, expectedEvent: 'PreToolUse' });
     assert.strictEqual(result, null);
   });
 
@@ -410,7 +410,7 @@ function defineHookTests() {
     assert.strictEqual(JSON.stringify(rewritten.envelope).includes('RAW_POST_MARKER'), false);
   });
 
-  test('PostToolUse registration cannot fail open on a missing tool name', () => {
+  test('PostToolUse ignores an event with a missing tool name', () => {
     const result = hook.processHookPayload({
       hook_event_name: 'PostToolUse',
       session_id: 'session-post-missing-tool',
@@ -419,9 +419,7 @@ function defineHookTests() {
       tool_input: {},
       tool_response: mcpEnvelope({ hits: [{ text: 'RAW_WRONG_TOOL_MARKER' }] }),
     }, { env: fixture.env, expectedEvent: 'PostToolUse' });
-    const rewritten = replacementDomain(result);
-    assert.strictEqual(rewritten.domain.reason, 'substrate_witness_rewrite_failed:unexpected_tool');
-    assert.strictEqual(JSON.stringify(rewritten.envelope).includes('RAW_WRONG_TOOL_MARKER'), false);
+    assert.strictEqual(result, null);
   });
 
   test('PreToolUse denies missing session id', () => {

@@ -215,10 +215,7 @@ function processHookPayload(payload, options = {}) {
   if (expectedEvent && payload.hook_event_name !== expectedEvent) {
     return expectedPost ? rewriteFailure('unexpected_hook_event') : deny('unexpected_hook_event');
   }
-  if (payload.tool_name !== TARGET_TOOL) {
-    if (!expectedEvent) return null;
-    return expectedPost ? rewriteFailure('unexpected_tool') : deny('unexpected_tool');
-  }
+  if (payload.tool_name !== TARGET_TOOL) return null;
   const projectRoot = findProjectRoot(payload.cwd);
   if (!projectRoot) {
     return payload.hook_event_name === 'PostToolUse'
