@@ -379,6 +379,11 @@ function createPromptWitnessFixture(projectRoot) {
   const project = projectRoot ? path.resolve(projectRoot) : path.join(root, 'project');
   const profile = path.join(root, 'profile');
   fs.mkdirSync(path.join(project, '.planning', 'metrics'), { recursive: true });
+  fs.writeFileSync(
+    path.join(project, '.planning', 'STATE.md'),
+    '---\nmilestone: fixture\ncurrent_phase: 167\n---\n',
+    'utf8'
+  );
   fs.mkdirSync(profile, { recursive: true });
   const env = {
     ...process.env,
@@ -406,14 +411,6 @@ function withPromptWitnessFixture(fn, projectRoot) {
   } finally {
     fs.rmSync(witnessFixture.root, { recursive: true, force: true });
   }
-}
-
-function promptAcceptanceContext(witnessFixture) {
-  return {
-    projectRoot: witnessFixture.project,
-    env: witnessFixture.env,
-    sessionId: witnessFixture.sessionId,
-  };
 }
 
 function seedPromptWitness(witnessFixture, composer, preparedCall) {
@@ -979,9 +976,14 @@ function preparePromptCallRecords(composer) {
 }
 
 function assertPromptRecordAcceptance(composer, expected) {
-  return withPromptWitnessFixture((witnessFixture) => (
-    assertPromptRecordAcceptanceWithWitness(composer, expected, witnessFixture)
-  ));
+  return withPromptWitnessFixture((witnessFixture) => {
+    const restoreRuntime = activatePromptWitnessRuntime(witnessFixture);
+    try {
+      return assertPromptRecordAcceptanceWithWitness(composer, expected, witnessFixture);
+    } finally {
+      restoreRuntime();
+    }
+  });
 }
 
 function assertPromptRecordAcceptanceWithWitness(composer, expected, witnessFixture) {
@@ -997,16 +999,15 @@ function assertPromptRecordAcceptanceWithWitness(composer, expected, witnessFixt
   for (const [site, promptCall] of preparePromptCallRecords(composer)) {
     const { intent, preparedCall, record } = promptCall;
     const query = preparedCall.payload.query;
-    const context = promptAcceptanceContext(witnessFixture);
     seedPromptWitness(witnessFixture, composer, preparedCall);
-    const accepted = composer.acceptPromptSubstrateCallRecord(intent, preparedCall, record, context);
+    const accepted = composer.acceptPromptSubstrateCallRecord(intent, preparedCall, record);
     assert.strictEqual(accepted.ok, true);
     assert.strictEqual(accepted.intent_family, intent);
     assert.strictEqual(accepted.payload_sha256, preparedCall.gateway_evidence.payload_sha256);
     acceptedRecords.set(site, record);
 
     assert.throws(
-      () => composer.acceptPromptSubstrateCallRecord(intent, null, record, context),
+      () => composer.acceptPromptSubstrateCallRecord(intent, null, record),
       /prepared_call/,
       site + ' must reject a direct record without its prepared envelope'
     );
@@ -1014,7 +1015,7 @@ function assertPromptRecordAcceptanceWithWitness(composer, expected, witnessFixt
       () => composer.acceptPromptSubstrateCallRecord(intent, preparedCall, {
         tool: record.tool,
         payload: record.payload,
-      }, context),
+      }),
       /gateway_evidence/,
       site + ' must reject missing gateway evidence'
     );
@@ -1022,7 +1023,7 @@ function assertPromptRecordAcceptanceWithWitness(composer, expected, witnessFixt
       () => composer.acceptPromptSubstrateCallRecord(intent, preparedCall, {
         ...record,
         gateway_evidence: { ...record.gateway_evidence, payload_sha256: '0'.repeat(64) },
-      }, context),
+      }),
       /digest/,
       site + ' must reject a mismatched digest'
     );
@@ -1033,7 +1034,6 @@ function assertPromptRecordAcceptanceWithWitness(composer, expected, witnessFixt
         intent,
         unfiltered,
         toSubstrateCallRecord(unfiltered),
-        context,
       ),
       /prepared_call/,
       site + ' must reject an unfiltered call even when its digest matches'
@@ -1049,7 +1049,6 @@ function assertPromptRecordAcceptanceWithWitness(composer, expected, witnessFixt
         intent,
         limitSix,
         toSubstrateCallRecord(limitSix),
-        context,
       ),
       /prepared_call/,
       site + ' must reject limit 6 even when its digest matches'

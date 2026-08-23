@@ -505,21 +505,15 @@ function promptRecordContainsCorrelationField(value, seen = new Set()) {
   return false;
 }
 
-function promptWitnessRuntimeContext(testContext) {
-  const injected = testContext && typeof testContext === 'object' && !Array.isArray(testContext)
-    ? testContext
-    : null;
-  const env = injected && injected.env ? injected.env : process.env;
-  const projectRoot = injected && typeof injected.projectRoot === 'string'
-    ? path.resolve(injected.projectRoot)
-    : (findSgsdRoot(process.cwd()) || fs.realpathSync(process.cwd()));
-  const sessionId = injected && Object.prototype.hasOwnProperty.call(injected, 'sessionId')
-    ? injected.sessionId
-    : env.CLAUDE_CODE_SESSION_ID;
-  return { projectRoot, env, sessionId };
+function promptWitnessRuntimeContext() {
+  return {
+    projectRoot: findSgsdRoot(process.cwd()),
+    env: process.env,
+    sessionId: process.env.CLAUDE_CODE_SESSION_ID,
+  };
 }
 
-function acceptPromptSubstrateCallRecord(intentFamily, preparedCall, substrateCallRecord, testContext) {
+function acceptPromptSubstrateCallRecord(intentFamily, preparedCall, substrateCallRecord) {
   if (!validatePreparedSubstrateCall(preparedCall)) {
     rejectPromptSubstrateCallRecord('prepared_call_missing_or_invalid');
   }
@@ -561,7 +555,7 @@ function acceptPromptSubstrateCallRecord(intentFamily, preparedCall, substrateCa
     rejectPromptSubstrateCallRecord('record_correlation_identifier_forbidden');
   }
   const payloadDigest = substratePayloadDigest(preparedCall.payload);
-  const runtime = promptWitnessRuntimeContext(testContext);
+  const runtime = promptWitnessRuntimeContext();
   let consumedWitness;
   try {
     consumedWitness = witnessStore.consumeRewrittenWitness({

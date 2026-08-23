@@ -10,6 +10,9 @@ const childProcess = require('child_process');
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 const COMPOSER_PATH = path.join(REPO_ROOT, 'super-gsd', 'scripts', 'lib', 'vtp-context-composer.cjs');
 const STORE_PATH = path.join(REPO_ROOT, 'super-gsd', 'scripts', 'lib', 'substrate-invocation-witness-store.cjs');
+const STATE_PATH = path.join(REPO_ROOT, 'super-gsd', 'scripts', 'lib', 'sgsd-state.cjs');
+const V2_SCHEMA_PATH = path.join(REPO_ROOT, 'super-gsd', 'schemas', 'vtp-mcp-input-schemas.v2.json');
+const PLAN_SCHEMA_NODE_MODULES_PATH = path.join(REPO_ROOT, 'super-gsd', 'tools', 'plan-schema', 'node_modules');
 const HOOK_PATH = path.join(REPO_ROOT, 'super-gsd', 'hooks', 'sgsd-substrate-invocation-witness.cjs');
 const TMP_PARENT = path.join(REPO_ROOT, '.planning', 'tmp');
 const TARGET_TOOL = 'mcp__vtp-kb__vtp_search_substrate';
@@ -35,15 +38,25 @@ function mkdir(directory) {
   fs.mkdirSync(directory, { recursive: true });
 }
 
-function linkDirectory(target, linkPath) {
-  fs.symlinkSync(target, linkPath, process.platform === 'win32' ? 'junction' : 'dir');
-}
-
 function installHookSource(projectRoot) {
   const target = path.join(projectRoot, 'super-gsd', 'hooks', 'sgsd-substrate-invocation-witness.cjs');
   mkdir(path.dirname(target));
   fs.linkSync(HOOK_PATH, target);
   return target;
+}
+
+function installRuntimeSources(projectRoot) {
+  const sources = [COMPOSER_PATH, STORE_PATH, STATE_PATH, V2_SCHEMA_PATH];
+  for (const source of sources) {
+    const relative = path.relative(path.join(REPO_ROOT, 'super-gsd'), source);
+    const target = path.join(projectRoot, 'super-gsd', relative);
+    mkdir(path.dirname(target));
+    fs.linkSync(source, target);
+  }
+
+  const nodeModulesTarget = path.join(projectRoot, 'super-gsd', 'tools', 'plan-schema', 'node_modules');
+  mkdir(path.dirname(nodeModulesTarget));
+  fs.symlinkSync(PLAN_SCHEMA_NODE_MODULES_PATH, nodeModulesTarget, 'junction');
 }
 
 function hookRegistration(event, hookId, projectRoot, sourceDigest) {
@@ -70,12 +83,7 @@ function createProject(name, env) {
   mkdir(path.join(project, '.planning', 'metrics'));
   fs.writeFileSync(path.join(project, '.planning', 'STATE.md'), '---\nmilestone: fixture\ncurrent_phase: 167\n---\n', 'utf8');
   mkdir(path.join(project, 'super-gsd'));
-  for (const directory of ['scripts', 'schemas', 'tools']) {
-    linkDirectory(
-      path.join(REPO_ROOT, 'super-gsd', directory),
-      path.join(project, 'super-gsd', directory),
-    );
-  }
+  installRuntimeSources(project);
   const installedHook = installHookSource(project);
   const sourceDigest = sha256(fs.readFileSync(installedHook));
   const settings = {
@@ -176,21 +184,35 @@ function seedRewritten(envelope, options = {}) {
   return prePayload;
 }
 
-function acceptanceContext(options = {}) {
-  return {
-    projectRoot: options.projectRoot || fixture.project,
-    env: fixture.env,
-    sessionId: options.sessionId,
-  };
+function withRuntimeAuthority(options, fn) {
+  const projectRoot = options.projectRoot || fixture.project;
+  const previousCwd = process.cwd();
+  const keys = ['HOME', 'USERPROFILE', 'APPDATA', 'XDG_CONFIG_HOME', 'CLAUDE_CODE_SESSION_ID'];
+  const previous = new Map(keys.map((key) => [
+    key,
+    { present: Object.prototype.hasOwnProperty.call(process.env, key), value: process.env[key] },
+  ]));
+  process.chdir(projectRoot);
+  for (const key of keys.slice(0, 4)) process.env[key] = fixture.env[key];
+  if (options.sessionId === undefined) delete process.env.CLAUDE_CODE_SESSION_ID;
+  else process.env.CLAUDE_CODE_SESSION_ID = String(options.sessionId);
+  try {
+    return fn();
+  } finally {
+    process.chdir(previousCwd);
+    for (const [key, state] of previous) {
+      if (state.present) process.env[key] = state.value;
+      else delete process.env[key];
+    }
+  }
 }
 
 function accept(envelope, options = {}) {
-  return composer.acceptPromptSubstrateCallRecord(
+  return withRuntimeAuthority(options, () => composer.acceptPromptSubstrateCallRecord(
     options.intent || 'planning',
     options.preparedCall === undefined ? envelope : options.preparedCall,
     options.record === undefined ? recordFor(envelope) : options.record,
-    acceptanceContext(options),
-  );
+  ));
 }
 
 function spoolFiles(projectRoot = fixture.project) {
@@ -313,17 +335,6 @@ test('consumes two identical sequential calls once each', () => {
   seedRewritten(envelope, { id: 'identical-two', sessionId });
   assert.strictEqual(accept(envelope, { sessionId }).witness_status, 'consumed');
   assert.strictEqual(accept(envelope, { sessionId }).witness_status, 'consumed');
-  assert.throws(
-    () => accept(envelope, { sessionId }),
-    /vtp_prompt_substrate_contract_invalid:substrate_witness_replayed/,
-  );
-});
-
-test('rejects replay after a single witness is consumed', () => {
-  const envelope = prepared('P167 replayed call record');
-  const sessionId = 'session-replay';
-  seedRewritten(envelope, { id: 'replay', sessionId });
-  assert.strictEqual(accept(envelope, { sessionId }).ok, true);
   assert.throws(
     () => accept(envelope, { sessionId }),
     /vtp_prompt_substrate_contract_invalid:substrate_witness_replayed/,
