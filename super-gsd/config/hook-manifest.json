@@ -110,6 +110,16 @@
       ]
     },
     {
+      "source_path": "hooks/sgsd-substrate-invocation-witness.cjs",
+      "interpreter": "node",
+      "distribution_targets": ["claude-global", "claude-project"],
+      "dispositions": [
+        {"kind": "registered", "authority": "config/repo-settings-overlay.json", "surface": "claude-project", "event": "PreToolUse", "matcher": "mcp__vtp-kb__vtp_search_substrate", "timeout_seconds": 5, "command": "node super-gsd/hooks/sgsd-substrate-invocation-witness.cjs --event PreToolUse", "hook_id": "pre-tool-use-substrate-invocation-witness"},
+        {"kind": "registered", "authority": "config/repo-settings-overlay.json", "surface": "claude-project", "event": "PostToolUse", "matcher": "mcp__vtp-kb__vtp_search_substrate", "timeout_seconds": 5, "command": "node super-gsd/hooks/sgsd-substrate-invocation-witness.cjs --event PostToolUse", "hook_id": "post-tool-use-substrate-invocation-witness"},
+        {"kind": "intentionally_unregistered", "surface": "claude-global hooks", "reason": "Project-bound witness state and source digests require exactly one project registration per event; a global copy would duplicate Pre/Post execution."}
+      ]
+    },
+    {
       "source_path": "hooks/sgsd-statusline.js",
       "interpreter": "node",
       "distribution_targets": ["claude-global", "claude-project"],

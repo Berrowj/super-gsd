@@ -52,8 +52,9 @@ function readJsonOrEmpty(p) {
     try {
         return JSON.parse(raw);
     } catch (e) {
-        console.error(`ERROR: ${p} is not valid JSON: ${e.message}`);
-        process.exit(3);
+        const error = new Error(`${p} is not valid JSON: ${e.message}`);
+        error.exitCode = 3;
+        throw error;
     }
 }
 
@@ -579,7 +580,28 @@ function restoreEnvVar(name, value) {
     }
 }
 
-function mergeSettingsFiles(overlayPath, targetPath, repoRoot) {
+function reconcileRepoLocalManagedIds(settings, overlay) {
+    const expectedEvents = new Map();
+    for (const [event, entries] of Object.entries((overlay && overlay.hooks) || {})) {
+        for (const entry of entries || []) {
+            const id = repoLocalHookId(entry);
+            if (id) expectedEvents.set(id, event);
+        }
+    }
+    let removed = 0;
+    for (const [event, entries] of Object.entries((settings && settings.hooks) || {})) {
+        if (!Array.isArray(entries)) continue;
+        settings.hooks[event] = entries.filter((entry) => {
+            const id = repoLocalHookId(entry);
+            if (!id || !expectedEvents.has(id) || expectedEvents.get(id) === event) return true;
+            removed++;
+            return false;
+        });
+    }
+    return removed;
+}
+
+function mergeSettingsFiles(overlayPath, targetPath, repoRoot, options = {}) {
     let repoLocal = null;
     if (repoRoot) {
         repoLocal = resolveRepoLocalTarget(targetPath, repoRoot);
@@ -589,7 +611,7 @@ function mergeSettingsFiles(overlayPath, targetPath, repoRoot) {
     const overlay = repoRoot
         ? realizeRepoLocalHookArgs(readJsonOrEmpty(overlayPath), repoRoot)
         : realizeCommands(readJsonOrEmpty(overlayPath));
-    preflightHookRegistrations(overlay);
+    preflightHookRegistrations(overlay, options.preflightAdapters || {});
     const target = repoRoot
         ? readJsonOrEmpty(targetPath)
         : realizeCommands(readJsonOrEmpty(targetPath));
@@ -631,6 +653,7 @@ function isSameStatusLine(a, b) {
 }
 
 deduped += dedupeExistingHooks(target, !!repoRoot);
+if (repoRoot) deduped += reconcileRepoLocalManagedIds(target, overlay);
 
 function isStopHandoffLauncher(entry) {
     const cmds = (entry.hooks || []).map(h => normalizeCommand(h.command)).filter(Boolean);
@@ -775,8 +798,17 @@ function main() {
         mergeSettingsFiles(overlayPath, targetPath, repoRoot);
     } catch (e) {
         console.error(`ERROR: ${e.message}`);
-        process.exit(4);
+        process.exit(e.exitCode || 4);
     }
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = {
+    mergeSettingsFiles,
+    readJsonOrEmpty,
+    realizeRepoLocalHookArgs,
+    findHookEntriesByCommandMatcher,
+    reconcileRepoLocalManagedIds,
+    resolveRepoLocalTarget,
+};

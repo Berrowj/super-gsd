@@ -1,6 +1,20 @@
 {
   "_comment": "Merge into <repo>/.claude/settings.json via super-gsd/scripts/merge-settings.js --repo-local-hooks. Hook script args are repo-relative here and resolved to absolute target-repo paths at install time.",
   "hooks": {
+    "PreToolUse": [
+      {
+        "sgsd_managed": true,
+        "sgsd_hook_id": "pre-tool-use-substrate-invocation-witness",
+        "sgsd_source_sha256": "1648d83876b5b6c98de83e3d4db773b2ea2937d16d0e571226431b7ca0bd7dfd",
+        "matcher": "mcp__vtp-kb__vtp_search_substrate",
+        "hooks": [{
+          "type": "command",
+          "command": "node",
+          "args": ["super-gsd/hooks/sgsd-substrate-invocation-witness.cjs", "--event", "PreToolUse"],
+          "timeout": 5
+        }]
+      }
+    ],
     "SessionStart": [
       {
         "sgsd_managed": true,
@@ -44,6 +58,18 @@
       }
     ],
     "PostToolUse": [
+      {
+        "sgsd_managed": true,
+        "sgsd_hook_id": "post-tool-use-substrate-invocation-witness",
+        "sgsd_source_sha256": "1648d83876b5b6c98de83e3d4db773b2ea2937d16d0e571226431b7ca0bd7dfd",
+        "matcher": "mcp__vtp-kb__vtp_search_substrate",
+        "hooks": [{
+          "type": "command",
+          "command": "node",
+          "args": ["super-gsd/hooks/sgsd-substrate-invocation-witness.cjs", "--event", "PostToolUse"],
+          "timeout": 5
+        }]
+      },
       {
         "sgsd_managed": true,
         "sgsd_hook_id": "post-tool-use-quality-gate",

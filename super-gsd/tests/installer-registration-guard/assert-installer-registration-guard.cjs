@@ -18,6 +18,7 @@ const GLOBAL_OVERLAY_PATH = path.join(SUPER_GSD_ROOT, 'config', 'settings-overla
 const REPO_OVERLAY_PATH = path.join(SUPER_GSD_ROOT, 'config', 'repo-settings-overlay.json');
 const CODEX_HOOK_CONFIG_PATH = path.join(SUPER_GSD_ROOT, 'config', 'codex-hooks.json');
 const HOOK_MANIFEST_PATH = path.join(SUPER_GSD_ROOT, 'config', 'hook-manifest.json');
+const WITNESS_STORE_PATH = path.join(SUPER_GSD_ROOT, 'scripts', 'lib', 'substrate-invocation-witness-store.cjs');
 const COMMIT_GATE_INSTALLER_PATH = path.join(SUPER_GSD_ROOT, 'scripts', 'install-commit-gate.cjs');
 const UPDATE_SKILL_PATH = path.join(SUPER_GSD_ROOT, 'skills', 'sgsd-update', 'SKILL.md');
 const STALE_OVERLAY_MARKERS = Object.freeze([
@@ -71,7 +72,7 @@ const CLARITY_NINE_HOOKS = Object.freeze([
   'sgsd-session-start.js',
   'sgsd-statusline.js',
 ]);
-const CANONICAL_HOOK_COUNT = 16;
+const CANONICAL_HOOK_COUNT = 17;
 const DEFAULT_INSTALLER_SPAWN_TIMEOUT_MS = 150_000;
 const BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS = 3 * 90_000;
 const REAL_UPDATE_SPAWN_TIMEOUT_MS = 3 * 90_000;
@@ -92,6 +93,7 @@ const SHIPPED_HOOK_NAMES = Object.freeze([
   'sgsd-session-start.js',
   'sgsd-statusline.js',
   'sgsd-stop-handoff.js',
+  'sgsd-substrate-invocation-witness.cjs',
   'sgsd-vtp-pending.js',
 ]);
 const EXPECTED_CODEX_ENTRY_NAMES = Object.freeze([
@@ -102,9 +104,11 @@ const EXPECTED_CODEX_ENTRY_NAMES = Object.freeze([
   'validate-stop-contract.cjs',
 ]);
 const REPO_REGISTRATIONS = Object.freeze([
+  ['PreToolUse', 'pre-tool-use-substrate-invocation-witness', 'super-gsd/hooks/sgsd-substrate-invocation-witness.cjs'],
   ['SessionStart', 'session-start-governance', 'super-gsd/hooks/sgsd-session-start.js'],
   ['UserPromptSubmit', 'user-prompt-intent-classifier', 'super-gsd/hooks/sgsd-intent-classifier.cjs'],
   ['UserPromptSubmit', 'user-prompt-secret-leak-guard', 'super-gsd/tools/codex-hooks/block-secret-leak.cjs'],
+  ['PostToolUse', 'post-tool-use-substrate-invocation-witness', 'super-gsd/hooks/sgsd-substrate-invocation-witness.cjs'],
   ['PostToolUse', 'post-tool-use-quality-gate', 'super-gsd/hooks/sgsd-quality-gate.js'],
 ]);
 const CLARITY_HISTORICAL_IDS = Object.freeze([
@@ -189,16 +193,21 @@ function copyFixtureSupport(projectRoot) {
   for (const name of ['install.sh', 'CLAUDE-OVERLAY.md']) {
     fs.copyFileSync(path.join(SUPER_GSD_ROOT, name), path.join(vendoredRoot, name));
   }
-  for (const relative of ['config', 'hooks', 'registry', 'scripts']) {
+  for (const relative of ['agents', 'config', 'hooks', 'registry', 'scripts']) {
     fs.cpSync(path.join(SUPER_GSD_ROOT, relative), path.join(vendoredRoot, relative), { recursive: true });
   }
   for (const relative of [
     path.join('tools', 'codex-hooks'),
+    path.join('tools', 'feature-propagation'),
     path.join('tools', 'state-resolver'),
     path.join('tools', 'vtp-readiness'),
   ]) {
     fs.cpSync(path.join(SUPER_GSD_ROOT, relative), path.join(vendoredRoot, relative), { recursive: true });
   }
+  fs.copyFileSync(
+    path.join(SUPER_GSD_ROOT, 'tools', 'substrate-capability-broker.cjs'),
+    path.join(vendoredRoot, 'tools', 'substrate-capability-broker.cjs'),
+  );
   return vendoredRoot;
 }
 
@@ -310,7 +319,7 @@ function commandSourcePath(command, args = []) {
   const launch = [command, ...args].join(' ').replace(/\\/g, '/');
   let match = launch.match(/^(?:node|bash)\s+~\/\.claude\/hooks\/([^\s]+)$/);
   if (match) return `hooks/${match[1]}`;
-  match = launch.match(/^(?:node|bash)\s+super-gsd\/(hooks\/[^\s]+|tools\/codex-hooks\/[^\s]+)$/);
+  match = launch.match(/^(?:node|bash)\s+super-gsd\/(hooks\/[^\s]+|tools\/codex-hooks\/[^\s]+)(?:\s+.*)?$/);
   return match ? match[1] : null;
 }
 
@@ -406,7 +415,7 @@ function validateManifestInventory(snapshot) {
     const duplicate = entryPaths.find((sourcePath, index) => entryPaths.indexOf(sourcePath) !== index);
     manifestFailure('hook_manifest_entry_unexpected', duplicate, 'manifest');
   }
-  assert.equal(snapshot.hookInventory.length, 16, 'hook manifest inventory must contain exactly sixteen Claude entries');
+  assert.equal(snapshot.hookInventory.length, 17, 'hook manifest inventory must contain exactly seventeen Claude entries');
   assert.equal(snapshot.codexInventory.length, 5, 'hook manifest inventory must contain exactly five Codex entries');
   return { entries, inventorySet, shippedSet: new Set(snapshot.shippedInventory) };
 }
@@ -597,7 +606,7 @@ function assertManifestMutationRefused(base, mutate, code, sourcePath, surface) 
 
 function runHookManifestCompleteness() {
   const snapshot = hookManifestSnapshot();
-  assert.deepEqual(validateHookManifest(snapshot), { entries: 21, registrations: 24, smoke: 15 });
+  assert.deepEqual(validateHookManifest(snapshot), { entries: 22, registrations: 26, smoke: 15 });
 
   assertManifestMutationRefused(snapshot, (fixture) => {
     fixture.globalOverlay.hooks.SessionStart = fixture.globalOverlay.hooks.SessionStart
@@ -762,6 +771,8 @@ function runInstaller(fixture, args, timeoutMs = DEFAULT_INSTALLER_SPAWN_TIMEOUT
         ...process.env,
         HOME: fixture.homeRoot,
         USERPROFILE: fixture.homeRoot,
+        APPDATA: path.join(fixture.homeRoot, 'AppData', 'Roaming'),
+        XDG_CONFIG_HOME: path.join(fixture.homeRoot, '.config'),
       },
       encoding: 'utf8',
       shell: false,
@@ -1342,7 +1353,7 @@ async function runSmokeStatic() {
     repoRoot,
   );
   const repoDescriptors = enumerateHookRegistrations(repoOverlay);
-  assert.equal(repoDescriptors.length, REPO_REGISTRATIONS.length, 'repo smoke did not realize all four overlay commands');
+  assert.equal(repoDescriptors.length, REPO_REGISTRATIONS.length, 'repo smoke did not realize all six overlay commands');
   assert.deepEqual(
     repoDescriptors.map((item) => [item.event, item.hookId, item.scriptPath]),
     REPO_REGISTRATIONS.map(([event, hookId, relative]) => [event, hookId, path.resolve(repoRoot, relative)]),
@@ -1409,7 +1420,9 @@ function runVendoredNineHook() {
   try {
     retainClarityNine(fixture.vendoredRoot);
     const before = seedTarget(fixture.repoSettings, 'vendored-nine-hook');
-    const missing = REPO_REGISTRATIONS.slice(1).map(([, , relative]) => path.resolve(fixture.projectRoot, relative));
+    const missing = REPO_REGISTRATIONS
+      .filter(([, hookId]) => hookId !== 'session-start-governance')
+      .map(([, , relative]) => path.resolve(fixture.projectRoot, relative));
     const result = runInstaller(fixture, ['--init-project', '--skip-cockpit-deps']);
     assertRefused(result, fixture.repoSettings, before, ['hook_registration_missing', ...missing]);
     const settings = JSON.parse(readBytes(fixture.repoSettings).toString('utf8'));
@@ -1507,7 +1520,7 @@ function runHookDistributionAllTypes() {
   assert.deepEqual(
     hookFiles(path.join(SUPER_GSD_ROOT, 'hooks')),
     [...SHIPPED_HOOK_NAMES],
-    'source hook inventory drifted from the locked sixteen basenames',
+    'source hook inventory drifted from the locked seventeen basenames',
   );
   const codexEntryNames = configuredCodexEntryNames();
   assert.deepEqual(
@@ -1578,7 +1591,7 @@ function runHookDistributionAllTypes() {
 }
 
 function runCanonicalSixteenHook() {
-  assert.equal(hookFiles(path.join(SUPER_GSD_ROOT, 'hooks')).length, CANONICAL_HOOK_COUNT, 'canonical source is no longer a sixteen-hook layout');
+  assert.equal(hookFiles(path.join(SUPER_GSD_ROOT, 'hooks')).length, CANONICAL_HOOK_COUNT, 'canonical source is no longer a seventeen-hook layout');
   const fixture = createFixture('canonical-sixteen');
   try {
     assert.equal(hookFiles(path.join(fixture.vendoredRoot, 'hooks')).length, CANONICAL_HOOK_COUNT, 'vendored canonical fixture is incomplete');
@@ -1605,7 +1618,7 @@ function runCanonicalSixteenHook() {
 }
 
 function runDeployedHookSmoke() {
-  assert.equal(hookFiles(path.join(SUPER_GSD_ROOT, 'hooks')).length, CANONICAL_HOOK_COUNT, 'canonical source is no longer a sixteen-hook layout');
+  assert.equal(hookFiles(path.join(SUPER_GSD_ROOT, 'hooks')).length, CANONICAL_HOOK_COUNT, 'canonical source is no longer a seventeen-hook layout');
   const fixture = createDistributionFixture('deployed-hook-smoke');
   try {
     seedTarget(fixture.globalSettings, 'smoke-global');
@@ -1649,7 +1662,13 @@ function runDeployedHookSmoke() {
     fs.mkdirSync(loadRoot, { recursive: true });
     const load = spawnSync(process.execPath, [sourceEntryPath], {
       cwd: loadRoot,
-      env: { ...process.env, HOME: fixture.homeRoot, USERPROFILE: fixture.homeRoot },
+      env: {
+        ...process.env,
+        HOME: fixture.homeRoot,
+        USERPROFILE: fixture.homeRoot,
+        APPDATA: path.join(fixture.homeRoot, 'AppData', 'Roaming'),
+        XDG_CONFIG_HOME: path.join(fixture.homeRoot, '.config'),
+      },
       input: JSON.stringify({ hook_event_name: 'SessionStart', cwd: loadRoot }) + '\n',
       encoding: 'utf8',
       shell: false,
@@ -2014,6 +2033,184 @@ function assertClarityRecoveryRunbook() {
   );
 }
 
+function runBrokeredSubstrateCapability() {
+  const overlay = JSON.parse(fs.readFileSync(REPO_OVERLAY_PATH, 'utf8'));
+  const manifest = JSON.parse(fs.readFileSync(HOOK_MANIFEST_PATH, 'utf8'));
+  const sourcePath = path.join(SUPER_GSD_ROOT, 'hooks', 'sgsd-substrate-invocation-witness.cjs');
+  const sourceDigest = sha256(readBytes(sourcePath));
+  const matcher = ['mcp__vtp-kb__vtp', 'search', 'substrate'].join('_');
+  const expected = [
+    ['PreToolUse', 'pre-tool-use-substrate-invocation-witness'],
+    ['PostToolUse', 'post-tool-use-substrate-invocation-witness'],
+  ];
+  for (const [event, hookId] of expected) {
+    const rows = (overlay.hooks[event] || []).filter((entry) => entry.sgsd_hook_id === hookId);
+    assert.equal(rows.length, 1, `${event} witness registration is missing or duplicated`);
+    assert.equal(rows[0].sgsd_managed, true);
+    assert.equal(rows[0].matcher, matcher);
+    assert.equal(rows[0].sgsd_source_sha256, sourceDigest);
+    assert.deepEqual(rows[0].hooks[0].args, [
+      'super-gsd/hooks/sgsd-substrate-invocation-witness.cjs', '--event', event,
+    ]);
+    assert.equal(rows[0].hooks[0].timeout, 5);
+  }
+  const manifestEntry = manifest.entries.find((entry) => entry.source_path === 'hooks/sgsd-substrate-invocation-witness.cjs');
+  assert.ok(manifestEntry, 'witness source is absent from hook manifest');
+  assert.equal(manifestEntry.dispositions.filter((row) => row.kind === 'registered').length, 2);
+  assert.equal(manifestEntry.dispositions.filter((row) => row.kind === 'intentionally_unregistered'
+    && row.surface === 'claude-global hooks').length, 1);
+
+  const mergeSource = fs.readFileSync(path.join(SUPER_GSD_ROOT, 'scripts', 'merge-settings.js'), 'utf8');
+  assert.match(mergeSource, /if \(require\.main === module\) main\(\);/);
+  const merge = require(path.join(SUPER_GSD_ROOT, 'scripts', 'merge-settings.js'));
+  assert.equal(typeof merge.mergeSettingsFiles, 'function');
+  const audit = require(path.join(SUPER_GSD_ROOT, 'tools', 'feature-propagation', 'audit.cjs'));
+  assert.equal(typeof audit._internals.auditClaudeSubstrateWitness, 'function');
+  assert.equal(typeof audit._internals.auditClaudeSubstrateCapability, 'function');
+
+  const installer = fs.readFileSync(INSTALL_PATH, 'utf8');
+  assert.match(installer, /repair_substrate_capability\(\)/);
+  assert.match(installer, /refusing grant-bearing agent installation/);
+  for (const functionName of ['init_local_project()', 'update_existing()']) {
+    const start = installer.indexOf(functionName);
+    const mergeIndex = installer.indexOf('  register_repo_local_hooks', start);
+    const repairIndex = installer.indexOf('  repair_substrate_capability', start);
+    assert.ok(start >= 0 && repairIndex > start && mergeIndex > repairIndex, `${functionName} merged hooks before key and broker repair`);
+  }
+
+  const fixture = createDistributionFixture('brokered-substrate-capability');
+  try {
+    const secret = 'P167_INSTALLER_PRIVATE_UPSTREAM_VALUE';
+    const repoSeed = sentinelSettings('p167-repo');
+    const stalePre = deepClone(overlay.hooks.PreToolUse[0]);
+    stalePre.hooks[0].command = 'node-stale';
+    const stalePost = deepClone(overlay.hooks.PostToolUse[0]);
+    stalePost.hooks[0].args[2] = 'PreToolUse';
+    repoSeed.hooks.PreToolUse = [stalePre, deepClone(stalePre)];
+    repoSeed.hooks.PostToolUse = [deepClone(stalePre), stalePost, deepClone(stalePost)];
+    writeJson(fixture.repoSettings, repoSeed);
+
+    const globalSeed = sentinelSettings('p167-global');
+    globalSeed.hooks.PreToolUse = [deepClone(overlay.hooks.PreToolUse[0])];
+    writeJson(fixture.globalSettings, globalSeed);
+
+    const projectMcpPath = path.join(fixture.projectRoot, '.mcp.json');
+    const localMcpPath = path.join(fixture.projectRoot, '.claude', 'settings.local.json');
+    const userMcpPath = path.join(fixture.homeRoot, '.claude.json');
+    writeJson(projectMcpPath, {
+      unrelated: { survives: true },
+      mcpServers: {
+        unrelated: { command: 'unrelated-command', args: ['--preserve'] },
+        'vtp-kb': { command: 'node', args: ['project-upstream.cjs'], env: { PRIVATE_VALUE: secret } },
+      },
+    });
+    writeJson(localMcpPath, {
+      unrelatedLocal: true,
+      mcpServers: { 'vtp-kb': { command: 'node', args: ['local-settings-upstream.cjs'] } },
+    });
+    writeJson(userMcpPath, {
+      unrelatedUser: true,
+      mcpServers: { 'vtp-kb': { command: 'node', args: ['user-upstream.cjs'] } },
+      projects: {
+        [fixture.projectRoot]: {
+          unrelatedProjectState: true,
+          mcpServers: { 'vtp-kb': { command: 'node', args: ['local-profile-upstream.cjs'] } },
+        },
+      },
+    });
+
+    const legacyDir = path.join(fixture.homeRoot, '.claude', 'agents');
+    fs.mkdirSync(legacyDir, { recursive: true });
+    for (const [name, marker] of [
+      ['gsd-phase-researcher.md', 'phase_research'],
+      ['gsd-planner.md', 'planning'],
+    ]) {
+      fs.writeFileSync(
+        path.join(legacyDir, name),
+        `---\ntools: Read, Bash\n---\noperator-owned ${name}\n<sgsd_vtp_substrate_policy_p166_${marker}>old P166 content</sgsd_vtp_substrate_policy_p166_${marker}>\n`,
+        'utf8',
+      );
+    }
+
+    const targetWitness = path.join(fixture.projectRoot, 'super-gsd', 'hooks', 'sgsd-substrate-invocation-witness.cjs');
+    fs.mkdirSync(path.dirname(targetWitness), { recursive: true });
+    fs.writeFileSync(targetWitness, fs.readFileSync(sourcePath, 'utf8') + '\n// stale target source\n', 'utf8');
+
+    const args = ['--init-project', '--skip-cockpit-deps'];
+    const first = runInstaller(fixture, args, BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS);
+    if (first.error) throw first.error;
+    const firstOutput = `${first.stderr || ''}\n${first.stdout || ''}`;
+    assert.equal(first.status, 0, `brokered capability install failed:\n${firstOutput}`);
+    assert.equal(firstOutput.includes(secret), false, 'installer output exposed private upstream data');
+    assert.equal(sha256(readBytes(targetWitness)), sourceDigest, 'installer did not refresh the stale witness source');
+
+    const installedRepo = JSON.parse(readBytes(fixture.repoSettings).toString('utf8'));
+    assert.equal(installedRepo.unrelatedProjectKey.survives, true);
+    for (const [event, hookId] of expected) assert.equal(countManagedHook(installedRepo, event, hookId), 1);
+    const installedGlobal = JSON.parse(readBytes(fixture.globalSettings).toString('utf8'));
+    assert.equal(installedGlobal.unrelatedProjectKey.survives, true);
+    assert.equal(JSON.stringify(installedGlobal).includes('substrate-invocation-witness'), false);
+
+    const installedLocal = JSON.parse(readBytes(localMcpPath).toString('utf8'));
+    const installedUser = JSON.parse(readBytes(userMcpPath).toString('utf8'));
+    const definitions = [
+      JSON.parse(readBytes(projectMcpPath).toString('utf8')).mcpServers['vtp-kb'],
+      installedLocal.mcpServers['vtp-kb'],
+      installedUser.mcpServers['vtp-kb'],
+      installedUser.projects[fixture.projectRoot].mcpServers['vtp-kb'],
+    ];
+    for (const definition of definitions) {
+      assert.equal(path.basename(definition.args[0]), 'substrate-capability-broker.cjs');
+      assert.equal(Object.prototype.hasOwnProperty.call(definition, 'env'), false);
+    }
+    assert.equal(JSON.parse(readBytes(projectMcpPath).toString('utf8')).unrelated.survives, true);
+    assert.equal(installedLocal.unrelatedLocal, true);
+    assert.equal(installedUser.unrelatedUser, true);
+
+    const witnessStore = require(WITNESS_STORE_PATH);
+    const isolatedEnv = {
+      HOME: fixture.homeRoot,
+      USERPROFILE: fixture.homeRoot,
+      APPDATA: path.join(fixture.homeRoot, 'AppData', 'Roaming'),
+      XDG_CONFIG_HOME: path.join(fixture.homeRoot, '.config'),
+    };
+    const manifestPath = witnessStore.resolveWitnessPaths(fixture.projectRoot, isolatedEnv).upstream_manifest_path;
+    assert.equal(readBytes(manifestPath).includes(Buffer.from(secret)), true, 'private manifest did not preserve upstream secret bytes');
+
+    const installedAgents = [
+      path.join(legacyDir, 'sgsd-vtp-enrichment.md'),
+      path.join(legacyDir, 'sgsd-board-researcher.md'),
+      path.join(legacyDir, 'gsd-phase-researcher.md'),
+      path.join(legacyDir, 'gsd-planner.md'),
+    ];
+    for (const agentPath of installedAgents) {
+      const text = readBytes(agentPath).toString('utf8');
+      assert.match(text.split(/---/)[1], new RegExp(matcher));
+      assert.match(text, /<sgsd_vtp_substrate_witness_p167>/);
+      assert.doesNotMatch(text, /\btool_use_id\b/);
+      assert.doesNotMatch(text, /truncate it in memory to its first 16000 JavaScript characters/);
+    }
+
+    const stablePaths = [
+      fixture.repoSettings,
+      fixture.globalSettings,
+      projectMcpPath,
+      localMcpPath,
+      userMcpPath,
+      manifestPath,
+      targetWitness,
+      ...installedAgents,
+    ];
+    const firstBytes = new Map(stablePaths.map((filePath) => [filePath, readBytes(filePath)]));
+    const second = runInstaller(fixture, args, BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS);
+    if (second.error) throw second.error;
+    assert.equal(second.status, 0, `brokered capability reinstall failed:\n${second.stderr || ''}\n${second.stdout || ''}`);
+    for (const filePath of stablePaths) assert.deepEqual(readBytes(filePath), firstBytes.get(filePath), `second install changed ${filePath}`);
+  } finally {
+    removeFixture(fixture);
+  }
+}
+
 function runSgsdUpdateClarityRecovery() {
   const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-update-clarity-recovery-'));
   try {
@@ -2023,6 +2220,8 @@ function runSgsdUpdateClarityRecovery() {
       ...process.env,
       HOME: project.homeRoot,
       USERPROFILE: project.homeRoot,
+      APPDATA: path.join(project.homeRoot, 'AppData', 'Roaming'),
+      XDG_CONFIG_HOME: path.join(project.homeRoot, '.config'),
       GIT_SSH_COMMAND: gitFixture.sshRouterPath.replace(/\\/g, '/'),
       GIT_SSH_VARIANT: 'ssh',
       GIT_TERMINAL_PROMPT: '0',
@@ -2082,6 +2281,7 @@ const CASES = Object.freeze({
   'deployed-hook-smoke': runDeployedHookSmoke,
   'hook-distribution-all-types': runHookDistributionAllTypes,
   'hook-manifest-completeness': runHookManifestCompleteness,
+  'brokered-substrate-capability': runBrokeredSubstrateCapability,
   'sgsd-update-clarity-shape': runSgsdUpdateClarityRecovery,
   'sgsd-update-clarity-recovery': runSgsdUpdateClarityRecovery,
 });

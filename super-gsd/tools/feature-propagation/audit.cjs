@@ -26,8 +26,14 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+const { mergeSettingsFiles } = require('../../scripts/merge-settings.js');
+const witnessStore = require('../../scripts/lib/substrate-invocation-witness-store.cjs');
 
 const CODEX_HOOK_INSTALLER = path.resolve(__dirname, '..', 'codex-hooks', 'install-hooks.cjs');
+const REPO_HOOK_OVERLAY = path.resolve(__dirname, '..', '..', 'config', 'repo-settings-overlay.json');
+const BROKER_RELATIVE_PATH = path.join('super-gsd', 'tools', 'substrate-capability-broker.cjs');
+const P167_MARKER = '<sgsd_vtp_substrate_witness_p167>';
+const P167_END_MARKER = '</sgsd_vtp_substrate_witness_p167>';
 
 const SCHEMA_VERSION = 1;
 const CODEX_MODEL = 'gpt-5.6-sol';
@@ -280,6 +286,460 @@ function sha256(p) {
   }
 }
 
+function sha256Bytes(value) {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function stableValue(value) {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stableValue(value[key])]));
+}
+
+function definitionDigest(value) {
+  return sha256Bytes(Buffer.from(JSON.stringify(stableValue(value)), 'utf8'));
+}
+
+function atomicPrivateJson(filePath, value) {
+  ensureDir(path.dirname(filePath));
+  const serialized = JSON.stringify(value, null, 2) + '\n';
+  if (exists(filePath) && fs.readFileSync(filePath, 'utf8') === serialized) return;
+  const temporary = filePath + '.tmp';
+  fs.writeFileSync(temporary, serialized, { encoding: 'utf8', mode: 0o600 });
+  if (process.platform !== 'win32') fs.chmodSync(temporary, 0o600);
+  fs.renameSync(temporary, filePath);
+  if (process.platform !== 'win32') fs.chmodSync(filePath, 0o600);
+}
+
+function atomicJson(filePath, value) {
+  ensureDir(path.dirname(filePath));
+  const serialized = JSON.stringify(value, null, 2) + '\n';
+  if (exists(filePath) && fs.readFileSync(filePath, 'utf8') === serialized) return;
+  const temporary = filePath + '.tmp';
+  fs.writeFileSync(temporary, serialized, 'utf8');
+  fs.renameSync(temporary, filePath);
+}
+
+function readMcpDocument(filePath) {
+  if (!exists(filePath)) return { doc: {}, malformed: false };
+  try {
+    const value = JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return { doc: {}, malformed: true };
+    return { doc: value, malformed: false };
+  } catch (_) {
+    return { doc: {}, malformed: true };
+  }
+}
+
+function samePath(left, right) {
+  return norm(left) === norm(right);
+}
+
+function brokerDefinition(ctx) {
+  const brokerPath = path.join(ctx.projectDir, BROKER_RELATIVE_PATH);
+  const manifestPath = witnessStore.resolveWitnessPaths(ctx.projectDir, process.env).upstream_manifest_path;
+  return {
+    command: 'node',
+    args: [brokerPath, '--project-root', ctx.projectDir, '--upstream-manifest', manifestPath],
+  };
+}
+
+function isBrokerDefinition(value, expected) {
+  return Boolean(value && value.command === expected.command
+    && Array.isArray(value.args)
+    && value.args.length === expected.args.length
+    && value.args.every((arg, index) => index === 0 || index === 2 || index === 4
+      ? samePath(arg, expected.args[index])
+      : arg === expected.args[index]));
+}
+
+function isAnyBrokerDefinition(value) {
+  return Boolean(value && value.command === 'node' && Array.isArray(value.args)
+    && typeof value.args[0] === 'string'
+    && path.basename(value.args[0]).toLowerCase() === 'substrate-capability-broker.cjs');
+}
+
+function mcpScopeDocuments(ctx) {
+  const projectPath = path.join(ctx.projectDir, '.mcp.json');
+  const localPath = path.join(ctx.projectDir, '.claude', 'settings.local.json');
+  const profilePath = path.join(homeDir(), '.claude.json');
+  const projectRead = readMcpDocument(projectPath);
+  const localRead = readMcpDocument(localPath);
+  const profileRead = readMcpDocument(profilePath);
+  const projectDoc = projectRead.doc;
+  const localDoc = localRead.doc;
+  const profileDoc = profileRead.doc;
+  const projects = profileDoc.projects && typeof profileDoc.projects === 'object' && !Array.isArray(profileDoc.projects)
+    ? profileDoc.projects : null;
+  const projectKey = projects && Object.keys(projects).find((key) => samePath(key, ctx.projectDir));
+  const scopes = [
+    { id: 'local-settings', path: localPath, doc: localDoc, owner: localDoc, rank: 1, malformed: localRead.malformed },
+    { id: 'project', path: projectPath, doc: projectDoc, owner: projectDoc, rank: 2, malformed: projectRead.malformed },
+    { id: 'user', path: profilePath, doc: profileDoc, owner: profileDoc, rank: 3, malformed: profileRead.malformed },
+  ];
+  if (projectKey && projects[projectKey] && typeof projects[projectKey] === 'object') {
+    scopes.unshift({ id: 'local', path: profilePath, doc: profileDoc, owner: projects[projectKey], rank: 0, malformed: profileRead.malformed });
+  }
+  return scopes;
+}
+
+function scopeDefinition(scope) {
+  const servers = scope.owner && scope.owner.mcpServers;
+  return servers && typeof servers === 'object' && !Array.isArray(servers) ? servers['vtp-kb'] : undefined;
+}
+
+function setScopeDefinition(scope, value) {
+  const before = scopeDefinition(scope);
+  if (value === undefined && before === undefined) return;
+  if (value !== undefined && before !== undefined
+      && JSON.stringify(stableValue(before)) === JSON.stringify(stableValue(value))) return;
+  if (!scope.owner.mcpServers || typeof scope.owner.mcpServers !== 'object' || Array.isArray(scope.owner.mcpServers)) {
+    scope.owner.mcpServers = {};
+  }
+  if (value === undefined) delete scope.owner.mcpServers['vtp-kb'];
+  else scope.owner.mcpServers['vtp-kb'] = value;
+  scope.dirty = true;
+}
+
+function saveChangedScopeDocuments(scopes, beforeByPath) {
+  const written = new Set();
+  for (const scope of scopes) {
+    if (written.has(scope.path) || !scopes.some((candidate) => candidate.path === scope.path && candidate.dirty)) continue;
+    written.add(scope.path);
+    const after = JSON.stringify(scope.doc, null, 2) + '\n';
+    if (after !== beforeByPath.get(scope.path)) atomicJson(scope.path, scope.doc);
+  }
+}
+
+function auditClaudeSubstrateWitness(ctx) {
+  const readiness = witnessStore.inspectWitnessReadiness(ctx.projectDir, process.env);
+  let ready = readiness.ready;
+  let reason = readiness.reason;
+  const settings = readJson(path.join(ctx.projectDir, '.claude', 'settings.json'));
+  const globalSettingsPath = path.join(homeDir(), '.claude', 'settings.json');
+  const globalSettings = readJson(globalSettingsPath);
+  const allManaged = [];
+  for (const [event, entries] of Object.entries((settings && settings.hooks) || {})) {
+    for (const entry of entries || []) allManaged.push({ event, entry });
+  }
+  const preIds = allManaged.filter(({ entry }) => entry && entry.sgsd_hook_id === witnessStore.PRE_HOOK_ID);
+  const postIds = allManaged.filter(({ entry }) => entry && entry.sgsd_hook_id === witnessStore.POST_HOOK_ID);
+  if (preIds.length > 1) { reason = 'pretooluse_duplicate'; ready = false; }
+  else if (postIds.length > 1) { reason = 'posttooluse_duplicate'; ready = false; }
+  else if (preIds.length === 1 && preIds[0].event !== 'PreToolUse') { reason = 'pretooluse_stale'; ready = false; }
+  else if (postIds.length === 1 && postIds[0].event !== 'PostToolUse') { reason = 'posttooluse_stale'; ready = false; }
+  if (exists(globalSettingsPath) && !globalSettings) { reason = 'global_settings_malformed'; ready = false; }
+  for (const entries of Object.values((globalSettings && globalSettings.hooks) || {})) {
+    if ((entries || []).some((entry) => entry && (
+      entry.sgsd_hook_id === witnessStore.PRE_HOOK_ID || entry.sgsd_hook_id === witnessStore.POST_HOOK_ID
+    ))) {
+      reason = 'global_registration_present';
+      ready = false;
+      break;
+    }
+  }
+  const installedSource = path.join(ctx.projectDir, witnessStore.HOOK_RELATIVE_PATH);
+  const canonicalSource = path.join(ctx.sgsdRoot, witnessStore.HOOK_RELATIVE_PATH.replace(/^super-gsd[\\/]/, ''));
+  if (!samePath(installedSource, canonicalSource)
+      && (!exists(canonicalSource) || sha256(installedSource) !== sha256(canonicalSource))) {
+    reason = 'source_drift';
+    ready = false;
+  }
+  if (!readiness.ready && /stale$/.test(reason || '')) {
+    const sourceDigest = sha256(installedSource);
+    const managed = [];
+    for (const event of ['PreToolUse', 'PostToolUse']) {
+      for (const entry of ((settings && settings.hooks && settings.hooks[event]) || [])) {
+        if (entry && (entry.sgsd_hook_id === witnessStore.PRE_HOOK_ID || entry.sgsd_hook_id === witnessStore.POST_HOOK_ID)) managed.push(entry);
+      }
+    }
+    if (sourceDigest && managed.some((entry) => entry.sgsd_source_sha256 !== sourceDigest)) reason = 'source_drift';
+  }
+  if (reason === 'key_unavailable') {
+    const keyPath = witnessStore.resolveWitnessPaths(ctx.projectDir, process.env).key_path;
+    if (!exists(keyPath)) reason = 'key_missing';
+    else reason = 'key_invalid';
+  }
+  return {
+    status: ready ? 'current' : 'missing_or_stale',
+    ready,
+    reasons: ready ? [] : [reason],
+    source_digest: readiness.source_digest || null,
+    trust_level: 'local_hmac',
+    enforcement_scope: 'supported_sgsd_brokered_mcp_grant',
+    residual: 'same_user_can_restore_direct_mcp_or_replace_broker',
+    managed_policy: 'available_on_windows_but_not_deployed_or_writable_by_current_non_admin_operator',
+  };
+}
+
+function readUpstreamManifest(ctx) {
+  const paths = witnessStore.resolveWitnessPaths(ctx.projectDir, process.env);
+  const manifest = readJson(paths.upstream_manifest_path);
+  return { paths, manifest };
+}
+
+function validateUpstreamManifest(ctx, manifest) {
+  const brokerPath = path.join(ctx.projectDir, BROKER_RELATIVE_PATH);
+  const hookPath = path.join(ctx.projectDir, witnessStore.HOOK_RELATIVE_PATH);
+  const manifestPath = witnessStore.resolveWitnessPaths(ctx.projectDir, process.env).upstream_manifest_path;
+  if (!manifest || manifest.schema_version !== witnessStore.UPSTREAM_MANIFEST_SCHEMA_VERSION
+      || manifest.project_digest !== witnessStore.resolveWitnessPaths(ctx.projectDir, process.env).project_digest
+      || manifest.broker_sha256 !== sha256(brokerPath)
+      || manifest.witness_source_sha256 !== sha256(hookPath)
+      || typeof manifest.active_scope !== 'string' || !manifest.servers || typeof manifest.servers !== 'object') {
+    return 'upstream_drift';
+  }
+  if (process.platform !== 'win32' && exists(manifestPath) && (fs.statSync(manifestPath).mode & 0o077) !== 0) {
+    return 'upstream_drift';
+  }
+  const active = manifest.servers[manifest.active_scope];
+  if (!active) return 'upstream_missing';
+  for (const entry of Object.values(manifest.servers)) {
+    if (!entry || entry.transport !== 'stdio' || !entry.definition
+        || definitionDigest(entry.definition) !== entry.definition_sha256) return 'upstream_drift';
+  }
+  return null;
+}
+
+function auditClaudeSubstrateCapability(ctx, witnessAudit) {
+  const scopes = mcpScopeDocuments(ctx);
+  const expected = brokerDefinition(ctx);
+  const discovered = scopes.filter((scope) => scopeDefinition(scope) !== undefined);
+  const reasons = [];
+  if (scopes.some((scope) => scope.malformed)) reasons.push('upstream_drift');
+  if (discovered.some((scope) => !isAnyBrokerDefinition(scopeDefinition(scope)))) reasons.push('direct_grant');
+  if (!discovered.length) reasons.push('broker_missing');
+  if (discovered.some((scope) => isAnyBrokerDefinition(scopeDefinition(scope))
+      && !isBrokerDefinition(scopeDefinition(scope), expected))) reasons.push('broker_drift');
+  if (discovered.some((scope) => {
+    const value = scopeDefinition(scope);
+    return !isAnyBrokerDefinition(value) && (!value || (value.type && value.type !== 'stdio')
+      || typeof value.command !== 'string' || !Array.isArray(value.args));
+  })) reasons.push('unsupported_upstream_transport');
+  const targetBroker = expected.args[0];
+  const sourceBroker = path.join(ctx.sgsdRoot, BROKER_RELATIVE_PATH.replace(/^super-gsd[\\/]/, ''));
+  if (!exists(targetBroker)) reasons.push('broker_missing');
+  else if (exists(sourceBroker) && sha256(targetBroker) !== sha256(sourceBroker)) reasons.push('broker_drift');
+  const { manifest } = readUpstreamManifest(ctx);
+  const manifestReason = manifest ? validateUpstreamManifest(ctx, manifest) : 'upstream_missing';
+  if (manifestReason) reasons.push(manifestReason);
+  if (discovered.some((scope) => isBrokerDefinition(scopeDefinition(scope), expected)) && !witnessAudit.ready) {
+    reasons.push('grant_with_witness_unready');
+  }
+  const unique = [...new Set(reasons)];
+  return {
+    status: unique.length === 0 ? 'current' : 'missing_or_stale',
+    ready: unique.length === 0,
+    reasons: unique,
+    scopes: discovered.map((scope) => scope.id),
+    trust_level: 'local_hmac',
+    enforcement_scope: 'supported_sgsd_brokered_mcp_grant',
+    residual: 'same_user_can_restore_direct_mcp_or_replace_broker',
+  };
+}
+
+function installSubstrateRuntime(ctx, actions) {
+  const relatives = new Set([
+    path.join('hooks', 'sgsd-substrate-invocation-witness.cjs'),
+    path.join('tools', 'substrate-capability-broker.cjs'),
+    path.join('scripts', 'lib', 'substrate-invocation-witness-store.cjs'),
+  ]);
+  const overlay = readJson(REPO_HOOK_OVERLAY) || {};
+  for (const entries of Object.values(overlay.hooks || {})) {
+    for (const entry of entries || []) {
+      for (const hook of entry.hooks || []) {
+        const script = Array.isArray(hook.args) ? hook.args[0] : null;
+        if (typeof script === 'string' && /^super-gsd[\\/]/.test(script)) {
+          relatives.add(script.replace(/^super-gsd[\\/]/, ''));
+        }
+      }
+    }
+  }
+  for (const relative of relatives) {
+    const source = path.join(ctx.sgsdRoot, relative);
+    const target = path.join(ctx.projectDir, 'super-gsd', relative);
+    if (!exists(source) || samePath(source, target) || sha256(source) === sha256(target)) continue;
+    copyFile(source, target, actions);
+  }
+}
+
+function inProcessNodeCheck(scriptPath) {
+  try {
+    const source = fs.readFileSync(scriptPath, 'utf8').replace(/^#![^\n]*(?:\n|$)/, '');
+    Function(source);
+    return { status: 0 };
+  } catch (_) {
+    return { status: 1 };
+  }
+}
+
+function removeGlobalWitnessRegistrations(actions) {
+  const settingsPath = path.join(homeDir(), '.claude', 'settings.json');
+  const settings = readJson(settingsPath);
+  if (exists(settingsPath) && !settings) throw new Error('global Claude settings are malformed');
+  if (!settings || !settings.hooks || typeof settings.hooks !== 'object') return;
+  let removed = 0;
+  for (const [event, entries] of Object.entries(settings.hooks)) {
+    if (!Array.isArray(entries)) continue;
+    settings.hooks[event] = entries.filter((entry) => {
+      const witness = entry && (
+        entry.sgsd_hook_id === witnessStore.PRE_HOOK_ID || entry.sgsd_hook_id === witnessStore.POST_HOOK_ID
+      );
+      if (witness) removed += 1;
+      return !witness;
+    });
+  }
+  if (!removed) return;
+  atomicJson(settingsPath, settings);
+  actions.push({ action: 'remove_global_substrate_witness_registrations', removed });
+}
+
+function repairClaudeSubstrateWitness(ctx, actions) {
+  try {
+    installSubstrateRuntime(ctx, actions);
+    const key = witnessStore.provisionWitnessKey(ctx.projectDir, process.env);
+    if (key.created) actions.push({ action: 'provision_substrate_witness_key', status: 'created' });
+    removeGlobalWitnessRegistrations(actions);
+    mergeSettingsFiles(
+      REPO_HOOK_OVERLAY,
+      path.join(ctx.projectDir, '.claude', 'settings.json'),
+      ctx.projectDir,
+      {
+        preflightAdapters: {
+          isFile: (scriptPath) => exists(scriptPath) && fs.statSync(scriptPath).isFile(),
+          nodeCheck: inProcessNodeCheck,
+          shellCheck: () => ({ status: 1 }),
+        },
+      },
+    );
+    actions.push({ action: 'merge_substrate_witness_hooks', target: path.join(ctx.projectDir, '.claude', 'settings.json') });
+    return { ok: true, reasons: [] };
+  } catch (error) {
+    return { ok: false, reasons: ['witness_repair_failed'], detail: error && error.message ? error.message : 'unknown' };
+  }
+}
+
+function repairClaudeSubstrateCapability(ctx, actions) {
+  const scopes = mcpScopeDocuments(ctx);
+  if (scopes.some((scope) => scope.malformed)) return { ok: false, reasons: ['broker_repair_failed'] };
+  const beforeByPath = new Map();
+  for (const scope of scopes) {
+    if (!beforeByPath.has(scope.path)) beforeByPath.set(scope.path, exists(scope.path) ? readText(scope.path) : null);
+  }
+  const expected = brokerDefinition(ctx);
+  const discovered = scopes.filter((scope) => scopeDefinition(scope) !== undefined);
+  const direct = discovered.filter((scope) => !isAnyBrokerDefinition(scopeDefinition(scope)));
+  const unsupported = direct.filter((scope) => {
+    const definition = scopeDefinition(scope);
+    return !definition || (definition.type && definition.type !== 'stdio')
+      || typeof definition.command !== 'string' || !definition.command
+      || !Array.isArray(definition.args) || definition.args.some((arg) => typeof arg !== 'string');
+  });
+  if (unsupported.length) {
+    for (const scope of direct) setScopeDefinition(scope, undefined);
+    saveChangedScopeDocuments(scopes, beforeByPath);
+    actions.push({ action: 'withdraw_unsupported_substrate_grant', scopes: direct.map((scope) => scope.id) });
+    return { ok: false, reasons: ['unsupported_upstream_transport'] };
+  }
+
+  const { paths, manifest: prior } = readUpstreamManifest(ctx);
+  const manifest = prior && prior.schema_version === witnessStore.UPSTREAM_MANIFEST_SCHEMA_VERSION
+    && prior.project_digest === paths.project_digest && prior.servers && typeof prior.servers === 'object'
+    ? prior
+    : {
+      schema_version: witnessStore.UPSTREAM_MANIFEST_SCHEMA_VERSION,
+      project_digest: paths.project_digest,
+      broker_sha256: null,
+      witness_source_sha256: null,
+      active_scope: '',
+      servers: {},
+    };
+  manifest.broker_sha256 = sha256(expected.args[0]);
+  manifest.witness_source_sha256 = sha256(path.join(ctx.projectDir, witnessStore.HOOK_RELATIVE_PATH));
+  if (process.platform !== 'win32' && exists(paths.upstream_manifest_path)) {
+    fs.chmodSync(paths.upstream_manifest_path, 0o600);
+  }
+  for (const scope of direct) {
+    const definition = scopeDefinition(scope);
+    manifest.servers[scope.id] = {
+      transport: 'stdio',
+      definition,
+      definition_sha256: definitionDigest(definition),
+    };
+  }
+  if (direct.length) manifest.active_scope = [...direct].sort((a, b) => a.rank - b.rank)[0].id;
+  if (!manifest.active_scope || !manifest.servers[manifest.active_scope]) {
+    for (const scope of discovered) setScopeDefinition(scope, undefined);
+    saveChangedScopeDocuments(scopes, beforeByPath);
+    return { ok: false, reasons: ['upstream_missing'] };
+  }
+  const manifestReason = validateUpstreamManifest(ctx, manifest);
+  if (manifestReason) {
+    for (const scope of discovered) setScopeDefinition(scope, undefined);
+    saveChangedScopeDocuments(scopes, beforeByPath);
+    return { ok: false, reasons: [manifestReason] };
+  }
+
+  try {
+    atomicPrivateJson(paths.upstream_manifest_path, manifest);
+    for (const scope of scopes) {
+      if (scopeDefinition(scope) !== undefined) setScopeDefinition(scope, expected);
+    }
+    if (!scopes.some((scope) => scopeDefinition(scope) !== undefined)) {
+      const projectScope = scopes.find((scope) => scope.id === 'project');
+      setScopeDefinition(projectScope, expected);
+    }
+    saveChangedScopeDocuments(scopes, beforeByPath);
+  } catch (error) {
+    for (const [filePath, bytes] of beforeByPath) {
+      try {
+        if (bytes === null) {
+          if (exists(filePath)) fs.unlinkSync(filePath);
+        } else {
+          ensureDir(path.dirname(filePath));
+          fs.writeFileSync(filePath, bytes, 'utf8');
+        }
+      } catch (_) {}
+    }
+    return { ok: false, reasons: ['broker_repair_failed'] };
+  }
+  actions.push({ action: 'broker_substrate_capability', scopes: scopes.filter((scope) => scopeDefinition(scope) !== undefined).map((scope) => scope.id) });
+  return { ok: true, reasons: [] };
+}
+
+function setFrontmatterTool(source, tool, granted) {
+  const lines = source.split(/\r?\n/);
+  const index = lines.findIndex((line) => /^tools:\s*/.test(line));
+  if (index < 0) return source;
+  const tools = lines[index].replace(/^tools:\s*/, '').split(',').map((value) => value.trim()).filter(Boolean);
+  const filtered = tools.filter((value) => value !== tool);
+  if (granted) filtered.push(tool);
+  lines[index] = 'tools: ' + filtered.join(', ');
+  return lines.join('\n');
+}
+
+function canonicalAgentText(ctx, name, granted) {
+  const source = readText(path.join(ctx.canonicalAgentsDir, name)) || '';
+  return REQUIRED_VTP_AGENTS.includes(name)
+    ? setFrontmatterTool(source, witnessStore.TARGET_TOOL, granted)
+    : source;
+}
+
+function p167Contract(ctx) {
+  const source = readText(path.join(ctx.canonicalAgentsDir, 'sgsd-vtp-enrichment.md')) || '';
+  const start = source.indexOf(P167_MARKER);
+  const end = source.indexOf(P167_END_MARKER, start);
+  return start >= 0 && end >= start ? source.slice(start, end + P167_END_MARKER.length) : '';
+}
+
+function replaceMarkerBlock(source, startMarker, endMarker, replacement) {
+  const start = source.indexOf(startMarker);
+  if (start < 0) return source + '\n' + replacement + '\n';
+  const end = source.indexOf(endMarker, start);
+  if (end < 0) return source;
+  return source.slice(0, start) + replacement + source.slice(end + endMarker.length);
+}
+
 function copyFile(src, dst, actions) {
   ensureDir(path.dirname(dst));
   fs.copyFileSync(src, dst);
@@ -353,7 +813,7 @@ function profilePaths() {
   ]));
 }
 
-function installGlobalSgsdAgents(ctx, actions) {
+function installGlobalSgsdAgents(ctx, actions, substrateGranted) {
   const canonical = ctx.canonicalAgentsDir;
   const globalDir = ctx.globalAgentsDir;
   const repaired = [];
@@ -361,8 +821,11 @@ function installGlobalSgsdAgents(ctx, actions) {
     if (!name.startsWith('sgsd-')) continue;
     const src = path.join(canonical, name);
     const dst = path.join(globalDir, name);
-    if (sha256(src) !== sha256(dst)) {
-      copyFile(src, dst, actions);
+    const expected = canonicalAgentText(ctx, name, substrateGranted);
+    if (expected && readText(dst) !== expected) {
+      ensureDir(path.dirname(dst));
+      fs.writeFileSync(dst, expected, 'utf8');
+      actions.push({ action: 'install_agent', from: src, to: dst, substrate_granted: REQUIRED_VTP_AGENTS.includes(name) ? substrateGranted : null });
       repaired.push(name);
     }
   }
@@ -393,56 +856,49 @@ function installGlobalSgsdSkills(ctx, actions) {
   return repaired;
 }
 
-function installGlobalLegacyAgentPatches(ctx, actions) {
+function installGlobalLegacyAgentPatches(ctx, actions, substrateGranted) {
   const repaired = [];
   for (const spec of REQUIRED_LEGACY_AGENT_PATCHES) {
     const p = path.join(ctx.globalAgentsDir, spec.name);
     let txt = readText(p);
     if (!txt) continue;
-    let changed = false;
-
-    if (Array.isArray(spec.tools) && spec.tools.length) {
-      const lines = txt.split(/\r?\n/);
-      const idx = lines.findIndex((line) => /^tools:\s*/.test(line));
-      if (idx !== -1) {
-        const missing = spec.tools.filter((tool) => lines[idx].indexOf(tool) === -1);
-        if (missing.length) {
-          lines[idx] = lines[idx].replace(/\s*$/, '') + ', ' + missing.join(', ');
-          txt = lines.join('\n');
-          fs.writeFileSync(p, txt, 'utf8');
-          actions.push({ action: 'patch_legacy_agent_tools', to: p, tools: missing });
-          changed = true;
-        }
-      }
-    }
+    const original = txt;
+    const desiredTools = (spec.tools || []).filter((tool) => tool !== witnessStore.TARGET_TOOL || substrateGranted);
+    for (const tool of spec.tools || []) txt = setFrontmatterTool(txt, tool, desiredTools.includes(tool));
 
     if (txt.indexOf(spec.marker) === -1) {
-      fs.appendFileSync(p, spec.append, 'utf8');
-      actions.push({ action: 'append_legacy_agent_patch', to: p, marker: spec.marker });
-      changed = true;
+      txt += spec.append;
     }
     if (spec.p166Marker && txt.indexOf(spec.p166Marker) === -1) {
-      fs.appendFileSync(p, spec.p166Append, 'utf8');
-      actions.push({ action: 'append_legacy_agent_patch', to: p, marker: spec.p166Marker });
-      changed = true;
+      txt += spec.p166Append;
     }
     if (spec.p166T2Marker && txt.indexOf(spec.p166T2Marker) === -1) {
-      fs.appendFileSync(p, spec.p166T2Append, 'utf8');
-      actions.push({ action: 'append_legacy_agent_patch', to: p, marker: spec.p166T2Marker });
-      changed = true;
+      txt += spec.p166T2Append;
     }
-    if (changed) repaired.push(spec.name);
+    if (spec.p166T2Marker) {
+      const suffix = spec.p166T2Marker.slice(1, -1);
+      const replacement = spec.p166T2Marker + '\nP167 supersedes the prompt-owned response cap. Preserve only hook-authored degradation_notes after successful production acceptance; do not manually truncate or retry raw substrate output.\n</' + suffix + '>';
+      txt = replaceMarkerBlock(txt, spec.p166T2Marker, '</' + suffix + '>', replacement);
+      const contract = p167Contract(ctx);
+      if (contract) txt = replaceMarkerBlock(txt, P167_MARKER, P167_END_MARKER, contract);
+    }
+    if (txt !== original) {
+      fs.writeFileSync(p, txt, 'utf8');
+      actions.push({ action: 'patch_legacy_agent', to: p, substrate_granted: substrateGranted });
+      repaired.push(spec.name);
+    }
   }
   return repaired;
 }
 
-function auditGlobalSgsdAgents(ctx) {
+function auditGlobalSgsdAgents(ctx, substrateGranted) {
   const rows = [];
   for (const name of listMarkdownFiles(ctx.canonicalAgentsDir)) {
     if (!name.startsWith('sgsd-')) continue;
     const src = path.join(ctx.canonicalAgentsDir, name);
     const dst = path.join(ctx.globalAgentsDir, name);
-    const srcHash = sha256(src);
+    const expected = canonicalAgentText(ctx, name, substrateGranted);
+    const srcHash = expected ? sha256Bytes(Buffer.from(expected, 'utf8')) : null;
     const dstHash = sha256(dst);
     rows.push({
       name,
@@ -512,14 +968,15 @@ function auditProjectClaudeMd(ctx) {
   };
 }
 
-function auditGlobalLegacyAgentPatches(ctx) {
+function auditGlobalLegacyAgentPatches(ctx, substrateGranted) {
   const rows = [];
   for (const spec of REQUIRED_LEGACY_AGENT_PATCHES) {
     const p = path.join(ctx.globalAgentsDir, spec.name);
     const txt = readText(p);
-    const missingTools = txt && Array.isArray(spec.tools)
-      ? spec.tools.filter((tool) => txt.indexOf(tool) === -1)
-      : (Array.isArray(spec.tools) ? spec.tools.slice() : []);
+    const desiredTools = (spec.tools || []).filter((tool) => tool !== witnessStore.TARGET_TOOL || substrateGranted);
+    const toolsLine = txt ? ((txt.match(/^tools:\s*(.*)$/m) || [])[1] || '') : '';
+    const installedTools = toolsLine.split(',').map((tool) => tool.trim()).filter(Boolean);
+    const missingTools = desiredTools.filter((tool) => !installedTools.includes(tool));
     rows.push({
       name: spec.name,
       installed: Boolean(txt),
@@ -529,6 +986,10 @@ function auditGlobalLegacyAgentPatches(ctx) {
       p166_patched: spec.p166Marker ? Boolean(txt && txt.indexOf(spec.p166Marker) !== -1) : true,
       p166_t2_marker: spec.p166T2Marker || null,
       p166_t2_patched: spec.p166T2Marker ? Boolean(txt && txt.indexOf(spec.p166T2Marker) !== -1) : true,
+      p167_patched: spec.p166Marker ? Boolean(txt && txt.indexOf(P167_MARKER) !== -1) : true,
+      substrate_grant_current: spec.p166Marker
+        ? installedTools.includes(witnessStore.TARGET_TOOL) === substrateGranted
+        : true,
       missing_tools: missingTools,
     });
   }
@@ -744,13 +1205,47 @@ function runAudit(opts) {
   let repairedGlobalAgents = [];
   let repairedGlobalSkills = [];
   let repairedLegacyAgents = [];
-  if (safeRepair) repairedGlobalAgents = installGlobalSgsdAgents(ctx, actions);
+  if (safeRepair) {
+    repairedGlobalAgents = installGlobalSgsdAgents(ctx, actions, false);
+    repairedLegacyAgents = installGlobalLegacyAgentPatches(ctx, actions, false);
+  }
+  let witnessRepair = { ok: true, reasons: [] };
+  let capabilityRepair = { ok: true, reasons: [] };
+  let claudeSubstrateWitness = auditClaudeSubstrateWitness(ctx);
+  if (safeRepair) witnessRepair = repairClaudeSubstrateWitness(ctx, actions);
+  claudeSubstrateWitness = auditClaudeSubstrateWitness(ctx);
+  if (safeRepair && claudeSubstrateWitness.ready) capabilityRepair = repairClaudeSubstrateCapability(ctx, actions);
+  let claudeSubstrateCapability = auditClaudeSubstrateCapability(ctx, claudeSubstrateWitness);
+  if (!witnessRepair.ok || !capabilityRepair.ok) {
+    claudeSubstrateCapability = {
+      ...claudeSubstrateCapability,
+      status: 'missing_or_stale',
+      ready: false,
+      reasons: [...new Set([
+        ...claudeSubstrateCapability.reasons,
+        ...witnessRepair.reasons,
+        ...capabilityRepair.reasons,
+      ])],
+    };
+  }
+  const substrateGranted = claudeSubstrateWitness.ready && claudeSubstrateCapability.ready;
+  if (safeRepair) {
+    repairedGlobalAgents = [...new Set([
+      ...repairedGlobalAgents,
+      ...installGlobalSgsdAgents(ctx, actions, substrateGranted),
+    ])];
+  }
   if (safeRepair) repairedGlobalSkills = installGlobalSgsdSkills(ctx, actions);
-  if (safeRepair) repairedLegacyAgents = installGlobalLegacyAgentPatches(ctx, actions);
+  if (safeRepair) {
+    repairedLegacyAgents = [...new Set([
+      ...repairedLegacyAgents,
+      ...installGlobalLegacyAgentPatches(ctx, actions, substrateGranted),
+    ])];
+  }
 
-  const globalAgents = auditGlobalSgsdAgents(ctx);
+  const globalAgents = auditGlobalSgsdAgents(ctx, substrateGranted);
   const globalSkills = auditGlobalSgsdSkills(ctx);
-  const globalLegacyAgents = auditGlobalLegacyAgentPatches(ctx);
+  const globalLegacyAgents = auditGlobalLegacyAgentPatches(ctx, substrateGranted);
   let localShadows = auditProjectAgentShadows(ctx);
   let backedUpLocalShadows = [];
   if (repairMode) {
@@ -770,7 +1265,8 @@ function runAudit(opts) {
   const staleLegacyExecutor = globalAgents.filter((r) => r.name === 'gsd-executor.md' && (!r.installed || r.drifted || !r.disabled_legacy_executor));
   const missingGlobalSkills = globalSkills.filter((r) => !r.installed || r.drifted);
   const missingLegacyPatches = globalLegacyAgents.filter((r) => (
-    !r.installed || !r.patched || !r.p166_patched || !r.p166_t2_patched || (r.missing_tools || []).length
+    !r.installed || !r.patched || !r.p166_patched || !r.p166_t2_patched
+      || !r.p167_patched || !r.substrate_grant_current || (r.missing_tools || []).length
   ));
   const missingVtpAgents = globalAgents.filter((r) => r.required_vtp_agent && !r.installed);
   const driftedLocal = localShadows.filter((r) => r.drifted);
@@ -792,6 +1288,9 @@ function runAudit(opts) {
   if (!orchestratorProtocol.ok) issues.push('orchestrator_protocol_markers_missing_or_stale');
   if (!projectClaudeMd.ok) issues.push('project_claude_md_missing_or_stale');
   if (!codexHooks.ok) issues.push('project_codex_hooks_missing_or_stale');
+  if (!claudeSubstrateWitness.ready || !claudeSubstrateCapability.ready) {
+    issues.push('project_claude_substrate_witness_missing_or_stale');
+  }
 
   return {
     ok: issues.length === 0,
@@ -817,6 +1316,8 @@ function runAudit(opts) {
         + (codexHooks.duplicates || []).length
         + (codexHooks.status === 'malformed' || codexHooks.status === 'audit-error'
           || codexHooks.status === 'template-error' ? 1 : 0),
+      claude_substrate_witness_issues: claudeSubstrateWitness.reasons.length,
+      claude_substrate_capability_issues: claudeSubstrateCapability.reasons.length,
     },
     global_agents: globalAgents,
     global_skills: globalSkills,
@@ -830,6 +1331,8 @@ function runAudit(opts) {
     orchestrator_protocol: orchestratorProtocol,
     project_claude_md: projectClaudeMd,
     codex_hooks: codexHooks,
+    claude_substrate_witness: claudeSubstrateWitness,
+    claude_substrate_capability: claudeSubstrateCapability,
     repaired: {
       global_agents: repairedGlobalAgents,
       global_skills: repairedGlobalSkills,
@@ -855,7 +1358,22 @@ function selfTest() {
     add('disabled_executor_marker_declared', DISABLED_EXECUTOR_MARKER === 'Claude executor disabled', DISABLED_EXECUTOR_MARKER);
     add('legacy_agent_patches_declared', REQUIRED_LEGACY_AGENT_PATCHES.length === 3 && REQUIRED_LEGACY_AGENT_PATCHES.some((r) => r.name === 'gsd-planner.md'), REQUIRED_LEGACY_AGENT_PATCHES.map((r) => r.name).join(','));
     add('sgsd_root_has_agents', exists(path.join(sgsdRoot(), 'agents')), sgsdRoot());
-    const snap = runAudit({ projectDir: sgsdRoot() });
+    const savedProfileEnv = Object.fromEntries(
+      ['HOME', 'USERPROFILE', 'APPDATA', 'XDG_CONFIG_HOME'].map((name) => [name, process.env[name]]),
+    );
+    const isolatedHome = path.join(os.tmpdir(), 'sgsd-feature-propagation-self-test-' + process.pid);
+    process.env.HOME = isolatedHome;
+    process.env.USERPROFILE = isolatedHome;
+    process.env.APPDATA = path.join(isolatedHome, 'AppData', 'Roaming');
+    process.env.XDG_CONFIG_HOME = path.join(isolatedHome, '.config');
+    let snap;
+    try {
+      snap = runAudit({ projectDir: sgsdRoot() });
+    } finally {
+      for (const [name, value] of Object.entries(savedProfileEnv)) {
+        if (value === undefined) delete process.env[name]; else process.env[name] = value;
+      }
+    }
     add('run_audit_shape', snap && snap.schema_version === 1 && Array.isArray(snap.issues), 'issues=' + (snap.issues || []).length);
     add('legacy_agent_audit_shape', snap && Array.isArray(snap.global_legacy_agents) && snap.global_legacy_agents.length === 3, 'count=' + ((snap && snap.global_legacy_agents) || []).length);
     add('project_claude_md_audit_shape', snap && snap.project_claude_md && Array.isArray(snap.project_claude_md.missing), 'missing=' + ((snap && snap.project_claude_md && snap.project_claude_md.missing) || []).length);
@@ -899,6 +1417,8 @@ function printHuman(snap) {
   process.stdout.write('profile_missing_watch_codex=' + snap.summary.profile_missing_watch_codex + '\n');
   process.stdout.write('project_claude_md_missing=' + snap.summary.project_claude_md_missing + '\n');
   process.stdout.write('codex_hook_issues=' + snap.summary.codex_hook_issues + '\n');
+  process.stdout.write('claude_substrate_witness_status=' + snap.claude_substrate_witness.status + '\n');
+  process.stdout.write('claude_substrate_capability_status=' + snap.claude_substrate_capability.status + '\n');
   if (snap.local_agent_shadows.length) {
     process.stdout.write('local_agent_shadow_names=' + snap.local_agent_shadows.map((r) => r.name).join(',') + '\n');
   }
@@ -930,6 +1450,28 @@ function main(argv) {
     return;
   }
   const projectDir = argValue(args, '--project-dir') || process.cwd();
+  if (args.indexOf('--repair-substrate-capability') !== -1) {
+    const snap = runAudit({ projectDir, repairSafe: true });
+    const hardReasons = new Set([
+      'witness_repair_failed',
+      'broker_repair_failed',
+      'direct_grant',
+      'broker_drift',
+      'upstream_drift',
+      'grant_with_witness_unready',
+    ]);
+    const refused = !snap.claude_substrate_witness.ready
+      || snap.claude_substrate_capability.reasons.some((reason) => hardReasons.has(reason));
+    process.stdout.write(JSON.stringify({
+      ok: !refused,
+      witness_status: snap.claude_substrate_witness.status,
+      capability_status: snap.claude_substrate_capability.status,
+      reasons: snap.claude_substrate_capability.reasons,
+      substrate_granted: snap.claude_substrate_witness.ready && snap.claude_substrate_capability.ready,
+    }) + '\n');
+    process.exit(refused ? 2 : 0);
+    return;
+  }
   const snap = runAudit({
     projectDir,
     repair: args.indexOf('--repair') !== -1,
@@ -957,6 +1499,13 @@ module.exports = {
     auditSuperGsdTree,
     auditTelemetry,
     auditCodexHooks,
+    auditClaudeSubstrateWitness,
+    auditClaudeSubstrateCapability,
+    repairClaudeSubstrateWitness,
+    repairClaudeSubstrateCapability,
+    setFrontmatterTool,
+    canonicalAgentText,
+    mcpScopeDocuments,
     profilePaths,
   },
 };

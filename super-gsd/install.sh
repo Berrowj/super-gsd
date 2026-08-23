@@ -429,6 +429,29 @@ ensure_gsd_base() {
   log "GSD 1.0: $GSD_DIR"
 }
 
+repair_substrate_capability() {
+  local audit_script="$SCRIPT_DIR/tools/feature-propagation/audit.cjs"
+  if [ ! -f "$audit_script" ]; then
+    echo "ERROR: substrate capability audit missing: $audit_script" >&2
+    return 1
+  fi
+  if ! command -v node >/dev/null 2>&1; then
+    echo "ERROR: Node.js is required to provision the substrate witness capability" >&2
+    return 1
+  fi
+  if [ "$DRY_RUN" = true ]; then
+    log "DRY RUN: would provision the witness key, merge project Pre/Post hooks, broker vtp-kb, then derive installed grants"
+    return 0
+  fi
+  local repair_output
+  if ! repair_output="$(node "$audit_script" --repair-substrate-capability --project-dir "$PROJECT_DIR" 2>&1)"; then
+    [ -z "$repair_output" ] || printf '%s\n' "$repair_output" | sed 's/^/  /' >&2
+    echo "ERROR: substrate enforcement was not current; refusing grant-bearing agent installation" >&2
+    return 1
+  fi
+  [ -z "$repair_output" ] || printf '%s\n' "$repair_output" | sed 's/^/  /'
+}
+
 install_global_assets() {
   ensure_gsd_base
   local -a global_executable_targets=()
@@ -602,6 +625,10 @@ install_global_assets() {
       [ -z "$MERGE_OUTPUT" ] || printf '%s\n' "$MERGE_OUTPUT" | sed 's/^/  /' >&2
       exit "$MERGE_STATUS"
     fi
+  fi
+
+  if [ -d "$PROJECT_DIR/.planning" ]; then
+    repair_substrate_capability
   fi
 
   echo ""
@@ -880,6 +907,7 @@ init_local_project() {
 
   ensure_memory_tree
   distribute_project_hooks
+  repair_substrate_capability
   register_repo_local_hooks
   register_codex_hooks
 
@@ -978,6 +1006,7 @@ update_existing() {
   # ensure_memory_tree is idempotent; existing entries are left untouched.
   ensure_memory_tree
   distribute_project_hooks
+  repair_substrate_capability
   register_repo_local_hooks
   register_codex_hooks
 
