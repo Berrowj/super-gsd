@@ -6,11 +6,15 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { EventEmitter } = require('node:events');
+const { PassThrough, Writable } = require('node:stream');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 const AUDIT_PATH = path.join(REPO_ROOT, 'super-gsd', 'tools', 'feature-propagation', 'audit.cjs');
+const BROKER_PATH = path.join(REPO_ROOT, 'super-gsd', 'tools', 'substrate-capability-broker.cjs');
 const STORE_PATH = path.join(REPO_ROOT, 'super-gsd', 'scripts', 'lib', 'substrate-invocation-witness-store.cjs');
 const TOOL = ['mcp__vtp-kb__vtp', 'search', 'substrate'].join('_');
+const SHORT_TOOL = ['vtp', 'search', 'substrate'].join('_');
 const SECRET_SENTINEL = ['P167', 'PRIVATE', 'UPSTREAM', 'VALUE'].join('_');
 const AGENTS = ['sgsd-vtp-enrichment.md', 'sgsd-board-researcher.md', 'gsd-phase-researcher.md', 'gsd-planner.md'];
 
@@ -45,6 +49,7 @@ function withIsolatedProfile(run) {
     USERPROFILE: process.env.USERPROFILE,
     APPDATA: process.env.APPDATA,
     XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
+    CLAUDE_PROJECT_DIR: process.env.CLAUDE_PROJECT_DIR,
   };
   const realHome = saved.USERPROFILE || saved.HOME || '';
   const protectedPaths = [
@@ -64,15 +69,24 @@ function withIsolatedProfile(run) {
   process.env.USERPROFILE = home;
   process.env.APPDATA = path.join(home, 'AppData', 'Roaming');
   process.env.XDG_CONFIG_HOME = path.join(home, '.config');
-  try {
-    return run({ root, home, project });
-  } finally {
+  delete process.env.CLAUDE_PROJECT_DIR;
+  const cleanup = () => {
     assert.deepEqual(evidenceSnapshot(protectedPaths), protectedBefore, 'isolated propagation escaped into real profile or source evidence');
     for (const name of Object.keys(saved)) {
       if (saved[name] === undefined) delete process.env[name]; else process.env[name] = saved[name];
     }
     fs.rmSync(root, { recursive: true, force: true });
+  };
+  let result;
+  try {
+    result = run({ root, home, project });
+  } catch (error) {
+    cleanup();
+    throw error;
   }
+  if (result && typeof result.then === 'function') return result.finally(cleanup);
+  cleanup();
+  return result;
 }
 
 function seedProject(project) {
@@ -105,7 +119,61 @@ function snapshot(paths) {
   return Object.fromEntries(paths.map((filePath) => [filePath, fs.existsSync(filePath) ? read(filePath) : null]));
 }
 
-function main() {
+function assertAgentGrants(home, granted) {
+  for (const name of AGENTS) {
+    const agentPath = path.join(home, '.claude', 'agents', name);
+    assert.equal(fs.existsSync(agentPath), true, name + ' was not installed');
+    const frontmatter = read(agentPath).split(/---/)[1];
+    if (granted) assert.match(frontmatter, new RegExp(TOOL), name + ' grant missing');
+    else assert.doesNotMatch(frontmatter, new RegExp(TOOL), name + ' grant survived failed repair');
+  }
+}
+
+class FakeBrokerUpstream extends EventEmitter {
+  constructor() {
+    super();
+    this.requests = [];
+    this.stdout = new PassThrough();
+    this.stderr = new PassThrough();
+    this.stdin = new Writable({
+      write: (chunk, _encoding, callback) => {
+        try {
+          for (const line of String(chunk).split(/\r?\n/).filter(Boolean)) {
+            const request = JSON.parse(line);
+            this.requests.push(JSON.parse(JSON.stringify(request)));
+            if (typeof request.method !== 'string' || request.id === undefined) continue;
+            const result = request.method === 'tools/list'
+              ? {
+                tools: [
+                  { name: SHORT_TOOL, inputSchema: { type: 'object' } },
+                  { name: 'vtp_health', inputSchema: { type: 'object' } },
+                ],
+              }
+              : { content: [{ type: 'text', text: 'forwarded' }], isError: false };
+            queueMicrotask(() => this.stdout.write(JSON.stringify({
+              jsonrpc: '2.0',
+              id: request.id,
+              result,
+            }) + '\n'));
+          }
+          callback();
+        } catch (error) {
+          callback(error);
+        }
+      },
+    });
+  }
+
+  kill() {
+    this.emit('exit', 0, null);
+  }
+}
+
+function brokerRequest(method, id, params) {
+  return { jsonrpc: '2.0', id, method, ...(params ? { params } : {}) };
+}
+
+async function main() {
   const audit = require(AUDIT_PATH);
   const store = require(STORE_PATH);
   assert.equal(typeof audit._internals.auditClaudeSubstrateWitness, 'function', 'red: witness absence audit is not implemented');
@@ -196,6 +264,30 @@ function main() {
     audit.runAudit({ projectDir: project, repairSafe: true });
     assert.deepEqual(snapshot(stablePaths), beforeSecondRepair, 'second repair changed bytes');
 
+    for (const [field, value] of [
+      ['env', { P167_BROKER_DRIFT: '1' }],
+      ['cwd', project],
+      ['type', 'stdio'],
+      ['url', 'https://example.invalid/drift'],
+      ['headers', { Authorization: 'P167_DRIFT_HEADER' }],
+    ]) {
+      const mutated = JSON.parse(read(mcpPath));
+      mutated.mcpServers['vtp-kb'][field] = value;
+      writeJson(mcpPath, mutated);
+      const drifted = audit.runAudit({ projectDir: project });
+      assert(
+        drifted.claude_substrate_capability.reasons.includes('broker_drift'),
+        'broker definition with extra ' + field + ' audited current',
+      );
+      const repairedDrift = audit.runAudit({ projectDir: project, repairSafe: true });
+      assert.equal(repairedDrift.claude_substrate_capability.status, 'current');
+      assert.deepEqual(
+        Object.keys(JSON.parse(read(mcpPath)).mcpServers['vtp-kb']).sort(),
+        ['args', 'command'],
+        'repair retained broker definition field ' + field,
+      );
+    }
+
     const withoutPre = JSON.parse(read(settingsPath));
     withoutPre.hooks.PreToolUse = withoutPre.hooks.PreToolUse.filter((entry) => entry.sgsd_hook_id !== store.PRE_HOOK_ID);
     writeJson(settingsPath, withoutPre);
@@ -263,41 +355,167 @@ function main() {
 
   withIsolatedProfile(({ home, project }) => {
     seedProject(project);
-    writeJson(path.join(project, '.mcp.json'), {
-      mcpServers: { 'vtp-kb': { type: 'sse' } },
+    seedLegacyAgents(home);
+    const unsupported = {
+      type: 'sse',
+      url: 'https://example.invalid/private-recovery',
+      headers: { Authorization: SECRET_SENTINEL },
+    };
+    const localPath = path.join(project, '.claude', 'settings.local.json');
+    writeJson(localPath, {
+      unrelatedLocal: true,
+      mcpServers: { 'vtp-kb': unsupported },
     });
     const report = audit.runAudit({ projectDir: project, repairSafe: true });
     assert(report.claude_substrate_capability.reasons.includes('unsupported_upstream_transport'));
-    for (const name of AGENTS) {
-      const agentPath = path.join(home, '.claude', 'agents', name);
-      if (fs.existsSync(agentPath)) assert.doesNotMatch(read(agentPath).split(/---/)[1], new RegExp(TOOL));
-    }
+    assertAgentGrants(home, false);
+    const manifestPath = store.resolveWitnessPaths(project, process.env).upstream_manifest_path;
+    const manifest = JSON.parse(read(manifestPath));
+    assert.deepEqual(
+      manifest.servers.project.definition,
+      { command: 'node', args: ['private-upstream.cjs'], env: { P167_VALUE: SECRET_SENTINEL } },
+      'supported stdio upstream was not archived before withdrawal',
+    );
+    assert.deepEqual(
+      manifest.recovery_servers['local-settings'].definition,
+      unsupported,
+      'unsupported upstream was not archived for recovery before withdrawal',
+    );
+    assert.equal(JSON.parse(read(path.join(project, '.mcp.json'))).mcpServers['vtp-kb'], undefined);
+    assert.equal(JSON.parse(read(localPath)).mcpServers['vtp-kb'], undefined);
+    const stablePaths = [
+      path.join(project, '.mcp.json'),
+      localPath,
+      manifestPath,
+      ...AGENTS.map((name) => path.join(home, '.claude', 'agents', name)),
+    ];
+    const beforeSecondRepair = snapshot(stablePaths);
+    const second = audit.runAudit({ projectDir: project, repairSafe: true });
+    assert(second.claude_substrate_capability.reasons.includes('unsupported_upstream_transport'));
+    assert.deepEqual(snapshot(stablePaths), beforeSecondRepair, 'unsupported recovery repair changed bytes');
   });
 
   withIsolatedProfile(({ home, project }) => {
     seedProject(project);
+    seedLegacyAgents(home);
+    const current = audit.runAudit({ projectDir: project, repairSafe: true });
+    assert.equal(current.claude_substrate_capability.status, 'current');
+    assertAgentGrants(home, true);
     fs.writeFileSync(path.join(project, '.claude', 'settings.json'), '{ malformed', 'utf8');
     const report = audit.runAudit({ projectDir: project, repairSafe: true });
     assert(report.claude_substrate_capability.reasons.includes('witness_repair_failed'));
-    for (const name of AGENTS) {
-      const agentPath = path.join(home, '.claude', 'agents', name);
-      if (fs.existsSync(agentPath)) assert.doesNotMatch(read(agentPath).split(/---/)[1], new RegExp(TOOL));
-    }
+    assertAgentGrants(home, false);
   });
 
   withIsolatedProfile(({ home, project }) => {
     seedProject(project);
+    seedLegacyAgents(home);
+    const current = audit.runAudit({ projectDir: project, repairSafe: true });
+    assert.equal(current.claude_substrate_capability.status, 'current');
+    assertAgentGrants(home, true);
     const manifestPath = store.resolveWitnessPaths(project, process.env).upstream_manifest_path;
+    const mcpPath = path.join(project, '.mcp.json');
+    const direct = JSON.parse(read(mcpPath));
+    direct.mcpServers['vtp-kb'] = { command: 'node', args: ['archive-failure-upstream.cjs'] };
+    writeJson(mcpPath, direct);
+    const beforeDocuments = snapshot([mcpPath]);
+    fs.unlinkSync(manifestPath);
     fs.mkdirSync(manifestPath, { recursive: true });
     const report = audit.runAudit({ projectDir: project, repairSafe: true });
     assert(report.claude_substrate_capability.reasons.includes('broker_repair_failed'));
-    for (const name of AGENTS) {
-      const agentPath = path.join(home, '.claude', 'agents', name);
-      if (fs.existsSync(agentPath)) assert.doesNotMatch(read(agentPath).split(/---/)[1], new RegExp(TOOL));
+    assert.deepEqual(snapshot([mcpPath]), beforeDocuments, 'archive failure changed original MCP documents');
+    assertAgentGrants(home, false);
+  });
+
+  withIsolatedProfile(({ home, project }) => {
+    seedProject(project);
+    seedLegacyAgents(home);
+    const current = audit.runAudit({ projectDir: project, repairSafe: true });
+    assert.equal(current.claude_substrate_capability.status, 'current');
+    assertAgentGrants(home, true);
+    const mcpPath = path.join(project, '.mcp.json');
+    const direct = JSON.parse(read(mcpPath));
+    direct.mcpServers['vtp-kb'] = { command: 'node', args: ['scope-write-failure-upstream.cjs'] };
+    writeJson(mcpPath, direct);
+    const beforeDocuments = snapshot([mcpPath]);
+    fs.mkdirSync(mcpPath + '.tmp');
+    const report = audit.runAudit({ projectDir: project, repairSafe: true });
+    assert(report.claude_substrate_capability.reasons.includes('broker_repair_failed'));
+    assert.deepEqual(snapshot([mcpPath]), beforeDocuments, 'scope-write failure did not restore original MCP documents');
+    assertAgentGrants(home, false);
+  });
+
+  await withIsolatedProfile(async ({ root, home, project: projectA }) => {
+    const projectB = path.join(root, 'project-b');
+    seedProject(projectA);
+    fs.mkdirSync(path.join(projectB, '.planning'), { recursive: true });
+    const projectMcpPath = path.join(projectA, '.mcp.json');
+    const projectMcp = JSON.parse(read(projectMcpPath));
+    delete projectMcp.mcpServers['vtp-kb'];
+    writeJson(projectMcpPath, projectMcp);
+    writeJson(path.join(home, '.claude.json'), {
+      unrelatedUser: true,
+      mcpServers: {
+        'vtp-kb': {
+          command: 'node',
+          args: ['user-only-upstream.cjs'],
+          env: { P167_VALUE: SECRET_SENTINEL },
+        },
+      },
+    });
+
+    const repairedA = audit.runAudit({ projectDir: projectA, repairSafe: true });
+    assert.equal(repairedA.claude_substrate_witness.status, 'current');
+    assert.equal(repairedA.claude_substrate_capability.status, 'current');
+    assert.deepEqual(repairedA.claude_substrate_capability.scopes, ['user']);
+
+    const userDefinition = JSON.parse(read(path.join(home, '.claude.json'))).mcpServers['vtp-kb'];
+    const broker = require(BROKER_PATH);
+    assert.equal(typeof broker.createRuntimeBroker, 'function', 'red: broker runtime does not resolve invocation authority');
+    const baseEnv = {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      APPDATA: path.join(home, 'AppData', 'Roaming'),
+      XDG_CONFIG_HOME: path.join(home, '.config'),
+    };
+
+    for (const [label, env, expectedReason] of [
+      ['unguarded project B', { ...baseEnv, CLAUDE_PROJECT_DIR: projectB }, null],
+      ['missing invocation project', baseEnv, 'invocation_project_unresolved'],
+    ]) {
+      const upstream = new FakeBrokerUpstream();
+      const runtime = broker.createRuntimeBroker(userDefinition.args.slice(1), {
+        env,
+        spawnUpstream: () => upstream,
+        watch: false,
+      });
+      try {
+        const listed = await runtime.handleRequest(brokerRequest('tools/list', label + '-list'));
+        assert.equal(listed.result.tools.some((tool) => tool.name === SHORT_TOOL), false, label + ' exposed substrate');
+        assert.equal(listed.result.tools.some((tool) => tool.name === 'vtp_health'), true, label + ' removed unrelated upstream tool');
+        const callsBefore = upstream.requests.filter((row) => row.method === 'tools/call').length;
+        const forced = await runtime.handleRequest(brokerRequest('tools/call', label + '-call', {
+          name: SHORT_TOOL,
+          arguments: {},
+        }));
+        assert.equal(forced.result.isError, true, label + ' forced call was not denied');
+        if (expectedReason) assert.match(forced.result.content[0].text, new RegExp(expectedReason));
+        assert.equal(
+          upstream.requests.filter((row) => row.method === 'tools/call').length,
+          callsBefore,
+          label + ' forced call reached upstream',
+        );
+      } finally {
+        runtime.close();
+      }
     }
   });
 
   process.stdout.write('PASS assert-propagation\n');
 }
 
-main();
+main().catch((error) => {
+  process.stderr.write((error && error.stack ? error.stack : String(error)) + '\n');
+  process.exitCode = 1;
+});

@@ -224,12 +224,17 @@ function watchReadinessInputs(projectRoot, store, env, refresh) {
 }
 
 function createBroker(options) {
-  const projectRoot = path.resolve(options.projectRoot);
+  const projectRoot = options.projectRoot ? path.resolve(options.projectRoot) : null;
+  const runtimeProjectRoot = path.resolve(options.runtimeProjectRoot || projectRoot || process.cwd());
+  const upstreamWorkingRoot = path.resolve(options.upstreamWorkingRoot || projectRoot || process.cwd());
   const env = options.env || process.env;
-  const store = require(path.join(projectRoot, STORE_RELATIVE_PATH));
-  const paths = store.resolveWitnessPaths(projectRoot, env);
+  const readinessUnavailableReason = typeof options.readinessUnavailableReason === 'string'
+    ? options.readinessUnavailableReason
+    : (projectRoot ? null : 'invocation_project_unresolved');
+  const store = require(path.join(runtimeProjectRoot, STORE_RELATIVE_PATH));
+  const paths = store.resolveWitnessPaths(runtimeProjectRoot, env);
   const manifestPath = store.assertPathOutsideProject(
-    projectRoot,
+    runtimeProjectRoot,
     options.upstreamManifestPath || paths.upstream_manifest_path,
     'upstream_manifest_inside_project',
   );
@@ -240,15 +245,18 @@ function createBroker(options) {
   );
   const spawnUpstream = options.spawnUpstream || spawnManifestServer;
   const notify = typeof options.onNotification === 'function' ? options.onNotification : () => {};
-  const child = spawnUpstream(server, projectRoot, env);
+  const child = spawnUpstream(server, upstreamWorkingRoot, env);
   const upstream = createUpstreamClient(child, notify);
-  let readiness = store.inspectWitnessReadiness(projectRoot, env);
+  const inspectReadiness = readinessUnavailableReason
+    ? () => ({ ready: false, reason: readinessUnavailableReason })
+    : () => store.inspectWitnessReadiness(projectRoot, env);
+  let readiness = inspectReadiness();
   let debounce = null;
   let closed = false;
 
   function refreshReadiness() {
     if (closed) return readiness;
-    const next = store.inspectWitnessReadiness(projectRoot, env);
+    const next = inspectReadiness();
     if (next.ready !== readiness.ready) {
       notify({
         jsonrpc: '2.0',
@@ -269,7 +277,7 @@ function createBroker(options) {
     if (typeof debounce.unref === 'function') debounce.unref();
   }
 
-  const watchers = options.watch === false
+  const watchers = options.watch === false || readinessUnavailableReason
     ? []
     : watchReadinessInputs(projectRoot, store, env, scheduleRefresh);
 
@@ -347,6 +355,30 @@ function cliValue(argv, name) {
   return index === -1 ? null : argv[index + 1] || null;
 }
 
+function resolveInvocationProjectRoot(env) {
+  const value = env && typeof env.CLAUDE_PROJECT_DIR === 'string'
+    ? env.CLAUDE_PROJECT_DIR.trim()
+    : '';
+  return value && path.isAbsolute(value) ? path.resolve(value) : null;
+}
+
+function createRuntimeBroker(argv, options = {}) {
+  const env = options.env || process.env;
+  const runtimeProjectRoot = cliValue(argv, '--project-root') || process.cwd();
+  const invocationProjectRoot = resolveInvocationProjectRoot(env);
+  return createBroker({
+    projectRoot: invocationProjectRoot,
+    runtimeProjectRoot,
+    upstreamWorkingRoot: invocationProjectRoot || process.cwd(),
+    env,
+    upstreamManifestPath: cliValue(argv, '--upstream-manifest') || undefined,
+    readinessUnavailableReason: invocationProjectRoot ? null : 'invocation_project_unresolved',
+    spawnUpstream: options.spawnUpstream,
+    watch: options.watch,
+    onNotification: options.onNotification,
+  });
+}
+
 function isClientResponse(message) {
   return Boolean(message
     && message.jsonrpc === '2.0'
@@ -389,15 +421,11 @@ function createStdioRouter(broker, writeMessage) {
 }
 
 function runStdio(argv) {
-  const projectRoot = cliValue(argv, '--project-root') || process.cwd();
-  const manifestPath = cliValue(argv, '--upstream-manifest');
   const writeMessage = (message) => process.stdout.write(JSON.stringify(message) + '\n');
   let broker;
   try {
-    broker = createBroker({
-      projectRoot,
+    broker = createRuntimeBroker(argv, {
       env: process.env,
-      upstreamManifestPath: manifestPath || undefined,
       onNotification: writeMessage,
     });
   } catch (_) {
@@ -426,6 +454,6 @@ function runStdio(argv) {
   return 0;
 }
 
-module.exports = { createBroker, createStdioRouter };
+module.exports = { createBroker, createRuntimeBroker, createStdioRouter, resolveInvocationProjectRoot };
 
 if (require.main === module) process.exitCode = runStdio(process.argv.slice(2));

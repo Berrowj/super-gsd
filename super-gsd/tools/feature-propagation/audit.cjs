@@ -345,7 +345,9 @@ function brokerDefinition(ctx) {
 }
 
 function isBrokerDefinition(value, expected) {
-  return Boolean(value && value.command === expected.command
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).sort().join(',') === 'args,command'
+    && value.command === expected.command
     && Array.isArray(value.args)
     && value.args.length === expected.args.length
     && value.args.every((arg, index) => index === 0 || index === 2 || index === 4
@@ -478,7 +480,7 @@ function readUpstreamManifest(ctx) {
   return { paths, manifest };
 }
 
-function validateUpstreamManifest(ctx, manifest) {
+function validateUpstreamManifest(ctx, manifest, options = {}) {
   const brokerPath = path.join(ctx.projectDir, BROKER_RELATIVE_PATH);
   const hookPath = path.join(ctx.projectDir, witnessStore.HOOK_RELATIVE_PATH);
   const manifestPath = witnessStore.resolveWitnessPaths(ctx.projectDir, process.env).upstream_manifest_path;
@@ -486,18 +488,31 @@ function validateUpstreamManifest(ctx, manifest) {
       || manifest.project_digest !== witnessStore.resolveWitnessPaths(ctx.projectDir, process.env).project_digest
       || manifest.broker_sha256 !== sha256(brokerPath)
       || manifest.witness_source_sha256 !== sha256(hookPath)
-      || typeof manifest.active_scope !== 'string' || !manifest.servers || typeof manifest.servers !== 'object') {
+      || typeof manifest.active_scope !== 'string' || !manifest.servers
+      || typeof manifest.servers !== 'object' || Array.isArray(manifest.servers)) {
     return 'upstream_drift';
   }
-  if (process.platform !== 'win32' && exists(manifestPath) && (fs.statSync(manifestPath).mode & 0o077) !== 0) {
+  if (!options.skipFilesystem && process.platform !== 'win32' && exists(manifestPath)
+      && (fs.statSync(manifestPath).mode & 0o077) !== 0) {
     return 'upstream_drift';
   }
-  const active = manifest.servers[manifest.active_scope];
-  if (!active) return 'upstream_missing';
+  let hasUnsupportedRecovery = false;
+  if (manifest.recovery_servers !== undefined) {
+    if (!manifest.recovery_servers || typeof manifest.recovery_servers !== 'object'
+        || Array.isArray(manifest.recovery_servers)) return 'upstream_drift';
+    for (const entry of Object.values(manifest.recovery_servers)) {
+      if (!entry || entry.transport !== 'unsupported' || !entry.definition
+          || definitionDigest(entry.definition) !== entry.definition_sha256) return 'upstream_drift';
+    }
+    hasUnsupportedRecovery = Object.keys(manifest.recovery_servers).length > 0;
+  }
   for (const entry of Object.values(manifest.servers)) {
     if (!entry || entry.transport !== 'stdio' || !entry.definition
         || definitionDigest(entry.definition) !== entry.definition_sha256) return 'upstream_drift';
   }
+  if (hasUnsupportedRecovery) return 'unsupported_upstream_transport';
+  const active = manifest.servers[manifest.active_scope];
+  if (!active) return 'upstream_missing';
   return null;
 }
 
@@ -626,6 +641,28 @@ function repairClaudeSubstrateCapability(ctx, actions) {
   for (const scope of scopes) {
     if (!beforeByPath.has(scope.path)) beforeByPath.set(scope.path, exists(scope.path) ? readText(scope.path) : null);
   }
+  function restoreOriginalDocuments() {
+    for (const [filePath, bytes] of beforeByPath) {
+      try {
+        if (bytes === null) {
+          if (exists(filePath)) fs.unlinkSync(filePath);
+        } else {
+          ensureDir(path.dirname(filePath));
+          fs.writeFileSync(filePath, bytes, 'utf8');
+        }
+      } catch (_) {}
+    }
+  }
+  function saveDocumentsOrFail() {
+    try {
+      saveChangedScopeDocuments(scopes, beforeByPath);
+      return true;
+    } catch (_) {
+      restoreOriginalDocuments();
+      return false;
+    }
+  }
+
   const expected = brokerDefinition(ctx);
   const discovered = scopes.filter((scope) => scopeDefinition(scope) !== undefined);
   const direct = discovered.filter((scope) => !isAnyBrokerDefinition(scopeDefinition(scope)));
@@ -635,16 +672,12 @@ function repairClaudeSubstrateCapability(ctx, actions) {
       || typeof definition.command !== 'string' || !definition.command
       || !Array.isArray(definition.args) || definition.args.some((arg) => typeof arg !== 'string');
   });
-  if (unsupported.length) {
-    for (const scope of direct) setScopeDefinition(scope, undefined);
-    saveChangedScopeDocuments(scopes, beforeByPath);
-    actions.push({ action: 'withdraw_unsupported_substrate_grant', scopes: direct.map((scope) => scope.id) });
-    return { ok: false, reasons: ['unsupported_upstream_transport'] };
-  }
+  const supported = direct.filter((scope) => !unsupported.includes(scope));
 
   const { paths, manifest: prior } = readUpstreamManifest(ctx);
   const manifest = prior && prior.schema_version === witnessStore.UPSTREAM_MANIFEST_SCHEMA_VERSION
-    && prior.project_digest === paths.project_digest && prior.servers && typeof prior.servers === 'object'
+    && prior.project_digest === paths.project_digest && prior.servers
+    && typeof prior.servers === 'object' && !Array.isArray(prior.servers)
     ? prior
     : {
       schema_version: witnessStore.UPSTREAM_MANIFEST_SCHEMA_VERSION,
@@ -656,10 +689,7 @@ function repairClaudeSubstrateCapability(ctx, actions) {
     };
   manifest.broker_sha256 = sha256(expected.args[0]);
   manifest.witness_source_sha256 = sha256(path.join(ctx.projectDir, witnessStore.HOOK_RELATIVE_PATH));
-  if (process.platform !== 'win32' && exists(paths.upstream_manifest_path)) {
-    fs.chmodSync(paths.upstream_manifest_path, 0o600);
-  }
-  for (const scope of direct) {
+  for (const scope of supported) {
     const definition = scopeDefinition(scope);
     manifest.servers[scope.id] = {
       transport: 'stdio',
@@ -667,20 +697,62 @@ function repairClaudeSubstrateCapability(ctx, actions) {
       definition_sha256: definitionDigest(definition),
     };
   }
-  if (direct.length) manifest.active_scope = [...direct].sort((a, b) => a.rank - b.rank)[0].id;
+  if (supported.length) manifest.active_scope = [...supported].sort((a, b) => a.rank - b.rank)[0].id;
+  if (unsupported.length) {
+    if (!manifest.recovery_servers || typeof manifest.recovery_servers !== 'object'
+        || Array.isArray(manifest.recovery_servers)) manifest.recovery_servers = {};
+    for (const scope of unsupported) {
+      const definition = scopeDefinition(scope);
+      delete manifest.servers[scope.id];
+      if (manifest.active_scope === scope.id) manifest.active_scope = '';
+      manifest.recovery_servers[scope.id] = {
+        transport: 'unsupported',
+        definition,
+        definition_sha256: definitionDigest(definition),
+      };
+    }
+  }
+
+  const hasUnsupportedRecovery = Boolean(manifest.recovery_servers
+    && typeof manifest.recovery_servers === 'object'
+    && !Array.isArray(manifest.recovery_servers)
+    && Object.keys(manifest.recovery_servers).length);
+  if (unsupported.length || hasUnsupportedRecovery) {
+    if (validateUpstreamManifest(ctx, manifest, { skipFilesystem: true }) !== 'unsupported_upstream_transport') {
+      return { ok: false, reasons: ['upstream_drift'] };
+    }
+    try {
+      if (process.platform !== 'win32' && exists(paths.upstream_manifest_path)) {
+        fs.chmodSync(paths.upstream_manifest_path, 0o600);
+      }
+      atomicPrivateJson(paths.upstream_manifest_path, manifest);
+    } catch (_) {
+      return { ok: false, reasons: ['broker_repair_failed'] };
+    }
+    for (const scope of discovered) setScopeDefinition(scope, undefined);
+    if (!saveDocumentsOrFail()) return { ok: false, reasons: ['broker_repair_failed'] };
+    if (discovered.length) {
+      actions.push({ action: 'withdraw_unsupported_substrate_grant', scopes: discovered.map((scope) => scope.id) });
+    }
+    return { ok: false, reasons: ['unsupported_upstream_transport'] };
+  }
+
   if (!manifest.active_scope || !manifest.servers[manifest.active_scope]) {
     for (const scope of discovered) setScopeDefinition(scope, undefined);
-    saveChangedScopeDocuments(scopes, beforeByPath);
+    if (!saveDocumentsOrFail()) return { ok: false, reasons: ['broker_repair_failed'] };
     return { ok: false, reasons: ['upstream_missing'] };
   }
-  const manifestReason = validateUpstreamManifest(ctx, manifest);
+  const manifestReason = validateUpstreamManifest(ctx, manifest, { skipFilesystem: true });
   if (manifestReason) {
     for (const scope of discovered) setScopeDefinition(scope, undefined);
-    saveChangedScopeDocuments(scopes, beforeByPath);
+    if (!saveDocumentsOrFail()) return { ok: false, reasons: ['broker_repair_failed'] };
     return { ok: false, reasons: [manifestReason] };
   }
 
   try {
+    if (process.platform !== 'win32' && exists(paths.upstream_manifest_path)) {
+      fs.chmodSync(paths.upstream_manifest_path, 0o600);
+    }
     atomicPrivateJson(paths.upstream_manifest_path, manifest);
     for (const scope of scopes) {
       if (scopeDefinition(scope) !== undefined) setScopeDefinition(scope, expected);
@@ -690,17 +762,8 @@ function repairClaudeSubstrateCapability(ctx, actions) {
       setScopeDefinition(projectScope, expected);
     }
     saveChangedScopeDocuments(scopes, beforeByPath);
-  } catch (error) {
-    for (const [filePath, bytes] of beforeByPath) {
-      try {
-        if (bytes === null) {
-          if (exists(filePath)) fs.unlinkSync(filePath);
-        } else {
-          ensureDir(path.dirname(filePath));
-          fs.writeFileSync(filePath, bytes, 'utf8');
-        }
-      } catch (_) {}
-    }
+  } catch (_) {
+    restoreOriginalDocuments();
     return { ok: false, reasons: ['broker_repair_failed'] };
   }
   actions.push({ action: 'broker_substrate_capability', scopes: scopes.filter((scope) => scopeDefinition(scope) !== undefined).map((scope) => scope.id) });
