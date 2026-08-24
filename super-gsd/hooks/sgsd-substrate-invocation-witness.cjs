@@ -8,6 +8,81 @@ const util = require('util');
 const TARGET_TOOL = ['mcp__vtp-kb__vtp', 'search', 'substrate'].join('_');
 const COMPOSER_RELATIVE_PATH = path.join('super-gsd', 'scripts', 'lib', 'vtp-context-composer.cjs');
 const STORE_RELATIVE_PATH = path.join('super-gsd', 'scripts', 'lib', 'substrate-invocation-witness-store.cjs');
+const RESPONSE_SHAPE_LOG_ENV = 'SGSD_P167_TOOL_RESPONSE_SHAPE_LOG';
+const RESPONSE_SHAPE_MAX_DEPTH = 5;
+const RESPONSE_SHAPE_MAX_ITEMS = 8;
+const RESPONSE_SHAPE_MAX_KEYS = 64;
+const POST_CONDITION_LOG_RELATIVE_PATH = path.join(
+  '.planning',
+  'metrics',
+  'substrate-invocation-witness-posttool.jsonl',
+);
+
+function responseValueType(value) {
+  if (Array.isArray(value)) return 'array';
+  if (value === null) return 'null';
+  return typeof value;
+}
+
+function describeToolResponseShape(value, depth = 0) {
+  const type = responseValueType(value);
+  if (type === 'array') {
+    const result = { type, length: value.length };
+    if (depth < RESPONSE_SHAPE_MAX_DEPTH) {
+      result.items = value.slice(0, RESPONSE_SHAPE_MAX_ITEMS)
+        .map((item) => describeToolResponseShape(item, depth + 1));
+      if (value.length > RESPONSE_SHAPE_MAX_ITEMS) {
+        result.omittedItems = value.length - RESPONSE_SHAPE_MAX_ITEMS;
+      }
+    }
+    return result;
+  }
+  if (type === 'object') {
+    const allKeys = Object.keys(value).sort();
+    const keys = allKeys.slice(0, RESPONSE_SHAPE_MAX_KEYS);
+    const result = { type, keys };
+    if (depth < RESPONSE_SHAPE_MAX_DEPTH) {
+      result.fields = Object.fromEntries(keys.map((key) => [
+        key,
+        describeToolResponseShape(value[key], depth + 1),
+      ]));
+    }
+    if (allKeys.length > RESPONSE_SHAPE_MAX_KEYS) {
+      result.omittedKeys = allKeys.length - RESPONSE_SHAPE_MAX_KEYS;
+    }
+    return result;
+  }
+  return { type };
+}
+
+function recordToolResponseShape(toolResponse, env) {
+  const destination = env && env[RESPONSE_SHAPE_LOG_ENV];
+  if (typeof destination !== 'string' || !path.isAbsolute(destination)) return;
+  try {
+    fs.appendFileSync(
+      path.resolve(destination),
+      JSON.stringify(describeToolResponseShape(toolResponse)) + '\n',
+      { encoding: 'utf8', mode: 0o600 },
+    );
+  } catch (_) {
+    // Diagnostic instrumentation must never alter hook behavior.
+  }
+}
+
+function recordPostCondition(projectRoot, toolResponse, reason) {
+  try {
+    const destination = path.join(projectRoot, POST_CONDITION_LOG_RELATIVE_PATH);
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.appendFileSync(destination, JSON.stringify({
+      event: 'post_response_passthrough',
+      reason,
+      recorded_at: new Date().toISOString(),
+      response_shape: describeToolResponseShape(toolResponse),
+    }) + '\n', { encoding: 'utf8', mode: 0o600 });
+  } catch (_) {
+    // Observability failure must not turn a safe pass-through into result loss.
+  }
+}
 
 function findProjectRoot(cwd) {
   if (typeof cwd !== 'string' || !cwd.trim()) return null;
@@ -58,35 +133,51 @@ function rewriteFailure(reason) {
 }
 
 function parseMcpDomain(toolResponse) {
-  if (!toolResponse || typeof toolResponse !== 'object' || Array.isArray(toolResponse)) {
+  const bareContent = Array.isArray(toolResponse);
+  if (!bareContent && (!toolResponse || typeof toolResponse !== 'object')) {
     throw new Error('malformed_response');
   }
-  if (!Array.isArray(toolResponse.content) || toolResponse.content.length !== 1) {
+  const content = bareContent ? toolResponse : toolResponse.content;
+  if (!Array.isArray(content)) {
     throw new Error('malformed_response');
   }
-  const block = toolResponse.content[0];
-  if (!block || block.type !== 'text' || typeof block.text !== 'string') {
-    throw new Error('malformed_response');
+
+  const candidates = [];
+  for (let blockIndex = 0; blockIndex < content.length; blockIndex += 1) {
+    const block = content[blockIndex];
+    if (!block || block.type !== 'text' || typeof block.text !== 'string') continue;
+    try {
+      const domain = JSON.parse(block.text);
+      if (domain && typeof domain === 'object' && !Array.isArray(domain)) {
+        candidates.push({ domain, block, blockIndex });
+      }
+    } catch (_) {
+      // Text blocks may carry non-JSON status output. Keep looking.
+    }
   }
-  let domain;
-  try {
-    domain = JSON.parse(block.text);
-  } catch (_) {
-    throw new Error('malformed_response');
-  }
-  if (!domain || typeof domain !== 'object' || Array.isArray(domain)) {
-    throw new Error('malformed_response');
-  }
-  if (Object.prototype.hasOwnProperty.call(toolResponse, 'structuredContent')) {
+
+  let parsed;
+  const hasStructuredContent = !bareContent
+    && Object.prototype.hasOwnProperty.call(toolResponse, 'structuredContent');
+  if (hasStructuredContent) {
     const structured = toolResponse.structuredContent;
     if (!structured
       || typeof structured !== 'object'
-      || Array.isArray(structured)
-      || !util.isDeepStrictEqual(structured, domain)) {
-      throw new Error('malformed_response');
+      || Array.isArray(structured)) {
+      throw new Error('inconsistent_response');
     }
+    parsed = candidates.find((candidate) => util.isDeepStrictEqual(structured, candidate.domain));
+  } else {
+    parsed = candidates.find((candidate) => Array.isArray(candidate.domain.hits)
+      || (candidate.domain.evidence
+        && typeof candidate.domain.evidence === 'object'
+        && Array.isArray(candidate.domain.evidence.hits)));
+    if (!parsed && candidates.length === 1) [parsed] = candidates;
   }
-  return { domain, block };
+  if (!parsed) {
+    throw new Error(hasStructuredContent ? 'inconsistent_response' : 'malformed_response');
+  }
+  return { ...parsed, bareContent, content };
 }
 
 function mergeDegradationNotes(domain, generated) {
@@ -110,9 +201,26 @@ function hitCharacterTotal(response) {
 }
 
 function responseDigest(response) {
+  const serialized = JSON.stringify(response);
   return crypto.createHash('sha256')
-    .update(Buffer.from(JSON.stringify(response), 'utf8'))
+    .update(Buffer.from(serialized === undefined ? 'undefined' : serialized, 'utf8'))
     .digest('hex');
+}
+
+function transitionWitnessAfterPost(payload, projectRoot, runtime, env, response, metrics = {}) {
+  runtime.store.transitionWitnessToRewritten({
+    projectRoot,
+    env,
+    sessionId: payload.session_id,
+    toolUseId: payload.tool_use_id,
+    payloadDigest: runtime.composer.substratePayloadDigest(payload.tool_input),
+    responseDigest: responseDigest(response),
+    degradationCount: metrics.degradationCount,
+    originalChars: metrics.originalChars,
+    retainedChars: metrics.retainedChars,
+    topLevelHitCount: metrics.topLevelHitCount,
+    evidenceHitCount: metrics.evidenceHitCount,
+  });
 }
 
 function handlePre(payload, projectRoot, runtime, env) {
@@ -150,19 +258,42 @@ function postFailureReason(error) {
   if (message === 'witness_pre_mismatch') return 'input_mismatch';
   if (message === 'witness_pre_expired') return 'expired_pre';
   if (/^witness_key_/.test(message)) return 'key_unavailable';
+  if (message === 'inconsistent_response') return 'malformed_response';
   if (message === 'malformed_response') return 'malformed_response';
   return 'state_transition_failed';
 }
 
 function handlePost(payload, projectRoot, runtime, env) {
+  recordToolResponseShape(payload.tool_response, env);
   if (typeof payload.session_id !== 'string' || !payload.session_id) return rewriteFailure('missing_session_id');
   if (typeof payload.tool_use_id !== 'string' || !payload.tool_use_id) return rewriteFailure('missing_tool_use_id');
   if (!runtime.composer.validateSubstrateToolInput(payload.tool_input)) {
     return rewriteFailure('invalid_v2_payload');
   }
 
+  let parsed;
   try {
-    const parsed = parseMcpDomain(payload.tool_response);
+    parsed = parseMcpDomain(payload.tool_response);
+  } catch (error) {
+    if (error && error.message === 'malformed_response') {
+      try {
+        transitionWitnessAfterPost(
+          payload,
+          projectRoot,
+          runtime,
+          env,
+          payload.tool_response,
+        );
+      } catch (_) {
+        // An unparseable response must remain an unchanged fail-safe passthrough.
+      }
+      recordPostCondition(projectRoot, payload.tool_response, 'malformed_response');
+      return null;
+    }
+    return rewriteFailure(postFailureReason(error));
+  }
+
+  try {
     const capped = runtime.composer.capSubstrateResponse(parsed.domain);
     if (!capped.response || typeof capped.response !== 'object' || Array.isArray(capped.response)) {
       return rewriteFailure('malformed_response');
@@ -172,21 +303,19 @@ function handlePost(payload, projectRoot, runtime, env) {
       || Object.prototype.hasOwnProperty.call(parsed.domain, 'degradation_notes')
       ? { ...capped.response, degradation_notes: degradationNotes }
       : capped.response;
-    const replacement = {
-      ...payload.tool_response,
-      content: [{ ...parsed.block, text: JSON.stringify(rewrittenDomain) }],
-      ...(Object.prototype.hasOwnProperty.call(payload.tool_response, 'structuredContent')
-        ? { structuredContent: rewrittenDomain }
-        : {}),
-    };
-    const payloadDigest = runtime.composer.substratePayloadDigest(payload.tool_input);
-    runtime.store.transitionWitnessToRewritten({
-      projectRoot,
-      env,
-      sessionId: payload.session_id,
-      toolUseId: payload.tool_use_id,
-      payloadDigest,
-      responseDigest: responseDigest(rewrittenDomain),
+    const replacementContent = parsed.content.map((block, index) => index === parsed.blockIndex
+      ? { ...parsed.block, text: JSON.stringify(rewrittenDomain) }
+      : block);
+    const replacement = parsed.bareContent
+      ? replacementContent
+      : {
+        ...payload.tool_response,
+        content: replacementContent,
+        ...(Object.prototype.hasOwnProperty.call(payload.tool_response, 'structuredContent')
+          ? { structuredContent: rewrittenDomain }
+          : {}),
+      };
+    transitionWitnessAfterPost(payload, projectRoot, runtime, env, rewrittenDomain, {
       degradationCount: capped.degradation_notes.length,
       originalChars: hitCharacterTotal(parsed.domain),
       retainedChars: hitCharacterTotal(capped.response),
@@ -271,6 +400,7 @@ function runCli(argv) {
 }
 
 module.exports = {
+  describeToolResponseShape,
   processHookPayload,
   processHookStdin,
 };

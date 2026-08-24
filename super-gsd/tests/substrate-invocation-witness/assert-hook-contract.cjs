@@ -188,10 +188,19 @@ function mcpEnvelope(domain, extra = {}) {
 function replacementDomain(result) {
   assert(result && result.hookSpecificOutput, 'missing hookSpecificOutput');
   const envelope = result.hookSpecificOutput.updatedMCPToolOutput;
-  assert(envelope && Array.isArray(envelope.content), 'missing MCP replacement envelope');
-  const textBlock = envelope.content.find((block) => block && block.type === 'text');
+  const content = Array.isArray(envelope) ? envelope : envelope && envelope.content;
+  assert(Array.isArray(content), 'missing MCP replacement content');
+  const textBlock = content.find((block) => {
+    if (!block || block.type !== 'text' || typeof block.text !== 'string') return false;
+    try {
+      const candidate = JSON.parse(block.text);
+      return candidate && typeof candidate === 'object' && !Array.isArray(candidate);
+    } catch (_) {
+      return false;
+    }
+  });
   assert(textBlock, 'missing replacement text block');
-  return { envelope, domain: JSON.parse(textBlock.text) };
+  return { envelope, content, domain: JSON.parse(textBlock.text) };
 }
 
 function assertDenied(result, suffix) {
@@ -516,6 +525,54 @@ function defineHookTests() {
     assert.strictEqual(Object.prototype.hasOwnProperty.call(rewritten.domain, 'degradation_notes'), false);
   });
 
+  test('PostToolUse finds substrate JSON in a multi-block content envelope', () => {
+    const pre = hookPayload('PreToolUse', 'multi-block-envelope');
+    hook.processHookPayload(pre, { env: fixture.env });
+    const oversized = 'm'.repeat(16001);
+    const untouchedImage = { type: 'image', data: 'IMAGE_BLOCK', mimeType: 'image/png' };
+    const untouchedText = { type: 'text', text: 'upstream status text' };
+    const result = hook.processHookPayload({
+      ...pre,
+      hook_event_name: 'PostToolUse',
+      tool_response: {
+        content: [
+          untouchedImage,
+          untouchedText,
+          { type: 'text', text: JSON.stringify({ hits: [{ text: oversized }] }) },
+          { type: 'resource', uri: 'fixture://unchanged' },
+        ],
+        isError: false,
+        serverMeta: 'preserved',
+      },
+    }, { env: fixture.env });
+    const rewritten = replacementDomain(result);
+    assert.strictEqual(rewritten.envelope.content.length, 4);
+    assert.deepStrictEqual(rewritten.envelope.content[0], untouchedImage);
+    assert.deepStrictEqual(rewritten.envelope.content[1], untouchedText);
+    assert.deepStrictEqual(rewritten.envelope.content[3], { type: 'resource', uri: 'fixture://unchanged' });
+    assert.strictEqual(rewritten.envelope.serverMeta, 'preserved');
+    assert.strictEqual(rewritten.domain.hits[0].text.length, 16000);
+  });
+
+  test('PostToolUse accepts the measured one-block bare content array and preserves its shape', () => {
+    const pre = hookPayload('PreToolUse', 'bare-content-array');
+    hook.processHookPayload(pre, { env: fixture.env });
+    const oversized = 'a'.repeat(16001);
+    const original = [
+      { type: 'text', text: JSON.stringify({ hits: [{ text: oversized }] }) },
+    ];
+    const result = hook.processHookPayload({
+      ...pre,
+      hook_event_name: 'PostToolUse',
+      tool_response: original,
+    }, { env: fixture.env });
+    const rewritten = replacementDomain(result);
+    assert.strictEqual(Array.isArray(rewritten.envelope), true);
+    assert.strictEqual(rewritten.content.length, 1);
+    assert.strictEqual(rewritten.domain.hits[0].text.length, 16000);
+    assert.strictEqual(JSON.parse(original[0].text).hits[0].text.length, 16001);
+  });
+
   test('PostToolUse caps 16001-character top-level and nested hits and discards tail markers', () => {
     const pre = hookPayload('PreToolUse', 'oversized');
     assert.strictEqual(
@@ -599,19 +656,118 @@ function defineHookTests() {
     assert.strictEqual(JSON.stringify(rewritten.envelope).includes(rawMarker), false);
   });
 
-  test('PostToolUse replaces malformed MCP output with a bounded failure', () => {
+  test('PostToolUse passes unparseable MCP output through untouched and records the condition', () => {
     const pre = hookPayload('PreToolUse', 'malformed-response');
     hook.processHookPayload(pre, { env: fixture.env });
     const rawMarker = 'RAW_MALFORMED_RESPONSE_MARKER';
+    const original = [{ type: 'text', text: rawMarker }];
+    const before = JSON.stringify(original);
     const result = hook.processHookPayload({
       ...pre,
       hook_event_name: 'PostToolUse',
-      tool_response: { content: [{ type: 'text', text: rawMarker }] },
+      tool_response: original,
     }, { env: fixture.env });
-    const rewritten = replacementDomain(result);
-    assert.strictEqual(rewritten.domain.reason, 'substrate_witness_rewrite_failed:malformed_response');
-    assert.strictEqual(JSON.stringify(rewritten.envelope).includes(rawMarker), false);
-    assert(JSON.stringify(rewritten.envelope).length < 512);
+    assert.strictEqual(result, null);
+    assert.strictEqual(JSON.stringify(original), before);
+    const conditionPath = path.join(
+      fixture.project,
+      '.planning',
+      'metrics',
+      'substrate-invocation-witness-posttool.jsonl',
+    );
+    const condition = JSON.parse(fs.readFileSync(conditionPath, 'utf8').trim());
+    assert.strictEqual(condition.event, 'post_response_passthrough');
+    assert.strictEqual(condition.reason, 'malformed_response');
+    assert.strictEqual(typeof condition.recorded_at, 'string');
+    assert.deepStrictEqual(condition.response_shape, {
+      type: 'array',
+      length: 1,
+      items: [{
+        type: 'object',
+        keys: ['text', 'type'],
+        fields: {
+          text: { type: 'string' },
+          type: { type: 'string' },
+        },
+      }],
+    });
+    assert.strictEqual(JSON.stringify(condition).includes(rawMarker), false);
+    assert.deepStrictEqual(store.consumeRewrittenWitness({
+      projectRoot: fixture.project,
+      env: fixture.env,
+      sessionId: pre.session_id,
+      payloadDigest: composer.substratePayloadDigest(pre.tool_input),
+    }), {
+      ok: true,
+      payload_digest: composer.substratePayloadDigest(pre.tool_input),
+      witness_status: 'consumed',
+    });
+  });
+
+  test('PostToolUse runtime-shape diagnostic records keys and types without values', () => {
+    const toolResponse = {
+      content: [
+        { type: 'image', data: 'RAW_IMAGE_VALUE', mimeType: 'image/png' },
+        { type: 'text', text: 'RAW_TEXT_VALUE' },
+      ],
+      isError: false,
+      structuredContent: { privateValue: 'RAW_STRUCTURED_VALUE' },
+    };
+    const diagnostic = hook.describeToolResponseShape(toolResponse);
+    assert.deepStrictEqual(diagnostic, {
+      type: 'object',
+      keys: ['content', 'isError', 'structuredContent'],
+      fields: {
+        content: {
+          type: 'array',
+          length: 2,
+          items: [
+            {
+              type: 'object',
+              keys: ['data', 'mimeType', 'type'],
+              fields: {
+                data: { type: 'string' },
+                mimeType: { type: 'string' },
+                type: { type: 'string' },
+              },
+            },
+            {
+              type: 'object',
+              keys: ['text', 'type'],
+              fields: {
+                text: { type: 'string' },
+                type: { type: 'string' },
+              },
+            },
+          ],
+        },
+        isError: { type: 'boolean' },
+        structuredContent: {
+          type: 'object',
+          keys: ['privateValue'],
+          fields: { privateValue: { type: 'string' } },
+        },
+      },
+    });
+    const serialized = JSON.stringify(diagnostic);
+    for (const forbidden of ['RAW_IMAGE_VALUE', 'image/png', 'RAW_TEXT_VALUE', 'RAW_STRUCTURED_VALUE']) {
+      assert.strictEqual(serialized.includes(forbidden), false, 'diagnostic leaked ' + forbidden);
+    }
+    const diagnosticPath = path.join(fixture.root, 'post-tool-response-shape.jsonl');
+    hook.processHookPayload(hookPayload('PostToolUse', 'shape-diagnostic', {
+      tool_response: toolResponse,
+    }), {
+      env: {
+        ...fixture.env,
+        SGSD_P167_TOOL_RESPONSE_SHAPE_LOG: diagnosticPath,
+      },
+      expectedEvent: 'PostToolUse',
+    });
+    assert.deepStrictEqual(
+      fs.readFileSync(diagnosticPath, 'utf8').trim().split(/\r?\n/).map(JSON.parse),
+      [diagnostic],
+    );
+    assert.strictEqual(fs.readFileSync(diagnosticPath, 'utf8').includes('RAW_'), false);
   });
 
   test('PostToolUse rejects mismatched structured content without exposing it', () => {

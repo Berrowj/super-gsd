@@ -161,7 +161,21 @@ function toolDefinition() {
   return {
     name: TOOL_NAME,
     description: 'Deterministic P167 substrate invocation witness fixture',
-    inputSchema: { type: 'object', additionalProperties: true },
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['query', 'source_types', 'limit'],
+      properties: {
+        query: { type: 'string', minLength: 3 },
+        limit: { type: 'integer', minimum: 1, maximum: 5 },
+        source_types: {
+          type: 'array',
+          minItems: 1,
+          uniqueItems: true,
+          items: { type: 'string', enum: ['research_paper', 'wiki_page'] },
+        },
+      },
+    },
   };
 }
 

@@ -420,7 +420,16 @@ test('preserves P166 rejection order and does not consume on forged records', ()
 test('CLI inherits runtime session and emits accepted JSON only after consumption', () => {
   const envelope = prepared('P167 CLI runtime session witness');
   const sessionId = 'session-cli';
-  seedRewritten(envelope, { id: 'cli', sessionId });
+  const prePayload = seedPre(envelope, { id: 'cli', sessionId });
+  const passthrough = hook.processHookPayload({
+    ...prePayload,
+    hook_event_name: 'PostToolUse',
+    tool_response: [{ type: 'text', text: 'upstream status text' }],
+  }, {
+    env: fixture.env,
+    expectedEvent: 'PostToolUse',
+  });
+  assert.strictEqual(passthrough, null);
   const inputDir = path.join(fixture.project, '.planning', 'tmp');
   mkdir(inputDir);
   const preparedPath = path.join(inputDir, 'prepared.json');
