@@ -8,81 +8,6 @@ const util = require('util');
 const TARGET_TOOL = ['mcp__vtp-kb__vtp', 'search', 'substrate'].join('_');
 const COMPOSER_RELATIVE_PATH = path.join('super-gsd', 'scripts', 'lib', 'vtp-context-composer.cjs');
 const STORE_RELATIVE_PATH = path.join('super-gsd', 'scripts', 'lib', 'substrate-invocation-witness-store.cjs');
-const RESPONSE_SHAPE_LOG_ENV = 'SGSD_P167_TOOL_RESPONSE_SHAPE_LOG';
-const RESPONSE_SHAPE_MAX_DEPTH = 5;
-const RESPONSE_SHAPE_MAX_ITEMS = 8;
-const RESPONSE_SHAPE_MAX_KEYS = 64;
-const POST_CONDITION_LOG_RELATIVE_PATH = path.join(
-  '.planning',
-  'metrics',
-  'substrate-invocation-witness-posttool.jsonl',
-);
-
-function responseValueType(value) {
-  if (Array.isArray(value)) return 'array';
-  if (value === null) return 'null';
-  return typeof value;
-}
-
-function describeToolResponseShape(value, depth = 0) {
-  const type = responseValueType(value);
-  if (type === 'array') {
-    const result = { type, length: value.length };
-    if (depth < RESPONSE_SHAPE_MAX_DEPTH) {
-      result.items = value.slice(0, RESPONSE_SHAPE_MAX_ITEMS)
-        .map((item) => describeToolResponseShape(item, depth + 1));
-      if (value.length > RESPONSE_SHAPE_MAX_ITEMS) {
-        result.omittedItems = value.length - RESPONSE_SHAPE_MAX_ITEMS;
-      }
-    }
-    return result;
-  }
-  if (type === 'object') {
-    const allKeys = Object.keys(value).sort();
-    const keys = allKeys.slice(0, RESPONSE_SHAPE_MAX_KEYS);
-    const result = { type, keys };
-    if (depth < RESPONSE_SHAPE_MAX_DEPTH) {
-      result.fields = Object.fromEntries(keys.map((key) => [
-        key,
-        describeToolResponseShape(value[key], depth + 1),
-      ]));
-    }
-    if (allKeys.length > RESPONSE_SHAPE_MAX_KEYS) {
-      result.omittedKeys = allKeys.length - RESPONSE_SHAPE_MAX_KEYS;
-    }
-    return result;
-  }
-  return { type };
-}
-
-function recordToolResponseShape(toolResponse, env) {
-  const destination = env && env[RESPONSE_SHAPE_LOG_ENV];
-  if (typeof destination !== 'string' || !path.isAbsolute(destination)) return;
-  try {
-    fs.appendFileSync(
-      path.resolve(destination),
-      JSON.stringify(describeToolResponseShape(toolResponse)) + '\n',
-      { encoding: 'utf8', mode: 0o600 },
-    );
-  } catch (_) {
-    // Diagnostic instrumentation must never alter hook behavior.
-  }
-}
-
-function recordPostCondition(projectRoot, toolResponse, reason) {
-  try {
-    const destination = path.join(projectRoot, POST_CONDITION_LOG_RELATIVE_PATH);
-    fs.mkdirSync(path.dirname(destination), { recursive: true });
-    fs.appendFileSync(destination, JSON.stringify({
-      event: 'post_response_passthrough',
-      reason,
-      recorded_at: new Date().toISOString(),
-      response_shape: describeToolResponseShape(toolResponse),
-    }) + '\n', { encoding: 'utf8', mode: 0o600 });
-  } catch (_) {
-    // Observability failure must not turn a safe pass-through into result loss.
-  }
-}
 
 function findProjectRoot(cwd) {
   if (typeof cwd !== 'string' || !cwd.trim()) return null;
@@ -276,7 +201,6 @@ function postFailureReason(error) {
 }
 
 function handlePost(payload, projectRoot, runtime, env) {
-  recordToolResponseShape(payload.tool_response, env);
   if (typeof payload.session_id !== 'string' || !payload.session_id) return rewriteFailure('missing_session_id');
   if (typeof payload.tool_use_id !== 'string' || !payload.tool_use_id) return rewriteFailure('missing_tool_use_id');
   if (!runtime.composer.validateSubstrateToolInput(payload.tool_input)) {
@@ -300,7 +224,6 @@ function handlePost(payload, projectRoot, runtime, env) {
       } catch (_) {
         // An unparseable response must remain an unchanged fail-safe passthrough.
       }
-      recordPostCondition(projectRoot, payload.tool_response, 'malformed_response');
       return null;
     }
     return rewriteFailure(postFailureReason(error));
@@ -413,7 +336,6 @@ function runCli(argv) {
 }
 
 module.exports = {
-  describeToolResponseShape,
   processHookPayload,
   processHookStdin,
 };

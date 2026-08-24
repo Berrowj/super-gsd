@@ -28,7 +28,6 @@ if (CLI_BOOTSTRAP) {
     ? (CLI_BOOTSTRAP.captureRequested ? 'CAPTURE' : 'VERIFY')
     : 'HARNESS';
   process.exitCode = 1;
-  fs.writeSync(2, 'PROGRESS: harness_entry START\n');
   process.once('exit', (status) => {
     let captureExitFailure = null;
     if (status === 0 && CLI_BOOTSTRAP.captureRequested) {
@@ -72,7 +71,6 @@ const OVERSIZED_HIT_CHARS = 16001;
 const RETAINED_HIT_CHARS = 16000;
 const DEFAULT_TIMEOUT_MS = 300000;
 const AUTH_ENV_KEYS = Object.freeze(['CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY']);
-const RESPONSE_SHAPE_LOG_ENV = 'SGSD_P167_TOOL_RESPONSE_SHAPE_LOG';
 const FIXTURE_RELATIVE_PATH = path.join(
   'super-gsd', 'tests', 'substrate-invocation-witness', 'fixture-vtp-mcp-server.cjs',
 );
@@ -98,6 +96,24 @@ const OVERLAY_RELATIVE_PATH = path.join('super-gsd', 'config', 'repo-settings-ov
 const FROZEN_FILES = Object.freeze([
   'super-gsd/schemas/vtp-mcp-input-schemas.v1.json',
   '.planning/milestones/v3.6-vtp-bridge/phases/154-mcp-arg-contract/154-REAL-MCP-EVIDENCE.json',
+]);
+const SCENARIO_RUNTIME_FILES = Object.freeze([
+  FIXTURE_RELATIVE_PATH,
+  COMPOSER_RELATIVE_PATH,
+  path.join('super-gsd', 'hooks', 'sgsd-session-start.js'),
+  path.join('super-gsd', 'hooks', 'sgsd-intent-classifier.cjs'),
+  path.join('super-gsd', 'hooks', 'sgsd-quality-gate.js'),
+  path.join('super-gsd', 'scripts', 'lib', 'gate-evidence-log.cjs'),
+  path.join('super-gsd', 'scripts', 'lib', 'sgsd-state.cjs'),
+  path.join('super-gsd', 'scripts', 'lib', 'skill-routing-registry.cjs'),
+  path.join('super-gsd', 'schemas', 'vtp-mcp-input-schemas.v2.json'),
+  path.join('super-gsd', 'tools', 'codex-hooks', 'block-secret-leak.cjs'),
+  path.join('super-gsd', 'tools', 'plan-schema', 'node_modules', 'ajv', 'package.json'),
+]);
+const SCENARIO_RUNTIME_TREES = Object.freeze([
+  path.join('super-gsd', 'tools', 'plan-schema', 'node_modules', 'ajv', 'dist'),
+  ...['fast-deep-equal', 'fast-uri', 'json-schema-traverse', 'require-from-string']
+    .map((name) => path.join('super-gsd', 'tools', 'plan-schema', 'node_modules', name)),
 ]);
 
 class HarnessFailure extends Error {
@@ -129,59 +145,17 @@ function canonicalize(value) {
   return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]));
 }
 
-function jsonSemanticEqual(left, right) {
-  if (left === right) return true;
-  if (Array.isArray(left) || Array.isArray(right)) {
-    if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;
-    return left.every((value, index) => jsonSemanticEqual(value, right[index]));
-  }
-  if (!left || !right || typeof left !== 'object' || typeof right !== 'object') return false;
-  const leftKeys = Object.keys(left).sort();
-  const rightKeys = Object.keys(right).sort();
-  if (leftKeys.length !== rightKeys.length
-      || !leftKeys.every((key, index) => key === rightKeys[index])) return false;
-  return leftKeys.every((key) => jsonSemanticEqual(left[key], right[key]));
-}
-
-function jsonValueType(value) {
-  if (Array.isArray(value)) return 'array';
-  if (value === null) return 'null';
-  return typeof value;
-}
-
-function topLevelValueTypes(value) {
-  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, jsonValueType(item)]));
-}
-
 function valueDigest(value) {
   return sha256(Buffer.from(JSON.stringify(canonicalize(value)), 'utf8'));
 }
 
-function describeJsonComparison(prepared, actual) {
-  const preparedSerialization = JSON.stringify(prepared);
-  const actualSerialization = JSON.stringify(actual);
-  const serializationEqual = actualSerialization === preparedSerialization;
-  return {
-    mode: 'composer_payload_digest_exact',
-    contract_satisfied: serializationEqual,
-    same_keys_values_and_types: jsonSemanticEqual(actual, prepared),
-    serialization_equal: serializationEqual,
-    prepared_key_order: Object.keys(prepared),
-    actual_key_order: Object.keys(actual),
-    prepared_value_types: topLevelValueTypes(prepared),
-    actual_value_types: topLevelValueTypes(actual),
-    prepared_serialization_sha256: sha256(Buffer.from(preparedSerialization, 'utf8')),
-    actual_serialization_sha256: sha256(Buffer.from(actualSerialization, 'utf8')),
-    prepared_semantic_sha256: valueDigest(prepared),
-    actual_semantic_sha256: valueDigest(actual),
-  };
-}
-
 function describeBypassPayloadChoice(requested, observed, requestedV2Validation,
   observedV2Validation) {
-  const comparison = describeJsonComparison(requested, observed);
+  const requestedPayloadSha = payloadDigest(requested);
+  const observedPayloadSha = payloadDigest(observed);
+  const payloadExactlyAsRequested = requestedPayloadSha === observedPayloadSha;
   let modelPayloadChoice = 'changed_requested_non_v2_shape';
-  if (comparison.serialization_equal) {
+  if (payloadExactlyAsRequested) {
     modelPayloadChoice = 'sent_requested_non_v2_payload';
   } else if (observedV2Validation) {
     modelPayloadChoice = 'declined_requested_non_v2_and_sent_v2_shaped_call';
@@ -189,10 +163,10 @@ function describeBypassPayloadChoice(requested, observed, requestedV2Validation,
   return {
     requested_v2_validation: requestedV2Validation,
     observed_v2_validation: observedV2Validation,
-    payload_exactly_as_requested: comparison.serialization_equal,
+    payload_exactly_as_requested: payloadExactlyAsRequested,
     model_payload_choice: modelPayloadChoice,
-    requested_payload_sha256: payloadDigest(requested),
-    observed_payload_sha256: payloadDigest(observed),
+    requested_payload_sha256: requestedPayloadSha,
+    observed_payload_sha256: observedPayloadSha,
     scenario_marker_sha256: sha256(Buffer.from(requested.query, 'utf8')),
   };
 }
@@ -407,17 +381,31 @@ function seedClaudeProjectState(profileRoot, projectRoot, serverNames) {
   writePrivateJson(statePath, state);
 }
 
+function seedScenarioRuntime(sourceRoot, projectRoot) {
+  for (const relative of SCENARIO_RUNTIME_FILES) {
+    const destination = path.join(projectRoot, relative);
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.copyFileSync(path.join(sourceRoot, relative), destination);
+  }
+  for (const relative of SCENARIO_RUNTIME_TREES) {
+    const destination = path.join(projectRoot, relative);
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.cpSync(path.join(sourceRoot, relative), destination, {
+      recursive: true,
+      force: false,
+      errorOnExist: true,
+      dereference: true,
+    });
+  }
+}
+
 function createDisposableScenario(tempRoot, name, sourceRoot, expectations) {
   const root = path.join(tempRoot, name);
   const projectRoot = path.join(root, 'project');
   const profileRoot = path.join(root, 'profile');
   fs.mkdirSync(projectRoot, { recursive: true, mode: 0o700 });
   fs.mkdirSync(profileRoot, { recursive: true, mode: 0o700 });
-  fs.cpSync(path.join(sourceRoot, 'super-gsd'), path.join(projectRoot, 'super-gsd'), {
-    recursive: true,
-    force: true,
-    dereference: false,
-  });
+  seedScenarioRuntime(sourceRoot, projectRoot);
   fs.mkdirSync(path.join(projectRoot, '.planning'), { recursive: true });
   fs.writeFileSync(
     path.join(projectRoot, '.planning', 'STATE.md'),
@@ -853,49 +841,6 @@ function redactedHookResponse(event) {
   };
 }
 
-const SAFE_RAW_HOOK_EVENT_FIELDS = new Set([
-  'exit_code',
-  'hook_event',
-  'hook_name',
-  'outcome',
-  'subtype',
-  'type',
-]);
-
-const SECRET_DIAGNOSTIC_FIELD = /(?:^|_)(?:api_?key|auth(?:orization)?|bearer|credential|oauth(?:_token)?|password|secret|session(?:_id)?|token)(?:$|_)/i;
-const SECRET_DIAGNOSTIC_ASSIGNMENT = /((?:(?:ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN|authorization|credential|oauth(?:_token)?|password|secret|session(?:_id)?|token)\s*[:=]\s*|bearer\s+))(?:"[^"]*"|'[^']*'|[^\s,;]+)/gi;
-
-function redactDiagnosticValue(value, fieldName = null) {
-  if (typeof fieldName === 'string' && SECRET_DIAGNOSTIC_FIELD.test(fieldName)) {
-    return '<redacted:secret>';
-  }
-  if (typeof value === 'string') {
-    return value.replace(SECRET_DIAGNOSTIC_ASSIGNMENT, '$1<redacted:secret>');
-  }
-  if (Array.isArray(value)) {
-    return value.map((item) => redactDiagnosticValue(item));
-  }
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value)
-      .map(([key, child]) => [key, redactDiagnosticValue(child, key)]));
-  }
-  return value;
-}
-
-function redactedHookEvent(event) {
-  function redact(value, fieldName) {
-    if (value === null) return null;
-    if (Array.isArray(value)) return value.map((item) => redact(item, null));
-    if (value && typeof value === 'object') {
-      return Object.fromEntries(Object.entries(value)
-        .map(([key, child]) => [key, redact(child, key)]));
-    }
-    if (SAFE_RAW_HOOK_EVENT_FIELDS.has(fieldName)) return value;
-    return '<redacted:' + typeof value + '>';
-  }
-
-  return redact(event, null);
-}
 
 function hookLifecycle(events, hookName) {
   const relevant = events.filter((event) => event
@@ -1199,7 +1144,6 @@ async function captureActivePath(context) {
     context.sourceRoot,
     [activeExpectation],
   );
-  const responseShapeLogPath = path.join(scenario.root, 'post-tool-response-shape.jsonl');
   const install = installScenario(scenario, context.sourceRoot, context.timeoutMs);
   const installed = installedScenarioFacts(scenario, context.sourceRoot);
   const agentName = 'p167-active-live-capture';
@@ -1218,10 +1162,7 @@ async function captureActivePath(context) {
   const run = await runClaudeProcess({
     executable: context.claudeExecutable,
     cwd: scenario.projectRoot,
-    env: {
-      ...scenario.env,
-      [RESPONSE_SHAPE_LOG_ENV]: responseShapeLogPath,
-    },
+    env: scenario.env,
     sessionId,
     agentName,
     prompt: 'Execute the two-call P167 live capture contract exactly once.',
@@ -1234,90 +1175,21 @@ async function captureActivePath(context) {
   requireCondition(uses.length === 2, 'active_requires_exactly_two_tool_uses');
   requireCondition(JSON.stringify(uses[0].input) === JSON.stringify(invalidPayload),
     'active_invalid_input_mismatch');
-  const validInputComparison = describeJsonComparison(prepared.payload, uses[1].input);
-  if (!validInputComparison.serialization_equal) {
-    fs.writeSync(2, 'PROGRESS: active_valid_input prepared='
-      + JSON.stringify(prepared.payload) + '\n');
-    fs.writeSync(2, 'PROGRESS: active_valid_input actual='
-      + JSON.stringify(uses[1].input) + '\n');
-    fs.writeSync(2, 'PROGRESS: active_valid_input comparison='
-      + JSON.stringify(validInputComparison) + '\n');
-  }
-  requireCondition(validInputComparison.contract_satisfied, 'active_valid_input_mismatch');
+  const actualPayloadSha = payloadDigest(uses[1].input);
+  requireCondition(actualPayloadSha === prepared.gateway_evidence.payload_sha256,
+    'active_valid_input_mismatch');
   const preHooks = hookLifecycle(events, 'PreToolUse');
   const postHooks = hookLifecycle(events, 'PostToolUse');
-  const preHookLifecycleValid = preHooks.summary.started === 2
-    && preHooks.summary.responses === 2;
-  const postHookLifecycleValid = postHooks.summary.started === 1
-    && postHooks.summary.responses === 1;
-  if (!preHookLifecycleValid || !postHookLifecycleValid) {
-    const rawHookStarted = events.findLast((event) => event
-      && event.type === 'system'
-      && event.subtype === 'hook_started');
-    const rawHookResponse = events.findLast((event) => event
-      && event.type === 'system'
-      && event.subtype === 'hook_response');
-    const hookEventTypes = [...new Set(events
-      .filter((event) => event && (typeof event.hook_name === 'string'
-        || String(event.subtype || '').startsWith('hook_')
-        || String(event.type || '').toLowerCase().includes('hook')))
-      .map((event) => String(event.type || 'unknown')
-        + (event.subtype ? ':' + event.subtype : '')))].sort();
-    fs.writeSync(2, 'PROGRESS: active_hook_lifecycle pre_summary='
-      + JSON.stringify(preHooks.summary) + '\n');
-    fs.writeSync(2, 'PROGRESS: active_hook_lifecycle post_summary='
-      + JSON.stringify(postHooks.summary) + '\n');
-    fs.writeSync(2, 'PROGRESS: active_hook_lifecycle event_types='
-      + JSON.stringify(hookEventTypes) + '\n');
-    fs.writeSync(2, 'PROGRESS: active_hook_lifecycle target_tool_use_count='
-      + String(uses.length) + '\n');
-    fs.writeSync(2, 'PROGRESS: active_hook_lifecycle raw_hook_started='
-      + JSON.stringify(redactedHookEvent(rawHookStarted || null)) + '\n');
-    fs.writeSync(2, 'PROGRESS: active_hook_lifecycle raw_hook_response='
-      + JSON.stringify(redactedHookEvent(rawHookResponse || null)) + '\n');
-  }
   requireCondition(preHooks.summary.started === 2 && preHooks.summary.responses === 2,
     'active_pre_hook_lifecycle_invalid');
   requireCondition(postHooks.summary.started === 1 && postHooks.summary.responses === 1,
     'active_post_hook_lifecycle_invalid');
-  requireCondition(fs.existsSync(responseShapeLogPath), 'active_tool_response_shape_missing');
-  const responseShapeRows = readJsonl(
-    responseShapeLogPath,
-    'active_tool_response_shape_invalid',
-  );
-  requireCondition(responseShapeRows.length === 1, 'active_tool_response_shape_count_invalid');
-  fs.writeSync(2, 'PROGRESS: actual_post_tool_response_shape='
-    + JSON.stringify(responseShapeRows[0]) + '\n');
   const denialHookResponse = preHooks.responses.find((response) => JSON.stringify(response).includes(DENIAL_REASON));
   requireCondition(Boolean(denialHookResponse), 'active_invalid_call_not_denied');
 
   const results = collectToolResults(events);
   const validResult = results.find((item) => item.tool_use_id === uses[1].id);
   requireCondition(Boolean(validResult), 'active_valid_tool_result_missing');
-  if (validResult.is_error === true) {
-    const diagnosticFixtureRows = readJsonl(
-      scenario.logPath,
-      scenario.name + '_fixture_diagnostic_log_invalid',
-    ).map((row) => canonicalize({
-      traffic_class: typeof row.traffic_class === 'string' ? row.traffic_class : 'unknown',
-      tool_name: typeof row.tool_name === 'string' ? row.tool_name : null,
-      payload_sha256: typeof row.payload_sha256 === 'string' ? row.payload_sha256 : null,
-      payload_keys: Array.isArray(row.payload_keys) ? row.payload_keys : [],
-      expectation: typeof row.expectation === 'string' ? row.expectation : null,
-      accepted: row.accepted === true,
-    }));
-    fs.writeSync(2, 'PROGRESS: active_valid_tool_result_failure valid_result='
-      + JSON.stringify(redactDiagnosticValue(validResult)) + '\n');
-    fs.writeSync(2, 'PROGRESS: active_valid_tool_result_failure denial_hook_response='
-      + JSON.stringify(redactDiagnosticValue({
-        matched_reason: DENIAL_REASON,
-        response: redactedHookResponse(denialHookResponse),
-      })) + '\n');
-    fs.writeSync(2, 'PROGRESS: active_valid_tool_result_failure fixture_log_rows='
-      + JSON.stringify(diagnosticFixtureRows) + '\n');
-    fs.writeSync(2, 'PROGRESS: active_valid_tool_result_failure post_tool_use_hook_response='
-      + JSON.stringify(redactDiagnosticValue(postHooks.responses)) + '\n');
-  }
   requireCondition(validResult.is_error !== true, 'active_valid_tool_result_failed');
   const replacementDomain = parseDomainFromToolResult(validResult, 'active_replacement_invalid');
   const replacementHit = oversizedHit(replacementDomain, activeExpectation.scenario,
@@ -1421,8 +1293,7 @@ async function captureActivePath(context) {
         intent_family: 'planning',
         payload: prepared.payload,
         prepared_payload_sha256: prepared.gateway_evidence.payload_sha256,
-        actual_payload_sha256: payloadDigest(uses[1].input),
-        input_comparison: validInputComparison,
+        actual_payload_sha256: actualPayloadSha,
       },
       tool_uses: uses.map((item, index) => ({
         ordinal: index + 1,
@@ -1693,18 +1564,6 @@ async function captureSameUserBypass(context) {
   requireCondition(uses.length === 1, 'bypass_alternate_call_count_invalid');
   requireCondition(uses[0].input.query === BYPASS_ALTERNATE_QUERY_MARKER,
     'bypass_alternate_scenario_marker_mismatch');
-  const alternateInputComparison = describeJsonComparison(alternatePayload, uses[0].input);
-  if (!alternateInputComparison.serialization_equal) {
-    const diagnosticFixtureRows = fixtureLogSnapshot(scenario).rows;
-    fs.writeSync(2, 'PROGRESS: bypass_alternate_payload expected='
-      + JSON.stringify(redactDiagnosticValue(alternatePayload)) + '\n');
-    fs.writeSync(2, 'PROGRESS: bypass_alternate_payload actual='
-      + JSON.stringify(redactDiagnosticValue(uses[0].input)) + '\n');
-    fs.writeSync(2, 'PROGRESS: bypass_alternate_payload comparison='
-      + JSON.stringify(alternateInputComparison) + '\n');
-    fs.writeSync(2, 'PROGRESS: bypass_alternate_payload fixture_log_rows='
-      + JSON.stringify(redactDiagnosticValue(diagnosticFixtureRows)) + '\n');
-  }
   // The live P167 measurement showed the model declining the requested malformed
   // payload and adding the v2 fields itself. This residual test is about upstream
   // reachability, so bind the fixture row by this query marker and the observed
@@ -1892,7 +1751,6 @@ async function captureScenario(name, run) {
 async function captureAll(options) {
   const sourceFacts = collectCurrentSourceFacts(options.projectRoot);
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-p167-live-'));
-  let evidenceWritten = false;
   try {
     const versionProfile = path.join(tempRoot, 'version-profile');
     fs.mkdirSync(versionProfile, { recursive: true, mode: 0o700 });
@@ -1981,13 +1839,9 @@ async function captureAll(options) {
     };
     verifyEvidence(evidence, options.projectRoot);
     atomicWriteEvidence(options.projectRoot, options.evidencePath, evidence);
-    evidenceWritten = true;
     return evidence;
   } finally {
     cleanupDisposableRoot(tempRoot);
-    if (!evidenceWritten) {
-      // Capture failure intentionally leaves no synthetic or partial evidence artifact.
-    }
   }
 }
 
@@ -2107,12 +1961,6 @@ function verifyFixtureObservations(container, expectedCalls, expectedScenarios, 
     counts[row.event] = (counts[row.event] || 0) + 1;
   }
   const canonicalCounts = canonicalize(counts);
-  if (JSON.stringify(canonicalCounts) !== JSON.stringify(container.event_counts)) {
-    fs.writeSync(2, 'PROGRESS: ' + reason + '_event_counts_mismatch recomputed='
-      + JSON.stringify(canonicalCounts) + ' stored=' + JSON.stringify(container.event_counts)
-      + ' row_events=' + JSON.stringify(container.redacted_observations.map((row) => row.event))
-      + '\n');
-  }
   requireCondition(JSON.stringify(canonicalCounts) === JSON.stringify(container.event_counts),
     reason + '_event_counts_invalid');
   const calls = container.redacted_observations.filter((row) => row.event === 'tools/call');
@@ -2160,50 +2008,6 @@ function verifyActivePath(active, current) {
     'active_prepared_digest_mismatch');
   requireCondition(prepared.actual_payload_sha256 === prepared.prepared_payload_sha256,
     'active_actual_payload_mismatch');
-  const inputComparison = requireObject(prepared.input_comparison,
-    'active_input_comparison_missing');
-  requireExactKeys(inputComparison, [
-    'actual_key_order', 'actual_semantic_sha256', 'actual_serialization_sha256',
-    'actual_value_types', 'contract_satisfied', 'mode', 'prepared_key_order',
-    'prepared_semantic_sha256',
-    'prepared_serialization_sha256', 'prepared_value_types',
-    'same_keys_values_and_types', 'serialization_equal',
-  ], 'active_input_comparison_shape_invalid');
-  requireCondition(inputComparison.mode === 'composer_payload_digest_exact'
-    && inputComparison.contract_satisfied === true
-    && inputComparison.same_keys_values_and_types === true
-    && inputComparison.serialization_equal === true,
-  'active_input_comparison_invalid');
-  requireCondition(JSON.stringify(inputComparison.prepared_key_order)
-    === JSON.stringify(Object.keys(prepared.payload))
-    && JSON.stringify(inputComparison.prepared_value_types)
-    === JSON.stringify(topLevelValueTypes(prepared.payload)),
-  'active_prepared_input_shape_mismatch');
-  requireCondition(Array.isArray(inputComparison.actual_key_order)
-    && JSON.stringify(inputComparison.actual_key_order.slice().sort())
-    === JSON.stringify(Object.keys(prepared.payload).sort())
-    && jsonSemanticEqual(inputComparison.actual_value_types, inputComparison.prepared_value_types),
-  'active_actual_input_shape_mismatch');
-  requireHash(inputComparison.prepared_serialization_sha256,
-    'active_prepared_serialization_digest_invalid');
-  requireHash(inputComparison.actual_serialization_sha256,
-    'active_actual_serialization_digest_invalid');
-  requireHash(inputComparison.prepared_semantic_sha256,
-    'active_prepared_semantic_digest_invalid');
-  requireHash(inputComparison.actual_semantic_sha256,
-    'active_actual_semantic_digest_invalid');
-  requireCondition(inputComparison.prepared_serialization_sha256
-    === prepared.prepared_payload_sha256
-    && inputComparison.actual_serialization_sha256 === prepared.actual_payload_sha256,
-  'active_input_serialization_digest_mismatch');
-  requireCondition(inputComparison.prepared_semantic_sha256 === valueDigest(prepared.payload)
-    && inputComparison.actual_semantic_sha256 === inputComparison.prepared_semantic_sha256,
-  'active_input_semantic_digest_mismatch');
-  requireCondition(inputComparison.contract_satisfied === inputComparison.serialization_equal
-    && inputComparison.serialization_equal
-      === (inputComparison.actual_serialization_sha256
-        === inputComparison.prepared_serialization_sha256),
-  'active_input_serialization_finding_invalid');
   requireCondition(Array.isArray(active.tool_uses) && active.tool_uses.length === 2,
     'active_tool_use_count_invalid');
   for (let index = 0; index < active.tool_uses.length; index += 1) {
@@ -2717,12 +2521,8 @@ module.exports = {
   EVIDENCE_SCHEMA_VERSION,
   captureAll,
   collectCurrentSourceFacts,
-  describeBypassPayloadChoice,
-  describeJsonComparison,
-  jsonSemanticEqual,
   parseArgs,
   parseStreamEvents,
-  redactDiagnosticValue,
   verifyEvidence,
 };
 
@@ -2732,11 +2532,6 @@ if (require.main === module) {
 
   (async () => {
     const status = await main(argv);
-    if (status === 0 && CLI_BOOTSTRAP.captureRequested) {
-      requireCondition(Boolean(CLI_BOOTSTRAP.evidencePath)
-        && fs.existsSync(CLI_BOOTSTRAP.evidencePath),
-      'evidence_file_missing_at_entrypoint_completion');
-    }
     process.exitCode = status;
     CLI_BOOTSTRAP.completed = true;
   })().catch((error) => {

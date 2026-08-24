@@ -414,12 +414,16 @@ function readExactRecord(paths, key, sessionId, toolUseId) {
   return { recordPath, source, record: verifiedRecord(source, key) };
 }
 
-function transitionWitnessToRewritten(options) {
+function prepareWitnessTransition(options, requirePassthroughReason = false) {
   const projectRoot = path.resolve(options.projectRoot);
   const paths = resolveWitnessPaths(projectRoot, options.env || process.env);
   const key = readKey(paths);
   requireDigest(options.payloadDigest, 'witness_payload_digest_invalid');
   requireDigest(options.responseDigest, 'witness_response_digest_invalid');
+  if (requirePassthroughReason
+      && (typeof options.reason !== 'string' || !/^[a-z0-9_.:-]{1,120}$/i.test(options.reason))) {
+    throw new Error('witness_passthrough_reason_invalid');
+  }
   const exact = readExactRecord(paths, key, options.sessionId, options.toolUseId);
   const expectedSession = sha256(Buffer.from(options.sessionId, 'utf8'));
   const expectedToolUse = sha256(Buffer.from(options.toolUseId, 'utf8'));
@@ -431,7 +435,11 @@ function transitionWitnessToRewritten(options) {
     throw new Error('witness_pre_mismatch');
   }
   if (exact.record.expires_at <= Date.now()) throw new Error('witness_pre_expired');
+  return { exact, key, paths };
+}
 
+function transitionWitnessToRewritten(options) {
+  const { exact, key, paths } = prepareWitnessTransition(options);
   const rewrite = {
     response_sha256: options.responseDigest,
     degradation_count: Number(options.degradationCount) || 0,
@@ -459,26 +467,7 @@ function transitionWitnessToRewritten(options) {
 }
 
 function transitionWitnessToPostPassthrough(options) {
-  const projectRoot = path.resolve(options.projectRoot);
-  const paths = resolveWitnessPaths(projectRoot, options.env || process.env);
-  const key = readKey(paths);
-  requireDigest(options.payloadDigest, 'witness_payload_digest_invalid');
-  requireDigest(options.responseDigest, 'witness_response_digest_invalid');
-  if (typeof options.reason !== 'string' || !/^[a-z0-9_.:-]{1,120}$/i.test(options.reason)) {
-    throw new Error('witness_passthrough_reason_invalid');
-  }
-  const exact = readExactRecord(paths, key, options.sessionId, options.toolUseId);
-  const expectedSession = sha256(Buffer.from(options.sessionId, 'utf8'));
-  const expectedToolUse = sha256(Buffer.from(options.toolUseId, 'utf8'));
-  if (exact.record.project_digest !== paths.project_digest
-    || exact.record.session_sha256 !== expectedSession
-    || exact.record.tool_use_sha256 !== expectedToolUse
-    || exact.record.payload_digest !== options.payloadDigest
-    || exact.record.state !== 'pre_allowed') {
-    throw new Error('witness_pre_mismatch');
-  }
-  if (exact.record.expires_at <= Date.now()) throw new Error('witness_pre_expired');
-
+  const { exact, key, paths } = prepareWitnessTransition(options, true);
   const unsigned = { ...exact.record };
   delete unsigned.hmac_sha256;
   const finalRecord = signedRecord({

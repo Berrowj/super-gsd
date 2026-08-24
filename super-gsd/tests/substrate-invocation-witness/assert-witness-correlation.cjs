@@ -439,20 +439,7 @@ test('rejects an unchanged PostToolUse passthrough as not rewritten', () => {
 test('CLI inherits runtime session and emits accepted JSON only after consumption', () => {
   const envelope = prepared('P167 CLI runtime session witness');
   const sessionId = 'session-cli';
-  const prePayload = seedPre(envelope, { id: 'cli', sessionId });
-  const rewritten = hook.processHookPayload({
-    ...prePayload,
-    hook_event_name: 'PostToolUse',
-    tool_response: {
-      content: [{ type: 'text', text: JSON.stringify({ hits: [{ text: 'bounded' }] }) }],
-      isError: false,
-    },
-  }, {
-    env: fixture.env,
-    expectedEvent: 'PostToolUse',
-  });
-  assert.strictEqual(rewritten.hookSpecificOutput.hookEventName, 'PostToolUse');
-  assert(rewritten.hookSpecificOutput.updatedMCPToolOutput);
+  seedRewritten(envelope, { id: 'cli', sessionId });
   const inputDir = path.join(fixture.project, '.planning', 'tmp');
   mkdir(inputDir);
   const preparedPath = path.join(inputDir, 'prepared.json');

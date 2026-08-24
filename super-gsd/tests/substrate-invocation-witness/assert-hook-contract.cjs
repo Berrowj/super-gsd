@@ -656,7 +656,7 @@ function defineHookTests() {
     assert.strictEqual(JSON.stringify(rewritten.envelope).includes(rawMarker), false);
   });
 
-  test('PostToolUse passes unparseable MCP output through untouched and records the condition', () => {
+  test('PostToolUse passes unparseable MCP output through untouched and signs the terminal state', () => {
     const beforeSpool = new Set(spoolFiles());
     const pre = hookPayload('PreToolUse', 'malformed-response');
     hook.processHookPayload(pre, { env: fixture.env });
@@ -676,23 +676,7 @@ function defineHookTests() {
       'metrics',
       'substrate-invocation-witness-posttool.jsonl',
     );
-    const condition = JSON.parse(fs.readFileSync(conditionPath, 'utf8').trim());
-    assert.strictEqual(condition.event, 'post_response_passthrough');
-    assert.strictEqual(condition.reason, 'malformed_response');
-    assert.strictEqual(typeof condition.recorded_at, 'string');
-    assert.deepStrictEqual(condition.response_shape, {
-      type: 'array',
-      length: 1,
-      items: [{
-        type: 'object',
-        keys: ['text', 'type'],
-        fields: {
-          text: { type: 'string' },
-          type: { type: 'string' },
-        },
-      }],
-    });
-    assert.strictEqual(JSON.stringify(condition).includes(rawMarker), false);
+    assert.strictEqual(fs.existsSync(conditionPath), false);
     const created = spoolFiles().filter((file) => !beforeSpool.has(file));
     assert.strictEqual(created.length, 1);
     const row = JSON.parse(fs.readFileSync(created[0], 'utf8'));
@@ -712,58 +696,10 @@ function defineHookTests() {
     }), /substrate_witness_not_rewritten/);
   });
 
-  test('PostToolUse runtime-shape diagnostic records keys and types without values', () => {
-    const toolResponse = {
-      content: [
-        { type: 'image', data: 'RAW_IMAGE_VALUE', mimeType: 'image/png' },
-        { type: 'text', text: 'RAW_TEXT_VALUE' },
-      ],
-      isError: false,
-      structuredContent: { privateValue: 'RAW_STRUCTURED_VALUE' },
-    };
-    const diagnostic = hook.describeToolResponseShape(toolResponse);
-    assert.deepStrictEqual(diagnostic, {
-      type: 'object',
-      keys: ['content', 'isError', 'structuredContent'],
-      fields: {
-        content: {
-          type: 'array',
-          length: 2,
-          items: [
-            {
-              type: 'object',
-              keys: ['data', 'mimeType', 'type'],
-              fields: {
-                data: { type: 'string' },
-                mimeType: { type: 'string' },
-                type: { type: 'string' },
-              },
-            },
-            {
-              type: 'object',
-              keys: ['text', 'type'],
-              fields: {
-                text: { type: 'string' },
-                type: { type: 'string' },
-              },
-            },
-          ],
-        },
-        isError: { type: 'boolean' },
-        structuredContent: {
-          type: 'object',
-          keys: ['privateValue'],
-          fields: { privateValue: { type: 'string' } },
-        },
-      },
-    });
-    const serialized = JSON.stringify(diagnostic);
-    for (const forbidden of ['RAW_IMAGE_VALUE', 'image/png', 'RAW_TEXT_VALUE', 'RAW_STRUCTURED_VALUE']) {
-      assert.strictEqual(serialized.includes(forbidden), false, 'diagnostic leaked ' + forbidden);
-    }
+  test('PostToolUse exposes no response-shape diagnostic surface', () => {
     const diagnosticPath = path.join(fixture.root, 'post-tool-response-shape.jsonl');
     hook.processHookPayload(hookPayload('PostToolUse', 'shape-diagnostic', {
-      tool_response: toolResponse,
+      tool_response: [{ type: 'text', text: 'upstream status text' }],
     }), {
       env: {
         ...fixture.env,
@@ -771,11 +707,8 @@ function defineHookTests() {
       },
       expectedEvent: 'PostToolUse',
     });
-    assert.deepStrictEqual(
-      fs.readFileSync(diagnosticPath, 'utf8').trim().split(/\r?\n/).map(JSON.parse),
-      [diagnostic],
-    );
-    assert.strictEqual(fs.readFileSync(diagnosticPath, 'utf8').includes('RAW_'), false);
+    assert.strictEqual(hook.describeToolResponseShape, undefined);
+    assert.strictEqual(fs.existsSync(diagnosticPath), false);
   });
 
   test('PostToolUse rejects mismatched structured content without exposing it', () => {
