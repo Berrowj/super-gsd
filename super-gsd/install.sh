@@ -444,7 +444,11 @@ repair_substrate_capability() {
     return 0
   fi
   local repair_output
-  if ! repair_output="$(node "$audit_script" --repair-substrate-capability --project-dir "$PROJECT_DIR" 2>&1)"; then
+  local -a repair_args=(--repair-substrate-capability --project-dir "$PROJECT_DIR")
+  [ "$INSTALL_GLOBAL" = true ] && repair_args+=(--install-global)
+  [ "$INIT_LOCAL" = true ] && repair_args+=(--init-local)
+  [ "$UPDATE_MODE" = true ] && repair_args+=(--update)
+  if ! repair_output="$(node "$audit_script" "${repair_args[@]}" 2>&1)"; then
     [ -z "$repair_output" ] || printf '%s\n' "$repair_output" | sed 's/^/  /' >&2
     echo "ERROR: substrate enforcement was not current; refusing grant-bearing agent installation" >&2
     return 1
@@ -627,7 +631,7 @@ install_global_assets() {
     fi
   fi
 
-  if [ -d "$PROJECT_DIR/.planning" ]; then
+  if [ -d "$PROJECT_DIR/.planning" ] && [ "$INIT_LOCAL" = false ] && [ "$UPDATE_MODE" = false ]; then
     repair_substrate_capability
   fi
 
@@ -716,53 +720,20 @@ $target_entry"
     CODEX_HOOK_COUNT=$((CODEX_HOOK_COUNT + 1))
   done <<< "$CODEX_ENTRY_NAMES"
   copy_files_to_root "$PROJECT_DIR/super-gsd/tools/codex-hooks" "${codex_entry_sources[@]}"
-  log "  $PROJECT_HOOK_COUNT Claude hooks and $CODEX_HOOK_COUNT Codex entries distributed"
-}
-
-register_repo_local_hooks() {
-  echo ""
-  log "Registering repo-local Claude hooks..."
-  SETTINGS_FILE="$PROJECT_DIR/.claude/settings.json"
-  OVERLAY_FILE="$SCRIPT_DIR/config/repo-settings-overlay.json"
-  MERGE_SCRIPT="$SCRIPT_DIR/scripts/merge-settings.js"
-  PREFLIGHT_SCRIPT="$SCRIPT_DIR/scripts/lib/hook-registration-preflight.cjs"
-  if [ ! -f "$OVERLAY_FILE" ]; then
-    log "  WARNING: $OVERLAY_FILE missing - skipping repo-local hook merge"
-  elif [ ! -f "$MERGE_SCRIPT" ]; then
-    log "  WARNING: $MERGE_SCRIPT missing - skipping repo-local hook merge"
-  elif [ ! -f "$PREFLIGHT_SCRIPT" ]; then
-    echo "ERROR: hook smoke helper missing: $PREFLIGHT_SCRIPT" >&2
+  if [[ -n "$CODEX_HOOK_MISSING_TARGETS" ]]; then
+    while IFS= read -r missing_target; do
+      [[ -n "$missing_target" ]] || continue
+      printf '%s\n' "hook_registration_missing $missing_target [Codex/project-entry]" >&2
+    done <<< "$CODEX_HOOK_MISSING_TARGETS"
     exit 1
-  elif ! command -v node >/dev/null 2>&1; then
-    log "  WARNING: Node.js missing - skipping repo-local hook merge"
-  elif [ "$DRY_RUN" = true ]; then
-    log "  DRY RUN: would smoke all repo-local overlay hooks for $PROJECT_DIR"
-    log "  DRY RUN: would merge $OVERLAY_FILE into $SETTINGS_FILE for $PROJECT_DIR"
-  else
-    node "$PREFLIGHT_SCRIPT" --smoke-repo-overlay "$OVERLAY_FILE" "$PROJECT_DIR" \
-      "${PROJECT_HOOK_PRE_DISTRIBUTION_WARNINGS:-[]}"
-    if [[ -n "$CODEX_HOOK_MISSING_TARGETS" ]]; then
-      while IFS= read -r missing_target; do
-        [[ -n "$missing_target" ]] || continue
-        printf '%s\n' "hook_registration_missing $missing_target [Codex/project-entry]" >&2
-      done <<< "$CODEX_HOOK_MISSING_TARGETS"
-      exit 1
-    fi
-    if MERGE_OUTPUT="$(node "$MERGE_SCRIPT" --repo-local-hooks "$OVERLAY_FILE" "$SETTINGS_FILE" "$PROJECT_DIR" 2>&1)"; then
-      [ -z "$MERGE_OUTPUT" ] || printf '%s\n' "$MERGE_OUTPUT" | sed 's/^/  /'
-    else
-      MERGE_STATUS=$?
-      [ -z "$MERGE_OUTPUT" ] || printf '%s\n' "$MERGE_OUTPUT" | sed 's/^/  /' >&2
-      exit "$MERGE_STATUS"
-    fi
   fi
+  log "  $PROJECT_HOOK_COUNT Claude hooks and $CODEX_HOOK_COUNT Codex entries distributed"
 }
 
 preflight_existing_repo_local_hooks() {
   EXISTING_SETTINGS_FILE="$PROJECT_DIR/.claude/settings.json"
   GLOBAL_SETTINGS_FILE="$CLAUDE_DIR/settings.json"
   EXISTING_PREFLIGHT_SCRIPT="$SCRIPT_DIR/scripts/lib/hook-registration-preflight.cjs"
-  PROJECT_HOOK_PRE_DISTRIBUTION_WARNINGS='[]'
   if [[ ! -f "$EXISTING_SETTINGS_FILE" ]]; then
     return 0
   fi
@@ -775,10 +746,9 @@ preflight_existing_repo_local_hooks() {
     return 1
   fi
   log "Preflighting existing managed repo-local hooks before distribution..."
-  PROJECT_HOOK_PRE_DISTRIBUTION_WARNINGS="$(
-    node "$EXISTING_PREFLIGHT_SCRIPT" \
-      --preflight-project-settings "$EXISTING_SETTINGS_FILE" "$GLOBAL_SETTINGS_FILE"
-  )" || return $?
+  node "$EXISTING_PREFLIGHT_SCRIPT" \
+    --preflight-project-settings "$EXISTING_SETTINGS_FILE" "$GLOBAL_SETTINGS_FILE" \
+    >/dev/null
 }
 
 register_codex_hooks() {
@@ -908,7 +878,6 @@ init_local_project() {
   ensure_memory_tree
   distribute_project_hooks
   repair_substrate_capability
-  register_repo_local_hooks
   register_codex_hooks
 
   # P143.5: cockpit dependencies. Skipped if no package.json at PROJECT_DIR
@@ -1007,7 +976,6 @@ update_existing() {
   ensure_memory_tree
   distribute_project_hooks
   repair_substrate_capability
-  register_repo_local_hooks
   register_codex_hooks
 
   # 4. Diff check for CLAUDE.md — DO NOT overwrite. Just tell the operator

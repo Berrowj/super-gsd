@@ -6,6 +6,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 const { EventEmitter } = require('node:events');
 const { PassThrough, Writable } = require('node:stream');
 
@@ -178,6 +179,76 @@ async function main() {
   const store = require(STORE_PATH);
   assert.equal(typeof audit._internals.auditClaudeSubstrateWitness, 'function', 'red: witness absence audit is not implemented');
   assert.equal(typeof audit._internals.auditClaudeSubstrateCapability, 'function', 'red: broker-only capability audit is not implemented');
+
+  withIsolatedProfile(({ home, project }) => {
+    seedProject(project);
+    seedLegacyAgents(home);
+    const configPath = path.join(project, '.planning', 'config.json');
+    const unrelatedAgentPath = path.join(home, '.claude', 'agents', 'sgsd-ceo.md');
+    const unrelatedCommandPath = path.join(home, '.claude', 'commands', 'sgsd-audit', 'SKILL.md');
+    const customConfig = Buffer.from('{\r\n  "operator_custom": "P167_CONFIG_BYTES"\r\n}\r\n', 'utf8');
+    const unrelatedAgent = Buffer.from('operator-owned unrelated agent\n', 'utf8');
+    const unrelatedCommand = Buffer.from('operator-owned unrelated command\n', 'utf8');
+    const operatorHook = {
+      matcher: 'OperatorOnly',
+      hooks: [{ type: 'command', command: 'operator-hook', timeout: 7 }],
+    };
+    const projectSettingsPath = path.join(project, '.claude', 'settings.json');
+    const projectSettings = JSON.parse(read(projectSettingsPath));
+    projectSettings.hooks.SessionStart = [operatorHook];
+    writeJson(projectSettingsPath, projectSettings);
+    fs.writeFileSync(configPath, customConfig);
+    fs.mkdirSync(path.dirname(unrelatedAgentPath), { recursive: true });
+    fs.mkdirSync(path.dirname(unrelatedCommandPath), { recursive: true });
+    fs.writeFileSync(unrelatedAgentPath, unrelatedAgent);
+    fs.writeFileSync(unrelatedCommandPath, unrelatedCommand);
+
+    const repaired = spawnSync(process.execPath, [
+      AUDIT_PATH,
+      '--repair-substrate-capability',
+      '--install-global',
+      '--project-dir',
+      project,
+    ], {
+      cwd: project,
+      env: { ...process.env },
+      encoding: 'utf8',
+      shell: false,
+    });
+    if (repaired.error) throw repaired.error;
+    assert.equal(repaired.status, 0, `substrate repair failed:\n${repaired.stderr}\n${repaired.stdout}`);
+    assert.deepEqual(fs.readFileSync(configPath), customConfig, 'substrate repair rewrote customised config bytes');
+    assert.deepEqual(fs.readFileSync(unrelatedAgentPath), unrelatedAgent, 'substrate repair rewrote an unrelated global agent');
+    assert.deepEqual(fs.readFileSync(unrelatedCommandPath), unrelatedCommand, 'substrate repair rewrote an unrelated global command');
+    const repairedSettings = JSON.parse(read(projectSettingsPath));
+    assert.deepEqual(repairedSettings.hooks.SessionStart, [operatorHook], 'substrate repair changed an unrelated project hook');
+    assert.equal(repairedSettings.hooks.UserPromptSubmit, undefined, 'substrate repair registered unrelated project hooks');
+  });
+
+  withIsolatedProfile(({ home, project }) => {
+    seedProject(project);
+    seedLegacyAgents(home);
+    const userMcpPath = path.join(home, '.claude.json');
+    const globalAgentPaths = AGENTS.map((name) => path.join(home, '.claude', 'agents', name));
+    const globalAgentsBefore = snapshot(globalAgentPaths);
+    const userMcpBytes = Buffer.from('{\r\n  "mcpServers": {\r\n    "vtp-kb": { "command": "node", "args": ["global-upstream.cjs"] }\r\n  }\r\n}\r\n', 'utf8');
+    fs.writeFileSync(userMcpPath, userMcpBytes);
+    const repaired = spawnSync(process.execPath, [
+      AUDIT_PATH,
+      '--repair-substrate-capability',
+      '--project-dir',
+      project,
+    ], {
+      cwd: project,
+      env: { ...process.env },
+      encoding: 'utf8',
+      shell: false,
+    });
+    if (repaired.error) throw repaired.error;
+    assert.notEqual(repaired.status, 0, 'substrate repair accepted a global MCP mutation without opt-in');
+    assert.deepEqual(fs.readFileSync(userMcpPath), userMcpBytes, 'substrate repair rewrote global MCP config without opt-in');
+    assert.deepEqual(snapshot(globalAgentPaths), globalAgentsBefore, 'substrate repair rewrote global agents without opt-in');
+  });
 
   withIsolatedProfile(({ home, project }) => {
     seedProject(project);

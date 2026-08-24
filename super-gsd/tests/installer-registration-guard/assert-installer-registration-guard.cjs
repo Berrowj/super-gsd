@@ -72,7 +72,6 @@ const CLARITY_NINE_HOOKS = Object.freeze([
   'sgsd-session-start.js',
   'sgsd-statusline.js',
 ]);
-const CANONICAL_HOOK_COUNT = 17;
 const DEFAULT_INSTALLER_SPAWN_TIMEOUT_MS = 150_000;
 const BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS = 3 * 90_000;
 const REAL_UPDATE_SPAWN_TIMEOUT_MS = 3 * 90_000;
@@ -415,7 +414,6 @@ function validateManifestInventory(snapshot) {
     const duplicate = entryPaths.find((sourcePath, index) => entryPaths.indexOf(sourcePath) !== index);
     manifestFailure('hook_manifest_entry_unexpected', duplicate, 'manifest');
   }
-  assert.equal(snapshot.hookInventory.length, 17, 'hook manifest inventory must contain exactly seventeen Claude entries');
   assert.equal(snapshot.codexInventory.length, 5, 'hook manifest inventory must contain exactly five Codex entries');
   return { entries, inventorySet, shippedSet: new Set(snapshot.shippedInventory) };
 }
@@ -1175,31 +1173,23 @@ function assertInstallerSmokeOrder(installer) {
     'global smoke does not validate the deployment source before registration',
   );
 
-  const repoFunction = installer.indexOf('register_repo_local_hooks()');
-  const repoSmoke = installer.indexOf('--smoke-repo-overlay', repoFunction);
-  const codexMissingRefusal = installer.indexOf('hook_registration_missing $missing_target', repoSmoke);
-  const repoMerge = installer.indexOf('--repo-local-hooks', repoSmoke);
-  assert.ok(repoFunction >= 0 && repoFunction < repoSmoke, 'repo-local hook smoke is not wired into registration');
-  assert.ok(
-    repoSmoke < codexMissingRefusal && codexMissingRefusal < repoMerge,
-    'Codex distribution refusal does not name missing targets before repo settings merge',
-  );
-  assert.ok(repoSmoke < repoMerge, 'repo-local settings merge runs before hook smoke');
-
   const distributionFunction = installer.indexOf('distribute_project_hooks()');
   const repoDistribution = installer.indexOf(projectHookBatch, distributionFunction);
   const codexDistribution = installer.indexOf('$PROJECT_DIR/super-gsd/tools/codex-hooks/$name', distributionFunction);
+  const codexMissingRefusal = installer.indexOf('hook_registration_missing $missing_target', codexDistribution);
   assert.ok(distributionFunction >= 0 && distributionFunction < repoDistribution, 'repo regular-file hook distribution is missing');
   assert.ok(repoDistribution < codexDistribution, 'Codex entries are copied before the repo hook inventory');
+  assert.ok(codexDistribution < codexMissingRefusal, 'Codex distribution refusal does not name missing targets');
+  assert.doesNotMatch(installer, /register_repo_local_hooks/, 'installer retained a second repo settings merge path');
   for (const functionName of ['init_local_project()', 'update_existing()']) {
     const functionStart = installer.indexOf(functionName);
     const distributionCall = installer.indexOf('  distribute_project_hooks', functionStart);
-    const repoCall = installer.indexOf('  register_repo_local_hooks', functionStart);
+    const repairCall = installer.indexOf('  repair_substrate_capability', functionStart);
     const codexCall = installer.indexOf('  register_codex_hooks', functionStart);
     assert.ok(
       functionStart >= 0 && functionStart < distributionCall
-        && distributionCall < repoCall && repoCall < codexCall,
-      `${functionName} does not distribute Claude and Codex entries before registration`,
+        && distributionCall < repairCall && repairCall < codexCall,
+      `${functionName} does not perform one distribution and repair before Codex registration`,
     );
   }
   assert.doesNotMatch(
@@ -1520,7 +1510,7 @@ function runHookDistributionAllTypes() {
   assert.deepEqual(
     hookFiles(path.join(SUPER_GSD_ROOT, 'hooks')),
     [...SHIPPED_HOOK_NAMES],
-    'source hook inventory drifted from the locked seventeen basenames',
+    'source hook inventory drifted from the locked basenames',
   );
   const codexEntryNames = configuredCodexEntryNames();
   assert.deepEqual(
@@ -1590,35 +1580,7 @@ function runHookDistributionAllTypes() {
   }
 }
 
-function runCanonicalSixteenHook() {
-  assert.equal(hookFiles(path.join(SUPER_GSD_ROOT, 'hooks')).length, CANONICAL_HOOK_COUNT, 'canonical source is no longer a seventeen-hook layout');
-  const fixture = createFixture('canonical-sixteen');
-  try {
-    assert.equal(hookFiles(path.join(fixture.vendoredRoot, 'hooks')).length, CANONICAL_HOOK_COUNT, 'vendored canonical fixture is incomplete');
-    boundGlobalSmokeFixture(fixture, ['sgsd-heartbeat.js']);
-    seedTarget(fixture.globalSettings, 'canonical-global');
-    seedTarget(fixture.repoSettings, 'canonical-repo');
-    const args = ['--install-global', '--init-project', '--skip-cockpit-deps'];
-    const first = runInstaller(fixture, args, BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS);
-    if (first.error) throw first.error;
-    assert.equal(first.status, 0, `canonical install failed:\n${first.stderr}\n${first.stdout}`);
-    assertCanonicalSettings(fixture);
-    const firstGlobal = readBytes(fixture.globalSettings);
-    const firstRepo = readBytes(fixture.repoSettings);
-
-    const second = runInstaller(fixture, args, BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS);
-    if (second.error) throw second.error;
-    assert.equal(second.status, 0, `canonical reinstall failed:\n${second.stderr}\n${second.stdout}`);
-    assert.deepEqual(readBytes(fixture.globalSettings), firstGlobal, 'global reinstall was not byte-idempotent');
-    assert.deepEqual(readBytes(fixture.repoSettings), firstRepo, 'repo reinstall was not byte-idempotent');
-    assertCanonicalSettings(fixture);
-  } finally {
-    removeFixture(fixture);
-  }
-}
-
 function runDeployedHookSmoke() {
-  assert.equal(hookFiles(path.join(SUPER_GSD_ROOT, 'hooks')).length, CANONICAL_HOOK_COUNT, 'canonical source is no longer a seventeen-hook layout');
   const fixture = createDistributionFixture('deployed-hook-smoke');
   try {
     seedTarget(fixture.globalSettings, 'smoke-global');
@@ -2064,18 +2026,26 @@ function runBrokeredSubstrateCapability() {
   assert.match(mergeSource, /if \(require\.main === module\) main\(\);/);
   const merge = require(path.join(SUPER_GSD_ROOT, 'scripts', 'merge-settings.js'));
   assert.equal(typeof merge.mergeSettingsFiles, 'function');
-  const audit = require(path.join(SUPER_GSD_ROOT, 'tools', 'feature-propagation', 'audit.cjs'));
+  const auditPath = path.join(SUPER_GSD_ROOT, 'tools', 'feature-propagation', 'audit.cjs');
+  const auditSource = fs.readFileSync(auditPath, 'utf8');
+  const audit = require(auditPath);
   assert.equal(typeof audit._internals.auditClaudeSubstrateWitness, 'function');
   assert.equal(typeof audit._internals.auditClaudeSubstrateCapability, 'function');
+  assert.match(auditSource, /--smoke-repo-overlay/, 'substrate repair omits the deployed hook smoke');
 
   const installer = fs.readFileSync(INSTALL_PATH, 'utf8');
   assert.match(installer, /repair_substrate_capability\(\)/);
   assert.match(installer, /refusing grant-bearing agent installation/);
+  assert.match(installer, /repair_args\+=\(--install-global\)/, 'global substrate mutation is not gated by the global opt-in');
   for (const functionName of ['init_local_project()', 'update_existing()']) {
     const start = installer.indexOf(functionName);
-    const mergeIndex = installer.indexOf('  register_repo_local_hooks', start);
+    const distributionIndex = installer.indexOf('  distribute_project_hooks', start);
     const repairIndex = installer.indexOf('  repair_substrate_capability', start);
-    assert.ok(start >= 0 && repairIndex > start && mergeIndex > repairIndex, `${functionName} merged hooks before key and broker repair`);
+    const codexIndex = installer.indexOf('  register_codex_hooks', start);
+    assert.ok(
+      start >= 0 && distributionIndex > start && repairIndex > distributionIndex && codexIndex > repairIndex,
+      `${functionName} does not perform one distribution and substrate repair sequence`,
+    );
   }
 
   const fixture = createDistributionFixture('brokered-substrate-capability');
@@ -2093,6 +2063,10 @@ function runBrokeredSubstrateCapability() {
     const globalSeed = sentinelSettings('p167-global');
     globalSeed.hooks.PreToolUse = [deepClone(overlay.hooks.PreToolUse[0])];
     writeJson(fixture.globalSettings, globalSeed);
+    const configPath = path.join(fixture.projectRoot, '.planning', 'config.json');
+    const customisedConfig = Buffer.from('{\r\n  "operator_custom": "P167_INSTALLER_CONFIG_BYTES"\r\n}\r\n', 'utf8');
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, customisedConfig);
 
     const projectMcpPath = path.join(fixture.projectRoot, '.mcp.json');
     const localMcpPath = path.join(fixture.projectRoot, '.claude', 'settings.local.json');
@@ -2136,13 +2110,22 @@ function runBrokeredSubstrateCapability() {
     fs.mkdirSync(path.dirname(targetWitness), { recursive: true });
     fs.writeFileSync(targetWitness, fs.readFileSync(sourcePath, 'utf8') + '\n// stale target source\n', 'utf8');
 
-    const args = ['--init-project', '--skip-cockpit-deps'];
+    const localOnlyArgs = ['--init-project', '--skip-cockpit-deps'];
+    const globalBeforeRefusal = readBytes(fixture.globalSettings);
+    const refused = runInstaller(fixture, localOnlyArgs, BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS);
+    if (refused.error) throw refused.error;
+    assert.notEqual(refused.status, 0, 'project-local install silently removed a global witness registration');
+    assert.deepEqual(readBytes(fixture.globalSettings), globalBeforeRefusal, 'project-local install changed global settings without opt-in');
+    assert.deepEqual(readBytes(configPath), customisedConfig, 'refused substrate repair rewrote customised config bytes');
+
+    const args = ['--install-global', '--init-project', '--skip-cockpit-deps'];
     const first = runInstaller(fixture, args, BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS);
     if (first.error) throw first.error;
     const firstOutput = `${first.stderr || ''}\n${first.stdout || ''}`;
     assert.equal(first.status, 0, `brokered capability install failed:\n${firstOutput}`);
     assert.equal(firstOutput.includes(secret), false, 'installer output exposed private upstream data');
     assert.equal(sha256(readBytes(targetWitness)), sourceDigest, 'installer did not refresh the stale witness source');
+    assert.deepEqual(readBytes(configPath), customisedConfig, 'substrate repair rewrote customised config bytes');
 
     const installedRepo = JSON.parse(readBytes(fixture.repoSettings).toString('utf8'));
     assert.equal(installedRepo.unrelatedProjectKey.survives, true);
@@ -2194,6 +2177,7 @@ function runBrokeredSubstrateCapability() {
     const stablePaths = [
       fixture.repoSettings,
       fixture.globalSettings,
+      configPath,
       projectMcpPath,
       localMcpPath,
       userMcpPath,
@@ -2277,7 +2261,6 @@ const CASES = Object.freeze({
   'bundled-overlay-current': runBundledOverlayCurrent,
   'vendored-nine-hook': runVendoredNineHook,
   'node-check-both-sites': runNodeCheckBothSites,
-  'canonical-sixteen-hook': runCanonicalSixteenHook,
   'deployed-hook-smoke': runDeployedHookSmoke,
   'hook-distribution-all-types': runHookDistributionAllTypes,
   'hook-manifest-completeness': runHookManifestCompleteness,

@@ -611,6 +611,16 @@ function mergeSettingsFiles(overlayPath, targetPath, repoRoot, options = {}) {
     const overlay = repoRoot
         ? realizeRepoLocalHookArgs(readJsonOrEmpty(overlayPath), repoRoot)
         : realizeCommands(readJsonOrEmpty(overlayPath));
+    const managedHookIds = repoRoot && Array.isArray(options.managedHookIds)
+        ? new Set(options.managedHookIds)
+        : null;
+    if (managedHookIds) {
+        for (const [event, entries] of Object.entries(overlay.hooks || {})) {
+            const selected = (entries || []).filter(entry => managedHookIds.has(repoLocalHookId(entry)));
+            if (selected.length) overlay.hooks[event] = selected;
+            else delete overlay.hooks[event];
+        }
+    }
     preflightHookRegistrations(overlay, options.preflightAdapters || {});
     const target = repoRoot
         ? readJsonOrEmpty(targetPath)
@@ -623,7 +633,7 @@ let upgraded = 0;
 let deduped = 0;
 let refreshed = 0;
 
-function dedupeExistingHooks(settings, repoLocal) {
+function dedupeExistingHooks(settings, repoLocal, scopedIds) {
     if (!settings.hooks || typeof settings.hooks !== 'object') return 0;
     let removed = 0;
     for (const event of Object.keys(settings.hooks)) {
@@ -631,6 +641,10 @@ function dedupeExistingHooks(settings, repoLocal) {
         if (!Array.isArray(entries)) continue;
         const kept = [];
         for (const entry of entries) {
+            if (scopedIds && !scopedIds.has(repoLocalHookId(entry))) {
+                kept.push(entry);
+                continue;
+            }
             if (kept.find(existing => isSameEntry(existing, entry, { repoLocal }))) {
                 removed++;
                 continue;
@@ -652,7 +666,7 @@ function isSameStatusLine(a, b) {
     return normalizeCommand(a && a.command) === normalizeCommand(b && b.command);
 }
 
-deduped += dedupeExistingHooks(target, !!repoRoot);
+deduped += dedupeExistingHooks(target, !!repoRoot, managedHookIds);
 if (repoRoot) deduped += reconcileRepoLocalManagedIds(target, overlay);
 
 function isStopHandoffLauncher(entry) {
@@ -806,9 +820,4 @@ if (require.main === module) main();
 
 module.exports = {
     mergeSettingsFiles,
-    readJsonOrEmpty,
-    realizeRepoLocalHookArgs,
-    findHookEntriesByCommandMatcher,
-    reconcileRepoLocalManagedIds,
-    resolveRepoLocalTarget,
 };

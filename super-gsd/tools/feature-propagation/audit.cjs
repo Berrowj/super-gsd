@@ -26,11 +26,20 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+const { spawnSync } = require('child_process');
 const { mergeSettingsFiles } = require('../../scripts/merge-settings.js');
 const witnessStore = require('../../scripts/lib/substrate-invocation-witness-store.cjs');
 
 const CODEX_HOOK_INSTALLER = path.resolve(__dirname, '..', 'codex-hooks', 'install-hooks.cjs');
 const REPO_HOOK_OVERLAY = path.resolve(__dirname, '..', '..', 'config', 'repo-settings-overlay.json');
+const REPO_HOOK_PREFLIGHT = path.resolve(
+  __dirname,
+  '..',
+  '..',
+  'scripts',
+  'lib',
+  'hook-registration-preflight.cjs',
+);
 const BROKER_RELATIVE_PATH = path.join('super-gsd', 'tools', 'substrate-capability-broker.cjs');
 const P167_MARKER = '<sgsd_vtp_substrate_witness_p167>';
 const P167_END_MARKER = '</sgsd_vtp_substrate_witness_p167>';
@@ -205,6 +214,12 @@ threading configured VTP evidence is a source-fidelity failure.
 `,
   },
 ]);
+const SUBSTRATE_GLOBAL_AGENT_NAMES = REQUIRED_VTP_AGENTS;
+const SUBSTRATE_LEGACY_AGENT_NAMES = Object.freeze(
+  REQUIRED_LEGACY_AGENT_PATCHES
+    .filter((spec) => spec.tools.includes(witnessStore.TARGET_TOOL))
+    .map((spec) => spec.name),
+);
 const CORE_CONFIG_DEFAULTS = Object.freeze({
   review_providers: Object.freeze({
     executor_provider: 'codex',
@@ -559,17 +574,6 @@ function installSubstrateRuntime(ctx, actions) {
     path.join('tools', 'substrate-capability-broker.cjs'),
     path.join('scripts', 'lib', 'substrate-invocation-witness-store.cjs'),
   ]);
-  const overlay = readJson(REPO_HOOK_OVERLAY) || {};
-  for (const entries of Object.values(overlay.hooks || {})) {
-    for (const entry of entries || []) {
-      for (const hook of entry.hooks || []) {
-        const script = Array.isArray(hook.args) ? hook.args[0] : null;
-        if (typeof script === 'string' && /^super-gsd[\\/]/.test(script)) {
-          relatives.add(script.replace(/^super-gsd[\\/]/, ''));
-        }
-      }
-    }
-  }
   for (const relative of relatives) {
     const source = path.join(ctx.sgsdRoot, relative);
     const target = path.join(ctx.projectDir, 'super-gsd', relative);
@@ -609,12 +613,33 @@ function removeGlobalWitnessRegistrations(actions) {
   actions.push({ action: 'remove_global_substrate_witness_registrations', removed });
 }
 
-function repairClaudeSubstrateWitness(ctx, actions) {
+function smokeRepoHookOverlay(ctx) {
+  if (!exists(REPO_HOOK_PREFLIGHT)) throw new Error('hook smoke helper missing: ' + REPO_HOOK_PREFLIGHT);
+  const result = spawnSync(
+    process.execPath,
+    [REPO_HOOK_PREFLIGHT, '--smoke-repo-overlay', REPO_HOOK_OVERLAY, ctx.projectDir],
+    {
+      cwd: ctx.projectDir,
+      encoding: 'utf8',
+      shell: false,
+      timeout: 90_000,
+      windowsHide: true,
+    },
+  );
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    const detail = String(result.stderr || result.stdout || 'hook smoke failed').trim();
+    throw new Error(detail);
+  }
+}
+
+function repairClaudeSubstrateWitness(ctx, actions, options = {}) {
   try {
     installSubstrateRuntime(ctx, actions);
     const key = witnessStore.provisionWitnessKey(ctx.projectDir, process.env);
     if (key.created) actions.push({ action: 'provision_substrate_witness_key', status: 'created' });
-    removeGlobalWitnessRegistrations(actions);
+    if (options.allowGlobalRepair) removeGlobalWitnessRegistrations(actions);
+    if (options.repairProjectHooks) smokeRepoHookOverlay(ctx);
     mergeSettingsFiles(
       REPO_HOOK_OVERLAY,
       path.join(ctx.projectDir, '.claude', 'settings.json'),
@@ -625,6 +650,10 @@ function repairClaudeSubstrateWitness(ctx, actions) {
           nodeCheck: inProcessNodeCheck,
           shellCheck: () => ({ status: 1 }),
         },
+        managedHookIds: options.repairProjectHooks ? undefined : [
+          witnessStore.PRE_HOOK_ID,
+          witnessStore.POST_HOOK_ID,
+        ],
       },
     );
     actions.push({ action: 'merge_substrate_witness_hooks', target: path.join(ctx.projectDir, '.claude', 'settings.json') });
@@ -634,8 +663,10 @@ function repairClaudeSubstrateWitness(ctx, actions) {
   }
 }
 
-function repairClaudeSubstrateCapability(ctx, actions) {
-  const scopes = mcpScopeDocuments(ctx);
+function repairClaudeSubstrateCapability(ctx, actions, options = {}) {
+  const scopes = mcpScopeDocuments(ctx).filter((scope) => (
+    options.allowGlobalRepair || (scope.id !== 'user' && scope.id !== 'local')
+  ));
   if (scopes.some((scope) => scope.malformed)) return { ok: false, reasons: ['broker_repair_failed'] };
   const beforeByPath = new Map();
   for (const scope of scopes) {
@@ -884,12 +915,13 @@ function profilePaths() {
   ]));
 }
 
-function installGlobalSgsdAgents(ctx, actions, substrateGranted) {
+function installGlobalSgsdAgents(ctx, actions, substrateGranted, names) {
   const canonical = ctx.canonicalAgentsDir;
   const globalDir = ctx.globalAgentsDir;
   const repaired = [];
   for (const name of listMarkdownFiles(canonical)) {
     if (!name.startsWith('sgsd-')) continue;
+    if (names && !names.includes(name)) continue;
     const src = path.join(canonical, name);
     const dst = path.join(globalDir, name);
     const expected = canonicalAgentText(ctx, name, substrateGranted);
@@ -900,11 +932,13 @@ function installGlobalSgsdAgents(ctx, actions, substrateGranted) {
       repaired.push(name);
     }
   }
-  const disabledExecutor = path.join(canonical, 'sgsd-executor.md');
-  const legacyExecutor = path.join(globalDir, 'gsd-executor.md');
-  if (exists(disabledExecutor) && sha256(disabledExecutor) !== sha256(legacyExecutor)) {
-    copyFile(disabledExecutor, legacyExecutor, actions);
-    repaired.push('gsd-executor.md');
+  if (!names) {
+    const disabledExecutor = path.join(canonical, 'sgsd-executor.md');
+    const legacyExecutor = path.join(globalDir, 'gsd-executor.md');
+    if (exists(disabledExecutor) && sha256(disabledExecutor) !== sha256(legacyExecutor)) {
+      copyFile(disabledExecutor, legacyExecutor, actions);
+      repaired.push('gsd-executor.md');
+    }
   }
   return repaired;
 }
@@ -927,9 +961,10 @@ function installGlobalSgsdSkills(ctx, actions) {
   return repaired;
 }
 
-function installGlobalLegacyAgentPatches(ctx, actions, substrateGranted) {
+function installGlobalLegacyAgentPatches(ctx, actions, substrateGranted, names) {
   const repaired = [];
   for (const spec of REQUIRED_LEGACY_AGENT_PATCHES) {
+    if (names && !names.includes(spec.name)) continue;
     const p = path.join(ctx.globalAgentsDir, spec.name);
     let txt = readText(p);
     if (!txt) continue;
@@ -1272,20 +1307,33 @@ function runAudit(opts) {
   const ctx = mkContext(opts && opts.projectDir);
   const repairMode = opts && opts.repair === true;
   const safeRepair = repairMode || (opts && opts.repairSafe === true);
+  const substrateRepair = opts && opts.repairSubstrateCapability === true;
+  const repairCapability = safeRepair || substrateRepair;
+  const allowGlobalRepair = safeRepair || (opts && opts.allowGlobalRepair === true);
+  const repairGlobalAgents = safeRepair || (substrateRepair && allowGlobalRepair);
 
   let repairedGlobalAgents = [];
   let repairedGlobalSkills = [];
   let repairedLegacyAgents = [];
-  if (safeRepair) {
-    repairedGlobalAgents = installGlobalSgsdAgents(ctx, actions, false);
-    repairedLegacyAgents = installGlobalLegacyAgentPatches(ctx, actions, false);
+  if (repairGlobalAgents) {
+    repairedGlobalAgents = installGlobalSgsdAgents(ctx, actions, false, SUBSTRATE_GLOBAL_AGENT_NAMES);
+    repairedLegacyAgents = installGlobalLegacyAgentPatches(ctx, actions, false, SUBSTRATE_LEGACY_AGENT_NAMES);
   }
   let witnessRepair = { ok: true, reasons: [] };
   let capabilityRepair = { ok: true, reasons: [] };
   let claudeSubstrateWitness = auditClaudeSubstrateWitness(ctx);
-  if (safeRepair) witnessRepair = repairClaudeSubstrateWitness(ctx, actions);
+  if (repairCapability) {
+    witnessRepair = repairClaudeSubstrateWitness(ctx, actions, {
+      allowGlobalRepair,
+      repairProjectHooks: opts && opts.repairProjectHooks === true,
+    });
+  }
   claudeSubstrateWitness = auditClaudeSubstrateWitness(ctx);
-  if (safeRepair && claudeSubstrateWitness.ready) capabilityRepair = repairClaudeSubstrateCapability(ctx, actions);
+  if (repairCapability && claudeSubstrateWitness.ready) {
+    capabilityRepair = repairClaudeSubstrateCapability(ctx, actions, {
+      allowGlobalRepair,
+    });
+  }
   let claudeSubstrateCapability = auditClaudeSubstrateCapability(ctx, claudeSubstrateWitness);
   if (!witnessRepair.ok || !capabilityRepair.ok) {
     claudeSubstrateCapability = {
@@ -1300,17 +1348,27 @@ function runAudit(opts) {
     };
   }
   const substrateGranted = claudeSubstrateWitness.ready && claudeSubstrateCapability.ready;
-  if (safeRepair) {
+  if (repairGlobalAgents) {
     repairedGlobalAgents = [...new Set([
       ...repairedGlobalAgents,
-      ...installGlobalSgsdAgents(ctx, actions, substrateGranted),
+      ...installGlobalSgsdAgents(
+        ctx,
+        actions,
+        substrateGranted,
+        substrateRepair ? SUBSTRATE_GLOBAL_AGENT_NAMES : undefined,
+      ),
     ])];
   }
   if (safeRepair) repairedGlobalSkills = installGlobalSgsdSkills(ctx, actions);
-  if (safeRepair) {
+  if (repairGlobalAgents) {
     repairedLegacyAgents = [...new Set([
       ...repairedLegacyAgents,
-      ...installGlobalLegacyAgentPatches(ctx, actions, substrateGranted),
+      ...installGlobalLegacyAgentPatches(
+        ctx,
+        actions,
+        substrateGranted,
+        substrateRepair ? SUBSTRATE_LEGACY_AGENT_NAMES : undefined,
+      ),
     ])];
   }
 
@@ -1367,7 +1425,7 @@ function runAudit(opts) {
     ok: issues.length === 0,
     schema_version: SCHEMA_VERSION,
     ts: isoNow(),
-    mode: repairMode ? 'repair' : (safeRepair ? 'repair-safe' : 'audit'),
+    mode: repairMode ? 'repair' : (safeRepair ? 'repair-safe' : (substrateRepair ? 'repair-substrate-capability' : 'audit')),
     project_dir: ctx.projectDir,
     sgsd_root: ctx.sgsdRoot,
     issues,
@@ -1409,6 +1467,7 @@ function runAudit(opts) {
       global_skills: repairedGlobalSkills,
       global_legacy_agents: repairedLegacyAgents,
       backed_up_local_shadows: backedUpLocalShadows,
+      substrate_witness_repair_detail: witnessRepair.detail || null,
       actions,
     },
   };
@@ -1522,7 +1581,12 @@ function main(argv) {
   }
   const projectDir = argValue(args, '--project-dir') || process.cwd();
   if (args.indexOf('--repair-substrate-capability') !== -1) {
-    const snap = runAudit({ projectDir, repairSafe: true });
+    const snap = runAudit({
+      projectDir,
+      repairSubstrateCapability: true,
+      allowGlobalRepair: args.indexOf('--install-global') !== -1,
+      repairProjectHooks: args.indexOf('--init-local') !== -1 || args.indexOf('--update') !== -1,
+    });
     const hardReasons = new Set([
       'witness_repair_failed',
       'broker_repair_failed',
@@ -1537,7 +1601,11 @@ function main(argv) {
       ok: !refused,
       witness_status: snap.claude_substrate_witness.status,
       capability_status: snap.claude_substrate_capability.status,
-      reasons: snap.claude_substrate_capability.reasons,
+      reasons: [...new Set([
+        ...snap.claude_substrate_witness.reasons,
+        ...snap.claude_substrate_capability.reasons,
+      ])],
+      detail: snap.repaired.substrate_witness_repair_detail,
       substrate_granted: snap.claude_substrate_witness.ready && snap.claude_substrate_capability.ready,
     }) + '\n');
     process.exit(refused ? 2 : 0);
