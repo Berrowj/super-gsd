@@ -1,4 +1,4 @@
-FILES_CHANGED: [166-01-PLAN-LOCKED.md](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/.planning/milestones/v3.9-substrate-hygiene/phases/166-substrate-call-filters/166-01-PLAN-LOCKED.md)
+FILES_CHANGED: [166-01-PLAN-LOCKED.md](C:/Users/<operator>/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/.planning/milestones/v3.9-substrate-hygiene/phases/166-substrate-call-filters/166-01-PLAN-LOCKED.md)
 
 VERIFICATION: Required plan-schema validator exited 0 — `VALID (no errors)`.
 

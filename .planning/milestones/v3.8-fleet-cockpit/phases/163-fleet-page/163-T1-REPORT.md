@@ -1,4 +1,4 @@
-FILES_CHANGED: [index.html](/C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tools/fleet-cockpit/public/index.html), [app.js](/C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tools/fleet-cockpit/public/app.js)
+FILES_CHANGED: [index.html](/C:/Users/<operator>/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tools/fleet-cockpit/public/index.html), [app.js](/C:/Users/<operator>/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/super-gsd/tools/fleet-cockpit/public/app.js)
 
 VERIFICATION (static): `node --check`, ASCII/source gate, 94 page assertions, and 865 in-process regression assertions passed.
 

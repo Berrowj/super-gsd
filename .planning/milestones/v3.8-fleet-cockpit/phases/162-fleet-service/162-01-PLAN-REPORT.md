@@ -1,4 +1,4 @@
-FILES_CHANGED / [162-01-PLAN-LOCKED.md](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/.planning/milestones/v3.8-fleet-cockpit/phases/162-fleet-service/162-01-PLAN-LOCKED.md)
+FILES_CHANGED / [162-01-PLAN-LOCKED.md](C:/Users/<operator>/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/.planning/milestones/v3.8-fleet-cockpit/phases/162-fleet-service/162-01-PLAN-LOCKED.md)
 
 VERIFICATION / Exact schema validator exited 0; 7/7 verbatim SAC items mapped; 3 tasks; zero placeholders.
 

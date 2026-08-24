@@ -44,14 +44,14 @@
 </head>
 <body>
 <h1>Super GSD Signal Map</h1>
-<p style="color:var(--muted);margin-bottom:1.5rem;">Generated: 2026-08-08T16:05:56.076Z</p>
+<p style="color:var(--muted);margin-bottom:1.5rem;">Generated: 2026-08-19T23:00:31.983Z</p>
 
 <div class="stats">
   <div class="stat green"><div class="num">25/25</div><div class="label">Phases</div></div>
   <div class="stat purple"><div class="num">14/15</div><div class="label">Plans</div></div>
-  <div class="stat orange"><div class="num">0</div><div class="label">Files Tracked</div></div>
-  <div class="stat red"><div class="num">0</div><div class="label">Collisions</div></div>
-  <div class="stat"><div class="num">19</div><div class="label">Decisions</div></div>
+  <div class="stat orange"><div class="num">35</div><div class="label">Files Tracked</div></div>
+  <div class="stat red"><div class="num">3</div><div class="label">Collisions</div></div>
+  <div class="stat"><div class="num">27</div><div class="label">Decisions</div></div>
 </div>
 
 <h2>Phases</h2>
@@ -159,12 +159,28 @@
 </div>
 
 
+<h2>Collisions (3)</h2>
+<div class="collision">
+  <div class="file">super-gsd/hooks/gsd-stuck-detector.js</div>
+  <div class="writers">Written by: plan-1-1, plan-4-2</div>
+</div>
+<div class="collision">
+  <div class="file">super-gsd/skills/gsd-orchestrate/SKILL.md</div>
+  <div class="writers">Written by: plan-1-2, plan-3-1, plan-3-2, plan-4-2</div>
+</div>
+<div class="collision">
+  <div class="file">super-gsd/workflows/orchestrate-loop.md</div>
+  <div class="writers">Written by: plan-2-1, plan-3-1, plan-3-2, plan-3-3, plan-4-1, plan-4-2</div>
+</div>
+
 
 <h2>Dependency Graph</h2>
 <table>
 <thead><tr><th>Plan</th><th>Depends On</th><th>Wave</th><th>Status</th></tr></thead>
 <tbody>
-
+<tr><td>Plan 1-02</td><td>01-01</td><td>2</td><td>complete</td></tr>
+<tr><td>Plan 3-03</td><td>03-01, 03-02</td><td>2</td><td>complete</td></tr>
+<tr><td>Plan 5-02</td><td>05-01</td><td>2</td><td>complete</td></tr>
 </tbody>
 </table>
 
@@ -173,28 +189,36 @@
 <table>
 <thead><tr><th>Decision</th><th>Date</th><th>Vote</th></tr></thead>
 <tbody>
-<tr><td>2026-04-21-sgsd-v2-retro</td><td>-</td><td>-</td></tr>
-<tr><td>2026-08-02-always-on-gate-substrate</td><td>-</td><td>-</td></tr>
-<tr><td>DELIBERATION-FLOOR</td><td>-</td><td>-</td></tr>
-<tr><td>DLB-01-memory-topology</td><td>-</td><td>-</td></tr>
+<tr><td>2026-04-21-sgsd-v2-retro</td><td>2026-04-21</td><td>-</td></tr>
+<tr><td>Do NOT ship blocking at the edit seam. Land the cheap defect fixes now, unbundled; gate report-only; the control we need already exists in .codex/hooks.json and is one operator trust decision away.</td><td>2026-08-02</td><td>VOTE_TIE</td></tr>
+<tr><td>cross-pollination-engine Phase-0 (SGSD side)</td><td>2026-08-11</td><td>2 SUPPORT-WITH-CONDITIONS + 1 OPPOSE-UNLESS (all conf 4)</td></tr>
+<tr><td>2026-08-11-cross-pollination-CODEX-CHALLENGE-PROMPT</td><td>-</td><td>-</td></tr>
+<tr><td>2026-08-11-cross-pollination-CODEX-CHALLENGE</td><td>-</td><td>-</td></tr>
+<tr><td>2026-08-12-kb-triage-gate-CODEX-CHALLENGE-PROMPT</td><td>-</td><td>-</td></tr>
+<tr><td>2026-08-12-kb-triage-gate-CODEX-CHALLENGE</td><td>-</td><td>-</td></tr>
+<tr><td>hard KB-triage gate</td><td>2026-08-12</td><td>-</td></tr>
+<tr><td>Falsifier met. The architect normaliseWorkId() option activates per the memo's own terms. The registry and renumber stay dead.</td><td>2026-08-19</td><td>-</td></tr>
+<tr><td>Kill the milestone. Ship one phase fixing the shipped default and four blind resolvers. No registry, no renumber. Coverage 100 percent, artifact volume tiered on existing ATC tiers.</td><td>2026-08-19</td><td>VOTE_TIE</td></tr>
+<tr><td>DELIBERATION-FLOOR</td><td>2026-04-20</td><td>UNANIMOUS meta-endorsement (Contrarian proposed, 3/4 explicit agreement, Moonshot at 70%)</td></tr>
+<tr><td>Ship git-native filesystem tier with INDEX.md + sgsd-recall shell wrapper; remove dead brv MCP; revisit ranking infrastructure only when corpus ≥40 files or a benchmark proves grep insufficient.</td><td>2026-04-19</td><td>3-1 — Contrarian + Moonshot + Architect-concession for no-MCP-today; Pragmatist dissent (cross-project clarity-memory reuse)</td></tr>
 <tr><td>DLB-01-RESCORE</td><td>-</td><td>-</td></tr>
-<tr><td>DLB-02-muda-learning-loop</td><td>-</td><td>-</td></tr>
+<tr><td>Ship narrow write path + 3 watchdog probes; no seed library, no two-tier, no fold; install-blockers first; kill if no recurrence across 2 milestones.</td><td>2026-04-19</td><td>CONVERGENT (4/4 on write-path-only + kill condition); split 2-2 on automation cadence resolved in favour of conditional phase-close</td></tr>
 <tr><td>DLB-02-RESCORE</td><td>-</td><td>-</td></tr>
-<tr><td>DLB-03-intent-continuity</td><td>-</td><td>-</td></tr>
+<tr><td>Ship outcome_delivered field + executor prompt injection + cascade CLAUDE.md rule as one Day 3 commit. Defer V-model, pre-mortem, runtime scoring gate. Accept Contrarian's content-quality kill condition.</td><td>2026-04-19</td><td>4-0 CONVERGENT on structural-injection synthesis (Architect R2 pattern adopted by all)</td></tr>
 <tr><td>DLB-03-RESCORE</td><td>-</td><td>-</td></tr>
 <tr><td>DLB-04-RESCORE</td><td>-</td><td>-</td></tr>
-<tr><td>DLB-04-self-evolving-resource-substrate</td><td>-</td><td>-</td></tr>
+<tr><td>Ship a scoped Agents manifest, an operator-gated SEPL proposal script, and a milestone-close trajectory-distillation pass with three independent hallucination safeguards. Borrow RSPL/SEPL vocabulary without AGP spec conformance. FINDING-18 slug-discipline fix is a Day 0 blocker.</td><td>2026-04-19</td><td>3-1 ADOPT (narrow synthesis) — Architect + Contrarian + Moonshot converge on (1c, 2a, 3b-trajectory, 4b) with triple hallucination gate; Pragmatist dissent on Q3 timing (holds 3c until v1.3)</td></tr>
 <tr><td>DLB-05-RESCORE</td><td>-</td><td>-</td></tr>
-<tr><td>DLB-05-vtp-audit-sharpening</td><td>-</td><td>-</td></tr>
-<tr><td>DLB-06-central-distribution</td><td>-</td><td>-</td></tr>
+<tr><td>Ship soft-warn budget log, metric-only conformance log, 2 new MUDA write-path probes, adopt Moonshot's 7 Process Mining patterns as the DLB-02 read-path specification (wiring gated, activation deferred). Q4 deferred to v1.3 Gate 3 signal.</td><td>2026-04-20</td><td>3-1 ADOPT narrow synthesis + Moonshot SPEC-NOW hybrid on Q3; Contrarian dissents on Q1 (cap-never-fired) and Q3 (0 recurrence)</td></tr>
+<tr><td>Ship sgsd-update wrapper + session-start drift-check prompt. Defer SHA pinning until DLB-05 Waves close. Keep memory local per DLB-01. Adopt DELIBERATION-FLOOR.md governance rule: any brief with Q1 impl <2h + reversible via git revert ships without board deliberation.</td><td>2026-04-20</td><td>3-1 ADOPT narrow scope (Q1a + Q2b; defer Q3+Q4) + UNANIMOUS adoption of Contrarian's meta-proposal (DELIBERATION-FLOOR.md)</td></tr>
 <tr><td>DLB-06-RESCORE</td><td>-</td><td>-</td></tr>
-<tr><td>DLB-07-semantic-vs-structural-verification</td><td>-</td><td>-</td></tr>
-<tr><td>DLB-08-MESH-MEMORY-LITE</td><td>-</td><td>-</td></tr>
-<tr><td>DLB-11-CHRONICLE-LAYER</td><td>-</td><td>-</td></tr>
-<tr><td>DLB-12-OPERATOR-COMPREHENSION-SYSTEM</td><td>-</td><td>-</td></tr>
+<tr><td>Mechanically enforce semantic acceptance criteria in the v2 plan schema. Plans missing real-data semantic ACs fail validation. Phased rollout: P97.5 ships schema + validator; audit-gate enforcement and v22 re-audit deferred to follow-up phases.</td><td>2026-05-18</td><td>-</td></tr>
+<tr><td>Add lineaged role-filtered cognitive memory underneath SGSD's existing control plane. Steal the invariants of Pi2Pi (operational pattern) and Mesh Memory Protocol (formal protocol); copy neither implementation. Mesh-shaped memory, central-shaped runtime. Seven typed CMB classes. No Pi/sym-mesh dependencies. No executor-authored CMBs in MVP.</td><td>2026-05-20</td><td>-</td></tr>
+<tr><td>Add Operator Chronicle Layer as a first-class SGSD subsystem (DLB-11). Every phase close ships a validated Chronicle: HTML + Markdown + JSON + manifest. Chronicle is a projection of mesh memory + canonical artefacts + cockpit logs + git evidence — never an agent opinion. Validator is a binding gate at phase close (REPORT_UNGROUNDED halts). Forward-only backport policy (v3.0 phases not retrofitted). VTP routing with local fallback. Seven phases (P113-P119).</td><td>2026-05-21</td><td>-</td></tr>
+<tr><td>Make SGSD explain itself world-class across BOTH operator-facing surfaces. v3.1 proved the chronicle can be a validated projection of phase truth; v3.2 (a) upgrades the chronicle HTML to the gold-reference standard derived from book research, and (b) extends the same answer-first discipline to the LIVE cockpit by evolving cockpit-sidecar.cjs. One shared design system, two surfaces, 8 phases (P120-P127).</td><td>2026-05-22</td><td>-</td></tr>
 </tbody>
 </table>
 
 
-<div class="gen">Super GSD Signal Map | 60 nodes | 40 edges</div>
+<div class="gen">Super GSD Signal Map | 109 nodes | 94 edges</div>
 </body></html>

@@ -1,4 +1,4 @@
-FILES_CHANGED / [161-01-PLAN-LOCKED.md](C:/Users/jack.berrow/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/.planning/milestones/v3.8-fleet-cockpit/phases/161-hook-distribution-completion/161-01-PLAN-LOCKED.md)
+FILES_CHANGED / [161-01-PLAN-LOCKED.md](C:/Users/<operator>/AppData/Roaming/warp/Warp/data/worktrees/GSDedits/luminaria-hogback/.planning/milestones/v3.8-fleet-cockpit/phases/161-hook-distribution-completion/161-01-PLAN-LOCKED.md)
 
 VERIFICATION / Required validator exited 0: `VALID (no errors)`.
 
