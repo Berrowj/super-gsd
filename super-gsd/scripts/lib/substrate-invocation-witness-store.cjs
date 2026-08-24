@@ -338,8 +338,10 @@ function observableRow(record, event) {
     created_at: record.created_at,
     expires_at: record.expires_at,
     rewritten_at: record.rewritten_at || null,
+    passthrough_at: record.passthrough_at || null,
     consumed_at: record.consumed_at || null,
     rewrite: record.rewrite || null,
+    passthrough: record.passthrough || null,
   };
 }
 
@@ -379,8 +381,10 @@ function createPreWitness(options) {
     created_at: now,
     expires_at: now + WITNESS_TTL_MS,
     rewritten_at: null,
+    passthrough_at: null,
     consumed_at: null,
     rewrite: null,
+    passthrough: null,
   }, key);
   const recordPath = path.join(paths.spool_dir, recordIdentity(key, options.sessionId, options.toolUseId) + '.json');
   try {
@@ -454,6 +458,48 @@ function transitionWitnessToRewritten(options) {
   return observableRow(finalRecord, 'rewritten');
 }
 
+function transitionWitnessToPostPassthrough(options) {
+  const projectRoot = path.resolve(options.projectRoot);
+  const paths = resolveWitnessPaths(projectRoot, options.env || process.env);
+  const key = readKey(paths);
+  requireDigest(options.payloadDigest, 'witness_payload_digest_invalid');
+  requireDigest(options.responseDigest, 'witness_response_digest_invalid');
+  if (typeof options.reason !== 'string' || !/^[a-z0-9_.:-]{1,120}$/i.test(options.reason)) {
+    throw new Error('witness_passthrough_reason_invalid');
+  }
+  const exact = readExactRecord(paths, key, options.sessionId, options.toolUseId);
+  const expectedSession = sha256(Buffer.from(options.sessionId, 'utf8'));
+  const expectedToolUse = sha256(Buffer.from(options.toolUseId, 'utf8'));
+  if (exact.record.project_digest !== paths.project_digest
+    || exact.record.session_sha256 !== expectedSession
+    || exact.record.tool_use_sha256 !== expectedToolUse
+    || exact.record.payload_digest !== options.payloadDigest
+    || exact.record.state !== 'pre_allowed') {
+    throw new Error('witness_pre_mismatch');
+  }
+  if (exact.record.expires_at <= Date.now()) throw new Error('witness_pre_expired');
+
+  const unsigned = { ...exact.record };
+  delete unsigned.hmac_sha256;
+  const finalRecord = signedRecord({
+    ...unsigned,
+    state: 'post_passthrough',
+    passthrough_at: Date.now(),
+    passthrough: {
+      reason: options.reason,
+      response_sha256: options.responseDigest,
+    },
+  }, key);
+  atomicReplace(exact.recordPath, Buffer.concat([canonicalRecordBytes(finalRecord), Buffer.from('\n')]));
+  try {
+    appendMirror(paths, finalRecord, 'post_passthrough');
+  } catch (_) {
+    atomicReplace(exact.recordPath, Buffer.from(exact.source, 'utf8'));
+    throw new Error('witness_mirror_write_failed');
+  }
+  return observableRow(finalRecord, 'post_passthrough');
+}
+
 function readSpoolRows(paths, key) {
   let names;
   try {
@@ -488,7 +534,10 @@ function selectRewrittenWitness(rows, paths, sessionDigest, payloadDigest, now) 
   if (rewritten.length === 0) {
     if (payloadRows.some((item) => item.record.state === 'consumed')) throw new Error('substrate_witness_replayed');
     if (payloadRows.some((item) => item.record.expires_at <= now)) throw new Error('substrate_witness_expired');
-    if (fresh.some((item) => item.record.state === 'pre_allowed')) throw new Error('substrate_witness_not_rewritten');
+    if (fresh.some((item) => item.record.state === 'pre_allowed'
+      || item.record.state === 'post_passthrough')) {
+      throw new Error('substrate_witness_not_rewritten');
+    }
     if (projectRows.some((item) => item.record.payload_digest === payloadDigest)) {
       throw new Error('substrate_witness_session_mismatch');
     }
@@ -614,6 +663,7 @@ module.exports = {
   inspectWitnessReadiness,
   createPreWitness,
   transitionWitnessToRewritten,
+  transitionWitnessToPostPassthrough,
   consumeRewrittenWitness,
   runCli,
 };

@@ -417,10 +417,10 @@ test('preserves P166 rejection order and does not consume on forged records', ()
   assert.strictEqual(accept(envelope, { sessionId }).ok, true);
 });
 
-test('CLI inherits runtime session and emits accepted JSON only after consumption', () => {
-  const envelope = prepared('P167 CLI runtime session witness');
-  const sessionId = 'session-cli';
-  const prePayload = seedPre(envelope, { id: 'cli', sessionId });
+test('rejects an unchanged PostToolUse passthrough as not rewritten', () => {
+  const envelope = prepared('P167 passthrough is not rewrite evidence');
+  const sessionId = 'session-passthrough';
+  const prePayload = seedPre(envelope, { id: 'passthrough', sessionId });
   const passthrough = hook.processHookPayload({
     ...prePayload,
     hook_event_name: 'PostToolUse',
@@ -430,6 +430,29 @@ test('CLI inherits runtime session and emits accepted JSON only after consumptio
     expectedEvent: 'PostToolUse',
   });
   assert.strictEqual(passthrough, null);
+  assert.throws(
+    () => accept(envelope, { sessionId }),
+    /vtp_prompt_substrate_contract_invalid:substrate_witness_not_rewritten/,
+  );
+});
+
+test('CLI inherits runtime session and emits accepted JSON only after consumption', () => {
+  const envelope = prepared('P167 CLI runtime session witness');
+  const sessionId = 'session-cli';
+  const prePayload = seedPre(envelope, { id: 'cli', sessionId });
+  const rewritten = hook.processHookPayload({
+    ...prePayload,
+    hook_event_name: 'PostToolUse',
+    tool_response: {
+      content: [{ type: 'text', text: JSON.stringify({ hits: [{ text: 'bounded' }] }) }],
+      isError: false,
+    },
+  }, {
+    env: fixture.env,
+    expectedEvent: 'PostToolUse',
+  });
+  assert.strictEqual(rewritten.hookSpecificOutput.hookEventName, 'PostToolUse');
+  assert(rewritten.hookSpecificOutput.updatedMCPToolOutput);
   const inputDir = path.join(fixture.project, '.planning', 'tmp');
   mkdir(inputDir);
   const preparedPath = path.join(inputDir, 'prepared.json');

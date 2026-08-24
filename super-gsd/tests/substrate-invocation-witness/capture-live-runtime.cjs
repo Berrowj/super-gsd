@@ -378,13 +378,14 @@ function marker(prefix) {
   return prefix + '_' + crypto.randomBytes(16).toString('hex').toUpperCase();
 }
 
-function expectation(scenario, payload, rawMarker, tailMarker) {
+function expectation(scenario, payload, rawMarker, tailMarker, matchMode = 'exact') {
   return {
     scenario,
     payload,
     payload_sha256: payloadDigest(payload),
     raw_response_marker: rawMarker,
     discarded_tail_marker: tailMarker,
+    match_mode: matchMode,
   };
 }
 
@@ -1630,6 +1631,7 @@ async function captureSameUserBypass(context) {
     alternatePayload,
     marker('P167_RAW_BYPASS_ALT'),
     '\uE169',
+    'query_marker',
   );
   const directExpectation = expectation(
     'same-user-direct',
@@ -1720,7 +1722,10 @@ async function captureSameUserBypass(context) {
   const alternateRows = afterAlternateLog.calls.filter((row) => row.payload_sha256
     === alternatePayloadChoice.observed_payload_sha256);
   requireCondition(afterAlternateLog.calls.length === 1 && alternateRows.length === 1
-    && alternateRows[0].tool_name === SHORT_TOOL,
+    && alternateRows[0].tool_name === SHORT_TOOL
+    && alternateRows[0].expectation === alternateExpectation.scenario
+    && alternateRows[0].accepted === true
+    && alternateResult.is_error === false,
   'bypass_alternate_fixture_row_invalid');
 
   const direct = await protocolConversation(
@@ -1750,6 +1755,7 @@ async function captureSameUserBypass(context) {
   requireCondition(finalLog.calls.length === 2
     && finalAlternateRows.length === 1
     && finalDirectRows.length === 1
+    && finalAlternateRows[0].accepted === true
     && finalDirectRows[0].accepted === true,
   'bypass_fixture_rows_invalid');
   const payloadDigests = [
@@ -2457,8 +2463,9 @@ function verifySameUserBypass(bypass, current) {
       && alternate.observed_payload_sha256 !== alternate.requested_non_v2_payload_sha256,
     'same_user_alternate_changed_choice_invalid');
   }
-  requireCondition(alternate.fixture_payload_accepted === alternate.payload_exactly_as_requested,
-    'same_user_alternate_fixture_acceptance_invalid');
+  requireCondition(alternate.fixture_payload_accepted === true
+    && alternate.result_is_error === false,
+  'same_user_alternate_was_not_accepted_successfully');
   const observations = verifyTranscriptObservations(
     alternate.transcript_observations,
     alternate.transcript_observations_sha256,
@@ -2508,9 +2515,8 @@ function verifySameUserBypass(bypass, current) {
   const fixtureCalls = verifyFixtureObservations(
     fixture,
     2,
-    [alternate.payload_exactly_as_requested ? 'same-user-alternate' : null, 'same-user-direct'],
+    ['same-user-alternate', 'same-user-direct'],
     'same_user_fixture',
-    false,
   );
   requireCondition(fixtureCalls.some((row) => row.payload_sha256 === alternate.observed_payload_sha256
     && row.accepted === alternate.fixture_payload_accepted)

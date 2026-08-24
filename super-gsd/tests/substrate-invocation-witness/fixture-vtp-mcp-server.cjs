@@ -55,6 +55,14 @@ function validateExpectation(value) {
       || value.payload_sha256 !== payloadDigest(value.payload)) {
     throw new Error('fixture_expectation_digest_invalid');
   }
+  const matchMode = value.match_mode === undefined ? 'exact' : value.match_mode;
+  if (!['exact', 'query_marker'].includes(matchMode)) {
+    throw new Error('fixture_expectation_match_mode_invalid');
+  }
+  if (matchMode === 'query_marker'
+      && (typeof value.payload.query !== 'string' || !value.payload.query)) {
+    throw new Error('fixture_expectation_query_marker_invalid');
+  }
   if (typeof value.raw_response_marker !== 'string'
       || value.raw_response_marker.length < 8
       || value.raw_response_marker.length > 160) {
@@ -64,7 +72,7 @@ function validateExpectation(value) {
       || value.discarded_tail_marker.length !== 1) {
     throw new Error('fixture_tail_marker_invalid');
   }
-  return value;
+  return { ...value, match_mode: matchMode };
 }
 
 function loadConfiguration(env = process.env) {
@@ -87,10 +95,17 @@ function loadConfiguration(env = process.env) {
   }
   const expectations = source.expectations.map(validateExpectation);
   const seen = new Set();
+  const queryMarkers = new Set();
   const markers = new Set();
   for (const expectation of expectations) {
     if (seen.has(expectation.payload_sha256)) throw new Error('fixture_expectation_duplicate');
     seen.add(expectation.payload_sha256);
+    if (expectation.match_mode === 'query_marker') {
+      if (queryMarkers.has(expectation.payload.query)) {
+        throw new Error('fixture_expectation_query_marker_duplicate');
+      }
+      queryMarkers.add(expectation.payload.query);
+    }
     if (expectation.raw_response_marker.includes(expectation.discarded_tail_marker)
         || markers.has(expectation.raw_response_marker)
         || markers.has(expectation.discarded_tail_marker)) {
@@ -220,10 +235,12 @@ function handleMessage(config, message) {
     const digest = payload && typeof payload === 'object' && !Array.isArray(payload)
       ? payloadDigest(payload)
       : null;
-    const expectation = config.expectations.find((item) => item.payload_sha256 === digest);
+    const expectation = config.expectations.find((item) => item.payload_sha256 === digest
+      && JSON.stringify(item.payload) === JSON.stringify(payload))
+      || config.expectations.find((item) => item.match_mode === 'query_marker'
+        && payload && item.payload.query === payload.query);
     const accepted = Boolean(params.name === TOOL_NAME
-      && expectation
-      && JSON.stringify(expectation.payload) === JSON.stringify(payload));
+      && expectation);
     appendObservation(config, message, {
       traffic_class: 'invocation',
       tool_name: typeof params.name === 'string' ? params.name : null,

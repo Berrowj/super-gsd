@@ -223,6 +223,18 @@ function transitionWitnessAfterPost(payload, projectRoot, runtime, env, response
   });
 }
 
+function transitionWitnessAfterPassthrough(payload, projectRoot, runtime, env, response, reason) {
+  runtime.store.transitionWitnessToPostPassthrough({
+    projectRoot,
+    env,
+    sessionId: payload.session_id,
+    toolUseId: payload.tool_use_id,
+    payloadDigest: runtime.composer.substratePayloadDigest(payload.tool_input),
+    responseDigest: responseDigest(response),
+    reason,
+  });
+}
+
 function handlePre(payload, projectRoot, runtime, env) {
   if (typeof payload.session_id !== 'string' || !payload.session_id) return deny('missing_session_id');
   if (typeof payload.tool_use_id !== 'string' || !payload.tool_use_id) return deny('missing_tool_use_id');
@@ -277,12 +289,13 @@ function handlePost(payload, projectRoot, runtime, env) {
   } catch (error) {
     if (error && error.message === 'malformed_response') {
       try {
-        transitionWitnessAfterPost(
+        transitionWitnessAfterPassthrough(
           payload,
           projectRoot,
           runtime,
           env,
           payload.tool_response,
+          'malformed_response',
         );
       } catch (_) {
         // An unparseable response must remain an unchanged fail-safe passthrough.

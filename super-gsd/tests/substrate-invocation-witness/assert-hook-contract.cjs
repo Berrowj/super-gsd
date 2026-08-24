@@ -657,6 +657,7 @@ function defineHookTests() {
   });
 
   test('PostToolUse passes unparseable MCP output through untouched and records the condition', () => {
+    const beforeSpool = new Set(spoolFiles());
     const pre = hookPayload('PreToolUse', 'malformed-response');
     hook.processHookPayload(pre, { env: fixture.env });
     const rawMarker = 'RAW_MALFORMED_RESPONSE_MARKER';
@@ -692,16 +693,23 @@ function defineHookTests() {
       }],
     });
     assert.strictEqual(JSON.stringify(condition).includes(rawMarker), false);
-    assert.deepStrictEqual(store.consumeRewrittenWitness({
+    const created = spoolFiles().filter((file) => !beforeSpool.has(file));
+    assert.strictEqual(created.length, 1);
+    const row = JSON.parse(fs.readFileSync(created[0], 'utf8'));
+    assert.strictEqual(row.state, 'post_passthrough');
+    assert.strictEqual(typeof row.passthrough_at, 'number');
+    assert.deepStrictEqual(row.passthrough, {
+      reason: 'malformed_response',
+      response_sha256: sha256(Buffer.from(JSON.stringify(original), 'utf8')),
+    });
+    assert.strictEqual(row.rewritten_at, null);
+    assert.strictEqual(row.rewrite, null);
+    assert.throws(() => store.consumeRewrittenWitness({
       projectRoot: fixture.project,
       env: fixture.env,
       sessionId: pre.session_id,
       payloadDigest: composer.substratePayloadDigest(pre.tool_input),
-    }), {
-      ok: true,
-      payload_digest: composer.substratePayloadDigest(pre.tool_input),
-      witness_status: 'consumed',
-    });
+    }), /substrate_witness_not_rewritten/);
   });
 
   test('PostToolUse runtime-shape diagnostic records keys and types without values', () => {
