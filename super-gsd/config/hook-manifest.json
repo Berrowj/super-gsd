@@ -19,7 +19,8 @@
           "command": "node ~/.claude/hooks/gsd-checkpoint-writer.js"
         }
       ],
-      "dependencies": []
+      "dependencies": [],
+      "sha256": "9252b33050a83c442507f2f997520ccc7d14d0c9381ac9031c463dbe6b82b301"
     },
     {
       "source_path": "hooks/gsd-context-monitor.js",
@@ -39,7 +40,8 @@
           "command": "node ~/.claude/hooks/gsd-context-monitor.js"
         }
       ],
-      "dependencies": []
+      "dependencies": [],
+      "sha256": "abcdae65e69598552304aec6f7fa86bcb8a1dc11fb1e27f8f6da26b488ae182e"
     },
     {
       "source_path": "hooks/gsd-phase-boundary.sh",
@@ -57,7 +59,8 @@
           "reason": "Community opt-in helper invoked only when project config enables hooks.community; it is smoke-tracked but is not installed as a default Claude event hook."
         }
       ],
-      "dependencies": []
+      "dependencies": [],
+      "sha256": "66dea784a81372e504dc2979186a8bebcf1549fb64e06db21be87da84f45dc0a"
     },
     {
       "source_path": "hooks/gsd-session-start.js",
@@ -77,7 +80,8 @@
           "command": "node ~/.claude/hooks/gsd-session-start.js"
         }
       ],
-      "dependencies": []
+      "dependencies": [],
+      "sha256": "cef9fa97abb4621e7c8b034dca5662547899f53b6c1c7d354fe5420316e003b6"
     },
     {
       "source_path": "hooks/gsd-session-state.sh",
@@ -97,7 +101,8 @@
           "command": "bash ~/.claude/hooks/gsd-session-state.sh"
         }
       ],
-      "dependencies": []
+      "dependencies": [],
+      "sha256": "3a238a43199b7a6406ea20b97f7bf12b72f0f14585f9b4af2c76fb685b9c81cb"
     },
     {
       "source_path": "hooks/gsd-stuck-detector.js",
@@ -117,7 +122,8 @@
           "command": "node ~/.claude/hooks/gsd-stuck-detector.js"
         }
       ],
-      "dependencies": []
+      "dependencies": [],
+      "sha256": "6af8908574bb49bf9392e46422fa8fe1b33fe2c8bc37d5a4682383fa877acca3"
     },
     {
       "source_path": "hooks/gsd-token-logger.js",
@@ -137,7 +143,8 @@
           "command": "node ~/.claude/hooks/gsd-token-logger.js"
         }
       ],
-      "dependencies": []
+      "dependencies": [],
+      "sha256": "fbbee19644b9993ec9941648f72bcae971e180155c58ba2ddec36484f8fa8131"
     },
     {
       "source_path": "hooks/sgsd-activity-logger.js",
@@ -157,7 +164,8 @@
           "command": "node ~/.claude/hooks/sgsd-activity-logger.js"
         }
       ],
-      "dependencies": []
+      "dependencies": [],
+      "sha256": "6a50ee6e200d7f769477c5a23b7f771e177f0dcf814abcc62cadce07a4b3ba61"
     },
     {
       "source_path": "hooks/sgsd-commit-gate.cjs",
@@ -187,7 +195,8 @@
         "scripts/lib/commit-gate-shadow-report.cjs",
         "scripts/lib/sgsd-artifact-conventions.cjs",
         "scripts/lib/sgsd-state.cjs"
-      ]
+      ],
+      "sha256": "5a5cd8d9b816d77af96426e4f6ca56acadde7e6e90c5f64a95f2a060c15dfb91"
     },
     {
       "source_path": "hooks/sgsd-heartbeat.js",
@@ -207,7 +216,8 @@
           "command": "node ~/.claude/hooks/sgsd-heartbeat.js"
         }
       ],
-      "dependencies": []
+      "dependencies": [],
+      "sha256": "e504ad7ff34c1ee42ef2a4da6d197a655c2e2e4c51b38021f2fbad2289572fdb"
     },
     {
       "source_path": "hooks/sgsd-intent-classifier.cjs",
@@ -243,7 +253,8 @@
         "scripts/lib/sgsd-state.cjs",
         "scripts/lib/skill-routing-registry.cjs",
         "tools/vtp-readiness/registry.cjs"
-      ]
+      ],
+      "sha256": "0c3fd2e1bdb2857574552d299b89671d6c48ade534a4ed89e8e3cea11d65e972"
     },
     {
       "source_path": "hooks/sgsd-quality-gate.js",
@@ -280,7 +291,8 @@
         "scripts/lib/sgsd-state.cjs",
         "scripts/lib/skill-routing-registry.cjs",
         "tools/vtp-readiness/registry.cjs"
-      ]
+      ],
+      "sha256": "ad6609ef339cb84f83e71d0adbc7e24671878c690a34989651e360c2ada47292"
     },
     {
       "source_path": "hooks/sgsd-session-start.js",
@@ -313,7 +325,8 @@
       "dependencies": [
         "scripts/lib/gate-evidence-log.cjs",
         "scripts/lib/sgsd-state.cjs"
-      ]
+      ],
+      "sha256": "9163a649cb5598e41a4e6365b7626af40c12e1feab5002e9398bc91890268782"
     },
     {
       "source_path": "hooks/sgsd-substrate-invocation-witness.cjs",
@@ -353,7 +366,8 @@
         "scripts/lib/sgsd-state.cjs",
         "scripts/lib/substrate-invocation-witness-store.cjs",
         "scripts/lib/vtp-context-composer.cjs"
-      ]
+      ],
+      "sha256": "fd147b8d8abf4c3b84a012e62fee222b83f9adb53b289092e3636ae16b1139aa"
     },
     {
       "source_path": "hooks/sgsd-statusline.js",
@@ -378,7 +392,8 @@
           "reason": "Claude statusLine is a native top-level registration surface, so duplicating this command in hooks events would execute it with the wrong payload and lifecycle."
         }
       ],
-      "dependencies": []
+      "dependencies": [],
+      "sha256": "6a0546200f93080a688143accf2ef4c0a019f604cc3b7afcb38fbf83d254bdb2"
     },
     {
       "source_path": "hooks/sgsd-stop-handoff.js",
@@ -398,7 +413,8 @@
           "command": "node ~/.claude/hooks/sgsd-stop-handoff.js"
         }
       ],
-      "dependencies": []
+      "dependencies": [],
+      "sha256": "142d16e69e4259f379f32d2ae79a189fa1c9cfa4d6f2c8dcca28f53b3c9eebe5"
     },
     {
       "source_path": "hooks/sgsd-vtp-pending.js",
@@ -418,7 +434,8 @@
           "command": "node ~/.claude/hooks/sgsd-vtp-pending.js"
         }
       ],
-      "dependencies": []
+      "dependencies": [],
+      "sha256": "db07c1057803a0b8f34bac2a06babc6c617b009f48de7bf45ab4b3c90df63e1a"
     },
     {
       "source_path": "tools/codex-hooks/block-forbidden-write.cjs",
@@ -437,7 +454,8 @@
           "command": "node super-gsd/tools/codex-hooks/block-forbidden-write.cjs"
         }
       ],
-      "dependencies": []
+      "dependencies": [],
+      "sha256": "cc349a8fed0b49d5050d0a228c4da374579265fe728771e5f195f8c25dbb3e1a"
     },
     {
       "source_path": "tools/codex-hooks/block-secret-leak.cjs",
@@ -466,7 +484,8 @@
           "hook_id": "user-prompt-secret-leak-guard"
         }
       ],
-      "dependencies": []
+      "dependencies": [],
+      "sha256": "791de1362a5aaa76129b9cb1a79ae4845b0467b5637bdf7feb38a1a57423c843"
     },
     {
       "source_path": "tools/codex-hooks/enforce-allowed-files.cjs",
@@ -485,7 +504,8 @@
           "command": "node super-gsd/tools/codex-hooks/enforce-allowed-files.cjs"
         }
       ],
-      "dependencies": []
+      "dependencies": [],
+      "sha256": "b57e6bf7ee7a67129d37e8941dc639279405a1b659dce3d9f459862aa76168f0"
     },
     {
       "source_path": "tools/codex-hooks/log-tool-event.cjs",
@@ -504,7 +524,8 @@
           "command": "node super-gsd/tools/codex-hooks/log-tool-event.cjs"
         }
       ],
-      "dependencies": []
+      "dependencies": [],
+      "sha256": "110637e71b3b7f755a833ab25915bbde70829cab45d07d8781d5dd30ac4fc70f"
     },
     {
       "source_path": "tools/codex-hooks/validate-stop-contract.cjs",
@@ -523,7 +544,8 @@
           "command": "node super-gsd/tools/codex-hooks/validate-stop-contract.cjs"
         }
       ],
-      "dependencies": []
+      "dependencies": [],
+      "sha256": "2bf11ec910bce5d649a0b59a7ae9d614fcc8c3a73ae24189532083b09b5ccd68"
     }
   ]
 }

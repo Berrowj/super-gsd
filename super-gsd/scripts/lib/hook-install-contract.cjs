@@ -18,8 +18,20 @@ function posix(value) {
   return value.replace(/\\/g, '/');
 }
 
-function digest(value) {
-  return crypto.createHash('sha256').update(value).digest('hex');
+function normalizedSourceDigest(value) {
+  const bytes = Buffer.isBuffer(value) ? value : Buffer.from(value);
+  const hash = crypto.createHash('sha256');
+  let start = 0;
+  // Canonical source bytes differ only by CRLF becoming LF; preserve all other bytes.
+  for (let index = 0; index + 1 < bytes.length; index += 1) {
+    if (bytes[index] !== 0x0d || bytes[index + 1] !== 0x0a) continue;
+    hash.update(bytes.subarray(start, index));
+    hash.update('\n');
+    index += 1;
+    start = index + 1;
+  }
+  hash.update(bytes.subarray(start));
+  return hash.digest('hex');
 }
 
 function inside(root, candidate) {
@@ -428,7 +440,7 @@ function computeHookDependencyGraph(options = {}) {
       source_path: rootRelative,
       source_absolute_path: rootSource,
       target_path: path.join(runtimeSgsdRoot, rootRelative),
-      sha256: digest(fs.readFileSync(rootSource)),
+      sha256: normalizedSourceDigest(fs.readFileSync(rootSource)),
       dependencies,
       required_files: [rootRelative, ...dependencies].sort(),
       packages: [...entryPackages].sort(),
@@ -447,7 +459,7 @@ function computeHookDependencyGraph(options = {}) {
         relative_path: relative,
         source_path: sourcePath,
         target_path: path.join(runtimeSgsdRoot, relative),
-        sha256: digest(fs.readFileSync(sourcePath)),
+        sha256: normalizedSourceDigest(fs.readFileSync(sourcePath)),
         required_by: [...requiredBy].sort(),
       };
     });
@@ -472,10 +484,13 @@ function computeHookDependencyGraph(options = {}) {
 function renderManifestDependencies(manifestOrGraph, maybeGraph) {
   const graph = maybeGraph || manifestOrGraph;
   const manifest = maybeGraph ? manifestOrGraph : graph.manifest;
-  const dependencies = new Map(graph.entries.map((entry) => [entry.source_path, entry.dependencies]));
+  const generated = new Map(graph.entries.map((entry) => [entry.source_path, entry]));
   const rendered = JSON.parse(JSON.stringify(manifest));
   for (const entry of rendered.entries) {
-    entry.dependencies = dependencies.get(posix(entry.source_path)) || [];
+    const row = generated.get(posix(entry.source_path));
+    if (!row) continue;
+    entry.dependencies = row.dependencies;
+    entry.sha256 = row.sha256;
   }
   return rendered;
 }
@@ -495,11 +510,16 @@ function manifestDependencyDrift(manifest, rendered) {
   for (let index = 0; index < rendered.entries.length; index += 1) {
     const expected = rendered.entries[index].dependencies || [];
     const actual = manifest.entries[index].dependencies || [];
-    if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    const expectedSha256 = rendered.entries[index].sha256 || null;
+    const actualSha256 = manifest.entries[index].sha256 || null;
+    if (JSON.stringify(actual) !== JSON.stringify(expected)
+        || actualSha256 !== expectedSha256) {
       stale.push({
         source_path: rendered.entries[index].source_path,
         expected,
         actual,
+        expected_sha256: expectedSha256,
+        actual_sha256: actualSha256,
       });
     }
   }
@@ -530,7 +550,7 @@ function inspectProjectInstall(options = {}) {
   }
   const requiredFiles = graph.files.map((row) => {
     let actual = null;
-    try { actual = digest(fs.readFileSync(row.target_path)); } catch (_) { /* Missing target. */ }
+    try { actual = normalizedSourceDigest(fs.readFileSync(row.target_path)); } catch (_) { /* Missing target. */ }
     return {
       ...row,
       kind: rootSources.has(row.relative_path) ? 'hook' : 'module',
@@ -621,7 +641,7 @@ function copyCandidateRows(report, candidateRoot) {
     rows.push({
       ...required,
       candidate_path: candidatePath,
-      candidate_sha256: digest(bytes),
+      candidate_sha256: normalizedSourceDigest(bytes),
       publication_path: required.target_path,
     });
   }
@@ -715,8 +735,8 @@ async function smokeCandidateProject(report, candidateRoot, options = {}) {
 
 function validateSealedRows(rows) {
   for (const row of rows) {
-    const sourceDigest = digest(fs.readFileSync(row.source_path));
-    const candidateDigest = digest(fs.readFileSync(row.candidate_path));
+    const sourceDigest = normalizedSourceDigest(fs.readFileSync(row.source_path));
+    const candidateDigest = normalizedSourceDigest(fs.readFileSync(row.candidate_path));
     if (sourceDigest !== row.expected_sha256 || candidateDigest !== row.expected_sha256) {
       const error = new Error(`candidate digest changed before publication: ${row.relative_path}`);
       error.code = 'HOOK_CANDIDATE_DIGEST_CHANGED';
@@ -941,5 +961,6 @@ module.exports = {
   computeHookDependencyGraph,
   formatProjectInstallStatus,
   inspectProjectInstall,
+  normalizedSourceDigest,
   renderManifestDependencies,
 };

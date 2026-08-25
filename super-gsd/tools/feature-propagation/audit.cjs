@@ -14,6 +14,7 @@
 //   --repair-safe install/refresh global SGSD agents, project config, substrate
 //                 witness source/hooks/key, brokered capability, and derived grants
 //   --repair      repair-safe plus backup project-local agent shadows
+//   --write-source-pins regenerate normalized repo-overlay source digests
 //   --self-test   deterministic assertions
 //
 // The tool never deletes project-local agent files. Full repair moves shadowing
@@ -319,6 +320,14 @@ function sha256(p) {
   }
 }
 
+function normalizedSourceSha256(p) {
+  try {
+    return hookInstallContract.normalizedSourceDigest(fs.readFileSync(p));
+  } catch (_e) {
+    return null;
+  }
+}
+
 function sha256Bytes(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
@@ -351,6 +360,80 @@ function atomicJson(filePath, value) {
   const temporary = filePath + '.tmp';
   fs.writeFileSync(temporary, serialized, 'utf8');
   fs.renameSync(temporary, filePath);
+}
+
+function sourcePinSourcePath(entry, sourceRoot) {
+  const configuredPaths = new Set();
+  for (const hook of entry.hooks || []) {
+    if (hook && Array.isArray(hook.args) && typeof hook.args[0] === 'string') {
+      configuredPaths.add(hook.args[0]);
+    }
+  }
+  if (configuredPaths.size !== 1) {
+    throw new Error('source-pinned hook must declare exactly one source path');
+  }
+  const configuredPath = [...configuredPaths][0].replace(/\\/g, '/');
+  const prefix = 'super-gsd/';
+  if (!configuredPath.startsWith(prefix)) {
+    throw new Error('source-pinned hook path must begin with super-gsd/: ' + configuredPath);
+  }
+  const sourcePath = path.resolve(sourceRoot, ...configuredPath.slice(prefix.length).split('/'));
+  const relative = path.relative(sourceRoot, sourcePath);
+  if (relative === '..' || path.isAbsolute(relative) || relative.startsWith('..' + path.sep)) {
+    throw new Error('source-pinned hook path escapes SGSD root: ' + configuredPath);
+  }
+  if (!exists(sourcePath) || !fs.statSync(sourcePath).isFile()) {
+    throw new Error('source-pinned hook source is missing: ' + sourcePath);
+  }
+  return sourcePath;
+}
+
+function writeSourcePins(options = {}) {
+  const overlayPath = path.resolve(options.overlayPath || REPO_HOOK_OVERLAY);
+  const sourceRoot = path.resolve(options.sgsdRoot || sgsdRoot());
+  const original = fs.readFileSync(overlayPath, 'utf8');
+  const overlay = JSON.parse(original);
+  const rows = [];
+  for (const [event, entries] of Object.entries(overlay.hooks || {})) {
+    if (!Array.isArray(entries)) continue;
+    for (const entry of entries) {
+      if (!entry || !Object.prototype.hasOwnProperty.call(entry, 'sgsd_source_sha256')) continue;
+      const sourcePath = sourcePinSourcePath(entry, sourceRoot);
+      const next = normalizedSourceSha256(sourcePath);
+      if (!next) throw new Error('could not digest source-pinned hook: ' + sourcePath);
+      rows.push({
+        event,
+        hook_id: entry.sgsd_hook_id || 'unidentified',
+        source_path: sourcePath,
+        old_sha256: entry.sgsd_source_sha256,
+        sha256: next,
+      });
+      entry.sgsd_source_sha256 = next;
+    }
+  }
+  if (!rows.length) throw new Error('repo settings overlay contains no source pins');
+
+  let index = 0;
+  const rendered = original.replace(
+    /("sgsd_source_sha256"\s*:\s*")([^"]*)(")/g,
+    (match, prefix, oldDigest, suffix) => {
+      const row = rows[index];
+      if (!row || oldDigest !== String(row.old_sha256)) {
+        throw new Error('source pin order does not match parsed repo settings overlay');
+      }
+      index += 1;
+      return prefix + row.sha256 + suffix;
+    },
+  );
+  if (index !== rows.length) {
+    throw new Error('not every parsed source pin was rewritten');
+  }
+  if (rendered !== original) {
+    const temporary = overlayPath + '.tmp';
+    fs.writeFileSync(temporary, rendered, 'utf8');
+    fs.renameSync(temporary, overlayPath);
+  }
+  return rows;
 }
 
 function readMcpDocument(filePath) {
@@ -475,13 +558,15 @@ function auditClaudeSubstrateWitness(ctx) {
   }
   const installedSource = path.join(ctx.projectDir, witnessStore.HOOK_RELATIVE_PATH);
   const canonicalSource = path.join(ctx.sgsdRoot, witnessStore.HOOK_RELATIVE_PATH.replace(/^super-gsd[\\/]/, ''));
-  if (!samePath(installedSource, canonicalSource)
-      && (!exists(canonicalSource) || sha256(installedSource) !== sha256(canonicalSource))) {
+  if (!samePath(installedSource, canonicalSource) && (
+    !exists(canonicalSource)
+      || normalizedSourceSha256(installedSource) !== normalizedSourceSha256(canonicalSource)
+  )) {
     reason = 'source_drift';
     ready = false;
   }
   if (!readiness.ready && /stale$/.test(reason || '')) {
-    const sourceDigest = sha256(installedSource);
+    const sourceDigest = normalizedSourceSha256(installedSource);
     const managed = [];
     for (const event of ['PreToolUse', 'PostToolUse']) {
       for (const entry of ((settings && settings.hooks && settings.hooks[event]) || [])) {
@@ -519,8 +604,8 @@ function validateUpstreamManifest(ctx, manifest, options = {}) {
   const manifestPath = witnessStore.resolveWitnessPaths(ctx.projectDir, process.env).upstream_manifest_path;
   if (!manifest || manifest.schema_version !== witnessStore.UPSTREAM_MANIFEST_SCHEMA_VERSION
       || manifest.project_digest !== witnessStore.resolveWitnessPaths(ctx.projectDir, process.env).project_digest
-      || manifest.broker_sha256 !== sha256(brokerPath)
-      || manifest.witness_source_sha256 !== sha256(hookPath)
+      || manifest.broker_sha256 !== normalizedSourceSha256(brokerPath)
+      || manifest.witness_source_sha256 !== normalizedSourceSha256(hookPath)
       || typeof manifest.active_scope !== 'string' || !manifest.servers
       || typeof manifest.servers !== 'object' || Array.isArray(manifest.servers)) {
     return 'upstream_drift';
@@ -854,8 +939,8 @@ function repairClaudeSubstrateCapability(ctx, actions, options = {}) {
       active_scope: '',
       servers: {},
     };
-  manifest.broker_sha256 = sha256(expected.args[0]);
-  manifest.witness_source_sha256 = sha256(path.join(ctx.projectDir, witnessStore.HOOK_RELATIVE_PATH));
+  manifest.broker_sha256 = normalizedSourceSha256(expected.args[0]);
+  manifest.witness_source_sha256 = normalizedSourceSha256(path.join(ctx.projectDir, witnessStore.HOOK_RELATIVE_PATH));
   for (const scope of supported) {
     const definition = scopeDefinition(scope);
     manifest.servers[scope.id] = {
@@ -1777,6 +1862,20 @@ function main(argv) {
     process.exit(out.ok ? 0 : 1);
     return;
   }
+  if (args.indexOf('--write-source-pins') !== -1) {
+    const rows = writeSourcePins({
+      overlayPath: argValue(args, '--source-pin-overlay') || undefined,
+      sgsdRoot: argValue(args, '--sgsd-root') || undefined,
+    });
+    for (const row of rows) {
+      process.stdout.write(
+        'source_pin ' + row.hook_id + ' ' + row.old_sha256 + ' -> ' + row.sha256
+          + ' source=' + row.source_path + '\n',
+      );
+    }
+    process.exit(0);
+    return;
+  }
   const projectDir = argValue(args, '--project-dir');
   if (args.indexOf('--check-substrate-capability') !== -1) {
     const ctx = mkContext(projectDir);
@@ -1853,5 +1952,6 @@ module.exports = {
     canonicalAgentText,
     mcpScopeDocuments,
     profilePaths,
+    writeSourcePins,
   },
 };

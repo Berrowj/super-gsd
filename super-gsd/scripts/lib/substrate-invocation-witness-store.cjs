@@ -19,6 +19,11 @@ function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
+function normalizedSourceBytes(value) {
+  // Canonical source digests normalize CRLF to LF only.
+  return Buffer.from(value.toString('utf8').replace(/\r\n/g, '\n'), 'utf8');
+}
+
 function hmac(key, value) {
   return crypto.createHmac('sha256', key).update(value).digest('hex');
 }
@@ -231,7 +236,7 @@ function inspectWitnessReadiness(projectRoot, env = process.env) {
 
   let digest;
   try {
-    digest = sha256(fs.readFileSync(sourcePath));
+    digest = sha256(normalizedSourceBytes(fs.readFileSync(sourcePath)));
   } catch (_) {
     return unavailableReadiness(resolvedRoot, 'source_unreadable');
   }

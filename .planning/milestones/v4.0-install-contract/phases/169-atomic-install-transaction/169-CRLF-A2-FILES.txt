@@ -1,0 +1,1 @@
+super-gsd/scripts/lib/substrate-invocation-witness-store.cjs

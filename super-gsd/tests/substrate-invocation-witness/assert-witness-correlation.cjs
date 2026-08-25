@@ -85,7 +85,7 @@ function createProject(name, env) {
   mkdir(path.join(project, 'super-gsd'));
   installRuntimeSources(project);
   const installedHook = installHookSource(project);
-  const sourceDigest = sha256(fs.readFileSync(installedHook));
+  const sourceDigest = sha256(fs.readFileSync(installedHook, 'utf8').replace(/\r\n/g, '\n'));
   const settings = {
     hooks: {
       PreToolUse: [hookRegistration('PreToolUse', PRE_HOOK_ID, project, sourceDigest)],

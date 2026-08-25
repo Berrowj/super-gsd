@@ -1,0 +1,1 @@
+super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs

@@ -1,0 +1,4 @@
+super-gsd/tools/feature-propagation/audit.cjs
+super-gsd/scripts/lib/hook-install-contract.cjs
+super-gsd/config/repo-settings-overlay.json
+super-gsd/config/hook-manifest.json

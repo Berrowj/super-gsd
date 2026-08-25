@@ -38,7 +38,7 @@ function sha256(value) {
 }
 
 function sourceDigest(filePath) {
-  return sha256(fs.readFileSync(filePath));
+  return sha256(fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n'));
 }
 
 function mkdir(directory) {

@@ -1,0 +1,2 @@
+super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs
+super-gsd/tests/substrate-invocation-witness/assert-witness-correlation.cjs

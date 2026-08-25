@@ -1,0 +1,2 @@
+super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs
+super-gsd/tools/feature-propagation/audit.cjs
