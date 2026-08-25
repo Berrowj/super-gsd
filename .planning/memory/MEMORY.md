@@ -13,6 +13,8 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 
 - [codex-executor auth-denied false positive](errors/codex-executor-auth-denied-false-positive.md) — greps stderr for "auth"; kills healthy dispatches half-applied (2026-08-25)
 
+- [Digest pins from platform-variant bytes](errors/digest-pins-from-platform-variant-bytes.md) — CRLF working-tree pin fails every LF checkout; canonicalize both sides, regenerate via generator (2026-08-26)
+
 ## architecture/anti-patterns
 
 - [Anti-Pattern - Premature Loop Stopping](architecture/anti-patterns/anti-patterns-premature-stopping.md)
