@@ -204,3 +204,65 @@ The manifest work stands, but the phase's primary deliverable is now module deli
 3. The smoke must execute every installed hook in the target project, which is what would
    have caught this at install time rather than at first fire.
 4. The staleness command must compare the project's module tree, not only its hooks.
+
+## The failing require chain, traced exactly 2026-08-25
+
+A Linux install at /opt/clarity/project-clarity-erp produced the definitive trace.
+The project's `super-gsd/scripts/lib/` was missing ~55 files present in
+`~/.claude/scripts/lib/`, one-sided absence only, nothing on the project side ahead.
+
+    smokeRepoHookOverlay (audit.cjs)
+      spawns <canonical>/super-gsd/scripts/lib/hook-registration-preflight.cjs
+             --smoke-repo-overlay <overlay> <projectDir>, cwd = projectDir
+        which executes <projectDir>/super-gsd/hooks/sgsd-session-start.js
+          which does require('../scripts/lib/sgsd-state.cjs')     [hook line 13]
+            resolving to <projectDir>/super-gsd/scripts/lib/sgsd-state.cjs
+              ABSENT -> loader:1479 MODULE_NOT_FOUND
+                -> hook exits non-zero
+                  -> smoke throws -> witness_repair_failed -> install exit 5
+
+Note what is NOT broken: `audit.cjs:37`'s own
+`require('../../scripts/lib/hook-registration-preflight.cjs')` resolves against
+audit.cjs's own directory in the canonical clone, which is complete. The preflight module
+therefore does not need to reach project trees. Only the modules the DISTRIBUTED HOOKS
+import do.
+
+This is the same defect as the `UserPromptSubmit` `loader:1479` failure seen in live
+sessions. One cause, two symptoms.
+
+## Requirement added: stop laundering the real error
+
+The operator saw four generic reason codes,
+`pretooluse_missing, direct_grant, upstream_missing, witness_repair_failed`,
+where the truth was one unresolvable module path. The real exception existed and was
+flattened into a closed vocabulary before it reached the operator.
+
+This is the same failure mode as P167's `safeFailureReason`, which admitted only
+`/^[a-z0-9_:.-]+$/i` and masked real exceptions behind `harness_internal_error`. It cost
+several rounds there and it cost a full diagnosis cycle here.
+
+P168 must surface the underlying error alongside the reason code. A refusal that cannot
+name the file it could not resolve is not a diagnosis.
+
+Related memory: [[blind-agent-root-cause-is-a-hypothesis]].
+
+## Scope correction
+
+Do not blanket-copy `scripts/lib`. Deliver the transitive closure of what the
+distributed hooks require, derived mechanically from the hook sources so it cannot go
+stale, plus the composer and witness store that the witness hook resolves from the
+project root at runtime. Known direct requires today:
+
+    sgsd-session-start.js      sgsd-state.cjs, gate-evidence-log.cjs
+    sgsd-intent-classifier.cjs sgsd-state.cjs, gate-evidence-log.cjs,
+                               skill-routing-registry.cjs,
+                               tools/vtp-readiness/registry.cjs,
+                               demand-baseline-ledger.cjs
+    sgsd-commit-gate.cjs       sgsd-state.cjs, sgsd-artifact-conventions.cjs,
+                               commit-gate-shadow-log.cjs, commit-gate-shadow-report.cjs
+    sgsd-quality-gate.js       sgsd-state.cjs, gate-evidence-log.cjs,
+                               and the sgsd-intent-classifier.cjs hook itself
+    witness hook               composer + witness store, resolved at runtime
+
+The closure must be computed, not transcribed; this list is evidence of the shape, not
+the deliverable.
