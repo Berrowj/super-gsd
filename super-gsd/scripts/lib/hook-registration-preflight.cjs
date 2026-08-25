@@ -47,8 +47,30 @@ function boundedLine(value, maxBytes = 2048) {
   return bytes.subarray(0, maxBytes).toString('utf8').replace(/\uFFFD$/u, '');
 }
 
+function boundedText(value, maxBytes) {
+  const bytes = Buffer.from(String(value || ''), 'utf8');
+  if (bytes.length <= maxBytes) return bytes.toString('utf8');
+  return bytes.subarray(0, maxBytes).toString('utf8').replace(/\uFFFD$/u, '');
+}
+
+function sanitizedBoundedLine(value, maxBytes = 2048) {
+  let inRequireStack = false;
+  const kept = [];
+  for (const line of String(value || '').replace(/\r\n?/g, '\n').split('\n')) {
+    if (/^\s*Require stack:\s*$/i.test(line)) {
+      inRequireStack = true;
+      continue;
+    }
+    if (inRequireStack && /^\s*-\s+/.test(line)) continue;
+    inRequireStack = false;
+    if (/^\s*at\s+/.test(line)) continue;
+    kept.push(line);
+  }
+  return boundedLine(kept.join('\n'), maxBytes);
+}
+
 function moduleFailureDetail(output, options = {}) {
-  const message = boundedLine(output);
+  const message = sanitizedBoundedLine(output);
   if (!/MODULE_NOT_FOUND|Cannot find module/.test(message)) return {
     code: 'HOOK_PROCESS_FAILED',
     request: null,
@@ -68,13 +90,15 @@ function moduleFailureDetail(output, options = {}) {
     code: 'MODULE_NOT_FOUND',
     request,
     path: resolvedPath,
-    message: boundedLine(request ? `Cannot find module '${request}'` : 'module resolution failed'),
+    message,
   };
 }
 
 function isCleanPolicyDecision(output) {
-  return /^\[[a-z0-9_.:-]+\]\s+(?:[a-z0-9_.:-]+\s+)*(?:blocked|denied|refused):\s+\S.*$/i
-    .test(boundedLine(output));
+  const decision = String(output || '').replace(/\r\n?/g, '\n').trim();
+  if (!decision || decision.includes('\n')) return false;
+  return /^\[[a-z0-9_.:-]+\]\s+(?:[a-z0-9_.:-]+\s+)*(?:blocked|denied|refused):\s+\S[^\r\n]*$/i
+    .test(decision);
 }
 
 function launchInvalid(event, hookId, scriptPath, detail) {
@@ -195,6 +219,30 @@ function enumerateHookRegistrations(overlay) {
 function pathIsInside(root, candidate) {
   const relative = path.relative(root, candidate);
   return relative === '' || (relative && !relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+function resolvedPathKey(value) {
+  const resolved = path.resolve(value);
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+function readPreparedCandidateDeliveryPaths(descriptorPath) {
+  const resolvedDescriptorPath = path.resolve(String(descriptorPath || ''));
+  const descriptor = JSON.parse(fs.readFileSync(resolvedDescriptorPath, 'utf8'));
+  if (!descriptor || descriptor.schema_version !== 1
+      || path.resolve(descriptor.candidate_root || '') !== path.dirname(resolvedDescriptorPath)
+      || !Array.isArray(descriptor.rows)) {
+    throw new Error('invalid sealed install candidate descriptor');
+  }
+  const deliveryPaths = new Set();
+  for (const row of descriptor.rows) {
+    if (!row || typeof row.publication_path !== 'string'
+        || !path.isAbsolute(row.publication_path)) {
+      throw new Error('invalid sealed install candidate delivery row');
+    }
+    deliveryPaths.add(resolvedPathKey(row.publication_path));
+  }
+  return deliveryPaths;
 }
 
 function parseHookSmokeManifest(source, hooksRoot) {
@@ -504,6 +552,11 @@ function preflightProjectManagedRegistrations(projectSettings, globalSettings, a
     globalSettings || {},
     projectDescriptors,
   );
+  const candidateDeliveryPaths = new Set(
+    adapters.candidateDeliveryPaths instanceof Set
+      ? [...adapters.candidateDeliveryPaths].map((item) => resolvedPathKey(item))
+      : [],
+  );
   const refusals = [];
   const warnings = [];
   const warnedDescriptors = [];
@@ -514,6 +567,10 @@ function preflightProjectManagedRegistrations(projectSettings, globalSettings, a
     } catch (error) {
       if (!(error instanceof HookRegistrationPreflightError)) throw error;
       for (const issue of error.issues) {
+        if (issue.code === 'hook_registration_missing'
+            && candidateDeliveryPaths.has(resolvedPathKey(issue.scriptPath))) {
+          continue;
+        }
         const coverage = issue.code === 'hook_registration_missing'
           ? findLiveGlobalCoverage(descriptor, globalDescriptors, adapters)
           : null;
@@ -587,7 +644,7 @@ function spawnSmokeHook(descriptor, options) {
     const finish = (passed, launchError = null, status = null, signal = null) => {
       if (settled) return;
       settled = true;
-      resolve({ passed, output: boundedLine(output), launchError, status, signal });
+      resolve({ passed, output: boundedText(output, 8192), launchError, status, signal });
     };
     try {
       child = spawnProcess(
@@ -705,14 +762,21 @@ async function smokeHookRegistrations(descriptors, adapters = {}) {
 
 async function smokeCli(argv) {
   const mode = argv[0];
-  if (mode === PREFLIGHT_PROJECT_SETTINGS_MODE && argv.length === 3) {
+  if (mode === PREFLIGHT_PROJECT_SETTINGS_MODE && (argv.length === 3 || argv.length === 4)) {
     const projectSettings = fs.existsSync(argv[1])
       ? JSON.parse(fs.readFileSync(argv[1], 'utf8'))
       : {};
     const globalSettings = fs.existsSync(argv[2])
       ? JSON.parse(fs.readFileSync(argv[2], 'utf8'))
       : {};
-    const result = preflightProjectManagedRegistrations(projectSettings, globalSettings);
+    const candidateDeliveryPaths = argv.length === 4
+      ? readPreparedCandidateDeliveryPaths(argv[3])
+      : new Set();
+    const result = preflightProjectManagedRegistrations(
+      projectSettings,
+      globalSettings,
+      { candidateDeliveryPaths },
+    );
     for (const warning of result.warnings) {
       const location = warning.event + '/' + warning.hookId;
       process.stderr.write(
@@ -738,7 +802,7 @@ async function smokeCli(argv) {
     process.stderr.write(
       'Usage: hook-registration-preflight.cjs --smoke-manifest <installed-hooks-root> <source-hooks-root>\n'
       + '       hook-registration-preflight.cjs --smoke-repo-overlay <overlay.json> <repo-root> [warned-descriptors-json]\n'
-      + '       hook-registration-preflight.cjs --preflight-project-settings <project-settings.json> <global-settings.json>\n',
+      + '       hook-registration-preflight.cjs --preflight-project-settings <project-settings.json> <global-settings.json> [prepared-candidate.json]\n',
     );
     return 64;
   }
@@ -781,6 +845,7 @@ module.exports = {
   preflightHookDescriptors,
   preflightHookRegistrations,
   preflightProjectManagedRegistrations,
+  readPreparedCandidateDeliveryPaths,
   realizeRepoLocalHookOverlay,
   smokeHookRegistrations,
 };

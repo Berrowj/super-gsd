@@ -414,7 +414,7 @@ doctor() {
   [ -d "$HOOKS_DIR" ] && log "Global hooks dir: present ($HOOKS_DIR)" || log "Global hooks dir: missing"
 }
 
-ensure_gsd_base() {
+precheck_gsd_base() {
   if [ "$DRY_RUN" = true ]; then
     if command -v node >/dev/null 2>&1; then
       log "DRY RUN: Node.js available ($(node -v))"
@@ -424,6 +424,9 @@ ensure_gsd_base() {
   else
     require_node_22
   fi
+}
+
+ensure_gsd_base() {
   if [ ! -d "$GSD_DIR" ]; then
     echo ""
     if [ "$DRY_RUN" = true ]; then
@@ -476,8 +479,35 @@ process.stdin.on("end", () => {
   [ -z "$repair_output" ] || printf '%s\n' "$repair_output" | sed 's/^/  /'
 }
 
+precheck_global_installation() {
+  precheck_gsd_base
+  if [[ "$DRY_RUN" == true ]] && ! command -v node >/dev/null 2>&1; then
+    return 0
+  fi
+  local overlay_file="$SCRIPT_DIR/config/settings-overlay.json"
+  local merge_script="$SCRIPT_DIR/scripts/merge-settings.js"
+  local preflight_script="$SCRIPT_DIR/scripts/lib/hook-registration-preflight.cjs"
+  local settings_file="$CLAUDE_DIR/settings.json"
+
+  if [[ -f "$overlay_file" && -f "$merge_script" ]]; then
+    if [[ ! -f "$preflight_script" ]]; then
+      echo "ERROR: hook smoke helper missing: $preflight_script" >&2
+      return 1
+    fi
+    node --check "$merge_script"
+    node --check "$preflight_script"
+    node - "$overlay_file" "$settings_file" <<'NODE'
+const fs = require('fs');
+for (const filePath of process.argv.slice(2)) {
+  if (!fs.existsSync(filePath)) continue;
+  const source = fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '');
+  if (source.trim()) JSON.parse(source);
+}
+NODE
+  fi
+}
+
 install_global_assets() {
-  precheck_installation_refusals
   ensure_gsd_base
   local -a global_executable_targets=()
 
@@ -634,9 +664,6 @@ install_global_assets() {
     log "  WARNING: $OVERLAY_FILE missing - skipping merge"
   elif [ ! -f "$MERGE_SCRIPT" ]; then
     log "  WARNING: $MERGE_SCRIPT missing - skipping merge"
-  elif [ ! -f "$PREFLIGHT_SCRIPT" ]; then
-    echo "ERROR: hook smoke helper missing: $PREFLIGHT_SCRIPT" >&2
-    exit 1
   elif [ "$DRY_RUN" = true ]; then
     log "  DRY RUN: complete candidate already smoked every distributed hook"
     log "  DRY RUN: would merge $OVERLAY_FILE into $SETTINGS_FILE"
@@ -818,21 +845,35 @@ preflight_existing_repo_local_hooks() {
   log "Preflighting existing managed repo-local hooks before distribution..."
   node "$EXISTING_PREFLIGHT_SCRIPT" \
     --preflight-project-settings "$EXISTING_SETTINGS_FILE" "$GLOBAL_SETTINGS_FILE" \
-    >/dev/null
+    "$INSTALL_CANDIDATE_DESCRIPTOR" >/dev/null
+}
+
+precheck_codex_hook_registration() {
+  local installer="$SCRIPT_DIR/tools/codex-hooks/install-hooks.cjs"
+  if [[ ! -f "$installer" ]]; then
+    echo "ERROR: Codex hook installer missing: $installer" >&2
+    return 1
+  fi
+  if ! command -v node >/dev/null 2>&1; then
+    echo "ERROR: Node.js is required to install project Codex hooks" >&2
+    return 1
+  fi
+  node --check "$installer"
+  node - "$installer" "$PROJECT_DIR" <<'NODE'
+const path = require('path');
+const installer = require(path.resolve(process.argv[2]));
+const report = installer.inspectProject({ projectDir: process.argv[3] });
+if (report.status === 'template-error' || report.status === 'malformed') {
+  process.stderr.write('ERROR: ' + report.error + '\n');
+  process.exit(1);
+}
+NODE
 }
 
 register_codex_hooks() {
   echo ""
   log "Registering project-local Codex hooks..."
   CODEX_HOOK_INSTALLER="$SCRIPT_DIR/tools/codex-hooks/install-hooks.cjs"
-  if [ ! -f "$CODEX_HOOK_INSTALLER" ]; then
-    echo "ERROR: Codex hook installer missing: $CODEX_HOOK_INSTALLER" >&2
-    exit 1
-  fi
-  if ! command -v node >/dev/null 2>&1; then
-    echo "ERROR: Node.js is required to install project Codex hooks" >&2
-    exit 1
-  fi
   if [ "$DRY_RUN" = true ]; then
     log "DRY RUN: would safely merge SGSD registrations into $PROJECT_DIR/.codex/hooks.json"
   else
@@ -906,7 +947,6 @@ EOF
 }
 
 init_local_project() {
-  precheck_installation_refusals
   echo ""
   log "Initializing project-local SGSD files only..."
   if [ "$DRY_RUN" = true ]; then
@@ -1014,9 +1054,6 @@ update_existing() {
     log "  Run: bash super-gsd/install.sh --init-project"
     return 0
   fi
-
-  precheck_installation_refusals
-  preflight_existing_repo_local_hooks || return $?
 
   # 1. npm install — picks up new dependencies in package.json
   if [ -f "$PROJECT_DIR/package.json" ] && command -v npm >/dev/null 2>&1; then
@@ -1192,10 +1229,21 @@ if [ "$SAW_ACTION" = false ]; then
   RUN_DOCTOR=true
 fi
 
-if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ] \
-    || { [ "$INSTALL_GLOBAL" = true ] && [ -d "$PROJECT_DIR/.planning" ]; }; then
+if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ] || [ "$INSTALL_GLOBAL" = true ]; then
   precheck_installation_refusals
-  publish_project_install_contract
+  if [ "$INSTALL_GLOBAL" = true ]; then
+    precheck_global_installation
+  fi
+  if [ "$UPDATE_MODE" = true ]; then
+    preflight_existing_repo_local_hooks
+  fi
+  if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ]; then
+    precheck_codex_hook_registration
+  fi
+  if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ] \
+      || { [ "$INSTALL_GLOBAL" = true ] && [ -d "$PROJECT_DIR/.planning" ]; }; then
+    publish_project_install_contract
+  fi
 fi
 
 print_banner
