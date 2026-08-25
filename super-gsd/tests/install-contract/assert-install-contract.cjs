@@ -62,6 +62,21 @@ function run(command, args, options = {}) {
   });
 }
 
+function resolveExecutable(command) {
+  if (path.isAbsolute(command)) return command;
+  const extensions = process.platform === 'win32'
+    ? ['', ...(process.env.PATHEXT || '.EXE;.CMD;.BAT;.COM').split(';')]
+    : [''];
+  for (const directory of (process.env.PATH || '').split(path.delimiter)) {
+    if (!directory) continue;
+    for (const extension of extensions) {
+      const candidate = path.join(directory, command + extension);
+      if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return candidate;
+    }
+  }
+  throw new Error(`executable not found on PATH: ${command}`);
+}
+
 function assertSpawn(result, context) {
   if (result.error) throw result.error;
   assert.equal(result.status, 0, `${context}\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
@@ -528,6 +543,31 @@ async function doctorRealGitWorktreeStaleness() {
 
     const env = isolatedEnv(home);
     const bash = process.env.SGSD_TEST_BASH || 'bash';
+    const bashExecutable = resolveExecutable(bash);
+    const noNodeBin = path.join(root, 'PATH without Node');
+    const dirnameShim = path.join(noNodeBin, 'dirname');
+    write(dirnameShim, `#!/bin/bash
+value="\${1//\\\\//}"
+case "$value" in
+  */*) value="\${value%/*}"; [ -n "$value" ] || value=/ ;;
+  *) value=. ;;
+esac
+printf '%s\\n' "$value"
+`);
+    fs.chmodSync(dirnameShim, 0o755);
+    const noNodeEnv = { ...env, PATH: noNodeBin };
+    const nodeProbe = run(bashExecutable, ['-c', 'command -v node'], { env: noNodeEnv });
+    assert.equal(nodeProbe.status, 1, 'Node remained available in the status-2 fixture');
+    const unableBefore = inventory(root);
+    const unableDoctor = run(bashExecutable, [
+      INSTALL_PATH, '--project-dir', worktree, '--doctor',
+    ], { cwd: decoy, env: noNodeEnv });
+    if (unableDoctor.error) throw unableDoctor.error;
+    assert.equal(unableDoctor.status, 2,
+      'Node-unavailable doctor exit mismatch\nstdout:\n' + unableDoctor.stdout
+      + '\nstderr:\n' + unableDoctor.stderr);
+    assert.match(unableDoctor.stdout, /Node\.js: missing/);
+    assert.deepEqual(inventory(root), unableBefore, 'Node-unavailable doctor changed fixture bytes');
     const sourceRevision = gitRun(['rev-parse', 'HEAD'], path.dirname(SUPER_GSD_ROOT));
     const normalHead = gitRun(['rev-parse', 'HEAD'], repository);
     const normalBefore = inventory(root);
@@ -579,7 +619,7 @@ async function doctorRealGitWorktreeStaleness() {
       INSTALL_PATH, '--doctor', '--update', '--project-dir', worktree,
     ], { cwd: decoy, env });
     if (conflictingDoctor.error) throw conflictingDoctor.error;
-    assert.notEqual(conflictingDoctor.status, 0, 'doctor/update usage conflict was accepted');
+    assert.equal(conflictingDoctor.status, 1, 'doctor/update usage conflict exit mismatch');
     assert.deepEqual(inventory(root), conflictBefore, 'doctor/update conflict changed fixture bytes');
 
     const primaryBeforeUpdate = inventory(repository);

@@ -36,6 +36,8 @@ normalize_windows_home
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STARTING_CWD="$(pwd)"
 PROJECT_DIR="$STARTING_CWD"
+PROJECT_DIR_INPUT="$STARTING_CWD"
+PROJECT_DIR_EXPLICIT=false
 CLAUDE_DIR="$HOME/.claude"
 GSD_DIR="$CLAUDE_DIR/get-shit-done"
 HOOKS_DIR="$CLAUDE_DIR/hooks"
@@ -1213,12 +1215,14 @@ while [ "$#" -gt 0 ]; do
         echo "ERROR: --project-dir requires a path" >&2
         exit 1
       fi
-      PROJECT_DIR="$(node -e 'process.stdout.write(require("path").resolve(process.argv[1]))' "$2")"
+      PROJECT_DIR_INPUT="$2"
+      PROJECT_DIR_EXPLICIT=true
       shift 2
       continue
       ;;
     --project-dir=*)
-      PROJECT_DIR="$(node -e 'process.stdout.write(require("path").resolve(process.argv[1]))' "${arg#*=}")"
+      PROJECT_DIR_INPUT="${arg#*=}"
+      PROJECT_DIR_EXPLICIT=true
       ;;
     --with-brv)
       echo "ERROR: --with-brv is no longer supported. Current SGSD uses .planning/memory; run sgsd-memory-migrate for legacy BRV projects."
@@ -1257,6 +1261,19 @@ fi
 
 if [ "$SAW_ACTION" = false ]; then
   RUN_DOCTOR=true
+fi
+
+if [ "$PROJECT_DIR_EXPLICIT" = true ]; then
+  if command -v node >/dev/null 2>&1; then
+    PROJECT_DIR="$(node -e 'process.stdout.write(require("path").resolve(process.argv[1]))' "$PROJECT_DIR_INPUT")"
+  elif [ "$RUN_DOCTOR" = true ]; then
+    # Doctor owns the status-2 inability result. Preserve the explicit argument
+    # so parsing cannot escape through set -e before doctor reports it.
+    PROJECT_DIR="$PROJECT_DIR_INPUT"
+  else
+    echo "ERROR: Node.js not found. Install Node.js >= 22 first." >&2
+    exit 1
+  fi
 fi
 
 if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ] || [ "$INSTALL_GLOBAL" = true ]; then
