@@ -1,0 +1,5 @@
+super-gsd/install.sh
+super-gsd/tools/feature-propagation/audit.cjs
+super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs
+super-gsd/scripts/lib/hook-install-contract.cjs
+super-gsd/tests/install-contract/assert-install-contract.cjs
