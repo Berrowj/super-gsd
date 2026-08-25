@@ -132,3 +132,75 @@ installer bug:
 
 Design P168 around cause 3, fix cause 2 as part of it, and treat cause 1 as an operator
 decision recorded in this file, not as work this phase performs.
+
+## Root cause, measured 2026-08-25 from a real Linux install
+
+The earlier framing in this file, that the manifest fails to declare module
+dependencies, understated the problem. The measured cause is that **no install path
+delivers a project's module tree at all.**
+
+Evidence from `install.sh`:
+
+- `install.sh:615` `copy_tree_files "$SCRIPT_DIR/scripts/lib" "$CLAUDE_DIR/scripts/lib"`.
+  `$CLAUDE_DIR` is `~/.claude`. Global only.
+- `init_local_project` copies `.planning/config.json`, `CLAUDE.md`, the memory tree, and
+  calls `distribute_project_hooks`. It does not copy `scripts/lib` or `tools`.
+- `update_existing` runs npm install, syncs the registry, calls
+  `distribute_project_hooks`. It does not copy `scripts/lib` or `tools`.
+
+So hooks reach every project on every update while the modules they `require` never do.
+A project-local hook importing `../scripts/lib/x.cjs` resolves against the project's own
+tree, which the installer never writes.
+
+Measured against `project-clarity-erp`:
+
+    substrate-invocation-witness-store.cjs   missing entirely       (P167)
+    vtp-context-composer.cjs                 DIFFERS from canonical (P166)
+    vtp-enrichment-gate.cjs                  DIFFERS from canonical (P166)
+    sgsd-state.cjs                           identical
+    gate-evidence-log.cjs                    identical
+    skill-routing-registry.cjs               identical
+
+Most files match and exactly the last two milestones' changes are absent. Something
+populated those trees historically; it is not the installer, and it did not carry P166 or
+P167.
+
+## The live failure this produced
+
+A Linux `sgsd-update` exited 5. Canonical clone fast-forwarded clean to
+8b95403 and the global install succeeded: 20 agents, 25 commands, 17 hooks, 61 scripts
+into `~/.claude`. The project-local half then refused:
+
+    hook_smoke_failed ... [SessionStart/session-start-governance]
+    witness_status: missing_or_stale, capability_status: missing_or_stale
+    reasons: pretooluse_missing, direct_grant, upstream_missing, witness_repair_failed
+    ERROR: substrate enforcement was not current; refusing grant-bearing agent installation
+
+`pretooluse_missing` exists nowhere in current source, confirmed by
+`git grep -n "pretooluse_missing" -- super-gsd` returning nothing at the published sha.
+It is a P167-era code removed during the phase, so the emitting file on that machine is
+old. That is the fingerprint of the frozen module tree.
+
+The gate itself behaved correctly: it refused to grant capability while enforcement was
+not current. The defect is that it cannot bootstrap, because the module that would make
+enforcement current is one the installer never delivers.
+
+## Fixed already, do not re-plan
+
+`repairClaudeSubstrateWitness` mutated before the check that can fail:
+`installSubstrateRuntime`, `provisionWitnessKey` and `removeGlobalWitnessRegistrations`
+all ran before `smokeRepoHookOverlay`, which throws. A refused repair therefore left a
+key and copied files behind. Closed at commit b2a1435 by moving the smoke first, with a
+guard case that snapshots the fixture by sha256 and asserts byte-identity and an empty
+actions array after a refused repair.
+
+## Revised scope for this phase
+
+The manifest work stands, but the phase's primary deliverable is now module delivery:
+
+1. Project installs must place and refresh the modules their hooks require, derived
+   mechanically from the source so the list cannot go stale.
+2. A refused or partial install must be recoverable and must never report success.
+3. The smoke must execute every installed hook in the target project, which is what would
+   have caught this at install time rather than at first fire.
+4. The staleness command must compare the project's module tree, not only its hooks.
