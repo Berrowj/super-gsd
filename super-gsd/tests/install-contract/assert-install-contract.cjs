@@ -409,8 +409,19 @@ async function unresolvedModuleRefusesBeforeWrite() {
     const projectDir = path.join(root, 'target project');
     const home = path.join(root, 'isolated home');
     const decoy = path.join(root, 'decoy cwd');
+    const npmSentinel = path.join(projectDir, 'npm-preinstall-ran');
     write(path.join(projectDir, '.planning', 'config.json'), '{\n}\n');
     write(path.join(projectDir, 'operator.txt'), 'project sentinel\n');
+    write(path.join(projectDir, 'package.json'), JSON.stringify({
+      name: 'sgsd-refusal-fixture',
+      version: '1.0.0',
+      private: true,
+      scripts: {
+        preinstall: 'node -e ' + JSON.stringify(
+          `require('fs').writeFileSync('npm-preinstall-ran', 'ran')`,
+        ),
+      },
+    }, null, 2) + '\n');
     write(path.join(home, '.claude', 'settings.json'), '{\n}\n');
     fs.mkdirSync(decoy, { recursive: true });
     const projectBefore = inventory(projectDir);
@@ -425,6 +436,12 @@ async function unresolvedModuleRefusesBeforeWrite() {
     assert.match(output, /hook_smoke_failed/);
     assert.match(output, /MODULE_NOT_FOUND/);
     assert.match(output, /generated-missing-refusal\.cjs/);
+    assert.equal(fs.existsSync(npmSentinel), false, 'refused install ran npm preinstall');
+    const refusalRecord = output.split(/\r?\n/).flatMap((line) => {
+      try { return [JSON.parse(line)]; } catch (_) { return []; }
+    }).find((row) => row && row.reason === 'hook_smoke_failed');
+    assert.ok(refusalRecord, 'refusal output omitted its structured result');
+    assert.deepEqual(refusalRecord.actions, [], 'refused install recorded repair actions');
     assert.deepEqual(inventory(projectDir), projectBefore, 'refusal changed project bytes');
     assert.deepEqual(inventory(home), homeBefore, 'refusal changed profile bytes');
   } finally {

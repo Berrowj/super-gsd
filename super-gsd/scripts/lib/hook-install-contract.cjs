@@ -930,6 +930,7 @@ if (require.main === module) {
       ok: false,
       reason: closedReason,
       underlying_error: underlying,
+      actions: [],
     }) + '\n');
     process.exitCode = 2;
   });
@@ -937,10 +938,8 @@ if (require.main === module) {
 
 module.exports = {
   applyProjectInstall,
-  applyPreparedProjectInstall,
   computeHookDependencyGraph,
   formatProjectInstallStatus,
   inspectProjectInstall,
-  prepareProjectInstall,
   renderManifestDependencies,
 };

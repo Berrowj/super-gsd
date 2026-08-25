@@ -1,0 +1,2 @@
+super-gsd/tests/install-contract/assert-install-contract.cjs
+super-gsd/scripts/lib/hook-install-contract.cjs
