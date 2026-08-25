@@ -1602,25 +1602,111 @@ function assertInstallerSmokeOrder(installer) {
     'installer retained deferred Codex refusal state across the mutating repair boundary',
   );
   assert.doesNotMatch(installer, /register_repo_local_hooks/, 'installer retained a second repo settings merge path');
-  for (const functionName of ['init_local_project()', 'update_existing()']) {
-    const functionStart = installer.indexOf(functionName);
-    const distributionCall = installer.indexOf('  distribute_project_hooks', functionStart);
-    const repairCall = installer.indexOf('  repair_substrate_capability', functionStart);
-    const codexCall = installer.indexOf('  register_codex_hooks', functionStart);
-    // P168 replacement reason: the old post-distribution rejection assertion is
-    // invalid once distribution consumes a pre-smoked sealed candidate. The
-    // stronger assertion forbids any rejection-capable precheck after it.
-    assert.ok(
-      functionStart >= 0 && functionStart < distributionCall
-        && distributionCall < repairCall && repairCall < codexCall,
-      `${functionName} does not preserve sealed publication before repair and registration`,
-    );
-    assert.equal(
-      installer.slice(distributionCall, repairCall).includes('precheck_substrate_capability'),
-      false,
-      `${functionName} performs a rejection-capable substrate precheck after publication`,
+  const rejectionCapableFunctions = Object.freeze([
+    'require_node_22',
+    'precheck_gsd_base',
+    'configured_codex_hook_entry_names',
+    'detect_codex_hook_entry_sources',
+    'refuse_missing_codex_hook_entry_sources',
+    'precheck_substrate_capability',
+    'precheck_installation_refusals',
+    'precheck_global_installation',
+    'preflight_existing_repo_local_hooks',
+    'precheck_codex_hook_registration',
+  ]);
+  const postPublicationWriters = Object.freeze([
+    'repair_substrate_capability',
+    'register_codex_hooks',
+  ]);
+  const mainAfterPublication = installer.slice(mainPublication);
+  for (const functionName of rejectionCapableFunctions) {
+    assert.match(installer, new RegExp(`^${functionName}\\(\\) \\{`, 'm'), `${functionName} is absent from the rejection inventory`);
+    assert.doesNotMatch(
+      mainAfterPublication,
+      new RegExp(`^[ \\t]+${functionName}(?:[ \\t]|$)`, 'm'),
+      `${functionName} can be called after the first destination write`,
     );
   }
+  const publicationFunction = installer.indexOf('publish_project_install_contract()');
+  const publicationFunctionEnd = installer.indexOf('\n}\n', publicationFunction);
+  const firstDestinationWrite = installer.indexOf('--apply-candidate', publicationFunction);
+  const publicationBody = installer.slice(publicationFunction, publicationFunctionEnd);
+  for (const functionName of rejectionCapableFunctions) {
+    const calls = [...publicationBody.matchAll(new RegExp(`^[ \\t]+${functionName}(?:[ \\t]|$)`, 'gm'))];
+    for (const call of calls) {
+      assert.ok(
+        publicationFunction + call.index < firstDestinationWrite,
+        `${functionName} can be called after sealed candidate publication starts`,
+      );
+    }
+  }
+  assert.match(
+    installer,
+    /precheck_args=\(--check-substrate-capability --project-dir \x22\$PROJECT_DIR\x22\)[\s\S]*?\[\[ \x22\$INSTALL_GLOBAL\x22 == true \]\] && precheck_args\+=\(--install-global\)[\s\S]*?\[\[ \x22\$INIT_LOCAL\x22 == true \]\] && precheck_args\+=\(--init-local\)[\s\S]*?\[\[ \x22\$UPDATE_MODE\x22 == true \]\] && precheck_args\+=\(--update\)/,
+    'substrate capability check does not mirror every later repair flag',
+  );
+  assert.match(
+    installer,
+    /if \[ \x22\$INIT_LOCAL\x22 = true \] \|\| \[ \x22\$UPDATE_MODE\x22 = true \] \\\r?\n      \|\| \{ \[ \x22\$INSTALL_GLOBAL\x22 = true \] && \[ -d \x22\$PROJECT_DIR\/\.planning\x22 \]; \}; then\r?\n    precheck_codex_hook_registration\r?\n  fi\r?\n  if \[ \x22\$INIT_LOCAL\x22 = true \] \|\| \[ \x22\$UPDATE_MODE\x22 = true \] \\\r?\n      \|\| \{ \[ \x22\$INSTALL_GLOBAL\x22 = true \] && \[ -d \x22\$PROJECT_DIR\/\.planning\x22 \]; \}; then\r?\n    publish_project_install_contract/,
+    'Codex registration check does not cover every publishing entry point',
+  );
+  for (const functionName of ['install_global_assets()', 'init_local_project()', 'update_existing()']) {
+    const functionStart = installer.indexOf(functionName);
+    const functionEnd = installer.indexOf('\n}\n', functionStart);
+    const functionBody = installer.slice(functionStart, functionEnd);
+    for (const rejectingName of rejectionCapableFunctions) {
+      assert.doesNotMatch(
+        functionBody,
+        new RegExp(`^[ \\t]+${rejectingName}(?:[ \\t]|$)`, 'm'),
+        `${functionName} calls rejection-capable ${rejectingName} after publication`,
+      );
+    }
+    if (functionName !== 'install_global_assets()') {
+      const publicationWriter = installer.indexOf('  distribute_project_hooks', functionStart);
+      const substrateWriter = installer.indexOf('  repair_substrate_capability', functionStart);
+      const codexWriter = installer.indexOf('  register_codex_hooks', functionStart);
+      assert.ok(
+        publicationWriter > functionStart && publicationWriter < substrateWriter && substrateWriter < codexWriter,
+        `${functionName} does not preserve publication before its non-refusing writers`,
+      );
+    }
+  }
+  for (const functionName of postPublicationWriters) {
+    assert.match(installer, new RegExp(`^${functionName}\\(\\) \\{`, 'm'), `${functionName} writer is absent`);
+  }
+  const auditSource = fs.readFileSync(path.join(SUPER_GSD_ROOT, 'tools', 'feature-propagation', 'audit.cjs'), 'utf8');
+  const auditRejectionCapableFunctions = Object.freeze([
+    'checkSubstrateHookRegistrations',
+    'checkClaudeSubstrateCapabilityRepair',
+  ]);
+  const runAuditStart = auditSource.indexOf('function runAudit(opts)');
+  const runAuditEnd = auditSource.indexOf('\nfunction ', runAuditStart + 1);
+  const auditRegistrationCheck = auditSource.indexOf(`${auditRejectionCapableFunctions[0]}(ctx`, runAuditStart);
+  const auditCapabilityCheck = auditSource.indexOf(`${auditRejectionCapableFunctions[1]}(ctx`, runAuditStart);
+  const auditPublication = auditSource.indexOf('publishProjectHookInstall(ctx, actions)', runAuditStart);
+  const auditCapabilityWrite = auditSource.indexOf('repairClaudeSubstrateCapability(ctx, actions', auditPublication);
+  assert.ok(
+    runAuditStart >= 0 && auditRegistrationCheck > runAuditStart
+      && auditCapabilityCheck > auditRegistrationCheck && auditCapabilityCheck < auditPublication
+      && auditCapabilityWrite > auditPublication,
+    'runAudit does not complete registration and capability checks before publication and write-only repair',
+  );
+  const runAuditBody = auditSource.slice(runAuditStart, runAuditEnd);
+  for (const functionName of auditRejectionCapableFunctions) {
+    const calls = [...runAuditBody.matchAll(new RegExp(`${functionName}\\(ctx`, 'g'))];
+    assert.ok(calls.length > 0, `${functionName} is absent from runAudit`);
+    for (const call of calls) {
+      assert.ok(
+        runAuditStart + call.index < auditPublication,
+        `${functionName} can be called after direct-repair publication`,
+      );
+    }
+  }
+  assert.match(
+    auditSource,
+    /function checkClaudeSubstrateCapabilityRepair\(ctx, options = \{\}\) \{[\s\S]*?repairClaudeSubstrateCapability\(ctx, \[\], \{ \.\.\.options, checkOnly: true \}\)/,
+    'capability check does not share the writer detection through its read-only branch',
+  );
   const repairPaths = [
     ['install_global_assets()', '  ensure_gsd_base'],
     ['init_local_project()', '  echo'],
@@ -1638,8 +1724,8 @@ function assertInstallerSmokeOrder(installer) {
       functionStart >= 0 && functionEnd > functionStart
         && firstWriter > functionStart && firstWriter < functionEnd
         && repairCall > firstWriter && repairCall < functionEnd
-        && !/precheck_installation_refusals|precheck_substrate_capability|precheck_global_installation|preflight_existing_repo_local_hooks|precheck_codex_hook_registration/.test(functionBody),
-      `${functionName} reintroduced a rejection-capable check after dispatcher preflight`,
+        && !rejectionCapableFunctions.some((name) => new RegExp(`^[ \\t]+${name}(?:[ \\t]|$)`, 'm').test(functionBody)),
+      `${functionName} reintroduced an enumerated rejection-capable call after dispatcher preflight`,
     );
   }
   assert.match(
@@ -1654,8 +1740,8 @@ function assertInstallerSmokeOrder(installer) {
   );
   assert.match(
     installer,
-    /if \[ \x22\$UPDATE_MODE\x22 = true \]; then\r?\n    preflight_existing_repo_local_hooks\r?\n  fi\r?\n  if \[ \x22\$INIT_LOCAL\x22 = true \] \|\| \[ \x22\$UPDATE_MODE\x22 = true \]; then\r?\n    precheck_codex_hook_registration/,
-    'update and Codex rejection checks are not both in the pre-publication dispatcher',
+    /if \[ \x22\$UPDATE_MODE\x22 = true \]; then\r?\n    preflight_existing_repo_local_hooks\r?\n  fi\r?\n  if \[ \x22\$INIT_LOCAL\x22 = true \] \|\| \[ \x22\$UPDATE_MODE\x22 = true \] \\\r?\n      \|\| \{ \[ \x22\$INSTALL_GLOBAL\x22 = true \] && \[ -d \x22\$PROJECT_DIR\/\.planning\x22 \]; \}; then\r?\n    precheck_codex_hook_registration/,
+    'update and all-entry Codex rejection checks are not both in the pre-publication dispatcher',
   );
   assert.match(
     installer,
@@ -1908,6 +1994,32 @@ async function runSmokeStatic() {
   const smokeHome = path.join(staticRoot, 'isolated home');
   fs.mkdirSync(smokeCwd, { recursive: true });
   fs.mkdirSync(smokeHome, { recursive: true });
+
+  const capabilityRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd capability check spaces '));
+  try {
+    const capabilityProject = path.join(capabilityRoot, 'target project');
+    fs.mkdirSync(path.join(capabilityProject, '.planning'), { recursive: true });
+    fs.writeFileSync(path.join(capabilityProject, '.mcp.json'), '{malformed', 'utf8');
+    const snapshot = () => relativeFiles(capabilityRoot).map((relative) => [
+      relative,
+      sha256(readBytes(path.join(capabilityRoot, relative))),
+    ]);
+    const before = snapshot();
+    const capabilityAudit = require(path.join(SUPER_GSD_ROOT, 'tools', 'feature-propagation', 'audit.cjs'));
+    const result = capabilityAudit.runAudit({
+      projectDir: capabilityProject,
+      repairSubstrateCapability: true,
+      repairProjectHooks: true,
+    });
+    assert.ok(
+      result.claude_substrate_capability.reasons.includes('broker_repair_failed'),
+      'malformed capability state was not refused by the read-only check',
+    );
+    assert.deepEqual(result.repaired.actions, [], 'capability refusal recorded a write action');
+    assert.deepEqual(snapshot(), before, 'capability refusal changed destination bytes');
+  } finally {
+    fs.rmSync(capabilityRoot, { recursive: true, force: true });
+  }
 
   const globalDescriptors = parseHookSmokeManifest(readGlobalDeploymentManifest(), hooksRoot);
   assert.equal(globalDescriptors.length, GLOBAL_SCRIPT_NAMES.length + 1, 'global manifest must contain 14 registered hooks plus one auxiliary');

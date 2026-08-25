@@ -796,6 +796,7 @@ precheck_substrate_capability() {
     precheck_output="ERROR: Node.js is required to check the substrate witness capability"
   else
     local -a precheck_args=(--check-substrate-capability --project-dir "$PROJECT_DIR")
+    [[ "$INSTALL_GLOBAL" == true ]] && precheck_args+=(--install-global)
     [[ "$INIT_LOCAL" == true ]] && precheck_args+=(--init-local)
     [[ "$UPDATE_MODE" == true ]] && precheck_args+=(--update)
     if ! precheck_output="$(node "$audit_script" "${precheck_args[@]}" 2>&1)"; then
@@ -1284,7 +1285,8 @@ if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ] || [ "$INSTALL_GLOBAL" 
   if [ "$UPDATE_MODE" = true ]; then
     preflight_existing_repo_local_hooks
   fi
-  if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ]; then
+  if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ] \
+      || { [ "$INSTALL_GLOBAL" = true ] && [ -d "$PROJECT_DIR/.planning" ]; }; then
     precheck_codex_hook_registration
   fi
   if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ] \

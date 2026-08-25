@@ -53,6 +53,14 @@ const HOOK_INSTALL_CONTRACT = path.resolve(
 const BROKER_RELATIVE_PATH = path.join('super-gsd', 'tools', 'substrate-capability-broker.cjs');
 const P167_MARKER = '<sgsd_vtp_substrate_witness_p167>';
 const P167_END_MARKER = '</sgsd_vtp_substrate_witness_p167>';
+const SUBSTRATE_CAPABILITY_HARD_REASONS = new Set([
+  'witness_repair_failed',
+  'broker_repair_failed',
+  'direct_grant',
+  'broker_drift',
+  'upstream_drift',
+  'grant_with_witness_unready',
+]);
 
 const SCHEMA_VERSION = 1;
 const CODEX_MODEL = 'gpt-5.6-sol';
@@ -782,6 +790,7 @@ function repairClaudeSubstrateWitness(ctx, actions, options = {}) {
 }
 
 function repairClaudeSubstrateCapability(ctx, actions, options = {}) {
+  const checkOnly = options.checkOnly === true;
   const scopes = mcpScopeDocuments(ctx).filter((scope) => (
     options.allowGlobalRepair || (scope.id !== 'user' && scope.id !== 'local')
   ));
@@ -811,6 +820,7 @@ function repairClaudeSubstrateCapability(ctx, actions, options = {}) {
     }
   }
   function saveDocumentsOrFail() {
+    if (checkOnly) return true;
     try {
       saveChangedScopeDocuments(scopes, beforeByPath);
       return true;
@@ -878,17 +888,19 @@ function repairClaudeSubstrateCapability(ctx, actions, options = {}) {
     if (validateUpstreamManifest(ctx, manifest, { skipFilesystem: true }) !== 'unsupported_upstream_transport') {
       return { ok: false, reasons: ['upstream_drift'] };
     }
-    try {
-      if (process.platform !== 'win32' && exists(paths.upstream_manifest_path)) {
-        fs.chmodSync(paths.upstream_manifest_path, 0o600);
+    if (!checkOnly) {
+      try {
+        if (process.platform !== 'win32' && exists(paths.upstream_manifest_path)) {
+          fs.chmodSync(paths.upstream_manifest_path, 0o600);
+        }
+        atomicPrivateJson(paths.upstream_manifest_path, manifest);
+      } catch (_) {
+        return { ok: false, reasons: ['broker_repair_failed'] };
       }
-      atomicPrivateJson(paths.upstream_manifest_path, manifest);
-    } catch (_) {
-      return { ok: false, reasons: ['broker_repair_failed'] };
     }
     for (const scope of discovered) setScopeDefinition(scope, undefined);
     if (!saveDocumentsOrFail()) return { ok: false, reasons: ['broker_repair_failed'] };
-    if (discovered.length) {
+    if (!checkOnly && discovered.length) {
       actions.push({ action: 'withdraw_unsupported_substrate_grant', scopes: discovered.map((scope) => scope.id) });
     }
     return { ok: false, reasons: ['unsupported_upstream_transport'] };
@@ -906,25 +918,35 @@ function repairClaudeSubstrateCapability(ctx, actions, options = {}) {
     return { ok: false, reasons: [manifestReason] };
   }
 
-  try {
-    if (process.platform !== 'win32' && exists(paths.upstream_manifest_path)) {
-      fs.chmodSync(paths.upstream_manifest_path, 0o600);
+  if (!checkOnly) {
+    try {
+      if (process.platform !== 'win32' && exists(paths.upstream_manifest_path)) {
+        fs.chmodSync(paths.upstream_manifest_path, 0o600);
+      }
+      atomicPrivateJson(paths.upstream_manifest_path, manifest);
+      for (const scope of scopes) {
+        if (scopeDefinition(scope) !== undefined) setScopeDefinition(scope, expected);
+      }
+      if (!scopes.some((scope) => scopeDefinition(scope) !== undefined)) {
+        const projectScope = scopes.find((scope) => scope.id === 'project');
+        setScopeDefinition(projectScope, expected);
+      }
+      saveChangedScopeDocuments(scopes, beforeByPath);
+    } catch (_) {
+      restoreOriginalDocuments();
+      return { ok: false, reasons: ['broker_repair_failed'] };
     }
-    atomicPrivateJson(paths.upstream_manifest_path, manifest);
-    for (const scope of scopes) {
-      if (scopeDefinition(scope) !== undefined) setScopeDefinition(scope, expected);
-    }
-    if (!scopes.some((scope) => scopeDefinition(scope) !== undefined)) {
-      const projectScope = scopes.find((scope) => scope.id === 'project');
-      setScopeDefinition(projectScope, expected);
-    }
-    saveChangedScopeDocuments(scopes, beforeByPath);
-  } catch (_) {
-    restoreOriginalDocuments();
-    return { ok: false, reasons: ['broker_repair_failed'] };
   }
-  actions.push({ action: 'broker_substrate_capability', scopes: scopes.filter((scope) => scopeDefinition(scope) !== undefined).map((scope) => scope.id) });
+  if (!checkOnly) actions.push({ action: 'broker_substrate_capability', scopes: scopes.filter((scope) => scopeDefinition(scope) !== undefined).map((scope) => scope.id) });
   return { ok: true, reasons: [] };
+}
+
+function checkClaudeSubstrateCapabilityRepair(ctx, options = {}) {
+  const result = repairClaudeSubstrateCapability(ctx, [], { ...options, checkOnly: true });
+  return {
+    ...result,
+    ok: result.ok || !(result.reasons || []).some((reason) => SUBSTRATE_CAPABILITY_HARD_REASONS.has(reason)),
+  };
 }
 
 function setFrontmatterTool(source, tool, granted) {
@@ -1446,12 +1468,16 @@ function runAudit(opts) {
   const safeRepair = repairMode || (opts && opts.repairSafe === true);
   const substrateRepair = opts && opts.repairSubstrateCapability === true;
   const requestedCapabilityRepair = safeRepair || substrateRepair;
+  const allowGlobalRepair = safeRepair || (opts && opts.allowGlobalRepair === true);
   let registrationCheck = requestedCapabilityRepair
     ? checkSubstrateHookRegistrations(ctx, {
       repairProjectHooks: opts && opts.repairProjectHooks === true,
     })
     : { ok: true, reasons: [], detail: null };
-  if (requestedCapabilityRepair && registrationCheck.ok
+  const capabilityCheck = requestedCapabilityRepair && registrationCheck.ok
+    ? checkClaudeSubstrateCapabilityRepair(ctx, { allowGlobalRepair })
+    : { ok: registrationCheck.ok, reasons: registrationCheck.reasons || [] };
+  if (requestedCapabilityRepair && registrationCheck.ok && capabilityCheck.ok
       && (safeRepair || opts.repairProjectHooks === true)) {
     const publication = publishProjectHookInstall(ctx, actions);
     if (!publication.ok) registrationCheck = {
@@ -1461,9 +1487,8 @@ function runAudit(opts) {
       underlying_error: publication.underlying_error,
     };
   }
-  const repairCapability = requestedCapabilityRepair && registrationCheck.ok;
-  const allowGlobalRepair = safeRepair || (opts && opts.allowGlobalRepair === true);
-  const repairGlobalAgents = registrationCheck.ok
+  const repairCapability = requestedCapabilityRepair && registrationCheck.ok && capabilityCheck.ok;
+  const repairGlobalAgents = repairCapability
     && (safeRepair || (substrateRepair && allowGlobalRepair));
 
   let repairedGlobalAgents = [];
@@ -1478,7 +1503,7 @@ function runAudit(opts) {
     reasons: ['witness_repair_failed'],
     detail: registrationCheck.detail,
   };
-  let capabilityRepair = { ok: true, reasons: [] };
+  let capabilityRepair = capabilityCheck.ok ? { ok: true, reasons: [] } : capabilityCheck;
   let claudeSubstrateWitness = auditClaudeSubstrateWitness(ctx);
   if (repairCapability) {
     witnessRepair = repairClaudeSubstrateWitness(ctx, actions, {
@@ -1754,9 +1779,15 @@ function main(argv) {
   }
   const projectDir = argValue(args, '--project-dir');
   if (args.indexOf('--check-substrate-capability') !== -1) {
-    const result = checkSubstrateHookRegistrations(mkContext(projectDir), {
+    const ctx = mkContext(projectDir);
+    const registrationCheck = checkSubstrateHookRegistrations(ctx, {
       repairProjectHooks: args.indexOf('--init-local') !== -1 || args.indexOf('--update') !== -1,
     });
+    const result = registrationCheck.ok
+      ? checkClaudeSubstrateCapabilityRepair(ctx, {
+        allowGlobalRepair: args.indexOf('--install-global') !== -1,
+      })
+      : registrationCheck;
     if (!result.ok && result.detail) process.stdout.write(result.detail + '\n');
     process.exit(result.ok ? 0 : 2);
     return;
@@ -1768,16 +1799,8 @@ function main(argv) {
       allowGlobalRepair: args.indexOf('--install-global') !== -1,
       repairProjectHooks: args.indexOf('--init-local') !== -1 || args.indexOf('--update') !== -1,
     });
-    const hardReasons = new Set([
-      'witness_repair_failed',
-      'broker_repair_failed',
-      'direct_grant',
-      'broker_drift',
-      'upstream_drift',
-      'grant_with_witness_unready',
-    ]);
     const refused = !snap.claude_substrate_witness.ready
-      || snap.claude_substrate_capability.reasons.some((reason) => hardReasons.has(reason));
+      || snap.claude_substrate_capability.reasons.some((reason) => SUBSTRATE_CAPABILITY_HARD_REASONS.has(reason));
     process.stdout.write(JSON.stringify({
       ok: !refused,
       witness_status: snap.claude_substrate_witness.status,
