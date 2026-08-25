@@ -192,20 +192,20 @@ The skill itself tells you which.
 
 Instructions say WHAT, not HOW. "Add X" or "Fix Y" doesn't mean skip workflows.
 
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -4400,20 +4400,20 @@ exec
 421:
 422:</decision_gate>
 423:
-424:<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+424:<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 425:command because it was defined in a different language mode. To invoke this command without importing its contents, 
 426:omit the '.' operator.
 427:At line:1 char:1
-428:+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
+428:+ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 429:+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 430:    + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
 431:    + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
 432: 
-433:<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+433:<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 434:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 435:importing its contents, omit the '.' operator.
 436:At line:1 char:1
-437:+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
+437:+ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 438:+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 439:    + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
 440:    + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -4569,20 +4569,20 @@ exec
 590:super-gsd/tools/feature-propagation/audit.cjs:1631:  runAudit,
 591:super-gsd/tools/feature-propagation/audit.cjs:1644:    repairClaudeSubstrateWitness,
 592:super-gsd/tools/feature-propagation/audit.cjs:1645:    repairClaudeSubstrateCapability,
-593:<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+593:<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 594:command because it was defined in a different language mode. To invoke this command without importing its contents, 
 595:omit the '.' operator.
 596:At line:1 char:1
-597:+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
+597:+ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 598:+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 599:    + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
 600:    + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
 601: 
-602:<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+602:<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 603:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 604:importing its contents, omit the '.' operator.
 605:At line:1 char:1
-606:+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
+606:+ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 607:+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 608:    + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
 609:    + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -4598,20 +4598,20 @@ exec
 619:<HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tools\feature-pro...
 620:
 621:
-622:<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+622:<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 623:command because it was defined in a different language mode. To invoke this command without importing its contents, 
 624:omit the '.' operator.
 625:At line:1 char:1
-626:+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
+626:+ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 627:+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 628:    + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
 629:    + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
 630: 
-631:<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+631:<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 632:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 633:importing its contents, omit the '.' operator.
 634:At line:1 char:1
-635:+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
+635:+ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 636:+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 637:    + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
 638:    + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -6795,7 +6795,7 @@ exec
 2816:  906: }
 2817:  907: 
 2818:  908: function profilePaths() {
-2819:  909:   const docs = path.join(homeDir(), 'OneDrive - John Cullen Lighting', 'Documents', 'WindowsPowerShell');
+2819:  909:   const docs = path.join(homeDir(), 'OneDrive - <ORG>', 'Documents', 'WindowsPowerShell');
 2820:  910:   const localDocs = path.join(homeDir(), 'Documents', 'WindowsPowerShell');
 2821:  911:   return Array.from(new Set([
 2822:  912:     path.join(docs, 'profile.ps1'),
@@ -9775,20 +9775,20 @@ exec
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:418:**Wait for user response before taking any action.**
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:420:This gate is MANDATORY. Never skip it. Never auto-implement fixes.
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:422:</decision_gate>
-.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:424:<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:424:<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:425:command because it was defined in a different language mode. To invoke this command without importing its contents, 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:426:omit the '.' operator.
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:427:At line:1 char:1
-.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:428:+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
+.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:428:+ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:429:+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:430:    + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:431:    + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:432: 
-.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:433:<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:433:<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:434:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:435:importing its contents, omit the '.' operator.
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:436:At line:1 char:1
-.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:437:+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
+.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:437:+ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:438:+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:439:    + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:440:    + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -9943,20 +9943,20 @@ exec
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:590:super-gsd/tools/feature-propagation/audit.cjs:1631:  runAudit,
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:591:super-gsd/tools/feature-propagation/audit.cjs:1644:    repairClaudeSubstrateWitness,
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:592:super-gsd/tools/feature-propagation/audit.cjs:1645:    repairClaudeSubstrateCapability,
-.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:593:<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:593:<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:594:command because it was defined in a different language mode. To invoke this command without importing its contents, 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:595:omit the '.' operator.
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:596:At line:1 char:1
-.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:597:+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
+.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:597:+ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:598:+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:599:    + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:600:    + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:601: 
-.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:602:<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:602:<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:603:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:604:importing its contents, omit the '.' operator.
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:605:At line:1 char:1
-.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:606:+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
+.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:606:+ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:607:+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:608:    + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:609:    + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -9968,20 +9968,20 @@ exec
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:617:--------                                                                                                               
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:618:<HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\install.sh          
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:619:<HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\tools\feature-pro...
-.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:622:<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:622:<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:623:command because it was defined in a different language mode. To invoke this command without importing its contents, 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:624:omit the '.' operator.
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:625:At line:1 char:1
-.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:626:+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
+.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:626:+ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:627:+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:628:    + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:629:    + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:630: 
-.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:631:<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:631:<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:632:Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:633:importing its contents, omit the '.' operator.
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:634:At line:1 char:1
-.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:635:+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
+.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:635:+ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:636:+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:637:    + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:638:    + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -12062,7 +12062,7 @@ exec
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:2816:  906: }
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:2817:  907: 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:2818:  908: function profilePaths() {
-.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:2819:  909:   const docs = path.join(homeDir(), 'OneDrive - John Cullen Lighting', 'Documents', 'WindowsPowerShell');
+.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:2819:  909:   const docs = path.join(homeDir(), 'OneDrive - <ORG>', 'Documents', 'WindowsPowerShell');
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:2820:  910:   const localDocs = path.join(homeDir(), 'Documents', 'WindowsPowerShell');
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:2821:  911:   return Array.from(new Set([
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:2822:  912:     path.join(docs, 'profile.ps1'),
@@ -22393,25 +22393,25 @@ p167_untracked_rows=1964
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-FIX-REGRESS-REPORT.md:11: trailing whitespace.
 +BLOCKERS: none  
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:424: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:425: trailing whitespace.
 +command because it was defined in a different language mode. To invoke this command without importing its contents, 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:432: trailing whitespace.
 + 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:433: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:434: trailing whitespace.
 +Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:441: trailing whitespace.
 + 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:593: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:594: trailing whitespace.
 +command because it was defined in a different language mode. To invoke this command without importing its contents, 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:601: trailing whitespace.
 + 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:602: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:603: trailing whitespace.
 +Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:610: trailing whitespace.
@@ -22423,13 +22423,13 @@ p167_untracked_rows=1964
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:618: trailing whitespace.
 +<HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\install.sh          
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:622: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:623: trailing whitespace.
 +command because it was defined in a different language mode. To invoke this command without importing its contents, 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:630: trailing whitespace.
 + 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:631: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:632: trailing whitespace.
 +Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:639: trailing whitespace.
@@ -22778,25 +22778,25 @@ p167_untracked_rows=1964
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-FIX-REGRESS-REPORT.md:11: trailing whitespace.
 +BLOCKERS: none  
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:424: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:425: trailing whitespace.
 +command because it was defined in a different language mode. To invoke this command without importing its contents, 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:432: trailing whitespace.
 + 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:433: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:434: trailing whitespace.
 +Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:441: trailing whitespace.
 + 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:593: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:594: trailing whitespace.
 +command because it was defined in a different language mode. To invoke this command without importing its contents, 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:601: trailing whitespace.
 + 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:602: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:603: trailing whitespace.
 +Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:610: trailing whitespace.
@@ -22808,13 +22808,13 @@ p167_untracked_rows=1964
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:618: trailing whitespace.
 +<HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback\super-gsd\install.sh          
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:622: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:623: trailing whitespace.
 +command because it was defined in a different language mode. To invoke this command without importing its contents, 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:630: trailing whitespace.
 + 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:631: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:632: trailing whitespace.
 +Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-GUARDFIX-REVIEW.md:639: trailing whitespace.
@@ -24123,37 +24123,37 @@ p167_untracked_rows=1964
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-T5-FULL-DIFF.patch:1660: trailing whitespace.
 + 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:248: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:249: trailing whitespace.
 +command because it was defined in a different language mode. To invoke this command without importing its contents, 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:256: trailing whitespace.
 + 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:257: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:258: trailing whitespace.
 +Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:265: trailing whitespace.
 + 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:332: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:333: trailing whitespace.
 +command because it was defined in a different language mode. To invoke this command without importing its contents, 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:340: trailing whitespace.
 + 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:341: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:342: trailing whitespace.
 +Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:349: trailing whitespace.
 + 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:564: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:565: trailing whitespace.
 +command because it was defined in a different language mode. To invoke this command without importing its contents, 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:572: trailing whitespace.
 + 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:573: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:574: trailing whitespace.
 +Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:581: trailing whitespace.
@@ -24161,13 +24161,13 @@ p167_untracked_rows=1964
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:588: trailing whitespace.
 + 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:702: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:703: trailing whitespace.
 +command because it was defined in a different language mode. To invoke this command without importing its contents, 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:710: trailing whitespace.
 + 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:711: trailing whitespace.
-+<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
++<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:712: trailing whitespace.
 +Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/VERIFICATION.md:719: trailing whitespace.

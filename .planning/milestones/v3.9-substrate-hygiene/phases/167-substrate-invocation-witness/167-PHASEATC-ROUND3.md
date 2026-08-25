@@ -36,7 +36,7 @@ ATC VERDICT: PASS
 --- codex stderr ---
 OpenAI Codex v0.146.0
 --------
-workdir: C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+workdir: <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 model: gpt-5.6-sol
 provider: openai
 approval: never
@@ -154,7 +154,7 @@ Bound yourself to ~15 shell commands and emit the verdict line even if incomplet
 codex
 I’m applying the `using-superpowers` and `review` skills because this is a read-only, phase-wide change review. I’ll stay within the ~15-command budget, use the supplied test results, and focus on the locked contract and the Round 2 critical.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw 'C:\\Users\\jack.berrow\\.codex\\skills\\using-superpowers\\SKILL.md'; Get-Content -Raw 'C:\\Users\\jack.berrow\\.agents\\skills\\review\\SKILL.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw 'C:\\Users\\operator\\.codex\\skills\\using-superpowers\\SKILL.md'; Get-Content -Raw 'C:\\Users\\operator\\.agents\\skills\\review\\SKILL.md'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 852ms:
 ---
 name: using-superpowers
@@ -489,27 +489,27 @@ This gate is MANDATORY. Never skip it. Never auto-implement fixes.
 
 </decision_gate>
 
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
  
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command 'git status --short --branch; git log --oneline --decorate 2be8f85..HEAD; git diff --stat 2be8f85..HEAD; git diff --name-status 2be8f85..HEAD' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command 'git status --short --branch; git log --oneline --decorate 2be8f85..HEAD; git diff --stat 2be8f85..HEAD; git diff --name-status 2be8f85..HEAD' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 2026-08-25T02:47:34.715244Z ERROR codex_core::tools::router: error=Exit code: 124
 Wall time: 10.1 seconds
 Output:
@@ -544,20 +544,20 @@ f939314 docs(167-01): T1 gate evidence, spec 7/7 with its warning fixed, ATC PAS
 54d387a docs(167-01): plan rev 3, operator ruling on bounded scope recorded
 43c889e docs(167-01): plan review round 2 NOGO, deletion closed but same-user bypass remains
 ab6a240 docs(167-01): plan rev 2 after NOGO, capability broker withdraws the tool when the guard is gone
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -594,27 +594,27 @@ f939314 docs(167-01): T1 gate evidence, spec 7/7 with its warning fixed, ATC PAS
 54d387a docs(167-01): plan rev 3, operator ruling on bounded scope recorded
 43c889e docs(167-01): plan review round 2 NOGO, deletion closed but same-user bypass remains
 ab6a240 docs(167-01): plan rev 2 after NOGO, capability broker withdraws the tool when the guard is gone
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
  
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw '.planning\\STATE.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-01-PLAN-LOCKED.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw '.planning\\STATE.md'; Get-Content -Raw '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-01-PLAN-LOCKED.md'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 796ms:
 ---
 gsd_state_version: 1.0
@@ -2043,7 +2043,7 @@ eight-site inventory, the 16000 character cap, or `VTP_RESPONSE_MAX_BYTES`.
 
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p='"'.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-01-PLAN-LOCKED.md'; "'$c=Get-Content $p; "LINES=$($c.Count)"; for($i=0;$i -lt [Math]::Min(360,$c.Count);$i++){ '"'{0,4}: {1}' -f ("'$i+1),$c[$i] }' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$p='"'.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-01-PLAN-LOCKED.md'; "'$c=Get-Content $p; "LINES=$($c.Count)"; for($i=0;$i -lt [Math]::Min(360,$c.Count);$i++){ '"'{0,4}: {1}' -f ("'$i+1),$c[$i] }' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 2026-08-25T02:47:52.466571Z ERROR codex_core::tools::router: error=Exit code: 1
 Wall time: 1.4 seconds
 Output:
@@ -2067,7 +2067,7 @@ At line:2 char:162
  
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-01-PLAN-LOCKED.md' | Select-Object -First 360" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-01-PLAN-LOCKED.md' | Select-Object -First 360" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1196ms:
 ---
 schema_version: 2
@@ -2431,7 +2431,7 @@ tasks:
       prompt record must not contain tool_use_id, witness_id, witness path,
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-01-PLAN-LOCKED.md' | Select-Object -Skip 360 -First 360" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-01-PLAN-LOCKED.md' | Select-Object -Skip 360 -First 360" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 2034ms:
       signature, nonce, or sequence. Reject such fields rather than ignoring
       them, so a new self-reporting seam cannot form. Return only ok,
@@ -2795,7 +2795,7 @@ exec
       success, direct Bash/stdio call success, the two fixture invocation counts
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-01-PLAN-LOCKED.md' | Select-Object -Skip 720" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content '.planning\\milestones\\v3.9-substrate-hygiene\\phases\\167-substrate-invocation-witness\\167-01-PLAN-LOCKED.md' | Select-Object -Skip 720" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 714ms:
       and log digest, witness-store before/after digests and matching-row count,
       redacted commands, and source/configuration digests. Record commands with
@@ -3083,7 +3083,7 @@ eight-site inventory, the 16000 character cap, or `VTP_RESPONSE_MAX_BYTES`.
 codex
 The locked contract is clear: PostToolUse must replace every targeted failure with a bounded failure object, PreToolUse must deny, and only authenticated `rewritten` rows may be atomically consumed. I’m now tracing the installer entry-point ordering and the exact-resolution caller set, then I’ll reconcile guard-assertion deltas and dead-code signals.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'git diff --stat 2be8f85..HEAD -- super-gsd; git diff --name-only 2be8f85..HEAD -- super-gsd; git show --stat --oneline 2c237ef; git show --format=fuller --find-renames --find-copies 2c237ef -- super-gsd/install.sh super-gsd/tools/feature-propagation/audit.cjs super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs super-gsd/tests/substrate-invocation-witness/assert-propagation.cjs' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'git diff --stat 2be8f85..HEAD -- super-gsd; git diff --name-only 2be8f85..HEAD -- super-gsd; git show --stat --oneline 2c237ef; git show --format=fuller --find-renames --find-copies 2c237ef -- super-gsd/install.sh super-gsd/tools/feature-propagation/audit.cjs super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs super-gsd/tests/substrate-invocation-witness/assert-propagation.cjs' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 2873ms:
  super-gsd/agents/sgsd-board-researcher.md          |   38 +-
  super-gsd/agents/sgsd-vtp-enrichment.md            |   45 +-
@@ -3444,7 +3444,7 @@ index 100c308..7f4dfc9 100644
        repairProjectHooks: args.indexOf('--init-local') !== -1 || args.indexOf('--update') !== -1,
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'rg -n "''^(install_global_assets|detect_codex_hook_entry_sources|refuse_missing_codex_hook_entry_sources|distribute_project_hooks|precheck_substrate_capability|precheck_installation_refusals|repair_substrate_capability|init_local_project|update_existing|main)'"\\(\\)|precheck_installation_refusals|repair_substrate_capability|install_global_assets|init_local_project|update_existing|--install-global|--update|--init-project|ensure_gsd_base|copy_files_to_root|preflight_existing_repo_local_hooks\" super-gsd/install.sh; Get-Content 'super-gsd/install.sh' | Select-Object -Skip 430 -First 390; Get-Content 'super-gsd/install.sh' | Select-Object -Skip 850 -First 330" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command 'rg -n "''^(install_global_assets|detect_codex_hook_entry_sources|refuse_missing_codex_hook_entry_sources|distribute_project_hooks|precheck_substrate_capability|precheck_installation_refusals|repair_substrate_capability|init_local_project|update_existing|main)'"\\(\\)|precheck_installation_refusals|repair_substrate_capability|install_global_assets|init_local_project|update_existing|--install-global|--update|--init-project|ensure_gsd_base|copy_files_to_root|preflight_existing_repo_local_hooks\" super-gsd/install.sh; Get-Content 'super-gsd/install.sh' | Select-Object -Skip 430 -First 390; Get-Content 'super-gsd/install.sh' | Select-Object -Skip 850 -First 330" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 972ms:
 111:  --init-project
 115:      project .codex/hooks.json registrations. --init-project
@@ -4225,7 +4225,7 @@ fi
 if [ "$INIT_LOCAL" = true ]; then
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n \"mkContext\\(|function (checkSubstrateHookRegistrations|repairSubstrateCapability|auditClaudeSubstrateWitness|auditClaudeSubstrateCapability|provisionWitnessKey|install|write|atomic)|checkSubstrateHookRegistrations\\(|repairSubstrateCapability\\(|fs\\.(write|append|rename|copy|mkdir|chmod|rm|unlink)|writeFile|copyFile|mkdirSync|renameSync|chmodSync|rmSync|unlinkSync\" super-gsd/tools/feature-propagation/audit.cjs; rg -n \"mkContext\\(\" super-gsd --glob '"'!tools/feature-propagation/audit.cjs'"'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n \"mkContext\\(|function (checkSubstrateHookRegistrations|repairSubstrateCapability|auditClaudeSubstrateWitness|auditClaudeSubstrateCapability|provisionWitnessKey|install|write|atomic)|checkSubstrateHookRegistrations\\(|repairSubstrateCapability\\(|fs\\.(write|append|rename|copy|mkdir|chmod|rm|unlink)|writeFile|copyFile|mkdirSync|renameSync|chmodSync|rmSync|unlinkSync\" super-gsd/tools/feature-propagation/audit.cjs; rg -n \"mkContext\\(\" super-gsd --glob '"'!tools/feature-propagation/audit.cjs'"'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 8232ms:
 280:  fs.mkdirSync(p, { recursive: true });
 297:function writeJson(p, obj) {
@@ -4267,7 +4267,7 @@ super-gsd\tools\feature-propagation\audit.cjs:1354:  const ctx = mkContext(opts 
 super-gsd\tools\feature-propagation\audit.cjs:1643:    const result = checkSubstrateHookRegistrations(mkContext(projectDir), {
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd/tools/feature-propagation/audit.cjs' | Select-Object -Skip 420 -First 470; Get-Content 'super-gsd/tools/feature-propagation/audit.cjs' | Select-Object -Skip 1325 -First 75; Get-Content 'super-gsd/tools/feature-propagation/audit.cjs' | Select-Object -Skip 1600 -First 80" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd/tools/feature-propagation/audit.cjs' | Select-Object -Skip 420 -First 470; Get-Content 'super-gsd/tools/feature-propagation/audit.cjs' | Select-Object -Skip 1325 -First 75; Get-Content 'super-gsd/tools/feature-propagation/audit.cjs' | Select-Object -Skip 1600 -First 80" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 876ms:
   }
   if (value === undefined) delete scope.owner.mcpServers['vtp-kb'];
@@ -4896,7 +4896,7 @@ function main(argv) {
   }
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$f=@('"'super-gsd/hooks/sgsd-substrate-invocation-witness.cjs','super-gsd/scripts/lib/substrate-invocation-witness-store.cjs'); 'PASSTHROUGH_OCCURRENCES=' + ((rg -i -o 'post_passthrough|pass[-_ ]?through|passthrough' "'$f 2>$null | Measure-Object -Line).Lines); rg -n "tool_response|updatedMCPToolOutput|rewrite_failed|permissionDecision|state|consume|rename|rewritten" $f; Get-Content -Raw '"'super-gsd/hooks/sgsd-substrate-invocation-witness.cjs'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command '$f=@('"'super-gsd/hooks/sgsd-substrate-invocation-witness.cjs','super-gsd/scripts/lib/substrate-invocation-witness-store.cjs'); 'PASSTHROUGH_OCCURRENCES=' + ((rg -i -o 'post_passthrough|pass[-_ ]?through|passthrough' "'$f 2>$null | Measure-Object -Line).Lines); rg -n "tool_response|updatedMCPToolOutput|rewrite_failed|permissionDecision|state|consume|rename|rewritten" $f; Get-Content -Raw '"'super-gsd/hooks/sgsd-substrate-invocation-witness.cjs'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 623ms:
 PASSTHROUGH_OCCURRENCES=0
 super-gsd/hooks/sgsd-substrate-invocation-witness.cjs:34:    permissionDecision: decision,
@@ -5264,7 +5264,7 @@ if (require.main === module) runCli(process.argv.slice(2));
 
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd/scripts/lib/substrate-invocation-witness-store.cjs' | Select-Object -Skip 350 -First 235; 'GUARD_ASSERT_LINES_ADDED=' + ((git diff --unified=0 2be8f85..HEAD -- super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs | Select-String '"'^'"\\+(?"'!'"\\+\\+).*assert\\.').Count); 'GUARD_ASSERT_LINES_REMOVED=' + ((git diff --unified=0 2be8f85..HEAD -- super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs | Select-String '"'^-(?!--).*assert'"\\.').Count); git diff --unified=1 2c237ef"'^..2c237ef -- super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs | Select-String -Context 1,3 '"'Codex entries are copied before the repo hook inventory'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content 'super-gsd/scripts/lib/substrate-invocation-witness-store.cjs' | Select-Object -Skip 350 -First 235; 'GUARD_ASSERT_LINES_ADDED=' + ((git diff --unified=0 2be8f85..HEAD -- super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs | Select-String '"'^'"\\+(?"'!'"\\+\\+).*assert\\.').Count); 'GUARD_ASSERT_LINES_REMOVED=' + ((git diff --unified=0 2be8f85..HEAD -- super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs | Select-String '"'^-(?!--).*assert'"\\.').Count); git diff --unified=1 2c237ef"'^..2c237ef -- super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs | Select-String -Context 1,3 '"'Codex entries are copied before the repo hook inventory'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1499ms:
   });
   if (process.platform !== 'win32') fs.chmodSync(paths.mirror_path, 0o600);
@@ -5519,7 +5519,7 @@ lacks its source inventory');
 
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n -i \"anti-slop|7[- ]step|seven steps|phase-level atc|ATC.*checklist\" super-gsd .planning --glob '*.md' --glob '*.cjs' --glob '*.json' | Select-Object -First 120; rg --files super-gsd | rg -i \"atc|review\" | Select-Object -First 80" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "rg -n -i \"anti-slop|7[- ]step|seven steps|phase-level atc|ATC.*checklist\" super-gsd .planning --glob '*.md' --glob '*.cjs' --glob '*.json' | Select-Object -First 120; rg --files super-gsd | rg -i \"atc|review\" | Select-Object -First 80" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 4023ms:
 super-gsd\CLAUDE-OVERLAY.md:10:  source-changing execution, per-dispatch ATC, phase-level ATC, MUDA, and other
 super-gsd\CLAUDE-OVERLAY.md:53:**Enforcement mechanism inside SGSD:** these four principles are mechanically enforced by the **ATC Gate (Step 6.5)** which runs the 10-point anti-slop checklist at phase completion, the **Nyquist validation** gate which enforces test-first success criteria, and the **Surgical constraint** injected into every `gsd-executor` prompt (Step 7). Violating any of them shows up in the agent's DEVIATIONS section and — for phase-level violations — can block phase closure.
@@ -5685,7 +5685,7 @@ super-gsd\tools\warp-mcp\fixtures\sgsd_artifact_links\_synthetic_planning_happy\
 super-gsd\tools\warp-mcp\fixtures\sgsd_gate_status\_synthetic_planning_happy\metrics\review-ledger.jsonl
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw 'super-gsd/workflows/atc-gate.md'; Get-Content 'super-gsd/install.sh' | Select-Object -First 210; Get-Content 'super-gsd/install.sh' | Select-Object -Skip 1165; rg -n \"runAudit\\(|checkSubstrateHookRegistrations\\(|precheck_installation_refusals|detect_codex_hook_entry_sources|consumeRewrittenWitness|transitionWitnessToRewritten|processHookPayload|substrate-capability-broker|substrate-invocation-witness-store\" super-gsd --glob '"'!tests/**'"' --glob '"'!docs/**'"' --glob '"'!workflows/**'"'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -Command "Get-Content -Raw 'super-gsd/workflows/atc-gate.md'; Get-Content 'super-gsd/install.sh' | Select-Object -First 210; Get-Content 'super-gsd/install.sh' | Select-Object -Skip 1165; rg -n \"runAudit\\(|checkSubstrateHookRegistrations\\(|precheck_installation_refusals|detect_codex_hook_entry_sources|consumeRewrittenWitness|transitionWitnessToRewritten|processHookPayload|substrate-capability-broker|substrate-invocation-witness-store\" super-gsd --glob '"'!tests/**'"' --glob '"'!docs/**'"' --glob '"'!workflows/**'"'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 984ms:
 # ATC Quality Gate ƒ?" Token-Aware Integration
 

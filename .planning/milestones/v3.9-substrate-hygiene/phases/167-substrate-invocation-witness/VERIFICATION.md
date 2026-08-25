@@ -245,20 +245,20 @@ The skill itself tells you which.
 
 Instructions say WHAT, not HOW. "Add X" or "Fix Y" doesn't mean skip workflows.
 
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -329,20 +329,20 @@ the user to use the App's native controls:
 The agent can still run tests, stage files, and output suggested branch
 names, commit messages, and PR descriptions for the user to copy.
 
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -561,20 +561,20 @@ exec
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\CONTEXT.md
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-VERIFIER-PROMPT.md
 .planning\milestones\v3.9-substrate-hygiene\phases\167-substrate-invocation-witness\167-T5-TYPE-COERCION-REPORT.md
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -699,20 +699,20 @@ CONTEXT.md                        3510
 167-REAL-MCP-HOOK-EVIDENCE.json  31996
 
 
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1

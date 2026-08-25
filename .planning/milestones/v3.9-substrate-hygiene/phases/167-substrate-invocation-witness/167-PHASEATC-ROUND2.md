@@ -443,20 +443,20 @@ This gate is MANDATORY. Never skip it. Never auto-implement fixes.
 
 </decision_gate>
 
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -503,20 +503,20 @@ f939314 docs(167-01): T1 gate evidence, spec 7/7 with its warning fixed, ATC PAS
 54d387a docs(167-01): plan rev 3, operator ruling on bounded scope recorded
 43c889e docs(167-01): plan review round 2 NOGO, deletion closed but same-user bypass remains
 ab6a240 docs(167-01): plan rev 2 after NOGO, capability broker withdraws the tool when the guard is gone
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -555,20 +555,20 @@ f939314 docs(167-01): T1 gate evidence, spec 7/7 with its warning fixed, ATC PAS
 54d387a docs(167-01): plan rev 3, operator ruling on bounded scope recorded
 43c889e docs(167-01): plan review round 2 NOGO, deletion closed but same-user bypass remains
 ab6a240 docs(167-01): plan rev 2 after NOGO, capability broker withdraws the tool when the guard is gone
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -889,20 +889,20 @@ super-gsd\docs\SGSD-WORKSPACE-GUIDE.md:644:- **ATC 7-step framework** — `super
 .planning\milestones\v3.5\phases\150-propagation-trust-runbook\150-REVIEW3.md:13:FINDINGS_DETAIL: [WARNING] [ROUND2-8 anti-slop/salvage] The tracked `.orig` files are removed, but branch-wide line-ending churn remains across `super-gsd/install.sh:1-889`, `super-gsd/scripts/lib/sgsd-readiness.ps1:1-279`, `super-gsd/scripts/sgsd-onboard.ps1:1-375`, and `super-gsd/tools/feature-propagation/audit.cjs:1-894`; the raw diff is 2,291 additions/2,168 deletions versus only 132 additions/9 deletions when end-of-line whitespace is ignored.
 .planning\milestones\v3.5\phases\150-propagation-trust-runbook\150-REVIEW4-PROMPT.md:22:FINDINGS_DETAIL: [WARNING] [ROUND2-8 anti-slop/salvage] The tracked `.orig` files are removed, but branch-wide line-ending churn remains across `super-gsd/install.sh:1-889`, `super-gsd/scripts/lib/sgsd-readiness.ps1:1-279`, `super-gsd/scripts/sgsd-onboard.ps1:1-375`, and `super-gsd/tools/feature-propagation/audit.cjs:1-894`; the raw diff is 2,291 additions/2,168 deletions versus only 132 additions/9 deletions when end-of-line whitespace is ignored.
 .planning\milestones\v3.5\phases\150-propagation-trust-runbook\150-REVIEW4.md:13:FINDINGS_DETAIL: [WARNING] [ROUND2-8 anti-slop/salvage] `.gitattributes:1-3` declares future normalization, but the already-committed churn at `super-gsd/install.sh:1-889`, `super-gsd/scripts/lib/sgsd-readiness.ps1:1-279`, `super-gsd/scripts/sgsd-onboard.ps1:1-375`, and `super-gsd/tools/feature-propagation/audit.cjs:1-894` remains unchanged: the branch diff is still 2,291 additions/2,168 deletions versus 132/9 with EOL ignored, and `git diff --check` reports 2,168 whitespace findings.
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -1013,20 +1013,20 @@ IF config.atc.enabled:
     IF auto mode: log warning, continue
 ```
 
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-<HOME>\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . '<HOME>\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1

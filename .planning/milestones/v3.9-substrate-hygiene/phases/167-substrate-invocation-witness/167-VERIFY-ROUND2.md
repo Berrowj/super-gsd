@@ -25,7 +25,7 @@ VERDICT: PASS
 --- codex stderr ---
 OpenAI Codex v0.146.0
 --------
-workdir: C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+workdir: <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 model: gpt-5.6-sol
 provider: openai
 approval: never
@@ -85,7 +85,7 @@ the verdict even if your investigation is incomplete. Max 600 words.
 codex
 I’m using the `using-superpowers` routing skill and the read-only `review` workflow. I’ll inspect only the locked plan, HEAD implementation, and supplied evidence—no edits or test reruns—and keep the investigation within the requested command budget.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw 'C:\\Users\\jack.berrow\\.codex\\skills\\using-superpowers\\SKILL.md'; Get-Content -Raw 'C:\\Users\\jack.berrow\\.agents\\skills\\review\\SKILL.md'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw 'C:\\Users\\operator\\.codex\\skills\\using-superpowers\\SKILL.md'; Get-Content -Raw 'C:\\Users\\operator\\.agents\\skills\\review\\SKILL.md'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1307ms:
 ---
 name: using-superpowers
@@ -420,27 +420,27 @@ This gate is MANDATORY. Never skip it. Never auto-implement fixes.
 
 </decision_gate>
 
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
  
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-01-PLAN-LOCKED.md'; "'$n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; '"'{0,5}: {1}' -f "'$n, $_ }; rg --files | rg '"'167-REAL-MCP-HOOK-EVIDENCE\\.json"'$|substrate|witness|capability|hooks|feature-propagation|P166|166-'"'" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-01-PLAN-LOCKED.md'; "'$n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; '"'{0,5}: {1}' -f "'$n, $_ }; rg --files | rg '"'167-REAL-MCP-HOOK-EVIDENCE\\.json"'$|substrate|witness|capability|hooks|feature-propagation|P166|166-'"'" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 2130ms:
     1: ---
     2: schema_version: 2
@@ -1492,20 +1492,20 @@ super-gsd\tools\warp-mcp\fixtures\sgsd_artifact_links\_synthetic_planning_happy\
 super-gsd\tools\warp-mcp\fixtures\sgsd_artifact_links\_synthetic_planning_happy\milestones\v2.2\phases\63-warp-capability-smoke\63-CONTEXT.md
 super-gsd\tools\warp-mcp\fixtures\sgsd_artifact_links\_synthetic_planning_happy\milestones\v2.2\phases\63-warp-capability-smoke\63-VERIFICATION.md
 super-gsd\tests\propagation\codex-hooks-install.test.cjs
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -1514,7 +1514,7 @@ At line:1 char:1
 codex
 The plan defines six criteria: live deny/rewrite, authenticated one-use correlation, propagation/fail-closed installation, broker withdrawal when guards vanish, explicit same-user bypass characterization, and P166/earlier non-regression. I’m now tracing each to production branches and the committed runtime artifact, with special attention to whether any “green” result is merely structural.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "git rev-parse HEAD; git status --short; Get-Content -LiteralPath '.planning/STATE.md' -TotalCount 60; Get-ChildItem -LiteralPath '.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness' | Select-Object Name,Length,LastWriteTime" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "git rev-parse HEAD; git status --short; Get-Content -LiteralPath '.planning/STATE.md' -TotalCount 60; Get-ChildItem -LiteralPath '.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness' | Select-Object Name,Length,LastWriteTime" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1461ms:
 86b6d1f501de237413e63d0f0ee0428bd3d4e8fa
 ?? .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-PHASEATC-R3-PROMPT.md
@@ -1774,27 +1774,27 @@ VERIFICATION.md                 1485459 25/08/2026 03:45:58
 WASTE.md                           3153 24/08/2026 23:24:19
 
 
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
  
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-REAL-MCP-HOOK-EVIDENCE.json'; "'$n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; '"'{0,5}: {1}' -f "'$n, $_ }' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-REAL-MCP-HOOK-EVIDENCE.json'; "'$n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; '"'{0,5}: {1}' -f "'$n, $_ }' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1010ms:
     1: {
     2:   "schema_version": "sgsd.p167.real-mcp-hook-evidence.v1",
@@ -2685,27 +2685,27 @@ exec
   887:     "temporary_paths_persisted": false
   888:   }
   889: }
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
  
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$files=@('"'super-gsd/hooks/sgsd-substrate-invocation-witness.cjs','super-gsd/tools/substrate-capability-broker.cjs','super-gsd/scripts/lib/substrate-invocation-witness-store.cjs','super-gsd/scripts/lib/vtp-context-composer.cjs','super-gsd/tools/feature-propagation/audit.cjs','super-gsd/config/repo-settings-overlay.json','super-gsd/config/hook-manifest.json','install.sh'); foreach("'$f in $files){ if(Test-Path $f){ $c=(Get-Content -LiteralPath $f).Count; "$c`t$f" } }; rg -n "function (handle|run|readiness|consume|append|transition|verify|inspect)|capSubstrateResponse|updatedMCPToolOutput|substratePayloadDigest|acceptPromptSubstrateCallRecord|createHmac|timingSafeEqual|renameSync|PreToolUse|PostToolUse|vtp_search_substrate|repair-substrate|substrate_witness_unavailable" super-gsd/hooks/sgsd-substrate-invocation-witness.cjs super-gsd/tools/substrate-capability-broker.cjs super-gsd/scripts/lib/substrate-invocation-witness-store.cjs super-gsd/scripts/lib/vtp-context-composer.cjs super-gsd/tools/feature-propagation/audit.cjs super-gsd/config/repo-settings-overlay.json super-gsd/config/hook-manifest.json install.sh' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$files=@('"'super-gsd/hooks/sgsd-substrate-invocation-witness.cjs','super-gsd/tools/substrate-capability-broker.cjs','super-gsd/scripts/lib/substrate-invocation-witness-store.cjs','super-gsd/scripts/lib/vtp-context-composer.cjs','super-gsd/tools/feature-propagation/audit.cjs','super-gsd/config/repo-settings-overlay.json','super-gsd/config/hook-manifest.json','install.sh'); foreach("'$f in $files){ if(Test-Path $f){ $c=(Get-Content -LiteralPath $f).Count; "$c`t$f" } }; rg -n "function (handle|run|readiness|consume|append|transition|verify|inspect)|capSubstrateResponse|updatedMCPToolOutput|substratePayloadDigest|acceptPromptSubstrateCallRecord|createHmac|timingSafeEqual|renameSync|PreToolUse|PostToolUse|vtp_search_substrate|repair-substrate|substrate_witness_unavailable" super-gsd/hooks/sgsd-substrate-invocation-witness.cjs super-gsd/tools/substrate-capability-broker.cjs super-gsd/scripts/lib/substrate-invocation-witness-store.cjs super-gsd/scripts/lib/vtp-context-composer.cjs super-gsd/tools/feature-propagation/audit.cjs super-gsd/config/repo-settings-overlay.json super-gsd/config/hook-manifest.json install.sh' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 2026-08-25T02:54:31.842693Z ERROR codex_core::tools::router: error=Exit code: 1
 Wall time: 0.9 seconds
 Output:
@@ -2808,20 +2808,20 @@ super-gsd/hooks/sgsd-substrate-invocation-witness.cjs:305:    const result = exp
 super-gsd/tools/substrate-capability-broker.cjs:191:        text: 'substrate_witness_unavailable:' + boundedReason(reason),
 super-gsd/tools/substrate-capability-broker.cjs:284:  async function handleRequest(message) {
 super-gsd/tools/substrate-capability-broker.cjs:423:function runStdio(argv) {
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -2928,20 +2928,20 @@ super-gsd/hooks/sgsd-substrate-invocation-witness.cjs:305:    const result = exp
 super-gsd/tools/substrate-capability-broker.cjs:191:        text: 'substrate_witness_unavailable:' + boundedReason(reason),
 super-gsd/tools/substrate-capability-broker.cjs:284:  async function handleRequest(message) {
 super-gsd/tools/substrate-capability-broker.cjs:423:function runStdio(argv) {
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -2949,7 +2949,7 @@ At line:1 char:1
 rg: install.sh: The system cannot find the file specified. (os error 2)
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'super-gsd/hooks/sgsd-substrate-invocation-witness.cjs'; "'$n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; '"'{0,5}: {1}' -f "'$n, $_ }' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'super-gsd/hooks/sgsd-substrate-invocation-witness.cjs'; "'$n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; '"'{0,5}: {1}' -f "'$n, $_ }' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 839ms:
     1: 'use strict';
     2: 
@@ -3268,27 +3268,27 @@ exec
   315: };
   316: 
   317: if (require.main === module) runCli(process.argv.slice(2));
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
  
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "rg -n -i \"NOT MET|FAIL|defect escape|production-code defect|CRITICAL|MAJOR|MINOR|DLB-07|structural|semantic|finding\" '.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-PHASEATC-ROUND3.md' '.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-WASTE.md' | Select-Object -First 160" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "rg -n -i \"NOT MET|FAIL|defect escape|production-code defect|CRITICAL|MAJOR|MINOR|DLB-07|structural|semantic|finding\" '.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-PHASEATC-ROUND3.md' '.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-WASTE.md' | Select-Object -First 160" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 2026-08-25T02:54:47.597291Z ERROR codex_core::tools::router: error=Exit code: 1
 Wall time: 1 seconds
 Total output lines: 178
@@ -3441,20 +3441,20 @@ Output:
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-PHASEATC-ROUND3.md:4476:      reasons: ['hook_registration_preflight_failed'],
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-PHASEATC-ROUND3.md:4518:    const detail = String(result.stderr || result.stdout || 'hook smoke failed').trim();
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-PHASEATC-ROUND3.md:4529:      reasons: ['witness_repair_failed'],
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -3621,27 +3621,27 @@ At line:1 char:1
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-PHASEATC-ROUND3.md:4476:      reasons: ['hook_registration_preflight_failed'],
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-PHASEATC-ROUND3.md:4518:    const detail = String(result.stderr || result.stdout || 'hook smoke failed').trim();
 .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-PHASEATC-ROUND3.md:4529:      reasons: ['witness_repair_failed'],
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
  
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -LiteralPath '.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-PHASEATC-ROUND3.md' -TotalCount 95; Get-Content -LiteralPath '.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-WASTE.md' -TotalCount 140" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -LiteralPath '.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-PHASEATC-ROUND3.md' -TotalCount 95; Get-Content -LiteralPath '.planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-WASTE.md' -TotalCount 140" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1149ms:
 codex-exec: report contract violation
 
@@ -3681,7 +3681,7 @@ ATC VERDICT: PASS
 --- codex stderr ---
 OpenAI Codex v0.146.0
 --------
-workdir: C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+workdir: <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 model: gpt-5.6-sol
 provider: openai
 approval: never
@@ -3878,27 +3878,27 @@ digraph skill_flow {
     "About to EnterPlanMode?" -> "Already brainstormed?";
     "Already brainstormed?" -> "Invoke brainstorming skill" [label="no"];
     "Already brainstormed?" -> "Might any skill apply?" [label="yes"];
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
  
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'super-gsd/tools/substrate-capability-broker.cjs'; "'$n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; '"'{0,5}: {1}' -f "'$n, $_ }' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'super-gsd/tools/substrate-capability-broker.cjs'; "'$n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; '"'{0,5}: {1}' -f "'$n, $_ }' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 799ms:
     1: 'use strict';
     2: 
@@ -4359,27 +4359,27 @@ exec
   457: module.exports = { createBroker, createRuntimeBroker, createStdioRouter, resolveInvocationProjectRoot };
   458: 
   459: if (require.main === module) process.exitCode = runStdio(process.argv.slice(2));
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
  
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'super-gsd/scripts/lib/substrate-invocation-witness-store.cjs'; "'$n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; '"'{0,5}: {1}' -f "'$n, $_ }' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'super-gsd/scripts/lib/substrate-invocation-witness-store.cjs'; "'$n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; '"'{0,5}: {1}' -f "'$n, $_ }' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1212ms:
     1: 'use strict';
     2: 
@@ -5009,27 +5009,27 @@ exec
   626: if (require.main === module) {
   627:   process.exitCode = runCli(process.argv.slice(2));
   628: }
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
  
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$files=@('"'super-gsd/tests/substrate-invocation-witness/assert-witness-correlation.cjs','super-gsd/scripts/lib/vtp-context-composer.cjs'); foreach("'$p in $files){ "===== $p ====="; $n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; if(($p -like '"'*assert-witness*') -or ("'$n -ge 360 -and $n -le 590)){ '"'{0,5}: {1}' -f "'$n, $_ } } }' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$files=@('"'super-gsd/tests/substrate-invocation-witness/assert-witness-correlation.cjs','super-gsd/scripts/lib/vtp-context-composer.cjs'); foreach("'$p in $files){ "===== $p ====="; $n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; if(($p -like '"'*assert-witness*') -or ("'$n -ge 360 -and $n -le 590)){ '"'{0,5}: {1}' -f "'$n, $_ } } }' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1032ms:
 ===== super-gsd/tests/substrate-invocation-witness/assert-witness-correlation.cjs =====
     1: #!/usr/bin/env node
@@ -5773,20 +5773,20 @@ exec
   588:  * Date.now()-bracketed VTP MCP wrapper. Single measurement point for elapsed_ms
   589:  * (per E-03 ƒ?" VTP tools do not return this natively). Writes a routing-log row
   590:  * on BOTH success AND failure paths (threat T-16-08 mitigation).
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -5795,7 +5795,7 @@ At line:1 char:1
 codex
 The live artifact is substantive rather than self-attested: it identifies Claude Code 2.1.243, bypass mode, `real_stdio_mcp`, installed registration/source digests, actual hook lifecycle events, transcript tool-use/result hashes, and a fixture-owned `tools/call` log. The witness implementation also verifies HMACs and claims a rewritten row by rename before consuming it; I’m checking propagation and the exact ambiguity/degradation semantics now.
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'super-gsd/tools/feature-propagation/audit.cjs'; "'$ranges=@(@(105,205),@(380,660),@(840,1065),@(1340,1535)); $lines=Get-Content -LiteralPath $p; foreach($range in $ranges){ "===== $p $($range[0])-$($range[1]) ====="; for($i=$range[0];$i -le $range[1] -and $i -le $lines.Count;$i++){ '"'{0,5}: {1}' -f "'$i,$lines[$i-1] } }; rg -n "P167|substrate witness|substrate_witness|unavailable_or_bypassed|accept-substrate-call-record|readiness" super-gsd/agents/sgsd-vtp-enrichment.md super-gsd/agents/sgsd-board-researcher.md super-gsd/commands/sgsd-plan-phase.md super-gsd/commands/sgsd-research-phase.md super-gsd/config/repo-settings-overlay.json super-gsd/config/hook-manifest.json super-gsd/install.sh' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'super-gsd/tools/feature-propagation/audit.cjs'; "'$ranges=@(@(105,205),@(380,660),@(840,1065),@(1340,1535)); $lines=Get-Content -LiteralPath $p; foreach($range in $ranges){ "===== $p $($range[0])-$($range[1]) ====="; for($i=$range[0];$i -le $range[1] -and $i -le $lines.Count;$i++){ '"'{0,5}: {1}' -f "'$i,$lines[$i-1] } }; rg -n "P167|substrate witness|substrate_witness|unavailable_or_bypassed|accept-substrate-call-record|readiness" super-gsd/agents/sgsd-vtp-enrichment.md super-gsd/agents/sgsd-board-researcher.md super-gsd/commands/sgsd-plan-phase.md super-gsd/commands/sgsd-research-phase.md super-gsd/config/repo-settings-overlay.json super-gsd/config/hook-manifest.json super-gsd/install.sh' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 2026-08-25T02:55:36.160000Z ERROR codex_core::tools::router: error=Exit code: 1
 Wall time: 2 seconds
 Total output lines: 852
@@ -6484,20 +6484,20 @@ super-gsd/agents/sgsd-board-researcher.md:34:`--accept-substrate-call-record` co
 super-gsd/agents/sgsd-board-researcher.md:39:Use substrate-derived content only after readiness and post-call acceptance
 super-gsd/agents/sgsd-board-researcher.md:48:</sgsd_vtp_substrate_witness_p167>
 super-gsd/agents/sgsd-board-researcher.md:53:- After transport, write the exact substrate_call_record to .planning/tmp/board-substrate-call-record.json and run: node super-gsd/scripts/lib/vtp-context-composer.cjs --accept-substrate-call-record --intent board_research --prepared-call-file .planning/tmp/board-substrate-call.json --record-file .planning/tmp/board-substrate-call-record.json
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -7004,7 +7004,7 @@ rg: super-gsd/commands/sgsd-research-phase.md: The system cannot find the path s
   950: }
   951: 
   952: function profilePaths() {
-  953:   const docs = path.join(homeDir(), 'OneDrive - John Cullen Lighting', 'Documents', 'WindowsPowerShell');
+  953:   const docs = path.join(homeDir(), 'OneDrive - <ORG>', 'Documents', 'WindowsPowerShell');
   954:   const localDocs = path.join(homeDir(), 'Documents', 'WindowsPowerShell');
   955:   return Array.from(new Set([
   956:     path.join(docs, 'profile.ps1'),
@@ -7338,20 +7338,20 @@ super-gsd/agents/sgsd-board-researcher.md:34:`--accept-substrate-call-record` co
 super-gsd/agents/sgsd-board-researcher.md:39:Use substrate-derived content only after readiness and post-call acceptance
 super-gsd/agents/sgsd-board-researcher.md:48:</sgsd_vtp_substrate_witness_p167>
 super-gsd/agents/sgsd-board-researcher.md:53:- After transport, write the exact substrate_call_record to .planning/tmp/board-substrate-call-record.json and run: node super-gsd/scripts/lib/vtp-context-composer.cjs --accept-substrate-call-record --intent board_research --prepared-call-file .planning/tmp/board-substrate-call.json --record-file .planning/tmp/board-substrate-call-record.json
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -7360,7 +7360,7 @@ rg: super-gsd/commands/sgsd-plan-phase.md: The system cannot find the path speci
 rg: super-gsd/commands/sgsd-research-phase.md: The system cannot find the path specified. (os error 3)
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw 'C:\\Users\\jack.berrow\\.codex\\skills\\verification-before-completion\\SKILL.md'; "'$p='"'super-gsd/tools/feature-propagation/audit.cjs'; "'$lines=Get-Content -LiteralPath $p; foreach($range in @(@(1,105),@(631,950))){ "===== $p $($range[0])-$($range[1]) ====="; for($i=$range[0];$i -le $range[1];$i++){ '"'{0,5}: {1}' -f "'$i,$lines[$i-1] } }; foreach($f in @('"'super-gsd/config/repo-settings-overlay.json','super-gsd/config/hook-manifest.json')){ \"===== "'$f ====="; $n=0; Get-Content -LiteralPath $f | ForEach-Object { $n++; '"'{0,5}: {1}' -f "'$n,$_ } }' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw 'C:\\Users\\operator\\.codex\\skills\\verification-before-completion\\SKILL.md'; "'$p='"'super-gsd/tools/feature-propagation/audit.cjs'; "'$lines=Get-Content -LiteralPath $p; foreach($range in @(@(1,105),@(631,950))){ "===== $p $($range[0])-$($range[1]) ====="; for($i=$range[0];$i -le $range[1];$i++){ '"'{0,5}: {1}' -f "'$i,$lines[$i-1] } }; foreach($f in @('"'super-gsd/config/repo-settings-overlay.json','super-gsd/config/hook-manifest.json')){ \"===== "'$f ====="; $n=0; Get-Content -LiteralPath $f | ForEach-Object { $n++; '"'{0,5}: {1}' -f "'$n,$_ } }' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 1073ms:
 ---
 name: verification-before-completion
@@ -8208,27 +8208,27 @@ This is non-negotiable.
   187:     }
   188:   ]
   189: }
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
  
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs'; rg -n \"function (runClaude|parseTranscript|readFixture|captureActive|captureAbsent|captureSame|verifyEvidence)|spawnSync|transcript|fixture.*log|hook_lifecycle|server_invocation|real_stdio_mcp|simulated_hook_mode|live_runtime|raw_result_delivered|replacement_observed\" "'$p; $lines=Get-Content -LiteralPath $p; foreach($range in @(@(1150,1295),@(1350,1515),@(1850,2075),@(2460,2575))){ "===== $p $($range[0])-$($range[1]) ====="; for($i=$range[0];$i -le $range[1] -and $i -le $lines.Count;$i++){ '"'{0,5}: {1}' -f "'$i,$lines[$i-1] } }' in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs'; rg -n \"function (runClaude|parseTranscript|readFixture|captureActive|captureAbsent|captureSame|verifyEvidence)|spawnSync|transcript|fixture.*log|hook_lifecycle|server_invocation|real_stdio_mcp|simulated_hook_mode|live_runtime|raw_result_delivered|replacement_observed\" "'$p; $lines=Get-Content -LiteralPath $p; foreach($range in @(@(1150,1295),@(1350,1515),@(1850,2075),@(2460,2575))){ "===== $p $($range[0])-$($range[1]) ====="; for($i=$range[0];$i -le $range[1] -and $i -le $lines.Count;$i++){ '"'{0,5}: {1}' -f "'$i,$lines[$i-1] } }' in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
  succeeded in 920ms:
 8:const { spawn, spawnSync } = require('child_process');
 458:  const result = spawnSync(executable, args, {
@@ -8967,27 +8967,27 @@ exec
  2573:   (async () => {
  2574:     const status = await main(argv);
  2575:     process.exitCode = status;
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
  
 
 exec
-"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "git diff --name-only 2be8f85..HEAD; rg -n \"VTP_RESPONSE_MAX_BYTES|VTP_RESPONSE_MAX|capSubstrateResponse\\(|function capSubstrateResponse|function substratePayloadDigest|consumeRewrittenWitness|PROMPT_WITNESS_REJECTION_REASONS\" super-gsd/scripts/lib/vtp-context-composer.cjs super-gsd | Select-Object -First 100; rg -n \"<sgsd_vtp_substrate_witness_p167>|VTP_STATUS: unavailable_or_bypassed|reason: substrate_witness_unavailable|Use substrate-derived content only after\" super-gsd/agents/*.md" in C:\Users\jack.berrow\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "git diff --name-only 2be8f85..HEAD; rg -n \"VTP_RESPONSE_MAX_BYTES|VTP_RESPONSE_MAX|capSubstrateResponse\\(|function capSubstrateResponse|function substratePayloadDigest|consumeRewrittenWitness|PROMPT_WITNESS_REJECTION_REASONS\" super-gsd/scripts/lib/vtp-context-composer.cjs super-gsd | Select-Object -First 100; rg -n \"<sgsd_vtp_substrate_witness_p167>|VTP_STATUS: unavailable_or_bypassed|reason: substrate_witness_unavailable|Use substrate-derived content only after\" super-gsd/agents/*.md" in <HOME>\AppData\Roaming\warp\Warp\data\worktrees\GSDedits\luminaria-hogback
 2026-08-25T02:56:17.006384Z ERROR codex_core::tools::router: error=Exit code: 1
 Wall time: 2.4 seconds
 Output:
@@ -9238,20 +9238,20 @@ super-gsd\tests\substrate-invocation-witness\assert-hook-contract.cjs:628:    as
 super-gsd\tests\substrate-invocation-witness\assert-hook-contract.cjs:683:    assert.throws(() => store.consumeRewrittenWitness({
 super-gsd\scripts\lib\substrate-invocation-witness-store.cjs:513:function consumeRewrittenWitness(options) {
 super-gsd\scripts\lib\substrate-invocation-witness-store.cjs:622:  consumeRewrittenWitness,
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1
@@ -9506,20 +9506,20 @@ super-gsd\tests\substrate-invocation-witness\assert-hook-contract.cjs:628:    as
 super-gsd\tests\substrate-invocation-witness\assert-hook-contract.cjs:683:    assert.throws(() => store.consumeRewrittenWitness({
 super-gsd\scripts\lib\substrate-invocation-witness-store.cjs:513:function consumeRewrittenWitness(options) {
 super-gsd\scripts\lib\substrate-invocation-witness-store.cjs:622:  consumeRewrittenWitness,
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\profile.ps1 : Cannot dot-source this 
 command because it was defined in a different language mode. To invoke this command without importing its contents, 
 omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,profile.ps1
  
-C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
+<HOME>\OneDrive - <ORG>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1 : 
 Cannot dot-source this command because it was defined in a different language mode. To invoke this command without 
 importing its contents, omit the '.' operator.
 At line:1 char:1
-+ . 'C:\Users\jack.berrow\OneDrive - John Cullen Lighting\Documents\Win ...
++ . '<HOME>\OneDrive - <ORG>\Documents\Win ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [Microsoft.PowerShell_profile.ps1], NotSupportedException
     + FullyQualifiedErrorId : DotSourceNotSupported,Microsoft.PowerShell_profile.ps1

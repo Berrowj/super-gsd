@@ -950,14 +950,29 @@ function detectVtpConfigured(projectDir) {
 }
 
 function profilePaths() {
-  const docs = path.join(homeDir(), 'OneDrive - John Cullen Lighting', 'Documents', 'WindowsPowerShell');
-  const localDocs = path.join(homeDir(), 'Documents', 'WindowsPowerShell');
-  return Array.from(new Set([
-    path.join(docs, 'profile.ps1'),
-    path.join(docs, 'Microsoft.PowerShell_profile.ps1'),
-    path.join(localDocs, 'profile.ps1'),
-    path.join(localDocs, 'Microsoft.PowerShell_profile.ps1'),
-  ]));
+  // Windows redirects Documents into a OneDrive folder whose name carries the
+  // tenant, so discover it rather than hardcoding one organisation's name.
+  const home = homeDir();
+  const roots = [];
+  try {
+    for (const entry of fs.readdirSync(home, { withFileTypes: true })) {
+      if (entry.name.indexOf('OneDrive') !== 0) continue;
+      // Tenant OneDrive folders are junctions, so isDirectory() is false on them;
+      // stat follows the link and is the only check that sees them.
+      const candidate = path.join(home, entry.name);
+      try {
+        if (!fs.statSync(candidate).isDirectory()) continue;
+      } catch (_s) { continue; }
+      roots.push(path.join(candidate, 'Documents', 'WindowsPowerShell'));
+    }
+  } catch (_e) { /* unreadable home: the local Documents path below still applies */ }
+  roots.push(path.join(home, 'Documents', 'WindowsPowerShell'));
+  const out = [];
+  for (const root of roots) {
+    out.push(path.join(root, 'profile.ps1'));
+    out.push(path.join(root, 'Microsoft.PowerShell_profile.ps1'));
+  }
+  return Array.from(new Set(out));
 }
 
 function installGlobalSgsdAgents(ctx, actions, substrateGranted, names) {
