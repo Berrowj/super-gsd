@@ -1,0 +1,3 @@
+super-gsd/scripts/lib/vtp-context-composer.cjs
+super-gsd/tests/substrate-invocation-witness/assert-witness-correlation.cjs
+super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs

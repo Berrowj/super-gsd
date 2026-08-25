@@ -1,4 +1,4 @@
-﻿---
+---
 schema_version: 2
 phase: 167
 slug: substrate-invocation-witness
@@ -322,9 +322,9 @@ tasks:
       node super-gsd/scripts/lib/vtp-context-composer.cjs --self-test
     expected_ATC_tier: GATE
     revert_range: >
-      One P167-T1 commit containing only the five listed files. Revert that
-      single commit after reverting P167-T5 through P167-T2; no registration,
-      prompt, propagation, or live-evidence file belongs in this range.
+      Commits 6aa2f01 and 9ea0bac are P167-T1's forward range. Revert them as
+      9ea0bac then 6aa2f01 after P167-T5 through P167-T2. Later review bands may
+      touch T1 files, but they are reverted with the task that produced them.
     known_deadends:
       - Do not add witness logic to sgsd-activity-logger.js. It receives full input, but its contract is silent best-effort logging and its persisted previews are deliberately truncated.
       - Do not use exit 0 with a warning for a targeted Pre failure. Return the documented permissionDecision deny contract; keep exit 2 only as a tested compatible denial precedent.
@@ -408,9 +408,9 @@ tasks:
       node super-gsd/scripts/lib/vtp-context-composer.cjs --self-test
     expected_ATC_tier: GATE
     revert_range: >
-      One P167-T2 commit containing only the three listed files. Revert it after
-      P167-T5 through P167-T3 and before P167-T1; reverting T2 restores P166
-      record-only acceptance while leaving the inert T1 hook/store available.
+      Commits 5ec8f1c and be6cfa1 are P167-T2's forward range. Revert them as
+      be6cfa1 then 5ec8f1c after P167-T5 through P167-T3 and before P167-T1;
+      this restores P166 record-only acceptance while leaving T1 available.
     known_deadends:
       - Do not choose a witness by an identifier copied from the prompt record, even if the identifier is checked against the ledger.
       - Do not accept a Pre row as proof that PostToolUse completed or that the model received capped output.
@@ -493,9 +493,9 @@ tasks:
       node super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs --case cap-shapes
     expected_ATC_tier: GATE
     revert_range: >
-      One P167-T3 commit containing only the two canonical agents and their
-      dedicated prompt-contract test. Revert it after P167-T5 and P167-T4 and
-      before T2; T3 does not own installed legacy agent mutations.
+      Commit 386d027 is P167-T3's range. Revert it after P167-T5 and P167-T4
+      and before P167-T2. The cross-surface review repair in c822dd4 belongs to
+      the later T4 range and is therefore removed before this commit.
     known_deadends:
       - Do not treat prompt readiness wording as the enforcement mechanism. It is an early degradation path; T1's broker grant plus hooks and T2 acceptance are authoritative at their respective boundaries.
       - Do not grant raw substrate in canonical source files or only revoke it from some of the four installed prompts. T4 must derive or withdraw the grant for both canonical installs and both legacy surfaces as one capability.
@@ -635,10 +635,9 @@ tasks:
       node super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs --case brokered-substrate-capability
     expected_ATC_tier: GATE
     revert_range: >
-      One P167-T4 commit containing only the seven listed files. Revert it after
-      P167-T5 and before P167-T3; the reverse leaves canonical prompt
-      raw-free source behavior and hook/broker code in the repo but removes
-      derived grants and propagation as one unit.
+      Commits a5e1f97, e85d396, c822dd4, and e78847f are P167-T4's forward
+      range. Revert them as e78847f, c822dd4, e85d396, then a5e1f97 after T5
+      and before T3. This range includes T4's cross-surface review repair.
     known_deadends:
       - Do not make missing Claude hooks non-blocking beside the existing Codex hook report. P167 has its own issue code and nonzero audit result.
       - Do not merge settings by shelling out from audit.cjs. Export and reuse the existing in-process merge so deterministic tests do not depend on nested Node.
@@ -796,10 +795,9 @@ tasks:
       .planning/milestones/v3.9-substrate-hygiene/phases/167-substrate-invocation-witness/167-REAL-MCP-HOOK-EVIDENCE.json
     expected_ATC_tier: GATE
     revert_range: >
-      One final P167-T5 commit containing only the local MCP fixture, live
-      capture/verifier, and captured evidence. Revert this commit first; it
-      removes proof tooling/evidence without changing the production hook,
-      acceptance, prompts, or propagation.
+      Commits eab7715, 99a8790, ca43513, and 879aa4c are P167-T5's forward
+      range. Revert them first as 879aa4c, ca43513, 99a8790, then eab7715.
+      This real range includes T5 fixes and cleanup that touched T1/T2 files.
     known_deadends:
       - Do not substitute the hook unit suite or a mocked mcpInvoke spy for --capture. They prove code behavior, not that Claude loaded and fired the installed hooks.
       - Do not point the live proof at the operator's VTP server or use wiki/LINT-REPORT.md as the oversized fixture.
@@ -977,10 +975,28 @@ spawn-free verifier exits 0.
 
 ## Order and revertability
 
-Each task is one commit. Revert in reverse order: T5 evidence, T4 propagation
-and grants, T3 canonical prompts, T2 acceptance, then T1 hook/broker/store. T1
-alone is inert until registered. T2 can be reverted without changing P166
-payload validation. T3 and T4 divide raw-free sources from derived installed
-grants. T5 contains only the fixture, capture code, and real evidence. No task
-changes a VTP host, the frozen v1 schema/evidence, the eight-site inventory, the
-16000 character cap, or `VTP_RESPONSE_MAX_BYTES`.
+The shipped phase uses five execution ranges rather than five single commits.
+Revert in this exact order, and reverse each range internally:
+
+| Task | Forward commit range | Mechanical reverse order |
+|---|---|---|
+| T5 | `eab7715`, `99a8790`, `ca43513`, `879aa4c` | `879aa4c`, `ca43513`, `99a8790`, `eab7715` |
+| T4 | `a5e1f97`, `e85d396`, `c822dd4`, `e78847f` | `e78847f`, `c822dd4`, `e85d396`, `a5e1f97` |
+| T3 | `386d027` | `386d027` |
+| T2 | `5ec8f1c`, `be6cfa1` | `be6cfa1`, `5ec8f1c` |
+| T1 | `6aa2f01`, `9ea0bac` | `9ea0bac`, `6aa2f01` |
+
+T5's range honestly includes later fixes and cleanup in T1/T2 production files.
+T4's range honestly includes `c822dd4`, which repaired both T3 and T4 surfaces.
+Commit `1339eab` is an unrelated privacy scrub across other milestones and
+cockpit artifacts. It is not part of any P167 task revert range and must not be
+reverted as part of P167 rollback. Docs-only state, evidence-review, and memory
+commits also do not belong to the production task ranges.
+
+The current phase-ATC repair is intentionally uncommitted under the operator's
+instruction. It therefore has no commit hash yet and is outside commit-history
+range proof; its eventual operator-owned commit must be added to the T5 repair
+range before that range is used for a later rollback. `167-REVERT-PROOF.md`
+records the conflict-free range reversal at committed HEAD before this working
+copy repair. No task changes a VTP host, the frozen v1 schema/evidence, the
+eight-site inventory, the 16000 character cap, or `VTP_RESPONSE_MAX_BYTES`.

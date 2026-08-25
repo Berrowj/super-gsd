@@ -1,0 +1,653 @@
+diff --git a/super-gsd/tests/substrate-invocation-witness/assert-propagation.cjs b/super-gsd/tests/substrate-invocation-witness/assert-propagation.cjs
+index 9356a11..2498583 100644
+--- a/super-gsd/tests/substrate-invocation-witness/assert-propagation.cjs
++++ b/super-gsd/tests/substrate-invocation-witness/assert-propagation.cjs
+@@ -6,11 +6,15 @@ const crypto = require('node:crypto');
+ const fs = require('node:fs');
+ const os = require('node:os');
+ const path = require('node:path');
++const { EventEmitter } = require('node:events');
++const { PassThrough, Writable } = require('node:stream');
+ 
+ const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
+ const AUDIT_PATH = path.join(REPO_ROOT, 'super-gsd', 'tools', 'feature-propagation', 'audit.cjs');
++const BROKER_PATH = path.join(REPO_ROOT, 'super-gsd', 'tools', 'substrate-capability-broker.cjs');
+ const STORE_PATH = path.join(REPO_ROOT, 'super-gsd', 'scripts', 'lib', 'substrate-invocation-witness-store.cjs');
+ const TOOL = ['mcp__vtp-kb__vtp', 'search', 'substrate'].join('_');
++const SHORT_TOOL = ['vtp', 'search', 'substrate'].join('_');
+ const SECRET_SENTINEL = ['P167', 'PRIVATE', 'UPSTREAM', 'VALUE'].join('_');
+ const AGENTS = ['sgsd-vtp-enrichment.md', 'sgsd-board-researcher.md', 'gsd-phase-researcher.md', 'gsd-planner.md'];
+ 
+@@ -45,6 +49,7 @@ function withIsolatedProfile(run) {
+     USERPROFILE: process.env.USERPROFILE,
+     APPDATA: process.env.APPDATA,
+     XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
++    CLAUDE_PROJECT_DIR: process.env.CLAUDE_PROJECT_DIR,
+   };
+   const realHome = saved.USERPROFILE || saved.HOME || '';
+   const protectedPaths = [
+@@ -64,15 +69,24 @@ function withIsolatedProfile(run) {
+   process.env.USERPROFILE = home;
+   process.env.APPDATA = path.join(home, 'AppData', 'Roaming');
+   process.env.XDG_CONFIG_HOME = path.join(home, '.config');
+-  try {
+-    return run({ root, home, project });
+-  } finally {
++  delete process.env.CLAUDE_PROJECT_DIR;
++  const cleanup = () => {
+     assert.deepEqual(evidenceSnapshot(protectedPaths), protectedBefore, 'isolated propagation escaped into real profile or source evidence');
+     for (const name of Object.keys(saved)) {
+       if (saved[name] === undefined) delete process.env[name]; else process.env[name] = saved[name];
+     }
+     fs.rmSync(root, { recursive: true, force: true });
++  };
++  let result;
++  try {
++    result = run({ root, home, project });
++  } catch (error) {
++    cleanup();
++    throw error;
+   }
++  if (result && typeof result.then === 'function') return result.finally(cleanup);
++  cleanup();
++  return result;
+ }
+ 
+ function seedProject(project) {
+@@ -105,7 +119,61 @@ function snapshot(paths) {
+   return Object.fromEntries(paths.map((filePath) => [filePath, fs.existsSync(filePath) ? read(filePath) : null]));
+ }
+ 
+-function main() {
++function assertAgentGrants(home, granted) {
++  for (const name of AGENTS) {
++    const agentPath = path.join(home, '.claude', 'agents', name);
++    assert.equal(fs.existsSync(agentPath), true, name + ' was not installed');
++    const frontmatter = read(agentPath).split(/---/)[1];
++    if (granted) assert.match(frontmatter, new RegExp(TOOL), name + ' grant missing');
++    else assert.doesNotMatch(frontmatter, new RegExp(TOOL), name + ' grant survived failed repair');
++  }
++}
++
++class FakeBrokerUpstream extends EventEmitter {
++  constructor() {
++    super();
++    this.requests = [];
++    this.stdout = new PassThrough();
++    this.stderr = new PassThrough();
++    this.stdin = new Writable({
++      write: (chunk, _encoding, callback) => {
++        try {
++          for (const line of String(chunk).split(/\r?\n/).filter(Boolean)) {
++            const request = JSON.parse(line);
++            this.requests.push(JSON.parse(JSON.stringify(request)));
++            if (typeof request.method !== 'string' || request.id === undefined) continue;
++            const result = request.method === 'tools/list'
++              ? {
++                tools: [
++                  { name: SHORT_TOOL, inputSchema: { type: 'object' } },
++                  { name: 'vtp_health', inputSchema: { type: 'object' } },
++                ],
++              }
++              : { content: [{ type: 'text', text: 'forwarded' }], isError: false };
++            queueMicrotask(() => this.stdout.write(JSON.stringify({
++              jsonrpc: '2.0',
++              id: request.id,
++              result,
++            }) + '\n'));
++          }
++          callback();
++        } catch (error) {
++          callback(error);
++        }
++      },
++    });
++  }
++
++  kill() {
++    this.emit('exit', 0, null);
++  }
++}
++
++function brokerRequest(method, id, params) {
++  return { jsonrpc: '2.0', id, method, ...(params ? { params } : {}) };
++}
++
++async function main() {
+   const audit = require(AUDIT_PATH);
+   const store = require(STORE_PATH);
+   assert.equal(typeof audit._internals.auditClaudeSubstrateWitness, 'function', 'red: witness absence audit is not implemented');
+@@ -196,6 +264,30 @@ function main() {
+     audit.runAudit({ projectDir: project, repairSafe: true });
+     assert.deepEqual(snapshot(stablePaths), beforeSecondRepair, 'second repair changed bytes');
+ 
++    for (const [field, value] of [
++      ['env', { P167_BROKER_DRIFT: '1' }],
++      ['cwd', project],
++      ['type', 'stdio'],
++      ['url', 'https://example.invalid/drift'],
++      ['headers', { Authorization: 'P167_DRIFT_HEADER' }],
++    ]) {
++      const mutated = JSON.parse(read(mcpPath));
++      mutated.mcpServers['vtp-kb'][field] = value;
++      writeJson(mcpPath, mutated);
++      const drifted = audit.runAudit({ projectDir: project });
++      assert(
++        drifted.claude_substrate_capability.reasons.includes('broker_drift'),
++        'broker definition with extra ' + field + ' audited current',
++      );
++      const repairedDrift = audit.runAudit({ projectDir: project, repairSafe: true });
++      assert.equal(repairedDrift.claude_substrate_capability.status, 'current');
++      assert.deepEqual(
++        Object.keys(JSON.parse(read(mcpPath)).mcpServers['vtp-kb']).sort(),
++        ['args', 'command'],
++        'repair retained broker definition field ' + field,
++      );
++    }
++
+     const withoutPre = JSON.parse(read(settingsPath));
+     withoutPre.hooks.PreToolUse = withoutPre.hooks.PreToolUse.filter((entry) => entry.sgsd_hook_id !== store.PRE_HOOK_ID);
+     writeJson(settingsPath, withoutPre);
+@@ -263,41 +355,167 @@ function main() {
+ 
+   withIsolatedProfile(({ home, project }) => {
+     seedProject(project);
+-    writeJson(path.join(project, '.mcp.json'), {
+-      mcpServers: { 'vtp-kb': { type: 'sse' } },
++    seedLegacyAgents(home);
++    const unsupported = {
++      type: 'sse',
++      url: 'https://example.invalid/private-recovery',
++      headers: { Authorization: SECRET_SENTINEL },
++    };
++    const localPath = path.join(project, '.claude', 'settings.local.json');
++    writeJson(localPath, {
++      unrelatedLocal: true,
++      mcpServers: { 'vtp-kb': unsupported },
+     });
+     const report = audit.runAudit({ projectDir: project, repairSafe: true });
+     assert(report.claude_substrate_capability.reasons.includes('unsupported_upstream_transport'));
+-    for (const name of AGENTS) {
+-      const agentPath = path.join(home, '.claude', 'agents', name);
+-      if (fs.existsSync(agentPath)) assert.doesNotMatch(read(agentPath).split(/---/)[1], new RegExp(TOOL));
+-    }
++    assertAgentGrants(home, false);
++    const manifestPath = store.resolveWitnessPaths(project, process.env).upstream_manifest_path;
++    const manifest = JSON.parse(read(manifestPath));
++    assert.deepEqual(
++      manifest.servers.project.definition,
++      { command: 'node', args: ['private-upstream.cjs'], env: { P167_VALUE: SECRET_SENTINEL } },
++      'supported stdio upstream was not archived before withdrawal',
++    );
++    assert.deepEqual(
++      manifest.recovery_servers['local-settings'].definition,
++      unsupported,
++      'unsupported upstream was not archived for recovery before withdrawal',
++    );
++    assert.equal(JSON.parse(read(path.join(project, '.mcp.json'))).mcpServers['vtp-kb'], undefined);
++    assert.equal(JSON.parse(read(localPath)).mcpServers['vtp-kb'], undefined);
++    const stablePaths = [
++      path.join(project, '.mcp.json'),
++      localPath,
++      manifestPath,
++      ...AGENTS.map((name) => path.join(home, '.claude', 'agents', name)),
++    ];
++    const beforeSecondRepair = snapshot(stablePaths);
++    const second = audit.runAudit({ projectDir: project, repairSafe: true });
++    assert(second.claude_substrate_capability.reasons.includes('unsupported_upstream_transport'));
++    assert.deepEqual(snapshot(stablePaths), beforeSecondRepair, 'unsupported recovery repair changed bytes');
+   });
+ 
+   withIsolatedProfile(({ home, project }) => {
+     seedProject(project);
++    seedLegacyAgents(home);
++    const current = audit.runAudit({ projectDir: project, repairSafe: true });
++    assert.equal(current.claude_substrate_capability.status, 'current');
++    assertAgentGrants(home, true);
+     fs.writeFileSync(path.join(project, '.claude', 'settings.json'), '{ malformed', 'utf8');
+     const report = audit.runAudit({ projectDir: project, repairSafe: true });
+     assert(report.claude_substrate_capability.reasons.includes('witness_repair_failed'));
+-    for (const name of AGENTS) {
+-      const agentPath = path.join(home, '.claude', 'agents', name);
+-      if (fs.existsSync(agentPath)) assert.doesNotMatch(read(agentPath).split(/---/)[1], new RegExp(TOOL));
+-    }
++    assertAgentGrants(home, false);
+   });
+ 
+   withIsolatedProfile(({ home, project }) => {
+     seedProject(project);
++    seedLegacyAgents(home);
++    const current = audit.runAudit({ projectDir: project, repairSafe: true });
++    assert.equal(current.claude_substrate_capability.status, 'current');
++    assertAgentGrants(home, true);
+     const manifestPath = store.resolveWitnessPaths(project, process.env).upstream_manifest_path;
++    const mcpPath = path.join(project, '.mcp.json');
++    const direct = JSON.parse(read(mcpPath));
++    direct.mcpServers['vtp-kb'] = { command: 'node', args: ['archive-failure-upstream.cjs'] };
++    writeJson(mcpPath, direct);
++    const beforeDocuments = snapshot([mcpPath]);
++    fs.unlinkSync(manifestPath);
+     fs.mkdirSync(manifestPath, { recursive: true });
+     const report = audit.runAudit({ projectDir: project, repairSafe: true });
+     assert(report.claude_substrate_capability.reasons.includes('broker_repair_failed'));
+-    for (const name of AGENTS) {
+-      const agentPath = path.join(home, '.claude', 'agents', name);
+-      if (fs.existsSync(agentPath)) assert.doesNotMatch(read(agentPath).split(/---/)[1], new RegExp(TOOL));
++    assert.deepEqual(snapshot([mcpPath]), beforeDocuments, 'archive failure changed original MCP documents');
++    assertAgentGrants(home, false);
++  });
++
++  withIsolatedProfile(({ home, project }) => {
++    seedProject(project);
++    seedLegacyAgents(home);
++    const current = audit.runAudit({ projectDir: project, repairSafe: true });
++    assert.equal(current.claude_substrate_capability.status, 'current');
++    assertAgentGrants(home, true);
++    const mcpPath = path.join(project, '.mcp.json');
++    const direct = JSON.parse(read(mcpPath));
++    direct.mcpServers['vtp-kb'] = { command: 'node', args: ['scope-write-failure-upstream.cjs'] };
++    writeJson(mcpPath, direct);
++    const beforeDocuments = snapshot([mcpPath]);
++    fs.mkdirSync(mcpPath + '.tmp');
++    const report = audit.runAudit({ projectDir: project, repairSafe: true });
++    assert(report.claude_substrate_capability.reasons.includes('broker_repair_failed'));
++    assert.deepEqual(snapshot([mcpPath]), beforeDocuments, 'scope-write failure did not restore original MCP documents');
++    assertAgentGrants(home, false);
++  });
++
++  await withIsolatedProfile(async ({ root, home, project: projectA }) => {
++    const projectB = path.join(root, 'project-b');
++    seedProject(projectA);
++    fs.mkdirSync(path.join(projectB, '.planning'), { recursive: true });
++    const projectMcpPath = path.join(projectA, '.mcp.json');
++    const projectMcp = JSON.parse(read(projectMcpPath));
++    delete projectMcp.mcpServers['vtp-kb'];
++    writeJson(projectMcpPath, projectMcp);
++    writeJson(path.join(home, '.claude.json'), {
++      unrelatedUser: true,
++      mcpServers: {
++        'vtp-kb': {
++          command: 'node',
++          args: ['user-only-upstream.cjs'],
++          env: { P167_VALUE: SECRET_SENTINEL },
++        },
++      },
++    });
++
++    const repairedA = audit.runAudit({ projectDir: projectA, repairSafe: true });
++    assert.equal(repairedA.claude_substrate_witness.status, 'current');
++    assert.equal(repairedA.claude_substrate_capability.status, 'current');
++    assert.deepEqual(repairedA.claude_substrate_capability.scopes, ['user']);
++
++    const userDefinition = JSON.parse(read(path.join(home, '.claude.json'))).mcpServers['vtp-kb'];
++    const broker = require(BROKER_PATH);
++    assert.equal(typeof broker.createRuntimeBroker, 'function', 'red: broker runtime does not resolve invocation authority');
++    const baseEnv = {
++      ...process.env,
++      HOME: home,
++      USERPROFILE: home,
++      APPDATA: path.join(home, 'AppData', 'Roaming'),
++      XDG_CONFIG_HOME: path.join(home, '.config'),
++    };
++
++    for (const [label, env, expectedReason] of [
++      ['unguarded project B', { ...baseEnv, CLAUDE_PROJECT_DIR: projectB }, null],
++      ['missing invocation project', baseEnv, 'invocation_project_unresolved'],
++    ]) {
++      const upstream = new FakeBrokerUpstream();
++      const runtime = broker.createRuntimeBroker(userDefinition.args.slice(1), {
++        env,
++        spawnUpstream: () => upstream,
++        watch: false,
++      });
++      try {
++        const listed = await runtime.handleRequest(brokerRequest('tools/list', label + '-list'));
++        assert.equal(listed.result.tools.some((tool) => tool.name === SHORT_TOOL), false, label + ' exposed substrate');
++        assert.equal(listed.result.tools.some((tool) => tool.name === 'vtp_health'), true, label + ' removed unrelated upstream tool');
++        const callsBefore = upstream.requests.filter((row) => row.method === 'tools/call').length;
++        const forced = await runtime.handleRequest(brokerRequest('tools/call', label + '-call', {
++          name: SHORT_TOOL,
++          arguments: {},
++        }));
++        assert.equal(forced.result.isError, true, label + ' forced call was not denied');
++        if (expectedReason) assert.match(forced.result.content[0].text, new RegExp(expectedReason));
++        assert.equal(
++          upstream.requests.filter((row) => row.method === 'tools/call').length,
++          callsBefore,
++          label + ' forced call reached upstream',
++        );
++      } finally {
++        runtime.close();
++      }
+     }
+   });
+ 
+   process.stdout.write('PASS assert-propagation\n');
+ }
+ 
+-main();
++main().catch((error) => {
++  process.stderr.write((error && error.stack ? error.stack : String(error)) + '\n');
++  process.exitCode = 1;
++});
+diff --git a/super-gsd/tools/feature-propagation/audit.cjs b/super-gsd/tools/feature-propagation/audit.cjs
+index 1401bce..b31ec9a 100644
+--- a/super-gsd/tools/feature-propagation/audit.cjs
++++ b/super-gsd/tools/feature-propagation/audit.cjs
+@@ -345,7 +345,9 @@ function brokerDefinition(ctx) {
+ }
+ 
+ function isBrokerDefinition(value, expected) {
+-  return Boolean(value && value.command === expected.command
++  return Boolean(value && typeof value === 'object' && !Array.isArray(value)
++    && Object.keys(value).sort().join(',') === 'args,command'
++    && value.command === expected.command
+     && Array.isArray(value.args)
+     && value.args.length === expected.args.length
+     && value.args.every((arg, index) => index === 0 || index === 2 || index === 4
+@@ -478,7 +480,7 @@ function readUpstreamManifest(ctx) {
+   return { paths, manifest };
+ }
+ 
+-function validateUpstreamManifest(ctx, manifest) {
++function validateUpstreamManifest(ctx, manifest, options = {}) {
+   const brokerPath = path.join(ctx.projectDir, BROKER_RELATIVE_PATH);
+   const hookPath = path.join(ctx.projectDir, witnessStore.HOOK_RELATIVE_PATH);
+   const manifestPath = witnessStore.resolveWitnessPaths(ctx.projectDir, process.env).upstream_manifest_path;
+@@ -486,18 +488,31 @@ function validateUpstreamManifest(ctx, manifest) {
+       || manifest.project_digest !== witnessStore.resolveWitnessPaths(ctx.projectDir, process.env).project_digest
+       || manifest.broker_sha256 !== sha256(brokerPath)
+       || manifest.witness_source_sha256 !== sha256(hookPath)
+-      || typeof manifest.active_scope !== 'string' || !manifest.servers || typeof manifest.servers !== 'object') {
++      || typeof manifest.active_scope !== 'string' || !manifest.servers
++      || typeof manifest.servers !== 'object' || Array.isArray(manifest.servers)) {
+     return 'upstream_drift';
+   }
+-  if (process.platform !== 'win32' && exists(manifestPath) && (fs.statSync(manifestPath).mode & 0o077) !== 0) {
++  if (!options.skipFilesystem && process.platform !== 'win32' && exists(manifestPath)
++      && (fs.statSync(manifestPath).mode & 0o077) !== 0) {
+     return 'upstream_drift';
+   }
+-  const active = manifest.servers[manifest.active_scope];
+-  if (!active) return 'upstream_missing';
++  let hasUnsupportedRecovery = false;
++  if (manifest.recovery_servers !== undefined) {
++    if (!manifest.recovery_servers || typeof manifest.recovery_servers !== 'object'
++        || Array.isArray(manifest.recovery_servers)) return 'upstream_drift';
++    for (const entry of Object.values(manifest.recovery_servers)) {
++      if (!entry || entry.transport !== 'unsupported' || !entry.definition
++          || definitionDigest(entry.definition) !== entry.definition_sha256) return 'upstream_drift';
++    }
++    hasUnsupportedRecovery = Object.keys(manifest.recovery_servers).length > 0;
++  }
+   for (const entry of Object.values(manifest.servers)) {
+     if (!entry || entry.transport !== 'stdio' || !entry.definition
+         || definitionDigest(entry.definition) !== entry.definition_sha256) return 'upstream_drift';
+   }
++  if (hasUnsupportedRecovery) return 'unsupported_upstream_transport';
++  const active = manifest.servers[manifest.active_scope];
++  if (!active) return 'upstream_missing';
+   return null;
+ }
+ 
+@@ -626,6 +641,28 @@ function repairClaudeSubstrateCapability(ctx, actions) {
+   for (const scope of scopes) {
+     if (!beforeByPath.has(scope.path)) beforeByPath.set(scope.path, exists(scope.path) ? readText(scope.path) : null);
+   }
++  function restoreOriginalDocuments() {
++    for (const [filePath, bytes] of beforeByPath) {
++      try {
++        if (bytes === null) {
++          if (exists(filePath)) fs.unlinkSync(filePath);
++        } else {
++          ensureDir(path.dirname(filePath));
++          fs.writeFileSync(filePath, bytes, 'utf8');
++        }
++      } catch (_) {}
++    }
++  }
++  function saveDocumentsOrFail() {
++    try {
++      saveChangedScopeDocuments(scopes, beforeByPath);
++      return true;
++    } catch (_) {
++      restoreOriginalDocuments();
++      return false;
++    }
++  }
++
+   const expected = brokerDefinition(ctx);
+   const discovered = scopes.filter((scope) => scopeDefinition(scope) !== undefined);
+   const direct = discovered.filter((scope) => !isAnyBrokerDefinition(scopeDefinition(scope)));
+@@ -635,16 +672,12 @@ function repairClaudeSubstrateCapability(ctx, actions) {
+       || typeof definition.command !== 'string' || !definition.command
+       || !Array.isArray(definition.args) || definition.args.some((arg) => typeof arg !== 'string');
+   });
+-  if (unsupported.length) {
+-    for (const scope of direct) setScopeDefinition(scope, undefined);
+-    saveChangedScopeDocuments(scopes, beforeByPath);
+-    actions.push({ action: 'withdraw_unsupported_substrate_grant', scopes: direct.map((scope) => scope.id) });
+-    return { ok: false, reasons: ['unsupported_upstream_transport'] };
+-  }
++  const supported = direct.filter((scope) => !unsupported.includes(scope));
+ 
+   const { paths, manifest: prior } = readUpstreamManifest(ctx);
+   const manifest = prior && prior.schema_version === witnessStore.UPSTREAM_MANIFEST_SCHEMA_VERSION
+-    && prior.project_digest === paths.project_digest && prior.servers && typeof prior.servers === 'object'
++    && prior.project_digest === paths.project_digest && prior.servers
++    && typeof prior.servers === 'object' && !Array.isArray(prior.servers)
+     ? prior
+     : {
+       schema_version: witnessStore.UPSTREAM_MANIFEST_SCHEMA_VERSION,
+@@ -656,10 +689,7 @@ function repairClaudeSubstrateCapability(ctx, actions) {
+     };
+   manifest.broker_sha256 = sha256(expected.args[0]);
+   manifest.witness_source_sha256 = sha256(path.join(ctx.projectDir, witnessStore.HOOK_RELATIVE_PATH));
+-  if (process.platform !== 'win32' && exists(paths.upstream_manifest_path)) {
+-    fs.chmodSync(paths.upstream_manifest_path, 0o600);
+-  }
+-  for (const scope of direct) {
++  for (const scope of supported) {
+     const definition = scopeDefinition(scope);
+     manifest.servers[scope.id] = {
+       transport: 'stdio',
+@@ -667,20 +697,62 @@ function repairClaudeSubstrateCapability(ctx, actions) {
+       definition_sha256: definitionDigest(definition),
+     };
+   }
+-  if (direct.length) manifest.active_scope = [...direct].sort((a, b) => a.rank - b.rank)[0].id;
++  if (supported.length) manifest.active_scope = [...supported].sort((a, b) => a.rank - b.rank)[0].id;
++  if (unsupported.length) {
++    if (!manifest.recovery_servers || typeof manifest.recovery_servers !== 'object'
++        || Array.isArray(manifest.recovery_servers)) manifest.recovery_servers = {};
++    for (const scope of unsupported) {
++      const definition = scopeDefinition(scope);
++      delete manifest.servers[scope.id];
++      if (manifest.active_scope === scope.id) manifest.active_scope = '';
++      manifest.recovery_servers[scope.id] = {
++        transport: 'unsupported',
++        definition,
++        definition_sha256: definitionDigest(definition),
++      };
++    }
++  }
++
++  const hasUnsupportedRecovery = Boolean(manifest.recovery_servers
++    && typeof manifest.recovery_servers === 'object'
++    && !Array.isArray(manifest.recovery_servers)
++    && Object.keys(manifest.recovery_servers).length);
++  if (unsupported.length || hasUnsupportedRecovery) {
++    if (validateUpstreamManifest(ctx, manifest, { skipFilesystem: true }) !== 'unsupported_upstream_transport') {
++      return { ok: false, reasons: ['upstream_drift'] };
++    }
++    try {
++      if (process.platform !== 'win32' && exists(paths.upstream_manifest_path)) {
++        fs.chmodSync(paths.upstream_manifest_path, 0o600);
++      }
++      atomicPrivateJson(paths.upstream_manifest_path, manifest);
++    } catch (_) {
++      return { ok: false, reasons: ['broker_repair_failed'] };
++    }
++    for (const scope of discovered) setScopeDefinition(scope, undefined);
++    if (!saveDocumentsOrFail()) return { ok: false, reasons: ['broker_repair_failed'] };
++    if (discovered.length) {
++      actions.push({ action: 'withdraw_unsupported_substrate_grant', scopes: discovered.map((scope) => scope.id) });
++    }
++    return { ok: false, reasons: ['unsupported_upstream_transport'] };
++  }
++
+   if (!manifest.active_scope || !manifest.servers[manifest.active_scope]) {
+     for (const scope of discovered) setScopeDefinition(scope, undefined);
+-    saveChangedScopeDocuments(scopes, beforeByPath);
++    if (!saveDocumentsOrFail()) return { ok: false, reasons: ['broker_repair_failed'] };
+     return { ok: false, reasons: ['upstream_missing'] };
+   }
+-  const manifestReason = validateUpstreamManifest(ctx, manifest);
++  const manifestReason = validateUpstreamManifest(ctx, manifest, { skipFilesystem: true });
+   if (manifestReason) {
+     for (const scope of discovered) setScopeDefinition(scope, undefined);
+-    saveChangedScopeDocuments(scopes, beforeByPath);
++    if (!saveDocumentsOrFail()) return { ok: false, reasons: ['broker_repair_failed'] };
+     return { ok: false, reasons: [manifestReason] };
+   }
+ 
+   try {
++    if (process.platform !== 'win32' && exists(paths.upstream_manifest_path)) {
++      fs.chmodSync(paths.upstream_manifest_path, 0o600);
++    }
+     atomicPrivateJson(paths.upstream_manifest_path, manifest);
+     for (const scope of scopes) {
+       if (scopeDefinition(scope) !== undefined) setScopeDefinition(scope, expected);
+@@ -690,17 +762,8 @@ function repairClaudeSubstrateCapability(ctx, actions) {
+       setScopeDefinition(projectScope, expected);
+     }
+     saveChangedScopeDocuments(scopes, beforeByPath);
+-  } catch (error) {
+-    for (const [filePath, bytes] of beforeByPath) {
+-      try {
+-        if (bytes === null) {
+-          if (exists(filePath)) fs.unlinkSync(filePath);
+-        } else {
+-          ensureDir(path.dirname(filePath));
+-          fs.writeFileSync(filePath, bytes, 'utf8');
+-        }
+-      } catch (_) {}
+-    }
++  } catch (_) {
++    restoreOriginalDocuments();
+     return { ok: false, reasons: ['broker_repair_failed'] };
+   }
+   actions.push({ action: 'broker_substrate_capability', scopes: scopes.filter((scope) => scopeDefinition(scope) !== undefined).map((scope) => scope.id) });
+diff --git a/super-gsd/tools/substrate-capability-broker.cjs b/super-gsd/tools/substrate-capability-broker.cjs
+index 5240124..8ae847b 100644
+--- a/super-gsd/tools/substrate-capability-broker.cjs
++++ b/super-gsd/tools/substrate-capability-broker.cjs
+@@ -224,12 +224,17 @@ function watchReadinessInputs(projectRoot, store, env, refresh) {
+ }
+ 
+ function createBroker(options) {
+-  const projectRoot = path.resolve(options.projectRoot);
++  const projectRoot = options.projectRoot ? path.resolve(options.projectRoot) : null;
++  const runtimeProjectRoot = path.resolve(options.runtimeProjectRoot || projectRoot || process.cwd());
++  const upstreamWorkingRoot = path.resolve(options.upstreamWorkingRoot || projectRoot || process.cwd());
+   const env = options.env || process.env;
+-  const store = require(path.join(projectRoot, STORE_RELATIVE_PATH));
+-  const paths = store.resolveWitnessPaths(projectRoot, env);
++  const readinessUnavailableReason = typeof options.readinessUnavailableReason === 'string'
++    ? options.readinessUnavailableReason
++    : (projectRoot ? null : 'invocation_project_unresolved');
++  const store = require(path.join(runtimeProjectRoot, STORE_RELATIVE_PATH));
++  const paths = store.resolveWitnessPaths(runtimeProjectRoot, env);
+   const manifestPath = store.assertPathOutsideProject(
+-    projectRoot,
++    runtimeProjectRoot,
+     options.upstreamManifestPath || paths.upstream_manifest_path,
+     'upstream_manifest_inside_project',
+   );
+@@ -240,15 +245,18 @@ function createBroker(options) {
+   );
+   const spawnUpstream = options.spawnUpstream || spawnManifestServer;
+   const notify = typeof options.onNotification === 'function' ? options.onNotification : () => {};
+-  const child = spawnUpstream(server, projectRoot, env);
++  const child = spawnUpstream(server, upstreamWorkingRoot, env);
+   const upstream = createUpstreamClient(child, notify);
+-  let readiness = store.inspectWitnessReadiness(projectRoot, env);
++  const inspectReadiness = readinessUnavailableReason
++    ? () => ({ ready: false, reason: readinessUnavailableReason })
++    : () => store.inspectWitnessReadiness(projectRoot, env);
++  let readiness = inspectReadiness();
+   let debounce = null;
+   let closed = false;
+ 
+   function refreshReadiness() {
+     if (closed) return readiness;
+-    const next = store.inspectWitnessReadiness(projectRoot, env);
++    const next = inspectReadiness();
+     if (next.ready !== readiness.ready) {
+       notify({
+         jsonrpc: '2.0',
+@@ -269,7 +277,7 @@ function createBroker(options) {
+     if (typeof debounce.unref === 'function') debounce.unref();
+   }
+ 
+-  const watchers = options.watch === false
++  const watchers = options.watch === false || readinessUnavailableReason
+     ? []
+     : watchReadinessInputs(projectRoot, store, env, scheduleRefresh);
+ 
+@@ -347,6 +355,30 @@ function cliValue(argv, name) {
+   return index === -1 ? null : argv[index + 1] || null;
+ }
+ 
++function resolveInvocationProjectRoot(env) {
++  const value = env && typeof env.CLAUDE_PROJECT_DIR === 'string'
++    ? env.CLAUDE_PROJECT_DIR.trim()
++    : '';
++  return value && path.isAbsolute(value) ? path.resolve(value) : null;
++}
++
++function createRuntimeBroker(argv, options = {}) {
++  const env = options.env || process.env;
++  const runtimeProjectRoot = cliValue(argv, '--project-root') || process.cwd();
++  const invocationProjectRoot = resolveInvocationProjectRoot(env);
++  return createBroker({
++    projectRoot: invocationProjectRoot,
++    runtimeProjectRoot,
++    upstreamWorkingRoot: invocationProjectRoot || process.cwd(),
++    env,
++    upstreamManifestPath: cliValue(argv, '--upstream-manifest') || undefined,
++    readinessUnavailableReason: invocationProjectRoot ? null : 'invocation_project_unresolved',
++    spawnUpstream: options.spawnUpstream,
++    watch: options.watch,
++    onNotification: options.onNotification,
++  });
++}
++
+ function isClientResponse(message) {
+   return Boolean(message
+     && message.jsonrpc === '2.0'
+@@ -389,15 +421,11 @@ function createStdioRouter(broker, writeMessage) {
+ }
+ 
+ function runStdio(argv) {
+-  const projectRoot = cliValue(argv, '--project-root') || process.cwd();
+-  const manifestPath = cliValue(argv, '--upstream-manifest');
+   const writeMessage = (message) => process.stdout.write(JSON.stringify(message) + '\n');
+   let broker;
+   try {
+-    broker = createBroker({
+-      projectRoot,
++    broker = createRuntimeBroker(argv, {
+       env: process.env,
+-      upstreamManifestPath: manifestPath || undefined,
+       onNotification: writeMessage,
+     });
+   } catch (_) {
+@@ -426,6 +454,6 @@ function runStdio(argv) {
+   return 0;
+ }
+ 
+-module.exports = { createBroker, createStdioRouter };
++module.exports = { createBroker, createRuntimeBroker, createStdioRouter, resolveInvocationProjectRoot };
+ 
+ if (require.main === module) process.exitCode = runStdio(process.argv.slice(2));

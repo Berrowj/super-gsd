@@ -1,0 +1,380 @@
+diff --git a/super-gsd/config/repo-settings-overlay.json b/super-gsd/config/repo-settings-overlay.json
+index 035acb2..13c2c97 100644
+--- a/super-gsd/config/repo-settings-overlay.json
++++ b/super-gsd/config/repo-settings-overlay.json
+@@ -5,7 +5,7 @@
+       {
+         "sgsd_managed": true,
+         "sgsd_hook_id": "pre-tool-use-substrate-invocation-witness",
+-        "sgsd_source_sha256": "230e7b93881f2528fd6af2bd10d11c4461acd81bc2fc18734b8bf91eed473b20",
++        "sgsd_source_sha256": "242e9c15ebd0849722b217028fdd4b059a5b0c2481a841bfe456c328a291a8fe",
+         "matcher": "mcp__vtp-kb__vtp_search_substrate",
+         "hooks": [{
+           "type": "command",
+@@ -61,7 +61,7 @@
+       {
+         "sgsd_managed": true,
+         "sgsd_hook_id": "post-tool-use-substrate-invocation-witness",
+-        "sgsd_source_sha256": "230e7b93881f2528fd6af2bd10d11c4461acd81bc2fc18734b8bf91eed473b20",
++        "sgsd_source_sha256": "242e9c15ebd0849722b217028fdd4b059a5b0c2481a841bfe456c328a291a8fe",
+         "matcher": "mcp__vtp-kb__vtp_search_substrate",
+         "hooks": [{
+           "type": "command",
+diff --git a/super-gsd/hooks/sgsd-substrate-invocation-witness.cjs b/super-gsd/hooks/sgsd-substrate-invocation-witness.cjs
+index 4382360..c75b80b 100644
+--- a/super-gsd/hooks/sgsd-substrate-invocation-witness.cjs
++++ b/super-gsd/hooks/sgsd-substrate-invocation-witness.cjs
+@@ -223,6 +223,18 @@ function transitionWitnessAfterPost(payload, projectRoot, runtime, env, response
+   });
+ }
+ 
++function transitionWitnessAfterPassthrough(payload, projectRoot, runtime, env, response, reason) {
++  runtime.store.transitionWitnessToPostPassthrough({
++    projectRoot,
++    env,
++    sessionId: payload.session_id,
++    toolUseId: payload.tool_use_id,
++    payloadDigest: runtime.composer.substratePayloadDigest(payload.tool_input),
++    responseDigest: responseDigest(response),
++    reason,
++  });
++}
++
+ function handlePre(payload, projectRoot, runtime, env) {
+   if (typeof payload.session_id !== 'string' || !payload.session_id) return deny('missing_session_id');
+   if (typeof payload.tool_use_id !== 'string' || !payload.tool_use_id) return deny('missing_tool_use_id');
+@@ -277,12 +289,13 @@ function handlePost(payload, projectRoot, runtime, env) {
+   } catch (error) {
+     if (error && error.message === 'malformed_response') {
+       try {
+-        transitionWitnessAfterPost(
++        transitionWitnessAfterPassthrough(
+           payload,
+           projectRoot,
+           runtime,
+           env,
+           payload.tool_response,
++          'malformed_response',
+         );
+       } catch (_) {
+         // An unparseable response must remain an unchanged fail-safe passthrough.
+diff --git a/super-gsd/scripts/lib/substrate-invocation-witness-store.cjs b/super-gsd/scripts/lib/substrate-invocation-witness-store.cjs
+index 0256273..4ea8343 100644
+--- a/super-gsd/scripts/lib/substrate-invocation-witness-store.cjs
++++ b/super-gsd/scripts/lib/substrate-invocation-witness-store.cjs
+@@ -338,8 +338,10 @@ function observableRow(record, event) {
+     created_at: record.created_at,
+     expires_at: record.expires_at,
+     rewritten_at: record.rewritten_at || null,
++    passthrough_at: record.passthrough_at || null,
+     consumed_at: record.consumed_at || null,
+     rewrite: record.rewrite || null,
++    passthrough: record.passthrough || null,
+   };
+ }
+ 
+@@ -379,8 +381,10 @@ function createPreWitness(options) {
+     created_at: now,
+     expires_at: now + WITNESS_TTL_MS,
+     rewritten_at: null,
++    passthrough_at: null,
+     consumed_at: null,
+     rewrite: null,
++    passthrough: null,
+   }, key);
+   const recordPath = path.join(paths.spool_dir, recordIdentity(key, options.sessionId, options.toolUseId) + '.json');
+   try {
+@@ -454,6 +458,48 @@ function transitionWitnessToRewritten(options) {
+   return observableRow(finalRecord, 'rewritten');
+ }
+ 
++function transitionWitnessToPostPassthrough(options) {
++  const projectRoot = path.resolve(options.projectRoot);
++  const paths = resolveWitnessPaths(projectRoot, options.env || process.env);
++  const key = readKey(paths);
++  requireDigest(options.payloadDigest, 'witness_payload_digest_invalid');
++  requireDigest(options.responseDigest, 'witness_response_digest_invalid');
++  if (typeof options.reason !== 'string' || !/^[a-z0-9_.:-]{1,120}$/i.test(options.reason)) {
++    throw new Error('witness_passthrough_reason_invalid');
++  }
++  const exact = readExactRecord(paths, key, options.sessionId, options.toolUseId);
++  const expectedSession = sha256(Buffer.from(options.sessionId, 'utf8'));
++  const expectedToolUse = sha256(Buffer.from(options.toolUseId, 'utf8'));
++  if (exact.record.project_digest !== paths.project_digest
++    || exact.record.session_sha256 !== expectedSession
++    || exact.record.tool_use_sha256 !== expectedToolUse
++    || exact.record.payload_digest !== options.payloadDigest
++    || exact.record.state !== 'pre_allowed') {
++    throw new Error('witness_pre_mismatch');
++  }
++  if (exact.record.expires_at <= Date.now()) throw new Error('witness_pre_expired');
++
++  const unsigned = { ...exact.record };
++  delete unsigned.hmac_sha256;
++  const finalRecord = signedRecord({
++    ...unsigned,
++    state: 'post_passthrough',
++    passthrough_at: Date.now(),
++    passthrough: {
++      reason: options.reason,
++      response_sha256: options.responseDigest,
++    },
++  }, key);
++  atomicReplace(exact.recordPath, Buffer.concat([canonicalRecordBytes(finalRecord), Buffer.from('\n')]));
++  try {
++    appendMirror(paths, finalRecord, 'post_passthrough');
++  } catch (_) {
++    atomicReplace(exact.recordPath, Buffer.from(exact.source, 'utf8'));
++    throw new Error('witness_mirror_write_failed');
++  }
++  return observableRow(finalRecord, 'post_passthrough');
++}
++
+ function readSpoolRows(paths, key) {
+   let names;
+   try {
+@@ -488,7 +534,10 @@ function selectRewrittenWitness(rows, paths, sessionDigest, payloadDigest, now)
+   if (rewritten.length === 0) {
+     if (payloadRows.some((item) => item.record.state === 'consumed')) throw new Error('substrate_witness_replayed');
+     if (payloadRows.some((item) => item.record.expires_at <= now)) throw new Error('substrate_witness_expired');
+-    if (fresh.some((item) => item.record.state === 'pre_allowed')) throw new Error('substrate_witness_not_rewritten');
++    if (fresh.some((item) => item.record.state === 'pre_allowed'
++      || item.record.state === 'post_passthrough')) {
++      throw new Error('substrate_witness_not_rewritten');
++    }
+     if (projectRows.some((item) => item.record.payload_digest === payloadDigest)) {
+       throw new Error('substrate_witness_session_mismatch');
+     }
+@@ -614,6 +663,7 @@ module.exports = {
+   inspectWitnessReadiness,
+   createPreWitness,
+   transitionWitnessToRewritten,
++  transitionWitnessToPostPassthrough,
+   consumeRewrittenWitness,
+   runCli,
+ };
+diff --git a/super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs b/super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs
+index 5f991d9..5af5a2c 100644
+--- a/super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs
++++ b/super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs
+@@ -657,6 +657,7 @@ function defineHookTests() {
+   });
+ 
+   test('PostToolUse passes unparseable MCP output through untouched and records the condition', () => {
++    const beforeSpool = new Set(spoolFiles());
+     const pre = hookPayload('PreToolUse', 'malformed-response');
+     hook.processHookPayload(pre, { env: fixture.env });
+     const rawMarker = 'RAW_MALFORMED_RESPONSE_MARKER';
+@@ -692,16 +693,23 @@ function defineHookTests() {
+       }],
+     });
+     assert.strictEqual(JSON.stringify(condition).includes(rawMarker), false);
+-    assert.deepStrictEqual(store.consumeRewrittenWitness({
++    const created = spoolFiles().filter((file) => !beforeSpool.has(file));
++    assert.strictEqual(created.length, 1);
++    const row = JSON.parse(fs.readFileSync(created[0], 'utf8'));
++    assert.strictEqual(row.state, 'post_passthrough');
++    assert.strictEqual(typeof row.passthrough_at, 'number');
++    assert.deepStrictEqual(row.passthrough, {
++      reason: 'malformed_response',
++      response_sha256: sha256(Buffer.from(JSON.stringify(original), 'utf8')),
++    });
++    assert.strictEqual(row.rewritten_at, null);
++    assert.strictEqual(row.rewrite, null);
++    assert.throws(() => store.consumeRewrittenWitness({
+       projectRoot: fixture.project,
+       env: fixture.env,
+       sessionId: pre.session_id,
+       payloadDigest: composer.substratePayloadDigest(pre.tool_input),
+-    }), {
+-      ok: true,
+-      payload_digest: composer.substratePayloadDigest(pre.tool_input),
+-      witness_status: 'consumed',
+-    });
++    }), /substrate_witness_not_rewritten/);
+   });
+ 
+   test('PostToolUse runtime-shape diagnostic records keys and types without values', () => {
+diff --git a/super-gsd/tests/substrate-invocation-witness/assert-witness-correlation.cjs b/super-gsd/tests/substrate-invocation-witness/assert-witness-correlation.cjs
+index 3ef8227..3ad00a7 100644
+--- a/super-gsd/tests/substrate-invocation-witness/assert-witness-correlation.cjs
++++ b/super-gsd/tests/substrate-invocation-witness/assert-witness-correlation.cjs
+@@ -417,19 +417,42 @@ test('preserves P166 rejection order and does not consume on forged records', ()
+   assert.strictEqual(accept(envelope, { sessionId }).ok, true);
+ });
+ 
++test('rejects an unchanged PostToolUse passthrough as not rewritten', () => {
++  const envelope = prepared('P167 passthrough is not rewrite evidence');
++  const sessionId = 'session-passthrough';
++  const prePayload = seedPre(envelope, { id: 'passthrough', sessionId });
++  const passthrough = hook.processHookPayload({
++    ...prePayload,
++    hook_event_name: 'PostToolUse',
++    tool_response: [{ type: 'text', text: 'upstream status text' }],
++  }, {
++    env: fixture.env,
++    expectedEvent: 'PostToolUse',
++  });
++  assert.strictEqual(passthrough, null);
++  assert.throws(
++    () => accept(envelope, { sessionId }),
++    /vtp_prompt_substrate_contract_invalid:substrate_witness_not_rewritten/,
++  );
++});
++
+ test('CLI inherits runtime session and emits accepted JSON only after consumption', () => {
+   const envelope = prepared('P167 CLI runtime session witness');
+   const sessionId = 'session-cli';
+   const prePayload = seedPre(envelope, { id: 'cli', sessionId });
+-  const passthrough = hook.processHookPayload({
++  const rewritten = hook.processHookPayload({
+     ...prePayload,
+     hook_event_name: 'PostToolUse',
+-    tool_response: [{ type: 'text', text: 'upstream status text' }],
++    tool_response: {
++      content: [{ type: 'text', text: JSON.stringify({ hits: [{ text: 'bounded' }] }) }],
++      isError: false,
++    },
+   }, {
+     env: fixture.env,
+     expectedEvent: 'PostToolUse',
+   });
+-  assert.strictEqual(passthrough, null);
++  assert.strictEqual(rewritten.hookSpecificOutput.hookEventName, 'PostToolUse');
++  assert(rewritten.hookSpecificOutput.updatedMCPToolOutput);
+   const inputDir = path.join(fixture.project, '.planning', 'tmp');
+   mkdir(inputDir);
+   const preparedPath = path.join(inputDir, 'prepared.json');
+diff --git a/super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs b/super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs
+index 85aeaaa..40c1678 100644
+--- a/super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs
++++ b/super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs
+@@ -378,13 +378,14 @@ function marker(prefix) {
+   return prefix + '_' + crypto.randomBytes(16).toString('hex').toUpperCase();
+ }
+ 
+-function expectation(scenario, payload, rawMarker, tailMarker) {
++function expectation(scenario, payload, rawMarker, tailMarker, matchMode = 'exact') {
+   return {
+     scenario,
+     payload,
+     payload_sha256: payloadDigest(payload),
+     raw_response_marker: rawMarker,
+     discarded_tail_marker: tailMarker,
++    match_mode: matchMode,
+   };
+ }
+ 
+@@ -1630,6 +1631,7 @@ async function captureSameUserBypass(context) {
+     alternatePayload,
+     marker('P167_RAW_BYPASS_ALT'),
+     '\uE169',
++    'query_marker',
+   );
+   const directExpectation = expectation(
+     'same-user-direct',
+@@ -1720,7 +1722,10 @@ async function captureSameUserBypass(context) {
+   const alternateRows = afterAlternateLog.calls.filter((row) => row.payload_sha256
+     === alternatePayloadChoice.observed_payload_sha256);
+   requireCondition(afterAlternateLog.calls.length === 1 && alternateRows.length === 1
+-    && alternateRows[0].tool_name === SHORT_TOOL,
++    && alternateRows[0].tool_name === SHORT_TOOL
++    && alternateRows[0].expectation === alternateExpectation.scenario
++    && alternateRows[0].accepted === true
++    && alternateResult.is_error === false,
+   'bypass_alternate_fixture_row_invalid');
+ 
+   const direct = await protocolConversation(
+@@ -1750,6 +1755,7 @@ async function captureSameUserBypass(context) {
+   requireCondition(finalLog.calls.length === 2
+     && finalAlternateRows.length === 1
+     && finalDirectRows.length === 1
++    && finalAlternateRows[0].accepted === true
+     && finalDirectRows[0].accepted === true,
+   'bypass_fixture_rows_invalid');
+   const payloadDigests = [
+@@ -2457,8 +2463,9 @@ function verifySameUserBypass(bypass, current) {
+       && alternate.observed_payload_sha256 !== alternate.requested_non_v2_payload_sha256,
+     'same_user_alternate_changed_choice_invalid');
+   }
+-  requireCondition(alternate.fixture_payload_accepted === alternate.payload_exactly_as_requested,
+-    'same_user_alternate_fixture_acceptance_invalid');
++  requireCondition(alternate.fixture_payload_accepted === true
++    && alternate.result_is_error === false,
++  'same_user_alternate_was_not_accepted_successfully');
+   const observations = verifyTranscriptObservations(
+     alternate.transcript_observations,
+     alternate.transcript_observations_sha256,
+@@ -2508,9 +2515,8 @@ function verifySameUserBypass(bypass, current) {
+   const fixtureCalls = verifyFixtureObservations(
+     fixture,
+     2,
+-    [alternate.payload_exactly_as_requested ? 'same-user-alternate' : null, 'same-user-direct'],
++    ['same-user-alternate', 'same-user-direct'],
+     'same_user_fixture',
+-    false,
+   );
+   requireCondition(fixtureCalls.some((row) => row.payload_sha256 === alternate.observed_payload_sha256
+     && row.accepted === alternate.fixture_payload_accepted)
+diff --git a/super-gsd/tests/substrate-invocation-witness/fixture-vtp-mcp-server.cjs b/super-gsd/tests/substrate-invocation-witness/fixture-vtp-mcp-server.cjs
+index b5c18fe..4c60894 100644
+--- a/super-gsd/tests/substrate-invocation-witness/fixture-vtp-mcp-server.cjs
++++ b/super-gsd/tests/substrate-invocation-witness/fixture-vtp-mcp-server.cjs
+@@ -55,6 +55,14 @@ function validateExpectation(value) {
+       || value.payload_sha256 !== payloadDigest(value.payload)) {
+     throw new Error('fixture_expectation_digest_invalid');
+   }
++  const matchMode = value.match_mode === undefined ? 'exact' : value.match_mode;
++  if (!['exact', 'query_marker'].includes(matchMode)) {
++    throw new Error('fixture_expectation_match_mode_invalid');
++  }
++  if (matchMode === 'query_marker'
++      && (typeof value.payload.query !== 'string' || !value.payload.query)) {
++    throw new Error('fixture_expectation_query_marker_invalid');
++  }
+   if (typeof value.raw_response_marker !== 'string'
+       || value.raw_response_marker.length < 8
+       || value.raw_response_marker.length > 160) {
+@@ -64,7 +72,7 @@ function validateExpectation(value) {
+       || value.discarded_tail_marker.length !== 1) {
+     throw new Error('fixture_tail_marker_invalid');
+   }
+-  return value;
++  return { ...value, match_mode: matchMode };
+ }
+ 
+ function loadConfiguration(env = process.env) {
+@@ -87,10 +95,17 @@ function loadConfiguration(env = process.env) {
+   }
+   const expectations = source.expectations.map(validateExpectation);
+   const seen = new Set();
++  const queryMarkers = new Set();
+   const markers = new Set();
+   for (const expectation of expectations) {
+     if (seen.has(expectation.payload_sha256)) throw new Error('fixture_expectation_duplicate');
+     seen.add(expectation.payload_sha256);
++    if (expectation.match_mode === 'query_marker') {
++      if (queryMarkers.has(expectation.payload.query)) {
++        throw new Error('fixture_expectation_query_marker_duplicate');
++      }
++      queryMarkers.add(expectation.payload.query);
++    }
+     if (expectation.raw_response_marker.includes(expectation.discarded_tail_marker)
+         || markers.has(expectation.raw_response_marker)
+         || markers.has(expectation.discarded_tail_marker)) {
+@@ -220,10 +235,12 @@ function handleMessage(config, message) {
+     const digest = payload && typeof payload === 'object' && !Array.isArray(payload)
+       ? payloadDigest(payload)
+       : null;
+-    const expectation = config.expectations.find((item) => item.payload_sha256 === digest);
++    const expectation = config.expectations.find((item) => item.payload_sha256 === digest
++      && JSON.stringify(item.payload) === JSON.stringify(payload))
++      || config.expectations.find((item) => item.match_mode === 'query_marker'
++        && payload && item.payload.query === payload.query);
+     const accepted = Boolean(params.name === TOOL_NAME
+-      && expectation
+-      && JSON.stringify(expectation.payload) === JSON.stringify(payload));
++      && expectation);
+     appendObservation(config, message, {
+       traffic_class: 'invocation',
+       tool_name: typeof params.name === 'string' ? params.name : null,

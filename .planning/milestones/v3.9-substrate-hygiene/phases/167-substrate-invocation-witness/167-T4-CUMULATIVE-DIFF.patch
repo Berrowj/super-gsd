@@ -1,0 +1,1661 @@
+diff --git a/super-gsd/config/hook-manifest.json b/super-gsd/config/hook-manifest.json
+index 7d57674..5eeca43 100644
+--- a/super-gsd/config/hook-manifest.json
++++ b/super-gsd/config/hook-manifest.json
+@@ -109,6 +109,16 @@
+         {"kind": "registered", "authority": "config/repo-settings-overlay.json", "surface": "claude-project", "event": "SessionStart", "matcher": null, "timeout_seconds": 5, "command": "node super-gsd/hooks/sgsd-session-start.js", "hook_id": "session-start-governance"}
+       ]
+     },
++    {
++      "source_path": "hooks/sgsd-substrate-invocation-witness.cjs",
++      "interpreter": "node",
++      "distribution_targets": ["claude-global", "claude-project"],
++      "dispositions": [
++        {"kind": "registered", "authority": "config/repo-settings-overlay.json", "surface": "claude-project", "event": "PreToolUse", "matcher": "mcp__vtp-kb__vtp_search_substrate", "timeout_seconds": 5, "command": "node super-gsd/hooks/sgsd-substrate-invocation-witness.cjs --event PreToolUse", "hook_id": "pre-tool-use-substrate-invocation-witness"},
++        {"kind": "registered", "authority": "config/repo-settings-overlay.json", "surface": "claude-project", "event": "PostToolUse", "matcher": "mcp__vtp-kb__vtp_search_substrate", "timeout_seconds": 5, "command": "node super-gsd/hooks/sgsd-substrate-invocation-witness.cjs --event PostToolUse", "hook_id": "post-tool-use-substrate-invocation-witness"},
++        {"kind": "intentionally_unregistered", "surface": "claude-global hooks", "reason": "Project-bound witness state and source digests require exactly one project registration per event; a global copy would duplicate Pre/Post execution."}
++      ]
++    },
+     {
+       "source_path": "hooks/sgsd-statusline.js",
+       "interpreter": "node",
+diff --git a/super-gsd/config/repo-settings-overlay.json b/super-gsd/config/repo-settings-overlay.json
+index b6410bf..694af89 100644
+--- a/super-gsd/config/repo-settings-overlay.json
++++ b/super-gsd/config/repo-settings-overlay.json
+@@ -1,6 +1,20 @@
+ {
+   "_comment": "Merge into <repo>/.claude/settings.json via super-gsd/scripts/merge-settings.js --repo-local-hooks. Hook script args are repo-relative here and resolved to absolute target-repo paths at install time.",
+   "hooks": {
++    "PreToolUse": [
++      {
++        "sgsd_managed": true,
++        "sgsd_hook_id": "pre-tool-use-substrate-invocation-witness",
++        "sgsd_source_sha256": "1648d83876b5b6c98de83e3d4db773b2ea2937d16d0e571226431b7ca0bd7dfd",
++        "matcher": "mcp__vtp-kb__vtp_search_substrate",
++        "hooks": [{
++          "type": "command",
++          "command": "node",
++          "args": ["super-gsd/hooks/sgsd-substrate-invocation-witness.cjs", "--event", "PreToolUse"],
++          "timeout": 5
++        }]
++      }
++    ],
+     "SessionStart": [
+       {
+         "sgsd_managed": true,
+@@ -44,6 +58,18 @@
+       }
+     ],
+     "PostToolUse": [
++      {
++        "sgsd_managed": true,
++        "sgsd_hook_id": "post-tool-use-substrate-invocation-witness",
++        "sgsd_source_sha256": "1648d83876b5b6c98de83e3d4db773b2ea2937d16d0e571226431b7ca0bd7dfd",
++        "matcher": "mcp__vtp-kb__vtp_search_substrate",
++        "hooks": [{
++          "type": "command",
++          "command": "node",
++          "args": ["super-gsd/hooks/sgsd-substrate-invocation-witness.cjs", "--event", "PostToolUse"],
++          "timeout": 5
++        }]
++      },
+       {
+         "sgsd_managed": true,
+         "sgsd_hook_id": "post-tool-use-quality-gate",
+diff --git a/super-gsd/install.sh b/super-gsd/install.sh
+index bdd502c..02ec43b 100644
+--- a/super-gsd/install.sh
++++ b/super-gsd/install.sh
+@@ -429,6 +429,29 @@ ensure_gsd_base() {
+   log "GSD 1.0: $GSD_DIR"
+ }
+ 
++repair_substrate_capability() {
++  local audit_script="$SCRIPT_DIR/tools/feature-propagation/audit.cjs"
++  if [ ! -f "$audit_script" ]; then
++    echo "ERROR: substrate capability audit missing: $audit_script" >&2
++    return 1
++  fi
++  if ! command -v node >/dev/null 2>&1; then
++    echo "ERROR: Node.js is required to provision the substrate witness capability" >&2
++    return 1
++  fi
++  if [ "$DRY_RUN" = true ]; then
++    log "DRY RUN: would provision the witness key, merge project Pre/Post hooks, broker vtp-kb, then derive installed grants"
++    return 0
++  fi
++  local repair_output
++  if ! repair_output="$(node "$audit_script" --repair-substrate-capability --project-dir "$PROJECT_DIR" 2>&1)"; then
++    [ -z "$repair_output" ] || printf '%s\n' "$repair_output" | sed 's/^/  /' >&2
++    echo "ERROR: substrate enforcement was not current; refusing grant-bearing agent installation" >&2
++    return 1
++  fi
++  [ -z "$repair_output" ] || printf '%s\n' "$repair_output" | sed 's/^/  /'
++}
++
+ install_global_assets() {
+   ensure_gsd_base
+   local -a global_executable_targets=()
+@@ -604,6 +627,10 @@ install_global_assets() {
+     fi
+   fi
+ 
++  if [ -d "$PROJECT_DIR/.planning" ]; then
++    repair_substrate_capability
++  fi
++
+   echo ""
+   log "Global install complete. Launcher installed at $LOCAL_BIN_DIR/sgsd."
+ }
+@@ -880,6 +907,7 @@ init_local_project() {
+ 
+   ensure_memory_tree
+   distribute_project_hooks
++  repair_substrate_capability
+   register_repo_local_hooks
+   register_codex_hooks
+ 
+@@ -978,6 +1006,7 @@ update_existing() {
+   # ensure_memory_tree is idempotent; existing entries are left untouched.
+   ensure_memory_tree
+   distribute_project_hooks
++  repair_substrate_capability
+   register_repo_local_hooks
+   register_codex_hooks
+ 
+diff --git a/super-gsd/scripts/merge-settings.js b/super-gsd/scripts/merge-settings.js
+index af4cda6..a560e65 100644
+--- a/super-gsd/scripts/merge-settings.js
++++ b/super-gsd/scripts/merge-settings.js
+@@ -52,8 +52,9 @@ function readJsonOrEmpty(p) {
+     try {
+         return JSON.parse(raw);
+     } catch (e) {
+-        console.error(`ERROR: ${p} is not valid JSON: ${e.message}`);
+-        process.exit(3);
++        const error = new Error(`${p} is not valid JSON: ${e.message}`);
++        error.exitCode = 3;
++        throw error;
+     }
+ }
+ 
+@@ -579,7 +580,28 @@ function restoreEnvVar(name, value) {
+     }
+ }
+ 
+-function mergeSettingsFiles(overlayPath, targetPath, repoRoot) {
++function reconcileRepoLocalManagedIds(settings, overlay) {
++    const expectedEvents = new Map();
++    for (const [event, entries] of Object.entries((overlay && overlay.hooks) || {})) {
++        for (const entry of entries || []) {
++            const id = repoLocalHookId(entry);
++            if (id) expectedEvents.set(id, event);
++        }
++    }
++    let removed = 0;
++    for (const [event, entries] of Object.entries((settings && settings.hooks) || {})) {
++        if (!Array.isArray(entries)) continue;
++        settings.hooks[event] = entries.filter((entry) => {
++            const id = repoLocalHookId(entry);
++            if (!id || !expectedEvents.has(id) || expectedEvents.get(id) === event) return true;
++            removed++;
++            return false;
++        });
++    }
++    return removed;
++}
++
++function mergeSettingsFiles(overlayPath, targetPath, repoRoot, options = {}) {
+     let repoLocal = null;
+     if (repoRoot) {
+         repoLocal = resolveRepoLocalTarget(targetPath, repoRoot);
+@@ -589,7 +611,7 @@ function mergeSettingsFiles(overlayPath, targetPath, repoRoot) {
+     const overlay = repoRoot
+         ? realizeRepoLocalHookArgs(readJsonOrEmpty(overlayPath), repoRoot)
+         : realizeCommands(readJsonOrEmpty(overlayPath));
+-    preflightHookRegistrations(overlay);
++    preflightHookRegistrations(overlay, options.preflightAdapters || {});
+     const target = repoRoot
+         ? readJsonOrEmpty(targetPath)
+         : realizeCommands(readJsonOrEmpty(targetPath));
+@@ -631,6 +653,7 @@ function isSameStatusLine(a, b) {
+ }
+ 
+ deduped += dedupeExistingHooks(target, !!repoRoot);
++if (repoRoot) deduped += reconcileRepoLocalManagedIds(target, overlay);
+ 
+ function isStopHandoffLauncher(entry) {
+     const cmds = (entry.hooks || []).map(h => normalizeCommand(h.command)).filter(Boolean);
+@@ -775,8 +798,17 @@ function main() {
+         mergeSettingsFiles(overlayPath, targetPath, repoRoot);
+     } catch (e) {
+         console.error(`ERROR: ${e.message}`);
+-        process.exit(4);
++        process.exit(e.exitCode || 4);
+     }
+ }
+ 
+-main();
++if (require.main === module) main();
++
++module.exports = {
++    mergeSettingsFiles,
++    readJsonOrEmpty,
++    realizeRepoLocalHookArgs,
++    findHookEntriesByCommandMatcher,
++    reconcileRepoLocalManagedIds,
++    resolveRepoLocalTarget,
++};
+diff --git a/super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs b/super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs
+index 73a20db..172ba20 100644
+--- a/super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs
++++ b/super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs
+@@ -18,6 +18,7 @@ const GLOBAL_OVERLAY_PATH = path.join(SUPER_GSD_ROOT, 'config', 'settings-overla
+ const REPO_OVERLAY_PATH = path.join(SUPER_GSD_ROOT, 'config', 'repo-settings-overlay.json');
+ const CODEX_HOOK_CONFIG_PATH = path.join(SUPER_GSD_ROOT, 'config', 'codex-hooks.json');
+ const HOOK_MANIFEST_PATH = path.join(SUPER_GSD_ROOT, 'config', 'hook-manifest.json');
++const WITNESS_STORE_PATH = path.join(SUPER_GSD_ROOT, 'scripts', 'lib', 'substrate-invocation-witness-store.cjs');
+ const COMMIT_GATE_INSTALLER_PATH = path.join(SUPER_GSD_ROOT, 'scripts', 'install-commit-gate.cjs');
+ const UPDATE_SKILL_PATH = path.join(SUPER_GSD_ROOT, 'skills', 'sgsd-update', 'SKILL.md');
+ const STALE_OVERLAY_MARKERS = Object.freeze([
+@@ -71,7 +72,7 @@ const CLARITY_NINE_HOOKS = Object.freeze([
+   'sgsd-session-start.js',
+   'sgsd-statusline.js',
+ ]);
+-const CANONICAL_HOOK_COUNT = 16;
++const CANONICAL_HOOK_COUNT = 17;
+ const DEFAULT_INSTALLER_SPAWN_TIMEOUT_MS = 150_000;
+ const BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS = 3 * 90_000;
+ const REAL_UPDATE_SPAWN_TIMEOUT_MS = 3 * 90_000;
+@@ -92,6 +93,7 @@ const SHIPPED_HOOK_NAMES = Object.freeze([
+   'sgsd-session-start.js',
+   'sgsd-statusline.js',
+   'sgsd-stop-handoff.js',
++  'sgsd-substrate-invocation-witness.cjs',
+   'sgsd-vtp-pending.js',
+ ]);
+ const EXPECTED_CODEX_ENTRY_NAMES = Object.freeze([
+@@ -102,9 +104,11 @@ const EXPECTED_CODEX_ENTRY_NAMES = Object.freeze([
+   'validate-stop-contract.cjs',
+ ]);
+ const REPO_REGISTRATIONS = Object.freeze([
++  ['PreToolUse', 'pre-tool-use-substrate-invocation-witness', 'super-gsd/hooks/sgsd-substrate-invocation-witness.cjs'],
+   ['SessionStart', 'session-start-governance', 'super-gsd/hooks/sgsd-session-start.js'],
+   ['UserPromptSubmit', 'user-prompt-intent-classifier', 'super-gsd/hooks/sgsd-intent-classifier.cjs'],
+   ['UserPromptSubmit', 'user-prompt-secret-leak-guard', 'super-gsd/tools/codex-hooks/block-secret-leak.cjs'],
++  ['PostToolUse', 'post-tool-use-substrate-invocation-witness', 'super-gsd/hooks/sgsd-substrate-invocation-witness.cjs'],
+   ['PostToolUse', 'post-tool-use-quality-gate', 'super-gsd/hooks/sgsd-quality-gate.js'],
+ ]);
+ const CLARITY_HISTORICAL_IDS = Object.freeze([
+@@ -189,16 +193,21 @@ function copyFixtureSupport(projectRoot) {
+   for (const name of ['install.sh', 'CLAUDE-OVERLAY.md']) {
+     fs.copyFileSync(path.join(SUPER_GSD_ROOT, name), path.join(vendoredRoot, name));
+   }
+-  for (const relative of ['config', 'hooks', 'registry', 'scripts']) {
++  for (const relative of ['agents', 'config', 'hooks', 'registry', 'scripts']) {
+     fs.cpSync(path.join(SUPER_GSD_ROOT, relative), path.join(vendoredRoot, relative), { recursive: true });
+   }
+   for (const relative of [
+     path.join('tools', 'codex-hooks'),
++    path.join('tools', 'feature-propagation'),
+     path.join('tools', 'state-resolver'),
+     path.join('tools', 'vtp-readiness'),
+   ]) {
+     fs.cpSync(path.join(SUPER_GSD_ROOT, relative), path.join(vendoredRoot, relative), { recursive: true });
+   }
++  fs.copyFileSync(
++    path.join(SUPER_GSD_ROOT, 'tools', 'substrate-capability-broker.cjs'),
++    path.join(vendoredRoot, 'tools', 'substrate-capability-broker.cjs'),
++  );
+   return vendoredRoot;
+ }
+ 
+@@ -310,7 +319,7 @@ function commandSourcePath(command, args = []) {
+   const launch = [command, ...args].join(' ').replace(/\\/g, '/');
+   let match = launch.match(/^(?:node|bash)\s+~\/\.claude\/hooks\/([^\s]+)$/);
+   if (match) return `hooks/${match[1]}`;
+-  match = launch.match(/^(?:node|bash)\s+super-gsd\/(hooks\/[^\s]+|tools\/codex-hooks\/[^\s]+)$/);
++  match = launch.match(/^(?:node|bash)\s+super-gsd\/(hooks\/[^\s]+|tools\/codex-hooks\/[^\s]+)(?:\s+.*)?$/);
+   return match ? match[1] : null;
+ }
+ 
+@@ -406,7 +415,7 @@ function validateManifestInventory(snapshot) {
+     const duplicate = entryPaths.find((sourcePath, index) => entryPaths.indexOf(sourcePath) !== index);
+     manifestFailure('hook_manifest_entry_unexpected', duplicate, 'manifest');
+   }
+-  assert.equal(snapshot.hookInventory.length, 16, 'hook manifest inventory must contain exactly sixteen Claude entries');
++  assert.equal(snapshot.hookInventory.length, 17, 'hook manifest inventory must contain exactly seventeen Claude entries');
+   assert.equal(snapshot.codexInventory.length, 5, 'hook manifest inventory must contain exactly five Codex entries');
+   return { entries, inventorySet, shippedSet: new Set(snapshot.shippedInventory) };
+ }
+@@ -597,7 +606,7 @@ function assertManifestMutationRefused(base, mutate, code, sourcePath, surface)
+ 
+ function runHookManifestCompleteness() {
+   const snapshot = hookManifestSnapshot();
+-  assert.deepEqual(validateHookManifest(snapshot), { entries: 21, registrations: 24, smoke: 15 });
++  assert.deepEqual(validateHookManifest(snapshot), { entries: 22, registrations: 26, smoke: 15 });
+ 
+   assertManifestMutationRefused(snapshot, (fixture) => {
+     fixture.globalOverlay.hooks.SessionStart = fixture.globalOverlay.hooks.SessionStart
+@@ -762,6 +771,8 @@ function runInstaller(fixture, args, timeoutMs = DEFAULT_INSTALLER_SPAWN_TIMEOUT
+         ...process.env,
+         HOME: fixture.homeRoot,
+         USERPROFILE: fixture.homeRoot,
++        APPDATA: path.join(fixture.homeRoot, 'AppData', 'Roaming'),
++        XDG_CONFIG_HOME: path.join(fixture.homeRoot, '.config'),
+       },
+       encoding: 'utf8',
+       shell: false,
+@@ -1342,7 +1353,7 @@ async function runSmokeStatic() {
+     repoRoot,
+   );
+   const repoDescriptors = enumerateHookRegistrations(repoOverlay);
+-  assert.equal(repoDescriptors.length, REPO_REGISTRATIONS.length, 'repo smoke did not realize all four overlay commands');
++  assert.equal(repoDescriptors.length, REPO_REGISTRATIONS.length, 'repo smoke did not realize all six overlay commands');
+   assert.deepEqual(
+     repoDescriptors.map((item) => [item.event, item.hookId, item.scriptPath]),
+     REPO_REGISTRATIONS.map(([event, hookId, relative]) => [event, hookId, path.resolve(repoRoot, relative)]),
+@@ -1409,7 +1420,9 @@ function runVendoredNineHook() {
+   try {
+     retainClarityNine(fixture.vendoredRoot);
+     const before = seedTarget(fixture.repoSettings, 'vendored-nine-hook');
+-    const missing = REPO_REGISTRATIONS.slice(1).map(([, , relative]) => path.resolve(fixture.projectRoot, relative));
++    const missing = REPO_REGISTRATIONS
++      .filter(([, hookId]) => hookId !== 'session-start-governance')
++      .map(([, , relative]) => path.resolve(fixture.projectRoot, relative));
+     const result = runInstaller(fixture, ['--init-project', '--skip-cockpit-deps']);
+     assertRefused(result, fixture.repoSettings, before, ['hook_registration_missing', ...missing]);
+     const settings = JSON.parse(readBytes(fixture.repoSettings).toString('utf8'));
+@@ -1507,7 +1520,7 @@ function runHookDistributionAllTypes() {
+   assert.deepEqual(
+     hookFiles(path.join(SUPER_GSD_ROOT, 'hooks')),
+     [...SHIPPED_HOOK_NAMES],
+-    'source hook inventory drifted from the locked sixteen basenames',
++    'source hook inventory drifted from the locked seventeen basenames',
+   );
+   const codexEntryNames = configuredCodexEntryNames();
+   assert.deepEqual(
+@@ -1578,7 +1591,7 @@ function runHookDistributionAllTypes() {
+ }
+ 
+ function runCanonicalSixteenHook() {
+-  assert.equal(hookFiles(path.join(SUPER_GSD_ROOT, 'hooks')).length, CANONICAL_HOOK_COUNT, 'canonical source is no longer a sixteen-hook layout');
++  assert.equal(hookFiles(path.join(SUPER_GSD_ROOT, 'hooks')).length, CANONICAL_HOOK_COUNT, 'canonical source is no longer a seventeen-hook layout');
+   const fixture = createFixture('canonical-sixteen');
+   try {
+     assert.equal(hookFiles(path.join(fixture.vendoredRoot, 'hooks')).length, CANONICAL_HOOK_COUNT, 'vendored canonical fixture is incomplete');
+@@ -1605,7 +1618,7 @@ function runCanonicalSixteenHook() {
+ }
+ 
+ function runDeployedHookSmoke() {
+-  assert.equal(hookFiles(path.join(SUPER_GSD_ROOT, 'hooks')).length, CANONICAL_HOOK_COUNT, 'canonical source is no longer a sixteen-hook layout');
++  assert.equal(hookFiles(path.join(SUPER_GSD_ROOT, 'hooks')).length, CANONICAL_HOOK_COUNT, 'canonical source is no longer a seventeen-hook layout');
+   const fixture = createDistributionFixture('deployed-hook-smoke');
+   try {
+     seedTarget(fixture.globalSettings, 'smoke-global');
+@@ -1649,7 +1662,13 @@ function runDeployedHookSmoke() {
+     fs.mkdirSync(loadRoot, { recursive: true });
+     const load = spawnSync(process.execPath, [sourceEntryPath], {
+       cwd: loadRoot,
+-      env: { ...process.env, HOME: fixture.homeRoot, USERPROFILE: fixture.homeRoot },
++      env: {
++        ...process.env,
++        HOME: fixture.homeRoot,
++        USERPROFILE: fixture.homeRoot,
++        APPDATA: path.join(fixture.homeRoot, 'AppData', 'Roaming'),
++        XDG_CONFIG_HOME: path.join(fixture.homeRoot, '.config'),
++      },
+       input: JSON.stringify({ hook_event_name: 'SessionStart', cwd: loadRoot }) + '\n',
+       encoding: 'utf8',
+       shell: false,
+@@ -2014,6 +2033,184 @@ function assertClarityRecoveryRunbook() {
+   );
+ }
+ 
++function runBrokeredSubstrateCapability() {
++  const overlay = JSON.parse(fs.readFileSync(REPO_OVERLAY_PATH, 'utf8'));
++  const manifest = JSON.parse(fs.readFileSync(HOOK_MANIFEST_PATH, 'utf8'));
++  const sourcePath = path.join(SUPER_GSD_ROOT, 'hooks', 'sgsd-substrate-invocation-witness.cjs');
++  const sourceDigest = sha256(readBytes(sourcePath));
++  const matcher = ['mcp__vtp-kb__vtp', 'search', 'substrate'].join('_');
++  const expected = [
++    ['PreToolUse', 'pre-tool-use-substrate-invocation-witness'],
++    ['PostToolUse', 'post-tool-use-substrate-invocation-witness'],
++  ];
++  for (const [event, hookId] of expected) {
++    const rows = (overlay.hooks[event] || []).filter((entry) => entry.sgsd_hook_id === hookId);
++    assert.equal(rows.length, 1, `${event} witness registration is missing or duplicated`);
++    assert.equal(rows[0].sgsd_managed, true);
++    assert.equal(rows[0].matcher, matcher);
++    assert.equal(rows[0].sgsd_source_sha256, sourceDigest);
++    assert.deepEqual(rows[0].hooks[0].args, [
++      'super-gsd/hooks/sgsd-substrate-invocation-witness.cjs', '--event', event,
++    ]);
++    assert.equal(rows[0].hooks[0].timeout, 5);
++  }
++  const manifestEntry = manifest.entries.find((entry) => entry.source_path === 'hooks/sgsd-substrate-invocation-witness.cjs');
++  assert.ok(manifestEntry, 'witness source is absent from hook manifest');
++  assert.equal(manifestEntry.dispositions.filter((row) => row.kind === 'registered').length, 2);
++  assert.equal(manifestEntry.dispositions.filter((row) => row.kind === 'intentionally_unregistered'
++    && row.surface === 'claude-global hooks').length, 1);
++
++  const mergeSource = fs.readFileSync(path.join(SUPER_GSD_ROOT, 'scripts', 'merge-settings.js'), 'utf8');
++  assert.match(mergeSource, /if \(require\.main === module\) main\(\);/);
++  const merge = require(path.join(SUPER_GSD_ROOT, 'scripts', 'merge-settings.js'));
++  assert.equal(typeof merge.mergeSettingsFiles, 'function');
++  const audit = require(path.join(SUPER_GSD_ROOT, 'tools', 'feature-propagation', 'audit.cjs'));
++  assert.equal(typeof audit._internals.auditClaudeSubstrateWitness, 'function');
++  assert.equal(typeof audit._internals.auditClaudeSubstrateCapability, 'function');
++
++  const installer = fs.readFileSync(INSTALL_PATH, 'utf8');
++  assert.match(installer, /repair_substrate_capability\(\)/);
++  assert.match(installer, /refusing grant-bearing agent installation/);
++  for (const functionName of ['init_local_project()', 'update_existing()']) {
++    const start = installer.indexOf(functionName);
++    const mergeIndex = installer.indexOf('  register_repo_local_hooks', start);
++    const repairIndex = installer.indexOf('  repair_substrate_capability', start);
++    assert.ok(start >= 0 && repairIndex > start && mergeIndex > repairIndex, `${functionName} merged hooks before key and broker repair`);
++  }
++
++  const fixture = createDistributionFixture('brokered-substrate-capability');
++  try {
++    const secret = 'P167_INSTALLER_PRIVATE_UPSTREAM_VALUE';
++    const repoSeed = sentinelSettings('p167-repo');
++    const stalePre = deepClone(overlay.hooks.PreToolUse[0]);
++    stalePre.hooks[0].command = 'node-stale';
++    const stalePost = deepClone(overlay.hooks.PostToolUse[0]);
++    stalePost.hooks[0].args[2] = 'PreToolUse';
++    repoSeed.hooks.PreToolUse = [stalePre, deepClone(stalePre)];
++    repoSeed.hooks.PostToolUse = [deepClone(stalePre), stalePost, deepClone(stalePost)];
++    writeJson(fixture.repoSettings, repoSeed);
++
++    const globalSeed = sentinelSettings('p167-global');
++    globalSeed.hooks.PreToolUse = [deepClone(overlay.hooks.PreToolUse[0])];
++    writeJson(fixture.globalSettings, globalSeed);
++
++    const projectMcpPath = path.join(fixture.projectRoot, '.mcp.json');
++    const localMcpPath = path.join(fixture.projectRoot, '.claude', 'settings.local.json');
++    const userMcpPath = path.join(fixture.homeRoot, '.claude.json');
++    writeJson(projectMcpPath, {
++      unrelated: { survives: true },
++      mcpServers: {
++        unrelated: { command: 'unrelated-command', args: ['--preserve'] },
++        'vtp-kb': { command: 'node', args: ['project-upstream.cjs'], env: { PRIVATE_VALUE: secret } },
++      },
++    });
++    writeJson(localMcpPath, {
++      unrelatedLocal: true,
++      mcpServers: { 'vtp-kb': { command: 'node', args: ['local-settings-upstream.cjs'] } },
++    });
++    writeJson(userMcpPath, {
++      unrelatedUser: true,
++      mcpServers: { 'vtp-kb': { command: 'node', args: ['user-upstream.cjs'] } },
++      projects: {
++        [fixture.projectRoot]: {
++          unrelatedProjectState: true,
++          mcpServers: { 'vtp-kb': { command: 'node', args: ['local-profile-upstream.cjs'] } },
++        },
++      },
++    });
++
++    const legacyDir = path.join(fixture.homeRoot, '.claude', 'agents');
++    fs.mkdirSync(legacyDir, { recursive: true });
++    for (const [name, marker] of [
++      ['gsd-phase-researcher.md', 'phase_research'],
++      ['gsd-planner.md', 'planning'],
++    ]) {
++      fs.writeFileSync(
++        path.join(legacyDir, name),
++        `---\ntools: Read, Bash\n---\noperator-owned ${name}\n<sgsd_vtp_substrate_policy_p166_${marker}>old P166 content</sgsd_vtp_substrate_policy_p166_${marker}>\n`,
++        'utf8',
++      );
++    }
++
++    const targetWitness = path.join(fixture.projectRoot, 'super-gsd', 'hooks', 'sgsd-substrate-invocation-witness.cjs');
++    fs.mkdirSync(path.dirname(targetWitness), { recursive: true });
++    fs.writeFileSync(targetWitness, fs.readFileSync(sourcePath, 'utf8') + '\n// stale target source\n', 'utf8');
++
++    const args = ['--init-project', '--skip-cockpit-deps'];
++    const first = runInstaller(fixture, args, BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS);
++    if (first.error) throw first.error;
++    const firstOutput = `${first.stderr || ''}\n${first.stdout || ''}`;
++    assert.equal(first.status, 0, `brokered capability install failed:\n${firstOutput}`);
++    assert.equal(firstOutput.includes(secret), false, 'installer output exposed private upstream data');
++    assert.equal(sha256(readBytes(targetWitness)), sourceDigest, 'installer did not refresh the stale witness source');
++
++    const installedRepo = JSON.parse(readBytes(fixture.repoSettings).toString('utf8'));
++    assert.equal(installedRepo.unrelatedProjectKey.survives, true);
++    for (const [event, hookId] of expected) assert.equal(countManagedHook(installedRepo, event, hookId), 1);
++    const installedGlobal = JSON.parse(readBytes(fixture.globalSettings).toString('utf8'));
++    assert.equal(installedGlobal.unrelatedProjectKey.survives, true);
++    assert.equal(JSON.stringify(installedGlobal).includes('substrate-invocation-witness'), false);
++
++    const installedLocal = JSON.parse(readBytes(localMcpPath).toString('utf8'));
++    const installedUser = JSON.parse(readBytes(userMcpPath).toString('utf8'));
++    const definitions = [
++      JSON.parse(readBytes(projectMcpPath).toString('utf8')).mcpServers['vtp-kb'],
++      installedLocal.mcpServers['vtp-kb'],
++      installedUser.mcpServers['vtp-kb'],
++      installedUser.projects[fixture.projectRoot].mcpServers['vtp-kb'],
++    ];
++    for (const definition of definitions) {
++      assert.equal(path.basename(definition.args[0]), 'substrate-capability-broker.cjs');
++      assert.equal(Object.prototype.hasOwnProperty.call(definition, 'env'), false);
++    }
++    assert.equal(JSON.parse(readBytes(projectMcpPath).toString('utf8')).unrelated.survives, true);
++    assert.equal(installedLocal.unrelatedLocal, true);
++    assert.equal(installedUser.unrelatedUser, true);
++
++    const witnessStore = require(WITNESS_STORE_PATH);
++    const isolatedEnv = {
++      HOME: fixture.homeRoot,
++      USERPROFILE: fixture.homeRoot,
++      APPDATA: path.join(fixture.homeRoot, 'AppData', 'Roaming'),
++      XDG_CONFIG_HOME: path.join(fixture.homeRoot, '.config'),
++    };
++    const manifestPath = witnessStore.resolveWitnessPaths(fixture.projectRoot, isolatedEnv).upstream_manifest_path;
++    assert.equal(readBytes(manifestPath).includes(Buffer.from(secret)), true, 'private manifest did not preserve upstream secret bytes');
++
++    const installedAgents = [
++      path.join(legacyDir, 'sgsd-vtp-enrichment.md'),
++      path.join(legacyDir, 'sgsd-board-researcher.md'),
++      path.join(legacyDir, 'gsd-phase-researcher.md'),
++      path.join(legacyDir, 'gsd-planner.md'),
++    ];
++    for (const agentPath of installedAgents) {
++      const text = readBytes(agentPath).toString('utf8');
++      assert.match(text.split(/---/)[1], new RegExp(matcher));
++      assert.match(text, /<sgsd_vtp_substrate_witness_p167>/);
++      assert.doesNotMatch(text, /\btool_use_id\b/);
++      assert.doesNotMatch(text, /truncate it in memory to its first 16000 JavaScript characters/);
++    }
++
++    const stablePaths = [
++      fixture.repoSettings,
++      fixture.globalSettings,
++      projectMcpPath,
++      localMcpPath,
++      userMcpPath,
++      manifestPath,
++      targetWitness,
++      ...installedAgents,
++    ];
++    const firstBytes = new Map(stablePaths.map((filePath) => [filePath, readBytes(filePath)]));
++    const second = runInstaller(fixture, args, BATCHED_GLOBAL_INSTALLER_SPAWN_TIMEOUT_MS);
++    if (second.error) throw second.error;
++    assert.equal(second.status, 0, `brokered capability reinstall failed:\n${second.stderr || ''}\n${second.stdout || ''}`);
++    for (const filePath of stablePaths) assert.deepEqual(readBytes(filePath), firstBytes.get(filePath), `second install changed ${filePath}`);
++  } finally {
++    removeFixture(fixture);
++  }
++}
++
+ function runSgsdUpdateClarityRecovery() {
+   const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-update-clarity-recovery-'));
+   try {
+@@ -2023,6 +2220,8 @@ function runSgsdUpdateClarityRecovery() {
+       ...process.env,
+       HOME: project.homeRoot,
+       USERPROFILE: project.homeRoot,
++      APPDATA: path.join(project.homeRoot, 'AppData', 'Roaming'),
++      XDG_CONFIG_HOME: path.join(project.homeRoot, '.config'),
+       GIT_SSH_COMMAND: gitFixture.sshRouterPath.replace(/\\/g, '/'),
+       GIT_SSH_VARIANT: 'ssh',
+       GIT_TERMINAL_PROMPT: '0',
+@@ -2082,6 +2281,7 @@ const CASES = Object.freeze({
+   'deployed-hook-smoke': runDeployedHookSmoke,
+   'hook-distribution-all-types': runHookDistributionAllTypes,
+   'hook-manifest-completeness': runHookManifestCompleteness,
++  'brokered-substrate-capability': runBrokeredSubstrateCapability,
+   'sgsd-update-clarity-shape': runSgsdUpdateClarityRecovery,
+   'sgsd-update-clarity-recovery': runSgsdUpdateClarityRecovery,
+ });
+diff --git a/super-gsd/tests/substrate-invocation-witness/assert-propagation.cjs b/super-gsd/tests/substrate-invocation-witness/assert-propagation.cjs
+new file mode 100644
+index 0000000..9356a11
+--- /dev/null
++++ b/super-gsd/tests/substrate-invocation-witness/assert-propagation.cjs
+@@ -0,0 +1,303 @@
++#!/usr/bin/env node
++'use strict';
++
++const assert = require('node:assert/strict');
++const crypto = require('node:crypto');
++const fs = require('node:fs');
++const os = require('node:os');
++const path = require('node:path');
++
++const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
++const AUDIT_PATH = path.join(REPO_ROOT, 'super-gsd', 'tools', 'feature-propagation', 'audit.cjs');
++const STORE_PATH = path.join(REPO_ROOT, 'super-gsd', 'scripts', 'lib', 'substrate-invocation-witness-store.cjs');
++const TOOL = ['mcp__vtp-kb__vtp', 'search', 'substrate'].join('_');
++const SECRET_SENTINEL = ['P167', 'PRIVATE', 'UPSTREAM', 'VALUE'].join('_');
++const AGENTS = ['sgsd-vtp-enrichment.md', 'sgsd-board-researcher.md', 'gsd-phase-researcher.md', 'gsd-planner.md'];
++
++function writeJson(filePath, value) {
++  fs.mkdirSync(path.dirname(filePath), { recursive: true });
++  fs.writeFileSync(filePath, JSON.stringify(value, null, 2) + '\n', 'utf8');
++}
++
++function copy(relativePath, projectRoot) {
++  const source = path.join(REPO_ROOT, relativePath);
++  const target = path.join(projectRoot, relativePath);
++  fs.mkdirSync(path.dirname(target), { recursive: true });
++  fs.copyFileSync(source, target);
++}
++
++function read(filePath) {
++  return fs.readFileSync(filePath, 'utf8');
++}
++
++function evidenceSnapshot(paths) {
++  return Object.fromEntries(paths.map((filePath) => [
++    filePath,
++    fs.existsSync(filePath)
++      ? crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex')
++      : null,
++  ]));
++}
++
++function withIsolatedProfile(run) {
++  const saved = {
++    HOME: process.env.HOME,
++    USERPROFILE: process.env.USERPROFILE,
++    APPDATA: process.env.APPDATA,
++    XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
++  };
++  const realHome = saved.USERPROFILE || saved.HOME || '';
++  const protectedPaths = [
++    ...(realHome ? [path.join(realHome, '.claude.json'), path.join(realHome, '.claude', 'settings.json')] : []),
++    path.join(REPO_ROOT, '.mcp.json'),
++    path.join(REPO_ROOT, '.claude', 'settings.json'),
++    path.join(REPO_ROOT, 'super-gsd', 'hooks', 'sgsd-substrate-invocation-witness.cjs'),
++    path.join(REPO_ROOT, 'super-gsd', 'tools', 'substrate-capability-broker.cjs'),
++  ];
++  const protectedBefore = evidenceSnapshot(protectedPaths);
++  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-p167-propagation-'));
++  const home = path.join(root, 'profile');
++  const project = path.join(root, 'project');
++  fs.mkdirSync(path.join(project, '.planning'), { recursive: true });
++  fs.mkdirSync(home, { recursive: true });
++  process.env.HOME = home;
++  process.env.USERPROFILE = home;
++  process.env.APPDATA = path.join(home, 'AppData', 'Roaming');
++  process.env.XDG_CONFIG_HOME = path.join(home, '.config');
++  try {
++    return run({ root, home, project });
++  } finally {
++    assert.deepEqual(evidenceSnapshot(protectedPaths), protectedBefore, 'isolated propagation escaped into real profile or source evidence');
++    for (const name of Object.keys(saved)) {
++      if (saved[name] === undefined) delete process.env[name]; else process.env[name] = saved[name];
++    }
++    fs.rmSync(root, { recursive: true, force: true });
++  }
++}
++
++function seedProject(project) {
++  for (const relativePath of [
++    'super-gsd/hooks/sgsd-substrate-invocation-witness.cjs',
++    'super-gsd/tools/substrate-capability-broker.cjs',
++    'super-gsd/scripts/lib/substrate-invocation-witness-store.cjs',
++    'super-gsd/scripts/lib/vtp-context-composer.cjs',
++  ]) copy(relativePath, project);
++  writeJson(path.join(project, '.claude', 'settings.json'), {
++    unrelated: { preserved: true }, hooks: { PreToolUse: [], PostToolUse: [] },
++  });
++  writeJson(path.join(project, '.mcp.json'), {
++    unrelated: { preserved: true },
++    mcpServers: {
++      unrelated: { command: 'unrelated-command', args: ['--preserve'] },
++      'vtp-kb': { command: 'node', args: ['private-upstream.cjs'], env: { P167_VALUE: SECRET_SENTINEL } },
++    },
++  });
++}
++
++function seedLegacyAgents(home) {
++  const agentsDir = path.join(home, '.claude', 'agents');
++  fs.mkdirSync(agentsDir, { recursive: true });
++  fs.writeFileSync(path.join(agentsDir, 'gsd-phase-researcher.md'), '---\ntools: Read, Bash\n---\noperator researcher text\n<sgsd_vtp_substrate_policy_p166_phase_research>old P166 researcher</sgsd_vtp_substrate_policy_p166_phase_research>\n', 'utf8');
++  fs.writeFileSync(path.join(agentsDir, 'gsd-planner.md'), '---\ntools: Read, Bash\n---\noperator planner text\n<sgsd_vtp_substrate_policy_p166_planning>old P166 planner</sgsd_vtp_substrate_policy_p166_planning>\n', 'utf8');
++}
++
++function snapshot(paths) {
++  return Object.fromEntries(paths.map((filePath) => [filePath, fs.existsSync(filePath) ? read(filePath) : null]));
++}
++
++function main() {
++  const audit = require(AUDIT_PATH);
++  const store = require(STORE_PATH);
++  assert.equal(typeof audit._internals.auditClaudeSubstrateWitness, 'function', 'red: witness absence audit is not implemented');
++  assert.equal(typeof audit._internals.auditClaudeSubstrateCapability, 'function', 'red: broker-only capability audit is not implemented');
++
++  withIsolatedProfile(({ home, project }) => {
++    seedProject(project);
++    seedLegacyAgents(home);
++    writeJson(path.join(project, '.claude', 'settings.local.json'), {
++      unrelatedLocal: true,
++      mcpServers: { 'vtp-kb': { command: 'node', args: ['local-upstream.cjs'] } },
++    });
++    writeJson(path.join(home, '.claude.json'), {
++      unrelatedUser: true,
++      mcpServers: { 'vtp-kb': { command: 'node', args: ['user-upstream.cjs'] } },
++      projects: {
++        [project]: {
++          unrelatedProjectState: true,
++          mcpServers: { 'vtp-kb': { command: 'node', args: ['local-profile-upstream.cjs'] } },
++        },
++      },
++    });
++    const overlay = JSON.parse(read(path.join(REPO_ROOT, 'super-gsd', 'config', 'repo-settings-overlay.json')));
++    writeJson(path.join(home, '.claude', 'settings.json'), {
++      unrelatedGlobal: { preserved: true },
++      hooks: { PreToolUse: [overlay.hooks.PreToolUse[0]] },
++    });
++    const settingsPath = path.join(project, '.claude', 'settings.json');
++    const mcpPath = path.join(project, '.mcp.json');
++    const absent = audit.runAudit({ projectDir: project });
++    assert.equal(absent.ok, false, 'fresh profile without witness enforcement audited ok');
++    assert(absent.issues.includes('project_claude_substrate_witness_missing_or_stale'));
++
++    const repaired = audit.runAudit({ projectDir: project, repairSafe: true });
++    assert.equal(repaired.claude_substrate_witness.status, 'current');
++    assert.equal(repaired.claude_substrate_witness.trust_level, 'local_hmac');
++    assert.equal(repaired.claude_substrate_witness.enforcement_scope, 'supported_sgsd_brokered_mcp_grant');
++    assert.equal(repaired.claude_substrate_witness.residual, 'same_user_can_restore_direct_mcp_or_replace_broker');
++    assert.equal(repaired.claude_substrate_capability.status, 'current');
++    assert.doesNotMatch(JSON.stringify(repaired), new RegExp(SECRET_SENTINEL));
++    const globalSettings = JSON.parse(read(path.join(home, '.claude', 'settings.json')));
++    assert.equal(globalSettings.unrelatedGlobal.preserved, true);
++    assert.equal(JSON.stringify(globalSettings).includes(store.PRE_HOOK_ID), false);
++
++    const settings = JSON.parse(read(settingsPath));
++    assert.equal(settings.unrelated.preserved, true);
++    for (const [event, id] of [['PreToolUse', store.PRE_HOOK_ID], ['PostToolUse', store.POST_HOOK_ID]]) {
++      const registrations = settings.hooks[event].filter((entry) => entry.sgsd_hook_id === id);
++      assert.equal(registrations.length, 1, event + ' witness hook was not registered exactly once');
++      assert.equal(registrations[0].matcher, TOOL);
++    }
++
++    const mcp = JSON.parse(read(mcpPath));
++    assert.equal(mcp.unrelated.preserved, true);
++    assert.equal(mcp.mcpServers.unrelated.command, 'unrelated-command');
++    assert.match(mcp.mcpServers['vtp-kb'].args[0], /substrate-capability-broker\.cjs$/);
++    assert.doesNotMatch(read(mcpPath), new RegExp(SECRET_SENTINEL));
++    assert.doesNotMatch(read(path.join(project, '.claude', 'settings.local.json')), new RegExp(SECRET_SENTINEL));
++    assert.doesNotMatch(read(path.join(home, '.claude.json')), new RegExp(SECRET_SENTINEL));
++    const localSettings = JSON.parse(read(path.join(project, '.claude', 'settings.local.json')));
++    const profileSettings = JSON.parse(read(path.join(home, '.claude.json')));
++    for (const definition of [
++      localSettings.mcpServers['vtp-kb'],
++      profileSettings.mcpServers['vtp-kb'],
++      profileSettings.projects[project].mcpServers['vtp-kb'],
++    ]) assert.match(definition.args[0], /substrate-capability-broker\.cjs$/);
++    const manifestPath = store.resolveWitnessPaths(project, process.env).upstream_manifest_path;
++    assert.match(read(manifestPath), new RegExp(SECRET_SENTINEL));
++
++    for (const name of AGENTS) {
++      const installed = read(path.join(home, '.claude', 'agents', name));
++      assert.match(installed.split(/---/)[1], new RegExp(TOOL));
++      assert.match(installed, /<sgsd_vtp_substrate_witness_p167>/);
++      assert.doesNotMatch(installed, /\btool_use_id\b/);
++      assert.doesNotMatch(installed, /truncate it in memory to its first 16000 JavaScript characters/);
++    }
++
++    const stablePaths = [
++      settingsPath,
++      mcpPath,
++      path.join(project, '.claude', 'settings.local.json'),
++      path.join(home, '.claude.json'),
++      path.join(home, '.claude', 'settings.json'),
++      manifestPath,
++      ...AGENTS.map((name) => path.join(home, '.claude', 'agents', name)),
++    ];
++    const beforeSecondRepair = snapshot(stablePaths);
++    audit.runAudit({ projectDir: project, repairSafe: true });
++    assert.deepEqual(snapshot(stablePaths), beforeSecondRepair, 'second repair changed bytes');
++
++    const withoutPre = JSON.parse(read(settingsPath));
++    withoutPre.hooks.PreToolUse = withoutPre.hooks.PreToolUse.filter((entry) => entry.sgsd_hook_id !== store.PRE_HOOK_ID);
++    writeJson(settingsPath, withoutPre);
++    const missingPre = audit.runAudit({ projectDir: project });
++    assert.equal(missingPre.ok, false);
++    assert(missingPre.issues.includes('project_claude_substrate_witness_missing_or_stale'));
++    assert(missingPre.claude_substrate_capability.reasons.includes('grant_with_witness_unready'));
++
++    audit.runAudit({ projectDir: project, repairSafe: true });
++    const withoutPost = JSON.parse(read(settingsPath));
++    withoutPost.hooks.PostToolUse = withoutPost.hooks.PostToolUse.filter((entry) => entry.sgsd_hook_id !== store.POST_HOOK_ID);
++    writeJson(settingsPath, withoutPost);
++    const missingPost = audit.runAudit({ projectDir: project });
++    assert.equal(missingPost.ok, false);
++    assert(missingPost.claude_substrate_capability.reasons.includes('grant_with_witness_unready'));
++
++    audit.runAudit({ projectDir: project, repairSafe: true });
++    const stale = JSON.parse(read(settingsPath));
++    stale.hooks.PostToolUse.find((entry) => entry.sgsd_hook_id === store.POST_HOOK_ID).hooks[0].command = 'node-stale';
++    writeJson(settingsPath, stale);
++    assert.notEqual(audit.runAudit({ projectDir: project }).claude_substrate_witness.status, 'current');
++
++    audit.runAudit({ projectDir: project, repairSafe: true });
++    const wrongContract = JSON.parse(read(settingsPath));
++    const wrongPre = wrongContract.hooks.PreToolUse.find((entry) => entry.sgsd_hook_id === store.PRE_HOOK_ID);
++    wrongPre.matcher = TOOL + '_wrong';
++    wrongPre.hooks[0].timeout = 99;
++    writeJson(settingsPath, wrongContract);
++    assert.notEqual(audit.runAudit({ projectDir: project }).claude_substrate_witness.status, 'current');
++
++    audit.runAudit({ projectDir: project, repairSafe: true });
++    const duplicate = JSON.parse(read(settingsPath));
++    duplicate.hooks.PostToolUse.push(JSON.parse(JSON.stringify(
++      duplicate.hooks.PostToolUse.find((entry) => entry.sgsd_hook_id === store.POST_HOOK_ID),
++    )));
++    writeJson(settingsPath, duplicate);
++    assert.notEqual(audit.runAudit({ projectDir: project }).claude_substrate_witness.status, 'current');
++
++    audit.runAudit({ projectDir: project, repairSafe: true });
++    const keyPath = store.resolveWitnessPaths(project, process.env).key_path;
++    const validKey = fs.readFileSync(keyPath);
++    fs.renameSync(keyPath, keyPath + '.missing');
++    assert(audit.runAudit({ projectDir: project }).claude_substrate_witness.reasons.includes('key_missing'));
++    fs.renameSync(keyPath + '.missing', keyPath);
++    fs.writeFileSync(keyPath, 'malformed-key', 'utf8');
++    assert(audit.runAudit({ projectDir: project }).claude_substrate_witness.reasons.includes('key_invalid'));
++
++    fs.writeFileSync(keyPath, validKey);
++    audit.runAudit({ projectDir: project, repairSafe: true });
++    const sourcePath = path.join(project, 'super-gsd', 'hooks', 'sgsd-substrate-invocation-witness.cjs');
++    const deleted = JSON.parse(read(settingsPath));
++    deleted.hooks.PreToolUse = deleted.hooks.PreToolUse.filter((entry) => entry.sgsd_hook_id !== store.PRE_HOOK_ID);
++    deleted.hooks.PostToolUse = deleted.hooks.PostToolUse.filter((entry) => entry.sgsd_hook_id !== store.POST_HOOK_ID);
++    writeJson(settingsPath, deleted);
++    fs.renameSync(sourcePath, sourcePath + '.missing');
++    const deletedGuard = audit.runAudit({ projectDir: project });
++    assert.equal(deletedGuard.ok, false);
++    assert(deletedGuard.claude_substrate_capability.reasons.includes('grant_with_witness_unready'));
++    fs.renameSync(sourcePath + '.missing', sourcePath);
++
++    audit.runAudit({ projectDir: project, repairSafe: true });
++    fs.writeFileSync(sourcePath, read(sourcePath) + '\n// source drift\n', 'utf8');
++    assert(audit.runAudit({ projectDir: project }).claude_substrate_witness.reasons.includes('source_drift'));
++  });
++
++  withIsolatedProfile(({ home, project }) => {
++    seedProject(project);
++    writeJson(path.join(project, '.mcp.json'), {
++      mcpServers: { 'vtp-kb': { type: 'sse' } },
++    });
++    const report = audit.runAudit({ projectDir: project, repairSafe: true });
++    assert(report.claude_substrate_capability.reasons.includes('unsupported_upstream_transport'));
++    for (const name of AGENTS) {
++      const agentPath = path.join(home, '.claude', 'agents', name);
++      if (fs.existsSync(agentPath)) assert.doesNotMatch(read(agentPath).split(/---/)[1], new RegExp(TOOL));
++    }
++  });
++
++  withIsolatedProfile(({ home, project }) => {
++    seedProject(project);
++    fs.writeFileSync(path.join(project, '.claude', 'settings.json'), '{ malformed', 'utf8');
++    const report = audit.runAudit({ projectDir: project, repairSafe: true });
++    assert(report.claude_substrate_capability.reasons.includes('witness_repair_failed'));
++    for (const name of AGENTS) {
++      const agentPath = path.join(home, '.claude', 'agents', name);
++      if (fs.existsSync(agentPath)) assert.doesNotMatch(read(agentPath).split(/---/)[1], new RegExp(TOOL));
++    }
++  });
++
++  withIsolatedProfile(({ home, project }) => {
++    seedProject(project);
++    const manifestPath = store.resolveWitnessPaths(project, process.env).upstream_manifest_path;
++    fs.mkdirSync(manifestPath, { recursive: true });
++    const report = audit.runAudit({ projectDir: project, repairSafe: true });
++    assert(report.claude_substrate_capability.reasons.includes('broker_repair_failed'));
++    for (const name of AGENTS) {
++      const agentPath = path.join(home, '.claude', 'agents', name);
++      if (fs.existsSync(agentPath)) assert.doesNotMatch(read(agentPath).split(/---/)[1], new RegExp(TOOL));
++    }
++  });
++
++  process.stdout.write('PASS assert-propagation\n');
++}
++
++main();
+diff --git a/super-gsd/tools/feature-propagation/audit.cjs b/super-gsd/tools/feature-propagation/audit.cjs
+index cf34dd9..1401bce 100644
+--- a/super-gsd/tools/feature-propagation/audit.cjs
++++ b/super-gsd/tools/feature-propagation/audit.cjs
+@@ -26,8 +26,14 @@ const fs = require('fs');
+ const path = require('path');
+ const os = require('os');
+ const crypto = require('crypto');
++const { mergeSettingsFiles } = require('../../scripts/merge-settings.js');
++const witnessStore = require('../../scripts/lib/substrate-invocation-witness-store.cjs');
+ 
+ const CODEX_HOOK_INSTALLER = path.resolve(__dirname, '..', 'codex-hooks', 'install-hooks.cjs');
++const REPO_HOOK_OVERLAY = path.resolve(__dirname, '..', '..', 'config', 'repo-settings-overlay.json');
++const BROKER_RELATIVE_PATH = path.join('super-gsd', 'tools', 'substrate-capability-broker.cjs');
++const P167_MARKER = '<sgsd_vtp_substrate_witness_p167>';
++const P167_END_MARKER = '</sgsd_vtp_substrate_witness_p167>';
+ 
+ const SCHEMA_VERSION = 1;
+ const CODEX_MODEL = 'gpt-5.6-sol';
+@@ -280,6 +286,460 @@ function sha256(p) {
+   }
+ }
+ 
++function sha256Bytes(value) {
++  return crypto.createHash('sha256').update(value).digest('hex');
++}
++
++function stableValue(value) {
++  if (Array.isArray(value)) return value.map(stableValue);
++  if (!value || typeof value !== 'object') return value;
++  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stableValue(value[key])]));
++}
++
++function definitionDigest(value) {
++  return sha256Bytes(Buffer.from(JSON.stringify(stableValue(value)), 'utf8'));
++}
++
++function atomicPrivateJson(filePath, value) {
++  ensureDir(path.dirname(filePath));
++  const serialized = JSON.stringify(value, null, 2) + '\n';
++  if (exists(filePath) && fs.readFileSync(filePath, 'utf8') === serialized) return;
++  const temporary = filePath + '.tmp';
++  fs.writeFileSync(temporary, serialized, { encoding: 'utf8', mode: 0o600 });
++  if (process.platform !== 'win32') fs.chmodSync(temporary, 0o600);
++  fs.renameSync(temporary, filePath);
++  if (process.platform !== 'win32') fs.chmodSync(filePath, 0o600);
++}
++
++function atomicJson(filePath, value) {
++  ensureDir(path.dirname(filePath));
++  const serialized = JSON.stringify(value, null, 2) + '\n';
++  if (exists(filePath) && fs.readFileSync(filePath, 'utf8') === serialized) return;
++  const temporary = filePath + '.tmp';
++  fs.writeFileSync(temporary, serialized, 'utf8');
++  fs.renameSync(temporary, filePath);
++}
++
++function readMcpDocument(filePath) {
++  if (!exists(filePath)) return { doc: {}, malformed: false };
++  try {
++    const value = JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
++    if (!value || typeof value !== 'object' || Array.isArray(value)) return { doc: {}, malformed: true };
++    return { doc: value, malformed: false };
++  } catch (_) {
++    return { doc: {}, malformed: true };
++  }
++}
++
++function samePath(left, right) {
++  return norm(left) === norm(right);
++}
++
++function brokerDefinition(ctx) {
++  const brokerPath = path.join(ctx.projectDir, BROKER_RELATIVE_PATH);
++  const manifestPath = witnessStore.resolveWitnessPaths(ctx.projectDir, process.env).upstream_manifest_path;
++  return {
++    command: 'node',
++    args: [brokerPath, '--project-root', ctx.projectDir, '--upstream-manifest', manifestPath],
++  };
++}
++
++function isBrokerDefinition(value, expected) {
++  return Boolean(value && value.command === expected.command
++    && Array.isArray(value.args)
++    && value.args.length === expected.args.length
++    && value.args.every((arg, index) => index === 0 || index === 2 || index === 4
++      ? samePath(arg, expected.args[index])
++      : arg === expected.args[index]));
++}
++
++function isAnyBrokerDefinition(value) {
++  return Boolean(value && value.command === 'node' && Array.isArray(value.args)
++    && typeof value.args[0] === 'string'
++    && path.basename(value.args[0]).toLowerCase() === 'substrate-capability-broker.cjs');
++}
++
++function mcpScopeDocuments(ctx) {
++  const projectPath = path.join(ctx.projectDir, '.mcp.json');
++  const localPath = path.join(ctx.projectDir, '.claude', 'settings.local.json');
++  const profilePath = path.join(homeDir(), '.claude.json');
++  const projectRead = readMcpDocument(projectPath);
++  const localRead = readMcpDocument(localPath);
++  const profileRead = readMcpDocument(profilePath);
++  const projectDoc = projectRead.doc;
++  const localDoc = localRead.doc;
++  const profileDoc = profileRead.doc;
++  const projects = profileDoc.projects && typeof profileDoc.projects === 'object' && !Array.isArray(profileDoc.projects)
++    ? profileDoc.projects : null;
++  const projectKey = projects && Object.keys(projects).find((key) => samePath(key, ctx.projectDir));
++  const scopes = [
++    { id: 'local-settings', path: localPath, doc: localDoc, owner: localDoc, rank: 1, malformed: localRead.malformed },
++    { id: 'project', path: projectPath, doc: projectDoc, owner: projectDoc, rank: 2, malformed: projectRead.malformed },
++    { id: 'user', path: profilePath, doc: profileDoc, owner: profileDoc, rank: 3, malformed: profileRead.malformed },
++  ];
++  if (projectKey && projects[projectKey] && typeof projects[projectKey] === 'object') {
++    scopes.unshift({ id: 'local', path: profilePath, doc: profileDoc, owner: projects[projectKey], rank: 0, malformed: profileRead.malformed });
++  }
++  return scopes;
++}
++
++function scopeDefinition(scope) {
++  const servers = scope.owner && scope.owner.mcpServers;
++  return servers && typeof servers === 'object' && !Array.isArray(servers) ? servers['vtp-kb'] : undefined;
++}
++
++function setScopeDefinition(scope, value) {
++  const before = scopeDefinition(scope);
++  if (value === undefined && before === undefined) return;
++  if (value !== undefined && before !== undefined
++      && JSON.stringify(stableValue(before)) === JSON.stringify(stableValue(value))) return;
++  if (!scope.owner.mcpServers || typeof scope.owner.mcpServers !== 'object' || Array.isArray(scope.owner.mcpServers)) {
++    scope.owner.mcpServers = {};
++  }
++  if (value === undefined) delete scope.owner.mcpServers['vtp-kb'];
++  else scope.owner.mcpServers['vtp-kb'] = value;
++  scope.dirty = true;
++}
++
++function saveChangedScopeDocuments(scopes, beforeByPath) {
++  const written = new Set();
++  for (const scope of scopes) {
++    if (written.has(scope.path) || !scopes.some((candidate) => candidate.path === scope.path && candidate.dirty)) continue;
++    written.add(scope.path);
++    const after = JSON.stringify(scope.doc, null, 2) + '\n';
++    if (after !== beforeByPath.get(scope.path)) atomicJson(scope.path, scope.doc);
++  }
++}
++
++function auditClaudeSubstrateWitness(ctx) {
++  const readiness = witnessStore.inspectWitnessReadiness(ctx.projectDir, process.env);
++  let ready = readiness.ready;
++  let reason = readiness.reason;
++  const settings = readJson(path.join(ctx.projectDir, '.claude', 'settings.json'));
++  const globalSettingsPath = path.join(homeDir(), '.claude', 'settings.json');
++  const globalSettings = readJson(globalSettingsPath);
++  const allManaged = [];
++  for (const [event, entries] of Object.entries((settings && settings.hooks) || {})) {
++    for (const entry of entries || []) allManaged.push({ event, entry });
++  }
++  const preIds = allManaged.filter(({ entry }) => entry && entry.sgsd_hook_id === witnessStore.PRE_HOOK_ID);
++  const postIds = allManaged.filter(({ entry }) => entry && entry.sgsd_hook_id === witnessStore.POST_HOOK_ID);
++  if (preIds.length > 1) { reason = 'pretooluse_duplicate'; ready = false; }
++  else if (postIds.length > 1) { reason = 'posttooluse_duplicate'; ready = false; }
++  else if (preIds.length === 1 && preIds[0].event !== 'PreToolUse') { reason = 'pretooluse_stale'; ready = false; }
++  else if (postIds.length === 1 && postIds[0].event !== 'PostToolUse') { reason = 'posttooluse_stale'; ready = false; }
++  if (exists(globalSettingsPath) && !globalSettings) { reason = 'global_settings_malformed'; ready = false; }
++  for (const entries of Object.values((globalSettings && globalSettings.hooks) || {})) {
++    if ((entries || []).some((entry) => entry && (
++      entry.sgsd_hook_id === witnessStore.PRE_HOOK_ID || entry.sgsd_hook_id === witnessStore.POST_HOOK_ID
++    ))) {
++      reason = 'global_registration_present';
++      ready = false;
++      break;
++    }
++  }
++  const installedSource = path.join(ctx.projectDir, witnessStore.HOOK_RELATIVE_PATH);
++  const canonicalSource = path.join(ctx.sgsdRoot, witnessStore.HOOK_RELATIVE_PATH.replace(/^super-gsd[\\/]/, ''));
++  if (!samePath(installedSource, canonicalSource)
++      && (!exists(canonicalSource) || sha256(installedSource) !== sha256(canonicalSource))) {
++    reason = 'source_drift';
++    ready = false;
++  }
++  if (!readiness.ready && /stale$/.test(reason || '')) {
++    const sourceDigest = sha256(installedSource);
++    const managed = [];
++    for (const event of ['PreToolUse', 'PostToolUse']) {
++      for (const entry of ((settings && settings.hooks && settings.hooks[event]) || [])) {
++        if (entry && (entry.sgsd_hook_id === witnessStore.PRE_HOOK_ID || entry.sgsd_hook_id === witnessStore.POST_HOOK_ID)) managed.push(entry);
++      }
++    }
++    if (sourceDigest && managed.some((entry) => entry.sgsd_source_sha256 !== sourceDigest)) reason = 'source_drift';
++  }
++  if (reason === 'key_unavailable') {
++    const keyPath = witnessStore.resolveWitnessPaths(ctx.projectDir, process.env).key_path;
++    if (!exists(keyPath)) reason = 'key_missing';
++    else reason = 'key_invalid';
++  }
++  return {
++    status: ready ? 'current' : 'missing_or_stale',
++    ready,
++    reasons: ready ? [] : [reason],
++    source_digest: readiness.source_digest || null,
++    trust_level: 'local_hmac',
++    enforcement_scope: 'supported_sgsd_brokered_mcp_grant',
++    residual: 'same_user_can_restore_direct_mcp_or_replace_broker',
++    managed_policy: 'available_on_windows_but_not_deployed_or_writable_by_current_non_admin_operator',
++  };
++}
++
++function readUpstreamManifest(ctx) {
++  const paths = witnessStore.resolveWitnessPaths(ctx.projectDir, process.env);
++  const manifest = readJson(paths.upstream_manifest_path);
++  return { paths, manifest };
++}
++
++function validateUpstreamManifest(ctx, manifest) {
++  const brokerPath = path.join(ctx.projectDir, BROKER_RELATIVE_PATH);
++  const hookPath = path.join(ctx.projectDir, witnessStore.HOOK_RELATIVE_PATH);
++  const manifestPath = witnessStore.resolveWitnessPaths(ctx.projectDir, process.env).upstream_manifest_path;
++  if (!manifest || manifest.schema_version !== witnessStore.UPSTREAM_MANIFEST_SCHEMA_VERSION
++      || manifest.project_digest !== witnessStore.resolveWitnessPaths(ctx.projectDir, process.env).project_digest
++      || manifest.broker_sha256 !== sha256(brokerPath)
++      || manifest.witness_source_sha256 !== sha256(hookPath)
++      || typeof manifest.active_scope !== 'string' || !manifest.servers || typeof manifest.servers !== 'object') {
++    return 'upstream_drift';
++  }
++  if (process.platform !== 'win32' && exists(manifestPath) && (fs.statSync(manifestPath).mode & 0o077) !== 0) {
++    return 'upstream_drift';
++  }
++  const active = manifest.servers[manifest.active_scope];
++  if (!active) return 'upstream_missing';
++  for (const entry of Object.values(manifest.servers)) {
++    if (!entry || entry.transport !== 'stdio' || !entry.definition
++        || definitionDigest(entry.definition) !== entry.definition_sha256) return 'upstream_drift';
++  }
++  return null;
++}
++
++function auditClaudeSubstrateCapability(ctx, witnessAudit) {
++  const scopes = mcpScopeDocuments(ctx);
++  const expected = brokerDefinition(ctx);
++  const discovered = scopes.filter((scope) => scopeDefinition(scope) !== undefined);
++  const reasons = [];
++  if (scopes.some((scope) => scope.malformed)) reasons.push('upstream_drift');
++  if (discovered.some((scope) => !isAnyBrokerDefinition(scopeDefinition(scope)))) reasons.push('direct_grant');
++  if (!discovered.length) reasons.push('broker_missing');
++  if (discovered.some((scope) => isAnyBrokerDefinition(scopeDefinition(scope))
++      && !isBrokerDefinition(scopeDefinition(scope), expected))) reasons.push('broker_drift');
++  if (discovered.some((scope) => {
++    const value = scopeDefinition(scope);
++    return !isAnyBrokerDefinition(value) && (!value || (value.type && value.type !== 'stdio')
++      || typeof value.command !== 'string' || !Array.isArray(value.args));
++  })) reasons.push('unsupported_upstream_transport');
++  const targetBroker = expected.args[0];
++  const sourceBroker = path.join(ctx.sgsdRoot, BROKER_RELATIVE_PATH.replace(/^super-gsd[\\/]/, ''));
++  if (!exists(targetBroker)) reasons.push('broker_missing');
++  else if (exists(sourceBroker) && sha256(targetBroker) !== sha256(sourceBroker)) reasons.push('broker_drift');
++  const { manifest } = readUpstreamManifest(ctx);
++  const manifestReason = manifest ? validateUpstreamManifest(ctx, manifest) : 'upstream_missing';
++  if (manifestReason) reasons.push(manifestReason);
++  if (discovered.some((scope) => isBrokerDefinition(scopeDefinition(scope), expected)) && !witnessAudit.ready) {
++    reasons.push('grant_with_witness_unready');
++  }
++  const unique = [...new Set(reasons)];
++  return {
++    status: unique.length === 0 ? 'current' : 'missing_or_stale',
++    ready: unique.length === 0,
++    reasons: unique,
++    scopes: discovered.map((scope) => scope.id),
++    trust_level: 'local_hmac',
++    enforcement_scope: 'supported_sgsd_brokered_mcp_grant',
++    residual: 'same_user_can_restore_direct_mcp_or_replace_broker',
++  };
++}
++
++function installSubstrateRuntime(ctx, actions) {
++  const relatives = new Set([
++    path.join('hooks', 'sgsd-substrate-invocation-witness.cjs'),
++    path.join('tools', 'substrate-capability-broker.cjs'),
++    path.join('scripts', 'lib', 'substrate-invocation-witness-store.cjs'),
++  ]);
++  const overlay = readJson(REPO_HOOK_OVERLAY) || {};
++  for (const entries of Object.values(overlay.hooks || {})) {
++    for (const entry of entries || []) {
++      for (const hook of entry.hooks || []) {
++        const script = Array.isArray(hook.args) ? hook.args[0] : null;
++        if (typeof script === 'string' && /^super-gsd[\\/]/.test(script)) {
++          relatives.add(script.replace(/^super-gsd[\\/]/, ''));
++        }
++      }
++    }
++  }
++  for (const relative of relatives) {
++    const source = path.join(ctx.sgsdRoot, relative);
++    const target = path.join(ctx.projectDir, 'super-gsd', relative);
++    if (!exists(source) || samePath(source, target) || sha256(source) === sha256(target)) continue;
++    copyFile(source, target, actions);
++  }
++}
++
++function inProcessNodeCheck(scriptPath) {
++  try {
++    const source = fs.readFileSync(scriptPath, 'utf8').replace(/^#![^\n]*(?:\n|$)/, '');
++    Function(source);
++    return { status: 0 };
++  } catch (_) {
++    return { status: 1 };
++  }
++}
++
++function removeGlobalWitnessRegistrations(actions) {
++  const settingsPath = path.join(homeDir(), '.claude', 'settings.json');
++  const settings = readJson(settingsPath);
++  if (exists(settingsPath) && !settings) throw new Error('global Claude settings are malformed');
++  if (!settings || !settings.hooks || typeof settings.hooks !== 'object') return;
++  let removed = 0;
++  for (const [event, entries] of Object.entries(settings.hooks)) {
++    if (!Array.isArray(entries)) continue;
++    settings.hooks[event] = entries.filter((entry) => {
++      const witness = entry && (
++        entry.sgsd_hook_id === witnessStore.PRE_HOOK_ID || entry.sgsd_hook_id === witnessStore.POST_HOOK_ID
++      );
++      if (witness) removed += 1;
++      return !witness;
++    });
++  }
++  if (!removed) return;
++  atomicJson(settingsPath, settings);
++  actions.push({ action: 'remove_global_substrate_witness_registrations', removed });
++}
++
++function repairClaudeSubstrateWitness(ctx, actions) {
++  try {
++    installSubstrateRuntime(ctx, actions);
++    const key = witnessStore.provisionWitnessKey(ctx.projectDir, process.env);
++    if (key.created) actions.push({ action: 'provision_substrate_witness_key', status: 'created' });
++    removeGlobalWitnessRegistrations(actions);
++    mergeSettingsFiles(
++      REPO_HOOK_OVERLAY,
++      path.join(ctx.projectDir, '.claude', 'settings.json'),
++      ctx.projectDir,
++      {
++        preflightAdapters: {
++          isFile: (scriptPath) => exists(scriptPath) && fs.statSync(scriptPath).isFile(),
++          nodeCheck: inProcessNodeCheck,
++          shellCheck: () => ({ status: 1 }),
++        },
++      },
++    );
++    actions.push({ action: 'merge_substrate_witness_hooks', target: path.join(ctx.projectDir, '.claude', 'settings.json') });
++    return { ok: true, reasons: [] };
++  } catch (error) {
++    return { ok: false, reasons: ['witness_repair_failed'], detail: error && error.message ? error.message : 'unknown' };
++  }
++}
++
++function repairClaudeSubstrateCapability(ctx, actions) {
++  const scopes = mcpScopeDocuments(ctx);
++  if (scopes.some((scope) => scope.malformed)) return { ok: false, reasons: ['broker_repair_failed'] };
++  const beforeByPath = new Map();
++  for (const scope of scopes) {
++    if (!beforeByPath.has(scope.path)) beforeByPath.set(scope.path, exists(scope.path) ? readText(scope.path) : null);
++  }
++  const expected = brokerDefinition(ctx);
++  const discovered = scopes.filter((scope) => scopeDefinition(scope) !== undefined);
++  const direct = discovered.filter((scope) => !isAnyBrokerDefinition(scopeDefinition(scope)));
++  const unsupported = direct.filter((scope) => {
++    const definition = scopeDefinition(scope);
++    return !definition || (definition.type && definition.type !== 'stdio')
++      || typeof definition.command !== 'string' || !definition.command
++      || !Array.isArray(definition.args) || definition.args.some((arg) => typeof arg !== 'string');
++  });
++  if (unsupported.length) {
++    for (const scope of direct) setScopeDefinition(scope, undefined);
++    saveChangedScopeDocuments(scopes, beforeByPath);
++    actions.push({ action: 'withdraw_unsupported_substrate_grant', scopes: direct.map((scope) => scope.id) });
++    return { ok: false, reasons: ['unsupported_upstream_transport'] };
++  }
++
++  const { paths, manifest: prior } = readUpstreamManifest(ctx);
++  const manifest = prior && prior.schema_version === witnessStore.UPSTREAM_MANIFEST_SCHEMA_VERSION
++    && prior.project_digest === paths.project_digest && prior.servers && typeof prior.servers === 'object'
++    ? prior
++    : {
++      schema_version: witnessStore.UPSTREAM_MANIFEST_SCHEMA_VERSION,
++      project_digest: paths.project_digest,
++      broker_sha256: null,
++      witness_source_sha256: null,
++      active_scope: '',
++      servers: {},
++    };
++  manifest.broker_sha256 = sha256(expected.args[0]);
++  manifest.witness_source_sha256 = sha256(path.join(ctx.projectDir, witnessStore.HOOK_RELATIVE_PATH));
++  if (process.platform !== 'win32' && exists(paths.upstream_manifest_path)) {
++    fs.chmodSync(paths.upstream_manifest_path, 0o600);
++  }
++  for (const scope of direct) {
++    const definition = scopeDefinition(scope);
++    manifest.servers[scope.id] = {
++      transport: 'stdio',
++      definition,
++      definition_sha256: definitionDigest(definition),
++    };
++  }
++  if (direct.length) manifest.active_scope = [...direct].sort((a, b) => a.rank - b.rank)[0].id;
++  if (!manifest.active_scope || !manifest.servers[manifest.active_scope]) {
++    for (const scope of discovered) setScopeDefinition(scope, undefined);
++    saveChangedScopeDocuments(scopes, beforeByPath);
++    return { ok: false, reasons: ['upstream_missing'] };
++  }
++  const manifestReason = validateUpstreamManifest(ctx, manifest);
++  if (manifestReason) {
++    for (const scope of discovered) setScopeDefinition(scope, undefined);
++    saveChangedScopeDocuments(scopes, beforeByPath);
++    return { ok: false, reasons: [manifestReason] };
++  }
++
++  try {
++    atomicPrivateJson(paths.upstream_manifest_path, manifest);
++    for (const scope of scopes) {
++      if (scopeDefinition(scope) !== undefined) setScopeDefinition(scope, expected);
++    }
++    if (!scopes.some((scope) => scopeDefinition(scope) !== undefined)) {
++      const projectScope = scopes.find((scope) => scope.id === 'project');
++      setScopeDefinition(projectScope, expected);
++    }
++    saveChangedScopeDocuments(scopes, beforeByPath);
++  } catch (error) {
++    for (const [filePath, bytes] of beforeByPath) {
++      try {
++        if (bytes === null) {
++          if (exists(filePath)) fs.unlinkSync(filePath);
++        } else {
++          ensureDir(path.dirname(filePath));
++          fs.writeFileSync(filePath, bytes, 'utf8');
++        }
++      } catch (_) {}
++    }
++    return { ok: false, reasons: ['broker_repair_failed'] };
++  }
++  actions.push({ action: 'broker_substrate_capability', scopes: scopes.filter((scope) => scopeDefinition(scope) !== undefined).map((scope) => scope.id) });
++  return { ok: true, reasons: [] };
++}
++
++function setFrontmatterTool(source, tool, granted) {
++  const lines = source.split(/\r?\n/);
++  const index = lines.findIndex((line) => /^tools:\s*/.test(line));
++  if (index < 0) return source;
++  const tools = lines[index].replace(/^tools:\s*/, '').split(',').map((value) => value.trim()).filter(Boolean);
++  const filtered = tools.filter((value) => value !== tool);
++  if (granted) filtered.push(tool);
++  lines[index] = 'tools: ' + filtered.join(', ');
++  return lines.join('\n');
++}
++
++function canonicalAgentText(ctx, name, granted) {
++  const source = readText(path.join(ctx.canonicalAgentsDir, name)) || '';
++  return REQUIRED_VTP_AGENTS.includes(name)
++    ? setFrontmatterTool(source, witnessStore.TARGET_TOOL, granted)
++    : source;
++}
++
++function p167Contract(ctx) {
++  const source = readText(path.join(ctx.canonicalAgentsDir, 'sgsd-vtp-enrichment.md')) || '';
++  const start = source.indexOf(P167_MARKER);
++  const end = source.indexOf(P167_END_MARKER, start);
++  return start >= 0 && end >= start ? source.slice(start, end + P167_END_MARKER.length) : '';
++}
++
++function replaceMarkerBlock(source, startMarker, endMarker, replacement) {
++  const start = source.indexOf(startMarker);
++  if (start < 0) return source + '\n' + replacement + '\n';
++  const end = source.indexOf(endMarker, start);
++  if (end < 0) return source;
++  return source.slice(0, start) + replacement + source.slice(end + endMarker.length);
++}
++
+ function copyFile(src, dst, actions) {
+   ensureDir(path.dirname(dst));
+   fs.copyFileSync(src, dst);
+@@ -353,7 +813,7 @@ function profilePaths() {
+   ]));
+ }
+ 
+-function installGlobalSgsdAgents(ctx, actions) {
++function installGlobalSgsdAgents(ctx, actions, substrateGranted) {
+   const canonical = ctx.canonicalAgentsDir;
+   const globalDir = ctx.globalAgentsDir;
+   const repaired = [];
+@@ -361,8 +821,11 @@ function installGlobalSgsdAgents(ctx, actions) {
+     if (!name.startsWith('sgsd-')) continue;
+     const src = path.join(canonical, name);
+     const dst = path.join(globalDir, name);
+-    if (sha256(src) !== sha256(dst)) {
+-      copyFile(src, dst, actions);
++    const expected = canonicalAgentText(ctx, name, substrateGranted);
++    if (expected && readText(dst) !== expected) {
++      ensureDir(path.dirname(dst));
++      fs.writeFileSync(dst, expected, 'utf8');
++      actions.push({ action: 'install_agent', from: src, to: dst, substrate_granted: REQUIRED_VTP_AGENTS.includes(name) ? substrateGranted : null });
+       repaired.push(name);
+     }
+   }
+@@ -393,56 +856,49 @@ function installGlobalSgsdSkills(ctx, actions) {
+   return repaired;
+ }
+ 
+-function installGlobalLegacyAgentPatches(ctx, actions) {
++function installGlobalLegacyAgentPatches(ctx, actions, substrateGranted) {
+   const repaired = [];
+   for (const spec of REQUIRED_LEGACY_AGENT_PATCHES) {
+     const p = path.join(ctx.globalAgentsDir, spec.name);
+     let txt = readText(p);
+     if (!txt) continue;
+-    let changed = false;
+-
+-    if (Array.isArray(spec.tools) && spec.tools.length) {
+-      const lines = txt.split(/\r?\n/);
+-      const idx = lines.findIndex((line) => /^tools:\s*/.test(line));
+-      if (idx !== -1) {
+-        const missing = spec.tools.filter((tool) => lines[idx].indexOf(tool) === -1);
+-        if (missing.length) {
+-          lines[idx] = lines[idx].replace(/\s*$/, '') + ', ' + missing.join(', ');
+-          txt = lines.join('\n');
+-          fs.writeFileSync(p, txt, 'utf8');
+-          actions.push({ action: 'patch_legacy_agent_tools', to: p, tools: missing });
+-          changed = true;
+-        }
+-      }
+-    }
++    const original = txt;
++    const desiredTools = (spec.tools || []).filter((tool) => tool !== witnessStore.TARGET_TOOL || substrateGranted);
++    for (const tool of spec.tools || []) txt = setFrontmatterTool(txt, tool, desiredTools.includes(tool));
+ 
+     if (txt.indexOf(spec.marker) === -1) {
+-      fs.appendFileSync(p, spec.append, 'utf8');
+-      actions.push({ action: 'append_legacy_agent_patch', to: p, marker: spec.marker });
+-      changed = true;
++      txt += spec.append;
+     }
+     if (spec.p166Marker && txt.indexOf(spec.p166Marker) === -1) {
+-      fs.appendFileSync(p, spec.p166Append, 'utf8');
+-      actions.push({ action: 'append_legacy_agent_patch', to: p, marker: spec.p166Marker });
+-      changed = true;
++      txt += spec.p166Append;
+     }
+     if (spec.p166T2Marker && txt.indexOf(spec.p166T2Marker) === -1) {
+-      fs.appendFileSync(p, spec.p166T2Append, 'utf8');
+-      actions.push({ action: 'append_legacy_agent_patch', to: p, marker: spec.p166T2Marker });
+-      changed = true;
++      txt += spec.p166T2Append;
++    }
++    if (spec.p166T2Marker) {
++      const suffix = spec.p166T2Marker.slice(1, -1);
++      const replacement = spec.p166T2Marker + '\nP167 supersedes the prompt-owned response cap. Preserve only hook-authored degradation_notes after successful production acceptance; do not manually truncate or retry raw substrate output.\n</' + suffix + '>';
++      txt = replaceMarkerBlock(txt, spec.p166T2Marker, '</' + suffix + '>', replacement);
++      const contract = p167Contract(ctx);
++      if (contract) txt = replaceMarkerBlock(txt, P167_MARKER, P167_END_MARKER, contract);
++    }
++    if (txt !== original) {
++      fs.writeFileSync(p, txt, 'utf8');
++      actions.push({ action: 'patch_legacy_agent', to: p, substrate_granted: substrateGranted });
++      repaired.push(spec.name);
+     }
+-    if (changed) repaired.push(spec.name);
+   }
+   return repaired;
+ }
+ 
+-function auditGlobalSgsdAgents(ctx) {
++function auditGlobalSgsdAgents(ctx, substrateGranted) {
+   const rows = [];
+   for (const name of listMarkdownFiles(ctx.canonicalAgentsDir)) {
+     if (!name.startsWith('sgsd-')) continue;
+     const src = path.join(ctx.canonicalAgentsDir, name);
+     const dst = path.join(ctx.globalAgentsDir, name);
+-    const srcHash = sha256(src);
++    const expected = canonicalAgentText(ctx, name, substrateGranted);
++    const srcHash = expected ? sha256Bytes(Buffer.from(expected, 'utf8')) : null;
+     const dstHash = sha256(dst);
+     rows.push({
+       name,
+@@ -512,14 +968,15 @@ function auditProjectClaudeMd(ctx) {
+   };
+ }
+ 
+-function auditGlobalLegacyAgentPatches(ctx) {
++function auditGlobalLegacyAgentPatches(ctx, substrateGranted) {
+   const rows = [];
+   for (const spec of REQUIRED_LEGACY_AGENT_PATCHES) {
+     const p = path.join(ctx.globalAgentsDir, spec.name);
+     const txt = readText(p);
+-    const missingTools = txt && Array.isArray(spec.tools)
+-      ? spec.tools.filter((tool) => txt.indexOf(tool) === -1)
+-      : (Array.isArray(spec.tools) ? spec.tools.slice() : []);
++    const desiredTools = (spec.tools || []).filter((tool) => tool !== witnessStore.TARGET_TOOL || substrateGranted);
++    const toolsLine = txt ? ((txt.match(/^tools:\s*(.*)$/m) || [])[1] || '') : '';
++    const installedTools = toolsLine.split(',').map((tool) => tool.trim()).filter(Boolean);
++    const missingTools = desiredTools.filter((tool) => !installedTools.includes(tool));
+     rows.push({
+       name: spec.name,
+       installed: Boolean(txt),
+@@ -529,6 +986,10 @@ function auditGlobalLegacyAgentPatches(ctx) {
+       p166_patched: spec.p166Marker ? Boolean(txt && txt.indexOf(spec.p166Marker) !== -1) : true,
+       p166_t2_marker: spec.p166T2Marker || null,
+       p166_t2_patched: spec.p166T2Marker ? Boolean(txt && txt.indexOf(spec.p166T2Marker) !== -1) : true,
++      p167_patched: spec.p166Marker ? Boolean(txt && txt.indexOf(P167_MARKER) !== -1) : true,
++      substrate_grant_current: spec.p166Marker
++        ? installedTools.includes(witnessStore.TARGET_TOOL) === substrateGranted
++        : true,
+       missing_tools: missingTools,
+     });
+   }
+@@ -744,13 +1205,47 @@ function runAudit(opts) {
+   let repairedGlobalAgents = [];
+   let repairedGlobalSkills = [];
+   let repairedLegacyAgents = [];
+-  if (safeRepair) repairedGlobalAgents = installGlobalSgsdAgents(ctx, actions);
++  if (safeRepair) {
++    repairedGlobalAgents = installGlobalSgsdAgents(ctx, actions, false);
++    repairedLegacyAgents = installGlobalLegacyAgentPatches(ctx, actions, false);
++  }
++  let witnessRepair = { ok: true, reasons: [] };
++  let capabilityRepair = { ok: true, reasons: [] };
++  let claudeSubstrateWitness = auditClaudeSubstrateWitness(ctx);
++  if (safeRepair) witnessRepair = repairClaudeSubstrateWitness(ctx, actions);
++  claudeSubstrateWitness = auditClaudeSubstrateWitness(ctx);
++  if (safeRepair && claudeSubstrateWitness.ready) capabilityRepair = repairClaudeSubstrateCapability(ctx, actions);
++  let claudeSubstrateCapability = auditClaudeSubstrateCapability(ctx, claudeSubstrateWitness);
++  if (!witnessRepair.ok || !capabilityRepair.ok) {
++    claudeSubstrateCapability = {
++      ...claudeSubstrateCapability,
++      status: 'missing_or_stale',
++      ready: false,
++      reasons: [...new Set([
++        ...claudeSubstrateCapability.reasons,
++        ...witnessRepair.reasons,
++        ...capabilityRepair.reasons,
++      ])],
++    };
++  }
++  const substrateGranted = claudeSubstrateWitness.ready && claudeSubstrateCapability.ready;
++  if (safeRepair) {
++    repairedGlobalAgents = [...new Set([
++      ...repairedGlobalAgents,
++      ...installGlobalSgsdAgents(ctx, actions, substrateGranted),
++    ])];
++  }
+   if (safeRepair) repairedGlobalSkills = installGlobalSgsdSkills(ctx, actions);
+-  if (safeRepair) repairedLegacyAgents = installGlobalLegacyAgentPatches(ctx, actions);
++  if (safeRepair) {
++    repairedLegacyAgents = [...new Set([
++      ...repairedLegacyAgents,
++      ...installGlobalLegacyAgentPatches(ctx, actions, substrateGranted),
++    ])];
++  }
+ 
+-  const globalAgents = auditGlobalSgsdAgents(ctx);
++  const globalAgents = auditGlobalSgsdAgents(ctx, substrateGranted);
+   const globalSkills = auditGlobalSgsdSkills(ctx);
+-  const globalLegacyAgents = auditGlobalLegacyAgentPatches(ctx);
++  const globalLegacyAgents = auditGlobalLegacyAgentPatches(ctx, substrateGranted);
+   let localShadows = auditProjectAgentShadows(ctx);
+   let backedUpLocalShadows = [];
+   if (repairMode) {
+@@ -770,7 +1265,8 @@ function runAudit(opts) {
+   const staleLegacyExecutor = globalAgents.filter((r) => r.name === 'gsd-executor.md' && (!r.installed || r.drifted || !r.disabled_legacy_executor));
+   const missingGlobalSkills = globalSkills.filter((r) => !r.installed || r.drifted);
+   const missingLegacyPatches = globalLegacyAgents.filter((r) => (
+-    !r.installed || !r.patched || !r.p166_patched || !r.p166_t2_patched || (r.missing_tools || []).length
++    !r.installed || !r.patched || !r.p166_patched || !r.p166_t2_patched
++      || !r.p167_patched || !r.substrate_grant_current || (r.missing_tools || []).length
+   ));
+   const missingVtpAgents = globalAgents.filter((r) => r.required_vtp_agent && !r.installed);
+   const driftedLocal = localShadows.filter((r) => r.drifted);
+@@ -792,6 +1288,9 @@ function runAudit(opts) {
+   if (!orchestratorProtocol.ok) issues.push('orchestrator_protocol_markers_missing_or_stale');
+   if (!projectClaudeMd.ok) issues.push('project_claude_md_missing_or_stale');
+   if (!codexHooks.ok) issues.push('project_codex_hooks_missing_or_stale');
++  if (!claudeSubstrateWitness.ready || !claudeSubstrateCapability.ready) {
++    issues.push('project_claude_substrate_witness_missing_or_stale');
++  }
+ 
+   return {
+     ok: issues.length === 0,
+@@ -817,6 +1316,8 @@ function runAudit(opts) {
+         + (codexHooks.duplicates || []).length
+         + (codexHooks.status === 'malformed' || codexHooks.status === 'audit-error'
+           || codexHooks.status === 'template-error' ? 1 : 0),
++      claude_substrate_witness_issues: claudeSubstrateWitness.reasons.length,
++      claude_substrate_capability_issues: claudeSubstrateCapability.reasons.length,
+     },
+     global_agents: globalAgents,
+     global_skills: globalSkills,
+@@ -830,6 +1331,8 @@ function runAudit(opts) {
+     orchestrator_protocol: orchestratorProtocol,
+     project_claude_md: projectClaudeMd,
+     codex_hooks: codexHooks,
++    claude_substrate_witness: claudeSubstrateWitness,
++    claude_substrate_capability: claudeSubstrateCapability,
+     repaired: {
+       global_agents: repairedGlobalAgents,
+       global_skills: repairedGlobalSkills,
+@@ -855,7 +1358,22 @@ function selfTest() {
+     add('disabled_executor_marker_declared', DISABLED_EXECUTOR_MARKER === 'Claude executor disabled', DISABLED_EXECUTOR_MARKER);
+     add('legacy_agent_patches_declared', REQUIRED_LEGACY_AGENT_PATCHES.length === 3 && REQUIRED_LEGACY_AGENT_PATCHES.some((r) => r.name === 'gsd-planner.md'), REQUIRED_LEGACY_AGENT_PATCHES.map((r) => r.name).join(','));
+     add('sgsd_root_has_agents', exists(path.join(sgsdRoot(), 'agents')), sgsdRoot());
+-    const snap = runAudit({ projectDir: sgsdRoot() });
++    const savedProfileEnv = Object.fromEntries(
++      ['HOME', 'USERPROFILE', 'APPDATA', 'XDG_CONFIG_HOME'].map((name) => [name, process.env[name]]),
++    );
++    const isolatedHome = path.join(os.tmpdir(), 'sgsd-feature-propagation-self-test-' + process.pid);
++    process.env.HOME = isolatedHome;
++    process.env.USERPROFILE = isolatedHome;
++    process.env.APPDATA = path.join(isolatedHome, 'AppData', 'Roaming');
++    process.env.XDG_CONFIG_HOME = path.join(isolatedHome, '.config');
++    let snap;
++    try {
++      snap = runAudit({ projectDir: sgsdRoot() });
++    } finally {
++      for (const [name, value] of Object.entries(savedProfileEnv)) {
++        if (value === undefined) delete process.env[name]; else process.env[name] = value;
++      }
++    }
+     add('run_audit_shape', snap && snap.schema_version === 1 && Array.isArray(snap.issues), 'issues=' + (snap.issues || []).length);
+     add('legacy_agent_audit_shape', snap && Array.isArray(snap.global_legacy_agents) && snap.global_legacy_agents.length === 3, 'count=' + ((snap && snap.global_legacy_agents) || []).length);
+     add('project_claude_md_audit_shape', snap && snap.project_claude_md && Array.isArray(snap.project_claude_md.missing), 'missing=' + ((snap && snap.project_claude_md && snap.project_claude_md.missing) || []).length);
+@@ -899,6 +1417,8 @@ function printHuman(snap) {
+   process.stdout.write('profile_missing_watch_codex=' + snap.summary.profile_missing_watch_codex + '\n');
+   process.stdout.write('project_claude_md_missing=' + snap.summary.project_claude_md_missing + '\n');
+   process.stdout.write('codex_hook_issues=' + snap.summary.codex_hook_issues + '\n');
++  process.stdout.write('claude_substrate_witness_status=' + snap.claude_substrate_witness.status + '\n');
++  process.stdout.write('claude_substrate_capability_status=' + snap.claude_substrate_capability.status + '\n');
+   if (snap.local_agent_shadows.length) {
+     process.stdout.write('local_agent_shadow_names=' + snap.local_agent_shadows.map((r) => r.name).join(',') + '\n');
+   }
+@@ -930,6 +1450,28 @@ function main(argv) {
+     return;
+   }
+   const projectDir = argValue(args, '--project-dir') || process.cwd();
++  if (args.indexOf('--repair-substrate-capability') !== -1) {
++    const snap = runAudit({ projectDir, repairSafe: true });
++    const hardReasons = new Set([
++      'witness_repair_failed',
++      'broker_repair_failed',
++      'direct_grant',
++      'broker_drift',
++      'upstream_drift',
++      'grant_with_witness_unready',
++    ]);
++    const refused = !snap.claude_substrate_witness.ready
++      || snap.claude_substrate_capability.reasons.some((reason) => hardReasons.has(reason));
++    process.stdout.write(JSON.stringify({
++      ok: !refused,
++      witness_status: snap.claude_substrate_witness.status,
++      capability_status: snap.claude_substrate_capability.status,
++      reasons: snap.claude_substrate_capability.reasons,
++      substrate_granted: snap.claude_substrate_witness.ready && snap.claude_substrate_capability.ready,
++    }) + '\n');
++    process.exit(refused ? 2 : 0);
++    return;
++  }
+   const snap = runAudit({
+     projectDir,
+     repair: args.indexOf('--repair') !== -1,
+@@ -957,6 +1499,13 @@ module.exports = {
+     auditSuperGsdTree,
+     auditTelemetry,
+     auditCodexHooks,
++    auditClaudeSubstrateWitness,
++    auditClaudeSubstrateCapability,
++    repairClaudeSubstrateWitness,
++    repairClaudeSubstrateCapability,
++    setFrontmatterTool,
++    canonicalAgentText,
++    mcpScopeDocuments,
+     profilePaths,
+   },
+ };

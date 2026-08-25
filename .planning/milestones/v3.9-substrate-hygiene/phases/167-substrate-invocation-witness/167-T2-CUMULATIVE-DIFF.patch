@@ -1,0 +1,935 @@
+diff --git a/super-gsd/scripts/lib/vtp-context-composer.cjs b/super-gsd/scripts/lib/vtp-context-composer.cjs
+index 7b8726a..7799cce 100644
+--- a/super-gsd/scripts/lib/vtp-context-composer.cjs
++++ b/super-gsd/scripts/lib/vtp-context-composer.cjs
+@@ -29,6 +29,7 @@ const path = require('path');
+ const os   = require('os');
+ const crypto = require('crypto');
+ const { findSgsdRoot, resolveContainedPath } = require('./sgsd-state.cjs');
++const witnessStore = require('./substrate-invocation-witness-store.cjs');
+ const Ajv = require(path.join(__dirname, '..', '..', 'tools', 'plan-schema', 'node_modules', 'ajv'));
+ 
+ const SUBSTRATE_TOOL = 'mcp__vtp-kb__vtp_search_substrate';
+@@ -44,6 +45,35 @@ const SECONDARY_SUBSTRATE_FILTERS = Object.freeze([
+   'topics',
+   'meeting_ids',
+ ]);
++const PROMPT_RECORD_FORBIDDEN_CORRELATION_FIELDS = new Set([
++  'digest',
++  'hmac_sha256',
++  'nonce',
++  'payload_digest',
++  'project_digest',
++  'response_digest',
++  'sequence',
++  'session_id',
++  'session_sha256',
++  'signature',
++  'source_digest',
++  'tool_use_id',
++  'tool_use_sha256',
++  'witness_file',
++  'witness_filename',
++  'witness_id',
++  'witness_path',
++]);
++const PROMPT_WITNESS_REJECTION_REASONS = new Set([
++  'substrate_witness_missing',
++  'substrate_witness_invalid',
++  'substrate_witness_expired',
++  'substrate_witness_session_mismatch',
++  'substrate_witness_digest_mismatch',
++  'substrate_witness_not_rewritten',
++  'substrate_witness_ambiguous',
++  'substrate_witness_replayed',
++]);
+ 
+ function policyEntry(sourceTypes, limit) {
+   return Object.freeze({ source_types: Object.freeze(sourceTypes), limit });
+@@ -452,7 +482,44 @@ function rejectPromptSubstrateCallRecord(reason) {
+   throw new Error('vtp_prompt_substrate_contract_invalid:' + reason);
+ }
+ 
+-function acceptPromptSubstrateCallRecord(intentFamily, preparedCall, substrateCallRecord) {
++function normalizedPromptRecordFieldName(field) {
++  return field
++    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
++    .replace(/[-\s]+/g, '_')
++    .toLowerCase();
++}
++
++function promptRecordContainsCorrelationField(value, seen = new Set()) {
++  if (!value || typeof value !== 'object') return false;
++  if (seen.has(value)) return false;
++  seen.add(value);
++  if (Array.isArray(value)) {
++    return value.some((item) => promptRecordContainsCorrelationField(item, seen));
++  }
++  for (const [field, child] of Object.entries(value)) {
++    if (PROMPT_RECORD_FORBIDDEN_CORRELATION_FIELDS.has(normalizedPromptRecordFieldName(field))) {
++      return true;
++    }
++    if (promptRecordContainsCorrelationField(child, seen)) return true;
++  }
++  return false;
++}
++
++function promptWitnessRuntimeContext(testContext) {
++  const injected = testContext && typeof testContext === 'object' && !Array.isArray(testContext)
++    ? testContext
++    : null;
++  const env = injected && injected.env ? injected.env : process.env;
++  const projectRoot = injected && typeof injected.projectRoot === 'string'
++    ? path.resolve(injected.projectRoot)
++    : (findSgsdRoot(process.cwd()) || fs.realpathSync(process.cwd()));
++  const sessionId = injected && Object.prototype.hasOwnProperty.call(injected, 'sessionId')
++    ? injected.sessionId
++    : env.CLAUDE_CODE_SESSION_ID;
++  return { projectRoot, env, sessionId };
++}
++
++function acceptPromptSubstrateCallRecord(intentFamily, preparedCall, substrateCallRecord, testContext) {
+   if (!validatePreparedSubstrateCall(preparedCall)) {
+     rejectPromptSubstrateCallRecord('prepared_call_missing_or_invalid');
+   }
+@@ -490,10 +557,36 @@ function acceptPromptSubstrateCallRecord(intentFamily, preparedCall, substrateCa
+   ) {
+     rejectPromptSubstrateCallRecord('record_prepared_call_mismatch');
+   }
++  if (promptRecordContainsCorrelationField(substrateCallRecord)) {
++    rejectPromptSubstrateCallRecord('record_correlation_identifier_forbidden');
++  }
++  const payloadDigest = substratePayloadDigest(preparedCall.payload);
++  const runtime = promptWitnessRuntimeContext(testContext);
++  let consumedWitness;
++  try {
++    consumedWitness = witnessStore.consumeRewrittenWitness({
++      projectRoot: runtime.projectRoot,
++      env: runtime.env,
++      sessionId: runtime.sessionId,
++      payloadDigest,
++    });
++  } catch (error) {
++    const reason = error && PROMPT_WITNESS_REJECTION_REASONS.has(error.message)
++      ? error.message
++      : 'substrate_witness_invalid';
++    rejectPromptSubstrateCallRecord(reason);
++  }
++  if (!consumedWitness
++    || consumedWitness.ok !== true
++    || consumedWitness.payload_digest !== payloadDigest
++    || consumedWitness.witness_status !== 'consumed') {
++    rejectPromptSubstrateCallRecord('substrate_witness_invalid');
++  }
+   return {
+     ok: true,
+     intent_family: intentFamily,
+-    payload_sha256: preparedCall.gateway_evidence.payload_sha256,
++    payload_sha256: payloadDigest,
++    witness_status: 'consumed',
+   };
+ }
+ 
+diff --git a/super-gsd/tests/substrate-invocation-witness/assert-witness-correlation.cjs b/super-gsd/tests/substrate-invocation-witness/assert-witness-correlation.cjs
+new file mode 100644
+index 0000000..0d03a9c
+--- /dev/null
++++ b/super-gsd/tests/substrate-invocation-witness/assert-witness-correlation.cjs
+@@ -0,0 +1,474 @@
++#!/usr/bin/env node
++'use strict';
++
++const assert = require('assert');
++const crypto = require('crypto');
++const fs = require('fs');
++const path = require('path');
++const childProcess = require('child_process');
++
++const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
++const COMPOSER_PATH = path.join(REPO_ROOT, 'super-gsd', 'scripts', 'lib', 'vtp-context-composer.cjs');
++const STORE_PATH = path.join(REPO_ROOT, 'super-gsd', 'scripts', 'lib', 'substrate-invocation-witness-store.cjs');
++const HOOK_PATH = path.join(REPO_ROOT, 'super-gsd', 'hooks', 'sgsd-substrate-invocation-witness.cjs');
++const TMP_PARENT = path.join(REPO_ROOT, '.planning', 'tmp');
++const TARGET_TOOL = 'mcp__vtp-kb__vtp_search_substrate';
++const PRE_HOOK_ID = 'pre-tool-use-substrate-invocation-witness';
++const POST_HOOK_ID = 'post-tool-use-substrate-invocation-witness';
++
++const composer = require(COMPOSER_PATH);
++const store = require(STORE_PATH);
++const hook = require(HOOK_PATH);
++
++const tests = [];
++let fixture;
++
++function test(name, fn) {
++  tests.push({ name, fn });
++}
++
++function sha256(value) {
++  return crypto.createHash('sha256').update(value).digest('hex');
++}
++
++function mkdir(directory) {
++  fs.mkdirSync(directory, { recursive: true });
++}
++
++function linkDirectory(target, linkPath) {
++  fs.symlinkSync(target, linkPath, process.platform === 'win32' ? 'junction' : 'dir');
++}
++
++function installHookSource(projectRoot) {
++  const target = path.join(projectRoot, 'super-gsd', 'hooks', 'sgsd-substrate-invocation-witness.cjs');
++  mkdir(path.dirname(target));
++  fs.linkSync(HOOK_PATH, target);
++  return target;
++}
++
++function hookRegistration(event, hookId, projectRoot, sourceDigest) {
++  return {
++    sgsd_managed: true,
++    sgsd_hook_id: hookId,
++    sgsd_source_sha256: sourceDigest,
++    matcher: TARGET_TOOL,
++    hooks: [{
++      type: 'command',
++      command: 'node',
++      args: [
++        path.join(projectRoot, 'super-gsd', 'hooks', 'sgsd-substrate-invocation-witness.cjs'),
++        '--event',
++        event,
++      ],
++      timeout: 5,
++    }],
++  };
++}
++
++function createProject(name, env) {
++  const project = path.join(fixture.root, name);
++  mkdir(path.join(project, '.planning', 'metrics'));
++  fs.writeFileSync(path.join(project, '.planning', 'STATE.md'), '---\nmilestone: fixture\ncurrent_phase: 167\n---\n', 'utf8');
++  mkdir(path.join(project, 'super-gsd'));
++  for (const directory of ['scripts', 'schemas', 'tools']) {
++    linkDirectory(
++      path.join(REPO_ROOT, 'super-gsd', directory),
++      path.join(project, 'super-gsd', directory),
++    );
++  }
++  const installedHook = installHookSource(project);
++  const sourceDigest = sha256(fs.readFileSync(installedHook));
++  const settings = {
++    hooks: {
++      PreToolUse: [hookRegistration('PreToolUse', PRE_HOOK_ID, project, sourceDigest)],
++      PostToolUse: [hookRegistration('PostToolUse', POST_HOOK_ID, project, sourceDigest)],
++    },
++  };
++  mkdir(path.join(project, '.claude'));
++  fs.writeFileSync(
++    path.join(project, '.claude', 'settings.json'),
++    JSON.stringify(settings, null, 2) + '\n',
++    'utf8',
++  );
++  store.provisionWitnessKey(project, env);
++  assert.strictEqual(store.inspectWitnessReadiness(project, env).ready, true);
++  return project;
++}
++
++function createFixture() {
++  mkdir(TMP_PARENT);
++  const root = fs.mkdtempSync(path.join(TMP_PARENT, 'p167-t2-'));
++  const profile = path.join(root, 'profile');
++  mkdir(profile);
++  const env = {
++    ...process.env,
++    HOME: profile,
++    USERPROFILE: profile,
++    APPDATA: path.join(profile, 'AppData', 'Roaming'),
++    XDG_CONFIG_HOME: path.join(profile, '.config'),
++  };
++  fixture = { root, profile, env };
++  fixture.project = createProject('project-a', env);
++  fixture.otherProject = createProject('project-b', env);
++  return fixture;
++}
++
++function prepared(query, intent = 'planning') {
++  return composer.prepareSubstrateCall(intent, { query });
++}
++
++function recordFor(envelope) {
++  return JSON.parse(JSON.stringify(envelope));
++}
++
++function hookPayload(event, projectRoot, envelope, sessionId, toolUseId) {
++  return {
++    hook_event_name: event,
++    tool_name: TARGET_TOOL,
++    session_id: sessionId,
++    tool_use_id: toolUseId,
++    cwd: projectRoot,
++    tool_input: envelope.payload,
++    ...(event === 'PostToolUse' ? {
++      tool_response: {
++        content: [{ type: 'text', text: JSON.stringify({ hits: [{ text: 'bounded' }] }) }],
++        isError: false,
++      },
++    } : {}),
++  };
++}
++
++function seedPre(envelope, options = {}) {
++  const projectRoot = options.projectRoot || fixture.project;
++  const sessionId = options.sessionId || 'session-' + options.id;
++  const toolUseId = options.toolUseId || 'tool-use-' + options.id;
++  const payload = hookPayload('PreToolUse', projectRoot, envelope, sessionId, toolUseId);
++  const result = hook.processHookPayload(payload, {
++    env: fixture.env,
++    expectedEvent: 'PreToolUse',
++  });
++  assert.strictEqual(result.hookSpecificOutput.hookEventName, 'PreToolUse');
++  assert.strictEqual(result.hookSpecificOutput.permissionDecision, 'allow');
++  return payload;
++}
++
++function rewrite(prePayload) {
++  const payload = {
++    ...prePayload,
++    hook_event_name: 'PostToolUse',
++    tool_response: {
++      content: [{ type: 'text', text: JSON.stringify({ hits: [{ text: 'bounded' }] }) }],
++      isError: false,
++    },
++  };
++  const result = hook.processHookPayload(payload, {
++    env: fixture.env,
++    expectedEvent: 'PostToolUse',
++  });
++  assert.strictEqual(result.hookSpecificOutput.hookEventName, 'PostToolUse');
++  assert(result.hookSpecificOutput.updatedMCPToolOutput);
++  return result;
++}
++
++function seedRewritten(envelope, options = {}) {
++  const prePayload = seedPre(envelope, options);
++  rewrite(prePayload);
++  return prePayload;
++}
++
++function acceptanceContext(options = {}) {
++  return {
++    projectRoot: options.projectRoot || fixture.project,
++    env: fixture.env,
++    sessionId: options.sessionId,
++  };
++}
++
++function accept(envelope, options = {}) {
++  return composer.acceptPromptSubstrateCallRecord(
++    options.intent || 'planning',
++    options.preparedCall === undefined ? envelope : options.preparedCall,
++    options.record === undefined ? recordFor(envelope) : options.record,
++    acceptanceContext(options),
++  );
++}
++
++function spoolFiles(projectRoot = fixture.project) {
++  const spool = store.resolveWitnessPaths(projectRoot, fixture.env).spool_dir;
++  if (!fs.existsSync(spool)) return [];
++  return fs.readdirSync(spool)
++    .filter((name) => name.endsWith('.json'))
++    .map((name) => path.join(spool, name));
++}
++
++function forgedPreparedCall(intent, payload) {
++  return {
++    tool: TARGET_TOOL,
++    payload,
++    gateway_evidence: {
++      schema_version: 'vtp-mcp-input-schemas.v2',
++      intent_family: intent,
++      payload_sha256: composer.substratePayloadDigest(payload),
++    },
++  };
++}
++
++test('accepts a matching rewritten witness and returns no hook-only identifier', () => {
++  const envelope = prepared('P167 valid rewritten witness');
++  const sessionId = 'session-valid';
++  seedRewritten(envelope, { id: 'valid', sessionId });
++  assert.deepStrictEqual(accept(envelope, { sessionId }), {
++    ok: true,
++    intent_family: 'planning',
++    payload_sha256: composer.substratePayloadDigest(envelope.payload),
++    witness_status: 'consumed',
++  });
++});
++
++test('rejects a clean record when no witness exists', () => {
++  const envelope = prepared('P167 missing witness row');
++  assert.throws(
++    () => accept(envelope, { sessionId: 'session-missing' }),
++    /vtp_prompt_substrate_contract_invalid:substrate_witness_missing/,
++  );
++});
++
++test('rejects a pre-only witness', () => {
++  const envelope = prepared('P167 pre only witness');
++  const sessionId = 'session-pre-only';
++  seedPre(envelope, { id: 'pre-only', sessionId });
++  assert.throws(
++    () => accept(envelope, { sessionId }),
++    /vtp_prompt_substrate_contract_invalid:substrate_witness_not_rewritten/,
++  );
++});
++
++test('rejects an expired rewritten witness', () => {
++  const envelope = prepared('P167 expired witness');
++  const sessionId = 'session-expired';
++  const originalNow = Date.now;
++  const expiredNow = originalNow() - store.WITNESS_TTL_MS - 1000;
++  try {
++    Date.now = () => expiredNow;
++    seedRewritten(envelope, { id: 'expired', sessionId });
++  } finally {
++    Date.now = originalNow;
++  }
++  assert.throws(
++    () => accept(envelope, { sessionId }),
++    /vtp_prompt_substrate_contract_invalid:substrate_witness_expired/,
++  );
++});
++
++test('rejects an HMAC-edited rewritten witness', () => {
++  const envelope = prepared('P167 edited witness');
++  const sessionId = 'session-edited';
++  const before = new Set(spoolFiles());
++  seedRewritten(envelope, { id: 'edited', sessionId });
++  const created = spoolFiles().filter((file) => !before.has(file));
++  assert.strictEqual(created.length, 1);
++  const row = JSON.parse(fs.readFileSync(created[0], 'utf8'));
++  row.rewrite.retained_chars += 1;
++  fs.writeFileSync(created[0], JSON.stringify(row) + '\n', 'utf8');
++  assert.throws(
++    () => accept(envelope, { sessionId }),
++    /vtp_prompt_substrate_contract_invalid:substrate_witness_invalid/,
++  );
++});
++
++test('rejects a witness from a different runtime session', () => {
++  const envelope = prepared('P167 wrong session witness');
++  seedRewritten(envelope, { id: 'wrong-session', sessionId: 'session-producer' });
++  assert.throws(
++    () => accept(envelope, { sessionId: 'session-consumer' }),
++    /vtp_prompt_substrate_contract_invalid:substrate_witness_session_mismatch/,
++  );
++});
++
++test('rejects a witness from a different project', () => {
++  const envelope = prepared('P167 wrong project witness');
++  const sessionId = 'session-wrong-project';
++  seedRewritten(envelope, { id: 'wrong-project', sessionId });
++  assert.throws(
++    () => accept(envelope, { projectRoot: fixture.otherProject, sessionId }),
++    /vtp_prompt_substrate_contract_invalid:substrate_witness_missing/,
++  );
++});
++
++test('rejects a witness for a different hook-computed payload digest', () => {
++  const witnessed = prepared('P167 witnessed digest payload');
++  const submitted = prepared('P167 different submitted payload');
++  const sessionId = 'session-wrong-digest';
++  seedRewritten(witnessed, { id: 'wrong-digest', sessionId });
++  assert.throws(
++    () => accept(submitted, { sessionId }),
++    /vtp_prompt_substrate_contract_invalid:substrate_witness_digest_mismatch/,
++  );
++});
++
++test('consumes two identical sequential calls once each', () => {
++  const envelope = prepared('P167 identical sequential payload');
++  const sessionId = 'session-identical';
++  seedRewritten(envelope, { id: 'identical-one', sessionId });
++  seedRewritten(envelope, { id: 'identical-two', sessionId });
++  assert.strictEqual(accept(envelope, { sessionId }).witness_status, 'consumed');
++  assert.strictEqual(accept(envelope, { sessionId }).witness_status, 'consumed');
++  assert.throws(
++    () => accept(envelope, { sessionId }),
++    /vtp_prompt_substrate_contract_invalid:substrate_witness_replayed/,
++  );
++});
++
++test('rejects replay after a single witness is consumed', () => {
++  const envelope = prepared('P167 replayed call record');
++  const sessionId = 'session-replay';
++  seedRewritten(envelope, { id: 'replay', sessionId });
++  assert.strictEqual(accept(envelope, { sessionId }).ok, true);
++  assert.throws(
++    () => accept(envelope, { sessionId }),
++    /vtp_prompt_substrate_contract_invalid:substrate_witness_replayed/,
++  );
++});
++
++test('rejects agent-supplied correlation fields without consuming the witness', () => {
++  const envelope = prepared('P167 invented correlation identifiers');
++  const sessionId = 'session-invented-identifiers';
++  seedRewritten(envelope, { id: 'invented-identifiers', sessionId });
++  for (const field of [
++    'tool_use_id',
++    'tool_use_sha256',
++    'witness_id',
++    'witness_path',
++    'signature',
++    'nonce',
++    'sequence',
++    'session_id',
++    'session_sha256',
++    'payload_digest',
++    'project_digest',
++  ]) {
++    assert.throws(
++      () => accept(envelope, { sessionId, record: { ...recordFor(envelope), [field]: 'invented' } }),
++      /vtp_prompt_substrate_contract_invalid:record_correlation_identifier_forbidden/,
++      field,
++    );
++  }
++  assert.throws(
++    () => accept(envelope, {
++      sessionId,
++      record: { ...recordFor(envelope), correlation: { witnessId: 'invented' } },
++    }),
++    /vtp_prompt_substrate_contract_invalid:record_correlation_identifier_forbidden/,
++  );
++  assert.strictEqual(accept(envelope, { sessionId }).ok, true);
++});
++
++test('preserves P166 rejection order and does not consume on forged records', () => {
++  const envelope = prepared('P167 P166 rejection preservation');
++  const other = prepared('P167 mismatched prepared record');
++  const sessionId = 'session-p166-preserved';
++  seedRewritten(envelope, { id: 'p166-preserved', sessionId });
++
++  assert.throws(
++    () => accept(envelope, {
++      sessionId,
++      record: { tool: envelope.tool, payload: envelope.payload },
++    }),
++    /gateway_evidence_missing/,
++  );
++
++  const invalidPayload = {
++    ...envelope.payload,
++    source_types: [],
++  };
++  assert.throws(
++    () => accept(envelope, {
++      sessionId,
++      record: forgedPreparedCall('planning', invalidPayload),
++    }),
++    /substrate_call_record_invalid/,
++  );
++
++  assert.throws(
++    () => accept(envelope, { sessionId, record: recordFor(other) }),
++    /record_prepared_call_mismatch/,
++  );
++
++  const limitSix = forgedPreparedCall('planning', {
++    ...envelope.payload,
++    limit: 6,
++  });
++  assert.throws(
++    () => accept(limitSix, { sessionId }),
++    /prepared_call_missing_or_invalid/,
++  );
++
++  assert.strictEqual(accept(envelope, { sessionId }).ok, true);
++});
++
++test('CLI inherits runtime session and emits accepted JSON only after consumption', () => {
++  const envelope = prepared('P167 CLI runtime session witness');
++  const sessionId = 'session-cli';
++  seedRewritten(envelope, { id: 'cli', sessionId });
++  const inputDir = path.join(fixture.project, '.planning', 'tmp');
++  mkdir(inputDir);
++  const preparedPath = path.join(inputDir, 'prepared.json');
++  const recordPath = path.join(inputDir, 'record.json');
++  fs.writeFileSync(preparedPath, JSON.stringify(envelope) + '\n', 'utf8');
++  fs.writeFileSync(recordPath, JSON.stringify(recordFor(envelope)) + '\n', 'utf8');
++  const args = [
++    COMPOSER_PATH,
++    '--accept-substrate-call-record',
++    '--intent',
++    'planning',
++    '--prepared-call-file',
++    path.relative(fixture.project, preparedPath),
++    '--record-file',
++    path.relative(fixture.project, recordPath),
++  ];
++  const env = { ...fixture.env, CLAUDE_CODE_SESSION_ID: sessionId };
++  const accepted = childProcess.spawnSync(process.execPath, args, {
++    cwd: fixture.project,
++    env,
++    encoding: 'utf8',
++  });
++  assert.strictEqual(accepted.status, 0, accepted.stderr);
++  assert.deepStrictEqual(JSON.parse(accepted.stdout), {
++    ok: true,
++    intent_family: 'planning',
++    payload_sha256: composer.substratePayloadDigest(envelope.payload),
++    witness_status: 'consumed',
++  });
++
++  const replayed = childProcess.spawnSync(process.execPath, args, {
++    cwd: fixture.project,
++    env,
++    encoding: 'utf8',
++  });
++  assert.notStrictEqual(replayed.status, 0);
++  assert.strictEqual(replayed.stdout, '');
++  assert.match(replayed.stderr, /substrate_witness_replayed/);
++});
++
++function main() {
++  fixture = createFixture();
++  let passed = 0;
++  try {
++    for (const entry of tests) {
++      try {
++        entry.fn();
++        passed += 1;
++        process.stdout.write('PASS ' + entry.name + '\n');
++      } catch (error) {
++        process.stderr.write('FAIL ' + entry.name + ': ' + (error.stack || error.message) + '\n');
++        process.exitCode = 1;
++        return;
++      }
++    }
++  } finally {
++    fs.rmSync(fixture.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
++  }
++  process.stdout.write('PASS assert-witness-correlation ' + passed + '/' + tests.length + '\n');
++}
++
++main();
+diff --git a/super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs b/super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs
+index 535bc01..787b09b 100644
+--- a/super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs
++++ b/super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs
+@@ -10,6 +10,7 @@ const childProcess = require('child_process');
+ 
+ const repoRoot = path.resolve(__dirname, '../../..');
+ const composerPath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'vtp-context-composer.cjs');
++const witnessStorePath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'substrate-invocation-witness-store.cjs');
+ const gatePath = path.join(repoRoot, 'super-gsd', 'scripts', 'lib', 'vtp-enrichment-gate.cjs');
+ const auditPath = path.join(repoRoot, 'super-gsd', 'tools', 'feature-propagation', 'audit.cjs');
+ const bridgePath = path.join(repoRoot, 'super-gsd', 'tools', 'vtp-bridge', 'classify.cjs');
+@@ -373,6 +374,97 @@ function sha256Json(payload) {
+   return crypto.createHash('sha256').update(Buffer.from(JSON.stringify(payload), 'utf8')).digest('hex');
+ }
+ 
++function createPromptWitnessFixture(projectRoot) {
++  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p167-prompt-witness-'));
++  const project = projectRoot ? path.resolve(projectRoot) : path.join(root, 'project');
++  const profile = path.join(root, 'profile');
++  fs.mkdirSync(path.join(project, '.planning', 'metrics'), { recursive: true });
++  fs.mkdirSync(profile, { recursive: true });
++  const env = {
++    ...process.env,
++    HOME: profile,
++    USERPROFILE: profile,
++    APPDATA: path.join(profile, 'AppData', 'Roaming'),
++    XDG_CONFIG_HOME: path.join(profile, '.config'),
++  };
++  const witnessStore = require(witnessStorePath);
++  witnessStore.provisionWitnessKey(project, env);
++  return {
++    root,
++    project,
++    env,
++    witnessStore,
++    sessionId: 'p167-policy-direct-session',
++    nextToolUse: 0,
++  };
++}
++
++function withPromptWitnessFixture(fn, projectRoot) {
++  const witnessFixture = createPromptWitnessFixture(projectRoot);
++  try {
++    return fn(witnessFixture);
++  } finally {
++    fs.rmSync(witnessFixture.root, { recursive: true, force: true });
++  }
++}
++
++function promptAcceptanceContext(witnessFixture) {
++  return {
++    projectRoot: witnessFixture.project,
++    env: witnessFixture.env,
++    sessionId: witnessFixture.sessionId,
++  };
++}
++
++function seedPromptWitness(witnessFixture, composer, preparedCall) {
++  witnessFixture.nextToolUse += 1;
++  const payloadDigest = composer.substratePayloadDigest(preparedCall.payload);
++  const toolUseId = 'p167-policy-tool-use-' + witnessFixture.nextToolUse;
++  const sourceDigest = crypto.createHash('sha256')
++    .update(fs.readFileSync(path.join(repoRoot, 'super-gsd', 'hooks', 'sgsd-substrate-invocation-witness.cjs')))
++    .digest('hex');
++  witnessFixture.witnessStore.createPreWitness({
++    projectRoot: witnessFixture.project,
++    env: witnessFixture.env,
++    sessionId: witnessFixture.sessionId,
++    toolUseId,
++    payloadDigest,
++    sourceDigest,
++  });
++  witnessFixture.witnessStore.transitionWitnessToRewritten({
++    projectRoot: witnessFixture.project,
++    env: witnessFixture.env,
++    sessionId: witnessFixture.sessionId,
++    toolUseId,
++    payloadDigest,
++    responseDigest: sha256Json({ hits: [] }),
++    degradationCount: 0,
++    originalChars: 0,
++    retainedChars: 0,
++    topLevelHitCount: 0,
++    evidenceHitCount: 0,
++  });
++}
++
++function activatePromptWitnessRuntime(witnessFixture) {
++  const previousCwd = process.cwd();
++  const keys = ['HOME', 'USERPROFILE', 'APPDATA', 'XDG_CONFIG_HOME', 'CLAUDE_CODE_SESSION_ID'];
++  const previous = new Map(keys.map((key) => [
++    key,
++    { present: Object.prototype.hasOwnProperty.call(process.env, key), value: process.env[key] },
++  ]));
++  process.chdir(witnessFixture.project);
++  for (const key of keys.slice(0, 4)) process.env[key] = witnessFixture.env[key];
++  process.env.CLAUDE_CODE_SESSION_ID = witnessFixture.sessionId;
++  return () => {
++    process.chdir(previousCwd);
++    for (const [key, state] of previous) {
++      if (state.present) process.env[key] = state.value;
++      else delete process.env[key];
++    }
++  };
++}
++
+ function deepFreeze(value) {
+   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
+   for (const child of Object.values(value)) deepFreeze(child);
+@@ -456,23 +548,32 @@ async function assertMegachunkDegradedArtifact() {
+       'capped call must retain composer gateway evidence'
+     );
+ 
+-    const written = gate.run({
+-      ...gateInput,
+-      substrateCall,
+-      enrichmentResult: {
+-        ok: callResult.ok,
+-        status: 'success',
+-        query_count: 1,
+-        total_hits: callResult.response.total_hits,
+-        duration_ms: callResult.elapsed_ms,
+-        hits: callResult.response.hits,
+-        degradation_notes: callResult.degradation_notes || [],
+-        gaps: [],
+-        alt_framings: [],
+-        rationale: '',
+-        substrate_call_record: toSubstrateCallRecord(substrateCall),
+-      },
+-    });
++    const written = withPromptWitnessFixture((witnessFixture) => {
++      witnessFixture.sessionId = 'p167-megachunk-session';
++      seedPromptWitness(witnessFixture, composer, substrateCall);
++      const restoreRuntime = activatePromptWitnessRuntime(witnessFixture);
++      try {
++        return gate.run({
++          ...gateInput,
++          substrateCall,
++          enrichmentResult: {
++            ok: callResult.ok,
++            status: 'success',
++            query_count: 1,
++            total_hits: callResult.response.total_hits,
++            duration_ms: callResult.elapsed_ms,
++            hits: callResult.response.hits,
++            degradation_notes: callResult.degradation_notes || [],
++            gaps: [],
++            alt_framings: [],
++            rationale: '',
++            substrate_call_record: toSubstrateCallRecord(substrateCall),
++          },
++        });
++      } finally {
++        restoreRuntime();
++      }
++    }, tempRoot);
+     assert.strictEqual(written.status, 'success');
+     assert.strictEqual(sha256Json(fixture), fixtureHash, 'the deep-frozen transport fixture must not change');
+ 
+@@ -724,11 +825,20 @@ function assertCapShapes() {
+       substrate_call_record: toSubstrateCallRecord(pending.sub_agent_spec.substrate_call),
+     });
+     const rawInjectionHash = sha256Json(rawInjection);
+-    const written = gate.run({
+-      ...gateInput,
+-      substrateCall: pending.sub_agent_spec.substrate_call,
+-      enrichmentResult: rawInjection,
+-    });
++    const written = withPromptWitnessFixture((witnessFixture) => {
++      witnessFixture.sessionId = 'p167-cap-shapes-session';
++      seedPromptWitness(witnessFixture, composer, pending.sub_agent_spec.substrate_call);
++      const restoreRuntime = activatePromptWitnessRuntime(witnessFixture);
++      try {
++        return gate.run({
++          ...gateInput,
++          substrateCall: pending.sub_agent_spec.substrate_call,
++          enrichmentResult: rawInjection,
++        });
++      } finally {
++        restoreRuntime();
++      }
++    }, gateRoot);
+     assert.strictEqual(written.status, 'success');
+     assert.strictEqual(sha256Json(rawInjection), rawInjectionHash);
+     const artifact = gate._internal.readEnrichmentArtifact({ phaseDir, phase: '166' });
+@@ -869,6 +979,12 @@ function preparePromptCallRecords(composer) {
+ }
+ 
+ function assertPromptRecordAcceptance(composer, expected) {
++  return withPromptWitnessFixture((witnessFixture) => (
++    assertPromptRecordAcceptanceWithWitness(composer, expected, witnessFixture)
++  ));
++}
++
++function assertPromptRecordAcceptanceWithWitness(composer, expected, witnessFixture) {
+   assertPromptContracts();
+   assert.strictEqual(
+     typeof composer.acceptPromptSubstrateCallRecord,
+@@ -881,14 +997,16 @@ function assertPromptRecordAcceptance(composer, expected) {
+   for (const [site, promptCall] of preparePromptCallRecords(composer)) {
+     const { intent, preparedCall, record } = promptCall;
+     const query = preparedCall.payload.query;
+-    const accepted = composer.acceptPromptSubstrateCallRecord(intent, preparedCall, record);
++    const context = promptAcceptanceContext(witnessFixture);
++    seedPromptWitness(witnessFixture, composer, preparedCall);
++    const accepted = composer.acceptPromptSubstrateCallRecord(intent, preparedCall, record, context);
+     assert.strictEqual(accepted.ok, true);
+     assert.strictEqual(accepted.intent_family, intent);
+     assert.strictEqual(accepted.payload_sha256, preparedCall.gateway_evidence.payload_sha256);
+     acceptedRecords.set(site, record);
+ 
+     assert.throws(
+-      () => composer.acceptPromptSubstrateCallRecord(intent, null, record),
++      () => composer.acceptPromptSubstrateCallRecord(intent, null, record, context),
+       /prepared_call/,
+       site + ' must reject a direct record without its prepared envelope'
+     );
+@@ -896,7 +1014,7 @@ function assertPromptRecordAcceptance(composer, expected) {
+       () => composer.acceptPromptSubstrateCallRecord(intent, preparedCall, {
+         tool: record.tool,
+         payload: record.payload,
+-      }),
++      }, context),
+       /gateway_evidence/,
+       site + ' must reject missing gateway evidence'
+     );
+@@ -904,14 +1022,19 @@ function assertPromptRecordAcceptance(composer, expected) {
+       () => composer.acceptPromptSubstrateCallRecord(intent, preparedCall, {
+         ...record,
+         gateway_evidence: { ...record.gateway_evidence, payload_sha256: '0'.repeat(64) },
+-      }),
++      }, context),
+       /digest/,
+       site + ' must reject a mismatched digest'
+     );
+ 
+     const unfiltered = forgedPreparedCall(intent, { query });
+     assert.throws(
+-      () => composer.acceptPromptSubstrateCallRecord(intent, unfiltered, toSubstrateCallRecord(unfiltered)),
++      () => composer.acceptPromptSubstrateCallRecord(
++        intent,
++        unfiltered,
++        toSubstrateCallRecord(unfiltered),
++        context,
++      ),
+       /prepared_call/,
+       site + ' must reject an unfiltered call even when its digest matches'
+     );
+@@ -922,14 +1045,21 @@ function assertPromptRecordAcceptance(composer, expected) {
+       limit: 6,
+     });
+     assert.throws(
+-      () => composer.acceptPromptSubstrateCallRecord(intent, limitSix, toSubstrateCallRecord(limitSix)),
++      () => composer.acceptPromptSubstrateCallRecord(
++        intent,
++        limitSix,
++        toSubstrateCallRecord(limitSix),
++        context,
++      ),
+       /prepared_call/,
+       site + ' must reject limit 6 even when its digest matches'
+     );
+   }
+ 
+   const gate = require(gatePath);
+-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sgsd-vtp-prompt-acceptance-'));
++  const tempRoot = witnessFixture.project;
++  witnessFixture.sessionId = 'p167-policy-gate-session';
++  const restoreRuntime = activatePromptWitnessRuntime(witnessFixture);
+   try {
+     const phaseDir = path.join(tempRoot, '.planning', 'milestones', 'fixture', 'phases', '166-fixture');
+     writeFixtureFile(
+@@ -999,17 +1129,29 @@ function assertPromptRecordAcceptance(composer, expected) {
+       /digest/,
+       'the real enrichment acceptance path must reject an invalid api-error record'
+     );
++    const apiErrorResult = {
++      ok: false,
++      error: 'simulated MCP transport failure',
++      substrate_call_record: record,
++    };
++    assert.throws(
++      () => gate.run({
++        ...gateInput,
++        substrateCall: preparedCall,
++        enrichmentResult: apiErrorResult,
++      }),
++      /substrate_witness_missing/,
++      'the real api-error path must reject a clean record without a witness'
++    );
++    seedPromptWitness(witnessFixture, composer, preparedCall);
+     const acceptedApiError = gate.run({
+       ...gateInput,
+       substrateCall: preparedCall,
+-      enrichmentResult: {
+-        ok: false,
+-        error: 'simulated MCP transport failure',
+-        substrate_call_record: record,
+-      },
++      enrichmentResult: apiErrorResult,
+     });
+     assert.strictEqual(acceptedApiError.status, 'api_error');
+     assert.match(fs.readFileSync(acceptedApiError.artifact_path, 'utf8'), /## API Error/);
++    seedPromptWitness(witnessFixture, composer, preparedCall);
+     const acceptedEmptyHit = gate.run({
+       ...gateInput,
+       substrateCall: preparedCall,
+@@ -1085,12 +1227,13 @@ function assertPromptRecordAcceptance(composer, expected) {
+       'the real enrichment acceptance path must reject limit 6'
+     );
+ 
++    seedPromptWitness(witnessFixture, composer, preparedCall);
+     const accepted = gate.run({ ...gateInput, substrateCall: preparedCall, enrichmentResult: result });
+     assert.strictEqual(accepted.status, 'success');
+     assert(fs.existsSync(accepted.artifact_path));
+     assert.doesNotMatch(fs.readFileSync(accepted.artifact_path, 'utf8'), /## API Error/);
+   } finally {
+-    fs.rmSync(tempRoot, { recursive: true, force: true });
++    restoreRuntime();
+   }
+ 
+   return acceptedRecords;

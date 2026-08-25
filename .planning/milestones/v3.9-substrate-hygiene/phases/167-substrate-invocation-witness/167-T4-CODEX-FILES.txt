@@ -1,0 +1,8 @@
+super-gsd/config/repo-settings-overlay.json
+super-gsd/config/hook-manifest.json
+super-gsd/scripts/merge-settings.js
+super-gsd/install.sh
+super-gsd/tools/feature-propagation/audit.cjs
+super-gsd/tools/substrate-capability-broker.cjs
+super-gsd/tests/substrate-invocation-witness/assert-propagation.cjs
+super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs

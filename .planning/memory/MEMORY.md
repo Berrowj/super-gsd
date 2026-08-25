@@ -144,6 +144,8 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 
 ## workflow/feedback
 
+- [Do not pause for acknowledgement in auto mode](workflow/feedback/feedback_auto_mode_no_pausing.md) - chain tool calls to the real exit; ending a turn on prose kills the loop (2026-08-25)
+
 - [Never pause autonomous loop on context pressure or completion mark](workflow/feedback/feedback_no_context_pauses.md) — 2026-04-27 incident: "fuck sake why did you stop. under no circumstances are you suppose to.stop!!!!!!!"; the 3 valid exits are all-complete / hard-blocker / user-says-stop; nothing else
 - [No PII in the repo — git identity is "operator"](feedback_no_pii_in_repo.md) — 2026-05-22: operator de-doxxed super-gsd; never write real name/email into tracked files, commit messages, or commit identity; commit as operator <operator@users.noreply.github.com>
 

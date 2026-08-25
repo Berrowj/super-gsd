@@ -1,0 +1,7 @@
+super-gsd/hooks/sgsd-substrate-invocation-witness.cjs
+super-gsd/scripts/lib/substrate-invocation-witness-store.cjs
+super-gsd/tests/substrate-invocation-witness/assert-witness-correlation.cjs
+super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs
+super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs
+super-gsd/tests/substrate-invocation-witness/fixture-vtp-mcp-server.cjs
+super-gsd/config/repo-settings-overlay.json

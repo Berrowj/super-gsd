@@ -1,0 +1,3 @@
+super-gsd/hooks/sgsd-substrate-invocation-witness.cjs
+super-gsd/tests/substrate-invocation-witness/assert-hook-contract.cjs
+super-gsd/tests/substrate-invocation-witness/capture-live-runtime.cjs

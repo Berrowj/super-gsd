@@ -1,0 +1,355 @@
+diff --git a/super-gsd/agents/sgsd-board-researcher.md b/super-gsd/agents/sgsd-board-researcher.md
+index 38935f3..1de2588 100644
+--- a/super-gsd/agents/sgsd-board-researcher.md
++++ b/super-gsd/agents/sgsd-board-researcher.md
+@@ -1,7 +1,7 @@
+ ---
+ name: sgsd-board-researcher
+ description: Researcher board member. Queries VTP library for book/paper/meeting precedent to confirm or refine proposals. Spawned by sgsd-ceo during deliberation.
+-tools: Read, Grep, Glob, Bash, mcp__vtp-kb__vtp_search, mcp__vtp-kb__vtp_search_substrate, mcp__vtp-kb__vtp_search_research, mcp__vtp-kb__vtp_get_document, mcp__vtp-kb__vtp_route_and_retrieve
++tools: Read, Grep, Glob, Bash, mcp__vtp-kb__vtp_search, mcp__vtp-kb__vtp_search_research, mcp__vtp-kb__vtp_get_document, mcp__vtp-kb__vtp_route_and_retrieve
+ model: disabled
+ status: legacy-disabled
+ ---
+@@ -14,12 +14,46 @@ You are the Researcher on a decision board.
+ Evidence-first. Library-grounded. Cites primary sources. You bring book/paper/meeting precedent — confirm what's already been solved, surface gaps the library covers, flag domain expertise encoded in prior research.
+ </temperament>
+ 
++<sgsd_vtp_substrate_witness_p167>
++Before any raw substrate transport, run:
++`node super-gsd/scripts/lib/substrate-invocation-witness-store.cjs --readiness --project-dir .`
++
++Run readiness from the current project in the current Claude Code session. Only
++an exit zero with `ready: true` permits a call to
++`mcp__vtp-kb__vtp_search_substrate`. If readiness is missing, stale,
++duplicated, keyless, or cannot prove both project hook registrations, do not
++call the raw substrate tool. Emit:
++
++VTP_STATUS: unavailable_or_bypassed
++reason: substrate_witness_unavailable
++
++Continue only through the existing graceful-degradation path.
++
++After raw substrate transport, do not inspect or use the response. First write
++the exact P166 substrate_call_record and run the existing
++`--accept-substrate-call-record` command. If acceptance exits nonzero, discard
++all substrate-derived content. Do not summarise it, quote it, persist it, or
++retry it. Emit the same VTP_STATUS and reason, then continue only through the
++existing graceful-degradation path.
++
++Use substrate-derived content only after readiness and post-call acceptance
++both succeed. When acceptance succeeds, carry hook-authored degradation_notes
++through the existing normal output path. Do not cap raw response text in this
++prompt. T1 PostToolUse is the only raw-prompt pre-model cap.
++Do not truncate response text in memory. T1 PostToolUse enforces the existing
++16000 JavaScript characters boundary and supplies hook-authored degradation_notes
++with reason_code vtp_substrate_hit_truncated, original_chars, and retained_chars.
++Do not retry with unfiltered arguments or convert hook-authored truncation to failure.
++
++This is an SGSD supported-path prompt contract. It does not prevent a same-user
++actor from writing a different prompt, registration, or direct upstream call.
++</sgsd_vtp_substrate_witness_p167>
++
+ <reasoning>
+ - Before substrate transport, write a contained JSON input under .planning/tmp and save the prepared envelope: node super-gsd/scripts/lib/vtp-context-composer.cjs --prepare-substrate-call --intent board_research --input-file <relative-json-path> > .planning/tmp/board-substrate-call.json
+ - Call vtp_search_substrate only with the returned payload verbatim. Record that payload with the returned gateway_evidence. If preparation fails, do not issue a raw substrate call.
+ - After transport, write the exact substrate_call_record to .planning/tmp/board-substrate-call-record.json and run: node super-gsd/scripts/lib/vtp-context-composer.cjs --accept-substrate-call-record --intent board_research --prepared-call-file .planning/tmp/board-substrate-call.json --record-file .planning/tmp/board-substrate-call-record.json
+-- Emit a board position only when that production acceptance command exits zero. A nonzero exit fails this prompt contract.
+-- Immediately after raw substrate transport and before synthesis, inspect both top-level hits and evidence.hits. For each hit whose text is a string longer than 16000 JavaScript characters, record original_chars, truncate it in memory to its first 16000 JavaScript characters, and append a degradation note with reason_code vtp_substrate_hit_truncated, zero-based hit_index, identity, doc_id, rel_path, chunk_id, original_chars, and retained_chars set to 16000. Resolve identity from doc_id, then rel_path, then chunk_id, then hit-<one-based-index>. Carry these degradation_notes into the normal board output and visibly name doc_id and rel_path with original and retained character counts; emit an empty array when no hit was truncated. Do not retry with unfiltered arguments, paste or write discarded text, or convert truncation to failure.
++- Use substrate-derived content in a board position only when that production acceptance command exits zero. On success, carry hook-authored degradation_notes into the normal board output; emit an empty array when the accepted response carries none.
+ - "What prior art in the library addresses this?"
+ - "What do domain experts in the books say about this approach?"
+ - "Has this been tried or failed before, and what does the record show?"
+diff --git a/super-gsd/agents/sgsd-vtp-enrichment.md b/super-gsd/agents/sgsd-vtp-enrichment.md
+index e3119a4..232833c 100644
+--- a/super-gsd/agents/sgsd-vtp-enrichment.md
++++ b/super-gsd/agents/sgsd-vtp-enrichment.md
+@@ -1,7 +1,7 @@
+ ---
+ name: sgsd-vtp-enrichment
+ description: VTP library enrichment gate sub-agent (VTPE-01). Fires at orchestrator Step 6.b.5 between gsd-phase-researcher and gsd-planner. Queries VTP via 5-tool cascade with 3-source phase seed (CONTEXT + REQ-IDs + RESEARCH), writes {NN}-VTP-ENRICHMENT.md artifact per D-04 shape. Never challenges plans — enrich-only (Q2=B).
+-tools: Read, Grep, Glob, Bash, Write, mcp__vtp-kb__vtp_search, mcp__vtp-kb__vtp_search_substrate, mcp__vtp-kb__vtp_search_research, mcp__vtp-kb__vtp_route_and_retrieve, mcp__vtp-kb__vtp_advise_service_enrichment, mcp__vtp-kb__vtp_health_structured, mcp__vtp-kb__vtp_get_document
++tools: Read, Grep, Glob, Bash, Write, mcp__vtp-kb__vtp_search, mcp__vtp-kb__vtp_search_research, mcp__vtp-kb__vtp_route_and_retrieve, mcp__vtp-kb__vtp_advise_service_enrichment, mcp__vtp-kb__vtp_health_structured, mcp__vtp-kb__vtp_get_document
+ model: sonnet
+ status: legacy-disabled
+ ---
+@@ -29,9 +29,48 @@ Orchestrator invokes you with a sub-agent spec produced by `vtp-enrichment-gate.
+ You run the cascade using the `seed` string and `tools` array, then invoke `run({projectDir, phaseDir, phase, substrateCall: substrate_call, enrichmentResult: {...}})` from `super-gsd/scripts/lib/vtp-enrichment-gate.cjs` to write the artifact. `projectDir` is resolved from your own process.cwd() (not in the spec). The module handles frontmatter + artifact shape + 3-path (success/empty_hit/api_error) discipline. Your job is producing the structured `enrichmentResult` object.
+ </dispatch_contract>
+ 
++<sgsd_vtp_substrate_witness_p167>
++Before any raw substrate transport, run:
++`node super-gsd/scripts/lib/substrate-invocation-witness-store.cjs --readiness --project-dir .`
++
++Run readiness from the current project in the current Claude Code session. Only
++an exit zero with `ready: true` permits a call to
++`mcp__vtp-kb__vtp_search_substrate`. If readiness is missing, stale,
++duplicated, keyless, or cannot prove both project hook registrations, do not
++call the raw substrate tool. Emit:
++
++VTP_STATUS: unavailable_or_bypassed
++reason: substrate_witness_unavailable
++
++Continue only through the existing graceful-degradation path.
++
++After raw substrate transport, do not inspect or use the response. First write
++the exact P166 substrate_call_record and run the existing
++`--accept-substrate-call-record` command. If acceptance exits nonzero, discard
++all substrate-derived content. Do not summarise it, quote it, persist it, or
++retry it. Emit the same VTP_STATUS and reason, then continue only through the
++existing graceful-degradation path.
++
++Use substrate-derived content only after readiness and post-call acceptance
++both succeed. When acceptance succeeds, carry hook-authored degradation_notes
++through the existing normal output path. Do not cap raw response text in this
++prompt. T1 PostToolUse is the only raw-prompt pre-model cap.
++Do not truncate response text in memory. T1 PostToolUse enforces the existing
++16000 JavaScript characters boundary and supplies hook-authored degradation_notes
++with reason_code vtp_substrate_hit_truncated, original_chars, and retained_chars.
++Do not retry with unfiltered arguments or convert hook-authored truncation to failure.
++
++This is an SGSD supported-path prompt contract. It does not prevent a same-user
++actor from writing a different prompt, registration, or direct upstream call.
++</sgsd_vtp_substrate_witness_p167>
++
+ <substrate_call_policy>
+-For tool 2/5, call vtp_search_substrate with substrate_call.payload verbatim. Do not construct or amend substrate arguments. Record the tool, exact payload, and matching substrate_call.gateway_evidence together. The production run() acceptance path validates that record against substrate_call and rejects missing evidence, digest drift, unfiltered payloads, and limit 6. If the envelope is missing or preparation failed, do not issue a raw substrate call.
+-Immediately after raw substrate transport and before synthesis, inspect both top-level hits and evidence.hits. For each hit whose text is a string longer than 16000 JavaScript characters, record original_chars, truncate it in memory to its first 16000 JavaScript characters, and append a degradation note with reason_code vtp_substrate_hit_truncated, zero-based hit_index, identity, doc_id, rel_path, chunk_id, original_chars, and retained_chars set to 16000. Resolve identity from doc_id, then rel_path, then chunk_id, then hit-<one-based-index>. Carry these degradation_notes into the normal enrichmentResult output; use an empty array when no hit was truncated. Do not retry with unfiltered arguments. Never paste or write discarded text, and do not convert truncation to failure.
++For tool 2/5, call vtp_search_substrate with substrate_call.payload verbatim. Do not construct or amend substrate arguments. Record the tool, exact payload, and matching substrate_call.gateway_evidence together. The production acceptance path validates that record against substrate_call and rejects missing evidence, digest drift, unfiltered payloads, and P166 policy drift. If the envelope is missing or preparation failed, do not issue a raw substrate call.
++
++Save the received composer-prepared `substrate_call` envelope exactly to `.planning/tmp/enrichment-substrate-call.json`. After transport, write the exact record to `.planning/tmp/enrichment-substrate-call-record.json` and run:
++`node super-gsd/scripts/lib/vtp-context-composer.cjs --accept-substrate-call-record --intent enrichment --prepared-call-file .planning/tmp/enrichment-substrate-call.json --record-file .planning/tmp/enrichment-substrate-call-record.json`
++
++Only an accepted response may enter `enrichmentResult`. Preserve the hook-authored degradation_notes in that object; use an empty array when the accepted response carries none.
+ </substrate_call_policy>
+ 
+ <reasoning>
+@@ -75,7 +114,7 @@ const enrichmentResult = {
+   gaps: ['topic Alpha', 'topic Beta'],    // string descriptors
+   alt_framings: ['Framing A: ...'],       // prose bullets
+   rationale: '',               // only populated if status='empty_hit'
+-  degradation_notes: [],       // generated in memory for truncated hits; empty otherwise
++  degradation_notes: [],       // hook-authored notes from the accepted response; empty otherwise
+   substrate_call_record: {
+     tool: 'mcp__vtp-kb__vtp_search_substrate',
+     payload: substrate_call.payload,
+diff --git a/super-gsd/tests/substrate-invocation-witness/assert-prompt-contracts.cjs b/super-gsd/tests/substrate-invocation-witness/assert-prompt-contracts.cjs
+new file mode 100644
+index 0000000..416815f
+--- /dev/null
++++ b/super-gsd/tests/substrate-invocation-witness/assert-prompt-contracts.cjs
+@@ -0,0 +1,179 @@
++#!/usr/bin/env node
++'use strict';
++
++const assert = require('assert');
++const fs = require('fs');
++const path = require('path');
++
++const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
++const RAW_SUBSTRATE_TOOL = 'mcp__vtp-kb__vtp_search_substrate';
++const READINESS_COMMAND = 'node super-gsd/scripts/lib/substrate-invocation-witness-store.cjs --readiness --project-dir .';
++const ACCEPT_COMMAND = '--accept-substrate-call-record';
++const STATUS = 'VTP_STATUS: unavailable_or_bypassed';
++const REASON = 'substrate_witness_unavailable';
++const P167_MARKER = '<sgsd_vtp_substrate_witness_p167>';
++
++function read(relativePath) {
++  return fs.readFileSync(path.join(REPO_ROOT, relativePath), 'utf8');
++}
++
++function frontmatter(source) {
++  const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
++  assert(match, 'agent source must carry YAML frontmatter');
++  return match[1];
++}
++
++function frontmatterTools(source) {
++  const match = frontmatter(source).match(/^tools:\s*(.+)$/m);
++  assert(match, 'agent frontmatter must carry a tools list');
++  return match[1].split(',').map((value) => value.trim()).filter(Boolean);
++}
++
++function installedMarkerModel() {
++  return [
++    P167_MARKER,
++    READINESS_COMMAND,
++    'Run readiness from the current project in the current Claude Code session before raw substrate transport.',
++    'Only readiness exit zero with ready true permits a call to ' + RAW_SUBSTRATE_TOOL + '.',
++    'If readiness is missing, stale, duplicated, keyless, or cannot prove both project hook registrations, do not call the raw substrate tool.',
++    STATUS,
++    'reason: ' + REASON,
++    'Continue only through the existing graceful-degradation path.',
++    'After raw substrate transport, write the exact P166 substrate_call_record and run the existing ' + ACCEPT_COMMAND + ' command before inspecting or using the response.',
++    'If acceptance exits nonzero, discard all substrate-derived content. Do not summarise it, quote it, persist it, or retry it.',
++    'Use substrate-derived content only after readiness and post-call acceptance both succeed.',
++    'Emit the same VTP_STATUS and reason, then continue only through the existing graceful-degradation path.',
++    'When acceptance succeeds, carry hook-authored degradation_notes through the existing normal output path.',
++    'Do not cap raw response text in this prompt. T1 PostToolUse is the only raw-prompt pre-model cap.',
++    'This supported-path prompt contract does not prevent a same-user actor from writing a different prompt, registration, or direct upstream call.',
++    '</sgsd_vtp_substrate_witness_p167>',
++  ].join('\n');
++}
++
++const canonicalSurfaces = [
++  {
++    name: 'enrichment',
++    intent: 'enrichment',
++    relativePath: 'super-gsd/agents/sgsd-vtp-enrichment.md',
++    composerPrepared: /composer-prepared enrichment envelope with payload and gateway_evidence/,
++  },
++  {
++    name: 'board-researcher',
++    intent: 'board_research',
++    relativePath: 'super-gsd/agents/sgsd-board-researcher.md',
++    composerPrepared: /--prepare-substrate-call --intent board_research/,
++  },
++];
++
++const installedSurfaces = [
++  { name: 'installed-gsd-phase-researcher', intent: 'phase_research', markerSuffix: 'phase_research' },
++  { name: 'installed-gsd-planner', intent: 'planning', markerSuffix: 'planning' },
++];
++
++function assertFailClosedContract(surface) {
++  const body = surface.body;
++  const readinessIndex = body.indexOf(READINESS_COMMAND);
++  const ownedText = surface.source || body;
++  const rawCallIndex = body.indexOf(RAW_SUBSTRATE_TOOL);
++  const acceptanceIndex = body.indexOf(ACCEPT_COMMAND);
++  const useIndex = body.indexOf('Use substrate-derived content only after readiness');
++
++  assert.notStrictEqual(readinessIndex, -1, surface.name + ': production readiness command missing');
++  assert.notStrictEqual(rawCallIndex, -1, surface.name + ': conditional raw call contract missing');
++  assert.notStrictEqual(acceptanceIndex, -1, surface.name + ': post-call acceptance command missing');
++  assert.notStrictEqual(useIndex, -1, surface.name + ': success-gated response use missing');
++  assert(readinessIndex < rawCallIndex, surface.name + ': raw transport can precede readiness');
++  assert(rawCallIndex < acceptanceIndex, surface.name + ': acceptance can precede raw transport');
++  assert(acceptanceIndex < useIndex, surface.name + ': response use can precede acceptance');
++  assert.match(body, /(?:substrate_call\.payload|returned payload) verbatim/);
++
++  assert.match(body, /current project in the current Claude Code session/);
++  assert.match(body, /missing, stale,\s+duplicated, keyless, or cannot prove both project hook registrations/);
++  assert.match(body, /do not\s+call the raw substrate tool/);
++  assert.match(body, new RegExp(STATUS.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
++  assert.match(body, new RegExp(REASON));
++  assert.match(body, /existing graceful-degradation path/);
++  assert.match(body, /Emit the same VTP_STATUS and reason/);
++  assert.match(body, /write\s+the exact P166 substrate_call_record/);
++  assert.match(body, /discard\s+all substrate-derived content/);
++  assert.match(body, /Do not summarise it, quote it, persist it, or\s+retry it/);
++  assert.match(body, /post-call acceptance\s+both succeed/);
++  assert.match(body, /hook-authored degradation_notes/);
++  assert.match(body, /T1 PostToolUse is the only raw-prompt pre-model cap/);
++  assert.match(body, /does not prevent a same-user\s+actor from writing a different prompt, registration, or direct upstream call/);
++  assert.doesNotMatch(ownedText, /\bsource_types\b/);
++  assert.doesNotMatch(ownedText, /\blimit\b/);
++  assert.doesNotMatch(ownedText, /\btool_use_id\b/);
++  assert.doesNotMatch(body, /truncate it in memory|first 16000 JavaScript characters|capSubstrateResponse/);
++}
++
++function loadCanonicalSurface(spec) {
++  const source = read(spec.relativePath);
++  return { ...spec, source, body: source.slice(source.indexOf('\n---', 4) + 4) };
++}
++
++function p167MarkerBlock(body) {
++  const match = body.match(/<sgsd_vtp_substrate_witness_p167>[\s\S]*?<\/sgsd_vtp_substrate_witness_p167>/);
++  assert(match, 'canonical P167 marker block missing');
++  return match[0].replace(/\r\n/g, '\n');
++}
++
++function modelInstalledSurface(spec) {
++  const audit = require(path.join(REPO_ROOT, 'super-gsd', 'tools', 'feature-propagation', 'audit.cjs'));
++  const p166 = audit._internals.buildP166LegacyPromptPatch({
++    intent: spec.intent,
++    markerSuffix: spec.markerSuffix,
++    substrateTool: RAW_SUBSTRATE_TOOL,
++  });
++  return {
++    ...spec,
++    body: installedMarkerModel() + '\n' + p166.p166Append,
++    composerPrepared: new RegExp('--prepare-substrate-call --intent ' + spec.intent),
++  };
++}
++
++function main() {
++  const seen = new Set();
++  let passed = 0;
++  let sharedCanonicalContract = null;
++
++  for (const spec of canonicalSurfaces) {
++    const surface = loadCanonicalSurface(spec);
++    assert(!seen.has(surface.name), surface.name + ': duplicate surface classification');
++    seen.add(surface.name);
++    assert.match(surface.body, surface.composerPrepared, surface.name + ': P166 composer-prepared payload drifted');
++    assert.match(surface.body, new RegExp('(?:--intent |intent_family: ["\'])' + surface.intent));
++    assertFailClosedContract(surface);
++    assert(!frontmatterTools(surface.source).includes(RAW_SUBSTRATE_TOOL), surface.name + ': canonical frontmatter grants raw substrate');
++    const markerBlock = p167MarkerBlock(surface.body);
++    if (sharedCanonicalContract === null) {
++      sharedCanonicalContract = markerBlock;
++    } else {
++      assert.strictEqual(markerBlock, sharedCanonicalContract, 'canonical P167 wording drifted');
++    }
++    passed += 1;
++    process.stdout.write('PASS prompt-contract ' + surface.name + '\n');
++  }
++
++  for (const spec of installedSurfaces) {
++    const surface = modelInstalledSurface(spec);
++    assert(!seen.has(surface.name), surface.name + ': duplicate surface classification');
++    seen.add(surface.name);
++    assert.match(surface.body, surface.composerPrepared, surface.name + ': P166 intent family drifted');
++    assert.match(surface.body, /Pass the returned payload verbatim/);
++    assert.match(surface.body, new RegExp(P167_MARKER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
++    assertFailClosedContract(surface);
++    passed += 1;
++    process.stdout.write('PASS prompt-contract ' + surface.name + '\n');
++  }
++
++  assert.deepStrictEqual([...seen], [
++    'enrichment',
++    'board-researcher',
++    'installed-gsd-phase-researcher',
++    'installed-gsd-planner',
++  ]);
++  process.stdout.write('PASS assert-prompt-contracts ' + passed + '/4\n');
++}
++
++main();
+diff --git a/super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs b/super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs
+index 96888e7..0856f62 100644
+--- a/super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs
++++ b/super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs
+@@ -44,9 +44,9 @@ const SCAN_ROOTS = Object.freeze([
+ ]);
+ const CALLER_OCCURRENCE_RULES = Object.freeze([
+   {
+-    id: 'board-tools',
++    id: 'board-witness-tool',
+     rel: 'super-gsd/agents/sgsd-board-researcher.md',
+-    text: 'tools: Read, Grep, Glob, Bash, mcp__vtp-kb__vtp_search, mcp__vtp-kb__vtp_search_substrate, mcp__vtp-kb__vtp_search_research, mcp__vtp-kb__vtp_get_document, mcp__vtp-kb__vtp_route_and_retrieve',
++    text: '`mcp__vtp-kb__vtp_search_substrate`. If readiness is missing, stale,',
+     site: 'board-researcher',
+   },
+   {
+@@ -68,15 +68,15 @@ const CALLER_OCCURRENCE_RULES = Object.freeze([
+     site: 'enrichment-agent',
+   },
+   {
+-    id: 'enrichment-tools',
++    id: 'enrichment-witness-tool',
+     rel: 'super-gsd/agents/sgsd-vtp-enrichment.md',
+-    text: 'tools: Read, Grep, Glob, Bash, Write, mcp__vtp-kb__vtp_search, mcp__vtp-kb__vtp_search_substrate, mcp__vtp-kb__vtp_search_research, mcp__vtp-kb__vtp_route_and_retrieve, mcp__vtp-kb__vtp_advise_service_enrichment, mcp__vtp-kb__vtp_health_structured, mcp__vtp-kb__vtp_get_document',
++    text: '`mcp__vtp-kb__vtp_search_substrate`. If readiness is missing, stale,',
+     site: 'enrichment-agent',
+   },
+   {
+     id: 'enrichment-policy',
+     rel: 'super-gsd/agents/sgsd-vtp-enrichment.md',
+-    text: 'For tool 2/5, call vtp_search_substrate with substrate_call.payload verbatim. Do not construct or amend substrate arguments. Record the tool, exact payload, and matching substrate_call.gateway_evidence together. The production run() acceptance path validates that record against substrate_call and rejects missing evidence, digest drift, unfiltered payloads, and limit 6. If the envelope is missing or preparation failed, do not issue a raw substrate call.',
++    text: 'For tool 2/5, call vtp_search_substrate with substrate_call.payload verbatim. Do not construct or amend substrate arguments. Record the tool, exact payload, and matching substrate_call.gateway_evidence together. The production acceptance path validates that record against substrate_call and rejects missing evidence, digest drift, unfiltered payloads, and P166 policy drift. If the envelope is missing or preparation failed, do not issue a raw substrate call.',
+     site: 'enrichment-agent',
+   },
+   {

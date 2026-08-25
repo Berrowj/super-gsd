@@ -1,0 +1,4 @@
+super-gsd/agents/sgsd-vtp-enrichment.md
+super-gsd/agents/sgsd-board-researcher.md
+super-gsd/tests/substrate-invocation-witness/assert-prompt-contracts.cjs
+super-gsd/tests/vtp-substrate-policy/assert-vtp-substrate-policy.cjs
