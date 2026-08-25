@@ -48,6 +48,8 @@ Format: one markdown list item per file, readable by auto-memory AND sgsd-recall
 
 - [Bound the executor scope or it redesigns the system](architecture/anti-patterns/dont-rebuild-the-world-to-fix-an-ordering-bug.md) - 1458-line over-reach shipped nothing; name the forbidden design when re-dispatching (2026-08-25)
 
+- [Check the first diff, not the fourth](architecture/anti-patterns/first-dispatch-stop-rule.md) - forbidden-design list + known-good smoke after the first diff; revert, do not patch forward (2026-08-25)
+
 ## architecture/decisions
 
 - [PI Death & Migration Decision](architecture/decisions/pi-death-migration.md)

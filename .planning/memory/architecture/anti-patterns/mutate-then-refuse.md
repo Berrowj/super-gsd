@@ -25,6 +25,17 @@ but only after it has already written something it does not roll back.
    settings, npm, repair and Codex registration all able to reject afterwards. The guard
    had been updated to ASSERT the wrong ordering.
 
+5. P168 phase ATC, after two gates had called it closed. `install.sh:1292` published, then
+   dispatched paths running rejection-capable `repair_substrate_capability` and
+   `register_codex_hooks` (`:1014-1015`, `:1110-1111`), and `audit.cjs:1456` published
+   before witness/capability repair at `:1484-1492`. The guard "asserted" the ordering by
+   forbidding only functions whose NAME contained "precheck", which is why a
+   spec-compliance review passed it twice.
+
+**A name-based assertion is not an ordering assertion.** Enumerate the functions that can
+reject and require each to precede the first write, so a newly added rejecting function
+fails the guard rather than slipping behind the naming convention.
+
 **Rollback is not a substitute.** A smoked hook can touch state outside the tree being
 rolled back.
 

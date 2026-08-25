@@ -1,0 +1,1141 @@
+diff --git a/super-gsd/install.sh b/super-gsd/install.sh
+index c866e41..3eb3f05 100644
+--- a/super-gsd/install.sh
++++ b/super-gsd/install.sh
+@@ -262,10 +262,6 @@ copy_entries_to_root() {
+ copy_tree_files() {
+   local source_root="$1"
+   local target_root="$2"
+-  if [[ ! -d "$source_root" ]]; then
+-    echo "ERROR: required runtime directory missing: $source_root" >&2
+-    exit 1
+-  fi
+   if [[ "$DRY_RUN" == true ]]; then
+     log "DRY RUN: $source_root/. -> $target_root"
+   elif [[ -e "$target_root" && "$source_root" -ef "$target_root" ]]; then
+@@ -462,22 +458,16 @@ ensure_gsd_base() {
+   log "GSD 1.0: $GSD_DIR"
+ }
+ 
+-repair_substrate_capability() {
++write_substrate_capability_repair() {
++  [[ "$INSTALL_CONTRACT_PUBLISHED" == false ]] || return 0
+   local audit_script="$SCRIPT_DIR/tools/feature-propagation/audit.cjs"
+-  if [ ! -f "$audit_script" ]; then
+-    echo "ERROR: substrate capability audit missing: $audit_script" >&2
+-    return 1
+-  fi
+-  if ! command -v node >/dev/null 2>&1; then
+-    echo "ERROR: Node.js is required to provision the substrate witness capability" >&2
+-    return 1
+-  fi
+   if [ "$DRY_RUN" = true ]; then
+     log "DRY RUN: would provision the witness key, merge project Pre/Post hooks, broker vtp-kb, then derive installed grants"
+     return 0
+   fi
+   local repair_output
+-  local -a repair_args=(--repair-substrate-capability --project-dir "$PROJECT_DIR")
++  local -a repair_args=(--repair-substrate-capability --project-dir "$PROJECT_DIR"
++    --project-candidate "$INSTALL_CANDIDATE_DESCRIPTOR")
+   [ "$INSTALL_GLOBAL" = true ] && repair_args+=(--install-global)
+   [ "$INIT_LOCAL" = true ] && repair_args+=(--init-local)
+   [ "$UPDATE_MODE" = true ] && repair_args+=(--update)
+@@ -500,6 +490,8 @@ process.stdin.on("end", () => {
+     return 1
+   fi
+   [ -z "$repair_output" ] || printf '%s\n' "$repair_output" | sed 's/^/  /'
++  INSTALL_CANDIDATE_DESCRIPTOR=""
++  INSTALL_CONTRACT_PUBLISHED=true
+ }
+ 
+ precheck_global_installation() {
+@@ -511,6 +503,17 @@ precheck_global_installation() {
+   local merge_script="$SCRIPT_DIR/scripts/merge-settings.js"
+   local preflight_script="$SCRIPT_DIR/scripts/lib/hook-registration-preflight.cjs"
+   local settings_file="$CLAUDE_DIR/settings.json"
++  local required_runtime_dir
++
++  for required_runtime_dir in \
++    "$SCRIPT_DIR/scripts/lib" \
++    "$SCRIPT_DIR/registry" \
++    "$SCRIPT_DIR/tools/vtp-readiness"; do
++    if [[ ! -d "$required_runtime_dir" ]]; then
++      echo "ERROR: required runtime directory missing: $required_runtime_dir" >&2
++      return 1
++    fi
++  done
+ 
+   if [[ -f "$overlay_file" && -f "$merge_script" ]]; then
+     if [[ ! -f "$preflight_script" ]]; then
+@@ -700,10 +703,6 @@ install_global_assets() {
+     fi
+   fi
+ 
+-  if [ -d "$PROJECT_DIR/.planning" ] && [ "$INIT_LOCAL" = false ] && [ "$UPDATE_MODE" = false ]; then
+-    repair_substrate_capability
+-  fi
+-
+   echo ""
+   log "Global install complete. Launcher installed at $LOCAL_BIN_DIR/sgsd."
+ }
+@@ -780,11 +779,7 @@ refuse_missing_codex_hook_entry_sources() {
+   return 1
+ }
+ 
+-distribute_project_hooks() {
+-  publish_project_install_contract
+-}
+-
+-precheck_substrate_capability() {
++check_substrate_capability_repair() {
+   local audit_script="$SCRIPT_DIR/tools/feature-propagation/audit.cjs"
+   local precheck_output=""
+   local precheck_failed=false
+@@ -795,7 +790,9 @@ precheck_substrate_capability() {
+     precheck_failed=true
+     precheck_output="ERROR: Node.js is required to check the substrate witness capability"
+   else
+-    local -a precheck_args=(--check-substrate-capability --project-dir "$PROJECT_DIR")
++    local -a precheck_args=(--check-substrate-capability --project-dir "$PROJECT_DIR"
++      --project-candidate "$INSTALL_CANDIDATE_DESCRIPTOR")
++    [[ "$INSTALL_GLOBAL" == true ]] && precheck_args+=(--install-global)
+     [[ "$INIT_LOCAL" == true ]] && precheck_args+=(--init-local)
+     [[ "$UPDATE_MODE" == true ]] && precheck_args+=(--update)
+     if ! precheck_output="$(node "$audit_script" "${precheck_args[@]}" 2>&1)"; then
+@@ -834,20 +831,7 @@ precheck_installation_refusals() {
+     echo "ERROR: hook install candidate descriptor was not created" >&2
+     exit 1
+   }
+-  precheck_substrate_capability
+-}
+-
+-publish_project_install_contract() {
+-  [[ "$INSTALL_CONTRACT_PUBLISHED" == false ]] || return 0
+-  precheck_installation_refusals
+-  if [[ "$DRY_RUN" == true ]]; then
+-    log "DRY RUN: candidate project hook dependency closure passed smoke"
+-    return 0
+-  fi
+-  node "$INSTALL_CONTRACT_SCRIPT" --apply-candidate "$INSTALL_CANDIDATE_DESCRIPTOR" >/dev/null
+-  INSTALL_CANDIDATE_DESCRIPTOR=""
+-  INSTALL_CONTRACT_PUBLISHED=true
+-  log "Project hook dependency closure published transactionally"
++  check_substrate_capability_repair
+ }
+ 
+ preflight_existing_repo_local_hooks() {
+@@ -871,7 +855,7 @@ preflight_existing_repo_local_hooks() {
+     "$INSTALL_CANDIDATE_DESCRIPTOR" >/dev/null
+ }
+ 
+-precheck_codex_hook_registration() {
++check_codex_hook_registration() {
+   local installer="$SCRIPT_DIR/tools/codex-hooks/install-hooks.cjs"
+   if [[ ! -f "$installer" ]]; then
+     echo "ERROR: Codex hook installer missing: $installer" >&2
+@@ -882,25 +866,57 @@ precheck_codex_hook_registration() {
+     return 1
+   fi
+   node --check "$installer"
+-  node - "$installer" "$PROJECT_DIR" <<'NODE'
++  node - "$installer" "$PROJECT_DIR" "$INSTALL_CANDIDATE_DESCRIPTOR" <<'NODE'
++const crypto = require('crypto');
++const fs = require('fs');
+ const path = require('path');
+ const installer = require(path.resolve(process.argv[2]));
+-const report = installer.inspectProject({ projectDir: process.argv[3] });
++const projectDir = path.resolve(process.argv[3]);
++const descriptorPath = path.resolve(process.argv[4]);
++const descriptor = JSON.parse(fs.readFileSync(descriptorPath, 'utf8'));
++const candidateRoot = path.resolve(descriptor.candidate_root);
++if (path.resolve(descriptor.project_dir) !== projectDir || path.dirname(descriptorPath) !== candidateRoot) {
++  throw new Error('Codex registration candidate does not match the explicit project');
++}
++const report = installer.inspectProject({ projectDir });
+ if (report.status === 'template-error' || report.status === 'malformed') {
+   process.stderr.write('ERROR: ' + report.error + '\n');
+   process.exit(1);
+ }
++const actualTarget = installer.targetPathFor(projectDir);
++const candidateTarget = installer.targetPathFor(candidateRoot);
++fs.mkdirSync(path.dirname(candidateTarget), { recursive: true });
++if (fs.existsSync(actualTarget)) fs.copyFileSync(actualTarget, candidateTarget);
++else fs.rmSync(candidateTarget, { force: true });
++installer.installHooks({ projectDir: candidateRoot });
++const candidateBytes = fs.readFileSync(candidateTarget);
++const expectedSha256 = crypto.createHash('sha256').update(candidateBytes).digest('hex');
++const actualSha256 = fs.existsSync(actualTarget)
++  ? crypto.createHash('sha256').update(fs.readFileSync(actualTarget)).digest('hex')
++  : null;
++descriptor.rows = descriptor.rows.filter((row) => row.kind !== 'codex-registration');
++descriptor.rows.push({
++  kind: 'codex-registration',
++  relative_path: '.codex/hooks.json',
++  source_path: candidateTarget,
++  target_path: actualTarget,
++  candidate_path: candidateTarget,
++  publication_path: actualTarget,
++  expected_sha256: expectedSha256,
++  candidate_sha256: expectedSha256,
++  actual_sha256: actualSha256,
++  status: actualSha256 === null ? 'missing' : actualSha256 === expectedSha256 ? 'current' : 'stale',
++  required_by: ['codex-hook-registration'],
++});
++fs.writeFileSync(descriptorPath, JSON.stringify(descriptor, null, 2) + '\n', 'utf8');
+ NODE
+ }
+ 
+-register_codex_hooks() {
++write_codex_hook_registration() {
+   echo ""
+-  log "Registering project-local Codex hooks..."
+-  CODEX_HOOK_INSTALLER="$SCRIPT_DIR/tools/codex-hooks/install-hooks.cjs"
++  log "Project-local Codex hook registration was sealed before publication."
+   if [ "$DRY_RUN" = true ]; then
+     log "DRY RUN: would safely merge SGSD registrations into $PROJECT_DIR/.codex/hooks.json"
+-  else
+-    node "$CODEX_HOOK_INSTALLER" --project "$PROJECT_DIR"
+   fi
+ }
+ 
+@@ -1010,9 +1026,6 @@ init_local_project() {
+   fi
+ 
+   ensure_memory_tree
+-  distribute_project_hooks
+-  repair_substrate_capability
+-  register_codex_hooks
+ 
+   # P143.5: cockpit dependencies. Skipped if no package.json at PROJECT_DIR
+   # (operators using SGSD as an embedded subdir of a different project don't
+@@ -1106,9 +1119,6 @@ update_existing() {
+   # 3. Memory taxonomy — ensure new memory dirs exist if the schema grew.
+   # ensure_memory_tree is idempotent; existing entries are left untouched.
+   ensure_memory_tree
+-  distribute_project_hooks
+-  repair_substrate_capability
+-  register_codex_hooks
+ 
+   # 4. Diff check for CLAUDE.md — DO NOT overwrite. Just tell the operator
+   # if the bundled overlay has diverged from their CLAUDE.md so they can
+@@ -1285,11 +1295,14 @@ if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ] || [ "$INSTALL_GLOBAL"
+     preflight_existing_repo_local_hooks
+   fi
+   if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ]; then
+-    precheck_codex_hook_registration
++    check_codex_hook_registration
+   fi
+   if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ] \
+       || { [ "$INSTALL_GLOBAL" = true ] && [ -d "$PROJECT_DIR/.planning" ]; }; then
+-    publish_project_install_contract
++    write_substrate_capability_repair
++    if [ "$INIT_LOCAL" = true ] || [ "$UPDATE_MODE" = true ]; then
++      write_codex_hook_registration
++    fi
+   fi
+ fi
+ 
+diff --git a/super-gsd/scripts/lib/hook-install-contract.cjs b/super-gsd/scripts/lib/hook-install-contract.cjs
+index 346edf2..1c82896 100644
+--- a/super-gsd/scripts/lib/hook-install-contract.cjs
++++ b/super-gsd/scripts/lib/hook-install-contract.cjs
+@@ -930,6 +930,7 @@ if (require.main === module) {
+       ok: false,
+       reason: closedReason,
+       underlying_error: underlying,
++      repair_actions: [],
+     }) + '\n');
+     process.exitCode = 2;
+   });
+@@ -937,10 +938,8 @@ if (require.main === module) {
+ 
+ module.exports = {
+   applyProjectInstall,
+-  applyPreparedProjectInstall,
+   computeHookDependencyGraph,
+   formatProjectInstallStatus,
+   inspectProjectInstall,
+-  prepareProjectInstall,
+   renderManifestDependencies,
+ };
+diff --git a/super-gsd/tests/install-contract/assert-install-contract.cjs b/super-gsd/tests/install-contract/assert-install-contract.cjs
+index 1b25f55..8690f97 100644
+--- a/super-gsd/tests/install-contract/assert-install-contract.cjs
++++ b/super-gsd/tests/install-contract/assert-install-contract.cjs
+@@ -409,16 +409,25 @@ async function unresolvedModuleRefusesBeforeWrite() {
+     const projectDir = path.join(root, 'target project');
+     const home = path.join(root, 'isolated home');
+     const decoy = path.join(root, 'decoy cwd');
++    const npmSentinel = path.join(root, 'npm preinstall sentinel.txt');
+     write(path.join(projectDir, '.planning', 'config.json'), '{\n}\n');
+     write(path.join(projectDir, 'operator.txt'), 'project sentinel\n');
++    const npmPreinstall = `node -e ${JSON.stringify('require(\'fs\').writeFileSync(process.env.SGSD_NPM_SENTINEL, \'npm ran\')')}`;
++    write(path.join(projectDir, 'package.json'), `${JSON.stringify({
++      name: 'sgsd-refuse-before-write-fixture',
++      private: true,
++      scripts: { preinstall: npmPreinstall },
++    }, null, 2)}\n`);
+     write(path.join(home, '.claude', 'settings.json'), '{\n}\n');
+     fs.mkdirSync(decoy, { recursive: true });
+     const projectBefore = inventory(projectDir);
+     const homeBefore = inventory(home);
++    const env = isolatedEnv(home);
++    env.SGSD_NPM_SENTINEL = npmSentinel;
+     const result = run(process.env.SGSD_TEST_BASH || 'bash', [
+       path.join(upstream, 'install.sh'), '--install-global', '--update',
+       '--skip-cockpit-deps', '--project-dir', projectDir,
+-    ], { cwd: decoy, env: isolatedEnv(home) });
++    ], { cwd: decoy, env });
+     if (result.error) throw result.error;
+     assert.notEqual(result.status, 0, 'missing dependency did not refuse');
+     const output = `${result.stderr}\n${result.stdout}`;
+@@ -427,6 +436,16 @@ async function unresolvedModuleRefusesBeforeWrite() {
+     assert.match(output, /generated-missing-refusal\.cjs/);
+     assert.deepEqual(inventory(projectDir), projectBefore, 'refusal changed project bytes');
+     assert.deepEqual(inventory(home), homeBefore, 'refusal changed profile bytes');
++    assert.equal(fs.existsSync(npmSentinel), false, 'npm ran before unresolved-module refusal');
++    const repairActionRecords = [];
++    for (const line of output.split(/\r?\n/)) {
++      try {
++        const parsed = JSON.parse(line);
++        if (Array.isArray(parsed.repair_actions)) repairActionRecords.push(parsed.repair_actions);
++      } catch (_) { /* Non-JSON installer output is not a repair action record. */ }
++    }
++    assert.ok(repairActionRecords.length > 0, 'refusal did not report its repair-actions array');
++    assert.deepEqual(repairActionRecords, [[]], 'refused install recorded substrate repair actions');
+   } finally {
+     fs.rmSync(root, { recursive: true, force: true });
+   }
+diff --git a/super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs b/super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs
+index 29abd2f..49de647 100644
+--- a/super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs
++++ b/super-gsd/tests/installer-registration-guard/assert-installer-registration-guard.cjs
+@@ -1548,8 +1548,8 @@ function assertInstallerSmokeOrder(installer) {
+   const mainPrecheck = installer.lastIndexOf('  precheck_installation_refusals');
+   const mainGlobalPrecheck = installer.lastIndexOf('    precheck_global_installation');
+   const mainUpdatePreflight = installer.lastIndexOf('    preflight_existing_repo_local_hooks');
+-  const mainCodexPrecheck = installer.lastIndexOf('    precheck_codex_hook_registration');
+-  const mainPublication = installer.lastIndexOf('  publish_project_install_contract');
++  const mainCodexPrecheck = installer.lastIndexOf('    check_codex_hook_registration');
++  const mainPublication = installer.indexOf('    write_substrate_capability_repair', mainCodexPrecheck);
+   assert.ok(
+     mainPrecheck >= 0
+       && mainPrecheck < mainGlobalPrecheck
+@@ -1560,30 +1560,24 @@ function assertInstallerSmokeOrder(installer) {
+   );
+   assert.ok(globalMerge > globalDistribution, 'global settings merge is absent after sealed candidate smoke');
+ 
+-  const distributionFunction = installer.indexOf('distribute_project_hooks()');
+-  const contractDelegation = installer.indexOf('  publish_project_install_contract', distributionFunction);
+   const codexDetectorDefinitions = installer.match(/^detect_codex_hook_entry_sources\(\) \{/gm) || [];
+   const codexDetectorFunction = installer.indexOf('detect_codex_hook_entry_sources()');
+   const codexDistribution = installer.indexOf('$PROJECT_DIR/super-gsd/tools/codex-hooks/$name', codexDetectorFunction);
+   const codexMissingRefusal = installer.indexOf('hook_registration_missing $missing_target', codexDistribution);
+-  const substratePrecheckFunction = installer.indexOf('precheck_substrate_capability()');
++  const substratePrecheckFunction = installer.indexOf('check_substrate_capability_repair()');
+   const combinedPrecheckFunction = installer.indexOf('precheck_installation_refusals()');
+   const combinedPrecheckEnd = installer.indexOf('\n}\n', combinedPrecheckFunction);
+   const combinedDetectorCall = installer.indexOf('  detect_codex_hook_entry_sources', combinedPrecheckFunction);
+   const combinedCandidateCall = installer.indexOf('--prepare-candidate', combinedPrecheckFunction);
+-  const combinedSubstrateCall = installer.indexOf('  precheck_substrate_capability', combinedPrecheckFunction);
+-  // P168 replacement reason: the legacy unjournaled project copier assertions
+-  // are superseded by a stronger sealed-candidate delegation assertion. Keeping
+-  // the old batch-copy expectation would require the forbidden competing writer.
+-  assert.ok(
+-    distributionFunction >= 0 && contractDelegation > distributionFunction,
+-    'project hook distribution does not delegate to the transactional install contract',
+-  );
+-  assert.doesNotMatch(
+-    installer.slice(distributionFunction, installer.indexOf('\n}\n', distributionFunction)),
+-    /copy_files_to_root|\bcp\b|\bmkdir\b|chmod/,
+-    'project hook distribution retained a writer outside the sealed publication seam',
+-  );
++  const combinedSubstrateCall = installer.indexOf('  check_substrate_capability_repair', combinedPrecheckFunction);
++  // P168 replacement reason: direct substrate repair now consumes the same
++  // sealed descriptor and owns its apply seam, so no second shell publisher or
++  // distribution wrapper may survive beside that one transaction.
++  assert.doesNotMatch(installer, /^distribute_project_hooks\(\)|^publish_project_install_contract\(\)/m,
++    'installer retained a competing project publication path');
++  assert.match(installer,
++    /--repair-substrate-capability --project-dir \x22\$PROJECT_DIR\x22\r?\n    --project-candidate \x22\$INSTALL_CANDIDATE_DESCRIPTOR\x22/,
++    'substrate write half does not consume the sealed project candidate');
+   assert.equal(codexDetectorDefinitions.length, 1, 'Codex hook entry source detector is missing or duplicated');
+   assert.ok(codexDetectorFunction >= 0 && codexDetectorFunction < codexDistribution, 'shared Codex entry detector lacks its source inventory');
+   assert.ok(codexDistribution < codexMissingRefusal, 'Codex distribution refusal does not name missing targets');
+@@ -1602,43 +1596,212 @@ function assertInstallerSmokeOrder(installer) {
+     'installer retained deferred Codex refusal state across the mutating repair boundary',
+   );
+   assert.doesNotMatch(installer, /register_repo_local_hooks/, 'installer retained a second repo settings merge path');
+-  for (const functionName of ['init_local_project()', 'update_existing()']) {
+-    const functionStart = installer.indexOf(functionName);
+-    const distributionCall = installer.indexOf('  distribute_project_hooks', functionStart);
+-    const repairCall = installer.indexOf('  repair_substrate_capability', functionStart);
+-    const codexCall = installer.indexOf('  register_codex_hooks', functionStart);
+-    // P168 replacement reason: the old post-distribution rejection assertion is
+-    // invalid once distribution consumes a pre-smoked sealed candidate. The
+-    // stronger assertion forbids any rejection-capable precheck after it.
+-    assert.ok(
+-      functionStart >= 0 && functionStart < distributionCall
+-        && distributionCall < repairCall && repairCall < codexCall,
+-      `${functionName} does not preserve sealed publication before repair and registration`,
++  const rejectionCapableFunctions = Object.freeze([
++    'require_node_22',
++    'configured_codex_hook_entry_names',
++    'detect_codex_hook_entry_sources',
++    'refuse_missing_codex_hook_entry_sources',
++    'precheck_installation_refusals',
++    'precheck_global_installation',
++    'preflight_existing_repo_local_hooks',
++    'check_substrate_capability_repair',
++    'check_codex_hook_registration',
++  ]);
++  const writeOnlyFunctions = Object.freeze([
++    'write_substrate_capability_repair',
++    'write_codex_hook_registration',
++  ]);
++  const postPublicationEntryPoints = Object.freeze([
++    ...writeOnlyFunctions,
++    'install_global_assets',
++    'init_local_project',
++    'update_existing',
++  ]);
++  const expectedPostWriteReachable = Object.freeze([
++    'copy_entries_to_root',
++    'copy_file',
++    'copy_files_to_root',
++    'copy_tree_files',
++    'ensure_gsd_base',
++    'ensure_memory_tree',
++    'frontmatter_field',
++    'init_local_project',
++    'install_global_assets',
++    'is_legacy_brv_asset',
++    'log',
++    'remove_legacy_global_assets',
++    'remove_path_if_exists',
++    'run',
++    'update_existing',
++    'write_codex_hook_registration',
++    'write_substrate_capability_repair',
++  ]);
++  const semanticRefusalBehavior = /(?:^|\n)[ \t]*(?:exit|return)[ \t]+[1-9][0-9]*\b|\bnode --check\b|--check-substrate-capability|--preflight-project-settings|\bthrow new Error\b|\bJSON\.parse\(/;
++  const behaviorExemptFunctions = new Set([
++    ...writeOnlyFunctions,
++    'is_legacy_brv_asset',
++  ]);
++
++  function inspectShellInstallerFlow(source) {
++    const definitions = [...source.matchAll(/^([A-Za-z_][A-Za-z0-9_]*)\(\) \{/gm)];
++    const functions = new Map(definitions.map((match, index) => [
++      match[1],
++      source.slice(match.index, definitions[index + 1] ? definitions[index + 1].index : source.length),
++    ]));
++    const calls = new Map([...functions].map(([name, body]) => [
++      name,
++      [...functions.keys()].filter((callee) => {
++        if (callee === name) return false;
++        const directCall = new RegExp(`^[ \\t]+(?:if[ \\t]+|elif[ \\t]+|![ \\t]+)?${callee}(?:[ \\t]|$)`, 'm');
++        return directCall.test(body) || body.includes(`$(${callee} `);
++      }),
++    ]));
++    const reachable = (roots) => {
++      const pending = [...roots];
++      const seen = new Set();
++      while (pending.length) {
++        const name = pending.pop();
++        if (seen.has(name)) continue;
++        seen.add(name);
++        pending.push(...(calls.get(name) || []));
++      }
++      return seen;
++    };
++    return {
++      functions,
++      preWriteReachable: reachable([
++        'precheck_installation_refusals',
++        'precheck_global_installation',
++        'preflight_existing_repo_local_hooks',
++        'check_codex_hook_registration',
++      ]),
++      postWriteReachable: reachable(postPublicationEntryPoints),
++    };
++  }
++
++  function assertSemanticRefusalOrder(source) {
++    const flow = inspectShellInstallerFlow(source);
++    const activeFunctions = new Set([
++      ...flow.preWriteReachable,
++      ...flow.postWriteReachable,
++    ]);
++    const discoveredRejectors = [...activeFunctions]
++      .filter((name) => !behaviorExemptFunctions.has(name)
++        && semanticRefusalBehavior.test(flow.functions.get(name) || ''))
++      .sort();
++    assert.deepEqual(
++      discoveredRejectors,
++      [...rejectionCapableFunctions].sort(),
++      'behavioral rejection inventory changed without a pre-publication ordering decision',
+     );
+-    assert.equal(
+-      installer.slice(distributionCall, repairCall).includes('precheck_substrate_capability'),
+-      false,
+-      `${functionName} performs a rejection-capable substrate precheck after publication`,
++    for (const functionName of rejectionCapableFunctions) {
++      assert.ok(flow.preWriteReachable.has(functionName),
++        `rejection-capable function is not reachable before the first write: ${functionName}`);
++      assert.equal(flow.postWriteReachable.has(functionName), false,
++        `rejection-capable function is reachable after the first write: ${functionName}`);
++    }
++    assert.deepEqual(
++      [...flow.postWriteReachable].sort(),
++      [...expectedPostWriteReachable].sort(),
++      'post-publication call graph changed; classify the new function before allowing it',
++    );
++    const postWriteStatusExits = [...flow.postWriteReachable].flatMap((name) => (
++      [...(flow.functions.get(name) || '').matchAll(/(?:^|\n)[ \t]*exit[ \t]+["']?\$([A-Za-z_][A-Za-z0-9_]*)["']?/g)]
++        .map((match) => `${name}:${match[1]}`)
++    )).sort();
++    assert.deepEqual(
++      postWriteStatusExits,
++      ['install_global_assets:MERGE_STATUS'],
++      'post-publication writer gained an unclassified status-based rejection',
++    );
++    return flow;
++  }
++
++  const shellFlow = assertSemanticRefusalOrder(installer);
++  for (const functionName of rejectionCapableFunctions) {
++    const definition = installer.indexOf(`${functionName}() {`);
++    assert.ok(definition >= 0, `rejection-capable function is not enumerated in production: ${functionName}`);
++    assert.ok(shellFlow.preWriteReachable.has(functionName),
++      `rejection-capable function is not completed before the first write: ${functionName}`);
++    assert.equal(installer.slice(mainPublication).includes(`  ${functionName}`), false,
++      `rejection-capable function is reachable after the first write: ${functionName}`);
++  }
++  for (const functionName of writeOnlyFunctions) {
++    const functionStart = installer.indexOf(`${functionName}() {`);
++    const functionEnd = installer.indexOf('\n}', functionStart);
++    const functionBody = shellFlow.functions.get(functionName) || '';
++    assert.ok(functionStart >= 0 && functionEnd > functionStart,
++      `write-only function is absent: ${functionName}`);
++    assert.doesNotMatch(
++      functionBody,
++      /\b(?:precheck|checkSubstrate|inspectProject|node --check)\b/,
++      `write-only function retained rejection-capable behaviour: ${functionName}`,
+     );
+   }
+-  const repairPaths = [
+-    ['install_global_assets()', '  ensure_gsd_base'],
+-    ['init_local_project()', '  echo'],
+-    ['update_existing()', '  echo'],
++  const lateRejectorMutation = installer.replace(
++    'update_existing() {',
++    'late_semantic_rejector() {\n  exit 1\n}\n\nupdate_existing() {\n  late_semantic_rejector',
++  );
++  assert.throws(
++    () => assertSemanticRefusalOrder(lateRejectorMutation),
++    /behavioral rejection inventory changed|rejection-capable function is reachable after|post-publication call graph changed/,
++    'behavioral guard accepted a newly reachable post-publication rejector',
++  );
++  assert.doesNotMatch(installer, /^repair_substrate_capability\(\)|^register_codex_hooks\(\)/m,
++    'combined check/write repair functions remain in production');
++  const auditSource = fs.readFileSync(
++    path.join(SUPER_GSD_ROOT, 'tools', 'feature-propagation', 'audit.cjs'),
++    'utf8',
++  );
++  const auditRunStart = auditSource.indexOf('function runAudit(opts)');
++  const auditRunEnd = auditSource.indexOf('\nfunction selfTest()', auditRunStart);
++  const auditRunBody = auditSource.slice(auditRunStart, auditRunEnd);
++  const auditFirstWrite = auditRunBody.indexOf('writeProjectHookInstall');
++  const auditRejectors = Object.freeze([
++    'checkSubstrateHookRegistrations',
++    'checkProjectHookInstall',
++    'checkClaudeSubstrateWitnessRepair',
++    'checkClaudeSubstrateCapabilityRepair',
++  ]);
++  for (const functionName of auditRejectors) {
++    const definition = auditSource.indexOf(`function ${functionName}(`);
++    const call = auditRunBody.indexOf(`${functionName}(`);
++    assert.ok(definition >= 0, `direct repair rejection-capable function is absent: ${functionName}`);
++    assert.ok(call >= 0 && call < auditFirstWrite,
++      `direct repair reaches rejection-capable ${functionName} after its first write`);
++    assert.equal(auditRunBody.slice(auditFirstWrite).includes(`${functionName}(`), false,
++      `direct repair can re-enter rejection-capable ${functionName} after publication`);
++  }
++  for (const functionName of [
++    'writeProjectHookInstall',
++    'writeClaudeSubstrateWitnessRepair',
++    'writeClaudeSubstrateCapabilityRepair',
++  ]) {
++    const definition = auditSource.indexOf(`function ${functionName}(`);
++    const end = auditSource.indexOf('\n}', definition);
++    const body = auditSource.slice(definition, end);
++    assert.ok(definition >= 0 && end > definition, `direct repair write half is absent: ${functionName}`);
++    assert.equal(auditRejectors.some((name) => body.includes(`${name}(`)), false,
++      `direct repair write half re-enters a rejection-capable check: ${functionName}`);
++  }
++  const postPublicationFunctions = [
++    'install_global_assets()',
++    'init_local_project()',
++    'update_existing()',
+   ];
+-  const repairCalls = installer.match(/^[ \t]+repair_substrate_capability$/gm) || [];
+-  assert.equal(repairCalls.length, repairPaths.length, 'installer has an unenumerated substrate repair entry point');
+-  for (const [functionName, firstWriterBoundary] of repairPaths) {
++  const repairCalls = installer.match(/^[ \t]+write_substrate_capability_repair$/gm) || [];
++  assert.equal(repairCalls.length, 1,
++    'installer has an unenumerated substrate repair entry point');
++  assert.equal(installer.indexOf('    write_substrate_capability_repair', mainCodexPrecheck), mainPublication,
++    'dispatcher substrate write is absent after all rejection-capable checks');
++  for (const functionName of postPublicationFunctions) {
+     const functionStart = installer.indexOf(functionName);
+     const functionEnd = installer.indexOf('\n}\n', functionStart);
+-    const firstWriter = installer.indexOf(firstWriterBoundary, functionStart);
+-    const repairCall = installer.indexOf('repair_substrate_capability', functionStart);
+     const functionBody = installer.slice(functionStart, functionEnd);
+     assert.ok(
+       functionStart >= 0 && functionEnd > functionStart
+-        && firstWriter > functionStart && firstWriter < functionEnd
+-        && repairCall > firstWriter && repairCall < functionEnd
+-        && !/precheck_installation_refusals|precheck_substrate_capability|precheck_global_installation|preflight_existing_repo_local_hooks|precheck_codex_hook_registration/.test(functionBody),
++        && !rejectionCapableFunctions.some((name) => functionBody.includes(name))
++        && !writeOnlyFunctions.some((name) => functionBody.includes(name)),
+       `${functionName} reintroduced a rejection-capable check after dispatcher preflight`,
+     );
+   }
+@@ -1654,7 +1817,7 @@ function assertInstallerSmokeOrder(installer) {
+   );
+   assert.match(
+     installer,
+-    /if \[ \x22\$UPDATE_MODE\x22 = true \]; then\r?\n    preflight_existing_repo_local_hooks\r?\n  fi\r?\n  if \[ \x22\$INIT_LOCAL\x22 = true \] \|\| \[ \x22\$UPDATE_MODE\x22 = true \]; then\r?\n    precheck_codex_hook_registration/,
++    /if \[ \x22\$UPDATE_MODE\x22 = true \]; then\r?\n    preflight_existing_repo_local_hooks\r?\n  fi\r?\n  if \[ \x22\$INIT_LOCAL\x22 = true \] \|\| \[ \x22\$UPDATE_MODE\x22 = true \]; then\r?\n    check_codex_hook_registration/,
+     'update and Codex rejection checks are not both in the pre-publication dispatcher',
+   );
+   assert.match(
+@@ -2768,19 +2931,15 @@ function runBrokeredSubstrateCapability() {
+   assert.match(auditSource, /--smoke-repo-overlay/, 'substrate repair omits the deployed hook smoke');
+ 
+   const installer = fs.readFileSync(INSTALL_PATH, 'utf8');
+-  assert.match(installer, /repair_substrate_capability\(\)/);
++  assert.match(installer, /check_substrate_capability_repair\(\)/);
++  assert.match(installer, /write_substrate_capability_repair\(\)/);
+   assert.match(installer, /refusing grant-bearing agent installation/);
+   assert.match(installer, /repair_args\+=\(--install-global\)/, 'global substrate mutation is not gated by the global opt-in');
+-  for (const functionName of ['init_local_project()', 'update_existing()']) {
+-    const start = installer.indexOf(functionName);
+-    const distributionIndex = installer.indexOf('  distribute_project_hooks', start);
+-    const repairIndex = installer.indexOf('  repair_substrate_capability', start);
+-    const codexIndex = installer.indexOf('  register_codex_hooks', start);
+-    assert.ok(
+-      start >= 0 && distributionIndex > start && repairIndex > distributionIndex && codexIndex > repairIndex,
+-      `${functionName} does not perform one distribution and substrate repair sequence`,
+-    );
+-  }
++  const codexCheckIndex = installer.lastIndexOf('    check_codex_hook_registration');
++  const repairIndex = installer.indexOf('    write_substrate_capability_repair', codexCheckIndex);
++  const codexWriteIndex = installer.indexOf('      write_codex_hook_registration', repairIndex);
++  assert.ok(codexCheckIndex >= 0 && repairIndex > codexCheckIndex && codexWriteIndex > repairIndex,
++    'installer does not perform one checked substrate/Codex publication sequence');
+ 
+   const fixture = createDistributionFixture('brokered-substrate-capability');
+   try {
+diff --git a/super-gsd/tools/feature-propagation/audit.cjs b/super-gsd/tools/feature-propagation/audit.cjs
+index 31173ea..a8d735d 100644
+--- a/super-gsd/tools/feature-propagation/audit.cjs
++++ b/super-gsd/tools/feature-propagation/audit.cjs
+@@ -509,10 +509,12 @@ function validateUpstreamManifest(ctx, manifest, options = {}) {
+   const brokerPath = path.join(ctx.projectDir, BROKER_RELATIVE_PATH);
+   const hookPath = path.join(ctx.projectDir, witnessStore.HOOK_RELATIVE_PATH);
+   const manifestPath = witnessStore.resolveWitnessPaths(ctx.projectDir, process.env).upstream_manifest_path;
++  const brokerSha256 = options.brokerSha256 || sha256(brokerPath);
++  const witnessSourceSha256 = options.witnessSourceSha256 || sha256(hookPath);
+   if (!manifest || manifest.schema_version !== witnessStore.UPSTREAM_MANIFEST_SCHEMA_VERSION
+       || manifest.project_digest !== witnessStore.resolveWitnessPaths(ctx.projectDir, process.env).project_digest
+-      || manifest.broker_sha256 !== sha256(brokerPath)
+-      || manifest.witness_source_sha256 !== sha256(hookPath)
++      || manifest.broker_sha256 !== brokerSha256
++      || manifest.witness_source_sha256 !== witnessSourceSha256
+       || typeof manifest.active_scope !== 'string' || !manifest.servers
+       || typeof manifest.servers !== 'object' || Array.isArray(manifest.servers)) {
+     return 'upstream_drift';
+@@ -695,33 +697,67 @@ function parseInstallContractFailure(result) {
+   }
+ }
+ 
+-function publishProjectHookInstall(ctx, actions) {
++function checkProjectHookInstall(ctx, descriptorPath = null) {
++  if (descriptorPath) {
++    try {
++      const resolvedDescriptor = path.resolve(descriptorPath);
++      const descriptor = JSON.parse(fs.readFileSync(resolvedDescriptor, 'utf8'));
++      if (!descriptor || descriptor.schema_version !== 1
++          || path.resolve(descriptor.candidate_root) !== path.dirname(resolvedDescriptor)
++          || !Array.isArray(descriptor.rows)) {
++        return { ok: false, detail: 'invalid sealed install candidate descriptor', underlying_error: null };
++      }
++      if (path.resolve(descriptor.project_dir) !== path.resolve(ctx.projectDir)) {
++        return { ok: false, detail: 'hook candidate project mismatch', underlying_error: null };
++      }
++      for (const row of descriptor.rows) {
++        if (!row || !row.source_path || !row.candidate_path || !row.expected_sha256
++            || sha256(row.source_path) !== row.expected_sha256
++            || sha256(row.candidate_path) !== row.expected_sha256) {
++          return { ok: false, detail: 'hook candidate digest changed before publication', underlying_error: null };
++        }
++      }
++      ctx.projectInstallReport = { requiredFiles: descriptor.rows };
++      return { ok: true, descriptor: resolvedDescriptor, ownedDescriptor: false };
++    } catch (error) {
++      return { ok: false, detail: error.message, underlying_error: null };
++    }
++  }
+   const report = ctx.projectInstallReport || hookInstallContract.inspectProjectInstall({
+     projectDir: ctx.projectDir,
+     sgsdRoot: ctx.sgsdRoot,
+   });
+   ctx.projectInstallReport = report;
+-  if (report.ok) return { ok: true };
++  if (report.ok) return { ok: true, descriptor: null };
+   const prepared = spawnSync(process.execPath, [
+     HOOK_INSTALL_CONTRACT, '--prepare-candidate', '--project-dir', ctx.projectDir,
+   ], { cwd: ctx.projectDir, encoding: 'utf8', shell: false, windowsHide: true, timeout: 120_000 });
+   if (prepared.error || prepared.status !== 0) return { ok: false, ...parseInstallContractFailure(prepared) };
+   const descriptor = String(prepared.stdout || '').trim().split(/\r?\n/).at(-1);
++  if (!descriptor || !exists(descriptor)) {
++    return { ok: false, detail: 'hook candidate descriptor missing', underlying_error: null };
++  }
++  return { ok: true, descriptor, ownedDescriptor: true };
++}
++
++function writeProjectHookInstall(ctx, actions, prepared) {
++  if (!prepared || !prepared.descriptor) return { ok: true };
+   const applied = spawnSync(process.execPath, [
+-    HOOK_INSTALL_CONTRACT, '--apply-candidate', descriptor,
++    HOOK_INSTALL_CONTRACT, '--apply-candidate', prepared.descriptor,
+   ], { cwd: ctx.projectDir, encoding: 'utf8', shell: false, windowsHide: true, timeout: 120_000 });
+   if (applied.error || applied.status !== 0) return { ok: false, ...parseInstallContractFailure(applied) };
+   let publication = { actions: [] };
+   try { publication = JSON.parse(String(applied.stdout || '{}')); } catch (_) { /* No action detail. */ }
+   actions.push(...(publication.actions || []));
+-  ctx.projectInstallReport = hookInstallContract.inspectProjectInstall({
+-    projectDir: ctx.projectDir,
+-    sgsdRoot: ctx.sgsdRoot,
+-  });
+   return { ok: true };
+ }
+ 
+-function repairClaudeSubstrateWitness(ctx, actions, options = {}) {
++function discardProjectHookInstall(prepared) {
++  if (!prepared || !prepared.descriptor || prepared.ownedDescriptor === false) return;
++  try { fs.rmSync(path.dirname(prepared.descriptor), { recursive: true, force: true }); } catch (_) { /* Best effort. */ }
++}
++
++function checkClaudeSubstrateWitnessRepair(ctx, options = {}) {
+   const registrationCheck = options.registrationCheck
+     || checkSubstrateHookRegistrations(ctx, options);
+   if (!registrationCheck.ok) {
+@@ -731,17 +767,39 @@ function repairClaudeSubstrateWitness(ctx, actions, options = {}) {
+       detail: registrationCheck.detail,
+     };
+   }
++  const projectInstallCheck = options.projectInstallCheck || checkProjectHookInstall(ctx);
++  if (!projectInstallCheck.ok) {
++    return {
++      ok: false,
++      reasons: ['witness_repair_failed'],
++      detail: projectInstallCheck.detail,
++      underlying_error: projectInstallCheck.underlying_error,
++    };
++  }
+   try {
+-    const installReport = ctx.projectInstallReport || hookInstallContract.inspectProjectInstall({
+-      projectDir: ctx.projectDir,
+-      sgsdRoot: ctx.sgsdRoot,
+-    });
+-    ctx.projectInstallReport = installReport;
+-    if (options.repairProjectHooks && installReport.stale.some(
+-      (row) => row.relative_path.startsWith('hooks/'),
+-    )) smokeRepoHookOverlay(ctx);
+-    if (options.repairProjectHooks) {
+-      const publication = publishProjectHookInstall(ctx, actions);
++    const projectSettings = path.join(ctx.projectDir, '.claude', 'settings.json');
++    const globalSettings = path.join(homeDir(), '.claude', 'settings.json');
++    if (exists(projectSettings) && !readJson(projectSettings)) throw new Error('project Claude settings are malformed');
++    if (options.allowGlobalRepair && exists(globalSettings) && !readJson(globalSettings)) {
++      throw new Error('global Claude settings are malformed');
++    }
++    const brokerSource = path.join(ctx.sgsdRoot, BROKER_RELATIVE_PATH.replace(/^super-gsd[\\/]/, ''));
++    if (!exists(brokerSource)) throw new Error('substrate capability broker source is missing');
++    return { ok: true, reasons: [], registrationCheck, projectInstallCheck };
++  } catch (error) {
++    return {
++      ok: false,
++      reasons: ['witness_repair_failed'],
++      detail: error && error.message ? error.message : 'unknown',
++      underlying_error: error && (error.underlyingError || error.underlying_error) || null,
++    };
++  }
++}
++
++function writeClaudeSubstrateWitnessRepair(ctx, actions, options = {}) {
++  try {
++    if (options.repairProjectHooks && !options.projectInstallWritten) {
++      const publication = writeProjectHookInstall(ctx, actions, options.projectInstallCheck);
+       if (!publication.ok) return {
+         ok: false,
+         reasons: ['witness_repair_failed'],
+@@ -759,9 +817,9 @@ function repairClaudeSubstrateWitness(ctx, actions, options = {}) {
+       ctx.projectDir,
+       {
+         preflightAdapters: {
+-          isFile: (scriptPath) => exists(scriptPath) && fs.statSync(scriptPath).isFile(),
+-          nodeCheck: inProcessNodeCheck,
+-          shellCheck: () => ({ status: 1 }),
++          isFile: () => true,
++          nodeCheck: () => ({ status: 0 }),
++          shellCheck: () => ({ status: 0 }),
+         },
+         managedHookIds: options.repairProjectHooks ? undefined : [
+           witnessStore.PRE_HOOK_ID,
+@@ -781,45 +839,23 @@ function repairClaudeSubstrateWitness(ctx, actions, options = {}) {
+   }
+ }
+ 
+-function repairClaudeSubstrateCapability(ctx, actions, options = {}) {
++function repairClaudeSubstrateWitness(ctx, actions, options = {}) {
++  const prepared = checkClaudeSubstrateWitnessRepair(ctx, options);
++  if (!prepared.ok) return prepared;
++  return writeClaudeSubstrateWitnessRepair(ctx, actions, { ...options, ...prepared });
++}
++
++function checkClaudeSubstrateCapabilityRepair(ctx, options = {}) {
+   const scopes = mcpScopeDocuments(ctx).filter((scope) => (
+     options.allowGlobalRepair || (scope.id !== 'user' && scope.id !== 'local')
+   ));
+-  if (scopes.some((scope) => scope.malformed)) return { ok: false, reasons: ['broker_repair_failed'] };
++  if (scopes.some((scope) => scope.malformed)) {
++    return { ok: false, reasons: ['broker_repair_failed'] };
++  }
+   const beforeByPath = new Map();
+   for (const scope of scopes) {
+     if (!beforeByPath.has(scope.path)) beforeByPath.set(scope.path, exists(scope.path) ? readText(scope.path) : null);
+   }
+-  function restoreOriginalDocuments() {
+-    const failures = [];
+-    for (const [filePath, bytes] of beforeByPath) {
+-      try {
+-        if (bytes === null) {
+-          if (exists(filePath)) fs.unlinkSync(filePath);
+-        } else {
+-          ensureDir(path.dirname(filePath));
+-          fs.writeFileSync(filePath, bytes, 'utf8');
+-        }
+-      } catch (error) {
+-        failures.push({ filePath, error });
+-      }
+-    }
+-    if (failures.length) {
+-      throw new Error('MCP document rollback failed: ' + failures.map(({ filePath, error }) => (
+-        filePath + ': ' + (error && error.message ? error.message : String(error))
+-      )).join('; '));
+-    }
+-  }
+-  function saveDocumentsOrFail() {
+-    try {
+-      saveChangedScopeDocuments(scopes, beforeByPath);
+-      return true;
+-    } catch (_) {
+-      restoreOriginalDocuments();
+-      return false;
+-    }
+-  }
+-
+   const expected = brokerDefinition(ctx);
+   const discovered = scopes.filter((scope) => scopeDefinition(scope) !== undefined);
+   const direct = discovered.filter((scope) => !isAnyBrokerDefinition(scopeDefinition(scope)));
+@@ -830,7 +866,6 @@ function repairClaudeSubstrateCapability(ctx, actions, options = {}) {
+       || !Array.isArray(definition.args) || definition.args.some((arg) => typeof arg !== 'string');
+   });
+   const supported = direct.filter((scope) => !unsupported.includes(scope));
+-
+   const { paths, manifest: prior } = readUpstreamManifest(ctx);
+   const manifest = prior && prior.schema_version === witnessStore.UPSTREAM_MANIFEST_SCHEMA_VERSION
+     && prior.project_digest === paths.project_digest && prior.servers
+@@ -844,8 +879,15 @@ function repairClaudeSubstrateCapability(ctx, actions, options = {}) {
+       active_scope: '',
+       servers: {},
+     };
+-  manifest.broker_sha256 = sha256(expected.args[0]);
+-  manifest.witness_source_sha256 = sha256(path.join(ctx.projectDir, witnessStore.HOOK_RELATIVE_PATH));
++  const brokerSource = path.join(ctx.sgsdRoot, BROKER_RELATIVE_PATH.replace(/^super-gsd[\\/]/, ''));
++  const witnessRow = (ctx.projectInstallReport && ctx.projectInstallReport.requiredFiles || [])
++    .find((row) => row.relative_path === witnessStore.HOOK_RELATIVE_PATH.replace(/^super-gsd[\\/]/, ''));
++  const brokerSha256 = sha256(brokerSource);
++  const witnessSourceSha256 = witnessRow ? witnessRow.expected_sha256
++    : sha256(path.join(ctx.sgsdRoot, witnessStore.HOOK_RELATIVE_PATH.replace(/^super-gsd[\\/]/, '')));
++  if (!brokerSha256 || !witnessSourceSha256) return { ok: false, reasons: ['broker_repair_failed'] };
++  manifest.broker_sha256 = brokerSha256;
++  manifest.witness_source_sha256 = witnessSourceSha256;
+   for (const scope of supported) {
+     const definition = scopeDefinition(scope);
+     manifest.servers[scope.id] = {
+@@ -869,15 +911,67 @@ function repairClaudeSubstrateCapability(ctx, actions, options = {}) {
+       };
+     }
+   }
+-
+   const hasUnsupportedRecovery = Boolean(manifest.recovery_servers
+     && typeof manifest.recovery_servers === 'object'
+     && !Array.isArray(manifest.recovery_servers)
+     && Object.keys(manifest.recovery_servers).length);
++  let mode = 'broker';
++  let result = { ok: true, reasons: [] };
+   if (unsupported.length || hasUnsupportedRecovery) {
+-    if (validateUpstreamManifest(ctx, manifest, { skipFilesystem: true }) !== 'unsupported_upstream_transport') {
+-      return { ok: false, reasons: ['upstream_drift'] };
++    const reason = validateUpstreamManifest(ctx, manifest, {
++      skipFilesystem: true, brokerSha256, witnessSourceSha256,
++    });
++    if (reason !== 'unsupported_upstream_transport') return { ok: false, reasons: ['upstream_drift'] };
++    mode = 'unsupported';
++    result = { ok: false, reasons: ['unsupported_upstream_transport'] };
++  } else if (!manifest.active_scope || !manifest.servers[manifest.active_scope]) {
++    mode = 'missing';
++    result = { ok: false, reasons: ['upstream_missing'] };
++  } else {
++    const manifestReason = validateUpstreamManifest(ctx, manifest, {
++      skipFilesystem: true, brokerSha256, witnessSourceSha256,
++    });
++    if (manifestReason) return { ok: false, reasons: [manifestReason] };
++  }
++  return { ok: true, scopes, beforeByPath, expected, discovered, paths, manifest, mode, result };
++}
++
++function writeClaudeSubstrateCapabilityRepair(ctx, actions, prepared) {
++  if (!prepared || !prepared.ok) return prepared || { ok: false, reasons: ['broker_repair_failed'] };
++  const {
++    scopes, beforeByPath, expected, discovered, paths, manifest, mode, result,
++  } = prepared;
++  function restoreOriginalDocuments() {
++    const failures = [];
++    for (const [filePath, bytes] of beforeByPath) {
++      try {
++        if (bytes === null) {
++          if (exists(filePath)) fs.unlinkSync(filePath);
++        } else {
++          ensureDir(path.dirname(filePath));
++          fs.writeFileSync(filePath, bytes, 'utf8');
++        }
++      } catch (error) {
++        failures.push({ filePath, error });
++      }
++    }
++    if (failures.length) {
++      throw new Error('MCP document rollback failed: ' + failures.map(({ filePath, error }) => (
++        filePath + ': ' + (error && error.message ? error.message : String(error))
++      )).join('; '));
+     }
++  }
++  function saveDocumentsOrFail() {
++    try {
++      saveChangedScopeDocuments(scopes, beforeByPath);
++      return true;
++    } catch (_) {
++      restoreOriginalDocuments();
++      return false;
++    }
++  }
++
++  if (mode === 'unsupported') {
+     try {
+       if (process.platform !== 'win32' && exists(paths.upstream_manifest_path)) {
+         fs.chmodSync(paths.upstream_manifest_path, 0o600);
+@@ -891,19 +985,13 @@ function repairClaudeSubstrateCapability(ctx, actions, options = {}) {
+     if (discovered.length) {
+       actions.push({ action: 'withdraw_unsupported_substrate_grant', scopes: discovered.map((scope) => scope.id) });
+     }
+-    return { ok: false, reasons: ['unsupported_upstream_transport'] };
++    return result;
+   }
+ 
+-  if (!manifest.active_scope || !manifest.servers[manifest.active_scope]) {
+-    for (const scope of discovered) setScopeDefinition(scope, undefined);
+-    if (!saveDocumentsOrFail()) return { ok: false, reasons: ['broker_repair_failed'] };
+-    return { ok: false, reasons: ['upstream_missing'] };
+-  }
+-  const manifestReason = validateUpstreamManifest(ctx, manifest, { skipFilesystem: true });
+-  if (manifestReason) {
++  if (mode === 'missing') {
+     for (const scope of discovered) setScopeDefinition(scope, undefined);
+     if (!saveDocumentsOrFail()) return { ok: false, reasons: ['broker_repair_failed'] };
+-    return { ok: false, reasons: [manifestReason] };
++    return result;
+   }
+ 
+   try {
+@@ -927,6 +1015,12 @@ function repairClaudeSubstrateCapability(ctx, actions, options = {}) {
+   return { ok: true, reasons: [] };
+ }
+ 
++function repairClaudeSubstrateCapability(ctx, actions, options = {}) {
++  const prepared = checkClaudeSubstrateCapabilityRepair(ctx, options);
++  if (!prepared.ok) return prepared;
++  return writeClaudeSubstrateCapabilityRepair(ctx, actions, prepared);
++}
++
+ function setFrontmatterTool(source, tool, granted) {
+   const lines = source.split(/\r?\n/);
+   const index = lines.findIndex((line) => /^tools:\s*/.test(line));
+@@ -1446,24 +1540,41 @@ function runAudit(opts) {
+   const safeRepair = repairMode || (opts && opts.repairSafe === true);
+   const substrateRepair = opts && opts.repairSubstrateCapability === true;
+   const requestedCapabilityRepair = safeRepair || substrateRepair;
+-  let registrationCheck = requestedCapabilityRepair
++  const allowGlobalRepair = safeRepair || (opts && opts.allowGlobalRepair === true);
++  const repairProjectHooks = opts && opts.repairProjectHooks === true;
++  const registrationCheck = requestedCapabilityRepair
+     ? checkSubstrateHookRegistrations(ctx, {
+-      repairProjectHooks: opts && opts.repairProjectHooks === true,
++      repairProjectHooks,
+     })
+     : { ok: true, reasons: [], detail: null };
+-  if (requestedCapabilityRepair && registrationCheck.ok
+-      && (safeRepair || opts.repairProjectHooks === true)) {
+-    const publication = publishProjectHookInstall(ctx, actions);
+-    if (!publication.ok) registrationCheck = {
+-      ok: false,
+-      reasons: ['hook_registration_preflight_failed'],
+-      detail: publication.detail,
+-      underlying_error: publication.underlying_error,
+-    };
+-  }
+-  const repairCapability = requestedCapabilityRepair && registrationCheck.ok;
+-  const allowGlobalRepair = safeRepair || (opts && opts.allowGlobalRepair === true);
+-  const repairGlobalAgents = registrationCheck.ok
++  const projectInstallCheck = requestedCapabilityRepair && registrationCheck.ok
++    && (safeRepair || repairProjectHooks)
++    ? checkProjectHookInstall(ctx, opts && opts.projectCandidate)
++    : { ok: registrationCheck.ok, descriptor: null };
++  const witnessCheck = !requestedCapabilityRepair
++    ? { ok: true, reasons: [], detail: null }
++    : registrationCheck.ok && projectInstallCheck.ok
++      ? checkClaudeSubstrateWitnessRepair(ctx, {
++      allowGlobalRepair,
++      repairProjectHooks,
++      registrationCheck,
++      projectInstallCheck,
++      })
++      : { ok: false, reasons: ['witness_repair_failed'], detail: registrationCheck.detail };
++  const capabilityCheck = !requestedCapabilityRepair
++    ? { ok: true, reasons: [], detail: null }
++    : witnessCheck.ok
++      ? checkClaudeSubstrateCapabilityRepair(ctx, { allowGlobalRepair })
++      : { ok: false, reasons: ['broker_repair_failed'] };
++  let repairCapability = requestedCapabilityRepair && witnessCheck.ok && capabilityCheck.ok;
++  let publication = { ok: true };
++  if (repairCapability && (safeRepair || repairProjectHooks)) {
++    publication = writeProjectHookInstall(ctx, actions, projectInstallCheck);
++    repairCapability = publication.ok;
++  } else if (projectInstallCheck.descriptor) {
++    discardProjectHookInstall(projectInstallCheck);
++  }
++  const repairGlobalAgents = repairCapability
+     && (safeRepair || (substrateRepair && allowGlobalRepair));
+ 
+   let repairedGlobalAgents = [];
+@@ -1473,25 +1584,24 @@ function runAudit(opts) {
+     repairedGlobalAgents = installGlobalSgsdAgents(ctx, actions, false, SUBSTRATE_GLOBAL_AGENT_NAMES);
+     repairedLegacyAgents = installGlobalLegacyAgentPatches(ctx, actions, false, SUBSTRATE_LEGACY_AGENT_NAMES);
+   }
+-  let witnessRepair = registrationCheck.ok ? { ok: true, reasons: [] } : {
++  let witnessRepair = witnessCheck.ok ? { ok: true, reasons: [] } : {
+     ok: false,
+     reasons: ['witness_repair_failed'],
+-    detail: registrationCheck.detail,
++    detail: witnessCheck.detail || publication.detail,
+   };
+   let capabilityRepair = { ok: true, reasons: [] };
+   let claudeSubstrateWitness = auditClaudeSubstrateWitness(ctx);
+   if (repairCapability) {
+-    witnessRepair = repairClaudeSubstrateWitness(ctx, actions, {
++    witnessRepair = writeClaudeSubstrateWitnessRepair(ctx, actions, {
+       allowGlobalRepair,
+-      repairProjectHooks: opts && opts.repairProjectHooks === true,
+-      registrationCheck,
++      repairProjectHooks,
++      projectInstallWritten: true,
++      projectInstallCheck,
+     });
+   }
+   claudeSubstrateWitness = auditClaudeSubstrateWitness(ctx);
+   if (repairCapability && claudeSubstrateWitness.ready) {
+-    capabilityRepair = repairClaudeSubstrateCapability(ctx, actions, {
+-      allowGlobalRepair,
+-    });
++    capabilityRepair = writeClaudeSubstrateCapabilityRepair(ctx, actions, capabilityCheck);
+   }
+   let claudeSubstrateCapability = auditClaudeSubstrateCapability(ctx, claudeSubstrateWitness);
+   if (!witnessRepair.ok || !capabilityRepair.ok) {
+@@ -1754,9 +1864,30 @@ function main(argv) {
+   }
+   const projectDir = argValue(args, '--project-dir');
+   if (args.indexOf('--check-substrate-capability') !== -1) {
+-    const result = checkSubstrateHookRegistrations(mkContext(projectDir), {
+-      repairProjectHooks: args.indexOf('--init-local') !== -1 || args.indexOf('--update') !== -1,
+-    });
++    const ctx = mkContext(projectDir);
++    const repairProjectHooks = args.indexOf('--init-local') !== -1 || args.indexOf('--update') !== -1;
++    const registrationCheck = checkSubstrateHookRegistrations(ctx, { repairProjectHooks });
++    const projectInstallCheck = registrationCheck.ok
++      ? checkProjectHookInstall(ctx, argValue(args, '--project-candidate'))
++      : { ok: false, descriptor: null };
++    const witnessCheck = registrationCheck.ok && projectInstallCheck.ok
++      ? checkClaudeSubstrateWitnessRepair(ctx, {
++        allowGlobalRepair: args.indexOf('--install-global') !== -1,
++        repairProjectHooks,
++        registrationCheck,
++        projectInstallCheck,
++      })
++      : { ok: false, detail: registrationCheck.detail };
++    const capabilityCheck = witnessCheck.ok
++      ? checkClaudeSubstrateCapabilityRepair(ctx, {
++        allowGlobalRepair: args.indexOf('--install-global') !== -1,
++      })
++      : { ok: false };
++    const result = {
++      ok: registrationCheck.ok && projectInstallCheck.ok && witnessCheck.ok && capabilityCheck.ok,
++      detail: registrationCheck.detail || projectInstallCheck.detail || witnessCheck.detail || null,
++    };
++    discardProjectHookInstall(projectInstallCheck);
+     if (!result.ok && result.detail) process.stdout.write(result.detail + '\n');
+     process.exit(result.ok ? 0 : 2);
+     return;
+@@ -1767,6 +1898,7 @@ function main(argv) {
+       repairSubstrateCapability: true,
+       allowGlobalRepair: args.indexOf('--install-global') !== -1,
+       repairProjectHooks: args.indexOf('--init-local') !== -1 || args.indexOf('--update') !== -1,
++      projectCandidate: argValue(args, '--project-candidate'),
+     });
+     const hardReasons = new Set([
+       'witness_repair_failed',
+@@ -1788,6 +1920,7 @@ function main(argv) {
+       ])],
+       detail: snap.repaired.substrate_witness_repair_detail,
+       underlying_error: snap.repaired.substrate_witness_repair_underlying_error,
++      repair_actions: snap.repaired.actions,
+       substrate_granted: snap.claude_substrate_witness.ready && snap.claude_substrate_capability.ready,
+     }) + '\n');
+     process.exit(refused ? 2 : 0);
+@@ -1824,6 +1957,12 @@ module.exports = {
+     auditClaudeSubstrateWitness,
+     auditClaudeSubstrateCapability,
+     checkSubstrateHookRegistrations,
++    checkProjectHookInstall,
++    checkClaudeSubstrateWitnessRepair,
++    checkClaudeSubstrateCapabilityRepair,
++    writeProjectHookInstall,
++    writeClaudeSubstrateWitnessRepair,
++    writeClaudeSubstrateCapabilityRepair,
+     repairClaudeSubstrateWitness,
+     repairClaudeSubstrateCapability,
+     setFrontmatterTool,
